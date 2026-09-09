@@ -1,7 +1,7 @@
 # Handoff — detached executable-owner constructor
 
 **Written:** 2026-09-09 · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/detached-executable-owner-proof · **Measured state:** `[MEASURED]` implementation checkpoint on base4e88d33bc02ceb576fe5ab1b936d3441b3565274; focused tests green, full gates pending.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/detached-executable-owner-proof · **Measured state:** `[MEASURED]` all seven full gates passed on clean d0a1ce9; additional full MCP+audit4221 passed. A test-helper-only lint simplification is now being reverified before publication.
 **Predecessor:** PR295 design and characterization.
 **Truth ordering:** measured state > explicit owner authority within scope > this handoff > historical snapshots.
 **Provenance:** written live; source and tool checks this turn.
@@ -17,7 +17,7 @@
 
 1. Check git status and HEAD; read approved PR295 spec and current constructor plan.
 2. Constructor and two bounded self-review rounds complete; do not restart implementation.
-3. Finish exact-base observer parity, full observer/Rust/MCP/helper gates and explicit compiler-backed audit. Publish only with exact evidence and exclusions recorded.
+3. Full suites and 54-case exact-base observer parity passed. Finish final test-helper revalidation and publication with exact evidence and exclusions recorded.
 
 STOP on production wiring, closure waiver, install requirement, or open-class findings at review cap.
 
@@ -28,7 +28,8 @@ STOP on production wiring, closure waiver, install requirement, or open-class fi
 | Base/navigation | done | fetched4e88d33b; Prism method-slot callers stale, LSP unavailable; checked source directly |
 | RED/constructor | implemented | scaffold-red.log: 1 actual failure; constructor-final-focused.log: 13 passed; direct-predicates-green.log: 103 passed |
 | Input-census defect | fixed | omitted-index-red.log fails before actual loader census; constructor-index-green.log passes after; subset cannot supply full census |
-| Full gates/publication | pending | evidence root above; stable checkpoint before full gates |
+| Full gates | passed on d0a1ce9 | observer694, default4025, MCP4215, MCP+audit4221, helpers18, authority40; one ignored per Rust run; doctests/fmt/diff pass |
+| Final helper/publication | pending | test-only type-complexity SMELL simplified; rerun full Rust suites, no production change |
 
 ## 3. Corrections to standing documents and memory
 
@@ -39,7 +40,7 @@ PR295 is merged and this slice implements its detached constructor. Production i
 | Work | State | Next action |
 |---|---|---|
 | Detached constructor | implemented | same-Program facts, actual full Prism census, privately owned/reparsed inputs, 21 mapped anchors, Arc-bound proof |
-| Verification | focused green | full suites and compatibility receipts next |
+| Verification | full gates green on d0a1ce9 | final helper revalidation and receipts next |
 | Publication | pending | commit/push/PR after gates |
 
 ## 5. Invariants and traps — do not do these

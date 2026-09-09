@@ -70,20 +70,20 @@ fn anchors_require_digest_domain_parser_range_and_original_utf_encodings() {
         end_utf16: source[..start + 5].encode_utf16().count(),
     };
     assert!(validate_anchor(&a, "ClassKeyword", &files).is_ok());
-    let mutations: Vec<Box<dyn Fn(&mut Anchor)>> = vec![
-        Box::new(|a| a.sha256 = "0".repeat(64)),
-        Box::new(|a| a.kind = "Identifier".into()),
-        Box::new(|a| a.file = "compiler/a.ts".into()),
-        Box::new(|a| a.file = "project/other.ts".into()),
-        Box::new(|a| a.start_byte = a.end_byte),
-        Box::new(|a| a.end_byte = 1000),
-        Box::new(|a| a.start_byte = 4),
-        Box::new(|a| a.start_utf16 += 1),
-        Box::new(|a| a.end_utf16 += 1),
-        Box::new(|a| {
+    let mutations: [fn(&mut Anchor); 10] = [
+        |a| a.sha256 = "0".repeat(64),
+        |a| a.kind = "Identifier".into(),
+        |a| a.file = "compiler/a.ts".into(),
+        |a| a.file = "project/other.ts".into(),
+        |a| a.start_byte = a.end_byte,
+        |a| a.end_byte = 1000,
+        |a| a.start_byte = 4,
+        |a| a.start_utf16 += 1,
+        |a| a.end_utf16 += 1,
+        |a| {
             a.start_byte += 1;
             a.start_utf16 += 1;
-        }),
+        },
     ];
     for mutate in mutations {
         let mut changed = a.clone();

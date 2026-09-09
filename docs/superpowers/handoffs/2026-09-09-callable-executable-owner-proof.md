@@ -1,5 +1,10 @@
 # Handoff — bounded executable-owner proof design
 
+**Superseded checkpoint:** PR295 merged as `4e88d33b`. The owner approved the
+detached constructor, now implemented in the [current lane handoff](2026-09-09-detached-owner-constructor.md).
+The remaining text is the historical PR295 closeout, not current PR/implementation
+state. Its measured receipts retain their original HEADs. No production wiring is shipped.
+
 **Written:** 2026-09-09 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · docs/callable-executable-owner-proof · **Measured state:** `[MEASURED]` base7040ceb63c77142793ba08fed5946e6e54f29a86; design/fixtures committed and pushed as e1355b40, PR295 open. All seven local gates passed on that clean stable HEAD; closeout adds documentation/receipts only. No production authority changed.
 **Predecessor:** merged S10 production-authority contract, PR293.
