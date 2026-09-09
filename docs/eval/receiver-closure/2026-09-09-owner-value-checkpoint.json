@@ -1,5 +1,10 @@
 {
   "schema": "prism.owner-value-checkpoint/1",
+  "publication": {
+    "pr": 299,
+    "url": "https://github.com/shoedog/prism/pull/299",
+    "measurement_commit": "8f44642dda7991f861b63fb969327cf406204c0c"
+  },
   "identity": {
     "base": "0807d7dee826fbcbdcab1fbae9dea40633c718d3",
     "node": "v26.0.0",

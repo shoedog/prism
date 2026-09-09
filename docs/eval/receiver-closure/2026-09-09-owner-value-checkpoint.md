@@ -1,5 +1,7 @@
 # Owner value checkpoint — admission blocks both real repositories
 
+Published as [PR299](https://github.com/shoedog/prism/pull/299).
+
 Measured merged PR298 (`0807d7de`), with freshly rebuilt release CLI and MCP.
 **Do not broaden activation or prioritize portable packaging yet.** Both approved
 real roots refuse before compiler acquisition, so real-receiver eligibility and
