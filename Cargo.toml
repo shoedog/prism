@@ -7,6 +7,8 @@ license = "Apache-2.0"
 
 [features]
 mcp = []
+# Explicit real-compiler tests only; no production consumer or compiler dependency.
+detached-owner-audit = []
 
 [[bin]]
 name = "prism"

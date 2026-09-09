@@ -1,10 +1,12 @@
 # Bounded executable-owner proof design
 
-Status: design and executable characterization only, based on main `7040ceb6`.
-No production constructor, observer/schema change, resolver wiring, opt-in CLI,
-dependency installation or cache change is included. This narrows the
+Original status (PR295): design and executable characterization, based on main `7040ceb6`.
+Update: the approved [detached constructor](../plans/2026-09-09-detached-owner-constructor.md)
+now implements the first checkpoint, with no resolver wiring, opt-in CLI,
+dependency installation or cache change. The observer's internal factory changed;
+its schema and closure policy did not. This narrows the
 [S10 authority contract](2026-09-08-callable-production-authority-contract.md);
-it does not relax it. Implementation remains a separate owner decision.
+it does not relax it. Production integration remains a separate owner decision.
 
 ## Intended gain and meaning
 
