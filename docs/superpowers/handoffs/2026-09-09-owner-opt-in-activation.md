@@ -1,7 +1,7 @@
 # Handoff — bounded owner opt-in activation
 
 **Written:** 2026-09-09 · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/owner-opt-in-activation · **Measured state:** `[MEASURED]` base a120220f, implemented bounded activation; 19 focused owner tests and 3 subprocess tests passed. Full gates pending.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/owner-opt-in-activation · **Measured state:** `[MEASURED]` tested clean ffc974711cf4a851c614a7af461e73ec8d010919. Rust4030/MCP4221/audit4243 passed; observer694, corrected helpers18, authority40; Python883 with2 explicit skips. Tier-A quick INVALID baseline; matched compatibility controls pass. Documentation closeout pending publication.
 **Predecessor:** PR297 owner integration lifecycle, merged.
 **Truth ordering:** measured live state > explicit owner authority within scope > this handoff > historical summaries.
 **Provenance:** written live; inherited tests are not current gate results.
@@ -9,16 +9,16 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Ownership RESOLVED: primary agent owns this lane; no delegates dispatched.
-(b) Custody: base remote merged; RED sources archived in evidence; implementation checkpoint commit next.
-(c) In flight: candidate release build; full gates next. No default-path activation.
+(b) Custody: base remote merged; implementation committed; evidence and RED sources retained under the lane's temporary root. Documentation closeout/remote publication next.
+(c) In flight: no verification processes remain; no default-path activation.
 (d) Authority: owner “proceed” to bounded CLI/MCP opt-in activation. No installation,
 closure expansion, React.FC expansion or react-scripts resolution.
 
 ## 1. Resume order
 
 1. `git status --short --branch`; read adjacent activation plan.
-2. Read focused logs and plan in `/private/tmp/prism-owner-activation-88yT3B`.
-3. Complete release/matrix, checkpoint commit, full gate runner and Tier-A quick/control.
+2. Read [verification/disposition](../../eval/receiver-closure/2026-09-09-owner-opt-in-activation.md) and its machine receipt.
+3. Complete documentation closeout and remote publication; preserve original failed helper setup receipt and invalid quick report. No implementation restart or additional review rounds.
 
 STOP on open-class findings at two-round cap, authority expansion, or unavailable
 required dependency requiring installation. No default compiler execution.
@@ -32,12 +32,20 @@ required dependency requiring installation. No default compiler execution.
 | RED | done | api-red-corrected.log NameOnly vs Exact; refresh-report-red.log false vs true, sources archived |
 | Implementation | done | owner-final-focused.log 19/0; process-focused-corrected.log 3/0 |
 | Review | done | two self-review rounds; one closed WRONG refresh-status report; portability/cost SMELL documented |
-| Full gates | next | no done claim; prior PR297 counts inherited only |
+| Full suites | done | current receipt: Rust4030/MCP4221/audit4243; one known ignore each; two doctests each; observer694, helpers18, authority40 |
+| Helper setup control | done | missing old fixture caused3 failures on candidate and base; restored five pinned/hash-verified source files; full helpers18/18 on both |
+| Tier-A | done | quick invalid: drift, C-method4/6, C-name0/6, oracle8/30; SUT0 errors; matrix159ok; no rebaseline |
+| Matched controls | done | 36 raw pairs and159 complete matrix records identical; separate caches, rebuilt binaries, fixed pinned corpus |
+| Publication | next | documentation closeout; ready-for-review disposition, not an accuracy-anchor claim |
 
 ## 3. Corrections to standing documents and memory
 
 PR297 handoff's ready-for-review state is superseded by measured merge a120220f.
 Activation now authorized within the new contract. No memory edits.
+The old PRISM_AUDIT_SLICE is missing required files. Use the lane's reconstructed
+`source-slice` and corrected runner for future checks; original gate receipt remains
+failed and is supplemented, not overwritten. Current quick has24 pending
+discrepancies and no M3 spot-check adjudication; matched controls do not relabel it green.
 
 ## 4. Open work
 
@@ -45,7 +53,8 @@ Activation now authorized within the new contract. No memory edits.
 |---|---|---|
 | API/CLI selection | done | paired explicit inputs, no-cache requirement, bounded source inputs |
 | MCP publication | done | eager private runtime, fresh acquisition before every tool call, no old fallback |
-| Full gates | pending | full suites and matched Tier-A controls |
+| Publication | next | closeout commit, push and PR |
+| Broader activation | parked | owner checkpoint on practical admission/refusal, cost and portable worker custody |
 
 ## 5. Invariants and traps — do not do these
 
@@ -60,9 +69,16 @@ Activation now authorized within the new contract. No memory edits.
 Base `a120220f`; evidence `/private/tmp/prism-owner-activation-88yT3B`.
 Compiler `/private/tmp/prism-imported-alias-O4d6E1/package/lib/typescript.js`.
 Plan `docs/superpowers/plans/2026-09-09-owner-opt-in-activation.md`.
+Tested code `ffc974711cf4a851c614a7af461e73ec8d010919`.
+Current compiler helper slice `/private/tmp/prism-owner-activation-88yT3B/source-slice`.
+Runner `/private/tmp/prism-owner-activation-88yT3B/run-gates.mjs`; original runner and
+failed combined receipt retained beside corrected helper logs. Base control worktree
+`/private/tmp/prism-owner-activation-88yT3B/base` is detached at a120220f.
+Evidence archive `/private/tmp/prism-owner-activation-88yT3B-evidence.tgz`, SHA256
+`779653e42c900962c987106950230bf13d8028b88ed111ec08e0f3dfaac44aef`.
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED after one bounded correction — SELF-PASS (NOT INDEPENDENT), focused TEST-BACKED. Full verification remains pending; no publication readiness claim yet.
+**§2c verdict:** SURVIVED after one bounded correction — SELF-PASS (NOT INDEPENDENT), TEST-BACKED full suites and matched controls. Ready-for-review disposition; Tier-A quick remains an invalid accuracy baseline. See the readout and receipt.
 
 **Questions the owner owes an answer to:** None at this checkpoint.

@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "base": "a120220f",
+  "tested_commit": "ffc974711cf4a851c614a7af461e73ec8d010919",
+  "scope": "explicit cache-free JS/TS navigation; eager fresh-per-tool MCP; defaults unchanged",
+  "review": {"rounds": 2, "independent": false, "wrong_closed": 1, "wrong_open": 0},
+  "tests": {
+    "rust_default": {"passed": 4030, "failed": 0, "ignored": 1, "groups": 28},
+    "rust_mcp": {"passed": 4221, "failed": 0, "ignored": 1, "groups": 30},
+    "rust_mcp_owner_audit": {"passed": 4243, "failed": 0, "ignored": 1, "groups": 30},
+    "known_ignore": "resolution_test::slice_elem_variant_reserved",
+    "doctests_included_per_rust_run": 2,
+    "observer": {"passed": 694, "failed": 0, "skipped": 0},
+    "helpers_restored_base": {"passed": 18, "failed": 0},
+    "helpers_restored_candidate": {"passed": 18, "failed": 0},
+    "authority": {"controls": 40, "failures": []},
+    "python_harness": {"passed": 883, "failed": 0, "skipped": 2,
+      "excluded": ["test_resolve_matched_binaries_against_real_binaries", "test_warm_gate_real_cache_distinguishes_cold_from_warm"],
+      "reason": "required PRISM_BIN/PRISM_MCP_BIN matched binary pair not configured"},
+    "fmt": "passed", "diff_check": "passed",
+    "clippy": "completed with warnings; three new test-only field_reassign_with_default notices"
+  },
+  "original_gate_receipt": {
+    "artifact": "gate-logs-2026-09-09T08-17-36-445Z-76865/summary.json",
+    "failed": true,
+    "reason": "three helpers failed before behavior checks because the old temporary source slice was missing",
+    "base_same_environment": {"tests": 3, "failed": 3, "same_missing_path": true},
+    "correction": "five source files reconstructed from pinned local Git objects; historical SHA256 values verified; only helper gate rerun on both revisions",
+    "source_commit": "0642e72cfa2d9a71198200e52f37399384610ee3"
+  },
+  "tier_a": {
+    "matrix": {"ok": 159, "regressions": 0},
+    "quick": {
+      "exit_status": 2, "baseline_invalid": true,
+      "corpus": "ffc974711cf4", "pin": "20c8490591a3",
+      "oracle_error_rate": 0.26666666666666666, "sut_error_rate": 0,
+      "successful_probes": {"C-method": "4/6", "C-name": "0/6"},
+      "pinned": {"target-c-method": "flip_candidate", "module-deps-feature-gated": "missing", "load-repo-feature-gated": "missing", "ambiguous-symbol-contract": "ok"},
+      "pending_discrepancies": 24, "m3_checked": 0,
+      "artifact": "quick-report.json",
+      "sha256": "cfda1978044f704b0d1ea77cfe93fe41d831109b9db61c03ccdae4beb16b7b02"
+    },
+    "new_baseline_or_accuracy_gain_claim": false,
+    "matched_default_controls": {
+      "corpus": "20c8490591a379227b70c1d5ec4c75ff4b64ff01",
+      "raw_pairs": 36, "different": 0,
+      "population": {"inventory": 1, "sample": 30, "pinned": 5},
+      "raw_artifact": "paired-requests.jsonl",
+      "raw_sha256": "86ab5559b556dc3c5da32e5b4ba608259208b77411798d922a75ab712db700e1",
+      "complete_matrix_cases_each": 159, "complete_matrix_different": 0,
+      "matrix_artifact": "matrix-pair.json",
+      "matrix_sha256": "01e4644bae16361225c6a36c3b9eae3d0f56d17e4e9b4a9d35e652a7e3c4c5f2",
+      "cache_policy": "fresh separate base and candidate directories; matrix cache disabled"
+    }
+  },
+  "binary_sha256": {
+    "base": "83d5fd669b6d0685530b76ed9cddc7c5b26fc153d52ca88b62af8244b54aea56",
+    "candidate": "605995fba60107d3802933a082ecf2403569e8d81a8c3cb7fbfc5b62372424bc"
+  },
+  "evidence_root": "/private/tmp/prism-owner-activation-88yT3B",
+  "evidence_archive": "/private/tmp/prism-owner-activation-88yT3B-evidence.tgz",
+  "evidence_archive_sha256": "779653e42c900962c987106950230bf13d8028b88ed111ec08e0f3dfaac44aef",
+  "default_activation": false,
+  "closure_expansion": false,
+  "react_fc_expansion": false,
+  "react_scripts_resolution": false,
+  "dependency_installation": false,
+  "limitations": ["source-checkout-bound worker assets", "full acquisition cost per tool call", "no mixed-language/type-database activation", "no lazy or incremental activation", "quick accuracy baseline invalid"]
+}

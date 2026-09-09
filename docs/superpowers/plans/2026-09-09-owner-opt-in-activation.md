@@ -64,3 +64,10 @@ matched base controls before regression attribution. No new accuracy baseline.
    constants in the new runtime. `refresh-report-red.log` captures false vs true.
    Fix retains prior metadata stamps, clears active before IO, and reports their
    measured delta. Stamps never authorize reuse; full acquisition remains mandatory.
+6. Full helper gate found three missing-fixture errors. Alternative activation
+   regression ruled out by the unchanged helper source and same-environment base
+   reproducing all three. Reconstructed five files from pinned local Git objects;
+   their historical SHA256 values match. Full helpers passed18/18 on both revisions.
+7. Full suites and two review rounds complete. Tier-A quick remains baseline-invalid;
+   see the [readout](../../eval/receiver-closure/2026-09-09-owner-opt-in-activation.md)
+   for exact counts, limitations and matched default-path controls. No rebaseline.
