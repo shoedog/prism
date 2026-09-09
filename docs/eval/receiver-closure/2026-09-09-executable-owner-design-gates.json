@@ -1,0 +1,307 @@
+{
+  "schema": "prism.executable-owner-design-gates/1",
+  "tested_head": "e1355b40bf0ba5aa30e9c9506bf504a8b588a2bf",
+  "base": "7040ceb63c77142793ba08fed5946e6e54f29a86",
+  "started_at": "2026-09-09T02:53:10.090Z",
+  "finished_at": "2026-09-09T03:04:24.107Z",
+  "clean_before_and_after": true,
+  "summary_sha256": "21eb9c630c25007f64b65daf490704096fe426f45856ec5fef7bee8eb6e29664",
+  "gates": [
+    {
+      "label": "callable-observations",
+      "command": [
+        "node",
+        "--test",
+        "scripts/callable-observations/closure-classification.test.mjs",
+        "scripts/callable-observations/closure-policy-proof.test.mjs",
+        "scripts/callable-observations/config-provenance-integration.test.mjs",
+        "scripts/callable-observations/config-provenance.test.mjs",
+        "scripts/callable-observations/entries-guards.test.mjs",
+        "scripts/callable-observations/entries.test.mjs",
+        "scripts/callable-observations/entry-obligations-integration.test.mjs",
+        "scripts/callable-observations/entry-obligations.test.mjs",
+        "scripts/callable-observations/exact-ambient.test.mjs",
+        "scripts/callable-observations/identity-domains.test.mjs",
+        "scripts/callable-observations/index.test.mjs",
+        "scripts/callable-observations/inventory.test.mjs",
+        "scripts/callable-observations/lib-search-cases.test.mjs",
+        "scripts/callable-observations/lib-search.test.mjs",
+        "scripts/callable-observations/links.test.mjs",
+        "scripts/callable-observations/lookup.test.mjs",
+        "scripts/callable-observations/merged-wildcard-proof.test.mjs",
+        "scripts/callable-observations/merged-wildcard.test.mjs",
+        "scripts/callable-observations/module-search-cases.test.mjs",
+        "scripts/callable-observations/module-search.test.mjs",
+        "scripts/callable-observations/nested.test.mjs",
+        "scripts/callable-observations/profile.test.mjs",
+        "scripts/callable-observations/props-class.test.mjs",
+        "scripts/callable-observations/required-paths.test.mjs",
+        "scripts/callable-observations/search-provenance.test.mjs",
+        "scripts/callable-observations/semantic-closure-integration.test.mjs",
+        "scripts/callable-observations/semantic-closure-v2-integration.test.mjs",
+        "scripts/callable-observations/semantic-closure-v2.test.mjs",
+        "scripts/callable-observations/semantic-closure-v3-integration.test.mjs",
+        "scripts/callable-observations/semantic-closure-v3.test.mjs",
+        "scripts/callable-observations/semantic-closure.test.mjs",
+        "scripts/callable-observations/type-lib-guards.test.mjs",
+        "scripts/callable-observations/type-lib.test.mjs",
+        "scripts/callable-observations/type-search-cases.test.mjs",
+        "scripts/callable-observations/type-search-identity.test.mjs",
+        "scripts/callable-observations/umd-qualifier.test.mjs",
+        "scripts/callable-observations/wildcard.test.mjs"
+      ],
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "startedAt": "2026-09-09T02:53:10.110Z",
+      "finishedAt": "2026-09-09T02:54:34.950Z",
+      "durationMs": 84840,
+      "totals": {
+        "tests": 591,
+        "suites": 0,
+        "pass": 591,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failure": null,
+      "logs": [
+        {
+          "path": "gate-logs-2026-09-09T02-53-10-090Z-32990/callable-observations.stdout.log",
+          "bytes": 51747,
+          "sha256": "6e0afef3ffc95fd627159940343d0f2c43e3f0863d326d1e9844170bbe22e7af"
+        },
+        {
+          "path": "gate-logs-2026-09-09T02-53-10-090Z-32990/callable-observations.stderr.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "label": "cargo-test",
+      "command": [
+        "cargo",
+        "test"
+      ],
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "startedAt": "2026-09-09T02:54:34.953Z",
+      "finishedAt": "2026-09-09T02:59:06.405Z",
+      "durationMs": 271452,
+      "totals": {
+        "groups": 28,
+        "passed": 4018,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null,
+      "logs": [
+        {
+          "path": "gate-logs-2026-09-09T02-53-10-090Z-32990/cargo-test.stdout.log",
+          "bytes": 317098,
+          "sha256": "a4186ddd4d0c5c18fb16d94b8e54d54c3b89defe222d2115f80417db9c650f60"
+        },
+        {
+          "path": "gate-logs-2026-09-09T02-53-10-090Z-32990/cargo-test.stderr.log",
+          "bytes": 5152,
+          "sha256": "7424ec77148f227e640d25adfb1cb74a499315467194cf583c59e29278c367b6"
+        }
+      ]
+    },
+    {
+      "label": "cargo-test-mcp",
+      "command": [
+        "cargo",
+        "test",
+        "--features",
+        "mcp"
+      ],
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "startedAt": "2026-09-09T02:59:06.408Z",
+      "finishedAt": "2026-09-09T03:04:04.693Z",
+      "durationMs": 298285,
+      "totals": {
+        "groups": 30,
+        "passed": 4208,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null,
+      "logs": [
+        {
+          "path": "gate-logs-2026-09-09T02-53-10-090Z-32990/cargo-test-mcp.stdout.log",
+          "bytes": 333317,
+          "sha256": "a46b401f2fa70f4529da09848e55b26286b384f3fa447fd6203b28a4370dc35c"
+        },
+        {
+          "path": "gate-logs-2026-09-09T02-53-10-090Z-32990/cargo-test-mcp.stderr.log",
+          "bytes": 5315,
+          "sha256": "02895b9ff6d5bdf9148f0ef54f33e4c696bb818469f665d9cfe05d829249d78d"
+        }
+      ]
+    },
+    {
+      "label": "receiver-closure-tests",
+      "command": [
+        "node",
+        "--test",
+        "docs/eval/receiver-closure/audit-callable-source.test.mjs",
+        "docs/eval/receiver-closure/audit-imported-props-source.test.mjs",
+        "docs/eval/receiver-closure/audit-search-boundaries.test.mjs",
+        "docs/eval/receiver-closure/verify-callable-authority.test.mjs"
+      ],
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "startedAt": "2026-09-09T03:04:04.695Z",
+      "finishedAt": "2026-09-09T03:04:09.721Z",
+      "durationMs": 5026,
+      "totals": {
+        "tests": 18,
+        "suites": 0,
+        "pass": 18,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failure": null,
+      "logs": [
+        {
+          "path": "gate-logs-2026-09-09T02-53-10-090Z-32990/receiver-closure-tests.stdout.log",
+          "bytes": 1531,
+          "sha256": "a90cc59589247143adc299c7717dda5aec6f169ef2195b9ad705ee8efd9b384d"
+        },
+        {
+          "path": "gate-logs-2026-09-09T02-53-10-090Z-32990/receiver-closure-tests.stderr.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "label": "callable-authority-profiles",
+      "command": [
+        "node",
+        "docs/eval/receiver-closure/verify-callable-authority.mjs",
+        "/private/tmp/prism-imported-alias-O4d6E1/package/lib/typescript.js",
+        "/private/tmp/prism-callable-authority-98TLLN/public/profiles"
+      ],
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "startedAt": "2026-09-09T03:04:09.722Z",
+      "finishedAt": "2026-09-09T03:04:23.081Z",
+      "durationMs": 13359,
+      "totals": {
+        "results": 40,
+        "failures": []
+      },
+      "failure": null,
+      "logs": [
+        {
+          "path": "gate-logs-2026-09-09T02-53-10-090Z-32990/callable-authority-profiles.stdout.log",
+          "bytes": 494914,
+          "sha256": "8746d8f89c3efa5029869de3c0d1d0297f2499da22e20d02b922bc6576a9b57f"
+        },
+        {
+          "path": "gate-logs-2026-09-09T02-53-10-090Z-32990/callable-authority-profiles.stderr.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "label": "cargo-fmt-check",
+      "command": [
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "startedAt": "2026-09-09T03:04:23.083Z",
+      "finishedAt": "2026-09-09T03:04:24.071Z",
+      "durationMs": 988,
+      "totals": null,
+      "failure": null,
+      "logs": [
+        {
+          "path": "gate-logs-2026-09-09T02-53-10-090Z-32990/cargo-fmt-check.stdout.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "gate-logs-2026-09-09T02-53-10-090Z-32990/cargo-fmt-check.stderr.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "label": "git-diff-check",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "startedAt": "2026-09-09T03:04:24.071Z",
+      "finishedAt": "2026-09-09T03:04:24.078Z",
+      "durationMs": 7,
+      "totals": null,
+      "failure": null,
+      "logs": [
+        {
+          "path": "gate-logs-2026-09-09T02-53-10-090Z-32990/git-diff-check.stdout.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "gate-logs-2026-09-09T02-53-10-090Z-32990/git-diff-check.stderr.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    }
+  ],
+  "review": {
+    "round": 2,
+    "cap": 2,
+    "independence": "self-review, not independent",
+    "verdict": "SELF-PASS for design-only scope",
+    "open_wrong": 0,
+    "confidence": 95,
+    "unverified": "Actual constructor, per-predicate negative behavior, mixed proof field substitution, lifecycle/cache, CPG and production consumer integration are future work."
+  },
+  "local_links_checked": 23,
+  "missing_links": [],
+  "production_source_unchanged": true,
+  "tier_a": "not triggered: no production AST, resolution, navigation or CPG change",
+  "excluded": "One existing ignored test per Rust run; no other required local suite exclusion. New proof constructor, substitution, cache and integration tests are future acceptance work, not implemented passes.",
+  "archive": {
+    "path": "/private/tmp/prism-owner-proof-xutDxX-evidence.tgz",
+    "bytes": 3189986,
+    "sha256": "0ea40349c2514111b047b920b9b49fdba02146ec6579cf19bba10264e3d0d61c"
+  },
+  "pr": "https://github.com/shoedog/prism/pull/295",
+  "remote_ci": "Started for e1355b40; not claimed complete. Refresh after final receipt push."
+}
