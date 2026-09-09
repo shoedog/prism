@@ -1,14 +1,14 @@
 # Handoff — approved callable-completeness sequence
 
-**Written:** 2026-09-08T10:19Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · docs/callable-js-program-exclusion · **Measured state:** `[MEASURED]` D2 PR290 open against PR289, pushedca8504d; report4cd2d0c5/archive50724ca2. Exact20 occurrence/14 target source-backed audit; docs checks exact report/4links/diff/1229sources passed. Producer remainsb75dbd6d; no new full-suite run claimed beyond S7 clean59fd6eb546/4017/4207 plus18/40. `[INHERITED]` S8 production020fb7b4 frozen; focused50pass, full570/571single testdigest-census correction, finalfullrunning; independent reviewround1/2 and primarypublicreplay underway. S10 contract independentlyACCEPT98. Probe: ghcreate URL, source/report hashes, primary schema diff and agent logs.
+**Written:** 2026-09-08T10:49Z · **By:** /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-singleton-wildcard-admission · **Measured state:** `[MEASURED]` S8 clean8fc6624 full571/4017/4207 plus18/40 passed, one ignored per Rust run, doctests/fmt/diff included. Archive1c01ca11; public231wildcard/272exact/6270selected/120unproven, alloldfields/91409 operations/1229 sources unchanged. `[INHERITED]` S9 independent round1 WRONG0/SMELL3 bounded test/evidence gaps; test-only repair dispatched. S10 contract independentlyACCEPT98. Probe: clean gate summary, archive hash, prior public receipts.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims name their source.
 
 ## 0. Gating facts — settle these before starting anything below
 
-(a) Lane ownership — RESOLVED: `[MEASURED]` /root owns architecture/integration; compiler_search_review implements S8 under fixed v2 wrapper contract; boundary_audit completed D2 corrective capture; gate_runner delivered S10 review and S9 fixture design. No other agent writes the repository.
+(a) Lane ownership — RESOLVED: `[MEASURED]` /root owns architecture/integration; compiler_search_review froze S8 and clarified custody; boundary_audit completed S8 independent review; gate_runner implements S9 on its own disposable copy after frozen-S8 RED. No other agent writes the repository.
 (b) Custody exposure — RESOLVED: `[MEASURED]` implementation d43dd54 and gate closeout2ce3b00 pushed; PR281 open (gh pr create returned https://github.com/shoedog/prism/pull/281). S1 raw evidence archived, 7,308,737 bytes, SHA256 8f737f4947a69a8d6cbeacd9e504af0d95d236c98389ef6ea1351d176b0926b4. This publication note follows.
 (c) In flight / irreversible — RESOLVED: `[MEASURED]` S2 tip559e80e pushed; PR282 open against PR281. S3 ordinary cap2 plus one disclosed numeric-order extension reached; a synthetic-config-link counterexample caused explicit H1 design escalation, not another patch-loop extension. H1 closed coordinate contract independently accepted96; same S3 artifact resumes under it. Parked977275dd source hash checked unchanged before/after archive SHA9792ac47cbb6d3c8bb1b89b1d3fd2eb21664c362645840b407cf858bfd9e6b98. No install or application change.
 (d) Authorization granted but not exercised — owner: "PR 280 is merged, approced to proceed with next 10 slices/increments with recommended value checkpoints. Approved for 3 additional slices/increments to cover additonal work flind doing those 10 ( if needed). Approved for 3 additional slices for fixes/hardening." Owner also permits stopping at a crossroads and approved model delegation. No auto-merge authority inferred.
@@ -17,7 +17,7 @@
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
 2. S2 is published as PR282 against feat/callable-search-classification. S2 full gates are complete:395 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored per Rust run, doctests included. Check CI without auto-merge.
-3. D2 published PR290. Complete independent S8 review/current public replay, integrate accepted020fb7b4 on its own branch, then clean full gates/archive/PR. S8 byte-frozen v1 and separate v2 wrapper preserve historicalschema18. After S8 accepted/frozen, delegate S9 RED/implementation using primary-reviewed fixture matrix and fixed merged-side-effect-v3; S10 contract only. No auto-merge.
+3. S8 published as PR291 on PR290, pushed980657f. Finish S9 bounded test-only review repairs, primary public replay/integration/full gates. S8 byte-frozen v1 and separate v2 wrapper preserve historicalschema18. S10 contract only. No auto-merge.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
 
@@ -42,7 +42,8 @@
 | S5 | published PR287 | Pushed6ac9934 against PR286; cleanf7f5ac9506/4017/4207 plus18/40; archive7e8851be; independent97; public5selected/complete/alloldfields/91409 operations equal |
 | S6 | published PR288 | Pushed67588fc against PR287; clean5faf199521/4017/4207 plus18/40; archiveb06fb9f4; producer63c557 unchanged; independent99 |
 | S7 | published PR289 | Pushed48de24e against PR288; clean59fd6eb546/4017/4207 plus18/40; archivec00ec9c8; independent98; public/private checkpoint continue |
-| S8–S10 | in progress | S8 fixedv2 wrapper after capturedRED; S9 primary-frozen merged-side-effect-v3 fixture matrix; S10 contract independently accepted98, docs-only |
+| S8 | published PR291 | Pushed980657f on PR290; clean8fc6624:571/4017/4207 plus18/40, archive1c01ca11; independent98/65; public parity unchanged |
+| S9–S10 | in progress | S9 candidate32ae5bc4 independent round1 WRONG0/SMELL3 test/evidence gaps, test-only repair; S10 contract independently accepted98, docs-only |
 | D2 | published PR290 |Pushedca8504d against PR289;20 occurrences/14 present JS targets; sufficient compiler depth-elision branch,9 sourceambient/11 no checker declarations; corrected diagnostic/raw-path capture; archive50724ca2; docs checks pass |
 
 ## 3. Corrections to standing documents and memory

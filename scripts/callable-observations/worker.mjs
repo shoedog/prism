@@ -17,7 +17,7 @@ import {projectSyntheticAddress} from "./identity-domains.mjs";
 import {libraryNameFromLibFile} from "./lib-search.mjs";
 import {createConfigCapture,observeConfigProvenance} from "./config-provenance.mjs";
 import {classifyEntryObligations} from "./entry-obligations.mjs";
-import {classifySemanticClosure} from "./semantic-closure.mjs";
+import {classifySemanticClosureV2} from "./semantic-closure-v2.mjs";
 
 const options=JSON.parse(readFileSync(0,"utf8"));
 const fail=reason=>{throw Error(reason);};
@@ -273,7 +273,7 @@ function build() {
     const u=legacyKey(a),v=legacyKey(b);
     return u<v?-1:u>v?1:canonical(a)<canonical(b)?-1:canonical(a)>canonical(b)?1:0;
   });
-  packet.semantic_closure=classifySemanticClosure({compilerVerified:packet.compiler.verified,
+  packet.semantic_closure=classifySemanticClosureV2({compilerVerified:packet.compiler.verified,
     stableSnapshot:packet.closure.stable_snapshot,configObserved,entryComplete:packet.entry_obligations.complete,
     noResolve,diagnosticCount:packet.diagnostics.length,globalReasons:packet.reasons,
     outside:packet.snapshot.outside_lookups,refusedCount:packet.snapshot.refused_lookup_sha256.length,

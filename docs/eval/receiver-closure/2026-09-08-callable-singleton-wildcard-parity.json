@@ -1,0 +1,39 @@
+{
+  "schema": "prism.callable-observation/19",
+  "producer": {
+    "version": "0.20.0",
+    "sha256": "020fb7b4e9c7491835c1fc65f38db527722954e7b68b2670ad3e8ba3ca733e0a"
+  },
+  "semantic": {
+    "policy": "prism.semantic-closure/singleton-wildcard-v2",
+    "complete": false,
+    "reasons": [
+      "type_lib_unproven",
+      "boundary_encounter",
+      "resolution_unproven"
+    ],
+    "rows": 6893,
+    "dispositions": {
+      "filesystem_selected": 6270,
+      "unproven": 120,
+      "exact_ambient": 272,
+      "singleton_wildcard": 231
+    },
+    "row_reasons": {
+      "null": 6773,
+      "unadmitted_binding": 84,
+      "unresolved_module": 16,
+      "target_not_in_program": 20
+    }
+  },
+  "old_fields_equal": true,
+  "host_transcript_events": 91409,
+  "host_transcript_sha256": "fc4cfa95458d5521bab94c2e9bcf809c674e67acd5e62b119fd4a07a5b3d2eca",
+  "host_transcript_equal": true,
+  "validation": {
+    "valid": true,
+    "authorizes_runtime_edge": false,
+    "packet_status": "unproven",
+    "reason": "reproduced_observation"
+  }
+}
