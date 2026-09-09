@@ -1,5 +1,10 @@
 # Handoff — approved callable-completeness sequence
 
+Current-state correction: the owner completed the stack; freshly fetched main ends
+at PR293 merge `7040ceb6`. Merge/publication states below are historical snapshots.
+The separate executable-owner **design**, not implementation, is now approved;
+resume from its [handoff](2026-09-09-callable-executable-owner-proof.md).
+
 Merge-authority snapshot before the owner stack transition supersedes the historical publication snapshot below:
 the owner instructed "proceed to merge in order" and later waived waiting for coverage.
 At the snapshot PR281–285 are merged (285 by owner); PR286's four required non-coverage checks are pending.

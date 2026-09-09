@@ -1,5 +1,13 @@
 # Handoff — ordered callable PR merges
 
+## Completion supersedes the snapshots below
+
+Owner reported all merged. Fresh Git fetch for the next approved design slice
+confirmed PR281–293 merge history on main, ending at `7040ceb6` (PR293), with the
+same final tree as the retained local stack. No remaining merge action is pending.
+This verifies merged Git state, not retrospective CI success or stack-controller
+internals. Continue from the [executable-owner design handoff](2026-09-09-callable-executable-owner-proof.md).
+
 ## Owner stack takeover — pre-transition snapshot
 
 Recorded 2026-09-08T16:42Z. The owner created stack294 for286–293 and asked the

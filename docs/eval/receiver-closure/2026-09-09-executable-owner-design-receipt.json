@@ -1,0 +1,250 @@
+{
+  "schema": "prism.executable-owner-design-receipt/1",
+  "base": "7040ceb63c77142793ba08fed5946e6e54f29a86",
+  "checked_at": "2026-09-09T02:53:03.944Z",
+  "scope": "Design and current behavior only. No implemented proof predicates, substitution refusal, or production gain.",
+  "authorizes_runtime_edge": false,
+  "corpus_sha256": "a0ab36edb42bb12c5f060d734a857909e73d01947c788959b2241a525596451e",
+  "verifier_sha256": "14926f0b5e8f1081cf2672ff620336372ec7c3d5f1f6169efc0c9807343624e7",
+  "compiler_sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675",
+  "producer_sha256": "32ae5bc44000af31bb7cd5994a14de5700bafb02a1089f3ac16a79687e40f88d",
+  "prism_binary_sha256": "83dc2e34380a94cfd429d56397fe7675742eafa89298873e3c59367db23e46ff",
+  "baseline": {
+    "cases": 54,
+    "failures": [],
+    "report_sha256": "303734a4127fb00c32b72102b853f285bc3c489a7064e4b2e12fe44dffb519cc",
+    "local_report": "/private/tmp/prism-owner-proof-xutDxX/owner-design-Q1v3nf/report.json"
+  },
+  "future_red": {
+    "cases": 54,
+    "expected_failures": [
+      {
+        "id": "candidate/ts",
+        "message": "FUTURE POSITIVE: direct contextual Client.m must resolve Exact\n\n0 !== 1\n"
+      },
+      {
+        "id": "different_genuine_input/ts",
+        "message": "FUTURE POSITIVE: direct contextual Client.m must resolve Exact\n\n0 !== 1\n"
+      },
+      {
+        "id": "candidate/tsx",
+        "message": "FUTURE POSITIVE: direct contextual Client.m must resolve Exact\n\n0 !== 1\n"
+      },
+      {
+        "id": "different_genuine_input/tsx",
+        "message": "FUTURE POSITIVE: direct contextual Client.m must resolve Exact\n\n0 !== 1\n"
+      }
+    ],
+    "report_sha256": "cbb2a26e2d85bc1dd896672122a9b91622ea285ff60ae900bf8dc14dc3205639",
+    "local_report": "/private/tmp/prism-owner-proof-xutDxX/owner-design-yZtrsR/report.json"
+  },
+  "rust_characterization": {
+    "tests": 1,
+    "cells": 108,
+    "modes": [
+      "full",
+      "direct_subset"
+    ],
+    "new_proof_behavior": false
+  },
+  "production_source_blobs": [
+    {
+      "file": "src/api/nav.rs",
+      "blob": "0d3db0df68fc858683731fb9456b1a46a55b1c62"
+    },
+    {
+      "file": "src/ast.rs",
+      "blob": "b9e3306370c912cc49ff2e78de99ee3cc8cab60b"
+    },
+    {
+      "file": "src/call_graph.rs",
+      "blob": "90ac77f07fa7727a079db9eb8f9b3f9262ac707a"
+    },
+    {
+      "file": "src/cpg/build.rs",
+      "blob": "b99ad52b3c33a289eaa36b06453f42dbe6a68fd8"
+    },
+    {
+      "file": "src/cpg/trace.rs",
+      "blob": "179fd8b8d67538a536f95b2dbc37e71148084036"
+    },
+    {
+      "file": "src/cpg_cache.rs",
+      "blob": "b07f3ab5737903b8517a5996762ca0f269193468"
+    },
+    {
+      "file": "src/js_ts_props.rs",
+      "blob": "286873e4b09a2b64daa0745b35149c97e704a6af"
+    },
+    {
+      "file": "src/navigation/call_edge_cache.rs",
+      "blob": "c9aa71d60a863a1d82adcab81a84ec236dfb814b"
+    },
+    {
+      "file": "src/navigation/call_resolve.rs",
+      "blob": "83cd2c3c7b5b2f36240e92e3c604f609bed3eeb0"
+    },
+    {
+      "file": "src/navigation/queries.rs",
+      "blob": "d482518dba47e2bd79aa93395ea47d53b7a542f8"
+    },
+    {
+      "file": "src/resolution.rs",
+      "blob": "f7177e971a01c24a8d22d5884efe6bd1cefaa64e"
+    }
+  ],
+  "candidate_anchors": [
+    {
+      "id": "candidate/ts",
+      "snapshot_sha256": "92633140bb040b8ecb76c16a233b2d59343fba488dcd3786a63c74005fff9cd8",
+      "call": {
+        "file": "project/src/app.ts",
+        "sha256": "d0333ac697fd75d5e55bd1ddab4fb77dd29725cd2248aa66e2b1fec3a6884648",
+        "kind": "CallExpression",
+        "start_utf16": 164,
+        "end_utf16": 174,
+        "start_byte": 164,
+        "end_byte": 174
+      },
+      "method": {
+        "file": "project/src/client.ts",
+        "sha256": "c192269f41a7300e4ace1a834379b5b01dc8cc37ef293e9ba5d30cbc9c839239",
+        "kind": "MethodDeclaration",
+        "start_utf16": 24,
+        "end_utf16": 49,
+        "start_byte": 24,
+        "end_byte": 49
+      },
+      "nested_calls": [],
+      "direct_props_class_present": false
+    },
+    {
+      "id": "different_genuine_input/ts",
+      "snapshot_sha256": "12a4f83251d027b4a4904966ec09a02bb995a64101b84cb0c4924eea8fb63901",
+      "call": {
+        "file": "project/src/app.ts",
+        "sha256": "d0333ac697fd75d5e55bd1ddab4fb77dd29725cd2248aa66e2b1fec3a6884648",
+        "kind": "CallExpression",
+        "start_utf16": 164,
+        "end_utf16": 174,
+        "start_byte": 164,
+        "end_byte": 174
+      },
+      "method": {
+        "file": "project/src/client.ts",
+        "sha256": "c25935d497a3a6838c87ac8fd9d211b7afbeb803f7def522a6ed9c80aabcb3ab",
+        "kind": "MethodDeclaration",
+        "start_utf16": 24,
+        "end_utf16": 49,
+        "start_byte": 24,
+        "end_byte": 49
+      },
+      "nested_calls": [],
+      "direct_props_class_present": false
+    },
+    {
+      "id": "candidate/tsx",
+      "snapshot_sha256": "7dada1bb9cbfc8fc4daef199ee44d02b71b8c13b787a620ac03c24de8290153b",
+      "call": {
+        "file": "project/src/app.tsx",
+        "sha256": "d0333ac697fd75d5e55bd1ddab4fb77dd29725cd2248aa66e2b1fec3a6884648",
+        "kind": "CallExpression",
+        "start_utf16": 164,
+        "end_utf16": 174,
+        "start_byte": 164,
+        "end_byte": 174
+      },
+      "method": {
+        "file": "project/src/client.ts",
+        "sha256": "c192269f41a7300e4ace1a834379b5b01dc8cc37ef293e9ba5d30cbc9c839239",
+        "kind": "MethodDeclaration",
+        "start_utf16": 24,
+        "end_utf16": 49,
+        "start_byte": 24,
+        "end_byte": 49
+      },
+      "nested_calls": [],
+      "direct_props_class_present": false
+    },
+    {
+      "id": "different_genuine_input/tsx",
+      "snapshot_sha256": "62647126aacfe5228cb6c822d14b65a7af19d2cbd3cf6bade79312514581a90f",
+      "call": {
+        "file": "project/src/app.tsx",
+        "sha256": "d0333ac697fd75d5e55bd1ddab4fb77dd29725cd2248aa66e2b1fec3a6884648",
+        "kind": "CallExpression",
+        "start_utf16": 164,
+        "end_utf16": 174,
+        "start_byte": 164,
+        "end_byte": 174
+      },
+      "method": {
+        "file": "project/src/client.ts",
+        "sha256": "c25935d497a3a6838c87ac8fd9d211b7afbeb803f7def522a6ed9c80aabcb3ab",
+        "kind": "MethodDeclaration",
+        "start_utf16": 24,
+        "end_utf16": 49,
+        "start_byte": 24,
+        "end_byte": 49
+      },
+      "nested_calls": [],
+      "direct_props_class_present": false
+    }
+  ],
+  "rows": [
+    {"id":"candidate/ts","design_requirement":"candidate_only","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"different_genuine_input/ts","design_requirement":"candidate_only_separate_epoch","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"inline_signature_control/ts","design_requirement":"preserve_existing_route","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":["src/client.ts"],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"explicit_parameter_control/ts","design_requirement":"preserve_existing_route","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":["src/app.ts"],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"explicit_any/ts","design_requirement":"refuse_explicit_parameter","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"optional_property/ts","design_requirement":"refuse_optional_property_and_call","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"union_property/ts","design_requirement":"refuse_union","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"structural_property/ts","design_requirement":"refuse_nonclass","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"ambient_class/ts","design_requirement":"refuse_declaration_only_owner","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.d.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"inherited_method/ts","design_requirement":"refuse_inheritance","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"generic_class/ts","design_requirement":"refuse_generic_owner","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"static_receiver/ts","design_requirement":"refuse_constructor_side","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"overloaded_method/ts","design_requirement":"refuse_multiple_member_declarations","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"arrow_field/ts","design_requirement":"refuse_out_of_first_scope_member","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"duplicate_method/ts","design_requirement":"refuse_duplicate_and_diagnostics","status":"unproven","diagnostic_codes":[2393],"semantic_complete":false,"closure_reasons":["compiler_diagnostics"],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"receiver_reassigned/ts","design_requirement":"refuse_receiver_write","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"member_written/ts","design_requirement":"refuse_member_write","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"opaque_escape/ts","design_requirement":"refuse_receiver_escape","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"prototype_effect/ts","design_requirement":"refuse_indexed_prototype_effect","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts","project/src/effect.ts"],"index_only_source_files":[]},
+    {"id":"out_of_program_effect/ts","design_requirement":"refuse_index_program_coverage_mismatch","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":["outside/effect.ts"]},
+    {"id":"augmentation/ts","design_requirement":"refuse_merged_class_identity","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/augment.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"unrelated_missing_module/ts","design_requirement":"refuse_whole_program_closure","status":"unproven","diagnostic_codes":[2307],"semantic_complete":false,"closure_reasons":["compiler_diagnostics","resolution_unproven"],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts","project/src/unrelated.ts"],"index_only_source_files":[]},
+    {"id":"unresolved_react_scripts/ts","design_requirement":"refuse_unresolved_type_directive","status":"unproven","diagnostic_codes":[2688],"semantic_complete":false,"closure_reasons":["compiler_diagnostics","type_lib_unproven","boundary_encounter"],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts","project/src/unrelated.d.ts"],"index_only_source_files":[]},
+    {"id":"missing_path_skip_lib_check/ts","design_requirement":"refuse_required_path_even_without_diagnostics","status":"unproven","diagnostic_codes":[],"semantic_complete":false,"closure_reasons":["required_path_unproven"],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts","project/src/unrelated.d.ts"],"index_only_source_files":[]},
+    {"id":"automatic_types_unknown/ts","design_requirement":"refuse_entry_obligations","status":"unproven","diagnostic_codes":[],"semantic_complete":false,"closure_reasons":["entry_obligations_incomplete","boundary_encounter"],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"nested_shadow/ts","design_requirement":"refuse_nested_scope","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"no_resolve/ts","design_requirement":"refuse_whole_program_closure","status":"observed","diagnostic_codes":[],"semantic_complete":false,"closure_reasons":["no_resolve"],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"candidate/tsx","design_requirement":"candidate_only","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"different_genuine_input/tsx","design_requirement":"candidate_only_separate_epoch","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"inline_signature_control/tsx","design_requirement":"preserve_existing_route","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":["src/client.ts"],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"explicit_parameter_control/tsx","design_requirement":"preserve_existing_route","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":["src/app.tsx"],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"explicit_any/tsx","design_requirement":"refuse_explicit_parameter","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"optional_property/tsx","design_requirement":"refuse_optional_property_and_call","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"union_property/tsx","design_requirement":"refuse_union","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"structural_property/tsx","design_requirement":"refuse_nonclass","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"ambient_class/tsx","design_requirement":"refuse_declaration_only_owner","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.d.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"inherited_method/tsx","design_requirement":"refuse_inheritance","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"generic_class/tsx","design_requirement":"refuse_generic_owner","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"static_receiver/tsx","design_requirement":"refuse_constructor_side","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"overloaded_method/tsx","design_requirement":"refuse_multiple_member_declarations","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"arrow_field/tsx","design_requirement":"refuse_out_of_first_scope_member","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"duplicate_method/tsx","design_requirement":"refuse_duplicate_and_diagnostics","status":"unproven","diagnostic_codes":[2393],"semantic_complete":false,"closure_reasons":["compiler_diagnostics"],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"receiver_reassigned/tsx","design_requirement":"refuse_receiver_write","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"member_written/tsx","design_requirement":"refuse_member_write","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"opaque_escape/tsx","design_requirement":"refuse_receiver_escape","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"prototype_effect/tsx","design_requirement":"refuse_indexed_prototype_effect","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts","project/src/effect.ts"],"index_only_source_files":[]},
+    {"id":"out_of_program_effect/tsx","design_requirement":"refuse_index_program_coverage_mismatch","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":["outside/effect.ts"]},
+    {"id":"augmentation/tsx","design_requirement":"refuse_merged_class_identity","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/augment.ts","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"unrelated_missing_module/tsx","design_requirement":"refuse_whole_program_closure","status":"unproven","diagnostic_codes":[2307],"semantic_complete":false,"closure_reasons":["compiler_diagnostics","resolution_unproven"],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts","project/src/unrelated.ts"],"index_only_source_files":[]},
+    {"id":"unresolved_react_scripts/tsx","design_requirement":"refuse_unresolved_type_directive","status":"unproven","diagnostic_codes":[2688],"semantic_complete":false,"closure_reasons":["compiler_diagnostics","type_lib_unproven","boundary_encounter"],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts","project/src/unrelated.d.ts"],"index_only_source_files":[]},
+    {"id":"missing_path_skip_lib_check/tsx","design_requirement":"refuse_required_path_even_without_diagnostics","status":"unproven","diagnostic_codes":[],"semantic_complete":false,"closure_reasons":["required_path_unproven"],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts","project/src/unrelated.d.ts"],"index_only_source_files":[]},
+    {"id":"automatic_types_unknown/tsx","design_requirement":"refuse_entry_obligations","status":"unproven","diagnostic_codes":[],"semantic_complete":false,"closure_reasons":["entry_obligations_incomplete","boundary_encounter"],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"nested_shadow/tsx","design_requirement":"refuse_nested_scope","status":"observed","diagnostic_codes":[],"semantic_complete":true,"closure_reasons":[],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]},
+    {"id":"no_resolve/tsx","design_requirement":"refuse_whole_program_closure","status":"observed","diagnostic_codes":[],"semantic_complete":false,"closure_reasons":["no_resolve"],"validated":true,"exact_method_owners":[],"project_program_files":["project/src/app.tsx","project/src/client.ts","project/src/contract.ts"],"index_only_source_files":[]}
+  ]
+}

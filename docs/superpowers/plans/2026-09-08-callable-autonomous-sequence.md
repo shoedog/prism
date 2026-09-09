@@ -1,5 +1,10 @@
 # Approved autonomous callable-completeness sequence
 
+Completion update: owner merged the entire stack; fresh main is PR293 merge
+`7040ceb6`. The state table and transition instructions below are historical.
+The approved follow-on is the [bounded executable-owner design](../specs/2026-09-09-callable-executable-owner-proof.md),
+not an extension of the completed sequence's runtime authority.
+
 Owner approved ten increments, value checkpoints after3/7, up to three additional
 discovered-work slices and three fix/hardening slices if needed, while away7–8 hours.
 Primary agent retains architecture/decisions; bounded implementation/review delegation

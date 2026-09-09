@@ -1,5 +1,10 @@
 # Approved ten-increment sequence — final value readout
 
+Merge closeout: the owner completed PR281–293; freshly fetched main ends at
+`7040ceb6`. Delivery evidence and gate counts below remain tied to their original
+tested heads, not a new CI claim. The next approved [owner-proof design](2026-09-09-executable-owner-design.md)
+does not change the sequence's closure or runtime-authority boundaries.
+
 The ten planned increments are implemented or specified at their approved boundary.
 Two discovered-work increments and one hardening increment were needed; the other
 three reserve slots were not spent. No application/dependency installation, private
