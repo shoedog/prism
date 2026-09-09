@@ -108,6 +108,8 @@ pub enum ResolutionKind {
     /// FunctionId in the inbound caller's lexical context before minting the
     /// synthetic call site.
     ParameterCallback,
+    /// Disabled staged contextual source owner; never persisted.
+    ContextualOwner,
 }
 
 impl ResolutionKind {
@@ -140,6 +142,7 @@ impl ResolutionKind {
             ResolutionKind::ReturnTyped => "return_typed",
             ResolutionKind::FieldTyped => "field_typed",
             ResolutionKind::ParameterCallback => "parameter_callback",
+            ResolutionKind::ContextualOwner => "contextual_owner",
         }
     }
 }
@@ -2289,6 +2292,18 @@ impl CallGraph {
     /// new precision ladder. Legacy callers continue to use the old resolver
     /// until Tasks 9-11 migrate them.
     pub fn resolve_call_site_full(&self, site: &CallSite) -> ResolutionOutcome<'_> {
+        if let Some(result) = self
+            .executable_owner
+            .as_ref()
+            .and_then(|owner| owner.target(self, site))
+        {
+            return match result {
+                Some(target) => {
+                    ResolutionOutcome::hit(exact([target], ResolutionKind::ContextualOwner))
+                }
+                None => ResolutionOutcome::dropped(DropReason::ExternalReceiver),
+            };
+        }
         if let Some(target) = site.pre_resolved_target.as_ref() {
             let resolved = self
                 .functions

@@ -139,6 +139,11 @@ impl<'a> CpgContext<'a> {
         mut cpg: CodePropertyGraph,
         type_db: Option<&'a TypeDatabase>,
     ) -> Self {
+        // A live opted-in graph is not an ordinary cache artifact. Rebuild all
+        // edges without authority rather than adopt a historical proof snapshot.
+        if cpg.ephemeral_owner || cpg.call_graph.owner_ephemeral {
+            return Self::build(files, type_db);
+        }
         // P15a-fix4: drop the stash UNCONDITIONALLY. A deserialized CPG has
         // none (serde skips the field), but a caller may pass a FRESHLY BUILT
         // CPG whose stash is a full live Go dataset — combined with the fresh

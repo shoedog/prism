@@ -5,6 +5,8 @@ pub mod code_context;
 pub mod inventory;
 pub mod module_graph;
 pub mod onboarding;
+#[cfg(test)]
+mod owner_cache_tests;
 mod partition_site_dump;
 pub mod queries;
 pub mod seed;
@@ -179,6 +181,13 @@ impl NavigationIndex {
         call_edge_cache_store: Option<call_edge_cache::NavigationCallEdgeCacheStore>,
     ) -> Self {
         debug_assert!(ctx.scope.is_none(), "nav index must be whole-repo");
+        // Fence both lazy sidecar LOAD and SAVE, even for a supplied store.
+        let call_edge_cache_store = if ctx.cpg.ephemeral_owner || ctx.cpg.call_graph.owner_ephemeral
+        {
+            None
+        } else {
+            call_edge_cache_store
+        };
         let (mut line_range_index, mut name_index) = (
             BTreeMap::<String, Vec<(usize, usize, NodeIndex)>>::new(),
             BTreeMap::<(String, String), Vec<NodeIndex>>::new(),

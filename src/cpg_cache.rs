@@ -333,6 +333,12 @@ pub fn save_cache_with_topology(
     has_type_db: bool,
     cache_dir: &Path,
 ) -> io::Result<()> {
+    if cpg.ephemeral_owner || cpg.call_graph.owner_ephemeral {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "ephemeral executable-owner CPG cannot be cached",
+        ));
+    }
     fs::create_dir_all(cache_dir)?;
 
     // Extract node list + edge list from DiGraph.

@@ -149,6 +149,8 @@ pub(crate) type PendingEdge = (NodeIndex, NodeIndex, CpgEdge);
 /// petgraph DiGraph. Algorithms query this graph with edge-type filters instead
 /// of separately accessing DataFlowGraph and CallGraph.
 pub struct CodePropertyGraph {
+    /// Sticky cache refusal: clearing the call-graph sidecar cannot erase edges.
+    pub(crate) ephemeral_owner: bool,
     /// The underlying petgraph directed graph.
     pub graph: DiGraph<CpgNode, CpgEdge>,
 
@@ -227,6 +229,7 @@ impl CodePropertyGraph {
             name_index,
             var_index,
             location_index,
+            ephemeral_owner: call_graph.owner_ephemeral,
             call_graph,
             dfg,
             type_db: None,
@@ -246,6 +249,7 @@ impl CodePropertyGraph {
             var_index: BTreeMap::new(),
             location_index: BTreeMap::new(),
             call_graph: CallGraph::empty(),
+            ephemeral_owner: false,
             dfg: DataFlowGraph::empty(),
             type_db: None,
             return_flow_stats: ReturnFlowStats::default(),
@@ -307,6 +311,21 @@ impl CodePropertyGraph {
         Self::assemble_graph(cg, dfg, files, type_db)
     }
 
+    pub(crate) fn build_with_staged_owner(
+        epoch: &crate::executable_owner::AuthenticatedProgramEpoch,
+        files: &BTreeMap<String, ParsedFile>,
+        scope_inputs: Option<&ScopeGraphBuildInputs>,
+    ) -> Result<Self, String> {
+        let (cg, owned) =
+            crate::executable_owner::integration::graph_and_inputs(epoch, files, scope_inputs)?;
+        Ok(Self::assemble_graph(
+            cg,
+            DataFlowGraph::build(&owned),
+            &owned,
+            None,
+        ))
+    }
+
     /// Build a CPG with type enrichment from a TypeDatabase.
     ///
     /// Convenience method — equivalent to `build_impl(files, Some(type_db))`.
@@ -363,6 +382,10 @@ impl CodePropertyGraph {
         type_db: Option<TypeDatabase>,
         scope_inputs: Option<&ScopeGraphBuildInputs>,
     ) -> Self {
+        // An ordinary incremental entry cannot inherit opted-in authority.
+        if cached_cg.owner_ephemeral {
+            return Self::build_impl(files, type_db, scope_inputs);
+        }
         // Same large-stack pool as build_impl — the subset CG/DFG builds and the
         // assemble below are the same recursive AST walks (install() routes every
         // nested par_iter onto big-stack workers). Routed through the shared
@@ -512,6 +535,7 @@ impl CodePropertyGraph {
         files: &BTreeMap<String, ParsedFile>,
         type_db: Option<TypeDatabase>,
     ) -> Self {
+        let ephemeral_owner = cg.owner_ephemeral;
         let mut graph = DiGraph::new();
         let mut func_index: BTreeMap<(String, String, usize), NodeIndex> = BTreeMap::new();
         let mut name_index: BTreeMap<(String, String), Vec<NodeIndex>> = BTreeMap::new();
@@ -828,6 +852,7 @@ impl CodePropertyGraph {
             var_index,
             location_index,
             call_graph: cg,
+            ephemeral_owner,
             dfg,
             type_db,
             return_flow_stats,
