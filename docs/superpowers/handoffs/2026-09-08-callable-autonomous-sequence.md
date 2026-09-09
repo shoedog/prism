@@ -1,7 +1,7 @@
 # Handoff — approved callable-completeness sequence
 
-**Written:** 2026-09-08T10:49Z · **By:** /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-singleton-wildcard-admission · **Measured state:** `[MEASURED]` S8 clean8fc6624 full571/4017/4207 plus18/40 passed, one ignored per Rust run, doctests/fmt/diff included. Archive1c01ca11; public231wildcard/272exact/6270selected/120unproven, alloldfields/91409 operations/1229 sources unchanged. `[INHERITED]` S9 independent round1 WRONG0/SMELL3 bounded test/evidence gaps; test-only repair dispatched. S10 contract independentlyACCEPT98. Probe: clean gate summary, archive hash, prior public receipts.
+**Written:** 2026-09-08T11:28Z · **By:** /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/callable-merged-side-effect-admission · **Measured state:** `[MEASURED]` S9 cleanb826a668 full591/4017/4207 plus18/40 passed, doctests and one ignored per Rust run, fmt/diff. Archive44e5056a. Public84merged/36unproven; all old fields/91409 operations/1229 sources unchanged. Final private read-only reproduction valid/incomplete, no install. `[INHERITED]` final independent S9 round2 ACCEPT99 WRONG0/SMELL0; S10 contract98 and final factual99. Probe: clean gate summary, archive hash, final review receipts and prior replay.
 **Predecessor:** PR280; `gh pr view 280` returned MERGED at 2026-09-08T05:34:37Z, merge 670bccb0.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed this turn; `[INHERITED]` claims name their source.
@@ -17,7 +17,7 @@
 
 1. Run `git status --short --branch` in `/Users/wesleyjinks/code/slicing`; compare with this handoff and the [sequence plan](../plans/2026-09-08-callable-autonomous-sequence.md).
 2. S2 is published as PR282 against feat/callable-search-classification. S2 full gates are complete:395 observer,4017 Rust,4207 MCP,18 helpers,40 authority,fmt/diff; one known ignored per Rust run, doctests included. Check CI without auto-merge.
-3. S8 published as PR291 on PR290, pushed980657f. Finish S9 bounded test-only review repairs, primary public replay/integration/full gates. S8 byte-frozen v1 and separate v2 wrapper preserve historicalschema18. S10 contract only. No auto-merge.
+3. S9 published as PR292 on PR291, pushed7387cfd. Finish S10 docs-only contract/readout and final stack-state verification. No auto-merge.
 
 **STOP conditions:** unresolved policy crossroads; app/private-source publication or acquisition expansion; runtime/class authority; react-scripts waiver or installation; open-class findings at review cap two. Do not auto-merge PRs.
 
@@ -43,7 +43,8 @@
 | S6 | published PR288 | Pushed67588fc against PR287; clean5faf199521/4017/4207 plus18/40; archiveb06fb9f4; producer63c557 unchanged; independent99 |
 | S7 | published PR289 | Pushed48de24e against PR288; clean59fd6eb546/4017/4207 plus18/40; archivec00ec9c8; independent98; public/private checkpoint continue |
 | S8 | published PR291 | Pushed980657f on PR290; clean8fc6624:571/4017/4207 plus18/40, archive1c01ca11; independent98/65; public parity unchanged |
-| S9–S10 | in progress | S9 candidate32ae5bc4 independent round1 WRONG0/SMELL3 test/evidence gaps, test-only repair; S10 contract independently accepted98, docs-only |
+| S9 | published PR292 | Pushed7387cfd on PR291; cleanb826a668:591/4017/4207 plus18/40, archive44e5056a; independent99; public84merged/36unproven and all old fields/host/source parity; private read-only parity valid/incomplete |
+| S10 | prepared | Primary contract independently accepted98, source blobs/cache77/45 rebound unchanged; docs-only publication after9 |
 | D2 | published PR290 |Pushedca8504d against PR289;20 occurrences/14 present JS targets; sufficient compiler depth-elision branch,9 sourceambient/11 no checker declarations; corrected diagnostic/raw-path capture; archive50724ca2; docs checks pass |
 
 ## 3. Corrections to standing documents and memory

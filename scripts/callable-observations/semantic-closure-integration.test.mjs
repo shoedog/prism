@@ -51,7 +51,7 @@ function exactSetup(specifier,extraOptions={}) {
     return {packet,options,resolution};
   });
 }
-const exactResult={policy:'prism.semantic-closure/singleton-wildcard-v2',complete:true,reasons:[],
+const exactResult={policy:'prism.semantic-closure/merged-side-effect-v3',complete:true,reasons:[],
   rows:[{index:0,disposition:'exact_ambient',reason:null}]};
 
 for(const specifier of ['node:known','virtual:known'])test(`${specifier} exact ambient is semantically complete without baseUrl`,()=>{
@@ -68,14 +68,14 @@ test('filesystem-selected local module is complete without reclassifying old clo
 },({options})=>{
   const packet=pair(options).after,[resolution]=packet.resolutions;assert.equal(resolution.target,'project/src/client.ts');
   assert(packet.snapshot.program_files.includes(resolution.target));assert.equal(packet.search_provenance.boundary_events.length,0);
-  assert.deepEqual(semantic(packet),{policy:'prism.semantic-closure/singleton-wildcard-v2',complete:true,reasons:[],
+  assert.deepEqual(semantic(packet),{policy:'prism.semantic-closure/merged-side-effect-v3',complete:true,reasons:[],
     rows:[{index:0,disposition:'filesystem_selected',reason:null}]});
 }));
 
 for(const specifier of ['known','@scope/known'])test(`${specifier} exact row cannot waive outside lookup barriers`,()=>{
   const {packet}=exactSetup(specifier);assert.equal(packet.snapshot.outside_lookups,true);
   assert(packet.search_provenance.boundary_events.some(row=>row.kind==='outside'));
-  assert.deepEqual(semantic(packet),{policy:'prism.semantic-closure/singleton-wildcard-v2',complete:false,
+  assert.deepEqual(semantic(packet),{policy:'prism.semantic-closure/merged-side-effect-v3',complete:false,
     reasons:['boundary_encounter'],rows:[{index:0,disposition:'exact_ambient',reason:null}]});
 });
 
@@ -103,7 +103,7 @@ test('explicit noResolve blocks an otherwise exact eligible occurrence',()=>{
   const {packet}=exactSetup('node:known',{noResolve:true});
   const noResolve=packet.config_provenance.options.find(row=>row.name==='noResolve');
   assert.equal(noResolve.value_sha256,schema.hash(schema.canonical({present:true,value:true})));
-  assert.deepEqual(semantic(packet),{policy:'prism.semantic-closure/singleton-wildcard-v2',complete:false,reasons:['no_resolve'],
+  assert.deepEqual(semantic(packet),{policy:'prism.semantic-closure/merged-side-effect-v3',complete:false,reasons:['no_resolve'],
     rows:[{index:0,disposition:'exact_ambient',reason:null}]});
 });
 
@@ -169,11 +169,11 @@ test('empty/refusal packet retains every strict prerequisite barrier',()=>fixtur
   const selected={...options,compiler:path.join(options.root,'missing-typescript.js')},packet=pair(selected).after;
   assert.equal(packet.compiler.verified,false);assert.equal(packet.closure.stable_snapshot,false);
   assert.equal(packet.config_provenance.status,'unproven');assert.equal(packet.entry_obligations.complete,false);
-  assert.deepEqual(semantic(packet),{policy:'prism.semantic-closure/singleton-wildcard-v2',complete:false,
+  assert.deepEqual(semantic(packet),{policy:'prism.semantic-closure/merged-side-effect-v3',complete:false,
     reasons:['compiler_unverified','unstable_snapshot','config_unproven','entry_obligations_incomplete','global_refusal'],rows:[]});
 }));
 
-test('schema19 recomputes exact rows/reasons and rejects same-genuine row swaps before root I/O',()=>fixture(baseConfig(),{
+test('schema20 recomputes exact rows/reasons and rejects same-genuine row swaps before root I/O',()=>fixture(baseConfig(),{
   ...exactFiles('node:known'),'src/client.ts':'export class Local {}',
   'src/app.ts':exactFiles('node:known')['src/app.ts']+'\nimport {Local} from "./client";',
 },({options})=>{

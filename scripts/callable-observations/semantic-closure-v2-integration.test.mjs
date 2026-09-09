@@ -15,6 +15,7 @@ assert.equal(schema.COMPILER_HASH,schema.hash(readFileSync(compiler)));
 
 const V1='prism.semantic-closure/exact-ambient-v1';
 const V2='prism.semantic-closure/singleton-wildcard-v2';
+const V3='prism.semantic-closure/merged-side-effect-v3';
 const baseConfig={compilerOptions:{strict:true,noEmit:true,target:'ES2022',module:'ESNext',
   moduleResolution:'Node',types:[],libReplacement:false,skipLibCheck:false,
   noUncheckedSideEffectImports:true},include:['src']};
@@ -77,13 +78,22 @@ test('historical schema18 is always recomputed under exact-ambient-v1',()=>fixtu
   assert.throws(()=>schema.parsePacket(JSON.stringify(historical)),/invalid_packet/);
 }));
 
+test('historical schema19 remains fixed to singleton-wildcard-v2',()=>fixture({},({packet})=>{
+  const historical=structuredClone(packet);
+  historical.schema='prism.callable-observation/19';historical.producer.version='0.20.0';
+  historical.semantic_closure={policy:V2,complete:true,reasons:[],rows:[{index:0,disposition:'singleton_wildcard',reason:null}]};
+  assert.deepEqual(schema.parsePacket(JSON.stringify(historical)).semantic_closure,historical.semantic_closure);
+  historical.semantic_closure=packet.semantic_closure;
+  assert.throws(()=>schema.parsePacket(JSON.stringify(historical)),/invalid_packet/);
+}));
+
 for(const selected of [
   {label:'absent asset',input:{}},
   {label:'present asset',input:{asset:true}},
   {label:'query specifier',input:{specifier:'./file.asset?raw',pattern:'*.asset?raw'}},
-])test(`S8 promotes an observed singleton wildcard with ${selected.label}`,()=>fixture(selected.input,({packet})=>{
+])test(`S9 retains an observed singleton wildcard with ${selected.label}`,()=>fixture(selected.input,({packet})=>{
   assert.deepEqual(packet.semantic_closure.rows,[{index:0,disposition:'singleton_wildcard',reason:null}]);
-  assert.equal(packet.semantic_closure.policy,V2);
+  assert.equal(packet.semantic_closure.policy,V3);
   assert.equal(packet.semantic_closure.complete,true);
   assert.deepEqual(packet.semantic_closure.reasons,[]);
 }));
@@ -120,13 +130,13 @@ test('unsupported dynamic-import context remains unresolved',()=>project(baseCon
   assert.deepEqual(packet.semantic_closure.rows,[{index:0,disposition:'unproven',reason:'unresolved_module'}]);
 }));
 
-test('merged side-effect pair remains unadmitted',()=>project(baseConfig,{
+test('merged side-effect pair is admitted only through v3',()=>project(baseConfig,{
   'src/a.d.ts':'declare module "*.asset" {}','src/b.d.ts':'declare module "*.asset";',
   'src/app.ts':'import "./file.asset";',
 },({packet})=>{
   const [resolution]=packet.resolutions;assert.equal(resolution.lookup.wildcard.reason,'duplicate_provider');
   assert.equal(resolution.lookup.merged_wildcard.status,'observed');
-  assert.deepEqual(packet.semantic_closure.rows,[{index:0,disposition:'unproven',reason:'unadmitted_binding'}]);
+  assert.deepEqual(packet.semantic_closure.rows,[{index:0,disposition:'merged_side_effect',reason:null}]);
 }));
 
 test('one unrelated unresolved request keeps the aggregate unproven',()=>project(baseConfig,{
@@ -167,12 +177,12 @@ test('filesystem target outside Program remains row-unproven',()=>project({
   assert.deepEqual(packet.semantic_closure.rows,[{index:0,disposition:'unproven',reason:'target_not_in_program'}]);
 }));
 
-test('current packet is schema19 producer 0.20.0 with fixed v2 policy',()=>fixture({},({packet})=>{
-  assert.equal(packet.schema,'prism.callable-observation/19');assert.equal(packet.producer.version,'0.20.0');
-  assert.equal(packet.semantic_closure.policy,V2);assert.doesNotThrow(()=>schema.parsePacket(JSON.stringify(packet)));
+test('current packet is schema20 producer 0.21.0 with fixed v3 policy',()=>fixture({},({packet})=>{
+  assert.equal(packet.schema,'prism.callable-observation/20');assert.equal(packet.producer.version,'0.21.0');
+  assert.equal(packet.semantic_closure.policy,V3);assert.doesNotThrow(()=>schema.parsePacket(JSON.stringify(packet)));
 }));
 
-test('schema19 rejects same-genuine semantic row substitutions before root I/O',()=>project(baseConfig,{
+test('schema20 rejects same-genuine semantic row substitutions before root I/O',()=>project(baseConfig,{
   'src/provider.d.ts':'declare module "*.asset" {export interface Client {m():void}}',
   'src/client.ts':'export interface Local {x:number}',
   'src/app.ts':'import type {Client} from "./file.asset";import type {Local} from "./client";export type Seen=Client|Local;',
@@ -195,13 +205,14 @@ test('singleton provider source changes fail full reproduction',()=>fixture({},(
   assert.equal(packet.semantic_closure.rows[0].disposition,'singleton_wildcard');
 })));
 
-test('producer digest includes v2 helper while v1 bytes remain frozen',async()=>{
+test('producer digest includes v3 helper while v1/v2 bytes remain frozen',async()=>{
   assert.equal(schema.hash(readFileSync(path.join(implementation,'semantic-closure.mjs'))),
     '1ac30091a62bc03e267f3ff55c906a5e26db06dfc937752dfcabf6bbeb20e4b4');
   const root=mkdtempSync(path.join(tmpdir(),'prism-s8-digest-'));
   try {
     const copied=path.join(root,'implementation');cpSync(implementation,copied,{recursive:true});
-    appendFileSync(path.join(copied,'semantic-closure-v2.mjs'),'\n// digest mutation\n');
+    assert.equal(schema.hash(readFileSync(path.join(implementation,'semantic-closure-v2.mjs'))),'82c55f11d4e0a6e10a5ae7ca0fc379a1177c75f00995a04eed9b42a3685e651c');
+    appendFileSync(path.join(copied,'semantic-closure-v3.mjs'),'\n// digest mutation\n');
     const changed=await import(pathToFileURL(path.join(copied,'index.mjs')).href+'?s8-digest');
     assert.notEqual(changed.producerHash(),candidate.producerHash());
   } finally {rmSync(root,{recursive:true,force:true});}
