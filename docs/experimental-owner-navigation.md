@@ -5,6 +5,10 @@ receiver described in the [proof contract](superpowers/specs/2026-09-09-callable
 It does not establish the runtime object's identity, override behavior, or general
 React.FC support. Ordinary navigation, review and targets remain unchanged.
 
+The [real-repository value checkpoint](eval/receiver-closure/2026-09-09-owner-value-checkpoint.md)
+found both approved real roots refused before compiler acquisition. Synthetic
+support is measured; practical real-receiver gain is not yet established.
+
 Use a trusted Node executable on PATH and an explicitly selected, already-present
 TypeScript 5.9.3 `lib/typescript.js`. Its required SHA256 is
 `3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675`.

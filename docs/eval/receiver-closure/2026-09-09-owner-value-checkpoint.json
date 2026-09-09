@@ -1,0 +1,539 @@
+{
+  "schema": "prism.owner-value-checkpoint/1",
+  "identity": {
+    "base": "0807d7dee826fbcbdcab1fbae9dea40633c718d3",
+    "node": "v26.0.0",
+    "node_sha256": "08dad0581f00a0cabf4d49ec92ca1f25fdfd01c2c18fa8e92b35f04d4c24c164",
+    "compiler_sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675",
+    "cli_sha256": "33288888236c9037b316fa67d011280b24f2c2111d684c39546cb1c0a323b750",
+    "mcp_sha256": "e955d37f026a6936c7a0c35d39b5e20d2034206e21633678e790f89d50882f69",
+    "fixture_sha256": "a0ab36edb42bb12c5f060d734a857909e73d01947c788959b2241a525596451e"
+  },
+  "summary": {
+    "fixture_cases": 27,
+    "acquired": 20,
+    "refused": 7,
+    "new_owner_edges": 2,
+    "unchanged_acquired": 18,
+    "timings": {
+      "cli_default": {
+        "n": 5,
+        "samples_ms": [
+          38.991833,
+          39.03783299999998,
+          39.345666000000165,
+          38.66562500000009,
+          39.12641699999995
+        ],
+        "min_ms": 38.66562500000009,
+        "median_ms": 39.03783299999998,
+        "max_ms": 39.345666000000165
+      },
+      "cli_owner": {
+        "n": 5,
+        "samples_ms": [
+          550.748625,
+          565.5829580000001,
+          573.438167,
+          563.7328339999999,
+          558.826708
+        ],
+        "min_ms": 550.748625,
+        "median_ms": 563.7328339999999,
+        "max_ms": 573.438167
+      },
+      "mcp_default": {
+        "startup_ms": 39.30249999999978,
+        "calls": {
+          "n": 5,
+          "samples_ms": [
+            0.17783299999973678,
+            0.08216600000014296,
+            0.08170900000004622,
+            0.06758399999989706,
+            0.06916700000010678
+          ],
+          "min_ms": 0.06758399999989706,
+          "median_ms": 0.08170900000004622,
+          "max_ms": 0.17783299999973678
+        }
+      },
+      "mcp_owner": {
+        "startup_ms": 552.9797080000003,
+        "calls": {
+          "n": 5,
+          "samples_ms": [
+            519.7309999999998,
+            515.4989999999998,
+            526.7592079999995,
+            523.7089580000002,
+            520.4175840000007
+          ],
+          "min_ms": 515.4989999999998,
+          "median_ms": 520.4175840000007,
+          "max_ms": 526.7592079999995
+        }
+      }
+    }
+  },
+  "publicSource": {
+    "commit": "0642e72cfa2d9a71198200e52f37399384610ee3",
+    "tracked_files": 1229,
+    "tracked_sha256": "aec9b0ce8eaff24449ff51fa5132899e858759dccf728016b05f1017118c4b54",
+    "config_sha256": "4f3289effdd213d3c0c8fa290645308157f8418aafc0c2cb4a3c459102d54cf6",
+    "counts": {
+      "files": 59799,
+      "dirs": 9058,
+      "bytes": 830105343,
+      "links": 249,
+      "special": 0
+    }
+  },
+  "census": {
+    "count": 628,
+    "bytes": 6928124,
+    "languages": {
+      "JavaScript": 26,
+      "Tsx": 290,
+      "TypeScript": 312
+    },
+    "type_db": false
+  },
+  "realCli": [
+    156.637334,
+    142.429167,
+    149.44045800000004
+  ],
+  "realMcp": 537.1511249999999,
+  "cases": [
+    {
+      "id": "candidate",
+      "acquisition_refusal": null,
+      "default_exact": [],
+      "owner_exact": [
+        {
+          "file": "src/client.ts",
+          "name": "m",
+          "kinds": [
+            "contextual_owner"
+          ]
+        }
+      ],
+      "detached_candidates": 1,
+      "detached_refusals": [],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "different_genuine_input",
+      "acquisition_refusal": null,
+      "default_exact": [],
+      "owner_exact": [
+        {
+          "file": "src/client.ts",
+          "name": "m",
+          "kinds": [
+            "contextual_owner"
+          ]
+        }
+      ],
+      "detached_candidates": 1,
+      "detached_refusals": [],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "inline_signature_control",
+      "acquisition_refusal": null,
+      "default_exact": [
+        {
+          "file": "src/client.ts",
+          "name": "m",
+          "kinds": [
+            "typed_param"
+          ]
+        }
+      ],
+      "owner_exact": [
+        {
+          "file": "src/client.ts",
+          "name": "m",
+          "kinds": [
+            "typed_param"
+          ]
+        }
+      ],
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "callable"
+      ],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "explicit_parameter_control",
+      "acquisition_refusal": null,
+      "default_exact": [
+        {
+          "file": "src/app.ts",
+          "name": "m",
+          "kinds": [
+            "typed_param"
+          ]
+        }
+      ],
+      "owner_exact": [
+        {
+          "file": "src/app.ts",
+          "name": "m",
+          "kinds": [
+            "typed_param"
+          ]
+        }
+      ],
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "implementation"
+      ],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "explicit_any",
+      "acquisition_refusal": null,
+      "default_exact": [],
+      "owner_exact": [],
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "implementation"
+      ],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "optional_property",
+      "acquisition_refusal": null,
+      "default_exact": [],
+      "owner_exact": [],
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "direct_call"
+      ],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "union_property",
+      "acquisition_refusal": null,
+      "default_exact": [],
+      "owner_exact": [],
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "property"
+      ],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "structural_property",
+      "acquisition_refusal": null,
+      "default_exact": [],
+      "owner_exact": [],
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "class"
+      ],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "ambient_class",
+      "acquisition_refusal": null,
+      "default_exact": [],
+      "owner_exact": [],
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "indexed_effect"
+      ],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "inherited_method",
+      "acquisition_refusal": null,
+      "default_exact": [],
+      "owner_exact": [],
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "class"
+      ],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "generic_class",
+      "acquisition_refusal": null,
+      "default_exact": [],
+      "owner_exact": [],
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "class"
+      ],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "static_receiver",
+      "acquisition_refusal": null,
+      "default_exact": [],
+      "owner_exact": [],
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "property"
+      ],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "overloaded_method",
+      "acquisition_refusal": null,
+      "default_exact": [],
+      "owner_exact": [],
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "member"
+      ],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "arrow_field",
+      "acquisition_refusal": null,
+      "default_exact": [],
+      "owner_exact": [],
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "member"
+      ],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "duplicate_method",
+      "acquisition_refusal": "semantic_closure",
+      "default_exact": [],
+      "owner_exact": null,
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "member"
+      ],
+      "semantic_complete": false,
+      "semantic_reasons": [
+        "compiler_diagnostics"
+      ]
+    },
+    {
+      "id": "receiver_reassigned",
+      "acquisition_refusal": null,
+      "default_exact": [],
+      "owner_exact": [],
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "direct_body"
+      ],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "member_written",
+      "acquisition_refusal": null,
+      "default_exact": [],
+      "owner_exact": [],
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "direct_body"
+      ],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "opaque_escape",
+      "acquisition_refusal": null,
+      "default_exact": [
+        {
+          "file": "src/app.ts",
+          "name": "opaque",
+          "kinds": [
+            "local_def"
+          ]
+        }
+      ],
+      "owner_exact": [
+        {
+          "file": "src/app.ts",
+          "name": "opaque",
+          "kinds": [
+            "local_def"
+          ]
+        }
+      ],
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "direct_body"
+      ],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "prototype_effect",
+      "acquisition_refusal": null,
+      "default_exact": [],
+      "owner_exact": [],
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "indexed_effect"
+      ],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "out_of_program_effect",
+      "acquisition_refusal": "input_set",
+      "default_exact": [],
+      "owner_exact": null,
+      "detached_candidates": 1,
+      "detached_refusals": [],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "augmentation",
+      "acquisition_refusal": null,
+      "default_exact": [],
+      "owner_exact": [],
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "indexed_effect"
+      ],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "unrelated_missing_module",
+      "acquisition_refusal": "semantic_closure",
+      "default_exact": [],
+      "owner_exact": null,
+      "detached_candidates": 1,
+      "detached_refusals": [],
+      "semantic_complete": false,
+      "semantic_reasons": [
+        "compiler_diagnostics",
+        "resolution_unproven"
+      ]
+    },
+    {
+      "id": "unresolved_react_scripts",
+      "acquisition_refusal": "semantic_closure",
+      "default_exact": [],
+      "owner_exact": null,
+      "detached_candidates": 1,
+      "detached_refusals": [],
+      "semantic_complete": false,
+      "semantic_reasons": [
+        "compiler_diagnostics",
+        "type_lib_unproven",
+        "boundary_encounter"
+      ]
+    },
+    {
+      "id": "missing_path_skip_lib_check",
+      "acquisition_refusal": "semantic_closure",
+      "default_exact": [],
+      "owner_exact": null,
+      "detached_candidates": 1,
+      "detached_refusals": [],
+      "semantic_complete": false,
+      "semantic_reasons": [
+        "required_path_unproven"
+      ]
+    },
+    {
+      "id": "automatic_types_unknown",
+      "acquisition_refusal": "semantic_closure",
+      "default_exact": [],
+      "owner_exact": null,
+      "detached_candidates": 1,
+      "detached_refusals": [],
+      "semantic_complete": false,
+      "semantic_reasons": [
+        "entry_obligations_incomplete",
+        "boundary_encounter"
+      ]
+    },
+    {
+      "id": "nested_shadow",
+      "acquisition_refusal": null,
+      "default_exact": [],
+      "owner_exact": [],
+      "detached_candidates": 0,
+      "detached_refusals": [
+        "direct_body"
+      ],
+      "semantic_complete": true,
+      "semantic_reasons": []
+    },
+    {
+      "id": "no_resolve",
+      "acquisition_refusal": "semantic_closure",
+      "default_exact": [],
+      "owner_exact": null,
+      "detached_candidates": 1,
+      "detached_refusals": [],
+      "semantic_complete": false,
+      "semantic_reasons": [
+        "no_resolve"
+      ]
+    }
+  ],
+  "scope": "Measurement only: unchanged merged PR298 executable source; no real receiver recall denominator",
+  "real_admission": {
+    "repositories": 2,
+    "acquired": 0,
+    "compiler_closure_reached": 0,
+    "receiver_recall": null,
+    "public_first_refusal": "input_budget",
+    "private_first_refusal": "owner_requires_js_ts_only",
+    "cli_repetitions_per_root": 3,
+    "eager_mcp_startups_per_root": 1,
+    "private_raw_evidence_published": false
+  },
+  "verification": {
+    "artifact_tests": {
+      "passed": 35,
+      "failed": 0,
+      "skipped": 0
+    },
+    "source_preserved": true,
+    "full_project_suites": "not rerun: documentation/measurement only",
+    "tier_a": "not triggered; no accuracy baseline or production source changes",
+    "review": "two self-review rounds; not independent"
+  },
+  "limits_unchanged": {
+    "input_files": 512,
+    "input_bytes": 8388608,
+    "profile": "default",
+    "links": "reject",
+    "react_scripts": "unresolved",
+    "closure_expansion": false,
+    "react_fc_expansion": false,
+    "dependency_installation": false
+  },
+  "recommendation": "Bounded non-authorizing admission diagnostics before packaging or broader activation; do not relax gates.",
+  "evidence": {
+    "local_root": "/private/tmp/prism-owner-value-0gAYyh",
+    "archive": "/private/tmp/prism-owner-value-0gAYyh-evidence-private.tgz",
+    "archive_sha256": "73535191ba874b4f1b2ccfd93c0dfdbc1f0901cf6b8796d952a0b30259beb749",
+    "private_archive": true,
+    "raw_evidence_uploaded": false
+  }
+}

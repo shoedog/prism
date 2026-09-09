@@ -1,5 +1,9 @@
 # Handoff — bounded owner opt-in activation
 
+Superseded publication state: PR298 merged as `0807d7de` on 2026-09-09.
+The owner approved the [real-repository value checkpoint](2026-09-09-owner-value-checkpoint.md).
+The remaining text records the pre-merge handoff, not current PR status.
+
 **Written:** 2026-09-09 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · feat/owner-opt-in-activation · **Measured state:** `[MEASURED]` tested clean ffc974711cf4a851c614a7af461e73ec8d010919. Rust4030/MCP4221/audit4243 passed; observer694, corrected helpers18, authority40; Python883 with2 explicit skips. Tier-A quick INVALID baseline; matched compatibility controls pass. Code/verification receipts pushed; PR298 opened. Later commits are documentation only.
 **Predecessor:** PR297 owner integration lifecycle, merged.
