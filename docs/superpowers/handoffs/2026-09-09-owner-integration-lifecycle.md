@@ -1,5 +1,9 @@
 # Handoff — disabled owner integration core
 
+Current successor: PR297 merged as a120220f. Owner subsequently authorized the
+[bounded opt-in activation lane](2026-09-09-owner-opt-in-activation.md). The states
+below are historical PR297 receipts, not claims that activation remains unauthorized.
+
 **Written:** 2026-09-09 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · feat/owner-integration-lifecycle · **Measured state:** `[MEASURED]` matched controls at997b39d support review readiness; PR297 marked ready. Original quick remains INVALID as a baseline. This turn changes documentation/receipts only; prior full Rust totals below are inherited, not rerun. New evidence `/private/tmp/prism-tier-a-297-dSTyZl`.
 **Predecessor:** PR296 detached constructor.

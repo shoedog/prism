@@ -47,7 +47,7 @@ pub mod cpg;
 pub mod cpg_cache;
 pub mod data_flow;
 pub mod diff;
-#[allow(dead_code)] // Detached constructor; no production consumer in this slice.
+#[allow(dead_code)] // Retain private full/subset audit seams beside selected activation.
 mod executable_owner;
 pub mod finding_confidence;
 pub mod framework_entries;

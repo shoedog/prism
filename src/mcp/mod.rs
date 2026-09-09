@@ -5,6 +5,7 @@ pub mod freshness;
 pub mod input;
 pub mod lazy;
 pub mod output;
+mod owner;
 pub mod registry;
 pub mod session;
 pub mod tools;
@@ -30,4 +31,11 @@ pub fn run(cfg: ServerConfig) -> anyhow::Result<()> {
             transport::serve_stdio_runtime(&mut p, &r)
         }
     }
+}
+
+/// Experimental eager, cache-free navigation. Reacquires before every tool call;
+/// ordinary lazy/refresh-policy behavior is intentionally not activated here.
+pub fn run_with_owner(cfg: ServerConfig, owner: crate::api::OwnerOptions) -> anyhow::Result<()> {
+    let mut runtime = owner::OwnerRuntime::new(cfg, owner)?;
+    transport::serve_stdio_runtime(&mut runtime, &registry::ToolRegistry::all_v1())
 }

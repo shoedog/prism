@@ -1,4 +1,4 @@
-//! Detached, opt-in proof construction. No resolver or persisted graph consumer.
+//! Private epoch-bound proof construction; explicit cache-free activation only.
 use crate::{
     ast::ParsedFile,
     call_graph::{CallGraph, FunctionId},
@@ -102,7 +102,7 @@ fn ensure(condition: bool, reason: &str) -> Result<()> {
 fn hash(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
-fn relative(file: &str) -> bool {
+pub(crate) fn relative(file: &str) -> bool {
     !file.is_empty()
         && !file.contains(['\\', ':', '\0'])
         && file

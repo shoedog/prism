@@ -368,8 +368,35 @@ pub enum Command {
     Targets(TargetsArgs),
 }
 
+/// Experimental source-checkout-bound owner input selection, shared by both CLIs.
+#[derive(clap::Args, Debug, Default)]
+pub struct OwnerArgs {
+    /// Explicit pinned TypeScript 5.9.3 typescript.js path; no discovery or install.
+    #[arg(long, requires_all = ["owner_config", "no_cache"], conflicts_with = "cache_dir")]
+    pub owner_compiler: Option<PathBuf>,
+    /// Repository-relative tsconfig path for experimental owner proofs.
+    #[arg(long, requires = "owner_compiler")]
+    pub owner_config: Option<String>,
+}
+
+impl OwnerArgs {
+    pub fn options(&self) -> anyhow::Result<Option<crate::api::OwnerOptions>> {
+        match (&self.owner_compiler, &self.owner_config) {
+            (None, None) => Ok(None),
+            (Some(compiler), Some(config)) => {
+                let options = crate::api::OwnerOptions::new(compiler.clone(), config.clone());
+                options.validate()?;
+                Ok(Some(options))
+            }
+            _ => anyhow::bail!("owner compiler and config must be supplied together"),
+        }
+    }
+}
+
 #[derive(clap::Args, Debug)]
 pub struct NavArgs {
+    #[command(flatten)]
+    pub owner: OwnerArgs,
     /// Ignore the whole-repo navigation cache and force a full CPG rebuild.
     #[arg(long, conflicts_with = "cache_dir")]
     pub no_cache: bool,
@@ -550,5 +577,59 @@ mod tests {
         assert!(parse_diagram_cap("abc").is_err());
         assert!(parse_diagram_cap("-1").is_err());
         assert!(parse_diagram_cap("").is_err());
+    }
+
+    #[test]
+    fn owner_cli_requires_paired_inputs_and_explicit_cache_bypass() {
+        use clap::Parser;
+        let query = ["callees", "--repo", ".", "--symbol", "run"];
+        for flags in [
+            vec!["--owner-config", "tsconfig.json"],
+            vec!["--owner-compiler", "/compiler.js"],
+            vec![
+                "--owner-compiler",
+                "/compiler.js",
+                "--owner-config",
+                "tsconfig.json",
+            ],
+            vec![
+                "--no-cache",
+                "--cache-dir",
+                "/cache",
+                "--owner-compiler",
+                "/compiler.js",
+                "--owner-config",
+                "tsconfig.json",
+            ],
+        ] {
+            assert!(
+                Cli::try_parse_from(["prism", "nav"].into_iter().chain(flags).chain(query))
+                    .is_err()
+            );
+        }
+        let cli = Cli::try_parse_from(
+            [
+                "prism",
+                "nav",
+                "--no-cache",
+                "--owner-compiler",
+                "/compiler.js",
+                "--owner-config",
+                "tsconfig.json",
+            ]
+            .into_iter()
+            .chain(query),
+        )
+        .unwrap();
+        let Some(Command::Nav(nav)) = cli.command else {
+            panic!("nav");
+        };
+        assert!(nav.owner.options().unwrap().is_some());
+        assert!(OwnerArgs::default().options().unwrap().is_none());
+        let incomplete = OwnerArgs {
+            owner_config: Some("tsconfig.json".into()),
+            ..Default::default()
+        };
+        assert!(incomplete.options().is_err());
     }
 }
