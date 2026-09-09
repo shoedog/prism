@@ -118,6 +118,11 @@ the executable fixture evidence. No complete type-resolved blast-radius claim.
 
 ## Recommendation
 
+Update after PR295 merged: the owner approved this recommendation and the
+[detached constructor](2026-09-09-detached-owner-constructor.md) now implements
+that checkpoint. The following recommendation is retained as historical context;
+production integration/lifecycle remains the next separate boundary.
+
 Proceed next, if approved, to the detached constructor and new direct compiler facts,
 without production wiring. Require per-predicate negatives and genuine-epoch custody
 tests before accepting it. Then decide the public integration/lifecycle checkpoint.

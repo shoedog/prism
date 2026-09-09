@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "base": "4e88d33bc02ceb576fe5ab1b936d3441b3565274",
+  "tested_head": "347981867849644cf00d7e210064e564356ee50c",
+  "clean_before_and_after": true,
+  "evidence_root": "/private/tmp/prism-detached-owner-5hHiNu",
+  "first_clean_gate_head": "d0a1ce9dea2721ee505fd8be9e9bd4e8385ceeff",
+  "gates": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline"
+      ],
+      "groups": 28,
+      "passed": 4025,
+      "failed": 0,
+      "ignored": [
+        "resolution_test::slice_elem_variant_reserved"
+      ],
+      "filtered_out": 0,
+      "doctests": true,
+      "artifact": {
+        "file": "final-default.log",
+        "sha256": "0a8f3877cc701c7aa1661f8075f0640bedfb6ef8af212fd3d369d077f21211dd"
+      }
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--features",
+        "mcp"
+      ],
+      "groups": 30,
+      "passed": 4215,
+      "failed": 0,
+      "ignored": [
+        "resolution_test::slice_elem_variant_reserved"
+      ],
+      "filtered_out": 0,
+      "doctests": true,
+      "artifact": {
+        "file": "final-mcp.log",
+        "sha256": "0668c63c06a15bc6deae58ba83d1a7c369694110bdcafe69bf38d86a807817a8"
+      }
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--features",
+        "mcp detached-owner-audit"
+      ],
+      "groups": 30,
+      "passed": 4221,
+      "failed": 0,
+      "ignored": [
+        "resolution_test::slice_elem_variant_reserved"
+      ],
+      "filtered_out": 0,
+      "doctests": true,
+      "artifact": {
+        "file": "final-mcp-owner-audit.log",
+        "sha256": "b80ea68b9412c25e905630b56f96b232d4342eb0b5d8772415e9932779aa1c03"
+      }
+    },
+    {
+      "label": "observer",
+      "tests": 694,
+      "pass": 694,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "todo": 0,
+      "artifact": {
+        "file": "final-observer.log",
+        "sha256": "21acc90c5ffd3a006417626216cbcb53978d899531ebccb4da03e3e1a4751d6f"
+      }
+    },
+    {
+      "label": "helpers",
+      "tests": 18,
+      "pass": 18,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "todo": 0,
+      "artifact": {
+        "file": "final-helpers-corrected.log",
+        "sha256": "f4df42bf407c895e118b01ae88daca5bc2fa4311e55964f815ade9522edf0ed2"
+      }
+    },
+    {
+      "label": "authority",
+      "results": 40,
+      "failures": [],
+      "artifact": {
+        "file": "final-authority.json",
+        "sha256": "8746d8f89c3efa5029869de3c0d1d0297f2499da22e20d02b922bc6576a9b57f"
+      }
+    },
+    {
+      "label": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--all-targets",
+        "--features",
+        "mcp detached-owner-audit",
+        "--",
+        "-W",
+        "clippy::all"
+      ],
+      "note": "exit 0 confirmed by process completion; warnings remain in unchanged repository files; no warning-free claim",
+      "artifact": {
+        "file": "final-clippy.log",
+        "sha256": "aa58db049edcadebab6567c9e312eaec16d919adc5157df19d0fb942c5c90d00"
+      }
+    }
+  ],
+  "compiler_sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675",
+  "producer_base": "32ae5bc44000af31bb7cd5994a14de5700bafb02a1089f3ac16a79687e40f88d",
+  "producer_current": "cfbaacfa426606f0d308b71db21c3e9d98f5e00218c825687bd68a298042ee1d",
+  "observer_parity": {
+    "cases": 54,
+    "only_difference": "producer.sha256",
+    "failures": [],
+    "artifact": {
+      "file": "base-observer-parity.json",
+      "sha256": "a264e0ff51c4c2b69968f9f7fcbc1f5e73b2b0a366f8d959acdd69b7593104d3"
+    }
+  },
+  "red": [
+    {
+      "kind": "base-plus-fail-closed-test-seam",
+      "result": "0 passed / 1 failed at genuine A acquisition; base has no constructor API; overwritten scaffold source not separately archived",
+      "artifact": {
+        "file": "scaffold-red.log",
+        "sha256": "b765d880eab955ff6312825782c60f96df156b5d9f0fd72e92857714f594d659"
+      }
+    },
+    {
+      "kind": "actual-pre-fix-constructor",
+      "result": "0 passed / 1 failed: omitted extra Prism-indexed file accepted; actual loader census fixes it",
+      "artifact": {
+        "file": "omitted-index-red.log",
+        "sha256": "361abec301c66c8d13b38baf2b6e1d9e3f09d696f123f91b9af5bce7e079565e"
+      }
+    }
+  ],
+  "focused": {
+    "rust": 13,
+    "compiler": 103,
+    "notes": "included in full gates, not added again to totals"
+  },
+  "setup_failure": {
+    "admissible": false,
+    "reason": "manual helper rerun omitted required compiler/profile environment; 14 passed / 2 setup failures; unchanged helpers passed with complete environment before and after",
+    "artifact": {
+      "file": "final-helpers.log",
+      "sha256": "f59bb3e149ad3883c0837b48b81e443d04de7b4f53351e56ba05ef771fba9338"
+    }
+  },
+  "review": {
+    "round_cap": 2,
+    "rounds": 2,
+    "independent": false,
+    "wrong_found": 1,
+    "wrong_open": 0,
+    "fix": "actual Prism loader census, captured failing omitted-map regression"
+  },
+  "exclusions": [
+    "one existing ignored test per Rust run",
+    "Tier-A not triggered: no resolver/navigation/CPG/AST production change",
+    "no served resolver/CPG/cache lifecycle or real-corpus recall verification"
+  ],
+  "closure_policy": "unchanged; fixed merged-side-effect-v3",
+  "react_scripts": "intentionally unresolved; no installation",
+  "production_edges_added": 0,
+  "cpg_cache_version": 77,
+  "navigation_cache_version": 45,
+  "artifact_notes": "Later documentation/receipt closeout does not claim another full-suite run. All process exit statuses separately confirmed; fmt/diff checked at closeout.",
+  "pr": "https://github.com/shoedog/prism/pull/296",
+  "archive": {
+    "path": "/private/tmp/prism-detached-owner-5hHiNu-evidence.tgz",
+    "sha256": "f6e2102af53b3fec8110ed2b062d2318cb2fde98db430b4145eccb9243ea87aa"
+  }
+}

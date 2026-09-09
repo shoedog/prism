@@ -2,6 +2,7 @@
 import {readFileSync} from "node:fs";
 import {createRequire} from "node:module";
 import path from "node:path";
+import {fileURLToPath} from "node:url";
 import {COMPILER_HASH,hash,canonical} from "./schema.mjs";
 import {emptyPacket} from "./index.mjs";
 import {traceProvenance} from "./provenance.mjs";
@@ -19,9 +20,10 @@ import {createConfigCapture,observeConfigProvenance} from "./config-provenance.m
 import {classifyEntryObligations} from "./entry-obligations.mjs";
 import {classifySemanticClosureV3} from "./semantic-closure-v3.mjs";
 
-const options=JSON.parse(readFileSync(0,"utf8"));
 const fail=reason=>{throw Error(reason);};
-function build() {
+// Internal trusted-code hook, never selected by packet/config data. The default
+// worker does not inspect executable ownership or add fields to schema20.
+export function build(options, inspectProgram=()=>{}) {
   const first=snapshot(options);
   const compilerId="compiler/"+path.basename(options.compiler);
   if(hash(first.read(compilerId)??"")!==COMPILER_HASH) fail("compiler_mismatch");
@@ -198,6 +200,7 @@ function build() {
     }
     visit(sf);
   }
+  inspectProgram({ts,program,checker,anchor});
   observeExactAmbient(ts,program,checker,lookupRequests,anchor,anchorInSource);
   // The observer owns source anchoring. Reuse that exact request anchor here.
   for(const record of lookupRequests)search.request({id:record.id,from:record.resolution.from,specifier:record.resolution.specifier,
@@ -281,8 +284,11 @@ function build() {
     resolutions:packet.resolutions});
   return packet;
 }
-try {console.log(JSON.stringify(build()));}
-catch(error) {
-  const reason=["budget_exceeded","unsupported_input","compiler_mismatch","unstable_snapshot"].includes(error.message)?error.message:"worker_failed";
-  console.log(JSON.stringify(emptyPacket(options,reason)));
+if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
+  const options=JSON.parse(readFileSync(0,"utf8"));
+  try {console.log(JSON.stringify(build(options)));}
+  catch(error) {
+    const reason=["budget_exceeded","unsupported_input","compiler_mismatch","unstable_snapshot"].includes(error.message)?error.message:"worker_failed";
+    console.log(JSON.stringify(emptyPacket(options,reason)));
+  }
 }
