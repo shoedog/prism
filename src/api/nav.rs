@@ -9,9 +9,19 @@ use std::sync::Arc;
 pub struct NavOptions {
     pub no_cache: bool,
     pub cache_dir: Option<PathBuf>,
+    pub owner: Option<super::OwnerOptions>,
 }
 
 pub fn nav_session(repo: &Path, opts: &NavOptions) -> Result<NavigationSession> {
+    if let Some(owner) = &opts.owner {
+        anyhow::ensure!(
+            opts.no_cache && opts.cache_dir.is_none(),
+            "owner activation requires --no-cache and no cache directory"
+        );
+        let mut active = None;
+        owner.replace(&mut active, repo)?;
+        return active.ok_or_else(|| anyhow::anyhow!("owner session was not published"));
+    }
     crate::build_pool::install(|| {
         let repo = Arc::new(crate::repo_loader::load_repo(repo)?);
         let index = if opts.no_cache {

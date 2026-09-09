@@ -23,6 +23,7 @@ mod imported_props_identity_audit_test;
 mod inline_prop_receiver_test;
 mod js_export_reexport_test;
 mod js_export_test;
+mod owner_activation_test;
 mod r6_candidate_test;
 mod resolution_test;
 mod scoped_cpg_test;

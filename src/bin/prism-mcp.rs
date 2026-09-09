@@ -1,5 +1,7 @@
 #[derive(clap::Parser)]
 struct Cli {
+    #[command(flatten)]
+    owner: prism::cli::OwnerArgs,
     #[arg(long)]
     repo: std::path::PathBuf,
     #[arg(long, conflicts_with = "cache_dir")]
@@ -38,5 +40,8 @@ fn main() -> anyhow::Result<()> {
         prism::mcp::StartupMode::Lazy
     };
     cfg.first_call_wait = std::time::Duration::from_secs(c.first_call_wait);
-    prism::mcp::run(cfg)
+    match c.owner.options()? {
+        Some(owner) => prism::mcp::run_with_owner(cfg, owner),
+        None => prism::mcp::run(cfg),
+    }
 }

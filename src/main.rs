@@ -54,6 +54,7 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
     let mut nav_options = prism::api::NavOptions::default();
     nav_options.no_cache = nav.no_cache;
     nav_options.cache_dir = nav.cache_dir.clone();
+    nav_options.owner = nav.owner.options()?;
     match &nav.query {
         NavQuery::NodesAt {
             repo,

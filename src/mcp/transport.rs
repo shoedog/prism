@@ -1007,3 +1007,7 @@ impl Transport for InMemoryTransport {
 #[cfg(test)]
 #[path = "transport_tests.rs"]
 mod tests;
+
+#[cfg(all(test, feature = "detached-owner-audit"))]
+#[path = "owner_transport_tests.rs"]
+mod owner_tests;

@@ -1,4 +1,4 @@
-//! Disabled staging seam: no CLI/MCP or public constructor calls this module.
+//! Same-epoch graph integration and cache-free session construction.
 use super::*;
 use crate::call_graph::CallSite;
 
@@ -114,16 +114,42 @@ pub(crate) fn staged_subset(
     Ok(graph)
 }
 
-/// Disabled staging entry. No CLI/MCP/public API calls it. Never load a cache,
-/// never carry a previous CPG/DFG forward, and clear the active slot on failure.
+/// Internal staging entry, retaining the original mixed-input test seam.
 pub(crate) fn replace_session(
     active: &mut Option<crate::navigation::NavigationSession>,
     root: &Path,
     config: &str,
     compiler: &Path,
 ) -> Result<()> {
+    replace_session_impl(active, root, config, compiler, false)
+}
+
+/// Selected public route: only JS/TS inputs until mixed-language type enrichment
+/// has its own proof. Do not drop files to make the input census agree.
+pub(crate) fn replace_selected_session(
+    active: &mut Option<crate::navigation::NavigationSession>,
+    root: &Path,
+    config: &str,
+    compiler: &Path,
+) -> Result<()> {
+    replace_session_impl(active, root, config, compiler, true)
+}
+
+fn replace_session_impl(
+    active: &mut Option<crate::navigation::NavigationSession>,
+    root: &Path,
+    config: &str,
+    compiler: &Path,
+    selected: bool,
+) -> Result<()> {
     *active = None;
     let mut repo = crate::repo_loader::load_repo(root).map_err(|_| "index_unavailable")?;
+    if selected {
+        ensure(
+            repo.type_db.is_none() && repo.files.values().all(|f| js(f.language)),
+            "owner_requires_js_ts_only",
+        )?;
+    }
     let epoch = AuthenticatedProgramEpoch::acquire(root, config, compiler, repo.files.clone())?;
     repo.files.extend(epoch.0._files.clone());
     let index = crate::build_pool::install(|| -> Result<_> {
