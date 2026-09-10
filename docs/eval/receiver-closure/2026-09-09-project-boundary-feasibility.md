@@ -1,5 +1,7 @@
 # Complete project-boundary feasibility
 
+Published as [PR302](https://github.com/shoedog/prism/pull/302).
+
 Base: PR301 merge `5adf0394`. This is a source-backed design checkpoint, not
 production wiring or a real-receiver recall result. The
 [receipt](2026-09-09-project-boundary-feasibility.json) records fresh counts and

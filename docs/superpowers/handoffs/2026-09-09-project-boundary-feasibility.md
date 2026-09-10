@@ -10,8 +10,10 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Ownership RESOLVED: primary owns lane; no delegates dispatched.
-(b) Custody RESOLVED: real-root before/after exact equality; evidence archived below.
-(c) In flight: commit/push/PR; measurements and artifact verification complete.
+(b) Custody RESOLVED: audit/spec06083ba2 committed and pushed; evidence archived below.
+PR302 opened: https://github.com/shoedog/prism/pull/302. Publication-only follow-up
+records this state without changing measurements or production source.
+(c) In flight: exact-head remote CI pending, not green; local verification complete.
 (d) Authority: “merged - proceed to next”; bounded source-backed feasibility/design.
 No installs, root pruning, config rewrites, new admission, live models or policy changes.
 
@@ -20,7 +22,7 @@ No installs, root pruning, config rewrites, new admission, live models or policy
 1. `git status --short --branch`; read adjacent feasibility plan.
 2. Inspect private evidence before/after ledgers and compiler/native reports below.
 3. Read the completed [readout](../../eval/receiver-closure/2026-09-09-project-boundary-feasibility.md)
-   and receipt. Finish publication after final artifact check. No automatic merge.
+   and receipt. Owner review/merge next; verify exact-head CI. No automatic merge.
 
 STOP on real-source changes, missing dependencies requiring installation, or
 unbounded review findings. Options requiring new authority stay recommendations.
@@ -38,7 +40,7 @@ unbounded review findings. Options requiring new authority stay recommendations.
 | Observer verification | done | 694 passed, no skips; initial omitted-profile setup failure retained |
 | Artifact verification | done | 16 passed, no skips; local receipt-tampering controls, not future production fixtures |
 | Review | done | two rounds: set/authority reconciliation, then disclosure/privacy/negative artifact checks; SELF-PASS |
-| Publication | next | docs-only after artifact gates |
+| Publication | done | PR302, pushed06083ba2 plus publication-only follow-up |
 
 ## 3. Corrections to standing documents and memory
 
