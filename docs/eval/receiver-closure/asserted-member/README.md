@@ -84,7 +84,10 @@ refusal of new normalization is not deletion of runtime uses.
 Assignment-RHS/call-argument contexts, same-line duplicates, asserted LHS, erased-only
 outer contexts, shadow/write sequences, non-TS controls and interprocedural binding
 are covered by the bounded repair's Rust regressions; this compiler matrix remains
-return-focused. The separate TS parameter-definition defect remains unresolved:
-CPG argument tests use real JavaScript callees. No real receiver population/recall,
+return-focused. PR308's CPG argument fixtures retain real JavaScript callees to
+isolate assertion behavior. The [required-parameter successor](../2026-09-10-typescript-required-parameter-occurrences.md)
+repairs required TS/TSX identifier definitions and tests real TS/TSX callees
+separately; optional/default/pattern forms remain outside that repair.
+No real receiver population/recall,
 taint reachability or closure
 completeness claim follows. React.FC and unresolved react-scripts decisions stand.

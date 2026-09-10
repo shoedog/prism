@@ -1,0 +1,575 @@
+{
+  "schema": "prism.required-parameter-occurrences-verification/1",
+  "base": "f369f20cdcd3463bae86b191bcdd8ec9efd8f6fd",
+  "reviewedTestedProductionHead": "6a53c66a99fe142f343ff6884801e26c0efa5bac",
+  "closeoutScope": "Documentation only; production and test bytes remain those of the measured checkpoint.",
+  "sourceFiles": [
+    {
+      "path": "src/ast.rs",
+      "sha256": "81d5266fcc0296411e8c88d645d23648ca3cea65c53702c41538f384ab38ba06"
+    },
+    {
+      "path": "src/ast_required_parameter_tests.rs",
+      "sha256": "1cc39f0a870507e0e8ebccccf444891b1928dfde1fd71b5ad5992245b97a2c34"
+    },
+    {
+      "path": "src/cpg.rs",
+      "sha256": "cc1e81fe72a500d4c7c6b78a1d3536bc311d892f9f1250378398223120f9bf65"
+    },
+    {
+      "path": "src/cpg/required_parameter_tests.rs",
+      "sha256": "c64447b7298075f9e16616d70ba037ae8d19654dd51d2a01d98566426ceec924"
+    },
+    {
+      "path": "src/cpg_cache.rs",
+      "sha256": "55a709a0ab215b7a74d25b91b97626b5f031db829a7aa5e34894272574e43690"
+    },
+    {
+      "path": "src/parameter_slots.rs",
+      "sha256": "ec695da301e89340ec0c8631e51aceda60969bdce492179a975b63b5e514900c"
+    }
+  ],
+  "cacheVersion": 79,
+  "scope": {
+    "newDefinitions": "TS/TSX required_parameter with direct identifier pattern and only type annotation/comments",
+    "wholeListRefusals": [
+      "recovery",
+      "duplicate bindings including unsupported patterns",
+      "escaped binding spellings"
+    ],
+    "unchanged": [
+      "positional slot algorithm",
+      "field isolation",
+      "write/shadow confidence",
+      "same-line occurrence index",
+      "React.FC",
+      "closure admission",
+      "unresolved react-scripts"
+    ],
+    "excludedForms": [
+      "optional",
+      "default",
+      "rest",
+      "destructured",
+      "decorated",
+      "parameter properties",
+      "erased this",
+      "unparenthesized arrow"
+    ]
+  },
+  "red": {
+    "passed": 3,
+    "failed": 8,
+    "sameTestBytes": true,
+    "artifact": "final-tests-base-red.log"
+  },
+  "green": {
+    "passed": 11,
+    "failed": 0,
+    "artifact": "focused-final-green.log"
+  },
+  "fullGates": {
+    "head": "6a53c66a99fe142f343ff6884801e26c0efa5bac",
+    "cleanPreflight": true,
+    "cleanPostflight": true,
+    "failure": false,
+    "results": [
+      {
+        "label": "callable-observations",
+        "status": 0,
+        "totals": {
+          "tests": 726,
+          "suites": 0,
+          "pass": 726,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "failure": null
+      },
+      {
+        "label": "cargo-test",
+        "status": 0,
+        "totals": {
+          "groups": 29,
+          "passed": 4123,
+          "failed": 0,
+          "ignored": 1,
+          "measured": 0,
+          "filteredOut": 0,
+          "ignoredTests": [
+            "resolution_test::slice_elem_variant_reserved"
+          ]
+        },
+        "failure": null
+      },
+      {
+        "label": "cargo-test-mcp",
+        "status": 0,
+        "totals": {
+          "groups": 31,
+          "passed": 4316,
+          "failed": 0,
+          "ignored": 1,
+          "measured": 0,
+          "filteredOut": 0,
+          "ignoredTests": [
+            "resolution_test::slice_elem_variant_reserved"
+          ]
+        },
+        "failure": null
+      },
+      {
+        "label": "cargo-test-owner-audit",
+        "status": 0,
+        "totals": {
+          "groups": 31,
+          "passed": 4339,
+          "failed": 0,
+          "ignored": 1,
+          "measured": 0,
+          "filteredOut": 0,
+          "ignoredTests": [
+            "resolution_test::slice_elem_variant_reserved"
+          ]
+        },
+        "failure": null
+      },
+      {
+        "label": "receiver-closure-tests",
+        "status": 0,
+        "totals": {
+          "tests": 18,
+          "suites": 0,
+          "pass": 18,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "failure": null
+      },
+      {
+        "label": "callable-authority-profiles",
+        "status": 0,
+        "totals": {
+          "results": 40,
+          "failures": []
+        },
+        "failure": null
+      },
+      {
+        "label": "cargo-fmt-check",
+        "status": 0,
+        "totals": null,
+        "failure": null
+      },
+      {
+        "label": "git-diff-check",
+        "status": 0,
+        "totals": null,
+        "failure": null
+      }
+    ]
+  },
+  "python": {
+    "passed": 940,
+    "skipped": 1,
+    "skip": "explicit PRISM_RUN_LIVE_EVALS=1 required for live adoption module"
+  },
+  "examples": {
+    "passed": 26,
+    "failed": 0
+  },
+  "clippy": "Completed with warnings; not warning-free. No attribution of all warnings to base or change.",
+  "tierA": {
+    "matrix": {
+      "passed": 159,
+      "regressions": 0
+    },
+    "quick": {
+      "status": "INVALID",
+      "meta": {
+        "baseline_invalid": true,
+        "corpus": "prism",
+        "corpus_dirty": false,
+        "corpus_dirty_reasons": [],
+        "corpus_sha": "6a53c66a99fe",
+        "date": "2026-09-10-required-parameters",
+        "harness_sha": "6a53c66a99fe",
+        "invalid_reasons": [
+          "corpus_sha_drift: 6a53c66a99fe != pinned 20c8490591a3",
+          "stratum C-method: 4/6 successful probes",
+          "stratum C-name: 4/6 successful probes",
+          "stratum U-method: 4/6 successful probes",
+          "oracle_error_rate 0.20 > 0.10"
+        ],
+        "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+        "oracle_error_rate": 0.2,
+        "oracle_not_quiescent": false,
+        "prism_dirty": false,
+        "prism_sha": "6a53c66a99fe",
+        "seed": 42,
+        "stale_adjudications": 0,
+        "sut_error_rate": 0,
+        "wall_s": {
+          "m1_oracle_inventory": 11.345,
+          "m2": 177.057,
+          "m3": 0.013,
+          "matrix": 6.789,
+          "oracle_start": 18.493,
+          "pinned": 5.836
+        }
+      },
+      "pendingCount": 30,
+      "oracleOnly": 16,
+      "prismOnly": 14,
+      "pending": [
+        {
+          "corpus": "prism",
+          "direction": "oracle_only",
+          "measurement": "callers",
+          "seed_def": "src/call_graph.rs:2197",
+          "site": "tests/ast/cpg_cache_test.rs:1391",
+          "site_fingerprint": "7ee819c81a50f34b"
+        },
+        {
+          "corpus": "prism",
+          "direction": "oracle_only",
+          "measurement": "callers",
+          "seed_def": "src/call_graph.rs:2197",
+          "site": "tests/ast/cpg_cache_test.rs:1437",
+          "site_fingerprint": "fa63983c663a829c"
+        },
+        {
+          "corpus": "prism",
+          "direction": "oracle_only",
+          "measurement": "callers",
+          "seed_def": "src/call_graph.rs:2197",
+          "site": "tests/ast/cpg_cache_test.rs:1488",
+          "site_fingerprint": "a9228fdfd9257760"
+        },
+        {
+          "corpus": "prism",
+          "direction": "oracle_only",
+          "measurement": "callers",
+          "seed_def": "src/call_graph.rs:2197",
+          "site": "tests/integration/call_graph_test.rs:1825",
+          "site_fingerprint": "702a5b100351cb26"
+        },
+        {
+          "corpus": "prism",
+          "direction": "oracle_only",
+          "measurement": "callers",
+          "seed_def": "src/call_graph.rs:2197",
+          "site": "tests/integration/import_binding_test.rs:936",
+          "site_fingerprint": "2f5037262fec47b5"
+        },
+        {
+          "corpus": "prism",
+          "direction": "oracle_only",
+          "measurement": "callers",
+          "seed_def": "src/call_graph.rs:2197",
+          "site": "tests/integration/imported_object_alias_test.rs:175",
+          "site_fingerprint": "075f2c753e860e62"
+        },
+        {
+          "corpus": "prism",
+          "direction": "oracle_only",
+          "measurement": "callers",
+          "seed_def": "src/call_graph.rs:2197",
+          "site": "tests/integration/imported_object_alias_test.rs:342",
+          "site_fingerprint": "1515476570b929e9"
+        },
+        {
+          "corpus": "prism",
+          "direction": "oracle_only",
+          "measurement": "callers",
+          "seed_def": "src/call_graph.rs:2197",
+          "site": "tests/integration/imported_object_alias_test.rs:352",
+          "site_fingerprint": "1515476570b929e9"
+        },
+        {
+          "corpus": "prism",
+          "direction": "oracle_only",
+          "measurement": "callers",
+          "seed_def": "src/call_graph.rs:2197",
+          "site": "tests/integration/js_export_reexport_test.rs:505",
+          "site_fingerprint": "c72108cf566a1bca"
+        },
+        {
+          "corpus": "prism",
+          "direction": "oracle_only",
+          "measurement": "callers",
+          "seed_def": "src/call_graph.rs:2197",
+          "site": "tests/integration/resolution_test.rs:4077",
+          "site_fingerprint": "06668ffbc9efdbe5"
+        },
+        {
+          "corpus": "prism",
+          "direction": "oracle_only",
+          "measurement": "callers",
+          "seed_def": "src/call_graph.rs:2197",
+          "site": "tests/lang/typescript/typed_receiver_test.rs:476",
+          "site_fingerprint": "de5063379c1989c5"
+        },
+        {
+          "corpus": "prism",
+          "direction": "oracle_only",
+          "measurement": "callers",
+          "seed_def": "src/call_graph.rs:2197",
+          "site": "tests/lang/typescript/typed_receiver_test.rs:724",
+          "site_fingerprint": "30112a47932ad368"
+        },
+        {
+          "corpus": "prism",
+          "direction": "oracle_only",
+          "measurement": "callers",
+          "seed_def": "src/call_graph.rs:2197",
+          "site": "tests/name_resolution/build_wiring_test.rs:332",
+          "site_fingerprint": "2db8c76430fb6ac0"
+        },
+        {
+          "corpus": "prism",
+          "direction": "prism_only",
+          "dispatch_kind": "free_multi",
+          "measurement": "callers",
+          "seed_def": "src/cpg/tests.rs:7",
+          "site": "tests/ast/cpg_test.rs:342",
+          "site_fingerprint": "70932cd1a811843c",
+          "tier": "candidate"
+        },
+        {
+          "corpus": "prism",
+          "direction": "prism_only",
+          "dispatch_kind": "free_multi",
+          "measurement": "callers",
+          "seed_def": "src/cpg/tests.rs:7",
+          "site": "tests/ast/cpg_test.rs:365",
+          "site_fingerprint": "1e206a3bedb2818f",
+          "tier": "candidate"
+        },
+        {
+          "corpus": "prism",
+          "direction": "prism_only",
+          "dispatch_kind": "free_multi",
+          "measurement": "callers",
+          "seed_def": "src/cpg/tests.rs:7",
+          "site": "tests/ast/cpg_test.rs:389",
+          "site_fingerprint": "7c6182c62b856711",
+          "tier": "candidate"
+        },
+        {
+          "corpus": "prism",
+          "direction": "prism_only",
+          "dispatch_kind": "free_multi",
+          "measurement": "callers",
+          "seed_def": "src/cpg/tests.rs:7",
+          "site": "tests/ast/cpg_test.rs:419",
+          "site_fingerprint": "0aafc1ee7a1f9004",
+          "tier": "candidate"
+        },
+        {
+          "corpus": "prism",
+          "direction": "prism_only",
+          "dispatch_kind": "free_multi",
+          "measurement": "callers",
+          "seed_def": "src/cpg/tests.rs:7",
+          "site": "tests/ast/cpg_test.rs:438",
+          "site_fingerprint": "d476abe8a5f6e5e5",
+          "tier": "candidate"
+        },
+        {
+          "corpus": "prism",
+          "direction": "prism_only",
+          "dispatch_kind": "free_multi",
+          "measurement": "callers",
+          "seed_def": "src/cpg/tests.rs:7",
+          "site": "tests/ast/cpg_test.rs:504",
+          "site_fingerprint": "8c4705d1180e5513",
+          "tier": "candidate"
+        },
+        {
+          "corpus": "prism",
+          "direction": "prism_only",
+          "dispatch_kind": "free_multi",
+          "measurement": "callers",
+          "seed_def": "src/cpg/tests.rs:7",
+          "site": "tests/ast/cpg_test.rs:577",
+          "site_fingerprint": "beebf44b54878e41",
+          "tier": "candidate"
+        },
+        {
+          "corpus": "prism",
+          "direction": "prism_only",
+          "dispatch_kind": "free_multi",
+          "measurement": "callers",
+          "seed_def": "src/cpg/tests.rs:7",
+          "site": "tests/ast/cpg_test.rs:597",
+          "site_fingerprint": "4a4e3242903dd5f3",
+          "tier": "candidate"
+        },
+        {
+          "corpus": "prism",
+          "direction": "prism_only",
+          "dispatch_kind": "free_multi",
+          "measurement": "callers",
+          "seed_def": "src/cpg/tests.rs:7",
+          "site": "tests/ast/cpg_test.rs:793",
+          "site_fingerprint": "5a16a33c81ff04dc",
+          "tier": "candidate"
+        },
+        {
+          "corpus": "prism",
+          "direction": "prism_only",
+          "dispatch_kind": "free_multi",
+          "measurement": "callers",
+          "seed_def": "src/cpg/tests.rs:7",
+          "site": "tests/ast/cpg_test.rs:794",
+          "site_fingerprint": "0acc0bd3920d5f30",
+          "tier": "candidate"
+        },
+        {
+          "corpus": "prism",
+          "direction": "prism_only",
+          "dispatch_kind": "r6_single_owner",
+          "measurement": "callees",
+          "seed_def": "src/call_graph.rs:8788",
+          "site": "src/call_graph.rs:8807",
+          "site_fingerprint": "227f716eb83a5fbf",
+          "tier": "candidate"
+        },
+        {
+          "corpus": "prism",
+          "direction": "oracle_only",
+          "measurement": "callees",
+          "seed_def": "src/call_graph.rs:8788",
+          "site": "src/call_graph.rs:8789",
+          "site_fingerprint": "f284a8650a0ae2c4"
+        },
+        {
+          "corpus": "prism",
+          "direction": "oracle_only",
+          "measurement": "callees",
+          "seed_def": "src/call_graph.rs:8788",
+          "site": "src/call_graph.rs:8803",
+          "site_fingerprint": "399a35d1c92bc98d"
+        },
+        {
+          "corpus": "prism",
+          "direction": "prism_only",
+          "dispatch_kind": "local_def",
+          "measurement": "callees",
+          "seed_def": "src/main.rs:1031",
+          "site": "src/main.rs:1033",
+          "site_fingerprint": "2f1a9bab070a6e7d"
+        },
+        {
+          "corpus": "prism",
+          "direction": "prism_only",
+          "dispatch_kind": "local_def",
+          "measurement": "callees",
+          "seed_def": "tests/lang/go/concrete_receiver_fix3_test.rs:154",
+          "site": "tests/lang/go/concrete_receiver_fix3_test.rs:181",
+          "site_fingerprint": "28bed63fce1cfa48"
+        },
+        {
+          "corpus": "prism",
+          "direction": "prism_only",
+          "dispatch_kind": "local_def",
+          "measurement": "callees",
+          "seed_def": "tests/lang/go/concrete_receiver_fix3_test.rs:154",
+          "site": "tests/lang/go/concrete_receiver_fix3_test.rs:184",
+          "site_fingerprint": "5b24a3d269a154ad"
+        },
+        {
+          "corpus": "prism",
+          "direction": "oracle_only",
+          "measurement": "callees",
+          "seed_def": "tests/lang/terraform/algo_expand_test.rs:275",
+          "site": "tests/lang/terraform/algo_expand_test.rs:277",
+          "site_fingerprint": "922d91273ee4d697"
+        }
+      ],
+      "basePinControl": "base-pin-control.json",
+      "oracleBaseComparison": false,
+      "rebaseline": false
+    }
+  },
+  "review": {
+    "roundCap": 2,
+    "roundsUsed": 1,
+    "verdict": "APPROVE",
+    "wrong": 0,
+    "smell": 1,
+    "smellDisposition": "Deferred diagnostic-only historical cache pin test name.",
+    "independentFocusedTestsPassed": 11
+  },
+  "binaries": [
+    {
+      "path": "prism",
+      "sha256": "72f935ae4bf7bc3b062996dd76ff6a68b31a96e88c035c8f12199c67c5aba408"
+    },
+    {
+      "path": "prism-mcp",
+      "sha256": "d7cca59865a13346f999402d93bdf0c09631d511ea32bd1cb5afdbb745b52985"
+    }
+  ],
+  "evidenceRoot": "/private/tmp/prism-required-params-UgjX70",
+  "evidence": [
+    {
+      "path": "final-tests-base-red.log",
+      "sha256": "bf9beeedb25dd4a69df05740cfe8ccd042bc3bafaa97fcd9e65b33a6cda2bcbd"
+    },
+    {
+      "path": "focused-final-green.log",
+      "sha256": "5144e43098dbf4feb7b5313abaa4b8df83297778f3614adab33024de0db21308"
+    },
+    {
+      "path": "review-round1.md",
+      "sha256": "65f0f8f2c1592cb872f4016f1aba2b28e79b49c9fa79945dc10a7c2223b85911"
+    },
+    {
+      "path": "python.log",
+      "sha256": "524ac5b76b93fbe5b37bbdb54821958306bd9cc0fa1df5173b426cc33fd52bc2"
+    },
+    {
+      "path": "examples.log",
+      "sha256": "e5546dcd5ba15fff3f28e7f39a7005d96c146449593ff24b14a76cda64da7124"
+    },
+    {
+      "path": "clippy.log",
+      "sha256": "2c4ad70f772af394c2954af6857eba9e04a81c1c31f228a8e1b39d22355ef8f1"
+    },
+    {
+      "path": "tier-a-matrix.log",
+      "sha256": "411a6f90bb8b6cd6a800532ac3bf4b0bacd4059fcd5fd024fb5ed958ff04a649"
+    },
+    {
+      "path": "tier-a-quick-run.json",
+      "sha256": "314948e656d4e00e69dd6065f0ae29fba8fce06c86287b2ad7b5c1718da19c3c"
+    },
+    {
+      "path": "base-pin-control.json",
+      "sha256": "91d395f208002165609ccd2907bfd98c6f55b532a5768f4047d6fd69702a5b67"
+    },
+    {
+      "path": "gate-logs-2026-09-10T23-19-35-602Z-73167/summary.json",
+      "sha256": "205cd6f6a457fa0650f5380489aab8789264f153c47eb471d6948759427c1cf0"
+    }
+  ],
+  "archive": {
+    "path": "/private/tmp/prism-required-parameters-6a53c66a-evidence.tgz",
+    "bytes": 11997880,
+    "sha256": "e68ab71ffd976a471963ffb56c43c4ec25f76a9e5dcb0fe5db9b9fbcc28efec3"
+  },
+  "notVerified": [
+    "valid Tier-A quick accuracy",
+    "base oracle performance comparison",
+    "real-site recall or receiver-coverage gain",
+    "full multi-corpus",
+    "live-model evaluations"
+  ],
+  "next": "Real-site parameter/argument value audit before further optional/default syntax expansion."
+}
