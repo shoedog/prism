@@ -2,8 +2,9 @@
 
 **Written:** 2026-09-10 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · fix/typescript-import-type-generic-grammar
-**Measured state:** `[MEASURED]` resumed clean at b69a0401; origin/main remains
-9270ab43 after fresh fetch. Approved implementation is in progress, not merge ready.
+**Measured state:** `[MEASURED]` implementation committed f1acaff5; origin/main
+remains9270ab43 after fresh fetch. A bounded review correction and evidence docs
+are being committed next. Final verification/publication remain pending.
 **Predecessor:** PR304 merged9270ab43, fetched this turn.
 **Truth ordering:** measured live state > explicit owner authority within scope > this handoff > history.
 **Provenance:** written live; `[MEASURED]` results below are fresh. PR304 full gates
@@ -11,14 +12,15 @@ are `[INHERITED]`, not verification of this incomplete branch.
 
 ## 0. Gating facts — settle these before starting anything below
 
-(a) Lane ownership RESOLVED: primary grammar/design/integration;
-grammar_consumer_audit owns shared runtime-call guard/tests; classification_review
-owns root build/cache identity/tests; grammar_candidate_audit is read-only.
-(b) Custody RESOLVED: WIP tests/spec committed566a514e and pushed to the named
-remote branch. Evidence archive verified below. No PR opened; do not merge RED tests.
-(c) In flight: Tier-A/Python gates and actual native header-watch control.
-Generated-state design audit resolved the precedence mechanism; final grammar
-is integrated. Focused88 TS +7 cache tests and generation reproduction pass.
+(a) Lane ownership RESOLVED: primary owns all edits; independent grammar/build
+reviewers completed round1. Classification agent is repairing only disposable
+helper-test fixture setup, with same-environment base control. No other root edits.
+(b) Custody RESOLVED: implementation committed f1acaff5 locally; predecessor WIP
+branch is pushed. Evidence archive verified below. No PR opened yet.
+(c) In flight: final gates/reviewround2 next. f1acaff5 full Rust configurations
+pass4082/4275/4298 (one known ignored each), observer726 and authority40 pass.
+Receiver helpers15 pass/3 fail from missing inherited fixture; control pending.
+Focused88 TS +8 cache tests,112 upstream cases and pinned reproduction pass.
 (d) Authorization RESOLVED: owner explicitly approved pinned grammar vendoring,
 isolated bootstrap, and fixing both existing defects. No global installation,
 upstream writes, real-source execution or closure expansion is authorized.
@@ -44,9 +46,10 @@ or attempted source rewriting/error suppression. Do not merge this WIP branch.
 | Consumer proof | done | consumer-fresh.log from freshly rebuilt unchanged library |
 | Packaging authority | done | owner explicitly approved on resume |
 | Dependency baseline | done | exact TS/TSX src reproduction; pinned CLI0.24.4/JS0.23.1 |
-| Cache identity | done | seven focused tests pass; full integration pending |
+| Cache identity | done | eight focused tests pass; review collision RED then GREEN |
 | Runtime call guard | done |13 tests including full/subset parity and qualified mixed-line positive |
 | Grammar repair | done | final88 TS tests;112 upstream cases; exact baseline/patched reproduction |
+| Public corpus | done | readout under docs/eval/receiver-closure;628 members,3 errors to0; seven changes compiler-classified |
 | Full gates/review/PR | pending | final full suites/Tier-A/review pending; no PR or completion claim |
 
 ## 3. Corrections to standing documents and memory
@@ -64,6 +67,16 @@ runtime-call exclusion, full gates and Tier-A. Keep scope bounded as adjacent pl
 Generated-state design audit resolved: early static call precedence discarded
 expression alternatives before conflict handling. Final preferred branch defers
 static call precedence to completion. Retain all compatibility/continuation tests.
+
+Round1 found one bounded WRONG: Unix literal-backslash paths collided under
+separator normalization. Captured regression fails0/1 before correction; actual
+platform-separator normalization passes8 identity tests. Grammar/runtime review
+found no additional WRONG; ancestor-walk cost remains an unmeasured SMELL.
+Final full gates/reviewround2 remain required. Provisional Tier-A matrix159 passes;
+quick is invalid (corpus pin drift and oracle errors), not a regression attribution
+or final gate. Stable-source rerun required; no baseline/adjudication changes.
+Python matched release controls940 pass/1 deliberate live-model skip. Actual
+root-lock native header sentinel proof passes. Both are in current evidence root.
 
 ## 5. Invariants and traps — do not do these
 
@@ -93,9 +106,9 @@ Gzip integrity verified; immutable WIP diagnostic checkpoint, not a completed re
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED — bounded final grammar/call tests and exact generation
-reproduction; pass: SELF-PASS (NOT INDEPENDENT); evidence tier: TEST-BACKED.
-Record: final-focused-complete.log, upstream-candidate-final-tests.log and
-reproduction-final.log. Full gates and formal independent review remain pending.
+**§2c verdict:** REFUTED — corrected in place: Unix vendor filename identity
+collision; pass: INDEPENDENT round1; evidence tier: TEST-BACKED. Record:
+identity-backslash-red.log (0/1), identity-backslash-green.log (8/8), and
+/private/tmp/prism-identity-review-xeWJDq. Round2 and final gates remain pending.
 
 **Questions the owner owes an answer to:** None; requested authority received.

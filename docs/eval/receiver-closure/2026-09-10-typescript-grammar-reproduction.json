@@ -1,0 +1,61 @@
+{
+  "pins": {
+    "upstream.tar.gz": {
+      "url": "https://codeload.github.com/tree-sitter/tree-sitter-typescript/tar.gz/f975a621f4e7f532fe322e13c4f79495e0a7b2e7",
+      "sha256": "4de2e82e557810eecb93cb3b31fbb3bd28ba4c91ba9a6c6164bcaa074125b7b5"
+    },
+    "javascript-0.23.1.tgz": {
+      "url": "https://registry.npmjs.org/tree-sitter-javascript/-/tree-sitter-javascript-0.23.1.tgz",
+      "sha256": "90e80b25a67517a4daf6ad751557bee21efbda7b7a5a554897933245d1734398"
+    },
+    "tree-sitter-macos-arm64.gz": {
+      "url": "https://github.com/tree-sitter/tree-sitter/releases/download/v0.24.4/tree-sitter-macos-arm64.gz",
+      "sha256": "7bee5649df5ae3965e132493c597f9e51772c3812c7751ba862fed5662bd106c"
+    }
+  },
+  "node": "v26.0.0",
+  "generator_sha256": "e4715136bcafc041d9ed72e9c04ee5581b97d7dceac442a967e338f5b77a7f97",
+  "dialects": {
+    "typescript": {
+      "baseline": {
+        "grammar.json": "99dc4b95424dff47c89acb50d5d3f25b081b07eaff43994b7881dccd4186b214",
+        "node-types.json": "c790a733fc756b54d4e54dceeb7d2d51e40d8b57136e70277753a75804cce3e3",
+        "parser.c": "74fe453edd70f4eae9af0a1050cbd7943d8971d59165b6aaebbaa0a0b716d1aa",
+        "scanner.c": "9125013b42cb888379d9be909f1d73dfb75a37626c2cdbf4122718a2b431a6d3",
+        "tree_sitter/alloc.h": "b29c1c9fb7cc82f58c84b376df1297d6e2737a1d655fd356db0859e3c29c2fea",
+        "tree_sitter/array.h": "4ff743903dc46f5db6aa54f31c6b4d160a8a9779e5b2ab1ee59ae7ebcd850ea1",
+        "tree_sitter/parser.h": "a1f6ef161fbaf48a0e10fca90ef5290a062462b307b3898aa562993853b9f80a"
+      },
+      "patched": {
+        "grammar.json": "ca0f9bd2675b0ccdc419abe3f30a06a8a6ca918e82b79d189a05677eb44362fe",
+        "node-types.json": "c790a733fc756b54d4e54dceeb7d2d51e40d8b57136e70277753a75804cce3e3",
+        "parser.c": "595db4612d71f2c0166b20bda409f5218d4d31ebfaf534c1006853279caff9fd",
+        "scanner.c": "9125013b42cb888379d9be909f1d73dfb75a37626c2cdbf4122718a2b431a6d3",
+        "tree_sitter/alloc.h": "b29c1c9fb7cc82f58c84b376df1297d6e2737a1d655fd356db0859e3c29c2fea",
+        "tree_sitter/array.h": "4ff743903dc46f5db6aa54f31c6b4d160a8a9779e5b2ab1ee59ae7ebcd850ea1",
+        "tree_sitter/parser.h": "a1f6ef161fbaf48a0e10fca90ef5290a062462b307b3898aa562993853b9f80a"
+      }
+    },
+    "tsx": {
+      "baseline": {
+        "grammar.json": "f98a7830b67be266c9e9effb673a5fc154ad6aa26f87f7c6d4a9191e09d8b357",
+        "node-types.json": "78b5789145286799a27a0a7ecc36cc1bcb151f94ec7fa631b248459867010c8c",
+        "parser.c": "1902cb53fa7ff5179df89b2eea863165e84c8cc866226419dc26921d8c055885",
+        "scanner.c": "d563cd30b2f39718c9ae4292795c5ce03a2ad01954ba3a86ef84c2781a736673",
+        "tree_sitter/alloc.h": "b29c1c9fb7cc82f58c84b376df1297d6e2737a1d655fd356db0859e3c29c2fea",
+        "tree_sitter/array.h": "4ff743903dc46f5db6aa54f31c6b4d160a8a9779e5b2ab1ee59ae7ebcd850ea1",
+        "tree_sitter/parser.h": "a1f6ef161fbaf48a0e10fca90ef5290a062462b307b3898aa562993853b9f80a"
+      },
+      "patched": {
+        "grammar.json": "27e8dcad876e9ae10f7aa26c3385d3e72bdfebc138a4c0fcb2021c0650fa4193",
+        "node-types.json": "78b5789145286799a27a0a7ecc36cc1bcb151f94ec7fa631b248459867010c8c",
+        "parser.c": "ca631ed23fe58423891139c0e1e15281a3851fdb3f5282c677f5c6f272296eaf",
+        "scanner.c": "d563cd30b2f39718c9ae4292795c5ce03a2ad01954ba3a86ef84c2781a736673",
+        "tree_sitter/alloc.h": "b29c1c9fb7cc82f58c84b376df1297d6e2737a1d655fd356db0859e3c29c2fea",
+        "tree_sitter/array.h": "4ff743903dc46f5db6aa54f31c6b4d160a8a9779e5b2ab1ee59ae7ebcd850ea1",
+        "tree_sitter/parser.h": "a1f6ef161fbaf48a0e10fca90ef5290a062462b307b3898aa562993853b9f80a"
+      }
+    }
+  },
+  "authored_grammar_sha256": "2ff29b0e5e4dcd5cc5b75360e033607d8865c62ffb29b5b8c6e926e763a30ca6"
+}

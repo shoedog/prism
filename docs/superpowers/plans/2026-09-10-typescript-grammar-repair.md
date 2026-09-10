@@ -189,3 +189,22 @@ await failures/1 known ignored, no other failures. Both unchanged-baseline and
 import-only shipped generation reproduced via the committed verifier; final
 candidate reproduction is rerun separately. Grammar trials are not review rounds;
 formal review cap remains two rounds, not yet dispatched.
+
+### Integrated verification and review correction
+
+The preceding checkpoint descriptions are historical. Implementation f1acaff5
+contains the final grammar, not import-only. Full Rust default/MCP/owner-audit
+pass4082/4275/4298, one known ignored each; observer726 and authority40 pass.
+Receiver helpers15/18 fail at setup because an inherited public archive lacks
+App.tsx; same-environment base control and fresh exact-pin archive are pending.
+Matched Python controls940 pass/1 deliberate live-model skip. Final generation
+reproduction and three bootstrap negatives pass; public628 corpus comparison has
+zero errors and zero unclassified changes. See the durable receiver-closure readout.
+
+Formal round1 found one bounded identity WRONG: normalization of literal Unix
+backslashes conflated distinct vendor names. New captured regression fails0/1 on
+f1acaff5, then all8 identity tests pass after normalizing only MAIN_SEPARATOR.
+This preserves actual Unix filename bytes and Windows separator behavior; grammar
+bytes and extraction code are unchanged. Round2/final full gates follow on the
+committed correction. Ancestor-walk performance is an unmeasured nonblocking SMELL.
+The two-round cap is unchanged; no artifact restart or test rebaselining.

@@ -257,7 +257,8 @@ fn collect_vendor_tree(root: &Path, path: &Path, paths: &mut BTreeSet<String>) {
             .unwrap()
             .to_str()
             .expect("non-UTF8 vendored grammar path");
-        paths.insert(rel.replace('\\', "/"));
+        // Backslashes are literal filename bytes on Unix, not separators.
+        paths.insert(rel.replace(std::path::MAIN_SEPARATOR, "/"));
     }
 }
 

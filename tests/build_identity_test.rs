@@ -259,3 +259,28 @@ fn symlinked_vendor_parent_cannot_import_an_external_tree() {
     assert!(String::from_utf8_lossy(&out.stderr)
         .contains("vendored grammar parent must be a real directory"));
 }
+
+#[cfg(unix)]
+#[test]
+fn literal_backslash_vendor_names_do_not_alias_directory_separators() {
+    let dir = fixture();
+    let root = dir.path();
+    let slash = format!("{VENDOR}/common/a/b.h");
+    let backslash = format!("{VENDOR}/common/a\\b.h");
+    write(root, &slash, b"slash header");
+    write(root, &backslash, b"backslash header");
+    let baseline = identity(root);
+    for (path, original) in [
+        (&backslash, b"backslash header".as_slice()),
+        (&slash, b"slash header".as_slice()),
+    ] {
+        write(root, path, b"changed header");
+        assert_changed(&baseline, &identity(root));
+        write(root, path, original);
+        assert_restored(&baseline, &identity(root));
+        std::fs::remove_file(root.join(path)).unwrap();
+        assert_changed(&baseline, &identity(root));
+        write(root, path, original);
+        assert_restored(&baseline, &identity(root));
+    }
+}
