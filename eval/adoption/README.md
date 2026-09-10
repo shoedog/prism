@@ -6,12 +6,26 @@ This package measures whether Claude spontaneously loads and uses the
 ## Run command
 
 ```bash
-cd eval && ADOPT_ID=round-N uv run deepeval test run \
+cd eval && PRISM_RUN_LIVE_EVALS=1 ADOPT_ID=round-N uv run deepeval test run \
   adoption/tests/test_prism_adoption.py \
   --identifier prism-adoption-round-N -n 5 -i -s
 ```
 
 Replace `N` with the round number (e.g. `round-1`, `round-2`).
+
+This is an intentional live-model run: it can use account capacity and creates
+isolated credential-bearing configurations. The pytest module skips before eval
+imports and source/dataset loading unless `PRISM_RUN_LIVE_EVALS` is exactly `1`.
+Selecting the file explicitly, having credentials, or cached trajectories is not
+an opt-in. Keep the variable on the individual command rather than exporting it
+for an entire shell. No model, metric, golden, threshold or cache behavior changes.
+
+Ordinary verification: `cd eval && uv run pytest -q` runs deterministic tests and
+reports this module skipped. An explicitly selected skipped module alone leaves
+no runnable tests (pytest exit5), not a successful live evaluation. Opted-in
+`--collect-only` loads definitions but does not run trials or create configs.
+This guard covers this pytest entry point, not direct calls to `run_trial`, the
+2x2 scripts, independent CLI workflows, or third-party pytest plugin startup.
 
 ## Where results land
 

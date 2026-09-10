@@ -1,5 +1,9 @@
 # Handoff — bounded owner admission diagnostics
 
+Publication superseded: PR300 merged as4e30ca84. Owner approved the separate
+[live-test opt-in hardening slice](2026-09-09-live-eval-opt-in.md) and clarified
+that prior Sonnet usage was negligible. The text below is the historical PR300 handoff.
+
 **Written:** 2026-09-09 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · feat/owner-admission-diagnostics · **Measured state:** `[MEASURED]` implementation/tests75d6e746 on base3e1306a3 (PR299 merged). Full clean-HEAD gates passed; readout/receipt follow-up is docs-only.
 **Predecessor:** PR299 owner value checkpoint.
