@@ -1,0 +1,569 @@
+{
+  "schema": "prism.native-parser-classification-readout/1",
+  "authorizes_runtime_edge": false,
+  "base": "17f7053df832cf0bb872aa1915899e14c01dfe91",
+  "verification_head": "af2dfdf1e4f1787d10a8246bb941618adbb35a04",
+  "production_changed": false,
+  "public_commit": "0642e72cfa2d9a71198200e52f37399384610ee3",
+  "identity": {
+    "base": "17f7053df832cf0bb872aa1915899e14c01dfe91",
+    "node": "v26.0.0",
+    "compiler_sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675",
+    "native_sha256": "da4ef98351bee7cf7c180dc1bbc6e09d7787c5d7e100d2c6855668580408dfd5"
+  },
+  "fixture_sha256": "4b98922329811d1e0efeed87808c3795730f0d70bd91aef2acd7d23d8e22f729",
+  "classification": "preexisting_valid_source_grammar_misparse",
+  "repair_implemented": false,
+  "minimized": {
+    "instances": 18,
+    "compiler_valid": 16,
+    "valid_native_mismatches": 6,
+    "valid_native_controls": 10,
+    "malformed_controls": 2,
+    "desired_contract_red": {
+      "passed": 12,
+      "failed": 6
+    }
+  },
+  "real": [
+    {
+      "file": "excalidraw-app/vite.config.mts",
+      "sha256": "f0e2d379a228761f711b9caabb150990dbae5b3c9e430997407c840046a89cc5",
+      "size": 10032,
+      "script_kind": "TS",
+      "compiler_syntax_errors": 0,
+      "native_detected": "None",
+      "forced_native_count": 0,
+      "native_nodes": 1866,
+      "errors": []
+    },
+    {
+      "file": "packages/excalidraw/locales/en.json",
+      "sha256": "52407b5fc9a9eee541cbc5131f0ae70168c3cdb26641161c1c913edd848109b3",
+      "size": 31339,
+      "script_kind": "JSON",
+      "compiler_syntax_errors": 0,
+      "native_detected": null,
+      "forced_native_count": null,
+      "native_nodes": null,
+      "errors": []
+    },
+    {
+      "file": "packages/excalidraw/locales/percentages.json",
+      "sha256": "cedda7eb8d2e36fc7061c2dbfa862aba204c622c686b9cbd69e1c4e004fc0213",
+      "size": 856,
+      "script_kind": "JSON",
+      "compiler_syntax_errors": 0,
+      "native_detected": null,
+      "forced_native_count": null,
+      "native_nodes": null,
+      "errors": []
+    },
+    {
+      "file": "packages/excalidraw/package.json",
+      "sha256": "160dabbd052e579a5b7b0e341d653e0739d17d44d68f16be8c1cf893e1e4236d",
+      "size": 3894,
+      "script_kind": "JSON",
+      "compiler_syntax_errors": 0,
+      "native_detected": null,
+      "forced_native_count": null,
+      "native_nodes": null,
+      "errors": []
+    },
+    {
+      "file": "packages/excalidraw/tests/clipboard.test.tsx",
+      "sha256": "80fa5ec88cea43dee67ecb7c7663f439a7f818816b04de2cf48bcf4425ac25f5",
+      "size": 17245,
+      "script_kind": "TSX",
+      "compiler_syntax_errors": 0,
+      "native_detected": "Some(Tsx)",
+      "forced_native_count": 1,
+      "native_nodes": 5993,
+      "errors": [
+        {
+          "kind": "ERROR",
+          "missing": false,
+          "start": 843,
+          "end": 846,
+          "line": 31,
+          "byte_column": 74,
+          "text": ">()"
+        }
+      ]
+    },
+    {
+      "file": "setupTests.ts",
+      "sha256": "0dbfeb664c659c34d89a5542023fff6b9eaceb385165a8fa9712e7e72d6a5295",
+      "size": 4307,
+      "script_kind": "TS",
+      "compiler_syntax_errors": 0,
+      "native_detected": "Some(TypeScript)",
+      "forced_native_count": 2,
+      "native_nodes": 1122,
+      "errors": [
+        {
+          "kind": "ERROR",
+          "missing": false,
+          "start": 1284,
+          "end": 1287,
+          "line": 36,
+          "byte_column": 74,
+          "text": ">()"
+        },
+        {
+          "kind": "ERROR",
+          "missing": false,
+          "start": 3004,
+          "end": 3007,
+          "line": 107,
+          "byte_column": 5,
+          "text": ">()"
+        }
+      ]
+    }
+  ],
+  "native_skips": {
+    "Hidden": 4,
+    "Unsupported": 294,
+    "NotUtf8": 285,
+    "Ignored": 7,
+    "TooLarge": 1
+  },
+  "independent_nonparse_incomplete_skips": 286,
+  "public": [
+    {
+      "config": "tsconfig.json",
+      "roots": 591,
+      "program": 1445,
+      "native": 628,
+      "repository_json": 3,
+      "repository_mts": 1,
+      "dependency_dcts": 2,
+      "raw_sha256": "6b51c23e2b2bac332257178655003a2025b884d06c7c76c4ff4f6c1448b08bd1",
+      "raw_bytes": 32513637,
+      "ordinary_packet_equal": true,
+      "native_equal": true,
+      "program_facets_equal": true,
+      "native_status": "incomplete",
+      "semantic_closure": false
+    },
+    {
+      "config": "packages/common/tsconfig.json",
+      "roots": 19,
+      "program": 805,
+      "native": 628,
+      "repository_json": 2,
+      "repository_mts": 0,
+      "dependency_dcts": 0,
+      "raw_sha256": "5a7b50a90b91b58b163b7581c559f29581a592e0a4c76bfc5b8fe62e6d2a00ec",
+      "raw_bytes": 26309847,
+      "ordinary_packet_equal": true,
+      "native_equal": true,
+      "program_facets_equal": true,
+      "native_status": "incomplete",
+      "semantic_closure": false
+    },
+    {
+      "config": "packages/element/tsconfig.json",
+      "roots": 50,
+      "program": 806,
+      "native": 628,
+      "repository_json": 2,
+      "repository_mts": 0,
+      "dependency_dcts": 0,
+      "raw_sha256": "13facfc2780d2245af2467a8d5a744ec3dffec1eab445b98acce856ec461142e",
+      "raw_bytes": 26321764,
+      "ordinary_packet_equal": true,
+      "native_equal": true,
+      "program_facets_equal": true,
+      "native_status": "incomplete",
+      "semantic_closure": false
+    },
+    {
+      "config": "packages/excalidraw/tsconfig.json",
+      "roots": 340,
+      "program": 831,
+      "native": 628,
+      "repository_json": 2,
+      "repository_mts": 0,
+      "dependency_dcts": 0,
+      "raw_sha256": "6b5c46f515c99306a2caaee0d91cb826bd91cfc2d64b63921ee21d78e1c20907",
+      "raw_bytes": 26654164,
+      "ordinary_packet_equal": true,
+      "native_equal": true,
+      "program_facets_equal": true,
+      "native_status": "incomplete",
+      "semantic_closure": false
+    },
+    {
+      "config": "packages/fractional-indexing/tsconfig.json",
+      "roots": 2,
+      "program": 304,
+      "native": 628,
+      "repository_json": 0,
+      "repository_mts": 0,
+      "dependency_dcts": 0,
+      "raw_sha256": "fbebf14bfbf61286baf913dce475230b200e04f6ad5b619822d3f970ef7ff344",
+      "raw_bytes": 17015452,
+      "ordinary_packet_equal": true,
+      "native_equal": true,
+      "program_facets_equal": true,
+      "native_status": "incomplete",
+      "semantic_closure": false
+    },
+    {
+      "config": "packages/math/tsconfig.json",
+      "roots": 16,
+      "program": 805,
+      "native": 628,
+      "repository_json": 2,
+      "repository_mts": 0,
+      "dependency_dcts": 0,
+      "raw_sha256": "5502bac15e54dbe70048b6aff09f901eb7369f6852c811f4dd5698d2cba455c6",
+      "raw_bytes": 26309385,
+      "ordinary_packet_equal": true,
+      "native_equal": true,
+      "program_facets_equal": true,
+      "native_status": "incomplete",
+      "semantic_closure": false
+    },
+    {
+      "config": "packages/utils/tsconfig.json",
+      "roots": 5,
+      "program": 810,
+      "native": 628,
+      "repository_json": 2,
+      "repository_mts": 0,
+      "dependency_dcts": 0,
+      "raw_sha256": "7f7c8b1b3811a89008e5b011848fa66908df65044d63df839ed64ed3316d49f9",
+      "raw_bytes": 26344398,
+      "ordinary_packet_equal": true,
+      "native_equal": true,
+      "program_facets_equal": true,
+      "native_status": "incomplete",
+      "semantic_closure": false
+    }
+  ],
+  "representations": [
+    {
+      "config": "tsconfig.json",
+      "resolve_json_module": true,
+      "rows": [
+        {
+          "id": "project/excalidraw-app/vite.config.mts",
+          "script_kind": "TS",
+          "declaration": false,
+          "implied_node_format": 99,
+          "external_module": true,
+          "calls": 31,
+          "functions": 3,
+          "syntactic_diagnostics": 0
+        },
+        {
+          "id": "project/packages/excalidraw/locales/en.json",
+          "script_kind": "JSON",
+          "declaration": false,
+          "implied_node_format": null,
+          "external_module": false,
+          "calls": 0,
+          "functions": 0,
+          "syntactic_diagnostics": 0
+        },
+        {
+          "id": "project/packages/excalidraw/locales/percentages.json",
+          "script_kind": "JSON",
+          "declaration": false,
+          "implied_node_format": null,
+          "external_module": false,
+          "calls": 0,
+          "functions": 0,
+          "syntactic_diagnostics": 0
+        },
+        {
+          "id": "project/packages/excalidraw/package.json",
+          "script_kind": "JSON",
+          "declaration": false,
+          "implied_node_format": null,
+          "external_module": false,
+          "calls": 0,
+          "functions": 0,
+          "syntactic_diagnostics": 0
+        },
+        {
+          "id": "project/node_modules/@vitest/expect/dist/chai.d.cts",
+          "script_kind": "TS",
+          "declaration": true,
+          "implied_node_format": 1,
+          "external_module": false,
+          "calls": 0,
+          "functions": 254,
+          "syntactic_diagnostics": 0
+        },
+        {
+          "id": "project/node_modules/tinybench/dist/index.d.cts",
+          "script_kind": "TS",
+          "declaration": true,
+          "implied_node_format": 1,
+          "external_module": true,
+          "calls": 0,
+          "functions": 36,
+          "syntactic_diagnostics": 0
+        }
+      ]
+    },
+    {
+      "config": "packages/common/tsconfig.json",
+      "resolve_json_module": true,
+      "rows": [
+        {
+          "id": "project/packages/excalidraw/locales/en.json",
+          "script_kind": "JSON",
+          "declaration": false,
+          "implied_node_format": null,
+          "external_module": false,
+          "calls": 0,
+          "functions": 0,
+          "syntactic_diagnostics": 0
+        },
+        {
+          "id": "project/packages/excalidraw/locales/percentages.json",
+          "script_kind": "JSON",
+          "declaration": false,
+          "implied_node_format": null,
+          "external_module": false,
+          "calls": 0,
+          "functions": 0,
+          "syntactic_diagnostics": 0
+        }
+      ]
+    },
+    {
+      "config": "packages/element/tsconfig.json",
+      "resolve_json_module": true,
+      "rows": [
+        {
+          "id": "project/packages/excalidraw/locales/en.json",
+          "script_kind": "JSON",
+          "declaration": false,
+          "implied_node_format": null,
+          "external_module": false,
+          "calls": 0,
+          "functions": 0,
+          "syntactic_diagnostics": 0
+        },
+        {
+          "id": "project/packages/excalidraw/locales/percentages.json",
+          "script_kind": "JSON",
+          "declaration": false,
+          "implied_node_format": null,
+          "external_module": false,
+          "calls": 0,
+          "functions": 0,
+          "syntactic_diagnostics": 0
+        }
+      ]
+    },
+    {
+      "config": "packages/excalidraw/tsconfig.json",
+      "resolve_json_module": true,
+      "rows": [
+        {
+          "id": "project/packages/excalidraw/locales/en.json",
+          "script_kind": "JSON",
+          "declaration": false,
+          "implied_node_format": null,
+          "external_module": false,
+          "calls": 0,
+          "functions": 0,
+          "syntactic_diagnostics": 0
+        },
+        {
+          "id": "project/packages/excalidraw/locales/percentages.json",
+          "script_kind": "JSON",
+          "declaration": false,
+          "implied_node_format": null,
+          "external_module": false,
+          "calls": 0,
+          "functions": 0,
+          "syntactic_diagnostics": 0
+        }
+      ]
+    },
+    {
+      "config": "packages/fractional-indexing/tsconfig.json",
+      "resolve_json_module": true,
+      "rows": []
+    },
+    {
+      "config": "packages/math/tsconfig.json",
+      "resolve_json_module": true,
+      "rows": [
+        {
+          "id": "project/packages/excalidraw/locales/en.json",
+          "script_kind": "JSON",
+          "declaration": false,
+          "implied_node_format": null,
+          "external_module": false,
+          "calls": 0,
+          "functions": 0,
+          "syntactic_diagnostics": 0
+        },
+        {
+          "id": "project/packages/excalidraw/locales/percentages.json",
+          "script_kind": "JSON",
+          "declaration": false,
+          "implied_node_format": null,
+          "external_module": false,
+          "calls": 0,
+          "functions": 0,
+          "syntactic_diagnostics": 0
+        }
+      ]
+    },
+    {
+      "config": "packages/utils/tsconfig.json",
+      "resolve_json_module": true,
+      "rows": [
+        {
+          "id": "project/packages/excalidraw/locales/en.json",
+          "script_kind": "JSON",
+          "declaration": false,
+          "implied_node_format": null,
+          "external_module": false,
+          "calls": 0,
+          "functions": 0,
+          "syntactic_diagnostics": 0
+        },
+        {
+          "id": "project/packages/excalidraw/locales/percentages.json",
+          "script_kind": "JSON",
+          "declaration": false,
+          "implied_node_format": null,
+          "external_module": false,
+          "calls": 0,
+          "functions": 0,
+          "syntactic_diagnostics": 0
+        }
+      ]
+    }
+  ],
+  "gates": {
+    "summary": "gate-logs-2026-09-10T04-45-54-770Z-48494/summary.json",
+    "clean_unchanged_head": true,
+    "results": [
+      {
+        "label": "callable-observations",
+        "totals": {
+          "tests": 726,
+          "suites": 0,
+          "pass": 726,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "failure": null
+      },
+      {
+        "label": "cargo-test",
+        "totals": {
+          "groups": 28,
+          "passed": 4037,
+          "failed": 0,
+          "ignored": 1,
+          "measured": 0,
+          "filteredOut": 0,
+          "ignoredTests": [
+            "resolution_test::slice_elem_variant_reserved"
+          ]
+        },
+        "failure": null
+      },
+      {
+        "label": "cargo-test-mcp",
+        "totals": {
+          "groups": 30,
+          "passed": 4230,
+          "failed": 0,
+          "ignored": 1,
+          "measured": 0,
+          "filteredOut": 0,
+          "ignoredTests": [
+            "resolution_test::slice_elem_variant_reserved"
+          ]
+        },
+        "failure": null
+      },
+      {
+        "label": "cargo-test-owner-audit",
+        "totals": {
+          "groups": 30,
+          "passed": 4253,
+          "failed": 0,
+          "ignored": 1,
+          "measured": 0,
+          "filteredOut": 0,
+          "ignoredTests": [
+            "resolution_test::slice_elem_variant_reserved"
+          ]
+        },
+        "failure": null
+      },
+      {
+        "label": "receiver-closure-tests",
+        "totals": {
+          "tests": 18,
+          "suites": 0,
+          "pass": 18,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "failure": null
+      },
+      {
+        "label": "callable-authority-profiles",
+        "totals": {
+          "results": 40,
+          "failures": []
+        },
+        "failure": null
+      },
+      {
+        "label": "cargo-fmt-check",
+        "totals": null,
+        "failure": null
+      },
+      {
+        "label": "git-diff-check",
+        "totals": null,
+        "failure": null
+      }
+    ],
+    "native_example": {
+      "passed": 12,
+      "failed": 0
+    },
+    "python": {
+      "passed": 940,
+      "failed": 0,
+      "skipped": 1,
+      "skip_reason": "guarded live-model adoption module"
+    },
+    "classification_assertions": {
+      "passed": 29,
+      "failed": 0
+    },
+    "tier_a": "not triggered; documentation and JSON fixtures only",
+    "clippy": "not rerun; no production or helper implementation change"
+  },
+  "custody": {
+    "public_before_after_equal": true,
+    "tracked_files": 1229,
+    "tracked_sha256": "5bb6c12cba79f0d5f3b424ec67d73ec37280f079924a98dd59ebb0db06b4dbbb",
+    "metadata_sha256": "78905dc2c4f0d2c1e6b4f53a8a6863ea885e39fdf64efcef34fae0938df1b905",
+    "private_repo_read": false
+  },
+  "next": "bounded source-preserving import-type generic-call grammar repair; no JSON/mts input admission or closure expansion"
+}

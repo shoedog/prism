@@ -1,7 +1,8 @@
 # Bounded project membership observations
 
 Implementation checkpoint `e2ba539d`, based on PR302 merge `48a12d3a`.
-Published as [PR303](https://github.com/shoedog/prism/pull/303); CI is not claimed green.
+Published as [PR303](https://github.com/shoedog/prism/pull/303), merged as `17f7053d`.
+Successor: [parser/representation classification plan](../../superpowers/plans/2026-09-10-native-parser-representation-classification.md).
 This adds a separate research artifact, not production ownership or input selection.
 The [usage contract](../../../scripts/callable-observations/README.md#separate-project-membership-observations)
 and [plan](../../superpowers/plans/2026-09-09-project-membership-observations.md)
