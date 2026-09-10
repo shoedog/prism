@@ -655,6 +655,38 @@ impl Language {
 
     /// Get the function name node from a call.
     pub fn call_function_name<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
+        if matches!(self, Self::TypeScript | Self::Tsx) {
+            // The TS grammar also uses call_expression for erased import types.
+            // Keep those nodes/source intact, but do not expose them as runtime
+            // calls through query, graph, or argument-index consumers.
+            let mut child = *node;
+            while let Some(parent) = child.parent() {
+                if matches!(
+                    parent.kind(),
+                    "type_query"
+                        | "type_annotation"
+                        | "type_arguments"
+                        | "type_parameters"
+                        | "type_alias_declaration"
+                ) {
+                    return None;
+                }
+                if matches!(parent.kind(), "as_expression" | "satisfies_expression") {
+                    // These have both a runtime value and an erased type, with
+                    // no field names. The actual operator token separates them;
+                    // named-child ordinals are not stable in the presence of comments.
+                    let mut cursor = parent.walk();
+                    if parent.children(&mut cursor).any(|token| {
+                        matches!(token.kind(), "as" | "satisfies")
+                            && child.start_byte() >= token.end_byte()
+                    }) {
+                        return None;
+                    }
+                }
+                child = parent;
+            }
+        }
+
         // JSX elements: tag name is the first named child (identifier or member_expression)
         if node.kind() == "jsx_self_closing_element" || node.kind() == "jsx_opening_element" {
             let mut cursor = node.walk();

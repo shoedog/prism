@@ -5,7 +5,7 @@ checkpoint, not an implementation completion or a merge-ready artifact.
 Primary owns architecture; two bounded read-only audits investigated upstream
 grammar and call consumers. Repair review cap: two rounds; none dispatched yet.
 
-## Authority decision required
+## Authority decision — approved
 
 The supported Rust crate consumes generated C, not grammar.js. Its two C files
 total 17,515,764 bytes. A narrow local grammar edit therefore needs a distributable
@@ -16,10 +16,10 @@ is open and matches the first-type-argument defect. Current upstream grammar
 retains the same relevant precedence pairs. Search absence is not proof that no
 unindexed fix exists; no verified candidate has been acquired or tested.
 
-Owner question sent: approve pinned in-repo vendoring (~17 MiB generated C) and
-isolated pinned generator bootstrap, with mechanical output reviewed separately
-from the authored grammar patch? No approval received at this checkpoint.
-No installation, vendoring, dependency edit or production edit has occurred.
+Owner approved pinned in-repo vendoring (~17 MiB generated C), isolated pinned
+generator bootstrap, and repair of both existing call-recording defects on resume.
+The original tests/docs checkpoint remains preserved at b69a0401. Implementation
+is now in progress; generation provenance and full verification remain pending.
 
 ## Corrected defect population
 
@@ -112,3 +112,80 @@ Keep authored work in bounded increments if prerequisite/review scope cannot fit
 Never replace the existing test artifact to escape RED or review pressure.
 No upstream repository writes, dependency publication, JSON/.mts/.cts admission,
 closure expansion, private reads, real source execution or edits are authorized here.
+
+## Approved implementation checkpoint — design reassessment
+
+Owner approval received; resumed at b69a0401, remote main freshly verified9270ab43.
+Isolated archive/bootstrap root: `/private/tmp/prism-grammar-implementation-aZxq3g`.
+Upstream package-lock pins CLI0.24.4 and JavaScript0.23.1. Downloaded JavaScript
+matches locked SRI. Unchanged TS/TSX regeneration matches every src/ byte in both
+the source archive and published Cargo crate. No npm lifecycle scripts ran.
+
+Cache identity implementation has7 green tests (six behavioral plus child harness),
+after captured mutation/restore/dirty/watch/symlink RED. Runtime guard has11 tests:
+all10 nongeneric tests pass before grammar repair; the generic integration passes
+with import-only repair. Additional generic boundary tests have captured base
+RED4pass/2fail. A direct generic-callee experiment temporarily passed79 TS tests
+but failed upstream compatibility and was rejected; those79 passes are **not**
+acceptance of the current checkpoint.
+
+Grammar hypothesis/probe ledger (all original expectations retained):
+
+| Candidate | Evidence | Result / disposition |
+|---|---|---|
+| Unchanged baseline | upstream-baseline-tests.log; baseline generation byte diffs |112 upstream cases pass |
+| Import-only two conflicts | upstream-import-only-tests.log |112 pass; inline import syntax repaired; await association still wrong |
+| Additional unary_void ordering | candidate2-rust-parse.log | simple precedence relation insufficient |
+| Narrowed generic callee | upstream-candidate-diffs.log | six real regressions: heritage, instantiation, comparison, constructor; rejected |
+| Preferred primary generic branch | candidate4-boundaries.log; upstream-candidate4-fresh-tests.log | same six regressions; rejected |
+| call/expression conflict | candidate5-boundaries.log | generator says unused; same six; rejected |
+| Right-associative await | await-assoc-rust-parse.log | still wrong; rejected |
+| Preferred completed-call await operand | upstream-await-prefer-call-tests.log; await-expanded-base.log/candidate.log |112 upstream pass, but ordinary await chained calls/member access regress; rejected |
+
+The import-only control was added before attributing six regressions specifically
+to callee changes. Generated-state design inspection follows; no more grammar
+edits until that mechanism is understood. The checkout retains the independently
+passing **import-only** grammar, not any rejected candidate. Await regressions
+remain intentionally active. No merge-ready or completion claim.
+
+One CLI probe failed before parsing because it needs a host cache lock even with
+temporary library storage; inadmissible. Direct Rust parser probes remained fully
+isolated. Upstream corpus runs used explicit escalation for the standard cache
+lock and temporary parser libraries, not global installs. A reproduction-script
+syntax error was corrected before its first admissible run.
+
+Newly measured separate pre-existing WRONG: import-type options can expose `with`
+as a runtime rvalue in three collectors after the call guard. Compiler-valid erased
+source, base/current outputs and follow-up are in
+`/private/tmp/prism-type-call-repair-vrHCV1/handoff.md`. This is not a runtime call
+site and is deferred rather than silently expanding this repair into DFG traversal.
+
+Original628-file corpus baseline is saved under `corpus/` in the bootstrap root:
+628 exact hashes,3 errors/2 files,8614 function records,44670 extracted calls,
+45740 raw call nodes;591 skips including286 independent nonparser barriers.
+Public custody unchanged. Candidate measurement and final gates remain pending.
+
+### Design reassessment resolved; integrated candidate
+
+The generator-state audit identified state58/index1703: expression reduction
+competes with a preferred primary-callee call shift at `<`. Generator0.24.4
+[handle_conflict](https://github.com/tree-sitter/tree-sitter/blob/v0.24.4/cli/generate/src/build_tables/build_parse_table.rs#L508)
+discards lower static-precedence actions before consulting declared conflicts.
+Thus the explicit call/expression conflict was correct but ineffectual while the
+added branch carried static call precedence at its prefix. The conjectured
+supertype-flattening explanation was refuted by the actual state report.
+
+Targeted correction after this design pause: retain the original branch, give the
+preferred primary/new-callee generic branch only dynamic precedence at its prefix,
+and apply static call precedence at the argument list/completion. This retains
+instantiation/comparison/heritage alternatives and preserves constructor priority.
+No await-expression override is shipped. Candidate6 and constructor-inclusive
+final candidate both pass112 unchanged upstream cases; focused structural/runtime
+and new ordinary-await continuation tests pass. The expanded final suite and
+independent implementation review remain gates, not inherited green claims.
+
+Interim full default run of the import-only checkpoint:4070 passed/9 expected
+await failures/1 known ignored, no other failures. Both unchanged-baseline and
+import-only shipped generation reproduced via the committed verifier; final
+candidate reproduction is rerun separately. Grammar trials are not review rounds;
+formal review cap remains two rounds, not yet dispatched.
