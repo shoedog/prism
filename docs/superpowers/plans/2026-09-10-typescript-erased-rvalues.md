@@ -45,3 +45,15 @@ React.FC expansion, react-scripts change, grammar/bootstrap/vendor modification,
 private source reads, real-source execution, installs or registry publication.
 Cache formats stay unchanged; existing source-byte build identity invalidates
 affected persisted artifacts. Keep duplicate/write/epoch barriers unchanged.
+
+## Completed checkpoint
+
+Implementation/review source `0d71800bb7f481a4334667767ca80416ed33ce49` is pushed.
+Captured RED11 failures plus runtime positive, then12 focused passes. Full Rust
+4,095/4,288/4,311; observers726; helpers18; authority40; Python940+one deliberate
+skip; example12. Matrix159 passed. Round1 of cap2 approved without findings.
+Tier-A quick remains INVALID, and the gate-runner's generated-report-only
+postflight failure is preserved and separately reconciled; neither is silently
+reported green. Final source, compiler evidence, limitations and next candidate:
+`docs/eval/receiver-closure/2026-09-10-typescript-erased-rvalues.md`.
+Earlier future-tense steps above are the executed plan, not pending gates.

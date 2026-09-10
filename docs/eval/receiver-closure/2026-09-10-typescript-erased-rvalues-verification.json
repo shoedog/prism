@@ -1,0 +1,361 @@
+{
+  "schema": "prism.typescript-erased-rvalues-verification/1",
+  "authorizes_runtime_edge": false,
+  "base": "70caaf6d43f9bbd1ecf47279af0db05ce02753f4",
+  "verified_source_head": "0d71800bb7f481a4334667767ca80416ed33ce49",
+  "publication_changes": "Subsequent documentation-only closeout; runtime source and tests unchanged",
+  "red": {
+    "command": "cargo test --offline --no-fail-fast --lib --test lang_typescript erased_rvalue -- --nocapture",
+    "private": {
+      "passed": 0,
+      "failed": 2
+    },
+    "integration": {
+      "passed": 1,
+      "failed": 9
+    },
+    "log": "complete-red-all.log",
+    "inadmissible_prior_probes": [
+      "incorrect const-declaration runtime control",
+      "invalid multi-filter cargo invocation",
+      "private helper compile error"
+    ]
+  },
+  "focused_green": {
+    "private": 2,
+    "integration": 10,
+    "failed": 0,
+    "log": "focused-green.log"
+  },
+  "compiler": {
+    "version": "5.9.3",
+    "sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675",
+    "positive_checks": 55,
+    "expected_tsx_rejections": 1,
+    "unexpected_failures": 0,
+    "skipped": 0,
+    "receipt": "compiler/receipt.json",
+    "receipt_sha256": "1a516f1ed6e83dc29faf5c6e388669c9c026ad675136adff16bf2f05d81947fe",
+    "verifier_sha256": "335b8e6e06476cfd297b32adabf1dadae19f53ba0a1b43c7f13e31402c93f0b3",
+    "executed_emitted_code": false
+  },
+  "gates": [
+    {
+      "label": "callable-observations",
+      "status": 0,
+      "totals": {
+        "tests": 726,
+        "suites": 0,
+        "pass": 726,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failure": null,
+      "logs": [
+        {
+          "path": "gate-logs-2026-09-10T10-22-47-957Z-1367/callable-observations.stdout.log",
+          "bytes": 61225,
+          "sha256": "7f8610fe989c0654b57fddfc37a4e7b11b39d7879e33197c4ab4405e3fa20a04"
+        },
+        {
+          "path": "gate-logs-2026-09-10T10-22-47-957Z-1367/callable-observations.stderr.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "label": "cargo-test",
+      "status": 0,
+      "totals": {
+        "groups": 29,
+        "passed": 4095,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null,
+      "logs": [
+        {
+          "path": "gate-logs-2026-09-10T10-22-47-957Z-1367/cargo-test.stdout.log",
+          "bytes": 323629,
+          "sha256": "b22f6294f91546aad7a99d85d12ac2d8ed68847a9b9a51bc57595bed5006c896"
+        },
+        {
+          "path": "gate-logs-2026-09-10T10-22-47-957Z-1367/cargo-test.stderr.log",
+          "bytes": 5250,
+          "sha256": "e44776847208cc6b4a61ae6f89fed7f1807ba388b45fa0d583add299083b5fdf"
+        }
+      ]
+    },
+    {
+      "label": "cargo-test-mcp",
+      "status": 0,
+      "totals": {
+        "groups": 31,
+        "passed": 4288,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null,
+      "logs": [
+        {
+          "path": "gate-logs-2026-09-10T10-22-47-957Z-1367/cargo-test-mcp.stdout.log",
+          "bytes": 340156,
+          "sha256": "f62f5ed7aacdebd58aa8cdc09e9af34bbe8b391a98023b9d43a52fa244a5b47f"
+        },
+        {
+          "path": "gate-logs-2026-09-10T10-22-47-957Z-1367/cargo-test-mcp.stderr.log",
+          "bytes": 5414,
+          "sha256": "eb9d6feb0cab6656df06c252812253d7265ab05c4edbe74d25c91af1ab643446"
+        }
+      ]
+    },
+    {
+      "label": "cargo-test-owner-audit",
+      "status": 0,
+      "totals": {
+        "groups": 31,
+        "passed": 4311,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null,
+      "logs": [
+        {
+          "path": "gate-logs-2026-09-10T10-22-47-957Z-1367/cargo-test-owner-audit.stdout.log",
+          "bytes": 342313,
+          "sha256": "7f3d41f3c754908cbb48f2cdf688dff2cda589b2400408a01430268c68da0cd8"
+        },
+        {
+          "path": "gate-logs-2026-09-10T10-22-47-957Z-1367/cargo-test-owner-audit.stderr.log",
+          "bytes": 5413,
+          "sha256": "9c62e1ef63b61a5be2839057cd730317478baef35b3deea92fc46de8e8cbd821"
+        }
+      ]
+    },
+    {
+      "label": "receiver-closure-tests",
+      "status": 0,
+      "totals": {
+        "tests": 18,
+        "suites": 0,
+        "pass": 18,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failure": null,
+      "logs": [
+        {
+          "path": "gate-logs-2026-09-10T10-22-47-957Z-1367/receiver-closure-tests.stdout.log",
+          "bytes": 1526,
+          "sha256": "02adf4c4461773db2747e71504dafda126116a9de861028d2d1c911968eaef49"
+        },
+        {
+          "path": "gate-logs-2026-09-10T10-22-47-957Z-1367/receiver-closure-tests.stderr.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "label": "callable-authority-profiles",
+      "status": 0,
+      "totals": {
+        "results": 40,
+        "failures": []
+      },
+      "failure": null,
+      "logs": [
+        {
+          "path": "gate-logs-2026-09-10T10-22-47-957Z-1367/callable-authority-profiles.stdout.log",
+          "bytes": 494914,
+          "sha256": "8746d8f89c3efa5029869de3c0d1d0297f2499da22e20d02b922bc6576a9b57f"
+        },
+        {
+          "path": "gate-logs-2026-09-10T10-22-47-957Z-1367/callable-authority-profiles.stderr.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "label": "cargo-fmt-check",
+      "status": 0,
+      "totals": null,
+      "failure": null,
+      "logs": [
+        {
+          "path": "gate-logs-2026-09-10T10-22-47-957Z-1367/cargo-fmt-check.stdout.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "gate-logs-2026-09-10T10-22-47-957Z-1367/cargo-fmt-check.stderr.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "label": "git-diff-check",
+      "status": 0,
+      "totals": null,
+      "failure": null,
+      "logs": [
+        {
+          "path": "gate-logs-2026-09-10T10-22-47-957Z-1367/git-diff-check.stdout.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "gate-logs-2026-09-10T10-22-47-957Z-1367/git-diff-check.stderr.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    }
+  ],
+  "gate_runner": {
+    "summary": "gate-logs-2026-09-10T10-22-47-957Z-1367/summary.json",
+    "failure": true,
+    "postflight": [
+      {
+        "check": "git HEAD unchanged",
+        "ok": true,
+        "actual": "0d71800bb7f481a4334667767ca80416ed33ce49"
+      },
+      {
+        "check": "git status unchanged and clean",
+        "ok": false,
+        "actual": "?? docs/eval/tier-a/2026-09-10-prism.json\n?? docs/eval/tier-a/2026-09-10-prism.md"
+      }
+    ],
+    "reconciliation": "postflight-reconciliation.json"
+  },
+  "tier_a_quick": {
+    "meta": {
+      "baseline_invalid": true,
+      "corpus": "prism",
+      "corpus_dirty": false,
+      "corpus_dirty_reasons": [],
+      "corpus_sha": "0d71800bb7f4",
+      "date": "2026-09-10",
+      "harness_sha": "0d71800bb7f4",
+      "invalid_reasons": [
+        "corpus_sha_drift: 0d71800bb7f4 != pinned 20c8490591a3",
+        "stratum C-method: 4/6 successful probes",
+        "stratum C-name: 4/6 successful probes",
+        "stratum U-method: 4/6 successful probes",
+        "oracle_error_rate 0.20 > 0.10"
+      ],
+      "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+      "oracle_error_rate": 0.2,
+      "oracle_not_quiescent": false,
+      "prism_dirty": false,
+      "prism_sha": "0d71800bb7f4",
+      "seed": 42,
+      "stale_adjudications": 0,
+      "sut_error_rate": 0,
+      "wall_s": {
+        "m1_oracle_inventory": 11.79,
+        "m2": 31.322,
+        "m3": 0.001,
+        "matrix": 6.962,
+        "oracle_start": 13.76,
+        "pinned": 5.495
+      }
+    },
+    "pinned": [
+      {
+        "id": "target-c-method",
+        "outcome": "flip_candidate"
+      },
+      {
+        "id": "module-deps-feature-gated",
+        "outcome": "missing"
+      },
+      {
+        "id": "load-repo-feature-gated",
+        "outcome": "missing"
+      },
+      {
+        "id": "ambiguous-symbol-contract",
+        "outcome": "ok"
+      }
+    ],
+    "pending": 16
+  },
+  "source_sha256": {
+    "src/ast.rs": "2ae4f2ca505a27c3a0113a3de1e781f10fd46b6581af0c635dc40d016ed323c9",
+    "src/languages/mod.rs": "4131fe22628ca54e64bddeef806a0422933ded67208af04c58a49aed81c43404",
+    "src/ast_erased_rvalue_tests.rs": "2d99f0fa12ed6ea675859c7e84162d53df24da6014c58880c3d24210c252db29",
+    "tests/lang/typescript/main.rs": "485bc9419ddf9fc5de6c611721eadd73546f58564fec4e722088c6c3e2b2224e",
+    "tests/lang/typescript/erased_rvalue_test.rs": "926a778d3207ea078edca1c407c042118064094bcbbf80fbd40da32daf79af47"
+  },
+  "additional_gates": {
+    "python": {
+      "passed": 940,
+      "skipped": 1,
+      "reason": "live adoption eval requires explicit PRISM_RUN_LIVE_EVALS=1",
+      "log": "python.log"
+    },
+    "membership_example": {
+      "passed": 12,
+      "failed": 0,
+      "log": "example.log"
+    },
+    "matrix": {
+      "passed": 159,
+      "regressions": 0,
+      "log": "final-tier-a-matrix.log",
+      "stale_override": false
+    },
+    "clippy": {
+      "exit": 0,
+      "warning_free": false,
+      "log": "clippy.log"
+    },
+    "review": {
+      "round": 1,
+      "cap": 2,
+      "verdict": "APPROVE",
+      "wrong": 0,
+      "actionable_smell": 0,
+      "record": "independent-review-round1.md"
+    }
+  },
+  "limitations": [
+    "Tier-A quick invalid; no accepted accuracy baseline or regression attribution",
+    "No real receiver population or recall measurement",
+    "Compound asserted-member path normalization remains separate; compiler-valid example, not natively measured here",
+    "No full multi-corpus or live-model runs",
+    "Prism navigation index stale; current-source consumer tracing, not exhaustive LSP references"
+  ],
+  "evidence": {
+    "directory": "/private/tmp/prism-erased-rvalue-avuSbL",
+    "archive": "/private/tmp/prism-erased-rvalue-0d71800b-evidence.tgz",
+    "bytes": 870899,
+    "mode": "0600",
+    "gzip_integrity": true,
+    "sha256": "db794e7d3780dacadd6dabc571113e4a26c4807eb680e5c174f1b89bef9023ed"
+  }
+}
