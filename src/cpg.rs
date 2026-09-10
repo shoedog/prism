@@ -15,6 +15,8 @@
 //! submodules (`context`, `types`, `build`, `query`, `cfg_queries`). The
 //! `pub use` re-exports below preserve the original `crate::cpg::*` API surface.
 
+#[cfg(test)]
+mod asserted_member_tests;
 mod build;
 mod cfg_queries;
 mod context;

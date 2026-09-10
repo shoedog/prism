@@ -1,5 +1,8 @@
 # Asserted-member proof closeout — production defect remains unfixed
 
+Historical PR307 proof-only result. The [subsequent bounded production repair](2026-09-10-typescript-asserted-member-repair.md)
+supersedes its unfixed/current-work status; the evidence below remains the base control.
+
 Runtime base: PR306 merge `58998926af2eb6ad7750e5a92a19f7b198993216`.
 Reviewed/tested tooling: `b27f1f4dd1338e99d4e4588aa94cf9e6e15925e2`.
 No production src/, manifest/lock, root build script or vendor changes. Later

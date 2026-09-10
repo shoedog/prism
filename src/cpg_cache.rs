@@ -190,7 +190,8 @@ use std::path::{Path, PathBuf};
 /// - v75: bounded module-private non-generic Props interface authority.
 /// - v76: source-backed imported object-alias receiver proofs.
 /// - v77: contextual imported object-alias receiver authority.
-const CACHE_VERSION: u32 = 77;
+/// - v78: bounded TS/TSX asserted member paths change field and boundary flow.
+const CACHE_VERSION: u32 = 78;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -730,7 +731,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_receiver_authority_and_item2_confidence() {
-        assert_eq!(super::CACHE_VERSION, 77);
+        assert_eq!(super::CACHE_VERSION, 78);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

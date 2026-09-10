@@ -1095,7 +1095,9 @@ impl CodePropertyGraph {
                     // (e.g. `o.data`) so interproc taint flows from the specific field, falling
                     // back to the base (`o`) — the pre-change behavior — when no field-path var
                     // node exists (recall-preserving).
-                    let full_arg_path = AccessPath::from_expr(arg_text);
+                    let full_arg_path = caller_parsed
+                        .bounded_argument_member_path_at(arg_span.start, arg_span.end)
+                        .unwrap_or_else(|| AccessPath::from_expr(arg_text));
                     let mut arg_paths = vec![full_arg_path.clone()];
                     let base_arg_path = AccessPath::simple(&full_arg_path.base);
                     if base_arg_path != full_arg_path {
@@ -1341,7 +1343,11 @@ impl CodePropertyGraph {
                                 | "dot_index_expression"
                                 | "method_index_expression"
                         )
-                        .then(|| AccessPath::from_expr(&value.text));
+                        .then(|| {
+                            callee_parsed
+                                .bounded_member_path_at(value.start_byte, value.end_byte)
+                                .unwrap_or_else(|| AccessPath::from_expr(&value.text))
+                        });
 
                         let endpoint = simple_path.and_then(|path| {
                             var_index
@@ -1560,7 +1566,9 @@ impl CodePropertyGraph {
                         let (arg_text, arg_span) = &args[i];
                         // Field-sensitive arg binding — mirrors the production helper so this
                         // serial reference stays the par==serial twin for the parallelization oracle.
-                        let full_arg_path = AccessPath::from_expr(arg_text);
+                        let full_arg_path = caller_parsed
+                            .bounded_argument_member_path_at(arg_span.start, arg_span.end)
+                            .unwrap_or_else(|| AccessPath::from_expr(arg_text));
                         let mut arg_paths = vec![full_arg_path.clone()];
                         let base_arg_path = AccessPath::simple(&full_arg_path.base);
                         if base_arg_path != full_arg_path {

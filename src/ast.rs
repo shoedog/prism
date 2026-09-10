@@ -6141,6 +6141,8 @@ impl ParsedFile {
             if let Some(lhs) = self.language.assignment_target(node) {
                 if lhs.kind() == "pattern_list" || lhs.kind() == "expression_list" {
                     self.extract_multi_target_lvalues(&lhs, line, out);
+                } else if let Some(member) = self.bounded_member_path(lhs) {
+                    out.push((member.path, line));
                 } else {
                     let lhs_text = self.node_text(&lhs).to_string();
                     for path in extract_lvalue_paths(&lhs_text) {
@@ -6269,6 +6271,8 @@ impl ParsedFile {
             if let Some(lhs) = self.language.assignment_target(&node) {
                 if lhs.kind() == "pattern_list" || lhs.kind() == "expression_list" {
                     self.extract_multi_target_lvalues(&lhs, line, out);
+                } else if let Some(member) = self.bounded_member_path(lhs) {
+                    out.push((member.path, line));
                 } else {
                     let lhs_text = self.node_text(&lhs).to_string();
                     for path in extract_lvalue_paths(&lhs_text) {
@@ -6429,6 +6433,16 @@ impl ParsedFile {
 
     fn extract_lvalue_spans_from_node(&self, node: Node<'_>, out: &mut Vec<PathSpan>) {
         let kind = node.kind();
+
+        if let Some(member) = self.bounded_member_path(node) {
+            out.push(PathSpan {
+                path: member.path,
+                line: node.start_position().row + 1,
+                start_byte: node.start_byte(),
+                end_byte: node.end_byte(),
+            });
+            return;
+        }
 
         if Self::is_field_access_node(kind) || Self::is_index_access_node(kind) {
             let text = self.node_text(&node).to_string();
@@ -7206,6 +7220,14 @@ impl ParsedFile {
         // Check for field/member access expressions — emit the full qualified
         // path instead of individual identifiers.
         if Self::is_field_access_node(node.kind()) {
+            if let Some(member) = self.bounded_member_path(node) {
+                out.push((member.path, node.start_position().row + 1));
+                out.push((
+                    AccessPath::simple(self.node_text(&member.receiver)),
+                    member.receiver.start_position().row + 1,
+                ));
+                return;
+            }
             let text = self.node_text(&node).to_string();
             let line = node.start_position().row + 1;
             out.push((AccessPath::from_expr(&text), line));
@@ -7249,6 +7271,16 @@ impl ParsedFile {
             return;
         }
         if Self::is_field_access_node(node.kind()) {
+            if let Some(member) = self.bounded_member_path(node) {
+                out.push(PathSpan {
+                    path: member.path,
+                    line: node.start_position().row + 1,
+                    start_byte: node.start_byte(),
+                    end_byte: node.end_byte(),
+                });
+                self.push_identifier_path_span(member.receiver, out);
+                return;
+            }
             let text = self.node_text(&node).to_string();
             let line = node.start_position().row + 1;
             out.push(PathSpan {
@@ -7754,8 +7786,10 @@ impl ParsedFile {
 
         // Check field/member access expressions (all languages)
         if Self::is_field_access_node(node.kind()) {
-            let text = self.node_text(&node).to_string();
-            let node_path = AccessPath::from_expr(&text);
+            let node_path = self
+                .bounded_member_path(node)
+                .map(|member| member.path)
+                .unwrap_or_else(|| AccessPath::from_expr(self.node_text(&node)));
             if node_path == *path && line > def_line {
                 out.insert(line);
                 return; // Don't recurse into matched field expression
@@ -10874,6 +10908,13 @@ fn collect_error_lines_recursive(node: Node<'_>, lines: &mut BTreeSet<usize>, ma
 #[cfg(test)]
 #[path = "ast_erased_rvalue_tests.rs"]
 mod erased_rvalue_tests;
+
+#[path = "ast_asserted_member.rs"]
+mod asserted_member;
+
+#[cfg(test)]
+#[path = "ast_asserted_member_tests.rs"]
+mod asserted_member_tests;
 
 #[cfg(test)]
 mod tests {
