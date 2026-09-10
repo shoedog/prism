@@ -50,7 +50,7 @@ No memory changes authorized or made. Predecessor handoff now marked superseded.
 
 ## 4. Open work
 
-Owner review/CI next. Recommend source/compiler classification of the two
+PR303 merged; successor owns source/compiler classification of the two
 public native parser refusals and JSON/.mts representation requirements, before
 input-selection/admission changes. Private worker_failed remains unclassified.
 Private raw data stays local. No production wiring in this slice.

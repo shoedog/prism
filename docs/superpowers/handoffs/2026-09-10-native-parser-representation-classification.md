@@ -12,15 +12,16 @@ git fetch/log/status confirmed PR303 merged and a clean starting tree.
 
 (a) Lane ownership RESOLVED: primary design/probes; representation_audit completed
 read-only JSON/.mts audit. No delegated writer.
-(b) Custody OPEN: classification documents being prepared; temporary evidence below.
-(c) In flight: native build/verification; no production or real-root mutation.
+(b) Custody RESOLVED: plan/fixtures committed as af2dfdf1; raw/final evidence archived
+with verified gzip integrity, size/hash below. Final docs publication next.
+(c) In flight: publication only; full gates/replay and both review rounds complete.
 (d) Authorization: “merged, proceed to next”; classification before admission changes.
 
 ## 1. Resume order
 
 1. Run `git status --short --branch`; read adjacent classification plan.
 2. Inspect `/private/tmp/prism-parser-classification-6vOV0e` and running gate state.
-3. Finish receipt/readout, bounded review and publication. No automatic merge.
+3. Check receipt/readout and archive identity; finish publication. No automatic merge.
 
 STOP before parser repair, suffix/input/closure expansion, installs or real-source edits.
 
@@ -32,8 +33,11 @@ STOP before parser repair, suffix/input/closure expansion, installs or real-sour
 | Error-node probe | done | `[MEASURED]`3 ERROR nodes, all >(); real compiler syntax clean |
 | Minimized matrix | done | `[MEASURED]` matrix.json18 TS/TSX cases;6 valid-source native mismatches |
 | Representation audit | done | `[MEASURED]`7 compiler Programs;3 unique JSON +1 .mts repository targets |
-| Durable readout/receipt | next | classify proof requirements, not admission |
-| Review/gates | next | cap2; fresh totals only |
+| Durable readout/receipt | done | docs/eval/receiver-closure/2026-09-10-native-parser-representation-classification.{md,json} |
+| Full gates | done | clean unchanged af2dfdf1: Rust4037/4230/4253,1 ignored each; observer726/helper18/authority40/native12; Python940/1 guarded skip |
+| Classification assertions | done |29 passed; separate desired-contract RED12pass/6fail remains intentionally unfixed |
+| Real replay/custody | done |7 exact ordinary packets/native censuses/Program facets; before/after tracked bytes and metadata equal |
+| Independent review | done | both rounds approved, zero new WRONG/actionable SMELL; no cap extension |
 | Publication | next | commit/push/PR; no automatic merge |
 
 ## 3. Corrections to standing documents and memory
@@ -44,8 +48,8 @@ measurements remain valid. No memory edits authorized or made.
 
 ## 4. Open work
 
-Complete classification evidence and propose bounded grammar repair as the next
-checkpoint; keep JSON and module-extension representations separate later work.
+Finish publication. Next checkpoint: bounded source-preserving
+grammar repair; keep JSON and module-extension representations separate later work.
 Private worker_failed remains unclassified and is not probed in this slice.
 
 ## 5. Invariants and traps — do not do these
@@ -64,10 +68,21 @@ Public source pin: `0642e72cfa2d9a71198200e52f37399384610ee3`.
 Compiler: `/private/tmp/prism-imported-alias-O4d6E1/package/lib/typescript.js` (5.9.3).
 Native grammar: tree-sitter-typescript0.23.2; tree-sitter0.25.10 from Cargo.lock.
 Predecessor raw observations: `/private/tmp/prism-membership-0edVdi`.
+Full gate summary: `gate-logs-2026-09-10T04-45-54-770Z-48494/summary.json`.
+Exact public native skips:294 Unsupported,285 NotUtf8,7 Ignored,4 Hidden,1 TooLarge.
+The286 NotUtf8/TooLarge skips keep native_status incomplete even after parser repair.
+Archive: `/private/tmp/prism-parser-classification-6vOV0e-evidence.tgz`, mode0600,
+28,513,090 bytes; SHA256
+`7fc87d382d182547fb00dff6485ab3eee7242da7e4b49f0daf6aef3b960a7baf`.
+Immutable prepublication checkpoint: final-readout.md/final-receipt.json supersede
+interim draft fields; publication metadata lives in the current remote handoff.
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** NOT RUN — readout in progress; pass: SELF-PASS (NOT INDEPENDENT);
-evidence tier: TEST-BACKED; record: matrix.json and fresh source/compiler probes.
+**§2c verdict:** SURVIVED — INDEPENDENT round2/2; evidence tier: TEST-BACKED;
+record: review.md. Reproduced18 fixtures/real anchors, reconciled all packet/native/
+Program/log/receipt/custody identities, independently reran29 assertions. Zero new
+WRONG/actionable SMELL; no extension. The six desired-contract RED failures are
+still open by design, not a claim of grammar repair.
 
 **Questions the owner owes an answer to:** None within classification scope.
