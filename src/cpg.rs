@@ -30,6 +30,8 @@ mod parameter_slots_parity_tests;
 pub mod query;
 mod reaching;
 #[cfg(test)]
+mod required_parameter_tests;
+#[cfg(test)]
 mod tests;
 mod trace;
 mod types;

@@ -191,7 +191,8 @@ use std::path::{Path, PathBuf};
 /// - v76: source-backed imported object-alias receiver proofs.
 /// - v77: contextual imported object-alias receiver authority.
 /// - v78: bounded TS/TSX asserted member paths change field and boundary flow.
-const CACHE_VERSION: u32 = 78;
+/// - v79: bounded TS/TSX required identifier parameter definitions and flow.
+const CACHE_VERSION: u32 = 79;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -731,7 +732,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_receiver_authority_and_item2_confidence() {
-        assert_eq!(super::CACHE_VERSION, 78);
+        assert_eq!(super::CACHE_VERSION, 79);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

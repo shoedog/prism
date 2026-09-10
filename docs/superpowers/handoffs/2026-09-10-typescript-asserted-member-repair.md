@@ -17,7 +17,7 @@
 
 1. Run `git status --short --branch` from the workspace; preserve assigned agent files.
 2. Read final readout/receipt; verification complete, including helper input recovery and invalid quick disposition.
-3. Check `gh pr view 308 --json state,headRefOid,statusCheckRollup`; publication complete, owner review/merge pending. No automatic merge. Next recommendation is bounded TS parameter occurrence repair.
+3. `[MEASURED 2026-09-10]` PR308 merged at f369f20cdcd3463bae86b191bcdd8ec9efd8f6fd. Continue approved successor in `2026-09-10-typescript-required-parameter-occurrences.md`; no automatic merge.
 
 **STOP conditions:** unrelated dirty work, new type/receiver/closure authority, open-class review findings at cap, unclassified failures.
 
@@ -48,8 +48,8 @@
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Owner review/merge | pending | Check PR308 head/CI | Owner decision | No auto-merge |
-| 2 | TS parameter occurrence defect | parked | Separate required/optional parameter proof/repair | Owner next slice | base-parameter-defect.jsonl |
+| 1 | Owner review/merge | done | PR308 merged f369f20c | None | Fresh gh merge check |
+| 2 | TS parameter occurrence defect | next | Approved required-identifier successor handoff | None | Optional/default remain excluded |
 
 ## 5. Invariants and traps — do not do these
 
