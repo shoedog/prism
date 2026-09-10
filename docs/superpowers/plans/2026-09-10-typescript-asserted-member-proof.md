@@ -70,3 +70,5 @@ Full runner starts/ends at the same clean HEAD. Independent round1/2 approved.
 No Tier-A trigger or production fix. Final readout and next recommendation:
 docs/eval/receiver-closure/2026-09-10-typescript-asserted-member-proof.md.
 Earlier future-tense gate steps above are historical executed plan, not pending.
+Published with closeout adf07389 as PR307:
+https://github.com/shoedog/prism/pull/307. No automatic merge.

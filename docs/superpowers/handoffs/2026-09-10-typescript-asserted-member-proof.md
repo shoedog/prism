@@ -9,7 +9,7 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` root owns architecture and fixture verifier; grammar_consumer_audit completed the native observer; classification_review completed read-only source audit — **RESOLVED**.
-**(b) Custody exposure** — `[MEASURED]` reviewed checkpoint pushed; raw evidence archived mode0600 with SHA in final readout; documentation closeout/PR next — **RESOLVED** for tooling/source custody.
+**(b) Custody exposure** — `[MEASURED]` reviewed tooling b27f1f4d and closeout adf07389 pushed; PR307 opened at https://github.com/shoedog/prism/pull/307; raw evidence archived mode0600 with SHA in final readout — **RESOLVED**. This publication-only update follows, tooling/runtime unchanged.
 **(c) In flight / irreversible** — `[MEASURED]` all verification/review complete, no active test/build at checkpoint; no runtime edits — **RESOLVED** scope.12 product failures remain deliberately unfixed.
 **(d) Authorization granted but not exercised** — owner: “merged - proceed”; standing “commit and push and open pr”. Approved next is bounded compiler/native proof, not production normalization or automatic merge.
 
@@ -17,7 +17,7 @@
 
 1. `git status --short --branch` in the workspace; confirm base/branch and preserve unrelated state.
 2. Read final readout/verification JSON and asserted-member/README.md; full gates/review are complete, not pending. Preserve default success versus12 repair-required failures.
-3. Commit/push documentation closeout and open PR; verify current remote HEAD/CI. No auto-merge. After owner approval, implement bounded AST-native descriptor/collector/reference repair with consumer compatibility and refusal controls.
+3. Check PR307 current head/CI with `gh pr view 307 --json state,headRefOid,statusCheckRollup`; publication is complete. No auto-merge or inference of CI success from local gates. After owner approval, implement bounded AST-native descriptor/collector/reference repair with consumer compatibility and refusal controls.
 
 **STOP conditions:** production normalization/authority expansion, private-source dependence, unclassified fixture failures or open-class review findings at cap.
 
@@ -36,7 +36,7 @@
 | Observers/helpers/authority | done | `[MEASURED]`726/18/40, no skips |
 | Other gates | done | `[MEASURED]` Python940+one skip, native7/policy7/CLI7, membership12, format/diff pass, Clippy warnings |
 | Review | done | `[MEASURED]` round1/2 APPROVE proof-only, WRONG0/actionable SMELL0; independent-review-round1.md |
-| Publication | next | `[MEASURED]` tooling pushed; documentation closeout/PR next |
+| Publication | done | `[MEASURED]` tooling/closeout pushed; PR307 opened, no auto-merge |
 
 ## 3. Corrections to standing documents and memory
 
@@ -51,7 +51,7 @@
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Documentation/PR closure | next | Resume order above | None | reviewed source b27f1f4d |
+| 1 | Owner review/merge | pending | Check current PR307 head/CI | Owner decision | https://github.com/shoedog/prism/pull/307 |
 | 2 | Production repair | parked | Propose bounded AST-native collector/reference normalization with consumer parity | Separate owner approval | No runtime changes in this slice |
 
 ## 5. Invariants and traps — do not do these
