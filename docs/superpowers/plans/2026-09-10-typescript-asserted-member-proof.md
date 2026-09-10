@@ -58,3 +58,15 @@ new authority, a non-enumerable repair expansion or private sources.
 Evidence root: /private/tmp/prism-asserted-member-proof-HFzXTL.
 No real-source execution, installs, live model/full multi-corpus runs, closure or
 React.FC expansion. react-scripts remains unresolved. No real-site recall claim.
+
+## Final checkpoint
+
+Reviewed tooling b27f1f4dd1338e99d4e4588aa94cf9e6e15925e2 is pushed; runtime remains
+identical to58998926. Final54 observations:49 valid,5 expected invalid,0 observation
+failures. Repair-required mode remains exactly12 UNFIXED failures. Native7/policy7/
+CLI negatives7 passed. Full Rust4,095/4,288/4,311; observers726/helpers18/authority40;
+Python940+one deliberate skip; membership example12. Clippy completes with warnings.
+Full runner starts/ends at the same clean HEAD. Independent round1/2 approved.
+No Tier-A trigger or production fix. Final readout and next recommendation:
+docs/eval/receiver-closure/2026-09-10-typescript-asserted-member-proof.md.
+Earlier future-tense gate steps above are historical executed plan, not pending.

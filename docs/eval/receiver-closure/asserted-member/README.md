@@ -29,6 +29,10 @@ Add `--require-repaired` to the last command to assert the desired future field
 dependency. **It currently exits1 with12 UNFIXED missing-edge assertions.** Default
 observation mode can pass while those defects remain; do not call that a repair.
 The checker refuses missing obligation classes to prevent a vacuous repair pass.
+This mode is a necessary dependency check, not complete production acceptance:
+future wiring must also verify that refused native observations and independent
+consumer contracts remain compatible. Compiler validity here admits synthetic
+evidence; it does not require adding a compiler to runtime normalization.
 
 ## Fixed population and interpretation
 
