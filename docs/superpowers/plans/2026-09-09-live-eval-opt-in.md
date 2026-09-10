@@ -41,3 +41,11 @@ runner/2x2/Tier-C CLI workflows. No receiver/closure/budget policy changes.
   reason rather than the normal skipped-total summary. Import events were empty,
   separating this assertion mismatch from a missing guard; corrected assertion
   checks SKIPPED and explicit opt-in reason. Retain green.log as test-probe evidence.
+
+## Completion
+
+Checkpoint2811040 passes11 focused tests. Final test bytes rerun on merged base
+still produce9fail/2pass safely. Full Python940pass/1 live-module skip; Rust
+4037/4230/4253pass with one ignored each; observers694, helpers18, authority40.
+Format/whitespace pass. No live model evaluation; Tier-A not triggered.
+Two self-review rounds complete. See the [readout](../../eval/2026-09-09-live-eval-opt-in.md).

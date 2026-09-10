@@ -1,0 +1,142 @@
+{
+  "schema": "prism.live-eval-opt-in-verification/1",
+  "base": "4e30ca84",
+  "tested_commit": "2811040f941a44b09c431b24c2006eafd0355370",
+  "contract": {
+    "variable": "PRISM_RUN_LIVE_EVALS",
+    "value": "1",
+    "default": "skip before live module eval imports",
+    "direct_runner_and_external_plugins_guarded": false,
+    "live_models_run_for_verification": false
+  },
+  "focused": {
+    "base": {
+      "failed": 9,
+      "passed": 2
+    },
+    "candidate": {
+      "failed": 0,
+      "passed": 11
+    },
+    "same_final_test_bytes": true
+  },
+  "python": {
+    "passed": 940,
+    "failed": 0,
+    "skipped": 1,
+    "skipped_module": "adoption/tests/test_prism_adoption.py",
+    "command": "env -u PRISM_RUN_LIVE_EVALS DEEPEVAL_TELEMETRY_OPT_OUT=YES PRISM_BIN=<local release> PRISM_MCP_BIN=<matched local release> .venv/bin/python -m pytest -q -rs"
+  },
+  "gates": [
+    {
+      "label": "callable-observations",
+      "totals": {
+        "tests": 694,
+        "suites": 0,
+        "pass": 694,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-test",
+      "totals": {
+        "groups": 28,
+        "passed": 4037,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-test-mcp",
+      "totals": {
+        "groups": 30,
+        "passed": 4230,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-test-owner-audit",
+      "totals": {
+        "groups": 30,
+        "passed": 4253,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null
+    },
+    {
+      "label": "receiver-closure-tests",
+      "totals": {
+        "tests": 18,
+        "suites": 0,
+        "pass": 18,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failure": null
+    },
+    {
+      "label": "callable-authority-profiles",
+      "totals": {
+        "results": 40,
+        "failures": []
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-fmt-check",
+      "totals": null,
+      "failure": null
+    },
+    {
+      "label": "git-diff-check",
+      "totals": null,
+      "failure": null
+    }
+  ],
+  "live_body_unchanged_from_K_through_teardown": true,
+  "live_body_sha256": "475b518d63df4746e7199d9bb57ff9cf639bc9a43abec8bf8263c4ad2231dd70",
+  "tier_a": "not triggered; no call resolution, navigation or CPG changes",
+  "review": "two self-review rounds; SELF-PASS, not independent",
+  "evidence": {
+    "red.log": {
+      "sha256": "179acd5b75e109b1e04069ae8dc29a03964b32352187f74afaabb0cdbfb6d12f"
+    },
+    "green.log": {
+      "sha256": "c2614c0bee5db39903f89303d9f68a995bac637713ce880e7103d4965c766117"
+    },
+    "green-corrected.log": {
+      "sha256": "5c7b705e854762da820a4b372568cfff2c4c7dbcf66596ffd88f8758ff2a3683"
+    },
+    "final-tests-base-red.log": {
+      "sha256": "1945c4272353a5be50375f35e13127f440d47c64b2e409d76e97aaeecf4a0618"
+    },
+    "python-full.log": {
+      "sha256": "64bb20c36153ccaface3792274694d7880712fd34ac6138b308f4842cfdeb525"
+    }
+  }
+}

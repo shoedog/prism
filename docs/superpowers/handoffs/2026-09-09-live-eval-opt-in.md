@@ -2,7 +2,8 @@
 
 **Written:** 2026-09-09 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · fix/live-eval-explicit-opt-in
-**Measured state:** `[MEASURED]` base4e30ca84; changed tests/docs/live-suite guard.
+**Measured state:** `[MEASURED]` guard/test checkpoint2811040 on base4e30ca84;
+full clean-HEAD gate runner passed. Subsequent edits are verification docs only.
 **Predecessor:** PR300 merged; owner approved next and clarified low Sonnet usage.
 **Truth ordering:** measured live state > explicit owner authority > this handoff > history.
 **Provenance:** written live; gate totals are not inherited.
@@ -10,16 +11,16 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Ownership RESOLVED: primary owns lane; no delegates dispatched.
-(b) Custody pending: implementation and RED captured, checkpoint next.
-(c) In flight: focused GREEN complete; full suites pending.
+(b) Custody: guard/tests committed2811040, RED and full evidence archived below.
+(c) In flight: local verification complete; publication pending.
 (d) Authority: “merged proceed to next”, bounded explicit opt-in hardening.
 No actual live model calls are needed or planned for this slice.
 
 ## 1. Resume order
 
 1. `git status --short --branch`; read adjacent live-eval-opt-in plan.
-2. Run focused tests then full suites; capture raw output below.
-3. Review at two-round cap, checkpoint, publish and verify exact-head CI.
+2. Read the [completed readout](../../eval/2026-09-09-live-eval-opt-in.md) and receipt.
+3. Publish and verify exact-head CI; no automatic merge.
 
 STOP on new external-model/config authority or open-class findings at the cap.
 
@@ -32,7 +33,8 @@ STOP on new external-model/config authority or open-class findings at the cap.
 | Guard/docs | done | exact-value module guard; current README commands updated |
 | Focused GREEN | done | green-corrected.log11pass; fake enabled path retains ten Sonnet trials |
 | Review | done | two self-review rounds: import boundary and explicit enablement/collection controls |
-| Full gates | next | stable implementation checkpoint |
+| Final-tests base replay | done | final-tests-base-red.log9fail/2pass; same test bytes as candidate |
+| Full gates | done | Python940pass/1skip; Rust4037/4230/4253pass, one ignored each; observer694/helper18/authority40 |
 | Publication | next | commit/push/PR after gates |
 
 ## 3. Corrections to standing documents and memory
@@ -43,7 +45,7 @@ record, but do not describe follow-up as responding to material cost. No memory 
 
 ## 4. Open work
 
-Full gates and publication. Project-boundary/acquisition
+Publication only. Project-boundary/acquisition
 feasibility remains the separate next design slice after this guard.
 
 ## 5. Invariants and traps — do not do these
@@ -60,12 +62,17 @@ Evidence `/private/tmp/prism-live-opt-in-GTQE8v`; RED `red.log`.
 Test `eval/tests/test_live_eval_opt_in.py`.
 Guard `eval/adoption/tests/test_prism_adoption.py`.
 Variable `PRISM_RUN_LIVE_EVALS`, required value `1`.
+Gate summary `gate-logs-2026-09-10T01-13-03-669Z-75134/summary.json`.
+Archive `/private/tmp/prism-live-opt-in-GTQE8v-evidence.tgz`, mode0600,
+SHA256 `0cdcfe9544f690f5f260f8c5f408bda1d7236de7de2a516361525e6bc51d8612`.
+Immutable verification checkpoint before publication metadata; no credentials.
 
 ## 7. Refutation verdict and owner questions
 
 **§2c verdict:** SURVIVED · claim: "plain collection cannot enter this live suite
 without exact opt-in; enabled test body remains available" · SELF-PASS (NOT
 INDEPENDENT), TEST-BACKED by11 focused tests. Two rounds; no open WRONG/SMELL
-findings within this guard contract. Full gates remain pending, not a done claim.
+findings within this guard contract. Full deterministic gates passed; no live
+model run claimed, and Tier-A was not triggered by this test-only boundary change.
 
 **Questions the owner owes an answer to:** None within this slice.
