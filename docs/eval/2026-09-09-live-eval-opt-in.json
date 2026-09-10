@@ -1,5 +1,10 @@
 {
   "schema": "prism.live-eval-opt-in-verification/1",
+  "publication": {
+    "pr": 301,
+    "url": "https://github.com/shoedog/prism/pull/301",
+    "verification_docs_commit": "0f431fbd41ae6df7b233122db80075bc4f51f8e7"
+  },
   "base": "4e30ca84",
   "tested_commit": "2811040f941a44b09c431b24c2006eafd0355370",
   "contract": {

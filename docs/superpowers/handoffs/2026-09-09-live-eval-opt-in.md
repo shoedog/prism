@@ -11,8 +11,9 @@ full clean-HEAD gate runner passed. Subsequent edits are verification docs only.
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Ownership RESOLVED: primary owns lane; no delegates dispatched.
-(b) Custody: guard/tests committed2811040, RED and full evidence archived below.
-(c) In flight: local verification complete; publication pending.
+(b) Custody RESOLVED: guard/tests2811040 and verification docs0f431fb pushed;
+PR301 opened: https://github.com/shoedog/prism/pull/301. Evidence archived below.
+(c) In flight: local verification complete; exact-head remote CI pending, not green.
 (d) Authority: “merged proceed to next”, bounded explicit opt-in hardening.
 No actual live model calls are needed or planned for this slice.
 
@@ -20,7 +21,8 @@ No actual live model calls are needed or planned for this slice.
 
 1. `git status --short --branch`; read adjacent live-eval-opt-in plan.
 2. Read the [completed readout](../../eval/2026-09-09-live-eval-opt-in.md) and receipt.
-3. Publish and verify exact-head CI; no automatic merge.
+3. Verify PR301 exact-head CI; this follow-up is publication metadata only.
+   No automatic merge.
 
 STOP on new external-model/config authority or open-class findings at the cap.
 
@@ -35,7 +37,7 @@ STOP on new external-model/config authority or open-class findings at the cap.
 | Review | done | two self-review rounds: import boundary and explicit enablement/collection controls |
 | Final-tests base replay | done | final-tests-base-red.log9fail/2pass; same test bytes as candidate |
 | Full gates | done | Python940pass/1skip; Rust4037/4230/4253pass, one ignored each; observer694/helper18/authority40 |
-| Publication | next | commit/push/PR after gates |
+| Publication | done | PR301, pushed0f431fb plus publication-only follow-up |
 
 ## 3. Corrections to standing documents and memory
 
@@ -45,7 +47,7 @@ record, but do not describe follow-up as responding to material cost. No memory 
 
 ## 4. Open work
 
-Publication only. Project-boundary/acquisition
+Owner review/merge and remote CI. Project-boundary/acquisition
 feasibility remains the separate next design slice after this guard.
 
 ## 5. Invariants and traps — do not do these

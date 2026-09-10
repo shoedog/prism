@@ -1,5 +1,7 @@
 # Live adoption pytest opt-in
 
+Published as [PR301](https://github.com/shoedog/prism/pull/301).
+
 Base: PR300 merge `4e30ca84`. Guard/test checkpoint: `2811040`.
 
 The live adoption pytest module now skips unless `PRISM_RUN_LIVE_EVALS` is exactly
