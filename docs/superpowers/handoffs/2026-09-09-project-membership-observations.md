@@ -5,8 +5,8 @@
 **Measured state:** `[MEASURED]` implementatione2ba539d on base48a12d3a;
 full gates passed from clean unchanged HEAD. Later changes are evidence/docs only.
 **Predecessor:** PR302 merged, fetched and rebound this turn.
-**Publication:** [PR303](https://github.com/shoedog/prism/pull/303) open; branch pushed.
-CI is pending verification, not claimed green. No automatic merge.
+**Publication:** [PR303](https://github.com/shoedog/prism/pull/303) merged as `17f7053d`.
+Superseded by the [classification handoff](2026-09-10-native-parser-representation-classification.md).
 **Truth ordering:** measured live state > explicit owner authority > this handoff > history.
 **Provenance:** written live; prior gate totals are not fresh results.
 
@@ -15,7 +15,7 @@ CI is pending verification, not claimed green. No automatic merge.
 (a) Ownership RESOLVED: primary design/integration; native_membership implementation
 complete; membership_review completed both independent source-review rounds.
 (b) Custody RESOLVED: implementatione2ba539d committed; evidence archived below.
-(c) In flight: PR review/CI only; all local verification/replay complete.
+(c) In flight: none in this lane; PR303 merged. Successor owns classification.
 (d) Authority: “merged, proceed to next”; bounded non-authorizing observations.
 
 ## 1. Resume order
@@ -23,7 +23,7 @@ complete; membership_review completed both independent source-review rounds.
 1. git status --short --branch; read adjacent implementation plan.
 2. Inspect /private/tmp/prism-membership-0edVdi logs and active agent state.
 3. Read the [completed readout](../../eval/receiver-closure/2026-09-09-project-membership-observations.md)
-   and receipt; check exact-head PR review/CI. No automatic merge.
+   and receipt; resume the linked classification handoff.
 
 STOP on production/policy expansion, installs, real-source changes or open-class review.
 
@@ -41,7 +41,7 @@ STOP on production/policy expansion, installs, real-source changes or open-class
 | Independent source review | done | two rounds converged; two WRONG over-refusals closed, no new WRONG/SMELL at cap |
 | Full gates | done | clean e2ba539d: Rust4037/4230/4253, one ignore each; observer726/helper18/authority40; native12; Python940/1 guarded skip |
 | Artifact parity | done | verify-real.log68 predicates;7 complete old packets and7 whole-root native censuses identical |
-| Publication | done | PR303 open, branch pushed; CI not claimed green; no automatic merge |
+| Publication | done | PR303 merged as17f7053d; successor linked above |
 
 ## 3. Corrections to standing documents and memory
 

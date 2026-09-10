@@ -1,0 +1,24 @@
+{
+  "schema": "prism.native-parser-classification-fixtures/1",
+  "authorizes_runtime_edge": false,
+  "purpose": "Characterize the current pinned grammar, not bless its valid-source errors. A repair must change all valid cases to zero native errors while retaining malformed refusal and tree/call fidelity.",
+  "compiler_version": "5.9.3",
+  "compiler_sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675",
+  "grammar": "tree-sitter-typescript 0.23.2 / tree-sitter 0.25.10",
+  "extensions": ["ts", "tsx"],
+  "files": {"module.ts": "export const value = 1;\n"},
+  "prefix": "export {}; declare function get<T>(): Promise<T>; declare const marker: number;\nasync function run() { ",
+  "suffix": " }\n",
+  "compiler_options": {"strict": true, "noEmit": true, "target": "ESNext", "module": "ESNext", "moduleResolution": "Bundler", "types": []},
+  "cases": [
+    {"id": "await_import", "body": "const result = await get<typeof import(\"./module\")>();", "compiler_diagnostic_codes": [], "current_native_errors": 1, "native_error_text": ">()"},
+    {"id": "plain_import", "body": "const result = get<typeof import(\"./module\")>();", "compiler_diagnostic_codes": [], "current_native_errors": 1, "native_error_text": ">()"},
+    {"id": "await_number", "body": "const result = await get<number>();", "compiler_diagnostic_codes": [], "current_native_errors": 0},
+    {"id": "await_typeof", "body": "const result = await get<typeof marker>();", "compiler_diagnostic_codes": [], "current_native_errors": 0},
+    {"id": "await_alias", "body": "type M = typeof import(\"./module\"); const result = await get<M>();", "compiler_diagnostic_codes": [], "current_native_errors": 0},
+    {"id": "parenthesized", "body": "const result = await (get<typeof import(\"./module\")>());", "compiler_diagnostic_codes": [], "current_native_errors": 1, "native_error_text": ">()"},
+    {"id": "type_annotation", "body": "const result: typeof import(\"./module\") = await get();", "compiler_diagnostic_codes": [], "current_native_errors": 0},
+    {"id": "dynamic_import", "body": "const result = await import(\"./module\");", "compiler_diagnostic_codes": [], "current_native_errors": 0},
+    {"id": "malformed", "body": "const result = await get<typeof import(\"./module\")(;", "compiler_diagnostic_codes": [2365, 2349, 1005], "current_native_errors": 1, "native_error_text": "("}
+  ]
+}
