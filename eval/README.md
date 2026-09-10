@@ -11,6 +11,15 @@ Tier-A measures Prism navigation accuracy against language-server oracles and
 by-construction micro-cases. It is host-side, not CI-side: live corpus runs need
 bench repos, oracle binaries, and a fresh Prism release binary.
 
+## Deterministic tests versus live-model evals
+
+`cd eval && uv run pytest -q` includes the deterministic harness and adoption unit
+tests. The live adoption pytest module skips unless `PRISM_RUN_LIVE_EVALS=1` is
+explicitly set. For intentional model runs, use the command in the
+[adoption protocol](adoption/README.md#run-command); keep opt-in local to that
+command. This does not change Tier-A's local language-server runs or guard
+independent live scripts/CLI entry points.
+
 ## Oracle Install
 
 Put these servers on `PATH` before live runs:

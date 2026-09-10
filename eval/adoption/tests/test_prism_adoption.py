@@ -1,10 +1,20 @@
-"""deepeval suite: `cd eval && uv run deepeval test run adoption/tests/test_prism_adoption.py
+"""deepeval suite: `cd eval && PRISM_RUN_LIVE_EVALS=1 uv run deepeval test run adoption/tests/test_prism_adoption.py
   --identifier prism-adoption-round-N -n 5 -i -s`.
 Generation is cached by SKILL.md hash (runner.py) so re-scoring is free; editing
 skills/prism-code-navigation/SKILL.md invalidates the cache and re-spends."""
 from __future__ import annotations
-import os; os.environ.setdefault("OPENAI_API_KEY", "sk-adoption-deterministic-gate")
+import os
 import pytest
+
+# Collection is not permission to create credential-bearing configs or run models.
+# Keep this before eval imports and source/dataset loading, including collect-only.
+if os.environ.get("PRISM_RUN_LIVE_EVALS") != "1":
+    pytest.skip(
+        "live adoption eval requires explicit PRISM_RUN_LIVE_EVALS=1",
+        allow_module_level=True,
+    )
+
+os.environ.setdefault("OPENAI_API_KEY", "sk-adoption-deterministic-gate")
 from deepeval import assert_test
 from adoption.goldens import load_probes
 from adoption.env import build_isolated_config
