@@ -1,0 +1,579 @@
+{
+  "schema": "prism.project-boundary-feasibility/1",
+  "authorizes_runtime_edge": false,
+  "base": "5adf0394",
+  "compiler_sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675",
+  "public_commit": "0642e72cfa2d9a71198200e52f37399384610ee3",
+  "public_custody": {
+    "tracked_files": 1229,
+    "tracked_sha256": "aec9b0ce8eaff24449ff51fa5132899e858759dccf728016b05f1017118c4b54",
+    "counts": {
+      "files": 59799,
+      "dirs": 9058,
+      "bytes": 830105343,
+      "links": 249,
+      "special": 0
+    }
+  },
+  "binaries": {
+    "target/release/prism": "bdadb4dfb1d165609d14fc6765dabefa26597d0c61efb1b5b5e7984a5c0ce865",
+    "target/release/prism-mcp": "0bba2c02d711ad73860e38ea12e75676d5231f222b88a0d8f05f4fad3af2aa8d",
+    "target/release/libprism.rlib": "b4a3f478e8b1e5da0a5b057a90491c5d2854fd1e814c2d19bb8d26ae88794a1f"
+  },
+  "public": [
+    {
+      "id": "public-root",
+      "config": "project/tsconfig.json",
+      "profile": "installed",
+      "links": "in-root",
+      "packet_sha256": "f326c0fd0e5af0babc28040059936954285758a5faa2819e6ae77c3a3b1d28db",
+      "snapshot_sha256": "90c7deb2e386c8d01e7228fb8cc300e92f8bb4232f0c4970f43e7073213f064b",
+      "native_files": 628,
+      "native_bytes": 6928124,
+      "native_parse_error_files": [
+        {
+          "file": "project/packages/excalidraw/tests/clipboard.test.tsx",
+          "count": 1
+        },
+        {
+          "file": "project/setupTests.ts",
+          "count": 2
+        }
+      ],
+      "configured_roots": 591,
+      "program_files": 1445,
+      "compiler_files": 82,
+      "dependency_files": 768,
+      "repository_program_files": 595,
+      "repository_json_files": 3,
+      "repository_program_outside_package": 0,
+      "program_not_configured_root": 854,
+      "repository_program_not_in_native": 4,
+      "native_not_in_repository_program": 37,
+      "repository_program_not_in_whole_native": [
+        "project/excalidraw-app/vite.config.mts",
+        "project/packages/excalidraw/locales/en.json",
+        "project/packages/excalidraw/locales/percentages.json",
+        "project/packages/excalidraw/package.json"
+      ],
+      "config_files": [
+        "project/tsconfig.json"
+      ],
+      "semantic_closure_complete": false,
+      "semantic_closure_reasons": [
+        "type_lib_unproven",
+        "boundary_encounter",
+        "resolution_unproven"
+      ],
+      "cross_package_examples": [],
+      "unresolved_react_scripts": [
+        {
+          "file": "project/packages/excalidraw/react-app-env.d.ts",
+          "status": "unproven",
+          "reason": "unresolved",
+          "target": null
+        }
+      ]
+    },
+    {
+      "id": "public-common",
+      "config": "project/packages/common/tsconfig.json",
+      "profile": "installed",
+      "links": "in-root",
+      "packet_sha256": "c062d1c9c33c91c6b142534e435b2fc5a41b611715841c3eb5708e2d91d52b8b",
+      "snapshot_sha256": "90c7deb2e386c8d01e7228fb8cc300e92f8bb4232f0c4970f43e7073213f064b",
+      "native_files": 27,
+      "native_bytes": 127667,
+      "native_parse_error_files": [],
+      "configured_roots": 19,
+      "program_files": 805,
+      "compiler_files": 86,
+      "dependency_files": 313,
+      "repository_program_files": 406,
+      "repository_json_files": 2,
+      "repository_program_outside_package": 386,
+      "program_not_configured_root": 786,
+      "repository_program_not_in_native": 386,
+      "native_not_in_repository_program": 7,
+      "repository_program_not_in_whole_native": [
+        "project/packages/excalidraw/locales/en.json",
+        "project/packages/excalidraw/locales/percentages.json"
+      ],
+      "config_files": [
+        "project/packages/common/tsconfig.json",
+        "project/packages/tsconfig.base.json"
+      ],
+      "semantic_closure_complete": false,
+      "semantic_closure_reasons": [
+        "entry_obligations_incomplete",
+        "boundary_encounter",
+        "resolution_unproven"
+      ],
+      "cross_package_examples": [
+        {
+          "from": "project/packages/common/global.d.ts",
+          "specifier": "@excalidraw/excalidraw/css",
+          "target": "project/packages/excalidraw/css.d.ts"
+        },
+        {
+          "from": "project/packages/common/global.d.ts",
+          "specifier": "@excalidraw/excalidraw/global",
+          "target": "project/packages/excalidraw/global.d.ts"
+        },
+        {
+          "from": "project/packages/common/src/appEventBus.ts",
+          "specifier": "@excalidraw/excalidraw/types",
+          "target": "project/packages/excalidraw/types.ts"
+        }
+      ],
+      "unresolved_react_scripts": []
+    },
+    {
+      "id": "public-element",
+      "config": "project/packages/element/tsconfig.json",
+      "profile": "installed",
+      "links": "in-root",
+      "packet_sha256": "8fadd44d6a153da6d2ac58d3ef5e23e872c444adcfbbf973c66263030856f1a4",
+      "snapshot_sha256": "90c7deb2e386c8d01e7228fb8cc300e92f8bb4232f0c4970f43e7073213f064b",
+      "native_files": 73,
+      "native_bytes": 1301003,
+      "native_parse_error_files": [],
+      "configured_roots": 50,
+      "program_files": 806,
+      "compiler_files": 86,
+      "dependency_files": 313,
+      "repository_program_files": 407,
+      "repository_json_files": 2,
+      "repository_program_outside_package": 357,
+      "program_not_configured_root": 756,
+      "repository_program_not_in_native": 357,
+      "native_not_in_repository_program": 23,
+      "repository_program_not_in_whole_native": [
+        "project/packages/excalidraw/locales/en.json",
+        "project/packages/excalidraw/locales/percentages.json"
+      ],
+      "config_files": [
+        "project/packages/element/tsconfig.json",
+        "project/packages/tsconfig.base.json"
+      ],
+      "semantic_closure_complete": false,
+      "semantic_closure_reasons": [
+        "entry_obligations_incomplete",
+        "boundary_encounter",
+        "resolution_unproven"
+      ],
+      "cross_package_examples": [
+        {
+          "from": "project/packages/element/global.d.ts",
+          "specifier": "@excalidraw/excalidraw/css",
+          "target": "project/packages/excalidraw/css.d.ts"
+        },
+        {
+          "from": "project/packages/element/global.d.ts",
+          "specifier": "@excalidraw/excalidraw/global",
+          "target": "project/packages/excalidraw/global.d.ts"
+        },
+        {
+          "from": "project/packages/element/src/Scene.ts",
+          "specifier": "../../excalidraw/types",
+          "target": "project/packages/excalidraw/types.ts"
+        }
+      ],
+      "unresolved_react_scripts": []
+    },
+    {
+      "id": "public-excalidraw",
+      "config": "project/packages/excalidraw/tsconfig.json",
+      "profile": "installed",
+      "links": "in-root",
+      "packet_sha256": "243baaf6c0fcda6fe5725e2259e7d0c1644c7741a376e725e9c27c609f47d9dd",
+      "snapshot_sha256": "90c7deb2e386c8d01e7228fb8cc300e92f8bb4232f0c4970f43e7073213f064b",
+      "native_files": 415,
+      "native_bytes": 5036608,
+      "native_parse_error_files": [
+        {
+          "file": "project/packages/excalidraw/tests/clipboard.test.tsx",
+          "count": 1
+        }
+      ],
+      "configured_roots": 340,
+      "program_files": 831,
+      "compiler_files": 86,
+      "dependency_files": 317,
+      "repository_program_files": 428,
+      "repository_json_files": 2,
+      "repository_program_outside_package": 86,
+      "program_not_configured_root": 491,
+      "repository_program_not_in_native": 88,
+      "native_not_in_repository_program": 75,
+      "repository_program_not_in_whole_native": [
+        "project/packages/excalidraw/locales/en.json",
+        "project/packages/excalidraw/locales/percentages.json"
+      ],
+      "config_files": [
+        "project/packages/excalidraw/tsconfig.json",
+        "project/packages/tsconfig.base.json"
+      ],
+      "semantic_closure_complete": false,
+      "semantic_closure_reasons": [
+        "entry_obligations_incomplete",
+        "type_lib_unproven",
+        "boundary_encounter",
+        "resolution_unproven"
+      ],
+      "cross_package_examples": [
+        {
+          "from": "project/packages/excalidraw/actions/actionAddToLibrary.ts",
+          "specifier": "@excalidraw/common",
+          "target": "project/packages/common/src/index.ts"
+        },
+        {
+          "from": "project/packages/excalidraw/actions/actionAddToLibrary.ts",
+          "specifier": "@excalidraw/element",
+          "target": "project/packages/element/src/index.ts"
+        },
+        {
+          "from": "project/packages/excalidraw/actions/actionAddToLibrary.ts",
+          "specifier": "@excalidraw/element",
+          "target": "project/packages/element/src/index.ts"
+        }
+      ],
+      "unresolved_react_scripts": [
+        {
+          "file": "project/packages/excalidraw/react-app-env.d.ts",
+          "status": "unproven",
+          "reason": "unresolved",
+          "target": null
+        }
+      ]
+    },
+    {
+      "id": "public-fractional-indexing",
+      "config": "project/packages/fractional-indexing/tsconfig.json",
+      "profile": "installed",
+      "links": "in-root",
+      "packet_sha256": "6d4959d2054e4dc9f879db508df170f5d5389b73455815aced18f3bfa7ff0361",
+      "snapshot_sha256": "90c7deb2e386c8d01e7228fb8cc300e92f8bb4232f0c4970f43e7073213f064b",
+      "native_files": 2,
+      "native_bytes": 8441,
+      "native_parse_error_files": [],
+      "configured_roots": 2,
+      "program_files": 304,
+      "compiler_files": 86,
+      "dependency_files": 216,
+      "repository_program_files": 2,
+      "repository_json_files": 0,
+      "repository_program_outside_package": 0,
+      "program_not_configured_root": 302,
+      "repository_program_not_in_native": 0,
+      "native_not_in_repository_program": 0,
+      "repository_program_not_in_whole_native": [],
+      "config_files": [
+        "project/packages/fractional-indexing/tsconfig.json",
+        "project/packages/tsconfig.base.json"
+      ],
+      "semantic_closure_complete": false,
+      "semantic_closure_reasons": [
+        "entry_obligations_incomplete",
+        "boundary_encounter",
+        "resolution_unproven"
+      ],
+      "cross_package_examples": [],
+      "unresolved_react_scripts": []
+    },
+    {
+      "id": "public-math",
+      "config": "project/packages/math/tsconfig.json",
+      "profile": "installed",
+      "links": "in-root",
+      "packet_sha256": "faf11234410701b572142e5e58a8f05c6bf9020b29a15ba1135297964fc14b7f",
+      "snapshot_sha256": "90c7deb2e386c8d01e7228fb8cc300e92f8bb4232f0c4970f43e7073213f064b",
+      "native_files": 23,
+      "native_bytes": 63839,
+      "native_parse_error_files": [],
+      "configured_roots": 16,
+      "program_files": 805,
+      "compiler_files": 86,
+      "dependency_files": 313,
+      "repository_program_files": 406,
+      "repository_json_files": 2,
+      "repository_program_outside_package": 390,
+      "program_not_configured_root": 789,
+      "repository_program_not_in_native": 390,
+      "native_not_in_repository_program": 7,
+      "repository_program_not_in_whole_native": [
+        "project/packages/excalidraw/locales/en.json",
+        "project/packages/excalidraw/locales/percentages.json"
+      ],
+      "config_files": [
+        "project/packages/math/tsconfig.json",
+        "project/packages/tsconfig.base.json"
+      ],
+      "semantic_closure_complete": false,
+      "semantic_closure_reasons": [
+        "entry_obligations_incomplete",
+        "boundary_encounter",
+        "resolution_unproven"
+      ],
+      "cross_package_examples": [
+        {
+          "from": "project/packages/math/global.d.ts",
+          "specifier": "@excalidraw/excalidraw/css",
+          "target": "project/packages/excalidraw/css.d.ts"
+        },
+        {
+          "from": "project/packages/math/global.d.ts",
+          "specifier": "@excalidraw/excalidraw/global",
+          "target": "project/packages/excalidraw/global.d.ts"
+        },
+        {
+          "from": "project/packages/math/src/range.ts",
+          "specifier": "@excalidraw/common",
+          "target": "project/packages/common/src/index.ts"
+        }
+      ],
+      "unresolved_react_scripts": []
+    },
+    {
+      "id": "public-utils",
+      "config": "project/packages/utils/tsconfig.json",
+      "profile": "installed",
+      "links": "in-root",
+      "packet_sha256": "280a79ea5eec27aa02cfe4438d06865800c8c72a5a70b1fbaa6e16b78a259f90",
+      "snapshot_sha256": "90c7deb2e386c8d01e7228fb8cc300e92f8bb4232f0c4970f43e7073213f064b",
+      "native_files": 8,
+      "native_bytes": 33132,
+      "native_parse_error_files": [],
+      "configured_roots": 5,
+      "program_files": 810,
+      "compiler_files": 86,
+      "dependency_files": 317,
+      "repository_program_files": 407,
+      "repository_json_files": 2,
+      "repository_program_outside_package": 402,
+      "program_not_configured_root": 805,
+      "repository_program_not_in_native": 402,
+      "native_not_in_repository_program": 3,
+      "repository_program_not_in_whole_native": [
+        "project/packages/excalidraw/locales/en.json",
+        "project/packages/excalidraw/locales/percentages.json"
+      ],
+      "config_files": [
+        "project/packages/tsconfig.base.json",
+        "project/packages/utils/tsconfig.json"
+      ],
+      "semantic_closure_complete": false,
+      "semantic_closure_reasons": [
+        "entry_obligations_incomplete",
+        "boundary_encounter",
+        "resolution_unproven"
+      ],
+      "cross_package_examples": [
+        {
+          "from": "project/packages/utils/global.d.ts",
+          "specifier": "@excalidraw/excalidraw/css",
+          "target": "project/packages/excalidraw/css.d.ts"
+        },
+        {
+          "from": "project/packages/utils/global.d.ts",
+          "specifier": "@excalidraw/excalidraw/global",
+          "target": "project/packages/excalidraw/global.d.ts"
+        },
+        {
+          "from": "project/packages/utils/src/export.ts",
+          "specifier": "@excalidraw/common",
+          "target": "project/packages/common/src/index.ts"
+        }
+      ],
+      "unresolved_react_scripts": []
+    }
+  ],
+  "owner_refusals": [
+    {
+      "id": "public-root",
+      "status": 1,
+      "empty_stdout": true,
+      "refusal": "input_budget",
+      "report": {
+        "authorizes_runtime_edge": false,
+        "failed_phase": "prepare_inputs",
+        "inputs": {
+          "byte_limit": 8388608,
+          "file_limit": 512,
+          "js_ts_bytes": 6928124,
+          "js_ts_files": 628,
+          "languages": {
+            "JavaScript": 26,
+            "Tsx": 290,
+            "TypeScript": 312
+          },
+          "loaded_files": 628,
+          "type_database_present": false,
+          "within_byte_limit": true,
+          "within_file_limit": false
+        },
+        "phases": {
+          "compiler_evidence": "not_reached",
+          "load_inputs": "completed",
+          "locate_inputs": "not_reached",
+          "owner_mapping": "not_reached",
+          "prepare_inputs": "failed",
+          "select_inputs": "completed",
+          "session_build": "not_reached"
+        },
+        "reason": "input_budget",
+        "schema": "prism.owner-admission/1"
+      },
+      "ms": 648
+    },
+    {
+      "id": "public-root-math-config",
+      "status": 1,
+      "empty_stdout": true,
+      "refusal": "input_budget",
+      "report": {
+        "authorizes_runtime_edge": false,
+        "failed_phase": "prepare_inputs",
+        "inputs": {
+          "byte_limit": 8388608,
+          "file_limit": 512,
+          "js_ts_bytes": 6928124,
+          "js_ts_files": 628,
+          "languages": {
+            "JavaScript": 26,
+            "Tsx": 290,
+            "TypeScript": 312
+          },
+          "loaded_files": 628,
+          "type_database_present": false,
+          "within_byte_limit": true,
+          "within_file_limit": false
+        },
+        "phases": {
+          "compiler_evidence": "not_reached",
+          "load_inputs": "completed",
+          "locate_inputs": "not_reached",
+          "owner_mapping": "not_reached",
+          "prepare_inputs": "failed",
+          "select_inputs": "completed",
+          "session_build": "not_reached"
+        },
+        "reason": "input_budget",
+        "schema": "prism.owner-admission/1"
+      },
+      "ms": 157
+    },
+    {
+      "id": "public-reroot-math",
+      "status": 1,
+      "empty_stdout": true,
+      "refusal": "semantic_closure",
+      "report": {
+        "authorizes_runtime_edge": false,
+        "failed_phase": "compiler_evidence",
+        "inputs": {
+          "byte_limit": 8388608,
+          "file_limit": 512,
+          "js_ts_bytes": 63839,
+          "js_ts_files": 23,
+          "languages": {
+            "TypeScript": 23
+          },
+          "loaded_files": 23,
+          "type_database_present": false,
+          "within_byte_limit": true,
+          "within_file_limit": true
+        },
+        "phases": {
+          "compiler_evidence": "failed",
+          "load_inputs": "completed",
+          "locate_inputs": "completed",
+          "owner_mapping": "not_reached",
+          "prepare_inputs": "completed",
+          "select_inputs": "completed",
+          "session_build": "not_reached"
+        },
+        "reason": "semantic_closure",
+        "schema": "prism.owner-admission/1"
+      },
+      "ms": 548
+    },
+    {
+      "id": "public-reroot-editor",
+      "status": 1,
+      "empty_stdout": true,
+      "refusal": "parse_error",
+      "report": {
+        "authorizes_runtime_edge": false,
+        "failed_phase": "prepare_inputs",
+        "inputs": {
+          "byte_limit": 8388608,
+          "file_limit": 512,
+          "js_ts_bytes": 5036608,
+          "js_ts_files": 415,
+          "languages": {
+            "JavaScript": 1,
+            "Tsx": 241,
+            "TypeScript": 173
+          },
+          "loaded_files": 415,
+          "type_database_present": false,
+          "within_byte_limit": true,
+          "within_file_limit": true
+        },
+        "phases": {
+          "compiler_evidence": "not_reached",
+          "load_inputs": "completed",
+          "locate_inputs": "not_reached",
+          "owner_mapping": "not_reached",
+          "prepare_inputs": "failed",
+          "select_inputs": "completed",
+          "session_build": "not_reached"
+        },
+        "reason": "parse_error",
+        "schema": "prism.owner-admission/1"
+      },
+      "ms": 327
+    }
+  ],
+  "private": {
+    "declared_boundary": "root-only",
+    "native_disposition": "mixed-language and over file limit",
+    "owner_refusal": "owner_requires_js_ts_only",
+    "observer_membership": "unmeasured",
+    "observer_refusal": [
+      "budget_exceeded"
+    ],
+    "installed_dependencies": "absent",
+    "raw_evidence": "local only"
+  },
+  "verification": {
+    "custody_after": "public and private exact before/after equality",
+    "artifact_checks": {
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "local raw-packet/native-census reconciliation, custody, refusal, privacy, links and receipt-tampering controls; not new production fixture coverage",
+      "initial_validator_failure": "15 pass / 1 fail: numeric substring inside a public digest; corrected to typed values with injected privacy negatives"
+    },
+    "observer_tests": {
+      "passed": 694,
+      "failed": 0,
+      "skipped": 0
+    },
+    "initial_observer_setup": {
+      "passed": 586,
+      "file_failures": 5,
+      "cause": "required PRISM_CALLABLE_PROFILES missing",
+      "admissible": false
+    },
+    "native_censuses": 8,
+    "public_compiler_observations": 7,
+    "owner_refusals": 5,
+    "reroot_config_control": 1,
+    "release_build": "passed",
+    "runtime_changes": false,
+    "full_rust_python_suites": "not rerun: docs/design-only",
+    "tier_a": "not triggered"
+  }
+}

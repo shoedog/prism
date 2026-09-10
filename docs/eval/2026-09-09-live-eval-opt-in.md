@@ -1,6 +1,7 @@
 # Live adoption pytest opt-in
 
 Published as [PR301](https://github.com/shoedog/prism/pull/301).
+Merged as `5adf0394`; next [project-boundary design checkpoint](receiver-closure/2026-09-09-project-boundary-feasibility.md).
 
 Base: PR300 merge `4e30ca84`. Guard/test checkpoint: `2811040`.
 
