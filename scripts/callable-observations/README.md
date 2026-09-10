@@ -411,10 +411,74 @@ future authenticated proof consumer would require a stronger acquisition contrac
 ## Tests
 
 ```sh
-PRISM_TYPESCRIPT="$compiler" PRISM_CALLABLE_PROFILES="$profiles" node --test scripts/callable-observations/*.test.mjs
+cargo build --release --example project_membership_census
+PRISM_TYPESCRIPT="$compiler" PRISM_CALLABLE_PROFILES="$profiles" \
+  PRISM_MEMBERSHIP_NATIVE="$PWD/target/release/examples/project_membership_census" \
+  node --test scripts/callable-observations/*.test.mjs
+cargo test --example project_membership_census
 ```
 
 `profiles` uses PR259's pinned react18/react19 layouts. Tests create their own
 temporary installed-package projects, never install or modify an application.
 See the same-date callable-lookup-packets spec/readout for RED captures,
 full-project gates, evidence limitations and the separately approved next boundary.
+
+## Separate project membership observations
+
+`membership.mjs` observes the approved complete audit root and selected logical
+config without changing schema20, the native loader or executable ownership.
+Build the research native helper above from the **same checkout** first. Its path
+is an explicitly trusted executable to run, not untrusted packet data. Its hash
+binds reproduction; it is not an attestation of arbitrary third-party binaries.
+
+```sh
+native="$PWD/target/release/examples/project_membership_census"
+node scripts/callable-observations/membership.mjs observe \
+  "$compiler" "$project" tsconfig.json "$native" > membership.json
+node scripts/callable-observations/membership.mjs validate \
+  "$compiler" "$project" tsconfig.json "$native" < membership.json
+```
+
+Optional final arguments are the existing `default|installed` profile and
+`reject|in-root` link policy, defaulting to `default reject`. They apply only to
+this research invocation, not Rust owner acquisition. No installs, emits, config
+plugins or project-reference traversal are introduced. Keep private raw artifacts
+local; they contain source identities, inventory and existing compiler evidence.
+
+`prism.project-membership/1` is always `authorizes_runtime_edge:false`:
+
+- `status:observed` means reproduced observations, **not** complete semantic
+  closure, successful parsing or eligibility. `payload.packet` retains the entire
+  unchanged observer packet and all unresolved/effect/search/type/lib obligations.
+- `selection` retains config-chain file/hash identity and byte anchors plus exact
+  spellings for files/include/exclude. The existing compiler supplies roots; no
+  replacement glob engine or flattened config is used. Duplicate JSON properties,
+  unsupported config provenance, plugins/references and configDir selection
+  interpolation are unavailable in this bounded lane.
+- `program` partitions actual compiler members into descriptive repository,
+  dependency and compiler domains. Separate fields record declarations, JSON,
+  configured-root/native membership, actual native language support and parse
+  counts. `inventory_aliases` lists audited links targeting a member/ancestor;
+  it does not assert the compiler traversed any particular link.
+- `native` is the actual full-root loader census and complete skip ledger, never a
+  supplied subset. `native_status:incomplete` preserves parse-error and refusal-skip
+  evidence. Ignored directories remain explicit; `observed` is not full filesystem
+  coverage. Differences retain roots outside Program, Program outside roots/native,
+  and native inputs outside Program, including unsupported Program suffixes/JSON.
+- `status:unavailable` has `payload:null` and a bounded reason, not complete empty
+  sets. Compiler/native/compiler acquisition shares the existing profile deadline
+  and per-process output ceilings; final envelope must fit that same packet cap.
+
+Program identities reuse the existing worker's byte-backed link/case
+canonicalization. Native arrays use matching UTF-16 order. Both compiler runs must
+agree exactly; native bytes must match that inventory, and helper/producer hashes
+must remain unchanged. `parseMembership` only checks structure/consistency.
+`validateMembership` independently reacquires and compares the entire artifact;
+unavailable observations never validate as membership. Same-byte restoration can
+reproduce an observation, not a live Rust proof/cache epoch. Existing non-hostile
+filesystem assumptions apply; this is not an atomic snapshot or security sandbox.
+
+Do not use the raw native helper without a complete bounded prior snapshot and
+subprocess limits: it is an implementation component, not a standalone acquisition
+authority. The helper's stdin IDs only classify parser-language support and never
+select files for loading. No new navigation CLI/API/MCP flags or runtime consumer.
