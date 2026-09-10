@@ -6108,6 +6108,9 @@ impl ParsedFile {
         };
         let mut current = Some(leaf);
         while let Some(node) = current {
+            if self.language.is_erased_type_boundary(node) {
+                return false;
+            }
             if node.kind() == "keyword_argument" {
                 if node.child_by_field_name("name").is_some_and(|name| {
                     name.start_byte() <= start_byte && end_byte <= name.end_byte()
@@ -7187,6 +7190,19 @@ impl ParsedFile {
     }
 
     fn collect_identifier_paths<'a>(&self, node: Node<'a>, out: &mut Vec<(AccessPath, usize)>) {
+        if !self.language.is_in_erased_type_context(node) {
+            self.collect_identifier_paths_in_value_context(node, out);
+        }
+    }
+
+    fn collect_identifier_paths_in_value_context(
+        &self,
+        node: Node<'_>,
+        out: &mut Vec<(AccessPath, usize)>,
+    ) {
+        if self.language.is_erased_type_boundary(node) {
+            return;
+        }
         // Check for field/member access expressions — emit the full qualified
         // path instead of individual identifiers.
         if Self::is_field_access_node(node.kind()) {
@@ -7218,11 +7234,20 @@ impl ParsedFile {
         }
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_identifier_paths(child, out);
+            self.collect_identifier_paths_in_value_context(child, out);
         }
     }
 
     fn collect_identifier_path_spans(&self, node: Node<'_>, out: &mut Vec<PathSpan>) {
+        if !self.language.is_in_erased_type_context(node) {
+            self.collect_identifier_spans_in_value_context(node, out);
+        }
+    }
+
+    fn collect_identifier_spans_in_value_context(&self, node: Node<'_>, out: &mut Vec<PathSpan>) {
+        if self.language.is_erased_type_boundary(node) {
+            return;
+        }
         if Self::is_field_access_node(node.kind()) {
             let text = self.node_text(&node).to_string();
             let line = node.start_position().row + 1;
@@ -7244,7 +7269,7 @@ impl ParsedFile {
         }
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_identifier_path_spans(child, out);
+            self.collect_identifier_spans_in_value_context(child, out);
         }
     }
 
@@ -7423,6 +7448,17 @@ impl ParsedFile {
     }
 
     fn collect_all_identifiers<'a>(&self, node: Node<'a>, out: &mut Vec<(String, usize)>) {
+        if !self.language.is_in_erased_type_context(node) {
+            self.collect_identifiers_in_value_context(node, out);
+        }
+    }
+
+    fn collect_identifiers_in_value_context(&self, node: Node<'_>, out: &mut Vec<(String, usize)>) {
+        // Descendants need only a local boundary check: scanning every ancestor
+        // at every recursive step would turn deep value walks quadratic.
+        if self.language.is_erased_type_boundary(node) {
+            return;
+        }
         if self.language.is_identifier_node(node.kind()) {
             let name = self.node_text(&node).to_string();
             let line = node.start_position().row + 1;
@@ -7430,7 +7466,7 @@ impl ParsedFile {
         }
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_all_identifiers(child, out);
+            self.collect_identifiers_in_value_context(child, out);
         }
     }
 
@@ -10834,6 +10870,10 @@ fn collect_error_lines_recursive(node: Node<'_>, lines: &mut BTreeSet<usize>, ma
         collect_error_lines_recursive(child, lines, max);
     }
 }
+
+#[cfg(test)]
+#[path = "ast_erased_rvalue_tests.rs"]
+mod erased_rvalue_tests;
 
 #[cfg(test)]
 mod tests {

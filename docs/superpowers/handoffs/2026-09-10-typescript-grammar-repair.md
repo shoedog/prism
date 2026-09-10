@@ -1,5 +1,11 @@
 # Handoff — TypeScript grammar repair, verified and published as PR305
 
+Successor update (2026-09-10): PR305 is merged at
+`70caaf6d43f9bbd1ecf47279af0db05ce02753f4`. The owner approved the next bounded
+erased-rvalue repair; current operational state is in
+`2026-09-10-typescript-erased-rvalues.md`. The publication/merge-pending statements
+below are the historical PR305 closeout, not current pending work.
+
 **Written:** 2026-09-10 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · fix/typescript-import-type-generic-grammar
 **Measured state:** `[MEASURED]` source HEAD3c997c65c582631dd8d254f02b3308b9e10ccc86;

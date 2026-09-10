@@ -653,38 +653,57 @@ impl Language {
         )
     }
 
+    /// A supported TS/TSX erased subtree boundary, without walking ancestors.
+    /// Value traversals use this after their root's context has been checked.
+    /// This is not a complete classifier for every TypeScript declaration.
+    pub(crate) fn is_erased_type_boundary(&self, node: Node<'_>) -> bool {
+        if !matches!(self, Self::TypeScript | Self::Tsx) {
+            return false;
+        }
+        if matches!(
+            node.kind(),
+            "type_query"
+                | "type_annotation"
+                | "type_arguments"
+                | "type_parameters"
+                | "type_alias_declaration"
+        ) {
+            return true;
+        }
+        let Some(parent) = node.parent() else {
+            return false;
+        };
+        if matches!(parent.kind(), "as_expression" | "satisfies_expression") {
+            // The anonymous operator separates runtime value from erased type;
+            // named-child ordinals shift when comments are present.
+            let mut cursor = parent.walk();
+            return parent.children(&mut cursor).any(|token| {
+                matches!(token.kind(), "as" | "satisfies") && node.start_byte() >= token.end_byte()
+            });
+        }
+        false
+    }
+
+    /// Check the node itself and its ancestry; raw syntax remains untouched.
+    pub(crate) fn is_in_erased_type_context(&self, node: Node<'_>) -> bool {
+        if !matches!(self, Self::TypeScript | Self::Tsx) {
+            return false;
+        }
+        let mut current = Some(node);
+        while let Some(node) = current {
+            if self.is_erased_type_boundary(node) {
+                return true;
+            }
+            current = node.parent();
+        }
+        false
+    }
+
     /// Get the function name node from a call.
     pub fn call_function_name<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
-        if matches!(self, Self::TypeScript | Self::Tsx) {
-            // The TS grammar also uses call_expression for erased import types.
-            // Keep those nodes/source intact, but do not expose them as runtime
-            // calls through query, graph, or argument-index consumers.
-            let mut child = *node;
-            while let Some(parent) = child.parent() {
-                if matches!(
-                    parent.kind(),
-                    "type_query"
-                        | "type_annotation"
-                        | "type_arguments"
-                        | "type_parameters"
-                        | "type_alias_declaration"
-                ) {
-                    return None;
-                }
-                if matches!(parent.kind(), "as_expression" | "satisfies_expression") {
-                    // These have both a runtime value and an erased type, with
-                    // no field names. The actual operator token separates them;
-                    // named-child ordinals are not stable in the presence of comments.
-                    let mut cursor = parent.walk();
-                    if parent.children(&mut cursor).any(|token| {
-                        matches!(token.kind(), "as" | "satisfies")
-                            && child.start_byte() >= token.end_byte()
-                    }) {
-                        return None;
-                    }
-                }
-                child = parent;
-            }
+        // The TS grammar also represents erased import types as call_expression.
+        if self.is_in_erased_type_context(*node) {
+            return None;
         }
 
         // JSX elements: tag name is the first named child (identifier or member_expression)
