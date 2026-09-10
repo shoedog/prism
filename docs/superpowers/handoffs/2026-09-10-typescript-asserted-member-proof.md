@@ -1,5 +1,11 @@
 # Handoff — asserted-member source/compiler/native proof
 
+**Superseded operational state:** PR307 merged at
+`c2737e06d0c5a65e8f5b11bf3c10cb78f88ebd36`; owner approved production repair.
+Continue at [the repair handoff](2026-09-10-typescript-asserted-member-repair.md).
+The remaining sections retain the historical proof-only checkpoint, not current
+merge/authorization or repair status.
+
 **Written:** 2026-09-10 · **By:** root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · docs/typescript-asserted-member-proof · **Measured state:** `[MEASURED]` verified/pushed tooling HEADb27f1f4dd1338e99d4e4588aa94cf9e6e15925e2; full gates start/end at identical clean HEAD · Probe gate runner pre/postflight, `git diff --exit-code 58998926 -- src Cargo.toml Cargo.lock build.rs vendor` · Output gate summary and empty runtime diff. Current closeout is documentation-only.
 **Predecessor:** PR306; 2026-09-10-typescript-erased-rvalues.md.
