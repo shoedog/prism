@@ -1,11 +1,11 @@
 # TypeScript grammar repair — public corpus, dependency and native-build evidence
 
-Evidence readout for the successor to PR304 merge `9270ab43`.
-This is not final full-suite verification, independent review approval or a
-merge-ready claim. The recorded candidate binaries are the measured corpus
-checkpoint; the review-discovered root build/cache identity collision is corrected with
-captured RED and eight green identity tests; final full gates remain pending. Bind the eventual published source/build separately rather than treating
-these executable hashes as hashes of a later rebuild.
+Evidence readout for the successor to PR304 merge `9270ab43`. The approved repair
+and bounded review correction are implemented. Full runnable suites pass at
+`3c997c65c582631dd8d254f02b3308b9e10ccc86`; independent review completed in two rounds.
+Tier-A's matrix passes, but its live-oracle result is invalid as detailed below.
+The corpus checkpoint binaries and final verification binaries are separately
+identified; do not treat the earlier executable hashes as hashes of a later build.
 
 ## Outcome on the fixed public population
 
@@ -171,9 +171,9 @@ react-scripts decision changes. Duplicate/write/cache and epoch barriers are not
 relaxed by this corpus result. Root build/cache identity is a separate prerequisite;
 its review-discovered Unix literal-backslash path collision is corrected by normalizing
 only the native platform separator. Mutation/restoration/removal of both distinct
-Unix paths now changes/restores both identities; final source-bound gates remain pending.
+Unix paths now changes/restores both identities; all eight identity tests pass.
 
-## Deferred defect and remaining gates
+## Deferred defect
 
 **WRONG, pre-existing and deferred:**
 
@@ -191,9 +191,55 @@ failed. Evidence and mechanism: `/private/tmp/prism-type-call-repair-vrHCV1/hand
 argument/rvalue exclusion with RED fixtures and real dynamic-import-option/label
 controls; do not silently broaden this repair into general type erasure.
 
-Final full-suite totals, final Tier-A disposition, review round2, post-review build
-identity verification and publication remain **pending** in this draft. No final
-approval or completion is asserted here.
+## Final verification and limitations
+
+The [machine receipt](2026-09-10-typescript-grammar-verification.json) binds the
+unchanged, clean verification HEAD above to commands, totals, log hashes and final
+release binaries. Subsequent publication changes are documentation-only.
+
+| Gate | Result |
+|---|---|
+| Full Rust default / MCP / MCP+detached-owner-audit |4,083 / 4,276 / 4,299 passed; one known ignored each|
+| Callable observers / receiver helpers / authority profiles |726 / 18 / 40 passed; no skips|
+| Full Python with matching release binaries |940 passed; one deliberate live-model skip|
+| Focused TypeScript / identity / membership example |88 / 8 / 12 passed|
+| Unchanged upstream corpus / bootstrap negatives |112 / 3 passed; no skips or expectation changes|
+| Generation |Both unchanged baselines and both shipped dialects reproduce every src byte|
+| Format / whitespace / Clippy |Format and whitespace pass; Clippy completes with warnings|
+
+The known Rust ignore is `resolution_test::slice_elem_variant_reserved`. Python's
+skip is the opt-in live adoption module; no model execution was requested. Clippy
+includes a nonblocking new test-helper `type_complexity` warning; this is not a
+warning-free lint claim. Ancestor-walk cost is a separate unmeasured profiling SMELL.
+
+All **159 Tier-A matrix cases pass**. The stable quick run records zero SUT errors,
+but is **not an accepted live baseline**: corpus SHA drift from historical pin
+`20c8490591a3`, C-method and C-name each only4/6 successful probes, reported oracle
+error rate4/30 (0.1333) above0.10. Pinned `target-c-method` is a flip candidate;
+`module-deps-feature-gated` and `load-repo-feature-gated` report missing;
+`ambiguous-symbol-contract` passes. There are28 pending adjudications. No gain or
+regression is attributed from this invalid run, and no baseline or adjudication
+was changed. The provisional dirty/mixed-build run is retained but superseded by
+this stable clean-source measurement, not counted as another accepted gate.
+
+Initial receiver-helper failures were an incomplete inherited fixture, not changed
+helper behavior: base9270ab43 and current scripts are byte-identical, both have
+zero passed/three failed
+with missing App.tsx under the old fixture, and both pass3/3 under a fresh public
+archive. All1,229 archived paths/blob identities/modes were checked against the
+exact public pin. Final helper18/18 uses that restored fixture; old data is retained.
+See `helper-fixture-control/` in the evidence root for both controls and tree proof.
+
+Independent review round1 found the Unix filename identity WRONG; captured RED
+was0/1. The targeted fix passed8/8 and round2 approved the same artifact with zero
+remaining WRONG/actionable SMELL. No review-cap extension or restart was needed.
+Prism structural navigation returned StaleIndex during consumer discovery; current
+source tracing and compiler-backed controls established the consumer boundary.
+
+Full multi-corpus Tier-A is human-triggered and was not run. Live-model evaluation,
+other-host regeneration and crates.io packaging/publication were not exercised.
+This is source/Git build support, not a registry-publication design; retain a
+separate release-packaging review before registry distribution.
 
 Evidence root: `/private/tmp/prism-grammar-implementation-aZxq3g`.
 Corpus records: `corpus/{base,candidate}-facts.jsonl`, `comparison.json`,
@@ -201,4 +247,3 @@ Corpus records: `corpus/{base,candidate}-facts.jsonl`, `comparison.json`,
 Generation receipt:
 `/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/prism-ts-grammar-My76vR/receipt.json`,
 SHA256`d0c8b8725181df8e7773627e8e5ec6eab12a79f471e929cc185c1bac6e2fe7eb`.
-

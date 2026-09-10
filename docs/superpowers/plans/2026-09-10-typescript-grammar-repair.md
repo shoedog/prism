@@ -208,3 +208,20 @@ This preserves actual Unix filename bytes and Windows separator behavior; gramma
 bytes and extraction code are unchanged. Round2/final full gates follow on the
 committed correction. Ancestor-walk performance is an unmeasured nonblocking SMELL.
 The two-round cap is unchanged; no artifact restart or test rebaselining.
+
+### Final source-bound closeout
+
+At3c997c65 all full gates pass: Rust4,083/4,276/4,299 (one known ignored each),
+observer726, helpers18, authority40, Python940 (one deliberate live-model skip),
+membership example12, bootstrap negatives3. Reviewround2 APPROVE closes the one
+identity WRONG. The unchanged helper base reproduces the stale-fixture failure;
+both base/current pass under a freshly verified1,229-file exact public archive.
+No helper assertions changed. All pending statements in earlier checkpoints above
+are historical, superseded by the final receiver-closure readout and machine receipt.
+
+Tier-A159 matrix cases pass; clean stable quick remains invalid due to historical
+pin drift and4/30 oracle errors/probe shortfalls. Preserve flip/missing/pending
+results without attribution or rebaselining. Full multi-corpus/live-model runs,
+other-host regeneration and registry publication are not verified by this slice.
+Next recommendation is the separately controlled erased import-options rvalue
+repair, retaining real dynamic-import-option/label controls and closure barriers.
