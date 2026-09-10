@@ -1,5 +1,9 @@
 # Handoff — complete project-boundary feasibility
 
+**Superseded status (2026-09-09):** PR302 merged as `48a12d3a`; publication/CI
+items below are historical. Continue with
+[membership observations](2026-09-09-project-membership-observations.md).
+
 **Written:** 2026-09-09 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · docs/project-boundary-feasibility
 **Measured state:** `[MEASURED]` base5adf0394; docs-only audit complete.
