@@ -1,5 +1,11 @@
 # Handoff — bounded TypeScript erased-rvalue traversal
 
+Successor update (2026-09-10): PR306 merged at
+`58998926af2eb6ad7750e5a92a19f7b198993216`. The owner approved the next bounded
+asserted-member proof slice; current operational state is in
+`2026-09-10-typescript-asserted-member-proof.md`. Merge-pending statements below
+are the historical PR306 closeout, not current pending work.
+
 **Written:** 2026-09-10 · **By:** root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · fix/typescript-erased-rvalue-traversal · **Measured state:** `[MEASURED]` verified source HEAD0d71800bb7f481a4334667767ca80416ed33ce49, pushed · Tree CLEAN after generated-report custody reconciliation · Probe `git diff --exit-code 0d71800b`, `git status --porcelain=v1`, `git rev-parse HEAD` · Output postflight-reconciliation.json. Current closeout edits are documentation-only.
 **Predecessor:** PR305; 2026-09-10-typescript-grammar-repair.md.

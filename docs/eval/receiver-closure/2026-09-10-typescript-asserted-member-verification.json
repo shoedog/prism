@@ -1,0 +1,263 @@
+{
+  "schema": "prism.asserted-member-proof-verification/1",
+  "runtime_base": "58998926af2eb6ad7750e5a92a19f7b198993216",
+  "verified_tooling_head": "b27f1f4dd1338e99d4e4588aa94cf9e6e15925e2",
+  "runtime_diff_empty": true,
+  "production_normalization": false,
+  "authorizes_runtime_edge": false,
+  "production_defect_status": "unfixed",
+  "scope": "Return-focused synthetic compiler/native proof only",
+  "compiler": {
+    "version": "5.9.3",
+    "sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675"
+  },
+  "observations": {
+    "fixtureDefinitions": 27,
+    "observations": 54,
+    "compilerValid": 49,
+    "expectedInvalid": 5,
+    "candidates": 24,
+    "missingCandidateEdges": 12,
+    "failures": 0,
+    "skipped": 0
+  },
+  "unfixed": [
+    {
+      "id": "as-any/typescript",
+      "reason": "UNFIXED: missing field-write-to-read edge"
+    },
+    {
+      "id": "as-any/tsx",
+      "reason": "UNFIXED: missing field-write-to-read edge"
+    },
+    {
+      "id": "as-import/typescript",
+      "reason": "UNFIXED: missing field-write-to-read edge"
+    },
+    {
+      "id": "as-import/tsx",
+      "reason": "UNFIXED: missing field-write-to-read edge"
+    },
+    {
+      "id": "satisfies-import/typescript",
+      "reason": "UNFIXED: missing field-write-to-read edge"
+    },
+    {
+      "id": "satisfies-import/tsx",
+      "reason": "UNFIXED: missing field-write-to-read edge"
+    },
+    {
+      "id": "nested-wrappers/typescript",
+      "reason": "UNFIXED: missing field-write-to-read edge"
+    },
+    {
+      "id": "nested-wrappers/tsx",
+      "reason": "UNFIXED: missing field-write-to-read edge"
+    },
+    {
+      "id": "unicode-comments/typescript",
+      "reason": "UNFIXED: missing field-write-to-read edge"
+    },
+    {
+      "id": "unicode-comments/tsx",
+      "reason": "UNFIXED: missing field-write-to-read edge"
+    },
+    {
+      "id": "wrapper-limit/typescript",
+      "reason": "UNFIXED: missing field-write-to-read edge"
+    },
+    {
+      "id": "wrapper-limit/tsx",
+      "reason": "UNFIXED: missing field-write-to-read edge"
+    }
+  ],
+  "native_sha256": "95a587e6c8b35aad637c8e48d59b85908ed5a3eca27d034baad8e4f7428ae1e6",
+  "source_sha256": {
+    "examples/asserted_member_observations.rs": "e06acf457e9a919dbc77a797497f4f48784c7c17c755d7b1bba691772a5fee79",
+    "docs/eval/receiver-closure/asserted-member/verify.mjs": "bf2c2d138700d88fc93aad9c8898473161b0cf0392484a53c8fae89f0fd29718",
+    "docs/eval/receiver-closure/asserted-member/fixtures.json": "01f3f4e3681e78e0331dfbe298db2e2740f6562d0912085a9f96a9b7c79baa2d",
+    "docs/eval/receiver-closure/asserted-member/policy.test.mjs": "3a9b4391abc300d1c9eae73399ce534d929ea03dd6658792f3994cf977d2d784"
+  },
+  "artifact_sha256": {
+    "final-observations.json": "ac6f8b07da038afc1f62be00d21567851ef5dcb529e60de82c19bc826786f9d6",
+    "final-unfixed-red.json": "e9739ad9c149d7925498e01068fb73d23186173228a23766bfce56d1b3e314a0",
+    "independent-review-round1.md": "23c6b8efefb250f0698ffa24d5b5e6b183582f7ae2ed58204b380c77a53d179b",
+    "native-cli-negatives.json": "3768365e946a7e83496e6669890e31b8c04c330bdabdfac29d33c069d084f751",
+    "gate-logs-2026-09-10T14-26-41-193Z-42490/summary.json": "652c96284f3f395deefb534e2a972c8d2e434ec67d682fa91fb68d1d03ad571b"
+  },
+  "gates": [
+    {
+      "label": "callable-observations",
+      "status": 0,
+      "totals": {
+        "tests": 726,
+        "suites": 0,
+        "pass": 726,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-test",
+      "status": 0,
+      "totals": {
+        "groups": 29,
+        "passed": 4095,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-test-mcp",
+      "status": 0,
+      "totals": {
+        "groups": 31,
+        "passed": 4288,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-test-owner-audit",
+      "status": 0,
+      "totals": {
+        "groups": 31,
+        "passed": 4311,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null
+    },
+    {
+      "label": "receiver-closure-tests",
+      "status": 0,
+      "totals": {
+        "tests": 18,
+        "suites": 0,
+        "pass": 18,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failure": null
+    },
+    {
+      "label": "callable-authority-profiles",
+      "status": 0,
+      "totals": {
+        "results": 40,
+        "failures": []
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-fmt-check",
+      "status": 0,
+      "totals": null,
+      "failure": null
+    },
+    {
+      "label": "git-diff-check",
+      "status": 0,
+      "totals": null,
+      "failure": null
+    }
+  ],
+  "postflight": [
+    {
+      "check": "git HEAD unchanged",
+      "ok": true,
+      "actual": "b27f1f4dd1338e99d4e4588aa94cf9e6e15925e2"
+    },
+    {
+      "check": "git status unchanged and clean",
+      "ok": true,
+      "actual": null
+    }
+  ],
+  "gate_failure": false,
+  "other_gates": {
+    "native_unit": {
+      "passed": 7,
+      "failed": 0
+    },
+    "policy_unit": {
+      "passed": 7,
+      "failed": 0
+    },
+    "native_cli_negatives": {
+      "passed": 7,
+      "failed": 0,
+      "partial_stdout": false
+    },
+    "python": {
+      "passed": 940,
+      "skipped": 1,
+      "reason": "live adoption eval requires explicit PRISM_RUN_LIVE_EVALS=1"
+    },
+    "membership_example": {
+      "passed": 12,
+      "failed": 0
+    },
+    "clippy": {
+      "completed": true,
+      "warning_free": false
+    },
+    "review": {
+      "round": 1,
+      "cap": 2,
+      "verdict": "APPROVE proof tooling only",
+      "wrong": 0,
+      "actionable_smell": 0
+    }
+  },
+  "tooling_red": {
+    "log": "obligation-red.log",
+    "passed": 6,
+    "failed": 1,
+    "fix": "Require all five fixture obligation classes; policy-green.log passed7"
+  },
+  "qualification": [
+    "Default observation success is not product repair; --require-repaired remains12 UNFIXED assertions",
+    "Repair-required mode is necessary but not a complete production acceptance gate",
+    "Compiler validity admits synthetic evidence; no runtime compiler dependency or type-identity authority is introduced",
+    "Prism index stale/truncated; current source confirms consumers, not exhaustive LSP references",
+    "No real-site recall, taint reachability or interprocedural repair claim"
+  ],
+  "excluded": {
+    "tier_a": "Not triggered: no production AST/call-resolution/navigation/CPG changes; no prior invalid result recast as green",
+    "full_multi_corpus": "Human-triggered, not run",
+    "live_model": "Not authorized/enabled",
+    "real_receiver_population": "Not measured"
+  },
+  "evidence": {
+    "root": "/private/tmp/prism-asserted-member-proof-HFzXTL",
+    "archive": "/private/tmp/prism-asserted-member-b27f1f4d-evidence.tgz",
+    "bytes": 8577563,
+    "mode": "0600",
+    "gzip_integrity": true,
+    "sha256": "cbf2e00c0cc04c0a275c149e83fbacebf3cae07b71bd332f5a33d761fc6a1f4e",
+    "remote_archive_uploaded": false
+  }
+}

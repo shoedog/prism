@@ -1,0 +1,32 @@
+{
+  "schema": "prism.asserted-member-fixtures/1",
+  "cases": [
+    {"id":"plain", "expression":"runtime.X", "role":"control", "verdict":"candidate"},
+    {"id":"parenthesized", "expression":"(runtime).X", "role":"control", "verdict":"candidate"},
+    {"id":"as-any", "expression":"(runtime as any).X", "role":"repair-candidate", "verdict":"candidate"},
+    {"id":"as-import", "expression":"(runtime as typeof import(\"./m\", { with: { \"resolution-mode\": \"import\" } })).X", "role":"repair-candidate", "verdict":"candidate"},
+    {"id":"satisfies-import", "expression":"(runtime satisfies typeof import(\"./m\", { with: { \"resolution-mode\": \"import\" } })).X", "role":"repair-candidate", "verdict":"candidate"},
+    {"id":"nested-wrappers", "expression":"((runtime as any) satisfies any).X", "role":"repair-candidate", "verdict":"candidate"},
+    {"id":"unicode-comments", "expression":"(/* Ω */ runtime /* value */ as /* type */ any).X", "role":"repair-candidate", "verdict":"candidate"},
+    {"id":"wrapper-limit", "expression":"(((((((runtime as any))))))).X", "role":"repair-candidate", "verdict":"candidate"},
+    {"id":"other-receiver-plain", "expression":"value.X", "role":"identity-control", "verdict":"candidate"},
+    {"id":"other-receiver-asserted", "expression":"(value as any).X", "role":"identity-control", "verdict":"candidate"},
+    {"id":"other-field-plain", "expression":"runtime.Y", "role":"identity-control", "verdict":"candidate"},
+    {"id":"other-field-asserted", "expression":"(runtime as any).Y", "role":"identity-control", "verdict":"candidate"},
+    {"id":"call-receiver", "expression":"(factory() as any).X", "role":"refusal", "verdict":"receiver-not-identifier"},
+    {"id":"optional-member", "expression":"(runtime as any)?.X", "role":"refusal", "verdict":"optional-member"},
+    {"id":"computed-member", "expression":"(runtime as any)[key]", "role":"refusal", "verdict":"not-dot-member"},
+    {"id":"literal-computed-member", "expression":"(runtime as any)[\"X\"]", "role":"refusal", "verdict":"not-dot-member"},
+    {"id":"conditional-receiver", "expression":"((flag ? runtime : value) as any).X", "role":"refusal", "verdict":"receiver-not-identifier"},
+    {"id":"comma-receiver", "expression":"((sideEffect(), runtime) as any).X", "role":"refusal", "verdict":"receiver-not-identifier"},
+    {"id":"assignment-receiver", "expression":"((runtime = value) as any).X", "role":"refusal", "verdict":"receiver-not-identifier"},
+    {"id":"non-null-wrapper", "expression":"(runtime! as any).X", "role":"refusal", "verdict":"receiver-not-identifier"},
+    {"id":"member-chain", "expression":"((runtime as any).child as any).X", "role":"refusal", "verdict":"receiver-not-identifier"},
+    {"id":"escaped-receiver", "expression":"(r\\u0075ntime as any).X", "role":"refusal", "verdict":"nonliteral-receiver"},
+    {"id":"escaped-field", "expression":"(runtime as any).\\u0058", "role":"refusal", "verdict":"nonliteral-field"},
+    {"id":"wrapper-budget", "expression":"((((((((runtime as any)))))))).X", "role":"refusal", "verdict":"wrapper-budget"},
+    {"id":"angle-assertion", "expression":"(<any>runtime).X", "role":"refusal", "verdict":"receiver-not-identifier", "tsx_invalid":true},
+    {"id":"unresolved-type", "expression":"(runtime as Missing).X", "role":"invalid", "verdict":"compiler-invalid", "diagnostic":2304},
+    {"id":"malformed-type", "expression":"(runtime as ).X", "role":"invalid", "verdict":"compiler-invalid", "diagnostic":1110}
+  ]
+}
