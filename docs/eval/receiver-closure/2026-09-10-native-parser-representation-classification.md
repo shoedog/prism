@@ -1,6 +1,7 @@
 # Native parser and representation classification
 
 Successor to PR303 merge `17f7053df832cf0bb872aa1915899e14c01dfe91`.
+Published as [PR304](https://github.com/shoedog/prism/pull/304); CI is not claimed green.
 Documentation and characterization fixtures only: no production/parser/dependency,
 suffix, input-selection, schema, closure or executable-owner change.
 
