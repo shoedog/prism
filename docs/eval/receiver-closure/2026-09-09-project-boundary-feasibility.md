@@ -1,6 +1,8 @@
 # Complete project-boundary feasibility
 
 Published as [PR302](https://github.com/shoedog/prism/pull/302).
+Merged as `48a12d3a`; implemented successor:
+[bounded membership observations](2026-09-09-project-membership-observations.md).
 
 Base: PR301 merge `5adf0394`. This is a source-backed design checkpoint, not
 production wiring or a real-receiver recall result. The

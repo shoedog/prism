@@ -1,0 +1,386 @@
+{
+  "schema": "prism.project-membership-readout/1",
+  "authorizes_runtime_edge": false,
+  "implementation": "e2ba539d5bb72f537a619f8d5db5eb2fb95618b9",
+  "base": "48a12d3acb60a56453c71ada7aa18bd55c3c1e86",
+  "public_commit": "0642e72cfa2d9a71198200e52f37399384610ee3",
+  "public": [
+    {
+      "id": "public-root",
+      "status": "observed",
+      "reason": null,
+      "ms": 57595,
+      "bytes": 21728366,
+      "sha256": "6bc15e6ac7d407f496eee297264c2714162d067c7c1ee84dc00a36288660182e",
+      "roots": 591,
+      "program": 1445,
+      "native": 628,
+      "native_status": "incomplete",
+      "domains": {
+        "repository": 595,
+        "dependency": 768,
+        "compiler": 82
+      },
+      "differences": {
+        "roots_not_program": 0,
+        "program_not_roots": 854,
+        "program_not_native": 854,
+        "native_not_program": 37
+      },
+      "closure": false,
+      "closure_reasons": [
+        "type_lib_unproven",
+        "boundary_encounter",
+        "resolution_unproven"
+      ],
+      "raw_file_sha256": "8aa13bb2ed732618149749df162daee1e036ece7c97b344c9945b2dfd4b54984",
+      "identity": {
+        "producer_sha256": "667a6499a7e088508c0cda24837997a55ce32ccd84246990510c465ebe376642",
+        "native_sha256": "da4ef98351bee7cf7c180dc1bbc6e09d7787c5d7e100d2c6855668580408dfd5"
+      }
+    },
+    {
+      "id": "public-common",
+      "status": "observed",
+      "reason": null,
+      "ms": 55108,
+      "bytes": 17790620,
+      "sha256": "db42843de426055685026e52103da9eb1bad9a8a5c5ca20c7181cdc533d611c8",
+      "roots": 19,
+      "program": 805,
+      "native": 628,
+      "native_status": "incomplete",
+      "domains": {
+        "repository": 406,
+        "dependency": 313,
+        "compiler": 86
+      },
+      "differences": {
+        "roots_not_program": 0,
+        "program_not_roots": 786,
+        "program_not_native": 401,
+        "native_not_program": 224
+      },
+      "closure": false,
+      "closure_reasons": [
+        "entry_obligations_incomplete",
+        "boundary_encounter",
+        "resolution_unproven"
+      ],
+      "raw_file_sha256": "a33234a891147eea495d0c0ed79a31be465e1a5609bcb3886cd2b3df51ac9d75",
+      "identity": {
+        "producer_sha256": "667a6499a7e088508c0cda24837997a55ce32ccd84246990510c465ebe376642",
+        "native_sha256": "da4ef98351bee7cf7c180dc1bbc6e09d7787c5d7e100d2c6855668580408dfd5"
+      }
+    },
+    {
+      "id": "public-element",
+      "status": "observed",
+      "reason": null,
+      "ms": 47633,
+      "bytes": 17797934,
+      "sha256": "7e4fd18ed2695b5730567548fc8e0806bf7ad58ef7ebd41e802b3f26ed200de7",
+      "roots": 50,
+      "program": 806,
+      "native": 628,
+      "native_status": "incomplete",
+      "domains": {
+        "repository": 407,
+        "dependency": 313,
+        "compiler": 86
+      },
+      "differences": {
+        "roots_not_program": 0,
+        "program_not_roots": 756,
+        "program_not_native": 401,
+        "native_not_program": 223
+      },
+      "closure": false,
+      "closure_reasons": [
+        "entry_obligations_incomplete",
+        "boundary_encounter",
+        "resolution_unproven"
+      ],
+      "raw_file_sha256": "e2859daec0745f9d1fbef237d3b89c6ac707e078faf8782aef6d2e3bf2d785ad",
+      "identity": {
+        "producer_sha256": "667a6499a7e088508c0cda24837997a55ce32ccd84246990510c465ebe376642",
+        "native_sha256": "da4ef98351bee7cf7c180dc1bbc6e09d7787c5d7e100d2c6855668580408dfd5"
+      }
+    },
+    {
+      "id": "public-excalidraw",
+      "status": "observed",
+      "reason": null,
+      "ms": 32774,
+      "bytes": 18006647,
+      "sha256": "0edea8a9badd387f93503006c8ff87c45dc848da2c289e0f77d509c25d6cad39",
+      "roots": 340,
+      "program": 831,
+      "native": 628,
+      "native_status": "incomplete",
+      "domains": {
+        "repository": 428,
+        "dependency": 317,
+        "compiler": 86
+      },
+      "differences": {
+        "roots_not_program": 0,
+        "program_not_roots": 491,
+        "program_not_native": 405,
+        "native_not_program": 202
+      },
+      "closure": false,
+      "closure_reasons": [
+        "entry_obligations_incomplete",
+        "type_lib_unproven",
+        "boundary_encounter",
+        "resolution_unproven"
+      ],
+      "raw_file_sha256": "b1feaf3480db2869379fb0e0ddb15d04194d72c90d8fe47066a769165d9918ab",
+      "identity": {
+        "producer_sha256": "667a6499a7e088508c0cda24837997a55ce32ccd84246990510c465ebe376642",
+        "native_sha256": "da4ef98351bee7cf7c180dc1bbc6e09d7787c5d7e100d2c6855668580408dfd5"
+      }
+    },
+    {
+      "id": "public-fractional-indexing",
+      "status": "observed",
+      "reason": null,
+      "ms": 15250,
+      "bytes": 12056000,
+      "sha256": "736ebfbb241b188018f04f87d40c997ced1bd34438102a7eeb9c7746d5de2e81",
+      "roots": 2,
+      "program": 304,
+      "native": 628,
+      "native_status": "incomplete",
+      "domains": {
+        "repository": 2,
+        "dependency": 216,
+        "compiler": 86
+      },
+      "differences": {
+        "roots_not_program": 0,
+        "program_not_roots": 302,
+        "program_not_native": 302,
+        "native_not_program": 626
+      },
+      "closure": false,
+      "closure_reasons": [
+        "entry_obligations_incomplete",
+        "boundary_encounter",
+        "resolution_unproven"
+      ],
+      "raw_file_sha256": "e0387854756680c9210a1c209c6fe8fb0562e2aa86f0a9fcd3d5f051020e57c3",
+      "identity": {
+        "producer_sha256": "667a6499a7e088508c0cda24837997a55ce32ccd84246990510c465ebe376642",
+        "native_sha256": "da4ef98351bee7cf7c180dc1bbc6e09d7787c5d7e100d2c6855668580408dfd5"
+      }
+    },
+    {
+      "id": "public-math",
+      "status": "observed",
+      "reason": null,
+      "ms": 31831,
+      "bytes": 17790175,
+      "sha256": "30cd93ceab56093316591e7c82ca77309b3f78b94e4288f1fb7e070b993a665f",
+      "roots": 16,
+      "program": 805,
+      "native": 628,
+      "native_status": "incomplete",
+      "domains": {
+        "repository": 406,
+        "dependency": 313,
+        "compiler": 86
+      },
+      "differences": {
+        "roots_not_program": 0,
+        "program_not_roots": 789,
+        "program_not_native": 401,
+        "native_not_program": 224
+      },
+      "closure": false,
+      "closure_reasons": [
+        "entry_obligations_incomplete",
+        "boundary_encounter",
+        "resolution_unproven"
+      ],
+      "raw_file_sha256": "086c7889a080b50037fb33e142d4a36c648758a13be44de94d92a35bd73e9baa",
+      "identity": {
+        "producer_sha256": "667a6499a7e088508c0cda24837997a55ce32ccd84246990510c465ebe376642",
+        "native_sha256": "da4ef98351bee7cf7c180dc1bbc6e09d7787c5d7e100d2c6855668580408dfd5"
+      }
+    },
+    {
+      "id": "public-utils",
+      "status": "observed",
+      "reason": null,
+      "ms": 39280,
+      "bytes": 17814554,
+      "sha256": "114471091fa20323e23758092a6a09458e5a2d20333b27a252f275b7732a33ce",
+      "roots": 5,
+      "program": 810,
+      "native": 628,
+      "native_status": "incomplete",
+      "domains": {
+        "repository": 407,
+        "dependency": 317,
+        "compiler": 86
+      },
+      "differences": {
+        "roots_not_program": 0,
+        "program_not_roots": 805,
+        "program_not_native": 405,
+        "native_not_program": 223
+      },
+      "closure": false,
+      "closure_reasons": [
+        "entry_obligations_incomplete",
+        "boundary_encounter",
+        "resolution_unproven"
+      ],
+      "raw_file_sha256": "da9542a21b98ded46facc5030f56875f9c5f40e2ba0b864f69b5a672ce36d4ed",
+      "identity": {
+        "producer_sha256": "667a6499a7e088508c0cda24837997a55ce32ccd84246990510c465ebe376642",
+        "native_sha256": "da4ef98351bee7cf7c180dc1bbc6e09d7787c5d7e100d2c6855668580408dfd5"
+      }
+    }
+  ],
+  "private": {
+    "status": "unavailable",
+    "reason": "worker_failed",
+    "membership": "unmeasured",
+    "raw_evidence": "local only"
+  },
+  "verification": {
+    "artifact_predicates": 68,
+    "ordinary_packet_parity": 7,
+    "whole_root_native_census_parity": 7,
+    "custody": "exact before/after equality",
+    "focused_membership": 32,
+    "native_example": 12,
+    "full_suites": {
+      "head": "e2ba539d5bb72f537a619f8d5db5eb2fb95618b9",
+      "clean_unchanged": true,
+      "failure": false,
+      "gates": [
+        {
+          "label": "callable-observations",
+          "status": 0,
+          "totals": {
+            "tests": 726,
+            "suites": 0,
+            "pass": 726,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "failure": null
+        },
+        {
+          "label": "cargo-test",
+          "status": 0,
+          "totals": {
+            "groups": 28,
+            "passed": 4037,
+            "failed": 0,
+            "ignored": 1,
+            "measured": 0,
+            "filteredOut": 0,
+            "ignoredTests": [
+              "resolution_test::slice_elem_variant_reserved"
+            ]
+          },
+          "failure": null
+        },
+        {
+          "label": "cargo-test-mcp",
+          "status": 0,
+          "totals": {
+            "groups": 30,
+            "passed": 4230,
+            "failed": 0,
+            "ignored": 1,
+            "measured": 0,
+            "filteredOut": 0,
+            "ignoredTests": [
+              "resolution_test::slice_elem_variant_reserved"
+            ]
+          },
+          "failure": null
+        },
+        {
+          "label": "cargo-test-owner-audit",
+          "status": 0,
+          "totals": {
+            "groups": 30,
+            "passed": 4253,
+            "failed": 0,
+            "ignored": 1,
+            "measured": 0,
+            "filteredOut": 0,
+            "ignoredTests": [
+              "resolution_test::slice_elem_variant_reserved"
+            ]
+          },
+          "failure": null
+        },
+        {
+          "label": "receiver-closure-tests",
+          "status": 0,
+          "totals": {
+            "tests": 18,
+            "suites": 0,
+            "pass": 18,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "failure": null
+        },
+        {
+          "label": "callable-authority-profiles",
+          "status": 0,
+          "totals": {
+            "results": 40,
+            "failures": []
+          },
+          "failure": null
+        },
+        {
+          "label": "cargo-fmt-check",
+          "status": 0,
+          "totals": null,
+          "failure": null
+        },
+        {
+          "label": "git-diff-check",
+          "status": 0,
+          "totals": null,
+          "failure": null
+        }
+      ]
+    },
+    "tier_a": "not triggered: no production resolution/navigation/CPG change",
+    "python": {
+      "passed": 940,
+      "skipped": 1,
+      "skip": "live adoption opt-in absent",
+      "initial": {
+        "passed": 938,
+        "skipped": 3,
+        "additional_skips": "real CLI/MCP paths not supplied; rerun with existing source-identical binaries"
+      }
+    },
+    "clippy": "completed with warnings; no warning-free or regression-attribution claim",
+    "review": {
+      "rounds": 2,
+      "independent_source_review": "approved",
+      "wrong_closed": 2,
+      "additional_primary_enum_mismatch_closed": 1,
+      "new_wrong": 0,
+      "new_actionable_smell": 0
+    }
+  }
+}
