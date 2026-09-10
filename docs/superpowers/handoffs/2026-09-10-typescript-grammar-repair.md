@@ -1,4 +1,4 @@
-# Handoff — TypeScript grammar repair, verified; publication next
+# Handoff — TypeScript grammar repair, verified and published as PR305
 
 **Written:** 2026-09-10 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · fix/typescript-import-type-generic-grammar
@@ -13,8 +13,10 @@ review below are from this turn. Earlier WIP checkpoints are historical.
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Lane ownership RESOLVED: primary owns final docs/publication; agents completed.
-(b) Custody RESOLVED locally: implementation f1acaff5 and correction3c997c65 committed;
-raw evidence archived below. Push/open PR is next; no PR existed at the last check.
+(b) Custody RESOLVED remotely: implementation f1acaff5, correction3c997c65 and
+verification docs b5f813d6 pushed. PR305 opened:
+https://github.com/shoedog/prism/pull/305. This publication-only handoff update
+follows; source remains exactly the verified3c997c65 source. Raw evidence archived.
 (c) In flight RESOLVED: all test/oracle processes completed. No source edits pending.
 Tier-A quick is invalid, not passed; see limitations. No automatic merge.
 (d) Authorization RESOLVED: owner approved pinned vendoring, isolated bootstrap,
@@ -25,7 +27,7 @@ upstream writes, real-source execution or closure expansion.
 
 1. Run `git status --short --branch` and `gh pr view --json number,url,headRefOid,state`.
 2. Read the final receiver-closure readout and machine receipt linked below.
-3. Publish documentation-only closeout and report current CI without calling it green.
+3. Check PR305's current head/CI; do not infer CI green from local verification.
 4. After owner merge/approval, next recommendation is bounded erased import-options
    argument/rvalue exclusion with captured RED and real runtime-option/label controls.
 
@@ -49,7 +51,7 @@ Review cap two rounds is complete; do not silently reopen or extend it.
 | Format/Clippy | done |format/diff checks pass; Clippy completes with warnings, not warning-free |
 | Tier-A | done |159 matrix pass; stable quick INVALID, no accepted live baseline |
 | Review | done |round2 APPROVE; one round1 identity WRONG corrected with RED/GREEN |
-| Publication | next |commit final docs, push named branch, open PR; do not auto-merge |
+| Publication | done |PR305 opened; source unchanged since verified HEAD; no auto-merge |
 | Residual rvalues | next |separate pre-existing erased import-options `with` leakage; not silently fixed |
 
 ## 3. Corrections to standing documents and memory
@@ -63,7 +65,7 @@ No helper assertions or baselines changed. No memory update authorized or made.
 
 ## 4. Open work
 
-Publication only for this slice. Tier-A quick remains invalid: historical corpus
+Owner review/merge is next for this slice. Tier-A quick remains invalid: historical corpus
 pin drift; C-method/C-name4/6 probes each; oracle errors4/30, SUT errors0.
 `target-c-method` is a flip candidate; two feature-gated pinned probes report
 missing;28 pending adjudications. No improvement or regression attributed.
