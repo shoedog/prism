@@ -1,5 +1,10 @@
 {
   "schema": "prism.owner-admission-verification/1",
+  "publication": {
+    "pr": 300,
+    "url": "https://github.com/shoedog/prism/pull/300",
+    "verification_docs_commit": "4f20493e1700c83619400d35205e9aed807ebd23"
+  },
   "implementation_commit": "75d6e7460bbf8b036dcf06484d5f8fa57d2d266e",
   "base": "3e1306a3",
   "baseline_binary_source": "0807d7de (executable source equal to 3e1306a3)",

@@ -9,8 +9,9 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Ownership RESOLVED: primary owns this lane, no delegates dispatched.
-(b) Custody: implementation committed75d6e746; private evidence archived and hashed below.
-(c) In flight: all verification finished; publication pending.
+(b) Custody RESOLVED: implementation75d6e746 and verification docs4f20493 pushed;
+PR300 opened: https://github.com/shoedog/prism/pull/300. Private evidence archived below.
+(c) In flight: local verification finished; remote CI pending, not yet green.
 (d) Authority: owner “reviewed and merged, proceed to next” for bounded admission
 diagnostics. No installs, policy/budget relaxation, closure expansion or real-source edits.
 
@@ -20,7 +21,8 @@ diagnostics. No installs, policy/budget relaxation, closure expansion or real-so
 2. Inspect `/private/tmp/prism-owner-diagnostics-qi8rUL` logs; keep initial setup
    failures separate from corrected behavioral REDs.
 3. Read the [completed readout](../../eval/receiver-closure/2026-09-09-owner-admission-diagnostics.md)
-   and receipt, publish and verify exact-head CI. No automatic merge.
+   and receipt; verify PR300 exact-head CI. This follow-up is publication metadata only.
+   No automatic merge.
 
 STOP on open-class findings at two-round cap, authority expansion, missing assets
 requiring installation or real-source mutation. No rebaseline or automatic merge.
@@ -39,7 +41,7 @@ requiring installation or real-source mutation. No rebaseline or automatic merge
 | Full gates | done | Rust4037/4230/4253, one ignored each; observer694, helpers18, authority40, Python885+44 |
 | Matched default controls | done | 36 raw pairs and159 full matrix records identical |
 | Tier-A quick | invalid anchor | oracle6/30 errors, SUT0, drift;159matrix ok; exact discrepancies in receipt |
-| Publication | next | docs checkpoint, push and PR |
+| Publication | done | PR300; pushed4f20493 plus publication-only follow-up |
 
 ## 3. Corrections to standing documents and memory
 
@@ -57,7 +59,7 @@ be used for deterministic verification; see incident below and in the readout.
 | Full suites | done | stable clean75d6e746 gate summary |
 | Compatibility | done | matrix/paired checks green; quick limitation reported, no rebaseline |
 | Real refusal replay | done | three CLI andone MCP per root; identical reports; sources/metadata unchanged |
-| Publication | next | push and PR; evidence/readout complete |
+| Remote checks | pending | verify PR300 current-head CI; do not infer green from local gates |
 | Follow-up | owner decision | live-test opt-in hardening, then genuine project boundary/acquisition feasibility |
 
 ## 5. Invariants and traps — do not do these

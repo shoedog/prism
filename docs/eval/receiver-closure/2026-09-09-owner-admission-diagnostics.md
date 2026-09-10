@@ -1,5 +1,7 @@
 # Bounded owner admission diagnostics
 
+Published as [PR300](https://github.com/shoedog/prism/pull/300).
+
 Implementation/test checkpoint `75d6e746`, based on PR299 merge `3e1306a3`.
 The opt-in owner path now explains acquisition refusals through CLI/API, eager
 MCP startup and served MCP errors. This is diagnostic plumbing, not broader
