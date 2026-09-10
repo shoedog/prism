@@ -9,7 +9,7 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` root owns production; required_cpg_tests owns separate CPG tests and registration — **RESOLVED**.
-**(b) Custody exposure** — `[MEASURED]` source checkpoint6a53c66a; raw logs/frozen binaries retained; closeout/receipt being committed before publication — **OPEN** until push/PR.
+**(b) Custody exposure** — `[MEASURED]` source checkpoint6a53c66a and closeout5300659d pushed; PR309 opened at https://github.com/shoedog/prism/pull/309; raw evidence archive identity retained in receipt — **RESOLVED** published custody. This publication-only handoff update follows; production/tests unchanged.
 **(c) In flight / irreversible** — `[MEASURED]` all test/build/review processes complete; quick INVALID explicitly retained — **RESOLVED** bounded verification.
 **(d) Authorization granted but not exercised** — “merged, proceed to next”; standing commit/push/open PR. No auto-merge.
 
@@ -17,7 +17,7 @@
 
 1. `git status --short --branch`; preserve agent test edits.
 2. Read final readout and receipt; all verification complete at6a53c66a.
-3. Commit/push documentation-only closeout and open PR; no automatic merge.
+3. `gh pr view 309 --json state,headRefOid,statusCheckRollup`; owner review/merge pending. No automatic merge.
 
 **STOP conditions:** unrelated dirty work, new authority, open-class review at cap2, unclassified failures.
 
@@ -45,7 +45,7 @@
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
 | 1 | Implementation/verification | done | No further production edit | None |6a53c66a |
-| 2 | Publication | next | Commit closeout, push/open PR | None | No auto-merge |
+| 2 | Publication | done | PR309 opened; owner review/merge pending | Owner | No auto-merge |
 | 3 | Real-site value checkpoint | pending | Reaudit restored parameter/argument sites and classify remaining forms | Owner next slice | Public corpus + authorized frontend portal |
 
 ## 5. Invariants and traps — do not do these
