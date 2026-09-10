@@ -13,7 +13,8 @@ are `[INHERITED]`, not verification of this incomplete branch.
 
 (a) Lane ownership RESOLVED: primary design/tests; grammar_candidate_audit and
 grammar_consumer_audit completed read-only investigations. No delegated writer.
-(b) Custody: WIP tests/spec being committed and evidence snapshotted before pause.
+(b) Custody RESOLVED: WIP tests/spec committed566a514e and pushed to the named
+remote branch. Evidence archive verified below. No PR opened; do not merge RED tests.
 (c) In flight: no implementation/generator/install. Dependency authority OPEN:
 owner was asked to approve pinned vendoring and isolated generator bootstrap.
 (d) Authorization: “merged -> proceed to next”; bounded grammar repair. Vendoring
@@ -74,6 +75,10 @@ Upstream issue `https://github.com/tree-sitter/tree-sitter-typescript/issues/367
 Published grammar source `f975a621f4e7f532fe322e13c4f79495e0a7b2e7` (0.23.2).
 Pinned compiler `/private/tmp/prism-imported-alias-O4d6E1/package/lib/typescript.js`.
 Prior classification evidence `/private/tmp/prism-parser-classification-6vOV0e`.
+Archive `/private/tmp/prism-grammar-repair-BR8ivP-evidence.tgz`, mode0600,
+12,354,257 bytes; SHA256
+`5773d57c1724d3933abfb840e59d6316bd44cd94d0823acee629b3e7f89eb5a9`.
+Gzip integrity verified; immutable WIP diagnostic checkpoint, not a completed repair.
 
 ## 7. Refutation verdict and owner questions
 
