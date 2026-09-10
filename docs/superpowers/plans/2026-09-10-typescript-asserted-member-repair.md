@@ -76,5 +76,13 @@ then940+1live skip with fresh binaries. Tier-A matrix159pass. A preliminary
 quick run was stopped because its mutable SUT path was rebuilt during the run;
 it is inadmissible, not regression evidence. Final quick uses frozen binary bytes.
 
-Status: implementation/review pass; full Rust and final quick gates pending. Evidence root:
+Full Rust default/MCP/owner-audit4,112/4,305/4,328 passed, one ignored each;
+observers726 and authority40 passed. Original helper gate15/18 failed because
+all606 required files were absent from its retained archive; base reproduces.
+Reconstructed exact pinned source locally. An incomplete-env recheck is invalid;
+complete-env base/candidate rechecks both18/18. No audit code changed.
+Final frozen Tier-A quick is INVALID (pin drift and oracle6/30), SUT0 errors;
+base-artifact pin checker also refuses base. Do not infer an accuracy pass.
+
+Status: implementation/review and runnable gates complete; documentation/publication next. Evidence root:
 `/private/tmp/prism-asserted-repair-byXvBe`.

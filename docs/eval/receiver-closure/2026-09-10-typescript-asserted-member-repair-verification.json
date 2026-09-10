@@ -1,0 +1,535 @@
+{
+  "schema": "prism.asserted-member-repair-verification/1",
+  "base": "c2737e06d0c5a65e8f5b11bf3c10cb78f88ebd36",
+  "reviewedTestedProductionHead": "cef3b902ee8fdf9627917a88b1c05a635c628029",
+  "productionSources": [
+    {
+      "path": "src/ast.rs",
+      "sha256": "fc33e6f90f686b6110203a4544b02926d78298a7241269a4db64ec299d9a3ae0"
+    },
+    {
+      "path": "src/ast_asserted_member.rs",
+      "sha256": "adef83cab70a365a55feea048480cb7f54d1dd39ebe212a6d2f1cf5446dc0fd9"
+    },
+    {
+      "path": "src/ast_asserted_member_tests.rs",
+      "sha256": "c18b6114691df93bf9181e9308ec35b6c29dfc173c255c8bee1e61221097555d"
+    },
+    {
+      "path": "src/cpg.rs",
+      "sha256": "bb37bb788ca526619c4f2ce11d1676aada0003b2c82f23860b4ed6b9ccffb2de"
+    },
+    {
+      "path": "src/cpg/asserted_member_tests.rs",
+      "sha256": "30219692fba48a35546523c31e9896da451c95b2118caf0c435fd089d6d8c28c"
+    },
+    {
+      "path": "src/cpg/build.rs",
+      "sha256": "e3d7187868639b1a35c1c55208a0070e84559d2cf1aa253e9bc38914b344bb97"
+    },
+    {
+      "path": "src/cpg_cache.rs",
+      "sha256": "fc73685df26e530c7d44607e55e0eb1166d29907d566ae209f333f6c9f524be1"
+    },
+    {
+      "path": "docs/eval/receiver-closure/asserted-member/compare-repair.mjs",
+      "sha256": "6f84d91b81b84b757c606a7141055911aa75c4b22b00bfc61f6911f93e3b258d"
+    }
+  ],
+  "evidenceRoot": "/private/tmp/prism-asserted-repair-byXvBe",
+  "proof": {
+    "fixtureDefinitions": 27,
+    "observations": 54,
+    "compilerValid": 49,
+    "expectedInvalid": 5,
+    "candidates": 24,
+    "missingCandidateEdges": 0,
+    "failures": 0,
+    "skipped": 0,
+    "compiler": {
+      "version": "5.9.3",
+      "sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675"
+    },
+    "nativeSha256": "814f61d3928a1efc9efcf545552df2a3e7cf947a3bb9639385704d305191894b",
+    "baseFailures": 12,
+    "finalFailures": [],
+    "comparison": {
+      "observations": 54,
+      "repaired": 12,
+      "unchangedRefusals": 26,
+      "rawSourceTreeCallsNamesReturnsUnchanged": true,
+      "exactCompilerSpans": true,
+      "fullSubsetParity": true,
+      "failures": []
+    },
+    "comparisonMutationControls": {
+      "passed": 6,
+      "results": [
+        {
+          "name": "population",
+          "refused": true
+        },
+        {
+          "name": "refusal",
+          "refused": true
+        },
+        {
+          "name": "raw",
+          "refused": true
+        },
+        {
+          "name": "missing-edge",
+          "refused": true
+        },
+        {
+          "name": "span",
+          "refused": true
+        },
+        {
+          "name": "subset",
+          "refused": true
+        }
+      ]
+    }
+  },
+  "initialFullGateRunner": {
+    "path": "gate-logs-2026-09-10T20-40-06-894Z-16839/summary.json",
+    "sha256": "1fb095acf967070d9d155b909e83a79d2b5bc20a35e8553b9d59afbcd1a0447c",
+    "failure": true,
+    "head": "cef3b902ee8fdf9627917a88b1c05a635c628029",
+    "preflight": [
+      {
+        "check": "invocation cwd equals repo root",
+        "ok": true,
+        "actual": "/Users/wesleyjinks/code/slicing"
+      },
+      {
+        "check": "git top-level equals repo root",
+        "ok": true,
+        "actual": "/Users/wesleyjinks/code/slicing"
+      },
+      {
+        "check": "git HEAD is resolvable",
+        "ok": true,
+        "actual": "cef3b902ee8fdf9627917a88b1c05a635c628029"
+      },
+      {
+        "check": "git status is clean",
+        "ok": true,
+        "actual": null
+      }
+    ],
+    "postflight": [
+      {
+        "check": "git HEAD unchanged",
+        "ok": true,
+        "actual": "cef3b902ee8fdf9627917a88b1c05a635c628029"
+      },
+      {
+        "check": "git status unchanged and clean",
+        "ok": true,
+        "actual": null
+      }
+    ],
+    "gates": [
+      {
+        "label": "callable-observations",
+        "command": [
+          "node",
+          "--test",
+          "scripts/callable-observations/closure-classification.test.mjs",
+          "scripts/callable-observations/closure-policy-proof.test.mjs",
+          "scripts/callable-observations/config-provenance-integration.test.mjs",
+          "scripts/callable-observations/config-provenance.test.mjs",
+          "scripts/callable-observations/direct-owner.test.mjs",
+          "scripts/callable-observations/entries-guards.test.mjs",
+          "scripts/callable-observations/entries.test.mjs",
+          "scripts/callable-observations/entry-obligations-integration.test.mjs",
+          "scripts/callable-observations/entry-obligations.test.mjs",
+          "scripts/callable-observations/exact-ambient.test.mjs",
+          "scripts/callable-observations/identity-domains.test.mjs",
+          "scripts/callable-observations/index.test.mjs",
+          "scripts/callable-observations/inventory.test.mjs",
+          "scripts/callable-observations/lib-search-cases.test.mjs",
+          "scripts/callable-observations/lib-search.test.mjs",
+          "scripts/callable-observations/links.test.mjs",
+          "scripts/callable-observations/lookup.test.mjs",
+          "scripts/callable-observations/membership.test.mjs",
+          "scripts/callable-observations/merged-wildcard-proof.test.mjs",
+          "scripts/callable-observations/merged-wildcard.test.mjs",
+          "scripts/callable-observations/module-search-cases.test.mjs",
+          "scripts/callable-observations/module-search.test.mjs",
+          "scripts/callable-observations/nested.test.mjs",
+          "scripts/callable-observations/profile.test.mjs",
+          "scripts/callable-observations/props-class.test.mjs",
+          "scripts/callable-observations/required-paths.test.mjs",
+          "scripts/callable-observations/search-provenance.test.mjs",
+          "scripts/callable-observations/semantic-closure-integration.test.mjs",
+          "scripts/callable-observations/semantic-closure-v2-integration.test.mjs",
+          "scripts/callable-observations/semantic-closure-v2.test.mjs",
+          "scripts/callable-observations/semantic-closure-v3-integration.test.mjs",
+          "scripts/callable-observations/semantic-closure-v3.test.mjs",
+          "scripts/callable-observations/semantic-closure.test.mjs",
+          "scripts/callable-observations/type-lib-guards.test.mjs",
+          "scripts/callable-observations/type-lib.test.mjs",
+          "scripts/callable-observations/type-search-cases.test.mjs",
+          "scripts/callable-observations/type-search-identity.test.mjs",
+          "scripts/callable-observations/umd-qualifier.test.mjs",
+          "scripts/callable-observations/wildcard.test.mjs"
+        ],
+        "totals": {
+          "tests": 726,
+          "suites": 0,
+          "pass": 726,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "failure": null,
+        "logs": [
+          {
+            "path": "gate-logs-2026-09-10T20-40-06-894Z-16839/callable-observations.stdout.log",
+            "bytes": 61238,
+            "sha256": "8f8cb49da2274eaef17ad2cd039c935db84954831ce9d6957b611065f302e607"
+          },
+          {
+            "path": "gate-logs-2026-09-10T20-40-06-894Z-16839/callable-observations.stderr.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ]
+      },
+      {
+        "label": "cargo-test",
+        "command": [
+          "cargo",
+          "test",
+          "--offline",
+          "--no-fail-fast"
+        ],
+        "totals": {
+          "groups": 29,
+          "passed": 4112,
+          "failed": 0,
+          "ignored": 1,
+          "measured": 0,
+          "filteredOut": 0,
+          "ignoredTests": [
+            "resolution_test::slice_elem_variant_reserved"
+          ]
+        },
+        "failure": null,
+        "logs": [
+          {
+            "path": "gate-logs-2026-09-10T20-40-06-894Z-16839/cargo-test.stdout.log",
+            "bytes": 325507,
+            "sha256": "612f3d6ffd06c36f481b00cf57e7b448570bb63587ff0b13d8856abce99f19b6"
+          },
+          {
+            "path": "gate-logs-2026-09-10T20-40-06-894Z-16839/cargo-test.stderr.log",
+            "bytes": 5250,
+            "sha256": "fe7977976900f0a4d5ea6675d2578a21616df003e5c3fef975cdd06dc0a9ecc3"
+          }
+        ]
+      },
+      {
+        "label": "cargo-test-mcp",
+        "command": [
+          "cargo",
+          "test",
+          "--offline",
+          "--no-fail-fast",
+          "--features",
+          "mcp"
+        ],
+        "totals": {
+          "groups": 31,
+          "passed": 4305,
+          "failed": 0,
+          "ignored": 1,
+          "measured": 0,
+          "filteredOut": 0,
+          "ignoredTests": [
+            "resolution_test::slice_elem_variant_reserved"
+          ]
+        },
+        "failure": null,
+        "logs": [
+          {
+            "path": "gate-logs-2026-09-10T20-40-06-894Z-16839/cargo-test-mcp.stdout.log",
+            "bytes": 342015,
+            "sha256": "d473645964014eb1f37c9bd53fa86923b3994b8577db91d75b6190ac16714bcf"
+          },
+          {
+            "path": "gate-logs-2026-09-10T20-40-06-894Z-16839/cargo-test-mcp.stderr.log",
+            "bytes": 5414,
+            "sha256": "a49e417ce202490dbdd6ffe4c64af86d1d189c6494e7c96f1c56bca97be810f3"
+          }
+        ]
+      },
+      {
+        "label": "cargo-test-owner-audit",
+        "command": [
+          "cargo",
+          "test",
+          "--offline",
+          "--no-fail-fast",
+          "--features",
+          "mcp detached-owner-audit"
+        ],
+        "totals": {
+          "groups": 31,
+          "passed": 4328,
+          "failed": 0,
+          "ignored": 1,
+          "measured": 0,
+          "filteredOut": 0,
+          "ignoredTests": [
+            "resolution_test::slice_elem_variant_reserved"
+          ]
+        },
+        "failure": null,
+        "logs": [
+          {
+            "path": "gate-logs-2026-09-10T20-40-06-894Z-16839/cargo-test-owner-audit.stdout.log",
+            "bytes": 344297,
+            "sha256": "be2ac44890204a37fb172f6c51922672c6835afb2e0f6cdf7700ee4427edb04c"
+          },
+          {
+            "path": "gate-logs-2026-09-10T20-40-06-894Z-16839/cargo-test-owner-audit.stderr.log",
+            "bytes": 5414,
+            "sha256": "91699185a3557039023d4989a260385912685199b4b1bc55b48f71547a3b9f35"
+          }
+        ]
+      },
+      {
+        "label": "receiver-closure-tests",
+        "command": [
+          "node",
+          "--test",
+          "docs/eval/receiver-closure/audit-callable-source.test.mjs",
+          "docs/eval/receiver-closure/audit-imported-props-source.test.mjs",
+          "docs/eval/receiver-closure/audit-search-boundaries.test.mjs",
+          "docs/eval/receiver-closure/verify-callable-authority.test.mjs"
+        ],
+        "totals": {
+          "tests": 18,
+          "suites": 0,
+          "pass": 15,
+          "fail": 3,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "failure": [
+          "exit status 1",
+          "Node tests/pass mismatch",
+          "Node fail is nonzero"
+        ],
+        "logs": [
+          {
+            "path": "gate-logs-2026-09-10T20-40-06-894Z-16839/receiver-closure-tests.stdout.log",
+            "bytes": 8965,
+            "sha256": "c172a4ce517f81688196e11c4ad8b7e98162a1f0cdcb1187c359a08e7bf46a85"
+          },
+          {
+            "path": "gate-logs-2026-09-10T20-40-06-894Z-16839/receiver-closure-tests.stderr.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ]
+      },
+      {
+        "label": "callable-authority-profiles",
+        "command": [
+          "node",
+          "docs/eval/receiver-closure/verify-callable-authority.mjs",
+          "/private/tmp/prism-imported-alias-O4d6E1/package/lib/typescript.js",
+          "/private/tmp/prism-callable-authority-98TLLN/public/profiles"
+        ],
+        "totals": {
+          "results": 40,
+          "failures": []
+        },
+        "failure": null,
+        "logs": [
+          {
+            "path": "gate-logs-2026-09-10T20-40-06-894Z-16839/callable-authority-profiles.stdout.log",
+            "bytes": 494914,
+            "sha256": "8746d8f89c3efa5029869de3c0d1d0297f2499da22e20d02b922bc6576a9b57f"
+          },
+          {
+            "path": "gate-logs-2026-09-10T20-40-06-894Z-16839/callable-authority-profiles.stderr.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ]
+      },
+      {
+        "label": "cargo-fmt-check",
+        "command": [
+          "cargo",
+          "fmt",
+          "--check"
+        ],
+        "totals": null,
+        "failure": null,
+        "logs": [
+          {
+            "path": "gate-logs-2026-09-10T20-40-06-894Z-16839/cargo-fmt-check.stdout.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "gate-logs-2026-09-10T20-40-06-894Z-16839/cargo-fmt-check.stderr.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ]
+      },
+      {
+        "label": "git-diff-check",
+        "command": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "totals": null,
+        "failure": null,
+        "logs": [
+          {
+            "path": "gate-logs-2026-09-10T20-40-06-894Z-16839/git-diff-check.stdout.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "gate-logs-2026-09-10T20-40-06-894Z-16839/git-diff-check.stderr.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ]
+      }
+    ]
+  },
+  "helperRecovery": {
+    "initial": "15 passed,3 failed; all606 required retained input files missing",
+    "baseControl": "base-receiver-helper-control.log: same3 failures",
+    "incompleteEnvironmentRecheck": "inadmissible: two required variables omitted",
+    "final": {
+      "results": [
+        {
+          "name": "base",
+          "passed": 18,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "name": "candidate",
+          "passed": 18,
+          "failed": 0,
+          "skipped": 0
+        }
+      ],
+      "upstream": "/private/tmp/prism-asserted-upstream-CXalOE"
+    },
+    "pinnedSourceCommit": "0642e72cfa2d9a71198200e52f37399384610ee3",
+    "restoration": "local git archive; no install or download; original depleted archive untouched"
+  },
+  "additionalGates": {
+    "python": {
+      "passed": 940,
+      "skipped": 1,
+      "skip": "live adoption requires PRISM_RUN_LIVE_EVALS=1",
+      "log": "python-final.log"
+    },
+    "focusedRust": 17,
+    "nativeExample": 7,
+    "membershipExample": 12,
+    "proofPolicy": 7,
+    "clippy": "completed with warnings, including test-only single-element loop"
+  },
+  "tierA": {
+    "matrixPassed": 159,
+    "quick": "INVALID accuracy result",
+    "meta": {
+      "baseline_invalid": true,
+      "corpus": "prism",
+      "corpus_dirty": false,
+      "corpus_dirty_reasons": [],
+      "corpus_sha": "cef3b902ee8f",
+      "date": "2026-09-10-asserted-repair",
+      "harness_sha": "cef3b902ee8f",
+      "invalid_reasons": [
+        "corpus_sha_drift: cef3b902ee8f != pinned 20c8490591a3",
+        "stratum C-method: 4/6 successful probes",
+        "stratum C-name: 4/6 successful probes",
+        "stratum U-method: 4/6 successful probes",
+        "oracle_error_rate 0.20 > 0.10"
+      ],
+      "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+      "oracle_error_rate": 0.2,
+      "oracle_not_quiescent": false,
+      "prism_dirty": false,
+      "prism_sha": "cef3b902ee8f",
+      "seed": 42,
+      "stale_adjudications": 0,
+      "sut_error_rate": 0,
+      "wall_s": {
+        "m1_oracle_inventory": 12.199,
+        "m2": 184.724,
+        "m3": 0.001,
+        "matrix": 7.036,
+        "oracle_start": 18.056,
+        "pinned": 5.929
+      }
+    },
+    "basePinControl": {
+      "artifact": "/private/tmp/prism-asserted-base-VEYCM8/eval/tier_a/cli.py",
+      "base": "c2737e06d0c5",
+      "pinned": "20c8490591a3",
+      "result": [
+        false,
+        "corpus_sha_drift: c2737e06d0c5 != pinned 20c8490591a3"
+      ]
+    },
+    "binary": {
+      "path": "/private/tmp/prism-asserted-repair-byXvBe/prism-cef3b902",
+      "sha256": "d73dcd7aa94fca41e22c69c6b79d65c944bae3ef2523b9f4a81a23bc9a369015"
+    },
+    "preliminary": "stopped after mutable SUT path rebuilt; inadmissible",
+    "noBaselineOrAdjudicationChanges": true
+  },
+  "independentReview": {
+    "roundCap": 2,
+    "round1": {
+      "verdict": "REJECT",
+      "wrong": 1,
+      "smell": 0
+    },
+    "round2": {
+      "verdict": "APPROVE",
+      "wrong": 0,
+      "smell": 0,
+      "priorWrongClosed": true
+    },
+    "record": "review.md",
+    "reviewerExecutedTests": false
+  },
+  "remainingDefects": [
+    "Pre-existing TS/TSX required parameter occurrence omission leaves missing parameter Defs; separate next slice"
+  ],
+  "notVerified": [
+    "valid Tier-A quick accuracy",
+    "full multi-corpus",
+    "live-model evaluations",
+    "real receiver population/recall"
+  ],
+  "archive": {
+    "path": "/private/tmp/prism-asserted-repair-cef3b902-evidence.tgz",
+    "bytes": 39560875,
+    "mode": "600",
+    "sha256": "e134ca96990c5add2c4ab755257ed53abaaf83524fba75ca88ffa247254cde14",
+    "location": "local only; does not include this later receipt or publication metadata"
+  }
+}

@@ -1,8 +1,12 @@
-# Asserted-member proof harness (not production normalization)
+# Asserted-member proof and repair harness
 
 This observes the merged runtime on synthetic source. A compiler-backed proposed
 syntax candidate is not a binding, class, receiver or executable-owner proof.
-No runtime sources, generic AccessPath parser, closure policy or cache format change.
+The harness itself does not normalize production source. PR307 was proof-only;
+the [subsequent repair](../2026-09-10-typescript-asserted-member-repair.md) changes
+bounded runtime paths and invalidates the CPG cache without changing its schema.
+Legacy receipt flags `authorizesRuntimeEdge:false` and `productionNormalization:false`
+describe the observer's authority, not whether the observed binary contains a fix.
 
 From the repository root, using the locally retained SHA-pinned TypeScript5.9.3:
 
@@ -25,13 +29,15 @@ the exact synthetic source, raw return slots, calls, rvalue siblings and spans,
 and full/subset DFG defs/uses/edges/confidence labels. Fixture inputs and executable
 bytes are checked for stability during the run.
 
-Add `--require-repaired` to the last command to assert the desired future field
-dependency. **It currently exits1 with12 UNFIXED missing-edge assertions.** Default
+Add `--require-repaired` to the last command to assert the required field
+dependency. **PR307 base exits1 with12 UNFIXED assertions; the repair exits0.** Default
 observation mode can pass while those defects remain; do not call that a repair.
 The checker refuses missing obligation classes to prevent a vacuous repair pass.
 This mode is a necessary dependency check, not complete production acceptance:
-future wiring must also verify that refused native observations and independent
-consumer contracts remain compatible. Compiler validity here admits synthetic
+production wiring must also verify that refused native observations and independent
+consumer contracts remain compatible. `compare-repair.mjs <base-receipt> <repair-receipt>`
+checks54 observations,12 repaired edges and26 byte-identical refusals; Rust tests
+cover the independent consumer contracts. Compiler validity here admits synthetic
 evidence; it does not require adding a compiler to runtime normalization.
 
 ## Fixed population and interpretation
@@ -53,7 +59,7 @@ Invalid fixtures are a separate compiler-validity refusal; parser-clean syntax
 does not establish valid types. This allowlist applies only to these selected
 return-value expressions in synthetic fixtures, not arbitrary erased AST contexts.
 
-## Requirements before the production repair
+## Proof-stage requirements carried into the production repair
 
 The native experiment isolates `runtime.X` Def@line2 → Use@line3, not merely a
 path spelling. The first no-write experiment had no Def in either control or
@@ -77,6 +83,8 @@ refusal of new normalization is not deletion of runtime uses.
 
 Assignment-RHS/call-argument contexts, same-line duplicates, asserted LHS, erased-only
 outer contexts, shadow/write sequences, non-TS controls and interprocedural binding
-remain subsequent implementation acceptance obligations; this matrix is deliberately
-return-focused. No real receiver population/recall, taint reachability or closure
+are covered by the bounded repair's Rust regressions; this compiler matrix remains
+return-focused. The separate TS parameter-definition defect remains unresolved:
+CPG argument tests use real JavaScript callees. No real receiver population/recall,
+taint reachability or closure
 completeness claim follows. React.FC and unresolved react-scripts decisions stand.
