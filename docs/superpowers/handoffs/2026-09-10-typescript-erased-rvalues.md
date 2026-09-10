@@ -9,7 +9,7 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` root owns design/implementation; classification_review supplied read-only source/compiler verification — **RESOLVED**.
-**(b) Custody exposure** — `[MEASURED]` implementation/tests pushed at0d71800b; raw evidence archived mode0600 with SHA in final readout; documentation closeout commit/PR follows — **RESOLVED** for source custody.
+**(b) Custody exposure** — `[MEASURED]` implementation/tests0d71800b and verification closeout93724aa0 pushed; PR306 opened at https://github.com/shoedog/prism/pull/306; raw evidence archived mode0600 with SHA in final readout — **RESOLVED**. This publication-only handoff update follows, source unchanged.
 **(c) In flight / irreversible** — `[MEASURED]` all verification and review completed; no source edits pending — **RESOLVED**. Invalid oracle run and runner postflight correction remain explicit.
 **(d) Authorization granted but not exercised** — owner: “merged, proceed to next”; standing “commit and push and open pr”. No automatic merge.
 
@@ -17,7 +17,7 @@
 
 1. `git status --short --branch` in the workspace; reread this handoff, preserve unrelated state.
 2. Read the final readout and verification JSON under docs/eval/receiver-closure; gates/review are complete, not pending.
-3. Commit/push documentation-only closeout and open PR; verify remote HEAD and CI state. No automatic merge. After owner merge/approval, consider separate compound-member proof.
+3. Check PR306's current head/CI using `gh pr view 306 --json state,headRefOid,statusCheckRollup`. Publication is complete; CI is not inferred green from local suites. No automatic merge. After owner merge/approval, consider separate compound-member proof.
 
 **STOP conditions:** new authority requirements, open-class review findings at cap, or unrelated failing gates without same-environment attribution control. Never rebaseline.
 
@@ -37,7 +37,7 @@
 | Tier-A quick | done | `[MEASURED]` final clean0d71800b run INVALID: corpus pin drift, oracle6/30, SUT0; no stale override |
 | Runner postflight | done | `[MEASURED]` original failure preserved; generated reports archived, tracked diff empty and HEAD/status clean in postflight-reconciliation.json |
 | Independent review | done | `[MEASURED]` round1/2 APPROVE, WRONG0/actionable SMELL0; independent-review-round1.md |
-| Publication | next | `[MEASURED]` source pushed; documentation closeout/PR next |
+| Publication | done | `[MEASURED]` source and closeout pushed; PR306 opened, no auto-merge |
 
 ## 3. Corrections to standing documents and memory
 
@@ -52,7 +52,7 @@
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Documentation closeout and PR | next | Resume order above | None | source pushed0d71800b |
+| 1 | Owner review/merge | pending | Check PR306 current CI/head | Owner decision | https://github.com/shoedog/prism/pull/306 |
 | 2 | Compound member path containing an asserted receiver | parked | Separate bounded source/native proof before repair | Separate slice | `(runtime as TYPE).X` whole-member text serialization |
 
 ## 5. Invariants and traps — do not do these

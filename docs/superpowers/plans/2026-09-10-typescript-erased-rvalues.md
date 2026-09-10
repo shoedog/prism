@@ -57,3 +57,5 @@ postflight failure is preserved and separately reconciled; neither is silently
 reported green. Final source, compiler evidence, limitations and next candidate:
 `docs/eval/receiver-closure/2026-09-10-typescript-erased-rvalues.md`.
 Earlier future-tense steps above are the executed plan, not pending gates.
+Published with verification closeout93724aa0 as PR306:
+https://github.com/shoedog/prism/pull/306. No automatic merge.
