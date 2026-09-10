@@ -121,7 +121,14 @@ pub(crate) fn replace_session(
     config: &str,
     compiler: &Path,
 ) -> Result<()> {
-    replace_session_impl(active, root, config, compiler, false)
+    replace_session_impl(
+        active,
+        root,
+        config,
+        compiler,
+        false,
+        &mut admission::Report::new(),
+    )
 }
 
 /// Selected public route: only JS/TS inputs until mixed-language type enrichment
@@ -131,8 +138,10 @@ pub(crate) fn replace_selected_session(
     root: &Path,
     config: &str,
     compiler: &Path,
-) -> Result<()> {
-    replace_session_impl(active, root, config, compiler, true)
+) -> std::result::Result<(), admission::Failure> {
+    let mut report = admission::Report::new();
+    replace_session_impl(active, root, config, compiler, true, &mut report)
+        .map_err(|reason| report.refusal(reason))
 }
 
 fn replace_session_impl(
@@ -141,16 +150,26 @@ fn replace_session_impl(
     config: &str,
     compiler: &Path,
     selected: bool,
+    report: &mut admission::Report,
 ) -> Result<()> {
     *active = None;
     let mut repo = crate::repo_loader::load_repo(root).map_err(|_| "index_unavailable")?;
+    report.phase = admission::Phase::SelectInputs;
     if selected {
+        report.observe(&repo);
         ensure(
             repo.type_db.is_none() && repo.files.values().all(|f| js(f.language)),
             "owner_requires_js_ts_only",
         )?;
     }
-    let epoch = AuthenticatedProgramEpoch::acquire(root, config, compiler, repo.files.clone())?;
+    let epoch = AuthenticatedProgramEpoch::acquire_observed(
+        root,
+        config,
+        compiler,
+        repo.files.clone(),
+        report,
+    )?;
+    report.phase = admission::Phase::SessionBuild;
     repo.files.extend(epoch.0._files.clone());
     let index = crate::build_pool::install(|| -> Result<_> {
         let cpg = crate::cpg::CodePropertyGraph::build_with_staged_owner(

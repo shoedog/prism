@@ -8,6 +8,9 @@ React.FC support. Ordinary navigation, review and targets remain unchanged.
 The [real-repository value checkpoint](eval/receiver-closure/2026-09-09-owner-value-checkpoint.md)
 found both approved real roots refused before compiler acquisition. Synthetic
 support is measured; practical real-receiver gain is not yet established.
+The [admission diagnostics verification](eval/receiver-closure/2026-09-09-owner-admission-diagnostics.md)
+reproduces those refusals with bounded phase and census reports, without relaxing
+admission.
 
 Use a trusted Node executable on PATH and an explicitly selected, already-present
 TypeScript 5.9.3 `lib/typescript.js`. Its required SHA256 is
@@ -36,6 +39,35 @@ Each successful acquisition replaces the previous session. On failure no old pro
 is served; the tool returns `build_failed` and the next call retries. Startup failure
 is a process error. Refresh stale-path fields describe ordinary filesystem metadata
 observations, not compiler/config closure authority.
+
+## Admission diagnostics
+
+Acquisition failures retain `owner acquisition failed: <reason>`. CLI/API errors
+and eager MCP startup errors append `; owner_admission=<JSON>`. Served MCP
+`build_failed` payloads instead have a separate `owner_admission` object alongside
+their unchanged, bounded `cause`. The internal typed error supplies that object;
+the server does not parse its text to recover authority or diagnostics.
+
+Schema `prism.owner-admission/1` always has `authorizes_runtime_edge: false`.
+`inputs` reports the loaded file count, JS/TS file and byte counts, language counts,
+TypeDatabase presence, fixed limits and comparison booleans; it is null if loading
+failed. Counts describe loaded inputs, not all filesystem/dependency files, and
+do not certify parsing, closure or receiver ownership. Both a count excess and a
+language mismatch may be visible even though only the first gate ran.
+
+`failed_phase` and `phases` describe actual progress through load_inputs,
+select_inputs, prepare_inputs, locate_inputs, compiler_evidence, owner_mapping,
+and session_build. Prior phases are completed; later phases are not_reached.
+The compiler_evidence phase groups worker acquisition, reproduction, closure and
+census checks: failure does not prove each internal step ran, or that a compiler
+process started. The report does not inventory every downstream barrier.
+
+Only aggregate facts appear, not source paths or raw compiler diagnostics.
+The optional served MCP report has a 2048-byte serialized ceiling; an oversized
+report is omitted with `owner_admission_omitted: true`, never truncated into invalid
+JSON. Ordinary error text keeps its existing 256-byte clamp. Selection syntax,
+cache policy, MCP configuration/canonicalization and other pre-acquisition errors
+remain outside this report. Neither flags nor default-path behavior changes.
 
 ## Deliberate limits
 

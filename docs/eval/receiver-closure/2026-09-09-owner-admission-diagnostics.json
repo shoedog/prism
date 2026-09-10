@@ -1,0 +1,325 @@
+{
+  "schema": "prism.owner-admission-verification/1",
+  "publication": {
+    "pr": 300,
+    "url": "https://github.com/shoedog/prism/pull/300",
+    "verification_docs_commit": "4f20493e1700c83619400d35205e9aed807ebd23"
+  },
+  "implementation_commit": "75d6e7460bbf8b036dcf06484d5f8fa57d2d266e",
+  "base": "3e1306a3",
+  "baseline_binary_source": "0807d7de (executable source equal to 3e1306a3)",
+  "binaries": {
+    "base-prism": "33288888236c9037b316fa67d011280b24f2c2111d684c39546cb1c0a323b750",
+    "base-prism-mcp": "e955d37f026a6936c7a0c35d39b5e20d2034206e21633678e790f89d50882f69",
+    "candidate-prism": "7e5dfd888c710062c0a6467fc9861f690e1b955449f486ee8c61c17cd1c1b097",
+    "candidate-prism-mcp": "014ca920a94a8f9131d630f3c4d71b9f82fa4d9cb5a088ea5c063dcbf5ee75b5",
+    "candidate-precommit-prism": "4bb459848f953f2174a0013a5c94377c10509a613445d14de4f5fdf3dd7b1f0b",
+    "candidate-precommit-prism-mcp": "7742ae4486aba467b3309e49acb29e6f8ce910c7304efc0758991899696e6400"
+  },
+  "real_replay_binary": "candidate-precommit-prism and candidate-precommit-prism-mcp; source identical to implementation commit",
+  "gates": [
+    {
+      "label": "callable-observations",
+      "totals": {
+        "tests": 694,
+        "suites": 0,
+        "pass": 694,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-test",
+      "totals": {
+        "groups": 28,
+        "passed": 4037,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-test-mcp",
+      "totals": {
+        "groups": 30,
+        "passed": 4230,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-test-owner-audit",
+      "totals": {
+        "groups": 30,
+        "passed": 4253,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null
+    },
+    {
+      "label": "receiver-closure-tests",
+      "totals": {
+        "tests": 18,
+        "suites": 0,
+        "pass": 18,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failure": null
+    },
+    {
+      "label": "callable-authority-profiles",
+      "totals": {
+        "results": 40,
+        "failures": []
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-fmt-check",
+      "totals": null,
+      "failure": null
+    },
+    {
+      "label": "git-diff-check",
+      "totals": null,
+      "failure": null
+    }
+  ],
+  "deterministic_python": {
+    "eval_tests": {
+      "passed": 885,
+      "skipped": 0
+    },
+    "adoption_unit": {
+      "passed": 44,
+      "skipped": 0
+    },
+    "live_adoption": "excluded; accidental unscoped run interrupted after 18 completed trajectories; cost unknown"
+  },
+  "default_parity": {
+    "different": 0,
+    "pairs": 36,
+    "phases": {
+      "inventory": 1,
+      "pinned": 5,
+      "sample": 30
+    },
+    "scope": "SUT parity only; inherited oracle inventory selects fixed requests, not accuracy outcomes",
+    "matrix_records": 159,
+    "matrix_differences": 0
+  },
+  "real": {
+    "public": {
+      "cli_repetitions": 3,
+      "mcp_startups": 1,
+      "all_reports_identical": true,
+      "source_and_metadata_unchanged": true,
+      "report": {
+        "authorizes_runtime_edge": false,
+        "failed_phase": "prepare_inputs",
+        "inputs": {
+          "byte_limit": 8388608,
+          "file_limit": 512,
+          "js_ts_bytes": 6928124,
+          "js_ts_files": 628,
+          "languages": {
+            "JavaScript": 26,
+            "Tsx": 290,
+            "TypeScript": 312
+          },
+          "loaded_files": 628,
+          "type_database_present": false,
+          "within_byte_limit": true,
+          "within_file_limit": false
+        },
+        "phases": {
+          "compiler_evidence": "not_reached",
+          "load_inputs": "completed",
+          "locate_inputs": "not_reached",
+          "owner_mapping": "not_reached",
+          "prepare_inputs": "failed",
+          "select_inputs": "completed",
+          "session_build": "not_reached"
+        },
+        "reason": "input_budget",
+        "schema": "prism.owner-admission/1"
+      }
+    },
+    "private": {
+      "cli_repetitions": 3,
+      "mcp_startups": 1,
+      "all_reports_identical": true,
+      "source_and_metadata_unchanged": true,
+      "reason": "owner_requires_js_ts_only",
+      "failed_phase": "select_inputs",
+      "compiler_evidence": "not_reached",
+      "private_raw_evidence_published": false
+    }
+  },
+  "authority": "observations only; no closure, budget, mixed-language, cache, React.FC or react-scripts policy change",
+  "tier_a_quick": {
+    "exit_status": 2,
+    "meta": {
+      "baseline_invalid": true,
+      "corpus": "prism",
+      "corpus_dirty": false,
+      "corpus_dirty_reasons": [],
+      "corpus_sha": "75d6e7460bbf",
+      "date": "2026-09-09-owner-admission-75d6e74",
+      "harness_sha": "75d6e7460bbf",
+      "invalid_reasons": [
+        "corpus_sha_drift: 75d6e7460bbf != pinned 20c8490591a3",
+        "stratum C-method: 4/6 successful probes",
+        "stratum C-name: 2/6 successful probes",
+        "oracle_error_rate 0.20 > 0.10"
+      ],
+      "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+      "oracle_error_rate": 0.2,
+      "oracle_not_quiescent": false,
+      "prism_dirty": false,
+      "prism_sha": "75d6e7460bbf",
+      "seed": 42,
+      "stale_adjudications": 0,
+      "sut_error_rate": 0,
+      "wall_s": {
+        "m1_oracle_inventory": 10.773,
+        "m2": 172.773,
+        "m3": 0.001,
+        "matrix": 6.787,
+        "oracle_start": 27.097,
+        "pinned": 5.123
+      }
+    },
+    "pinned": [
+      {
+        "id": "target-c-method",
+        "outcome": "flip_candidate",
+        "raw": {
+          "fn": 0,
+          "fp": 0,
+          "precision": [
+            1,
+            0.5655175313406071,
+            1
+          ],
+          "recall": [
+            1,
+            0.5655175313406071,
+            1
+          ],
+          "tp": 5
+        },
+        "oracle_only": [],
+        "prism_only": []
+      },
+      {
+        "id": "module-deps-feature-gated",
+        "outcome": "missing",
+        "raw": {
+          "fn": 0,
+          "fp": 1,
+          "precision": [
+            0.9444444444444444,
+            0.7424269900391908,
+            0.990124809131223
+          ],
+          "recall": [
+            1,
+            0.8156818626193445,
+            1
+          ],
+          "tp": 17
+        },
+        "oracle_only": [],
+        "prism_only": [
+          "src/mcp/tools.rs:230"
+        ]
+      },
+      {
+        "id": "load-repo-feature-gated",
+        "outcome": "missing",
+        "raw": {
+          "fn": 3,
+          "fp": 9,
+          "precision": [
+            0.9274193548387096,
+            0.8678041528026484,
+            0.9613478369163021
+          ],
+          "recall": [
+            0.9745762711864406,
+            0.9279108531122358,
+            0.9913164856634429
+          ],
+          "tp": 115
+        },
+        "oracle_only": [
+          "examples/dfg_census.rs:359",
+          "tests/integration/resolution_test.rs:5299",
+          "tests/integration/resolution_test.rs:5368"
+        ],
+        "prism_only": [
+          "src/executable_owner/audit_tests.rs:310",
+          "src/executable_owner/audit_tests.rs:322",
+          "src/executable_owner/audit_tests.rs:333",
+          "src/executable_owner/integration/tests.rs:22",
+          "src/executable_owner/integration/tests.rs:79",
+          "src/mcp/freshness.rs:401",
+          "src/mcp/session.rs:359",
+          "src/mcp/session.rs:374",
+          "src/mcp/session.rs:400"
+        ]
+      },
+      {
+        "id": "ambiguous-symbol-contract",
+        "outcome": "ok"
+      }
+    ],
+    "pending": 23,
+    "m1": {
+      "anon_oracle": 0,
+      "anon_prism": 0,
+      "matched": 8227,
+      "prism_extra": 0,
+      "prism_missing": 29,
+      "snapshot_prism_missing": 29
+    },
+    "m3": {
+      "cap": 10,
+      "checked": [],
+      "counts": {
+        "alias_site": 0,
+        "ambiguous": 0,
+        "confirmed_fp": 0,
+        "confirmed_tp": 0
+      }
+    },
+    "matrix": {
+      "ok": 159
+    },
+    "attribution": "Not a valid accuracy anchor; no new regression attribution or rebaseline"
+  }
+}

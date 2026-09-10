@@ -2313,3 +2313,30 @@ fn unknown_method_before_initialized_is_32600() {
     ]);
     assert_eq!(o[1]["error"]["code"], -32600);
 }
+#[test]
+fn owner_admission_failure_payload_bounds_diagnostic_and_preserves_ordinary_errors() {
+    use super::*;
+    for mode in [
+        StructuredContentMode::Always,
+        StructuredContentMode::OmitDefaultPath,
+    ] {
+        for size in [2046, 2047] {
+            // JSON string quotes make these exactly 2048 and 2049 UTF-8 bytes.
+            let result = build_failure_result(&"x".repeat(400), Some(json!("x".repeat(size))));
+            let wire = result.to_call_tool_result_value(mode);
+            let body: Value =
+                serde_json::from_str(wire["content"][0]["text"].as_str().unwrap()).unwrap();
+            assert!(
+                body["cause"].as_str().unwrap().len() <= super::super::output::MAX_ECHO_BYTES + 3
+            );
+            assert_eq!(body.get("owner_admission").is_some(), size == 2046);
+            assert_eq!(body.get("owner_admission_omitted").is_some(), size == 2047);
+            assert!(wire.to_string().len() + ENVELOPE_RESERVE <= MAX_RESULT_CHARS_FLOOR);
+        }
+        let result = build_failure_result("ordinary_failure", None);
+        let body = result.structured.unwrap();
+        assert_eq!(body.as_object().unwrap().len(), 3);
+        assert_eq!(body["cause"], "ordinary_failure");
+        assert!(body.get("owner_admission").is_none());
+    }
+}
