@@ -9,7 +9,7 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` root owns production architecture; asserted_regressions and asserted_cpg_tests own separate new test files only — **RESOLVED**.
-**(b) Custody exposure** — `[MEASURED]` implementation/tests committed cef3b902 and snapshotted source-cef3b902.tgz; raw evidence archive/receipt in closeout; push/PR next — **RESOLVED** local custody, publication pending.
+**(b) Custody exposure** — `[MEASURED]` implementation cef3b902 and closeout40617d97 pushed; PR308 opened at https://github.com/shoedog/prism/pull/308; source snapshot and raw archive/receipt retained — **RESOLVED** published custody. This publication-only update follows; runtime/tests unchanged.
 **(c) In flight / irreversible** — `[MEASURED]` all verification/review complete; no lane test/build active. Quick accuracy INVALID, not silently passed; parameter defect remains separate — **RESOLVED** bounded completion.
 **(d) Authorization granted but not exercised** — “merged - proceed to next”; standing “commit and push and open pr”. No automatic merge.
 
@@ -17,7 +17,7 @@
 
 1. Run `git status --short --branch` from the workspace; preserve assigned agent files.
 2. Read final readout/receipt; verification complete, including helper input recovery and invalid quick disposition.
-3. Commit documentation closeout, push branch/open PR; then owner review/merge. No automatic merge. Next recommendation is bounded TS parameter occurrence repair.
+3. Check `gh pr view 308 --json state,headRefOid,statusCheckRollup`; publication complete, owner review/merge pending. No automatic merge. Next recommendation is bounded TS parameter occurrence repair.
 
 **STOP conditions:** unrelated dirty work, new type/receiver/closure authority, open-class review findings at cap, unclassified failures.
 
@@ -48,7 +48,7 @@
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Publication | next | Commit docs, push/open PR | None | No auto-merge |
+| 1 | Owner review/merge | pending | Check PR308 head/CI | Owner decision | No auto-merge |
 | 2 | TS parameter occurrence defect | parked | Separate required/optional parameter proof/repair | Owner next slice | base-parameter-defect.jsonl |
 
 ## 5. Invariants and traps — do not do these

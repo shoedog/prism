@@ -84,5 +84,7 @@ complete-env base/candidate rechecks both18/18. No audit code changed.
 Final frozen Tier-A quick is INVALID (pin drift and oracle6/30), SUT0 errors;
 base-artifact pin checker also refuses base. Do not infer an accuracy pass.
 
-Status: implementation/review and runnable gates complete; documentation/publication next. Evidence root:
+Status: implementation/review and runnable gates complete; cef3b902 plus closeout40617d97
+pushed as PR308: https://github.com/shoedog/prism/pull/308. Owner review/merge pending,
+no automatic merge. Evidence root:
 `/private/tmp/prism-asserted-repair-byXvBe`.
