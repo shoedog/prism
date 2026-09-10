@@ -62,3 +62,18 @@ rebaseline; same-environment base controls before attributing failures.
   corrected test captures truncated JSON and EOF. A typed error plus separate
   bounded MCP field fixes this without changing the untrusted-text cap. Transport
   boundary/oversize/default controls and fresh failure/restore checks added.
+
+## Completion checkpoint
+
+Implementation/tests committed as75d6e746; full clean-HEAD gates passed:
+4037 default Rust,4230 MCP,4253 MCP+audit (one ignored each),694 observers,
+18 helpers,40 authority profiles,885 deterministic Python and44 adoption units.
+Matrix159ok and baseline/candidate36 raw pairs plus159 complete records identical.
+Quick ran but is an invalid accuracy anchor (6/30 oracle errors, zero SUT errors,
+corpus drift); no rebaseline. See the [readout](../../eval/receiver-closure/2026-09-09-owner-admission-diagnostics.md).
+
+Verification scope correction: unscoped pytest accidentally ran live Sonnet
+adoption trials; interrupted after18 completed trajectories, cost unknown.
+Evidence is private; no tracked edits observed. Use only explicit deterministic
+targets `pytest -q tests` and `pytest -q adoption/tests/unit`. An explicit opt-in
+guard for live tests is recommended follow-up hardening, not implemented here.

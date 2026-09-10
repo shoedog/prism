@@ -8,6 +8,9 @@ React.FC support. Ordinary navigation, review and targets remain unchanged.
 The [real-repository value checkpoint](eval/receiver-closure/2026-09-09-owner-value-checkpoint.md)
 found both approved real roots refused before compiler acquisition. Synthetic
 support is measured; practical real-receiver gain is not yet established.
+The [admission diagnostics verification](eval/receiver-closure/2026-09-09-owner-admission-diagnostics.md)
+reproduces those refusals with bounded phase and census reports, without relaxing
+admission.
 
 Use a trusted Node executable on PATH and an explicitly selected, already-present
 TypeScript 5.9.3 `lib/typescript.js`. Its required SHA256 is
