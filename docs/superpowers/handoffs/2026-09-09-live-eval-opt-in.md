@@ -1,5 +1,9 @@
 # Handoff — explicit live adoption pytest opt-in
 
+**Superseded status (2026-09-09):** PR301 merged as `5adf0394`; publication/CI
+items below describe the historical handoff checkpoint, not current open work.
+Continue with [project-boundary feasibility](2026-09-09-project-boundary-feasibility.md).
+
 **Written:** 2026-09-09 · **By:** /root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · fix/live-eval-explicit-opt-in
 **Measured state:** `[MEASURED]` guard/test checkpoint2811040 on base4e30ca84;
