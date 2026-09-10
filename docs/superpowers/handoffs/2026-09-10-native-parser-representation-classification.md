@@ -5,8 +5,9 @@
 **Measured state:** `[MEASURED]` base `17f7053df832cf0bb872aa1915899e14c01dfe91`;
 git fetch/log/status confirmed PR303 merged and a clean starting tree.
 **Predecessor:** PR303 project membership observations.
-**Publication:** [PR304](https://github.com/shoedog/prism/pull/304) open; branch pushed.
-CI is not claimed green. No automatic merge.
+**Publication:** [PR304](https://github.com/shoedog/prism/pull/304) merged as9270ab43.
+Successor: [grammar repair WIP](2026-09-10-typescript-grammar-repair.md), awaiting
+dependency-packaging decision. No automatic merge of its failing tests.
 **Truth ordering:** measured live state > explicit owner authority within scope > this handoff > history.
 **Provenance:** written live. Prior PR303 test totals are `[INHERITED]`, not fresh gates.
 
@@ -16,14 +17,14 @@ CI is not claimed green. No automatic merge.
 read-only JSON/.mts audit. No delegated writer.
 (b) Custody RESOLVED: af2dfdf1/fc005f66 committed and pushed; raw/final evidence
 archived with verified gzip/tar integrity, size/hash below.
-(c) In flight: PR review/CI only; full local gates/replay and both review rounds complete.
+(c) In flight: none in this completed lane; successor owns repair preparation.
 (d) Authorization: “merged, proceed to next”; classification before admission changes.
 
 ## 1. Resume order
 
 1. Run `git status --short --branch`; read adjacent classification plan.
 2. Inspect `/private/tmp/prism-parser-classification-6vOV0e` and running gate state.
-3. Check receipt/readout and exact-head PR review/CI. No automatic merge.
+3. Resume the linked grammar repair handoff; its authority question is open.
 
 STOP before parser repair, suffix/input/closure expansion, installs or real-source edits.
 
@@ -40,7 +41,7 @@ STOP before parser repair, suffix/input/closure expansion, installs or real-sour
 | Classification assertions | done |29 passed; separate desired-contract RED12pass/6fail remains intentionally unfixed |
 | Real replay/custody | done |7 exact ordinary packets/native censuses/Program facets; before/after tracked bytes and metadata equal |
 | Independent review | done | both rounds approved, zero new WRONG/actionable SMELL; no cap extension |
-| Publication | done | PR304 open, branch pushed; CI not claimed green; no automatic merge |
+| Publication | done | PR304 merged9270ab43; successor linked above |
 
 ## 3. Corrections to standing documents and memory
 
@@ -50,7 +51,7 @@ measurements remain valid. No memory edits authorized or made.
 
 ## 4. Open work
 
-Owner review/CI next. Recommended next checkpoint: bounded source-preserving
+PR304 merged. Successor owns the recommended bounded source-preserving
 grammar repair; keep JSON and module-extension representations separate later work.
 Private worker_failed remains unclassified and is not probed in this slice.
 

@@ -1,7 +1,8 @@
 # Native parser and representation classification
 
 Successor to PR303 merge `17f7053df832cf0bb872aa1915899e14c01dfe91`.
-Published as [PR304](https://github.com/shoedog/prism/pull/304); CI is not claimed green.
+Published as [PR304](https://github.com/shoedog/prism/pull/304), merged as9270ab43.
+Successor: [grammar repair design/RED checkpoint](../../superpowers/plans/2026-09-10-typescript-grammar-repair.md).
 Documentation and characterization fixtures only: no production/parser/dependency,
 suffix, input-selection, schema, closure or executable-owner change.
 

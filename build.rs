@@ -3,6 +3,10 @@ use std::collections::BTreeSet;
 use std::path::Path;
 use std::process::Command;
 
+// All files in this bounded, source-controlled package are identity inputs,
+// including generated artifacts and provenance. Keep bootstrap scratch outside it.
+const VENDORED_GRAMMAR: &str = "vendor/tree-sitter-typescript";
+
 fn main() {
     println!("cargo:rerun-if-changed=Cargo.lock");
     let manifest = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".into());
@@ -25,7 +29,7 @@ fn main() {
     }
     entries.sort();
     entries.dedup();
-    let joined = if entries.is_empty() {
+    let mut joined = if entries.is_empty() {
         let version =
             std::env::var("CARGO_PKG_VERSION").unwrap_or_else(|_| "unknown-version".into());
         println!(
@@ -35,6 +39,12 @@ fn main() {
     } else {
         entries.join(";")
     };
+    let manifest_path = Path::new(&manifest);
+    let vendor_inputs = vendor_input_paths(manifest_path);
+    if !vendor_inputs.is_empty() {
+        joined.push_str(";vendored-typescript-sha256:");
+        joined.push_str(&vendor_input_fingerprint(manifest_path, &vendor_inputs));
+    }
     let mut h: u64 = 0xcbf29ce484222325;
     for b in joined.bytes() {
         h ^= b as u64;
@@ -57,6 +67,9 @@ fn main() {
     println!("cargo:rerun-if-changed={manifest}/src");
     println!("cargo:rerun-if-changed={manifest}/build.rs");
     println!("cargo:rerun-if-changed={manifest}/Cargo.toml");
+    // Cargo recursively watches directories, including additions and removals.
+    // Emit this even before the vendored package exists (gitless/bootstrap builds).
+    println!("cargo:rerun-if-changed={manifest}/{VENDORED_GRAMMAR}");
     let git = |args: &[&str]| {
         Command::new("git")
             .args(args)
@@ -83,7 +96,8 @@ fn main() {
     let sha = git(&["rev-parse", "--short=12", "HEAD"]).unwrap_or_else(|| "unknown".into());
     let dirty = git(&["status", "--porcelain", "-uno"])
         .map(|s| !s.is_empty())
-        .unwrap_or(false);
+        .unwrap_or(false)
+        || git_vendor_input_dirty(&manifest).unwrap_or(false);
     println!(
         "cargo:rustc-env=GIT_SHA={sha}{}",
         if sha != "unknown" && dirty {
@@ -93,7 +107,6 @@ fn main() {
         }
     );
 
-    let manifest_path = Path::new(&manifest);
     let binary_inputs = binary_input_paths(manifest_path);
     let binary_input_dirty = git_binary_input_dirty(&manifest).unwrap_or(false);
     println!(
@@ -133,6 +146,9 @@ fn binary_input_paths(manifest: &Path) -> Vec<String> {
     if paths.is_empty() {
         collect_fallback_inputs(manifest, &mut paths);
     }
+    // Git ignore/tracking policy cannot remove actually compiled vendor bytes
+    // from cache identity. Filesystem enumeration also works in source archives.
+    paths.extend(vendor_input_paths(manifest));
 
     paths.into_iter().collect()
 }
@@ -171,7 +187,7 @@ fn insert_relative(root: &Path, path: &Path, paths: &mut BTreeSet<String>) {
 }
 
 fn git_binary_input_dirty(manifest: &str) -> Option<bool> {
-    git(
+    let source_dirty = git(
         manifest,
         &[
             "status",
@@ -184,12 +200,89 @@ fn git_binary_input_dirty(manifest: &str) -> Option<bool> {
             "Cargo.lock",
         ],
     )
+    .map(|s| !s.is_empty())?;
+    Some(source_dirty || git_vendor_input_dirty(manifest)?)
+}
+
+fn git_vendor_input_dirty(manifest: &str) -> Option<bool> {
+    git(
+        manifest,
+        &[
+            "status",
+            "--porcelain",
+            "--untracked-files=all",
+            "--ignored",
+            "--",
+            VENDORED_GRAMMAR,
+        ],
+    )
     .map(|s| !s.is_empty())
+}
+
+fn vendor_input_paths(root: &Path) -> Vec<String> {
+    let mut paths = BTreeSet::new();
+    let vendor = root.join(VENDORED_GRAMMAR);
+    match std::fs::symlink_metadata(vendor.parent().unwrap()) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Vec::new(),
+        Err(error) => panic!("cannot inspect vendored grammar parent: {error}"),
+        Ok(metadata) => assert!(
+            metadata.is_dir() && !metadata.file_type().is_symlink(),
+            "vendored grammar parent must be a real directory"
+        ),
+    }
+    match std::fs::symlink_metadata(&vendor) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Vec::new(),
+        Err(error) => panic!("cannot inspect vendored grammar inputs: {error}"),
+        Ok(_) => collect_vendor_tree(root, &vendor, &mut paths),
+    }
+    paths.into_iter().collect()
+}
+
+fn collect_vendor_tree(root: &Path, path: &Path, paths: &mut BTreeSet<String>) {
+    let metadata = std::fs::symlink_metadata(path).expect("cannot inspect vendored grammar input");
+    assert!(
+        !metadata.file_type().is_symlink() && (metadata.is_file() || metadata.is_dir()),
+        "vendored grammar inputs must be regular files or directories: {}",
+        path.display()
+    );
+    if metadata.is_dir() {
+        for entry in std::fs::read_dir(path).expect("cannot enumerate vendored grammar inputs") {
+            let entry = entry.expect("cannot enumerate vendored grammar input");
+            collect_vendor_tree(root, &entry.path(), paths);
+        }
+    } else {
+        // Do not silently conflate distinct non-UTF8 paths with replacement chars.
+        let rel = path
+            .strip_prefix(root)
+            .unwrap()
+            .to_str()
+            .expect("non-UTF8 vendored grammar path");
+        // Backslashes are literal filename bytes on Unix, not separators.
+        paths.insert(rel.replace(std::path::MAIN_SEPARATOR, "/"));
+    }
+}
+
+fn vendor_input_fingerprint(manifest: &Path, paths: &[String]) -> String {
+    let mut hasher = Sha256::new();
+    for rel in paths {
+        let bytes = std::fs::read(manifest.join(rel)).expect("cannot read vendored grammar input");
+        // Length framing binds both exact names and arbitrary bytes, including NUL.
+        hasher.update((rel.len() as u64).to_le_bytes());
+        hasher.update(rel.as_bytes());
+        hasher.update((bytes.len() as u64).to_le_bytes());
+        hasher.update(bytes);
+    }
+    format!("{:x}", hasher.finalize())
 }
 
 fn binary_input_fingerprint(manifest: &Path, paths: &[String]) -> String {
     let mut hasher = Sha256::new();
+    let mut vendor = Vec::new();
     for rel in paths {
+        if rel.starts_with(&format!("{VENDORED_GRAMMAR}/")) {
+            vendor.push(rel.clone());
+            continue;
+        }
         hasher.update(rel.as_bytes());
         hasher.update([0]);
         let path = manifest.join(rel);
@@ -198,6 +291,10 @@ fn binary_input_fingerprint(manifest: &Path, paths: &[String]) -> String {
             Err(_) => hasher.update(b"<missing>"),
         }
         hasher.update([0xff]);
+    }
+    if !vendor.is_empty() {
+        hasher.update(b"\0vendored-typescript-sha256:");
+        hasher.update(vendor_input_fingerprint(manifest, &vendor));
     }
     format!("{:x}", hasher.finalize())
 }
