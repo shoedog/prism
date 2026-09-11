@@ -6556,39 +6556,41 @@ impl ParsedFile {
         line: usize,
         out: &mut Vec<(AccessPath, usize)>,
     ) {
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            match child.kind() {
-                "identifier" => {
-                    let name = self.node_text(&child).to_string();
-                    if is_plain_ident(&name) && name != "const" && name != "let" && name != "var" {
-                        out.push((AccessPath::simple(name), line));
-                    }
+        // The iterable may itself be an identifier. Only the grammar's left
+        // field is a binding; scanning siblings invents a Def at a read token.
+        let Some(left) = node.child_by_field_name("left") else {
+            return;
+        };
+        match left.kind() {
+            "identifier" => {
+                let name = self.node_text(&left).to_string();
+                if is_plain_ident(&name) && name != "const" && name != "let" && name != "var" {
+                    out.push((AccessPath::simple(name), line));
                 }
-                // Destructuring: { name, id } or [a, b]
-                "object_pattern" | "array_pattern" => {
-                    self.extract_destructuring_defs(&child, line, out);
-                }
-                _ => {}
             }
+            "object_pattern" | "array_pattern" => {
+                self.extract_destructuring_defs(&left, line, out);
+            }
+            _ => {}
         }
     }
 
     fn extract_for_in_lvalue_spans(&self, node: &Node<'_>, out: &mut Vec<PathSpan>) {
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            match child.kind() {
-                "identifier" => {
-                    let name = self.node_text(&child).to_string();
-                    if is_plain_ident(&name) && name != "const" && name != "let" && name != "var" {
-                        self.push_simple_lvalue_span(child, out);
-                    }
+        // Keep byte-bearing extraction under the same left-only contract.
+        let Some(left) = node.child_by_field_name("left") else {
+            return;
+        };
+        match left.kind() {
+            "identifier" => {
+                let name = self.node_text(&left).to_string();
+                if is_plain_ident(&name) && name != "const" && name != "let" && name != "var" {
+                    self.push_simple_lvalue_span(left, out);
                 }
-                "object_pattern" | "array_pattern" => {
-                    self.extract_destructuring_def_spans(&child, out);
-                }
-                _ => {}
             }
+            "object_pattern" | "array_pattern" => {
+                self.extract_destructuring_def_spans(&left, out);
+            }
+            _ => {}
         }
     }
 
@@ -10925,6 +10927,10 @@ mod asserted_member_tests;
 #[cfg(test)]
 #[path = "ast_required_parameter_tests.rs"]
 mod required_parameter_tests;
+
+#[cfg(test)]
+#[path = "ast_loop_header_tests.rs"]
+mod loop_header_tests;
 
 #[cfg(test)]
 mod tests {

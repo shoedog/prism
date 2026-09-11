@@ -17,7 +17,7 @@
 
 1. `git status --short --branch`; preserve this lane's example and comparator files.
 2. Read parameter-sites/README.md and receipt.json; implementation and full verification are complete at cda0b972.
-3. Check PR310 CI live, then await owner merge and approval for the loop-header Def repair. Do not repeat completed corpus runs. Prior full verification remains attached to cda0b972; publication updates changed documentation only.
+3. `[MEASURED]` PR310 merged e8e4c77e; owner approved the bounded loop-header Def repair. Continue in `2026-09-10-js-ts-loop-header-defs.md`; keep callee-parameter binding separate.
 
 **STOP conditions:** private source in publication, source population drift, new runtime authority, open-class review at cap2, unclassified failures.
 
