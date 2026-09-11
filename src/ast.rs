@@ -9320,7 +9320,7 @@ impl ParsedFile {
     /// line for call-boundary compatibility.
     pub fn function_parameter_occurrences(&self, func_node: &Node<'_>) -> Vec<ParameterOccurrence> {
         if matches!(self.language, Language::TypeScript | Language::Tsx) {
-            return crate::parameter_slots::typescript_required_bindings(self, func_node);
+            return crate::parameter_slots::typescript_parameter_bindings(self, func_node);
         }
         let mut params_out = Vec::new();
         if let Some(params) = self.find_parameters_node(func_node) {
@@ -9333,6 +9333,12 @@ impl ParsedFile {
                         name_node.end_byte(),
                     ));
                 }
+            }
+            if self.language == Language::JavaScript {
+                params_out.extend(
+                    crate::parameter_slots::javascript_inert_default_occurrences(self, params),
+                );
+                params_out.sort_by_key(|occurrence| occurrence.1);
             }
         }
         params_out
@@ -10937,6 +10943,10 @@ mod asserted_member_tests;
 #[cfg(test)]
 #[path = "ast_required_parameter_tests.rs"]
 mod required_parameter_tests;
+
+#[cfg(test)]
+#[path = "ast_inert_default_parameter_tests.rs"]
+mod inert_default_parameter_tests;
 
 #[cfg(test)]
 #[path = "ast_loop_header_tests.rs"]

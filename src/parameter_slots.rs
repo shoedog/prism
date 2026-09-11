@@ -13,7 +13,13 @@ use tree_sitter::Node;
 /// Non-positional TS binding occurrences. Reuse the whole-list safety checks,
 /// but do not compress this result into argument slots: unsupported parameters
 /// are omitted here, whereas `slots` retains its independent prefix contract.
-pub(crate) fn typescript_required_bindings(
+///
+/// Additive default-occurrence class: when every parameter in the list is a
+/// supported ordinary simple identifier — required/optional without a
+/// default, or required with an INERT default — the INERT-default
+/// parameters' identifier tokens are added in declaration order, preserving
+/// the relative order of existing required/optional occurrences.
+pub(crate) fn typescript_parameter_bindings(
     parsed: &ParsedFile,
     function: &Node<'_>,
 ) -> Vec<ParameterOccurrence> {
@@ -45,7 +51,7 @@ pub(crate) fn typescript_required_bindings(
     // shape; a false refusal from a non-runtime `=` in a type position is an
     // acceptable, documented conservative cost.
     let optional_signature_clear = !params_list_has_initializer(params);
-    named_children(params)
+    let mut occurrences: Vec<ParameterOccurrence> = named_children(params)
         .into_iter()
         .filter_map(|parameter| {
             let is_optional = parameter.kind() == "optional_parameter";
@@ -79,7 +85,12 @@ pub(crate) fn typescript_required_bindings(
                 pattern.end_byte(),
             ))
         })
-        .collect()
+        .collect();
+    if let Some(defaults) = typescript_inert_default_occurrences(parsed, params) {
+        occurrences.extend(defaults);
+        occurrences.sort_by_key(|occurrence| occurrence.1);
+    }
+    occurrences
 }
 
 /// Whole-signature conservative initializer scan for the optional-occurrence
@@ -97,6 +108,163 @@ fn params_list_has_initializer(node: Node<'_>) -> bool {
     let mut cursor = node.walk();
     let children: Vec<_> = node.children(&mut cursor).collect();
     children.into_iter().any(params_list_has_initializer)
+}
+
+/// Whole-signature guard for the newly-admitted default-occurrence class.
+/// Every parameter must be `required_parameter`/`optional_parameter` with an
+/// `identifier` pattern and no decorator/accessibility/`this`/rest/
+/// destructuring form; a bare `optional_parameter` may carry no default at
+/// all (optional-with-default is refused as neither "optional-without-
+/// default" nor "required with an inert default"); a `required_parameter`
+/// may carry no default, or an INERT one. A single disqualifying parameter
+/// returns `None`, refusing default occurrences for the entire list without
+/// touching the required/optional occurrences computed independently above.
+fn typescript_inert_default_occurrences(
+    parsed: &ParsedFile,
+    params: Node<'_>,
+) -> Option<Vec<ParameterOccurrence>> {
+    let mut defaults = Vec::new();
+    for parameter in named_children(params) {
+        match parameter.kind() {
+            "comment" => continue,
+            "required_parameter" => {
+                let pattern = parameter.child_by_field_name("pattern")?;
+                if pattern.kind() != "identifier" {
+                    return None;
+                }
+                let annotation = parameter.child_by_field_name("type");
+                let value = parameter.child_by_field_name("value");
+                let mut cursor = parameter.walk();
+                if parameter.children(&mut cursor).any(|child| {
+                    child != pattern
+                        && Some(child) != annotation
+                        && Some(child) != value
+                        && child.kind() != "comment"
+                        && !(value.is_some() && !child.is_named() && child.kind() == "=")
+                }) {
+                    return None;
+                }
+                if let Some(value) = value {
+                    if !is_inert_default_value(value) {
+                        return None;
+                    }
+                    defaults.push((
+                        parsed.node_text(&pattern).to_string(),
+                        pattern.start_byte(),
+                        pattern.end_byte(),
+                    ));
+                }
+            }
+            "optional_parameter" => {
+                if parameter.child_by_field_name("value").is_some() {
+                    return None;
+                }
+                let pattern = parameter.child_by_field_name("pattern")?;
+                if pattern.kind() != "identifier" {
+                    return None;
+                }
+                let annotation = parameter.child_by_field_name("type");
+                let mut cursor = parameter.walk();
+                if parameter.children(&mut cursor).any(|child| {
+                    child != pattern
+                        && Some(child) != annotation
+                        && child.kind() != "comment"
+                        && !(!child.is_named() && child.kind() == "?")
+                }) {
+                    return None;
+                }
+            }
+            _ => return None,
+        }
+    }
+    Some(defaults)
+}
+
+/// Whole-signature guard + collection for JavaScript's newly-admitted
+/// default-occurrence class. Purely additive: required identifier
+/// occurrences already reach the caller through the pre-existing per-child
+/// path in `ParsedFile::function_parameter_occurrences` and are untouched
+/// here (`assignment_pattern` has no arm in `extract_param_name_node`).
+pub(crate) fn javascript_inert_default_occurrences(
+    parsed: &ParsedFile,
+    params: Node<'_>,
+) -> Vec<ParameterOccurrence> {
+    if contains_recovery(params) {
+        return Vec::new();
+    }
+    let mut bindings = BTreeSet::new();
+    let mut duplicate = false;
+    for parameter in named_children(params) {
+        collect_js_ts_parameter_bindings(parsed, parameter, &mut bindings, &mut duplicate);
+    }
+    if duplicate || bindings.iter().any(|name| name.contains('\\')) {
+        return Vec::new();
+    }
+    let mut defaults = Vec::new();
+    for parameter in named_children(params) {
+        match parameter.kind() {
+            "comment" => continue,
+            "identifier" => continue,
+            "assignment_pattern" => {
+                let Some(left) = parameter.child_by_field_name("left") else {
+                    return Vec::new();
+                };
+                if left.kind() != "identifier" {
+                    return Vec::new();
+                }
+                let Some(right) = parameter.child_by_field_name("right") else {
+                    return Vec::new();
+                };
+                if !is_inert_default_value(right) {
+                    return Vec::new();
+                }
+                let mut cursor = parameter.walk();
+                if parameter.children(&mut cursor).any(|child| {
+                    child != left
+                        && child != right
+                        && child.kind() != "comment"
+                        && child.kind() != "="
+                }) {
+                    return Vec::new();
+                }
+                defaults.push((
+                    parsed.node_text(&left).to_string(),
+                    left.start_byte(),
+                    left.end_byte(),
+                ));
+            }
+            _ => return Vec::new(),
+        }
+    }
+    defaults
+}
+
+/// The INERT default-value allowlist, shared by JS and TS: `number`,
+/// `string` (no-substitution templates are a distinct `template_string`
+/// kind and excluded), `true`, `false`, `null`, and an empty `object`/
+/// `array` literal (only delimiters and comments are tolerated; commas also
+/// disqualify, because an array hole is not an empty array). Deliberately
+/// narrower than the source-observer upper bound: unary numerics (`-1`),
+/// `undefined` (its own leaf grammar kind, not `identifier`), identifiers,
+/// calls, property reads, functions, parenthesized/asserted/`satisfies`
+/// expressions, filled containers and spreads are all excluded.
+fn is_inert_default_value(node: Node<'_>) -> bool {
+    match node.kind() {
+        "number" | "string" | "true" | "false" | "null" => true,
+        "object" | "array" => {
+            let mut cursor = node.walk();
+            let (open, close) = if node.kind() == "array" {
+                ("[", "]")
+            } else {
+                ("{", "}")
+            };
+            let empty = node.children(&mut cursor).all(|child| {
+                matches!(child.kind(), "comment") || child.kind() == open || child.kind() == close
+            });
+            empty
+        }
+        _ => false,
+    }
 }
 
 pub(crate) fn slots(parsed: &ParsedFile, function: &Node<'_>) -> Option<Vec<ParameterOccurrence>> {

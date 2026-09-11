@@ -12,7 +12,8 @@ import {
   loadTypeScript, resolveWithinRoot, run, utf8ByteOffset,
 } from './source-proof.mjs';
 
-const TS_MODULE_PATH = process.env.PRISM_TYPESCRIPT ?? '/private/tmp/prism-imported-alias-O4d6E1/package/lib/typescript.js';
+const TS_MODULE_PATH = process.env.PRISM_TYPESCRIPT;
+assert.ok(TS_MODULE_PATH, 'Set PRISM_TYPESCRIPT to an absolute TypeScript 5.9.3 module path');
 const require = createRequire(import.meta.url);
 const ts = require(TS_MODULE_PATH);
 assert.equal(ts.version, '5.9.3');
