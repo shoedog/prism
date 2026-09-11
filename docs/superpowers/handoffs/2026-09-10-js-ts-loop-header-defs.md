@@ -1,7 +1,7 @@
 # Handoff — bounded JS/TS loop-header definitions
 
 **Written:** 2026-09-10 · **By:** root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · fix/js-ts-loop-header-defs · **Measured state:** `[MEASURED]` base e8e4c77e; repair/test bytes prepared for checkpoint; focused10/cache1 GREEN. Actual current HEAD/status must be rebound using §1.
+**Workspace:** /Users/wesleyjinks/code/slicing · fix/js-ts-loop-header-defs · **Measured state:** `[MEASURED]` implementation checkpoint c54846f8 committed CLEAN; focused10/cache1 and precommit matrix159 GREEN. This checkpoint-status update is documentation only; actual current HEAD/status is rebound using §1.
 **Predecessor:** PR310 merged; parameter real-site audit.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by root; current source and merged base verified. Prior audit results are `[INHERITED]` until remeasured.
@@ -9,8 +9,8 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` root owns AST/cache/docs; loop_cpg_tests owns only separate CPG test file/registration — RESOLVED.
-**(b) Custody exposure** — `[MEASURED]` pre-repair tests snapshotted; repair checkpoint follows precommit matrix; no remote publication yet — OPEN until published custody.
-**(c) In flight / irreversible** — `[MEASURED]` CPG agent complete; base quick finished INVALID,159 matrix; focused repair GREEN; candidate matrix/full gates/review next — OPEN before final verification.
+**(b) Custody exposure** — `[MEASURED]` pre-repair tests snapshotted; repair checkpoint c54846f8 committed after matrix159; no remote publication yet — OPEN until published custody.
+**(c) In flight / irreversible** — `[MEASURED]` CPG agent complete; base quick finished INVALID,159 matrix; focused repair and candidate matrix GREEN; full gates/candidate quick/review next — OPEN before final verification.
 **(d) Authorization granted but not exercised** — “ok - merged - proceed”; user fetched main after policy blocked git fetch. Standing commit/push/PR, no auto-merge. If a command still requires unavailable approval, stop that operation; do not bypass it.
 
 ## 1. Resume order
@@ -30,7 +30,8 @@
 | RED | done | AST full matrix reproduces false RHS in query/manual paths and spans; cache79 fails required80; CPG revised matrix2fail |
 | Repair | done | Both helpers inspect left only; CPG cache80; focused10/cache1 GREEN |
 | Base quick | done | INVALID: pin drift +20% oracle errors, SUT0;159 matrix. Run before production change, with test-only dirty state |
-| Remaining gates | pending | Candidate matrix/quick and full suites |
+| Candidate matrix | done | Fresh release build followed immediately by matrix;159 ok,0 regressions |
+| Remaining gates | pending | Candidate quick and full suites |
 
 ## 3. Corrections to standing documents and memory
 
