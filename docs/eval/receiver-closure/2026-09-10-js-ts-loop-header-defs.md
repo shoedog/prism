@@ -92,8 +92,14 @@ evaluation was run.
 
 Independent review round 1 of cap 2 approved implementation/checkpoint with
 0 WRONG and 0 SMELL. Full gates were pending at review and are recorded separately
-above. Later closeout documentation is not implicitly covered by that approval.
+above. Round 2 independently approved the documentation-only closeout at
+`2b8436d836440bb41f87caa3279607a3b1f1cade`, again 0 WRONG / 0 SMELL.
+The subsequent review/publication-status record is self-checked, not a third round.
 See the [verification receipt](2026-09-10-js-ts-loop-header-defs-verification.json).
+
+Publication is blocked locally: `git push` requires approval while this session
+has AskForApproval set to Never. No PR was opened; the owner-run push command and
+resume steps are in the successor handoff. No alternative publication path was used.
 
 Prism navigation was used to trace affected consumers, but reported 41 changed
 paths; current source establishes the DFG-only scope. No React.FC, optional or

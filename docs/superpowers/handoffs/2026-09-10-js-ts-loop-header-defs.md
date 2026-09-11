@@ -9,15 +9,15 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` root owns final custody; loop_cpg_tests and independent loop_repair_review complete — RESOLVED.
-**(b) Custody exposure** — `[MEASURED]` implementation and checkpoint committed locally; private raw evidence remains local. Archive in §6 provides local custody; remote publication still pending — OPEN.
-**(c) In flight / irreversible** — `[MEASURED]` Full gates and round1 implementation review complete; no running jobs. Quick remains INVALID — RESOLVED bounded verification, not oracle accuracy.
+**(b) Custody exposure** — `[MEASURED]` implementation and closeout committed locally; private raw evidence remains local. Archive in §6 provides local custody. Push was rejected: approval required by policy, AskForApproval is Never; no PR opened — OPEN remote custody.
+**(c) In flight / irreversible** — `[MEASURED]` Full gates and both review rounds complete; no running jobs. Quick remains INVALID — RESOLVED bounded verification, not oracle accuracy.
 **(d) Authorization granted but not exercised** — Owner approved this bounded successor and aggregate-only publication to shoedog/prism. Standing commit/push/PR, no auto-merge. User performed fetch after unavailable approval blocked it; never bypass a command-policy rejection.
 
 ## 1. Resume order
 
 1. `git status --short --branch`; rebind current HEAD and preserve unrelated work.
 2. Read `docs/eval/receiver-closure/2026-09-10-js-ts-loop-header-defs.md` and sibling verification JSON; production repair is complete.
-3. Commit closeout, push branch and open PR against main if policy permits; otherwise ask owner to perform the blocked push.
+3. Owner runs `git -C /Users/wesleyjinks/code/slicing push -u origin fix/js-ts-loop-header-defs`. Then verify remote HEAD and open PR against main using local evidence `pr-final-body.md`; no auto-merge. Do not retry or bypass the policy block in this session.
 4. After owner merge/approval, separately bound callee argument binding to exact supported parameter-token Defs. Do not resume the old all-body name lookup as authority.
 
 **STOP conditions:** unrelated dirty state, unsupported syntax expansion, raw private publication, open-class review at cap2, command policy rejection.
@@ -33,8 +33,8 @@
 | Tier-A matrix | done | Fresh release build immediately before matrix;159 ok,0 regressions |
 | Tier-A quick | INVALID | Base and candidate: pin drift +20% oracle errors, SUT0; same pinned flip/missing outcomes; no matched accuracy claim |
 | Full verification | done | See readout and verification receipt |
-| Review | done | Independent round1/2 APPROVE,0 WRONG,0 SMELL for implementation/checkpoint; full gates were pending during review |
-| Publication | pending | No private source or raw graph rows to GitHub; no auto-merge |
+| Review | done | Round1 implementation at344c3848 and round2 closeout at2b8436d8 both APPROVE,0 WRONG,0 SMELL; final publication-status edits SELF-PASS |
+| Publication | blocked | Push requires unavailable approval; no PR opened; owner-run push needed; no bypass |
 
 ## 3. Corrections to standing documents and memory
 
@@ -50,7 +50,7 @@
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
 | 1 | Loop-header repair | done | Preserve RED/green evidence | None | c54846f8 |
-| 2 | Publication | pending | Commit closeout, push branch and open PR against main if policy permits; otherwise ask owner to perform the blocked push. | Command policy if rejected | No auto-merge |
+| 2 | Publication | blocked | Owner push command in §1, then verify and open PR | Approval-required policy in Never mode | No auto-merge |
 | 3 | Callee binding | proposed next | Exact supported parameter-token Def; required positives and body-assignment/local-declaration negatives | Separate increment | 3 public /61 private unmatched observations remain |
 
 ## 5. Invariants and traps — do not do these
@@ -72,11 +72,11 @@
 | Full gate checkpoint | `344c384825db44507841ca53e1b53c5c7956315e` |
 | Plan | `docs/superpowers/plans/2026-09-10-js-ts-loop-header-defs.md` |
 | Full gate logs | `gate-logs-2026-09-11T01-40-27-764Z-61541` in evidence directory |
-| Review | `review-round1.md` in evidence directory |
+| Review | Round1 record in evidence directory; round2 exact HEAD `2b8436d836440bb41f87caa3279607a3b1f1cade`, APPROVE/0 WRONG/0 SMELL, recorded in verification JSON |
 | Archive | `/private/tmp/prism-loop-header-344c3848-evidence.tgz`; mode0600,23,625,623 bytes; SHA-256 `878e60a8e1ae217c37a9b4150dea86021f50357d88c6bddd05d242779b9e33c0`; raw private archive must never be published |
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED independent round1/2 for implementation/checkpoint · claim: "only supported loop-left bindings become loop-header definitions" · pass: INDEPENDENT implementation, not an unconditional claim for later documentation · evidence tier: TEST-BACKED + SOURCE-BACKED · record: review-round1.md, focused/cache RED/green, fixed-snapshot multiset proof. Final documentation reconciliation is SELF-PASS unless a later review is explicitly recorded.
+**§2c verdict:** SURVIVED independent implementation review at344c3848 and closeout review at2b8436d8, both APPROVE/0 WRONG/0 SMELL within cap2 · claim: "only supported loop-left bindings become loop-header definitions" · pass: INDEPENDENT through reviewed closeout; final review/publication-status record SELF-PASS · evidence tier: TEST-BACKED + SOURCE-BACKED · record: verification JSON, focused/cache RED/green, fixed-snapshot multiset proof. No third round.
 
-**Questions the owner owes an answer to:** None for implementation; publication may require owner-run push if command policy rejects it.
+**Questions the owner owes an answer to:** Please perform the push in §1; implementation and verification are complete. PR creation remains pending remote custody.

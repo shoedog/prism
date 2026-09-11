@@ -371,6 +371,15 @@
     "smell": 0,
     "scope": "implementation, tests, checkpoint documentation and aggregate measurement; full gates were pending during review"
   },
+  "closeout_review": {
+    "round": 2,
+    "cap": 2,
+    "head": "2b8436d836440bb41f87caa3279607a3b1f1cade",
+    "verdict": "APPROVE",
+    "wrong": 0,
+    "smell": 0,
+    "scope": "documentation-only closeout, evidence consistency, private aggregate boundary; later review and publication-status record self-checked"
+  },
   "exclusions": [
     "full multi-corpus",
     "live-model",
