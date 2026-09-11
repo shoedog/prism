@@ -137,5 +137,40 @@ round-one review found two bounded defects: body occurrences were allowed as
 parameter tokens, and unmatched slots were mislabeled as non-parameter evidence.
 The former is now rejected; the latter is explicitly classified from source.
 Initial missing-module RED is not behavioral evidence; targeted validator RED is.
-Full gates and final independent review are pending in the current handoff.
-Tier-A is not triggered: production AST/CPG/navigation paths are unchanged.
+Round two independently found the code and measurement claims clean; its sole
+WRONG was the handoff's stale checkpoint/dirty-state entry. That bounded
+documentation correction is reconciled in closeout, not a third review round or
+an unconditional independent approval of the final documentation. The round cap
+was two; findings converged from two code/label defects to one custody entry.
+
+## Final verification
+
+The full runner started and ended on clean
+`cda0b972fcd8cf253ae2c45546a33c59e8970d3c`; later changes are documentation only.
+
+| Gate | Result |
+|---|---|
+| Rust default / MCP / MCP+detached-owner-audit | 4,123 / 4,316 / 4,339 passed; one existing ignore each |
+| Observers / receiver helpers / authority controls | 726 / 18 / 40 passed |
+| All native examples | 32 passed, including 6 new audit tests |
+| Comparator | 10 passed; same-environment pre-fix control 7 passed / 3 failed |
+| Python | 940 passed; one intentional live-adoption skip |
+| Formatting / diff | passed |
+
+Four individual comparator controls also prove each added token/Def invariant
+rejects a state incorrectly accepted by the pre-fix validator. All 77 candidate
+unmatched flow observations exist identically in the base multiset. Both controls
+are retained locally, along with the original raw runs and final comparisons.
+
+The first Python run had 939 passes / 1 failure / 1 skip: the existing prewarm
+test recognizes only binary paths ending in `prism`, while the initially frozen
+binary was named `prism-python`. The identical base test/module reproduced the
+failure in the same environment. Byte-identical binaries under normal names
+gave the full 940-pass result. No production/test fix or silent rebaseline was
+made; the initial failure, base control and corrected invocation are retained.
+
+Rust's ignore is `resolution_test::slice_elem_variant_reserved`; Python's live
+adoption module remains explicitly opt-in. Tier-A is not triggered: production
+AST/CPG/navigation paths are unchanged. No Clippy, live-model, full multi-corpus,
+or compiler-Program accuracy evaluation was run in this audit. No runtime recall
+or complete receiver-coverage claim follows from these green gates.

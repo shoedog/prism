@@ -166,5 +166,26 @@
       }
     }
   },
-  "verification_status": "focused green; full gates and final review pending"
+  "verification": {
+    "source_checkpoint": "cda0b972fcd8cf253ae2c45546a33c59e8970d3c",
+    "full_runner_clean_preflight_and_postflight": true,
+    "rust_passed": [4123, 4316, 4339],
+    "rust_ignored_each": 1,
+    "rust_ignore": "resolution_test::slice_elem_variant_reserved",
+    "observers_passed": 726,
+    "helpers_passed": 18,
+    "authority_controls_passed": 40,
+    "examples_passed": 32,
+    "comparator_passed": 10,
+    "comparator_pre_fix_control": {"passed": 7, "failed": 3},
+    "individual_invalid_state_controls": 4,
+    "python_final": {"passed": 940, "failed": 0, "live_skipped": 1},
+    "python_initial": {"passed": 939, "failed": 1, "live_skipped": 1},
+    "python_control": "same base failure with nonstandard binary basename; identical binaries with normal names pass",
+    "format_and_diff": "passed",
+    "tier_a": "not triggered; no production path changes",
+    "clippy": "not run",
+    "review": "round1 two code/label findings fixed; round2 code and measurements clean, sole stale handoff finding reconciled locally; no third round",
+    "later_changes": "documentation only"
+  }
 }

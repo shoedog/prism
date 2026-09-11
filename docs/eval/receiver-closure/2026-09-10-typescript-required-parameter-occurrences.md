@@ -85,6 +85,10 @@ the owner-authorized frontend portal. Measure which gaps this repair closes,
 then classify optional/default and other remaining forms before further syntax
 expansion. Keep default-initializer provenance separate from optional bindings.
 
+Successor: the [real-site value checkpoint](parameter-sites/README.md) now measures
+these gains and classifies residual targets. Its two source-backed pre-existing
+defects take priority over further optional/default expansion.
+
 [Plan](../../superpowers/plans/2026-09-10-typescript-required-parameter-occurrences.md) ·
 [Handoff](../../superpowers/handoffs/2026-09-10-typescript-required-parameter-occurrences.md) ·
 [Receipt](2026-09-10-typescript-required-parameter-occurrences-verification.json).
