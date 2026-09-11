@@ -1,0 +1,472 @@
+{
+  "schema": "prism.optional-default-verification/1",
+  "base": "d9d1cc9195af240d2f6f0797954eea8e6e3d1c27",
+  "tested_source_commit": "f8bdff5ed058a12eb918c6069d21a6086af9cbab",
+  "publication": "LOCAL_ONLY_NO_PUSH_OR_MR",
+  "authorizes_runtime_edge": false,
+  "disposition": "VERIFIED_WITH_EXPLICIT_EXCLUSIONS",
+  "scope": "Bounded occurrence tokens and enumerated comment-trivia argument APIs; no new receiver/executable/closure authority or default-value propagation",
+  "source_tree_gates": {
+    "head": "f8bdff5ed058a12eb918c6069d21a6086af9cbab",
+    "clean_unchanged": true,
+    "results": [
+      {
+        "name": "callable-observations",
+        "status": 0,
+        "totals": {
+          "tests": 726,
+          "pass": 726,
+          "fail": 0
+        },
+        "initial_attempt": {
+          "status": 1,
+          "totals": {
+            "tests": 726,
+            "suites": 0,
+            "pass": 725,
+            "fail": 1,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          }
+        },
+        "settled_by": {
+          "path": "node-frozen-rerun.json",
+          "sha256": "2a9a2219375f18cd92348be1a909ea955fb639fdc3dc46aa1e635290440ae767"
+        }
+      },
+      {
+        "name": "cargo-test",
+        "status": 0,
+        "totals": {
+          "groups": 29,
+          "passed": 4184,
+          "failed": 0,
+          "ignored": 1,
+          "measured": 0,
+          "filteredOut": 0,
+          "ignoredTests": [
+            "resolution_test::slice_elem_variant_reserved"
+          ]
+        }
+      },
+      {
+        "name": "cargo-test-mcp",
+        "status": 0,
+        "totals": {
+          "groups": 31,
+          "passed": 4377,
+          "failed": 0,
+          "ignored": 1,
+          "measured": 0,
+          "filteredOut": 0,
+          "ignoredTests": [
+            "resolution_test::slice_elem_variant_reserved"
+          ]
+        }
+      },
+      {
+        "name": "cargo-test-owner-audit",
+        "status": 0,
+        "totals": {
+          "groups": 31,
+          "passed": 4400,
+          "failed": 0,
+          "ignored": 1,
+          "measured": 0,
+          "filteredOut": 0,
+          "ignoredTests": [
+            "resolution_test::slice_elem_variant_reserved"
+          ]
+        }
+      },
+      {
+        "name": "receiver-closure-tests",
+        "status": 0,
+        "totals": {
+          "tests": 15,
+          "suites": 0,
+          "pass": 15,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        }
+      },
+      {
+        "name": "callable-authority-profiles",
+        "status": 0,
+        "totals": {
+          "results": 40,
+          "failures": []
+        }
+      },
+      {
+        "name": "cargo-fmt-check",
+        "status": 0,
+        "totals": null
+      },
+      {
+        "name": "git-diff-check",
+        "status": 0,
+        "totals": null
+      }
+    ],
+    "exclusions": [
+      {
+        "file": "docs/eval/receiver-closure/audit-imported-props-source.test.mjs",
+        "tests": 3,
+        "reason": "Historical real-sites.jsonl missing; candidate and unchanged base each fail ENOENT; bounded 12-archive recovery found no matching copy."
+      }
+    ],
+    "initial_aggregate_receipt": {
+      "path": "gate-logs-2026-09-11T06-30-53-443Z-40425/summary.json",
+      "sha256": "b335842274591eaf82f2554bc7ca04a514312b53a52237d48ba2aa4cd32a1073"
+    }
+  },
+  "additional_gates": {
+    "node_supplemental": {
+      "passed": 45,
+      "failed": 0,
+      "log": {
+        "path": "final-commit-node.log",
+        "sha256": "80d902f58c2629ac71823bde27c0554c00bc086ba0ab3fc5921ea0a817c86cbd"
+      }
+    },
+    "node_project_total": {
+      "passed": 786,
+      "excluded": 3,
+      "authority_controls_separate": 40
+    },
+    "node_membership_recheck": {
+      "before": {
+        "head": "f8bdff5ed058a12eb918c6069d21a6086af9cbab",
+        "native_sha256": "7c8c46ea79e4d50c99913481a078db5f28e66a030058f6535ea01e79c40401e8",
+        "at": "2026-09-11T06:44:18.130Z"
+      },
+      "after": {
+        "head": "f8bdff5ed058a12eb918c6069d21a6086af9cbab",
+        "native_sha256": "7c8c46ea79e4d50c99913481a078db5f28e66a030058f6535ea01e79c40401e8",
+        "at": "2026-09-11T06:46:03.551Z"
+      },
+      "status": 0,
+      "error": null,
+      "passed": true,
+      "tests": 726,
+      "attempt": 2,
+      "max_attempts": 2,
+      "scope": "Full callable suite rerun with frozen native observer; initial failed attempt retained separately",
+      "initial_failure": "One TSX roundtrip refusal while release build overlapped the Node run; exact cause not captured. Frozen-native full rerun passed.",
+      "base_control": "Unchanged base JS membership harness passed32 with the same frozen final native executable; this is not a full base-binary control. First wrong-cwd copy attempt is inadmissible."
+    },
+    "native_examples": {
+      "passed": 32,
+      "failed": 0,
+      "ignored": 0,
+      "log": {
+        "path": "final-commit-examples.log",
+        "sha256": "e684db1d16bf3a0539ca117315a64686814c8ce58234e03974e5392fc7299f7a"
+      }
+    },
+    "python": {
+      "passed": 940,
+      "skipped": 1,
+      "skip": "Live adoption requires explicit opt-in; no live-model run",
+      "log": {
+        "path": "python-final-source.log",
+        "sha256": "48cde0bab9a73cc63c66c2b7a95f2261410d3f86b6acb8619c54e7abce13fe92"
+      },
+      "initial_failure": "0.2-second warm handshake; 939 pass/1 fail/1 skip; retained, cause not established",
+      "controls": "Base and candidate isolated controls passed; full rerun and final-source run passed"
+    },
+    "clippy": {
+      "status": 0,
+      "warning_comparison": {
+        "method": "Warning-message and relative-file multiset; line offsets ignored",
+        "base_warnings": 231,
+        "final_warnings": 231,
+        "added": [],
+        "removed": []
+      },
+      "log": {
+        "path": "final-commit-clippy.log",
+        "sha256": "be33769d918baa0fe1532011450e17303dcbef77c8e7b66df81802e88c51a79a"
+      },
+      "base_log": {
+        "path": "clippy-base.log",
+        "sha256": "e1d3897f3e2ce837a7b8e0c05fec962efe0d3d357dd30adba4d32a7cd7eaf684"
+      }
+    }
+  },
+  "tier_a": {
+    "matrix_passed": 159,
+    "quick_status": "INVALID",
+    "base_meta": {
+      "baseline_invalid": true,
+      "corpus": "prism",
+      "corpus_dirty": false,
+      "corpus_dirty_reasons": [],
+      "corpus_sha": "d9d1cc9195af",
+      "date": "2026-09-11-optional-default-base",
+      "harness_sha": "d9d1cc9195af",
+      "invalid_reasons": [
+        "corpus_sha_drift: d9d1cc9195af != pinned 20c8490591a3",
+        "stratum C-method: 4/6 successful probes",
+        "stratum C-name: 4/6 successful probes",
+        "stratum U-method: 4/6 successful probes",
+        "oracle_error_rate 0.20 > 0.10"
+      ],
+      "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+      "oracle_error_rate": 0.2,
+      "oracle_not_quiescent": false,
+      "prism_dirty": false,
+      "prism_sha": "d9d1cc9195af",
+      "seed": 42,
+      "stale_adjudications": 0,
+      "sut_error_rate": 0,
+      "wall_s": {
+        "m1_oracle_inventory": 12.436,
+        "m2": 181.283,
+        "m3": 0.001,
+        "matrix": 6.885,
+        "oracle_start": 21.614,
+        "pinned": 6.534
+      }
+    },
+    "final_meta": {
+      "baseline_invalid": true,
+      "corpus": "prism",
+      "corpus_dirty": false,
+      "corpus_dirty_reasons": [],
+      "corpus_sha": "f8bdff5ed058",
+      "date": "2026-09-11-optional-default-final",
+      "harness_sha": "f8bdff5ed058",
+      "invalid_reasons": [
+        "corpus_sha_drift: f8bdff5ed058 != pinned 20c8490591a3",
+        "stratum C-method: 4/6 successful probes",
+        "stratum U-method: 4/6 successful probes",
+        "oracle_error_rate 0.13 > 0.10"
+      ],
+      "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+      "oracle_error_rate": 0.13333333333333333,
+      "oracle_not_quiescent": false,
+      "prism_dirty": false,
+      "prism_sha": "f8bdff5ed058",
+      "seed": 42,
+      "stale_adjudications": 0,
+      "sut_error_rate": 0,
+      "wall_s": {
+        "m1_oracle_inventory": 18.129,
+        "m2": 201.722,
+        "m3": 0.013,
+        "matrix": 6.84,
+        "oracle_start": 56.904,
+        "pinned": 5.907
+      }
+    },
+    "pinned": [
+      {
+        "id": "target-c-method",
+        "outcome": "flip_candidate"
+      },
+      {
+        "id": "module-deps-feature-gated",
+        "outcome": "missing"
+      },
+      {
+        "id": "load-repo-feature-gated",
+        "outcome": "missing"
+      },
+      {
+        "id": "ambiguous-symbol-contract",
+        "outcome": "ok"
+      }
+    ],
+    "pending_observations": 21,
+    "caveat": "Changing repo corpus and invalid oracle prevent a clean recall/regression verdict; no rebaseline, full multicorpus or live-model evaluation",
+    "raw": {
+      "path": "tier-a/2026-09-11-optional-default-final-prism.json",
+      "sha256": "0eb01f9a2d572716f35cdf2289c14d9bd35f8118fae301001e36c0d32a1e6c2d"
+    }
+  },
+  "value": [
+    {
+      "corpus": "public",
+      "population": {
+        "files": 628,
+        "skipped": 584,
+        "functions": 8614
+      },
+      "delta": {
+        "functions": 0,
+        "owner_null": 0,
+        "parameters": 0,
+        "occurrences": 360,
+        "dfg_defs": 298,
+        "cpg_defs": 298,
+        "slot_matched_flows": 401,
+        "unmatched_slot_flows": 0,
+        "flows": 401
+      },
+      "edge_changes": {
+        "added": 404,
+        "removed": 3
+      },
+      "source_checks": {
+        "corpus": "public",
+        "label": "final",
+        "new_occurrences": 360,
+        "occurrence_forms": {
+          "optional": 175,
+          "default": 185
+        },
+        "added_flows": 404,
+        "removed_flows": 3,
+        "target_forms": {
+          "default": 114,
+          "optional": 281,
+          "required": 9
+        },
+        "argument_ordinal_matches": {
+          "none": 0,
+          "single": 364,
+          "multiple": 40
+        },
+        "removed_argument_ordinal_matches": {
+          "none": 3,
+          "single": 0,
+          "multiple": 0
+        },
+        "source_files": 126
+      },
+      "raw_sha256": "728b1695d73f886d1ee1e80237e12fabe1d00c3b4ee2d70e89fb770bf9b5bcc4"
+    },
+    {
+      "corpus": "private",
+      "population": {
+        "files": 1122,
+        "skipped": 140,
+        "functions": 12713
+      },
+      "delta": {
+        "functions": 0,
+        "owner_null": 0,
+        "parameters": 0,
+        "occurrences": 175,
+        "dfg_defs": 168,
+        "cpg_defs": 168,
+        "slot_matched_flows": 59,
+        "unmatched_slot_flows": 0,
+        "flows": 59
+      },
+      "edge_changes": {
+        "added": 59,
+        "removed": 0
+      },
+      "source_checks": {
+        "corpus": "private",
+        "label": "final",
+        "new_occurrences": 175,
+        "occurrence_forms": {
+          "default": 175
+        },
+        "added_flows": 59,
+        "removed_flows": 0,
+        "target_forms": {
+          "default": 59
+        },
+        "argument_ordinal_matches": {
+          "none": 0,
+          "single": 54,
+          "multiple": 5
+        },
+        "removed_argument_ordinal_matches": {
+          "none": 0,
+          "single": 0,
+          "multiple": 0
+        },
+        "source_files": 104
+      },
+      "raw_sha256": "edfbd613ffacc419cca216e5d272ac26a81b0bca625c9661fc98cf2218336667"
+    }
+  ],
+  "value_limit": "Graph observations, not unique calls or compiler-Program callee resolution; 45 nested-call syntax ambiguities retained; private rows/source local only",
+  "reviews": {
+    "schema": "prism.optional-default-local-reviews/1",
+    "base": "d9d1cc9195af240d2f6f0797954eea8e6e3d1c27",
+    "final_source": "f8bdff5ed058a12eb918c6069d21a6086af9cbab",
+    "review_cap": 2,
+    "production_round_1": {
+      "head": "0bb567cb2d1c331ea0144d75b1973a52062cea7f",
+      "reviewer": "gpt-5.6-sol parameter_bundle_review",
+      "verdict": "APPROVE",
+      "wrong": 0,
+      "smell": 0,
+      "verification": "Read-only source/test review; no independent full-suite execution",
+      "boundary": "Optional/default occurrence producers and enumerated argument APIs; independent import/hook/framework/taint syntax consumers deferred"
+    },
+    "observer_round_1": {
+      "head": "0bb567cb2d1c331ea0144d75b1973a52062cea7f",
+      "reviewer": "gpt-5.6-sol observer_review",
+      "verdict": "WRONG",
+      "wrong": 1,
+      "smell": 2,
+      "findings": [
+        "Case-sensitive comparison rejects schema-valid uppercase SHA256",
+        "Named owner is inventory metadata, not source-authenticated ownership",
+        "Syntax upper bound also admits non-simple sibling bindings"
+      ]
+    },
+    "observer_round_2": {
+      "head": "f8bdff5ed058a12eb918c6069d21a6086af9cbab",
+      "reviewer": "gpt-5.6-sol observer_review",
+      "verdict": "APPROVE",
+      "wrong": 0,
+      "smell": 0,
+      "verification": "25 project tests passed; captured RED1 failure/1 passing mismatch control checked",
+      "resolution": "Normalize schema-valid digests; test and document inventory-owner limitation and broader syntax-only predicate"
+    },
+    "production_round_2": {
+      "head": "f8bdff5ed058a12eb918c6069d21a6086af9cbab",
+      "reviewer": "gpt-5.6-sol parameter_bundle_review",
+      "verdict": "APPROVE",
+      "wrong": 0,
+      "smell": 0,
+      "verification": "Complete src diff since round1 is one De Morgan equivalence; all four boolean cases preserve the predicate; diff check passed",
+      "scope": "Only post-review production change; no contract or authority expansion"
+    },
+    "claude_custody": {
+      "models_used": [
+        "claude-sonnet-5",
+        "claude-opus-5"
+      ],
+      "default_writer": "Session quota ended before completion; partial draft snapshotted and adopted by root, not retried or bypassed",
+      "root_corrections": [
+        "Missing JS/TS routing",
+        "Declaration ordering",
+        "Sparse-array empty-container refusal",
+        "Typed fixture token offset"
+      ]
+    }
+  },
+  "binaries": [
+    {
+      "path": "final-bin/prism",
+      "sha256": "5f382f4831969b3cb05f4ce83f35dca1abc6b66cd3e6dd0eeb3c4406cbd9b17e"
+    },
+    {
+      "path": "final-bin/prism-mcp",
+      "sha256": "12e4b805eefd7b02c5861ba2a1a2d3e645c98f5a0397315b692c82d31d874d37"
+    },
+    {
+      "path": "final-bin/parameter_site_census",
+      "sha256": "2d947880d5ee3de8a316625c4d211f666b8ed6c178909d437500b20a4db1217a"
+    },
+    {
+      "path": "final-bin/project_membership_census",
+      "sha256": "7c8c46ea79e4d50c99913481a078db5f28e66a030058f6535ea01e79c40401e8"
+    }
+  ],
+  "evidence_root": "/private/tmp/prism-optional-default-W7ekZ5",
+  "evidence_scope": "Raw logs, RED/GREEN, fixed-source replay, reviewed helper and binary hashes; not a replacement for missing historical real-sites.jsonl"
+}

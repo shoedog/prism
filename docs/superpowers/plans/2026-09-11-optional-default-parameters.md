@@ -59,8 +59,8 @@ claim, establishes consumers. LSP tools are unavailable in this session.
 - `01522b2b`: positional comment-trivia repair discovered by source-ordinal replay.
 - `5b80828b`: companion argument-count/cache hardening.
 - `0bb567cb`: inert-default identifiers, including primary adoption corrections.
-- Post-review: source hash normalization and equivalent boolean simplification;
-  final gates and review closeout pending. Production review approved the bounded
+- `f8bdff5e`: source hash normalization and equivalent boolean simplification;
+  final gates and both review tracks closed with documented exclusions. Production review approved the bounded
   contract; observer review identified one bounded defect and two documentation
   limitations, now corrected or explicit. No review-cap extension.
 
@@ -69,4 +69,10 @@ each. Historical helper fixture loss prevents three separate source-custody test
 candidate and base both reproduce ENOENT, and a bounded 12-archive recovery failed.
 Carry those exclusions rather than fabricate expected call-site records. Python's
 initial timing failure is retained; isolated base/candidate controls and a full
-940-test rerun passed. Final verification will bind the post-review source commit.
+940-test rerun passed. Final verification binds f8bdff5e: full Rust counts repeated,
+Node786 plus40 authority controls and examples32 passed, final frozen-binary
+Python940 passed. Three historical-fixture helper checks remain unavailable;
+Tier-A quick remains INVALID on base/final. One final Node membership refusal
+during a concurrent native rebuild was retained; the full726 repeat passed with
+a frozen native binary and unchanged source/executable hashes. No production
+changes after verification; only closeout documentation and derived receipts.

@@ -1,7 +1,7 @@
 # Optional/default parameter proof and bounded implementation
 
 Local bundle based on merged PR312 `d9d1cc91`. Bounded implementation and real-site
-replay are complete; post-review verification is in progress. The owner approved
+replay are complete; verification is complete with the exclusions below. The owner approved
 multiple local commits and one eventual combined MR. No push or MR in this run.
 
 ## Contract and source-backed decisions
@@ -189,14 +189,47 @@ and added augmentation-file refusal. No expected call-site evidence was fabricat
 Initial Python run: 939 passed / 1 failed / 1 intentional live-adoption skip. The
 failure was the 0.2-second warm-handshake assertion under concurrent load. Both
 base and candidate passed isolated same-environment controls afterward; this
-does not establish a cause or a regression. A quiet full rerun is required below.
+does not establish a cause or a regression. A full rerun and the final-binary run
+both passed 940 tests with one intentional live-adoption skip.
 
 Tier-A: fresh builds and all 159 matrix cases pass. Base and candidate quick runs
 are INVALID: corpus-pin drift and oracle error rates 0.20 / 0.1333, respectively;
 Prism tool error rate is zero in both. Both retain the same pinned outcomes:
 `target-c-method` flip candidate; `module-deps-feature-gated` and
 `load-repo-feature-gated` missing; ambiguous-symbol contract OK. No rebaseline or
-full multicorpus/live-model evaluation was run. Final post-review gates are pending.
+full multicorpus/live-model evaluation was run. The final quick run at `f8bdff5e`
+retains the candidate's INVALID reasons and the same four pinned outcomes.
+
+Final source commit: `f8bdff5ed058a12eb918c6069d21a6086af9cbab`. Both independent
+review tracks finished APPROVE, WRONG 0 / SMELL 0 within their bounded scopes,
+after two rounds each. Final replay is byte-for-byte identical to the earlier
+reviewed implementation graphs. The [verification receipt](2026-09-11-optional-default-verification.json)
+records commands/results, hashes, reviews and retained failures.
+
+| Final verification | Result |
+|---|---|
+| Rust default / MCP / owner-audit | 4,184 / 4,377 / 4,400 passed; one existing ignore each |
+| Node project tests | 786 passed; three historical-fixture tests unavailable as described above |
+| Authority controls | 40 passed |
+| Native examples | 32 passed |
+| Python against frozen final binaries | 940 passed; one intentional live-adoption skip |
+| Format / diff check | Passed |
+| Clippy | Completed; same 231 warning-message/file diagnostics as the unchanged-base control, none added |
+| Tier-A matrix / quick | 159 passed / INVALID on both base and final source |
+
+The final aggregate runner initially recorded 725/726 callable tests passing, with
+one TSX membership validation refusal while the native observer was being rebuilt.
+The exact refusal cause was not captured; binary-identity change and load remain
+possible mechanisms. The entire 726-test suite passed on its one allowed repeat
+with a frozen native observer and unchanged source/executable hashes. The unchanged
+base JS membership harness also passed 32 tests using that same frozen final native
+observer (not a full base-binary control). The original failed run is retained, not
+relabelled green; the receipt explicitly associates it with the successful rerun.
+One preliminary wrong-cwd fixture-copy probe is inadmissible. Future gate runs
+must freeze executables before concurrent tests rather than rebuild their paths.
+
+Only documentation/derived receipts follow the tested source commit; no production
+or test-source changes were made after final verification. No push/MR/merge occurred.
 
 ## Next bounded work, not included here
 
@@ -212,3 +245,11 @@ Complex defaults, rest/destructuring and owner coverage remain separate; the
 measured gains do not justify relaxing those barriers indiscriminately.
 
 Local evidence root: `/private/tmp/prism-optional-default-W7ekZ5`.
+Private custody archive: `/private/tmp/prism-optional-default-f8bdff5e-evidence-private.tgz`,
+30,704,692 bytes, mode0600, gzip checked; SHA256
+`f769034098d17e90644a8fb4ad1548f38c395cd146e04ee0ec2409332780e996`.
+Includes tested-source patch, final binaries, raw replay/logs, pinned bootstrap
+archives, review receipts and local MR body. Excludes the retained temporary base
+worktree, redundant intermediate binaries and extracted compiler duplicate.
+Do not upload this archive: it contains private raw observations. The Git branch
+and committed aggregate receipt are the publication artifacts.

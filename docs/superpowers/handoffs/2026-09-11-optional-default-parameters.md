@@ -1,7 +1,7 @@
 # Handoff — optional/default parameter implementation bundle
 
 **Written:** 2026-09-11 · **By:** root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/js-ts-optional-default-parameters · **Measured state:** `[MEASURED]` HEAD0bb567cb contains bounded implementation. Root's post-review hash normalization, equivalent boolean simplification and docs are dirty; rebind §1. No external writer.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/js-ts-optional-default-parameters · **Measured state:** `[MEASURED]` tested source f8bdff5e contains the completed implementation and review fixes. Only documentation/derived receipts follow it. Rebind current HEAD in §1; publication held.
 **Predecessor:** PR312 merged; owner approved multiple local slice commits, one eventual MR after implementation.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live. `[MEASURED]` source, replay and gate outcomes checked this turn; see the proof document for exact limitations.
@@ -9,15 +9,15 @@
 ## 0. Gating facts — settle these before starting anything below
 
 (a) Ownership `[MEASURED]`: root is sole writer; read-only reviews returned. Claude quota ended writer49742; no retry or safety bypass.
-(b) Custody `[MEASURED]`: optional8d89f98e, comment01522b2b, count5b80828b, default0bb567cb committed; raw private evidence and interrupted draft snapshot local.
-(c) In flight `[MEASURED]`: root is the sole writer. Sonnet default writer49742 ended at its session quota; partial artifact snapshotted and adopted locally, with ordering and sparse-array corrections. Base quick completed INVALID (corpus-pin drift and oracle errors); rebuild candidate before comparison because base used the shared release target.
+(b) Custody `[MEASURED]`: optional8d89f98e, comment01522b2b, count5b80828b, default0bb567cb, review-fix f8bdff5e committed; raw private evidence and interrupted draft snapshot local. Final receipt is committed alongside this closeout.
+(c) In flight `[MEASURED]`: no agent writer or verification command remains. Sonnet quota interruption was snapshotted and adopted by root. Final binaries are frozen under evidence/final-bin; do not substitute mutable target binaries when reproducing identity-sensitive tests.
 (d) Authority: multiple local commits for proof/value plus bounded implementation; HOLD push/MR/merge. No docs-only MR. Stop at an authority crossroads. Two review rounds per slice.
 
 ## 1. Resume order
 
 1. `git status --short --branch`; preserve all current edits and confirm assigned writers.
 2. Read adjacent plan and `docs/eval/receiver-closure/2026-09-11-optional-default-parameters.md`; check release/matrix/replay results under §6.
-3. Commit post-review fixes after fresh build/matrix. Re-run full gates with three missing historical-fixture helper tests explicitly excluded, rerun Python without heavy competitors, then round-2 source-observer review and final receipts. No publication.
+3. Implementation/review/verification are closed with explicit exclusions. Await publication direction for one combined MR; rebind remote main before publication. The local MR body is under the evidence root. No further feature expansion is implied.
 
 STOP: source drift, unexpected agent writes, raw private disclosure, necessary authority/syntax expansion beyond plan, open-class review at cap2, command-policy refusal.
 
@@ -28,11 +28,11 @@ STOP: source drift, unexpected agent writes, raw private disclosure, necessary a
 | Base/carry | done | d9d1cc91; status-only cherry-picks683d314c/6ffe7ecc |
 | Scope/design | done | initializer-free optional identifiers; literal/empty-container defaults only in all-simple signatures |
 | Read-only advice | done | sonnet-proof-result.json; incorrect TS grammar/Exact assumptions corrected in proof doc |
-| Optional implementation | done | optional-red.log, optional-root-green.log; full suites/review pending, not final done claim |
-| Source observer | corrected | round1 WRONG uppercase digest captured RED1/1; project GREEN25; two documented authority/upper-bound smells; round2 pending |
+| Optional implementation | done | captured RED/GREEN and final full Rust suites; exact totals in verification receipt |
+| Source observer | reviewed | uppercase digest captured RED1/1; project GREEN25; round2 APPROVE0/0; owner/upper-bound limitations explicit |
 | Comment argument repair | done | 01522b2b; comment-control-base.json reproduces WRONG; green5, parity17, matrix159 |
 | Argument-count hardening | done | 5b80828b; argument-count-red.log1 failure, green6; cache/nav RED captured; matrix159 |
-| Default implementation | reviewed | 0bb567cb; production review APPROVE0/0; first full Rust4184/4377/4400 pass, one ignore each; final rerun pending boolean simplification |
+| Default implementation | reviewed | final source f8bdff5e; production round2 APPROVE0/0; final Rust4184/4377/4400 pass, one ignore each |
 | Publication | parked | explicitly held until combined bounded implementation; no push/MR |
 
 ## 3. Corrections to standing documents and memory
@@ -46,9 +46,9 @@ are syntax entries, not promised recoverable flows. No memory edits authorized.
 | Work | State | Next action |
 |---|---|---|
 | Proof/value | measured | public +401/private +59 flows; every added target/ordinal classified, 45 nested ambiguities retained |
-| Implementation | review corrections | checkpoint bounded hash repair and equivalent boolean simplification; no authority expansion |
-| Full gates/review | pending rerun | initial Rust green; helpers3 unavailable (missing real-sites.jsonl), Python timing failure then isolated base/candidate pass; Tier-A quick INVALID both |
-| MR | parked | prepare only after implementation; do not publish this run |
+| Implementation | complete locally | f8bdff5e; no authority expansion |
+| Full gates/review | closed with exclusions | Rust4184/4377/4400; Node786 +40authority; examples32; Python940; one Rust ignore each and one Python skip; helpers3 unavailable; Tier-A quick INVALID both |
+| MR | parked | combined body prepared locally; no push/MR this run |
 
 ## 5. Invariants and traps — do not do these
 
@@ -64,14 +64,18 @@ are syntax entries, not promised recoverable flows. No memory edits authorized.
 | Item | Verbatim |
 |---|---|
 | Evidence | `/private/tmp/prism-optional-default-W7ekZ5` |
+| Private custody archive | `/private/tmp/prism-optional-default-f8bdff5e-evidence-private.tgz`; 30,704,692 bytes; mode0600; SHA256 f769034098d17e90644a8fb4ad1548f38c395cd146e04ee0ec2409332780e996; gzip checked; never upload |
+| Final source | `f8bdff5ed058a12eb918c6069d21a6086af9cbab` |
+| Verification receipt | `docs/eval/receiver-closure/2026-09-11-optional-default-verification.json` |
+| Local MR body | `/private/tmp/prism-optional-default-W7ekZ5/mr-body.md` |
 | Base | `d9d1cc9195af240d2f6f0797954eea8e6e3d1c27` |
 | Prior fixed snapshots | `/private/tmp/prism-parameter-audit-rhxJcA` |
 | Prior native graphs/binaries | `/private/tmp/prism-param-binding-mkuGwX` |
 | Pinned compiler | `/private/tmp/prism-imported-alias-O4d6E1/package/lib/typescript.js` |
-| Base quick worktree | `/private/tmp/prism-optional-default-W7ekZ5/base-worktree` at d9d1cc91; release uses shared main target; session82266 |
+| Base quick worktree | `/private/tmp/prism-optional-default-W7ekZ5/base-worktree` at d9d1cc91; retained, no live process; raw quick reports also copied under evidence/tier-a |
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** production APPROVE0/0 at0bb567cb; observer round1 WRONG1/SMELL2 corrected/documented, round2 pending. Claim: bounded optional/default occurrences preserve exact parameter authority. Evidence: captured RED/GREEN, fixed-source replay and first full Rust suites; verification exclusions above remain explicit.
+**§2c verdict:** production and observer round2 APPROVE0/0 at f8bdff5e. Claim: bounded optional/default occurrences preserve exact parameter authority. Evidence: captured RED/GREEN, fixed-source replay and final full Rust suites. Three historical-fixture helper checks remain unavailable; base/final Tier-A quick remain INVALID. Initial Python timing and Node membership failures are retained alongside successful reruns, with no unsupported causal attribution. No review-cap extension.
 
 **Questions the owner owes an answer to:** None within the bounded plan. Stop if additional authority becomes necessary.
