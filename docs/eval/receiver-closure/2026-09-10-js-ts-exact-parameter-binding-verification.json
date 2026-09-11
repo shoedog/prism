@@ -1,0 +1,541 @@
+{
+  "schema": "prism.exact-parameter-binding-verification/1",
+  "base": "b2b141cd5605f9b7f74b32a2fafdeb9c78619bc9",
+  "implementation_head": "cc289999f8a5db46079d664a876fbe44766ec605",
+  "full_gate_head": "103677308b46332cdab13ce292e0086460aaa657",
+  "clean_unchanged_full_gate_run": true,
+  "authorizes_runtime_edge": false,
+  "corpora": [
+    {
+      "corpus": "public",
+      "population": {
+        "files": 628,
+        "skipped": 584,
+        "functions": 8614
+      },
+      "before": {
+        "parameter_forms": {
+          "unparenthesized_identifier": 4,
+          "destructured": 499,
+          "javascript_identifier": 72,
+          "required_identifier": 6984,
+          "optional_identifier": 194,
+          "rest": 46,
+          "default_identifier": 249,
+          "parameter_property": 32,
+          "default_pattern": 11,
+          "erased_this": 9
+        },
+        "functions": 8614,
+        "owner_null": 4497,
+        "parameters": 8100,
+        "occurrences": 7056,
+        "dfg_defs": 3892,
+        "cpg_defs": 3892,
+        "slot_matched_flows": 6016,
+        "unmatched_slot_flows": 3,
+        "flows": 6019,
+        "confidence_groups": {
+          "272cd3a9b83dff556795999c12acfd3839f610d6194e8199844cf744d40935d6": 5306,
+          "8ddf47b594e34ae383d444c720da58ec72174d4fba9e446e0b448b523980f250": 713
+        }
+      },
+      "after": {
+        "parameter_forms": {
+          "unparenthesized_identifier": 4,
+          "destructured": 499,
+          "javascript_identifier": 72,
+          "required_identifier": 6984,
+          "optional_identifier": 194,
+          "rest": 46,
+          "default_identifier": 249,
+          "parameter_property": 32,
+          "default_pattern": 11,
+          "erased_this": 9
+        },
+        "functions": 8614,
+        "owner_null": 4497,
+        "parameters": 8100,
+        "occurrences": 7056,
+        "dfg_defs": 3892,
+        "cpg_defs": 3892,
+        "slot_matched_flows": 6016,
+        "unmatched_slot_flows": 0,
+        "flows": 6016,
+        "confidence_groups": {
+          "272cd3a9b83dff556795999c12acfd3839f610d6194e8199844cf744d40935d6": 5303,
+          "8ddf47b594e34ae383d444c720da58ec72174d4fba9e446e0b448b523980f250": 713
+        }
+      },
+      "delta": {
+        "functions": 0,
+        "owner_null": 0,
+        "parameters": 0,
+        "occurrences": 0,
+        "dfg_defs": 0,
+        "cpg_defs": 0,
+        "slot_matched_flows": 0,
+        "unmatched_slot_flows": -3,
+        "flows": -3
+      },
+      "edge_changes": {
+        "added": 0,
+        "removed": 3
+      },
+      "exactly_prior_source_classified_nonloop_body_targets": true,
+      "native_binary_sha256": "ec7a8a7125864cd0acf9f8f30b1bf231dc3fce6501b0595939706c53d2b801f4",
+      "base_raw_sha256": "468af3d5a1369921993faa291473e412f85bd5a6701a51a12e9ebddebbf32e82",
+      "candidate_raw_sha256": "8a0285b31c7a0be8e75773cdda17ae11833c85c1a2028a992fffd6afe2a23b79"
+    },
+    {
+      "corpus": "private",
+      "population": {
+        "files": 1122,
+        "skipped": 140,
+        "functions": 12713
+      },
+      "before": {
+        "parameter_forms": {
+          "default_identifier": 259,
+          "javascript_identifier": 2540,
+          "unparenthesized_identifier": 2966,
+          "destructured": 379,
+          "required_identifier": 323,
+          "rest": 21,
+          "default_pattern": 25
+        },
+        "functions": 12713,
+        "owner_null": 7841,
+        "parameters": 6513,
+        "occurrences": 2863,
+        "dfg_defs": 1676,
+        "cpg_defs": 1676,
+        "slot_matched_flows": 2420,
+        "unmatched_slot_flows": 61,
+        "flows": 2481,
+        "confidence_groups": {
+          "272cd3a9b83dff556795999c12acfd3839f610d6194e8199844cf744d40935d6": 876,
+          "8ddf47b594e34ae383d444c720da58ec72174d4fba9e446e0b448b523980f250": 1605
+        }
+      },
+      "after": {
+        "parameter_forms": {
+          "default_identifier": 259,
+          "javascript_identifier": 2540,
+          "unparenthesized_identifier": 2966,
+          "destructured": 379,
+          "required_identifier": 323,
+          "rest": 21,
+          "default_pattern": 25
+        },
+        "functions": 12713,
+        "owner_null": 7841,
+        "parameters": 6513,
+        "occurrences": 2863,
+        "dfg_defs": 1676,
+        "cpg_defs": 1676,
+        "slot_matched_flows": 2420,
+        "unmatched_slot_flows": 0,
+        "flows": 2420,
+        "confidence_groups": {
+          "272cd3a9b83dff556795999c12acfd3839f610d6194e8199844cf744d40935d6": 872,
+          "8ddf47b594e34ae383d444c720da58ec72174d4fba9e446e0b448b523980f250": 1548
+        }
+      },
+      "delta": {
+        "functions": 0,
+        "owner_null": 0,
+        "parameters": 0,
+        "occurrences": 0,
+        "dfg_defs": 0,
+        "cpg_defs": 0,
+        "slot_matched_flows": 0,
+        "unmatched_slot_flows": -61,
+        "flows": -61
+      },
+      "edge_changes": {
+        "added": 0,
+        "removed": 61
+      },
+      "exactly_prior_source_classified_nonloop_body_targets": true,
+      "native_binary_sha256": "ec7a8a7125864cd0acf9f8f30b1bf231dc3fce6501b0595939706c53d2b801f4",
+      "base_raw_sha256": "07810a4371c95dde5371d16fb7449fda83a8e45c17368cfa2984482efeffef9e",
+      "candidate_raw_sha256": "7a904120a3acffde55bf63c5c9e774ccd067d1bec2e807ab5fc46e0d94da685b"
+    }
+  ],
+  "red": {
+    "rust_focused": {
+      "passed": 3,
+      "failed": 6
+    },
+    "cache_pin_failed": 1,
+    "observer_contract_failed": 1,
+    "supplementary_duplicate_owner": {
+      "probe": "frozen-base native observer with no-flow assertion",
+      "base_edges": 2,
+      "candidate_edges": 0,
+      "not_part_of_nine_test_red_run": true
+    }
+  },
+  "full_gates": [
+    {
+      "label": "callable-observations",
+      "totals": {
+        "tests": 726,
+        "suites": 0,
+        "pass": 726,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-test",
+      "totals": {
+        "groups": 29,
+        "passed": 4142,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-test-mcp",
+      "totals": {
+        "groups": 31,
+        "passed": 4335,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-test-owner-audit",
+      "totals": {
+        "groups": 31,
+        "passed": 4358,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null
+    },
+    {
+      "label": "receiver-closure-tests",
+      "totals": {
+        "tests": 18,
+        "suites": 0,
+        "pass": 18,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failure": null
+    },
+    {
+      "label": "callable-authority-profiles",
+      "totals": {
+        "results": 40,
+        "failures": []
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-fmt-check",
+      "totals": null,
+      "failure": null
+    },
+    {
+      "label": "git-diff-check",
+      "totals": null,
+      "failure": null
+    }
+  ],
+  "additional_checks": {
+    "focused_passed": 10,
+    "cache_pin_passed": 1,
+    "native_observer_passed": 6,
+    "python_passed": 940,
+    "python_intentional_live_skipped": 1,
+    "native_examples_passed": 32,
+    "comparator_passed": 10,
+    "grammar_and_asserted_policy_passed": 10,
+    "grammar_and_asserted_policy_head": "103677308b46332cdab13ce292e0086460aaa657",
+    "grammar_tests_used_existing_pinned_archives": true,
+    "clippy": "completed with warnings",
+    "python_examples_comparator_clippy_head": "cc289999f8a5db46079d664a876fbe44766ec605",
+    "focused_final_source_state": "cc289999 plus supplemental regression, subsequently committed as 10367730",
+    "final_test_only_addition": "same_name_same_line_ast_owners_refuse_parameter_binding; full gates and fresh-build matrix include it"
+  },
+  "tier_a": [
+    {
+      "artifact": "base",
+      "meta": {
+        "baseline_invalid": true,
+        "corpus": "prism",
+        "corpus_dirty": true,
+        "corpus_dirty_reasons": [
+          "untracked_sources: 1"
+        ],
+        "corpus_sha": "b9c8c59d33cc",
+        "date": "2026-09-10-param-binding-base",
+        "harness_sha": "b9c8c59d33cc",
+        "invalid_reasons": [
+          "corpus_sha_drift: b9c8c59d33cc != pinned 20c8490591a3",
+          "stratum C-method: 4/6 successful probes",
+          "stratum C-name: 4/6 successful probes",
+          "stratum U-method: 4/6 successful probes",
+          "oracle_error_rate 0.20 > 0.10"
+        ],
+        "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+        "oracle_error_rate": 0.2,
+        "oracle_not_quiescent": false,
+        "prism_dirty": false,
+        "prism_sha": "b9c8c59d33cc",
+        "seed": 42,
+        "stale_adjudications": 0,
+        "sut_error_rate": 0,
+        "wall_s": {
+          "m1_oracle_inventory": 11.942,
+          "m2": 478.833,
+          "m3": 0.002,
+          "matrix": 6.927,
+          "oracle_start": 19.37,
+          "pinned": 6.764
+        }
+      },
+      "matrix_outcomes": {
+        "ok": 159
+      },
+      "pending_count": 64,
+      "pinned": [
+        {
+          "id": "target-c-method",
+          "outcome": "flip_candidate",
+          "expected": "known_fail",
+          "prism_only": [],
+          "oracle_only": []
+        },
+        {
+          "id": "module-deps-feature-gated",
+          "outcome": "missing",
+          "expected": "oracle_miss_site",
+          "prism_only": [
+            "src/mcp/tools.rs:230"
+          ],
+          "oracle_only": []
+        },
+        {
+          "id": "load-repo-feature-gated",
+          "outcome": "missing",
+          "expected": "oracle_miss_site",
+          "prism_only": [
+            "src/executable_owner/audit_tests.rs:310",
+            "src/executable_owner/audit_tests.rs:322",
+            "src/executable_owner/audit_tests.rs:333",
+            "src/executable_owner/integration/tests.rs:22",
+            "src/executable_owner/integration/tests.rs:79",
+            "src/mcp/freshness.rs:401",
+            "src/mcp/session.rs:359",
+            "src/mcp/session.rs:374",
+            "src/mcp/session.rs:400"
+          ],
+          "oracle_only": [
+            "examples/dfg_census.rs:359",
+            "examples/parameter_site_census.rs:219",
+            "examples/project_membership_census.rs:63",
+            "tests/integration/resolution_test.rs:5299",
+            "tests/integration/resolution_test.rs:5368"
+          ]
+        },
+        {
+          "id": "ambiguous-symbol-contract",
+          "outcome": "ok",
+          "expected": "ambiguous_symbol_error"
+        }
+      ],
+      "raw_report_sha256": "69c8d1eb8f05aaf493096b13d243d2900e366f9fe6441306c626d432d69bffa0"
+    },
+    {
+      "artifact": "candidate",
+      "meta": {
+        "baseline_invalid": true,
+        "corpus": "prism",
+        "corpus_dirty": false,
+        "corpus_dirty_reasons": [],
+        "corpus_sha": "cc289999f8a5",
+        "date": "2026-09-10-param-binding-candidate",
+        "harness_sha": "cc289999f8a5",
+        "invalid_reasons": [
+          "corpus_sha_drift: cc289999f8a5 != pinned 20c8490591a3",
+          "stratum C-method: 4/6 successful probes",
+          "stratum C-name: 4/6 successful probes",
+          "stratum U-method: 4/6 successful probes",
+          "oracle_error_rate 0.20 > 0.10"
+        ],
+        "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+        "oracle_error_rate": 0.2,
+        "oracle_not_quiescent": false,
+        "prism_dirty": false,
+        "prism_sha": "cc289999f8a5",
+        "seed": 42,
+        "stale_adjudications": 0,
+        "sut_error_rate": 0,
+        "wall_s": {
+          "m1_oracle_inventory": 17.672,
+          "m2": 181.194,
+          "m3": 0.002,
+          "matrix": 6.804,
+          "oracle_start": 21.005,
+          "pinned": 6.981
+        }
+      },
+      "matrix_outcomes": {
+        "ok": 159
+      },
+      "pending_count": 76,
+      "pinned": [
+        {
+          "id": "target-c-method",
+          "outcome": "flip_candidate",
+          "expected": "known_fail",
+          "prism_only": [],
+          "oracle_only": []
+        },
+        {
+          "id": "module-deps-feature-gated",
+          "outcome": "missing",
+          "expected": "oracle_miss_site",
+          "prism_only": [
+            "src/mcp/tools.rs:230"
+          ],
+          "oracle_only": []
+        },
+        {
+          "id": "load-repo-feature-gated",
+          "outcome": "missing",
+          "expected": "oracle_miss_site",
+          "prism_only": [
+            "src/executable_owner/audit_tests.rs:310",
+            "src/executable_owner/audit_tests.rs:322",
+            "src/executable_owner/audit_tests.rs:333",
+            "src/executable_owner/integration/tests.rs:22",
+            "src/executable_owner/integration/tests.rs:79",
+            "src/mcp/freshness.rs:401",
+            "src/mcp/session.rs:359",
+            "src/mcp/session.rs:374",
+            "src/mcp/session.rs:400"
+          ],
+          "oracle_only": [
+            "examples/dfg_census.rs:359",
+            "examples/parameter_site_census.rs:219",
+            "examples/project_membership_census.rs:63",
+            "tests/integration/resolution_test.rs:5299",
+            "tests/integration/resolution_test.rs:5368"
+          ]
+        },
+        {
+          "id": "ambiguous-symbol-contract",
+          "outcome": "ok",
+          "expected": "ambiguous_symbol_error"
+        }
+      ],
+      "raw_report_sha256": "3879c4f3f0b20c8ea1499f327a057040c0faf068f926210bdd64e2ce2116739c"
+    }
+  ],
+  "review": {
+    "round": 1,
+    "cap": 2,
+    "head": "103677308b46332cdab13ce292e0086460aaa657",
+    "verdict": "APPROVE",
+    "wrong": 0,
+    "smell": 0,
+    "scope": "implementation, regression tests, checkpoint documentation and aggregate replay; full Rust and Node gates pending during review",
+    "method": "independent direct source tracing; navigation interface unavailable to reviewer",
+    "findings": [],
+    "checks": [
+      "unique full name/start/end AST owner and positional holes",
+      "exact supported byte-bearing parameter occurrences and all available graph-node identity fields",
+      "missing, ambiguous, body-only, altered and genuine-other-owner refusal",
+      "shared production and serial-reference selector",
+      "non-JS normalization and body lookup retained",
+      "caller field/base supplementation and confidence unchanged",
+      "cache 80 to 81",
+      "captured six-of-nine focused failures plus cache, observer and supplementary frozen-base owner RED",
+      "focused ten green and exact aggregate multiset removals"
+    ]
+  },
+  "exclusions": [
+    "full multi-corpus",
+    "live-model",
+    "compiler-Program accuracy",
+    "matched oracle accuracy comparison",
+    "candidate quick predates one supplemental test-only addition"
+  ],
+  "logs": {
+    "final-red.log": "c88d24939788ff3301d4714cb506c6112ca001544b4c98d5b71d2885401fe163",
+    "duplicate-owner-red.log": "5acfe19e38e448718c95162aa1cd1a937363d04c4dc6c04ec29cb6b60afb672e",
+    "cache-red.log": "4724da3b4eac875e5a672bdeb5df22b3285623383e67a2b8ce792d156cd72fc1",
+    "observer-red.log": "31dbc5c9a4a71b421e33ccf83ca397df6edf6f6895010eb158fa09a119b6ad03",
+    "focused-final-green.log": "f82e3ca699e49d4eea78a8ac2287b189c401cfd818f6b2911ecf65a95005256b",
+    "cache-green.log": "102179c1e81c301ba058e3af83da887339a4c973f5faa03ecd7f21af8f911350",
+    "observer-green.log": "389706fd95782bf0289b4627af634bf50e2a28be7a97afe48d979ce73117e8b3",
+    "non-js-base.log": "970ace2394a46013f59b8f555c09754581cd8c38473519fee0cc5bfffaee1359",
+    "python.log": "510c8c62511025a979ec682bb64b5e30afa2444310f8050f21afed3ac5805f00",
+    "examples.log": "63b5be273f5df18dfaae866c505ab54132937e940e38e219fe15c55ec78663d7",
+    "comparator.log": "c6ad09253ad854d56ae3615be2d6f694cb2674e48cd0871a8acc2c2878774aed",
+    "clippy.log": "f206436a0e4c536808a5655dfdfe168e54feb21ba9fb45026f41e07397844329",
+    "additional-node.log": "ae02b6365f3764a9a542ae6acf7c6ec08a6ed025d2182200ff44c6078aa579f5",
+    "final-test-matrix.log": "411a6f90bb8b6cd6a800532ac3bf4b0bacd4059fcd5fd024fb5ed958ff04a649",
+    "remeasure.log": "304bc290be6461fe5366a5a20236793a3c5a4cc2053ae5a37ef72355187e3b8a",
+    "gate-logs-2026-09-11T03-42-58-166Z-22013/summary.json": "9cded8900587788ca488bdad84b891a102f50318ea330d839e2a4b40cd346268"
+  },
+  "local_evidence": {
+    "root": "/private/tmp/prism-param-binding-mkuGwX",
+    "private_raw_publish": false,
+    "pre_repair_archive_sha256": "19cd2628b5f24aed87565b569c0a33c2f0508f25372d246335dda559d5494f4c"
+  },
+  "closeout_review": {
+    "round": 2,
+    "cap": 2,
+    "head": "77e004b89ecdc87a6b7415a25b64c3dc9971818b",
+    "verdict": "APPROVE",
+    "wrong": 0,
+    "smell": 0,
+    "scope": "documentation-only closeout, evidence consistency, private aggregate boundary and custody; final review/publication record self-checked"
+  },
+  "publication": {
+    "state": "blocked",
+    "branch": "fix/js-ts-exact-parameter-binding",
+    "push_attempt": "git push -u origin fix/js-ts-exact-parameter-binding",
+    "reason": "approval required by policy, but AskForApproval is set to Never",
+    "pr_created": false,
+    "automatic_merge": false,
+    "owner_run_push_required": true
+  },
+  "local_archive": {
+    "path": "/private/tmp/prism-exact-param-10367730-evidence.tgz",
+    "bytes": 32891223,
+    "mode": "0600",
+    "sha256": "12f4c872c7132d4b2997b743ee2f3af15e936b97827aecf001ee1e75201eb944",
+    "publish_raw": false,
+    "scope": "verification checkpoint; later closeout review and publication records remain separate"
+  }
+}

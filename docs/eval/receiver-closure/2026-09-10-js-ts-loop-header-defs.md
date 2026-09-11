@@ -1,5 +1,9 @@
 # JS/TS/TSX loop-header definition repair
 
+PR311 is merged. Successor: [exact parameter-token binding repair](2026-09-10-js-ts-exact-parameter-binding.md)
+is implemented and verified. The measurements and publication notes below retain
+the historical loop-repair checkpoint; the body-target repair is no longer pending.
+
 Both loop-header lvalue extractors now inspect only the grammar's `left` field.
 For `for (const item of items)`, `item` remains a Def and the iterable read
 `items` no longer becomes one. Identifier/destructuring handling is retained;
@@ -97,9 +101,11 @@ above. Round 2 independently approved the documentation-only closeout at
 The subsequent review/publication-status record is self-checked, not a third round.
 See the [verification receipt](2026-09-10-js-ts-loop-header-defs-verification.json).
 
-Publication is blocked locally: `git push` requires approval while this session
-has AskForApproval set to Never. No PR was opened; the owner-run push command and
-resume steps are in the successor handoff. No alternative publication path was used.
+Publication: the owner pushed `5ef63c4708234e39615a3bed7d06f8f68fe5ef04` after
+the agent's approval-policy block. The live remote ref was verified and
+[PR311](https://github.com/shoedog/prism/pull/311) opened against main; CI started,
+not yet green or merged. This documentation-only status correction is local
+until the next push. No alternative Git publication path or automatic merge was used.
 
 Prism navigation was used to trace affected consumers, but reported 41 changed
 paths; current source establishes the DFG-only scope. No React.FC, optional or

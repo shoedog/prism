@@ -193,7 +193,8 @@ use std::path::{Path, PathBuf};
 /// - v78: bounded TS/TSX asserted member paths change field and boundary flow.
 /// - v79: bounded TS/TSX required identifier parameter definitions and flow.
 /// - v80: JS/TS/TSX loop iterables are not loop-header definitions.
-const CACHE_VERSION: u32 = 80;
+/// - v81: JS/TS/TSX call arguments require exact supported parameter-token Defs.
+const CACHE_VERSION: u32 = 81;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -733,7 +734,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 80);
+        assert_eq!(super::CACHE_VERSION, 81);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

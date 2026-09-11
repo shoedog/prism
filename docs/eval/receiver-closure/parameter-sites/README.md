@@ -1,8 +1,10 @@
 # Required-parameter real-site value checkpoint
 
-Successor: the [bounded loop-header Def repair](../2026-09-10-js-ts-loop-header-defs.md)
-is implemented and verified. Tables and classifications below retain the PR310
-audit's historical measurements; exact callee-parameter-token binding remains next.
+Successors: the [bounded loop-header Def repair](../2026-09-10-js-ts-loop-header-defs.md)
+and [exact parameter-token binding repair](../2026-09-10-js-ts-exact-parameter-binding.md)
+are implemented and verified. The audit text below records PR310's historical
+measurements and recommendations; current state is in those successors. Optional
+and default occurrence expansion remains separate.
 
 PR309 delivered substantial measured value. Compare pre-repair production
 `f369f20cdcd3463bae86b191bcdd8ec9efd8f6fd` with merged production

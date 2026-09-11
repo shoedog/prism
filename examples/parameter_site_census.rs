@@ -308,7 +308,7 @@ mod tests {
         }
     }
     #[test]
-    fn flow_endpoints_distinguish_parameter_tokens_from_body_fallback() {
+    fn flow_endpoints_retain_parameter_tokens_without_body_fallback() {
         let r=run("function take(a:any) { sink(a); }\nfunction fallback(a:any=0) {\n a=clean();\n sink(a);\n}\nfunction run(v:any) {\n take(v);\n fallback(v);\n}");
         let functions = r["functions"].as_array().unwrap();
         for name in ["take", "fallback"] {
@@ -319,11 +319,15 @@ mod tests {
                 .iter()
                 .filter(|e| e["to"]["function"] == name)
                 .collect();
-            assert_eq!(flows.len(), 1);
-            assert_eq!(
-                flows[0]["to"]["start_byte"] == f["slots"][0]["start_byte"],
-                name == "take"
-            );
+            if name == "take" {
+                assert_eq!(flows.len(), 1);
+                assert_eq!(flows[0]["to"]["start_byte"], f["slots"][0]["start_byte"]);
+            } else {
+                assert!(
+                    flows.is_empty(),
+                    "unsupported parameter must not bind to body Def"
+                );
+            }
         }
     }
     #[test]
