@@ -81,7 +81,9 @@ Rust's existing ignore is `resolution_test::slice_elem_variant_reserved`.
 
 Independent implementation review, round 1 of cap 2 at 10367730, returned APPROVE,
 0 WRONG / 0 SMELL. Full Rust/Node gates were pending during that review and
-are recorded separately above. Documentation closeout review is pending.
+are recorded separately above. Round 2 independently approved documentation
+closeout at `77e004b89ecdc87a6b7415a25b64c3dc9971818b`, with 0 WRONG / 0 SMELL.
+The subsequent review/publication-status record is self-checked, not a third round.
 
 Python passed 940 with one intentional live-adoption skip; all 32 native example
 tests and 10 comparator tests passed. Clippy completed with warnings; this is not a
@@ -128,4 +130,8 @@ Local verification archive: `/private/tmp/prism-exact-param-10367730-evidence.tg
 32,891,223 bytes, mode0600; SHA256
 `12f4c872c7132d4b2997b743ee2f3af15e936b97827aecf001ee1e75201eb944`.
 Gzip integrity checked. Raw archive is private and must not be published.
-Publication is pending; no PR or automatic merge yet.
+Publication is blocked by command policy: the authorized `git push -u origin
+fix/js-ts-exact-parameter-binding` was rejected because approval is required but
+the session is set to Never. No alternate publication route was attempted. The
+branch and final closeout commits remain local; owner-run push is needed before
+PR creation. No automatic merge.

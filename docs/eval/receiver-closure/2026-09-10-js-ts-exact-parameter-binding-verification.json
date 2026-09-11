@@ -512,6 +512,24 @@
     "private_raw_publish": false,
     "pre_repair_archive_sha256": "19cd2628b5f24aed87565b569c0a33c2f0508f25372d246335dda559d5494f4c"
   },
+  "closeout_review": {
+    "round": 2,
+    "cap": 2,
+    "head": "77e004b89ecdc87a6b7415a25b64c3dc9971818b",
+    "verdict": "APPROVE",
+    "wrong": 0,
+    "smell": 0,
+    "scope": "documentation-only closeout, evidence consistency, private aggregate boundary and custody; final review/publication record self-checked"
+  },
+  "publication": {
+    "state": "blocked",
+    "branch": "fix/js-ts-exact-parameter-binding",
+    "push_attempt": "git push -u origin fix/js-ts-exact-parameter-binding",
+    "reason": "approval required by policy, but AskForApproval is set to Never",
+    "pr_created": false,
+    "automatic_merge": false,
+    "owner_run_push_required": true
+  },
   "local_archive": {
     "path": "/private/tmp/prism-exact-param-10367730-evidence.tgz",
     "bytes": 32891223,
