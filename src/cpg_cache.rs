@@ -198,7 +198,9 @@ use std::path::{Path, PathBuf};
 /// - v83: JS/TS/TSX argument-list comments do not occupy runtime slots.
 /// - v84: JS/TS/TSX call-site argument counts exclude comment trivia.
 /// - v85: bounded JS/TS/TSX inert-default identifier definitions and flow.
-const CACHE_VERSION: u32 = 85;
+/// - v86: JS/TS module binding refusal facts, type/CJS export barriers and
+///   comment-safe module extraction / reflective writes.
+const CACHE_VERSION: u32 = 86;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -738,7 +740,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 85);
+        assert_eq!(super::CACHE_VERSION, 86);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

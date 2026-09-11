@@ -159,3 +159,32 @@ fn constructor_field_write_barriers() {
     }
     assert!(failures.is_empty(), "{failures:?}");
 }
+
+#[test]
+fn constructor_field_reflective_write_comments() {
+    let mut failures = Vec::new();
+    for lang in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
+        for write in [
+            "Object.assign(COMMENTthis, other);",
+            "Reflect.set(COMMENTthis, 'client', other);",
+            "Reflect.defineProperty(COMMENT(this.client), 'm', other);",
+            "Object.assign((COMMENTthis), other);",
+        ] {
+            for trivia in ["", "/*before*/ ", "//before\n"] {
+                let write = write.replace("COMMENT", trivia);
+                let source = format!("class App {{ constructor() {{ this.client = new Client(); }} run() {{ {write} this.client.m(); }} }}");
+                if std::panic::catch_unwind(|| check(&source, false, lang)).is_err() {
+                    failures.push(format!("{lang:?}: {source}"));
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn constructor_field_comment_other_target_control() {
+    for lang in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
+        check("class App { constructor() { this.client = new Client(); } run() { Object.assign(/*not this.client*/ this.other, other); this.client.m(); } }", true, lang);
+    }
+}

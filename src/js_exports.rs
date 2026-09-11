@@ -48,6 +48,10 @@ pub enum JsExportTarget {
 /// (`import_bindings`, `module_bindings`): removed/merged wholesale per file.
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct JsExportFacts {
+    /// Syntactic module value declarations, used only to forbid repo-global
+    /// name fallback. This is not callable or forwarding authority.
+    #[serde(default)]
+    pub module_value_bindings: BTreeSet<String>,
     /// Local names introduced by top-level ESM named or default value imports.
     /// Syntax provenance only; eligible binding and class proof are separate.
     pub esm_named_imports: BTreeSet<String>,
@@ -75,6 +79,7 @@ pub struct JsExportFacts {
 impl JsExportFacts {
     pub fn is_empty(&self) -> bool {
         self.named.is_empty()
+            && self.module_value_bindings.is_empty()
             && self.esm_named_imports.is_empty()
             && self.type_only_imports.is_empty()
             && self.star_reexports.is_empty()
@@ -331,6 +336,7 @@ mod tests {
 
     fn facts(named: &[(&str, JsExportTarget)], star: &[&str]) -> JsExportFacts {
         JsExportFacts {
+            module_value_bindings: BTreeSet::new(),
             esm_named_imports: BTreeSet::new(),
             type_only_imports: BTreeMap::new(),
             named: named

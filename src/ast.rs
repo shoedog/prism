@@ -1750,12 +1750,14 @@ impl ParsedFile {
             // Check if value is a require() call
             if self.language.is_call_node(val.kind()) {
                 if let Some(func_name) = self.language.call_function_name(&val) {
-                    if self.node_text(&func_name) == "require" {
+                    if self.node_text(&func_name) == "require"
+                        && self.js_ts_unshadowed_ambient(func_name)
+                    {
                         if let Some(args) = self.language.call_arguments(&val) {
                             // Extract the module path from first argument
                             let mut cursor = args.walk();
                             for child in args.children(&mut cursor) {
-                                if child.is_named() {
+                                if self.is_positional_argument_node(child) {
                                     let text = self.node_text(&child);
                                     let path =
                                         text.trim_matches(|c| c == '\'' || c == '"').to_string();
@@ -1797,13 +1799,13 @@ impl ParsedFile {
             return None;
         }
         let func_name = self.language.call_function_name(node)?;
-        if self.node_text(&func_name) != "require" {
+        if self.node_text(&func_name) != "require" || !self.js_ts_unshadowed_ambient(func_name) {
             return None;
         }
         let args = self.language.call_arguments(node)?;
         let mut cursor = args.walk();
         for child in args.children(&mut cursor) {
-            if child.is_named() {
+            if self.is_positional_argument_node(child) {
                 let text = self.node_text(&child);
                 return Some(text.trim_matches(|c| c == '\'' || c == '"').to_string());
             }
@@ -2395,7 +2397,54 @@ impl ParsedFile {
         }
         facts.esm_named_imports = self.js_ts_esm_named_imports(None);
         facts.type_only_imports = self.js_ts_type_only_imports();
+        facts.module_value_bindings = self.js_ts_function_local_bindings(&root);
+        // A local export of an imported binding is not an in-file callable.
+        // Forwarding requires separate proof; do not let a nested same-name
+        // declaration satisfy the existing Local(file, name) route.
+        let imported: BTreeSet<_> = self
+            .extract_import_bindings()
+            .into_iter()
+            .map(|b| b.local)
+            .chain(facts.type_only_imports.keys().cloned())
+            .collect();
+        for (exported, target) in &facts.named {
+            if let crate::js_exports::JsExportTarget::Local(local) = target {
+                if imported.contains(local) {
+                    facts.conflicted.insert(exported.clone());
+                }
+            }
+        }
         facts
+    }
+
+    /// Only a refusal guard: lexical declarations or writes revoke recognition
+    /// of the CommonJS ambient spelling. No ambient module existence is proven.
+    fn js_ts_unshadowed_ambient(&self, identifier: Node<'_>) -> bool {
+        !self.js_ts_receiver_lexically_bound_at_call(&self.tree.root_node(), Some(identifier))
+            && !self.js_ts_module_value_written(self.node_text(&identifier))
+    }
+
+    /// Replacing module.exports may detach the original exports object. Refuse
+    /// exports.* throughout the file, including possible reattachment; no heap
+    /// alias or execution-order proof is available in this export-fact model.
+    fn js_ts_module_exports_replaced(&self, node: Node<'_>) -> bool {
+        if let Some(left) = self.js_ts_write_target(node) {
+            if left.kind() == "member_expression"
+                && left
+                    .child_by_field_name("object")
+                    .is_some_and(|n| self.node_text(&n) == "module")
+                && left
+                    .child_by_field_name("property")
+                    .is_some_and(|n| self.node_text(&n) == "exports")
+            {
+                return true;
+            }
+        }
+        let mut cursor = node.walk();
+        let found = node
+            .named_children(&mut cursor)
+            .any(|n| self.js_ts_module_exports_replaced(n));
+        found
     }
 
     fn js_ts_type_only_imports(&self) -> BTreeMap<String, Option<(String, String)>> {
@@ -2633,6 +2682,13 @@ impl ParsedFile {
     ) {
         use crate::js_exports::JsExportTarget;
 
+        // The grammar uses the same immediate `type` token for type-only
+        // import/export statements and specifiers; names named `type` remain
+        // identifier nodes and are not rejected by this predicate.
+        if self.js_ts_import_statement_is_type_only(node) {
+            return;
+        }
+
         let source = node.child_by_field_name("source").map(|n| {
             self.node_text(&n)
                 .trim_matches(|c| c == '\'' || c == '"')
@@ -2664,7 +2720,9 @@ impl ParsedFile {
         if let Some(clause) = export_clause {
             let mut cc = clause.walk();
             for spec in clause.children(&mut cc) {
-                if spec.kind() != "export_specifier" {
+                if spec.kind() != "export_specifier"
+                    || self.js_ts_import_specifier_is_type_only(spec)
+                {
                     continue;
                 }
                 let Some(name) = spec
@@ -2810,20 +2868,27 @@ impl ParsedFile {
             && self.node_text(&object) == "module"
             && property_name == "exports"
         {
+            if !self.js_ts_unshadowed_ambient(object) {
+                return;
+            }
             // `module.exports = <rhs>;`
             self.collect_js_ts_cjs_module_exports_rhs(right, facts);
             return;
         }
 
         let is_module_exports_member = object.kind() == "member_expression"
-            && object
-                .child_by_field_name("object")
-                .is_some_and(|o| o.kind() == "identifier" && self.node_text(&o) == "module")
+            && object.child_by_field_name("object").is_some_and(|o| {
+                o.kind() == "identifier"
+                    && self.node_text(&o) == "module"
+                    && self.js_ts_unshadowed_ambient(o)
+            })
             && object
                 .child_by_field_name("property")
                 .is_some_and(|p| self.node_text(&p) == "exports");
-        let is_exports_member =
-            object.kind() == "identifier" && self.node_text(&object) == "exports";
+        let is_exports_member = object.kind() == "identifier"
+            && self.node_text(&object) == "exports"
+            && self.js_ts_unshadowed_ambient(object)
+            && !self.js_ts_module_exports_replaced(self.tree.root_node());
 
         if is_module_exports_member || is_exports_member {
             // `module.exports.f = f;` or `exports.f = f;`
@@ -3288,10 +3353,20 @@ impl ParsedFile {
                     )
                     && node
                         .child_by_field_name("arguments")
-                        .and_then(|n| n.named_child(0))
+                        .and_then(|n| {
+                            let mut cursor = n.walk();
+                            let first = n
+                                .named_children(&mut cursor)
+                                .find(|child| self.is_positional_argument_node(*child));
+                            first
+                        })
                         .is_some_and(|mut n| {
                             while n.kind() == "parenthesized_expression" {
-                                let Some(inner) = n.named_child(0) else {
+                                let mut cursor = n.walk();
+                                let Some(inner) = n
+                                    .named_children(&mut cursor)
+                                    .find(|child| self.is_positional_argument_node(*child))
+                                else {
                                     return true;
                                 };
                                 n = inner;

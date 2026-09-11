@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "base": "afc78147",
+  "population": "synthetic fixture/language/build observations, not real receiver sites or recall",
+  "observations": 316,
+  "recoveredCorrectExact": 6,
+  "removedWrongExact": 90,
+  "changedCases": {
+    "assigned_module": 6,
+    "assigned_exports": 6,
+    "cjs_destructured_import_comments": 6,
+    "assigned_require": 6,
+    "cjs_whole_value_direct": 6,
+    "destructured_local_decoy": 6,
+    "detached_exports": 6,
+    "forwarded_local_decoy": 6,
+    "mixed_type_only_reexport": 4,
+    "mutable_require": 6,
+    "require_member_direct": 6,
+    "shadowed_consumer": 6,
+    "shadowed_require": 6,
+    "shadowed_exports": 6,
+    "shadowed_module": 6,
+    "type_only_import": 4,
+    "type_only_reexport": 4
+  },
+  "tests": {
+    "moduleBaseline": {
+      "passed": 39,
+      "failed": 18
+    },
+    "moduleCandidate": {
+      "passed": 57,
+      "failed": 0
+    },
+    "flowBaseline": {
+      "passed": 0,
+      "failed": 4
+    },
+    "flowCandidate": {
+      "passed": 4,
+      "failed": 0
+    },
+    "serializationBaselineSeparateRun": {
+      "passed": 0,
+      "failed": 1
+    },
+    "serializationCandidateSeparateRun": {
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "parserGaps": [
+    "value_named_type_control/ts",
+    "value_named_type_control/tsx"
+  ],
+  "matrixRunSourceSnapshot": {
+    "archive": "/private/tmp/prism-module-binding-LgUwcS/source-checkpoint.tgz",
+    "sha256": "e14668d6843691bc1a82f5e43f4bc38bc3aa45aaf61bdd82e796f6514f271035",
+    "note": "57-test matrix before the separately RED-tested serialization control was appended"
+  },
+  "sourceHashesAtMatrixRun": {
+    "tests/integration/module_binding_audit_test.rs": "d4dd9053d2ac1608925eaba0030e81878a107c9fef85e7b3b4d3d7a242a56186",
+    "tests/integration/module_binding_flow_test.rs": "082893e754fdd88ba55977f34ec3be61165c837880dfc01c4f05f1c87a647758",
+    "tests/integration/constructor_field_receiver_test.rs": "15ca2873feb1eebc9a2e1c7b1cecc5097a2c9249eafc02130e9249587be0c7e0"
+  },
+  "finalModuleTestSourceSha256": "2e783983cbd00ec0c0601a4af50ea17fb5087652337328396e0791c9f7873de4",
+  "logs": {
+    "serialization-base.log": "f9b4c04f1de408bbced90395ec06637009af94f2e448bcec0fdc565528bed0b6",
+    "serialization-candidate.log": "8c64fef59a0d13eaacd50289a9a4bdd84dd50904d096ab25dfc2b7fa99fdbca3",
+    "base-final.log": "ed3b3cc1409f75175a82d937406ce7f598968dfd62561eafe7870068eab8a92a",
+    "base-final-mutation.log": "63d8c49bca8acf667f08374a61a13bd049bbedb732ec4c1cdc38aece8097ebd5",
+    "final-matrix.log": "1c51c21dc155ad2f6a326734b58f7a3f638fa4a87adf6bc64f3677914ed89e0b",
+    "flow-incremental.log": "668456deb88ec372a7fa4bfa28f83b30ffec3c2ee3f91f2c17ac065db039f5f3",
+    "final-mutation.log": "85ad9f1d7c1cd7f8a5cd4035249c65edf1b34e1b08e16379fe393f37904bd5b2"
+  }
+}
