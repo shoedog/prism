@@ -83,14 +83,16 @@ performance comparison or baseline/adjudication change was made.
 
 ## Separate pre-existing defect and next recommendation
 
-**WRONG, still unfixed:** `function take(a: any, b: any) { sink(a, b); }`
+**Historical PR308 finding, repaired for required identifiers in the
+[successor](2026-09-10-typescript-required-parameter-occurrences.md):**
+`function take(a: any, b: any) { sink(a, b); }`
 parses cleanly in TS/TSX but produces no parameter Defs; JavaScript's equivalent
 produces both. The frozen base reproduces this. `function_parameter_slots` accepts
 the TS grammar wrapper, while `extract_param_name_node` omits `required_parameter`
 and `optional_parameter`; occurrence extraction therefore loses required names.
 Even plain argument-to-parameter binding can be absent, independently of assertions.
 
-Next: bounded TS/TSX parameter-definition occurrence repair, starting with simple
+The approved successor implements bounded TS/TSX occurrence repair for simple
 required identifier parameters and explicit typed/untyped/plain-argument controls;
 preserve duplicate, write, optional/default/rest and malformed-pattern barriers.
 Do not expand type or executable-owner resolution as part of that prerequisite.

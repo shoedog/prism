@@ -9277,7 +9277,10 @@ impl ParsedFile {
     /// Go grouped declarations intentionally expand (`a, b string` yields both
     /// bindings), so DFG and reasoning receive one definition seed per name.
     pub fn function_parameter_names(&self, func_node: &Node<'_>) -> Vec<String> {
-        if self.language == Language::Go {
+        if matches!(
+            self.language,
+            Language::Go | Language::TypeScript | Language::Tsx
+        ) {
             return self
                 .function_parameter_occurrences(func_node)
                 .into_iter()
@@ -9303,6 +9306,9 @@ impl ParsedFile {
     /// binding token. The DFG still anchors parameter defs to the function start
     /// line for call-boundary compatibility.
     pub fn function_parameter_occurrences(&self, func_node: &Node<'_>) -> Vec<ParameterOccurrence> {
+        if matches!(self.language, Language::TypeScript | Language::Tsx) {
+            return crate::parameter_slots::typescript_required_bindings(self, func_node);
+        }
         let mut params_out = Vec::new();
         if let Some(params) = self.find_parameters_node(func_node) {
             let mut cursor = params.walk();
@@ -10915,6 +10921,10 @@ mod asserted_member;
 #[cfg(test)]
 #[path = "ast_asserted_member_tests.rs"]
 mod asserted_member_tests;
+
+#[cfg(test)]
+#[path = "ast_required_parameter_tests.rs"]
+mod required_parameter_tests;
 
 #[cfg(test)]
 mod tests {

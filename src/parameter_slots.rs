@@ -10,6 +10,58 @@ use crate::languages::Language;
 use std::collections::BTreeSet;
 use tree_sitter::Node;
 
+/// Non-positional TS binding occurrences. Reuse the whole-list safety checks,
+/// but do not compress this result into argument slots: unsupported parameters
+/// are omitted here, whereas `slots` retains its independent prefix contract.
+pub(crate) fn typescript_required_bindings(
+    parsed: &ParsedFile,
+    function: &Node<'_>,
+) -> Vec<ParameterOccurrence> {
+    let Some(params) = parsed.find_parameters_node(function) else {
+        return Vec::new();
+    };
+    if contains_recovery(params) {
+        return Vec::new();
+    }
+    // Source spelling is not canonical identity for escaped identifiers. An
+    // escaped binding anywhere in the list could alias a supported binding.
+    let mut bindings = BTreeSet::new();
+    let mut duplicate = false;
+    for parameter in named_children(params) {
+        collect_js_ts_parameter_bindings(parsed, parameter, &mut bindings, &mut duplicate);
+    }
+    if duplicate || bindings.iter().any(|name| name.contains('\\')) {
+        return Vec::new();
+    }
+    named_children(params)
+        .into_iter()
+        .filter_map(|parameter| {
+            if parameter.kind() != "required_parameter" {
+                return None;
+            }
+            let pattern = parameter.child_by_field_name("pattern")?;
+            if pattern.kind() != "identifier" {
+                return None;
+            }
+            let annotation = parameter.child_by_field_name("type");
+            let mut cursor = parameter.walk();
+            // Exact allowlist includes unnamed tokens: readonly is unnamed in
+            // the pinned grammar. Defaults, decorators and parameter properties
+            // must not acquire a Def just because they contain an identifier.
+            if parameter.children(&mut cursor).any(|child| {
+                child != pattern && Some(child) != annotation && child.kind() != "comment"
+            }) {
+                return None;
+            }
+            Some((
+                parsed.node_text(&pattern).to_string(),
+                pattern.start_byte(),
+                pattern.end_byte(),
+            ))
+        })
+        .collect()
+}
+
 pub(crate) fn slots(parsed: &ParsedFile, function: &Node<'_>) -> Option<Vec<ParameterOccurrence>> {
     let params = parsed
         .find_parameters_node(function)

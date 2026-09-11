@@ -1,5 +1,7 @@
 {
   "schema": "prism.asserted-member-repair-verification/1",
+  "historicalRecord": "Measurements and remainingDefects describe cef3b902 only; required identifier omission is repaired in successor 6a53c66a.",
+  "requiredParameterSuccessor": "2026-09-10-typescript-required-parameter-occurrences-verification.json",
   "base": "c2737e06d0c5a65e8f5b11bf3c10cb78f88ebd36",
   "reviewedTestedProductionHead": "cef3b902ee8fdf9627917a88b1c05a635c628029",
   "productionSources": [
