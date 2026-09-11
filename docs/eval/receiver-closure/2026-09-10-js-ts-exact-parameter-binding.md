@@ -132,7 +132,9 @@ Local verification archive: `/private/tmp/prism-exact-param-10367730-evidence.tg
 Gzip integrity checked. Raw archive is private and must not be published.
 Publication: after the agent's command-policy block, the owner pushed
 `262e7dabb0e684cc2f11d825326fd33ae6d044f9`. The live remote ref was verified and
-[PR312](https://github.com/shoedog/prism/pull/312) opened against main. Test Suite,
-Clippy Lint and Format Check started; not yet green or merged. This status-only
-correction remains local until the next authorized slice/push. No alternate Git
-publication route, separate docs-only MR or automatic merge was used.
+[PR312](https://github.com/shoedog/prism/pull/312) opened against main. The owner
+subsequently merged it as `d9d1cc9195af240d2f6f0797954eea8e6e3d1c27` and refreshed
+origin/main; both were verified live. CI had started at creation; merge status
+does not establish its final outcome. Status-only corrections remain local for
+the next authorized slice/push. No alternate Git publication route, separate
+docs-only MR or automatic merge was used.
