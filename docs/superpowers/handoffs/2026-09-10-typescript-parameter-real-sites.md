@@ -9,7 +9,7 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` root owns native/design; parameter_comparison completed two comparator files only — **RESOLVED**.
-**(b) Custody exposure** — `[MEASURED]` local0609ddbb CLEAN; origin/main remains013d4bf0; no existing audit PR. Initial publication rejection is resolved by the owner's explicit authorization below; push/PR pending — **OPEN** until remote custody. This publication-only handoff update changes no code.
+**(b) Custody exposure** — `[MEASURED]` 4ef04f57 pushed to origin/audit/typescript-parameter-real-sites; PR310 created at https://github.com/shoedog/prism/pull/310; checkout clean before this publication-only handoff update — **RESOLVED** remote custody. This update changes no implementation or test bytes.
 **(c) In flight / irreversible** — `[MEASURED]` all four corpus runs, full gates and both review rounds complete; local closeout reconciles the sole remaining handoff finding — **RESOLVED** bounded verification; no third review.
 **(d) Authorization granted but not exercised** — Owner replied “authorized” to the explicit request to publish private-repository-derived aggregate results and custody metadata to GitHub shoedog/prism, excluding private source and raw graphs. This resolves the prior payload/destination approval blocker. No auto-merge, private-source identifiers, private source identity or raw graph publication.
 
@@ -17,7 +17,7 @@
 
 1. `git status --short --branch`; preserve this lane's example and comparator files.
 2. Read parameter-sites/README.md and receipt.json; implementation and full verification are complete at cda0b972.
-3. Publish the explicitly authorized aggregate-only audit and custody metadata to GitHub shoedog/prism; refresh remote custody afterward. Do not repeat completed corpus runs. Prior full verification remains attached to cda0b972; this turn is publication-only.
+3. Check PR310 CI live, then await owner merge and approval for the loop-header Def repair. Do not repeat completed corpus runs. Prior full verification remains attached to cda0b972; publication updates changed documentation only.
 
 **STOP conditions:** private source in publication, source population drift, new runtime authority, open-class review at cap2, unclassified failures.
 
@@ -32,7 +32,7 @@
 | Review | done | Round1 REJECT2 WRONG/0 SMELL fixed; round2 REJECT1 WRONG/0 SMELL solely stale handoff, corrected here; code/measurements independently clean |
 | Full gates | done | Clean cda0b972 summary.json:4123/4316/4339 Rust;1 ignore each;726 observers/18 helpers/40 authority |
 | Python | done | python-final-full.log940pass/1live skip; initial basename-related failure and same-base control retained |
-| Publication | next | Owner explicitly authorized the sensitive derived payload and destination; initial rejected command did not run |
+| Publication | done | Explicitly authorized payload pushed; PR310 opened against main; no private source/raw graphs published; no auto-merge |
 
 ## 3. Corrections to standing documents and memory
 
@@ -44,14 +44,14 @@
 | Comparator labels/bounds | Unmatched implies non-parameter; function-contained tokens suffice | Require parameter syntax containment; unmatched is neutral until source classification |
 | This handoff | efb4d34d plus dirty implementation after checkpoint | cda0b972 verified clean implementation; current closeout documentation only |
 | PR309 readout | Value checkpoint still next | Linked completed successor without changing historical totals |
-| Publication status | Explicit safety rejection; owner approval required | Owner replied “authorized” to exact aggregate/custody payload and shoedog/prism destination; publication may proceed |
+| Publication status | Explicit safety rejection; owner approval required | Owner explicitly authorized the payload/destination; branch pushed and PR310 created |
 
 ## 4. Open work
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
 | 1 | Corpus measurement | done | Final aggregate readout; raw local only | None | parameter-sites/README.md |
-| 2 | Publication | next | Push/open PR and refresh custody | None; explicit owner approval received | Full gates complete |
+| 2 | Publication | done | Read CI live and await owner merge | None | PR310 |
 | 3 | Production defects | proposed next | Loop-header Def repair, then exact callee-token binding | Next owner approval | No fix in this audit |
 
 ## 5. Invariants and traps — do not do these
@@ -67,6 +67,7 @@
 | Item | Verbatim |
 |---|---|
 | Evidence | `/private/tmp/prism-parameter-audit-rhxJcA` |
+| Pull request | `https://github.com/shoedog/prism/pull/310` |
 | Local private archive | `/private/tmp/prism-parameter-value-cda0b972-evidence.tgz`;63 files,2,084,761 bytes,mode0600; archive hash in sibling .json; never publish raw archive |
 | Public snapshot | `0642e72cfa2d9a71198200e52f37399384610ee3` |
 | Pre-repair baseline | `f369f20cdcd3463bae86b191bcdd8ec9efd8f6fd` |
