@@ -522,13 +522,18 @@
     "scope": "documentation-only closeout, evidence consistency, private aggregate boundary and custody; final review/publication record self-checked"
   },
   "publication": {
-    "state": "blocked",
+    "state": "pr_open",
     "branch": "fix/js-ts-exact-parameter-binding",
     "push_attempt": "git push -u origin fix/js-ts-exact-parameter-binding",
-    "reason": "approval required by policy, but AskForApproval is set to Never",
-    "pr_created": false,
+    "initial_agent_push_block": "approval required by policy, but AskForApproval is set to Never",
+    "owner_push_verified": true,
+    "published_head": "262e7dabb0e684cc2f11d825326fd33ae6d044f9",
+    "pr_created": true,
+    "pr_url": "https://github.com/shoedog/prism/pull/312",
+    "ci_at_creation": "Test Suite, Clippy Lint and Format Check IN_PROGRESS",
     "automatic_merge": false,
-    "owner_run_push_required": true
+    "owner_run_push_required": false,
+    "status_update_remote_state": "local until next authorized slice or push"
   },
   "local_archive": {
     "path": "/private/tmp/prism-exact-param-10367730-evidence.tgz",

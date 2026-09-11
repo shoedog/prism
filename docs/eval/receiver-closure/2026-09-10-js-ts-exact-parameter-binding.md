@@ -130,8 +130,9 @@ Local verification archive: `/private/tmp/prism-exact-param-10367730-evidence.tg
 32,891,223 bytes, mode0600; SHA256
 `12f4c872c7132d4b2997b743ee2f3af15e936b97827aecf001ee1e75201eb944`.
 Gzip integrity checked. Raw archive is private and must not be published.
-Publication is blocked by command policy: the authorized `git push -u origin
-fix/js-ts-exact-parameter-binding` was rejected because approval is required but
-the session is set to Never. No alternate publication route was attempted. The
-branch and final closeout commits remain local; owner-run push is needed before
-PR creation. No automatic merge.
+Publication: after the agent's command-policy block, the owner pushed
+`262e7dabb0e684cc2f11d825326fd33ae6d044f9`. The live remote ref was verified and
+[PR312](https://github.com/shoedog/prism/pull/312) opened against main. Test Suite,
+Clippy Lint and Format Check started; not yet green or merged. This status-only
+correction remains local until the next authorized slice/push. No alternate Git
+publication route, separate docs-only MR or automatic merge was used.
