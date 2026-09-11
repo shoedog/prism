@@ -17,7 +17,7 @@
 
 1. `git status --short --branch`; preserve this lane's example and comparator files.
 2. Read parameter-sites/README.md and receipt.json; implementation and full verification are complete at cda0b972.
-3. Check PR310 CI live, then await owner merge and approval for the loop-header Def repair. Do not repeat completed corpus runs. Prior full verification remains attached to cda0b972; publication updates changed documentation only.
+3. `[MEASURED]` PR310 merged e8e4c77e; owner approved the bounded loop-header Def repair. Continue in `2026-09-10-js-ts-loop-header-defs.md`; keep callee-parameter binding separate.
 
 **STOP conditions:** private source in publication, source population drift, new runtime authority, open-class review at cap2, unclassified failures.
 
@@ -51,8 +51,8 @@
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
 | 1 | Corpus measurement | done | Final aggregate readout; raw local only | None | parameter-sites/README.md |
-| 2 | Publication | done | Read CI live and await owner merge | None | PR310 |
-| 3 | Production defects | proposed next | Loop-header Def repair, then exact callee-token binding | Next owner approval | No fix in this audit |
+| 2 | Publication | merged | PR310 merged e8e4c77e; use successor handoff | None | PR310 |
+| 3 | Production defects | successor active | Approved loop-header repair implemented/verified; exact callee-token binding remains separate | See successor handoff | No fix in this historical audit |
 
 ## 5. Invariants and traps — do not do these
 
@@ -79,4 +79,4 @@
 
 **§2c verdict:** SURVIVED for code/measurement after bounded fixes; final handoff reconciliation SELF-PASS (NOT INDEPENDENT) · claim: "the comparison separates parameter-token observations from unmatched slot flow" · pass: INDEPENDENT code/measurement, not unconditional final-document approval · evidence tier: TEST-BACKED + SOURCE-BACKED · record: review-record.md, final tests and fixed comparisons. At cap2, sole remaining closed finding was this stale custody entry; corrected locally without extending review.
 
-**Questions the owner owes an answer to:** None for publication; explicit authorization received. Production repairs still require the next increment's approval.
+**Questions the owner owes an answer to:** None for this merged audit. The bounded loop-header repair was approved and completed in the successor; exact callee-token binding is the separate next increment.

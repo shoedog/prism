@@ -22,6 +22,8 @@ mod cfg_queries;
 mod context;
 mod flow_confidence;
 #[cfg(test)]
+mod loop_header_def_tests;
+#[cfg(test)]
 mod multiline_call_arg_parity_tests;
 #[cfg(test)]
 mod multiline_call_arg_tests;

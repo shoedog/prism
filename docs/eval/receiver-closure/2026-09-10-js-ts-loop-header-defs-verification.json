@@ -1,0 +1,408 @@
+{
+  "schema": "prism.loop-header-verification/1",
+  "base": "e8e4c77e7f634077f2090bf57e59f665ac0aacab",
+  "full_gate_head": "344c384825db44507841ca53e1b53c5c7956315e",
+  "clean_unchanged_full_gate_run": true,
+  "authorizes_runtime_edge": false,
+  "corpora": [
+    {
+      "corpus": "public",
+      "population": {
+        "files": 628,
+        "skipped": 584,
+        "functions": 8614
+      },
+      "before": {
+        "functions": 8614,
+        "owner_null": 4497,
+        "parameters": 8100,
+        "occurrences": 7056,
+        "dfg_defs": 3892,
+        "cpg_defs": 3892,
+        "slot_matched_flows": 6016,
+        "unmatched_slot_flows": 9,
+        "flows": 6025
+      },
+      "after": {
+        "functions": 8614,
+        "owner_null": 4497,
+        "parameters": 8100,
+        "occurrences": 7056,
+        "dfg_defs": 3892,
+        "cpg_defs": 3892,
+        "slot_matched_flows": 6016,
+        "unmatched_slot_flows": 3,
+        "flows": 6019
+      },
+      "edge_changes": {
+        "added": 0,
+        "removed": 6
+      }
+    },
+    {
+      "corpus": "private",
+      "population": {
+        "files": 1122,
+        "skipped": 140,
+        "functions": 12713
+      },
+      "before": {
+        "functions": 12713,
+        "owner_null": 7841,
+        "parameters": 6513,
+        "occurrences": 2863,
+        "dfg_defs": 1676,
+        "cpg_defs": 1676,
+        "slot_matched_flows": 2420,
+        "unmatched_slot_flows": 68,
+        "flows": 2488
+      },
+      "after": {
+        "functions": 12713,
+        "owner_null": 7841,
+        "parameters": 6513,
+        "occurrences": 2863,
+        "dfg_defs": 1676,
+        "cpg_defs": 1676,
+        "slot_matched_flows": 2420,
+        "unmatched_slot_flows": 61,
+        "flows": 2481
+      },
+      "edge_changes": {
+        "added": 0,
+        "removed": 7
+      }
+    }
+  ],
+  "removed_flow_proof": [
+    {
+      "corpus": "public",
+      "removed": 6,
+      "exactly_prior_source_classified_loop_read_flows": true
+    },
+    {
+      "corpus": "private",
+      "removed": 7,
+      "exactly_prior_source_classified_loop_read_flows": true
+    }
+  ],
+  "full_gates": [
+    {
+      "label": "callable-observations",
+      "totals": {
+        "tests": 726,
+        "suites": 0,
+        "pass": 726,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-test",
+      "totals": {
+        "groups": 29,
+        "passed": 4132,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-test-mcp",
+      "totals": {
+        "groups": 31,
+        "passed": 4325,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-test-owner-audit",
+      "totals": {
+        "groups": 31,
+        "passed": 4348,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filteredOut": 0,
+        "ignoredTests": [
+          "resolution_test::slice_elem_variant_reserved"
+        ]
+      },
+      "failure": null
+    },
+    {
+      "label": "receiver-closure-tests",
+      "totals": {
+        "tests": 18,
+        "suites": 0,
+        "pass": 18,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failure": null
+    },
+    {
+      "label": "callable-authority-profiles",
+      "totals": {
+        "results": 40,
+        "failures": []
+      },
+      "failure": null
+    },
+    {
+      "label": "cargo-fmt-check",
+      "totals": null,
+      "failure": null
+    },
+    {
+      "label": "git-diff-check",
+      "totals": null,
+      "failure": null
+    }
+  ],
+  "additional_checks": {
+    "focused_passed": 10,
+    "cache_pin_passed": 1,
+    "python_passed": 940,
+    "python_intentional_live_skipped": 1,
+    "native_examples_passed": 32,
+    "comparator_passed": 10,
+    "clippy": "completed with warnings"
+  },
+  "tier_a": [
+    {
+      "artifact": "base",
+      "meta": {
+        "baseline_invalid": true,
+        "corpus": "prism",
+        "corpus_dirty": true,
+        "corpus_dirty_reasons": [
+          "untracked_sources: 2"
+        ],
+        "corpus_sha": "e8e4c77e7f63",
+        "date": "2026-09-10-loop-header-base",
+        "harness_sha": "e8e4c77e7f63",
+        "invalid_reasons": [
+          "corpus_sha_drift: e8e4c77e7f63 != pinned 20c8490591a3",
+          "stratum C-method: 4/6 successful probes",
+          "stratum C-name: 4/6 successful probes",
+          "stratum U-method: 4/6 successful probes",
+          "oracle_error_rate 0.20 > 0.10"
+        ],
+        "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+        "oracle_error_rate": 0.2,
+        "oracle_not_quiescent": false,
+        "prism_dirty": true,
+        "prism_sha": "e8e4c77e7f63",
+        "seed": 42,
+        "stale_adjudications": 0,
+        "sut_error_rate": 0,
+        "wall_s": {
+          "m1_oracle_inventory": 11.343,
+          "m2": 458.226,
+          "m3": 0.018,
+          "matrix": 7.001,
+          "oracle_start": 18.354,
+          "pinned": 30.127
+        }
+      },
+      "matrix_outcomes": {
+        "ok": 159
+      },
+      "pending_count": 115,
+      "pinned": [
+        {
+          "id": "target-c-method",
+          "outcome": "flip_candidate",
+          "expected": "known_fail",
+          "prism_only": [],
+          "oracle_only": []
+        },
+        {
+          "id": "module-deps-feature-gated",
+          "outcome": "missing",
+          "expected": "oracle_miss_site",
+          "prism_only": [
+            "src/mcp/tools.rs:230"
+          ],
+          "oracle_only": []
+        },
+        {
+          "id": "load-repo-feature-gated",
+          "outcome": "missing",
+          "expected": "oracle_miss_site",
+          "prism_only": [
+            "src/executable_owner/audit_tests.rs:310",
+            "src/executable_owner/audit_tests.rs:322",
+            "src/executable_owner/audit_tests.rs:333",
+            "src/executable_owner/integration/tests.rs:22",
+            "src/executable_owner/integration/tests.rs:79",
+            "src/mcp/freshness.rs:401",
+            "src/mcp/session.rs:359",
+            "src/mcp/session.rs:374",
+            "src/mcp/session.rs:400"
+          ],
+          "oracle_only": [
+            "examples/dfg_census.rs:359",
+            "examples/parameter_site_census.rs:219",
+            "examples/project_membership_census.rs:63",
+            "tests/integration/resolution_test.rs:5299",
+            "tests/integration/resolution_test.rs:5368"
+          ]
+        },
+        {
+          "id": "ambiguous-symbol-contract",
+          "outcome": "ok",
+          "expected": "ambiguous_symbol_error"
+        }
+      ],
+      "raw_report_sha256": "e9f1be0419930104659767953b306e88a9c7e22776cf5364756570f8540c4ebc"
+    },
+    {
+      "artifact": "candidate",
+      "meta": {
+        "baseline_invalid": true,
+        "corpus": "prism",
+        "corpus_dirty": false,
+        "corpus_dirty_reasons": [],
+        "corpus_sha": "344c384825db",
+        "date": "2026-09-10-loop-header-candidate",
+        "harness_sha": "344c384825db",
+        "invalid_reasons": [
+          "corpus_sha_drift: 344c384825db != pinned 20c8490591a3",
+          "stratum C-method: 4/6 successful probes",
+          "stratum C-name: 4/6 successful probes",
+          "stratum U-method: 4/6 successful probes",
+          "oracle_error_rate 0.20 > 0.10"
+        ],
+        "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+        "oracle_error_rate": 0.2,
+        "oracle_not_quiescent": false,
+        "prism_dirty": false,
+        "prism_sha": "344c384825db",
+        "seed": 42,
+        "stale_adjudications": 0,
+        "sut_error_rate": 0,
+        "wall_s": {
+          "m1_oracle_inventory": 14.236,
+          "m2": 183.095,
+          "m3": 0.002,
+          "matrix": 6.922,
+          "oracle_start": 23.966,
+          "pinned": 6.936
+        }
+      },
+      "matrix_outcomes": {
+        "ok": 159
+      },
+      "pending_count": 64,
+      "pinned": [
+        {
+          "id": "target-c-method",
+          "outcome": "flip_candidate",
+          "expected": "known_fail",
+          "prism_only": [],
+          "oracle_only": []
+        },
+        {
+          "id": "module-deps-feature-gated",
+          "outcome": "missing",
+          "expected": "oracle_miss_site",
+          "prism_only": [
+            "src/mcp/tools.rs:230"
+          ],
+          "oracle_only": []
+        },
+        {
+          "id": "load-repo-feature-gated",
+          "outcome": "missing",
+          "expected": "oracle_miss_site",
+          "prism_only": [
+            "src/executable_owner/audit_tests.rs:310",
+            "src/executable_owner/audit_tests.rs:322",
+            "src/executable_owner/audit_tests.rs:333",
+            "src/executable_owner/integration/tests.rs:22",
+            "src/executable_owner/integration/tests.rs:79",
+            "src/mcp/freshness.rs:401",
+            "src/mcp/session.rs:359",
+            "src/mcp/session.rs:374",
+            "src/mcp/session.rs:400"
+          ],
+          "oracle_only": [
+            "examples/dfg_census.rs:359",
+            "examples/parameter_site_census.rs:219",
+            "examples/project_membership_census.rs:63",
+            "tests/integration/resolution_test.rs:5299",
+            "tests/integration/resolution_test.rs:5368"
+          ]
+        },
+        {
+          "id": "ambiguous-symbol-contract",
+          "outcome": "ok",
+          "expected": "ambiguous_symbol_error"
+        }
+      ],
+      "raw_report_sha256": "4d99c3dc782fd6ead67c94b552bee0ee7efd2ffbea0437e555c7cadbe750dca9"
+    }
+  ],
+  "review": {
+    "round": 1,
+    "cap": 2,
+    "head": "344c384825db44507841ca53e1b53c5c7956315e",
+    "verdict": "APPROVE",
+    "wrong": 0,
+    "smell": 0,
+    "scope": "implementation, tests, checkpoint documentation and aggregate measurement; full gates were pending during review"
+  },
+  "closeout_review": {
+    "round": 2,
+    "cap": 2,
+    "head": "2b8436d836440bb41f87caa3279607a3b1f1cade",
+    "verdict": "APPROVE",
+    "wrong": 0,
+    "smell": 0,
+    "scope": "documentation-only closeout, evidence consistency, private aggregate boundary; later review and publication-status record self-checked"
+  },
+  "exclusions": [
+    "full multi-corpus",
+    "live-model",
+    "compiler-Program accuracy",
+    "matched oracle accuracy comparison"
+  ],
+  "logs": {
+    "focused-green.log": "1a8db069657d3b2ca70ebb4cad8d91f505ff20a7bd9444b26d39e52f1ca63865",
+    "cache-green.log": "bd058423532a37d9eee19dfef48024358009092df7188a3c498d4975726525f2",
+    "contract-final-red.log": "d02d83fbeefd91c41c9a977973b6231c59f087d2164005254c5650b98f774786",
+    "same-name-red.log": "19dc1d9b27e7d72e4818ff14c028be0edf3d9b70c97064e178c86aee245fc0f7",
+    "cache-red.log": "632046a39d7c9baa2820c01d7a73009add5d7352d5c3194de3eaf0e3bfabea1b",
+    "python-full.log": "7bbff3962a12eb0d9e42330eee8f07a5c8e42473750130cf4936e73b7e2f3122",
+    "examples.log": "8ac2fdb769e157a829c5468846e155d2a2faef6408cd6bab3b19762627067ec5",
+    "comparator.log": "b2251cce30c18a6f20aa8057799b1dee075590b0b962e4b1d4ecb7b11327495f",
+    "clippy.log": "f9d1b7b6660e7f7ca368d82ff40f81ed512f6b3231dd5d8b6b2a72cb3d9001b6",
+    "gate-logs-2026-09-11T01-40-27-764Z-61541/summary.json": "4a00f02471ce6301ffa97f84f6f2ff241084695adeeb44711ecf1336abc00ab9"
+  },
+  "local_archive": {
+    "path": "/private/tmp/prism-loop-header-344c3848-evidence.tgz",
+    "bytes": 23625623,
+    "mode": "0600",
+    "sha256": "878e60a8e1ae217c37a9b4150dea86021f50357d88c6bddd05d242779b9e33c0",
+    "publish_raw": false
+  }
+}
