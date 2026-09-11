@@ -359,3 +359,29 @@ fn exact_parameter_node_fields_and_genuine_other_owner_cannot_be_substituted() {
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+#[test]
+fn same_name_same_line_ast_owners_refuse_parameter_binding() {
+    let source = "function take(value) { return value; } function take(value) { return value; }\nfunction run(input) {\n  take(input);\n}\n";
+    for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
+        let (cpg, files) = fixture(language, source);
+        let parsed = files.values().next().unwrap();
+        assert_eq!(
+            parsed
+                .all_functions()
+                .iter()
+                .filter(|node| parsed.node_line_range(node) == (1, 1)
+                    && parsed
+                        .language
+                        .function_name(node)
+                        .is_some_and(|name| parsed.node_text(&name) == "take"))
+                .count(),
+            2,
+            "fixture must retain both colliding AST owners"
+        );
+        assert!(
+            argument_targets(&cpg, "run", "input", "take").is_empty(),
+            "{language:?}: ambiguous AST owner cannot authorize a parameter target"
+        );
+    }
+}
