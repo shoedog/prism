@@ -1,5 +1,9 @@
 # Bounded JS/TS/TSX exact parameter-token binding
 
+Status: implemented and measured; see the [closeout readout](../../eval/receiver-closure/2026-09-10-js-ts-exact-parameter-binding.md).
+The design-time hypotheses and inherited counts below are retained as history;
+the readout records their verification and the supplemental owner regression.
+
 Base: PR311 merged `b2b141cd5605f9b7f74b32a2fafdeb9c78619bc9`.
 Publication-only predecessor commit5ce80a86 carried asb9c8c59d; no docs-only PR.
 

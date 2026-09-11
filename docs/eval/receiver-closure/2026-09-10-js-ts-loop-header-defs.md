@@ -1,5 +1,9 @@
 # JS/TS/TSX loop-header definition repair
 
+PR311 is merged. Successor: [exact parameter-token binding repair](2026-09-10-js-ts-exact-parameter-binding.md)
+is implemented and verified. The measurements and publication notes below retain
+the historical loop-repair checkpoint; the body-target repair is no longer pending.
+
 Both loop-header lvalue extractors now inspect only the grammar's `left` field.
 For `for (const item of items)`, `item` remains a Def and the iterable read
 `items` no longer becomes one. Identifier/destructuring handling is retained;
