@@ -452,3 +452,28 @@ fn argument_comments_leave_non_js_argument_contract_unchanged() {
         vec!["first", "/* legacy */", "second"]
     );
 }
+
+#[test]
+fn argument_comments_do_not_inflate_call_site_metadata_count() {
+    for (arguments, count) in [
+        ("/* only */", 0),
+        ("a, /* block */ b", 2),
+        ("a, // line\n b,", 2),
+    ] {
+        let source = format!("function run(a,b) {{\n target({arguments});\n}}");
+        for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
+            let parsed = ParsedFile::parse("comments", &source, language).unwrap();
+            assert_eq!(parsed.parse_error_count, 0);
+            let cpg = CodePropertyGraph::build(&BTreeMap::from([("comments".into(), parsed)]));
+            let sites = cpg
+                .call_graph
+                .calls
+                .values()
+                .flatten()
+                .filter(|s| s.callee_name == "target")
+                .collect::<Vec<_>>();
+            assert_eq!(sites.len(), 1);
+            assert_eq!(sites[0].arg_count, Some(count), "{language:?}: {arguments}");
+        }
+    }
+}

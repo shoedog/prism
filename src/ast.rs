@@ -9052,8 +9052,8 @@ impl ParsedFile {
                                 let mut spread = false;
                                 let mut cursor2 = args.walk();
                                 for child in args.children(&mut cursor2) {
-                                    if !child.is_named() {
-                                        continue; // skip punctuation (, )
+                                    if !self.is_positional_argument_node(child) {
+                                        continue; // punctuation and JS/TS comment trivia
                                     }
                                     if child.kind() == "variadic_argument" {
                                         spread = true;

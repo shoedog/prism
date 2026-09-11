@@ -92,6 +92,19 @@ fail before and pass after the fix; one non-JS control passes both. All17 existi
 call-argument-focused tests pass. CPG cache82→83; no call-resolution policy change.
 Native replay and full verification follow. Separate local commit; no publication.
 
+The subsequent source read-through found the fifth companion producer: call-site
+metadata counted named comments too (`target(/* only */)` reported1 instead of0).
+Its own pre-fix test fails; all6 comment regressions/controls pass after using the
+same predicate there. CPG83→84 and navigation sidecar45→46 invalidate serialized
+call-site counts/fingerprints; this does not expand arity-resolution policy.
+
+After the positional repair, public replay versus merged base is290 added /
+3 removed flows (net287); versus optional-only it is13 added /6 removed. Every
+added target is a supported compiler parameter token and has at least one matching
+source argument ordinal.255 have one syntax match,35 have multiple enclosing call
+arguments. All3 removed base flows fail the source ordinal check. This is not
+independent compiler-Program callee resolution. Private replay remains unchanged.
+
 Source observer tests: initial18 passed, then primary review captured17 passes /
 5 failures for four bounded defects (one duplicate manifestation): optional
 sibling initialization, form mismatch, wrong slot spelling and escaping symlinks.
