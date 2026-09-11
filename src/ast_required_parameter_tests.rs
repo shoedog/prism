@@ -43,7 +43,6 @@ fn required_parameter_identifiers_keep_exact_tokens_across_function_forms() {
 #[test]
 fn required_parameter_unsupported_forms_do_not_supply_definitions() {
     for parameter in [
-        "a?: any",
         "a: any = value",
         "...a: any[]",
         "{a}: any",
@@ -176,5 +175,86 @@ fn required_parameter_write_shadow_and_field_isolation_match_javascript() {
                 assert!(!defs(&candidate).iter().any(|(path, _)| path == "a"));
             }
         }
+    }
+}
+
+#[test]
+fn optional_parameter_identifiers_keep_exact_tokens_without_sibling_defaults() {
+    for source in [
+        "function take(a?: any, b?: any) { sink(a, b); }",
+        "function take(a?, b?) { sink(a, b); }",
+        "function take(a: any, b?: any) { sink(a, b); }",
+        "const take = (a?: any, b?: any) => { sink(a, b); };",
+        "class C { take(a?: any, b?: any) { sink(a, b); } }",
+        "function take(\n/* Ω */ a /* comment */?: Other,\nb?: { a: Other }) { sink(a, b); }",
+    ] {
+        check(source, &["a", "b"]);
+    }
+    check(
+        "function take($a?: any, café?: any) { sink($a, café); }",
+        &["$a", "café"],
+    );
+}
+
+#[test]
+fn optional_parameter_unsupported_individual_forms_do_not_supply_definitions() {
+    for parameter in ["a?: any = value", "...a?: any[]"] {
+        check(&format!("function take({parameter}) {{ sink(a); }}"), &[]);
+    }
+    for parameter in [
+        "public a?: any",
+        "private a?: any",
+        "protected a?: any",
+        "readonly a?: any",
+        "public override a?: any",
+        "@inject a?: any",
+    ] {
+        check(
+            &format!("class C {{ constructor({parameter}) {{ sink(a); }} }}"),
+            &[],
+        );
+    }
+}
+
+/// The whole-list initializer barrier is a distinct, wider gate than any
+/// individual optional parameter's own children: an initializer anywhere in
+/// the signature (a sibling default, or a default nested in a destructuring
+/// pattern) refuses every optional occurrence in that list, even an
+/// otherwise-clean `a?`. Required-parameter occurrences are unaffected by
+/// this gate and keep their existing independent, per-parameter contract.
+#[test]
+fn optional_parameter_refuses_when_signature_contains_any_initializer() {
+    for parameters in [
+        "a?: any, b: any = value",
+        "a?: any, {x = 1}: any",
+        "a?: any, [y = 1]: any",
+    ] {
+        check(&format!("function take({parameters}) {{ sink(a); }}"), &[]);
+    }
+    check(
+        "function take(a: any, b?: any, c: any = value) { sink(a, b, c); }",
+        &["a"],
+    );
+}
+
+#[test]
+fn optional_parameter_duplicate_recovery_and_escaped_binding_lists_fail_closed() {
+    for parameters in [
+        "a?: any, a: any",
+        "a: any, a?: any",
+        "\\u0061?: any, b: any",
+    ] {
+        check(
+            &format!("function take({parameters}) {{ sink(a, b); }}"),
+            &[],
+        );
+    }
+    for language in [Language::TypeScript, Language::Tsx] {
+        let source = "function take(a?: any, b: ) { sink(a); }";
+        let parsed = ParsedFile::parse("params.ts", source, language).unwrap();
+        assert!(parsed.parse_error_count > 0);
+        let function = parsed.all_functions()[0];
+        assert!(parsed.function_parameter_occurrences(&function).is_empty());
+        assert!(parsed.function_parameter_names(&function).is_empty());
     }
 }

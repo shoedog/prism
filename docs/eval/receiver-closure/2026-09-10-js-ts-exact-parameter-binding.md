@@ -114,6 +114,10 @@ proof is claimed. Private raw evidence remains local.
 
 ## Next recommendation
 
+Implemented successor: [bounded optional/inert-default parameter bundle](2026-09-11-optional-default-parameters.md),
+including source proof and real-site value measurement. The recommendation below
+records this predecessor's historical handoff, not an outstanding approval request.
+
 With the demonstrated body-target defect repaired, assess the bounded value and
 proof requirements for optional/default identifier parameter occurrences before
 adding syntax support. Keep positional argument binding separate from default
@@ -130,8 +134,11 @@ Local verification archive: `/private/tmp/prism-exact-param-10367730-evidence.tg
 32,891,223 bytes, mode0600; SHA256
 `12f4c872c7132d4b2997b743ee2f3af15e936b97827aecf001ee1e75201eb944`.
 Gzip integrity checked. Raw archive is private and must not be published.
-Publication is blocked by command policy: the authorized `git push -u origin
-fix/js-ts-exact-parameter-binding` was rejected because approval is required but
-the session is set to Never. No alternate publication route was attempted. The
-branch and final closeout commits remain local; owner-run push is needed before
-PR creation. No automatic merge.
+Publication: after the agent's command-policy block, the owner pushed
+`262e7dabb0e684cc2f11d825326fd33ae6d044f9`. The live remote ref was verified and
+[PR312](https://github.com/shoedog/prism/pull/312) opened against main. The owner
+subsequently merged it as `d9d1cc9195af240d2f6f0797954eea8e6e3d1c27` and refreshed
+origin/main; both were verified live. CI had started at creation; merge status
+does not establish its final outcome. Status-only corrections remain local for
+the next authorized slice/push. No alternate Git publication route, separate
+docs-only MR or automatic merge was used.

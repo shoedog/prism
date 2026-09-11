@@ -482,7 +482,7 @@ impl ParsedFile {
         if let Some(args_node) = self.language.call_arguments(call_node) {
             let mut cursor = args_node.walk();
             for child in args_node.children(&mut cursor) {
-                if child.is_named() {
+                if self.is_positional_argument_node(child) {
                     args.push(CallArg {
                         start_byte: child.start_byte(),
                         end_byte: child.end_byte(),
@@ -491,6 +491,17 @@ impl ParsedFile {
             }
         }
         args
+    }
+
+    /// JS/TS grammars expose comment trivia as named argument-list children.
+    /// Preserve expression slots (including spread), but never give trivia an
+    /// argument index. Other languages retain their existing extraction contract.
+    fn is_positional_argument_node(&self, node: Node<'_>) -> bool {
+        node.is_named()
+            && !(matches!(
+                self.language,
+                Language::JavaScript | Language::TypeScript | Language::Tsx
+            ) && node.kind() == "comment")
     }
 
     /// Derive an argument's text from its span, byte-identically to the legacy
@@ -9041,8 +9052,8 @@ impl ParsedFile {
                                 let mut spread = false;
                                 let mut cursor2 = args.walk();
                                 for child in args.children(&mut cursor2) {
-                                    if !child.is_named() {
-                                        continue; // skip punctuation (, )
+                                    if !self.is_positional_argument_node(child) {
+                                        continue; // punctuation and JS/TS comment trivia
                                     }
                                     if child.kind() == "variadic_argument" {
                                         spread = true;
@@ -9309,7 +9320,7 @@ impl ParsedFile {
     /// line for call-boundary compatibility.
     pub fn function_parameter_occurrences(&self, func_node: &Node<'_>) -> Vec<ParameterOccurrence> {
         if matches!(self.language, Language::TypeScript | Language::Tsx) {
-            return crate::parameter_slots::typescript_required_bindings(self, func_node);
+            return crate::parameter_slots::typescript_parameter_bindings(self, func_node);
         }
         let mut params_out = Vec::new();
         if let Some(params) = self.find_parameters_node(func_node) {
@@ -9322,6 +9333,12 @@ impl ParsedFile {
                         name_node.end_byte(),
                     ));
                 }
+            }
+            if self.language == Language::JavaScript {
+                params_out.extend(
+                    crate::parameter_slots::javascript_inert_default_occurrences(self, params),
+                );
+                params_out.sort_by_key(|occurrence| occurrence.1);
             }
         }
         params_out
@@ -10264,12 +10281,11 @@ impl ParsedFile {
                 let name = self.node_text(&name_node);
                 if name == callee_name {
                     if let Some(args_node) = self.language.call_arguments(&node) {
-                        // Count non-punctuation children to find the Nth argument
+                        // Count expression children, excluding JS/TS comment trivia.
                         let mut arg_idx = 0;
                         let mut cursor = args_node.walk();
                         for child in args_node.children(&mut cursor) {
-                            // Skip punctuation: ( ) , and whitespace
-                            if child.is_named() {
+                            if self.is_positional_argument_node(child) {
                                 if arg_idx == arg_index {
                                     let text = self.node_text(&child).trim().to_string();
                                     // Strip address-of operator
@@ -10364,7 +10380,7 @@ impl ParsedFile {
                     if let Some(args_node) = self.language.call_arguments(&node) {
                         let mut cursor = args_node.walk();
                         for child in args_node.children(&mut cursor) {
-                            if child.is_named() {
+                            if self.is_positional_argument_node(child) {
                                 let text = self.node_text(&child).trim().to_string();
                                 let text = text.trim_start_matches('&').to_string();
                                 out.push(text);
@@ -10400,7 +10416,7 @@ impl ParsedFile {
                     if let Some(args_node) = self.language.call_arguments(&node) {
                         let mut cursor = args_node.walk();
                         for child in args_node.children(&mut cursor) {
-                            if child.is_named() {
+                            if self.is_positional_argument_node(child) {
                                 let text = self.node_text(&child).trim().to_string();
                                 let text = text.trim_start_matches('&').to_string();
                                 out.push(text);
@@ -10927,6 +10943,10 @@ mod asserted_member_tests;
 #[cfg(test)]
 #[path = "ast_required_parameter_tests.rs"]
 mod required_parameter_tests;
+
+#[cfg(test)]
+#[path = "ast_inert_default_parameter_tests.rs"]
+mod inert_default_parameter_tests;
 
 #[cfg(test)]
 #[path = "ast_loop_header_tests.rs"]

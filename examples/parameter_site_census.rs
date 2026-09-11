@@ -319,15 +319,11 @@ mod tests {
                 .iter()
                 .filter(|e| e["to"]["function"] == name)
                 .collect();
-            if name == "take" {
-                assert_eq!(flows.len(), 1);
-                assert_eq!(flows[0]["to"]["start_byte"], f["slots"][0]["start_byte"]);
-            } else {
-                assert!(
-                    flows.is_empty(),
-                    "unsupported parameter must not bind to body Def"
-                );
-            }
+            // Both plain and bounded literal-default parameters now bind; a
+            // body assignment still cannot substitute for the signature token.
+            assert_eq!(flows.len(), 1);
+            assert_eq!(flows[0]["to"]["start_byte"], f["slots"][0]["start_byte"]);
+            assert_eq!(flows[0]["to"]["end_byte"], f["slots"][0]["end_byte"]);
         }
     }
     #[test]

@@ -3,8 +3,16 @@
 Successors: the [bounded loop-header Def repair](../2026-09-10-js-ts-loop-header-defs.md)
 and [exact parameter-token binding repair](../2026-09-10-js-ts-exact-parameter-binding.md)
 are implemented and verified. The audit text below records PR310's historical
-measurements and recommendations; current state is in those successors. Optional
-and default occurrence expansion remains separate.
+measurements and recommendations; current state is in those successors and the
+[bounded optional/inert-default implementation](../2026-09-11-optional-default-parameters.md).
+The latter includes source proof, value assessment and production changes in one
+local bundle; publication is held.
+
+Its aggregate-only source classifier takes explicit pinned compiler and snapshot
+paths: `node source-proof.mjs /absolute/typescript.js census.json /absolute/source`.
+Run its tests with `PRISM_TYPESCRIPT=/absolute/typescript.js node --test
+docs/eval/receiver-closure/parameter-sites/source-proof.test.mjs` from the repo root.
+TypeScript must be 5.9.3; missing inputs fail rather than skip.
 
 PR309 delivered substantial measured value. Compare pre-repair production
 `f369f20cdcd3463bae86b191bcdd8ec9efd8f6fd` with merged production

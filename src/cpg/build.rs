@@ -176,8 +176,8 @@ fn compute_param_def_nodes(
     if functions.next().is_some() {
         return None;
     }
-    // Slots and occurrences have distinct contracts. Defaults/optionals may
-    // occupy slots without supplying a supported parameter Def. Never compress
+    // Slots and occurrences have distinct contracts. Defaults and refused
+    // optional forms may occupy slots without a supported Def. Never compress
     // those holes, nor fall back to FunctionInfo names or body definitions.
     let slots = parsed.function_parameter_slot_occurrences(&function)?;
     let supported: BTreeSet<_> = parsed

@@ -1,24 +1,24 @@
 # Handoff — exact parameter-token argument binding
 
 **Written:** 2026-09-10 · **By:** root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · fix/js-ts-exact-parameter-binding · **Measured state:** `[MEASURED]` full-gate checkpoint `103677308b46332cdab13ce292e0086460aaa657`; gate runner pre/post `git status` clean and HEAD unchanged. Subsequent closeout changes are docs only; rebind actual HEAD/status with §1.
+**Workspace:** /Users/wesleyjinks/code/slicing · fix/js-ts-exact-parameter-binding · **Measured state:** `[MEASURED]` PR312 merged as `d9d1cc9195af240d2f6f0797954eea8e6e3d1c27`; owner-refreshed origin/main and `gh pr view 312` agree. Checkout was clean at local status commit92190cfa before this merge record. Preserve both local status updates for the next authorized slice; rebind actual HEAD/status with §1.
 **Predecessor:** PR311 merged as b2b141cd; owner approved this parameter-binding repair in one or two implementation slices.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
-**Provenance:** written live by root. `[MEASURED]` test/replay claims point to captured outputs under §6. Independent review is recorded separately from primary verification.
+**Provenance:** merge rechecked live by root with `git log origin/main` and `gh pr view 312`. Test/replay/review results below are `[INHERITED]` from the preceding verified closeout and its committed receipt; they were not rerun for this documentation-only update.
 
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` root owns all files; initial test delegation and both independent review rounds are complete — RESOLVED.
-**(b) Custody exposure** — `[MEASURED]` implementation/tests/closeout committed locally; prior publication-only docs carried into this branch. Push rejected: approval required by policy, but AskForApproval is Never. Owner-run push remains necessary; raw private evidence stays local — OPEN publication.
-**(c) In flight / irreversible** — `[MEASURED]` full gates and both review rounds complete; no test process remains — RESOLVED local work. Publication blocked by command policy. Candidate quick finished INVALID, not green.
+**(b) Custody exposure** — `[MEASURED]` owner pushed262e7dab; remote ref verified and PR312 opened — RESOLVED implementation remote custody. This status-only update stays local until the next authorized push; raw private evidence stays local.
+**(c) In flight / irreversible** — `[MEASURED]` PR312 is MERGED; owner performed the merge and refreshed main — RESOLVED. No successor implementation started. `[INHERITED]` local verification/reviews complete; quick INVALID. Merge state is not a new CI-green claim.
 **(d) Authorization granted but not exercised** — Owner approved parameter-binding repair, commit/push/open PR; no auto-merge and no separate docs-only MR. User performed fetch. Never bypass command approval policy.
 
 ## 1. Resume order
 
 1. `git status --short --branch` and `git log -3 --oneline`; preserve unrelated state.
 2. Read `docs/eval/receiver-closure/2026-09-10-js-ts-exact-parameter-binding.md` and sibling verification JSON.
-3. Owner runs `git -C /Users/wesleyjinks/code/slicing push -u origin fix/js-ts-exact-parameter-binding`.
-4. Verify the live remote branch SHA equals local HEAD; then create one PR against main using the prepared local PR body. No duplicate PR or command-policy bypass. Keep raw private artifacts out of the commit.
+3. PR312 is merged. For the next approved implementation, branch from refreshed origin/main (`d9d1cc91` at this checkpoint) and carry the local status-only commits after verifying their diff.
+4. Await owner approval for optional/default occurrence work. No separate docs-only MR or command-policy bypass. Keep raw private artifacts out of the commit.
 
 **STOP conditions:** unrelated edits, syntax or authority expansion, changed corpus population, raw private publication, open-class review at cap2, unavailable command approval.
 
@@ -35,7 +35,7 @@
 | Full suites | done | Clean unchanged10367730: Rust4,142/4,335/4,358, one existing ignore each; observers726/helpers18/authority40; fmt/diff passed |
 | Other verification | done | Python940+1 intentional skip; examples32; comparator10; grammar/policy10; Clippy completed with warnings |
 | Review | done | Round1 at10367730 and round2 closeout at77e004b8 each APPROVE/0 WRONG/0 SMELL; final status record SELF-PASS; cap2 complete |
-| Publication | blocked | Authorized push rejected by approval policy; branch local, no PR yet; owner-run push required |
+| Publication / merge | done | `[MEASURED]` PR312 MERGED as d9d1cc91; refreshed origin/main agrees; local status-only records remain to carry forward |
 
 ## 3. Corrections to standing documents and memory
 
@@ -47,6 +47,8 @@
 | Initial nine-test coverage | Ambiguous AST owner guard lacked a direct regression | Supplementary same-line duplicate owner probe and tenth regression added without production change |
 | Earlier checkpoint | Replay/quick still pending | Replay completed; quick INVALID, never green |
 | Closeout checkpoint | Review pending | Round2 approved77e004b8; final review/publication record self-checked, not a third review |
+| Publication blocker | Branch local / no PR | Owner push verified; PR312 open and CI started. This status-only correction can accompany the next slice |
+| Publication checkpoint | PR open / awaiting owner merge | PR312 merged as d9d1cc91; main refreshed. No CI outcome inferred from merge state |
 
 No memory edits authorized. The current closeout supersedes historical counts,
 not their original source/evidence claims.
@@ -56,7 +58,7 @@ not their original source/evidence claims.
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
 | 1 | Closeout review | done | Preserve review records; no production changes | None | cap2 complete |
-| 2 | Publication | blocked | Owner pushes; verify remote SHA and open one implementation PR against main | Required command approval unavailable | No auto-merge |
+| 2 | PR merge / status custody | done | Preserve local status-only commits for the next approved implementation slice | None | PR312 merged d9d1cc91 |
 | 3 | Optional/default occurrence support | parked | Source-backed value/proof requirements, then separately bounded implementation | Future owner approval | No React.FC or closure expansion |
 
 ## 5. Invariants and traps — do not do these
@@ -75,6 +77,9 @@ not their original source/evidence claims.
 | Item | Verbatim |
 |---|---|
 | Evidence | `/private/tmp/prism-param-binding-mkuGwX` |
+| Pull request | `https://github.com/shoedog/prism/pull/312` |
+| Merge / refreshed main | `d9d1cc9195af240d2f6f0797954eea8e6e3d1c27` |
+| Published head at creation | `262e7dabb0e684cc2f11d825326fd33ae6d044f9` |
 | Base | `b2b141cd5605f9b7f74b32a2fafdeb9c78619bc9` |
 | Production implementation | `cc289999f8a5db46079d664a876fbe44766ec605` |
 | Full gate checkpoint | `103677308b46332cdab13ce292e0086460aaa657` |
@@ -91,4 +96,4 @@ not their original source/evidence claims.
 
 **§2c verdict:** SURVIVED independent implementation review at10367730 and closeout review at77e004b8, both APPROVE/0 WRONG/0 SMELL within cap2; full gates independently complete · claim: "arguments bind only exact supported JS/TS parameter-token definitions" · pass: INDEPENDENT through closeout; final review/publication record SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED + SOURCE-BACKED · record: verification JSON, captured RED, focused GREEN, full gate summary and complete fixed-population replay.
 
-**Questions the owner owes an answer to:** Run the exact push in §1, then confirm. Implementation and local verification are complete; remote custody/PR creation remain blocked until that succeeds.
+**Questions the owner owes an answer to:** Approve the next bounded optional/default occurrence proof/value work before implementation. No action remains for PR312; carry local status-only records into the next approved slice.

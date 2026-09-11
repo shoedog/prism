@@ -86,7 +86,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v43: bounded module-private non-generic Props interface authority (CPG v75).
 // v44: source-backed imported object-alias receiver authority (CPG v76).
 // v45: contextual imported object-alias receiver authority (CPG v77).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 45;
+// v46: JS/TS call-site fingerprints exclude comment trivia from argument counts.
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 46;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -705,7 +706,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 45);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 46);
     }
 
     #[test]

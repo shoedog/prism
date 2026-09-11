@@ -189,7 +189,6 @@ fn unsupported_parameters_are_not_introduced_and_do_not_compress_slots() {
         assert!(default_middle.iter().any(|(name, _, _)| name == "c"));
         assert!(!default_middle.iter().any(|(name, _, _)| name == "middle"));
         for (function, forbidden) in [
-            ("defaults", "value"),
             ("rests", "items"),
             ("destructured", "field"),
             ("constructor", "property"),
@@ -202,6 +201,9 @@ fn unsupported_parameters_are_not_introduced_and_do_not_compress_slots() {
             );
         }
         let edges = argument_edges(&cpg, "mixed");
+        // Literal defaults are now supported, but only their exact binding token.
+        let value = source.find("value = 1").unwrap();
+        assert!(parameter_defs(&cpg, "defaults").contains(&("value".into(), value, value + 5)));
         assert!(edges
             .iter()
             .any(|(path, parameter, _, _)| path == "first" && parameter == "a"));

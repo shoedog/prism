@@ -194,7 +194,11 @@ use std::path::{Path, PathBuf};
 /// - v79: bounded TS/TSX required identifier parameter definitions and flow.
 /// - v80: JS/TS/TSX loop iterables are not loop-header definitions.
 /// - v81: JS/TS/TSX call arguments require exact supported parameter-token Defs.
-const CACHE_VERSION: u32 = 81;
+/// - v82: bounded TS/TSX optional identifier parameter definitions and flow.
+/// - v83: JS/TS/TSX argument-list comments do not occupy runtime slots.
+/// - v84: JS/TS/TSX call-site argument counts exclude comment trivia.
+/// - v85: bounded JS/TS/TSX inert-default identifier definitions and flow.
+const CACHE_VERSION: u32 = 85;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -734,7 +738,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 81);
+        assert_eq!(super::CACHE_VERSION, 85);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
