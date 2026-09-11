@@ -13,7 +13,7 @@ const SLOT_KEYS = ['name', 'start_byte', 'end_byte'];
 const OCCURRENCE_KEYS = ['name', 'start_byte', 'end_byte', 'bare_reference', 'dfg_def', 'cpg_def'];
 const FLOW_KEYS = ['from', 'to', 'confidence'];
 const ENDPOINT_KEYS = ['file', 'function', 'function_start_line', 'line', 'path', 'start_byte', 'end_byte'];
-const METRICS = ['functions', 'owner_null', 'parameters', 'occurrences', 'dfg_defs', 'cpg_defs', 'slot_matched_flows', 'non_parameter_definition_flows', 'flows'];
+const METRICS = ['functions', 'owner_null', 'parameters', 'occurrences', 'dfg_defs', 'cpg_defs', 'slot_matched_flows', 'unmatched_slot_flows', 'flows'];
 
 function fail(message) { throw new TypeError(`invalid parameter-site census: ${message}`); }
 function object(value, label) {
@@ -102,11 +102,15 @@ export function validateCensus(value) {
     unique(fn.parameters.map(p => `${p.start_byte}:${p.end_byte}`), 'parameter');
     for (const slot of fn.slots ?? []) {
       exactKeys(slot, SLOT_KEYS, 'slot'); string(slot.name, 'slot.name'); range(slot, 'slot', fn);
+      if (!fn.parameters.some(parameter => slot.start_byte >= parameter.start_byte && slot.end_byte <= parameter.end_byte)) fail('slot range must be within parameter syntax');
     }
     unique((fn.slots ?? []).map(slot => `${slot.start_byte}:${slot.end_byte}:${slot.name}`), 'slot');
     for (const occurrence of fn.occurrences) {
       exactKeys(occurrence, OCCURRENCE_KEYS, 'occurrence'); string(occurrence.name, 'occurrence.name'); range(occurrence, 'occurrence', fn);
       bool(occurrence.bare_reference, 'occurrence.bare_reference'); bool(occurrence.dfg_def, 'occurrence.dfg_def'); bool(occurrence.cpg_def, 'occurrence.cpg_def');
+      if (!fn.parameters.some(parameter => occurrence.start_byte >= parameter.start_byte && occurrence.end_byte <= parameter.end_byte)) fail('occurrence range must be within parameter syntax');
+      if (occurrence.dfg_def && !occurrence.bare_reference) fail('occurrence.dfg_def requires bare_reference');
+      if (occurrence.dfg_def && fn.owner_name === null) fail('occurrence.dfg_def requires a non-null owner');
       if (occurrence.cpg_def && !occurrence.dfg_def) fail('occurrence.cpg_def requires dfg_def');
     }
     unique(fn.occurrences.map(o => `${o.start_byte}:${o.end_byte}:${o.name}`), 'token');
@@ -138,7 +142,7 @@ function assertSamePopulation(base, candidate) {
 }
 function blank() {
   return { parameter_forms: {}, functions: 0, owner_null: 0, parameters: 0, occurrences: 0, dfg_defs: 0, cpg_defs: 0,
-    slot_matched_flows: 0, non_parameter_definition_flows: 0, flows: 0, confidence_groups: {} };
+    slot_matched_flows: 0, unmatched_slot_flows: 0, flows: 0, confidence_groups: {} };
 }
 function summarize(census, onlyLanguage = null) {
   const result = blank();
@@ -156,7 +160,7 @@ function summarize(census, onlyLanguage = null) {
   for (const flow of flows) {
     const matched = functions.some(fn => fn.file === flow.to.file && fn.start_line === flow.to.function_start_line && fn.owner_name === flow.to.function
       && (fn.slots ?? []).some(slot => slot.name === flow.to.path && slot.start_byte === flow.to.start_byte && slot.end_byte === flow.to.end_byte));
-    result.slot_matched_flows += Number(matched); result.non_parameter_definition_flows += Number(!matched);
+    result.slot_matched_flows += Number(matched); result.unmatched_slot_flows += Number(!matched);
     const group = digest(flow.confidence); result.confidence_groups[group] = (result.confidence_groups[group] ?? 0) + 1;
   }
   return result;

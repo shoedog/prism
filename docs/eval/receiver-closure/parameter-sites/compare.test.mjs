@@ -15,10 +15,10 @@ const census = (overrides = {}) => ({
   skipped: [],
   functions: [{
     file: 'fixture.ts', start_byte: 0, end_byte: 30, start_line: 1,
-    owner_name: 'f', kind: 'function', parameter_recovery: true,
+    owner_name: 'f', kind: 'function', parameter_recovery: false,
     parameters: [{ start_byte: 11, end_byte: 13, kind: 'required_parameter', form: 'identifier' }],
     slots: [{ name: 'x', start_byte: 12, end_byte: 13 }],
-    occurrences: [{ name: 'x', start_byte: 20, end_byte: 21, bare_reference: true, dfg_def: false, cpg_def: false }],
+    occurrences: [{ name: 'x', start_byte: 12, end_byte: 13, bare_reference: true, dfg_def: false, cpg_def: false }],
   }],
   flows: [{ from: endpoint({ start_byte: 20, end_byte: 21, path: 'use' }), to: endpoint(), confidence: { exact: true } }],
   ...overrides,
@@ -42,16 +42,16 @@ test('reports definition and boolean deltas by language', () => {
   candidate.functions[0].occurrences[0].dfg_def = true;
   candidate.functions[0].occurrences[0].cpg_def = true;
   const result = compare(base, candidate);
-  assert.deepEqual(result.delta, { functions: 0, owner_null: 0, parameters: 0, occurrences: 1, dfg_defs: 1, cpg_defs: 1, slot_matched_flows: 0, non_parameter_definition_flows: 0, flows: 0 });
+  assert.deepEqual(result.delta, { functions: 0, owner_null: 0, parameters: 0, occurrences: 1, dfg_defs: 1, cpg_defs: 1, slot_matched_flows: 0, unmatched_slot_flows: 0, flows: 0 });
   assert.equal(result.by_language.TypeScript.delta.cpg_defs, 1);
 });
 
-test('classifies an in-function non-parameter definition target', () => {
+test('classifies a flow target that does not exactly match a recovered slot', () => {
   const value = census();
   value.flows[0].to = endpoint({ path: 'x', start_byte: 20, end_byte: 21 });
   const result = compare(value, value);
   assert.equal(result.base.slot_matched_flows, 0);
-  assert.equal(result.base.non_parameter_definition_flows, 1);
+  assert.equal(result.base.unmatched_slot_flows, 1);
 });
 
 test('computes duplicate flow changes as a multiset and groups opaque confidence canonically', () => {
@@ -92,6 +92,14 @@ test('refuses impossible booleans and invalid token bounds', () => {
   assert.throws(() => validateCensus(impossible), /cpg_def requires dfg_def/);
   const bounds = census(); bounds.functions[0].slots[0].end_byte = 31;
   assert.throws(() => validateCensus(bounds), /within function/);
+  const bodySlot = census(); bodySlot.functions[0].slots[0] = { name: 'x', start_byte: 20, end_byte: 21 };
+  assert.throws(() => validateCensus(bodySlot), /parameter syntax/);
+  const bodyOccurrence = census(); bodyOccurrence.functions[0].occurrences[0].start_byte = 20; bodyOccurrence.functions[0].occurrences[0].end_byte = 21;
+  assert.throws(() => validateCensus(bodyOccurrence), /parameter syntax/);
+  const nonBareDef = census(); nonBareDef.functions[0].occurrences[0].dfg_def = true; nonBareDef.functions[0].occurrences[0].bare_reference = false;
+  assert.throws(() => validateCensus(nonBareDef), /bare_reference/);
+  const anonymousDef = census(); anonymousDef.functions[0].owner_name = null; anonymousDef.functions[0].occurrences[0].dfg_def = true;
+  assert.throws(() => validateCensus(anonymousDef), /owner/);
 });
 
 test('refuses changed files, skips, function shapes, parameters, and slots', () => {
