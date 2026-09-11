@@ -33,10 +33,26 @@ pub(crate) fn typescript_required_bindings(
     if duplicate || bindings.iter().any(|name| name.contains('\\')) {
         return Vec::new();
     }
+    // Optional-parameter occurrences additionally require the whole signature
+    // to carry no initializer anywhere (a sibling default, or a default
+    // nested in a destructuring pattern): the runtime binding identity of a
+    // `?` token has not been proven safe under sibling defaults, so the
+    // entire list is conservatively refused for optional occurrences when
+    // one is present. Required occurrences are unaffected and keep their
+    // existing independent per-parameter contract. This scan is
+    // deliberately broad (any `=` token anywhere under `params`, including
+    // inside a type annotation) rather than enumerating every initializer
+    // shape; a false refusal from a non-runtime `=` in a type position is an
+    // acceptable, documented conservative cost.
+    let optional_signature_clear = !params_list_has_initializer(params);
     named_children(params)
         .into_iter()
         .filter_map(|parameter| {
-            if parameter.kind() != "required_parameter" {
+            let is_optional = parameter.kind() == "optional_parameter";
+            if parameter.kind() != "required_parameter" && !is_optional {
+                return None;
+            }
+            if is_optional && !optional_signature_clear {
                 return None;
             }
             let pattern = parameter.child_by_field_name("pattern")?;
@@ -46,10 +62,14 @@ pub(crate) fn typescript_required_bindings(
             let annotation = parameter.child_by_field_name("type");
             let mut cursor = parameter.walk();
             // Exact allowlist includes unnamed tokens: readonly is unnamed in
-            // the pinned grammar. Defaults, decorators and parameter properties
-            // must not acquire a Def just because they contain an identifier.
+            // the pinned grammar, and so is optional_parameter's own `?`.
+            // Defaults, decorators and parameter properties must not acquire
+            // a Def just because they contain an identifier.
             if parameter.children(&mut cursor).any(|child| {
-                child != pattern && Some(child) != annotation && child.kind() != "comment"
+                child != pattern
+                    && Some(child) != annotation
+                    && child.kind() != "comment"
+                    && !(is_optional && !child.is_named() && child.kind() == "?")
             }) {
                 return None;
             }
@@ -60,6 +80,23 @@ pub(crate) fn typescript_required_bindings(
             ))
         })
         .collect()
+}
+
+/// Whole-signature conservative initializer scan for the optional-occurrence
+/// barrier above. Deliberately over-broad: matches a top-level parameter's
+/// `value` field (always paired with a literal `=`), and destructuring
+/// defaults (`assignment_pattern`/`object_assignment_pattern`, also always
+/// paired with a literal `=`), by scanning for the `=` token itself rather
+/// than enumerating each wrapper node. A `=` occurring inside a type
+/// annotation (type syntax, not a runtime default) is scoped in the same
+/// scan and yields a conservative false refusal, not a false Def.
+fn params_list_has_initializer(node: Node<'_>) -> bool {
+    if node.kind() == "=" {
+        return true;
+    }
+    let mut cursor = node.walk();
+    let children: Vec<_> = node.children(&mut cursor).collect();
+    children.into_iter().any(params_list_has_initializer)
 }
 
 pub(crate) fn slots(parsed: &ParsedFile, function: &Node<'_>) -> Option<Vec<ParameterOccurrence>> {

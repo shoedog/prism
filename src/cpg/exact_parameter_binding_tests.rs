@@ -259,15 +259,31 @@ fn exact_parameter_missing_entry_def_never_searches_the_body() {
 }
 
 #[test]
-fn optional_parameter_body_definition_is_not_a_supported_token() {
+fn optional_parameter_binds_to_signature_token_not_body_definition() {
     let source = "function take(value?: unknown) {\n value = clean();\n}\nfunction run(input: unknown) {\n take(input);\n}\n";
+    let token = "value";
     let mut failures = Vec::new();
     for language in [Language::TypeScript, Language::Tsx] {
         let (cpg, files) = fixture(language, source);
         assert_eq!(files.values().next().unwrap().parse_error_count, 0);
+        let start = source.find("value?").unwrap();
+        let expected = (
+            "exact".to_string()
+                + match language {
+                    Language::TypeScript => ".ts",
+                    Language::Tsx => ".tsx",
+                    _ => unreachable!(),
+                },
+            1,
+            start,
+            start + token.len(),
+            token.to_string(),
+        );
         let targets = argument_targets(&cpg, "run", "input", "take");
-        if !targets.is_empty() {
-            failures.push(format!("{language:?}: optional body target {targets:?}"));
+        if targets != [expected.clone()] {
+            failures.push(format!(
+                "{language:?}: expected {expected:?}, got {targets:?}"
+            ));
         }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));

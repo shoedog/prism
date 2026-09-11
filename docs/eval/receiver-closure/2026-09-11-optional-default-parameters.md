@@ -1,0 +1,94 @@
+# Optional/default parameter proof and bounded implementation
+
+Local bundle based on merged PR312 `d9d1cc91`. Implementation and verification
+are in progress; this is not a completion or publication claim. The owner approved
+multiple local commits and one eventual combined MR, with publication held.
+
+## Contract and source-backed decisions
+
+Parameter shadow guards, positional slots and authoritative occurrence tokens
+are different contracts. JS/TS local-binding guards already include optional,
+defaulted and destructured names. Slots already retain simple optional/default
+identifiers. Neither fact creates a DFG parameter Def. The occurrence producer
+supplies token identity; the DFG additionally needs a bare reference and an owner.
+CPG Step5b intersects slot and occurrence bytes with an existing entry Def and
+validates its complete owner/path/access/range. It never substitutes a body Def.
+
+First bounded implementation: TS/TSX simple optional identifiers, only in
+initializer-free signatures. Retain whole-list duplicate/escape/recovery checks
+and the exact parameter-child allowlist; do not admit properties, decorators,
+erased `this`, rest or destructuring. Any runtime initializer, including nested
+binding-pattern defaults, refuses **new optional occurrences**. Existing required
+occurrences and non-TS behavior stay unchanged. This deliberately under-approximates
+safe signatures until default parameter environments are handled separately.
+
+Second bounded implementation selected after primary/Opus design review: default
+identifiers in JS/TS/TSX, with number/string/boolean/null literals or empty arrays
+and objects, only in all-simple-identifier signatures whose defaults are all
+supported. This guard applies to newly defaulted occurrences, not old required
+ones. Exclude unary/template/asserted/parenthesized expressions, identifiers,
+calls, filled containers and destructuring. No default-expression value edges,
+React.FC, closure admission, callable-owner expansion or react-scripts change.
+
+## Hypothesis / probe / result log
+
+| Hypothesis and alternative | Probe and observation |
+|---|---|
+| Existing slots suffice for new token authority; alternative: slots compress omissions | Current `step5b_edges_for_caller` enumerates the original slot index and stops when `i >= args.len()`. Unsupported slots remain `None`; targeted omission/holes regressions are required. |
+| A sibling default can overwrite an earlier parameter; alternative: initializer text is inert | Node runtime control `f(a,b=(a="clean"))` returns `"clean"` for `f("input")`, but `"input"` for `f("input","present")`. Captured local runtime evidence confirms the hazard. |
+| Existing graph claims exact flow through that write; alternative: CFG completeness downgrades it | Base DFG has both signature Def tokens but labels entry-to-body flow `NameOnly(CfgIncomplete)`. This is **not evidence of a false Exact edge**. An assignment token inside a signature is not inherently an incorrect Def. |
+| Every TS default is an assignment-pattern wrapper | Source observer and pinned grammar expose a parameter `value` field as well. The early adviser assumption was incorrect; exact children and fields govern support. |
+| Syntax census counts are potential recovered flows; alternative: owners, slots and bare references exclude entries | Pinned compiler matches source parameter ranges after UTF-16→UTF-8 conversion and file hashing. Counts are syntax entries only; native candidate replay is still required. |
+
+Runtime omitted and explicit-undefined arguments both select the default; explicit
+non-undefined input skips it. Token identity alone does not prove the selected
+runtime payload. A self-reference in a default initializer is a TDZ refusal case
+for any later support; no claim that current production admits such a token.
+The return-only probe's `CfgIncomplete` result does not prove general safe labels:
+RD can be unavailable for that tiny CFG. Nontrivial-body controls must test the
+new Def's label explicitly. `Exact` binding evidence is not guaranteed runtime
+delivery of the argument's value.
+
+## Value and verification checkpoints
+
+The tested source observer matched all 702 selected entries (443 public,
+259 private), with matching file hashes and no selected-file syntax diagnostics.
+Public forms: 194 optional / 249 default identifiers; private: 0 / 259. These
+counts come from the unchanged production callable inventory, not all source
+callables or unique call sites. Initializer-free optional syntax counts are
+175 public / 0 private; 158 public entries have an inventoried named owner and
+matching slot. Broader inert-default syntax candidates are191 public /176 private,
+of which180 /176 have named owners and slots. This broader syntax predicate also
+includes unary numbers and no-substitution templates, unlike the planned production
+subset; it is an upper bound, not an admission count. Fresh base native replay
+matched prior results exactly in both corpora. Optional-only replay adds175
+public occurrence tokens,131 DFG/CPG parameter-token Defs and280 slot-matched
+Use→Def flow observations, with0 removals or unmatched targets. Private results
+are unchanged. Population/source hashes, loader skips, parameter and slot shapes
+match. Source classification of every added endpoint is still pending.
+
+Source observer tests: initial18 passed, then primary review captured17 passes /
+5 failures for four bounded defects (one duplicate manifestation): optional
+sibling initialization, form mismatch, wrong slot spelling and escaping symlinks.
+All22 now pass. New-tool initial tests are not RED evidence; the corrective run
+is a captured behavioral RED against the saved first implementation. Paths are
+checked canonically in an owner-controlled immutable snapshot; no adversarial
+concurrent filesystem-mutation safety is claimed.
+
+Raw private rows/source remain local. The source observer emits aggregates only
+and cannot authorize runtime edges. No dependencies were installed or downloaded;
+the pinned local TypeScript 5.9.3 parser supplies syntax, not a compiler Program
+or type-checking authority. Prism navigation reported 41 stale paths and LSP tools
+were unavailable; current source establishes the consumer contracts.
+
+Optional checkpoint: the primary parameter-focused run passes55 tests; source
+observer22 and cache pin1 pass. Fresh release build and all159 Tier-A matrix cases
+pass. Captured optional RED includes7 discriminating failures plus one confounded
+explicit-argument fixture (repeated same-line path); an initial zero-test filter
+is inadmissible and was corrected. Required controls passing before the change
+are not RED. The corrected explicit/omission fixtures and additional shadow and
+non-vacuity controls pass. Cache pin RED (81 vs82) is separate from behavioral
+proof. Full suites, Tier-A quick, default implementation and independent final
+review remain pending; this is a local checkpoint, not final completion.
+
+Local evidence root: `/private/tmp/prism-optional-default-W7ekZ5`.
