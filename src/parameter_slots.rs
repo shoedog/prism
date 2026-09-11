@@ -169,7 +169,7 @@ fn typescript_inert_default_occurrences(
                     child != pattern
                         && Some(child) != annotation
                         && child.kind() != "comment"
-                        && !(!child.is_named() && child.kind() == "?")
+                        && (child.is_named() || child.kind() != "?")
                 }) {
                     return None;
                 }

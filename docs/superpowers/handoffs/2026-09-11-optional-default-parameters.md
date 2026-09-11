@@ -1,15 +1,15 @@
 # Handoff — optional/default parameter implementation bundle
 
 **Written:** 2026-09-11 · **By:** root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/js-ts-optional-default-parameters · **Measured state:** `[MEASURED]` HEAD5b80828b contains optional, positional-comment and argument-count repairs. Sonnet default implementation active; root cache85 prepared after RED. `git status --short` expected dirty; rebind §1.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/js-ts-optional-default-parameters · **Measured state:** `[MEASURED]` HEAD0bb567cb contains bounded implementation. Root's post-review hash normalization, equivalent boolean simplification and docs are dirty; rebind §1. No external writer.
 **Predecessor:** PR312 merged; owner approved multiple local slice commits, one eventual MR after implementation.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
-**Provenance:** written live. `[MEASURED]` branch/source/tool availability checked this turn; prior corpus counts are `[INHERITED]` from PR312 until classification/replay.
+**Provenance:** written live. `[MEASURED]` source, replay and gate outcomes checked this turn; see the proof document for exact limitations.
 
 ## 0. Gating facts — settle these before starting anything below
 
-(a) Ownership `[MEASURED]`: root owns comment argument helpers/tests/cache/docs; Sonnet session49742 owns default occurrence helper/routing and its tests per prompt (no argument-helper edits) — RESOLVED separate AST regions and test ownership.
-(b) Custody `[MEASURED]`: optional8d89f98e, comment01522b2b, count5b80828b committed; default implementation pending; raw private evidence local — RESOLVED committed local custody, active writer retains next work.
+(a) Ownership `[MEASURED]`: root is sole writer; read-only reviews returned. Claude quota ended writer49742; no retry or safety bypass.
+(b) Custody `[MEASURED]`: optional8d89f98e, comment01522b2b, count5b80828b, default0bb567cb committed; raw private evidence and interrupted draft snapshot local.
 (c) In flight `[MEASURED]`: root is the sole writer. Sonnet default writer49742 ended at its session quota; partial artifact snapshotted and adopted locally, with ordering and sparse-array corrections. Base quick completed INVALID (corpus-pin drift and oracle errors); rebuild candidate before comparison because base used the shared release target.
 (d) Authority: multiple local commits for proof/value plus bounded implementation; HOLD push/MR/merge. No docs-only MR. Stop at an authority crossroads. Two review rounds per slice.
 
@@ -17,7 +17,7 @@
 
 1. `git status --short --branch`; preserve all current edits and confirm assigned writers.
 2. Read adjacent plan and `docs/eval/receiver-closure/2026-09-11-optional-default-parameters.md`; check release/matrix/replay results under §6.
-3. Default RED: 12 failures/8 controls; adoption RED: 2 failures/20 controls; parameter GREEN83 and native census GREEN6. Cache85 RED captured. Rebuild candidate for matrix/quick, commit bounded implementation, then full suites and independent review.
+3. Commit post-review fixes after fresh build/matrix. Re-run full gates with three missing historical-fixture helper tests explicitly excluded, rerun Python without heavy competitors, then round-2 source-observer review and final receipts. No publication.
 
 STOP: source drift, unexpected agent writes, raw private disclosure, necessary authority/syntax expansion beyond plan, open-class review at cap2, command-policy refusal.
 
@@ -29,10 +29,10 @@ STOP: source drift, unexpected agent writes, raw private disclosure, necessary a
 | Scope/design | done | initializer-free optional identifiers; literal/empty-container defaults only in all-simple signatures |
 | Read-only advice | done | sonnet-proof-result.json; incorrect TS grammar/Exact assumptions corrected in proof doc |
 | Optional implementation | done | optional-red.log, optional-root-green.log; full suites/review pending, not final done claim |
-| Source observer | done | source-proof-red.log (17 pass/5 fail), source-proof-green.log (22 pass); local custody tar |
+| Source observer | corrected | round1 WRONG uppercase digest captured RED1/1; project GREEN25; two documented authority/upper-bound smells; round2 pending |
 | Comment argument repair | done | 01522b2b; comment-control-base.json reproduces WRONG; green5, parity17, matrix159 |
 | Argument-count hardening | done | 5b80828b; argument-count-red.log1 failure, green6; cache/nav RED captured; matrix159 |
-| Default implementation | targeted green | Claude quota ended; root adoption; default-green.log83 pass and default-native-green.log6 pass; full gates/review pending |
+| Default implementation | reviewed | 0bb567cb; production review APPROVE0/0; first full Rust4184/4377/4400 pass, one ignore each; final rerun pending boolean simplification |
 | Publication | parked | explicitly held until combined bounded implementation; no push/MR |
 
 ## 3. Corrections to standing documents and memory
@@ -45,9 +45,9 @@ are syntax entries, not promised recoverable flows. No memory edits authorized.
 
 | Work | State | Next action |
 |---|---|---|
-| Proof/value | next | classify real forms and initializer hazards; validate predicates |
-| Implementation | targeted green | checkpoint bounded inert-defaults after fresh matrix; no source writer remains |
-| Full gates/review | pending | execute on stable commits; exact totals/exclusions |
+| Proof/value | measured | public +401/private +59 flows; every added target/ordinal classified, 45 nested ambiguities retained |
+| Implementation | review corrections | checkpoint bounded hash repair and equivalent boolean simplification; no authority expansion |
+| Full gates/review | pending rerun | initial Rust green; helpers3 unavailable (missing real-sites.jsonl), Python timing failure then isolated base/candidate pass; Tier-A quick INVALID both |
 | MR | parked | prepare only after implementation; do not publish this run |
 
 ## 5. Invariants and traps — do not do these
@@ -72,6 +72,6 @@ are syntax entries, not promised recoverable flows. No memory edits authorized.
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** NOT RUN — proof/design in progress · claim: "bounded optional/default occurrence support preserves exact parameter authority" · pass: NOT RUN · evidence tier: STATIC-ONLY · record: plan and pending probes.
+**§2c verdict:** production APPROVE0/0 at0bb567cb; observer round1 WRONG1/SMELL2 corrected/documented, round2 pending. Claim: bounded optional/default occurrences preserve exact parameter authority. Evidence: captured RED/GREEN, fixed-source replay and first full Rust suites; verification exclusions above remain explicit.
 
 **Questions the owner owes an answer to:** None within the bounded plan. Stop if additional authority becomes necessary.

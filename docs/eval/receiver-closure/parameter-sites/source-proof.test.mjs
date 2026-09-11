@@ -163,6 +163,27 @@ test('fails closed on a source hash mismatch', () => {
   assert.throws(() => classifyCensus(ts, c, resolverFor({ 'a.ts': text })), /hash mismatch/);
 });
 
+test('schema-valid uppercase source digest matches the same bytes', () => {
+  const text = 'function widget(label?: string) { return label; }\n';
+  const c = census([fileManifest('a.ts', text, { sha256: hashOf(text).toUpperCase() })], [functionEntry('a.ts', text)]);
+  assert.equal(classifyCensus(ts, c, resolverFor({ 'a.ts': text })).matched_entries, 1);
+});
+
+test('uppercase source digests still reject different bytes', () => {
+  const text = 'function widget(label?: string) { return label; }\n';
+  const c = census([fileManifest('a.ts', text, { sha256: 'A'.repeat(64) })], [functionEntry('a.ts', text)]);
+  assert.throws(() => classifyCensus(ts, c, resolverFor({ 'a.ts': text })), /hash mismatch/);
+});
+
+test('named-owner aggregate is inventory metadata rather than executable-owner proof', () => {
+  const text = 'function widget(label?: string) { return label; }\n';
+  const fn = functionEntry('a.ts', text, { owner_name: 'inventoriedOwner' });
+  const c = census([fileManifest('a.ts', text)], [fn]);
+  assert.equal(classifyCensus(ts, c, resolverFor({ 'a.ts': text }))
+    .optional_no_initializer_named_owner_slot_entries, 1);
+  assert.equal(c.authorizes_runtime_edge, false);
+});
+
 test('fails closed on a missing/unmatched parameter token', () => {
   const text = 'function widget(label?: string) {\n  return label;\n}\n';
   const fn = functionEntry('a.ts', text);

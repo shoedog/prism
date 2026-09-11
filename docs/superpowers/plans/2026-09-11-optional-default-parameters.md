@@ -52,3 +52,21 @@ fixtures, current DFG labels and fixed-source census deltas before editing.
 
 Prism navigation reports41 stale paths. Current source, not an exhaustive LSP
 claim, establishes consumers. LSP tools are unavailable in this session.
+
+## Executed local slices
+
+- `8d89f98e`: source-proof tool and bounded optional identifiers.
+- `01522b2b`: positional comment-trivia repair discovered by source-ordinal replay.
+- `5b80828b`: companion argument-count/cache hardening.
+- `0bb567cb`: inert-default identifiers, including primary adoption corrections.
+- Post-review: source hash normalization and equivalent boolean simplification;
+  final gates and review closeout pending. Production review approved the bounded
+  contract; observer review identified one bounded defect and two documentation
+  limitations, now corrected or explicit. No review-cap extension.
+
+The initial full Rust suites passed 4,184 / 4,377 / 4,400 with one existing ignore
+each. Historical helper fixture loss prevents three separate source-custody tests;
+candidate and base both reproduce ENOENT, and a bounded 12-archive recovery failed.
+Carry those exclusions rather than fabricate expected call-site records. Python's
+initial timing failure is retained; isolated base/candidate controls and a full
+940-test rerun passed. Final verification will bind the post-review source commit.

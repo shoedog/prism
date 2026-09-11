@@ -114,6 +114,10 @@ proof is claimed. Private raw evidence remains local.
 
 ## Next recommendation
 
+Implemented successor: [bounded optional/inert-default parameter bundle](2026-09-11-optional-default-parameters.md),
+including source proof and real-site value measurement. The recommendation below
+records this predecessor's historical handoff, not an outstanding approval request.
+
 With the demonstrated body-target defect repaired, assess the bounded value and
 proof requirements for optional/default identifier parameter occurrences before
 adding syntax support. Keep positional argument binding separate from default

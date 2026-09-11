@@ -56,6 +56,8 @@ export function parameterHasBindingPatternDefault(ts, parameter) {
 }
 
 export function hasNoninertSibling(ts, parameter) {
+  // Syntax upper bound only: unlike production, this does not require every
+  // sibling binding to be an ordinary simple identifier.
   const siblings = parameter.parent?.parameters ?? [];
   return siblings.some(sibling => sibling !== parameter
     && ((sibling.initializer && !isInertInitializer(ts, sibling.initializer))
@@ -116,7 +118,7 @@ export function classifyCensus(ts, census, resolveSource) {
       const manifest = census.files.find(file => file.file === fn.file);
       if (!manifest) fail('function references an unloaded file');
       const bytes = resolveSource(fn.file);
-      if (hashBytes(bytes) !== manifest.sha256) fail('source hash mismatch');
+      if (hashBytes(bytes) !== manifest.sha256.toLowerCase()) fail('source hash mismatch');
       const text = bytes.toString('utf8');
       const sourceFile = ts.createSourceFile(fn.file, text, ts.ScriptTarget.Latest, true, scriptKindFor(fn.file, ts));
       if (sourceFile.parseDiagnostics.length > 0) fail('source parse diagnostics present');
@@ -131,6 +133,8 @@ export function classifyCensus(ts, census, resolveSource) {
     const nameEnd = byte(node.name.end);
     const slot = (fn.slots ?? []).some(s => s.start_byte === nameStart && s.end_byte === nameEnd
       && s.name === node.name.getText(sourceFile));
+    // Inventory metadata, not a source-authenticated executable owner. This
+    // observer authenticates parameter/slot tokens, not enclosing owner identity.
     const namedOwner = fn.owner_name !== null;
     const { optionalNoInitializer, inertDefaultCandidate } = classifyMatchedParameter(ts, node, p.form);
 
