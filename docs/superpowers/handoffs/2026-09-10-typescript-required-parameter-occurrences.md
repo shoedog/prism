@@ -17,7 +17,7 @@
 
 1. `git status --short --branch`; preserve agent test edits.
 2. Read final readout and receipt; all verification complete at6a53c66a.
-3. `gh pr view 309 --json state,headRefOid,statusCheckRollup`; owner review/merge pending. No automatic merge.
+3. `[MEASURED 2026-09-10]` PR309 merged at013d4bf014abe1c33449629854f8f8915d4237ef. Continue the approved audit in `2026-09-10-typescript-parameter-real-sites.md`; no automatic merge.
 
 **STOP conditions:** unrelated dirty work, new authority, open-class review at cap2, unclassified failures.
 
@@ -45,8 +45,8 @@
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
 | 1 | Implementation/verification | done | No further production edit | None |6a53c66a |
-| 2 | Publication | done | PR309 opened; owner review/merge pending | Owner | No auto-merge |
-| 3 | Real-site value checkpoint | pending | Reaudit restored parameter/argument sites and classify remaining forms | Owner next slice | Public corpus + authorized frontend portal |
+| 2 | Publication | done | PR309 merged013d4bf0 | None | Fresh gh check |
+| 3 | Real-site value checkpoint | next | Approved audit successor handoff | None | Public corpus + authorized frontend portal |
 
 ## 5. Invariants and traps — do not do these
 

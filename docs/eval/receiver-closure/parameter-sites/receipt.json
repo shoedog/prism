@@ -1,0 +1,191 @@
+{
+  "schema": "prism.parameter-site-value-checkpoint/1",
+  "authorizes_runtime_edge": false,
+  "base": "f369f20cdcd3463bae86b191bcdd8ec9efd8f6fd",
+  "candidate": "013d4bf014abe1c33449629854f8f8915d4237ef",
+  "public_source": "0642e72cfa2d9a71198200e52f37399384610ee3",
+  "observer_sha256": "c0923c2f4790fa0f92b1eeb3123a5f37bbfd025134302e65f2d6cfc3a3a81460",
+  "private_source_identity": "retained locally only",
+  "corpora": {
+    "public": {
+      "population": {
+        "files": 628,
+        "skipped": 584,
+        "functions": 8614
+      },
+      "base": {
+        "parameter_forms": {
+          "unparenthesized_identifier": 4,
+          "destructured": 499,
+          "javascript_identifier": 72,
+          "required_identifier": 6984,
+          "optional_identifier": 194,
+          "rest": 46,
+          "default_identifier": 249,
+          "parameter_property": 32,
+          "default_pattern": 11,
+          "erased_this": 9
+        },
+        "functions": 8614,
+        "owner_null": 4497,
+        "parameters": 8100,
+        "occurrences": 72,
+        "dfg_defs": 37,
+        "cpg_defs": 37,
+        "slot_matched_flows": 12,
+        "unmatched_slot_flows": 352,
+        "flows": 364
+      },
+      "candidate": {
+        "parameter_forms": {
+          "unparenthesized_identifier": 4,
+          "destructured": 499,
+          "javascript_identifier": 72,
+          "required_identifier": 6984,
+          "optional_identifier": 194,
+          "rest": 46,
+          "default_identifier": 249,
+          "parameter_property": 32,
+          "default_pattern": 11,
+          "erased_this": 9
+        },
+        "functions": 8614,
+        "owner_null": 4497,
+        "parameters": 8100,
+        "occurrences": 7056,
+        "dfg_defs": 3892,
+        "cpg_defs": 3892,
+        "slot_matched_flows": 6016,
+        "unmatched_slot_flows": 9,
+        "flows": 6025
+      },
+      "delta": {
+        "functions": 0,
+        "owner_null": 0,
+        "parameters": 0,
+        "occurrences": 6984,
+        "dfg_defs": 3855,
+        "cpg_defs": 3855,
+        "slot_matched_flows": 6004,
+        "unmatched_slot_flows": -343,
+        "flows": 5661
+      },
+      "edge_changes": {
+        "added": 6004,
+        "removed": 343
+      },
+      "disposition": {
+        "corpus": "public",
+        "compiler_version": "5.9.3",
+        "flows": {
+          "local_declaration_binding": 3,
+          "loop_iterable_read": 6
+        },
+        "unique_target_tokens": {
+          "local_declaration_binding": 3,
+          "loop_iterable_read": 2
+        },
+        "selected_files": 3
+      }
+    },
+    "private": {
+      "population": {
+        "files": 1122,
+        "skipped": 140,
+        "functions": 12713
+      },
+      "base": {
+        "parameter_forms": {
+          "default_identifier": 259,
+          "javascript_identifier": 2540,
+          "unparenthesized_identifier": 2966,
+          "destructured": 379,
+          "required_identifier": 323,
+          "rest": 21,
+          "default_pattern": 25
+        },
+        "functions": 12713,
+        "owner_null": 7841,
+        "parameters": 6513,
+        "occurrences": 2540,
+        "dfg_defs": 1467,
+        "cpg_defs": 1467,
+        "slot_matched_flows": 2123,
+        "unmatched_slot_flows": 68,
+        "flows": 2191
+      },
+      "candidate": {
+        "parameter_forms": {
+          "default_identifier": 259,
+          "javascript_identifier": 2540,
+          "unparenthesized_identifier": 2966,
+          "destructured": 379,
+          "required_identifier": 323,
+          "rest": 21,
+          "default_pattern": 25
+        },
+        "functions": 12713,
+        "owner_null": 7841,
+        "parameters": 6513,
+        "occurrences": 2863,
+        "dfg_defs": 1676,
+        "cpg_defs": 1676,
+        "slot_matched_flows": 2420,
+        "unmatched_slot_flows": 68,
+        "flows": 2488
+      },
+      "delta": {
+        "functions": 0,
+        "owner_null": 0,
+        "parameters": 0,
+        "occurrences": 323,
+        "dfg_defs": 209,
+        "cpg_defs": 209,
+        "slot_matched_flows": 297,
+        "unmatched_slot_flows": 0,
+        "flows": 297
+      },
+      "edge_changes": {
+        "added": 297,
+        "removed": 0
+      },
+      "disposition": {
+        "corpus": "private",
+        "compiler_version": "5.9.3",
+        "flows": {
+          "local_declaration_binding": 2,
+          "loop_iterable_read": 7,
+          "assignment_target": 59
+        },
+        "unique_target_tokens": {
+          "local_declaration_binding": 1,
+          "loop_iterable_read": 4,
+          "assignment_target": 2
+        },
+        "selected_files": 6
+      }
+    }
+  },
+  "verification": {
+    "source_checkpoint": "cda0b972fcd8cf253ae2c45546a33c59e8970d3c",
+    "full_runner_clean_preflight_and_postflight": true,
+    "rust_passed": [4123, 4316, 4339],
+    "rust_ignored_each": 1,
+    "rust_ignore": "resolution_test::slice_elem_variant_reserved",
+    "observers_passed": 726,
+    "helpers_passed": 18,
+    "authority_controls_passed": 40,
+    "examples_passed": 32,
+    "comparator_passed": 10,
+    "comparator_pre_fix_control": {"passed": 7, "failed": 3},
+    "individual_invalid_state_controls": 4,
+    "python_final": {"passed": 940, "failed": 0, "live_skipped": 1},
+    "python_initial": {"passed": 939, "failed": 1, "live_skipped": 1},
+    "python_control": "same base failure with nonstandard binary basename; identical binaries with normal names pass",
+    "format_and_diff": "passed",
+    "tier_a": "not triggered; no production path changes",
+    "clippy": "not run",
+    "review": "round1 two code/label findings fixed; round2 code and measurements clean, sole stale handoff finding reconciled locally; no third round",
+    "later_changes": "documentation only"
+  }
+}
