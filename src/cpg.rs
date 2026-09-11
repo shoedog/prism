@@ -20,6 +20,8 @@ mod asserted_member_tests;
 mod build;
 mod cfg_queries;
 mod context;
+#[cfg(test)]
+mod exact_parameter_binding_tests;
 mod flow_confidence;
 #[cfg(test)]
 mod loop_header_def_tests;

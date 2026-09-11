@@ -1,5 +1,10 @@
 # Handoff — bounded JS/TS loop-header definitions
 
+Successor: PR311 merged as `b2b141cd5605f9b7f74b32a2fafdeb9c78619bc9`.
+Owner approved the [exact parameter-binding repair](2026-09-10-js-ts-exact-parameter-binding.md).
+The publication-only update below is carried into that implementation branch;
+remaining publication/CI statements record the historical PR311 checkpoint.
+
 **Written:** 2026-09-10 · **By:** root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · fix/js-ts-loop-header-defs · **Measured state:** `[MEASURED]` clean published HEAD 5ef63c4708234e39615a3bed7d06f8f68fe5ef04 before this publication-only update; `git status`, live GitHub ref and PR311 head agree. Implementation c54846f8 and full verification checkpoint344c3848 remain unchanged; rebind actual HEAD/status with §1.
 **Predecessor:** PR310 merged as e8e4c77e; parameter real-site audit.

@@ -128,6 +128,92 @@ pub(crate) fn compute_param_names(
     Some(final_names)
 }
 
+/// Per-build positional targets. Holes are unsupported slots, not removed args.
+/// The graph and source inputs are immutable for both Step-5b traversals.
+fn compute_param_def_nodes(
+    parsed: &ParsedFile,
+    callee: &FunctionId,
+    var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+    graph: &DiGraph<CpgNode, CpgEdge>,
+) -> Option<Vec<Option<NodeIndex>>> {
+    if !matches!(
+        parsed.language,
+        crate::languages::Language::JavaScript
+            | crate::languages::Language::TypeScript
+            | crate::languages::Language::Tsx
+    ) {
+        // Preserve other languages' existing normalization and lookup contract.
+        return Some(
+            compute_param_names(parsed, callee)?
+                .into_iter()
+                .map(|name| {
+                    let path = AccessPath::simple(name);
+                    (callee.start_line..=callee.end_line).find_map(|line| {
+                        var_index
+                            .get(&(
+                                callee.file.clone(),
+                                callee.name.clone(),
+                                callee.start_line,
+                                line,
+                                path.clone(),
+                                VarAccess::Def,
+                            ))
+                            .copied()
+                    })
+                })
+                .collect(),
+        );
+    }
+
+    let mut functions = parsed.all_functions().into_iter().filter(|node| {
+        parsed.node_line_range(node) == (callee.start_line, callee.end_line)
+            && parsed
+                .language
+                .function_name(node)
+                .is_some_and(|name| parsed.node_text(&name) == callee.name)
+    });
+    let function = functions.next()?;
+    if functions.next().is_some() {
+        return None;
+    }
+    // Slots and occurrences have distinct contracts. Defaults/optionals may
+    // occupy slots without supplying a supported parameter Def. Never compress
+    // those holes, nor fall back to FunctionInfo names or body definitions.
+    let slots = parsed.function_parameter_slot_occurrences(&function)?;
+    let supported: BTreeSet<_> = parsed
+        .function_parameter_occurrences(&function)
+        .into_iter()
+        .collect();
+    Some(
+        slots
+            .into_iter()
+            .map(|slot| {
+                if !supported.contains(&slot) {
+                    return None;
+                }
+                let path = AccessPath::simple(&slot.0);
+                let idx = *var_index.get(&(
+                    callee.file.clone(),
+                    callee.name.clone(),
+                    callee.start_line,
+                    callee.start_line,
+                    path.clone(),
+                    VarAccess::Def,
+                ))?;
+                matches!(graph.node_weight(idx), Some(CpgNode::Variable {
+                    file, function, function_start_line, line, path: actual_path,
+                    access: VarAccess::Def, start_byte, end_byte,
+                }) if file == &callee.file && function == &callee.name
+                    && *function_start_line == callee.start_line
+                    && *line == callee.start_line && actual_path == &path
+                    && (*start_byte, *end_byte) == (slot.1, slot.2)
+                )
+                .then_some(idx)
+            })
+            .collect(),
+    )
+}
+
 struct PendingStatement {
     line: usize,
     kind: StmtKind,
@@ -1034,7 +1120,7 @@ impl CodePropertyGraph {
     }
 
     /// Per-caller Step-5b emission, with a caller-local param memo
-    /// (`compute_param_names` is pure, so emitted edges are identical to the global
+    /// (`compute_param_def_nodes` is pure, so emitted edges are identical to the global
     /// memo). The arg→param binding is field-sensitive (full access path first, base
     /// fallback) — a deliberate precision change from the original base-only loop.
     fn step5b_edges_for_caller(
@@ -1046,8 +1132,7 @@ impl CodePropertyGraph {
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingEdge> {
         let mut out: Vec<PendingEdge> = Vec::new();
-        let mut param_cache: BTreeMap<(String, String, usize), Option<Vec<String>>> =
-            BTreeMap::new();
+        let mut param_cache: BTreeMap<FunctionId, Option<Vec<Option<NodeIndex>>>> = BTreeMap::new();
         for site in sites {
             for resolved in cg.resolve_call_site(site) {
                 // P3 (F1): R6MultiOwnerCandidate is an unverified, capped NameOnly
@@ -1074,19 +1159,13 @@ impl CodePropertyGraph {
                     Some(p) => p,
                     None => continue,
                 };
-                let cache_key = (
-                    callee_id.file.clone(),
-                    callee_id.name.clone(),
-                    callee_id.start_line,
-                );
-                let param_names: &[String] = match param_cache
-                    .entry(cache_key)
-                    .or_insert_with(|| compute_param_names(callee_parsed, callee_id))
-                {
-                    Some(names) => names.as_slice(),
+                let param_nodes = match param_cache.entry(callee_id.clone()).or_insert_with(|| {
+                    compute_param_def_nodes(callee_parsed, callee_id, var_index, graph)
+                }) {
+                    Some(nodes) => nodes.as_slice(),
                     None => continue,
                 };
-                for (i, param_name) in param_names.iter().enumerate() {
+                for (i, &param_idx) in param_nodes.iter().enumerate() {
                     if i >= args.len() {
                         break;
                     }
@@ -1120,18 +1199,6 @@ impl CodePropertyGraph {
                             )
                         })
                         .collect();
-                    let param_path = AccessPath::simple(param_name);
-                    let param_idx = (callee_id.start_line..=callee_id.end_line).find_map(|line| {
-                        let key = (
-                            callee_id.file.clone(),
-                            callee_id.name.clone(),
-                            callee_id.start_line,
-                            line,
-                            param_path.clone(),
-                            VarAccess::Def,
-                        );
-                        var_index.get(&key).copied()
-                    });
                     if let Some(to) = param_idx {
                         for from in arg_idxs {
                             out.push((
@@ -1521,8 +1588,7 @@ impl CodePropertyGraph {
         // (it is no longer a frozen pre-edge-steps original; that byte-identity is
         // intentionally superseded by the field-sensitivity change).
         let mut out: Vec<PendingEdge> = Vec::new();
-        let mut param_cache: BTreeMap<(String, String, usize), Option<Vec<String>>> =
-            BTreeMap::new();
+        let mut param_cache: BTreeMap<FunctionId, Option<Vec<Option<NodeIndex>>>> = BTreeMap::new();
         for (caller_id, sites) in &cg.calls {
             for site in sites {
                 for resolved in cg.resolve_call_site(site) {
@@ -1547,19 +1613,14 @@ impl CodePropertyGraph {
                         Some(p) => p,
                         None => continue,
                     };
-                    let cache_key = (
-                        callee_id.file.clone(),
-                        callee_id.name.clone(),
-                        callee_id.start_line,
-                    );
-                    let param_names: &[String] = match param_cache
-                        .entry(cache_key)
-                        .or_insert_with(|| compute_param_names(callee_parsed, callee_id))
-                    {
-                        Some(names) => names.as_slice(),
-                        None => continue,
-                    };
-                    for (i, param_name) in param_names.iter().enumerate() {
+                    let param_nodes =
+                        match param_cache.entry(callee_id.clone()).or_insert_with(|| {
+                            compute_param_def_nodes(callee_parsed, callee_id, var_index, graph)
+                        }) {
+                            Some(nodes) => nodes.as_slice(),
+                            None => continue,
+                        };
+                    for (i, &param_idx) in param_nodes.iter().enumerate() {
                         if i >= args.len() {
                             break;
                         }
@@ -1590,19 +1651,6 @@ impl CodePropertyGraph {
                                 )
                             })
                             .collect();
-                        let param_path = AccessPath::simple(param_name);
-                        let param_idx =
-                            (callee_id.start_line..=callee_id.end_line).find_map(|line| {
-                                let key = (
-                                    callee_id.file.clone(),
-                                    callee_id.name.clone(),
-                                    callee_id.start_line,
-                                    line,
-                                    param_path.clone(),
-                                    VarAccess::Def,
-                                );
-                                var_index.get(&key).copied()
-                            });
                         if let Some(to) = param_idx {
                             for from in arg_idxs {
                                 out.push((
