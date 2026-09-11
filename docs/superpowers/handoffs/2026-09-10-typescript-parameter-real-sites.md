@@ -9,15 +9,15 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` root owns native/design; parameter_comparison completed two comparator files only — **RESOLVED**.
-**(b) Custody exposure** — `[MEASURED]` implementation cda0b972 and docs closeout93ea6696 committed locally; private evidence snapshotted; push/PR execution was rejected by safety review before starting — **OPEN** pending explicit payload/destination approval. This blocker-only handoff update follows; no code changes.
+**(b) Custody exposure** — `[MEASURED]` local0609ddbb CLEAN; origin/main remains013d4bf0; no existing audit PR. Initial publication rejection is resolved by the owner's explicit authorization below; push/PR pending — **OPEN** until remote custody. This publication-only handoff update changes no code.
 **(c) In flight / irreversible** — `[MEASURED]` all four corpus runs, full gates and both review rounds complete; local closeout reconciles the sole remaining handoff finding — **RESOLVED** bounded verification; no third review.
-**(d) Authorization granted but not exercised** — “merged - proceed to next”; standing commit/push/open PR. Safety review requires explicit approval to publish private-source-derived aggregate results and audit custody metadata to GitHub shoedog/prism. Do not retry or bypass this rejection without resolving that approval. No auto-merge or private-source publication.
+**(d) Authorization granted but not exercised** — Owner replied “authorized” to the explicit request to publish private-repository-derived aggregate results and custody metadata to GitHub shoedog/prism, excluding private source and raw graphs. This resolves the prior payload/destination approval blocker. No auto-merge, private-source identifiers, private source identity or raw graph publication.
 
 ## 1. Resume order
 
 1. `git status --short --branch`; preserve this lane's example and comparator files.
 2. Read parameter-sites/README.md and receipt.json; implementation and full verification are complete at cda0b972.
-3. Obtain explicit approval for aggregate-only private-corpus results plus custody metadata to GitHub shoedog/prism; then push/open PR. The rejected command did not run. Do not repeat completed corpus runs or bypass the publication rejection.
+3. Publish the explicitly authorized aggregate-only audit and custody metadata to GitHub shoedog/prism; refresh remote custody afterward. Do not repeat completed corpus runs. Prior full verification remains attached to cda0b972; this turn is publication-only.
 
 **STOP conditions:** private source in publication, source population drift, new runtime authority, open-class review at cap2, unclassified failures.
 
@@ -32,7 +32,7 @@
 | Review | done | Round1 REJECT2 WRONG/0 SMELL fixed; round2 REJECT1 WRONG/0 SMELL solely stale handoff, corrected here; code/measurements independently clean |
 | Full gates | done | Clean cda0b972 summary.json:4123/4316/4339 Rust;1 ignore each;726 observers/18 helpers/40 authority |
 | Python | done | python-final-full.log940pass/1live skip; initial basename-related failure and same-base control retained |
-| Publication | blocked | Safety review rejected push/PR execution: sensitive derived payload/destination approval required; neither operation ran |
+| Publication | next | Owner explicitly authorized the sensitive derived payload and destination; initial rejected command did not run |
 
 ## 3. Corrections to standing documents and memory
 
@@ -44,14 +44,14 @@
 | Comparator labels/bounds | Unmatched implies non-parameter; function-contained tokens suffice | Require parameter syntax containment; unmatched is neutral until source classification |
 | This handoff | efb4d34d plus dirty implementation after checkpoint | cda0b972 verified clean implementation; current closeout documentation only |
 | PR309 readout | Value checkpoint still next | Linked completed successor without changing historical totals |
-| Publication status | Expected push/open PR after verified closeout | Explicit safety rejection recorded; local custody only; owner approval required |
+| Publication status | Explicit safety rejection; owner approval required | Owner replied “authorized” to exact aggregate/custody payload and shoedog/prism destination; publication may proceed |
 
 ## 4. Open work
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
 | 1 | Corpus measurement | done | Final aggregate readout; raw local only | None | parameter-sites/README.md |
-| 2 | Publication | blocked | Owner explicitly approves aggregate results/custody metadata to shoedog/prism, then push/open PR | Safety-review rejection | Full gates complete; no remote mutation |
+| 2 | Publication | next | Push/open PR and refresh custody | None; explicit owner approval received | Full gates complete |
 | 3 | Production defects | proposed next | Loop-header Def repair, then exact callee-token binding | Next owner approval | No fix in this audit |
 
 ## 5. Invariants and traps — do not do these
@@ -78,4 +78,4 @@
 
 **§2c verdict:** SURVIVED for code/measurement after bounded fixes; final handoff reconciliation SELF-PASS (NOT INDEPENDENT) · claim: "the comparison separates parameter-token observations from unmatched slot flow" · pass: INDEPENDENT code/measurement, not unconditional final-document approval · evidence tier: TEST-BACKED + SOURCE-BACKED · record: review-record.md, final tests and fixed comparisons. At cap2, sole remaining closed finding was this stale custody entry; corrected locally without extending review.
 
-**Questions the owner owes an answer to:** Approve publishing the private-repository-derived aggregate results and audit custody metadata to GitHub shoedog/prism? Raw private source, identifiers, source identity and graph rows remain excluded.
+**Questions the owner owes an answer to:** None for publication; explicit authorization received. Production repairs still require the next increment's approval.
