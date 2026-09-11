@@ -51,8 +51,8 @@
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
 | 1 | Corpus measurement | done | Final aggregate readout; raw local only | None | parameter-sites/README.md |
-| 2 | Publication | done | Read CI live and await owner merge | None | PR310 |
-| 3 | Production defects | proposed next | Loop-header Def repair, then exact callee-token binding | Next owner approval | No fix in this audit |
+| 2 | Publication | merged | PR310 merged e8e4c77e; use successor handoff | None | PR310 |
+| 3 | Production defects | successor active | Approved loop-header repair implemented/verified; exact callee-token binding remains separate | See successor handoff | No fix in this historical audit |
 
 ## 5. Invariants and traps — do not do these
 
@@ -79,4 +79,4 @@
 
 **§2c verdict:** SURVIVED for code/measurement after bounded fixes; final handoff reconciliation SELF-PASS (NOT INDEPENDENT) · claim: "the comparison separates parameter-token observations from unmatched slot flow" · pass: INDEPENDENT code/measurement, not unconditional final-document approval · evidence tier: TEST-BACKED + SOURCE-BACKED · record: review-record.md, final tests and fixed comparisons. At cap2, sole remaining closed finding was this stale custody entry; corrected locally without extending review.
 
-**Questions the owner owes an answer to:** None for publication; explicit authorization received. Production repairs still require the next increment's approval.
+**Questions the owner owes an answer to:** None for this merged audit. The bounded loop-header repair was approved and completed in the successor; exact callee-token binding is the separate next increment.

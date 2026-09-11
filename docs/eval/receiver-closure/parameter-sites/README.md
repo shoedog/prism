@@ -1,5 +1,9 @@
 # Required-parameter real-site value checkpoint
 
+Successor: the [bounded loop-header Def repair](../2026-09-10-js-ts-loop-header-defs.md)
+is implemented and verified. Tables and classifications below retain the PR310
+audit's historical measurements; exact callee-parameter-token binding remains next.
+
 PR309 delivered substantial measured value. Compare pre-repair production
 `f369f20cdcd3463bae86b191bcdd8ec9efd8f6fd` with merged production
 `013d4bf014abe1c33449629854f8f8915d4237ef`, using byte-identical standalone
@@ -82,8 +86,9 @@ candidate targets; it does not attribute every historical unmatched edge.
 
 ## Next recommendation and required negatives
 
-Fix the bounded JS/TS/TSX loop-header Def defect first. Require both path and
-byte-span inventories to retain left-hand bindings and reject right-hand reads.
+The first step, bounded JS/TS/TSX loop-header Def repair, is now complete in the
+linked successor. Its proof requirements were: both path and byte-span inventories
+must retain left-hand bindings and reject right-hand reads.
 Cover for-in/of (including await), bare/declaration/destructured left sides,
 member/complex RHS, multiline/Unicode, and non-JS controls. Confirm the RHS cannot
 become a CPG Def or interprocedural target. Do not remove legitimate RHS Use nodes.
