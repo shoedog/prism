@@ -67,6 +67,31 @@ Use→Def flow observations, with0 removals or unmatched targets. Private result
 are unchanged. Population/source hashes, loader skips, parameter and slot shapes
 match. Source classification of every added endpoint is still pending.
 
+## Additional bounded repair: comment trivia shifts arguments
+
+**WRONG, reproduced on unchanged base in the same environment:** a named comment
+child inside a JS/TS/TSX argument list occupies a positional index. For
+`takeRequired(a, /* comment */ b, c)`, the base emits `b→last` with `Exact`
+confidence instead of `b→second` and `c→last`. Optional support exposes additional
+instances; it did not introduce the underlying extraction defect.
+
+The source pass found three new optional-flow mismatches: two field/base flows
+from `AppStateDelta.orderAppStateKeys` to `Delta.calculate`'s fourth parameter,
+and one from `appState` to the omitted seventh `opts` parameter in
+`bindOrUnbindBindingElement`. These are public Excalidraw snapshot sites in
+`packages/element/src/delta.ts:535` and `packages/element/src/binding.ts:1011`.
+All280 targets were real parameter tokens; that alone missed the wrong indices.
+Thirty-five additional source-span matches have nested-call ambiguity and are
+not independently resolved-call proofs.
+
+The repair filters JS/TS/TSX comment nodes consistently in indexed span/text,
+line-based vector and Nth-argument APIs, plus the reference walk. It preserves
+real expression spans, spread representation, comments inside string expressions,
+field/base supplementation and other languages' existing behavior. Four regressions
+fail before and pass after the fix; one non-JS control passes both. All17 existing
+call-argument-focused tests pass. CPG cache82→83; no call-resolution policy change.
+Native replay and full verification follow. Separate local commit; no publication.
+
 Source observer tests: initial18 passed, then primary review captured17 passes /
 5 failures for four bounded defects (one duplicate manifestation): optional
 sibling initialization, form mismatch, wrong slot spelling and escaping symlinks.

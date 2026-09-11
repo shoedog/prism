@@ -326,3 +326,129 @@ fn optional_full_and_subset_dfg_parity() {
         assert_eq!(full.labels, subset.labels);
     }
 }
+
+#[test]
+fn argument_comments_do_not_occupy_js_ts_argument_positions() {
+    for (arguments, expected) in [
+        ("/* only */", vec![]),
+        (
+            "/* before */ first, /* middle */ second /* after */,",
+            vec!["first", "second"],
+        ),
+        ("first, // line comment\n second,", vec!["first", "second"]),
+        (
+            "first, /* comment */ inner(second), ...rest",
+            vec!["first", "inner(second)", "...rest"],
+        ),
+        (
+            "'/* string */', /* trivia */ [first, second]",
+            vec!["'/* string */'", "[first, second]"],
+        ),
+    ] {
+        let source = format!("function run() {{\n target({arguments});\n}}");
+        for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
+            let parsed = ParsedFile::parse("comments", &source, language).unwrap();
+            assert_eq!(parsed.parse_error_count, 0);
+            let start = source.find("target(").unwrap();
+            assert_eq!(
+                parsed.call_argument_texts_at(start, "target"),
+                expected,
+                "{language:?}: {arguments}"
+            );
+            assert_eq!(parsed.call_argument_texts(2, "target"), expected);
+            for (index, value) in expected.iter().enumerate() {
+                assert_eq!(
+                    parsed.call_argument_text_at(2, "target", index).as_deref(),
+                    Some(*value)
+                );
+            }
+            assert_eq!(
+                parsed.call_argument_text_at(2, "target", expected.len()),
+                None
+            );
+            let spans = parsed.call_argument_texts_and_spans_at(start, "target");
+            assert_eq!(spans.len(), expected.len());
+            for ((text, span), expected) in spans.iter().zip(&expected) {
+                assert_eq!(text, expected);
+                assert_eq!(&source[span.clone()], *expected);
+            }
+        }
+    }
+}
+
+#[test]
+fn argument_comments_preserve_required_parameter_edges_and_original_indices() {
+    let source = "function take(first, second, last) { sink(first, second, last); }\nfunction run(a, b, c) {\n take(a, /* not an argument */ b, c);\n}\n";
+    for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
+        let parsed = ParsedFile::parse("comments", source, language).unwrap();
+        assert_eq!(parsed.parse_error_count, 0);
+        let files = BTreeMap::from([("comments".into(), parsed)]);
+        let cpg = CodePropertyGraph::build(&files);
+        let expected = [("a", "first"), ("b", "second"), ("c", "last")]
+            .map(|(a, p)| {
+                let start = source.find(p).unwrap();
+                (a.to_string(), p.to_string(), start, start + p.len())
+            })
+            .into_iter()
+            .collect();
+        assert_eq!(argument_edges(&cpg, "take"), expected, "{language:?}");
+        assert_eq!(
+            CodePropertyGraph::collect_step5b_edges(
+                &cpg.call_graph,
+                &cpg.var_index,
+                &cpg.graph,
+                &files
+            ),
+            CodePropertyGraph::collect_step5b_edges_reference(
+                &cpg.call_graph,
+                &cpg.var_index,
+                &cpg.graph,
+                &files
+            )
+        );
+    }
+}
+
+#[test]
+fn argument_comments_cannot_fill_an_omitted_optional_parameter() {
+    let source = "function take(first: any, second?: any, last?: any) { sink(first, second, last); }\nfunction run(a: any, b: any) {\n take(a, /* comment */ b);\n}\n";
+    for language in [Language::TypeScript, Language::Tsx] {
+        let (cpg, _) = build(language, source);
+        let edges = argument_edges(&cpg, "take");
+        assert_eq!(edges.len(), 2);
+        assert!(edges
+            .iter()
+            .any(|(from, to, _, _)| from == "a" && to == "first"));
+        assert!(edges
+            .iter()
+            .any(|(from, to, _, _)| from == "b" && to == "second"));
+        assert!(!edges.iter().any(|(_, to, _, _)| to == "last"));
+    }
+}
+
+#[test]
+fn argument_comments_preserve_member_and_base_supplementation() {
+    let source = "function take(first, second) { sink(first, second); }\nfunction run(a, object) {\n take(a, /* comment */ object.field);\n}\n";
+    for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
+        let parsed = ParsedFile::parse("comments", source, language).unwrap();
+        let cpg = CodePropertyGraph::build(&BTreeMap::from([("comments".into(), parsed)]));
+        let edges = argument_edges(&cpg, "take");
+        for from in ["object", "object.field"] {
+            assert!(
+                edges.iter().any(|(a, p, _, _)| a == from && p == "second"),
+                "{language:?}: {edges:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn argument_comments_leave_non_js_argument_contract_unchanged() {
+    let source = "fn run() { target(first, /* legacy */ second); }";
+    let parsed = ParsedFile::parse("comments.rs", source, Language::Rust).unwrap();
+    assert_eq!(parsed.parse_error_count, 0);
+    assert_eq!(
+        parsed.call_argument_texts_at(source.find("target(").unwrap(), "target"),
+        vec!["first", "/* legacy */", "second"]
+    );
+}
