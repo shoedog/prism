@@ -1,5 +1,9 @@
 # CommonJS producer export-object barriers
 
+Historical third-increment readout. The [terminal/capture follow-up](2026-09-11-cjs-terminal-proof.md)
+repairs the deferred nested-name defect and preserves rejected duplicate-set names
+as refusal markers. The results and remaining work below describe032e1824.
+
 Base: `c3d110ef`; third local increment bundled with `4ffe55bf` and `c3d110ef`.
 No publication performed. This is a prerequisite repair, not forwarding admission.
 Original matrix remains 18 Supported, 14 Gap, 22 Refused and one JS-supported case

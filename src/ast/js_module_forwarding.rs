@@ -100,7 +100,20 @@ impl ParsedFile {
         name: &str,
         allowed_declaration: Option<usize>,
     ) -> bool {
-        if Some(node.id()) != allowed_declaration {
+        self.js_ts_forwarding_competitor_except(
+            node,
+            name,
+            &allowed_declaration.into_iter().collect::<Vec<_>>(),
+        )
+    }
+
+    pub(super) fn js_ts_forwarding_competitor_except(
+        &self,
+        node: Node<'_>,
+        name: &str,
+        allowed: &[usize],
+    ) -> bool {
+        if !allowed.contains(&node.id()) {
             if node.kind() == "variable_declarator" {
                 if let Some(pattern) = node.child_by_field_name("name") {
                     let mut names = BTreeSet::new();
@@ -135,7 +148,7 @@ impl ParsedFile {
         let mut cursor = node.walk();
         let found = node
             .named_children(&mut cursor)
-            .any(|child| self.js_ts_forwarding_competitor(child, name, allowed_declaration));
+            .any(|child| self.js_ts_forwarding_competitor_except(child, name, allowed));
         found
     }
 }

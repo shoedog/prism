@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::{Node, Parser, Tree};
 
 mod js_cjs_export_barriers;
+mod js_cjs_terminal;
 mod js_module_forwarding;
 
 /// A parameter binding and the byte span of its identifier token.
@@ -2405,6 +2406,18 @@ impl ParsedFile {
             for (name, target) in cjs.named {
                 facts.insert_named(name, target);
             }
+        } else if !cjs.conflicted.is_empty() {
+            // Duplicate CJS writes revoke the whole CJS set, including disjoint
+            // siblings. Preserve only refusal claims so a star barrel cannot
+            // mistake those revoked names for absence. Independent ESM wins.
+            for name in cjs.named.keys().chain(cjs.conflicted.iter()) {
+                if !facts.named.contains_key(name) && !facts.conflicted.contains(name) {
+                    facts.insert_named(
+                        name.clone(),
+                        crate::js_exports::JsExportTarget::UnprovenLocal(name.clone()),
+                    );
+                }
+            }
         }
         facts.esm_named_imports = self.js_ts_esm_named_imports(None);
         facts.type_only_imports = self.js_ts_type_only_imports();
@@ -2910,10 +2923,7 @@ impl ParsedFile {
         if is_module_exports_member || is_exports_member {
             // `module.exports.f = f;` or `exports.f = f;`
             if right.kind() == "identifier" {
-                facts.insert_named(
-                    property_name,
-                    crate::js_exports::JsExportTarget::Local(self.node_text(&right).to_string()),
-                );
+                facts.insert_named(property_name, self.js_ts_cjs_local_target(right));
             } else {
                 facts.skipped_expr_count += 1;
             }
@@ -2928,13 +2938,9 @@ impl ParsedFile {
         rhs: Node<'_>,
         facts: &mut crate::js_exports::JsExportFacts,
     ) {
-        use crate::js_exports::JsExportTarget;
         match rhs.kind() {
             "identifier" => {
-                facts.insert_named(
-                    "default".to_string(),
-                    JsExportTarget::Local(self.node_text(&rhs).to_string()),
-                );
+                facts.insert_named("default".to_string(), self.js_ts_cjs_local_target(rhs));
             }
             "object" => {
                 // F2 (review-fix wave, codex BLOCKER 2): a spread can shadow
@@ -2958,7 +2964,7 @@ impl ParsedFile {
                     match prop.kind() {
                         "shorthand_property_identifier" => {
                             let name = self.node_text(&prop).to_string();
-                            facts.insert_named(name.clone(), JsExportTarget::Local(name));
+                            facts.insert_named(name, self.js_ts_cjs_local_target(prop));
                         }
                         "pair" => {
                             let key = prop.child_by_field_name("key").map(|k| {
@@ -2969,10 +2975,7 @@ impl ParsedFile {
                             let value = prop.child_by_field_name("value");
                             match (key, value) {
                                 (Some(key), Some(value)) if value.kind() == "identifier" => {
-                                    facts.insert_named(
-                                        key,
-                                        JsExportTarget::Local(self.node_text(&value).to_string()),
-                                    );
+                                    facts.insert_named(key, self.js_ts_cjs_local_target(value));
                                 }
                                 (Some(_), Some(_)) => facts.skipped_expr_count += 1,
                                 _ => {}
@@ -4620,13 +4623,43 @@ impl ParsedFile {
         receiver_name: &str,
         binding_scope_id: usize,
     ) -> bool {
+        self.js_ts_has_closer_binding(target, receiver_name, binding_scope_id, false)
+    }
+
+    /// CJS capture writes distinguish an outer function declaration binding
+    /// from a named expression's inner self binding. Other lanes retain their
+    /// existing receiver predicate until independently audited.
+    fn js_ts_has_closer_binding(
+        &self,
+        target: &Node<'_>,
+        receiver_name: &str,
+        binding_scope_id: usize,
+        declaration_self_is_outer: bool,
+    ) -> bool {
         let mut current = target.parent();
         while let Some(scope) = current {
             if scope.id() == binding_scope_id {
                 return false;
             }
             if is_js_ts_function_like(scope.kind()) {
-                if self.js_ts_function_scope_binds_receiver(&scope, target, receiver_name) {
+                let binds = if declaration_self_is_outer
+                    && matches!(
+                        scope.kind(),
+                        "function_declaration" | "generator_function_declaration"
+                    ) {
+                    let mut parameters = BTreeSet::new();
+                    self.collect_js_ts_parameter_bindings(scope, &mut parameters);
+                    parameters.contains(receiver_name)
+                        || self.js_ts_receiver_binding_reaches_call(
+                            scope,
+                            scope.id(),
+                            target,
+                            receiver_name,
+                        )
+                } else {
+                    self.js_ts_function_scope_binds_receiver(&scope, target, receiver_name)
+                };
+                if binds {
                     return true;
                 }
             } else if self.language.is_scope_block(scope.kind())

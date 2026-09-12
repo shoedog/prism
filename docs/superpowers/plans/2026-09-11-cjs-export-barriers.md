@@ -1,5 +1,9 @@
 # CommonJS producer mutation barriers
 
+Historical third-increment plan. The [terminal-proof follow-up](2026-09-11-cjs-terminal-proof.md)
+repairs the deferred local identity defect and replaces duplicate-set erasure with
+refusal-only name markers; independent ESM ownership remains unchanged.
+
 Base c3d110ef; third local increment in the module-binding PR bundle. Two review
 rounds maximum. No publication performed or inferred.
 

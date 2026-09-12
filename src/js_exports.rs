@@ -31,6 +31,9 @@ pub const MAX_REEXPORT_DEPTH: usize = 2;
 pub enum JsExportTarget {
     /// A function / const-arrow / function-expression declared in this same file.
     Local(String),
+    /// A syntactic CJS claim without callable capture proof. Never authority;
+    /// retained so duplicate and barrel conflicts cannot disappear.
+    UnprovenLocal(String),
     /// Declaration-backed local class. Never a callable-function export.
     Class(String),
     /// `export { imported as exported_name } from './y'` (also used for the
@@ -158,7 +161,7 @@ pub fn resolve_js_exports(
         let mut per_file = BTreeMap::new();
         for name in names {
             let mut visited = BTreeSet::new();
-            if let Some((hit, false)) =
+            if let ExportLookup::Resolved(hit, false) =
                 resolve_one(raw, resolve_module, file, &name, 0, &mut visited, &mut out)
             {
                 per_file.insert(name, hit);
@@ -228,6 +231,12 @@ fn collect_candidate_names(
 /// local_name)`, following at most `MAX_REEXPORT_DEPTH` re-export hops
 /// (`hops` counts hops already taken to reach this call). Cycle-guarded via
 /// `visited` ((file, name) pairs currently on the resolution stack).
+enum ExportLookup {
+    NoTarget,
+    BlockedClaim,
+    Resolved(ResolvedJsExport, bool),
+}
+
 fn resolve_one(
     raw: &BTreeMap<String, JsExportFacts>,
     resolve_module: &dyn Fn(&str, &str) -> Option<String>,
@@ -236,11 +245,11 @@ fn resolve_one(
     hops: usize,
     visited: &mut BTreeSet<(String, String)>,
     telemetry: &mut JsExportResolution,
-) -> Option<(ResolvedJsExport, bool)> {
+) -> ExportLookup {
     let key = (file.to_string(), name.to_string());
     if !visited.insert(key.clone()) {
         telemetry.chain_unresolved += 1;
-        return None; // cycle
+        return ExportLookup::NoTarget; // cycle; existing bounded traversal policy
     }
     let result = resolve_one_inner(raw, resolve_module, file, name, hops, visited, telemetry);
     visited.remove(&key);
@@ -255,27 +264,30 @@ fn resolve_one_inner(
     hops: usize,
     visited: &mut BTreeSet<(String, String)>,
     telemetry: &mut JsExportResolution,
-) -> Option<(ResolvedJsExport, bool)> {
-    let facts = raw.get(file)?;
+) -> ExportLookup {
+    let Some(facts) = raw.get(file) else {
+        return ExportLookup::NoTarget;
+    };
 
     // F3 (review-fix wave, codex MAJOR 1): a name with 2+ raw fact
     // insertions in this file is poisoned -- it must resolve to NO binding,
     // fail-closed before any target is emitted.
     if facts.conflicted.contains(name) {
         telemetry.barrel_conflicts += 1;
-        return None;
+        return ExportLookup::BlockedClaim;
     }
 
     if let Some(target) = facts.named.get(name) {
         return match target {
+            JsExportTarget::UnprovenLocal(_) => ExportLookup::BlockedClaim,
             // Class identity participates in conflicts, never callable projection.
-            JsExportTarget::Class(local) | JsExportTarget::Local(local) => Some((
+            JsExportTarget::Class(local) | JsExportTarget::Local(local) => ExportLookup::Resolved(
                 ResolvedJsExport {
                     file: file.to_string(),
                     local_name: local.clone(),
                 },
                 matches!(target, JsExportTarget::Class(_)),
-            )),
+            ),
             JsExportTarget::ReExport {
                 module_path,
                 imported,
@@ -286,10 +298,12 @@ fn resolve_one_inner(
             } => {
                 if hops + 1 > MAX_REEXPORT_DEPTH {
                     telemetry.chain_unresolved += 1;
-                    return None;
+                    return ExportLookup::NoTarget;
                 }
-                let target_file = resolve_module(file, module_path)?;
-                let hit = resolve_one(
+                let Some(target_file) = resolve_module(file, module_path) else {
+                    return ExportLookup::NoTarget;
+                };
+                let result = resolve_one(
                     raw,
                     resolve_module,
                     &target_file,
@@ -297,17 +311,19 @@ fn resolve_one_inner(
                     hops + 1,
                     visited,
                     telemetry,
-                )?;
+                );
+                let ExportLookup::Resolved(hit, is_class) = result else {
+                    return result;
+                };
                 if matches!(target, JsExportTarget::ImportForward { .. })
-                    && (hit.1
-                        || !raw
-                            .get(&hit.0.file)?
-                            .forwardable_function_locals
-                            .contains(&hit.0.local_name))
+                    && (is_class
+                        || !raw.get(&hit.file).is_some_and(|f| {
+                            f.forwardable_function_locals.contains(&hit.local_name)
+                        }))
                 {
-                    return None;
+                    return ExportLookup::BlockedClaim;
                 }
-                Some(hit)
+                ExportLookup::Resolved(hit, is_class)
             }
         };
     }
@@ -315,11 +331,11 @@ fn resolve_one_inner(
     // Not a direct named export: fall back to `export * from` barrels.
     // `export *` never re-exports `default` (ES module semantics).
     if name == "default" || facts.star_reexports.is_empty() {
-        return None;
+        return ExportLookup::NoTarget;
     }
     if hops + 1 > MAX_REEXPORT_DEPTH {
         telemetry.chain_unresolved += 1;
-        return None;
+        return ExportLookup::NoTarget;
     }
     let mut candidates: BTreeSet<(String, String, bool)> = BTreeSet::new();
     for module_path in &facts.star_reexports {
@@ -330,7 +346,7 @@ fn resolve_one_inner(
         // spuriously "cycle" each other out, only a genuine repeated
         // (file, name) on ONE path should.
         let mut branch_visited = visited.clone();
-        if let Some((hit, is_class)) = resolve_one(
+        match resolve_one(
             raw,
             resolve_module,
             &target_file,
@@ -339,18 +355,22 @@ fn resolve_one_inner(
             &mut branch_visited,
             telemetry,
         ) {
-            candidates.insert((hit.file, hit.local_name, is_class));
+            ExportLookup::Resolved(hit, is_class) => {
+                candidates.insert((hit.file, hit.local_name, is_class));
+            }
+            ExportLookup::BlockedClaim => return ExportLookup::BlockedClaim,
+            ExportLookup::NoTarget => {}
         }
     }
     match candidates.len() {
-        0 => None,
+        0 => ExportLookup::NoTarget,
         1 => {
             let (file, local_name, is_class) = candidates.into_iter().next().unwrap();
-            Some((ResolvedJsExport { file, local_name }, is_class))
+            ExportLookup::Resolved(ResolvedJsExport { file, local_name }, is_class)
         }
         _ => {
             telemetry.barrel_conflicts += 1;
-            None
+            ExportLookup::BlockedClaim
         }
     }
 }

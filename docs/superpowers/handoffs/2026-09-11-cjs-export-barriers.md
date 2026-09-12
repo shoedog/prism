@@ -1,5 +1,11 @@
 # Handoff — CommonJS export-object barriers
 
+Superseded for current operational state by the [fourth-increment handoff](2026-09-11-cjs-terminal-proof.md).
+This historical increment is commit032e1824, not whichever commit is currently HEAD.
+Its deferred terminal defect is repaired in the follow-up; duplicate-set names now
+survive as refusal-only markers rather than disappearing. Historical totals below
+apply only to032e1824.
+
 **Written:** 2026-09-11 · **By:** root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · feat/js-ts-module-binding-audit · **Measured state:** `[MEASURED]` tested base c3d110ef plus CJS changes; final source/test hashes in the baseline receipt. Delivery is the local commit containing this handoff, identified by `git log -1`.
 **Predecessor:** esm-forwarding c3d110ef, local/unpushed.
