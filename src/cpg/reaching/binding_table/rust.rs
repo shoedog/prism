@@ -1,0 +1,49 @@
+use super::{BindingRow, DeclarationKind, Role, RoleSet, Ruling, Visibility};
+use crate::languages::Language;
+
+pub(super) static ROWS: &[BindingRow] = &[
+    BindingRow {
+        language: Language::Rust,
+        kind: "block",
+        variant: None,
+        roles: RoleSet::of(&[Role::Scope]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::WholeScope,
+        ruling: Ruling::Classified,
+        regression: "e0a-rs-block",
+    },
+    BindingRow {
+        language: Language::Rust,
+        kind: "let_declaration",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &[],
+        declaration: Some(DeclarationKind::Other),
+        visibility: Visibility::AfterIntroduction,
+        ruling: Ruling::Classified,
+        regression: "e0a-rs-let_declaration",
+    },
+    BindingRow {
+        language: Language::Rust,
+        kind: "const_item",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &[],
+        declaration: Some(DeclarationKind::Other),
+        visibility: Visibility::AfterIntroduction,
+        ruling: Ruling::Classified,
+        regression: "e0a-rs-const_item",
+    },
+    BindingRow {
+        language: Language::Rust,
+        kind: "static_item",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &[],
+        declaration: Some(DeclarationKind::Other),
+        visibility: Visibility::AfterIntroduction,
+        ruling: Ruling::Classified,
+        regression: "e0a-rs-static_item",
+    },
+];
