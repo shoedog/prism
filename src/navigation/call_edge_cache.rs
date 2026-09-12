@@ -89,7 +89,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v46: JS/TS call-site fingerprints exclude comment trivia from argument counts.
 // v47: JS/TS module binding / export refusal and comment-safe write barriers.
 // v48: bounded ESM imported-local forwarding with terminal function proof.
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 48;
+// v49: CommonJS producer export-object mutation barriers.
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 49;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -708,7 +709,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 48);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 49);
     }
 
     #[test]

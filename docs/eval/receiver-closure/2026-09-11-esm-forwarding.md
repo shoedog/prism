@@ -107,3 +107,8 @@ Fourteen original gap cases remain. The next candidate is singleton const
 destructured-require binding to a named CJS export, with explicit export-object
 ownership and mutation/snapshot controls. Do not normalize that into this ESM
 live-binding proof. General aliases and whole-module forwarding stay separate.
+
+Follow-up: the [CJS producer-barrier increment](2026-09-11-cjs-export-barriers.md)
+repairs prerequisite export-object defects before forwarding admission. The
+fourteen Gap cases are unchanged. Terminal Local declaration/initialization and
+require-time snapshot proof are still required; object custody alone is not enough.

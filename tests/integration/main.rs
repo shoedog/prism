@@ -2,6 +2,8 @@ mod api_test;
 mod arrow_field_receiver_test;
 mod call_graph_test;
 mod callable_authority_audit_test;
+mod cjs_export_barrier_test;
+mod cjs_export_state_test;
 #[allow(dead_code)]
 #[path = "../common/mod.rs"]
 mod common;

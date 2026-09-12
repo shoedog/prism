@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::{Node, Parser, Tree};
 
+mod js_cjs_export_barriers;
 mod js_module_forwarding;
 
 /// A parameter binding and the byte span of its identifier token.
@@ -2387,14 +2388,22 @@ impl ParsedFile {
         }
 
         let root = self.tree.root_node();
+        let mut cjs = crate::js_exports::JsExportFacts::default();
         let mut cursor = root.walk();
         for child in root.children(&mut cursor) {
             match child.kind() {
                 "export_statement" => self.collect_js_ts_export_statement(child, &mut facts),
-                "expression_statement" => {
-                    self.collect_js_ts_cjs_export_statement(child, &mut facts)
-                }
+                "expression_statement" => self.collect_js_ts_cjs_export_statement(child, &mut cjs),
                 _ => {}
+            }
+        }
+        // Preserve ESM provenance: an unsafe CJS use cannot erase an
+        // independently extracted ESM export. Safe cross-form duplicates still
+        // pass through the normal conflict-aware insertion path.
+        facts.skipped_expr_count += cjs.skipped_expr_count;
+        if cjs.conflicted.is_empty() && self.js_ts_cjs_export_object_safe() {
+            for (name, target) in cjs.named {
+                facts.insert_named(name, target);
             }
         }
         facts.esm_named_imports = self.js_ts_esm_named_imports(None);

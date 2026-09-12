@@ -130,3 +130,9 @@ or same-file fallback. Those require additional named cases and bounded proof
 before claims of comprehensive module identity. Existing depth/cycle tests remain
 in js_exports.rs and js_export_reexport_test.rs; no depth expansion occurred.
 No React.FC/closure/package-resolution expansion or react-scripts change.
+
+Subsequent bundled increments: [ESM forwarding](2026-09-11-esm-forwarding.md)
+promotes five of the nineteen historical gaps, leaving fourteen. The
+[CJS producer-barrier repair](2026-09-11-cjs-export-barriers.md) expands negative
+coverage and closes bounded export-object defects without promoting another gap.
+This document's baseline counts and cache versions remain historical.

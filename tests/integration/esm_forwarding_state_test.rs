@@ -10,7 +10,7 @@ const ORIGIN: &str = "function origin(input) { return input; }\nexport { origin 
 const BRIDGE: &str = "import { item as local } from './origin'; export { local as publicName };";
 const APP: &str = "import { publicName as invoke } from './bridge';\nfunction run(value) { return invoke(value); }";
 
-fn endpoints(
+pub(super) fn endpoints(
     cpg: &CodePropertyGraph,
     files: &BTreeMap<String, ParsedFile>,
     app: &str,
