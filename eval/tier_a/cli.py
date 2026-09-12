@@ -16,6 +16,7 @@ from pathlib import Path
 from . import commands, pinned as pinned_mod
 from .accounting import CorpusAccounting, evaluate_floors
 from .adjudication import apply_verdicts, load_records, reanchor_map
+from .boundary import readmit_stored
 from .compare import caller_fn_sets, site_compare
 from .corpus import (
     corpus_dirty,
@@ -340,10 +341,12 @@ def compute_m2_from_probes(
     return _compute_m2_and_pending(probes, adjudications, site_fps)[0]
 
 
-def recompute_metrics_from_stored(stored: dict) -> dict:
+def recompute_metrics_from_stored(stored: dict, eval_dir: Path | None = None) -> dict:
+    eval_dir = eval_dir or EVAL_DIR
+    stored = readmit_stored(stored, eval_dir)
     if "probes" not in stored:
         return stored
-    adj = load_records(EVAL_DIR / "adjudications.jsonl")
+    adj = load_records(eval_dir / "adjudications.jsonl")
     site_fps = stored.get("site_fingerprints", {})
     m2, pending, stale = _compute_m2_and_pending(stored["probes"], adj, site_fps)
     meta = {
@@ -531,9 +534,16 @@ def run_corpus(
     corpus_identity=None,
     oracle_init=None,
     lock_oracle_version=None,
+    env=None,
+    data_inputs=None,
+    compute_metrics=True,
 ) -> dict:
-    sut = PrismCli(str(EVAL_DIR.parent), sut_bin=args.sut_bin,
-                   allow_stale=args.allow_stale_sut)
+    sut = PrismCli(
+        str(EVAL_DIR.parent),
+        sut_bin=args.sut_bin,
+        allow_stale=args.allow_stale_sut,
+        env=env,
+    )
     sha = corpus_identity.sha if corpus_identity is not None else corpus_sha(cfg["path"])
     if corpus_identity is not None or (
         getattr(args, "quick", False) and getattr(args, "live", False)
@@ -565,6 +575,7 @@ def run_corpus(
             "untracked_sources": untracked,
             "corpus_dirty_reasons": dirty_reasons,
             "prism_sha": sut.sha,
+            "sut_sha_full": getattr(sut, "sha_full", sut.sha),
             "prism_dirty": sut.dirty,
             "seed": defaults["seed"],
             "date": args.date,
@@ -577,6 +588,12 @@ def run_corpus(
         },
         "probes": {"_corpus": name},
     }
+    if env is not None:
+        run["meta"]["env_values"] = dict(env)
+    if not compute_metrics:
+        run["_sut_bin"] = getattr(
+            sut, "bin", args.sut_bin or EVAL_DIR.parent / "target/release/prism"
+        )
     if oracle_init is not None:
         run["meta"]["oracle_init"] = oracle_init
     oracle_cfg = {
@@ -653,7 +670,9 @@ def run_corpus(
             "anon_prism": diff.anon_prism,
         }
         sp = snapshot_path(str(EVAL_DIR / "snapshots"), name, sha)
-        if sp.exists():
+        if data_inputs is not None:
+            snap = data_inputs.snapshot
+        elif sp.exists():
             snap = load_snapshot(sp)
         else:
             snap = oracle_inv
@@ -752,21 +771,31 @@ def run_corpus(
 
         run["meta"]["oracle_error_rate"] = acc.oracle_error_rate()
         run["meta"]["sut_error_rate"] = acc.sut_error_rate()
-        ok, reasons = evaluate_floors(
-            strata_counts,
-            acc.oracle_error_rate(),
-            acc.sut_error_rate(),
-            defaults["oracle_error_floor"][cfg["lang"]],
-            defaults["sut_error_floor"],
-        )
-        run["meta"]["baseline_invalid"] = (not ok) or bool(initial_invalid_reasons)
-        run["meta"]["invalid_reasons"] = initial_invalid_reasons + reasons
-        adj = load_records(EVAL_DIR / "adjudications.jsonl")
         run["site_fingerprints"] = _site_fingerprints_for_probes(run["probes"], cfg["path"])
-        run["m2"], run["pending"], stale = _compute_m2_and_pending(
-            run["probes"], adj, run["site_fingerprints"]
-        )
-        run["meta"]["stale_adjudications"] = stale
+        if compute_metrics:
+            ok, reasons = evaluate_floors(
+                strata_counts,
+                acc.oracle_error_rate(),
+                acc.sut_error_rate(),
+                defaults["oracle_error_floor"][cfg["lang"]],
+                defaults["sut_error_floor"],
+            )
+            run["meta"]["baseline_invalid"] = (not ok) or bool(initial_invalid_reasons)
+            run["meta"]["invalid_reasons"] = initial_invalid_reasons + reasons
+            adj = (
+                data_inputs.adjudications
+                if data_inputs is not None
+                else load_records(EVAL_DIR / "adjudications.jsonl")
+            )
+            run["m2"], run["pending"], stale = _compute_m2_and_pending(
+                run["probes"], adj, run["site_fingerprints"]
+            )
+            run["meta"]["stale_adjudications"] = stale
+        else:
+            run["_boundary_state"] = {
+                "strata_counts": strata_counts,
+                "initial_invalid_reasons": initial_invalid_reasons,
+            }
         return run
     finally:
         stop = getattr(oracle, "stop", None)
@@ -857,29 +886,21 @@ def main() -> int:
         return 0
     if args.matrix_only:
         try:
-            commands.preflight_matrix(EVAL_DIR)
+            lock = commands.preflight_matrix(EVAL_DIR)
         except commands.BoundaryViolation as exc:
             print(f"FATAL boundary_violation: {exc}", file=sys.stderr)
             return 3
-        sut = PrismCli(str(EVAL_DIR.parent), sut_bin=args.sut_bin,
-                       allow_stale=args.allow_stale_sut)
+        sut = PrismCli(
+            str(EVAL_DIR.parent),
+            sut_bin=args.sut_bin,
+            allow_stale=args.allow_stale_sut,
+            env=commands.scrubbed_env(lock),
+        )
         results = run_matrix(EVAL_DIR / "fixtures", sut, MATRIX_LANGUAGES)
         for r in results:
             print(f"{r.language}/{r.capability}: {r.outcome}")
         return 1 if any(r.outcome == "regression" for r in results) else 0
     cfg = load_corpora()
-    corpus_path = EVAL_DIR.parent
-    meta_overlay = {}
-    corpus_identity = None
-    lock = None
-    if args.quick:
-        try:
-            lock, corpus_path, meta_overlay, corpus_identity = commands.preflight_quick(
-                EVAL_DIR, args.live
-            )
-        except commands.BoundaryViolation as exc:
-            print(f"FATAL boundary_violation: {exc}", file=sys.stderr)
-            return 3
     names = ["prism"] if args.quick else (
         list(cfg["corpus"]) if args.corpus == "all" else [args.corpus]
     )
@@ -888,31 +909,24 @@ def main() -> int:
         corpus_cfg = cfg["corpus"][name]
         identity = None
         overlay = {}
-        if args.quick and name == "prism":
-            corpus_cfg = {**corpus_cfg, "path": str(corpus_path)}
-            identity = corpus_identity
-            overlay = meta_overlay
         run_name = name
         if args.oracle:
             corpus_cfg = {**corpus_cfg, "oracle": args.oracle}
             run_name = f"{name}-{args.oracle}"
         try:
             if args.quick:
-                run = run_corpus(
+                run, overlay = commands.run_quick_admitted(
                     run_name,
                     corpus_cfg,
                     cfg["defaults"],
                     args,
-                    corpus_identity=identity,
-                    oracle_init=(
-                        lock.prism["oracle"]["init"] if lock is not None else None
-                    ),
-                    lock_oracle_version=(
-                        lock.prism["oracle"]["version"] if lock is not None else None
-                    ),
+                    EVAL_DIR,
                 )
             else:
                 run = run_corpus(run_name, corpus_cfg, cfg["defaults"], args)
+        except commands.BoundaryViolation as exc:
+            print(f"FATAL boundary_violation: {exc}", file=sys.stderr)
+            return 3
         except SutStale as exc:
             # a stale SUT is the operator's problem, not the oracle's — abort the
             # whole invocation loudly instead of mislabeling it per-corpus

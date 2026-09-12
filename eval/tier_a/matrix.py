@@ -530,7 +530,7 @@ def _dfg_expectation_matches(expected: dict, actual: list[dict]) -> bool:
 
 
 def _dfg_expected(case: Case) -> object:
-    if not case.expect_dfg_stats:
+    if not getattr(case, "expect_dfg_stats", None):
         return case.expect_dfg_edges
     return {
         "edges": case.expect_dfg_edges,
@@ -548,7 +548,12 @@ def _run_dfg_case(case: Case, lang: str, sut) -> CaseResult:
         "--repo", str(case.path), "--edges",
     ]
     try:
-        completed = subprocess.run(command, capture_output=True, text=True)
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            env=getattr(sut, "env", None),
+        )
     except OSError as exc:
         got = f"DFG_ORACLE_LAUNCH_FAILED|{exc}"
         return CaseResult(
@@ -567,7 +572,10 @@ def _run_dfg_case(case: Case, lang: str, sut) -> CaseResult:
         got = f"{kind}|exit={completed.returncode}|{detail}"
         return CaseResult(
             case.capability, lang,
-            "expected_gap" if oracle_missing else _status_outcome(case.status, False), got,
+            "expected_gap"
+            if oracle_missing
+            else _status_outcome(getattr(case, "status", None), False),
+            got,
             _dfg_expected(case), {}, None, None, probe="dfg",
         )
 
@@ -601,7 +609,12 @@ def _run_dfg_case(case: Case, lang: str, sut) -> CaseResult:
             getattr(sut, "bin", "prism"), "nav", *cache_args, "dfg-stats",
             "--repo", str(case.path),
         ]
-        stats_completed = subprocess.run(stats_command, capture_output=True, text=True)
+        stats_completed = subprocess.run(
+            stats_command,
+            capture_output=True,
+            text=True,
+            env=getattr(sut, "env", None),
+        )
         if stats_completed.returncode != 0:
             got_stats = {
                 "error": "DFG_STATS_COMMAND_FAILED",

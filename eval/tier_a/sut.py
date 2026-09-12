@@ -133,12 +133,15 @@ class PrismCli:
         prism_repo: str,
         sut_bin: str | None = None,
         allow_stale: bool = False,
+        *,
+        env: dict[str, str] | None = None,
     ):
         self.repo = prism_repo
         self.bin = sut_bin or os.environ.get("PRISM_BIN") or os.path.join(
             prism_repo, "target/release/prism"
         )
         self.allow_stale = allow_stale
+        self.env = env
         # When True, nav calls pass `--no-cache` so the per-repo nav store is
         # bypassed. The matrix runner sets this for deterministic fixture eval —
         # a stale fixture cache silently served pre-S3 results and produced false
@@ -147,12 +150,8 @@ class PrismCli:
         self.sha, self.dirty = self._check_freshness()
 
     def _check_freshness(self) -> tuple[str, bool]:
-        out = subprocess.run(
-            [self.bin, "--version"],
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout
+        out = self._run(["--version"])
+        assert isinstance(out, str)
         sha, dirty = parse_version(out)
         head = subprocess.run(
             ["git", "-C", self.repo, "rev-parse", "HEAD"],
@@ -160,6 +159,7 @@ class PrismCli:
             text=True,
             check=True,
         ).stdout.strip()
+        self.sha_full = head
         status = subprocess.run(
             ["git", "-C", self.repo, "status", "--porcelain", "-uno"],
             capture_output=True,
@@ -179,14 +179,19 @@ class PrismCli:
             raise SutStale(f"{reason}; rebuild (cargo build --release) or pass allow_stale=True")
         return sha, dirty
 
-    def _run(self, args: list[str]) -> dict | list:
+    def _run(self, args: list[str]) -> dict | list | str:
         # getattr default keeps objects built via __new__ in tests working
         # (and defaults to cache-on, the safe behavior).
         cache_args = ["--no-cache"] if getattr(self, "no_cache", False) else []
+        kwargs = {"capture_output": True, "text": True}
+        if hasattr(self, "env"):
+            kwargs["env"] = self.env
+        if args == ["--version"]:
+            return subprocess.run(
+                [self.bin, *args], check=True, **kwargs
+            ).stdout
         p = subprocess.run(
-            [self.bin, "nav", *cache_args, *args, "--format", "json"],
-            capture_output=True,
-            text=True,
+            [self.bin, "nav", *cache_args, *args, "--format", "json"], **kwargs
         )
         if p.returncode != 0:
             blob = p.stdout or p.stderr

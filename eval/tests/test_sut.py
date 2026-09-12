@@ -108,6 +108,22 @@ def test_run_happy_path_json_decode_and_argv(monkeypatch):
     ]
 
 
+def test_run_passes_the_scrubbed_environment(monkeypatch):
+    seen = {}
+    cli = PrismCli.__new__(PrismCli)
+    cli.bin = "/tmp/prism"
+    cli.env = {"PATH": "/usr/bin"}
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda _argv, **kwargs: seen.update(kwargs) or FakeRun(stdout='{"items":[]}\n'),
+    )
+
+    cli._run(["functions"])
+
+    assert seen["env"] == {"PATH": "/usr/bin"}
+
+
 def test_run_invalid_json_and_non_ambiguous_error(monkeypatch):
     cli = PrismCli.__new__(PrismCli)
     cli.bin = "/tmp/prism"

@@ -3,8 +3,20 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
+from .boundary import (
+    BoundaryViolation,
+    Observation,
+    OpenAudit,
+    admit,
+    load_declared_inputs,
+    observe_cargo,
+    scrubbed_env,
+)
+from .closure import raw_digest
+from .corpus import universe
 from .lock import (
     CorpusIdentity,
     Lock,
@@ -18,12 +30,6 @@ from .materialize import materialize, tier_a_root
 
 
 EVAL_DIR = Path(__file__).resolve().parents[1]
-
-
-class BoundaryViolation(Exception):
-    def __init__(self, reasons: list[str]):
-        self.reasons = reasons
-        super().__init__(", ".join(reasons))
 
 
 def _load_optional_lock(eval_dir: Path) -> Lock | None:
@@ -91,7 +97,7 @@ def dispatch(argv: list[str]) -> int | None:
     return 0
 
 
-def preflight_matrix(eval_dir: Path) -> None:
+def preflight_matrix(eval_dir: Path) -> Lock | None:
     lock = _load_optional_lock(eval_dir)
     try:
         reasons = integrity_check(lock, eval_dir)
@@ -99,6 +105,7 @@ def preflight_matrix(eval_dir: Path) -> None:
         raise BoundaryViolation([f"lock_invalid: {exc}"]) from exc
     if reasons:
         raise BoundaryViolation(reasons)
+    return lock
 
 
 def preflight_quick(
@@ -166,3 +173,139 @@ def preflight_quick(
         },
         identity,
     )
+
+
+def finalize_metrics(run: dict, declared, defaults: dict, cfg: dict) -> dict:
+    """Compute verdict-bearing metrics only after boundary admission."""
+    from . import cli
+
+    state = run.pop("_boundary_state", None)
+    if state is not None:
+        initial = state["initial_invalid_reasons"]
+        ok, reasons = cli.evaluate_floors(
+            state["strata_counts"],
+            run["meta"].get("oracle_error_rate", 0.0),
+            run["meta"].get("sut_error_rate", 0.0),
+            defaults["oracle_error_floor"][cfg["lang"]],
+            defaults["sut_error_floor"],
+        )
+        run["meta"]["baseline_invalid"] = (not ok) or bool(initial)
+        run["meta"]["invalid_reasons"] = initial + reasons
+    if "probes" in run:
+        run["m2"], run["pending"], stale = cli._compute_m2_and_pending(
+            run["probes"], declared.adjudications, run.get("site_fingerprints", {})
+        )
+        run["meta"]["stale_adjudications"] = stale
+    return run
+
+
+def _lockless_closure_paths(cfg: dict) -> set[str]:
+    root = Path(cfg["path"])
+    paths = set(
+        universe(
+            str(root),
+            cfg["lang"],
+            cfg.get("excludes", []),
+            tracked_only=True,
+        )
+    )
+    paths.update(
+        name
+        for name in (
+            "Cargo.lock",
+            "Cargo.toml",
+            "build.rs",
+            "rust-toolchain",
+            "rust-toolchain.toml",
+        )
+        if (root / name).is_file()
+    )
+    return paths
+
+
+def run_quick_admitted(
+    name: str,
+    cfg: dict,
+    defaults: dict,
+    args,
+    eval_dir: Path,
+) -> tuple[dict, dict]:
+    """Run quick observations, admit them, then compute verdict metrics."""
+    from . import cli
+
+    lock, corpus_path, overlay, identity = preflight_quick(eval_dir, args.live)
+    corpus_cfg = {**cfg, "path": str(corpus_path)}
+    env = scrubbed_env(lock)
+    with OpenAudit(eval_dir) as audit:
+        declared = load_declared_inputs(
+            lock,
+            eval_dir,
+            corpus=name,
+            cfg=corpus_cfg,
+        )
+        run = cli.run_corpus(
+            name,
+            corpus_cfg,
+            defaults,
+            args,
+            oracle_init=(lock.prism["oracle"]["init"] if lock is not None else None),
+            lock_oracle_version=(
+                lock.prism["oracle"]["version"] if lock is not None else None
+            ),
+            env=env,
+            data_inputs=declared,
+            corpus_identity=identity,
+            compute_metrics=False,
+        )
+        run["meta"]["corpus"] = name
+        run["meta"]["date"] = args.date
+
+    sut_bin = Path(
+        run.pop("_sut_bin", args.sut_bin or eval_dir.parent / "target/release/prism")
+    )
+    build_dir = sut_bin.parent if sut_bin.parent != Path(".") else eval_dir.parent / "target/release"
+    env_reads, dep_paths = observe_cargo(build_dir, eval_dir.parent, env)
+    observed = Observation(env_reads, dep_paths, audit.opens)
+    closure_paths = (
+        {row[0] for row in getattr(lock, "_corpus_rows", [])}
+        if lock is not None
+        else _lockless_closure_paths(corpus_cfg)
+    )
+    admit(lock, declared, observed, closure_paths, eval_dir)
+
+    run["meta"]["observation"] = {
+        "env_reads": [asdict(read) for read in observed.env_reads],
+        "dep_paths": sorted(observed.dep_paths),
+        "harness_opens": sorted(observed.harness_opens),
+    }
+    finalize_metrics(run, declared, defaults, corpus_cfg)
+
+    run["meta"]["env_values"] = dict(env)
+    run["meta"]["data"] = {
+        path: {"digest": digest} for path, digest in sorted(declared.digests.items())
+    }
+    run["meta"]["data"]["eval/fixtures"] = {
+        "digest": declared.fixtures_digest
+    }
+    if lock is None:
+        run["meta"]["baseline_invalid"] = True
+        run["meta"]["invalid_reasons"] = list(
+            dict.fromkeys(run["meta"].get("invalid_reasons", []) + ["no_lock"])
+        )
+        run["meta"]["admitted"] = False
+    else:
+        sut_sha_full = run["meta"].get(
+            "sut_sha_full", run["meta"].get("prism_sha")
+        )
+        run["meta"].update(lock_identities(lock))
+        run["meta"]["corpus_sha_full"] = (
+            identity.sha_full
+            if identity is not None
+            else run["meta"]["corpus_sha_full"]
+        )
+        run["meta"]["sut_sha_full"] = sut_sha_full
+        run["meta"]["snapshot_digest"] = raw_digest(
+            eval_dir.parent / lock.prism["snapshot"]["path"]
+        )
+        run["meta"]["admitted"] = True
+    return run, overlay

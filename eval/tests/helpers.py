@@ -231,16 +231,27 @@ def fake_run(
 
 
 def admitted_fake_run() -> dict:
-    return fake_run(base_ids())
+    run = fake_run(base_ids())
+    run["meta"].update(
+        corpus="prism",
+        corpus_sha="a" * 12,
+        prism_sha="a" * 12,
+        date="2026-01-01",
+        oracle_error_rate=0.0,
+        sut_error_rate=0.0,
+        oracle_not_quiescent=False,
+        wall_s={},
+    )
+    return run
 
 
 class FakeSut:
-    def __init__(self, prism_repo=None, sut_bin=None, allow_stale=False):
+    def __init__(self, prism_repo=None, sut_bin=None, allow_stale=False, *, env=None):
         self.sha = "a" * 12
         self.sha_full = "a" * 40
         self.dirty = False
         self.no_cache = False
-        self.env = None
+        self.env = env
         self.bin = "prism"
 
     def inventory(self, root):
