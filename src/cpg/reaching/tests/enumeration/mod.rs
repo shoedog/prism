@@ -25,6 +25,7 @@ fn reaching_module_files_are_under_the_cap() {
     }
 }
 
+mod barrier;
 mod go;
 mod javascript;
 mod parameter_capture;

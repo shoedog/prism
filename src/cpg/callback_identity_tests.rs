@@ -48,6 +48,9 @@ fn r5_full_binding_rows(
                     super::FlowConfidence::NameOnly(super::FlowDoubt::Killed { kill_line }) => {
                         (Some("killed"), Some(kill_line))
                     }
+                    super::FlowConfidence::NameOnly(super::FlowDoubt::OwnershipUncertain {
+                        construct_line,
+                    }) => (Some("ownership_uncertain"), Some(construct_line)),
                     super::FlowConfidence::NameOnly(super::FlowDoubt::SameLine) => {
                         (Some("sameline"), None)
                     }
