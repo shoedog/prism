@@ -459,8 +459,8 @@ fn no_reaching_candidate_without_a_proven_kill_is_cfg_incomplete() {
     );
 }
 
-mod enumeration;
 mod captures;
 mod cfg_joins;
+mod enumeration;
 mod limits;
 mod review_regressions;
