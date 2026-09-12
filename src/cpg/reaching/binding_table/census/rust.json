@@ -1,0 +1,1528 @@
+{
+  "digest": "4b73a1248978340336100db455bf0731c23f9190568c9ae62265fa4a80a327d5",
+  "kinds": [
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "abstract_type",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 66,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "arguments",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "array_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "array_type",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 8,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "assignment_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "associated_type",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "async_block",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "attribute",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "attribute_item",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "await_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "base_field_initializer",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 5,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "binary_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 89,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "block",
+      "named": true,
+      "table_row": true
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "block_comment",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "boolean_literal",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "bounded_type",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "bracketed_type",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "break_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 66,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "call_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "captured_pattern",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 2,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "parameters"
+      ],
+      "kind": "closure_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 2,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "closure_parameters",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "compound_assignment_expr",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "const_block",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "name"
+      ],
+      "kind": "const_item",
+      "named": true,
+      "table_row": true
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "name"
+      ],
+      "kind": "const_parameter",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "continue_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "declaration_list",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 1,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "dynamic_type",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 1,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "else_clause",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "empty_statement",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "name"
+      ],
+      "kind": "enum_item",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "enum_variant",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "enum_variant_list",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 53,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "expression_statement",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "alias",
+        "name"
+      ],
+      "kind": "extern_crate_declaration",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "extern_modifier",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "name"
+      ],
+      "kind": "field_declaration",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "field_declaration_list",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 23,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "field_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "field_initializer",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "field_initializer_list",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "name",
+        "pattern"
+      ],
+      "kind": "field_pattern",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "pattern"
+      ],
+      "kind": "for_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "for_lifetimes",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "foreign_mod_item",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "fragment_specifier",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 83,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "name",
+        "parameters"
+      ],
+      "kind": "function_item",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "function_modifiers",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "name",
+        "parameters"
+      ],
+      "kind": "function_signature_item",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "parameters"
+      ],
+      "kind": "function_type",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "gen_block",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "generic_function",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "generic_pattern",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 1,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "generic_type",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "generic_type_with_turbofish",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "higher_ranked_trait_bound",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 1,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "if_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "impl_item",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "index_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "inner_attribute_item",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "inner_doc_comment_marker",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "label",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "let_chain",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "pattern"
+      ],
+      "kind": "let_condition",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 19,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "pattern"
+      ],
+      "kind": "let_declaration",
+      "named": true,
+      "table_row": true
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "lifetime",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "lifetime_parameter",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "line_comment",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 2,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "loop_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "macro_definition",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 6,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "macro_invocation",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "macro_rule",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "pattern"
+      ],
+      "kind": "match_arm",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "match_block",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "match_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "match_pattern",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "name"
+      ],
+      "kind": "mod_item",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "mut_pattern",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "negative_literal",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "never_type",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "or_pattern",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "ordered_field_declaration_list",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "outer_doc_comment_marker",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 20,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "pattern"
+      ],
+      "kind": "parameter",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 83,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "parameters",
+      "named": true,
+      "table_row": true
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "parenthesized_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "pointer_type",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "qualified_type",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "range_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "left"
+      ],
+      "kind": "range_pattern",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "raw_string_literal",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "ref_pattern",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "reference_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "reference_pattern",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 2,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "reference_type",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "remaining_field_pattern",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "removed_trait_bound",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "return_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 7,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "scoped_identifier",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 3,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "scoped_type_identifier",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "scoped_use_list",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 24,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "self_parameter",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "shorthand_field_initializer",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "slice_pattern",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "source_file",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "name"
+      ],
+      "kind": "static_item",
+      "named": true,
+      "table_row": true
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "string_literal",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "struct_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "name"
+      ],
+      "kind": "struct_item",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "struct_pattern",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "token_binding_pattern",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "token_repetition",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "token_repetition_pattern",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 13,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "token_tree",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "token_tree_pattern",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "trait_bounds",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "name"
+      ],
+      "kind": "trait_item",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "try_block",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "try_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "tuple_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "tuple_pattern",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "tuple_struct_pattern",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "tuple_type",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 1,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "type_arguments",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "name"
+      ],
+      "kind": "type_binding",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "type_cast_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "name"
+      ],
+      "kind": "type_item",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "name"
+      ],
+      "kind": "type_parameter",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "type_parameters",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "unary_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "name"
+      ],
+      "kind": "union_item",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "unit_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "unit_type",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "unsafe_block",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "alias"
+      ],
+      "kind": "use_as_clause",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "use_bounds",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "use_declaration",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "use_list",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "use_wildcard",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [
+        "pattern"
+      ],
+      "kind": "variadic_parameter",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 27,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "visibility_modifier",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "where_clause",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "where_predicate",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "while_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "yield_expression",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "char_literal",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "crate",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "doc_comment",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "escape_sequence",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 23,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "field_identifier",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "float_literal",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 239,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "identifier",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 21,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "integer_literal",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": true,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "metavariable",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 6,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "mutable_specifier",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 20,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "primitive_type",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 24,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "self",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "shebang",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "shorthand_field_identifier",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "string_content",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 0,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "super",
+      "named": true,
+      "table_row": false
+    },
+    {
+      "candidate": false,
+      "corpus_occurrences": 17,
+      "grammar_only": false,
+      "heuristic_flags": [],
+      "kind": "type_identifier",
+      "named": true,
+      "table_row": false
+    }
+  ]
+}

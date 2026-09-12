@@ -3,8 +3,11 @@
 //! Task 6a provides the path-confidence delta mode. Later enumeration tasks add
 //! the grammar census and edge-label delta modes.
 
+use prism::ast::ParsedFile;
 use prism::cpg::{CodePropertyGraph, FlowConfidence};
 use prism::data_flow::VarLocation;
+use prism::languages::Language;
+use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -15,8 +18,437 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
 const EXPECTED_DFG_FIXTURES: usize = 57;
+const CANDIDATE_PARTS: &[&str] = &[
+    "declar",
+    "parameter",
+    "pattern",
+    "comprehension",
+    "for_",
+    "lambda",
+    "closure",
+    "function",
+    "arrow",
+    "catch",
+    "except",
+    "with_",
+    "as_pattern",
+    "binding",
+    "let",
+    "assignment",
+    "walrus",
+    "named_expression",
+    "variable",
+    "match",
+    "case",
+    "range",
+    "short_var",
+    "import",
+    "global",
+    "nonlocal",
+    "destructur",
+    "generator",
+    "class",
+    "block",
+    "body",
+];
 
 type AnyResult<T> = Result<T, Box<dyn Error>>;
+
+#[derive(Deserialize)]
+struct NodeTypeSchema {
+    #[serde(rename = "type")]
+    kind: String,
+    #[serde(default)]
+    named: bool,
+    #[serde(default)]
+    subtypes: Vec<NodeTypeRef>,
+    #[serde(default)]
+    fields: BTreeMap<String, NodeTypeMembers>,
+    #[serde(default)]
+    children: Option<NodeTypeMembers>,
+}
+
+#[derive(Deserialize)]
+struct NodeTypeMembers {
+    #[serde(default)]
+    types: Vec<NodeTypeRef>,
+}
+
+#[derive(Deserialize)]
+struct NodeTypeRef {
+    #[serde(rename = "type")]
+    kind: String,
+}
+
+fn language_slug(language: Language) -> &'static str {
+    match language {
+        Language::Python => "python",
+        Language::JavaScript => "javascript",
+        Language::TypeScript => "typescript",
+        Language::Tsx => "tsx",
+        Language::Go => "go",
+        Language::Java => "java",
+        Language::C => "c",
+        Language::Cpp => "cpp",
+        Language::Rust => "rust",
+        Language::Lua => "lua",
+        Language::Terraform => "terraform",
+        Language::Bash => "bash",
+    }
+}
+
+fn node_types_json(language: Language) -> &'static str {
+    match language {
+        Language::Python => tree_sitter_python::NODE_TYPES,
+        Language::JavaScript => tree_sitter_javascript::NODE_TYPES,
+        Language::TypeScript => tree_sitter_typescript::TYPESCRIPT_NODE_TYPES,
+        Language::Tsx => tree_sitter_typescript::TSX_NODE_TYPES,
+        Language::Go => tree_sitter_go::NODE_TYPES,
+        Language::Java => tree_sitter_java::NODE_TYPES,
+        Language::C => tree_sitter_c::NODE_TYPES,
+        Language::Cpp => tree_sitter_cpp::NODE_TYPES,
+        Language::Rust => tree_sitter_rust::NODE_TYPES,
+        Language::Lua => tree_sitter_lua::NODE_TYPES,
+        Language::Terraform => tree_sitter_hcl::NODE_TYPES,
+        Language::Bash => tree_sitter_bash::NODE_TYPES,
+    }
+}
+
+fn source_extensions(language: Language) -> &'static [&'static str] {
+    match language {
+        Language::Python => &["py"],
+        Language::JavaScript => &["js", "mjs", "cjs", "jsx"],
+        Language::TypeScript => &["ts"],
+        Language::Tsx => &["tsx"],
+        Language::Go => &["go"],
+        Language::Java => &["java"],
+        Language::C => &["c", "h"],
+        Language::Cpp => &["cpp", "cc", "cxx", "hpp", "hxx", "hh"],
+        Language::Rust => &["rs"],
+        Language::Lua => &["lua"],
+        Language::Terraform => &["tf", "hcl"],
+        Language::Bash => &["sh", "bash"],
+    }
+}
+
+fn curated_row_kinds(language: Language) -> &'static [&'static str] {
+    match language {
+        Language::Python => &[
+            "function_definition",
+            "lambda",
+            "class_definition",
+            "list_comprehension",
+            "set_comprehension",
+            "dictionary_comprehension",
+            "generator_expression",
+            "assignment",
+            "augmented_assignment",
+            "named_expression",
+            "parameters",
+        ],
+        Language::JavaScript | Language::TypeScript | Language::Tsx => &[
+            "statement_block",
+            "class_body",
+            "function_declaration",
+            "function_expression",
+            "arrow_function",
+            "for_statement",
+            "for_in_statement",
+            "variable_declaration",
+            "lexical_declaration",
+            "class_declaration",
+            "formal_parameters",
+        ],
+        Language::Go => &[
+            "block",
+            "if_statement",
+            "for_statement",
+            "expression_switch_statement",
+            "type_switch_statement",
+            "select_statement",
+            "short_var_declaration",
+            "var_declaration",
+            "const_declaration",
+            "parameter_list",
+        ],
+        Language::Rust => &[
+            "block",
+            "let_declaration",
+            "const_item",
+            "static_item",
+            "parameters",
+        ],
+        Language::Java => &["formal_parameters", "spread_parameter"],
+        Language::C | Language::Cpp => &["parameter_list", "parameter_declaration"],
+        Language::Lua => &["parameters"],
+        Language::Terraform | Language::Bash => &[],
+    }
+}
+
+fn is_name_introducing_field(field: &str) -> bool {
+    matches!(
+        field,
+        "name" | "pattern" | "left" | "target" | "alias" | "parameter" | "parameters"
+    ) || field.ends_with("_name")
+        || field.ends_with("_pattern")
+        || field.ends_with("_target")
+}
+
+fn is_intrinsically_introducing_field(field: &str) -> bool {
+    matches!(field, "pattern" | "target" | "parameter" | "parameters")
+        || field.ends_with("_pattern")
+        || field.ends_with("_target")
+}
+
+fn looks_name_introducing_kind(kind: &str) -> bool {
+    [
+        "declaration",
+        "declarator",
+        "parameter",
+        "pattern",
+        "clause",
+        "for_",
+        "for_statement",
+        "with_",
+        "except_",
+        "catch_",
+        "binding",
+        "variable",
+    ]
+    .iter()
+    .any(|part| kind.contains(part))
+        || kind.ends_with("_item")
+        || kind.ends_with("_arm")
+}
+
+fn type_can_contain_identifier<'a>(
+    kind: &'a str,
+    members: &BTreeMap<&'a str, Vec<&'a str>>,
+    visiting: &mut BTreeSet<&'a str>,
+) -> bool {
+    if kind.contains("identifier")
+        || kind.ends_with("_target")
+        || matches!(kind, "variable_name" | "name")
+    {
+        return true;
+    }
+    if !visiting.insert(kind) {
+        return false;
+    }
+    let result = members.get(kind).is_some_and(|children| {
+        children
+            .iter()
+            .any(|child| type_can_contain_identifier(child, members, visiting))
+    });
+    visiting.remove(kind);
+    result
+}
+
+fn heuristic_fields(schemas: &[NodeTypeSchema]) -> BTreeMap<String, Vec<String>> {
+    let members: BTreeMap<_, _> = schemas
+        .iter()
+        .map(|schema| {
+            let mut kinds: Vec<_> = schema
+                .subtypes
+                .iter()
+                .map(|item| item.kind.as_str())
+                .collect();
+            if let Some(children) = &schema.children {
+                kinds.extend(children.types.iter().map(|item| item.kind.as_str()));
+            }
+            for field in schema.fields.values() {
+                kinds.extend(field.types.iter().map(|item| item.kind.as_str()));
+            }
+            (schema.kind.as_str(), kinds)
+        })
+        .collect();
+    schemas
+        .iter()
+        .filter_map(|schema| {
+            let fields: Vec<_> = schema
+                .fields
+                .iter()
+                .filter(|(field, value)| {
+                    is_name_introducing_field(field)
+                        && (is_intrinsically_introducing_field(field)
+                            || looks_name_introducing_kind(&schema.kind))
+                        && value.types.iter().any(|item| {
+                            type_can_contain_identifier(&item.kind, &members, &mut BTreeSet::new())
+                        })
+                })
+                .map(|(field, _)| field.clone())
+                .collect();
+            (!fields.is_empty()).then_some((schema.kind.clone(), fields))
+        })
+        .collect()
+}
+
+fn collect_source_files(root: &Path, language: Language, out: &mut Vec<PathBuf>) -> AnyResult<()> {
+    for entry in fs::read_dir(root)? {
+        let entry = entry?;
+        let path = entry.path();
+        if entry.file_type()?.is_dir() {
+            collect_source_files(&path, language, out)?;
+        } else if path
+            .extension()
+            .and_then(OsStr::to_str)
+            .is_some_and(|extension| source_extensions(language).contains(&extension))
+        {
+            out.push(path);
+        }
+    }
+    Ok(())
+}
+
+fn corpus_occurrences(corpus: &Path, language: Language) -> AnyResult<BTreeMap<String, usize>> {
+    fn walk(
+        node: tree_sitter::Node<'_>,
+        functions: &[(usize, usize)],
+        out: &mut BTreeMap<String, usize>,
+    ) {
+        if functions
+            .iter()
+            .any(|(start, end)| *start <= node.start_byte() && node.end_byte() <= *end)
+        {
+            *out.entry(node.kind().to_string()).or_default() += 1;
+        }
+        let mut cursor = node.walk();
+        for child in node.named_children(&mut cursor) {
+            walk(child, functions, out);
+        }
+    }
+    let mut paths = Vec::new();
+    collect_source_files(corpus, language, &mut paths)?;
+    paths.sort();
+    let mut counts = BTreeMap::new();
+    for path in paths {
+        let source = fs::read_to_string(&path)?;
+        let parsed = ParsedFile::parse(&path.to_string_lossy(), &source, language)?;
+        let functions: Vec<_> = parsed
+            .all_functions()
+            .iter()
+            .map(|node| (node.start_byte(), node.end_byte()))
+            .collect();
+        walk(parsed.tree.root_node(), &functions, &mut counts);
+    }
+    Ok(counts)
+}
+
+fn markdown(language: Language, digest: &str, kinds: &[Value]) -> String {
+    let mut output = format!("# Binding census: {}\n\nGrammar SHA-256: `{digest}`\n\n| Kind | Named | Heuristic fields | Existing curated row | Candidate | Grammar-only | Corpus occurrences |\n|---|---:|---|---:|---:|---:|---:|\n", language_slug(language));
+    for kind in kinds {
+        let flags = kind["heuristic_flags"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .collect::<Vec<_>>()
+            .join(", ");
+        output.push_str(&format!(
+            "| `{}` | {} | {} | {} | {} | {} | {} |\n",
+            kind["kind"].as_str().unwrap_or_default(),
+            kind["named"].as_bool().unwrap_or_default(),
+            flags,
+            kind["table_row"].as_bool().unwrap_or_default(),
+            kind["candidate"].as_bool().unwrap_or_default(),
+            kind["grammar_only"].as_bool().unwrap_or_default(),
+            kind["corpus_occurrences"].as_u64().unwrap_or_default()
+        ));
+    }
+    output
+}
+
+fn generate_census(out: &Path, docs: &Path, corpus: &Path) -> AnyResult<Value> {
+    fs::create_dir_all(out)?;
+    fs::create_dir_all(docs)?;
+    let mut summary = serde_json::Map::new();
+    for language in Language::all() {
+        let source = node_types_json(language);
+        let digest = format!("{:x}", Sha256::digest(source.as_bytes()));
+        let schemas: Vec<NodeTypeSchema> = serde_json::from_str(source)?;
+        let flags = heuristic_fields(&schemas);
+        let occurrences = corpus_occurrences(corpus, language)?;
+        let curated = curated_row_kinds(language);
+        let kinds: Vec<_> = schemas.iter().filter(|schema| schema.named && !schema.kind.starts_with('_')).map(|schema| {
+            let heuristic_flags = flags.get(&schema.kind).cloned().unwrap_or_default();
+            // Tree-sitter supertypes and Java's inlined `pattern` rule appear in
+            // node-types.json but never occur as Node::kind() values.
+            let grammar_only = !schema.subtypes.is_empty()
+                || (language == Language::Java && schema.kind == "pattern");
+            json!({"kind": schema.kind, "named": schema.named, "heuristic_flags": heuristic_flags,
+                "table_row": curated.contains(&schema.kind.as_str()),
+                "candidate": !grammar_only && CANDIDATE_PARTS.iter().any(|part| schema.kind.contains(part)),
+                "grammar_only": grammar_only,
+                "corpus_occurrences": occurrences.get(&schema.kind).copied().unwrap_or_default()})
+        }).collect();
+        let value = json!({"digest": digest, "kinds": kinds});
+        let slug = language_slug(language);
+        fs::write(
+            out.join(format!("{slug}.json")),
+            serde_json::to_vec_pretty(&value)?,
+        )?;
+        fs::write(
+            docs.join(format!("census-{slug}.md")),
+            markdown(language, &digest, value["kinds"].as_array().unwrap()),
+        )?;
+        let candidates = value["kinds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|kind| {
+                kind["candidate"].as_bool().unwrap_or_default()
+                    || kind["heuristic_flags"]
+                        .as_array()
+                        .is_some_and(|flags| !flags.is_empty())
+            })
+            .count();
+        summary.insert(slug.to_string(), json!({"named": value["kinds"].as_array().unwrap().len(), "candidates": candidates, "digest": digest}));
+    }
+    Ok(Value::Object(summary))
+}
+
+fn run_dfg_stats(binary: &Path, fixture: &Path) -> AnyResult<Output> {
+    let mut command = Command::new(binary);
+    command
+        .args(["nav", "dfg-stats", "--repo"])
+        .arg(fixture)
+        .arg("--edges");
+    command_output(command, "run nav dfg-stats --edges")
+}
+
+fn label_delta(base_binary: &Path, corpus: &Path, current_binary: &Path) -> AnyResult<Value> {
+    let fixtures = dfg_fixture_dirs(corpus)?;
+    let mut changes = Vec::new();
+    let mut errors = Vec::new();
+    for (case, fixture) in &fixtures {
+        match (
+            run_dfg_stats(base_binary, fixture),
+            run_dfg_stats(current_binary, fixture),
+        ) {
+            (Ok(base), Ok(branch)) if base.status.success() && branch.status.success() => {
+                let base_lines: BTreeSet<_> = String::from_utf8_lossy(&base.stdout)
+                    .lines()
+                    .map(str::to_owned)
+                    .collect();
+                let branch_lines: BTreeSet<_> = String::from_utf8_lossy(&branch.stdout)
+                    .lines()
+                    .map(str::to_owned)
+                    .collect();
+                if base_lines != branch_lines {
+                    changes.push(json!({"case": case, "base_only": base_lines.difference(&branch_lines).collect::<Vec<_>>(), "branch_only": branch_lines.difference(&base_lines).collect::<Vec<_>>() }));
+                }
+            }
+            (base, branch) => errors.push(format!(
+                "{case}: base={:?}, branch={:?}",
+                base.as_ref().map(|output| output.status.code()),
+                branch.as_ref().map(|output| output.status.code())
+            )),
+        }
+    }
+    Ok(
+        json!({"mode": "label-delta", "fixture_count": fixtures.len(), "changes": changes, "errors": errors}),
+    )
+}
 
 fn location_key(location: &VarLocation) -> String {
     format!(
@@ -131,8 +563,9 @@ fn build_base_adapter(workspace: &Path, base_repo: &Path) -> AnyResult<PathBuf> 
     fs::write(
         adapter_crate.join("Cargo.toml"),
         format!(
-            "[package]\nname = \"binding-kinds-base-adapter\"\nversion = \"0.0.0\"\nedition = \"2021\"\n\n[dependencies]\nprism = {{ path = {:?} }}\nserde_json = \"1\"\nsha2 = \"0.10\"\n",
-            base_repo
+            "[package]\nname = \"binding-kinds-base-adapter\"\nversion = \"0.0.0\"\nedition = \"2021\"\n\n[dependencies]\nprism = {{ path = {:?} }}\nserde = {{ version = \"1\", features = [\"derive\"] }}\nserde_json = \"1\"\nsha2 = \"0.10\"\ntree-sitter = \"0.25\"\ntree-sitter-python = \"0.23\"\ntree-sitter-javascript = \"0.23\"\ntree-sitter-typescript = {{ version = \"=0.23.2\", path = {:?} }}\ntree-sitter-go = \"0.23\"\ntree-sitter-java = \"0.23\"\ntree-sitter-c = \"0.24\"\ntree-sitter-cpp = \"0.23\"\ntree-sitter-rust = \"0.24\"\ntree-sitter-lua = \"0.5\"\ntree-sitter-hcl = \"1.1\"\ntree-sitter-bash = \"0.25\"\n",
+            base_repo,
+            base_repo.join("vendor/tree-sitter-typescript")
         ),
     )?;
     fs::write(
@@ -629,7 +1062,7 @@ fn path_delta(base_binary: &Path, corpus: &Path) -> AnyResult<Value> {
 }
 
 fn usage() -> &'static str {
-    "usage: binding_kinds_census --path-delta <base-prism-binary> [--corpus <eval/fixtures>]\n       binding_kinds_census --path-snapshot <eval/fixtures>"
+    "usage: binding_kinds_census --out <census-dir> --docs <docs-dir> --corpus <fixtures>\n       binding_kinds_census --label-delta <base-prism-binary> [--corpus <eval/fixtures>]\n       binding_kinds_census --path-delta <base-prism-binary> [--corpus <eval/fixtures>]\n       binding_kinds_census --path-snapshot <eval/fixtures>"
 }
 
 fn run_with_current_binary(
@@ -638,6 +1071,30 @@ fn run_with_current_binary(
 ) -> AnyResult<Value> {
     let mode = args.next().ok_or_else(|| usage().to_string())?;
     match mode.to_str() {
+        Some("--out") => {
+            let out: PathBuf = args.next().ok_or_else(|| usage().to_string())?.into();
+            if args.next().as_deref() != Some(OsStr::new("--docs")) {
+                return Err(usage().into());
+            }
+            let docs: PathBuf = args.next().ok_or_else(|| usage().to_string())?.into();
+            if args.next().as_deref() != Some(OsStr::new("--corpus")) {
+                return Err(usage().into());
+            }
+            let corpus: PathBuf = args.next().ok_or_else(|| usage().to_string())?.into();
+            if args.next().is_some() {
+                return Err(usage().into());
+            }
+            generate_census(&out, &docs, &corpus)
+        }
+        Some("--label-delta") => {
+            let base_binary = args.next().ok_or_else(|| usage().to_string())?;
+            let options =
+                parse_path_delta_options(base_binary, args, Path::new(env!("CARGO_MANIFEST_DIR")))?;
+            let current = current_binary.map(Path::to_path_buf).unwrap_or_else(|| {
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("target/release/prism")
+            });
+            label_delta(&options.base_binary, &options.corpus, &current)
+        }
         Some("--path-snapshot") => {
             let corpus = args.next().ok_or_else(|| usage().to_string())?;
             if args.next().is_some() {
@@ -714,9 +1171,21 @@ mod tests {
     #[test]
     fn alternate_path_delta_arguments_bind_both_legs_exactly() {
         let workspace = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let Ok(base_binary) = std::env::var("PRISM_BASE_BIN") else {
+            eprintln!("skipped: PRISM_BASE_BIN is unset");
+            return;
+        };
+        let base_binary = PathBuf::from(base_binary);
+        if !base_binary.is_file() {
+            eprintln!(
+                "skipped: PRISM_BASE_BIN is absent: {}",
+                base_binary.display()
+            );
+            return;
+        }
         let scratch = tempfile::Builder::new()
-            .prefix("task6a-external-corpus-")
-            .tempdir_in(workspace.join("target"))
+            .prefix("task6b-external-corpus-")
+            .tempdir_in(std::env::temp_dir())
             .unwrap();
         let corpus = scratch.path().join("fixtures");
         for (language, fixture) in [
@@ -728,7 +1197,11 @@ mod tests {
                 &corpus.join(language).join(fixture),
             );
         }
-        let base_binary = Path::new("/Users/wesleyjinks/code/tools/bin/prism-base-afc7814");
+        let current_binary = workspace.join("target/release/prism");
+        assert!(
+            current_binary.is_file(),
+            "build the current release binary first"
+        );
         let value = run_with_current_binary(
             [
                 OsString::from("--path-delta"),
@@ -737,7 +1210,7 @@ mod tests {
                 corpus.as_os_str().to_owned(),
             ]
             .into_iter(),
-            Some(base_binary),
+            Some(&current_binary),
         )
         .unwrap();
 

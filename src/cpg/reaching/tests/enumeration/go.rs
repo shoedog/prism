@@ -1,5 +1,22 @@
-use super::super::super::binding_table::{rows, DeclarationKind, Role, Visibility};
+use super::super::super::binding_table::{rows, DeclarationKind, Role, Ruling, Visibility};
 use crate::languages::Language;
+
+pub(super) const CASES: &[super::case::Case] = &[];
+pub(super) const CURATED: &[(&str, &str)] = &[
+    ("block", "e0a-go-block"),
+    ("if_statement", "e0a-go-if_statement"),
+    ("for_statement", "e0a-go-for_statement"),
+    (
+        "expression_switch_statement",
+        "e0a-go-expression_switch_statement",
+    ),
+    ("type_switch_statement", "e0a-go-type_switch_statement"),
+    ("select_statement", "e0a-go-select_statement"),
+    ("short_var_declaration", "e0a-go-short_var_declaration"),
+    ("var_declaration", "e0a-go-var_declaration"),
+    ("const_declaration", "e0a-go-const_declaration"),
+    ("parameter_list", "e0a-x-go-parameter_list"),
+];
 
 #[test]
 fn go_rows_reproduce_the_old_match_arms() {
@@ -46,14 +63,6 @@ fn go_rows_reproduce_the_old_match_arms() {
             "e0a-go-type_switch_statement",
         ),
         (
-            "switch_statement",
-            true,
-            false,
-            None,
-            Visibility::WholeScope,
-            "e0a-go-switch_statement",
-        ),
-        (
             "select_statement",
             true,
             false,
@@ -95,7 +104,13 @@ fn go_rows_reproduce_the_old_match_arms() {
         ),
     ];
 
-    assert_eq!(go_rows.len(), expected.len());
+    assert!(go_rows[expected.len()..].iter().all(|row| matches!(
+        row.ruling,
+        Ruling::Uncertain {
+            reason: "not yet curated",
+            ..
+        }
+    )));
     for (kind, creates_scope, is_binding, declaration, visibility, regression) in expected {
         let row = go_rows
             .iter()
