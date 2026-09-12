@@ -85,6 +85,14 @@ fn go_rows_reproduce_the_old_match_arms() {
             Visibility::AfterIntroduction,
             "e0a-go-const_declaration",
         ),
+        (
+            "parameter_list",
+            false,
+            true,
+            Some(DeclarationKind::Parameter),
+            Visibility::WholeScope,
+            "e0a-x-go-parameter_list",
+        ),
     ];
 
     assert_eq!(go_rows.len(), expected.len());

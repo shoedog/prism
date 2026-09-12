@@ -344,7 +344,6 @@ fn declaration_seed(
             function_scope.start_byte,
         ));
     }
-
     let end_byte = def.start_byte.checked_add(1)?;
     let mut node = parsed
         .tree
@@ -429,12 +428,9 @@ pub(super) fn binding_scope_rule(language: Language, kind: &str) -> BindingScope
             declaration: r.declaration,
         };
     }
-    let (creates_scope, declaration) = match language {
-        _ => (false, None),
-    };
     BindingScopeRule {
-        creates_scope,
-        declaration,
+        creates_scope: false,
+        declaration: None,
     }
 }
 

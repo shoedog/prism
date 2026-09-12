@@ -112,4 +112,15 @@ pub(super) static ROWS: &[BindingRow] = &[
         ruling: Ruling::Classified,
         regression: "e0a-py-named_expression",
     },
+    BindingRow {
+        language: Language::Python,
+        kind: "parameters",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &[],
+        declaration: Some(DeclarationKind::Parameter),
+        visibility: Visibility::WholeScope,
+        ruling: Ruling::Classified,
+        regression: "e0a-x-py-parameters",
+    },
 ];

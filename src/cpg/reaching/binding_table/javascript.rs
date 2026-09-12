@@ -126,4 +126,15 @@ pub(super) static ROWS: &[BindingRow] = &[
         ruling: Ruling::Classified,
         regression: "e0a-js-class_declaration",
     },
+    BindingRow {
+        language: Language::JavaScript,
+        kind: "formal_parameters",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &[],
+        declaration: Some(DeclarationKind::Parameter),
+        visibility: Visibility::WholeScope,
+        ruling: Ruling::Classified,
+        regression: "e0a-x-js-formal_parameters",
+    },
 ];

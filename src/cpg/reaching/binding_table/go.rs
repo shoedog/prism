@@ -113,4 +113,15 @@ pub(super) static ROWS: &[BindingRow] = &[
         ruling: Ruling::Classified,
         regression: "e0a-go-const_declaration",
     },
+    BindingRow {
+        language: Language::Go,
+        kind: "parameter_list",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &[],
+        declaration: Some(DeclarationKind::Parameter),
+        visibility: Visibility::WholeScope,
+        ruling: Ruling::Classified,
+        regression: "e0a-x-go-parameter_list",
+    },
 ];
