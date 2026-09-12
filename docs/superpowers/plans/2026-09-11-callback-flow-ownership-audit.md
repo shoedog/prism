@@ -1,5 +1,8 @@
 # Callback argument-flow ownership audit and proof requirements
 
+Historical delivery0b345b15. Continue with the
+[bounded capture repair](2026-09-12-contained-rvalue-captures.md).
+
 Seventh local increment, base7bdf9981, same future MR bundle. Classification and
 executable proof requirements only; no production fix or cache/policy expansion.
 Two review rounds maximum. Root design/test writer, existing reviewer read-only.

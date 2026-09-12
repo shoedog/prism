@@ -1,5 +1,9 @@
 # Handoff — callback flow ownership classification
 
+**Historical delivery:**0b345b15. The
+[eighth-increment handoff](2026-09-12-contained-rvalue-captures.md) supersedes next-work
+and ignored-test guidance below; seventh-increment measurements remain historical.
+
 **Written:** 2026-09-11 · **By:** root · **Provider:** codex
 **Closeout:** 2026-09-12; seventh local bundle commit, parent7bdf9981, message
 `test(js-ts): classify callback argument-flow ownership gaps`. No publication.

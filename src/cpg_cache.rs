@@ -205,7 +205,8 @@ use std::path::{Path, PathBuf};
 /// - v89: CJS terminal capture proof and non-erasing blocked export claims.
 /// - v90: retain rejected CJS names and use source self bindings for write proof.
 /// - v91: receiver lexical/write guards use explicit source names, not display names.
-const CACHE_VERSION: u32 = 91;
+/// - v92: JS/TS/TSX rvalue query captures must be contained in the requested callable.
+const CACHE_VERSION: u32 = 92;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -745,7 +746,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 91);
+        assert_eq!(super::CACHE_VERSION, 92);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -1448,6 +1449,28 @@ mod tests {
             }
             other => panic!("expected Hit, got {}", cache_result_kind(&other)),
         }
+    }
+
+    #[test]
+    fn v91_rvalue_capture_cache_is_a_miss() {
+        let dir = tempfile::tempdir().unwrap();
+        let hashes = compute_file_hashes(&BTreeMap::new());
+        save_cache(
+            &crate::cpg::CodePropertyGraph::empty(),
+            &hashes,
+            false,
+            dir.path(),
+        )
+        .unwrap();
+        assert!(matches!(
+            load_cache(&hashes, false, dir.path()),
+            CacheResult::Hit(_)
+        ));
+        force_cache_version(dir.path(), 91);
+        assert!(matches!(
+            load_cache(&hashes, false, dir.path()),
+            CacheResult::Miss
+        ));
     }
 
     #[test]

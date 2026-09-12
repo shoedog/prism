@@ -7072,6 +7072,18 @@ impl ParsedFile {
         }
     }
 
+    /// Query byte ranges also admit overlapping ancestor nodes. For JS/TS/TSX,
+    /// an rvalue-producing capture must be wholly inside the requested callable
+    /// (or file root), not merely overlap its lines. This does not change nested
+    /// execution-scope ownership or recursive walking of accepted captures.
+    fn rvalue_capture_is_contained(&self, function: &Node<'_>, capture: Node<'_>) -> bool {
+        !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) || (function.start_byte() <= capture.start_byte()
+            && capture.end_byte() <= function.end_byte())
+    }
+
     /// Like `rvalue_identifiers_on_lines`, but returns structured `AccessPath`s.
     /// Used by the DFG for field-sensitive tracking.
     pub fn rvalue_identifier_paths_on_lines(
@@ -7101,6 +7113,7 @@ impl ParsedFile {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line)
                             && self.language.is_assignment_node(capture.node.kind())
+                            && self.rvalue_capture_is_contained(func_node, capture.node)
                         {
                             if let Some(rhs) = self.language.assignment_value(&capture.node) {
                                 self.collect_identifier_paths(rhs, &mut paths);
@@ -7123,7 +7136,9 @@ impl ParsedFile {
                     for capture in m.captures {
                         if capture.index == call_idx {
                             let line = capture.node.start_position().row + 1;
-                            if lines.contains(&line) {
+                            if lines.contains(&line)
+                                && self.rvalue_capture_is_contained(func_node, capture.node)
+                            {
                                 if let Some(args) = self.language.call_arguments(&capture.node) {
                                     self.collect_identifier_paths(args, &mut paths);
                                 }
@@ -7172,6 +7187,7 @@ impl ParsedFile {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line)
                             && self.language.is_assignment_node(capture.node.kind())
+                            && self.rvalue_capture_is_contained(func_node, capture.node)
                         {
                             if self.is_augmented_assignment(&capture.node) {
                                 if let Some(lhs) = self.language.assignment_target(&capture.node) {
@@ -7198,7 +7214,9 @@ impl ParsedFile {
                     for capture in m.captures {
                         if capture.index == call_idx {
                             let line = capture.node.start_position().row + 1;
-                            if lines.contains(&line) {
+                            if lines.contains(&line)
+                                && self.rvalue_capture_is_contained(func_node, capture.node)
+                            {
                                 if let Some(args) = self.language.call_arguments(&capture.node) {
                                     self.collect_identifier_path_spans(args, &mut spans);
                                 }
@@ -7494,7 +7512,9 @@ impl ParsedFile {
                 for capture in m.captures {
                     if capture.index == ret_idx {
                         let line = capture.node.start_position().row + 1;
-                        if lines.contains(&line) {
+                        if lines.contains(&line)
+                            && self.rvalue_capture_is_contained(func_node, capture.node)
+                        {
                             self.collect_return_node_value_spans(capture.node, out);
                         }
                     }
@@ -7541,6 +7561,7 @@ impl ParsedFile {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line)
                             && self.language.is_assignment_node(capture.node.kind())
+                            && self.rvalue_capture_is_contained(func_node, capture.node)
                         {
                             if let Some(rhs) = self.language.assignment_value(&capture.node) {
                                 self.collect_all_identifiers(rhs, &mut rvalues);
@@ -7563,7 +7584,9 @@ impl ParsedFile {
                     for capture in m.captures {
                         if capture.index == call_idx {
                             let line = capture.node.start_position().row + 1;
-                            if lines.contains(&line) {
+                            if lines.contains(&line)
+                                && self.rvalue_capture_is_contained(func_node, capture.node)
+                            {
                                 if let Some(args) = self.language.call_arguments(&capture.node) {
                                     self.collect_all_identifiers(args, &mut rvalues);
                                 }
@@ -11077,6 +11100,10 @@ mod inert_default_parameter_tests;
 #[cfg(test)]
 #[path = "ast_loop_header_tests.rs"]
 mod loop_header_tests;
+
+#[cfg(test)]
+#[path = "ast_contained_rvalue_tests.rs"]
+mod contained_rvalue_tests;
 
 #[cfg(test)]
 mod tests {

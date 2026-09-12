@@ -1,6 +1,9 @@
 # Callback argument-flow ownership: classification and repair requirements
 
 Seventh local increment, production base `7bdf9981`, same future MR bundle.
+Historical delivery `0b345b15`. The subsequent
+[contained-capture repair](2026-09-12-contained-rvalue-captures.md) supersedes its
+next-work/ignored-test guidance; observations and receipt here remain base evidence.
 Only a test-module registration, audit tests and documentation change. No production
 repair, cache bump, new call admission or real-repository value claim.
 

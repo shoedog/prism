@@ -1,11 +1,10 @@
-//! Source-backed observations: no production boundary-flow admission.
+//! Historical ownership classifications plus bounded capture repair regressions.
 use super::*;
 use crate::languages::Language;
 
 const ORIGIN: &str = "export function item(input) { return input; }";
 
 #[test]
-#[ignore = "Known compact callback rvalue ownership defect; captured RED, repair not admitted by this audit"]
 fn namespace_flow_compact_callback_requires_argument_edge() {
     let mut failures = Vec::new();
     for (lang, ext) in [
@@ -49,18 +48,22 @@ struct Case {
 const CASES: &[Case] = &[
     Case{id:"namespace-declaration",app:"import * as ns from './origin'; function run(value){return ns.item(value);}",origin:ORIGIN,expected:Disposition::Supported},
     Case{id:"named-import-declaration",app:"import {item as invoke} from './origin'; function run(value){return invoke(value);}",origin:ORIGIN,expected:Disposition::Supported},
-    Case{id:"compact-namespace-property",app:"import * as ns from './origin'; const obj={ns:null};obj.ns=function(value){return ns.item(value);};",origin:ORIGIN,expected:Disposition::ParameterTokenUse},
-    Case{id:"compact-named-import-property",app:"import {item as invoke} from './origin'; const obj={callback:null};obj.callback=function(value){return invoke(value);};",origin:ORIGIN,expected:Disposition::ParameterTokenUse},
+    Case{id:"compact-namespace-property",app:"import * as ns from './origin'; const obj={ns:null};obj.ns=function(value){return ns.item(value);};",origin:ORIGIN,expected:Disposition::Supported},
+    Case{id:"compact-named-import-property",app:"import {item as invoke} from './origin'; const obj={callback:null};obj.callback=function(value){return invoke(value);};",origin:ORIGIN,expected:Disposition::Supported},
     Case{id:"multiline-property",app:"import * as ns from './origin';\nconst obj={ns:null};\nobj.ns=function(value){\nreturn ns.item(value);\n};",origin:ORIGIN,expected:Disposition::Supported},
     Case{id:"assignment-head-prior-line",app:"import * as ns from './origin'; const obj={ns:null};obj.ns=\nfunction(value){return ns.item(value);};",origin:ORIGIN,expected:Disposition::Supported},
     Case{id:"compact-variable-function",app:"import * as ns from './origin'; const run=function(value){return ns.item(value);};",origin:ORIGIN,expected:Disposition::Supported},
     Case{id:"compact-variable-arrow",app:"import * as ns from './origin'; const run=(value)=>ns.item(value);",origin:ORIGIN,expected:Disposition::Supported},
     Case{id:"compact-object-pair",app:"import * as ns from './origin'; const obj={callback:function(value){return ns.item(value);}};",origin:ORIGIN,expected:Disposition::Supported},
-    Case{id:"compact-explicit-other-name",app:"import * as ns from './origin'; const obj={ns:null};obj.ns=function callback(value){return ns.item(value);};",origin:ORIGIN,expected:Disposition::ParameterTokenUse},
+    Case{id:"compact-explicit-other-name",app:"import * as ns from './origin'; const obj={ns:null};obj.ns=function callback(value){return ns.item(value);};",origin:ORIGIN,expected:Disposition::Supported},
     Case{id:"genuine-same-line-earlier-use",app:"import * as ns from './origin'; function run(value){sink(value);return ns.item(value);}",origin:ORIGIN,expected:Disposition::GenuineSameLineUse},
     Case{id:"genuine-distinct-line-earlier-use",app:"import * as ns from './origin'; function run(value){sink(value);\nreturn ns.item(value);}",origin:ORIGIN,expected:Disposition::Supported},
     Case{id:"explicit-self-refusal",app:"import * as ns from './origin'; const obj={ns:null};obj.ns=function ns(value){return ns.item(value);};",origin:ORIGIN,expected:Disposition::RefusedTarget},
     Case{id:"unsupported-parameter-refusal",app:"import * as ns from './origin'; function run(value){return ns.item(value);}",origin:"export function item(input=seed()) { return input; }",expected:Disposition::RefusedParameter},
+    Case{id:"assigned-arrow",app:"import * as ns from './origin'; const obj={ns:null};obj.ns=(value)=>ns.item(value);",origin:ORIGIN,expected:Disposition::Supported},
+    Case{id:"call-function",app:"import * as ns from './origin'; register(function run(value){return ns.item(value);});",origin:ORIGIN,expected:Disposition::Supported},
+    Case{id:"returned-function",app:"import * as ns from './origin'; function outer(){return function run(value){return ns.item(value);};}",origin:ORIGIN,expected:Disposition::Supported},
+    Case{id:"destructured-parameter-refusal",app:"import * as ns from './origin'; function run(value){return ns.item(value);}",origin:"export function item({input}) { return input; }",expected:Disposition::RefusedParameter},
 ];
 
 fn audit_files(lang: Language, ext: &str, case: &Case) -> BTreeMap<String, ParsedFile> {
@@ -95,7 +98,13 @@ fn observe(
         .calls
         .values()
         .flatten()
-        .filter(|s| s.caller.file == app && matches!(s.callee_name.as_str(), "item" | "invoke"))
+        .filter(|s| {
+            s.caller.file == app
+                && matches!(s.callee_name.as_str(), "item" | "invoke")
+                // This fixture also has an outer call observation. Its call-graph
+                // ownership is separate; this repair proves the inner caller.
+                && (case.id != "returned-function" || s.caller.name == "run")
+        })
         .collect();
     assert_eq!(sites.len(), 1, "{}/{ext}/{mode}", case.id);
     let site = sites[0];
@@ -123,21 +132,27 @@ fn observe(
         .map(|(_, a, b)| (a, b))
         .collect();
     let lines: BTreeSet<_> = (site.caller.start_line..=site.caller.end_line).collect();
-    let query = get_query(parsed.language, QueryKind::Assignments).unwrap();
-    let assign = query.capture_index_for_name("assign").unwrap();
-    let mut cursor = tree_sitter::QueryCursor::new();
-    cursor.set_byte_range(function.byte_range());
-    let mut matches = cursor.matches(query, parsed.tree.root_node(), parsed.source.as_bytes());
     let mut escaping_captures = BTreeSet::new();
-    while let Some(m) = matches.next() {
-        for c in m.captures {
-            if c.index == assign
-                && parsed.language.is_assignment_node(c.node.kind())
-                && lines.contains(&(c.node.start_position().row + 1))
-                && !(function.start_byte() <= c.node.start_byte()
-                    && c.node.end_byte() <= function.end_byte())
-            {
-                escaping_captures.insert((c.node.start_byte(), c.node.end_byte()));
+    for (kind, label) in [
+        (QueryKind::Assignments, "assign"),
+        (QueryKind::Calls, "call"),
+        (QueryKind::Returns, "ret"),
+    ] {
+        let query = get_query(parsed.language, kind).unwrap();
+        let capture = query.capture_index_for_name(label).unwrap();
+        let mut cursor = tree_sitter::QueryCursor::new();
+        cursor.set_byte_range(function.byte_range());
+        let mut matches = cursor.matches(query, parsed.tree.root_node(), parsed.source.as_bytes());
+        while let Some(m) = matches.next() {
+            for c in m.captures {
+                if c.index == capture
+                    && (label != "assign" || parsed.language.is_assignment_node(c.node.kind()))
+                    && lines.contains(&(c.node.start_position().row + 1))
+                    && !(function.start_byte() <= c.node.start_byte()
+                        && c.node.end_byte() <= function.end_byte())
+                {
+                    escaping_captures.insert((c.node.start_byte(), c.node.end_byte()));
+                }
             }
         }
     }
@@ -225,6 +240,8 @@ fn observe(
                 (
                     CpgNode::Variable {
                         file,
+                        function,
+                        function_start_line,
                         path,
                         access: VarAccess::Use,
                         ..
@@ -235,7 +252,12 @@ fn observe(
                         ..
                     },
                     CpgEdge::DataFlow(confidence),
-                ) if file == &app && to == &origin && path.to_string() == "value" => {
+                ) if file == &app
+                    && function == &site.caller.name
+                    && function_start_line == &site.caller.start_line
+                    && to == &origin
+                    && path.to_string() == "value" =>
+                {
                     Some((a, b, *confidence))
                 }
                 _ => None,
@@ -264,6 +286,11 @@ fn observe(
     if disposition == Disposition::ParameterTokenUse {
         assert!(phantom_raw);
         assert!(!escaping_captures.is_empty());
+    }
+    if matches!(
+        disposition,
+        Disposition::ParameterTokenUse | Disposition::Supported
+    ) {
         // Counterfactual only: index the already-retained real DFG argument Use.
         // This is NOT a production admission or a same-line collision policy.
         let loc = true_uses[0];
@@ -315,6 +342,64 @@ fn observe(
 }
 
 #[test]
+fn namespace_flow_parameter_tokens_are_not_caller_dfg_uses() {
+    let mut failures = Vec::new();
+    for (lang, ext) in [
+        (Language::JavaScript, "js"),
+        (Language::TypeScript, "ts"),
+        (Language::Tsx, "tsx"),
+    ] {
+        for case_index in [2, 4, 14, 15, 16] {
+            let case = &CASES[case_index];
+            let files = audit_files(lang, ext, case);
+            let cpg = CodePropertyGraph::build(&files);
+            let app = format!("app.{ext}");
+            let parsed = &files[&app];
+            // Only the callback's own DFG; nested Uses attributed to an enclosing
+            // outer function are a separate, unchanged execution-scope issue.
+            let functions: Vec<_> = parsed
+                .all_functions()
+                .into_iter()
+                .filter(|node| {
+                    parsed
+                        .function_parameter_occurrences(node)
+                        .iter()
+                        .any(|(name, _, _)| name == "value")
+                })
+                .collect();
+            assert_eq!(functions.len(), 1);
+            let function = functions[0];
+            let name = parsed.node_text(&parsed.language.function_name(&function).unwrap());
+            let start_line = parsed.node_line_range(&function).0;
+            let parameters: BTreeSet<_> = parsed
+                .function_parameter_occurrences(&function)
+                .into_iter()
+                .map(|(_, start, end)| (start, end))
+                .collect();
+            let bad: Vec<_> = cpg
+                .dfg
+                .uses
+                .values()
+                .flatten()
+                .filter(|loc| {
+                    loc.file == app
+                        && loc.function == name
+                        && loc.function_start_line == start_line
+                        && parameters.contains(&(loc.start_byte, loc.end_byte))
+                })
+                .collect();
+            if !bad.is_empty() {
+                failures.push(format!("{}/{ext}: {bad:?}", case.id));
+            }
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "signature tokens in caller DFG: {failures:?}"
+    );
+}
+
+#[test]
 fn namespace_flow_source_backed_classification() {
     let mut mismatches = Vec::new();
     for (lang, ext) in [
@@ -339,6 +424,7 @@ fn namespace_flow_source_backed_classification() {
 
 #[test]
 fn namespace_flow_classification_epochs() {
+    let mut mismatches = Vec::new();
     for (lang, ext) in [
         (Language::JavaScript, "js"),
         (Language::TypeScript, "ts"),
@@ -346,14 +432,14 @@ fn namespace_flow_classification_epochs() {
     ] {
         let mut previous: Option<CodePropertyGraph> = None;
         let mut previous_sources: BTreeMap<String, String> = BTreeMap::new();
-        for (epoch, case_index) in [2, 4, 2, 12, 4].into_iter().enumerate() {
+        for (epoch, case_index) in [2, 14, 15, 16, 12, 4, 2].into_iter().enumerate() {
             let case = &CASES[case_index];
             let files = audit_files(lang, ext, case);
             let full = CodePropertyGraph::build(&files);
-            assert_eq!(
-                observe(case, ext, &files, &full, &format!("epoch{epoch}-full")),
-                case.expected
-            );
+            let actual = observe(case, ext, &files, &full, &format!("epoch{epoch}-full"));
+            if actual != case.expected {
+                mismatches.push(format!("{ext}/{epoch}/full: {actual:?}"));
+            }
             let current = if let Some(old) = previous {
                 let changed: BTreeSet<_> = files
                     .iter()
@@ -368,16 +454,16 @@ fn namespace_flow_classification_epochs() {
                     &files,
                     None,
                 );
-                assert_eq!(
-                    observe(
-                        case,
-                        ext,
-                        &files,
-                        &incremental,
-                        &format!("epoch{epoch}-incremental")
-                    ),
-                    case.expected
+                let actual = observe(
+                    case,
+                    ext,
+                    &files,
+                    &incremental,
+                    &format!("epoch{epoch}-incremental"),
                 );
+                if actual != case.expected {
+                    mismatches.push(format!("{ext}/{epoch}/incremental: {actual:?}"));
+                }
                 incremental
             } else {
                 full
@@ -389,6 +475,7 @@ fn namespace_flow_classification_epochs() {
                 .collect();
         }
     }
+    assert!(mismatches.is_empty(), "{mismatches:?}");
 }
 
 #[test]
