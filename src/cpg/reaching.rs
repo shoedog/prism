@@ -11,6 +11,7 @@ use tree_sitter::Node;
 
 use super::{FlowConfidence, FlowDoubt};
 
+mod binding_table;
 mod capture;
 mod classify;
 mod grammar_lint;

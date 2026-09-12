@@ -24,3 +24,5 @@ fn reaching_module_files_are_under_the_cap() {
         assert!(n <= 600, "{}: {n} lines", f.display());
     }
 }
+
+mod python;

@@ -1,5 +1,6 @@
 //! Lexical binding ownership for reaching definitions.
 
+use super::binding_table::{rows, BindingScopeRule, DeclarationKind, Role};
 use super::grammar_lint::{collect_unclassified_binding_lines, grammar_introducing_fields};
 use super::scope_python::collect_python_comprehension_declarations;
 use super::{DefSite, Line};
@@ -39,30 +40,6 @@ pub(super) struct Binding {
     pub(super) id: BindingId,
     pub(super) scope: ScopeSpan,
     pub(super) declaration_line: Option<Line>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum DeclarationKind {
-    Parameter,
-    GoShort,
-    JavaScriptVar,
-    PythonAssignment,
-    Other,
-}
-
-impl DeclarationKind {
-    fn reuses_binding_in_scope(self) -> bool {
-        matches!(
-            self,
-            Self::GoShort | Self::JavaScriptVar | Self::PythonAssignment
-        )
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) struct BindingScopeRule {
-    creates_scope: bool,
-    pub(super) declaration: Option<DeclarationKind>,
 }
 
 #[derive(Clone, Debug)]
@@ -347,8 +324,12 @@ fn declaration_seed(
             let visible_from = match kind {
                 DeclarationKind::Parameter
                 | DeclarationKind::JavaScriptVar
-                | DeclarationKind::PythonAssignment => scope.start_byte,
-                DeclarationKind::GoShort | DeclarationKind::Other => node.end_byte(),
+                | DeclarationKind::PythonAssignment
+                | DeclarationKind::Reuse => scope.start_byte,
+                DeclarationKind::GoShort
+                | DeclarationKind::Other
+                | DeclarationKind::Pattern
+                | DeclarationKind::CaptureCopy => node.end_byte(),
             };
             return Some((scope, kind, visible_from));
         }
@@ -383,24 +364,16 @@ fn declaration_scope(
 }
 
 pub(super) fn binding_scope_rule(language: Language, kind: &str) -> BindingScopeRule {
+    if let Some(r) = rows(language)
+        .iter()
+        .find(|r| r.kind == kind && r.variant.is_none())
+    {
+        return BindingScopeRule {
+            creates_scope: r.roles.has(Role::Scope),
+            declaration: r.declaration,
+        };
+    }
     let (creates_scope, declaration) = match language {
-        Language::Python => (
-            matches!(
-                kind,
-                "function_definition"
-                    | "lambda"
-                    | "class_definition"
-                    | "list_comprehension"
-                    | "set_comprehension"
-                    | "dictionary_comprehension"
-                    | "generator_expression"
-            ),
-            matches!(
-                kind,
-                "assignment" | "augmented_assignment" | "named_expression"
-            )
-            .then_some(DeclarationKind::PythonAssignment),
-        ),
         Language::JavaScript | Language::TypeScript | Language::Tsx => (
             matches!(
                 kind,
