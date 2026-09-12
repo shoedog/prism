@@ -246,8 +246,16 @@ def publish_anchor_v1(
     archive = archive_dir.resolve() / expected["sut_digest"][7:] / "prism"
     if Path(cand.lock.prism["sut"]["archive"]) != archive:
         raise ValueError("archive path mismatch")
-    binary_bytes = cand._binary.read_bytes()
-    binary_mode = cand._binary.stat().st_mode & 0o777
+    binary_fd = os.open(cand._binary, os.O_RDONLY)
+    try:
+        binary_mode = os.fstat(binary_fd).st_mode & 0o777
+        binary_file = os.fdopen(binary_fd, "rb")
+        binary_fd = None
+        with binary_file:
+            binary_bytes = binary_file.read()
+    finally:
+        if binary_fd is not None:
+            os.close(binary_fd)
     captured_digest = "sha256:" + hashlib.sha256(binary_bytes).hexdigest()
     if captured_digest != expected["sut_digest"]:
         raise ValueError("staged invalid: sut_digest_moved")

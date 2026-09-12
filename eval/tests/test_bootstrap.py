@@ -42,6 +42,36 @@ def _binary_sha(repo):
     ).stdout.strip()
 
 
+def _distinct_same_shape(value, marker):
+    if isinstance(value, dict):
+        assert value
+        key = next(iter(value))
+        return {
+            item_key: _distinct_same_shape(item_value, marker)
+            if item_key == key
+            else item_value
+            for item_key, item_value in value.items()
+        }
+    if isinstance(value, list):
+        assert value
+        return [_distinct_same_shape(value[0], marker), *value[1:]]
+    if isinstance(value, str):
+        return f"sha256:{marker}" if value.startswith("sha256:") else marker
+    if isinstance(value, bool):
+        return not value
+    if isinstance(value, int):
+        return value + 1
+    raise AssertionError(f"unhandled identity leaf: {type(value)}")
+
+
+def _identity_shape(value):
+    if isinstance(value, dict):
+        return {key: _identity_shape(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_identity_shape(item) for item in value]
+    return type(value)
+
+
 def _identity_mismatch(key, original):
     marker = hashlib.sha256(f"identity-mismatch:{key}".encode()).hexdigest()
     if key in {"corpus_sha_full", "sut_sha_full", "harness_sha"}:
@@ -59,14 +89,8 @@ def _identity_mismatch(key, original):
         return f"rust-analyzer mismatch {marker}"
     if key == "oracle_init":
         return {"cargo": {"features": marker}}
-    if key == "runtime":
-        return {"python": marker}
-    if key == "data":
-        return {"mismatch": {"digest": f"sha256:{marker}"}}
-    if key == "env_allow":
-        return [f"MISMATCH_{marker}"]
-    if key == "env_values":
-        return {"MISMATCH": marker}
+    if key in {"runtime", "data", "env_allow", "env_values"}:
+        return _distinct_same_shape(original, marker)
     if key == "seed":
         return original + 1
     raise AssertionError(f"unhandled identity key: {key}")
@@ -93,7 +117,10 @@ def test_bootstrap_refuses_identity_inequality_and_publishes_nothing(tmp_path, k
     lock, ev, repo = anchored_repo(tmp_path, publish=False)
     cand = STAGE(repo, ev, tmp_path)
     ids = lock_identities(cand.lock)
-    run = fake_run({**ids, key: _identity_mismatch(key, ids[key])})
+    mismatch = _identity_mismatch(key, ids[key])
+    if key in {"runtime", "data", "env_allow", "env_values"}:
+        assert _identity_shape(mismatch) == _identity_shape(ids[key])
+    run = fake_run({**ids, key: mismatch})
     with pytest.raises(ValueError) as exc:
         publish_anchor_v1(cand, run, *OUT(ev, tmp_path))
     assert str(exc.value) == f"identity mismatch: {key}"
@@ -172,32 +199,50 @@ def test_bootstrap_publishes_atomically_and_lock_rederives(tmp_path):
     )
 
 
-def test_publish_never_archives_bytes_that_disagree_with_locked_digest(
+def test_publish_captures_binary_bytes_and_mode_from_one_file_descriptor(
     tmp_path, monkeypatch
 ):
     lock, ev, repo = anchored_repo(tmp_path, publish=False)
+    binary = ev.parent / "prism"
+    binary.chmod(0o755)
     cand = STAGE(repo, ev, tmp_path)
     run = fake_run(lock_identities(cand.lock))
+    original_bytes = binary.read_bytes()
     real_read_bytes = Path.read_bytes
-    binary_reads = 0
+    real_fdopen = os.fdopen
+    swapped = False
+    binary_path_reads = 0
 
-    def replace_binary_after_validation(path):
-        nonlocal binary_reads
+    def swap_binary():
+        nonlocal swapped
+        if swapped:
+            return
+        replacement = binary.with_name("replacement-prism")
+        replacement.write_bytes(b"replacement binary bytes\n")
+        replacement.chmod(0o600)
+        os.replace(replacement, binary)
+        swapped = True
+
+    def replace_binary_after_path_read(path):
+        nonlocal binary_path_reads
         contents = real_read_bytes(path)
-        if path == cand._binary:
-            binary_reads += 1
-            if binary_reads == 1:
-                path.write_bytes(b"replacement binary bytes\n")
+        if path == binary:
+            binary_path_reads += 1
+            if binary_path_reads == 2:
+                swap_binary()
         return contents
 
-    monkeypatch.setattr(Path, "read_bytes", replace_binary_after_validation)
-    try:
-        published = publish_anchor_v1(cand, run, *OUT(ev, tmp_path))
-    except ValueError as exc:
-        assert str(exc) == "staged invalid: sut_digest_moved"
-    else:
-        archive = Path(published.prism["sut"]["archive"])
-        assert raw_digest(archive) == published.prism["sut"]["digest"]
+    def replace_binary_after_fd_open(fd, *args, **kwargs):
+        swap_binary()
+        return real_fdopen(fd, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_bytes", replace_binary_after_path_read)
+    monkeypatch.setattr(os, "fdopen", replace_binary_after_fd_open)
+    published = publish_anchor_v1(cand, run, *OUT(ev, tmp_path))
+    archive = Path(published.prism["sut"]["archive"])
+    assert archive.read_bytes() == original_bytes
+    assert raw_digest(archive) == published.prism["sut"]["digest"]
+    assert archive.stat().st_mode & 0o777 == 0o755
 
 
 def test_crash_before_publish_leaves_nothing_and_half_publish_is_refused(
