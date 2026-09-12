@@ -8,8 +8,10 @@ use crate::languages::Language;
 use sha2::{Digest, Sha256};
 use tree_sitter::Node;
 
+mod capture_rows;
 mod go;
 mod javascript;
+mod other;
 mod python;
 mod rust;
 
@@ -146,12 +148,16 @@ pub(crate) fn rows(language: Language) -> &'static [BindingRow] {
         Language::JavaScript | Language::TypeScript | Language::Tsx => javascript::ROWS,
         Language::Python => python::ROWS,
         Language::Rust => rust::ROWS,
-        _ => &[],
+        Language::Java => other::JAVA_ROWS,
+        Language::C => other::C_ROWS,
+        Language::Cpp => other::CPP_ROWS,
+        Language::Lua => other::LUA_ROWS,
+        Language::Terraform | Language::Bash => &[],
     }
 }
 
-pub(crate) fn capture_rows(_language: Language) -> &'static [CaptureRow] {
-    &[]
+pub(crate) fn capture_rows(language: Language) -> &'static [CaptureRow] {
+    capture_rows::rows(language)
 }
 
 pub(crate) fn select_binding_row(
