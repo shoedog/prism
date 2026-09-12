@@ -8,6 +8,7 @@ use crate::languages::Language;
 use sha2::{Digest, Sha256};
 use tree_sitter::Node;
 
+mod javascript;
 mod python;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -139,6 +140,7 @@ pub(super) struct BindingScopeRule {
 
 pub(crate) fn rows(language: Language) -> &'static [BindingRow] {
     match language {
+        Language::JavaScript | Language::TypeScript | Language::Tsx => javascript::ROWS,
         Language::Python => python::ROWS,
         _ => &[],
     }
