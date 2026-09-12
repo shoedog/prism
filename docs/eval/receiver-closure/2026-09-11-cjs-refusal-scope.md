@@ -1,5 +1,8 @@
 # Enumerable CJS refusal and source-self write proof
 
+Historical fifth increment, delivered in `b3f6441e`. The deferred receiver defect
+is addressed in [receiver source self bindings](2026-09-11-receiver-source-self.md).
+
 Fifth local increment, base `88af6511`, for the same future PR bundle. No publication.
 
 ## Reproduced defects and implementation

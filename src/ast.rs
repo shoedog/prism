@@ -3434,9 +3434,8 @@ impl ParsedFile {
                     | "function_expression"
                     | "generator_function_declaration"
                     | "generator_function"
-            ) && self
-                .language
-                .function_name(&root_scope)
+            ) && root_scope
+                .child_by_field_name("name")
                 .is_some_and(|name| self.node_text(&name) == receiver_name)
             {
                 if let Some(distance) = self.js_ts_scope_distance(receiver, root_scope.id()) {
@@ -4627,9 +4626,9 @@ impl ParsedFile {
         self.js_ts_has_closer_binding(target, receiver_name, binding_scope_id, false)
     }
 
-    /// Write proofs distinguish actual source self bindings from declarations
-    /// and inferred display names. General receiver lookup keeps its independent
-    /// legacy predicate until audited; this switch cannot admit a new owner.
+    /// Write proofs distinguish expression self bindings from declarations.
+    /// Receiver lookup also uses source names, but retains declaration-name
+    /// shadow refusal; do not conflate that policy with declaration writes.
     fn js_ts_has_closer_binding(
         &self,
         target: &Node<'_>,
@@ -5186,15 +5185,16 @@ impl ParsedFile {
             return true;
         }
 
+        // Callable display names may come from assignment properties or object
+        // keys. Only an explicit source name establishes this binding.
         if matches!(
             func_node.kind(),
             "function_declaration"
                 | "function_expression"
                 | "generator_function_declaration"
                 | "generator_function"
-        ) && self
-            .language
-            .function_name(func_node)
+        ) && func_node
+            .child_by_field_name("name")
             .is_some_and(|name| self.node_text(&name) == receiver_name)
         {
             return true;

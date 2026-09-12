@@ -204,7 +204,8 @@ use std::path::{Path, PathBuf};
 /// - v88: CommonJS producer export-object mutation barriers.
 /// - v89: CJS terminal capture proof and non-erasing blocked export claims.
 /// - v90: retain rejected CJS names and use source self bindings for write proof.
-const CACHE_VERSION: u32 = 90;
+/// - v91: receiver lexical/write guards use explicit source names, not display names.
+const CACHE_VERSION: u32 = 91;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -744,7 +745,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 90);
+        assert_eq!(super::CACHE_VERSION, 91);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

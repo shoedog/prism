@@ -1,0 +1,24 @@
+{
+  "baseCommit": "b3f6441e",
+  "evidenceRoot": "/private/tmp/prism-receiver-self-6fQMsF",
+  "newTests": 36,
+  "base": {"passed": 25, "failed": 11},
+  "candidate": {"passed": 36, "failed": 0},
+  "syntheticCallObservations": {"baseRows": 185, "candidateRows": 198, "matched": 185, "exactRestored": 39, "exactRevoked": 6, "unchanged": 140, "otherTargetChanges": 0, "candidateOnlyRows": 13},
+  "observationLimit": "Thirteen candidate-only typed rows follow the base tests' first failure. Matched synthetic rows are not unique real sites. Generator property expressions tested at raw binding seam only. Positive namespace callback cross-file flow is an unchanged base/candidate gap, not repaired.",
+  "runtimeControlsPassed": 9,
+  "epochs": {"statesPerLanguage": 6, "languages": ["js", "ts", "tsx"], "fullStates": 18, "incrementalTransitions": 15, "changedFile": "app only", "authority": "exact call targets; positive cross-file dataflow not claimed"},
+  "sha256": {
+    "src/ast.rs": "61dcfe24d5aa634a4d953d2be2c36c616d2089ccb43304091163faa0e8d76215",
+    "src/cpg_cache.rs": "9e23e8cb8082e0d3711ff85e484bdac5442006ceae4dbc4690e34dc907ace2c2",
+    "src/navigation/call_edge_cache.rs": "32ec9c8c1ce39847e8318c3b3eb3055875730b083481592a26fb91d88a7c5c25",
+    "tests/integration/receiver_self_binding_test.rs": "59717218adf1ba5400d2351362812e7bcdaeef90aac13c9a9be5665707e52237",
+    "tests/integration/main.rs": "f85d08ac8e7c58cd1c1d107c175b44005014ca6d25bed285204e304cbced7458",
+    "base-receiver-complete.log": "86aedbcf39d4648427a6f366d1dddbd3912d943a7217661c86c550f557a7e4ff",
+    "candidate-receiver-complete.log": "26ff63fb0aafef7251ce76e91a9c26e10dd40ef879f84d7a7911c63cd7897593",
+    "base-epoch-probe.log": "e43ca4ec118182ac75a2f1c4f08b9fb28802ab84a79d944a90f26ae5a2a3cd37",
+    "candidate-epoch-probe.log": "056f21b9667a80fcf4b1a31615ec4e65a2bf643862e3b20cb98c3c673de75f79",
+    "runtime-controls.mjs": "78e0b626d0b4b5b1350c63c4772d789c5b01a1749db597390e444bfc37ceef6d",
+    "runtime-controls.jsonl": "c160fbd91e367428017dc00ec80d2cdd597788684b97984e0a7761fc19aa0aab"
+  }
+}

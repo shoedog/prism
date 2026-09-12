@@ -35,6 +35,7 @@ mod module_binding_audit_test;
 mod module_binding_flow_test;
 mod owner_activation_test;
 mod r6_candidate_test;
+mod receiver_self_binding_test;
 mod resolution_test;
 mod scoped_cpg_test;
 mod targets_dependency_hint_test;

@@ -92,7 +92,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v49: CommonJS producer export-object mutation barriers.
 // v50: CJS terminal capture proof and non-erasing blocked export claims.
 // v51: rejected CJS name retention and source-self-binding write proof.
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 51;
+// v52: source-only receiver self names and non-hidden anonymous callback writes.
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 52;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -711,7 +712,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 51);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 52);
     }
 
     #[test]

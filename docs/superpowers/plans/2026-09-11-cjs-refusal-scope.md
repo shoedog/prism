@@ -1,5 +1,8 @@
 # Enumerable CJS refusal retention and source self-binding writes
 
+Historical fifth increment, delivered in `b3f6441e`. Current continuation:
+[receiver source self bindings](2026-09-11-receiver-source-self.md).
+
 Base88af6511, fifth local increment for the same future PR. Two review rounds;
 root design/source writer, existing reviewer read-only. No publication.
 

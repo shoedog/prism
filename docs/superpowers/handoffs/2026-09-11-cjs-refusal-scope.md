@@ -1,7 +1,10 @@
 # Handoff — enumerable CJS refusal and source-self write proof
 
+Historical fifth-increment record, delivered in `b3f6441e`. Current operational
+handoff: [receiver source self bindings](2026-09-11-receiver-source-self.md).
+
 **Written:** 2026-09-11 · **By:** root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/js-ts-module-binding-audit · **Measured state:** `[MEASURED]` base88af6511 plus verified fifth-increment source/tests, hashes pinned in the baseline receipt. Delivery is the local commit containing this handoff, identified by `git log -1 -- docs/superpowers/handoffs/2026-09-11-cjs-refusal-scope.md`.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/js-ts-module-binding-audit · **Measured state:** `[MEASURED]` base88af6511 plus verified fifth-increment source/tests, hashes pinned in the baseline receipt. Fifth-increment delivery: `b3f6441e`.
 **Predecessor:** terminal/capture proof88af6511, local/unpushed.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live; evidence /private/tmp/prism-cjs-refusal-amrJB2.
