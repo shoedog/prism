@@ -1,5 +1,8 @@
 # Direct CommonJS terminal identity and capture proof
 
+Historical fourth increment, delivered in `88af6511`. Follow-up defects and
+current verification: [enumerable refusal and scope repair](2026-09-11-cjs-refusal-scope.md).
+
 Fourth local increment, base `032e1824`, bundled with the preceding module-binding
 audit, ESM forwarding and CJS producer barriers. No publication performed.
 

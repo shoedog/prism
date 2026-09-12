@@ -203,7 +203,8 @@ use std::path::{Path, PathBuf};
 /// - v87: bounded ESM imported-local forwarding with terminal function proof.
 /// - v88: CommonJS producer export-object mutation barriers.
 /// - v89: CJS terminal capture proof and non-erasing blocked export claims.
-const CACHE_VERSION: u32 = 89;
+/// - v90: retain rejected CJS names and use source self bindings for write proof.
+const CACHE_VERSION: u32 = 90;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -743,7 +744,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 89);
+        assert_eq!(super::CACHE_VERSION, 90);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

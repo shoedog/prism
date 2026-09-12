@@ -1,7 +1,10 @@
 # Handoff — CJS terminal capture proof
 
+Historical fourth-increment record. Current operational handoff:
+[enumerable refusal and scope repair](2026-09-11-cjs-refusal-scope.md).
+
 **Written:** 2026-09-11 · **By:** root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/js-ts-module-binding-audit · **Measured state:** `[MEASURED]` tested base032e1824 plus final fourth-increment source/tests; hashes pinned in baseline receipt. Delivery is the local commit containing this handoff, identified by `git log -1 -- docs/superpowers/handoffs/2026-09-11-cjs-terminal-proof.md`.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/js-ts-module-binding-audit · **Measured state:** `[MEASURED]` tested base032e1824 plus final fourth-increment source/tests; hashes pinned in baseline receipt. Fourth-increment delivery: `88af6511`.
 **Predecessor:** CJS producer export-object barriers032e1824.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live; evidence /private/tmp/prism-cjs-terminal-iVeqxl.

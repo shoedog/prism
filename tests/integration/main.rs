@@ -4,6 +4,8 @@ mod call_graph_test;
 mod callable_authority_audit_test;
 mod cjs_export_barrier_test;
 mod cjs_export_state_test;
+mod cjs_refusal_state_test;
+mod cjs_refusal_test;
 mod cjs_terminal_state_test;
 mod cjs_terminal_test;
 #[allow(dead_code)]

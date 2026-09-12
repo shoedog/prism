@@ -153,10 +153,14 @@ fn parse_recovery_revokes_cjs_only() {
     for lang in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
         let parsed = ParsedFile::parse("origin.ts", &format!("{BASE}const = ;"), lang).unwrap();
         assert!(parsed.tree.root_node().has_error());
-        assert!(!parsed
+        assert!(parsed
             .extract_js_ts_export_facts()
             .named
-            .contains_key("item"));
+            .get("item")
+            .is_none_or(|target| matches!(
+                target,
+                prism::js_exports::JsExportTarget::UnprovenLocal(_)
+            )));
     }
 }
 
@@ -166,7 +170,11 @@ fn unsafe_raw_facts_cannot_authorize_export() {
     let parsed = ParsedFile::parse("origin.js", &source, Language::JavaScript).unwrap();
     let facts = parsed.extract_js_ts_export_facts();
     assert!(
-        facts.conflicted.contains("item") || !facts.named.contains_key("item"),
+        facts.conflicted.contains("item")
+            || facts.named.get("item").is_none_or(|target| matches!(
+                target,
+                prism::js_exports::JsExportTarget::UnprovenLocal(_)
+            )),
         "unsafe raw target: {facts:?}"
     );
 }

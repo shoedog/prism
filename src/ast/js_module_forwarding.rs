@@ -152,3 +152,56 @@ impl ParsedFile {
         found
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ParsedFile;
+    use crate::languages::Language;
+
+    #[test]
+    fn cjs_refusal_module_write_source_bindings() {
+        let mut failures = Vec::new();
+        for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
+            for (source, written) in [
+                ("function origin() { origin = other; }", true),
+                ("function* origin() { origin = other; }", true),
+                ("async function* origin() { origin = other; }", true),
+                ("function origin(input = (origin = other)) {}", true),
+                ("let origin = function() { origin = other; };", true),
+                ("let origin = async function() { origin = other; };", true),
+                ("let origin = () => { origin = other; };", true),
+                (
+                    "let origin = function different() { origin = other; };",
+                    true,
+                ),
+                ("function origin() { [origin] = values; }", true),
+                ("function origin() { origin++; }", true),
+                ("function origin() { for (origin of values) {} }", true),
+                ("let origin = function origin() { origin = other; };", false),
+                (
+                    "let origin = function* origin() { origin = other; };",
+                    false,
+                ),
+                ("function origin(origin) { origin = other; }", false),
+                ("function origin() { let origin; origin = other; }", false),
+                (
+                    "function origin() { try {} catch(origin) { origin = other; } }",
+                    false,
+                ),
+                (
+                    "function outer() { function origin() { origin = other; } }",
+                    false,
+                ),
+            ] {
+                let parsed = ParsedFile::parse("source.ts", source, language).unwrap();
+                assert!(!parsed.tree.root_node().has_error());
+                let actual = parsed.js_ts_module_value_written("origin");
+                println!("WRITE_AUDIT {language:?} {written} {actual} {source}");
+                if actual != written {
+                    failures.push(format!("{language:?}: {source}"));
+                }
+            }
+        }
+        assert!(failures.is_empty(), "{}", failures.join("; "));
+    }
+}

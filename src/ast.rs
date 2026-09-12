@@ -2406,10 +2406,11 @@ impl ParsedFile {
             for (name, target) in cjs.named {
                 facts.insert_named(name, target);
             }
-        } else if !cjs.conflicted.is_empty() {
-            // Duplicate CJS writes revoke the whole CJS set, including disjoint
-            // siblings. Preserve only refusal claims so a star barrel cannot
-            // mistake those revoked names for absence. Independent ESM wins.
+        } else {
+            // Unsafe producers revoke the whole CJS set, including disjoint
+            // siblings. Retain already-enumerated names as refusal claims so a
+            // barrel cannot mistake them for absence. Independent ESM wins.
+            // No claim is invented for unknown/computed-only export names.
             for name in cjs.named.keys().chain(cjs.conflicted.iter()) {
                 if !facts.named.contains_key(name) && !facts.conflicted.contains(name) {
                     facts.insert_named(
@@ -4601,7 +4602,7 @@ impl ParsedFile {
                     let mut names = BTreeSet::new();
                     parsed.collect_js_ts_binding_pattern_names(target, &mut names);
                     if names.contains(name)
-                        && !parsed.js_ts_receiver_has_closer_binding(&target, name, root_id)
+                        && !parsed.js_ts_has_closer_binding(&target, name, root_id, true)
                     {
                         return true;
                     }
@@ -4626,15 +4627,15 @@ impl ParsedFile {
         self.js_ts_has_closer_binding(target, receiver_name, binding_scope_id, false)
     }
 
-    /// CJS capture writes distinguish an outer function declaration binding
-    /// from a named expression's inner self binding. Other lanes retain their
-    /// existing receiver predicate until independently audited.
+    /// Write proofs distinguish actual source self bindings from declarations
+    /// and inferred display names. General receiver lookup keeps its independent
+    /// legacy predicate until audited; this switch cannot admit a new owner.
     fn js_ts_has_closer_binding(
         &self,
         target: &Node<'_>,
         receiver_name: &str,
         binding_scope_id: usize,
-        declaration_self_is_outer: bool,
+        source_self_bindings: bool,
     ) -> bool {
         let mut current = target.parent();
         while let Some(scope) = current {
@@ -4642,14 +4643,14 @@ impl ParsedFile {
                 return false;
             }
             if is_js_ts_function_like(scope.kind()) {
-                let binds = if declaration_self_is_outer
-                    && matches!(
-                        scope.kind(),
-                        "function_declaration" | "generator_function_declaration"
-                    ) {
+                let binds = if source_self_bindings {
                     let mut parameters = BTreeSet::new();
                     self.collect_js_ts_parameter_bindings(scope, &mut parameters);
                     parameters.contains(receiver_name)
+                        || (matches!(scope.kind(), "function_expression" | "generator_function")
+                            && scope
+                                .child_by_field_name("name")
+                                .is_some_and(|n| self.node_text(&n) == receiver_name))
                         || self.js_ts_receiver_binding_reaches_call(
                             scope,
                             scope.id(),

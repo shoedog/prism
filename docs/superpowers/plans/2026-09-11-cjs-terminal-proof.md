@@ -1,5 +1,8 @@
 # Direct CommonJS terminal/capture proof
 
+Historical fourth increment, delivered in `88af6511`. Current continuation:
+[enumerable refusal and scope repair](2026-09-11-cjs-refusal-scope.md).
+
 Base032e1824, fourth local increment in one future MR. No publication. Two review
 rounds maximum. Root source writer; review delegated read-only under standing authority.
 
