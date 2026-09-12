@@ -77,7 +77,8 @@ def materialize(
 ) -> Path:
     root = root.expanduser().resolve()
     mirror = ensure_mirror(root, origin_url)
-    _bind_source_manifests(lock, origin_url)
+    if not hasattr(lock, "_corpus_rows"):
+        _bind_source_manifests(lock, origin_url)
 
     aliases = lock.prism.get("sha_aliases", [])
     if not aliases:

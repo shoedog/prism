@@ -341,8 +341,9 @@ def anchored_repo(tmp: Path, publish: bool = True) -> tuple[Lock, Path, Path]:
             "Cargo.toml": "[package]\nname='x'\nversion='0.1.0'\n",
         },
     )
-    head = git_head(repo)
+    bootstrap_sha = git_head(repo)
     ev = copy_eval_policy_files(repo)
+    edit(ev / "corpora.toml", 'pinned_sha = "20c8490591a3"', f'pinned_sha = "{bootstrap_sha[:12]}"')
     shutil.copy2(EVAL_DIR / ".python-version", ev / ".python-version")
     shutil.copy2(EVAL_DIR / "uv.lock", ev / "uv.lock")
     adjudication_bytes = "".join(
@@ -350,17 +351,39 @@ def anchored_repo(tmp: Path, publish: bool = True) -> tuple[Lock, Path, Path]:
     ).encode()
     (ev / "adjudications.jsonl").write_bytes(adjudication_bytes)
 
-    snapshot = snapshot_path(ev / "snapshots", "prism", head[:12])
+    # Bootstrap requires corpora.toml to be tracked so finalize_policy can be
+    # committed independently of the already-built SUT.
+    subprocess.run(
+        ["git", "add", "eval/corpora.toml"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "add eval policy"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    head = git_head(repo)
+
+    snapshot = snapshot_path(ev / "snapshots", "prism", bootstrap_sha[:12])
     inventory = [
         FunctionDef("a", "function", None, Location("src/a.rs", 1, 1), 1)
     ]
     save_snapshot(snapshot, inventory)
+    lock_snapshot = snapshot_path(ev / "snapshots", "prism", head[:12])
+    save_snapshot(lock_snapshot, inventory)
 
     binary = repo / "target/release/prism"
     binary.parent.mkdir(parents=True)
     stub_binary(binary, head[:12])
     binary.with_suffix(".d").write_text(
         f"{binary}: {repo / 'src/a.rs'} {repo / 'Cargo.toml'}\n"
+    )
+    bootstrap_binary = stub_binary(repo / "prism", bootstrap_sha[:12])
+    bootstrap_binary.with_suffix(".d").write_text(
+        f"{bootstrap_binary}: {repo / 'src/a.rs'} {repo / 'Cargo.toml'}\n"
     )
     build_output = repo / "target/release/build/prism-fixture/output"
     build_output.parent.mkdir(parents=True)
@@ -418,8 +441,8 @@ def anchored_repo(tmp: Path, publish: bool = True) -> tuple[Lock, Path, Path]:
                 "manifest": canonical_path(repo, population_path),
             },
             "snapshot": {
-                "path": canonical_path(repo, snapshot),
-                "digest": raw_digest(snapshot),
+                "path": canonical_path(repo, lock_snapshot),
+                "digest": raw_digest(lock_snapshot),
             },
             "sample": {
                 "schema": 1,

@@ -536,9 +536,10 @@ def run_corpus(
     lock_oracle_version=None,
     env=None,
     data_inputs=None,
+    sut=None,
     compute_metrics=True,
 ) -> dict:
-    sut = PrismCli(
+    sut = sut or PrismCli(
         str(EVAL_DIR.parent),
         sut_bin=args.sut_bin,
         allow_stale=args.allow_stale_sut,

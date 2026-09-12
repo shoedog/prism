@@ -10,7 +10,10 @@ import json
 import os
 import re
 import subprocess
+from pathlib import Path
 
+from .closure import raw_digest
+from .lock import resolve_prefix
 from .model import CallEdge, FunctionDef, Location
 
 
@@ -43,6 +46,32 @@ def parse_version(out: str) -> tuple[str, bool]:
     if sha is None:
         raise SutStale("gitless build -- rebuild from a git checkout")
     return sha, bool(m.group(2))
+
+
+def verified_binary_identity(
+    prism_repo: str, path: str, env: dict[str, str] | None
+) -> tuple[str, str]:
+    out = subprocess.run(
+        [path, "--version"], check=True, capture_output=True, text=True, env=env
+    ).stdout
+    sha, dirty = parse_version(out)
+    if dirty:
+        raise SutStale("binary was built from a dirty tree")
+    try:
+        resolved = subprocess.run(
+            ["git", "-C", prism_repo, "rev-parse", "--verify", f"{sha}^{{commit}}"],
+            check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        if resolve_prefix(sha, [resolved]) != resolved:
+            raise ValueError("prefix mismatch")
+    except (subprocess.CalledProcessError, ValueError) as exc:
+        raise SutStale(f"binary commit is not uniquely resolvable: {sha}") from exc
+    if subprocess.run(
+        ["git", "-C", prism_repo, "merge-base", "--is-ancestor", resolved, "HEAD"],
+        capture_output=True,
+    ).returncode:
+        raise SutStale(f"binary commit is not an ancestor of HEAD: {resolved}")
+    return sha, resolved
 
 
 def extract_functions(arr: list[dict]) -> list[FunctionDef]:
@@ -128,6 +157,30 @@ def extract_callees(seed: FunctionDef, ev: dict) -> list[CallEdge]:
 
 
 class PrismCli:
+    @classmethod
+    def from_verified(
+        cls,
+        prism_repo: str,
+        path: str,
+        sha_full: str,
+        digest: str,
+        *,
+        env: dict[str, str] | None = None,
+    ) -> "PrismCli":
+        if raw_digest(Path(path)) != digest:
+            raise SutStale("binary digest does not match the staged identity")
+        sha, resolved = verified_binary_identity(prism_repo, path, env)
+        if resolved != sha_full:
+            raise SutStale("binary SHA does not match the staged identity")
+        instance = cls.__new__(cls)
+        instance.repo = prism_repo
+        instance.bin = path
+        instance.allow_stale = False
+        instance.env = env
+        instance.no_cache = False
+        instance.sha, instance.sha_full, instance.dirty = sha, sha_full, False
+        return instance
+
     def __init__(
         self,
         prism_repo: str,

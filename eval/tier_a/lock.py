@@ -101,13 +101,13 @@ def integrity_check(lock: Lock | None, eval_dir: Path) -> list[str]:
         [
             path
             for path in closure_dir.iterdir()
-            if path.name != ".gitkeep" and not path.name.startswith(".staging-")
+            if path.is_file() and path.suffix in {".tsv", ".json"}
         ]
         if closure_dir.is_dir()
         else []
     )
     if lock is None:
-        return ["half_published_anchor"] if published else []
+        return ["half_published_anchor: closure manifests present without a lock"] if published else []
 
     reasons = []
     prism = lock.prism

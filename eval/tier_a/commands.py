@@ -1,8 +1,11 @@
 """Tier-A command dispatch and run preflights."""
 from __future__ import annotations
 
+import argparse
+import datetime
 import subprocess
 import sys
+import tomllib
 from dataclasses import asdict
 from pathlib import Path
 
@@ -66,7 +69,9 @@ def _toolchain() -> dict:
 def dispatch(argv: list[str]) -> int | None:
     if not argv or argv[0] not in {"lock-check", "bootstrap", "compare"}:
         return None
-    if argv[0] in {"bootstrap", "compare"}:
+    if argv[0] == "bootstrap":
+        return _bootstrap(argv[1:])
+    if argv[0] == "compare":
         print(f"FATAL command_not_implemented: {argv[0]}", file=sys.stderr)
         return 3
 
@@ -93,6 +98,69 @@ def dispatch(argv: list[str]) -> int | None:
             preflight_quick(EVAL_DIR, live=False)
     except BoundaryViolation as exc:
         print(f"FATAL boundary_violation: {exc}", file=sys.stderr)
+        return 3
+    return 0
+
+
+def _bootstrap(argv: list[str]) -> int:
+    from .bootstrap import (
+        finalize_policy,
+        mark_history,
+        publish_anchor_v1,
+        stage_candidate,
+        validate_staged,
+    )
+    from .sut import PrismCli, SutStale
+
+    parser = argparse.ArgumentParser(prog="tier-a bootstrap")
+    parser.add_argument("--sut-bin")
+    parser.add_argument("--finalize-policy-only", action="store_true")
+    args = parser.parse_args(argv)
+    finalize_policy(EVAL_DIR)
+    if args.finalize_policy_only:
+        return 0
+    if args.sut_bin is None:
+        parser.error("--sut-bin is required")
+    try:
+        root = tier_a_root()
+        binary = Path(args.sut_bin).resolve()
+        candidate = stage_candidate(
+            EVAL_DIR.parent,
+            EVAL_DIR,
+            binary,
+            {"cargo": {"features": "all"}},
+            root,
+            str(EVAL_DIR.parent),
+        )
+        staged_reasons = validate_staged(candidate)
+        if staged_reasons:
+            raise BoundaryViolation(staged_reasons)
+        config = tomllib.loads((EVAL_DIR / "corpora.toml").read_text())
+        run_args = argparse.Namespace(
+            corpus="prism", quick=False, matrix_only=False, report_only=None,
+            sut_bin=str(binary), allow_stale_sut=False, live=False,
+            oracle=None, date=datetime.date.today().isoformat(), run_id=None,
+            sut_archive=None,
+        )
+        sut = PrismCli.from_verified(
+            str(EVAL_DIR.parent), str(binary),
+            candidate.lock.prism["sut"]["sha"],
+            candidate.lock.prism["sut"]["digest"],
+            env=scrubbed_env(candidate.lock),
+        )
+        run, _overlay = run_quick_admitted(
+            "prism", config["corpus"]["prism"], config["defaults"], run_args,
+            EVAL_DIR, candidate=candidate, sut=sut,
+        )
+        published = publish_anchor_v1(
+            candidate, run, EVAL_DIR, EVAL_DIR.parent / "docs/eval/tier-a",
+            root / "sut",
+        )
+        mark_history(EVAL_DIR.parent / "docs/eval/tier-a/baseline.md", run_args.date)
+        if integrity_check(published, EVAL_DIR):
+            raise BoundaryViolation(integrity_check(published, EVAL_DIR))
+    except (BoundaryViolation, SutStale, ValueError, OSError, subprocess.SubprocessError) as exc:
+        print(f"FATAL bootstrap_refused: {exc}", file=sys.stderr)
         return 3
     return 0
 
@@ -229,11 +297,40 @@ def run_quick_admitted(
     defaults: dict,
     args,
     eval_dir: Path,
+    *,
+    candidate=None,
+    sut=None,
 ) -> tuple[dict, dict]:
     """Run quick observations, admit them, then compute verdict metrics."""
     from . import cli
 
-    lock, corpus_path, overlay, identity = preflight_quick(eval_dir, args.live)
+    if candidate is None:
+        lock, corpus_path, overlay, identity = preflight_quick(eval_dir, args.live)
+    else:
+        existing = _load_optional_lock(eval_dir)
+        reasons = integrity_check(existing, eval_dir)
+        if reasons:
+            raise BoundaryViolation(reasons)
+        if existing is not None:
+            raise BoundaryViolation(["anchor_already_exists"])
+        lock, overlay = candidate.lock, {}
+        try:
+            corpus_path = materialize(
+                lock, candidate._root, candidate._origin_url
+            )
+            reasons = corpus_check(
+                lock,
+                corpus_path,
+                _version("rust-analyzer", "--version"),
+                _toolchain(),
+            )
+            if reasons:
+                raise BoundaryViolation(reasons)
+            identity = resolve_corpus_identity(lock, corpus_path)
+        except BoundaryViolation:
+            raise
+        except Exception as exc:
+            raise BoundaryViolation([f"corpus_mismatch: {exc}"]) from exc
     corpus_cfg = {**cfg, "path": str(corpus_path)}
     env = scrubbed_env(lock)
     with OpenAudit(eval_dir) as audit:
@@ -255,6 +352,7 @@ def run_quick_admitted(
             env=env,
             data_inputs=declared,
             corpus_identity=identity,
+            sut=sut,
             compute_metrics=False,
         )
         run["meta"]["corpus"] = name
@@ -294,16 +392,25 @@ def run_quick_admitted(
         )
         run["meta"]["admitted"] = False
     else:
-        sut_sha_full = run["meta"].get(
-            "sut_sha_full", run["meta"].get("prism_sha")
-        )
+        observed = {
+            key: run["meta"].get(key)
+            for key in (
+                "corpus_sha_full",
+                "sut_sha_full",
+                "oracle",
+                "oracle_init",
+                "harness_sha",
+            )
+        }
         run["meta"].update(lock_identities(lock))
         run["meta"]["corpus_sha_full"] = (
             identity.sha_full
             if identity is not None
             else run["meta"]["corpus_sha_full"]
         )
-        run["meta"]["sut_sha_full"] = sut_sha_full
+        for key, value in observed.items():
+            if value is not None:
+                run["meta"][key] = value
         run["meta"]["snapshot_digest"] = raw_digest(
             eval_dir.parent / lock.prism["snapshot"]["path"]
         )
