@@ -13,17 +13,6 @@ pub(super) static ROWS: &[BindingRow] = &[
         ruling: Ruling::Classified,
         regression: "e0a-go-block",
     },
-    BindingRow {
-        language: Language::Go,
-        kind: "switch_statement",
-        variant: None,
-        roles: RoleSet::of(&[Role::Scope]),
-        fields: &[],
-        declaration: None,
-        visibility: Visibility::WholeScope,
-        ruling: Ruling::Classified,
-        regression: "e0a-go-switch_statement",
-    },
     // spec §6.1 line 113: Header visibility deferred to E1b (lossless port)
     BindingRow {
         language: Language::Go,

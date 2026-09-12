@@ -1,0 +1,70 @@
+# Binding census: terraform
+
+Grammar SHA-256: `d86638c95d20335b960abb62f6758ab53f78fd0efbe4b6669473b5a20dfd1fb5`
+
+| Kind | Named | Heuristic fields | Existing curated row | Candidate | Grammar-only | Corpus occurrences |
+|---|---:|---|---:|---:|---:|---:|
+| `attr_splat` | true |  | false | false | false | 0 |
+| `attribute` | true |  | false | false | false | 0 |
+| `binary_operation` | true |  | false | false | false | 0 |
+| `block` | true |  | false | true | false | 0 |
+| `block_end` | true |  | false | true | false | 0 |
+| `block_start` | true |  | false | true | false | 0 |
+| `body` | true |  | false | true | false | 0 |
+| `bool_lit` | true |  | false | false | false | 0 |
+| `collection_value` | true |  | false | false | false | 0 |
+| `conditional` | true |  | false | false | false | 0 |
+| `config_file` | true |  | false | false | false | 0 |
+| `expression` | true |  | false | false | false | 0 |
+| `for_cond` | true |  | false | true | false | 0 |
+| `for_expr` | true |  | false | true | false | 0 |
+| `for_intro` | true |  | false | true | false | 0 |
+| `for_object_expr` | true |  | false | true | false | 0 |
+| `for_tuple_expr` | true |  | false | true | false | 0 |
+| `full_splat` | true |  | false | false | false | 0 |
+| `function_arguments` | true |  | false | true | false | 0 |
+| `function_call` | true |  | false | true | false | 0 |
+| `get_attr` | true |  | false | false | false | 0 |
+| `heredoc_start` | true |  | false | false | false | 0 |
+| `heredoc_template` | true |  | false | false | false | 0 |
+| `index` | true |  | false | false | false | 0 |
+| `legacy_index` | true |  | false | false | false | 0 |
+| `literal_value` | true |  | false | false | false | 0 |
+| `new_index` | true |  | false | false | false | 0 |
+| `numeric_lit` | true |  | false | false | false | 0 |
+| `object` | true |  | false | false | false | 0 |
+| `object_elem` | true |  | false | false | false | 0 |
+| `object_end` | true |  | false | false | false | 0 |
+| `object_start` | true |  | false | false | false | 0 |
+| `operation` | true |  | false | false | false | 0 |
+| `quoted_template` | true |  | false | false | false | 0 |
+| `splat` | true |  | false | false | false | 0 |
+| `string_lit` | true |  | false | false | false | 0 |
+| `template_directive` | true |  | false | false | false | 0 |
+| `template_else_intro` | true |  | false | false | false | 0 |
+| `template_expr` | true |  | false | false | false | 0 |
+| `template_for` | true |  | false | false | false | 0 |
+| `template_for_end` | true |  | false | true | false | 0 |
+| `template_for_start` | true |  | false | true | false | 0 |
+| `template_if` | true |  | false | false | false | 0 |
+| `template_if_end` | true |  | false | false | false | 0 |
+| `template_if_intro` | true |  | false | false | false | 0 |
+| `template_interpolation` | true |  | false | false | false | 0 |
+| `template_literal` | true |  | false | false | false | 0 |
+| `tuple` | true |  | false | false | false | 0 |
+| `tuple_end` | true |  | false | false | false | 0 |
+| `tuple_start` | true |  | false | false | false | 0 |
+| `unary_operation` | true |  | false | false | false | 0 |
+| `variable_expr` | true |  | false | true | false | 0 |
+| `comment` | true |  | false | false | false | 0 |
+| `ellipsis` | true |  | false | false | false | 0 |
+| `heredoc_identifier` | true |  | false | false | false | 0 |
+| `identifier` | true |  | false | false | false | 0 |
+| `null_lit` | true |  | false | false | false | 0 |
+| `quoted_template_end` | true |  | false | false | false | 0 |
+| `quoted_template_start` | true |  | false | false | false | 0 |
+| `strip_marker` | true |  | false | false | false | 0 |
+| `template_directive_end` | true |  | false | false | false | 0 |
+| `template_directive_start` | true |  | false | false | false | 0 |
+| `template_interpolation_end` | true |  | false | false | false | 0 |
+| `template_interpolation_start` | true |  | false | false | false | 0 |

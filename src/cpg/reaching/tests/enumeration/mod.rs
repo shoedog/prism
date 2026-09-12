@@ -26,8 +26,17 @@ fn reaching_module_files_are_under_the_cap() {
 }
 
 mod barrier;
+mod bash;
+mod c;
+mod case;
+mod cpp;
 mod go;
+mod java;
 mod javascript;
+mod lua;
 mod parameter_capture;
 mod python;
 mod rust;
+mod terraform;
+mod tsx;
+mod typescript;

@@ -1,5 +1,23 @@
-use super::super::super::binding_table::{rows, DeclarationKind, Role, Visibility};
+use super::super::super::binding_table::{rows, DeclarationKind, Role, Ruling, Visibility};
 use crate::languages::Language;
+
+pub(super) const CASES: &[super::case::Case] = &[];
+pub(super) const CURATED: &[(&str, &str)] = &[
+    ("block", "e0a-rs-block"),
+    ("let_declaration", "e0a-rs-let_declaration"),
+    ("const_item", "e0a-rs-const_item"),
+    ("static_item", "e0a-rs-static_item"),
+    ("parameters", "e0a-x-rs-parameters"),
+];
+
+pub(super) fn source_for_kind(kind: &str) -> &'static str {
+    match kind {
+        "generic_pattern" => "fn f<T>(value: T) { match value { Choice::<T> => {}, _ => {} } }",
+        "generic_type_with_turbofish" => "fn f<T>() { let value = Type::<T> { field: item }; }",
+        "reference_pattern" => "fn f(value: &i32) { let &inner = value; }",
+        _ => super::case::source(Language::Rust),
+    }
+}
 
 #[test]
 fn rust_rows_reproduce_the_old_match_arms() {
@@ -47,7 +65,13 @@ fn rust_rows_reproduce_the_old_match_arms() {
         ),
     ];
 
-    assert_eq!(rust_rows.len(), expected.len());
+    assert!(rust_rows[expected.len()..].iter().all(|row| matches!(
+        row.ruling,
+        Ruling::Uncertain {
+            reason: "not yet curated",
+            ..
+        }
+    )));
     for (kind, creates_scope, is_binding, declaration, visibility, regression) in expected {
         let row = rust_rows
             .iter()
