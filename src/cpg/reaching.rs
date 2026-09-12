@@ -12,6 +12,7 @@ use tree_sitter::Node;
 
 use super::{FlowConfidence, FlowDoubt};
 
+mod binding_table;
 mod capture;
 mod cfg_edge_index;
 mod classify;
