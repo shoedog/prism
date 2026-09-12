@@ -18,6 +18,7 @@ __all__ = [
     "canonical_path",
     "raw_digest",
     "corpus_manifest",
+    "checkout_corpus_manifest",
     "manifest_digest",
     "write_tsv",
     "read_tsv",
@@ -35,6 +36,22 @@ _POLICY_MODULES = (
     "spotcheck.py",
     "pinned.py",
     "cli.py",
+)
+
+_CORPUS_CONTROL_FILES = {
+    "Cargo.lock",
+    "Cargo.toml",
+    "build.rs",
+    "go.mod",
+    "go.sum",
+    "go.work",
+    "pyproject.toml",
+    "rust-project.json",
+    "rust-toolchain",
+    "rust-toolchain.toml",
+}
+_CORPUS_SOURCE_EXTENSIONS = tuple(
+    sorted({extension for extensions in EXTENSIONS.values() for extension in extensions})
 )
 
 
@@ -69,6 +86,34 @@ def corpus_manifest(
         if len(fields) != 3 or fields[2] != b"0":
             raise ValueError(f"unexpected git index entry for {path}")
         rows.append((path, raw_digest(disk_path), fields[1].decode("ascii")))
+    return sorted(rows)
+
+
+def checkout_corpus_manifest(
+    root: Path, expected_paths: set[str]
+) -> list[tuple[str, str]]:
+    """Enumerate closure-applicable checkout paths and their raw-byte digests."""
+    applicable = set()
+    git_entry = root / ".git"
+    if git_entry.exists():
+        applicable.add(".git")
+    for disk_path in root.rglob("*"):
+        if not disk_path.is_file():
+            continue
+        path = canonical_path(root, disk_path)
+        if (
+            path in expected_paths
+            or disk_path.name in _CORPUS_CONTROL_FILES
+            or path.endswith(_CORPUS_SOURCE_EXTENSIONS)
+        ):
+            applicable.add(path)
+    rows = [
+        (path, raw_digest(root / path))
+        for path in applicable
+        if path != ".git"
+    ]
+    if ".git" in applicable:
+        rows.append((".git", "present"))
     return sorted(rows)
 
 

@@ -13,7 +13,7 @@ import time
 import tomllib
 from pathlib import Path
 
-from . import pinned as pinned_mod
+from . import commands, pinned as pinned_mod
 from .accounting import CorpusAccounting, evaluate_floors
 from .adjudication import apply_verdicts, load_records, reanchor_map
 from .compare import caller_fn_sets, site_compare
@@ -521,17 +521,29 @@ def run_m3_spotcheck(
     return {"cap": cap, "checked": checked, "counts": counts}
 
 
-def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
+def run_corpus(
+    name: str,
+    cfg: dict,
+    defaults: dict,
+    args,
+    *,
+    corpus_identity=None,
+) -> dict:
     sut = PrismCli(str(EVAL_DIR.parent), sut_bin=args.sut_bin,
                    allow_stale=args.allow_stale_sut)
-    sha = corpus_sha(cfg["path"])
-    pinned_ok, pinned_reason = check_pinned(
-        cfg,
-        sha,
-        getattr(args, "allow_drift", False),
-    )
+    sha = corpus_identity.sha if corpus_identity is not None else corpus_sha(cfg["path"])
+    if corpus_identity is not None or (
+        getattr(args, "quick", False) and getattr(args, "live", False)
+    ):
+        pinned_ok, pinned_reason = True, ""
+    else:
+        pinned_ok, pinned_reason = check_pinned(cfg, sha, False)
     initial_invalid_reasons = [] if pinned_ok else [pinned_reason]
-    untracked = untracked_sources(cfg["path"], cfg["lang"])
+    untracked = (
+        corpus_identity.untracked
+        if corpus_identity is not None
+        else untracked_sources(cfg["path"], cfg["lang"])
+    )
     dirty_reasons = []
     if untracked:
         dirty_reasons.append(f"untracked_sources: {len(untracked)}")
@@ -539,13 +551,21 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
         "meta": {
             "corpus": name,
             "corpus_sha": sha,
-            "corpus_dirty": corpus_dirty(cfg["path"]) or bool(untracked),
+            "corpus_sha_full": (
+                corpus_identity.sha_full if corpus_identity is not None else sha
+            ),
+            "corpus_dirty": (
+                corpus_identity.dirty
+                if corpus_identity is not None
+                else corpus_dirty(cfg["path"]) or bool(untracked)
+            ),
+            "untracked_sources": untracked,
             "corpus_dirty_reasons": dirty_reasons,
             "prism_sha": sut.sha,
             "prism_dirty": sut.dirty,
             "seed": defaults["seed"],
             "date": args.date,
-            "harness_sha": corpus_sha(str(EVAL_DIR.parent)),
+            "harness_sha": commands._harness_sha(EVAL_DIR),
             "oracle_not_quiescent": False,
             "baseline_invalid": not pinned_ok,
             "invalid_reasons": initial_invalid_reasons,
@@ -573,11 +593,15 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
         # one retry against a REAL inventory symbol, which requires M1 first.
         overlay_probe_ok = oracle.capability_probe()
 
-        files = universe(
-            cfg["path"],
-            cfg["lang"],
-            cfg.get("excludes", []),
-            tracked_only=True,
+        files = (
+            corpus_identity.universe
+            if corpus_identity is not None
+            else universe(
+                cfg["path"],
+                cfg["lang"],
+                cfg.get("excludes", []),
+                tracked_only=True,
+            )
         )
         acc = CorpusAccounting()
         oracle_inv = []
@@ -732,21 +756,36 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
             stop()
 
 
-def invalid_corpus_run(name: str, cfg: dict, defaults: dict, args, exc: Exception) -> dict:
+def invalid_corpus_run(
+    name: str,
+    cfg: dict,
+    defaults: dict,
+    args,
+    exc: Exception,
+    corpus_identity=None,
+) -> dict:
+    if corpus_identity is not None:
+        csha = corpus_identity.sha
+        csha_full = corpus_identity.sha_full
+        cdirty = corpus_identity.dirty
+    else:
+        try:
+            csha = corpus_sha(cfg["path"])
+            csha_full = csha
+            cdirty = corpus_dirty(cfg["path"])
+        except Exception:
+            csha = "unknown"
+            csha_full = "unknown"
+            cdirty = False
     try:
-        csha = corpus_sha(cfg["path"])
-        cdirty = corpus_dirty(cfg["path"])
-    except Exception:
-        csha = "unknown"
-        cdirty = False
-    try:
-        hsha = corpus_sha(str(EVAL_DIR.parent))
+        hsha = commands._harness_sha(EVAL_DIR)
     except Exception:
         hsha = "unknown"
     return {
         "meta": {
             "corpus": name,
             "corpus_sha": csha,
+            "corpus_sha_full": csha_full,
             "corpus_dirty": cdirty,
             "prism_sha": "unknown",
             "seed": defaults.get("seed"),
@@ -768,6 +807,9 @@ def invalid_corpus_run(name: str, cfg: dict, defaults: dict, args, exc: Exceptio
 
 
 def main() -> int:
+    command_rc = commands.dispatch(sys.argv[1:])
+    if command_rc is not None:
+        return command_rc
     ap = argparse.ArgumentParser(prog="tier-a")
     ap.add_argument("--corpus", default="prism")
     ap.add_argument("--quick", action="store_true")
@@ -775,7 +817,9 @@ def main() -> int:
     ap.add_argument("--report-only")
     ap.add_argument("--sut-bin")
     ap.add_argument("--allow-stale-sut", action="store_true")
-    ap.add_argument("--allow-drift", action="store_true")
+    ap.add_argument(
+        "--live", action="store_true", help="measure the working tree, never anchoring"
+    )
     ap.add_argument("--oracle", default=None,
                     help="override per-corpus oracle (e.g. basedpyright); "
                          "outputs are written under <corpus>-<oracle> so they "
@@ -794,6 +838,11 @@ def main() -> int:
         )
         return 0
     if args.matrix_only:
+        try:
+            commands.preflight_matrix(EVAL_DIR)
+        except commands.BoundaryViolation as exc:
+            print(f"FATAL boundary_violation: {exc}", file=sys.stderr)
+            return 3
         sut = PrismCli(str(EVAL_DIR.parent), sut_bin=args.sut_bin,
                        allow_stale=args.allow_stale_sut)
         results = run_matrix(EVAL_DIR / "fixtures", sut, MATRIX_LANGUAGES)
@@ -801,25 +850,82 @@ def main() -> int:
             print(f"{r.language}/{r.capability}: {r.outcome}")
         return 1 if any(r.outcome == "regression" for r in results) else 0
     cfg = load_corpora()
+    corpus_path = EVAL_DIR.parent
+    meta_overlay = {}
+    corpus_identity = None
+    if args.quick:
+        try:
+            _, corpus_path, meta_overlay, corpus_identity = commands.preflight_quick(
+                EVAL_DIR, args.live
+            )
+        except commands.BoundaryViolation as exc:
+            print(f"FATAL boundary_violation: {exc}", file=sys.stderr)
+            return 3
     names = ["prism"] if args.quick else (
         list(cfg["corpus"]) if args.corpus == "all" else [args.corpus]
     )
     rc = 0
     for name in names:
         corpus_cfg = cfg["corpus"][name]
+        identity = None
+        overlay = {}
+        if args.quick and name == "prism":
+            corpus_cfg = {**corpus_cfg, "path": str(corpus_path)}
+            identity = corpus_identity
+            overlay = meta_overlay
         run_name = name
         if args.oracle:
             corpus_cfg = {**corpus_cfg, "oracle": args.oracle}
             run_name = f"{name}-{args.oracle}"
         try:
-            run = run_corpus(run_name, corpus_cfg, cfg["defaults"], args)
+            if args.quick:
+                run = run_corpus(
+                    run_name,
+                    corpus_cfg,
+                    cfg["defaults"],
+                    args,
+                    corpus_identity=identity,
+                )
+            else:
+                run = run_corpus(run_name, corpus_cfg, cfg["defaults"], args)
         except SutStale as exc:
             # a stale SUT is the operator's problem, not the oracle's — abort the
             # whole invocation loudly instead of mislabeling it per-corpus
             print(f"FATAL sut_stale: {exc}", file=sys.stderr)
             return 3
         except Exception as exc:
-            run = invalid_corpus_run(run_name, corpus_cfg, cfg["defaults"], args, exc)
+            run = invalid_corpus_run(
+                run_name,
+                corpus_cfg,
+                cfg["defaults"],
+                args,
+                exc,
+                corpus_identity=identity,
+            )
+        run["meta"].setdefault("corpus", run_name)
+        run["meta"].setdefault("date", args.date)
+        if overlay.get("baseline_invalid"):
+            run["meta"]["baseline_invalid"] = True
+            run["meta"]["invalid_reasons"] = list(
+                dict.fromkeys(
+                    run["meta"].get("invalid_reasons", [])
+                    + overlay.get("invalid_reasons", [])
+                )
+            )
+        run["meta"].update(
+            {
+                key: value
+                for key, value in overlay.items()
+                if key not in {"baseline_invalid", "invalid_reasons"}
+            }
+        )
+        for key, value in (
+            ("oracle_error_rate", 0.0),
+            ("sut_error_rate", 0.0),
+            ("oracle_not_quiescent", False),
+            ("wall_s", {}),
+        ):
+            run["meta"].setdefault(key, value)
         (EVAL_DIR / "runs").mkdir(exist_ok=True)
         (EVAL_DIR / "runs" / f"{args.date}-{run_name}.json").write_text(
             json.dumps(run, indent=1, sort_keys=True, default=str, allow_nan=False)
