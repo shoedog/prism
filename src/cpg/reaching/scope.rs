@@ -369,23 +369,6 @@ pub(super) fn binding_scope_rule(language: Language, kind: &str) -> BindingScope
         };
     }
     let (creates_scope, declaration) = match language {
-        Language::Go => (
-            matches!(
-                kind,
-                "block"
-                    | "if_statement"
-                    | "for_statement"
-                    | "expression_switch_statement"
-                    | "type_switch_statement"
-                    | "switch_statement"
-                    | "select_statement"
-            ),
-            match kind {
-                "short_var_declaration" => Some(DeclarationKind::GoShort),
-                "var_declaration" | "const_declaration" => Some(DeclarationKind::Other),
-                _ => None,
-            },
-        ),
         Language::Rust => (
             kind == "block",
             matches!(kind, "let_declaration" | "const_item" | "static_item")
