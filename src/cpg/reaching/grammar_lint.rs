@@ -1,3 +1,4 @@
+use super::binding_table::{select_binding_row, Visibility};
 use super::scope::binding_scope_rule;
 use super::Line;
 use crate::ast::ParsedFile;
@@ -163,14 +164,8 @@ fn introduction_is_classified(
         return true;
     }
 
-    if matches!(
-        parsed.language,
-        Language::JavaScript | Language::TypeScript | Language::Tsx
-    ) && node.kind() == "for_in_statement"
-        && target.kind() == "identifier"
-        && node
-            .child_by_field_name("kind")
-            .is_some_and(|kind| matches!(parsed.node_text(&kind), "let" | "const"))
+    if target.kind() == "identifier"
+        && select_binding_row(parsed, node).is_some_and(|row| row.visibility == Visibility::Header)
     {
         return true;
     }

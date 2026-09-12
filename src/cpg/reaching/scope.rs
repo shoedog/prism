@@ -1,6 +1,8 @@
 //! Lexical binding ownership for reaching definitions.
 
-use super::binding_table::{rows, BindingScopeRule, DeclarationKind, Role};
+use super::binding_table::{
+    rows, select_binding_row, BindingScopeRule, DeclarationKind, Role, Visibility,
+};
 use super::grammar_lint::{collect_unclassified_binding_lines, grammar_introducing_fields};
 use super::scope_python::collect_python_comprehension_declarations;
 use super::{DefSite, Line};
@@ -288,19 +290,12 @@ fn declaration_seed(
         .root_node()
         .descendant_for_byte_range(def.start_byte, end_byte)?;
     loop {
-        if matches!(
-            parsed.language,
-            Language::JavaScript | Language::TypeScript | Language::Tsx
-        ) && node.kind() == "for_in_statement"
+        if select_binding_row(parsed, node).is_some_and(|row| row.visibility == Visibility::Header)
         {
             let left = node.child_by_field_name("left");
-            let lexical_kind = node
-                .child_by_field_name("kind")
-                .map(|kind| parsed.node_text(&kind));
             if left.is_some_and(|left| {
                 left.start_byte() <= def.start_byte && def.start_byte < left.end_byte()
-            }) && matches!(lexical_kind, Some("let" | "const"))
-            {
+            }) {
                 return Some((
                     scope_span(node),
                     DeclarationKind::Other,
@@ -374,23 +369,6 @@ pub(super) fn binding_scope_rule(language: Language, kind: &str) -> BindingScope
         };
     }
     let (creates_scope, declaration) = match language {
-        Language::JavaScript | Language::TypeScript | Language::Tsx => (
-            matches!(
-                kind,
-                "statement_block"
-                    | "class_body"
-                    | "function_declaration"
-                    | "function_expression"
-                    | "arrow_function"
-                    | "for_statement"
-                    | "for_in_statement"
-            ),
-            match kind {
-                "variable_declaration" => Some(DeclarationKind::JavaScriptVar),
-                "lexical_declaration" | "class_declaration" => Some(DeclarationKind::Other),
-                _ => None,
-            },
-        ),
         Language::Go => (
             matches!(
                 kind,
