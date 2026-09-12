@@ -11,6 +11,7 @@ use tree_sitter::Node;
 mod go;
 mod javascript;
 mod python;
+mod rust;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Role {
@@ -144,6 +145,7 @@ pub(crate) fn rows(language: Language) -> &'static [BindingRow] {
         Language::Go => go::ROWS,
         Language::JavaScript | Language::TypeScript | Language::Tsx => javascript::ROWS,
         Language::Python => python::ROWS,
+        Language::Rust => rust::ROWS,
         _ => &[],
     }
 }
