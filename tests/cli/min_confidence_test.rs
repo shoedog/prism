@@ -336,9 +336,10 @@ fn dfg_fixture(language: &str, case: &str) -> std::path::PathBuf {
         .join(case)
 }
 
-const DFG_CLASS_COUNTERS: [&str; 6] = [
+const DFG_CLASS_COUNTERS: [&str; 7] = [
     "dfg_label_exact",
     "dfg_label_nameonly_killed",
+    "dfg_label_nameonly_ownership_uncertain",
     "dfg_label_nameonly_sameline",
     "dfg_label_nameonly_cfg_incomplete",
     "dfg_label_nameonly_alias_unstable",
@@ -361,10 +362,12 @@ fn dfg_stats_empty_repo_emits_all_zero_counters() {
             "dfg_label_exact": 0,
             "dfg_label_loop_carried": 0,
             "dfg_label_nameonly_killed": 0,
+            "dfg_label_nameonly_ownership_uncertain": 0,
             "dfg_label_nameonly_sameline": 0,
             "dfg_label_nameonly_cfg_incomplete": 0,
             "dfg_label_nameonly_alias_unstable": 0,
             "dfg_label_nameonly_call": 0,
+            "dfg_label_capture_immediate": 0,
             "dfg_rd_functions_over_cap": 0,
             "dfg_rd_functions_without_cfg": 0,
         })

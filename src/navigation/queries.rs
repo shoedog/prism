@@ -29,6 +29,22 @@ pub struct DfgEdgeRecord {
     pub kill_line: Option<u32>,
 }
 
+fn dfg_doubt_parts(confidence: FlowConfidence) -> (Option<&'static str>, Option<u32>) {
+    match confidence {
+        FlowConfidence::Exact => (None, None),
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line }) => {
+            (Some("killed"), Some(kill_line))
+        }
+        FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line }) => {
+            (Some("ownership_uncertain"), Some(construct_line))
+        }
+        FlowConfidence::NameOnly(FlowDoubt::SameLine) => (Some("sameline"), None),
+        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete) => (Some("cfg_incomplete"), None),
+        FlowConfidence::NameOnly(FlowDoubt::AliasUnstable) => (Some("alias_unstable"), None),
+        FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => (Some("call_nameonly"), None),
+    }
+}
+
 pub fn dfg_edge_dump(cpg: &CodePropertyGraph) -> Vec<DfgEdgeRecord> {
     let mut records: Vec<_> = cpg
         .graph
@@ -39,20 +55,7 @@ pub fn dfg_edge_dump(cpg: &CodePropertyGraph) -> Vec<DfgEdgeRecord> {
             };
             let from = dfg_endpoint(cpg.node(edge.source()))?;
             let to = dfg_endpoint(cpg.node(edge.target()))?;
-            let (doubt, kill_line) = match confidence {
-                FlowConfidence::Exact => (None, None),
-                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line }) => {
-                    (Some("killed"), Some(kill_line))
-                }
-                FlowConfidence::NameOnly(FlowDoubt::SameLine) => (Some("sameline"), None),
-                FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete) => {
-                    (Some("cfg_incomplete"), None)
-                }
-                FlowConfidence::NameOnly(FlowDoubt::AliasUnstable) => {
-                    (Some("alias_unstable"), None)
-                }
-                FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => (Some("call_nameonly"), None),
-            };
+            let (doubt, kill_line) = dfg_doubt_parts(confidence);
             Some(DfgEdgeRecord {
                 from,
                 to,
@@ -872,14 +875,25 @@ fn p16_terminal_outcome(outcome: &crate::resolution::ResolutionOutcome<'_>) -> s
 #[allow(clippy::items_after_test_module)]
 mod p16_census_tests {
     use super::{
-        interface_dispatch_manifest_inner, interface_manifest_target_identities,
+        dfg_doubt_parts, interface_dispatch_manifest_inner, interface_manifest_target_identities,
         interface_manifest_target_identity_values, p16_target_identity_values,
     };
     use crate::ast::ParsedFile;
     use crate::call_graph::CallGraph;
+    use crate::cpg::{FlowConfidence, FlowDoubt};
     use crate::languages::Language;
     use crate::resolution::{DropReason, GoOwnerIdentity, GoProvenInterfaceRoute};
     use std::collections::{BTreeMap, BTreeSet};
+
+    #[test]
+    fn ownership_uncertain_doubt_string_and_line_are_pinned() {
+        assert_eq!(
+            dfg_doubt_parts(FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
+                construct_line: 37,
+            })),
+            (Some("ownership_uncertain"), Some(37))
+        );
+    }
 
     fn build_go(sources: &[(&str, &str)]) -> CallGraph {
         let files: BTreeMap<String, ParsedFile> = sources

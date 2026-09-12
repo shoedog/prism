@@ -23,6 +23,8 @@ pub enum FlowDoubt {
     /// RD proved a redefinition of the same path kills this def before the use.
     /// `kill_line` is the lowest-numbered killing statement line on any path.
     Killed { kill_line: u32 },
+    /// A binding construct could not be classified, so ownership is uncertain.
+    OwnershipUncertain { construct_line: u32 },
     /// Two Defs of one AccessPath collapse onto one line-granular endpoint (§4.3).
     SameLine,
     /// No CFG node for the def or use line, function over the RD cap, or the
@@ -37,21 +39,25 @@ pub enum FlowDoubt {
 impl FlowConfidence {
     /// A total-order badness key: `(kind_rank, tie_break)`, compared
     /// lexicographically. `Exact` has the lowest `kind_rank` (0), so every
-    /// `NameOnly` outranks it. Within `Killed`, the tie-break is the
-    /// NEGATED `kill_line` so the numerically LOWER `kill_line` (the
-    /// earliest-proven kill) sorts as the greater badness, i.e. wins
-    /// `worst`. `worst` is then "the value with the greater badness key",
-    /// which is a `max` over a genuine total order — commutative,
-    /// associative and idempotent by construction, so no case-by-case proof
-    /// is needed for those three properties.
+    /// `NameOnly` outranks it. Within `Killed`, the NEGATED `kill_line` makes
+    /// the earliest-proven kill worse. Within `OwnershipUncertain`, the
+    /// positive `construct_line` makes the later construct worse. `SameLine`
+    /// and `CfgIncomplete` have no payload tie-break; their larger kind ranks
+    /// make them worse than every ownership line. `worst` is then "the value
+    /// with the greater badness key", which is a
+    /// `max` over a genuine total order — commutative, associative and
+    /// idempotent by construction.
     fn badness_key(self) -> (u8, i64) {
         match self {
             FlowConfidence::Exact => (0, 0),
             FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line }) => (1, -(kill_line as i64)),
-            FlowConfidence::NameOnly(FlowDoubt::SameLine) => (2, 0),
-            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete) => (3, 0),
-            FlowConfidence::NameOnly(FlowDoubt::AliasUnstable) => (4, 0),
-            FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => (5, 0),
+            FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line }) => {
+                (2, construct_line as i64)
+            }
+            FlowConfidence::NameOnly(FlowDoubt::AliasUnstable) => (3, 0),
+            FlowConfidence::NameOnly(FlowDoubt::SameLine) => (4, 0),
+            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete) => (5, 0),
+            FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => (6, 0),
         }
     }
 
@@ -93,9 +99,11 @@ mod tests {
     use super::*;
     use crate::resolution::ResolutionConfidence;
 
-    const ALL: [FlowConfidence; 6] = [
+    const ALL: [FlowConfidence; 8] = [
         FlowConfidence::Exact,
         FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 7 }),
+        FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 11 }),
+        FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 37 }),
         FlowConfidence::NameOnly(FlowDoubt::SameLine),
         FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
         FlowConfidence::NameOnly(FlowDoubt::AliasUnstable),
@@ -139,17 +147,30 @@ mod tests {
     }
 
     #[test]
+    fn two_ownership_doubts_keep_the_later_construct_line_in_both_orders() {
+        let early = FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 11 });
+        let late = FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 37 });
+        assert_eq!([early.worst(late), late.worst(early)], [late, late]);
+    }
+
+    #[test]
     fn doubt_badness_order_is_pinned() {
-        let ordered = [
-            FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 7 }),
-            FlowConfidence::NameOnly(FlowDoubt::SameLine),
-            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
-            FlowConfidence::NameOnly(FlowDoubt::AliasUnstable),
-            FlowConfidence::NameOnly(FlowDoubt::CallNameOnly),
+        let table = [
+            (
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 7 }),
+                (1, -7),
+            ),
+            (
+                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 11 }),
+                (2, 11),
+            ),
+            (FlowConfidence::NameOnly(FlowDoubt::AliasUnstable), (3, 0)),
+            (FlowConfidence::NameOnly(FlowDoubt::SameLine), (4, 0)),
+            (FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete), (5, 0)),
+            (FlowConfidence::NameOnly(FlowDoubt::CallNameOnly), (6, 0)),
         ];
-        for pair in ordered.windows(2) {
-            assert_eq!(pair[0].worst(pair[1]), pair[1]);
-            assert_eq!(pair[1].worst(pair[0]), pair[1]);
+        for (doubt, expected_key) in table {
+            assert_eq!(doubt.badness_key(), expected_key, "{doubt:?}");
         }
     }
 

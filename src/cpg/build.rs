@@ -37,10 +37,12 @@ pub struct DfgLabelStats {
     pub dfg_label_exact: usize,
     pub dfg_label_loop_carried: usize,
     pub dfg_label_nameonly_killed: usize,
+    pub dfg_label_nameonly_ownership_uncertain: usize,
     pub dfg_label_nameonly_sameline: usize,
     pub dfg_label_nameonly_cfg_incomplete: usize,
     pub dfg_label_nameonly_alias_unstable: usize,
     pub dfg_label_nameonly_call: usize,
+    pub dfg_label_capture_immediate: usize,
     pub dfg_rd_functions_over_cap: usize,
     pub dfg_rd_functions_without_cfg: usize,
 }
@@ -51,6 +53,9 @@ impl DfgLabelStats {
             FlowConfidence::Exact => self.dfg_label_exact += 1,
             FlowConfidence::NameOnly(FlowDoubt::Killed { .. }) => {
                 self.dfg_label_nameonly_killed += 1;
+            }
+            FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { .. }) => {
+                self.dfg_label_nameonly_ownership_uncertain += 1;
             }
             FlowConfidence::NameOnly(FlowDoubt::SameLine) => {
                 self.dfg_label_nameonly_sameline += 1;
@@ -1908,6 +1913,26 @@ impl CodePropertyGraph {
 mod dfg_label_stats_tests {
     use super::{DataFlowGraph, DfgLabelStats};
     use crate::cpg::RdFileStats;
+
+    #[test]
+    fn counter_schema_and_initial_values_are_pinned() {
+        assert_eq!(
+            serde_json::to_value(DfgLabelStats::default()).unwrap(),
+            serde_json::json!({
+                "dfg_label_exact": 0,
+                "dfg_label_loop_carried": 0,
+                "dfg_label_nameonly_killed": 0,
+                "dfg_label_nameonly_ownership_uncertain": 0,
+                "dfg_label_nameonly_sameline": 0,
+                "dfg_label_nameonly_cfg_incomplete": 0,
+                "dfg_label_nameonly_alias_unstable": 0,
+                "dfg_label_nameonly_call": 0,
+                "dfg_label_capture_immediate": 0,
+                "dfg_rd_functions_over_cap": 0,
+                "dfg_rd_functions_without_cfg": 0,
+            })
+        );
+    }
 
     #[test]
     fn rd_function_counters_sum_across_files_and_keep_zero_as_the_edge_case() {
