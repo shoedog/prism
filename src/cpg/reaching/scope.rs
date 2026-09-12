@@ -271,19 +271,6 @@ fn declaration_seed(
     def: &DefSite,
     function_scope: ScopeSpan,
 ) -> Option<(ScopeSpan, DeclarationKind, usize)> {
-    if parsed
-        .find_parameters_node(func_node)
-        .is_some_and(|parameters| {
-            parameters.start_byte() <= def.start_byte && def.start_byte < parameters.end_byte()
-        })
-    {
-        return Some((
-            function_scope,
-            DeclarationKind::Parameter,
-            function_scope.start_byte,
-        ));
-    }
-
     let end_byte = def.start_byte.checked_add(1)?;
     let mut node = parsed
         .tree
@@ -368,12 +355,9 @@ pub(super) fn binding_scope_rule(language: Language, kind: &str) -> BindingScope
             declaration: r.declaration,
         };
     }
-    let (creates_scope, declaration) = match language {
-        _ => (false, None),
-    };
     BindingScopeRule {
-        creates_scope,
-        declaration,
+        creates_scope: false,
+        declaration: None,
     }
 }
 

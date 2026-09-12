@@ -46,4 +46,15 @@ pub(super) static ROWS: &[BindingRow] = &[
         ruling: Ruling::Classified,
         regression: "e0a-rs-static_item",
     },
+    BindingRow {
+        language: Language::Rust,
+        kind: "parameters",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &[],
+        declaration: Some(DeclarationKind::Parameter),
+        visibility: Visibility::WholeScope,
+        ruling: Ruling::Classified,
+        regression: "e0a-x-rs-parameters",
+    },
 ];

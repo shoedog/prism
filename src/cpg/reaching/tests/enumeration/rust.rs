@@ -37,6 +37,14 @@ fn rust_rows_reproduce_the_old_match_arms() {
             Visibility::AfterIntroduction,
             "e0a-rs-static_item",
         ),
+        (
+            "parameters",
+            false,
+            true,
+            Some(DeclarationKind::Parameter),
+            Visibility::WholeScope,
+            "e0a-x-rs-parameters",
+        ),
     ];
 
     assert_eq!(rust_rows.len(), expected.len());
