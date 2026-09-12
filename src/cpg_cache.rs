@@ -265,7 +265,8 @@ mod stream;
 /// - v121: file-bound JS/TS module call owners and their A2 proof inventory.
 /// - v122: compact DFG arena, occurrence/rank indexes and validated native codec.
 /// - v123: property-method syntax evidence excludes bare-name call targets (#443).
-const CACHE_VERSION: u32 = 123;
+/// - v124: FlowDoubt::OwnershipUncertain payload (binding enumeration).
+const CACHE_VERSION: u32 = 124;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -791,6 +792,15 @@ mod tests {
         std::fs::write(bin_path, bincode::serialize(&cache).unwrap()).unwrap();
     }
 
+    fn captured_cache_version(bytes: &[u8]) -> u32 {
+        u32::from_le_bytes(bytes[..4].try_into().unwrap())
+    }
+
+    fn persisted_cache_version(cache_dir: &Path) -> u32 {
+        let bytes = fs::read(cache_bin_path(cache_dir)).unwrap();
+        captured_cache_version(&bytes)
+    }
+
     fn node_dump(cpg: &crate::cpg::CodePropertyGraph) -> Vec<String> {
         cpg.node_indices()
             .map(|idx| format!("{:?}", cpg.node(idx)))
@@ -816,8 +826,112 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 123);
+        assert_eq!(super::CACHE_VERSION, 124);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
+    }
+
+    #[test]
+    fn previous_cache_version_is_rejected_and_current_version_is_read() {
+        #[derive(Debug, PartialEq, Eq)]
+        struct Outcome {
+            persisted_version: u32,
+            initial_kind: &'static str,
+            initial_nodes: Vec<String>,
+            rebuilt_version: u32,
+            rebuilt_kind: &'static str,
+            rebuilt_nodes: Vec<String>,
+        }
+
+        let sources = BTreeMap::from([(
+            "cache_fixture.py".to_string(),
+            "def f(x):\n    y = x\n    return y\n".to_string(),
+        )]);
+        let files = sources
+            .iter()
+            .map(|(path, source)| (path.clone(), parse_py(path, source)))
+            .collect();
+        let cpg = CodePropertyGraph::build(&files);
+        let hashes = compute_file_hashes(&sources);
+        let expected_nodes = node_dump(&cpg);
+        assert!(!expected_nodes.is_empty(), "cache fixture must be nonempty");
+
+        let captured_v85 = include_bytes!("../tests/fixtures/cache/v85-tiny-python.bin");
+        assert_eq!(captured_cache_version(captured_v85), 85);
+        assert_eq!(
+            format!("{:x}", Sha256::digest(captured_v85)),
+            "bd88ea2d2e55d1896975a08dfbdd14e9b445479ca32892c9b42961d7700e909e"
+        );
+
+        let target_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("target");
+        let observed: Vec<Outcome> = [85, 123, 124]
+            .into_iter()
+            .map(|version| {
+                let dir = tempfile::Builder::new()
+                    .prefix("cache-version-boundary-")
+                    .tempdir_in(&target_dir)
+                    .unwrap();
+                if version == 85 {
+                    fs::write(cache_bin_path(dir.path()), captured_v85).unwrap();
+                } else {
+                    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+                    if version == 123 {
+                        force_cache_version(dir.path(), version);
+                    }
+                }
+                let persisted_version = persisted_cache_version(dir.path());
+                let initial = load_cache(&hashes, false, dir.path());
+                let (initial_kind, initial_nodes) = match initial {
+                    CacheResult::Hit(loaded) => ("Hit", node_dump(&loaded)),
+                    CacheResult::PartialHit { .. } => ("PartialHit", Vec::new()),
+                    CacheResult::Miss => ("Miss", Vec::new()),
+                };
+                if initial_kind == "Miss" {
+                    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+                }
+                let rebuilt_version = persisted_cache_version(dir.path());
+                let rebuilt = load_cache(&hashes, false, dir.path());
+                let (rebuilt_kind, rebuilt_nodes) = match rebuilt {
+                    CacheResult::Hit(loaded) => ("Hit", node_dump(&loaded)),
+                    CacheResult::PartialHit { .. } => ("PartialHit", Vec::new()),
+                    CacheResult::Miss => ("Miss", Vec::new()),
+                };
+                Outcome {
+                    persisted_version,
+                    initial_kind,
+                    initial_nodes,
+                    rebuilt_version,
+                    rebuilt_kind,
+                    rebuilt_nodes,
+                }
+            })
+            .collect();
+        let expected = vec![
+            Outcome {
+                persisted_version: 85,
+                initial_kind: "Miss",
+                initial_nodes: Vec::new(),
+                rebuilt_version: 124,
+                rebuilt_kind: "Hit",
+                rebuilt_nodes: expected_nodes.clone(),
+            },
+            Outcome {
+                persisted_version: 123,
+                initial_kind: "Miss",
+                initial_nodes: Vec::new(),
+                rebuilt_version: 124,
+                rebuilt_kind: "Hit",
+                rebuilt_nodes: expected_nodes.clone(),
+            },
+            Outcome {
+                persisted_version: 124,
+                initial_kind: "Hit",
+                initial_nodes: expected_nodes.clone(),
+                rebuilt_version: 124,
+                rebuilt_kind: "Hit",
+                rebuilt_nodes: expected_nodes,
+            },
+        ];
+        assert_eq!(observed, expected);
     }
 
     #[test]
