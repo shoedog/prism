@@ -8,7 +8,7 @@ use prism::{
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy)]
-enum Disposition {
+pub(super) enum Disposition {
     Supported,
     SupportedJsParserGapTs,
     Gap,
@@ -21,7 +21,7 @@ const APP: &str = "import { publicName as invoke } from './bridge';\nfunction ru
 const REQUIRE_APP: &str =
     "const { publicName: invoke } = require('./bridge');\nfunction run() { invoke(); }";
 
-fn check(id: &str, origin: &str, bridge: &str, app: &str, expected: Disposition) {
+pub(super) fn check(id: &str, origin: &str, bridge: &str, app: &str, expected: Disposition) {
     let mut failures = Vec::new();
     for (lang, ext) in [
         (Language::JavaScript, "js"),
@@ -217,28 +217,28 @@ case!(
 // Explicitly measured capability gaps, not aliases silently treated as locals.
 case!(
     esm_import_then_export_same,
-    Gap,
+    Supported,
     ESM,
     "import { item } from './origin'; export { item as publicName };",
     APP
 );
 case!(
     esm_import_then_export_renamed,
-    Gap,
+    Supported,
     ESM,
     "import { item as local } from './origin'; export { local as publicName };",
     APP
 );
 case!(
     esm_default_import_then_export,
-    Gap,
+    Supported,
     ESM,
     "import local from './origin'; export { local as publicName };",
     APP
 );
 case!(
     esm_import_then_default_export,
-    Gap,
+    Supported,
     ESM,
     "import { item as local } from './origin'; export default local;",
     "import invoke from './bridge';\nfunction run() { invoke(); }"
@@ -406,7 +406,7 @@ case!(
 );
 case!(
     esm_same_name_forwarding,
-    Gap,
+    Supported,
     "function origin() {}\nexport { origin as publicName };",
     "import { publicName } from './origin'; export { publicName };",
     APP

@@ -41,6 +41,12 @@ pub enum JsExportTarget {
         module_path: String,
         imported: String,
     },
+    /// A singleton, unwritten ESM imported binding forwarded by an ESM export.
+    /// Unlike ReExport, requires source-backed terminal function proof.
+    ImportForward {
+        module_path: String,
+        imported: String,
+    },
 }
 
 /// Raw (per-file, un-resolved) JS/TS export facts extracted from a single
@@ -52,6 +58,10 @@ pub struct JsExportFacts {
     /// name fallback. This is not callable or forwarding authority.
     #[serde(default)]
     pub module_value_bindings: BTreeSet<String>,
+    /// Unique, unwritten top-level named function declarations available to
+    /// the bounded imported-local forwarding lane only; not class authority.
+    #[serde(default)]
+    pub forwardable_function_locals: BTreeSet<String>,
     /// Local names introduced by top-level ESM named or default value imports.
     /// Syntax provenance only; eligible binding and class proof are separate.
     pub esm_named_imports: BTreeSet<String>,
@@ -80,6 +90,7 @@ impl JsExportFacts {
     pub fn is_empty(&self) -> bool {
         self.named.is_empty()
             && self.module_value_bindings.is_empty()
+            && self.forwardable_function_locals.is_empty()
             && self.esm_named_imports.is_empty()
             && self.type_only_imports.is_empty()
             && self.star_reexports.is_empty()
@@ -268,13 +279,17 @@ fn resolve_one_inner(
             JsExportTarget::ReExport {
                 module_path,
                 imported,
+            }
+            | JsExportTarget::ImportForward {
+                module_path,
+                imported,
             } => {
                 if hops + 1 > MAX_REEXPORT_DEPTH {
                     telemetry.chain_unresolved += 1;
                     return None;
                 }
                 let target_file = resolve_module(file, module_path)?;
-                resolve_one(
+                let hit = resolve_one(
                     raw,
                     resolve_module,
                     &target_file,
@@ -282,7 +297,17 @@ fn resolve_one_inner(
                     hops + 1,
                     visited,
                     telemetry,
-                )
+                )?;
+                if matches!(target, JsExportTarget::ImportForward { .. })
+                    && (hit.1
+                        || !raw
+                            .get(&hit.0.file)?
+                            .forwardable_function_locals
+                            .contains(&hit.0.local_name))
+                {
+                    return None;
+                }
+                Some(hit)
             }
         };
     }
@@ -337,6 +362,7 @@ mod tests {
     fn facts(named: &[(&str, JsExportTarget)], star: &[&str]) -> JsExportFacts {
         JsExportFacts {
             module_value_bindings: BTreeSet::new(),
+            forwardable_function_locals: BTreeSet::new(),
             esm_named_imports: BTreeSet::new(),
             type_only_imports: BTreeMap::new(),
             named: named

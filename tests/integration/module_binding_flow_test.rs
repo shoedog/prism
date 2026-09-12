@@ -6,7 +6,7 @@ use prism::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
-fn flows(origin: &str, bridge: &str, app: &str, expected: &[(&str, &str)]) {
+pub(super) fn flows(origin: &str, bridge: &str, app: &str, expected: &[(&str, &str)]) {
     let sources = [
         ("origin.ts", origin),
         ("bridge.ts", bridge),

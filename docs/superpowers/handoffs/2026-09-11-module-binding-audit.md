@@ -21,7 +21,8 @@ audit/improvements/fixes and regression protection; proceed locally.
 2. Read docs/eval/receiver-closure/2026-09-11-module-binding-audit.md and logs.
 3. Local implementation/verification are complete with exclusions below. Confirm
 the commit with git log; obtain publication authority before pushing/opening PR.
-Forwarding expansion is parked behind the safety baseline.
+Owner approved the next bounded ESM forwarding increment on this same branch;
+resume from 2026-09-11-esm-forwarding.md. This audit's counts remain historical.
 
 STOP: open-class findings, syntax/authority expansion without proof, command
 policy refusal, unexpected writes, unavailable evidence presented as passed.

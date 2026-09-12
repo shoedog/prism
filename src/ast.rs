@@ -4,6 +4,8 @@ use anyhow::{Context, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::{Node, Parser, Tree};
 
+mod js_module_forwarding;
+
 /// A parameter binding and the byte span of its identifier token.
 pub type ParameterOccurrence = (String, usize, usize);
 
@@ -2398,6 +2400,7 @@ impl ParsedFile {
         facts.esm_named_imports = self.js_ts_esm_named_imports(None);
         facts.type_only_imports = self.js_ts_type_only_imports();
         facts.module_value_bindings = self.js_ts_function_local_bindings(&root);
+        facts.forwardable_function_locals = self.js_ts_forwardable_functions();
         // A local export of an imported binding is not an in-file callable.
         // Forwarding requires separate proof; do not let a nested same-name
         // declaration satisfy the existing Local(file, name) route.
@@ -2740,7 +2743,9 @@ impl ParsedFile {
                         module_path: module_path.clone(),
                         imported: name,
                     },
-                    None => JsExportTarget::Local(name),
+                    None => self
+                        .js_ts_forwarded_import(&name)
+                        .unwrap_or(JsExportTarget::Local(name)),
                 };
                 facts.insert_named(exported_as, target);
             }
@@ -2759,7 +2764,10 @@ impl ParsedFile {
                     }
                     return;
                 }
-                facts.insert_named("default".to_string(), JsExportTarget::Local(name));
+                let target = self
+                    .js_ts_forwarded_import(&name)
+                    .unwrap_or(JsExportTarget::Local(name));
+                facts.insert_named("default".to_string(), target);
             } else {
                 facts.skipped_expr_count += 1;
             }

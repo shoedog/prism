@@ -3,6 +3,10 @@
 Base: `afc78147` (merged PR #313). The predecessor's publication-held notes
 describe its earlier local implementation checkpoint; #313 is merged.
 
+Follow-up: [bounded ESM forwarding](2026-09-11-esm-forwarding.md) promotes five
+of this checkpoint's19 Gap cases. The original baseline/counts below remain
+historical; the follow-up leaves14 gaps and preserves this slice's safety repairs.
+
 ## Scope and test meaning
 
 `tests/integration/module_binding_audit_test.rs` defines 55 named syntax cases,
