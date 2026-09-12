@@ -369,11 +369,6 @@ pub(super) fn binding_scope_rule(language: Language, kind: &str) -> BindingScope
         };
     }
     let (creates_scope, declaration) = match language {
-        Language::Rust => (
-            kind == "block",
-            matches!(kind, "let_declaration" | "const_item" | "static_item")
-                .then_some(DeclarationKind::Other),
-        ),
         _ => (false, None),
     };
     BindingScopeRule {

@@ -28,3 +28,4 @@ fn reaching_module_files_are_under_the_cap() {
 mod go;
 mod javascript;
 mod python;
+mod rust;
