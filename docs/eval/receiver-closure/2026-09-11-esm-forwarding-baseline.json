@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "base": "4ffe55bf",
+  "population": "synthetic fixture/language/build observations; not real sites or recall",
+  "observations": 316,
+  "matchedKeys": true,
+  "recoveredCorrectExact": 30,
+  "otherChangedObservations": 0,
+  "promotedCases": [
+    "esm_default_import_then_export",
+    "esm_import_then_default_export",
+    "esm_import_then_export_renamed",
+    "esm_import_then_export_same",
+    "esm_same_name_forwarding"
+  ],
+  "tests": {
+    "matrixBase": { "passed": 53, "failed": 5 },
+    "matrixCandidate": { "passed": 58, "failed": 0 },
+    "forwardingBase": { "passed": 29, "failed": 17 },
+    "forwardingCandidate": { "passed": 46, "failed": 0 }
+  },
+  "sourceCheckpointSha256": "4363b81926a709e230feb50c6f5bfa66b93721d28b3062be908e287769c6d9d4",
+  "sourceHashesAtInitialFullGate": {
+    "src/ast.rs": "c057710b2f2f1f3441080baeedc3a57ec75fd75d1498d93236d75433460cc637",
+    "src/ast/js_module_forwarding.rs": "60fd5ef98b4204555c8ffff4829e53e75aba07a9b10ba76bdf224162409104a6",
+    "src/js_exports.rs": "11bcf9e2708a1a55a17a19d68a4bd6ee921b5906e269243abaa108ff31e799c7",
+    "src/cpg_cache.rs": "5fff8ffe4b2abd3e76db15a283a91a9c2ecc023fe79dd6eb966afb9de13efc9c",
+    "src/navigation/call_edge_cache.rs": "7aa0e9b3d3830e05f36d21f02dc415d04a9057748c97f49481155afd224d144c",
+    "tests/integration/esm_forwarding_test.rs": "08133af7a85192390260403dc8b3245bdd847f67339e264c37492eac5dfebcd6",
+    "tests/integration/esm_forwarding_state_test.rs": "7b9458324533b47acd3720ceb66107b036ed497a68e9af842ebaa3060e8779fd",
+    "tests/integration/module_binding_audit_test.rs": "85556b2e14472dfedd8f166a0d0db8f9c35875b56704d6d3467533a024ceb851"
+  },
+  "finalExactChangedSetControl": {
+    "file": "tests/integration/esm_forwarding_state_test.rs",
+    "sha256": "2f688a4823c3f4d3661246af8c01974c95e31059ae80c94a6fa96545ec70a6b7",
+    "base": { "passed": 0, "failed": 3 },
+    "candidate": { "passed": 3, "failed": 0 },
+    "note": "Test-only strengthening after full gate; no production byte changes"
+  },
+  "logs": {
+    "exact-state-base.log": "6f9aeb5804cf93b745c6d0fa77272fd822e3ec41efcbbfa2f9c85fd7146eaccf",
+    "exact-state-candidate.log": "5ab20d5f0472edd648a13b1b07f3cc771846c8b470798d5247e4b1d1fe196d06",
+    "base-matrix-final.log": "5b8c73108043799f3ca73abcde497500c05b6d6fa1e483241085e1c33cf111d4",
+    "candidate-matrix-final.log": "9fe259dfd16cc7a5abf33fcd2ad9bc521d1f039e8ec0f24daf3702bcaf960715",
+    "base-forwarding-final.log": "56e04c68b32c7c3cbb272a959f1b47d25585062302b65acc9bc4ce4c2fdba83d",
+    "candidate-forwarding-final.log": "f8be195a30a8b15dae1d978a63ddeb0ed9c18cc50371d4d52e51a5a129bcf9fb"
+  }
+}

@@ -1,5 +1,10 @@
 # Handoff — optional/default parameter implementation bundle
 
+> Superseded operational status: owner pushed this bundle, PR #313 was opened
+> and merged as `afc78147`. The publication-held ledger below is the historical
+> implementation checkpoint. Current work is in
+> `2026-09-11-module-binding-audit.md`, approved for local TDD audit and repairs.
+
 **Written:** 2026-09-11 · **By:** root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/slicing · feat/js-ts-optional-default-parameters · **Measured state:** `[MEASURED]` tested source f8bdff5e contains the completed implementation and review fixes. Only documentation/derived receipts follow it. Rebind current HEAD in §1; publication held.
 **Predecessor:** PR312 merged; owner approved multiple local slice commits, one eventual MR after implementation.

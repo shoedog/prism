@@ -4,6 +4,10 @@ use anyhow::{Context, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::{Node, Parser, Tree};
 
+mod js_cjs_export_barriers;
+mod js_cjs_terminal;
+mod js_module_forwarding;
+
 /// A parameter binding and the byte span of its identifier token.
 pub type ParameterOccurrence = (String, usize, usize);
 
@@ -1750,12 +1754,14 @@ impl ParsedFile {
             // Check if value is a require() call
             if self.language.is_call_node(val.kind()) {
                 if let Some(func_name) = self.language.call_function_name(&val) {
-                    if self.node_text(&func_name) == "require" {
+                    if self.node_text(&func_name) == "require"
+                        && self.js_ts_unshadowed_ambient(func_name)
+                    {
                         if let Some(args) = self.language.call_arguments(&val) {
                             // Extract the module path from first argument
                             let mut cursor = args.walk();
                             for child in args.children(&mut cursor) {
-                                if child.is_named() {
+                                if self.is_positional_argument_node(child) {
                                     let text = self.node_text(&child);
                                     let path =
                                         text.trim_matches(|c| c == '\'' || c == '"').to_string();
@@ -1797,13 +1803,13 @@ impl ParsedFile {
             return None;
         }
         let func_name = self.language.call_function_name(node)?;
-        if self.node_text(&func_name) != "require" {
+        if self.node_text(&func_name) != "require" || !self.js_ts_unshadowed_ambient(func_name) {
             return None;
         }
         let args = self.language.call_arguments(node)?;
         let mut cursor = args.walk();
         for child in args.children(&mut cursor) {
-            if child.is_named() {
+            if self.is_positional_argument_node(child) {
                 let text = self.node_text(&child);
                 return Some(text.trim_matches(|c| c == '\'' || c == '"').to_string());
             }
@@ -2383,19 +2389,88 @@ impl ParsedFile {
         }
 
         let root = self.tree.root_node();
+        let mut cjs = crate::js_exports::JsExportFacts::default();
         let mut cursor = root.walk();
         for child in root.children(&mut cursor) {
             match child.kind() {
                 "export_statement" => self.collect_js_ts_export_statement(child, &mut facts),
-                "expression_statement" => {
-                    self.collect_js_ts_cjs_export_statement(child, &mut facts)
-                }
+                "expression_statement" => self.collect_js_ts_cjs_export_statement(child, &mut cjs),
                 _ => {}
+            }
+        }
+        // Preserve ESM provenance: an unsafe CJS use cannot erase an
+        // independently extracted ESM export. Safe cross-form duplicates still
+        // pass through the normal conflict-aware insertion path.
+        facts.skipped_expr_count += cjs.skipped_expr_count;
+        if cjs.conflicted.is_empty() && self.js_ts_cjs_export_object_safe() {
+            for (name, target) in cjs.named {
+                facts.insert_named(name, target);
+            }
+        } else {
+            // Unsafe producers revoke the whole CJS set, including disjoint
+            // siblings. Retain already-enumerated names as refusal claims so a
+            // barrel cannot mistake them for absence. Independent ESM wins.
+            // No claim is invented for unknown/computed-only export names.
+            for name in cjs.named.keys().chain(cjs.conflicted.iter()) {
+                if !facts.named.contains_key(name) && !facts.conflicted.contains(name) {
+                    facts.insert_named(
+                        name.clone(),
+                        crate::js_exports::JsExportTarget::UnprovenLocal(name.clone()),
+                    );
+                }
             }
         }
         facts.esm_named_imports = self.js_ts_esm_named_imports(None);
         facts.type_only_imports = self.js_ts_type_only_imports();
+        facts.module_value_bindings = self.js_ts_function_local_bindings(&root);
+        facts.forwardable_function_locals = self.js_ts_forwardable_functions();
+        // A local export of an imported binding is not an in-file callable.
+        // Forwarding requires separate proof; do not let a nested same-name
+        // declaration satisfy the existing Local(file, name) route.
+        let imported: BTreeSet<_> = self
+            .extract_import_bindings()
+            .into_iter()
+            .map(|b| b.local)
+            .chain(facts.type_only_imports.keys().cloned())
+            .collect();
+        for (exported, target) in &facts.named {
+            if let crate::js_exports::JsExportTarget::Local(local) = target {
+                if imported.contains(local) {
+                    facts.conflicted.insert(exported.clone());
+                }
+            }
+        }
         facts
+    }
+
+    /// Only a refusal guard: lexical declarations or writes revoke recognition
+    /// of the CommonJS ambient spelling. No ambient module existence is proven.
+    fn js_ts_unshadowed_ambient(&self, identifier: Node<'_>) -> bool {
+        !self.js_ts_receiver_lexically_bound_at_call(&self.tree.root_node(), Some(identifier))
+            && !self.js_ts_module_value_written(self.node_text(&identifier))
+    }
+
+    /// Replacing module.exports may detach the original exports object. Refuse
+    /// exports.* throughout the file, including possible reattachment; no heap
+    /// alias or execution-order proof is available in this export-fact model.
+    fn js_ts_module_exports_replaced(&self, node: Node<'_>) -> bool {
+        if let Some(left) = self.js_ts_write_target(node) {
+            if left.kind() == "member_expression"
+                && left
+                    .child_by_field_name("object")
+                    .is_some_and(|n| self.node_text(&n) == "module")
+                && left
+                    .child_by_field_name("property")
+                    .is_some_and(|n| self.node_text(&n) == "exports")
+            {
+                return true;
+            }
+        }
+        let mut cursor = node.walk();
+        let found = node
+            .named_children(&mut cursor)
+            .any(|n| self.js_ts_module_exports_replaced(n));
+        found
     }
 
     fn js_ts_type_only_imports(&self) -> BTreeMap<String, Option<(String, String)>> {
@@ -2633,6 +2708,13 @@ impl ParsedFile {
     ) {
         use crate::js_exports::JsExportTarget;
 
+        // The grammar uses the same immediate `type` token for type-only
+        // import/export statements and specifiers; names named `type` remain
+        // identifier nodes and are not rejected by this predicate.
+        if self.js_ts_import_statement_is_type_only(node) {
+            return;
+        }
+
         let source = node.child_by_field_name("source").map(|n| {
             self.node_text(&n)
                 .trim_matches(|c| c == '\'' || c == '"')
@@ -2664,7 +2746,9 @@ impl ParsedFile {
         if let Some(clause) = export_clause {
             let mut cc = clause.walk();
             for spec in clause.children(&mut cc) {
-                if spec.kind() != "export_specifier" {
+                if spec.kind() != "export_specifier"
+                    || self.js_ts_import_specifier_is_type_only(spec)
+                {
                     continue;
                 }
                 let Some(name) = spec
@@ -2682,7 +2766,9 @@ impl ParsedFile {
                         module_path: module_path.clone(),
                         imported: name,
                     },
-                    None => JsExportTarget::Local(name),
+                    None => self
+                        .js_ts_forwarded_import(&name)
+                        .unwrap_or(JsExportTarget::Local(name)),
                 };
                 facts.insert_named(exported_as, target);
             }
@@ -2701,7 +2787,10 @@ impl ParsedFile {
                     }
                     return;
                 }
-                facts.insert_named("default".to_string(), JsExportTarget::Local(name));
+                let target = self
+                    .js_ts_forwarded_import(&name)
+                    .unwrap_or(JsExportTarget::Local(name));
+                facts.insert_named("default".to_string(), target);
             } else {
                 facts.skipped_expr_count += 1;
             }
@@ -2810,28 +2899,32 @@ impl ParsedFile {
             && self.node_text(&object) == "module"
             && property_name == "exports"
         {
+            if !self.js_ts_unshadowed_ambient(object) {
+                return;
+            }
             // `module.exports = <rhs>;`
             self.collect_js_ts_cjs_module_exports_rhs(right, facts);
             return;
         }
 
         let is_module_exports_member = object.kind() == "member_expression"
-            && object
-                .child_by_field_name("object")
-                .is_some_and(|o| o.kind() == "identifier" && self.node_text(&o) == "module")
+            && object.child_by_field_name("object").is_some_and(|o| {
+                o.kind() == "identifier"
+                    && self.node_text(&o) == "module"
+                    && self.js_ts_unshadowed_ambient(o)
+            })
             && object
                 .child_by_field_name("property")
                 .is_some_and(|p| self.node_text(&p) == "exports");
-        let is_exports_member =
-            object.kind() == "identifier" && self.node_text(&object) == "exports";
+        let is_exports_member = object.kind() == "identifier"
+            && self.node_text(&object) == "exports"
+            && self.js_ts_unshadowed_ambient(object)
+            && !self.js_ts_module_exports_replaced(self.tree.root_node());
 
         if is_module_exports_member || is_exports_member {
             // `module.exports.f = f;` or `exports.f = f;`
             if right.kind() == "identifier" {
-                facts.insert_named(
-                    property_name,
-                    crate::js_exports::JsExportTarget::Local(self.node_text(&right).to_string()),
-                );
+                facts.insert_named(property_name, self.js_ts_cjs_local_target(right));
             } else {
                 facts.skipped_expr_count += 1;
             }
@@ -2846,13 +2939,9 @@ impl ParsedFile {
         rhs: Node<'_>,
         facts: &mut crate::js_exports::JsExportFacts,
     ) {
-        use crate::js_exports::JsExportTarget;
         match rhs.kind() {
             "identifier" => {
-                facts.insert_named(
-                    "default".to_string(),
-                    JsExportTarget::Local(self.node_text(&rhs).to_string()),
-                );
+                facts.insert_named("default".to_string(), self.js_ts_cjs_local_target(rhs));
             }
             "object" => {
                 // F2 (review-fix wave, codex BLOCKER 2): a spread can shadow
@@ -2876,7 +2965,7 @@ impl ParsedFile {
                     match prop.kind() {
                         "shorthand_property_identifier" => {
                             let name = self.node_text(&prop).to_string();
-                            facts.insert_named(name.clone(), JsExportTarget::Local(name));
+                            facts.insert_named(name, self.js_ts_cjs_local_target(prop));
                         }
                         "pair" => {
                             let key = prop.child_by_field_name("key").map(|k| {
@@ -2887,10 +2976,7 @@ impl ParsedFile {
                             let value = prop.child_by_field_name("value");
                             match (key, value) {
                                 (Some(key), Some(value)) if value.kind() == "identifier" => {
-                                    facts.insert_named(
-                                        key,
-                                        JsExportTarget::Local(self.node_text(&value).to_string()),
-                                    );
+                                    facts.insert_named(key, self.js_ts_cjs_local_target(value));
                                 }
                                 (Some(_), Some(_)) => facts.skipped_expr_count += 1,
                                 _ => {}
@@ -3288,10 +3374,20 @@ impl ParsedFile {
                     )
                     && node
                         .child_by_field_name("arguments")
-                        .and_then(|n| n.named_child(0))
+                        .and_then(|n| {
+                            let mut cursor = n.walk();
+                            let first = n
+                                .named_children(&mut cursor)
+                                .find(|child| self.is_positional_argument_node(*child));
+                            first
+                        })
                         .is_some_and(|mut n| {
                             while n.kind() == "parenthesized_expression" {
-                                let Some(inner) = n.named_child(0) else {
+                                let mut cursor = n.walk();
+                                let Some(inner) = n
+                                    .named_children(&mut cursor)
+                                    .find(|child| self.is_positional_argument_node(*child))
+                                else {
                                     return true;
                                 };
                                 n = inner;
@@ -3338,9 +3434,8 @@ impl ParsedFile {
                     | "function_expression"
                     | "generator_function_declaration"
                     | "generator_function"
-            ) && self
-                .language
-                .function_name(&root_scope)
+            ) && root_scope
+                .child_by_field_name("name")
                 .is_some_and(|name| self.node_text(&name) == receiver_name)
             {
                 if let Some(distance) = self.js_ts_scope_distance(receiver, root_scope.id()) {
@@ -4506,7 +4601,7 @@ impl ParsedFile {
                     let mut names = BTreeSet::new();
                     parsed.collect_js_ts_binding_pattern_names(target, &mut names);
                     if names.contains(name)
-                        && !parsed.js_ts_receiver_has_closer_binding(&target, name, root_id)
+                        && !parsed.js_ts_has_closer_binding(&target, name, root_id, true)
                     {
                         return true;
                     }
@@ -4528,13 +4623,43 @@ impl ParsedFile {
         receiver_name: &str,
         binding_scope_id: usize,
     ) -> bool {
+        self.js_ts_has_closer_binding(target, receiver_name, binding_scope_id, false)
+    }
+
+    /// Write proofs distinguish expression self bindings from declarations.
+    /// Receiver lookup also uses source names, but retains declaration-name
+    /// shadow refusal; do not conflate that policy with declaration writes.
+    fn js_ts_has_closer_binding(
+        &self,
+        target: &Node<'_>,
+        receiver_name: &str,
+        binding_scope_id: usize,
+        source_self_bindings: bool,
+    ) -> bool {
         let mut current = target.parent();
         while let Some(scope) = current {
             if scope.id() == binding_scope_id {
                 return false;
             }
             if is_js_ts_function_like(scope.kind()) {
-                if self.js_ts_function_scope_binds_receiver(&scope, target, receiver_name) {
+                let binds = if source_self_bindings {
+                    let mut parameters = BTreeSet::new();
+                    self.collect_js_ts_parameter_bindings(scope, &mut parameters);
+                    parameters.contains(receiver_name)
+                        || (matches!(scope.kind(), "function_expression" | "generator_function")
+                            && scope
+                                .child_by_field_name("name")
+                                .is_some_and(|n| self.node_text(&n) == receiver_name))
+                        || self.js_ts_receiver_binding_reaches_call(
+                            scope,
+                            scope.id(),
+                            target,
+                            receiver_name,
+                        )
+                } else {
+                    self.js_ts_function_scope_binds_receiver(&scope, target, receiver_name)
+                };
+                if binds {
                     return true;
                 }
             } else if self.language.is_scope_block(scope.kind())
@@ -5060,15 +5185,16 @@ impl ParsedFile {
             return true;
         }
 
+        // Callable display names may come from assignment properties or object
+        // keys. Only an explicit source name establishes this binding.
         if matches!(
             func_node.kind(),
             "function_declaration"
                 | "function_expression"
                 | "generator_function_declaration"
                 | "generator_function"
-        ) && self
-            .language
-            .function_name(func_node)
+        ) && func_node
+            .child_by_field_name("name")
             .is_some_and(|name| self.node_text(&name) == receiver_name)
         {
             return true;
@@ -6946,6 +7072,18 @@ impl ParsedFile {
         }
     }
 
+    /// Query byte ranges also admit overlapping ancestor nodes. For JS/TS/TSX,
+    /// an rvalue-producing capture must be wholly inside the requested callable
+    /// (or file root), not merely overlap its lines. This does not change nested
+    /// execution-scope ownership or recursive walking of accepted captures.
+    fn rvalue_capture_is_contained(&self, function: &Node<'_>, capture: Node<'_>) -> bool {
+        !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) || (function.start_byte() <= capture.start_byte()
+            && capture.end_byte() <= function.end_byte())
+    }
+
     /// Like `rvalue_identifiers_on_lines`, but returns structured `AccessPath`s.
     /// Used by the DFG for field-sensitive tracking.
     pub fn rvalue_identifier_paths_on_lines(
@@ -6975,6 +7113,7 @@ impl ParsedFile {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line)
                             && self.language.is_assignment_node(capture.node.kind())
+                            && self.rvalue_capture_is_contained(func_node, capture.node)
                         {
                             if let Some(rhs) = self.language.assignment_value(&capture.node) {
                                 self.collect_identifier_paths(rhs, &mut paths);
@@ -6997,7 +7136,9 @@ impl ParsedFile {
                     for capture in m.captures {
                         if capture.index == call_idx {
                             let line = capture.node.start_position().row + 1;
-                            if lines.contains(&line) {
+                            if lines.contains(&line)
+                                && self.rvalue_capture_is_contained(func_node, capture.node)
+                            {
                                 if let Some(args) = self.language.call_arguments(&capture.node) {
                                     self.collect_identifier_paths(args, &mut paths);
                                 }
@@ -7046,6 +7187,7 @@ impl ParsedFile {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line)
                             && self.language.is_assignment_node(capture.node.kind())
+                            && self.rvalue_capture_is_contained(func_node, capture.node)
                         {
                             if self.is_augmented_assignment(&capture.node) {
                                 if let Some(lhs) = self.language.assignment_target(&capture.node) {
@@ -7072,7 +7214,9 @@ impl ParsedFile {
                     for capture in m.captures {
                         if capture.index == call_idx {
                             let line = capture.node.start_position().row + 1;
-                            if lines.contains(&line) {
+                            if lines.contains(&line)
+                                && self.rvalue_capture_is_contained(func_node, capture.node)
+                            {
                                 if let Some(args) = self.language.call_arguments(&capture.node) {
                                     self.collect_identifier_path_spans(args, &mut spans);
                                 }
@@ -7368,7 +7512,9 @@ impl ParsedFile {
                 for capture in m.captures {
                     if capture.index == ret_idx {
                         let line = capture.node.start_position().row + 1;
-                        if lines.contains(&line) {
+                        if lines.contains(&line)
+                            && self.rvalue_capture_is_contained(func_node, capture.node)
+                        {
                             self.collect_return_node_value_spans(capture.node, out);
                         }
                     }
@@ -7415,6 +7561,7 @@ impl ParsedFile {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line)
                             && self.language.is_assignment_node(capture.node.kind())
+                            && self.rvalue_capture_is_contained(func_node, capture.node)
                         {
                             if let Some(rhs) = self.language.assignment_value(&capture.node) {
                                 self.collect_all_identifiers(rhs, &mut rvalues);
@@ -7437,7 +7584,9 @@ impl ParsedFile {
                     for capture in m.captures {
                         if capture.index == call_idx {
                             let line = capture.node.start_position().row + 1;
-                            if lines.contains(&line) {
+                            if lines.contains(&line)
+                                && self.rvalue_capture_is_contained(func_node, capture.node)
+                            {
                                 if let Some(args) = self.language.call_arguments(&capture.node) {
                                     self.collect_all_identifiers(args, &mut rvalues);
                                 }
@@ -10951,6 +11100,10 @@ mod inert_default_parameter_tests;
 #[cfg(test)]
 #[path = "ast_loop_header_tests.rs"]
 mod loop_header_tests;
+
+#[cfg(test)]
+#[path = "ast_contained_rvalue_tests.rs"]
+mod contained_rvalue_tests;
 
 #[cfg(test)]
 mod tests {

@@ -2,6 +2,10 @@
 //! building the unified graph from parsed files, assembling nodes/edges, and
 //! statement classification.
 
+#[cfg(test)]
+#[path = "namespace_flow_audit_tests.rs"]
+mod namespace_flow_audit_tests;
+
 use crate::access_path::AccessPath;
 use crate::call_graph::{CallGraph, CallSite, FunctionId, ScopeGraphBuildInputs};
 use crate::cfg;

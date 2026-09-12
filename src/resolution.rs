@@ -3542,6 +3542,26 @@ impl CallGraph {
                     }
                 }
 
+                // A JS/TS lexical binding is not a repo-global function of the
+                // same spelling. Earlier proven local/import routes are kept;
+                // this guard never supplies a new callable or alias target.
+                if is_js_ts_import_member_file(&caller.file)
+                    && (self
+                        .js_ts_function_locals
+                        .get(caller)
+                        .is_some_and(|s| s.contains(name))
+                        || self
+                            .import_bindings
+                            .get(&caller.file)
+                            .is_some_and(|bs| bs.iter().any(|b| b.local == name))
+                        || self.js_ts_exports.get(&caller.file).is_some_and(|f| {
+                            f.module_value_bindings.contains(name)
+                                || f.type_only_imports.contains_key(name)
+                        }))
+                {
+                    return ResolutionOutcome::dropped(DropReason::UnknownName);
+                }
+
                 // R5: cross-file free functions only, preserving legacy static exclusion.
                 let nonstatic: Vec<&FunctionId> = free
                     .into_iter()
