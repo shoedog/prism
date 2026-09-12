@@ -1,12 +1,16 @@
+import hashlib
+import json
 import os
 import subprocess
 import tomllib
+from pathlib import Path
 
 import pytest
 
 from tests.helpers import anchored_repo, fake_run, git_head, stub_binary, FakeSut
-from tier_a.lock import lock_identities, integrity_check, Lock
-from tier_a.closure import policy_digest, policy_manifest
+from tier_a.lock import IDENTITY_KEYS, lock_identities, integrity_check
+from tier_a.closure import policy_digest, policy_manifest, population_manifest, raw_digest
+from tier_a.corpus import load_snapshot
 from tier_a.bootstrap import (
     CandidateIdentity,
     finalize_policy,
@@ -29,6 +33,45 @@ STAGE = lambda repo, ev, tmp: stage_candidate(
 OUT = lambda ev, tmp: (ev, ev.parent / "docs/eval/tier-a", tmp / "root/sut")
 
 
+def _binary_sha(repo):
+    return subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD^"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def _identity_mismatch(key, original):
+    marker = hashlib.sha256(f"identity-mismatch:{key}".encode()).hexdigest()
+    if key in {"corpus_sha_full", "sut_sha_full", "harness_sha"}:
+        return marker[:40]
+    if key == "sha_aliases":
+        return [marker[:40]]
+    if isinstance(original, str) and original.startswith("sha256:"):
+        return f"sha256:{marker}"
+    if key == "sample_digest":
+        return {
+            "quick": f"sha256:{marker}",
+            "full": f"sha256:{hashlib.sha256(marker.encode()).hexdigest()}",
+        }
+    if key == "oracle":
+        return f"rust-analyzer mismatch {marker}"
+    if key == "oracle_init":
+        return {"cargo": {"features": marker}}
+    if key == "runtime":
+        return {"python": marker}
+    if key == "data":
+        return {"mismatch": {"digest": f"sha256:{marker}"}}
+    if key == "env_allow":
+        return [f"MISMATCH_{marker}"]
+    if key == "env_values":
+        return {"MISMATCH": marker}
+    if key == "seed":
+        return original + 1
+    raise AssertionError(f"unhandled identity key: {key}")
+
+
 def test_stage_then_validate_needs_no_published_lock(tmp_path):
     lock, ev, repo = anchored_repo(tmp_path, publish=False)
     cand = STAGE(repo, ev, tmp_path)
@@ -45,19 +88,65 @@ def test_stage_then_validate_needs_no_published_lock(tmp_path):
     )
 
 
-def test_bootstrap_refuses_identity_inequality_and_publishes_nothing(tmp_path):
+@pytest.mark.parametrize("key", IDENTITY_KEYS)
+def test_bootstrap_refuses_identity_inequality_and_publishes_nothing(tmp_path, key):
     lock, ev, repo = anchored_repo(tmp_path, publish=False)
     cand = STAGE(repo, ev, tmp_path)
     ids = lock_identities(cand.lock)
-    run = fake_run({**ids, "sut_digest": "sha256:other"})
-    with pytest.raises(ValueError, match="identity mismatch: sut_digest"):
+    run = fake_run({**ids, key: _identity_mismatch(key, ids[key])})
+    with pytest.raises(ValueError) as exc:
         publish_anchor_v1(cand, run, *OUT(ev, tmp_path))
+    assert str(exc.value) == f"identity mismatch: {key}"
     assert not (ev / "tier-a.lock.toml").exists() and not any(
         p for p in (ev / "closure").iterdir() if not p.name.startswith(".staging")
     )
-    run2 = fake_run({**ids, "snapshot_digest": "sha256:other"})
-    with pytest.raises(ValueError, match="identity mismatch: snapshot_digest"):
-        publish_anchor_v1(cand, run2, *OUT(ev, tmp_path))
+
+
+def test_candidate_uses_verified_sut_commit_for_snapshot_alias_and_population(tmp_path):
+    lock, ev, repo = anchored_repo(tmp_path, publish=False)
+    binary_sha = _binary_sha(repo)
+    historical_pin = "20c8490591a3"
+    policy_path = ev / "corpora.toml"
+    policy_path.write_text(
+        policy_path.read_text().replace(binary_sha[:12], historical_pin)
+    )
+    binary_snapshot = ev / "snapshots" / f"prism-{binary_sha[:12]}.json"
+    historical_snapshot = ev / "snapshots" / f"prism-{historical_pin}.json"
+    historical_snapshot.write_text(
+        binary_snapshot.read_text().replace('"file": "src/a.rs"', '"file": "src/old.rs"')
+    )
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-qam", "restore historical policy pin"],
+        check=True,
+    )
+
+    cand = STAGE(repo, ev, tmp_path)
+    expected_population = population_manifest(
+        load_snapshot(binary_snapshot), policy_manifest(ev), set(), "rust"
+    )
+    expected_population_path = repo / cand.lock.prism["population"]["manifest"]
+
+    assert historical_pin != binary_sha[:12]
+    assert cand.lock.prism["sha_aliases"] == [binary_sha]
+    assert cand.lock.prism["snapshot"] == {
+        "path": binary_snapshot.relative_to(repo).as_posix(),
+        "digest": raw_digest(binary_snapshot),
+    }
+    assert cand.lock.prism["population"] == {
+        "digest": policy_digest(expected_population),
+        "manifest": expected_population_path.relative_to(repo).as_posix(),
+    }
+    assert json.loads(cand.staged[expected_population_path].read_text()) == expected_population
+
+
+def test_candidate_refuses_when_verified_sut_snapshot_is_unavailable(tmp_path):
+    lock, ev, repo = anchored_repo(tmp_path, publish=False)
+    binary_sha = _binary_sha(repo)
+    (ev / "snapshots" / f"prism-{binary_sha[:12]}.json").unlink()
+
+    with pytest.raises(ValueError) as exc:
+        STAGE(repo, ev, tmp_path)
+    assert str(exc.value) == f"snapshot_unavailable: {binary_sha}"
 
 
 def test_bootstrap_publishes_atomically_and_lock_rederives(tmp_path):
@@ -83,6 +172,34 @@ def test_bootstrap_publishes_atomically_and_lock_rederives(tmp_path):
     )
 
 
+def test_publish_never_archives_bytes_that_disagree_with_locked_digest(
+    tmp_path, monkeypatch
+):
+    lock, ev, repo = anchored_repo(tmp_path, publish=False)
+    cand = STAGE(repo, ev, tmp_path)
+    run = fake_run(lock_identities(cand.lock))
+    real_read_bytes = Path.read_bytes
+    binary_reads = 0
+
+    def replace_binary_after_validation(path):
+        nonlocal binary_reads
+        contents = real_read_bytes(path)
+        if path == cand._binary:
+            binary_reads += 1
+            if binary_reads == 1:
+                path.write_bytes(b"replacement binary bytes\n")
+        return contents
+
+    monkeypatch.setattr(Path, "read_bytes", replace_binary_after_validation)
+    try:
+        published = publish_anchor_v1(cand, run, *OUT(ev, tmp_path))
+    except ValueError as exc:
+        assert str(exc) == "staged invalid: sut_digest_moved"
+    else:
+        archive = Path(published.prism["sut"]["archive"])
+        assert raw_digest(archive) == published.prism["sut"]["digest"]
+
+
 def test_crash_before_publish_leaves_nothing_and_half_publish_is_refused(
     tmp_path, monkeypatch
 ):
@@ -90,7 +207,6 @@ def test_crash_before_publish_leaves_nothing_and_half_publish_is_refused(
     cand = STAGE(repo, ev, tmp_path)
     run = fake_run(lock_identities(cand.lock))
     real = os.replace
-    calls = {"n": 0}
 
     def crash_on_lock(src, dst):
         if str(dst).endswith("tier-a.lock.toml"):
@@ -115,9 +231,14 @@ def test_crash_before_publish_leaves_nothing_and_half_publish_is_refused(
 def test_staged_candidate_files_never_trigger_half_publication(tmp_path):
     lock, ev, repo = anchored_repo(tmp_path, publish=False)
     cand = STAGE(repo, ev, tmp_path)
-    assert any((ev / "closure").glob(".staging-*/*.tsv")) and not (
-        ev / "tier-a.lock.toml"
-    ).exists()
+    staging = Path("closure") / f".staging-{os.getpid()}"
+    assert {path.relative_to(ev) for path in cand.staged.values()} == {
+        staging / Path(cand.lock.prism["closure"]["manifest"]).name,
+        staging / Path(cand.lock.prism["sut"]["inputs"]).name,
+        staging / Path(cand.lock.prism["policy"]["manifest"]).name,
+        staging / Path(cand.lock.prism["population"]["manifest"]).name,
+    }
+    assert not (ev / "tier-a.lock.toml").exists()
     assert integrity_check(None, ev) == []
     (ev / "closure" / "prism-corpus-x.tsv").write_text("")
     assert (
@@ -128,16 +249,23 @@ def test_staged_candidate_files_never_trigger_half_publication(tmp_path):
 
 def test_bootstrap_sut_path_survives_the_policy_commit(tmp_path):
     lock, ev, repo = anchored_repo(tmp_path, publish=False)
-    binary = stub_binary(ev.parent / "prism", git_head(repo)[:12])
+    binary_sha = git_head(repo)
+    binary = stub_binary(ev.parent / "prism", binary_sha[:12])
     finalize_policy(ev)
-    with pytest.raises(ValueError, match="policy_uncommitted"):
+    with pytest.raises(ValueError) as exc:
         STAGE(repo, ev, tmp_path)
+    assert str(exc.value) == "policy_uncommitted"
     subprocess.run(
         ["git", "-C", str(repo), "commit", "-qam", "tier-a: finalize policy"],
         check=True,
     )
-    with pytest.raises(SutStale):
+    head = git_head(repo)
+    with pytest.raises(SutStale) as exc:
         PrismCli(str(repo), sut_bin=str(binary))
+    assert str(exc.value) == (
+        f"binary {binary_sha[:12]} != HEAD {head}; "
+        "rebuild (cargo build --release) or pass allow_stale=True"
+    )
     cand = STAGE(repo, ev, tmp_path)
     sut = PrismCli.from_verified(
         str(repo),
@@ -156,7 +284,7 @@ def test_bootstrap_sut_path_survives_the_policy_commit(tmp_path):
 def test_bootstrap_refuses_report_without_identities(tmp_path):
     lock, ev, repo = anchored_repo(tmp_path, publish=False)
     cand = STAGE(repo, ev, tmp_path)
-    with pytest.raises(ValueError, match="not bindable: "):
+    with pytest.raises(ValueError) as exc:
         publish_anchor_v1(
             cand,
             {
@@ -168,6 +296,7 @@ def test_bootstrap_refuses_report_without_identities(tmp_path):
             },
             *OUT(ev, tmp_path),
         )
+    assert str(exc.value) == f"not bindable: {','.join(IDENTITY_KEYS)}"
 
 
 def test_bootstrap_refuses_unadmitted_or_invalid_runs_with_matching_identities(
@@ -181,12 +310,14 @@ def test_bootstrap_refuses_unadmitted_or_invalid_runs_with_matching_identities(
     bad1["meta"]["invalid_reasons"] = [
         "stratum C-method: 4/6 successful probes"
     ]
-    with pytest.raises(ValueError, match="not publishable: baseline_invalid"):
+    with pytest.raises(ValueError) as exc:
         publish_anchor_v1(cand, bad1, *OUT(ev, tmp_path))
+    assert str(exc.value) == "not publishable: baseline_invalid"
     bad2 = fake_run(ids)
     bad2["meta"]["admitted"] = False
-    with pytest.raises(ValueError, match="not publishable: not admitted"):
+    with pytest.raises(ValueError) as exc:
         publish_anchor_v1(cand, bad2, *OUT(ev, tmp_path))
+    assert str(exc.value) == "not publishable: not admitted"
     assert not (ev / "tier-a.lock.toml").exists()
 
 

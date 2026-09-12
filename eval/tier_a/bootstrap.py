@@ -63,17 +63,10 @@ def finalize_policy(eval_dir: Path) -> None:
         path.write_text("".join(output))
 
 
-def _snapshot_for(eval_dir: Path, cfg: dict, display_sha: str) -> Path:
-    pin = cfg.get("pinned_sha")
-    if pin is None:
-        match = re.search(
-            r"bootstrap snapshot: prism-([0-9a-f]{12})\.json",
-            (eval_dir / "corpora.toml").read_text(),
-        )
-        pin = match.group(1) if match else display_sha
-    path = eval_dir / "snapshots" / f"prism-{str(pin)[:12]}.json"
+def _snapshot_for(eval_dir: Path, sut_sha: str) -> Path:
+    path = eval_dir / "snapshots" / f"prism-{sut_sha[:12]}.json"
     if not path.is_file():
-        raise ValueError(f"bootstrap_snapshot_missing: {path}")
+        raise ValueError(f"snapshot_unavailable: {sut_sha}")
     return path
 
 def _tool_file(repo: Path, names: tuple[str, ...]) -> str:
@@ -98,7 +91,7 @@ def stage_candidate(
         raise ValueError("policy_uncommitted")
 
     env = scrubbed_env(None)
-    display_sha, sut_sha = verified_binary_identity(str(repo), str(binary), env)
+    _display_sha, sut_sha = verified_binary_identity(str(repo), str(binary), env)
     harness_sha = _git(repo, "rev-parse", "HEAD")
     policy = policy_manifest(eval_dir)
     cfg = policy["corpora"]["corpus"]["prism"]
@@ -112,7 +105,7 @@ def stage_candidate(
     )
     closure_rows = corpus_manifest(repo, sorted(closure_paths))
     sut_rows = sut_inputs_manifest(repo, binary)
-    snapshot = _snapshot_for(eval_dir, cfg, display_sha)
+    snapshot = _snapshot_for(eval_dir, sut_sha)
     package_dirs = set()
     if cfg["lang"] == "python":
         from .cli import package_dirs as find_package_dirs
@@ -161,7 +154,7 @@ def stage_candidate(
     sut_digest = raw_digest(binary)
     lock = Lock(prism={
         "closure": {"digest": ids["closure"], "manifest": canonical_path(repo, finals[0][0])},
-        "sha_aliases": [harness_sha],
+        "sha_aliases": [sut_sha],
         "policy": {"digest": ids["policy"], "manifest": canonical_path(repo, finals[2][0])},
         "population": {"digest": ids["population"], "manifest": canonical_path(repo, finals[3][0])},
         "snapshot": {"path": canonical_path(repo, snapshot), "digest": raw_digest(snapshot)},
@@ -253,6 +246,11 @@ def publish_anchor_v1(
     archive = archive_dir.resolve() / expected["sut_digest"][7:] / "prism"
     if Path(cand.lock.prism["sut"]["archive"]) != archive:
         raise ValueError("archive path mismatch")
+    binary_bytes = cand._binary.read_bytes()
+    binary_mode = cand._binary.stat().st_mode & 0o777
+    captured_digest = "sha256:" + hashlib.sha256(binary_bytes).hexdigest()
+    if captured_digest != expected["sut_digest"]:
+        raise ValueError("staged invalid: sut_digest_moved")
 
     report = copy.deepcopy(run)
     report_meta = report["meta"]
@@ -282,7 +280,7 @@ def publish_anchor_v1(
             raise ValueError(f"published manifest mismatch: {final.name}")
     _atomic_bytes(report_json, report_bytes)
     _atomic_bytes(report_md, render_markdown(report).encode())
-    _atomic_bytes(archive, cand._binary.read_bytes(), cand._binary.stat().st_mode & 0o777)
+    _atomic_bytes(archive, binary_bytes, binary_mode)
     lock_temp = eval_dir / f".tier-a.lock.toml.{os.getpid()}.tmp"
     save_lock(cand.lock, lock_temp)
     os.replace(lock_temp, eval_dir / "tier-a.lock.toml")
