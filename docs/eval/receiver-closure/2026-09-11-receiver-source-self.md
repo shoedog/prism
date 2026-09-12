@@ -1,6 +1,10 @@
 # Receiver source self bindings
 
 Sixth local increment, base `b3f6441e`, same future MR bundle. No publication.
+Historical delivery: `7bdf9981`. The subsequent
+[ownership audit](2026-09-11-callback-flow-ownership-audit.md) classifies the
+previously unclassified gap below; it is not namespace-specific. Results here
+remain the sixth-increment measurement, not current verification totals.
 
 ## Reproduced defects and repair
 

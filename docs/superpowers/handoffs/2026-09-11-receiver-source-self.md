@@ -1,7 +1,8 @@
 # Handoff — receiver source self bindings
 
 **Written:** 2026-09-11 · **By:** root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/slicing · feat/js-ts-module-binding-audit · **Measured state:** `[MEASURED]` base b3f6441e plus verified sixth-increment source/tests; baseline receipt pins hashes and matched RED/GREEN. Delivery is the local commit containing this handoff, identified by `git log -1 -- docs/superpowers/handoffs/2026-09-11-receiver-source-self.md`.
+**Workspace:** /Users/wesleyjinks/code/slicing · feat/js-ts-module-binding-audit · **Measured state:** `[MEASURED]` historical sixth increment delivered as7bdf9981; baseline receipt pins hashes and matched RED/GREEN.
+**Continuation:** [seventh-increment handoff](2026-09-11-callback-flow-ownership-audit.md) supersedes next-work guidance; sixth-increment results below are historical.
 **Predecessor:** fifth increment b3f6441e, unpushed.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live; /private/tmp/prism-receiver-self-6fQMsF.

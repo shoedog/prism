@@ -1,6 +1,8 @@
 # Receiver source-name self-binding repair
 
 Sixth local increment, base b3f6441e, same future MR bundle. No publication.
+Delivered in7bdf9981. Continue with the
+[callback-flow ownership audit](2026-09-11-callback-flow-ownership-audit.md).
 Two review rounds maximum. Repair inferred callable display names in the shared
 function-scope receiver guard. An assignment property or object-pair key is not
 a self binding. Use explicit source name fields for the existing supported node
