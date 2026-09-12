@@ -378,7 +378,7 @@ def resolve_capability(oracle, overlay_probe_ok: bool, inventory: list) -> bool:
     return False
 
 
-def make_oracle(cfg: dict):
+def make_oracle(cfg: dict, init_options=None):
     from .oracles import LspOracle
 
     cmd = {
@@ -393,6 +393,7 @@ def make_oracle(cfg: dict):
         cfg["lang"],
         settle_s=cfg.get("settle_s", 2.0),
         quiescence_cap_s=cfg.get("quiescence_cap_s", 300.0),
+        init_options=init_options,
     )
 
 
@@ -528,6 +529,8 @@ def run_corpus(
     args,
     *,
     corpus_identity=None,
+    oracle_init=None,
+    lock_oracle_version=None,
 ) -> dict:
     sut = PrismCli(str(EVAL_DIR.parent), sut_bin=args.sut_bin,
                    allow_stale=args.allow_stale_sut)
@@ -574,18 +577,33 @@ def run_corpus(
         },
         "probes": {"_corpus": name},
     }
+    if oracle_init is not None:
+        run["meta"]["oracle_init"] = oracle_init
     oracle_cfg = {
         **cfg,
         "settle_s": cfg.get("settle_s", defaults.get("settle_s", 2.0)),
         "quiescence_cap_s": cfg.get(
             "quiescence_cap_s", defaults.get("quiescence_cap_s", 300.0)),
     }
-    oracle = make_oracle(oracle_cfg)
+    oracle = (
+        make_oracle(oracle_cfg, init_options=oracle_init)
+        if oracle_init is not None
+        else make_oracle(oracle_cfg)
+    )
     try:
         t0 = time.monotonic()
         oracle.start()
         run["meta"]["wall_s"]["oracle_start"] = round(time.monotonic() - t0, 3)
-        run["meta"]["oracle"] = oracle.version()
+        oracle_version = oracle.version()
+        run["meta"]["oracle"] = oracle_version
+        if (
+            lock_oracle_version is not None
+            and oracle_version != lock_oracle_version
+        ):
+            initial_invalid_reasons.append(
+                f"oracle_version_mismatch: {oracle_version} != "
+                f"{lock_oracle_version}"
+            )
         run["meta"]["oracle_not_quiescent"] = oracle.not_quiescent
         # §2.2 capability probe, two-stage: the overlay probe is the fast path, but
         # servers that only analyze workspace-member files (rust-analyzer: an overlay
@@ -853,9 +871,10 @@ def main() -> int:
     corpus_path = EVAL_DIR.parent
     meta_overlay = {}
     corpus_identity = None
+    lock = None
     if args.quick:
         try:
-            _, corpus_path, meta_overlay, corpus_identity = commands.preflight_quick(
+            lock, corpus_path, meta_overlay, corpus_identity = commands.preflight_quick(
                 EVAL_DIR, args.live
             )
         except commands.BoundaryViolation as exc:
@@ -885,6 +904,12 @@ def main() -> int:
                     cfg["defaults"],
                     args,
                     corpus_identity=identity,
+                    oracle_init=(
+                        lock.prism["oracle"]["init"] if lock is not None else None
+                    ),
+                    lock_oracle_version=(
+                        lock.prism["oracle"]["version"] if lock is not None else None
+                    ),
                 )
             else:
                 run = run_corpus(run_name, corpus_cfg, cfg["defaults"], args)

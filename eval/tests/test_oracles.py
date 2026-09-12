@@ -1,10 +1,12 @@
 import pytest
 
+from tier_a import cli
 from tier_a.lsp_client import LspServerError
 from tier_a.model import FunctionDef, Location
 from tier_a.oracles import (LspOracle, OracleError, enrich_definitions,
                             map_document_symbols, map_incoming, map_outgoing,
                             uri_to_rel)
+from tests.helpers import ARGS, DEFAULTS, FakeOracle, FakeSut, git_repo
 
 
 def test_uri_to_rel_posix():
@@ -191,3 +193,13 @@ def test_gopls_receiver_names_normalized():
     [fd] = map_document_symbols("admin.go", syms)
     assert fd.name == "newAdminHandler"
     assert fd.container == "AdminConfig"
+
+
+def test_run_meta_records_oracle_init_and_flags_version_mismatch(tmp_path, monkeypatch):
+    class Old(FakeOracle):
+        def version(self): return "rust-analyzer 1.80.0"
+    monkeypatch.setattr(cli, "make_oracle", lambda cfg, init_options=None: Old())
+    repo = git_repo(tmp_path / "corpus", {"src/a.rs": "fn a() {}\n", "Cargo.toml": "[package]\nname='x'\nversion='0.1.0'\n", "eval/.gitkeep": ""})
+    monkeypatch.setattr(cli, "PrismCli", FakeSut); monkeypatch.setattr(cli, "EVAL_DIR", repo / "eval"); (repo / "eval" / "snapshots").mkdir(parents=True)
+    run = cli.run_corpus("prism", {"path": str(repo), "lang": "rust", "oracle": "rust-analyzer"}, DEFAULTS, ARGS, oracle_init={"cargo": {"features": "all"}}, lock_oracle_version="rust-analyzer 1.94.0 (4a4ef493 2026-03-02)")
+    assert run["meta"]["oracle_init"] == {"cargo": {"features": "all"}} and any(r.startswith("oracle_version_mismatch") for r in run["meta"]["invalid_reasons"])

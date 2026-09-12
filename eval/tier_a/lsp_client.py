@@ -23,11 +23,13 @@ class LspServerError(LspError):
 
 class LspClient:
     def __init__(self, cmd: list[str], cwd: str, default_timeout: float = 30.0,
-                 root_uri: str | None = None):
+                 root_uri: str | None = None, init_options=None):
         # root_uri: live LSP servers (rust-analyzer/gopls/pyright) need workspace
         # context for documentSymbol/callHierarchy; the echo-server tests pass None.
         self._cmd, self._cwd, self._timeout = cmd, cwd, default_timeout
         self._root_uri = root_uri
+        self._init_options = init_options
+        self.initialize_result = {}
         self._proc: subprocess.Popen | None = None
         self._next_id = 0
         self._lock = threading.Lock()
@@ -50,7 +52,10 @@ class LspClient:
                   }}
         if self._root_uri:
             params["workspaceFolders"] = [{"uri": self._root_uri, "name": "corpus"}]
-        self.server_info = self.request("initialize", params).get("serverInfo", {})
+        if self._init_options is not None:
+            params["initializationOptions"] = self._init_options
+        self.initialize_result = self.request("initialize", params)
+        self.server_info = self.initialize_result.get("serverInfo", {})
         self.notify("initialized", {})
 
     def stop(self) -> None:

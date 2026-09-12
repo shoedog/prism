@@ -148,14 +148,17 @@ class OracleError(Exception):
 class LspOracle:
     """Shared live LSP lifecycle and wrappers that normalize oracle failures."""
 
-    def __init__(self, cmd, root, lang, settle_s=2.0, quiescence_cap_s=300.0):
+    def __init__(self, cmd, root, lang, settle_s=2.0, quiescence_cap_s=300.0,
+                 init_options=None):
         from .lsp_client import LspClient
 
         self.root, self.lang = os.path.abspath(root), lang
         self.not_quiescent = False
         self._cmd = cmd
         root_uri = "file://" + urllib.parse.quote(self.root)
-        self.client = LspClient(cmd, cwd=self.root, root_uri=root_uri)
+        self.client = LspClient(
+            cmd, cwd=self.root, root_uri=root_uri, init_options=init_options
+        )
         self._settle, self._cap = settle_s, quiescence_cap_s
 
     def start(self):

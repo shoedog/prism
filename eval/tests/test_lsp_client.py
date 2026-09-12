@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 from tier_a.lsp_client import LspClient, LspServerError, LspTimeout
+from tests.helpers import EchoCapture
 
 ECHO = [sys.executable, str(Path(__file__).parent / "echo_server.py")]
 
@@ -40,3 +41,22 @@ def test_notifications_are_captured(client):
     client.request("test/notifyme", {})
     notes = client.drain_notifications()
     assert any(n["method"] == "test/notification" for n in notes)
+
+
+def test_initialize_forwards_init_options():
+    c = EchoCapture(init_options={"cargo": {"features": "all"}}).client; c.start()
+    assert c.initialize_result["echoedInit"] == {"cargo": {"features": "all"}}
+    params = c.initialize_result["echoedParams"]                       # the exact wire payload (review fix)
+    assert c.initialize_result["hasInitOptions"] is True
+    assert params["initializationOptions"] == {"cargo": {"features": "all"}}   # verbatim, no re-shaping
+    assert set(params) == {"processId", "rootUri", "capabilities", "initializationOptions"}
+    c.stop()
+
+
+def test_no_lock_sends_no_init_options():
+    c = EchoCapture().client; c.start()
+    assert c.initialize_result["echoedInit"] is None
+    assert c.initialize_result["hasInitOptions"] is False               # ABSENT on the wire — not null, not {}
+    assert "initializationOptions" not in c.initialize_result["echoedParams"]
+    assert set(c.initialize_result["echoedParams"]) == {"processId", "rootUri", "capabilities"}
+    c.stop()
