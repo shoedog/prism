@@ -115,3 +115,7 @@ string/path/span consumer. Containment alone does not grant that ownership. Keep
 the genuine same-line occurrence-index design separate. Static skipped CJS export
 names remain independent. No unknown-CJS surface, require-time snapshot forwarding,
 closure admission, unresolved react-scripts or React.FC decision changes.
+
+Successor proof: [`2026-09-13-nested-execution-owner-proof.md`](2026-09-13-nested-execution-owner-proof.md).
+It freezes the source-level WRONG, graph/refusal controls and a repair-ready scoped
+rvalue design without changing production behavior.

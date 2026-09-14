@@ -11106,6 +11106,10 @@ mod loop_header_tests;
 mod contained_rvalue_tests;
 
 #[cfg(test)]
+#[path = "ast_nested_execution_owner_tests.rs"]
+mod nested_execution_owner_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
