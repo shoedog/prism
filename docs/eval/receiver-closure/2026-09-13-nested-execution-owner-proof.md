@@ -14,8 +14,9 @@ The proof ran in `/Users/wesleyjinks/code/slicing` on branch
 verified main tree at `c1dbc292175f8e93271e7a3699b2ee20fa41e42f`; stale local
 main refs were not used. Evidence is under
 `/private/tmp/prism-nested-owner-proof-Rjzipk`. Test and executable hashes are in
-the adjacent baseline receipt. No commit, fetch, push, rebaseline or production
-publication was performed.
+the adjacent baseline receipt. After the proof freeze, the controller committed
+the exact artifact on `feat/nested-callable-owner-proof`, pushed it, and opened
+PR #315 against `main`. No rebaseline or production runtime effect was performed.
 
 ## Findings
 
