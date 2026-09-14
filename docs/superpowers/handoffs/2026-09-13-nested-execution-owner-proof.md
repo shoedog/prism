@@ -32,7 +32,7 @@
 | Full gates | done with exclusions | `[MEASURED]` default 4508/0/2; MCP 4701/0/2; owner 4701/23/2 with identical base NotPresent population; examples32; Node786; authority40; Python940+1skip; matrix159; quick INVALID timeout |
 | Independent review | approved | `[MEASURED]` Round 1 `FIX-FIRST` (3 WRONG, 3 SMELL); Round 2/cap `APPROVE` (0 WRONG, 2 retained non-blocking SMELL); design verdict `READY_FOR_BOUNDED_REPAIR` |
 | Durable readout | done | `[MEASURED]` `docs/eval/receiver-closure/2026-09-13-nested-execution-owner-proof.md` and adjacent baseline JSON |
-| Publication | open | `[MEASURED]` branch `feat/nested-callable-owner-proof` pushed; PR #315 open/non-draft against `c1dbc292`; main is an ancestor (content-clean fast-forward), CI run `34831471105` is in progress, and connector mergeability is currently non-discriminating |
+| Publication | open | `[MEASURED]` branch `feat/nested-callable-owner-proof` pushed; PR #315 was open/non-draft against `c1dbc292` at publication, and main is an ancestor (content-clean fast-forward); recheck live CI and mergeability before merge |
 
 ## 3. Corrections to standing documents and memory
 
