@@ -1,0 +1,108 @@
+{
+  "schema": "prism.nested-execution-owner-proof.v1",
+  "verdict": "READY_FOR_BOUNDED_REPAIR",
+  "production_repair_implemented": false,
+  "identity": {
+    "cwd": "/Users/wesleyjinks/code/slicing",
+    "branch": "feat/js-ts-module-binding-audit",
+    "head": "36aec5f7a16e9eb90002f01235365cdc4ab6395a",
+    "tree": "2ac20fcbf743d54c508f914d685936285f30a549",
+    "verified_main_commit": "c1dbc292175f8e93271e7a3699b2ee20fa41e42f",
+    "verified_main_tree": "2ac20fcbf743d54c508f914d685936285f30a549"
+  },
+  "custody_root": "/private/tmp/prism-nested-owner-proof-Rjzipk",
+  "source_hashes": {
+    "src/lib.rs": "e8079dc84c088089b68cc4fae0af881042e686cc69fd1cd88c80d3167b0eba91",
+    "src/ast.rs": "668bd9fb257c90b64d2dec2c7b46324ec6e4c08e61e4477cd940584ba8a20ad7",
+    "src/cpg/build.rs": "c48724b113e46a6300bdfaa927757ad414c934dcf3d03761114bd1314cdb5f89",
+    "src/nested_execution_owner_audit.rs": "6e38ca8932f089ba5073ac138012deddaaed3c1df860c4c1d6cb299381c566c7",
+    "src/ast_nested_execution_owner_tests.rs": "6a065075249fd68de85a362615dee6009a24027a3e1aceb0dc1d0e954958039a",
+    "src/cpg/nested_execution_owner_audit_tests.rs": "33ea43b6c909584a69e47fc0c7a62248e661c3ed412d6769553214b8ce4919b2",
+    "Cargo.lock": "f02d0a31d93e2870735d7a011a9f7e0c84d67224c80f8c46504666bff0e2b660"
+  },
+  "executable_hashes": {
+    "prism": "d3e0b242596abcfa8da3d58a1e1e71bc573b824605499f2b02b562003bef8d0c",
+    "prism-mcp": "13cfb5093795c94a0f093a7ff5080823b17951dad5a531fa051e46023a840d2a",
+    "project_membership_census": "12b42c5fdb178596db86c820b9c47d8f6ef8ed3fb52c409a7f74c8309276c5d8",
+    "parameter_site_census": "a69e3b8eb9a0828a428761a13879779d47ca7c7a33423fda44ddbb78ff16ffe4"
+  },
+  "cache_pins": {"cpg": 92, "navigation_call_edges": 52},
+  "fixture_matrix": {
+    "languages": ["JavaScript", "TypeScript", "Tsx"],
+    "canonical_rows_per_language": 143,
+    "repeated_language_observations": 429,
+    "routes": {
+      "assignment": {"rows": 46, "sha256": "a425529614b1812a918c5c13b910d601980d7db2c23a2d90664659456cf14be3"},
+      "initializer": {"rows": 16, "sha256": "59babd8c49fef4a142e9b306786819cc04e64a1bdfe8e82186a2f304f8ce3df7"},
+      "call": {"rows": 58, "sha256": "7e21bfe5862e6f0a7d4e0e46facd724e92ef8bd924582a0df9fb00c553e24108"},
+      "returned": {"rows": 23, "sha256": "1b083443764b35447a85057fb79c089686aa793e065467ab929a1296919d0a0c"}
+    },
+    "oracle": "fixture-authored TokenAnchor roles validated against source bytes and AST parent/field relationships; independent of production collectors and proposed pruning"
+  },
+  "desired_red": {
+    "test": "ast::nested_execution_owner_tests::nested_execution_owner_desired_contract",
+    "ignored_reason": "known nested execution-owner gap; see 2026-09-13 proof readout",
+    "selected": 1,
+    "candidate": {"passed": 0, "failed": 1, "mismatch_rows": 387, "raw_log_sha256": "0c1e0ebeca859d78caf238e84d0de7e9264d619afb25bde0d1e2cd68886fde67", "log": "logs/desired-red-round2-candidate.log"},
+    "base": {"passed": 0, "failed": 1, "mismatch_rows": 387, "raw_log_sha256": "1bfb35ac6ab4d90bb8f8c75e9e829d20f732b2e8f040a2ddc724176e9f38149d", "log": "logs/desired-red-round2-base.log"},
+    "normalization": "retain lines beginning OWNER_DESIRED_MISMATCH plus one LF each",
+    "normalized_sha256": "b96b7274a05149039d85672a3fac343ddc84838220fa74f1756c5cf17f83320b",
+    "meaning": "consumer/language/multiplicity rows, not unique sites"
+  },
+  "graph_controls": {
+    "outer_wrong_uses": ["p@53-54", "p@67-68 x2", "seed@82-86 x2", "sink@62-66 x2"],
+    "capture_labels": ["NameOnly(CfgIncomplete)", "NameOnly(CfgIncomplete)"],
+    "capture_exact_present": false,
+    "zero_width_occurrences": ["cb:2:23-23", "cb:3:33-33", "seed:1:0-0", "seed:7:93-93"],
+    "raw_span_removal_counterfactual_proved": false,
+    "wrong_token_argument_refused": true,
+    "out_of_span_argument_refused": true,
+    "genuine_same_line_collision_refused": true,
+    "effectful_default_param_nodes": [null],
+    "wrong_exact_dfg_edge_demonstrated": false,
+    "wrong_exact_call_ownership_demonstrated": true,
+    "parked_call_ownership_epochs": [1, 2, 3],
+    "full_flow_with_dfg": ["app.js:3:true", "app.js:5:false"],
+    "full_flow_without_dfg": ["app.js:3:true", "app.js:5:false"],
+    "wrong_public_result_demonstrated": false
+  },
+  "source_epochs": [
+    {"epoch": 0, "sha256": "ce6868c121c3e1a0066075cb893dea7eaad15064f2123e5208a9c20bc2637157", "dfg_rows": 5},
+    {"epoch": 1, "sha256": "e52de3f5c662e15f6ec96bb441677d64ddf5d213348dc9836e30eb225d998908", "dfg_rows": 10},
+    {"epoch": 2, "sha256": "2447c8325715183980476a171f7284efd8322e6497165766b7d7653d3cec284d", "dfg_rows": 14},
+    {"epoch": 3, "sha256": "01d88ad818821530610f9ce77ed52f5b13452eb72785072869b420254ad8bd50", "dfg_rows": 11},
+    {"epoch": 4, "sha256": "ce6868c121c3e1a0066075cb893dea7eaad15064f2123e5208a9c20bc2637157", "dfg_rows": 5}
+  ],
+  "verification": {
+    "focused_proof": {"passed": 7, "failed": 0, "ignored": 1, "log": "logs/proof-audit-round2.log"},
+    "namespace_flow": {"passed": 5, "failed": 0, "ignored": 0, "log": "logs/rust-namespace-flow.log"},
+    "contained_rvalue": {"passed": 3, "failed": 0, "ignored": 0, "log": "logs/rust-contained-rvalue.log"},
+    "rust_default": {"passed": 4508, "failed": 0, "ignored": 2, "log": "logs/rust-full-default-round2.log"},
+    "rust_mcp": {"passed": 4701, "failed": 0, "ignored": 2, "log": "logs/rust-full-mcp-round2.log"},
+    "rust_mcp_detached_owner_audit": {"passed": 4701, "failed": 23, "ignored": 2, "classification": "BASELINE_ENVIRONMENTAL_FAILURES", "base_control": {"library": {"passed": 1319, "failed": 21, "ignored": 1}, "integration": {"passed": 838, "failed": 2, "ignored": 1}}, "reason": "explicit pinned compiler NotPresent", "log": "logs/rust-full-owner-round2.log"},
+    "examples": {"passed": 32, "failed": 0, "ignored": 0, "log": "logs/rust-examples-owner-round2.log"},
+    "node": {"passed": 786, "failed": 0, "modules": 46, "concurrency": 2, "log": "logs/node.stdout.log"},
+    "authority": {"passed": 40, "failed": 0, "log": "logs/authority.stdout.log"},
+    "python": {"passed": 940, "failed": 0, "skipped": 1, "retry": 1, "initial_status": 3, "initial_admissible": false, "log": "logs/python-retry.stdout.log"},
+    "tier_a_matrix": {"successful_rows": 159, "failure_markers": 0, "shell_status_recovered": false, "log": "logs/tier-a-matrix-retry.log"},
+    "tier_a_quick": {"verdict": "INVALID", "timed_out": true, "elapsed_ms": 300013, "exit_code": 143, "report_artifacts": 0, "snapshot_sha256": "015e54f9a66bc7eff37a9fdd74c7ed82cc870879109cdd2d76b4bd5f069061f3"},
+    "fmt": "PASS",
+    "clippy": {"result": "PASS_WITH_EXISTING_WARNINGS", "log": "logs/clippy-round2.log"},
+    "diff_check": "PASS"
+  },
+  "named_ignores": [
+    "ast::nested_execution_owner_tests::nested_execution_owner_desired_contract",
+    "resolution_test::slice_elem_variant_reserved"
+  ],
+  "exclusions": [
+    "docs/eval/receiver-closure/audit-imported-props-source.test.mjs: three tests; five PRISM_AUDIT inputs absent including /private/tmp/prism-imported-alias-O4d6E1/real-sites.jsonl",
+    "adoption/tests/test_prism_adoption.py: explicit PRISM_RUN_LIVE_EVALS=1 not authorized",
+    "Tier-A full multi-corpus: human-triggered only",
+    "class execution-phase policy",
+    "optional/default/rest/destructured and unparenthesized-arrow admission",
+    "genuine same-line occurrence indexing",
+    "IIFE or higher-order call resolution",
+    "broader member shapes and real-site recall"
+  ],
+  "review": {"cap": 2, "rounds_completed": 2, "round_1": "FIX-FIRST", "round_2": "APPROVE", "wrong_open": 0, "smell_retained": 2, "production_design_verdict": "READY_FOR_BOUNDED_REPAIR"}
+}

@@ -6,6 +6,10 @@
 #[path = "namespace_flow_audit_tests.rs"]
 mod namespace_flow_audit_tests;
 
+#[cfg(test)]
+#[path = "nested_execution_owner_audit_tests.rs"]
+mod nested_execution_owner_audit_tests;
+
 use crate::access_path::AccessPath;
 use crate::call_graph::{CallGraph, CallSite, FunctionId, ScopeGraphBuildInputs};
 use crate::cfg;

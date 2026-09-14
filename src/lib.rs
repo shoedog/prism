@@ -68,8 +68,11 @@ mod go_type_alias;
 pub mod js_exports;
 pub mod js_ts_props;
 pub mod languages;
+
 pub mod live_types;
 mod manifest_snapshot;
+#[cfg(test)]
+mod nested_execution_owner_audit;
 pub use manifest_snapshot::ManifestSnapshot;
 #[cfg(feature = "mcp")]
 pub mod mcp;
