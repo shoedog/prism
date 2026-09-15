@@ -128,12 +128,70 @@ fn nested_execution_owner_graph_classification() {
     }
     let parameter = source.find("p)").unwrap();
     let nested_read = source.find("p);").unwrap();
-    assert!(rows
+    let exact_uses: Vec<_> = rows
         .iter()
-        .any(|r| { r.function == "outer" && r.path == "p" && r.start_byte == parameter }));
-    assert!(rows
+        .map(|row| {
+            (
+                row.function.as_str(),
+                row.path.as_str(),
+                row.line,
+                row.start_byte,
+                row.end_byte,
+            )
+        })
+        .collect();
+    assert_eq!(
+        exact_uses,
+        vec![
+            ("inner", "p", 4, nested_read, nested_read + 1),
+            (
+                "inner",
+                "seed",
+                5,
+                source.find("seed;").unwrap(),
+                source.find("seed;").unwrap() + 4
+            ),
+            (
+                "inner",
+                "sink",
+                4,
+                source.find("sink(").unwrap(),
+                source.find("sink(").unwrap() + 4
+            ),
+            ("outer", "cb", 2, 23, 23),
+            ("outer", "cb", 3, 33, 33),
+            (
+                "outer",
+                "local",
+                8,
+                source.rfind("local;").unwrap(),
+                source.rfind("local;").unwrap() + 5
+            ),
+            ("outer", "seed", 1, 0, 0),
+            (
+                "outer",
+                "seed",
+                5,
+                source.find("    return seed;").unwrap(),
+                source.find("    return seed;").unwrap()
+            ),
+            (
+                "outer",
+                "seed",
+                7,
+                source.find("  let local=seed;").unwrap(),
+                source.find("  let local=seed;").unwrap()
+            ),
+        ]
+    );
+    assert!(!rows.iter().any(|row| {
+        row.function == "outer"
+            && row.start_byte < row.end_byte
+            && matches!(row.path.as_str(), "p" | "sink")
+    }));
+    assert!(!rows
         .iter()
-        .any(|r| { r.function == "outer" && r.path == "p" && r.start_byte == nested_read }));
+        .any(|row| row.function == "outer" && row.start_byte == parameter));
     let zero_width: Vec<_> = rows
         .iter()
         .filter(|row| row.function == "outer" && row.start_byte == row.end_byte)
@@ -145,10 +203,11 @@ fn nested_execution_owner_graph_classification() {
             ("cb", 2, 23),
             ("cb", 3, 33),
             ("seed", 1, 0),
+            ("seed", 5, 71),
             ("seed", 7, 93)
         ]
     );
-    let nested_seed = source.find("seed;").unwrap();
+    let nested_seed_anchor = source.find("    return seed;").unwrap();
     let capture_labels: Vec<_> = cpg
         .dfg
         .labels
@@ -158,7 +217,9 @@ fn nested_execution_owner_graph_classification() {
                 && from.function == "outer"
                 && from.path.to_string() == "seed"
                 && to.function == "outer"
-                && to.start_byte == nested_seed
+                && to.line == 5
+                && to.start_byte == nested_seed_anchor
+                && to.end_byte == nested_seed_anchor
         })
         .map(|(_, label)| *label)
         .collect();

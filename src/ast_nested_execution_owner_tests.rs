@@ -255,23 +255,23 @@ fn nested_execution_owner_query_and_manual_classification() {
     let frozen = [
         (
             "assignment",
-            46,
-            "a425529614b1812a918c5c13b910d601980d7db2c23a2d90664659456cf14be3",
+            2,
+            "5f30c85ddfba5e8b26edaca20b6d30b64934fa2bf3f8fc51604abfcea26dad33",
         ),
         (
             "initializer",
-            16,
-            "59babd8c49fef4a142e9b306786819cc04e64a1bdfe8e82186a2f304f8ce3df7",
+            2,
+            "cf865636a6b5d9de878ce93611535e1fee9d22e719240c25e3cb40ef42283cb7",
         ),
         (
             "call",
-            58,
-            "7e21bfe5862e6f0a7d4e0e46facd724e92ef8bd924582a0df9fb00c553e24108",
+            14,
+            "f39736873146f7dec5041393de025fdbdfb3003355e2dc93f064516f0ba0ee03",
         ),
         (
             "returned",
-            23,
-            "1b083443764b35447a85057fb79c089686aa793e065467ab929a1296919d0a0c",
+            2,
+            "f58a0dec38da8d8edbd35946d89ec5d9d5a43b9fa83f2f9e2bbc0c2a883f05f2",
         ),
     ];
     for route in ["assignment", "initializer", "call", "returned"] {
@@ -297,7 +297,6 @@ fn nested_execution_owner_query_and_manual_classification() {
 }
 
 #[test]
-#[ignore = "known nested execution-owner gap; see 2026-09-13 proof readout"]
 fn nested_execution_owner_desired_contract() {
     let mut mismatches = Vec::new();
     for route in ["assignment", "initializer", "call", "returned"] {
@@ -431,17 +430,16 @@ fn nested_execution_owner_eager_and_own_callable_controls() {
     let default_spans = defaulted.rvalue_identifier_spans_on_lines(&outer, &BTreeSet::from([1]));
     let nested_default_spans =
         defaulted.rvalue_identifier_spans_on_lines(&nested, &BTreeSet::from([1]));
-    println!(
-        "OWNER_DEFAULT_BASELINE outer={} own_callable={}",
-        default_spans
-            .iter()
-            .filter(|span| span.start_byte == init && span.path.to_string() == "initDefault")
-            .count(),
-        nested_default_spans
-            .iter()
-            .filter(|span| span.start_byte == init && span.path.to_string() == "initDefault")
-            .count()
-    );
+    let outer_default_count = default_spans
+        .iter()
+        .filter(|span| span.start_byte == init && span.path.to_string() == "initDefault")
+        .count();
+    let own_default_count = nested_default_spans
+        .iter()
+        .filter(|span| span.start_byte == init && span.path.to_string() == "initDefault")
+        .count();
+    println!("OWNER_DEFAULT_REPAIR outer={outer_default_count} own_callable={own_default_count}");
+    assert_eq!((outer_default_count, own_default_count), (0, 0));
 
     let erased_source =
         "function typed(seed: TypeToken){let local;local=seed as ErasedCast;return local;}";
@@ -522,6 +520,27 @@ fn nested_execution_owner_eager_and_own_callable_controls() {
         .collect();
     println!("OWNER_PHASE_EXCLUSIONS {phase_paths:?}");
 
+    let class_source = "function outer(){const C=class extends heritageExpr(){[classKey()](){methodRead();}static field=staticInit();instance=instanceInit();static{blockInit();}};use(C);}";
+    let class_file = ParsedFile::parse("class.js", class_source, Language::JavaScript).unwrap();
+    let class_outer = named_owner(&class_file, &anchor("outer", 0, 9, 5));
+    let class_spans =
+        class_file.rvalue_identifier_spans_on_lines(&class_outer, &BTreeSet::from([1]));
+    for preserved in [
+        "heritageExpr",
+        "classKey",
+        "methodRead",
+        "staticInit",
+        "instanceInit",
+        "blockInit",
+    ] {
+        assert!(
+            class_spans
+                .iter()
+                .any(|span| span.path.to_string() == preserved),
+            "class-phase exclusion lost {preserved}: {class_spans:?}"
+        );
+    }
+
     let ambiguous_source = "function outer(){const a=function same(){return firstRead;};const b=function same(){return secondRead;};}";
     let ambiguous =
         ParsedFile::parse("ambiguous.js", ambiguous_source, Language::JavaScript).unwrap();
@@ -577,4 +596,66 @@ fn nested_execution_owner_eager_and_own_callable_controls() {
     )
     .unwrap();
     assert!(recovery.parse_error_count > 0);
+}
+
+#[test]
+fn nested_execution_owner_unindexed_and_recovery_refuse() {
+    fn first_kind<'a>(node: Node<'a>, kind: &str) -> Option<Node<'a>> {
+        if node.kind() == kind {
+            return Some(node);
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if let Some(found) = first_kind(child, kind) {
+                return Some(found);
+            }
+        }
+        None
+    }
+
+    let source =
+        "function outer(){const hidden=function*(p=initDefault()){sinkNested(p);};use(hidden);}";
+    let parsed = ParsedFile::parse("unindexed.js", source, Language::JavaScript).unwrap();
+    let generator = first_kind(parsed.tree.root_node(), "generator_function").unwrap();
+    assert!(!parsed
+        .all_functions()
+        .iter()
+        .any(|node| byte_range_eq(node, &generator)));
+    let lines = BTreeSet::from([1]);
+    assert!(parsed
+        .rvalue_identifiers_on_lines(&generator, &lines)
+        .is_empty());
+    assert!(parsed
+        .rvalue_identifier_paths_on_lines(&generator, &lines)
+        .is_empty());
+    assert!(parsed
+        .rvalue_identifier_spans_on_lines(&generator, &lines)
+        .is_empty());
+    let mut manual_names = Vec::new();
+    let mut manual_paths = Vec::new();
+    let mut manual_spans = Vec::new();
+    parsed.collect_rvalues_manual(generator, &lines, &mut manual_names);
+    parsed.collect_rvalue_paths_manual(generator, &lines, &mut manual_paths);
+    parsed.collect_rvalue_spans_manual(generator, &lines, &mut manual_spans);
+    assert_eq!(
+        (manual_names, manual_paths, manual_spans),
+        Default::default()
+    );
+
+    let root_spans = parsed.rvalue_identifier_spans_on_lines(&parsed.tree.root_node(), &lines);
+    for retained in ["initDefault", "sinkNested"] {
+        assert!(root_spans
+            .iter()
+            .any(|span| span.path.to_string() == retained));
+    }
+
+    let recovery = ParsedFile::parse(
+        "recovery.js",
+        "function outer(){const cb=function broken( {",
+        Language::JavaScript,
+    )
+    .unwrap();
+    assert!(recovery.parse_error_count > 0);
+    assert!(first_kind(recovery.tree.root_node(), "function_expression").is_none());
+    assert!(recovery.all_functions().is_empty());
 }

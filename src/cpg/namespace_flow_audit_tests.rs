@@ -485,16 +485,14 @@ fn namespace_flow_nested_callable_ownership_observations() {
         (Language::TypeScript, "ts"),
         (Language::Tsx, "tsx"),
     ] {
-        for (style, callback, phantom_expected) in [
+        for (style, callback) in [
             (
                 "initializer",
                 "const cb = function(inner) { return inner; };",
-                false,
             ),
             (
                 "assignment",
                 "let cb; cb = function(inner) { return inner; };",
-                true,
             ),
         ] {
             let source = format!(
@@ -516,25 +514,21 @@ fn namespace_flow_nested_callable_ownership_observations() {
             let spans = parsed.rvalue_identifier_spans_on_lines(&outer, &lines);
             let paths = parsed.rvalue_identifier_paths_on_lines(&outer, &lines);
             let parameter = source.find("inner)").unwrap();
-            // Existing false ownership is an audit observation, not desired behavior.
-            assert_eq!(
-                spans
-                    .iter()
-                    .any(|s| s.path.to_string() == "inner" && s.start_byte == parameter),
-                phantom_expected
-            );
+            assert!(!spans
+                .iter()
+                .any(|s| s.path.to_string() == "inner" && s.start_byte == parameter));
             let path_has_inner = paths.iter().any(|(p, _)| p.to_string() == "inner");
             let body = source.find("return inner").unwrap() + 7;
-            assert!(spans
+            assert!(!spans
                 .iter()
                 .any(|s| s.path.to_string() == "inner" && s.start_byte == body));
-            assert_eq!(path_has_inner, phantom_expected);
-            // Genuine immediate RHS and return reads must survive a future repair.
+            assert!(!path_has_inner);
+            // Genuine immediate RHS and return reads survive the owner repair.
             assert!(spans.iter().any(|s| s.path.to_string() == "seed"
                 && s.start_byte == source.find("= seed").unwrap() + 2));
             assert!(spans.iter().any(|s| s.path.to_string() == "local"
                 && s.start_byte == source.find("return local").unwrap() + 7));
-            println!("NS_OWNERSHIP {ext}/{style} outer_has_nested_parameter_use={phantom_expected} path_has_inner={path_has_inner} nested_return_use=true immediate_rhs_and_return_reads=true");
+            println!("NS_OWNERSHIP {ext}/{style} outer_has_nested_parameter_use=false path_has_inner={path_has_inner} nested_return_use=false immediate_rhs_and_return_reads=true");
         }
     }
 }

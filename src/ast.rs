@@ -200,6 +200,31 @@ pub struct PathSpan {
     pub end_byte: usize,
 }
 
+/// Execution region used only by the rvalue-query family. Whole-file callers
+/// retain the historical inventory walk; supported JS/TS/TSX callables are
+/// bounded to their exact body bytes. Unknown roots fail closed rather than
+/// guessing ownership from a display name or line.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RvalueQueryScope {
+    LegacyInventory,
+    CallableBody {
+        owner_start_byte: usize,
+        owner_end_byte: usize,
+        body_start_byte: usize,
+        body_end_byte: usize,
+    },
+    Unresolved,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RvalueOwnerDecision {
+    Owned,
+    Nested,
+    Signature,
+    Outside,
+    Unsupported,
+}
+
 /// A statement the parser located, with its real source span.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StatementSpan {
@@ -7074,14 +7099,194 @@ impl ParsedFile {
 
     /// Query byte ranges also admit overlapping ancestor nodes. For JS/TS/TSX,
     /// an rvalue-producing capture must be wholly inside the requested callable
-    /// (or file root), not merely overlap its lines. This does not change nested
-    /// execution-scope ownership or recursive walking of accepted captures.
+    /// (or file root), not merely overlap its lines.
     fn rvalue_capture_is_contained(&self, function: &Node<'_>, capture: Node<'_>) -> bool {
         !matches!(
             self.language,
             Language::JavaScript | Language::TypeScript | Language::Tsx
         ) || (function.start_byte() <= capture.start_byte()
             && capture.end_byte() <= function.end_byte())
+    }
+
+    fn rvalue_query_scope(&self, function: &Node<'_>) -> RvalueQueryScope {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) || function.parent().is_none()
+        {
+            return RvalueQueryScope::LegacyInventory;
+        }
+        if function.has_error()
+            || !self
+                .language
+                .callable_boundary_node_types()
+                .contains(&function.kind())
+            || !self.all_functions().iter().any(|candidate| {
+                candidate.kind() == function.kind() && byte_range_eq(candidate, function)
+            })
+        {
+            return RvalueQueryScope::Unresolved;
+        }
+        let Some(body) = function.child_by_field_name("body") else {
+            return RvalueQueryScope::Unresolved;
+        };
+        if body.start_byte() < function.start_byte() || function.end_byte() < body.end_byte() {
+            return RvalueQueryScope::Unresolved;
+        }
+        RvalueQueryScope::CallableBody {
+            owner_start_byte: function.start_byte(),
+            owner_end_byte: function.end_byte(),
+            body_start_byte: body.start_byte(),
+            body_end_byte: body.end_byte(),
+        }
+    }
+
+    fn is_rvalue_class_node(kind: &str) -> bool {
+        matches!(
+            kind,
+            "class" | "class_declaration" | "abstract_class_declaration"
+        )
+    }
+
+    fn rvalue_has_class_ancestor_before_owner(
+        &self,
+        mut node: Node<'_>,
+        owner_start_byte: usize,
+        owner_end_byte: usize,
+    ) -> bool {
+        while let Some(parent) = node.parent() {
+            if parent.start_byte() == owner_start_byte && parent.end_byte() == owner_end_byte {
+                return false;
+            }
+            if Self::is_rvalue_class_node(parent.kind()) {
+                return true;
+            }
+            node = parent;
+        }
+        false
+    }
+
+    fn rvalue_is_computed_method_key_capture(
+        &self,
+        mut node: Node<'_>,
+        owner_start_byte: usize,
+        owner_end_byte: usize,
+    ) -> bool {
+        loop {
+            if node.start_byte() == owner_start_byte && node.end_byte() == owner_end_byte {
+                return false;
+            }
+            if node.kind() == "computed_property_name" {
+                if let Some(method) = node.parent() {
+                    if method.kind() == "method_definition"
+                        && method
+                            .child_by_field_name("name")
+                            .is_some_and(|name| byte_range_eq(&name, &node))
+                    {
+                        return true;
+                    }
+                }
+            }
+            let Some(parent) = node.parent() else {
+                return false;
+            };
+            node = parent;
+        }
+    }
+
+    fn rvalue_capture_owner(
+        &self,
+        function: &Node<'_>,
+        scope: &RvalueQueryScope,
+        capture: Node<'_>,
+    ) -> RvalueOwnerDecision {
+        match *scope {
+            RvalueQueryScope::LegacyInventory => RvalueOwnerDecision::Owned,
+            RvalueQueryScope::Unresolved => RvalueOwnerDecision::Unsupported,
+            RvalueQueryScope::CallableBody {
+                owner_start_byte,
+                owner_end_byte,
+                body_start_byte,
+                body_end_byte,
+            } => {
+                if !self.rvalue_capture_is_contained(function, capture) {
+                    return RvalueOwnerDecision::Outside;
+                }
+                if capture.start_byte() < body_start_byte || body_end_byte < capture.end_byte() {
+                    return RvalueOwnerDecision::Signature;
+                }
+                if self.rvalue_is_computed_method_key_capture(
+                    capture,
+                    owner_start_byte,
+                    owner_end_byte,
+                ) {
+                    return RvalueOwnerDecision::Owned;
+                }
+                // Class evaluation phases are intentionally outside this first
+                // repair. Preserve their legacy inventory until separately proved.
+                if self.rvalue_has_class_ancestor_before_owner(
+                    capture,
+                    owner_start_byte,
+                    owner_end_byte,
+                ) {
+                    return RvalueOwnerDecision::Owned;
+                }
+                let mut current = Some(capture);
+                while let Some(node) = current {
+                    if node.start_byte() == owner_start_byte && node.end_byte() == owner_end_byte {
+                        return RvalueOwnerDecision::Owned;
+                    }
+                    if self
+                        .language
+                        .callable_boundary_node_types()
+                        .contains(&node.kind())
+                    {
+                        return RvalueOwnerDecision::Nested;
+                    }
+                    current = node.parent();
+                }
+                RvalueOwnerDecision::Outside
+            }
+        }
+    }
+
+    fn rvalue_scope_allows_node(
+        &self,
+        scope: &RvalueQueryScope,
+        node: Node<'_>,
+        query_root: bool,
+    ) -> bool {
+        match *scope {
+            RvalueQueryScope::LegacyInventory => true,
+            RvalueQueryScope::Unresolved => false,
+            RvalueQueryScope::CallableBody {
+                owner_start_byte,
+                owner_end_byte,
+                body_start_byte,
+                body_end_byte,
+            } => {
+                (query_root
+                    && node.start_byte() == owner_start_byte
+                    && node.end_byte() == owner_end_byte)
+                    || (body_start_byte <= node.start_byte() && node.end_byte() <= body_end_byte)
+            }
+        }
+    }
+
+    fn rvalue_is_nested_callable(&self, scope: &RvalueQueryScope, node: Node<'_>) -> bool {
+        let RvalueQueryScope::CallableBody {
+            owner_start_byte,
+            owner_end_byte,
+            ..
+        } = *scope
+        else {
+            return false;
+        };
+        (node.start_byte() != owner_start_byte || node.end_byte() != owner_end_byte)
+            && self
+                .language
+                .callable_boundary_node_types()
+                .contains(&node.kind())
     }
 
     /// Like `rvalue_identifiers_on_lines`, but returns structured `AccessPath`s.
@@ -7093,6 +7298,8 @@ impl ParsedFile {
     ) -> Vec<(AccessPath, usize)> {
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
+
+        let scope = self.rvalue_query_scope(func_node);
 
         // Use the Assignments query to find assignment nodes, then extract RHS.
         // Also use the Calls query for call arguments on diff lines.
@@ -7113,10 +7320,13 @@ impl ParsedFile {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line)
                             && self.language.is_assignment_node(capture.node.kind())
-                            && self.rvalue_capture_is_contained(func_node, capture.node)
+                            && matches!(
+                                self.rvalue_capture_owner(func_node, &scope, capture.node),
+                                RvalueOwnerDecision::Owned
+                            )
                         {
                             if let Some(rhs) = self.language.assignment_value(&capture.node) {
-                                self.collect_identifier_paths(rhs, &mut paths);
+                                self.collect_identifier_paths_scoped(rhs, &scope, &mut paths);
                             }
                         }
                     }
@@ -7137,10 +7347,13 @@ impl ParsedFile {
                         if capture.index == call_idx {
                             let line = capture.node.start_position().row + 1;
                             if lines.contains(&line)
-                                && self.rvalue_capture_is_contained(func_node, capture.node)
+                                && matches!(
+                                    self.rvalue_capture_owner(func_node, &scope, capture.node),
+                                    RvalueOwnerDecision::Owned
+                                )
                             {
                                 if let Some(args) = self.language.call_arguments(&capture.node) {
-                                    self.collect_identifier_paths(args, &mut paths);
+                                    self.collect_identifier_paths_scoped(args, &scope, &mut paths);
                                 }
                                 if let Some(func_name_node) =
                                     self.language.call_function_name(&capture.node)
@@ -7171,6 +7384,8 @@ impl ParsedFile {
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
 
+        let scope = self.rvalue_query_scope(func_node);
+
         if let Some(assign_query) = get_query(self.language, QueryKind::Assignments) {
             let assign_idx = assign_query
                 .capture_index_for_name("assign")
@@ -7187,15 +7402,20 @@ impl ParsedFile {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line)
                             && self.language.is_assignment_node(capture.node.kind())
-                            && self.rvalue_capture_is_contained(func_node, capture.node)
+                            && matches!(
+                                self.rvalue_capture_owner(func_node, &scope, capture.node),
+                                RvalueOwnerDecision::Owned
+                            )
                         {
                             if self.is_augmented_assignment(&capture.node) {
                                 if let Some(lhs) = self.language.assignment_target(&capture.node) {
-                                    self.collect_identifier_path_spans(lhs, &mut spans);
+                                    self.collect_identifier_path_spans_scoped(
+                                        lhs, &scope, &mut spans,
+                                    );
                                 }
                             }
                             if let Some(rhs) = self.language.assignment_value(&capture.node) {
-                                self.collect_identifier_path_spans(rhs, &mut spans);
+                                self.collect_identifier_path_spans_scoped(rhs, &scope, &mut spans);
                             }
                         }
                     }
@@ -7215,10 +7435,15 @@ impl ParsedFile {
                         if capture.index == call_idx {
                             let line = capture.node.start_position().row + 1;
                             if lines.contains(&line)
-                                && self.rvalue_capture_is_contained(func_node, capture.node)
+                                && matches!(
+                                    self.rvalue_capture_owner(func_node, &scope, capture.node),
+                                    RvalueOwnerDecision::Owned
+                                )
                             {
                                 if let Some(args) = self.language.call_arguments(&capture.node) {
-                                    self.collect_identifier_path_spans(args, &mut spans);
+                                    self.collect_identifier_path_spans_scoped(
+                                        args, &scope, &mut spans,
+                                    );
                                 }
                                 if let Some(func_name_node) =
                                     self.language.call_function_name(&capture.node)
@@ -7231,7 +7456,7 @@ impl ParsedFile {
                 }
             }
 
-            self.collect_return_value_identifier_spans(func_node, lines, &mut spans);
+            self.collect_return_value_identifier_spans(func_node, lines, &scope, &mut spans);
             spans.sort_by_key(|span| (span.line, span.start_byte, span.end_byte));
             return spans;
         }
@@ -7249,17 +7474,56 @@ impl ParsedFile {
         lines: &BTreeSet<usize>,
         out: &mut Vec<(AccessPath, usize)>,
     ) {
+        let scope = self.rvalue_query_scope(&node);
+        self.collect_rvalue_paths_manual_scoped(node, lines, &scope, true, out);
+    }
+
+    fn collect_rvalue_paths_manual_scoped(
+        &self,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        scope: &RvalueQueryScope,
+        query_root: bool,
+        out: &mut Vec<(AccessPath, usize)>,
+    ) {
+        if !self.rvalue_scope_allows_node(scope, node, query_root) {
+            return;
+        }
+        if !query_root && matches!(scope, RvalueQueryScope::CallableBody { .. }) {
+            if Self::is_rvalue_class_node(node.kind()) {
+                self.collect_rvalue_paths_manual_scoped(
+                    node,
+                    lines,
+                    &RvalueQueryScope::LegacyInventory,
+                    false,
+                    out,
+                );
+                return;
+            }
+            if self.rvalue_is_nested_callable(scope, node) {
+                if node.kind() == "method_definition" {
+                    if let Some(name) = node.child_by_field_name("name") {
+                        if name.kind() == "computed_property_name"
+                            && lines.contains(&(name.start_position().row + 1))
+                        {
+                            self.collect_identifier_paths_scoped(name, scope, out);
+                        }
+                    }
+                }
+                return;
+            }
+        }
         let line = node.start_position().row + 1;
 
         if lines.contains(&line) && self.language.is_assignment_node(node.kind()) {
             if let Some(rhs) = self.language.assignment_value(&node) {
-                self.collect_identifier_paths(rhs, out);
+                self.collect_identifier_paths_scoped(rhs, scope, out);
             }
         }
 
         if lines.contains(&line) && self.language.is_call_node(node.kind()) {
             if let Some(args) = self.language.call_arguments(&node) {
-                self.collect_identifier_paths(args, out);
+                self.collect_identifier_paths_scoped(args, scope, out);
             }
             if let Some(func_name_node) = self.language.call_function_name(&node) {
                 let name = self.node_text(&func_name_node).to_string();
@@ -7269,7 +7533,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_rvalue_paths_manual(child, lines, out);
+            self.collect_rvalue_paths_manual_scoped(child, lines, scope, false, out);
         }
     }
 
@@ -7280,22 +7544,61 @@ impl ParsedFile {
         lines: &BTreeSet<usize>,
         out: &mut Vec<PathSpan>,
     ) {
+        let scope = self.rvalue_query_scope(&node);
+        self.collect_rvalue_spans_manual_scoped(node, lines, &scope, true, out);
+    }
+
+    fn collect_rvalue_spans_manual_scoped(
+        &self,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        scope: &RvalueQueryScope,
+        query_root: bool,
+        out: &mut Vec<PathSpan>,
+    ) {
+        if !self.rvalue_scope_allows_node(scope, node, query_root) {
+            return;
+        }
+        if !query_root && matches!(scope, RvalueQueryScope::CallableBody { .. }) {
+            if Self::is_rvalue_class_node(node.kind()) {
+                self.collect_rvalue_spans_manual_scoped(
+                    node,
+                    lines,
+                    &RvalueQueryScope::LegacyInventory,
+                    false,
+                    out,
+                );
+                return;
+            }
+            if self.rvalue_is_nested_callable(scope, node) {
+                if node.kind() == "method_definition" {
+                    if let Some(name) = node.child_by_field_name("name") {
+                        if name.kind() == "computed_property_name"
+                            && lines.contains(&(name.start_position().row + 1))
+                        {
+                            self.collect_identifier_path_spans_scoped(name, scope, out);
+                        }
+                    }
+                }
+                return;
+            }
+        }
         let line = node.start_position().row + 1;
 
         if lines.contains(&line) && self.language.is_assignment_node(node.kind()) {
             if self.is_augmented_assignment(&node) {
                 if let Some(lhs) = self.language.assignment_target(&node) {
-                    self.collect_identifier_path_spans(lhs, out);
+                    self.collect_identifier_path_spans_scoped(lhs, scope, out);
                 }
             }
             if let Some(rhs) = self.language.assignment_value(&node) {
-                self.collect_identifier_path_spans(rhs, out);
+                self.collect_identifier_path_spans_scoped(rhs, scope, out);
             }
         }
 
         if lines.contains(&line) && self.language.is_call_node(node.kind()) {
             if let Some(args) = self.language.call_arguments(&node) {
-                self.collect_identifier_path_spans(args, out);
+                self.collect_identifier_path_spans_scoped(args, scope, out);
             }
             if let Some(func_name_node) = self.language.call_function_name(&node) {
                 self.push_identifier_path_span(func_name_node, out);
@@ -7303,13 +7606,13 @@ impl ParsedFile {
         }
 
         if lines.contains(&line) && self.language.is_return_node(node.kind()) {
-            self.collect_return_node_value_spans(node, out);
+            self.collect_return_node_value_spans_scoped(node, scope, out);
             return;
         }
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_rvalue_spans_manual(child, lines, out);
+            self.collect_rvalue_spans_manual_scoped(child, lines, scope, false, out);
         }
     }
 
@@ -7417,6 +7720,86 @@ impl ParsedFile {
         }
     }
 
+    fn collect_identifier_paths_scoped(
+        &self,
+        node: Node<'_>,
+        scope: &RvalueQueryScope,
+        out: &mut Vec<(AccessPath, usize)>,
+    ) {
+        if matches!(scope, RvalueQueryScope::LegacyInventory) {
+            self.collect_identifier_paths(node, out);
+            return;
+        }
+        if !self.rvalue_scope_allows_node(scope, node, false)
+            || self.language.is_in_erased_type_context(node)
+        {
+            return;
+        }
+        self.collect_identifier_paths_in_value_context_scoped(node, scope, out);
+    }
+
+    fn collect_identifier_paths_in_value_context_scoped(
+        &self,
+        node: Node<'_>,
+        scope: &RvalueQueryScope,
+        out: &mut Vec<(AccessPath, usize)>,
+    ) {
+        if self.language.is_erased_type_boundary(node) {
+            return;
+        }
+        if Self::is_rvalue_class_node(node.kind()) {
+            self.collect_identifier_paths_in_value_context(node, out);
+            return;
+        }
+        if self.rvalue_is_nested_callable(scope, node) {
+            if node.kind() == "method_definition" {
+                if let Some(name) = node.child_by_field_name("name") {
+                    if name.kind() == "computed_property_name" {
+                        self.collect_identifier_paths_in_value_context_scoped(name, scope, out);
+                    }
+                }
+            }
+            return;
+        }
+        if Self::is_field_access_node(node.kind()) {
+            if let Some(member) = self.bounded_member_path(node) {
+                out.push((member.path, node.start_position().row + 1));
+                out.push((
+                    AccessPath::simple(self.node_text(&member.receiver)),
+                    member.receiver.start_position().row + 1,
+                ));
+                return;
+            }
+            let text = self.node_text(&node).to_string();
+            let line = node.start_position().row + 1;
+            out.push((AccessPath::from_expr(&text), line));
+            let base_node = node
+                .child_by_field_name("argument")
+                .or_else(|| node.child_by_field_name("object"))
+                .or_else(|| node.child_by_field_name("operand"))
+                .or_else(|| node.named_child(0));
+            if let Some(base) = base_node {
+                if self.language.is_identifier_node(base.kind()) {
+                    out.push((
+                        AccessPath::simple(self.node_text(&base)),
+                        base.start_position().row + 1,
+                    ));
+                }
+            }
+            return;
+        }
+        if self.language.is_identifier_node(node.kind()) {
+            out.push((
+                AccessPath::simple(self.node_text(&node)),
+                node.start_position().row + 1,
+            ));
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_identifier_paths_in_value_context_scoped(child, scope, out);
+        }
+    }
+
     fn collect_identifier_path_spans(&self, node: Node<'_>, out: &mut Vec<PathSpan>) {
         if !self.language.is_in_erased_type_context(node) {
             self.collect_identifier_spans_in_value_context(node, out);
@@ -7462,6 +7845,80 @@ impl ParsedFile {
         }
     }
 
+    fn collect_identifier_path_spans_scoped(
+        &self,
+        node: Node<'_>,
+        scope: &RvalueQueryScope,
+        out: &mut Vec<PathSpan>,
+    ) {
+        if matches!(scope, RvalueQueryScope::LegacyInventory) {
+            self.collect_identifier_path_spans(node, out);
+            return;
+        }
+        if !self.rvalue_scope_allows_node(scope, node, false)
+            || self.language.is_in_erased_type_context(node)
+        {
+            return;
+        }
+        self.collect_identifier_spans_in_value_context_scoped(node, scope, out);
+    }
+
+    fn collect_identifier_spans_in_value_context_scoped(
+        &self,
+        node: Node<'_>,
+        scope: &RvalueQueryScope,
+        out: &mut Vec<PathSpan>,
+    ) {
+        if self.language.is_erased_type_boundary(node) {
+            return;
+        }
+        if Self::is_rvalue_class_node(node.kind()) {
+            self.collect_identifier_spans_in_value_context(node, out);
+            return;
+        }
+        if self.rvalue_is_nested_callable(scope, node) {
+            if node.kind() == "method_definition" {
+                if let Some(name) = node.child_by_field_name("name") {
+                    if name.kind() == "computed_property_name" {
+                        self.collect_identifier_spans_in_value_context_scoped(name, scope, out);
+                    }
+                }
+            }
+            return;
+        }
+        if Self::is_field_access_node(node.kind()) {
+            if let Some(member) = self.bounded_member_path(node) {
+                out.push(PathSpan {
+                    path: member.path,
+                    line: node.start_position().row + 1,
+                    start_byte: node.start_byte(),
+                    end_byte: node.end_byte(),
+                });
+                self.push_identifier_path_span(member.receiver, out);
+                return;
+            }
+            let text = self.node_text(&node).to_string();
+            let line = node.start_position().row + 1;
+            out.push(PathSpan {
+                path: AccessPath::from_expr(&text),
+                line,
+                start_byte: node.start_byte(),
+                end_byte: node.end_byte(),
+            });
+            if let Some(base) = self.leftmost_receiver_identifier(node) {
+                self.push_identifier_path_span(base, out);
+            }
+            return;
+        }
+        if self.language.is_identifier_node(node.kind()) {
+            self.push_identifier_path_span(node, out);
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_identifier_spans_in_value_context_scoped(child, scope, out);
+        }
+    }
+
     fn leftmost_receiver_identifier<'a>(&self, mut node: Node<'a>) -> Option<Node<'a>> {
         loop {
             let receiver = node
@@ -7496,6 +7953,7 @@ impl ParsedFile {
         &self,
         func_node: &Node<'_>,
         lines: &BTreeSet<usize>,
+        scope: &RvalueQueryScope,
         out: &mut Vec<PathSpan>,
     ) {
         use crate::queries::{get_query, QueryKind};
@@ -7513,9 +7971,12 @@ impl ParsedFile {
                     if capture.index == ret_idx {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line)
-                            && self.rvalue_capture_is_contained(func_node, capture.node)
+                            && matches!(
+                                self.rvalue_capture_owner(func_node, scope, capture.node),
+                                RvalueOwnerDecision::Owned
+                            )
                         {
-                            self.collect_return_node_value_spans(capture.node, out);
+                            self.collect_return_node_value_spans_scoped(capture.node, scope, out);
                         }
                     }
                 }
@@ -7536,6 +7997,24 @@ impl ParsedFile {
         }
     }
 
+    fn collect_return_node_value_spans_scoped(
+        &self,
+        node: Node<'_>,
+        scope: &RvalueQueryScope,
+        out: &mut Vec<PathSpan>,
+    ) {
+        if matches!(scope, RvalueQueryScope::LegacyInventory) {
+            self.collect_return_node_value_spans(node, out);
+            return;
+        }
+        if !self.rvalue_scope_allows_node(scope, node, false) {
+            return;
+        }
+        if let Some(child) = node.named_child(0) {
+            self.collect_identifier_path_spans_scoped(child, scope, out);
+        }
+    }
+
     /// Find all R-value identifiers on diff lines within a function (excluding L-values).
     pub fn rvalue_identifiers_on_lines(
         &self,
@@ -7544,6 +8023,8 @@ impl ParsedFile {
     ) -> Vec<(String, usize)> {
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
+
+        let scope = self.rvalue_query_scope(func_node);
 
         if let Some(assign_query) = get_query(self.language, QueryKind::Assignments) {
             let assign_idx = assign_query
@@ -7561,10 +8042,13 @@ impl ParsedFile {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line)
                             && self.language.is_assignment_node(capture.node.kind())
-                            && self.rvalue_capture_is_contained(func_node, capture.node)
+                            && matches!(
+                                self.rvalue_capture_owner(func_node, &scope, capture.node),
+                                RvalueOwnerDecision::Owned
+                            )
                         {
                             if let Some(rhs) = self.language.assignment_value(&capture.node) {
-                                self.collect_all_identifiers(rhs, &mut rvalues);
+                                self.collect_all_identifiers_scoped(rhs, &scope, &mut rvalues);
                             }
                         }
                     }
@@ -7585,10 +8069,13 @@ impl ParsedFile {
                         if capture.index == call_idx {
                             let line = capture.node.start_position().row + 1;
                             if lines.contains(&line)
-                                && self.rvalue_capture_is_contained(func_node, capture.node)
+                                && matches!(
+                                    self.rvalue_capture_owner(func_node, &scope, capture.node),
+                                    RvalueOwnerDecision::Owned
+                                )
                             {
                                 if let Some(args) = self.language.call_arguments(&capture.node) {
-                                    self.collect_all_identifiers(args, &mut rvalues);
+                                    self.collect_all_identifiers_scoped(args, &scope, &mut rvalues);
                                 }
                                 if let Some(func_name_node) =
                                     self.language.call_function_name(&capture.node)
@@ -7617,17 +8104,56 @@ impl ParsedFile {
         lines: &BTreeSet<usize>,
         out: &mut Vec<(String, usize)>,
     ) {
+        let scope = self.rvalue_query_scope(&node);
+        self.collect_rvalues_manual_scoped(node, lines, &scope, true, out);
+    }
+
+    fn collect_rvalues_manual_scoped(
+        &self,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        scope: &RvalueQueryScope,
+        query_root: bool,
+        out: &mut Vec<(String, usize)>,
+    ) {
+        if !self.rvalue_scope_allows_node(scope, node, query_root) {
+            return;
+        }
+        if !query_root && matches!(scope, RvalueQueryScope::CallableBody { .. }) {
+            if Self::is_rvalue_class_node(node.kind()) {
+                self.collect_rvalues_manual_scoped(
+                    node,
+                    lines,
+                    &RvalueQueryScope::LegacyInventory,
+                    false,
+                    out,
+                );
+                return;
+            }
+            if self.rvalue_is_nested_callable(scope, node) {
+                if node.kind() == "method_definition" {
+                    if let Some(name) = node.child_by_field_name("name") {
+                        if name.kind() == "computed_property_name"
+                            && lines.contains(&(name.start_position().row + 1))
+                        {
+                            self.collect_all_identifiers_scoped(name, scope, out);
+                        }
+                    }
+                }
+                return;
+            }
+        }
         let line = node.start_position().row + 1;
 
         if lines.contains(&line) && self.language.is_assignment_node(node.kind()) {
             if let Some(rhs) = self.language.assignment_value(&node) {
-                self.collect_all_identifiers(rhs, out);
+                self.collect_all_identifiers_scoped(rhs, scope, out);
             }
         }
 
         if lines.contains(&line) && self.language.is_call_node(node.kind()) {
             if let Some(args) = self.language.call_arguments(&node) {
-                self.collect_all_identifiers(args, out);
+                self.collect_all_identifiers_scoped(args, scope, out);
             }
             if let Some(func_name_node) = self.language.call_function_name(&node) {
                 let name = self.node_text(&func_name_node).to_string();
@@ -7637,7 +8163,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_rvalues_manual(child, lines, out);
+            self.collect_rvalues_manual_scoped(child, lines, scope, false, out);
         }
     }
 
@@ -7661,6 +8187,59 @@ impl ParsedFile {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             self.collect_identifiers_in_value_context(child, out);
+        }
+    }
+
+    fn collect_all_identifiers_scoped(
+        &self,
+        node: Node<'_>,
+        scope: &RvalueQueryScope,
+        out: &mut Vec<(String, usize)>,
+    ) {
+        if matches!(scope, RvalueQueryScope::LegacyInventory) {
+            self.collect_all_identifiers(node, out);
+            return;
+        }
+        if !self.rvalue_scope_allows_node(scope, node, false)
+            || self.language.is_in_erased_type_context(node)
+        {
+            return;
+        }
+        self.collect_identifiers_in_value_context_scoped(node, scope, out);
+    }
+
+    fn collect_identifiers_in_value_context_scoped(
+        &self,
+        node: Node<'_>,
+        scope: &RvalueQueryScope,
+        out: &mut Vec<(String, usize)>,
+    ) {
+        if self.language.is_erased_type_boundary(node) {
+            return;
+        }
+        if Self::is_rvalue_class_node(node.kind()) {
+            self.collect_identifiers_in_value_context(node, out);
+            return;
+        }
+        if self.rvalue_is_nested_callable(scope, node) {
+            if node.kind() == "method_definition" {
+                if let Some(name) = node.child_by_field_name("name") {
+                    if name.kind() == "computed_property_name" {
+                        self.collect_identifiers_in_value_context_scoped(name, scope, out);
+                    }
+                }
+            }
+            return;
+        }
+        if self.language.is_identifier_node(node.kind()) {
+            out.push((
+                self.node_text(&node).to_string(),
+                node.start_position().row + 1,
+            ));
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_identifiers_in_value_context_scoped(child, scope, out);
         }
     }
 

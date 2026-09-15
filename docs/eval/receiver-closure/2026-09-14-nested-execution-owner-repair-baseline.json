@@ -1,0 +1,137 @@
+{
+  "schema": "prism.nested-execution-owner-repair.v1",
+  "verdict": "BOUNDED_REPAIR_COMPLETE",
+  "production_repair_implemented": true,
+  "identity": {
+    "cwd": "/private/tmp/prism-nested-owner-proof-pr-dYl0Qn",
+    "branch": "feat/nested-callable-owner-proof",
+    "head": "53f9d78224794866299f70c4752aae1ef1dc5c41",
+    "head_tree": "21e9fc389518e9c7928869baf854bfc6ad1a4054",
+    "base": "9e40a376299a714ed11233a56a9e23554d40ca99",
+    "base_tree": "21e9fc389518e9c7928869baf854bfc6ad1a4054"
+  },
+  "custody_root": "/private/tmp/prism-nested-owner-repair-TfBvIW",
+  "source_hashes": {
+    "src/ast.rs": "00d930a56f132fbac473c86c2f848518a903420a10098e242ce6adc6c805b38f",
+    "src/ast_nested_execution_owner_tests.rs": "9734bad35203a05a872cc269417aa5bf88d53c8b8ecab216dedbf2a537dd7ed9",
+    "src/cpg/namespace_flow_audit_tests.rs": "99d1350c6a211545d04253f392e5d6117d1d075fec99760cc72145387d016801",
+    "src/cpg/nested_execution_owner_audit_tests.rs": "6c2541b094d6dfa264bdb762869ec49cad66cc9b8c3496248041a0b926c77795",
+    "src/cpg_cache.rs": "27ec8fffa7509a675bbd26529f955aa217c7245dd1d20ee1a275a277c4812e34",
+    "examples/dfg_census.rs": "54e1b0bd3e2e766ab20a39322ac2dba849c4134b1992d68094b9ce5194a28b94",
+    "Cargo.lock": "f02d0a31d93e2870735d7a011a9f7e0c84d67224c80f8c46504666bff0e2b660"
+  },
+  "executable_hashes": {
+    "prism": "40e7e345a74dbbb87b15f6ac3e1d5638ba955c3ce93b2d9f238d9c405e574d86",
+    "prism-mcp": "afdfa3d8d7907cc69a64a1e5d93370847ac33f8134b58a5b8ca37fe9157bcd01",
+    "project_membership_census": "f674a50276f92c103091d83deefdd9f69c9afb38d4d0b7eb9f3ae70306851673",
+    "parameter_site_census": "2da7005cdea7e55bbfeed39aecb818c91c765585d7970fd5932785d3bc8e12ca"
+  },
+  "cache_pins": {"cpg": 93, "navigation_call_edges": 52},
+  "fixture_matrix": {
+    "languages": ["JavaScript", "TypeScript", "Tsx"],
+    "canonical_rows_per_language": 143,
+    "repeated_language_observations": 429,
+    "repaired_raw_vectors": {
+      "assignment": {"rows": 2, "sha256": "3e4f5948bdcfb9077d4aaee3e3354834b1149320adb51d23fda1326c723429e2"},
+      "initializer": {"rows": 2, "sha256": "49de9162ae15000f1987a6cd3e6adfd4a3cd6c0b5953511cda13a4b3b8ab504c"},
+      "call": {"rows": 14, "sha256": "e5afce53397e9085ff2eb6a6c1fa84819650ab2cb479fcb6b9f5b44a3e93d9ce"},
+      "returned": {"rows": 2, "sha256": "f0cbcf2908c410f02cfca7f721b7cfcbc0ae2dc30765d9994abb8a36804d5b56"}
+    },
+    "normalization": "one line after the OWNER_RAW route prefix plus LF",
+    "oracle": "fixture-authored TokenAnchor roles checked against source bytes and AST parent/field structure; independent of production collectors and pruning"
+  },
+  "base_red": {
+    "aggregate_desired": {"selected": 1, "failed": 1, "mismatch_rows": 387, "normalized_sha256": "b96b7274a05149039d85672a3fac343ddc84838220fa74f1756c5cf17f83320b", "log": "base-desired-red.log"},
+    "nested_defaults": {"selected": 1, "failed": 1, "observation": {"outer": 1, "own_callable": 1}, "log": "base-default-class-red.log"},
+    "unindexed_generator": {"selected": 1, "failed": 1, "reason": "unchanged base returned nonempty ownership-sensitive rvalues", "log": "base-unindexed-red.log"},
+    "example_nested_edge": {"selected": 1, "failed": 1, "base_nested_callable_edges": 1, "candidate_nested_callable_edges": 0, "log": "base-example-red.log"}
+  },
+  "desired_green": {
+    "test": "ast::nested_execution_owner_tests::nested_execution_owner_desired_contract",
+    "selected": 1,
+    "passed": 1,
+    "ignored": 0,
+    "required_rows": [
+      "ManualNames|outerRead|1|-|-|-",
+      "ManualPaths|outerRead|1|-|-|-",
+      "ManualSpans|kept|1|48|52|function_declaration:0-54",
+      "ManualSpans|outerRead|1|31|40|function_declaration:0-54",
+      "QueryNames|outerRead|1|-|-|-",
+      "QueryPaths|outerRead|1|-|-|-",
+      "QuerySpans|kept|1|48|52|function_declaration:0-54",
+      "QuerySpans|outerRead|1|31|40|function_declaration:0-54"
+    ],
+    "log": "desired-green-final.log"
+  },
+  "graph_controls": {
+    "exact_use_rows": [
+      "inner:p:4:67-68:occurrence",
+      "inner:seed:5:82-86:occurrence",
+      "inner:sink:4:62-66:occurrence",
+      "outer:cb:2:23-23:occurrence",
+      "outer:cb:3:33-33:occurrence",
+      "outer:local:8:120-125:occurrence",
+      "outer:seed:1:0-0:occurrence",
+      "outer:seed:5:71-71:occurrence",
+      "outer:seed:7:93-93:occurrence"
+    ],
+    "removed_outer_rows": ["p:53-54", "p:67-68", "sink:62-66", "seed:82-86"],
+    "capture_labels": ["NameOnly(CfgIncomplete)", "NameOnly(CfgIncomplete)"],
+    "capture_exact_present": false,
+    "wrong_token_argument_refused": true,
+    "out_of_span_argument_refused": true,
+    "genuine_same_line_collision_refused": true,
+    "effectful_default_param_nodes": [null],
+    "parked_duplicate_call_ownership_epochs": [1, 2, 3],
+    "full_flow_with_dfg": ["app.js:3:true", "app.js:5:false"],
+    "full_flow_without_dfg": ["app.js:3:true", "app.js:5:false"],
+    "wrong_public_result_demonstrated": false
+  },
+  "source_epochs": [
+    {"epoch": 0, "sha256": "ce6868c121c3e1a0066075cb893dea7eaad15064f2123e5208a9c20bc2637157", "dfg_rows": 5},
+    {"epoch": 1, "sha256": "e52de3f5c662e15f6ec96bb441677d64ddf5d213348dc9836e30eb225d998908", "dfg_rows": 5},
+    {"epoch": 2, "sha256": "2447c8325715183980476a171f7284efd8322e6497165766b7d7653d3cec284d", "dfg_rows": 7},
+    {"epoch": 3, "sha256": "01d88ad818821530610f9ce77ed52f5b13452eb72785072869b420254ad8bd50", "dfg_rows": 6},
+    {"epoch": 4, "sha256": "ce6868c121c3e1a0066075cb893dea7eaad15064f2123e5208a9c20bc2637157", "dfg_rows": 5}
+  ],
+  "verification": {
+    "focused_owner": {"passed": 9, "failed": 0, "ignored": 0, "log": "focused-owner-final.log"},
+    "namespace_flow": {"passed": 5, "failed": 0, "ignored": 0, "log": "namespace-flow-all.log"},
+    "contained_rvalue": {"passed": 3, "failed": 0, "ignored": 0, "log": "contained-rvalue-green.log"},
+    "rust_default": {"passed": 4510, "failed": 0, "ignored": 1, "log": "rust-full-default.log"},
+    "rust_mcp": {"passed": 4703, "failed": 0, "ignored": 1, "log": "rust-full-mcp.log"},
+    "rust_mcp_detached_owner_audit": {"passed": 4703, "failed": 23, "ignored": 1, "classification": "UNCHANGED_BASE_ENVIRONMENTAL_FAILURES", "failure_set_sha256": "95694aa34ec43f56b0561c3af299f0b70d26aee3d73de1ac124957d10fa245cc", "base_control": {"library_failed": 21, "integration_failed": 2}, "reason": "explicit pinned compiler NotPresent", "log": "rust-full-owner.log"},
+    "examples": {"passed": 32, "failed": 0, "ignored": 0, "log": "rust-examples-owner-final.log"},
+    "node": {"passed": 786, "failed": 0, "modules": 46, "concurrency": 2, "environmental_retry": 1, "first_attempt": {"passed": 785, "failed": 1, "admissible": false, "reason": "missing pinned upstream.tar.gz before intended tamper assertion"}, "log": "logs/node.stdout.log"},
+    "authority": {"passed": 40, "failed": 0, "log": "logs/authority.stdout.log"},
+    "python": {"covered_passed": 940, "failed": 0, "skipped": 1, "environmental_retry": 1, "collected_run": {"passed": 938, "skipped": 3}, "real_binary_supplement": {"passed": 2}, "initial_admissible": false, "initial_reason": "pytest-rerunfailures localhost status socket denied before collection", "log": "python-retry.log"},
+    "tier_a_matrix": {"verdict": "INVALID", "attempts": 2, "initial_reason": "empty cache and sandboxed DNS", "retry_reason": "offline cache lacks grpcio wheel", "successful_rows": 0},
+    "tier_a_quick": {"verdict": "INVALID", "timed_out": true, "elapsed_ms": 300009, "exit_code": 124, "report_artifacts": 0, "log": "tier-a-quick.log"},
+    "fmt": "PASS",
+    "clippy": {"result": "PASS_WITH_EXISTING_WARNINGS", "changed_region_warnings": 0, "log": "cargo-clippy-all.log"},
+    "diff_check": "PASS"
+  },
+  "named_ignores": ["resolution_test::slice_elem_variant_reserved"],
+  "exclusions": [
+    "docs/eval/receiver-closure/audit-imported-props-source.test.mjs: three tests; five PRISM_AUDIT inputs absent including /private/tmp/prism-imported-alias-O4d6E1/real-sites.jsonl",
+    "adoption/tests/test_prism_adoption.py: explicit PRISM_RUN_LIVE_EVALS=1 not authorized",
+    "Tier-A matrix: INVALID because dependency bootstrap failed before execution after one environmental retry",
+    "Tier-A quick: INVALID timeout with no report",
+    "Tier-A full multi-corpus: human-triggered only",
+    "class execution-phase policy",
+    "optional/default/rest/destructured and unparenthesized-arrow admission",
+    "genuine same-line occurrence indexing",
+    "IIFE or higher-order call resolution",
+    "broader member shapes and real-site recall"
+  ],
+  "review": {
+    "cap": 2,
+    "rounds_completed": 1,
+    "status": "APPROVE",
+    "wrong": 0,
+    "smell": 1,
+    "round_2_required": false,
+    "record": "/private/tmp/prism-nested-owner-repair-TfBvIW/review-round1.md",
+    "retained_smell": "dfg_census example preserves more than one outer edge but does not pin the exact use(z) endpoint; main graph harness pins exact endpoint tuples"
+  }
+}

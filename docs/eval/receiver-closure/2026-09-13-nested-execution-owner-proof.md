@@ -16,7 +16,8 @@ main refs were not used. Evidence is under
 `/private/tmp/prism-nested-owner-proof-Rjzipk`. Test and executable hashes are in
 the adjacent baseline receipt. After the proof freeze, the controller committed
 the exact artifact on `feat/nested-callable-owner-proof`, pushed it, and opened
-PR #315 against `main`. No rebaseline or production runtime effect was performed.
+PR #315 against `main`. PR #315 merged at `9e40a376299a714ed11233a56a9e23554d40ca99`
+on 2026-09-14. No rebaseline or production runtime effect was performed.
 
 ## Findings
 

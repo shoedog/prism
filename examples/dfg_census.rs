@@ -703,9 +703,11 @@ mod tests {
 
         assert!(
             n_edges > 1,
-            "fixture must contain nested and outer DFG edges"
+            "fixture must retain the unrelated outer DFG edges"
         );
-        assert!(admissibility.nested_callable > 0);
-        assert!(admissibility.nested_callable < n_edges);
+        assert_eq!(
+            admissibility.nested_callable, 0,
+            "outer ownership must not retain an edge touching the arrow body"
+        );
     }
 }
