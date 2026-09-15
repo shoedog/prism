@@ -206,7 +206,8 @@ use std::path::{Path, PathBuf};
 /// - v90: retain rejected CJS names and use source self bindings for write proof.
 /// - v91: receiver lexical/write guards use explicit source names, not display names.
 /// - v92: JS/TS/TSX rvalue query captures must be contained in the requested callable.
-const CACHE_VERSION: u32 = 92;
+/// - v93: JS/TS/TSX callable rvalue queries exclude nested execution regions.
+const CACHE_VERSION: u32 = 93;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -746,7 +747,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 92);
+        assert_eq!(super::CACHE_VERSION, 93);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
