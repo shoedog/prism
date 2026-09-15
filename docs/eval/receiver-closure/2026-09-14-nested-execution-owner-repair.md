@@ -155,5 +155,9 @@ the example asserts more than one outer edge remains rather than naming the exac
 candidate incorrect result was demonstrated. Review is at
 `/private/tmp/prism-nested-owner-repair-TfBvIW/review-round1.md`.
 
-The adjacent JSON is the machine-readable receipt. Publication is not authorized
-in this lane. The bounded repair is complete and ready for controller custody.
+The adjacent JSON is the machine-readable receipt. Under separately granted
+controller authority, implementation commit `0858c23e` was pushed on
+`feat/nested-callable-owner-repair` and PR #316 was opened against `main`. This
+post-review documentation reconciliation does not alter the independently
+reviewed implementation. Merge, live adoption and a full multi-corpus run remain
+separate operations without authorization in this lane.

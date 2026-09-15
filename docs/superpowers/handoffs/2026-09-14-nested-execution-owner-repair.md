@@ -1,7 +1,7 @@
 # Handoff — nested-callable execution-owner bounded repair
 
-**Written:** 2026-09-15T00:18:05Z · **By:** /root Codex · **Provider:** codex
-**Workspace:** /private/tmp/prism-nested-owner-proof-pr-dYl0Qn · feat/nested-callable-owner-proof · **Measured state:** `[MEASURED]` HEAD 53f9d78224794866299f70c4752aae1ef1dc5c41 · Tree DIRTY · Probe `git status --short && git rev-parse HEAD HEAD^{tree} origin/main origin/main^{tree}` · Output `/private/tmp/prism-nested-owner-repair-TfBvIW/`
+**Written:** 2026-09-15T01:24:15Z · **By:** /root Codex · **Provider:** codex
+**Workspace:** /private/tmp/prism-nested-owner-proof-pr-dYl0Qn · feat/nested-callable-owner-repair · **Measured state:** `[MEASURED]` implementation commit 0858c23e pushed and PR #316 open against main before this docs-only custody reconciliation · Probe `git status --short && git show --stat --oneline --decorate HEAD` · Output `/private/tmp/prism-nested-owner-repair-TfBvIW/`
 **Predecessor:** `/root` proof lane; merged PR #315 handoff `docs/superpowers/handoffs/2026-09-13-nested-execution-owner-proof.md`
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,15 +9,15 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — another session/agent alive in this lane? who owns it? `[MEASURED]` `/root` completed implementation; independent round 1 returned APPROVE with 0 WRONG and one retained SMELL, and no round 2 is required — **RESOLVED 2026-09-15T00:18:05Z**
-**(b) Custody exposure** — unpushed commits, uncommitted work, single-copy/untracked artifacts: `[MEASURED]` eight modified tracked files plus three new repair documents are uncommitted; evidence is host-local at `/private/tmp/prism-nested-owner-repair-TfBvIW`; controller owns `.git` writes/publication — **OPEN until controller commits and retains evidence**
-**(c) In flight / irreversible** — running process, held lock, half-applied migration: `[MEASURED]` no verification process is active; no commit, push, PR or full multi-corpus run occurred — **RESOLVED 2026-09-14T23:56:53Z**
-**(d) Authorization granted but not exercised** — “Proceed to bounded repair”; this authorizes the repair, not `.git` writes, publication, merge, live adoption or a full multi-corpus run.
+**(b) Custody exposure** — unpushed commits, uncommitted work, single-copy/untracked artifacts: `[MEASURED]` implementation commit `0858c23e` is pushed; PR #316 is open; evidence remains host-local at `/private/tmp/prism-nested-owner-repair-TfBvIW`; this handoff is the docs-only publication reconciliation — **RESOLVED for source and remote custody; retain host evidence**
+**(c) In flight / irreversible** — running process, held lock, half-applied migration: `[MEASURED]` no verification process is active and no full multi-corpus run occurred; the authorized commit, push and PR creation completed — **RESOLVED 2026-09-15T01:24:15Z**
+**(d) Authorization granted and exercised** — “Anything else for this slice? if not create a PR” authorized `.git` writes and PR publication. Commit `0858c23e`, branch push and PR #316 are complete. Merge, live adoption and a full multi-corpus run remain separately unauthorized.
 
 ## 1. Resume order
 
-1. Verify the final manifest and custody tar under `/private/tmp/prism-nested-owner-repair-TfBvIW`.
-2. Under controller authority, commit the 11 exact repository paths without adding ignored build artifacts or evidence-root files.
-3. Publish or open a repair PR only under separate controller machine instructions; carry the Tier-A INVALID results and exact exclusions into its description.
+1. Review PR #316 and preserve the round-1 APPROVE plus retained non-blocking SMELL.
+2. Treat Tier-A matrix and quick as INVALID and preserve every recorded exclusion; do not rebaseline.
+3. Merge, run live adoption or trigger a full multi-corpus evaluation only under separate authority.
 
 **STOP conditions:** open-class review findings at round 2; any request to change occurrence indexing, parameter admission, call/receiver ownership or navigation caches; a second environmental retry for Node, Python, Tier-A matrix or quick; any full multi-corpus request without human trigger.
 
@@ -32,7 +32,7 @@
 | Cross-language | done with exclusions | `[MEASURED]` Node 786, authority 40, Python coverage 940 with one live-adoption exclusion |
 | Tier-A | invalid | `[MEASURED]` matrix dependency setup failed after one retry; quick timed out at 300009 ms with no report |
 | Independent review | done | `[MEASURED]` round 1 APPROVE, 0 WRONG/1 SMELL; no round 2 required; `review-round1.md` |
-| Publication | parked | `[MEASURED]` no `.git` write or remote effect performed |
+| Publication | done | `[MEASURED]` implementation commit `0858c23e` pushed; PR #316 open against `main`; merge not performed |
 
 ## 3. Corrections to standing documents and memory
 
@@ -47,7 +47,7 @@
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
 | 1 | Independent review | done | Preserve round-1 APPROVE and retained non-blocking SMELL | None | 0 WRONG / 1 SMELL |
-| 2 | Controller custody | next | Commit/push/open PR only under controller machine instructions | controller action | no `.git` writes here |
+| 2 | Controller custody | done | Preserve PR #316 and host evidence; do not merge without separate authority | None | `0858c23e`, PR #316 |
 | 3 | Deferred semantics | parked | Separate plans for class phases, same-line indexing and broadened admission | explicit owner scope | workstream 3 follow-ups |
 
 ## 5. Invariants and traps — do not do these
@@ -66,6 +66,8 @@
 |---|---|
 | Base/main | `9e40a376299a714ed11233a56a9e23554d40ca99` / tree `21e9fc389518e9c7928869baf854bfc6ad1a4054` |
 | Checkout HEAD | `53f9d78224794866299f70c4752aae1ef1dc5c41` / same tree before edits |
+| Implementation commit | `0858c23e` on `feat/nested-callable-owner-repair` |
+| Pull request | `https://github.com/shoedog/prism/pull/316` (open against `main` at publication) |
 | Evidence | `/private/tmp/prism-nested-owner-repair-TfBvIW` |
 | Proof evidence | `/private/tmp/prism-nested-owner-proof-Rjzipk` |
 | Aggregate base RED | `387` rows / `b96b7274a05149039d85672a3fac343ddc84838220fa74f1756c5cf17f83320b` |
@@ -78,4 +80,4 @@
 
 **§2c verdict:** SURVIVED · claim: "the bounded repair excludes nested execution regions without broadening admission or corrupting preserved ownership/capture paths" · pass: INDEPENDENT · evidence tier: TEST-BACKED · record: `/private/tmp/prism-nested-owner-repair-TfBvIW/review-round1.md`
 
-**Questions the owner owes an answer to:** None. Controller publication authority remains separate.
+**Questions the owner owes an answer to:** None for this slice. Merge, live adoption and full multi-corpus authority remain separate.
