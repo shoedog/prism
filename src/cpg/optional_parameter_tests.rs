@@ -6,7 +6,7 @@
 //! occurrence in that list. Required-parameter occurrences are unaffected
 //! and keep their existing, independent per-parameter contract.
 
-use super::build::CodePropertyGraph;
+use super::build::{compute_param_names, CodePropertyGraph};
 use super::{CpgEdge, CpgNode, VarAccess};
 use crate::ast::ParsedFile;
 use crate::data_flow::DataFlowGraph;
@@ -475,5 +475,132 @@ fn argument_comments_do_not_inflate_call_site_metadata_count() {
             assert_eq!(sites.len(), 1);
             assert_eq!(sites[0].arg_count, Some(count), "{language:?}: {arguments}");
         }
+    }
+}
+
+#[test]
+fn optional_inert_signature_adds_entry_def_and_ordinal_matched_argument_edge() {
+    let source = "function take(\n  seed: any = 0,\n  value?: unknown\n) {\n  const held = value;\n  sink(held);\n}\nfunction run(input: unknown) {\n  take(1, input);\n}";
+    for language in [Language::TypeScript, Language::Tsx] {
+        let (cpg, files) = build(language, source);
+        let value = source.find("value?").unwrap();
+        let slots = compute_param_names(
+            files.values().next().unwrap(),
+            cpg.call_graph.functions["take"].first().unwrap(),
+        );
+        assert_eq!(
+            slots,
+            Some(vec!["seed".to_string(), "value".to_string()]),
+            "{language:?}: occurrence admission must not alter positional slots"
+        );
+        let defs = parameter_defs(&cpg, "take");
+        assert!(
+            defs.contains(&("value".into(), value, value + "value".len())),
+            "{language:?}: expected optional entry Def at source token: {defs:?}"
+        );
+        let edges = argument_edges(&cpg, "take");
+        assert!(
+            edges.contains(&("input".into(), "value".into(), value, value + "value".len())),
+            "{language:?}: expected second supplied argument to bind the optional token: {edges:?}"
+        );
+        assert_eq!(
+            CodePropertyGraph::collect_step5b_edges(
+                &cpg.call_graph,
+                &cpg.var_index,
+                &cpg.graph,
+                &files
+            ),
+            CodePropertyGraph::collect_step5b_edges_reference(
+                &cpg.call_graph,
+                &cpg.var_index,
+                &cpg.graph,
+                &files
+            ),
+            "{language:?}: Step-5b parallel/reference parity"
+        );
+    }
+}
+
+#[test]
+fn optional_inert_signature_preserves_type_only_and_effectful_refusals() {
+    for source in [
+        "function take(value?: <T = unknown>() => void) { sink(value); }\nfunction run(bound: any) { take(bound); }\n",
+        "function take(seed: any = init(), value?: unknown) { sink(value); }\nfunction run(bound: any) { take(0, bound); }\n",
+    ] {
+        for language in [Language::TypeScript, Language::Tsx] {
+            let (cpg, _) = build(language, source);
+            let defs = parameter_defs(&cpg, "take");
+            let edges = argument_edges(&cpg, "take");
+            assert!(
+                !defs.iter().any(|(name, _, _)| name == "value"),
+                "{language:?}: legacy refusal must retain no value Def: {defs:?}"
+            );
+            assert!(
+                !edges.iter().any(|(_, parameter, _, _)| parameter == "value"),
+                "{language:?}: legacy refusal must retain no value edge: {edges:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn optional_inert_signature_omission_literals_and_bound_argument_keep_ordinal_behavior() {
+    let source = "function take(seed: any = 0, value?: unknown) { sink(value); }\nfunction run(bound: unknown) {\n  take(1);\n  take(1, undefined);\n  take(1, null);\n  take(1, bound);\n}\n";
+    for language in [Language::TypeScript, Language::Tsx] {
+        let (cpg, _) = build(language, source);
+        let value = source.find("value?").unwrap();
+        let edges = argument_edges(&cpg, "take");
+        assert!(
+            edges.contains(&("bound".into(), "value".into(), value, value + "value".len())),
+            "{language:?}: bound second argument must bind the optional token: {edges:?}"
+        );
+        assert!(
+            !edges.iter().any(|(from, parameter, _, _)| {
+                parameter == "value" && (from == "undefined" || from == "null")
+            }),
+            "{language:?}: literal undefined/null must not invent a variable edge: {edges:?}"
+        );
+    }
+}
+
+#[test]
+fn optional_inert_signature_full_and_subset_dfg_parity() {
+    let source = "function take(\n  seed: any = 0,\n  value?: unknown\n) {\n  const held = value;\n  sink(held);\n}\nfunction run(input: unknown) {\n  take(1, input);\n}";
+    for language in [Language::TypeScript, Language::Tsx] {
+        let file = match language {
+            Language::TypeScript => "optional.ts",
+            Language::Tsx => "optional.tsx",
+            _ => unreachable!(),
+        };
+        let parsed = ParsedFile::parse(file, source, language).unwrap();
+        let files = BTreeMap::from([(file.to_string(), parsed)]);
+        let full = DataFlowGraph::build(&files);
+        let subset = DataFlowGraph::build_subset(&files, &BTreeSet::from([file.into()]));
+        let parameter_defs = full
+            .defs
+            .values()
+            .flatten()
+            .filter(|definition| definition.function == "take")
+            .map(|definition| definition.path.to_string())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            parameter_defs,
+            BTreeSet::from(["held".to_string(), "value".to_string()]),
+            "{language:?}: a defaulted sibling is not an entry Def"
+        );
+        assert_eq!(
+            serde_json::to_value(full.defs.values().collect::<Vec<_>>()).unwrap(),
+            serde_json::to_value(subset.defs.values().collect::<Vec<_>>()).unwrap(),
+            "{language:?}: full/subset definitions"
+        );
+        assert_eq!(
+            serde_json::to_value(&full.edges).unwrap(),
+            serde_json::to_value(&subset.edges).unwrap(),
+            "{language:?}: full/subset edges"
+        );
+        assert_eq!(
+            full.labels, subset.labels,
+            "{language:?}: full/subset labels"
+        );
     }
 }

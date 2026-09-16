@@ -211,7 +211,9 @@ use std::path::{Path, PathBuf};
 ///   line-identity collisions.
 /// - v95: JS/TS/TSX CPG variable nodes retain byte-distinct same-line
 ///   occurrences for exact Step 4 endpoints and Step 5b argument binding.
-const CACHE_VERSION: u32 = 95;
+/// - v96: TS/TSX optional occurrences admit only all-simple signatures with
+///   a nonempty inert-default sibling set.
+const CACHE_VERSION: u32 = 96;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -750,7 +752,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 95);
+        assert_eq!(super::CACHE_VERSION, 96);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

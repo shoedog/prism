@@ -258,3 +258,66 @@ fn optional_parameter_duplicate_recovery_and_escaped_binding_lists_fail_closed()
         assert!(parsed.function_parameter_names(&function).is_empty());
     }
 }
+
+#[test]
+fn optional_inert_signature_adds_the_optional_token_after_a_validated_runtime_default() {
+    let mut missing = Vec::new();
+    for default in [
+        "0",
+        "\"clean\"",
+        "true",
+        "false",
+        "null",
+        "[]",
+        "{ /* comment-only */ }",
+    ] {
+        let source = format!(
+            "function take(\n  seed: any = {default},\n  value?: unknown\n) {{\n  const held = value;\n  sink(held);\n}}"
+        );
+        for language in [Language::TypeScript, Language::Tsx] {
+            let parsed = ParsedFile::parse("params.ts", &source, language).unwrap();
+            assert_eq!(parsed.parse_error_count, 0, "{language:?}: {source}");
+            let function = parsed.all_functions()[0];
+            let actual = parsed
+                .function_parameter_occurrences(&function)
+                .into_iter()
+                .map(|(name, _, _)| name)
+                .collect::<Vec<_>>();
+            if actual != ["seed", "value"] {
+                missing.push(format!("{language:?}/{default}: {actual:?}"));
+            }
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "missing optional occurrence rows: {missing:#?}"
+    );
+}
+
+#[test]
+fn optional_inert_signature_preserves_type_only_and_effectful_refusals() {
+    check(
+        "function take(value?: <T = unknown>() => void) { sink(value); }",
+        &[],
+    );
+    check(
+        "function take(seed: any = init(), value?: unknown) { sink(value); }",
+        &[],
+    );
+}
+
+#[test]
+fn optional_inert_signature_keeps_source_order_unicode_and_old_refusals() {
+    check(
+        "function take(\n  required: any,\n  zero: any = 0,\n  text: any = \"clean\",\n  café?: unknown\n) { sink(required, zero, text, café); }",
+        &["required", "zero", "text", "café"],
+    );
+    for default in ["touch()", "(value = clean)", "value", "{x: 1}", "[,]"] {
+        check(
+            &format!(
+                "function take(required: any, seed: any = {default}, value?: unknown) {{ sink(required, value); }}"
+            ),
+            &["required"],
+        );
+    }
+}
