@@ -124,7 +124,7 @@ fn optional_parameter_step5b_parallel_and_serial_match() {
 }
 
 #[test]
-fn sibling_default_anywhere_holes_optional_slots_but_leaves_required_positions_unaffected() {
+fn effectful_sibling_default_holes_optional_slots_but_leaves_required_positions_unaffected() {
     let source = "function take(x: any, y?: any, z: any = init()) { sink(x, y, z); }\n\
                   function run(p: any, q: any, r: any) { take(p, q, r); }\n";
     for language in [Language::TypeScript, Language::Tsx] {
@@ -930,21 +930,70 @@ fn optional_inert_incremental_caller_and_callee_edits_match_fresh_rows() {
             .iter()
             .any(|(name, _, _)| name == "value"));
 
-        let restored = CodePropertyGraph::build_incremental(
-            callee_incremental.call_graph.clone(),
-            callee_incremental.dfg.clone(),
-            &BTreeSet::from([format!("callee.{ext}")]),
-            &caller_after,
-            None,
-        );
-        assert_eq!(
-            rows(&restored),
-            rows(&caller_fresh),
-            "{language:?}: callee-only restore"
-        );
-        assert!(parameter_defs(&restored, "take")
-            .iter()
-            .any(|(name, _, _)| name == "value"));
+        assert!(optional_boundary_rows(&callee_incremental).is_empty());
+        let initializer_free = "export function take(seed: any, value?: unknown) { sink(value); }";
+        let mut previous = callee_incremental;
+        for (epoch, callee) in [
+            ("initializer-free", initializer_free),
+            ("inert-restored", inert),
+        ] {
+            let next_files = files(bound, callee);
+            let incremental = CodePropertyGraph::build_incremental(
+                previous.call_graph.clone(),
+                previous.dfg.clone(),
+                &BTreeSet::from([format!("callee.{ext}")]),
+                &next_files,
+                None,
+            );
+            let fresh = CodePropertyGraph::build(&next_files);
+            assert_eq!(
+                rows(&incremental),
+                rows(&fresh),
+                "{language:?}/{epoch}: callee-only full rows"
+            );
+            let parameter = callee.find("value?").unwrap();
+            let argument = bound.rfind("input").unwrap();
+            assert_eq!(
+                parameter_defs(&incremental, "take"),
+                BTreeSet::from([("value".into(), parameter, parameter + 5)]),
+                "{language:?}/{epoch}: exact entry Def"
+            );
+            assert_eq!(
+                optional_boundary_rows(&incremental),
+                vec![(
+                    (
+                        format!("caller.{ext}"),
+                        "run".into(),
+                        1,
+                        1,
+                        "input".into(),
+                        "Use".into(),
+                        argument,
+                        argument + 5
+                    ),
+                    (
+                        format!("callee.{ext}"),
+                        "take".into(),
+                        1,
+                        1,
+                        "value".into(),
+                        "Def".into(),
+                        parameter,
+                        parameter + 5
+                    ),
+                    FlowConfidence::Exact,
+                )],
+                "{language:?}/{epoch}: exact restored boundary"
+            );
+            if epoch == "inert-restored" {
+                assert_eq!(
+                    rows(&incremental),
+                    rows(&caller_fresh),
+                    "{language:?}: final inert epoch restores original complete graph"
+                );
+            }
+            previous = incremental;
+        }
     }
 }
 

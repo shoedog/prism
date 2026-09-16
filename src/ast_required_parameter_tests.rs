@@ -217,14 +217,12 @@ fn optional_parameter_unsupported_individual_forms_do_not_supply_definitions() {
     }
 }
 
-/// The whole-list initializer barrier is a distinct, wider gate than any
-/// individual optional parameter's own children: an initializer anywhere in
-/// the signature (a sibling default, or a default nested in a destructuring
-/// pattern) refuses every optional occurrence in that list, even an
-/// otherwise-clean `a?`. Required-parameter occurrences are unaffected by
-/// this gate and keep their existing independent, per-parameter contract.
+/// Unsupported or effectful initializers retain the conservative whole-list
+/// refusal. A validated nonempty inert-default sibling set is handled by the
+/// separate mixed-signature admission controls below. Required occurrences
+/// keep their independent per-parameter contract.
 #[test]
-fn optional_parameter_refuses_when_signature_contains_any_initializer() {
+fn optional_parameter_refuses_when_signature_contains_unsupported_initializer() {
     for parameters in [
         "a?: any, b: any = value",
         "a?: any, {x = 1}: any",
@@ -428,7 +426,7 @@ fn effectful_javascript_default_runs_only_for_undefined_or_omitted_arguments() {
     let program = r#"
 let runs = 0;
 function take(seed = ++runs, value) { return [runs, seed, value]; }
-console.log(JSON.stringify([take(undefined, "u"), take(7, "s")]));
+console.log(JSON.stringify([take(), take(undefined, "u"), take(7, "s")]));
 "#;
     let output = Command::new("node")
         .args(["--eval", program])
@@ -441,7 +439,7 @@ console.log(JSON.stringify([take(undefined, "u"), take(7, "s")]));
     );
     assert_eq!(
         String::from_utf8(output.stdout).unwrap().trim(),
-        "[[1,1,\"u\"],[1,7,\"s\"]]",
-        "an undefined argument runs the default while a supplied value skips it"
+        "[[1,1,null],[2,2,\"u\"],[2,7,\"s\"]]",
+        "omitted and undefined arguments run the default while a supplied value skips it"
     );
 }
