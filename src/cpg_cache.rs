@@ -207,7 +207,9 @@ use std::path::{Path, PathBuf};
 /// - v91: receiver lexical/write guards use explicit source names, not display names.
 /// - v92: JS/TS/TSX rvalue query captures must be contained in the requested callable.
 /// - v93: JS/TS/TSX callable rvalue queries exclude nested execution regions.
-const CACHE_VERSION: u32 = 93;
+/// - v94: JS/TS/TSX call sites bind to exact execution owners and refuse
+///   line-identity collisions.
+const CACHE_VERSION: u32 = 94;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -747,7 +749,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 93);
+        assert_eq!(super::CACHE_VERSION, 94);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -1453,7 +1455,7 @@ mod tests {
     }
 
     #[test]
-    fn v91_rvalue_capture_cache_is_a_miss() {
+    fn v93_call_owner_cache_is_a_miss() {
         let dir = tempfile::tempdir().unwrap();
         let hashes = compute_file_hashes(&BTreeMap::new());
         save_cache(
@@ -1467,7 +1469,7 @@ mod tests {
             load_cache(&hashes, false, dir.path()),
             CacheResult::Hit(_)
         ));
-        force_cache_version(dir.path(), 91);
+        force_cache_version(dir.path(), 93);
         assert!(matches!(
             load_cache(&hashes, false, dir.path()),
             CacheResult::Miss

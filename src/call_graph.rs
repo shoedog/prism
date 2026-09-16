@@ -1113,6 +1113,31 @@ pub struct CallGraph {
 }
 
 impl CallGraph {
+    fn ambiguous_js_ts_call_owner_ids(parsed: &ParsedFile) -> BTreeSet<(String, usize, usize)> {
+        if !matches!(
+            parsed.language,
+            crate::languages::Language::JavaScript
+                | crate::languages::Language::TypeScript
+                | crate::languages::Language::Tsx
+        ) {
+            return BTreeSet::new();
+        }
+        let mut counts = BTreeMap::new();
+        for node in parsed.all_functions() {
+            let Some(name) = parsed.language.function_name(&node) else {
+                continue;
+            };
+            let (start, end) = parsed.node_line_range(&node);
+            *counts
+                .entry((parsed.node_text(&name).to_string(), start, end))
+                .or_insert(0usize) += 1;
+        }
+        counts
+            .into_iter()
+            .filter_map(|(identity, count)| (count > 1).then_some(identity))
+            .collect()
+    }
+
     /// Create an empty call graph with no functions or edges.
     pub fn empty() -> Self {
         CallGraph {
@@ -1307,6 +1332,7 @@ impl CallGraph {
 
         // Phase 2: Find all call sites within each function
         for (file_path, parsed) in files {
+            let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
             for func_node in parsed.all_functions() {
                 let func_name = match parsed.language.function_name(&func_node) {
                     Some(n) => parsed.node_text(&n).to_string(),
@@ -1319,6 +1345,13 @@ impl CallGraph {
                     start_line: start,
                     end_line: end,
                 };
+                if ambiguous_owner_ids.contains(&(
+                    caller_id.name.clone(),
+                    caller_id.start_line,
+                    caller_id.end_line,
+                )) {
+                    continue;
+                }
 
                 let all_lines: BTreeSet<usize> = (start..=end).collect();
                 let call_sites = parsed.function_calls_with_spans_on_lines(
@@ -1696,6 +1729,7 @@ impl CallGraph {
                 let file_imports_ref = imports.get(file_path);
                 let proven_imported_receiver_types =
                     proven_python_imported_receiver_types.get(file_path);
+                let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
 
                 for func_node in parsed.all_functions() {
                     let func_name = match parsed.language.function_name(&func_node) {
@@ -1709,6 +1743,13 @@ impl CallGraph {
                         start_line: start,
                         end_line: end,
                     };
+                    if ambiguous_owner_ids.contains(&(
+                        caller_id.name.clone(),
+                        caller_id.start_line,
+                        caller_id.end_line,
+                    )) {
+                        continue;
+                    }
 
                     let all_lines: BTreeSet<usize> = (start..=end).collect();
                     let (call_sites, facts) = parsed
@@ -4989,6 +5030,7 @@ impl CallGraph {
                 continue;
             }
             let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
+            let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
             for func_node in parsed.all_functions() {
                 let func_name = match parsed.language.function_name(&func_node) {
                     Some(n) => parsed.node_text(&n).to_string(),
@@ -5001,6 +5043,13 @@ impl CallGraph {
                     start_line: start,
                     end_line: end,
                 };
+                if ambiguous_owner_ids.contains(&(
+                    caller_id.name.clone(),
+                    caller_id.start_line,
+                    caller_id.end_line,
+                )) {
+                    continue;
+                }
                 let all_lines: BTreeSet<usize> = (start..=end).collect();
                 let (call_sites, facts) = parsed.function_calls_with_qualifier_and_spans_on_lines(
                     &func_node,

@@ -27,6 +27,40 @@ fn callers_reports_caller_and_call_site_line() {
 }
 
 #[test]
+fn call_execution_owner_navigation_callers_and_callees() {
+    let s = session(&[
+        ("origin.js", "export function item(){return 1;}"),
+        (
+            "app.js",
+            "import {item} from './origin';\nfunction outer(){\n const cb=function inner(){return item();};\n return cb;\n}\nfunction direct(){return item();}\n",
+        ),
+    ]);
+    let callers = queries::callers(&s, Some("item"), Some("origin.js"), None, 1).unwrap();
+    let caller_names: Vec<_> = callers
+        .items
+        .iter()
+        .filter_map(|item| match &item.symbol {
+            Some(SymbolRef::Function { name, file, .. }) if file == "app.js" => Some(name.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert!(caller_names.contains(&"inner"), "{caller_names:?}");
+    assert!(caller_names.contains(&"direct"), "{caller_names:?}");
+    assert!(!caller_names.contains(&"outer"), "{caller_names:?}");
+
+    let inner_callees = queries::callees(&s, Some("inner"), Some("app.js"), None, 1).unwrap();
+    assert!(inner_callees.items.iter().any(|item| matches!(
+        &item.symbol,
+        Some(SymbolRef::Function { name, file, .. }) if name == "item" && file == "origin.js"
+    )));
+    let outer_callees = queries::callees(&s, Some("outer"), Some("app.js"), None, 1).unwrap();
+    assert!(!outer_callees.items.iter().any(|item| matches!(
+        &item.symbol,
+        Some(SymbolRef::Function { name, file, .. }) if name == "item" && file == "origin.js"
+    )));
+}
+
+#[test]
 fn callers_uses_incoming_index_not_reversed_outgoing_calls() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(

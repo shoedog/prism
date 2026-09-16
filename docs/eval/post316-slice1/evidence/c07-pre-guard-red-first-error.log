@@ -1,0 +1,21 @@
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-slice1)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.94s
+     Running unittests src/lib.rs (target/debug/deps/prism-4b417becfe78b2c6)
+
+running 1 test
+
+thread 'cpg::build::nested_execution_owner_audit_tests::call_execution_owner_same_line_identity_collision_refuses_graph_calls' (53370625) panicked at src/cpg/nested_execution_owner_audit_tests.rs:505:13:
+assertion `left == right` failed: JavaScript/full: colliding graph owner borrowed calls
+  left: ["one", "two"]
+ right: []
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test cpg::build::nested_execution_owner_audit_tests::call_execution_owner_same_line_identity_collision_refuses_graph_calls ... FAILED
+
+failures:
+
+failures:
+    cpg::build::nested_execution_owner_audit_tests::call_execution_owner_same_line_identity_collision_refuses_graph_calls
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1133 filtered out; finished in 0.17s
+
+error: test failed, to rerun pass `--lib`

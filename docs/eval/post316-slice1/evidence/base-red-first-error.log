@@ -1,0 +1,42 @@
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-slice1)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.74s
+     Running unittests src/lib.rs (target/debug/deps/prism-4b417becfe78b2c6)
+
+running 3 tests
+
+thread 'ast::call_execution_owner_tests::call_execution_owner_computed_key_unindexed_and_root_controls' (53354022) panicked at src/ast_call_execution_owner_tests.rs:253:5:
+assertion `left == right` failed
+  left: ["body", "direct", "key", "late"]
+ right: ["direct", "key"]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+CALL_EXECUTION_OWNER_MISMATCH assignment/JavaScript/outer/route-0: actual=[("direct", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/JavaScript/outer/route-1: actual=[("direct", 62, 70), ("late", 52, 59), ("seed", 44, 50)] expected=[("direct", 62, 70)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/JavaScript/outer/route-2: actual=[("None:direct", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/JavaScript/outer/route-3: actual=[("None:direct", 62, 70), ("None:late", 52, 59), ("None:seed", 44, 50)] expected=[("None:direct", 62, 70)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/JavaScript/outer/route-4: actual=[("direct", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/JavaScript/outer/route-5: actual=[("direct", 62, 70), ("late", 52, 59), ("seed", 44, 50)] expected=[("direct", 62, 70)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/JavaScript/outer/route-6: actual=[("None:direct", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/JavaScript/outer/route-7: actual=[("None:direct", 62, 70), ("None:late", 52, 59), ("None:seed", 44, 50)] expected=[("None:direct", 62, 70)]
+
+thread 'ast::call_execution_owner_tests::call_execution_owner_query_and_manual_routes' (53354023) panicked at src/ast_call_execution_owner_tests.rs:201:5:
+8 ownership mismatches
+test ast::call_execution_owner_tests::call_execution_owner_computed_key_unindexed_and_root_controls ... FAILED
+test ast::call_execution_owner_tests::call_execution_owner_query_and_manual_routes ... FAILED
+OWNER_EPOCH epoch=0 sha=ce6868c121c3e1a0066075cb893dea7eaad15064f2123e5208a9c20bc2637157 rows=5 resolution=["outer:1:item:29-40->FreeSingle:Exact:origin.js:item:1"]
+
+thread 'cpg::build::nested_execution_owner_audit_tests::call_execution_owner_source_epochs' (53354024) panicked at src/cpg/nested_execution_owner_audit_tests.rs:260:9:
+assertion `left == right` failed: epoch 1
+  left: ["inner:1:item:55-66->FreeSingle:Exact:origin.js:item:1", "outer:1:item:55-66->FreeSingle:Exact:origin.js:item:1"]
+ right: ["inner:1:item:55-66->FreeSingle:Exact:origin.js:item:1"]
+test cpg::build::nested_execution_owner_audit_tests::call_execution_owner_source_epochs ... FAILED
+
+failures:
+
+failures:
+    ast::call_execution_owner_tests::call_execution_owner_computed_key_unindexed_and_root_controls
+    ast::call_execution_owner_tests::call_execution_owner_query_and_manual_routes
+    cpg::build::nested_execution_owner_audit_tests::call_execution_owner_source_epochs
+
+test result: FAILED. 0 passed; 3 failed; 0 ignored; 0 measured; 1130 filtered out; finished in 0.19s
+
+error: test failed, to rerun pass `--lib`

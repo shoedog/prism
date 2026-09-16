@@ -235,7 +235,7 @@ fn nested_execution_owner_graph_classification() {
 }
 
 #[test]
-fn nested_execution_owner_source_epochs() {
+fn call_execution_owner_source_epochs() {
     let epochs = [
         "function outer(token){return item(token);}",
         "function outer(token){const cb=function inner(){return item(token);};return cb;}",
@@ -245,18 +245,9 @@ fn nested_execution_owner_source_epochs() {
     ];
     let expected_resolution = [
         vec!["outer:1:item:29-40->FreeSingle:Exact:origin.js:item:1"],
-        vec![
-            "inner:1:item:55-66->FreeSingle:Exact:origin.js:item:1",
-            "outer:1:item:55-66->FreeSingle:Exact:origin.js:item:1",
-        ],
-        vec![
-            "inner:1:item:61-72->FreeSingle:Exact:origin.js:item:1",
-            "outer:1:item:61-72->FreeSingle:Exact:origin.js:item:1",
-        ],
-        vec![
-            "inner:1:item:60-71->FreeSingle:Exact:origin.js:item:1",
-            "outer:1:item:60-71->FreeSingle:Exact:origin.js:item:1",
-        ],
+        vec!["inner:1:item:55-66->FreeSingle:Exact:origin.js:item:1"],
+        vec!["inner:1:item:61-72->FreeSingle:Exact:origin.js:item:1"],
+        vec!["inner:1:item:60-71->FreeSingle:Exact:origin.js:item:1"],
         vec!["outer:1:item:29-40->FreeSingle:Exact:origin.js:item:1"],
     ];
     let mut previous: Option<CodePropertyGraph> = None;
@@ -457,5 +448,81 @@ fn nested_execution_owner_full_flow_controls() {
     assert_eq!(
         with_rows,
         vec!["app.js:3:true".to_string(), "app.js:5:false".to_string()]
+    );
+}
+
+fn call_names_for(cg: &crate::call_graph::CallGraph, caller: &str) -> Vec<String> {
+    let mut names: Vec<_> = cg
+        .calls
+        .iter()
+        .filter(|(id, _)| id.name == caller)
+        .flat_map(|(_, sites)| sites.iter().map(|site| site.callee_name.clone()))
+        .collect();
+    names.sort();
+    names
+}
+
+#[test]
+fn call_execution_owner_same_line_identity_collision_refuses_graph_calls() {
+    let source = "function outer(){function same(){one();}function same(){two();}direct();}";
+    let mut failures = Vec::new();
+    for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
+        let parsed = ParsedFile::parse("collision", source, language).unwrap();
+        assert_eq!(parsed.parse_error_count, 0);
+        let same_nodes: Vec<_> = parsed
+            .all_functions()
+            .into_iter()
+            .filter(|node| {
+                parsed.language.function_name(node).is_some_and(|name| {
+                    parsed.node_text(&name) == "same" && parsed.node_line_range(node) == (1, 1)
+                })
+            })
+            .collect();
+        assert_eq!(
+            same_nodes.len(),
+            2,
+            "{language:?}: raw owners must stay distinct"
+        );
+        let raw: Vec<Vec<_>> = same_nodes
+            .iter()
+            .map(|node| {
+                parsed
+                    .function_calls_on_lines(node, &BTreeSet::from([1]))
+                    .into_iter()
+                    .map(|(name, _)| name)
+                    .collect()
+            })
+            .collect();
+        assert_eq!(raw, [vec!["one".to_string()], vec!["two".to_string()]]);
+
+        let files = BTreeMap::from([("collision".to_string(), parsed)]);
+        let full = crate::call_graph::CallGraph::build(&files);
+        let skeleton = crate::call_graph::CallGraph::build_skeleton(&files);
+        let subset = crate::call_graph::CallGraph::build_direct_subset(
+            &files,
+            &BTreeSet::from(["collision".to_string()]),
+        );
+        for (route, cg) in [("full", full), ("skeleton", skeleton), ("subset", subset)] {
+            let same = call_names_for(&cg, "same");
+            let outer = call_names_for(&cg, "outer");
+            if !same.is_empty() {
+                failures.push(format!(
+                    "{language:?}/{route}: colliding graph owner calls={same:?}"
+                ));
+            }
+            if outer != ["direct".to_string()] {
+                failures.push(format!(
+                    "{language:?}/{route}: unrelated outer calls={outer:?}"
+                ));
+            }
+        }
+    }
+    for failure in &failures {
+        println!("CALL_EXECUTION_OWNER_COLLISION {failure}");
+    }
+    assert!(
+        failures.is_empty(),
+        "{} collision mismatches",
+        failures.len()
     );
 }

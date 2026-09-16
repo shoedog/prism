@@ -1,0 +1,10 @@
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-slice1)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.78s
+     Running unittests src/lib.rs (target/debug/deps/prism-4b417becfe78b2c6)
+
+running 1 test
+Cache version mismatch (cached: 93, current: 94), rebuilding
+test cpg_cache::tests::v93_call_owner_cache_is_a_miss ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1133 filtered out; finished in 0.01s
+
