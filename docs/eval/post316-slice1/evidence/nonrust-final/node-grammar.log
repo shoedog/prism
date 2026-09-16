@@ -1,0 +1,2 @@
+Evidence directory (retained): /var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/prism-ts-grammar-87CGVY
+PASS: both unchanged baselines and both shipped patched parser trees reproduce byte-for-byte.

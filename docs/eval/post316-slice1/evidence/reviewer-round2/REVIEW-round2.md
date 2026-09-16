@@ -1,6 +1,6 @@
 # Slice 1 review — round 2 and authorized cap closure
 
-FIX-FIRST — WRONG: 0 / SMELL: 1. **Source and focused verification APPROVED; final acceptance awaits only required full-gate evidence.** This opening status follows the review contract requiring complete mandatory evidence before final approval; it is not a remaining source-change request.
+APPROVE — WRONG: 0 / SMELL: 1. **Final evidence reconciliation completed.** See `FINAL-ACCEPTANCE.md` for verified full-suite totals and explicit Tier-A/exclusion limits. The earlier pending-evidence status is superseded.
 
 ## Artifact identity
 
@@ -55,3 +55,7 @@ Preserve these small harnesses and logs in the lane evidence store. No worker pr
 Observed supplied default-final log completed **4,518 passed / 0 failed / 1 ignored** on 8e2f64ff before authorized receiver-test hardening. The worker is running the post-hardening full default and remaining required gates. This report does not represent those unfinished logs as green. Remaining acceptance evidence: post-hardening default completion, MCP, widest audit, examples, fmt/clippy/diff, Node/authority/Python and Tier-A immediate rebuild plus matrix/quick report status, same-environment controls for unexpected failures, exact exclusions, and final custody reconciliation. Unavailable/INVALID gates must be named rather than silently skipped.
 
 Source ownership and preserved callee/DFG evidence are established for the bounded fixtures. Class correctness remains explicitly excluded; unindexed callable/identity-collision refusals remain deliberate. No measured public FullFlow accuracy increase, publication, CI, merge or operator authority is claimed.
+
+## Final reconciliation
+
+Accepted source commit `07ed5ceb6098f2b5a21f5c05008a2c823a5617d7` matches all ten final manifest hashes including the authorized receiver hardening. Remaining gate evidence has been inspected; final totals and exact limitations are recorded in `FINAL-ACCEPTANCE.md`. Earlier prospective/pending gate statements above are historical review context and are superseded by final acceptance.

@@ -1,0 +1,30 @@
+........................................................................ [  7%]
+........................................................................ [ 15%]
+....................................s................................... [ 22%]
+........................................................................ [ 30%]
+........................................................................ [ 38%]
+........................................................................ [ 45%]
+........................................................................ [ 53%]
+........s......s........................................................ [ 61%]
+........................................................................ [ 68%]
+........................................................................ [ 76%]
+........................................................................ [ 84%]
+........................................................................ [ 91%]
+........................................................................ [ 99%]
+....                                                                     [100%]Running teardown with pytest sessionfinish...
+
+Test tests/test_matrix.py::test_matrix_against_real_binary_has_no_regressions 
+was skipped. Reason: 
+('/private/tmp/prism-post316-slice1/eval/tests/test_matrix.py', 178, 'Skipped: 
+release prism binary absent')
+Test 
+tests/test_tc_harness_hardening.py::test_resolve_matched_binaries_against_real_b
+inaries was skipped. Reason: 
+('/private/tmp/prism-post316-slice1/eval/tests/test_tc_harness_hardening.py', 
+272, 'Skipped: PRISM_BIN/PRISM_MCP_BIN not set to real binaries on disk')
+Test 
+tests/test_tc_harness_hardening.py::test_warm_gate_real_cache_distinguishes_cold
+_from_warm was skipped. Reason: 
+('/private/tmp/prism-post316-slice1/eval/tests/test_tc_harness_hardening.py', 
+458, 'Skipped: PRISM_BIN/PRISM_MCP_BIN not set to real binaries on disk')
+937 passed, 3 skipped in 9.41s

@@ -1,24 +1,24 @@
 # Handoff — post-316 slice 1 exact nested-call ownership
 
-**Written:** 2026-09-16T09:13:17Z · **By:** /root/implement_slice1 · **Provider:** codex
-**Workspace:** prism · feat/post316-slice1-call-ownership · **Measured state:** `[MEASURED]` HEAD 8e2f64ff73fb2218bfc103ffc49d03212d662008 · Tree DIRTY · Probe `git status --short` · Output `docs/eval/post316-slice1/source-manifest.md`
-**Predecessor:** controller checkpoint `8e2f64ff73fb2218bfc103ffc49d03212d662008`
+**Written:** 2026-09-16T09:41:39Z · **By:** /root/implement_slice1 · **Provider:** codex
+**Workspace:** prism · feat/post316-slice1-call-ownership · **Measured state:** `[MEASURED]` HEAD 07ed5ceb6098f2b5a21f5c05008a2c823a5617d7 · Tree DIRTY (verification evidence only) · Probe `git status --short` · Output `docs/eval/post316-slice1/source-manifest.md`
+**Predecessor:** controller checkpoint `07ed5ceb6098f2b5a21f5c05008a2c823a5617d7`
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
 
 ## 0. Gating facts — settle these before starting anything below
 
-**(a) Lane ownership** — `[MEASURED]` `/root/implement_slice1` owns final verification; `/root/review_slice1` completed the cap-two review — **RESOLVED by explicit root dispatch, 2026-09-16**
-**(b) Custody exposure** — `[MEASURED]` final receiver-test hardening, refreshed receipt/handoff/manifest and completed evidence are an uncommitted delta over checkpoint `8e2f64ff` in `/private/tmp/prism-post316-slice1`; ten source/test hashes are frozen in the manifest — **OPEN until controller checkpoint commit**
-**(c) In flight / irreversible** — `[MEASURED]` no verification process is running; no push/PR/merge occurred — **RESOLVED 2026-09-16T09:13:17Z**
+**(a) Lane ownership** — `[INHERITED]` `/root/review_slice1` issued final acceptance APPROVE with 0 WRONG / 1 nonblocking SMELL and no source-change request — **RESOLVED 2026-09-16**
+**(b) Custody exposure** — `[MEASURED]` completed Rust and non-Rust gate logs, reports and final receipts are an uncommitted evidence-only delta over checkpoint `07ed5ceb` in `/private/tmp/prism-post316-slice1`; ten source/test hashes remain frozen in the manifest — **OPEN until controller custody commit**
+**(c) In flight / irreversible** — `[INHERITED]` all authorized gates and final evidence reconciliation completed; Tier-A quick is retained as INVALID, not retried. No push/PR/merge occurred — **RESOLVED 2026-09-16T09:41:39Z**
 **(d) Authorization granted but not exercised** — “great - proceed to orchestrate this. minimize your own reads and writes, prioritize delegation and orchestration”
 
 ## 1. Resume order
 
 1. Verify the ten source/test hashes in `docs/eval/post316-slice1/source-manifest.md`; stop if any differs.
-2. Have the controller checkpoint the exact final test/handoff/evidence delta.
-3. Run the remaining shared Rust, Node, authority, Python and Tier-A gates on the frozen source; append totals and exact exclusions here.
-4. Do not change source or tests: independent cap-two review is closed with no source-change request.
+2. Preserve `evidence/rust-final/` and `evidence/nonrust-final/`; their receipts bind every log/report to the frozen commit/tree and classify both setup-invalid attempts.
+3. Read `docs/eval/post316-slice1/final-verification-receipt.md` and `evidence/reviewer-round2/FINAL-ACCEPTANCE.md`; Tier-A quick remains an explicit INVALID limitation and must not be represented as an accuracy pass or regression.
+4. Commit the exact docs/evidence delta before switching this worktree to the separately dispatched slice-2 branch. Do not change slice-1 source or tests.
 
 **STOP conditions:** source hash drift, open-class findings at review cap two, any request to redesign `FunctionId`, class phases, anonymous indexing, or receiver/parameter semantics.
 
@@ -32,8 +32,8 @@
 | Navigation | done | `[MEASURED]` exact symbols/bytes/reasons/multiplicity candidate 1/0; same final test on unchanged base 0/1 |
 | Cache invalidation | done | `[MEASURED]` simulated guard checks pass; genuine base-produced v93/v52 bytes are rejected/rebuilt to v94/v53 and cached endpoints equal uncached |
 | Exact-16 reconciliation | done | `[MEASURED]` every original failure is mapped once in `docs/eval/post316-slice1/round1-repair-receipt.md`; focused affected modules are green |
-| Full verification | running | `[MEASURED]` post-hardening default Rust: 29 suites, 4,518 passed / 0 failed / 1 ignored; remaining gates are listed below |
-| Independent review | approved | `[INHERITED]` round 2 closed with 0 WRONG / 1 nonblocking performance SMELL and no source-change request; report and independent evidence are under `evidence/reviewer-round2/` |
+| Full verification | done with disclosed limitation | `[MEASURED]` Rust default 4,518/0/1; MCP 4,711/0/1; widest audit 4,734/0/1; examples 32/0/0; Node 785/0/1; authority 40/0; Python 940 collected cases closed; Tier-A matrix 159/159 `ok`. Tier-A quick report is INVALID for corpus-pin drift plus 4/6 C-method oracle probes. |
+| Independent review | accepted | `[INHERITED]` final evidence reconciliation APPROVE with 0 WRONG / 1 nonblocking performance SMELL and no source-change request; report, manifest and acceptance are under `evidence/reviewer-round2/` |
 
 ## 3. Corrections to standing documents and memory
 
@@ -46,9 +46,8 @@
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Controller checkpoint | next | Commit exact final test/manifest/handoff/evidence delta | controller `.git` authority | source manifest |
-| 2 | Remaining full gates | running | Run MCP/audit/examples, clippy, Node/authority, Python and Tier-A commands and record totals | frozen source | verification runbook |
-| 3 | Same-environment base attribution for unexpected failures | pending | Reproduce only unexpected candidate failures on base | only if a gate fails | base f5350044 |
+| 1 | Final custody | pending | Commit exact final receipts, logs, reports and handoff delta | controller `.git` authority | final verification receipt |
+| 2 | Tier-A baseline pin repair | outside slice | Resolve corpus pin/oracle completeness before seeking a clean quick accuracy verdict | separate owner authority | non-Rust receipt |
 
 ## 5. Invariants and traps — do not do these
 
@@ -69,9 +68,10 @@
 | Source manifest | `/private/tmp/prism-post316-slice1/docs/eval/post316-slice1/source-manifest.md` |
 | Review cap | `2` |
 | Environmental retry cap | `1 per failing gate class after diagnosis` |
+| Final receipt | `/private/tmp/prism-post316-slice1/docs/eval/post316-slice1/final-verification-receipt.md` |
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED · claim: “epochs 1-3 retain only the exact inner caller while direct outer calls, own defaults, eager keys, class baseline, unrelated callers and non-JS inventories survive” · pass: INDEPENDENT · evidence tier: TEST-BACKED · records: `docs/eval/post316-slice1/evidence/focused-green-round1-repair.log` and `docs/eval/post316-slice1/evidence/reviewer-round2/REVIEW-round2.md`
+**§2c verdict:** SURVIVED · claim: “epochs 1-3 retain only the exact inner caller while direct outer calls, own defaults, eager keys, class baseline, unrelated callers and non-JS inventories survive” · pass: INDEPENDENT APPROVE (0 WRONG / 1 nonblocking SMELL) · evidence tier: TEST-BACKED · records: `docs/eval/post316-slice1/evidence/focused-green-round1-repair.log`, `docs/eval/post316-slice1/evidence/reviewer-round2/REVIEW-round2.md`, and `docs/eval/post316-slice1/evidence/reviewer-round2/FINAL-ACCEPTANCE.md`
 
 **Questions the owner owes an answer to:** None.

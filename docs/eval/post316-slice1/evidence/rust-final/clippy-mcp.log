@@ -1,0 +1,3484 @@
+   Compiling unicode-ident v1.0.24
+    Checking memchr v2.8.0
+   Compiling hashbrown v0.16.1
+    Checking serde_core v1.0.228
+    Checking tree-sitter-language v0.1.7
+    Checking libc v0.2.183
+   Compiling typenum v1.19.0
+   Compiling equivalent v1.0.2
+    Checking regex-syntax v0.8.10
+   Compiling zmij v1.0.21
+    Checking anstyle v1.0.14
+   Compiling itoa v1.0.18
+   Compiling proc-macro2 v1.0.106
+    Checking crossbeam-utils v0.8.21
+    Checking utf8parse v0.2.2
+    Checking aho-corasick v1.1.4
+   Compiling cpufeatures v0.2.17
+    Checking ryu v1.0.23
+   Compiling indexmap v2.13.0
+   Compiling generic-array v0.14.7
+    Checking anstyle-query v1.1.5
+    Checking anstyle-parse v1.0.0
+   Compiling quote v1.0.45
+    Checking crossbeam-epoch v0.9.18
+    Checking is_terminal_polyfill v1.70.2
+    Checking colorchoice v1.0.5
+    Checking cfg-if v1.0.4
+    Checking option-ext v0.2.0
+    Checking fnv v1.0.7
+    Checking winnow v0.7.15
+    Checking clap_lex v1.1.0
+    Checking pratt v0.4.0
+    Checking toml_write v0.1.2
+    Checking anstream v1.0.0
+    Checking winnow v1.0.1
+    Checking regex-automata v0.4.14
+    Checking strsim v0.11.1
+   Compiling syn v2.0.117
+    Checking dirs-sys v0.5.0
+    Checking streaming-iterator v0.1.9
+    Checking crossbeam-deque v0.8.6
+    Checking fixedbitset v0.5.7
+    Checking either v1.15.0
+    Checking dirs v6.0.0
+    Checking clap_builder v4.6.0
+   Compiling serde_json v1.0.149
+    Checking num-traits v0.2.19
+    Checking tree-sitter-bash v0.25.1
+    Checking tree-sitter-cpp v0.23.4
+    Checking rayon-core v1.13.0
+    Checking tree-sitter-rust v0.24.2
+    Checking tree-sitter-python v0.23.6
+    Checking block-buffer v0.10.4
+    Checking crypto-common v0.1.7
+    Checking tree-sitter-typescript v0.23.2 (/private/tmp/prism-post316-slice1/vendor/tree-sitter-typescript)
+    Checking tree-sitter-java v0.23.5
+    Checking digest v0.10.7
+    Checking tree-sitter-go v0.23.4
+    Checking tree-sitter-hcl v1.1.0
+    Checking tree-sitter-lua v0.5.0
+    Checking tree-sitter-javascript v0.23.1
+    Checking tree-sitter-c v0.24.1
+    Checking sha2 v0.10.9
+    Checking anyhow v1.0.102
+    Checking predicates-core v1.0.10
+    Checking errno v0.3.14
+    Checking normalize-line-endings v0.3.0
+    Checking rayon v1.12.0
+    Checking difflib v0.4.0
+    Checking termtree v0.5.1
+    Checking bitflags v2.11.0
+    Checking getrandom v0.4.2
+    Checking predicates-tree v1.0.13
+    Checking rustix v1.1.4
+    Checking wait-timeout v0.2.1
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-slice1)
+    Checking fastrand v2.3.0
+    Checking once_cell v1.21.4
+    Checking float-cmp v0.10.0
+   Compiling tree-sitter v0.25.10
+    Checking petgraph v0.7.1
+    Checking tempfile v3.27.0
+    Checking regex v1.12.3
+    Checking bstr v1.12.1
+    Checking predicates v3.1.4
+    Checking assert_cmd v2.2.0
+   Compiling serde_derive v1.0.228
+   Compiling clap_derive v4.6.0
+   Compiling thiserror-impl v2.0.18
+    Checking thiserror v2.0.18
+    Checking clap v4.6.0
+    Checking serde v1.0.228
+    Checking toml_datetime v0.6.11
+    Checking hcl-primitives v0.1.11
+    Checking serde_spanned v0.6.9
+    Checking vecmap-rs v0.2.4
+    Checking bincode v1.3.3
+    Checking toml_edit v0.22.27
+    Checking hcl-edit v0.9.6
+    Checking toml v0.8.23
+    Checking hcl-rs v0.19.7
+warning: this manual char comparison can be written more succinctly
+   --> src/algorithms/absence_slice.rs:497:20
+    |
+497 |             .split(|c: char| c == '-' || c == '>' || c == '.')
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using an array of `char`: `['-', '>', '.']`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_pattern_char_comparison
+    = note: `-W clippy::manual-pattern-char-comparison` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::manual_pattern_char_comparison)]`
+
+warning: this `map_or` can be simplified
+   --> src/algorithms/absence_slice.rs:529:25
+    |
+529 | /                         line_calls.get(&diff_line).map_or(false, |names| {
+530 | |                             names.iter().any(|n| call_name_matches_pattern(n, base))
+531 | |                         })
+    | |__________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+    = note: `-W clippy::unnecessary-map-or` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::unnecessary_map_or)]`
+help: use is_some_and instead
+    |
+529 -                         line_calls.get(&diff_line).map_or(false, |names| {
+529 +                         line_calls.get(&diff_line).is_some_and(|names| {
+    |
+
+warning: this `map_or` can be simplified
+   --> src/algorithms/absence_slice.rs:858:37
+    |
+858 | / ...                   func_calls.get(&l).map_or(false, |names| {
+859 | | ...                       names.iter().any(|n| call_name_matches_pattern(n, base))
+860 | | ...                           && match &resource_var {
+861 | | ...                               Some(var) => {
+...   |
+866 | | ...                   })
+    | |________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+help: use is_some_and instead
+    |
+858 -                                     func_calls.get(&l).map_or(false, |names| {
+858 +                                     func_calls.get(&l).is_some_and(|names| {
+    |
+
+warning: this `if` statement can be collapsed
+    --> src/algorithms/absence_slice.rs:932:17
+     |
+ 932 | /                 if has_close && has_goto_patterns {
+ 933 | |                     if !gotos.is_empty() && !label_secs.is_empty() {
+ 934 | |                         for close_pattern in &pair.close_patterns {
+ 935 | |                             let close_base = match pattern_to_call_base(close_pattern) {
+...    |
+1017 | |                 }
+     | |_________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+     = note: `-W clippy::collapsible-if` implied by `-W clippy::all`
+     = help: to override `-W clippy::all` add `#[allow(clippy::collapsible_if)]`
+help: collapse nested if block
+     |
+ 932 ~                 if has_close && has_goto_patterns
+ 933 ~                     && !gotos.is_empty() && !label_secs.is_empty() {
+ 934 |                         for close_pattern in &pair.close_patterns {
+ ...
+1015 |                         }
+1016 ~                     }
+     |
+
+warning: this `map_or` can be simplified
+   --> src/algorithms/absence_slice.rs:944:41
+    |
+944 | / ...                   func_calls.get(&l).map_or(false, |names| {
+945 | | ...                       names.iter().any(|n| n.contains(close_base))
+946 | | ...                   })
+    | |________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+help: use is_some_and instead
+    |
+944 -                                         func_calls.get(&l).map_or(false, |names| {
+944 +                                         func_calls.get(&l).is_some_and(|names| {
+    |
+
+warning: this `map_or` can be simplified
+   --> src/algorithms/absence_slice.rs:963:45
+    |
+963 | / ...                   func_calls.get(&l).map_or(false, |names| {
+964 | | ...                       names.iter().any(|n| n.contains(close_base))
+965 | | ...                   })
+    | |________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+help: use is_some_and instead
+    |
+963 -                                             func_calls.get(&l).map_or(false, |names| {
+963 +                                             func_calls.get(&l).is_some_and(|names| {
+    |
+
+warning: method `from_str` can be confused for the standard trait method `std::str::FromStr::from_str`
+   --> src/algorithms/angle_slice.rs:101:5
+    |
+101 | /     pub fn from_str(s: &str) -> Self {
+102 | |         match s.to_lowercase().as_str() {
+103 | |             "error" | "error_handling" | "errors" => Self::ErrorHandling,
+104 | |             "log" | "logging" | "logs" => Self::Logging,
+...   |
+113 | |     }
+    | |_____^
+    |
+    = help: consider implementing the trait `std::str::FromStr` or choosing a less ambiguous method name
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#should_implement_trait
+    = note: `-W clippy::should-implement-trait` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::should_implement_trait)]`
+
+warning: this `if` has identical blocks
+   --> src/algorithms/angle_slice.rs:171:33
+    |
+171 |                   if is_diff_file {
+    |  _________________________________^
+172 | |                     ModifyType::Modified
+173 | |                 } else {
+    | |_________________^
+    |
+note: same as this
+   --> src/algorithms/angle_slice.rs:173:24
+    |
+173 |                   } else {
+    |  ________________________^
+174 | |                     ModifyType::Modified // Related file
+175 | |                 },
+    | |_________________^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#if_same_then_else
+    = note: `-W clippy::if-same-then-else` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::if_same_then_else)]`
+
+warning: the variable `block_id` is used as a loop counter
+  --> src/algorithms/chop.rs:41:5
+   |
+41 |     for (file, lines) in &by_file {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `for (block_id, (file, lines)) in by_file.iter().enumerate()`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#explicit_counter_loop
+   = note: `-W clippy::explicit-counter-loop` implied by `-W clippy::all`
+   = help: to override `-W clippy::all` add `#[allow(clippy::explicit_counter_loop)]`
+
+warning: manual implementation of `Iterator::find`
+   --> src/algorithms/contract_slice.rs:466:5
+    |
+466 | /     for child in node.children(&mut cursor) {
+467 | |         if is_if_node(child.kind()) {
+468 | |             return Some(child);
+...   |
+471 | |     None
+    | |________^ help: replace with an iterator: `node.children(&mut cursor).find(|&child| is_if_node(child.kind()))`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_find
+    = note: `-W clippy::manual-find` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::manual_find)]`
+
+warning: this `map_or` can be simplified
+   --> src/algorithms/contract_slice.rs:794:12
+    |
+794 |           && s.chars()
+    |  ____________^
+795 | |             .next()
+796 | |             .map_or(false, |c| c.is_alphabetic() || c == '_')
+    | |_____________________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+help: use is_some_and instead
+    |
+796 -             .map_or(false, |c| c.is_alphabetic() || c == '_')
+796 +             .is_some_and(|c| c.is_alphabetic() || c == '_')
+    |
+
+warning: this `map_or` can be simplified
+   --> src/algorithms/contract_slice.rs:886:37
+    |
+886 |         || (text.ends_with("()") && text.chars().next().map_or(false, |c| c.is_uppercase()))
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+help: use is_some_and instead
+    |
+886 -         || (text.ends_with("()") && text.chars().next().map_or(false, |c| c.is_uppercase()))
+886 +         || (text.ends_with("()") && text.chars().next().is_some_and(|c| c.is_uppercase()))
+    |
+
+warning: the variable `block_id` is used as a loop counter
+   --> src/algorithms/delta_slice.rs:108:5
+    |
+108 |     for (file, lines) in &changed_lines {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `for (block_id, (file, lines)) in changed_lines.iter().enumerate()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#explicit_counter_loop
+
+warning: the variable `block_id` is used as a loop counter
+   --> src/algorithms/gradient_slice.rs:169:5
+    |
+169 |     for (file, lines) in &by_file {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `for (block_id, (file, lines)) in by_file.iter().enumerate()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#explicit_counter_loop
+
+warning: this `impl` can be derived
+  --> src/algorithms/horizontal_slice.rs:29:1
+   |
+29 | / impl Default for PeerPattern {
+30 | |     fn default() -> Self {
+31 | |         Self::Auto
+32 | |     }
+33 | | }
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#derivable_impls
+   = note: `-W clippy::derivable-impls` implied by `-W clippy::all`
+   = help: to override `-W clippy::all` add `#[allow(clippy::derivable_impls)]`
+help: replace the manual implementation with a derive attribute and mark the default variant
+   |
+16 + #[derive(Default)]
+17 | pub enum PeerPattern {
+18 |     /// Match by decorator/annotation (e.g., `@app.route`, `@Test`)
+...
+26 |     /// Auto-detect: infer the pattern from the changed construct
+27 ~     #[default]
+28 ~     Auto,
+   |
+
+warning: stripping a prefix manually
+   --> src/algorithms/horizontal_slice.rs:184:36
+    |
+184 |                     name.ends_with(&pattern[1..])
+    |                                    ^^^^^^^^^^^^^
+    |
+note: the prefix was tested here
+   --> src/algorithms/horizontal_slice.rs:183:17
+    |
+183 |                 if pattern.starts_with('*') {
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_strip
+    = note: `-W clippy::manual-strip` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::manual_strip)]`
+help: try using the `strip_prefix` method
+    |
+183 ~                 if let Some(<stripped>) = pattern.strip_prefix('*') {
+184 ~                     name.ends_with(<stripped>)
+    |
+
+warning: doc list item without indentation
+  --> src/algorithms/peer_consistency_slice.rs:26:5
+   |
+26 | //!    or:
+   |     ^^^
+   |
+   = help: if this is supposed to be its own paragraph, add a blank line
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_lazy_continuation
+   = note: `-W clippy::doc-lazy-continuation` implied by `-W clippy::all`
+   = help: to override `-W clippy::all` add `#[allow(clippy::doc_lazy_continuation)]`
+help: indent this line
+   |
+26 | //!        or:
+   |        ++++
+
+warning: the following explicit lifetimes could be elided: 'a
+   --> src/algorithms/primitive_slice.rs:745:18
+    |
+745 | fn strip_comment<'a>(line: &'a str, lang: Language) -> &'a str {
+    |                  ^^         ^^                          ^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_lifetimes
+    = note: `-W clippy::needless-lifetimes` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::needless_lifetimes)]`
+help: elide the lifetimes
+    |
+745 - fn strip_comment<'a>(line: &'a str, lang: Language) -> &'a str {
+745 + fn strip_comment(line: &str, lang: Language) -> &str {
+    |
+
+warning: this function has too many arguments (8/7)
+   --> src/algorithms/primitive_slice.rs:764:1
+    |
+764 | / fn push_finding(
+765 | |     result: &mut SliceResult,
+766 | |     block_id: &mut usize,
+767 | |     file: &str,
+...   |
+772 | |     raw_line: &str,
+773 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+    = note: `-W clippy::too-many-arguments` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::too_many_arguments)]`
+
+warning: this `if` has identical blocks
+   --> src/algorithms/provenance_slice.rs:732:55
+    |
+732 |                   if origin_file == diff_info.file_path {
+    |  _______________________________________________________^
+733 | |                     block.add_line(&origin_file, origin_line, false);
+734 | |                 } else {
+    | |_________________^
+    |
+note: same as this
+   --> src/algorithms/provenance_slice.rs:734:24
+    |
+734 |                   } else {
+    |  ________________________^
+735 | |                     block.add_line(&origin_file, origin_line, false);
+736 | |                 }
+    | |_________________^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#if_same_then_else
+
+warning: this `map_or` can be simplified
+   --> src/algorithms/quantum_slice.rs:287:30
+    |
+287 |                 let has_bg = node.next_sibling().map_or(false, |s| s.kind() == "&");
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+help: use is_some_and instead
+    |
+287 -                 let has_bg = node.next_sibling().map_or(false, |s| s.kind() == "&");
+287 +                 let has_bg = node.next_sibling().is_some_and(|s| s.kind() == "&");
+    |
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> src/algorithms/quantum_slice.rs:330:45
+    |
+330 |                 if let Some(name) = nth_arg(&args, 1) {
+    |                                             ^^^^^ help: change this to: `args`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+    = note: `-W clippy::needless-borrow` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::needless_borrow)]`
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> src/algorithms/quantum_slice.rs:339:45
+    |
+339 |                 if let Some(name) = nth_arg(&args, 2) {
+    |                                             ^^^^^ help: change this to: `args`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> src/algorithms/quantum_slice.rs:350:49
+    |
+350 |                     if let Some(name) = nth_arg(&args, 1) {
+    |                                                 ^^^^^ help: change this to: `args`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: parameter is only used in recursion
+   --> src/algorithms/quantum_slice.rs:541:22
+    |
+541 | fn check_for_go_stmt(parsed: &ParsedFile, node: Node<'_>, found: &mut bool) {
+    |                      ^^^^^^ help: if this is intentional, prefix it with an underscore: `_parsed`
+    |
+note: parameter used here
+   --> src/algorithms/quantum_slice.rs:549:31
+    |
+549 |             check_for_go_stmt(parsed, child, found);
+    |                               ^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#only_used_in_recursion
+    = note: `-W clippy::only-used-in-recursion` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::only_used_in_recursion)]`
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+   --> src/algorithms/resonance_slice.rs:149:6
+    |
+149 |   ) -> Result<(
+    |  ______^
+150 | |     BTreeMap<String, BTreeMap<String, usize>>,
+151 | |     BTreeMap<String, usize>,
+152 | | )> {
+    | |__^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+    = note: `-W clippy::type-complexity` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::type_complexity)]`
+
+warning: the variable `block_id` is used as a loop counter
+   --> src/algorithms/spiral_slice.rs:321:5
+    |
+321 |     for (file, lines) in &by_file {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `for (block_id, (file, lines)) in by_file.iter().enumerate()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#explicit_counter_loop
+
+warning: returning the result of a `let` binding from a block
+   --> src/algorithms/symmetry_slice.rs:130:25
+    |
+126 | /                         let replaced = func_name
+127 | |                             .to_lowercase()
+128 | |                             .replace(&left_pat.to_lowercase(), &r.to_lowercase());
+    | |__________________________________________________________________________________- unnecessary `let` binding
+129 |                           // Also try direct substitution
+130 |                           replaced
+    |                           ^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#let_and_return
+    = note: `-W clippy::let-and-return` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::let_and_return)]`
+help: return the expression directly
+    |
+126 ~                         
+127 |                         // Also try direct substitution
+128 ~                         func_name
+129 +                             .to_lowercase()
+130 +                             .replace(&left_pat.to_lowercase(), &r.to_lowercase())
+    |
+
+warning: this `if` statement can be collapsed
+    --> src/algorithms/taint.rs:1440:13
+     |
+1440 | /             if func_types.contains(&node.kind()) {
+1441 | |                 if parsed.is_variadic_function(&node) {
+1442 | |                     // Check if this function calls any format sink
+1443 | |                     let callees = parsed.callees_in_function(&node);
+...    |
+1453 | |             }
+     | |_____________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+help: collapse nested if block
+     |
+1440 ~             if func_types.contains(&node.kind())
+1441 ~                 && parsed.is_variadic_function(&node) {
+1442 |                     // Check if this function calls any format sink
+ ...
+1451 |                     }
+1452 ~                 }
+     |
+
+warning: usage of `bool::then` in `filter_map`
+    --> src/algorithms/taint.rs:2472:10
+     |
+2472 |           .filter_map(|(alias, alias_defs)| {
+     |  __________^
+2473 | |             alias_defs
+2474 | |                 .iter()
+2475 | |                 .any(|def| def.visible_range(line, start_byte, end_byte))
+2476 | |                 .then(|| alias.clone())
+2477 | |         })
+     | |__________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#filter_map_bool_then
+     = note: `-W clippy::filter-map-bool-then` implied by `-W clippy::all`
+     = help: to override `-W clippy::all` add `#[allow(clippy::filter_map_bool_then)]`
+help: use `filter` then `map` instead
+     |
+2472 ~         .filter(|&(alias, alias_defs)| alias_defs
+2473 +                 .iter()
+2474 +                 .any(|def| def.visible_range(line, start_byte, end_byte))).map(|(alias, alias_defs)| alias.clone())
+     |
+
+warning: this function has too many arguments (9/7)
+    --> src/algorithms/taint.rs:2993:1
+     |
+2993 | / fn collect_js_ts_request_assignment_targets(
+2994 | |     parsed: &ParsedFile,
+2995 | |     lhs: Node<'_>,
+2996 | |     rhs: Node<'_>,
+...    |
+3002 | |     out: &mut BTreeSet<JsTsRequestDataSource>,
+3003 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+
+warning: this function has too many arguments (9/7)
+    --> src/algorithms/taint.rs:3203:1
+     |
+3203 | / fn collect_js_ts_request_alias_source_uses_for_alias(
+3204 | |     parsed: &ParsedFile,
+3205 | |     func: Node<'_>,
+3206 | |     framework: &str,
+...    |
+3212 | |     out: &mut BTreeSet<JsTsRequestDataSource>,
+3213 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+
+warning: this function has too many arguments (8/7)
+    --> src/algorithms/taint.rs:3321:1
+     |
+3321 | / fn collect_js_ts_koa_request_object_alias_destructure_targets(
+3322 | |     parsed: &ParsedFile,
+3323 | |     pattern: Node<'_>,
+3324 | |     line: usize,
+...    |
+3329 | |     allow_alias_defs: bool,
+3330 | | ) -> bool {
+     | |_________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+
+warning: this function has too many arguments (8/7)
+    --> src/algorithms/taint.rs:4151:1
+     |
+4151 | / fn js_ts_source_access_ranges_for_alias_from_defs(
+4152 | |     parsed: &ParsedFile,
+4153 | |     func: Node<'_>,
+4154 | |     line: usize,
+...    |
+4159 | |     koa_request_object_alias_defs: &JsTsAliasDefs,
+4160 | | ) -> Vec<(usize, usize)> {
+     | |________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+
+warning: this function has too many arguments (8/7)
+    --> src/algorithms/taint.rs:4211:1
+     |
+4211 | / fn collect_js_ts_source_access_ranges_on_line(
+4212 | |     parsed: &ParsedFile,
+4213 | |     node: Node<'_>,
+4214 | |     root_func_id: usize,
+...    |
+4219 | |     out: &mut Vec<(usize, usize)>,
+4220 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+
+warning: this `if` statement can be collapsed
+    --> src/algorithms/taint.rs:4266:5
+     |
+4266 | /     if start_line == line {
+4267 | |         if is_source_access {
+4268 | |             out.push((node.start_byte(), node.end_byte()));
+4269 | |         }
+4270 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+help: collapse nested if block
+     |
+4266 ~     if start_line == line
+4267 ~         && is_source_access {
+4268 |             out.push((node.start_byte(), node.end_byte()));
+4269 ~         }
+     |
+
+warning: this function has too many arguments (8/7)
+    --> src/algorithms/taint.rs:5420:1
+     |
+5420 | / fn add_js_ts_request_alias_reference_edges(
+5421 | |     ctx: &TargetSeedSynthesisContext<'_>,
+5422 | |     edges: &mut Vec<FlowEdge>,
+5423 | |     alias: &str,
+...    |
+5428 | |     koa_request_object_aliases: &BTreeSet<String>,
+5429 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+
+warning: the variable `idx` is used as a loop counter
+    --> src/algorithms/taint.rs:5938:13
+     |
+5938 |             for arg in arguments.named_children(&mut cursor) {
+     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `for (idx, arg) in arguments.named_children(&mut cursor).enumerate()`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#explicit_counter_loop
+
+warning: this `impl` can be derived
+  --> src/algorithms/vertical_slice.rs:50:1
+   |
+50 | / impl Default for VerticalConfig {
+51 | |     fn default() -> Self {
+52 | |         Self { layers: Vec::new() }
+53 | |     }
+54 | | }
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#derivable_impls
+help: replace the manual implementation with a derive attribute
+   |
+45 + #[derive(Default)]
+46 | pub struct VerticalConfig {
+   |
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> src/api/run.rs:130:57
+    |
+130 |             crate::algorithms::conditioned_slice::slice(&ctx, &inputs.diff, config, &condition)
+    |                                                         ^^^^ help: change this to: `ctx`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this `if` statement can be collapsed
+   --> src/ast/js_module_forwarding.rs:125:20
+    |
+125 |               } else if is_js_ts_function_like(node.kind())
+    |  ____________________^
+126 | |                 || matches!(
+127 | |                     node.kind(),
+128 | |                     "class_declaration"
+...   |
+146 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+125 ~             } else if (is_js_ts_function_like(node.kind())
+126 |                 || matches!(
+...
+137 |                         | "import_alias"
+138 ~                 )
+139 ~                 ))
+140 |             {
+141 ~                 && node
+142 |                     .child_by_field_name("name")
+...
+145 |                     return true;
+146 ~                 }
+    |
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+   --> src/ast.rs:844:10
+    |
+844 |       ) -> (
+    |  __________^
+845 | |         Option<(String, crate::resolution::ReceiverRecovery)>,
+846 | |         usize,
+847 | |         Option<(String, crate::resolution::ReceiverRecovery)>,
+848 | |     ) {
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+   --> src/ast.rs:868:10
+    |
+868 |       ) -> (
+    |  __________^
+869 | |         Option<(String, crate::resolution::ReceiverRecovery)>,
+870 | |         usize,
+871 | |         Option<(String, crate::resolution::ReceiverRecovery)>,
+872 | |     ) {
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+   --> src/ast.rs:938:10
+    |
+938 |       ) -> (
+    |  __________^
+939 | |         Option<(String, crate::resolution::ReceiverRecovery)>,
+940 | |         usize,
+941 | |         Option<(String, crate::resolution::ReceiverRecovery)>,
+942 | |     ) {
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+
+warning: this `if` statement can be collapsed
+    --> src/ast.rs:3082:13
+     |
+3082 | /             if is_js_ts_function_like(node.kind()) && seen_functions.insert(node.id()) {
+3083 | |                 if self.js_ts_function_scope_binds_receiver(&node, &receiver, receiver_name) {
+3084 | |                     return true;
+3085 | |                 }
+3086 | |             }
+     | |_____________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+help: collapse nested if block
+     |
+3082 ~             if is_js_ts_function_like(node.kind()) && seen_functions.insert(node.id())
+3083 ~                 && self.js_ts_function_scope_binds_receiver(&node, &receiver, receiver_name) {
+3084 |                     return true;
+3085 ~                 }
+     |
+
+warning: this `if` statement can be collapsed
+    --> src/ast.rs:3251:13
+     |
+3251 | /             if self.node_text(&key) == "constructor" {
+3252 | |                 if slot.kind() != "method_definition" || constructor.replace(slot).is_some() {
+3253 | |                     return None;
+3254 | |                 }
+3255 | |             }
+     | |_____________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+help: collapse nested if block
+     |
+3251 ~             if self.node_text(&key) == "constructor"
+3252 ~                 && (slot.kind() != "method_definition" || constructor.replace(slot).is_some()) {
+3253 |                     return None;
+3254 ~                 }
+     |
+
+warning: this boolean expression can be simplified
+    --> src/ast.rs:3824:16
+     |
+3824 |             if !declared.is_some_and(|n| self.node_text(&n).split('.').next() == Some(name)) {
+     |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `declared.is_none_or(|n| self.node_text(&n).split('.').next() != Some(name))`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#nonminimal_bool
+     = note: `-W clippy::nonminimal-bool` implied by `-W clippy::all`
+     = help: to override `-W clippy::all` add `#[allow(clippy::nonminimal_bool)]`
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+    --> src/ast.rs:3939:10
+     |
+3939 |     ) -> Option<(String, (usize, usize), (usize, usize))> {
+     |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+
+warning: this `if` statement can be collapsed
+    --> src/ast.rs:4699:20
+     |
+4699 |               } else if self.language.is_scope_block(scope.kind())
+     |  ____________________^
+4700 | |                 || matches!(
+4701 | |                     scope.kind(),
+4702 | |                     "for_statement"
+...    |
+4719 | |             }
+     | |_____________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+help: collapse nested if block
+     |
+4699 ~             } else if (self.language.is_scope_block(scope.kind())
+4700 |                 || matches!(
+ ...
+4708 |                         | "catch_clause"
+4709 ~                 )
+4710 ~                 ))
+4711 |             {
+4712 ~                 && self.js_ts_receiver_binding_reaches_call(
+4713 |                     scope,
+ ...
+4718 |                     return true;
+4719 ~                 }
+     |
+
+warning: this `if` statement can be collapsed
+    --> src/ast.rs:6285:13
+     |
+6285 | /             if node.kind() == "keyword_argument" {
+6286 | |                 if node.child_by_field_name("name").is_some_and(|name| {
+6287 | |                     name.start_byte() <= start_byte && end_byte <= name.end_byte()
+6288 | |                 }) {
+...    |
+6291 | |             }
+     | |_____________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+help: collapse nested if block
+     |
+6285 ~             if node.kind() == "keyword_argument"
+6286 ~                 && node.child_by_field_name("name").is_some_and(|name| {
+6287 |                     name.start_byte() <= start_byte && end_byte <= name.end_byte()
+6288 |                 }) {
+6289 |                     return false;
+6290 ~                 }
+     |
+
+warning: this `if` statement can be collapsed
+    --> src/ast.rs:6292:13
+     |
+6292 | /             if self.language.is_call_node(node.kind()) {
+6293 | |                 if self.language.call_function_name(&node).is_some_and(|name| {
+6294 | |                     name.start_byte() <= start_byte && end_byte <= name.end_byte()
+6295 | |                 }) {
+...    |
+6298 | |             }
+     | |_____________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+help: collapse nested if block
+     |
+6292 ~             if self.language.is_call_node(node.kind())
+6293 ~                 && self.language.call_function_name(&node).is_some_and(|name| {
+6294 |                     name.start_byte() <= start_byte && end_byte <= name.end_byte()
+6295 |                 }) {
+6296 |                     return false;
+6297 ~                 }
+     |
+
+warning: this `if` statement can be collapsed
+    --> src/ast.rs:9450:13
+     |
+9450 | /             if child.start_position().row <= row && child.end_position().row >= row {
+9451 | |                 if self.find_flow_terminator(child, row) {
+9452 | |                     return true;
+9453 | |                 }
+9454 | |             }
+     | |_____________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+help: collapse nested if block
+     |
+9450 ~             if child.start_position().row <= row && child.end_position().row >= row
+9451 ~                 && self.find_flow_terminator(child, row) {
+9452 |                     return true;
+9453 ~                 }
+     |
+
+warning: this function has too many arguments (13/7)
+     --> src/ast.rs:10450:5
+      |
+10450 | /     fn walk_receiver_bindings(
+10451 | |         &self,
+10452 | |         node: Node<'_>,
+10453 | |         is_root: bool,
+...     |
+10463 | |         recover_var: bool,
+10464 | |     ) {
+      | |_____^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+
+warning: this `if` has identical blocks
+     --> src/ast.rs:10702:85
+      |
+10702 |                       if self.simple_binding_text(&left).as_deref() == Some(receiver) {
+      |  _____________________________________________________________________________________^
+10703 | |                         *bindings += 1;
+10704 | |                         *found = None;
+10705 | |                     } else if self.node_binds_name(left, receiver) {
+      | |_____________________^
+      |
+note: same as this
+     --> src/ast.rs:10705:68
+      |
+10705 |                       } else if self.node_binds_name(left, receiver) {
+      |  ____________________________________________________________________^
+10706 | |                         *bindings += 1;
+10707 | |                         *found = None;
+10708 | |                     }
+      | |_____________________^
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#if_same_then_else
+
+warning: this `if` has identical blocks
+     --> src/ast.rs:10731:86
+      |
+10731 |                       if self.simple_binding_text(&alias).as_deref() == Some(receiver) {
+      |  ______________________________________________________________________________________^
+10732 | |                         *bindings += 1;
+10733 | |                         *found = None;
+10734 | |                     } else if self.node_binds_name(alias, receiver) {
+      | |_____________________^
+      |
+note: same as this
+     --> src/ast.rs:10734:69
+      |
+10734 |                       } else if self.node_binds_name(alias, receiver) {
+      |  _____________________________________________________________________^
+10735 | |                         *bindings += 1;
+10736 | |                         *found = None;
+10737 | |                     }
+      | |_____________________^
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#if_same_then_else
+
+warning: this `if` has identical blocks
+     --> src/ast.rs:10744:88
+      |
+10744 |                       if self.simple_binding_text(&pattern).as_deref() == Some(receiver) {
+      |  ________________________________________________________________________________________^
+10745 | |                         *bindings += 1;
+10746 | |                         *found = None;
+10747 | |                     } else if self.node_binds_name(pattern, receiver) {
+      | |_____________________^
+      |
+note: same as this
+     --> src/ast.rs:10747:71
+      |
+10747 |                       } else if self.node_binds_name(pattern, receiver) {
+      |  _______________________________________________________________________^
+10748 | |                         *bindings += 1;
+10749 | |                         *found = None;
+10750 | |                     }
+      | |_____________________^
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#if_same_then_else
+
+warning: this manual char comparison can be written more succinctly
+     --> src/ast.rs:11512:29
+      |
+11512 |     for token in text.split(|c: char| c == ',' || c == '{' || c == '}' || c == '(' || c == ')') {
+      |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using an array of `char`: `[',', '{', '}', '(', ')']`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_pattern_char_comparison
+
+warning: this `map_or` can be simplified
+     --> src/ast.rs:11656:12
+      |
+11656 |           && s.chars()
+      |  ____________^
+11657 | |             .next()
+11658 | |             .map_or(false, |c| c.is_alphabetic() || c == '_')
+      | |_____________________________________________________________^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+help: use is_some_and instead
+      |
+11658 -             .map_or(false, |c| c.is_alphabetic() || c == '_')
+11658 +             .is_some_and(|c| c.is_alphabetic() || c == '_')
+      |
+
+warning: this `if` statement can be collapsed
+     --> src/ast.rs:11666:9
+      |
+11666 | /         if eq_pos + 1 < trimmed.len() {
+11667 | |             if trimmed.as_bytes().get(eq_pos + 1) == Some(&b'=') {
+11668 | |                 return None;
+11669 | |             }
+11670 | |         }
+      | |_________^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+help: collapse nested if block
+      |
+11666 ~         if eq_pos + 1 < trimmed.len()
+11667 ~             && trimmed.as_bytes().get(eq_pos + 1) == Some(&b'=') {
+11668 |                 return None;
+11669 ~             }
+      |
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+   --> src/call_graph.rs:799:22
+    |
+799 |     pub field_types: BTreeMap<(ScopeId, String), Vec<(Option<String>, TypeKey)>>,
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+
+warning: this `if` statement can be collapsed
+    --> src/call_graph.rs:1321:21
+     |
+1321 | /                     if matches!(
+1322 | |                         parsed.language,
+1323 | |                         crate::languages::Language::C | crate::languages::Language::Cpp
+1324 | |                     ) {
+...    |
+1328 | |                     }
+     | |_____________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+help: collapse nested if block
+     |
+1324 ~                     )
+1325 ~                         && has_static_specifier(parsed, &func_node) {
+1326 |                             static_functions.insert((file_path.clone(), name));
+1327 ~                         }
+     |
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+    --> src/call_graph.rs:1597:24
+     |
+1597 |               functions: Vec<(
+     |  ________________________^
+1598 | |                 String,
+1599 | |                 FunctionId,
+1600 | |                 Option<String>,
+...    |
+1604 | |                 Option<(usize, usize)>,
+1605 | |             )>,
+     | |______________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+
+warning: this `if` statement can be collapsed
+    --> src/call_graph.rs:1652:25
+     |
+1652 | /                         if matches!(
+1653 | |                             parsed.language,
+1654 | |                             crate::languages::Language::C | crate::languages::Language::Cpp
+1655 | |                         ) {
+...    |
+1659 | |                         }
+     | |_________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+help: collapse nested if block
+     |
+1655 ~                         )
+1656 ~                             && has_static_specifier(parsed, &func_node) {
+1657 |                                 file_static_functions.push((file_path.clone(), name));
+1658 ~                             }
+     |
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+    --> src/call_graph.rs:2030:10
+     |
+2030 |       ) -> (
+     |  __________^
+2031 | |         BTreeMap<String, Vec<ImportBinding>>,
+2032 | |         BTreeMap<String, BTreeMap<String, ModuleBindingKind>>,
+2033 | |     ) {
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+    --> src/call_graph.rs:2881:10
+     |
+2881 |       ) -> (
+     |  __________^
+2882 | |         BTreeMap<(String, (usize, usize)), Vec<ClassBaseLink>>,
+2883 | |         BTreeMap<(String, String), (usize, usize)>,
+2884 | |     ) {
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+
+warning: this `if` statement can be collapsed
+    --> src/call_graph.rs:3132:21
+     |
+3132 | /                     if matches!(
+3133 | |                         block_child.kind(),
+3134 | |                         "block"
+3135 | |                             | "else_clause"
+...    |
+3143 | |                     }
+     | |_____________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+help: collapse nested if block
+     |
+3139 ~                     )
+3140 ~                         && check_block(block_child) {
+3141 |                             return true;
+3142 ~                         }
+     |
+
+warning: this `let...else` may be rewritten with the `?` operator
+    --> src/call_graph.rs:3419:9
+     |
+3419 | /         let Some(inputs) = inputs else {
+3420 | |             return None;
+3421 | |         };
+     | |__________^ help: replace it with: `let inputs = inputs?;`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#question_mark
+     = note: `-W clippy::question-mark` implied by `-W clippy::all`
+     = help: to override `-W clippy::all` add `#[allow(clippy::question_mark)]`
+
+warning: this `if` statement can be collapsed
+    --> src/call_graph.rs:5013:21
+     |
+5013 | /                     if matches!(
+5014 | |                         parsed.language,
+5015 | |                         crate::languages::Language::C | crate::languages::Language::Cpp
+5016 | |                     ) {
+...    |
+5020 | |                     }
+     | |_____________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+help: collapse nested if block
+     |
+5016 ~                     )
+5017 ~                         && has_static_specifier(parsed, &func_node) {
+5018 |                             static_functions.insert((file_path.clone(), name));
+5019 ~                         }
+     |
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+    --> src/call_graph.rs:5312:30
+     |
+5312 |         let mut field_types: BTreeMap<(ScopeId, String), Vec<(Option<String>, TypeKey)>> =
+     |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+    --> src/call_graph.rs:5460:10
+     |
+5460 |       ) -> (
+     |  __________^
+5461 | |         Option<String>,
+5462 | |         Option<String>,
+5463 | |         Option<String>,
+5464 | |         Option<(usize, usize)>,
+5465 | |     ) {
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+    --> src/call_graph.rs:5760:10
+     |
+5760 |       ) -> (
+     |  __________^
+5761 | |         &str,
+5762 | |         &str,
+5763 | |         Option<&str>,
+...    |
+5770 | |         Option<&FunctionId>,
+5771 | |     ) {
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+
+warning: for loop over a single element
+    --> src/call_graph.rs:6317:13
+     |
+6317 | /             for ext in &[".py"] {
+6318 | |                 let candidate = if base.is_empty() {
+6319 | |                     format!("{rel}{ext}")
+6320 | |                 } else {
+...    |
+6326 | |             }
+     | |_____________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#single_element_loop
+     = note: `-W clippy::single-element-loop` implied by `-W clippy::all`
+     = help: to override `-W clippy::all` add `#[allow(clippy::single_element_loop)]`
+help: try
+     |
+6317 ~             {
+6318 +                 let ext = &".py";
+6319 +                 let candidate = if base.is_empty() {
+6320 +                     format!("{rel}{ext}")
+6321 +                 } else {
+6322 +                     format!("{base}/{rel}{ext}")
+6323 +                 };
+6324 +                 if indexed_files.contains(&candidate) && candidate == file {
+6325 +                     return true;
+6326 +                 }
+6327 +             }
+     |
+
+warning: stripping a suffix manually
+    --> src/call_graph.rs:6407:23
+     |
+6407 |             let dir = &file[..file.len() - index.len()];
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+note: the suffix was tested here
+    --> src/call_graph.rs:6406:9
+     |
+6406 |         if file.ends_with(index) {
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_strip
+help: try using the `strip_suffix` method
+     |
+6406 ~         if let Some(dir) = file.strip_suffix(index) {
+6407 ~             let dir_name = dir.rsplit('/').next().unwrap_or(dir);
+     |
+
+warning: this `if` statement can be collapsed
+   --> src/cfg.rs:848:9
+    |
+848 | /         if child.kind() == "compound_statement"
+849 | |             || child.kind() == "block"
+850 | |             || child.kind() == "statement_block"
+...   |
+855 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+848 ~         if (child.kind() == "compound_statement"
+849 |             || child.kind() == "block"
+850 ~             || child.kind() == "statement_block"
+851 ~             || child.kind() == "statement_block")
+852 |         {
+853 ~             && ends_with_terminator(&child, parsed) {
+854 |                 return true;
+855 ~             }
+    |
+
+warning: doc list item without indentation
+   --> src/cpg/build.rs:302:9
+    |
+302 |     /// Build a CPG without type enrichment.
+    |         ^
+    |
+    = help: if this is supposed to be its own paragraph, add a blank line
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_lazy_continuation
+help: indent this line
+    |
+302 |     ///    Build a CPG without type enrichment.
+    |         +++
+
+warning: usage of `contains_key` followed by `insert` on a `BTreeMap`
+   --> src/cpg/build.rs:695:17
+    |
+695 | /                 if !var_index.contains_key(&key) {
+696 | |                     let idx = graph.add_node(CpgNode::Variable {
+697 | |                         path: loc.path.clone(),
+698 | |                         file: loc.file.clone(),
+...   |
+710 | |                         .push(idx);
+711 | |                 }
+    | |_________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#map_entry
+    = note: `-W clippy::map-entry` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::map_entry)]`
+help: try
+    |
+695 ~                 if let std::collections::btree_map::Entry::Vacant(e) = var_index.entry(key) {
+696 +                     let idx = graph.add_node(CpgNode::Variable {
+697 +                         path: loc.path.clone(),
+698 +                         file: loc.file.clone(),
+699 +                         function: loc.function.clone(),
+700 +                         function_start_line: loc.function_start_line,
+701 +                         line: loc.line,
+702 +                         access,
+703 +                         start_byte: loc.start_byte,
+704 +                         end_byte: loc.end_byte,
+705 +                     });
+706 +                     e.insert(idx);
+707 +                     location_index
+708 +                         .entry((loc.file.clone(), loc.line))
+709 +                         .or_default()
+710 +                         .push(idx);
+711 +                 }
+    |
+
+warning: usage of `contains_key` followed by `insert` on a `BTreeMap`
+   --> src/cpg/build.rs:725:17
+    |
+725 | /                 if !var_index.contains_key(&key) {
+726 | |                     let idx = graph.add_node(CpgNode::Variable {
+727 | |                         path: loc.path.clone(),
+728 | |                         file: loc.file.clone(),
+...   |
+740 | |                         .push(idx);
+741 | |                 }
+    | |_________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#map_entry
+help: try
+    |
+725 ~                 if let std::collections::btree_map::Entry::Vacant(e) = var_index.entry(key) {
+726 +                     let idx = graph.add_node(CpgNode::Variable {
+727 +                         path: loc.path.clone(),
+728 +                         file: loc.file.clone(),
+729 +                         function: loc.function.clone(),
+730 +                         function_start_line: loc.function_start_line,
+731 +                         line: loc.line,
+732 +                         access,
+733 +                         start_byte: loc.start_byte,
+734 +                         end_byte: loc.end_byte,
+735 +                     });
+736 +                     e.insert(idx);
+737 +                     location_index
+738 +                         .entry((loc.file.clone(), loc.line))
+739 +                         .or_default()
+740 +                         .push(idx);
+741 +                 }
+    |
+
+warning: this boolean expression can be simplified
+   --> src/cpg/cfg_queries.rs:254:25
+    |
+254 | /                         (target.file == *file && target.line == *line)
+255 | |                             // Cross-function targets bypass CFG filter — a different overload
+256 | |                             // (same name, different start line) is also cross-function (S2 de-conflation)
+257 | |                             || target.file != *file
+...   |
+268 | |                                 ContinuationScan::Production,
+269 | |                             )
+    | |_____________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#nonminimal_bool
+help: try
+    |
+254 ~                         !(target.file == *file && target.line != *line && target.function == src_loc.function && target.function_start_line == src_loc.function_start_line && !self.cfg_reachable_including_continuation(
+255 +                                 &target.file,
+256 +                                 target.line,
+257 +                                 &cfg_set,
+258 +                                 ContinuationScan::Production,
+259 +                             ))
+    |
+254 ~                         target.file != *file || target.line == *line || target.function != src_loc.function || target.function_start_line != src_loc.function_start_line || self.cfg_reachable_including_continuation(
+255 +                                 &target.file,
+256 +                                 target.line,
+257 +                                 &cfg_set,
+258 +                                 ContinuationScan::Production,
+259 +                             )
+    |
+
+warning: this boolean expression can be simplified
+   --> src/cpg/cfg_queries.rs:254:25
+    |
+254 | /                         (target.file == *file && target.line == *line)
+255 | |                             // Cross-function targets bypass CFG filter — a different overload
+256 | |                             // (same name, different start line) is also cross-function (S2 de-conflation)
+257 | |                             || target.file != *file
+258 | |                             || target.function != src_loc.function
+259 | |                             || target.function_start_line != src_loc.function_start_line
+    | |________________________________________________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#nonminimal_bool
+help: try
+    |
+254 -                         (target.file == *file && target.line == *line)
+255 -                             // Cross-function targets bypass CFG filter — a different overload
+256 -                             // (same name, different start line) is also cross-function (S2 de-conflation)
+257 -                             || target.file != *file
+258 -                             || target.function != src_loc.function
+259 -                             || target.function_start_line != src_loc.function_start_line
+254 +                         !(target.file == *file && target.line != *line && target.function == src_loc.function && target.function_start_line == src_loc.function_start_line)
+    |
+254 -                         (target.file == *file && target.line == *line)
+255 -                             // Cross-function targets bypass CFG filter — a different overload
+256 -                             // (same name, different start line) is also cross-function (S2 de-conflation)
+257 -                             || target.file != *file
+258 -                             || target.function != src_loc.function
+259 -                             || target.function_start_line != src_loc.function_start_line
+254 +                         target.file != *file || target.line == *line || target.function != src_loc.function || target.function_start_line != src_loc.function_start_line
+    |
+
+warning: this boolean expression can be simplified
+   --> src/cpg/cfg_queries.rs:254:25
+    |
+254 | /                         (target.file == *file && target.line == *line)
+255 | |                             // Cross-function targets bypass CFG filter — a different overload
+256 | |                             // (same name, different start line) is also cross-function (S2 de-conflation)
+257 | |                             || target.file != *file
+258 | |                             || target.function != src_loc.function
+    | |__________________________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#nonminimal_bool
+help: try
+    |
+254 -                         (target.file == *file && target.line == *line)
+255 -                             // Cross-function targets bypass CFG filter — a different overload
+256 -                             // (same name, different start line) is also cross-function (S2 de-conflation)
+257 -                             || target.file != *file
+258 -                             || target.function != src_loc.function
+254 +                         !(target.file == *file && target.line != *line && target.function == src_loc.function)
+    |
+254 -                         (target.file == *file && target.line == *line)
+255 -                             // Cross-function targets bypass CFG filter — a different overload
+256 -                             // (same name, different start line) is also cross-function (S2 de-conflation)
+257 -                             || target.file != *file
+258 -                             || target.function != src_loc.function
+254 +                         target.file != *file || target.line == *line || target.function != src_loc.function
+    |
+
+warning: this boolean expression can be simplified
+   --> src/cpg/cfg_queries.rs:254:25
+    |
+254 | /                         (target.file == *file && target.line == *line)
+...   |
+257 | |                             || target.file != *file
+    | |___________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#nonminimal_bool
+help: try
+    |
+254 -                         (target.file == *file && target.line == *line)
+255 -                             // Cross-function targets bypass CFG filter — a different overload
+256 -                             // (same name, different start line) is also cross-function (S2 de-conflation)
+257 -                             || target.file != *file
+254 +                         !(target.file == *file && target.line != *line)
+    |
+254 -                         (target.file == *file && target.line == *line)
+255 -                             // Cross-function targets bypass CFG filter — a different overload
+256 -                             // (same name, different start line) is also cross-function (S2 de-conflation)
+257 -                             || target.file != *file
+254 +                         target.file != *file || target.line == *line
+    |
+
+warning: dereferencing a tuple pattern where every element takes a reference
+   --> src/cpg/query.rs:396:14
+    |
+396 |         for (&(ref f, ref _name, ref _sl), &idx) in &self.func_index {
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrowed_reference
+    = note: `-W clippy::needless-borrowed-reference` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::needless_borrowed_reference)]`
+help: try removing the `&` and `ref` parts
+    |
+396 -         for (&(ref f, ref _name, ref _sl), &idx) in &self.func_index {
+396 +         for ((f, _name, _sl), &idx) in &self.func_index {
+    |
+
+warning: dereferencing a tuple pattern where every element takes a reference
+   --> src/cpg/query.rs:500:14
+    |
+500 |         for (&(ref _file, ref name, ref _sl), &idx) in &self.func_index {
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+500 -         for (&(ref _file, ref name, ref _sl), &idx) in &self.func_index {
+500 +         for ((_file, name, _sl), &idx) in &self.func_index {
+    |
+
+warning: dereferencing a tuple pattern where every element takes a reference
+   --> src/cpg/query.rs:596:14
+    |
+596 |         for (&(ref file, ref name, ref _sl), &idx) in &self.func_index {
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+596 -         for (&(ref file, ref name, ref _sl), &idx) in &self.func_index {
+596 +         for ((file, name, _sl), &idx) in &self.func_index {
+    |
+
+warning: this function has too many arguments (8/7)
+   --> src/cpg/types.rs:235:5
+    |
+235 | /     pub fn variable_occurrence(
+236 | |         path: AccessPath,
+237 | |         file: String,
+238 | |         function: String,
+...   |
+243 | |         end_byte: usize,
+244 | |     ) -> Self {
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+
+warning: this can be `std::io::Error::other(_)`
+   --> src/cpg_cache.rs:404:9
+    |
+404 | /         io::Error::new(
+405 | |             io::ErrorKind::Other,
+406 | |             format!("bincode serialize error: {}", e),
+407 | |         )
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#io_other_error
+    = note: `-W clippy::io-other-error` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::io_other_error)]`
+help: use `std::io::Error::other`
+    |
+404 ~         io::Error::other(
+405 ~             format!("bincode serialize error: {}", e),
+    |
+
+warning: large size difference between variants
+   --> src/cpg_cache.rs:436:1
+    |
+436 | /  pub enum CacheResult {
+437 | |      /// All file hashes match — the cached CPG is fully valid.
+438 | |      Hit(CodePropertyGraph),
+    | |      ---------------------- the largest variant contains at least 2728 bytes
+439 | |      /// Some files match, some differ. The cached CG/DFG for unchanged files
+440 | |      /// can be retained and merged with fresh analysis of changed files.
+441 | |/     PartialHit {
+442 | ||         /// The cached call graph (to be pruned and merged).
+443 | ||         cached_call_graph: CallGraph,
+444 | ||         /// The cached data flow graph (to be pruned and merged).
+...   ||
+447 | ||         changed_files: BTreeSet<String>,
+448 | ||     },
+    | ||_____- the second-largest variant contains at least 2352 bytes
+...   |
+451 | |      Miss,
+452 | |  }
+    | |__^ the entire enum is at least 2728 bytes
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#large_enum_variant
+    = note: `-W clippy::large-enum-variant` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::large_enum_variant)]`
+help: consider boxing the large fields or introducing indirection in some other way to reduce the total size of the enum
+    |
+438 -     Hit(CodePropertyGraph),
+438 +     Hit(Box<CodePropertyGraph>),
+    |
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+   --> src/data_flow.rs:684:10
+    |
+684 |     ) -> (BTreeMap<String, String>, Vec<(String, String, usize)>) {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+
+warning: called `unwrap` on `current_hunk` after checking its variant with `is_some`
+   --> src/diff.rs:101:28
+    |
+100 |             } else if current_hunk.is_some() {
+    |                    ------------------------- help: try: `if let Some(<item>) = &current_hunk`
+101 |                 let hunk = current_hunk.as_ref().unwrap();
+    |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_unwrap
+    = note: `-W clippy::unnecessary-unwrap` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::unnecessary_unwrap)]`
+
+warning: called `expect` on `candidate.recovered` after checking its variant with `is_some`
+   --> src/go_receiver_index.rs:620:25
+    |
+541 |     if candidate.recovered.is_some() {
+    |     -------------------------------- help: try: `if let Some(<item>) = &candidate.recovered`
+...
+620 |         let recovered = candidate.recovered.as_ref().expect("checked above");
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_unwrap
+
+warning: this function has too many arguments (8/7)
+  --> src/go_receiver_index_visibility.rs:60:1
+   |
+60 | / pub(crate) fn resolve_go_struct_field_owner(
+61 | |     owner: &crate::resolution::GoOwnerIdentity,
+62 | |     caller_file: &str,
+63 | |     mode: GoOwnerReferenceMode,
+...  |
+68 | |     go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+69 | | ) -> crate::go_owner_partition::GoPartitionSelection<GoResolvedStructField> {
+   | |___________________________________________________________________________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+
+warning: this function has too many arguments (8/7)
+   --> src/go_type_alias/canon.rs:242:1
+    |
+242 | / fn field_unary<F>(
+243 | |     node: &tree_sitter::Node<'_>,
+244 | |     field: &str,
+245 | |     parsed: &ParsedFile,
+...   |
+252 | | where
+253 | |     F: FnOnce(Box<AliasExpr>) -> AliasExpr,
+    | |___________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+
+warning: this `let...else` may be rewritten with the `?` operator
+    --> src/languages/mod.rs:1557:5
+     |
+1557 | /     let Some(function) = node.child_by_field_name("function") else {
+1558 | |         return None;
+1559 | |     };
+     | |______^ help: replace it with: `let function = node.child_by_field_name("function")?;`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#question_mark
+
+warning: called `Iterator::last` on a `DoubleEndedIterator`; this will needlessly iterate the entire iterator
+   --> src/live_types.rs:179:28
+    |
+179 |                   let base = parsed
+    |  ____________________________^
+180 | |                     .node_text(&type_node)
+181 | |                     .trim()
+182 | |                     .split('.')
+183 | |                     .last()
+    | |______________________-----^
+    |                        |
+    |                        help: try: `next_back()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#double_ended_iterator_last
+    = note: `-W clippy::double-ended-iterator-last` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::double_ended_iterator_last)]`
+
+warning: called `Iterator::last` on a `DoubleEndedIterator`; this will needlessly iterate the entire iterator
+   --> src/live_types.rs:201:40
+    |
+201 |   ...                   let base = parsed
+    |  __________________________________^
+202 | | ...                       .node_text(&type_node)
+203 | | ...                       .trim()
+204 | | ...                       .split('.')
+205 | | ...                       .last()
+    | |____________________________-----^
+    |                              |
+    |                              help: try: `next_back()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#double_ended_iterator_last
+
+warning: called `Iterator::last` on a `DoubleEndedIterator`; this will needlessly iterate the entire iterator
+   --> src/live_types.rs:225:40
+    |
+225 |   ...                   let base = parsed
+    |  __________________________________^
+226 | | ...                       .node_text(&arg)
+227 | | ...                       .trim()
+228 | | ...                       .split('.')
+229 | | ...                       .last()
+    | |____________________________-----^
+    |                              |
+    |                              help: try: `next_back()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#double_ended_iterator_last
+
+warning: called `Iterator::last` on a `DoubleEndedIterator`; this will needlessly iterate the entire iterator
+   --> src/live_types.rs:253:36
+    |
+253 |                           let base = raw
+    |  ____________________________________^
+254 | |                             .trim_start_matches('*')
+255 | |                             .split('.')
+256 | |                             .last()
+    | |______________________________-----^
+    |                                |
+    |                                help: try: `next_back()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#double_ended_iterator_last
+
+warning: called `Iterator::last` on a `DoubleEndedIterator`; this will needlessly iterate the entire iterator
+   --> src/live_types.rs:354:24
+    |
+354 |             let base = name.split('.').last().unwrap_or(&name);
+    |                        ^^^^^^^^^^^^^^^^------
+    |                                        |
+    |                                        help: try: `next_back()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#double_ended_iterator_last
+
+warning: this function has too many arguments (9/7)
+   --> src/mcp/evidence_view.rs:291:1
+    |
+291 | / fn compose_view_result(
+292 | |     session: &NavigationSession,
+293 | |     full: &Evidence,
+294 | |     mut canonical_result: McpToolResult,
+...   |
+300 | |     clipped_to_fit: bool,
+301 | | ) -> McpToolResult {
+    | |__________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+
+warning: this function has too many arguments (8/7)
+   --> src/mcp/evidence_view.rs:342:1
+    |
+342 | / fn build_view(
+343 | |     session: &NavigationSession,
+344 | |     full: &Evidence,
+345 | |     view: ViewOptions,
+...   |
+350 | |     clipped_to_fit: bool,
+351 | | ) -> EvidenceView {
+    | |_________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+
+warning: this function has too many arguments (8/7)
+   --> src/mcp/output.rs:382:1
+    |
+382 | / fn build_result_with_options(
+383 | |     ev: &Evidence,
+384 | |     retained: usize,
+385 | |     total: usize,
+...   |
+390 | |     force_compact_reasoning: bool,
+391 | | ) -> McpToolResult {
+    | |__________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+
+warning: usage of `bool::then` in `filter_map`
+   --> src/mcp/session.rs:507:10
+    |
+507 |           .filter_map(|(file, old_hash)| {
+    |  __________^
+508 | |             (new.file_hashes.get(file) != Some(old_hash)).then(|| file.clone())
+509 | |         })
+    | |__________^ help: use `filter` then `map` instead: `filter(|&(file, old_hash)| (new.file_hashes.get(file) != Some(old_hash))).map(|(file, old_hash)| file.clone())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#filter_map_bool_then
+
+warning: this function has too many arguments (8/7)
+   --> src/mcp/transport.rs:595:1
+    |
+595 | / fn auto_refresh_tool_response(
+596 | |     id: Value,
+597 | |     runtime: &mut impl SessionRuntime,
+598 | |     handler: &dyn Fn(&ToolContext<'_>, &Value) -> McpToolResult,
+...   |
+603 | |     concise_shape_mode: ConciseShapeMode,
+604 | | ) -> Dispatch {
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+
+warning: this can be `std::io::Error::other(_)`
+   --> src/navigation/call_edge_cache.rs:260:9
+    |
+260 | /         io::Error::new(
+261 | |             io::ErrorKind::Other,
+262 | |             format!("bincode serialize error: {e}"),
+263 | |         )
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#io_other_error
+help: use `std::io::Error::other`
+    |
+260 ~         io::Error::other(
+261 ~             format!("bincode serialize error: {e}"),
+    |
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/navigation/queries.rs:2004:41
+     |
+2004 |             .then(a.resolution_kind.cmp(&b.resolution_kind))
+     |                                         ^^^^^^^^^^^^^^^^^^ help: change this to: `b.resolution_kind`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this `map_or` can be simplified
+  --> src/navigation/seed.rs:65:44
+   |
+65 |         .filter(|((f, n), _)| n == name && file.map_or(true, |ff| ff == f))
+   |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+help: use is_none_or instead
+   |
+65 -         .filter(|((f, n), _)| n == name && file.map_or(true, |ff| ff == f))
+65 +         .filter(|((f, n), _)| n == name && file.is_none_or(|ff| ff == f))
+   |
+
+warning: manually reimplementing `div_ceil`
+   --> src/output/mermaid.rs:271:22
+    |
+271 |         let head_n = (cap + 1) / 2;
+    |                      ^^^^^^^^^^^^^ help: consider using `.div_ceil()`: `cap.div_ceil(2)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_div_ceil
+    = note: `-W clippy::manual-div-ceil` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::manual_div_ceil)]`
+
+warning: doc list item without indentation
+   --> src/reasoning/sanitizer_walk.rs:316:5
+    |
+316 | /// `data_param == None` means the matched recognizer has no verified data-parameter name, so every
+    |     ^
+    |
+    = help: if this is supposed to be its own paragraph, add a blank line
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_lazy_continuation
+help: indent this line
+    |
+316 | ///     `data_param == None` means the matched recognizer has no verified data-parameter name, so every
+    |     ++++
+
+warning: doc list item without indentation
+   --> src/reasoning/sanitizer_walk.rs:317:5
+    |
+317 | /// keyword form is rejected for it (conservative: stays `Reached`, never a false `Sanitized`).
+    |     ^
+    |
+    = help: if this is supposed to be its own paragraph, add a blank line
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_lazy_continuation
+help: indent this line
+    |
+317 | ///     keyword form is rejected for it (conservative: stays `Reached`, never a false `Sanitized`).
+    |     ++++
+
+warning: this block may be rewritten with the `?` operator
+   --> src/repo_loader.rs:658:17
+    |
+658 | /                 if out.pop().is_none() {
+659 | |                     return None;
+660 | |                 }
+    | |_________________^ help: replace it with: `out.pop()?;`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#question_mark
+
+warning: this creates an owned instance just for comparison
+   --> src/repo_loader.rs:747:13
+    |
+747 |     if p == PathBuf::from(".") {
+    |        -----^^^^^^^^^^^^^^^^^^
+    |        |
+    |        help: try: `p == "."`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cmp_owned
+    = note: `-W clippy::cmp-owned` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::cmp_owned)]`
+
+warning: doc list item without indentation
+   --> src/resolution.rs:558:5
+    |
+558 | /// Only a known, non-spread call against a known, non-variadic method with a
+    |     ^
+    |
+    = help: if this is supposed to be its own paragraph, add a blank line
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_lazy_continuation
+help: indent this line
+    |
+558 | ///     Only a known, non-spread call against a known, non-variadic method with a
+    |     ++++
+
+warning: doc list item without indentation
+   --> src/resolution.rs:559:5
+    |
+559 | /// different param count is provably-wrong and dropped.
+    |     ^
+    |
+    = help: if this is supposed to be its own paragraph, add a blank line
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_lazy_continuation
+help: indent this line
+    |
+559 | ///     different param count is provably-wrong and dropped.
+    |     ++++
+
+warning: this boolean expression can be simplified
+   --> src/resolution.rs:827:8
+    |
+827 |     if !(simple && !is_kw && !is_recv) && !js_this_field {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `!(js_this_field || simple && !is_kw && !is_recv)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#nonminimal_bool
+
+warning: doc quote line without `>` marker
+    --> src/resolution.rs:2011:9
+     |
+2011 |     /// (too diffuse for a useful edge). Zero known registrations, an
+     |         ^
+     |
+     = help: if this not intended to be a quote at all, escape it with `\>`
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_lazy_continuation
+help: add markers to start of line
+     |
+2011 |     /// > (too diffuse for a useful edge). Zero known registrations, an
+     |         +
+
+warning: doc quote line without `>` marker
+    --> src/resolution.rs:2012:9
+     |
+2012 |     /// unresolvable/ambiguous owner identity, or a field that isn't
+     |         ^
+     |
+     = help: if this not intended to be a quote at all, escape it with `\>`
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_lazy_continuation
+help: add markers to start of line
+     |
+2012 |     /// > unresolvable/ambiguous owner identity, or a field that isn't
+     |         +
+
+warning: doc quote line without `>` marker
+    --> src/resolution.rs:2013:9
+     |
+2013 |     /// func-typed all fall through to the existing `ExternalReceiver` drop —
+     |         ^
+     |
+     = help: if this not intended to be a quote at all, escape it with `\>`
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_lazy_continuation
+help: add markers to start of line
+     |
+2013 |     /// > func-typed all fall through to the existing `ExternalReceiver` drop —
+     |         +
+
+warning: doc quote line without `>` marker
+    --> src/resolution.rs:2014:9
+     |
+2014 |     /// unchanged behavior for every case S1/S2 can't confirm.
+     |         ^
+     |
+     = help: if this not intended to be a quote at all, escape it with `\>`
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_lazy_continuation
+help: add markers to start of line
+     |
+2014 |     /// > unchanged behavior for every case S1/S2 can't confirm.
+     |         +
+
+warning: called `Iterator::last` on a `DoubleEndedIterator`; this will needlessly iterate the entire iterator
+    --> src/resolution.rs:2554:47
+     |
+2554 | ...                   let module_stem = module_last.rsplit('.').last().unwrap_or(module_last);
+     |                                         ^^^^^^^^^^^^^^^^^^^^^^^^------
+     |                                                                 |
+     |                                                                 help: try: `next_back()`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#double_ended_iterator_last
+
+warning: field assignment outside of initializer for an instance created with Default::default()
+    --> src/resolution.rs:2735:33
+     |
+2735 | ...                   telemetry.go_concrete_receiver_promoted_existing = 1;
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+note: consider initializing the variable with `resolution::ResolutionTelemetry { go_concrete_receiver_promoted_existing: 1, ..Default::default() }` and removing relevant reassignments
+    --> src/resolution.rs:2734:33
+     |
+2734 | ...                   let mut telemetry = ResolutionTelemetry::default();
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#field_reassign_with_default
+     = note: `-W clippy::field-reassign-with-default` implied by `-W clippy::all`
+     = help: to override `-W clippy::all` add `#[allow(clippy::field_reassign_with_default)]`
+
+warning: field assignment outside of initializer for an instance created with Default::default()
+    --> src/resolution.rs:2828:33
+     |
+2828 | ...                   telemetry.go_r2_on_demand_name_collision_bail = 1;
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+note: consider initializing the variable with `resolution::ResolutionTelemetry { go_r2_on_demand_name_collision_bail: 1, ..Default::default() }` and removing relevant reassignments
+    --> src/resolution.rs:2827:33
+     |
+2827 | ...                   let mut telemetry = ResolutionTelemetry::default();
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#field_reassign_with_default
+
+warning: field assignment outside of initializer for an instance created with Default::default()
+    --> src/resolution.rs:2836:33
+     |
+2836 | ...                   telemetry.go_external_receiver_new_recovery_drop = 1;
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+note: consider initializing the variable with `resolution::ResolutionTelemetry { go_external_receiver_new_recovery_drop: 1, ..Default::default() }` and removing relevant reassignments
+    --> src/resolution.rs:2835:33
+     |
+2835 | ...                   let mut telemetry = ResolutionTelemetry::default();
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#field_reassign_with_default
+
+warning: this `map_or` can be simplified
+    --> src/resolution.rs:3405:52
+     |
+3405 |   ...                   && self
+     |  __________________________^
+3406 | | ...                       .module_bindings
+3407 | | ...                       .get(&fid.file)
+3408 | | ...                       .and_then(|mb| mb.get(member))
+...    |
+3414 | | ...                       })
+     | |____________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+help: use is_some_and instead
+     |
+3409 -                                                     .map_or(false, |k| {
+3409 +                                                     .is_some_and(|k| {
+     |
+
+warning: called `Iterator::last` on a `DoubleEndedIterator`; this will needlessly iterate the entire iterator
+    --> src/resolution.rs:4004:5
+     |
+4004 | /     path.rsplit('/')
+4005 | |         .next()
+4006 | |         .unwrap_or(path)
+4007 | |         .rsplit('.')
+4008 | |         .last()
+     | |__________-----^
+     |            |
+     |            help: try: `next_back()`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#double_ended_iterator_last
+
+warning: method `from_str` can be confused for the standard trait method `std::str::FromStr::from_str`
+   --> src/slice.rs:123:5
+    |
+123 | /     pub fn from_str(s: &str) -> Option<Self> {
+124 | |         match s.to_lowercase().as_str() {
+125 | |             "originaldiff" | "original_diff" | "onlydiff" => Some(Self::OriginalDiff),
+126 | |             "parentfunction" | "parent_function" | "function" => Some(Self::ParentFunction),
+...   |
+170 | |     }
+    | |_____^
+    |
+    = help: consider implementing the trait `std::str::FromStr` or choosing a less ambiguous method name
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#should_implement_trait
+
+warning: you seem to want to iterate on a map's values
+  --> src/terraform.rs:67:32
+   |
+67 |         for (_file, source) in sources {
+   |                                ^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#for_kv_map
+   = note: `-W clippy::for-kv-map` implied by `-W clippy::all`
+   = help: to override `-W clippy::all` add `#[allow(clippy::for_kv_map)]`
+help: use the corresponding method
+   |
+67 -         for (_file, source) in sources {
+67 +         for source in sources.values() {
+   |
+
+warning: this `if` statement can be collapsed
+   --> src/type_db.rs:521:13
+    |
+521 | /             if self.is_subclass_of(name, class_name) {
+522 | |                 if record.virtual_methods.contains_key(method) {
+523 | |                     targets.push(name.clone());
+524 | |                 }
+525 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+521 ~             if self.is_subclass_of(name, class_name)
+522 ~                 && record.virtual_methods.contains_key(method) {
+523 |                     targets.push(name.clone());
+524 ~                 }
+    |
+
+warning: this `impl` can be derived
+   --> src/type_provider.rs:165:1
+    |
+165 | / impl Default for TypeResolutionMode {
+166 | |     fn default() -> Self {
+167 | |         TypeResolutionMode::Eager
+168 | |     }
+169 | | }
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#derivable_impls
+help: replace the manual implementation with a derive attribute and mark the default variant
+    |
+158 + #[derive(Default)]
+159 | pub enum TypeResolutionMode {
+160 |     /// Parse all type sources upfront (default for reviews).
+161 ~     #[default]
+162 ~     Eager,
+    |
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> src/type_provider.rs:328:62
+    |
+328 |                     Self::collect_python_class_names(&child, &parsed, &mut names);
+    |                                                              ^^^^^^^ help: change this to: `parsed`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this `let...else` may be rewritten with the `?` operator
+    --> src/type_providers/go.rs:1319:9
+     |
+1319 | /         let Some(embedding_file) = data.struct_embed_files.get(embedding_owner) else {
+1320 | |             return None;
+1321 | |         };
+     | |__________^ help: replace it with: `let embedding_file = data.struct_embed_files.get(embedding_owner)?;`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#question_mark
+
+warning: this `let...else` may be rewritten with the `?` operator
+    --> src/type_providers/go.rs:1332:9
+     |
+1332 | /         let Some(target_files) = data.struct_declaration_files.get(target_owner) else {
+1333 | |             return None;
+1334 | |         };
+     | |__________^ help: replace it with: `let target_files = data.struct_declaration_files.get(target_owner)?;`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#question_mark
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+    --> src/type_providers/go.rs:1403:10
+     |
+1403 |       ) -> (
+     |  __________^
+1404 | |         BTreeMap<String, Result<String, GoDispatchGap>>,
+1405 | |         Vec<String>,
+1406 | |         Vec<GoDispatchOverApprox>,
+1407 | |     ) {
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+
+warning: this function has too many arguments (8/7)
+    --> src/type_providers/go.rs:1429:5
+     |
+1429 | /     fn walk_interface_body(
+1430 | |         node: &tree_sitter::Node,
+1431 | |         parsed: &ParsedFile,
+1432 | |         path: &str,
+...    |
+1437 | |         overapprox: &mut Vec<GoDispatchOverApprox>,
+1438 | |     ) {
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+
+warning: parameter is only used in recursion
+    --> src/type_providers/go.rs:1437:9
+     |
+1437 |         overapprox: &mut Vec<GoDispatchOverApprox>,
+     |         ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_overapprox`
+     |
+note: parameter used here
+    --> src/type_providers/go.rs:1476:25
+     |
+1476 |                         overapprox,
+     |                         ^^^^^^^^^^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#only_used_in_recursion
+
+warning: you seem to want to iterate on a map's keys
+   --> src/type_providers/java.rs:852:36
+    |
+852 |             for (class_name, _) in &self.data.classes {
+    |                                    ^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#for_kv_map
+help: use the corresponding method
+    |
+852 -             for (class_name, _) in &self.data.classes {
+852 +             for class_name in self.data.classes.keys() {
+    |
+
+warning: stripping a prefix manually
+   --> src/type_providers/python.rs:181:42
+    |
+181 |                     let decorator_name = text[1..]
+    |                                          ^^^^^^^^^
+    |
+note: the prefix was tested here
+   --> src/type_providers/python.rs:180:17
+    |
+180 |                 if text.starts_with('@') {
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_strip
+help: try using the `strip_prefix` method
+    |
+180 ~                 if let Some(<stripped>) = text.strip_prefix('@') {
+181 ~                     let decorator_name = <stripped>
+    |
+
+warning: called `Iterator::last` on a `DoubleEndedIterator`; this will needlessly iterate the entire iterator
+   --> src/type_providers/python.rs:181:42
+    |
+181 |                       let decorator_name = text[1..]
+    |  __________________________________________^
+182 | |                         .split('(')
+183 | |                         .next()
+184 | |                         .unwrap_or("")
+185 | |                         .split('.')
+186 | |                         .last()
+    | |__________________________-----^
+    |                            |
+    |                            help: try: `next_back()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#double_ended_iterator_last
+
+warning: `prism` (lib) generated 137 warnings (run `cargo clippy --fix --lib -p prism` to apply 70 suggestions)
+warning: duplicated attribute
+ --> tests/algo/paper/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  |
+note: first defined here
+ --> tests/algo/paper/main.rs:1:9
+  |
+1 | #[allow(dead_code)]
+  |         ^^^^^^^^^
+help: remove this attribute
+ --> tests/algo/paper/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#duplicated_attributes
+  = note: `-W clippy::duplicated-attributes` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::duplicated_attributes)]`
+
+warning: duplicated attribute
+ --> tests/lang/java/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  |
+note: first defined here
+ --> tests/lang/java/main.rs:3:9
+  |
+3 | #[allow(dead_code)]
+  |         ^^^^^^^^^
+help: remove this attribute
+ --> tests/lang/java/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#duplicated_attributes
+  = note: `-W clippy::duplicated-attributes` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::duplicated_attributes)]`
+
+warning: duplicated attribute
+ --> tests/lang/rust/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  |
+note: first defined here
+ --> tests/lang/rust/main.rs:3:9
+  |
+3 | #[allow(dead_code)]
+  |         ^^^^^^^^^
+help: remove this attribute
+ --> tests/lang/rust/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#duplicated_attributes
+  = note: `-W clippy::duplicated-attributes` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::duplicated_attributes)]`
+
+warning: duplicated attribute
+ --> tests/algo/theoretical/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  |
+note: first defined here
+ --> tests/algo/theoretical/main.rs:2:9
+  |
+2 | #[allow(dead_code)]
+  |         ^^^^^^^^^
+help: remove this attribute
+ --> tests/algo/theoretical/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#duplicated_attributes
+  = note: `-W clippy::duplicated-attributes` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::duplicated_attributes)]`
+
+warning: duplicated attribute
+ --> tests/lang/bash/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  |
+note: first defined here
+ --> tests/lang/bash/main.rs:4:9
+  |
+4 | #[allow(dead_code)]
+  |         ^^^^^^^^^
+help: remove this attribute
+ --> tests/lang/bash/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#duplicated_attributes
+  = note: `-W clippy::duplicated-attributes` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::duplicated_attributes)]`
+
+warning: duplicated attribute
+ --> tests/lang/c/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  |
+note: first defined here
+ --> tests/lang/c/main.rs:3:9
+  |
+3 | #[allow(dead_code)]
+  |         ^^^^^^^^^
+help: remove this attribute
+ --> tests/lang/c/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#duplicated_attributes
+  = note: `-W clippy::duplicated-attributes` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::duplicated_attributes)]`
+
+warning: duplicated attribute
+ --> tests/lang/typescript/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  |
+note: first defined here
+ --> tests/lang/typescript/main.rs:2:9
+  |
+2 | #[allow(dead_code)]
+  |         ^^^^^^^^^
+help: remove this attribute
+ --> tests/lang/typescript/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#duplicated_attributes
+  = note: `-W clippy::duplicated-attributes` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::duplicated_attributes)]`
+
+warning: duplicated attribute
+ --> tests/algo/taxonomy/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  |
+note: first defined here
+ --> tests/algo/taxonomy/main.rs:1:9
+  |
+1 | #[allow(dead_code)]
+  |         ^^^^^^^^^
+help: remove this attribute
+ --> tests/algo/taxonomy/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#duplicated_attributes
+  = note: `-W clippy::duplicated-attributes` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::duplicated_attributes)]`
+
+warning: `prism` (test "algo_paper") generated 1 warning
+warning: field assignment outside of initializer for an instance created with Default::default()
+   --> src/api/owner.rs:130:9
+    |
+130 |         options.owner = Some(OwnerOptions::new("/absent/typescript.js", "tsconfig.json"));
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: consider initializing the variable with `api::nav::NavOptions { owner: Some(OwnerOptions::new("/absent/typescript.js", "tsconfig.json")), ..Default::default() }` and removing relevant reassignments
+   --> src/api/owner.rs:129:9
+    |
+129 |         let mut options = crate::api::NavOptions::default();
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#field_reassign_with_default
+    = note: `-W clippy::field-reassign-with-default` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::field_reassign_with_default)]`
+
+warning: field assignment outside of initializer for an instance created with Default::default()
+   --> src/api/owner.rs:146:9
+    |
+146 |         options.no_cache = true;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: consider initializing the variable with `api::nav::NavOptions { no_cache: true, ..Default::default() }` and removing relevant reassignments
+   --> src/api/owner.rs:145:9
+    |
+145 |         let mut options = crate::api::NavOptions::default();
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#field_reassign_with_default
+
+warning: `prism` (test "lang_java") generated 1 warning
+warning: duplicated attribute
+ --> tests/lang/cpp/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  |
+note: first defined here
+ --> tests/lang/cpp/main.rs:2:9
+  |
+2 | #[allow(dead_code)]
+  |         ^^^^^^^^^
+help: remove this attribute
+ --> tests/lang/cpp/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#duplicated_attributes
+  = note: `-W clippy::duplicated-attributes` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::duplicated_attributes)]`
+
+warning: `prism` (test "lang_bash") generated 1 warning
+warning: called `Iterator::last` on a `DoubleEndedIterator`; this will needlessly iterate the entire iterator
+   --> tests/algo/theoretical/spiral_circular_test.rs:539:27
+    |
+539 |             let from_fn = from_label.split('\n').last().unwrap_or("").to_string();
+    |                           ^^^^^^^^^^^^^^^^^^^^^^^------
+    |                                                  |
+    |                                                  help: try: `next_back()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#double_ended_iterator_last
+    = note: `-W clippy::double-ended-iterator-last` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::double_ended_iterator_last)]`
+
+warning: called `Iterator::last` on a `DoubleEndedIterator`; this will needlessly iterate the entire iterator
+   --> tests/algo/theoretical/spiral_circular_test.rs:540:25
+    |
+540 |             let to_fn = to_label.split('\n').last().unwrap_or("").to_string();
+    |                         ^^^^^^^^^^^^^^^^^^^^^------
+    |                                              |
+    |                                              help: try: `next_back()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#double_ended_iterator_last
+
+warning: duplicated attribute
+ --> tests/lang/go/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  |
+note: first defined here
+ --> tests/lang/go/main.rs:6:9
+  |
+6 | #[allow(dead_code)]
+  |         ^^^^^^^^^
+help: remove this attribute
+ --> tests/lang/go/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#duplicated_attributes
+  = note: `-W clippy::duplicated-attributes` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::duplicated_attributes)]`
+
+warning: duplicated attribute
+ --> tests/lang/terraform/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  |
+note: first defined here
+ --> tests/lang/terraform/main.rs:3:9
+  |
+3 | #[allow(dead_code)]
+  |         ^^^^^^^^^
+help: remove this attribute
+ --> tests/lang/terraform/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#duplicated_attributes
+  = note: `-W clippy::duplicated-attributes` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::duplicated_attributes)]`
+
+warning: duplicated attribute
+  --> tests/integration/../common/mod.rs:3:10
+   |
+ 3 | #![allow(dead_code)]
+   |          ^^^^^^^^^
+   |
+note: first defined here
+  --> tests/integration/main.rs:11:9
+   |
+11 | #[allow(dead_code)]
+   |         ^^^^^^^^^
+help: remove this attribute
+  --> tests/integration/../common/mod.rs:3:10
+   |
+ 3 | #![allow(dead_code)]
+   |          ^^^^^^^^^
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#duplicated_attributes
+   = note: `-W clippy::duplicated-attributes` implied by `-W clippy::all`
+   = help: to override `-W clippy::all` add `#[allow(clippy::duplicated_attributes)]`
+
+warning: `prism` (test "algo_theoretical") generated 3 warnings (run `cargo clippy --fix --test "algo_theoretical" -p prism` to apply 2 suggestions)
+warning: duplicated attribute
+ --> tests/algo/novel/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  |
+note: first defined here
+ --> tests/algo/novel/main.rs:5:9
+  |
+5 | #[allow(dead_code)]
+  |         ^^^^^^^^^
+help: remove this attribute
+ --> tests/algo/novel/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#duplicated_attributes
+  = note: `-W clippy::duplicated-attributes` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::duplicated_attributes)]`
+
+warning: `prism` (test "lang_cpp") generated 1 warning
+warning: for loop over a single element
+  --> src/ast_asserted_member_tests.rs:17:5
+   |
+17 | /     for (a, b) in [(&full.edges, &subset.edges)] {
+18 | |         assert_eq!(
+19 | |             serde_json::to_value(a).unwrap(),
+20 | |             serde_json::to_value(b).unwrap()
+21 | |         );
+22 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#single_element_loop
+   = note: `-W clippy::single-element-loop` implied by `-W clippy::all`
+   = help: to override `-W clippy::all` add `#[allow(clippy::single_element_loop)]`
+help: try
+   |
+17 ~     {
+18 +         let (a, b) = (&full.edges, &subset.edges);
+19 +         assert_eq!(
+20 +             serde_json::to_value(a).unwrap(),
+21 +             serde_json::to_value(b).unwrap()
+22 +         );
+23 +     }
+   |
+
+warning: `prism` (test "lang_c") generated 1 warning
+warning: very complex type used. Consider factoring parts into `type` definitions
+ --> tests/lang/typescript/type_only_call_test.rs:5:18
+  |
+5 | fn fixtures() -> Vec<(ParsedFile, Vec<(String, usize, usize)>)> {
+  |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+  = note: `-W clippy::type-complexity` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::type_complexity)]`
+
+warning: this `map_or` can be simplified
+   --> tests/lang/terraform/terraform_test.rs:392:9
+    |
+392 |         local_refs.map_or(false, |r| r.contains("var.allowed_cidrs")),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+    = note: `-W clippy::unnecessary-map-or` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::unnecessary_map_or)]`
+help: use is_some_and instead
+    |
+392 -         local_refs.map_or(false, |r| r.contains("var.allowed_cidrs")),
+392 +         local_refs.is_some_and(|r| r.contains("var.allowed_cidrs")),
+    |
+
+warning: this `map_or` can be simplified
+   --> tests/lang/terraform/terraform_test.rs:400:9
+    |
+400 |         sg_refs.map_or(false, |r| r.contains("local.merged_cidrs")),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+help: use is_some_and instead
+    |
+400 -         sg_refs.map_or(false, |r| r.contains("local.merged_cidrs")),
+400 +         sg_refs.is_some_and(|r| r.contains("local.merged_cidrs")),
+    |
+
+warning: this `map_or` can be simplified
+   --> tests/lang/terraform/terraform_test.rs:448:9
+    |
+448 |         output_refs.map_or(false, |r| r.contains("aws_vpc.main")),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+help: use is_some_and instead
+    |
+448 -         output_refs.map_or(false, |r| r.contains("aws_vpc.main")),
+448 +         output_refs.is_some_and(|r| r.contains("aws_vpc.main")),
+    |
+
+warning: this `map_or` can be simplified
+   --> tests/lang/terraform/terraform_test.rs:456:9
+    |
+456 |         vpc_refs.map_or(false, |r| r.contains("var.vpc_cidr")),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+help: use is_some_and instead
+    |
+456 -         vpc_refs.map_or(false, |r| r.contains("var.vpc_cidr")),
+456 +         vpc_refs.is_some_and(|r| r.contains("var.vpc_cidr")),
+    |
+
+warning: unused variable: `lines`
+  --> tests/algo/taxonomy/misc_test.rs:91:9
+   |
+91 |     let lines = block.file_line_map.get("src/calc.py").unwrap();
+   |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_lines`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `prism` (test "lang_terraform") generated 5 warnings (run `cargo clippy --fix --test "lang_terraform" -p prism` to apply 4 suggestions)
+warning: useless conversion to the same type: `&str`
+     --> src/ast.rs:12187:88
+      |
+12187 |             .filter(|n| p.language.function_name(n).map(|nm| p.node_text(&nm)) == Some("f".into()))
+      |                                                                                        ^^^^^^^^^^ help: consider removing `.into()`: `"f"`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#useless_conversion
+      = note: `-W clippy::useless-conversion` implied by `-W clippy::all`
+      = help: to override `-W clippy::all` add `#[allow(clippy::useless_conversion)]`
+
+warning: useless conversion to the same type: `&str`
+     --> src/ast.rs:12207:88
+      |
+12207 |             .filter(|n| p.language.function_name(n).map(|nm| p.node_text(&nm)) == Some("f".into()))
+      |                                                                                        ^^^^^^^^^^ help: consider removing `.into()`: `"f"`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#useless_conversion
+
+warning: this `map_or` can be simplified
+ --> tests/algo/taxonomy/eft_precision_test.rs:6:9
+  |
+6 | /         block
+7 | |             .file_line_map
+8 | |             .get(file)
+9 | |             .map_or(false, |lines| lines.contains_key(&line))
+  | |_____________________________________________________________^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+  = note: `-W clippy::unnecessary-map-or` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::unnecessary_map_or)]`
+help: use is_some_and instead
+  |
+9 -             .map_or(false, |lines| lines.contains_key(&line))
+9 +             .is_some_and(|lines| lines.contains_key(&line))
+  |
+
+warning: duplicated attribute
+ --> tests/frameworks/../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  |
+note: first defined here
+ --> tests/frameworks/main.rs:1:9
+  |
+1 | #[allow(dead_code)]
+  |         ^^^^^^^^^
+help: remove this attribute
+ --> tests/frameworks/../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#duplicated_attributes
+  = note: `-W clippy::duplicated-attributes` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::duplicated_attributes)]`
+
+warning: unused variable: `post_changes`
+   --> tests/algo/novel/contract_delta_test.rs:379:9
+    |
+379 |     let post_changes: Vec<_> = result
+    |         ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_post_changes`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: duplicated attribute
+ --> tests/lang/tsx/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  |
+note: first defined here
+ --> tests/lang/tsx/main.rs:2:9
+  |
+2 | #[allow(dead_code)]
+  |         ^^^^^^^^^
+help: remove this attribute
+ --> tests/lang/tsx/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#duplicated_attributes
+  = note: `-W clippy::duplicated-attributes` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::duplicated_attributes)]`
+
+warning: duplicated attribute
+ --> tests/lang/python/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  |
+note: first defined here
+ --> tests/lang/python/main.rs:1:9
+  |
+1 | #[allow(dead_code)]
+  |         ^^^^^^^^^
+help: remove this attribute
+ --> tests/lang/python/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#duplicated_attributes
+  = note: `-W clippy::duplicated-attributes` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::duplicated_attributes)]`
+
+warning: function `make_resource_leak_test` is never used
+ --> tests/algo/novel/echo_misc_test.rs:3:4
+  |
+3 | fn make_resource_leak_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+  |    ^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: this `map_or` can be simplified
+   --> tests/cli/call_stats_test.rs:647:9
+    |
+647 | /         site["resolved_targets"].as_array().map_or(true, |targets| {
+648 | |             targets
+649 | |                 .iter()
+650 | |                 .all(|target| target["kind"] != "parameter_callback")
+651 | |         })
+    | |__________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+    = note: `-W clippy::unnecessary-map-or` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::unnecessary_map_or)]`
+help: use is_none_or instead
+    |
+647 -         site["resolved_targets"].as_array().map_or(true, |targets| {
+647 +         site["resolved_targets"].as_array().is_none_or(|targets| {
+    |
+
+warning: `prism` (test "algo_taxonomy") generated 3 warnings (run `cargo clippy --fix --test "algo_taxonomy" -p prism` to apply 2 suggestions)
+warning: for loop over a single element
+    --> src/call_graph.rs:6317:13
+     |
+6317 | /             for ext in &[".py"] {
+6318 | |                 let candidate = if base.is_empty() {
+6319 | |                     format!("{rel}{ext}")
+6320 | |                 } else {
+...    |
+6326 | |             }
+     | |_____________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#single_element_loop
+help: try
+     |
+6317 ~             {
+6318 +                 let ext = &".py";
+6319 +                 let candidate = if base.is_empty() {
+6320 +                     format!("{rel}{ext}")
+6321 +                 } else {
+6322 +                     format!("{base}/{rel}{ext}")
+6323 +                 };
+6324 +                 if indexed_files.contains(&candidate) && candidate == file {
+6325 +                     return true;
+6326 +                 }
+6327 +             }
+     |
+
+warning: this `map_or` can be simplified
+  --> tests/cli/confidence_test.rs:91:25
+   |
+91 |             .any(|item| item["score"].as_f64().map_or(false, |score| score < 1.0)),
+   |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+help: use is_some_and instead
+   |
+91 -             .any(|item| item["score"].as_f64().map_or(false, |score| score < 1.0)),
+91 +             .any(|item| item["score"].as_f64().is_some_and(|score| score < 1.0)),
+   |
+
+warning: this `map_or` can be simplified
+   --> tests/algo/novel/contract_delta_test.rs:151:13
+    |
+151 | /             f.category
+152 | |                 .as_deref()
+153 | |                 .map_or(false, |c| c.starts_with("contract_precondition_"))
+    | |___________________________________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+    = note: `-W clippy::unnecessary-map-or` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::unnecessary_map_or)]`
+help: use is_some_and instead
+    |
+153 -                 .map_or(false, |c| c.starts_with("contract_precondition_"))
+153 +                 .is_some_and(|c| c.starts_with("contract_precondition_"))
+    |
+
+warning: this `map_or` can be simplified
+   --> tests/algo/novel/contract_delta_test.rs:260:13
+    |
+260 | /             f.category
+261 | |                 .as_deref()
+262 | |                 .map_or(false, |c| c.starts_with("contract_postcondition_"))
+    | |____________________________________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+help: use is_some_and instead
+    |
+262 -                 .map_or(false, |c| c.starts_with("contract_postcondition_"))
+262 +                 .is_some_and(|c| c.starts_with("contract_postcondition_"))
+    |
+
+warning: this `map_or` can be simplified
+   --> tests/algo/novel/contract_delta_test.rs:293:13
+    |
+293 | /             f.category.as_deref().map_or(false, |c| {
+294 | |                 c.contains("weakened") || c.contains("strengthened")
+295 | |             })
+    | |______________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+help: use is_some_and instead
+    |
+293 -             f.category.as_deref().map_or(false, |c| {
+293 +             f.category.as_deref().is_some_and(|c| {
+    |
+
+warning: this `map_or` can be simplified
+   --> tests/algo/novel/contract_delta_test.rs:338:13
+    |
+338 | /             f.category.as_deref().map_or(false, |c| {
+339 | |                 c.contains("weakened") || c.contains("strengthened")
+340 | |             })
+    | |______________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+help: use is_some_and instead
+    |
+338 -             f.category.as_deref().map_or(false, |c| {
+338 +             f.category.as_deref().is_some_and(|c| {
+    |
+
+warning: this `map_or` can be simplified
+   --> tests/algo/novel/contract_delta_test.rs:383:13
+    |
+383 | /             f.category
+384 | |                 .as_deref()
+385 | |                 .map_or(false, |c| c.starts_with("contract_postcondition_"))
+    | |____________________________________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+help: use is_some_and instead
+    |
+385 -                 .map_or(false, |c| c.starts_with("contract_postcondition_"))
+385 +                 .is_some_and(|c| c.starts_with("contract_postcondition_"))
+    |
+
+warning: length comparison to zero
+   --> tests/algo/novel/contract_delta_test.rs:395:9
+    |
+395 |         result.findings.len() > 0,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^ help: using `!is_empty` is clearer and more explicit: `!result.findings.is_empty()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#len_zero
+    = note: `-W clippy::len-zero` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::len_zero)]`
+
+warning: `prism` (test "frameworks") generated 1 warning
+warning: unnecessary use of `get(&("Response".to_string(), "text".to_string()))
+                     .is_none()`
+    --> src/call_graph.rs:9780:14
+     |
+9780 |               .get(&("Response".to_string(), "text".to_string()))
+     |  ______________^
+9781 | |             .is_none());
+     | |______________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_get_then_check
+     = note: `-W clippy::unnecessary-get-then-check` implied by `-W clippy::all`
+     = help: to override `-W clippy::all` add `#[allow(clippy::unnecessary_get_then_check)]`
+help: replace it with
+     |
+9778 ~         assert!(!cg
+9779 ~             .property_getters.contains_key(&("Response".to_string(), "text".to_string())));
+     |
+
+warning: duplicated attribute
+ --> tests/lang/javascript/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  |
+note: first defined here
+ --> tests/lang/javascript/main.rs:4:9
+  |
+4 | #[allow(dead_code)]
+  |         ^^^^^^^^^
+help: remove this attribute
+ --> tests/lang/javascript/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#duplicated_attributes
+  = note: `-W clippy::duplicated-attributes` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::duplicated_attributes)]`
+
+warning: unused variable: `has_handler_edges`
+    --> tests/ast/cpg_cache_test.rs:1506:9
+     |
+1506 |     let has_handler_edges = dfg
+     |         ^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_has_handler_edges`
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `prism` (test "lang_tsx") generated 1 warning
+warning: `prism` (test "algo_novel") generated 9 warnings (run `cargo clippy --fix --test "algo_novel" -p prism` to apply 7 suggestions)
+warning: `prism` (test "cli") generated 2 warnings (run `cargo clippy --fix --test "cli" -p prism` to apply 2 suggestions)
+warning: duplicated attribute
+ --> tests/lang/lua/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  |
+note: first defined here
+ --> tests/lang/lua/main.rs:3:9
+  |
+3 | #[allow(dead_code)]
+  |         ^^^^^^^^^
+help: remove this attribute
+ --> tests/lang/lua/../../common/mod.rs:3:10
+  |
+3 | #![allow(dead_code)]
+  |          ^^^^^^^^^
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#duplicated_attributes
+  = note: `-W clippy::duplicated-attributes` implied by `-W clippy::all`
+  = help: to override `-W clippy::all` add `#[allow(clippy::duplicated_attributes)]`
+
+warning: unused variable: `warnings`
+  --> tests/ast/parse_quality_test.rs:96:10
+   |
+96 |     let (warnings, quality) = algorithms::check_parse_quality(&files);
+   |          ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_warnings`
+
+warning: `prism` (test "lang_python") generated 1 warning
+warning: you seem to want to iterate on a map's values
+    --> src/cpg/build.rs:1712:32
+     |
+1712 |         for (_path, parsed) in files {
+     |                                ^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#for_kv_map
+     = note: `-W clippy::for-kv-map` implied by `-W clippy::all`
+     = help: to override `-W clippy::all` add `#[allow(clippy::for_kv_map)]`
+help: use the corresponding method
+     |
+1712 -         for (_path, parsed) in files {
+1712 +         for parsed in files.values() {
+     |
+
+warning: `prism` (test "lang_javascript") generated 1 warning
+warning: `prism` (test "lang_lua") generated 1 warning
+warning: you seem to want to iterate on a map's keys
+    --> tests/ast/cpg_cache_test.rs:1475:24
+     |
+1475 |     for (caller, _) in &subset.calls {
+     |                        ^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#for_kv_map
+     = note: `-W clippy::for-kv-map` implied by `-W clippy::all`
+     = help: to override `-W clippy::all` add `#[allow(clippy::for_kv_map)]`
+help: use the corresponding method
+     |
+1475 -     for (caller, _) in &subset.calls {
+1475 +     for caller in subset.calls.keys() {
+     |
+
+warning: you seem to want to iterate on a map's keys
+    --> tests/ast/cpg_cache_test.rs:1526:21
+     |
+1526 |     for (key, _) in &dfg.defs {
+     |                     ^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#for_kv_map
+help: use the corresponding method
+     |
+1526 -     for (key, _) in &dfg.defs {
+1526 +     for key in dfg.defs.keys() {
+     |
+
+warning: you seem to want to iterate on a map's keys
+    --> tests/ast/cpg_cache_test.rs:1532:21
+     |
+1532 |     for (key, _) in &dfg.uses {
+     |                     ^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#for_kv_map
+help: use the corresponding method
+     |
+1532 -     for (key, _) in &dfg.uses {
+1532 +     for key in dfg.uses.keys() {
+     |
+
+warning: you seem to want to iterate on a map's keys
+    --> tests/ast/cpg_cache_test.rs:1606:21
+     |
+1606 |     for (key, _) in &subset.defs {
+     |                     ^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#for_kv_map
+help: use the corresponding method
+     |
+1606 -     for (key, _) in &subset.defs {
+1606 +     for key in subset.defs.keys() {
+     |
+
+warning: the following explicit lifetimes could be elided: 'a
+   --> tests/reasoning/taint_reaches_test.rs:661:16
+    |
+661 | fn sink_source<'a>(
+    |                ^^
+662 |     evidence: &'a prism::navigation::types::Evidence,
+    |                ^^
+663 | ) -> &'a prism::navigation::types::SinkSourceResult {
+    |       ^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_lifetimes
+    = note: `-W clippy::needless-lifetimes` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::needless_lifetimes)]`
+help: elide the lifetimes
+    |
+661 ~ fn sink_source(
+662 ~     evidence: &prism::navigation::types::Evidence,
+663 ~ ) -> &prism::navigation::types::SinkSourceResult {
+    |
+
+warning: this `map_or` can be simplified
+   --> src/cpg/tests.rs:340:19
+    |
+340 |         .any(|&i| cpg.to_var_location(i).map_or(false, |l| l.line == 4));
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
+help: use is_some_and instead
+    |
+340 -         .any(|&i| cpg.to_var_location(i).map_or(false, |l| l.line == 4));
+340 +         .any(|&i| cpg.to_var_location(i).is_some_and(|l| l.line == 4));
+    |
+
+warning: `prism` (test "reasoning") generated 1 warning (run `cargo clippy --fix --test "reasoning" -p prism` to apply 1 suggestion)
+warning: manual `RangeInclusive::contains` implementation
+  --> tests/ast/parse_quality_test.rs:58:21
+   |
+58 |             assert!(line >= 1 && line <= 8, "error line {} out of range", line);
+   |                     ^^^^^^^^^^^^^^^^^^^^^^ help: use: `(1..=8).contains(&line)`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_range_contains
+   = note: `-W clippy::manual-range-contains` implied by `-W clippy::all`
+   = help: to override `-W clippy::all` add `#[allow(clippy::manual_range_contains)]`
+
+warning: `prism` (test "lang_go") generated 1 warning
+warning: `prism` (test "ast") generated 7 warnings (run `cargo clippy --fix --test "ast" -p prism` to apply 7 suggestions)
+warning: unused variable: `conf`
+   --> tests/integration/import_binding_test.rs:354:10
+    |
+354 |     let (conf, kind) = resolve_kind(&cg, "app.py", "run", "process");
+    |          ^^^^ help: if this is intentional, prefix it with an underscore: `_conf`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `resolve_count` is never used
+  --> tests/integration/import_binding_test.rs:55:4
+   |
+55 | fn resolve_count(cg: &CallGraph, caller_file: &str, caller_name: &str, callee: &str) -> usize {
+   |    ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: use of `flat_map` with an identity function
+  --> tests/integration/arrow_field_receiver_test.rs:20:37
+   |
+20 |     for site in full.calls.values().flat_map(|s| s) {
+   |                                     ^^^^^^^^^^^^^^^ help: try: `flatten()`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#flat_map_identity
+   = note: `-W clippy::flat-map-identity` implied by `-W clippy::all`
+   = help: to override `-W clippy::all` add `#[allow(clippy::flat_map_identity)]`
+
+warning: length comparison to one
+   --> src/mcp/tools.rs:807:17
+    |
+807 |         assert!(item["reasons"].as_array().unwrap().len() >= 1);
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: using `!is_empty` is clearer and more explicit: `!item["reasons"].as_array().unwrap().is_empty()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#len_zero
+    = note: `-W clippy::len-zero` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::len_zero)]`
+
+warning: use of `flat_map` with an identity function
+  --> tests/integration/constructor_field_receiver_test.rs:49:14
+   |
+49 |             .flat_map(|s| s)
+   |              ^^^^^^^^^^^^^^^ help: try: `flatten()`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#flat_map_identity
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1155:25
+     |
+1155 |     assert!(evidence_of(&result)["warnings"]
+     |                         ^^^^^^^ help: change this to: `result`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1190:25
+     |
+1190 |     assert!(evidence_of(&result)["warnings"]
+     |                         ^^^^^^^ help: change this to: `result`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1247:25
+     |
+1247 |     assert!(evidence_of(&result)["warnings"]
+     |                         ^^^^^^^ help: change this to: `result`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1272:25
+     |
+1272 |     assert!(evidence_of(&stale_result)["warnings"]
+     |                         ^^^^^^^^^^^^^ help: change this to: `stale_result`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1285:28
+     |
+1285 |     assert_eq!(evidence_of(&refresh)["status"], "refreshed");
+     |                            ^^^^^^^^ help: change this to: `refresh`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1286:28
+     |
+1286 |     assert_eq!(evidence_of(&refresh)["strategy"], "full");
+     |                            ^^^^^^^^ help: change this to: `refresh`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1287:25
+     |
+1287 |     assert!(evidence_of(&refresh)["fallback_reason"].is_null());
+     |                         ^^^^^^^^ help: change this to: `refresh`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1288:28
+     |
+1288 |     assert_eq!(evidence_of(&refresh)["generation"], 1);
+     |                            ^^^^^^^^ help: change this to: `refresh`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1289:28
+     |
+1289 |     assert_eq!(evidence_of(&refresh)["stale_before_refresh"], true);
+     |                            ^^^^^^^^ help: change this to: `refresh`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1291:21
+     |
+1291 |         evidence_of(&refresh)["stale_index_paths_before_refresh"],
+     |                     ^^^^^^^^ help: change this to: `refresh`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1296:42
+     |
+1296 |     assert_eq!(refresh_text, evidence_of(&refresh));
+     |                                          ^^^^^^^^ help: change this to: `refresh`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1304:26
+     |
+1304 |     assert!(!evidence_of(&fresh_result)["warnings"]
+     |                          ^^^^^^^^^^^^^ help: change this to: `fresh_result`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1325:28
+     |
+1325 |     assert_eq!(evidence_of(&refresh)["strategy"], "full");
+     |                            ^^^^^^^^ help: change this to: `refresh`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1326:25
+     |
+1326 |     assert!(evidence_of(&refresh)["fallback_reason"].is_null());
+     |                         ^^^^^^^^ help: change this to: `refresh`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1327:28
+     |
+1327 |     assert_eq!(evidence_of(&refresh)["generation"], 1);
+     |                            ^^^^^^^^ help: change this to: `refresh`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1328:28
+     |
+1328 |     assert_eq!(evidence_of(&refresh)["stale_before_refresh"], false);
+     |                            ^^^^^^^^ help: change this to: `refresh`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1329:28
+     |
+1329 |     assert_eq!(evidence_of(&refresh)["stale_index_total_before_refresh"], 0);
+     |                            ^^^^^^^^ help: change this to: `refresh`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1407:26
+     |
+1407 |     assert!(!evidence_of(&result)["warnings"]
+     |                          ^^^^^^^ help: change this to: `result`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1440:25
+     |
+1440 |     assert!(evidence_of(&result)["items"]
+     |                         ^^^^^^^ help: change this to: `result`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1481:25
+     |
+1481 |     assert!(evidence_of(&result)["items"]
+     |                         ^^^^^^^ help: change this to: `result`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1519:25
+     |
+1519 |     assert!(evidence_of(&result)["items"]
+     |                         ^^^^^^^ help: change this to: `result`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1561:25
+     |
+1561 |     assert!(evidence_of(&result)["items"]
+     |                         ^^^^^^^ help: change this to: `result`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1612:25
+     |
+1612 |     assert!(evidence_of(&result)["items"]
+     |                         ^^^^^^^ help: change this to: `result`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1740:25
+     |
+1740 |     assert!(evidence_of(&result)["warnings"]
+     |                         ^^^^^^^ help: change this to: `result`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1772:25
+     |
+1772 |     assert!(evidence_of(&raced)["warnings"]
+     |                         ^^^^^^ help: change this to: `raced`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1782:25
+     |
+1782 |     assert!(evidence_of(&retried)["warnings"]
+     |                         ^^^^^^^^ help: change this to: `retried`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1813:25
+     |
+1813 |     assert!(evidence_of(&raced)["warnings"]
+     |                         ^^^^^^ help: change this to: `raced`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1827:25
+     |
+1827 |     assert!(evidence_of(&retried)["warnings"]
+     |                         ^^^^^^^^ help: change this to: `retried`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this assertion has a constant value
+    --> src/mcp/transport_tests.rs:1906:5
+     |
+1906 | /     assert!(
+1907 | |         crate::mcp::output::MAX_RESULT_CHARS_FLOOR
+1908 | |             >= FRESHNESS_RESERVE_BYTES
+1909 | |                 + AUTO_REFRESH_RESERVE_BYTES
+1910 | |                 + MIN_MUTATING_TOOL_CAP_BYTES
+1911 | |                 + ENVELOPE_RESERVE
+1912 | |     );
+     | |_____^
+     |
+     = help: consider moving this into a const block: `const { assert!(..) }`
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#assertions_on_constants
+     = note: `-W clippy::assertions-on-constants` implied by `-W clippy::all`
+     = help: to override `-W clippy::all` add `#[allow(clippy::assertions_on_constants)]`
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:1982:25
+     |
+1982 |     assert!(evidence_of(&result)["warnings"]
+     |                         ^^^^^^^ help: change this to: `result`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:2006:25
+     |
+2006 |     assert!(evidence_of(&result)["warnings"]
+     |                         ^^^^^^^ help: change this to: `result`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/mcp/transport_tests.rs:2028:25
+     |
+2028 |     assert!(evidence_of(&result)["warnings"]
+     |                         ^^^^^^^ help: change this to: `result`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+   --> tests/integration/imported_object_alias_test.rs:203:23
+    |
+203 |     let mut variants: Vec<(String, String, Vec<(&str, &str)>)> = Vec::new();
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+    = note: `-W clippy::type-complexity` implied by `-W clippy::all`
+    = help: to override `-W clippy::all` add `#[allow(clippy::type_complexity)]`
+
+warning: use of `flat_map` with an identity function
+  --> tests/integration/inline_prop_receiver_test.rs:41:14
+   |
+41 |             .flat_map(|s| s)
+   |              ^^^^^^^^^^^^^^^ help: try: `flatten()`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#flat_map_identity
+
+warning: `prism` (test "lang_rust") generated 1 warning
+warning: `prism` (test "lang_typescript") generated 2 warnings
+warning: `prism` (test "integration") generated 7 warnings (run `cargo clippy --fix --test "integration" -p prism` to apply 4 suggestions)
+warning: field assignment outside of initializer for an instance created with Default::default()
+    --> src/resolution.rs:2735:33
+     |
+2735 | ...                   telemetry.go_concrete_receiver_promoted_existing = 1;
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+note: consider initializing the variable with `resolution::ResolutionTelemetry { go_concrete_receiver_promoted_existing: 1, ..Default::default() }` and removing relevant reassignments
+    --> src/resolution.rs:2734:33
+     |
+2734 | ...                   let mut telemetry = ResolutionTelemetry::default();
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#field_reassign_with_default
+
+warning: unnecessary closure used with `bool::then`
+  --> src/resolution_receiver/tests.rs:85:13
+   |
+85 | /             (binding.name == name)
+86 | |                 .then(|| match &binding.target {
+87 | |                     crate::name_resolution::types::BindTarget::Resolved(
+88 | |                         crate::name_resolution::types::Target::Item {
+...  |
+92 | |                     _ => None,
+93 | |                 })
+   | |__________________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_lazy_evaluations
+   = note: `-W clippy::unnecessary-lazy-evaluations` implied by `-W clippy::all`
+   = help: to override `-W clippy::all` add `#[allow(clippy::unnecessary_lazy_evaluations)]`
+help: use `then_some` instead
+   |
+86 ~                 .then_some(match &binding.target {
+87 +                     crate::name_resolution::types::BindTarget::Resolved(
+88 +                         crate::name_resolution::types::Target::Item {
+89 +                             owns: Some(scope), ..
+90 +                         },
+91 +                     ) => Some(*scope),
+92 +                     _ => None,
+93 +                 })
+   |
+
+warning: you seem to want to iterate on a map's values
+  --> src/terraform.rs:67:32
+   |
+67 |         for (_file, source) in sources {
+   |                                ^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#for_kv_map
+help: use the corresponding method
+   |
+67 -         for (_file, source) in sources {
+67 +         for source in sources.values() {
+   |
+
+warning: `prism` (lib test) generated 179 warnings (134 duplicates) (run `cargo clippy --fix --lib -p prism --tests` to apply 40 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 21.41s
