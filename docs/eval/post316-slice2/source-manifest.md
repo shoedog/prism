@@ -3,8 +3,9 @@
 - Base: `d2bbe7074d12fc98280248313d9767d237be33b8` / tree `74eef96d0726882ea0a820b6a7b9552a17fcc3f2`
 - Worktree: `/private/tmp/prism-post316-slice1`
 - Branch: `feat/post316-slice2-occurrences`
-- Production checkpoint: `498fb6f68acaa7b87a5551b840967a9c28b50011` / tree `7437d02a0951b711836e4e4c6c8969c1f4001330`
-- Freeze state: round-1 test/custody delta uncommitted; controller commit requested. `git diff --name-only 498fb6f6` contains only `src/cpg/same_line_occurrence_tests.rs` before the custody documents below are updated, so all production hashes remain byte-identical to the checkpoint.
+- Production checkpoint: `498fb6f68acaa7b87a5551b840967a9c28b50011` / tree `7437d02af2f86994b9ed43fcaa3b813a3fa63fb5`
+- Final reviewed test/custody checkpoint: `7fc89c98bd3eaae99dc9dc959097b942ac96fe8c` / tree `dff38f065792cb6d7c20bb32c146b438bde8fa89`
+- Freeze state: source/test bytes are final and independently approved. A docs-only custody commit is requested for the corrected production tree SHA and final gate/review status. All production hashes remain byte-identical to `498fb6f6`.
 
 | Path | SHA-256 |
 |---|---|
@@ -16,3 +17,9 @@
 | `docs/eval/post316-slice2/design-decision.md` | `71d733097983dc6d4d77e01b376b57a0d11aec163482d9325b18586eface6717` |
 
 Round-1 hardening changes only the test file above: asserted-member exact vectors, actual same-name/same-line collision coverage, and Step5c/legacy-query fresh-warm compatibility. Candidate production hashes are unchanged. Custody docs updated with this manifest: `candidate-receipt.md` and `docs/superpowers/handoffs/2026-09-16-post316-slice2-occurrences.md`; hash them after their final bytes are written and before controller commit.
+
+Byte-exact independent-review custody added for the final docs-only commit:
+
+- `docs/eval/post316-slice2/final-acceptance.md` — `2fec146ce050df8a379a16432608bd553c2c4b244df06f52125ab736d907fc69`
+- `docs/eval/post316-slice2/review-round2.md` — `10cd9563195ae96370556b77612d89ef48f2cb725a1d92204197bd949cf151a9`
+- `docs/eval/post316-slice2/review-evidence-manifest.sha256` — `fa82c245594b37a83d802c1814c381f022800a0e377b2246774f5b7877560129`
