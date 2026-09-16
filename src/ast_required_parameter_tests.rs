@@ -1,6 +1,7 @@
 use super::*;
 use crate::data_flow::DataFlowGraph;
 use std::collections::BTreeMap;
+use std::process::Command;
 
 fn check(source: &str, expected: &[&str]) {
     for language in [Language::TypeScript, Language::Tsx] {
@@ -320,4 +321,127 @@ fn optional_inert_signature_keeps_source_order_unicode_and_old_refusals() {
             &["required"],
         );
     }
+}
+
+#[test]
+fn reviewer_optional_inert_complete_allowlist_and_old_path_controls() {
+    for default in [
+        "0",
+        "\"clean\"",
+        "true",
+        "false",
+        "null",
+        "[]",
+        "[ /* empty */ ]",
+        "{}",
+        "{ /* empty */ }",
+    ] {
+        check(
+            &format!(
+                "function take(required: any, seed: any = {default}, value?: unknown) {{ sink(required, seed, value); }}"
+            ),
+            &["required", "seed", "value"],
+        );
+    }
+
+    // The new all-simple validator must not narrow the old initializer-free
+    // path when an unsupported sibling makes that validator return None.
+    check(
+        "function take(value?: unknown, {x}: {x: unknown}) { sink(value); }",
+        &["value"],
+    );
+    check(
+        "function take(value?: unknown, ...rest: unknown[]) { sink(value); }",
+        &["value"],
+    );
+
+    for parameters in [
+        "seed: any = touch(), value?: unknown",
+        "seed: any = (value = clean), value?: unknown",
+        "seed: any = value, value?: unknown",
+        "seed: any = {x: 1}, value?: unknown",
+        "seed: any = [,], value?: unknown",
+        "{x = 1}: any, value?: unknown",
+        "seed: any = 0, ...rest: unknown[], value?: unknown",
+        "seed: any = 0, value?: unknown = 1",
+    ] {
+        check(
+            &format!("function take({parameters}) {{ sink(value); }}"),
+            &[],
+        );
+    }
+}
+
+#[test]
+fn optional_inert_each_allowlist_and_refusal_has_exact_occurrence_bytes() {
+    let accepted = [
+        "0",
+        "\"clean\"",
+        "true",
+        "false",
+        "null",
+        "[]",
+        "[ /* empty */ ]",
+        "{}",
+        "{ /* empty */ }",
+    ];
+    let refused = ["touch()", "(value = clean)", "value", "{x: 1}", "[,]"];
+    for language in [Language::TypeScript, Language::Tsx] {
+        for default in accepted {
+            let source = format!("function take(required: any, seed: any = {default}, value?: unknown) {{ sink(required, seed, value); }}");
+            let parsed = ParsedFile::parse("row.ts", &source, language).unwrap();
+            let actual = parsed.function_parameter_occurrences(&parsed.all_functions()[0]);
+            let names = actual
+                .iter()
+                .map(|(name, _, _)| name.as_str())
+                .collect::<Vec<_>>();
+            assert_eq!(
+                names,
+                ["required", "seed", "value"],
+                "{language:?}/{default}"
+            );
+            for (name, start, end) in actual {
+                assert_eq!(&source[start..end], name, "{language:?}/{default}");
+            }
+        }
+        for default in refused {
+            let source = format!("function take(required: any, seed: any = {default}, value?: unknown) {{ sink(required, value); }}");
+            let parsed = ParsedFile::parse("row.ts", &source, language).unwrap();
+            let actual = parsed.function_parameter_occurrences(&parsed.all_functions()[0]);
+            assert_eq!(
+                actual
+                    .iter()
+                    .map(|(name, _, _)| name.as_str())
+                    .collect::<Vec<_>>(),
+                ["required"],
+                "{language:?}/{default}"
+            );
+            for (name, start, end) in actual {
+                assert_eq!(&source[start..end], name, "{language:?}/{default}");
+            }
+        }
+    }
+}
+
+#[test]
+fn effectful_javascript_default_runs_only_for_undefined_or_omitted_arguments() {
+    let program = r#"
+let runs = 0;
+function take(seed = ++runs, value) { return [runs, seed, value]; }
+console.log(JSON.stringify([take(undefined, "u"), take(7, "s")]));
+"#;
+    let output = Command::new("node")
+        .args(["--eval", program])
+        .output()
+        .expect("node runtime is required for the effectful-default semantic control");
+    assert!(
+        output.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap().trim(),
+        "[[1,1,\"u\"],[1,7,\"s\"]]",
+        "an undefined argument runs the default while a supplied value skips it"
+    );
 }
