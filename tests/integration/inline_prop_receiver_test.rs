@@ -65,6 +65,28 @@ fn check(source: &str, expected: bool, language: Language) {
     }
 }
 
+fn check_unindexed_nested_absent(source: &str, language: Language) {
+    let files = BTreeMap::from([(
+        "app.tsx".into(),
+        ParsedFile::parse("app.tsx", source, language).unwrap(),
+    )]);
+    for (mode, graph) in [
+        ("full", CallGraph::build(&files)),
+        (
+            "subset",
+            CallGraph::build_direct_subset(&files, &files.keys().cloned().collect()),
+        ),
+    ] {
+        let sites: Vec<_> = graph
+            .calls
+            .values()
+            .flatten()
+            .filter(|site| site.callee_name == "m")
+            .collect();
+        assert!(sites.is_empty(), "{mode}/{source}: {sites:?}");
+    }
+}
+
 #[test]
 fn contextual_prop_receiver_positive() {
     for language in [Language::TypeScript, Language::Tsx] {
@@ -117,7 +139,21 @@ fn contextual_prop_receiver_shape_barriers() {
         "const run: (p: {client: Client; [key: string]: Other}) => void = ({client}) => { client.m(); };",
         "const run: (p: {get client(): Client}) => void = ({client}) => { client.m(); };",
     ] {
-        if std::panic::catch_unwind(|| check(source, false, Language::Tsx)).is_err() { failures.push(source); }
+        let unindexed_nested = matches!(
+            source,
+            "function outer() { const run = (({client}) => { client.m(); }) as (p: {client: Client}) => void; }"
+                | "function outer() { const run: (p: {client: Client}) => void = function* ({client}) { client.m(); }; }"
+        );
+        let result = std::panic::catch_unwind(|| {
+            if unindexed_nested {
+                check_unindexed_nested_absent(source, Language::Tsx);
+            } else {
+                check(source, false, Language::Tsx);
+            }
+        });
+        if result.is_err() {
+            failures.push(source);
+        }
     }
     assert!(failures.is_empty(), "{failures:?}");
 }

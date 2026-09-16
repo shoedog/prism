@@ -37,8 +37,12 @@ fn test_jsx_regular_calls_still_work() {
     let names = all_callee_names(&call_graph);
 
     assert!(
-        names.iter().any(|n| n == "fetchUser"),
+        names.iter().any(|n| n == "fetch"),
         "Call graph should contain regular function calls, got: {names:?}"
+    );
+    assert!(
+        !names.iter().any(|n| n == "fetchUser"),
+        "Call inside an unindexed effect callback must not leak to UserProfile: {names:?}"
     );
 }
 

@@ -18,6 +18,43 @@ fn expected_span(source: &str, callee: &str, call_text: &str) -> (String, usize,
     (callee.to_string(), start, start + call_text.len())
 }
 
+fn expected_routes(source: &str, calls: &[(&str, &str)]) -> [Vec<(String, usize, usize)>; 4] {
+    let mut spans: Vec<_> = calls
+        .iter()
+        .map(|(callee, call)| expected_span(source, callee, call))
+        .collect();
+    spans.sort();
+    let names = spans
+        .iter()
+        .map(|(name, _, _)| (name.clone(), 0, 0))
+        .collect();
+    let qualified_names = spans
+        .iter()
+        .map(|(name, _, _)| (format!("None:{name}"), 0, 0))
+        .collect();
+    let qualified_spans = spans
+        .iter()
+        .map(|(name, start, end)| (format!("None:{name}"), *start, *end))
+        .collect();
+    [names, spans, qualified_names, qualified_spans]
+}
+
+fn find_node_by_text<'a>(
+    parsed: &'a ParsedFile,
+    node: Node<'a>,
+    kind: &str,
+    text: &str,
+) -> Option<Node<'a>> {
+    if node.kind() == kind && parsed.node_text(&node) == text {
+        return Some(node);
+    }
+    let mut cursor = node.walk();
+    let found = node
+        .named_children(&mut cursor)
+        .find_map(|child| find_node_by_text(parsed, child, kind, text));
+    found
+}
+
 fn route_rows(parsed: &ParsedFile, owner: Node<'_>) -> [Vec<(String, usize, usize)>; 8] {
     let lines: BTreeSet<_> = (1..=parsed.node_line_range(&owner).1).collect();
     let macro_shadow = BTreeSet::new();
@@ -262,4 +299,231 @@ fn call_execution_owner_computed_key_unindexed_and_root_controls() {
         .map(|(name, _, _)| name.as_str())
         .collect();
     assert_eq!(root_names, ["body", "direct", "key", "late"]);
+}
+
+#[test]
+fn call_execution_owner_computed_key_callback_and_recovery_controls() {
+    let computed = "const π='🙂';function outer(){const obj={ [wrap(function inner(p=seed()){late(p);})](){body();} };direct();}";
+    let mut failures = Vec::new();
+    for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
+        let parsed = ParsedFile::parse("computed", computed, language).unwrap();
+        assert_eq!(parsed.parse_error_count, 0);
+        let outer = named_function(&parsed, "outer");
+        let inner = named_function(&parsed, "inner");
+        let method = parsed
+            .all_functions()
+            .into_iter()
+            .find(|node| node.kind() == "method_definition")
+            .expect("computed method");
+        let root = parsed.tree.root_node();
+        let expectations = [
+            (
+                outer,
+                expected_routes(
+                    computed,
+                    &[
+                        ("wrap", "wrap(function inner(p=seed()){late(p);})"),
+                        ("direct", "direct()"),
+                    ],
+                ),
+                "outer",
+            ),
+            (
+                inner,
+                expected_routes(computed, &[("seed", "seed()"), ("late", "late(p)")]),
+                "inner",
+            ),
+            (
+                method,
+                expected_routes(computed, &[("body", "body()")]),
+                "method",
+            ),
+            (
+                root,
+                expected_routes(
+                    computed,
+                    &[
+                        ("wrap", "wrap(function inner(p=seed()){late(p);})"),
+                        ("seed", "seed()"),
+                        ("late", "late(p)"),
+                        ("body", "body()"),
+                        ("direct", "direct()"),
+                    ],
+                ),
+                "root",
+            ),
+        ];
+        for (owner, expected, label) in expectations {
+            for (route, actual) in route_rows(&parsed, owner).iter().enumerate() {
+                if *actual != expected[route % 4] {
+                    failures.push(format!(
+                        "{language:?}/{label}/route-{route}: actual={actual:?} expected={:?}",
+                        expected[route % 4]
+                    ));
+                }
+            }
+        }
+
+        let wrap = find_node_by_text(
+            &parsed,
+            root,
+            "call_expression",
+            "wrap(function inner(p=seed()){late(p);})",
+        )
+        .unwrap();
+        let method_name = method.child_by_field_name("name").unwrap();
+        assert!(
+            method_name.start_byte() <= wrap.start_byte()
+                && wrap.end_byte() <= method_name.end_byte()
+        );
+        let seed = find_node_by_text(&parsed, root, "call_expression", "seed()").unwrap();
+        let late = find_node_by_text(&parsed, root, "call_expression", "late(p)").unwrap();
+        let body = find_node_by_text(&parsed, root, "call_expression", "body()").unwrap();
+        let params = inner.child_by_field_name("parameters").unwrap();
+        let inner_body = inner.child_by_field_name("body").unwrap();
+        let method_body = method.child_by_field_name("body").unwrap();
+        assert!(params.start_byte() <= seed.start_byte() && seed.end_byte() <= params.end_byte());
+        assert!(
+            inner_body.start_byte() <= late.start_byte()
+                && late.end_byte() <= inner_body.end_byte()
+        );
+        assert!(
+            method_body.start_byte() <= body.start_byte()
+                && body.end_byte() <= method_body.end_byte()
+        );
+    }
+
+    let recovery = "function outer(){const cb=function(){let = ; suspect();};direct();}function clean(){kept();}";
+    for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
+        let parsed = ParsedFile::parse("recovery", recovery, language).unwrap();
+        assert!(parsed.parse_error_count > 0, "{language:?}");
+        for (owner_name, calls) in [
+            ("outer", vec![("direct", "direct()")]),
+            ("clean", vec![("kept", "kept()")]),
+        ] {
+            let owner = named_function(&parsed, owner_name);
+            let expected = expected_routes(recovery, &calls);
+            for (route, actual) in route_rows(&parsed, owner).iter().enumerate() {
+                assert_eq!(
+                    *actual,
+                    expected[route % 4],
+                    "{language:?}/{owner_name}/route-{route}"
+                );
+            }
+        }
+    }
+    for failure in &failures {
+        println!("CALL_EXECUTION_OWNER_COMPUTED {failure}");
+    }
+    assert!(
+        failures.is_empty(),
+        "{} computed-key mismatches",
+        failures.len()
+    );
+}
+
+#[test]
+fn call_execution_owner_python_nested_and_root_preservation() {
+    let source = "def outer():\n    def inner():\n        late()\n    direct()\n";
+    let parsed = ParsedFile::parse("preserve.py", source, Language::Python).unwrap();
+    assert_eq!(parsed.parse_error_count, 0);
+    for (owner, calls, label) in [
+        (
+            named_function(&parsed, "outer"),
+            vec![("direct", "direct()"), ("late", "late()")],
+            "outer",
+        ),
+        (
+            named_function(&parsed, "inner"),
+            vec![("late", "late()")],
+            "inner",
+        ),
+        (
+            parsed.tree.root_node(),
+            vec![("direct", "direct()"), ("late", "late()")],
+            "root",
+        ),
+    ] {
+        let expected = expected_routes(source, &calls);
+        for (route, actual) in route_rows(&parsed, owner).iter().enumerate() {
+            assert_eq!(*actual, expected[route % 4], "{label}/route-{route}");
+        }
+    }
+}
+
+#[test]
+fn call_execution_owner_class_computed_key_preserves_baseline() {
+    let source = "function outer(){const C=class extends heritageExpr(){[classKey()](){methodRead();}static field=staticInit();instance=instanceInit();static{blockInit();}};use(C);}";
+    let expected_method = [
+        vec![
+            ("classKey".to_string(), 0, 0),
+            ("methodRead".to_string(), 0, 0),
+        ],
+        vec![
+            ("classKey".to_string(), 55, 65),
+            ("methodRead".to_string(), 69, 81),
+        ],
+        vec![
+            ("None:classKey".to_string(), 0, 0),
+            ("None:methodRead".to_string(), 0, 0),
+        ],
+        vec![
+            ("None:classKey".to_string(), 55, 65),
+            ("None:methodRead".to_string(), 69, 81),
+        ],
+    ];
+    let outer_spans = [
+        ("blockInit", 140, 151),
+        ("classKey", 55, 65),
+        ("heritageExpr", 39, 53),
+        ("instanceInit", 118, 132),
+        ("methodRead", 69, 81),
+        ("staticInit", 96, 108),
+        ("use", 155, 161),
+    ];
+    let expected_outer = [
+        outer_spans
+            .iter()
+            .map(|(name, _, _)| ((*name).to_string(), 0, 0))
+            .collect(),
+        outer_spans
+            .iter()
+            .map(|(name, start, end)| ((*name).to_string(), *start, *end))
+            .collect(),
+        outer_spans
+            .iter()
+            .map(|(name, _, _)| (format!("None:{name}"), 0, 0))
+            .collect(),
+        outer_spans
+            .iter()
+            .map(|(name, start, end)| (format!("None:{name}"), *start, *end))
+            .collect(),
+    ];
+    let mut failures = Vec::new();
+    for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
+        let parsed = ParsedFile::parse("class.js", source, language).unwrap();
+        assert_eq!(parsed.parse_error_count, 0);
+        for (owner_name, expected) in [
+            ("outer", &expected_outer),
+            ("[classKey()]", &expected_method),
+        ] {
+            let owner = named_function(&parsed, owner_name);
+            for (route, rows) in route_rows(&parsed, owner).iter().enumerate() {
+                if *rows != expected[route % 4] {
+                    failures.push(format!(
+                        "{language:?}/{owner_name}/route-{route}: actual={rows:?} expected={:?}",
+                        expected[route % 4]
+                    ));
+                }
+            }
+        }
+    }
+    for failure in &failures {
+        println!("CALL_EXECUTION_OWNER_CLASS_BASELINE {failure}");
+    }
+    assert!(
+        failures.is_empty(),
+        "{} class baseline changes",
+        failures.len()
+    );
 }

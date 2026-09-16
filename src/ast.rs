@@ -9578,11 +9578,10 @@ impl ParsedFile {
         {
             return CallOwnerDecision::LegacyInventory;
         }
-        if owner.has_error()
-            || !self
-                .language
-                .callable_boundary_node_types()
-                .contains(&owner.kind())
+        if !self
+            .language
+            .callable_boundary_node_types()
+            .contains(&owner.kind())
             || !self.all_functions().iter().any(|candidate| {
                 candidate.kind() == owner.kind() && byte_range_eq(candidate, owner)
             })
@@ -9591,6 +9590,25 @@ impl ParsedFile {
         }
         if call.start_byte() < owner.start_byte() || owner.end_byte() < call.end_byte() {
             return CallOwnerDecision::Outside;
+        }
+
+        let mut owner_is_in_class = false;
+        let mut ancestor = owner.parent();
+        while let Some(node) = ancestor {
+            if Self::is_rvalue_class_node(node.kind()) {
+                owner_is_in_class = true;
+                break;
+            }
+            ancestor = node.parent();
+        }
+        if owner_is_in_class
+            || self.rvalue_has_class_ancestor_before_owner(
+                call,
+                owner.start_byte(),
+                owner.end_byte(),
+            )
+        {
+            return CallOwnerDecision::LegacyInventory;
         }
 
         let mut current = Some(call);

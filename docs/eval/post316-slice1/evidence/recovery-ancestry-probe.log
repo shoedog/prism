@@ -1,0 +1,22 @@
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-slice1)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.05s
+     Running tests/tmp_owner_probe.rs (target/debug/deps/tmp_owner_probe-bdfbbe356dcca3cf)
+
+running 1 test
+TREE (program (import_statement (import_clause (identifier)) source: (string (string_fragment))) (function_declaration name: (identifier) parameters: (formal_parameters) body: (statement_block (expression_statement (identifier) (ERROR)) (expression_statement (call_expression function: (member_expression object: (identifier) property: (property_identifier)) arguments: (arguments))))) (function_declaration name: (identifier) parameters: (formal_parameters) body: (statement_block (function_declaration name: (identifier) parameters: (formal_parameters) body: (statement_block (expression_statement (identifier) (ERROR)))) (expression_statement (call_expression function: (member_expression object: (identifier) property: (property_identifier)) arguments: (arguments))))))
+CALL "api.m()" 56..63
+  call_expression 56..63 has_error=false error=false missing=false
+  expression_statement 56..64 has_error=false error=false missing=false
+  statement_block 46..66 has_error=true error=false missing=false
+  function_declaration 25..66 has_error=true error=false missing=false
+  program 0..127 has_error=true error=false missing=false
+CALL "api.m()" 116..123
+  call_expression 116..123 has_error=false error=false missing=false
+  expression_statement 116..124 has_error=false error=false missing=false
+  statement_block 84..126 has_error=true error=false missing=false
+  function_declaration 67..126 has_error=true error=false missing=false
+  program 0..127 has_error=true error=false missing=false
+test dump_recovery_ancestry ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+

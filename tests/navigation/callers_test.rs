@@ -36,28 +36,91 @@ fn call_execution_owner_navigation_callers_and_callees() {
         ),
     ]);
     let callers = queries::callers(&s, Some("item"), Some("origin.js"), None, 1).unwrap();
-    let caller_names: Vec<_> = callers
+    let mut caller_rows: Vec<_> = callers
         .items
         .iter()
         .filter_map(|item| match &item.symbol {
-            Some(SymbolRef::Function { name, file, .. }) if file == "app.js" => Some(name.as_str()),
+            Some(SymbolRef::Function {
+                name,
+                file,
+                start_line,
+                end_line,
+                start_byte,
+                end_byte,
+                ordinal,
+            }) => Some((
+                file.clone(),
+                name.clone(),
+                *start_line,
+                *end_line,
+                *start_byte,
+                *end_byte,
+                *ordinal,
+                format!("{:?}", item.why),
+            )),
             _ => None,
         })
         .collect();
-    assert!(caller_names.contains(&"inner"), "{caller_names:?}");
-    assert!(caller_names.contains(&"direct"), "{caller_names:?}");
-    assert!(!caller_names.contains(&"outer"), "{caller_names:?}");
+    caller_rows.sort();
+    assert_eq!(
+        caller_rows,
+        vec![
+            (
+                "app.js".to_string(),
+                "direct".to_string(),
+                6,
+                6,
+                107,
+                140,
+                0,
+                "[CalledBy { caller: \"direct\", call_site_line: 6 }, Resolution { kind: \"import_member\" }]".to_string(),
+            ),
+            (
+                "app.js".to_string(),
+                "inner".to_string(),
+                3,
+                3,
+                59,
+                91,
+                0,
+                "[CalledBy { caller: \"inner\", call_site_line: 3 }, Resolution { kind: \"import_member\" }]".to_string(),
+            ),
+        ]
+    );
 
     let inner_callees = queries::callees(&s, Some("inner"), Some("app.js"), None, 1).unwrap();
-    assert!(inner_callees.items.iter().any(|item| matches!(
-        &item.symbol,
-        Some(SymbolRef::Function { name, file, .. }) if name == "item" && file == "origin.js"
-    )));
+    let direct_callees = queries::callees(&s, Some("direct"), Some("app.js"), None, 1).unwrap();
+    let callee_rows = |items: &[prism::navigation::types::EvidenceItem]| {
+        items
+            .iter()
+            .map(|item| (item.symbol.clone(), format!("{:?}", item.why)))
+            .collect::<Vec<_>>()
+    };
+    let item_symbol = Some(SymbolRef::Function {
+        file: "origin.js".to_string(),
+        name: "item".to_string(),
+        start_line: 1,
+        end_line: 1,
+        start_byte: 7,
+        end_byte: 33,
+        ordinal: 0,
+    });
+    assert_eq!(
+        callee_rows(&inner_callees.items),
+        vec![(
+            item_symbol.clone(),
+            "[Calls { callee: \"item\", call_site_line: 3, qualifier: None }, Resolution { kind: \"import_member\" }]".to_string(),
+        )]
+    );
+    assert_eq!(
+        callee_rows(&direct_callees.items),
+        vec![(
+            item_symbol,
+            "[Calls { callee: \"item\", call_site_line: 6, qualifier: None }, Resolution { kind: \"import_member\" }]".to_string(),
+        )]
+    );
     let outer_callees = queries::callees(&s, Some("outer"), Some("app.js"), None, 1).unwrap();
-    assert!(!outer_callees.items.iter().any(|item| matches!(
-        &item.symbol,
-        Some(SymbolRef::Function { name, file, .. }) if name == "item" && file == "origin.js"
-    )));
+    assert!(outer_callees.items.is_empty());
 }
 
 #[test]

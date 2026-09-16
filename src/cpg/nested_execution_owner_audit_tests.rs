@@ -117,6 +117,109 @@ fn resolution_rows(cpg: &CodePropertyGraph, file: &str) -> Vec<String> {
     rows
 }
 
+fn complete_site_rows(cg: &crate::call_graph::CallGraph, file: &str) -> Vec<String> {
+    let mut rows: Vec<_> = cg
+        .calls
+        .values()
+        .flatten()
+        .filter(|site| site.caller.file == file)
+        .map(|site| {
+            format!(
+                "{}:{}:{}:{}:{}-{}:{:?}:src={:?}:q={:?}:bound={}:type={:?}:owner={:?}:shadow={}:recovery={:?}:materialized={}:new={}:argc={:?}:spread={}:outcome={:?}:origin={:?}:target={:?}",
+                site.caller.name,
+                site.caller.start_line,
+                site.callee_name,
+                site.line,
+                site.start_byte,
+                site.end_byte,
+                site.kind,
+                site.source_callee_name,
+                site.qualifier,
+                site.receiver_lexically_bound,
+                site.receiver_type,
+                site.receiver_owner_identity,
+                site.receiver_local_type_shadowed,
+                site.receiver_recovery,
+                site.receiver_materialized,
+                site.receiver_newly_recovered,
+                site.arg_count,
+                site.arg_spread,
+                site.receiver_outcome,
+                site.origin,
+                site.pre_resolved_target,
+            )
+        })
+        .collect();
+    rows.sort();
+    rows
+}
+
+fn cpg_endpoint(node: &CpgNode) -> String {
+    match node {
+        CpgNode::Function {
+            file,
+            name,
+            start_line,
+            end_line,
+            start_byte,
+            end_byte,
+        } => format!("F:{file}:{name}:{start_line}-{end_line}:{start_byte}-{end_byte}"),
+        CpgNode::Statement {
+            file,
+            line,
+            kind,
+            start_byte,
+            end_byte,
+        } => format!("S:{file}:{line}:{kind:?}:{start_byte}-{end_byte}"),
+        CpgNode::Variable {
+            file,
+            function,
+            function_start_line,
+            line,
+            path,
+            access,
+            start_byte,
+            end_byte,
+        } => format!(
+            "V:{file}:{function}:{function_start_line}:{line}:{path}:{access:?}:{start_byte}-{end_byte}"
+        ),
+        CpgNode::ReturnValue {
+            file,
+            function,
+            function_start_line,
+            line,
+            return_start_byte,
+            return_end_byte,
+            child_slot,
+            start_byte,
+            end_byte,
+        } => format!(
+            "R:{file}:{function}:{function_start_line}:{line}:{return_start_byte}-{return_end_byte}:{child_slot}:{start_byte}-{end_byte}"
+        ),
+    }
+}
+
+fn ownership_edge_rows(cpg: &CodePropertyGraph) -> Vec<String> {
+    let mut rows = Vec::new();
+    for edge in cpg.graph.edge_indices() {
+        let weight = &cpg.graph[edge];
+        if !matches!(
+            weight,
+            CpgEdge::Call(_) | CpgEdge::Return(_) | CpgEdge::DataFlow(_)
+        ) {
+            continue;
+        }
+        let (from, to) = cpg.graph.edge_endpoints(edge).unwrap();
+        rows.push(format!(
+            "{weight:?}|{}|{}",
+            cpg_endpoint(cpg.node(from)),
+            cpg_endpoint(cpg.node(to))
+        ));
+    }
+    rows.sort();
+    rows
+}
+
 #[test]
 fn nested_execution_owner_graph_classification() {
     let source = "function outer(seed) {\n  let cb;\n  cb=function inner(p) {\n    sink(p);\n    return seed;\n  };\n  let local=seed;\n  return local;\n}\n";
@@ -295,6 +398,105 @@ fn call_execution_owner_source_epochs() {
     }
 }
 
+#[test]
+fn call_execution_owner_complete_site_and_edge_metadata() {
+    let source =
+        "function outer(token){register(eager(),function inner(){return item(token);});direct();}";
+    for (language, ext) in [
+        (Language::JavaScript, "js"),
+        (Language::TypeScript, "ts"),
+        (Language::Tsx, "tsx"),
+    ] {
+        let app = format!("app.{ext}");
+        let origin = format!("origin.{ext}");
+        let files = BTreeMap::from([
+            (
+                app.clone(),
+                ParsedFile::parse(&app, source, language).unwrap(),
+            ),
+            (
+                origin.clone(),
+                ParsedFile::parse(
+                    &origin,
+                    "export function item(input){return input;}",
+                    language,
+                )
+                .unwrap(),
+            ),
+        ]);
+        let full = crate::call_graph::CallGraph::build(&files);
+        let skeleton = crate::call_graph::CallGraph::build_skeleton(&files);
+        let subset = crate::call_graph::CallGraph::build_direct_subset(
+            &files,
+            &files.keys().cloned().collect(),
+        );
+        let expected_row = |caller: &str, callee: &str, start, end, argc: &str| {
+            format!(
+                "{caller}:1:{callee}:1:{start}-{end}:Call:src=None:q=None:bound=false:type=None:owner=None:shadow=false:recovery=None:materialized=false:new=false:argc={argc}:spread=false:outcome=None:origin=Source:target=None"
+            )
+        };
+        let expected_sites = vec![
+            expected_row("inner", "item", 63, 74, "Some(1)"),
+            expected_row("outer", "direct", 78, 86, "Some(0)"),
+            expected_row("outer", "eager", 31, 38, "Some(0)"),
+            expected_row("outer", "register", 22, 77, "Some(2)"),
+        ];
+        let expected_skeleton = vec![
+            expected_row("inner", "item", 63, 74, "None"),
+            expected_row("outer", "direct", 78, 86, "None"),
+            expected_row("outer", "eager", 31, 38, "None"),
+            expected_row("outer", "register", 22, 77, "None"),
+        ];
+        assert_eq!(
+            complete_site_rows(&full, &app),
+            expected_sites,
+            "{ext}/full"
+        );
+        assert_eq!(
+            complete_site_rows(&skeleton, &app),
+            expected_skeleton,
+            "{ext}/skeleton"
+        );
+        assert_eq!(
+            complete_site_rows(&subset, &app),
+            expected_sites,
+            "{ext}/subset"
+        );
+        let roundtrip: crate::call_graph::CallGraph = bincode::deserialize(
+            &bincode::serialize(&full).expect("serialize complete call graph"),
+        )
+        .expect("deserialize complete call graph");
+        assert_eq!(
+            complete_site_rows(&roundtrip, &app),
+            expected_sites,
+            "{ext}/bincode"
+        );
+
+        let cpg = CodePropertyGraph::build(&files);
+        let resolved = resolution_rows(&cpg, &app);
+        assert_eq!(
+            resolved,
+            vec![format!(
+                "inner:1:item:63-74->FreeSingle:Exact:{origin}:item:1"
+            )],
+            "{ext}"
+        );
+        assert!(!expected_sites
+            .iter()
+            .any(|row| row.starts_with("outer:1:item:")));
+        assert_eq!(
+            ownership_edge_rows(&cpg),
+            vec![
+                format!("Call(Exact)|F:{app}:inner:1-1:39-76|F:{origin}:item:1-1:7-42"),
+                format!("DataFlow(Exact)|V:{app}:inner:1:1:token:Use:68-73|V:{origin}:item:1:1:input:Def:21-26"),
+                format!("DataFlow(NameOnly(CfgIncomplete))|V:{origin}:item:1:1:input:Def:21-26|V:{origin}:item:1:1:input:Use:35-40"),
+                format!("Return(Exact)|F:{origin}:item:1-1:7-42|F:{app}:inner:1-1:39-76"),
+            ],
+            "{ext}/CPG edges"
+        );
+    }
+}
+
 fn item_site(cpg: &CodePropertyGraph) -> crate::call_graph::CallSite {
     cpg.call_graph
         .calls
@@ -464,7 +666,8 @@ fn call_names_for(cg: &crate::call_graph::CallGraph, caller: &str) -> Vec<String
 
 #[test]
 fn call_execution_owner_same_line_identity_collision_refuses_graph_calls() {
-    let source = "function outer(){function same(){one();}function same(){two();}direct();}";
+    let source =
+        "const π='🙂';function outer(){function same(){one();}function same(){two();}direct();}";
     let mut failures = Vec::new();
     for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
         let parsed = ParsedFile::parse("collision", source, language).unwrap();
@@ -487,13 +690,31 @@ fn call_execution_owner_same_line_identity_collision_refuses_graph_calls() {
             .iter()
             .map(|node| {
                 parsed
-                    .function_calls_on_lines(node, &BTreeSet::from([1]))
+                    .function_calls_with_spans_on_lines(
+                        node,
+                        &BTreeSet::from([1]),
+                        &BTreeSet::new(),
+                    )
                     .into_iter()
-                    .map(|(name, _)| name)
+                    .map(|site| (site.callee_name, site.start_byte, site.end_byte))
                     .collect()
             })
             .collect();
-        assert_eq!(raw, [vec!["one".to_string()], vec!["two".to_string()]]);
+        assert_eq!(
+            raw,
+            [
+                vec![(
+                    "one".to_string(),
+                    source.find("one()").unwrap(),
+                    source.find("one()").unwrap() + 5
+                )],
+                vec![(
+                    "two".to_string(),
+                    source.find("two()").unwrap(),
+                    source.find("two()").unwrap() + 5
+                )],
+            ]
+        );
 
         let files = BTreeMap::from([("collision".to_string(), parsed)]);
         let full = crate::call_graph::CallGraph::build(&files);
@@ -513,6 +734,17 @@ fn call_execution_owner_same_line_identity_collision_refuses_graph_calls() {
             if outer != ["direct".to_string()] {
                 failures.push(format!(
                     "{language:?}/{route}: unrelated outer calls={outer:?}"
+                ));
+            }
+            let multiplicity = cg
+                .calls
+                .values()
+                .flatten()
+                .filter(|site| site.caller.name == "outer" && site.callee_name == "direct")
+                .count();
+            if multiplicity != 1 {
+                failures.push(format!(
+                    "{language:?}/{route}: direct multiplicity={multiplicity}"
                 ));
             }
         }

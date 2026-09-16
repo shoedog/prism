@@ -75,9 +75,9 @@ fn check(id: &str, body: &str, supported: bool, graph: bool) {
                 .collect();
             let expected_sites = if matches!(
                 id,
-                "receiver_self_nested_declaration" | "receiver_self_outer_parameter"
+                "receiver_self_nested_callback" | "receiver_self_named_nested_callback"
             ) {
-                2
+                0
             } else {
                 1
             };
@@ -513,7 +513,7 @@ fn typed_case(id: &str, body: &str, expected_sites: usize, supported: bool) {
 }
 #[test]
 fn receiver_self_typed_outer_parameter() {
-    typed_case("typed-outer","function run(client:Client){const obj={client:null};obj.client=function(value){return client.item(value);};}",2,true);
+    typed_case("typed-outer","function run(client:Client){const obj={client:null};obj.client=function(value){return client.item(value);};}",1,true);
 }
 #[test]
 fn receiver_self_typed_inner_parameter() {
@@ -526,7 +526,7 @@ fn receiver_self_typed_inner_parameter() {
 }
 #[test]
 fn receiver_self_typed_named_shadow() {
-    typed_case("typed-named-shadow","function run(client:Client){const obj={client:null};obj.client=function client(value){return client.item(value);};}",2,false);
+    typed_case("typed-named-shadow","function run(client:Client){const obj={client:null};obj.client=function client(value){return client.item(value);};}",1,false);
 }
 #[test]
 fn receiver_self_constructor_same_display() {
