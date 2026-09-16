@@ -209,7 +209,9 @@ use std::path::{Path, PathBuf};
 /// - v93: JS/TS/TSX callable rvalue queries exclude nested execution regions.
 /// - v94: JS/TS/TSX call sites bind to exact execution owners and refuse
 ///   line-identity collisions.
-const CACHE_VERSION: u32 = 94;
+/// - v95: JS/TS/TSX CPG variable nodes retain byte-distinct same-line
+///   occurrences for exact Step 4 endpoints and Step 5b argument binding.
+const CACHE_VERSION: u32 = 95;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -627,17 +629,16 @@ fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
                 access,
                 ..
             } => {
-                var_index.insert(
-                    (
+                var_index
+                    .entry((
                         file.clone(),
                         function.clone(),
                         *function_start_line,
                         *line,
                         path.clone(),
                         *access,
-                    ),
-                    idx,
-                );
+                    ))
+                    .or_insert(idx);
                 location_index
                     .entry((file.clone(), *line))
                     .or_default()
@@ -749,7 +750,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 94);
+        assert_eq!(super::CACHE_VERSION, 95);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

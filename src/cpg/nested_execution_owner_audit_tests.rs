@@ -563,7 +563,7 @@ fn nested_execution_owner_capture_and_refusal_controls() {
         .pop()
         .unwrap()
         .1;
-    assert!(CodePropertyGraph::argument_var_node_in_span(
+    let selected_same_line = CodePropertyGraph::argument_var_node_in_span(
         &same_site.caller,
         same_parsed,
         &AccessPath::simple("value"),
@@ -571,7 +571,18 @@ fn nested_execution_owner_capture_and_refusal_controls() {
         &same_cpg.var_index,
         &same_cpg.graph,
     )
-    .is_none());
+    .expect("byte-distinct same-line argument occurrence");
+    assert!(matches!(
+        &same_cpg.graph[selected_same_line],
+        CpgNode::Variable {
+            function,
+            access: VarAccess::Use,
+            start_byte,
+            end_byte,
+            ..
+        } if function == "outer"
+            && (*start_byte, *end_byte) == (same_arg.start, same_arg.end)
+    ));
 
     let unsupported_files: BTreeMap<_, _> = [
         (
