@@ -3,8 +3,8 @@
 - Base commit: `f5350044a18bf95f3deb51a41b4b09e9d585b134`
 - Base tree: `2e68dde9c1b587869a93acefa7923a1d337652a3`
 - Branch: `feat/post316-slice1-call-ownership`
-- Frozen: `2026-09-16T08:58:39Z`
-- Predecessor checkpoint: `565423021510162f081412a1b9c8a3e2273ace4e`
+- Frozen: `2026-09-16T09:13:17Z`
+- Predecessor checkpoint: `8e2f64ff73fb2218bfc103ffc49d03212d662008`
 - Publication: local only; no push, PR, merge, or CI run authorized.
 
 | SHA-256 | Path |
@@ -16,7 +16,7 @@
 | `6ad080f555ffce67d4a47c8ef3ede9c935263baa12614775f0e3d4006ed7df67` | `src/ast_call_execution_owner_tests.rs` |
 | `c78028e9098fc62813454862739977409dc641c2f1accb5560620655980fbbc6` | `src/cpg/nested_execution_owner_audit_tests.rs` |
 | `db8eafef7a2ed2b0ab5bd9326aab3c39ebed03b3a09044e4e75d01e3d7384e6d` | `tests/integration/inline_prop_receiver_test.rs` |
-| `270823e6b342a2ad367ed69b64873fff29307ace74cebd81d4117ee43fd970cc` | `tests/integration/receiver_self_binding_test.rs` |
+| `f7cf6853d233063e11dab8c2d0a51bf7b886e3cd1308101b18a0d3d43dc93eb8` | `tests/integration/receiver_self_binding_test.rs` |
 | `04522d6ef7793f050381ddf571d8464388fc8afcf2a72333d8a16070d20affac` | `tests/lang/tsx/jsx_call_test.rs` |
 | `aa2a4af5095c54f519d752dfcb15786323bda5d6749f369680fef104572199e2` | `tests/navigation/callers_test.rs` |
 

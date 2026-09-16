@@ -41,4 +41,16 @@
 ## Results for probes 3 and 4
 
 - Probe 3 supported compatibility refusal and endpoint parity. Base wrote valid 93/52 artifacts whose hashes stayed unchanged on a second base load. Candidate logged the 93/94 mismatch, rebuilt both layers as 94/53, and cached callers equaled uncached callers. Build identity also differed, so the genuine run does not isolate version as the only rejection cause; the separate forced-version tests do.
-- Probe 4 found one established metadata asymmetry: skeleton sites intentionally leave `arg_count=None`, while full/subset preserve `Some(1/0/0/2)`. After pinning each route's own expected rows, all three dialects passed with identical remaining metadata, exact `inner -> item` resolution, and fixed Call/Return/DataFlow endpoints. Bincode call-graph parity, caller-only incremental epochs, cache parity, and the existing parallel/serial oracle also passed.
+- Probe 4 found one established metadata asymmetry: skeleton sites intentionally leave `arg_count=None`, while full/subset preserve `Some(1/0/0/2)`. After pinning each route's own expected rows, all three dialects passed with identical remaining metadata, exact `inner -> item` resolution, and fixed Call/Return/DataFlow endpoints. Bincode call-graph parity, caller-only incremental epochs, cache parity, and the existing build-determinism oracle also passed.
+
+## Receiver retained-owner probe 5
+
+- Hypothesis: the four receiver fixtures with count 2 to 1 deltas retain only the nearest indexed callable, with identical caller identity and call span in full/subset and every supported dialect.
+- Expected if true: each route emits one fixed `(caller name, caller lines, call byte span)` row and no outer caller row.
+- Falsifier: a surviving site belongs to the former outer owner, differs between full/subset or dialects, or has a shifted span.
+- Alternative: count and resolution assertions pass while the wrong caller owns the remaining site.
+- Separating observation: print caller identities and spans once, then replace the print-only probe with fixed source-anchored tuples for the four authorized fixtures.
+
+## Result for probe 5
+
+- Probe 5 supported the nearest-owner hypothesis and ruled out the count-only alternative. Every full/subset route retained exactly the fixed nearest caller and byte span: `ns` at lines 2-2 and bytes 73-87 for the nested declaration, `ns` at lines 2-2 and bytes 100-114 for the outer-parameter fixture, `client` at lines 2-2 and bytes 133-151 for the typed outer-parameter fixture, and `client` at lines 2-2 and bytes 140-158 for the typed named-shadow fixture. No route retained the former outer `run` owner. The fixed assertions pass across JavaScript, TypeScript, and TSX where applicable: 36 passed / 0 failed / 0 ignored in the receiver-self module.

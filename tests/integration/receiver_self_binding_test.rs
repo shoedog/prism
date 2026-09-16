@@ -46,6 +46,18 @@ fn receiver<'a>(n: tree_sitter::Node<'a>, parsed: &ParsedFile) -> Option<tree_si
     found
 }
 
+fn retained_owner_expectation(
+    id: &str,
+) -> Option<(&'static str, usize, usize, usize, usize, &'static str)> {
+    match id {
+        "receiver_self_nested_declaration" => Some(("ns", 2, 2, 73, 87, "run")),
+        "receiver_self_outer_parameter" => Some(("ns", 2, 2, 100, 114, "run")),
+        "typed-outer" => Some(("client", 2, 2, 133, 151, "run")),
+        "typed-named-shadow" => Some(("client", 2, 2, 140, 158, "run")),
+        _ => None,
+    }
+}
+
 fn check(id: &str, body: &str, supported: bool, graph: bool) {
     let mut failures = Vec::new();
     for (lang, ext) in LANGUAGES {
@@ -82,6 +94,31 @@ fn check(id: &str, body: &str, supported: bool, graph: bool) {
                 1
             };
             assert_eq!(sites.len(), expected_sites, "{id}/{ext}/{mode}");
+            if let Some((name, start_line, end_line, start_byte, end_byte, rejected)) =
+                retained_owner_expectation(id)
+            {
+                let owners: Vec<_> = sites
+                    .iter()
+                    .map(|site| {
+                        (
+                            site.caller.name.as_str(),
+                            site.caller.start_line,
+                            site.caller.end_line,
+                            site.start_byte,
+                            site.end_byte,
+                        )
+                    })
+                    .collect();
+                assert_eq!(
+                    owners,
+                    vec![(name, start_line, end_line, start_byte, end_byte)],
+                    "{id}/{ext}/{mode}: retained owner"
+                );
+                assert!(
+                    sites.iter().all(|site| site.caller.name != rejected),
+                    "{id}/{ext}/{mode}: rejected outer owner {rejected}"
+                );
+            }
             for (index, site) in sites.into_iter().enumerate() {
                 let exact: Vec<_> = cg
                     .resolve_call_site_full(site)
@@ -101,7 +138,10 @@ fn check(id: &str, body: &str, supported: bool, graph: bool) {
                 } else {
                     vec![]
                 };
-                println!("RECEIVER_SELF {id}/{ext}/{mode}/{index} bound={bound} {exact:?}");
+                println!(
+                    "RECEIVER_SELF {id}/{ext}/{mode}/{index} caller={:?} span={}-{} bound={bound} {exact:?}",
+                    site.caller, site.start_byte, site.end_byte
+                );
                 if exact != want {
                     failures.push(format!("{ext}/{mode}: {exact:?}"));
                 }
@@ -486,6 +526,31 @@ fn typed_case(id: &str, body: &str, expected_sites: usize, supported: bool) {
                 .filter(|s| s.caller.file == path && s.callee_name == "item")
                 .collect();
             assert_eq!(sites.len(), expected_sites, "{id}/{ext}/{mode}");
+            if let Some((name, start_line, end_line, start_byte, end_byte, rejected)) =
+                retained_owner_expectation(id)
+            {
+                let owners: Vec<_> = sites
+                    .iter()
+                    .map(|site| {
+                        (
+                            site.caller.name.as_str(),
+                            site.caller.start_line,
+                            site.caller.end_line,
+                            site.start_byte,
+                            site.end_byte,
+                        )
+                    })
+                    .collect();
+                assert_eq!(
+                    owners,
+                    vec![(name, start_line, end_line, start_byte, end_byte)],
+                    "{id}/{ext}/{mode}: retained owner"
+                );
+                assert!(
+                    sites.iter().all(|site| site.caller.name != rejected),
+                    "{id}/{ext}/{mode}: rejected outer owner {rejected}"
+                );
+            }
             for (index, site) in sites.into_iter().enumerate() {
                 let exact: Vec<_> = cg
                     .resolve_call_site_full(site)
@@ -505,7 +570,10 @@ fn typed_case(id: &str, body: &str, expected_sites: usize, supported: bool) {
                 } else {
                     vec![]
                 };
-                println!("RECEIVER_TYPED {id}/{ext}/{mode}/{index} {exact:?}");
+                println!(
+                    "RECEIVER_TYPED {id}/{ext}/{mode}/{index} caller={:?} span={}-{} {exact:?}",
+                    site.caller, site.start_byte, site.end_byte
+                );
                 assert_eq!(exact, want, "{id}/{ext}/{mode}/{index}");
             }
         }

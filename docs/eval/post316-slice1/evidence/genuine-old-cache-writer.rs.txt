@@ -1,0 +1,27 @@
+use prism::navigation::{queries, NavigationIndex, NavigationSession};
+use prism::repo_loader::load_repo;
+use std::sync::Arc;
+
+#[test]
+fn write_genuine_base_cpg_and_navigation_caches() {
+    let repo_path = std::path::PathBuf::from(std::env::var("OLD_CACHE_REPO").unwrap());
+    let cache_path = std::path::PathBuf::from(std::env::var("OLD_CACHE_ROOT").unwrap());
+    std::fs::create_dir_all(&repo_path).unwrap();
+    std::fs::create_dir_all(&cache_path).unwrap();
+    std::fs::write(
+        repo_path.join("origin.js"),
+        "export function item(){return 1;}",
+    )
+    .unwrap();
+    std::fs::write(
+        repo_path.join("app.js"),
+        "import {item} from './origin';\nfunction outer(){const cb=function inner(){return item();};return cb;}\nfunction direct(){return item();}\n",
+    )
+    .unwrap();
+    let repo = Arc::new(load_repo(&repo_path).unwrap());
+    let index = Arc::new(NavigationIndex::build_cached_under(&repo, &cache_path));
+    let session = NavigationSession { repo, index };
+    let callers = queries::callers(&session, Some("item"), Some("origin.js"), None, 1).unwrap();
+    assert!(!callers.items.is_empty());
+    println!("OLD_CACHE_ROOT={}", cache_path.display());
+}
