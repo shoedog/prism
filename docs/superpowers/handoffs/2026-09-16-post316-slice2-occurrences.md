@@ -1,7 +1,7 @@
-# Handoff — post-316 Slice 2 exact same-line occurrences, first-review freeze
+# Handoff — post-316 Slice 2 exact same-line occurrences, second-review freeze
 
 **Written:** 2026-09-16T04:20:14-06:00 · **By:** /root/implement_slice1 · **Provider:** codex
-**Workspace:** /private/tmp/prism-post316-slice1 · feat/post316-slice2-occurrences · **Measured state:** `[MEASURED]` HEAD d2bbe7074d12fc98280248313d9767d237be33b8 · Tree DIRTY · Probe `cargo test cpg:: -- --nocapture` · Output `/private/tmp/prism-post316-orchestration/slice2/cpg-focused-green.log`
+**Workspace:** /private/tmp/prism-post316-slice1 · feat/post316-slice2-occurrences · **Measured state:** `[MEASURED]` HEAD 498fb6f68acaa7b87a5551b840967a9c28b50011 · Tree DIRTY with test/custody delta only · Probe `cargo test --offline same_line_occurrence_ -- --nocapture` · Output `/private/tmp/prism-post316-orchestration/slice2/focused-final.log`
 **Predecessor:** /root/implement_slice1 — same agent continued from accepted Slice 1
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker and folded from the root-ratified design decision. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
@@ -9,15 +9,15 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` /root/implement_slice1 owns implementation; /root owns commits and review routing — **RESOLVED by root dispatch**
-**(b) Custody exposure** — `[MEASURED]` source/tests/docs are uncommitted; source manifest and external logs are hashed — **OPEN until root checkpoint commit**
+**(b) Custody exposure** — `[MEASURED]` production is committed at `498fb6f6`; review hardening tests/docs are uncommitted and hashed — **OPEN until root second-review checkpoint**
 **(c) In flight / irreversible** — `[MEASURED]` no command is running; no irreversible action — **RESOLVED 2026-09-16**
 **(d) Authorization granted but not exercised** — “Implement replaced oracle + O13–15, all remaining negatives, capture meaningful RED, then freeze complete population for first reviewer.”
 
 ## 1. Resume order
 
-1. Controller commits the exact manifest population without staging unrelated files, then sends the immutable commit to the fresh Slice2 reviewer (cap two).
-2. Keep source frozen while running final gates; use the established Slice1 runbook and delegate non-Rust/Tier-A gates to verification_setup.
-3. Fold only finite reviewer findings; re-freeze/version the manifest after any source or test change.
+1. Controller commits the exact round-1 test/custody delta without staging unrelated files and binds the already-started second review to it.
+2. Keep source frozen while running final Rust gates. Frozen-production non-Rust/Tier-A gates are complete and remain valid because production hashes did not change.
+3. Reconcile the second and final review; do not extend review beyond the declared cap.
 
 **STOP conditions:** no RD/VarLocation/public-API widening; no synthetic caller edge to later Use77–82; no review beyond cap two without convergence classification; no full multicorpus or rebaseline.
 
@@ -26,12 +26,14 @@
 | Item | State | Evidence / correction |
 |---|---|---|
 | Ratified O01 replacement | done | `[MEASURED]` JS/TS/TSX two-hop path and explicit absent incoming caller edge in focused log |
-| O01–O12 | done | `[MEASURED]` 14-test focused population; exact tuples and negatives |
-| O13/O14 | done | `[MEASURED]` serial/parallel/full/incremental/warm and source epochs |
+| O01–O12 | done | `[MEASURED]` includes asserted-member full vector and actual same-name/same-line collision |
+| O13/O14 | done | `[MEASURED]` serial/parallel/full/incremental/warm, Step5c/legacy queries and source epochs |
 | O15 | done | `[MEASURED]` genuine v94 mismatch then v95 rebuild Hit parity |
-| CPG population | done | `[MEASURED]` 253 passed, 0 failed, 0 ignored |
-| Full gates | pending | `[UNKNOWN]` not run against frozen commit yet |
-| Independent review | pending | `[UNKNOWN]` cap two unused |
+| Review round 1 | done | `[INHERITED]` 0 WRONG / 1 nonblocking performance SMELL; finite G1–G4 closed |
+| Focused final source | done | `[MEASURED]` 16 passed, 0 failed, 0 ignored |
+| Frozen-production gates | done | `[MEASURED/INHERITED]` Rust default4532/MCP4725/widest4748; non-Rust receipt binds binaries |
+| Final Rust gates | running | `[UNKNOWN]` required after test-only hardening |
+| Independent review round 2 | running | `[UNKNOWN]` final cap round |
 
 ## 3. Corrections to standing documents and memory
 
@@ -44,9 +46,9 @@
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Checkpoint | pending | Root commits exact manifest | controller `.git` authority | source-manifest.md |
-| 2 | Review round 1 | pending | Review frozen commit against O01–O15 | item 1 | cap 2 |
-| 3 | Full gates | pending | Run exact README/runbook populations on frozen source | item 1 | final totals required |
+| 1 | Second checkpoint | pending | Root commits exact test/custody manifest | controller `.git` authority | source-manifest.md |
+| 2 | Review round 2 | running | Replay G1–G4 against immutable test hash | item 1 for final binding | cap 2 |
+| 3 | Final Rust gates | running | Default/MCP/widest/examples/clippy/fmt on frozen test source | no source edits | final totals required |
 
 ## 5. Invariants and traps — do not do these
 
@@ -63,9 +65,12 @@
 | Base | `d2bbe7074d12fc98280248313d9767d237be33b8` / tree `74eef96d0726882ea0a820b6a7b9552a17fcc3f2` |
 | Manifest | `docs/eval/post316-slice2/source-manifest.md` |
 | Receipt | `docs/eval/post316-slice2/candidate-receipt.md` |
-| Focused log | `/private/tmp/prism-post316-orchestration/slice2/focused-green.log` SHA-256 `02ecc0ce81ce7a50d7a74730e11b2f4a17c9ce5e993b9f9bc813074d40d01bbd` |
+| Focused log | `/private/tmp/prism-post316-orchestration/slice2/focused-final.log` SHA-256 `f3c6db8c587dc033d3431ee5081cd19ee7f4453d31016dc4572cff4f329aa205` |
 | CPG log | `/private/tmp/prism-post316-orchestration/slice2/cpg-focused-green.log` SHA-256 `e3234675fb51854780f5004f44c5b2d8a5404ec75929123a37b7b66c05c8703c` |
 | O15 log | `/private/tmp/prism-post316-orchestration/slice2/o15-genuine-v94.log` SHA-256 `c07ff72ad55a1ae7415091ae348f8a552c1fc7b0090ba04450ecd2062617809a` |
+| G1 base RED | `/private/tmp/prism-post316-orchestration/slice2/base-g1-red.log` SHA-256 `d848103e1cd071851914226f27c3739ba527455f030596e8302aa4c01b99073e` |
+| G4 receipt | `/private/tmp/prism-post316-orchestration/slice2/g4/receipt.md` SHA-256 `b8df17d0ebbdfb46c6ee0471f575ddb7dba70ffc3f7b5a3d2ba8e1ab6cd141bb` |
+| Non-Rust receipt | `/private/tmp/prism-post316-orchestration/slice2/final-gates/nonrust/nonrust-gates-receipt.md` SHA-256 `1872b67c5fcf76a18a0047209235c681fbdc0c1444509128748f6cac76c06c0e` |
 
 ## 7. Refutation verdict and owner questions
 

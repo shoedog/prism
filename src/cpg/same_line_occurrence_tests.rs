@@ -701,6 +701,36 @@ fn same_line_occurrence_o06_repeated_member_keeps_field_and_base_per_slot() {
 }
 
 #[test]
+fn same_line_occurrence_o06_asserted_member_keeps_exact_field_and_base_per_slot() {
+    const TAKE: &str = "export function take(left,right){sink(left);return right;}";
+    let app = "import {take} from './origin';\nfunction outer(runtime){sink(runtime.Y);return take((runtime as any).X,(runtime as any).X);}";
+    let mut failures = Vec::new();
+    for (language, ext) in [(Language::TypeScript, "ts"), (Language::Tsx, "tsx")] {
+        let file = format!("app.{ext}");
+        let cpg = CodePropertyGraph::build(&fixture_with_origin(language, ext, app, TAKE));
+        let rows = boundary_rows(&cpg, &file, "take");
+        let mut expected = vec![
+            format!("{file}:outer:2:2:runtime.X:Use:83-101->origin.{ext}:take:1:1:left:Def:21-25:Exact"),
+            format!("{file}:outer:2:2:runtime:Use:84-91->origin.{ext}:take:1:1:left:Def:21-25:Exact"),
+            format!("{file}:outer:2:2:runtime.X:Use:102-120->origin.{ext}:take:1:1:right:Def:26-31:Exact"),
+            format!("{file}:outer:2:2:runtime:Use:103-110->origin.{ext}:take:1:1:right:Def:26-31:Exact"),
+        ];
+        expected.sort();
+        if rows != expected {
+            failures.push(format!(
+                "O06-asserted/{ext}: expected {expected:?}, got {rows:?}"
+            ));
+        }
+        if rows.iter().any(|row| row.contains("runtime.Y")) {
+            failures.push(format!(
+                "O06-asserted/{ext}: unrelated runtime.Y crossed a slot {rows:?}"
+            ));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
 fn same_line_occurrence_o07_exact_lookup_rejects_every_forged_field() {
     let app =
         "import {item} from './origin';\nfunction outer(value){sink(value);return item(value);}";
@@ -1039,22 +1069,81 @@ fn same_line_occurrence_o10_slot_barriers_do_not_compress_arguments() {
 
 #[test]
 fn same_line_occurrence_o12_same_name_same_line_owner_collision_refuses() {
-    let app = "import {item} from './origin';\nfunction outer(value){function inner(value){return item(value);} return item(value);}";
+    let app = "import {item} from './origin';\nfunction outer(value){function same(value){return item(value);}function same(value){return item(value);}return item(value);}";
+    let function_source = "function same(value){return item(value);}";
     let mut failures = Vec::new();
     for (language, ext) in [
         (Language::JavaScript, "js"),
         (Language::TypeScript, "ts"),
         (Language::Tsx, "tsx"),
     ] {
-        let cpg = CodePropertyGraph::build(&fixture(language, ext, app));
-        let rows = boundary_rows(&cpg, &format!("app.{ext}"), "item");
-        let later = value_spans(app).last().copied().unwrap();
-        if rows.len() != 1
-            || !rows[0].contains(":outer:2:2:value:Use:")
-            || !rows[0].contains(&format!(":{}-{}->", later.0, later.1))
+        let files = fixture(language, ext, app);
+        let parsed = &files[&format!("app.{ext}")];
+        let mut source_spans: Vec<_> = parsed
+            .functions()
+            .iter()
+            .filter(|function| function.name.as_deref() == Some("same"))
+            .map(|function| {
+                (
+                    function.start_byte,
+                    function.end_byte,
+                    function.start_line,
+                    function.end_line,
+                )
+            })
+            .collect();
+        source_spans.sort();
+        let expected_spans: Vec<_> = app
+            .match_indices(function_source)
+            .map(|(start, text)| (start, start + text.len(), 2, 2))
+            .collect();
+        if source_spans != expected_spans || source_spans.len() != 2 {
+            failures.push(format!(
+                "O12/{ext}: expected two byte-distinct same/line2 owners {expected_spans:?}, got {source_spans:?}"
+            ));
+        }
+        let cpg = CodePropertyGraph::build(&files);
+        if !cpg
+            .call_graph
+            .calls
+            .iter()
+            .filter(|(function, _)| function.name == "same" && function.start_line == 2)
+            .all(|(_, sites)| sites.is_empty())
         {
             failures.push(format!(
-                "O12/{ext}: expected only outer call's own occurrence, got {rows:?}"
+                "O12/{ext}: colliding same/line2 owner retained a call site"
+            ));
+        }
+        let colliding_boundaries: Vec<_> = cpg
+            .graph
+            .edge_indices()
+            .filter_map(|edge| {
+                if !matches!(cpg.graph[edge], CpgEdge::DataFlow(_)) {
+                    return None;
+                }
+                let (from, to) = cpg.graph.edge_endpoints(edge).unwrap();
+                matches!(
+                    (&cpg.graph[from], &cpg.graph[to]),
+                    (
+                        CpgNode::Variable { function, access: VarAccess::Use, .. },
+                        CpgNode::Variable { function: target, access: VarAccess::Def, .. }
+                    ) if function == "same" && target == "item"
+                )
+                .then_some((from, to))
+            })
+            .collect();
+        if !colliding_boundaries.is_empty() {
+            failures.push(format!(
+                "O12/{ext}: colliding owners gained argument boundaries {colliding_boundaries:?}"
+            ));
+        }
+        let rows = boundary_rows(&cpg, &format!("app.{ext}"), "item");
+        let expected = vec![format!(
+            "app.{ext}:outer:2:2:value:Use:147-152->origin.{ext}:item:1:1:input:Def:21-26:Exact"
+        )];
+        if rows != expected {
+            failures.push(format!(
+                "O12/{ext}: expected only exact retained outer boundary {expected:?}, got {rows:?}"
             ));
         }
     }
@@ -1323,4 +1412,249 @@ fn same_line_occurrence_o14_caller_source_epochs_match_fresh_builds() {
         assert_eq!(&parsed.source[arg.clone()], "value");
         prior = incremental;
     }
+}
+
+#[test]
+fn same_line_occurrence_o13_step5c_return_input_and_legacy_queries_match_warm() {
+    use crate::cpg_cache::{compute_file_hashes, load_cache, save_cache, CacheResult};
+
+    let app =
+        "import {item} from './origin';\nfunction outer(value){let result=item(value);return result;}";
+    let origin = "export function item(input){sink(input);return input;}";
+    let mut failures = Vec::new();
+    for (language, ext) in [
+        (Language::JavaScript, "js"),
+        (Language::TypeScript, "ts"),
+        (Language::Tsx, "tsx"),
+    ] {
+        let files = fixture_with_origin(language, ext, app, origin);
+        let fresh = CodePropertyGraph::build(&files);
+        let sources: BTreeMap<_, _> = files
+            .iter()
+            .map(|(path, parsed)| (path.clone(), parsed.source.clone()))
+            .collect();
+        let hashes = compute_file_hashes(&sources);
+        let cache = tempfile::tempdir().unwrap();
+        save_cache(&fresh, &hashes, false, cache.path()).unwrap();
+        let warm = match load_cache(&hashes, false, cache.path()) {
+            CacheResult::Hit(cpg) => cpg,
+            CacheResult::PartialHit { .. } => panic!("O13-return/{ext}: PartialHit"),
+            CacheResult::Miss => panic!("O13-return/{ext}: Miss"),
+        };
+        if complete_graph_rows(&warm) != complete_graph_rows(&fresh) {
+            failures.push(format!("O13-return/{ext}: fresh/warm graph mismatch"));
+        }
+
+        for (label, cpg) in [("fresh", &fresh), ("warm", &warm)] {
+            let origin_file = format!("origin.{ext}");
+            let return_inputs: Vec<_> = cpg
+                .graph
+                .edge_indices()
+                .filter_map(|edge| {
+                    if !matches!(cpg.graph[edge], CpgEdge::ReturnInput) {
+                        return None;
+                    }
+                    let (from, to) = cpg.graph.edge_endpoints(edge).unwrap();
+                    match (&cpg.graph[from], &cpg.graph[to]) {
+                        (
+                            CpgNode::Variable {
+                                file,
+                                function,
+                                path,
+                                access: VarAccess::Use,
+                                start_byte,
+                                end_byte,
+                                ..
+                            },
+                            CpgNode::ReturnValue {
+                                file: to_file,
+                                function: to_function,
+                                return_start_byte,
+                                return_end_byte,
+                                child_slot,
+                                start_byte: value_start,
+                                end_byte: value_end,
+                                ..
+                            },
+                        ) if file == &origin_file
+                            && to_file == &origin_file
+                            && function == "item"
+                            && to_function == "item"
+                            && path == &AccessPath::simple("input") =>
+                        {
+                            Some((
+                                *start_byte,
+                                *end_byte,
+                                *return_start_byte,
+                                *return_end_byte,
+                                *child_slot,
+                                *value_start,
+                                *value_end,
+                            ))
+                        }
+                        _ => None,
+                    }
+                })
+                .collect();
+            if return_inputs != vec![(47, 52, 40, 53, 0, 47, 52)] {
+                failures.push(format!(
+                    "O13-return/{ext}/{label}: exact ReturnInput rows {return_inputs:?}"
+                ));
+            }
+
+            let return_flows: Vec<_> = cpg
+                .graph
+                .edge_indices()
+                .filter_map(|edge| {
+                    let CpgEdge::ReturnFlow { suppress_shortcut } = cpg.graph[edge] else {
+                        return None;
+                    };
+                    let (from, to) = cpg.graph.edge_endpoints(edge).unwrap();
+                    match (&cpg.graph[from], &cpg.graph[to]) {
+                        (
+                            CpgNode::ReturnValue {
+                                file,
+                                function,
+                                return_start_byte,
+                                return_end_byte,
+                                child_slot,
+                                start_byte,
+                                end_byte,
+                                ..
+                            },
+                            CpgNode::Variable {
+                                file: to_file,
+                                function: to_function,
+                                path,
+                                access: VarAccess::Def,
+                                start_byte: to_start,
+                                end_byte: to_end,
+                                ..
+                            },
+                        ) if file == &origin_file
+                            && function == "item"
+                            && to_file == &format!("app.{ext}")
+                            && to_function == "outer"
+                            && path == &AccessPath::simple("result") =>
+                        {
+                            Some((
+                                *return_start_byte,
+                                *return_end_byte,
+                                *child_slot,
+                                *start_byte,
+                                *end_byte,
+                                *to_start,
+                                *to_end,
+                                suppress_shortcut,
+                            ))
+                        }
+                        _ => None,
+                    }
+                })
+                .collect();
+            if return_flows != vec![(40, 53, 0, 47, 52, 57, 63, true)] {
+                failures.push(format!(
+                    "O13-return/{ext}/{label}: exact ReturnFlow rows {return_flows:?}"
+                ));
+            }
+
+            let mut input_dfg: Vec<_> = cpg
+                .graph
+                .edge_indices()
+                .filter_map(|edge| {
+                    let CpgEdge::DataFlow(confidence) = cpg.graph[edge] else {
+                        return None;
+                    };
+                    let (from, to) = cpg.graph.edge_endpoints(edge).unwrap();
+                    match (&cpg.graph[from], &cpg.graph[to]) {
+                        (
+                            CpgNode::Variable {
+                                file,
+                                function,
+                                path,
+                                access: from_access,
+                                start_byte: from_start,
+                                end_byte: from_end,
+                                ..
+                            },
+                            CpgNode::Variable {
+                                file: to_file,
+                                function: to_function,
+                                path: to_path,
+                                access: to_access,
+                                start_byte: to_start,
+                                end_byte: to_end,
+                                ..
+                            },
+                        ) if file == &origin_file
+                            && to_file == &origin_file
+                            && function == "item"
+                            && to_function == "item"
+                            && path == &AccessPath::simple("input")
+                            && to_path == &AccessPath::simple("input") => Some(format!(
+                                "{from_access:?}:{from_start}-{from_end}->{to_access:?}:{to_start}-{to_end}:{confidence:?}"
+                            )),
+                        _ => None,
+                    }
+                })
+                .collect();
+            input_dfg.sort();
+            if input_dfg != vec!["Def:21-26->Use:33-38:NameOnly(CfgIncomplete)".to_string()] {
+                failures.push(format!(
+                    "O13-return/{ext}/{label}: producer DataFlow labels {input_dfg:?}"
+                ));
+            }
+            let legacy = cpg
+                .var_node(
+                    &origin_file,
+                    "item",
+                    1,
+                    1,
+                    &AccessPath::simple("input"),
+                    VarAccess::Use,
+                )
+                .unwrap();
+            if !matches!(
+                cpg.node(legacy),
+                CpgNode::Variable {
+                    start_byte: 33,
+                    end_byte: 38,
+                    ..
+                }
+            ) {
+                failures.push(format!(
+                    "O13-return/{ext}/{label}: legacy var_node did not remain first-wins"
+                ));
+            }
+            let later = cpg
+                .dfg
+                .uses
+                .values()
+                .flatten()
+                .find(|loc| {
+                    loc.file == origin_file
+                        && loc.path == AccessPath::simple("input")
+                        && loc.start_byte == 47
+                        && loc.end_byte == 52
+                })
+                .unwrap();
+            let for_location = cpg.var_node_for_location(later).unwrap();
+            if for_location != legacy {
+                failures.push(format!(
+                    "O13-return/{ext}/{label}: var_node_for_location migrated from legacy representative"
+                ));
+            }
+            let defs: Vec<_> = cpg
+                .all_defs_of(&origin_file, "input")
+                .into_iter()
+                .map(|loc| (loc.start_byte, loc.end_byte))
+                .collect();
+            if defs != vec![(21, 26)] {
+                failures.push(format!(
+                    "O13-return/{ext}/{label}: all_defs_of legacy rows {defs:?}"
+                ));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
