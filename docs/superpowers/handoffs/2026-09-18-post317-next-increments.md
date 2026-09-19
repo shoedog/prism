@@ -2,8 +2,8 @@
 
 **Written:** 2026-09-18 America/Denver
 **State:** Priority 1 locally accepted; the unsplit P2 packet is historical and superseded by
-accepted P2a syntax/integrity/frequency work, dispatched externally with core approval pending;
-P2b deferred; P3 parked
+the accepted P2a planning packet, whose external extraction stopped before compile after a repeated
+size-cap breach and is now PARK-DESIGN; P2b deferred; P3 parked
 **Workspace:** `/private/tmp/prism-post316-slice1`
 **Branch:** `feat/post317-exact-caller-reads`
 
@@ -54,6 +54,8 @@ P2b deferred; P3 parked
   `docs/superpowers/plans/2026-09-18-post317-next-increments/CUSTODY-MAP.md`.
 - Parked P3 draft, prompts, review, and status:
   `docs/superpowers/plans/2026-09-18-post317-next-increments/parked-p3/README.md`.
+- P2a stopped-at-cap status and external custody binding:
+  `docs/superpowers/plans/2026-09-18-post317-next-increments/p2-split/P2A-BUDGET-STOP.md`.
 
 The brief ranks a bounded straight-line caller-RD design first, an input-gated WS2
 cohort measurement second, and a non-authorizing WS4 ownership packet third. It keeps
@@ -137,9 +139,17 @@ The formerly accepted full Priority 2 packet remains historical: external manife
 active work by the accepted split packet: P2a artifact manifest SHA-256
 `3b5e61b3f802ed961a46c2260f42ead3d387b7e0d86a1092119fd0cac323223a` and normative P2a spec
 SHA-256 `6b681c35baa365260f9466d3479d2b04a5398add57b8a5229e4f72386a5e4d0c`.
-P2a is dispatched externally but remains core-approval pending; no public parsing, census,
-mutation, or native-readiness claim has run. P2b is deferred pending a separate dispatch,
-budget, review cap, accepted P2a binding, and fresh native-readiness proof.
+The P2a external extraction stopped before its first compile after `cargo fmt --all` left the
+Rust observer at 1,257 lines against the accepted 900-line ceiling. Controller classification is
+`PARK-DESIGN`: no further split, ceiling increase, compile, public parsing, census, mutation, or
+review is authorized. The external snapshot `main.rs` is SHA-256
+`596d3540d39c5959127fb1ba6b7624b957aa35b7dda8fa62cc776a688a6ef192`; the compact durable
+receipt is `p2-split/P2A-BUDGET-STOP.md`. Its inherited `RED18` is observer-baseline only, not
+P2a behavioral RED. The external snapshot manifest is SHA-256
+`472e3b49c498fcfc8203605beaa0ede4596d7e2c4ef8a3029232a7b432eda1d7`; terminal handoff and
+audit are respectively SHA-256 `ba21572b1bcce78e52272975dcf786f9224ca431f079a9e59946402862f501c1`
+and `0701897076b62149c9126630c52dd86eed38a424b4392dfadd6ee2ee39e7ffb0`. P2b remains deferred pending a separate dispatch, budget, review cap,
+accepted P2a binding, and fresh native-readiness proof.
 
 Priority 3 is parked: its proposed source-only worker-outcome pilot did not add sufficiently
 distinct evidence while dependency custody and compiler Program closure remain absent. No P3
@@ -149,8 +159,7 @@ execution is authorized; the dependency-custody decision is deferred.
 
 1. Checkpoint the Priority 1 acceptance receipt, final gate receipts, accepted P2 split packet,
    and these handoffs without changing the frozen source manifest.
-2. Complete P2a core approval before any public parsing, census, or mutation; its observer may
-   then use only the authenticated 414-file population and accepted fail-first/mutation contract.
+2. Do not resume P2a until a new controller design decision supplies a newly bounded contract.
 3. Keep P2b deferred until its separately authorized native-readiness increment.
 4. Keep Priority 3 parked until a separate dependency-custody decision supplies distinct evidence.
 5. Use one PR per accepted increment. Publication, merge, rebaseline and adoption remain separate
