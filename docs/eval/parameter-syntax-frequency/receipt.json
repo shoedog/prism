@@ -1,0 +1,68 @@
+{
+  "schema": "prism.parameter-syntax-frequency-receipt/1",
+  "status": "local_accepted_publication_pending",
+  "candidate": {
+    "commit": "f79bb95485940bcb1418a2510cd9ec73a65ca37f",
+    "tree": "c5c48a54f2b4ba989c9c3ad7d2a4b4f36a5aca29",
+    "implementation_sha256": "d1c77914d4db177af010e52efc2e308eb5bf6a9269ea9c50753dca5b69f66856",
+    "tests_sha256": "2d930123b847815f18aaf233c2250b5fb1b3afd398af3427803f89164d3cdc56",
+    "readme_sha256": "43e8374a8c60ecf60e72f01372a03824378ffbcd935abcbc5e3cd0bd9b3d8d13"
+  },
+  "inputs": {
+    "typescript_version": "5.9.3",
+    "typescript_entry_sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675",
+    "manifest_sha256": "f8ebbdd79ca01e5cdb675616b913f1fbb549d45378ab1047db84844a3bc8e696",
+    "source_commit": "0642e72cfa2d9a71198200e52f37399384610ee3",
+    "source_tree": "709e9146b0fbd78c3ebf0d77e67143b2fbc43e4a",
+    "members": 414,
+    "source_bytes": 5036151,
+    "declaration_only_members": 5,
+    "test_path_members": 62
+  },
+  "output": {
+    "schema": "prism.parameter-syntax-frequency/1",
+    "sha256": "e953121bbcdda492bb651e4ef8f27b9af3de7a0221ee2a98fcda611645a7896d",
+    "bytes": 1677371,
+    "cold_repeat_byte_identical": true,
+    "independent_recomputation": "PASS",
+    "file_rows": 414,
+    "parameter_rows": 4600,
+    "frequency_rows": 5,
+    "diagnostics": 0,
+    "excluded_bodyless_signatures": 437,
+    "body_bearing_callables": 5494
+  },
+  "gates": {
+    "focused": { "passed": 21, "failed": 0, "skipped": 0 },
+    "node": { "modules": 47, "passed": 806, "failed": 0, "skipped": 1 },
+    "rust": { "suites": 29, "passed": 4559, "failed": 0, "ignored": 1 },
+    "fmt": "PASS",
+    "diff_check": "PASS"
+  },
+  "review": {
+    "core": "APPROVE",
+    "core_wrong": 0,
+    "core_smell": 0,
+    "core_receipt_sha256": "69cfb7d4695c99899d2bd6c2bb910ce7534f7e9cd104c8901a2dd9ab73bbd676",
+    "final": "APPROVE",
+    "final_wrong": 0,
+    "final_smell": 0,
+    "final_receipt_sha256": "f027822865a5d7d870b5514a2e22ac033c2454da6741b77fbd9542d09231927b"
+  },
+  "evidence": {
+    "final_source_manifest_sha256": "2eb75cd65acf7220279ef264540a3b45b5b47f6cbcf07fe8c7b8bf8eb2b23740",
+    "recomputation_sha256": "6f379b664c857041effe613a129656da56b57e986fbacadaad4874fd554d5e02",
+    "final_gates_receipt_sha256": "f6cb020b89b550a45d34ae6debae331704d476b0f4243e2265ec11d0135592ff"
+  },
+  "exclusions": {
+    "historical_audit_source_tests": "3 tests excluded because complete PRISM_AUDIT_TYPESCRIPT, UPSTREAM, SLICE, SITES, and SOURCE_REPO custody inputs are unavailable",
+    "expected_node_skip": "grammar tamper-authentication requires a pre-acquired PRISM_GRAMMAR_ARCHIVES directory",
+    "standing_rust_ignore": "resolution_test::slice_elem_variant_reserved",
+    "not_triggered_by_scope": ["Tier-A", "Python", "native authority", "TypeScript Program", "live adoption", "full multi-corpus"]
+  },
+  "limits": [
+    "compiler syntax only",
+    "no TypeScript Program or type checker",
+    "no native, ownership, slot, entry, call, CPG, runtime, support, readiness, accuracy, or demand claim"
+  ]
+}

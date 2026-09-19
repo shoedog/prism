@@ -22,14 +22,19 @@ head were source-equivalent as recorded for PR #318. Its Tier-A quick result
 remains `INVALID` from corpus-pin drift and C-method 4/6 probes, with no
 accuracy, regression, or flip claim.
 
-The accepted narrow compiler syntax-frequency slice is now active, with core
-review pending. Its durable packet is
+The narrow compiler syntax-frequency slice is source-frozen at
+`f79bb95485940bcb1418a2510cd9ec73a65ca37f` (tree
+`c5c48a54f2b4ba989c9c3ad7d2a4b4f36a5aca29`). Independent core review is
+APPROVE with 0 WRONG / 0 SMELL. Its durable planning packet is
 `docs/superpowers/plans/2026-09-18-post317-next-increments/compiler-syntax-frequency/`.
-Sol owns only `scripts/parameter-frequency/` implementation/test work. No
-candidate gates or public parsing run until a frozen candidate and controller
-core approval. The user explicitly authorized this slice through review,
-publication, green CI, merge, and successor planning; those state-changing
-actions remain controller-owned.
+The fixed public census and local gates are complete: cold/repeat packets are
+byte-identical at SHA-256 `e953121bbcdda492bb651e4ef8f27b9af3de7a0221ee2a98fcda611645a7896d`;
+independent recomputation matches all five strata; Node is 806 pass / 0 fail /
+1 expected skip; default Rust is 4,559 pass / 0 fail / 1 ignored. Final local
+review is APPROVE with 0 WRONG / 0 SMELL. Compact custody is under
+`docs/eval/parameter-syntax-frequency/`. The user explicitly authorized this
+slice through review, publication, green CI, merge, and successor planning;
+those state-changing actions remain controller-owned.
 
 ## Historical and deferred work
 
@@ -43,8 +48,6 @@ actions remain controller-owned.
 
 ## Resume order
 
-1. Wait for the active syntax-frequency candidate to freeze and receive core
-   approval.
-2. Run only its accepted synthetic, mutation, Node/default-Rust, and CI gates.
-3. The controller may publish and merge only after terminal review and green CI.
-4. Plan a successor only after that merge.
+1. Commit the compact evidence custody without changing the frozen tool source.
+2. The controller may publish and merge after required CI is green.
+3. Plan a successor only after that merge.
