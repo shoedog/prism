@@ -1,0 +1,12 @@
+{
+  "pr": 319,
+  "url": "https://github.com/shoedog/prism/pull/319",
+  "published_head": "1ddfbe147e8785f2d04d5fb7c28193de9cca302c",
+  "premerge_ci_receipt": "pr319-ci-receipt.json",
+  "merge_commit": "30e13053c9f3f9940b5526e20af0cb40f2a9fae4",
+  "merge_tree": "961f698db1049cec42e7a8e15e716948082af9b6",
+  "published_head_tree_relation": "merge tree equals published-head tree, as verified by root",
+  "merged_at": "2026-09-19T22:27:10Z",
+  "actor": "root",
+  "main_push_ci": "pending separate read-only terminal receipt"
+}
