@@ -394,11 +394,10 @@ fn same_line_occurrence_o01_recovers_later_argument_and_boundary() {
             [FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)],
             "O01/{ext}/earlier producer edge"
         );
-        assert!(
-            cpg.graph
-                .edges_directed(later, petgraph::Direction::Incoming)
-                .all(|edge| !matches!(edge.weight(), CpgEdge::DataFlow(_))),
-            "O01/{ext}: no synthetic incoming caller edge"
+        assert_eq!(
+            edge_labels(caller_def, later),
+            [FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)],
+            "O01/{ext}: later caller producer edge"
         );
         assert_eq!(edge_labels(later, param), [FlowConfidence::Exact]);
         assert!(edge_labels(earlier, param).is_empty());
@@ -1276,6 +1275,14 @@ fn same_line_occurrence_o13_full_parallel_incremental_and_warm_cache_match() {
         ),
     };
     assert_eq!(complete_graph_rows(&warm), expected, "O13 warm/full");
+    assert_eq!(
+        incremental.dfg.exact_labels, full.dfg.exact_labels,
+        "O13 incremental/full exact producer facts"
+    );
+    assert_eq!(
+        warm.dfg.exact_labels, full.dfg.exact_labels,
+        "O13 warm/full exact producer facts"
+    );
 
     for (label, graph) in [
         ("full", &full),
@@ -1340,6 +1347,7 @@ fn same_line_occurrence_o14_caller_source_epochs_match_fresh_builds() {
         "import {item} from './origin';\nfunction outer(value){sink(value);return item(value);}",
         "import {item} from './origin';\nfunction outer(value){return item(value)+sink(value);}",
         "import {item} from './origin';\nfunction outer(value){sink(value);\nreturn item(value);}",
+        "import {item} from './origin';\nfunction outer(value){return item(value);}",
         "import {item} from './origin';\nfunction outer(value){sink(value);return item(value);}",
     ];
     let mut files = fixture(Language::JavaScript, "js", variants[0]);
@@ -1358,6 +1366,10 @@ fn same_line_occurrence_o14_caller_source_epochs_match_fresh_builds() {
             complete_graph_rows(&incremental),
             complete_graph_rows(&fresh),
             "O14 epoch {epoch}: incremental/fresh"
+        );
+        assert_eq!(
+            incremental.dfg.exact_labels, fresh.dfg.exact_labels,
+            "O14 epoch {epoch}: incremental/fresh exact producer facts"
         );
         let (_caller, parsed, arg) = call_argument_context(&incremental, &files, "app.js", "item");
         let rows = boundary_rows(&incremental, "app.js", "item");
@@ -1599,7 +1611,12 @@ fn same_line_occurrence_o13_step5c_return_input_and_legacy_queries_match_warm() 
                 })
                 .collect();
             input_dfg.sort();
-            if input_dfg != vec!["Def:21-26->Use:33-38:NameOnly(CfgIncomplete)".to_string()] {
+            if input_dfg
+                != vec![
+                    "Def:21-26->Use:33-38:NameOnly(CfgIncomplete)".to_string(),
+                    "Def:21-26->Use:47-52:NameOnly(CfgIncomplete)".to_string(),
+                ]
+            {
                 failures.push(format!(
                     "O13-return/{ext}/{label}: producer DataFlow labels {input_dfg:?}"
                 ));

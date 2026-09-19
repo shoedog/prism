@@ -213,7 +213,8 @@ use std::path::{Path, PathBuf};
 ///   occurrences for exact Step 4 endpoints and Step 5b argument binding.
 /// - v96: TS/TSX optional occurrences admit only all-simple signatures with
 ///   a nonempty inert-default sibling set.
-const CACHE_VERSION: u32 = 96;
+/// - v97: persist byte-distinct supplemental caller producer facts and labels.
+const CACHE_VERSION: u32 = 97;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -752,7 +753,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 96);
+        assert_eq!(super::CACHE_VERSION, 97);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
