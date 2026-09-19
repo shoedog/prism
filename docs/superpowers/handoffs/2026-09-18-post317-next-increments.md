@@ -1,9 +1,10 @@
 # Handoff — post-PR317 next increments
 
 **Written:** 2026-09-18 America/Denver
-**State:** Priority 1 architecture accepted; implementation dispatch ready
+**State:** Priority 1 implementation active; P2/P3 public source custody available, while
+dependency/program closure and private inputs remain unavailable
 **Workspace:** `/private/tmp/prism-post316-slice1`
-**Branch:** `plan/post317-next-increments`
+**Branch:** `feat/post317-exact-caller-reads`
 
 ## Binding and publication receipt
 
@@ -32,12 +33,16 @@
   `docs/superpowers/plans/2026-09-18-post317-next-increments/reviewer/01-exact-caller-read-occurrences.md`
 - Final architecture acceptance:
   `docs/superpowers/plans/2026-09-18-post317-next-increments/reviews/architecture-final-acceptance.md`
+- Public Excalidraw source-custody receipt:
+  `docs/eval/post317-input-custody.md`
 
 The brief ranks a bounded straight-line caller-RD design first, an input-gated WS2
 cohort measurement second, and a non-authorizing WS4 ownership packet third. It keeps
 loop/member provenance, destructuring, rest, arrow owners, and compiler ownership as
-separate contracts. Historical real-site/private inputs are not assumed available;
-failed custody must report `input-blocked`.
+separate contracts. As of 2026-09-19, the exact public Excalidraw source/config/lock
+archive is available; historical real-site data, an authenticated dependency root, compiler
+Program closure, and private inputs remain unavailable. Each unavailable required input must
+report `input-blocked` rather than become an empty population.
 
 ## Current gate
 
@@ -52,7 +57,7 @@ Receipt `/private/tmp/prism-post317-planning/architecture-review.md` has SHA-256
 The finite decisions are folded into the brief/spec/prompts: internal byte-keyed exact
 producer facts with their own pre-reduction labels; unchanged global `VarLocation` and all
 legacy DFG/query views; precise simple-binding admission; complete lifecycle/cache96→97;
-seven proof groups; current Priority 2/3 populations `input-blocked`.
+seven proof groups; Priority 2/3 historical inputs then `input-blocked`.
 
 Round 2 returned `REVISE BEFORE DISPATCH`, WRONG 2 / SMELL 2. Receipt
 `/private/tmp/prism-post317-planning/architecture-review-round2.md` has SHA-256
@@ -79,8 +84,21 @@ remaining. The copied final receipt has SHA-256
 Priority 1 spec SHA-256
 `52f8648fa0c4c0f07817dc9985a379dabe9943600486cfcc8c1e270c22485b50` and the other frozen
 planning hashes. This was finite verification of W1/W2/S1/S2, not a broad third review.
-Priorities 2 and 3 still require authenticated input inventory/acquisition before any
-measurement claim.
+### P2/P3 source-custody update — 2026-09-19
+
+The controller-authorized public source acquisition resolved Excalidraw
+`0642e72cfa2d9a71198200e52f37399384610ee3` and tree
+`709e9146b0fbd78c3ebf0d77e67143b2fbc43e4a` through the official GitHub API. Its
+35,599,041-byte archive passed safe extraction (1,229 regular files, no links), and the
+historical root package/config/lock hashes match. Compact durable receipt:
+`docs/eval/post317-input-custody.md`; external custody root:
+`/private/tmp/prism-post317-measurement-inputs/`.
+
+This is public source custody only. It does not provide `node_modules`, dependency closure,
+a compiler Program, historical real-site data, private worker inputs, an observer result, or
+permission to install/run effects. The historical installed-root admission refusal remains
+context, not a current measurement. P2/P3 may resume only under their separate input/effect
+authorities and must report any remaining required input as `input-blocked`.
 
 ## Resume order
 
@@ -89,8 +107,11 @@ measurement claim.
    separate two-round implementation review cap.
 3. If implementation requires global identity, public-query, same-line-write, kill/alias,
    loop/member or owner expansion, park for design instead of widening the accepted slice.
-4. Use one PR per accepted increment. Do not start Priority 2/3 while inputs are blocked.
+4. Use one PR per accepted increment. Do not start P2/P3 measurement until dependency/program
+   closure and its required public/private inputs are separately authorized and authenticated.
 
-No production source was edited and no implementation was authorized. The only new execution
-was bounded same-environment characterization of the two fixed R02 fixtures and genuine base96
-cache custody; neither is represented as behavioral RED or candidate acceptance.
+At initial architecture planning acceptance, no production source was edited and no implementation
+was authorized. The only planning execution then was bounded same-environment characterization of
+the two fixed R02 fixtures and genuine base96 cache custody; neither is represented as behavioral
+RED or candidate acceptance. The later 2026-09-19 public source-custody acquisition above is
+separate, does not measure P2/P3, and does not change those historical assertions.

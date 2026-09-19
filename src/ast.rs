@@ -7384,6 +7384,134 @@ impl ParsedFile {
         paths
     }
 
+    /// Whether a JS/TS/TSX callable is safe for the bounded exact-read expansion.
+    /// This is deliberately stricter than the general DFG inventory: any control
+    /// flow, nested callable, recovery node, short-circuit expression, update, or
+    /// reflective execution keeps the legacy producer unchanged.
+    pub(crate) fn exact_read_callable_is_straight_line(&self, func_node: &Node<'_>) -> bool {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) || func_node.has_error()
+        {
+            return false;
+        }
+
+        fn walk(parsed: &ParsedFile, root_id: usize, node: Node<'_>) -> bool {
+            if node.is_error() || node.is_missing() {
+                return false;
+            }
+            if node.id() != root_id && is_js_ts_function_like(node.kind()) {
+                return false;
+            }
+            if parsed.language.is_control_flow_node(node.kind())
+                || matches!(
+                    node.kind(),
+                    "conditional_expression"
+                        | "ternary_expression"
+                        | "with_statement"
+                        | "catch_clause"
+                        | "update_expression"
+                )
+            {
+                return false;
+            }
+            if node.kind() == "binary_expression" {
+                let text = parsed.node_text(&node);
+                if text.contains("&&") || text.contains("||") || text.contains("??") {
+                    return false;
+                }
+            }
+            if parsed.language.is_call_node(node.kind())
+                && parsed
+                    .language
+                    .call_function_name(&node)
+                    .is_some_and(|name| parsed.node_text(&name) == "eval")
+            {
+                return false;
+            }
+
+            let mut cursor = node.walk();
+            let eligible = node
+                .children(&mut cursor)
+                .all(|child| walk(parsed, root_id, child));
+            eligible
+        }
+
+        walk(self, func_node.id(), *func_node)
+    }
+
+    /// Whether the byte span is the token of a plain required parameter.
+    /// Optional, defaulted, rest, destructured, and recovered wrappers remain
+    /// outside the byte-distinct caller-read expansion.
+    pub(crate) fn exact_read_is_plain_required_parameter(
+        &self,
+        func_node: &Node<'_>,
+        span: &PathSpan,
+    ) -> bool {
+        let Some(node) = func_node
+            .descendant_for_byte_range(span.start_byte, span.end_byte)
+            .filter(|node| {
+                node.kind() == "identifier"
+                    && node.start_byte() == span.start_byte
+                    && node.end_byte() == span.end_byte
+            })
+        else {
+            return false;
+        };
+        let Some(parent) = node.parent() else {
+            return false;
+        };
+        match self.language {
+            Language::JavaScript => parent.kind() == "formal_parameters",
+            Language::TypeScript | Language::Tsx => {
+                parent.kind() == "required_parameter"
+                    && parent.child_by_field_name("value").is_none()
+                    && parent
+                        .child_by_field_name("pattern")
+                        .is_some_and(|pattern| {
+                            pattern.id() == node.id() && pattern.kind() == "identifier"
+                        })
+            }
+            _ => false,
+        }
+    }
+
+    /// Whether a real simple lvalue span is the binding token of a local
+    /// declaration rather than an assignment/update target.
+    pub(crate) fn exact_read_is_simple_local_declaration(
+        &self,
+        func_node: &Node<'_>,
+        span: &PathSpan,
+    ) -> bool {
+        if !span.path.is_simple() || span.start_byte >= span.end_byte {
+            return false;
+        }
+        let Some(mut node) = func_node.descendant_for_byte_range(span.start_byte, span.end_byte)
+        else {
+            return false;
+        };
+        loop {
+            if self.language.is_assignment_node(node.kind()) || node.kind() == "update_expression" {
+                return false;
+            }
+            if self.language.is_declaration_node(node.kind()) {
+                return self.language.declaration_name(&node).is_some_and(|name| {
+                    name.start_byte() <= span.start_byte
+                        && span.end_byte <= name.end_byte()
+                        && self.node_text(&node).contains(&span.path.base)
+                });
+            }
+            if node.id() == func_node.id() {
+                return false;
+            }
+            let Some(parent) = node.parent() else {
+                return false;
+            };
+            node = parent;
+        }
+    }
+
     /// Byte-bearing sibling of `rvalue_identifier_paths_on_lines`.
     pub fn rvalue_identifier_spans_on_lines(
         &self,

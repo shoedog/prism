@@ -181,12 +181,15 @@ closure refusals (`docs/eval/receiver-closure/2026-09-09-project-boundary-feasib
 WS4 should therefore close one ownership packet before any cap increase or compiler-driven
 admission.
 
-**Input gate.** Current availability of the historical public installed root, its complete
-config/dependency bytes, and any private worker inputs is unverified. The prior missing
-`real-sites.jsonl`/private `PRISM_AUDIT_*` custody inputs and lack of an established local real
-JS corpus prohibit assuming reuse. First inventory exact required bytes and pins; acquire or
-restore them only with owner authority and authenticate the population. Otherwise close this
-planning increment as `input-blocked`, without a compiler-feasibility measurement claim.
+**Input gate — updated 2026-09-19.** The exact public Excalidraw source archive is now
+authenticated at commit `0642e72cfa2d9a71198200e52f37399384610ee3`; its root
+`package.json`, `tsconfig.json`, and `yarn.lock` match the historical control hashes.
+This closes public **source** custody only. The historical installed root, complete dependency
+bytes, compiler Program closure, and all private worker inputs remain unavailable. The prior
+missing `real-sites.jsonl`/private `PRISM_AUDIT_*` custody inputs and lack of an authenticated
+public dependency root still prohibit assuming measurement reuse. Do not run a compiler-feasibility
+measurement or infer a zero result until those separate inputs are authorized and authenticated;
+otherwise close the affected increment as `input-blocked`.
 
 **Bounded increment.** Select one existing public config/root from the pinned Excalidraw
 population and generate a non-authorizing candidate packet containing:
@@ -219,9 +222,11 @@ JSON as executable, or equate compiler membership with runtime-edge authority.
 historical Excalidraw `fractional-indexing` config as the bounded packet falsification target:
 historically 2 repository + 216 dependency + 86 compiler files = 304 Program files. This is
 below the other configs' observed Program sizes, but it had zero historical real receiver
-sites and supports no value claim. Keep the full installed root/inherited configs; do not
-reroot or construct an artificial equality subset. The native root historically contained
-628 files, so config selection does not itself bypass the production input budget.
+sites and supports no value claim. The 2026-09-19 public-source archive makes the original
+source/config side available, but does not change these historical installed-root counts or
+close dependency/program/production-budget predicates. Keep the full installed root/inherited
+configs; do not reroot or construct an artificial equality subset. The native root historically
+contained 628 files, so config selection does not itself bypass the production input budget.
 
 ## Recommended sequence and second-opinion questions
 

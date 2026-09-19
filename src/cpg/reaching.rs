@@ -3,7 +3,7 @@
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::cfg::{self, ArmProvenance, CfgEdge, EdgeOrigin};
-use crate::data_flow::{FlowEdge, VarLocation};
+use crate::data_flow::{ExactFlowEdge, FlowEdge, VarLocation};
 use crate::languages::Language;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -66,6 +66,7 @@ pub(crate) enum RdOutcome {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct RdResult {
     pub(crate) labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence>,
+    pub(crate) exact_labels: BTreeMap<ExactFlowEdge, FlowConfidence>,
     pub(crate) loop_carried_edges: BTreeSet<(VarLocation, VarLocation)>,
 }
 
@@ -107,11 +108,22 @@ impl RdFileStats {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn reaching_definitions(
     parsed: &ParsedFile,
     func_node: &Node<'_>,
     defs: &[DefSite],
     dfg_edges: &[FlowEdge],
+) -> RdOutcome {
+    reaching_definitions_with_exact(parsed, func_node, defs, dfg_edges, &[])
+}
+
+pub(crate) fn reaching_definitions_with_exact(
+    parsed: &ParsedFile,
+    func_node: &Node<'_>,
+    defs: &[DefSite],
+    dfg_edges: &[FlowEdge],
+    exact_edges: &[FlowEdge],
 ) -> RdOutcome {
     let defs = deduplicate_definitions(defs);
     if defs.len() > RD_MAX_DEFS {
@@ -220,6 +232,7 @@ pub(crate) fn reaching_definitions(
     let collapsed = collapsed_groups(&defs);
     let capture_facts = capture::capture_facts(parsed, *func_node);
     let mut labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence> = BTreeMap::new();
+    let mut exact_labels = BTreeMap::new();
     let mut loop_carried_edges = BTreeSet::new();
     for edge in dfg_edges {
         let key = (edge.from.clone(), edge.to.clone());
@@ -248,9 +261,34 @@ pub(crate) fn reaching_definitions(
             .and_modify(|stored| *stored = stored.worst(label))
             .or_insert(label);
     }
+    for edge in exact_edges {
+        let key = ExactFlowEdge::from_legacy(edge);
+        let label = classify_edge(
+            edge,
+            parsed,
+            &defs,
+            &mapped_defs,
+            &line_index,
+            &spans,
+            &in_sets,
+            &kill,
+            &flat_in_sets,
+            &flat_kill,
+            &successors,
+            &collapsed,
+            &capture_facts,
+            &binding_facts,
+            function_start,
+        );
+        exact_labels
+            .entry(key)
+            .and_modify(|stored: &mut FlowConfidence| *stored = stored.worst(label))
+            .or_insert(label);
+    }
 
     RdOutcome::Available(RdResult {
         labels,
+        exact_labels,
         loop_carried_edges,
     })
 }

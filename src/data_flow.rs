@@ -5,9 +5,10 @@
 //! slice, and delta slice.
 
 use crate::access_path::AccessPath;
-use crate::ast::ParsedFile;
+use crate::ast::{ParsedFile, PathSpan};
 use crate::cpg::{
-    reaching_definitions, DefId, DefSite, FlowConfidence, FlowDoubt, RdFileStats, RdOutcome,
+    reaching_definitions_with_exact, DefId, DefSite, FlowConfidence, FlowDoubt, RdFileStats,
+    RdOutcome,
 };
 use crate::finding_confidence::EvidenceHop;
 use rayon::prelude::*;
@@ -87,11 +88,91 @@ pub enum VarAccessKind {
     Use,
 }
 
+/// Crate-internal occurrence identity for producer facts that must distinguish
+/// multiple references sharing the legacy `(path, line)` identity.
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
+pub(crate) struct ExactVarLocation {
+    pub(crate) file: String,
+    pub(crate) function: String,
+    pub(crate) function_start_line: usize,
+    pub(crate) line: usize,
+    pub(crate) path: AccessPath,
+    pub(crate) start_byte: usize,
+    pub(crate) end_byte: usize,
+    pub(crate) kind: VarAccessKind,
+}
+
+impl ExactVarLocation {
+    pub(crate) fn from_legacy(loc: &VarLocation) -> Self {
+        Self {
+            file: loc.file.clone(),
+            function: loc.function.clone(),
+            function_start_line: loc.function_start_line,
+            line: loc.line,
+            path: loc.path.clone(),
+            start_byte: loc.start_byte,
+            end_byte: loc.end_byte,
+            kind: loc.kind,
+        }
+    }
+
+    pub(crate) fn as_legacy(&self) -> VarLocation {
+        VarLocation {
+            file: self.file.clone(),
+            function: self.function.clone(),
+            function_start_line: self.function_start_line,
+            line: self.line,
+            path: self.path.clone(),
+            start_byte: self.start_byte,
+            end_byte: self.end_byte,
+            kind: self.kind,
+        }
+    }
+}
+
 /// An edge in the data flow graph: a definition flows to a use.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub struct FlowEdge {
     pub from: VarLocation,
     pub to: VarLocation,
+}
+
+/// Exact byte-bearing identity for one internal supplemental producer edge.
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
+pub(crate) struct ExactFlowEdge {
+    pub(crate) from: ExactVarLocation,
+    pub(crate) to: ExactVarLocation,
+}
+
+impl ExactFlowEdge {
+    pub(crate) fn from_legacy(edge: &FlowEdge) -> Self {
+        Self {
+            from: ExactVarLocation::from_legacy(&edge.from),
+            to: ExactVarLocation::from_legacy(&edge.to),
+        }
+    }
+
+    pub(crate) fn as_legacy(&self) -> FlowEdge {
+        FlowEdge {
+            from: self.from.as_legacy(),
+            to: self.to.as_legacy(),
+        }
+    }
+
+    pub(crate) fn binding_key(&self) -> (String, String, usize, AccessPath, usize, usize) {
+        (
+            self.from.file.clone(),
+            self.from.function.clone(),
+            self.from.function_start_line,
+            self.from.path.clone(),
+            self.from.start_byte,
+            self.from.end_byte,
+        )
+    }
 }
 
 /// A path through the data flow graph.
@@ -121,6 +202,9 @@ pub struct DataFlowGraph {
     /// One label per unique `(from, to)` FlowEdge endpoint pair. Primary state
     /// with the same file-partitioned lifecycle as `edges`.
     pub labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence>,
+    /// Supplemental byte-distinct producer facts absent from the legacy exact
+    /// endpoint population. Confidence is classified before legacy key reduction.
+    pub(crate) exact_labels: BTreeMap<ExactFlowEdge, FlowConfidence>,
     /// Per-file reaching-definitions availability counters.
     pub rd_function_stats: BTreeMap<String, RdFileStats>,
 }
@@ -135,6 +219,7 @@ impl DataFlowGraph {
             forward: BTreeMap::new(),
             backward: BTreeMap::new(),
             labels: BTreeMap::new(),
+            exact_labels: BTreeMap::new(),
             rd_function_stats: BTreeMap::new(),
         }
     }
@@ -159,6 +244,9 @@ impl DataFlowGraph {
             .retain(|(file, _, _, _), _| !exclude.contains(file));
         self.labels
             .retain(|(from, to), _| !exclude.contains(&from.file) && !exclude.contains(&to.file));
+        self.exact_labels.retain(|edge, _| {
+            !exclude.contains(&edge.from.file) && !exclude.contains(&edge.to.file)
+        });
         self.rd_function_stats
             .retain(|file, _| !exclude.contains(file));
 
@@ -179,6 +267,12 @@ impl DataFlowGraph {
         }
         for (key, label) in other.labels {
             Self::insert_label(&mut self.labels, key, label);
+        }
+        for (edge, label) in other.exact_labels {
+            self.exact_labels
+                .entry(edge)
+                .and_modify(|stored| *stored = stored.worst(label))
+                .or_insert(label);
         }
         for (file, stats) in other.rd_function_stats {
             self.rd_function_stats.entry(file).or_default().merge(stats);
@@ -227,6 +321,162 @@ impl DataFlowGraph {
         });
     }
 
+    fn exact_read_candidates(
+        parsed: &ParsedFile,
+        func_node: &tree_sitter::Node<'_>,
+        parameter_occurrences: &[(String, usize, usize)],
+        raw_aliases: &[(String, String, usize)],
+        lvalue_spans: &[PathSpan],
+        rvalue_spans: &[PathSpan],
+        legacy_edges: &[FlowEdge],
+    ) -> Vec<FlowEdge> {
+        if !parsed.exact_read_callable_is_straight_line(func_node) {
+            return Vec::new();
+        }
+
+        let mut occurrences: BTreeMap<(AccessPath, usize), BTreeSet<(usize, usize)>> =
+            BTreeMap::new();
+        for span in rvalue_spans {
+            if span.path.is_simple() && span.start_byte < span.end_byte {
+                occurrences
+                    .entry((span.path.clone(), span.line))
+                    .or_default()
+                    .insert((span.start_byte, span.end_byte));
+            }
+        }
+
+        let mut candidates = BTreeMap::<ExactFlowEdge, FlowEdge>::new();
+        for ((path, line), spans) in occurrences {
+            if spans.len() < 2
+                || raw_aliases.iter().any(|(alias, target, _)| {
+                    alias == &path.base || AccessPath::from_expr(target).base == path.base
+                })
+            {
+                continue;
+            }
+
+            let mut exact_defs = BTreeMap::<ExactVarLocation, VarLocation>::new();
+            for edge in legacy_edges.iter().filter(|edge| {
+                edge.from.kind == VarAccessKind::Def
+                    && edge.from.path == path
+                    && edge.to.kind == VarAccessKind::Use
+                    && edge.to.path == path
+                    && edge.to.line == line
+            }) {
+                exact_defs
+                    .entry(ExactVarLocation::from_legacy(&edge.from))
+                    .or_insert_with(|| edge.from.clone());
+            }
+            let mut defs_for_line: Vec<_> = exact_defs.into_values().collect();
+            if defs_for_line.len() != 1 {
+                continue;
+            }
+            let def = defs_for_line.pop().expect("one exact producer definition");
+
+            let matching_parameters: Vec<_> = parameter_occurrences
+                .iter()
+                .filter(|(name, start, end)| {
+                    name == &path.base && (*start, *end) == (def.start_byte, def.end_byte)
+                })
+                .collect();
+            let parameter_span = PathSpan {
+                path: path.clone(),
+                line: def.line,
+                start_byte: def.start_byte,
+                end_byte: def.end_byte,
+            };
+            let is_parameter = matching_parameters.len() == 1
+                && parsed.exact_read_is_plain_required_parameter(func_node, &parameter_span);
+            if !matching_parameters.is_empty() && !is_parameter {
+                continue;
+            }
+            let matching_lvalues: Vec<_> = lvalue_spans
+                .iter()
+                .filter(|span| span.path == path)
+                .collect();
+            if is_parameter {
+                if !matching_lvalues.is_empty() {
+                    continue;
+                }
+            } else {
+                if matching_lvalues.len() != 1
+                    || (matching_lvalues[0].start_byte, matching_lvalues[0].end_byte)
+                        != (def.start_byte, def.end_byte)
+                {
+                    continue;
+                }
+                let def_span = PathSpan {
+                    path: path.clone(),
+                    line: def.line,
+                    start_byte: def.start_byte,
+                    end_byte: def.end_byte,
+                };
+                if def.line >= line
+                    || !parsed.exact_read_is_simple_local_declaration(func_node, &def_span)
+                {
+                    continue;
+                }
+            }
+
+            for (start_byte, end_byte) in spans {
+                let edge = FlowEdge {
+                    from: def.clone(),
+                    to: VarLocation {
+                        file: def.file.clone(),
+                        function: def.function.clone(),
+                        function_start_line: def.function_start_line,
+                        line,
+                        path: path.clone(),
+                        start_byte,
+                        end_byte,
+                        kind: VarAccessKind::Use,
+                    },
+                };
+                candidates.insert(ExactFlowEdge::from_legacy(&edge), edge);
+            }
+        }
+        candidates.into_values().collect()
+    }
+
+    fn store_supplemental_exact(
+        destination: &mut BTreeMap<ExactFlowEdge, FlowConfidence>,
+        legacy_edges: &[FlowEdge],
+        legacy_labels: &BTreeMap<(VarLocation, VarLocation), FlowConfidence>,
+        classified: BTreeMap<ExactFlowEdge, FlowConfidence>,
+    ) {
+        let legacy_exact: BTreeMap<_, _> = legacy_edges
+            .iter()
+            .map(|edge| {
+                let label = legacy_labels
+                    .get(&(edge.from.clone(), edge.to.clone()))
+                    .copied()
+                    .unwrap_or(FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete));
+                (ExactFlowEdge::from_legacy(edge), label)
+            })
+            .collect();
+        let conflicting_bindings: BTreeSet<_> = classified
+            .iter()
+            .filter_map(|(edge, label)| {
+                legacy_exact
+                    .get(edge)
+                    .is_some_and(|legacy| legacy != label)
+                    .then(|| edge.binding_key())
+            })
+            .collect();
+
+        for (edge, label) in classified {
+            if legacy_exact.contains_key(&edge)
+                || conflicting_bindings.contains(&edge.binding_key())
+            {
+                continue;
+            }
+            destination
+                .entry(edge)
+                .and_modify(|stored| *stored = stored.worst(label))
+                .or_insert(label);
+        }
+    }
+
     /// Build a data flow graph from only the specified files.
     ///
     /// Identical to `build()` but skips files not in `only_files`. Used by
@@ -259,6 +509,7 @@ impl DataFlowGraph {
             BTreeMap::new();
         let mut edges = Vec::new();
         let mut labels = BTreeMap::new();
+        let mut exact_labels = BTreeMap::new();
         let mut rd_function_stats = BTreeMap::new();
 
         struct FileRefs {
@@ -267,6 +518,7 @@ impl DataFlowGraph {
             uses: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>>,
             edges: Vec<FlowEdge>,
             labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence>,
+            exact_labels: BTreeMap<ExactFlowEdge, FlowConfidence>,
             rd_function_stats: RdFileStats,
         }
 
@@ -282,6 +534,7 @@ impl DataFlowGraph {
                     BTreeMap::new();
                 let mut edges = Vec::new();
                 let mut labels = BTreeMap::new();
+                let mut exact_labels = BTreeMap::new();
                 let mut rd_function_stats = RdFileStats::default();
 
                 for func_node in parsed.all_functions() {
@@ -585,9 +838,31 @@ impl DataFlowGraph {
                         }
                     }
 
+                    drop(get_use);
                     let function_edges = &edges[function_edge_start..];
-                    match reaching_definitions(parsed, &func_node, &rd_defs, function_edges) {
+                    let exact_candidates = Self::exact_read_candidates(
+                        parsed,
+                        &func_node,
+                        &param_occurrences,
+                        &raw_aliases,
+                        &lvalue_spans,
+                        &rvalue_spans,
+                        function_edges,
+                    );
+                    match reaching_definitions_with_exact(
+                        parsed,
+                        &func_node,
+                        &rd_defs,
+                        function_edges,
+                        &exact_candidates,
+                    ) {
                         RdOutcome::Available(result) => {
+                            Self::store_supplemental_exact(
+                                &mut exact_labels,
+                                function_edges,
+                                &result.labels,
+                                result.exact_labels,
+                            );
                             for (key, label) in result.labels {
                                 Self::insert_label(&mut labels, key, label);
                             }
@@ -609,6 +884,20 @@ impl DataFlowGraph {
                                     fallback,
                                 );
                             }
+                            let classified = exact_candidates
+                                .iter()
+                                .map(|edge| (ExactFlowEdge::from_legacy(edge), fallback))
+                                .collect();
+                            let fallback_labels: BTreeMap<_, _> = function_edges
+                                .iter()
+                                .map(|edge| ((edge.from.clone(), edge.to.clone()), fallback))
+                                .collect();
+                            Self::store_supplemental_exact(
+                                &mut exact_labels,
+                                function_edges,
+                                &fallback_labels,
+                                classified,
+                            );
                         }
                     }
                 }
@@ -619,6 +908,7 @@ impl DataFlowGraph {
                     uses,
                     edges,
                     labels,
+                    exact_labels,
                     rd_function_stats,
                 }
             })
@@ -636,6 +926,10 @@ impl DataFlowGraph {
                 from.file.as_str() == file_refs.file_path.as_str()
                     && to.file.as_str() == file_refs.file_path.as_str()
             }));
+            debug_assert!(file_refs.exact_labels.keys().all(|edge| {
+                edge.from.file.as_str() == file_refs.file_path.as_str()
+                    && edge.to.file.as_str() == file_refs.file_path.as_str()
+            }));
             for (key, locs) in file_refs.defs {
                 defs.entry(key).or_default().extend(locs);
             }
@@ -645,6 +939,12 @@ impl DataFlowGraph {
             edges.extend(file_refs.edges);
             for (key, label) in file_refs.labels {
                 Self::insert_label(&mut labels, key, label);
+            }
+            for (edge, label) in file_refs.exact_labels {
+                exact_labels
+                    .entry(edge)
+                    .and_modify(|stored: &mut FlowConfidence| *stored = stored.worst(label))
+                    .or_insert(label);
             }
             rd_function_stats.insert(file_refs.file_path, file_refs.rd_function_stats);
         }
@@ -670,6 +970,7 @@ impl DataFlowGraph {
             forward,
             backward,
             labels,
+            exact_labels,
             rd_function_stats,
         }
     }
