@@ -1,8 +1,8 @@
 # Handoff — post-PR317 next increments
 
 **Written:** 2026-09-18 America/Denver
-**State:** Priority 1 implementation active; P2/P3 public source custody available, while
-dependency/program closure and private inputs remain unavailable
+**State:** Priority 1 locally accepted; P2 planning accepted and ready for separate dispatch;
+P3 parked
 **Workspace:** `/private/tmp/prism-post316-slice1`
 **Branch:** `feat/post317-exact-caller-reads`
 
@@ -35,6 +35,12 @@ dependency/program closure and private inputs remain unavailable
   `docs/superpowers/plans/2026-09-18-post317-next-increments/reviews/architecture-final-acceptance.md`
 - Public Excalidraw source-custody receipt:
   `docs/eval/post317-input-custody.md`
+- Accepted Priority 2 source-only census contract, prompts, input manifest and review:
+  `docs/superpowers/plans/2026-09-18-post317-next-increments/specs/02-fixed-source-parameter-census.md`,
+  `docs/superpowers/plans/2026-09-18-post317-next-increments/implementor/02-fixed-source-parameter-census.md`,
+  `docs/superpowers/plans/2026-09-18-post317-next-increments/reviewer/02-fixed-source-parameter-census.md`,
+  `docs/superpowers/plans/2026-09-18-post317-next-increments/inputs/02-excalidraw-input-hash-manifest.json`, and
+  `docs/superpowers/plans/2026-09-18-post317-next-increments/reviews/02-fixed-source-parameter-census-acceptance.md`.
 
 The brief ranks a bounded straight-line caller-RD design first, an input-gated WS2
 cohort measurement second, and a non-authorizing WS4 ownership packet third. It keeps
@@ -100,15 +106,37 @@ permission to install/run effects. The historical installed-root admission refus
 context, not a current measurement. P2/P3 may resume only under their separate input/effect
 authorities and must report any remaining required input as `input-blocked`.
 
+### Current execution status — 2026-09-19
+
+Priority 1 is frozen and locally accepted at `14e86083c2c754ed412d440742bd5763be388e42`
+(tree `a0411db6d858fe34806376ce41d2621853848d8b`). Final evidence review returned
+`APPROVE`, WRONG 0 / one nonblocking coverage SMELL. Final Rust, R07,
+compiler/grammar/Node/Python and Tier-A matrix gates are complete; compact durable receipts
+are under `docs/eval/post317-exact-caller-reads/receipts/`. Tier-A quick is terminal
+`INVALID` because of corpus-pin drift and the C-method `4/6` probes, so it supplies no
+accuracy or flip claim. The final acceptance receipt is
+`docs/eval/post317-exact-caller-reads/receipts/final-acceptance.md`, copied from source
+SHA-256 `25ec6a4bf341b952c3bc0becedb2009886f8ea94b4b363981a01e1c8d8884209`.
+
+Priority 2 planning is independently accepted with WRONG 0 / SMELL 0. The accepted external
+manifest SHA-256 is `b0197e015b6cfe09294a9cdcfe89e23ef9ecf827e733dbadf0deae7227459ee1`
+and accepted spec SHA-256 is `e6e1bb3e8a928943149e59cfa29598c1e15142d10468c32fe5704a70132c1f71`;
+the durable prompt copies point to the durable spec path. Execution still requires a separate
+controller dispatch.
+
+Priority 3 is parked: its proposed source-only worker-outcome pilot did not add sufficiently
+distinct evidence while dependency custody and compiler Program closure remain absent. No P3
+execution is authorized; the dependency-custody decision is deferred.
+
 ## Resume order
 
-1. Commit the exact accepted planning paths and this status-only handoff update.
-2. Dispatch Priority 1 from the accepted spec in an isolated implementation worktree with a
-   separate two-round implementation review cap.
-3. If implementation requires global identity, public-query, same-line-write, kill/alias,
-   loop/member or owner expansion, park for design instead of widening the accepted slice.
-4. Use one PR per accepted increment. Do not start P2/P3 measurement until dependency/program
-   closure and its required public/private inputs are separately authorized and authenticated.
+1. Checkpoint the Priority 1 acceptance receipt, final gate receipts, accepted Priority 2 plan,
+   and these handoffs without changing the frozen source manifest.
+2. Dispatch the accepted Priority 2 source-only census separately; its observer may use only the
+   authenticated 414-file population and the accepted fail-first/mutation contract.
+3. Keep Priority 3 parked until a separate dependency-custody decision supplies distinct evidence.
+4. Use one PR per accepted increment. Publication, merge, rebaseline and adoption remain separate
+   controller decisions.
 
 At initial architecture planning acceptance, no production source was edited and no implementation
 was authorized. The only planning execution then was bounded same-environment characterization of
