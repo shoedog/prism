@@ -2,7 +2,7 @@
 
 ## Status and custody
 
-All three slices are locally accepted. Slice 3 final independent verdict is **APPROVE — 0 WRONG / 0 SMELL** at source/test checkpoint `440c6f4e`. All work is local. No push, PR publication, merge, adoption, or rebaseline occurred.
+All three slices completed local acceptance before publication. Slice 3 final independent verdict is **APPROVE — 0 WRONG / 0 SMELL** at source/test checkpoint `440c6f4e`. On 2026-09-18, the user authorized publication: branch `feat/post316-slice3-optional-inert` was pushed at documentation closeout `9d13d7f3`, and [PR #317](https://github.com/shoedog/prism/pull/317) was opened. The PR has not been merged; no adoption or rebaseline occurred.
 
 The active worktree is `/private/tmp/prism-post316-slice1` (its historical name is retained). The branches form one verified ancestor chain:
 
