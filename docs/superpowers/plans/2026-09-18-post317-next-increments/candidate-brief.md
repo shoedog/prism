@@ -41,13 +41,17 @@ authenticated form below, retain each actual Use span and connect the preceding 
 semantically referenced occurrence without first/last/nearest guessing:
 
 ```js
-import { item } from "./origin";
-function outer(value) { sink(value); return item(value); }
+import {item} from './origin';
+function outer(value){sink(value);return item(value);}
 ```
 
+This is the exact no-trailing-newline `app.js` fixture, SHA-256
+`5457bf7b1248b193da83bd293adc26e7ecdddb6018d5b2c075f48fae057583f1`;
+its paired compact `origin.js` is pinned in the Slice 1 spec.
+
 The accepted fixed fixture observes both byte-distinct Use spans (with a duplicate raw row
-possible for the argument span), but only a caller label to the first preferred Use. Re-authenticate offsets on the
-frozen source fixture rather than copying historical numbers. The candidate oracle is the
+possible for the argument span), but only a caller label to the first preferred Use.
+Re-authenticate offsets on the frozen source fixture rather than copying historical numbers. The candidate oracle is the
 exact multiset of `(Def bytes, Use bytes, path, owner, label)` plus the already accepted
 later-argument-to-parameter edge. It must show no all-to-all fanout, duplicate amplification,
 or label upgrade. Mutating only the later identifier bytes or source order must change only
@@ -77,6 +81,32 @@ producer semantics only after the straight-line endpoint contract passes. Do not
 **Stop condition.** Park for design if exact spans cannot be produced before RD without a
 source-wide per-edge scan, if byte identity changes kill/alias equivalence, or if legacy
 line-key consumers cannot be kept deterministic through an adapter.
+
+**Independent architecture decision.** Round 1 of 2 (`REVISE BEFORE DISPATCH`, WRONG 0 /
+SMELL 3) selected an additive internal byte-keyed endpoint/edge identity with its own
+pre-reduction RD confidence. Global `VarLocation`, `FlowEdge`, legacy edges/labels/adjacency,
+public queries, kill/alias rules, primitive byte payloads and multiplicities remain unchanged.
+All admitted pairs are independently classified and checked for overlap consistency; only
+supplemental pairs absent from the legacy exact endpoint population are persisted. That state
+participates in empty/build/subset/remove/merge/incremental/cache lifecycle. Step 4 consumes a
+deduplicated union; a same-exact-pair label conflict refuses and diagnoses the target binding
+expansion while preserving legacy output and an unrelated eligible binding.
+
+The admitted domain is narrower than “straight-line”: existing named JS/TS/TSX owners;
+plain parameters or a unique non-aliased earlier-line local; real simple-identifier Uses; no
+writes/redeclarations/shadows/aliases/captures, control-flow branches, loops, members,
+recovery/reflection or ambiguous owner. The original one-line parameter fixture is admitted
+and gains its independently classified `NameOnly(CfgIncomplete)` later edge; a separate
+multiline parameter/local fixture must prove Exact. CPG cache 96→97; navigation remains 53.
+The implementation slice is capped at 700 non-test production changed lines and 1,600 total
+source/test changed lines; exceeding either stops for re-slicing before review.
+
+The fixed multiline Exact characterization uses no-trailing-newline fixtures. The parameter
+fixture SHA-256 is `286faa2b12b01b5c06f5435f13576754c418ef21140571b3536f04f9ff25ab10`:
+Def `46–51`→earlier Use `70–75` is Exact and the later Use `90–95` is absent. The local fixture
+SHA-256 is `5c98fba3895da5d92840cd02ddcd7d0d8f6725f537529da653a7e37980416250`:
+Def `24–29`→earlier Use `56–61` is Exact and the later Use `76–81` is absent. Those PASS rows
+characterize the base gap; only a new missing-later-edge assertion is behavioral RED.
 
 ## Priority 2 — fixed-source decision census for excluded parameter/owner forms
 
@@ -134,6 +164,12 @@ and new receiver authority remain excluded regardless of counts.
 unambiguous ordinal is a measured refusal, not a candidate flow. Do not infer owner authority
 from `all_functions()` membership or from the compiler syntax census.
 
+**Architecture disposition.** One observer-only slice may measure all three cohorts only
+under one authenticated corpus manifest, observer version and deterministic row budget, with
+separate denominators, outputs and promotion decisions. Promote at most one constructible
+cohort. Current historical public and private populations remain independently
+`input-blocked`; no acquisition is authorized here.
+
 ## Priority 3 — WS4 compiler-owned input packet for one public project boundary
 
 **Why third.** Compiler syntax has been useful as an independent observer, but it is not yet
@@ -179,21 +215,28 @@ current caps, close this increment as a source-backed refusal with an options br
 raise 512, drop inconvenient files, flatten inherited configs, install dependencies, treat
 JSON as executable, or equate compiler membership with runtime-edge authority.
 
+**Architecture disposition.** Conditional on complete original-root custody, use the
+historical Excalidraw `fractional-indexing` config as the bounded packet falsification target:
+historically 2 repository + 216 dependency + 86 compiler files = 304 Program files. This is
+below the other configs' observed Program sizes, but it had zero historical real receiver
+sites and supports no value claim. Keep the full installed root/inherited configs; do not
+reroot or construct an artificial equality subset. The native root historically contained
+628 files, so config selection does not itself bypass the production input budget.
+
 ## Recommended sequence and second-opinion questions
 
-1. Specify and implement Priority 1 only after mandatory Fable architecture review approves
-   the global `VarLocation`/label identity strategy and the legacy compatibility adapter.
+1. Dispatch Priority 1 only after the controller-designated independent architecture review
+   approves the bounded spec and internal exact/legacy compatibility strategy at round 2.
 2. Run Priority 2 as an observer/measurement slice. Use its constructible-flow results to
    choose exactly one later syntax/owner implementation; authenticated zero yield ends the
    branch cleanly, while unavailable inputs end as `input-blocked`.
 3. Run Priority 3 as an architecture/feasibility slice. Production admission remains a
    successor even if one packet closes.
 
-Questions for the mandatory second opinion:
+Settled architecture questions:
 
-- Is byte-bearing reference identity best carried by a new internal occurrence type, or can
-  `VarLocation` equality change without destabilizing kill/alias/label maps?
-- Does Priority 2 need separate arrow and destructure/rest measurement PRs to keep each fixed
-  population reviewable, or is one observer-only census sufficiently bounded?
-- Which single public config is the strongest WS4 falsification target under existing caps,
-  and what exact evidence would authorize moving from observation to input selection?
+- Use a new internal exact occurrence/edge type; do not change `VarLocation` identity.
+- One Priority 2 observer slice is acceptable only with separate cohort ledgers and one
+  authenticated manifest; it authorizes no syntax implementation.
+- The conditional WS4 falsification target is `fractional-indexing`; complete-root custody,
+  closure and production-budget predicates remain load-bearing.
