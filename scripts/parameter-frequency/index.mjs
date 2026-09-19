@@ -1,5 +1,5 @@
 // Opt-in syntax-frequency research tool. It does not authorize Prism behavior.
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import {
@@ -26,6 +26,17 @@ export const LIMITS = Object.freeze({
 const SOURCE_SUFFIXES = [".js", ".jsx", ".ts", ".tsx"];
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
 const ownPath = fileURLToPath(import.meta.url);
+
+function codePointCompare(left, right) {
+  const leftPoints = [...left];
+  const rightPoints = [...right];
+  const length = Math.min(leftPoints.length, rightPoints.length);
+  for (let index = 0; index < length; index++) {
+    const difference = leftPoints[index].codePointAt(0) - rightPoints[index].codePointAt(0);
+    if (difference) return difference;
+  }
+  return leftPoints.length - rightPoints.length;
+}
 
 function mergedLimits(overrides = {}) {
   if (!overrides || typeof overrides !== "object" || Array.isArray(overrides)) throw Error("invalid limits");
@@ -71,7 +82,7 @@ function checkedPath(root, relativePath) {
 
 function discover(root, relativeRoot, output = []) {
   const directory = checkedPath(root, relativeRoot);
-  for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) {
+  for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) => codePointCompare(a.name, b.name))) {
     const relativePath = `${relativeRoot}/${entry.name}`;
     const absolute = path.join(root, ...relativePath.split("/"));
     const stat = lstatSync(absolute);
@@ -109,6 +120,7 @@ function validateManifest(options, limits) {
     if (member.extension !== sourceExtension(member.path)) throw Error("member extension mismatch");
     if (!Number.isSafeInteger(member.bytes) || member.bytes < 0 || !/^[a-f0-9]{64}$/.test(member.sha256)) throw Error("invalid member identity");
     if (typeof member.declaration_only !== "boolean" || typeof member.test_path !== "boolean") throw Error("invalid member stratum");
+    if (member.declaration_only !== member.path.endsWith(".d.ts")) throw Error("declaration stratum mismatch");
     const absolute = checkedPath(root, member.path);
     const stat = lstatSync(absolute);
     if (!stat.isFile() || stat.isSymbolicLink()) throw Error(`member is not a regular file: ${member.path}`);
@@ -124,7 +136,7 @@ function validateManifest(options, limits) {
   if (sourceBytes !== manifest.source_bytes || declarations !== manifest.declaration_only_count || tests !== manifest.test_path_count) throw Error("manifest aggregate mismatch");
   const discovered = discover(root, manifest.population_root);
   if (discovered.length !== expectedPaths.size || discovered.some(file => !expectedPaths.has(file))) throw Error("manifest population differs");
-  files.sort((a, b) => a.member.path < b.member.path ? -1 : a.member.path > b.member.path ? 1 : 0);
+  files.sort((a, b) => codePointCompare(a.member.path, b.member.path));
   return { manifest, manifestSha, files, sourceBytes };
 }
 
@@ -169,12 +181,17 @@ function explicitBodyless(ts, node) {
 function nestedBindingFlags(ts, root) {
   let nestedPattern = false;
   let nestedDefault = false;
-  function visit(node) {
-    if (node !== root && (ts.isObjectBindingPattern(node) || ts.isArrayBindingPattern(node))) nestedPattern = true;
-    if (node !== root && ts.isBindingElement(node) && node.initializer) nestedDefault = true;
-    ts.forEachChild(node, visit);
+  function visitName(node, isRoot = false) {
+    if (ts.isObjectBindingPattern(node) || ts.isArrayBindingPattern(node)) {
+      if (!isRoot) nestedPattern = true;
+      for (const element of node.elements) {
+        if (!ts.isBindingElement(element)) continue;
+        if (element.initializer) nestedDefault = true;
+        visitName(element.name);
+      }
+    }
   }
-  visit(root);
+  visitName(root, true);
   return [nestedPattern, nestedDefault];
 }
 
@@ -309,7 +326,7 @@ function frequencies(files) {
   return [...groups.values()].sort((a, b) => {
     const left = JSON.stringify([a.script_kind, a.declaration_only, a.test_path, a.parse_state]);
     const right = JSON.stringify([b.script_kind, b.declaration_only, b.test_path, b.parse_state]);
-    return left < right ? -1 : left > right ? 1 : 0;
+    return codePointCompare(left, right);
   });
 }
 
@@ -357,7 +374,7 @@ function parseFlags(argv) {
   return flags;
 }
 
-function worker(argv) {
+function worker(staging, argv) {
   const flags = parseFlags(argv);
   if (existsSync(flags.out)) throw Error("output already exists");
   const delay = Number(process.env.PRISM_PARAMETER_FREQUENCY_TEST_DELAY_MS ?? 0);
@@ -371,36 +388,36 @@ function worker(argv) {
     manifestSha256: flags["manifest-sha256"],
     typescript: path.resolve(flags.typescript),
   });
-  const temporary = `${flags.out}.partial-${process.pid}`;
-  try {
-    writeFileSync(temporary, `${JSON.stringify(packet)}\n`, { flag: "wx" });
-    linkSync(temporary, flags.out);
-  } finally {
-    if (existsSync(temporary)) unlinkSync(temporary);
-  }
+  writeFileSync(staging, `${JSON.stringify(packet)}\n`, { flag: "wx" });
 }
 
 export function supervise(argv, { wallMs = LIMITS.wallMs, delayMs = 0 } = {}) {
   const flags = parseFlags(argv);
   if (existsSync(flags.out)) return { ok: false, reason: "output already exists" };
-  const result = spawnSync(process.execPath, [ownPath, "--internal-worker", ...argv], {
-    encoding: "utf8",
-    timeout: wallMs,
-    maxBuffer: 1024 * 1024,
-    env: { ...process.env, PRISM_PARAMETER_FREQUENCY_TEST_DELAY_MS: String(delayMs) },
-  });
-  if (result.error?.code === "ETIMEDOUT") {
-    if (existsSync(flags.out)) unlinkSync(flags.out);
-    return { ok: false, reason: "timeout" };
+  const staging = `${flags.out}.partial-${process.pid}-${randomUUID()}`;
+  try {
+    const result = spawnSync(process.execPath, [ownPath, "--internal-worker", staging, ...argv], {
+      encoding: "utf8",
+      timeout: wallMs,
+      maxBuffer: 1024 * 1024,
+      env: { ...process.env, PRISM_PARAMETER_FREQUENCY_TEST_DELAY_MS: String(delayMs) },
+    });
+    if (result.error?.code === "ETIMEDOUT") return { ok: false, reason: "timeout" };
+    if (result.status !== 0) return { ok: false, reason: "worker failed", stderr: result.stderr };
+    try {
+      linkSync(staging, flags.out);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, reason: "publish failed", stderr: error.message };
+    }
+  } finally {
+    if (existsSync(staging)) unlinkSync(staging);
   }
-  return result.status === 0
-    ? { ok: true }
-    : { ok: false, reason: "worker failed", stderr: result.stderr };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === ownPath) {
   try {
-    if (process.argv[2] === "--internal-worker") worker(process.argv.slice(3));
+    if (process.argv[2] === "--internal-worker") worker(process.argv[3], process.argv.slice(4));
     else {
       const result = supervise(process.argv.slice(2));
       if (!result.ok) throw Error(result.reason === "worker failed" ? result.stderr.trim() : result.reason);

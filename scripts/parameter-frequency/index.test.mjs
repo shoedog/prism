@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 
 const implementationPath = process.env.PRISM_PARAMETER_FREQUENCY_IMPLEMENTATION
   ?? fileURLToPath(new URL("./index.mjs", import.meta.url));
@@ -156,6 +156,46 @@ test("initializer expressions and types do not forge nested binding flags", () =
   ]);
 }));
 
+test("expression-local arrow bindings do not leak into outer binding flags", () => {
+  const cases = [
+    {
+      source: "function take({ x = (({y}) => y)({y:1}) }) { return x; }",
+      callables: [
+        { syntax_kind: "FunctionDeclaration", token_start: 0, end: 56, arrow_parenthesized: null, parameters: [
+          { ordinal: 0, token_start: 14, end: 41, binding_start: 14, binding_end: 41, pattern: "object", optional: false, rest: false, outer_initializer: false, nested_pattern: false, nested_default: true },
+        ] },
+        { syntax_kind: "ArrowFunction", token_start: 21, end: 31, arrow_parenthesized: true, parameters: [
+          { ordinal: 0, token_start: 22, end: 25, binding_start: 22, binding_end: 25, pattern: "object", optional: false, rest: false, outer_initializer: false, nested_pattern: false, nested_default: false },
+        ] },
+      ],
+    },
+    {
+      source: "function take({ [(({y = 1}) => \"x\")({})]: x }) { return x; }",
+      callables: [
+        { syntax_kind: "FunctionDeclaration", token_start: 0, end: 60, arrow_parenthesized: null, parameters: [
+          { ordinal: 0, token_start: 14, end: 45, binding_start: 14, binding_end: 45, pattern: "object", optional: false, rest: false, outer_initializer: false, nested_pattern: false, nested_default: false },
+        ] },
+        { syntax_kind: "ArrowFunction", token_start: 18, end: 34, arrow_parenthesized: true, parameters: [
+          { ordinal: 0, token_start: 19, end: 26, binding_start: 19, binding_end: 26, pattern: "object", optional: false, rest: false, outer_initializer: false, nested_pattern: false, nested_default: true },
+        ] },
+      ],
+    },
+  ];
+  for (const current of cases) withFixture({ "src/main.ts": current.source }, fixture => {
+    const packet = observe(fixture);
+    assert.deepEqual(packet.files[0].callables, current.callables);
+    assert.deepEqual(packet.frequency_tables[0], {
+      script_kind: "TypeScript", declaration_only: false, test_path: false, parse_state: "clean",
+      files: 1, diagnostics: 0, excluded_bodyless_signatures: 0, body_bearing_callables: 2,
+      parameters: 2, object_pattern_parameters: 2, array_pattern_parameters: 0,
+      nested_pattern_parameters: 0, nested_default_parameters: 1, rest_parameters: 0,
+      parenthesized_arrows: 1, unparenthesized_arrows: 0,
+      destructured_before_later_optional_parameters: 0,
+      callables_with_destructured_before_later_optional: 0,
+    });
+  });
+});
+
 test("destructuring before optional is per parameter and keeps a negative stratum", () => withFixture({
   "src/one.ts": "function one({x}, later?: string) {}",
   "src/tests/multiple.test.ts": "function multiple({x}, first?: string, second?: number) {}",
@@ -189,6 +229,16 @@ test("same-name rows keep distinct sorted tuples and ordinals", () => withFixtur
   assert(rows[0].token_start < rows[1].token_start);
   assert.deepEqual(rows.flatMap(row => row.parameters.map(parameter => parameter.ordinal)), [0, 0, 1]);
   assert.equal(new Set(rows.map(row => `${row.token_start}:${row.end}:0`)).size, 2);
+}));
+
+test("canonical file order uses Unicode code points and repeats byte-for-byte", () => withFixture({
+  "src/\u{10000}.ts": "function later(value) { return value; }",
+  "src/\uE000.ts": "function earlier(value) { return value; }",
+}, fixture => {
+  assert.deepEqual(fixture.manifest.members.map(member => member.path), ["src/\u{10000}.ts", "src/\uE000.ts"]);
+  const first = observe(fixture);
+  assert.deepEqual(first.files.map(file => file.path), ["src/\uE000.ts", "src/\u{10000}.ts"]);
+  assert.deepEqual(observe(fixture), first);
 }));
 
 test("diagnostics continue to later files and preserve disjoint strata", () => withFixture({
@@ -244,6 +294,25 @@ test("manifest identity, population, path, UTF8, compiler and caps fail closed",
     const json = `${JSON.stringify(fixture.manifest)}\n`; writeFileSync(fixture.manifestPath, json); fixture.manifestSha = sha(json);
     assert.throws(() => observe(fixture), /UTF-8/);
   }));
+  await t.test("declaration stratum matches the file extension in both directions", () => withFixture({
+    "src/code.ts": "function code(value) { return value; }",
+    "src/types.d.ts": "declare function types(value: string): void;",
+  }, fixture => {
+    assert.deepEqual(observe(fixture).files.map(file => [file.path, file.declaration_only]), [
+      ["src/code.ts", false], ["src/types.d.ts", true],
+    ]);
+    fixture.manifest.members.find(member => member.path.endsWith(".d.ts")).declaration_only = false;
+    fixture.manifest.declaration_only_count = 0;
+    let bytes = `${JSON.stringify(fixture.manifest)}\n`;
+    writeFileSync(fixture.manifestPath, bytes); fixture.manifestSha = sha(bytes);
+    assert.throws(() => observe(fixture), /declaration stratum mismatch/);
+    fixture.manifest.members.find(member => member.path.endsWith(".d.ts")).declaration_only = true;
+    fixture.manifest.members.find(member => member.path.endsWith("code.ts")).declaration_only = true;
+    fixture.manifest.declaration_only_count = 2;
+    bytes = `${JSON.stringify(fixture.manifest)}\n`;
+    writeFileSync(fixture.manifestPath, bytes); fixture.manifestSha = sha(bytes);
+    assert.throws(() => observe(fixture), /declaration stratum mismatch/);
+  }));
   await t.test("all resource caps and compiler identity", () => withFixture({ "src/a.ts": "function a(x){}" }, fixture => {
     for (const limits of [{ files: 0 }, { sourceBytes: 1 }, { rows: 1 }, { outputBytes: 1 }]) {
       assert.throws(() => observe(fixture, { limits }), /limit|cap/i);
@@ -263,19 +332,33 @@ test("cold repeat and exact mutation restoration are deterministic", () => withF
   const meaningfulFixture = makeManifest({ "src/mutation.ts": MEANINGFUL });
   try {
     const inert = observe(inertFixture); const meaningful = observe(meaningfulFixture);
-    const originalRows = original.files[0].callables;
-    const inertRows = inert.files[0].callables;
-    assert.deepEqual(inertRows.map((row, i) => [row.token_start - originalRows[i].token_start, row.end - originalRows[i].end]), [[6, 6], [6, 6]]);
-    assert.deepEqual(inertRows.flatMap((row, i) => row.parameters.map((parameter, j) => [
-      parameter.token_start - originalRows[i].parameters[j].token_start,
-      parameter.end - originalRows[i].parameters[j].end,
-      parameter.binding_start - originalRows[i].parameters[j].binding_start,
-      parameter.binding_end - originalRows[i].parameters[j].binding_end,
-    ])), [[6, 6, 6, 6], [6, 6, 6, 6]]);
-    assert.deepEqual(inert.frequency_tables, original.frequency_tables);
-    assert.deepEqual(meaningful.files[0].callables[0].parameters.map(row => [row.pattern, row.binding_start, row.binding_end]), [["object", 14, 21]]);
-    assert.equal(meaningful.frequency_tables[0].object_pattern_parameters, 1);
-    assert.deepEqual(meaningful.files[0].callables.map((row, i) => row.token_start - originalRows[i].token_start), [0, 2]);
+    const inertExpected = structuredClone(original);
+    inertExpected.manifest.sha256 = inertFixture.manifestSha;
+    inertExpected.manifest.source_bytes = Buffer.byteLength(INERT);
+    inertExpected.files[0].sha256 = sha(INERT);
+    inertExpected.files[0].bytes = Buffer.byteLength(INERT);
+    for (const callable of inertExpected.files[0].callables) {
+      callable.token_start += 6; callable.end += 6;
+      for (const parameter of callable.parameters) {
+        parameter.token_start += 6; parameter.end += 6;
+        parameter.binding_start += 6; parameter.binding_end += 6;
+      }
+    }
+    assert.deepEqual(inert, inertExpected);
+    const meaningfulExpected = structuredClone(original);
+    meaningfulExpected.manifest.sha256 = meaningfulFixture.manifestSha;
+    meaningfulExpected.manifest.source_bytes = Buffer.byteLength(MEANINGFUL);
+    meaningfulExpected.files[0].sha256 = sha(MEANINGFUL);
+    meaningfulExpected.files[0].bytes = Buffer.byteLength(MEANINGFUL);
+    meaningfulExpected.files[0].callables[0].end += 2;
+    meaningfulExpected.files[0].callables[0].parameters[0].end += 2;
+    meaningfulExpected.files[0].callables[0].parameters[0].binding_end += 2;
+    meaningfulExpected.files[0].callables[0].parameters[0].pattern = "object";
+    meaningfulExpected.files[0].callables[1].token_start += 2;
+    meaningfulExpected.files[0].callables[1].end += 2;
+    for (const field of ["token_start", "end", "binding_start", "binding_end"]) meaningfulExpected.files[0].callables[1].parameters[0][field] += 2;
+    meaningfulExpected.frequency_tables[0].object_pattern_parameters = 1;
+    assert.deepEqual(meaningful, meaningfulExpected);
     const restored = makeManifest({ "src/mutation.ts": ORIGINAL });
     try { assert.deepEqual(observe(restored), original); } finally { restored.cleanup(); }
   } finally { inertFixture.cleanup(); meaningfulFixture.cleanup(); }
@@ -298,4 +381,20 @@ test("CLI success, refusal, output custody and owned-child timeout", () => withF
   const timed = implementation.supervise(args.map((value, index) => index === args.length - 1 ? path.join(fixture.root, "timeout.json") : value), { wallMs: 10, delayMs: 100 });
   assert.equal(timed.ok, false); assert.equal(timed.reason, "timeout");
   assert.throws(() => readFileSync(path.join(fixture.root, "timeout.json")), /ENOENT/);
+}));
+
+test("timeout cleanup preserves a concurrently-created foreign output", () => withFixture({ "src/a.ts": "function a(value){return value}" }, fixture => {
+  const out = path.join(fixture.root, "foreign.json");
+  const marker = path.join(fixture.root, "writer-ran");
+  const args = ["--root", fixture.root, "--manifest", fixture.manifestPath, "--manifest-sha256", fixture.manifestSha, "--typescript", compiler, "--out", out];
+  const writer = spawn(process.execPath, ["-e", `setTimeout(()=>{require('fs').writeFileSync(${JSON.stringify(out)},'foreign sentinel');require('fs').writeFileSync(${JSON.stringify(marker)},'yes')},75)`], { stdio: "ignore" });
+  try {
+    const timed = implementation.supervise(args, { wallMs: 500, delayMs: 2_000 });
+    assert.deepEqual(timed, { ok: false, reason: "timeout" });
+    assert.equal(readFileSync(marker, "utf8"), "yes");
+    assert.equal(readFileSync(out, "utf8"), "foreign sentinel");
+    assert.deepEqual(readdirSync(fixture.root).filter(name => name.includes(".partial-")), []);
+  } finally {
+    writer.kill();
+  }
 }));
