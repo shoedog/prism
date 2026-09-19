@@ -1,13 +1,13 @@
 //! TypeScript optional-identifier (`a?`) parameter occurrences used by Step 5b.
 //!
-//! Optional occurrence support is gated by a whole-signature barrier: any
-//! initializer anywhere in the parameter list (a sibling default, or a
-//! default nested inside a destructuring pattern) refuses every optional
-//! occurrence in that list. Required-parameter occurrences are unaffected
-//! and keep their existing, independent per-parameter contract.
+//! Optional occurrence support has two routes: an initializer-free signature,
+//! or an all-simple signature with a nonempty set of inert runtime defaults.
+//! Effectful, structural, type-only, and otherwise unsupported initializers
+//! still refuse optional occurrences. Required occurrences keep their
+//! independent per-parameter contract.
 
-use super::build::CodePropertyGraph;
-use super::{CpgEdge, CpgNode, VarAccess};
+use super::build::{compute_param_names, CodePropertyGraph};
+use super::{CpgEdge, CpgNode, FlowConfidence, VarAccess};
 use crate::ast::ParsedFile;
 use crate::data_flow::DataFlowGraph;
 use crate::languages::Language;
@@ -124,7 +124,7 @@ fn optional_parameter_step5b_parallel_and_serial_match() {
 }
 
 #[test]
-fn sibling_default_anywhere_holes_optional_slots_but_leaves_required_positions_unaffected() {
+fn effectful_sibling_default_holes_optional_slots_but_leaves_required_positions_unaffected() {
     let source = "function take(x: any, y?: any, z: any = init()) { sink(x, y, z); }\n\
                   function run(p: any, q: any, r: any) { take(p, q, r); }\n";
     for language in [Language::TypeScript, Language::Tsx] {
@@ -474,6 +474,853 @@ fn argument_comments_do_not_inflate_call_site_metadata_count() {
                 .collect::<Vec<_>>();
             assert_eq!(sites.len(), 1);
             assert_eq!(sites[0].arg_count, Some(count), "{language:?}: {arguments}");
+        }
+    }
+}
+
+#[test]
+fn optional_inert_signature_adds_entry_def_and_ordinal_matched_argument_edge() {
+    let source = "function take(\n  seed: any = 0,\n  value?: unknown\n) {\n  const held = value;\n  sink(held);\n}\nfunction run(input: unknown) {\n  take(1, input);\n}";
+    for language in [Language::TypeScript, Language::Tsx] {
+        let (cpg, files) = build(language, source);
+        let value = source.find("value?").unwrap();
+        let slots = compute_param_names(
+            files.values().next().unwrap(),
+            cpg.call_graph.functions["take"].first().unwrap(),
+        );
+        assert_eq!(
+            slots,
+            Some(vec!["seed".to_string(), "value".to_string()]),
+            "{language:?}: occurrence admission must not alter positional slots"
+        );
+        let defs = parameter_defs(&cpg, "take");
+        assert!(
+            defs.contains(&("value".into(), value, value + "value".len())),
+            "{language:?}: expected optional entry Def at source token: {defs:?}"
+        );
+        let edges = argument_edges(&cpg, "take");
+        assert!(
+            edges.contains(&("input".into(), "value".into(), value, value + "value".len())),
+            "{language:?}: expected second supplied argument to bind the optional token: {edges:?}"
+        );
+        assert_eq!(
+            CodePropertyGraph::collect_step5b_edges(
+                &cpg.call_graph,
+                &cpg.var_index,
+                &cpg.graph,
+                &files
+            ),
+            CodePropertyGraph::collect_step5b_edges_reference(
+                &cpg.call_graph,
+                &cpg.var_index,
+                &cpg.graph,
+                &files
+            ),
+            "{language:?}: Step-5b parallel/reference parity"
+        );
+    }
+}
+
+#[test]
+fn optional_inert_signature_preserves_type_only_and_effectful_refusals() {
+    for source in [
+        "function take(value?: <T = unknown>() => void) { sink(value); }\nfunction run(bound: any) { take(bound); }\n",
+        "function take(seed: any = init(), value?: unknown) { sink(value); }\nfunction run(bound: any) { take(0, bound); }\n",
+    ] {
+        for language in [Language::TypeScript, Language::Tsx] {
+            let (cpg, _) = build(language, source);
+            let defs = parameter_defs(&cpg, "take");
+            let edges = argument_edges(&cpg, "take");
+            assert!(
+                !defs.iter().any(|(name, _, _)| name == "value"),
+                "{language:?}: legacy refusal must retain no value Def: {defs:?}"
+            );
+            assert!(
+                !edges.iter().any(|(_, parameter, _, _)| parameter == "value"),
+                "{language:?}: legacy refusal must retain no value edge: {edges:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn optional_inert_signature_omission_literals_and_bound_argument_keep_ordinal_behavior() {
+    let source = "function take(seed: any = 0, value?: unknown) { sink(value); }\nfunction run(bound: unknown) {\n  take(1);\n  take(1, undefined);\n  take(1, null);\n  take(1, bound);\n}\n";
+    for language in [Language::TypeScript, Language::Tsx] {
+        let (cpg, _) = build(language, source);
+        let value = source.find("value?").unwrap();
+        let edges = argument_edges(&cpg, "take");
+        assert!(
+            edges.contains(&("bound".into(), "value".into(), value, value + "value".len())),
+            "{language:?}: bound second argument must bind the optional token: {edges:?}"
+        );
+        assert!(
+            !edges.iter().any(|(from, parameter, _, _)| {
+                parameter == "value" && (from == "undefined" || from == "null")
+            }),
+            "{language:?}: literal undefined/null must not invent a variable edge: {edges:?}"
+        );
+    }
+}
+
+#[test]
+fn optional_inert_signature_full_and_subset_dfg_parity() {
+    let source = "function take(\n  seed: any = 0,\n  value?: unknown\n) {\n  const held = value;\n  sink(held);\n}\nfunction run(input: unknown) {\n  take(1, input);\n}";
+    for language in [Language::TypeScript, Language::Tsx] {
+        let file = match language {
+            Language::TypeScript => "optional.ts",
+            Language::Tsx => "optional.tsx",
+            _ => unreachable!(),
+        };
+        let parsed = ParsedFile::parse(file, source, language).unwrap();
+        let files = BTreeMap::from([(file.to_string(), parsed)]);
+        let full = DataFlowGraph::build(&files);
+        let subset = DataFlowGraph::build_subset(&files, &BTreeSet::from([file.into()]));
+        let parameter_defs = full
+            .defs
+            .values()
+            .flatten()
+            .filter(|definition| definition.function == "take")
+            .map(|definition| definition.path.to_string())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            parameter_defs,
+            BTreeSet::from(["held".to_string(), "value".to_string()]),
+            "{language:?}: a defaulted sibling is not an entry Def"
+        );
+        assert_eq!(
+            serde_json::to_value(full.defs.values().collect::<Vec<_>>()).unwrap(),
+            serde_json::to_value(subset.defs.values().collect::<Vec<_>>()).unwrap(),
+            "{language:?}: full/subset definitions"
+        );
+        assert_eq!(
+            serde_json::to_value(&full.edges).unwrap(),
+            serde_json::to_value(&subset.edges).unwrap(),
+            "{language:?}: full/subset edges"
+        );
+        assert_eq!(
+            full.labels, subset.labels,
+            "{language:?}: full/subset labels"
+        );
+    }
+}
+
+#[test]
+fn reviewer_optional_inert_exact_repeated_argument_vectors() {
+    let source = "function take(\n  required: any,\n  seed: any = 0,\n  value?: unknown\n) {\n  sink(value);\n  value = clean();\n  sink(value);\n}\nfunction run(input: unknown) {\n  take(1, 2, input); take(1, 2, input);\n}\n";
+    for language in [Language::TypeScript, Language::Tsx] {
+        let (cpg, files) = build(language, source);
+        let value = source.find("value?").unwrap();
+        let input_spans = source
+            .match_indices("input")
+            .map(|(start, text)| (start, start + text.len()))
+            .collect::<Vec<_>>();
+        assert_eq!(input_spans.len(), 3);
+        let mut rows = cpg
+            .graph
+            .edge_indices()
+            .filter_map(|edge| {
+                let CpgEdge::DataFlow(confidence) = cpg.graph[edge] else {
+                    return None;
+                };
+                let (from, to) = cpg.graph.edge_endpoints(edge)?;
+                match (cpg.node(from), cpg.node(to)) {
+                    (
+                        CpgNode::Variable {
+                            file: from_file,
+                            function: from_owner,
+                            function_start_line: from_owner_line,
+                            line: from_line,
+                            path: from_path,
+                            access: VarAccess::Use,
+                            start_byte: from_start,
+                            end_byte: from_end,
+                        },
+                        CpgNode::Variable {
+                            file: to_file,
+                            function: to_owner,
+                            function_start_line: to_owner_line,
+                            line: to_line,
+                            path: to_path,
+                            access: VarAccess::Def,
+                            start_byte: to_start,
+                            end_byte: to_end,
+                        },
+                    ) if from_owner == "run"
+                        && to_owner == "take"
+                        && from_path.to_string() == "input"
+                        && to_path.to_string() == "value" =>
+                    {
+                        Some((
+                            (
+                                from_file.clone(),
+                                from_owner.clone(),
+                                *from_owner_line,
+                                *from_line,
+                                *from_start,
+                                *from_end,
+                            ),
+                            (
+                                to_file.clone(),
+                                to_owner.clone(),
+                                *to_owner_line,
+                                *to_line,
+                                *to_start,
+                                *to_end,
+                            ),
+                            confidence,
+                        ))
+                    }
+                    _ => None,
+                }
+            })
+            .collect::<Vec<_>>();
+        rows.sort_by_key(|row| row.0 .4);
+        let file = match language {
+            Language::TypeScript => "optional.ts",
+            Language::Tsx => "optional.tsx",
+            _ => unreachable!(),
+        };
+        assert_eq!(
+            rows,
+            vec![
+                (
+                    (
+                        file.into(),
+                        "run".into(),
+                        10,
+                        11,
+                        input_spans[1].0,
+                        input_spans[1].1,
+                    ),
+                    (file.into(), "take".into(), 1, 1, value, value + 5),
+                    FlowConfidence::Exact,
+                ),
+                (
+                    (
+                        file.into(),
+                        "run".into(),
+                        10,
+                        11,
+                        input_spans[2].0,
+                        input_spans[2].1,
+                    ),
+                    (file.into(), "take".into(), 1, 1, value, value + 5),
+                    FlowConfidence::Exact,
+                ),
+            ],
+            "{language:?}: exact endpoint/multiplicity rows"
+        );
+        // Pin both source sites independently of the variable occurrence index.
+        let mut sites = cpg
+            .call_graph
+            .calls
+            .values()
+            .flatten()
+            .filter(|site| site.callee_name == "take")
+            .collect::<Vec<_>>();
+        sites.sort_by_key(|site| site.start_byte);
+        let starts = source
+            .match_indices("take(1, 2, input)")
+            .map(|(start, _)| start)
+            .collect::<Vec<_>>();
+        assert_eq!(sites.len(), 2);
+        for (site, start) in sites.into_iter().zip(starts) {
+            assert_eq!(
+                (
+                    site.caller.file.as_str(),
+                    site.caller.name.as_str(),
+                    site.caller.start_line,
+                    site.line,
+                    site.start_byte,
+                    site.end_byte,
+                    site.arg_count
+                ),
+                (
+                    file,
+                    "run",
+                    10,
+                    11,
+                    start,
+                    start + "take(1, 2, input)".len(),
+                    Some(3)
+                )
+            );
+            let resolved = cpg.call_graph.resolve_call_site(site);
+            assert_eq!(resolved.len(), 1);
+            assert_eq!(
+                (
+                    resolved[0].target.file.as_str(),
+                    resolved[0].target.name.as_str(),
+                    resolved[0].target.start_line,
+                    resolved[0].confidence
+                ),
+                (
+                    file,
+                    "take",
+                    1,
+                    crate::resolution::ResolutionConfidence::Exact
+                )
+            );
+        }
+        assert_eq!(
+            optional_boundary_rows(&cpg).len(),
+            2,
+            "no extra cross-boundary rows"
+        );
+        let take = cpg.call_graph.functions["take"].first().unwrap();
+        assert_eq!(
+            compute_param_names(files.values().next().unwrap(), take),
+            Some(vec!["required".into(), "seed".into(), "value".into()]),
+            "{language:?}: original slot ordinal 2"
+        );
+        assert_eq!(
+            CodePropertyGraph::collect_step5b_edges(
+                &cpg.call_graph,
+                &cpg.var_index,
+                &cpg.graph,
+                &files
+            ),
+            CodePropertyGraph::collect_step5b_edges_reference(
+                &cpg.call_graph,
+                &cpg.var_index,
+                &cpg.graph,
+                &files
+            ),
+            "{language:?}: full parallel/reference Step-5b parity"
+        );
+    }
+}
+
+#[test]
+fn reviewer_optional_inert_revokes_and_restores_without_body_fallback() {
+    let sources = [
+        ("inert-1", "seed: any = 0, value?: unknown", true),
+        ("effectful", "seed: any = init(), value?: unknown", false),
+        ("initializer-free", "seed: any, value?: unknown", true),
+        ("inert-2", "seed: any = 0, value?: unknown", true),
+    ];
+    for language in [Language::TypeScript, Language::Tsx] {
+        let mut first_inert = None;
+        for (epoch, params, admitted) in sources {
+            let source = format!(
+                "function take({params}) {{\n  value = clean();\n  sink(value);\n}}\nfunction run(input: unknown) {{\n  take(1, input);\n}}\n"
+            );
+            let (cpg, files) = build(language, &source);
+            let entry = source.find("value?").unwrap();
+            let exact_entry =
+                parameter_defs(&cpg, "take").contains(&("value".into(), entry, entry + 5));
+            assert_eq!(exact_entry, admitted, "{language:?}/{epoch}");
+            let rows = argument_edges(&cpg, "take");
+            assert_eq!(
+                rows.iter().any(|(from, to, start, end)| {
+                    from == "input" && to == "value" && (*start, *end) == (entry, entry + 5)
+                }),
+                admitted,
+                "{language:?}/{epoch}: exact entry binding"
+            );
+            if admitted {
+                let normalized = (parameter_defs(&cpg, "take"), argument_edges(&cpg, "take"));
+                if epoch == "inert-1" {
+                    first_inert = Some(normalized);
+                } else if epoch == "inert-2" {
+                    assert_eq!(first_inert.as_ref(), Some(&normalized));
+                }
+            } else {
+                let mut index = cpg.var_index.clone();
+                index.retain(|(_, name, _, line, path, access), _| {
+                    !(name == "take"
+                        && *line == 1
+                        && path.base == "value"
+                        && *access == VarAccess::Def)
+                });
+                assert!(index.keys().any(|(_, name, _, line, path, access)| {
+                    name == "take" && *line > 1 && path.base == "value" && *access == VarAccess::Def
+                }));
+                assert!(
+                    CodePropertyGraph::collect_step5b_edges(
+                        &cpg.call_graph,
+                        &index,
+                        &cpg.graph,
+                        &files
+                    )
+                    .is_empty(),
+                    "{language:?}/{epoch}: body Def must not substitute for absent entry"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn optional_inert_incremental_caller_and_callee_edits_match_fresh_rows() {
+    let rows = |cpg: &CodePropertyGraph| {
+        let mut nodes = cpg
+            .graph
+            .node_indices()
+            .map(|i| format!("{:?}", cpg.graph[i]))
+            .collect::<Vec<_>>();
+        nodes.sort();
+        let mut edges = cpg
+            .graph
+            .edge_indices()
+            .map(|e| {
+                let (from, to) = cpg.graph.edge_endpoints(e).unwrap();
+                format!(
+                    "{:?}->{:?}:{:?}",
+                    cpg.graph[from], cpg.graph[to], cpg.graph[e]
+                )
+            })
+            .collect::<Vec<_>>();
+        edges.sort();
+        (nodes, edges)
+    };
+    for (language, ext) in [(Language::TypeScript, "ts"), (Language::Tsx, "tsx")] {
+        let files = |caller: &str, callee: &str| {
+            BTreeMap::from([
+                (
+                    format!("caller.{ext}"),
+                    ParsedFile::parse(&format!("caller.{ext}"), caller, language).unwrap(),
+                ),
+                (
+                    format!("callee.{ext}"),
+                    ParsedFile::parse(&format!("callee.{ext}"), callee, language).unwrap(),
+                ),
+            ])
+        };
+        let inert = "export function take(seed: any = 0, value?: unknown) { sink(value); }";
+        let effectful =
+            "export function take(seed: any = init(), value?: unknown) { sink(value); }";
+        let omitted = "import {take} from './callee'; function run(input: unknown) { take(1); }";
+        let bound =
+            "import {take} from './callee'; function run(input: unknown) { take(1, input); }";
+
+        let before = files(omitted, inert);
+        let prior = CodePropertyGraph::build(&before);
+        let caller_after = files(bound, inert);
+        let caller_incremental = CodePropertyGraph::build_incremental(
+            prior.call_graph.clone(),
+            prior.dfg.clone(),
+            &BTreeSet::from([format!("caller.{ext}")]),
+            &caller_after,
+            None,
+        );
+        let caller_fresh = CodePropertyGraph::build(&caller_after);
+        assert_eq!(
+            rows(&caller_incremental),
+            rows(&caller_fresh),
+            "{language:?}: caller-only incremental"
+        );
+
+        let effectful_files = files(bound, effectful);
+        let callee_incremental = CodePropertyGraph::build_incremental(
+            caller_incremental.call_graph.clone(),
+            caller_incremental.dfg.clone(),
+            &BTreeSet::from([format!("callee.{ext}")]),
+            &effectful_files,
+            None,
+        );
+        let effectful_fresh = CodePropertyGraph::build(&effectful_files);
+        assert_eq!(
+            rows(&callee_incremental),
+            rows(&effectful_fresh),
+            "{language:?}: callee-only revoke"
+        );
+        assert!(!parameter_defs(&callee_incremental, "take")
+            .iter()
+            .any(|(name, _, _)| name == "value"));
+
+        assert!(optional_boundary_rows(&callee_incremental).is_empty());
+        let initializer_free = "export function take(seed: any, value?: unknown) { sink(value); }";
+        let mut previous = callee_incremental;
+        for (epoch, callee) in [
+            ("initializer-free", initializer_free),
+            ("inert-restored", inert),
+        ] {
+            let next_files = files(bound, callee);
+            let incremental = CodePropertyGraph::build_incremental(
+                previous.call_graph.clone(),
+                previous.dfg.clone(),
+                &BTreeSet::from([format!("callee.{ext}")]),
+                &next_files,
+                None,
+            );
+            let fresh = CodePropertyGraph::build(&next_files);
+            assert_eq!(
+                rows(&incremental),
+                rows(&fresh),
+                "{language:?}/{epoch}: callee-only full rows"
+            );
+            let parameter = callee.find("value?").unwrap();
+            let argument = bound.rfind("input").unwrap();
+            assert_eq!(
+                parameter_defs(&incremental, "take"),
+                BTreeSet::from([("value".into(), parameter, parameter + 5)]),
+                "{language:?}/{epoch}: exact entry Def"
+            );
+            assert_eq!(
+                optional_boundary_rows(&incremental),
+                vec![(
+                    (
+                        format!("caller.{ext}"),
+                        "run".into(),
+                        1,
+                        1,
+                        "input".into(),
+                        "Use".into(),
+                        argument,
+                        argument + 5
+                    ),
+                    (
+                        format!("callee.{ext}"),
+                        "take".into(),
+                        1,
+                        1,
+                        "value".into(),
+                        "Def".into(),
+                        parameter,
+                        parameter + 5
+                    ),
+                    FlowConfidence::Exact,
+                )],
+                "{language:?}/{epoch}: exact restored boundary"
+            );
+            if epoch == "inert-restored" {
+                assert_eq!(
+                    rows(&incremental),
+                    rows(&caller_fresh),
+                    "{language:?}: final inert epoch restores original complete graph"
+                );
+            }
+            previous = incremental;
+        }
+    }
+}
+
+// Equal-width signatures make the required control's byte coordinates independent
+// and directly comparable; no production occurrence helper constructs the oracle.
+#[test]
+fn optional_inert_rd_labels_match_required_and_preserve_shadow_controls() {
+    for (case, body) in [
+        ("straight", "sink(value);\nsink(value);"),
+        ("overwrite", "sink(value);\nvalue = other;\nsink(value);"),
+        (
+            "branch",
+            "sink(value);\nif (flag) { value = other; }\nsink(value);",
+        ),
+        (
+            "shadow",
+            "sink(value);\n{ let value = other;\nsink(value); }\nsink(value);",
+        ),
+    ] {
+        for language in [Language::TypeScript, Language::Tsx] {
+            let mixed = format!(
+                "function take(seed: any = 0, value?: any, flag: any, other: any) {{\n{body}\n}}"
+            );
+            let required = mixed
+                .replacen("= 0", "   ", 1)
+                .replacen("value?", "value ", 1);
+            let graph = |source: &str| {
+                let parsed = ParsedFile::parse("p", source, language).unwrap();
+                assert_eq!(parsed.parse_error_count, 0);
+                DataFlowGraph::build(&BTreeMap::from([("p".into(), parsed)]))
+            };
+            let rows = |dfg: &DataFlowGraph| {
+                dfg.labels
+                    .iter()
+                    .filter(|((from, _), _)| from.path.to_string() == "value")
+                    .map(|((from, to), label)| (format!("{from:?}"), format!("{to:?}"), *label))
+                    .collect::<Vec<_>>()
+            };
+            let candidate = graph(&mixed);
+            let control = graph(&required);
+            assert!(!rows(&candidate).is_empty(), "{language:?}/{case}");
+            assert_eq!(
+                rows(&candidate),
+                rows(&control),
+                "{language:?}/{case}: full endpoint/label vectors"
+            );
+            let labels = candidate
+                .labels
+                .iter()
+                .filter(|((from, _), _)| from.path.to_string() == "value")
+                .map(|((from, to), label)| (from.line, to.line, *label))
+                .collect::<Vec<_>>();
+            use super::FlowDoubt::{CfgIncomplete, Killed};
+            use FlowConfidence::{Exact, NameOnly};
+            let expected = match case {
+                "straight" => vec![(1, 2, Exact), (1, 3, Exact)],
+                "overwrite" | "branch" => vec![
+                    (1, 2, Exact),
+                    (1, 3, Exact),
+                    (1, 4, NameOnly(Killed { kill_line: 3 })),
+                    (3, 1, NameOnly(CfgIncomplete)),
+                    (3, 2, NameOnly(CfgIncomplete)),
+                    (3, 4, Exact),
+                ],
+                "shadow" => vec![
+                    (1, 2, Exact),
+                    (1, 5, Exact),
+                    (3, 1, NameOnly(CfgIncomplete)),
+                    (3, 2, NameOnly(CfgIncomplete)),
+                    (3, 4, Exact),
+                    (3, 5, NameOnly(Killed { kill_line: 4 })),
+                ],
+                _ => unreachable!(),
+            };
+            assert_eq!(
+                labels, expected,
+                "{language:?}/{case}: retained confidence and doubt, not a precision claim"
+            );
+        }
+    }
+}
+
+type OptionalEndpoint = (String, String, usize, usize, String, String, usize, usize);
+fn optional_endpoint(node: &CpgNode) -> OptionalEndpoint {
+    match node {
+        CpgNode::Variable {
+            file,
+            function,
+            function_start_line,
+            line,
+            path,
+            access,
+            start_byte,
+            end_byte,
+        } => (
+            file.clone(),
+            function.clone(),
+            *function_start_line,
+            *line,
+            path.to_string(),
+            format!("{access:?}"),
+            *start_byte,
+            *end_byte,
+        ),
+        _ => panic!("expected variable endpoint: {node:?}"),
+    }
+}
+fn optional_boundary_rows(
+    cpg: &CodePropertyGraph,
+) -> Vec<(OptionalEndpoint, OptionalEndpoint, FlowConfidence)> {
+    let mut rows = cpg
+        .graph
+        .edge_indices()
+        .filter_map(|e| {
+            let CpgEdge::DataFlow(label) = cpg.graph[e] else {
+                return None;
+            };
+            let (from, to) = cpg.graph.edge_endpoints(e)?;
+            match (cpg.node(from), cpg.node(to)) {
+                (
+                    CpgNode::Variable {
+                        function: caller, ..
+                    },
+                    CpgNode::Variable {
+                        function: callee, ..
+                    },
+                ) if caller == "run" && callee == "take" => Some((
+                    optional_endpoint(cpg.node(from)),
+                    optional_endpoint(cpg.node(to)),
+                    label,
+                )),
+                _ => None,
+            }
+        })
+        .collect::<Vec<_>>();
+    rows.sort();
+    rows
+}
+
+#[test]
+fn optional_inert_exact_omitted_literal_and_bound_population() {
+    let source = "function take(seed: any = 0, value?: unknown) { sink(value); }\nfunction run(bound: unknown) {\n  take(1);\n  take(1, undefined);\n  take(1, null);\n  take(1, bound);\n}\n";
+    for language in [Language::TypeScript, Language::Tsx] {
+        let (cpg, files) = build(language, source);
+        let file = files.keys().next().unwrap();
+        let start = source.rfind("bound").unwrap();
+        assert_eq!(
+            optional_boundary_rows(&cpg),
+            vec![(
+                (
+                    file.clone(),
+                    "run".into(),
+                    2,
+                    6,
+                    "bound".into(),
+                    "Use".into(),
+                    start,
+                    start + 5
+                ),
+                (
+                    file.clone(),
+                    "take".into(),
+                    1,
+                    1,
+                    "value".into(),
+                    "Def".into(),
+                    29,
+                    34
+                ),
+                FlowConfidence::Exact,
+            )],
+            "{language:?}: full population, no literal or omission edges"
+        );
+        let mut sites = cpg
+            .call_graph
+            .calls
+            .values()
+            .flatten()
+            .filter(|s| s.callee_name == "take")
+            .collect::<Vec<_>>();
+        sites.sort_by_key(|s| s.start_byte);
+        let expected = [
+            (3, "take(1)", 1),
+            (4, "take(1, undefined)", 2),
+            (5, "take(1, null)", 2),
+            (6, "take(1, bound)", 2),
+        ];
+        assert_eq!(sites.len(), expected.len());
+        for (site, (line, text, arity)) in sites.into_iter().zip(expected) {
+            assert_eq!(
+                (
+                    site.caller.file.as_str(),
+                    site.caller.name.as_str(),
+                    site.caller.start_line,
+                    site.line,
+                    site.start_byte,
+                    site.end_byte,
+                    site.arg_count
+                ),
+                (
+                    file.as_str(),
+                    "run",
+                    2,
+                    line,
+                    source.find(text).unwrap(),
+                    source.find(text).unwrap() + text.len(),
+                    Some(arity)
+                )
+            );
+            let resolved = cpg.call_graph.resolve_call_site(site);
+            assert_eq!(resolved.len(), 1);
+            assert_eq!(
+                (
+                    resolved[0].target.file.as_str(),
+                    resolved[0].target.name.as_str(),
+                    resolved[0].target.start_line,
+                    resolved[0].confidence
+                ),
+                (
+                    file.as_str(),
+                    "take",
+                    1,
+                    crate::resolution::ResolutionConfidence::Exact
+                )
+            );
+        }
+        assert_eq!(
+            compute_param_names(
+                files.values().next().unwrap(),
+                &cpg.call_graph.functions["take"][0]
+            ),
+            Some(vec!["seed".into(), "value".into()])
+        );
+    }
+}
+
+#[test]
+fn optional_inert_exact_body_and_wrong_owner_never_replace_entry() {
+    for (case, body) in [
+        ("overwrite", "value = clean();\nsink(value);"),
+        ("redeclare", "var value = clean();\nsink(value);"),
+        (
+            "nested-shadow",
+            "function inner(value: unknown) { sink(value); }\nsink(value);",
+        ),
+    ] {
+        let source = format!("function take(seed: any = 0, value?: unknown) {{\n{body}\n}}\nfunction other(value: unknown) {{ sink(value); }}\nfunction run(input: unknown) {{ take(1, input); }}\n");
+        for language in [Language::TypeScript, Language::Tsx] {
+            let (cpg, files) = build(language, &source);
+            let file = files.keys().next().unwrap();
+            let start = source.rfind("input").unwrap();
+            let line = source[..start].bytes().filter(|b| *b == b'\n').count() + 1;
+            assert_eq!(
+                optional_boundary_rows(&cpg),
+                vec![(
+                    (
+                        file.clone(),
+                        "run".into(),
+                        line,
+                        line,
+                        "input".into(),
+                        "Use".into(),
+                        start,
+                        start + 5
+                    ),
+                    (
+                        file.clone(),
+                        "take".into(),
+                        1,
+                        1,
+                        "value".into(),
+                        "Def".into(),
+                        29,
+                        34
+                    ),
+                    FlowConfidence::Exact,
+                )],
+                "{language:?}/{case}"
+            );
+            let mut index = cpg.var_index.clone();
+            let before = index.len();
+            index.retain(|(_, owner, start_line, line, path, access), _| {
+                !(owner == "take"
+                    && *start_line == 1
+                    && *line == 1
+                    && path.base == "value"
+                    && *access == VarAccess::Def)
+            });
+            assert_eq!(index.len() + 1, before, "remove exactly the entry key");
+            assert!(index
+                .keys()
+                .any(|(_, owner, _, _, path, access)| owner == "other"
+                    && path.base == "value"
+                    && *access == VarAccess::Def));
+            if case != "nested-shadow" {
+                assert!(index
+                    .keys()
+                    .any(|(_, owner, _, line, path, access)| owner == "take"
+                        && *line > 1
+                        && path.base == "value"
+                        && *access == VarAccess::Def));
+            } else {
+                assert!(index
+                    .keys()
+                    .any(|(_, owner, _, _, path, access)| owner == "inner"
+                        && path.base == "value"
+                        && *access == VarAccess::Def));
+            }
+            for rows in [
+                CodePropertyGraph::collect_step5b_edges(
+                    &cpg.call_graph,
+                    &index,
+                    &cpg.graph,
+                    &files,
+                ),
+                CodePropertyGraph::collect_step5b_edges_reference(
+                    &cpg.call_graph,
+                    &index,
+                    &cpg.graph,
+                    &files,
+                ),
+            ] {
+                assert!(
+                    rows.is_empty(),
+                    "{language:?}/{case}: no body, nested or other-owner fallback: {rows:?}"
+                );
+            }
         }
     }
 }

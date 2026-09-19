@@ -1,0 +1,21 @@
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-slice1)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.48s
+     Running unittests src/lib.rs (target/debug/deps/prism-4b417becfe78b2c6)
+
+running 1 test
+OWNER_COMPLETE_SITES [
+    "inner:1:item:1:63-74:Call:src=None:q=None:bound=false:type=None:owner=None:shadow=false:recovery=None:materialized=false:new=false:argc=Some(1):spread=false:outcome=None:origin=Source:target=None",
+    "outer:1:direct:1:78-86:Call:src=None:q=None:bound=false:type=None:owner=None:shadow=false:recovery=None:materialized=false:new=false:argc=Some(0):spread=false:outcome=None:origin=Source:target=None",
+    "outer:1:eager:1:31-38:Call:src=None:q=None:bound=false:type=None:owner=None:shadow=false:recovery=None:materialized=false:new=false:argc=Some(0):spread=false:outcome=None:origin=Source:target=None",
+    "outer:1:register:1:22-77:Call:src=None:q=None:bound=false:type=None:owner=None:shadow=false:recovery=None:materialized=false:new=false:argc=Some(2):spread=false:outcome=None:origin=Source:target=None",
+]
+OWNER_COMPLETE_EDGES [
+    "Call(Exact)|F:app.js:inner:1-1:39-76|F:origin.js:item:1-1:7-42",
+    "DataFlow(Exact)|V:app.js:inner:1:1:token:Use:68-73|V:origin.js:item:1:1:input:Def:21-26",
+    "DataFlow(NameOnly(CfgIncomplete))|V:origin.js:item:1:1:input:Def:21-26|V:origin.js:item:1:1:input:Use:35-40",
+    "Return(Exact)|F:origin.js:item:1-1:7-42|F:app.js:inner:1-1:39-76",
+]
+test cpg::build::nested_execution_owner_audit_tests::call_execution_owner_complete_site_and_edge_metadata ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1137 filtered out; finished in 0.20s
+

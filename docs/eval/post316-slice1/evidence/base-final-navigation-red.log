@@ -1,0 +1,21 @@
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-orchestration/base-final-red)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.55s
+     Running tests/navigation/main.rs (/private/tmp/prism-post316-orchestration/base-final-red-target/debug/deps/navigation-1567b34f600bdf8b)
+
+running 1 test
+
+thread 'callers_test::call_execution_owner_navigation_callers_and_callees' (53938779) panicked at tests/navigation/callers_test.rs:65:5:
+assertion `left == right` failed
+  left: [("app.js", "direct", 6, 6, 107, 140, 0, "[CalledBy { caller: \"direct\", call_site_line: 6 }, Resolution { kind: \"import_member\" }]"), ("app.js", "inner", 3, 3, 59, 91, 0, "[CalledBy { caller: \"inner\", call_site_line: 3 }, Resolution { kind: \"import_member\" }]"), ("app.js", "outer", 2, 5, 31, 106, 0, "[CalledBy { caller: \"outer\", call_site_line: 3 }, Resolution { kind: \"import_member\" }]")]
+ right: [("app.js", "direct", 6, 6, 107, 140, 0, "[CalledBy { caller: \"direct\", call_site_line: 6 }, Resolution { kind: \"import_member\" }]"), ("app.js", "inner", 3, 3, 59, 91, 0, "[CalledBy { caller: \"inner\", call_site_line: 3 }, Resolution { kind: \"import_member\" }]")]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test callers_test::call_execution_owner_navigation_callers_and_callees ... FAILED
+
+failures:
+
+failures:
+    callers_test::call_execution_owner_navigation_callers_and_callees
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 124 filtered out; finished in 0.19s
+
+error: test failed, to rerun pass `--test navigation`

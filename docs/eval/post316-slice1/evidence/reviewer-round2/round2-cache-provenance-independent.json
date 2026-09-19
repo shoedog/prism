@@ -1,0 +1,12 @@
+{
+  "base_writer_src/ast.rs": "00d930a56f132fbac473c86c2f848518a903420a10098e242ce6adc6c805b38f",
+  "base_writer_src/call_graph.rs": "2635b4d21d39c55745a278ed21e53b9d1bcd76c6d1df4df55cc98218f6124c6e",
+  "base_writer_src/cpg_cache.rs": "27ec8fffa7509a675bbd26529f955aa217c7245dd1d20ee1a275a277c4812e34",
+  "base_writer_src/navigation/call_edge_cache.rs": "32ec9c8c1ce39847e8318c3b3eb3055875730b083481592a26fb91d88a7c5c25",
+  "/private/tmp/prism-post316-orchestration/base-cache-writer/tests/genuine_old_cache_writer.rs": "375b5a5a7b89b60b758945af89f5ae90547883939f9c75acd941c6ec4941ac8f",
+  "/private/tmp/prism-post316-orchestration/base-cache-target/debug/deps/genuine_old_cache_writer-444408192b4ee3d9": "46a93fe5fff46e2dba566fcff5b1df6784eaf3d24e2675c94a018fcb9f18eed6",
+  "/private/tmp/prism-post316-orchestration/genuine-old-cache-pristine/prism/nav/f4503058c1f93d610b2749f25185af495a8dd9345f9239ef373d07ce72ce233c/cache-meta.json": "3daca39d8af55eb6efe9da4cfd32da8862ab4a48a71c25d0145bc0ec115228ae",
+  "/private/tmp/prism-post316-orchestration/genuine-old-cache-pristine/prism/nav/f4503058c1f93d610b2749f25185af495a8dd9345f9239ef373d07ce72ce233c/cpg-cache.bin": "695537ca2d934b231449534518f79eb730801eb791405775f29ffd29e7f687b1",
+  "/private/tmp/prism-post316-orchestration/genuine-old-cache-pristine/prism/nav/f4503058c1f93d610b2749f25185af495a8dd9345f9239ef373d07ce72ce233c/resolved-call-edge-index-meta.json": "2bf95210d32619fd2828bd0e87903ac5836fdff333122c0b6bde658019012fed",
+  "/private/tmp/prism-post316-orchestration/genuine-old-cache-pristine/prism/nav/f4503058c1f93d610b2749f25185af495a8dd9345f9239ef373d07ce72ce233c/resolved-call-edge-index.bin": "a9dc2e2ba609d9871f0b78781122a3d8fd3c011ecc6d15007a0316ee9bc69615"
+}

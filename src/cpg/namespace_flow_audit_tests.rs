@@ -56,7 +56,7 @@ const CASES: &[Case] = &[
     Case{id:"compact-variable-arrow",app:"import * as ns from './origin'; const run=(value)=>ns.item(value);",origin:ORIGIN,expected:Disposition::Supported},
     Case{id:"compact-object-pair",app:"import * as ns from './origin'; const obj={callback:function(value){return ns.item(value);}};",origin:ORIGIN,expected:Disposition::Supported},
     Case{id:"compact-explicit-other-name",app:"import * as ns from './origin'; const obj={ns:null};obj.ns=function callback(value){return ns.item(value);};",origin:ORIGIN,expected:Disposition::Supported},
-    Case{id:"genuine-same-line-earlier-use",app:"import * as ns from './origin'; function run(value){sink(value);return ns.item(value);}",origin:ORIGIN,expected:Disposition::GenuineSameLineUse},
+    Case{id:"genuine-same-line-earlier-use",app:"import * as ns from './origin'; function run(value){sink(value);return ns.item(value);}",origin:ORIGIN,expected:Disposition::Supported},
     Case{id:"genuine-distinct-line-earlier-use",app:"import * as ns from './origin'; function run(value){sink(value);\nreturn ns.item(value);}",origin:ORIGIN,expected:Disposition::Supported},
     Case{id:"explicit-self-refusal",app:"import * as ns from './origin'; const obj={ns:null};obj.ns=function ns(value){return ns.item(value);};",origin:ORIGIN,expected:Disposition::RefusedTarget},
     Case{id:"unsupported-parameter-refusal",app:"import * as ns from './origin'; function run(value){return ns.item(value);}",origin:"export function item(input=seed()) { return input; }",expected:Disposition::RefusedParameter},
@@ -291,19 +291,46 @@ fn observe(
         disposition,
         Disposition::ParameterTokenUse | Disposition::Supported
     ) {
-        // Counterfactual only: index the already-retained real DFG argument Use.
-        // This is NOT a production admission or a same-line collision policy.
+        // Slice 2 retains an exact occurrence when production materialized it.
+        // Older/refused producer cases still use the counterfactual node so this
+        // audit can isolate the argument-selection policy from admission.
         let loc = true_uses[0];
         let mut graph = cpg.graph.clone();
-        let from = graph.add_node(CpgNode::Variable {
-            path: loc.path.clone(),
-            file: loc.file.clone(),
-            function: loc.function.clone(),
-            function_start_line: loc.function_start_line,
-            line: loc.line,
-            access: VarAccess::Use,
-            start_byte: loc.start_byte,
-            end_byte: loc.end_byte,
+        let retained: Vec<_> = graph
+            .node_indices()
+            .filter(|&idx| {
+                matches!(
+                    &graph[idx],
+                    CpgNode::Variable {
+                        path,
+                        file,
+                        function,
+                        function_start_line,
+                        line,
+                        access: VarAccess::Use,
+                        start_byte,
+                        end_byte,
+                    } if path == &loc.path && file == &loc.file && function == &loc.function
+                        && *function_start_line == loc.function_start_line && *line == loc.line
+                        && (*start_byte, *end_byte) == (loc.start_byte, loc.end_byte)
+                )
+            })
+            .collect();
+        assert!(
+            retained.len() <= 1,
+            "duplicate exact argument nodes: {retained:?}"
+        );
+        let from = retained.into_iter().next().unwrap_or_else(|| {
+            graph.add_node(CpgNode::Variable {
+                path: loc.path.clone(),
+                file: loc.file.clone(),
+                function: loc.function.clone(),
+                function_start_line: loc.function_start_line,
+                line: loc.line,
+                access: VarAccess::Use,
+                start_byte: loc.start_byte,
+                end_byte: loc.end_byte,
+            })
         });
         let mut index = cpg.var_index.clone();
         index.insert(key.clone(), from);

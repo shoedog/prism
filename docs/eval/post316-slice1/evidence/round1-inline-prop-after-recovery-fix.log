@@ -1,0 +1,67 @@
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-slice1)
+warning: unused variable: `conf`
+   --> tests/integration/import_binding_test.rs:354:10
+    |
+354 |     let (conf, kind) = resolve_kind(&cg, "app.py", "run", "process");
+    |          ^^^^ help: if this is intentional, prefix it with an underscore: `_conf`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `resolve_count` is never used
+  --> tests/integration/import_binding_test.rs:55:4
+   |
+55 | fn resolve_count(cg: &CallGraph, caller_file: &str, caller_name: &str, callee: &str) -> usize {
+   |    ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `prism` (test "integration") generated 2 warnings (run `cargo fix --test "integration" -p prism` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.20s
+     Running tests/integration/main.rs (target/debug/deps/integration-477ca01d9f2cb111)
+
+running 26 tests
+test inline_prop_receiver_test::local_callable_interface_module_boundary ... ok
+test inline_prop_receiver_test::contextual_prop_receiver_write_barriers ... ok
+test inline_prop_receiver_test::inline_prop_receiver_shadow_and_write_barriers ... ok
+test inline_prop_receiver_test::inline_prop_receiver_positive ... ok
+test inline_prop_receiver_test::inline_prop_receiver_shape_barriers ... ok
+test inline_prop_receiver_test::contextual_prop_receiver_positive ... ok
+
+thread 'inline_prop_receiver_test::contextual_prop_receiver_shape_barriers' (53671446) panicked at tests/integration/inline_prop_receiver_test.rs:44:9:
+function outer() { const run = (({client}) => { client.m(); }) as (p: {client: Client}) => void; }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test inline_prop_receiver_test::local_contextual_alias_receiver_barriers ... ok
+test inline_prop_receiver_test::local_contextual_alias_positive ... ok
+
+thread 'inline_prop_receiver_test::contextual_prop_receiver_shape_barriers' (53671446) panicked at tests/integration/inline_prop_receiver_test.rs:44:9:
+function outer() { const run: (p: {client: Client}) => void = function* ({client}) { client.m(); }; }
+
+thread 'inline_prop_receiver_test::contextual_prop_receiver_shape_barriers' (53671446) panicked at tests/integration/inline_prop_receiver_test.rs:122:5:
+["function outer() { const run = (({client}) => { client.m(); }) as (p: {client: Client}) => void; }", "function outer() { const run: (p: {client: Client}) => void = function* ({client}) { client.m(); }; }"]
+test inline_prop_receiver_test::contextual_prop_receiver_shape_barriers ... FAILED
+test inline_prop_receiver_test::private_props_interface_module_boundary ... ok
+test inline_prop_receiver_test::local_contextual_alias_declaration_barriers ... ok
+test inline_prop_receiver_test::local_props_alias_receiver_barriers ... ok
+test inline_prop_receiver_test::local_callable_alias_shape_barriers ... ok
+test inline_prop_receiver_test::local_callable_interface_positive ... ok
+test inline_prop_receiver_test::local_props_alias_positive ... ok
+test inline_prop_receiver_test::local_generic_alias_positive ... ok
+test inline_prop_receiver_test::local_callable_alias_positive ... ok
+test inline_prop_receiver_test::local_callable_alias_authority_and_receiver_barriers ... ok
+test inline_prop_receiver_test::local_callable_interface_shape_barriers ... ok
+test inline_prop_receiver_test::private_props_interface_receiver_barriers ... ok
+test inline_prop_receiver_test::local_generic_alias_argument_and_receiver_barriers ... ok
+test inline_prop_receiver_test::private_props_interface_positive ... ok
+test inline_prop_receiver_test::local_callable_interface_authority_and_receiver_barriers ... ok
+test inline_prop_receiver_test::local_generic_alias_declaration_barriers ... ok
+test inline_prop_receiver_test::local_props_alias_declaration_barriers ... ok
+test inline_prop_receiver_test::private_props_interface_declaration_barriers ... ok
+
+failures:
+
+failures:
+    inline_prop_receiver_test::contextual_prop_receiver_shape_barriers
+
+test result: FAILED. 25 passed; 1 failed; 0 ignored; 0 measured; 812 filtered out; finished in 1.45s
+
+error: test failed, to rerun pass `--test integration`

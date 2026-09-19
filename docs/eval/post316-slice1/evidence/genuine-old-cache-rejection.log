@@ -1,0 +1,11 @@
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-slice1)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.19s
+     Running tests/tmp_genuine_old_cache_reader.rs (target/debug/deps/tmp_genuine_old_cache_reader-888f28255c05d5ba)
+
+running 1 test
+Cache version mismatch (cached: 93, current: 94), rebuilding
+nav cache: CPG cache miss in /private/tmp/prism-post316-orchestration/genuine-old-cache-evidence-run/prism/nav/f4503058c1f93d610b2749f25185af495a8dd9345f9239ef373d07ce72ce233c, rebuilding
+test candidate_rejects_and_rebuilds_genuine_base_cache ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+

@@ -1,0 +1,21 @@
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-slice1)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.44s
+     Running unittests src/lib.rs (target/debug/deps/prism-4b417becfe78b2c6)
+
+running 8 tests
+test ast::call_execution_owner_tests::call_execution_owner_python_nested_and_root_preservation ... ok
+test ast::call_execution_owner_tests::call_execution_owner_computed_key_unindexed_and_root_controls ... ok
+OWNER_EPOCH epoch=0 sha=ce6868c121c3e1a0066075cb893dea7eaad15064f2123e5208a9c20bc2637157 rows=5 resolution=["outer:1:item:29-40->FreeSingle:Exact:origin.js:item:1"]
+OWNER_EPOCH epoch=1 sha=e52de3f5c662e15f6ec96bb441677d64ddf5d213348dc9836e30eb225d998908 rows=5 resolution=["inner:1:item:55-66->FreeSingle:Exact:origin.js:item:1"]
+test ast::call_execution_owner_tests::call_execution_owner_class_computed_key_preserves_baseline ... ok
+test cpg::build::nested_execution_owner_audit_tests::call_execution_owner_same_line_identity_collision_refuses_graph_calls ... ok
+OWNER_EPOCH epoch=2 sha=2447c8325715183980476a171f7284efd8322e6497165766b7d7653d3cec284d rows=7 resolution=["inner:1:item:61-72->FreeSingle:Exact:origin.js:item:1"]
+OWNER_EPOCH epoch=3 sha=01d88ad818821530610f9ce77ed52f5b13452eb72785072869b420254ad8bd50 rows=6 resolution=["inner:1:item:60-71->FreeSingle:Exact:origin.js:item:1"]
+OWNER_EPOCH epoch=4 sha=ce6868c121c3e1a0066075cb893dea7eaad15064f2123e5208a9c20bc2637157 rows=5 resolution=["outer:1:item:29-40->FreeSingle:Exact:origin.js:item:1"]
+test cpg::build::nested_execution_owner_audit_tests::call_execution_owner_complete_site_and_edge_metadata ... ok
+test cpg::build::nested_execution_owner_audit_tests::call_execution_owner_source_epochs ... ok
+test ast::call_execution_owner_tests::call_execution_owner_query_and_manual_routes ... ok
+test ast::call_execution_owner_tests::call_execution_owner_computed_key_callback_and_recovery_controls ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1130 filtered out; finished in 0.19s
+

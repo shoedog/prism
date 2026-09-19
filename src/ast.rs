@@ -225,6 +225,15 @@ enum RvalueOwnerDecision {
     Unsupported,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CallOwnerDecision {
+    Owned,
+    Nested,
+    Outside,
+    Unsupported,
+    LegacyInventory,
+}
+
 /// A statement the parser located, with its real source span.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StatementSpan {
@@ -9561,6 +9570,95 @@ impl ParsedFile {
         }
     }
 
+    fn call_capture_owner(&self, owner: &Node<'_>, call: Node<'_>) -> CallOwnerDecision {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) || owner.parent().is_none()
+        {
+            return CallOwnerDecision::LegacyInventory;
+        }
+        if !self
+            .language
+            .callable_boundary_node_types()
+            .contains(&owner.kind())
+            || !self.all_functions().iter().any(|candidate| {
+                candidate.kind() == owner.kind() && byte_range_eq(candidate, owner)
+            })
+        {
+            return CallOwnerDecision::Unsupported;
+        }
+        if call.start_byte() < owner.start_byte() || owner.end_byte() < call.end_byte() {
+            return CallOwnerDecision::Outside;
+        }
+
+        let mut owner_is_in_class = false;
+        let mut ancestor = owner.parent();
+        while let Some(node) = ancestor {
+            if Self::is_rvalue_class_node(node.kind()) {
+                owner_is_in_class = true;
+                break;
+            }
+            ancestor = node.parent();
+        }
+        if owner_is_in_class
+            || self.rvalue_has_class_ancestor_before_owner(
+                call,
+                owner.start_byte(),
+                owner.end_byte(),
+            )
+        {
+            return CallOwnerDecision::LegacyInventory;
+        }
+
+        let mut current = Some(call);
+        while let Some(node) = current {
+            if self
+                .language
+                .callable_boundary_node_types()
+                .contains(&node.kind())
+            {
+                let is_owner = byte_range_eq(&node, owner);
+                let in_execution_region = ["body", "parameters"].into_iter().any(|field| {
+                    node.child_by_field_name(field).is_some_and(|region| {
+                        region.start_byte() <= call.start_byte()
+                            && call.end_byte() <= region.end_byte()
+                    })
+                });
+                if in_execution_region {
+                    return if is_owner {
+                        CallOwnerDecision::Owned
+                    } else {
+                        CallOwnerDecision::Nested
+                    };
+                }
+
+                let in_computed_method_name = node.kind() == "method_definition"
+                    && node.child_by_field_name("name").is_some_and(|name| {
+                        name.start_byte() <= call.start_byte() && call.end_byte() <= name.end_byte()
+                    });
+                if in_computed_method_name {
+                    if is_owner {
+                        return CallOwnerDecision::Outside;
+                    }
+                } else if is_owner {
+                    return CallOwnerDecision::Owned;
+                } else {
+                    return CallOwnerDecision::Unsupported;
+                }
+            }
+            current = node.parent();
+        }
+        CallOwnerDecision::Outside
+    }
+
+    fn call_capture_is_owned(&self, owner: &Node<'_>, call: Node<'_>) -> bool {
+        matches!(
+            self.call_capture_owner(owner, call),
+            CallOwnerDecision::Owned | CallOwnerDecision::LegacyInventory
+        )
+    }
+
     /// Find function calls on the given lines and return the called function names.
     pub fn function_calls_on_lines(
         &self,
@@ -9580,7 +9678,9 @@ impl ParsedFile {
             let mut calls = Vec::new();
             while let Some(m) = matches.next() {
                 for capture in m.captures {
-                    if capture.index == call_idx {
+                    if capture.index == call_idx
+                        && self.call_capture_is_owned(func_node, capture.node)
+                    {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line) {
                             if let Some(name_node) = self.language.call_function_name(&capture.node)
@@ -9630,6 +9730,9 @@ impl ParsedFile {
             while let Some(m) = matches.next() {
                 for capture in m.captures {
                     if capture.index != call_idx {
+                        continue;
+                    }
+                    if !self.call_capture_is_owned(func_node, capture.node) {
                         continue;
                     }
                     let line = capture.node.start_position().row + 1;
@@ -9689,7 +9792,9 @@ impl ParsedFile {
             let mut calls = Vec::new();
             while let Some(m) = matches.next() {
                 for capture in m.captures {
-                    if capture.index == call_idx {
+                    if capture.index == call_idx
+                        && self.call_capture_is_owned(func_node, capture.node)
+                    {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line) {
                             if let Some(name_node) = self.language.call_function_name(&capture.node)
@@ -9751,6 +9856,9 @@ impl ParsedFile {
             while let Some(m) = matches.next() {
                 for capture in m.captures {
                     if capture.index != call_idx {
+                        continue;
+                    }
+                    if !self.call_capture_is_owned(func_node, capture.node) {
                         continue;
                     }
                     let line = capture.node.start_position().row + 1;
@@ -9820,9 +9928,22 @@ impl ParsedFile {
         lines: &BTreeSet<usize>,
         out: &mut Vec<CallSiteMeta<'a>>,
     ) {
+        self.collect_calls_manual_with_qualifier_and_spans_for_owner(node, node, lines, out);
+    }
+
+    fn collect_calls_manual_with_qualifier_and_spans_for_owner<'a>(
+        &'a self,
+        owner: Node<'_>,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<CallSiteMeta<'a>>,
+    ) {
         let line = node.start_position().row + 1;
 
-        if lines.contains(&line) && self.language.is_call_node(node.kind()) {
+        if lines.contains(&line)
+            && self.language.is_call_node(node.kind())
+            && self.call_capture_is_owned(&owner, node)
+        {
             if let Some(name_node) = self.language.call_function_name(&node) {
                 let name = self.node_text(&name_node).to_string();
                 let qualifier = self
@@ -9849,7 +9970,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_calls_manual_with_qualifier_and_spans(child, lines, out);
+            self.collect_calls_manual_with_qualifier_and_spans_for_owner(owner, child, lines, out);
         }
     }
 
@@ -9859,9 +9980,22 @@ impl ParsedFile {
         lines: &BTreeSet<usize>,
         out: &mut Vec<(String, usize, Option<String>)>,
     ) {
+        self.collect_calls_manual_with_qualifier_for_owner(node, node, lines, out);
+    }
+
+    fn collect_calls_manual_with_qualifier_for_owner(
+        &self,
+        owner: Node<'_>,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<(String, usize, Option<String>)>,
+    ) {
         let line = node.start_position().row + 1;
 
-        if lines.contains(&line) && self.language.is_call_node(node.kind()) {
+        if lines.contains(&line)
+            && self.language.is_call_node(node.kind())
+            && self.call_capture_is_owned(&owner, node)
+        {
             if let Some(name_node) = self.language.call_function_name(&node) {
                 let name = self.node_text(&name_node).to_string();
                 let qualifier = self
@@ -9874,7 +10008,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_calls_manual_with_qualifier(child, lines, out);
+            self.collect_calls_manual_with_qualifier_for_owner(owner, child, lines, out);
         }
     }
 
@@ -9884,9 +10018,22 @@ impl ParsedFile {
         lines: &BTreeSet<usize>,
         out: &mut Vec<CallSiteMeta<'a>>,
     ) {
+        self.collect_calls_manual_with_spans_for_owner(node, node, lines, out);
+    }
+
+    fn collect_calls_manual_with_spans_for_owner<'a>(
+        &'a self,
+        owner: Node<'_>,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<CallSiteMeta<'a>>,
+    ) {
         let line = node.start_position().row + 1;
 
-        if lines.contains(&line) && self.language.is_call_node(node.kind()) {
+        if lines.contains(&line)
+            && self.language.is_call_node(node.kind())
+            && self.call_capture_is_owned(&owner, node)
+        {
             if let Some(name_node) = self.language.call_function_name(&node) {
                 let name = self.node_text(&name_node).to_string();
                 out.push(CallSiteMeta {
@@ -9906,7 +10053,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_calls_manual_with_spans(child, lines, out);
+            self.collect_calls_manual_with_spans_for_owner(owner, child, lines, out);
         }
     }
 
@@ -9918,9 +10065,22 @@ impl ParsedFile {
         lines: &BTreeSet<usize>,
         out: &mut Vec<(String, usize)>,
     ) {
+        self.collect_calls_manual_for_owner(node, node, lines, out);
+    }
+
+    fn collect_calls_manual_for_owner(
+        &self,
+        owner: Node<'_>,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<(String, usize)>,
+    ) {
         let line = node.start_position().row + 1;
 
-        if lines.contains(&line) && self.language.is_call_node(node.kind()) {
+        if lines.contains(&line)
+            && self.language.is_call_node(node.kind())
+            && self.call_capture_is_owned(&owner, node)
+        {
             if let Some(name_node) = self.language.call_function_name(&node) {
                 let name = self.node_text(&name_node).to_string();
                 out.push((name, line));
@@ -9929,7 +10089,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_calls_manual(child, lines, out);
+            self.collect_calls_manual_for_owner(owner, child, lines, out);
         }
     }
 
@@ -11687,6 +11847,10 @@ mod contained_rvalue_tests;
 #[cfg(test)]
 #[path = "ast_nested_execution_owner_tests.rs"]
 mod nested_execution_owner_tests;
+
+#[cfg(test)]
+#[path = "ast_call_execution_owner_tests.rs"]
+mod call_execution_owner_tests;
 
 #[cfg(test)]
 mod tests {

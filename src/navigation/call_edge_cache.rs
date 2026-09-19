@@ -93,7 +93,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v50: CJS terminal capture proof and non-erasing blocked export claims.
 // v51: rejected CJS name retention and source-self-binding write proof.
 // v52: source-only receiver self names and non-hidden anonymous callback writes.
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 52;
+// v53: JS/TS/TSX nested-call execution ownership and identity-collision refusal.
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 53;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -712,7 +713,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 52);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 53);
     }
 
     #[test]
@@ -920,7 +921,7 @@ mod tests {
         let (index, _) = fixture_index();
         for mutate in [
             |cache: &mut NavigationCallEdgeCache| cache.nav_call_edge_cache_version += 1,
-            |cache: &mut NavigationCallEdgeCache| cache.nav_call_edge_cache_version = 44,
+            |cache: &mut NavigationCallEdgeCache| cache.nav_call_edge_cache_version = 52,
             |cache: &mut NavigationCallEdgeCache| cache.prism_version = "stale".into(),
             |cache: &mut NavigationCallEdgeCache| cache.grammar_fingerprint = "stale".into(),
             |cache: &mut NavigationCallEdgeCache| cache.skip_policy_version += 1,

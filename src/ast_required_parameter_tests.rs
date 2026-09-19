@@ -1,6 +1,7 @@
 use super::*;
 use crate::data_flow::DataFlowGraph;
 use std::collections::BTreeMap;
+use std::process::Command;
 
 fn check(source: &str, expected: &[&str]) {
     for language in [Language::TypeScript, Language::Tsx] {
@@ -216,14 +217,12 @@ fn optional_parameter_unsupported_individual_forms_do_not_supply_definitions() {
     }
 }
 
-/// The whole-list initializer barrier is a distinct, wider gate than any
-/// individual optional parameter's own children: an initializer anywhere in
-/// the signature (a sibling default, or a default nested in a destructuring
-/// pattern) refuses every optional occurrence in that list, even an
-/// otherwise-clean `a?`. Required-parameter occurrences are unaffected by
-/// this gate and keep their existing independent, per-parameter contract.
+/// Unsupported or effectful initializers retain the conservative whole-list
+/// refusal. A validated nonempty inert-default sibling set is handled by the
+/// separate mixed-signature admission controls below. Required occurrences
+/// keep their independent per-parameter contract.
 #[test]
-fn optional_parameter_refuses_when_signature_contains_any_initializer() {
+fn optional_parameter_refuses_when_signature_contains_unsupported_initializer() {
     for parameters in [
         "a?: any, b: any = value",
         "a?: any, {x = 1}: any",
@@ -257,4 +256,190 @@ fn optional_parameter_duplicate_recovery_and_escaped_binding_lists_fail_closed()
         assert!(parsed.function_parameter_occurrences(&function).is_empty());
         assert!(parsed.function_parameter_names(&function).is_empty());
     }
+}
+
+#[test]
+fn optional_inert_signature_adds_the_optional_token_after_a_validated_runtime_default() {
+    let mut missing = Vec::new();
+    for default in [
+        "0",
+        "\"clean\"",
+        "true",
+        "false",
+        "null",
+        "[]",
+        "{ /* comment-only */ }",
+    ] {
+        let source = format!(
+            "function take(\n  seed: any = {default},\n  value?: unknown\n) {{\n  const held = value;\n  sink(held);\n}}"
+        );
+        for language in [Language::TypeScript, Language::Tsx] {
+            let parsed = ParsedFile::parse("params.ts", &source, language).unwrap();
+            assert_eq!(parsed.parse_error_count, 0, "{language:?}: {source}");
+            let function = parsed.all_functions()[0];
+            let actual = parsed
+                .function_parameter_occurrences(&function)
+                .into_iter()
+                .map(|(name, _, _)| name)
+                .collect::<Vec<_>>();
+            if actual != ["seed", "value"] {
+                missing.push(format!("{language:?}/{default}: {actual:?}"));
+            }
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "missing optional occurrence rows: {missing:#?}"
+    );
+}
+
+#[test]
+fn optional_inert_signature_preserves_type_only_and_effectful_refusals() {
+    check(
+        "function take(value?: <T = unknown>() => void) { sink(value); }",
+        &[],
+    );
+    check(
+        "function take(seed: any = init(), value?: unknown) { sink(value); }",
+        &[],
+    );
+}
+
+#[test]
+fn optional_inert_signature_keeps_source_order_unicode_and_old_refusals() {
+    check(
+        "function take(\n  required: any,\n  zero: any = 0,\n  text: any = \"clean\",\n  café?: unknown\n) { sink(required, zero, text, café); }",
+        &["required", "zero", "text", "café"],
+    );
+    for default in ["touch()", "(value = clean)", "value", "{x: 1}", "[,]"] {
+        check(
+            &format!(
+                "function take(required: any, seed: any = {default}, value?: unknown) {{ sink(required, value); }}"
+            ),
+            &["required"],
+        );
+    }
+}
+
+#[test]
+fn reviewer_optional_inert_complete_allowlist_and_old_path_controls() {
+    for default in [
+        "0",
+        "\"clean\"",
+        "true",
+        "false",
+        "null",
+        "[]",
+        "[ /* empty */ ]",
+        "{}",
+        "{ /* empty */ }",
+    ] {
+        check(
+            &format!(
+                "function take(required: any, seed: any = {default}, value?: unknown) {{ sink(required, seed, value); }}"
+            ),
+            &["required", "seed", "value"],
+        );
+    }
+
+    // The new all-simple validator must not narrow the old initializer-free
+    // path when an unsupported sibling makes that validator return None.
+    check(
+        "function take(value?: unknown, {x}: {x: unknown}) { sink(value); }",
+        &["value"],
+    );
+    check(
+        "function take(value?: unknown, ...rest: unknown[]) { sink(value); }",
+        &["value"],
+    );
+
+    for parameters in [
+        "seed: any = touch(), value?: unknown",
+        "seed: any = (value = clean), value?: unknown",
+        "seed: any = value, value?: unknown",
+        "seed: any = {x: 1}, value?: unknown",
+        "seed: any = [,], value?: unknown",
+        "{x = 1}: any, value?: unknown",
+        "seed: any = 0, ...rest: unknown[], value?: unknown",
+        "seed: any = 0, value?: unknown = 1",
+    ] {
+        check(
+            &format!("function take({parameters}) {{ sink(value); }}"),
+            &[],
+        );
+    }
+}
+
+#[test]
+fn optional_inert_each_allowlist_and_refusal_has_exact_occurrence_bytes() {
+    let accepted = [
+        "0",
+        "\"clean\"",
+        "true",
+        "false",
+        "null",
+        "[]",
+        "[ /* empty */ ]",
+        "{}",
+        "{ /* empty */ }",
+    ];
+    let refused = ["touch()", "(value = clean)", "value", "{x: 1}", "[,]"];
+    for language in [Language::TypeScript, Language::Tsx] {
+        for default in accepted {
+            let source = format!("function take(required: any, seed: any = {default}, value?: unknown) {{ sink(required, seed, value); }}");
+            let parsed = ParsedFile::parse("row.ts", &source, language).unwrap();
+            let actual = parsed.function_parameter_occurrences(&parsed.all_functions()[0]);
+            let names = actual
+                .iter()
+                .map(|(name, _, _)| name.as_str())
+                .collect::<Vec<_>>();
+            assert_eq!(
+                names,
+                ["required", "seed", "value"],
+                "{language:?}/{default}"
+            );
+            for (name, start, end) in actual {
+                assert_eq!(&source[start..end], name, "{language:?}/{default}");
+            }
+        }
+        for default in refused {
+            let source = format!("function take(required: any, seed: any = {default}, value?: unknown) {{ sink(required, value); }}");
+            let parsed = ParsedFile::parse("row.ts", &source, language).unwrap();
+            let actual = parsed.function_parameter_occurrences(&parsed.all_functions()[0]);
+            assert_eq!(
+                actual
+                    .iter()
+                    .map(|(name, _, _)| name.as_str())
+                    .collect::<Vec<_>>(),
+                ["required"],
+                "{language:?}/{default}"
+            );
+            for (name, start, end) in actual {
+                assert_eq!(&source[start..end], name, "{language:?}/{default}");
+            }
+        }
+    }
+}
+
+#[test]
+fn effectful_javascript_default_runs_only_for_undefined_or_omitted_arguments() {
+    let program = r#"
+let runs = 0;
+function take(seed = ++runs, value) { return [runs, seed, value]; }
+console.log(JSON.stringify([take(), take(undefined, "u"), take(7, "s")]));
+"#;
+    let output = Command::new("node")
+        .args(["--eval", program])
+        .output()
+        .expect("node runtime is required for the effectful-default semantic control");
+    assert!(
+        output.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap().trim(),
+        "[[1,1,null],[2,2,\"u\"],[2,7,\"s\"]]",
+        "omitted and undefined arguments run the default while a supplied value skips it"
+    );
 }

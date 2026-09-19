@@ -1,0 +1,8834 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 0,
+  "matched": 8654,
+  "prism_extra": 0,
+  "prism_missing": 45,
+  "snapshot_prism_missing": 45
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.700854948272956,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.700854948272956,
+      1.0
+     ],
+     "tp": 9
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "tp": 9
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.700854948272956,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.700854948272956,
+      1.0
+     ],
+     "tp": 9
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "candidate_tier": {
+     "count": 5,
+     "oracle_confirmed": 1,
+     "oracle_unconfirmed": 4
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 5,
+    "raw": {
+     "fn": 0,
+     "fp": 5,
+     "precision": [
+      0.5,
+      0.23659308901147935,
+      0.7634069109885206
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "candidate_tier": {
+     "count": 2,
+     "oracle_confirmed": 2,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "tp": 7
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "recall": [
+       0.7777777777777778,
+       0.4525889666922117,
+       0.9367748934594303
+      ],
+      "tp": 7
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 2,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      0.7777777777777778,
+      0.4525889666922117,
+      0.9367748934594303
+     ],
+     "tp": 7
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.3333333333333333,
+       0.06149194402093078,
+       0.7923404011921757
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 0,
+     "fp": 2,
+     "precision": [
+      0.3333333333333333,
+      0.06149194402093078,
+      0.7923404011921757
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7575059904469021,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7575059904469021,
+      1.0
+     ],
+     "tp": 12
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7575059904469021,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.7575059904469021,
+       1.0
+      ],
+      "tp": 12
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7575059904469021,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7575059904469021,
+      1.0
+     ],
+     "tp": 12
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "candidate_tier": {
+     "count": 1,
+     "oracle_confirmed": 1,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 14,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "recall": [
+       0.2222222222222222,
+       0.09000928045845544,
+       0.45214584506003586
+      ],
+      "tp": 4
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 12,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       0.29411764705882354,
+       0.1327998952626943,
+       0.5313311024822815
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 12,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       0.29411764705882354,
+       0.1327998952626943,
+       0.5313311024822815
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 13,
+    "raw": {
+     "fn": 13,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      0.2777777777777778,
+      0.1249975330046966,
+      0.5087265674100965
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "candidate_tier": {
+     "count": 2,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 2
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7719046248681998,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7719046248681998,
+      1.0
+     ],
+     "tp": 13
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.8666666666666667,
+       0.6211801694601944,
+       0.9626387412357151
+      ],
+      "recall": [
+       1.0,
+       0.7719046248681998,
+       1.0
+      ],
+      "tp": 13
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.8,
+       0.5481455107594471,
+       0.9295245070826608
+      ],
+      "recall": [
+       1.0,
+       0.7575059904469021,
+       1.0
+      ],
+      "tp": 12
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.8,
+       0.5481455107594471,
+       0.9295245070826608
+      ],
+      "recall": [
+       1.0,
+       0.7575059904469021,
+       1.0
+      ],
+      "tp": 12
+     }
+    },
+    "pending": 4,
+    "raw": {
+     "fn": 0,
+     "fp": 4,
+     "precision": [
+      0.7647058823529411,
+      0.5273820168822574,
+      0.9044495574456308
+     ],
+     "recall": [
+      1.0,
+      0.7719046248681998,
+      1.0
+     ],
+     "tp": 13
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "tp": 7
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "tp": 7
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "candidate_tier": {
+     "count": 1,
+     "oracle_confirmed": 1,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "tp": 4
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       0.75,
+       0.3006418400969081,
+       0.954412739704631
+      ],
+      "tp": 3
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "tp": 4
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 10,
+  "checked": [
+   {
+    "probe": "callers:src/cpg/multiline_call_arg_tests.rs:216",
+    "site": "src/ast_required_parameter_tests.rs:141",
+    "verdict": "confirmed_fp"
+   },
+   {
+    "probe": "callers:src/cpg/multiline_call_arg_tests.rs:216",
+    "site": "src/ast_required_parameter_tests.rs:158",
+    "verdict": "confirmed_fp"
+   },
+   {
+    "probe": "callers:src/go_build_profile.rs:498",
+    "site": "src/ast.rs:439",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:src/go_build_profile.rs:498",
+    "site": "src/queries.rs:315",
+    "verdict": "ambiguous"
+   }
+  ],
+  "counts": {
+   "alias_site": 0,
+   "ambiguous": 2,
+   "confirmed_fp": 2,
+   "confirmed_tp": 0
+  }
+ },
+ "matrix": [
+  {
+   "capability": "chain_in_repo_exact",
+   "expected": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:12": "return_typed"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "closure_call",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:4": "local_def"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "common_name_collision",
+   "expected": [
+    [
+     "main.rs",
+     5
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     5
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:5": "stem_single"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "crate_glob_caller",
+   "expected": [
+    [
+     "main.rs",
+     9
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     9
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:9": "local_def"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "cross_module_no_collision",
+   "expected": [
+    [
+     "main.rs",
+     5
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     5
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:5": "typed_param"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "dfg_reaching_alias_conservative",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "main.rs:3:q.x",
+     "to": "main.rs:4:q.x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:1:q",
+     "kill_line": null,
+     "to": "main.rs:2:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.rs:1:q",
+     "kill_line": 2,
+     "to": "main.rs:4:q"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:2:p",
+     "kill_line": null,
+     "to": "main.rs:3:p"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.rs:2:q",
+     "kill_line": null,
+     "to": "main.rs:1:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "main.rs:2:q",
+     "kill_line": null,
+     "to": "main.rs:4:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "main.rs:3:q.x",
+     "kill_line": null,
+     "to": "main.rs:4:q.x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_capture_timing",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.rs:2:x",
+     "to": "main.rs:3:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.rs:2:x",
+     "kill_line": null,
+     "to": "main.rs:3:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:2:x",
+     "kill_line": null,
+     "to": "main.rs:4:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:3:thunk",
+     "kill_line": null,
+     "to": "main.rs:5:thunk"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.rs:4:x",
+     "kill_line": null,
+     "to": "main.rs:2:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.rs:4:x",
+     "kill_line": null,
+     "to": "main.rs:3:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_cfg_branch_arm_negative",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.rs:4:x",
+     "to": "main.rs:6:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:1:c",
+     "kill_line": null,
+     "to": "main.rs:3:c"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:2:x",
+     "kill_line": null,
+     "to": "main.rs:4:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:2:x",
+     "kill_line": null,
+     "to": "main.rs:6:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.rs:4:x",
+     "kill_line": null,
+     "to": "main.rs:2:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.rs:4:x",
+     "kill_line": null,
+     "to": "main.rs:6:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_killed_def",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.rs:2:x",
+     "kill_line": 3,
+     "to": "main.rs:4:x"
+    },
+    {
+     "confidence": "exact",
+     "from": "main.rs:3:x",
+     "to": "main.rs:4:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:2:x",
+     "kill_line": null,
+     "to": "main.rs:3:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.rs:2:x",
+     "kill_line": 3,
+     "to": "main.rs:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.rs:3:x",
+     "kill_line": null,
+     "to": "main.rs:2:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:3:x",
+     "kill_line": null,
+     "to": "main.rs:4:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_loop_carried",
+   "expected": [
+    {
+     "confidence": "exact",
+     "from": "main.rs:5:x",
+     "to": "main.rs:4:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:2:x",
+     "kill_line": null,
+     "to": "main.rs:4:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:2:x",
+     "kill_line": null,
+     "to": "main.rs:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.rs:5:x",
+     "kill_line": null,
+     "to": "main.rs:2:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:5:x",
+     "kill_line": null,
+     "to": "main.rs:4:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_loop_carried_negative",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.rs:5:x",
+     "to": "main.rs:4:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:2:x",
+     "kill_line": null,
+     "to": "main.rs:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.rs:2:x",
+     "kill_line": null,
+     "to": "main.rs:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.rs:5:x",
+     "kill_line": null,
+     "to": "main.rs:2:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.rs:5:x",
+     "kill_line": null,
+     "to": "main.rs:2:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.rs:5:x",
+     "kill_line": null,
+     "to": "main.rs:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.rs:5:x",
+     "kill_line": null,
+     "to": "main.rs:4:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_rust_let_shadow",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.rs:2:x",
+     "kill_line": 3,
+     "to": "main.rs:4:x"
+    },
+    {
+     "confidence": "exact",
+     "from": "main.rs:3:x",
+     "to": "main.rs:4:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:2:x",
+     "kill_line": null,
+     "to": "main.rs:3:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.rs:2:x",
+     "kill_line": 3,
+     "to": "main.rs:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.rs:3:x",
+     "kill_line": null,
+     "to": "main.rs:2:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:3:x",
+     "kill_line": null,
+     "to": "main.rs:4:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_shadowed_inner",
+   "expected": [
+    {
+     "from": "main.rs:2:x",
+     "present": false,
+     "to": "main.rs:5:x"
+    },
+    {
+     "confidence": "exact",
+     "from": "main.rs:2:x",
+     "to": "main.rs:7:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:2:x",
+     "kill_line": null,
+     "to": "main.rs:7:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.rs:4:x",
+     "kill_line": null,
+     "to": "main.rs:2:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:4:x",
+     "kill_line": null,
+     "to": "main.rs:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.rs:4:x",
+     "kill_line": 6,
+     "to": "main.rs:7:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_shadowed_inner_negative",
+   "expected": [
+    {
+     "from": "main.rs:2:x",
+     "present": false,
+     "to": "main.rs:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.rs:2:x",
+     "kill_line": 7,
+     "to": "main.rs:8:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:2:x",
+     "kill_line": null,
+     "to": "main.rs:7:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.rs:2:x",
+     "kill_line": 7,
+     "to": "main.rs:8:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.rs:4:x",
+     "kill_line": null,
+     "to": "main.rs:2:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:4:x",
+     "kill_line": null,
+     "to": "main.rs:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.rs:4:x",
+     "kill_line": 6,
+     "to": "main.rs:7:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.rs:4:x",
+     "kill_line": 6,
+     "to": "main.rs:8:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.rs:7:x",
+     "kill_line": null,
+     "to": "main.rs:2:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.rs:7:x",
+     "kill_line": null,
+     "to": "main.rs:8:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "extension_trait_method",
+   "expected": [
+    [
+     "main.rs",
+     10
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     10
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:10": "typed_param"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "external_chain_unchanged",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [],
+   "got_kinds": {},
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "field_receiver_method",
+   "expected": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:12": "field_typed"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "field_typed_recovery",
+   "expected": [
+    [
+     "main.rs",
+     13
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     13
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:13": "field_typed"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "free_fn_cross_file_use",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:4": "free_single"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "free_fn_same_file",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:4": "local_def"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "inherent_method_same_file",
+   "expected": [
+    [
+     "main.rs",
+     8
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     8
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:8": "typed_param"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "inrepo_then_external_unchanged",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [],
+   "got_kinds": {},
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "macro_arg_call",
+   "expected": [
+    [
+     "main.rs",
+     6
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     6
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:6": "local_def"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "macro_arg_ctor_guard",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [],
+   "got_kinds": {},
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "macro_arg_nested",
+   "expected": [
+    [
+     "main.rs",
+     7
+    ],
+    [
+     "main.rs",
+     8
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     7
+    ],
+    [
+     "main.rs",
+     8
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:7": "local_def",
+    "main.rs:8": "local_def"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "macro_arg_nontransparent_guard",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [],
+   "got_kinds": {},
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "macro_arg_qualified",
+   "expected": [
+    [
+     "main.rs",
+     2
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     2
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:2": "stem_single"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "method_cross_file_type_ne_stem",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:4": "typed_param"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "mod_qualified_free_fn",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:4": "stem_single"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "module_edges_basic",
+   "expected": "util.rs",
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": "util.rs",
+   "got_kinds": {},
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "module_deps"
+  },
+  {
+   "capability": "nested_test_module_glob_gap",
+   "expected": [
+    [
+     "main.rs",
+     11
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     11
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:11": "local_def"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "p6_typed_param_recovery",
+   "expected": [
+    [
+     "m.rs",
+     2
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "m.rs",
+     2
+    ]
+   ],
+   "got_kinds": {
+    "m.rs:2": "typed_param"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "r6_multi_owner_drop",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [],
+   "got_kinds": {},
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "r6_single_owner_demote",
+   "expected": [
+    [
+     "m.rs",
+     3
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "m.rs",
+     3
+    ]
+   ],
+   "got_kinds": {
+    "m.rs:3": "r6_single_owner"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "receiver_method_cross_file_stem_eq",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:4": "typed_param"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "return_typed_recovery",
+   "expected": [
+    [
+     "main.rs",
+     13
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     13
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:13": "return_typed"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "super_super_glob_caller",
+   "expected": [
+    [
+     "main.rs",
+     10
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     10
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:10": "local_def"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "trait_dyn_dispatch",
+   "expected": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:12": "typed_param"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "trait_static_dispatch",
+   "expected": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:12": "typed_param"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "type_method_qualified",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "main.rs:4": "qualified_owner"
+   },
+   "language": "rust",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "build_suffix_partition",
+   "expected": [
+    [
+     "use_linux.go",
+     3
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "use_linux.go",
+     3
+    ]
+   ],
+   "got_kinds": {
+    "use_linux.go:3": "same_package"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "closure",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got_kinds": {
+    "main.go:6": "local_def"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "common_name_collision",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got_kinds": {
+    "main.go:6": "import_qualified"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "cross_pkg_qualified",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got_kinds": {
+    "main.go:6": "import_qualified"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "dfg_reaching_alias_conservative",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "main.go:4:q.x",
+     "to": "main.go:5:q.x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:2:q",
+     "kill_line": null,
+     "to": "main.go:3:q"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:2:q",
+     "kill_line": null,
+     "to": "main.go:5:q"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:p",
+     "kill_line": null,
+     "to": "main.go:4:p"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:p",
+     "kill_line": null,
+     "to": "main.go:4:p"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:3:q",
+     "kill_line": null,
+     "to": "main.go:2:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:3:q",
+     "kill_line": null,
+     "to": "main.go:2:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "main.go:3:q",
+     "kill_line": null,
+     "to": "main.go:5:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "main.go:3:q",
+     "kill_line": null,
+     "to": "main.go:5:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "main.go:4:q.x",
+     "kill_line": null,
+     "to": "main.go:5:q.x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "go",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_alias_unstable",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "main.go:4:q.x",
+     "to": "main.go:5:q.x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:2:q",
+     "kill_line": null,
+     "to": "main.go:3:q"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:2:q",
+     "kill_line": null,
+     "to": "main.go:5:q"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:2:q",
+     "kill_line": null,
+     "to": "main.go:6:q"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:p",
+     "kill_line": null,
+     "to": "main.go:4:p"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:p",
+     "kill_line": null,
+     "to": "main.go:4:p"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:p",
+     "kill_line": null,
+     "to": "main.go:6:p"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:p",
+     "kill_line": null,
+     "to": "main.go:6:p"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:3:q",
+     "kill_line": null,
+     "to": "main.go:2:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:3:q",
+     "kill_line": null,
+     "to": "main.go:2:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "main.go:3:q",
+     "kill_line": null,
+     "to": "main.go:5:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "main.go:3:q",
+     "kill_line": null,
+     "to": "main.go:5:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "main.go:3:q",
+     "kill_line": null,
+     "to": "main.go:6:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "main.go:3:q",
+     "kill_line": null,
+     "to": "main.go:6:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "main.go:4:q.x",
+     "kill_line": null,
+     "to": "main.go:5:q.x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:6:p",
+     "kill_line": null,
+     "to": "main.go:3:p"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:6:p",
+     "kill_line": null,
+     "to": "main.go:4:p"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:6:q",
+     "kill_line": null,
+     "to": "main.go:2:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:6:q",
+     "kill_line": null,
+     "to": "main.go:3:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:6:q",
+     "kill_line": null,
+     "to": "main.go:5:q"
+    }
+   ],
+   "got_kinds": {},
+   "language": "go",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_call_nameonly_named_param",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "call_nameonly",
+     "from": "main.go:8:x",
+     "to": "main.go:3:p"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:3:p",
+     "kill_line": null,
+     "to": "main.go:3:p"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:6:c",
+     "kill_line": null,
+     "to": "main.go:8:c"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:6:c",
+     "kill_line": null,
+     "to": "main.go:8:c"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:7:x",
+     "kill_line": null,
+     "to": "main.go:8:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:7:x",
+     "kill_line": null,
+     "to": "main.go:8:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "call_nameonly",
+     "from": "main.go:8:x",
+     "kill_line": null,
+     "to": "main.go:3:p"
+    }
+   ],
+   "got_kinds": {},
+   "language": "go",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_capture_timing",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:3:x",
+     "to": "main.go:4:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:4:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:5:x",
+     "kill_line": null,
+     "to": "main.go:3:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:5:x",
+     "kill_line": null,
+     "to": "main.go:4:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "go",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_cfg_go_defer_negative",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:5:x",
+     "to": "main.go:4:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:4:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:4:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:5:x",
+     "kill_line": null,
+     "to": "main.go:3:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:5:x",
+     "kill_line": null,
+     "to": "main.go:4:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "go",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_defer_argument_now",
+   "expected": [
+    {
+     "confidence": "exact",
+     "from": "main.go:3:x",
+     "to": "main.go:4:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:4:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:4:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:5:x",
+     "kill_line": null,
+     "to": "main.go:3:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:5:x",
+     "kill_line": null,
+     "to": "main.go:4:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "go",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_defer_argument_now_negative",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:3:x",
+     "to": "main.go:4:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:4:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:5:x",
+     "kill_line": null,
+     "to": "main.go:3:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:5:x",
+     "kill_line": null,
+     "to": "main.go:4:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "go",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_go_short_var_if",
+   "expected": [
+    {
+     "confidence": "exact",
+     "from": "main.go:4:v",
+     "to": "main.go:5:v"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.go:3:v",
+     "kill_line": 4,
+     "to": "main.go:5:v"
+    },
+    {
+     "confidence": "exact",
+     "from": "main.go:3:v",
+     "to": "main.go:7:v"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.go:4:v",
+     "kill_line": 6,
+     "to": "main.go:7:v"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:v",
+     "kill_line": null,
+     "to": "main.go:4:v"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:v",
+     "kill_line": null,
+     "to": "main.go:4:v"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.go:3:v",
+     "kill_line": 4,
+     "to": "main.go:5:v"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.go:3:v",
+     "kill_line": 4,
+     "to": "main.go:5:v"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:v",
+     "kill_line": null,
+     "to": "main.go:7:v"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:v",
+     "kill_line": null,
+     "to": "main.go:7:v"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:4:v",
+     "kill_line": null,
+     "to": "main.go:3:v"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:4:v",
+     "kill_line": null,
+     "to": "main.go:3:v"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:4:v",
+     "kill_line": null,
+     "to": "main.go:5:v"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:4:v",
+     "kill_line": null,
+     "to": "main.go:5:v"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.go:4:v",
+     "kill_line": 6,
+     "to": "main.go:7:v"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.go:4:v",
+     "kill_line": 6,
+     "to": "main.go:7:v"
+    }
+   ],
+   "got_kinds": {},
+   "language": "go",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_interproc_exact",
+   "expected": [
+    {
+     "confidence": "exact",
+     "from": "main.go:5:x",
+     "to": "main.go:2:p"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:2:p",
+     "kill_line": null,
+     "to": "main.go:2:p"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:4:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:4:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:5:x",
+     "kill_line": null,
+     "to": "main.go:2:p"
+    }
+   ],
+   "got_kinds": {},
+   "language": "go",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_interproc_nameonly",
+   "expected": [
+    {
+     "from": "main.go:5:x",
+     "present": false,
+     "to": "main.go:2:p"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:4:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:4:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "go",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_killed_def",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.go:3:x",
+     "kill_line": 4,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "exact",
+     "from": "main.go:4:x",
+     "to": "main.go:5:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:4:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.go:3:x",
+     "kill_line": 4,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.go:3:x",
+     "kill_line": 4,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:4:x",
+     "kill_line": null,
+     "to": "main.go:3:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:4:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "go",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_loop_carried",
+   "expected": [
+    {
+     "confidence": "exact",
+     "from": "main.go:6:x",
+     "to": "main.go:5:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:6:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:6:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:6:x",
+     "kill_line": null,
+     "to": "main.go:3:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:6:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "go",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_loop_carried_negative",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.go:6:x",
+     "to": "main.go:5:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:6:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:6:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:6:x",
+     "kill_line": null,
+     "to": "main.go:3:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:6:x",
+     "kill_line": null,
+     "to": "main.go:3:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.go:6:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.go:6:x",
+     "kill_line": null,
+     "to": "main.go:5:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "go",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_shadowed_inner",
+   "expected": [
+    {
+     "from": "main.go:3:x",
+     "present": false,
+     "to": "main.go:6:x"
+    },
+    {
+     "confidence": "exact",
+     "from": "main.go:3:x",
+     "to": "main.go:8:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:8:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:8:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:5:x",
+     "kill_line": null,
+     "to": "main.go:3:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:5:x",
+     "kill_line": null,
+     "to": "main.go:3:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:5:x",
+     "kill_line": null,
+     "to": "main.go:6:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:5:x",
+     "kill_line": null,
+     "to": "main.go:6:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.go:5:x",
+     "kill_line": 7,
+     "to": "main.go:8:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.go:5:x",
+     "kill_line": 7,
+     "to": "main.go:8:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "go",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_shadowed_inner_negative",
+   "expected": [
+    {
+     "from": "main.go:3:x",
+     "present": false,
+     "to": "main.go:6:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.go:3:x",
+     "kill_line": 8,
+     "to": "main.go:9:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:8:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:3:x",
+     "kill_line": null,
+     "to": "main.go:8:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.go:3:x",
+     "kill_line": 8,
+     "to": "main.go:9:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.go:3:x",
+     "kill_line": 8,
+     "to": "main.go:9:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:5:x",
+     "kill_line": null,
+     "to": "main.go:3:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:5:x",
+     "kill_line": null,
+     "to": "main.go:3:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:5:x",
+     "kill_line": null,
+     "to": "main.go:6:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:5:x",
+     "kill_line": null,
+     "to": "main.go:6:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.go:5:x",
+     "kill_line": 7,
+     "to": "main.go:8:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.go:5:x",
+     "kill_line": 7,
+     "to": "main.go:8:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.go:5:x",
+     "kill_line": 7,
+     "to": "main.go:9:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.go:5:x",
+     "kill_line": 7,
+     "to": "main.go:9:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.go:8:x",
+     "kill_line": null,
+     "to": "main.go:3:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.go:8:x",
+     "kill_line": null,
+     "to": "main.go:9:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "go",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "embedded_interface_struct",
+   "expected": [
+    [
+     "main.go",
+     16
+    ]
+   ],
+   "expected_resolution_kind": "interface_dispatch",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.go",
+     16
+    ]
+   ],
+   "got_kinds": {
+    "main.go:16": "interface_dispatch"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "embedded_method",
+   "expected": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "got_kinds": {
+    "main.go:12": "embedded_promotion"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "field_typed_depth_guard",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [],
+   "got_kinds": {},
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "field_typed_recovery",
+   "expected": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "expected_resolution_kind": "field_typed",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "got_kinds": {
+    "main.go:12": "field_typed"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "func_value_fanout",
+   "expected": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "expected_resolution_kind": "callback_registration",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "got_kinds": {
+    "main.go:12": "callback_registration"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "func_value_invocation",
+   "expected": [
+    [
+     "main.go",
+     14
+    ]
+   ],
+   "expected_resolution_kind": "func_value_field",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.go",
+     10
+    ],
+    [
+     "main.go",
+     14
+    ]
+   ],
+   "got_kinds": {
+    "main.go:10": "callback_registration",
+    "main.go:14": "func_value_field"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "func_value_registration",
+   "expected": [
+    [
+     "main.go",
+     10
+    ]
+   ],
+   "expected_resolution_kind": "callback_registration",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.go",
+     10
+    ]
+   ],
+   "got_kinds": {
+    "main.go:10": "callback_registration"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "gobuild_expr_partition",
+   "expected": [
+    [
+     "use_fast.go",
+     5
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "use_fast.go",
+     5
+    ]
+   ],
+   "got_kinds": {
+    "use_fast.go:5": "same_package"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "import_package_path",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got_kinds": {
+    "main.go:6": "import_qualified"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "interface_dispatch",
+   "expected": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "got_kinds": {
+    "main.go:12": "interface_dispatch"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "interface_dispatch_assert",
+   "expected": [
+    [
+     "main.go",
+     14
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.go",
+     14
+    ]
+   ],
+   "got_kinds": {
+    "main.go:14": "interface_dispatch"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "interface_dispatch_var",
+   "expected": [
+    [
+     "main.go",
+     15
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.go",
+     15
+    ]
+   ],
+   "got_kinds": {
+    "main.go:15": "interface_dispatch"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "package_var_receiver",
+   "expected": [
+    [
+     "main.go",
+     14
+    ]
+   ],
+   "expected_resolution_kind": "interface_dispatch",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.go",
+     14
+    ]
+   ],
+   "got_kinds": {
+    "main.go:14": "interface_dispatch"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "pkg_clause_partition",
+   "expected": [
+    [
+     "global_test.go",
+     3
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "global_test.go",
+     3
+    ]
+   ],
+   "got_kinds": {
+    "global_test.go:3": "same_package"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "return_typed_multi_return_guard",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [],
+   "got_kinds": {},
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "return_typed_recovery",
+   "expected": [
+    [
+     "main.go",
+     13
+    ]
+   ],
+   "expected_resolution_kind": "return_typed",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.go",
+     13
+    ]
+   ],
+   "got_kinds": {
+    "main.go:13": "return_typed"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "same_pkg_free_fn",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got_kinds": {
+    "main.go:6": "local_def"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "struct_method_cross_file",
+   "expected": [
+    [
+     "main.go",
+     4
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.go",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "main.go:4": "typed_param"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "struct_method_same_file",
+   "expected": [
+    [
+     "main.go",
+     8
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "main.go",
+     8
+    ]
+   ],
+   "got_kinds": {
+    "main.go:8": "typed_param"
+   },
+   "language": "go",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "class_method_same_file",
+   "expected": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "got_kinds": {
+    "app.py:6": "r6_single_owner"
+   },
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "closure",
+   "expected": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "got_kinds": {
+    "app.py:6": "local_def"
+   },
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "common_name_collision",
+   "expected": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "app.py:4": "import_qualified"
+   },
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "decorator_wrapped",
+   "expected": [
+    [
+     "app.py",
+     8
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.py",
+     8
+    ]
+   ],
+   "got_kinds": {
+    "app.py:8": "local_def"
+   },
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "dfg_reaching_alias_conservative",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "a.py:3:q.x",
+     "to": "a.py:4:q.x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:1:q",
+     "kill_line": null,
+     "to": "a.py:2:q"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:1:q",
+     "kill_line": null,
+     "to": "a.py:4:q"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:2:p",
+     "kill_line": null,
+     "to": "a.py:3:p"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:2:q",
+     "kill_line": null,
+     "to": "a.py:1:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "a.py:2:q",
+     "kill_line": null,
+     "to": "a.py:4:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "a.py:3:q.x",
+     "kill_line": null,
+     "to": "a.py:4:q.x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_alias_unstable",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "a.py:3:q.x",
+     "to": "a.py:4:q.x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:1:q",
+     "kill_line": null,
+     "to": "a.py:2:q"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:1:q",
+     "kill_line": null,
+     "to": "a.py:4:q"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:1:q",
+     "kill_line": null,
+     "to": "a.py:5:q"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:2:p",
+     "kill_line": null,
+     "to": "a.py:3:p"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:2:p",
+     "kill_line": null,
+     "to": "a.py:5:p"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:2:q",
+     "kill_line": null,
+     "to": "a.py:1:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "a.py:2:q",
+     "kill_line": null,
+     "to": "a.py:4:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "a.py:2:q",
+     "kill_line": null,
+     "to": "a.py:5:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "alias_unstable",
+     "from": "a.py:3:q.x",
+     "kill_line": null,
+     "to": "a.py:4:q.x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:5:p",
+     "kill_line": null,
+     "to": "a.py:2:p"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:5:p",
+     "kill_line": null,
+     "to": "a.py:3:p"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:5:q",
+     "kill_line": null,
+     "to": "a.py:1:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:5:q",
+     "kill_line": null,
+     "to": "a.py:2:q"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:5:q",
+     "kill_line": null,
+     "to": "a.py:4:q"
+    }
+   ],
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_capture_timing",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:2:x",
+     "to": "a.py:3:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:2:x",
+     "kill_line": null,
+     "to": "a.py:3:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:2:x",
+     "kill_line": null,
+     "to": "a.py:4:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:3:thunk",
+     "kill_line": null,
+     "to": "a.py:5:thunk"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:4:x",
+     "kill_line": null,
+     "to": "a.py:2:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:4:x",
+     "kill_line": null,
+     "to": "a.py:3:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_cfg_branch_arm_negative",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:4:x",
+     "to": "a.py:6:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:1:c",
+     "kill_line": null,
+     "to": "a.py:3:c"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:2:x",
+     "kill_line": null,
+     "to": "a.py:4:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:2:x",
+     "kill_line": null,
+     "to": "a.py:6:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:4:x",
+     "kill_line": null,
+     "to": "a.py:2:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:4:x",
+     "kill_line": null,
+     "to": "a.py:6:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_cfg_gap",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:4:x",
+     "to": "a.py:5:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:4:x",
+     "kill_line": null,
+     "to": "a.py:5:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_cfg_try_header_negative",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:4:x",
+     "to": "a.py:7:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:2:x",
+     "kill_line": null,
+     "to": "a.py:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:2:x",
+     "kill_line": null,
+     "to": "a.py:7:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:4:x",
+     "kill_line": null,
+     "to": "a.py:2:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:4:x",
+     "kill_line": null,
+     "to": "a.py:7:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_interproc_exact",
+   "expected": [
+    {
+     "confidence": "exact",
+     "from": "a.py:6:x",
+     "to": "a.py:1:p"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:1:p",
+     "kill_line": null,
+     "to": "a.py:2:p"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:5:x",
+     "kill_line": null,
+     "to": "a.py:6:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:6:x",
+     "kill_line": null,
+     "to": "a.py:1:p"
+    }
+   ],
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_interproc_nameonly",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "call_nameonly",
+     "from": "a.py:7:x",
+     "to": "a.py:2:p"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:2:p",
+     "kill_line": null,
+     "to": "a.py:3:p"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:6:x",
+     "kill_line": null,
+     "to": "a.py:7:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "call_nameonly",
+     "from": "a.py:7:x",
+     "kill_line": null,
+     "to": "a.py:2:p"
+    }
+   ],
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_killed_def",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "a.py:2:x",
+     "kill_line": 3,
+     "to": "a.py:4:x"
+    },
+    {
+     "confidence": "exact",
+     "from": "a.py:3:x",
+     "to": "a.py:4:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:2:x",
+     "kill_line": null,
+     "to": "a.py:3:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "a.py:2:x",
+     "kill_line": 3,
+     "to": "a.py:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:3:x",
+     "kill_line": null,
+     "to": "a.py:2:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:3:x",
+     "kill_line": null,
+     "to": "a.py:4:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_loop_carried",
+   "expected": {
+    "edges": [
+     {
+      "confidence": "exact",
+      "from": "a.py:5:x",
+      "to": "a.py:4:x"
+     }
+    ],
+    "stats": {
+     "dfg_label_loop_carried_min": 1
+    }
+   },
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": {
+    "edges": [
+     {
+      "confidence": "exact",
+      "doubt": null,
+      "from": "a.py:2:x",
+      "kill_line": null,
+      "to": "a.py:4:x"
+     },
+     {
+      "confidence": "exact",
+      "doubt": null,
+      "from": "a.py:2:x",
+      "kill_line": null,
+      "to": "a.py:5:x"
+     },
+     {
+      "confidence": "nameonly",
+      "doubt": "cfg_incomplete",
+      "from": "a.py:5:x",
+      "kill_line": null,
+      "to": "a.py:2:x"
+     },
+     {
+      "confidence": "exact",
+      "doubt": null,
+      "from": "a.py:5:x",
+      "kill_line": null,
+      "to": "a.py:4:x"
+     }
+    ],
+    "stats": {
+     "dfg_label_exact": 3,
+     "dfg_label_loop_carried": 1,
+     "dfg_label_nameonly_alias_unstable": 0,
+     "dfg_label_nameonly_call": 0,
+     "dfg_label_nameonly_cfg_incomplete": 1,
+     "dfg_label_nameonly_killed": 0,
+     "dfg_label_nameonly_sameline": 0,
+     "dfg_rd_functions_over_cap": 0,
+     "dfg_rd_functions_without_cfg": 0
+    }
+   },
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_loop_carried_negative",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "a.py:5:x",
+     "to": "a.py:4:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "a.py:2:x",
+     "kill_line": null,
+     "to": "a.py:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "a.py:2:x",
+     "kill_line": null,
+     "to": "a.py:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:5:x",
+     "kill_line": null,
+     "to": "a.py:2:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:5:x",
+     "kill_line": null,
+     "to": "a.py:2:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "a.py:5:x",
+     "kill_line": null,
+     "to": "a.py:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "a.py:5:x",
+     "kill_line": null,
+     "to": "a.py:4:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_nonlocal_global",
+   "expected": [
+    {
+     "from": "a.py:1:x",
+     "present": false,
+     "to": "a.py:8:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "a.py:5:x",
+     "kill_line": null,
+     "to": "a.py:4:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_same_line",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "a.py:2:a",
+     "to": "a.py:3:a"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "a.py:2:a",
+     "kill_line": null,
+     "to": "a.py:3:a"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "a.py:2:a",
+     "kill_line": null,
+     "to": "a.py:3:a"
+    }
+   ],
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "from_import_alias",
+   "expected": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "app.py:4": "import_member"
+   },
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "import_module_call",
+   "expected": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "app.py:4": "import_qualified"
+   },
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "inherited_direct_base_typed",
+   "expected": [
+    [
+     "app.py",
+     13
+    ]
+   ],
+   "expected_resolution_kind": "typed_param",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.py",
+     13
+    ]
+   ],
+   "got_kinds": {
+    "app.py:13": "typed_param"
+   },
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "inherited_override",
+   "expected": [
+    [
+     "app.py",
+     10
+    ]
+   ],
+   "expected_resolution_kind": "r6_multi_owner_candidate",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.py",
+     10
+    ]
+   ],
+   "got_kinds": {
+    "app.py:10": "r6_multi_owner_candidate"
+   },
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "instance_method_cross_file",
+   "expected": [
+    [
+     "app.py",
+     5
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.py",
+     5
+    ]
+   ],
+   "got_kinds": {
+    "app.py:5": "constructor_local"
+   },
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "module_edges_basic",
+   "expected": "b.py",
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": "a.py,b.py",
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "module_deps"
+  },
+  {
+   "capability": "module_fn",
+   "expected": [
+    [
+     "app.py",
+     5
+    ]
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.py",
+     5
+    ]
+   ],
+   "got_kinds": {
+    "app.py:5": "local_def"
+   },
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "multi_owner_candidate",
+   "expected": [
+    [
+     "app.py",
+     12
+    ]
+   ],
+   "expected_resolution_kind": "r6_multi_owner_candidate",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.py",
+     12
+    ]
+   ],
+   "got_kinds": {
+    "app.py:12": "r6_multi_owner_candidate"
+   },
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "multi_owner_over_cap",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [],
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "property_access",
+   "expected": [
+    [
+     "app.py",
+     8
+    ]
+   ],
+   "expected_resolution_kind": "property_access",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.py",
+     8
+    ]
+   ],
+   "got_kinds": {
+    "app.py:8": "property_access"
+   },
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "property_fanout",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [],
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "property_self_access",
+   "expected": [
+    [
+     "app.py",
+     7
+    ]
+   ],
+   "expected_resolution_kind": "property_access",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.py",
+     7
+    ]
+   ],
+   "got_kinds": {
+    "app.py:7": "property_access"
+   },
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "property_setter_guard",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [],
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "framework_entry",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": "framework_entry",
+   "got": [],
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "framework_entry",
+   "expected": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "expected_resolution_kind": "framework_entry",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "got_kinds": {
+    "app.py:6": "framework_entry"
+   },
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "framework_entry",
+   "expected": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "expected_resolution_kind": "framework_entry",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "got_kinds": {
+    "app.py:6": "framework_entry"
+   },
+   "language": "python",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "taint_boundary_negative",
+   "expected": "BoundaryExited|warnings=InterproceduralBoundary|sanitizers=any",
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": "BoundaryExited|warnings=InterproceduralBoundary|sanitizers=false",
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "taint"
+  },
+  {
+   "capability": "taint_cross_function_positive",
+   "expected": "Reached|warnings=none|sanitizers=any",
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": "Reached|warnings=none|sanitizers=false",
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "taint"
+  },
+  {
+   "capability": "taint_descent_depth_bound",
+   "expected": "BoundaryExited|warnings=InterproceduralBoundary|sanitizers=any",
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": "BoundaryExited|warnings=InterproceduralBoundary|sanitizers=false",
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "taint"
+  },
+  {
+   "capability": "taint_frontier_only",
+   "expected": "None|warnings=none|sanitizers=any|frontier=>=1",
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": "None|warnings=none|sanitizers=false|frontier=2",
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "taint"
+  },
+  {
+   "capability": "taint_reach_positive",
+   "expected": "Reached|warnings=none|sanitizers=any",
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": "Reached|warnings=OrderingUnavailable|sanitizers=false",
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "taint"
+  },
+  {
+   "capability": "taint_sanitized_current",
+   "expected": "Sanitized|warnings=Cleansed|sanitizers=true",
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": "Sanitized|warnings=Cleansed|sanitizers=true",
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "taint"
+  },
+  {
+   "capability": "taint_sanitizer_bypass",
+   "expected": "Reached|warnings=Cleansed|sanitizers=true",
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": "Reached|warnings=Cleansed|sanitizers=true",
+   "got_kinds": {},
+   "language": "python",
+   "outcome": "ok",
+   "probe": "taint"
+  },
+  {
+   "capability": "commonjs_export_deferred",
+   "expected": [
+    [
+     "app.js",
+     4
+    ]
+   ],
+   "expected_resolution_kind": "import_member",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.js",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "app.js:4": "import_member"
+   },
+   "language": "javascript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "dfg_reaching_capture_timing",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.js:2:x",
+     "to": "main.js:3:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.js:2:x",
+     "kill_line": null,
+     "to": "main.js:3:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.js:2:x",
+     "kill_line": null,
+     "to": "main.js:4:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.js:3:thunk",
+     "kill_line": null,
+     "to": "main.js:5:thunk"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.js:4:x",
+     "kill_line": null,
+     "to": "main.js:2:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.js:4:x",
+     "kill_line": null,
+     "to": "main.js:3:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "javascript",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_cfg_try_header_negative",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.js:4:x",
+     "to": "main.js:7:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.js:2:x",
+     "kill_line": null,
+     "to": "main.js:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.js:2:x",
+     "kill_line": null,
+     "to": "main.js:7:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.js:4:x",
+     "kill_line": null,
+     "to": "main.js:2:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.js:4:x",
+     "kill_line": null,
+     "to": "main.js:7:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "javascript",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_js_var_hoisting",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "from": "main.js:3:v",
+     "to": "main.js:2:v"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.js:3:v",
+     "kill_line": null,
+     "to": "main.js:2:v"
+    }
+   ],
+   "got_kinds": {},
+   "language": "javascript",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_killed_def",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.js:2:x",
+     "kill_line": 3,
+     "to": "main.js:4:x"
+    },
+    {
+     "confidence": "exact",
+     "from": "main.js:3:x",
+     "to": "main.js:4:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.js:2:x",
+     "kill_line": null,
+     "to": "main.js:3:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.js:2:x",
+     "kill_line": 3,
+     "to": "main.js:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.js:3:x",
+     "kill_line": null,
+     "to": "main.js:2:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.js:3:x",
+     "kill_line": null,
+     "to": "main.js:4:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "javascript",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_loop_carried",
+   "expected": [
+    {
+     "confidence": "exact",
+     "from": "main.js:5:x",
+     "to": "main.js:4:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.js:2:x",
+     "kill_line": null,
+     "to": "main.js:4:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.js:2:x",
+     "kill_line": null,
+     "to": "main.js:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.js:5:x",
+     "kill_line": null,
+     "to": "main.js:2:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.js:5:x",
+     "kill_line": null,
+     "to": "main.js:4:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "javascript",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_loop_carried_negative",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.js:5:x",
+     "to": "main.js:4:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.js:2:x",
+     "kill_line": null,
+     "to": "main.js:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.js:2:x",
+     "kill_line": null,
+     "to": "main.js:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.js:5:x",
+     "kill_line": null,
+     "to": "main.js:2:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.js:5:x",
+     "kill_line": null,
+     "to": "main.js:2:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.js:5:x",
+     "kill_line": null,
+     "to": "main.js:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.js:5:x",
+     "kill_line": null,
+     "to": "main.js:4:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "javascript",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_same_line",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.js:2:a",
+     "to": "main.js:3:a"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.js:2:a",
+     "kill_line": null,
+     "to": "main.js:3:a"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.js:2:a",
+     "kill_line": null,
+     "to": "main.js:3:a"
+    }
+   ],
+   "got_kinds": {},
+   "language": "javascript",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_shadowed_inner",
+   "expected": [
+    {
+     "from": "main.js:2:x",
+     "present": false,
+     "to": "main.js:5:x"
+    },
+    {
+     "confidence": "exact",
+     "from": "main.js:2:x",
+     "to": "main.js:7:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.js:2:x",
+     "kill_line": null,
+     "to": "main.js:7:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.js:4:x",
+     "kill_line": null,
+     "to": "main.js:2:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.js:4:x",
+     "kill_line": null,
+     "to": "main.js:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.js:4:x",
+     "kill_line": 6,
+     "to": "main.js:7:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "javascript",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_shadowed_inner_negative",
+   "expected": [
+    {
+     "from": "main.js:2:x",
+     "present": false,
+     "to": "main.js:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.js:2:x",
+     "kill_line": 7,
+     "to": "main.js:8:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.js:2:x",
+     "kill_line": null,
+     "to": "main.js:7:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.js:2:x",
+     "kill_line": 7,
+     "to": "main.js:8:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.js:4:x",
+     "kill_line": null,
+     "to": "main.js:2:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.js:4:x",
+     "kill_line": null,
+     "to": "main.js:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.js:4:x",
+     "kill_line": 6,
+     "to": "main.js:7:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.js:4:x",
+     "kill_line": 6,
+     "to": "main.js:8:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.js:7:x",
+     "kill_line": null,
+     "to": "main.js:2:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.js:7:x",
+     "kill_line": null,
+     "to": "main.js:8:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "javascript",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "named_import_alias",
+   "expected": [
+    [
+     "app.js",
+     4
+    ]
+   ],
+   "expected_resolution_kind": "import_member",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.js",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "app.js:4": "import_member"
+   },
+   "language": "javascript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "non_exported_function_deferred",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": "import_member",
+   "got": [],
+   "got_kinds": {},
+   "language": "javascript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "framework_entry",
+   "expected": [
+    [
+     "app.js",
+     6
+    ]
+   ],
+   "expected_resolution_kind": "framework_entry",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.js",
+     6
+    ]
+   ],
+   "got_kinds": {
+    "app.js:6": "framework_entry"
+   },
+   "language": "javascript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "framework_entry",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": "framework_entry",
+   "got": [],
+   "got_kinds": {},
+   "language": "javascript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "arrow_const_export_deferred",
+   "expected": [
+    [
+     "app.ts",
+     4
+    ]
+   ],
+   "expected_resolution_kind": "import_member",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.ts",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "app.ts:4": "import_member"
+   },
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "barrel_reexport_three_hop_fails",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": "import_member",
+   "got": [],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "barrel_reexport_two_hop_resolves",
+   "expected": [
+    [
+     "app.ts",
+     4
+    ]
+   ],
+   "expected_resolution_kind": "import_member",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.ts",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "app.ts:4": "import_member"
+   },
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "catch_shadow_deferred",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": "import_member",
+   "got": [],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "common_name_collision",
+   "expected": [
+    [
+     "app.ts",
+     4
+    ]
+   ],
+   "expected_resolution_kind": "import_member",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.ts",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "app.ts:4": "import_member"
+   },
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "default_export_function_deferred",
+   "expected": [
+    [
+     "app.ts",
+     4
+    ]
+   ],
+   "expected_resolution_kind": "import_member",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.ts",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "app.ts:4": "import_member"
+   },
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "default_export_named_import_mismatch",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": "import_member",
+   "got": [],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "default_import_deferred",
+   "expected": [
+    [
+     "app.ts",
+     4
+    ]
+   ],
+   "expected_resolution_kind": "import_member",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.ts",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "app.ts:4": "import_member"
+   },
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "default_import_named_export_mismatch",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": "import_member",
+   "got": [],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "dfg_reaching_capture_timing",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.ts:2:x",
+     "to": "main.ts:3:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.ts:2:x",
+     "kill_line": null,
+     "to": "main.ts:3:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.ts:2:x",
+     "kill_line": null,
+     "to": "main.ts:4:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.ts:3:thunk",
+     "kill_line": null,
+     "to": "main.ts:5:thunk"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.ts:4:x",
+     "kill_line": null,
+     "to": "main.ts:2:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.ts:4:x",
+     "kill_line": null,
+     "to": "main.ts:3:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_cfg_gap",
+   "expected": [
+    {
+     "confidence": "exact",
+     "from": "main.ts:3:x",
+     "to": "main.ts:5:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.ts:3:x",
+     "kill_line": null,
+     "to": "main.ts:5:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_cfg_try_header_negative",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.ts:4:x",
+     "to": "main.ts:7:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.ts:2:x",
+     "kill_line": null,
+     "to": "main.ts:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.ts:2:x",
+     "kill_line": null,
+     "to": "main.ts:7:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.ts:4:x",
+     "kill_line": null,
+     "to": "main.ts:2:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.ts:4:x",
+     "kill_line": null,
+     "to": "main.ts:7:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_killed_def",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.ts:2:x",
+     "kill_line": 3,
+     "to": "main.ts:4:x"
+    },
+    {
+     "confidence": "exact",
+     "from": "main.ts:3:x",
+     "to": "main.ts:4:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.ts:2:x",
+     "kill_line": null,
+     "to": "main.ts:3:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.ts:2:x",
+     "kill_line": 3,
+     "to": "main.ts:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.ts:3:x",
+     "kill_line": null,
+     "to": "main.ts:2:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.ts:3:x",
+     "kill_line": null,
+     "to": "main.ts:4:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_loop_carried",
+   "expected": [
+    {
+     "confidence": "exact",
+     "from": "main.ts:5:x",
+     "to": "main.ts:4:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.ts:2:x",
+     "kill_line": null,
+     "to": "main.ts:4:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.ts:2:x",
+     "kill_line": null,
+     "to": "main.ts:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.ts:5:x",
+     "kill_line": null,
+     "to": "main.ts:2:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.ts:5:x",
+     "kill_line": null,
+     "to": "main.ts:4:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_loop_carried_negative",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.ts:5:x",
+     "to": "main.ts:4:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.ts:2:x",
+     "kill_line": null,
+     "to": "main.ts:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.ts:2:x",
+     "kill_line": null,
+     "to": "main.ts:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.ts:5:x",
+     "kill_line": null,
+     "to": "main.ts:2:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.ts:5:x",
+     "kill_line": null,
+     "to": "main.ts:2:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.ts:5:x",
+     "kill_line": null,
+     "to": "main.ts:4:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.ts:5:x",
+     "kill_line": null,
+     "to": "main.ts:4:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_same_line",
+   "expected": [
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.ts:2:a",
+     "to": "main.ts:3:a"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.ts:2:a",
+     "kill_line": null,
+     "to": "main.ts:3:a"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "sameline",
+     "from": "main.ts:2:a",
+     "kill_line": null,
+     "to": "main.ts:3:a"
+    }
+   ],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_shadowed_inner",
+   "expected": [
+    {
+     "from": "main.ts:2:x",
+     "present": false,
+     "to": "main.ts:5:x"
+    },
+    {
+     "confidence": "exact",
+     "from": "main.ts:2:x",
+     "to": "main.ts:7:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.ts:2:x",
+     "kill_line": null,
+     "to": "main.ts:7:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.ts:4:x",
+     "kill_line": null,
+     "to": "main.ts:2:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.ts:4:x",
+     "kill_line": null,
+     "to": "main.ts:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.ts:4:x",
+     "kill_line": 6,
+     "to": "main.ts:7:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "dfg_reaching_shadowed_inner_negative",
+   "expected": [
+    {
+     "from": "main.ts:2:x",
+     "present": false,
+     "to": "main.ts:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.ts:2:x",
+     "kill_line": 7,
+     "to": "main.ts:8:x"
+    }
+   ],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": null,
+   "got": [
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.ts:2:x",
+     "kill_line": null,
+     "to": "main.ts:7:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.ts:2:x",
+     "kill_line": 7,
+     "to": "main.ts:8:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.ts:4:x",
+     "kill_line": null,
+     "to": "main.ts:2:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.ts:4:x",
+     "kill_line": null,
+     "to": "main.ts:5:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.ts:4:x",
+     "kill_line": 6,
+     "to": "main.ts:7:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "killed",
+     "from": "main.ts:4:x",
+     "kill_line": 6,
+     "to": "main.ts:8:x"
+    },
+    {
+     "confidence": "nameonly",
+     "doubt": "cfg_incomplete",
+     "from": "main.ts:7:x",
+     "kill_line": null,
+     "to": "main.ts:2:x"
+    },
+    {
+     "confidence": "exact",
+     "doubt": null,
+     "from": "main.ts:7:x",
+     "kill_line": null,
+     "to": "main.ts:8:x"
+    }
+   ],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "dfg"
+  },
+  {
+   "capability": "duplicate_import_local",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": "import_member",
+   "got": [],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "index_module",
+   "expected": [
+    [
+     "app.ts",
+     4
+    ]
+   ],
+   "expected_resolution_kind": "import_member",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.ts",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "app.ts:4": "import_member"
+   },
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "local_shadow_deferred",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": "import_member",
+   "got": [],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "named_import_alias",
+   "expected": [
+    [
+     "app.ts",
+     4
+    ]
+   ],
+   "expected_resolution_kind": "import_member",
+   "forbid_resolution_kind": null,
+   "got": [
+    [
+     "app.ts",
+     4
+    ]
+   ],
+   "got_kinds": {
+    "app.ts:4": "import_member"
+   },
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "non_exported_function_deferred",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": "import_member",
+   "got": [],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "param_shadow_deferred",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": "import_member",
+   "got": [],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "rebound_import_local",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": "import_member",
+   "got": [],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "type_only_import_deferred",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": "import_member",
+   "got": [],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "callers"
+  },
+  {
+   "capability": "wrong_directory_same_stem",
+   "expected": [],
+   "expected_resolution_kind": null,
+   "forbid_resolution_kind": "import_member",
+   "got": [],
+   "got_kinds": {},
+   "language": "typescript",
+   "outcome": "ok",
+   "probe": "callers"
+  }
+ ],
+ "meta": {
+  "baseline_invalid": true,
+  "corpus": "prism",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "07ed5ceb6098",
+  "date": "2026-09-16-slice1-07ed5ceb",
+  "harness_sha": "07ed5ceb6098",
+  "invalid_reasons": [
+   "corpus_sha_drift: 07ed5ceb6098 != pinned 20c8490591a3",
+   "stratum C-method: 4/6 successful probes"
+  ],
+  "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+  "oracle_error_rate": 0.06666666666666667,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "07ed5ceb6098",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 16.062,
+   "m2": 161.809,
+   "m3": 0.008,
+   "matrix": 6.7,
+   "oracle_start": 36.463,
+   "pinned": 5.81
+  }
+ },
+ "pending": [
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:2238",
+   "site": "tests/ast/cpg_cache_test.rs:1391",
+   "site_fingerprint": "7ee819c81a50f34b"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:2238",
+   "site": "tests/ast/cpg_cache_test.rs:1437",
+   "site_fingerprint": "fa63983c663a829c"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:2238",
+   "site": "tests/ast/cpg_cache_test.rs:1488",
+   "site_fingerprint": "a9228fdfd9257760"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:2238",
+   "site": "tests/integration/call_graph_test.rs:1825",
+   "site_fingerprint": "702a5b100351cb26"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:2238",
+   "site": "tests/integration/import_binding_test.rs:936",
+   "site_fingerprint": "2f5037262fec47b5"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:2238",
+   "site": "tests/integration/imported_object_alias_test.rs:175",
+   "site_fingerprint": "075f2c753e860e62"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:2238",
+   "site": "tests/integration/imported_object_alias_test.rs:342",
+   "site_fingerprint": "1515476570b929e9"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:2238",
+   "site": "tests/integration/imported_object_alias_test.rs:352",
+   "site_fingerprint": "1515476570b929e9"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:2238",
+   "site": "tests/integration/js_export_reexport_test.rs:505",
+   "site_fingerprint": "c72108cf566a1bca"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:2238",
+   "site": "tests/integration/resolution_test.rs:4077",
+   "site_fingerprint": "06668ffbc9efdbe5"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:2238",
+   "site": "tests/lang/typescript/typed_receiver_test.rs:476",
+   "site_fingerprint": "de5063379c1989c5"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:2238",
+   "site": "tests/lang/typescript/typed_receiver_test.rs:724",
+   "site_fingerprint": "30112a47932ad368"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:2238",
+   "site": "tests/name_resolution/build_wiring_test.rs:332",
+   "site_fingerprint": "2db8c76430fb6ac0"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "src/cpg/multiline_call_arg_tests.rs:216",
+   "site": "src/ast_required_parameter_tests.rs:141",
+   "site_fingerprint": "36f5de991093b17d",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "src/cpg/multiline_call_arg_tests.rs:216",
+   "site": "src/ast_required_parameter_tests.rs:158",
+   "site_fingerprint": "f928f8ffbe578ec2",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "src/go_build_profile.rs:498",
+   "site": "src/ast.rs:439",
+   "site_fingerprint": "d8760e09b9a17349"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "qualified_owner",
+   "measurement": "callers",
+   "seed_def": "src/go_build_profile.rs:498",
+   "site": "src/queries.rs:315",
+   "site_fingerprint": "db7ca80582fe1a87"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/go_build_profile.rs:498",
+   "site": "src/go_build_profile.rs:499",
+   "site_fingerprint": "5ca8559ddaa517ac",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callees",
+   "seed_def": "src/go_type_alias/canon.rs:392",
+   "site": "src/go_type_alias/canon.rs:400",
+   "site_fingerprint": "61cdc8b89714c8e8"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/go_type_alias/canon.rs:392",
+   "site": "src/go_type_alias/canon.rs:401",
+   "site_fingerprint": "a931368d46e7a085",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/go_type_alias/canon.rs:392",
+   "site": "src/go_type_alias/canon.rs:406",
+   "site_fingerprint": "bed3b9a0e6e4d8d5",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/go_type_alias/canon.rs:392",
+   "site": "src/go_type_alias/canon.rs:411",
+   "site_fingerprint": "16d4a32dcea9b80b",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1019",
+   "site": "src/main.rs:1020",
+   "site_fingerprint": "0d68f9a5d956eb01"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1019",
+   "site": "src/main.rs:1021",
+   "site_fingerprint": "ab211e34e9133547"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/lang/bash/bash_test.rs:209",
+   "site": "tests/lang/bash/bash_test.rs:226",
+   "site_fingerprint": "c35c54daae30a929"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/lang/java/algo_test.rs:371",
+   "site": "tests/lang/java/algo_test.rs:418",
+   "site_fingerprint": "89d3c387b0d49fa9"
+  }
+ ],
+ "pinned": [
+  {
+   "exact_supplementary": {
+    "fn": 0,
+    "fp": 0,
+    "precision": [
+     1.0,
+     0.5655175313406071,
+     1.0
+    ],
+    "recall": [
+     1.0,
+     0.5655175313406071,
+     1.0
+    ],
+    "tp": 5
+   },
+   "expected": "known_fail",
+   "id": "target-c-method",
+   "known_fail": false,
+   "oracle_only": [],
+   "oracle_sites": [
+    "src/algorithms/taint.rs:1768",
+    "src/algorithms/taint.rs:4445",
+    "src/algorithms/taint.rs:4455",
+    "src/algorithms/taint.rs:4463",
+    "src/algorithms/taint.rs:4475"
+   ],
+   "outcome": "flip_candidate",
+   "prism_only": [],
+   "prism_sites": [
+    "src/algorithms/taint.rs:1768",
+    "src/algorithms/taint.rs:4445",
+    "src/algorithms/taint.rs:4455",
+    "src/algorithms/taint.rs:4463",
+    "src/algorithms/taint.rs:4475"
+   ],
+   "raw": {
+    "fn": 0,
+    "fp": 0,
+    "precision": [
+     1.0,
+     0.5655175313406071,
+     1.0
+    ],
+    "recall": [
+     1.0,
+     0.5655175313406071,
+     1.0
+    ],
+    "tp": 5
+   }
+  },
+  {
+   "expected": "oracle_miss_site",
+   "id": "module-deps-feature-gated",
+   "oracle_miss_site_found": false,
+   "oracle_only": [],
+   "oracle_sites": [
+    "tests/navigation/module_graph_test.rs:152",
+    "tests/navigation/module_graph_test.rs:142",
+    "src/main.rs:193",
+    "tests/navigation/cache_test.rs:331",
+    "tests/navigation/cache_test.rs:345",
+    "tests/navigation/module_graph_test.rs:93",
+    "tests/navigation/module_graph_test.rs:169",
+    "tests/navigation/module_graph_test.rs:219",
+    "tests/navigation/module_graph_test.rs:236",
+    "tests/navigation/module_graph_test.rs:253",
+    "tests/navigation/module_graph_test.rs:281",
+    "tests/navigation/module_graph_test.rs:307",
+    "tests/navigation/module_graph_test.rs:332",
+    "tests/navigation/module_graph_test.rs:353",
+    "tests/name_resolution/build_wiring_test.rs:642",
+    "tests/name_resolution/build_wiring_test.rs:643",
+    "tests/navigation/scoped_calls_test.rs:223"
+   ],
+   "outcome": "missing",
+   "prism_only": [
+    "src/mcp/tools.rs:230"
+   ],
+   "prism_sites": [
+    "src/main.rs:193",
+    "src/mcp/tools.rs:230",
+    "tests/name_resolution/build_wiring_test.rs:642",
+    "tests/name_resolution/build_wiring_test.rs:643",
+    "tests/navigation/cache_test.rs:331",
+    "tests/navigation/cache_test.rs:345",
+    "tests/navigation/module_graph_test.rs:93",
+    "tests/navigation/module_graph_test.rs:142",
+    "tests/navigation/module_graph_test.rs:152",
+    "tests/navigation/module_graph_test.rs:169",
+    "tests/navigation/module_graph_test.rs:219",
+    "tests/navigation/module_graph_test.rs:236",
+    "tests/navigation/module_graph_test.rs:253",
+    "tests/navigation/module_graph_test.rs:281",
+    "tests/navigation/module_graph_test.rs:307",
+    "tests/navigation/module_graph_test.rs:332",
+    "tests/navigation/module_graph_test.rs:353",
+    "tests/navigation/scoped_calls_test.rs:223"
+   ],
+   "raw": {
+    "fn": 0,
+    "fp": 1,
+    "precision": [
+     0.9444444444444444,
+     0.7424269900391908,
+     0.990124809131223
+    ],
+    "recall": [
+     1.0,
+     0.8156818626193445,
+     1.0
+    ],
+    "tp": 17
+   }
+  },
+  {
+   "expected": "oracle_miss_site",
+   "id": "load-repo-feature-gated",
+   "oracle_miss_site_found": false,
+   "oracle_only": [
+    "examples/dfg_census.rs:359",
+    "examples/parameter_site_census.rs:219",
+    "examples/project_membership_census.rs:63",
+    "tests/integration/resolution_test.rs:5299",
+    "tests/integration/resolution_test.rs:5368"
+   ],
+   "oracle_sites": [
+    "src/cpg/tests.rs:2542",
+    "tests/infra/parallel_equality_test.rs:18",
+    "tests/infra/parallel_equality_test.rs:22",
+    "tests/navigation/property_access_test.rs:19",
+    "tests/navigation/loader_test.rs:13",
+    "tests/navigation/loader_test.rs:41",
+    "tests/navigation/loader_test.rs:59",
+    "tests/navigation/loader_test.rs:86",
+    "tests/navigation/loader_test.rs:104",
+    "tests/navigation/loader_test.rs:106",
+    "tests/navigation/loader_test.rs:108",
+    "tests/navigation/loader_test.rs:110",
+    "tests/navigation/loader_test.rs:112",
+    "tests/navigation/loader_test.rs:134",
+    "tests/navigation/loader_test.rs:168",
+    "tests/navigation/loader_test.rs:174",
+    "tests/navigation/loader_test.rs:176",
+    "tests/navigation/loader_test.rs:179",
+    "tests/navigation/loader_test.rs:181",
+    "examples/parameter_site_census.rs:219",
+    "tests/navigation/loader_test.rs:32",
+    "src/executable_owner/acquisition.rs:127",
+    "tests/navigation/glob_stats_scope_test.rs:46",
+    "src/navigation/inventory.rs:16",
+    "examples/project_membership_census.rs:63",
+    "src/cpg_cache.rs:766",
+    "tests/navigation/callers_test.rs:11",
+    "tests/navigation/callers_test.rs:134",
+    "tests/navigation/callers_test.rs:166",
+    "tests/reasoning/taint_reaches_test.rs:25",
+    "tests/navigation/symbol_spans_test.rs:21",
+    "tests/lang/go/loader_hygiene_test.rs:143",
+    "tests/lang/go/loader_hygiene_test.rs:163",
+    "tests/lang/go/loader_hygiene_test.rs:186",
+    "tests/lang/go/loader_hygiene_test.rs:201",
+    "tests/lang/go/loader_hygiene_test.rs:213",
+    "tests/lang/go/loader_hygiene_test.rs:230",
+    "tests/lang/go/loader_hygiene_test.rs:232",
+    "tests/lang/go/loader_hygiene_test.rs:246",
+    "tests/lang/go/loader_hygiene_test.rs:248",
+    "tests/lang/go/loader_hygiene_test.rs:267",
+    "tests/lang/go/loader_hygiene_test.rs:314",
+    "tests/lang/go/loader_hygiene_test.rs:325",
+    "tests/lang/go/loader_hygiene_test.rs:372",
+    "tests/navigation/onboarding_test.rs:7",
+    "examples/dfg_census.rs:359",
+    "tests/ast/cpg_cache_test.rs:559",
+    "src/repo_loader.rs:993",
+    "src/repo_loader.rs:1030",
+    "src/repo_loader.rs:1049",
+    "src/repo_loader.rs:1076",
+    "src/repo_loader.rs:1114",
+    "src/repo_loader.rs:1155",
+    "src/repo_loader.rs:1193",
+    "src/repo_loader.rs:1235",
+    "src/repo_loader.rs:1293",
+    "src/repo_loader.rs:1321",
+    "src/repo_loader.rs:1380",
+    "src/repo_loader.rs:1447",
+    "src/repo_loader.rs:1483",
+    "src/repo_loader.rs:1515",
+    "src/repo_loader.rs:1540",
+    "tests/navigation/func_value_test.rs:19",
+    "src/api/nav.rs:26",
+    "tests/cli/nav_compat_test.rs:819",
+    "tests/navigation/callees_test.rs:11",
+    "src/navigation/mod.rs:569",
+    "src/navigation/mod.rs:584",
+    "src/navigation/mod.rs:607",
+    "src/navigation/mod.rs:651",
+    "tests/lang/go/receiver_origin_prereq_test.rs:36",
+    "tests/name_resolution/build_wiring_test.rs:72",
+    "tests/name_resolution/build_wiring_test.rs:127",
+    "tests/name_resolution/build_wiring_test.rs:169",
+    "tests/name_resolution/build_wiring_test.rs:198",
+    "tests/name_resolution/build_wiring_test.rs:233",
+    "tests/name_resolution/build_wiring_test.rs:323",
+    "tests/name_resolution/build_wiring_test.rs:469",
+    "tests/name_resolution/build_wiring_test.rs:528",
+    "tests/name_resolution/build_wiring_test.rs:576",
+    "tests/name_resolution/build_wiring_test.rs:628",
+    "tests/navigation/seed_test.rs:11",
+    "tests/navigation/nodes_at_test.rs:17",
+    "src/executable_owner/integration.rs:156",
+    "tests/navigation/index_test.rs:13",
+    "tests/navigation/index_test.rs:31",
+    "tests/navigation/framework_entry_test.rs:20",
+    "tests/lang/go/test_support.rs:23",
+    "tests/navigation/cache_test.rs:78",
+    "tests/navigation/cache_test.rs:96",
+    "tests/navigation/cache_test.rs:139",
+    "tests/navigation/cache_test.rs:209",
+    "tests/navigation/cache_test.rs:253",
+    "tests/navigation/cache_test.rs:292",
+    "tests/navigation/cache_test.rs:323",
+    "tests/navigation/cache_test.rs:383",
+    "tests/navigation/cache_test.rs:424",
+    "tests/navigation/cache_test.rs:459",
+    "tests/navigation/cache_test.rs:499",
+    "tests/navigation/cache_test.rs:501",
+    "tests/navigation/cache_test.rs:510",
+    "tests/navigation/cache_test.rs:541",
+    "tests/navigation/cache_test.rs:542",
+    "tests/navigation/cache_test.rs:592",
+    "src/call_graph.rs:7063",
+    "src/call_graph.rs:7076",
+    "tests/navigation/scoped_calls_test.rs:20",
+    "tests/cli/nav_compat_test.rs:329",
+    "tests/navigation/module_graph_test.rs:17",
+    "tests/integration/dfg_label_parity_test.rs:30",
+    "src/executable_owner/admission.rs:120",
+    "tests/navigation/go_concrete_cache_test.rs:90",
+    "tests/navigation/go_concrete_cache_test.rs:188",
+    "tests/navigation/go_concrete_cache_test.rs:387",
+    "tests/integration/resolution_test.rs:5299",
+    "tests/integration/resolution_test.rs:5342",
+    "tests/integration/resolution_test.rs:5368",
+    "tests/integration/resolution_test.rs:5428",
+    "tests/navigation/ego_test.rs:9",
+    "src/navigation/call_edge_cache.rs:736"
+   ],
+   "outcome": "missing",
+   "prism_only": [
+    "src/executable_owner/audit_tests.rs:310",
+    "src/executable_owner/audit_tests.rs:322",
+    "src/executable_owner/audit_tests.rs:333",
+    "src/executable_owner/integration/tests.rs:22",
+    "src/executable_owner/integration/tests.rs:79",
+    "src/mcp/freshness.rs:401",
+    "src/mcp/session.rs:359",
+    "src/mcp/session.rs:374",
+    "src/mcp/session.rs:400"
+   ],
+   "prism_sites": [
+    "src/api/nav.rs:26",
+    "src/call_graph.rs:7063",
+    "src/call_graph.rs:7076",
+    "src/cpg/tests.rs:2542",
+    "src/cpg_cache.rs:766",
+    "src/executable_owner/acquisition.rs:127",
+    "src/executable_owner/admission.rs:120",
+    "src/executable_owner/audit_tests.rs:310",
+    "src/executable_owner/audit_tests.rs:322",
+    "src/executable_owner/audit_tests.rs:333",
+    "src/executable_owner/integration.rs:156",
+    "src/executable_owner/integration/tests.rs:22",
+    "src/executable_owner/integration/tests.rs:79",
+    "src/mcp/freshness.rs:401",
+    "src/mcp/session.rs:359",
+    "src/mcp/session.rs:374",
+    "src/mcp/session.rs:400",
+    "src/navigation/call_edge_cache.rs:736",
+    "src/navigation/inventory.rs:16",
+    "src/navigation/mod.rs:569",
+    "src/navigation/mod.rs:584",
+    "src/navigation/mod.rs:607",
+    "src/navigation/mod.rs:651",
+    "src/repo_loader.rs:993",
+    "src/repo_loader.rs:1030",
+    "src/repo_loader.rs:1049",
+    "src/repo_loader.rs:1076",
+    "src/repo_loader.rs:1114",
+    "src/repo_loader.rs:1155",
+    "src/repo_loader.rs:1193",
+    "src/repo_loader.rs:1235",
+    "src/repo_loader.rs:1293",
+    "src/repo_loader.rs:1321",
+    "src/repo_loader.rs:1380",
+    "src/repo_loader.rs:1447",
+    "src/repo_loader.rs:1483",
+    "src/repo_loader.rs:1515",
+    "src/repo_loader.rs:1540",
+    "tests/ast/cpg_cache_test.rs:559",
+    "tests/cli/nav_compat_test.rs:329",
+    "tests/cli/nav_compat_test.rs:819",
+    "tests/infra/parallel_equality_test.rs:18",
+    "tests/infra/parallel_equality_test.rs:22",
+    "tests/integration/dfg_label_parity_test.rs:30",
+    "tests/integration/resolution_test.rs:5342",
+    "tests/integration/resolution_test.rs:5428",
+    "tests/lang/go/loader_hygiene_test.rs:143",
+    "tests/lang/go/loader_hygiene_test.rs:163",
+    "tests/lang/go/loader_hygiene_test.rs:186",
+    "tests/lang/go/loader_hygiene_test.rs:201",
+    "tests/lang/go/loader_hygiene_test.rs:213",
+    "tests/lang/go/loader_hygiene_test.rs:230",
+    "tests/lang/go/loader_hygiene_test.rs:232",
+    "tests/lang/go/loader_hygiene_test.rs:246",
+    "tests/lang/go/loader_hygiene_test.rs:248",
+    "tests/lang/go/loader_hygiene_test.rs:267",
+    "tests/lang/go/loader_hygiene_test.rs:314",
+    "tests/lang/go/loader_hygiene_test.rs:325",
+    "tests/lang/go/loader_hygiene_test.rs:372",
+    "tests/lang/go/receiver_origin_prereq_test.rs:36",
+    "tests/lang/go/test_support.rs:23",
+    "tests/name_resolution/build_wiring_test.rs:72",
+    "tests/name_resolution/build_wiring_test.rs:127",
+    "tests/name_resolution/build_wiring_test.rs:169",
+    "tests/name_resolution/build_wiring_test.rs:198",
+    "tests/name_resolution/build_wiring_test.rs:233",
+    "tests/name_resolution/build_wiring_test.rs:323",
+    "tests/name_resolution/build_wiring_test.rs:469",
+    "tests/name_resolution/build_wiring_test.rs:528",
+    "tests/name_resolution/build_wiring_test.rs:576",
+    "tests/name_resolution/build_wiring_test.rs:628",
+    "tests/navigation/cache_test.rs:78",
+    "tests/navigation/cache_test.rs:96",
+    "tests/navigation/cache_test.rs:139",
+    "tests/navigation/cache_test.rs:209",
+    "tests/navigation/cache_test.rs:253",
+    "tests/navigation/cache_test.rs:292",
+    "tests/navigation/cache_test.rs:323",
+    "tests/navigation/cache_test.rs:383",
+    "tests/navigation/cache_test.rs:424",
+    "tests/navigation/cache_test.rs:459",
+    "tests/navigation/cache_test.rs:499",
+    "tests/navigation/cache_test.rs:501",
+    "tests/navigation/cache_test.rs:510",
+    "tests/navigation/cache_test.rs:541",
+    "tests/navigation/cache_test.rs:542",
+    "tests/navigation/cache_test.rs:592",
+    "tests/navigation/callees_test.rs:11",
+    "tests/navigation/callers_test.rs:11",
+    "tests/navigation/callers_test.rs:134",
+    "tests/navigation/callers_test.rs:166",
+    "tests/navigation/ego_test.rs:9",
+    "tests/navigation/framework_entry_test.rs:20",
+    "tests/navigation/func_value_test.rs:19",
+    "tests/navigation/glob_stats_scope_test.rs:46",
+    "tests/navigation/go_concrete_cache_test.rs:90",
+    "tests/navigation/go_concrete_cache_test.rs:188",
+    "tests/navigation/go_concrete_cache_test.rs:387",
+    "tests/navigation/index_test.rs:13",
+    "tests/navigation/index_test.rs:31",
+    "tests/navigation/loader_test.rs:13",
+    "tests/navigation/loader_test.rs:32",
+    "tests/navigation/loader_test.rs:41",
+    "tests/navigation/loader_test.rs:59",
+    "tests/navigation/loader_test.rs:86",
+    "tests/navigation/loader_test.rs:104",
+    "tests/navigation/loader_test.rs:106",
+    "tests/navigation/loader_test.rs:108",
+    "tests/navigation/loader_test.rs:110",
+    "tests/navigation/loader_test.rs:112",
+    "tests/navigation/loader_test.rs:134",
+    "tests/navigation/loader_test.rs:168",
+    "tests/navigation/loader_test.rs:174",
+    "tests/navigation/loader_test.rs:176",
+    "tests/navigation/loader_test.rs:179",
+    "tests/navigation/loader_test.rs:181",
+    "tests/navigation/module_graph_test.rs:17",
+    "tests/navigation/nodes_at_test.rs:17",
+    "tests/navigation/onboarding_test.rs:7",
+    "tests/navigation/property_access_test.rs:19",
+    "tests/navigation/scoped_calls_test.rs:20",
+    "tests/navigation/seed_test.rs:11",
+    "tests/navigation/symbol_spans_test.rs:21",
+    "tests/reasoning/taint_reaches_test.rs:25"
+   ],
+   "raw": {
+    "fn": 5,
+    "fp": 9,
+    "precision": [
+     0.9274193548387096,
+     0.8678041528026484,
+     0.9613478369163021
+    ],
+    "recall": [
+     0.9583333333333334,
+     0.9061591471148217,
+     0.9820732832333764
+    ],
+    "tp": 115
+   }
+  },
+  {
+   "ambiguous_ok": true,
+   "expected": "ambiguous_symbol_error",
+   "id": "ambiguous-symbol-contract",
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_sites": []
+  }
+ ],
+ "probes": {
+  "_corpus": "prism",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   },
+   "C-name": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   },
+   "Q-scoped": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   },
+   "U-free": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   },
+   "U-method": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   }
+  },
+  "callees:src/ast.rs:2903": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/ast.rs",
+     "collect_js_ts_cjs_export_statement"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/ast.rs",
+     2930,
+     2930
+    ],
+    [
+     "src/ast.rs",
+     2933,
+     2933
+    ],
+    [
+     "src/ast.rs",
+     2947,
+     2947
+    ],
+    [
+     "src/ast.rs",
+     2952,
+     2952
+    ],
+    [
+     "src/ast.rs",
+     2954,
+     2954
+    ],
+    [
+     "src/ast.rs",
+     2936,
+     2936
+    ],
+    [
+     "src/ast.rs",
+     2948,
+     2948
+    ],
+    [
+     "src/ast.rs",
+     2955,
+     2955
+    ],
+    [
+     "src/ast.rs",
+     2940,
+     2940
+    ],
+    [
+     "src/ast.rs",
+     2956,
+     2956
+    ],
+    [
+     "src/ast.rs",
+     2961,
+     2961
+    ],
+    [
+     "src/ast.rs",
+     2961,
+     2961
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/ast.rs",
+     "collect_js_ts_cjs_export_statement"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/ast.rs",
+     2930,
+     2930,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/ast.rs",
+     2933,
+     2933,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/ast.rs",
+     2947,
+     2947,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/ast.rs",
+     2952,
+     2952,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/ast.rs",
+     2954,
+     2954,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/ast.rs",
+     2936,
+     2936,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/ast.rs",
+     2948,
+     2948,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/ast.rs",
+     2955,
+     2955,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/ast.rs",
+     2956,
+     2956,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/ast.rs",
+     2940,
+     2940,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/ast.rs",
+     2961,
+     2961,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/ast.rs",
+     2961,
+     2961,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "src/ast.rs:2903",
+   "stratum": "U-method"
+  },
+  "callees:src/call_graph.rs:2238": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/call_graph.rs",
+     "remove_files"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/call_graph.rs",
+     2306,
+     2306
+    ],
+    [
+     "src/call_graph.rs",
+     2307,
+     2307
+    ],
+    [
+     "src/call_graph.rs",
+     2349,
+     2349
+    ],
+    [
+     "src/call_graph.rs",
+     2361,
+     2361
+    ],
+    [
+     "src/call_graph.rs",
+     2362,
+     2362
+    ],
+    [
+     "src/call_graph.rs",
+     2372,
+     2372
+    ],
+    [
+     "src/call_graph.rs",
+     2380,
+     2380
+    ],
+    [
+     "src/call_graph.rs",
+     2387,
+     2387
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/call_graph.rs",
+     "remove_files"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/call_graph.rs",
+     2349,
+     2349,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     2306,
+     2306,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     2307,
+     2307,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     2361,
+     2361,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     2362,
+     2362,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     2372,
+     2372,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     2380,
+     2380,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     2387,
+     2387,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "src/call_graph.rs:2238",
+   "stratum": "C-method"
+  },
+  "callees:src/call_graph.rs:7089": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/call_graph.rs",
+     "call_graph_type_scope"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/call_graph.rs",
+     7092,
+     7092
+    ],
+    [
+     "src/call_graph.rs",
+     7093,
+     7093
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/call_graph.rs",
+     "call_graph_type_scope"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/call_graph.rs",
+     7092,
+     7092,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     7093,
+     7093,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "src/call_graph.rs:7089",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/cpg/multiline_call_arg_tests.rs:216": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     "build"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     220,
+     220
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     222,
+     222
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     "build"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     220,
+     220,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     222,
+     222,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "src/cpg/multiline_call_arg_tests.rs:216",
+   "stratum": "C-name"
+  },
+  "callees:src/executable_owner/admission.rs:63": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/executable_owner/admission.rs",
+     "observe"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/executable_owner/admission.rs",
+     71,
+     71
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/executable_owner/admission.rs",
+     "observe"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/executable_owner/admission.rs",
+     71,
+     71,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "src/executable_owner/admission.rs:63",
+   "stratum": "C-method"
+  },
+  "callees:src/go_build_profile.rs:498": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/go_build_profile.rs",
+     "new"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/go_build_profile.rs",
+     499,
+     499,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "src/go_build_profile.rs",
+     499,
+     499,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "src/go_build_profile.rs",
+     499,
+     499,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "src/go_build_profile.rs",
+     499,
+     499,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "src/go_build_profile.rs:498",
+   "stratum": "C-name"
+  },
+  "callees:src/go_type_alias/canon.rs:392": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/go_type_alias/canon.rs",
+     "signature_imports"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/go_type_alias/canon.rs",
+     396,
+     396
+    ],
+    [
+     "src/go_type_alias/canon.rs",
+     400,
+     400
+    ],
+    [
+     "src/go_type_alias/canon.rs",
+     416,
+     416
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/go_type_alias/canon.rs",
+     "signature_imports"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/go_type_alias/canon.rs",
+     396,
+     396,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/go_type_alias/canon.rs",
+     400,
+     400,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/go_type_alias/canon.rs",
+     416,
+     416,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/go_type_alias/canon.rs",
+     398,
+     398,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "src/go_type_alias/canon.rs",
+     401,
+     401,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "src/go_type_alias/canon.rs",
+     406,
+     406,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "src/go_type_alias/canon.rs",
+     406,
+     406,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "src/go_type_alias/canon.rs",
+     411,
+     411,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "src/go_type_alias/canon.rs:392",
+   "stratum": "C-name"
+  },
+  "callees:src/languages/mod.rs:1013": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/languages/mod.rs:1013",
+   "stratum": "U-method"
+  },
+  "callees:src/main.rs:1019": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/main.rs",
+     "determine_exit_code_strict_with_only_informational"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/main.rs",
+     1021,
+     1021,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/main.rs",
+     1020,
+     1020,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "src/main.rs:1019",
+   "stratum": "U-free"
+  },
+  "callees:src/main.rs:20": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "parse_loc_seeds"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/main.rs",
+     25,
+     25
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/main.rs",
+     "parse_loc_seeds"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/main.rs",
+     25,
+     25,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "src/main.rs:20",
+   "stratum": "U-free"
+  },
+  "callees:src/main.rs:987": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:987",
+   "stratum": "U-free"
+  },
+  "callees:src/type_providers/go.rs:370": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/type_providers/go.rs",
+     "import_aware_constructions"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/type_providers/go.rs",
+     371,
+     371
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/type_providers/go.rs",
+     "import_aware_constructions"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/type_providers/go.rs",
+     371,
+     371,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "src/type_providers/go.rs:370",
+   "stratum": "U-method"
+  },
+  "callees:tests/lang/bash/bash_test.rs:209": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/lang/bash/bash_test.rs",
+     "test_bash_absence_mount_without_umount"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/lang/bash/bash_test.rs",
+     214,
+     214
+    ],
+    [
+     "tests/lang/bash/bash_test.rs",
+     226,
+     226
+    ],
+    [
+     "tests/lang/bash/bash_test.rs",
+     229,
+     229
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/lang/bash/bash_test.rs",
+     "test_bash_absence_mount_without_umount"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/lang/bash/bash_test.rs",
+     214,
+     214,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "tests/lang/bash/bash_test.rs",
+     229,
+     229,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "tests/lang/bash/bash_test.rs",
+     229,
+     229,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "tests/lang/bash/bash_test.rs:209",
+   "stratum": "Q-scoped"
+  },
+  "callees:tests/lang/java/algo_test.rs:371": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/lang/java/algo_test.rs",
+     "test_membrane_slice_java_cross_class"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/lang/java/algo_test.rs",
+     405,
+     405
+    ],
+    [
+     "tests/lang/java/algo_test.rs",
+     409,
+     409
+    ],
+    [
+     "tests/lang/java/algo_test.rs",
+     418,
+     418
+    ],
+    [
+     "tests/lang/java/algo_test.rs",
+     421,
+     421
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/lang/java/algo_test.rs",
+     "test_membrane_slice_java_cross_class"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/lang/java/algo_test.rs",
+     405,
+     405,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "tests/lang/java/algo_test.rs",
+     409,
+     409,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "tests/lang/java/algo_test.rs",
+     421,
+     421,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "tests/lang/java/algo_test.rs",
+     421,
+     421,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "tests/lang/java/algo_test.rs:371",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/ast.rs:2903": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/ast.rs",
+     "extract_js_ts_export_facts"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/ast.rs",
+     2431,
+     2431
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/ast.rs",
+     "extract_js_ts_export_facts"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/ast.rs",
+     2431,
+     2431,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "src/ast.rs:2903",
+   "stratum": "U-method"
+  },
+  "callers:src/call_graph.rs:2238": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/call_graph.rs",
+     "macro_arg_facts_remove_files_retains_by_file_and_merge_extends"
+    ],
+    [
+     "src/call_graph.rs",
+     "recompute_indirect_calls_is_idempotent_for_unsupported_c_callbacks"
+    ],
+    [
+     "src/cpg/build.rs",
+     "build_incremental_with_scope_graph_inputs"
+    ],
+    [
+     "tests/ast/cpg_cache_test.rs",
+     "test_callgraph_merge"
+    ],
+    [
+     "tests/ast/cpg_cache_test.rs",
+     "test_callgraph_remove_empty_set"
+    ],
+    [
+     "tests/ast/cpg_cache_test.rs",
+     "test_callgraph_remove_files"
+    ],
+    [
+     "tests/integration/call_graph_test.rs",
+     "p6_receiver_recovery_matches_full_and_direct_subset_merge"
+    ],
+    [
+     "tests/integration/import_binding_test.rs",
+     "remove_files_clears_import_bindings"
+    ],
+    [
+     "tests/integration/imported_object_alias_test.rs",
+     "imported_object_alias_augmentation_transition"
+    ],
+    [
+     "tests/integration/imported_object_alias_test.rs",
+     "imported_object_alias_owner_replacement_and_missing_source"
+    ],
+    [
+     "tests/integration/js_export_reexport_test.rs",
+     "remove_files_clears_export_facts_and_resolution"
+    ],
+    [
+     "tests/integration/resolution_test.rs",
+     "go_remove_files_clears_promoted_aliases_cross_file"
+    ],
+    [
+     "tests/lang/typescript/typed_receiver_test.rs",
+     "test_typescript_receiver_binding_incremental_transitions_match_fresh_builds"
+    ],
+    [
+     "tests/lang/typescript/typed_receiver_test.rs",
+     "test_typescript_recovery_full_subset_and_incremental_transitions_agree"
+    ],
+    [
+     "tests/name_resolution/build_wiring_test.rs",
+     "incremental_recomputes_scope_graph_from_all_files"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/integration/resolution_test.rs",
+     4077,
+     4077
+    ],
+    [
+     "tests/lang/typescript/typed_receiver_test.rs",
+     476,
+     476
+    ],
+    [
+     "tests/lang/typescript/typed_receiver_test.rs",
+     724,
+     724
+    ],
+    [
+     "tests/name_resolution/build_wiring_test.rs",
+     332,
+     332
+    ],
+    [
+     "src/cpg/build.rs",
+     529,
+     529
+    ],
+    [
+     "tests/integration/import_binding_test.rs",
+     936,
+     936
+    ],
+    [
+     "tests/integration/call_graph_test.rs",
+     1825,
+     1825
+    ],
+    [
+     "tests/ast/cpg_cache_test.rs",
+     1391,
+     1391
+    ],
+    [
+     "tests/ast/cpg_cache_test.rs",
+     1437,
+     1437
+    ],
+    [
+     "tests/ast/cpg_cache_test.rs",
+     1488,
+     1488
+    ],
+    [
+     "src/call_graph.rs",
+     7433,
+     7433
+    ],
+    [
+     "src/call_graph.rs",
+     7491,
+     7491
+    ],
+    [
+     "tests/integration/imported_object_alias_test.rs",
+     175,
+     175
+    ],
+    [
+     "tests/integration/imported_object_alias_test.rs",
+     342,
+     342
+    ],
+    [
+     "tests/integration/imported_object_alias_test.rs",
+     352,
+     352
+    ],
+    [
+     "tests/integration/js_export_reexport_test.rs",
+     505,
+     505
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/call_graph.rs",
+     "macro_arg_facts_remove_files_retains_by_file_and_merge_extends"
+    ],
+    [
+     "src/call_graph.rs",
+     "recompute_indirect_calls_is_idempotent_for_unsupported_c_callbacks"
+    ],
+    [
+     "src/cpg/build.rs",
+     "build_incremental_with_scope_graph_inputs"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/call_graph.rs",
+     7433,
+     7433,
+     {
+      "resolution_kind": "return_typed",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/cpg/build.rs",
+     529,
+     529,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     7491,
+     7491,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "src/call_graph.rs:2238",
+   "stratum": "C-method"
+  },
+  "callers:src/call_graph.rs:7089": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/call_graph.rs",
+     "cfg_gated_alias_does_not_collapse_to_one_unconditional_target"
+    ],
+    [
+     "src/call_graph.rs",
+     "field_and_return_indices_alias_cfg_and_omit_fallthrough_types"
+    ],
+    [
+     "src/call_graph.rs",
+     "field_and_return_indices_resolved_self_and_def_scope"
+    ],
+    [
+     "src/call_graph.rs",
+     "rematerialize_typed_annotations_use_qualified_identity_not_same_name_decoy"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/call_graph.rs",
+     7106,
+     7106
+    ],
+    [
+     "src/call_graph.rs",
+     7107,
+     7107
+    ],
+    [
+     "src/call_graph.rs",
+     7147,
+     7147
+    ],
+    [
+     "src/call_graph.rs",
+     7148,
+     7148
+    ],
+    [
+     "src/call_graph.rs",
+     7192,
+     7192
+    ],
+    [
+     "src/call_graph.rs",
+     7575,
+     7575
+    ],
+    [
+     "src/call_graph.rs",
+     7576,
+     7576
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/call_graph.rs",
+     "cfg_gated_alias_does_not_collapse_to_one_unconditional_target"
+    ],
+    [
+     "src/call_graph.rs",
+     "field_and_return_indices_alias_cfg_and_omit_fallthrough_types"
+    ],
+    [
+     "src/call_graph.rs",
+     "field_and_return_indices_resolved_self_and_def_scope"
+    ],
+    [
+     "src/call_graph.rs",
+     "rematerialize_typed_annotations_use_qualified_identity_not_same_name_decoy"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/call_graph.rs",
+     7106,
+     7106,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     7107,
+     7107,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     7147,
+     7147,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     7148,
+     7148,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     7192,
+     7192,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     7575,
+     7575,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     7576,
+     7576,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "src/call_graph.rs:7089",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/cpg/multiline_call_arg_tests.rs:216": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     "distinct_name_nested_multiline_trace_descends_only_to_inner_parameter"
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     "later_multiline_argument_never_binds_the_call_line_occurrence"
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     "multiline_direct_and_mixed_arguments_bind_exact_occurrences_in_each_language"
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     "nested_call_adds_only_the_inner_argument_to_parameter_edge"
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     "repeated_path_arguments_keep_their_own_endpoint_lines"
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     "same_name_nested_multiline_trace_refuses_ambiguous_containing_calls"
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     "transparent_wrappers_are_line_invariant_in_each_language"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     349,
+     349
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     391,
+     391
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     392,
+     392
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     424,
+     424
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     437,
+     437
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     473,
+     473
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     500,
+     500
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     540,
+     540
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/ast_required_parameter_tests.rs",
+     "required_parameter_write_shadow_and_field_isolation_match_javascript"
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     "distinct_name_nested_multiline_trace_descends_only_to_inner_parameter"
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     "later_multiline_argument_never_binds_the_call_line_occurrence"
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     "multiline_direct_and_mixed_arguments_bind_exact_occurrences_in_each_language"
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     "nested_call_adds_only_the_inner_argument_to_parameter_edge"
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     "repeated_path_arguments_keep_their_own_endpoint_lines"
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     "same_name_nested_multiline_trace_refuses_ambiguous_containing_calls"
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     "transparent_wrappers_are_line_invariant_in_each_language"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     349,
+     349,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     391,
+     391,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     392,
+     392,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     424,
+     424,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     437,
+     437,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     473,
+     473,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     500,
+     500,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/cpg/multiline_call_arg_tests.rs",
+     540,
+     540,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/ast_required_parameter_tests.rs",
+     141,
+     141,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ],
+    [
+     "src/ast_required_parameter_tests.rs",
+     158,
+     158,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "src/cpg/multiline_call_arg_tests.rs:216",
+   "stratum": "C-name"
+  },
+  "callers:src/executable_owner/admission.rs:63": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/executable_owner/admission.rs",
+     "observed_counts_use_loaded_bytes_and_type_database_presence_without_source_leakage"
+    ],
+    [
+     "src/executable_owner/integration.rs",
+     "replace_session_impl"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/executable_owner/admission.rs",
+     124,
+     124
+    ],
+    [
+     "src/executable_owner/integration.rs",
+     159,
+     159
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/executable_owner/admission.rs",
+     "observed_counts_use_loaded_bytes_and_type_database_presence_without_source_leakage"
+    ],
+    [
+     "src/executable_owner/integration.rs",
+     "replace_session_impl"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/executable_owner/admission.rs",
+     124,
+     124,
+     {
+      "resolution_kind": "constructor_local",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/executable_owner/integration.rs",
+     159,
+     159,
+     {
+      "resolution_kind": "typed_param",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "src/executable_owner/admission.rs:63",
+   "stratum": "C-method"
+  },
+  "callers:src/go_build_profile.rs:498": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/go_build_profile.rs",
+     "parse_build_header"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/go_build_profile.rs",
+     249,
+     249
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/ast.rs",
+     "parse"
+    ],
+    [
+     "src/go_build_profile.rs",
+     "parse_build_header"
+    ],
+    [
+     "src/queries.rs",
+     "count_matches"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/ast.rs",
+     439,
+     439,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/go_build_profile.rs",
+     249,
+     249,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/queries.rs",
+     315,
+     315,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "src/go_build_profile.rs:498",
+   "stratum": "C-name"
+  },
+  "callers:src/go_type_alias/canon.rs:392": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/go_promoted_snapshot.rs",
+     "build"
+    ],
+    [
+     "src/go_promoted_snapshot/interface_profiles.rs",
+     "extend"
+    ],
+    [
+     "src/go_type_alias.rs",
+     "extract_file"
+    ],
+    [
+     "src/type_providers/go.rs",
+     "signature_imports"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/go_promoted_snapshot/interface_profiles.rs",
+     21,
+     21
+    ],
+    [
+     "src/type_providers/go.rs",
+     1653,
+     1653
+    ],
+    [
+     "src/go_type_alias.rs",
+     293,
+     293
+    ],
+    [
+     "src/go_promoted_snapshot.rs",
+     238,
+     238
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/go_promoted_snapshot.rs",
+     "build"
+    ],
+    [
+     "src/go_promoted_snapshot/interface_profiles.rs",
+     "extend"
+    ],
+    [
+     "src/go_type_alias.rs",
+     "extract_file"
+    ],
+    [
+     "src/type_providers/go.rs",
+     "signature_imports"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/go_promoted_snapshot.rs",
+     238,
+     238,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/go_promoted_snapshot/interface_profiles.rs",
+     21,
+     21,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/go_type_alias.rs",
+     293,
+     293,
+     {
+      "resolution_kind": "free_single",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/type_providers/go.rs",
+     1653,
+     1653,
+     {
+      "resolution_kind": "qualified_owner",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "src/go_type_alias/canon.rs:392",
+   "stratum": "C-name"
+  },
+  "callers:src/languages/mod.rs:1013": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/ast.rs",
+     "collect_nested_statement_arms"
+    ],
+    [
+     "src/cfg.rs",
+     "build_function_cfg"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/ast.rs",
+     9166,
+     9166
+    ],
+    [
+     "src/cfg.rs",
+     271,
+     271
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/ast.rs",
+     "collect_nested_statement_arms"
+    ],
+    [
+     "src/cfg.rs",
+     "build_function_cfg"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/ast.rs",
+     9166,
+     9166,
+     {
+      "resolution_kind": "field_typed",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/cfg.rs",
+     271,
+     271,
+     {
+      "resolution_kind": "field_typed",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "src/languages/mod.rs:1013",
+   "stratum": "U-method"
+  },
+  "callers:src/main.rs:1019": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:1019",
+   "stratum": "U-free"
+  },
+  "callers:src/main.rs:20": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "run_nav"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/main.rs",
+     312,
+     312
+    ],
+    [
+     "src/main.rs",
+     322,
+     322
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/main.rs",
+     "run_nav"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/main.rs",
+     312,
+     312,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "src/main.rs",
+     322,
+     322,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "src/main.rs:20",
+   "stratum": "U-free"
+  },
+  "callers:src/main.rs:987": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:987",
+   "stratum": "U-free"
+  },
+  "callers:src/type_providers/go.rs:370": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/call_graph.rs",
+     "p15a_fix1_single_plain_provider_peak_live_one_through_full_context_path"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/call_graph.rs",
+     6582,
+     6582
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/call_graph.rs",
+     "p15a_fix1_single_plain_provider_peak_live_one_through_full_context_path"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/call_graph.rs",
+     6582,
+     6582,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "src/type_providers/go.rs:370",
+   "stratum": "U-method"
+  },
+  "callers:tests/lang/bash/bash_test.rs:209": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/lang/bash/bash_test.rs:209",
+   "stratum": "Q-scoped"
+  },
+  "callers:tests/lang/java/algo_test.rs:371": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/lang/java/algo_test.rs:371",
+   "stratum": "Q-scoped"
+  }
+ },
+ "site_fingerprints": {
+  "src/ast.rs:2431": "0fd00a5d5d8252d4",
+  "src/ast.rs:2930": "85679231d47933a6",
+  "src/ast.rs:2933": "84b6d322f3c5861f",
+  "src/ast.rs:2936": "ec1f1c43a4fd7fd7",
+  "src/ast.rs:2940": "e301851d362fc152",
+  "src/ast.rs:2947": "62e96213b6b09ff2",
+  "src/ast.rs:2948": "fc6fd165d42edfab",
+  "src/ast.rs:2952": "3c71503fb3d19445",
+  "src/ast.rs:2954": "a3e437ef37a2e475",
+  "src/ast.rs:2955": "ab3c31f23bbddcd7",
+  "src/ast.rs:2956": "c08c241d19fac346",
+  "src/ast.rs:2961": "b2ff61afab85d6c7",
+  "src/ast.rs:439": "d8760e09b9a17349",
+  "src/ast.rs:9166": "e53b968aa055bbda",
+  "src/ast_required_parameter_tests.rs:141": "36f5de991093b17d",
+  "src/ast_required_parameter_tests.rs:158": "f928f8ffbe578ec2",
+  "src/call_graph.rs:2306": "df6cdb9b35e52a77",
+  "src/call_graph.rs:2307": "cea2d2fae7023b7a",
+  "src/call_graph.rs:2349": "e07fef2ce66aab8a",
+  "src/call_graph.rs:2361": "50e0638e76a42dc6",
+  "src/call_graph.rs:2362": "67d773e99552f064",
+  "src/call_graph.rs:2372": "4feafa5da9cee697",
+  "src/call_graph.rs:2380": "267e4b8de6da05f4",
+  "src/call_graph.rs:2387": "ad093df25a4d177d",
+  "src/call_graph.rs:6582": "6dacbd1cf33245b0",
+  "src/call_graph.rs:7092": "532b773a728272d6",
+  "src/call_graph.rs:7093": "b956ec2cf02f1884",
+  "src/call_graph.rs:7106": "0c02ca184d72a0f2",
+  "src/call_graph.rs:7107": "3c9e8a20115850d6",
+  "src/call_graph.rs:7147": "0c02ca184d72a0f2",
+  "src/call_graph.rs:7148": "3c9e8a20115850d6",
+  "src/call_graph.rs:7192": "1a813be4d6c93c1e",
+  "src/call_graph.rs:7433": "da154e6cb4792678",
+  "src/call_graph.rs:7491": "ea25ddd44925fc4e",
+  "src/call_graph.rs:7575": "9ae3dce3b1b46e49",
+  "src/call_graph.rs:7576": "ceb2e252bdb5adcf",
+  "src/cfg.rs:271": "e74826557d529a90",
+  "src/cpg/build.rs:529": "3ea2eb28a20e5788",
+  "src/cpg/multiline_call_arg_tests.rs:220": "d2def7c4fd922c3d",
+  "src/cpg/multiline_call_arg_tests.rs:222": "e305e360093258d9",
+  "src/cpg/multiline_call_arg_tests.rs:349": "722f10bff52f98a1",
+  "src/cpg/multiline_call_arg_tests.rs:391": "720e48f61a5ce537",
+  "src/cpg/multiline_call_arg_tests.rs:392": "ca7c8a8f930662ea",
+  "src/cpg/multiline_call_arg_tests.rs:424": "577c813a4d266da7",
+  "src/cpg/multiline_call_arg_tests.rs:437": "8147436998df37cd",
+  "src/cpg/multiline_call_arg_tests.rs:473": "0efbb4abd7162260",
+  "src/cpg/multiline_call_arg_tests.rs:500": "20cee456c514f2c5",
+  "src/cpg/multiline_call_arg_tests.rs:540": "8c4eb372949bf109",
+  "src/executable_owner/admission.rs:124": "9a472d16b74f157a",
+  "src/executable_owner/admission.rs:71": "f5a0b53ba8cadbb7",
+  "src/executable_owner/integration.rs:159": "b6230c7eec649ef5",
+  "src/go_build_profile.rs:249": "c4828253496a2c5d",
+  "src/go_build_profile.rs:499": "5ca8559ddaa517ac",
+  "src/go_promoted_snapshot.rs:238": "c5fd2c9a3f282ed0",
+  "src/go_promoted_snapshot/interface_profiles.rs:21": "c5fd2c9a3f282ed0",
+  "src/go_type_alias.rs:293": "af41509da7961793",
+  "src/go_type_alias/canon.rs:396": "e960622b274fa80e",
+  "src/go_type_alias/canon.rs:398": "9de7c4deb03a357f",
+  "src/go_type_alias/canon.rs:400": "61cdc8b89714c8e8",
+  "src/go_type_alias/canon.rs:401": "a931368d46e7a085",
+  "src/go_type_alias/canon.rs:406": "bed3b9a0e6e4d8d5",
+  "src/go_type_alias/canon.rs:411": "16d4a32dcea9b80b",
+  "src/go_type_alias/canon.rs:416": "74fb4a5011dcbdf2",
+  "src/main.rs:1020": "0d68f9a5d956eb01",
+  "src/main.rs:1021": "ab211e34e9133547",
+  "src/main.rs:25": "5089895b30ec429f",
+  "src/main.rs:312": "25c1a7e2f646d1f2",
+  "src/main.rs:322": "3b0da51040744502",
+  "src/queries.rs:315": "db7ca80582fe1a87",
+  "src/type_providers/go.rs:1653": "ec57abd423154ddd",
+  "src/type_providers/go.rs:371": "5033049a20889a11",
+  "tests/ast/cpg_cache_test.rs:1391": "7ee819c81a50f34b",
+  "tests/ast/cpg_cache_test.rs:1437": "fa63983c663a829c",
+  "tests/ast/cpg_cache_test.rs:1488": "a9228fdfd9257760",
+  "tests/integration/call_graph_test.rs:1825": "702a5b100351cb26",
+  "tests/integration/import_binding_test.rs:936": "2f5037262fec47b5",
+  "tests/integration/imported_object_alias_test.rs:175": "075f2c753e860e62",
+  "tests/integration/imported_object_alias_test.rs:342": "1515476570b929e9",
+  "tests/integration/imported_object_alias_test.rs:352": "1515476570b929e9",
+  "tests/integration/js_export_reexport_test.rs:505": "c72108cf566a1bca",
+  "tests/integration/resolution_test.rs:4077": "06668ffbc9efdbe5",
+  "tests/lang/bash/bash_test.rs:214": "cefb818b1a5e90dd",
+  "tests/lang/bash/bash_test.rs:226": "c35c54daae30a929",
+  "tests/lang/bash/bash_test.rs:229": "ef3ecffe23a8ff4d",
+  "tests/lang/java/algo_test.rs:405": "d5cdbf7b00ac69fe",
+  "tests/lang/java/algo_test.rs:409": "57fd43c3a6b93db1",
+  "tests/lang/java/algo_test.rs:418": "89d3c387b0d49fa9",
+  "tests/lang/java/algo_test.rs:421": "00e638fa2355ebe0",
+  "tests/lang/typescript/typed_receiver_test.rs:476": "de5063379c1989c5",
+  "tests/lang/typescript/typed_receiver_test.rs:724": "30112a47932ad368",
+  "tests/name_resolution/build_wiring_test.rs:332": "2db8c76430fb6ac0"
+ }
+}
