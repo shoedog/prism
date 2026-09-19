@@ -1,6 +1,6 @@
 {
   "schema": "prism.parameter-syntax-frequency-receipt/1",
-  "status": "merged_postmerge_ci_pending",
+  "status": "merged_postmerge_ci_green",
   "candidate": {
     "commit": "f79bb95485940bcb1418a2510cd9ec73a65ca37f",
     "tree": "c5c48a54f2b4ba989c9c3ad7d2a4b4f36a5aca29",
@@ -61,8 +61,10 @@
     "merged_at": "2026-09-19T22:27:10Z",
     "merge_receipt_sha256": "b837dfa2535dedf9d6e411ca9369e9fc7d83ab79eb853eb7d8015b809d40d18a",
     "main_push_ci_run": "35473373053",
-    "main_push_ci": "IN_PROGRESS",
-    "main_push_ci_observation_sha256": "f839ae9aa43da32b5cff49f0af2e4858aef1f7607100ab78fde09152a05daf07"
+    "main_push_ci": "SUCCESS",
+    "main_push_ci_completed_at": "2026-09-19T23:03:25Z",
+    "main_push_ci_receipt_sha256": "46c0f34a04d389c5628d3c2663b025c55012e3e1fc791c4c0413630ea7688d20",
+    "historical_pending_observation_sha256": "f839ae9aa43da32b5cff49f0af2e4858aef1f7607100ab78fde09152a05daf07"
   },
   "evidence": {
     "final_source_manifest_sha256": "2eb75cd65acf7220279ef264540a3b45b5b47f6cbcf07fe8c7b8bf8eb2b23740",

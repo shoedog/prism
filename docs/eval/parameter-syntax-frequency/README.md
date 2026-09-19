@@ -5,7 +5,7 @@ tool in `scripts/parameter-frequency/`. The source implementation is frozen at
 `f79bb95485940bcb1418a2510cd9ec73a65ca37f` and has final local approval with
 0 WRONG / 0 SMELL. PR #319 passed all five pre-merge checks and merged as
 `30e13053c9f3f9940b5526e20af0cb40f2a9fae4`; its tree exactly matches the
-published head. The separate main-push CI run is pending.
+published head. The separate main-push CI run completed with all five checks green.
 
 ## Custody
 
@@ -18,8 +18,8 @@ published head. The separate main-push CI run is pending.
 - `reviews/final-acceptance.md` reconciles the fixed public measurement and all local gates.
 - `receipts/final-gates.md` records the public repeat/recomputation and final local gates.
 - `receipts/pr319-premerge-ci.json` and `receipts/pr319-merge.json` preserve publication
-  and merge custody; `receipts/pr319-main-ci-pending.json` is the current read-only
-  observation of the separate main-push run.
+  and merge custody. `receipts/pr319-main-ci.json` is the terminal all-green main-push
+  receipt; `receipts/pr319-main-ci-pending.json` preserves the earlier observation.
 
 The canonical 1,677,371-byte packet is retained outside git at
 `/private/tmp/prism-post317-parameter-frequency-verification/final-f79bb954/cold.json`,

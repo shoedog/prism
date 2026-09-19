@@ -37,7 +37,9 @@ and merged at `30e13053c9f3f9940b5526e20af0cb40f2a9fae4` on
 2026-09-19T22:27:10Z. Its tree `961f698db1049cec42e7a8e15e716948082af9b6`
 matches published head `1ddfbe147e8785f2d04d5fb7c28193de9cca302c`. Compact
 custody is under `docs/eval/parameter-syntax-frequency/`. Separate main-push
-CI run `35473373053` is pending; successor planning has not started.
+CI run `35473373053` completed at 2026-09-19T23:03:25Z with Test Suite,
+Format Check, Clippy Lint, Language Coverage Matrix, and Coverage all green.
+Successor planning is now unblocked; no successor implementation has started.
 
 ## Historical and deferred work
 
@@ -51,6 +53,6 @@ CI run `35473373053` is pending; successor planning has not started.
 
 ## Resume order
 
-1. Wait for main-push CI run `35473373053` to finish and preserve its terminal receipt.
-2. Reconcile the terminal main-push result across the receipt and handoffs.
-3. Begin successor planning only after that run is green.
+1. Preserve successor planning against merge `30e13053` and the observed census.
+2. Require independent planning acceptance before dispatching implementation.
+3. Keep P2a, P2b, and P3 in their recorded parked/deferred states unless separately authorized.
