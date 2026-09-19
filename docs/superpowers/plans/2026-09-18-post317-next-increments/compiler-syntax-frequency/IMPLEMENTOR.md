@@ -1,0 +1,11 @@
+# Implementor — one-compiler parameter syntax frequency
+
+Wait for controller-frozen planning approval of `SPEC.md`; planning cap2 precedes a distinct implementation cap2. Continue from the accepted repository source in a controller-isolated branch/worktree. Preserve all parked `/private/tmp/prism-post317-parameter-census` artifacts/snapshots; reuse only selected compiler-walk code, never the Rust/native scaffolding.
+
+Own only the new script directory/test and compact docs paths in SPEC. Hard600implementation/600tests/1200total lines; attach the pre-edit allocation. No dependencies, production modules, existing worker/schema changes, Program/typecheck, native ownership/CPG, dual-parser joins or support decisions. Use the fixed414manifest and pinnedTS5.9.3; no public parsing before core review approval.
+
+Write all ten control groups and exact fixture vectors first. Capture meaningful same-interface observer RED, distinguishing fixture/baseline behavior from setup failure and native regression. Implement small nested file/callable/parameter rows and directly recomputable frequency summaries. Honor the explicit body-bearing discovery, arrow-direct-token, binding-only nested flags, UTF8 map and diagnostic/stratum definitions; do not add generic ID/schema infrastructure.
+
+Complete new tests, freeze source and evidence for independent review, fold only authorized finite findings on the same artifact. After core approval, run public cold/repeat and independent recomputation; then complete active Node and full default Rust regression gates and required CI checks with exact exclusions. Root owns PR/push/green merge and final scope decisions. Hand back hashes, full test totals, readout/receipt, limits and planned successor based solely on observed frequency. Stop on budget/custody/scope breach rather than adding another size amendment.
+
+Finite planning controls: derive excluded bodyless signatures from the separate traversal tally, diagnostics from diagnostic arrays, files from file rows and frequency from emitted nested rows. Pin `type T = (value: string) => number;` to one exclusion and zero emitted callable/parameter rows. Arrow parentheses require direct `getChildren(sourceFile)` OpenParenToken before the arrow token, with bare/parenthesized/async/generic/body-parenthesis negatives.

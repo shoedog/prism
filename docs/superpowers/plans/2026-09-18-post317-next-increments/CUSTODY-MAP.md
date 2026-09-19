@@ -20,4 +20,11 @@ This map records byte-exact copies made on 2026-09-19. The copied P2 split packa
 | `/private/tmp/prism-post317-planning/p3/next-increment-brief.md` | `parked-p3/next-increment-brief.md` | `1839b042cd7d492b07b07dddcaec600cda4cf1979b94f39699788dc19aadab26` | byte-exact |
 | `/private/tmp/prism-post317-planning/p3/reviewer-prompt.md` | `parked-p3/reviewer-prompt.md` | `a37159dd9b599834ed9ad0556fc50bb4f8b9d9be43a56f8bb480530f420cf1f7` | byte-exact |
 
-`parked-p3/README.md` and `HANDOFF.md` are new custody indexes, not copies. They record current controller state without altering historical draft bytes.
+| `/private/tmp/prism-post317-planning/compiler-syntax-frequency/SPEC.md` | `compiler-syntax-frequency/SPEC.md` | `a44bf6002b129862a9eb906fab9e9a31074aa017ae62ca5d198a663a9c31d13f` | byte-exact |
+| `/private/tmp/prism-post317-planning/compiler-syntax-frequency/IMPLEMENTOR.md` | `compiler-syntax-frequency/IMPLEMENTOR.md` | `8ec425b4553743b6ccf34205b1cece1234509b62cce90c76d7d16d0c8990b0b3` | byte-exact |
+| `/private/tmp/prism-post317-planning/compiler-syntax-frequency/REVIEWER.md` | `compiler-syntax-frequency/REVIEWER.md` | `98e1ea69437779adb33001dbe62be88f839c406925a1736fdc812344a8aa453b` | byte-exact |
+| `/private/tmp/prism-post317-planning/compiler-syntax-frequency/INDEPENDENT-REVIEW-round1.md` | `compiler-syntax-frequency/INDEPENDENT-REVIEW-round1.md` | `305a9b5495deabf5d2b24cfb9331ec66d0b4143da6d169ed96e22696ff4ad582` | byte-exact |
+| `/private/tmp/prism-post317-planning/compiler-syntax-frequency/INDEPENDENT-REVIEW-round2.md` | `compiler-syntax-frequency/INDEPENDENT-REVIEW-round2.md` | `67002ff30df787a250cab9ae76ced8b76a18ea81367ef7b6a6bc2466d18f09f3` | byte-exact |
+| `/private/tmp/prism-post317-planning/compiler-syntax-frequency/artifact-manifest.json` | `compiler-syntax-frequency/artifact-manifest.json` | `768e9249535267922e4bdb038d90213e58520c8edfb4a228ab888c6425a2c7fe` | byte-exact |
+
+`parked-p3/README.md`, `HANDOFF.md`, and `compiler-syntax-frequency/README.md` are current custody indexes, not copies. They record controller state without altering historical draft bytes.

@@ -2,9 +2,9 @@
 
 ## State
 
-- Stage: frozen source checkpoint `14e86083c2c754ed412d440742bd5763be388e42` (tree `a0411db6d858fe34806376ce41d2621853848d8b`) is locally accepted after independent core and final evidence review: `APPROVE`, WRONG 0 / one nonblocking coverage SMELL. This is not publication or adoption authority.
-- Worktree: `/private/tmp/prism-post316-slice1`, branch `feat/post317-exact-caller-reads`.
-- Controller owns checkpoint commits. No push, PR, merge, release, rebaseline, or adoption has been performed.
+- Stage: frozen source checkpoint `14e86083c2c754ed412d440742bd5763be388e42` (tree `a0411db6d858fe34806376ce41d2621853848d8b`) was independently accepted (`APPROVE`, WRONG 0 / one nonblocking coverage SMELL), published as PR [#318](https://github.com/shoedog/prism/pull/318), and merged at `e2d177d5144126a83159f41f1b2ee14e8eeb2b94` on 2026-09-19T20:45:38Z. The merge tree `f21553d63fb99a3c267d44fc39b098c8fe8c7f0b` matches published head `85d4b3c0090dfaf7b33f9eb0348fff80cbf784fb`.
+- The active worktree has moved to `feat/parameter-syntax-frequency`; this historical handoff remains bound to the accepted Priority 1 source manifest.
+- The terminal PR #318 CI receipt records five `SUCCESS` checks at the published head: `/private/tmp/prism-post317-publication/pr318-ci-receipt.json` SHA-256 `27a03fc652fb75a5f626127643dc87baed46ba82c1e801e78881bd8079ad30c1`. The separate merge augmentation is `/private/tmp/prism-post317-publication/pr318-merge-receipt.json`.
 - Candidate paths and hashes are bound by `source-manifest.md`; parallel input-custody/planning-document edits are outside this implementation manifest.
 - Accepted closure custody: `design-closure/design-gate-closure.md` SHA-256 `7808bee475df710769cc73ea19cede21d0b0a34fc80108d3922fcb6623979d5f`; `design-closure/design-anonymous-token-table.md` SHA-256 `931005cc7a7f60f5b39e19592b22976028c1fe2642a00266732b6da2cbd3a2b1`; `design-closure/DESIGN-CLOSURE-ACCEPTANCE.md` SHA-256 `9280df5950a4d31f9b48f8748c95f72e10935ff731bd771a3c1ebf545b74b441`.
 - Budget custody: `design-closure/budget-amendment.md` records the 2026-09-19 controller amendment and embeds the independent read-only assessment (source SHA-256 `afbf3e19a88ca42866c4a64eafa4c9c1f0f206ec02dfed6c11796e7f49f846f2`). The amendment supersedes only the original 700/1,600 estimate; scope, review cap, proof population and gate obligations are unchanged.
