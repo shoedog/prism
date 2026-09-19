@@ -1,8 +1,9 @@
 # Handoff — post-PR317 next increments
 
 **Written:** 2026-09-18 America/Denver
-**State:** Priority 1 locally accepted; P2 planning accepted and ready for separate dispatch;
-P3 parked
+**State:** Priority 1 locally accepted; the unsplit P2 packet is historical and superseded by
+accepted P2a syntax/integrity/frequency work, dispatched externally with core approval pending;
+P2b deferred; P3 parked
 **Workspace:** `/private/tmp/prism-post316-slice1`
 **Branch:** `feat/post317-exact-caller-reads`
 
@@ -35,12 +36,24 @@ P3 parked
   `docs/superpowers/plans/2026-09-18-post317-next-increments/reviews/architecture-final-acceptance.md`
 - Public Excalidraw source-custody receipt:
   `docs/eval/post317-input-custody.md`
-- Accepted Priority 2 source-only census contract, prompts, input manifest and review:
+- Historical, superseded full Priority 2 source-only census contract, prompts, input manifest and review:
   `docs/superpowers/plans/2026-09-18-post317-next-increments/specs/02-fixed-source-parameter-census.md`,
   `docs/superpowers/plans/2026-09-18-post317-next-increments/implementor/02-fixed-source-parameter-census.md`,
   `docs/superpowers/plans/2026-09-18-post317-next-increments/reviewer/02-fixed-source-parameter-census.md`,
   `docs/superpowers/plans/2026-09-18-post317-next-increments/inputs/02-excalidraw-input-hash-manifest.json`, and
   `docs/superpowers/plans/2026-09-18-post317-next-increments/reviews/02-fixed-source-parameter-census-acceptance.md`.
+- Accepted split planning packet and durable prompts:
+  `docs/superpowers/plans/2026-09-18-post317-next-increments/p2-split/AMENDMENT.md`,
+  `docs/superpowers/plans/2026-09-18-post317-next-increments/p2-split/P2A-SPEC.md`,
+  `docs/superpowers/plans/2026-09-18-post317-next-increments/p2-split/P2B-DEFERRED-SPEC.md`,
+  `docs/superpowers/plans/2026-09-18-post317-next-increments/p2-split/P2A-IMPLEMENTOR.md`,
+  `docs/superpowers/plans/2026-09-18-post317-next-increments/p2-split/P2A-REVIEWER.md`, and
+  `docs/superpowers/plans/2026-09-18-post317-next-increments/p2-split/SPLIT-PLANNING-ACCEPTANCE.md`.
+- Current planning custody and copy hashes:
+  `docs/superpowers/plans/2026-09-18-post317-next-increments/HANDOFF.md` and
+  `docs/superpowers/plans/2026-09-18-post317-next-increments/CUSTODY-MAP.md`.
+- Parked P3 draft, prompts, review, and status:
+  `docs/superpowers/plans/2026-09-18-post317-next-increments/parked-p3/README.md`.
 
 The brief ranks a bounded straight-line caller-RD design first, an input-gated WS2
 cohort measurement second, and a non-authorizing WS4 ownership packet third. It keeps
@@ -118,11 +131,15 @@ accuracy or flip claim. The final acceptance receipt is
 `docs/eval/post317-exact-caller-reads/receipts/final-acceptance.md`, copied from source
 SHA-256 `25ec6a4bf341b952c3bc0becedb2009886f8ea94b4b363981a01e1c8d8884209`.
 
-Priority 2 planning is independently accepted with WRONG 0 / SMELL 0. The accepted external
-manifest SHA-256 is `b0197e015b6cfe09294a9cdcfe89e23ef9ecf827e733dbadf0deae7227459ee1`
-and accepted spec SHA-256 is `e6e1bb3e8a928943149e59cfa29598c1e15142d10468c32fe5704a70132c1f71`;
-the durable prompt copies point to the durable spec path. Execution still requires a separate
-controller dispatch.
+The formerly accepted full Priority 2 packet remains historical: external manifest SHA-256
+`b0197e015b6cfe09294a9cdcfe89e23ef9ecf827e733dbadf0deae7227459ee1` and full spec SHA-256
+`e6e1bb3e8a928943149e59cfa29598c1e15142d10468c32fe5704a70132c1f71`. It is superseded for
+active work by the accepted split packet: P2a artifact manifest SHA-256
+`3b5e61b3f802ed961a46c2260f42ead3d387b7e0d86a1092119fd0cac323223a` and normative P2a spec
+SHA-256 `6b681c35baa365260f9466d3479d2b04a5398add57b8a5229e4f72386a5e4d0c`.
+P2a is dispatched externally but remains core-approval pending; no public parsing, census,
+mutation, or native-readiness claim has run. P2b is deferred pending a separate dispatch,
+budget, review cap, accepted P2a binding, and fresh native-readiness proof.
 
 Priority 3 is parked: its proposed source-only worker-outcome pilot did not add sufficiently
 distinct evidence while dependency custody and compiler Program closure remain absent. No P3
@@ -130,12 +147,13 @@ execution is authorized; the dependency-custody decision is deferred.
 
 ## Resume order
 
-1. Checkpoint the Priority 1 acceptance receipt, final gate receipts, accepted Priority 2 plan,
+1. Checkpoint the Priority 1 acceptance receipt, final gate receipts, accepted P2 split packet,
    and these handoffs without changing the frozen source manifest.
-2. Dispatch the accepted Priority 2 source-only census separately; its observer may use only the
-   authenticated 414-file population and the accepted fail-first/mutation contract.
-3. Keep Priority 3 parked until a separate dependency-custody decision supplies distinct evidence.
-4. Use one PR per accepted increment. Publication, merge, rebaseline and adoption remain separate
+2. Complete P2a core approval before any public parsing, census, or mutation; its observer may
+   then use only the authenticated 414-file population and accepted fail-first/mutation contract.
+3. Keep P2b deferred until its separately authorized native-readiness increment.
+4. Keep Priority 3 parked until a separate dependency-custody decision supplies distinct evidence.
+5. Use one PR per accepted increment. Publication, merge, rebaseline and adoption remain separate
    controller decisions.
 
 At initial architecture planning acceptance, no production source was edited and no implementation
