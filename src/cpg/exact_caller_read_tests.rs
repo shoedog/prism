@@ -257,114 +257,45 @@ fn exact_caller_reads_owner_bytes_and_mutation_are_discriminating() {
 #[test]
 fn exact_caller_reads_preserve_refused_domains() {
     let cases = [
-        (
-            "write",
-            "import {item} from './origin';\nfunction outer(value){value=source();sink(value);return item(value);}",
-        ),
-        (
-            "branch",
-            "import {item} from './origin';\nfunction outer(value){if(flag){sink(value);return item(value);}}",
-        ),
-        (
-            "loop",
-            "import {item} from './origin';\nfunction outer(value){while(flag){sink(value);return item(value);}}",
-        ),
-        (
-            "alias",
-            "import {item} from './origin';\nfunction outer(value){const alias=value;sink(alias);return item(alias);}",
-        ),
-        (
-            "short-circuit",
-            "import {item} from './origin';\nfunction outer(value){flag&&sink(value);return item(value);}",
-        ),
-        (
-            "conditional",
-            "import {item} from './origin';\nfunction outer(value){flag?sink(value):noop();return item(value);}",
-        ),
-        (
-            "switch",
-            "import {item} from './origin';\nfunction outer(value){switch(flag){case 1:sink(value);break;}return item(value);}",
-        ),
-        (
-            "compound-write",
-            "import {item} from './origin';\nfunction outer(value){value+=1;sink(value);return item(value);}",
-        ),
-        (
-            "update-write",
-            "import {item} from './origin';\nfunction outer(value){value++;sink(value);return item(value);}",
-        ),
-        (
-            "redeclaration",
-            "import {item} from './origin';\nfunction outer(value){var value=source();sink(value);return item(value);}",
-        ),
-        (
-            "same-line-local-write",
-            "import {item} from './origin';\nfunction outer(){let value=source();value=next();sink(value);return item(value);}",
-        ),
-        (
-            "destructure",
-            "import {item} from './origin';\nfunction outer(value){const {x}=value;sink(value);return item(value);}",
-        ),
-        (
-            "default-parameter",
-            "import {item} from './origin';\nfunction outer(value=0){sink(value);return item(value);}",
-        ),
-        (
-            "rest-parameter",
-            "import {item} from './origin';\nfunction outer(...value){sink(value);return item(value);}",
-        ),
-        (
-            "nested-capture",
-            "import {item} from './origin';\nfunction outer(value){function inner(){sink(value);return item(value);}return inner();}",
-        ),
-        (
-            "shadow",
-            "import {item} from './origin';\nfunction outer(value){{const value=source();sink(value);return item(value);}}",
-        ),
-        (
-            "try",
-            "import {item} from './origin';\nfunction outer(value){try{sink(value);return item(value);}catch(err){return err;}}",
-        ),
-        (
-            "reflection",
-            "import {item} from './origin';\nfunction outer(value){eval('x');sink(value);return item(value);}",
-        ),
-        (
-            "mixed-member-read",
-            "import {item} from './origin';\nfunction outer(value){sink(value.x);sink(value);return item(value);}",
-        ),
-        (
-            "mixed-member-write",
-            "import {item} from './origin';\nfunction outer(value){value.x=1;sink(value);return item(value);}",
-        ),
-        (
-            "array-destructured-local",
-            "import {item} from './origin';\nfunction outer(){\nconst [value]=source();\nsink(value);return item(value);}",
-        ),
-        (
-            "object-destructured-local",
-            "import {item} from './origin';\nfunction outer(){\nconst {value}=source();\nsink(value);return item(value);}",
-        ),
-        (
-            "throw",
-            "import {item} from './origin';\nfunction outer(value){sink(value);throw item(value);}",
-        ),
-        (
-            "await",
-            "import {item} from './origin';\nasync function outer(value){sink(value);await item(value);}",
-        ),
-        (
-            "yield",
-            "import {item} from './origin';\nfunction* outer(value){sink(value);yield item(value);}",
-        ),
-        (
-            "class-static",
-            "import {item} from './origin';\nfunction outer(value){class C{static{sink(value);}}sink(value);return item(value);}",
-        ),
-        (
-            "ambiguous-owner",
-            "import {item} from './origin';\nfunction outer(value){sink(value);return item(value);} function outer(value){sink(value);return item(value);}",
-        ),
+        ("write", "import {item} from './origin';\nfunction outer(value){value=source();sink(value);return item(value);}"),
+        ("branch", "import {item} from './origin';\nfunction outer(value){if(flag){sink(value);return item(value);}}"),
+        ("loop", "import {item} from './origin';\nfunction outer(value){while(flag){sink(value);return item(value);}}"),
+        ("alias", "import {item} from './origin';\nfunction outer(value){const alias=value;sink(alias);return item(alias);}"),
+        ("short-circuit", "import {item} from './origin';\nfunction outer(value){flag&&sink(value);return item(value);}"),
+        ("conditional", "import {item} from './origin';\nfunction outer(value){flag?sink(value):noop();return item(value);}"),
+        ("switch", "import {item} from './origin';\nfunction outer(value){switch(flag){case 1:sink(value);break;}return item(value);}"),
+        ("compound-write", "import {item} from './origin';\nfunction outer(value){value+=1;sink(value);return item(value);}"),
+        ("update-write", "import {item} from './origin';\nfunction outer(value){value++;sink(value);return item(value);}"),
+        ("redeclaration", "import {item} from './origin';\nfunction outer(value){var value=source();sink(value);return item(value);}"),
+        ("same-line-local-write", "import {item} from './origin';\nfunction outer(){let value=source();value=next();sink(value);return item(value);}"),
+        ("destructure", "import {item} from './origin';\nfunction outer(value){const {x}=value;sink(value);return item(value);}"),
+        ("default-parameter", "import {item} from './origin';\nfunction outer(value=0){sink(value);return item(value);}"),
+        ("rest-parameter", "import {item} from './origin';\nfunction outer(...value){sink(value);return item(value);}"),
+        ("nested-capture", "import {item} from './origin';\nfunction outer(value){function inner(){sink(value);return item(value);}return inner();}"),
+        ("nested-arrow", "import {item} from './origin';\nfunction outer(value){const f=()=>sink(value);sink(value);return item(value);}"),
+        ("nested-expression", "import {item} from './origin';\nfunction outer(value){const f=function(){sink(value);};sink(value);return item(value);}"),
+        ("shadow", "import {item} from './origin';\nfunction outer(value){{const value=source();sink(value);return item(value);}}"),
+        ("try", "import {item} from './origin';\nfunction outer(value){try{sink(value);return item(value);}catch(err){return err;}}"),
+        ("reflection", "import {item} from './origin';\nfunction outer(value){eval(code);sink(value);return item(value);}"),
+        ("escaped-eval", "import {item} from './origin';\nfunction outer(value,code){\\u0065val(code);sink(value);return item(value);}"),
+        ("parenthesized-eval", "import {item} from './origin';\nfunction outer(value,code){(eval)(code);sink(value);return item(value);}"),
+        ("escaped-callee", "import {item} from './origin';\nfunction outer(value){s\\u0069nk(value);return item(value);}"),
+        ("mixed-member-read", "import {item} from './origin';\nfunction outer(value){sink(value.x);sink(value);return item(value);}"),
+        ("mixed-member-write", "import {item} from './origin';\nfunction outer(value){value.x=1;sink(value);return item(value);}"),
+        ("array-destructured-local", "import {item} from './origin';\nfunction outer(){\nconst [value]=source();\nsink(value);return item(value);}"),
+        ("object-destructured-local", "import {item} from './origin';\nfunction outer(){\nconst {value}=source();\nsink(value);return item(value);}"),
+        ("throw", "import {item} from './origin';\nfunction outer(value){sink(value);throw item(value);}"),
+        ("await", "import {item} from './origin';\nasync function outer(value){sink(value);await item(value);}"),
+        ("yield", "import {item} from './origin';\nfunction* outer(value){sink(value);yield item(value);}"),
+        ("class-static", "import {item} from './origin';\nfunction outer(value){class C{static{sink(value);}}sink(value);return item(value);}"),
+        ("class-expression", "import {item} from './origin';\nfunction outer(value){const C=class {field=sink(value);};sink(value);return item(value);}"),
+        ("named-class-expression", "import {item} from './origin';\nfunction outer(value){const C=class Inner {field=sink(value);};sink(value);return item(value);}"),
+        ("decorated-class-expression", "import {item} from './origin';\nfunction outer(value){const C=@dec class {field=sink(value);};sink(value);return item(value);}"),
+        ("new-expression", "import {item} from './origin';\nfunction outer(value){new Box(value);sink(value);return item(value);}"),
+        ("return-before-read", "import {item} from './origin';\nfunction outer(value){return item(value);sink(value);}"),
+        ("string-argument", "import {item} from './origin';\nfunction outer(value){sink('text');sink(value);return item(value);}"),
+        ("optional-call", "import {item} from './origin';\nfunction outer(value){sink?.(value);sink(value);return item(value);}"),
+        ("ambiguous-owner", "import {item} from './origin';\nfunction outer(value){sink(value);return item(value);} function outer(value){sink(value);return item(value);}"),
     ];
     let mut failures = Vec::new();
     for (language, ext) in [
@@ -398,6 +329,43 @@ fn exact_caller_reads_preserve_refused_domains() {
             ));
         }
     }
+    let typed_cases = [
+        ("using", "function outer(value: number){using resource=source();sink(value);return item(value);}"),
+        ("definite-assignment", "function outer(value: number){let resource!: number;sink(value);return item(value);}"),
+        ("as-expression", "function outer(value: number){sink(value as number);sink(value);return item(value);}"),
+        ("satisfies-expression", "function outer(value: number){sink(value satisfies number);sink(value);return item(value);}"),
+        ("non-null-eval", "function outer(value: number,code: string){eval!(code);sink(value);return item(value);}"),
+    ];
+    for (language, ext) in [(Language::TypeScript, "ts"), (Language::Tsx, "tsx")] {
+        for (case, app) in typed_cases {
+            let later = *value_spans(app).last().unwrap();
+            let rows = producer_rows(
+                &CodePropertyGraph::build(&fixture(language, ext, app)),
+                &format!("app.{ext}"),
+                "outer",
+                "value",
+            );
+            if rows.iter().any(|row| (row.use_start, row.use_end) == later) {
+                failures.push(format!(
+                    "{ext}/{case}: refused later edge appeared {rows:?}"
+                ));
+            }
+        }
+    }
+    let assertion =
+        "function outer(value: number){sink(<number>value);sink(value);return item(value);}";
+    let later = *value_spans(assertion).last().unwrap();
+    let rows = producer_rows(
+        &CodePropertyGraph::build(&fixture(Language::TypeScript, "ts", assertion)),
+        "app.ts",
+        "outer",
+        "value",
+    );
+    if rows.iter().any(|row| (row.use_start, row.use_end) == later) {
+        failures.push(format!(
+            "ts/type-assertion: refused later edge appeared {rows:?}"
+        ));
+    }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
@@ -411,8 +379,7 @@ fn exact_caller_reads_preserve_member_and_non_js_routes() {
     let member_dfg = DataFlowGraph::build(&member_files);
     assert!(member_dfg.exact_labels.is_empty());
 
-    let mixed =
-        "function outer(value,other){sink(value.x);sink(value);sink(other);return sink(other);}";
+    let mixed = "function outer(value,other){value.x=1;sink(value.x);sink(value);sink(other);return sink(other);}";
     let mixed_files = BTreeMap::from([(
         "mixed.js".to_string(),
         ParsedFile::parse("mixed.js", mixed, Language::JavaScript).unwrap(),
@@ -470,6 +437,36 @@ fn exact_caller_reads_preserve_member_and_non_js_routes() {
         1,
         "legacy Python producer shape changed: {rows:?}"
     );
+}
+
+#[test]
+fn exact_caller_reads_closed_grammar_positive_controls() {
+    assert!(!ParsedFile::exact_read_runtime_kind_is_supported(
+        "future_runtime_expression"
+    ));
+    let typed = [
+        "function outer<T>(value: number){sink(value!);return sink<T>(value!);}",
+        "function outer<T>(){\nconst value: number=source<T>();\nprepare();\nsink(value!);return sink<T>(value!);}",
+    ];
+    for (language, ext) in [(Language::TypeScript, "ts"), (Language::Tsx, "tsx")] {
+        for source in typed {
+            let dfg = DataFlowGraph::build(&fixture(language, ext, source));
+            assert_eq!(dfg.exact_labels.len(), 1, "{ext}: {source}");
+            assert!(dfg.exact_labels.keys().all(|edge| {
+                edge.from.path == AccessPath::simple("value")
+                    && edge.to.path == AccessPath::simple("value")
+            }));
+        }
+    }
+    for (language, ext) in [
+        (Language::JavaScript, "js"),
+        (Language::TypeScript, "ts"),
+        (Language::Tsx, "tsx"),
+    ] {
+        let source = "function outer(π){sink(π);return sink(π);}";
+        let dfg = DataFlowGraph::build(&fixture(language, ext, source));
+        assert_eq!(dfg.exact_labels.len(), 1, "{ext}: ordinary Unicode");
+    }
 }
 
 #[test]

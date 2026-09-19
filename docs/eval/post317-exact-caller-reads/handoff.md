@@ -2,7 +2,7 @@
 
 ## State
 
-- Stage: implementation review cap 2 parked the expression-descendant gate as open-class; the bounded grammar design is independently accepted and the controller has resumed the same artifact under one design-repair validation round. The controller approved the measured **850 production / 1,800 total** budget amendment; the held formatted artifact is 798/1,662 and awaits focused completion and a new source freeze.
+- Stage: the controller-approved closed grammar is implemented on the same artifact. Its full focused population is green, the formatted artifact remains 798/1,662 within the amended 850/1,800 limits, and the exact source/test bytes are ready for a controller checkpoint and the one post-design validation round. This is freeze readiness, not implementation acceptance.
 - Worktree: `/private/tmp/prism-post316-slice1`, branch `feat/post317-exact-caller-reads`.
 - Controller owns checkpoint commits. No push, PR, merge, release, rebaseline, or adoption has been performed.
 - Candidate paths and hashes are bound by `source-manifest.md`; parallel input-custody/planning-document edits are outside this implementation manifest.
@@ -21,4 +21,4 @@ Global `VarLocation` identity, legacy edges/labels/adjacency, public query signa
 - Genuine predecessor CPG96 cache custody is `/private/tmp/prism-post317-planning/base-cache/RECEIPT.md` SHA-256 `dbee9183f888dbecc6a9e593dc09ab4517fa33d734fad218789edb537bf4adbd`; immutable cache binary SHA-256 `2bdf18dc1f485a4d00efa81033a3c90fee0e7c2a43daf373d31ed528b5859fb2`.
 - Review round 2 closed W1-W3 and all finite evidence gaps, then parked W4 because the blacklist/default-accept descendant walk admitted class expressions. The accepted replacement is a closed named-node, field, anonymous-token and lexical-atom grammar with unknown syntax refused. No class-specific blacklist extension is authorized.
 - Historical cache and Rust results remain evidence for their exact source freezes only. After the accepted replacement, final candidate cache/cost, default/MCP/widest Rust suites, examples, clippy, fmt/diff, Node/compiler authority/Python and Tier-A matrix/quick must be replayed. Any excluded, incomplete, or invalid gate must remain explicit; historical real JS/private corpora remain input-blocked.
-- The preserved design-repair patch has focused 9/0 evidence only. Focused completion, the final formatted 850/1,800 recount, controller source freeze and the one post-design validation round must precede any correctness or acceptance claim.
+- Final focused results are exact caller `9/0`, predecessor same-line `16/0` at each of Rayon 1 and 4, optional-parameter `31/0`, inert-default `22/0`, and format check clean. `source-manifest.md` binds the hashes and the meaningful 44-row predecessor RED. The controller source checkpoint and one post-design validation round must precede any correctness or acceptance claim; costly final gates intentionally wait for core approval.
