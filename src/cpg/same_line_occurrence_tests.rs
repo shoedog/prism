@@ -1347,6 +1347,7 @@ fn same_line_occurrence_o14_caller_source_epochs_match_fresh_builds() {
         "import {item} from './origin';\nfunction outer(value){sink(value);return item(value);}",
         "import {item} from './origin';\nfunction outer(value){return item(value)+sink(value);}",
         "import {item} from './origin';\nfunction outer(value){sink(value);\nreturn item(value);}",
+        "import {item} from './origin';\nfunction outer(value){return item(value);}",
         "import {item} from './origin';\nfunction outer(value){sink(value);return item(value);}",
     ];
     let mut files = fixture(Language::JavaScript, "js", variants[0]);

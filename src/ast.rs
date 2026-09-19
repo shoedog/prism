@@ -7384,20 +7384,19 @@ impl ParsedFile {
         paths
     }
 
-    /// Whether a JS/TS/TSX callable is safe for the bounded exact-read expansion.
-    /// This is deliberately stricter than the general DFG inventory: any control
-    /// flow, nested callable, recovery node, short-circuit expression, update, or
-    /// reflective execution keeps the legacy producer unchanged.
+    /// Whether an ordinary named JS/TS/TSX function contains only the bounded
+    /// sequential statement subset used by exact-read expansion.
     pub(crate) fn exact_read_callable_is_straight_line(&self, func_node: &Node<'_>) -> bool {
         if !matches!(
             self.language,
             Language::JavaScript | Language::TypeScript | Language::Tsx
-        ) || func_node.has_error()
+        ) || func_node.kind() != "function_declaration"
+            || func_node.has_error()
         {
             return false;
         }
 
-        fn walk(parsed: &ParsedFile, root_id: usize, node: Node<'_>) -> bool {
+        fn sequential_tree(parsed: &ParsedFile, root_id: usize, node: Node<'_>) -> bool {
             if node.is_error() || node.is_missing() {
                 return false;
             }
@@ -7412,6 +7411,9 @@ impl ParsedFile {
                         | "with_statement"
                         | "catch_clause"
                         | "update_expression"
+                        | "await_expression"
+                        | "yield_expression"
+                        | "class_static_block"
                 )
             {
                 return false;
@@ -7432,13 +7434,28 @@ impl ParsedFile {
             }
 
             let mut cursor = node.walk();
-            let eligible = node
+            let is_sequential = node
                 .children(&mut cursor)
-                .all(|child| walk(parsed, root_id, child));
-            eligible
+                .all(|child| sequential_tree(parsed, root_id, child));
+            is_sequential
         }
 
-        walk(self, func_node.id(), *func_node)
+        let Some(body) = func_node.child_by_field_name("body") else {
+            return false;
+        };
+        let mut cursor = body.walk();
+        let is_supported = body.named_children(&mut cursor).all(|statement| {
+            matches!(
+                statement.kind(),
+                "comment"
+                    | "empty_statement"
+                    | "expression_statement"
+                    | "return_statement"
+                    | "lexical_declaration"
+                    | "variable_declaration"
+            ) && sequential_tree(self, func_node.id(), statement)
+        });
+        is_supported
     }
 
     /// Whether the byte span is the token of a plain required parameter.
@@ -7497,9 +7514,9 @@ impl ParsedFile {
             }
             if self.language.is_declaration_node(node.kind()) {
                 return self.language.declaration_name(&node).is_some_and(|name| {
-                    name.start_byte() <= span.start_byte
-                        && span.end_byte <= name.end_byte()
-                        && self.node_text(&node).contains(&span.path.base)
+                    name.kind() == "identifier"
+                        && (name.start_byte(), name.end_byte()) == (span.start_byte, span.end_byte)
+                        && self.node_text(&name) == span.path.base
                 });
             }
             if node.id() == func_node.id() {

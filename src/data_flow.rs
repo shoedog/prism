@@ -324,13 +324,14 @@ impl DataFlowGraph {
     fn exact_read_candidates(
         parsed: &ParsedFile,
         func_node: &tree_sitter::Node<'_>,
+        owner_is_unique: bool,
         parameter_occurrences: &[(String, usize, usize)],
         raw_aliases: &[(String, String, usize)],
         lvalue_spans: &[PathSpan],
         rvalue_spans: &[PathSpan],
         legacy_edges: &[FlowEdge],
     ) -> Vec<FlowEdge> {
-        if !parsed.exact_read_callable_is_straight_line(func_node) {
+        if !owner_is_unique || !parsed.exact_read_callable_is_straight_line(func_node) {
             return Vec::new();
         }
 
@@ -351,6 +352,10 @@ impl DataFlowGraph {
                 || raw_aliases.iter().any(|(alias, target, _)| {
                     alias == &path.base || AccessPath::from_expr(target).base == path.base
                 })
+                || lvalue_spans
+                    .iter()
+                    .chain(rvalue_spans)
+                    .any(|span| span.path.has_fields() && span.path.base == path.base)
             {
                 continue;
             }
@@ -463,6 +468,12 @@ impl DataFlowGraph {
                     .then(|| edge.binding_key())
             })
             .collect();
+        if !conflicting_bindings.is_empty() {
+            eprintln!(
+                "prism: refused {} conflicting exact producer binding(s)",
+                conflicting_bindings.len()
+            );
+        }
 
         for (edge, label) in classified {
             if legacy_exact.contains_key(&edge)
@@ -537,12 +548,26 @@ impl DataFlowGraph {
                 let mut exact_labels = BTreeMap::new();
                 let mut rd_function_stats = RdFileStats::default();
 
-                for func_node in parsed.all_functions() {
+                let function_nodes = parsed.all_functions();
+                let mut owner_counts = BTreeMap::new();
+                for func_node in &function_nodes {
+                    if let Some(name) = parsed.language.function_name(func_node) {
+                        let key = (
+                            parsed.node_text(&name).to_string(),
+                            parsed.node_line_range(func_node).0,
+                        );
+                        *owner_counts.entry(key).or_insert(0usize) += 1;
+                    }
+                }
+                for func_node in function_nodes {
                     let func_name = match parsed.language.function_name(&func_node) {
                         Some(n) => parsed.node_text(&n).to_string(),
                         None => continue,
                     };
                     let (start, end) = parsed.node_line_range(&func_node);
+                    let owner_is_unique = owner_counts
+                        .get(&(func_name.clone(), start))
+                        .is_some_and(|count| *count == 1);
                     let all_lines: BTreeSet<usize> = (start..=end).collect();
 
                     // Phase 3: Build local alias map for this function.
@@ -843,6 +868,7 @@ impl DataFlowGraph {
                     let exact_candidates = Self::exact_read_candidates(
                         parsed,
                         &func_node,
+                        owner_is_unique,
                         &param_occurrences,
                         &raw_aliases,
                         &lvalue_spans,

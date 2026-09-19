@@ -791,25 +791,33 @@ impl CodePropertyGraph {
     ) -> Option<NodeIndex> {
         let key = Self::legacy_var_key(loc, access);
         if loc.start_byte < loc.end_byte && Self::exact_occurrence_language(files, &loc.file) {
-            let nodes = Self::validated_exact_nodes(exact_var_index, &key, graph);
-            let matching: Vec<_> = nodes
-                .into_iter()
-                .filter(|&idx| {
-                    matches!(
-                        &graph[idx],
-                        CpgNode::Variable { start_byte, end_byte, .. }
-                            if (*start_byte, *end_byte) == (loc.start_byte, loc.end_byte)
-                    )
-                })
-                .collect();
-            if matching.len() == 1 {
-                matching.first().copied()
-            } else {
-                None
-            }
+            Self::exact_dfg_endpoint_node(loc, access, exact_var_index, graph)
         } else {
             var_index.get(&key).copied()
         }
+    }
+
+    fn exact_dfg_endpoint_node(
+        loc: &VarLocation,
+        access: VarAccess,
+        exact_var_index: &ExactVarIndex,
+        graph: &DiGraph<CpgNode, CpgEdge>,
+    ) -> Option<NodeIndex> {
+        if loc.start_byte >= loc.end_byte {
+            return None;
+        }
+        let key = Self::legacy_var_key(loc, access);
+        let matching: Vec<_> = Self::validated_exact_nodes(exact_var_index, &key, graph)
+            .into_iter()
+            .filter(|&idx| {
+                matches!(
+                    &graph[idx],
+                    CpgNode::Variable { start_byte, end_byte, .. }
+                        if (*start_byte, *end_byte) == (loc.start_byte, loc.end_byte)
+                )
+            })
+            .collect();
+        (matching.len() == 1).then(|| matching[0])
     }
 
     /// Assemble a CPG petgraph from pre-built CG and DFG.
@@ -932,6 +940,12 @@ impl CodePropertyGraph {
                     .then(|| edge.binding_key())
             })
             .collect();
+        if !conflicting_exact_bindings.is_empty() {
+            eprintln!(
+                "prism: refused {} conflicting exact producer binding(s) during CPG assembly",
+                conflicting_exact_bindings.len()
+            );
+        }
         for edge in &dfg.edges {
             let from_access = match edge.from.kind {
                 VarAccessKind::Def => VarAccess::Def,
@@ -991,31 +1005,20 @@ impl CodePropertyGraph {
                 continue;
             }
             let edge = exact_edge.as_legacy();
-            let from_access = match edge.from.kind {
-                VarAccessKind::Def => VarAccess::Def,
-                VarAccessKind::Use => VarAccess::Use,
-            };
-            let to_access = match edge.to.kind {
-                VarAccessKind::Def => VarAccess::Def,
-                VarAccessKind::Use => VarAccess::Use,
-            };
+            if edge.from.kind != VarAccessKind::Def
+                || edge.to.kind != VarAccessKind::Use
+                || edge.from.file != edge.to.file
+                || edge.from.function != edge.to.function
+                || edge.from.function_start_line != edge.to.function_start_line
+                || edge.from.path != edge.to.path
+                || !edge.from.path.is_simple()
+                || !Self::exact_occurrence_language(files, &edge.from.file)
+            {
+                continue;
+            }
             let (Some(from_idx), Some(to_idx)) = (
-                Self::dfg_endpoint_node(
-                    &edge.from,
-                    from_access,
-                    files,
-                    &var_index,
-                    &exact_var_index,
-                    &graph,
-                ),
-                Self::dfg_endpoint_node(
-                    &edge.to,
-                    to_access,
-                    files,
-                    &var_index,
-                    &exact_var_index,
-                    &graph,
-                ),
+                Self::exact_dfg_endpoint_node(&edge.from, VarAccess::Def, &exact_var_index, &graph),
+                Self::exact_dfg_endpoint_node(&edge.to, VarAccess::Use, &exact_var_index, &graph),
             ) else {
                 continue;
             };
