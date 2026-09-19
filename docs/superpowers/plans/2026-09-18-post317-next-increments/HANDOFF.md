@@ -10,6 +10,7 @@
 | Priority 1 exact caller reads | merged | PR #318 merge `e2d177d5144126a83159f41f1b2ee14e8eeb2b94`, tree `f21553d63fb99a3c267d44fc39b098c8fe8c7f0b`, matching published head `85d4b3c0090dfaf7b33f9eb0348fff80cbf784fb` |
 | PR #318 CI | green | run `35466277259`; terminal receipt `/private/tmp/prism-post317-publication/pr318-ci-receipt.json` SHA-256 `27a03fc652fb75a5f626127643dc87baed46ba82c1e801e78881bd8079ad30c1` |
 | Compiler syntax-frequency slice | merged / all CI green | PR #319 merge `30e13053c9f3f9940b5526e20af0cb40f2a9fae4`, tree `961f698db1049cec42e7a8e15e716948082af9b6`; main-push run `35473373053`; custody in `docs/eval/parameter-syntax-frequency/` |
+| Native positional-gap successor | plan ready only | planning acceptance 0 WRONG / 0 SMELL at cap 2/2; `docs/superpowers/plans/2026-09-19-post319-native-positional-gap/`; exact 12 sites / 11 files / 37,040 bytes; no implementation or public execution |
 | P2a | parked-design | `p2-split/P2A-BUDGET-STOP.md`; no further execution under its stopped contract |
 | P2b | deferred | `p2-split/P2B-DEFERRED-SPEC.md` |
 | P3 | parked | `parked-p3/README.md` |
@@ -18,9 +19,9 @@
 
 The syntax-frequency slice is locally accepted, passed all five pre-merge CI
 checks, and merged as PR #319. Separate main-push CI run `35473373053` also
-completed all five checks successfully at 2026-09-19T23:03:25Z. Successor
-planning is unblocked, but no successor implementation has started; `/root`
-retains planning dispatch.
+completed all five checks successfully at 2026-09-19T23:03:25Z. The single
+native positional-gap successor plan is accepted and durable, but no successor
+implementation has started; `/root` retains implementation dispatch.
 
 ## Source mapping
 

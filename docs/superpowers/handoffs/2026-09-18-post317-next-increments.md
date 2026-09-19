@@ -41,6 +41,15 @@ CI run `35473373053` completed at 2026-09-19T23:03:25Z with Test Suite,
 Format Check, Clippy Lint, Language Coverage Matrix, and Coverage all green.
 Successor planning is now unblocked; no successor implementation has started.
 
+The single authorized successor plan, native positional-gap characterization,
+is independently accepted at planning cap 2/2 with 0 WRONG / 0 SMELL. Its
+durable packet is
+`docs/superpowers/plans/2026-09-19-post319-native-positional-gap/`, binding
+exactly 12 selected ArrowFunction sites in 11 files / 37,040 bytes to source
+base `30e13053c9f3f9940b5526e20af0cb40f2a9fae4`. This is plan-ready only:
+implementation, public execution, production support, and publication have
+not started.
+
 ## Historical and deferred work
 
 - The full unsplit P2 packet is historical and superseded.
@@ -53,6 +62,7 @@ Successor planning is now unblocked; no successor implementation has started.
 
 ## Resume order
 
-1. Preserve successor planning against merge `30e13053` and the observed census.
-2. Require independent planning acceptance before dispatching implementation.
+1. Preserve the accepted native positional-gap packet against merge `30e13053`.
+2. Require a separate controller implementation dispatch and frozen source/test
+   manifest before any execution.
 3. Keep P2a, P2b, and P3 in their recorded parked/deferred states unless separately authorized.

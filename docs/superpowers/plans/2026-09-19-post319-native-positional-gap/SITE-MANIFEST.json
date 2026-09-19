@@ -1,0 +1,248 @@
+{
+  "schema": "prism.native-parameter-sites/1",
+  "upstream_repository": "https://github.com/excalidraw/excalidraw",
+  "upstream_commit": "0642e72cfa2d9a71198200e52f37399384610ee3",
+  "upstream_tree": "709e9146b0fbd78c3ebf0d77e67143b2fbc43e4a",
+  "parent_packet_sha256": "e953121bbcdda492bb651e4ef8f27b9af3de7a0221ee2a98fcda611645a7896d",
+  "parent_manifest_sha256": "f8ebbdd79ca01e5cdb675616b913f1fbb549d45378ab1047db84844a3bc8e696",
+  "selection": "object parameter before any later identifier parameter without optional/rest/outer_initializer; body-bearing rows only; source ordinal",
+  "member_count": 11,
+  "source_bytes": 37040,
+  "site_count": 12,
+  "members": [
+    {
+      "path": "packages/excalidraw/components/ColorPicker/Picker.tsx",
+      "sha256": "352bc079d3d37727b6256d7725ee2087b3c80d8709ad821b820aaf78759a9305",
+      "bytes": 5676,
+      "script_kind": "Tsx",
+      "declaration_only": false,
+      "test_path": false
+    },
+    {
+      "path": "packages/excalidraw/components/FilledButton.tsx",
+      "sha256": "ab8fef8c317ee610dfdcb5060d746b96a39f3d5ea60ab85e1e4e90f52636ee85",
+      "bytes": 2930,
+      "script_kind": "Tsx",
+      "declaration_only": false,
+      "test_path": false
+    },
+    {
+      "path": "packages/excalidraw/components/Island.tsx",
+      "sha256": "a2b32eb24fcbdf91ed5efef297d96fd3e600d79dbecb2d4db7ad5d4e3044f361",
+      "bytes": 485,
+      "script_kind": "Tsx",
+      "declaration_only": false,
+      "test_path": false
+    },
+    {
+      "path": "packages/excalidraw/components/PropertiesPopover.tsx",
+      "sha256": "e593fbf0b9adfe21108579475024c9c34431b0fde9bda558e8331fb693cd4fc2",
+      "bytes": 3135,
+      "script_kind": "Tsx",
+      "declaration_only": false,
+      "test_path": false
+    },
+    {
+      "path": "packages/excalidraw/components/QuickSearch.tsx",
+      "sha256": "766553f140ccd63718a4ee9edc993fffdc622b82615a0e41d159b694aa0af1ef",
+      "bytes": 712,
+      "script_kind": "Tsx",
+      "declaration_only": false,
+      "test_path": false
+    },
+    {
+      "path": "packages/excalidraw/components/Sidebar/Sidebar.tsx",
+      "sha256": "510b9f088d15a48115336cc9105ac07fbc0dbf648a81704032eb5022d2d24f3f",
+      "bytes": 7151,
+      "script_kind": "Tsx",
+      "declaration_only": false,
+      "test_path": false
+    },
+    {
+      "path": "packages/excalidraw/components/Stack.tsx",
+      "sha256": "60a9c84b6aee5071d2ab50b471b3406465907bddeffb78498f4a9ad3f8badc1c",
+      "bytes": 1294,
+      "script_kind": "Tsx",
+      "declaration_only": false,
+      "test_path": false
+    },
+    {
+      "path": "packages/excalidraw/components/TextField.tsx",
+      "sha256": "d081fba68a5749cbb54518e969f22d98559ddb4144e015a6f7b2f1ff17c38c00",
+      "bytes": 2948,
+      "script_kind": "Tsx",
+      "declaration_only": false,
+      "test_path": false
+    },
+    {
+      "path": "packages/excalidraw/components/ToolButton.tsx",
+      "sha256": "174fc5fee6ed22e96775e3c7939acc573cbde67b4687bab9f735dcd109be6f91",
+      "bytes": 5707,
+      "script_kind": "Tsx",
+      "declaration_only": false,
+      "test_path": false
+    },
+    {
+      "path": "packages/excalidraw/data/index.ts",
+      "sha256": "df3d560548ad22483a88e2a0b2853e6b5edc37db62cfd937791116ad53ea11d5",
+      "bytes": 6047,
+      "script_kind": "TypeScript",
+      "declaration_only": false,
+      "test_path": false
+    },
+    {
+      "path": "packages/excalidraw/scene/zoom.ts",
+      "sha256": "b5e48da801d512a489749ef4e993421fa5747d347bbfc674b796b9928159ef09",
+      "bytes": 955,
+      "script_kind": "TypeScript",
+      "declaration_only": false,
+      "test_path": false
+    }
+  ],
+  "sites": [
+    {
+      "path": "packages/excalidraw/components/ColorPicker/Picker.tsx",
+      "start_byte": 1379,
+      "end_byte": 5671,
+      "compiler_kind": "ArrowFunction",
+      "object_ordinals": [
+        0
+      ],
+      "later_required_ordinals": [
+        1
+      ]
+    },
+    {
+      "path": "packages/excalidraw/components/FilledButton.tsx",
+      "start_byte": 902,
+      "end_byte": 2925,
+      "compiler_kind": "ArrowFunction",
+      "object_ordinals": [
+        0
+      ],
+      "later_required_ordinals": [
+        1
+      ]
+    },
+    {
+      "path": "packages/excalidraw/components/Island.tsx",
+      "start_byte": 273,
+      "end_byte": 480,
+      "compiler_kind": "ArrowFunction",
+      "object_ordinals": [
+        0
+      ],
+      "later_required_ordinals": [
+        1
+      ]
+    },
+    {
+      "path": "packages/excalidraw/components/PropertiesPopover.tsx",
+      "start_byte": 802,
+      "end_byte": 3130,
+      "compiler_kind": "ArrowFunction",
+      "object_ordinals": [
+        0
+      ],
+      "later_required_ordinals": [
+        1
+      ]
+    },
+    {
+      "path": "packages/excalidraw/components/QuickSearch.tsx",
+      "start_byte": 318,
+      "end_byte": 707,
+      "compiler_kind": "ArrowFunction",
+      "object_ordinals": [
+        0
+      ],
+      "later_required_ordinals": [
+        1
+      ]
+    },
+    {
+      "path": "packages/excalidraw/components/Sidebar/Sidebar.tsx",
+      "start_byte": 1483,
+      "end_byte": 4701,
+      "compiler_kind": "ArrowFunction",
+      "object_ordinals": [
+        0
+      ],
+      "later_required_ordinals": [
+        1
+      ]
+    },
+    {
+      "path": "packages/excalidraw/components/Stack.tsx",
+      "start_byte": 371,
+      "end_byte": 784,
+      "compiler_kind": "ArrowFunction",
+      "object_ordinals": [
+        0
+      ],
+      "later_required_ordinals": [
+        1
+      ]
+    },
+    {
+      "path": "packages/excalidraw/components/Stack.tsx",
+      "start_byte": 821,
+      "end_byte": 1234,
+      "compiler_kind": "ArrowFunction",
+      "object_ordinals": [
+        0
+      ],
+      "later_required_ordinals": [
+        1
+      ]
+    },
+    {
+      "path": "packages/excalidraw/components/TextField.tsx",
+      "start_byte": 781,
+      "end_byte": 2943,
+      "compiler_kind": "ArrowFunction",
+      "object_ordinals": [
+        0
+      ],
+      "later_required_ordinals": [
+        1
+      ]
+    },
+    {
+      "path": "packages/excalidraw/components/ToolButton.tsx",
+      "start_byte": 1572,
+      "end_byte": 5662,
+      "compiler_kind": "ArrowFunction",
+      "object_ordinals": [
+        0
+      ],
+      "later_required_ordinals": [
+        1
+      ]
+    },
+    {
+      "path": "packages/excalidraw/data/index.ts",
+      "start_byte": 1228,
+      "end_byte": 2535,
+      "compiler_kind": "ArrowFunction",
+      "object_ordinals": [
+        1
+      ],
+      "later_required_ordinals": [
+        2
+      ]
+    },
+    {
+      "path": "packages/excalidraw/scene/zoom.ts",
+      "start_byte": 95,
+      "end_byte": 953,
+      "compiler_kind": "ArrowFunction",
+      "object_ordinals": [
+        0
+      ],
+      "later_required_ordinals": [
+        1
+      ]
+    }
+  ]
+}
