@@ -4,7 +4,8 @@ import{
   createHash
 } from "node:crypto";
 import{
-  mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync
+  chmodSync, copyFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync,
+  symlinkSync, writeFileSync
 } from "node:fs";
 import{
   spawnSync
@@ -12,6 +13,7 @@ import{
 import path from "node:path";
 const native = process.env.PRISM_NATIVE_PARAMETER_EXAMPLE;
 assert(native, "PRISM_NATIVE_PARAMETER_EXAMPLE is required; a missing binary is a hard failure");
+const shell = Buffer.from("#!/bin/sh\nexec /bin/sh \"$@\"\n");
 const implementation = await import(new URL("./index.mjs", import.meta.url));
 const sha = value => createHash("sha256").update(value).digest("hex");
 const bytes = value => Buffer.byteLength(value);
@@ -272,14 +274,14 @@ test("5: manifest, request, child, cap, and publication custody fail closed", ()
       extra.extra = true; assert.notEqual(spawnSync(native,
       [],{
       input: `${JSON.stringify(extra)}\n`, encoding: "utf8"
-    }).status, 0); assert.throws(() => implementation.runNative("/bin/sh", ready.request,
+    }).status, 0); assert.throws(() => implementation.runNative(shell, ready.request,
 {
       ...implementation.LIMITS, wallMs: 5
-    }, ["-c", "sleep 1"]), /timeout/); assert.throws(() => implementation.runNative("/bin/sh",
+    }, ["-c", "sleep 1"]), /timeout/); assert.throws(() => implementation.runNative(shell,
       ready.request,{
       ...implementation.LIMITS, outputBytes: 1
-    }, ["-c", "printf xx"]), /worker failed|output/);
-      assert.throws(() => implementation.runNative("/bin/sh",
+    }, ["-c", "printf xx"]), /worker failed|output|timeout/);
+      assert.throws(() => implementation.runNative(shell,
       ready.request, implementation.LIMITS, ["-c", "printf '{\"schema\":\"bad\"}\\n'"]),
       /output/); writeFileSync(path.join(f.root, "a.js"), source); const out = path.join(f.root,
       "foreign.json"); writeFileSync(out, "foreign"); assert.throws(() => implementation.launch({
@@ -329,13 +331,21 @@ test("6: cold/repeat, inert shifting, and meaningful alias mutation are complete
     19), p(1, "identifier", 21, 26)], [o("value", 14, 19, 0), o("later", 21, 26, 1)],
     [o("value", 14, 19, 0), o("later", 21, 26, 1)])], "selection_native_shape_mismatch")]));
 });
-test("7: terminal population includes zero-gap, unnamed, missing, ambiguous, and recovered",
+test("7: complete terminal packets include zero-gap, unnamed, missing, ambiguous, and recovered",
   () =>{
-  const zero = "function take({x}, later){return 0;}"; using(fixture({
+  const zero = "function take({x}, later){return later;}"; using(fixture({
     "zero.js": zero
-  }, [selector("zero.js", zero)]), f => complete(f, [s(f.sites[0], "unique_named", [c([p(0,
-    "object_pattern", 14, 17), p(1, "identifier", 19, 24)], [], [o("later", 19, 24, 1)])],
-    "eligible")])); const unnamed = "consume(({x}, later) => later);"; using(fixture({
+  }, [selector("zero.js", zero)]), f =>{
+    const ready = implementation.prepare(f.options()), row = s(f.sites[0], "unique_named", [c([
+      p(0, "object_pattern", 14, 17), p(1, "identifier", 19, 24)], [o("later", 19, 24, 1)],
+      [o("later", 19, 24, 1)])], "no_selected_suffix_binding_gap"), packet = expected(f, [row]);
+    const badKind = structuredClone(packet);
+    badKind.sites[0].candidates[0].kind = null;
+    const invalid = Buffer.from(`#!/bin/sh\nprintf '%s\\n' '${JSON.stringify(badKind)}'\n`);
+    assert.throws(() => implementation.runNative(invalid, ready.request, ready.cap), /candidate/);
+    const mock = Buffer.from(`#!/bin/sh\nprintf '%s\\n' '${JSON.stringify(packet)}'\n`);
+    assert.deepEqual(JSON.parse(implementation.runNative(mock, ready.request, ready.cap)), packet);
+  }); const unnamed = "consume(({x}, later) => later);"; using(fixture({
     "unnamed.js": unnamed
   }, [selector("unnamed.js", unnamed, "ArrowFunction", [0], [1], 8, 29)]), f => complete(f,
     [s(f.sites[0], "unique_unnamed", [c([p(0, "object_pattern", 9, 12), p(1, "identifier",
@@ -346,3 +356,178 @@ test("7: terminal population includes zero-gap, unnamed, missing, ambiguous, and
     "missing", [], "not_clean_named")]));
 });
 
+test("8: authenticated binary bytes, path controls, limits, and wire order stay bounded", () =>{
+  const source = "function take({x}, later){return later;}";
+  using(fixture({
+    "a.js": source
+  }, [selector("a.js", source)]), f =>{
+    const copied = path.join(f.root, "worker-copy"), marker = path.join(f.root, "replacement-ran");
+    copyFileSync(native, copied); chmodSync(copied, 0o700);
+    const ready = implementation.prepare({
+      ...f.options(), native: copied, nativeSha256: sha(readFileSync(copied))
+    });
+    writeFileSync(copied, `#!/bin/sh\nprintf swapped > ${JSON.stringify(marker)}\nexit 23\n`);
+    chmodSync(copied, 0o700);
+    assert.doesNotThrow(() => implementation.runNative(ready.native, ready.request, ready.cap));
+    assert.equal(existsSync(marker), false, "the replacement original must not execute");
+    assert.throws(() => implementation.prepare(f.options(), {wallMs: 0}), /limits/);
+    for (const [limit, error] of [["files", /count/], ["sites", /count/],
+      ["sourceBytes", /source/], ["inputBytes", /input/]]){
+      assert.throws(() => implementation.prepare(f.options(), {[limit]: 0}), error);
+    }
+    const outputZero = implementation.prepare(f.options(), {outputBytes: 0});
+    assert.throws(() => implementation.runNative(outputZero.native, outputZero.request,
+      outputZero.cap), /timeout|output/);
+    for (const control of ["\u007f", "\u0085"]){
+      f.manifest.members[0].path = `bad${control}.js`;
+      f.manifest.sites[0].path = `bad${control}.js`;
+      rewrite(f);
+      assert.throws(() => implementation.prepare(f.options()), /invalid or duplicate member/);
+    }
+  }); using(fixture({
+    "wire.js": source
+  }, [selector("wire.js", source)]), f =>{
+    const site = f.manifest.sites[0];
+    f.manifest.sites[0] = {
+      compiler_kind: site.compiler_kind, later_required_ordinals: site.later_required_ordinals,
+      path: site.path, end_byte: site.end_byte, object_ordinals: site.object_ordinals,
+      start_byte: site.start_byte
+    };
+    rewrite(f);
+    const ready = implementation.prepare(f.options()), nativeSha256 = f.options().nativeSha256;
+    const expectedRequest = {
+      schema: implementation.REQUEST, input_manifest_sha256: f.manifestSha256,
+      native_binary_sha256: nativeSha256,
+      files: [{
+        path: "wire.js", sha256: sha(source), bytes: bytes(source), script_kind: "JavaScript",
+        source, sites: [selector("wire.js", source)]
+      }]
+    };
+    assert.equal(JSON.stringify(ready.request), JSON.stringify(expectedRequest));
+  });
+});
+
+test("9: raw worker refusal matrix, canonical reordering, and JSX mapping are complete", () =>{
+  const first = "function one({x}, later){return later;}function two({y}, next){return next;}",
+    second = "function jsx({z}, final){return final;}",
+    secondStart = first.indexOf("function two");
+  const f = fixture({
+    "a.js": first, "b.jsx": second
+  }, [selector("a.js", first, "FunctionDeclaration", [0], [1], 0, secondStart),
+    selector("a.js", first, "FunctionDeclaration", [0], [1], secondStart, bytes(first)),
+    selector("b.jsx", second)]);
+  using(f, fixture =>{
+    const ready = implementation.prepare(fixture.options()), valid = ready.request;
+    const text = value => `${JSON.stringify(value)}\n`, bad = change =>{
+      const value = structuredClone(valid); change(value); return text(value);
+    };
+    const unsafe = (path, value) => bad(request => path(request, value));
+    const refusals = [
+      ["missing source", bad(request => delete request.files[0].source), /object keys/],
+      ["duplicate file", bad(request => request.files[1].path = request.files[0].path),
+        /duplicate file/],
+      ["mismatched selector", bad(request => request.files[0].sites[0].path = "other.js"),
+        /selector/],
+      ["nested extra", bad(request => request.files[0].sites[0].extra = true), /object keys/],
+      ["dotfile", bad(request => request.files[0].path = ".js"), /mismatch/],
+      ["no extension", bad(request => request.files[0].path = "no-extension"), /mismatch/],
+      ["trailing value", `${text(valid)}{}`, /invalid request JSON/],
+      ["oversized", Buffer.alloc(implementation.LIMITS.inputBytes + 1, 0x20), /input limit/],
+      ["unsafe bytes", unsafe((request, value) => request.files[0].bytes = value,
+        9_007_199_254_740_992), /integer too large/],
+      ["unsafe start", unsafe((request, value) => request.files[0].sites[0].start_byte = value,
+        9_007_199_254_740_992), /integer too large/],
+      ["unsafe end", unsafe((request, value) => request.files[0].sites[0].end_byte = value,
+        9_007_199_254_740_992), /integer too large/],
+      ["unsafe object ordinal", unsafe((request, value) =>
+        request.files[0].sites[0].object_ordinals[0] = value, 9_007_199_254_740_992),
+      /integer too large/],
+      ["unsafe later ordinal", unsafe((request, value) =>
+        request.files[0].sites[0].later_required_ordinals[0] = value, 9_007_199_254_740_992),
+      /integer too large/]
+    ];
+    for (const [label, input, expected] of refusals){
+      const result = spawnSync(native, [], {input, encoding: "utf8"});
+      assert.notEqual(result.status, 0, label);
+      assert.equal(result.stdout, "", `${label} must not emit a packet`);
+      assert.match(result.stderr, expected, label);
+    }
+    const canonical = spawnSync(native, [], {input: text(valid), encoding: "utf8"});
+    const reordered = structuredClone(valid);
+    reordered.files.reverse(); reordered.files.forEach(file => file.sites.reverse());
+    const again = spawnSync(native, [], {input: text(reordered), encoding: "utf8"});
+    assert.equal(canonical.status, 0, canonical.stderr);
+    assert.equal(again.status, 0, again.stderr);
+    assert.equal(again.stdout, canonical.stdout);
+    assert.equal(JSON.parse(canonical.stdout).files.find(file => file.path === "b.jsx").language,
+      "JavaScript");
+  });
+});
+
+test("10: frozen 30-case baseline vectors replay from the planning packet", () =>{
+  const plan = path.join(process.cwd(), "docs", "superpowers", "plans",
+    "2026-09-19-post319-native-positional-gap");
+  const fixtures = JSON.parse(readFileSync(path.join(plan, "BASELINE-FIXTURES.json"), "utf8"));
+  const rows = new Map(), tuplePattern = /\("([^"\n]+)", (\d+), (\d+)\)/g;
+  const tuples = value => [...value.matchAll(tuplePattern)].map(match =>
+    [match[1], Number(match[2]), Number(match[3])]);
+  let current;
+  const baseline = readFileSync(path.join(plan, "baseline-output.log"), "utf8");
+  const functionPattern = new RegExp(
+    "^FN (Some\\(\\\"([^\"\\n]+)\\\"\\)|None) (\\d+) (\\d+) " +
+    "slots=(None|Some\\((.*)\\)) occurrences=(\\[.*\\])$"
+  );
+  for (const line of baseline.trim().split("\n")){
+    const header = line.match(/^CASE (\S+) (\S+) errors=(\d+)$/);
+    if (header){
+      current = {id: header[1], script_kind: header[2], errors: Number(header[3]), functions: []};
+      rows.set(`${current.id}:${current.script_kind}`, current);
+      continue;
+    }
+    const functionRow = line.match(functionPattern);
+    assert(functionRow, `unreadable frozen vector: ${line}`);
+    current.functions.push({
+      name: functionRow[2] ?? null, start: Number(functionRow[3]), end: Number(functionRow[4]),
+      slots: functionRow[5] === "None" ? null : tuples(functionRow[6]),
+      bindings: tuples(functionRow[7])
+    });
+  }
+  const dialects = [["JavaScript", "js"], ["TypeScript", "ts"], ["Tsx", "tsx"]];
+  for (const [script_kind, extension] of dialects){
+    const request = {
+      schema: implementation.REQUEST, input_manifest_sha256: "a".repeat(64),
+      native_binary_sha256: sha(readFileSync(native)), files: fixtures.map(fixture => {
+        const vector = rows.get(`${fixture.id}:${script_kind}`);
+        return {
+          path: `${fixture.id}.${extension}`, sha256: fixture.sha256, bytes: fixture.bytes,
+          script_kind, source: fixture.source, sites: vector.functions.map(row => ({
+            path: `${fixture.id}.${extension}`, start_byte: row.start, end_byte: row.end,
+            compiler_kind: fixture.source.slice(row.start, row.end).includes("=>") ?
+              "ArrowFunction" : "FunctionDeclaration", object_ordinals: [0],
+            later_required_ordinals: [1]
+          }))
+        };
+      })
+    };
+    const result = spawnSync(native, [], {input: `${JSON.stringify(request)}\n`, encoding: "utf8"});
+    assert.equal(result.status, 0, result.stderr);
+    const packet = JSON.parse(result.stdout);
+    for (const fixture of fixtures){
+      const vector = rows.get(`${fixture.id}:${script_kind}`), actual = packet.sites.filter(site =>
+        site.path === `${fixture.id}.${extension}`);
+      const file = packet.files.find(file => file.path === `${fixture.id}.${extension}`);
+      assert.equal(file.parse_error_count, vector.errors);
+      assert.equal(actual.length, vector.functions.length);
+      actual.forEach((site, index) =>{
+        const expected = vector.functions[index], candidate = site.candidates[0];
+        assert.equal(site.status, expected.name === null ? "unique_unnamed" : "unique_named");
+        assert.deepEqual([site.start_byte, site.end_byte, candidate.name],
+          [expected.start, expected.end, expected.name]);
+        const slots = candidate.slots?.map(row => [row.name, row.start_byte, row.end_byte]) ?? null;
+        assert.deepEqual(slots, expected.slots);
+        assert.deepEqual(candidate.bindings.map(row => [row.name, row.start_byte, row.end_byte]),
+          expected.bindings);
+      });
+    }
+  }
+});

@@ -144,7 +144,7 @@ fn text(object: &Map<String, Value>, key: &str) -> Result<String> {
         .map(str::to_owned)
         .context("expected string")
 }
-fn integer(value: &Value, label: &str) -> Result<usize> {
+fn integer(value: &Value, label: &'static str) -> Result<usize> {
     let value = value.as_u64().context(label)?;
     ensure!(value <= MAX_SAFE, "integer too large");
     usize::try_from(value).context("integer too large")
@@ -379,7 +379,7 @@ fn observed_occurrences(
                 name,
                 start_byte,
                 end_byte,
-                source_ordinal: (matches.len() == 1).then_some(matches[0]),
+                source_ordinal: (matches.len() == 1).then(|| matches[0]),
             }
         })
         .collect()
@@ -643,6 +643,7 @@ mod tests {
             (&[], &[1], 0, 0, false, 2),
             (&[], &[1], 2, 0, false, 3),
             (&[0], &[], 2, 0, false, 3),
+            (&[], &[], 2, 0, false, 3),
             (&[0, 2], &[1], 2, 0, false, 3),
             (&[1], &[0], 2, 0, true, 3),
             (&[0], &[1], 2, 2, false, 0),
