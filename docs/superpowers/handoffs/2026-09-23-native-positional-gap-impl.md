@@ -2,7 +2,7 @@
 
 **Written:** 2026-09-23 · **By:** Claude Code controller session_01CeCpr7mLfpQeq9vEEKBFhQ · **Provider:** claude
 **Workspace:** `/Users/wesleyjinks/code/prism-native-gap-impl` · `feat/native-positional-gap`
-**Measured state:** `[MEASURED]` HEAD `4bb11926` (= `plan/post319-successor`) · Tree DIRTY: implementer edits in flight, uncommitted by design · Probe: `git -C <clone> status -sb`
+**Measured state:** `[MEASURED]` HEAD `e5a3e7f4` frozen for review r1, then this handoff commit · Tree CLEAN (only codex's `.git/info/exclude`-ignored `VERIFICATION.md`) · Probe: `git -C <clone> status -sb`
 **Predecessor:** unknown session that sealed the plan on 2026-09-19. It left `plan/post319-successor` unpushed at `/private/tmp/prism-post316-slice1`, whose gitdir link was already gone.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the controller. `[MEASURED]` claims were probed this session; `[INHERITED]` claims come from the named planning packet.
@@ -13,11 +13,11 @@
 
 **(b) Custody exposure** — `[MEASURED]`
 - The plan branch is pushed as `origin/plan/post319-successor` and is PR #320.
-- The implementer's work is uncommitted and single-copy in the clone.
+- All implementation work is committed and pushed on `origin/feat/native-positional-gap`. Evidence is preserved at `/private/tmp/prism-native-gap-evidence/{r0,r1}` (single-copy, outside git).
 - The main checkout `/Users/wesleyjinks/code/slicing` sits on the merged `feat/js-ts-module-binding-audit` with stale uncommitted edits. Those edits are older than main's #315/#316 versions, so they are superseded. They were left untouched.
 - — **OPEN**
 
-**(c) In flight / irreversible** — `[MEASURED]` codex exec runs as a background process, logging to scratchpad `impl-r0.log`. The served a2a-bridge (port 18080) fails every `session/new` for both codex and opencode: 3 probes, contexts `prism-native-gap-probe{1,2,3}-20260923`. A bridge restart is an operator action and was not performed. — **OPEN**
+**(c) In flight / irreversible** — `[MEASURED]` Two review processes run in the background: codex exec for sol and opencode run for kimi-k3. Their logs are in scratchpad `review-r1-{sol,kimi}.log`. The served a2a-bridge (port 18080) fails every `session/new` for both codex and opencode: 3 probes, contexts `prism-native-gap-probe{1,2,3}-20260923`. A bridge restart is an operator action and was not performed. — **OPEN**
 
 **(d) Authorization granted but not exercised** — the user said: "pick up where the last implementor left off … ensure there isnt a local branch or worktree that needs completed and a PR submitted then proceed to next increment".
 
