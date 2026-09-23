@@ -64,3 +64,11 @@ The owner chose **"Re-cap to measured, review"**. Final hard caps are:
 
 Counting rules are unchanged, and the early-stop threshold stays at 95% of either bucket. Review fixes must stay
 within these caps. A further overshoot is a stop and needs an owner decision, not a silent inflation.
+
+**Controller clarification (review round 1 fix wave).** The 95% early-stop is a *forecasting* gate applied before
+implementation work. After r1, helper stands at 1,035, right at 95% of 1,090. Review fix waves may therefore use
+capacity up to the hard caps (1,090 / 500 / 1,520). They must stop and report, with enumerated remaining items, only
+if the measured or forecast count would exceed a hard cap.
+
+Review round 1 bound its brief to the first amendment's caps by controller error. Sol's WRONG 7 (budget) is
+resolved by rebinding round 2 to these caps, which sol's own report states.
