@@ -40,3 +40,27 @@ Consequences:
   artifact under the unchanged two-round implementation review cap.
 - No contract, scope, owned-path, schema, or predicate change. The same no-restart and no-silent-inflation rules
   apply at the new caps.
+
+## Second amendment: re-cap to measured size (owner-approved 2026-09-23)
+
+The first amendment's caps rested on a bad controller estimate. It assumed roughly 40–55 non-whitespace characters
+per reflowed JavaScript line; the verified reflow actually averages about 27. After the whitespace-only reflow,
+both JavaScript files keep their non-whitespace streams byte-identical to `907ac3b6`, and neither has a line over
+100 columns. Measured honest executable lines:
+
+| File | Lines |
+|---|---:|
+| Rust worker helper | 559 |
+| Rust worker `#[cfg(test)]` | 67 |
+| `index.mjs` | 476 |
+| `index.test.mjs` | 347 |
+
+That gives **helper 1,035 / tests 414 / combined 1,449**, over the first amendment's helper and combined caps.
+The owner chose **"Re-cap to measured, review"**. Final hard caps are:
+
+- **helper ≤ 1,090**
+- **tests ≤ 500**
+- **combined ≤ 1,520**
+
+Counting rules are unchanged, and the early-stop threshold stays at 95% of either bucket. Review fixes must stay
+within these caps. A further overshoot is a stop and needs an owner decision, not a silent inflation.
