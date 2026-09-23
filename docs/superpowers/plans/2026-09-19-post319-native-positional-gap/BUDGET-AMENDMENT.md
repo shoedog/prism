@@ -72,3 +72,28 @@ if the measured or forecast count would exceed a hard cap.
 
 Review round 1 bound its brief to the first amendment's caps by controller error. Sol's WRONG 7 (budget) is
 resolved by rebinding round 2 to these caps, which sol's own report states.
+
+## Third amendment: fix-wave re-cap (owner-approved 2026-09-23)
+
+The round-1 fix wave stopped at the combined hard cap. It measured helper 1,052 / tests 487 / combined 1,539,
+against caps of 1,090 / 500 / 1,520. The work in progress is preserved as `0522daa4`.
+
+The SPEC-mandated Node controls that still did not fit are forecast at about 130–150 lines:
+
+- binary swap
+- Unicode control characters
+- zero timeout
+- wire byte order
+- the raw-worker refusal table
+- the 30-case baseline replay
+- the zero-gap packet
+
+That puts the forecast at about 1,052 / 630 / 1,680. The owner chose **"Re-cap tests with margin"**. Final hard
+caps are:
+
+- **helper ≤ 1,100**
+- **tests ≤ 700**
+- **combined ≤ 1,800**
+
+Kimi's optional extras are included only if they fit. The stop rule is unchanged: a measured or forecast count above
+a hard cap stops the work and returns to the owner.
