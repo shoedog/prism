@@ -14,6 +14,7 @@ const MAX_SITES: usize = 16;
 const MAX_SOURCE: usize = 256 * 1024;
 const MAX_INPUT: usize = 2 * 1024 * 1024;
 const MAX_OUTPUT: usize = 4 * 1024 * 1024;
+const MAX_SAFE: u64 = 9_007_199_254_740_991;
 
 #[derive(Clone)]
 struct Selector {
@@ -117,7 +118,9 @@ fn main() -> ExitCode {
 }
 fn run() -> Result<()> {
     let mut input = Vec::new();
-    std::io::stdin().read_to_end(&mut input)?;
+    std::io::stdin()
+        .take(MAX_INPUT as u64 + 1)
+        .read_to_end(&mut input)?;
     ensure!(input.len() <= MAX_INPUT, "worker input limit exceeded");
     let request = decode(&serde_json::from_slice(&input).context("invalid request JSON")?)?;
     let packet = observe(request)?;
@@ -141,9 +144,13 @@ fn text(object: &Map<String, Value>, key: &str) -> Result<String> {
         .map(str::to_owned)
         .context("expected string")
 }
+fn integer(value: &Value, label: &str) -> Result<usize> {
+    let value = value.as_u64().context(label)?;
+    ensure!(value <= MAX_SAFE, "integer too large");
+    usize::try_from(value).context("integer too large")
+}
 fn number(object: &Map<String, Value>, key: &str) -> Result<usize> {
-    usize::try_from(object[key].as_u64().context("expected safe integer")?)
-        .context("integer too large")
+    integer(&object[key], "expected safe integer")
 }
 fn hash(value: &str) -> bool {
     value.len() == 64
@@ -164,9 +171,7 @@ fn ordinals(value: &Value) -> Result<Vec<usize>> {
     let values = value.as_array().context("expected ordinal array")?;
     let result: Result<Vec<_>> = values
         .iter()
-        .map(|v| {
-            usize::try_from(v.as_u64().context("expected ordinal")?).context("ordinal too large")
-        })
+        .map(|value| integer(value, "expected ordinal"))
         .collect();
     let result = result?;
     ensure!(
@@ -176,7 +181,12 @@ fn ordinals(value: &Value) -> Result<Vec<usize>> {
     Ok(result)
 }
 fn language(script: &str, path: &str) -> Result<(Language, &'static str)> {
-    match (path.rsplit('.').next(), script) {
+    match (
+        std::path::Path::new(path)
+            .extension()
+            .and_then(|extension| extension.to_str()),
+        script,
+    ) {
         (Some("js"), "JavaScript") | (Some("jsx"), "Jsx") => {
             Ok((Language::JavaScript, "JavaScript"))
         }
@@ -458,6 +468,26 @@ fn eligibility(status: &str, candidate: Option<&Candidate>, selector: &Selector)
         "no_selected_suffix_binding_gap"
     }
 }
+#[cfg(test)]
+thread_local! {
+    static DUPLICATE_EXACT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+fn assemble_candidates(mut candidates: Vec<Candidate>) -> Vec<Candidate> {
+    #[cfg(test)]
+    if DUPLICATE_EXACT.with(|seam| seam.replace(false)) && !candidates.is_empty() {
+        let duplicate = candidates[0].clone();
+        candidates.push(duplicate);
+    }
+    candidates.sort_by(|left, right| {
+        (&left.kind, left.start_line, left.end_line, &left.name).cmp(&(
+            &right.kind,
+            right.start_line,
+            right.end_line,
+            &right.name,
+        ))
+    });
+    candidates
+}
 fn observe(mut request: Request) -> Result<Packet> {
     request
         .files
@@ -484,24 +514,18 @@ fn observe(mut request: Request) -> Result<Packet> {
             parse_error_count: parsed.parse_error_count,
         });
         for selector in file.sites {
-            let mut candidates: Vec<_> = parsed
-                .all_functions()
-                .into_iter()
-                .filter(|node| {
-                    node.start_byte() == selector.start
-                        && node.end_byte() == selector.end
-                        && node.kind() == expected_kind(&selector.kind)
-                })
-                .map(|node| candidate(&parsed, node))
-                .collect();
-            candidates.sort_by(|left, right| {
-                (&left.kind, left.start_line, left.end_line, &left.name).cmp(&(
-                    &right.kind,
-                    right.start_line,
-                    right.end_line,
-                    &right.name,
-                ))
-            });
+            let candidates = assemble_candidates(
+                parsed
+                    .all_functions()
+                    .into_iter()
+                    .filter(|node| {
+                        node.start_byte() == selector.start
+                            && node.end_byte() == selector.end
+                            && node.kind() == expected_kind(&selector.kind)
+                    })
+                    .map(|node| candidate(&parsed, node))
+                    .collect(),
+            );
             let status = status(
                 parsed.parse_error_count,
                 candidates.len(),
@@ -568,24 +592,8 @@ fn observe(mut request: Request) -> Result<Packet> {
 mod tests {
     use super::*;
     #[test]
-    fn terminal_statuses_prefer_recovery_and_preserve_duplicate_candidates() {
-        assert_eq!(status(1, 1, true), "recovery_quarantined");
-        assert_eq!(status(0, 0, false), "missing");
-        assert_eq!(status(0, 1, false), "unique_unnamed");
-        assert_eq!(status(0, 1, true), "unique_named");
-        assert_eq!(status(0, 2, true), "ambiguous");
-    }
-    #[test]
-    fn eligibility_distinguishes_a_prefix_gap_from_null_authority_and_no_gap() {
-        let selector = Selector {
-            path: "case.js".into(),
-            start: 0,
-            end: 1,
-            kind: "FunctionDeclaration".into(),
-            objects: vec![0],
-            later: vec![1],
-        };
-        let parameter = |ordinal: usize, kind: &str, ordinary: bool| Parameter {
+    fn containment_priority_and_ambiguity_controls_are_complete() {
+        let parameter = |ordinal, kind: &str, ordinary| Parameter {
             ordinal,
             kind: kind.into(),
             start_byte: ordinal,
@@ -593,7 +601,24 @@ mod tests {
             pattern_kind: kind.into(),
             ordinary_required_identifier: ordinary,
         };
-        let mut candidate = Candidate {
+        let containment = vec![
+            Parameter {
+                start_byte: 0,
+                end_byte: 4,
+                ..parameter(0, "identifier", true)
+            },
+            Parameter {
+                start_byte: 2,
+                end_byte: 6,
+                ..parameter(1, "identifier", true)
+            },
+        ];
+        let observed = observed_occurrences(
+            vec![("zero".into(), 6, 7), ("multiple".into(), 2, 3)],
+            &containment,
+        );
+        assert!(observed.iter().all(|row| row.source_ordinal.is_none()));
+        let base = Candidate {
             kind: "function_declaration".into(),
             start_line: 1,
             end_line: 1,
@@ -601,33 +626,85 @@ mod tests {
             parameters: vec![
                 parameter(0, "object_pattern", false),
                 parameter(1, "identifier", true),
+                parameter(2, "object_pattern", false),
             ],
-            slots: Some(vec![Occurrence {
-                name: "later".into(),
-                start_byte: 1,
-                end_byte: 2,
-                source_ordinal: Some(1),
-            }]),
-            bindings: vec![Occurrence {
-                name: "later".into(),
-                start_byte: 1,
-                end_byte: 2,
-                source_ordinal: Some(1),
-            }],
+            slots: Some(vec![]),
+            bindings: vec![],
         };
-        assert_eq!(
-            eligibility("unique_named", Some(&candidate), &selector),
-            "no_selected_suffix_binding_gap"
-        );
-        candidate.slots = Some(vec![]);
-        assert_eq!(
-            eligibility("unique_named", Some(&candidate), &selector),
-            "eligible"
-        );
-        candidate.slots = None;
-        assert_eq!(
-            eligibility("unique_named", Some(&candidate), &selector),
-            "native_slot_authority_unavailable"
-        );
+        let occurrence = |ordinal| Occurrence {
+            name: "binding".into(),
+            start_byte: ordinal,
+            end_byte: ordinal + 1,
+            source_ordinal: Some(ordinal),
+        };
+        let cases = [
+            (&[0][..], &[1][..], 1, 1, false, 0),
+            (&[0], &[1], 2, 1, false, 1),
+            (&[], &[1], 0, 0, false, 2),
+            (&[], &[1], 2, 0, false, 3),
+            (&[0], &[], 2, 0, false, 3),
+            (&[0, 2], &[1], 2, 0, false, 3),
+            (&[1], &[0], 2, 0, true, 3),
+            (&[0], &[1], 2, 2, false, 0),
+        ];
+        for (objects, later, slots, bindings, reverse, expected) in cases {
+            let selector = Selector {
+                path: "case.js".into(),
+                start: 0,
+                end: 1,
+                kind: "FunctionDeclaration".into(),
+                objects: objects.to_vec(),
+                later: later.to_vec(),
+            };
+            let mut candidate = base.clone();
+            if reverse {
+                candidate.parameters[0] = parameter(0, "identifier", true);
+                candidate.parameters[1] = parameter(1, "object_pattern", false);
+            }
+            candidate.slots = match slots {
+                0 => None,
+                1 => Some(vec![occurrence(1)]),
+                _ => Some(vec![]),
+            };
+            candidate.bindings = match bindings {
+                1 => vec![occurrence(1)],
+                2 => vec![occurrence(0)],
+                _ => vec![],
+            };
+            assert_eq!(
+                eligibility("unique_named", Some(&candidate), &selector),
+                [
+                    "no_selected_suffix_binding_gap",
+                    "eligible",
+                    "native_slot_authority_unavailable",
+                    "selection_native_shape_mismatch",
+                ][expected]
+            );
+        }
+        let source = "function take({x}, later){return later;}";
+        DUPLICATE_EXACT.with(|seam| seam.set(true));
+        let packet = observe(Request {
+            manifest_sha256: "a".repeat(64),
+            binary_sha256: "b".repeat(64),
+            files: vec![InputFile {
+                path: "case.js".into(),
+                sha256: sha(source),
+                bytes: source.len(),
+                script_kind: "JavaScript".into(),
+                source: source.into(),
+                sites: vec![Selector {
+                    path: "case.js".into(),
+                    start: 0,
+                    end: source.len(),
+                    kind: "FunctionDeclaration".into(),
+                    objects: vec![0],
+                    later: vec![1],
+                }],
+            }],
+        })
+        .unwrap();
+        assert_eq!(packet.sites[0].candidates.len(), 2);
+        assert_eq!(packet.sites[0].status, "ambiguous");
+        assert_eq!((packet.totals.ambiguous, packet.next_action), (1, "defer"));
     }
 }

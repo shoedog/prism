@@ -8,6 +8,7 @@ import {
   unlinkSync,
   writeFileSync
 } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -81,7 +82,7 @@ function safePath(value) {
     value &&
     !value.startsWith("/") &&
     !value.includes("\\") &&
-    !/[\0-\x1f]/.test(value) &&
+    !/\p{Cc}/u.test(value) &&
     value.split("/").every(part => part && part !== "." && part !== "..");
 }
 function ordinals(value) {
@@ -104,7 +105,9 @@ function limits(overrides = {}) {
   exact(overrides, Object.keys(overrides), "limit overrides");
   if (Object.keys(overrides).some(key => !Object.hasOwn(LIMITS, key))) fail("invalid limits");
   const result = { ...LIMITS, ...overrides };
-  if (Object.entries(result).some(([key, value]) => !integer(value) || value > LIMITS[key]))
+  if (Object.entries(result).some(([key, value]) =>
+    !integer(value) || value > LIMITS[key] || key === "wallMs" && value === 0
+  ))
     fail("invalid limits");
   return result;
 }
@@ -237,7 +240,14 @@ export function prepare(options, overrides) {
       bytes: member.bytes,
       script_kind: member.script_kind,
       source,
-      sites
+      sites: sites.map(site => ({
+        path: site.path,
+        start_byte: site.start_byte,
+        end_byte: site.end_byte,
+        compiler_kind: site.compiler_kind,
+        object_ordinals: site.object_ordinals,
+        later_required_ordinals: site.later_required_ordinals
+      }))
     });
   }
   const native = path.resolve(options.native);
@@ -253,7 +263,7 @@ export function prepare(options, overrides) {
   if (
     Buffer.byteLength(`${JSON.stringify(request)}\n`) > cap.inputBytes
   ) fail("worker input limit");
-  return { request, native, cap };
+  return { request, native: nativeBytes, cap };
 }
 
 function occurrence(value) {
@@ -353,6 +363,7 @@ function response(value, request) {
         "bindings"
       ], "candidate");
       if (
+        typeof candidate.kind !== "string" ||
         !integer(candidate.start_line) ||
         !integer(candidate.end_line) ||
         !(candidate.name === null || typeof candidate.name === "string") ||
@@ -412,22 +423,25 @@ function response(value, request) {
   ) fail("invalid next action");
   return value;
 }
-export function runNative(native, request, cap = LIMITS, args = []) {
-  const result = spawnSync(native, args, {
-    input: `${JSON.stringify(request)}\n`,
-    timeout: cap.wallMs,
-    maxBuffer: cap.outputBytes
-  });
-  if (result.error?.code === "ETIMEDOUT" || result.signal) fail("worker timeout");
-  if (result.error || result.status !== 0)
-    fail(`worker failed: ${Buffer.from(result.stderr ?? []).toString("utf8")}`);
-  const bytes = Buffer.from(result.stdout ?? []);
-  if (bytes.length > cap.outputBytes) fail("worker output limit");
-  const output = utf8(bytes, "worker output");
-  const value = JSON.parse(output);
-  if (output !== `${JSON.stringify(value)}\n`) fail("noncanonical worker output");
-  response(value, request);
-  return output;
+export function runNative(binary, request, cap = LIMITS, args = []) {
+  const stage = path.join(tmpdir(), `prism-native-${randomUUID()}`);
+  writeFileSync(stage, binary, { flag: "wx", mode: 0o700 });
+  try {
+    const result = spawnSync(stage, args, {
+      input: `${JSON.stringify(request)}\n`, timeout: cap.wallMs, maxBuffer: cap.outputBytes
+    });
+    if (result.error?.code === "ETIMEDOUT" || result.signal) fail("worker timeout");
+    if (result.error || result.status !== 0)
+      fail(`worker failed: ${Buffer.from(result.stderr ?? []).toString("utf8")}`);
+    const bytes = Buffer.from(result.stdout ?? []);
+    if (bytes.length > cap.outputBytes) fail("worker output limit");
+    const output = utf8(bytes, "worker output"), value = JSON.parse(output);
+    if (output !== `${JSON.stringify(value)}\n`) fail("noncanonical worker output");
+    response(value, request);
+    return output;
+  } finally {
+    unlinkSync(stage);
+  }
 }
 function publish(out, output) {
   const target = path.resolve(out);
