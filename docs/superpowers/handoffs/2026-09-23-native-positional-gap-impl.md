@@ -1,15 +1,15 @@
-# Handoff — post-#319 native positional-gap characterization (implementation lane, RESUMED; review r4 in flight)
+# Handoff — post-#319 native positional-gap characterization (implementation lane, PARKED AGAIN 2026-09-24)
 
 **Written:** 2026-09-23 · **By:** Claude Code controller session_01CeCpr7mLfpQeq9vEEKBFhQ · **Provider:** claude
 **Workspace:** `/Users/wesleyjinks/code/prism-native-gap-impl` · `feat/native-positional-gap`
-**Measured state:** `[MEASURED]` Review-r4 subject `5fc71b0e`, plus this docs refresh · Tree CLEAN · Probe: `git -C /Users/wesleyjinks/code/prism-native-gap-impl log --oneline -3`
+**Measured state:** `[MEASURED]` Last reviewed subject `b11d7913` (code fold `7261c46a`), plus the park commit · Tree CLEAN · Probe: `git -C /Users/wesleyjinks/code/prism-native-gap-impl log --oneline -3`
 **Predecessor:** an unknown session sealed the plan on 2026-09-19 and left `plan/post319-successor` unpushed. This session pushed it as PR #320.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** Written live by the controller. `[MEASURED]` claims were probed this session. `[INHERITED]` claims cite the planning packet or the reviewer reports.
 
 ## 0. Gating facts — settle these before starting anything below
 
-**(a) Lane ownership** — `[MEASURED]` Resumed by the owner on 2026-09-23. The owner granted a 740-line test cap (fourth amendment) and declared the review cap as r4 plus at most r5. Fix wave 3 is done at `5fc71b0e`. Review r4 is in flight: kimi returned APPROVE with 0 WRONG; sol xhigh is pending. — **OPEN**
+**(a) Lane ownership** — `[MEASURED]` **PARKED again.** Sol's r5, the final round of the resumed cap, returned FIX 3 WRONG / 3 SMELL, open-class. Nothing is in flight in this lane. — **RESOLVED 2026-09-24 (parked)**
 
 **(b) Custody exposure** — `[MEASURED]` Every commit is pushed to `origin/feat/native-positional-gap`. Evidence is kept durably at `/Users/wesleyjinks/prism-evidence/native-positional-gap/` (about 65 MB), holding:
 - `r0`, `r1`, `fix1`, `fix1b`, `fix2`
@@ -27,15 +27,12 @@ Copies under `/private/tmp` are volatile. — **RESOLVED**
 
 — **OPEN (operator)**
 
-**(d) Authorization granted but not exercised** — the owner said: "grant the 740 test cap and resume to try to get #320 to approve. in parallel start next slice while fix and review for #320 is running." On an APPROVE, the next steps are the public 12-site cold/repeat, the readout, and the implementation PR. The parallel slice is gate-input durability, clone `/Users/wesleyjinks/code/prism-gate-inputs`.
+**(d) Authorization granted but not exercised** — None. The resumed authorization (740-line test cap; review cap r4 plus r5) is exhausted. Resuming needs a new owner decision: see PARKED.md "Resume guidance".
 
 ## 1. Resume order
 
-1. Read sol r4: `/Users/wesleyjinks/code/prism-native-gap-review-sol/target/review/REVIEW-r4-sol.md`.
-   - **APPROVE:** go to step 2.
-   - **FIX:** classify the findings, fold them, and run r5 (the final round). If r5 is not APPROVE, park again.
-2. Public 12-site run (SPEC §7 steps 3–5): two cold executions with the frozen binary, root `/private/tmp/prism-post317-measurement-inputs/source`, then independent row reconciliation and `docs/eval/native-positional-gap/*`.
-3. Open the implementation PR against `main` (#320 is merged).
+1. The owner chooses a PARKED.md resume option: (a) fold D5–D8 with a fresh budget and review cap, or (b) re-plan to a simpler pinned probe.
+2. If (a): fold D5 first. It is a Linux-only regression, so add a Linux or open-writer control. Then fold D6, D7, and D8, and run an independent review. On APPROVE, run the public 12-site cold/repeat and open a PR against `main`.
 
 **STOP conditions:**
 - any `src/`, Cargo, or cache change
@@ -52,7 +49,8 @@ Copies under `/private/tmp` are volatile. — **RESOLVED**
 | Review r1 | done | sol FIX 7W/2S; kimi APPROVE 7S |
 | Review r2 | done | sol FIX 3W/2S (open-class); kimi APPROVE 6S |
 | Fix wave 3 (fourth amendment) | done | `5fc71b0e`; strict lines 1,080 / 732 / 1,812 (caps 1,100 / 740 / 1,840); 29/29 mutants killed |
-| Review r4 | in flight | kimi APPROVE 0W; sol pending |
+| Review r4 | done | sol FIX 1W/2S (folded at `7261c46a`); kimi APPROVE |
+| Review r5 (final) | done: **FIX 3W/3S → PARKED AGAIN** | `review-r5/REVIEW-r5-sol.md`; D5–D8 in PARKED.md |
 | Review r3 (hard-final) | done: **FIX 1W/4S → PARK, later resumed** | `review-r3/REVIEW-r3-sol.md`; kimi r3 ended mid-run with no verdict (inadmissible; `review-r3/kimi-r3-no-verdict.log`) |
 | Gates on `af6368c8` | recorded | `gates-af6368c8/` (Node population) and `fix2/` (Rust); see PARKED.md |
 | Public 12-site observation | not run | blocked by D1 |
@@ -68,9 +66,9 @@ Copies under `/private/tmp` are volatile. — **RESOLVED**
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| D1 | r3 coverage rows | parked | owner chooses compress vs. cap 740 | owner | PARKED.md §D1 |
-| D2 | stage and signal hardening | parked | fold together with D1 | D1 | PARKED.md §D2 |
-| D3 | public observation and readout | parked | after core approval | D1 | site manifest `789352a5…` |
+| D1–D2 | r3 coverage + hardening | done (`5fc71b0e`) | — | — | — |
+| D5–D8 | r5 findings (ETXTBSY, manifest binding, 4 mutants, size check) | parked | owner resume decision | owner | PARKED.md |
+| D3 | public observation and readout | parked | after core approval | D5–D8 | site manifest `789352a5…` |
 | D4 | profile input re-acquisition | open | document the PR259 react18/19 layouts | — | PARKED.md §D4 |
 | — | PR #320 | MERGED `5501bc0f` | — | — | #320 |
 

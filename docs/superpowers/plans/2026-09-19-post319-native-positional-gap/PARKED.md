@@ -1,12 +1,56 @@
-# Native positional-gap characterization observer — PARK RECORD (2026-09-23), RESUMED 2026-09-23
+# Native positional-gap characterization observer — PARKED AGAIN (2026-09-24)
 
-> **RESUMED.** On 2026-09-23 the owner granted a test cap of 740 (fourth amendment in BUDGET-AMENDMENT.md) and resumed
-> the lane. The review cap is r4 plus at most r5. D1 and D2 below were folded at `5fc71b0e`.
+> **State: PARKED (second time).** The owner resumed the lane on 2026-09-23 with a test cap of 740 and a declared
+> review cap of r4 plus at most r5. The final round, r5, did not approve, so the lane parks under the declared rule.
 >
-> - Review r4: kimi APPROVE; sol FIX, 1 WRONG / 2 SMELL (stage-collision foreign delete), being folded.
-> - r5 is the final round. The live state is in the lane handoff.
+> - Nothing was done past review: no core approval, public 12-site run, implementation PR, or merge.
+> - Last reviewed subject: `b11d7913`. Code fold commit: `7261c46a`.
+> - Evidence: `/Users/wesleyjinks/prism-evidence/native-positional-gap/review-r5/`.
 >
-> The text below is the historical park record.
+> The first park record (r1–r3, D1–D4) follows the resumed-rounds section.
+
+## Resumed rounds (r4–r5)
+
+| Round | Subject | sol (executed) | kimi-k3 (static) |
+|---|---|---|---|
+| r4 | `5fc71b0e` | FIX 1 WRONG / 2 SMELL: an exclusive-create collision deleted a foreign stage | APPROVE, 0 WRONG |
+| r5 (final) | `b11d7913` | **FIX 3 WRONG / 3 SMELL, open-class** | see the lane handoff |
+
+WRONG findings across all rounds: r1 6, r2 3, r3 1, r4 1, r5 3. That trend is not converging. Sol and the controller
+agree r5 is open-class. Every r4 finding is CLOSED at r5, and the inherited 29 mutants are all killed.
+
+### Open r5 findings (deferred)
+
+- **D5 — Linux ETXTBSY regression. Blocker; severity High.**
+  - Problem: `ownedStage()` keeps the writable descriptor open while `runNative()` spawns the staged worker. Linux
+    `execve` fails with `ETXTBSY`, and CI runs on `ubuntu-latest`.
+  - Attribution: the regression came from the r4 fold, and sol showed it with a same-environment control against
+    pre-r4 `aef6a9a0`.
+  - Fix: close the owned descriptor before the body runs, while keeping ownership state separate. A close failure
+    must stop execution and clean up. Add a zero-writable-FD-at-spawn control.
+  - This also closes r5 SMELL 1 (a swallowed close failure leaks the descriptor).
+- **D6 — public-manifest binding. Contract gap; severity High.**
+  - Problem: a non-synthetic manifest must equal the frozen `789352a5…` hash. Today any caller-hashed manifest with
+    any compiler kind runs.
+  - Fix: branch on the exact synthetic `upstream_repository` form. Otherwise require the frozen hash before reading
+    sources. Add two refusal controls.
+- **D7 — four surviving mutants. Test coverage; severity Medium.**
+  - `R5-P1` object-shape `all`→`any`
+  - `R5-P2` later-shape `all`→`any`
+  - `R5-P3` order-directions `&&`→`||`
+  - `R5-O1` singular `parameter` dropped (`later => later`)
+
+  Needs complete-record rows for sol's four inputs. The test bucket is at its 740-line cap, so either lossless
+  compression or another owner budget decision is needed.
+- **D8 — read-before-size-check. Robustness; severity Low (r5 SMELL 2).** Compare `lstat` size with the declared
+  size and the remaining cap before `readFileSync`.
+
+**Resume guidance.** The open-class trend (custody and coverage) suggests the contract is larger than a 12-site
+observer warrants. Before resuming, the owner should choose between:
+
+- **(a)** a D5–D8 fold with a fresh budget and review cap, or
+- **(b)** re-planning. For example, drop the custom launcher-custody layer and have the controller run a simple
+  pinned probe with an independent reconciliation.
 
 The increment was parked at `af6368c8` because the hard-final third review round did not approve.
 ## Review record
