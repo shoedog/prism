@@ -1,4 +1,4 @@
-# Handoff — post-#319 native positional-gap characterization (RE-PLAN (b) in spec review, 2026-09-24)
+# Handoff — post-#319 native positional-gap characterization (RE-PLAN (b) spec APPROVED; implementation next, 2026-09-24)
 
 **Written:** 2026-09-23 · **By:** Claude Code controller session_01CeCpr7mLfpQeq9vEEKBFhQ · **Provider:** claude
 **Workspace:** `/Users/wesleyjinks/code/prism-native-gap-impl` · `feat/native-positional-gap`

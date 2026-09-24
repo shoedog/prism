@@ -80,6 +80,12 @@ message on stderr for any refusal.
     `789352a575d68ef672de7449299676de0c0aab8edd4abd8228e23efda65d326b`. Refuse otherwise.
   - Synthetic manifests may use any small population. Their schema is validated only as far as needed to build the
     request; the worker re-validates the whole request before parsing.
+  - `[r2]` **Explicit amendment of SPEC §5.** SPEC §5 requires a synthetic manifest to follow the full public
+    manifest schema. For synthetic manifests only, that clause is amended to **request projection**: every field the
+    builder copies into the request must be valid, and manifest-only metadata may be absent or extra. Two reasons:
+    synthetic manifests are test fixtures, and the public manifest is bound byte-for-byte by the frozen hash (D6),
+    which covers every public field. terra flagged the contradiction in v2 WRONG 1; sol r2 judged the relaxation
+    deliberate and approved. Making it explicit resolves both.
 - **CLI (`[r1]`).** Each of the four flags is required exactly once. A missing, duplicate, or unknown flag refuses.
 - **Sources.** For each member, first `lstat` `<root>/<path>`. `[r1]` Refuse if it is not a regular file, if its
   size differs from the declared byte count, or if it would exceed the remaining 256 KiB total. This closes D8
@@ -135,6 +141,10 @@ message on stderr for any refusal.
   - A synthetic manifest passes.
   - An absolute path, `..`, and a backslash each refuse.
   - A source-hash mismatch refuses.
+  - `[r2]` CLI table: a missing, duplicate, and unknown flag each refuse with a flag-specific message.
+  - `[r2]` D8 table: a non-regular source (a directory) refuses, and so does a source whose actual size differs from
+    the declared size. The latter must be asserted on the **pre-read** size-specific diagnostic, distinct from the
+    later hash/length refusal.
   - Invalid UTF-8 refuses.
   - The request's bytes are exactly equal to a fixture: key order, BOM preserved.
 - Test 9, the raw-worker refusal matrix, stays unchanged. It exercises the worker's own pre-parse validation, which
@@ -181,3 +191,15 @@ Both call it converging. Folds, marked `[r1]`:
 | D8 read-before-size remained in the builder | sol S1 | `lstat` regular-file, size, and cap check before reading |
 | Handoff not reconciled with option (b) | sol S2 | Handoff refreshed |
 | CLI flag exactness unstated | sol table note | Four flags, each exactly once; unknown flags refuse |
+
+Round 2:
+
+- sol: **APPROVE**, 0 WRONG / 1 SMELL
+- terra: FIX, 1 WRONG / 0 SMELL
+
+| Finding | Source | Fold |
+|---|---|---|
+| Synthetic manifest schema relaxation contradicts SPEC §5 | terra v2 W1 (sol: deliberate) | §3.2: explicit, bounded amendment of SPEC §5 for synthetic manifests only |
+| CLI and D8 branches lack regression rows | sol S1 | §4: CLI table and D8 pre-read tables |
+
+The spec is approved, with sol gating. Implementation is authorized, with its own 2-round review cap on the delta.
