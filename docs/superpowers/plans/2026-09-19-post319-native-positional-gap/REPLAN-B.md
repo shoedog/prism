@@ -91,7 +91,7 @@ message on stderr for any refusal.
     and selectors in numeric order
 - **`native_binary_sha256`** comes from `--native-sha256`, which the controller computes. The builder does not read
   or execute the binary.
-- There is no child process, staging, publication, timeout, or file write. **D5 and D8 disappear with the launcher.**
+- There is no child process, staging, publication, timeout, or file write. **D5 disappears with the launcher. D8 is closed by the pre-read `lstat` check above.**
 
 ### 3.3 Controller-run pipe (acceptance procedure, not code)
 
