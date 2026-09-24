@@ -1,16 +1,14 @@
-# PARKED — native positional-gap characterization observer (2026-09-23)
+# Native positional-gap characterization observer — PARK RECORD (2026-09-23), RESUMED 2026-09-23
 
-**State: PARKED under the owner's rule.** The hard-final third review round did not approve, so the increment parks.
-None of the following happened:
+> **RESUMED.** On 2026-09-23 the owner granted a test cap of 740 (fourth amendment in BUDGET-AMENDMENT.md) and resumed
+> the lane. The review cap is r4 plus at most r5. D1 and D2 below were folded at `5fc71b0e`.
+>
+> - Review r4: kimi APPROVE; sol FIX, 1 WRONG / 2 SMELL (stage-collision foreign delete), being folded.
+> - r5 is the final round. The live state is in the lane handoff.
+>
+> The text below is the historical park record.
 
-- core approval
-- the public 12-site observation
-- an implementation PR
-- a merge
-
-The branch `feat/native-positional-gap` is preserved at `af6368c88ec5d1fb8ded036bf5561705efc5df40` (the reviewed
-subject) plus docs-only commits. The planning packet and PR #320 are unaffected.
-
+The increment was parked at `af6368c8` because the hard-final third review round did not approve.
 ## Review record
 
 | Round | Subject | sol (gpt-5.6-sol xhigh, executed) | kimi-k3 (static) |
