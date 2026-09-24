@@ -2,14 +2,14 @@
 
 **Written:** 2026-09-23 · **By:** Claude Code controller session_01CeCpr7mLfpQeq9vEEKBFhQ · **Provider:** claude
 **Workspace:** `/Users/wesleyjinks/code/prism-native-gap-impl` · `feat/native-positional-gap`
-**Measured state:** `[MEASURED]` HEAD `e5a3e7f4` frozen for review r1, then this handoff commit · Tree CLEAN (only codex's `.git/info/exclude`-ignored `VERIFICATION.md`) · Probe: `git -C <clone> status -sb`
+**Measured state:** `[MEASURED]` HEAD `ca9dcc9c` (review-r2 subject) + this handoff refresh · Tree CLEAN · Probe: `git -C /Users/wesleyjinks/code/prism-native-gap-impl status -sb`
 **Predecessor:** unknown session that sealed the plan on 2026-09-19. It left `plan/post319-successor` unpushed at `/private/tmp/prism-post316-slice1`, whose gitdir link was already gone.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the controller. `[MEASURED]` claims were probed this session; `[INHERITED]` claims come from the named planning packet.
 
 ## 0. Gating facts — settle these before starting anything below
 
-**(a) Lane ownership** — `[MEASURED]` this controller session owns the lane. Implementer turns r0 (build, budget STOP) and r1 (whitespace reflow) are complete. Review r1/2 is running: sol xhigh (codex exec, clone `prism-native-gap-review-sol`) in parallel with kimi-k3 (opencode plan, clone `prism-native-gap-review-kimi`). An unrelated a2a-bridge workflow run (repo `a2a-bridge`) also exists on the host. — **OPEN** until the implementer returns.
+**(a) Lane ownership** — `[MEASURED]` This controller session owns the lane. Review r2/2 is complete: sol gave FIX, 3 WRONG / 2 SMELL, classified as open-class; kimi gave APPROVE, static only. The owner authorized **one hard-final third round**. The next step is fix wave 2 (terra), then a sol r3 review of the whole diff; if that verdict is not APPROVE, park. — **OPEN**
 
 **(b) Custody exposure** — `[MEASURED]`
 - The plan branch is pushed as `origin/plan/post319-successor` and is PR #320.
@@ -17,7 +17,13 @@
 - The main checkout `/Users/wesleyjinks/code/slicing` sits on the merged `feat/js-ts-module-binding-audit` with stale uncommitted edits. Those edits are older than main's #315/#316 versions, so they are superseded. They were left untouched.
 - — **OPEN**
 
-**(c) In flight / irreversible** — `[MEASURED]` Two review processes run in the background: codex exec for sol and opencode run for kimi-k3. Their logs are in scratchpad `review-r1-{sol,kimi}.log`. The served a2a-bridge (port 18080) fails every `session/new` for both codex and opencode: 3 probes, contexts `prism-native-gap-probe{1,2,3}-20260923`. A bridge restart is an operator action and was not performed. — **OPEN**
+**(c) In flight / irreversible** — `[MEASURED]`
+
+- The served a2a-bridge on port 18080 fails `session/new` for every agent, so lanes run through direct `codex exec` / `opencode run`.
+- The macOS daily `/tmp` cleaner deletes files not accessed for 3 days. It already emptied `/private/tmp/prism-post316-orchestration/public-inputs`: the pinned TypeScript and the react18/19 profile archives.
+- Durable evidence now lives in `/Users/wesleyjinks/prism-evidence/native-positional-gap/`. That folder also holds the restored TypeScript 5.9.3, whose `typescript.js` hash is `3ae902c9…`, matching the pin.
+
+— **OPEN**
 
 **(d) Authorization granted but not exercised** — the user said: "pick up where the last implementor left off … ensure there isnt a local branch or worktree that needs completed and a PR submitted then proceed to next increment".
 
@@ -56,8 +62,12 @@
 | Budget amendment ×2 (owner) | done | `BUDGET-AMENDMENT.md`: helper 1,090 / tests 500 / combined 1,520; measured 1,035 / 414 / 1,449 |
 | rustfmt + JS reflow | done | `2d06fef5`, `e5a3e7f4`; non-whitespace streams checked; Node 7/0 + 1 RED skip; Rust default 4,559/0/1 |
 | Frozen source manifest | done | `/private/tmp/prism-native-gap-evidence/r1/frozen-source-manifest-e5a3e7f4….sha256` |
-| Review r1/2 | in flight | sol ∥ kimi-k3 (Ox Alpha Free is no longer in the OpenRouter catalog) |
-| Review cap | declared: 2 rounds | this handoff |
+| Review r1/2 | done | sol FIX 7W/2S (W7 = controller stale-cap error); kimi APPROVE 7S → `review-r1/` |
+| Third amendment (owner) | done | caps 1,100 / 700 / 1,800 |
+| Fix wave 1 (+continuation) | done | `ca9dcc9c`; 13/13 legacy mutants killed; lines 1,063 / 660 / 1,723 (strict count) |
+| Review r2/2 | done | sol FIX 3W/2S (Buffer re-hash, root-component lstat, 4 TS-shape/comment mutants); kimi APPROVE 6S → `review-r2/` |
+| Fix wave 2 | next | owner-authorized hard-final r3 review follows |
+| Review cap | 2 declared; owner extended to a hard-final 3rd round (2026-09-23) | this handoff |
 
 ## 3. Corrections to standing documents and memory
 
@@ -70,13 +80,15 @@
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
 | 1 | Implementation | done (frozen) | — | — | `e5a3e7f4` |
-| 2 | Core review r1/2 | in flight | fold closed findings; r2 re-reviews the whole branch diff | reviewers | clones `prism-native-gap-review-{sol,kimi}` |
+| 2 | Core review | r3 pending | fix wave 2, then sol r3 of the whole diff | fix wave 2 | clones `prism-native-gap-review-{sol,kimi}` |
 | 3 | Public 12-site run | pending | after approval | 2 | site manifest `789352a5…` |
 | 4 | Impl PR | pending | stack on #320 | 3 | — |
 
 ## 5. Invariants and traps — do not do these
 
 - Never parse the public source before core approval — the spec gates it.
+- Never keep the only copy of evidence in `/private/tmp` — the daily cleaner purges it after 3 days of no access.
+- opencode plan mode auto-rejects reads outside `--dir`, which aborts the run. Copy the review context into the clone first.
 - Never treat `slots:null` as an empty prefix — per spec W1.
 - The served bridge is down: do not restart it without operator coordination. Other sessions may depend on it.
 - Leave the stale dirty main checkout alone — not ours.
