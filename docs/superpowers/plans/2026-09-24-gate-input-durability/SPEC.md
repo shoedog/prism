@@ -1,384 +1,404 @@
-# Gate-input durability: pinned, re-acquirable Node test-gate inputs (v2)
+# Gate-input durability: pinned, re-acquirable Node test-gate inputs (v3, simple)
 
-**Status:** v2 for independent spec review round 2 of 2. v2 folds all 8 WRONG and 4 SMELL findings from sol's spec
-round 1 (mapped in §9), plus the parallel review's findings. No implementation is authorized until APPROVE.
+**Status:** v3 re-plan after v2 hit its 2-round cap non-converging (sol r1 8W/4S, r2 8W/3S). Owner decision
+2026-09-24: "Re-plan simple v3". No implementation is authorized until APPROVE.
 
-**Base:** `origin/main`, now `5501bc0f`: the PR #320 merge, source-equivalent to `30e13053`.
+**Provenance:**
 
-**Owner decision:** 2026-09-23, "Gate-input durability" as the next parallel slice.
+- Drafted by a Fable advisor (claude-fable-5-1) at the owner's request. The controller then verified the draft and
+  amended it.
+- The controller independently reproduced the 6-archive header census (tar roots, type flags, no pax, maximum name
+  length 51) and all three derived tree digests.
+- The controller amended the RED clauses in §5, which were drafted as missing-module REDs; this repository counts a
+  missing module as inadmissible.
+- The feasibility evidence, registry metadata, and prior spec reviews are in `advisor/`.
 
-**The slice is SPLIT** into two independently reviewed and published implementation slices:
+**Base:** `origin/main` `5501bc0f` (source-equivalent to `30e13053`).
 
-- **Slice A — acquire and install** (§3): make every re-acquirable external input durable and authenticated.
-- **Slice B — declared population and sealed runner** (§4): one command runs the declared full Node gate.
-  Slice B depends on A's receipt format only.
+**What changed from v2, in one sentence:** every one of the 9 artifacts now has a byte authority
+(`advisor/registry-integrity.json`, `advisor/FEASIBILITY.md`), so every byte is authenticated *before* it is
+decompressed, parsed, or written; that single fact lets v3 delete the react18 bootstrap, the hostile-input tar
+reader and its limits, the offline mirror, the redirect allowlist, generations, `current.json`, `env.sh`, the lock,
+and `--prune`. What remains is content-addressed immutable install directories and verify-on-use.
 
-## 1. Problem and value
+**Slices:** two, sequential, each with its own 2-round implementation review cap.
 
-The Node test gate's external inputs lived only under `/private/tmp`, and the macOS daily cleaner purged them:
+- **Slice A — `acquire.mjs` + `pins.json`**: fetch, authenticate, extract, install, verify, print env.
+- **Slice B — `gate.mjs` + `exclusions.json`**: enumerate the population, seal the environment, build the native
+  helper, run `node --test`, write log + receipt. B imports two functions from A (`verifyInstalled`, `inputDirs`).
 
-- the TypeScript 5.9.3 package
-- the react18 and react19 callable profiles
-- the grammar archives
+## 1. Problem, value, threat model
 
-On 2026-09-23 this meant:
+The Node gate's external inputs (TypeScript 5.9.3, the react18/react19 callable profiles, the grammar archives)
+lived only under `/private/tmp`; the macOS daily cleaner purged them, 6 modules could not run, and no receipt
+recorded the full-population command. Value: a durable, authenticated, one-command full-population gate on this host
+and any host meeting §4.4, with a receipt naming every module, skip, and exclusion.
 
-- 6 modules could not run: 5 in `scripts/callable-observations/` plus `verify-callable-authority`.
-- The grammar tamper test skipped.
-- No repository receipt records the exact full-population command or module inventory.
+**Trust boundary (explicit, so reviewers do not re-litigate it).** The inputs are public and pinned by hash. The
+operator's own account on their own machine is the trust boundary.
 
-Value: honest, reproducible full-population gates on this host and any host that meets the declared prerequisites
-(§4.4).
+In scope (each has a mechanism and a control):
 
-**Non-goals:**
+1. `/tmp` purge → durable root under the data directory, volatile roots refused.
+2. Wrong, corrupted, or substituted download bytes → SRI/SHA-256 checked on the complete body before any use.
+3. Extraction bugs or platform nondeterminism → the installed tree's digest must equal a pinned derived digest.
+4. Stale, torn, or tampered installs → every use (acquire, `env`, gate preflight) recomputes the tree digest.
+5. Ambient environment steering tests → the gate builds the child environment from scratch.
+6. Undeclared population drift → the population is enumerated from git, config-neutrally, into the receipt.
 
-- No `src/`, Cargo, dependency, or existing-test change.
-- No `PRISM_AUDIT_SITES` reconstruction: it has no authority.
-- No change to the grammar verifier's Node v26.0.0 / darwin / arm64 host pin.
-- No vendored Cargo dependencies.
+Out of scope (justified once, here):
 
-## 2. Artifacts and logical inputs
+- A hostile process running under the operator's account (symlink races, TOCTOU, 0700 modes, `lstat` walks): if
+  that process exists, it can edit the repository and the tests too. No custody machinery defends against it.
+- Transport policing (redirect host allowlists, port and userinfo rules): content is bound by hash; a hostile
+  transport can only cause a refusal. `fetch` follows redirects with Node's defaults.
+- Power-loss durability (`fsync` choreography): a torn install fails verification and is refused, never used.
+- Resource exhaustion by the pinned artifacts: their sizes are constants (≤ 4.4 MiB compressed, ≤ 23 MiB expanded).
+  Only an *unauthenticated* body is capped (§3.3), and it is capped before hashing.
+- `PRISM_AUDIT_*` reconstruction (no authority exists); the grammar verifier's Node v26.0.0/darwin/arm64 pin;
+  vendored Cargo dependencies; any `src/`, Cargo, dependency, or existing-test change.
 
-Exact enumeration. Counts are only derived from this list; nothing in acceptance relies on a numeric total.
+## 2. Artifacts, logical inputs, and `pins.json`
 
-| # | Downloaded artifact | Logical input | Content authority |
-|---|---|---|---|
-| 1 | `typescript-5.9.3.tgz` | TypeScript | npm SRI from Excalidraw `0642e72c` `yarn.lock` (lock SHA-256 pinned at `docs/eval/post317-input-custody.md:29`); `typescript.js` SHA-256 = `COMPILER_HASH` (`scripts/callable-observations/schema.mjs:18`) |
-| 2 | `@types/react-19.0.10.tgz` | profile react19 | yarn.lock SRI, plus the react19 tree hash (`verify-callable-authority.mjs:24`) |
-| 3 | `csstype-3.1.3.tgz` | profile react19 | yarn.lock SRI, plus the react19 tree hash |
-| 4 | `@types/react-18.3.31.tgz` | profile react18 | react18 tree hash (`verify-callable-authority.mjs:25`) only; §3.3 bootstrap |
-| 5 | `csstype-3.2.3.tgz` | profile react18 | same as #4 |
-| 6 | `@types/prop-types-15.7.15.tgz` | profile react18 | same as #4; version per `2026-09-06-callable-authority-readout.md:43` |
-| 7 | `upstream.tar.gz` | grammar archives | SHA-256 in `scripts/verify-typescript-grammar.mjs:14-26` |
-| 8 | `javascript-0.23.1.tgz` | grammar archives | same |
-| 9 | `tree-sitter-macos-arm64.gz` | grammar archives | same |
+Nine downloaded artifacts assemble three logical inputs. Acceptance enumerates by name; no number is load-bearing.
 
-That makes 9 artifacts across 4 logical inputs: TypeScript, react19, react18, and grammar-archives. The native
-membership helper is **built**, not acquired (§4).
+| # | Artifact | Input | Byte authority (pin) | Tar root |
+|---|---|---|---|---|
+| 1 | `typescript-5.9.3.tgz` | typescript | SRI = Excalidraw `0642e72c` `yarn.lock` (lock SHA-256 at `docs/eval/post317-input-custody.md:29`) **and** registry metadata `https://registry.npmjs.org/typescript/5.9.3` (captured sha256 `80f0d5d2…43d8`), byte-identical | `package` |
+| 2 | `@types/react-19.0.10.tgz` | profiles/react19 | yarn.lock **and** registry metadata (`5afcf1cc…c0bc`) | `react` |
+| 3 | `csstype-3.1.3.tgz` | profiles/react19 | yarn.lock **and** registry metadata (`849e6cbb…fe7d`) | `package` |
+| 4 | `@types/react-18.3.31.tgz` | profiles/react18 | registry metadata (`3250ec2d…5f87`) | `react v18.3` |
+| 5 | `csstype-3.2.3.tgz` | profiles/react18 | registry metadata (`011e326a…c49f`) | `package` |
+| 6 | `@types/prop-types-15.7.15.tgz` | profiles/react18 | registry metadata (`aeb1a381…60a4`) | `prop-types` |
+| 7 | `upstream.tar.gz` | grammar-archives | SHA-256 at `scripts/verify-typescript-grammar.mjs:14-17` | (not extracted) |
+| 8 | `javascript-0.23.1.tgz` | grammar-archives | SHA-256 at `…:18-21` | (not extracted) |
+| 9 | `tree-sitter-macos-arm64.gz` | grammar-archives | SHA-256 at `…:22-25` | (not extracted) |
 
-## 3. Slice A — acquire and install (`scripts/gate-inputs/acquire.mjs`, `pins.json`)
+Tar roots come from the controller's header census of the SRI-verified bytes (§7 A-acceptance re-records it). Note
+that the three `@types` archives are **not** rooted at `package/`; a fixed `package/` rule (v2 §3.5) would have
+rejected real artifacts 2, 4, and 6. v3 therefore pins the root name per artifact.
 
-### 3.1 Durable root and generations
+**Cross-checks that already exist in the repository** (independent of the SRIs, kept as second authorities):
 
-- Root selection:
-  - `$PRISM_GATE_INPUTS_ROOT`, if set
-  - otherwise `$XDG_DATA_HOME/prism/gate-inputs`
-  - otherwise `~/.local/share/prism/gate-inputs`
-- The tool refuses, with reason `volatile root`, any root whose `realpath` (of the nearest existing ancestor) lies
-  under `realpath(os.tmpdir())`, `/private/tmp`, `/tmp`, `/private/var/folders`, or `/var/folders`. There is no
-  override.
-- The root and every tool-created directory are mode 0700 and must not be symlinks, checked with `lstat` on every
-  component below the root.
-- An acquisition lock (`<root>/.lock`, exclusive create with the pid inside) serializes acquirers. A stale lock is
-  reported and never auto-broken.
-- **Immutable generations (W3 fold).** Each logical input installs into `<root>/<input>/gen-<content-id>/`, where
-  `<content-id>` is the SHA-256 of that input's canonical raw-byte manifest (§3.4).
-  - A generation is written to `<root>/<input>/.staging-<uuid>/`, fully authenticated, `fsync`ed, then renamed to
-    its `gen-*` name. Rename to a **new**, nonexistent directory name is atomic.
-  - The active pointer is `<root>/current.json`, a file replaced atomically: write a temp file, `fsync`, rename,
-    then `fsync` the directory. It maps each input to its generation path and manifest id.
-  - Old generations are never modified. `--prune` removes non-current generations only when explicitly requested.
-  - Crash recovery: a leftover `.staging-*` is ignored and removed on the next run; `current.json` is always either
-    the old or the new version.
-- **Retained artifacts:** each generation keeps its source archives under `gen-*/archives/`, so re-verification is
-  anchored to the SRI and SHA-256 pins, not to an observed receipt (W8 fold).
+- `lib/typescript.js` SHA-256 = `COMPILER_HASH` (`scripts/callable-observations/schema.mjs:18`).
+- react19 / react18 profile hashes by the historical formula (`verify-callable-authority.mjs:15-25`):
+  `49c6c7a3…baad` / `7b8bbdc8…9b34`; `package.json` versions 19.0.10/3.1.3 and 18.3.31/3.2.3/15.7.15.
 
-### 3.2 Transport (S2 fold)
+**Derived tree digests (§3.4 formula), the install identity of each logical input.** Computed by the controller from
+the feasibility trees (bsdtar extraction of SRI-verified bytes) and to be re-derived by the tool from a cold fetch at
+acceptance; equality is the acceptance criterion. They are a cache of a deterministic computation over
+authenticated bytes, not a new authority; the install path recomputes them every time.
 
-- Fetch through `fetch` with `redirect:'manual'`, following at most 3 hops by hand. Every hop must be:
-  - `https:` on the default port
-  - no credentials or userinfo
-  - an exact hostname on this allowlist:
-    - `registry.npmjs.org`
-    - `codeload.github.com`
-    - `github.com`
-    - `objects.githubusercontent.com`
-    - `release-assets.githubusercontent.com`
-- Anything else refuses as `redirect host not pinned`.
-- `pins.json` records the transport URL separately from the content authority. npm artifacts use
-  `registry.npmjs.org` even though the lock authority lists `registry.yarnpkg.com`; content is bound by SRI, not by
-  host.
-- The body is streamed to a staging file with a running byte count. Refuse above **64 MiB compressed**, and on a
-  **120 s** whole-fetch timeout, aborting via `AbortController`.
-- `--from <dir>`, the offline mirror:
-  - `lstat` the mirror file and refuse symlinks.
-  - **Copy** it into private staging first, then hash and consume only the staged copy.
+| Input | Files | `tree_sha256` |
+|---|---:|---|
+| typescript (package root) | 132 | `7e02162c902e5c29ec19fefc573ad55b8ed15fcbda940e737f297c53e9c41f54` |
+| profiles (`react18/…`, `react19/…`) | 53 | `aa290dd630dcbfea5523bb627e7e3f6008de70c6fa0601c0df82d1d9975ff443` |
+| grammar-archives (3 files) | 3 | `35ba6cbb8757dd812ab334163cac59ef2f6bdcccb1588b4d97d941e1cf579e5f` |
 
-### 3.3 Authentication before use; react18 bootstrap (W1 fold)
+The grammar-archives digest is computable from the three pinned SHA-256s alone (the formula has no size field),
+so it needs no download to verify.
 
-- **Artifacts with a byte authority** (#1–3 SRI; #7–9 SHA-256): verify the staged archive bytes **before any
-  parsing**.
-- **Artifacts #4–6** (react18): the repository holds no archive-byte authority. **The sole exception** to verifying
-  before parsing is:
-  - The archive is parsed as **hostile input** by the §3.5 reader, with all limits enforced.
-  - It is extracted only into its private staging generation.
-  - Nothing is installed or executed, and no path outside staging is written, until the **assembled react18 tree**
-    matches the pinned tree hash.
-  - On success the tool writes each observed archive SRI to `pins.json` as a proposed pin with
-    `"authority":"tree-hash-bootstrap"`, recorded in the repository by the controller at acceptance. From then on
-    #4–6 have a byte authority and follow the normal path.
-- No other path may parse before authentication. The STOP condition wording in §7 reflects this.
+**`pins.json` shape** (`scripts/gate-inputs/pins.json`, `"schema":"prism.gate-inputs/1"`):
 
-### 3.4 Canonical raw-byte manifests (W8 and S1 fold)
+```json
+"inputs": {
+  "typescript": {"env":"PRISM_TYPESCRIPT","env_suffix":"lib/typescript.js","tree_sha256":"7e02…",
+    "file_sha256":{"lib/typescript.js":"3ae9…"},
+    "artifacts":[{"name":"typescript-5.9.3.tgz","url":"https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz",
+      "integrity":"sha512-jl1v…TgSw==","root":"package","dest":".","authority":"…"}]},
+  "profiles": {"env":"PRISM_CALLABLE_PROFILES","env_suffix":"","tree_sha256":"aa29…",
+    "profile_hash":{"react18":"7b8b…","react19":"49c6…"},
+    "artifacts":[{"name":"@types/react-18.3.31.tgz","url":"…","integrity":"sha512-vfEq…",
+      "root":"react v18.3","dest":"react18/node_modules/@types/react","authority":"…"}, …]},
+  "grammar-archives": {"env":"PRISM_GRAMMAR_ARCHIVES","env_suffix":"","tree_sha256":"35ba…",
+    "artifacts":[{"name":"upstream.tar.gz","url":"…","sha256":"4de2…","dest":"upstream.tar.gz","authority":"…"}, …]}
+}
+```
 
-For every installed tree the tool computes a canonical manifest, and the SHA-256 of that manifest is the generation
-content id. The manifest is: sorted UTF-8 relative paths, each with type (`file` or `dir`), size, and raw-byte
-SHA-256. Symlinks, hardlinks, and devices are refused.
+`authority` is a free-text citation (file:line, or metadata URL + captured sha256). Each artifact has exactly one
+of `integrity` (npm, `sha512-` base64) or `sha256` (raw file). `dest` is relative to the input's install dir.
 
-Checks on the installed trees:
+## 3. Slice A — `scripts/gate-inputs/acquire.mjs`
 
-- **TypeScript:** the manifest is derived from the SRI-authenticated archive's `package/` entries. The installed
-  `package/` tree, including all of `lib/`, must equal it exactly.
-- **Profiles:**
-  - The historical formula `sha256(JSON.stringify([[relpath, utf8text], …]))` must equal the pin.
-  - **Additionally**, every file must round-trip exactly through UTF-8 decode and encode. Otherwise refuse
-    (`non-utf8 profile file`), because the historical formula alone cannot bind raw bytes.
-  - The raw-byte manifest is recorded alongside.
-  - `package.json` versions must equal the pins.
-- **Grammar archives:** each file's SHA-256 is checked; they are not extracted.
+CLI: `node scripts/gate-inputs/acquire.mjs [acquire|verify|env]` (default `acquire`). Exit 0 on success, 2 on
+refusal; every refusal names the input, artifact, and rule.
 
-### 3.5 Archive reader (W2 fold)
+### 3.1 Root and layout
 
-- An in-Node streaming reader: `zlib.createGunzip()` feeding a minimal ustar/pax parser. It does **not** use the
-  system `tar`, which avoids bsdtar versus GNU tar dialect parsing.
-- Supported entries: regular file (`0` / NUL) and directory (`5`). Pax `x` headers apply `path` and `size` only.
-- Refused before any write:
-  - pax `g` headers
-  - GNU `L`/`K` long names
-  - symlinks, hardlinks, character or block devices, FIFOs
-  - sparse files
-  - unknown type flags
-- Per-archive limits:
-  - ≤ 64 MiB compressed
-  - ≤ 256 MiB total expanded
-  - ≤ 64 MiB per entry
-  - ≤ 10,000 entries
-  - path ≤ 255 bytes and ≤ 32 components
-- Paths must be:
-  - under the single `package/` prefix
-  - not absolute
-  - free of `.`/`..`/empty components, NUL, and backslash
-  - valid UTF-8
-- **Duplicate destinations and case-folding collisions refuse.** Checksums in ustar headers are verified.
-- Write limits are enforced **while streaming**, so an oversized entry refuses before exceeding the limit on disk.
+- Root: `$PRISM_GATE_INPUTS_ROOT`, else `$XDG_DATA_HOME/prism/gate-inputs`, else
+  `~/.local/share/prism/gate-inputs`. Created with `mkdir -p`.
+- Volatile-root refusal (reason `volatile root`, no override): the `realpath` of the root's longest existing prefix
+  is equal to or under `realpath(os.tmpdir())`, `realpath('/tmp')`, or `realpath('/var/folders')`.
+- Layout, **derived from pins, no pointer file**: `<root>/<input>/<tree_sha256>/`. Install dirs are immutable and
+  content-addressed; the tool never modifies or deletes one. Replacement is impossible by construction: changed pins
+  name a different directory. The only thing the tool ever deletes is its own `<root>/.stage-<random>/`.
+- Env values are derived: `PRISM_TYPESCRIPT=<root>/typescript/<digest>/lib/typescript.js`,
+  `PRISM_CALLABLE_PROFILES=<root>/profiles/<digest>`, `PRISM_GRAMMAR_ARCHIVES=<root>/grammar-archives/<digest>`.
+  `env.sh` does not exist; `acquire.mjs env` verifies and prints the three `export` lines (single-quoted).
 
-### 3.6 Receipt and env
+### 3.2 Install algorithm (per logical input, independent)
 
-`<root>/current.json` is canonical JSON with one trailing newline and no timestamps. Per input it records:
+1. If `<root>/<input>/<tree_sha256>` exists: recompute the tree digest (§3.4). Equal → `verified`, no fetch, no
+   write. Unequal → refuse `install corrupt: remove <dir> and re-run` (never auto-repaired).
+2. Else fetch every artifact (§3.3) and authenticate its complete bytes. Any failure → refuse before any
+   decompression or write for this input.
+3. Extract each archive (§3.5) into `<root>/.stage-<random>/<dest>`; copy raw files (grammar) to `<dest>`.
+4. Run the cross-checks: `file_sha256` entries; `profile_hash` via the historical formula (§3.4); `package.json`
+   versions. Then compute the tree digest of the stage and require equality with `tree_sha256`.
+5. `mkdir -p <root>/<input>`; `rename(stage, <root>/<input>/<tree_sha256>)`. On `EEXIST`/`ENOTEMPTY` (a concurrent
+   acquirer won) go to step 1 for that input. A `rename` into a new name is atomic; no lock is needed because two
+   acquirers can only race to create the same content-addressed directory.
+6. On any failure: remove own stage, leave everything else untouched, continue to the next input, exit 2 at the end.
 
-- the generation path
-- the manifest id
-- each artifact's name, transport URL, SHA-256, SRI, and authority kind
-- the tool SHA-256
+Threat 4 (§1) is closed by step 1 on every run plus `verify`, which is step 1 for all inputs and is what the gate
+calls. Crash at any point leaves either a stage (ignored by everyone; removed by the next acquire run of the same
+tool only if named `.stage-*` under the root) or a complete renamed directory.
 
-`<root>/env.sh` holds `export` lines for `PRISM_TYPESCRIPT`, `PRISM_CALLABLE_PROFILES`, and
-`PRISM_GRAMMAR_ARCHIVES`, pointing into current generations and shell-quoted.
+### 3.3 Fetch and authentication
 
-`acquire.mjs --verify` re-authenticates current generations from retained archives and pins without any network.
-Slice B's preflight uses it.
+- `fetch(url, {signal: AbortSignal.timeout(120_000)})`, Node defaults for redirects. Refuse non-`ok` status.
+- Read the body as a stream with a running count; refuse above **64 MiB** (the only limit the tool has, and it
+  guards unauthenticated bytes only). Buffer the complete body in memory (the pinned artifacts are ≤ 4.4 MiB).
+- Compute SHA-512 (npm) or SHA-256 (raw) over the complete buffer; compare to the pin (SRI as base64, exact string
+  match after `sha512-`). Mismatch → refuse `byte authority: <artifact>`; the buffer is discarded.
+- Nothing is decompressed, parsed, or written before this comparison succeeds. There is no `--from` mirror; tests
+  inject `fetch` through the exported `acquire({fetch})` option.
 
-### 3.7 Slice A tests (offline; synthetic mirror; injected transport)
+### 3.4 Tree digest formula (v1) and the historical cross-check
 
-**RED first:** a runnable test adapter that installs an assembled tree while omitting one file. The complete
-install-record assertion must fail on the concrete manifest id or tree hash. Setup failures are inadmissible as RED.
+- Rows: for every regular file under the directory, recursively, `[relpath, sha256hex(bytes)]`, where `relpath`
+  uses `/` and is relative to the input dir. Directories contribute no rows (they are implied by paths; empty
+  directories are irrelevant to every consumer). A symlink or any non-regular, non-directory entry refuses.
+- `relpath` must match `/^[\x20-\x7e]+$/` and contain no `\`; otherwise refuse `non-ascii path`. (Every pinned
+  path is ASCII; this makes sort order unambiguous.)
+- Sort rows by `relpath` with JavaScript string comparison (`<`), which is byte order for ASCII.
+- `tree_sha256 = sha256hex(utf8(JSON.stringify(rows)))`. The test suite pins one fixed two-file fixture to a fixed
+  digest so the formula cannot drift silently (the reviewer recomputes it with any sha256 tool).
+- Historical profile cross-check: `sha256(JSON.stringify(readTree(profileDir)))` exactly as
+  `verify-callable-authority.mjs:15-22` (sorted `readdirSync`, UTF-8 text). It is lossy for non-UTF-8 bytes, which
+  is why it is a cross-check to the historical pin and not the identity; the raw digest above is the identity.
 
-Required controls, each with a complete expected record:
+### 3.5 Archive reader — the accepted tar profile is exactly what the six pinned archives use
 
-1. **Happy path.** Synthetic archives and pins go through `--from`: full layout, `current.json`, `env.sh`. A re-run
-   yields `verified`, with byte-identical files and no new generation.
-2. **Byte authority.** Refuse before parse on:
-   - wrong SRI
-   - wrong SHA-256
-   - truncated gzip
-   - an oversized compressed stream (streaming cap)
-3. **Bootstrap.** A wrong react18 tree refuses. Assert that nothing is written outside staging and no SRI is
-   proposed. A correct tree proposes exactly 3 SRIs.
-4. **Reader.** One refusal row per rule in §3.5:
-   - each refused type flag
-   - pax `g`
-   - GNU long name
-   - absolute, `..`, and backslash paths
-   - outside `package/`
-   - duplicate and case-collision destinations
-   - bad header checksum
-   - an entry count above the limit, and expanded bytes above the per-entry and total limits (a synthetic
-     zero-filled entry streamed lazily)
-   - non-UTF-8 path
-5. **Generations.**
-   - Replacing a populated current input with a new generation: `current.json` flips atomically.
-   - A crash is simulated by killing the child after staging, before rename; the old `current.json` remains intact
-     and staging is cleaned on the next run.
-   - A failed input leaves `current.json` unchanged.
-   - Tampering with a non-entrypoint TypeScript `lib/*.d.ts` fails `--verify`.
-6. **Transport** (injected fetch):
-   - an off-allowlist redirect host
-   - `http:` hop
-   - a non-default port
-   - userinfo
-   - more than 3 hops
-   - timeout abort
-   - a symlinked `--from` file
-   - mutation of the mirror file after it is staged, which must not affect the consumed bytes
-7. **Root.**
-   - Refusal under `tmpdir`, `/private/tmp`, `/tmp` via its symlink, and `/var/folders`.
-   - A symlinked component under the root refuses.
-   - A concurrent acquirer sees the lock.
-8. **Drift guards.** Each pin in `pins.json` equals the value parsed from the cited source:
-   - the grammar pins in `verify-typescript-grammar.mjs`
-   - the profile versions and tree hashes in `verify-callable-authority.mjs`
-   - `COMPILER_HASH` in `schema.mjs`
-   - the yarn.lock-derived SRIs, which the test checks against a checked-in excerpt of the three lock stanzas plus
-     the lock file's pinned SHA-256 citation
+Because the archive bytes are authenticated constants, the reader is not a hostile-input parser. It accepts exactly
+the profile observed in the header census of all six artifacts (`{typeflag 0/NUL/5}`, no pax, no GNU, empty
+`prefix`, max name 51 bytes) and refuses everything else. Its correctness on the six real inputs is proven by the
+tree digest after extraction, not by the reader's own rules.
 
-**Slice A budget** (honest executable lines, JavaScript ≤ 100 columns):
+- Input: `zlib.gunzipSync(buffer)` (in memory). Truncated gzip refuses.
+- Read 512-byte headers. A header of 512 zero bytes ends the archive; nothing after it is read.
+- Fields: `name` = bytes 0–99 up to the first NUL; `size` = bytes 124–135, ASCII octal, NUL/space terminated;
+  `typeflag` = byte 156; `prefix` = bytes 345–499 must be all NUL, else refuse `ustar prefix unsupported`.
+- `typeflag` `'0'` or NUL: regular file; the next `ceil(size/512)` blocks are its content; content past the end of
+  the buffer refuses `truncated`. `'5'`: directory; `size` must be 0. Any other typeflag refuses
+  `unsupported tar entry <typeflag> <name>` (this covers symlinks, hardlinks, devices, pax `x`/`g`, GNU `L`/`K`).
+- Path rule: `name` must equal `<root>`, `<root>/`, or start with `<root>/`; the remainder is split on `/`; every
+  component must be non-empty, not `.` or `..`, match `/^[\x20-\x7e]+$/`, and contain no `\`. Duplicates refuse.
+- Files are written to `<stage>/<dest>/<remainder>` (parents `mkdir -p`) with default modes (0644/0755); no mode,
+  owner, or mtime is preserved. No consumer executes anything from these trees.
+- Grammar artifacts are not extracted; the raw verified bytes are written to `<stage>/<dest>`.
 
-| Bucket | Cap |
-|---|---|
-| helper | ≤ 700 |
-| tests | ≤ 700 |
-| combined | ≤ 1,400 |
+**Why not system `tar`?** It would be acceptable in principle (verified bytes in, tree digest out), but it adds a
+prerequisite to acquisition, a `--strip-components` rule, a dialect question (bsdtar vs GNU) and would still need
+the census above to know each archive's root. The in-Node reader above is ~35 lines, dialect-free, produces the
+census for free (`entries: N files, M dirs` in the acquire log), and its only failure mode — a wrong tree — is
+caught by the derived digest. A pre-extraction listing check therefore earns nothing beyond the path rule already
+in the reader.
 
-Early stop at 95%. The controller forecasts helper about 500–620 and tests about 520–640.
+## 4. Slice B — `scripts/gate-inputs/gate.mjs`
 
-## 4. Slice B — declared population and sealed runner
+CLI: `node scripts/gate-inputs/gate.mjs --out <new-dir>` (from any cwd). Exit 0 = all tests passed; 1 = tests
+failed; 2 = refused before tests (stage named in the receipt). `--dry-run` prints the plan (population, argv, cwd,
+child env) and exits 0 without building or running.
 
-### 4.1 Declared population (W5 fold)
+### 4.1 Population (config-neutral, NUL-safe)
 
-`scripts/gate-inputs/node-population.json` lists every `*.test.mjs` returned by
-`git ls-files --cached --others --exclude-standard -- '*.test.mjs'`, run from the repository root. This is
-repository-wide, and it excludes `.gitignore`d paths such as `target/` and `node_modules/`. Each entry is either
-`active` or `excluded` with a reason code. The only exclusion today is `inputs-not-reconstructible` for
-`docs/eval/receiver-closure/audit-imported-props-source.test.mjs`. Host skips inside active modules stay skips and
-are reported.
+- Repo root = `path.resolve(dirname(fileURLToPath(import.meta.url)), '../..')`; every child cwd is the repo root.
+- Enumeration, run under the sealed env (§4.2) so `GIT_CONFIG_GLOBAL`/`GIT_CONFIG_NOSYSTEM` apply:
+  `git ls-files -z --cached --others --exclude-per-directory=.gitignore -- '*.test.mjs'`.
+  `--exclude-per-directory` reads only tracked `.gitignore` files (not `.git/info/exclude`, not
+  `core.excludesFile`); `-z` emits raw bytes. Decode as UTF-8 with `fatal:true` (refuse otherwise); refuse duplicate
+  paths (an unmerged index); refuse a listed path that is not a regular file. Today this yields 48 modules.
+- `scripts/gate-inputs/exclusions.json`: `[{"path":…,"reason":…}]`. Today one row:
+  `docs/eval/receiver-closure/audit-imported-props-source.test.mjs`, `inputs-not-reconstructible`. An exclusion
+  whose path is not in the enumeration refuses (`stale exclusion`). Active = enumeration − exclusions, sorted.
+- Population digest = `sha256hex(JSON.stringify(active))`. An undeclared new test is included automatically (it
+  cannot be silently omitted); a broken one fails the gate.
 
-### 4.2 Sealed execution (W4 fold)
+### 4.2 Sealed environment and tool resolution
 
-`run-node-gate.mjs --log <new-file>` does the following:
+The child env is built from an empty object. **Pass-through if set:** `HOME`, `PATH`, `LANG`, `LC_ALL`, `TMPDIR`,
+`CARGO_HOME`, `RUSTUP_HOME`, `RUSTUP_TOOLCHAIN`. **Set:** `PATH = dirname(process.execPath) + ':' + inherited PATH`
+(so a test that spawns literal `node` gets the runner's node); `GIT_CONFIG_GLOBAL=/dev/null`;
+`GIT_CONFIG_NOSYSTEM=1`; the three input variables from `inputDirs(root)` after `verifyInstalled` passes;
+`PRISM_MEMBERSHIP_NATIVE` after the build. **Everything else is absent**, which covers `NODE_OPTIONS`, `NODE_PATH`,
+every `PRISM_*` override (`PRISM_CALLABLE_IMPLEMENTATION`, `PRISM_CALLABLE_BASELINE`, `PRISM_OBSERVER_MODULE`,
+`PRISM_PARAMETER_FREQUENCY_*`, `PRISM_AUDIT_*`), `CARGO_TARGET_DIR`, `CARGO_BUILD_*`, `RUSTFLAGS`, `USER`, `SHELL`.
 
-- Derives the repository root from `import.meta.url`, and uses it as the cwd for every child process.
-- Builds the child env **from an allowlist**:
-  - inherited `PATH`, `HOME`, `LANG`, `TMPDIR`
-  - the three inputs from `current.json`
-  - `PRISM_MEMBERSHIP_NATIVE`
-  - a fixed `CARGO_TARGET_DIR=<repo>/target/gate-inputs-native`
-- Clears everything else, explicitly including:
-  - `PRISM_CALLABLE_IMPLEMENTATION`
-  - `PRISM_CALLABLE_BASELINE`
-  - `PRISM_OBSERVER_MODULE`
-  - `PRISM_PARAMETER_FREQUENCY_IMPLEMENTATION`
-  - `PRISM_PARAMETER_FREQUENCY_TEST_DELAY_MS`
-  - `NODE_OPTIONS`, `NODE_PATH`
-  - every `PRISM_AUDIT_*`
-- Preflights `node`, `git`, `cargo`, and `tar` on the sealed `PATH`, and records their versions.
-- Preflights inputs with `acquire.mjs --verify`. It never downloads.
-- Builds with `cargo build --frozen --offline --example project_membership_census`.
-- Records the native binary's SHA-256.
-- Runs `node --test --test-concurrency=2 <active paths, sorted>`.
-- Writes the log with new-only publication.
-- Writes a gate receipt containing:
-  - the population digest
-  - tool versions
-  - the input manifest ids
-  - the native binary hash
-  - totals, skips, and exclusions
-- Exits nonzero on any failure.
+Declared, accepted host authority: the operator's `PATH` (a rogue `git` on it is inside the trust boundary),
+`$CARGO_HOME/config.toml`, and the rustup/mise selection those variables and `PATH` express. PATH shims that need
+additional locator variables to work are unsupported; they surface as a `build` or `preflight` refusal with the
+tool's own stderr.
 
-### 4.3 Slice B tests
+Preflight (stage `preflight`): resolve `git` and `cargo` to absolute paths by scanning the sealed `PATH` for an
+executable; record path and `--version` output; `node` is `process.execPath`. Then `verifyInstalled(root)` from
+Slice A (recomputes all three tree digests; never downloads; failure names the input and says to run `acquire`).
 
-- **Drift guard:** the declared set must equal the `git ls-files` set. An undeclared new file fails, and so does a
-  missing declared file.
-- **Env sealing:** a dry-run prints the argv, cwd, and env plan. Each inherited override must be removed, and
-  `NODE_OPTIONS` must be removed.
-- **Invocation location:** running the tool from another directory still uses the repository cwd.
-- **Preflight refusals:** a missing tool, a tampered input, and an unwritable receipt path each refuse.
-- **Failure propagation:** a stubbed two-module population where the child fails must produce a nonzero exit.
-- **Empty Cargo cache:** simulate it with `CARGO_HOME` pointed at an empty dir. The runner must report
-  `host-prerequisite-missing: cargo cache`, distinct from a test failure.
+### 4.3 Build, run, publish
 
-**Slice B budget:**
+- Stage `build`: `<cargo> build --frozen --offline --example project_membership_census --message-format=json`
+  with cwd = repo, sealed env. The executable path is the `compiler-artifact` message whose `target.name` is
+  `project_membership_census` and whose `executable` is non-null; record its SHA-256. Any cargo failure (including
+  an unpopulated registry cache, since `--frozen` is offline) is stage `build`, distinct from a test failure; the
+  spec does not parse cargo's message text. Prerequisite (§4.4), not acquired.
+- Stage `tests`: `node --test --test-concurrency=2 --test-reporter=tap <active paths>` with cwd = repo, sealed env,
+  stdout+stderr streamed to `<out>/log.txt`. Totals are parsed from the TAP trailer (`# tests/pass/fail/skipped`)
+  and skips are collected from `# SKIP` lines by test name; if the trailer is absent, totals are `null` and the
+  child's exit status still governs.
+- Publication: `mkdirSync(out)` (non-recursive) refuses `EEXIST` before any other work; `log.txt` and
+  `receipt.json` are written only inside it. The receipt is written on every completion path (status `passed`,
+  `failed`, or `refused` + stage). The controller copies an approved receipt to
+  `docs/eval/gate-input-durability/receipt.md`; the gate never writes under `docs/`.
+- `receipt.json` (canonical JSON, no timestamps): repo `HEAD` and dirty flag; population (active list, exclusions,
+  digest); tool paths and versions; root and the three verified input dirs with digests; native binary path and
+  hash; the exact child argv, cwd, and env (allowlisted keys only, intended for publication); totals; skips by
+  name; status and stage; exit code.
 
-| Bucket | Cap |
-|---|---|
-| helper | ≤ 350 |
-| tests | ≤ 350 |
-| combined | ≤ 700 |
+### 4.4 Host prerequisites (declared, not acquired)
 
-### 4.4 Host prerequisites (W6 fold)
+Rust toolchain compatible with `Cargo.lock` and a Cargo registry cache already satisfying it (any host that has
+built this repo once); `node` ≥ 24; `git`; `tar` only for the grammar verifier on a Node v26.0.0/darwin/arm64 host.
+"Any machine" means "any host meeting this list".
 
-These are declared, not acquired:
+## 5. Tests — fail-first RED and the minimal sufficient controls
 
-- a Rust toolchain compatible with `Cargo.lock`
-- a **populated Cargo registry cache** for the locked dependencies, since the build is offline and frozen
-- `node` ≥ 24
-- `git`
-- `tar`, needed by the grammar verifier at test time
+Every control asserts the complete expected record (full result object or full error message), and each refusal
+control also asserts that nothing was installed for that input and no `.stage-*` remains.
 
-The "any machine" claim is replaced by "any host meeting §4.4".
+**Slice A (`acquire.test.mjs`; offline; injected `fetch`; synthetic archives built by a ~20-line in-test ustar
+writer; synthetic `pins` computed from those archives; test root under `<repo>/target/`, which is durable):**
 
-## 5. Acceptance (controller, after each slice's implementation review approves)
+- **RED (behavioral):** before implementing, a runnable same-signature digest adapter must run the complete A8
+  fixed-fixture assertion and fail on the concrete digest value. The adapter deliberately includes directory rows
+  in the tree digest, which is exactly the r2 W8 non-canonical defect. A missing module, a compile or setup error,
+  or zero selected tests is inadmissible as RED.
+- A1 happy path: three inputs installed at `<root>/<input>/<digest>`; `env` prints three exact lines; `verify`
+  passes; a second run makes zero `fetch` calls and creates no directory.
+- A2 byte authority: wrong SRI (npm) and wrong SHA-256 (raw) refuse before decompression (the fake fetch records
+  that no gunzip happened via a corrupt-but-mismatched body); non-`ok` status refuses; body over the cap refuses
+  before hashing.
+- A3 reader, one row each: symlink typeflag `2`; pax `x`; entry outside the pinned root; `..` component;
+  non-empty `prefix`; directory with non-zero size; truncated content; duplicate path. Positive row: an archive
+  with directory entries and nested files extracts and digests correctly (this is A1's fixture).
+- A4 identity: pins with a wrong `tree_sha256` refuse after extraction, nothing installed; wrong `profile_hash`
+  refuses; wrong `file_sha256` refuses.
+- A5 verify-on-use: tamper one installed file → `verify` and `acquire` both refuse naming input and path;
+  `acquire` makes zero `fetch` calls; `env` refuses.
+- A6 rename race: pre-create the final directory with correct content → acquire reports `verified`, its stage is
+  gone.
+- A7 root: a root under `os.tmpdir()` refuses; `PRISM_GATE_INPUTS_ROOT` is honored.
+- A8 formula fixture: fixed two-file tree → fixed digest constant.
+- A9 drift guards on the real `pins.json`: `COMPILER_HASH` (regex on `schema.mjs`), profile versions and hashes
+  (regex on `verify-callable-authority.mjs:24-25`), grammar URLs and SHA-256s (regex on
+  `verify-typescript-grammar.mjs`, which cannot be imported), the grammar-archives `tree_sha256` recomputed from
+  the three pins, and the nine artifact names enumerated exactly.
+
+**Slice B (`gate.test.mjs`; unit-level via exported functions plus `--dry-run`; never builds the real example):**
+
+- **RED (behavioral):** before implementing, a runnable same-signature env-builder adapter must run the complete B2
+  `deepEqual` and fail on the concrete leaked key. The adapter deliberately copies `process.env` and deletes only
+  the `PRISM_*` keys, so `NODE_OPTIONS` survives. A missing module or setup error is inadmissible as RED.
+- B1 population: temp git repo with tracked `a.test.mjs`, untracked `b.test.mjs` (included), `.gitignore`d
+  `target/c.test.mjs` (excluded), a filename containing a newline (listed intact); a global gitignore hiding
+  `*.test.mjs` via a `GIT_CONFIG_GLOBAL` file does **not** hide `b` (config-neutral); a stale exclusion refuses.
+- B2 sealing: an inherited env containing `NODE_OPTIONS`, `PRISM_CALLABLE_IMPLEMENTATION`, `CARGO_TARGET_DIR`,
+  `CARGO_HOME`, `RUSTUP_HOME`, `USER` → `deepEqual` against the exact expected child env (allowlist retained,
+  everything else absent, `PATH` prefixed with the runner's node dir, git config isolated).
+- B3 build: a fake `cargo` on a temp `PATH` printing one `compiler-artifact` line → executable path and hash are
+  recorded, argv contains `--frozen`; a fake `cargo` exiting 101 → stage `build`, no tests run, receipt written.
+- B4 run: fixture population of one passing and one failing module → exit 1, totals `{tests:2,pass:1,fail:1}`,
+  `log.txt` has both; a module with a `{skip:'reason'}` test → skips list names it.
+- B5 preflight: `PATH` without `git` → stage `preflight`; a tampered input in a test root → stage `preflight`
+  naming the input.
+- B6 publication: an existing `--out` refuses before preflight; nothing is written outside `--out`.
+- B7 cwd: `repoRoot()` equals `git rev-parse --show-toplevel` from another cwd.
+
+## 6. Budget (honest executable lines: non-blank, non-comment, JavaScript ≤ 100 columns)
+
+| Slice | Helper cap | Test cap | Forecast |
+|---|---:|---:|---|
+| A (`acquire.mjs`) | 280 | 340 | helper 220–270 (fetch 15, reader 35, digest 15, install 45, CLI/env/root 40); tests 260–320 |
+| B (`gate.mjs`) | 180 | 240 | helper 130–170; tests 170–220 |
+| **Combined** | **460** | **580** | ~350–440 / ~430–540 |
+
+Early stop at 95% of either bucket; a breach is a stop, never inflation. This is above the ≤ 400 / ≤ 400 target on
+the test side by design: the fixture tar writer and synthetic-pins builder (~50), table-driven reader rows (~30),
+git fixture repos (~30), and complete-record env/receipt assertions are what make the controls admissible, and
+compressing them into dense lines would violate the counting rule. The helper side is comfortably under 400 because
+the reader has no limits and the installer has no transactions. If the implementer forecasts a breach, the first
+thing to cut is B7 and A6, not any refusal row.
+
+## 7. Acceptance (controller, after each slice's implementation review approves)
 
 **Slice A:**
 
-1. Live acquisition of all 9 artifacts, enumerated by name, into the durable default root. Every authority check
-   passes. The 3 react18 SRIs are proposed by the bootstrap and committed to `pins.json` with
-   `"authority":"tree-hash-bootstrap"`.
-2. A second, cold acquisition into a fresh durable root gives identical manifest ids.
-3. `--verify` passes with no network.
+1. Live: `node scripts/gate-inputs/acquire.mjs` into the default root. The log names all nine artifacts as
+   `verified` with their census (`entries: N files, M dirs`; expected 132/0, 24/4, 5/0, 15/2, 5/0, 4/1, and three
+   raw files), and the three install dirs are named by the §2 digests.
+2. Cold identity: `PRISM_GATE_INPUTS_ROOT=<fresh durable dir>` acquisition yields the same three digests.
+3. `acquire.mjs verify` and `env` succeed; `verify` has no fetch code path (reviewer confirms by reading).
+4. Default Rust suite unchanged (recorded, not re-baselined).
 
 **Slice B:**
 
-1. `run-node-gate.mjs` runs the full declared population. It must report 0 failures. The only skips are the
-   grammar host-pin skips on the Node v24 host, listed by name.
-2. The receipt `docs/eval/gate-input-durability/receipt.md` records the exact module inventory digest and totals.
-3. The default Rust suite is 4,559 / 0 / 1, recorded, not re-baselined.
+1. `node scripts/gate-inputs/gate.mjs --out target/gate-runs/<date>` runs the full active population: 0 failures;
+   the only skips are the grammar verifier's Node v26.0.0 host-pin skips (2 on this v24 host), named; exclusions:
+   the one `PRISM_AUDIT_*` module, named. Totals recorded from the receipt, not from the terminal.
+2. Receipt copied to `docs/eval/gate-input-durability/receipt.md` with the population digest, tool versions, input
+   digests, native hash, and the exact command.
+3. Default Rust suite 4,559 / 0 / 1, recorded, not re-baselined.
 
-## 6. Review and stop rules
+## 8. Review, stop rules, owned paths
 
-- Each slice gets two implementation review rounds. Findings are tagged WRONG or SMELL, with a concrete input.
-- At a cap, the controller classifies convergence before acting.
+Two implementation review rounds per slice; findings tagged WRONG/SMELL with a concrete input; at a cap the
+controller classifies convergence before acting. A finding that asks for machinery excluded by §1's threat model is
+answered by citing §1, not by adding the machinery; if the reviewer shows the threat is *inside* the boundary, that
+is a spec change for the owner, not an implementation fold.
 
-**STOP conditions:**
+**STOP:** any `src/`, Cargo, or existing-test change; any `npm install` or lifecycle execution; any
+decompression, parse, or write of an artifact before its byte authority passes; any install without a tree-digest
+match; any pin without a cited authority; deleting anything other than the tool's own `.stage-*`; the gate
+downloading anything; a budget breach.
 
-- any `src/`, Cargo, or existing-test change
-- any `npm install` or lifecycle execution
-- parsing before byte authentication, except the §3.3 react18 bootstrap
-- installation or execution before tree authentication
-- any new pin without cited authority, except the §3.3 bootstrap SRIs
-- a budget breach
+**Owned paths.** A: `scripts/gate-inputs/{acquire.mjs,pins.json,acquire.test.mjs,README.md}`.
+B: `scripts/gate-inputs/{gate.mjs,exclusions.json,gate.test.mjs}`, a README section, and (controller, at
+acceptance) `docs/eval/gate-input-durability/receipt.md`. Both new test modules join the population (50 total,
+49 active) and need no external inputs.
 
-## 7. Owned paths
+## 9. Disposition of every sol finding (r1 and r2)
 
-**Slice A:**
+Legend: **moot** = the condition no longer exists in v3; **design** = closed by construction; **rule** = closed by
+an explicit clause; **out** = explicitly outside §1's trust boundary.
 
-- `scripts/gate-inputs/{acquire.mjs,pins.json,acquire.test.mjs,README.md}`
-- `scripts/gate-inputs/fixtures/yarn-lock-excerpt.txt`
-
-**Slice B:**
-
-- `scripts/gate-inputs/{run-node-gate.mjs,node-population.json,run-node-gate.test.mjs}`
-- a README section
-- `docs/eval/gate-input-durability/receipt.md`
-
-## 8. Planning review record
-
-- Round 1:
-  - sol: FIX, 8 WRONG / 4 SMELL.
-  - kimi: first run inadmissible (a read outside its directory was auto-rejected); re-run pending.
-- This v2 is round-2 material.
-
-## 9. Round-1 fold map
-
-| Finding | Fold |
-|---|---|
-| W1 react18 extraction before authentication | §3.3: explicit hostile-parse exception with no install/exec before the tree hash; proposed SRIs become pins |
-| W2 unbounded, non-portable tar listing | §3.5: in-Node streaming reader with full limits and refusal rules |
-| W3 non-atomic directory replacement | §3.1: immutable generations plus an atomically replaced `current.json` |
-| W4 unsealed runner | §4.2: allowlisted env, cleared overrides, fixed cwd and `CARGO_TARGET_DIR`, `--frozen`, tool preflight |
-| W5 population scope | §4.1: repository-wide `git ls-files` |
-| W6 fresh-machine Cargo | §4.4: declared host prerequisites; distinct `host-prerequisite-missing` |
-| W7 count inconsistency | §2: exact 9-artifact / 4-input enumeration; acceptance by name |
-| W8 TypeScript `lib/` not authenticated | §3.1 and §3.4: retained archives plus an SRI-anchored raw-byte manifest of the whole `package/` |
-| S1 UTF-8-lossy tree formula | §3.4: UTF-8 round-trip requirement plus a raw-byte manifest |
-| S2 redirect/TOCTOU/durability | §3.1 and §3.2: host allowlist, manual redirects, staged mirror copy, 0700, lock, fsync |
-| S3 insufficient controls | §3.7 and §4.3: expanded per-rule controls |
-| S4 budget | split into Slices A and B with separate caps |
+| Finding | Disposition | Where |
+|---|---|---|
+| r1 W1 / r2 W1 react18 bootstrap; observed SRI promoted to authority | **moot** — all six npm SRIs come from registry metadata (three also from yarn.lock); there is no bootstrap path and no `--from` | §2, §3.3 |
+| r1 W2 unbounded, non-portable tar listing | **design** — bytes are authenticated constants before gunzip; in-Node reader; no system tar; no listing step | §3.5 |
+| r2 W2 pax/ustar contract undefined; node-tar precedence | **design** — the accepted profile is exactly the census of the six pinned archives (`0`/NUL/`5`, empty prefix, no pax/GNU); everything else refuses; one reader, constant input, tree-digest proof; positive fixture with dir entries; real census re-recorded at acceptance | §3.5, A3, §7 |
+| r1 W3 non-atomic directory replacement | **design** — content-addressed immutable dirs; nothing is ever replaced | §3.1 |
+| r2 W3 not crash-durable; `env.sh` second pointer | **design** — no pointer files at all (paths derive from pins); `env` is computed after verify; power-loss durability is **out** (torn dir → refusal, never use) | §1, §3.1, §3.2 |
+| r2 W4 lock recovery; prune under a running gate | **moot** — no lock, no prune, the tool deletes only its own stage; races converge on `rename` EEXIST; nothing can delete an install under the gate except the operator | §3.2, A6 |
+| r1 W4 unsealed runner | **rule** — env from empty; repo cwd from `import.meta.url`; absolute tools; `--frozen` | §4.2, B2 |
+| r2 W5 env contract contradictory; CARGO_HOME/RUSTUP_HOME; HOME/gitconfig | **rule** — explicit pass-through list incl. `CARGO_HOME`/`RUSTUP_HOME`/`RUSTUP_TOOLCHAIN`; git config isolated via `GIT_CONFIG_GLOBAL=/dev/null` + `GIT_CONFIG_NOSYSTEM=1`; `HOME` kept for rustup default homes; cargo home config declared accepted authority; `USER`/`SHELL` dropped; no test contradicts the allowlist (B3 uses a fake `cargo` on `PATH`, not `CARGO_HOME`) | §4.2 |
+| r1 W5 population scope | **rule** — repo-wide `git ls-files` | §4.1 |
+| r2 W6 population host-dependent, not NUL-safe | **rule** — `-z`, `--exclude-per-directory=.gitignore` (no `--exclude-standard`), UTF-8 `fatal`, duplicate refusal, sealed git env; B1 proves a global exclude cannot hide a test | §4.1, B1 |
+| r1 W6 fresh machine cannot build offline | **rule** — declared prerequisite; cargo failure is stage `build`, distinct from tests by stage, without parsing cargo text | §4.3, §4.4 |
+| r1 W7 counts inconsistent | **design** — `pins.json` is the enumeration; acceptance by name | §2, §7 |
+| r1 W8 TypeScript `lib/` unauthenticated | **design** — whole-tree derived digest, recomputed at install and every verify; `COMPILER_HASH` kept as cross-check | §2, §3.4, A5 |
+| r2 W8 manifest not canonical (dir sizes, sort order) | **rule** — files-only rows, ASCII-only paths, exact serialization and sort defined, fixed fixture digest | §3.4, A8 |
+| r2 W7 mirror `lstat`/copy symlink race | **moot** — no mirror; also **out** (same-account attacker) | §1, §3.3 |
+| r1 S1 UTF-8-lossy tree formula | **design** — raw digest is the identity; historical formula is a cross-check only | §3.4 |
+| r1 S2 redirects, TOCTOU, 0700, lock, fsync | **out** — content bound by hash; same-account attacker and power loss outside the boundary; no lock needed | §1, §3.2 |
+| r1 S3 / r2 S1 controls insufficient; no positive reader test | **rule** — §5 list; A3 positive row; acceptance census | §5, §7 |
+| r2 S2 receipt publication underspecified | **rule** — `--out <new-dir>` with `mkdirSync` EEXIST refusal; `log.txt` + `receipt.json` on every completion path; controller copies to `docs/` | §4.3, B6 |
+| r1 S4 / r2 S3 budget unrealistic (A forecast 1,600–2,000) | **design** — the forecast collapses because the reader has no hostile-input rules (~35 lines), the installer has no transactions, and there is no transport policy or mirror; new caps and forecast in §6 | §6 |
