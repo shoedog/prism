@@ -203,8 +203,15 @@ tree digest after extraction, not by the reader's own rules.
 - `typeflag` `'0'` or NUL: regular file; the next `ceil(size/512)` blocks are its content; content past the end of
   the buffer refuses `truncated`. `'5'`: directory; `size` must be 0. Any other typeflag refuses
   `unsupported tar entry <typeflag> <name>` (this covers symlinks, hardlinks, devices, pax `x`/`g`, GNU `L`/`K`).
-- Path rule: `name` must equal `<root>`, `<root>/`, or start with `<root>/`; the remainder is split on `/`; every
-  component must be non-empty, not `.` or `..`, match `/^[\x20-\x7e]+$/`, and contain no `\`. Duplicates refuse.
+- Path rule: `name` must equal `<root>`, `<root>/`, or start with `<root>/`.
+  - `[r3]` For typeflag `5` (directory) **only**, strip exactly one terminal `/` first. Real nested directory entries
+    carry it, for example `react/ts5.0/v18/` and `react v18.3/ts5.0/`, per sol and terra v3-r3, controller-verified. A
+    regular file whose name ends in `/` refuses.
+  - The remainder is split on `/`. Every component must be non-empty, not `.` or `..`, match `/^[\x20-\x7e]+$/`, and
+    contain no `\`.
+  - Duplicate destinations refuse; the check applies after normalization.
+  - Expected census after extraction: 132/0, 24/4, 5/0, 15/2, 5/0, 4/1 (files/dirs; sol v3-r3). A3 adds a positive
+    fixture with a nested `a/b/` directory entry.
 - Files are written to `<stage>/<dest>/<remainder>` (parents `mkdir -p`) with default modes (0644/0755); no mode,
   owner, or mtime is preserved. No consumer executes anything from these trees.
 - Grammar artifacts are not extracted; the raw verified bytes are written to `<stage>/<dest>`.
@@ -227,9 +234,13 @@ is the literal placeholder `"<resolved after build>"`. `--dry-run` takes no `--o
 
 - Repo root = `path.resolve(dirname(fileURLToPath(import.meta.url)), '../..')`; every child cwd is the repo root.
 - Enumeration, run under the sealed env (§4.2) so `GIT_CONFIG_GLOBAL`/`GIT_CONFIG_NOSYSTEM` apply:
-  `git ls-files -z --cached -- '*.test.mjs'`. `[r2]` The population is **every committed test module**: it comes from
-  the index only, so no ignore file (working-tree, `info/exclude`, or global) and no index flag such as
-  `assume-unchanged` can remove a committed test.
+  `git ls-tree -r -z --name-only HEAD`, filtered in JavaScript to paths ending `.test.mjs`. `[r3]` The population is
+  **every test module committed at `HEAD`**. Ignore files (working-tree, `info/exclude`, or global) and index flags
+  such as `assume-unchanged` cannot affect a tree listing.
+  - Index drift guard: the same filter over `git ls-files -z --cached` must yield exactly the same set, otherwise
+    refuse `population index drift` naming the differing paths. This catches a staged addition, deletion, or rename
+    (sol v3-r3 W2).
+  - A `HEAD` path that is missing from the working tree, or is not a regular file, refuses.
   - Drift guard: `git ls-files -z --others --exclude-standard -- '*.test.mjs'` must be empty, otherwise refuse
     `untracked test module: commit or remove <paths>`. Any new, visible, uncommitted test is therefore a refusal,
     never a silent omission.
@@ -346,6 +357,8 @@ writer; synthetic `pins` computed from those archives; test root under `<repo>/t
   - An untracked `target/c.test.mjs` under a committed `.gitignore` is ignored: no refusal, and not in the
     population.
   - A stale exclusion refuses.
+  - `[r3]` A staged deletion (`git rm a.test.mjs`), a staged addition, and a staged rename each refuse with
+    `population index drift`.
 - B2 sealing: an inherited env containing `NODE_OPTIONS`, `PRISM_CALLABLE_IMPLEMENTATION`, `CARGO_TARGET_DIR`,
   `CARGO_HOME`, `RUSTUP_HOME`, `USER` → `deepEqual` against the exact expected child env (allowlist retained,
   everything else absent, `PATH` prefixed with the runner's node dir, git config isolated).
@@ -476,3 +489,18 @@ One narrow confirmation round on this delta was disclosed to the owner.
 | Output first-act/no-write overstated; concurrent race | terra W2, sol S2 | §4.3: first-phase wording; parent may remain; no leaf, log, or receipt |
 | `--dry-run` cannot know the native path | sol S1 | §4: placeholder; no `--out` or receipt |
 | ≤400 target contradicts the caps; A6 named as the first cut | sol S3 | §6: target waived; cut B7, then `--dry-run`; never A6 |
+
+### v3 confirmation round (`[r3]`)
+
+- sol: FIX, 2 WRONG / 0 SMELL
+- terra: FIX, 1 WRONG (a duplicate of sol's W1) / 0 SMELL
+
+Both call it bounded and converging. Both fixes are folded, and the controller proceeds to Slice A implementation
+without another spec round, disclosed to the owner. The folded reader clause is verified by the implementation
+review and by live acquisition of the six real archives against the census above. The population clause is
+verified by the implementation review and the B1 rows.
+
+| Finding | Source | Fold |
+|---|---|---|
+| Nested directory entries end in `/`, so an empty component refuses two real archives | sol W1, terra W1 | §3.5: typeflag-5-only single terminal-slash strip; census; A3 positive fixture |
+| Staged deletion drops a test committed at `HEAD` | sol W2 | §4.1: `HEAD` tree population plus index-drift refusal; B1 staged add/delete/rename |
