@@ -35,7 +35,7 @@ Copies under `/private/tmp` are volatile. — **RESOLVED**
    - **APPROVE:** go to step 2.
    - **FIX:** classify the findings, fold them, and run r5 (the final round). If r5 is not APPROVE, park again.
 2. Public 12-site run (SPEC §7 steps 3–5): two cold executions with the frozen binary, root `/private/tmp/prism-post317-measurement-inputs/source`, then independent row reconciliation and `docs/eval/native-positional-gap/*`.
-3. Open the implementation PR, stacked on #320.
+3. Open the implementation PR against `main` (#320 is merged).
 
 **STOP conditions:**
 - any `src/`, Cargo, or cache change
@@ -47,7 +47,7 @@ Copies under `/private/tmp` are volatile. — **RESOLVED**
 
 | Item | State | Evidence / correction |
 |---|---|---|
-| PR #320: #319 custody + approved plan | done, green, open | `[MEASURED]` `gh pr checks 320`: 5/5 pass |
+| PR #320: #319 custody + approved plan | **MERGED** 2026-09-24 | `[MEASURED]` merge commit `5501bc0f` (merge-commit mode, so this branch stays stacked cleanly and its PR targets `main`) |
 | Implementation r0 → fix2 | done, parked | `af6368c8`; strict lines 1,073 / 700 / 1,773 (caps 1,100 / 700 / 1,800) |
 | Review r1 | done | sol FIX 7W/2S; kimi APPROVE 7S |
 | Review r2 | done | sol FIX 3W/2S (open-class); kimi APPROVE 6S |
@@ -72,7 +72,7 @@ Copies under `/private/tmp` are volatile. — **RESOLVED**
 | D2 | stage and signal hardening | parked | fold together with D1 | D1 | PARKED.md §D2 |
 | D3 | public observation and readout | parked | after core approval | D1 | site manifest `789352a5…` |
 | D4 | profile input re-acquisition | open | document the PR259 react18/19 layouts | — | PARKED.md §D4 |
-| — | PR #320 merge | open | owner decision | owner | #320 |
+| — | PR #320 | MERGED `5501bc0f` | — | — | #320 |
 
 ## 5. Invariants and traps — do not do these
 
@@ -100,4 +100,3 @@ Copies under `/private/tmp` are volatile. — **RESOLVED**
 
 **Questions the owner owes an answer to:**
 1. D1: resume with compressed test rows, grant a test cap of about 740, or leave the increment parked?
-2. PR #320: merge the green docs PR on its own?
