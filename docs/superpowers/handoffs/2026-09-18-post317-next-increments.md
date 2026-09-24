@@ -2,7 +2,7 @@
 
 **Written:** 2026-09-19 America/Denver
 **Workspace:** `/private/tmp/prism-post316-slice1`
-**Current branch:** `feat/parameter-syntax-frequency`
+**Current branch:** `plan/post319-successor`
 **Controller:** `/root` owns commits, publication, CI interpretation, and merge.
 
 ## Current state
@@ -31,10 +31,24 @@ The fixed public census and local gates are complete: cold/repeat packets are
 byte-identical at SHA-256 `e953121bbcdda492bb651e4ef8f27b9af3de7a0221ee2a98fcda611645a7896d`;
 independent recomputation matches all five strata; Node is 806 pass / 0 fail /
 1 expected skip; default Rust is 4,559 pass / 0 fail / 1 ignored. Final local
-review is APPROVE with 0 WRONG / 0 SMELL. Compact custody is under
-`docs/eval/parameter-syntax-frequency/`. The user explicitly authorized this
-slice through review, publication, green CI, merge, and successor planning;
-those state-changing actions remain controller-owned.
+review is APPROVE with 0 WRONG / 0 SMELL. PR
+[#319](https://github.com/shoedog/prism/pull/319) passed all five pre-merge checks
+and merged at `30e13053c9f3f9940b5526e20af0cb40f2a9fae4` on
+2026-09-19T22:27:10Z. Its tree `961f698db1049cec42e7a8e15e716948082af9b6`
+matches published head `1ddfbe147e8785f2d04d5fb7c28193de9cca302c`. Compact
+custody is under `docs/eval/parameter-syntax-frequency/`. Separate main-push
+CI run `35473373053` completed at 2026-09-19T23:03:25Z with Test Suite,
+Format Check, Clippy Lint, Language Coverage Matrix, and Coverage all green.
+Successor planning is now unblocked; no successor implementation has started.
+
+The single authorized successor plan, native positional-gap characterization,
+is independently accepted at planning cap 2/2 with 0 WRONG / 0 SMELL. Its
+durable packet is
+`docs/superpowers/plans/2026-09-19-post319-native-positional-gap/`, binding
+exactly 12 selected ArrowFunction sites in 11 files / 37,040 bytes to source
+base `30e13053c9f3f9940b5526e20af0cb40f2a9fae4`. This is plan-ready only:
+implementation, public execution, production support, and publication have
+not started.
 
 ## Historical and deferred work
 
@@ -48,6 +62,7 @@ those state-changing actions remain controller-owned.
 
 ## Resume order
 
-1. Commit the compact evidence custody without changing the frozen tool source.
-2. The controller may publish and merge after required CI is green.
-3. Plan a successor only after that merge.
+1. Preserve the accepted native positional-gap packet against merge `30e13053`.
+2. Require a separate controller implementation dispatch and frozen source/test
+   manifest before any execution.
+3. Keep P2a, P2b, and P3 in their recorded parked/deferred states unless separately authorized.

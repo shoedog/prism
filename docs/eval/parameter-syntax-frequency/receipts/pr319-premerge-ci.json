@@ -1,0 +1,17 @@
+{
+  "pr": 319,
+  "url": "https://github.com/shoedog/prism/pull/319",
+  "head": "1ddfbe147e8785f2d04d5fb7c28193de9cca302c",
+  "run": "35471141171",
+  "observed": "2026-09-19T22:25:49Z",
+  "status": "completed",
+  "conclusion": "success",
+  "checks": [
+    {"name": "Format Check", "state": "SUCCESS", "url": "https://github.com/shoedog/prism/actions/runs/35471141171/job/105972200923"},
+    {"name": "Clippy Lint", "state": "SUCCESS", "url": "https://github.com/shoedog/prism/actions/runs/35471141171/job/105972200929"},
+    {"name": "Test Suite", "state": "SUCCESS", "url": "https://github.com/shoedog/prism/actions/runs/35471141171/job/105972200787"},
+    {"name": "Language Coverage Matrix", "state": "SUCCESS", "url": "https://github.com/shoedog/prism/actions/runs/35471141171/job/105975075432"},
+    {"name": "Coverage", "state": "SUCCESS", "url": "https://github.com/shoedog/prism/actions/runs/35471141171/job/105975075516"}
+  ],
+  "merge": "not performed; root owns authorized merge after all checks are green"
+}

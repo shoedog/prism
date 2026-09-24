@@ -1,6 +1,6 @@
 {
   "schema": "prism.parameter-syntax-frequency-receipt/1",
-  "status": "local_accepted_publication_pending",
+  "status": "merged_postmerge_ci_green",
   "candidate": {
     "commit": "f79bb95485940bcb1418a2510cd9ec73a65ca37f",
     "tree": "c5c48a54f2b4ba989c9c3ad7d2a4b4f36a5aca29",
@@ -48,6 +48,23 @@
     "final_wrong": 0,
     "final_smell": 0,
     "final_receipt_sha256": "f027822865a5d7d870b5514a2e22ac033c2454da6741b77fbd9542d09231927b"
+  },
+  "publication": {
+    "pull_request": 319,
+    "url": "https://github.com/shoedog/prism/pull/319",
+    "published_head": "1ddfbe147e8785f2d04d5fb7c28193de9cca302c",
+    "premerge_ci_run": "35471141171",
+    "premerge_ci": "SUCCESS",
+    "premerge_ci_receipt_sha256": "9cc45f2a153d423f3171beb800163303c6e1c625aa8b8bcb764c6fe896fec0dc",
+    "merge_commit": "30e13053c9f3f9940b5526e20af0cb40f2a9fae4",
+    "merge_tree": "961f698db1049cec42e7a8e15e716948082af9b6",
+    "merged_at": "2026-09-19T22:27:10Z",
+    "merge_receipt_sha256": "b837dfa2535dedf9d6e411ca9369e9fc7d83ab79eb853eb7d8015b809d40d18a",
+    "main_push_ci_run": "35473373053",
+    "main_push_ci": "SUCCESS",
+    "main_push_ci_completed_at": "2026-09-19T23:03:25Z",
+    "main_push_ci_receipt_sha256": "46c0f34a04d389c5628d3c2663b025c55012e3e1fc791c4c0413630ea7688d20",
+    "historical_pending_observation_sha256": "f839ae9aa43da32b5cff49f0af2e4858aef1f7607100ab78fde09152a05daf07"
   },
   "evidence": {
     "final_source_manifest_sha256": "2eb75cd65acf7220279ef264540a3b45b5b47f6cbcf07fe8c7b8bf8eb2b23740",

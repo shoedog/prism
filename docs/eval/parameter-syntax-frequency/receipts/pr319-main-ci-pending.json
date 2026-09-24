@@ -1,0 +1,10 @@
+{
+  "pr": 319,
+  "merge_commit": "30e13053c9f3f9940b5526e20af0cb40f2a9fae4",
+  "run": "35473373053",
+  "url": "https://github.com/shoedog/prism/actions/runs/35473373053",
+  "workflow": "CI",
+  "observed": "2026-09-19T22:27:51Z",
+  "status": "in_progress",
+  "scope": "separate main-push CI observation; no manual rerun or mutation"
+}
