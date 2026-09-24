@@ -139,7 +139,9 @@ refusal; every refusal names the input, artifact, and rule.
   name a different directory. The only thing the tool ever deletes is the `<root>/.stage-<random>/` that **this invocation** created. `[r1]` It never scavenges other stages. A crashed invocation's stage is inert, and the README documents manual cleanup.
 - Env values are derived: `PRISM_TYPESCRIPT=<root>/typescript/<digest>/lib/typescript.js`,
   `PRISM_CALLABLE_PROFILES=<root>/profiles/<digest>`, `PRISM_GRAMMAR_ARCHIVES=<root>/grammar-archives/<digest>`.
-  `env.sh` does not exist; `acquire.mjs env` verifies and prints the three `export` lines (single-quoted).
+  `env.sh` does not exist; `acquire.mjs env` verifies and prints the three `export` lines. `[r2]` Values are POSIX
+  single-quoted with `'` → `'\''`. A root containing a newline or other control character refuses at root
+  resolution. A7 round-trips a root containing `'` through `sh -c`.
 
 ### 3.2 Install algorithm (per logical input, independent)
 
@@ -186,14 +188,18 @@ renamed directory.
 ### 3.5 Archive reader — the accepted tar profile is exactly what the six pinned archives use
 
 Because the archive bytes are authenticated constants, the reader is not a hostile-input parser. It accepts exactly
-the profile observed in the header census of all six artifacts (`{typeflag 0/NUL/5}`, no pax, no GNU, empty
-`prefix`, max name 51 bytes) and refuses everything else. Its correctness on the six real inputs is proven by the
+the profile observed in the header census of all six artifacts (POSIX `ustar\0` magic, `{typeflag 0/NUL/5}`, no pax,
+no GNU, empty `prefix` **string**, max name 51 bytes) and refuses everything else. Its correctness on the six real inputs is proven by the
 tree digest after extraction, not by the reader's own rules.
 
 - Input: `zlib.gunzipSync(buffer)` (in memory). Truncated gzip refuses.
 - Read 512-byte headers. A header of 512 zero bytes ends the archive; nothing after it is read.
 - Fields: `name` = bytes 0–99 up to the first NUL; `size` = bytes 124–135, ASCII octal, NUL/space terminated;
-  `typeflag` = byte 156; `prefix` = bytes 345–499 must be all NUL, else refuse `ustar prefix unsupported`.
+  `typeflag` = byte 156; `prefix` = the NUL-terminated string starting at byte 345, read the way standard tar readers
+  read it. `[r2]` It must be **empty**, meaning byte 345 is NUL; otherwise refuse `ustar prefix unsupported`.
+  - Bytes 346–499 are ignored. They are authenticated metadata. The three `@types` archives carry two 12-byte octal
+    timestamps at 476–499, observed in 5/5, 17/17, and 28/28 entries, per sol v3-r2 W1, controller-verified.
+  - v3-r1's rule, "345–499 all NUL", would have refused every profile archive.
 - `typeflag` `'0'` or NUL: regular file; the next `ceil(size/512)` blocks are its content; content past the end of
   the buffer refuses `truncated`. `'5'`: directory; `size` must be 0. Any other typeflag refuses
   `unsupported tar entry <typeflag> <name>` (this covers symlinks, hardlinks, devices, pax `x`/`g`, GNU `L`/`K`).
@@ -213,25 +219,30 @@ in the reader.
 ## 4. Slice B — `scripts/gate-inputs/gate.mjs`
 
 CLI: `node scripts/gate-inputs/gate.mjs --out <new-dir>` (from any cwd). Exit 0 = all tests passed; 1 = tests
-failed; 2 = refused before tests (stage named in the receipt). `--dry-run` prints the plan (population, argv, cwd,
-child env) and exits 0 without building or running.
+failed; 2 = refused before tests (stage named in the receipt). `--dry-run` prints the pre-build plan (population,
+argv, cwd, child env) as JSON and exits 0 without building or running. `[r2]` In that plan `PRISM_MEMBERSHIP_NATIVE`
+is the literal placeholder `"<resolved after build>"`. `--dry-run` takes no `--out` and writes no receipt.
 
 ### 4.1 Population (config-neutral, NUL-safe)
 
 - Repo root = `path.resolve(dirname(fileURLToPath(import.meta.url)), '../..')`; every child cwd is the repo root.
 - Enumeration, run under the sealed env (§4.2) so `GIT_CONFIG_GLOBAL`/`GIT_CONFIG_NOSYSTEM` apply:
-  `git ls-files -z --cached --others --exclude-per-directory=.gitignore -- '*.test.mjs'`.
-  `--exclude-per-directory` reads the **working-tree** `.gitignore` files. It does not read `.git/info/exclude` or
-  `core.excludesFile`. `[r1]` To bind ignores to committed bytes, the gate first runs
-  `git status --porcelain=v1 -z --untracked-files=all --ignored=no -- ':(glob)**/.gitignore'` (sealed env) and
-  refuses with `population ignore state` if any `.gitignore` is untracked, modified, or deleted. So the population is
-  determined by committed ignore rules only. `-z` emits raw bytes. Decode as UTF-8 with `fatal:true` (refuse otherwise); refuse duplicate
+  `git ls-files -z --cached -- '*.test.mjs'`. `[r2]` The population is **every committed test module**: it comes from
+  the index only, so no ignore file (working-tree, `info/exclude`, or global) and no index flag such as
+  `assume-unchanged` can remove a committed test.
+  - Drift guard: `git ls-files -z --others --exclude-standard -- '*.test.mjs'` must be empty, otherwise refuse
+    `untracked test module: commit or remove <paths>`. Any new, visible, uncommitted test is therefore a refusal,
+    never a silent omission.
+  - An untracked test that the operator's own ignore rules hide is not part of the committed population by
+    definition. It would not run in CI either. This replaces the r1 `.gitignore` status guard, which sol v3-r2 W2
+    showed was bypassable.
+  - `-z` emits raw bytes. Decode as UTF-8 with `fatal:true` (refuse otherwise); refuse duplicate
   paths (an unmerged index); refuse a listed path that is not a regular file. Today this yields 48 modules.
 - `scripts/gate-inputs/exclusions.json`: `[{"path":…,"reason":…}]`. Today one row:
   `docs/eval/receiver-closure/audit-imported-props-source.test.mjs`, `inputs-not-reconstructible`. An exclusion
   whose path is not in the enumeration refuses (`stale exclusion`). Active = enumeration − exclusions, sorted.
-- Population digest = `sha256hex(JSON.stringify(active))`. An undeclared new test is included automatically (it
-  cannot be silently omitted); a broken one fails the gate.
+- Population digest = `sha256hex(JSON.stringify(active))`. A newly committed test is included automatically; a
+  visible uncommitted one refuses (above); a broken one fails the gate.
 - `[r1]` Every active path is passed to Node as `./<path>`, so a filename beginning with `-` can never be parsed as an
   option.
 
@@ -266,9 +277,10 @@ Slice A (recomputes all three tree digests; never downloads; failure names the i
   and skips are collected from `# SKIP` lines by test name; if the trailer is absent, totals are `null` and the
   child's exit status still governs.
 - Publication (`[r1]`): resolve `out`, `mkdirSync(dirname(out), {recursive:true})`, then **exclusively** create the leaf
-  with `mkdirSync(out)`, which is non-recursive and refuses `EEXIST`. That leaf creation is the first act and happens
-  before any other work. If output acquisition fails (existing leaf, or parent not creatable), the gate writes
-  nothing, prints the reason to stderr, and exits 2. Once the gate owns the leaf, `log.txt` and `receipt.json` are
+  with `mkdirSync(out)`, which is non-recursive and refuses `EEXIST`. `[r2]` This output-acquisition sequence is the
+  first phase and runs before any other work. If it fails (existing leaf, parent not creatable, or losing a race to
+  a concurrent gate), no leaf, `log.txt`, or `receipt.json` is written. Parent directories created in this phase
+  may remain as empty directories. The reason goes to stderr, and the exit code is 2. Once the gate owns the leaf, `log.txt` and `receipt.json` are
   written only inside it, and the receipt is written on **every later** completion path (status `passed`, `failed`,
   or `refused` + stage). The controller copies an approved receipt to
   `docs/eval/gate-input-durability/receipt.md`; the gate never writes under `docs/`.
@@ -325,9 +337,15 @@ writer; synthetic `pins` computed from those archives; test root under `<repo>/t
 - **RED (behavioral):** before implementing, a runnable same-signature env-builder adapter must run the complete B2
   `deepEqual` and fail on the concrete leaked key. The adapter deliberately copies `process.env` and deletes only
   the `PRISM_*` keys, so `NODE_OPTIONS` survives. A missing module or setup error is inadmissible as RED.
-- B1 population: temp git repo with tracked `a.test.mjs`, untracked `b.test.mjs` (included), `.gitignore`d
-  `target/c.test.mjs` (excluded), a filename containing a newline (listed intact); a global gitignore hiding
-  `*.test.mjs` via a `GIT_CONFIG_GLOBAL` file does **not** hide `b` (config-neutral); a stale exclusion refuses.
+- B1 population (`[r2]`): build a temp git repo and check each state.
+  - Tracked `a.test.mjs` is included.
+  - A committed test with a newline in its filename is listed intact.
+  - A committed test hidden by a later-added `.gitignore`, `info/exclude`, global excludes file, or
+    `assume-unchanged` is **still included**.
+  - An untracked visible `b.test.mjs` refuses with `untracked test module`.
+  - An untracked `target/c.test.mjs` under a committed `.gitignore` is ignored: no refusal, and not in the
+    population.
+  - A stale exclusion refuses.
 - B2 sealing: an inherited env containing `NODE_OPTIONS`, `PRISM_CALLABLE_IMPLEMENTATION`, `CARGO_TARGET_DIR`,
   `CARGO_HOME`, `RUSTUP_HOME`, `USER` → `deepEqual` against the exact expected child env (allowlist retained,
   everything else absent, `PATH` prefixed with the runner's node dir, git config isolated).
@@ -339,8 +357,7 @@ writer; synthetic `pins` computed from those archives; test root under `<repo>/t
   naming the input.
 - B6 publication (`[r1]`): an existing `--out` leaf gives exit 2 with a stderr reason, nothing written anywhere, and no
   receipt. A missing parent directory is created and the run proceeds.
-- B8 ignore state and argv (`[r1]`):
-  - An untracked `future/.gitignore` containing `*.test.mjs` refuses with `population ignore state`.
+- B8 argv and host (`[r1]`):
   - A tracked `--dash.test.mjs` is passed as `./--dash.test.mjs` and runs as a test.
   - A non-darwin `process.platform` (injected) refuses with `unsupported host`.
 - B7 cwd: `repoRoot()` equals `git rev-parse --show-toplevel` from another cwd.
@@ -357,8 +374,9 @@ Early stop at 95% of either bucket; a breach is a stop, never inflation. This is
 the test side by design: the fixture tar writer and synthetic-pins builder (~50), table-driven reader rows (~30),
 git fixture repos (~30), and complete-record env/receipt assertions are what make the controls admissible, and
 compressing them into dense lines would violate the counting rule. The helper side is comfortably under 400 because
-the reader has no limits and the installer has no transactions. If the implementer forecasts a breach, the first
-thing to cut is B7 and A6, not any refusal row.
+the reader has no limits and the installer has no transactions. `[r2]` The informal ≤400 helper target is waived. The
+honest ceilings are the caps in the table above (490 helper / 610 tests). If the implementer forecasts a breach, the
+first thing to cut is B7, then `--dry-run`. Never cut A6 or any refusal row.
 
 ## 7. Acceptance (controller, after each slice's implementation review approves)
 
@@ -440,3 +458,21 @@ an explicit clause; **out** = explicitly outside §1's trust boundary.
 | Slice A forecast crosses its own 95% stop | sol S2 | §6: A helper cap 300; caps rebalanced |
 | A9 does not guard the npm pins or derived digests | sol S3 | §5 A9: six-row registry comparison plus the three digest constants |
 | Base object unreachable | sol S4 | `5501bc0f` fetched; base line clarified |
+
+### v3 round-2 folds (`[r2]`)
+
+Round 2 had two reports, both bounded and converging per the controller:
+
+- sol: FIX, 2 WRONG / 3 SMELL
+- terra: FIX, 2 WRONG / 0 SMELL
+
+One narrow confirmation round on this delta was disclosed to the owner.
+
+| Finding | Source | Fold |
+|---|---|---|
+| Reader refuses all three `@types` archives (bytes 476–499 hold timestamps) | sol W1 | §3.5: `prefix` is a C-string; byte 345 NUL; 346–499 ignored |
+| `.gitignore` status guard bypassable (`info/exclude`, `assume-unchanged`) | sol W2 (repeat class of r1 W1) | §4.1: population is committed tests only; visible untracked test refuses; B1 |
+| `env` quoting breaks on `'` in the root | terra W1 | §3.1: POSIX escaping; control characters refuse; A7 round-trip |
+| Output first-act/no-write overstated; concurrent race | terra W2, sol S2 | §4.3: first-phase wording; parent may remain; no leaf, log, or receipt |
+| `--dry-run` cannot know the native path | sol S1 | §4: placeholder; no `--out` or receipt |
+| ≤400 target contradicts the caps; A6 named as the first cut | sol S3 | §6: target waived; cut B7, then `--dry-run`; never A6 |
