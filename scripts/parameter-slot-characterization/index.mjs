@@ -1,9 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import {
+  closeSync,
   existsSync,
   linkSync,
   lstatSync,
+  openSync,
   readFileSync,
   unlinkSync,
   writeFileSync
@@ -431,14 +433,26 @@ function response(value, request) {
   ) fail("invalid next action");
   return value;
 }
-export function runNative(binary, request, cap = LIMITS, args = []) {
+function ownedStage(stage, bytes, mode, body) {
+  let descriptor, owned = false;
+  try {
+    descriptor = openSync(stage, "wx", mode);
+    owned = true;
+    writeFileSync(descriptor, bytes);
+    return body(stage);
+  } finally {
+    if (owned) {
+      try { closeSync(descriptor); } catch {}
+      try { unlinkSync(stage); } catch {}
+    }
+  }
+}
+export function runNative(binary, request, cap = LIMITS, args = [], id = randomUUID) {
   cap = limits(cap);
   const privateBinary = Buffer.from(binary);
   if (sha(privateBinary) !== request.native_binary_sha256) fail("native binary SHA mismatch");
-  let stage;
-  try {
-    stage = path.join(tmpdir(), `prism-native-${randomUUID()}`);
-    writeFileSync(stage, privateBinary, { flag: "wx", mode: 0o700 });
+  const stage = path.join(tmpdir(), `prism-native-${id()}`);
+  return ownedStage(stage, privateBinary, 0o700, stage => {
     const result = spawnSync(stage, args, {
       input: `${JSON.stringify(request)}\n`, timeout: cap.wallMs, maxBuffer: cap.outputBytes
     });
@@ -452,32 +466,21 @@ export function runNative(binary, request, cap = LIMITS, args = []) {
     if (output !== `${JSON.stringify(value)}\n`) fail("noncanonical worker output");
     response(value, request);
     return output;
-  } finally {
-    if (stage) {
-      try {
-        unlinkSync(stage);
-      } catch {}
-    }
-  }
+  });
 }
-function publish(out, output) {
+function publish(out, output, id) {
   const target = path.resolve(out);
   if (existsSync(target)) fail("output already exists");
   const stage = path.join(
     path.dirname(target),
-    `.${path.basename(target)}.partial-${randomUUID()}`
+    `.${path.basename(target)}.partial-${id()}`
   );
-  try {
-    writeFileSync(stage, output, { flag: "wx" });
-    linkSync(stage, target);
-  } finally {
-    if (existsSync(stage)) unlinkSync(stage);
-  }
+  return ownedStage(stage, output, 0o600, () => linkSync(stage, target));
 }
-export function launch(options, overrides) {
+export function launch(options, overrides, id = randomUUID) {
   const ready = prepare(options, overrides);
-  const output = runNative(ready.native, ready.request, ready.cap);
-  publish(options.out, output);
+  const output = runNative(ready.native, ready.request, ready.cap, [], id);
+  publish(options.out, output, id);
   return JSON.parse(output);
 }
 function cli(argv) {

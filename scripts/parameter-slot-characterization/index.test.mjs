@@ -442,9 +442,17 @@ test("8: authenticated binary bytes, path controls, limits, and wire order stay 
     const outputZero = implementation.prepare(f.options(), {outputBytes: 0});
     assert.throws(() => implementation.runNative(outputZero.native, outputZero.request,
       outputZero.cap), /timeout|output/);
+    const collision = (foreign, ids) => {
+      writeFileSync(foreign, "foreign");
+      assert.throws(() => implementation.launch(f.options(), {}, ids), /EEXIST/);
+      assert(readFileSync(foreign, "utf8") === "foreign" && !existsSync(f.options().out));
+    }, id = "00000000-0000-4000-8000-000000000001", outId = "00000000-0000-4000-8000-000000000002";
+    const binaryStage = path.join(tmpdir(), `prism-native-${id}`);
+    collision(binaryStage, () => id); rmSync(binaryStage);
+    const pub = path.join(f.root, `.out.json.partial-${outId}`);
+    collision(pub, (() => { let n = true; return () => n ? (n = false, id) : outId; })());
     for (const control of ["\u007f", "\u0085"]){
-      f.manifest.members[0].path = `bad${control}.js`;
-      f.manifest.sites[0].path = `bad${control}.js`;
+      f.manifest.members[0].path = f.manifest.sites[0].path = `bad${control}.js`;
       rewrite(f);
       assert.throws(() => implementation.prepare(f.options()), /invalid or duplicate member/);
     }
