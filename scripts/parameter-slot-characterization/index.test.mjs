@@ -4,13 +4,14 @@ import{
   createHash
 } from "node:crypto";
 import{
-  chmodSync, copyFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync,
+  chmodSync, copyFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync,
   symlinkSync, writeFileSync
 } from "node:fs";
 import{
   spawnSync
 } from "node:child_process";
 import path from "node:path";
+import { tmpdir } from "node:os";
 const native = process.env.PRISM_NATIVE_PARAMETER_EXAMPLE;
 assert(native, "PRISM_NATIVE_PARAMETER_EXAMPLE is required; a missing binary is a hard failure");
 const shell = Buffer.from("#!/bin/sh\nexec /bin/sh \"$@\"\n");
@@ -42,7 +43,7 @@ function selector(path, source, compiler_kind = "FunctionDeclaration", object_or
   };
 } function fixture(sources, sites, mutate ={
 }){
-  const root = mkdtempSync("/private/tmp/prism-slot-");
+  const root = mkdtempSync(path.join(realpathSync(tmpdir()), "prism-slot-"));
   const members = Object.entries(sources).map(([file, source]) =>{
     const target = path.join(root, file); mkdirSync(path.dirname(target),{
       recursive: true
@@ -225,6 +226,26 @@ test("3: refusal variants retain complete native JS/TS/TSX records", () =>{
     });
   }
 });
+test("3b: typed required parameter shapes retain complete native records", () =>{
+  const source = parameters => `function take(${parameters}){return later;}`;
+  const required = "required_parameter", optional = "optional_parameter";
+  const cases = [
+    ["typed.ts", "{x}: {x:number}, later: string", 29, 31, 44, true, true, false, true],
+    ["typed.tsx", "{x}: {x:number}, later: string", 29, 31, 44, true, true, false, true],
+    ["initialized.ts", "{x}, later: string = 'x'", 17, 19, 38, false, false, false, false],
+    ["modifier.ts", "{x}: {x:number}, public later: string", 29, 31, 51, false, false,
+      false, false],
+    ["optional-object.ts", "{x}?: {x:number}, later: string", 30, 32, 45, true, true, true, false],
+    ["between-comment.ts", "{x}, /*ok*/ later: string", 17, 26, 39, true, true, false, true]];
+  for (const [file, raw, firstEnd, start, end, ordinary, bound, isOptional, eligible] of cases){
+    const text = source(raw), first = p(0, isOptional ? optional : required, 14, firstEnd,
+      "object_pattern", false), later = p(1, required, start, end, "identifier", ordinary);
+    const bindings = bound ? [o("later", start, start + 5, 1)] : [];
+    const eligibility = eligible ? "eligible" : "selection_native_shape_mismatch";
+    using(fixture({[file]: text}, [selector(file, text)]), f => complete(f,
+      [s(f.sites[0], "unique_named", [c([first, later], [], bindings)], eligibility)]));
+  }
+});
 test("4: BOM, astral, CRLF, and inside-code-point selectors preserve bytes", () =>{
   const source = "\ufeffconst fox=\"🦊\";\r\nfunction take({x}, later){return later;}";
     const start = bytes(source.slice(0,
@@ -274,7 +295,8 @@ test("5: manifest, request, child, cap, and publication custody fail closed", ()
       extra.extra = true; assert.notEqual(spawnSync(native,
       [],{
       input: `${JSON.stringify(extra)}\n`, encoding: "utf8"
-    }).status, 0); assert.throws(() => implementation.runNative(shell, ready.request,
+    }).status, 0); ready.request.native_binary_sha256 = sha(shell);
+    assert.throws(() => implementation.runNative(shell, ready.request,
 {
       ...implementation.LIMITS, wallMs: 5
     }, ["-c", "sleep 1"]), /timeout/); assert.throws(() => implementation.runNative(shell,
@@ -301,6 +323,14 @@ test("5: manifest, request, child, cap, and publication custody fail closed", ()
       recursive: true, force: true
     }); mkdirSync(real); writeFileSync(path.join(real, "a.js"), source); symlinkSync(real,
       link); assert.throws(() => implementation.prepare(f.options()), /symlink/);
+    f.manifest.members[0].path = f.manifest.sites[0].path = "a.js";
+    rewrite(f);
+    const parent = path.join(f.root, "real-parent"), nested = path.join(parent, "nested-root");
+    mkdirSync(nested, {recursive: true}); writeFileSync(path.join(nested, "a.js"), source);
+    const linked = path.join(f.root, "linked-parent"); symlinkSync(parent, linked);
+    assert.throws(() => implementation.prepare({
+      ...f.options(), root: path.join(linked, "nested-root")
+    }), /symlink/);
   });
 });
 test("6: cold/repeat, inert shifting, and meaningful alias mutation are complete", () =>{
@@ -339,12 +369,14 @@ test("7: complete terminal packets include zero-gap, unnamed, missing, ambiguous
     const ready = implementation.prepare(f.options()), row = s(f.sites[0], "unique_named", [c([
       p(0, "object_pattern", 14, 17), p(1, "identifier", 19, 24)], [o("later", 19, 24, 1)],
       [o("later", 19, 24, 1)])], "no_selected_suffix_binding_gap"), packet = expected(f, [row]);
+    ready.request.native_binary_sha256 = packet.native_binary_sha256 = sha(shell);
+    const command = value => ["-c", `printf '%s\\n' '${JSON.stringify(value)}'`];
     const badKind = structuredClone(packet);
     badKind.sites[0].candidates[0].kind = null;
-    const invalid = Buffer.from(`#!/bin/sh\nprintf '%s\\n' '${JSON.stringify(badKind)}'\n`);
-    assert.throws(() => implementation.runNative(invalid, ready.request, ready.cap), /candidate/);
-    const mock = Buffer.from(`#!/bin/sh\nprintf '%s\\n' '${JSON.stringify(packet)}'\n`);
-    assert.deepEqual(JSON.parse(implementation.runNative(mock, ready.request, ready.cap)), packet);
+    assert.throws(() => implementation.runNative(shell, ready.request, ready.cap, command(badKind)),
+      /candidate/);
+    assert.deepEqual(JSON.parse(implementation.runNative(shell, ready.request, ready.cap,
+      command(packet))), packet);
   }); const unnamed = "consume(({x}, later) => later);"; using(fixture({
     "unnamed.js": unnamed
   }, [selector("unnamed.js", unnamed, "ArrowFunction", [0], [1], 8, 29)]), f => complete(f,
@@ -370,6 +402,9 @@ test("8: authenticated binary bytes, path controls, limits, and wire order stay 
     chmodSync(copied, 0o700);
     assert.doesNotThrow(() => implementation.runNative(ready.native, ready.request, ready.cap));
     assert.equal(existsSync(marker), false, "the replacement original must not execute");
+    readFileSync(copied).copy(ready.native);
+    assert.throws(() => implementation.runNative(ready.native, ready.request, ready.cap), /SHA/);
+    assert.equal(existsSync(marker), false, "mutated authenticated bytes must not execute");
     assert.throws(() => implementation.prepare(f.options(), {wallMs: 0}), /limits/);
     for (const [limit, error] of [["files", /count/], ["sites", /count/],
       ["sourceBytes", /source/], ["inputBytes", /input/]]){

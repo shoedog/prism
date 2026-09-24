@@ -28,6 +28,11 @@ and selector boundaries before sending one JSON request to the worker. The
 worker reads no repository files. Successful output is canonical JSON and is
 published new-only through a parent-owned staging file and atomic link.
 
+The supplied root is checked exactly as written after absolute resolution: the
+launcher `lstat`s its filesystem anchor and every component down to each selected
+file, refusing every symlink. On macOS, pass a canonical root such as
+`fs.realpathSync(os.tmpdir())`; a root reached through `/tmp` or `/var` is refused.
+
 The expected hash proves supplied binary bytes, not their build provenance.
 Keep the build command, binary SHA-256, source binding, and gate logs in the
 separate receipt/handback before any controller-authorized public run.

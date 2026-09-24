@@ -122,11 +122,19 @@ function mapping(file, kind) {
   if (!expected || expected[0] !== kind) fail("script kind/path mismatch");
   return expected[1];
 }
+function directory(target, label) {
+  const stat = lstatSync(target);
+  if (stat.isSymbolicLink()) fail(`symlink in ${label}`);
+  if (!stat.isDirectory()) fail(`${label} is not a regular directory`);
+}
 function checked(root, relative) {
-  let current = root;
-  const rootStat = lstatSync(current);
-  if (!rootStat.isDirectory() || rootStat.isSymbolicLink())
-    fail("source root is not a regular directory");
+  const anchor = path.parse(root).root;
+  let current = anchor;
+  directory(current, "source root");
+  for (const part of path.relative(anchor, root).split(path.sep).filter(Boolean)) {
+    current = path.join(current, part);
+    directory(current, "source root");
+  }
   for (const part of relative.split("/")) {
     current = path.join(current, part);
     const stat = lstatSync(current);
@@ -424,8 +432,10 @@ function response(value, request) {
   return value;
 }
 export function runNative(binary, request, cap = LIMITS, args = []) {
+  const privateBinary = Buffer.from(binary);
+  if (sha(privateBinary) !== request.native_binary_sha256) fail("native binary SHA mismatch");
   const stage = path.join(tmpdir(), `prism-native-${randomUUID()}`);
-  writeFileSync(stage, binary, { flag: "wx", mode: 0o700 });
+  writeFileSync(stage, privateBinary, { flag: "wx", mode: 0o700 });
   try {
     const result = spawnSync(stage, args, {
       input: `${JSON.stringify(request)}\n`, timeout: cap.wallMs, maxBuffer: cap.outputBytes

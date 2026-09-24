@@ -125,7 +125,7 @@ fn run() -> Result<()> {
     let request = decode(&serde_json::from_slice(&input).context("invalid request JSON")?)?;
     let packet = observe(request)?;
     let text = serde_json::to_string(&packet)?;
-    ensure!(text.len() + 1 <= MAX_OUTPUT, "worker output limit exceeded");
+    ensure!(text.len() < MAX_OUTPUT, "worker output limit exceeded");
     println!("{text}");
     Ok(())
 }
@@ -470,12 +470,14 @@ fn eligibility(status: &str, candidate: Option<&Candidate>, selector: &Selector)
 }
 #[cfg(test)]
 thread_local! {
-    static DUPLICATE_EXACT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static DUPLICATE_SORT_KEYS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 fn assemble_candidates(mut candidates: Vec<Candidate>) -> Vec<Candidate> {
     #[cfg(test)]
-    if DUPLICATE_EXACT.with(|seam| seam.replace(false)) && !candidates.is_empty() {
-        let duplicate = candidates[0].clone();
+    if DUPLICATE_SORT_KEYS.with(|seam| seam.replace(false)) && !candidates.is_empty() {
+        let mut duplicate = candidates[0].clone();
+        duplicate.start_line = 0;
+        duplicate.end_line = 0;
         candidates.push(duplicate);
     }
     candidates.sort_by(|left, right| {
@@ -626,7 +628,7 @@ mod tests {
             parameters: vec![
                 parameter(0, "object_pattern", false),
                 parameter(1, "identifier", true),
-                parameter(2, "object_pattern", false),
+                parameter(2, "identifier", true),
             ],
             slots: Some(vec![]),
             bindings: vec![],
@@ -647,6 +649,7 @@ mod tests {
             (&[0, 2], &[1], 2, 0, false, 3),
             (&[1], &[0], 2, 0, true, 3),
             (&[0], &[1], 2, 2, false, 0),
+            (&[0], &[1, 2], 2, 1, false, 1),
         ];
         for (objects, later, slots, bindings, reverse, expected) in cases {
             let selector = Selector {
@@ -683,7 +686,7 @@ mod tests {
             );
         }
         let source = "function take({x}, later){return later;}";
-        DUPLICATE_EXACT.with(|seam| seam.set(true));
+        DUPLICATE_SORT_KEYS.with(|seam| seam.set(true));
         let packet = observe(Request {
             manifest_sha256: "a".repeat(64),
             binary_sha256: "b".repeat(64),
@@ -704,7 +707,9 @@ mod tests {
             }],
         })
         .unwrap();
-        assert_eq!(packet.sites[0].candidates.len(), 2);
+        let candidates = &packet.sites[0].candidates;
+        assert_eq!(candidates.len(), 2);
+        assert_eq!((candidates[0].start_line, candidates[1].start_line), (0, 1));
         assert_eq!(packet.sites[0].status, "ambiguous");
         assert_eq!((packet.totals.ambiguous, packet.next_action), (1, "defer"));
     }
