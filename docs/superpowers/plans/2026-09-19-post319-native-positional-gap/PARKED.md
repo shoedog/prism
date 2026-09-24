@@ -17,7 +17,7 @@ subject) plus docs-only commits. The planning packet and PR #320 are unaffected.
 |---|---|---|---|
 | r1 | `e5a3e7f4` | FIX 7 WRONG / 2 SMELL (W7 was a controller stale-cap error) | APPROVE, 7 SMELL |
 | r2 | `ca9dcc9c` | FIX 3 WRONG / 2 SMELL (classified open-class) | APPROVE, 6 SMELL |
-| r3 (owner-authorized hard-final) | `af6368c8` | **FIX 1 WRONG / 4 SMELL** | recorded in the lane handoff |
+| r3 (owner-authorized hard-final) | `af6368c8` | **FIX 1 WRONG / 4 SMELL** | no verdict: the opencode turn ended mid-run (inadmissible) |
 
 WRONG findings per round went 6, 3, then 1. Every r1 and r2 WRONG is CLOSED per sol r3. The inherited mutant runner
 is 19/19 killed.

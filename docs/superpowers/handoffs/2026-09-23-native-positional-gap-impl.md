@@ -57,7 +57,7 @@ Copies under `/private/tmp` are volatile. — **RESOLVED**
 | Implementation r0 → fix2 | done, parked | `af6368c8`; strict lines 1,073 / 700 / 1,773 (caps 1,100 / 700 / 1,800) |
 | Review r1 | done | sol FIX 7W/2S; kimi APPROVE 7S |
 | Review r2 | done | sol FIX 3W/2S (open-class); kimi APPROVE 6S |
-| Review r3 (hard-final) | done: **FIX 1W/4S → PARK** | `review-r3/REVIEW-r3-sol.md` |
+| Review r3 (hard-final) | done: **FIX 1W/4S → PARK** | `review-r3/REVIEW-r3-sol.md`; kimi r3 ended mid-run with no verdict (inadmissible; `review-r3/kimi-r3-no-verdict.log`) |
 | Gates on `af6368c8` | recorded | `gates-af6368c8/` (Node population) and `fix2/` (Rust); see PARKED.md |
 | Public 12-site observation | not run | blocked by D1 |
 
