@@ -97,3 +97,16 @@ caps are:
 
 Kimi's optional extras are included only if they fit. The stop rule is unchanged: a measured or forecast count above
 a hard cap stops the work and returns to the owner.
+
+## Fourth amendment: resume after park (owner-approved 2026-09-23)
+
+The owner granted a **test cap of 740** and resumed the parked increment to close PARKED.md D1 (the r3 coverage rows)
+and D2 (the r3 SMELL hardening). The combined cap rises to match. Final hard caps are:
+
+- **helper ≤ 1,100**
+- **tests ≤ 740**
+- **combined ≤ 1,840**
+
+Counting uses strict attribution: only `#[cfg(test)]` Rust counts as tests. The controller declared the review cap
+before dispatch: **at most two further rounds (r4, r5)**. If r5 does not approve, the increment parks again. The stop
+rule is unchanged.
