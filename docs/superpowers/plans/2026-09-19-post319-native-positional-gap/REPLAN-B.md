@@ -50,15 +50,18 @@ the boundary, that is an owner-level spec change.
 
 - **Unchanged**, apart from D7. D7 adds `#[cfg(test)]` predicate and ordinal rows that kill sol r5's four surviving
   mutants:
-  - `R5-P1` object-shape `all`→`any`: input `function take({x}, wrong, later)`, object `[0,1]`, later `[2]`. Must
+  - `R5-P1` object-shape `all`→`any`: input `function take({x}, wrong, later){return later;}`, object `[0,1]`, later `[2]`. Must
     give `selection_native_shape_mismatch`.
-  - `R5-P2` later-shape `all`→`any`: input `function take({x}, good, bad = 1)`, object `[0]`, later `[1,2]`. Must
+  - `R5-P2` later-shape `all`→`any`: input `function take({x}, good, bad = 1){return good;}`, object `[0]`, later `[1,2]`. Must
     defer.
-  - `R5-P3` order directions `&&`→`||`: input `function take(early, {x}, late)`, object `[1]`, later `[0,2]`. Must
+  - `R5-P3` order directions `&&`→`||`: input `function take(early, {x}, late){return late;}`, object `[1]`, later `[0,2]`. Must
     defer.
   - `R5-O1` singular `parameter` dropped: input `const take = later => later;`. Expect one raw parameter at ordinal 0,
     with the slot at `source_ordinal:0`.
-- Each row asserts the complete site record, including packet action and reason. The Rust rows may use the existing
+- Each row asserts the complete site record, including packet action and reason. `[r1]` The sources above are
+  exact, complete fixtures. P1–P3 must additionally assert `parse_error_count:0`, `status:"unique_named"`, and
+  `selection_native_shape_mismatch`, so that recovery can never mask the predicate. After implementation, re-run the
+  four r5 mutants and the inherited 29. The Rust rows may use the existing
   `observe` entry point on a constructed request.
 
 ### 3.2 Builder: `scripts/parameter-slot-characterization/request.mjs` (replaces `index.mjs`)
@@ -77,7 +80,10 @@ message on stderr for any refusal.
     `789352a575d68ef672de7449299676de0c0aab8edd4abd8228e23efda65d326b`. Refuse otherwise.
   - Synthetic manifests may use any small population. Their schema is validated only as far as needed to build the
     request; the worker re-validates the whole request before parsing.
-- **Sources.** For each member, read `<root>/<path>` with a relative, safe path: no absolute paths, no `..`, no
+- **CLI (`[r1]`).** Each of the four flags is required exactly once. A missing, duplicate, or unknown flag refuses.
+- **Sources.** For each member, first `lstat` `<root>/<path>`. `[r1]` Refuse if it is not a regular file, if its
+  size differs from the declared byte count, or if it would exceed the remaining 256 KiB total. This closes D8
+  cheaply, with no custody loop. Then read `<root>/<path>` with a relative, safe path: no absolute paths, no `..`, no
   backslash, no control characters. Then:
   - require byte length and SHA-256 equal to the manifest
   - decode as strict UTF-8, preserving the BOM
@@ -138,9 +144,9 @@ message on stderr for any refusal.
 
 | Bucket | Contents | Cap | Forecast |
 |---|---|---|---|
-| helper | worker non-test (573, unchanged) + `request.mjs` | ≤ 700 | 573 + ~70–100 |
-| tests | Rust `#[cfg(test)]` (135 + ~30 for D7) + `request.test.mjs` | ≤ 740, the current cap, unchanged | ~620–700 |
-| combined | helper + tests | ≤ 1,440 | ~1,300–1,370 |
+| helper | worker non-test (573, unchanged) + `request.mjs` | ≤ 720 `[r1]` | 573 + ~75–105 |
+| tests | Rust `#[cfg(test)]` (135 + ~30 for D7) + `request.test.mjs` | ≤ 760 `[r1]` | ~620–700 |
+| combined | helper + tests | ≤ 1,480 `[r1]` | ~1,300–1,380 |
 
 Early stop at 95%. The launcher's 507 helper lines are deleted; roughly 110–150 custody test lines are deleted and
 about 60–80 builder test lines added. A breach is a stop and returns to the owner.
@@ -158,3 +164,20 @@ about 60–80 builder test lines added. A breach is a stop and returns to the ow
 - reintroducing launcher custody machinery
 - a public run before implementation approval
 - a budget breach
+
+## 7. Spec review record
+
+Round 1 (fresh cap):
+
+- sol: FIX, 2 WRONG / 2 SMELL
+- terra: FIX, 1 WRONG / 0 SMELL
+
+Both call it converging. Folds, marked `[r1]`:
+
+| Finding | Source | Fold |
+|---|---|---|
+| D7 P1–P3 sources lacked bodies, so parse recovery masked the predicates | sol W1, terra W1 | Exact complete fixtures, plus clean-parse and shape-mismatch assertions |
+| Helper forecast crossed the 95% stop (and the test margin was only 3 lines) | sol W2, terra note | Caps set before implementation: 720 / 760 / 1,480 |
+| D8 read-before-size remained in the builder | sol S1 | `lstat` regular-file, size, and cap check before reading |
+| Handoff not reconciled with option (b) | sol S2 | Handoff refreshed |
+| CLI flag exactness unstated | sol table note | Four flags, each exactly once; unknown flags refuse |

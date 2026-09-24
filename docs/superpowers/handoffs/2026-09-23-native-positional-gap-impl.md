@@ -1,4 +1,4 @@
-# Handoff — post-#319 native positional-gap characterization (implementation lane, PARKED AGAIN 2026-09-24)
+# Handoff — post-#319 native positional-gap characterization (RE-PLAN (b) in spec review, 2026-09-24)
 
 **Written:** 2026-09-23 · **By:** Claude Code controller session_01CeCpr7mLfpQeq9vEEKBFhQ · **Provider:** claude
 **Workspace:** `/Users/wesleyjinks/code/prism-native-gap-impl` · `feat/native-positional-gap`
@@ -9,7 +9,7 @@
 
 ## 0. Gating facts — settle these before starting anything below
 
-**(a) Lane ownership** — `[MEASURED]` **PARKED again.** Sol's r5, the final round of the resumed cap, returned FIX 3 WRONG / 3 SMELL, open-class. Nothing is in flight in this lane. — **RESOLVED 2026-09-24 (parked)**
+**(a) Lane ownership** — `[MEASURED]` The owner chose **"Re-plan per Fable (b)"** on 2026-09-24. The spec amendment is `REPLAN-B.md` (commit `50d9b198`, plus the `[r1]` folds), under a fresh 2-round spec cap. Round 1: sol FIX 2W/2S and terra FIX 1W/0S, both converging, both folded. Round 2 is next. There is no implementation yet. — **OPEN**
 
 **(b) Custody exposure** — `[MEASURED]` Every commit is pushed to `origin/feat/native-positional-gap`. Evidence is kept durably at `/Users/wesleyjinks/prism-evidence/native-positional-gap/` (about 65 MB), holding:
 - `r0`, `r1`, `fix1`, `fix1b`, `fix2`
@@ -31,8 +31,9 @@ Copies under `/private/tmp` are volatile. — **RESOLVED**
 
 ## 1. Resume order
 
-1. The owner chooses a PARKED.md resume option: (a) fold D5–D8 with a fresh budget and review cap, or (b) re-plan to a simpler pinned probe.
-2. If (a): fold D5 first. It is a Linux-only regression, so add a Linux or open-writer control. Then fold D6, D7, and D8, and run an independent review. On APPROVE, run the public 12-site cold/repeat and open a PR against `main`.
+1. Run spec round 2 of `REPLAN-B.md`: sol plus terra, owner brief shape.
+2. On APPROVE, implement: the builder `request.mjs`, `request.test.mjs` (observation tests re-routed, custody rows dropped), and the D7 worker `cfg(test)` rows. Then the implementation review, 2 rounds, delta only.
+3. Controller-run public pipe, twice from cold; independent reconciliation; `docs/eval/native-positional-gap/*`; PR to `main`.
 
 **STOP conditions:**
 - any `src/`, Cargo, or cache change
@@ -67,7 +68,7 @@ Copies under `/private/tmp` are volatile. — **RESOLVED**
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
 | D1–D2 | r3 coverage + hardening | done (`5fc71b0e`) | — | — | — |
-| D5–D8 | r5 findings (ETXTBSY, manifest binding, 4 mutants, size check) | parked | owner resume decision | owner | PARKED.md |
+| D5–D8 | r5 findings | re-planned (b) | D5 and D8 removed or closed by the builder; D6 builder binding; D7 worker rows | spec review r2 | REPLAN-B.md |
 | D3 | public observation and readout | parked | after core approval | D5–D8 | site manifest `789352a5…` |
 | D4 | profile input re-acquisition | open | document the PR259 react18/19 layouts | — | PARKED.md §D4 |
 | — | PR #320 | MERGED `5501bc0f` | — | — | #320 |
