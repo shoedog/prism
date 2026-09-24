@@ -4,8 +4,8 @@ import{
   createHash
 } from "node:crypto";
 import{
-  chmodSync, copyFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync,
-  symlinkSync, writeFileSync
+  chmodSync, copyFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync,
+  realpathSync, rmSync, symlinkSync, writeFileSync
 } from "node:fs";
 import{
   spawnSync
@@ -236,7 +236,8 @@ test("3b: typed required parameter shapes retain complete native records", () =>
     ["modifier.ts", "{x}: {x:number}, public later: string", 29, 31, 51, false, false,
       false, false],
     ["optional-object.ts", "{x}?: {x:number}, later: string", 30, 32, 45, true, true, true, false],
-    ["between-comment.ts", "{x}, /*ok*/ later: string", 17, 26, 39, true, true, false, true]];
+    ["comment.tsx", "{x}: {x:number}, /*a*/ later /*ok*/: string", 29, 37, 57, true, true,
+      false, true]];
   for (const [file, raw, firstEnd, start, end, ordinary, bound, isOptional, eligible] of cases){
     const text = source(raw), first = p(0, isOptional ? optional : required, 14, firstEnd,
       "object_pattern", false), later = p(1, required, start, end, "identifier", ordinary);
@@ -285,7 +286,26 @@ test("5: manifest, request, child, cap, and publication custody fail closed", ()
       sourceBytes: 1
     }), /limit/); assert.throws(() => implementation.prepare(f.options(),{
       inputBytes: 1
-    }), /input/); const ready = implementation.prepare(f.options()); writeFileSync(path.join(f.root,
+    }), /input/); for (const member of ["../outside.js", "/outside.js", "a\\b.js"]){
+      f.manifest.members[0].path = f.manifest.sites[0].path = member; rewrite(f);
+      assert.throws(() => implementation.prepare(f.options()), /invalid or duplicate member/);
+    }
+    f.manifest.members[0].path = f.manifest.sites[0].path = "a.js"; rewrite(f);
+    f.manifest.extra = true; rewrite(f);
+    assert.throws(() => implementation.prepare(f.options()), /invalid manifest/);
+    delete f.manifest.extra;
+    f.manifest.members.push({ ...f.manifest.members[0], path: "unused.js" });
+    f.manifest.member_count++; f.manifest.source_bytes += f.manifest.members[0].bytes; rewrite(f);
+    assert.throws(() => implementation.prepare(f.options()), /unreferenced member/);
+    f.manifest.sites[0].path = "missing.js"; rewrite(f);
+    assert.throws(() => implementation.prepare(f.options()), /invalid or duplicate selector/);
+    f.manifest.sites[0].path = "a.js"; f.manifest.members.pop(); f.manifest.member_count--;
+    f.manifest.source_bytes -= f.manifest.members[0].bytes; rewrite(f);
+    assert.throws(() => implementation.prepare({
+      ...f.options(), nativeSha256: "0".repeat(64)
+    }), /native binary SHA mismatch/);
+    const ready = implementation.prepare(f.options());
+    writeFileSync(path.join(f.root,
       "a.js"), "function changed(){}"); assert.equal(ready.request.files[0].source, source);
         assert.doesNotThrow(() => implementation.runNative(ready.native,
       ready.request, ready.cap)); assert.throws(() => implementation.launch(f.options()),
@@ -370,13 +390,19 @@ test("7: complete terminal packets include zero-gap, unnamed, missing, ambiguous
       p(0, "object_pattern", 14, 17), p(1, "identifier", 19, 24)], [o("later", 19, 24, 1)],
       [o("later", 19, 24, 1)])], "no_selected_suffix_binding_gap"), packet = expected(f, [row]);
     ready.request.native_binary_sha256 = packet.native_binary_sha256 = sha(shell);
-    const command = value => ["-c", `printf '%s\\n' '${JSON.stringify(value)}'`];
+    const command = (value, pretty = false) => ["-c",
+      `printf '%s\\n' '${JSON.stringify(value, null, pretty ? 2 : undefined)}'`];
     const badKind = structuredClone(packet);
     badKind.sites[0].candidates[0].kind = null;
+    const stages = () => readdirSync(tmpdir()).filter(name => name.startsWith("prism-native-"));
+    const before = stages();
     assert.throws(() => implementation.runNative(shell, ready.request, ready.cap, command(badKind)),
       /candidate/);
+    assert.deepEqual(stages(), before);
     assert.deepEqual(JSON.parse(implementation.runNative(shell, ready.request, ready.cap,
       command(packet))), packet);
+    assert.throws(() => implementation.runNative(shell, ready.request, ready.cap,
+      command(packet, true)), /noncanonical worker output/);
   }); const unnamed = "consume(({x}, later) => later);"; using(fixture({
     "unnamed.js": unnamed
   }, [selector("unnamed.js", unnamed, "ArrowFunction", [0], [1], 8, 29)]), f => complete(f,
@@ -406,6 +432,9 @@ test("8: authenticated binary bytes, path controls, limits, and wire order stay 
     assert.throws(() => implementation.runNative(ready.native, ready.request, ready.cap), /SHA/);
     assert.equal(existsSync(marker), false, "mutated authenticated bytes must not execute");
     assert.throws(() => implementation.prepare(f.options(), {wallMs: 0}), /limits/);
+    for (const wallMs of [0, implementation.LIMITS.wallMs + 1])
+      assert.throws(() => implementation.runNative(ready.native, ready.request,
+        { ...implementation.LIMITS, wallMs }), /invalid limits/);
     for (const [limit, error] of [["files", /count/], ["sites", /count/],
       ["sourceBytes", /source/], ["inputBytes", /input/]]){
       assert.throws(() => implementation.prepare(f.options(), {[limit]: 0}), error);
@@ -419,6 +448,9 @@ test("8: authenticated binary bytes, path controls, limits, and wire order stay 
       rewrite(f);
       assert.throws(() => implementation.prepare(f.options()), /invalid or duplicate member/);
     }
+    ready.request.native_binary_sha256 = sha(shell);
+    assert.throws(() => implementation.runNative(shell, ready.request, ready.cap,
+      ["-c", "kill -SEGV $$"]), /worker signal SIGSEGV/);
   }); using(fixture({
     "wire.js": source
   }, [selector("wire.js", source)]), f =>{

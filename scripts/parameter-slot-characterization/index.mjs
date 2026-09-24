@@ -432,15 +432,18 @@ function response(value, request) {
   return value;
 }
 export function runNative(binary, request, cap = LIMITS, args = []) {
+  cap = limits(cap);
   const privateBinary = Buffer.from(binary);
   if (sha(privateBinary) !== request.native_binary_sha256) fail("native binary SHA mismatch");
-  const stage = path.join(tmpdir(), `prism-native-${randomUUID()}`);
-  writeFileSync(stage, privateBinary, { flag: "wx", mode: 0o700 });
+  let stage;
   try {
+    stage = path.join(tmpdir(), `prism-native-${randomUUID()}`);
+    writeFileSync(stage, privateBinary, { flag: "wx", mode: 0o700 });
     const result = spawnSync(stage, args, {
       input: `${JSON.stringify(request)}\n`, timeout: cap.wallMs, maxBuffer: cap.outputBytes
     });
-    if (result.error?.code === "ETIMEDOUT" || result.signal) fail("worker timeout");
+    if (result.error?.code === "ETIMEDOUT") fail("worker timeout");
+    if (result.signal) fail(`worker signal ${result.signal}`);
     if (result.error || result.status !== 0)
       fail(`worker failed: ${Buffer.from(result.stderr ?? []).toString("utf8")}`);
     const bytes = Buffer.from(result.stdout ?? []);
@@ -450,7 +453,11 @@ export function runNative(binary, request, cap = LIMITS, args = []) {
     response(value, request);
     return output;
   } finally {
-    unlinkSync(stage);
+    if (stage) {
+      try {
+        unlinkSync(stage);
+      } catch {}
+    }
   }
 }
 function publish(out, output) {
