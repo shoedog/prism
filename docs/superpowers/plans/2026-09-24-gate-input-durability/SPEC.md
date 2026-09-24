@@ -13,7 +13,12 @@
   missing module as inadmissible.
 - The feasibility evidence, registry metadata, and prior spec reviews are in `advisor/`.
 
-**Base:** `origin/main` `5501bc0f` (source-equivalent to `30e13053`).
+**Base:** `origin/main` `5501bc0f` (the PR #320 merge; its source is equivalent to `30e13053`). The branch rebases onto it before its PR.
+
+**Spec review history:**
+
+- v3 round 1: sol FIX 4 WRONG / 4 SMELL and terra FIX 3 WRONG / 0 SMELL. Both call it converging; every terra finding duplicates a sol finding.
+- Round-1 folds are marked `[r1]` below, and §10 maps them.
 
 **What changed from v2, in one sentence:** every one of the 9 artifacts now has a byte authority
 (`advisor/registry-integrity.json`, `advisor/FEASIBILITY.md`), so every byte is authenticated *before* it is
@@ -32,7 +37,7 @@ and `--prune`. What remains is content-addressed immutable install directories a
 The Node gate's external inputs (TypeScript 5.9.3, the react18/react19 callable profiles, the grammar archives)
 lived only under `/private/tmp`; the macOS daily cleaner purged them, 6 modules could not run, and no receipt
 recorded the full-population command. Value: a durable, authenticated, one-command full-population gate on this host
-and any host meeting §4.4, with a receipt naming every module, skip, and exclusion.
+and any macOS host meeting §4.4, with a receipt naming every module, skip, and exclusion. `[r1]` **Supported host: macOS (darwin) only.** On any other platform both tools refuse at startup with `unsupported host`. Linux and Windows volatile-mount rules, path delimiters, and null devices are out of scope for v3.
 
 **Trust boundary (explicit, so reviewers do not re-litigate it).** The inputs are public and pinned by hash. The
 operator's own account on their own machine is the trust boundary.
@@ -128,10 +133,10 @@ refusal; every refusal names the input, artifact, and rule.
 - Root: `$PRISM_GATE_INPUTS_ROOT`, else `$XDG_DATA_HOME/prism/gate-inputs`, else
   `~/.local/share/prism/gate-inputs`. Created with `mkdir -p`.
 - Volatile-root refusal (reason `volatile root`, no override): the `realpath` of the root's longest existing prefix
-  is equal to or under `realpath(os.tmpdir())`, `realpath('/tmp')`, or `realpath('/var/folders')`.
+  is equal to or under `realpath(os.tmpdir())`, `realpath('/tmp')`, or `realpath('/var/folders')`. `[r1]` A deny root that does not exist is skipped, not an error.
 - Layout, **derived from pins, no pointer file**: `<root>/<input>/<tree_sha256>/`. Install dirs are immutable and
   content-addressed; the tool never modifies or deletes one. Replacement is impossible by construction: changed pins
-  name a different directory. The only thing the tool ever deletes is its own `<root>/.stage-<random>/`.
+  name a different directory. The only thing the tool ever deletes is the `<root>/.stage-<random>/` that **this invocation** created. `[r1]` It never scavenges other stages. A crashed invocation's stage is inert, and the README documents manual cleanup.
 - Env values are derived: `PRISM_TYPESCRIPT=<root>/typescript/<digest>/lib/typescript.js`,
   `PRISM_CALLABLE_PROFILES=<root>/profiles/<digest>`, `PRISM_GRAMMAR_ARCHIVES=<root>/grammar-archives/<digest>`.
   `env.sh` does not exist; `acquire.mjs env` verifies and prints the three `export` lines (single-quoted).
@@ -151,8 +156,8 @@ refusal; every refusal names the input, artifact, and rule.
 6. On any failure: remove own stage, leave everything else untouched, continue to the next input, exit 2 at the end.
 
 Threat 4 (§1) is closed by step 1 on every run plus `verify`, which is step 1 for all inputs and is what the gate
-calls. Crash at any point leaves either a stage (ignored by everyone; removed by the next acquire run of the same
-tool only if named `.stage-*` under the root) or a complete renamed directory.
+calls. A crash at any point leaves either an inert stage, which is ignored by everyone and never auto-removed (`[r1]`), or a complete
+renamed directory.
 
 ### 3.3 Fetch and authentication
 
@@ -216,14 +221,19 @@ child env) and exits 0 without building or running.
 - Repo root = `path.resolve(dirname(fileURLToPath(import.meta.url)), '../..')`; every child cwd is the repo root.
 - Enumeration, run under the sealed env (§4.2) so `GIT_CONFIG_GLOBAL`/`GIT_CONFIG_NOSYSTEM` apply:
   `git ls-files -z --cached --others --exclude-per-directory=.gitignore -- '*.test.mjs'`.
-  `--exclude-per-directory` reads only tracked `.gitignore` files (not `.git/info/exclude`, not
-  `core.excludesFile`); `-z` emits raw bytes. Decode as UTF-8 with `fatal:true` (refuse otherwise); refuse duplicate
+  `--exclude-per-directory` reads the **working-tree** `.gitignore` files. It does not read `.git/info/exclude` or
+  `core.excludesFile`. `[r1]` To bind ignores to committed bytes, the gate first runs
+  `git status --porcelain=v1 -z --untracked-files=all --ignored=no -- ':(glob)**/.gitignore'` (sealed env) and
+  refuses with `population ignore state` if any `.gitignore` is untracked, modified, or deleted. So the population is
+  determined by committed ignore rules only. `-z` emits raw bytes. Decode as UTF-8 with `fatal:true` (refuse otherwise); refuse duplicate
   paths (an unmerged index); refuse a listed path that is not a regular file. Today this yields 48 modules.
 - `scripts/gate-inputs/exclusions.json`: `[{"path":…,"reason":…}]`. Today one row:
   `docs/eval/receiver-closure/audit-imported-props-source.test.mjs`, `inputs-not-reconstructible`. An exclusion
   whose path is not in the enumeration refuses (`stale exclusion`). Active = enumeration − exclusions, sorted.
 - Population digest = `sha256hex(JSON.stringify(active))`. An undeclared new test is included automatically (it
   cannot be silently omitted); a broken one fails the gate.
+- `[r1]` Every active path is passed to Node as `./<path>`, so a filename beginning with `-` can never be parsed as an
+  option.
 
 ### 4.2 Sealed environment and tool resolution
 
@@ -251,13 +261,16 @@ Slice A (recomputes all three tree digests; never downloads; failure names the i
   `project_membership_census` and whose `executable` is non-null; record its SHA-256. Any cargo failure (including
   an unpopulated registry cache, since `--frozen` is offline) is stage `build`, distinct from a test failure; the
   spec does not parse cargo's message text. Prerequisite (§4.4), not acquired.
-- Stage `tests`: `node --test --test-concurrency=2 --test-reporter=tap <active paths>` with cwd = repo, sealed env,
+- Stage `tests`: `node --test --test-concurrency=2 --test-reporter=tap ./<active paths>` with cwd = repo, sealed env,
   stdout+stderr streamed to `<out>/log.txt`. Totals are parsed from the TAP trailer (`# tests/pass/fail/skipped`)
   and skips are collected from `# SKIP` lines by test name; if the trailer is absent, totals are `null` and the
   child's exit status still governs.
-- Publication: `mkdirSync(out)` (non-recursive) refuses `EEXIST` before any other work; `log.txt` and
-  `receipt.json` are written only inside it. The receipt is written on every completion path (status `passed`,
-  `failed`, or `refused` + stage). The controller copies an approved receipt to
+- Publication (`[r1]`): resolve `out`, `mkdirSync(dirname(out), {recursive:true})`, then **exclusively** create the leaf
+  with `mkdirSync(out)`, which is non-recursive and refuses `EEXIST`. That leaf creation is the first act and happens
+  before any other work. If output acquisition fails (existing leaf, or parent not creatable), the gate writes
+  nothing, prints the reason to stderr, and exits 2. Once the gate owns the leaf, `log.txt` and `receipt.json` are
+  written only inside it, and the receipt is written on **every later** completion path (status `passed`, `failed`,
+  or `refused` + stage). The controller copies an approved receipt to
   `docs/eval/gate-input-durability/receipt.md`; the gate never writes under `docs/`.
 - `receipt.json` (canonical JSON, no timestamps): repo `HEAD` and dirty flag; population (active list, exclusions,
   digest); tool paths and versions; root and the three verified input dirs with digests; native binary path and
@@ -268,7 +281,8 @@ Slice A (recomputes all three tree digests; never downloads; failure names the i
 
 Rust toolchain compatible with `Cargo.lock` and a Cargo registry cache already satisfying it (any host that has
 built this repo once); `node` ≥ 24; `git`; `tar` only for the grammar verifier on a Node v26.0.0/darwin/arm64 host.
-"Any machine" means "any host meeting this list".
+macOS only (§1). "Any machine" means "any macOS host meeting this list". The receipt records the runtime tuple
+`{node version, platform, arch}` (`[r1]`).
 
 ## 5. Tests — fail-first RED and the minimal sufficient controls
 
@@ -294,14 +308,17 @@ writer; synthetic `pins` computed from those archives; test root under `<repo>/t
   refuses; wrong `file_sha256` refuses.
 - A5 verify-on-use: tamper one installed file → `verify` and `acquire` both refuse naming input and path;
   `acquire` makes zero `fetch` calls; `env` refuses.
-- A6 rename race: pre-create the final directory with correct content → acquire reports `verified`, its stage is
-  gone.
+- A6 rename race (`[r1]`): through a test hook that runs **after** the initial absence check and **before** `rename`,
+  create the final directory with correct content. Acquire must hit `EEXIST`/`ENOTEMPTY`, re-verify, report
+  `verified`, and remove its own stage. A foreign `.stage-*` directory that exists beforehand survives untouched.
 - A7 root: a root under `os.tmpdir()` refuses; `PRISM_GATE_INPUTS_ROOT` is honored.
 - A8 formula fixture: fixed two-file tree → fixed digest constant.
 - A9 drift guards on the real `pins.json`: `COMPILER_HASH` (regex on `schema.mjs`), profile versions and hashes
   (regex on `verify-callable-authority.mjs:24-25`), grammar URLs and SHA-256s (regex on
   `verify-typescript-grammar.mjs`, which cannot be imported), the grammar-archives `tree_sha256` recomputed from
-  the three pins, and the nine artifact names enumerated exactly.
+  the three pins, and the nine artifact names enumerated exactly. `[r1]` A9 also checks that all six npm rows
+  (name, version, URL, integrity, metadata SHA-256) equal `advisor/registry-integrity.json`, and that all three
+  `tree_sha256` values equal the §2 constants.
 
 **Slice B (`gate.test.mjs`; unit-level via exported functions plus `--dry-run`; never builds the real example):**
 
@@ -320,16 +337,21 @@ writer; synthetic `pins` computed from those archives; test root under `<repo>/t
   `log.txt` has both; a module with a `{skip:'reason'}` test → skips list names it.
 - B5 preflight: `PATH` without `git` → stage `preflight`; a tampered input in a test root → stage `preflight`
   naming the input.
-- B6 publication: an existing `--out` refuses before preflight; nothing is written outside `--out`.
+- B6 publication (`[r1]`): an existing `--out` leaf gives exit 2 with a stderr reason, nothing written anywhere, and no
+  receipt. A missing parent directory is created and the run proceeds.
+- B8 ignore state and argv (`[r1]`):
+  - An untracked `future/.gitignore` containing `*.test.mjs` refuses with `population ignore state`.
+  - A tracked `--dash.test.mjs` is passed as `./--dash.test.mjs` and runs as a test.
+  - A non-darwin `process.platform` (injected) refuses with `unsupported host`.
 - B7 cwd: `repoRoot()` equals `git rev-parse --show-toplevel` from another cwd.
 
 ## 6. Budget (honest executable lines: non-blank, non-comment, JavaScript ≤ 100 columns)
 
 | Slice | Helper cap | Test cap | Forecast |
 |---|---:|---:|---|
-| A (`acquire.mjs`) | 280 | 340 | helper 220–270 (fetch 15, reader 35, digest 15, install 45, CLI/env/root 40); tests 260–320 |
-| B (`gate.mjs`) | 180 | 240 | helper 130–170; tests 170–220 |
-| **Combined** | **460** | **580** | ~350–440 / ~430–540 |
+| A (`acquire.mjs`) | 300 `[r1]` | 350 | helper 220–270 (fetch 15, reader 35, digest 15, install 45, CLI/env/root 40); tests 270–330 |
+| B (`gate.mjs`) | 190 | 260 | helper 140–180; tests 190–240 |
+| **Combined** | **490** | **610** | ~360–450 / ~460–570 |
 
 Early stop at 95% of either bucket; a breach is a stop, never inflation. This is above the ≤ 400 / ≤ 400 target on
 the test side by design: the fixture tar writer and synthetic-pins builder (~50), table-driven reader rows (~30),
@@ -352,7 +374,9 @@ thing to cut is B7 and A6, not any refusal row.
 **Slice B:**
 
 1. `node scripts/gate-inputs/gate.mjs --out target/gate-runs/<date>` runs the full active population: 0 failures;
-   the only skips are the grammar verifier's Node v26.0.0 host-pin skips (2 on this v24 host), named; exclusions:
+   skips are host-conditional (`[r1]`), checked against the receipt's runtime tuple. On Node v26.0.0/darwin/arm64 with
+   acquired archives there must be **zero** grammar skips. On any other tuple, exactly the grammar verifier's 2 named
+   host-pin skips are expected. Exclusions:
    the one `PRISM_AUDIT_*` module, named. Totals recorded from the receipt, not from the terminal.
 2. Receipt copied to `docs/eval/gate-input-durability/receipt.md` with the population digest, tool versions, input
    digests, native hash, and the exact command.
@@ -402,3 +426,17 @@ an explicit clause; **out** = explicitly outside §1's trust boundary.
 | r1 S3 / r2 S1 controls insufficient; no positive reader test | **rule** — §5 list; A3 positive row; acceptance census | §5, §7 |
 | r2 S2 receipt publication underspecified | **rule** — `--out <new-dir>` with `mkdirSync` EEXIST refusal; `log.txt` + `receipt.json` on every completion path; controller copies to `docs/` | §4.3, B6 |
 | r1 S4 / r2 S3 budget unrealistic (A forecast 1,600–2,000) | **design** — the forecast collapses because the reader has no hostile-input rules (~35 lines), the installer has no transactions, and there is no transport policy or mirror; new caps and forecast in §6 | §6 |
+
+## 10. v3 round-1 fold map
+
+| Finding | Source | Fold |
+|---|---|---|
+| Mutable working-tree `.gitignore` hides tests | sol W1, terra W1 | §4.1: refuse unless every `.gitignore` is clean and tracked; B8 |
+| Leading-dash filename parsed as a Node option | sol W1 | §4.1 and §4.3: `./` prefix; B8 |
+| `--out` parent missing; `EEXIST` receipt contradiction | sol W2, terra W3 | §4.3: create the parent recursively, create the leaf exclusively; receipt only after leaf ownership; B6 |
+| Hardcoded grammar skip count; PATH `node` is v26.0.0 here | sol W3, terra W2 | §7: host-conditional skips; runtime tuple in the receipt |
+| "Any host" versus the macOS-specific rules | sol W4 | §1 and §4.4: macOS-only; `unsupported host` refusal; missing deny roots skipped |
+| Stage scavenging ambiguity; A6 not exercising the rename race | sol S1 | §3.1 and §3.2: no scavenging, manual cleanup; A6 hook between the check and `rename` |
+| Slice A forecast crosses its own 95% stop | sol S2 | §6: A helper cap 300; caps rebalanced |
+| A9 does not guard the npm pins or derived digests | sol S3 | §5 A9: six-row registry comparison plus the three digest constants |
+| Base object unreachable | sol S4 | `5501bc0f` fetched; base line clarified |
