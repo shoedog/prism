@@ -203,3 +203,18 @@ Round 2:
 | CLI and D8 branches lack regression rows | sol S1 | §4: CLI table and D8 pre-read tables |
 
 The spec is approved, with sol gating. Implementation is authorized, with its own 2-round review cap on the delta.
+
+## 8. Implementation budget amendment (owner-approved 2026-09-24)
+
+The builder was trimmed to exactly the §3.2 contract; the duplicated worker validation was removed after the first
+stop. The trimmed builder measures 158 honest lines under the counting rule, which counts braces and one-field-per-line
+literals. The controller's 70–105 forecast was wrong. The owner chose **"Raise helper cap to 760"**:
+
+| Bucket | Cap | 95% stop |
+|---|---|---|
+| helper | ≤ 760 | 722 |
+| tests | ≤ 760 | unchanged |
+| combined | ≤ 1,520 | — |
+
+The 158-line draft is preserved at `~/prism-evidence/native-positional-gap/request-draft-158.mjs`; the 173-line
+original is also kept there. The launcher's 507 lines are still deleted, so this remains a net reduction.
