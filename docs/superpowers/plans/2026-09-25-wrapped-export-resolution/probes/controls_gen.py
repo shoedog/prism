@@ -146,6 +146,23 @@ S["C55_P2_type_only_collision"] = {
 S["C56_TN18_destructured_require"] = {
  "lib.jsx": "const { forwardRef } = require('react');\nexport const Island = forwardRef((props, ref) => {\n  return <div ref={ref}/>;\n});\n",
  "app.jsx": "import { Island } from './lib';\nexport function App() {\n  return <Island/>;\n}\n"}
+# ---- sol r3 folds (W2 hoisted var; W1 recorded as S1b RED characterizations) ----
+def memo_lib(pre):
+    return "import { memo } from 'react';\n" + pre + "export const Island = memo((props: any) => {\n  return <div/>;\n});\n"
+S["C57_TR6P4b_block_var"] = {"lib.tsx": memo_lib("declare const flag: boolean;\ndeclare const fake: any;\nif (flag) {\n  var memo = fake;\n}\n"), "app.tsx": APP_ISLAND}
+S["C58_for_of_var"] = {"lib.tsx": memo_lib("for (var memo of [1]) {}\n"), "app.tsx": APP_ISLAND}
+S["C59_try_for_init_var"] = {"lib.tsx": memo_lib("try {\n  for (var memo = 0; memo < 1; memo++) {}\n} catch (e) {}\n"), "app.tsx": APP_ISLAND}
+S["C60_block_let_positive"] = {"lib.tsx": memo_lib("declare const flag: boolean;\nif (flag) {\n  let memo = 1;\n}\n"), "app.tsx": APP_ISLAND}
+S["C61_nested_fn_var_positive"] = {"lib.tsx": memo_lib("function helper() {\n  var memo = 1;\n  return memo;\n}\nclass K { m() { var memo = 2; return memo; } }\n"), "app.tsx": APP_ISLAND}
+S["C62_S1b_namespace_decoy"] = {
+ "lib.tsx": "import { forwardRef } from 'react';\nfunction helper() {\n  function Island() { return 1; }\n  return Island();\n}\nexport const Island = forwardRef<HTMLDivElement, any>((props, ref) => {\n  return <div ref={ref}/>;\n});\n",
+ "app.tsx": "import * as Lib from './lib';\nexport function App() {\n  return <Lib.Island/>;\n}\n"}
+S["C63_S1b_producer_local_call"] = {
+ "lib.tsx": "import { forwardRef } from 'react';\nexport const Island = forwardRef<HTMLDivElement, any>((props, ref) => {\n  return <div ref={ref}/>;\n});\nexport function Host() {\n  return (Island as any)({}) && Island({} as any, null as any);\n}\n"}
+S["C64_TR6P4_top_function"] = {"lib.tsx": memo_lib("function memo(x: any): any { return x; }\n"), "app.tsx": APP_ISLAND}
+S["C65_TR6P4_top_class"] = {"lib.tsx": memo_lib("class memo {}\n"), "app.tsx": APP_ISLAND}
+S["C66_TR6P4_top_destructure"] = {"lib.tsx": memo_lib("declare const x: any;\nconst { memo } = x;\n"), "app.tsx": APP_ISLAND}
+S["C67_TR6P4_component_local_positive"] = {"lib.tsx": memo_lib("export function Other() {\n  const memo = 1;\n  return memo;\n}\n"), "app.tsx": APP_ISLAND}
 for name, files in S.items():
     os.makedirs(name, exist_ok=True)
     for f, src in files.items():

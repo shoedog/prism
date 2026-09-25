@@ -8,8 +8,8 @@ file:line), or **ASSUMPTION**. Where reading and measurement both apply, the mea
 - **Base.** `origin/main` `12ca6e8e` (PR #324 merge), clean tree. The release `prism` built from it has SHA-256
   `60755871…5da` (`6075587161921bf4f7289763ca30ccbbbcfa004696f8d4368ec7383caf2745da`).
 - **Evidence root.** `/Users/wesleyjinks/prism-evidence/wrapped-export/planning/` (outside `/tmp`). Its
-  `MANIFEST.sha256` (r3: 1,491 files, including the Branch-P runs) has SHA-256 `68c05a1f…bb1c`. Earlier
-  manifests: r2 `951e9dbc…efea`, r1 `1e35eaa4…c204`. The probe tools under `probes/` are byte copies of
+  `MANIFEST.sha256` (round-3 fold: 2,147 files) has SHA-256 `dda3652e…eb39`. Earlier manifests:
+  r3 `68c05a1f…bb1c`, r2 `951e9dbc…efea`, r1 `1e35eaa4…c204`. The probe tools under `probes/` are byte copies of
   `<evidence>/census/*.py`, `controls/gen.py`, `controls/summarize.py` and `budget/honest_lines.py`.
 - **Prototype.** A throwaway worktree (detached at `12ca6e8e`, never committed, removed after the probes). The diff
   is `prototype/wrapped-export-prototype.diff.txt`. Both binaries are preserved at `<evidence>/bin/`:
@@ -268,6 +268,25 @@ C55 = sol's r2 SMELL-1 P2 fixture, and C56 = T-N18.
 | P28 | all 56 controls under the Branch-P prototype | `probes/PP-expectations-pre-run.md` | **every row as expected.** Exactly 18 controls changed against r2(a) (C28, C33–C37, C40–C43, C45–C52), all to Exact; C53 and C54 are Exact; C55 drops with `callee_provenance`; C56 drops with `callee_not_admitted`; `react_object_unaccounted` appears nowhere | `probes/PP-controls-proto.txt` |
 | P28c | clean-directory generation plus a Branch-P run | identical | **identical** (115 files for 56 scenarios; `SCENARIOS.json` and summary identical) | `repro-clean/` |
 | P29 | Tier-A `--matrix-only --sut-bin <P>` | 159/159 | **159/159 ok** | `P10-proto-P-tier-a-matrix.log` |
+
+## Round-3 fold (sol r3 at the cap; owner D10–D11)
+
+The prototype is Branch P plus the R6-P4 hoisted-`var` fold. It was built in a scratch worktree (detached at
+`4b4f25e3`, removed afterwards). The diff is `prototype/wrapped-export-prototype-P3.diff.txt`, and the binary is
+`<evidence>/bin/prism-prototype-P3u` (`0110728d…`). The first version, a separate hoisted walk, is
+`bin/prism-prototype-P3` (`b44d8b1c…`). Eleven controls were added:
+- C57–C59: hoisted `var` in an `if`, a `for…of` and a `try`/`for` (T-R6-P4b);
+- C60, C61, C67: positive twins (block `let`, a `var` inside a nested function or class, a component-local `const`);
+- C62, C63: sol r3 W1a and W1b, recorded as S1b RED characterizations;
+- C64–C66: T-R6-P4 top-level `function`, `class` and destructuring.
+
+| ID | Command | Expected (pre-run) | Actual | Output |
+|---|---|---|---|---|
+| P30 | `probes/honest_lines.py` on the squashed scratch commit | about 330 src | first version (separate walk) **357 src**, over the 350 cap; unified single walk **328 src / 17 test** | console |
+| P31 | all 67 controls under both P3 binaries; C57–C67 also under base | `probes/PP3-expectations-pre-run.md` | **every row as expected.** C01–C56 are identical to Branch P. C57–C59 and C64–C66 drop with exactly one `callee_provenance`. C60, C61 and C67 are Exact. C62 and C63 are **identical on base and S1** (C62: 2× Exact `import_qualified`, decoy `@3-3` and `@6-8`; C63: Exact `local_def` `@2-4` from a non-JSX site). The unified and separate-walk binaries give identical summaries | `probes/PP3-controls-proto.txt`, `probes/P18-controls-base.txt` |
+| P32 | M14 (root-only walk) on the unified walk, rebuilt, run on C57–C59 and C64–C66 | C57–C59 flip to Exact; C64–C66 stay refused | C57 and C59 flip to Exact; C64–C66 stay refused. **C58 stays refused (expectation falsified in detail):** its `for (var memo of …)` head is itself a root child, so a root-only walk still sees it. The M14 kill therefore rests on C57 and C59 | `probes/P32-M14-results.txt` |
+| P33 | X, F, R and T `call-stats --dump-sites`, `rowdiff.py`, `audit.py`; X `dfg-stats --edges`; Tier-A `--matrix-only --sut-bin <P3u>`; clean-directory generation | 107 / 4 / 0 / 0, unchanged | **X 107 and F 4**, row-diffs byte-identical to Branch P, r2 and r1; audit 107/107 and 4/4; counters identical to Branch P; R and T byte-identical to base; X DFG edges identical; **Tier-A 159/159**; clean repro 136 files and summary identical | `proto-P3u-runs/`, `P10-proto-P3u-tier-a-matrix.log`, `repro-clean/` |
+| P34 | `cargo test --offline --no-fail-fast` in the P3u prototype | 4,559 / 0 / 1 | **4,559 / 0 / 1** | `P34-proto-P3u-full-suite.log` |
 
 ## Not measured, and why
 

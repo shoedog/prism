@@ -1,9 +1,10 @@
 # Wrapped-export resolution: span-verified React `forwardRef` / `memo` named exports (slice S1)
 
-**Status:** planning only, revision **r3 (Branch P)**. The owner chose Branch P of `REPLAN-fable.md` after sol's
-round 2 (FIX, 3 WRONG / 2 SMELL, open-class on React-object custody). This document is normative for
-implementation. One final spec review, sol round 3, is owner-approved and will be judged against the Branch-P model
-(§3.2). Implementation gets its own 2-round review cap, which the controller declares before dispatch.
+**Status:** planning complete, revision **r3 (Branch P) with the at-cap round-3 fold**. The owner chose Branch P of
+`REPLAN-fable.md` after sol's round 2. Sol's round 3 (final; FIX, 2 WRONG / 1 SMELL, bounded and converging) was
+folded at the cap under owner decisions D10–D11 (§11, `REVIEW-r3-fold.md`). This document is normative for
+implementation. **Implementation starts directly, with no further spec round.** Sol reviews the implementation, under
+its own 2-round cap, which the controller declares before dispatch.
 
 **Base:** `origin/main` `12ca6e8e`.
 
@@ -23,12 +24,14 @@ the dominant refusal lane for the ten `forwardRef` components.
 | D1 | Which wrapper shapes are admitted | **A.** React `forwardRef` / `memo` only (`memo` may take a comparator), with the callee resolved to an **ESM** import of `"react"` | Measured yield 107 (X) and 4 (F), 0 wrong (P6, P7). Library wrappers yield 0 on four corpora. Shape-only admission would bind 27 declarators to the wrong callable (P2, P4) |
 | D2 | Confidence of admitted edges | **Exact, as project-standard static binding (Branch P).** The analysis model is §3.2. JSX-only binding (§3.4) stays | `REPLAN-fable.md` §1–§2.4. `import_member` and `import_qualified` on `main` already emit Exact through same-file direct writes, `require` re-acquisition, `Object.defineProperty`, `__defineGetter__` and `eval` (replan Q1–Q6), and so does Python |
 | D3 | Slicing | **S1 alone.** S2 (default-object member aliases) and S3 (anonymous wrapper-nested callbacks) are separate slices | S2: 7 X sites, a different R4c route. S3: new function identity, a much larger blast radius (P13, P14) |
-| D4 | The pre-existing F4-class false Exact on the export-list path (C06) | **a.** Follow-up slice S1b, reusing `SpannedLocal` | 0 measured prevalence (P5) |
+| D4 | The pre-existing F4-class false Exact on the export-list path (C06) | **a.** Follow-up slice S1b, reusing `SpannedLocal`. **Widened at r3 (D10):** S1b span-verifies **all** JS/TS export routes (§12) | 0 measured prevalence (P5) |
 | D5 | Sequencing | **Ship S1 now.** tsconfig `paths` resolution is the next planning lane | P4 latent projection |
 | D6 | r2's closure of the mutable React object (default/namespace custody vs named-only) | **Superseded by Branch P.** Custody K1–K8 is dropped. Runtime mutation and re-acquisition of the React object are out of model (§3.2) | Under sol's standard the class is open for both D6 options (replan Q9: `arguments[1]('react')` and `module.require('react')` pass r2 custody in both modes). Branch S would keep 7 / 0 edges |
-| D7 | Budget | **src 350 / tests 600 / combined 950**, with early stops at about 90% (315 / 540 / 855) | `REPLAN-fable.md` §4 (P row). MEASURED Branch-P prototype: 325 src (P26) |
+| D7 | Budget | **src 350 / tests 600 / combined 950**, with early stops at about 90% (315 / 540 / 855) | `REPLAN-fable.md` §4 (P row). MEASURED Branch-P prototype: 325 src (P26); with the r3 fold, 328 (P30) |
 | D8 | Project-wide statement of the Exact contract | **Ships in this slice's PR.** The implementer adds the §3.2.1 text to `CLAUDE.md` | Without it, S1b, S2 and `paths` would re-litigate the same question (`REPLAN-fable.md` §2.1) |
-| D9 | Review | **One final sol round 3**, judged against the Branch-P model (`REVIEWER.md`) | 2-round cap spent; owner-approved exception |
+| D9 | Review | **One final sol round 3**, judged against the Branch-P model. It is done (FIX 2 / 1, bounded). Sol reviews the implementation next (`REVIEWER.md`) | 2-round cap spent; owner-approved exception |
+| D10 (r3) | Sol r3 W1: R3 `ImportQualified` and R4 `LocalDef` bypass the span and JSX gates (pre-existing on base) | **Defer to S1b.** S1's contract is narrowed to the new R4c `import_member` route (§2, §3.2, §3.4). S1b's scope is widened (§12), and sol's two inputs are its first RED cases. No R3 or R4 code in S1 | MEASURED P31: both inputs give the same result on base and Branch P (C62, C63) |
+| D11 (r3) | Sol r3 W2 and SMELL | **Fold.** R6-P4 walks module-scope `var` hoisted from top-level blocks, loops, `switch` and `try` (T-R6-P4b, M14). T-J4 is a base-green preservation control | P30–P33 |
 
 **History.** r1 set D2 = Exact. r2 made it conditional on JSX-only binding and closed "occurrence custody" (D6 = a).
 Sol's round 2 showed that the custody class is open (3 WRONG). `REPLAN-fable.md` showed that it is also open for
@@ -49,7 +52,9 @@ callable identity: Pattern 3 names it after the declarator (M4), and same-file u
 - For each top-level `export const X = W(fn…)` declarator in a `.js`, `.jsx`, `.mjs`, `.cjs`, `.ts` or `.tsx` file,
   where `W` is an admitted React wrapper (§3.1), record an export fact for `X` whose target is **the exact function
   node** `fn`. Re-export chains and `export *` barrels carry that target (M3; P6a C14).
-- Such a target is bound only from **JSX element** sites (§3.4).
+- On the new R4c `import_member` route, such a target is bound only from **JSX element** sites, and only to the
+  inner function's exact span (§3.4). The existing R3 `ImportQualified` and R4 `LocalDef` routes are unchanged
+  (see the non-goals and §12).
 - The `CLAUDE.md` statement of the Exact contract (§3.2.1).
 
 **Non-goals.** Each stays exactly as on base, and each is pinned by a test in §7.
@@ -65,6 +70,12 @@ callable identity: Pattern 3 names it after the declarator (M4), and same-file u
 - **Non-JSX uses of an admitted export.** `X(props)` drops as `WrappedExportNonJsx`, and `new X()` is not a call site
   (M13).
 - **Runtime mutation or re-acquisition of the React module object.** This is out of model (§3.2), pinned by MB1–MB3.
+- **Wrapped targets reached through other rungs** (D10, deferred to S1b §12):
+  - namespace JSX `<Lib.Island/>` via R3 `ImportQualified`, which is Exact to every same-stem `Island` including a
+    nested decoy (C62);
+  - producer-local calls via R4 `LocalDef`, including non-JSX `Island({})` (C63).
+
+  S1 leaves both byte-identical to base.
 - Any change to `Language::function_name`, `FunctionId`, call-site ownership, `CallKind`, DFG, or Step 5b.
 
 ## 3. Semantics
@@ -95,7 +106,7 @@ The predicate is evaluated inside the existing `lexical_declaration | variable_d
 | R12 | `inner_unnamed` | `function_name(fn)` is `None`. **Unreachable** given R10 and Pattern 3; kept as a defensive `ok_or`, with no fixture |
 
 **The ESM React import table (R5).** It is built by a hand parser over the file's top-level `import_statement` nodes
-only (`react_imports()` in `prototype/wrapped-export-prototype-P.diff.txt`):
+only (`react_imports()` in `prototype/wrapped-export-prototype-P3.diff.txt`):
 - the module string must equal `"react"` exactly;
 - type-only statements and specifiers are skipped;
 - a named specifier's imported name must be an `identifier`, not a string name.
@@ -112,8 +123,13 @@ must still pass. The r2 SPEC's claimed 50-line saving from that reuse is retract
 - **P2.** `L` is not a type-only import (`js_ts_type_only_imports()`). T-R6-P2 uses sol's collision fixture, and
   mutant M12 is MEASURED to flip it (P27).
 - **P3.** `L` is not written as a binding anywhere in the file (`js_ts_module_value_written`, `src/ast.rs:4613`).
-- **P4.** No module-scope declaration of `L` exists (a top-level or `export`-wrapped function, class, or declarator
-  binding name). A nested declaration cannot shadow a module-scope call.
+- **P4.** No module-scope declaration of `L` exists. That is: a top-level or `export`-wrapped function, class,
+  declarator, or other named declaration; **or a `var` declarator, or a `for (var … in/of …)` head, hoisted out of
+  top-level blocks, loops, `switch` or `try`** (sol r3 W2). Implement it as one recursive walk from the root that
+  stops at nested functions, classes, and non-top-level `let`/`const` (which are block-scoped) and skips
+  `import_statement`. Block-scoped declarations and declarations inside nested functions do not compete (C60, C61,
+  C67). MEASURED P30: 39 honest lines (`prototype/wrapped-export-prototype-P3.diff.txt`,
+  `module_scope_declares`).
 - **P5.** The spelling of `L` contains no `\`.
 
 These are static-binding facts. They match what `js_ts_forwarded_import` refuses today
@@ -122,14 +138,16 @@ These are static-binding facts. They match what `js_ts_forwarded_import` refuses
 ### 3.2 Analysis model (Branch P; replaces r2 §3.2 in full)
 
 > S1 binds by static provenance. The callee must be a named or default/namespace **ESM** import binding of
-> `"react"` that is unique, value-typed, unwritten as a binding, and uncompeted at module scope (R5, R6 P1–P5). The
-> export target is the inner function's exact span. Only JSX element sites bind. Runtime mutation of the React module
+> `"react"` that is unique, value-typed, unwritten as a binding, and uncompeted at module scope (R5, R6 P1–P5). On
+> the new R4c `import_member` route, the export target is the inner function's exact span, and only JSX element sites
+> bind. The R3 and R4 routes are unchanged and are deferred to S1b. Runtime mutation of the React module
 > object, by any means and from any module, is **out of model**, exactly as it is for every `import_member` and
 > `import_qualified` edge prism emits today (replan probes Q1–Q6). Prism grades the evidence path, not the heap.
 
 **The line.** S1 proves what a name denotes. It does not prove what the heap holds.
-- **In model (static provenance):** R4, R5, R6 P1–P5, the span filter, R11, the barrel span key and the JSX gate. A
-  defect in any of these is a WRONG.
+- **In model (static provenance):** R4, R5, R6 P1–P5, the span filter, R11, the barrel span key and the JSX gate, all
+  on the R4c `import_member` route. A defect in any of these on that route is a WRONG. Pre-existing R3 and R4
+  behavior on wrapped targets is recorded S1b scope (§12), not an S1 defect.
 - **Out of model (runtime mutation of a module object):** direct member writes, `require`/`import()`
   re-acquisition, reflective or inherited-receiver writes, `eval`/`with`, CJS-wrapper handles (`arguments[1]`,
   `module.require`), and host globals. These are pinned as MB1–MB3 asserting Exact, so a future change to the model
@@ -198,7 +216,9 @@ No JSX-vs-call distinction exists today (M13), so S1 adds one:
      `Ok(vec![])`, and the site drops `UnknownName`. A match is never demoted to NameOnly.
 
   When `span` is `None`, behavior is byte-identical to base.
-- **Coverage.** `resolve_call_site_full` is the only production caller, so the nav correlation inherits both gates.
+- **Coverage.** `resolve_call_site_full` is the only production caller of this function, so the nav correlation
+  inherits both gates **for the R4c route**. The gates do not reach R3 `ImportQualified` or R4 `LocalDef` (sol r3 W1;
+  D10 defers that to S1b).
   - `new X()` produces no call site.
   - `X.call(…)` carries a qualifier.
   - Synthetic and indirect sites have `jsx_element == false`.
@@ -215,6 +235,10 @@ No JSX-vs-call distinction exists today (M13), so S1 adds one:
 | local impostor `forwardRef` (C12); `./react-shim` / `preact/compat` (T-N4) | R5 | drop / drop |
 | `const { forwardRef } = require("react")` (T-N18, C56) | R5 (ESM-only table) | drop / drop, `callee_not_admitted` |
 | written, duplicate, type-only (C55) or competed callee binding; escaped spelling | R6 P1–P5 | C55: drop / drop, `callee_provenance` |
+| top-level `function memo`, `class memo`, `const { memo } = x` (C64–C66) | R6 P4 | drop / drop, `callee_provenance` |
+| hoisted `var memo` in a top-level `if` (sol r3 W2, C57), `for (var memo of …)` (C58), `for (var memo = 0; …)` in a `try` (C59) | R6 P4 (hoisted walk) | drop / drop, `callee_provenance` (P31) |
+| block-scoped `let memo` (C60); `var memo` inside a nested function or class (C61); component-local `const memo` (C67) | not a competitor | drop / **Exact** |
+| **S1b RED characterizations (unchanged by S1, D10):** namespace `<Lib.Island/>` with a nested decoy (C62, sol r3 W1a); producer-local `Island({})` (C63, sol r3 W1b) | R3 / R4 (not S1 routes) | C62: 2× Exact `import_qualified` (decoy `@3-3` and `@6-8`) / same. C63: Exact `local_def` / same |
 | import with parse recovery (C29) | R4 | drop / drop |
 | one-line `memo` comparator (C30) | R11 | drop / drop |
 | span-sensitive star-barrel conflict (C39) | span in the barrel key | drop / drop |
@@ -235,7 +259,7 @@ No JSX-vs-call distinction exists today (M13), so S1 adds one:
   - `js_export_skipped_decl_reasons` (sorted object);
   - `dropped_wrapped_export_non_jsx`, added to the exhaustive drop match (`src/navigation/queries.rs:385-397`);
   - `js_export_skipped_exprs` is unchanged.
-- **Expected (MEASURED P26; identical to r2):**
+- **Expected (MEASURED P26, and again with the r3 fold in P33; identical to r2):**
 
 | Corpus | `skipped_exprs` | `spanned_admitted` | reasons | `non_jsx` | `unresolved_unknown_name` | `kind_exact.import_member` |
 |---|---|---|---|---|---|---|
@@ -255,9 +279,15 @@ If either constant has landed higher since, increment from the landed value.
 
 ## 7. Test plan
 
-**RED rule.** Every T-P*, T-J* and T-O* test must fail on base `12ca6e8e` with a behavioral assertion (revert only
-the §3.1 and §3.3–§3.4 production lines). Record the concrete value. T-N*, T-R6-* and MB* tests are guards and
-characterizations: they pass on base or under the model, and they must pass after the change.
+**RED rule.**
+- Every T-P*, **T-J1–T-J3** and T-O* test must fail on base `12ca6e8e` with a behavioral assertion (revert only the
+  §3.1 and §3.3–§3.4 production lines), and the concrete value is recorded. Mandatory JSX-gate RED evidence covers
+  T-J1–T-J3 only.
+- **T-J4 is a base-green preservation control** (sol r3 SMELL). It must pass before and after, and it is never cited
+  as failing-first evidence.
+- T-N* and T-R6-* tests are guards: they pass on base and after the change.
+- MB* tests are model-boundary characterizations. They assert Exact on the new route, so they cannot pass on base,
+  where there is no fact. They are not RED evidence for any refusal.
 
 **Location.**
 - `tests/integration/js_wrapped_export_test.rs`, `js_wrapped_export_refusal_test.rs` and
@@ -290,7 +320,7 @@ Use table-driven inputs, and assert exact `(file, name, start_line, end_line)` t
 | T-J1 | `Island(props)` from an importer (C31 `App2`) | `WrappedExportNonJsx`; `dropped_wrapped_export_non_jsx == 1` |
 | T-J2 | `new (Island as any)()` next to `<Island/>` (C32) | no `new` row; the JSX row is Exact |
 | T-J3 | a `jsx_element == false` site built through the `src/resolution.rs` test `site()` helper, against a `SpannedLocal` fact | `WrappedExportNonJsx` |
-| T-J4 | a plain `Local` export called directly `A()` | unchanged Exact |
+| T-J4 | a plain `Local` export called directly `A()` | unchanged Exact. **A base-green preservation control, not RED evidence** (sol r3 SMELL) |
 
 **Negative tests (guards).**
 
@@ -316,7 +346,8 @@ Use table-driven inputs, and assert exact `(file, name, start_line, end_line)` t
 | T-R6-P1 | `import { memo } from "react"; import { memo } from "./other"` | drop (R6) |
 | **T-R6-P2** | sol's fixture `import { memo } from "react"; import type { T as memo } from "./types";` + `memo(fn)` (C55) | drop, **`callee_provenance`**. A second row keeps the old type-only-only input, which drops as R5 |
 | T-R6-P3 | `memo = other;` after the import | drop (R6) |
-| T-R6-P4 | top-level `function memo(){}`, `class memo {}`, `const { memo } = x`; positive twin: a component-local `const memo = 1` | drop ×3 / Exact |
+| T-R6-P4 | top-level `function memo(){}`, `class memo {}`, `const { memo } = x` (C64–C66); positive twins: a component-local `const memo = 1` (C67), block `let memo` (C60), `var memo` inside a nested function or class (C61) | drop ×3 / Exact ×3 |
+| **T-R6-P4b** | sol r3 W2: `if (flag) { var memo = fake; }` (C57); also `for (var memo of …)` (C58) and `try { for (var memo = 0; …) }` (C59) | exactly one `callee_provenance` each; drop |
 | T-R6-P5 | escaped callee spelling `forw\u0061rdRef` | drop (R6) |
 
 **Model-boundary characterization tests.** These assert **Exact**, and each carries a comment naming SPEC §3.2.
@@ -355,6 +386,7 @@ Use table-driven inputs, and assert exact `(file, name, start_line, end_line)` t
 | M11 | skip the import error guard | T-N17 |
 | M12 | remove P2 | T-R6-P2 (MEASURED P27: C55 flips to Exact) |
 | M13 | feed R5 from `extract_import_bindings()` without an origin check | T-N18 |
+| M14 | restore a root-only competitor walk (no descent below root children) | T-R6-P4b on C57 and C59. MEASURED P32: both flip to Exact. C58 stays refused, because its `for (var …)` head is itself a root child |
 
 **Tier-A fixtures** (`eval/fixtures/typescript/`, at most 3 new directories):
 - `forwardref_named_export/` (C02): `exact = true`, `resolution_kind = "import_member"`. RED on base.
@@ -366,21 +398,21 @@ Use table-driven inputs, and assert exact `(file, name, start_line, end_line)` t
 
 1. **Suites green.**
    - `cargo fmt --check`;
-   - `cargo test --offline --no-fail-fast`: base 4,559 / 0 / 1 (P9); the Branch-P prototype gives 4,559 / 0 / 1
-     (P25); report the new total;
+   - `cargo test --offline --no-fail-fast`: base 4,559 / 0 / 1 (P9); the Branch-P prototype with the r3 fold gives
+     4,559 / 0 / 1 (P34); report the new total;
    - `cargo test --offline --features mcp`;
    - `cargo clippy --offline --all-targets --features mcp`;
-   - Tier-A `--matrix-only`: base 159/159, Branch-P prototype 159/159 (P29), plus the new fixtures, with 0
-     regressions;
+   - Tier-A `--matrix-only`: base 159/159, Branch-P prototype with the r3 fold 159/159 (P33), plus the new fixtures,
+     with 0 regressions;
    - the Node gate;
    - `tier-a --quick` if rust-analyzer is available; otherwise report it as not run.
 2. **Yield (the acceptance criterion; unchanged across r1, r2 and P).** Run the release binary with
    `nav --no-cache call-stats --dump-sites` on each corpus, then `probes/rowdiff.py` against the base dumps.
    - **X:** exactly the 107 rows of `probes/P6-excalidraw-expected-rowdiff.json` (SHA-256 `265790a3…`), all
-     `UnknownName → Exact import_member`, with 0 other changes. The Branch-P prototype row-diff is **byte-identical**
-     to it (P26). Audit 107/107. `dfg-stats --edges` byte-identical to base.
+     `UnknownName → Exact import_member`, with 0 other changes. The Branch-P prototype row-diff, with and without the
+     r3 fold, is **byte-identical** to it (P26, P33). Audit 107/107. `dfg-stats --edges` byte-identical to base.
    - **F:** 4 rows, audited 4/4.
-   - **R and T:** byte-identical to base (P26).
+   - **R and T:** byte-identical to base (P26, P33).
    - Counters as in §5.
 
    Any deviation is a blocker until the owner accepts it, reported row by row.
@@ -388,14 +420,20 @@ Use table-driven inputs, and assert exact `(file, name, start_line, end_line)` t
 
 ## 9. Budget (honest lines: after `rustfmt`, non-blank, non-`//`; `#[cfg(test)]` and `tests/**` are tests)
 
-**MEASURED (P26), Branch-P prototype: 325 src / 17 test honest lines.** This is the r2 prototype minus custody and the
-mode switch, with the ESM hand parser kept.
+**MEASURED (P30), Branch-P prototype with the r3 W2 fold: 328 src / 17 test honest lines**
+(`prototype/wrapped-export-prototype-P3.diff.txt`). Before the fold it was 325 (P26).
+
+- **The fold's first version was over the cap.** A separate hoisted-`var` walk added 32 lines, for 357. That breaches
+  the 350 cap before the cache bumps.
+- **The fix is one walk, not compressed logic.** It was replaced by a single recursive `module_scope_declares` that
+  covers both the top-level declarations and the hoisted `var`s (sol's "share one walk" alternative). The one walk is
+  39 lines, replacing 36, and gives an identical result on all 67 controls and the corpora (P31, P33).
 
 | File or function | Lines |
 |---|---|
 | `js_wrapped_export.rs`: predicate | 97 |
 | `js_wrapped_export.rs`: React import table | 64 |
-| `js_wrapped_export.rs`: module-scope competitor | 36 |
+| `js_wrapped_export.rs`: module-scope competitor (one recursive walk) | 39 |
 | `js_wrapped_export.rs`: header | 9 |
 | `ast.rs` | 28 |
 | `js_exports.rs` | 47 |
@@ -405,7 +443,7 @@ mode switch, with the ESM hand parser kept.
 | literal fix-ups | 2 |
 
 Still to add: the cache bumps and notes (about 4 src). The `CLAUDE.md` paragraph is documentation, not honest code.
-The forecast is **about 330 src**.
+The forecast is **about 332 src**, which leaves 18 lines of headroom under 350.
 
 | Bucket | Cap (D7) | Early stop (about 90%) |
 |---|---|---|
@@ -414,13 +452,13 @@ The forecast is **about 330 src**.
 | combined | **950** | 855 |
 | Tier-A fixture directories | 3 | – |
 
-**The early-stop semantics are a checkpoint, not a halt.** The measured prototype (325) already sits above the
+**The early-stop semantics are a checkpoint, not a halt.** The measured prototype (328) already sits above the
 src early stop (315). At an early stop the implementer reports the current count and the forecast to the controller,
 and continues only while the forecast is within the cap. A forecast above a cap is a stop, with the enumerated
 remaining items. Logic is never compressed to fit.
 
-**Test estimate:** about 43 table rows at about 9 lines each, plus about 180 for helpers, T-S1 and cache/nav: about
-570 (`REPLAN-fable.md` §4).
+**Test estimate:** about 45 table rows at about 9 lines each (T-R6-P4b is table-driven), plus about 180 for helpers,
+T-S1 and cache/nav: about 585 against the 600 cap. This is the tightest bucket, so report it at the 540 checkpoint.
 
 ## 10. Risks and open questions
 
@@ -442,4 +480,31 @@ remaining items. Logic is never compressed to fit.
 |---|---|---|
 | r1 (sol) | FIX 5 WRONG / 2 SMELL | all folded (`REVIEW-r1-fold.md`) |
 | r2 (sol) | FIX 3 WRONG / 2 SMELL, open-class | **Branch P** (owner): W1–W3 are out of model and pinned as MB2, MB2's class, and MB3 (sol's W2 computed specifier belongs to MB2's class); SMELL 1 is folded as T-R6-P2 plus M12; SMELL 2 is folded as the ESM-only table plus T-N18 and M13. See `REPLAN-fable.md` §3 |
-| r3 (sol) | pending | owner-approved final round, judged against §3.2 |
+| r3 (sol, final) | FIX 2 WRONG / 1 SMELL, bounded and converging | **Folded at the cap (disclosed extension; owner D10–D11):** W1 (R3/R4 bypass the gates; pre-existing) is deferred to S1b, with S1's contract narrowed to the R4c route and S1b widened (§12). W2 (hoisted `var`) is folded as the P4 recursive walk, T-R6-P4b and M14, re-measured (P30–P33). The SMELL is folded (T-J4 is a preservation control). See `REVIEW-r3-fold.md` |
+| implementation (sol) | next | 2-round cap declared by the controller at dispatch; judged against §3.2 as narrowed |
+
+## 12. S1b recorded scope: span-verify all JS/TS export routes (owner D4 + D10)
+
+S1b is the next slice on this seam. It reuses `SpannedLocal`, `ResolvedJsExport.span` and `CallSite.jsx_element`
+from S1, so it needs no new data model. Its scope:
+
+1. **The export-list and default-identifier `Local` routes (D4).** `const f = <non-function>; export { f }` resolves
+   a false Exact to a nested same-name function on base (C06). The same holds for `export default f`, and for a
+   `let` export reassigned in the file (C21).
+2. **R3 `ImportQualified` through a namespace import (sol r3 W1a).** `import * as Lib from "./lib"; <Lib.Island/>`
+   returns every same-stem `Island` as Exact, including a nested decoy. For wrapped targets it should consult
+   `js_ts_resolved_exports` and keep only the `SpannedLocal` span; non-JSX qualified calls should drop as
+   `WrappedExportNonJsx`.
+3. **R4 `LocalDef` in the producer file (sol r3 W1b).** A non-JSX `Island({})` binds Exact `local_def` to the wrapper's
+   inner function. The same-file multi-target Exact `local_def` (C62 `helper`) belongs here too.
+
+**First RED cases** (sol r3's concrete inputs, recorded as controls; S1 leaves both byte-identical to base, P31):
+
+| Case | Input | Base and S1 result | S1b expectation |
+|---|---|---|---|
+| S1b-RED-1 (C62) | `lib.tsx`: `function helper() { function Island() {…} … }` + `export const Island = forwardRef(…)` (`@6-8`); `app.tsx`: `import * as Lib from './lib'; <Lib.Island/>` | 2× Exact `import_qualified`: `Island@3-3` (decoy) and `Island@6-8` | exactly 1 Exact → `Island@6-8` |
+| S1b-RED-2 (C63) | `lib.tsx`: `export const Island = forwardRef(…)` (`@2-4`); `export function Host() { … Island({} as any, null as any); }` | Exact `local_def` → `Island@2-4` from a non-JSX site | drop `WrappedExportNonJsx` |
+
+S1b must re-measure the yield on X and F (S1b's behavior changes are refusals and re-targeting). It plans its own
+budget.
+

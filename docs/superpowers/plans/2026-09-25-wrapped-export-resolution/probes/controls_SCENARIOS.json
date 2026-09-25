@@ -54,5 +54,16 @@
  "C53_MB2_named_require_write",
  "C54_MB3_define_getter",
  "C55_P2_type_only_collision",
- "C56_TN18_destructured_require"
+ "C56_TN18_destructured_require",
+ "C57_TR6P4b_block_var",
+ "C58_for_of_var",
+ "C59_try_for_init_var",
+ "C60_block_let_positive",
+ "C61_nested_fn_var_positive",
+ "C62_S1b_namespace_decoy",
+ "C63_S1b_producer_local_call",
+ "C64_TR6P4_top_function",
+ "C65_TR6P4_top_class",
+ "C66_TR6P4_top_destructure",
+ "C67_TR6P4_component_local_positive"
 ]
