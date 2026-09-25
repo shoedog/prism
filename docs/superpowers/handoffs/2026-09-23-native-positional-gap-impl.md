@@ -91,7 +91,7 @@ Copies under `/private/tmp` are volatile. — **RESOLVED**
 | Site manifest SHA-256 | `789352a575d68ef672de7449299676de0c0aab8edd4abd8228e23efda65d326b` |
 | Durable evidence | `/Users/wesleyjinks/prism-evidence/native-positional-gap/` |
 | Review clones | `/Users/wesleyjinks/code/prism-native-gap-review-{sol,kimi}` |
-| Public source root | `/private/tmp/prism-post317-measurement-inputs/source` (selected 11 files also in durable evidence) |
+| Public source root | `/Users/wesleyjinks/prism-evidence/inputs/excalidraw-0642e72c/source` (recovered 2026-09-24; the /private/tmp root was purged). See docs/eval/native-positional-gap/input-recovery.md |
 
 ## 7. Refutation verdict and owner questions
 
