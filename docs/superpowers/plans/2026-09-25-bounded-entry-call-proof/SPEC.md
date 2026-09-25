@@ -16,6 +16,16 @@ Both are copied at `target/planner-context/` and are not yet on `main`.
 
 ## 0. Owner decisions (before implementation)
 
+> **DECIDED by the owner on 2026-09-25, before any run:**
+>
+> - **D1 = A.** Probe-receipt readout under Appendix A. No new tool; option B (the observer) is not built.
+> - **D2 = locked.** A positional-hole repair is warranted only if **Y ≥ 3 ∧ S ≥ 2**, where Y is callers blocked
+>   solely by the prefix and S is the number of distinct sites. The rule is pre-registered; it is not refitted after
+>   seeing data.
+> - **D3 = moot** under A, since no observer tests exist.
+>
+> Appendix A and §8 govern this increment. Sections 6–7 and 9–10 are retained as the option-B design of record.
+
 | # | Decision | Options | Recommendation |
 |---|---|---|---|
 | D1 | Build the observer, or publish the probe readout? | **A.** Probe-receipt readout (Appendix A), 0 new lines: the controller re-runs the pinned PLANNING-PROBES commands twice, sol reconciles statically, and a readout records the decision. **B.** This spec: a byte-exact Rust observer, about 830–950 honest lines. | **A for this decision.** The probes already determine it (predicted yield: 1 tuple at 1 site, see §2). The refusals are structural and each has a cited mechanism. **B** is worth its cost only if the owner wants a reusable, byte-exact instrument, for example to re-measure on a second corpus before any positional-hole repair. |
