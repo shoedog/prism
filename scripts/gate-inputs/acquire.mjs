@@ -24,6 +24,7 @@ function rootValue(root) {
   if (process.env.XDG_DATA_HOME) return join(process.env.XDG_DATA_HOME, 'prism/gate-inputs');
   return join(homedir(), '.local/share/prism/gate-inputs');
 }
+export const inputRoot = root => resolve(rootValue(root));
 function existingPrefix(root) {
   let prefix = root;
   while (!existsSync(prefix)) {

@@ -43,7 +43,8 @@ function fakeCargo(root, failing = false) {
   const message = JSON.stringify({reason: 'compiler-artifact',
     target: {name: 'project_membership_census'},
     executable: native});
-  const body = failing ? '#!/bin/sh\n[ "$1" = --version ] && exit 0\nexit 101\n' :
+  const body = failing === 'preflight' ? '#!/bin/sh\necho preflight fault >&2\nexit 101\n' :
+    failing ? '#!/bin/sh\n[ "$1" = --version ] && exit 0\necho build fault >&2\nexit 101\n' :
     `#!/bin/sh\n[ "$1" = --version ] && { echo fake; exit 0; }\nprintf '%s\\n' "$@" > ${args}\n` +
     `printf '%s\\n' '${message}'\n`;
   // rustup installs cargo as a symlink proxy; resolution must follow it.
@@ -59,8 +60,9 @@ const dirs = root => ({PRISM_TYPESCRIPT: `${root}/typescript.js`,
   PRISM_CALLABLE_PROFILES: `${root}/profiles`,
   PRISM_GRAMMAR_ARCHIVES: `${root}/grammar`});
 function options(root, cargo, verify = verified) {
+  const inputRoot = join(root, 'input-root'); mkdirSync(inputRoot, {recursive: true});
   return {root, inherited: {HOME: '/home/test', PATH: `${cargo.bin}:${process.env.PATH}`},
-    verify, dirs,
+    verify, dirs, inputRoot,
     exclusions: []};
 }
 function populationOf(root, exclusions = []) {
@@ -145,7 +147,8 @@ test('B3 records a frozen native build and a build refusal receipt', async () =>
     true);
   const badRoot = dirname(bad.bin), badSetup = options(badRoot, bad), badPlan = prepare(badSetup);
   const out = join(badRoot, 'target', 'out'), result = await gate({out, ...badSetup});
-  const expected = fullReceipt(badPlan, {stage: 'build', error: 'build: cargo failed'});
+  const expected = fullReceipt(badPlan,
+    {stage: 'build', error: 'build: cargo failed: build fault'});
   assert.deepEqual({exitCode: result.exitCode, receipt: result.receipt},
     {exitCode: 2, receipt: expected});
   assert.deepEqual(JSON.parse(readFileSync(join(out, 'receipt.json'))), expected);
@@ -193,6 +196,18 @@ test('B5 refuses missing tools and a tampered test-root input before tests', asy
   assert.equal(existsSync(join(tamperedOut, 'log.txt')), false);
 });
 
+test('B9 preserves preflight stderr and refuses an empty population before build', async () => {
+  const root = fixture('b9', {'.gitignore': 'target/\n', 'a.test.mjs': pass});
+  const cargo = fakeCargo(root);
+  const preRoot = fixture('b9-pre', {'.gitignore': 'target/\n', 'a.test.mjs': pass});
+  const pre = fakeCargo(preRoot, 'preflight');
+  const preflight = await gate({out: join(preRoot, 'target', 'out'), ...options(preRoot, pre)});
+  const empty = await gate({out: join(root, 'target', 'empty'), ...options(root, cargo),
+    exclusions: [{path: 'a.test.mjs', reason: 'excluded'}]});
+  assert.deepEqual([preflight.receipt.error, empty.receipt.error, existsSync(cargo.args)],
+    ['preflight: cargo failed: preflight fault', 'population: no active tests', false]);
+});
+
 test('B6 owns a new output leaf first and dry-run writes no receipt', async () => {
   const root = fixture('b6', {'.gitignore': 'target/\n', 'a.test.mjs': pass});
   const existing = join(root, 'target', 'old');
@@ -208,6 +223,12 @@ test('B6 owns a new output leaf first and dry-run writes no receipt', async () =
     native: {path: cargo.native, sha256: sha('native')},
     totals: {tests: 1, pass: 1, fail: 0, skipped: 0}, status: 'passed', stage: 'tests', exitCode: 0,
   }));
+  put(setup.inputRoot, 'sealed', 'input');
+  const digest = sha(JSON.stringify(readdirSync(setup.inputRoot)));
+  const overlap = join(setup.inputRoot, 'out'), refused = await gate({out: overlap, ...setup});
+  assert.deepEqual(refused, {exitCode: 2, error: 'output: overlaps gate-input root'});
+  assert.equal(existsSync(overlap), false);
+  assert.equal(sha(JSON.stringify(readdirSync(setup.inputRoot))), digest);
 });
 
 test('B7 derives the repository root independently of the caller cwd', () => {

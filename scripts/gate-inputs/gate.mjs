@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 import {createHash} from 'node:crypto';
-import {accessSync, createWriteStream, lstatSync, mkdirSync, readFileSync, statSync,
-  writeFileSync} from 'node:fs';
+import {accessSync, createWriteStream, existsSync, lstatSync, mkdirSync, readFileSync,
+  realpathSync, statSync, writeFileSync} from 'node:fs';
 import {X_OK} from 'node:constants';
-import {basename, dirname, join, resolve} from 'node:path';
+import {basename, dirname, join, resolve, sep} from 'node:path';
 import {spawn, spawnSync} from 'node:child_process';
 import {once} from 'node:events';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import exclusionsFile from './exclusions.json' with {type: 'json'};
-import {inputDirs, verifyInstalled} from './acquire.mjs';
+import {inputDirs, inputRoot, verifyInstalled} from './acquire.mjs';
 
 const passThrough = ['HOME', 'PATH', 'LANG', 'LC_ALL', 'TMPDIR', 'CARGO_HOME', 'RUSTUP_HOME',
   'RUSTUP_TOOLCHAIN'];
@@ -22,6 +22,8 @@ const json = value => `${JSON.stringify(canonical(value), null, 2)}\n`;
 const strictUtf8 = new TextDecoder('utf-8', {fatal: true});
 const utf8=(v,l)=>{try{return strictUtf8.decode(v);}catch{refuse(`${l}: invalid utf8`);}};
 const call = (file, args, cwd, env) => spawnSync(file, args, {cwd, env, encoding: null});
+const stderr = (result, label) =>
+  utf8((result.stderr ?? Buffer.alloc(0)).subarray(-2048), label).trim();
 
 export const repoRoot = () => resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 export function buildEnv({inherited = process.env, inputs = {}} = {}) {
@@ -40,7 +42,8 @@ export function resolveTool(name, path) {
 }
 function commandText(file, args, cwd, env, label) {
   const result = call(file, args, cwd, env);
-  if (result.error || result.status !== 0) refuse(`preflight: ${label} failed`);
+  if (result.error || result.status !== 0)
+    refuse(`preflight: ${label} failed: ${stderr(result, label)}`);
   return utf8(result.stdout ?? Buffer.alloc(0), label).trim();
 }
 function nulPaths(bytes, label) {
@@ -83,6 +86,7 @@ export function prepare({root = repoRoot(), inherited = process.env, platform = 
   let verified; try { verified = verify({root: inputRoot}); } catch (e) { refuse(e.message); }
   const inputEnv = dirs(verified.root), env = buildEnv({inherited, inputs: inputEnv});
   const listed = population({root, git, env, exclusions});
+  if (!listed.active.length) refuse('population: no active tests');
   const head = commandText(git, ['rev-parse', 'HEAD'], root, env, 'git rev-parse');
   const dirty = commandText(git, ['status', '--porcelain'], root, env, 'git status') !== '';
   const argv = [process.execPath, '--test', '--test-concurrency=2', '--test-reporter=tap',
@@ -96,7 +100,8 @@ export function prepare({root = repoRoot(), inherited = process.env, platform = 
 export function build(plan) {
   const result = call(plan.tools.cargo.path, ['build', '--frozen', '--offline', '--example',
     'project_membership_census', '--message-format=json'], plan.cwd, plan.env);
-  if (result.error || result.status !== 0) refuse('build: cargo failed', 'build');
+  if (result.error || result.status !== 0)
+    refuse(`build: cargo failed: ${stderr(result, 'build')}`, 'build');
   let executable;
   for (const line of utf8(result.stdout ?? Buffer.alloc(0), 'build').split('\n')) {
     try {
@@ -131,8 +136,14 @@ async function runTests(plan, out) {
   log.end(); await once(log, 'finish');
   return {code, ...tap(text)};
 }
-function claimOutput(out) {
-  const leaf = resolve(out); mkdirSync(dirname(leaf), {recursive: true});
+function claimOutput(out, root) {
+  const leaf = resolve(out);
+  let prefix = leaf;
+  while (!existsSync(prefix)) prefix = dirname(prefix);
+  const input = existsSync(root) && realpathSync(root), ancestor = realpathSync(prefix);
+  if (input && (ancestor === input || ancestor.startsWith(input + sep)))
+    refuse('overlaps gate-input root');
+  mkdirSync(dirname(leaf), {recursive: true});
   mkdirSync(leaf); return leaf;
 }
 function emptyReceipt(platform) {
@@ -149,7 +160,7 @@ export function dryRun(options = {}) {
 }
 export async function gate(options = {}) {
   let out;
-  try { out = claimOutput(options.out); }
+  try { out = claimOutput(options.out, inputRoot(options.inputRoot)); }
   catch (error) { return {exitCode: 2, error: `output: ${error.message}`}; }
   const receipt = emptyReceipt(options.platform ?? process.platform);
   try {
