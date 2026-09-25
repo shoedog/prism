@@ -23,6 +23,10 @@ dominant refusal lane for the ten `forwardRef` components.
 
 Everything below assumes the recommendations: D1 = A, D2 = Exact, D3 = S1, D4 = a, D5 = S1 now.
 
+**Owner answers (2026-09-25):** all recommendations accepted. D1 = A (React `forwardRef`/`memo` only), D2 = Exact,
+D3 = S1 alone, D4 = a (S1b follows S1), D5 = ship S1 now, and `paths` resolution is the next planning lane. The owner
+also approved publishing corpus F aggregates, with the name, path and commit withheld.
+
 ## 1. Problem
 
 `export const Island = forwardRef<…>((props, ref) => …)` records no export fact, because the declarator arm admits
