@@ -22,8 +22,8 @@ const json = value => `${JSON.stringify(canonical(value), null, 2)}\n`;
 const strictUtf8 = new TextDecoder('utf-8', {fatal: true});
 const utf8=(v,l)=>{try{return strictUtf8.decode(v);}catch{refuse(`${l}: invalid utf8`);}};
 const call = (file, args, cwd, env) => spawnSync(file, args, {cwd, env, encoding: null});
-const stderr = (result, label) =>
-  utf8((result.stderr ?? Buffer.alloc(0)).subarray(-2048), label).trim();
+const stderr = result => new TextDecoder().decode(result.stderr ?? Buffer.alloc(0)).slice(-2048)
+  .trim() || String(result.error?.message ?? '');
 
 export const repoRoot = () => resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 export function buildEnv({inherited = process.env, inputs = {}} = {}) {
@@ -43,7 +43,7 @@ export function resolveTool(name, path) {
 function commandText(file, args, cwd, env, label) {
   const result = call(file, args, cwd, env);
   if (result.error || result.status !== 0)
-    refuse(`preflight: ${label} failed: ${stderr(result, label)}`);
+    refuse(`preflight: ${label} failed: ${stderr(result)}`);
   return utf8(result.stdout ?? Buffer.alloc(0), label).trim();
 }
 function nulPaths(bytes, label) {
@@ -57,7 +57,8 @@ function nulPaths(bytes, label) {
 export function population({root = repoRoot(), git, env, exclusions = exclusionsFile} = {}) {
   const listed = args => {
     const result = call(git, args, root, env);
-    if (result.error || result.status !== 0) refuse(`population: git ${args[0]} failed`);
+    if (result.error || result.status !== 0)
+      refuse(`population: git ${args[0]} failed: ${stderr(result)}`);
     return nulPaths(result.stdout ?? Buffer.alloc(0), 'population');
   };
   const head = listed(['ls-tree', '-r', '-z', '--name-only', 'HEAD']);
@@ -101,7 +102,7 @@ export function build(plan) {
   const result = call(plan.tools.cargo.path, ['build', '--frozen', '--offline', '--example',
     'project_membership_census', '--message-format=json'], plan.cwd, plan.env);
   if (result.error || result.status !== 0)
-    refuse(`build: cargo failed: ${stderr(result, 'build')}`, 'build');
+    refuse(`build: cargo failed: ${stderr(result)}`, 'build');
   let executable;
   for (const line of utf8(result.stdout ?? Buffer.alloc(0), 'build').split('\n')) {
     try {
@@ -136,13 +137,12 @@ async function runTests(plan, out) {
   log.end(); await once(log, 'finish');
   return {code, ...tap(text)};
 }
+function canon(p, rest = '') {
+  return existsSync(p) ? join(realpathSync(p), rest) : canon(dirname(p), join(basename(p), rest));
+}
 function claimOutput(out, root) {
-  const leaf = resolve(out);
-  let prefix = leaf;
-  while (!existsSync(prefix)) prefix = dirname(prefix);
-  const input = existsSync(root) && realpathSync(root), ancestor = realpathSync(prefix);
-  if (input && (ancestor === input || ancestor.startsWith(input + sep)))
-    refuse('overlaps gate-input root');
+  const leaf = resolve(out), input = canon(resolve(root)), target = canon(leaf);
+  if (target === input || target.startsWith(input + sep)) refuse('overlaps gate-input root');
   mkdirSync(dirname(leaf), {recursive: true});
   mkdirSync(leaf); return leaf;
 }

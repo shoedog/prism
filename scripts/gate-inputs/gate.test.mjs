@@ -41,9 +41,9 @@ function fakeCargo(root, failing = false) {
   const native = join(bin, 'native'), args = join(bin, 'args');
   mkdirSync(bin, {recursive: true}); writeFileSync(native, 'native');
   const message = JSON.stringify({reason: 'compiler-artifact',
-    target: {name: 'project_membership_census'},
-    executable: native});
+    target: {name: 'project_membership_census'}, executable: native});
   const body = failing === 'preflight' ? '#!/bin/sh\necho preflight fault >&2\nexit 101\n' :
+    typeof failing === 'string' ? failing :
     failing ? '#!/bin/sh\n[ "$1" = --version ] && exit 0\necho build fault >&2\nexit 101\n' :
     `#!/bin/sh\n[ "$1" = --version ] && { echo fake; exit 0; }\nprintf '%s\\n' "$@" > ${args}\n` +
     `printf '%s\\n' '${message}'\n`;
@@ -57,13 +57,11 @@ const verified = () => ({root: '/inputs', inputs: [
   {input: 'grammar-archives', dir: '/inputs/grammar/grammar'},
 ]});
 const dirs = root => ({PRISM_TYPESCRIPT: `${root}/typescript.js`,
-  PRISM_CALLABLE_PROFILES: `${root}/profiles`,
-  PRISM_GRAMMAR_ARCHIVES: `${root}/grammar`});
+  PRISM_CALLABLE_PROFILES: `${root}/profiles`, PRISM_GRAMMAR_ARCHIVES: `${root}/grammar`});
 function options(root, cargo, verify = verified) {
   const inputRoot = join(root, 'input-root'); mkdirSync(inputRoot, {recursive: true});
   return {root, inherited: {HOME: '/home/test', PATH: `${cargo.bin}:${process.env.PATH}`},
-    verify, dirs, inputRoot,
-    exclusions: []};
+    verify, dirs, inputRoot, exclusions: []};
 }
 function populationOf(root, exclusions = []) {
   const env = buildEnv({inherited: {PATH: process.env.PATH}});
@@ -143,8 +141,7 @@ test('B3 records a frozen native build and a build refusal receipt', async () =>
   assert.deepEqual(readFileSync(cargo.args, 'utf8').trim().split('\n'),
     ['build', '--frozen', '--offline',
     '--example', 'project_membership_census', '--message-format=json']);
-  const bad = fakeCargo(fixture('b3-fail', {'.gitignore': 'target/\n', 'a.test.mjs': pass}),
-    true);
+  const bad = fakeCargo(fixture('b3-fail', {'.gitignore': 'target/\n', 'a.test.mjs': pass}), true);
   const badRoot = dirname(bad.bin), badSetup = options(badRoot, bad), badPlan = prepare(badSetup);
   const out = join(badRoot, 'target', 'out'), result = await gate({out, ...badSetup});
   const expected = fullReceipt(badPlan,
@@ -181,8 +178,7 @@ test('B5 refuses missing tools and a tampered test-root input before tests', asy
   const noGit = join(root, 'none');
   mkdirSync(noGit); const missingOut = join(root, 'target', 'missing');
   const missing = await gate({out: missingOut, root, inherited: {PATH: noGit},
-    verify: verified,
-    dirs, exclusions: []});
+    verify: verified, dirs, exclusions: []});
   assert.deepEqual(missing.receipt, blankReceipt(process.platform, 'preflight: git not found'));
   assert.equal(existsSync(join(missingOut, 'log.txt')), false);
   const cargo = fakeCargo(root), input = join(root, 'target', 'input');
@@ -206,6 +202,17 @@ test('B9 preserves preflight stderr and refuses an empty population before build
     exclusions: [{path: 'a.test.mjs', reason: 'excluded'}]});
   assert.deepEqual([preflight.receipt.error, empty.receipt.error, existsSync(cargo.args)],
     ['preflight: cargo failed: preflight fault', 'population: no active tests', false]);
+  const wideRoot = fixture('b9-wide', {'.gitignore': 'target/\n', 'a.test.mjs': pass});
+  const wide = fakeCargo(wideRoot, '#!/bin/sh\n[ "$1" = --version ] && exit 0\n' +
+    `printf '\\377${'\u00e9'.repeat(1100)}END' >&2\nexit 101\n`);
+  const w = (await gate({out: join(wideRoot, 'target', 'o'), ...options(wideRoot, wide)})).receipt;
+  assert.deepEqual([w.stage, /^build: cargo failed: .*\u00e9END$/s.test(w.error)], ['build', true]);
+  const gitRoot = fixture('b9-git', {'.gitignore': 'target/\n', 'a.test.mjs': pass});
+  const gc = fakeCargo(gitRoot), shim = '#!/bin/sh\n[ "$1" = --version ] && echo git && exit 0\n';
+  put(gc.bin, 'git', `${shim}echo locator missing >&2\nexit 1\n`);
+  chmodSync(join(gc.bin, 'git'), 0o755);
+  const g = await gate({out: join(gitRoot, 'target', 'o'), ...options(gitRoot, gc)});
+  assert.equal(g.receipt.error, 'population: git ls-tree failed: locator missing');
 });
 
 test('B6 owns a new output leaf first and dry-run writes no receipt', async () => {
@@ -229,6 +236,10 @@ test('B6 owns a new output leaf first and dry-run writes no receipt', async () =
   assert.deepEqual(refused, {exitCode: 2, error: 'output: overlaps gate-input root'});
   assert.equal(existsSync(overlap), false);
   assert.equal(sha(JSON.stringify(readdirSync(setup.inputRoot))), digest);
+  const absent = join(root, 'target', 'absent-root');
+  assert.deepEqual(await gate({out: absent, ...setup, inputRoot: absent}),
+    {exitCode: 2, error: 'output: overlaps gate-input root'});
+  assert.equal(existsSync(absent), false);
 });
 
 test('B7 derives the repository root independently of the caller cwd', () => {
