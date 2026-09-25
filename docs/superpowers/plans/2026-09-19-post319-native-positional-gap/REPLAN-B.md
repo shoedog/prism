@@ -218,3 +218,38 @@ literals. The controller's 70–105 forecast was wrong. The owner chose **"Raise
 
 The 158-line draft is preserved at `~/prism-evidence/native-positional-gap/request-draft-158.mjs`; the 173-line
 original is also kept there. The launcher's 507 lines are still deleted, so this remains a net reduction.
+
+## 9. Builder/worker boundary (owner-approved 2026-09-24, after implementation review r2)
+
+The implementation review r2 reports were sol FIX 2W/1S and terra APPROVE. Sol found the builder in an "unstable
+middle": it validated some copied scalars but no relational invariants, and several of those scalar checks were
+untested. The owner chose **"Worker owns schema"**. This supersedes the `[r2]` §3.2 wording "every field the builder
+copies into the request must be valid".
+
+- **Builder owns:**
+  - exact CLI parsing, including a 64-lowercase-hex `--native-sha256`
+  - manifest-byte identity and the D6 frozen-hash rule
+  - the projection shape: `members` and `sites` arrays of objects that carry the copied keys
+  - safe relative member paths and duplicate member paths (needed to open files)
+  - site-to-member association (needed to nest sites)
+  - the D8 pre-read `lstat`, regular-file, declared-size, and 256 KiB checks
+  - source length and SHA-256 identity
+  - strict UTF-8 with the BOM preserved
+  - canonical emission order
+- **Worker owns all request-schema validation, scalar and relational,** before any parse. This covers:
+  - enums and the extension → `script_kind` mapping
+  - safe integers
+  - span bounds and UTF-8 boundaries
+  - strictly increasing ordinals
+  - selector tuple uniqueness
+  - member and selector closure
+
+  It already refuses every case sol's r2 listed.
+
+For an invalid synthetic projection, the contract is **builder success followed by worker refusal**, with no
+successful packet. A pipe-level test pins that. The builder's duplicated scalar checks are removed. The public run
+is unaffected, because its manifest is bound byte-for-byte by the frozen hash.
+
+Also folded: sol r2 W2. The group-7 `no_selected_suffix_binding_gap` packet **is** reachable through the real binary,
+via a typed, escaped object binding: `function take({\u0078}: {x:number}, later: string){return later;}`. That
+source becomes a complete group-7 fixture record, and the earlier inventory N/A for it is withdrawn.
