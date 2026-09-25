@@ -8,11 +8,13 @@ import {spawn, spawnSync} from 'node:child_process';
 import {once} from 'node:events';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import exclusionsFile from './exclusions.json' with {type: 'json'};
+import nativesFile from './natives.json' with {type: 'json'};
 import {inputDirs, inputRoot, verifyInstalled} from './acquire.mjs';
 
 const passThrough = ['HOME', 'PATH', 'LANG', 'LC_ALL', 'TMPDIR', 'CARGO_HOME', 'RUSTUP_HOME',
   'RUSTUP_TOOLCHAIN'];
 const sha = value => createHash('sha256').update(value).digest('hex');
+const nativeMap = (rows, fn) => Object.fromEntries(rows.map(row => [row.env, fn(row)]).sort());
 class Refusal extends Error { constructor(m, s = 'preflight') { super(m); this.stage = s; } }
 const refuse = (message, stage) => { throw new Refusal(message, stage); };
 const canonical = v => Array.isArray(v) ? v.map(canonical)
@@ -54,6 +56,12 @@ function nulPaths(bytes, label) {
   if (bad) refuse(`${label}: duplicate or empty path`);
   return paths.filter(path => path.endsWith('.test.mjs'));
 }
+function nativeRows(rows) {
+  for (const key of ['env', 'example']) {
+    const values = rows.map(row => row[key]), dup = values.find((v, i) => values.indexOf(v) < i);
+    if (dup) refuse(`preflight: duplicate native ${key}: ${dup}`);
+  } return rows;
+}
 export function population({root = repoRoot(), git, env, exclusions = exclusionsFile} = {}) {
   const listed = args => {
     const result = call(git, args, root, env);
@@ -77,8 +85,10 @@ export function population({root = repoRoot(), git, env, exclusions = exclusions
   return {active, exclusions, digest: sha(JSON.stringify(active))};
 }
 export function prepare({root = repoRoot(), inherited = process.env, platform = process.platform,
-  verify = verifyInstalled, dirs = inputDirs, exclusions = exclusionsFile, inputRoot} = {}) {
+  verify = verifyInstalled, dirs = inputDirs, exclusions = exclusionsFile, inputRoot,
+  natives = nativesFile} = {}) {
   if (platform !== 'darwin') refuse('unsupported host');
+  const native = nativeRows(natives);
   const base = buildEnv({inherited});
   const git = resolveTool('git', base.PATH), cargo = resolveTool('cargo', base.PATH);
   const tools = {git: {path: git, version: commandText(git, ['--version'], root, base, 'git')},
@@ -96,25 +106,29 @@ export function prepare({root = repoRoot(), inherited = process.env, platform = 
     input, dir, digest: basename(dir),
   })), env: inputEnv};
   const runtime = {node: process.version, platform, arch: process.arch};
-  return {cwd: root, repo: {head, dirty}, tools, runtime, inputs, population: listed, env, argv};
+  return {cwd: root, repo: {head, dirty}, tools, runtime, inputs, population: listed, env,
+    natives: native, argv};
 }
 export function build(plan) {
-  const result = call(plan.tools.cargo.path, ['build', '--frozen', '--offline', '--example',
-    'project_membership_census', '--message-format=json'], plan.cwd, plan.env);
-  if (result.error || result.status !== 0)
-    refuse(`build: cargo failed: ${stderr(result)}`, 'build');
-  let executable;
+  const args = ['build', '--frozen', '--offline', '--message-format=json',
+    ...plan.natives.flatMap(({example}) => ['--example', example])];
+  const result = call(plan.tools.cargo.path, args, plan.cwd, plan.env);
+  if (result.error || result.status !== 0) refuse(`build: cargo failed: ${stderr(result)}`,'build');
+  const executables = new Map();
   for (const line of utf8(result.stdout ?? Buffer.alloc(0), 'build').split('\n')) {
     try {
       const message = JSON.parse(line);
-      const name = message.target?.name;
-      if (message.reason === 'compiler-artifact' && name === 'project_membership_census'
-        && message.executable) executable = message.executable;
+      if (message.reason === 'compiler-artifact' && message.executable
+        && plan.natives.some(row => row.example === message.target?.name))
+        executables.set(message.target.name, message.executable);
     } catch {}
   }
-  if (!executable) refuse('build: native executable missing', 'build');
-  try { return {path: executable, sha256: sha(readFileSync(executable))}; }
-  catch { refuse('build: native executable unreadable', 'build'); }
+  return nativeMap(plan.natives, row => {
+    const path = executables.get(row.example);
+    if (!path) refuse(`build: native executable missing: ${row.example}`, 'build');
+    try { return {example: row.example, path, sha256: sha(readFileSync(path))}; }
+    catch { refuse(`build: native executable unreadable: ${row.example}`, 'build'); }
+  });
 }
 function tap(text) {
   const values = Object.fromEntries(['tests', 'pass', 'fail', 'skipped'].map(key => {
@@ -128,9 +142,7 @@ function tap(text) {
 async function runTests(plan, out) {
   const log = createWriteStream(join(out, 'log.txt')); let text = '', code = 1;
   const child = spawn(process.execPath, plan.argv.slice(1), {cwd: plan.cwd, env: plan.env});
-  for (const stream of [child.stdout, child.stderr]) {
-    stream.on('data', chunk => { text += chunk; log.write(chunk); });
-  }
+  for (const s of [child.stdout, child.stderr]) s.on('data', c => { text += c; log.write(c); });
   await new Promise(done => {
     child.on('error', () => done()); child.on('close', value => { code = value ?? 1; done(); });
   });
@@ -146,28 +158,30 @@ function claimOutput(out, root) {
   mkdirSync(dirname(leaf), {recursive: true});
   mkdirSync(leaf); return leaf;
 }
-function emptyReceipt(platform) {
+function emptyReceipt(platform, natives = nativesFile) {
   return {repo: {head: null, dirty: null}, population: null, tools: null,
     runtime: {node: process.version, platform, arch: process.arch}, inputs: null,
-    native: {path: null, sha256: null}, argv: null, cwd: null, env: null, totals: null,
+    native: nativeMap(natives, ({example}) => ({example, path: null, sha256: null})), argv: null,
+    cwd: null, env: null, totals: null,
     skips: [],
     status: 'refused', stage: 'preflight', exitCode: 2, error: null};
 }
 export function dryRun(options = {}) {
   const plan = prepare(options);
   return {population: plan.population, argv: plan.argv, cwd: plan.cwd,
-    env: {...plan.env, PRISM_MEMBERSHIP_NATIVE: '<resolved after build>'}};
+    env: {...plan.env, ...nativeMap(plan.natives, () => '<resolved after build>')}};
 }
 export async function gate(options = {}) {
   let out;
   try { out = claimOutput(options.out, inputRoot(options.inputRoot)); }
   catch (error) { return {exitCode: 2, error: `output: ${error.message}`}; }
-  const receipt = emptyReceipt(options.platform ?? process.platform);
+  const receipt = emptyReceipt(options.platform ?? process.platform, options.natives);
   try {
     const plan = prepare(options);
     Object.assign(receipt, {repo: plan.repo, population: plan.population, tools: plan.tools,
       runtime: plan.runtime, inputs: plan.inputs, argv: plan.argv, cwd: plan.cwd, env: plan.env});
-    const native = build(plan); plan.env.PRISM_MEMBERSHIP_NATIVE = native.path;
+    const native = build(plan);
+    for (const [env, row] of Object.entries(native)) plan.env[env] = row.path;
     receipt.native = native; receipt.env = plan.env;
     const result = await runTests(plan, out);
     receipt.totals = result.totals; receipt.skips = result.skips;
