@@ -2,5 +2,9 @@
   {
     "env": "PRISM_MEMBERSHIP_NATIVE",
     "example": "project_membership_census"
+  },
+  {
+    "env": "PRISM_NATIVE_PARAMETER_EXAMPLE",
+    "example": "parameter_slot_characterization"
   }
 ]
