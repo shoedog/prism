@@ -7,39 +7,40 @@ caches, resolve callees, authorize runtime edges, or add parameter support.
 Build the native worker with the locked dependency set:
 
 ```sh
-cargo build --offline --example parameter_slot_characterization
+cargo build --offline --locked --example parameter_slot_characterization
 ```
 
-Run the bounded launcher only against an authenticated manifest and source root:
+Build the request from the pinned manifest, then pipe it to that worker:
 
 ```sh
-node scripts/parameter-slot-characterization/index.mjs \
+node scripts/parameter-slot-characterization/request.mjs \
   --root /absolute/source-root \
   --manifest /absolute/site-manifest.json \
   --manifest-sha256 <64-lowercase-hex> \
-  --native /absolute/parameter_slot_characterization \
   --native-sha256 <64-lowercase-hex> \
-  --out /absolute/new-output.json
+  | target/debug/examples/parameter_slot_characterization > output.json
 ```
 
-Every flag is required exactly once. The launcher verifies the manifest,
-selected regular source files, native binary, source byte limits, strict UTF-8
-and selector boundaries before sending one JSON request to the worker. The
-worker reads no repository files. Successful output is canonical JSON and is
-published new-only through a parent-owned staging file and atomic link.
+All four flags are required exactly once. The builder verifies the supplied
+manifest digest, requires the frozen digest for non-synthetic manifests, and
+reads only safe relative member paths. Before each read it requires a regular
+file, the declared byte size, and the remaining 256 KiB budget; it then checks
+the source digest and strict UTF-8 while preserving a BOM. It writes one
+canonical request JSON object and a trailing newline to stdout.
 
-The supplied root is checked exactly as written after absolute resolution: the
-launcher `lstat`s its filesystem anchor and every component down to each selected
-file, refusing every symlink. On macOS, pass a canonical root such as
-`fs.realpathSync(os.tmpdir())`; a root reached through `/tmp` or `/var` is refused.
+The worker re-validates the full request before parsing and writes its canonical
+result to stdout. The controller owns the pipe, output custody, and independent
+reconciliation. This intentionally does not add staging, publication, binary
+execution, child limits, or hostile same-account TOCTOU protection.
 
-The expected hash proves supplied binary bytes, not their build provenance.
-Keep the build command, binary SHA-256, source binding, and gate logs in the
-separate receipt/handback before any controller-authorized public run.
+The expected native hash is controller-supplied request metadata; it does not
+prove source provenance. Record the build command, binary SHA-256, manifest
+digest, builder digest, output digest, and exact command in the separate
+receipt before any controller-authorized public run.
 
 Tests require the explicit built binary and fail if it is absent:
 
 ```sh
 PRISM_NATIVE_PARAMETER_EXAMPLE="$PWD/target/debug/examples/parameter_slot_characterization" \
-  node --test scripts/parameter-slot-characterization/index.test.mjs
+  node --test scripts/parameter-slot-characterization/request.test.mjs
 ```

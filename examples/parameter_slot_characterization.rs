@@ -593,6 +593,7 @@ fn observe(mut request: Request) -> Result<Packet> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
     #[test]
     fn containment_priority_and_ambiguity_controls_are_complete() {
         let parameter = |ordinal, kind: &str, ordinary| Parameter {
@@ -712,5 +713,125 @@ mod tests {
         assert_eq!((candidates[0].start_line, candidates[1].start_line), (0, 1));
         assert_eq!(packet.sites[0].status, "ambiguous");
         assert_eq!((packet.totals.ambiguous, packet.next_action), (1, "defer"));
+    }
+
+    #[test]
+    fn d7_predicate_and_singular_parameter_rows_are_complete() {
+        let object = "object_pattern";
+        let check = |source: &str, objects: &[usize], later: &[usize], site: Value| {
+            let start = site["start_byte"].as_u64().unwrap() as usize;
+            let end = site["end_byte"].as_u64().unwrap() as usize;
+            let kind = ["FunctionDeclaration", "ArrowFunction"][(start == 13) as usize];
+            let packet = observe(Request {
+                manifest_sha256: "a".repeat(64),
+                binary_sha256: "b".repeat(64),
+                files: vec![InputFile {
+                    path: "case.js".into(),
+                    sha256: sha(source),
+                    bytes: source.len(),
+                    script_kind: "JavaScript".into(),
+                    source: source.into(),
+                    sites: vec![Selector {
+                        path: "case.js".into(),
+                        start,
+                        end,
+                        kind: kind.into(),
+                        objects: objects.to_vec(),
+                        later: later.to_vec(),
+                    }],
+                }],
+            })
+            .unwrap();
+            let expected = json!({
+                "schema": OUTPUT, "measurement": "native_parameter_api_characterization",
+                "authorizes_runtime_edge": false, "native_entry_measured": false,
+                "callee_resolution_measured": false, "input_manifest_sha256": "a".repeat(64),
+                "native_binary_sha256": "b".repeat(64),
+                "files": [{"path": "case.js", "sha256": sha(source), "bytes": source.len(),
+                    "language": "JavaScript", "parse_error_count": 0}],
+                "sites": [site],
+                "totals": {"files": 1, "sites": 1, "unique_named": 1, "unique_unnamed": 0,
+                    "missing": 0, "ambiguous": 0, "recovery_quarantined": 0},
+                "next_action": "defer", "reason": "no_eligible_native_slot_gap"
+            });
+            assert_eq!(serde_json::to_value(packet).unwrap(), expected);
+        };
+        check(
+            "function take({x}, wrong, later){return later;}",
+            &[0, 1],
+            &[2],
+            json!({
+                    "path": "case.js", "start_byte": 0, "end_byte": 47, "status": "unique_named",
+                "candidates": [{"kind": "function_declaration", "start_line": 1, "end_line": 1,
+                    "name": "take", "parameters": [
+                {"ordinal": 0, "kind": "object_pattern", "start_byte": 14, "end_byte": 17,
+                            "pattern_kind": object, "ordinary_required_identifier": false},
+                        {"ordinal": 1, "kind": "identifier", "start_byte": 19, "end_byte": 24,
+                            "pattern_kind": "identifier", "ordinary_required_identifier": true},
+                        {"ordinal": 2, "kind": "identifier", "start_byte": 26, "end_byte": 31,
+                            "pattern_kind": "identifier", "ordinary_required_identifier": true}],
+                        "slots": [], "bindings": [
+                        {"name": "wrong", "start_byte": 19, "end_byte": 24, "source_ordinal": 1},
+                    {"name": "later", "start_byte": 26, "end_byte": 31, "source_ordinal": 2}]}],
+                    "next_proof_eligibility": "selection_native_shape_mismatch"
+            }),
+        );
+        check(
+            "function take({x}, good, bad = 1){return good;}",
+            &[0],
+            &[1, 2],
+            json!({
+                    "path": "case.js", "start_byte": 0, "end_byte": 47, "status": "unique_named",
+                "candidates": [{"kind": "function_declaration", "start_line": 1, "end_line": 1,
+                    "name": "take", "parameters": [
+                {"ordinal": 0, "kind": "object_pattern", "start_byte": 14, "end_byte": 17,
+                            "pattern_kind": object, "ordinary_required_identifier": false},
+                        {"ordinal": 1, "kind": "identifier", "start_byte": 19, "end_byte": 23,
+                        "pattern_kind": "identifier", "ordinary_required_identifier": true},
+                    {"ordinal": 2, "kind": "assignment_pattern", "start_byte": 25, "end_byte": 32,
+                        "pattern_kind": "assignment_pattern",
+                        "ordinary_required_identifier": false}],
+                    "slots": [], "bindings": [
+                    {"name": "good", "start_byte": 19, "end_byte": 23, "source_ordinal": 1}]}],
+                    "next_proof_eligibility": "selection_native_shape_mismatch"
+            }),
+        );
+        check(
+            "function take(early, {x}, late){return late;}",
+            &[1],
+            &[0, 2],
+            json!({
+                    "path": "case.js", "start_byte": 0, "end_byte": 45, "status": "unique_named",
+                "candidates": [{"kind": "function_declaration", "start_line": 1, "end_line": 1,
+                    "name": "take", "parameters": [
+                {"ordinal": 0, "kind": "identifier", "start_byte": 14, "end_byte": 19,
+                    "pattern_kind": "identifier", "ordinary_required_identifier": true},
+                {"ordinal": 1, "kind": "object_pattern", "start_byte": 21, "end_byte": 24,
+                            "pattern_kind": object, "ordinary_required_identifier": false},
+                    {"ordinal": 2, "kind": "identifier", "start_byte": 26, "end_byte": 30,
+                        "pattern_kind": "identifier", "ordinary_required_identifier": true}],
+                    "slots": [
+                    {"name": "early", "start_byte": 14, "end_byte": 19, "source_ordinal": 0}],
+                    "bindings": [
+                    {"name": "early", "start_byte": 14, "end_byte": 19, "source_ordinal": 0},
+                    {"name": "late", "start_byte": 26, "end_byte": 30, "source_ordinal": 2}]}],
+                    "next_proof_eligibility": "selection_native_shape_mismatch"
+            }),
+        );
+        check(
+            "const take = later => later;",
+            &[0],
+            &[0],
+            json!({
+                "path": "case.js", "start_byte": 13, "end_byte": 27, "status": "unique_named",
+                "candidates": [{"kind": "arrow_function", "start_line": 1, "end_line": 1,
+                    "name": "take", "parameters": [
+                    {"ordinal": 0, "kind": "identifier", "start_byte": 13, "end_byte": 18,
+                        "pattern_kind": "identifier", "ordinary_required_identifier": true}],
+                    "slots": [
+                    {"name": "later", "start_byte": 13, "end_byte": 18, "source_ordinal": 0}],
+                    "bindings": []}], "next_proof_eligibility": "selection_native_shape_mismatch"
+            }),
+        );
     }
 }
