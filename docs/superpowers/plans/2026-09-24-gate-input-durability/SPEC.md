@@ -507,3 +507,37 @@ verified by the implementation review and the B1 rows.
 |---|---|---|
 | Nested directory entries end in `/`, so an empty component refuses two real archives | sol W1, terra W1 | §3.5: typeflag-5-only single terminal-slash strip; census; A3 positive fixture |
 | Staged deletion drops a test committed at `HEAD` | sol W2 | §4.1: `HEAD` tree population plus index-drift refusal; B1 staged add/delete/rename |
+
+## 11. Follow-up: data-driven native helpers (owner-approved 2026-09-25)
+
+**Trigger.** Before the native positional-gap observer's PR, the controller ran the full gate with the observer rebased
+onto `main`. It failed: 845 tests, 1 fail. `scripts/parameter-slot-characterization/request.test.mjs` requires
+`PRISM_NATIVE_PARAMETER_EXAMPLE`, but `gate.mjs` builds and exports only the single `PRISM_MEMBERSHIP_NATIVE` helper.
+The owner chose "gate follow-up first": fix the gate, then open the observer PR with the full gate green, including
+its tests.
+
+**Contract.**
+
+- `scripts/gate-inputs/natives.json` (data) lists every native helper the population needs, as
+  `[{"env": "...", "example": "..."}]`. It starts with two rows:
+  - `PRISM_MEMBERSHIP_NATIVE` → `project_membership_census`
+  - `PRISM_NATIVE_PARAMETER_EXAMPLE` → `parameter_slot_characterization`
+- The build stage runs **one** invocation:
+  `cargo build --frozen --offline --message-format=json` followed by `--example <name>` for every row, in file order.
+  Each row's executable comes from the `compiler-artifact` message whose `target.name` equals that example.
+  - A missing or unreadable executable for any row refuses with stage `build`, naming the example.
+  - Duplicate `env` or `example` values in `natives.json` refuse in preflight.
+- Every row's env var is set to its absolute executable path **after** the build. The sealed environment otherwise
+  stays unchanged.
+- `--dry-run` shows the placeholder `"<resolved after build>"` for every native env var.
+- **Receipt schema change.** `native` becomes a map keyed by env var, `{"<ENV>": {"example", "path", "sha256"}}`, with
+  keys sorted canonically. It was previously a single `{path, sha256}`. The controller's acceptance receipt records
+  this change.
+- Tests cover:
+  - both natives built and exported, with argv containing both `--example` flags in order
+  - a missing second artifact refused at stage `build`, naming it
+  - duplicate `natives.json` rows refused
+  - a dry-run showing both placeholders
+- **Budget:** `gate.mjs` ≤ 205 honest lines (owner-approved, up from 190). Tests stay ≤ 260. If tests cannot fit,
+  stop and report.
+- **Acceptance.** The full gate passes on the observer branch rebased onto this slice, with no new exclusion.
