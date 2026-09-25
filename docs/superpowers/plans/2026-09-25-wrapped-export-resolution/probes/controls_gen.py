@@ -2,6 +2,7 @@
 # Each scenario is its own tiny repo so resolution cannot cross-contaminate.
 import os, json
 S = {}
+APP_ISLAND = "import { Island } from './lib';\nexport function App() {\n  return <Island/>;\n}\n"
 S["C01_plain_arrow"] = {
  "lib.tsx": "export const A = (props: any) => <div/>;\n",
  "app.tsx": "import { A } from './lib';\nexport function App() {\n  return <A/>;\n}\n"}
@@ -77,6 +78,61 @@ S["C24_arrow_second_arg"] = {
 S["C25_forwardref_as_cast"] = {
  "lib.tsx": "import { forwardRef } from 'react';\nexport const Island = forwardRef((props: any, ref: any) => {\n  return <div ref={ref}/>;\n}) as any;\n",
  "app.tsx": "import { Island } from './lib';\nexport function App() {\n  return <Island/>;\n}\n"}
+S["C26_react_default_arrow"] = {
+ "lib.tsx": "import React from 'react';\nexport const Island = React.forwardRef((props: any, ref: any) => {\n  return <div ref={ref}/>;\n});\n",
+ "app.tsx": APP_ISLAND}
+S["C27_react_ns_arrow"] = {
+ "lib.tsx": "import * as React from 'react';\nexport const Island = React.forwardRef((props: any, ref: any) => {\n  return <div ref={ref}/>;\n});\n",
+ "app.tsx": APP_ISLAND}
+# ---- r2 controls (sol spec round 1) ----
+def lib(pre, post=""):
+    return pre + "export const Island = React.forwardRef((props: any, ref: any) => {\n  return <div ref={ref}/>;\n});\n" + post
+S["C28_default_member_write"] = {"lib.tsx": lib("import React from 'react';\nReact.forwardRef = function fake(): any {\n  return function Replacement() { return null; };\n} as any;\n"), "app.tsx": APP_ISLAND}
+S["C29_import_parse_recovery"] = {
+ "lib.tsx": "import { forwardRef as fr ??? } from 'react';\nexport const Island = fr((props: any, ref: any) => {\n  return <div ref={ref}/>;\n});\n",
+ "app.tsx": APP_ISLAND}
+S["C30_memo_sameline_comparator"] = {
+ "lib.tsx": "import { memo } from 'react';\nexport const Island = memo((p: any) => <div/>, (a: any, b: any) => true);\n",
+ "app.tsx": APP_ISLAND}
+S["C31_direct_call"] = {
+ "lib.tsx": "import { forwardRef } from 'react';\nexport const Island = forwardRef((props: any, ref: any) => {\n  return <div ref={ref}/>;\n});\n",
+ "app.tsx": "import { Island } from './lib';\nexport function App() {\n  return (Island as any)({});\n}\nexport function App2() {\n  return Island({} as any, null as any);\n}\n"}
+S["C32_new_expression"] = {
+ "lib.tsx": "import { forwardRef } from 'react';\nexport const Island = forwardRef((props: any, ref: any) => {\n  return <div ref={ref}/>;\n});\n",
+ "app.tsx": "import { Island } from './lib';\nexport function App() {\n  return new (Island as any)();\n}\nexport function App2() {\n  return <Island/>;\n}\n"}
+S["C33_object_assign_escape"] = {"lib.tsx": lib("import React from 'react';\nObject.assign(React, { forwardRef: (f: any) => f });\n"), "app.tsx": APP_ISLAND}
+S["C34_alias_escape"] = {"lib.tsx": lib("import React from 'react';\nconst R: any = React;\nR.forwardRef = (f: any) => f;\n"), "app.tsx": APP_ISLAND}
+S["C35_namespace_member_write"] = {"lib.tsx": lib("import * as React from 'react';\n(React as any).forwardRef = (f: any) => f;\n"), "app.tsx": APP_ISLAND}
+S["C36_require_react_handle"] = {"lib.tsx": lib("import React from 'react';\nrequire('react').forwardRef = (f: any) => f;\n"), "app.tsx": APP_ISLAND}
+S["C37_named_form_default_write"] = {
+ "lib.tsx": "import React, { forwardRef } from 'react';\n(React as any).forwardRef = (f: any) => f;\nexport const Island = forwardRef((props: any, ref: any) => {\n  return <div ref={ref}/>;\n});\n",
+ "app.tsx": APP_ISLAND}
+S["C38_benign_react_uses"] = {
+ "lib.tsx": "import React from 'react';\ntype P = React.ComponentProps<'div'>;\nconst x: typeof React | null = null;\nexport const Island = React.forwardRef<HTMLDivElement, P>((props, ref) => {\n  const [s] = React.useState(0);\n  return <React.Fragment><div ref={ref}>{s}</div></React.Fragment>;\n});\nIsland.displayName = 'Island';\n",
+ "app.tsx": APP_ISLAND}
+S["C39_star_barrel_span_conflict"] = {
+ "impl.tsx": "import { memo } from 'react';\nexport const A = memo(function Same(p: any) {\n  return <div/>;\n});\nexport const B = memo(function Same(p: any) {\n  return <span/>;\n});\n",
+ "a.ts": "export { A as X } from './impl';\n",
+ "b.ts": "export { B as X } from './impl';\n",
+ "index.ts": "export * from './a';\nexport * from './b';\n",
+ "app.tsx": "import { X } from './index';\nexport function App() {\n  return <X/>;\n}\n"}
+S["C40_delete_member"] = {"lib.tsx": lib("import React from 'react';\ndelete (React as any).memo;\n"), "app.tsx": APP_ISLAND}
+S["C41_logical_assign"] = {"lib.tsx": lib("import React from 'react';\n(React as any).forwardRef ||= (f: any) => f;\nReact.forwardRef ??= React.forwardRef;\n"), "app.tsx": APP_ISLAND}
+S["C42_destructuring_write"] = {"lib.tsx": lib("import React from 'react';\nlet fake: any;\n[React.forwardRef] = [fake];\n"), "app.tsx": APP_ISLAND}
+S["C43_subscript_write"] = {"lib.tsx": lib("import React from 'react';\n(React as any)['forwardRef'] = (f: any) => f;\n"), "app.tsx": APP_ISLAND}
+S["C44_jsx_js_positive"] = {
+ "lib.jsx": "import React from 'react';\nexport const Island = React.memo((props) => {\n  return <div/>;\n});\n",
+ "app.jsx": "import { Island } from './lib';\nexport function App() {\n  return <Island/>;\n}\n"}
+S["C45_eval_in_file"] = {"lib.tsx": lib("import React from 'react';\neval('1');\n"), "app.tsx": APP_ISLAND}
+S["C46_member_write_other_prop"] = {"lib.tsx": lib("import React from 'react';\n(React as any).customThing = 1;\n"), "app.tsx": APP_ISLAND}
+S["C47_update_write"] = {"lib.tsx": lib("import React from 'react';\n(React as any).x = 0;\n") .replace("(React as any).x = 0;", "React.version++;"), "app.tsx": APP_ISLAND}
+S["C48_for_of_write"] = {"lib.tsx": lib("import React from 'react';\nfor (React.version of ['1']) {}\n"), "app.tsx": APP_ISLAND}
+S["C49_shorthand_escape"] = {"lib.tsx": lib("import React from 'react';\nexport const bag = { React };\n"), "app.tsx": APP_ISLAND}
+S["C50_export_clause_escape"] = {"lib.tsx": lib("import React from 'react';\nexport { React };\n"), "app.tsx": APP_ISLAND}
+S["C51_escaped_spelling"] = {"lib.tsx": lib("import React from 'react';\nconst v = Re\\u0061ct;\n"), "app.tsx": APP_ISLAND}
+S["C52_with_js"] = {
+ "lib.jsx": "import React from 'react';\nwith (Math) { max(1, 2); }\nexport const Island = React.memo((props) => {\n  return <div/>;\n});\n",
+ "app.jsx": "import { Island } from './lib';\nexport function App() {\n  return <Island/>;\n}\n"}
 for name, files in S.items():
     os.makedirs(name, exist_ok=True)
     for f, src in files.items():

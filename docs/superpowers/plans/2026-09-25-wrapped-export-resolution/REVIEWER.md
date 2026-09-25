@@ -7,7 +7,7 @@ longest list of findings.
 
 - **Subject:** `__SUBJECT__`. It is one of:
   - **Spec review:** `docs/superpowers/plans/2026-09-25-wrapped-export-resolution/` (`SPEC.md`,
-    `PLANNING-PROBES.md`, `IMPLEMENTOR.md`, `probes/`, `prototype/`).
+    `PLANNING-PROBES.md`, `IMPLEMENTOR.md`, `REVIEW-r1-fold.md`, `probes/`, `prototype/`).
   - **Implementation review:** frozen commit `__SHA__`, reviewed as the whole diff against `__BASE__`.
 - **Clone:** `__CLONE__`. Tracked files are read-only. You may build and run tests, and you may run the prototype or
   the implementation binary on **synthetic fixtures** (`probes/controls_gen.py` into a temp directory). Corpus
@@ -24,10 +24,18 @@ longest list of findings.
 ## What to check
 
 1. **The precision floor (highest priority).** Can any input make S1 produce an Exact `import_member` edge to a
-   function that rendering or calling the export does not invoke? Start from the F4 hazard (M2): a nested or shadowed
-   same-name function, a same-line nested function, a comparator arrow, a Pattern-3 over-named argument (M4), an
-   impostor or aliased `forwardRef`, a rebound `React`, re-export chains and barrels, conflicting claims, and
-   incremental rebuilds (T-S1). A WRONG must name the input source and the incorrect target.
+   function that rendering the export does not invoke, or an Exact edge from a site that is not a JSX element? Start
+   from:
+   - the F4 hazard (M2): a nested or shadowed same-name function, a same-line nested function, a comparator arrow, a
+     Pattern-3 over-named argument (M4);
+   - an impostor or aliased `forwardRef`;
+   - **any same-file mutation or escape of a `"react"` object** that SPEC §3.2 K1–K8 fails to refuse. Test the
+     closure claim of the write-position rule (w1–w3) against the JS/TS grammar;
+   - a non-JSX site that reaches a `SpannedLocal` target (§3.4);
+   - re-export chains and barrels, conflicting claims, and incremental rebuilds (T-S1).
+
+   A WRONG must name the input source and the incorrect target. A mutation from **another module**, or through a
+   host global, is outside the stated analysis model (§3.2). Argue it against D6 or D2, not as a mechanism WRONG.
 2. **Mechanism fidelity.** Do SPEC §3 and the code match the cited mechanisms: `src/ast.rs:2861-2893`,
    `src/js_exports.rs` resolution, `src/resolution.rs:3654-3680`, and `src/languages/mod.rs:1171-1183`? Check
    especially the span's line basis against `FunctionId` (`node_line_range`), and the default/namespace eligibility
@@ -39,14 +47,14 @@ longest list of findings.
    behavior changed (that is S1b's)? Has `function_name`, ownership or the DFG been touched? Does the cache bump
    cover every persisted change?
 5. **Tests (implementation review).** Is there a behavioral RED on base, with a concrete value? Are exact targets
-   asserted with decoys? Are the mutant kills M1–M7 confirmed? Re-run at least three yourself. A plausible bounded
+   asserted with decoys? Are the mutant kills M1–M11 confirmed? Re-run at least three yourself. A plausible bounded
    mutant that survives is a WRONG (a coverage gap with a concrete surviving input).
 6. **Measurement honesty (spec review).** Are the yields reproducible from the recorded commands and hashes? Does any
    claim outrun its evidence, for example treating the latent `paths` projection as measured, or treating the React
    semantics as proven?
 7. **Budget.** Recount honest lines (after rustfmt, non-blank, non-`//`, with `#[cfg(test)]` and `tests/**` counted
-   as tests) against **200 / 450 / 650**. A cap breach is a WRONG. Padding, or compressed logic that games the
-   count, is a SMELL.
+   as tests) against **420 / 650 / 1,070** (r2 re-cap, SPEC §9). A cap breach is a WRONG. Padding, or compressed
+   logic that games the count, is a SMELL.
 
 ## For every finding, provide
 
@@ -66,8 +74,9 @@ longest list of findings.
 
 - **Prior-round closure** (re-reviews only): CLOSED or NOT CLOSED for each prior finding, with evidence.
 - **Convergence view:** are the remaining findings converging (fewer, smaller, non-repeating) or open-class? What
-  would you cut to reach a sound result sooner? Answer explicitly: is D2 = Exact justified, or should the owner take
-  NameOnly?
+  would you cut to reach a sound result sooner? Answer explicitly: do the r2 conditions, (i) JSX-only binding and
+  (ii) closed occurrence custody, justify D2 = Exact? If not, name the concrete input that shows it. Also say whether
+  D6 (a) or (b) is right.
 - **Verified and not verified:** what you checked (commands and outputs), what you could not check, and why.
 
 List WRONG findings first. End with exactly one line: `VERDICT: APPROVE` (zero WRONG) or

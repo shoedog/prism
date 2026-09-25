@@ -25,3 +25,6 @@ C22 default-object alias <Stack.Row>: drop
 C23 debounce(arrow,100): drop
 C24 createSelector(a, arrow): drop
 C25 forwardRef(...) as any: drop
+C26 `import React` + React.forwardRef arrow: drop on base; Exact under prototype v2+ (added r2 to the generator; the original pre-run hypothesis record for C26/C27 is P6a-debug-expectations.md)
+C27 `import * as React` + React.forwardRef arrow: same as C26
+C28-C46: see P18-expectations-pre-run.md (r2)

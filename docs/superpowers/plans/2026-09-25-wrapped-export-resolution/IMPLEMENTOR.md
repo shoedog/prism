@@ -8,55 +8,61 @@ Tier-A rule. Proceed only if the dispatch states the owner's §0 answers. If the
 ## Ground rules
 
 - **Branch.** Use the implementation branch named in the dispatch, cut from the planning commit that contains this
-  packet. Record the base SHA.
+  packet (SPEC r2). Record the base SHA.
 - **Owned paths:**
-  - new `src/ast/js_wrapped_export.rs`, plus its `mod` line
-  - the declarator arm in `src/ast.rs:2861-2893`
-  - `src/js_exports.rs`
-  - `src/resolution.rs::js_ts_import_member_candidates` only
-  - `src/navigation/queries.rs` (call-stats keys only)
-  - `src/cpg_cache.rs` and `src/navigation/call_edge_cache.rs` (version, pin, note)
-  - new `tests/integration/js_wrapped_export*_test.rs`, and `tests/integration/main.rs`
-  - `tests/cli/call_stats_test.rs`, `tests/navigation/callers_test.rs`
-  - up to 3 new `eval/fixtures/typescript/*` directories
-  - existing tests that construct `ResolvedJsExport` (add `span: None`)
+  - new `src/ast/js_wrapped_export.rs` (with its `mod` line), under 600 lines;
+  - the declarator arm in `src/ast.rs:2861-2893`;
+  - `src/js_exports.rs`;
+  - `src/resolution.rs`: `js_ts_import_member_candidates`, its single call site in `resolve_call_site_full`, and
+    the new `DropReason::WrappedExportNonJsx`;
+  - `src/call_graph.rs`: `CallSite.jsx_element`, `jsx_element_at`, the three source constructors (`:1368`, `:1800`,
+    `:5101`) and `indirect_call_site`;
+  - `src/navigation/queries.rs` (call-stats keys and the drop match);
+  - `src/cpg_cache.rs` and `src/navigation/call_edge_cache.rs` (version, pin, note);
+  - struct-literal fix-ups that the new fields force. Measured in the prototype:
+    `src/navigation/partition_site_dump.rs:85` and `src/resolution_disproof.rs:88` (both `#[cfg(test)]`),
+    `src/resolution.rs` test `site()`, the `js_exports.rs` unit tests, `tests/name_resolution/consumer_test.rs:91`
+    and `tests/navigation/scoped_calls_test.rs:50`;
+  - new `tests/integration/js_wrapped_export*_test.rs`, and `tests/integration/main.rs`;
+  - `tests/cli/call_stats_test.rs`, `tests/navigation/callers_test.rs`;
+  - up to 3 new `eval/fixtures/typescript/*` directories (SPEC §7).
 - **Forbidden:**
-  - `Language::function_name`, `FunctionId`, or call-site ownership
-  - DFG and Step 5/5b code
-  - the existing list and default `Local` routes (that is S1b)
-  - new dependencies
-  - any edit to existing Tier-A fixtures
+  - `Language::function_name`, `FunctionId`, call-site ownership, `CallKind`;
+  - DFG and Step 5/5b code;
+  - the existing list and default `Local` routes (that is S1b);
+  - new dependencies;
+  - any edit to existing Tier-A fixtures;
   - running on the public or private corpora. Acceptance (SPEC §8.2) belongs to the controller.
-- **The prototype is evidence, not authority.** `prototype/wrapped-export-prototype.diff.txt` built and ran during
-  planning. It lacks the SPEC §3.1 clauses 1 (it had `const` only), 2 (parse recovery), 3 (uniqueness and
-  module-scope competitor) and 4 (comment skipping), the line-identity collision refusal (§3.3), the counters, the
-  cache bumps, and the tests. It also used `extract_import_bindings()` per declarator; compute it once per file.
-  Where the prototype and the SPEC differ, the SPEC wins.
+- **The prototype is evidence, not authority.** `prototype/wrapped-export-prototype-r2.diff.txt` builds, passes the
+  full suite (P16), and reproduces the acceptance yields (P18). It lacks:
+  - the tests, cache bumps and pins;
+  - the reuse of `extract_import_bindings()` for React imports (SPEC §9: it hand-parses them).
+
+  It also carries a mode switch (`PRISM_PROTO_WRAP_MODE`) that must **not** ship. It names the variant
+  `WrappedLocal`; the SPEC name is `SpannedLocal`. Where the prototype and the SPEC differ, the SPEC wins.
 
 ## Order of work (TDD)
 
-1. **RED first.** Write T-P1, T-P7 and T-O1 (admitted case), and the `forwardref_named_export` Tier-A fixture. To
-   let them compile, add the new types with **no behavior**: `SpannedLocal` is never produced, and `span` is always
-   `None`. Run the tests and capture a behavioral failure with its concrete value, for example "resolved kinds `[]`
-   ≠ `[(Exact, ImportMember)]`". Compile, setup and zero-test failures are inadmissible. Save the excerpt.
-2. **Implement** §3.1 in `src/ast/js_wrapped_export.rs`. It returns `Result<(String, usize, usize), &'static str>`,
-   where the error is the reason key. Then implement §3.2, §3.3 and §5. Turn the RED tests green.
-3. **Add the rest of §7:** T-P2 through T-P10, T-N1 through T-N14, T-O2, T-S1, T-C1, T-C2 and T-V1, and the
-   negative Tier-A fixture. For each positive test, record which production line it depends on, by reverting that
-   line and confirming the test fails. Do this at least for the span filter (§3.3), the provenance clause (§3.1.3)
-   and the first-argument rule (§3.1.4).
-4. **Mutation spot-checks.** Apply each mutant alone and confirm a test fails. Report which test killed it.
-   - (M1) Drop the span filter. T-P7 and T-N11 must fail.
-   - (M2) Accept any callee. T-N6 and T-N3 must fail.
-   - (M3) Accept `let`. T-N5 must fail.
-   - (M4) Pick the last argument. T-P4 must fail.
-   - (M5) Demote a collision to NameOnly instead of refusing. T-N11 must fail.
-   - (M6) Stop counting a reason. T-O1 must fail.
-   - (M7) Skip the cache bump. T-C2 must fail.
+1. **RED first.** Write T-P1, T-P7, T-J1 and T-O1 (admitted case), and the `forwardref_named_export` Tier-A fixture.
+   To let them compile, add the new types with **no behavior**:
+   - `SpannedLocal` is never produced;
+   - `span` is always `None`;
+   - `jsx_element` is always `false`;
+   - the new `DropReason` is never returned.
+
+   Capture a behavioral failure with its concrete value, for example "resolved kinds `[]` ≠
+   `[(Exact, ImportMember)]`". Compile, setup and zero-test failures are inadmissible. Save the excerpt.
+2. **Implement** SPEC §3.1–§3.2 in `src/ast/js_wrapped_export.rs`, returning
+   `Result<(String, usize, usize), &'static str>` in the R1–R12 order. Then §3.3, §3.4 and §5. Turn the RED tests
+   green.
+3. **Add the rest of §7:** T-P2–T-P11, T-J2–T-J4, T-N*, T-R6-*, T-R7-*, T-O2, T-O3, T-S1, T-C1, T-C2 and T-V1, plus
+   the two negative Tier-A fixtures. For the span filter, the JSX gate, R5 and R7, revert that production line and
+   confirm a positive test fails.
+4. **Mutants M1–M11** (SPEC §7). Apply each alone and record which test killed it.
 5. **Budget.** Run `cargo fmt`, then count honest lines: non-blank, non-`//`, with `#[cfg(test)]` and `tests/**`
-   counted as tests. The caps are **src 200 / tests 450 / combined 650**, with early stops at 180, 405 and 585. If a
-   cap would be exceeded, stop and return the count and the remaining items. Do not compress logic. Lines should be at
-   most 100 columns; list any unsplittable literal.
+   counted as tests. The caps are **src 420 / tests 650 / combined 1,070**, with early stops at 380, 585 and 960. If
+   a cap would be exceeded, stop and return the count plus the remaining items. Do not compress logic. Lines should be
+   at most 100 columns; list any unsplittable literal.
 
 ## Verification (report the totals, from logs)
 
@@ -75,16 +81,17 @@ Use `--allow-stale-sut` only straight after the `cargo build --release` in the s
 failure outside S1's scope, report it as found. Do not fix it or re-baseline it. Paste any Tier-A regression or
 flip-candidate verbatim.
 
-A synthetic yield smoke **is** allowed. Run the release binary with `nav --no-cache call-stats --dump-sites` on
-`probes/controls_gen.py` output (generate it into a temp directory, not the repo). The diff against base must match
-`probes/P6a-controls-proto.txt` on C02, C11, C14, C15, C17, C26 and C27 (Exact), and every other control must be
-unchanged.
+A synthetic yield smoke **is** allowed. Generate `probes/controls_gen.py` output into a temp directory (not the
+repo); it produces 52 scenarios. Run the release binary with `nav --no-cache call-stats --dump-sites` and
+`nav functions` on each, and summarize with `probes/controls_summarize.py`. The result must equal
+`probes/P18-controls-proto-a.txt` line for line. The only allowed differences are `FunctionId` spans, if your inner-span
+computation legitimately differs, and each such difference must be explained.
 
 ## Handback
 
 - Base and head SHAs; the file manifest; `git diff --stat <base> -- src tests eval Cargo.toml Cargo.lock`.
 - Honest-line counts per bucket, with the method and any lines over 100 columns.
-- The RED command and its failing excerpt; the revert-dependency notes; the mutant kill table (M1–M7).
+- The RED command and its failing excerpt; the revert-dependency notes; the mutant kill table (M1–M11).
 - Suite totals (default, mcp, Tier-A matrix and quick, Node gate), with log paths.
 - The synthetic control diff.
 - Deviations from the SPEC, each with its reason. Each deviation is a question for the owner, not a decision you
