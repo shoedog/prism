@@ -80,6 +80,13 @@ function synthetic() {
 function fetchFrom(bytes, calls = []) {
   return async url => { calls.push(url); return new Response(bytes.get(url)); };
 }
+function streamError() {
+  let yielded = false;
+  return new Response(new ReadableStream({pull(controller) {
+    if (!yielded) { yielded = true; controller.enqueue(new Uint8Array([1])); }
+    else controller.error(new Error('simulated socket reset'));
+  }}));
+}
 function single(pins, input) {
   return {schema: pins.schema, inputs: {[input]: pins.inputs[input]}};
 }
@@ -128,6 +135,8 @@ test('A2 rejects unauthenticated, unavailable, and over-cap bodies before instal
       'typescript artifact typescript.tgz: fetch status 503'],
     ['body cap', 'typescript', async () => undefined,
       'typescript artifact typescript.tgz: body cap'],
+    ['body read', 'typescript', async () => undefined,
+      'typescript artifact typescript.tgz: body read failed'],
   ];
   for (const [name, input, change, message] of cases) await t.test(name, async () => {
     const {pins, bytes} = synthetic(), only = single(copy(pins), input), root = clean(`a2-${name}`);
@@ -136,6 +145,7 @@ test('A2 rejects unauthenticated, unavailable, and over-cap bodies before instal
       ? async () => new Response(new ReadableStream({start(c) {
         c.enqueue(new Uint8Array(64 * 1024 * 1024 + 1)); c.close();
       }}))
+      : name === 'body read' ? async () => streamError()
       : fetchFrom(bytes);
     assert.deepEqual(await acquire({fetch, root, pins: only}), {ok: false, root, inputs: [
       {input, status: 'refused', error: message},
@@ -222,6 +232,11 @@ test('A6 converges on a winning rename race and preserves a foreign stage', asyn
 
 test('A7 root controls and POSIX apostrophe quoting', async () => {
   const {pins, bytes} = synthetic(), only = single(copy(pins), 'typescript');
+  const unsupported = clean('a7-unsupported');
+  const unsupportedResult = await acquire({fetch: fetchFrom(bytes), root: unsupported, pins: only,
+    platform: 'linux'});
+  assert.deepEqual(unsupportedResult, {ok: false, inputs: [], error: 'root: unsupported host'});
+  assert.equal(existsSync(unsupported), false);
   const volatile = join(tmpdir(), 'gate-inputs-a7');
   const volatileResult = await acquire({fetch: fetchFrom(bytes), root: volatile, pins: only});
   assert.deepEqual(volatileResult, {ok: false, inputs: [], error: 'root: volatile root'});
@@ -242,6 +257,14 @@ test('A7 root controls and POSIX apostrophe quoting', async () => {
     if (saved === undefined) delete process.env.PRISM_GATE_INPUTS_ROOT;
     else process.env.PRISM_GATE_INPUTS_ROOT = saved;
   }
+});
+
+test('CLI rejects invalid commands as a refusal', () => {
+  const result = spawnSync(process.execPath, [fileURLToPath(candidate), 'invalid-command'],
+    {encoding: 'utf8'});
+  const actual = {status: result.status, stdout: result.stdout, stderr: result.stderr};
+  const expected = {status: 2, stdout: '', stderr: 'cli: usage acquire|verify|env\n'};
+  assert.deepEqual(actual, expected);
 });
 
 test('A8 pins the files-only two-file tree-digest formula', () => {

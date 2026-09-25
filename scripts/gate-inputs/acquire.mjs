@@ -128,10 +128,15 @@ async function bodyBytes(fetch, artifact) {
   if (!response?.ok) refuse(`artifact ${artifact.name}: fetch status ${status}`);
   if (!response.body) refuse(`artifact ${artifact.name}: empty body`);
   const chunks = []; let total = 0;
-  for await (const chunk of response.body) {
-    total += chunk.length;
-    if (total > LIMIT) refuse(`artifact ${artifact.name}: body cap`);
-    chunks.push(Buffer.from(chunk));
+  try {
+    for await (const chunk of response.body) {
+      total += chunk.length;
+      if (total > LIMIT) refuse(`artifact ${artifact.name}: body cap`);
+      chunks.push(Buffer.from(chunk));
+    }
+  } catch (error) {
+    if (error instanceof Refusal) throw error;
+    refuse(`artifact ${artifact.name}: body read failed`);
   }
   return Buffer.concat(chunks);
 }
@@ -268,15 +273,15 @@ function print(result) {
   if (result.error) console.error(result.error);
 }
 async function main() {
-  const command = process.argv[2] ?? 'acquire';
-  if (!['acquire', 'verify', 'env'].includes(command)) refuse(`cli: usage acquire|verify|env`);
-  if (command === 'acquire') {
-    const result = await acquire();
-    print(result);
-    process.exitCode = result.ok ? 0 : 2;
-    return;
-  }
   try {
+    const command = process.argv[2] ?? 'acquire';
+    if (!['acquire', 'verify', 'env'].includes(command)) refuse(`cli: usage acquire|verify|env`);
+    if (command === 'acquire') {
+      const result = await acquire();
+      print(result);
+      process.exitCode = result.ok ? 0 : 2;
+      return;
+    }
     if (command === 'verify') {
       const verified = verifyInstalled();
       print({inputs: verified.inputs.map(({input}) => ({input, status: 'verified'}))});
