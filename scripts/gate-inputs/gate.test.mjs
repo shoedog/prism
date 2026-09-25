@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync,
+import {chmodSync, existsSync, symlinkSync, mkdirSync, readFileSync, readdirSync, rmSync,
   writeFileSync} from 'node:fs';
 import {dirname, join, resolve} from 'node:path';
 import test from 'node:test';
@@ -46,7 +46,9 @@ function fakeCargo(root, failing = false) {
   const body = failing ? '#!/bin/sh\n[ "$1" = --version ] && exit 0\nexit 101\n' :
     `#!/bin/sh\n[ "$1" = --version ] && { echo fake; exit 0; }\nprintf '%s\\n' "$@" > ${args}\n` +
     `printf '%s\\n' '${message}'\n`;
-  writeFileSync(cargo, body); chmodSync(cargo, 0o755); return {bin, native, args};
+  // rustup installs cargo as a symlink proxy; resolution must follow it.
+  writeFileSync(`${cargo}-real`, body); chmodSync(`${cargo}-real`, 0o755);
+  symlinkSync(`${cargo}-real`, cargo); return {bin, native, args};
 }
 const verified = () => ({root: '/inputs', inputs: [
   {input: 'typescript', dir: '/inputs/typescript/ts'},

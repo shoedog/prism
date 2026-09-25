@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import {createHash} from 'node:crypto';
-import {accessSync, createWriteStream, lstatSync, mkdirSync, readFileSync,
+import {accessSync, createWriteStream, lstatSync, mkdirSync, readFileSync, statSync,
   writeFileSync} from 'node:fs';
 import {X_OK} from 'node:constants';
 import {basename, dirname, join, resolve} from 'node:path';
@@ -34,7 +34,7 @@ export function buildEnv({inherited = process.env, inputs = {}} = {}) {
 export function resolveTool(name, path) {
   for (const dir of path.split(':')) {
     const file = resolve(dir || '.', name);
-    try { if (lstatSync(file).isFile()) { accessSync(file, X_OK); return file; } } catch {}
+    try { if (statSync(file).isFile()) { accessSync(file, X_OK); return file; } } catch {}
   }
   refuse(`preflight: ${name} not found`);
 }
