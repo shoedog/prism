@@ -1,0 +1,2998 @@
+[
+{
+"key": [
+"excalidraw-app/App.tsx",
+"ExcalidrawWrapper",
+373,
+"excalidraw-app/App.tsx",
+30551,
+30797,
+"AppMainMenu"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"excalidraw-app/components/AppMainMenu.tsx",
+"AppMainMenu",
+24,
+87,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"excalidraw-app/App.tsx",
+"ExcalidrawWrapper",
+373,
+"excalidraw-app/App.tsx",
+30806,
+30930,
+"AppWelcomeScreen"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"excalidraw-app/components/AppWelcomeScreen.tsx",
+"AppWelcomeScreen",
+12,
+82,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"excalidraw-app/App.tsx",
+"ExcalidrawWrapper",
+373,
+"excalidraw-app/App.tsx",
+31782,
+31837,
+"AppFooter"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"excalidraw-app/components/AppFooter.tsx",
+"AppFooter",
+10,
+25,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionAlign.tsx",
+"PanelComponent",
+98,
+"packages/excalidraw/actions/actionAlign.tsx",
+2722,
+3100,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionAlign.tsx",
+"PanelComponent",
+132,
+"packages/excalidraw/actions/actionAlign.tsx",
+3797,
+4186,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionAlign.tsx",
+"PanelComponent",
+166,
+"packages/excalidraw/actions/actionAlign.tsx",
+4877,
+5260,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionAlign.tsx",
+"PanelComponent",
+200,
+"packages/excalidraw/actions/actionAlign.tsx",
+5954,
+6341,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionAlign.tsx",
+"PanelComponent",
+232,
+"packages/excalidraw/actions/actionAlign.tsx",
+6973,
+7309,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionAlign.tsx",
+"PanelComponent",
+262,
+"packages/excalidraw/actions/actionAlign.tsx",
+7949,
+8291,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionCanvas.tsx",
+"PanelComponent",
+157,
+"packages/excalidraw/actions/actionCanvas.tsx",
+4547,
+4876,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionCanvas.tsx",
+"PanelComponent",
+198,
+"packages/excalidraw/actions/actionCanvas.tsx",
+5732,
+6065,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionCanvas.tsx",
+"PanelComponent",
+239,
+"packages/excalidraw/actions/actionCanvas.tsx",
+6978,
+7216,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionCropEditor.tsx",
+"PanelComponent",
+46,
+"packages/excalidraw/actions/actionCropEditor.tsx",
+1420,
+1576,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionDeleteSelected.tsx",
+"PanelComponent",
+308,
+"packages/excalidraw/actions/actionDeleteSelected.tsx",
+9026,
+9473,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionDistribute.tsx",
+"PanelComponent",
+89,
+"packages/excalidraw/actions/actionDistribute.tsx",
+2626,
+3029,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionDistribute.tsx",
+"PanelComponent",
+120,
+"packages/excalidraw/actions/actionDistribute.tsx",
+3626,
+4006,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionDuplicateSelection.tsx",
+"PanelComponent",
+112,
+"packages/excalidraw/actions/actionDuplicateSelection.tsx",
+3282,
+3820,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionExport.tsx",
+"PanelComponent",
+426,
+"packages/excalidraw/actions/actionExport.tsx",
+11916,
+12229,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionFinalize.tsx",
+"PanelComponent",
+392,
+"packages/excalidraw/actions/actionFinalize.tsx",
+12285,
+12558,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionGroup.tsx",
+"PanelComponent",
+201,
+"packages/excalidraw/actions/actionGroup.tsx",
+6103,
+6480,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionGroup.tsx",
+"PanelComponent",
+201,
+"packages/excalidraw/actions/actionGroup.tsx",
+6206,
+6242,
+"GroupIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"GroupIcon",
+990,
+1017,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionGroup.tsx",
+"PanelComponent",
+309,
+"packages/excalidraw/actions/actionGroup.tsx",
+9187,
+9575,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionGroup.tsx",
+"PanelComponent",
+309,
+"packages/excalidraw/actions/actionGroup.tsx",
+9289,
+9327,
+"UngroupIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"UngroupIcon",
+1020,
+1049,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionGroup.tsx",
+"icon",
+89,
+"packages/excalidraw/actions/actionGroup.tsx",
+2189,
+2225,
+"GroupIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"GroupIcon",
+990,
+1017,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionGroup.tsx",
+"icon",
+217,
+"packages/excalidraw/actions/actionGroup.tsx",
+6612,
+6650,
+"UngroupIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"UngroupIcon",
+1020,
+1049,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionHistory.tsx",
+"PanelComponent",
+77,
+"packages/excalidraw/actions/actionHistory.tsx",
+2601,
+2927,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionHistory.tsx",
+"PanelComponent",
+117,
+"packages/excalidraw/actions/actionHistory.tsx",
+3807,
+4133,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionLinearEditor.tsx",
+"PanelComponent",
+86,
+"packages/excalidraw/actions/actionLinearEditor.tsx",
+2907,
+3069,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionLinearEditor.tsx",
+"PanelComponent",
+176,
+"packages/excalidraw/actions/actionLinearEditor.tsx",
+5884,
+6088,
+"ButtonIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ButtonIcon.tsx",
+"ButtonIcon",
+22,
+39,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionLink.tsx",
+"PanelComponent",
+41,
+"packages/excalidraw/actions/actionLink.tsx",
+1410,
+1848,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"PanelComponent",
+1110,
+"packages/excalidraw/actions/actionProperties.tsx",
+35277,
+38708,
+"FontPicker"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/FontPicker/FontPicker.tsx",
+"FontPicker",
+66,
+125,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"PanelComponent",
+1429,
+"packages/excalidraw/actions/actionProperties.tsx",
+43038,
+43081,
+"TextAlignTopIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"TextAlignTopIcon",
+1723,
+1737,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"PanelComponent",
+1429,
+"packages/excalidraw/actions/actionProperties.tsx",
+43273,
+43319,
+"TextAlignMiddleIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"TextAlignMiddleIcon",
+1759,
+1774,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"PanelComponent",
+1429,
+"packages/excalidraw/actions/actionProperties.tsx",
+43509,
+43555,
+"TextAlignBottomIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"TextAlignBottomIcon",
+1741,
+1755,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"getArrowheadOptions",
+1575,
+"packages/excalidraw/actions/actionProperties.tsx",
+47333,
+47366,
+"ArrowheadNoneIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"ArrowheadNoneIcon",
+1296,
+1310,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"getArrowheadOptions",
+1575,
+"packages/excalidraw/actions/actionProperties.tsx",
+47515,
+47549,
+"ArrowheadArrowIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"ArrowheadArrowIcon",
+1314,
+1327,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"getArrowheadOptions",
+1575,
+"packages/excalidraw/actions/actionProperties.tsx",
+47675,
+47712,
+"ArrowheadTriangleIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"ArrowheadTriangleIcon",
+1331,
+1343,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"getArrowheadOptions",
+1575,
+"packages/excalidraw/actions/actionProperties.tsx",
+47883,
+47927,
+"ArrowheadTriangleOutlineIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"ArrowheadTriangleOutlineIcon",
+1347,
+1361,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"getArrowheadOptions",
+1575,
+"packages/excalidraw/actions/actionProperties.tsx",
+48208,
+48243,
+"ArrowheadCircleIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"ArrowheadCircleIcon",
+1365,
+1376,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"getArrowheadOptions",
+1575,
+"packages/excalidraw/actions/actionProperties.tsx",
+48410,
+48452,
+"ArrowheadCircleOutlineIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"ArrowheadCircleOutlineIcon",
+1380,
+1392,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"getArrowheadOptions",
+1575,
+"packages/excalidraw/actions/actionProperties.tsx",
+48576,
+48612,
+"ArrowheadDiamondIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"ArrowheadDiamondIcon",
+1396,
+1408,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"getArrowheadOptions",
+1575,
+"packages/excalidraw/actions/actionProperties.tsx",
+48781,
+48824,
+"ArrowheadDiamondOutlineIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"ArrowheadDiamondOutlineIcon",
+1412,
+1426,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"getArrowheadOptions",
+1575,
+"packages/excalidraw/actions/actionProperties.tsx",
+48998,
+49030,
+"ArrowheadBarIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"ArrowheadBarIcon",
+1430,
+1442,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"getArrowheadOptions",
+1575,
+"packages/excalidraw/actions/actionProperties.tsx",
+49256,
+49299,
+"ArrowheadCardinalityOneIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"ArrowheadCardinalityOneIcon",
+1446,
+1458,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"getArrowheadOptions",
+1575,
+"packages/excalidraw/actions/actionProperties.tsx",
+49470,
+49514,
+"ArrowheadCardinalityManyIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"ArrowheadCardinalityManyIcon",
+1462,
+1474,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"getArrowheadOptions",
+1575,
+"packages/excalidraw/actions/actionProperties.tsx",
+49699,
+49748,
+"ArrowheadCardinalityOneOrManyIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"ArrowheadCardinalityOneOrManyIcon",
+1478,
+1490,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"getArrowheadOptions",
+1575,
+"packages/excalidraw/actions/actionProperties.tsx",
+49933,
+49983,
+"ArrowheadCardinalityExactlyOneIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"ArrowheadCardinalityExactlyOneIcon",
+1494,
+1506,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"getArrowheadOptions",
+1575,
+"packages/excalidraw/actions/actionProperties.tsx",
+50169,
+50218,
+"ArrowheadCardinalityZeroOrOneIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"ArrowheadCardinalityZeroOrOneIcon",
+1510,
+1523,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/actions/actionProperties.tsx",
+"getArrowheadOptions",
+1575,
+"packages/excalidraw/actions/actionProperties.tsx",
+50406,
+50456,
+"ArrowheadCardinalityZeroOrManyIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/icons.tsx",
+"ArrowheadCardinalityZeroOrManyIcon",
+1527,
+1540,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/Actions.tsx",
+"CombinedArrowProperties",
+420,
+"packages/excalidraw/components/Actions.tsx",
+14868,
+15048,
+"PropertiesPopover"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/PropertiesPopover.tsx",
+"PropertiesPopover",
+27,
+101,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/Actions.tsx",
+"CombinedExtraActions",
+608,
+"packages/excalidraw/components/Actions.tsx",
+20343,
+20626,
+"PropertiesPopover"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/PropertiesPopover.tsx",
+"PropertiesPopover",
+27,
+101,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/Actions.tsx",
+"CombinedShapeProperties",
+318,
+"packages/excalidraw/components/Actions.tsx",
+11165,
+11345,
+"PropertiesPopover"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/PropertiesPopover.tsx",
+"PropertiesPopover",
+27,
+101,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/Actions.tsx",
+"CombinedTextProperties",
+517,
+"packages/excalidraw/components/Actions.tsx",
+17048,
+17559,
+"PropertiesPopover"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/PropertiesPopover.tsx",
+"PropertiesPopover",
+27,
+101,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/Actions.tsx",
+"MobileShapeActions",
+896,
+"packages/excalidraw/components/Actions.tsx",
+27940,
+28337,
+"Island"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/Island.tsx",
+"Island",
+14,
+22,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/App.tsx",
+"render",
+2091,
+"packages/excalidraw/components/App.tsx",
+75143,
+75752,
+"ContextMenu"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ContextMenu.tsx",
+"ContextMenu",
+34,
+133,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/ColorPicker/ColorPicker.tsx",
+"ColorPickerPopupContent",
+57,
+"packages/excalidraw/components/ColorPicker/ColorPicker.tsx",
+2898,
+4266,
+"PropertiesPopover"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/PropertiesPopover.tsx",
+"PropertiesPopover",
+27,
+101,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/ColorPicker/ColorPicker.tsx",
+"ColorPickerPopupContent",
+57,
+"packages/excalidraw/components/ColorPicker/ColorPicker.tsx",
+4294,
+5935,
+"Picker"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ColorPicker/Picker.tsx",
+"Picker",
+47,
+209,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/CommandPalette/CommandPalette.tsx",
+"CommandPaletteInner",
+199,
+"packages/excalidraw/components/CommandPalette/CommandPalette.tsx",
+26009,
+26242,
+"TextField"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/TextField.tsx",
+"TextField",
+35,
+116,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/DarkModeToggle.tsx",
+"DarkModeToggle",
+13,
+"packages/excalidraw/components/DarkModeToggle.tsx",
+590,
+881,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/Dialog.tsx",
+"Dialog",
+50,
+"packages/excalidraw/components/Dialog.tsx",
+3268,
+3296,
+"Island"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/Island.tsx",
+"Island",
+14,
+22,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/ElementLinkDialog.tsx",
+"ElementLinkDialog",
+25,
+"packages/excalidraw/components/ElementLinkDialog.tsx",
+3341,
+3767,
+"TextField"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/TextField.tsx",
+"TextField",
+35,
+116,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/ElementLinkDialog.tsx",
+"ElementLinkDialog",
+25,
+"packages/excalidraw/components/ElementLinkDialog.tsx",
+3818,
+4353,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/FontPicker/FontPicker.tsx",
+"FontPicker",
+66,
+"packages/excalidraw/components/FontPicker/FontPicker.tsx",
+2886,
+3228,
+"FontPickerList"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/FontPicker/FontPickerList.tsx",
+"FontPickerList",
+100,
+409,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/FontPicker/FontPickerList.tsx",
+"FontPickerList",
+100,
+"packages/excalidraw/components/FontPicker/FontPickerList.tsx",
+10614,
+11339,
+"PropertiesPopover"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/PropertiesPopover.tsx",
+"PropertiesPopover",
+27,
+101,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/FontPicker/FontPickerList.tsx",
+"FontPickerList",
+100,
+"packages/excalidraw/components/FontPicker/FontPickerList.tsx",
+11391,
+11549,
+"QuickSearch"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/QuickSearch.tsx",
+"QuickSearch",
+15,
+28,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/FontPicker/FontPickerTrigger.tsx",
+"FontPickerTrigger",
+19,
+"packages/excalidraw/components/FontPicker/FontPickerTrigger.tsx",
+915,
+1430,
+"ButtonIcon"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ButtonIcon.tsx",
+"ButtonIcon",
+22,
+39,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/HandButton.tsx",
+"HandButton",
+18,
+"packages/excalidraw/components/HandButton.tsx",
+371,
+840,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/ImageExportDialog.tsx",
+"ImageExportModal",
+65,
+"packages/excalidraw/components/ImageExportDialog.tsx",
+8715,
+9063,
+"FilledButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/FilledButton.tsx",
+"FilledButton",
+40,
+118,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/ImageExportDialog.tsx",
+"ImageExportModal",
+65,
+"packages/excalidraw/components/ImageExportDialog.tsx",
+9156,
+9504,
+"FilledButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/FilledButton.tsx",
+"FilledButton",
+40,
+118,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/ImageExportDialog.tsx",
+"ImageExportModal",
+65,
+"packages/excalidraw/components/ImageExportDialog.tsx",
+9660,
+10188,
+"FilledButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/FilledButton.tsx",
+"FilledButton",
+40,
+118,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/JSONExportDialog.tsx",
+"JSONExportModal",
+29,
+"packages/excalidraw/components/JSONExportDialog.tsx",
+1779,
+2136,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/JSONExportDialog.tsx",
+"JSONExportModal",
+29,
+"packages/excalidraw/components/JSONExportDialog.tsx",
+2429,
+3038,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/LayerUI.tsx",
+"renderFixedSideContainer",
+287,
+"packages/excalidraw/components/LayerUI.tsx",
+13550,
+13702,
+"UserList"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/UserList.tsx",
+"UserList",
+113,
+265,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/LayerUI.tsx",
+"renderSelectedShapeActions",
+237,
+"packages/excalidraw/components/LayerUI.tsx",
+7354,
+7690,
+"Island"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/Island.tsx",
+"Island",
+14,
+22,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/LayerUI.tsx",
+"renderSelectedShapeActions",
+237,
+"packages/excalidraw/components/LayerUI.tsx",
+8002,
+8328,
+"Island"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/Island.tsx",
+"Island",
+14,
+22,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+"renderPublishSuccess",
+107,
+"packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+3821,
+4142,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/LibraryMenuItems.tsx",
+"LibraryMenuItems",
+55,
+"packages/excalidraw/components/LibraryMenuItems.tsx",
+8551,
+8925,
+"LibraryMenuSection"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/LibraryMenuSection.tsx",
+"LibraryMenuSection",
+40,
+81,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/LibraryMenuItems.tsx",
+"LibraryMenuItems",
+55,
+"packages/excalidraw/components/LibraryMenuItems.tsx",
+8949,
+9274,
+"LibraryMenuSection"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/LibraryMenuSection.tsx",
+"LibraryMenuSection",
+40,
+81,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/LibraryMenuItems.tsx",
+"LibraryMenuItems",
+55,
+"packages/excalidraw/components/LibraryMenuItems.tsx",
+9625,
+9948,
+"LibraryMenuSection"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/LibraryMenuSection.tsx",
+"LibraryMenuSection",
+40,
+81,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/LibraryMenuItems.tsx",
+"LibraryMenuItems",
+55,
+"packages/excalidraw/components/LibraryMenuItems.tsx",
+10617,
+10939,
+"LibraryMenuSection"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/LibraryMenuSection.tsx",
+"LibraryMenuSection",
+40,
+81,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/LibraryMenuItems.tsx",
+"LibraryMenuItems",
+55,
+"packages/excalidraw/components/LibraryMenuItems.tsx",
+11857,
+12258,
+"TextField"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/TextField.tsx",
+"TextField",
+35,
+116,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/LinkButton.tsx",
+"LinkButton",
+3,
+"packages/excalidraw/components/LinkButton.tsx",
+247,
+261,
+"FilledButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/FilledButton.tsx",
+"FilledButton",
+40,
+118,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/MobileMenu.tsx",
+"MobileMenu",
+51,
+"packages/excalidraw/components/MobileMenu.tsx",
+4011,
+4043,
+"Island"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/Island.tsx",
+"Island",
+14,
+22,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/MobileToolBar.tsx",
+"MobileToolBar",
+90,
+"packages/excalidraw/components/MobileToolBar.tsx",
+6224,
+6681,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/MobileToolBar.tsx",
+"MobileToolBar",
+90,
+"packages/excalidraw/components/MobileToolBar.tsx",
+6710,
+7153,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/MobileToolBar.tsx",
+"MobileToolBar",
+90,
+"packages/excalidraw/components/MobileToolBar.tsx",
+9108,
+9561,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/MobileToolBar.tsx",
+"MobileToolBar",
+90,
+"packages/excalidraw/components/MobileToolBar.tsx",
+9633,
+10093,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/MobileToolBar.tsx",
+"MobileToolBar",
+90,
+"packages/excalidraw/components/MobileToolBar.tsx",
+10170,
+10591,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/OverwriteConfirm/OverwriteConfirmActions.tsx",
+"Action",
+16,
+"packages/excalidraw/components/OverwriteConfirm/OverwriteConfirmActions.tsx",
+735,
+899,
+"FilledButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/FilledButton.tsx",
+"FilledButton",
+40,
+118,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/PropertiesPopover.tsx",
+"PropertiesPopover",
+27,
+"packages/excalidraw/components/PropertiesPopover.tsx",
+2755,
+2789,
+"Island"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/Island.tsx",
+"Island",
+14,
+22,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/PublishLibrary.tsx",
+"SingleLibraryItem",
+107,
+"packages/excalidraw/components/PublishLibrary.tsx",
+4109,
+4351,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/SearchMenu.tsx",
+"SearchMenu",
+80,
+"packages/excalidraw/components/SearchMenu.tsx",
+9590,
+10861,
+"TextField"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/TextField.tsx",
+"TextField",
+35,
+116,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/ShareableLinkDialog.tsx",
+"ShareableLinkDialog",
+21,
+"packages/excalidraw/components/ShareableLinkDialog.tsx",
+1490,
+1655,
+"TextField"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/TextField.tsx",
+"TextField",
+35,
+116,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/ShareableLinkDialog.tsx",
+"ShareableLinkDialog",
+21,
+"packages/excalidraw/components/ShareableLinkDialog.tsx",
+1666,
+1917,
+"FilledButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/FilledButton.tsx",
+"FilledButton",
+40,
+118,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/Sidebar/Sidebar.tsx",
+"SidebarInner",
+49,
+"packages/excalidraw/components/Sidebar/Sidebar.tsx",
+4361,
+4543,
+"Island"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/Island.tsx",
+"Island",
+14,
+22,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/Stats/index.tsx",
+"StatsInner",
+116,
+"packages/excalidraw/components/Stats/index.tsx",
+5060,
+5080,
+"Island"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/Island.tsx",
+"Island",
+14,
+22,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/TTDDialog/Chat/ChatHistoryMenu.tsx",
+"ChatHistoryMenu",
+24,
+"packages/excalidraw/components/TTDDialog/Chat/ChatHistoryMenu.tsx",
+925,
+979,
+"FilledButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/FilledButton.tsx",
+"FilledButton",
+40,
+118,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/TTDDialog/Chat/ChatMessage.tsx",
+"ChatMessage",
+21,
+"packages/excalidraw/components/TTDDialog/Chat/ChatMessage.tsx",
+2606,
+3052,
+"FilledButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/FilledButton.tsx",
+"FilledButton",
+40,
+118,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/Toast.tsx",
+"ToastComponent",
+23,
+"packages/excalidraw/components/Toast.tsx",
+1715,
+1871,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/ToolPopover.tsx",
+"ToolPopover",
+38,
+"packages/excalidraw/components/ToolPopover.tsx",
+1839,
+2347,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/UserList.tsx",
+"UserList",
+113,
+"packages/excalidraw/components/UserList.tsx",
+5881,
+5901,
+"Island"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/Island.tsx",
+"Island",
+14,
+22,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/UserList.tsx",
+"UserList",
+113,
+"packages/excalidraw/components/UserList.tsx",
+6030,
+6177,
+"QuickSearch"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/QuickSearch.tsx",
+"QuickSearch",
+15,
+28,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/dropdownMenu/DropdownMenuContent.tsx",
+"MenuContent",
+16,
+"packages/excalidraw/components/dropdownMenu/DropdownMenuContent.tsx",
+2838,
+2894,
+"Island"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/Island.tsx",
+"Island",
+14,
+22,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/dropdownMenu/DropdownMenuSubContent.tsx",
+"DropdownMenuSubContent",
+14,
+"packages/excalidraw/components/dropdownMenu/DropdownMenuSubContent.tsx",
+1755,
+1872,
+"Island"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/Island.tsx",
+"Island",
+14,
+22,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/hyperlink/Hyperlink.tsx",
+"Hyperlink",
+68,
+"packages/excalidraw/components/hyperlink/Hyperlink.tsx",
+8917,
+9207,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/hyperlink/Hyperlink.tsx",
+"Hyperlink",
+68,
+"packages/excalidraw/components/hyperlink/Hyperlink.tsx",
+9227,
+9660,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+},
+{
+"key": [
+"packages/excalidraw/components/hyperlink/Hyperlink.tsx",
+"Hyperlink",
+68,
+"packages/excalidraw/components/hyperlink/Hyperlink.tsx",
+9726,
+10027,
+"ToolButton"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"packages/excalidraw/components/ToolButton.tsx",
+"ToolButton",
+64,
+208,
+"exact",
+"import_member"
+]
+]
+]
+}
+]
