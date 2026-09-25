@@ -493,6 +493,10 @@ pub struct CallSite {
     /// construction sets this while ordinary source sites leave it empty.
     #[serde(default)]
     pub pre_resolved_target: Option<FunctionId>,
+    /// JS/JSX/TSX: the site is a JSX element (`<X/>`), not a call expression.
+    /// Excluded from cmp_key. Only span-verified wrapped export targets consult it.
+    #[serde(default)]
+    pub jsx_element: bool,
 }
 
 /// Parameter arity for a method definition (language-agnostic shape).
@@ -1397,6 +1401,7 @@ impl CallGraph {
                         receiver_outcome: None,
                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                         pre_resolved_target: None,
+                        jsx_element: false,
                     };
                     calls
                         .entry(caller_id.clone())
@@ -1829,6 +1834,7 @@ impl CallGraph {
                             receiver_outcome: None,
                             origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                             pre_resolved_target: None,
+                            jsx_element: false,
                         };
                         file_call_sites.push((caller_id.clone(), site));
                     }
@@ -2868,6 +2874,7 @@ impl CallGraph {
             receiver_outcome: None,
             origin: CallSiteOrigin::IndirectResolution,
             pre_resolved_target: None,
+            jsx_element: false,
         }
     }
 
@@ -5126,6 +5133,7 @@ impl CallGraph {
                         receiver_outcome: None,
                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                         pre_resolved_target: None,
+                        jsx_element: false,
                     };
                     calls
                         .entry(caller_id.clone())

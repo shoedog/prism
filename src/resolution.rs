@@ -1031,6 +1031,8 @@ pub enum DropReason {
     ConcreteReceiverPromotedDeferred,
     /// P17 R1(e): a proven concrete receiver has no admissible selector lane.
     ConcreteReceiverNoSelector,
+    /// S1: a span-verified wrapped React export reached by a non-JSX site.
+    WrappedExportNonJsx,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -4495,6 +4497,7 @@ mod scope_resolution_predicate_tests {
             receiver_outcome: None,
             origin: CallSiteOrigin::Source,
             pre_resolved_target: None,
+            jsx_element: false,
         }
     }
 

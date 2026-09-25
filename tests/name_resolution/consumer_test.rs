@@ -114,6 +114,7 @@ fn call_site(file: &str, name: &str, byte: usize) -> CallSite {
         receiver_outcome: None,
         origin: CallSiteOrigin::Source,
         pre_resolved_target: None,
+        jsx_element: false,
     }
 }
 

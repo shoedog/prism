@@ -391,7 +391,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 Some(DropReason::GoSamePkgAllFiltered) => go_same_pkg_all_filtered_drop += 1,
                 Some(
                     DropReason::ConcreteReceiverPromotedDeferred
-                    | DropReason::ConcreteReceiverNoSelector,
+                    | DropReason::ConcreteReceiverNoSelector
+                    | DropReason::WrappedExportNonJsx,
                 ) => {}
                 None => {}
             }
