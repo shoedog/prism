@@ -1,0 +1,12 @@
+[case]
+language = "typescript"
+capability = "forwardref_ident_arg_nested_samename_refused"
+status = "pass"
+[seed]
+symbol = "Island"
+file = "lib.tsx"
+line = 6
+[expect]
+callers = []
+exact = false
+forbid_resolution_kind = "import_member"
