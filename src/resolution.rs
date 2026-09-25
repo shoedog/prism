@@ -4541,6 +4541,30 @@ mod scope_resolution_predicate_tests {
             "non-uniform edition must disprove nothing (keep-all)"
         );
     }
+
+    #[test]
+    fn t_j3_non_jsx_site_on_a_spanned_export_drops() {
+        // S1 T-J3: the gate keys on `site.jsx_element` alone; the same site binds when set.
+        let parse = |p: &str, s: &str| {
+            let parsed = crate::ast::ParsedFile::parse(p, s, crate::languages::Language::Tsx);
+            (p.to_string(), parsed.unwrap())
+        };
+        let lib = "import { memo } from 'react';\nexport const Island = memo((p: any) => null);\n";
+        let app =
+            "import { Island } from './lib';\nexport function App() {\n  return <Island/>;\n}\n";
+        let cg = CallGraph::build(&[parse("lib.tsx", lib), parse("app.tsx", app)].into());
+        let mut s = site("Island");
+        s.caller = cg.functions["App"][0].clone();
+        s.line = 3;
+        let out = cg.resolve_call_site_full(&s);
+        assert_eq!(out.drop, Some(DropReason::WrappedExportNonJsx));
+        s.jsx_element = true;
+        let out = cg.resolve_call_site_full(&s);
+        assert_eq!(
+            (out.resolved.len(), out.resolved[0].target.name.as_str()),
+            (1, "Island")
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------

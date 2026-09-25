@@ -555,3 +555,23 @@ fn macro_arg_method_call_hits_the_existing_r6_multi_owner_drop_floor() {
         ev.items
     );
 }
+
+#[test]
+fn callers_of_a_wrapped_export_are_its_jsx_import_sites() {
+    // S1 T-V1 (wrapped-export SPEC §3.4): nav correlation inherits the span and JSX gates.
+    let lib = "import { forwardRef } from 'react';\nexport const Island = forwardRef((p: any, r: \
+        any) => {\n  return null;\n});\n";
+    let app = "import { Island } from './lib';\nexport function App() {\n  return <Island/>;\n}\n\
+        export function Direct() {\n  return Island({}, null);\n}\n";
+    let s = session(&[("lib.tsx", lib), ("app.tsx", app)]);
+    let ev = queries::callers(&s, Some("Island"), Some("lib.tsx"), None, 1).unwrap();
+    assert_eq!(ev.items.len(), 1, "{:?}", ev.items);
+    let item = &ev.items[0];
+    assert!(matches!(&item.symbol,
+        Some(SymbolRef::Function { name, file, .. }) if name == "App" && file == "app.tsx"));
+    assert_eq!(item.score, 1.0);
+    assert!(item
+        .why
+        .iter()
+        .any(|r| matches!(r, Reason::Resolution { kind } if kind == "import_member")));
+}
