@@ -1,5 +1,9 @@
 # Spec round 1 (sol, FIX 5 WRONG / 2 SMELL): fold record
 
+> **Superseded in part (r3, Branch P).** The W1 row's D6 = (a) custody design was refuted by sol's round 2 and
+> replaced by the owner's Branch-P model (SPEC §0 D2/D6, §3.2; `REPLAN-fable.md`). All other rows stand. The
+> r2 → r3 disposition is recorded in SPEC §11.
+
 The controller directed that D2 = Exact be kept, and that it meet sol's two stated conditions: (i) JSX-only binding
 and (ii) closed provenance of the mutable React object. Every finding below is folded. Each fix was re-measured with
 the r2 prototype on all four corpora and all 52 controls (PLANNING-PROBES P16–P24).

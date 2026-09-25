@@ -1,83 +1,102 @@
-# Independent review: wrapped-export resolution S1 (round __ROUND__ of 2)
+# Independent review: wrapped-export resolution S1, Branch P (spec round 3 of 3, owner-approved, final)
 
-Review this as a **senior or principal engineer whose goal is the project's long-term health**. Be rigorous in
-finding real defects, and never invent them. Every finding must stand on a concrete scenario grounded in this
-repository and the stated scope. A clean result is a valid result. The aim is the best outcome for prism, not the
-longest list of findings.
+Review as a **senior or principal engineer whose goal is the project's long-term health**. Be rigorous in finding real
+defects, and never invent them. Every finding must stand on a concrete scenario grounded in this repository and in
+the analysis model below. A clean result is a valid result. The aim is the best outcome for prism, not the longest
+list of findings.
 
 - **Subject:** `__SUBJECT__`. It is one of:
   - **Spec review:** `docs/superpowers/plans/2026-09-25-wrapped-export-resolution/` (`SPEC.md`,
-    `PLANNING-PROBES.md`, `IMPLEMENTOR.md`, `REVIEW-r1-fold.md`, `probes/`, `prototype/`).
+    `PLANNING-PROBES.md`, `REPLAN-fable.md`, `IMPLEMENTOR.md`, `REVIEW-r1-fold.md`, `probes/`, `prototype/`).
   - **Implementation review:** frozen commit `__SHA__`, reviewed as the whole diff against `__BASE__`.
-- **Clone:** `__CLONE__`. Tracked files are read-only. You may build and run tests, and you may run the prototype or
-  the implementation binary on **synthetic fixtures** (`probes/controls_gen.py` into a temp directory). Corpus
-  acceptance belongs to the controller.
+- **Clone:** `__CLONE__`. Tracked files are read-only. You may build, run tests, and run the prototype or the
+  implementation binary on **synthetic fixtures** (`probes/controls_gen.py` into a temp directory). Corpus acceptance
+  belongs to the controller.
 - **Authority:**
-  - `SPEC.md` (normative), including §0 as answered by the owner
-  - `PLANNING-PROBES.md` (measured grounding; each claim is labelled MEASURED/READ/ASSUMPTION)
-  - `CLAUDE.md`
-  - the P4 spec, `docs/superpowers/specs/2026-07-03-prism-p4-js-export-modeling-spec.md`, and its F4 rationale
-- **Prior rounds:** `__PRIOR__`
-- **Cap:** 2 rounds. There is no third round. At the cap, the controller classifies the remaining findings as
-  converging or open-class and escalates to the owner.
+  - `SPEC.md` (normative, r3), including §0 as answered by the owner;
+  - `PLANNING-PROBES.md` (measured grounding, labelled MEASURED/READ/ASSUMPTION);
+  - `REPLAN-fable.md` and its evidence at `~/prism-evidence/wrapped-export/replan/`;
+  - `CLAUDE.md`;
+  - the P4 spec and its F4 rationale.
+- **Prior rounds:** r1 `__R1__` (folded, `REVIEW-r1-fold.md`); r2 `__R2__` (resolved by owner decision, Branch P;
+  SPEC §11).
+- **Cap:** this is the owner-approved final round. There is no round 4. The controller classifies what remains and
+  escalates to the owner.
+
+## The analysis model is fixed for this round
+
+The owner has set the confidence contract for this slice. Judge the packet **against this model**, not a stronger one:
+
+> Exact is a static-binding grade. S1 proves what a name denotes: the callee is a unique, unwritten,
+> value-typed ESM import binding of `"react"`; the export target is the inner function's exact span; only
+> JSX element sites bind. Runtime mutation of the React module object, by any means, from this file or any
+> other, is out of model, as it is for every `import_member` edge prism emits on `main`
+> (`~/prism-evidence/wrapped-export/replan/RESULTS.md`, Q1–Q6, Q9).
+
+**What is a WRONG under this model.** Any of the following. Give the input, the incorrect result, the mechanism and
+a file:line.
+- A concrete input where the span-verified target is a callable that the name does not statically denote: a nested
+  or shadowed same-name function, a comparator arrow, a Pattern-3 over-named argument, an impostor or non-`"react"`
+  `forwardRef`, a CommonJS-acquired wrapper, a parse-recovered import, a barrel conflict, or an incremental-rebuild
+  epoch that disagrees with the full build.
+- An Exact edge from a non-JSX site.
+- A refusal that is counted twice or not counted.
+- A cap breach.
+
+**What is not a WRONG.** Any input whose only defect is that the React object is mutated or re-acquired at runtime:
+`React.forwardRef = …`, `require("react")…`, a computed `require` specifier, `Object.defineProperty`,
+`__defineGetter__`, `eval`, `arguments[1]`, `module.require`, host globals. These are pinned as model-boundary tests
+MB1–MB3 asserting Exact. If you think the model itself is wrong, say so under **Convergence view** as an argument
+against D2, with the cost you would pay in edges. Do not count it as a finding.
 
 ## What to check
 
-1. **The precision floor (highest priority).** Can any input make S1 produce an Exact `import_member` edge to a
-   function that rendering the export does not invoke, or an Exact edge from a site that is not a JSX element? Start
-   from:
-   - the F4 hazard (M2): a nested or shadowed same-name function, a same-line nested function, a comparator arrow, a
-     Pattern-3 over-named argument (M4);
-   - an impostor or aliased `forwardRef`;
-   - **any same-file mutation or escape of a `"react"` object** that SPEC §3.2 K1–K8 fails to refuse. Test the
-     closure claim of the write-position rule (w1–w3) against the JS/TS grammar;
-   - a non-JSX site that reaches a `SpannedLocal` target (§3.4);
-   - re-export chains and barrels, conflicting claims, and incremental rebuilds (T-S1).
-
-   A WRONG must name the input source and the incorrect target. A mutation from **another module**, or through a
-   host global, is outside the stated analysis model (§3.2). Argue it against D6 or D2, not as a mechanism WRONG.
-2. **Mechanism fidelity.** Do SPEC §3 and the code match the cited mechanisms: `src/ast.rs:2861-2893`,
-   `src/js_exports.rs` resolution, `src/resolution.rs:3654-3680`, and `src/languages/mod.rs:1171-1183`? Check
-   especially the span's line basis against `FunctionId` (`node_line_range`), and the default/namespace eligibility
-   point (M10).
-3. **Fail-closed completeness.** Does each row of SPEC §4 have a test that would catch its regression? Are there
-   refusal gaps in the §3.1 reason set, meaning a skip that is not counted or is counted twice? Is the invariant
-   between `skipped_expr_count` and the reason counts pinned?
-4. **Scope.** Is anything changed outside the owned paths (IMPLEMENTOR)? Has any existing list or default `Local`
-   behavior changed (that is S1b's)? Has `function_name`, ownership or the DFG been touched? Does the cache bump
-   cover every persisted change?
-5. **Tests (implementation review).** Is there a behavioral RED on base, with a concrete value? Are exact targets
-   asserted with decoys? Are the mutant kills M1–M11 confirmed? Re-run at least three yourself. A plausible bounded
+1. **The precision floor under the model.** Look for static misbindings of the kinds listed above. Test especially:
+   - the span filter against `FunctionId` line identity (`node_line_range`);
+   - R11 and the §3.4 collision refusal;
+   - the ESM-only React import table (T-N18, M13);
+   - R6 P1–P5, including sol's P2 collision fixture (T-R6-P2, M12);
+   - the JSX gate (`CallSite.jsx_element`, `WrappedExportNonJsx`).
+2. **Mechanism fidelity.** Do SPEC §3 and the code match the cited mechanisms? Check `src/ast.rs:2861-2893`, the
+   `src/js_exports.rs` resolution, `src/resolution.rs:3654-3680`, `src/languages/mod.rs:1171-1183`, the three
+   `CallSite` constructors, and the drop match in `src/navigation/queries.rs:385-397`.
+3. **Completeness of refusals.** Does every row of SPEC §4 that says "drop" have a test that would catch its
+   regression? Is the invariant between `skipped_expr_count` and `sum(skipped_decl_reasons)` pinned (T-O3)? Does
+   every MB test assert Exact and cite §3.2?
+4. **Scope.** Check for changes outside the owned paths (IMPLEMENTOR). Check for any change to existing list or
+   default `Local` behavior (that is S1b). Check for any runtime-mutation guard, which is forbidden under Branch P.
+   Check that the `CLAUDE.md` paragraph matches SPEC §3.2.1 verbatim (implementation review), and that the cache
+   bump covers every persisted change.
+5. **Tests (implementation review).** Is there a behavioral RED on base with a concrete value? Are exact targets
+   asserted with decoys? Are mutants M1–M9 and M11–M13 confirmed? Re-run at least three yourself. A plausible bounded
    mutant that survives is a WRONG (a coverage gap with a concrete surviving input).
 6. **Measurement honesty (spec review).** Are the yields reproducible from the recorded commands and hashes? Does any
-   claim outrun its evidence, for example treating the latent `paths` projection as measured, or treating the React
-   semantics as proven?
+   claim outrun its evidence? For example: treating the latent `paths` projection as measured, treating React's
+   rendering contract as proven, or calling anything "closed" beyond static provenance.
 7. **Budget.** Recount honest lines (after rustfmt, non-blank, non-`//`, with `#[cfg(test)]` and `tests/**` counted
-   as tests) against **420 / 650 / 1,070** (r2 re-cap, SPEC §9). A cap breach is a WRONG. Padding, or compressed
-   logic that games the count, is a SMELL.
+   as tests) against **350 / 600 / 950** (owner D7). A cap breach is a WRONG. The early stops (315 / 540 / 855) are
+   reporting checkpoints; passing one is not a finding. Padding, or compressed logic that games the count, is a
+   SMELL.
 
 ## For every finding, provide
 
-1. **Tag.**
-   - **WRONG:** a concrete input or state that produces an incorrect or unsafe result. Give the input, the incorrect
-     result, the mechanism, and a file:line.
-   - **SMELL:** a real risk, gap, or maintainability concern with no demonstrated incorrect result.
+1. **Tag.** WRONG (a concrete failure under the model: input, incorrect result, mechanism, file:line) or SMELL (a
+   real risk, gap, or maintainability concern with no demonstrated incorrect result). Report WRONG items first. A
+   finding without a concrete failure scenario is a SMELL.
 2. **Recommended fix.** Bounded and specific.
 3. **Options and alternatives.** Give at least one alternative, with its tradeoffs in cost, risk, scope and long-term
    maintenance. Include "accept and document as out of scope" where that is reasonable (for example S1b, S2 and S3
    material).
-4. **Self-critique: when this finding would not apply.** State the assumptions it depends on: React semantics, the
-   reachable inputs, and the scope boundaries in SPEC §2. Say how confident you are that they hold here. If the
-   finding lies outside the stated scope or an owner decision, say so plainly, and downgrade or drop it.
+4. **Self-critique: when this finding would not apply.** Name the assumptions it rests on: React semantics, the
+   reachable inputs, the §3.2 model, and the scope in SPEC §2. Say how confident you are that they hold here. If the
+   finding lies outside the model or an owner decision, say so plainly, and move it to the convergence view.
 
 ## Also provide
 
-- **Prior-round closure** (re-reviews only): CLOSED or NOT CLOSED for each prior finding, with evidence.
-- **Convergence view:** are the remaining findings converging (fewer, smaller, non-repeating) or open-class? What
-  would you cut to reach a sound result sooner? Answer explicitly: do the r2 conditions, (i) JSX-only binding and
-  (ii) closed occurrence custody, justify D2 = Exact? If not, name the concrete input that shows it. Also say whether
-  D6 (a) or (b) is right.
-- **Verified and not verified:** what you checked (commands and outputs), what you could not check, and why.
+- **Prior-round closure.** For r2 W1–W3 and SMELL 1–2 (and any r1 item you re-check), state CLOSED, NOT CLOSED, or
+  OUT OF MODEL. For OUT OF MODEL, name the pinned test (MB1–MB3) that documents it.
+- **Convergence view.** What remains, and is it converging or open-class *under the model*? What would you cut? If
+  you disagree with the model (D2), argue it here with its edge cost (Branch S keeps 7 / 0 of 107 / 4).
+- **Verified and not verified.** What you checked (commands and outputs), what you could not check, and why.
 
-List WRONG findings first. End with exactly one line: `VERDICT: APPROVE` (zero WRONG) or
-`VERDICT: FIX (<n> WRONG / <m> SMELL)`.
+End with exactly one line: `VERDICT: APPROVE` (zero WRONG) or `VERDICT: FIX (<n> WRONG / <m> SMELL)`.

@@ -8,8 +8,8 @@ file:line), or **ASSUMPTION**. Where reading and measurement both apply, the mea
 - **Base.** `origin/main` `12ca6e8e` (PR #324 merge), clean tree. The release `prism` built from it has SHA-256
   `60755871…5da` (`6075587161921bf4f7289763ca30ccbbbcfa004696f8d4368ec7383caf2745da`).
 - **Evidence root.** `/Users/wesleyjinks/prism-evidence/wrapped-export/planning/` (outside `/tmp`). Its
-  `MANIFEST.sha256` (r2: 1,207 files, including all r2 control outputs) has SHA-256 `951e9dbc…efea`. The r1
-  manifest was `1e35eaa4…c204`. The probe tools under `probes/` are byte copies of
+  `MANIFEST.sha256` (r3: 1,491 files, including the Branch-P runs) has SHA-256 `68c05a1f…bb1c`. Earlier
+  manifests: r2 `951e9dbc…efea`, r1 `1e35eaa4…c204`. The probe tools under `probes/` are byte copies of
   `<evidence>/census/*.py`, `controls/gen.py`, `controls/summarize.py` and `budget/honest_lines.py`.
 - **Prototype.** A throwaway worktree (detached at `12ca6e8e`, never committed, removed after the probes). The diff
   is `prototype/wrapped-export-prototype.diff.txt`. Both binaries are preserved at `<evidence>/bin/`:
@@ -245,6 +245,29 @@ Control C37 is refused under both D6 options.
 | P22 | clean-directory `python3 controls_gen.py`, then r2(a) over its output | hash-identical files; identical summary | **identical** (107 files for 52 scenarios; `SCENARIOS.json` identical; summary identical) | `repro-clean/` |
 | P23 | Tier-A `--matrix-only --sut-bin <r2>` | 159/159 | **159/159 ok** | `P10-proto-r2-tier-a-matrix.log` |
 | P24 | T census re-run with the recorded inventory (sol S2) | 173 indexed | 176 rows, **173 indexed** (sol's result). The r1 artifact was generated with an empty inventory; it is kept as `census/P2-tssrc-census.empty-inventory.json`. The shape totals are unchanged | `census/P2-tssrc-census.json` |
+
+## Round 3: Branch P (owner decision after the r2 cap)
+
+**M16. Model** (owner decision; `REPLAN-fable.md` §1.2, replan Q1–Q9). Exact is a static-binding grade. Runtime
+mutation or re-acquisition of the React object is out of model, as it is for `import_member` on `main`. This
+supersedes M14 and M15 as design inputs. M15 remains a true statement about bundlers, but it no longer drives a
+refusal. r2 custody (K1–K8) is dropped.
+
+The Branch-P prototype is the r2 prototype with custody (`react_object_unaccounted`, `react_object_use_accounted`,
+`member_written`, and the R7 call) and the mode switch removed. The ESM hand parser is kept. It was built in a
+scratch worktree (detached at `938ab8eb`, removed afterwards). The diff is
+`prototype/wrapped-export-prototype-P.diff.txt`, and the binary is `<evidence>/bin/prism-prototype-P`
+(`19a1d54e…`). Four controls were added to the generator: C53 = MB2 (sol r2 W1), C54 = MB3 (sol r2 W3),
+C55 = sol's r2 SMELL-1 P2 fixture, and C56 = T-N18.
+
+| ID | Command | Expected (pre-run) | Actual | Output |
+|---|---|---|---|---|
+| P25 | `cargo test --offline --no-fail-fast` in the Branch-P prototype | 4,559 / 0 / 1 | **4,559 / 0 / 1** | `P25-proto-P-full-suite.log` |
+| P26 | `nav --no-cache call-stats [--dump-sites]` on X, F, R, T; `rowdiff.py`; `audit.py`; `dfg-stats --edges` on X; `honest_lines.py` on the scratch commit | 107 / 4 / 0 / 0, identical to r2(a); about 325 src | **X 107, F 4**, row-diffs **byte-identical** to r2(a) and r1; audit 107/107 and 4/4; R and T byte-identical to base; X DFG edges identical; counters identical to r2(a) (SPEC §5); **325 src / 17 test** honest lines | `proto-P-runs/` |
+| P27 | M12 mutant (P2 removed), rebuilt, run on C55 | C55 flips to Exact (it exercises P2, not P1) | **Exact import_member → lib.tsx:Island@3** | `controls/M12-C55.jsonl`, `probes/P27-M12-expectation-pre-run.md` |
+| P28 | all 56 controls under the Branch-P prototype | `probes/PP-expectations-pre-run.md` | **every row as expected.** Exactly 18 controls changed against r2(a) (C28, C33–C37, C40–C43, C45–C52), all to Exact; C53 and C54 are Exact; C55 drops with `callee_provenance`; C56 drops with `callee_not_admitted`; `react_object_unaccounted` appears nowhere | `probes/PP-controls-proto.txt` |
+| P28c | clean-directory generation plus a Branch-P run | identical | **identical** (115 files for 56 scenarios; `SCENARIOS.json` and summary identical) | `repro-clean/` |
+| P29 | Tier-A `--matrix-only --sut-bin <P>` | 159/159 | **159/159 ok** | `P10-proto-P-tier-a-matrix.log` |
 
 ## Not measured, and why
 

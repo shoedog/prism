@@ -133,6 +133,19 @@ S["C51_escaped_spelling"] = {"lib.tsx": lib("import React from 'react';\nconst v
 S["C52_with_js"] = {
  "lib.jsx": "import React from 'react';\nwith (Math) { max(1, 2); }\nexport const Island = React.memo((props) => {\n  return <div/>;\n});\n",
  "app.jsx": "import { Island } from './lib';\nexport function App() {\n  return <Island/>;\n}\n"}
+# ---- Branch P controls (owner 2026-09-25; sol r2 W1-W3 as model-boundary MB tests; r2 SMELL folds) ----
+S["C53_MB2_named_require_write"] = {
+ "lib.jsx": "import { forwardRef } from 'react';\n\nfunction fake() {\n  return function Replacement() { return null; };\n}\n\nrequire('react').forwardRef = fake;\nexport const Island = forwardRef((props, ref) => <div ref={ref} />);\n",
+ "app.jsx": "import { Island } from './lib';\nexport function App() {\n  return <Island/>;\n}\n"}
+S["C54_MB3_define_getter"] = {
+ "lib.jsx": "import React from 'react';\n\nfunction fake() {\n  return function Replacement() { return null; };\n}\n\nReact.__defineGetter__('forwardRef', () => fake);\nexport const Island = React.forwardRef((props, ref) => <div ref={ref} />);\n",
+ "app.jsx": "import { Island } from './lib';\nexport function App() {\n  return <Island/>;\n}\n"}
+S["C55_P2_type_only_collision"] = {
+ "lib.tsx": "import { memo } from 'react';\nimport type { T as memo } from './types';\nexport const Island = memo((props: any) => {\n  return <div/>;\n});\n",
+ "app.tsx": APP_ISLAND}
+S["C56_TN18_destructured_require"] = {
+ "lib.jsx": "const { forwardRef } = require('react');\nexport const Island = forwardRef((props, ref) => {\n  return <div ref={ref}/>;\n});\n",
+ "app.jsx": "import { Island } from './lib';\nexport function App() {\n  return <Island/>;\n}\n"}
 for name, files in S.items():
     os.makedirs(name, exist_ok=True)
     for f, src in files.items():

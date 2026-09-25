@@ -50,5 +50,9 @@
  "C49_shorthand_escape",
  "C50_export_clause_escape",
  "C51_escaped_spelling",
- "C52_with_js"
+ "C52_with_js",
+ "C53_MB2_named_require_write",
+ "C54_MB3_define_getter",
+ "C55_P2_type_only_collision",
+ "C56_TN18_destructured_require"
 ]
