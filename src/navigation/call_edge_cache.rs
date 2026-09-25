@@ -94,7 +94,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v51: rejected CJS name retention and source-self-binding write proof.
 // v52: source-only receiver self names and non-hidden anonymous callback writes.
 // v53: JS/TS/TSX nested-call execution ownership and identity-collision refusal.
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 53;
+// v54: span-verified wrapped React exports bind JSX sites only (CPG v98).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 54;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -713,7 +714,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 53);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 54);
     }
 
     #[test]

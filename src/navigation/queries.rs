@@ -378,6 +378,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     // this. Keyed by `site.receiver_recovery` (Debug-formatted; "none" when
     // absent) so Go misses stop landing unattributed.
     let mut dropped_go_receiver: BTreeMap<String, usize> = BTreeMap::new();
+    let mut wrapped_non_jsx = 0usize;
     for sites in cg.calls.values() {
         for site in sites {
             total += 1;
@@ -389,10 +390,10 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 Some(DropReason::UnknownName) => unknown += 1,
                 Some(DropReason::FuncValueFanout) => func_value_fanout += 1,
                 Some(DropReason::GoSamePkgAllFiltered) => go_same_pkg_all_filtered_drop += 1,
+                Some(DropReason::WrappedExportNonJsx) => wrapped_non_jsx += 1,
                 Some(
                     DropReason::ConcreteReceiverPromotedDeferred
-                    | DropReason::ConcreteReceiverNoSelector
-                    | DropReason::WrappedExportNonJsx,
+                    | DropReason::ConcreteReceiverNoSelector,
                 ) => {}
                 None => {}
             }
@@ -557,6 +558,12 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "member_hidden_continue_poison": ge.member_hidden_continue_poison,
     });
 
+    let mut decl_reasons: BTreeMap<String, usize> = BTreeMap::new();
+    for facts in cg.js_ts_exports.values() {
+        for (reason, n) in &facts.skipped_decl_reasons {
+            *decl_reasons.entry(reason.clone()).or_default() += n;
+        }
+    }
     let mut stats = serde_json::json!({
         "total_call_sites": total,
         "kinds": kinds,
@@ -630,6 +637,15 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         // structural skip elsewhere, not counted here; spread-poisoned
         // literals, non-arrow/function-expr initializers, and arbitrary
         // default-export/CJS-assignment RHS all count here).
+        // S1: span-verified wrapped React exports and declarator skip reasons (a
+        // subset of `js_export_skipped_exprs`).
+        "js_export_spanned_admitted": cg
+            .js_ts_exports
+            .values()
+            .map(|f| f.spanned_admitted)
+            .sum::<usize>(),
+        "js_export_skipped_decl_reasons": decl_reasons,
+        "dropped_wrapped_export_non_jsx": wrapped_non_jsx,
         "js_export_skipped_exprs": cg
             .js_ts_exports
             .values()

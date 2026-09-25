@@ -112,6 +112,8 @@ impl JsExportFacts {
             && self.star_reexports.is_empty()
             && self.skipped_expr_count == 0
             && self.conflicted.is_empty()
+            && self.spanned_admitted == 0
+            && self.skipped_decl_reasons.is_empty()
     }
 
     /// Record a named-export raw fact, poisoning (marking conflicted) a name
@@ -296,7 +298,18 @@ fn resolve_one_inner(
     if let Some(target) = facts.named.get(name) {
         return match target {
             JsExportTarget::UnprovenLocal(_) => ExportLookup::BlockedClaim,
-            JsExportTarget::SpannedLocal { .. } => ExportLookup::NoTarget,
+            JsExportTarget::SpannedLocal {
+                local,
+                start_line,
+                end_line,
+            } => ExportLookup::Resolved(
+                ResolvedJsExport {
+                    file: file.to_string(),
+                    local_name: local.clone(),
+                    span: Some((*start_line, *end_line)),
+                },
+                false,
+            ),
             // Class identity participates in conflicts, never callable projection.
             JsExportTarget::Class(local) | JsExportTarget::Local(local) => ExportLookup::Resolved(
                 ResolvedJsExport {
@@ -355,7 +368,9 @@ fn resolve_one_inner(
         telemetry.chain_unresolved += 1;
         return ExportLookup::NoTarget;
     }
-    let mut candidates: BTreeSet<(String, String, bool)> = BTreeSet::new();
+    // The span is part of the key: two claims on one `(file, local)` with different
+    // spans are different targets (S1).
+    let mut candidates: BTreeSet<(String, String, bool, Option<(usize, usize)>)> = BTreeSet::new();
     for module_path in &facts.star_reexports {
         let Some(target_file) = resolve_module(file, module_path) else {
             continue;
@@ -374,7 +389,7 @@ fn resolve_one_inner(
             telemetry,
         ) {
             ExportLookup::Resolved(hit, is_class) => {
-                candidates.insert((hit.file, hit.local_name, is_class));
+                candidates.insert((hit.file, hit.local_name, is_class, hit.span));
             }
             ExportLookup::BlockedClaim => return ExportLookup::BlockedClaim,
             ExportLookup::NoTarget => {}
@@ -383,12 +398,12 @@ fn resolve_one_inner(
     match candidates.len() {
         0 => ExportLookup::NoTarget,
         1 => {
-            let (file, local_name, is_class) = candidates.into_iter().next().unwrap();
+            let (file, local_name, is_class, span) = candidates.into_iter().next().unwrap();
             ExportLookup::Resolved(
                 ResolvedJsExport {
                     file,
                     local_name,
-                    span: None,
+                    span,
                 },
                 is_class,
             )

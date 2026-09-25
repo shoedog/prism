@@ -1401,7 +1401,7 @@ impl CallGraph {
                         receiver_outcome: None,
                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                         pre_resolved_target: None,
-                        jsx_element: false,
+                        jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
                     };
                     calls
                         .entry(caller_id.clone())
@@ -1834,7 +1834,7 @@ impl CallGraph {
                             receiver_outcome: None,
                             origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                             pre_resolved_target: None,
-                            jsx_element: false,
+                            jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
                         };
                         file_call_sites.push((caller_id.clone(), site));
                     }
@@ -5133,7 +5133,7 @@ impl CallGraph {
                         receiver_outcome: None,
                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                         pre_resolved_target: None,
-                        jsx_element: false,
+                        jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
                     };
                     calls
                         .entry(caller_id.clone())
@@ -5507,6 +5507,19 @@ impl CallGraph {
             .into_iter()
             .find(|receiver| line_text.contains(&format!("{receiver}.{callee_name}")))
             .map(str::to_string)
+    }
+
+    /// True iff the node spanning exactly these bytes is a JSX element tag (S1).
+    fn jsx_element_at(parsed: &ParsedFile, start_byte: usize, end_byte: usize) -> bool {
+        parsed
+            .tree
+            .root_node()
+            .descendant_for_byte_range(start_byte, end_byte)
+            .is_some_and(|n| {
+                n.start_byte() == start_byte
+                    && n.end_byte() == end_byte
+                    && matches!(n.kind(), "jsx_self_closing_element" | "jsx_opening_element")
+            })
     }
 
     fn call_kind_at(parsed: &ParsedFile, start_byte: usize, end_byte: usize) -> CallKind {

@@ -7,6 +7,7 @@ use tree_sitter::{Node, Parser, Tree};
 mod js_cjs_export_barriers;
 mod js_cjs_terminal;
 mod js_module_forwarding;
+mod js_wrapped_export;
 
 /// A parameter binding and the byte span of its identifier token.
 pub type ParameterOccurrence = (String, usize, usize);
@@ -2880,14 +2881,37 @@ impl ParsedFile {
                         // declaration elsewhere in the file (e.g. a nested
                         // function), since the "local" target here is just
                         // the declarator's own name, not a verified function.
-                        match d.child_by_field_name("value").map(|v| v.kind()) {
+                        //
+                        // S1 (SPEC §3.1): a call initializer is admitted only as a
+                        // span-verified React wrapper; every other skip names its reason.
+                        let admitted = match d.child_by_field_name("value").map(|v| v.kind()) {
                             Some("arrow_function") | Some("function_expression") => {
                                 facts.insert_named(
                                     name_text.clone(),
                                     JsExportTarget::Local(name_text),
                                 );
+                                continue;
                             }
-                            _ => facts.skipped_expr_count += 1,
+                            Some("call_expression") => self.js_ts_wrapped_export(decl, d),
+                            _ => Err("non_call_initializer"),
+                        };
+                        match admitted {
+                            Ok((local, start_line, end_line)) => {
+                                facts.spanned_admitted += 1;
+                                let target = JsExportTarget::SpannedLocal {
+                                    local,
+                                    start_line,
+                                    end_line,
+                                };
+                                facts.insert_named(name_text, target);
+                            }
+                            Err(reason) => {
+                                facts.skipped_expr_count += 1;
+                                *facts
+                                    .skipped_decl_reasons
+                                    .entry(reason.to_string())
+                                    .or_default() += 1;
+                            }
                         }
                     }
                 }
