@@ -254,8 +254,11 @@ is the literal placeholder `"<resolved after build>"`. `--dry-run` takes no `--o
   whose path is not in the enumeration refuses (`stale exclusion`). Active = enumeration − exclusions, sorted.
 - Population digest = `sha256hex(JSON.stringify(active))`. A newly committed test is included automatically; a
   visible uncommitted one refuses (above); a broken one fails the gate.
-- `[r1]` Every active path is passed to Node as `./<path>`, so a filename beginning with `-` can never be parsed as an
-  option.
+- `[impl]` Every active path is passed to Node as an **absolute** path, `resolve(repoRoot, path)`, so a filename
+  beginning with `-` can never be parsed as an option. The `[r1]` `./<path>` rule was insufficient: under the default
+  process isolation, Node's test runner re-spawns each file with the `./` stripped. This was reproduced on Node
+  v24.15.0 and v26.0.0 (`bad option: --dash.test.mjs`); absolute paths pass on both. The implementer's workaround,
+  `--test-isolation=none`, was rejected because it would run the whole population in one shared process.
 
 ### 4.2 Sealed environment and tool resolution
 
@@ -283,7 +286,7 @@ Slice A (recomputes all three tree digests; never downloads; failure names the i
   `project_membership_census` and whose `executable` is non-null; record its SHA-256. Any cargo failure (including
   an unpopulated registry cache, since `--frozen` is offline) is stage `build`, distinct from a test failure; the
   spec does not parse cargo's message text. Prerequisite (§4.4), not acquired.
-- Stage `tests`: `node --test --test-concurrency=2 --test-reporter=tap ./<active paths>` with cwd = repo, sealed env,
+- Stage `tests`: `node --test --test-concurrency=2 --test-reporter=tap <absolute active paths>` with cwd = repo, sealed env, default process isolation,
   stdout+stderr streamed to `<out>/log.txt`. Totals are parsed from the TAP trailer (`# tests/pass/fail/skipped`)
   and skips are collected from `# SKIP` lines by test name; if the trailer is absent, totals are `null` and the
   child's exit status still governs.

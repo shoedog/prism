@@ -15,3 +15,13 @@ those exports only in a shell you control.
 The tool removes only a stage directory it created after a failed invocation. It intentionally does not scavenge
 other `.stage-*` directories: a stage left by a crashed process is inert. Review it and remove it manually when safe.
 Roots below temporary macOS locations and roots containing control characters are refused.
+
+## Gate
+
+`node scripts/gate-inputs/gate.mjs --out <new-directory>` verifies the three installed inputs, enumerates every
+committed `.test.mjs` module, builds the membership helper offline, and runs the resulting population under a sealed
+environment. The output directory must not exist; after the gate owns it, it contains `log.txt` (when tests start)
+and a canonical `receipt.json`. A test failure exits 1; a pre-test refusal exits 2 and still writes a receipt.
+
+`node scripts/gate-inputs/gate.mjs --dry-run` writes no files and prints the pre-build population, argv, cwd, and
+sealed child environment. It uses `<resolved after build>` for `PRISM_MEMBERSHIP_NATIVE`.
