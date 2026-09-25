@@ -374,7 +374,7 @@ Use table-driven inputs, and assert exact `(file, name, start_line, end_line)` t
 
 | # | Mutant | Must fail |
 |---|---|---|
-| M1 | drop the span filter | T-P7, T-N11 |
+| M1 | drop the span filter | T-P7, T-P4 (corrected at implementation: T-N11's two same-line targets both pass the span filter, so it cannot kill M1) |
 | M2 | accept any callee | T-N6, T-N3 |
 | M3 | accept `let` | T-N5 |
 | M4 | pick the last argument | T-P4 |
