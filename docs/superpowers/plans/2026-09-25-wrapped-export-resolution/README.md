@@ -8,6 +8,7 @@
 | `PLANNING-PROBES.md` | mechanism (M1–M12) and probes (P0–P15), each with the command, the pre-run expectation, the result, and the output path |
 | `IMPLEMENTOR.md` / `REVIEWER.md` | dispatch briefs |
 | `REVIEW-r1-fold.md` | sol round-1 findings → disposition → location |
+| `REPLAN-fable.md` | **post-cap re-plan (pending owner choice):** diagnosis of the r2 open-class verdict against prism's Exact precedent (replan probes), the owner fork P / S / hybrid with yields, budgets and convergence outlook, the fold plan for r2 W1–W3 and SMELL 1–2, and the round-3 reviewer addendum |
 | `probes/` | census, projection, row-diff and audit tools; the control generator; expectation records; the expected Excalidraw row-diff |
 | `prototype/wrapped-export-prototype{,-r2}.diff.txt` | the throwaway feasibility prototypes (never built into this branch); r2 is authoritative |
 

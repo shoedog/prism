@@ -6,6 +6,13 @@
 
 **Base:** `origin/main` `12ca6e8e`.
 
+> **Pending owner choice (2026-09-25, after the r2 cap).** Sol's round 2 was FIX (3 WRONG / 2 SMELL) on §3.2's
+> same-file closure claim. `REPLAN-fable.md` diagnoses that claim as open-class under sol's standard and out of
+> model under prism's existing Exact contract, and puts the fork to the owner: **Branch P** (project-standard
+> static-binding Exact; §3.2 custody dropped; 107 / 4 edges) or **Branch S** (strengthened D6(b); 7 / 0 edges),
+> or a hybrid. Until the owner picks, D2, D6, §3.1 R7, §3.2, §4's R7 rows, T-R7-*, M10 and the §9 re-cap are
+> **not** authoritative; the r2 text is kept intact below as the reviewed artifact. The recommendation is P.
+
 **Grounding:** `PLANNING-PROBES.md`. Mechanism claims cite its M-ids and measurements cite its P-ids.
 
 **Predecessor:** PR #324 readout (`docs/eval/entry-call-proof/readout.md`). It names the wrapped named export as the
