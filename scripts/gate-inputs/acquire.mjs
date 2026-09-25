@@ -286,6 +286,10 @@ async function main() {
       const verified = verifyInstalled();
       print({inputs: verified.inputs.map(({input}) => ({input, status: 'verified'}))});
     } else for (const line of envLines()) console.log(line);
-  } catch (error) { console.error(error.message); process.exitCode = 2; }
+  } catch (error) {
+    if (!(error instanceof Refusal)) throw error;
+    console.error(error.message);
+    process.exitCode = 2;
+  }
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) main();

@@ -159,6 +159,7 @@ test('A3 accepts the census profile and refuses each unsupported tar row', async
     ['symlink', [{name: 'package/link', type: 50}], 'unsupported tar entry 2 package/link'],
     ['pax', [{name: 'package/x', type: 120}], 'unsupported tar entry x package/x'],
     ['outside root', [{name: 'else/x'}], 'tar root: else/x'],
+    ['root prefix boundary', [{name: 'packageevil/x'}], 'tar root: packageevil/x'],
     ['parent component', [{name: 'package/../x'}], 'tar path: package/../x'],
     ['prefix', [{name: 'package/x', prefix: 'bad'}], 'ustar prefix unsupported'],
     ['nonzero directory', [{name: 'package/a/', type: 53, size: 1, body: 'x'}],
