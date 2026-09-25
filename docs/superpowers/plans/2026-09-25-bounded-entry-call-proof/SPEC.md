@@ -55,14 +55,24 @@ This increment implements no parameter support, positional holes, export or JSX 
 - **Entry Defs.** Present with exact bytes for 11 sites. Absent for `getStateForZoom.appState`, because a parameter
   with only field-access use gets no Def by design (`src/data_flow.rs:602`).
 - **Resolved callers.** Exist only for `prepareElementsForExport` (3) and `getStateForZoom` (5), all Exact
-  `import_member`. The ten `forwardRef` components have zero. Their JSX uses drop `UnknownName`, because an exported
-  `const X = wrapper(arrow)` records no export (`src/ast.rs:2884-2890`, deliberate). Some uses are also unowned
-  (nested callback arrows) or aliased (`<Stack.Row>`).
+  `import_member`. The ten component targets have zero, for **distinct** reasons, recorded per occurrence in the
+  Appendix A ledger (`[r1]`):
+  - **Wrapped named exports.** For example, `export const Island = forwardRef(arrow)`. The wrapped initializer records
+    no export (`src/ast.rs:2874-2890`, deliberate), so imported `<X/>` uses drop as `UnknownName`.
+  - **Local wrappers exported through default-object members.** `RowStack` and `ColStack` are reached as
+    `Stack.Row` / `Stack.Col` (`Stack.tsx:15`, `:59`), which is an alias lane.
+  - **Unowned uses.** For example, `SidebarInner`'s JSX use inside a nested wrapper callback is recorded without an
+    owning caller.
+
+  Counting unit: **callers are call-occurrence rows. Sites are distinct target sites.** Correction: one of the five
+  zoom arguments is the member expression `this.state` (`App.tsx:4327`), not an identifier.
 - **Flow.** Zero inbound edges at all 12 selected ordinals. The in-prefix control holds: 3 of 3 edges into
   `elements`@0.
 - **Counterfactual.** Only ImageExportDialog.tsx:108 → `exportSelectionOnly`@2 is blocked solely by the positional
   prefix.
-- **Prediction:** `defer / prefix_only_yield_below_threshold`, Y=1, S=1.
+- **Prediction:** `defer / prefix_only_yield_below_threshold`, Y=1, S=1. `[r1]` The threshold proof is stated first
+  as the conservative bound **Y ≤ 1, S ≤ 1**, which already falsifies the locked Y ≥ 3 ∧ S ≥ 2. The exact Y=1 is then
+  reported with the reconciled argument row (`ImageExportDialog.tsx:108`, `exportSelectionOnly`@2).
 
 The observer's job is to make these facts byte-exact, reproducible, and independently reconcilable. It must not
 assume them.
@@ -524,8 +534,21 @@ forecast breach of a hard cap is a STOP that returns to the owner, with no silen
    - `nav callers --symbol --file` for the 12 callables
 
    Hash every output; the two runs must be byte-identical.
-3. **Derive the extracts** with the jq filters in PLANNING-PROBES (P2–P4), and write the per-caller argument table
-   (P5) by reading the 8 resolved caller sites.
+3. **Derive the extracts** with `extract.py`, which lives in this folder. It replaces the jq-filter prose (`[r1]`,
+   sol r1 W1). Run `python3 extract.py <run-dir> <source-root> targets.json <out-dir>` for each run. It writes sorted,
+   canonical extracts:
+   - `E1-callers.json`: resolved callers
+   - `E2-callsite-ledger.json`: every call occurrence by callee name, or by the default-object alias `Row`/`Col`, with
+     its lane (`resolved_to_target`, `resolved_elsewhere`, `drop:<reason>`, or `:alias`)
+   - `E3-entry-defs.json`: an exact-byte `nodes-at` Def match
+   - `E4-inbound-edges.json`: edges into `(file, entry line, binding base, def)`, a superset key, so absence is sound
+   - `E5-caller-arguments.json`: the argument text at the ordinal, taken from source bytes. A bare identifier
+     excluding `true`/`false`/`null`/`undefined`/`this`/`NaN`/`Infinity` counts toward Y only if the entry Def exists.
+   - `DECISION.json`: Y and S, the locked rule, and the ordinal-0 control
+
+   The extracts from both runs must be byte-identical. Their hashes go into the receipt. Uses recorded without a
+   call-site row, such as `SidebarInner`'s nested-wrapper use, have no ledger row; the readout reports them from
+   PLANNING-PROBES P2.
 4. **Reconcile.** Sol statically re-derives P1–P5 from the hashed outputs and source.
 5. **Write the readout,** applying the §8 rule by hand with the same readout obligations.
 
