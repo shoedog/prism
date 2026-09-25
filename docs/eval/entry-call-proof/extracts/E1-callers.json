@@ -1,0 +1,66 @@
+[
+ {
+  "call_line": 108,
+  "caller": "ImageExportModal",
+  "caller_file": "packages/excalidraw/components/ImageExportDialog.tsx",
+  "kind": "import_member",
+  "score": 1.0,
+  "target": "prepareElementsForExport"
+ },
+ {
+  "call_line": 136,
+  "caller": "perform",
+  "caller_file": "packages/excalidraw/actions/actionClipboard.tsx",
+  "kind": "import_member",
+  "score": 1.0,
+  "target": "prepareElementsForExport"
+ },
+ {
+  "call_line": 144,
+  "caller": "perform",
+  "caller_file": "packages/excalidraw/actions/actionCanvas.tsx",
+  "kind": "import_member",
+  "score": 1.0,
+  "target": "getStateForZoom"
+ },
+ {
+  "call_line": 185,
+  "caller": "perform",
+  "caller_file": "packages/excalidraw/actions/actionCanvas.tsx",
+  "kind": "import_member",
+  "score": 1.0,
+  "target": "getStateForZoom"
+ },
+ {
+  "call_line": 209,
+  "caller": "perform",
+  "caller_file": "packages/excalidraw/actions/actionClipboard.tsx",
+  "kind": "import_member",
+  "score": 1.0,
+  "target": "prepareElementsForExport"
+ },
+ {
+  "call_line": 226,
+  "caller": "perform",
+  "caller_file": "packages/excalidraw/actions/actionCanvas.tsx",
+  "kind": "import_member",
+  "score": 1.0,
+  "target": "getStateForZoom"
+ },
+ {
+  "call_line": 4327,
+  "caller": "zoomCanvas",
+  "caller_file": "packages/excalidraw/components/App.tsx",
+  "kind": "import_member",
+  "score": 1.0,
+  "target": "getStateForZoom"
+ },
+ {
+  "call_line": 6930,
+  "caller": "handleCanvasPointerMove",
+  "caller_file": "packages/excalidraw/components/App.tsx",
+  "kind": "import_member",
+  "score": 1.0,
+  "target": "getStateForZoom"
+ }
+]

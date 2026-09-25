@@ -1,0 +1,48 @@
+{
+ "schema": "prism.entry-call-targets/1",
+ "source_observation_sha256": "synthetic",
+ "targets": [
+  {
+   "path": "lib.ts",
+   "callable": {
+    "name": "both",
+    "start_byte": 21,
+    "end_byte": 59
+   },
+   "binding": {
+    "name": "later",
+    "start_byte": 32,
+    "end_byte": 37
+   },
+   "ordinal": 1
+  },
+  {
+   "path": "lib.ts",
+   "callable": {
+    "name": "notboth",
+    "start_byte": 20,
+    "end_byte": 59
+   },
+   "binding": {
+    "name": "later",
+    "start_byte": 32,
+    "end_byte": 37
+   },
+   "ordinal": 1
+  },
+  {
+   "path": "missing.ts",
+   "callable": {
+    "name": "both",
+    "start_byte": 20,
+    "end_byte": 59
+   },
+   "binding": {
+    "name": "later",
+    "start_byte": 32,
+    "end_byte": 37
+   },
+   "ordinal": 1
+  }
+ ]
+}

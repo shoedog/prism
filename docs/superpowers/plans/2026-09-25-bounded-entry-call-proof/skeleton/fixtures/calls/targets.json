@@ -1,0 +1,62 @@
+{
+ "schema": "prism.entry-call-targets/1",
+ "source_observation_sha256": "synthetic",
+ "targets": [
+  {
+   "path": "lib.ts",
+   "callable": {
+    "name": "both",
+    "start_byte": 20,
+    "end_byte": 59
+   },
+   "binding": {
+    "name": "later",
+    "start_byte": 32,
+    "end_byte": 37
+   },
+   "ordinal": 1
+  },
+  {
+   "path": "lib.ts",
+   "callable": {
+    "name": "mid",
+    "start_byte": 80,
+    "end_byte": 151
+   },
+   "binding": {
+    "name": "later",
+    "start_byte": 118,
+    "end_byte": 123
+   },
+   "ordinal": 2
+  },
+  {
+   "path": "lib.ts",
+   "callable": {
+    "name": "fieldOnly",
+    "start_byte": 178,
+    "end_byte": 237
+   },
+   "binding": {
+    "name": "st",
+    "start_byte": 205,
+    "end_byte": 207
+   },
+   "ordinal": 1
+  },
+  {
+   "path": "lib.ts",
+   "callable": {
+    "name": "bare",
+    "start_byte": 259,
+    "end_byte": 343
+   },
+   "binding": {
+    "name": "st",
+    "start_byte": 286,
+    "end_byte": 288
+   },
+   "ordinal": 1
+  }
+ ]
+}

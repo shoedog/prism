@@ -1,0 +1,74 @@
+[
+ {
+  "binding": "appState",
+  "entry_line": 3,
+  "inbound_edges": 0,
+  "target": "getStateForZoom"
+ },
+ {
+  "binding": "exportSelectionOnly",
+  "entry_line": 47,
+  "inbound_edges": 0,
+  "target": "prepareElementsForExport"
+ },
+ {
+  "binding": "ref",
+  "entry_line": 14,
+  "inbound_edges": 0,
+  "target": "Island"
+ },
+ {
+  "binding": "ref",
+  "entry_line": 15,
+  "inbound_edges": 0,
+  "target": "QuickSearch"
+ },
+ {
+  "binding": "ref",
+  "entry_line": 16,
+  "inbound_edges": 0,
+  "target": "RowStack"
+ },
+ {
+  "binding": "ref",
+  "entry_line": 27,
+  "inbound_edges": 0,
+  "target": "PropertiesPopover"
+ },
+ {
+  "binding": "ref",
+  "entry_line": 35,
+  "inbound_edges": 0,
+  "target": "TextField"
+ },
+ {
+  "binding": "ref",
+  "entry_line": 38,
+  "inbound_edges": 0,
+  "target": "ColStack"
+ },
+ {
+  "binding": "ref",
+  "entry_line": 40,
+  "inbound_edges": 0,
+  "target": "FilledButton"
+ },
+ {
+  "binding": "ref",
+  "entry_line": 47,
+  "inbound_edges": 0,
+  "target": "Picker"
+ },
+ {
+  "binding": "ref",
+  "entry_line": 49,
+  "inbound_edges": 0,
+  "target": "SidebarInner"
+ },
+ {
+  "binding": "ref",
+  "entry_line": 64,
+  "inbound_edges": 0,
+  "target": "ToolButton"
+ }
+]
