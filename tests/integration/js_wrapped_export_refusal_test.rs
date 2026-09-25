@@ -4,33 +4,36 @@ use super::js_wrapped_export_test::{app_sites, graph, run, APP};
 use prism::ast::ParsedFile;
 use prism::languages::Language;
 
-pub(super) const M: &str = "import { memo } from 'react';\n";
+const M: &str = "import { memo } from 'react';\n";
 const FR: &str = "import { forwardRef } from 'react';\n";
 const DROP: &[&str] = &["L3 Island: drop UnknownName"];
 
 /// `pre` + `export const Island = <init>;` on one line.
-pub(super) fn w(pre: &str, init: &str) -> String {
+fn w(pre: &str, init: &str) -> String {
     format!("{pre}export const Island = {init};\n")
 }
 
-pub(super) fn reasons(lib: &str, ext: &str) -> Vec<String> {
+/// The lib's declarator counters: `(spanned_admitted, skipped_expr_count, reasons)`.
+fn counters(lib: &str, ext: &str) -> (usize, usize, Vec<String>) {
     let path = format!("lib.{ext}");
     let lang = Language::from_path(&path).unwrap();
-    let facts = ParsedFile::parse(&path, lib, lang)
+    let f = ParsedFile::parse(&path, lib, lang)
         .unwrap()
         .extract_js_ts_export_facts();
-    let reasons = facts
+    let reasons = f
         .skipped_decl_reasons
         .iter()
         .map(|(r, n)| format!("{r}={n}"));
-    reasons.collect()
+    (f.spanned_admitted, f.skipped_expr_count, reasons.collect())
 }
 
-/// Each row: the lib counts `reason` exactly once and `<Island/>` drops.
+/// Each row: the lib counts `reason` exactly once (and nothing else: T-O1, which these
+/// tables cover for every reachable reason; R12 is unreachable) and `<Island/>` drops.
 fn refused(rows: &[(String, &str)], exts: &[&str]) {
     for (i, (lib, reason)) in rows.iter().enumerate() {
         for ext in exts {
-            assert_eq!(reasons(lib, ext), [format!("{reason}=1")], "row {i} .{ext}");
+            let want = (0, 1, vec![format!("{reason}=1")]);
+            assert_eq!(counters(lib, ext), want, "row {i} .{ext}");
             assert_eq!(run(lib, APP, ext), DROP, "row {i} .{ext}");
         }
     }
@@ -232,7 +235,7 @@ fn t_n7_t_n9_t_n11_t_n13_resolution_refusals() {
         "{}function other() {{}}\nexport {{ other as Island }};\n",
         w(M, "memo((p) => null)")
     );
-    assert_eq!(reasons(&poisoned, "tsx"), Vec::<String>::new());
+    assert_eq!(counters(&poisoned, "tsx"), (1, 0, vec![]));
     assert_eq!(run(&poisoned, APP, "tsx"), DROP);
 }
 

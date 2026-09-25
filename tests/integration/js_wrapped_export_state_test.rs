@@ -1,5 +1,4 @@
 //! S1 (wrapped-export SPEC §5–§7): declarator counters, source epochs and serde state.
-use super::js_wrapped_export_refusal_test::{w, M};
 use super::js_wrapped_export_test::{app_sites, graph, APP, WRAP};
 use prism::ast::ParsedFile;
 use prism::cpg::CodePropertyGraph;
@@ -33,48 +32,6 @@ fn t_o1_admitted_declarator_is_counted_not_skipped() {
         ),
         (1, 0, 0)
     );
-}
-
-#[test]
-fn t_o1_each_reachable_reason_counts_once() {
-    // R12 `inner_unnamed` is unreachable given R10 and Pattern 3 (SPEC §3.1): no fixture.
-    let rows = [
-        ("non_call_initializer", w("", "a ? b : c")),
-        (
-            "not_const",
-            format!("{M}export let Island = memo((p) => null);\n"),
-        ),
-        ("parse_recovery", w(M, "memo((p) => (null)")),
-        (
-            "import_parse_recovery",
-            w("import { memo as m ??? } from 'react';\n", "m((p) => null)"),
-        ),
-        (
-            "callee_not_admitted",
-            w("import { memo } from './shim';\n", "memo((p) => null)"),
-        ),
-        (
-            "callee_provenance",
-            w(&format!("{M}memo = null;\n"), "memo((p) => null)"),
-        ),
-        ("arity", w(M, "memo()")),
-        ("nested_wrapper", w(M, "memo(memo((p) => null))")),
-        ("first_arg_not_function", w(M, "memo(Comp)")),
-        (
-            "comparator_line_collision",
-            w(M, "memo((p) => null, (a, b) => true)"),
-        ),
-    ];
-    for (reason, lib) in rows {
-        let f = facts(&lib);
-        assert_eq!(
-            (f.spanned_admitted, f.skipped_expr_count),
-            (0, 1),
-            "{reason}"
-        );
-        let want = BTreeMap::from([(reason.to_string(), 1)]);
-        assert_eq!(f.skipped_decl_reasons, want);
-    }
 }
 
 const MIXED: &str = "import { memo } from 'react';\nexport const A = memo((p) => null);\nexport \
