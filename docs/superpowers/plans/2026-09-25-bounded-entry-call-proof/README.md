@@ -26,17 +26,23 @@ SPEC §0 are open.
 - **Entry Defs.** Present, with exact bytes, for 11 of 12 sites. `getStateForZoom.appState` has none, because a
   parameter used only through field access is skipped by design (`src/data_flow.rs:602`).
 - **Resolved callers.** Only the two helpers have any: 5 and 3, all Exact `import_member`. The ten `forwardRef`
-  components have none. Their JSX uses drop `UnknownName`, because wrapped `const` exports are deliberately not
-  recorded (`src/ast.rs:2884-2890`).
+  components have none, for three distinct reasons (SPEC §2): wrapped named exports, whose imported JSX uses drop
+  `UnknownName` because wrapped `const` exports are deliberately not recorded (`src/ast.rs:2874-2890`);
+  `RowStack`/`ColStack`, reached only through the default-object member aliases `Row`/`Col` (`Stack.tsx:59`); and
+  `SidebarInner`, whose JSX use inside a nested wrapper has no call-site record (the unowned lane).
 - **Flow.** There are zero edges at every selected ordinal. The control shows the probe can see such edges: all three
   in-prefix edges into `elements`@0 exist.
 - **Prediction.** At most one caller tuple is blocked only by the positional prefix. The predicted outcome is
   `defer / prefix_only_yield_below_threshold`.
 
-## Next steps
+## Status (2026-09-25): executed via option A
 
-1. The owner decides D1 (A or B), D2 (thresholds), and D3 (gate coverage).
-2. Spec review with `REVIEWER.md` (2 rounds; sol gates).
-3. Then either option A (controller procedure) or option B (dispatch with `IMPLEMENTOR.md`, then implementation
-   review, then SPEC §10 acceptance).
-4. The controller commits this packet, and refreshes the lane handoff with it, at the next stable point.
+- Owner decisions: D1 = A (probe readout, 0 new lines); D2 = Y ≥ 3 ∧ S ≥ 2, locked.
+- Spec review: r1 FIX (1 WRONG / 1 SMELL), r2 FIX (0 WRONG / 1 SMELL). Both were folded, converging within the
+  2-round cap.
+- Result: `defer / prefix_only_yield_below_threshold`, Y = 1, S = 1. Sol reconciliation: RECONCILED. See
+  `docs/eval/entry-call-proof/readout.md` and `receipt.json`.
+- Option B (`IMPLEMENTOR.md`, `skeleton/`) was not dispatched. It is kept as the plan of record if a byte-exact
+  observer is ever wanted, for example on a second corpus.
+- The larger gap surfaced is wrapped-export resolution (80 `UnknownName` drops across 7 components), not positional
+  holes.

@@ -1,0 +1,74 @@
+[
+ {
+  "binding": "appState",
+  "entry_def": false,
+  "ordinal": 1,
+  "target": "getStateForZoom"
+ },
+ {
+  "binding": "exportSelectionOnly",
+  "entry_def": true,
+  "ordinal": 2,
+  "target": "prepareElementsForExport"
+ },
+ {
+  "binding": "ref",
+  "entry_def": true,
+  "ordinal": 1,
+  "target": "ColStack"
+ },
+ {
+  "binding": "ref",
+  "entry_def": true,
+  "ordinal": 1,
+  "target": "FilledButton"
+ },
+ {
+  "binding": "ref",
+  "entry_def": true,
+  "ordinal": 1,
+  "target": "Island"
+ },
+ {
+  "binding": "ref",
+  "entry_def": true,
+  "ordinal": 1,
+  "target": "Picker"
+ },
+ {
+  "binding": "ref",
+  "entry_def": true,
+  "ordinal": 1,
+  "target": "PropertiesPopover"
+ },
+ {
+  "binding": "ref",
+  "entry_def": true,
+  "ordinal": 1,
+  "target": "QuickSearch"
+ },
+ {
+  "binding": "ref",
+  "entry_def": true,
+  "ordinal": 1,
+  "target": "RowStack"
+ },
+ {
+  "binding": "ref",
+  "entry_def": true,
+  "ordinal": 1,
+  "target": "SidebarInner"
+ },
+ {
+  "binding": "ref",
+  "entry_def": true,
+  "ordinal": 1,
+  "target": "TextField"
+ },
+ {
+  "binding": "ref",
+  "entry_def": true,
+  "ordinal": 1,
+  "target": "ToolButton"
+ }
+]

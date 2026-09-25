@@ -129,7 +129,7 @@ This probe uses manual source reading of the resolved callers.
 | prepareElementsForExport / 2 | actionClipboard.tsx:136 | literal `true` | No (no variable occurrence) |
 | prepareElementsForExport / 2 | actionClipboard.tsx:209 | literal `true` | No |
 | prepareElementsForExport / 2 | ImageExportDialog.tsx:108 | identifier `exportSelectionOnly` | **Yes, plausibly (the only one)** |
-| getStateForZoom / 1 | 5 callers (`appState`/`state` identifiers) | variables | No. Entry Def absent (P3) |
+| getStateForZoom / 1 | 5 callers: actionCanvas.tsx:144/185/226, App.tsx:4327, App.tsx:6930 | `appState` ×3, member expression `this.state`, identifier `state` | No. Entry Def absent (P3) |
 | 10 components / 1 | none resolved | JSX has no argument list (`src/languages/mod.rs:835-850`; `src/cpg/build.rs:1463`) | No. Even if the callers resolved, `ref` is a JSX prop that React routes; it is never a positional argument |
 
 **Predicted counterfactual yield:** 1 caller tuple at 1 site.

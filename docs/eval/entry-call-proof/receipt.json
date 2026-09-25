@@ -1,0 +1,500 @@
+{
+ "S": 1,
+ "Y": 1,
+ "binary": {
+  "name": "prism",
+  "profile": "release",
+  "sha256": "263f71adf43286f70861d9ac649e5aae2fcf5fb7b2f285540b9ba86533acf3b1"
+ },
+ "conservative_bound": "Y<=1, S<=1",
+ "decision": "defer/prefix_only_yield_below_threshold",
+ "extractor": {
+  "extracts_sha256": {
+   "DECISION.json": "9ae13cfac3c86b0a7e8fe9af01bebf330008ca0b10a6ebaf2fceefb245695ee3",
+   "E1-callers.json": "f4c17ba32e924506d255b548ac81896abc65239744d483fd939bb9a7820887a7",
+   "E2-callsite-ledger.json": "ea05a4806c815a751c06c5c5ea2d219fa64c6ee3f9df2124d564a0b641cb350c",
+   "E3-entry-defs.json": "72cb129bdc9015c852157484e26688089c3795e1b7f085505d883a6f5a9a31e3",
+   "E4-inbound-edges.json": "579e64446880bda46e89df3fea2236a58c03d396b19b701a4c7ba84999e352dc",
+   "E5-caller-arguments.json": "f51b197ffea4f670722c8c8b9ec474f11b24242522bd63821b51b983e957c48c"
+  },
+  "path": "docs/superpowers/plans/2026-09-25-bounded-entry-call-proof/extract.py",
+  "run1_run2_extracts_identical": true,
+  "sha256": "9efdf7ba86352a531f90f78469dba7ca761767cc2dbfedf6cb72905461a6c533"
+ },
+ "input": {
+  "corpus": "excalidraw 0642e72c",
+  "recovery": "docs/eval/native-positional-gap/input-recovery.md",
+  "verification": "INPUT MANIFEST OK:     1229 files, symlinks=       0"
+ },
+ "procedure": "SPEC Appendix A (owner D1=A, probe readout, 0 new lines)",
+ "production_source": {
+  "commit": "7e11593414ffa7f35711555469bcc74428641f66",
+  "origin_main": "7ecccd999545ada6f1e823d298318a5fccf4e1a4",
+  "production_diff_vs_main": "empty (src, Cargo.toml, Cargo.lock, build.rs)"
+ },
+ "reconciliation": {
+  "reviewer": "gpt-5.6-sol xhigh, static",
+  "spec_round2": "FIX 0 WRONG / 1 SMELL (stale summaries; folded)",
+  "verdict": "RECONCILED"
+ },
+ "runner": {
+  "note": "controller script; absolute local paths are recorded as <root>/prism in the manifest argv",
+  "path": "docs/eval/entry-call-proof/probe-runner.py",
+  "sha256": "7d5bb2225529dd1b52692497f1675400386b31d834a1904a6ad890d682ea7d10"
+ },
+ "runs": {
+  "all_exit_zero": true,
+  "byte_identical": true,
+  "cold": "--no-cache on every command",
+  "commands": 26,
+  "count": 2,
+  "manifest_sha256": {
+   "run-1": "20164e855efded87950a9919a81311470af8fb0c43729b432a256a01d4a0eb9f",
+   "run-2": "20164e855efded87950a9919a81311470af8fb0c43729b432a256a01d4a0eb9f"
+  },
+  "outputs": [
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "call-stats",
+     "--repo",
+     "<root>",
+     "--dump-sites"
+    ],
+    "file": "call-stats-dump-sites.jsonl",
+    "sha256": "849f389a3270f34495f8b4c023d9020b28cf14c65512d7c8b317d01dc393f58e"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "dfg-stats",
+     "--repo",
+     "<root>",
+     "--edges"
+    ],
+    "file": "dfg-stats-edges.jsonl",
+    "sha256": "0653ceb9ead3131d0e3b47c4a6ba0cfdd4b39126f5d7d3bf0837ab05820b0818"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "nodes-at",
+     "--repo",
+     "<root>",
+     "--location",
+     "packages/excalidraw/components/ColorPicker/Picker.tsx:47",
+     "--format",
+     "json"
+    ],
+    "file": "nodes-at-00-Picker.json",
+    "sha256": "50567ea31d7cc7368b3d6d25579ae5ce51eefaf713822729e00f136a5251d0ee"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "callers",
+     "--repo",
+     "<root>",
+     "--symbol",
+     "Picker",
+     "--file",
+     "packages/excalidraw/components/ColorPicker/Picker.tsx",
+     "--format",
+     "json"
+    ],
+    "file": "callers-00-Picker.json",
+    "sha256": "d7f881ee49e102fe55b66de70c28092ec47dcabba450ba719a2f2cfc9350c762"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "nodes-at",
+     "--repo",
+     "<root>",
+     "--location",
+     "packages/excalidraw/components/FilledButton.tsx:40",
+     "--format",
+     "json"
+    ],
+    "file": "nodes-at-01-FilledButton.json",
+    "sha256": "cf05e3fc76c8118d126cec66b2dfc857577bc89078baa61a48a54c87daedc006"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "callers",
+     "--repo",
+     "<root>",
+     "--symbol",
+     "FilledButton",
+     "--file",
+     "packages/excalidraw/components/FilledButton.tsx",
+     "--format",
+     "json"
+    ],
+    "file": "callers-01-FilledButton.json",
+    "sha256": "baafbe3f199ab535ce49c7a693c4d0483ccf9068854d039c69655703aa4e43b6"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "nodes-at",
+     "--repo",
+     "<root>",
+     "--location",
+     "packages/excalidraw/components/Island.tsx:14",
+     "--format",
+     "json"
+    ],
+    "file": "nodes-at-02-Island.json",
+    "sha256": "f4e74c64015236f9a0a161baa70a57bddd9a47f7d4553682f6c267cbadc58594"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "callers",
+     "--repo",
+     "<root>",
+     "--symbol",
+     "Island",
+     "--file",
+     "packages/excalidraw/components/Island.tsx",
+     "--format",
+     "json"
+    ],
+    "file": "callers-02-Island.json",
+    "sha256": "ddd59612433561037e3ed8f0c25affaf353bd70e76c09b02f15d9e94e74092a8"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "nodes-at",
+     "--repo",
+     "<root>",
+     "--location",
+     "packages/excalidraw/components/PropertiesPopover.tsx:27",
+     "--format",
+     "json"
+    ],
+    "file": "nodes-at-03-PropertiesPopover.json",
+    "sha256": "9c87813fcbc7f50b7a6f9141e427eaacc179b4aa152332e346b7aa19eb00a928"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "callers",
+     "--repo",
+     "<root>",
+     "--symbol",
+     "PropertiesPopover",
+     "--file",
+     "packages/excalidraw/components/PropertiesPopover.tsx",
+     "--format",
+     "json"
+    ],
+    "file": "callers-03-PropertiesPopover.json",
+    "sha256": "62a493ac63cc34f172be3d2a5a8d0ec7a03a1405002bef232bbbb3edb07f474a"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "nodes-at",
+     "--repo",
+     "<root>",
+     "--location",
+     "packages/excalidraw/components/QuickSearch.tsx:15",
+     "--format",
+     "json"
+    ],
+    "file": "nodes-at-04-QuickSearch.json",
+    "sha256": "3938d88a83fb5abcf5aa5c25aa532220cde66ce3816da601a3221bb4601dba06"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "callers",
+     "--repo",
+     "<root>",
+     "--symbol",
+     "QuickSearch",
+     "--file",
+     "packages/excalidraw/components/QuickSearch.tsx",
+     "--format",
+     "json"
+    ],
+    "file": "callers-04-QuickSearch.json",
+    "sha256": "75f787fca20b94e363345b437acfdba04d39e7c521556f27d3d698ced36e632f"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "nodes-at",
+     "--repo",
+     "<root>",
+     "--location",
+     "packages/excalidraw/components/Sidebar/Sidebar.tsx:49",
+     "--format",
+     "json"
+    ],
+    "file": "nodes-at-05-SidebarInner.json",
+    "sha256": "504cfa76bfe9978797d4ba5ef21b924da3423fe37a3acfb4488682e432b67e4b"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "callers",
+     "--repo",
+     "<root>",
+     "--symbol",
+     "SidebarInner",
+     "--file",
+     "packages/excalidraw/components/Sidebar/Sidebar.tsx",
+     "--format",
+     "json"
+    ],
+    "file": "callers-05-SidebarInner.json",
+    "sha256": "7fb01b87437b869f3c29d75cf31dc68f5c410159af671f2c8f1c4395b33f9df0"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "nodes-at",
+     "--repo",
+     "<root>",
+     "--location",
+     "packages/excalidraw/components/Stack.tsx:16",
+     "--format",
+     "json"
+    ],
+    "file": "nodes-at-06-RowStack.json",
+    "sha256": "2b7d9f19d4e5e5b32f97ea6d3f8a810b02b39b7b8cc92d7194e23c1f102f434d"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "callers",
+     "--repo",
+     "<root>",
+     "--symbol",
+     "RowStack",
+     "--file",
+     "packages/excalidraw/components/Stack.tsx",
+     "--format",
+     "json"
+    ],
+    "file": "callers-06-RowStack.json",
+    "sha256": "23f2aa46093d226c184c0eed58efe1498e707e04375be7c3d7052c7c1f63bd4f"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "nodes-at",
+     "--repo",
+     "<root>",
+     "--location",
+     "packages/excalidraw/components/Stack.tsx:38",
+     "--format",
+     "json"
+    ],
+    "file": "nodes-at-07-ColStack.json",
+    "sha256": "d2a3dfa45763c14fb66f41fae79f04a531d35e0a6d94d5bb3009bfd2ce0e3cad"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "callers",
+     "--repo",
+     "<root>",
+     "--symbol",
+     "ColStack",
+     "--file",
+     "packages/excalidraw/components/Stack.tsx",
+     "--format",
+     "json"
+    ],
+    "file": "callers-07-ColStack.json",
+    "sha256": "6ed7b71967c64f5c5e5459c3aba9a7716e2790e188079dd346fa1ae6e8f9f5c4"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "nodes-at",
+     "--repo",
+     "<root>",
+     "--location",
+     "packages/excalidraw/components/TextField.tsx:35",
+     "--format",
+     "json"
+    ],
+    "file": "nodes-at-08-TextField.json",
+    "sha256": "bc1b2781fb2a23f975a244cea330001cbb6a5e6d4e85ed522147460c71903d47"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "callers",
+     "--repo",
+     "<root>",
+     "--symbol",
+     "TextField",
+     "--file",
+     "packages/excalidraw/components/TextField.tsx",
+     "--format",
+     "json"
+    ],
+    "file": "callers-08-TextField.json",
+    "sha256": "ce9ef3942e34299578543176d078a68de3c519d9a39ff1e63b0439b8fcfe062d"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "nodes-at",
+     "--repo",
+     "<root>",
+     "--location",
+     "packages/excalidraw/components/ToolButton.tsx:64",
+     "--format",
+     "json"
+    ],
+    "file": "nodes-at-09-ToolButton.json",
+    "sha256": "9b2aac4857a2e7bf4399410869c8cdd7e4cdcce68991c8938d601b1b4c81ff5b"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "callers",
+     "--repo",
+     "<root>",
+     "--symbol",
+     "ToolButton",
+     "--file",
+     "packages/excalidraw/components/ToolButton.tsx",
+     "--format",
+     "json"
+    ],
+    "file": "callers-09-ToolButton.json",
+    "sha256": "c9665af533bde3280702c7d82ca769640e2d2fab23e217908f4fdcfc1ee6c7c5"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "nodes-at",
+     "--repo",
+     "<root>",
+     "--location",
+     "packages/excalidraw/data/index.ts:47",
+     "--format",
+     "json"
+    ],
+    "file": "nodes-at-10-prepareElementsForExport.json",
+    "sha256": "008051321ee54e8963af63ef3735f57fb0a65b130cc68f04ce2fe1a4f83cf6a2"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "callers",
+     "--repo",
+     "<root>",
+     "--symbol",
+     "prepareElementsForExport",
+     "--file",
+     "packages/excalidraw/data/index.ts",
+     "--format",
+     "json"
+    ],
+    "file": "callers-10-prepareElementsForExport.json",
+    "sha256": "eb8a04f74a94ac9996af7d446a7e121b3324262503c187eaa27eb238d5dfe738"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "nodes-at",
+     "--repo",
+     "<root>",
+     "--location",
+     "packages/excalidraw/scene/zoom.ts:3",
+     "--format",
+     "json"
+    ],
+    "file": "nodes-at-11-getStateForZoom.json",
+    "sha256": "20cf501f2c6d33e52e834667632f2b9dc7df0644a12a4d701d851ea671389944"
+   },
+   {
+    "argv": [
+     "prism",
+     "nav",
+     "--no-cache",
+     "callers",
+     "--repo",
+     "<root>",
+     "--symbol",
+     "getStateForZoom",
+     "--file",
+     "packages/excalidraw/scene/zoom.ts",
+     "--format",
+     "json"
+    ],
+    "file": "callers-11-getStateForZoom.json",
+    "sha256": "d773c62a61161b0110c78e2541b94c744c1891167ad1a1dddc08731da609a185"
+   }
+  ]
+ },
+ "schema": "entry-call-proof-receipt/1",
+ "targets": {
+  "path": "docs/superpowers/plans/2026-09-25-bounded-entry-call-proof/targets.json",
+  "projected_from_observation_sha256": "d7f7b1b8c8b107f3e666169c61dec507061db1e79c171a1b95cdb99163ff9355",
+  "rows": 12,
+  "sha256": "b584bb4abc8af77deae06044e633bbd58bd0f066a0c8e7660818cde3d7371ffd"
+ },
+ "threshold": "Y>=3 and S>=2 (owner D2, locked)"
+}

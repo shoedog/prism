@@ -61,8 +61,8 @@ This increment implements no parameter support, positional holes, export or JSX 
     no export (`src/ast.rs:2874-2890`, deliberate), so imported `<X/>` uses drop as `UnknownName`.
   - **Local wrappers exported through default-object members.** `RowStack` and `ColStack` are reached as
     `Stack.Row` / `Stack.Col` (`Stack.tsx:15`, `:59`), which is an alias lane.
-  - **Unowned uses.** For example, `SidebarInner`'s JSX use inside a nested wrapper callback is recorded without an
-    owning caller.
+  - **Unowned uses.** For example, `SidebarInner`'s JSX use inside a nested wrapper callback has no call-site
+    record.
 
   Counting unit: **callers are call-occurrence rows. Sites are distinct target sites.** Correction: one of the five
   zoom arguments is the member expression `this.state` (`App.tsx:4327`), not an identifier.
