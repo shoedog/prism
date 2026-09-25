@@ -14,6 +14,9 @@ assert(native, "PRISM_NATIVE_PARAMETER_EXAMPLE is required");
 const OUTPUT = "prism.native-parameter-characterization/1";
 const sha = value => createHash("sha256").update(value).digest("hex");
 const nativeSha256 = sha(readFileSync(native));
+const records = JSON.parse(readFileSync(
+  new URL("./fixtures/complete-records.json", import.meta.url)
+));
 const bytes = value => Buffer.byteLength(value);
 const kind = file => file.endsWith(".tsx") ? "Tsx" : file.endsWith(".ts") ? "TypeScript" :
   file.endsWith(".jsx") ? "Jsx" : "JavaScript";
@@ -111,13 +114,20 @@ function complete(fixture, sites, errors) {
   assert.deepEqual(run(fixture.options()), expected(fixture, sites, errors));
 }
 
+const record = name => {
+  const row = records[name];
+  using(fixture({ [row.file]: row.source }, [row.selector]), f =>
+    complete(f, row.sites, name === "recovery" ? { [row.file]: 1 } : undefined));
+};
+
 function adapter(compressOrdinal) {
-  return {
-    source_ordinal: compressOrdinal ? 1 : 2,
-    path: "alias.js",
-    parameter_count: 3,
-    next_action: "bounded_entry_and_call_proof"
-  };
+  const row = records.alias;
+  return using(fixture({ [row.file]: row.source }, [row.selector]), f => {
+    complete(f, row.sites);
+    const packet = run(f.options());
+    packet.sites[0].candidates[0].bindings[1].source_ordinal = compressOrdinal ? 1 : 2;
+    return packet;
+  });
 }
 
 test("RED adapter exposes compressed alias binding ordinal", {
@@ -245,6 +255,8 @@ test("3 and 3b: JS, TS, TSX, recovery, and required-wrapper records are complete
       p(0, "object_pattern", 14, 17), p(1, "identifier", 19, 24)
     ], null, [o("later", 19, 24, 1)])], "not_clean_named")
   ], { "recovery.js": 1 }));
+  for (const name of ["rest", "nested_default", "escaped_identifier", "typed_ts",
+    "typed_tsx", "initialized_later"]) record(name);
 });
 
 test("4: BOM, astral, CRLF, and UTF-8 boundaries preserve bytes", () => {
@@ -290,9 +302,6 @@ test("5: builder controls and worker-held refusals are exact", () => {
     f.manifest.upstream_repository = "https://example.invalid/public";
     f.save();
     assert.throws(() => builder.buildRequest(f.options()), /frozen manifest SHA mismatch/);
-    f.sites[0].compiler_kind = "FunctionDeclaration";
-    f.save();
-    assert.throws(() => builder.buildRequest(f.options()), /frozen manifest SHA mismatch/);
   });
   using(fixture({ "a.js": source }, [selector]), f => {
     f.members.push({ ...f.members[0] });
@@ -300,8 +309,12 @@ test("5: builder controls and worker-held refusals are exact", () => {
     assert.throws(() => builder.buildRequest(f.options()), /invalid or duplicate member path/);
   });
   using(fixture({ "a.js": source }, [selector]), f => {
-    writeFileSync(path.join(f.root, "a.js"), "function changed(){}");
-    assert.throws(() => builder.buildRequest(f.options()), /pre-read size mismatch/);
+    f.sites.push({ ...f.sites[0] }); f.save();
+    assert.throws(() => builder.buildRequest(f.options()), /duplicate site selector/);
+  });
+  using(fixture({ "a.tsx": source }, [select("a.tsx", source)]), f => {
+    f.members[0].script_kind = "TypeScript"; f.save();
+    assert.throws(() => run(f.options()), /script kind\/path mismatch/);
   });
   using(fixture({ "a.js": source }, [selector]), f => {
     writeFileSync(path.join(f.root, "a.js"), Buffer.from([0xff]));
@@ -323,9 +336,35 @@ test("5: builder controls and worker-held refusals are exact", () => {
     f.save();
     assert.throws(() => builder.buildRequest(f.options()), /pre-read size mismatch/);
   });
+  const direct = [
+    ["same-size source identity", { "a.js": source }, [select("a.js", source)], f => {
+      writeFileSync(path.join(f.root, "a.js"), source.replace("take", "sake"));
+      assert.throws(() => builder.buildRequest(f.options()), /source identity mismatch/);
+    }],
+    ["aggregate pre-read cap", { "a.js": "a".repeat(131_072), "b.js": "b".repeat(131_073) },
+      [], f => assert.throws(() => builder.buildRequest(f.options()), /pre-read source limit/)],
+    ["code-point file order", { "🦊.js": "", "z.js": "" }, [], f => assert.deepEqual(
+      builder.buildRequest(f.options()).files.map(value => value.path), ["z.js", "🦊.js"])],
+    ["numeric selector order", { "a.js": source }, [select("a.js", source, "FunctionDeclaration",
+      [0], [1], 20, bytes(source)), select("a.js", source, "FunctionDeclaration", [0], [1], 0,
+      20)], f => assert.deepEqual(builder.buildRequest(f.options()).files[0].sites.map(value =>
+      value.start_byte), [0, 20])],
+    ["control-character path", { "a.js": source }, [select("a.js", source)], f => {
+      f.members[0].path = f.sites[0].path = "bad\n.js"; f.save();
+      assert.throws(() => builder.buildRequest(f.options()), /invalid or duplicate member path/);
+    }],
+    ["invalid native SHA", { "a.js": source }, [select("a.js", source)], f => assert.throws(() =>
+      builder.buildRequest({ ...f.options(), nativeSha256: "invalid" }), /invalid native SHA-256/)],
+    ["invalid synthetic projection", { "a.js": source }, [select("a.js", source)], f => {
+      f.sites[0].compiler_kind = "Nope"; f.save();
+      assert.throws(() => builder.buildRequest(f.options()), /invalid site projection/);
+    }]
+  ];
+  for (const [label, sources, sites, check] of direct)
+    using(fixture(sources, sites), f => check(f, label));
 });
 
-test("5b: CLI rejects missing, duplicate, and unknown flags", () => {
+test("5b: CLI emits exact bytes and rejects missing, duplicate, and unknown flags", () => {
   const source = "function take({x}, later){return later;}";
   using(fixture({ "a.js": source }, [select("a.js", source)]), f => {
     const script = path.join(process.cwd(), "scripts",
@@ -342,10 +381,13 @@ test("5b: CLI rejects missing, duplicate, and unknown flags", () => {
       assert.notEqual(result.status, 0);
       assert.match(result.stderr, expected);
     }
+    const result = spawnSync(process.execPath, [script, ...flags], { encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, `${JSON.stringify(builder.buildRequest(f.options()))}\n`);
   });
 });
 
-test("6 and 7: repeat, shifted, and terminal dispositions are complete", () => {
+test("6 and 7: repeat, transformed, and terminal records are complete", () => {
   const source = "function take({key: value}, later){return later;}";
   const selector = select("a.js", source);
   using(fixture({ "a.js": source }, [selector]), f => {
@@ -354,30 +396,8 @@ test("6 and 7: repeat, shifted, and terminal dispositions are complete", () => {
     writeFileSync(path.join(f.root, "a.js"), `/*p*/${source}`);
     assert.throws(() => builder.buildRequest(f.options()), /pre-read size mismatch/);
   });
-  const cases = [
-    ["zero.js", "function take({x}, later){return later;}", "unique_named",
-      "eligible"],
-    ["unnamed.js", "consume(({x}, later) => later);", "unique_unnamed", "not_clean_named",
-      "ArrowFunction", 8, 29],
-    ["missing.js", "function take({x}, later){return later;}", "missing", "not_clean_named",
-      "ArrowFunction"],
-    ["recovery.js", "function take({x}, later { return later; }", "recovery_quarantined",
-      "not_clean_named"]
-  ];
-  for (const [file, source, status, eligibility, kind, start, end] of cases) {
-    const selector = select(file, source, kind ?? "FunctionDeclaration", [0], [1],
-      start ?? 0, end ?? bytes(source));
-    using(fixture({ [file]: source }, [selector]), f => {
-      const packet = run(f.options());
-      const eligible = eligibility === "eligible";
-      assert.deepEqual([
-        packet.sites[0].status, packet.sites[0].next_proof_eligibility,
-        packet.next_action, packet.reason
-      ], [status, eligibility, eligible ? "bounded_entry_and_call_proof" : "defer", eligible
-        ? "named_native_binding_outside_legacy_prefix_requires_entry_and_call_proof"
-        : "no_eligible_native_slot_gap"]);
-    });
-  }
+  for (const name of ["inert_prefix", "meaningful_value", "unnamed", "missing", "recovery"])
+    record(name);
 });
 
 test("9: raw worker refusal matrix, reordering, and JSX mapping stay in the worker", () => {
@@ -404,13 +424,19 @@ test("9: raw worker refusal matrix, reordering, and JSX mapping stay in the work
       ["mismatched selector", bad(request => request.files[0].sites[0].path = "other.js"),
         /selector/],
       ["nested extra", bad(request => request.files[0].sites[0].extra = true), /object keys/],
+      ["dotfile", bad(request => request.files[0].path = ".js"), /mismatch/],
+      ["no extension", bad(request => request.files[0].path = "no-extension"), /mismatch/],
       ["trailing value", `${text(valid)}{}`, /invalid request JSON/],
       ["oversized", Buffer.alloc(2 * 1024 * 1024 + 1, 0x20), /input limit/],
       ["unsafe bytes", unsafe((request, value) => request.files[0].bytes = value,
         9_007_199_254_740_992), /integer too large/],
       ["unsafe start", unsafe((request, value) => request.files[0].sites[0].start_byte = value,
         9_007_199_254_740_992), /integer too large/],
-      ["unsafe later", unsafe((request, value) => request.files[0].sites[0]
+      ["unsafe end", unsafe((request, value) => request.files[0].sites[0].end_byte = value,
+        9_007_199_254_740_992), /integer too large/],
+      ["unsafe object ordinal", unsafe((request, value) => request.files[0].sites[0]
+        .object_ordinals[0] = value, 9_007_199_254_740_992), /integer too large/],
+      ["unsafe later ordinal", unsafe((request, value) => request.files[0].sites[0]
         .later_required_ordinals[0] = value, 9_007_199_254_740_992), /integer too large/]
     ];
     for (const [label, input, expected] of refusals) {
@@ -425,28 +451,24 @@ test("9: raw worker refusal matrix, reordering, and JSX mapping stay in the work
     reordered.files.forEach(file => file.sites.reverse());
     const again = worker(text(reordered));
     assert.equal(canonical.status, 0, canonical.stderr);
+    assert.equal(again.status, 0, again.stderr);
     assert.equal(again.stdout, canonical.stdout);
     assert.equal(JSON.parse(canonical.stdout).files.find(file => file.path === "b.jsx").language,
       "JavaScript");
   });
 });
 
-test("10: frozen 30-case baseline vectors replay through the worker", () => {
+test("10: frozen 30-case baseline vectors replay through builder manifests", () => {
   const plan = path.join(process.cwd(), "docs", "superpowers", "plans",
     "2026-09-19-post319-native-positional-gap");
   const fixtures = JSON.parse(readFileSync(path.join(plan, "BASELINE-FIXTURES.json"), "utf8"));
-  const rows = new Map();
-  const tuple = /\("([^"\n]+)", (\d+), (\d+)\)/g;
+  const rows = new Map(), tuple = /\("([^"\n]+)", (\d+), (\d+)\)/g;
   const tuples = value => [...value.matchAll(tuple)].map(match => [
     match[1], Number(match[2]), Number(match[3])
   ]);
   let current;
   const baseline = readFileSync(path.join(plan, "baseline-output.log"), "utf8");
-  const functionRow = /^FN (Some\("([^"\n]+)"\)|None) (\d+) (\d+) slots=(None|Some\((.*)\)) occurrences=(\[.*\])$/; /*
-    "^FN (Some\\(\\\\"([^\\"\\n]+)\\\\"\\)|None) (\\d+) (\\d+) " +
-    "slots=(None|Some\\((.*)\\)) occurrences=(\\[.*\\])$"
-  );
-  */
+  const functionRow = /^FN (Some\("([^"\n]+)"\)|None) (\d+) (\d+) slots=(None|Some\((.*)\)) occurrences=(\[.*\])$/;
   for (const line of baseline.trim().split("\n")) {
     const header = line.match(/^CASE (\S+) (\S+) errors=(\d+)$/);
     if (header) {
@@ -467,40 +489,22 @@ test("10: frozen 30-case baseline vectors replay through the worker", () => {
   for (const [script_kind, extension] of [
     ["JavaScript", "js"], ["TypeScript", "ts"], ["Tsx", "tsx"]
   ]) {
-    const request = {
-      schema: builder.REQUEST,
-      input_manifest_sha256: "a".repeat(64),
-      native_binary_sha256: nativeSha256,
-      files: fixtures.map(fixture => {
-        const vector = rows.get(`${fixture.id}:${script_kind}`);
-        return {
-          path: `${fixture.id}.${extension}`,
-          sha256: fixture.sha256,
-          bytes: fixture.bytes,
-          script_kind,
-          source: fixture.source,
-          sites: vector.functions.map(row => ({
-            path: `${fixture.id}.${extension}`,
-            start_byte: row.start,
-            end_byte: row.end,
-            compiler_kind: fixture.source.slice(row.start, row.end).includes("=>")
-              ? "ArrowFunction" : "FunctionDeclaration",
-            object_ordinals: [0],
-            later_required_ordinals: [1]
-          }))
-        };
-      })
-    };
-    const result = worker(`${JSON.stringify(request)}\n`);
-    assert.equal(result.status, 0, result.stderr);
-    const packet = JSON.parse(result.stdout);
-    for (const fixture of fixtures) {
-      const vector = rows.get(`${fixture.id}:${script_kind}`);
-      const sites = packet.sites.filter(site => site.path === `${fixture.id}.${extension}`);
-      const file = packet.files.find(file => file.path === `${fixture.id}.${extension}`);
-      assert.equal(file.parse_error_count, vector.errors);
-      assert.equal(sites.length, vector.functions.length);
-      sites.forEach((site, index) => {
+    const cases = fixtures.map(value => {
+      assert.deepEqual([sha(value.source), bytes(value.source)], [value.sha256, value.bytes]);
+      return { file: `${value.id}.${extension}`, source: value.source,
+        vector: rows.get(`${value.id}:${script_kind}`) };
+    });
+    const sites = cases.flatMap(value => value.vector.functions.map(row => select(value.file,
+      value.source, value.source.slice(row.start, row.end).includes("=>") ? "ArrowFunction" :
+        "FunctionDeclaration", [0], [1], row.start, row.end)));
+    using(fixture(Object.fromEntries(cases.map(value => [value.file, value.source])), sites), f => {
+      const packet = run(f.options());
+      for (const { file, vector } of cases) {
+      const actual = packet.sites.filter(site => site.path === file);
+      const output = packet.files.find(value => value.path === file);
+      assert.equal(output.parse_error_count, vector.errors);
+      assert.equal(actual.length, vector.functions.length);
+      actual.forEach((site, index) => {
         const expected = vector.functions[index];
         const candidate = site.candidates[0];
         assert.equal(site.status, expected.name === null ? "unique_unnamed" : "unique_named");
@@ -513,6 +517,7 @@ test("10: frozen 30-case baseline vectors replay through the worker", () => {
         assert.deepEqual(candidate.bindings.map(row => [row.name, row.start_byte, row.end_byte]),
           expected.bindings);
       });
-    }
+      }
+    });
   }
 });
