@@ -201,8 +201,9 @@ fn t_r6_p4_and_p4b_module_scope_competitors() {
     ] {
         let lib = w(&format!("{M}{pre}"), "memo((p) => null)");
         let want = format!("L3 Island: Exact import_member lib:Island@{line}-{line}");
-        assert_eq!(run(&lib, APP, "jsx"), [want.clone()]);
-        assert_eq!(run(&lib, APP, "tsx"), [want]);
+        for ext in ["jsx", "tsx"] {
+            assert_eq!(run(&lib, APP, ext), [want.as_str()]);
+        }
     }
 }
 

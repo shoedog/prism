@@ -255,6 +255,9 @@ enum ExportLookup {
     Resolved(ResolvedJsExport, bool),
 }
 
+/// A star-barrel candidate: `(file, local_name, is_class, span)`.
+type BarrelCandidate = (String, String, bool, Option<(usize, usize)>);
+
 fn resolve_one(
     raw: &BTreeMap<String, JsExportFacts>,
     resolve_module: &dyn Fn(&str, &str) -> Option<String>,
@@ -370,7 +373,7 @@ fn resolve_one_inner(
     }
     // The span is part of the key: two claims on one `(file, local)` with different
     // spans are different targets (S1).
-    let mut candidates: BTreeSet<(String, String, bool, Option<(usize, usize)>)> = BTreeSet::new();
+    let mut candidates: BTreeSet<BarrelCandidate> = BTreeSet::new();
     for module_path in &facts.star_reexports {
         let Some(target_file) = resolve_module(file, module_path) else {
             continue;
