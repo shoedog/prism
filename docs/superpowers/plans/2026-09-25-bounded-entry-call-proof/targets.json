@@ -1,0 +1,174 @@
+{
+  "schema": "prism.entry-call-targets/1",
+  "source_observation_sha256": "d7f7b1b8c8b107f3e666169c61dec507061db1e79c171a1b95cdb99163ff9355",
+  "targets": [
+    {
+      "binding": {
+        "end_byte": 1604,
+        "name": "ref",
+        "start_byte": 1601
+      },
+      "callable": {
+        "end_byte": 5671,
+        "name": "Picker",
+        "start_byte": 1379
+      },
+      "ordinal": 1,
+      "path": "packages/excalidraw/components/ColorPicker/Picker.tsx"
+    },
+    {
+      "binding": {
+        "end_byte": 1118,
+        "name": "ref",
+        "start_byte": 1115
+      },
+      "callable": {
+        "end_byte": 2925,
+        "name": "FilledButton",
+        "start_byte": 902
+      },
+      "ordinal": 1,
+      "path": "packages/excalidraw/components/FilledButton.tsx"
+    },
+    {
+      "binding": {
+        "end_byte": 318,
+        "name": "ref",
+        "start_byte": 315
+      },
+      "callable": {
+        "end_byte": 480,
+        "name": "Island",
+        "start_byte": 273
+      },
+      "ordinal": 1,
+      "path": "packages/excalidraw/components/Island.tsx"
+    },
+    {
+      "binding": {
+        "end_byte": 1030,
+        "name": "ref",
+        "start_byte": 1027
+      },
+      "callable": {
+        "end_byte": 3130,
+        "name": "PropertiesPopover",
+        "start_byte": 802
+      },
+      "ordinal": 1,
+      "path": "packages/excalidraw/components/PropertiesPopover.tsx"
+    },
+    {
+      "binding": {
+        "end_byte": 360,
+        "name": "ref",
+        "start_byte": 357
+      },
+      "callable": {
+        "end_byte": 707,
+        "name": "QuickSearch",
+        "start_byte": 318
+      },
+      "ordinal": 1,
+      "path": "packages/excalidraw/components/QuickSearch.tsx"
+    },
+    {
+      "binding": {
+        "end_byte": 1662,
+        "name": "ref",
+        "start_byte": 1659
+      },
+      "callable": {
+        "end_byte": 4701,
+        "name": "SidebarInner",
+        "start_byte": 1483
+      },
+      "ordinal": 1,
+      "path": "packages/excalidraw/components/Sidebar/Sidebar.tsx"
+    },
+    {
+      "binding": {
+        "end_byte": 456,
+        "name": "ref",
+        "start_byte": 453
+      },
+      "callable": {
+        "end_byte": 784,
+        "name": "RowStack",
+        "start_byte": 371
+      },
+      "ordinal": 1,
+      "path": "packages/excalidraw/components/Stack.tsx"
+    },
+    {
+      "binding": {
+        "end_byte": 906,
+        "name": "ref",
+        "start_byte": 903
+      },
+      "callable": {
+        "end_byte": 1234,
+        "name": "ColStack",
+        "start_byte": 821
+      },
+      "ordinal": 1,
+      "path": "packages/excalidraw/components/Stack.tsx"
+    },
+    {
+      "binding": {
+        "end_byte": 1004,
+        "name": "ref",
+        "start_byte": 1001
+      },
+      "callable": {
+        "end_byte": 2943,
+        "name": "TextField",
+        "start_byte": 781
+      },
+      "ordinal": 1,
+      "path": "packages/excalidraw/components/TextField.tsx"
+    },
+    {
+      "binding": {
+        "end_byte": 1693,
+        "name": "ref",
+        "start_byte": 1690
+      },
+      "callable": {
+        "end_byte": 5662,
+        "name": "ToolButton",
+        "start_byte": 1572
+      },
+      "ordinal": 1,
+      "path": "packages/excalidraw/components/ToolButton.tsx"
+    },
+    {
+      "binding": {
+        "end_byte": 1357,
+        "name": "exportSelectionOnly",
+        "start_byte": 1338
+      },
+      "callable": {
+        "end_byte": 2535,
+        "name": "prepareElementsForExport",
+        "start_byte": 1228
+      },
+      "ordinal": 2,
+      "path": "packages/excalidraw/data/index.ts"
+    },
+    {
+      "binding": {
+        "end_byte": 248,
+        "name": "appState",
+        "start_byte": 240
+      },
+      "callable": {
+        "end_byte": 953,
+        "name": "getStateForZoom",
+        "start_byte": 95
+      },
+      "ordinal": 1,
+      "path": "packages/excalidraw/scene/zoom.ts"
+    }
+  ]
+}
