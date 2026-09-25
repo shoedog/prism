@@ -288,7 +288,6 @@ test("5: builder controls and worker-held refusals are exact", () => {
         script_kind: "JavaScript", source, sites: [selector] }]
     };
     assert.equal(JSON.stringify(request), JSON.stringify(expectedRequest));
-    assert.doesNotThrow(() => builder.buildRequest(f.options()));
     assert.throws(() => builder.buildRequest({ ...f.options(), manifestSha256: "0".repeat(64) }),
       /manifest SHA mismatch/);
     for (const unsafe of ["/a.js", "../a.js", "a\\b.js"]) {
@@ -308,13 +307,11 @@ test("5: builder controls and worker-held refusals are exact", () => {
     f.save();
     assert.throws(() => builder.buildRequest(f.options()), /invalid or duplicate member path/);
   });
-  using(fixture({ "a.js": source }, [selector]), f => {
-    f.sites.push({ ...f.sites[0] }); f.save();
-    assert.throws(() => builder.buildRequest(f.options()), /duplicate site selector/);
-  });
   using(fixture({ "a.tsx": source }, [select("a.tsx", source)]), f => {
-    f.members[0].script_kind = "TypeScript"; f.save();
-    assert.throws(() => run(f.options()), /script kind\/path mismatch/);
+    f.members[0].script_kind = "Nope"; f.save();
+    const result = worker(`${JSON.stringify(builder.buildRequest(f.options()))}\n`);
+    assert.notEqual(result.status, 0); assert.equal(result.stdout, "");
+    assert.match(result.stderr, /script kind\/path mismatch/);
   });
   using(fixture({ "a.js": source }, [selector]), f => {
     writeFileSync(path.join(f.root, "a.js"), Buffer.from([0xff]));
@@ -355,10 +352,6 @@ test("5: builder controls and worker-held refusals are exact", () => {
     }],
     ["invalid native SHA", { "a.js": source }, [select("a.js", source)], f => assert.throws(() =>
       builder.buildRequest({ ...f.options(), nativeSha256: "invalid" }), /invalid native SHA-256/)],
-    ["invalid synthetic projection", { "a.js": source }, [select("a.js", source)], f => {
-      f.sites[0].compiler_kind = "Nope"; f.save();
-      assert.throws(() => builder.buildRequest(f.options()), /invalid site projection/);
-    }]
   ];
   for (const [label, sources, sites, check] of direct)
     using(fixture(sources, sites), f => check(f, label));
@@ -396,8 +389,8 @@ test("6 and 7: repeat, transformed, and terminal records are complete", () => {
     writeFileSync(path.join(f.root, "a.js"), `/*p*/${source}`);
     assert.throws(() => builder.buildRequest(f.options()), /pre-read size mismatch/);
   });
-  for (const name of ["inert_prefix", "meaningful_value", "unnamed", "missing", "recovery"])
-    record(name);
+  for (const n of ["inert_prefix", "meaningful_value", "unnamed", "missing", "recovery", "no_gap"])
+    record(n);
 });
 
 test("9: raw worker refusal matrix, reordering, and JSX mapping stay in the worker", () => {
@@ -412,8 +405,7 @@ test("9: raw worker refusal matrix, reordering, and JSX mapping stay in the work
     const valid = builder.buildRequest(f.options());
     const text = value => `${JSON.stringify(value)}\n`;
     const bad = change => {
-      const value = structuredClone(valid);
-      change(value);
+      const value = structuredClone(valid); change(value);
       return text(value);
     };
     const unsafe = (path, value) => bad(request => path(request, value));
@@ -428,6 +420,11 @@ test("9: raw worker refusal matrix, reordering, and JSX mapping stay in the work
       ["no extension", bad(request => request.files[0].path = "no-extension"), /mismatch/],
       ["trailing value", `${text(valid)}{}`, /invalid request JSON/],
       ["oversized", Buffer.alloc(2 * 1024 * 1024 + 1, 0x20), /input limit/],
+      ["bad SHA", bad(r => r.files[0].sha256 = "invalid"), /invalid or duplicate file/],
+      ["bad script", bad(r => r.files[0].script_kind = "Nope"), /script kind\/path mismatch/],
+      ["bad compiler", bad(r => r.files[0].sites[0].compiler_kind = "Nope"), /selector/],
+      ["bad objects", bad(r => r.files[0].sites[0].object_ordinals = "Nope"), /ordinal/],
+      ["bad later", bad(r => r.files[0].sites[0].later_required_ordinals = "Nope"), /ordinal/],
       ["unsafe bytes", unsafe((request, value) => request.files[0].bytes = value,
         9_007_199_254_740_992), /integer too large/],
       ["unsafe start", unsafe((request, value) => request.files[0].sites[0].start_byte = value,
@@ -441,8 +438,7 @@ test("9: raw worker refusal matrix, reordering, and JSX mapping stay in the work
     ];
     for (const [label, input, expected] of refusals) {
       const result = worker(input);
-      assert.notEqual(result.status, 0, label);
-      assert.equal(result.stdout, "", label);
+      assert.notEqual(result.status, 0, label); assert.equal(result.stdout, "", label);
       assert.match(result.stderr, expected, label);
     }
     const canonical = worker(text(valid));

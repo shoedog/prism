@@ -14,10 +14,6 @@ const SITE = [
 ];
 const sha = value => createHash("sha256").update(value).digest("hex");
 const hex = value => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
-const safe = value => Number.isSafeInteger(value) && value >= 0;
-const scriptKind = new Set(["JavaScript", "Jsx", "TypeScript", "Tsx"]);
-const compilerKind = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunction"]);
-const selectorKey = value => JSON.stringify(SITE.map(key => value[key]));
 const fail = message => { throw Error(message); };
 
 function projection(value, keys, label) {
@@ -83,24 +79,15 @@ export function buildRequest(options) {
   const byPath = new Map();
   for (const member of members) {
     projection(member, MEMBER, "member");
-    if (!hex(member.sha256) || !safe(member.bytes) || !scriptKind.has(member.script_kind)) {
-      fail("invalid member projection");
-    }
     if (!safePath(member.path) || byPath.has(member.path)) {
       fail("invalid or duplicate member path");
     }
     byPath.set(member.path, member);
   }
-  const grouped = new Map(), selectors = new Set();
+  const grouped = new Map();
   for (const site of sites) {
     projection(site, SITE, "site");
-    if (!safe(site.start_byte) || !safe(site.end_byte) || !compilerKind.has(site.compiler_kind) ||
-      ![site.object_ordinals, site.later_required_ordinals].every(value =>
-        Array.isArray(value) && value.every(safe))) fail("invalid site projection");
     if (!byPath.has(site.path)) fail("site path is not a member");
-    const key = selectorKey(site);
-    if (selectors.has(key)) fail("duplicate site selector");
-    selectors.add(key);
     const group = grouped.get(site.path) ?? [];
     group.push(site);
     grouped.set(site.path, group);
