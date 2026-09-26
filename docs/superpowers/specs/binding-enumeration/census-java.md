@@ -151,3 +151,10 @@ Grammar SHA-256: `19c46facc653381c337ff6cad75dd8b052524179a366c80825d6d0010520ee
 | `type_identifier` | true |  | false | false | false | 2 |
 | `underscore_pattern` | true |  | false | true | false | 0 |
 | `void_type` | true |  | false | false | false | 1 |
+
+## Placeholder debt
+
+| Kind | Variant | Regression | Owning task |
+|---|---|---|---|
+| `formal_parameters` | `None` | `e0a-x-java-formal_parameters` | Task 20 |
+| `spread_parameter` | `None` | `e0a-x-java-spread_parameter` | Task 20 |

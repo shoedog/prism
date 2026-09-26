@@ -17,6 +17,23 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+#[derive(Clone, Copy, Debug)]
+enum PlaceholderPredicate {}
+
+include!("../src/cpg/reaching/tests/enumeration/case/placeholder_owners.inc.rs");
+
+type PlaceholderRow = (
+    (
+        Language,
+        &'static str,
+        Option<PlaceholderPredicate>,
+        &'static str,
+    ),
+    &'static str,
+);
+
+const PLACEHOLDER_OWNERS: &[PlaceholderRow] = placeholder_owners!(Language, PlaceholderPredicate);
+
 const EXPECTED_DFG_FIXTURES: usize = 57;
 const CANDIDATE_PARTS: &[&str] = &[
     "declar",
@@ -354,6 +371,24 @@ fn markdown(language: Language, digest: &str, kinds: &[Value]) -> String {
             kind["grammar_only"].as_bool().unwrap_or_default(),
             kind["corpus_occurrences"].as_u64().unwrap_or_default()
         ));
+    }
+    output.push_str("\n## Placeholder debt\n\n");
+    let mut debt = PLACEHOLDER_OWNERS
+        .iter()
+        .filter(|((owner_language, _, _, _), _)| *owner_language == language)
+        .peekable();
+    if debt.peek().is_none() {
+        output.push_str("None.\n");
+    } else {
+        output.push_str("| Kind | Variant | Regression | Owning task |\n|---|---|---|---|\n");
+        for ((_, kind, variant, regression), owner) in debt {
+            let variant = variant
+                .map(|value| format!("`{value:?}`"))
+                .unwrap_or_else(|| "`None`".to_string());
+            output.push_str(&format!(
+                "| `{kind}` | {variant} | `{regression}` | {owner} |\n"
+            ));
+        }
     }
     output
 }

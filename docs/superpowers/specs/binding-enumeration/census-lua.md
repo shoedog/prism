@@ -55,3 +55,9 @@ Grammar SHA-256: `12ea1259c9e644754a13068eafd6160a9c5561c7a69e9cb9c8cd6c968b5e09
 | `number` | true |  | false | false | false | 0 |
 | `true` | true |  | false | false | false | 0 |
 | `vararg_expression` | true |  | false | false | false | 0 |
+
+## Placeholder debt
+
+| Kind | Variant | Regression | Owning task |
+|---|---|---|---|
+| `parameters` | `None` | `e0a-x-lua-parameters` | Task 26 |

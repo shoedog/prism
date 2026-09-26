@@ -110,3 +110,18 @@ Grammar SHA-256: `a5dd5e5316dc9c00d6e370673260a1ba35fa8d422e6150debf5dea527aae71
 | `rune_literal` | true |  | false | false | false | 0 |
 | `true` | true |  | false | false | false | 0 |
 | `type_identifier` | true |  | false | false | false | 59 |
+
+## Placeholder debt
+
+| Kind | Variant | Regression | Owning task |
+|---|---|---|---|
+| `block` | `None` | `e0a-go-block` | Task 13 |
+| `const_declaration` | `None` | `e0a-go-const_declaration` | Task 13 |
+| `expression_switch_statement` | `None` | `e0a-go-expression_switch_statement` | Task 13 |
+| `for_statement` | `None` | `e0a-go-for_statement` | Task 13 |
+| `if_statement` | `None` | `e0a-go-if_statement` | Task 13 |
+| `parameter_list` | `None` | `e0a-x-go-parameter_list` | Task 13 |
+| `select_statement` | `None` | `e0a-go-select_statement` | Task 13 |
+| `short_var_declaration` | `None` | `e0a-go-short_var_declaration` | Task 13 |
+| `type_switch_statement` | `None` | `e0a-go-type_switch_statement` | Task 13 |
+| `var_declaration` | `None` | `e0a-go-var_declaration` | Task 13 |

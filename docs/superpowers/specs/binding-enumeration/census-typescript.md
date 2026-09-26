@@ -187,3 +187,18 @@ Grammar SHA-256: `c790a733fc756b54d4e54dceeb7d2d51e40d8b57136e70277753a75804cce3
 | `true` | true |  | false | false | false | 0 |
 | `type_identifier` | true |  | false | false | false | 0 |
 | `undefined` | true |  | false | false | false | 0 |
+
+## Placeholder debt
+
+| Kind | Variant | Regression | Owning task |
+|---|---|---|---|
+| `arrow_function` | `None` | `e0a-js-arrow_function` | Task 17 |
+| `class_body` | `None` | `e0a-js-class_body` | Task 17 |
+| `class_declaration` | `None` | `e0a-js-class_declaration` | Task 17 |
+| `for_statement` | `None` | `e0a-js-for_statement` | Task 17 |
+| `formal_parameters` | `None` | `e0a-x-js-formal_parameters` | Task 17 |
+| `function_declaration` | `None` | `e0a-js-function_declaration` | Task 17 |
+| `function_expression` | `None` | `e0a-js-function_expression` | Task 17 |
+| `lexical_declaration` | `None` | `e0a-js-lexical_declaration` | Task 17 |
+| `statement_block` | `None` | `e0a-js-statement_block` | Task 17 |
+| `variable_declaration` | `None` | `e0a-js-variable_declaration` | Task 17 |
