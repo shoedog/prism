@@ -1,4 +1,4 @@
-use super::binding_table::{select_binding_row, Visibility};
+use super::binding_table::{guard_span_row, select_binding_row, Ruling, Visibility};
 use super::scope::{binding_scope_rule, RootFunction};
 use super::Line;
 use crate::ast::ParsedFile;
@@ -32,6 +32,257 @@ struct NodeTypeRef {
 }
 
 pub(super) type IntroducingFields = BTreeMap<String, BTreeSet<String>>;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct ByteSpan {
+    pub(super) start: usize,
+    pub(super) end: usize,
+}
+
+impl ByteSpan {
+    pub(super) fn contains(self, byte: usize) -> bool {
+        self.start <= byte && byte < self.end
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum SpanKind {
+    Known(Vec<ByteSpan>),
+    Empty,
+    Unknown,
+}
+
+pub(super) fn visibility_span(parsed: &ParsedFile, binder_node: Node<'_>) -> SpanKind {
+    if let Some(row) = guard_span_row(parsed.language, binder_node.kind()) {
+        let Some(guard) = ancestor_of_kind(binder_node, row.guard_kind) else {
+            return SpanKind::Unknown;
+        };
+        let Some(owner) = ancestor_of_kind(guard, row.owner_kind) else {
+            return SpanKind::Unknown;
+        };
+        let Some(condition) = owner.child_by_field_name(row.condition_field) else {
+            return SpanKind::Unknown;
+        };
+        if !(condition.start_byte() <= guard.start_byte()
+            && guard.end_byte() <= condition.end_byte())
+        {
+            return SpanKind::Unknown;
+        }
+        let negated = guard_is_negated(parsed, guard, condition);
+        let mut spans = Vec::new();
+        if !negated && row.positive_condition_tail && binder_node.end_byte() < condition.end_byte()
+        {
+            spans.push(ByteSpan {
+                start: binder_node.end_byte(),
+                end: condition.end_byte(),
+            });
+        }
+        let fields = if negated {
+            row.negative_fields
+        } else {
+            row.positive_fields
+        };
+        for field in fields {
+            if let Some(node) = owner.child_by_field_name(field) {
+                spans.push(ByteSpan {
+                    start: node.start_byte(),
+                    end: node.end_byte(),
+                });
+            }
+        }
+        if negated && statement_cannot_complete_normally(owner.child_by_field_name("consequence")) {
+            if let Some(parent) = owner.parent() {
+                if owner.end_byte() < parent.end_byte() {
+                    spans.push(ByteSpan {
+                        start: owner.end_byte(),
+                        end: parent.end_byte(),
+                    });
+                }
+            }
+        }
+        return if spans.is_empty() {
+            SpanKind::Empty
+        } else {
+            SpanKind::Known(spans)
+        };
+    }
+
+    let scoped = match parsed.language {
+        Language::Rust => rust_visibility_node(binder_node),
+        Language::Python => ancestor_field(binder_node, "if_statement", "consequence"),
+        Language::Go | Language::JavaScript | Language::TypeScript | Language::Tsx => {
+            nearest_field(binder_node, "body")
+        }
+        _ => None,
+    };
+    let Some(scoped) = scoped else {
+        return SpanKind::Unknown;
+    };
+    if scoped.named_child_count() == 0 {
+        SpanKind::Empty
+    } else {
+        SpanKind::Known(vec![ByteSpan {
+            start: scoped.start_byte(),
+            end: scoped.end_byte(),
+        }])
+    }
+}
+
+pub(super) fn uncertain_binding_nodes<'a>(parsed: &'a ParsedFile, name: &str) -> Vec<Node<'a>> {
+    fn walk<'a>(parsed: &'a ParsedFile, node: Node<'a>, name: &str, out: &mut Vec<Node<'a>>) {
+        let uncertain = select_binding_row(parsed, node)
+            .is_some_and(|row| matches!(row.ruling, Ruling::Uncertain { .. }));
+        if uncertain && node_introduces_name(parsed, node, name) {
+            out.push(node);
+        }
+        let mut cursor = node.walk();
+        for child in node.named_children(&mut cursor) {
+            walk(parsed, child, name, out);
+        }
+    }
+
+    let mut nodes = Vec::new();
+    walk(parsed, parsed.tree.root_node(), name, &mut nodes);
+    nodes
+}
+
+fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
+    if parsed.language == Language::Java
+        && !matches!(node.kind(), "record_pattern" | "type_pattern")
+    {
+        return false;
+    }
+    let special_target = match (parsed.language, node.kind()) {
+        (Language::Java, "record_pattern" | "type_pattern")
+        | (Language::Rust, "tuple_struct_pattern") => Some(node),
+        (Language::Bash, "for_statement") => node.child_by_field_name("variable"),
+        _ => None,
+    };
+    if let Some(target) = special_target {
+        return target_introduces_name(parsed, node, target, name);
+    }
+    grammar_introducing_fields(parsed.language)
+        .get(node.kind())
+        .is_some_and(|fields| {
+            fields.iter().any(|field| {
+                node.child_by_field_name(field)
+                    .is_some_and(|target| target_introduces_name(parsed, node, target, name))
+            })
+        })
+}
+
+fn target_introduces_name(
+    parsed: &ParsedFile,
+    construct: Node<'_>,
+    target: Node<'_>,
+    name: &str,
+) -> bool {
+    let Some(root_function) = parsed
+        .all_functions()
+        .into_iter()
+        .filter(|function| {
+            function.start_byte() <= construct.start_byte()
+                && construct.end_byte() <= function.end_byte()
+        })
+        .min_by_key(|function| function.end_byte() - function.start_byte())
+    else {
+        return false;
+    };
+    let root = RootFunction::new(parsed, root_function);
+    subtree_has_name(parsed, target, name)
+        && !introduction_is_classified(parsed, construct, target, &root)
+}
+
+fn subtree_has_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
+    if parsed.language.is_identifier_node(node.kind()) && parsed.node_text(&node) == name {
+        return true;
+    }
+    if node.named_child_count() == 0 && parsed.node_text(&node) == name {
+        return true;
+    }
+    let mut cursor = node.walk();
+    let found = node
+        .named_children(&mut cursor)
+        .any(|child| subtree_has_name(parsed, child, name));
+    found
+}
+
+fn ancestor_of_kind<'a>(mut node: Node<'a>, kind: &str) -> Option<Node<'a>> {
+    while let Some(parent) = node.parent() {
+        if parent.kind() == kind {
+            return Some(parent);
+        }
+        node = parent;
+    }
+    None
+}
+
+fn ancestor_field<'a>(mut node: Node<'a>, kind: &str, field: &str) -> Option<Node<'a>> {
+    while let Some(parent) = node.parent() {
+        if parent.kind() == kind {
+            return parent.child_by_field_name(field);
+        }
+        node = parent;
+    }
+    None
+}
+
+fn nearest_field<'a>(mut node: Node<'a>, field: &str) -> Option<Node<'a>> {
+    while let Some(parent) = node.parent() {
+        if let Some(scoped) = parent.child_by_field_name(field) {
+            return Some(scoped);
+        }
+        node = parent;
+    }
+    None
+}
+
+fn rust_visibility_node(binder_node: Node<'_>) -> Option<Node<'_>> {
+    let mut current = binder_node;
+    while let Some(parent) = current.parent() {
+        match parent.kind() {
+            "match_arm" => return parent.child_by_field_name("value"),
+            "if_expression" => return parent.child_by_field_name("consequence"),
+            "while_expression" => return parent.child_by_field_name("body"),
+            _ => current = parent,
+        }
+    }
+    None
+}
+
+fn guard_is_negated(parsed: &ParsedFile, guard: Node<'_>, condition: Node<'_>) -> bool {
+    let mut current = guard;
+    while let Some(parent) = current.parent() {
+        if parent.id() == condition.id() {
+            break;
+        }
+        if parent.kind() == "unary_expression"
+            && parsed.node_text(&parent).trim_start().starts_with('!')
+        {
+            return true;
+        }
+        current = parent;
+    }
+    false
+}
+
+fn statement_cannot_complete_normally(statement: Option<Node<'_>>) -> bool {
+    let Some(statement) = statement else {
+        return false;
+    };
+    if matches!(
+        statement.kind(),
+        "return_statement" | "throw_statement" | "break_statement" | "continue_statement"
+    ) {
+        return true;
+    }
+    if statement.kind() != "block" {
+        return false;
+    }
+    statement
+        .named_child(statement.named_child_count().saturating_sub(1))
+        .is_some_and(|last| statement_cannot_complete_normally(Some(last)))
+}
 
 pub(super) fn collect_unclassified_binding_lines(
     parsed: &ParsedFile,

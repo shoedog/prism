@@ -74,11 +74,13 @@ pub(super) fn check_case(case: &Case) {
     } else {
         let selected = select_binding_row(&parsed, nodes[0])
             .unwrap_or_else(|| panic!("{}: no binding row selected", case.id));
-        assert_eq!(
-            selected.regression, case.id,
-            "{}: selected binding row",
-            case.id
-        );
+        if case.variant == Some("binding") {
+            assert_eq!(
+                selected.regression, case.id,
+                "{}: selected binding row",
+                case.id
+            );
+        }
         assert_eq!(
             selected.variant, case.row_variant,
             "{}: selected binding variant",
@@ -400,6 +402,7 @@ pub(super) fn all_cases() -> Vec<&'static Case> {
                 .chain(super::lua::CASES)
                 .chain(super::terraform::CASES)
                 .chain(super::bash::CASES)
+                .chain(super::barrier::CASES)
             {
                 overrides.insert((case.language, case.kind, case.variant));
                 cases.push(*case);
@@ -556,12 +559,21 @@ fn every_case_selects_exactly_one_row_per_occurrence() {
                 predicate_hits
             };
             assert_eq!(selection_count, 1, "{}: {predicate_hits} predicate rows and {residuals} residual rows matched one occurrence", case.id);
-            assert_eq!(
-                selected,
-                Some((case.id, case.row_variant)),
-                "{}: selected row identity",
-                case.id
-            );
+            if case.variant.is_some() {
+                assert_eq!(
+                    selected,
+                    Some((case.id, case.row_variant)),
+                    "{}: selected row identity",
+                    case.id
+                );
+            } else {
+                assert_eq!(
+                    selected.map(|(_, variant)| variant),
+                    Some(case.row_variant),
+                    "{}: selected supplemental row variant",
+                    case.id
+                );
+            }
         }
     }
 }

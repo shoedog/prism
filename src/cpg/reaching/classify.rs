@@ -1,3 +1,4 @@
+use super::grammar_lint::{uncertain_binding_nodes, visibility_span, SpanKind};
 use super::graph::{definition_reaches_unflagged, path_exists, BitSet};
 use super::{capture, scope, statement_lookup, DefSite, FlowConfidence, FlowDoubt, Line};
 use crate::access_path::AccessPath;
@@ -76,8 +77,22 @@ pub(super) fn classify_edge(
     let lookup_uncertain = candidates
         .iter()
         .any(|index| binding_facts.lookup_requires_flat_fallback(parsed, edge, *index));
-    let construct_uncertain = binding_facts
-        .unclassified_binding_lines(&edge.to.path.base)
+    let recorded_uncertain = binding_facts.unclassified_binding_lines(&edge.to.path.base);
+    if let Some(construct_line) = uncertain_construct_on_route(
+        parsed,
+        edge,
+        &candidates,
+        mapped_defs,
+        use_node,
+        line_index,
+        statements,
+        successors,
+    ) {
+        return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
+            construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
+        });
+    }
+    let construct_uncertain = recorded_uncertain
         .into_iter()
         .filter_map(|line| statements.get(line))
         .filter_map(|line| line_index.get(&line).copied())
@@ -128,6 +143,77 @@ pub(super) fn classify_edge(
         successors,
         line_index,
     )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn uncertain_construct_on_route(
+    parsed: &ParsedFile,
+    edge: &FlowEdge,
+    candidates: &[usize],
+    mapped_defs: &[Option<usize>],
+    use_node: usize,
+    line_index: &BTreeMap<Line, usize>,
+    statements: &mut statement_lookup::StatementLookup<'_>,
+    successors: &[Vec<(usize, bool)>],
+) -> Option<Line> {
+    let use_byte = edge_use_byte(parsed, edge)?;
+    let function = parsed
+        .all_functions()
+        .into_iter()
+        .find(|node| parsed.node_line_range(node).0 == edge.to.function_start_line)?;
+    uncertain_binding_nodes(parsed, &edge.to.path.base)
+        .into_iter()
+        .filter(|binder| {
+            function.start_byte() <= binder.start_byte() && binder.end_byte() <= function.end_byte()
+        })
+        .filter_map(|binder| {
+            let construct_line = binder.start_position().row + 1;
+            if construct_line <= edge.from.line {
+                return None;
+            }
+            let explicit_task7_binder = matches!(
+                (parsed.language, binder.kind()),
+                (
+                    crate::languages::Language::Java,
+                    "record_pattern" | "type_pattern"
+                ) | (crate::languages::Language::Bash, "for_statement")
+            );
+            if !explicit_task7_binder {
+                return None;
+            }
+            let statement_line = statements.get(construct_line)?;
+            let &construct_node = line_index.get(&statement_line)?;
+            let on_route = candidates.iter().any(|index| {
+                mapped_defs[*index].is_some_and(|def_node| {
+                    path_exists(successors, def_node, construct_node, false)
+                        && path_exists(successors, construct_node, use_node, false)
+                })
+            });
+            if !on_route {
+                return None;
+            }
+            let visible = match visibility_span(parsed, binder) {
+                SpanKind::Known(spans) => spans.into_iter().any(|span| span.contains(use_byte)),
+                SpanKind::Empty => false,
+                SpanKind::Unknown => {
+                    binder.start_byte() <= use_byte && use_byte < function.end_byte()
+                }
+            };
+            visible.then_some(construct_line)
+        })
+        .min()
+}
+
+fn edge_use_byte(parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
+    if edge.to.start_byte < edge.to.end_byte {
+        return Some(edge.to.start_byte);
+    }
+    let mut identifiers = parsed
+        .identifiers_on_line(edge.to.line)
+        .into_iter()
+        .filter(|node| parsed.node_text(node) == edge.to.path.base);
+    let first = identifiers.next()?;
+    identifiers.next().is_none().then_some(first.start_byte())
 }
 
 fn classify_by_reaching_sets(

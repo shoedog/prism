@@ -29,6 +29,7 @@ from .sut import run_bounded
 
 
 MATRIX_LANGUAGES = ["rust", "go", "python", "javascript", "typescript"]
+MATRIX_EXTRA_DFG_GLOBS = [("java", "dfg_binding_*/expected.toml")]
 PROBE_TYPES = ("callers", "taint", "module_deps", "dfg")
 
 
@@ -730,8 +731,17 @@ def run_matrix(fixtures_root: Path, sut, languages: list[str]) -> list[CaseResul
 
 def _run_matrix_inner(fixtures_root: Path, sut, languages: list[str]) -> list[CaseResult]:
     results = []
-    for lang in languages:
-        for toml_path in sorted((fixtures_root / lang).glob("*/expected.toml")):
+    fixture_sets = [
+        (lang, sorted((fixtures_root / lang).glob("*/expected.toml")))
+        for lang in languages
+    ]
+    fixture_sets.extend(
+        (lang, sorted((fixtures_root / lang).glob(pattern)))
+        for lang, pattern in MATRIX_EXTRA_DFG_GLOBS
+        if lang not in languages
+    )
+    for lang, toml_paths in fixture_sets:
+        for toml_path in toml_paths:
             case = load_case(toml_path)
             if case.probe == "callers":
                 results.append(_run_callers_case(case, lang, sut))
