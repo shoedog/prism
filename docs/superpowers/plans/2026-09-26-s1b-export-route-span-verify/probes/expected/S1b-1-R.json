@@ -1,0 +1,2225 @@
+[
+{
+"key": [
+"ruff/src/Editor/Chrome.tsx",
+"Chrome",
+17,
+"ruff/src/Editor/Chrome.tsx",
+3557,
+3633,
+"main"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ruff/src/Editor/Chrome.tsx",
+"Chrome",
+17,
+"ruff/src/Editor/Chrome.tsx",
+3998,
+4025,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ruff/src/Editor/Diagnostics.tsx",
+"Diagnostics",
+20,
+"ruff/src/Editor/Diagnostics.tsx",
+918,
+1070,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ruff/src/Editor/Diagnostics.tsx",
+"Diagnostics",
+20,
+"ruff/src/Editor/Diagnostics.tsx",
+1077,
+1230,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ruff/src/Editor/Diagnostics.tsx",
+"Diagnostics",
+20,
+"ruff/src/Editor/Diagnostics.tsx",
+1294,
+1349,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ruff/src/Editor/Diagnostics.tsx",
+"Items",
+61,
+"ruff/src/Editor/Diagnostics.tsx",
+1802,
+1874,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ruff/src/Editor/Diagnostics.tsx",
+"Items",
+61,
+"ruff/src/Editor/Diagnostics.tsx",
+2004,
+2053,
+"ul"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ruff/src/Editor/Editor.tsx",
+"Editor",
+53,
+"ruff/src/Editor/Editor.tsx",
+8288,
+8443,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ruff/src/Editor/SecondaryPanel.tsx",
+"SecondaryPanel",
+28,
+"ruff/src/Editor/SecondaryPanel.tsx",
+4983,
+5021,
+"code"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/AstralButton.tsx",
+"AstralButton",
+4,
+"shared/src/AstralButton.tsx",
+230,
+789,
+"button"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/DiagnosticDetail.tsx",
+"DiagnosticDetailItem",
+16,
+"shared/src/DiagnosticDetail.tsx",
+795,
+801,
+"span"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/DiagnosticDetail.tsx",
+"DiagnosticDetailItem",
+16,
+"shared/src/DiagnosticDetail.tsx",
+1323,
+1355,
+"span"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/DiagnosticDetail.tsx",
+"DiagnosticDetailItem",
+16,
+"shared/src/DiagnosticDetail.tsx",
+1398,
+1631,
+"button"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/DiagnosticDetail.tsx",
+"DiagnosticMessage",
+64,
+"shared/src/DiagnosticDetail.tsx",
+2011,
+2268,
+"a"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/ErrorMessage.tsx",
+"ErrorMessage",
+1,
+"shared/src/ErrorMessage.tsx",
+82,
+192,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/ErrorMessage.tsx",
+"ErrorMessage",
+1,
+"shared/src/ErrorMessage.tsx",
+199,
+224,
+"p"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/ErrorMessage.tsx",
+"ErrorMessage",
+1,
+"shared/src/ErrorMessage.tsx",
+240,
+271,
+"p"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Header.tsx",
+"Divider",
+78,
+"shared/src/Header.tsx",
+1932,
+2107,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Header.tsx",
+"Header",
+9,
+"shared/src/Header.tsx",
+739,
+958,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Header.tsx",
+"Header",
+9,
+"shared/src/Header.tsx",
+965,
+992,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Header.tsx",
+"Header",
+9,
+"shared/src/Header.tsx",
+1083,
+1137,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Header.tsx",
+"Header",
+9,
+"shared/src/Header.tsx",
+1169,
+1201,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Header.tsx",
+"Header",
+9,
+"shared/src/Header.tsx",
+1401,
+1437,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Header.tsx",
+"Header",
+9,
+"shared/src/Header.tsx",
+1507,
+1543,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Header.tsx",
+"Logo",
+93,
+"shared/src/Header.tsx",
+2255,
+2293,
+"a"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Header.tsx",
+"Logo",
+93,
+"shared/src/Header.tsx",
+2304,
+2458,
+"svg"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Header.tsx",
+"Logo",
+93,
+"shared/src/Header.tsx",
+2471,
+3200,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Header.tsx",
+"Logo",
+93,
+"shared/src/Header.tsx",
+3278,
+3395,
+"a"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Header.tsx",
+"Logo",
+93,
+"shared/src/Header.tsx",
+3406,
+3525,
+"svg"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Header.tsx",
+"Logo",
+93,
+"shared/src/Header.tsx",
+3538,
+3758,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Add",
+176,
+"shared/src/Icons.tsx",
+11515,
+11658,
+"svg"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Add",
+176,
+"shared/src/Icons.tsx",
+11665,
+11750,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Close",
+190,
+"shared/src/Icons.tsx",
+11811,
+11954,
+"svg"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Close",
+190,
+"shared/src/Icons.tsx",
+11961,
+12250,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Comments",
+159,
+"shared/src/Icons.tsx",
+11165,
+11277,
+"svg"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Comments",
+159,
+"shared/src/Icons.tsx",
+11284,
+11449,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"File",
+26,
+"shared/src/Icons.tsx",
+1349,
+1468,
+"svg"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"File",
+26,
+"shared/src/Icons.tsx",
+1475,
+1849,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Format",
+108,
+"shared/src/Icons.tsx",
+4904,
+5016,
+"svg"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Format",
+108,
+"shared/src/Icons.tsx",
+5023,
+9269,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"FormatterIR",
+142,
+"shared/src/Icons.tsx",
+9792,
+9904,
+"svg"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"FormatterIR",
+142,
+"shared/src/Icons.tsx",
+9911,
+11101,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Json",
+236,
+"shared/src/Icons.tsx",
+13621,
+13745,
+"svg"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Json",
+236,
+"shared/src/Icons.tsx",
+13752,
+14244,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Jupyter",
+280,
+"shared/src/Icons.tsx",
+14965,
+15084,
+"svg"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Jupyter",
+280,
+"shared/src/Icons.tsx",
+15091,
+15297,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Jupyter",
+280,
+"shared/src/Icons.tsx",
+15304,
+15350,
+"circle"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Jupyter",
+280,
+"shared/src/Icons.tsx",
+15357,
+15403,
+"circle"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Jupyter",
+280,
+"shared/src/Icons.tsx",
+15410,
+15455,
+"circle"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Python",
+209,
+"shared/src/Icons.tsx",
+12482,
+12601,
+"svg"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Python",
+209,
+"shared/src/Icons.tsx",
+12608,
+12964,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Python",
+209,
+"shared/src/Icons.tsx",
+12971,
+13389,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Run",
+49,
+"shared/src/Icons.tsx",
+1982,
+2119,
+"svg"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Run",
+49,
+"shared/src/Icons.tsx",
+2126,
+2332,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Settings",
+74,
+"shared/src/Icons.tsx",
+2396,
+2508,
+"svg"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Settings",
+74,
+"shared/src/Icons.tsx",
+2515,
+4357,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Structure",
+91,
+"shared/src/Icons.tsx",
+4422,
+4534,
+"svg"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Structure",
+91,
+"shared/src/Icons.tsx",
+4541,
+4842,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Token",
+125,
+"shared/src/Icons.tsx",
+9330,
+9442,
+"svg"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Token",
+125,
+"shared/src/Icons.tsx",
+9449,
+9725,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Toml",
+259,
+"shared/src/Icons.tsx",
+14477,
+14596,
+"svg"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Toml",
+259,
+"shared/src/Icons.tsx",
+14603,
+14650,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/Icons.tsx",
+"Toml",
+259,
+"shared/src/Icons.tsx",
+14657,
+14726,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/RepoButton.tsx",
+"RepoButton",
+1,
+"shared/src/RepoButton.tsx",
+80,
+153,
+"a"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/RepoButton.tsx",
+"RepoButton",
+1,
+"shared/src/RepoButton.tsx",
+160,
+329,
+"svg"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/RepoButton.tsx",
+"RepoButton",
+1,
+"shared/src/RepoButton.tsx",
+338,
+1220,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/ShareButton.tsx",
+"ShareButton",
+17,
+"shared/src/ShareButton.tsx",
+2101,
+2327,
+"span"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/ShareButton.tsx",
+"ShareButton",
+17,
+"shared/src/ShareButton.tsx",
+2374,
+2484,
+"span"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/ShareButton.tsx",
+"ShareButton",
+17,
+"shared/src/ShareButton.tsx",
+2533,
+2739,
+"span"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/SideBar.tsx",
+"SideBar",
+9,
+"shared/src/SideBar.tsx",
+244,
+430,
+"ul"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/SideBar.tsx",
+"SideBarEntry",
+31,
+"shared/src/SideBar.tsx",
+744,
+1023,
+"li"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/SideBar.tsx",
+"SideBarEntry",
+31,
+"shared/src/SideBar.tsx",
+1070,
+1130,
+"span"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/SideBar.tsx",
+"Tooltip",
+62,
+"shared/src/SideBar.tsx",
+1372,
+1644,
+"span"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/ThemeButton.tsx",
+"ThemeButton",
+7,
+"shared/src/ThemeButton.tsx",
+437,
+463,
+"span"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/ThemeButton.tsx",
+"ThemeButton",
+7,
+"shared/src/ThemeButton.tsx",
+472,
+502,
+"span"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/ThemeButton.tsx",
+"ThemeButton",
+7,
+"shared/src/ThemeButton.tsx",
+538,
+575,
+"span"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/ThemeButton.tsx",
+"ThemeButton",
+7,
+"shared/src/ThemeButton.tsx",
+624,
+872,
+"svg"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/ThemeButton.tsx",
+"ThemeButton",
+7,
+"shared/src/ThemeButton.tsx",
+881,
+911,
+"g"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/ThemeButton.tsx",
+"ThemeButton",
+7,
+"shared/src/ThemeButton.tsx",
+922,
+968,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/ThemeButton.tsx",
+"ThemeButton",
+7,
+"shared/src/ThemeButton.tsx",
+986,
+1190,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/ThemeButton.tsx",
+"ThemeButton",
+7,
+"shared/src/ThemeButton.tsx",
+1212,
+1254,
+"g"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/ThemeButton.tsx",
+"ThemeButton",
+7,
+"shared/src/ThemeButton.tsx",
+1265,
+1313,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/ThemeButton.tsx",
+"ThemeButton",
+7,
+"shared/src/ThemeButton.tsx",
+1324,
+1525,
+"path"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"shared/src/VersionTag.tsx",
+"VersionTag",
+4,
+"shared/src/VersionTag.tsx",
+164,
+539,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/Chrome.tsx",
+"Chrome",
+63,
+"ty/src/Editor/Chrome.tsx",
+5793,
+6032,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/Diagnostics.tsx",
+"Diagnostics",
+29,
+"ty/src/Editor/Diagnostics.tsx",
+923,
+1075,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/Diagnostics.tsx",
+"Diagnostics",
+29,
+"ty/src/Editor/Diagnostics.tsx",
+1082,
+1235,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/Diagnostics.tsx",
+"Diagnostics",
+29,
+"ty/src/Editor/Diagnostics.tsx",
+1304,
+1359,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/Diagnostics.tsx",
+"Items",
+71,
+"ty/src/Editor/Diagnostics.tsx",
+1768,
+1840,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/Diagnostics.tsx",
+"Items",
+71,
+"ty/src/Editor/Diagnostics.tsx",
+1970,
+2019,
+"ul"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/Diagnostics.tsx",
+"SubDiagnosticItem",
+193,
+"ty/src/Editor/Diagnostics.tsx",
+6641,
+6662,
+"ul"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/Files.tsx",
+"FileEntry",
+136,
+"ty/src/Editor/Files.tsx",
+3855,
+4064,
+"button"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/Files.tsx",
+"FileEntry",
+136,
+"ty/src/Editor/Files.tsx",
+4071,
+4124,
+"span"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/Files.tsx",
+"FileEntry",
+136,
+"ty/src/Editor/Files.tsx",
+4189,
+4220,
+"span"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/Files.tsx",
+"FileEntry",
+136,
+"ty/src/Editor/Files.tsx",
+4254,
+4948,
+"input"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/Files.tsx",
+"Files",
+22,
+"ty/src/Editor/Files.tsx",
+1001,
+1159,
+"ul"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/Files.tsx",
+"Files",
+22,
+"ty/src/Editor/Files.tsx",
+2076,
+2200,
+"button"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/Files.tsx",
+"Files",
+22,
+"ty/src/Editor/Files.tsx",
+2211,
+2237,
+"span"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/Files.tsx",
+"ListItem",
+104,
+"ty/src/Editor/Files.tsx",
+2596,
+2871,
+"li"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/SecondaryPanel.tsx",
+"Content",
+46,
+"ty/src/Editor/SecondaryPanel.tsx",
+1576,
+1603,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/SecondaryPanel.tsx",
+"Content",
+46,
+"ty/src/Editor/SecondaryPanel.tsx",
+2129,
+2156,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/SecondaryPanel.tsx",
+"Content",
+46,
+"ty/src/Editor/SecondaryPanel.tsx",
+2169,
+2240,
+"code"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/SecondaryPanel.tsx",
+"Run",
+107,
+"ty/src/Editor/SecondaryPanel.tsx",
+2591,
+2661,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/SecondaryPanel.tsx",
+"Run",
+107,
+"ty/src/Editor/SecondaryPanel.tsx",
+2822,
+2936,
+"span"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/SecondaryPanel.tsx",
+"Run",
+107,
+"ty/src/Editor/SecondaryPanel.tsx",
+3064,
+3109,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/SecondaryPanel.tsx",
+"RunOutput",
+141,
+"ty/src/Editor/SecondaryPanel.tsx",
+3358,
+3514,
+"pre"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/SecondaryPanel.tsx",
+"SecondaryPanel",
+26,
+"ty/src/Editor/SecondaryPanel.tsx",
+732,
+770,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/VendoredFileBanner.tsx",
+"VendoredFileBanner",
+10,
+"ty/src/Editor/VendoredFileBanner.tsx",
+354,
+463,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/VendoredFileBanner.tsx",
+"VendoredFileBanner",
+10,
+"ty/src/Editor/VendoredFileBanner.tsx",
+470,
+521,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/VendoredFileBanner.tsx",
+"VendoredFileBanner",
+10,
+"ty/src/Editor/VendoredFileBanner.tsx",
+530,
+535,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/VendoredFileBanner.tsx",
+"VendoredFileBanner",
+10,
+"ty/src/Editor/VendoredFileBanner.tsx",
+546,
+609,
+"span"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/VendoredFileBanner.tsx",
+"VendoredFileBanner",
+10,
+"ty/src/Editor/VendoredFileBanner.tsx",
+686,
+747,
+"code"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/VendoredFileBanner.tsx",
+"VendoredFileBanner",
+10,
+"ty/src/Editor/VendoredFileBanner.tsx",
+817,
+881,
+"span"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Editor/VendoredFileBanner.tsx",
+"VendoredFileBanner",
+10,
+"ty/src/Editor/VendoredFileBanner.tsx",
+947,
+1214,
+"button"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Playground.tsx",
+"Loading",
+751,
+"ty/src/Playground.tsx",
+18812,
+18888,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Playground.tsx",
+"Playground",
+37,
+"ty/src/Playground.tsx",
+6971,
+7047,
+"main"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+},
+{
+"key": [
+"ty/src/Playground.tsx",
+"Playground",
+37,
+"ty/src/Playground.tsx",
+7975,
+8130,
+"div"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+"JsxIntrinsic",
+[]
+]
+}
+]

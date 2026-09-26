@@ -1,0 +1,30 @@
+[
+{
+"key": [
+"ty/src/Editor/Chrome.tsx",
+"Chrome",
+63,
+"ty/src/Editor/Chrome.tsx",
+5110,
+5731,
+"Editor"
+],
+"base": [
+null,
+[
+[
+"ty/src/Editor/Chrome.tsx",
+"Editor",
+34,
+34,
+"exact",
+"local_def"
+]
+]
+],
+"proto": [
+"LocalBindingUnproven",
+[]
+]
+}
+]

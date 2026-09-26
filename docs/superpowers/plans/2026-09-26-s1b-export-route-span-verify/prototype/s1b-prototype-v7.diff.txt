@@ -1,0 +1,1309 @@
+diff --git a/eval/fixtures/typescript/s1b_list_export_nested_decoy_refused/app.ts b/eval/fixtures/typescript/s1b_list_export_nested_decoy_refused/app.ts
+new file mode 100644
+index 00000000..9210decf
+--- /dev/null
++++ b/eval/fixtures/typescript/s1b_list_export_nested_decoy_refused/app.ts
+@@ -0,0 +1,4 @@
++import { f } from './util';
++export function run() {
++  f();
++}
+diff --git a/eval/fixtures/typescript/s1b_list_export_nested_decoy_refused/expected.toml b/eval/fixtures/typescript/s1b_list_export_nested_decoy_refused/expected.toml
+new file mode 100644
+index 00000000..ba8c5047
+--- /dev/null
++++ b/eval/fixtures/typescript/s1b_list_export_nested_decoy_refused/expected.toml
+@@ -0,0 +1,12 @@
++[case]
++language = "typescript"
++capability = "s1b_list_export_nested_decoy_refused"
++status = "pass"
++[seed]
++symbol = "f"
++file = "util.ts"
++line = 2
++[expect]
++callers = []
++exact = false
++forbid_resolution_kind = "import_member"
+diff --git a/eval/fixtures/typescript/s1b_list_export_nested_decoy_refused/util.ts b/eval/fixtures/typescript/s1b_list_export_nested_decoy_refused/util.ts
+new file mode 100644
+index 00000000..4e888070
+--- /dev/null
++++ b/eval/fixtures/typescript/s1b_list_export_nested_decoy_refused/util.ts
+@@ -0,0 +1,7 @@
++function outer() {
++  function f() { return 99; }
++  return 0;
++}
++const a = 1;
++const f = a > 0 ? a : 2;
++export { f };
+diff --git a/eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/app.ts b/eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/app.ts
+new file mode 100644
+index 00000000..6d3579d0
+--- /dev/null
++++ b/eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/app.ts
+@@ -0,0 +1,4 @@
++import * as Lib from './lib';
++export function run() {
++  Lib.f();
++}
+diff --git a/eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/expected.toml b/eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/expected.toml
+new file mode 100644
+index 00000000..874eeaaf
+--- /dev/null
++++ b/eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/expected.toml
+@@ -0,0 +1,12 @@
++[case]
++language = "typescript"
++capability = "s1b_namespace_nested_decoy_refused"
++status = "pass"
++[seed]
++symbol = "f"
++file = "lib.ts"
++line = 2
++[expect]
++callers = []
++exact = false
++forbid_resolution_kind = "import_qualified"
+diff --git a/eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/lib.ts b/eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/lib.ts
+new file mode 100644
+index 00000000..988f5b74
+--- /dev/null
++++ b/eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/lib.ts
+@@ -0,0 +1,7 @@
++function helper() {
++  function f() { return 99; }
++  return 0;
++}
++export function f() {
++  return 1;
++}
+diff --git a/eval/fixtures/typescript/s1b_param_shadow_local_def_refused/a.ts b/eval/fixtures/typescript/s1b_param_shadow_local_def_refused/a.ts
+new file mode 100644
+index 00000000..c8480179
+--- /dev/null
++++ b/eval/fixtures/typescript/s1b_param_shadow_local_def_refused/a.ts
+@@ -0,0 +1,7 @@
++export function run(f: () => number) {
++  return f();
++}
++export function holder() {
++  const f = () => 1;
++  return f;
++}
+diff --git a/eval/fixtures/typescript/s1b_param_shadow_local_def_refused/expected.toml b/eval/fixtures/typescript/s1b_param_shadow_local_def_refused/expected.toml
+new file mode 100644
+index 00000000..33c293cc
+--- /dev/null
++++ b/eval/fixtures/typescript/s1b_param_shadow_local_def_refused/expected.toml
+@@ -0,0 +1,12 @@
++[case]
++language = "typescript"
++capability = "s1b_param_shadow_local_def_refused"
++status = "pass"
++[seed]
++symbol = "f"
++file = "a.ts"
++line = 5
++[expect]
++callers = []
++exact = false
++forbid_resolution_kind = "local_def"
+diff --git a/src/ast.rs b/src/ast.rs
+index cc25ef40..af4ea2ad 100644
+--- a/src/ast.rs
++++ b/src/ast.rs
+@@ -4,10 +4,12 @@ use anyhow::{Context, Result};
+ use std::collections::{BTreeMap, BTreeSet};
+ use tree_sitter::{Node, Parser, Tree};
+ 
++mod js_binding;
+ mod js_cjs_export_barriers;
+ mod js_cjs_terminal;
+ mod js_module_forwarding;
+ mod js_wrapped_export;
++pub use js_binding::{JsBindingCache, JsTerminal};
+ 
+ /// A parameter binding and the byte span of its identifier token.
+ pub type ParameterOccurrence = (String, usize, usize);
+@@ -2803,7 +2805,7 @@ impl ParsedFile {
+                     },
+                     None => self
+                         .js_ts_forwarded_import(&name)
+-                        .unwrap_or(JsExportTarget::Local(name)),
++                        .unwrap_or_else(|| self.js_ts_local_export_target(name, facts)),
+                 };
+                 facts.insert_named(exported_as, target);
+             }
+@@ -2824,7 +2826,7 @@ impl ParsedFile {
+                 }
+                 let target = self
+                     .js_ts_forwarded_import(&name)
+-                    .unwrap_or(JsExportTarget::Local(name));
++                    .unwrap_or_else(|| self.js_ts_local_export_target(name, facts));
+                 facts.insert_named("default".to_string(), target);
+             } else {
+                 facts.skipped_expr_count += 1;
+@@ -2856,7 +2858,8 @@ impl ParsedFile {
+                         } else {
+                             name_text.clone()
+                         };
+-                        facts.insert_named(exported_as, JsExportTarget::Local(name_text));
++                        let target = self.js_ts_local_export_target(name_text, facts);
++                        facts.insert_named(exported_as, target);
+                     }
+                 }
+                 "lexical_declaration" | "variable_declaration" => {
+@@ -2886,10 +2889,9 @@ impl ParsedFile {
+                         // span-verified React wrapper; every other skip names its reason.
+                         let admitted = match d.child_by_field_name("value").map(|v| v.kind()) {
+                             Some("arrow_function") | Some("function_expression") => {
+-                                facts.insert_named(
+-                                    name_text.clone(),
+-                                    JsExportTarget::Local(name_text),
+-                                );
++                                let target =
++                                    self.js_ts_local_export_target(name_text.clone(), facts);
++                                facts.insert_named(name_text, target);
+                                 continue;
+                             }
+                             Some("call_expression") => self.js_ts_wrapped_export(decl, d),
+diff --git a/src/ast/js_binding.rs b/src/ast/js_binding.rs
+new file mode 100644
+index 00000000..66d1cf5d
+--- /dev/null
++++ b/src/ast/js_binding.rs
+@@ -0,0 +1,458 @@
++//! S1b: what a JS/TS identifier statically denotes. The nearest scope that declares the
++//! name decides. The binding denotes one callable only when that scope holds exactly one
++//! declaration of it, the declaration's value is a function (or an admitted React wrapper
++//! of one), the scope parses cleanly, and no write in the scope targets it. Every other
++//! outcome is a refusal. Runtime mutation is out of model (CLAUDE.md, static-binding Exact).
++use super::{is_js_ts_function_like, ParsedFile};
++use std::collections::BTreeSet;
++use tree_sitter::Node;
++
++/// A proven callable: its line span, and whether it is a wrapped React render function
++/// (bindable from JSX element sites only).
++#[derive(
++    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
++)]
++pub struct JsTerminal {
++    pub start_line: usize,
++    pub end_line: usize,
++    pub wrapped: bool,
++}
++
++/// Per-file memo: `(scope node id, name)` -> the binding's terminal, or `None` when that
++/// scope does not declare the name.
++pub type JsBindingCache =
++    std::collections::BTreeMap<(usize, String), Option<Result<JsTerminal, &'static str>>>;
++
++fn is_scope(kind: &str, parent: Option<&str>) -> bool {
++    match kind {
++        "program"
++        | "for_statement"
++        | "for_in_statement"
++        | "catch_clause"
++        | "switch_body"
++        | "class_declaration"
++        | "class"
++        | "abstract_class_declaration"
++        | "with_statement"
++        | "formal_parameters" => true,
++        "statement_block" => !parent.is_some_and(is_js_ts_function_like),
++        k => is_js_ts_function_like(k),
++    }
++}
++
++/// A parameter list sees its own function's parameters, never the body's declarations,
++/// so the walk continues above that function.
++fn next_scope_up(scope: Node<'_>) -> Option<Node<'_>> {
++    match scope.kind() {
++        "formal_parameters" => scope.parent().and_then(|f| f.parent()),
++        _ => scope.parent(),
++    }
++}
++
++impl ParsedFile {
++    /// The nearest scope enclosing `site` that declares `name`, with its declarations.
++    pub(crate) fn js_ts_visible_binding<'a>(
++        &self,
++        site: Node<'a>,
++        name: &str,
++    ) -> Option<(Node<'a>, Vec<Node<'a>>)> {
++        let mut current = site.parent();
++        while let Some(scope) = current {
++            if is_scope(scope.kind(), scope.parent().map(|p| p.kind())) {
++                let decls = self.js_ts_scope_declarations(scope, name);
++                if !decls.is_empty() {
++                    return Some((scope, decls));
++                }
++            }
++            current = next_scope_up(scope);
++        }
++        None
++    }
++
++    /// The callable `name` denotes at `site`, memoized per `(scope, name)` for one file.
++    pub(crate) fn js_ts_site_terminal(
++        &self,
++        site: Node<'_>,
++        name: &str,
++        cache: &mut JsBindingCache,
++    ) -> Result<JsTerminal, &'static str> {
++        let mut current = site.parent();
++        while let Some(scope) = current {
++            if is_scope(scope.kind(), scope.parent().map(|p| p.kind())) {
++                let key = (scope.id(), name.to_string());
++                if !cache.contains_key(&key) {
++                    let decls = self.js_ts_scope_declarations(scope, name);
++                    let found = (!decls.is_empty()).then(|| {
++                        self.js_ts_binding_terminal(scope, &decls, name)
++                            .map(|t| t.1)
++                    });
++                    cache.insert(key.clone(), found);
++                }
++                if let Some(result) = cache[&key] {
++                    return result;
++                }
++            }
++            current = next_scope_up(scope);
++        }
++        Err("unbound")
++    }
++
++    /// Every node that declares `name` in `scope` itself (not in nested scopes, except
++    /// `var` hoisted to a function or the program). A `with` statement declares any name.
++    pub(crate) fn js_ts_scope_declarations<'a>(
++        &self,
++        scope: Node<'a>,
++        name: &str,
++    ) -> Vec<Node<'a>> {
++        let mut out = Vec::new();
++        let named = |n: Option<Node<'_>>| n.is_some_and(|n| self.node_text(&n) == name);
++        match scope.kind() {
++            "with_statement" => out.push(scope),
++            "catch_clause" | "for_in_statement" => {
++                let field = if scope.kind() == "catch_clause" {
++                    "parameter"
++                } else {
++                    "left"
++                };
++                let lexical = scope.kind() == "catch_clause"
++                    || scope
++                        .child_by_field_name("kind")
++                        .is_some_and(|k| matches!(self.node_text(&k), "let" | "const"));
++                if lexical && self.pattern_binds(scope.child_by_field_name(field), name) {
++                    out.push(scope);
++                }
++            }
++            "for_statement" => {
++                if let Some(init) = scope.child_by_field_name("initializer") {
++                    if init.kind() == "lexical_declaration" {
++                        self.scope_walk(init, name, true, false, &mut out);
++                    }
++                }
++            }
++            "class_declaration" | "class" | "abstract_class_declaration" => {
++                if named(scope.child_by_field_name("name")) {
++                    out.push(scope);
++                }
++            }
++            "formal_parameters" => {
++                let f = scope.parent().filter(|f| is_js_ts_function_like(f.kind()));
++                let mut params = BTreeSet::new();
++                if let Some(f) = f {
++                    self.collect_js_ts_parameter_bindings(f, &mut params);
++                }
++                if params.contains(name) {
++                    out.push(scope);
++                } else if f.is_some_and(|f| {
++                    matches!(f.kind(), "function_expression" | "generator_function")
++                        && named(f.child_by_field_name("name"))
++                }) {
++                    out.extend(f);
++                }
++            }
++            k if is_js_ts_function_like(k) => {
++                let mut params = BTreeSet::new();
++                self.collect_js_ts_parameter_bindings(scope, &mut params);
++                // Every non-arrow function implicitly binds `arguments` (not a callable).
++                if params.contains(name)
++                    || (name == "arguments" && k != "arrow_function")
++                    || self.pattern_binds(scope.child_by_field_name("parameter"), name)
++                {
++                    out.push(scope.child_by_field_name("parameters").unwrap_or(scope));
++                } else if matches!(k, "function_expression" | "generator_function")
++                    && named(scope.child_by_field_name("name"))
++                {
++                    out.push(scope);
++                }
++                if let Some(body) = scope.child_by_field_name("body") {
++                    if body.kind() == "statement_block" {
++                        self.scope_walk(body, name, true, true, &mut out);
++                    }
++                }
++            }
++            "program" => self.scope_walk(scope, name, true, true, &mut out),
++            _ => self.scope_walk(scope, name, true, false, &mut out),
++        }
++        out
++    }
++
++    fn pattern_binds(&self, pattern: Option<Node<'_>>, name: &str) -> bool {
++        let mut names = BTreeSet::new();
++        if let Some(p) = pattern {
++            self.collect_js_ts_binding_pattern_names(p, &mut names);
++        }
++        names.contains(name)
++    }
++
++    /// Declarations under `node`: lexical ones only while `direct` (still in the scope's own
++    /// statement list), `var` ones anywhere while `hoist`. Stops at nested functions and
++    /// classes, whose own names bind here only when direct.
++    fn scope_walk<'a>(
++        &self,
++        node: Node<'a>,
++        name: &str,
++        direct: bool,
++        hoist: bool,
++        out: &mut Vec<Node<'a>>,
++    ) {
++        let mut cursor = node.walk();
++        for ch in node.named_children(&mut cursor) {
++            let kind = ch.kind();
++            let own_name = ch
++                .child_by_field_name("name")
++                .is_some_and(|n| self.node_text(&n) == name);
++            if is_js_ts_function_like(kind) || kind.contains("class") {
++                let declares = matches!(
++                    kind,
++                    "function_declaration"
++                        | "generator_function_declaration"
++                        | "class_declaration"
++                        | "abstract_class_declaration"
++                );
++                if direct && declares && own_name {
++                    out.push(ch);
++                } else if hoist && own_name && kind.ends_with("function_declaration") {
++                    // Annex B.3.3: a block function is also var-hoisted in sloppy code. The
++                    // marker (its block) is not a callable, so outside the block it refuses.
++                    out.push(node);
++                }
++                continue;
++            }
++            match kind {
++                "variable_declarator" => {
++                    if self.pattern_binds(ch.child_by_field_name("name"), name) {
++                        out.push(ch);
++                    }
++                }
++                "variable_declaration" if !hoist => continue,
++                "lexical_declaration" if !direct => continue,
++                "for_in_statement"
++                    if hoist
++                        && ch
++                            .child_by_field_name("kind")
++                            .is_some_and(|k| self.node_text(&k) == "var")
++                        && self.pattern_binds(ch.child_by_field_name("left"), name) =>
++                {
++                    out.push(ch);
++                }
++                "import_statement" => {
++                    if direct && self.js_ts_import_binds(ch, name) {
++                        out.push(ch);
++                    }
++                    continue;
++                }
++                "ambient_declaration"
++                | "enum_declaration"
++                | "internal_module"
++                | "module"
++                | "import_alias"
++                | "interface_declaration"
++                | "type_alias_declaration" => {
++                    if direct && (own_name || self.ambient_binds(ch, name)) {
++                        out.push(ch);
++                    }
++                    continue;
++                }
++                _ => {}
++            }
++            let transparent = matches!(
++                kind,
++                "export_statement"
++                    | "expression_statement"
++                    | "switch_case"
++                    | "switch_default"
++                    | "lexical_declaration"
++                    | "variable_declaration"
++            );
++            self.scope_walk(ch, name, direct && transparent, hoist, out);
++        }
++    }
++
++    fn ambient_binds(&self, node: Node<'_>, name: &str) -> bool {
++        if node.kind() != "ambient_declaration" {
++            return false;
++        }
++        let mut found = Vec::new();
++        self.scope_walk(node, name, true, true, &mut found);
++        let mut cursor = node.walk();
++        let sig = node.named_children(&mut cursor).any(|n| {
++            n.kind() == "function_signature"
++                && n.child_by_field_name("name")
++                    .is_some_and(|x| self.node_text(&x) == name)
++        });
++        sig || !found.is_empty()
++    }
++
++    fn js_ts_import_binds(&self, node: Node<'_>, name: &str) -> bool {
++        let mut cursor = node.walk();
++        let found = node.named_children(&mut cursor).any(|n| match n.kind() {
++            "identifier" => self.node_text(&n) == name,
++            "import_specifier" => n
++                .child_by_field_name("alias")
++                .or_else(|| n.child_by_field_name("name"))
++                .is_some_and(|x| self.node_text(&x) == name),
++            "string" => false,
++            _ => self.js_ts_import_binds(n, name),
++        });
++        found
++    }
++
++    /// The callable a binding holds, or why it holds none (SPEC §3.1).
++    pub(crate) fn js_ts_binding_terminal(
++        &self,
++        scope: Node<'_>,
++        decls: &[Node<'_>],
++        name: &str,
++    ) -> Result<(String, JsTerminal), &'static str> {
++        if scope.has_error() {
++            return Err("parse_recovery");
++        }
++        let [decl] = decls else {
++            return Err("duplicate_declaration");
++        };
++        let plain = |n: Node<'_>| {
++            let (start_line, end_line) = self.node_line_range(&n);
++            let local = self
++                .language
++                .function_name(&n)
++                .map(|x| self.node_text(&x).to_string());
++            (
++                local.unwrap_or_default(),
++                JsTerminal {
++                    start_line,
++                    end_line,
++                    wrapped: false,
++                },
++            )
++        };
++        let terminal = match decl.kind() {
++            "function_declaration" | "generator_function_declaration" => plain(*decl),
++            "function_expression" if decl.id() == scope.id() => plain(*decl),
++            "variable_declarator"
++                if decl
++                    .child_by_field_name("name")
++                    .is_some_and(|n| n.kind() == "identifier") =>
++            {
++                let value = decl.child_by_field_name("value").ok_or("not_callable")?;
++                match value.kind() {
++                    "arrow_function" | "function_expression" => plain(value),
++                    "call_expression" => {
++                        let parent = decl.parent().ok_or("not_callable")?;
++                        let (local, s, e) = self
++                            .js_ts_wrapped_export(parent, *decl)
++                            .map_err(|_| "call_not_admitted")?;
++                        let wrapped = !self.js_ts_passthrough_wrapper(value);
++                        (
++                            local,
++                            JsTerminal {
++                                start_line: s,
++                                end_line: e,
++                                wrapped,
++                            },
++                        )
++                    }
++                    _ => return Err("not_callable"),
++                }
++            }
++            _ => return Err("not_callable"),
++        };
++        // MEASUREMENT ONLY: at module scope, the base write scan instead of the scoped one.
++        let written = if scope.kind() == "program"
++            && std::env::var_os("PRISM_S1B_BASE_WRITE_SCAN").is_some()
++        {
++            self.js_ts_module_value_written(name)
++        } else {
++            self.js_ts_scope_value_written(scope, name)
++        };
++        if written {
++            return Err("written");
++        }
++        Ok(terminal)
++    }
++
++    /// Module scope: the callable an exported local denotes (D4 routes).
++    pub(crate) fn js_ts_module_terminal(
++        &self,
++        name: &str,
++    ) -> Result<(String, JsTerminal), &'static str> {
++        let root = self.tree.root_node();
++        let decls = self.js_ts_scope_declarations(root, name);
++        if decls.is_empty() {
++            return Err("undeclared");
++        }
++        self.js_ts_binding_terminal(root, &decls, name)
++    }
++
++    /// D4: the target an ESM local export records: span-verified, or a refusal claim
++    /// (retained so duplicate and barrel conflicts cannot disappear).
++    pub(super) fn js_ts_local_export_target(
++        &self,
++        name: String,
++        facts: &mut crate::js_exports::JsExportFacts,
++    ) -> crate::js_exports::JsExportTarget {
++        use crate::js_exports::JsExportTarget;
++        // An imported local keeps the pre-S1b claim; `extract_js_ts_export_facts` poisons it.
++        if self
++            .extract_import_bindings()
++            .iter()
++            .any(|b| b.local == name)
++            || self.js_ts_type_only_imports().contains_key(&name)
++        {
++            return JsExportTarget::Local(name);
++        }
++        match self.js_ts_module_terminal(&name) {
++            Ok((local, t)) if t.wrapped => JsExportTarget::SpannedLocal {
++                local,
++                start_line: t.start_line,
++                end_line: t.end_line,
++            },
++            Ok((local, t)) => JsExportTarget::VerifiedLocal {
++                local,
++                start_line: t.start_line,
++                end_line: t.end_line,
++            },
++            Err(reason) => {
++                *facts
++                    .local_export_refusals
++                    .entry(reason.to_string())
++                    .or_default() += 1;
++                JsExportTarget::UnprovenLocal(name)
++            }
++        }
++    }
++
++    /// A write to the binding of `name` owned by `scope`.
++    fn js_ts_scope_value_written(&self, scope: Node<'_>, name: &str) -> bool {
++        fn walk(parsed: &ParsedFile, node: Node<'_>, scope_id: usize, name: &str) -> bool {
++            if matches!(
++                node.kind(),
++                "assignment_expression"
++                    | "augmented_assignment_expression"
++                    | "update_expression"
++                    | "for_in_statement"
++            ) && !(node.kind() == "for_in_statement"
++                && node.child_by_field_name("kind").is_some())
++            {
++                if let Some(target) = node
++                    .child_by_field_name("left")
++                    .or_else(|| node.child_by_field_name("argument"))
++                {
++                    let mut names = BTreeSet::new();
++                    parsed.collect_js_ts_binding_pattern_names(target, &mut names);
++                    if names.contains(name)
++                        && parsed
++                            .js_ts_visible_binding(target, name)
++                            .is_some_and(|(s, _)| s.id() == scope_id)
++                    {
++                        return true;
++                    }
++                }
++            }
++            let mut cursor = node.walk();
++            let found = node
++                .named_children(&mut cursor)
++                .any(|c| walk(parsed, c, scope_id, name));
++            found
++        }
++        walk(self, scope, scope.id(), name)
++    }
++}
+diff --git a/src/ast/js_wrapped_export.rs b/src/ast/js_wrapped_export.rs
+index e7e96482..e4c7f45e 100644
+--- a/src/ast/js_wrapped_export.rs
++++ b/src/ast/js_wrapped_export.rs
+@@ -74,7 +74,9 @@ impl ParsedFile {
+             }
+             _ => return Err("callee_not_admitted"),
+         };
+-        if !WRAPPERS.contains(&wrapper.as_str()) {
++        let passthrough =
++            wrapper == "useCallback" && std::env::var_os("PRISM_S1B_USECALLBACK").is_some();
++        if !WRAPPERS.contains(&wrapper.as_str()) && !passthrough {
+             return Err("callee_not_admitted");
+         }
+         // R6 P1–P5, in SPEC order: unique binding, value-typed, unwritten, uncompeted at
+@@ -124,6 +126,19 @@ impl ParsedFile {
+         Ok((name, span.0, span.1))
+     }
+ 
++    /// S1b prototype: the admitted wrapper returns its argument (`useCallback`).
++    pub(super) fn js_ts_passthrough_wrapper(&self, call: Node<'_>) -> bool {
++        let wrapper = call
++            .child_by_field_name("function")
++            .and_then(|c| match c.kind() {
++                "identifier" => self.react_imports().named.get(self.node_text(&c)).cloned(),
++                _ => c
++                    .child_by_field_name("property")
++                    .map(|p| self.node_text(&p).to_string()),
++            });
++        wrapper.as_deref() == Some("useCallback")
++    }
++
+     /// The ESM-only React import table (SPEC §3.1 R5). A hand parser over top-level
+     /// `import_statement` nodes, so `require("react")` bindings can never enter it.
+     fn react_imports(&self) -> ReactImports {
+diff --git a/src/call_graph.rs b/src/call_graph.rs
+index 92aaddf9..7951b370 100644
+--- a/src/call_graph.rs
++++ b/src/call_graph.rs
+@@ -497,6 +497,23 @@ pub struct CallSite {
+     /// Excluded from cmp_key. Only span-verified wrapped export targets consult it.
+     #[serde(default)]
+     pub jsx_element: bool,
++    /// S1b: the JS/TS lexical binding of an unqualified callee at this site. Excluded
++    /// from `cmp_key`; `Unchecked` keeps the pre-S1b local-definition behavior.
++    #[serde(default)]
++    pub local_binding: JsLocalBinding,
++}
++
++/// S1b: what an unqualified JS/TS callee statically denotes at its site.
++#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
++pub enum JsLocalBinding {
++    /// Not computed: another language, a qualified or synthetic site, or no same-file
++    /// function of that name.
++    #[default]
++    Unchecked,
++    /// The binding holds exactly this callable.
++    Callable(crate::ast::JsTerminal),
++    /// Bound in no scope, or bound to something that is not one proven callable.
++    Unproven,
+ }
+ 
+ /// Parameter arity for a method definition (language-agnostic shape).
+@@ -1337,6 +1354,7 @@ impl CallGraph {
+         // Phase 2: Find all call sites within each function
+         for (file_path, parsed) in files {
+             let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
++            let mut binding_cache = crate::ast::JsBindingCache::new();
+             for func_node in parsed.all_functions() {
+                 let func_name = match parsed.language.function_name(&func_node) {
+                     Some(n) => parsed.node_text(&n).to_string(),
+@@ -1402,6 +1420,14 @@ impl CallGraph {
+                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
+                         pre_resolved_target: None,
+                         jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
++                        local_binding: Self::js_local_binding_at(
++                            parsed,
++                            start_byte,
++                            end_byte,
++                            &callee_name,
++                            true,
++                            &mut binding_cache,
++                        ),
+                     };
+                     calls
+                         .entry(caller_id.clone())
+@@ -1735,6 +1761,7 @@ impl CallGraph {
+                 let proven_imported_receiver_types =
+                     proven_python_imported_receiver_types.get(file_path);
+                 let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
++                let mut binding_cache = crate::ast::JsBindingCache::new();
+ 
+                 for func_node in parsed.all_functions() {
+                     let func_name = match parsed.language.function_name(&func_node) {
+@@ -1802,6 +1829,14 @@ impl CallGraph {
+                             });
+                         let receiver_lexically_bound = parsed
+                             .js_ts_receiver_lexically_bound_at_call(&func_node, meta.receiver_node);
++                        let local_binding = Self::js_local_binding_at(
++                            parsed,
++                            start_byte,
++                            end_byte,
++                            &callee_name,
++                            qualifier.is_none(),
++                            &mut binding_cache,
++                        );
+                         let site = CallSite {
+                             caller: caller_id.clone(),
+                             callee_name,
+@@ -1835,6 +1870,7 @@ impl CallGraph {
+                             origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
+                             pre_resolved_target: None,
+                             jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
++                            local_binding,
+                         };
+                         file_call_sites.push((caller_id.clone(), site));
+                     }
+@@ -2875,6 +2911,7 @@ impl CallGraph {
+             origin: CallSiteOrigin::IndirectResolution,
+             pre_resolved_target: None,
+             jsx_element: false,
++            local_binding: JsLocalBinding::Unchecked,
+         }
+     }
+ 
+@@ -5038,6 +5075,7 @@ impl CallGraph {
+             }
+             let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
+             let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
++            let mut binding_cache = crate::ast::JsBindingCache::new();
+             for func_node in parsed.all_functions() {
+                 let func_name = match parsed.language.function_name(&func_node) {
+                     Some(n) => parsed.node_text(&n).to_string(),
+@@ -5105,6 +5143,14 @@ impl CallGraph {
+                         });
+                     let receiver_lexically_bound = parsed
+                         .js_ts_receiver_lexically_bound_at_call(&func_node, meta.receiver_node);
++                    let local_binding = Self::js_local_binding_at(
++                        parsed,
++                        start_byte,
++                        end_byte,
++                        &callee_name,
++                        qualifier.is_none(),
++                        &mut binding_cache,
++                    );
+                     let site = CallSite {
+                         caller: caller_id.clone(),
+                         callee_name: callee_name.clone(),
+@@ -5134,6 +5180,7 @@ impl CallGraph {
+                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
+                         pre_resolved_target: None,
+                         jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
++                        local_binding,
+                     };
+                     calls
+                         .entry(caller_id.clone())
+@@ -5510,6 +5557,48 @@ impl CallGraph {
+     }
+ 
+     /// True iff the node spanning exactly these bytes is a JSX element tag (S1).
++    /// S1b: the lexical binding of an unqualified JS/TS callee identifier at this site.
++    fn js_local_binding_at(
++        parsed: &ParsedFile,
++        start_byte: usize,
++        end_byte: usize,
++        callee: &str,
++        unqualified: bool,
++        cache: &mut crate::ast::JsBindingCache,
++    ) -> JsLocalBinding {
++        use crate::languages::Language;
++        if !unqualified
++            || !matches!(
++                parsed.language,
++                Language::JavaScript | Language::TypeScript | Language::Tsx
++            )
++            || !parsed
++                .functions()
++                .iter()
++                .any(|f| f.name.as_deref() == Some(callee))
++        {
++            return JsLocalBinding::Unchecked;
++        }
++        let ident = parsed
++            .tree
++            .root_node()
++            .descendant_for_byte_range(start_byte, end_byte)
++            .filter(|n| n.start_byte() == start_byte && n.end_byte() == end_byte)
++            .and_then(|site| match site.kind() {
++                "call_expression" => site.child_by_field_name("function"),
++                "jsx_self_closing_element" | "jsx_opening_element" => {
++                    site.child_by_field_name("name")
++                }
++                _ => None,
++            })
++            .filter(|n| n.kind() == "identifier" && parsed.node_text(n) == callee);
++        match ident.map(|i| parsed.js_ts_site_terminal(i, callee, cache)) {
++            None => JsLocalBinding::Unchecked,
++            Some(Ok(terminal)) => JsLocalBinding::Callable(terminal),
++            Some(Err(_)) => JsLocalBinding::Unproven,
++        }
++    }
++
+     fn jsx_element_at(parsed: &ParsedFile, start_byte: usize, end_byte: usize) -> bool {
+         parsed
+             .tree
+diff --git a/src/js_exports.rs b/src/js_exports.rs
+index dbd303ae..f970da46 100644
+--- a/src/js_exports.rs
++++ b/src/js_exports.rs
+@@ -43,6 +43,13 @@ pub enum JsExportTarget {
+         start_line: usize,
+         end_line: usize,
+     },
++    /// S1b: an ESM local export whose module-scope binding is proven to hold exactly
++    /// this plain callable (any site may bind it).
++    VerifiedLocal {
++        local: String,
++        start_line: usize,
++        end_line: usize,
++    },
+     /// `export { imported as exported_name } from './y'` (also used for the
+     /// re-export half of barrel resolution). `imported` is the name as
+     /// declared/exported in the target module (`"default"` for a default
+@@ -100,6 +107,10 @@ pub struct JsExportFacts {
+     /// Declarator skips (a subset of `skipped_expr_count`) keyed by refusal reason.
+     #[serde(default)]
+     pub skipped_decl_reasons: BTreeMap<String, usize>,
++    /// S1b: ESM local exports refused because the module-scope binding holds no single
++    /// proven callable, keyed by reason.
++    #[serde(default)]
++    pub local_export_refusals: BTreeMap<String, usize>,
+ }
+ 
+ impl JsExportFacts {
+@@ -114,6 +125,7 @@ impl JsExportFacts {
+             && self.conflicted.is_empty()
+             && self.spanned_admitted == 0
+             && self.skipped_decl_reasons.is_empty()
++            && self.local_export_refusals.is_empty()
+     }
+ 
+     /// Record a named-export raw fact, poisoning (marking conflicted) a name
+@@ -139,9 +151,12 @@ impl JsExportFacts {
+ pub struct ResolvedJsExport {
+     pub file: String,
+     pub local_name: String,
+-    /// `SpannedLocal` targets only: the inner function's exact `(start, end)` lines.
++    /// `SpannedLocal` / `VerifiedLocal` targets: the callable's exact `(start, end)` lines.
+     #[serde(default)]
+     pub span: Option<(usize, usize)>,
++    /// S1b: the span is a wrapped React render function (JSX element sites only).
++    #[serde(default)]
++    pub wrapped: bool,
+ }
+ 
+ /// Whole-program resolution output: per-file resolved export tables plus
+@@ -255,8 +270,8 @@ enum ExportLookup {
+     Resolved(ResolvedJsExport, bool),
+ }
+ 
+-/// A star-barrel candidate: `(file, local_name, is_class, span)`.
+-type BarrelCandidate = (String, String, bool, Option<(usize, usize)>);
++/// A star-barrel candidate: `(file, local_name, is_class, span, wrapped)`.
++type BarrelCandidate = (String, String, bool, Option<(usize, usize)>, bool);
+ 
+ fn resolve_one(
+     raw: &BTreeMap<String, JsExportFacts>,
+@@ -310,6 +325,20 @@ fn resolve_one_inner(
+                     file: file.to_string(),
+                     local_name: local.clone(),
+                     span: Some((*start_line, *end_line)),
++                    wrapped: true,
++                },
++                false,
++            ),
++            JsExportTarget::VerifiedLocal {
++                local,
++                start_line,
++                end_line,
++            } => ExportLookup::Resolved(
++                ResolvedJsExport {
++                    file: file.to_string(),
++                    local_name: local.clone(),
++                    span: Some((*start_line, *end_line)),
++                    wrapped: false,
+                 },
+                 false,
+             ),
+@@ -319,6 +348,7 @@ fn resolve_one_inner(
+                     file: file.to_string(),
+                     local_name: local.clone(),
+                     span: None,
++                    wrapped: false,
+                 },
+                 matches!(target, JsExportTarget::Class(_)),
+             ),
+@@ -392,7 +422,7 @@ fn resolve_one_inner(
+             telemetry,
+         ) {
+             ExportLookup::Resolved(hit, is_class) => {
+-                candidates.insert((hit.file, hit.local_name, is_class, hit.span));
++                candidates.insert((hit.file, hit.local_name, is_class, hit.span, hit.wrapped));
+             }
+             ExportLookup::BlockedClaim => return ExportLookup::BlockedClaim,
+             ExportLookup::NoTarget => {}
+@@ -401,12 +431,14 @@ fn resolve_one_inner(
+     match candidates.len() {
+         0 => ExportLookup::NoTarget,
+         1 => {
+-            let (file, local_name, is_class, span) = candidates.into_iter().next().unwrap();
++            let (file, local_name, is_class, span, wrapped) =
++                candidates.into_iter().next().unwrap();
+             ExportLookup::Resolved(
+                 ResolvedJsExport {
+                     file,
+                     local_name,
+                     span,
++                    wrapped,
+                 },
+                 is_class,
+             )
+@@ -437,6 +469,7 @@ mod tests {
+             conflicted: BTreeSet::new(),
+             spanned_admitted: 0,
+             skipped_decl_reasons: BTreeMap::new(),
++            local_export_refusals: BTreeMap::new(),
+         }
+     }
+ 
+@@ -473,6 +506,7 @@ mod tests {
+                 file: "util.ts".to_string(),
+                 local_name: "process".to_string(),
+                 span: None,
++                wrapped: false,
+             }
+         );
+         assert_eq!(out.chain_unresolved, 0);
+@@ -497,6 +531,7 @@ mod tests {
+                 file: "impl.ts".to_string(),
+                 local_name: "process".to_string(),
+                 span: None,
++                wrapped: false,
+             }
+         );
+         assert_eq!(out.chain_unresolved, 0);
+@@ -524,6 +559,7 @@ mod tests {
+                 file: "impl.ts".to_string(),
+                 local_name: "process".to_string(),
+                 span: None,
++                wrapped: false,
+             }
+         );
+         assert_eq!(out.chain_unresolved, 0);
+@@ -585,6 +621,7 @@ mod tests {
+                 file: "impl.ts".to_string(),
+                 local_name: "process".to_string(),
+                 span: None,
++                wrapped: false,
+             }
+         );
+     }
+@@ -648,6 +685,7 @@ mod tests {
+                 file: "impl.ts".to_string(),
+                 local_name: "process".to_string(),
+                 span: None,
++                wrapped: false,
+             }
+         );
+         assert_eq!(out.barrel_conflicts, 0);
+diff --git a/src/navigation/partition_site_dump.rs b/src/navigation/partition_site_dump.rs
+index 4eaab518..75a16073 100644
+--- a/src/navigation/partition_site_dump.rs
++++ b/src/navigation/partition_site_dump.rs
+@@ -104,6 +104,7 @@ mod tests {
+             origin: CallSiteOrigin::Source,
+             pre_resolved_target: None,
+             jsx_element: false,
++            local_binding: Default::default(),
+         };
+         let outcome = ResolutionOutcome {
+             resolved: vec![crate::resolution::ResolvedCallee {
+diff --git a/src/navigation/queries.rs b/src/navigation/queries.rs
+index dd29127e..7d08c255 100644
+--- a/src/navigation/queries.rs
++++ b/src/navigation/queries.rs
+@@ -379,6 +379,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
+     // absent) so Go misses stop landing unattributed.
+     let mut dropped_go_receiver: BTreeMap<String, usize> = BTreeMap::new();
+     let mut wrapped_non_jsx = 0usize;
++    let mut jsx_intrinsic = 0usize;
++    let mut local_unproven = 0usize;
+     for sites in cg.calls.values() {
+         for site in sites {
+             total += 1;
+@@ -391,6 +393,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
+                 Some(DropReason::FuncValueFanout) => func_value_fanout += 1,
+                 Some(DropReason::GoSamePkgAllFiltered) => go_same_pkg_all_filtered_drop += 1,
+                 Some(DropReason::WrappedExportNonJsx) => wrapped_non_jsx += 1,
++                Some(DropReason::JsxIntrinsic) => jsx_intrinsic += 1,
++                Some(DropReason::LocalBindingUnproven) => local_unproven += 1,
+                 Some(
+                     DropReason::ConcreteReceiverPromotedDeferred
+                     | DropReason::ConcreteReceiverNoSelector,
+@@ -559,10 +563,14 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
+     });
+ 
+     let mut decl_reasons: BTreeMap<String, usize> = BTreeMap::new();
++    let mut local_refusals: BTreeMap<String, usize> = BTreeMap::new();
+     for facts in cg.js_ts_exports.values() {
+         for (reason, n) in &facts.skipped_decl_reasons {
+             *decl_reasons.entry(reason.clone()).or_default() += n;
+         }
++        for (reason, n) in &facts.local_export_refusals {
++            *local_refusals.entry(reason.clone()).or_default() += n;
++        }
+     }
+     let mut stats = serde_json::json!({
+         "total_call_sites": total,
+@@ -646,6 +654,9 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
+             .sum::<usize>(),
+         "js_export_skipped_decl_reasons": decl_reasons,
+         "dropped_wrapped_export_non_jsx": wrapped_non_jsx,
++        "dropped_jsx_intrinsic": jsx_intrinsic,
++        "dropped_local_binding_unproven": local_unproven,
++        "js_export_local_refusals": local_refusals,
+         "js_export_skipped_exprs": cg
+             .js_ts_exports
+             .values()
+diff --git a/src/resolution.rs b/src/resolution.rs
+index 4991f01e..b47862f4 100644
+--- a/src/resolution.rs
++++ b/src/resolution.rs
+@@ -1033,6 +1033,10 @@ pub enum DropReason {
+     ConcreteReceiverNoSelector,
+     /// S1: a span-verified wrapped React export reached by a non-JSX site.
+     WrappedExportNonJsx,
++    /// S1b: a lowercase, dashed or namespaced JSX tag (an intrinsic element).
++    JsxIntrinsic,
++    /// S1b: a JS/TS unqualified call whose lexical binding holds no single proven callable.
++    LocalBindingUnproven,
+ }
+ 
+ #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+@@ -2294,6 +2298,17 @@ impl CallGraph {
+     /// new precision ladder. Legacy callers continue to use the old resolver
+     /// until Tasks 9-11 migrate them.
+     pub fn resolve_call_site_full(&self, site: &CallSite) -> ResolutionOutcome<'_> {
++        // S1b: a JSX tag spelled lowercase, dashed or namespaced is an intrinsic element.
++        // It never references a binding, so no rung may bind it.
++        if site.jsx_element
++            && site.qualifier.is_none()
++            && (site
++                .callee_name
++                .starts_with(|c: char| c.is_ascii_lowercase())
++                || site.callee_name.contains(['-', ':']))
++        {
++            return ResolutionOutcome::dropped(DropReason::JsxIntrinsic);
++        }
+         if let Some(result) = self
+             .executable_owner
+             .as_ref()
+@@ -2548,6 +2563,33 @@ impl CallGraph {
+                 if !recv_materialized && !js_ts_receiver_lexically_bound {
+                     if let Some(file_imports) = self.imports.get(&caller.file) {
+                         if let Some(module_path) = file_imports.get(q) {
++                            let namespace = self.js_ts_namespace_binding(&caller.file, q);
++                            // S1b: a relative namespace names the resolved module's export.
++                            if let Some(binding) = namespace.filter(|b| {
++                                crate::call_graph::resolve_js_ts_relative_module(
++                                    &b.module_path,
++                                    &caller.file,
++                                    &self.indexed_files,
++                                )
++                                .is_some()
++                            }) {
++                                return match self
++                                    .js_ts_import_member_candidates(caller, binding, name, site)
++                                {
++                                    Err(drop) => ResolutionOutcome::dropped(drop),
++                                    Ok(ids) if ids.is_empty() => {
++                                        ResolutionOutcome::dropped(DropReason::UnknownName)
++                                    }
++                                    Ok(ids) if ids.len() == 1 => ResolutionOutcome::hit(exact(
++                                        ids,
++                                        ResolutionKind::ImportQualified,
++                                    )),
++                                    Ok(ids) => ResolutionOutcome::hit(demoted(
++                                        ids,
++                                        ResolutionKind::ImportQualified,
++                                    )),
++                                };
++                            }
+                             let ids = match self.functions.get(name) {
+                                 Some(v) => v.as_slice(),
+                                 None => return ResolutionOutcome::dropped(DropReason::UnknownName),
+@@ -2572,6 +2614,32 @@ impl CallGraph {
+                                     stem_hit || dir_hit
+                                 })
+                                 .collect();
++                            // S1b: an unresolvable namespace keeps the stem lookup, but only
++                            // over callables their own file exports under this name.
++                            let matched: Vec<&FunctionId> = if namespace.is_some() {
++                                let exported: Vec<&FunctionId> = matched
++                                    .into_iter()
++                                    .filter(|fid| self.js_ts_exported_as(fid, name))
++                                    .collect();
++                                if !site.jsx_element
++                                    && exported
++                                        .iter()
++                                        .any(|fid| self.js_ts_wrapped_export_fid(fid, name))
++                                {
++                                    return ResolutionOutcome::dropped(
++                                        DropReason::WrappedExportNonJsx,
++                                    );
++                                }
++                                if exported.len() > 1 {
++                                    return ResolutionOutcome::hit(demoted(
++                                        exported,
++                                        ResolutionKind::ImportQualified,
++                                    ));
++                                }
++                                exported
++                            } else {
++                                matched
++                            };
+                             if matched.is_empty() {
+                                 return ResolutionOutcome::dropped(DropReason::ImportExternal);
+                             }
+@@ -3466,6 +3534,37 @@ impl CallGraph {
+                     .filter(|f| f.file == caller.file)
+                     .collect();
+                 if !local.is_empty() {
++                    // S1b: a JS/TS site binds only the callable its lexical binding holds.
++                    // MEASUREMENT ONLY (not part of the design): S1b-a alone.
++                    let only_a = std::env::var_os("PRISM_S1B_ONLY_A").is_some();
++                    let binding = if only_a {
++                        crate::call_graph::JsLocalBinding::Unchecked
++                    } else {
++                        site.local_binding
++                    };
++                    let local = match binding {
++                        crate::call_graph::JsLocalBinding::Unchecked => local,
++                        crate::call_graph::JsLocalBinding::Unproven => {
++                            return ResolutionOutcome::dropped(DropReason::LocalBindingUnproven)
++                        }
++                        crate::call_graph::JsLocalBinding::Callable(t) => {
++                            if t.wrapped && !site.jsx_element {
++                                return ResolutionOutcome::dropped(DropReason::WrappedExportNonJsx);
++                            }
++                            let hit: Vec<&FunctionId> = local
++                                .into_iter()
++                                .filter(|f| {
++                                    f.start_line == t.start_line && f.end_line == t.end_line
++                                })
++                                .collect();
++                            if hit.len() != 1 {
++                                return ResolutionOutcome::dropped(
++                                    DropReason::LocalBindingUnproven,
++                                );
++                            }
++                            hit
++                        }
++                    };
+                     return ResolutionOutcome::hit(exact(local, ResolutionKind::LocalDef));
+                 }
+ 
+@@ -3683,17 +3782,9 @@ impl CallGraph {
+         else {
+             return Ok(Vec::new());
+         };
+-        if resolved.span.is_some() && !site.jsx_element {
++        if resolved.wrapped && !site.jsx_element {
+             return Err(DropReason::WrappedExportNonJsx);
+         }
+-        // A lowercase JSX tag is an intrinsic element; it never references the binding.
+-        if resolved.span.is_some()
+-            && site
+-                .callee_name
+-                .starts_with(|c: char| c.is_ascii_lowercase())
+-        {
+-            return Ok(Vec::new());
+-        }
+         let ids: Vec<&FunctionId> = match self.functions.get(&resolved.local_name) {
+             Some(ids) => ids
+                 .iter()
+@@ -3712,6 +3803,43 @@ impl CallGraph {
+         Ok(ids)
+     }
+ 
++    /// S1b: `q` is the file's one ESM namespace import binding.
++    fn js_ts_namespace_binding(
++        &self,
++        file: &str,
++        q: &str,
++    ) -> Option<&crate::call_graph::ImportBinding> {
++        if !is_js_ts_import_member_file(file) {
++            return None;
++        }
++        let bindings = self.import_bindings.get(file)?;
++        let mut hits = bindings.iter().filter(|b| b.local == q);
++        let binding = hits.next()?;
++        (hits.next().is_none()
++            && binding.kind == crate::call_graph::ImportBindingKind::ModuleImport)
++            .then_some(binding)
++    }
++
++    /// S1b: `fid` is the callable its own file exports as `name`.
++    fn js_ts_exported_as(&self, fid: &FunctionId, name: &str) -> bool {
++        self.js_ts_resolved_exports
++            .get(&fid.file)
++            .and_then(|e| e.get(name))
++            .is_some_and(|r| {
++                r.file == fid.file
++                    && r.local_name == fid.name
++                    && r.span
++                        .is_none_or(|(s, e)| fid.start_line == s && fid.end_line == e)
++            })
++    }
++
++    fn js_ts_wrapped_export_fid(&self, fid: &FunctionId, name: &str) -> bool {
++        self.js_ts_resolved_exports
++            .get(&fid.file)
++            .and_then(|e| e.get(name))
++            .is_some_and(|r| r.wrapped)
++    }
++
+     pub fn resolve_call_site(&self, site: &CallSite) -> Vec<ResolvedCallee<'_>> {
+         filter_func_value_fanout(self.resolve_call_site_full(site).resolved)
+     }
+@@ -4528,6 +4656,7 @@ mod scope_resolution_predicate_tests {
+             origin: CallSiteOrigin::Source,
+             pre_resolved_target: None,
+             jsx_element: false,
++            local_binding: Default::default(),
+         }
+     }
+ 
+diff --git a/src/resolution_disproof.rs b/src/resolution_disproof.rs
+index 9708720a..9ad904fc 100644
+--- a/src/resolution_disproof.rs
++++ b/src/resolution_disproof.rs
+@@ -107,6 +107,7 @@ mod tests {
+             origin: CallSiteOrigin::Source,
+             pre_resolved_target: None,
+             jsx_element: false,
++            local_binding: Default::default(),
+         }
+     }
+ 
+diff --git a/tests/name_resolution/consumer_test.rs b/tests/name_resolution/consumer_test.rs
+index 7da68bf5..ac364e6d 100644
+--- a/tests/name_resolution/consumer_test.rs
++++ b/tests/name_resolution/consumer_test.rs
+@@ -115,6 +115,7 @@ fn call_site(file: &str, name: &str, byte: usize) -> CallSite {
+         origin: CallSiteOrigin::Source,
+         pre_resolved_target: None,
+         jsx_element: false,
++        local_binding: Default::default(),
+     }
+ }
+ 
+diff --git a/tests/navigation/scoped_calls_test.rs b/tests/navigation/scoped_calls_test.rs
+index a5a5150d..321c0d48 100644
+--- a/tests/navigation/scoped_calls_test.rs
++++ b/tests/navigation/scoped_calls_test.rs
+@@ -69,6 +69,7 @@ fn resolved_targets(
+                 origin: CallSiteOrigin::Source,
+                 pre_resolved_target: None,
+                 jsx_element: false,
++                local_binding: Default::default(),
+             }
+         });
+     resolve_site_nav(cg, &site)
