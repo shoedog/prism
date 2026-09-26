@@ -572,19 +572,46 @@ def _cargo_fingerprint_value(marker: str) -> int:
     return int.from_bytes(bytes.fromhex(marker), "little")
 
 
-def _write_binary_fingerprint(repo, target, dependencies):
+def _write_binary_fingerprint(
+    repo,
+    target,
+    dependencies,
+    *,
+    discriminator="0000000000000001",
+    binary=None,
+    artifact_bytes=None,
+):
+    binary = binary or repo / "target/release" / target
+    cargo_target = target.replace("-", "_")
     fingerprint = (
-        repo
-        / "target/release/.fingerprint"
-        / "prism-0000000000000001"
-        / f"bin-{target}.json"
+        binary.parent
+        / ".fingerprint"
+        / f"prism-{discriminator}"
+        / f"bin-{cargo_target}.json"
     )
     fingerprint.parent.mkdir(parents=True, exist_ok=True)
     fingerprint.write_text(json.dumps({"deps": dependencies}))
+    (fingerprint.parent / f"bin-{cargo_target}").write_text(
+        "0000000000000000"
+    )
+    artifact = binary.parent / "deps" / f"{cargo_target}-{discriminator}"
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    artifact.write_bytes(
+        binary.read_bytes() if artifact_bytes is None else artifact_bytes
+    )
+    source_dep_info = binary.with_suffix(".d")
+    artifact.with_suffix(".d").write_bytes(source_dep_info.read_bytes())
+    return fingerprint
 
 
 def _write_library_fingerprint(
-    repo, package, target, discriminator, marker, prerequisites
+    repo,
+    package,
+    target,
+    discriminator,
+    marker,
+    prerequisites,
+    dependencies=(),
 ):
     fingerprint = (
         repo
@@ -593,7 +620,9 @@ def _write_library_fingerprint(
     )
     fingerprint.mkdir(parents=True, exist_ok=True)
     (fingerprint / f"lib-{target}").write_text(marker)
-    (fingerprint / f"lib-{target}.json").write_text(json.dumps({"deps": []}))
+    (fingerprint / f"lib-{target}.json").write_text(
+        json.dumps({"deps": list(dependencies)})
+    )
     dep_info = repo / "target/release/deps" / f"{target}-{discriminator}.d"
     dep_info.parent.mkdir(parents=True, exist_ok=True)
     artifact = dep_info.with_suffix(".rlib")
@@ -601,6 +630,41 @@ def _write_library_fingerprint(
         f"{artifact}: {' '.join(str(path) for path in prerequisites)}\n"
     )
     return dep_info
+
+
+def _write_build_script_fingerprint(
+    repo,
+    package,
+    discriminator,
+    marker_name,
+    marker,
+    dependencies,
+    prerequisites=(),
+):
+    fingerprint = (
+        repo
+        / "target/release/.fingerprint"
+        / f"{package}-{discriminator}"
+    )
+    fingerprint.mkdir(parents=True, exist_ok=True)
+    (fingerprint / marker_name).write_text(marker)
+    (fingerprint / f"{marker_name}.json").write_text(
+        json.dumps({"deps": list(dependencies)})
+    )
+    if marker_name.startswith("build-script-"):
+        dep_info = (
+            repo
+            / "target/release/build"
+            / fingerprint.name
+            / f"build_script_build-{discriminator}.d"
+        )
+        dep_info.parent.mkdir(parents=True, exist_ok=True)
+        artifact = dep_info.with_suffix("")
+        dep_info.write_text(
+            f"{artifact}: {' '.join(str(path) for path in prerequisites)}\n"
+        )
+        return dep_info
+    return None
 
 
 def test_dependency_graph_excludes_stale_same_name_build_variant(tmp_path):
@@ -746,3 +810,191 @@ def test_hyphenated_dependency_uses_target_name_for_dep_info(tmp_path):
         match=f"dependency_unit_unavailable: dep_fixture:{missing_marker}",
     ):
         sut_inputs_manifest(repo, binary)
+
+
+def test_sut_fingerprint_directory_unavailable_refuses(tmp_path):
+    lock, _ev, repo = anchored_repo(tmp_path)
+    binary = repo / "target/release/prism"
+    _write_binary_fingerprint(repo, "prism", [])
+    manifest = repo / lock.prism["sut"]["inputs"]
+    manifest_before = manifest.read_bytes()
+    fingerprint_root = binary.parent / ".fingerprint"
+    hidden = binary.parent / ".fingerprint-hidden"
+    fingerprint_root.rename(hidden)
+
+    with pytest.raises(ValueError, match="sut_fingerprint_unavailable: prism"):
+        sut_inputs_manifest(repo, binary)
+    assert manifest.read_bytes() == manifest_before
+
+    hidden.rename(fingerprint_root)
+    _write_binary_fingerprint(
+        repo,
+        "prism",
+        [],
+        discriminator="0000000000000002",
+    )
+    with pytest.raises(ValueError, match="sut_fingerprint_ambiguous: prism"):
+        sut_inputs_manifest(repo, binary)
+
+
+def test_sut_fingerprint_does_not_fall_through_to_stale_root(tmp_path):
+    lock, _ev, repo = anchored_repo(tmp_path)
+    binary = repo / "target/release/prism"
+    selected = repo / "target/release/build/selected/out/generated.rs"
+    stale = repo / "target/release/build/stale/out/unused.rs"
+    selected.parent.mkdir(parents=True)
+    stale.parent.mkdir(parents=True)
+    selected.write_text("pub fn selected() {}\n")
+    stale.write_text("pub fn stale() {}\n")
+    selected_marker = "4142434445464748"
+    stale_marker = "5152535455565758"
+    selected_root = _write_binary_fingerprint(
+        repo,
+        "prism",
+        [[1, "dep_fixture", False, _cargo_fingerprint_value(selected_marker)]],
+        discriminator="1111111111111111",
+    )
+    _write_library_fingerprint(
+        repo,
+        "dep_fixture",
+        "dep_fixture",
+        "3333333333333333",
+        selected_marker,
+        [selected],
+    )
+    _write_binary_fingerprint(
+        repo,
+        "prism",
+        [[1, "dep_fixture", False, _cargo_fingerprint_value(stale_marker)]],
+        discriminator="2222222222222222",
+        artifact_bytes=b"stale binary",
+    )
+    _write_library_fingerprint(
+        repo,
+        "dep_fixture",
+        "dep_fixture",
+        "4444444444444444",
+        stale_marker,
+        [stale],
+    )
+    selected_root.unlink()
+    manifest = repo / lock.prism["sut"]["inputs"]
+    manifest_before = manifest.read_bytes()
+
+    with pytest.raises(ValueError, match="sut_fingerprint_unavailable: prism"):
+        sut_inputs_manifest(repo, binary)
+    assert manifest.read_bytes() == manifest_before
+    assert stale.relative_to(repo).as_posix() not in manifest.read_text()
+
+
+def test_selected_build_script_chain_includes_host_dependency_inputs(tmp_path):
+    lock, ev, repo = anchored_repo(tmp_path)
+    binary = repo / "target/release/prism"
+    dependency = repo / "dep_fixture"
+    (dependency / "src").mkdir(parents=True)
+    library_source = dependency / "src/lib.rs"
+    build_source = dependency / "build.rs"
+    library_source.write_text("pub fn selected() {}\n")
+    build_source.write_text("fn main() {}\n")
+    host_generated = (
+        repo / "target/release/build/dep_fixture-host/out/host_generated.rs"
+    )
+    unrelated_generated = (
+        repo / "target/release/build/dep_fixture-unrelated/out/unused.rs"
+    )
+    host_generated.parent.mkdir(parents=True)
+    unrelated_generated.parent.mkdir(parents=True)
+    host_generated.write_text("pub fn host_generated() {}\n")
+    unrelated_generated.write_text("pub fn unrelated() {}\n")
+
+    target_marker = "6162636465666768"
+    run_marker = "7172737475767778"
+    compile_marker = "8182838485868788"
+    host_marker = "9192939495969798"
+    unrelated_marker = "a1a2a3a4a5a6a7a8"
+    _write_binary_fingerprint(
+        repo,
+        "prism",
+        [
+            [1, "dep_fixture", False, _cargo_fingerprint_value(target_marker)],
+            [2, "build_script_build", False, _cargo_fingerprint_value(run_marker)],
+        ],
+    )
+    _write_library_fingerprint(
+        repo,
+        "dep_fixture",
+        "dep_fixture",
+        "1111111111111111",
+        target_marker,
+        [library_source],
+    )
+    _write_build_script_fingerprint(
+        repo,
+        "dep_fixture",
+        "2222222222222222",
+        "run-build-script-build-script-build",
+        run_marker,
+        [[3, "build_script_build", False, _cargo_fingerprint_value(compile_marker)]],
+    )
+    _write_build_script_fingerprint(
+        repo,
+        "dep_fixture",
+        "3333333333333333",
+        "build-script-build-script-build",
+        compile_marker,
+        [[4, "dep_fixture", False, _cargo_fingerprint_value(host_marker)]],
+        [build_source],
+    )
+    _write_library_fingerprint(
+        repo,
+        "dep_fixture",
+        "dep_fixture",
+        "4444444444444444",
+        host_marker,
+        [host_generated],
+    )
+    _write_library_fingerprint(
+        repo,
+        "dep_fixture",
+        "dep_fixture",
+        "5555555555555555",
+        unrelated_marker,
+        [unrelated_generated],
+    )
+
+    env_reads, observed = observe_cargo(binary.parent, repo, {}, binary.stem)
+    full_rows = sut_inputs_manifest(repo, binary)
+    host_path = host_generated.relative_to(repo).as_posix()
+    unrelated_path = unrelated_generated.relative_to(repo).as_posix()
+    manifest = repo / lock.prism["sut"]["inputs"]
+    write_tsv([row for row in full_rows if row[0] != host_path], manifest)
+    with pytest.raises(BoundaryViolation) as exc:
+        admit(
+            lock,
+            load_declared_inputs(lock, ev),
+            Observation(env_reads, observed, set()),
+            set(),
+            ev,
+        )
+    assert exc.value.reasons == [f"undeclared_read: {host_path}"]
+
+    write_tsv(full_rows, manifest)
+    assert observed == {path for path, _digest in full_rows}
+    assert host_path in observed
+    assert unrelated_path not in observed
+    admit(
+        lock,
+        load_declared_inputs(lock, ev),
+        Observation(env_reads, observed, set()),
+        set(),
+        ev,
+    )
+    with pytest.raises(BoundaryViolation) as exc:
+        admit(
+            lock,
+            load_declared_inputs(lock, ev),
+            Observation(env_reads, observed | {unrelated_path}, set()),
+            set(),
+            ev,
+        )
+    assert exc.value.reasons == [f"undeclared_read: {unrelated_path}"]

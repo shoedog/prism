@@ -169,21 +169,101 @@ def _cargo_crate_name(name: str) -> str:
     return name.replace("-", "_")
 
 
-def _cargo_dependency_dep_infos(repo: Path, binary: Path) -> list[Path]:
-    fingerprint_root = binary.parent / ".fingerprint"
-    if not fingerprint_root.is_dir():
-        return []
-    package = _cargo_crate_name(cargo_package_name(repo))
-    target = _cargo_crate_name(binary.stem)
-    roots = sorted(fingerprint_root.glob(f"*/bin-{target}.json"))
-    if not roots and target != package:
-        roots = sorted(fingerprint_root.glob(f"*/bin-{package}.json"))
-    if not roots:
-        raise ValueError(f"dependency_graph_root_unavailable: {target}")
-    if len(roots) != 1:
-        raise ValueError(f"dependency_graph_root_ambiguous: {target}")
+def _fingerprint_discriminator(path: Path) -> str:
+    match = re.search(r"-([0-9a-f]{16})$", path.name)
+    if match is None:
+        raise ValueError(f"dependency_unit_invalid: {path.name}")
+    return match.group(1)
 
-    queue = list(roots)
+
+def _sut_root_fingerprint(binary: Path, target: str) -> Path | None:
+    fingerprint_root = binary.parent / ".fingerprint"
+    artifact_root = binary.parent / "deps"
+    artifacts = [
+        path
+        for path in sorted(artifact_root.glob(f"{target}-*"))
+        if path.is_file()
+        and re.fullmatch(rf"{re.escape(target)}-[0-9a-f]{{16}}", path.name)
+    ]
+    # Dep-info-only fixtures have neither Cargo artifact nor fingerprint metadata.
+    if not artifacts and not fingerprint_root.is_dir():
+        return None
+    if not artifacts or not fingerprint_root.is_dir() or not binary.is_file():
+        raise ValueError(f"sut_fingerprint_unavailable: {target}")
+
+    binary_digest = raw_digest(binary)
+    selected = [path for path in artifacts if raw_digest(path) == binary_digest]
+    if len(selected) > 1:
+        raise ValueError(f"sut_fingerprint_ambiguous: {target}")
+    if not selected:
+        raise ValueError(f"sut_fingerprint_unavailable: {target}")
+
+    discriminator = _fingerprint_discriminator(selected[0])
+    dep_info = artifact_root / f"{target}-{discriminator}.d"
+    roots = sorted(
+        fingerprint_root.glob(f"*-{discriminator}/bin-{target}.json")
+    )
+    if not dep_info.is_file() or not roots:
+        raise ValueError(f"sut_fingerprint_unavailable: {target}")
+    if len(roots) > 1:
+        raise ValueError(f"sut_fingerprint_ambiguous: {target}")
+    return roots[0]
+
+
+def _unit_dep_info(binary: Path, fingerprint: Path) -> Path | None:
+    discriminator = _fingerprint_discriminator(fingerprint.parent)
+    if fingerprint.name.startswith("lib-"):
+        target_name = fingerprint.name.removeprefix("lib-").removesuffix(".json")
+        unit = f"{target_name}-{discriminator}"
+        dep_info = binary.parent / "deps" / f"{unit}.d"
+    elif fingerprint.name == "build-script-build-script-build.json":
+        unit = f"build_script_build-{discriminator}"
+        dep_info = (
+            binary.parent
+            / "build"
+            / fingerprint.parent.name
+            / f"{unit}.d"
+        )
+    else:
+        return None
+    if not dep_info.is_file():
+        raise ValueError(f"dependency_dep_info_unavailable: {unit}")
+    return dep_info
+
+
+def _dependency_unit_matches(
+    fingerprint_root: Path, name: str, marker: str
+) -> list[Path]:
+    if name == "build_script_build":
+        markers = [
+            *fingerprint_root.glob("*/run-build-script-build-script-build"),
+            *fingerprint_root.glob("*/build-script-build-script-build"),
+        ]
+    else:
+        unit = _cargo_crate_name(name)
+        markers = list(fingerprint_root.glob(f"*/lib-{unit}"))
+    matches = []
+    for path in markers:
+        fingerprint = path.with_name(f"{path.name}.json")
+        if path.read_text().strip() == marker and fingerprint.is_file():
+            matches.append(fingerprint)
+    if (
+        len(matches) > 1
+        and all(path.name == "run-build-script-build-script-build.json" for path in matches)
+        and len({path.read_bytes() for path in matches}) == 1
+    ):
+        return [sorted(matches)[0]]
+    return sorted(matches)
+
+
+def _cargo_dependency_dep_infos(_repo: Path, binary: Path) -> list[Path]:
+    fingerprint_root = binary.parent / ".fingerprint"
+    target = _cargo_crate_name(binary.stem)
+    root = _sut_root_fingerprint(binary, target)
+    if root is None:
+        return []
+
+    queue = [root]
     visited = set()
     dep_infos = set()
     while queue:
@@ -191,17 +271,8 @@ def _cargo_dependency_dep_infos(repo: Path, binary: Path) -> list[Path]:
         if fingerprint in visited:
             continue
         visited.add(fingerprint)
-        if fingerprint.name.startswith("lib-"):
-            target_name = fingerprint.name.removeprefix("lib-").removesuffix(".json")
-            discriminator = re.search(r"-([0-9a-f]{16})$", fingerprint.parent.name)
-            if discriminator is None:
-                raise ValueError(
-                    f"dependency_unit_invalid: {fingerprint.parent.name}"
-                )
-            unit = f"{target_name}-{discriminator.group(1)}"
-            dep_info = binary.parent / "deps" / f"{unit}.d"
-            if not dep_info.is_file():
-                raise ValueError(f"dependency_dep_info_unavailable: {unit}")
+        dep_info = _unit_dep_info(binary, fingerprint)
+        if dep_info is not None:
             dep_infos.add(dep_info)
         data = json.loads(fingerprint.read_text())
         for dependency in data.get("deps", []):
@@ -210,17 +281,37 @@ def _cargo_dependency_dep_infos(repo: Path, binary: Path) -> list[Path]:
                     f"dependency_unit_invalid: {fingerprint.parent.name}"
                 )
             name = dependency[1]
-            if not isinstance(name, str) or name == "build_script_build":
+            if not isinstance(name, str):
+                raise ValueError(
+                    f"dependency_unit_invalid: {fingerprint.parent.name}"
+                )
+            # Only the selected binary's run/compile chain crosses host profiles.
+            if name == "build_script_build" and fingerprint.name.startswith("lib-"):
                 continue
             if len(dependency) < 4 or not isinstance(dependency[3], int):
                 raise ValueError(f"dependency_unit_invalid: {name}")
+            try:
+                marker = dependency[3].to_bytes(8, "little").hex()
+            except OverflowError as exc:
+                raise ValueError(f"dependency_unit_invalid: {name}") from exc
+            matches = _dependency_unit_matches(fingerprint_root, name, marker)
+            if name == "build_script_build":
+                if fingerprint.name.startswith("bin-"):
+                    matches = [
+                        path
+                        for path in matches
+                        if path.name == "run-build-script-build-script-build.json"
+                    ]
+                elif fingerprint.name == "run-build-script-build-script-build.json":
+                    matches = [
+                        path
+                        for path in matches
+                        if path.name == "build-script-build-script-build.json"
+                    ]
+                    # Other run units are ordering edges, not this run's compiler unit.
+                    if not matches:
+                        continue
             unit = _cargo_crate_name(name)
-            marker = dependency[3].to_bytes(8, "little").hex()
-            matches = [
-                path.with_name(f"{path.name}.json")
-                for path in fingerprint_root.glob(f"*/lib-{unit}")
-                if path.read_text().strip() == marker
-            ]
             if not matches:
                 raise ValueError(f"dependency_unit_unavailable: {unit}:{marker}")
             if len(matches) != 1:
