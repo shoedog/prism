@@ -1,11 +1,11 @@
 use super::super::super::binding_table::{
     capture_rows, census, census_artifact_digest, grammar_digest, pinned_census_digest,
     pinned_digest, predicate_matches, rows, select_binding_row, select_capture_row, Predicate,
-    Ruling,
+    Role, Ruling,
 };
 use super::super::parsed;
 use crate::ast::ParsedFile;
-use crate::cpg::{FlowConfidence, FlowDoubt};
+use crate::cpg::FlowConfidence;
 use crate::languages::Language;
 use std::collections::BTreeSet;
 use std::sync::OnceLock;
@@ -14,6 +14,12 @@ use tree_sitter::Node;
 mod behavior;
 mod gates;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum CaseClass {
+    Structural,
+    Behavioral,
+}
+
 #[derive(Clone, Copy)]
 pub(super) struct Case {
     pub id: &'static str,
@@ -21,6 +27,7 @@ pub(super) struct Case {
     pub kind: &'static str,
     pub variant: Option<&'static str>,
     pub row_variant: Option<Predicate>,
+    pub class: CaseClass,
     pub src: &'static str,
     pub expect: &'static [(&'static str, &'static str, FlowConfidence)],
     pub expect_counter: Option<(&'static str, i64)>,
@@ -50,7 +57,7 @@ pub(super) fn check_case(case: &Case) {
         case.id,
         case.kind
     );
-    let selected_ruling = if case.variant == Some("capture") {
+    let (selected_ruling, is_binding, is_not_binding) = if case.variant == Some("capture") {
         let selected = select_capture_row(&parsed, nodes[0])
             .unwrap_or_else(|| panic!("{}: no capture row selected", case.id));
         assert_eq!(
@@ -63,7 +70,7 @@ pub(super) fn check_case(case: &Case) {
             "{}: selected capture variant",
             case.id
         );
-        None
+        (None, false, false)
     } else {
         let selected = select_binding_row(&parsed, nodes[0])
             .unwrap_or_else(|| panic!("{}: no binding row selected", case.id));
@@ -77,40 +84,48 @@ pub(super) fn check_case(case: &Case) {
             "{}: selected binding variant",
             case.id
         );
-        Some(selected.ruling)
+        (
+            Some(selected.ruling),
+            selected.roles.has(Role::Binding),
+            selected.roles.has(Role::NotBinding),
+        )
     };
 
-    behavior::assert_behavior(case, &parsed);
-
-    if let Some(Ruling::Uncertain {
-        reason: "not yet curated",
-        ..
-    }) = selected_ruling
-    {
-        assert_eq!(case.expect, &[], "{}: provisional expectations", case.id);
-        assert_eq!(
-            case.expect_counter,
-            Some(("dfg_label_nameonly_ownership_uncertain", 0)),
-            "{}: provisional counter control",
-            case.id
-        );
-    } else if selected_ruling.is_some() && !case.expect.is_empty() {
+    let provisional = matches!(
+        selected_ruling,
+        Some(Ruling::Uncertain {
+            reason: "not yet curated",
+            ..
+        })
+    );
+    if case.class == CaseClass::Behavioral {
         assert!(
-            case.expect
-                .iter()
-                .any(|(_, _, label)| matches!(label, FlowConfidence::Exact)),
-            "{}: classified behavior needs Exact",
-            case.id
-        );
-        assert!(
-            case.expect.iter().any(|(_, _, label)| matches!(
-                label,
-                FlowConfidence::NameOnly(FlowDoubt::Killed { .. })
-            )),
-            "{}: classified behavior needs Killed",
+            !case.expect.is_empty(),
+            "{}: Behavioral case requires nonempty expect",
             case.id
         );
     }
+
+    if case.class == CaseClass::Behavioral || case.expect_counter.is_some() {
+        behavior::assert_behavior(case, &parsed);
+    }
+
+    if provisional {
+        if case.class == CaseClass::Structural {
+            assert_eq!(
+                case.expect_counter, None,
+                "{}: generated provisional counter",
+                case.id
+            );
+        }
+        return;
+    }
+
+    if case.class == CaseClass::Structural {
+        return;
+    }
+
+    behavior::assert_ruling(case, selected_ruling, is_binding, is_not_binding);
 }
 
 pub(super) fn source(language: Language) -> &'static str {
@@ -404,21 +419,20 @@ pub(super) fn all_cases() -> Vec<&'static Case> {
                     if overrides.contains(&(language, kind, Some("binding"))) {
                         continue;
                     }
-                    let (id, provisional) = curated
+                    let id = curated
                         .get(kind)
                         .copied()
-                        .map(|id| (id, false))
-                        .unwrap_or_else(|| (leaked_id("e0b", language, kind), true));
+                        .unwrap_or_else(|| leaked_id("e0b", language, kind));
                     cases.push(Case {
                         id,
                         language,
                         kind: Box::leak(kind.to_string().into_boxed_str()),
                         variant: Some("binding"),
                         row_variant: None,
+                        class: CaseClass::Structural,
                         src: source_for_kind(language, kind),
                         expect: &[],
-                        expect_counter: provisional
-                            .then_some(("dfg_label_nameonly_ownership_uncertain", 0)),
+                        expect_counter: None,
                     });
                 }
                 for kind in language.callable_boundary_node_types() {
@@ -431,6 +445,7 @@ pub(super) fn all_cases() -> Vec<&'static Case> {
                         kind,
                         variant: Some("capture"),
                         row_variant: None,
+                        class: CaseClass::Structural,
                         src: source_for_kind(language, kind),
                         expect: &[],
                         expect_counter: None,

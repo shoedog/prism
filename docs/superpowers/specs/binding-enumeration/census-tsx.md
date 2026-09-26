@@ -195,3 +195,18 @@ Grammar SHA-256: `78b5789145286799a27a0a7ecc36cc1bcb151f94ec7fa631b248459867010c
 | `true` | true |  | false | false | false | 0 |
 | `type_identifier` | true |  | false | false | false | 0 |
 | `undefined` | true |  | false | false | false | 0 |
+
+## Placeholder debt
+
+| Kind | Variant | Regression | Owning task |
+|---|---|---|---|
+| `arrow_function` | `None` | `e0a-js-arrow_function` | Task 18 |
+| `class_body` | `None` | `e0a-js-class_body` | Task 18 |
+| `class_declaration` | `None` | `e0a-js-class_declaration` | Task 18 |
+| `for_statement` | `None` | `e0a-js-for_statement` | Task 18 |
+| `formal_parameters` | `None` | `e0a-x-js-formal_parameters` | Task 18 |
+| `function_declaration` | `None` | `e0a-js-function_declaration` | Task 18 |
+| `function_expression` | `None` | `e0a-js-function_expression` | Task 18 |
+| `lexical_declaration` | `None` | `e0a-js-lexical_declaration` | Task 18 |
+| `statement_block` | `None` | `e0a-js-statement_block` | Task 18 |
+| `variable_declaration` | `None` | `e0a-js-variable_declaration` | Task 18 |

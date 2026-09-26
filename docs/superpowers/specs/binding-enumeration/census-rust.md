@@ -167,3 +167,13 @@ Grammar SHA-256: `4b73a1248978340336100db455bf0731c23f9190568c9ae62265fa4a80a327
 | `string_content` | true |  | false | false | false | 0 |
 | `super` | true |  | false | false | false | 0 |
 | `type_identifier` | true |  | false | false | false | 17 |
+
+## Placeholder debt
+
+| Kind | Variant | Regression | Owning task |
+|---|---|---|---|
+| `block` | `None` | `e0a-rs-block` | Task 14 |
+| `const_item` | `None` | `e0a-rs-const_item` | Task 14 |
+| `let_declaration` | `None` | `e0a-rs-let_declaration` | Task 14 |
+| `parameters` | `None` | `e0a-x-rs-parameters` | Task 14 |
+| `static_item` | `None` | `e0a-rs-static_item` | Task 14 |
