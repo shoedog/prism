@@ -26,7 +26,7 @@ from tier_a.boundary import (
     observe_cargo,
     scrubbed_env,
 )
-from tier_a.closure import raw_digest
+from tier_a.closure import raw_digest, sut_inputs_manifest
 from tier_a.lock import Lock
 from tier_a.report import render_markdown
 from tier_a.sut import PrismCli
@@ -65,12 +65,16 @@ def test_env_read_unset_admits_and_set_refuses(tmp_path, monkeypatch):          
     lock, ev, repo = anchored_repo(tmp_path); corpus = copy_fixture("boundary/mode-corpus", tmp_path)
     env0 = {**scrubbed_env(lock), "PATH": os.environ["PATH"], "HOME": os.environ["HOME"]}
     subprocess.run(["cargo", "build", "--target-dir", str(tmp_path / "t0")], cwd=corpus, env=env0, check=True, capture_output=True)
+    release_output = corpus / "target/release/build/mode_corpus-fixture/output"
+    release_output.parent.mkdir(parents=True)
+    release_output.write_text(next((tmp_path / "t0").rglob("output")).read_text())
     reads, deps = observe_cargo(tmp_path / "t0", corpus, env0)
     assert reads == [EnvRead("MODE", False, None)]
     declared = load_declared_inputs(lock, ev); closure = {"Cargo.toml", "build.rs", "src/lib.rs"}      # NON-EMPTY declared closure (astra W4)
     admit(lock, declared, Observation(reads, set(), set()), closure_paths=closure, eval_dir=ev)         # unset ⇒ admitted
     env1 = {**env0, "MODE": "on"}
     subprocess.run(["cargo", "build", "--target-dir", str(tmp_path / "t1")], cwd=corpus, env=env1, check=True, capture_output=True)
+    release_output.write_text(next((tmp_path / "t1").rglob("output")).read_text())
     reads1, _ = observe_cargo(tmp_path / "t1", corpus, env1); assert reads1 == [EnvRead("MODE", True, "on")]
     with pytest.raises(BoundaryViolation) as e: admit(lock, declared, Observation(reads1, set(), set()), closure, ev)
     assert e.value.reasons == ["env_read_outside_allow: MODE"]
@@ -413,3 +417,81 @@ def test_sut_input_absent_present_transition_refuses(tmp_path):
     assert exc.value.reasons == [
         "sut_input_absent_present_transition: generated.rs"
     ]
+
+
+def test_observe_cargo_equals_selected_binary_manifest_and_keeps_refusal(tmp_path):
+    lock, ev, repo = anchored_repo(tmp_path)
+    binary = repo / "target/release/prism"
+    dep_info = binary.with_suffix(".d")
+    dep_info.write_text(
+        f"{binary}: {repo / 'src/a.rs'} {repo / 'Cargo.toml'}\n\n"
+        f"{repo / 'src/a.rs'}:\n{repo / 'Cargo.toml'}:\n"
+    )
+    other = repo / "src/other.rs"
+    other.write_text("fn other() {}\n")
+    unrelated = binary.parent / "deps/other-crate.d"
+    unrelated.parent.mkdir(parents=True, exist_ok=True)
+    unrelated.write_text(f"other: {other}\n\n{other}:\n")
+
+    _env_reads, observed = observe_cargo(
+        binary.parent, repo, {}, "prism"
+    )
+    declared = {path for path, _digest in sut_inputs_manifest(repo, binary)}
+
+    assert observed == declared
+    assert "src/other.rs" not in observed
+    assert "src/a.rs:" not in observed
+
+    with pytest.raises(BoundaryViolation) as exc:
+        admit(
+            lock,
+            load_declared_inputs(lock, ev),
+            Observation([], observed | {"src/other.rs"}, set()),
+            set(),
+            ev,
+        )
+    assert exc.value.reasons == ["undeclared_read: src/other.rs"]
+
+
+def test_observe_cargo_separates_renamed_binary_from_package_outputs(tmp_path):
+    lock, ev, repo = anchored_repo(tmp_path)
+    original = repo / "target/release/prism"
+    binary = repo / "bin/renamed-prism"
+    binary.parent.mkdir()
+    original.rename(binary)
+    original.with_suffix(".d").rename(binary.with_suffix(".d"))
+    (repo / "build.rs").write_text("fn main() {}\n")
+    package_output = repo / "target/release/build/x-fixture/output"
+    package_output.parent.mkdir(parents=True)
+    package_output.write_text(
+        "cargo:rerun-if-changed=build.rs\n"
+        "cargo:rerun-if-env-changed=MODE\n"
+    )
+    (repo / "src/debug-only.rs").write_text("fn debug_only() {}\n")
+    debug_output = repo / "target/debug/build/x-debug/output"
+    debug_output.parent.mkdir(parents=True)
+    debug_output.write_text(
+        "cargo:rerun-if-changed=src/debug-only.rs\n"
+        "cargo:rerun-if-env-changed=DEBUG_ONLY\n"
+    )
+
+    env_reads, observed = observe_cargo(
+        binary.parent,
+        repo,
+        {"MODE": "on", "DEBUG_ONLY": "on"},
+        binary.stem,
+    )
+    declared = {path for path, _digest in sut_inputs_manifest(repo, binary)}
+
+    assert observed == declared
+    assert env_reads == [EnvRead("MODE", True, "on")]
+    assert "src/debug-only.rs" not in observed
+    with pytest.raises(BoundaryViolation) as exc:
+        admit(
+            lock,
+            load_declared_inputs(lock, ev),
+            Observation(env_reads, observed, set()),
+            {"build.rs"},
+            ev,
+        )
+    assert exc.value.reasons == ["env_read_outside_allow: MODE"]

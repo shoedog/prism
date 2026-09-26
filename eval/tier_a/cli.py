@@ -400,6 +400,19 @@ def make_oracle(cfg: dict, init_options=None):
     )
 
 
+def oracle_inventory(
+    oracle, files: list[str], accounting: CorpusAccounting | None = None
+) -> list[FunctionDef]:
+    inventory = []
+    for file in files:
+        try:
+            inventory.extend(oracle.document_symbols(file))
+        except OracleError:
+            if accounting is not None:
+                accounting.record(f"docsym:{file}", "oracle_error")
+    return inventory
+
+
 def _stored_sites(edges: list[CallEdge], direction: str) -> list[list]:
     out = []
     for e in edges:
@@ -640,13 +653,8 @@ def run_corpus(
             )
         )
         acc = CorpusAccounting()
-        oracle_inv = []
         t0 = time.monotonic()
-        for f in files:
-            try:
-                oracle_inv.extend(oracle.document_symbols(f))
-            except OracleError:
-                acc.record(f"docsym:{f}", "oracle_error")
+        oracle_inv = oracle_inventory(oracle, files, acc)
         run["meta"]["wall_s"]["m1_oracle_inventory"] = round(
             time.monotonic() - t0,
             3,

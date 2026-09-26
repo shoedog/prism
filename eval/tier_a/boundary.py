@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import os
-import shlex
 import sys
 import tomllib
 from copy import deepcopy
@@ -10,7 +9,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .adjudication import Adjudication, load_records
-from .closure import manifest_digest, raw_digest, read_tsv
+from .closure import (
+    cargo_build_outputs,
+    cargo_package_name,
+    makefile_dependencies,
+    manifest_digest,
+    raw_digest,
+    read_tsv,
+)
 from .corpus import load_snapshot, snapshot_path
 from .lock import Lock, load_lock
 from .model import FunctionDef
@@ -114,28 +120,6 @@ def _relative_to_repo(path: Path, repo: Path) -> str | None:
         return None
 
 
-def _dependency_paths(dep_info: Path) -> list[str]:
-    contents = dep_info.read_text().replace("\\\n", "")
-    _target, separator, dependencies = contents.partition(":")
-    if not separator:
-        return []
-    return shlex.split(dependencies, comments=False, posix=True)
-
-
-def _package_build_outputs(build_dir: Path, repo: Path) -> list[Path]:
-    try:
-        package = tomllib.loads((repo / "Cargo.toml").read_text())["package"]["name"]
-    except (OSError, KeyError, tomllib.TOMLDecodeError):
-        return []
-    prefixes = {package, package.replace("-", "_")}
-    return [
-        output
-        for output in sorted(build_dir.rglob("output"))
-        if output.parent.parent.name == "build"
-        and any(output.parent.name.startswith(f"{prefix}-") for prefix in prefixes)
-    ]
-
-
 def _add_repo_input(paths: set[str], raw: str, repo: Path) -> None:
     candidate = Path(raw)
     disk_path = candidate if candidate.is_absolute() else repo / candidate
@@ -153,11 +137,15 @@ def _add_repo_input(paths: set[str], raw: str, repo: Path) -> None:
 
 
 def observe_cargo(
-    build_dir: Path, repo: Path, env: dict[str, str]
+    build_dir: Path,
+    repo: Path,
+    env: dict[str, str],
+    binary_name: str | None = None,
 ) -> tuple[list[EnvRead], set[str]]:
     env_reads: dict[str, EnvRead] = {}
     dep_paths: set[str] = set()
-    for output in _package_build_outputs(build_dir, repo):
+    package = cargo_package_name(repo)
+    for output in cargo_build_outputs(repo):
         for line in output.read_text().splitlines():
             for prefix in (
                 "cargo:rerun-if-env-changed=",
@@ -171,9 +159,14 @@ def observe_cargo(
                 if line.startswith(prefix):
                     _add_repo_input(dep_paths, line.removeprefix(prefix), repo)
                     break
-    for dep_info in sorted(build_dir.rglob("*.d")):
-        for raw in _dependency_paths(dep_info):
+    dep_name = binary_name or package
+    dep_info = build_dir / f"{dep_name}.d" if dep_name is not None else None
+    if dep_info is not None and dep_info.is_file():
+        for raw in makefile_dependencies(dep_info):
             _add_repo_input(dep_paths, raw, repo)
+    for control in ("Cargo.toml", "Cargo.lock"):
+        if (repo / control).is_file():
+            dep_paths.add(control)
     return [env_reads[name] for name in sorted(env_reads)], dep_paths
 
 

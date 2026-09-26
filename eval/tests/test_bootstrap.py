@@ -7,10 +7,19 @@ from pathlib import Path
 
 import pytest
 
-from tests.helpers import anchored_repo, fake_run, git_head, stub_binary, FakeSut
+from tests.helpers import (
+    FakeOracle,
+    FakeSut,
+    anchored_repo,
+    fake_run,
+    git_head,
+    stub_binary,
+)
+from tier_a import cli, commands
 from tier_a.lock import IDENTITY_KEYS, lock_identities, integrity_check
 from tier_a.closure import policy_digest, policy_manifest, population_manifest, raw_digest
 from tier_a.corpus import load_snapshot
+from tier_a.model import FunctionDef, Location
 from tier_a.bootstrap import (
     CandidateIdentity,
     finalize_policy,
@@ -399,4 +408,149 @@ def test_mark_history_prepends_once(tmp_path):
     mark_history(md, "2026-09-12")
     assert md.read_text().count("pre-boundary") == 1 and md.read_text().startswith(
         "# Tier-A Baseline — anchor v1 (2026-09-12)"
+    )
+
+
+def _tree_bytes(root):
+    if not root.exists():
+        return None
+    return {
+        path.relative_to(root).as_posix(): path.read_bytes()
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
+
+
+def _bootstrap_rc(argv):
+    try:
+        return commands._bootstrap(argv)
+    except SystemExit as exc:
+        return int(exc.code)
+
+
+def test_prepare_snapshot_only_writes_binary_sha_snapshot_and_is_idempotent(
+    tmp_path, monkeypatch, capsys
+):
+    _lock, ev, repo = anchored_repo(tmp_path)
+    (ev / "tier-a.lock.toml").unlink()
+    binary = repo / "prism"
+    binary_sha = _binary_sha(repo)
+    assert binary_sha != git_head(repo)
+    snapshot = ev / "snapshots" / f"prism-{binary_sha[:12]}.json"
+    snapshot.unlink()
+    expected = FunctionDef(
+        "prepared", "function", None, Location("src/a.rs", 1, 1), 1
+    )
+    seen = {}
+
+    class InventoryOracle(FakeOracle):
+        def document_symbols(self, path):
+            seen.setdefault("files", []).append(path)
+            return [expected]
+
+    def make_oracle(cfg, init_options=None):
+        seen["cfg"] = cfg
+        seen["init"] = init_options
+        return InventoryOracle()
+
+    monkeypatch.setattr(commands, "EVAL_DIR", ev)
+    monkeypatch.setattr(cli, "make_oracle", make_oracle)
+    protected_before = {
+        "corpora": (ev / "corpora.toml").read_bytes(),
+        "closure": _tree_bytes(ev / "closure"),
+        "docs": _tree_bytes(repo / "docs/eval/tier-a"),
+        "runs": _tree_bytes(ev / "runs"),
+    }
+
+    assert _bootstrap_rc(
+        ["--prepare-snapshot-only", "--sut-bin", str(binary)]
+    ) == 0
+    assert load_snapshot(snapshot) == [expected]
+    assert seen["files"] == ["src/a.rs"]
+    assert seen["cfg"]["path"] == str(repo)
+    assert seen["init"] == {"cargo": {"features": "all"}}
+    assert capsys.readouterr().out == (
+        f"snapshot prepared: sha={binary_sha} digest={raw_digest(binary)}\n"
+    )
+    assert protected_before == {
+        "corpora": (ev / "corpora.toml").read_bytes(),
+        "closure": _tree_bytes(ev / "closure"),
+        "docs": _tree_bytes(repo / "docs/eval/tier-a"),
+        "runs": _tree_bytes(ev / "runs"),
+    }
+    assert not (ev / "tier-a.lock.toml").exists()
+
+    original = snapshot.read_bytes()
+    monkeypatch.setattr(
+        cli,
+        "make_oracle",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("existing snapshot must not be regenerated")
+        ),
+    )
+    assert _bootstrap_rc(
+        ["--prepare-snapshot-only", "--sut-bin", str(binary)]
+    ) == 0
+    assert snapshot.read_bytes() == original
+    assert capsys.readouterr().out == "snapshot present\n"
+
+
+def test_prepare_snapshot_only_refuses_dirty_binary(tmp_path, monkeypatch, capsys):
+    _lock, ev, repo = anchored_repo(tmp_path)
+    (ev / "tier-a.lock.toml").unlink()
+    binary = repo / "prism-dirty"
+    binary.write_text(
+        "#!/bin/sh\nprintf '%s\\n' 'slicing 3.1.2 "
+        f"({_binary_sha(repo)[:12]}-dirty)'\n"
+    )
+    binary.chmod(0o755)
+    monkeypatch.setattr(commands, "EVAL_DIR", ev)
+
+    assert _bootstrap_rc(
+        ["--prepare-snapshot-only", "--sut-bin", str(binary)]
+    ) == 3
+    assert capsys.readouterr().err == (
+        "FATAL bootstrap_refused: binary was built from a dirty tree\n"
+    )
+
+
+def test_prepare_snapshot_only_refuses_non_ancestor_binary(
+    tmp_path, monkeypatch, capsys
+):
+    _lock, ev, repo = anchored_repo(tmp_path)
+    (ev / "tier-a.lock.toml").unlink()
+    tree = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD^{tree}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    unrelated = subprocess.run(
+        ["git", "-C", str(repo), "commit-tree", tree],
+        input="unrelated\n",
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    binary = stub_binary(repo / "prism-unrelated", unrelated[:12])
+    monkeypatch.setattr(commands, "EVAL_DIR", ev)
+
+    assert _bootstrap_rc(
+        ["--prepare-snapshot-only", "--sut-bin", str(binary)]
+    ) == 3
+    assert capsys.readouterr().err == (
+        "FATAL bootstrap_refused: binary commit is not an ancestor of HEAD: "
+        f"{unrelated}\n"
+    )
+
+
+def test_prepare_snapshot_only_refuses_existing_lock(tmp_path, monkeypatch, capsys):
+    _lock, ev, repo = anchored_repo(tmp_path)
+    monkeypatch.setattr(commands, "EVAL_DIR", ev)
+
+    assert _bootstrap_rc(
+        ["--prepare-snapshot-only", "--sut-bin", str(repo / "prism")]
+    ) == 3
+    assert capsys.readouterr().err == (
+        "FATAL bootstrap_refused: anchor_already_exists\n"
     )

@@ -137,12 +137,30 @@ def read_tsv(path: Path) -> list[tuple]:
     return [tuple(line.split("\t")) for line in path.read_text().splitlines()]
 
 
-def _makefile_dependencies(path: Path) -> list[str]:
+def makefile_dependencies(path: Path) -> list[str]:
     contents = path.read_text().replace("\\\n", "")
-    _target, separator, dependencies = contents.partition(":")
+    rule = next((line for line in contents.splitlines() if line.strip()), "")
+    _target, separator, dependencies = rule.partition(":")
     if not separator:
         raise ValueError(f"invalid dep-info: {path}")
     return shlex.split(dependencies, comments=False, posix=True)
+
+
+def cargo_package_name(repo: Path) -> str:
+    try:
+        return tomllib.loads((repo / "Cargo.toml").read_text())["package"]["name"]
+    except (OSError, KeyError, tomllib.TOMLDecodeError):
+        return "prism"
+
+
+def cargo_build_outputs(repo: Path) -> list[Path]:
+    package = cargo_package_name(repo)
+    prefixes = {package, package.replace("-", "_")}
+    return [
+        output
+        for output in sorted((repo / "target/release/build").glob("*/output"))
+        if any(output.parent.name.startswith(f"{prefix}-") for prefix in prefixes)
+    ]
 
 
 def _input_files(repo: Path, value: str) -> list[Path]:
@@ -154,8 +172,8 @@ def _input_files(repo: Path, value: str) -> list[Path]:
 
 
 def sut_inputs_manifest(repo: Path, binary: Path) -> list[tuple[str, str]]:
-    declared = _makefile_dependencies(binary.with_suffix(".d"))
-    for output in sorted((repo / "target/release/build").glob("prism-*/output")):
+    declared = makefile_dependencies(binary.with_suffix(".d"))
+    for output in cargo_build_outputs(repo):
         for line in output.read_text().splitlines():
             for prefix in ("cargo:rerun-if-changed=", "cargo::rerun-if-changed="):
                 if line.startswith(prefix):

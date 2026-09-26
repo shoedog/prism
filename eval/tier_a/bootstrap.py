@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import sys
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -16,11 +17,11 @@ from .boundary import DEFAULT_ENV_ALLOW, scrubbed_env
 from .closure import canonical_path, corpus_manifest, manifest_digest, policy_digest
 from .closure import policy_manifest, population_manifest, raw_digest
 from .closure import sut_inputs_manifest, write_tsv
-from .corpus import load_snapshot, universe
+from .corpus import load_snapshot, save_snapshot, universe
 from .lock import IDENTITY_KEYS, Lock, integrity_check, lock_identities
 from .lock import report_bindable, save_lock
 from .report import render_markdown
-from .sut import verified_binary_identity
+from .sut import PrismCli, verified_binary_identity
 
 
 @dataclass
@@ -68,6 +69,53 @@ def _snapshot_for(eval_dir: Path, sut_sha: str) -> Path:
     if not path.is_file():
         raise ValueError(f"snapshot_unavailable: {sut_sha}")
     return path
+
+
+def prepare_snapshot_only(
+    repo: Path,
+    eval_dir: Path,
+    binary: Path,
+    init_options: dict,
+) -> tuple[Path, bool, str, str]:
+    repo, eval_dir, binary = repo.resolve(), eval_dir.resolve(), binary.resolve()
+    if (eval_dir / "tier-a.lock.toml").exists():
+        raise ValueError("anchor_already_exists")
+
+    env = scrubbed_env(None)
+    _display_sha, sut_sha = verified_binary_identity(str(repo), str(binary), env)
+    sut_digest = raw_digest(binary)
+    PrismCli.from_verified(
+        str(repo), str(binary), sut_sha, sut_digest, env=env
+    )
+    snapshot = eval_dir / "snapshots" / f"prism-{sut_sha[:12]}.json"
+    if snapshot.exists():
+        return snapshot, True, sut_sha, sut_digest
+
+    config = tomllib.loads((eval_dir / "corpora.toml").read_text())
+    defaults = config["defaults"]
+    cfg = {**config["corpus"]["prism"], "path": str(repo)}
+    oracle_cfg = {
+        **cfg,
+        "settle_s": cfg.get("settle_s", defaults.get("settle_s", 2.0)),
+        "quiescence_cap_s": cfg.get(
+            "quiescence_cap_s", defaults.get("quiescence_cap_s", 300.0)
+        ),
+    }
+    files = universe(
+        str(repo), cfg["lang"], cfg.get("excludes", []), tracked_only=True
+    )
+    from .cli import make_oracle, oracle_inventory
+
+    oracle = make_oracle(oracle_cfg, init_options=init_options)
+    try:
+        oracle.start()
+        inventory = oracle_inventory(oracle, files)
+    finally:
+        stop = getattr(oracle, "stop", None)
+        if stop is not None:
+            stop()
+    save_snapshot(snapshot, inventory)
+    return snapshot, False, sut_sha, sut_digest
 
 def _tool_file(repo: Path, names: tuple[str, ...]) -> str:
     paths = [repo / name for name in names if (repo / name).is_file()]

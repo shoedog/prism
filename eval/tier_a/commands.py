@@ -106,6 +106,7 @@ def _bootstrap(argv: list[str]) -> int:
     from .bootstrap import (
         finalize_policy,
         mark_history,
+        prepare_snapshot_only,
         publish_anchor_v1,
         stage_candidate,
         validate_staged,
@@ -114,8 +115,34 @@ def _bootstrap(argv: list[str]) -> int:
 
     parser = argparse.ArgumentParser(prog="tier-a bootstrap")
     parser.add_argument("--sut-bin")
-    parser.add_argument("--finalize-policy-only", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--finalize-policy-only", action="store_true")
+    mode.add_argument("--prepare-snapshot-only", action="store_true")
     args = parser.parse_args(argv)
+    if args.prepare_snapshot_only:
+        if args.sut_bin is None:
+            parser.error("--sut-bin is required")
+        try:
+            _snapshot, present, sut_sha, sut_digest = prepare_snapshot_only(
+                EVAL_DIR.parent,
+                EVAL_DIR,
+                Path(args.sut_bin),
+                {"cargo": {"features": "all"}},
+            )
+            if present:
+                print("snapshot present")
+            else:
+                print(f"snapshot prepared: sha={sut_sha} digest={sut_digest}")
+        except (
+            BoundaryViolation,
+            SutStale,
+            ValueError,
+            OSError,
+            subprocess.SubprocessError,
+        ) as exc:
+            print(f"FATAL bootstrap_refused: {exc}", file=sys.stderr)
+            return 3
+        return 0
     finalize_policy(EVAL_DIR)
     if args.finalize_policy_only:
         return 0
@@ -362,7 +389,9 @@ def run_quick_admitted(
         run.pop("_sut_bin", args.sut_bin or eval_dir.parent / "target/release/prism")
     )
     build_dir = sut_bin.parent if sut_bin.parent != Path(".") else eval_dir.parent / "target/release"
-    env_reads, dep_paths = observe_cargo(build_dir, eval_dir.parent, env)
+    env_reads, dep_paths = observe_cargo(
+        build_dir, eval_dir.parent, env, sut_bin.stem
+    )
     observed = Observation(env_reads, dep_paths, audit.opens)
     closure_paths = (
         {row[0] for row in getattr(lock, "_corpus_rows", [])}
