@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shlex
 import subprocess
 import tomllib
@@ -169,12 +170,18 @@ def _cargo_crate_name(name: str) -> str:
 
 
 def _cargo_dependency_dep_infos(repo: Path, binary: Path) -> list[Path]:
-    fingerprint_root = repo / "target/release/.fingerprint"
+    fingerprint_root = binary.parent / ".fingerprint"
+    if not fingerprint_root.is_dir():
+        return []
     package = _cargo_crate_name(cargo_package_name(repo))
     target = _cargo_crate_name(binary.stem)
     roots = sorted(fingerprint_root.glob(f"*/bin-{target}.json"))
     if not roots and target != package:
         roots = sorted(fingerprint_root.glob(f"*/bin-{package}.json"))
+    if not roots:
+        raise ValueError(f"dependency_graph_root_unavailable: {target}")
+    if len(roots) != 1:
+        raise ValueError(f"dependency_graph_root_ambiguous: {target}")
 
     queue = list(roots)
     visited = set()
@@ -185,18 +192,40 @@ def _cargo_dependency_dep_infos(repo: Path, binary: Path) -> list[Path]:
             continue
         visited.add(fingerprint)
         if fingerprint.name.startswith("lib-"):
-            dep_info = repo / "target/release/deps" / f"{fingerprint.parent.name}.d"
-            if dep_info.is_file():
-                dep_infos.add(dep_info)
+            target_name = fingerprint.name.removeprefix("lib-").removesuffix(".json")
+            discriminator = re.search(r"-([0-9a-f]{16})$", fingerprint.parent.name)
+            if discriminator is None:
+                raise ValueError(
+                    f"dependency_unit_invalid: {fingerprint.parent.name}"
+                )
+            unit = f"{target_name}-{discriminator.group(1)}"
+            dep_info = binary.parent / "deps" / f"{unit}.d"
+            if not dep_info.is_file():
+                raise ValueError(f"dependency_dep_info_unavailable: {unit}")
+            dep_infos.add(dep_info)
         data = json.loads(fingerprint.read_text())
         for dependency in data.get("deps", []):
             if not isinstance(dependency, list) or len(dependency) < 2:
-                continue
+                raise ValueError(
+                    f"dependency_unit_invalid: {fingerprint.parent.name}"
+                )
             name = dependency[1]
             if not isinstance(name, str) or name == "build_script_build":
                 continue
+            if len(dependency) < 4 or not isinstance(dependency[3], int):
+                raise ValueError(f"dependency_unit_invalid: {name}")
             unit = _cargo_crate_name(name)
-            queue.extend(fingerprint_root.glob(f"*/lib-{unit}.json"))
+            marker = dependency[3].to_bytes(8, "little").hex()
+            matches = [
+                path.with_name(f"{path.name}.json")
+                for path in fingerprint_root.glob(f"*/lib-{unit}")
+                if path.read_text().strip() == marker
+            ]
+            if not matches:
+                raise ValueError(f"dependency_unit_unavailable: {unit}:{marker}")
+            if len(matches) != 1:
+                raise ValueError(f"dependency_unit_ambiguous: {unit}:{marker}")
+            queue.append(matches[0])
     return sorted(dep_infos)
 
 
