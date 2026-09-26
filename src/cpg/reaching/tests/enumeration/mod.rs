@@ -1,3 +1,16 @@
+fn cap_violation(path: &std::path::Path, source: &str) -> Option<String> {
+    let n = source.lines().count();
+    (n > 600).then(|| format!("{}: {n} lines", path.display()))
+}
+
+#[test]
+fn census_cap_rejects_601_lines() {
+    assert_eq!(
+        cap_violation(std::path::Path::new("fixture.json"), &"x\n".repeat(601)),
+        Some("fixture.json: 601 lines".to_string())
+    );
+}
+
 #[test]
 fn reaching_module_files_are_under_the_cap() {
     // dynamic: any new file under src/cpg/reaching/ is covered with no edit (W6)
@@ -6,7 +19,7 @@ fn reaching_module_files_are_under_the_cap() {
             let p = e.unwrap().path();
             if p.is_dir() {
                 walk(&p, out)
-            } else if p.extension().is_some_and(|x| x == "rs") {
+            } else if p.extension().is_some_and(|x| x == "rs" || x == "json") {
                 out.push(p)
             }
         }
@@ -19,10 +32,15 @@ fn reaching_module_files_are_under_the_cap() {
         "expected the reaching module tree, found {}",
         files.len()
     );
-    for f in files {
-        let n = std::fs::read_to_string(&f).unwrap().lines().count();
-        assert!(n <= 600, "{}: {n} lines", f.display());
-    }
+    let violations: Vec<_> = files
+        .iter()
+        .filter_map(|f| cap_violation(f, &std::fs::read_to_string(f).unwrap()))
+        .collect();
+    assert!(
+        violations.is_empty(),
+        "over the 600-line cap:\n{}",
+        violations.join("\n")
+    );
 }
 
 mod barrier;

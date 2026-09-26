@@ -3,7 +3,7 @@ use crate::languages::Language;
 
 pub(super) const DIGEST: &str = "d86638c95d20335b960abb62f6758ab53f78fd0efbe4b6669473b5a20dfd1fb5";
 pub(super) const CENSUS_DIGEST: &str =
-    "0a20c148f3b3af55b3805253badabbce2cdc26c6aac559041f21270d203923d4";
+    "17768eaa9626d868165928c23dce529bc360e737525bee83b0327d604ea1b96e";
 
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
     Language::Terraform,

@@ -1,14 +1,18 @@
 use super::super::super::binding_table::{
     capture_rows, census, census_artifact_digest, grammar_digest, pinned_census_digest,
-    pinned_digest, predicate_matches, rows, select_binding_row, select_capture_row, Ruling,
+    pinned_digest, predicate_matches, rows, select_binding_row, select_capture_row, Predicate,
+    Ruling,
 };
 use super::super::parsed;
 use crate::ast::ParsedFile;
-use crate::cpg::FlowConfidence;
+use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 use std::collections::BTreeSet;
 use std::sync::OnceLock;
 use tree_sitter::Node;
+
+mod behavior;
+mod gates;
 
 #[derive(Clone, Copy)]
 pub(super) struct Case {
@@ -16,6 +20,7 @@ pub(super) struct Case {
     pub language: Language,
     pub kind: &'static str,
     pub variant: Option<&'static str>,
+    pub row_variant: Option<Predicate>,
     pub src: &'static str,
     pub expect: &'static [(&'static str, &'static str, FlowConfidence)],
     pub expect_counter: Option<(&'static str, i64)>,
@@ -45,7 +50,7 @@ pub(super) fn check_case(case: &Case) {
         case.id,
         case.kind
     );
-    if case.variant == Some("capture") {
+    let selected_ruling = if case.variant == Some("capture") {
         let selected = select_capture_row(&parsed, nodes[0])
             .unwrap_or_else(|| panic!("{}: no capture row selected", case.id));
         assert_eq!(
@@ -53,6 +58,12 @@ pub(super) fn check_case(case: &Case) {
             "{}: selected capture row",
             case.id
         );
+        assert_eq!(
+            selected.variant, case.row_variant,
+            "{}: selected capture variant",
+            case.id
+        );
+        None
     } else {
         let selected = select_binding_row(&parsed, nodes[0])
             .unwrap_or_else(|| panic!("{}: no binding row selected", case.id));
@@ -61,19 +72,44 @@ pub(super) fn check_case(case: &Case) {
             "{}: selected binding row",
             case.id
         );
-        if let Ruling::Uncertain {
-            reason: "not yet curated",
-            ..
-        } = selected.ruling
-        {
-            assert_eq!(case.expect, &[], "{}: provisional expectations", case.id);
-            assert_eq!(
-                case.expect_counter,
-                Some(("dfg_label_nameonly_ownership_uncertain", 0)),
-                "{}: provisional counter control",
-                case.id
-            );
-        }
+        assert_eq!(
+            selected.variant, case.row_variant,
+            "{}: selected binding variant",
+            case.id
+        );
+        Some(selected.ruling)
+    };
+
+    behavior::assert_behavior(case, &parsed);
+
+    if let Some(Ruling::Uncertain {
+        reason: "not yet curated",
+        ..
+    }) = selected_ruling
+    {
+        assert_eq!(case.expect, &[], "{}: provisional expectations", case.id);
+        assert_eq!(
+            case.expect_counter,
+            Some(("dfg_label_nameonly_ownership_uncertain", 0)),
+            "{}: provisional counter control",
+            case.id
+        );
+    } else if selected_ruling.is_some() && !case.expect.is_empty() {
+        assert!(
+            case.expect
+                .iter()
+                .any(|(_, _, label)| matches!(label, FlowConfidence::Exact)),
+            "{}: classified behavior needs Exact",
+            case.id
+        );
+        assert!(
+            case.expect.iter().any(|(_, _, label)| matches!(
+                label,
+                FlowConfidence::NameOnly(FlowDoubt::Killed { .. })
+            )),
+            "{}: classified behavior needs Killed",
+            case.id
+        );
     }
 }
 
@@ -378,6 +414,7 @@ pub(super) fn all_cases() -> Vec<&'static Case> {
                         language,
                         kind: Box::leak(kind.to_string().into_boxed_str()),
                         variant: Some("binding"),
+                        row_variant: None,
                         src: source_for_kind(language, kind),
                         expect: &[],
                         expect_counter: provisional
@@ -393,6 +430,7 @@ pub(super) fn all_cases() -> Vec<&'static Case> {
                         language,
                         kind,
                         variant: Some("capture"),
+                        row_variant: None,
                         src: source_for_kind(language, kind),
                         expect: &[],
                         expect_counter: None,
@@ -445,33 +483,7 @@ fn binding_table_is_total_over_candidates() {
 
 #[test]
 fn binding_table_rows_have_regressions() {
-    let cases = all_cases();
-    let mut expected: Vec<_> = cases
-        .iter()
-        .map(|case| (case.language, case.id, case.kind))
-        .collect();
-    let mut actual = Vec::new();
-    for language in Language::all() {
-        for (kind, regression) in rows(language)
-            .iter()
-            .map(|row| (row.kind, row.regression))
-            .chain(
-                capture_rows(language)
-                    .iter()
-                    .map(|row| (row.kind, row.regression)),
-            )
-        {
-            actual.push((language, regression, kind));
-        }
-    }
-    expected.sort_unstable();
-    expected.dedup();
-    actual.sort_unstable();
-    actual.dedup();
-    assert_eq!(actual, expected, "case ids and kinds");
-    for case in cases {
-        check_case(case);
-    }
+    behavior::assert_row_case_identities();
 }
 
 #[test]
@@ -502,7 +514,7 @@ fn every_case_selects_exactly_one_row_per_occurrence() {
                         .iter()
                         .filter(|row| row.kind == case.kind && row.variant.is_none())
                         .count(),
-                    select_capture_row(&parsed, node).map(|row| row.regression),
+                    select_capture_row(&parsed, node).map(|row| (row.regression, row.variant)),
                 )
             } else {
                 let table = rows(case.language);
@@ -520,7 +532,7 @@ fn every_case_selects_exactly_one_row_per_occurrence() {
                         .iter()
                         .filter(|row| row.kind == case.kind && row.variant.is_none())
                         .count(),
-                    select_binding_row(&parsed, node).map(|row| row.regression),
+                    select_binding_row(&parsed, node).map(|row| (row.regression, row.variant)),
                 )
             };
             let selection_count = if predicate_hits == 0 {
@@ -529,48 +541,12 @@ fn every_case_selects_exactly_one_row_per_occurrence() {
                 predicate_hits
             };
             assert_eq!(selection_count, 1, "{}: {predicate_hits} predicate rows and {residuals} residual rows matched one occurrence", case.id);
-            assert_eq!(selected, Some(case.id), "{}: selected row id", case.id);
-        }
-    }
-}
-
-#[test]
-fn uncertain_rows_carry_reasons() {
-    for language in Language::all() {
-        for row in rows(language) {
-            if let Ruling::Uncertain { reason, revisit } = row.ruling {
-                assert!(!reason.is_empty(), "{language:?} {} reason", row.kind);
-                assert!(!revisit.is_empty(), "{language:?} {} revisit", row.kind);
-            }
-        }
-    }
-}
-
-#[test]
-fn capture_table_covers_every_boundary_kind() {
-    for language in Language::all() {
-        let actual: Vec<_> = capture_rows(language).iter().map(|row| row.kind).collect();
-        let expected = language.callable_boundary_node_types();
-        assert_eq!(actual, expected, "{language:?}");
-    }
-}
-
-#[test]
-fn no_provisional_row_whose_revisit_task_closed() {
-    let closed: &[&str] = &[];
-    for language in Language::all() {
-        for row in rows(language) {
-            if let Ruling::Uncertain {
-                reason: "not yet curated",
-                revisit,
-            } = row.ruling
-            {
-                assert!(
-                    !closed.contains(&revisit),
-                    "{language:?} {} still provisional after {revisit}",
-                    row.kind
-                );
-            }
+            assert_eq!(
+                selected,
+                Some((case.id, case.row_variant)),
+                "{}: selected row identity",
+                case.id
+            );
         }
     }
 }
