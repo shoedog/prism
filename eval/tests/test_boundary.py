@@ -26,7 +26,7 @@ from tier_a.boundary import (
     observe_cargo,
     scrubbed_env,
 )
-from tier_a.closure import raw_digest, sut_inputs_manifest
+from tier_a.closure import raw_digest, sut_inputs_manifest, write_tsv
 from tier_a.lock import Lock
 from tier_a.report import render_markdown
 from tier_a.sut import PrismCli
@@ -495,3 +495,75 @@ def test_observe_cargo_separates_renamed_binary_from_package_outputs(tmp_path):
             ev,
         )
     assert exc.value.reasons == ["env_read_outside_allow: MODE"]
+
+
+def test_selected_dependency_generated_input_is_observed_and_declared(tmp_path):
+    lock, ev, repo = anchored_repo(tmp_path)
+    (repo / "Cargo.toml").write_text(
+        "[package]\nname='prism'\nversion='0.1.0'\nedition='2021'\n"
+        "[dependencies]\ndep_fixture={path='dep_fixture'}\n"
+    )
+    (repo / "src/main.rs").write_text(
+        "fn main() { println!(\"{}\", dep_fixture::generated()); }\n"
+    )
+    dependency = repo / "dep_fixture"
+    (dependency / "src").mkdir(parents=True)
+    (dependency / "Cargo.toml").write_text(
+        "[package]\nname='dep_fixture'\nversion='0.1.0'\nedition='2021'\n"
+        "build='build.rs'\n"
+    )
+    (dependency / "build.rs").write_text(
+        "use std::{env, fs, path::Path};\n"
+        "fn main() {\n"
+        "  let out = env::var(\"OUT_DIR\").unwrap();\n"
+        "  fs::write(Path::new(&out).join(\"generated.rs\"), "
+        "\"pub fn generated() -> u32 { 7 }\\n\").unwrap();\n"
+        "}\n"
+    )
+    (dependency / "src/lib.rs").write_text(
+        "include!(concat!(env!(\"OUT_DIR\"), \"/generated.rs\"));\n"
+    )
+    subprocess.run(
+        ["cargo", "build", "--release", "--offline"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    binary = repo / "target/release/prism"
+    generated = next(
+        (repo / "target/release/build").glob("dep_fixture-*/out/generated.rs")
+    )
+    generated_path = generated.relative_to(repo).as_posix()
+    dependency_dep_info = next(
+        (repo / "target/release/deps").glob("dep_fixture-*.d")
+    )
+    assert str(generated) in dependency_dep_info.read_text()
+    binary.with_suffix(".d").write_text(
+        f"{binary}: {repo / 'src/main.rs'}\n"
+    )
+    env_reads, observed = observe_cargo(binary.parent, repo, {}, binary.stem)
+    full_rows = sut_inputs_manifest(repo, binary)
+    manifest = repo / lock.prism["sut"]["inputs"]
+    write_tsv([row for row in full_rows if row[0] != generated_path], manifest)
+
+    with pytest.raises(BoundaryViolation) as exc:
+        admit(
+            lock,
+            load_declared_inputs(lock, ev),
+            Observation(env_reads, observed, set()),
+            set(),
+            ev,
+        )
+    assert exc.value.reasons == [f"undeclared_read: {generated_path}"]
+
+    write_tsv(full_rows, manifest)
+    assert observed == {path for path, _digest in full_rows}
+    admit(
+        lock,
+        load_declared_inputs(lock, ev),
+        Observation(env_reads, observed, set()),
+        set(),
+        ev,
+    )

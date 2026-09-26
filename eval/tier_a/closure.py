@@ -22,6 +22,7 @@ __all__ = [
     "manifest_digest",
     "write_tsv",
     "read_tsv",
+    "sut_input_paths",
     "sut_inputs_manifest",
     "policy_manifest",
     "policy_digest",
@@ -163,16 +164,67 @@ def cargo_build_outputs(repo: Path) -> list[Path]:
     ]
 
 
+def _cargo_crate_name(name: str) -> str:
+    return name.replace("-", "_")
+
+
+def _cargo_dependency_dep_infos(repo: Path, binary: Path) -> list[Path]:
+    fingerprint_root = repo / "target/release/.fingerprint"
+    package = _cargo_crate_name(cargo_package_name(repo))
+    target = _cargo_crate_name(binary.stem)
+    roots = sorted(fingerprint_root.glob(f"*/bin-{target}.json"))
+    if not roots and target != package:
+        roots = sorted(fingerprint_root.glob(f"*/bin-{package}.json"))
+
+    queue = list(roots)
+    visited = set()
+    dep_infos = set()
+    while queue:
+        fingerprint = queue.pop()
+        if fingerprint in visited:
+            continue
+        visited.add(fingerprint)
+        if fingerprint.name.startswith("lib-"):
+            dep_info = repo / "target/release/deps" / f"{fingerprint.parent.name}.d"
+            if dep_info.is_file():
+                dep_infos.add(dep_info)
+        data = json.loads(fingerprint.read_text())
+        for dependency in data.get("deps", []):
+            if not isinstance(dependency, list) or len(dependency) < 2:
+                continue
+            name = dependency[1]
+            if not isinstance(name, str) or name == "build_script_build":
+                continue
+            unit = _cargo_crate_name(name)
+            queue.extend(fingerprint_root.glob(f"*/lib-{unit}.json"))
+    return sorted(dep_infos)
+
+
 def _input_files(repo: Path, value: str) -> list[Path]:
+    if value.startswith("env-dep:"):
+        return []
     candidate = Path(value)
     path = candidate if candidate.is_absolute() else repo / candidate
+    try:
+        path.resolve().relative_to(repo.resolve())
+    except ValueError:
+        return []
     if path.is_dir():
         return sorted(item for item in path.rglob("*") if item.is_file())
     return [path]
 
 
-def sut_inputs_manifest(repo: Path, binary: Path) -> list[tuple[str, str]]:
-    declared = makefile_dependencies(binary.with_suffix(".d"))
+def sut_input_paths(
+    repo: Path, binary: Path, *, require_dep_info: bool = True
+) -> list[str]:
+    dep_info = binary.with_suffix(".d")
+    declared = (
+        makefile_dependencies(dep_info)
+        if require_dep_info or dep_info.is_file()
+        else []
+    )
+    for dep_info in _cargo_dependency_dep_infos(repo, binary):
+        declared.extend(makefile_dependencies(dep_info))
     for output in cargo_build_outputs(repo):
         for line in output.read_text().splitlines():
             for prefix in ("cargo:rerun-if-changed=", "cargo::rerun-if-changed="):
@@ -183,12 +235,18 @@ def sut_inputs_manifest(repo: Path, binary: Path) -> list[tuple[str, str]]:
         name for name in ("Cargo.toml", "Cargo.lock") if (repo / name).is_file()
     )
 
-    inputs = {}
+    inputs = set()
     for declared_path in declared:
         for disk_path in _input_files(repo, declared_path):
-            path = canonical_path(repo, disk_path)
-            inputs[path] = raw_digest(disk_path) if disk_path.is_file() else "absent"
-    return sorted(inputs.items())
+            inputs.add(canonical_path(repo, disk_path))
+    return sorted(inputs)
+
+
+def sut_inputs_manifest(repo: Path, binary: Path) -> list[tuple[str, str]]:
+    return [
+        (path, raw_digest(repo / path) if (repo / path).is_file() else "absent")
+        for path in sut_input_paths(repo, binary)
+    ]
 
 
 def policy_manifest(eval_dir: Path) -> dict:

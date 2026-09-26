@@ -109,12 +109,18 @@ def prepare_snapshot_only(
     oracle = make_oracle(oracle_cfg, init_options=init_options)
     try:
         oracle.start()
-        inventory = oracle_inventory(oracle, files)
+        inventory_result = oracle_inventory(oracle, files)
     finally:
         stop = getattr(oracle, "stop", None)
         if stop is not None:
             stop()
-    save_snapshot(snapshot, inventory)
+    if inventory_result.failed_files:
+        failed = ", ".join(inventory_result.failed_files)
+        raise ValueError(
+            "oracle_inventory_failed: "
+            f"{inventory_result.failure_count} file(s): {failed}"
+        )
+    save_snapshot(snapshot, inventory_result.inventory)
     return snapshot, False, sut_sha, sut_digest
 
 def _tool_file(repo: Path, names: tuple[str, ...]) -> str:

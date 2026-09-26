@@ -12,10 +12,10 @@ from .adjudication import Adjudication, load_records
 from .closure import (
     cargo_build_outputs,
     cargo_package_name,
-    makefile_dependencies,
     manifest_digest,
     raw_digest,
     read_tsv,
+    sut_input_paths,
 )
 from .corpus import load_snapshot, snapshot_path
 from .lock import Lock, load_lock
@@ -113,29 +113,6 @@ def scrubbed_env(lock: Lock | None) -> dict[str, str]:
     return {name: os.environ[name] for name in allowed if name in os.environ}
 
 
-def _relative_to_repo(path: Path, repo: Path) -> str | None:
-    try:
-        return path.resolve().relative_to(repo.resolve()).as_posix()
-    except ValueError:
-        return None
-
-
-def _add_repo_input(paths: set[str], raw: str, repo: Path) -> None:
-    candidate = Path(raw)
-    disk_path = candidate if candidate.is_absolute() else repo / candidate
-    relative = _relative_to_repo(disk_path, repo)
-    if relative is None:
-        return
-    if disk_path.is_dir():
-        paths.update(
-            child.relative_to(repo.resolve()).as_posix()
-            for child in sorted(disk_path.resolve().rglob("*"))
-            if child.is_file()
-        )
-    else:
-        paths.add(relative)
-
-
 def observe_cargo(
     build_dir: Path,
     repo: Path,
@@ -143,7 +120,6 @@ def observe_cargo(
     binary_name: str | None = None,
 ) -> tuple[list[EnvRead], set[str]]:
     env_reads: dict[str, EnvRead] = {}
-    dep_paths: set[str] = set()
     package = cargo_package_name(repo)
     for output in cargo_build_outputs(repo):
         for line in output.read_text().splitlines():
@@ -155,18 +131,9 @@ def observe_cargo(
                     name = line.removeprefix(prefix)
                     env_reads[name] = EnvRead(name, name in env, env.get(name))
                     break
-            for prefix in ("cargo:rerun-if-changed=", "cargo::rerun-if-changed="):
-                if line.startswith(prefix):
-                    _add_repo_input(dep_paths, line.removeprefix(prefix), repo)
-                    break
     dep_name = binary_name or package
-    dep_info = build_dir / f"{dep_name}.d" if dep_name is not None else None
-    if dep_info is not None and dep_info.is_file():
-        for raw in makefile_dependencies(dep_info):
-            _add_repo_input(dep_paths, raw, repo)
-    for control in ("Cargo.toml", "Cargo.lock"):
-        if (repo / control).is_file():
-            dep_paths.add(control)
+    binary = build_dir / dep_name
+    dep_paths = set(sut_input_paths(repo, binary, require_dep_info=False))
     return [env_reads[name] for name in sorted(env_reads)], dep_paths
 
 

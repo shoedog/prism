@@ -11,6 +11,7 @@ import os
 import sys
 import time
 import tomllib
+from dataclasses import dataclass
 from pathlib import Path
 
 from . import commands, pinned as pinned_mod
@@ -400,17 +401,29 @@ def make_oracle(cfg: dict, init_options=None):
     )
 
 
+@dataclass(frozen=True)
+class OracleInventoryResult:
+    inventory: list[FunctionDef]
+    failed_files: list[str]
+
+    @property
+    def failure_count(self) -> int:
+        return len(self.failed_files)
+
+
 def oracle_inventory(
     oracle, files: list[str], accounting: CorpusAccounting | None = None
-) -> list[FunctionDef]:
+) -> OracleInventoryResult:
     inventory = []
+    failed_files = []
     for file in files:
         try:
             inventory.extend(oracle.document_symbols(file))
         except OracleError:
+            failed_files.append(file)
             if accounting is not None:
                 accounting.record(f"docsym:{file}", "oracle_error")
-    return inventory
+    return OracleInventoryResult(inventory, failed_files)
 
 
 def _stored_sites(edges: list[CallEdge], direction: str) -> list[list]:
@@ -654,7 +667,8 @@ def run_corpus(
         )
         acc = CorpusAccounting()
         t0 = time.monotonic()
-        oracle_inv = oracle_inventory(oracle, files, acc)
+        inventory_result = oracle_inventory(oracle, files, acc)
+        oracle_inv = inventory_result.inventory
         run["meta"]["wall_s"]["m1_oracle_inventory"] = round(
             time.monotonic() - t0,
             3,

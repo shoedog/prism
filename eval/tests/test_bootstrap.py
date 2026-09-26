@@ -20,6 +20,7 @@ from tier_a.lock import IDENTITY_KEYS, lock_identities, integrity_check
 from tier_a.closure import policy_digest, policy_manifest, population_manifest, raw_digest
 from tier_a.corpus import load_snapshot
 from tier_a.model import FunctionDef, Location
+from tier_a.oracles import OracleError
 from tier_a.bootstrap import (
     CandidateIdentity,
     finalize_policy,
@@ -493,6 +494,46 @@ def test_prepare_snapshot_only_writes_binary_sha_snapshot_and_is_idempotent(
     ) == 0
     assert snapshot.read_bytes() == original
     assert capsys.readouterr().out == "snapshot present\n"
+
+
+def test_prepare_snapshot_only_refuses_partial_inventory_then_recovers(
+    tmp_path, monkeypatch, capsys
+):
+    _lock, ev, repo = anchored_repo(tmp_path)
+    (ev / "tier-a.lock.toml").unlink()
+    binary = repo / "prism"
+    binary_sha = _binary_sha(repo)
+    snapshot = ev / "snapshots" / f"prism-{binary_sha[:12]}.json"
+    snapshot.unlink()
+    expected = FunctionDef(
+        "recovered", "function", None, Location("src/a.rs", 1, 1), 1
+    )
+    failing = True
+
+    class RecoveringOracle(FakeOracle):
+        def document_symbols(self, path):
+            if failing:
+                raise OracleError("document symbols unavailable")
+            return [expected]
+
+    monkeypatch.setattr(commands, "EVAL_DIR", ev)
+    monkeypatch.setattr(
+        cli, "make_oracle", lambda *_args, **_kwargs: RecoveringOracle()
+    )
+
+    assert _bootstrap_rc(
+        ["--prepare-snapshot-only", "--sut-bin", str(binary)]
+    ) == 3
+    assert capsys.readouterr().err == (
+        "FATAL bootstrap_refused: oracle_inventory_failed: 1 file(s): src/a.rs\n"
+    )
+    assert not snapshot.exists()
+
+    failing = False
+    assert _bootstrap_rc(
+        ["--prepare-snapshot-only", "--sut-bin", str(binary)]
+    ) == 0
+    assert load_snapshot(snapshot) == [expected]
 
 
 def test_prepare_snapshot_only_refuses_dirty_binary(tmp_path, monkeypatch, capsys):
