@@ -96,7 +96,7 @@ The predicate is evaluated inside the existing `lexical_declaration | variable_d
 | R1 | `non_call_initializer` | the value is missing, or its kind is not `call_expression` (this includes a cast `forwardRef(fn) as T`) |
 | R2 | `not_const` | the declaration is not a `lexical_declaration` with `kind == const` |
 | R3 | `parse_recovery` | the enclosing `export_statement` has an ERROR or MISSING node |
-| R4 | `import_parse_recovery` | any top-level `import_statement` in the file has an ERROR or MISSING node. This is per statement, not whole-file |
+| R4 | `import_parse_recovery` | any top-level child with a parse error (ERROR or MISSING) contains an `import` keyword token, or the `identifier` `import` that JSX recovery produces (impl review r2 fold). An unrelated parse error elsewhere does not refuse. This is per top-level child, not whole-file |
 | R5 | `callee_not_admitted` | the callee does not resolve through the **ESM React import table** below: an identifier bound by a named value specifier whose imported name is `forwardRef` or `memo`, or `O.P` where `O` is bound by a default or namespace value clause and `P` is a `property_identifier` spelled `forwardRef` or `memo` |
 | R6 | `callee_provenance` | any of P1–P5 fails for the callee local (`L`, or `O` in the member form) |
 | R8 | `arity` | the call's `arguments` field is not an `arguments` node, or, after ignoring `comment` children, there are 0 arguments, more than 1 for `forwardRef`, or more than 2 for `memo` |
@@ -461,7 +461,7 @@ and continues only while the forecast is within the cap. A forecast above a cap 
 remaining items. Logic is never compressed to fit.
 
 **Test estimate:** about 45 table rows at about 9 lines each (T-R6-P4b is table-driven), plus about 180 for helpers,
-T-S1 and cache/nav: about 585 against the 600 cap. This is the tightest bucket, so report it at the 540 checkpoint.
+T-S1 and cache/nav: about 585 against the original 600 cap (historical estimate). The measured tests reached 698, and the owner re-capped tests to 680 with a report point at 650 (D7).
 
 ## 10. Risks and open questions
 

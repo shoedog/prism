@@ -81,9 +81,10 @@ stating the model.
    counted as tests.
    - The caps are **src 350 / tests 680 / combined 1,010** (owner decision, 2026-09-25, after the test-cap stop at
      698; originally 350 / 600 / 950, with the tests report point moved to 650).
-   - The early stops are 315 / 540 / 855. They are **checkpoints**: the measured prototype is already 325 src.
-     The fold version is 328. At an early stop, report the count and the forecast. Tests are the tightest bucket (a
-     forecast of about 585 against 600), so report at 540. A forecast above a cap is a stop, with the remaining
+   - The early stops are 315 / 650 / 855. They are **checkpoints**: the measured prototype is already 325 src.
+     The fold version is 328. At an early stop, report the count and the forecast. Tests are the tightest bucket
+     (the original forecast was about 585 against 600, which is historical; measured 698, re-capped to 680), so
+     report at 650. A forecast above a cap is a stop, with the remaining
      items enumerated.
    - Do not compress logic. Lines should be at most 100 columns; list any unsplittable literal.
 
