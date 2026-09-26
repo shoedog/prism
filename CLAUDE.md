@@ -223,12 +223,11 @@ mutation of module objects (monkey-patching, reflective writes, `eval`, host glo
 idiom (CJS `module.exports`, `src/ast/js_cjs_export_barriers.rs`). A slice that wants to model runtime
 mutation proposes it as a new contract, not as a precision fix to an existing rung.
 
-`--resolution nominal` is the default and reports
-CPG-derived findings as `unlabeled/candidate`; `--resolution scoped` reports retained evidence
-labels. `--min-confidence exact` keeps only Exact findings. Its default, `nameonly`, retains all
-three confidence values, including ungraded Unlabeled findings. The filter is supported only by
-finding-bearing `json`, `review`, `sarif`, and `targets`; the CLI rejects it for `text`, `paper`,
-`mermaid`, and `callers`.
+`--resolution nominal` is the default and reports CPG-derived findings as `unlabeled/candidate`;
+`--resolution scoped` reports retained evidence labels. `--min-confidence exact` keeps only Exact
+findings. Its default, `nameonly`, retains all three confidence values, including ungraded Unlabeled
+findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
+the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
 CPG cache v73 persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
