@@ -1,16 +1,10 @@
-use super::super::super::super::binding_table::{capture_rows, rows};
-use super::{all_cases, check_case, Case};
+use super::super::super::super::binding_table::{capture_rows, rows, Predicate, Ruling};
+use super::{all_cases, check_case, Case, CaseClass};
 use crate::ast::ParsedFile;
 use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
 pub(super) fn assert_behavior(case: &Case, parsed: &ParsedFile) {
-    if case.expect.is_empty() {
-        if let Some((field, expected)) = case.expect_counter {
-            assert_eq!(expected, 0, "{}: zero-edge {field}", case.id);
-        }
-        return;
-    }
     let function = super::super::super::function(parsed);
     let defs = super::super::super::collect_defs(parsed);
     let mut edges = Vec::new();
@@ -55,16 +49,65 @@ pub(super) fn assert_behavior(case: &Case, parsed: &ParsedFile) {
                     _ => panic!("{}: unsupported measured counter {field}", case.id),
                 })
                 .count() as i64,
-            _unavailable if case.expect.is_empty() => {
-                assert!(expected == 0, "{}: no labels for {field}", case.id);
-                0
-            }
             unavailable => panic!(
                 "{}: expected measurable outcome, got {unavailable:?}",
                 case.id
             ),
         };
         assert_eq!(actual, expected, "{}: measured {field}", case.id);
+    }
+}
+
+pub(super) fn assert_ruling(
+    case: &Case,
+    ruling: Option<Ruling>,
+    is_binding: bool,
+    is_not_binding: bool,
+) {
+    assert!(
+        case.expect_counter.is_some(),
+        "{}: Behavioral case requires a measured counter",
+        case.id
+    );
+    match ruling {
+        Some(Ruling::Uncertain { .. }) => assert!(
+            case.expect.iter().any(|(_, _, label)| matches!(
+                label,
+                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { .. })
+            )),
+            "{}: uncertain behavior needs OwnershipUncertain",
+            case.id
+        ),
+        Some(Ruling::Classified) if is_binding => {
+            assert!(
+                case.expect
+                    .iter()
+                    .any(|(_, _, label)| matches!(label, FlowConfidence::Exact)),
+                "{}: classified binding behavior needs Exact",
+                case.id
+            );
+            assert!(
+                case.expect.iter().any(|(_, _, label)| matches!(
+                    label,
+                    FlowConfidence::NameOnly(FlowDoubt::Killed { .. })
+                )),
+                "{}: classified binding behavior needs Killed",
+                case.id
+            );
+        }
+        Some(Ruling::Classified) => assert!(
+            case.expect
+                .iter()
+                .all(|(_, _, label)| matches!(label, FlowConfidence::Exact)),
+            "{}: classified {} behavior needs Exact invariance",
+            case.id,
+            if is_not_binding {
+                "NotBinding"
+            } else {
+                "scope"
+            }
+        ),
+        None => {}
     }
 }
 
@@ -120,8 +163,78 @@ fn check_case_rejects_an_impossible_behavioral_expectation() {
         kind: "lexical_declaration",
         variant: Some("binding"),
         row_variant: None,
+        class: CaseClass::Behavioral,
         src: super::super::javascript::CLASSIFIED_MASK_SOURCE,
         expect: &[("2:x", "3:x", FlowConfidence::Exact)],
         expect_counter: None,
     });
+}
+
+#[test]
+#[should_panic(expected = "measured dfg_label_nameonly_killed")]
+fn structural_case_with_counter_measures_through_run() {
+    super::check_case(&Case {
+        id: "e0a-js-lexical_declaration",
+        language: crate::languages::Language::JavaScript,
+        kind: "lexical_declaration",
+        variant: Some("binding"),
+        row_variant: None,
+        class: CaseClass::Structural,
+        src: super::super::javascript::CLASSIFIED_MASK_SOURCE,
+        expect: &[
+            (
+                "2:x",
+                "3:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:x", "4:x", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 0)),
+    });
+}
+
+#[test]
+#[should_panic(
+    expected = "e0a-x-for_in_statement-predicate: Behavioral case requires nonempty expect"
+)]
+fn empty_behavioral_case_is_rejected() {
+    super::check_case(&Case {
+        id: "e0a-x-for_in_statement-predicate",
+        language: crate::languages::Language::JavaScript,
+        kind: "for_in_statement",
+        variant: Some("binding"),
+        row_variant: Some(Predicate::FieldTextIs {
+            field: "kind",
+            any_of: &["let", "const"],
+        }),
+        class: CaseClass::Behavioral,
+        src: "function f(items) { for (const item in items) { sink(item); } }",
+        expect: &[],
+        expect_counter: None,
+    });
+}
+
+#[test]
+#[should_panic(expected = "classified scope behavior needs Exact invariance")]
+fn classified_scope_behavior_rejects_non_exact_invariance() {
+    assert_ruling(
+        &Case {
+            id: "e0a-x-for_in_statement-residual",
+            language: Language::JavaScript,
+            kind: "for_in_statement",
+            variant: Some("binding"),
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src: "function f(items) { for (item in items) { sink(item); } }",
+            expect: &[(
+                "2:item",
+                "3:item",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            )],
+            expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+        },
+        Some(Ruling::Classified),
+        false,
+        false,
+    );
 }

@@ -131,3 +131,19 @@ Grammar SHA-256: `7ff6914d278faf4254d923e1205b887f940cfb3db46a81eddbde01e782707a
 | `string_start` | true |  | false | false | false | 5 |
 | `true` | true |  | false | false | false | 0 |
 | `type_conversion` | true |  | false | false | false | 0 |
+
+## Placeholder debt
+
+| Kind | Variant | Regression | Owning task |
+|---|---|---|---|
+| `assignment` | `None` | `e0a-py-assignment` | Task 11 |
+| `augmented_assignment` | `None` | `e0a-py-augmented_assignment` | Task 11 |
+| `named_expression` | `None` | `e0a-py-named_expression` | Task 11 |
+| `function_definition` | `None` | `e0a-py-function_definition` | Task 12 |
+| `lambda` | `None` | `e0a-py-lambda` | Task 12 |
+| `class_definition` | `None` | `e0a-py-class_definition` | Task 12 |
+| `list_comprehension` | `None` | `e0a-py-list_comprehension` | Task 12 |
+| `set_comprehension` | `None` | `e0a-py-set_comprehension` | Task 12 |
+| `dictionary_comprehension` | `None` | `e0a-py-dictionary_comprehension` | Task 12 |
+| `generator_expression` | `None` | `e0a-py-generator_expression` | Task 12 |
+| `parameters` | `None` | `e0a-x-py-parameters` | Task 12 |

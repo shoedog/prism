@@ -132,3 +132,10 @@ Grammar SHA-256: `23e819ef1eefd357bb6eba844f47f8492f6a88da3e5046b06ec4acd4da8a9f
 | `system_lib_string` | true |  | false | false | false | 0 |
 | `true` | true |  | false | false | false | 0 |
 | `type_identifier` | true |  | false | false | false | 0 |
+
+## Placeholder debt
+
+| Kind | Variant | Regression | Owning task |
+|---|---|---|---|
+| `parameter_declaration` | `None` | `e0a-x-c-parameter_declaration` | Task 22 |
+| `parameter_list` | `None` | `e0a-x-c-parameter_list` | Task 22 |
