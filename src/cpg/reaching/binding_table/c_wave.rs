@@ -3,7 +3,7 @@ use crate::languages::Language;
 
 pub(super) const DIGEST: &str = "23e819ef1eefd357bb6eba844f47f8492f6a88da3e5046b06ec4acd4da8a9fd6";
 pub(super) const CENSUS_DIGEST: &str =
-    "916cc92c419ca6bda615454e81a730f8d4ca0731d4513261aa2ca48f155763fa";
+    "a30a1df959cd70a7d6c437e70a355777b77aeeeb91350e0a1d6b6550000488eb";
 
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
     Language::C,

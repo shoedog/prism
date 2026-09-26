@@ -385,7 +385,7 @@ fn generate_census(out: &Path, docs: &Path, corpus: &Path) -> AnyResult<Value> {
         let slug = language_slug(language);
         fs::write(
             out.join(format!("{slug}.json")),
-            serde_json::to_vec_pretty(&value)?,
+            serde_json::to_vec(&value)?,
         )?;
         fs::write(
             docs.join(format!("census-{slug}.md")),
