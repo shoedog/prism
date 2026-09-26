@@ -486,6 +486,7 @@ T-S1 and cache/nav: about 585 against the 600 cap. This is the tightest bucket, 
 | r3 (sol, final) | FIX 2 WRONG / 1 SMELL, bounded and converging | **Folded at the cap (disclosed extension; owner D10–D11):** W1 (R3/R4 bypass the gates; pre-existing) is deferred to S1b, with S1's contract narrowed to the R4c route and S1b widened (§12). W2 (hoisted `var`) is folded as the P4 recursive walk, T-R6-P4b and M14, re-measured (P30–P33). The SMELL is folded (T-J4 is a preservation control). See `REVIEW-r3-fold.md` |
 | impl r1 (sol + opus) | FIX: sol 1 WRONG; opus 3 WRONG / 2 SMELL | all folded: sibling `ERROR` imports (R4), lowercase JSX tags, opening-element coverage, R3 comment, RED values |
 | impl r2 (opus + sol, final) | FIX 1 WRONG / 0 SMELL each | **Folded at the cap (disclosed):** converging, 4 → 2 WRONG; targeted fix (R4 import-token containment; exact R5 module token); narrow confirmation to follow |
+| impl r2 follow-up (controller) | V6 in JSX open after the r2 fold | **Folded in the same finding:** the JS grammar recovers `import` as `identifier:"import"`; R4's token search also matches that spelling (reserved word, so erroneous parses only) |
 
 ## 12. S1b recorded scope: span-verify all JS/TS export routes (owner D4 + D10)
 

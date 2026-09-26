@@ -126,20 +126,21 @@ fn t_n5_t_n12_t_n17_declaration_and_parse_refusals() {
         "import * as memo from ;",
         "} import { memo from './other';", // impl r2 (opus W1): V1
         "if (x) import { memo from './other';", // V5
+        "export import { memo from './other';", // V6 (JSX recovers identifier:"import")
     ];
     let rows = siblings.map(|bad| (memo(&format!("{bad}\n")), "import_parse_recovery"));
     refused(&rows, &["jsx", "tsx"]);
-    // V6: TSX recovers an `import` token; JSX recovers `identifier:"import"` (open, reported).
-    let v6 = memo("export import { memo from './other';\n");
-    refused(&[(v6, "import_parse_recovery")], &["tsx"]);
     // T-N17 twin (and V11 `} x;`): a parse error outside every import does not refuse.
     let twin = w(
         "import { forwardRef as fr } from 'react';\nconst x = ???;\n",
         "fr((p, r) => null)",
     );
-    for lib in [twin, memo("} x;\n")] {
+    for (lib, ext) in [&twin, &memo("} x;\n")]
+        .into_iter()
+        .flat_map(|l| [(l, "jsx"), (l, "tsx")])
+    {
         let want = ["L3 Island: Exact import_member lib:Island@3-3"];
-        assert_eq!(run(&lib, APP, "tsx"), want);
+        assert_eq!(run(lib, APP, ext), want, ".{ext}");
     }
 }
 

@@ -39,7 +39,7 @@ impl ParsedFile {
         // import, however it was recovered; an unrelated parse error elsewhere does not refuse.
         if root
             .children(&mut rc)
-            .any(|n| n.has_error() && has_import_token(n))
+            .any(|n| n.has_error() && self.has_import_token(n))
         {
             return Err("import_parse_recovery");
         }
@@ -192,6 +192,15 @@ impl ParsedFile {
         out
     }
 
+    /// `node` is, or contains, an `import` token. The JS grammar can recover the
+    /// reserved word as `identifier:"import"`, which only occurs in erroneous parses.
+    fn has_import_token(&self, node: Node<'_>) -> bool {
+        let mut c = node.walk();
+        node.kind() == "import"
+            || (node.kind() == "identifier" && self.node_text(&node) == "import")
+            || node.children(&mut c).any(|ch| self.has_import_token(ch))
+    }
+
     /// R6 P4: a module-scope declaration of `name`. That is a top-level or exported
     /// declaration, or a `var` hoisted out of top-level blocks, loops, `switch` and `try`.
     /// One recursive walk; it stops at nested functions, classes and block-scoped
@@ -234,10 +243,4 @@ impl ParsedFile {
             .any(|ch| self.module_scope_declares(ch, name, child_top));
         found
     }
-}
-
-/// `node` is, or contains, an `import` token.
-fn has_import_token(node: Node<'_>) -> bool {
-    let mut c = node.walk();
-    node.kind() == "import" || node.children(&mut c).any(has_import_token)
 }
