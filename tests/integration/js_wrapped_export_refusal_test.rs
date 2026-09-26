@@ -13,6 +13,16 @@ fn w(pre: &str, init: &str) -> String {
     format!("{pre}export const Island = {init};\n")
 }
 
+/// The admitted `memo` export after the React import and `pre`.
+fn memo(pre: &str) -> String {
+    w(&format!("{M}{pre}"), "memo((p) => null)")
+}
+
+/// A `forwardRef` export after `pre` (which supplies, or fakes, the callee).
+fn fr(pre: &str) -> String {
+    w(pre, "forwardRef((p, r) => null)")
+}
+
 /// The lib's declarator counters: `(spanned_admitted, skipped_expr_count, reasons)`.
 fn counters(lib: &str, ext: &str) -> (usize, usize, Vec<String>) {
     let path = format!("lib.{ext}");
@@ -74,34 +84,22 @@ fn t_n1_t_n2_t_n8_t_n15_shape_refusals() {
 fn t_n3_t_n4_t_n6_t_n18_callee_not_admitted() {
     let others = "import { create, createSelector, observer, debounce } from 'lib';\nimport \
         styled from 'styled';\n";
-    let rows: Vec<(String, &str)> = [
-        w(
-            "function forwardRef(f) { return f; }\n",
-            "forwardRef((p, r) => null)",
-        ),
-        w(
-            "import { forwardRef } from './react-shim';\n",
-            "forwardRef((p, r) => null)",
-        ),
-        w(
-            "import { forwardRef } from 'preact/compat';\n",
-            "forwardRef((p, r) => null)",
-        ),
+    let rows = [
+        fr("function forwardRef(f) { return f; }\n"),
+        fr("import { forwardRef } from './react-shim';\n"),
+        fr("import { forwardRef } from 'preact/compat';\n"),
         w(others, "create((set) => null)"),
         w(others, "createSelector(a, (x) => x)"),
         w(others, "styled('div')((p) => null)"),
         w(others, "items.map((x) => x)"),
         w(others, "observer((p) => null)"),
         w(others, "debounce((x) => x, 1)"),
-        w(
-            "const { forwardRef } = require('react');\n",
-            "forwardRef((p, r) => null)",
-        ),
-    ]
-    .into_iter()
-    .map(|lib| (lib, "callee_not_admitted"))
-    .collect();
-    refused(&rows, &["jsx", "tsx"]);
+        fr("const { forwardRef } = require('react');\n"),
+    ];
+    refused(
+        &rows.map(|lib| (lib, "callee_not_admitted")),
+        &["jsx", "tsx"],
+    );
 }
 
 #[test]
@@ -109,20 +107,24 @@ fn t_n5_t_n12_t_n17_declaration_and_parse_refusals() {
     let c29 = "import { forwardRef as fr ??? } from 'react';\n";
     refused(
         &[
-            (
-                format!("{FR}export let Island = forwardRef((p, r) => null);\n"),
-                "not_const",
-            ),
-            (
-                format!("{FR}export var Island = forwardRef((p, r) => null);\n"),
-                "not_const",
-            ),
+            (fr(FR).replace("const Island", "let Island"), "not_const"),
+            (fr(FR).replace("const Island", "var Island"), "not_const"),
             (w(M, "memo((p) => (null)"), "parse_recovery"),
             (w(M, "memo((p) => null, ???)"), "parse_recovery"),
             (w(c29, "fr((p, r) => null)"), "import_parse_recovery"),
         ],
         &["jsx", "tsx"],
     );
+    // Impl r1 (sol W1): a malformed import recovered as a top-level ERROR sibling of a
+    // valid React import is still a parse-recovered import (R4).
+    let siblings = [
+        "import { memo from \"./other\";",
+        "import { memo } from;",
+        "import memo from;",
+        "import * as memo from ;",
+    ];
+    let rows = siblings.map(|bad| (memo(&format!("{bad}\n")), "import_parse_recovery"));
+    refused(&rows, &["jsx", "tsx"]);
     // T-N17 twin: a parse error outside every import statement does not refuse.
     let twin = w(
         "import { forwardRef as fr } from 'react';\nconst x = ???;\n",
@@ -136,31 +138,21 @@ fn t_n5_t_n12_t_n17_declaration_and_parse_refusals() {
 
 #[test]
 fn t_r6_p1_to_p5_callee_provenance() {
-    let p2 = "import { memo } from 'react';\nimport type { T as memo } from './types';\n";
     let escaped = "import { forwardRef as forw\\u0061rdRef } from 'react';\n";
     let rows = [
-        (
-            w(
-                &format!("{M}import {{ memo }} from './other';\n"),
-                "memo((p) => null)",
-            ),
-            "callee_provenance",
-        ),
-        (
-            w(&format!("{M}memo = other;\n"), "memo((p) => null)"),
-            "callee_provenance",
-        ),
-        (
-            w(escaped, "forw\\u0061rdRef((p, r) => null)"),
-            "callee_provenance",
-        ),
+        memo("import { memo } from './other';\n"),
+        memo("memo = other;\n"),
+        w(escaped, "forw\\u0061rdRef((p, r) => null)"),
     ];
-    refused(&rows, &["jsx", "tsx"]);
+    refused(&rows.map(|lib| (lib, "callee_provenance")), &["jsx", "tsx"]);
     // T-R6-P2: sol's collision fixture (C55); the type-only-only import stays R5.
     let type_only = "import type { memo } from 'react';\n";
     refused(
         &[
-            (w(p2, "memo((p) => null)"), "callee_provenance"),
+            (
+                memo("import type { T as memo } from './types';\n"),
+                "callee_provenance",
+            ),
             (w(type_only, "memo((p) => null)"), "callee_not_admitted"),
         ],
         &["tsx"],
@@ -177,16 +169,10 @@ fn t_r6_p4_and_p4b_module_scope_competitors() {
         "for (var memo of [1]) {}\n",           // C58
         "try {\n  for (var memo = 0; memo < 1; memo++) {}\n} catch (e) {}\n", // C59
     ];
-    let rows: Vec<(String, &str)> = competitors
-        .iter()
-        .map(|pre| {
-            (
-                w(&format!("{M}{pre}"), "memo((p) => null)"),
-                "callee_provenance",
-            )
-        })
-        .collect();
-    refused(&rows, &["jsx", "tsx"]);
+    refused(
+        &competitors.map(|pre| (memo(pre), "callee_provenance")),
+        &["jsx", "tsx"],
+    );
     // Positive twins: not module-scope competitors (C67, C60, C61).
     for (pre, line) in [
         (
@@ -199,7 +185,7 @@ fn t_r6_p4_and_p4b_module_scope_competitors() {
             6,
         ),
     ] {
-        let lib = w(&format!("{M}{pre}"), "memo((p) => null)");
+        let lib = memo(pre);
         let want = format!("L3 Island: Exact import_member lib:Island@{line}-{line}");
         for ext in ["jsx", "tsx"] {
             assert_eq!(run(&lib, APP, ext), [want.as_str()]);
@@ -212,7 +198,7 @@ fn t_n7_t_n9_t_n11_t_n13_resolution_refusals() {
     // T-N7 (C18): an importer parameter shadows the imported local.
     let shadow = "import { Island } from './lib';\nexport function App(Island) {\n  return \
         <Island/>;\n}\n";
-    let got = run(&w(M, "memo((p) => null)"), shadow, "tsx");
+    let got = run(&memo(""), shadow, "tsx");
     assert!(got.iter().all(|s| !s.contains("import_member")), "{got:?}");
     // T-N9: forwarding a wrapped export stays refused, even with a same-named top-level
     // function beside a named inner function expression.
@@ -222,7 +208,7 @@ fn t_n7_t_n9_t_n11_t_n13_resolution_refusals() {
         &format!("{FR}function IslandImpl() {{ return null; }}\n"),
         "forwardRef(function IslandImpl(p, r) { return null; })",
     );
-    for lib in [w(FR, "forwardRef((p, r) => null)"), named] {
+    for lib in [fr(FR), named] {
         let cg = graph(&[("lib.jsx", &lib), ("bridge.jsx", bridge), ("app.jsx", &app)]);
         assert_eq!(app_sites(&cg), DROP);
     }
@@ -234,7 +220,7 @@ fn t_n7_t_n9_t_n11_t_n13_resolution_refusals() {
     // T-N13: a later `export { other as Island }` poisons the admitted name.
     let poisoned = format!(
         "{}function other() {{}}\nexport {{ other as Island }};\n",
-        w(M, "memo((p) => null)")
+        memo("")
     );
     assert_eq!(counters(&poisoned, "tsx"), (1, 0, vec![]));
     assert_eq!(run(&poisoned, APP, "tsx"), DROP);

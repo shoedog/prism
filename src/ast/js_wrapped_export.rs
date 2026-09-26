@@ -29,15 +29,18 @@ impl ParsedFile {
         {
             return Err("not_const");
         }
+        // The `export_statement` half is belt-and-braces: no known reachable input.
         if decl.parent().is_some_and(|p| p.has_error()) || decl.has_error() {
             return Err("parse_recovery");
         }
         let root = self.tree.root_node();
         let mut rc = root.walk();
-        if root
-            .named_children(&mut rc)
-            .any(|n| n.kind() == "import_statement" && n.has_error())
-        {
+        // A malformed import may also be recovered as a top-level `ERROR` sibling whose
+        // first token is `import`; an unrelated parse error elsewhere does not refuse.
+        if root.children(&mut rc).any(|n| {
+            (n.kind() == "import_statement" && n.has_error())
+                || (n.is_error() && first_token(n).kind() == "import")
+        }) {
             return Err("import_parse_recovery");
         }
         let call = declarator
@@ -229,5 +232,17 @@ impl ParsedFile {
             .named_children(&mut c)
             .any(|ch| self.module_scope_declares(ch, name, child_top));
         found
+    }
+}
+
+/// The first non-comment leaf token of `node`.
+fn first_token(mut node: Node<'_>) -> Node<'_> {
+    loop {
+        let mut c = node.walk();
+        let first = node.children(&mut c).find(|n| n.kind() != "comment");
+        match first {
+            Some(child) => node = child,
+            None => return node,
+        }
     }
 }
