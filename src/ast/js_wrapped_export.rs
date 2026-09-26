@@ -35,12 +35,12 @@ impl ParsedFile {
         }
         let root = self.tree.root_node();
         let mut rc = root.walk();
-        // A malformed import may also be recovered as a top-level `ERROR` sibling whose
-        // first token is `import`; an unrelated parse error elsewhere does not refuse.
-        if root.children(&mut rc).any(|n| {
-            (n.kind() == "import_statement" && n.has_error())
-                || (n.is_error() && first_token(n).kind() == "import")
-        }) {
+        // Any erroneous root child that contains an `import` token is a parse-recovered
+        // import, however it was recovered; an unrelated parse error elsewhere does not refuse.
+        if root
+            .children(&mut rc)
+            .any(|n| n.has_error() && has_import_token(n))
+        {
             return Err("import_parse_recovery");
         }
         let call = declarator
@@ -140,7 +140,8 @@ impl ParsedFile {
             let Some(src) = st.child_by_field_name("source") else {
                 continue;
             };
-            if self.node_text(&src).trim_matches(['"', '\'']) != "react" {
+            // Exactly `"react"` or `'react'`; no set-based quote trimming.
+            if !matches!(self.node_text(&src), "\"react\"" | "'react'") {
                 continue;
             }
             let mut sc = st.walk();
@@ -235,14 +236,8 @@ impl ParsedFile {
     }
 }
 
-/// The first non-comment leaf token of `node`.
-fn first_token(mut node: Node<'_>) -> Node<'_> {
-    loop {
-        let mut c = node.walk();
-        let first = node.children(&mut c).find(|n| n.kind() != "comment");
-        match first {
-            Some(child) => node = child,
-            None => return node,
-        }
-    }
+/// `node` is, or contains, an `import` token.
+fn has_import_token(node: Node<'_>) -> bool {
+    let mut c = node.walk();
+    node.kind() == "import" || node.children(&mut c).any(has_import_token)
 }
