@@ -1,10 +1,66 @@
 use super::super::super::super::binding_table::{capture_rows, rows, Predicate, Ruling};
 use super::{all_cases, check_case, Case, CaseClass};
 use crate::ast::ParsedFile;
-use crate::cpg::{FlowConfidence, FlowDoubt};
+use crate::cpg::reaching::RdFileStats;
+use crate::cpg::{DfgLabelStats, FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
+#[derive(Clone, Copy)]
+enum CounterField {
+    LabelExact,
+    LabelLoopCarried,
+    LabelKilled,
+    LabelOwnershipUncertain,
+    LabelSameLine,
+    LabelCfgIncomplete,
+    LabelAliasUnstable,
+    LabelCall,
+    LabelCaptureImmediate,
+    RdFunctionsOverCap,
+    RdFunctionsWithoutCfg,
+}
+
+fn select_counter(case_id: &str, field: &str) -> CounterField {
+    match field {
+        "dfg_label_exact" => CounterField::LabelExact,
+        "dfg_label_loop_carried" => CounterField::LabelLoopCarried,
+        "dfg_label_nameonly_killed" => CounterField::LabelKilled,
+        "dfg_label_nameonly_ownership_uncertain" => CounterField::LabelOwnershipUncertain,
+        "dfg_label_nameonly_sameline" => CounterField::LabelSameLine,
+        "dfg_label_nameonly_cfg_incomplete" => CounterField::LabelCfgIncomplete,
+        "dfg_label_nameonly_alias_unstable" => CounterField::LabelAliasUnstable,
+        "dfg_label_nameonly_call" => CounterField::LabelCall,
+        "dfg_label_capture_immediate" => CounterField::LabelCaptureImmediate,
+        "dfg_rd_functions_over_cap" => CounterField::RdFunctionsOverCap,
+        "dfg_rd_functions_without_cfg" => CounterField::RdFunctionsWithoutCfg,
+        _ => panic!("{case_id}: unsupported measured counter {field}"),
+    }
+}
+
+fn counter_value(
+    counter: CounterField,
+    label_stats: &DfgLabelStats,
+    rd_stats: &RdFileStats,
+) -> i64 {
+    (match counter {
+        CounterField::LabelExact => label_stats.dfg_label_exact,
+        CounterField::LabelLoopCarried => label_stats.dfg_label_loop_carried,
+        CounterField::LabelKilled => label_stats.dfg_label_nameonly_killed,
+        CounterField::LabelOwnershipUncertain => label_stats.dfg_label_nameonly_ownership_uncertain,
+        CounterField::LabelSameLine => label_stats.dfg_label_nameonly_sameline,
+        CounterField::LabelCfgIncomplete => label_stats.dfg_label_nameonly_cfg_incomplete,
+        CounterField::LabelAliasUnstable => label_stats.dfg_label_nameonly_alias_unstable,
+        CounterField::LabelCall => label_stats.dfg_label_nameonly_call,
+        CounterField::LabelCaptureImmediate => label_stats.dfg_label_capture_immediate,
+        CounterField::RdFunctionsOverCap => rd_stats.functions_over_cap,
+        CounterField::RdFunctionsWithoutCfg => rd_stats.functions_without_cfg,
+    }) as i64
+}
+
 pub(super) fn assert_behavior(case: &Case, parsed: &ParsedFile) {
+    let counter = case
+        .expect_counter
+        .map(|(field, expected)| (select_counter(case.id, field), field, expected));
     let function = super::super::super::function(parsed);
     let defs = super::super::super::collect_defs(parsed);
     let mut edges = Vec::new();
@@ -28,32 +84,20 @@ pub(super) fn assert_behavior(case: &Case, parsed: &ParsedFile) {
             .unwrap_or_else(|| panic!("{}: definition {from:?} missing", case.id));
         edges.push(super::super::super::edge(parsed, &function, def, use_line));
     }
-    let (outcome, _) = super::super::super::run(parsed, &defs, &edges);
+    let (outcome, rd_stats) = super::super::super::run(parsed, &defs, &edges);
     for (edge, (_, _, expected)) in edges.iter().zip(case.expect.iter()) {
         super::super::super::assert_label(&outcome, edge, *expected);
     }
-    if let Some((field, expected)) = case.expect_counter {
-        let actual = match &outcome {
-            super::super::super::RdOutcome::Available(result) => result
-                .labels
-                .values()
-                .filter(|label| match field {
-                    "dfg_label_exact" => matches!(label, FlowConfidence::Exact),
-                    "dfg_label_nameonly_killed" => {
-                        matches!(label, FlowConfidence::NameOnly(FlowDoubt::Killed { .. }))
-                    }
-                    "dfg_label_nameonly_ownership_uncertain" => matches!(
-                        label,
-                        FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { .. })
-                    ),
-                    _ => panic!("{}: unsupported measured counter {field}", case.id),
-                })
-                .count() as i64,
-            unavailable => panic!(
-                "{}: expected measurable outcome, got {unavailable:?}",
-                case.id
-            ),
+    if let Some((counter, field, expected)) = counter {
+        let super::super::super::RdOutcome::Available(result) = &outcome else {
+            panic!("{}: expected measurable outcome, got {outcome:?}", case.id);
         };
+        let mut label_stats = DfgLabelStats::default();
+        for label in result.labels.values().copied() {
+            label_stats.record_label(label);
+        }
+        label_stats.dfg_label_loop_carried = result.loop_carried_edges.len();
+        let actual = counter_value(counter, &label_stats, &rd_stats);
         assert_eq!(actual, expected, "{}: measured {field}", case.id);
     }
 }
@@ -171,8 +215,7 @@ fn check_case_rejects_an_impossible_behavioral_expectation() {
 }
 
 #[test]
-#[should_panic(expected = "measured dfg_label_nameonly_killed")]
-fn structural_case_with_counter_measures_through_run() {
+fn structural_empty_expectations_measure_supported_zero_rd_counter() {
     super::check_case(&Case {
         id: "e0a-js-lexical_declaration",
         language: crate::languages::Language::JavaScript,
@@ -180,6 +223,21 @@ fn structural_case_with_counter_measures_through_run() {
         variant: Some("binding"),
         row_variant: None,
         class: CaseClass::Structural,
+        src: super::super::javascript::CLASSIFIED_MASK_SOURCE,
+        expect: &[],
+        expect_counter: Some(("dfg_rd_functions_over_cap", 0)),
+    });
+}
+
+#[test]
+fn supported_nonzero_label_counter_is_measured() {
+    super::check_case(&Case {
+        id: "e0a-js-lexical_declaration",
+        language: crate::languages::Language::JavaScript,
+        kind: "lexical_declaration",
+        variant: Some("binding"),
+        row_variant: None,
+        class: CaseClass::Behavioral,
         src: super::super::javascript::CLASSIFIED_MASK_SOURCE,
         expect: &[
             (
@@ -189,7 +247,55 @@ fn structural_case_with_counter_measures_through_run() {
             ),
             ("2:x", "4:x", FlowConfidence::Exact),
         ],
-        expect_counter: Some(("dfg_label_nameonly_killed", 0)),
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    });
+}
+
+#[test]
+#[should_panic(expected = "unsupported measured counter unsupported")]
+fn structural_empty_expectations_reject_unknown_counter() {
+    super::check_case(&Case {
+        id: "e0a-js-lexical_declaration",
+        language: crate::languages::Language::JavaScript,
+        kind: "lexical_declaration",
+        variant: Some("binding"),
+        row_variant: None,
+        class: CaseClass::Structural,
+        src: super::super::javascript::CLASSIFIED_MASK_SOURCE,
+        expect: &[],
+        expect_counter: Some(("unsupported", 0)),
+    });
+}
+
+#[test]
+#[should_panic(expected = "expected measurable outcome")]
+fn unavailable_runtime_outcome_fails_closed() {
+    super::check_case(&Case {
+        id: "e0a-js-lexical_declaration",
+        language: crate::languages::Language::JavaScript,
+        kind: "lexical_declaration",
+        variant: Some("binding"),
+        row_variant: None,
+        class: CaseClass::Structural,
+        src: "function f() { let x = source(); }",
+        expect: &[],
+        expect_counter: Some(("dfg_rd_functions_without_cfg", 0)),
+    });
+}
+
+#[test]
+#[should_panic(expected = "fixture must contain a function")]
+fn structural_counter_without_function_fails_closed() {
+    super::check_case(&Case {
+        id: "e0a-js-lexical_declaration",
+        language: crate::languages::Language::JavaScript,
+        kind: "lexical_declaration",
+        variant: Some("binding"),
+        row_variant: None,
+        class: CaseClass::Structural,
+        src: "let x = source();",
+        expect: &[],
+        expect_counter: Some(("dfg_rd_functions_over_cap", 0)),
     });
 }
 
