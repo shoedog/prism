@@ -48,7 +48,7 @@ pub struct DfgLabelStats {
 }
 
 impl DfgLabelStats {
-    fn record_label(&mut self, confidence: FlowConfidence) {
+    pub(crate) fn record_label(&mut self, confidence: FlowConfidence) {
         match confidence {
             FlowConfidence::Exact => self.dfg_label_exact += 1,
             FlowConfidence::NameOnly(FlowDoubt::Killed { .. }) => {
