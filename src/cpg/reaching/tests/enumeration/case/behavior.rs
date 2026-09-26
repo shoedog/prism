@@ -159,6 +159,7 @@ pub(super) fn assert_row_case_identities() {
     let cases = all_cases();
     let mut expected: Vec<_> = cases
         .iter()
+        .filter(|case| case.variant.is_some())
         .map(|case| {
             (
                 case.language,

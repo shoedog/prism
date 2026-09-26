@@ -78,7 +78,7 @@ pub(super) struct RootFunction<'a> {
 }
 
 impl<'a> RootFunction<'a> {
-    fn new(parsed: &ParsedFile, function: Node<'a>) -> Self {
+    pub(super) fn new(parsed: &ParsedFile, function: Node<'a>) -> Self {
         #[cfg(all(test, debug_assertions))]
         super::work_tests::bump(|counts| counts.debug_root_inventories += 1);
         debug_assert!(

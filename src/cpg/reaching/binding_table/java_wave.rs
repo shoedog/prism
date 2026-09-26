@@ -1,9 +1,30 @@
-use super::{provisional_rows, BindingRow};
+use super::{provisional_rows, BindingRow, GuardSpanRow};
 use crate::languages::Language;
 
 pub(super) const DIGEST: &str = "19c46facc653381c337ff6cad75dd8b052524179a366c80825d6d0010520eef2";
 pub(super) const CENSUS_DIGEST: &str =
     "a8dada12e0a02956df92434752c5fd5878f8835ab6d15d01ebffd83f41a0421c";
+
+pub(super) static PATTERN_GUARD_SPANS: &[GuardSpanRow] = &[
+    GuardSpanRow {
+        binder_kind: "record_pattern",
+        guard_kind: "instanceof_expression",
+        owner_kind: "if_statement",
+        condition_field: "condition",
+        positive_fields: &["consequence"],
+        negative_fields: &["alternative"],
+        positive_condition_tail: true,
+    },
+    GuardSpanRow {
+        binder_kind: "type_pattern",
+        guard_kind: "instanceof_expression",
+        owner_kind: "if_statement",
+        condition_field: "condition",
+        positive_fields: &["consequence"],
+        negative_fields: &["alternative"],
+        positive_condition_tail: true,
+    },
+];
 
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
     Language::Java,

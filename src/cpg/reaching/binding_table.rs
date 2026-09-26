@@ -91,6 +91,17 @@ pub(crate) enum Visibility {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct GuardSpanRow {
+    pub binder_kind: &'static str,
+    pub guard_kind: &'static str,
+    pub owner_kind: &'static str,
+    pub condition_field: &'static str,
+    pub positive_fields: &'static [&'static str],
+    pub negative_fields: &'static [&'static str],
+    pub positive_condition_tail: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Ruling {
     Classified,
     Uncertain {
@@ -212,6 +223,18 @@ pub(crate) fn rows(language: Language) -> &'static [BindingRow] {
         Language::Lua => combined!(LUA_ROWS, other::LUA_ROWS, lua_wave::ROWS),
         Language::Terraform => terraform_wave::ROWS,
         Language::Bash => bash_wave::ROWS,
+    }
+}
+
+pub(crate) fn guard_span_row(
+    language: Language,
+    binder_kind: &str,
+) -> Option<&'static GuardSpanRow> {
+    match language {
+        Language::Java => java_wave::PATTERN_GUARD_SPANS
+            .iter()
+            .find(|row| row.binder_kind == binder_kind),
+        _ => None,
     }
 }
 
