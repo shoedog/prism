@@ -79,7 +79,8 @@ stating the model.
 5. **`CLAUDE.md`.** Insert the §3.2.1 paragraph exactly as written, in a separate commit.
 6. **Budget.** Run `cargo fmt`, then count honest lines: non-blank, non-`//`, with `#[cfg(test)]` and `tests/**`
    counted as tests.
-   - The caps are **src 350 / tests 600 / combined 950**.
+   - The caps are **src 350 / tests 680 / combined 1,010** (owner decision, 2026-09-25, after the test-cap stop at
+     698; originally 350 / 600 / 950, with the tests report point moved to 650).
    - The early stops are 315 / 540 / 855. They are **checkpoints**: the measured prototype is already 325 src.
      The fold version is 328. At an early stop, report the count and the forecast. Tests are the tightest bucket (a
      forecast of about 585 against 600), so report at 540. A forecast above a cap is a stop, with the remaining
