@@ -3686,6 +3686,14 @@ impl CallGraph {
         if resolved.span.is_some() && !site.jsx_element {
             return Err(DropReason::WrappedExportNonJsx);
         }
+        // A lowercase JSX tag is an intrinsic element; it never references the binding.
+        if resolved.span.is_some()
+            && site
+                .callee_name
+                .starts_with(|c: char| c.is_ascii_lowercase())
+        {
+            return Ok(Vec::new());
+        }
         let ids: Vec<&FunctionId> = match self.functions.get(&resolved.local_name) {
             Some(ids) => ids
                 .iter()

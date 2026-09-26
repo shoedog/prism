@@ -210,6 +210,18 @@ fn t_j2_t_j4_jsx_gate_scope() {
         )],
         &["tsx"],
     );
+    // Impl r1 (opus W3): an opening element binds; (opus W1) a lowercase tag is intrinsic.
+    let open = APP.replace("<Island/>", "<Island>x</Island>");
+    let lower = APP
+        .replace("{ Island }", "{ Island as island }")
+        .replace("<Island/>", "<island/>");
+    check(
+        &[
+            (WRAP, &open, ISLAND_2_4),
+            (WRAP, &lower, &["L3 island: drop UnknownName"]),
+        ],
+        &["jsx", "tsx"],
+    );
     // T-J4: a plain `Local` export called directly is untouched (base-green control).
     let plain = "export const A = (props) => null;\n";
     let app_a = "import { A } from './lib';\nexport function App() {\n  return A({});\n}\n";
