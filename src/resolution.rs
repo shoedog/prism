@@ -1031,6 +1031,8 @@ pub enum DropReason {
     ConcreteReceiverPromotedDeferred,
     /// P17 R1(e): a proven concrete receiver has no admissible selector lane.
     ConcreteReceiverNoSelector,
+    /// S1: a span-verified wrapped React export reached by a non-JSX site.
+    WrappedExportNonJsx,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -3388,7 +3390,12 @@ impl CallGraph {
                                 // start from `self.functions.get(member)` the way
                                 // the Python arm below does.
                                 let matched: Vec<&FunctionId> = if is_js_ts {
-                                    self.js_ts_import_member_candidates(caller, binding, member)
+                                    match self.js_ts_import_member_candidates(
+                                        caller, binding, member, site,
+                                    ) {
+                                        Ok(ids) => ids,
+                                        Err(drop) => return ResolutionOutcome::dropped(drop),
+                                    }
                                 } else if let Some(ids) = self.functions.get(member) {
                                     // Python: filter to free, module-level
                                     // functions in matching files.
@@ -3651,33 +3658,58 @@ impl CallGraph {
     /// imported/exported name, which for a rename, default export, CommonJS
     /// assignment, or barrel differs from the declaring function's actual
     /// name entirely.
+    ///
+    /// S1: a span-verified wrapped React export binds only from a JSX element site, and
+    /// only to the one function with its exact span. Non-JSX sites drop
+    /// `WrappedExportNonJsx`; zero or 2+ span matches yield no candidate (never NameOnly).
     fn js_ts_import_member_candidates(
         &self,
         caller: &FunctionId,
         binding: &crate::call_graph::ImportBinding,
         member: &str,
-    ) -> Vec<&FunctionId> {
+        site: &CallSite,
+    ) -> Result<Vec<&FunctionId>, DropReason> {
         let Some(candidate_file) = crate::call_graph::resolve_js_ts_relative_module(
             &binding.module_path,
             &caller.file,
             &self.indexed_files,
         ) else {
-            return Vec::new();
+            return Ok(Vec::new());
         };
         let Some(resolved) = self
             .js_ts_resolved_exports
             .get(&candidate_file)
             .and_then(|exports| exports.get(member))
         else {
-            return Vec::new();
+            return Ok(Vec::new());
         };
-        match self.functions.get(&resolved.local_name) {
+        if resolved.span.is_some() && !site.jsx_element {
+            return Err(DropReason::WrappedExportNonJsx);
+        }
+        // A lowercase JSX tag is an intrinsic element; it never references the binding.
+        if resolved.span.is_some()
+            && site
+                .callee_name
+                .starts_with(|c: char| c.is_ascii_lowercase())
+        {
+            return Ok(Vec::new());
+        }
+        let ids: Vec<&FunctionId> = match self.functions.get(&resolved.local_name) {
             Some(ids) => ids
                 .iter()
                 .filter(|fid| fid.file == resolved.file && !self.method_owners.contains_key(*fid))
+                .filter(|fid| {
+                    resolved
+                        .span
+                        .is_none_or(|(s, e)| fid.start_line == s && fid.end_line == e)
+                })
                 .collect(),
             None => Vec::new(),
+        };
+        if resolved.span.is_some() && ids.len() > 1 {
+            return Ok(Vec::new());
         }
+        Ok(ids)
     }
 
     pub fn resolve_call_site(&self, site: &CallSite) -> Vec<ResolvedCallee<'_>> {
@@ -4495,6 +4527,7 @@ mod scope_resolution_predicate_tests {
             receiver_outcome: None,
             origin: CallSiteOrigin::Source,
             pre_resolved_target: None,
+            jsx_element: false,
         }
     }
 
@@ -4514,6 +4547,30 @@ mod scope_resolution_predicate_tests {
         assert!(
             !pred.disproves(&cand, &site("CliTest::with_file"), &cx),
             "non-uniform edition must disprove nothing (keep-all)"
+        );
+    }
+
+    #[test]
+    fn t_j3_non_jsx_site_on_a_spanned_export_drops() {
+        // S1 T-J3: the gate keys on `site.jsx_element` alone; the same site binds when set.
+        let parse = |p: &str, s: &str| {
+            let parsed = crate::ast::ParsedFile::parse(p, s, crate::languages::Language::Tsx);
+            (p.to_string(), parsed.unwrap())
+        };
+        let lib = "import { memo } from 'react';\nexport const Island = memo((p: any) => null);\n";
+        let app =
+            "import { Island } from './lib';\nexport function App() {\n  return <Island/>;\n}\n";
+        let cg = CallGraph::build(&[parse("lib.tsx", lib), parse("app.tsx", app)].into());
+        let mut s = site("Island");
+        s.caller = cg.functions["App"][0].clone();
+        s.line = 3;
+        let out = cg.resolve_call_site_full(&s);
+        assert_eq!(out.drop, Some(DropReason::WrappedExportNonJsx));
+        s.jsx_element = true;
+        let out = cg.resolve_call_site_full(&s);
+        assert_eq!(
+            (out.resolved.len(), out.resolved[0].target.name.as_str()),
+            (1, "Island")
         );
     }
 }

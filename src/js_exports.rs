@@ -36,6 +36,13 @@ pub enum JsExportTarget {
     UnprovenLocal(String),
     /// Declaration-backed local class. Never a callable-function export.
     Class(String),
+    /// `export const X = <admitted React wrapper>(fn)` (S1): the inner function's
+    /// registered name and exact line span. R4c binds it by span, from JSX sites only.
+    SpannedLocal {
+        local: String,
+        start_line: usize,
+        end_line: usize,
+    },
     /// `export { imported as exported_name } from './y'` (also used for the
     /// re-export half of barrel resolution). `imported` is the name as
     /// declared/exported in the target module (`"default"` for a default
@@ -87,6 +94,12 @@ pub struct JsExportFacts {
     /// silently overwriting `named`, so whole-program resolution (which sees
     /// both facts) can fail closed instead of picking a last-writer winner.
     pub conflicted: BTreeSet<String>,
+    /// Exported declarators admitted as `SpannedLocal` (S1). Telemetry only.
+    #[serde(default)]
+    pub spanned_admitted: usize,
+    /// Declarator skips (a subset of `skipped_expr_count`) keyed by refusal reason.
+    #[serde(default)]
+    pub skipped_decl_reasons: BTreeMap<String, usize>,
 }
 
 impl JsExportFacts {
@@ -99,6 +112,8 @@ impl JsExportFacts {
             && self.star_reexports.is_empty()
             && self.skipped_expr_count == 0
             && self.conflicted.is_empty()
+            && self.spanned_admitted == 0
+            && self.skipped_decl_reasons.is_empty()
     }
 
     /// Record a named-export raw fact, poisoning (marking conflicted) a name
@@ -124,6 +139,9 @@ impl JsExportFacts {
 pub struct ResolvedJsExport {
     pub file: String,
     pub local_name: String,
+    /// `SpannedLocal` targets only: the inner function's exact `(start, end)` lines.
+    #[serde(default)]
+    pub span: Option<(usize, usize)>,
 }
 
 /// Whole-program resolution output: per-file resolved export tables plus
@@ -237,6 +255,9 @@ enum ExportLookup {
     Resolved(ResolvedJsExport, bool),
 }
 
+/// A star-barrel candidate: `(file, local_name, is_class, span)`.
+type BarrelCandidate = (String, String, bool, Option<(usize, usize)>);
+
 fn resolve_one(
     raw: &BTreeMap<String, JsExportFacts>,
     resolve_module: &dyn Fn(&str, &str) -> Option<String>,
@@ -280,11 +301,24 @@ fn resolve_one_inner(
     if let Some(target) = facts.named.get(name) {
         return match target {
             JsExportTarget::UnprovenLocal(_) => ExportLookup::BlockedClaim,
+            JsExportTarget::SpannedLocal {
+                local,
+                start_line,
+                end_line,
+            } => ExportLookup::Resolved(
+                ResolvedJsExport {
+                    file: file.to_string(),
+                    local_name: local.clone(),
+                    span: Some((*start_line, *end_line)),
+                },
+                false,
+            ),
             // Class identity participates in conflicts, never callable projection.
             JsExportTarget::Class(local) | JsExportTarget::Local(local) => ExportLookup::Resolved(
                 ResolvedJsExport {
                     file: file.to_string(),
                     local_name: local.clone(),
+                    span: None,
                 },
                 matches!(target, JsExportTarget::Class(_)),
             ),
@@ -337,7 +371,9 @@ fn resolve_one_inner(
         telemetry.chain_unresolved += 1;
         return ExportLookup::NoTarget;
     }
-    let mut candidates: BTreeSet<(String, String, bool)> = BTreeSet::new();
+    // The span is part of the key: two claims on one `(file, local)` with different
+    // spans are different targets (S1).
+    let mut candidates: BTreeSet<BarrelCandidate> = BTreeSet::new();
     for module_path in &facts.star_reexports {
         let Some(target_file) = resolve_module(file, module_path) else {
             continue;
@@ -356,7 +392,7 @@ fn resolve_one_inner(
             telemetry,
         ) {
             ExportLookup::Resolved(hit, is_class) => {
-                candidates.insert((hit.file, hit.local_name, is_class));
+                candidates.insert((hit.file, hit.local_name, is_class, hit.span));
             }
             ExportLookup::BlockedClaim => return ExportLookup::BlockedClaim,
             ExportLookup::NoTarget => {}
@@ -365,8 +401,15 @@ fn resolve_one_inner(
     match candidates.len() {
         0 => ExportLookup::NoTarget,
         1 => {
-            let (file, local_name, is_class) = candidates.into_iter().next().unwrap();
-            ExportLookup::Resolved(ResolvedJsExport { file, local_name }, is_class)
+            let (file, local_name, is_class, span) = candidates.into_iter().next().unwrap();
+            ExportLookup::Resolved(
+                ResolvedJsExport {
+                    file,
+                    local_name,
+                    span,
+                },
+                is_class,
+            )
         }
         _ => {
             telemetry.barrel_conflicts += 1;
@@ -392,6 +435,8 @@ mod tests {
             star_reexports: star.iter().map(|s| s.to_string()).collect(),
             skipped_expr_count: 0,
             conflicted: BTreeSet::new(),
+            spanned_admitted: 0,
+            skipped_decl_reasons: BTreeMap::new(),
         }
     }
 
@@ -426,7 +471,8 @@ mod tests {
             out.resolved["util.ts"]["process"],
             ResolvedJsExport {
                 file: "util.ts".to_string(),
-                local_name: "process".to_string()
+                local_name: "process".to_string(),
+                span: None,
             }
         );
         assert_eq!(out.chain_unresolved, 0);
@@ -449,7 +495,8 @@ mod tests {
             out.resolved["index.ts"]["process"],
             ResolvedJsExport {
                 file: "impl.ts".to_string(),
-                local_name: "process".to_string()
+                local_name: "process".to_string(),
+                span: None,
             }
         );
         assert_eq!(out.chain_unresolved, 0);
@@ -475,7 +522,8 @@ mod tests {
             out.resolved["index.ts"]["process"],
             ResolvedJsExport {
                 file: "impl.ts".to_string(),
-                local_name: "process".to_string()
+                local_name: "process".to_string(),
+                span: None,
             }
         );
         assert_eq!(out.chain_unresolved, 0);
@@ -535,7 +583,8 @@ mod tests {
             out.resolved["index.ts"]["process"],
             ResolvedJsExport {
                 file: "impl.ts".to_string(),
-                local_name: "process".to_string()
+                local_name: "process".to_string(),
+                span: None,
             }
         );
     }
@@ -597,7 +646,8 @@ mod tests {
             out.resolved["index.ts"]["process"],
             ResolvedJsExport {
                 file: "impl.ts".to_string(),
-                local_name: "process".to_string()
+                local_name: "process".to_string(),
+                span: None,
             }
         );
         assert_eq!(out.barrel_conflicts, 0);

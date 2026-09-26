@@ -213,12 +213,21 @@ vocabulary `killed`, `sameline`, `cfg_incomplete`, `alias_unstable`, and `call_n
 
 Finding confidence is `exact | nameonly | unlabeled`; tier is `asserted` only for Exact evidence
 whose evidence-bearing files all parse cleanly, otherwise `candidate`. `asserted` grades the
-evidence path, not the heuristic's truth. `--resolution nominal` is the default and reports
-CPG-derived findings as `unlabeled/candidate`; `--resolution scoped` reports retained evidence
-labels. `--min-confidence exact` keeps only Exact findings. Its default, `nameonly`, retains all
-three confidence values, including ungraded Unlabeled findings. The filter is supported only by
-finding-bearing `json`, `review`, `sarif`, and `targets`; the CLI rejects it for `text`, `paper`,
-`mermaid`, and `callers`.
+evidence path, not the heuristic's truth.
+
+`Exact` is a static-binding grade: the site's name resolves, by the language's declaration, scope, import
+and export syntax as prism models it, to exactly one callable. It does not assert runtime truth. Runtime
+mutation of module objects (monkey-patching, reflective writes, `eval`, host globals, re-acquisition through
+`require`/`import()`), from the same file or another, is out of model for every rung and every language
+(replan probes, 2026-09-25). Producer-side mutation is modeled only where mutation is the construction
+idiom (CJS `module.exports`, `src/ast/js_cjs_export_barriers.rs`). A slice that wants to model runtime
+mutation proposes it as a new contract, not as a precision fix to an existing rung.
+
+`--resolution nominal` is the default and reports CPG-derived findings as `unlabeled/candidate`;
+`--resolution scoped` reports retained evidence labels. `--min-confidence exact` keeps only Exact
+findings. Its default, `nameonly`, retains all three confidence values, including ungraded Unlabeled
+findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
+the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
 CPG cache v73 persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become

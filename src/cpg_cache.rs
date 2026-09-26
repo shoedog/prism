@@ -214,7 +214,9 @@ use std::path::{Path, PathBuf};
 /// - v96: TS/TSX optional occurrences admit only all-simple signatures with
 ///   a nonempty inert-default sibling set.
 /// - v97: persist byte-distinct supplemental caller producer facts and labels.
-const CACHE_VERSION: u32 = 97;
+/// - v98: JS/TS span-verified wrapped React exports (`SpannedLocal`), JSX-element
+///   call-site flag, declarator skip reasons.
+const CACHE_VERSION: u32 = 98;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -753,7 +755,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 97);
+        assert_eq!(super::CACHE_VERSION, 98);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

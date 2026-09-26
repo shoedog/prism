@@ -27,7 +27,7 @@ the dominant refusal lane for the ten `forwardRef` components.
 | D4 | The pre-existing F4-class false Exact on the export-list path (C06) | **a.** Follow-up slice S1b, reusing `SpannedLocal`. **Widened at r3 (D10):** S1b span-verifies **all** JS/TS export routes (§12) | 0 measured prevalence (P5) |
 | D5 | Sequencing | **Ship S1 now.** tsconfig `paths` resolution is the next planning lane | P4 latent projection |
 | D6 | r2's closure of the mutable React object (default/namespace custody vs named-only) | **Superseded by Branch P.** Custody K1–K8 is dropped. Runtime mutation and re-acquisition of the React object are out of model (§3.2) | Under sol's standard the class is open for both D6 options (replan Q9: `arguments[1]('react')` and `module.require('react')` pass r2 custody in both modes). Branch S would keep 7 / 0 edges |
-| D7 | Budget | **src 350 / tests 600 / combined 950**, with early stops at about 90% (315 / 540 / 855) | `REPLAN-fable.md` §4 (P row). MEASURED Branch-P prototype: 325 src (P26); with the r3 fold, 328 (P30) |
+| D7 | Budget | **src 350 / tests 680 / combined 1,010** (owner decision, 2026-09-25, after the implementation test-cap stop at 698; originally 350 / 600 / 950 with early stops 315 / 540 / 855; report point 650 tests) | `REPLAN-fable.md` §4 (P row). MEASURED Branch-P prototype: 325 src (P26); with the r3 fold, 328 (P30) |
 | D8 | Project-wide statement of the Exact contract | **Ships in this slice's PR.** The implementer adds the §3.2.1 text to `CLAUDE.md` | Without it, S1b, S2 and `paths` would re-litigate the same question (`REPLAN-fable.md` §2.1) |
 | D9 | Review | **One final sol round 3**, judged against the Branch-P model. It is done (FIX 2 / 1, bounded). Sol reviews the implementation next (`REVIEWER.md`) | 2-round cap spent; owner-approved exception |
 | D10 (r3) | Sol r3 W1: R3 `ImportQualified` and R4 `LocalDef` bypass the span and JSX gates (pre-existing on base) | **Defer to S1b.** S1's contract is narrowed to the new R4c `import_member` route (§2, §3.2, §3.4). S1b's scope is widened (§12), and sol's two inputs are its first RED cases. No R3 or R4 code in S1 | MEASURED P31: both inputs give the same result on base and Branch P (C62, C63) |
@@ -96,7 +96,7 @@ The predicate is evaluated inside the existing `lexical_declaration | variable_d
 | R1 | `non_call_initializer` | the value is missing, or its kind is not `call_expression` (this includes a cast `forwardRef(fn) as T`) |
 | R2 | `not_const` | the declaration is not a `lexical_declaration` with `kind == const` |
 | R3 | `parse_recovery` | the enclosing `export_statement` has an ERROR or MISSING node |
-| R4 | `import_parse_recovery` | any top-level `import_statement` in the file has an ERROR or MISSING node. This is per statement, not whole-file |
+| R4 | `import_parse_recovery` | any top-level child with a parse error (ERROR or MISSING) contains an `import` keyword token, or the `identifier` `import` that JSX recovery produces (impl review r2 fold). An unrelated parse error elsewhere does not refuse. This is per top-level child, not whole-file |
 | R5 | `callee_not_admitted` | the callee does not resolve through the **ESM React import table** below: an identifier bound by a named value specifier whose imported name is `forwardRef` or `memo`, or `O.P` where `O` is bound by a default or namespace value clause and `P` is a `property_identifier` spelled `forwardRef` or `memo` |
 | R6 | `callee_provenance` | any of P1–P5 fails for the callee local (`L`, or `O` in the member form) |
 | R8 | `arity` | the call's `arguments` field is not an `arguments` node, or, after ignoring `comment` children, there are 0 arguments, more than 1 for `forwardRef`, or more than 2 for `memo` |
@@ -374,7 +374,7 @@ Use table-driven inputs, and assert exact `(file, name, start_line, end_line)` t
 
 | # | Mutant | Must fail |
 |---|---|---|
-| M1 | drop the span filter | T-P7, T-N11 |
+| M1 | drop the span filter | T-P7, T-P4 (corrected at implementation: T-N11's two same-line targets both pass the span filter, so it cannot kill M1) |
 | M2 | accept any callee | T-N6, T-N3 |
 | M3 | accept `let` | T-N5 |
 | M4 | pick the last argument | T-P4 |
@@ -448,9 +448,12 @@ The forecast is **about 332 src**, which leaves 18 lines of headroom under 350.
 | Bucket | Cap (D7) | Early stop (about 90%) |
 |---|---|---|
 | src | **350** | 315 |
-| tests | **600** | 540 |
-| combined | **950** | 855 |
+| tests | **680** (was 600) | 650 (was 540) |
+| combined | **1,010** (was 950) | – (was 855) |
 | Tier-A fixture directories | 3 | – |
+
+**Owner decision, 2026-09-25:** the test and combined caps were raised to 680 and 1,010 after the implementation
+stopped at 698 test lines (D7).
 
 **The early-stop semantics are a checkpoint, not a halt.** The measured prototype (328) already sits above the
 src early stop (315). At an early stop the implementer reports the current count and the forecast to the controller,
@@ -458,7 +461,7 @@ and continues only while the forecast is within the cap. A forecast above a cap 
 remaining items. Logic is never compressed to fit.
 
 **Test estimate:** about 45 table rows at about 9 lines each (T-R6-P4b is table-driven), plus about 180 for helpers,
-T-S1 and cache/nav: about 585 against the 600 cap. This is the tightest bucket, so report it at the 540 checkpoint.
+T-S1 and cache/nav: about 585 against the original 600 cap (historical estimate). The measured tests reached 698, and the owner re-capped tests to 680 with a report point at 650 (D7).
 
 ## 10. Risks and open questions
 
@@ -481,7 +484,9 @@ T-S1 and cache/nav: about 585 against the 600 cap. This is the tightest bucket, 
 | r1 (sol) | FIX 5 WRONG / 2 SMELL | all folded (`REVIEW-r1-fold.md`) |
 | r2 (sol) | FIX 3 WRONG / 2 SMELL, open-class | **Branch P** (owner): W1–W3 are out of model and pinned as MB2, MB2's class, and MB3 (sol's W2 computed specifier belongs to MB2's class); SMELL 1 is folded as T-R6-P2 plus M12; SMELL 2 is folded as the ESM-only table plus T-N18 and M13. See `REPLAN-fable.md` §3 |
 | r3 (sol, final) | FIX 2 WRONG / 1 SMELL, bounded and converging | **Folded at the cap (disclosed extension; owner D10–D11):** W1 (R3/R4 bypass the gates; pre-existing) is deferred to S1b, with S1's contract narrowed to the R4c route and S1b widened (§12). W2 (hoisted `var`) is folded as the P4 recursive walk, T-R6-P4b and M14, re-measured (P30–P33). The SMELL is folded (T-J4 is a preservation control). See `REVIEW-r3-fold.md` |
-| implementation (sol) | next | 2-round cap declared by the controller at dispatch; judged against §3.2 as narrowed |
+| impl r1 (sol + opus) | FIX: sol 1 WRONG; opus 3 WRONG / 2 SMELL | all folded: sibling `ERROR` imports (R4), lowercase JSX tags, opening-element coverage, R3 comment, RED values |
+| impl r2 (opus + sol, final) | FIX 1 WRONG / 0 SMELL each | **Folded at the cap (disclosed):** converging, 4 → 2 WRONG; targeted fix (R4 import-token containment; exact R5 module token); narrow confirmation to follow |
+| impl r2 follow-up (controller) | V6 in JSX open after the r2 fold | **Folded in the same finding:** the JS grammar recovers `import` as `identifier:"import"`; R4's token search also matches that spelling (reserved word, so erroneous parses only) |
 
 ## 12. S1b recorded scope: span-verify all JS/TS export routes (owner D4 + D10)
 
