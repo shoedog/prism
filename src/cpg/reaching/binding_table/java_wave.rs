@@ -1,5 +1,6 @@
 use super::{provisional_rows, BindingRow, GuardSpanRow};
 use crate::languages::Language;
+use tree_sitter::Node;
 
 pub(super) const DIGEST: &str = "19c46facc653381c337ff6cad75dd8b052524179a366c80825d6d0010520eef2";
 pub(super) const CENSUS_DIGEST: &str =
@@ -24,7 +25,68 @@ pub(super) static PATTERN_GUARD_SPANS: &[GuardSpanRow] = &[
         negative_fields: &["alternative"],
         positive_condition_tail: true,
     },
+    GuardSpanRow {
+        binder_kind: "instanceof_expression",
+        guard_kind: "instanceof_expression",
+        owner_kind: "if_statement",
+        condition_field: "condition",
+        positive_fields: &["consequence"],
+        negative_fields: &["alternative"],
+        positive_condition_tail: true,
+    },
 ];
+
+pub(super) fn binding_identifiers(node: Node<'_>) -> Vec<Node<'_>> {
+    match node.kind() {
+        "instanceof_expression" => node.child_by_field_name("name").into_iter().collect(),
+        "record_pattern" => {
+            let mut cursor = node.walk();
+            let identifiers = node
+                .named_children(&mut cursor)
+                .find(|child| child.kind() == "record_pattern_body")
+                .map(binding_identifiers)
+                .unwrap_or_default();
+            identifiers
+        }
+        "record_pattern_body" => {
+            let mut cursor = node.walk();
+            node.named_children(&mut cursor)
+                .flat_map(binding_identifiers)
+                .collect()
+        }
+        "record_pattern_component" | "type_pattern" => {
+            let mut cursor = node.walk();
+            match node.named_children(&mut cursor).last() {
+                Some(target) if target.kind() == "identifier" => vec![target],
+                Some(target) if target.kind() == "record_pattern" => binding_identifiers(target),
+                _ => Vec::new(),
+            }
+        }
+        _ => Vec::new(),
+    }
+}
+
+pub(super) fn statement_cannot_complete_normally(statement: Option<Node<'_>>) -> bool {
+    let Some(statement) = statement else {
+        return false;
+    };
+    if matches!(
+        statement.kind(),
+        "return_statement" | "throw_statement" | "break_statement" | "continue_statement"
+    ) {
+        return true;
+    }
+    if statement.kind() == "if_statement" {
+        return statement_cannot_complete_normally(statement.child_by_field_name("consequence"))
+            && statement_cannot_complete_normally(statement.child_by_field_name("alternative"));
+    }
+    if statement.kind() != "block" {
+        return false;
+    }
+    statement
+        .named_child(statement.named_child_count().saturating_sub(1))
+        .is_some_and(|last| statement_cannot_complete_normally(Some(last)))
+}
 
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
     Language::Java,

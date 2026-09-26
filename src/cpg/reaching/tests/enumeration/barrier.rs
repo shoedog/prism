@@ -352,6 +352,114 @@ const JAVA_NEGATED_CASE: Case = Case {
     expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
 };
 
+const fn supplemental_java_case(
+    id: &'static str,
+    kind: &'static str,
+    src: &'static str,
+    expect: &'static [(&'static str, &'static str, FlowConfidence)],
+    expected_counter: i64,
+) -> Case {
+    Case {
+        id,
+        language: Language::Java,
+        kind,
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Behavioral,
+        src,
+        expect,
+        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", expected_counter)),
+    }
+}
+
+const fn ou(construct_line: u32) -> FlowConfidence {
+    FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line })
+}
+
+const JAVA_DOUBLE_NEGATED_CASE: Case = supplemental_java_case(
+    "e0c-1-java-double-negated-pattern",
+    "record_pattern",
+    "int f(Object o) {\n    int x = source();\n    if (!!((o instanceof R(var x)))) {\n        sink(x);\n    } else {\n        consume(x);\n    }\n    return x;\n}\n",
+    &[
+        ("2:x", "4:x", ou(3)),
+        ("2:x", "6:x", FlowConfidence::Exact),
+        ("2:x", "8:x", FlowConfidence::Exact),
+    ],
+    1,
+);
+
+const JAVA_TRIPLE_NEGATED_CASE: Case = supplemental_java_case(
+    "e0c-1-java-triple-negated-pattern",
+    "record_pattern",
+    "int f(Object o) {\n    int x = source();\n    if (!!!((o instanceof R(var x)))) {\n        sink(x);\n    } else {\n        consume(x);\n    }\n    return x;\n}\n",
+    &[
+        ("2:x", "4:x", FlowConfidence::Exact),
+        ("2:x", "6:x", ou(3)),
+        ("2:x", "8:x", FlowConfidence::Exact),
+    ],
+    1,
+);
+
+const JAVA_RECORD_BINDER_NAMES_CASE: Case = supplemental_java_case(
+    "e0c-1-java-record-pattern-binder-names",
+    "record_pattern",
+    "int f(Object o) {\n    int R = source();\n    int String = source();\n    int y = source();\n    if (o instanceof R<String>(var y)) {\n        sink(R);\n        consume(String);\n        observe(y);\n    }\n    return R + String + y;\n}\n",
+    &[
+        ("2:R", "6:R", FlowConfidence::Exact),
+        ("3:String", "7:String", FlowConfidence::Exact),
+        ("4:y", "8:y", ou(5)),
+    ],
+    1,
+);
+
+const JAVA_NAME_CARRIER_POSITIVE_CASE: Case = supplemental_java_case(
+    "e0c-1-java-instanceof-name-positive",
+    "instanceof_expression",
+    "int f(Object o) {\n    int x = source();\n    if (o instanceof String x && guard(x)) {\n        sink(x);\n    }\n    return x;\n}\n",
+    &[
+        ("2:x", "3:x", ou(3)),
+        ("2:x", "4:x", ou(3)),
+        ("2:x", "6:x", FlowConfidence::Exact),
+    ],
+    2,
+);
+
+const JAVA_NAME_CARRIER_NEGATED_CASE: Case = supplemental_java_case(
+    "e0c-1-java-instanceof-name-negated",
+    "instanceof_expression",
+    "int f(Object o) {\n    int x = source();\n    if (!(o instanceof String x)) {\n        sink(x);\n    } else {\n        consume(x);\n    }\n    return x;\n}\n",
+    &[
+        ("2:x", "4:x", FlowConfidence::Exact),
+        ("2:x", "6:x", ou(3)),
+        ("2:x", "8:x", FlowConfidence::Exact),
+    ],
+    1,
+);
+
+const JAVA_NESTED_NONCOMPLETING_CASE: Case = supplemental_java_case(
+    "e0c-1-java-nested-noncompleting-consequence",
+    "record_pattern",
+    "int f(Object o, boolean flag) {\n    int x = source();\n    if (!(o instanceof R(var x))) {\n        if (flag) { return 0; } else { return 1; }\n    }\n    sink(x);\n    return x;\n}\n",
+    &[("2:x", "6:x", ou(3))],
+    1,
+);
+
+const JAVA_NESTED_CAN_COMPLETE_CASE: Case = supplemental_java_case(
+    "e0c-1-java-nested-completing-consequence",
+    "record_pattern",
+    "int f(Object o, boolean flag) {\n    int x = source();\n    if (!(o instanceof R(var x))) {\n        if (flag) { return 0; }\n    }\n    sink(x);\n    return x;\n}\n",
+    &[("2:x", "6:x", FlowConfidence::Exact)],
+    0,
+);
+
+const JAVA_NEGATED_EMPTY_CASE: Case = supplemental_java_case(
+    "e0c-1-java-negated-empty-span",
+    "record_pattern",
+    "int f(Object o) {\n    int x = source();\n    if (!(o instanceof R(var x))) {}\n    sink(x);\n    return x;\n}\n",
+    &[("2:x", "4:x", FlowConfidence::Exact)],
+    0,
+);
+
 fn assert_barrier_case(case: &Case) {
     let parsed = super::super::parsed(case.src, case.language);
     let function = super::super::function(&parsed);
@@ -418,6 +526,37 @@ fn unknown_scope_fail_closed() {
 #[test]
 fn java_negated_instanceof_is_branch_aware() {
     assert_barrier_case(&JAVA_NEGATED_CASE);
+}
+
+#[test]
+fn java_negation_parity_through_parentheses_and_unary() {
+    assert_barrier_case(&JAVA_DOUBLE_NEGATED_CASE);
+    assert_barrier_case(&JAVA_TRIPLE_NEGATED_CASE);
+}
+
+#[test]
+fn java_record_pattern_excludes_type_and_generic_identifiers() {
+    assert_barrier_case(&JAVA_RECORD_BINDER_NAMES_CASE);
+}
+
+#[test]
+fn java_instanceof_name_carrier_obeys_guard_spans() {
+    assert_barrier_case(&JAVA_NAME_CARRIER_POSITIVE_CASE);
+    assert_barrier_case(&JAVA_NAME_CARRIER_NEGATED_CASE);
+}
+
+#[test]
+fn java_nested_noncompleting_consequence_controls_post_if_span() {
+    assert_barrier_case(&JAVA_NESTED_NONCOMPLETING_CASE);
+    assert_barrier_case(&JAVA_NESTED_CAN_COMPLETE_CASE);
+}
+
+#[test]
+fn empty_span_is_direct_and_behaviorally_preserved() {
+    let rust = super::super::parsed(CASES[3].src, Language::Rust);
+    let binder = super::case::nodes_of_kind(&rust, "tuple_struct_pattern")[0];
+    assert_eq!(visibility_span(&rust, binder), SpanKind::Empty);
+    assert_barrier_case(&JAVA_NEGATED_EMPTY_CASE);
 }
 
 fn ancestor_of_kind<'a>(mut node: tree_sitter::Node<'a>, kind: &str) -> tree_sitter::Node<'a> {

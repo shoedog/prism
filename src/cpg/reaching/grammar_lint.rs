@@ -1,4 +1,7 @@
-use super::binding_table::{guard_span_row, select_binding_row, Ruling, Visibility};
+use super::binding_table::{
+    guard_span_row, java_binding_identifiers, java_statement_cannot_complete_normally,
+    select_binding_row, Ruling, Visibility,
+};
 use super::scope::{binding_scope_rule, RootFunction};
 use super::Line;
 use crate::ast::ParsedFile;
@@ -90,7 +93,9 @@ pub(super) fn visibility_span(parsed: &ParsedFile, binder_node: Node<'_>) -> Spa
                 });
             }
         }
-        if negated && statement_cannot_complete_normally(owner.child_by_field_name("consequence")) {
+        if negated
+            && java_statement_cannot_complete_normally(owner.child_by_field_name("consequence"))
+        {
             if let Some(parent) = owner.parent() {
                 if owner.end_byte() < parent.end_byte() {
                     spans.push(ByteSpan {
@@ -147,14 +152,11 @@ pub(super) fn uncertain_binding_nodes<'a>(parsed: &'a ParsedFile, name: &str) ->
 }
 
 fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
-    if parsed.language == Language::Java
-        && !matches!(node.kind(), "record_pattern" | "type_pattern")
-    {
-        return false;
+    if parsed.language == Language::Java {
+        return java_node_introduces_name(parsed, node, name);
     }
     let special_target = match (parsed.language, node.kind()) {
-        (Language::Java, "record_pattern" | "type_pattern")
-        | (Language::Rust, "tuple_struct_pattern") => Some(node),
+        (Language::Rust, "tuple_struct_pattern") => Some(node),
         (Language::Bash, "for_statement") => node.child_by_field_name("variable"),
         _ => None,
     };
@@ -169,6 +171,24 @@ fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool
                     .is_some_and(|target| target_introduces_name(parsed, node, target, name))
             })
         })
+}
+
+fn java_node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
+    let Some(root_function) = parsed
+        .all_functions()
+        .into_iter()
+        .filter(|function| {
+            function.start_byte() <= node.start_byte() && node.end_byte() <= function.end_byte()
+        })
+        .min_by_key(|function| function.end_byte() - function.start_byte())
+    else {
+        return false;
+    };
+    let root = RootFunction::new(parsed, root_function);
+    java_binding_identifiers(node).into_iter().any(|target| {
+        parsed.node_text(&target) == name
+            && !introduction_is_classified(parsed, node, target, &root)
+    })
 }
 
 fn target_introduces_name(
@@ -208,13 +228,12 @@ fn subtree_has_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
 }
 
 fn ancestor_of_kind<'a>(mut node: Node<'a>, kind: &str) -> Option<Node<'a>> {
-    while let Some(parent) = node.parent() {
-        if parent.kind() == kind {
-            return Some(parent);
+    loop {
+        if node.kind() == kind {
+            return Some(node);
         }
-        node = parent;
+        node = node.parent()?;
     }
-    None
 }
 
 fn ancestor_field<'a>(mut node: Node<'a>, kind: &str, field: &str) -> Option<Node<'a>> {
@@ -252,36 +271,20 @@ fn rust_visibility_node(binder_node: Node<'_>) -> Option<Node<'_>> {
 
 fn guard_is_negated(parsed: &ParsedFile, guard: Node<'_>, condition: Node<'_>) -> bool {
     let mut current = guard;
+    let mut negated = false;
     while let Some(parent) = current.parent() {
         if parent.id() == condition.id() {
             break;
         }
-        if parent.kind() == "unary_expression"
-            && parsed.node_text(&parent).trim_start().starts_with('!')
-        {
-            return true;
+        if parent.kind() == "unary_expression" {
+            let is_not = parent
+                .child_by_field_name("operator")
+                .is_some_and(|operator| parsed.node_text(&operator) == "!");
+            negated ^= is_not;
         }
         current = parent;
     }
-    false
-}
-
-fn statement_cannot_complete_normally(statement: Option<Node<'_>>) -> bool {
-    let Some(statement) = statement else {
-        return false;
-    };
-    if matches!(
-        statement.kind(),
-        "return_statement" | "throw_statement" | "break_statement" | "continue_statement"
-    ) {
-        return true;
-    }
-    if statement.kind() != "block" {
-        return false;
-    }
-    statement
-        .named_child(statement.named_child_count().saturating_sub(1))
-        .is_some_and(|last| statement_cannot_complete_normally(Some(last)))
+    negated
 }
 
 pub(super) fn collect_unclassified_binding_lines(
