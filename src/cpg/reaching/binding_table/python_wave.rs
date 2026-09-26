@@ -3,7 +3,7 @@ use crate::languages::Language;
 
 pub(super) const DIGEST: &str = "7ff6914d278faf4254d923e1205b887f940cfb3db46a81eddbde01e782707ac3";
 pub(super) const CENSUS_DIGEST: &str =
-    "5de434fab529e178786ea4278ecd6cbe158bce41cbbf2e422e9c578034c08b1e";
+    "d6f9cf15bb6191845d42c1ae36a448403b246408553120f4942884dea453f6c5";
 
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
     Language::Python,

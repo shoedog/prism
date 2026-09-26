@@ -1,6 +1,7 @@
 use super::super::super::binding_table::{
     rows, DeclarationKind, Predicate, Role, Ruling, Visibility,
 };
+use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
 pub(super) const SOURCE: &str = r#"import defaultName, * as ns from "pkg" with { type: "json" };
@@ -25,7 +26,55 @@ const arrow = (x = outer) => x;
 class Child extends Base { static { this.ready = true; } method(p) { return p; } }
 "#;
 
-pub(super) const CASES: &[super::case::Case] = &[];
+pub(super) const CLASSIFIED_MASK_SOURCE: &str = r#"function f() {
+  let x = source();
+  { let x = clean(); sink(x); }
+  sink(x);
+}
+"#;
+
+pub(super) const CASES: &[super::case::Case] = &[
+    super::case::Case {
+        id: "e0a-js-lexical_declaration",
+        language: Language::JavaScript,
+        kind: "lexical_declaration",
+        variant: Some("binding"),
+        row_variant: None,
+        src: CLASSIFIED_MASK_SOURCE,
+        expect: &[
+            (
+                "2:x",
+                "3:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:x", "4:x", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "e0a-x-for_in_statement-predicate",
+        language: Language::JavaScript,
+        kind: "for_in_statement",
+        variant: Some("binding"),
+        row_variant: Some(Predicate::FieldTextIs {
+            field: "kind",
+            any_of: &["let", "const"],
+        }),
+        src: "function f(items) { for (const item of items) { sink(item); } }",
+        expect: &[],
+        expect_counter: None,
+    },
+    super::case::Case {
+        id: "e0a-x-for_in_statement-residual",
+        language: Language::JavaScript,
+        kind: "for_in_statement",
+        variant: Some("binding"),
+        row_variant: None,
+        src: "function f(items) { for (item of items) { sink(item); } }",
+        expect: &[],
+        expect_counter: None,
+    },
+];
 pub(super) const CURATED: &[(&str, &str)] = &[
     ("statement_block", "e0a-js-statement_block"),
     ("class_body", "e0a-js-class_body"),

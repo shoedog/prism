@@ -80,7 +80,7 @@ pub(super) static ROWS: &[BindingRow] = &[
         declaration: Some(DeclarationKind::Other),
         visibility: Visibility::Header,
         ruling: Ruling::Classified,
-        regression: "e0a-js-for_in_statement",
+        regression: "e0a-x-for_in_statement-predicate",
     },
     BindingRow {
         language: Language::JavaScript,
@@ -91,7 +91,7 @@ pub(super) static ROWS: &[BindingRow] = &[
         declaration: None,
         visibility: Visibility::WholeScope,
         ruling: Ruling::Classified,
-        regression: "e0a-js-for_in_statement",
+        regression: "e0a-x-for_in_statement-residual",
     },
     BindingRow {
         language: Language::JavaScript,
