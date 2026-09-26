@@ -1,0 +1,671 @@
+diff --git a/src/ast.rs b/src/ast.rs
+index dc3a4af1..6006c36d 100644
+--- a/src/ast.rs
++++ b/src/ast.rs
+@@ -7,6 +7,7 @@ use tree_sitter::{Node, Parser, Tree};
+ mod js_cjs_export_barriers;
+ mod js_cjs_terminal;
+ mod js_module_forwarding;
++mod js_wrapped_export;
+ 
+ /// A parameter binding and the byte span of its identifier token.
+ pub type ParameterOccurrence = (String, usize, usize);
+@@ -2887,7 +2888,33 @@ impl ParsedFile {
+                                     JsExportTarget::Local(name_text),
+                                 );
+                             }
+-                            _ => facts.skipped_expr_count += 1,
++                            Some("call_expression") => match self.js_ts_wrapped_export(decl, d) {
++                                Ok((local, start_line, end_line)) => {
++                                    facts.spanned_admitted += 1;
++                                    facts.insert_named(
++                                        name_text,
++                                        JsExportTarget::WrappedLocal {
++                                            local,
++                                            start_line,
++                                            end_line,
++                                        },
++                                    )
++                                }
++                                Err(reason) => {
++                                    facts.skipped_expr_count += 1;
++                                    *facts
++                                        .skipped_decl_reasons
++                                        .entry(reason.to_string())
++                                        .or_default() += 1;
++                                }
++                            },
++                            _ => {
++                                facts.skipped_expr_count += 1;
++                                *facts
++                                    .skipped_decl_reasons
++                                    .entry("non_call_initializer".to_string())
++                                    .or_default() += 1;
++                            }
+                         }
+                     }
+                 }
+diff --git a/src/ast/js_wrapped_export.rs b/src/ast/js_wrapped_export.rs
+new file mode 100644
+index 00000000..e2348696
+--- /dev/null
++++ b/src/ast/js_wrapped_export.rs
+@@ -0,0 +1,219 @@
++//! PROTOTYPE Branch P (planning only): span-verified React forwardRef/memo exports.
++use super::ParsedFile;
++use std::collections::{BTreeMap, BTreeSet};
++use tree_sitter::Node;
++
++const WRAPPERS: [&str; 2] = ["forwardRef", "memo"];
++
++struct ReactImports {
++    named: BTreeMap<String, String>,
++    objects: BTreeSet<String>,
++}
++
++impl ParsedFile {
++    pub(super) fn js_ts_wrapped_export(
++        &self,
++        decl: Node<'_>,
++        declarator: Node<'_>,
++    ) -> Result<(String, usize, usize), &'static str> {
++        if decl.kind() != "lexical_declaration"
++            || decl.child_by_field_name("kind").map(|k| k.kind()) != Some("const")
++        {
++            return Err("not_const");
++        }
++        if decl.parent().is_some_and(|p| p.has_error()) || decl.has_error() {
++            return Err("parse_recovery");
++        }
++        let call = declarator
++            .child_by_field_name("value")
++            .ok_or("non_call_initializer")?;
++        let callee = call
++            .child_by_field_name("function")
++            .ok_or("callee_not_admitted")?;
++        let root = self.tree.root_node();
++        let mut rc = root.walk();
++        if root
++            .named_children(&mut rc)
++            .any(|n| n.kind() == "import_statement" && n.has_error())
++        {
++            return Err("import_parse_recovery");
++        }
++        let react = self.react_imports();
++        let (local, wrapper) = match callee.kind() {
++            "identifier" => {
++                let l = self.node_text(&callee).to_string();
++                let w = react.named.get(&l).ok_or("callee_not_admitted")?.clone();
++                (l, w)
++            }
++            "member_expression" => {
++                let o = callee
++                    .child_by_field_name("object")
++                    .ok_or("callee_not_admitted")?;
++                let p = callee
++                    .child_by_field_name("property")
++                    .ok_or("callee_not_admitted")?;
++                let ot = self.node_text(&o).to_string();
++                if o.kind() != "identifier"
++                    || p.kind() != "property_identifier"
++                    || !react.objects.contains(&ot)
++                {
++                    return Err("callee_not_admitted");
++                }
++                (ot, self.node_text(&p).to_string())
++            }
++            _ => return Err("callee_not_admitted"),
++        };
++        if !WRAPPERS.contains(&wrapper.as_str()) {
++            return Err("callee_not_admitted");
++        }
++        let imports = self.extract_import_bindings();
++        if local.contains('\\')
++            || imports.iter().filter(|b| b.local == local).count() != 1
++            || self.js_ts_type_only_imports().contains_key(&local)
++            || self.js_ts_module_value_written(&local)
++            || self.module_scope_declares(root, &local, false)
++        {
++            return Err("callee_provenance");
++        }
++        let args = call.child_by_field_name("arguments").ok_or("arity")?;
++        if args.kind() != "arguments" {
++            return Err("arity");
++        }
++        let mut ac = args.walk();
++        let named: Vec<Node<'_>> = args
++            .named_children(&mut ac)
++            .filter(|n| n.kind() != "comment")
++            .collect();
++        let max = if wrapper == "forwardRef" { 1 } else { 2 };
++        if named.is_empty() || named.len() > max {
++            return Err("arity");
++        }
++        let inner = named[0];
++        if inner.kind() == "call_expression" {
++            return Err("nested_wrapper");
++        }
++        if !matches!(inner.kind(), "arrow_function" | "function_expression") {
++            return Err("first_arg_not_function");
++        }
++        let name = self.language.function_name(&inner).ok_or("inner_unnamed")?;
++        let name = self.node_text(&name).to_string();
++        let span = self.node_line_range(&inner);
++        if let Some(cmp) = named.get(1) {
++            if matches!(cmp.kind(), "arrow_function" | "function_expression")
++                && self.language.function_name(cmp).map(|n| self.node_text(&n)) == Some(&name)
++                && self.node_line_range(cmp) == span
++            {
++                return Err("comparator_line_collision");
++            }
++        }
++        Ok((name, span.0, span.1))
++    }
++
++    fn react_imports(&self) -> ReactImports {
++        let mut out = ReactImports {
++            named: BTreeMap::new(),
++            objects: BTreeSet::new(),
++        };
++        let root = self.tree.root_node();
++        let mut rc = root.walk();
++        for st in root.named_children(&mut rc) {
++            if st.kind() != "import_statement" || self.js_ts_import_statement_is_type_only(st) {
++                continue;
++            }
++            let Some(src) = st.child_by_field_name("source") else {
++                continue;
++            };
++            if self.node_text(&src).trim_matches(['"', '\'']) != "react" {
++                continue;
++            }
++            let mut sc = st.walk();
++            for clause in st.named_children(&mut sc) {
++                if clause.kind() != "import_clause" {
++                    continue;
++                }
++                let mut cc = clause.walk();
++                for c in clause.named_children(&mut cc) {
++                    match c.kind() {
++                        "identifier" => {
++                            out.objects.insert(self.node_text(&c).to_string());
++                        }
++                        "namespace_import" => {
++                            let mut nc = c.walk();
++                            for id in c.named_children(&mut nc) {
++                                if id.kind() == "identifier" {
++                                    out.objects.insert(self.node_text(&id).to_string());
++                                }
++                            }
++                        }
++                        "named_imports" => {
++                            let mut ic = c.walk();
++                            for spec in c.named_children(&mut ic) {
++                                if spec.kind() != "import_specifier"
++                                    || self.js_ts_import_specifier_is_type_only(spec)
++                                {
++                                    continue;
++                                }
++                                let Some(n) = spec.child_by_field_name("name") else {
++                                    continue;
++                                };
++                                if n.kind() != "identifier" {
++                                    continue;
++                                }
++                                let a = spec.child_by_field_name("alias").unwrap_or(n);
++                                out.named.insert(
++                                    self.node_text(&a).to_string(),
++                                    self.node_text(&n).to_string(),
++                                );
++                            }
++                        }
++                        _ => {}
++                    }
++                }
++            }
++        }
++        out
++    }
++
++    /// A module-scope declaration of `name`: a top-level or exported
++    /// declaration, or a `var` hoisted out of top-level blocks, loops,
++    /// `switch` and `try`. Stops at nested functions, classes and block-scoped
++    /// `let`/`const`.
++    fn module_scope_declares(&self, node: Node<'_>, name: &str, top: bool) -> bool {
++        let kind = node.kind();
++        let named = |n: Node<'_>| self.node_text(&n) == name;
++        if super::is_js_ts_function_like(kind) || kind.contains("class") {
++            return top && node.child_by_field_name("name").is_some_and(named);
++        }
++        if kind == "import_statement" || (!top && kind == "lexical_declaration") {
++            return false;
++        }
++        let binding = match kind {
++            "variable_declarator" => node.child_by_field_name("name"),
++            "for_in_statement"
++                if node
++                    .child_by_field_name("kind")
++                    .is_some_and(|k| self.node_text(&k) == "var") =>
++            {
++                node.child_by_field_name("left")
++            }
++            _ => None,
++        };
++        if let Some(pattern) = binding {
++            let mut names = BTreeSet::new();
++            self.collect_js_ts_binding_pattern_names(pattern, &mut names);
++            if names.contains(name) {
++                return true;
++            }
++        }
++        if top && node.child_by_field_name("name").is_some_and(named) {
++            return true;
++        }
++        let child_top = matches!(kind, "program" | "export_statement")
++            || (top && matches!(kind, "lexical_declaration" | "variable_declaration"));
++        let mut c = node.walk();
++        let found = node
++            .named_children(&mut c)
++            .any(|ch| self.module_scope_declares(ch, name, child_top));
++        found
++    }
++}
+diff --git a/src/call_graph.rs b/src/call_graph.rs
+index d6ac53a1..63beac5e 100644
+--- a/src/call_graph.rs
++++ b/src/call_graph.rs
+@@ -493,6 +493,10 @@ pub struct CallSite {
+     /// construction sets this while ordinary source sites leave it empty.
+     #[serde(default)]
+     pub pre_resolved_target: Option<FunctionId>,
++    /// JS/JSX/TSX: the site is a JSX element (`<X/>`), not a call expression.
++    /// Excluded from cmp_key. Only SpannedLocal export targets consult it.
++    #[serde(default)]
++    pub jsx_element: bool,
+ }
+ 
+ /// Parameter arity for a method definition (language-agnostic shape).
+@@ -1397,6 +1401,7 @@ impl CallGraph {
+                         receiver_outcome: None,
+                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
+                         pre_resolved_target: None,
++                        jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
+                     };
+                     calls
+                         .entry(caller_id.clone())
+@@ -1829,6 +1834,7 @@ impl CallGraph {
+                             receiver_outcome: None,
+                             origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
+                             pre_resolved_target: None,
++                            jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
+                         };
+                         file_call_sites.push((caller_id.clone(), site));
+                     }
+@@ -2868,6 +2874,7 @@ impl CallGraph {
+             receiver_outcome: None,
+             origin: CallSiteOrigin::IndirectResolution,
+             pre_resolved_target: None,
++            jsx_element: false,
+         }
+     }
+ 
+@@ -5126,6 +5133,7 @@ impl CallGraph {
+                         receiver_outcome: None,
+                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
+                         pre_resolved_target: None,
++                        jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
+                     };
+                     calls
+                         .entry(caller_id.clone())
+@@ -5501,6 +5509,18 @@ impl CallGraph {
+             .map(str::to_string)
+     }
+ 
++    fn jsx_element_at(parsed: &ParsedFile, start_byte: usize, end_byte: usize) -> bool {
++        parsed
++            .tree
++            .root_node()
++            .descendant_for_byte_range(start_byte, end_byte)
++            .is_some_and(|n| {
++                n.start_byte() == start_byte
++                    && n.end_byte() == end_byte
++                    && matches!(n.kind(), "jsx_self_closing_element" | "jsx_opening_element")
++            })
++    }
++
+     fn call_kind_at(parsed: &ParsedFile, start_byte: usize, end_byte: usize) -> CallKind {
+         if !matches!(parsed.language, crate::languages::Language::Rust) {
+             return CallKind::Call;
+diff --git a/src/js_exports.rs b/src/js_exports.rs
+index 9cb9b5c1..6db1ce33 100644
+--- a/src/js_exports.rs
++++ b/src/js_exports.rs
+@@ -36,6 +36,13 @@ pub enum JsExportTarget {
+     UnprovenLocal(String),
+     /// Declaration-backed local class. Never a callable-function export.
+     Class(String),
++    /// PROTOTYPE: `export const X = <admitted react wrapper>(fn)`; the inner function's
++    /// registered name and exact line span (span-verified at R4c, never name-only).
++    WrappedLocal {
++        local: String,
++        start_line: usize,
++        end_line: usize,
++    },
+     /// `export { imported as exported_name } from './y'` (also used for the
+     /// re-export half of barrel resolution). `imported` is the name as
+     /// declared/exported in the target module (`"default"` for a default
+@@ -87,6 +94,10 @@ pub struct JsExportFacts {
+     /// silently overwriting `named`, so whole-program resolution (which sees
+     /// both facts) can fail closed instead of picking a last-writer winner.
+     pub conflicted: BTreeSet<String>,
++    #[serde(default)]
++    pub spanned_admitted: usize,
++    #[serde(default)]
++    pub skipped_decl_reasons: BTreeMap<String, usize>,
+ }
+ 
+ impl JsExportFacts {
+@@ -124,6 +135,8 @@ impl JsExportFacts {
+ pub struct ResolvedJsExport {
+     pub file: String,
+     pub local_name: String,
++    #[serde(default)]
++    pub span: Option<(usize, usize)>,
+ }
+ 
+ /// Whole-program resolution output: per-file resolved export tables plus
+@@ -281,10 +294,23 @@ fn resolve_one_inner(
+         return match target {
+             JsExportTarget::UnprovenLocal(_) => ExportLookup::BlockedClaim,
+             // Class identity participates in conflicts, never callable projection.
++            JsExportTarget::WrappedLocal {
++                local,
++                start_line,
++                end_line,
++            } => ExportLookup::Resolved(
++                ResolvedJsExport {
++                    file: file.to_string(),
++                    local_name: local.clone(),
++                    span: Some((*start_line, *end_line)),
++                },
++                false,
++            ),
+             JsExportTarget::Class(local) | JsExportTarget::Local(local) => ExportLookup::Resolved(
+                 ResolvedJsExport {
+                     file: file.to_string(),
+                     local_name: local.clone(),
++                    span: None,
+                 },
+                 matches!(target, JsExportTarget::Class(_)),
+             ),
+@@ -337,7 +363,7 @@ fn resolve_one_inner(
+         telemetry.chain_unresolved += 1;
+         return ExportLookup::NoTarget;
+     }
+-    let mut candidates: BTreeSet<(String, String, bool)> = BTreeSet::new();
++    let mut candidates: BTreeSet<(String, String, bool, Option<(usize, usize)>)> = BTreeSet::new();
+     for module_path in &facts.star_reexports {
+         let Some(target_file) = resolve_module(file, module_path) else {
+             continue;
+@@ -356,7 +382,7 @@ fn resolve_one_inner(
+             telemetry,
+         ) {
+             ExportLookup::Resolved(hit, is_class) => {
+-                candidates.insert((hit.file, hit.local_name, is_class));
++                candidates.insert((hit.file, hit.local_name, is_class, hit.span));
+             }
+             ExportLookup::BlockedClaim => return ExportLookup::BlockedClaim,
+             ExportLookup::NoTarget => {}
+@@ -365,8 +391,15 @@ fn resolve_one_inner(
+     match candidates.len() {
+         0 => ExportLookup::NoTarget,
+         1 => {
+-            let (file, local_name, is_class) = candidates.into_iter().next().unwrap();
+-            ExportLookup::Resolved(ResolvedJsExport { file, local_name }, is_class)
++            let (file, local_name, is_class, span) = candidates.into_iter().next().unwrap();
++            ExportLookup::Resolved(
++                ResolvedJsExport {
++                    file,
++                    local_name,
++                    span,
++                },
++                is_class,
++            )
+         }
+         _ => {
+             telemetry.barrel_conflicts += 1;
+@@ -392,6 +425,8 @@ mod tests {
+             star_reexports: star.iter().map(|s| s.to_string()).collect(),
+             skipped_expr_count: 0,
+             conflicted: BTreeSet::new(),
++            spanned_admitted: 0,
++            skipped_decl_reasons: BTreeMap::new(),
+         }
+     }
+ 
+@@ -426,7 +461,8 @@ mod tests {
+             out.resolved["util.ts"]["process"],
+             ResolvedJsExport {
+                 file: "util.ts".to_string(),
+-                local_name: "process".to_string()
++                local_name: "process".to_string(),
++                span: None,
+             }
+         );
+         assert_eq!(out.chain_unresolved, 0);
+@@ -449,7 +485,8 @@ mod tests {
+             out.resolved["index.ts"]["process"],
+             ResolvedJsExport {
+                 file: "impl.ts".to_string(),
+-                local_name: "process".to_string()
++                local_name: "process".to_string(),
++                span: None,
+             }
+         );
+         assert_eq!(out.chain_unresolved, 0);
+@@ -475,7 +512,8 @@ mod tests {
+             out.resolved["index.ts"]["process"],
+             ResolvedJsExport {
+                 file: "impl.ts".to_string(),
+-                local_name: "process".to_string()
++                local_name: "process".to_string(),
++                span: None,
+             }
+         );
+         assert_eq!(out.chain_unresolved, 0);
+@@ -535,7 +573,8 @@ mod tests {
+             out.resolved["index.ts"]["process"],
+             ResolvedJsExport {
+                 file: "impl.ts".to_string(),
+-                local_name: "process".to_string()
++                local_name: "process".to_string(),
++                span: None,
+             }
+         );
+     }
+@@ -597,7 +636,8 @@ mod tests {
+             out.resolved["index.ts"]["process"],
+             ResolvedJsExport {
+                 file: "impl.ts".to_string(),
+-                local_name: "process".to_string()
++                local_name: "process".to_string(),
++                span: None,
+             }
+         );
+         assert_eq!(out.barrel_conflicts, 0);
+diff --git a/src/navigation/partition_site_dump.rs b/src/navigation/partition_site_dump.rs
+index abaacedc..4eaab518 100644
+--- a/src/navigation/partition_site_dump.rs
++++ b/src/navigation/partition_site_dump.rs
+@@ -103,6 +103,7 @@ mod tests {
+             receiver_outcome: None,
+             origin: CallSiteOrigin::Source,
+             pre_resolved_target: None,
++            jsx_element: false,
+         };
+         let outcome = ResolutionOutcome {
+             resolved: vec![crate::resolution::ResolvedCallee {
+diff --git a/src/navigation/queries.rs b/src/navigation/queries.rs
+index d482518d..96dc8085 100644
+--- a/src/navigation/queries.rs
++++ b/src/navigation/queries.rs
+@@ -378,6 +378,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
+     // this. Keyed by `site.receiver_recovery` (Debug-formatted; "none" when
+     // absent) so Go misses stop landing unattributed.
+     let mut dropped_go_receiver: BTreeMap<String, usize> = BTreeMap::new();
++    let mut wrapped_non_jsx = 0usize;
+     for sites in cg.calls.values() {
+         for site in sites {
+             total += 1;
+@@ -389,6 +390,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
+                 Some(DropReason::UnknownName) => unknown += 1,
+                 Some(DropReason::FuncValueFanout) => func_value_fanout += 1,
+                 Some(DropReason::GoSamePkgAllFiltered) => go_same_pkg_all_filtered_drop += 1,
++                Some(DropReason::WrappedExportNonJsx) => wrapped_non_jsx += 1,
+                 Some(
+                     DropReason::ConcreteReceiverPromotedDeferred
+                     | DropReason::ConcreteReceiverNoSelector,
+@@ -556,6 +558,12 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
+         "member_hidden_continue_poison": ge.member_hidden_continue_poison,
+     });
+ 
++    let mut decl_reasons: BTreeMap<String, usize> = BTreeMap::new();
++    for f in cg.js_ts_exports.values() {
++        for (k, v) in &f.skipped_decl_reasons {
++            *decl_reasons.entry(k.clone()).or_default() += v;
++        }
++    }
+     let mut stats = serde_json::json!({
+         "total_call_sites": total,
+         "kinds": kinds,
+@@ -629,6 +637,13 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
+         // structural skip elsewhere, not counted here; spread-poisoned
+         // literals, non-arrow/function-expr initializers, and arbitrary
+         // default-export/CJS-assignment RHS all count here).
++        "js_export_spanned_admitted": cg
++            .js_ts_exports
++            .values()
++            .map(|f| f.spanned_admitted)
++            .sum::<usize>(),
++        "js_export_skipped_decl_reasons": decl_reasons,
++        "dropped_wrapped_export_non_jsx": wrapped_non_jsx,
+         "js_export_skipped_exprs": cg
+             .js_ts_exports
+             .values()
+diff --git a/src/resolution.rs b/src/resolution.rs
+index 95e7f6f5..07455217 100644
+--- a/src/resolution.rs
++++ b/src/resolution.rs
+@@ -1031,6 +1031,8 @@ pub enum DropReason {
+     ConcreteReceiverPromotedDeferred,
+     /// P17 R1(e): a proven concrete receiver has no admissible selector lane.
+     ConcreteReceiverNoSelector,
++    /// A span-verified wrapped React export reached by a non-JSX site.
++    WrappedExportNonJsx,
+ }
+ 
+ #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+@@ -3388,7 +3390,12 @@ impl CallGraph {
+                                 // start from `self.functions.get(member)` the way
+                                 // the Python arm below does.
+                                 let matched: Vec<&FunctionId> = if is_js_ts {
+-                                    self.js_ts_import_member_candidates(caller, binding, member)
++                                    match self.js_ts_import_member_candidates(
++                                        caller, binding, member, site,
++                                    ) {
++                                        Ok(v) => v,
++                                        Err(d) => return ResolutionOutcome::dropped(d),
++                                    }
+                                 } else if let Some(ids) = self.functions.get(member) {
+                                     // Python: filter to free, module-level
+                                     // functions in matching files.
+@@ -3656,28 +3663,41 @@ impl CallGraph {
+         caller: &FunctionId,
+         binding: &crate::call_graph::ImportBinding,
+         member: &str,
+-    ) -> Vec<&FunctionId> {
++        site: &CallSite,
++    ) -> Result<Vec<&FunctionId>, DropReason> {
+         let Some(candidate_file) = crate::call_graph::resolve_js_ts_relative_module(
+             &binding.module_path,
+             &caller.file,
+             &self.indexed_files,
+         ) else {
+-            return Vec::new();
++            return Ok(Vec::new());
+         };
+         let Some(resolved) = self
+             .js_ts_resolved_exports
+             .get(&candidate_file)
+             .and_then(|exports| exports.get(member))
+         else {
+-            return Vec::new();
++            return Ok(Vec::new());
+         };
+-        match self.functions.get(&resolved.local_name) {
++        if resolved.span.is_some() && !site.jsx_element {
++            return Err(DropReason::WrappedExportNonJsx);
++        }
++        let v: Vec<&FunctionId> = match self.functions.get(&resolved.local_name) {
+             Some(ids) => ids
+                 .iter()
+                 .filter(|fid| fid.file == resolved.file && !self.method_owners.contains_key(*fid))
++                .filter(|fid| {
++                    resolved
++                        .span
++                        .map_or(true, |(s, e)| fid.start_line == s && fid.end_line == e)
++                })
+                 .collect(),
+             None => Vec::new(),
++        };
++        if resolved.span.is_some() && v.len() > 1 {
++            return Ok(Vec::new());
+         }
++        Ok(v)
+     }
+ 
+     pub fn resolve_call_site(&self, site: &CallSite) -> Vec<ResolvedCallee<'_>> {
+@@ -4495,6 +4515,7 @@ mod scope_resolution_predicate_tests {
+             receiver_outcome: None,
+             origin: CallSiteOrigin::Source,
+             pre_resolved_target: None,
++            jsx_element: false,
+         }
+     }
+ 
+diff --git a/src/resolution_disproof.rs b/src/resolution_disproof.rs
+index f7503e11..9708720a 100644
+--- a/src/resolution_disproof.rs
++++ b/src/resolution_disproof.rs
+@@ -106,6 +106,7 @@ mod tests {
+             receiver_outcome: None,
+             origin: CallSiteOrigin::Source,
+             pre_resolved_target: None,
++            jsx_element: false,
+         }
+     }
+ 
+diff --git a/tests/name_resolution/consumer_test.rs b/tests/name_resolution/consumer_test.rs
+index 300e9962..7da68bf5 100644
+--- a/tests/name_resolution/consumer_test.rs
++++ b/tests/name_resolution/consumer_test.rs
+@@ -114,6 +114,7 @@ fn call_site(file: &str, name: &str, byte: usize) -> CallSite {
+         receiver_outcome: None,
+         origin: CallSiteOrigin::Source,
+         pre_resolved_target: None,
++        jsx_element: false,
+     }
+ }
+ 
+diff --git a/tests/navigation/scoped_calls_test.rs b/tests/navigation/scoped_calls_test.rs
+index 8cfcc9da..a5a5150d 100644
+--- a/tests/navigation/scoped_calls_test.rs
++++ b/tests/navigation/scoped_calls_test.rs
+@@ -68,6 +68,7 @@ fn resolved_targets(
+                 receiver_outcome: None,
+                 origin: CallSiteOrigin::Source,
+                 pre_resolved_target: None,
++                jsx_element: false,
+             }
+         });
+     resolve_site_nav(cg, &site)
