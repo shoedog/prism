@@ -175,7 +175,7 @@ fn uncertain_construct_on_route(
                 (parsed.language, binder.kind()),
                 (
                     crate::languages::Language::Java,
-                    "record_pattern" | "type_pattern"
+                    "record_pattern" | "type_pattern" | "instanceof_expression"
                 ) | (crate::languages::Language::Bash, "for_statement")
             );
             if !explicit_task7_binder {
