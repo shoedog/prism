@@ -128,13 +128,12 @@ impl ParsedFile {
         cache: &mut JsBindingCache<'a>,
     ) -> JsBinding {
         let root = self.tree.root_node();
-        if !cache.decls.contains_key(&root.id()) {
+        let (index, annex) = cache.decls.entry(root.id()).or_insert_with(|| {
             let (mut index, mut annex) = (Index::new(), BTreeSet::new());
             let mode = (true, true, self.js_ts_strictness(root));
             self.js_ts_declare_walk(root, mode, &BTreeSet::new(), &mut index, &mut annex);
-            cache.decls.insert(root.id(), (index, annex));
-        }
-        let (index, annex) = &cache.decls[&root.id()];
+            (index, annex)
+        });
         if annex.contains(name) {
             return JsBinding::Unchecked("annex_b_strictness");
         }
