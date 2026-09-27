@@ -1033,6 +1033,10 @@ pub enum DropReason {
     ConcreteReceiverNoSelector,
     /// S1: a span-verified wrapped React export reached by a non-JSX site.
     WrappedExportNonJsx,
+    /// S1b: a lowercase, dashed or namespaced plain JSX tag names an intrinsic element.
+    JsxIntrinsic,
+    /// S1b: a JS/TS unqualified call whose lexical binding holds no single proven callable.
+    LocalBindingUnproven,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
