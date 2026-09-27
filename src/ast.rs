@@ -5064,8 +5064,10 @@ impl ParsedFile {
 
         match node.kind() {
             "variable_declarator" => {
+                // S1b-1b (F4): the pattern's BoundNames, shorthand properties included and
+                // destructuring-default expressions excluded.
                 if let Some(name) = node.child_by_field_name("name") {
-                    self.collect_identifier_names(name, out);
+                    self.collect_js_ts_binding_pattern_names(name, out);
                 }
             }
             "catch_clause" => {
