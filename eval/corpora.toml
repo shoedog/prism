@@ -27,7 +27,7 @@ lang = "rust"
 path = "."                       # the prism repo itself (dogfood)
 oracle = "rust-analyzer"
 excludes = ["tests/fixtures/*", "eval/fixtures/*", "target/*"]
-pinned_sha = "20c8490591a3"                  # ANCHOR · OER 0.067 · post-taint_reaches main (#113/#117 + perf arc)
+# Corpus identity is stored in eval/tier-a.lock.toml; bootstrap snapshot: prism-20c8490591a3.json.
 
 [corpus.ruff]
 lang = "rust"
