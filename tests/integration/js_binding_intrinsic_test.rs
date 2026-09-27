@@ -87,3 +87,43 @@ fn a3_f1_f2_f3_writes_through_the_base_module_scan() {
         assert_eq!(app_sites(&cg), want, "{write}");
     }
 }
+
+#[test]
+fn a2_member_underscore_dollar_and_uppercase_tags_are_not_intrinsic() {
+    // Guards (base-green). C98: a member tag keeps its qualifier route.
+    let lib = "export const island = () => <span/>;\n";
+    let c98 =
+        "import * as lib from './lib';\nexport function App() {\n  return <lib.island/>;\n}\n";
+    let tags = "function _x() {\n  return 1;\n}\nfunction $x() {\n  return 2;\n}\nfunction Card() \
+        {\n  return 3;\n}\nexport function App() {\n  input();\n  return <_x><$x/><Card/></_x>;\n}\n";
+    let input = "export function input() {\n  return 1;\n}\n";
+    let tags_want: &[&str] = &[
+        "L11 input: Exact free_single lib:input@1-3",
+        "L12 $x: Exact local_def app:$x@4-6",
+        "L12 Card: Exact local_def app:Card@7-9",
+        "L12 _x: Exact local_def app:_x@1-3",
+    ];
+    check(
+        &[
+            (
+                lib,
+                c98,
+                &["L3 island: Exact import_qualified lib:island@1-1"],
+            ),
+            (input, tags, tags_want),
+        ],
+        BOTH,
+    );
+}
+
+#[test]
+fn a3_c126_arrow_parameter_write_leaves_the_export_exact() {
+    // Guard (C126, sol W2): the arrow's `f = 2` writes its parameter, not the export.
+    let lib = "export function f() {\n  return 1;\n}\nexport const g = f => {\n  f = 2;\n  \
+        return f;\n};\n";
+    let app = "import { f } from './lib';\nexport function run() {\n  return f();\n}\n";
+    check(
+        &[(lib, app, &["L3 f: Exact import_member lib:f@1-3"])],
+        BOTH,
+    );
+}
