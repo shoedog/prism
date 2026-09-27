@@ -9,12 +9,10 @@ include!("placeholder_owners.inc.rs");
 
 const PLACEHOLDER_OWNERS: &[(RowIdentity, &str)] = placeholder_owners!(Language, Predicate);
 
-fn classified_placeholders() -> BTreeSet<RowIdentity> {
-    let cases = all_cases();
+fn classified_placeholders_for(cases: &[&super::Case]) -> BTreeSet<RowIdentity> {
     Language::all()
         .iter()
         .flat_map(|&language| {
-            let cases = &cases;
             rows(language)
                 .iter()
                 .filter(move |row| {
@@ -23,13 +21,18 @@ fn classified_placeholders() -> BTreeSet<RowIdentity> {
                             case.language == language
                                 && case.kind == row.kind
                                 && case.row_variant == row.variant
-                                && (case.id == row.regression || case.variant.is_none())
+                                && case.id == row.regression
+                                && case.variant == Some("binding")
                                 && case.class == CaseClass::Behavioral
                         })
                 })
                 .map(move |row| (language, row.kind, row.variant, row.regression))
         })
         .collect()
+}
+
+fn classified_placeholders() -> BTreeSet<RowIdentity> {
+    classified_placeholders_for(&all_cases())
 }
 
 fn assert_placeholder_registry_exact(
@@ -65,7 +68,7 @@ fn classified_placeholders_are_enumerated() {
     assert_placeholder_registry_exact(&placeholders, PLACEHOLDER_OWNERS);
     assert_eq!(
         placeholders.len(),
-        61,
+        58,
         "placeholder debt count changed; update only as Behavioral cases replace debt"
     );
 }
@@ -82,6 +85,23 @@ fn placeholder_registry_rejects_a_missing_owner_entry() {
 fn placeholder_registry_rejects_a_stale_owner_entry() {
     let key = (Language::Bash, "fixture", None, "fixture-regression");
     assert_placeholder_registry_exact(&BTreeSet::new(), &[(key, "Task 7")]);
+}
+
+#[test]
+fn supplemental_behavior_does_not_retire_canonical_debt() {
+    let supplemental = super::Case {
+        id: "go-if-init-mask-not-route-kill",
+        language: Language::Go,
+        kind: "if_statement",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Behavioral,
+        src: "",
+        expect: &[],
+        expect_counter: None,
+    };
+    let placeholders = classified_placeholders_for(&[&supplemental]);
+    assert!(placeholders.contains(&(Language::Go, "if_statement", None, "e0a-go-if_statement")));
 }
 
 #[test]

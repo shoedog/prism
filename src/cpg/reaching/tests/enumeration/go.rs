@@ -2,17 +2,30 @@ use super::super::super::binding_table::{rows, DeclarationKind, Role, Ruling, Vi
 use crate::cpg::FlowConfidence;
 use crate::languages::Language;
 
-pub(super) const CASES: &[super::case::Case] = &[super::case::Case {
-    id: "go-if-init-mask-not-route-kill",
-    language: Language::Go,
-    kind: "if_statement",
-    variant: None,
-    row_variant: None,
-    class: super::case::CaseClass::Behavioral,
-    src: "func f() {\n  x := source()\n  if x := f(); c { use(x) }\n  sink(x)\n}\n",
-    expect: &[("2:x", "4:x", FlowConfidence::Exact)],
-    expect_counter: Some(("dfg_label_exact", 1)),
-}];
+pub(super) const CASES: &[super::case::Case] = &[
+    super::case::Case {
+        id: "e0a-go-if_statement",
+        language: Language::Go,
+        kind: "if_statement",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "func f() {\n  x := source()\n  if x := f(); c { use(x) }\n  sink(x)\n}\n",
+        expect: &[("2:x", "4:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    super::case::Case {
+        id: "go-if-init-mask-not-route-kill",
+        language: Language::Go,
+        kind: "if_statement",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "func f() {\n  x := source()\n  if x := f(); c { use(x) }\n  sink(x)\n}\n",
+        expect: &[("2:x", "4:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+];
 pub(super) const CURATED: &[(&str, &str)] = &[
     ("block", "e0a-go-block"),
     ("if_statement", "e0a-go-if_statement"),

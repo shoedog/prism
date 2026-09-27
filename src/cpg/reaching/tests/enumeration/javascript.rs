@@ -35,6 +35,24 @@ pub(super) const CLASSIFIED_MASK_SOURCE: &str = r#"function f() {
 
 pub(super) const CASES: &[super::case::Case] = &[
     super::case::Case {
+        id: "e0a-js-class_declaration",
+        language: Language::JavaScript,
+        kind: "class_declaration",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "function f() {\n  C = source();\n  { class C {} sink(C); }\n  sink(C);\n}",
+        expect: &[
+            (
+                "2:C",
+                "3:C",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:C", "4:C", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
         id: "e0a-js-lexical_declaration",
         language: Language::JavaScript,
         kind: "lexical_declaration",
@@ -94,12 +112,15 @@ pub(super) const CASES: &[super::case::Case] = &[
         variant: Some("binding"),
         row_variant: None,
         class: super::case::CaseClass::Behavioral,
-        src: "function f() {\n  let x = source();\n  try { risky(); } catch (x) { sink(x); }\n}\n",
-        expect: &[(
-            "2:x",
-            "3:x",
-            FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
-        )],
+        src: "function f() {\n  let x = source();\n  try { risky(); } catch (x) { sink(x); }\n  sink(x);\n}\n",
+        expect: &[
+            (
+                "2:x",
+                "3:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:x", "4:x", FlowConfidence::Exact),
+        ],
         expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     super::case::Case {
@@ -109,12 +130,15 @@ pub(super) const CASES: &[super::case::Case] = &[
         variant: None,
         row_variant: None,
         class: super::case::CaseClass::Behavioral,
-        src: "function f() {\n  x = source();\n  try { risky(); } catch (x) { sink(x); }\n}\n",
-        expect: &[(
-            "2:x",
-            "3:x",
-            FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
-        )],
+        src: "function f() {\n  x = source();\n  try { risky(); } catch (x) { sink(x); }\n  sink(x);\n}\n",
+        expect: &[
+            (
+                "2:x",
+                "3:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:x", "4:x", FlowConfidence::Exact),
+        ],
         expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     super::case::Case {
@@ -125,8 +149,15 @@ pub(super) const CASES: &[super::case::Case] = &[
         row_variant: None,
         class: super::case::CaseClass::Behavioral,
         src: "function f() {\n  let x = source();\n  try { risky(); } catch (x) { consume(x); }\n  sink(x);\n}\n",
-        expect: &[("2:x", "4:x", FlowConfidence::Exact)],
-        expect_counter: Some(("dfg_label_exact", 1)),
+        expect: &[
+            (
+                "2:x",
+                "3:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:x", "4:x", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     super::case::Case {
         id: "js-catch-param-assignment-keeps-binding",
@@ -135,9 +166,16 @@ pub(super) const CASES: &[super::case::Case] = &[
         variant: None,
         row_variant: None,
         class: super::case::CaseClass::Behavioral,
-        src: "function f() {\n  try { risky(); } catch (x) {\n    x = source();\n    sink(x);\n  }\n}\n",
-        expect: &[("3:x", "4:x", FlowConfidence::Exact)],
-        expect_counter: Some(("dfg_label_exact", 1)),
+        src: "function f() {\n  x = source();\n  try { risky(); } catch (x) {\n    x = source();\n    sink(x);\n  }\n  sink(x);\n}\n",
+        expect: &[
+            (
+                "2:x",
+                "5:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("4:x", "5:x", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     super::case::Case {
         id: "js-catch-outer-name-assignment-preserved",
@@ -146,9 +184,17 @@ pub(super) const CASES: &[super::case::Case] = &[
         variant: None,
         row_variant: None,
         class: super::case::CaseClass::Behavioral,
-        src: "function f() {\n  try { risky(); } catch (x) { y = source(); }\n  sink(y);\n}\n",
-        expect: &[("2:y", "3:y", FlowConfidence::Exact)],
-        expect_counter: Some(("dfg_label_exact", 1)),
+        src: "function f() {\n  x = source();\n  try { risky(); } catch (x) {\n    y = source();\n    sink(x);\n  }\n  sink(x); sink(y);\n}\n",
+        expect: &[
+            (
+                "2:x",
+                "5:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:x", "7:x", FlowConfidence::Exact),
+            ("4:y", "7:y", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     super::case::Case {
         id: "js-catch-object-rename-masks-value-only",
@@ -193,12 +239,15 @@ pub(super) const CASES: &[super::case::Case] = &[
         variant: None,
         row_variant: None,
         class: super::case::CaseClass::Behavioral,
-        src: "function f() {\n  x = source();\n  try { risky(); } catch ({x}) { sink(x); }\n}\n",
-        expect: &[(
-            "2:x",
-            "3:x",
-            FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
-        )],
+        src: "function f() {\n  x = source();\n  try { risky(); } catch ({x}) { sink(x); }\n  sink(x);\n}\n",
+        expect: &[
+            (
+                "2:x",
+                "3:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:x", "4:x", FlowConfidence::Exact),
+        ],
         expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     super::case::Case {
@@ -208,12 +257,15 @@ pub(super) const CASES: &[super::case::Case] = &[
         variant: None,
         row_variant: None,
         class: super::case::CaseClass::Behavioral,
-        src: "function f() {\n  _ = source();\n  try { risky(); } catch (_) { sink(_); }\n}\n",
-        expect: &[(
-            "2:_",
-            "3:_",
-            FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
-        )],
+        src: "function f() {\n  _ = source();\n  try { risky(); } catch (_) { sink(_); }\n  sink(_);\n}\n",
+        expect: &[
+            (
+                "2:_",
+                "3:_",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:_", "4:_", FlowConfidence::Exact),
+        ],
         expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     super::case::Case {
@@ -223,12 +275,15 @@ pub(super) const CASES: &[super::case::Case] = &[
         variant: None,
         row_variant: None,
         class: super::case::CaseClass::Behavioral,
-        src: "function f() {\n  x = source();\n  try { risky(); } catch (\n    x\n  ) { sink(x); }\n}\n",
-        expect: &[(
-            "2:x",
-            "5:x",
-            FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
-        )],
+        src: "function f() {\n  x = source();\n  try { risky(); } catch (\n    x\n  ) { sink(x); }\n  sink(x);\n}\n",
+        expect: &[
+            (
+                "2:x",
+                "5:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:x", "6:x", FlowConfidence::Exact),
+        ],
         expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     super::case::Case {
@@ -238,9 +293,16 @@ pub(super) const CASES: &[super::case::Case] = &[
         variant: None,
         row_variant: None,
         class: super::case::CaseClass::Behavioral,
-        src: "function f() {\n  try { risky(); } catch (x) {\n    var x = source();\n    sink(x);\n  }\n}\n",
-        expect: &[("3:x", "4:x", FlowConfidence::Exact)],
-        expect_counter: Some(("dfg_label_exact", 1)),
+        src: "function f() {\n  x = source();\n  try { risky(); } catch (x) {\n    var x = source();\n    sink(x);\n  }\n  sink(x);\n}\n",
+        expect: &[
+            (
+                "2:x",
+                "5:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("4:x", "5:x", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     super::case::Case {
         id: "js-catch-nested-var-redecl-writes-simple-param",
@@ -249,9 +311,16 @@ pub(super) const CASES: &[super::case::Case] = &[
         variant: None,
         row_variant: None,
         class: super::case::CaseClass::Behavioral,
-        src: "function f() {\n  try { risky(); } catch (x) {\n    {\n      var x = source();\n      sink(x);\n    }\n  }\n}\n",
-        expect: &[("4:x", "5:x", FlowConfidence::Exact)],
-        expect_counter: Some(("dfg_label_exact", 1)),
+        src: "function f() {\n  x = source();\n  try { risky(); } catch (x) {\n    {\n      var x = source();\n      sink(x);\n    }\n  }\n  sink(x);\n}\n",
+        expect: &[
+            (
+                "2:x",
+                "6:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("5:x", "6:x", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     super::case::Case {
         id: "js-catch-for-var-redecl-writes-simple-param",
@@ -260,9 +329,16 @@ pub(super) const CASES: &[super::case::Case] = &[
         variant: None,
         row_variant: None,
         class: super::case::CaseClass::Behavioral,
-        src: "function f() {\n  try { risky(); } catch (x) {\n    for (var x = source(); ready; step()) {\n      sink(x);\n    }\n  }\n}\n",
-        expect: &[("3:x", "4:x", FlowConfidence::Exact)],
-        expect_counter: Some(("dfg_label_exact", 1)),
+        src: "function f() {\n  x = source();\n  try { risky(); } catch (x) {\n    for (var x = source(); ready; step()) {\n      sink(x);\n    }\n  }\n  sink(x);\n}\n",
+        expect: &[
+            (
+                "2:x",
+                "5:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("4:x", "5:x", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     super::case::Case {
         id: "js-catch-different-var-keeps-function-binding",
@@ -271,9 +347,17 @@ pub(super) const CASES: &[super::case::Case] = &[
         variant: None,
         row_variant: None,
         class: super::case::CaseClass::Behavioral,
-        src: "function f() {\n  try { risky(); } catch (x) { var y = source(); }\n  sink(y);\n}\n",
-        expect: &[("2:y", "3:y", FlowConfidence::Exact)],
-        expect_counter: Some(("dfg_label_exact", 1)),
+        src: "function f() {\n  x = source();\n  try { risky(); } catch (x) { var y = source(); sink(x); }\n  sink(x); sink(y);\n}\n",
+        expect: &[
+            (
+                "2:x",
+                "3:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:x", "4:x", FlowConfidence::Exact),
+            ("3:y", "4:y", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
 ];
 pub(super) const CURATED: &[(&str, &str)] = &[

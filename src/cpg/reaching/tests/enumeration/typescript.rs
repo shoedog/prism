@@ -4,6 +4,24 @@ use crate::languages::Language;
 
 pub(super) const CASES: &[super::case::Case] = &[
     super::case::Case {
+        id: "e0a-js-class_declaration",
+        language: Language::TypeScript,
+        kind: "class_declaration",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "function f() {\n  C = source();\n  { class C {} sink(C); }\n  sink(C);\n}",
+        expect: &[
+            (
+                "2:C",
+                "3:C",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:C", "4:C", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
         id: "e0a-x-for_in_statement-predicate",
         language: Language::TypeScript,
         kind: "for_in_statement",
