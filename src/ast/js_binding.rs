@@ -134,31 +134,32 @@ impl ParsedFile {
             self.js_ts_declare_walk(root, mode, &BTreeSet::new(), &mut index, &mut annex);
             (index, annex)
         });
-        if annex.contains(name) {
-            return JsBinding::Unchecked("annex_b_strictness");
-        }
-        let Some(decls) = index.get(name).cloned() else {
+        let (decls, annex_b) = (index.get(name).cloned(), annex.contains(name));
+        if decls.is_none() && !annex_b {
             return JsBinding::Refused("unbound");
+        }
+        // B0 and B1 precede the Annex-B uncertainty, which precedes B2 (sol r1 W2).
+        if let Err(reason) = self.js_ts_scope_clean(root, cache) {
+            return JsBinding::Refused(reason);
+        }
+        let Some(sealers) = self.js_ts_recovery_sealed(root, site, cache) else {
+            return JsBinding::Refused("parse_recovery");
         };
-        self.js_ts_classify(root, &decls, name, site, cache)
+        match decls {
+            Some(decls) if !annex_b => self.js_ts_classify(root, &decls, name, &sealers),
+            _ => JsBinding::Unchecked("annex_b_strictness"),
+        }
     }
 
-    /// Classification of a binding, in the SPEC §3.1 order: B0, B1, `with`, B2, M2, B3, M1,
-    /// then `not_callable` and `unindexed`.
+    /// Classification of a binding that passed B0 and B1 (`sealers` are B1's sealing nodes),
+    /// in the SPEC §3.1 order: `with`, B2, M2, B3, M1, then `not_callable` and `unindexed`.
     fn js_ts_classify<'a>(
         &'a self,
         scope: Node<'a>,
         decls: &[Node<'a>],
         name: &str,
-        site: Node<'a>,
-        cache: &mut JsBindingCache<'a>,
+        sealers: &[Node<'a>],
     ) -> JsBinding {
-        if let Err(reason) = self.js_ts_scope_clean(scope, cache) {
-            return JsBinding::Refused(reason);
-        }
-        if !self.js_ts_recovery_sealed(scope, site, cache) {
-            return JsBinding::Refused("parse_recovery");
-        }
         if scope.kind() == "with_statement" {
             return JsBinding::Refused("with");
         }
@@ -170,7 +171,9 @@ impl ParsedFile {
                 .child_by_field_name("name")
                 .is_some_and(|n| self.node_text(&n) == name);
         let using = decl.kind() == "assignment_expression";
-        let declarator = (decl.kind() == "variable_declarator" || using)
+        // M2 holds for any declarator or `using` (Opus r1 W3); B3 needs an identifier.
+        let binding = decl.kind() == "variable_declarator" || using;
+        let declarator = binding
             && decl
                 .child_by_field_name(if using { "left" } else { "name" })
                 .is_some_and(|n| n.kind() == "identifier");
@@ -179,8 +182,11 @@ impl ParsedFile {
             "function_declaration" | "generator_function_declaration"
         );
         // M2. Module scope uses the base write scan after F1–F3 (SPEC §3.2, identical to the
-        // scoped scan on the corpora, Q28); S1b-3 adds the scoped scan for nested scopes.
-        if (fe_self || declarator || function) && self.js_ts_module_value_written(name) {
+        // scoped scan on the corpora, Q28), widened by the writes it cannot see; S1b-3 adds the
+        // scoped scan for nested scopes.
+        if (fe_self || binding || function)
+            && (self.js_ts_module_value_written(name) || self.js_ts_written_unseen(name, sealers))
+        {
             return JsBinding::MayCall;
         }
         let callable = if function || fe_self {
@@ -219,6 +225,45 @@ impl ParsedFile {
             start_line,
             end_line,
             wrapped: false,
+        })
+    }
+
+    /// Writes of `name` the base scan's closer-binding test cannot see (impl r1 fold, Opus W1/W2,
+    /// sol W1); counting them only moves answers toward M2, which is base behavior. (a) A write
+    /// target under a position a function-like evaluates before entering its own environments
+    /// (SPEC §3.1a: J1 `formal_parameters`, J2 `decorator`, J3 `computed_property_name`; its
+    /// other positions hold a binding name or types, never a W1 form), which the base test
+    /// shadows by the function's parameters and body `var`s. (b) An identifier spelled `name`
+    /// in a B1-sealed node, whose error the base test reads as a closer binding and which may
+    /// have mangled a write.
+    fn js_ts_written_unseen(&self, name: &str, sealers: &[Node<'_>]) -> bool {
+        let spelled = |n: Node<'_>| {
+            matches!(
+                n.kind(),
+                "identifier"
+                    | "shorthand_property_identifier"
+                    | "shorthand_property_identifier_pattern"
+            ) && self.node_text(&n) == name
+        };
+        if sealers.iter().any(|s| any_node(*s, spelled)) {
+            return true;
+        }
+        any_node(self.tree.root_node(), |n| {
+            let Some(target) = self.js_ts_write_target(n) else {
+                return false;
+            };
+            let mut names = BTreeSet::new();
+            self.collect_js_ts_binding_pattern_names(target, &mut names);
+            let mut up = n.parent();
+            while let Some(a) = up.filter(|a| {
+                !matches!(
+                    a.kind(),
+                    "formal_parameters" | "decorator" | "computed_property_name"
+                )
+            }) {
+                up = a.parent();
+            }
+            names.contains(name) && up.is_some()
         })
     }
 
@@ -309,6 +354,19 @@ impl ParsedFile {
         }
         false
     }
+}
+
+/// Whether `pred` holds for `node` or any named descendant.
+fn any_node<'a>(node: Node<'a>, mut pred: impl FnMut(Node<'a>) -> bool) -> bool {
+    let mut stack = vec![node];
+    while let Some(n) = stack.pop() {
+        if pred(n) {
+            return true;
+        }
+        let mut cursor = n.walk();
+        stack.extend(n.named_children(&mut cursor));
+    }
+    false
 }
 
 #[cfg(test)]

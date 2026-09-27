@@ -44,22 +44,26 @@ impl ParsedFile {
     /// scope lies inside a delimited child (a `body` or `class_body` with paired braces, a
     /// `parameters` list with paired parentheses) of a class, static block or braced function
     /// that is strictly inside the scope and does not contain the site. A header error (name,
-    /// type parameters, return type, heritage) is not sealed.
+    /// type parameters, return type, heritage) is not sealed. `Some` holds the sealing nodes
+    /// that contain errors (empty for a clean scope); `None` refuses.
     pub(super) fn js_ts_recovery_sealed<'a>(
         &self,
         scope: Node<'a>,
         site: Node<'a>,
         cache: &mut JsBindingCache<'a>,
-    ) -> bool {
+    ) -> Option<Vec<Node<'a>>> {
+        let mut sealers = Vec::new();
         if !scope.has_error() {
-            return true;
+            return Some(sealers);
         }
         if !*cache
             .braces
             .get_or_insert_with(|| self.js_ts_braces_paired())
         {
-            return false;
+            return None;
         }
+        // ASSUMPTION (Opus r1 S1): (i) proves braces paired; a parameter list's parentheses are
+        // taken as paired when both edge tokens are present and not `MISSING`.
         let delimited = |d: Node<'_>| {
             let (open, close) = match d.kind() {
                 "statement_block" | "class_body" => ("{", "}"),
@@ -83,13 +87,11 @@ impl ParsedFile {
                 while let Some(d) = up.filter(|d| d.id() != scope.id() && !delimited(*d)) {
                     up = d.parent();
                 }
-                let sealed = up
+                let sealer = up
                     .filter(|d| d.id() != scope.id())
                     .and_then(|d| d.parent())
-                    .is_some_and(|f| f.id() != scope.id() && !inside(f, site));
-                if !sealed {
-                    return false;
-                }
+                    .filter(|f| f.id() != scope.id() && !inside(*f, site));
+                sealers.push(sealer?);
             }
             let mut cursor = n.walk();
             stack.extend(
@@ -97,7 +99,7 @@ impl ParsedFile {
                     .filter(|c| c.has_error() || c.is_missing()),
             );
         }
-        true
+        Some(sealers)
     }
 
     /// B1 (i): no `MISSING` brace, and no `ERROR` holding an anonymous `{`/`}` token (directly

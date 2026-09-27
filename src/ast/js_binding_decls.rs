@@ -96,6 +96,8 @@ impl ParsedFile {
                 }
                 "variable_declaration" if !hoist => continue,
                 "lexical_declaration" if !direct => continue,
+                // `declare global { … }` augments the global scope, not the module (Opus r1 W4).
+                "statement_block" if node.kind() == "ambient_declaration" => continue,
                 // D6: type space declares nothing in value space.
                 "interface_declaration" | "type_alias_declaration" => continue,
                 "import_statement" | "import_alias" => {
