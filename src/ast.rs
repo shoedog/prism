@@ -35,6 +35,16 @@ fn count_nodes_recursive(node: Node<'_>, errors: &mut usize, total: &mut usize) 
     }
 }
 
+/// S1b-1b: whether a JS/TS declaration sits in `collect_js_ts_local_bindings`' root scope: at
+/// module scope or in a function's body block, directly or through `export`. That collector
+/// never enters a non-root function, so a function-like parent here is the root.
+fn js_ts_declaration_at_top(decl: Node<'_>) -> bool {
+    let top = |n: Node<'_>| n.kind() == "program" || is_js_ts_function_like(n.kind());
+    let holder = |n: Node<'_>| matches!(n.kind(), "statement_block" | "export_statement");
+    decl.parent()
+        .is_some_and(|h| top(h) || holder(h) && h.parent().is_some_and(top))
+}
+
 fn is_js_ts_function_like(kind: &str) -> bool {
     matches!(
         kind,
@@ -5064,11 +5074,17 @@ impl ParsedFile {
         }
 
         match node.kind() {
-            "variable_declarator" => {
-                // S1b-1b (F4): the pattern's BoundNames, shorthand properties included and
-                // destructuring-default expressions excluded.
+            // S1b-1b (F4): a top-scope declarator binds the pattern's BoundNames (shorthand
+            // properties included, destructuring-default expressions excluded). A nested one
+            // keeps base (Option K): this set is block-blind; S1b-3's site walk owns blocks.
+            "variable_declarator" if node.parent().is_some_and(js_ts_declaration_at_top) => {
                 if let Some(name) = node.child_by_field_name("name") {
                     self.collect_js_ts_binding_pattern_names(name, out);
+                }
+            }
+            "variable_declarator" => {
+                if let Some(name) = node.child_by_field_name("name") {
+                    self.collect_identifier_names(name, out);
                 }
             }
             "catch_clause" => {
