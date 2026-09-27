@@ -150,11 +150,18 @@ fn b5_nested_declarators_keep_base() {
     let free = [exact("4", "free_single"), exact("6", "free_single")].concat();
     let import_want = [exact("5", "import_member"), exact("7", "import_member")].concat();
     let line2 = [exact("2", "free_single"), exact("2", "free_single")].concat();
+    // Opus r2 W1 (P15, Q2): a bare block at module scope is nested too; `run()`'s `f()` keeps base.
+    let module = "{\n  const { f } = globalThis.o;\n}\nexport function run() {\n  return f();\n}\n"
+        .to_string();
+    let module_var = module.replace("const", "var");
+    let l5 = exact("5", "free_single");
     for (app, want) in [
         (&bare, &free),
         (&in_if, &free),
         (&var, &free),
         (&import, &import_want),
+        (&module, &l5),
+        (&module_var, &l5),
     ] {
         for ext in BOTH {
             assert_eq!(run(LIB_F, app, ext), *want, "{app} .{ext}");
