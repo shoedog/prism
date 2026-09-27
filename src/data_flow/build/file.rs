@@ -3,8 +3,8 @@ use super::{FileRefs, Producer};
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::cpg::{
-    reaching_definitions_with_exact, FileCfgEdgeIndex, FlowConfidence, FlowDoubt, RdFileStats,
-    RdOutcome,
+    reaching_definitions_with_exact, unavailable_labels, FileCfgEdgeIndex, FlowConfidence,
+    FlowDoubt, RdFileStats, RdOutcome,
 };
 use crate::data_flow::{ExactFlowEdge, FlowEdge, VarAccessKind, VarLocation};
 use std::collections::{BTreeMap, BTreeSet};
@@ -675,6 +675,14 @@ impl Producer {
                     for (key, label) in result.labels {
                         Self::insert_label(&mut labels, key, label);
                     }
+                    for (name, binder_line) in result.no_body_entry_binders {
+                        rd_function_stats.record_no_body_entry(
+                            func_name.clone(),
+                            start,
+                            name,
+                            binder_line,
+                        );
+                    }
                     // Task 5 owns loop-carried telemetry. Consume the
                     // classified set here without changing edge shape.
                     drop(result.loop_carried_edges);
@@ -686,20 +694,13 @@ impl Producer {
                         rd_function_stats.record_without_cfg(func_name.clone(), start);
                     }
                     let fallback = FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
-                    for edge in function_edges {
-                        Self::insert_label(
-                            &mut labels,
-                            (edge.from.clone(), edge.to.clone()),
-                            fallback,
-                        );
+                    let fallback_labels = unavailable_labels(function_edges);
+                    for (key, label) in &fallback_labels {
+                        Self::insert_label(&mut labels, key.clone(), *label);
                     }
                     let classified = exact_candidates
                         .iter()
                         .map(|edge| (ExactFlowEdge::from_legacy(edge), fallback))
-                        .collect();
-                    let fallback_labels: BTreeMap<_, _> = function_edges
-                        .iter()
-                        .map(|edge| ((edge.from.clone(), edge.to.clone()), fallback))
                         .collect();
                     Self::store_supplemental_exact(
                         &mut exact_labels,

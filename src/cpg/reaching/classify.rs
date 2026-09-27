@@ -92,6 +92,11 @@ pub(super) fn classify_edge(
             construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
         });
     }
+    if let Some(kill_line) = use_byte.and_then(|byte| binding_facts.header_shadow(edge, byte)) {
+        return FlowConfidence::NameOnly(FlowDoubt::Killed {
+            kill_line: u32::try_from(kill_line).unwrap_or(u32::MAX),
+        });
+    }
 
     let lookup_uncertain = candidates
         .iter()

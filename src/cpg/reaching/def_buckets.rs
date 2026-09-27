@@ -73,10 +73,11 @@ impl<'a> DefinitionBuckets<'a> {
         defs: &[DefSite],
         gen: &[BitSet],
         binding_facts: &scope::BindingFacts,
+        materialized_defs: &std::collections::BTreeSet<usize>,
     ) -> (Vec<BitSet>, Vec<BitSet>) {
         #[cfg(test)]
         if super::def_bucket_tests::legacy_enabled() {
-            return legacy_kill_sets(defs, gen, binding_facts);
+            return legacy_kill_sets(defs, gen, binding_facts, materialized_defs);
         }
         let mut kill = vec![BitSet::new(defs.len()); gen.len()];
         let mut flat_kill = vec![BitSet::new(defs.len()); gen.len()];
@@ -92,9 +93,16 @@ impl<'a> DefinitionBuckets<'a> {
                         counts.projected_definition_pair_comparisons += 1;
                     });
                     if !gen[node].contains(old_def) {
-                        flat_kill[node].insert(old_def);
-                        if binding_facts.same_def_binding(new_def, old_def) {
-                            kill[node].insert(old_def);
+                        if materialized_defs.contains(&new_def) {
+                            if binding_facts.same_def_binding_strict(new_def, old_def) {
+                                flat_kill[node].insert(old_def);
+                                kill[node].insert(old_def);
+                            }
+                        } else {
+                            flat_kill[node].insert(old_def);
+                            if binding_facts.same_def_binding(new_def, old_def) {
+                                kill[node].insert(old_def);
+                            }
                         }
                     }
                 }
@@ -110,6 +118,7 @@ pub(super) fn legacy_kill_sets(
     defs: &[DefSite],
     gen: &[BitSet],
     binding_facts: &scope::BindingFacts,
+    materialized_defs: &std::collections::BTreeSet<usize>,
 ) -> (Vec<BitSet>, Vec<BitSet>) {
     let mut kill = vec![BitSet::new(defs.len()); gen.len()];
     let mut flat_kill = vec![BitSet::new(defs.len()); gen.len()];
@@ -132,9 +141,16 @@ pub(super) fn legacy_kill_sets(
                     && !defs[old_def].alias_derived
                     && defs[old_def].path == defs[new_def].path
                 {
-                    flat_kill[node].insert(old_def);
-                    if binding_facts.same_def_binding(new_def, old_def) {
-                        kill[node].insert(old_def);
+                    if materialized_defs.contains(&new_def) {
+                        if binding_facts.same_def_binding_strict(new_def, old_def) {
+                            flat_kill[node].insert(old_def);
+                            kill[node].insert(old_def);
+                        }
+                    } else {
+                        flat_kill[node].insert(old_def);
+                        if binding_facts.same_def_binding(new_def, old_def) {
+                            kill[node].insert(old_def);
+                        }
                     }
                 }
             }

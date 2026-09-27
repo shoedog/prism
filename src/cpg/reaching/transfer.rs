@@ -19,6 +19,7 @@ pub(super) struct ReuseBinder {
     pub(super) path: AccessPath,
     pub(super) kind: DeclarationKind,
     identifier_byte: usize,
+    missing_def: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -28,6 +29,8 @@ pub(super) struct HeaderSpan {
     body_span: Option<ByteSpan>,
     initializer_span: Option<ByteSpan>,
     path: AccessPath,
+    kind: DeclarationKind,
+    identifier_byte: usize,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -87,13 +90,12 @@ pub(super) fn discover(parsed: &ParsedFile, func: &Node<'_>, defs: &[DefSite]) -
                     if let Some(target) = node.child_by_field_name(field) {
                         for identifier in introduced_identifiers(parsed, target) {
                             let name = parsed.node_text(&identifier);
-                            if name == "_"
-                                || defs.iter().any(|def| {
-                                    !def.synthetic && def.start_byte == identifier.start_byte()
-                                })
-                            {
+                            if name == "_" {
                                 continue;
                             }
+                            let missing_def = !defs.iter().any(|def| {
+                                !def.synthetic && def.start_byte == identifier.start_byte()
+                            });
                             out.push(ReuseBinder {
                                 node_line: owner.start_position().row + 1,
                                 header_span: byte_span(node),
@@ -105,6 +107,7 @@ pub(super) fn discover(parsed: &ParsedFile, func: &Node<'_>, defs: &[DefSite]) -
                                 path: AccessPath::simple(name),
                                 kind: row.declaration.expect("filtered declaration kind"),
                                 identifier_byte: identifier.start_byte(),
+                                missing_def,
                             });
                         }
                     }
@@ -145,7 +148,11 @@ pub(super) fn apply(
         };
         let header_binders: Vec<_> = binders
             .iter()
-            .filter(|binder| binder.node_line == header_line)
+            .filter(|binder| {
+                binder.node_line == header_line
+                    && binder.missing_def
+                    && binder.kind != DeclarationKind::GoShort
+            })
             .collect();
         if header_binders.is_empty() {
             continue;
@@ -212,10 +219,11 @@ pub(super) fn materialize_existing_def_sites(
     line_index: &BTreeMap<Line, usize>,
     defs: &mut Vec<DefSite>,
     mapped_defs: &mut Vec<Option<usize>>,
-) {
+) -> BTreeSet<usize> {
+    let mut materialized = BTreeSet::new();
     for binder in binders
         .iter()
-        .filter(|binder| binder.kind == DeclarationKind::GoShort)
+        .filter(|binder| binder.kind == DeclarationKind::GoShort && binder.missing_def)
     {
         let Some(node) = line_index.get(&binder.node_line).copied() else {
             continue;
@@ -230,7 +238,9 @@ pub(super) fn materialize_existing_def_sites(
             synthetic: false,
         });
         mapped_defs.push(Some(node));
+        materialized.insert(def_index);
     }
+    materialized
 }
 
 pub(super) fn binding_metadata(
@@ -253,6 +263,8 @@ pub(super) fn binding_metadata(
             body_span: binder.body_span,
             initializer_span: binder.initializer_span,
             path: binder.path.clone(),
+            kind: binder.kind,
+            identifier_byte: binder.identifier_byte,
         });
         let Some(body) = binder.body_span else {
             continue;
@@ -306,6 +318,24 @@ impl BindingFacts {
             .min()
     }
 
+    pub(super) fn header_shadow(&self, edge: &FlowEdge, use_byte: usize) -> Option<Line> {
+        self.header_spans
+            .iter()
+            .filter(|span| span.kind == DeclarationKind::GoShort)
+            .filter(|span| span.path == edge.to.path)
+            .filter(|span| span.identifier_byte != edge.from.start_byte)
+            .filter(|span| span.body_span.is_some_and(|body| body.contains(use_byte)))
+            .map(|span| span.node_line)
+            .min()
+    }
+
+    pub(super) fn no_entry_identities(&self) -> BTreeSet<(String, Line)> {
+        self.no_entry_binders
+            .iter()
+            .flat_map(|(name, lines)| lines.iter().map(|line| (name.clone(), *line)))
+            .collect()
+    }
+
     #[cfg(test)]
     pub(super) fn with_cfg_view(
         parsed: &ParsedFile,
@@ -313,7 +343,8 @@ impl BindingFacts {
         defs: &[DefSite],
         cfg: &CfgView<'_>,
     ) -> Self {
-        Self::new(parsed, func_node, defs, cfg)
+        let binders = discover(parsed, func_node, defs);
+        Self::new(parsed, func_node, defs, cfg, &binders)
     }
 
     #[cfg(test)]
@@ -371,154 +402,4 @@ fn byte_span(node: Node<'_>) -> ByteSpan {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::cpg::{FlowConfidence, FlowDoubt};
-    use crate::languages::Language;
-
-    fn fixture(source: &str) -> ParsedFile {
-        ParsedFile::parse("test.go", source, Language::Go).unwrap()
-    }
-
-    fn real_defs(parsed: &ParsedFile, function: &Node<'_>) -> Vec<DefSite> {
-        let (start, end) = parsed.node_line_range(function);
-        parsed
-            .assignment_lvalue_spans_on_lines(function, &(start..=end).collect())
-            .into_iter()
-            .enumerate()
-            .map(|(index, span)| DefSite {
-                id: DefId(index as u32),
-                path: span.path,
-                line: span.line,
-                start_byte: span.start_byte,
-                alias_derived: false,
-                synthetic: false,
-            })
-            .collect()
-    }
-
-    type LineGraph = (BTreeMap<Line, usize>, Vec<Vec<(usize, bool)>>);
-
-    fn line_graph() -> LineGraph {
-        let line_index = BTreeMap::from([(2, 1), (3, 2), (4, 3), (6, 4)]);
-        let successors = vec![
-            vec![(1, false)],
-            vec![(2, false)],
-            vec![(3, false), (4, false)],
-            vec![(2, false)],
-            vec![],
-        ];
-        (line_index, successors)
-    }
-
-    #[test]
-    fn synthetic_defs_have_binding_entries() {
-        let parsed = fixture(
-            "func f(items []int) {\n  x := source()\n  for _, x = range items {\n    observe(x)\n  }\n  sink(x)\n}\n",
-        );
-        let function = parsed.all_functions()[0];
-        let mut defs = real_defs(&parsed, &function);
-        let real_count = defs.len();
-        let binders = discover(&parsed, &function, &defs);
-        assert_eq!(binders.len(), 1);
-        let (line_index, mut successors) = line_graph();
-        let original_successors = successors.clone();
-        let cfg = CfgView {
-            line_index: &line_index,
-            successors: &original_successors,
-        };
-        let mut predecessors = vec![Vec::new(); successors.len()];
-        let mut mapped_defs = vec![Some(1); defs.len()];
-        let applied = apply(
-            &parsed,
-            &binders,
-            &line_index,
-            &mut successors,
-            &mut predecessors,
-            &mut defs,
-            &mut mapped_defs,
-        );
-        assert_eq!(applied.synthetic_nodes.len(), 1);
-        let facts = BindingFacts::with_cfg_view(&parsed, &function, &defs, &cfg);
-        assert_eq!(facts.def_binding_count(), defs.len());
-        for synthetic in real_count..defs.len() {
-            for existing in 0..real_count {
-                let _ = facts.same_def_binding(synthetic, existing);
-            }
-        }
-        assert!(facts.same_def_binding(real_count, 0));
-    }
-
-    #[test]
-    fn go_short_range_does_not_synthesize_a_definition() {
-        let parsed = fixture(
-            "func f(items []int) {\n  x := source()\n  for _, x := range items {\n    observe(x)\n  }\n  sink(x)\n}\n",
-        );
-        let function = parsed.all_functions()[0];
-        let mut defs = real_defs(&parsed, &function);
-        let (line_index, mut successors) = line_graph();
-        let mut predecessors = vec![Vec::new(); successors.len()];
-        let mut mapped_defs = vec![Some(1); defs.len()];
-        let missing_real_defs = discover(&parsed, &function, &defs);
-        materialize_existing_def_sites(
-            &missing_real_defs,
-            &line_index,
-            &mut defs,
-            &mut mapped_defs,
-        );
-        let before = defs.len();
-        let binders = discover(&parsed, &function, &defs);
-        assert!(binders.is_empty(), "binders={binders:?}, defs={defs:?}");
-        let applied = apply(
-            &parsed,
-            &binders,
-            &line_index,
-            &mut successors,
-            &mut predecessors,
-            &mut defs,
-            &mut mapped_defs,
-        );
-        assert!(applied.synthetic_nodes.is_empty());
-        assert_eq!(defs.len(), before);
-    }
-
-    #[test]
-    fn no_entry_edge_fallback_is_ownership_uncertain() {
-        let parsed = fixture(
-            "func f(items []int) {\n  x := source()\n  for _, x = range items {\n    observe(x)\n  }\n  sink(x)\n}\n",
-        );
-        let function = parsed.all_functions()[0];
-        let defs = real_defs(&parsed, &function);
-        let line_index = BTreeMap::from([(2, 1), (3, 2), (4, 3), (6, 4)]);
-        let successors = vec![
-            vec![(1, false)],
-            vec![(2, false)],
-            vec![(4, false)],
-            vec![(2, false)],
-            vec![],
-        ];
-        let cfg = CfgView {
-            line_index: &line_index,
-            successors: &successors,
-        };
-        let facts = BindingFacts::with_cfg_view(&parsed, &function, &defs, &cfg);
-        assert_eq!(facts.no_entry_binders.get("x"), Some(&BTreeSet::from([3])));
-        let use_byte = parsed
-            .identifiers_on_line(4)
-            .into_iter()
-            .find(|node| parsed.node_text(node) == "x")
-            .expect("body use")
-            .start_byte();
-        let label = facts.no_entry_use("x", use_byte).map(|construct_line| {
-            FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
-                construct_line: construct_line as u32,
-            })
-        });
-        assert_eq!(
-            label,
-            Some(FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
-                construct_line: 3,
-            }))
-        );
-    }
-}
+mod tests;

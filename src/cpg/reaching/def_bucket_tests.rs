@@ -321,15 +321,16 @@ fn kill_alias_gen_binding_and_fields() {
         if alias < defs.len() {
             defs[alias].alias_derived = true;
         }
-        let facts = scope::BindingFacts::new(&parsed, &owner, &defs, &cfg);
+        let facts = scope::BindingFacts::new(&parsed, &owner, &defs, &cfg, &[]);
         for together in [false, true] {
             let mut gen = vec![BitSet::new(defs.len()); 15];
             for (index, def) in defs.iter().enumerate() {
                 gen[if together { 1 } else { def.line }].insert(index);
             }
             let buckets = def_buckets::DefinitionBuckets::new(&defs);
-            let actual = buckets.kill_sets(&defs, &gen, &facts);
-            let expected = def_buckets::legacy_kill_sets(&defs, &gen, &facts);
+            let materialized = BTreeSet::new();
+            let actual = buckets.kill_sets(&defs, &gen, &facts, &materialized);
+            let expected = def_buckets::legacy_kill_sets(&defs, &gen, &facts, &materialized);
             assert_eq!(actual, expected, "alias {alias}, together {together}");
             divergent_bindings |= actual.0 != actual.1;
             if together {
