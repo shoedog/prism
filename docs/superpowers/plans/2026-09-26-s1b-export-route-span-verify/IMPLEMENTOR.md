@@ -1,5 +1,10 @@
 # Implementer brief: S1b sub-slice `__SLICE__` (S1b-1, S1b-2, S1b-3 or S1b-4)
 
+> **Pending owner choice (re-plan, `REPLAN-fable.md`).** If the owner takes Option K with OQ3 (a), S1b-2 dispatches as
+> **S1b-2a** and **S1b-2b** and S1b-3 carries the evaluation-context table; the owned paths and caps for those are in
+> the "Re-plan" blocks below. **S1b-1 is unchanged by the re-plan** (OQ6): an S1b-1 implementer reads nothing past
+> this note.
+
 You implement **exactly one sub-slice** of `SPEC.md` in this directory, as the controller names it at dispatch, on
 the owner's §0 answers (the controller pastes them into the dispatch; if they differ from a recommendation, the
 owner's answer wins). Read `SPEC.md` in full, then `PLANNING-PROBES.md` (mechanisms M1–M14), then `CLAUDE.md`,
@@ -37,6 +42,19 @@ edges".
   - S1b-4: the R3 block of `resolve_call_site_full` and its helpers (`js_ts_export_candidates` shared with R4c); the
     qualifier proof at extraction; caches; tests; `s1b_namespace_nested_decoy_refused`; the
     `module_binding_audit_test::esm_namespace_import` update.
+  - **Re-plan (pending owner choice):**
+    - **S1b-2a**: `src/ast/js_binding*.rs` scope index, D/P/W rows, classification, B0 **including leaf kinds**, B1
+      with **structural brace tokens** and **delimited-child sealing** (SPEC §3.1 B1 note), the module terminal; the
+      derivation probe's second table; **0 corpus rows** (row-diff byte-identical to base on X, R, T, F). No site
+      walk, no `CallSite` change, no producer wiring.
+    - **S1b-2b**: the four producer lines, `js_exports.rs` (`VerifiedLocal`, `wrapped`, the barrel key), the R4c gate,
+      `ModuleExportName` (StringValue for string-literal export **and** import specifiers, `src/ast.rs` collectors);
+      **0 corpus rows**.
+    - **S1b-3**: the site walk **driven by the E-table** (`E(kind, field)` consulted at every step; J1, J2, J3; the
+      `with` object; enum bodies as T10), the **leave predicate** (same-file partner index by first name segment,
+      script-file check), the **positional fail-safe** (`Unchecked` + `local_binding_unchecked_position` counter under
+      OQ1 a; `Unproven` under OQ1 b), the scoped write index, `CallSite.local_binding`, `useCallback`. Row-diff
+      expected byte-identical to v8d's S1b-3 expectations (the unproven set is empty on the corpora, RP3).
 - **Forbidden:** `Language::function_name`, `FunctionId`, call-site ownership, `CallKind`, DFG and Step 5/5b code;
   CJS `Local` production; R3 for named, default or `require` qualifiers (E8); `IndirectResolution` sites (E10); any
   runtime-mutation guard; new dependencies; edits to existing Tier-A fixtures; running on the public or private
@@ -83,6 +101,13 @@ Honest lines: after `cargo fmt`, non-blank, non-`//`; `#[cfg(test)]` and `tests/
 | S1b-4 | 185 / 165 | 330 / 300 | 515 |
 
 These are the proposed caps (SPEC §9, owner E13); the dispatch states the owner's answer.
+
+**Re-plan caps (pending owner choice, OQ3):** S1b-2a **510** / 465 src, **560** / 500 tests; S1b-2b **140** / 125,
+**200** / 180; S1b-3 **480** / 430, **700** / 630; S1b-1 and S1b-4 unchanged. Synthetic smoke for the re-plan
+sub-slices: 2a and 2b against `probes/S1b-controls-base.txt` plus S1b-1's rows (2a) and
+`probes/S1b-controls-proto-v8-upto1.txt` (2b); S1b-3 against `…-upto2.txt` **plus** the RP1 fixtures
+(`~/prism-evidence/s1b/replan/fixtures/`, expected results in `RESULTS.md` with the re-plan's *correct* column, not
+v8's).
 
 **Report checkpoints (mandatory):**
 1. After the RED commit: src and tests so far.

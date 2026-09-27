@@ -97,6 +97,15 @@ view** with the edge cost, not as a finding.
 
 End with exactly one line: `VERDICT: APPROVE` (zero WRONG) or `VERDICT: FIX (<n> WRONG / <m> SMELL)`.
 
+## Round 3 addendum (pending owner approval; the cap is spent)
+
+The round-3 brief is `REPLAN-fable.md` §7, verbatim, appended here at dispatch once the owner approves the round
+and answers OQ1–OQ7. Until then the r2 brief above is the record. In one line: the evaluation-context model
+(SPEC §3.1a) is fixed by the owner; a WRONG needs a *listed* position mis-cited, a creator missing from Σ′, a D-row
+miss, a leave-predicate hole, a B1 escape, a right edge removed outside the accepted costs, a may-call change, a
+counter defect or a cap breach; a base row left at base because its position is unlisted is a SMELL with the row to
+add, not a WRONG.
+
 ## Controller notes
 
 <!-- The controller fills this in at dispatch: subject, SHA/base, clone, cap, prior rounds, and any owner rulings

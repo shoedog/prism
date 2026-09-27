@@ -21,6 +21,13 @@ and is in model.
 > ship **S1b-1** (intrinsic guard plus shared collector fixes, §9) now; neither reviewer found a defect in it. The
 > collector design for **S1b-2..4 is parked pending a Fable re-plan**, which also owns the bounded round-2 items
 > (Opus W2 header errors, sol W2 string-token braces, sol W3 string-literal export names, the B0 leaf-kind SMELL).
+>
+> **Re-plan delivered (`REPLAN-fable.md`, 2026-09-26): pending owner choice.** The class is open because the unit of
+> proof is the node *kind*; it closes when the unit is *(kind, child position) → environment*, with a positional
+> fail-safe that can fire and a leave predicate for TS merging. Measured cost on X, F, R, T: 0 rows under every
+> option that keeps v8's yield. Recommended: Option K (keep base at unproven positions), S1b-2 split into 2a/2b,
+> S1b-3 re-capped. Sections marked **pending owner choice** below (§3.1a, §7, §9, §11) reflect it; the r2 text stays.
+> Owner questions OQ1–OQ7 are in `REPLAN-fable.md` §6. S1b-1 is not affected (OQ6).
 
 
 Answered by the owner on 2026-09-26 after spec round 1, except where marked **open**.
@@ -144,6 +151,14 @@ nodes is correct). An error inside a sealed node cannot move text across its bou
 class or static block declares is invisible outside it. The site is outside every such node, so its walk and every
 declaration visible to it are outside the errors.
 
+> **Pending owner choice (re-plan fold of Opus r2 W2 and sol r2 W2; S1b-2a).** (i) counts only anonymous structural
+> `{`/`}` tokens under an `ERROR`, or `MISSING` braces; brace *characters* inside string, template, regex or comment
+> text never break it. (ii) is sealed only when the error lies inside a **delimited child** of the sealing node (its
+> `body` with paired braces, its `parameters` with paired parentheses, a `class_body`); a header error (name, type
+> parameters, return type, heritage) refuses, because a node's start is its first token and a leading error can pull
+> sibling text in. Measured (re-plan RP4): the 19 rows the narrower rule keeps (F 7, T 12) all stay kept; the 45 it
+> refuses stay refused; **0 rows change**, so E6 stands as chosen.
+
 **Why B0 is a fail-safe, not a list of hopes.** `probes/grammar_closure.py` reads the pinned grammars' `node-types.json`
 and marks every named kind that can hold a statement, declaration, pattern, parameter list or binding identifier
 field as **suspect**; each suspect kind must appear in the table above (as a scope, declaration, wrapper, pattern,
@@ -151,6 +166,34 @@ write form, reference-only or type-space kind). It checks this and exits non-zer
 suspect kinds; 186 concrete kinds). All other non-leaf kinds are mechanically inert. The runtime allowlist is the
 union, so a grammar upgrade that adds a kind refuses until the kind is classified. Measured cost: 0 rows on all four
 corpora (Q28).
+
+### 3.1a Evaluation context: positions, the leave predicate and the positional fail-safe (S1b-3; **pending owner choice**, `REPLAN-fable.md` §3)
+
+> Added by the re-plan after spec round 2. It supersedes "Walk jumps" (J1, J2) above and the closure claims "Why B0
+> is a fail-safe" for the *site walk*; the declaration rows (D, P, W) and the classification (B0–B3, M1–M2) stand.
+
+**Environment creators (Σ′)** are Σ (T1–T9) plus **T10** `enum_body` (a TS value container declaring the block's
+member names, non-callable). The list is cited to ECMA-262's environment creators (§10.2.11, §14.2.3, §14.7.4–5,
+§14.11.2, §14.12, §14.15.2, §15.7.14, §16) and TypeScript's namespace and enum bodies.
+
+**Positions.** The site walk consults `E(parent kind, field of the child it came from)` at every step. Kinds outside
+Σ′ ∪ {`decorator`} are *Structural* at every position. For Σ′ kinds and decorator holders every field is listed:
+`body` positions are *Inside*; function `parameters`/`parameter` are *Parameter* (J1); a `method_definition`'s
+computed `name` is *Outside* (**J3**: skip the method's environment, continue at the member's owner); a class's
+`decorator` children are *Outside* (J2) for class declarations and **unproven** for named class expressions; the
+`with` `object` is *Outside* and its `body` refuses; `for`/`for…in/of`/`catch`/`switch`/static-block positions are
+*Inside*; namespace and enum bodies are *Inside* and, on **leaving** the body unbound, apply the **leave predicate**:
+unproven iff another namespace/enum declaration in the file shares the first name segment, or the file is a script
+(no top-level `import_statement`/`export_statement`). The full table is `REPLAN-fable.md` §3.
+
+**Fail-safe.** A position not listed for a Σ′ kind is **unproven**. Under **OQ1 (a), recommended**, an unproven
+binding is `JsLocalBinding::Unchecked` (base behavior) counted in `local_binding_unchecked_position: {reason: n}`;
+under OQ1 (b) it is `Unproven`. `probes/grammar_closure.py` derives every field of every Σ′ kind from
+`node-types.json` and exits non-zero when one has no rule; B0 is extended to leaf kinds (sol r2 S4).
+
+**Measured (re-plan RP3, RP3b):** the pinned grammars allow 319 `(kind, field)` pairs; corpus sites cross 103. The
+unproven set is empty on X, F, R and T (the leave predicate fires on 0 T sites; decorators, computed member keys,
+`with` and enum bodies are crossed by 0 sites), so §5's expected counters and §8's row-diffs are unchanged from v8.
 
 ### 3.2 D4: module-scope terminals for the ESM export routes (S1b-2)
 
@@ -318,6 +361,18 @@ esm_namespace_import` (Gap → Supported).
 | S1b-3 | C-1 C63, C106; C-2 C86, C62/C11 producers, C135; C-3 C87, C101, C124, C92, C136, C104, C103, C147; C-4 C88, C113, C121; C-5 C89 + impostor twins; C-6 C90, C107, C138, C91, C125, C142 (E5 guards); C-7 C93, C111, C127, C94, C99, C102; C-8 C95; C-9 C105, C108, C109, C151; C-10 C110, **C122 (B-10b)**; C-11 C115, C116, C117; C-12 C118; C-13 C119, C120; C-14 C114; C-15 C137; C-16 C141; C-17 C145, C140; C-18 C134 (non-goal pin); C-19 memo keyed by scope and name; C-20 indirect/qualified sites unchanged; C-21 epochs; C-22 serde; C-23 pins | C-M1 ignore `local_binding`; **C-M2a** no `formal_parameters` scope (killed by C122); **C-M2b** no J1 jump (killed by C110); C-M3 no Annex-B marker; C-M4 no single-arrow `parameter`; C-M5 `with` not a scope; C-M6 no catch parameter; C-M7 no implicit `arguments`; C-M8 no D7 taint; C-M9 static blocks not var scopes; C-M10 no J2; C-M11 span-only match; C-M12 fall to R5 on `Unproven`; C-M13 admit `useCallback` without provenance; C-M14 M1 without the function-argument requirement |
 | S1b-4 | D-1 C62, C80, C81, C148; D-2 C82; D-3 C83; D-4 C128–C130; D-5 C131–C133; D-6 C84, C85, C112 guards; D-7 nav callers for C62; D-8 pins | D-M1 stem lookup for resolving modules; D-M2 skip the qualifier proof; D-M3 Exact for non-sibling stems; D-M4 namespace rule on named imports |
 
+**Re-plan additions (pending owner choice; `REPLAN-fable.md` §3–§5).** S1b-2 splits into **S1b-2a** (B-4–B-6, B-8,
+B-10 with the leaf allowlist, plus **B-14** RP2-a header error → refuse and **B-15** RP2-b string brace → kept, both
+quote forms, JSX and TSX; mutants B-M2–B-M5, B-M8, **B-M9** raw-text brace test, **B-M10** header errors sealed) and
+**S1b-2b** (B-1–B-3, B-7, B-9, B-11–B-13, plus **B-16** `export { f as "g" }` / `import { "g" as h }` via
+`ModuleExportName`, both quote forms and an escape; mutants B-M1, B-M6, B-M7, **B-M11** naive quote trimming).
+S1b-3 adds **C-24** RP1-a/b/g computed keys (key → Outside, body → inner), **C-25** RP1-c merge partner and its
+script-file twin (base under OQ1 a), **C-26** RP1-d2 enum member → not callable, **C-27** RP1-e `with` object → Exact,
+**C-28** RP1-f dotted partner (base under OQ1 a), **C-29** a named class expression with a decorator (unproven), and
+**C-30** a fail-safe mutant (one E-table row removed → the counter appears, the rows go base); mutants **C-M15** no
+J3, **C-M16** no leave predicate, **C-M17** partner index ignores dotted names, **C-M18** `with` object treated as
+body, **C-M19** enum body not a scope.
+
 **Tier-A fixtures** (`eval/fixtures/typescript/`, each RED on base and green on v8, Q33): S1b-1
 `s1b_jsx_intrinsic_tag_refused`; S1b-2 `s1b_list_export_nested_decoy_refused`; S1b-3
 `s1b_param_shadow_local_def_refused`; S1b-4 `s1b_namespace_nested_decoy_refused`.
@@ -370,11 +425,24 @@ so its review surface is the table, the controls and the closure probe. **`src/a
 physical lines in the prototype:** the implementation splits it (for example the declaration walk and the checks)
 to stay under 600 lines per file.
 
+**Re-plan caps (pending owner choice, OQ3; `REPLAN-fable.md` §5).** S1b-2 splits and S1b-3 carries the
+evaluation-context table:
+
+| Sub-slice | src cap / early stop | tests cap / report point | combined |
+|---|---|---|---|
+| S1b-1 | **60** / 54 (unchanged) | **200** / 180 | **260** |
+| S1b-2a (collector, module terminal, B0 leaves, B1 folds) | **510** / 465 | **560** / 500 | **1,070** |
+| S1b-2b (D4 wiring, R4c gate, `ModuleExportName`) | **140** / 125 | **200** / 180 | **340** |
+| S1b-3 (site walk with the E-table, leave predicate, fail-safe, scoped writes, `local_binding`, `useCallback`) | **480** / 430 | **700** / 630 | **1,180** |
+| S1b-4 | **185** / 165 (unchanged) | **330** / 300 | **515** |
+
 ## 10. Risks
 
 - **The collector's closure** remains the review surface. The table is keyed to the specification, every suspect
   grammar kind is classified by a checked probe, and B0 turns any unclassified kind into a refusal; the residual
-  assumption is B1's (correct tokenization outside error nodes).
+  assumption is B1's (correct tokenization outside error nodes). **Re-plan (pending owner choice):** the unit of
+  proof becomes the position (§3.1a); an unlisted position preserves base under OQ1 (a), so a new position can no
+  longer yield a wrong Exact from S1b. Base's own wrong Exacts at unproven positions remain (0 measured).
 - **E5 leaves known wrong Exact edges** (subscription returns, loaders, styled callbacks, and multi-target may-call
   rows: X 14 multi-target rows stay). They are recorded for the may-call follow-up lane.
 - **Grammar gaps** still cost right edges under E6 (F 4, T 41; E6b would recover T's 41).
@@ -386,4 +454,6 @@ to stay under 600 lines per file.
 |---|---|---|
 | spec r1 (Opus) | FIX 9 WRONG / 4 SMELL | all folded (`REVIEW-r1-fold.md`); structural fold per both reviewers' convergence advice |
 | spec r1 (sol) | FIX 6 WRONG / 2 SMELL | all folded; W6 in S1b-4; S8 a pinned non-goal |
-| spec r2 | – | – |
+| spec r2 (Opus) | FIX 2 WRONG / 3 SMELL | r1 all CLOSED. W1 namespace merging and S1 closure claim → the re-plan's E-table and leave predicate (§3.1a); W2 header errors → delimited-child sealing (§3.1 B1 note, 0 rows); S2 auditor tuple folded in `probes/jsscope.py`; S3 2a/2b split adopted (OQ3) |
+| spec r2 (sol) | FIX 3 WRONG / 1 SMELL | r1 all CLOSED. W1 computed keys → J3 (§3.1a); W2 string-token braces → B1 note (auditor folded); W3 string-literal names → `ModuleExportName` in S1b-2b (OQ5); S4 B0 leaf kinds → §3.1a fail-safe |
+| **cap** | controller: collector open-class | S1b-1 ships; S1b-2..4 re-planned (`REPLAN-fable.md`); one owner-approved round 3 on the re-planned packet (OQ4) |

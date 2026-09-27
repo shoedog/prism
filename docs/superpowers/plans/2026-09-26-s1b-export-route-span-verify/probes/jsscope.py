@@ -7,6 +7,11 @@ implicit `arguments`, class static blocks and TS namespace bodies as var scopes,
 Same author as the prototype: it catches implementation slips, not a shared misreading of the rules. The pinned
 controls (probes/controls_gen.py, one JSX and one TSX row per table entry) are the independent check on the rules.
 
+r3 (Fable re-plan, 2026-09-26): folds sol r2 W2 (structural brace tokens), Opus r2 W2 (delimited-child sealing) and
+Opus r2 S2 (the `with` tuple). It does NOT yet implement the evaluation-context table of REPLAN-fable.md §3 (computed
+member keys, namespace/enum leave rule, `with` object position): those are the implementer's RED rows, and this
+auditor still shares v8's position blindness there (recorded so nobody cites it as independent on those forms).
+
 resolve_callable(site, name, jsx) -> dict(status, span, detail, local) with status in:
   callable | wrapped_jsx | wrapped_nonjsx | maycall | not_callable | dup | global | parse | escaped | with
 """
@@ -247,7 +252,7 @@ class Src:
         n = site.parent
         while n is not None:
             if n.type == 'with_statement':
-                return n, [('*', n)]
+                return n, [n]                                # r3 fold (Opus r2 S2): a node, not a tuple
             if self.is_scope(n):
                 ds = [d for nm, d in self.scope_decls(n) if nm == name]
                 if ds:
@@ -266,17 +271,28 @@ class Src:
         return False
 
     def braces_intact(self):
+        # r3 fold (sol r2 W2): only structural brace *tokens* count, never brace characters inside string,
+        # template, regex or comment text of an ERROR node.
         if not hasattr(self, '_braces'):
             ok, stack = True, [self.root]
             while stack and ok:
                 n = stack.pop()
                 if n.is_missing and n.type in ('{', '}'):
                     ok = False
-                if n.is_error and re.search(r'[{}]', self.t(n)):
+                if n.is_error and any(not c.is_named and c.type in ('{', '}') for c in n.children):
                     ok = False
                 stack.extend(c for c in n.children if c.has_error or c.is_missing)
             self._braces = ok
         return self._braces
+
+    @staticmethod
+    def delimited_children(u):
+        # r3 fold (Opus r2 W2): the children whose first and last tokens are paired delimiters.
+        for f, (o, c) in (('body', ('{', '}')), ('parameters', ('(', ')'))):
+            ch = u.child_by_field_name(f)
+            if ch is not None and ch.child_count >= 2 and ch.children[0].type == o and \
+                    ch.children[-1].type == c and not ch.children[0].is_missing and not ch.children[-1].is_missing:
+                yield ch
 
     def sealed(self, scope, site):
         if not scope.has_error:
@@ -294,6 +310,10 @@ class Src:
                                              u.child_by_field_name('body').type == 'statement_block'))):
                     u = u.parent
                 if u is None or u.id == scope.id or (site is not None and inside(u, site)):
+                    return False
+                # r3 fold (Opus r2 W2): a header error (name, type parameters, return type, heritage) is not
+                # sealed; only an error inside a delimited child of the sealing node is.
+                if not any(inside(d, n) for d in self.delimited_children(u)):
                     return False
             stack.extend(c for c in n.children if c.has_error or c.is_missing)
         return True

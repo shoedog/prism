@@ -1,14 +1,17 @@
 # S1b planning packet: span-verify every JS/TS export and local route (r2, 2026-09-26)
 
 **Base:** `origin/main` `a6d853f5` (S1 merged). Planning only: nothing under `src/`, `tests/`, `eval/`, `Cargo.*` or
-`CLAUDE.md` changes on this branch. **Status:** spec round 1 folded (`REVIEW-r1-fold.md`); owner answers E1–E12
-recorded in SPEC §0; three questions open (E5b, E6b, E13); spec round 2 next.
+`CLAUDE.md` changes on this branch. **Status:** spec round 2 (the cap) found the collector open-class; S1b-1 ships;
+S1b-2..4 are **re-planned in `REPLAN-fable.md`** (evaluation-context table, positional fail-safe, leave predicate;
+0 measured corpus cost; Option K recommended; 2a/2b split), **pending owner choice** (OQ1–OQ7) and one owner-approved
+round 3. Re-plan evidence: `~/prism-evidence/s1b/replan/`.
 
 | File | Purpose |
 |---|---|
 | `SPEC.md` | normative design r2: §0 owner answers and open questions; §3.1 the binding core as an enumerated table keyed to ECMA-262 and TS declaration spaces, with the fail-safe and the narrower parse rule; per-route semantics; controls; counters; cache; per-sub-slice tests, mutants and Tier-A fixtures; acceptance as exact audited row-diffs per sub-slice; budget |
 | `PLANNING-PROBES.md` | mechanisms M1–M17 and probes Q0–Q35 (command, pre-run expectation, result, output path); r2 results per corpus and route |
 | `REVIEW-r1-fold.md` | every spec round 1 finding → disposition → location → evidence, plus fold findings and disagreements |
+| `REPLAN-fable.md` | re-plan after the round-2 cap: diagnosis (the unit of proof is the position, not the kind), options K / A / B / D with measured yields and budgets, the evaluation-context table, the fold plan for the bounded r2 items, owner questions OQ1–OQ7, the round-3 review brief |
 | `IMPLEMENTOR.md` | dispatch brief for one sub-slice, with per-batch budget checkpoints |
 | `REVIEWER.md` | one brief for sol and Opus |
 | `probes/` | tools (auditor `jsscope.py`, `grammar_closure.py`, census, row-diff audit, taxonomy, 218-scenario control generator with JSX/TSX twins), pre-run expectations (addenda 1–6), reference control summaries per sub-slice, `expected/` row-diffs for X, R and T |
