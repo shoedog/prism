@@ -15,14 +15,17 @@ fn a1_intrinsic_tags_drop_on_every_rung() {
         "L3 island: Exact import_member lib:island@1-1",
         "L4 island: drop JsxIntrinsic",
     ];
-    // C96 (R4 `local_def`, opening tags) plus the dashed and namespaced spellings.
+    // C96 (R4 `local_def`, opening tags); uppercase-leading dashed and namespaced tags pin
+    // the `-` and `:` branches; `él` is not ASCII lowercase, so it keeps its binding.
     let c96 = "function div() {\n  return 1;\n}\nfunction island() {\n  return 2;\n}\n\
-        export function App() {\n  return <div><island>x</island><my-el/><svg:rect/></div>;\n}\n";
+        function él() {\n  return 3;\n}\nexport function App() {\n  return <div><island>x\
+        </island><My-el/><Svg:rect/><él/></div>;\n}\n";
     let c96_want: &[&str] = &[
-        "L8 div: drop JsxIntrinsic",
-        "L8 island: drop JsxIntrinsic",
-        "L8 my-el: drop JsxIntrinsic",
-        "L8 svg:rect: drop JsxIntrinsic",
+        "L11 My-el: drop JsxIntrinsic",
+        "L11 Svg:rect: drop JsxIntrinsic",
+        "L11 div: drop JsxIntrinsic",
+        "L11 island: drop JsxIntrinsic",
+        "L11 él: Exact local_def app:él@7-9",
     ];
     // R5 (the Tier-A fixture's shape): a cross-file free function named like the tag.
     let input = "export function input() {\n  return 1;\n}\n";
@@ -71,7 +74,7 @@ fn a3_f1_f2_f3_writes_through_the_base_module_scan() {
     // wrapper local refuses it (`callee_provenance`), so `<Island/>` has no export fact.
     let refused = ["L3 Island: drop UnknownName"];
     let admitted = ["L3 Island: Exact import_member lib:Island@3-3"];
-    let rows: [(&str, &str, &[&str]); 6] = [
+    let rows: [(&str, &str, &[&str]); 8] = [
         ("tsx", "(forwardRef as any) = null;", &refused), // F1 (C142)
         ("tsx", "(forwardRef satisfies any) = null;", &refused), // F1
         ("tsx", "forwardRef! = null;", &refused),         // F1
@@ -83,10 +86,17 @@ fn a3_f1_f2_f3_writes_through_the_base_module_scan() {
             "const g = forwardRef => { forwardRef = 2; };",
             &admitted,
         ),
+        ("jsx", "({ forwardRef = null } = {});", &refused), // F2, JSX grammar
+        (
+            "jsx",
+            "const g = forwardRef => { forwardRef = 2; };",
+            &admitted,
+        ), // F3, JSX grammar
     ];
     for (ext, write, want) in rows {
         let (name, lib) = (format!("lib.{ext}"), wrapped_after(write));
-        let cg = graph(&[(name.as_str(), lib.as_str()), ("app.tsx", APP)]);
+        let app = if ext == "jsx" { "app.jsx" } else { "app.tsx" };
+        let cg = graph(&[(name.as_str(), lib.as_str()), (app, APP)]);
         assert_eq!(app_sites(&cg), want, "{write}");
     }
 }
