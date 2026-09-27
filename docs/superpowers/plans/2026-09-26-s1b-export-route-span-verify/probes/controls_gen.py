@@ -339,6 +339,35 @@ S1B["C150_E6_sealed_error_mentions_name"] = {
  "app.{s}": "import { f } from './util';\nexport function run() {\n  return f();\n}\n"}
 S1B["C151_E6_error_in_site_function"] = {
  "a.{s}": "function g() {\n  return 1;\n}\nexport function run() {\n  g();\n  let x = ;\n}\nexport function other() {\n  return g();\n}\n"}
+# ---- spec r3 fold (v9): Opus W1/W2, sol W1, Opus S4.
+S1B["C152_N6_named_class_expr_member_decorator"] = {
+ "a.{x}": "function f() {\n  return (t, c) => t;\n}\nexport function host() {\n  const C = class f {\n    @f() m() {}\n  };\n  return C;\n}\n"}
+S1B["C153_N6b_class_decl_member_decorator"] = {
+ "a.{x}": "function f() {\n  return (t, c) => t;\n}\nexport function host() {\n  class f {\n    @f() m() {}\n  }\n  return f;\n}\n"}
+S1B["C154_N6d_anon_class_expr_member_decorator"] = {
+ "a.{x}": "function f() {\n  return (t, c) => t;\n}\nexport function host() {\n  const C = class {\n    @f() m() {}\n  };\n  return C;\n}\n"}
+S1B["C155_OQ7_decorated_named_class_expr"] = {
+ "a.{x}": "function f() {\n  return (t) => t;\n}\nexport function host() {\n  const C = @f() class f {};\n  return C;\n}\n"}
+S1B["C160_annexb_sloppy_script_js_unknown"] = {
+ "a.{s}": "function inner() {\n  return 0;\n}\nfunction run(flag) {\n  if (flag) {\n    function inner() {\n      return 1;\n    }\n  }\n  return inner();\n}\n"}
+S1B["C161_annexb_use_strict_script"] = {
+ "a.{s}": "'use strict';\nfunction inner() {\n  return 0;\n}\nfunction run(flag) {\n  if (flag) {\n    function inner() {\n      return 1;\n    }\n  }\n  return inner();\n}\n"}
+S1B["C162_annexb_function_directive"] = {
+ "a.{s}": "function inner() {\n  return 0;\n}\nfunction run(flag) {\n  \"use strict\";\n  if (flag) {\n    function inner() {\n      return 1;\n    }\n  }\n  return inner();\n}\n"}
+S1B["C165_for_in_left_default"] = {
+ "a.{s}": "function f() {\n  return 1;\n}\nexport function run(xs) {\n  for (const { a = f() } of xs) {\n    return a;\n  }\n  for (const { f = f() } of xs) {\n    return f;\n  }\n}\n"}
+TS_ONLY["C163_annexb_sloppy_cjs"] = {
+ "a.cjs": "function inner() {\n  return 0;\n}\nfunction run(flag) {\n  if (flag) {\n    function inner() {\n      return 1;\n    }\n  }\n  return inner();\n}\nmodule.exports = { run };\n"}
+TS_ONLY["C164_annexb_sloppy_cjs_generator"] = {
+ "a.cjs": "function* inner() {\n  yield 0;\n}\nfunction run(flag) {\n  if (flag) {\n    function* inner() {\n      yield 1;\n    }\n  }\n  return inner();\n}\nmodule.exports = { run };\n"}
+TS_ONLY["C156_W2_dotted_namespace_segment"] = {
+ "a.ts": "function B() {\n  return 0;\n}\nnamespace A.B {\n  export function run() {\n    return B();\n  }\n}\nexport {};\n"}
+TS_ONLY["C157_W2_dotted_namespace_three"] = {
+ "a.ts": "function A() {\n  return 0;\n}\nfunction C() {\n  return 0;\n}\nnamespace A.B.C {\n  export function run() {\n    return C() + A();\n  }\n}\nexport {};\n"}
+TS_ONLY["C158_S4_enum_string_member"] = {
+ "a.ts": "function f() {\n  return 1;\n}\nexport function host() {\n  enum E {\n    'f' = 1,\n    g = f(),\n  }\n  return E;\n}\n"}
+TS_ONLY["C159_annexb_ts_script_unknown"] = {
+ "a.ts": "function inner() {\n  return 0;\n}\nfunction run(flag: boolean) {\n  if (flag) {\n    function inner() {\n      return 1;\n    }\n  }\n  return inner();\n}\n"}
 TS_ONLY["C117_W1_namespace_body_var"] = {
  "a.ts": "function f() {\n  return 1;\n}\nnamespace N {\n  var f = () => 2;\n  export function run() {\n    return f();\n  }\n}\n"}
 TS_ONLY["C141_W2_import_alias"] = {

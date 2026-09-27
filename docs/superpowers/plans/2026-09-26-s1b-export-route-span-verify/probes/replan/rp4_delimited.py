@@ -8,7 +8,7 @@ header (name, type parameters, return type, heritage) is not sealed.
 Usage: python3 rp4_delimited.py <repo_root> <vs-default.json> [--private]
 """
 import os, sys, json
-sys.path.insert(0, os.path.expanduser('~/code/prism-s1b/docs/superpowers/plans/2026-09-26-s1b-export-route-span-verify/probes'))
+sys.path.insert(0, os.environ.get('S1B_PROBES', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
 import jsscope
 from jsscope import FUNCS, CLASSES, inside
 

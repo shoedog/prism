@@ -6,7 +6,7 @@ rules apply and v8 is unsound).
 Usage: python3 e_sites_join.py <repo_root> <base-dump-sites.jsonl> <out.json> [--private]
 """
 import os, sys, json, collections
-sys.path.insert(0, os.path.expanduser('~/code/prism-s1b/docs/superpowers/plans/2026-09-26-s1b-export-route-span-verify/probes'))
+sys.path.insert(0, os.environ.get('S1B_PROBES', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
 import jsscope
 from position_census import LANG, SKIP_DIRS, sites, field_of, classify_pair
 

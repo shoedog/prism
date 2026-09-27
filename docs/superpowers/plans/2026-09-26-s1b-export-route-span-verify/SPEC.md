@@ -1,7 +1,8 @@
 # S1b: span-verify every JS/TS export and local route
 
-**Status:** revision **r2** (spec round 1 folded, `REVIEW-r1-fold.md`), with the owner's r1 answers in §0. Spec round
-2 of 2 is next (sol + Opus in parallel). Nothing under `src/`, `tests/`, `eval/`, `Cargo.*` or `CLAUDE.md` changes on
+**Status:** revision **r3** (spec round 3, the final round, folded at the cap: `REVIEW-r3-fold.md`, owner decision
+2026-09-26 "targeted fold, then implement"). Earlier folds: `REVIEW-r1-fold.md`, `REPLAN-fable.md`. **Implementation
+dispatches from this revision; there is no further spec round.** Nothing under `src/`, `tests/`, `eval/`, `Cargo.*` or `CLAUDE.md` changes on
 this branch.
 
 **Base:** `origin/main` `a6d853f5` (S1 merged). **Grounding:** `PLANNING-PROBES.md` (M-ids for mechanisms, Q-ids for
@@ -13,6 +14,18 @@ globals and `require`/`import()` re-acquisition are out of model for every rung.
 and is in model.
 
 ## 0. Owner decisions
+
+> **Owner decision after spec round 3 (2026-09-26): targeted fold, then implement.** Both round-3 reviews were
+> converging (Opus FIX 2 / 4, sol FIX 4 / 0). The folds are recorded in `REVIEW-r3-fold.md` and below (§3.1 D1,
+> §3.1a, §5, §6, §7, §8, §9), each pinned by RED control rows and mutants that the implementation reviews verify.
+> **Open for the owner from this fold:**
+> - **OQ8, the F4 collector fix** (S1b-1 implementation review, Opus S1): (a) **a separate small slice S1b-1b**
+>   between S1b-1 and S1b-2a (recommended: it changes R4c and R5 rows no other sub-slice owns, and 2a is a 0-row
+>   slice); (b) fold into S1b-3; (c) defer. Measured on the S1b-1 head: X 91 rows (88 wrong R5 edges removed, 3 right
+>   `import_member` edges added), F 16 (wrong R5 edges removed), R 0, T in PLANNING-PROBES Q45; all audited right.
+> - **OQ9, re-caps (measured on v9, §9):** S1b-2a measures **557** src against its 510 cap and S1b-3 **533** against
+>   480; 2b (123 / 140) and 4 (177 / 185) fit. Recommended: 2a **615**, 3 **590**, 4 **195**, tests 3 **850** and 2b
+>   **230** (§9). Until the owner answers, the dispatch caps stay the re-plan's and the implementer stops at them.
 
 > **Owner answers to the re-plan (`REPLAN-fable.md` §6), 2026-09-26. These are authoritative and supersede every
 > "pending owner choice" marker below.**
@@ -126,7 +139,7 @@ its subtree indirect. It stops at function-like nodes, classes, `class_static_bl
 
 | # | Form | Rule |
 |---|---|---|
-| D1 | `function_declaration`, `generator_function_declaration` | direct: a declaration of its name. Reached indirectly by a hoisting walk: an **Annex B.3.3 marker** (the enclosing statement), non-callable, because sloppy code may var-hoist a block function |
+| D1 | `function_declaration`, `generator_function_declaration` | direct: a declaration of its name. Reached indirectly by a hoisting walk (r3, sol W1): an **Annex B.3.2 marker** (the enclosing statement, non-callable) only for an **ordinary** block `function_declaration` (not `async`, not a generator) in **non-strict** code. Strict: a module (a top-level `import_statement`/`export_statement`, or `.mjs`/`.mts`), a `"use strict"` directive in the program's or any enclosing function's prologue, class code. Sloppy: a `.cjs` script with no directive. **Unknown** (a `.js`/`.ts`/`.jsx`/`.tsx` script without a directive: `package.json` `type` or TS `alwaysStrict` decides): the binding is unproven and keeps base behavior, counted `annex_b_strictness` (Option K). Strict code records no marker (the block declaration is block-scoped) |
 | D2 | `class_declaration`, `abstract_class_declaration` | direct: a declaration (non-callable) |
 | D3 | `labeled_statement` | transparent (a labelled function declaration is a declaration of its surrounding list) |
 | D4 | `lexical_declaration` declarators; TS `using` / `await using` (an `expression_statement` holding an `assignment_expression` with an anonymous `using` token) | direct only |
@@ -181,7 +194,7 @@ suspect kinds; 186 concrete kinds). All other non-leaf kinds are mechanically in
 union, so a grammar upgrade that adds a kind refuses until the kind is classified. Measured cost: 0 rows on all four
 corpora (Q28).
 
-### 3.1a Evaluation context: positions, the leave predicate and the positional fail-safe (S1b-3; **pending owner choice**, `REPLAN-fable.md` §3)
+### 3.1a Evaluation context: positions, the leave predicate and the positional fail-safe (S1b-3; owner OQ1/OQ2/OQ7 = (a), r3 fold below; `REPLAN-fable.md` §3)
 
 > Added by the re-plan after spec round 2. It supersedes "Walk jumps" (J1, J2) above and the closure claims "Why B0
 > is a fail-safe" for the *site walk*; the declaration rows (D, P, W) and the classification (B0–B3, M1–M2) stand.
@@ -200,14 +213,38 @@ computed `name` is *Outside* (**J3**: skip the method's environment, continue at
 unproven iff another namespace/enum declaration in the file shares the first name segment, or the file is a script
 (no top-level `import_statement`/`export_statement`). The full table is `REPLAN-fable.md` §3.
 
-**Fail-safe.** A position not listed for a Σ′ kind is **unproven**. Under **OQ1 (a), recommended**, an unproven
-binding is `JsLocalBinding::Unchecked` (base behavior) counted in `local_binding_unchecked_position: {reason: n}`;
-under OQ1 (b) it is `Unproven`. `probes/grammar_closure.py` derives every field of every Σ′ kind from
-`node-types.json` and exits non-zero when one has no rule; B0 is extended to leaf kinds (sol r2 S4).
+**r3 fold (the at-cap round).**
+- **J2 split by holder (Opus W1).** A decorator whose holder is the class node itself is *Outside* (the walk resumes
+  above the class); on a *named class expression* it is unproven (OQ7, base, counted `decorated_class_expression`).
+  A decorator under `class_body`, a class element (`method_definition`, a field) or a parameter is **Inside the
+  class** (T8): the walk resumes at the `class_body`, so the class's inner name is visible (member decorators are
+  evaluated in the class scope).
+- **Dotted namespaces (Opus W2).** On leaving the body of `namespace A.B.C`, each non-first segment (`B`, `C`) is a
+  declaration of a namespace, non-callable: a callee with that name refuses `not_callable`. The first segment is
+  D6's declaration in the enclosing scope, as before.
+- **`for_in_statement.left` is Inside** the loop head environment (Opus S4: a destructuring default in the head).
+- **T10 compares member names by StringValue** (Opus S4: `'f' = 1` declares `f`), through the same
+  `ModuleExportName` helper as 2b.
+- **The table is checked, not asserted (sol W2).** `probes/grammar_closure.py` derives the 23 Σ′ kinds' 74
+  positions from `node-types.json`, fails on a missing or extra `E_TABLE` row, derives the 186-kind allowlist
+  (leaves included), and with `--rust <src/ast>` fails unless the runtime `CLASSIFIED` and `E_TABLE` equal the
+  derived tables exactly. The Rust unit test that asserts the same equality lands in **S1b-3** with the runtime
+  table. **S1b-2a** has no site walk: its not-yet-wired items carry `#[allow(dead_code)]` (module-level, with a
+  comment naming the wiring slice), which 2b and 3 remove; 2a's tests call the module terminal through the crate's
+  normal `pub(crate)` API, so no test-only entry point is added.
 
-**Measured (re-plan RP3, RP3b):** the pinned grammars allow 319 `(kind, field)` pairs; corpus sites cross 103. The
-unproven set is empty on X, F, R and T (the leave predicate fires on 0 T sites; decorators, computed member keys,
-`with` and enum bodies are crossed by 0 sites), so §5's expected counters and §8's row-diffs are unchanged from v8.
+**Fail-safe (OQ1 = a, Option K).** A position not listed for a Σ′ kind is **unproven**: the binding is
+`JsLocalBinding::Unchecked(reason)` (base behavior; the v9 prototype spells it `BasePosition`), counted in
+`local_binding_unchecked_position: {reason: n}`. The reasons are closed: `unproven_position` (an unlisted `E` row),
+`namespace_leave` (the leave predicate), `decorated_class_expression` (OQ7) and `annex_b_strictness` (D1, unknown
+strictness). `probes/grammar_closure.py` derives every field of every Σ′ kind from `node-types.json` and exits
+non-zero when one has no rule; B0 covers leaf kinds (sol r2 S4).
+
+**Measured (re-plan RP3, RP3b; r3 on v9, Q41–Q43):** the pinned grammars allow 319 `(kind, field)` pairs
+(`probes/replan/count_pairs.py`); corpus sites cross 103. The unproven set is empty on X, F, R and T (the leave
+predicate fires on 0 T sites; decorators, computed member keys, `with` and enum bodies are crossed by 0 sites), and
+the r3 fold (J2 split, dotted segments, `for_in.left`, T10 StringValue, the Annex-B predicate) changes 0 rows against
+v8 on every corpus, so §5's expected counters and §8's row-diffs are v8's.
 
 ### 3.2 D4: module-scope terminals for the ESM export routes (S1b-2)
 
@@ -275,7 +312,9 @@ S1's predicate gains a `local_route` flag; on the binding route (not the export 
 
 218 scenarios; every S1b scenario runs in the JSX (`.jsx`/`.js`) and TSX (`.tsx`/`.ts`) grammar, except the TS-only
 C102–C104, C114, C117, C141–C148. All results match the pre-registered expectations after addenda 4–6 (one prediction
-was falsified in detail and recorded before the rerun: C151, addendum 6).
+was falsified in detail and recorded before the rerun: C151, addendum 6). **r3 (v9):** 240 scenarios; the fold's
+C152–C165 and the reversed C111 match addendum 7, and the v8 → v9 control diff contains only those rows
+(`probes/S1b-controls-proto-v9.txt`; §7 C-31–C-34).
 
 | Control (table row) | Rule | Sub-slice | base → S1b |
 |---|---|---|---|
@@ -298,7 +337,7 @@ was falsified in detail and recorded before the rerun: C151, addendum 6).
 | C90, C107, C138 `throttle`/`lazy`/decoy | M1 | 3 | unchanged |
 | C91, C125, C142 written bindings (including destructuring and TS-assertion writes) | M2 | 3 | unchanged |
 | C92 catch / for-of / class / `with` shadows | T5, T6, T8, T9 | 3 | → drop (the try-block call keeps Exact) |
-| C93, C111 block function inside / outside; Annex B | D1 | 3 | inside Exact; outside drop |
+| C93, C111 block function inside / outside (modules: strict) | D1 | 3 | inside Exact; C93 outside drop; **C111 outside Exact to the outer function (r3, sol W1)** |
 | C94 hoisted `var` arrow | D7 | 3 | unchanged |
 | C95 same-line collision | span | 3 | → drop |
 | C99, C127 recursion, fe self-call, labelled function (sol W5) | D3, T2 | 3 | unchanged |
@@ -334,9 +373,13 @@ was falsified in detail and recorded before the rerun: C151, addendum 6).
 
 - `dropped_jsx_intrinsic`, `dropped_local_binding_unproven` (new drop reasons, exhaustive match);
   `dropped_wrapped_export_non_jsx` now also counts R3 and R4 sites; `js_export_local_refusals` (sorted object).
+- **`local_binding_unchecked_position`** (S1b-3; r3, sol W4 / Opus S1): a sorted object `{reason: n}` counting
+  bindings kept at base behavior under Option K, by the closed reasons of §3.1a (`unproven_position`,
+  `namespace_leave`, `decorated_class_expression`, `annex_b_strictness`). Always emitted, `{}` when empty. Measured on
+  v9: **`{}` on X, F, R and T** (C155, C159, C160 and the RP1-c/f controls exercise it).
 - An implementation adds `js_export_local_may_call` (a count of export occurrences kept at base by E5), so the E5
   class is observable; the prototype does not have it.
-- Expected (v8):
+- Expected (v8; **re-measured on v9, identical on all four corpora**, Q43):
 
 | Corpus | `dropped_jsx_intrinsic` (S1b-1) | `js_export_local_refusals` (S1b-2) | `dropped_local_binding_unproven` (S1b-3) | `unresolved_unknown_name` | `multi_target_exact_sites` | `local_def` Exact edges |
 |---|---|---|---|---|---|---|
@@ -349,9 +392,21 @@ was falsified in detail and recorded before the rerun: C151, addendum 6).
 
 ## 6. Cache
 
-Each sub-slice bumps both caches from the landed values: S1b-1 99 / 55 (a new drop reason changes resolution-derived
-edges); S1b-2 100 / 56 (export facts); S1b-3 101 / 57 (`CallSite.local_binding`); S1b-4 102 / 58 (qualifier binding
-and R3 edges). Update the pins.
+**Schedule (r3, sol W4 / Opus S1; CPG / sidecar, from the landed 98 / 54):**
+
+| Sub-slice | Bump | Why |
+|---|---|---|
+| S1b-1 | 99 / 55 (landed on its branch) | a new drop reason changes resolution-derived edges |
+| S1b-1b (OQ8 a) | 100 / 56, and every later value shifts by one | R4c/R5 local-binding facts change |
+| S1b-2a | **none** | the collector is not wired to any persisted fact or producer; no cached byte changes |
+| S1b-2b | 100 / 56 | export facts (`VerifiedLocal`, `ModuleExportName`) |
+| S1b-3 | 101 / 57 | `CallSite.local_binding` |
+| S1b-4 | 102 / 58 | qualifier binding and R3 edges |
+
+Each bump updates the pins. **B-17 (2b), cross-commit regression:** a cache written by the parent commit's binary
+and read by the sub-slice's binary must be rejected (version mismatch) and the rebuilt output must equal
+`--no-cache`; it fails on a mutant that forgets the bump. 2a's review checks that no persisted type changed
+(`git diff` over the serde types and the cache writers is empty).
 
 ## 7. Test plan
 
@@ -375,17 +430,42 @@ esm_namespace_import` (Gap → Supported).
 | S1b-3 | C-1 C63, C106; C-2 C86, C62/C11 producers, C135; C-3 C87, C101, C124, C92, C136, C104, C103, C147; C-4 C88, C113, C121; C-5 C89 + impostor twins; C-6 C90, C107, C138, C91, C125, C142 (E5 guards); C-7 C93, C111, C127, C94, C99, C102; C-8 C95; C-9 C105, C108, C109, C151; C-10 C110, **C122 (B-10b)**; C-11 C115, C116, C117; C-12 C118; C-13 C119, C120; C-14 C114; C-15 C137; C-16 C141; C-17 C145, C140; C-18 C134 (non-goal pin); C-19 memo keyed by scope and name; C-20 indirect/qualified sites unchanged; C-21 epochs; C-22 serde; C-23 pins | C-M1 ignore `local_binding`; **C-M2a** no `formal_parameters` scope (killed by C122); **C-M2b** no J1 jump (killed by C110); C-M3 no Annex-B marker; C-M4 no single-arrow `parameter`; C-M5 `with` not a scope; C-M6 no catch parameter; C-M7 no implicit `arguments`; C-M8 no D7 taint; C-M9 static blocks not var scopes; C-M10 no J2; C-M11 span-only match; C-M12 fall to R5 on `Unproven`; C-M13 admit `useCallback` without provenance; C-M14 M1 without the function-argument requirement |
 | S1b-4 | D-1 C62, C80, C81, C148; D-2 C82; D-3 C83; D-4 C128–C130; D-5 C131–C133; D-6 C84, C85, C112 guards; D-7 nav callers for C62; D-8 pins | D-M1 stem lookup for resolving modules; D-M2 skip the qualifier proof; D-M3 Exact for non-sibling stems; D-M4 namespace rule on named imports |
 
-**Re-plan additions (pending owner choice; `REPLAN-fable.md` §3–§5).** S1b-2 splits into **S1b-2a** (B-4–B-6, B-8,
+**Re-plan additions (owner OQ1–OQ7 = a; `REPLAN-fable.md` §3–§5).** S1b-2 splits into **S1b-2a** (B-4–B-6, B-8,
 B-10 with the leaf allowlist, plus **B-14** RP2-a header error → refuse and **B-15** RP2-b string brace → kept, both
 quote forms, JSX and TSX; mutants B-M2–B-M5, B-M8, **B-M9** raw-text brace test, **B-M10** header errors sealed) and
 **S1b-2b** (B-1–B-3, B-7, B-9, B-11–B-13, plus **B-16** `export { f as "g" }` / `import { "g" as h }` via
-`ModuleExportName`, both quote forms and an escape; mutants B-M1, B-M6, B-M7, **B-M11** naive quote trimming).
+`ModuleExportName`, both quote forms and an escape, and **B-17** the cross-commit cache regression (§6); mutants
+B-M1, B-M6, B-M7, **B-M11** naive quote trimming). S1b-2a also carries **B-18**, the strictness and Annex-B marker
+unit rows (IMPLEMENTOR "S1b-2a dispatch").
 S1b-3 adds **C-24** RP1-a/b/g computed keys (key → Outside, body → inner), **C-25** RP1-c merge partner and its
 script-file twin (base under OQ1 a), **C-26** RP1-d2 enum member → not callable, **C-27** RP1-e `with` object → Exact,
 **C-28** RP1-f dotted partner (base under OQ1 a), **C-29** a named class expression with a decorator (unproven), and
 **C-30** a fail-safe mutant (one E-table row removed → the counter appears, the rows go base); mutants **C-M15** no
 J3, **C-M16** no leave predicate, **C-M17** partner index ignores dotted names, **C-M18** `with` object treated as
 body, **C-M19** enum body not a scope.
+
+**r3 fold additions (at-cap; `REVIEW-r3-fold.md`).** All in S1b-3 and in both grammars unless marked TS-only;
+expectations in `probes/S1b-controls-expectations-pre-run.md` addendum 7, measured on v9 (`probes/S1b-controls-proto-v9a.txt`):
+- **C-31 (Opus W1, J2 by holder):** C152 member decorator of a named class expression referring to the class's inner
+  name (N6) → drop (the inner name is not callable); C153 the same on a class declaration (N6b) → drop; C154 an
+  anonymous class expression (N6d) → unchanged; C155 a class-node decorator on a named class expression (OQ7) → base,
+  counted `decorated_class_expression`. Mutant **C-M20**: member decorators treated as Outside (killed by C152, C153).
+- **C-32 (Opus W2, dotted namespaces; TS-only):** C156 `namespace A.B { B() }` → drop (not callable); C157
+  `namespace A.B.C` with `C()` and `A()` → drop both. Mutant **C-M21**: non-first segments ignored (killed by C156).
+- **C-33 (sol W1, the Annex-B predicate):** **C111 reversed** (a module: the outer call binds the outer function,
+  Exact); C159 (TS script) and C160 (JS script) with no directive → base, counted `annex_b_strictness`; C161 a
+  `"use strict"` script and C162 a function-level directive → Exact to the outer function; C163 a `.cjs` sloppy script
+  → drop (the marker); C164 a `.cjs` block *generator* → Exact to the outer function (C163, C164 JS-only: there is no provably sloppy TS
+  file, since prism does not parse `.cts` and a `.ts` script is Unknown). Mutants **C-M22** unconditional
+  marker (killed by C111, C161), **C-M23** marker for generator/async declarations (killed by C164).
+- **C-34 (Opus S4):** C165 `for (const { a = f() } of xs)` → Exact to the outer `f`, `for (const { f = f() } of xs)` →
+  drop; C158 (TS-only) `enum E { 'f' = 1, g = f() }` → drop. Mutants **C-M24** `for_in_statement.left` unlisted (C165
+  goes base and counts), **C-M25** member names compared by raw text (killed by C158).
+- **C-35 closure:** the Rust unit test asserting `CLASSIFIED` and `E_TABLE` equal `probes/grammar_closure.py`'s derived
+  tables (the probe is the reference; `python3 probes/grammar_closure.py --rust src/ast` must exit 0 in S1b-3's
+  acceptance), plus C-30's one-row-removed mutant.
+- **RP replay:** `probes/replan/replay_rp.sh <binary> <out>` (46 scenarios, the set asserted against
+  `RP-SCENARIOS.txt`) must match the re-plan's "correct" column (Q39) at S1b-3 and S1b-4 heads.
 
 **Tier-A fixtures** (`eval/fixtures/typescript/`, each RED on base and green on v8, Q33): S1b-1
 `s1b_jsx_intrinsic_tag_refused`; S1b-2 `s1b_list_export_nested_decoy_refused`; S1b-3
@@ -402,10 +482,15 @@ body, **C-M19** enum body not a scope.
 | Sub-slice | X | F | R | T |
 |---|---|---|---|---|
 | S1b-1 | 866 (804 relabels, 62 wrong intrinsic removals) | 497 (387, 103, 7 shared-fix removals) | 117 relabels | 2 shared-fix removals |
-| S1b-2 | 0 | 0 | 0 | 0 |
+| S1b-1b (F4, OQ8 a) | 91 (88 wrong R5 edges removed, 3 right `import_member` added) | 16 (wrong removed) | 0 | 5 (wrong NameOnly removed) |
+| S1b-2a, S1b-2b | 0 | 0 | 0 | 0 |
 | S1b-3 | 153 (134 re-targeted, 19 wrong removed) | 35 (1, 30 wrong, 4 parse-recovery right refused) | 0 | 868 (635, 182 wrong, 41 parse-recovery right refused, 10 right added) |
 | S1b-4 | 0 | 4 (Exact → NameOnly, edge kept) | 0 | 0 |
 
+   The S1b-1b row is measured against the S1b-1 head (Q45); with S1b-1b landed, S1b-3's expected row-diff is
+   re-derived on the S1b-1b base before dispatch. Measured overlap of the F4 row keys with v9's S1b-3 row keys
+   (upto1 → upto2): **0 on every corpus** (X 91 / 153, F 16 / 35, T 5 / 868), so the counts above are expected to
+   hold; the controller still re-derives them rather than assuming.
    No row may change in the may-call class (E5): `audit_rowdiff.py` reports it as `maycall_changed`, which must be 0.
    Any deviation is a blocker until the owner accepts it, reported row by row.
 3. **Custody.** `~/prism-evidence/s1b/acceptance/<sub-slice>/` with a `MANIFEST.sha256`.
@@ -439,8 +524,8 @@ so its review surface is the table, the controls and the closure probe. **`src/a
 physical lines in the prototype:** the implementation splits it (for example the declaration walk and the checks)
 to stay under 600 lines per file.
 
-**Re-plan caps (pending owner choice, OQ3; `REPLAN-fable.md` §5).** S1b-2 splits and S1b-3 carries the
-evaluation-context table:
+**Re-plan caps (owner OQ3 = a; `REPLAN-fable.md` §5).** S1b-2 splits and S1b-3 carries the evaluation-context
+table:
 
 | Sub-slice | src cap / early stop | tests cap / report point | combined |
 |---|---|---|---|
@@ -450,11 +535,30 @@ evaluation-context table:
 | S1b-3 (site walk with the E-table, leave predicate, fail-safe, scoped writes, `local_binding`, `useCallback`) | **480** / 430 | **700** / 630 | **1,180** |
 | S1b-4 | **185** / 165 (unchanged) | **330** / 300 | **515** |
 
+**r3 measurement (v9, Q46; OQ9 open).** Prototype v9 is **1,448 src** lines: 26 S1b-1 (landed as 32 on its
+branch), **2a 557**, **2b 123**, **3 533**, **4 177**, and 32 measurement-only switches that are not ported. The
+attribution is per function and reproducible (`~/prism-evidence/s1b/planning/budget/fn_attrib.py` then
+`slice_attrib.py`; mixed functions are split by hand-counted shares listed in the script). What the r3 fold added:
+the Annex-B predicate (`js_ts_strictness` and the declare-walk plumbing, about 40, in 2a), the B1 structural-token and
+delimited-child folds (about 25, 2a), the leaf allowlist (about 6, 2a), and the 74-row `E_TABLE` (88 lines, one row
+per line after `rustfmt`, in 3). **2a and 3 no longer fit their caps; nothing is compressed to fit.** A design option
+for S1b-3 (not compression): share one set of `E_TABLE` rows among the nine function-like kinds, which would save
+about 40 lines; the closure probe would then compare the expanded table.
+
+| Sub-slice | measured src | cap / early stop (re-plan) | **proposed (OQ9)** src cap / early stop | tests cap / report point |
+|---|---|---|---|---|
+| S1b-1 | 32 (landed) | 60 / 54 | unchanged | 200 / 180 |
+| S1b-1b (F4, OQ8 a) | 1 (plus tests) | – | **15** / 12 | **120** / 100 |
+| S1b-2a | 557 | 510 / 465 | **615** / 555 | 560 / 500 (unchanged) |
+| S1b-2b | 123 | 140 / 125 | unchanged | **230** / 205 (B-17) |
+| S1b-3 | 533 | 480 / 430 | **590** / 530 | **850** / 765 (C-31–C-35) |
+| S1b-4 | 177 | 185 / 165 | **195** / 175 | 330 / 300 |
+
 ## 10. Risks
 
 - **The collector's closure** remains the review surface. The table is keyed to the specification, every suspect
   grammar kind is classified by a checked probe, and B0 turns any unclassified kind into a refusal; the residual
-  assumption is B1's (correct tokenization outside error nodes). **Re-plan (pending owner choice):** the unit of
+  assumption is B1's (correct tokenization outside error nodes). **Re-plan (owner OQ1 = a):** the unit of
   proof becomes the position (§3.1a); an unlisted position preserves base under OQ1 (a), so a new position can no
   longer yield a wrong Exact from S1b. Base's own wrong Exacts at unproven positions remain (0 measured).
 - **E5 leaves known wrong Exact edges** (subscription returns, loaders, styled callbacks, and multi-target may-call
@@ -471,3 +575,6 @@ evaluation-context table:
 | spec r2 (Opus) | FIX 2 WRONG / 3 SMELL | r1 all CLOSED. W1 namespace merging and S1 closure claim → the re-plan's E-table and leave predicate (§3.1a); W2 header errors → delimited-child sealing (§3.1 B1 note, 0 rows); S2 auditor tuple folded in `probes/jsscope.py`; S3 2a/2b split adopted (OQ3) |
 | spec r2 (sol) | FIX 3 WRONG / 1 SMELL | r1 all CLOSED. W1 computed keys → J3 (§3.1a); W2 string-token braces → B1 note (auditor folded); W3 string-literal names → `ModuleExportName` in S1b-2b (OQ5); S4 B0 leaf kinds → §3.1a fail-safe |
 | **cap** | controller: collector open-class | S1b-1 ships; S1b-2..4 re-planned (`REPLAN-fable.md`); one owner-approved round 3 on the re-planned packet (OQ4) |
+| spec r3 (Opus) | FIX 2 WRONG / 4 SMELL, converging (collector findings 15 → 5 → 2) | W1 J2 by holder, W2 dotted segments, S1 cache schedule, S2 probe custody, S3 closure probe, S4 `for_in.left` + T10 StringValue: all folded |
+| spec r3 (sol) | FIX 4 WRONG / 0 SMELL | W1 Annex-B predicate (C111 reversed), W2 closure probe second table, W3 probe custody, W4 cache schedule + counter: all folded |
+| **cap (round 3 of 3)** | **disclosed at-cap targeted fold** (owner: "targeted fold, then implement") | Both reviews were converging, so per the convergence rule the valid fixes were folded without a round 4 (`REVIEW-r3-fold.md`): each fix is a closed, enumerable row with RED controls (C-31–C-35, C111 reversed) and mutants (C-M20–C-M25) that the sub-slice implementation reviews verify. Measured corpus change of the whole fold: 0 rows (Q42). The fold pushes 2a and 3 over their caps (OQ9, §9); S1b-1b (F4) is proposed (OQ8) |

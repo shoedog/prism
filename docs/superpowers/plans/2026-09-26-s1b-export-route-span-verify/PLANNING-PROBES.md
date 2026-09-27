@@ -229,7 +229,7 @@ The ten P4 failures, each with its disposition:
 ### Custody (r2)
 
 - **Prototype v8.** Same scratch worktree, rewritten binding module; squashed scratch commit `4c124f45`; diff
-  `prototype/s1b-prototype-v8.diff.txt`. Binaries `bin/prism-proto-v8{a,b,c,d,e}`: v8a–v8c were control iterations
+  `prototype/s1b-prototype-v8.diff.txt` (replaced by v9's in r3; v8's stays in history at `4ea2e085`). Binaries `bin/prism-proto-v8{a,b,c,d,e}`: v8a–v8c were control iterations
   (addenda 4–6), v8d is the measured behavior, and v8e is v8d plus the E6b measurement switch (identical with the
   switch unset: controls byte-identical, Q33). Measurement-only switches: `PRISM_S1B_UPTO` (1, 2 or 3: enables the
   r1-numbered sub-slices up to it), `PRISM_S1B_BROAD_E6`, `PRISM_S1B_NO_FAILSAFE`, `PRISM_S1B_SCOPED_MODULE_SCAN`,
@@ -307,3 +307,43 @@ Row-diffs (base → v8d): X 1,019, F 536, R 117, T 870. Per sub-slice: SPEC §8.
 - Incremental versus full rebuild (every S1b fact is file-local; pinned by tests in the SPEC).
 - A second-author auditor: the r2 auditor is still the planner's; the pinned per-form controls are the independent
   check the controller asked for.
+
+## Round 3: the at-cap targeted fold (prototype v9)
+
+### Custody (r3)
+
+- **Prototype v9.** The same scratch worktree, rebased onto the re-plan's Option K; squashed scratch commit
+  `78b57667` (never pushed); diff `prototype/s1b-prototype-v9.diff.txt`, which replaces v8's. Binary
+  `bin/prism-proto-v9a`. New module `src/ast/js_binding_walk.rs` (`Pos`, the 74-row `E_TABLE`, the walk, the leave
+  predicate); `JsLocalBinding::BasePosition(reason)` is the prototype's spelling of the SPEC's `Unchecked(reason)`.
+  The measurement-only switches are v8's (not ported).
+- **S1b-1 head plus F4.** A second scratch worktree detached at the S1b-1 implementation head `9a26164a` with the F4
+  one-line change (`~/prism-evidence/s1b/r3fold/f4.diff`); binaries `bin/prism-s1b1-head`, `bin/prism-s1b1-f4`.
+- **Probe custody (sol W3 / Opus S2).** `probes/replan/gen_rp.py` (46 scenarios in `.js`/`.jsx`/`.ts`/`.tsx`,
+  asserted against `RP-SCENARIOS.txt`), `replay_rp.sh`, `count_pairs.py`; `rp4_delimited.py` and `e_sites_join.py`
+  locate the probes from their own path or `S1B_PROBES`.
+- **Reviews.** `~/prism-evidence/s1b/reviews/spec-r3-{opus,sol}.md`. Fold record: `REVIEW-r3-fold.md`.
+
+### Probe log (r3)
+
+| ID | Command | Expected (pre-run) | Actual | Output |
+|---|---|---|---|---|
+| Q36 | `cargo build --release` of v9 in the scratch worktree; `honest_lines.py . HEAD` | builds | builds; **1,448 src / 11 tests** | `bin/prism-proto-v9a` |
+| Q37 | `controls_gen.py` (240 scenarios) and `run_controls.sh` on v9; `controls_diff.py` against v8e | addendum 7 (written before the first v9 run) | **as pre-registered**: C111 reversed to Exact; C152, C153 drop; C154 unchanged; C155 base; C156, C157 drop; C158 drops; C159, C160 base (multi-target Exact, as base); C161, C162 Exact to the outer function; C163 drops; C164 Exact to the outer function; C165 Exact then drop. The v8e → v9 diff contains only these rows | `controls/proto-v9a/`, `probes/S1b-controls-proto-v9.txt` |
+| Q38 | `grammar_closure.py --rust <v9 src/ast>`, then with one `E_TABLE` row removed, then one `CLASSIFIED` kind removed (`--kinds-only`, the S1b-2a shape) | exit 0; exit 1; exit 1 | **0 / 1 / 1**, and the 2a shape without an `E_TABLE` exits 0 with `--kinds-only` and 1 without it. **Found and fixed while probing:** the first runtime-table regex missed rows that `rustfmt` wraps over several lines (71 of 74 matched); an earlier "differences 0" had been read before the final `cargo fmt`, and a later check was masked by a pipe. The exit status is now read directly | console |
+| Q39 | `probes/replan/replay_rp.sh bin/prism-proto-v9a <out>` | the re-plan's "correct" column | **matches every RP row** (RP1-a key call drop; RP1-b/g re-targeted; RP1-c/f base under K; RP1-d2 drop; RP1-e Exact; RP1-h2, RP1-i drop; RP2-a drop; RP2-b kept; RP2-c `ns.g` Exact) | `~/prism-evidence/s1b/r3fold/rp/` |
+| Q40 | `probes/replan/count_pairs.py` | 319 | **319 pairs, 311 can hold a named node** (asserted) | console |
+| Q41 | v9 vs v8d row-diff, `PRISM_S1B_UPTO=2` (S1b-1 to S1b-3), X, F, R, T | 0 (no corpus site crosses a decorator, a dotted namespace body, a `for…in/of` head default or an enum body) | **0 rows on every corpus** | `proto-runs/v9a-upto2/*-vs-v8d.*` |
+| Q42 | sol W1: the same at `UPTO=1` and in full, X, F, R, T | 0 (module files are strict, and C111's shape does not occur in the scripts) | **0 rows at UPTO=1 and UPTO=2 on all four corpora; full: 0 on X, F, R and T** | `proto-runs/v9a{,-upto1,-upto2}/*-vs-v8d.*` |
+| Q43 | v9 `call-stats` counters against v8d | identical; `local_binding_unchecked_position` `{}` | **identical on all four**; `local_binding_unchecked_position` **`{}` on X, F, R, T** | `proto-runs/v9a/*-call-stats.json` |
+| Q44 | READ: which types each sub-slice persists (`CallSite`, `JsExportFacts`, the CPG and sidecar writers) | 2a none | 2a adds no field to a serde type and wires no producer, so no cached byte changes; 2b (export facts), 3 (`CallSite.local_binding`), 4 (qualifier binding) each change persisted bytes | SPEC §6 |
+| Q45 | F4: `bin/prism-s1b1-head` vs `bin/prism-s1b1-f4` on X, F, R, T; `r3fold/f4_audit.py` plus manual checks of its unconfirmed rows; key overlap with v9's S1b-3 rows | only wrong R5 edges change | **X 91** (88 removed, all wrong: 85 `free_single` Exact, 2 `free_multi`, 1 `import_member` Exact, each callee a destructured local; 3 `import_member` Exact **added**, right: base over-collected `t` from a destructuring default), **F 16** (all wrong removed), **R 0**, **T 5** (NameOnly `free_multi` → dropped, 28 wrong edges; `var { enter, exit } = …`, `const { cb, … } = data`). 112 / 112 audited right. **Overlap with S1b-3's rows: 0** on every corpus | `proto-runs/s1b1-{head,f4}/`, `*-audit.txt` (F's private) |
+| Q46 | per-function attribution: `budget/fn_attrib.py` then `budget/slice_attrib.py` | – | **S1b-1 26, 2a 557, 2b 123, 3 533, 4 177, switches 32** (sum 1,448) | `~/prism-evidence/s1b/planning/budget/` |
+| Q47 | Tier-A `--matrix-only` on v9 with the four S1b fixtures | 166 / 166 | **166 / 166 ok** (rc 0) | `logs/tier-a-v9-prism-proto-v9a.log` |
+| Q48 | `cargo test --offline --no-fail-fast` on v9 | the 9 by-design pins fail | **4,574 / 9 / 1** (29 binaries), the same 9 as v8e (SPEC §7 "existing tests to update") | `logs/proto-v9a-suite-summary.txt` |
+
+### Not measured (r3)
+
+- The may-call class, `tier-a --quick`, `--features mcp`, clippy and the Node gate on the prototype (as r2).
+- Strictness from `package.json` `type` or `tsconfig` `alwaysStrict`: the SPEC keeps such scripts at base
+  (Unknown), which the corpora never reach (Q42).

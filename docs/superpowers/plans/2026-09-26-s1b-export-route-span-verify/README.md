@@ -1,23 +1,35 @@
-# S1b planning packet: span-verify every JS/TS export and local route (r2, 2026-09-26)
+# S1b planning packet: span-verify every JS/TS export and local route (r3, 2026-09-26)
 
 **Base:** `origin/main` `a6d853f5` (S1 merged). Planning only: nothing under `src/`, `tests/`, `eval/`, `Cargo.*` or
 `CLAUDE.md` changes on this branch. **Status:** spec round 2 (the cap) found the collector open-class; S1b-1 ships;
-S1b-2..4 are **re-planned in `REPLAN-fable.md`** (evaluation-context table, positional fail-safe, leave predicate;
-0 measured corpus cost; Option K recommended; 2a/2b split), **pending owner choice** (OQ1–OQ7) and one owner-approved
-round 3. Re-plan evidence: `~/prism-evidence/s1b/replan/`.
+S1b-2..4 are **re-planned in `REPLAN-fable.md`** (evaluation-context table, positional fail-safe, leave predicate);
+the owner took Option K and five sub-slices (OQ1–OQ7, SPEC §0). Spec round 3 (the last) was **folded at the cap**
+(`REVIEW-r3-fold.md`; owner: "targeted fold, then implement"). **Open for the owner:** OQ8 (S1b-1b, the F4 collector
+fix) and OQ9 (re-caps for 2a and 3, which the v9 prototype measures over their caps). Re-plan evidence:
+`~/prism-evidence/s1b/replan/`; r3 evidence: `~/prism-evidence/s1b/r3fold/` and `~/prism-evidence/s1b/planning/`.
 
 | File | Purpose |
 |---|---|
 | `SPEC.md` | normative design r2: §0 owner answers and open questions; §3.1 the binding core as an enumerated table keyed to ECMA-262 and TS declaration spaces, with the fail-safe and the narrower parse rule; per-route semantics; controls; counters; cache; per-sub-slice tests, mutants and Tier-A fixtures; acceptance as exact audited row-diffs per sub-slice; budget |
-| `PLANNING-PROBES.md` | mechanisms M1–M17 and probes Q0–Q35 (command, pre-run expectation, result, output path); r2 results per corpus and route |
+| `REVIEW-r3-fold.md` | the at-cap round-3 fold: finding → disposition → location → RED rows and mutants → measured |
+| `PLANNING-PROBES.md` | mechanisms M1–M17 and probes Q0–Q48 (r3: Q36–Q48) (command, pre-run expectation, result, output path); r2 results per corpus and route |
 | `REVIEW-r1-fold.md` | every spec round 1 finding → disposition → location → evidence, plus fold findings and disagreements |
 | `REPLAN-fable.md` | re-plan after the round-2 cap: diagnosis (the unit of proof is the position, not the kind), options K / A / B / D with measured yields and budgets, the evaluation-context table, the fold plan for the bounded r2 items, owner questions OQ1–OQ7, the round-3 review brief |
-| `IMPLEMENTOR.md` | dispatch brief for one sub-slice, with per-batch budget checkpoints |
+| `IMPLEMENTOR.md` | dispatch brief for one sub-slice, with per-batch budget checkpoints, and the **S1b-2a dispatch** section |
 | `REVIEWER.md` | one brief for sol and Opus |
-| `probes/` | tools (auditor `jsscope.py`, `grammar_closure.py`, census, row-diff audit, taxonomy, 218-scenario control generator with JSX/TSX twins), pre-run expectations (addenda 1–6), reference control summaries per sub-slice, `expected/` row-diffs for X, R and T |
-| `prototype/s1b-prototype-v8.diff.txt` | the feasibility prototype (never built into this branch) |
+| `probes/` | tools (auditor `jsscope.py`, `grammar_closure.py` with the kind and `E(kind, field)` tables and the runtime equality check, census, row-diff audit, taxonomy, 240-scenario control generator with JSX/TSX twins, `replan/` RP generator and replay), pre-run expectations (addenda 1–7), reference control summaries per sub-slice, `expected/` row-diffs for X, R and T |
+| `prototype/s1b-prototype-v9.diff.txt` | the feasibility prototype, r3 (never built into this branch) |
 
 Evidence: `~/prism-evidence/s1b/planning/` with a `MANIFEST.sha256`.
+
+## r3 measured facts (prototype v9)
+
+- **The r3 fold's corpus cost: 0 rows** against v8 on X, F, R and T (Q41, Q42), including sol W1's Annex-B
+  predicate, which restores C111's right edge. Counters identical to v8; `local_binding_unchecked_position` `{}` on
+  all four (Q43).
+- **F4 (OQ8):** X 91, F 16, R 0, T 5 rows, 112 / 112 audited right (Q45).
+- **Suites:** prototype 4,574 / 9 / 1 (the same 9 pins); Tier-A 166 / 166 (Q47, Q48).
+- **Budget (Q46):** 1,448 src; 2a 557 (cap 510), 2b 123 (140), 3 533 (480), 4 177 (185). SPEC §9, OQ9.
 
 ## Key measured facts (prototype v8)
 

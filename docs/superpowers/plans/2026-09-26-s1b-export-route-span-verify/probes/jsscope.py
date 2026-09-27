@@ -105,7 +105,10 @@ class Src:
                               'abstract_class_declaration', 'internal_module', 'module', 'enum_declaration')
                 if own and direct and k in decl_kinds:
                     out.append((own, ch))
-                elif own and hoist and k.endswith('function_declaration'):
+                elif own and hoist and k == 'function_declaration' and not any(
+                        c.type == 'async' for c in ch.children) and self.strictness(node) != 'strict':
+                    # Annex B.3.2 (r3 fold, sol W1): ordinary block functions in non-strict code only.
+                    # Unknown strictness is a marker here too; the prototype keeps base there (K).
                     out.append((own, node))                     # Annex B marker
                 continue
             if k == 'variable_declarator':
@@ -158,6 +161,25 @@ class Src:
                                 'switch_default', 'ambient_declaration', 'lexical_declaration',
                                 'variable_declaration')
             self.walk(ch, direct and transparent, hoist, taint, out)
+
+    def strictness(self, node):
+        root = self.root
+        if any(c.type in ('import_statement', 'export_statement') for c in root.named_children):
+            return 'strict'
+        n = node
+        while n is not None:
+            if n.type in ('class_body', 'class_static_block'):
+                return 'strict'
+            body = n if n.type == 'program' else (n.child_by_field_name('body') if n.type in FUNCS else None)
+            if body is not None:
+                for st in body.named_children:
+                    if st.type != 'expression_statement' or not st.named_children or \
+                            st.named_children[0].type != 'string':
+                        break
+                    if self.t(st.named_children[0]) in ("'use strict'", '"use strict"'):
+                        return 'strict'
+            n = n.parent
+        return 'unknown'
 
     def import_names(self, node):
         if node.type == 'import_alias':

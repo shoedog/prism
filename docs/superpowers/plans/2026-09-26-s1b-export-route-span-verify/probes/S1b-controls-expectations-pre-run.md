@@ -163,3 +163,31 @@ C151's "other" call was predicted Exact but dropped: my prediction missed that `
 swallowed into the sealing function, which the file-level brace condition already excludes, so v8c removes it. v8c
 predictions: C149 Exact; **C150 Exact** (the inner `let f = ;` is local to `broken`, so the export binding is
 unaffected); C151 `run`'s call drop, `other`'s call Exact.
+
+## Addendum 7 (spec r3 fold, written before the first v9 run)
+
+v9 = v8 + the re-plan's Option K (the E-table walk, the leave predicate, T10, J3, the `with` object, K at unproven
+positions), B1's structural-token and delimited-child folds, B0 with leaf kinds, `ModuleExportName`, and this round's
+folds: J2 split by holder (Opus W1), dotted-namespace segments (Opus W2), the Annex-B applicability predicate (sol W1),
+`for…in/of` left Inside and enum StringValue names (Opus S4).
+
+Changed expectation for an existing scenario: **C111** (module file: it exports) → the outer `inner` **Exact**
+(module code is strict, so the block declaration is block-scoped). C93's outside call still drops (strict: `inner` is
+unbound there).
+
+| Scenario | base (predicted) | v9 (predicted) |
+|---|---|---|
+| C152 named class expression `class f`, member decorator `@f()` | Exact → outer `f` | drop (member decorators are evaluated in the class scope, where `f` is the class) |
+| C153 class declaration `class f`, member decorator `@f()` | Exact → outer `f` | drop |
+| C154 anonymous class expression, member decorator `@f()` | Exact | Exact (unchanged) |
+| C155 `@f() class f {}` as an expression (OQ7) | Exact | Exact (unproven: base behavior, counted `decorated_class_expression`) |
+| C156 (TS) `namespace A.B { B() }` with top-level `function B` | Exact → `B@1` | drop (`B` denotes the namespace) |
+| C157 (TS) `namespace A.B.C { C() + A() }` with top-level `A`, `C` | Exact, Exact | drop (segment `C`), drop (`A` is the namespace declared by D6) |
+| C158 (TS) `enum E { 'f' = 1, g = f() }` in a function | Exact → `f@1` | drop (`f` is the member `E.f`, by StringValue) |
+| C159 (TS) script without a directive, Annex-B shape | Exact ×2 | base (Exact ×2; unknown strictness, counted `annex_b_strictness`) |
+| C160 (JS) `.js` script without a directive, Annex-B shape | Exact ×2 | base (Exact ×2; unknown strictness) |
+| C161 `'use strict'` script | Exact ×2 | Exact → the outer `inner` |
+| C162 `"use strict"` in the function | Exact ×2 | Exact → the outer `inner` |
+| C163 `.cjs` (sloppy) script | Exact ×2 | drop (Annex-B marker) |
+| C164 `.cjs` block generator declaration | Exact ×2 | Exact → the outer generator... **no row**: generator declarations are indexed but a call to a generator is a call; predicted Exact → outer `inner` (Annex B does not apply to generators) |
+| C165 `for (const { a = f() } of xs)`; `for (const { f = f() } of xs)` | Exact, Exact | Exact → top-level `f`; drop (the head's own `f`, TDZ) |

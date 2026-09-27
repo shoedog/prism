@@ -148,14 +148,15 @@ index 00000000..33c293cc
 +exact = false
 +forbid_resolution_kind = "local_def"
 diff --git a/src/ast.rs b/src/ast.rs
-index cc25ef40..7570785e 100644
+index cc25ef40..89ab41b3 100644
 --- a/src/ast.rs
 +++ b/src/ast.rs
-@@ -4,10 +4,12 @@ use anyhow::{Context, Result};
+@@ -4,10 +4,13 @@ use anyhow::{Context, Result};
  use std::collections::{BTreeMap, BTreeSet};
  use tree_sitter::{Node, Parser, Tree};
  
 +mod js_binding;
++mod js_binding_walk;
  mod js_cjs_export_barriers;
  mod js_cjs_terminal;
  mod js_module_forwarding;
@@ -164,7 +165,38 @@ index cc25ef40..7570785e 100644
  
  /// A parameter binding and the byte span of its identifier token.
  pub type ParameterOccurrence = (String, usize, usize);
-@@ -2803,7 +2805,7 @@ impl ParsedFile {
+@@ -2264,9 +2267,10 @@ impl ParsedFile {
+                             if self.js_ts_import_specifier_is_type_only(spec) {
+                                 continue;
+                             }
++                            // S1b-2b: `import { "g" as h }` names export `g` (StringValue).
+                             let name = spec
+                                 .child_by_field_name("name")
+-                                .map(|n| self.node_text(&n).to_string());
++                                .map(|n| self.js_ts_module_export_name(n));
+                             let alias = spec
+                                 .child_by_field_name("alias")
+                                 .map(|n| self.node_text(&n).to_string());
+@@ -2786,15 +2790,16 @@ impl ParsedFile {
+                 {
+                     continue;
+                 }
++                // S1b-2b (sol r2 W3): string-literal names are compared by StringValue.
+                 let Some(name) = spec
+                     .child_by_field_name("name")
+-                    .map(|n| self.node_text(&n).to_string())
++                    .map(|n| self.js_ts_module_export_name(n))
+                 else {
+                     continue;
+                 };
+                 let alias = spec
+                     .child_by_field_name("alias")
+-                    .map(|n| self.node_text(&n).to_string());
++                    .map(|n| self.js_ts_module_export_name(n));
+                 let exported_as = alias.unwrap_or_else(|| name.clone());
+                 let target = match &source {
+                     Some(module_path) => JsExportTarget::ReExport {
+@@ -2803,7 +2808,7 @@ impl ParsedFile {
                      },
                      None => self
                          .js_ts_forwarded_import(&name)
@@ -173,7 +205,7 @@ index cc25ef40..7570785e 100644
                  };
                  facts.insert_named(exported_as, target);
              }
-@@ -2824,7 +2826,7 @@ impl ParsedFile {
+@@ -2824,7 +2829,7 @@ impl ParsedFile {
                  }
                  let target = self
                      .js_ts_forwarded_import(&name)
@@ -182,7 +214,7 @@ index cc25ef40..7570785e 100644
                  facts.insert_named("default".to_string(), target);
              } else {
                  facts.skipped_expr_count += 1;
-@@ -2856,7 +2858,8 @@ impl ParsedFile {
+@@ -2856,7 +2861,8 @@ impl ParsedFile {
                          } else {
                              name_text.clone()
                          };
@@ -192,7 +224,7 @@ index cc25ef40..7570785e 100644
                      }
                  }
                  "lexical_declaration" | "variable_declaration" => {
-@@ -2886,13 +2889,12 @@ impl ParsedFile {
+@@ -2886,13 +2892,12 @@ impl ParsedFile {
                          // span-verified React wrapper; every other skip names its reason.
                          let admitted = match d.child_by_field_name("value").map(|v| v.kind()) {
                              Some("arrow_function") | Some("function_expression") => {
@@ -210,7 +242,7 @@ index cc25ef40..7570785e 100644
                              _ => Err("non_call_initializer"),
                          };
                          match admitted {
-@@ -4958,6 +4960,9 @@ impl ParsedFile {
+@@ -4958,6 +4963,9 @@ impl ParsedFile {
              for child in params.children(&mut cursor) {
                  self.collect_js_ts_parameter_binding_names(child, out);
              }
@@ -220,7 +252,7 @@ index cc25ef40..7570785e 100644
          }
      }
  
-@@ -5011,11 +5016,23 @@ impl ParsedFile {
+@@ -5011,11 +5019,23 @@ impl ParsedFile {
                      self.collect_js_ts_binding_pattern_names(child, out);
                  }
              }
@@ -247,10 +279,10 @@ index cc25ef40..7570785e 100644
              | "parenthesized_expression"
 diff --git a/src/ast/js_binding.rs b/src/ast/js_binding.rs
 new file mode 100644
-index 00000000..9a61470e
+index 00000000..69ea7957
 --- /dev/null
 +++ b/src/ast/js_binding.rs
-@@ -0,0 +1,805 @@
+@@ -0,0 +1,924 @@
 +//! S1b: what a JS/TS name statically denotes (SPEC §3.1). The nearest scope that declares
 +//! the name decides; the binding denotes one callable only when that scope holds exactly one
 +//! declaration, the declaration's value is a function (or an admitted React wrapper of one),
@@ -281,6 +313,23 @@ index 00000000..9a61470e
 +    /// Owner E5: keep base behavior (a written binding, or a non-admitted call wrapper).
 +    MayCall,
 +    Refused(&'static str),
++    /// Owner OQ1 (K): an unproven position keeps base behavior, counted by reason.
++    Base(&'static str),
++}
++
++/// Where a site's walk ends (SPEC §3.1a).
++pub(crate) enum Walk<'a> {
++    Found(Node<'a>, Vec<Node<'a>>),
++    Unbound,
++    Base(&'static str),
++}
++
++/// Strictness of a scope's code for Annex B.3.2 (SPEC §3.1 D1).
++#[derive(Clone, Copy, PartialEq, Eq)]
++enum Strictness {
++    Strict,
++    Sloppy,
++    Unknown,
 +}
 +
 +type Index<'a> = BTreeMap<String, Vec<Node<'a>>>;
@@ -288,49 +337,55 @@ index 00000000..9a61470e
 +/// Per-file memo of scope indexes (declarations and writes, keyed by node id) and hygiene.
 +#[derive(Default)]
 +pub struct JsBindingCache<'a> {
-+    decls: BTreeMap<usize, Index<'a>>,
++    pub(super) decls: BTreeMap<usize, (Index<'a>, BTreeSet<String>)>,
++    pub(super) partners: Option<BTreeMap<String, usize>>,
 +    writes: BTreeMap<usize, Index<'a>>,
 +    clean: BTreeMap<usize, Result<(), &'static str>>,
 +    braces: Option<bool>,
 +    namespaces: Option<BTreeSet<String>>,
 +}
 +
-+/// Every non-leaf named node kind of the pinned JavaScript, TypeScript and TSX grammars,
-+/// each classified in SPEC §3.1 (`probes/grammar_closure.py` derives and checks it). A
-+/// binding scope holding any other kind is refused: an unclassified kind cannot hide a
-+/// declaration.
++/// Every named node kind (leaf or not) of the pinned JavaScript, TypeScript and TSX grammars,
++/// each classified in SPEC §3.1 (`probes/grammar_closure.py` derives it and fails on a
++/// missing or extra kind). A binding scope holding any other kind is refused.
 +const CLASSIFIED: &str = "\
-+abstract_class_declaration abstract_method_signature adding_type_annotation \
-+ambient_declaration arguments array array_pattern array_type arrow_function as_expression \
-+asserts asserts_annotation assignment_expression assignment_pattern \
-+augmented_assignment_expression await_expression binary_expression break_statement \
-+call_expression call_signature catch_clause class class_body class_declaration \
-+class_heritage class_static_block computed_property_name conditional_type constraint \
-+construct_signature constructor_type continue_statement decorator default_type do_statement \
-+else_clause enum_assignment enum_body enum_declaration export_clause export_specifier \
-+export_statement expression_statement extends_clause extends_type_clause field_definition \
-+finally_clause flow_maybe_type for_in_statement for_statement formal_parameters function \
-+function_declaration function_expression function_signature function_type \
-+generator_function generator_function_declaration generic_type if_statement \
-+implements_clause import_alias import_attribute import_clause import_require_clause \
-+import_specifier import_statement index_signature index_type_query infer_type \
-+instantiation_expression interface_body interface_declaration internal_module \
-+intersection_type jsx_attribute jsx_closing_element jsx_element jsx_expression \
-+jsx_namespace_name jsx_opening_element jsx_self_closing_element labeled_statement \
-+lexical_declaration literal_type lookup_type mapped_type_clause member_expression \
-+method_definition method_signature module named_imports namespace_export namespace_import \
-+nested_identifier nested_type_identifier new_expression non_null_expression object \
++abstract_class_declaration abstract_method_signature accessibility_modifier \
++adding_type_annotation ambient_declaration arguments array array_pattern array_type \
++arrow_function as_expression asserts asserts_annotation assignment_expression \
++assignment_pattern augmented_assignment_expression await_expression binary_expression \
++break_statement call_expression call_signature catch_clause class class_body \
++class_declaration class_heritage class_static_block comment computed_property_name \
++conditional_type constraint construct_signature constructor_type continue_statement \
++debugger_statement decorator default_type do_statement else_clause empty_statement \
++enum_assignment enum_body enum_declaration escape_sequence existential_type export_clause \
++export_specifier export_statement expression_statement extends_clause extends_type_clause \
++false field_definition finally_clause flow_maybe_type for_in_statement for_statement \
++formal_parameters function_declaration function_expression function_signature function_type \
++generator_function generator_function_declaration generic_type hash_bang_line \
++html_character_reference html_comment identifier if_statement implements_clause import \
++import_alias import_attribute import_clause import_require_clause import_specifier \
++import_statement index_signature index_type_query infer_type instantiation_expression \
++interface_body interface_declaration internal_module intersection_type jsx_attribute \
++jsx_closing_element jsx_element jsx_expression jsx_namespace_name jsx_opening_element \
++jsx_self_closing_element jsx_text labeled_statement lexical_declaration literal_type \
++lookup_type mapped_type_clause member_expression meta_property method_definition \
++method_signature module named_imports namespace_export namespace_import nested_identifier \
++nested_type_identifier new_expression non_null_expression null number object \
 +object_assignment_pattern object_pattern object_type omitting_type_annotation \
-+opting_type_annotation optional_parameter optional_type pair pair_pattern \
-+parenthesized_expression parenthesized_type program property_signature \
-+public_field_definition readonly_type regex required_parameter rest_pattern rest_type \
-+return_statement satisfies_expression sequence_expression spread_element statement_block \
-+string subscript_expression switch_body switch_case switch_default switch_statement \
-+template_literal_type template_string template_substitution template_type \
-+ternary_expression throw_statement try_statement tuple_type type_alias_declaration \
-+type_annotation type_arguments type_assertion type_parameter type_parameters type_predicate \
-+type_predicate_annotation type_query unary_expression union_type update_expression \
-+variable_declaration variable_declarator while_statement with_statement yield_expression";
++opting_type_annotation optional_chain optional_parameter optional_type override_modifier \
++pair pair_pattern parenthesized_expression parenthesized_type predefined_type \
++private_property_identifier program property_identifier property_signature \
++public_field_definition readonly_type regex regex_flags regex_pattern required_parameter \
++rest_pattern rest_type return_statement satisfies_expression sequence_expression \
++shorthand_property_identifier shorthand_property_identifier_pattern spread_element \
++statement_block statement_identifier string string_fragment subscript_expression super \
++switch_body switch_case switch_default switch_statement template_literal_type \
++template_string template_substitution template_type ternary_expression this this_type \
++throw_statement true try_statement tuple_type type_alias_declaration type_annotation \
++type_arguments type_assertion type_identifier type_parameter type_parameters type_predicate \
++type_predicate_annotation type_query unary_expression undefined union_type \
++update_expression variable_declaration variable_declarator while_statement with_statement \
++yield_expression";
 +
 +fn classified(kind: &str) -> bool {
 +    static SET: OnceLock<BTreeSet<&'static str>> = OnceLock::new();
@@ -338,7 +393,7 @@ index 00000000..9a61470e
 +        .contains(kind)
 +}
 +
-+fn is_class(kind: &str) -> bool {
++pub(super) fn is_class(kind: &str) -> bool {
 +    matches!(
 +        kind,
 +        "class_declaration" | "class" | "abstract_class_declaration"
@@ -346,7 +401,7 @@ index 00000000..9a61470e
 +}
 +
 +/// Σ (SPEC §3.1): the node kinds that open an environment.
-+fn is_scope(node: Node<'_>) -> bool {
++pub(super) fn is_scope(node: Node<'_>) -> bool {
 +    match node.kind() {
 +        "program" | "formal_parameters" | "for_statement" | "for_in_statement" | "catch_clause"
 +        | "switch_body" | "with_statement" => true,
@@ -354,23 +409,6 @@ index 00000000..9a61470e
 +            .parent()
 +            .is_some_and(|p| is_js_ts_function_like(p.kind())),
 +        k => is_js_ts_function_like(k) || is_class(k),
-+    }
-+}
-+
-+/// The next node up from `node` on a site's scope walk. A parameter list sees its own
-+/// function's parameters but not the body, so the walk resumes above that function; a
-+/// decorator is evaluated where its class is defined, outside the class.
-+fn next_up(node: Node<'_>) -> Option<Node<'_>> {
-+    match node.kind() {
-+        "formal_parameters" => node.parent().and_then(|f| f.parent()),
-+        "decorator" => {
-+            let mut up = node.parent();
-+            while let Some(n) = up.filter(|n| !is_class(n.kind())) {
-+                up = n.parent();
-+            }
-+            up.and_then(|class| class.parent())
-+        }
-+        _ => node.parent(),
 +    }
 +}
 +
@@ -403,9 +441,10 @@ index 00000000..9a61470e
 +        name: &str,
 +        cache: &mut JsBindingCache<'a>,
 +    ) -> JsBinding {
-+        let result = match self.js_ts_binding_scope(ident, name, cache) {
-+            Some((scope, decls)) => self.js_ts_classify(scope, &decls, name, ident, cache),
-+            None => JsBinding::Refused("unbound"),
++        let result = match self.js_ts_binding_walk(ident, name, cache) {
++            Walk::Found(scope, decls) => self.js_ts_classify(scope, &decls, name, ident, cache),
++            Walk::Unbound => JsBinding::Refused("unbound"),
++            Walk::Base(reason) => JsBinding::Base(reason),
 +        };
 +        if std::env::var_os("PRISM_S1B_DEBUG").is_some() {
 +            eprintln!(
@@ -417,35 +456,14 @@ index 00000000..9a61470e
 +        result
 +    }
 +
-+    /// The nearest scope enclosing `site` that declares `name`, and its declarations.
-+    fn js_ts_binding_scope<'a>(
-+        &'a self,
-+        site: Node<'a>,
-+        name: &str,
-+        cache: &mut JsBindingCache<'a>,
-+    ) -> Option<(Node<'a>, Vec<Node<'a>>)> {
-+        let mut current = site.parent();
-+        while let Some(scope) = current {
-+            if scope.kind() == "with_statement" {
-+                return Some((scope, vec![scope]));
-+            }
-+            if is_scope(scope) {
-+                let index = cache
-+                    .decls
-+                    .entry(scope.id())
-+                    .or_insert_with(|| self.js_ts_scope_index(scope));
-+                if let Some(decls) = index.get(name) {
-+                    return Some((scope, decls.clone()));
-+                }
-+            }
-+            current = next_up(scope);
-+        }
-+        None
-+    }
-+
 +    /// Every name `scope` declares itself, with the declaring nodes (SPEC §3.1 table).
-+    fn js_ts_scope_index<'a>(&'a self, scope: Node<'a>) -> Index<'a> {
++    pub(super) fn js_ts_scope_index<'a>(
++        &'a self,
++        scope: Node<'a>,
++    ) -> (Index<'a>, BTreeSet<String>) {
 +        let mut out = Index::new();
++        let mut annex = BTreeSet::new();
++        let strict = self.js_ts_strictness(scope);
 +        let mut names = BTreeSet::new();
 +        let kind = scope.kind();
 +        match kind {
@@ -468,7 +486,20 @@ index 00000000..9a61470e
 +                    .child_by_field_name("initializer")
 +                    .filter(|i| i.kind() == "lexical_declaration")
 +                {
-+                    self.js_ts_declare_walk(init, true, false, &BTreeSet::new(), &mut out);
++                    let t = BTreeSet::new();
++                    self.js_ts_declare_walk(init, (true, false, strict), &t, &mut out, &mut annex);
++                }
++            }
++            "enum_body" => {
++                // T10: the block's member names (StringValue), non-callable.
++                let mut cursor = scope.walk();
++                for m in scope.named_children(&mut cursor) {
++                    let key = if m.kind() == "enum_assignment" {
++                        m.child_by_field_name("name")
++                    } else {
++                        Some(m)
++                    };
++                    names.extend(key.map(|k| self.js_ts_module_export_name(k)));
 +                }
 +            }
 +            "formal_parameters" | "statement_block" | "switch_body" | "program" => {}
@@ -503,7 +534,8 @@ index 00000000..9a61470e
 +                    .child_by_field_name("body")
 +                    .filter(|b| b.kind() == "statement_block")
 +                {
-+                    self.js_ts_declare_walk(body, true, true, &BTreeSet::new(), &mut out);
++                    let t = BTreeSet::new();
++                    self.js_ts_declare_walk(body, (true, true, strict), &t, &mut out, &mut annex);
 +                }
 +            }
 +            "statement_block" => {
@@ -513,14 +545,55 @@ index 00000000..9a61470e
 +                        "class_static_block" | "internal_module" | "module"
 +                    )
 +                });
-+                self.js_ts_declare_walk(scope, true, var_scope, &BTreeSet::new(), &mut out);
++                let t = BTreeSet::new();
++                self.js_ts_declare_walk(scope, (true, var_scope, strict), &t, &mut out, &mut annex);
 +            }
 +            "switch_body" | "program" => {
-+                self.js_ts_declare_walk(scope, true, kind == "program", &BTreeSet::new(), &mut out);
++                let t = BTreeSet::new();
++                let mode = (true, kind == "program", strict);
++                self.js_ts_declare_walk(scope, mode, &t, &mut out, &mut annex);
 +            }
 +            _ => {}
 +        }
-+        out
++        (out, annex)
++    }
++
++    /// Annex B.3.2 applies only to non-strict code: a module, a `"use strict"` directive in
++    /// the program or any enclosing function, and class code are strict; a `.cjs` script is
++    /// sloppy; anything else is unknown (`.js`/`.ts` scripts: package type, `alwaysStrict`).
++    fn js_ts_strictness(&self, scope: Node<'_>) -> Strictness {
++        if self.js_ts_is_module() {
++            return Strictness::Strict;
++        }
++        let mut up = Some(scope);
++        while let Some(n) = up {
++            let prologue = match n.kind() {
++                "program" => Some(n),
++                k if is_js_ts_function_like(k) => n.child_by_field_name("body"),
++                "class_body" | "class_static_block" => return Strictness::Strict,
++                _ => None,
++            };
++            let mut cursor = prologue.map(|p| p.walk());
++            if let (Some(p), Some(c)) = (prologue, cursor.as_mut()) {
++                for st in p.named_children(c) {
++                    let Some(lit) = st
++                        .named_child(0)
++                        .filter(|l| st.kind() == "expression_statement" && l.kind() == "string")
++                    else {
++                        break;
++                    };
++                    if matches!(self.node_text(&lit), "'use strict'" | "\"use strict\"") {
++                        return Strictness::Strict;
++                    }
++                }
++            }
++            up = n.parent();
++        }
++        if self.path.ends_with(".cjs") {
++            Strictness::Sloppy
++        } else {
++            Strictness::Unknown
++        }
 +    }
 +
 +    /// Parameters, the implicit `arguments` of a non-arrow function, and a function
@@ -550,10 +623,10 @@ index 00000000..9a61470e
 +    fn js_ts_declare_walk<'a>(
 +        &'a self,
 +        node: Node<'a>,
-+        direct: bool,
-+        hoist: bool,
++        (direct, hoist, strict): (bool, bool, Strictness),
 +        taint: &BTreeSet<String>,
 +        out: &mut Index<'a>,
++        annex: &mut BTreeSet<String>,
 +    ) {
 +        let mut cursor = node.walk();
 +        for ch in node.named_children(&mut cursor) {
@@ -581,9 +654,17 @@ index 00000000..9a61470e
 +                )
 +                || matches!(kind, "internal_module" | "module")
 +            {
++                // D1: Annex B.3.2 hoists only an ordinary (not async, not generator) block
++                // function declaration, and only in non-strict code.
++                let mut cursor = ch.walk();
++                let ordinary = kind == "function_declaration"
++                    && !ch.children(&mut cursor).any(|c| c.kind() == "async");
 +                match own {
 +                    Some(n) if direct && declares_name => add(n, ch),
-+                    Some(n) if hoist && kind.ends_with("function_declaration") => add(n, node),
++                    Some(n) if hoist && ordinary && strict == Strictness::Sloppy => add(n, node),
++                    Some(n) if hoist && ordinary && strict == Strictness::Unknown => {
++                        annex.insert(n);
++                    }
 +                    _ => {}
 +                }
 +                continue;
@@ -637,14 +718,14 @@ index 00000000..9a61470e
 +                        self.collect_js_ts_binding_pattern_names(p, &mut names);
 +                    }
 +                    if let Some(body) = ch.child_by_field_name("body") {
-+                        self.js_ts_declare_walk(body, false, hoist, &names, out);
++                        self.js_ts_declare_walk(body, (false, hoist, strict), &names, out, annex);
 +                    }
 +                    continue;
 +                }
 +                "with_statement" => {
 +                    let names = BTreeSet::from([String::new()]);
 +                    if let Some(body) = ch.child_by_field_name("body") {
-+                        self.js_ts_declare_walk(body, false, hoist, &names, out);
++                        self.js_ts_declare_walk(body, (false, hoist, strict), &names, out, annex);
 +                    }
 +                    continue;
 +                }
@@ -671,7 +752,8 @@ index 00000000..9a61470e
 +                    | "lexical_declaration"
 +                    | "variable_declaration"
 +            );
-+            self.js_ts_declare_walk(ch, direct && transparent, hoist, taint, out);
++            let mode = (direct && transparent, hoist, strict);
++            self.js_ts_declare_walk(ch, mode, taint, out, annex);
 +        }
 +    }
 +
@@ -851,7 +933,7 @@ index 00000000..9a61470e
 +        let mut result = Ok(());
 +        let mut stack = vec![scope];
 +        while let Some(n) = stack.pop() {
-+            if n.named_child_count() > 0 && !n.is_error() && !classified(n.kind()) {
++            if n.is_named() && !n.is_error() && !n.is_missing() && !classified(n.kind()) {
 +                result = Err("unclassified_kind");
 +                break;
 +            }
@@ -886,12 +968,21 @@ index 00000000..9a61470e
 +            return true;
 +        }
 +        let root = self.tree.root_node();
++        // (i) only structural brace tokens under an error, or missing braces, break it.
 +        let braces = *cache.braces.get_or_insert_with(|| {
++            fn structural(n: Node<'_>) -> bool {
++                let mut cursor = n.walk();
++                let found = n.children(&mut cursor).any(|c| {
++                    (!c.is_named() && matches!(c.kind(), "{" | "}"))
++                        || (c.is_error() && structural(c))
++                });
++                found
++            }
 +            let mut ok = true;
 +            let mut stack = vec![root];
 +            while let Some(n) = stack.pop().filter(|_| ok) {
 +                ok = !(n.is_missing() && matches!(n.kind(), "{" | "}"))
-+                    && !(n.is_error() && self.node_text(&n).contains(['{', '}']));
++                    && !(n.is_error() && structural(n));
 +                let mut cursor = n.walk();
 +                stack.extend(
 +                    n.children(&mut cursor)
@@ -903,14 +994,33 @@ index 00000000..9a61470e
 +        let inside = |outer: Node<'_>, inner: Node<'_>| {
 +            outer.start_byte() <= inner.start_byte() && inner.end_byte() <= outer.end_byte()
 +        };
++        // (ii) sealed only inside a delimited child (paired braces or parentheses) of a
++        // sealing node strictly inside the scope that does not contain the site.
++        let delimited = |d: Node<'_>| {
++            let (open, close) = match d.kind() {
++                "statement_block" | "class_body" => ("{", "}"),
++                "formal_parameters" => ("(", ")"),
++                _ => return false,
++            };
++            let first = d.child(0);
++            let last = d.child(d.child_count().saturating_sub(1));
++            d.parent().is_some_and(sealing)
++                && first.is_some_and(|c| c.kind() == open && !c.is_missing())
++                && last.is_some_and(|c| c.kind() == close && !c.is_missing())
++        };
 +        let mut stack = vec![scope];
 +        while let Some(n) = stack.pop() {
 +            if n.is_error() || n.is_missing() {
 +                let mut up = n.parent();
-+                while let Some(f) = up.filter(|f| f.id() != scope.id() && !sealing(*f)) {
-+                    up = f.parent();
++                while let Some(d) = up.filter(|d| d.id() != scope.id() && !delimited(*d)) {
++                    up = d.parent();
 +                }
-+                let sealed = up.is_some_and(|f| f.id() != scope.id() && !inside(f, site));
++                let sealed = up.and_then(|d| d.parent()).is_some_and(|f| {
++                    up.is_some_and(|d| d.id() != scope.id())
++                        && f.id() != scope.id()
++                        && inside(scope, f)
++                        && !inside(f, site)
++                });
 +                if !braces || !sealed {
 +                    return false;
 +                }
@@ -970,19 +1080,23 @@ index 00000000..9a61470e
 +            .get(name)
 +            .cloned()
 +            .unwrap_or_default();
-+        targets.into_iter().any(|t| {
-+            self.js_ts_binding_scope(t, name, cache)
-+                .is_some_and(|(s, _)| s.id() == scope.id() || s.kind() == "with_statement")
-+        })
++        targets
++            .into_iter()
++            .any(|t| match self.js_ts_binding_walk(t, name, cache) {
++                Walk::Found(s, _) => s.id() == scope.id() || s.kind() == "with_statement",
++                Walk::Base(_) => true,
++                Walk::Unbound => false,
++            })
 +    }
 +
-+    /// S1b-3: `None` when `q` is not one of the file's ESM namespace-import locals; else
-+    /// whether the site's binding of `q` is that import, unique, clean and unwritten.
++    /// S1b-4: `None` when `q` is not one of the file's ESM namespace-import locals; else the
++    /// qualifier's binding: proven to be that import (unique, clean, unwritten), refuted, or
++    /// at an unproven position (base behavior).
 +    pub(crate) fn js_ts_namespace_proven<'a>(
 +        &'a self,
 +        q: Node<'a>,
 +        cache: &mut JsBindingCache<'a>,
-+    ) -> Option<bool> {
++    ) -> Option<JsBinding> {
 +        let name = self.node_text(&q);
 +        let namespaces = cache.namespaces.get_or_insert_with(|| {
 +            self.extract_import_bindings()
@@ -994,16 +1108,52 @@ index 00000000..9a61470e
 +        if !namespaces.contains(name) {
 +            return None;
 +        }
-+        let Some((scope, decls)) = self.js_ts_binding_scope(q, name, cache) else {
-+            return Some(false);
++        let (scope, decls) = match self.js_ts_binding_walk(q, name, cache) {
++            Walk::Found(scope, decls) => (scope, decls),
++            Walk::Unbound => return Some(JsBinding::Refused("unbound")),
++            Walk::Base(reason) => return Some(JsBinding::Base(reason)),
 +        };
-+        Some(
-+            scope.kind() == "program"
-+                && matches!(decls.as_slice(), [d] if d.kind() == "import_statement")
-+                && self.js_ts_scope_clean(scope, cache).is_ok()
-+                && self.js_ts_recovery_sealed(scope, name, q, cache)
-+                && !self.js_ts_written(scope, name, cache),
-+        )
++        let proven = scope.kind() == "program"
++            && matches!(decls.as_slice(), [d] if d.kind() == "import_statement")
++            && self.js_ts_scope_clean(scope, cache).is_ok()
++            && self.js_ts_recovery_sealed(scope, name, q, cache)
++            && !self.js_ts_written(scope, name, cache);
++        Some(if proven {
++            JsBinding::MayCall // prototype encoding: "proven namespace import"
++        } else {
++            JsBinding::Refused("namespace_unproven")
++        })
++    }
++
++    /// ECMAScript `ModuleExportName` / enum member StringValue: an identifier's text, or a
++    /// string literal's value with its escapes decoded (both quote forms).
++    pub(crate) fn js_ts_module_export_name(&self, node: Node<'_>) -> String {
++        if node.kind() != "string" {
++            return self.node_text(&node).to_string();
++        }
++        let mut out = String::new();
++        let mut cursor = node.walk();
++        for part in node.named_children(&mut cursor) {
++            let text = self.node_text(&part);
++            if part.kind() != "escape_sequence" {
++                out.push_str(text);
++                continue;
++            }
++            let body = &text[1..];
++            let hex = body
++                .trim_start_matches(['u', 'x', '{'])
++                .trim_end_matches('}');
++            let decoded = match body.chars().next() {
++                Some('n') => Some('\n'),
++                Some('t') => Some('\t'),
++                Some('r') => Some('\r'),
++                Some('u' | 'x') => u32::from_str_radix(hex, 16).ok().and_then(char::from_u32),
++                Some(c) => Some(c),
++                None => None,
++            };
++            out.extend(decoded);
++        }
++        out
 +    }
 +
 +    /// D4: the target an ESM local export records (SPEC §3.2).
@@ -1027,6 +1177,7 @@ index 00000000..9a61470e
 +        let mut cache = JsBindingCache::default();
 +        let decls = self
 +            .js_ts_scope_index(root)
++            .0
 +            .remove(&name)
 +            .unwrap_or_default();
 +        let binding = if decls.is_empty() {
@@ -1045,7 +1196,7 @@ index 00000000..9a61470e
 +                start_line: t.start_line,
 +                end_line: t.end_line,
 +            },
-+            JsBinding::MayCall => JsExportTarget::Local(name),
++            JsBinding::MayCall | JsBinding::Base(_) => JsExportTarget::Local(name),
 +            JsBinding::Refused(reason) => {
 +                *facts
 +                    .local_export_refusals
@@ -1054,6 +1205,285 @@ index 00000000..9a61470e
 +                JsExportTarget::UnprovenLocal(name)
 +            }
 +        }
++    }
++}
+diff --git a/src/ast/js_binding_walk.rs b/src/ast/js_binding_walk.rs
+new file mode 100644
+index 00000000..82007edc
+--- /dev/null
++++ b/src/ast/js_binding_walk.rs
+@@ -0,0 +1,273 @@
++//! S1b §3.1a: the site walk, driven by the evaluation-context table `E(kind, field)`. At
++//! every step from a child to its parent the walk looks up the parent's kind and the child's
++//! field. Kinds outside Σ′ are structural. Every field of a Σ′ kind has a rule; a field
++//! without one is an unproven position and yields base behavior (owner OQ1 = K).
++use super::js_binding::{is_class, is_scope, Walk};
++use super::{is_js_ts_function_like, ParsedFile};
++use tree_sitter::Node;
++
++/// How the child at a Σ′ kind's field is evaluated.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(crate) enum Pos {
++    /// In the environment the kind opens (look the name up there if it is a scope).
++    Inside,
++    /// J1: in the parameter environment, already looked up; skip the function's own.
++    Param,
++    /// Evaluated in the enclosing environment: skip this node's environment (J3, `with`
++    /// object).
++    Outside,
++    /// The `with` body: an object environment that may supply any name.
++    WithBody,
++    /// A decorator expression: J2 by holder.
++    Decorator,
++    /// A namespace or enum body: on leaving it unbound, apply the leave predicate.
++    Leave,
++    /// Never a site position (a binding name or type space); unproven if reached.
++    Unlisted,
++}
++
++/// The evaluation-context table (SPEC §3.1a). `probes/grammar_closure.py` derives every
++/// `(kind, field)` of every Σ′ kind from the pinned grammars and checks this table against
++/// it; "children" names the unfielded named children.
++pub(crate) const E_TABLE: &[(&str, &str, Pos)] = &[
++    ("program", "children", Pos::Inside),
++    ("function_declaration", "body", Pos::Inside),
++    ("function_declaration", "parameters", Pos::Param),
++    ("function_declaration", "name", Pos::Unlisted),
++    ("function_declaration", "return_type", Pos::Unlisted),
++    ("function_declaration", "type_parameters", Pos::Unlisted),
++    ("generator_function_declaration", "body", Pos::Inside),
++    ("generator_function_declaration", "parameters", Pos::Param),
++    ("generator_function_declaration", "name", Pos::Unlisted),
++    (
++        "generator_function_declaration",
++        "return_type",
++        Pos::Unlisted,
++    ),
++    (
++        "generator_function_declaration",
++        "type_parameters",
++        Pos::Unlisted,
++    ),
++    ("function_expression", "body", Pos::Inside),
++    ("function_expression", "parameters", Pos::Param),
++    ("function_expression", "name", Pos::Unlisted),
++    ("function_expression", "return_type", Pos::Unlisted),
++    ("function_expression", "type_parameters", Pos::Unlisted),
++    ("generator_function", "body", Pos::Inside),
++    ("generator_function", "parameters", Pos::Param),
++    ("generator_function", "name", Pos::Unlisted),
++    ("generator_function", "return_type", Pos::Unlisted),
++    ("generator_function", "type_parameters", Pos::Unlisted),
++    ("arrow_function", "body", Pos::Inside),
++    ("arrow_function", "parameters", Pos::Param),
++    ("arrow_function", "parameter", Pos::Param),
++    ("arrow_function", "return_type", Pos::Unlisted),
++    ("arrow_function", "type_parameters", Pos::Unlisted),
++    ("method_definition", "body", Pos::Inside),
++    ("method_definition", "parameters", Pos::Param),
++    ("method_definition", "name", Pos::Outside),
++    ("method_definition", "decorator", Pos::Outside),
++    ("method_definition", "children", Pos::Unlisted),
++    ("method_definition", "return_type", Pos::Unlisted),
++    ("method_definition", "type_parameters", Pos::Unlisted),
++    ("formal_parameters", "children", Pos::Inside),
++    ("statement_block", "children", Pos::Inside),
++    ("class_static_block", "body", Pos::Inside),
++    ("for_statement", "initializer", Pos::Inside),
++    ("for_statement", "condition", Pos::Inside),
++    ("for_statement", "increment", Pos::Inside),
++    ("for_statement", "body", Pos::Inside),
++    ("for_in_statement", "left", Pos::Inside),
++    ("for_in_statement", "right", Pos::Inside),
++    ("for_in_statement", "value", Pos::Inside),
++    ("for_in_statement", "body", Pos::Inside),
++    ("catch_clause", "parameter", Pos::Inside),
++    ("catch_clause", "body", Pos::Inside),
++    ("catch_clause", "type", Pos::Unlisted),
++    ("switch_body", "children", Pos::Inside),
++    ("class_declaration", "body", Pos::Inside),
++    ("class_declaration", "children", Pos::Inside),
++    ("class_declaration", "decorator", Pos::Outside),
++    ("class_declaration", "name", Pos::Unlisted),
++    ("class_declaration", "type_parameters", Pos::Unlisted),
++    ("class", "body", Pos::Inside),
++    ("class", "children", Pos::Inside),
++    ("class", "decorator", Pos::Outside),
++    ("class", "name", Pos::Unlisted),
++    ("class", "type_parameters", Pos::Unlisted),
++    ("abstract_class_declaration", "body", Pos::Inside),
++    ("abstract_class_declaration", "children", Pos::Inside),
++    ("abstract_class_declaration", "decorator", Pos::Outside),
++    ("abstract_class_declaration", "name", Pos::Unlisted),
++    (
++        "abstract_class_declaration",
++        "type_parameters",
++        Pos::Unlisted,
++    ),
++    ("with_statement", "object", Pos::Outside),
++    ("with_statement", "body", Pos::WithBody),
++    ("internal_module", "body", Pos::Leave),
++    ("internal_module", "name", Pos::Unlisted),
++    ("module", "body", Pos::Leave),
++    ("module", "name", Pos::Unlisted),
++    ("enum_declaration", "body", Pos::Leave),
++    ("enum_declaration", "name", Pos::Unlisted),
++    ("enum_body", "children", Pos::Inside),
++    ("enum_body", "name", Pos::Inside),
++    ("decorator", "children", Pos::Decorator),
++];
++
++fn e_rule(kind: &str, field: &str) -> Option<Pos> {
++    let mut known = false;
++    for (k, f, p) in E_TABLE {
++        if *k == kind {
++            known = true;
++            if *f == field {
++                return Some(*p);
++            }
++        }
++    }
++    known.then_some(Pos::Unlisted)
++}
++
++/// The field through which `child` hangs off `parent` ("children" when unfielded).
++fn field_of(parent: Node<'_>, child: Node<'_>) -> &'static str {
++    let mut cursor = parent.walk();
++    if cursor.goto_first_child() {
++        loop {
++            if cursor.node().id() == child.id() {
++                return cursor.field_name().unwrap_or("children");
++            }
++            if !cursor.goto_next_sibling() {
++                break;
++            }
++        }
++    }
++    "children"
++}
++
++impl ParsedFile {
++    /// The nearest environment enclosing `site` that declares `name` (SPEC §3.1a).
++    pub(crate) fn js_ts_binding_walk<'a>(
++        &'a self,
++        site: Node<'a>,
++        name: &str,
++        cache: &mut super::js_binding::JsBindingCache<'a>,
++    ) -> Walk<'a> {
++        let mut child = site;
++        let mut current = site.parent();
++        while let Some(node) = current {
++            let kind = node.kind();
++            let rule = e_rule(kind, field_of(node, child));
++            let mut next = node;
++            match rule {
++                None | Some(Pos::Param) | Some(Pos::Outside) => {}
++                Some(Pos::Unlisted) => return Walk::Base("unproven_position"),
++                Some(Pos::WithBody) => return Walk::Found(node, vec![node]),
++                Some(Pos::Decorator) => {
++                    let Some(holder) = node.parent() else {
++                        return Walk::Base("decorator_holder");
++                    };
++                    if holder.kind() == "class" && holder.child_by_field_name("name").is_some() {
++                        return Walk::Base("decorated_class_expression");
++                    }
++                    if is_class(holder.kind()) {
++                        next = holder; // J2: a class decorator is evaluated outside the class
++                    } else {
++                        // A member or parameter decorator is evaluated in the class scope.
++                        let mut up = Some(holder);
++                        while let Some(n) = up.filter(|n| n.kind() != "class_body") {
++                            up = n.parent();
++                        }
++                        let Some(body) = up else {
++                            return Walk::Base("decorator_holder");
++                        };
++                        child = body;
++                        current = body.parent();
++                        continue;
++                    }
++                }
++                Some(Pos::Leave) => {
++                    // Dotted `namespace A.B.C`: inside the body, B and C denote namespaces.
++                    if kind == "internal_module" {
++                        let text = node
++                            .child_by_field_name("name")
++                            .map(|n| self.node_text(&n))
++                            .unwrap_or("");
++                        if text.split('.').skip(1).any(|s| s.trim() == name) {
++                            return Walk::Found(node, vec![node]);
++                        }
++                    }
++                    if self.js_ts_merge_leave(node, cache) {
++                        return Walk::Base("namespace_leave");
++                    }
++                }
++                Some(Pos::Inside) => {
++                    let scope = !(is_js_ts_function_like(kind) && field_of(node, child) != "body");
++                    if scope && (is_scope(node) || kind == "enum_body") {
++                        let (index, annex) = cache
++                            .decls
++                            .entry(node.id())
++                            .or_insert_with(|| self.js_ts_scope_index(node));
++                        if annex.contains(name) {
++                            return Walk::Base("annex_b_strictness");
++                        }
++                        if let Some(decls) = index.get(name) {
++                            return Walk::Found(node, decls.clone());
++                        }
++                    }
++                }
++            }
++            child = next;
++            current = next.parent();
++        }
++        Walk::Unbound
++    }
++
++    /// Leaving a namespace or enum body unbound (SPEC §3.1a leave predicate): unproven when
++    /// another namespace, module or enum in the file shares the first name segment (a merge
++    /// partner), or the file is a script (cross-file merging).
++    fn js_ts_merge_leave<'a>(
++        &'a self,
++        node: Node<'a>,
++        cache: &mut super::js_binding::JsBindingCache<'a>,
++    ) -> bool {
++        let first = |n: Node<'_>| {
++            n.child_by_field_name("name").map(|x| {
++                self.node_text(&x)
++                    .split('.')
++                    .next()
++                    .unwrap_or("")
++                    .trim()
++                    .to_string()
++            })
++        };
++        let partners = cache.partners.get_or_insert_with(|| {
++            let mut out = std::collections::BTreeMap::<String, usize>::new();
++            let mut stack = vec![self.tree.root_node()];
++            while let Some(n) = stack.pop() {
++                if matches!(n.kind(), "internal_module" | "module" | "enum_declaration") {
++                    if let Some(f) = first(n) {
++                        *out.entry(f).or_default() += 1;
++                    }
++                }
++                let mut cursor = n.walk();
++                stack.extend(n.named_children(&mut cursor));
++            }
++            out
++        });
++        let shared = first(node).is_some_and(|f| partners.get(&f).copied().unwrap_or(0) >= 2);
++        shared || !self.js_ts_is_module()
++    }
++
++    /// The file is an ES module (strict; no cross-file global merging).
++    pub(crate) fn js_ts_is_module(&self) -> bool {
++        let root = self.tree.root_node();
++        let mut cursor = root.walk();
++        let found = root
++            .named_children(&mut cursor)
++            .any(|n| matches!(n.kind(), "import_statement" | "export_statement"));
++        found || self.path.ends_with(".mjs") || self.path.ends_with(".mts")
 +    }
 +}
 diff --git a/src/ast/js_wrapped_export.rs b/src/ast/js_wrapped_export.rs
@@ -1100,10 +1530,10 @@ index e7e96482..30a245db 100644
      /// `import_statement` nodes, so `require("react")` bindings can never enter it.
      fn react_imports(&self) -> ReactImports {
 diff --git a/src/call_graph.rs b/src/call_graph.rs
-index 92aaddf9..ee2ef0fc 100644
+index 92aaddf9..15776f2e 100644
 --- a/src/call_graph.rs
 +++ b/src/call_graph.rs
-@@ -497,6 +497,28 @@ pub struct CallSite {
+@@ -497,6 +497,30 @@ pub struct CallSite {
      /// Excluded from cmp_key. Only span-verified wrapped export targets consult it.
      #[serde(default)]
      pub jsx_element: bool,
@@ -1129,10 +1559,12 @@ index 92aaddf9..ee2ef0fc 100644
 +    Unproven,
 +    /// The qualifier is proven to be the file's one ESM namespace import, unwritten.
 +    NamespaceImport,
++    /// Owner OQ1 (K): an unproven position keeps base behavior, counted by reason.
++    BasePosition(String),
  }
  
  /// Parameter arity for a method definition (language-agnostic shape).
-@@ -1337,6 +1359,7 @@ impl CallGraph {
+@@ -1337,6 +1361,7 @@ impl CallGraph {
          // Phase 2: Find all call sites within each function
          for (file_path, parsed) in files {
              let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
@@ -1140,7 +1572,7 @@ index 92aaddf9..ee2ef0fc 100644
              for func_node in parsed.all_functions() {
                  let func_name = match parsed.language.function_name(&func_node) {
                      Some(n) => parsed.node_text(&n).to_string(),
-@@ -1402,6 +1425,14 @@ impl CallGraph {
+@@ -1402,6 +1427,14 @@ impl CallGraph {
                          origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                          pre_resolved_target: None,
                          jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
@@ -1155,7 +1587,7 @@ index 92aaddf9..ee2ef0fc 100644
                      };
                      calls
                          .entry(caller_id.clone())
-@@ -1735,6 +1766,7 @@ impl CallGraph {
+@@ -1735,6 +1768,7 @@ impl CallGraph {
                  let proven_imported_receiver_types =
                      proven_python_imported_receiver_types.get(file_path);
                  let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
@@ -1163,7 +1595,7 @@ index 92aaddf9..ee2ef0fc 100644
  
                  for func_node in parsed.all_functions() {
                      let func_name = match parsed.language.function_name(&func_node) {
-@@ -1802,6 +1834,14 @@ impl CallGraph {
+@@ -1802,6 +1836,14 @@ impl CallGraph {
                              });
                          let receiver_lexically_bound = parsed
                              .js_ts_receiver_lexically_bound_at_call(&func_node, meta.receiver_node);
@@ -1178,7 +1610,7 @@ index 92aaddf9..ee2ef0fc 100644
                          let site = CallSite {
                              caller: caller_id.clone(),
                              callee_name,
-@@ -1835,6 +1875,7 @@ impl CallGraph {
+@@ -1835,6 +1877,7 @@ impl CallGraph {
                              origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                              pre_resolved_target: None,
                              jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
@@ -1186,7 +1618,7 @@ index 92aaddf9..ee2ef0fc 100644
                          };
                          file_call_sites.push((caller_id.clone(), site));
                      }
-@@ -2875,6 +2916,7 @@ impl CallGraph {
+@@ -2875,6 +2918,7 @@ impl CallGraph {
              origin: CallSiteOrigin::IndirectResolution,
              pre_resolved_target: None,
              jsx_element: false,
@@ -1194,7 +1626,7 @@ index 92aaddf9..ee2ef0fc 100644
          }
      }
  
-@@ -5038,6 +5080,7 @@ impl CallGraph {
+@@ -5038,6 +5082,7 @@ impl CallGraph {
              }
              let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
              let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
@@ -1202,7 +1634,7 @@ index 92aaddf9..ee2ef0fc 100644
              for func_node in parsed.all_functions() {
                  let func_name = match parsed.language.function_name(&func_node) {
                      Some(n) => parsed.node_text(&n).to_string(),
-@@ -5105,6 +5148,14 @@ impl CallGraph {
+@@ -5105,6 +5150,14 @@ impl CallGraph {
                          });
                      let receiver_lexically_bound = parsed
                          .js_ts_receiver_lexically_bound_at_call(&func_node, meta.receiver_node);
@@ -1217,7 +1649,7 @@ index 92aaddf9..ee2ef0fc 100644
                      let site = CallSite {
                          caller: caller_id.clone(),
                          callee_name: callee_name.clone(),
-@@ -5134,6 +5185,7 @@ impl CallGraph {
+@@ -5134,6 +5187,7 @@ impl CallGraph {
                          origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                          pre_resolved_target: None,
                          jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
@@ -1225,7 +1657,7 @@ index 92aaddf9..ee2ef0fc 100644
                      };
                      calls
                          .entry(caller_id.clone())
-@@ -5510,6 +5562,57 @@ impl CallGraph {
+@@ -5510,6 +5564,59 @@ impl CallGraph {
      }
  
      /// True iff the node spanning exactly these bytes is a JSX element tag (S1).
@@ -1264,8 +1696,9 @@ index 92aaddf9..ee2ef0fc 100644
 +                .filter(|o| o.kind() == "identifier");
 +            return match q.and_then(|q| parsed.js_ts_namespace_proven(q, cache)) {
 +                None => JsLocalBinding::Unchecked,
-+                Some(true) => JsLocalBinding::NamespaceImport,
-+                Some(false) => JsLocalBinding::Unproven,
++                Some(crate::ast::JsBinding::MayCall) => JsLocalBinding::NamespaceImport,
++                Some(crate::ast::JsBinding::Base(r)) => JsLocalBinding::BasePosition(r.into()),
++                Some(_) => JsLocalBinding::Unproven,
 +            };
 +        }
 +        let Some(ident) =
@@ -1277,6 +1710,7 @@ index 92aaddf9..ee2ef0fc 100644
 +            crate::ast::JsBinding::Callable(t) => JsLocalBinding::Callable(t),
 +            crate::ast::JsBinding::MayCall => JsLocalBinding::MayCall,
 +            crate::ast::JsBinding::Refused(_) => JsLocalBinding::Unproven,
++            crate::ast::JsBinding::Base(r) => JsLocalBinding::BasePosition(r.into()),
 +        }
 +    }
 +
@@ -1460,19 +1894,26 @@ index 4eaab518..75a16073 100644
          let outcome = ResolutionOutcome {
              resolved: vec![crate::resolution::ResolvedCallee {
 diff --git a/src/navigation/queries.rs b/src/navigation/queries.rs
-index dd29127e..7d08c255 100644
+index dd29127e..522064dc 100644
 --- a/src/navigation/queries.rs
 +++ b/src/navigation/queries.rs
-@@ -379,6 +379,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
+@@ -379,9 +379,15 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
      // absent) so Go misses stop landing unattributed.
      let mut dropped_go_receiver: BTreeMap<String, usize> = BTreeMap::new();
      let mut wrapped_non_jsx = 0usize;
 +    let mut jsx_intrinsic = 0usize;
++    let mut unchecked_position: BTreeMap<String, usize> = BTreeMap::new();
 +    let mut local_unproven = 0usize;
      for sites in cg.calls.values() {
          for site in sites {
              total += 1;
-@@ -391,6 +393,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
++            if let crate::call_graph::JsLocalBinding::BasePosition(r) = &site.local_binding {
++                *unchecked_position.entry(r.clone()).or_default() += 1;
++            }
+             let out = cg.resolve_call_site_full(site);
+             match out.drop {
+                 Some(DropReason::MultiOwnerCollision) => multi += 1,
+@@ -391,6 +397,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                  Some(DropReason::FuncValueFanout) => func_value_fanout += 1,
                  Some(DropReason::GoSamePkgAllFiltered) => go_same_pkg_all_filtered_drop += 1,
                  Some(DropReason::WrappedExportNonJsx) => wrapped_non_jsx += 1,
@@ -1481,7 +1922,7 @@ index dd29127e..7d08c255 100644
                  Some(
                      DropReason::ConcreteReceiverPromotedDeferred
                      | DropReason::ConcreteReceiverNoSelector,
-@@ -559,10 +563,14 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
+@@ -559,10 +567,14 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
      });
  
      let mut decl_reasons: BTreeMap<String, usize> = BTreeMap::new();
@@ -1496,18 +1937,19 @@ index dd29127e..7d08c255 100644
      }
      let mut stats = serde_json::json!({
          "total_call_sites": total,
-@@ -646,6 +654,9 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
+@@ -646,6 +658,10 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
              .sum::<usize>(),
          "js_export_skipped_decl_reasons": decl_reasons,
          "dropped_wrapped_export_non_jsx": wrapped_non_jsx,
 +        "dropped_jsx_intrinsic": jsx_intrinsic,
++        "local_binding_unchecked_position": unchecked_position,
 +        "dropped_local_binding_unproven": local_unproven,
 +        "js_export_local_refusals": local_refusals,
          "js_export_skipped_exprs": cg
              .js_ts_exports
              .values()
 diff --git a/src/resolution.rs b/src/resolution.rs
-index 4991f01e..7ea3033f 100644
+index 4991f01e..10b67a1e 100644
 --- a/src/resolution.rs
 +++ b/src/resolution.rs
 @@ -194,6 +194,17 @@ fn supports_import_member_resolution(file: &str) -> bool {
@@ -1557,7 +1999,7 @@ index 4991f01e..7ea3033f 100644
          if let Some(result) = self
              .executable_owner
              .as_ref()
-@@ -2545,33 +2571,24 @@ impl CallGraph {
+@@ -2545,33 +2571,32 @@ impl CallGraph {
  
                  // R3: imported-module qualifier. If an import matches, the
                  // narrowed set is final; empty means the call is external.
@@ -1568,11 +2010,19 @@ index 4991f01e..7ea3033f 100644
 +                let namespace = (s1b_upto() >= 3)
 +                    .then(|| self.js_ts_namespace_binding(&caller.file, q))
 +                    .flatten();
-+                if let Some(binding) = namespace {
-+                    if site.local_binding == crate::call_graph::JsLocalBinding::NamespaceImport {
-+                        return self.js_ts_namespace_member(caller, binding, name, site);
-+                    }
-+                } else if !recv_materialized && !js_ts_receiver_lexically_bound {
++                let ns_base = matches!(
++                    site.local_binding,
++                    crate::call_graph::JsLocalBinding::BasePosition(_)
++                );
++                if let Some(binding) = namespace.filter(|_| {
++                    site.local_binding == crate::call_graph::JsLocalBinding::NamespaceImport
++                }) {
++                    return self.js_ts_namespace_member(caller, binding, name, site);
++                }
++                if (namespace.is_none() || ns_base)
++                    && !recv_materialized
++                    && !js_ts_receiver_lexically_bound
++                {
                      if let Some(file_imports) = self.imports.get(&caller.file) {
                          if let Some(module_path) = file_imports.get(q) {
                              let ids = match self.functions.get(name) {
@@ -1603,7 +2053,7 @@ index 4991f01e..7ea3033f 100644
                              if matched.is_empty() {
                                  return ResolutionOutcome::dropped(DropReason::ImportExternal);
                              }
-@@ -3357,6 +3374,13 @@ impl CallGraph {
+@@ -3357,6 +3382,13 @@ impl CallGraph {
                  ResolutionOutcome::dropped(DropReason::MultiOwnerCollision)
              }
              None => {
@@ -1617,7 +2067,7 @@ index 4991f01e..7ea3033f 100644
                  // R4c: import-member resolution (Python/JS/TS).
                  // Must fire before the functions.get(name) check because aliases
                  // mean the call-site name ("p") differs from the function name
-@@ -3466,6 +3490,12 @@ impl CallGraph {
+@@ -3466,6 +3498,12 @@ impl CallGraph {
                      .filter(|f| f.file == caller.file)
                      .collect();
                  if !local.is_empty() {
@@ -1630,7 +2080,7 @@ index 4991f01e..7ea3033f 100644
                      return ResolutionOutcome::hit(exact(local, ResolutionKind::LocalDef));
                  }
  
-@@ -3676,24 +3706,26 @@ impl CallGraph {
+@@ -3676,24 +3714,26 @@ impl CallGraph {
          ) else {
              return Ok(Vec::new());
          };
@@ -1667,7 +2117,7 @@ index 4991f01e..7ea3033f 100644
          let ids: Vec<&FunctionId> = match self.functions.get(&resolved.local_name) {
              Some(ids) => ids
                  .iter()
-@@ -3712,6 +3744,161 @@ impl CallGraph {
+@@ -3712,6 +3752,161 @@ impl CallGraph {
          Ok(ids)
      }
  
@@ -1829,7 +2279,7 @@ index 4991f01e..7ea3033f 100644
      pub fn resolve_call_site(&self, site: &CallSite) -> Vec<ResolvedCallee<'_>> {
          filter_func_value_fanout(self.resolve_call_site_full(site).resolved)
      }
-@@ -4528,6 +4715,7 @@ mod scope_resolution_predicate_tests {
+@@ -4528,6 +4723,7 @@ mod scope_resolution_predicate_tests {
              origin: CallSiteOrigin::Source,
              pre_resolved_target: None,
              jsx_element: false,

@@ -1,9 +1,9 @@
-# Implementer brief: S1b sub-slice `__SLICE__` (S1b-1, S1b-2, S1b-3 or S1b-4)
+# Implementer brief: S1b sub-slice `__SLICE__` (S1b-1, S1b-1b, S1b-2a, S1b-2b, S1b-3 or S1b-4)
 
-> **Pending owner choice (re-plan, `REPLAN-fable.md`).** If the owner takes Option K with OQ3 (a), S1b-2 dispatches as
-> **S1b-2a** and **S1b-2b** and S1b-3 carries the evaluation-context table; the owned paths and caps for those are in
-> the "Re-plan" blocks below. **S1b-1 is unchanged by the re-plan** (OQ6): an S1b-1 implementer reads nothing past
-> this note.
+> **Owner decisions (SPEC §0): Option K, OQ1–OQ7 = (a), and after spec round 3 "targeted fold, then implement".**
+> S1b-2 dispatches as **S1b-2a** and **S1b-2b**; S1b-3 carries the evaluation-context table. The owned paths and caps
+> are in the "Re-plan" blocks and the **S1b-2a dispatch** section below; the r2 "S1b-2" rows are superseded.
+> **S1b-1 is unchanged by the re-plan** (OQ6). S1b-1b (the F4 collector fix) exists only if the owner answers OQ8 (a).
 
 You implement **exactly one sub-slice** of `SPEC.md` in this directory, as the controller names it at dispatch, on
 the owner's §0 answers (the controller pastes them into the dispatch; if they differ from a recommendation, the
@@ -42,7 +42,7 @@ edges".
   - S1b-4: the R3 block of `resolve_call_site_full` and its helpers (`js_ts_export_candidates` shared with R4c); the
     qualifier proof at extraction; caches; tests; `s1b_namespace_nested_decoy_refused`; the
     `module_binding_audit_test::esm_namespace_import` update.
-  - **Re-plan (pending owner choice):**
+  - **Re-plan (owner OQ3 = a):**
     - **S1b-2a**: `src/ast/js_binding*.rs` scope index, D/P/W rows, classification, B0 **including leaf kinds**, B1
       with **structural brace tokens** and **delimited-child sealing** (SPEC §3.1 B1 note), the module terminal; the
       derivation probe's second table; **0 corpus rows** (row-diff byte-identical to base on X, R, T, F). No site
@@ -52,14 +52,16 @@ edges".
       **0 corpus rows**.
     - **S1b-3**: the site walk **driven by the E-table** (`E(kind, field)` consulted at every step; J1, J2, J3; the
       `with` object; enum bodies as T10), the **leave predicate** (same-file partner index by first name segment,
-      script-file check), the **positional fail-safe** (`Unchecked` + `local_binding_unchecked_position` counter under
-      OQ1 a; `Unproven` under OQ1 b), the scoped write index, `CallSite.local_binding`, `useCallback`. Row-diff
-      expected byte-identical to v8d's S1b-3 expectations (the unproven set is empty on the corpora, RP3).
+      script-file check, dotted-name segments), the **positional fail-safe** (`Unchecked(reason)` +
+      `local_binding_unchecked_position`, OQ1 a), the J2 split by holder, the Annex-B marker consumers, the scoped
+      write index, `CallSite.local_binding`, `useCallback`, and the Rust `E_TABLE` equality test (SPEC §7 C-35).
+      Row-diff expected byte-identical to v8d's S1b-3 expectations (the unproven set is empty on the corpora, RP3,
+      and the r3 fold changes 0 rows, Q42).
 - **Forbidden:** `Language::function_name`, `FunctionId`, call-site ownership, `CallKind`, DFG and Step 5/5b code;
   CJS `Local` production; R3 for named, default or `require` qualifiers (E8); `IndirectResolution` sites (E10); any
   runtime-mutation guard; new dependencies; edits to existing Tier-A fixtures; running on the public or private
   corpora (acceptance belongs to the controller); `CLAUDE.md` (no edit is planned for S1b).
-- **The prototype is evidence, not authority.** `prototype/s1b-prototype-v8.diff.txt` builds, reproduces every
+- **The prototype is evidence, not authority.** `prototype/s1b-prototype-v9.diff.txt` (r3; it replaces v8's) builds, reproduces every
   control and every expected row-diff, and passes the suite apart from the 9 by-design pins (PLANNING-PROBES Q26–Q35).
   It is feasibility code: `js_binding.rs` is one file of about 900 lines (split it), and it carries measurement-only
   switches (`PRISM_S1B_UPTO`, `PRISM_S1B_BROAD_E6`, `PRISM_S1B_NO_FAILSAFE`, `PRISM_S1B_SCOPED_MODULE_SCAN`,
@@ -79,7 +81,7 @@ edges".
    tests SPEC §7 lists for this sub-slice, and no others; if any other existing test fails, stop and report it.
 4. **Mutants**, each applied alone, recording the test that kills it. A surviving bounded mutant is a coverage gap:
    add the killing row.
-5. **Synthetic smoke.** `python3 probes/controls_gen.py` in an empty directory (218 scenarios), then
+5. **Synthetic smoke.** `python3 probes/controls_gen.py` in an empty directory (240 scenarios since r3), then
    `probes/run_controls.sh <bin> <gen_dir> <out_dir>` and `probes/controls_diff.py` against the reference summary for
    your sub-slice (base is `probes/S1b-controls-base.txt`):
    - S1b-1: base, except the intrinsic relabels and removals and the F1–F3 rows (C124 declaration, C126);
@@ -102,7 +104,7 @@ Honest lines: after `cargo fmt`, non-blank, non-`//`; `#[cfg(test)]` and `tests/
 
 These are the proposed caps (SPEC §9, owner E13); the dispatch states the owner's answer.
 
-**Re-plan caps (pending owner choice, OQ3):** S1b-2a **510** / 465 src, **560** / 500 tests; S1b-2b **140** / 125,
+**Re-plan caps (owner OQ3 = a; OQ9 re-caps open, SPEC §9):** S1b-2a **510** / 465 src, **560** / 500 tests; S1b-2b **140** / 125,
 **200** / 180; S1b-3 **480** / 430, **700** / 630; S1b-1 and S1b-4 unchanged. Synthetic smoke for the re-plan
 sub-slices: 2a and 2b against `probes/S1b-controls-base.txt` plus S1b-1's rows (2a) and
 `probes/S1b-controls-proto-v8-upto1.txt` (2b); S1b-3 against `…-upto2.txt` **plus** the RP1 fixtures
@@ -117,6 +119,46 @@ v8's).
 4. At an early stop or report point: the count, the forecast, and the remaining items. Continue only while the
    forecast is within the cap; a forecast above a cap is a stop with the enumerated remainder. Never compress logic
    to fit. Lines should be at most 100 columns.
+
+## S1b-2a dispatch (the collector at module scope; SPEC §3.1, §3.1a closure, §6, §7, §9)
+
+- **Base:** the merged S1b-1 head (or S1b-1b's, if OQ8 = a). Record the SHA.
+- **Caps:** **src 510 / early stop 465; tests 560 / report point 500.** **Disclosed forecast: the v9 prototype's 2a
+  share measures 557 src (SPEC §9, OQ9 recommends 615 / 555).** Until the owner raises the cap, expect the forecast to
+  cross 465: that is a **stop with the enumerated remainder** at checkpoint 2 or earlier, never compression. If the
+  dispatch carries the owner's OQ9 answer, those caps apply instead.
+- **Owned paths:** new `src/ast/js_binding*.rs` (split so each file is under 600 lines): `CLASSIFIED` (the 186-kind
+  allowlist, leaves included), `JsBinding`, `JsTerminal`, `JsBindingCache`, `Strictness` and `js_ts_strictness` (the
+  Annex-B predicate, SPEC §3.1 D1), the declaration walk (D, P, W rows, the Annex-B marker only under the predicate),
+  the module-scope index, classification B0–B3 and M1/M2, B1 with structural brace tokens and delimited-child sealing,
+  `js_ts_scope_clean`, `js_ts_using_declaration`, `js_ts_import_value_names`, and the module terminal; the `mod` line in
+  `src/ast.rs`. **Not in 2a:** the site walk, `E_TABLE`, `CallSite`, the producer lines, `js_exports.rs`,
+  `ModuleExportName`, any resolution rung, any cache bump (SPEC §6: 2a changes no persisted byte; the review checks
+  `git diff` over the serde types and cache writers is empty).
+- **`dead_code`:** the module is compiled but not called from production code in 2a. Put one
+  `#![allow(dead_code)] // S1b-2b and S1b-3 wire these; remove the allow there` at the top of each new file (not per
+  item, not a crate-wide allow). **Do not add a test-only entry point:** the tests are `#[cfg(test)]` unit tests in a
+  sibling file (the repo's `src/*_tests.rs` pattern), calling the module's `pub(crate)`/`pub(super)` API directly.
+- **RED rows (unit level: the module terminal's result for the exported name, not an edge; 2b re-asserts them as
+  edges):** B-4 C74, C75 (`Refused`, B2; C74 `duplicate_declaration`); B-5 C78 (`Callable(g's span)`); B-6 C79 (`Refused("parse_recovery")`),
+  C149, C150 (sealed: `Callable`); B-8 C143, C144, C146 (TS: the value binding, not the type); B-10 the closure unit
+  test; **B-14** RP2-a header error → `Refused`; **B-15** RP2-b string brace → `Callable`, both quote forms; **B-18
+  (r3, sol W1) strictness:** `js_ts_strictness` is Strict for a module (`import`/`export`, `.mjs`, `.mts`), a program
+  or enclosing-function `"use strict"`/`'use strict'` directive and class code, Sloppy for a `.cjs` script, Unknown for
+  a `.js`/`.ts` script without a directive; the declaration walk records the Annex-B marker for C163's block function
+  and not for C111 (module), C161 (directive) or C164 (generator); Unknown yields the annex set, not a marker (C159,
+  C160). Each row in both grammars (JS and TSX) unless TS-only.
+- **Mutants:** B-M2 skip B2; B-M3 broad B1; B-M4 drop B1 (i); B-M5 `interface`/`type` as declarations; B-M8 one
+  allowlist kind removed; B-M9 raw-text brace test; B-M10 header errors sealed; **C-M22** unconditional Annex-B marker
+  (killed by B-18's C111/C161 rows); **C-M23** marker for generator/async declarations (killed by C164's row).
+- **Closure probe:** `python3 probes/grammar_closure.py --rust src/ast --kinds-only` must exit 0 (2a has no runtime
+  `E_TABLE`; S1b-3 drops `--kinds-only`). Check the exit status directly, not through a pipe. Also report that removing
+  one kind from `CLASSIFIED` makes it exit 1.
+- **Smoke:** 0 rows. `probes/run_controls.sh` with your binary and with the base (S1b-1 head) binary on the same
+  `controls_gen.py` output (240 scenarios): the two summaries must be byte-identical. Corpus row-diffs are the
+  controller's (byte-identical to the base on X, F, R, T).
+- **Suites:** the Verification block below; `cargo clippy` must be clean without any allow beyond the file-level
+  `dead_code` one.
 
 ## Verification (report totals from logs)
 
