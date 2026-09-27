@@ -324,6 +324,24 @@ def stub_binary(path: Path, sha12: str) -> Path:
     return path
 
 
+def _write_stub_cargo_metadata(binary: Path) -> None:
+    discriminator = "0000000000000001"
+    target = binary.stem.replace("-", "_")
+    artifact = binary.parent / "deps" / f"{target}-{discriminator}"
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    artifact.write_bytes(binary.read_bytes())
+    artifact.with_suffix(".d").write_bytes(binary.with_suffix(".d").read_bytes())
+    fingerprint = (
+        binary.parent
+        / ".fingerprint"
+        / f"prism-{discriminator}"
+        / f"bin-{target}.json"
+    )
+    fingerprint.parent.mkdir(parents=True, exist_ok=True)
+    fingerprint.write_text(json.dumps({"deps": []}))
+    fingerprint.with_suffix("").write_text("0000000000000000")
+
+
 def _command_version(*command: str) -> str:
     return subprocess.run(
         command,
@@ -381,10 +399,12 @@ def anchored_repo(tmp: Path, publish: bool = True) -> tuple[Lock, Path, Path]:
     binary.with_suffix(".d").write_text(
         f"{binary}: {repo / 'src/a.rs'} {repo / 'Cargo.toml'}\n"
     )
+    _write_stub_cargo_metadata(binary)
     bootstrap_binary = stub_binary(repo / "prism", bootstrap_sha[:12])
     bootstrap_binary.with_suffix(".d").write_text(
         f"{bootstrap_binary}: {repo / 'src/a.rs'} {repo / 'Cargo.toml'}\n"
     )
+    _write_stub_cargo_metadata(bootstrap_binary)
     build_output = repo / "target/release/build/prism-fixture/output"
     build_output.parent.mkdir(parents=True)
     build_output.write_text("cargo:rerun-if-changed=src/a.rs\n")

@@ -10,6 +10,7 @@ import pytest
 from tests.helpers import (
     FakeOracle,
     FakeSut,
+    _write_stub_cargo_metadata,
     anchored_repo,
     fake_run,
     git_head,
@@ -218,10 +219,8 @@ def test_publish_captures_binary_bytes_and_mode_from_one_file_descriptor(
     cand = STAGE(repo, ev, tmp_path)
     run = fake_run(lock_identities(cand.lock))
     original_bytes = binary.read_bytes()
-    real_read_bytes = Path.read_bytes
     real_fdopen = os.fdopen
     swapped = False
-    binary_path_reads = 0
 
     def swap_binary():
         nonlocal swapped
@@ -233,20 +232,10 @@ def test_publish_captures_binary_bytes_and_mode_from_one_file_descriptor(
         os.replace(replacement, binary)
         swapped = True
 
-    def replace_binary_after_path_read(path):
-        nonlocal binary_path_reads
-        contents = real_read_bytes(path)
-        if path == binary:
-            binary_path_reads += 1
-            if binary_path_reads == 2:
-                swap_binary()
-        return contents
-
     def replace_binary_after_fd_open(fd, *args, **kwargs):
         swap_binary()
         return real_fdopen(fd, *args, **kwargs)
 
-    monkeypatch.setattr(Path, "read_bytes", replace_binary_after_path_read)
     monkeypatch.setattr(os, "fdopen", replace_binary_after_fd_open)
     published = publish_anchor_v1(cand, run, *OUT(ev, tmp_path))
     archive = Path(published.prism["sut"]["archive"])
@@ -306,6 +295,7 @@ def test_bootstrap_sut_path_survives_the_policy_commit(tmp_path):
     lock, ev, repo = anchored_repo(tmp_path, publish=False)
     binary_sha = git_head(repo)
     binary = stub_binary(ev.parent / "prism", binary_sha[:12])
+    _write_stub_cargo_metadata(binary)
     finalize_policy(ev)
     with pytest.raises(ValueError) as exc:
         STAGE(repo, ev, tmp_path)

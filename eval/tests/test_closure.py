@@ -15,7 +15,12 @@ from tier_a.closure import (
     raw_digest,
     sut_inputs_manifest,
 )
-from tests.helpers import git_repo, copy_eval_policy_files, edit
+from tests.helpers import (
+    _write_stub_cargo_metadata,
+    copy_eval_policy_files,
+    edit,
+    git_repo,
+)
 
 
 def test_raw_digest_is_over_disk_bytes(tmp_path):
@@ -112,7 +117,10 @@ def test_digests_are_stable_for_unchanged_inputs(tmp_path):
 def test_sut_inputs_manifest_includes_dep_info_targets(tmp_path):
     dep = tmp_path / "target/release/prism.d"; dep.parent.mkdir(parents=True)
     dep.write_text(f"{tmp_path}/target/release/prism: {tmp_path}/src/main.rs {tmp_path}/scripts/callable-observations/a.mjs\n")
-    assert "scripts/callable-observations/a.mjs" in {p for p, _ in sut_inputs_manifest(tmp_path, tmp_path / "target/release/prism")}
+    binary = dep.with_suffix("")
+    binary.write_bytes(b"fixture binary\n")
+    _write_stub_cargo_metadata(binary)
+    assert "scripts/callable-observations/a.mjs" in {p for p, _ in sut_inputs_manifest(tmp_path, binary)}
 
 
 def test_tsv_roundtrip_and_digest_use_sorted_lf_lines(tmp_path):
@@ -138,8 +146,11 @@ def test_sut_inputs_manifest_handles_escaped_spaces_and_missing_dep_info(tmp_pat
     dep.parent.mkdir(parents=True)
     escaped = str(source).replace(" ", "\\ ")
     dep.write_text(f"{tmp_path}/target/release/prism: {escaped}\n")
+    binary = dep.with_suffix("")
+    binary.write_bytes(b"fixture binary\n")
+    _write_stub_cargo_metadata(binary)
 
-    assert sut_inputs_manifest(tmp_path, dep.with_suffix("")) == [
+    assert sut_inputs_manifest(tmp_path, binary) == [
         ("src/a b.rs", raw_digest(source))
     ]
     with pytest.raises(FileNotFoundError):

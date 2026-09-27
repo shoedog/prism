@@ -176,7 +176,7 @@ def _fingerprint_discriminator(path: Path) -> str:
     return match.group(1)
 
 
-def _sut_root_fingerprint(binary: Path, target: str) -> Path | None:
+def _sut_root_fingerprint(binary: Path, target: str) -> Path:
     fingerprint_root = binary.parent / ".fingerprint"
     artifact_root = binary.parent / "deps"
     artifacts = [
@@ -185,9 +185,6 @@ def _sut_root_fingerprint(binary: Path, target: str) -> Path | None:
         if path.is_file()
         and re.fullmatch(rf"{re.escape(target)}-[0-9a-f]{{16}}", path.name)
     ]
-    # Dep-info-only fixtures have neither Cargo artifact nor fingerprint metadata.
-    if not artifacts and not fingerprint_root.is_dir():
-        return None
     if not artifacts or not fingerprint_root.is_dir() or not binary.is_file():
         raise ValueError(f"sut_fingerprint_unavailable: {target}")
 
@@ -260,8 +257,6 @@ def _cargo_dependency_dep_infos(_repo: Path, binary: Path) -> list[Path]:
     fingerprint_root = binary.parent / ".fingerprint"
     target = _cargo_crate_name(binary.stem)
     root = _sut_root_fingerprint(binary, target)
-    if root is None:
-        return []
 
     queue = [root]
     visited = set()
@@ -303,13 +298,32 @@ def _cargo_dependency_dep_infos(_repo: Path, binary: Path) -> list[Path]:
                         if path.name == "run-build-script-build-script-build.json"
                     ]
                 elif fingerprint.name == "run-build-script-build-script-build.json":
-                    matches = [
+                    compile_matches = [
                         path
                         for path in matches
                         if path.name == "build-script-build-script-build.json"
                     ]
-                    # Other run units are ordering edges, not this run's compiler unit.
-                    if not matches:
+                    if compile_matches:
+                        matches = compile_matches
+                    else:
+                        ordering_matches = [
+                            path
+                            for path in matches
+                            if path.name
+                            == "run-build-script-build-script-build.json"
+                        ]
+                        if len(ordering_matches) > 1:
+                            raise ValueError(
+                                "dependency_unit_ambiguous: "
+                                f"build_script_build:{marker}"
+                            )
+                        if not ordering_matches:
+                            raise ValueError(
+                                "build_script_compile_unit_unavailable: "
+                                f"build_script_build:{marker}"
+                            )
+                        # A resolved run unit is an ordering edge, not this run's
+                        # compiler unit.
                         continue
             unit = _cargo_crate_name(name)
             if not matches:

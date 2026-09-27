@@ -63,19 +63,35 @@ def test_scrubbed_env_keeps_only_allow_list(monkeypatch):
 
 def test_env_read_unset_admits_and_set_refuses(tmp_path, monkeypatch):                     # T-q both legs (W2)
     lock, ev, repo = anchored_repo(tmp_path); corpus = copy_fixture("boundary/mode-corpus", tmp_path)
+
+    def complete_selected_binary(build_dir):
+        binary = build_dir / "mode_corpus"
+        binary.write_bytes(b"fixture binary\n")
+        binary.with_suffix(".d").write_text(
+            f"{binary}: {corpus / 'src/lib.rs'} {corpus / 'build.rs'}\n"
+        )
+        _write_binary_fingerprint(
+            corpus,
+            "mode_corpus",
+            [],
+            binary=binary,
+        )
+
     env0 = {**scrubbed_env(lock), "PATH": os.environ["PATH"], "HOME": os.environ["HOME"]}
     subprocess.run(["cargo", "build", "--target-dir", str(tmp_path / "t0")], cwd=corpus, env=env0, check=True, capture_output=True)
     release_output = corpus / "target/release/build/mode_corpus-fixture/output"
     release_output.parent.mkdir(parents=True)
     release_output.write_text(next((tmp_path / "t0").rglob("output")).read_text())
-    reads, deps = observe_cargo(tmp_path / "t0", corpus, env0)
+    complete_selected_binary(tmp_path / "t0/debug")
+    reads, deps = observe_cargo(tmp_path / "t0/debug", corpus, env0)
     assert reads == [EnvRead("MODE", False, None)]
     declared = load_declared_inputs(lock, ev); closure = {"Cargo.toml", "build.rs", "src/lib.rs"}      # NON-EMPTY declared closure (astra W4)
     admit(lock, declared, Observation(reads, set(), set()), closure_paths=closure, eval_dir=ev)         # unset ⇒ admitted
     env1 = {**env0, "MODE": "on"}
     subprocess.run(["cargo", "build", "--target-dir", str(tmp_path / "t1")], cwd=corpus, env=env1, check=True, capture_output=True)
     release_output.write_text(next((tmp_path / "t1").rglob("output")).read_text())
-    reads1, _ = observe_cargo(tmp_path / "t1", corpus, env1); assert reads1 == [EnvRead("MODE", True, "on")]
+    complete_selected_binary(tmp_path / "t1/debug")
+    reads1, _ = observe_cargo(tmp_path / "t1/debug", corpus, env1); assert reads1 == [EnvRead("MODE", True, "on")]
     with pytest.raises(BoundaryViolation) as e: admit(lock, declared, Observation(reads1, set(), set()), closure, ev)
     assert e.value.reasons == ["env_read_outside_allow: MODE"]
 
@@ -460,6 +476,12 @@ def test_observe_cargo_separates_renamed_binary_from_package_outputs(tmp_path):
     binary.parent.mkdir()
     original.rename(binary)
     original.with_suffix(".d").rename(binary.with_suffix(".d"))
+    _write_binary_fingerprint(
+        repo,
+        binary.stem,
+        [],
+        binary=binary,
+    )
     (repo / "build.rs").write_text("fn main() {}\n")
     package_output = repo / "target/release/build/x-fixture/output"
     package_output.parent.mkdir(parents=True)
@@ -837,9 +859,45 @@ def test_sut_fingerprint_directory_unavailable_refuses(tmp_path):
         sut_inputs_manifest(repo, binary)
 
 
+def test_sut_fingerprint_populations_absent_refuses_without_manifest_mutation(
+    tmp_path,
+):
+    lock, _ev, repo = anchored_repo(tmp_path)
+    binary = repo / "target/release/prism"
+    _write_binary_fingerprint(repo, "prism", [])
+    manifest = repo / lock.prism["sut"]["inputs"]
+    manifest_before = manifest.read_bytes()
+
+    fingerprint_root = binary.parent / ".fingerprint"
+    artifact_root = binary.parent / "deps"
+    fingerprint_hidden = binary.parent / ".fingerprint-hidden"
+    artifact_hidden = binary.parent / "deps-hidden"
+    fingerprint_root.rename(fingerprint_hidden)
+    artifact_root.rename(artifact_hidden)
+
+    with pytest.raises(ValueError, match="sut_fingerprint_unavailable: prism"):
+        sut_inputs_manifest(repo, binary)
+    assert manifest.read_bytes() == manifest_before
+
+    fingerprint_hidden.rename(fingerprint_root)
+    artifact_hidden.rename(artifact_root)
+    _env_reads, observed = observe_cargo(binary.parent, repo, {}, binary.stem)
+    declared = {path for path, _digest in sut_inputs_manifest(repo, binary)}
+    assert observed == declared
+
+
 def test_sut_fingerprint_does_not_fall_through_to_stale_root(tmp_path):
     lock, _ev, repo = anchored_repo(tmp_path)
     binary = repo / "target/release/prism"
+    default_discriminator = "0000000000000001"
+    default_fingerprint = (
+        binary.parent / ".fingerprint" / f"prism-{default_discriminator}"
+    )
+    for path in default_fingerprint.iterdir():
+        path.unlink()
+    default_fingerprint.rmdir()
+    (binary.parent / "deps" / f"prism-{default_discriminator}").unlink()
+    (binary.parent / "deps" / f"prism-{default_discriminator}.d").unlink()
     selected = repo / "target/release/build/selected/out/generated.rs"
     stale = repo / "target/release/build/stale/out/unused.rs"
     selected.parent.mkdir(parents=True)
@@ -887,8 +945,7 @@ def test_sut_fingerprint_does_not_fall_through_to_stale_root(tmp_path):
     assert stale.relative_to(repo).as_posix() not in manifest.read_text()
 
 
-def test_selected_build_script_chain_includes_host_dependency_inputs(tmp_path):
-    lock, ev, repo = anchored_repo(tmp_path)
+def _selected_build_script_chain_fixture(repo, *, include_ordering_edge=False):
     binary = repo / "target/release/prism"
     dependency = repo / "dep_fixture"
     (dependency / "src").mkdir(parents=True)
@@ -912,6 +969,7 @@ def test_selected_build_script_chain_includes_host_dependency_inputs(tmp_path):
     compile_marker = "8182838485868788"
     host_marker = "9192939495969798"
     unrelated_marker = "a1a2a3a4a5a6a7a8"
+    ordering_marker = "b1b2b3b4b5b6b7b8"
     _write_binary_fingerprint(
         repo,
         "prism",
@@ -934,9 +992,23 @@ def test_selected_build_script_chain_includes_host_dependency_inputs(tmp_path):
         "2222222222222222",
         "run-build-script-build-script-build",
         run_marker,
-        [[3, "build_script_build", False, _cargo_fingerprint_value(compile_marker)]],
+        [
+            [3, "build_script_build", False, _cargo_fingerprint_value(compile_marker)],
+            *(
+                [
+                    [
+                        5,
+                        "build_script_build",
+                        False,
+                        _cargo_fingerprint_value(ordering_marker),
+                    ]
+                ]
+                if include_ordering_edge
+                else []
+            ),
+        ],
     )
-    _write_build_script_fingerprint(
+    compile_dep_info = _write_build_script_fingerprint(
         repo,
         "dep_fixture",
         "3333333333333333",
@@ -945,6 +1017,15 @@ def test_selected_build_script_chain_includes_host_dependency_inputs(tmp_path):
         [[4, "dep_fixture", False, _cargo_fingerprint_value(host_marker)]],
         [build_source],
     )
+    if include_ordering_edge:
+        _write_build_script_fingerprint(
+            repo,
+            "ordering_fixture",
+            "6666666666666666",
+            "run-build-script-build-script-build",
+            ordering_marker,
+            [],
+        )
     _write_library_fingerprint(
         repo,
         "dep_fixture",
@@ -960,6 +1041,15 @@ def test_selected_build_script_chain_includes_host_dependency_inputs(tmp_path):
         "5555555555555555",
         unrelated_marker,
         [unrelated_generated],
+    )
+
+    return binary, host_generated, unrelated_generated, compile_dep_info
+
+
+def test_selected_build_script_chain_includes_host_dependency_inputs(tmp_path):
+    lock, ev, repo = anchored_repo(tmp_path)
+    binary, host_generated, unrelated_generated, _compile_dep_info = (
+        _selected_build_script_chain_fixture(repo)
     )
 
     env_reads, observed = observe_cargo(binary.parent, repo, {}, binary.stem)
@@ -998,3 +1088,36 @@ def test_selected_build_script_chain_includes_host_dependency_inputs(tmp_path):
             ev,
         )
     assert exc.value.reasons == [f"undeclared_read: {unrelated_path}"]
+
+
+def test_selected_build_script_chain_refuses_missing_compiler_unit_but_skips_ordering_edge(
+    tmp_path,
+):
+    _lock, _ev, repo = anchored_repo(tmp_path)
+    binary, host_generated, _unrelated_generated, compile_dep_info = (
+        _selected_build_script_chain_fixture(repo, include_ordering_edge=True)
+    )
+
+    _env_reads, observed = observe_cargo(binary.parent, repo, {}, binary.stem)
+    declared = {path for path, _digest in sut_inputs_manifest(repo, binary)}
+    assert observed == declared
+    assert host_generated.relative_to(repo).as_posix() in observed
+
+    compile_fingerprint = (
+        repo
+        / "target/release/.fingerprint/dep_fixture-3333333333333333"
+        / "build-script-build-script-build.json"
+    )
+    compile_fingerprint.unlink()
+    manifest = repo / _lock.prism["sut"]["inputs"]
+    manifest_before = manifest.read_bytes()
+    with pytest.raises(
+        ValueError,
+        match=(
+            "build_script_compile_unit_unavailable: "
+            "build_script_build:8182838485868788"
+        ),
+    ):
+        sut_inputs_manifest(repo, binary)
+    assert manifest.read_bytes() == manifest_before
+    assert compile_dep_info.is_file()
