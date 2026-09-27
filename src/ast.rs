@@ -36,13 +36,16 @@ fn count_nodes_recursive(node: Node<'_>, errors: &mut usize, total: &mut usize) 
 }
 
 /// S1b-1b: whether a JS/TS declaration sits in `collect_js_ts_local_bindings`' root scope: at
-/// module scope or in a function's body block, directly or through `export`. That collector
-/// never enters a non-root function, so a function-like parent here is the root.
+/// module scope (directly or through `export`) or in a function's body block. A bare block,
+/// even at module scope, is nested. That collector never enters a non-root function, so a
+/// function-like parent here is the root.
 fn js_ts_declaration_at_top(decl: Node<'_>) -> bool {
-    let top = |n: Node<'_>| n.kind() == "program" || is_js_ts_function_like(n.kind());
-    let holder = |n: Node<'_>| matches!(n.kind(), "statement_block" | "export_statement");
     decl.parent()
-        .is_some_and(|h| top(h) || holder(h) && h.parent().is_some_and(top))
+        .is_some_and(|h| match (h.kind(), h.parent().map_or("", |p| p.kind())) {
+            ("program", _) | ("export_statement", "program") => true,
+            ("statement_block", parent) => is_js_ts_function_like(parent),
+            _ => false,
+        })
 }
 
 fn is_js_ts_function_like(kind: &str) -> bool {
