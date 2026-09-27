@@ -14,6 +14,15 @@ and is in model.
 
 ## 0. Owner decisions
 
+> **Status after spec round 2 (the cap), 2026-09-26.** Both round-2 reviews
+> (`~/prism-evidence/s1b/reviews/spec-r2-{opus,sol}.md`) found new *semantic* misses in kinds the table had
+> classified: TS namespace merging and computed method names. Each yields a wrong Exact edge, which the B0 allowlist
+> cannot catch. The controller classified the collector (S1b-2..4) as **open-class at the cap**. **Owner decision:**
+> ship **S1b-1** (intrinsic guard plus shared collector fixes, §9) now; neither reviewer found a defect in it. The
+> collector design for **S1b-2..4 is parked pending a Fable re-plan**, which also owns the bounded round-2 items
+> (Opus W2 header errors, sol W2 string-token braces, sol W3 string-literal export names, the B0 leaf-kind SMELL).
+
+
 Answered by the owner on 2026-09-26 after spec round 1, except where marked **open**.
 
 | # | Decision | Answer | Basis (measured on v8 unless noted) |
@@ -23,12 +32,12 @@ Answered by the owner on 2026-09-26 after spec round 1, except where marked **op
 | E3 | Drop reason | **`DropReason::JsxIntrinsic`** | relabels X 804, F 387, R 117, T 0 rows with no edge |
 | E4 | `useCallback` | **Admit** under S1's ESM-`"react"` provenance, as a plain callable | X 11 / F 98 base edges kept (F 4 more fall to E6) |
 | E5 | May-call rows | **Unchanged (base behavior).** A closed syntactic class (§3.1 M1, M2); recorded as a follow-up lane | X 40, F 56, T 163 rows stay base; 0 changed on any corpus (Q29) |
-| E5b | **Open.** E5 on the export routes | (a) **apply E5 on every route** (C21, C77, C73 stay base); (b) refuse written or call-wrapped *exports* only | S1 §12 listed C21 as a D4 false Exact; one closed rule is simpler. 0 corpus rows either way. **Recommend (a)** |
+| E5b | **Owner 2026-09-26: (a) uniform**, after first choosing (b) and re-deciding once both reviewers' round-2 views were in. E5 on the export routes | (a) **apply E5 on every route** (C21, C77, C73 stay base); (b) refuse written or call-wrapped *exports* only | S1 §12 listed C21 as a D4 false Exact; one closed rule is simpler. 0 corpus rows either way. **Recommend (a)** |
 | E6 | Parse recovery | **The narrower rule**, as a closed predicate (§3.1 B1) | Keeps F 7 and T 12 right rows that the broad rule refused, risks 0 (all 19 audited right); still refuses F 4 and T 41 right rows (Q32) |
-| E6b | **Open.** Also seal type-space containers (`interface`, `type`, type parameters/arguments/annotations) | (a) no (**recommended**); (b) yes | (b) recovers T's 41 (X, F, R 0). Angle-bracketed type nodes lack the brace guarantee B1's argument rests on (Q32) |
+| E6b | **Owner 2026-09-26: (a) no**, after first choosing (b) and re-deciding given Opus r2 W2 (header-error hole) and both reviewers' views. Also seal type-space containers (`interface`, `type`, type parameters/arguments/annotations) | (a) no (**recommended**); (b) yes | (b) recovers T's 41 (X, F, R 0). Angle-bracketed type nodes lack the brace guarantee B1's argument rests on (Q32) |
 | E7 | Unresolvable namespace modules | **Split:** a caller-relative sibling differing only in a JS→TS extension is **Exact**; any other stem fallback is **NameOnly** | T's 24 rows stay Exact (sibling); F's 4 bare-specifier rows become NameOnly, edges kept (Q30) |
 | E8–E12 | S2 qualifiers, imported-local parity, indirect sites, budget, review | Accepted as recommended; E11 superseded by E13 | – |
-| E13 | **Open.** r2 split and caps | (a) **four sub-slices**: S1b-1 intrinsic + shared collector fixes; S1b-2 binding core at module scope + D4; S1b-3 nested scopes + lexical `LocalDef` + `useCallback`; S1b-4 R3 namespace; (b) keep three by merging S1b-1 into S1b-2 | v8 prototype 1,079 src lines (about 1,050 design code, Q34) against r1's 760 total. **Recommend (a)**, caps in §9 |
+| E13 | **Owner 2026-09-26: (a) four sub-slices**, caps per §9. r2 split and caps | (a) **four sub-slices**: S1b-1 intrinsic + shared collector fixes; S1b-2 binding core at module scope + D4; S1b-3 nested scopes + lexical `LocalDef` + `useCallback`; S1b-4 R3 namespace; (b) keep three by merging S1b-1 into S1b-2 | v8 prototype 1,079 src lines (about 1,050 design code, Q34) against r1's 760 total. **Recommend (a)**, caps in §9 |
 
 ## 1. Problem
 
