@@ -60,22 +60,21 @@ fn real_folded_paths(fixture: &str) -> BTreeMap<(String, String), FlowConfidence
 }
 #[test]
 fn ruled_path_label_delta_is_exact() {
-    type Row = (
-        &'static str,
-        &'static str,
-        &'static str,
-        FlowConfidence,
-        FlowConfidence,
-    );
+    type F = FlowConfidence;
+    type Row = (&'static str, &'static str, &'static str, F, F);
     const ALIAS: FlowConfidence = FlowConfidence::NameOnly(FlowDoubt::AliasUnstable);
     const CFG: FlowConfidence = FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+    const RANGE: &str = "go/dfg_binding_range_reuse";
+    const RANGE_DEF: &str = "main.go:f:3:4:x:Def";
+    const RANGE_USE: &str = "main.go:f:3:6:x:Use";
+    const KILLED_5: F = F::NameOnly(FlowDoubt::Killed { kill_line: 5 });
     macro_rules! row {
         ($fixture:literal, $from:literal, $to:literal) => {
             ($fixture, $from, $to, ALIAS, CFG)
         };
     }
-
-    let expected: [Row; 31] = [
+    let expected: [Row; 32] = [
+        (RANGE, RANGE_DEF, RANGE_USE, F::Exact, KILLED_5),
         row!(
             "go/dfg_reaching_alias_conservative",
             "main.go:f:2:3:q:Def",

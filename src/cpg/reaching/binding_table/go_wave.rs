@@ -25,7 +25,6 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
         ("method_declaration", "e0b-go-method_declaration"),
         ("method_elem", "e0b-go-method_elem"),
         ("parameter_declaration", "e0b-go-parameter_declaration"),
-        ("range_clause", "e0b-go-range_clause"),
         ("type_case", "e0b-go-type_case"),
         ("type_declaration", "e0b-go-type_declaration"),
         (

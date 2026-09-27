@@ -55,6 +55,7 @@ fn def(
         line,
         start_byte: byte_on_line(parsed, line, path.rsplit('.').next().unwrap(), occurrence),
         alias_derived,
+        synthetic: false,
     }
 }
 
@@ -161,6 +162,7 @@ fn collect_defs(parsed: &ParsedFile) -> Vec<DefSite> {
             line: span.line,
             start_byte: span.start_byte,
             alias_derived: false,
+            synthetic: false,
         })
         .collect()
 }
@@ -457,6 +459,104 @@ fn no_reaching_candidate_without_a_proven_kill_is_cfg_incomplete() {
         &original_edge,
         FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
     );
+}
+
+#[test]
+fn go_range_reuse_inside_loop_and_zero_iteration_exit() {
+    let parsed = parsed(
+        "func f(items []int) {\n  x := source()\n  for _, x = range items {\n    observe(x)\n  }\n  sink(x)\n}\n",
+        Language::Go,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = definition_on_line(&defs, "x", 2);
+    let inside = edge(&parsed, &func, &outer, 4);
+    let after = edge(&parsed, &func, &outer, 6);
+    let outcome = run(&parsed, &defs, &[inside.clone(), after.clone()]).0;
+    assert_label(
+        &outcome,
+        &inside,
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+    );
+    assert_label(&outcome, &after, FlowConfidence::Exact);
+}
+
+#[test]
+fn conditional_bypass_preserves_outer_go_range_definition() {
+    let parsed = parsed(
+        "func f(items []int, c bool) {\n  x := source()\n  if c {\n    for _, x = range items {\n      observe(x)\n    }\n  }\n  sink(x)\n}\n",
+        Language::Go,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = definition_on_line(&defs, "x", 2);
+    let after = edge(&parsed, &func, &outer, 8);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&after)).0;
+    assert_label(&outcome, &after, FlowConfidence::Exact);
+}
+
+#[test]
+fn go_range_short_var_uses_existing_definition() {
+    let parsed = parsed(
+        "func f(items []int) {\n  x := source()\n  for _, x := range items {\n    observe(x)\n  }\n}\n",
+        Language::Go,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = definition_on_line(&defs, "x", 2);
+    let inside = edge(&parsed, &func, &outer, 4);
+    assert_eq!(defs.iter().filter(|def| def.path.base == "x").count(), 2);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&inside)).0;
+    assert_label(
+        &outcome,
+        &inside,
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+    );
+}
+
+#[test]
+fn go_range_body_starting_on_header_line_is_same_line_then_killed() {
+    let parsed = parsed(
+        "func f(items []int) {\n  x := source()\n  for _, x = range items { observe(x)\n    sink(x)\n  }\n}\n",
+        Language::Go,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = definition_on_line(&defs, "x", 2);
+    let header_use = edge(&parsed, &func, &outer, 3);
+    let body_use = edge(&parsed, &func, &outer, 4);
+    let outcome = run(&parsed, &defs, &[header_use.clone(), body_use.clone()]).0;
+    assert_label(
+        &outcome,
+        &header_use,
+        FlowConfidence::NameOnly(FlowDoubt::SameLine),
+    );
+    assert_label(
+        &outcome,
+        &body_use,
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+    );
+}
+
+#[test]
+fn go_range_iterable_read_on_header_precedes_binding() {
+    let parsed = parsed(
+        "func f(items []int) {\n  x := source()\n  for _, y = range filter(x) { observe(y)\n  }\n}\n",
+        Language::Go,
+    );
+    let func = function(&parsed);
+    let defs = collect_defs(&parsed);
+    let outer = definition_on_line(&defs, "x", 2);
+    let iterable_use = edge(&parsed, &func, &outer, 3);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&iterable_use)).0;
+    assert_label(&outcome, &iterable_use, FlowConfidence::Exact);
+}
+
+fn definition_on_line(defs: &[DefSite], name: &str, line: usize) -> DefSite {
+    defs.iter()
+        .find(|def| def.path.base == name && def.line == line)
+        .unwrap_or_else(|| panic!("fixture must define {name} on line {line}"))
+        .clone()
 }
 
 mod captures;

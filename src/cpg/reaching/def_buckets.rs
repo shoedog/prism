@@ -25,16 +25,18 @@ impl<'a> DefinitionBuckets<'a> {
             if !def.alias_derived {
                 buckets.kill_paths.entry(&def.path).or_default().push(index);
             }
-            buckets
-                .exact
-                .entry((&def.path, def.line, def.start_byte))
-                .or_default()
-                .push(index);
-            buckets
-                .fallback
-                .entry((&def.path, def.line))
-                .or_default()
-                .push(index);
+            if !def.synthetic {
+                buckets
+                    .exact
+                    .entry((&def.path, def.line, def.start_byte))
+                    .or_default()
+                    .push(index);
+                buckets
+                    .fallback
+                    .entry((&def.path, def.line))
+                    .or_default()
+                    .push(index);
+            }
         }
         buckets
     }

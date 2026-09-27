@@ -234,6 +234,7 @@ fn site(id: u32, path: AccessPath, line: usize, start_byte: usize, alias_derived
         line,
         start_byte,
         alias_derived,
+        synthetic: false,
     }
 }
 fn query(path: AccessPath, line: usize, start_byte: usize) -> FlowEdge {
@@ -308,13 +309,19 @@ fn kill_alias_gen_binding_and_fields() {
         .collect();
     assert!(originals.len() >= 6);
     let mut divergent_bindings = false;
+    let cfg_lines = BTreeMap::new();
+    let cfg_successors = Vec::new();
+    let cfg = CfgView {
+        line_index: &cfg_lines,
+        successors: &cfg_successors,
+    };
     // Every definition is tested as alias-derived on either side of every pair.
     for alias in 0..=originals.len() {
         let mut defs = originals.clone();
         if alias < defs.len() {
             defs[alias].alias_derived = true;
         }
-        let facts = scope::BindingFacts::new(&parsed, &owner, &defs);
+        let facts = scope::BindingFacts::new(&parsed, &owner, &defs, &cfg);
         for together in [false, true] {
             let mut gen = vec![BitSet::new(defs.len()); 15];
             for (index, def) in defs.iter().enumerate() {

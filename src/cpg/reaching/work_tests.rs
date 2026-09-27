@@ -231,6 +231,7 @@ fn early_exits_do_not_discover_parameters() {
                 line: 1,
                 start_byte: 0,
                 alias_derived: false,
+                synthetic: false,
             })
             .collect();
         take_records();

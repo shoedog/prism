@@ -24,6 +24,7 @@ mod join_kind;
 mod scope;
 mod scope_python;
 mod statement_lookup;
+mod transfer;
 
 pub(crate) use cfg_edge_index::FileCfgEdgeIndex;
 use classify::classify_edge;
@@ -52,6 +53,12 @@ pub(crate) struct DefSite {
     pub(crate) line: Line,
     pub(crate) start_byte: usize,
     pub(crate) alias_derived: bool,
+    pub(crate) synthetic: bool,
+}
+
+pub(super) struct CfgView<'a> {
+    pub(super) line_index: &'a BTreeMap<Line, usize>,
+    pub(super) successors: &'a [Vec<(usize, bool)>],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -196,7 +203,7 @@ fn reaching_definitions_impl(
     let _work = work_tests::Pass::begin(parsed, func_node);
     #[cfg(test)]
     work_tests::bump(|counts| counts.cfg_file_edges = file_cfg_edges.len());
-    let defs = deduplicate_definitions(defs);
+    let mut defs = deduplicate_definitions(defs);
     if defs.len() > RD_MAX_DEFS {
         return RdOutcome::Unavailable(RdUnavailable::DefinitionsCapExceeded {
             actual: defs.len(),
@@ -261,7 +268,7 @@ fn reaching_definitions_impl(
     work_tests::bump(|counts| counts.statement_span_entries = spans.len());
     let mut statements = statement_lookup::StatementLookup::new(&spans);
     let (function_start, _) = parsed.node_line_range(func_node);
-    let mapped_defs: Vec<Option<usize>> = defs
+    let mut mapped_defs: Vec<Option<usize>> = defs
         .iter()
         .map(|def| {
             if def.line == function_start && !line_index.contains_key(&def.line) {
@@ -273,8 +280,41 @@ fn reaching_definitions_impl(
             }
         })
         .collect();
-    let binding_facts = scope::BindingFacts::new(parsed, func_node, &defs);
+    let original_successors = successors.clone();
+    let cfg_view = CfgView {
+        line_index: &line_index,
+        successors: &original_successors,
+    };
+    let missing_real_defs = transfer::discover(parsed, func_node, &defs);
+    transfer::materialize_existing_def_sites(
+        &missing_real_defs,
+        &line_index,
+        &mut defs,
+        &mut mapped_defs,
+    );
+    let binders = transfer::discover(parsed, func_node, &defs);
+    let applied = transfer::apply(
+        parsed,
+        &binders,
+        &line_index,
+        &mut successors,
+        &mut predecessors,
+        &mut defs,
+        &mut mapped_defs,
+    );
+    if defs.len() > RD_MAX_DEFS {
+        return RdOutcome::Unavailable(RdUnavailable::DefinitionsCapExceeded {
+            actual: defs.len(),
+        });
+    }
+    if successors.len() > RD_MAX_LINES + 1 {
+        return RdOutcome::Unavailable(RdUnavailable::StatementLinesCapExceeded {
+            actual: successors.len(),
+        });
+    }
+    let binding_facts = scope::BindingFacts::new(parsed, func_node, &defs, &cfg_view);
 
+    let node_count = successors.len();
     let mut gen = vec![BitSet::new(defs.len()); node_count];
     for (index, mapped) in mapped_defs.iter().enumerate() {
         if let Some(node) = mapped {
@@ -333,6 +373,7 @@ fn reaching_definitions_impl(
             &flat_in_sets,
             &flat_kill,
             &successors,
+            &applied.synthetic_nodes,
             &collapsed,
             &capture_facts,
             &binding_facts,
@@ -362,6 +403,7 @@ fn reaching_definitions_impl(
             &flat_in_sets,
             &flat_kill,
             &successors,
+            &applied.synthetic_nodes,
             &collapsed,
             &capture_facts,
             &binding_facts,
@@ -424,7 +466,7 @@ fn solve_reaching_sets(
 fn deduplicate_definitions(defs: &[DefSite]) -> Vec<DefSite> {
     let mut unique = Vec::<DefSite>::new();
     let mut occurrences = BTreeMap::<(AccessPath, Line, usize), usize>::new();
-    for def in defs {
+    for def in defs.iter().filter(|def| !def.synthetic) {
         let occurrence = (def.path.clone(), def.line, def.start_byte);
         if let Some(index) = occurrences.get(&occurrence).copied() {
             unique[index].alias_derived |= def.alias_derived;

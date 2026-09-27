@@ -18,6 +18,7 @@ impl Producer {
             line: loc.line,
             start_byte: loc.start_byte,
             alias_derived,
+            synthetic: false,
         });
     }
 

@@ -1,10 +1,17 @@
 use super::grammar_lint::{uncertain_binding_nodes, visibility_span, SpanKind};
 use super::graph::{definition_reaches_unflagged, path_exists, BitSet};
+use super::transfer::HeaderUse;
 use super::{capture, scope, statement_lookup, DefSite, FlowConfidence, FlowDoubt, Line};
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
 use std::collections::{BTreeMap, BTreeSet};
+
+#[derive(Clone, Copy)]
+struct KillNodeLines<'a> {
+    statements: &'a BTreeMap<Line, usize>,
+    synthetic: &'a BTreeMap<usize, Line>,
+}
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn classify_edge(
@@ -20,6 +27,7 @@ pub(super) fn classify_edge(
     flat_in_sets: &[BitSet],
     flat_kill: &[BitSet],
     successors: &[Vec<(usize, bool)>],
+    synthetic_nodes: &BTreeMap<usize, Line>,
     collapsed: &BTreeSet<(AccessPath, Line)>,
     capture_facts: &capture::CaptureFacts,
     binding_facts: &scope::BindingFacts,
@@ -73,6 +81,17 @@ pub(super) fn classify_edge(
     if candidates.iter().any(|index| defs[*index].alias_derived) {
         return FlowConfidence::NameOnly(FlowDoubt::AliasUnstable);
     }
+    let use_byte = edge_use_byte(parsed, edge);
+    if use_byte.is_some_and(|byte| binding_facts.header_use(edge, byte) == Some(HeaderUse::Body)) {
+        return FlowConfidence::NameOnly(FlowDoubt::SameLine);
+    }
+    if let Some(construct_line) =
+        use_byte.and_then(|byte| binding_facts.no_entry_use(&edge.to.path.base, byte))
+    {
+        return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
+            construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
+        });
+    }
 
     let lookup_uncertain = candidates
         .iter()
@@ -112,6 +131,10 @@ pub(super) fn classify_edge(
         });
     }
     if lookup_uncertain || construct_uncertain {
+        let kill_node_lines = KillNodeLines {
+            statements: line_index,
+            synthetic: synthetic_nodes,
+        };
         return classify_by_reaching_sets(
             candidates,
             use_node,
@@ -119,7 +142,7 @@ pub(super) fn classify_edge(
             flat_in_sets,
             flat_kill,
             successors,
-            line_index,
+            kill_node_lines,
         );
     }
 
@@ -141,6 +164,10 @@ pub(super) fn classify_edge(
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
 
+    let kill_node_lines = KillNodeLines {
+        statements: line_index,
+        synthetic: synthetic_nodes,
+    };
     classify_by_reaching_sets(
         &same_binding,
         use_node,
@@ -148,7 +175,7 @@ pub(super) fn classify_edge(
         in_sets,
         kill,
         successors,
-        line_index,
+        kill_node_lines,
     )
 }
 
@@ -230,7 +257,7 @@ fn classify_by_reaching_sets(
     in_sets: &[BitSet],
     kill: &[BitSet],
     successors: &[Vec<(usize, bool)>],
-    line_index: &BTreeMap<Line, usize>,
+    kill_node_lines: KillNodeLines<'_>,
 ) -> FlowConfidence {
     let reaching_candidates: Vec<usize> = candidates
         .iter()
@@ -259,7 +286,7 @@ fn classify_by_reaching_sets(
                 use_node,
                 kill,
                 successors,
-                line_index,
+                kill_node_lines,
             )
         })
         .min()
@@ -282,7 +309,8 @@ pub(super) fn matching_defs(edge: &FlowEdge, defs: &[DefSite]) -> Vec<usize> {
         .iter()
         .enumerate()
         .filter_map(|(index, def)| {
-            (def.path == edge.from.path
+            (!def.synthetic
+                && def.path == edge.from.path
                 && def.line == edge.from.line
                 && def.start_byte == edge.from.start_byte)
                 .then_some(index)
@@ -294,7 +322,8 @@ pub(super) fn matching_defs(edge: &FlowEdge, defs: &[DefSite]) -> Vec<usize> {
             counts.matching_defs_items += defs.len();
         });
         matches.extend(defs.iter().enumerate().filter_map(|(index, def)| {
-            (def.path == edge.from.path && def.line == edge.from.line).then_some(index)
+            (!def.synthetic && def.path == edge.from.path && def.line == edge.from.line)
+                .then_some(index)
         }));
     }
     super::work_tests::bump(|counts| counts.projected_matching_defs_items += matches.len());
@@ -307,16 +336,24 @@ fn lowest_reachable_kill(
     use_node: usize,
     kill: &[BitSet],
     successors: &[Vec<(usize, bool)>],
-    line_index: &BTreeMap<Line, usize>,
+    node_lines: KillNodeLines<'_>,
 ) -> Option<Line> {
     let def_node = def_node?;
-    line_index
+    node_lines
+        .statements
         .iter()
-        .filter_map(|(line, node)| {
-            (kill[*node].contains(def_index)
-                && path_exists(successors, def_node, *node, false)
-                && path_exists(successors, *node, use_node, false))
-            .then_some(*line)
+        .map(|(line, node)| (*node, *line))
+        .chain(
+            node_lines
+                .synthetic
+                .iter()
+                .map(|(node, line)| (*node, *line)),
+        )
+        .filter_map(|(node, line)| {
+            (kill[node].contains(def_index)
+                && path_exists(successors, def_node, node, false)
+                && path_exists(successors, node, use_node, false))
+            .then_some(line)
         })
         .min()
 }
