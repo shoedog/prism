@@ -15,6 +15,19 @@ and is in model.
 
 ## 0. Owner decisions
 
+> **Owner answers after the round-3 fold, 2026-09-27. These are authoritative.**
+> - **OQ8 = (a):** F4 (shorthand-destructuring shadow, routed through `collect_js_ts_binding_pattern_names`) ships
+>   as its own small slice, **S1b-1b**, directly after S1b-1.
+>   - Caps: 15 src / 120 tests.
+>   - Measured: X 88 wrong edges removed and 3 right added; F 16 wrong removed; T 5 NameOnly rows; R 0. 112 of 112
+>     audited right.
+> - **OQ9 = (a):** re-caps (src / tests): **2a 615 / 555**, **3 590 / 850**, **4 195**; 2b unchanged (140 / 230).
+>   These are measured from v9.
+> - **Cache schedule with S1b-1b:** S1b-1 99/55, **S1b-1b 100/56**, 2a none, **2b 101/57**, **3 102/58**,
+>   **4 103/59**.
+> - **S1b-1** (PR #327): both reviewers APPROVE in implementation round 2; awaiting the owner's merge.
+
+
 > **Owner decision after spec round 3 (2026-09-26): targeted fold, then implement.** Both round-3 reviews were
 > converging (Opus FIX 2 / 4, sol FIX 4 / 0). The folds are recorded in `REVIEW-r3-fold.md` and below (§3.1 D1,
 > §3.1a, §5, §6, §7, §8, §9), each pinned by RED control rows and mutants that the implementation reviews verify.
