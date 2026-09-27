@@ -783,6 +783,34 @@ null,
 {
 "key": [
 "compiler/emitter.ts",
+"printFile",
+1330,
+"compiler/emitter.ts",
+53298,
+53367,
+"writeFile"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"compiler/emitter.ts",
+"writeFile",
+1374,
+1383,
+"exact",
+"local_def"
+]
+]
+]
+},
+{
+"key": [
+"compiler/emitter.ts",
 "printSourceFileOrBundle",
 993,
 "compiler/emitter.ts",
@@ -990,154 +1018,6 @@ null,
 },
 {
 "key": [
-"compiler/factory/emitHelpers.ts",
-"createSpreadArrayHelper",
-551,
-"compiler/factory/emitHelpers.ts",
-23563,
-23578,
-"immutableTrue"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/emitHelpers.ts",
-"immutableTrue",
-150,
-150,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/emitHelpers.ts",
-"createSpreadArrayHelper",
-551,
-"compiler/factory/emitHelpers.ts",
-23581,
-23597,
-"immutableFalse"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/emitHelpers.ts",
-"immutableFalse",
-151,
-151,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"asInitializer",
-7153,
-"compiler/factory/nodeFactory.ts",
-319666,
-319686,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"converters",
-517,
-"compiler/factory/nodeFactory.ts",
-15210,
-15222,
-"converters"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"converters",
-497,
-497,
-"exact",
-"local_def"
-],
-[
-"compiler/factory/nodeFactory.ts",
-"converters",
-517,
-519,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createAdd",
-1076,
-"compiler/factory/nodeFactory.ts",
-36513,
-36558,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
 "compiler/factory/nodeFactory.ts",
 "createArrayBindingPattern",
 2799,
@@ -1229,34 +1109,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createArrayLiteralExpression",
-2848,
-"compiler/factory/nodeFactory.ts",
-116748,
-116768,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createArrayTypeNode",
 2463,
 "compiler/factory/nodeFactory.ts",
@@ -1297,62 +1149,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createArrayTypeNode",
-2463,
-"compiler/factory/nodeFactory.ts",
-98994,
-99014,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createArrowFunction",
-3246,
-"compiler/factory/nodeFactory.ts",
-137102,
-137122,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -1493,34 +1289,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createAssignment",
-1025,
-"compiler/factory/nodeFactory.ts",
-34371,
-34418,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createAwaitExpression",
 3350,
 "compiler/factory/nodeFactory.ts",
@@ -1561,34 +1329,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createAwaitExpression",
-3350,
-"compiler/factory/nodeFactory.ts",
-141265,
-141285,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -1679,174 +1419,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createBinaryExpression",
-3419,
-"compiler/factory/nodeFactory.ts",
-144484,
-144504,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createBinaryExpression",
-3419,
-"compiler/factory/nodeFactory.ts",
-144622,
-144642,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createBitwiseAnd",
-1040,
-"compiler/factory/nodeFactory.ts",
-34987,
-35037,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createBitwiseNot",
-1106,
-"compiler/factory/nodeFactory.ts",
-37692,
-37743,
-"getPrefixUnaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getPrefixUnaryCreateFunction",
-501,
-501,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createBitwiseOr",
-1034,
-"compiler/factory/nodeFactory.ts",
-34761,
-34805,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createBitwiseXor",
-1037,
-"compiler/factory/nodeFactory.ts",
-34873,
-34919,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -1987,174 +1559,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createCallBinding",
-6656,
-"compiler/factory/nodeFactory.ts",
-290903,
-290923,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createCallBinding",
-6656,
-"compiler/factory/nodeFactory.ts",
-292863,
-292883,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createCallChain",
-3064,
-"compiler/factory/nodeFactory.ts",
-127661,
-127681,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createCallChain",
-3064,
-"compiler/factory/nodeFactory.ts",
-127833,
-127853,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createCallExpression",
-3038,
-"compiler/factory/nodeFactory.ts",
-126303,
-126323,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createCallExpression",
-3038,
-"compiler/factory/nodeFactory.ts",
-126490,
-126510,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createCaseBlock",
 4604,
 "compiler/factory/nodeFactory.ts",
@@ -2245,34 +1649,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createCaseClause",
-5835,
-"compiler/factory/nodeFactory.ts",
-253938,
-253958,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createCatchClause",
 5896,
 "compiler/factory/nodeFactory.ts",
@@ -2313,34 +1689,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createComma",
-1022,
-"compiler/factory/nodeFactory.ts",
-34257,
-34303,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -2436,34 +1784,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createComputedPropertyName",
-1600,
-"compiler/factory/nodeFactory.ts",
-60619,
-60639,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createConditionalExpression",
 3473,
 "compiler/factory/nodeFactory.ts",
@@ -2509,90 +1829,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createConditionalExpression",
-3473,
-"compiler/factory/nodeFactory.ts",
-147276,
-147296,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createConditionalExpression",
-3473,
-"compiler/factory/nodeFactory.ts",
-147465,
-147485,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createConditionalExpression",
-3473,
-"compiler/factory/nodeFactory.ts",
-147642,
-147662,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createConditionalTypeNode",
 2579,
 "compiler/factory/nodeFactory.ts",
@@ -2633,62 +1869,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createConditionalTypeNode",
-2579,
-"compiler/factory/nodeFactory.ts",
-104290,
-104310,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createConditionalTypeNode",
-2579,
-"compiler/factory/nodeFactory.ts",
-104390,
-104410,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -2829,34 +2009,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createDecorator",
-1700,
-"compiler/factory/nodeFactory.ts",
-65098,
-65118,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createDefaultClause",
 5855,
 "compiler/factory/nodeFactory.ts",
@@ -2947,62 +2099,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createDeleteExpression",
-3305,
-"compiler/factory/nodeFactory.ts",
-139489,
-139509,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createDivide",
-1085,
-"compiler/factory/nodeFactory.ts",
-36849,
-36895,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createDoStatement",
 3949,
 "compiler/factory/nodeFactory.ts",
@@ -3048,62 +2144,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createElementAccessChain",
-2995,
-"compiler/factory/nodeFactory.ts",
-123901,
-123921,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createElementAccessExpression",
-2968,
-"compiler/factory/nodeFactory.ts",
-122577,
-122597,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createEmptyStatement",
 3900,
 "compiler/factory/nodeFactory.ts",
@@ -3144,146 +2184,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createEnumMember",
-6016,
-"compiler/factory/nodeFactory.ts",
-262214,
-262234,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createEquality",
-1049,
-"compiler/factory/nodeFactory.ts",
-35372,
-35425,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createExponent",
-1091,
-"compiler/factory/nodeFactory.ts",
-37073,
-37130,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createExportAssignment",
-4916,
-"compiler/factory/nodeFactory.ts",
-212307,
-212327,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createExportAssignment",
-4916,
-"compiler/factory/nodeFactory.ts",
-212433,
-212453,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -3379,34 +2279,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createExpressionStatement",
-3907,
-"compiler/factory/nodeFactory.ts",
-167226,
-167246,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createExpressionWithTypeArguments",
 3700,
 "compiler/factory/nodeFactory.ts",
@@ -3447,62 +2319,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createExpressionWithTypeArguments",
-3700,
-"compiler/factory/nodeFactory.ts",
-158587,
-158607,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createExpressionWithTypeArguments",
-3700,
-"compiler/factory/nodeFactory.ts",
-158722,
-158742,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -3643,34 +2459,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createForOfStatement",
-4046,
-"compiler/factory/nodeFactory.ts",
-173928,
-173948,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createForStatement",
 3991,
 "compiler/factory/nodeFactory.ts",
@@ -3711,62 +2499,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createGreaterThan",
-1061,
-"compiler/factory/nodeFactory.ts",
-35862,
-35914,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createGreaterThanEquals",
-1064,
-"compiler/factory/nodeFactory.ts",
-35989,
-36047,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -4087,34 +2819,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createImportTypeNode",
-2635,
-"compiler/factory/nodeFactory.ts",
-107298,
-107318,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createIndexedAccessTypeNode",
 2714,
 "compiler/factory/nodeFactory.ts",
@@ -4155,62 +2859,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createIndexedAccessTypeNode",
-2714,
-"compiler/factory/nodeFactory.ts",
-109994,
-110014,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createInequality",
-1052,
-"compiler/factory/nodeFactory.ts",
-35493,
-35551,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -4261,118 +2909,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createIntersectionTypeNode",
-2569,
-"compiler/factory/nodeFactory.ts",
-103680,
-103700,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createJSDocAllType",
-802,
-"compiler/factory/nodeFactory.ts",
-25049,
-25121,
-"getJSDocPrimaryTypeCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocPrimaryTypeCreateFunction",
-503,
-503,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createJSDocAuthorTag",
-895,
-"compiler/factory/nodeFactory.ts",
-29123,
-29197,
-"getJSDocSimpleTagCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocSimpleTagCreateFunction",
-508,
-508,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createJSDocClassTag",
-901,
-"compiler/factory/nodeFactory.ts",
-29414,
-29486,
-"getJSDocSimpleTagCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocSimpleTagCreateFunction",
-508,
-508,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createJSDocComment",
 5582,
 "compiler/factory/nodeFactory.ts",
@@ -4413,34 +2949,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createJSDocDeprecatedTag",
-937,
-"compiler/factory/nodeFactory.ts",
-31213,
-31295,
-"getJSDocSimpleTagCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocSimpleTagCreateFunction",
-508,
-508,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -4671,174 +3179,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createJSDocNamepathType",
-832,
-"compiler/factory/nodeFactory.ts",
-26648,
-26728,
-"getJSDocUnaryTypeCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocUnaryTypeCreateFunction",
-504,
-504,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createJSDocNonNullableType",
-808,
-"compiler/factory/nodeFactory.ts",
-25353,
-25449,
-"getJSDocPrePostfixUnaryTypeCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocPrePostfixUnaryTypeCreateFunction",
-506,
-506,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createJSDocNullableType",
-814,
-"compiler/factory/nodeFactory.ts",
-25698,
-25788,
-"getJSDocPrePostfixUnaryTypeCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocPrePostfixUnaryTypeCreateFunction",
-506,
-506,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createJSDocOptionalType",
-820,
-"compiler/factory/nodeFactory.ts",
-26028,
-26108,
-"getJSDocUnaryTypeCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocUnaryTypeCreateFunction",
-504,
-504,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createJSDocOverrideTag",
-931,
-"compiler/factory/nodeFactory.ts",
-30907,
-30985,
-"getJSDocSimpleTagCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocSimpleTagCreateFunction",
-508,
-508,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createJSDocPrePostfixUnaryTypeWorker",
-5078,
-"compiler/factory/nodeFactory.ts",
-218870,
-218890,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createJSDocPrimaryTypeWorker",
 5071,
 "compiler/factory/nodeFactory.ts",
@@ -4879,174 +3219,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createJSDocPrivateTag",
-913,
-"compiler/factory/nodeFactory.ts",
-29994,
-30070,
-"getJSDocSimpleTagCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocSimpleTagCreateFunction",
-508,
-508,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createJSDocProtectedTag",
-919,
-"compiler/factory/nodeFactory.ts",
-30294,
-30374,
-"getJSDocSimpleTagCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocSimpleTagCreateFunction",
-508,
-508,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createJSDocPublicTag",
-907,
-"compiler/factory/nodeFactory.ts",
-29701,
-29775,
-"getJSDocSimpleTagCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocSimpleTagCreateFunction",
-508,
-508,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createJSDocReadonlyTag",
-925,
-"compiler/factory/nodeFactory.ts",
-30603,
-30681,
-"getJSDocSimpleTagCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocSimpleTagCreateFunction",
-508,
-508,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createJSDocReturnTag",
-883,
-"compiler/factory/nodeFactory.ts",
-28543,
-28619,
-"getJSDocTypeLikeTagCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocTypeLikeTagCreateFunction",
-510,
-510,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createJSDocSatisfiesTag",
-949,
-"compiler/factory/nodeFactory.ts",
-31824,
-31906,
-"getJSDocTypeLikeTagCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocTypeLikeTagCreateFunction",
-510,
-510,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -5097,62 +3269,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createJSDocThisTag",
-889,
-"compiler/factory/nodeFactory.ts",
-28837,
-28909,
-"getJSDocTypeLikeTagCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocTypeLikeTagCreateFunction",
-510,
-510,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createJSDocThrowsTag",
-943,
-"compiler/factory/nodeFactory.ts",
-31525,
-31601,
-"getJSDocTypeLikeTagCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocTypeLikeTagCreateFunction",
-510,
-510,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createJSDocTypeExpression",
 5156,
 "compiler/factory/nodeFactory.ts",
@@ -5198,34 +3314,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createJSDocTypeTag",
-877,
-"compiler/factory/nodeFactory.ts",
-28257,
-28329,
-"getJSDocTypeLikeTagCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocTypeLikeTagCreateFunction",
-510,
-510,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createJSDocUnaryTypeWorker",
 5091,
 "compiler/factory/nodeFactory.ts",
@@ -5266,62 +3354,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createJSDocUnknownType",
-805,
-"compiler/factory/nodeFactory.ts",
-25195,
-25275,
-"getJSDocPrimaryTypeCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocPrimaryTypeCreateFunction",
-503,
-503,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createJSDocVariadicType",
-826,
-"compiler/factory/nodeFactory.ts",
-26338,
-26418,
-"getJSDocUnaryTypeCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocUnaryTypeCreateFunction",
-504,
-504,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -5867,90 +3899,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createLeftShift",
-1067,
-"compiler/factory/nodeFactory.ts",
-36114,
-36171,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createLessThan",
-1055,
-"compiler/factory/nodeFactory.ts",
-35617,
-35666,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createLessThanEquals",
-1058,
-"compiler/factory/nodeFactory.ts",
-35738,
-35793,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createLiteralTypeNode",
 2759,
 "compiler/factory/nodeFactory.ts",
@@ -5991,90 +3939,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createLogicalAnd",
-1031,
-"compiler/factory/nodeFactory.ts",
-34635,
-34694,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createLogicalNot",
-1109,
-"compiler/factory/nodeFactory.ts",
-37811,
-37868,
-"getPrefixUnaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getPrefixUnaryCreateFunction",
-501,
-501,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createLogicalOr",
-1028,
-"compiler/factory/nodeFactory.ts",
-34520,
-34567,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -6170,62 +4034,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createModulo",
-1088,
-"compiler/factory/nodeFactory.ts",
-36959,
-37007,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createMultiply",
-1082,
-"compiler/factory/nodeFactory.ts",
-36736,
-36785,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createNamedExports",
 4998,
 "compiler/factory/nodeFactory.ts",
@@ -6316,62 +4124,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createNewExpression",
-3088,
-"compiler/factory/nodeFactory.ts",
-129117,
-129137,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createNewExpression",
-3088,
-"compiler/factory/nodeFactory.ts",
-129280,
-129300,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createNonNullChain",
 3776,
 "compiler/factory/nodeFactory.ts",
@@ -6417,34 +4169,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createNonNullChain",
-3776,
-"compiler/factory/nodeFactory.ts",
-161867,
-161887,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createNonNullExpression",
 3738,
 "compiler/factory/nodeFactory.ts",
@@ -6485,34 +4209,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createNonNullExpression",
-3738,
-"compiler/factory/nodeFactory.ts",
-160291,
-160311,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -6743,34 +4439,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createOptionalTypeNode",
-2516,
-"compiler/factory/nodeFactory.ts",
-101315,
-101335,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createParenthesizedExpression",
 3160,
 "compiler/factory/nodeFactory.ts",
@@ -6906,62 +4574,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createPostfixDecrement",
-1115,
-"compiler/factory/nodeFactory.ts",
-38071,
-38128,
-"getPostfixUnaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getPostfixUnaryCreateFunction",
-502,
-502,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createPostfixIncrement",
-1112,
-"compiler/factory/nodeFactory.ts",
-37942,
-37997,
-"getPostfixUnaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getPostfixUnaryCreateFunction",
-502,
-502,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createPostfixUnaryExpression",
 3394,
 "compiler/factory/nodeFactory.ts",
@@ -7007,146 +4619,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createPostfixUnaryExpression",
-3394,
-"compiler/factory/nodeFactory.ts",
-143282,
-143302,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createPrefixDecrement",
-1103,
-"compiler/factory/nodeFactory.ts",
-37568,
-37624,
-"getPrefixUnaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getPrefixUnaryCreateFunction",
-501,
-501,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createPrefixIncrement",
-1100,
-"compiler/factory/nodeFactory.ts",
-37441,
-37495,
-"getPrefixUnaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getPrefixUnaryCreateFunction",
-501,
-501,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createPrefixMinus",
-1097,
-"compiler/factory/nodeFactory.ts",
-37317,
-37368,
-"getPrefixUnaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getPrefixUnaryCreateFunction",
-501,
-501,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createPrefixPlus",
-1094,
-"compiler/factory/nodeFactory.ts",
-37198,
-37248,
-"getPrefixUnaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getPrefixUnaryCreateFunction",
-501,
-501,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createPrefixUnaryExpression",
 3368,
 "compiler/factory/nodeFactory.ts",
@@ -7187,118 +4659,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createPrefixUnaryExpression",
-3368,
-"compiler/factory/nodeFactory.ts",
-142068,
-142088,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createPropertyAccessChain",
-2930,
-"compiler/factory/nodeFactory.ts",
-120469,
-120489,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createPropertyAccessExpression",
-2903,
-"compiler/factory/nodeFactory.ts",
-119156,
-119176,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createPropertyAssignment",
-5923,
-"compiler/factory/nodeFactory.ts",
-257615,
-257635,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -7439,34 +4799,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createRightShift",
-1070,
-"compiler/factory/nodeFactory.ts",
-36239,
-36302,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createSatisfiesExpression",
 3757,
 "compiler/factory/nodeFactory.ts",
@@ -7557,62 +4889,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createShorthandPropertyAssignment",
-5957,
-"compiler/factory/nodeFactory.ts",
-259395,
-259415,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createSpreadAssignment",
-5993,
-"compiler/factory/nodeFactory.ts",
-261328,
-261348,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createSpreadElement",
 3634,
 "compiler/factory/nodeFactory.ts",
@@ -7658,118 +4934,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createSpreadElement",
-3634,
-"compiler/factory/nodeFactory.ts",
-155682,
-155702,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createStrictEquality",
-1043,
-"compiler/factory/nodeFactory.ts",
-35109,
-35168,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createStrictInequality",
-1046,
-"compiler/factory/nodeFactory.ts",
-35242,
-35306,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createSubtract",
-1079,
-"compiler/factory/nodeFactory.ts",
-36624,
-36670,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createSwitchStatement",
 4157,
 "compiler/factory/nodeFactory.ts",
@@ -7810,34 +4974,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createSwitchStatement",
-4157,
-"compiler/factory/nodeFactory.ts",
-178840,
-178860,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -8018,34 +5154,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createTaggedTemplateExpression",
-3113,
-"compiler/factory/nodeFactory.ts",
-130495,
-130515,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -8411,34 +5519,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createTupleTypeNode",
-2478,
-"compiler/factory/nodeFactory.ts",
-99630,
-99650,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createTypeAssertion",
 3141,
 "compiler/factory/nodeFactory.ts",
@@ -8479,34 +5559,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createTypeAssertion",
-3141,
-"compiler/factory/nodeFactory.ts",
-131805,
-131825,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -8557,34 +5609,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createTypeOfExpression",
-3320,
-"compiler/factory/nodeFactory.ts",
-140086,
-140106,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createTypeOperatorNode",
 2696,
 "compiler/factory/nodeFactory.ts",
@@ -8625,62 +5649,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createTypeOperatorNode",
-2696,
-"compiler/factory/nodeFactory.ts",
-109303,
-109323,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createTypeOperatorNode",
-2696,
-"compiler/factory/nodeFactory.ts",
-109387,
-109407,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -8776,34 +5744,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createTypeQueryNode",
-2431,
-"compiler/factory/nodeFactory.ts",
-97759,
-97779,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createTypeReferenceNode",
 2304,
 "compiler/factory/nodeFactory.ts",
@@ -8849,34 +5789,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createTypeReferenceNode",
-2304,
-"compiler/factory/nodeFactory.ts",
-92063,
-92083,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createUnionOrIntersectionTypeNode",
 2545,
 "compiler/factory/nodeFactory.ts",
@@ -8917,62 +5829,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createUnionTypeNode",
-2559,
-"compiler/factory/nodeFactory.ts",
-103166,
-103186,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createUnsignedRightShift",
-1073,
-"compiler/factory/nodeFactory.ts",
-36378,
-36452,
-"getBinaryCreateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getBinaryCreateFunction",
-500,
-500,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -9113,34 +5969,6 @@ null,
 {
 "key": [
 "compiler/factory/nodeFactory.ts",
-"createVoidExpression",
-3335,
-"compiler/factory/nodeFactory.ts",
-140677,
-140697,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
 "createWhileStatement",
 3970,
 "compiler/factory/nodeFactory.ts",
@@ -9271,622 +6099,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"createYieldExpression",
-3612,
-"compiler/factory/nodeFactory.ts",
-154741,
-154761,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"parenthesizer",
-514,
-"compiler/factory/nodeFactory.ts",
-15128,
-15148,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateIntersectionTypeNode",
-2574,
-"compiler/factory/nodeFactory.ts",
-103958,
-103978,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateJSDocAuthorTag",
-898,
-"compiler/factory/nodeFactory.ts",
-29269,
-29343,
-"getJSDocSimpleTagUpdateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocSimpleTagUpdateFunction",
-509,
-509,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateJSDocClassTag",
-904,
-"compiler/factory/nodeFactory.ts",
-29557,
-29629,
-"getJSDocSimpleTagUpdateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocSimpleTagUpdateFunction",
-509,
-509,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateJSDocDeprecatedTag",
-940,
-"compiler/factory/nodeFactory.ts",
-31371,
-31453,
-"getJSDocSimpleTagUpdateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocSimpleTagUpdateFunction",
-509,
-509,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateJSDocNamepathType",
-835,
-"compiler/factory/nodeFactory.ts",
-26803,
-26883,
-"getJSDocUnaryTypeUpdateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocUnaryTypeUpdateFunction",
-505,
-505,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateJSDocNonNullableType",
-811,
-"compiler/factory/nodeFactory.ts",
-25527,
-25623,
-"getJSDocPrePostfixUnaryTypeUpdateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocPrePostfixUnaryTypeUpdateFunction",
-507,
-507,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateJSDocNullableType",
-817,
-"compiler/factory/nodeFactory.ts",
-25863,
-25953,
-"getJSDocPrePostfixUnaryTypeUpdateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocPrePostfixUnaryTypeUpdateFunction",
-507,
-507,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateJSDocOptionalType",
-823,
-"compiler/factory/nodeFactory.ts",
-26183,
-26263,
-"getJSDocUnaryTypeUpdateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocUnaryTypeUpdateFunction",
-505,
-505,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateJSDocOverrideTag",
-934,
-"compiler/factory/nodeFactory.ts",
-31059,
-31137,
-"getJSDocSimpleTagUpdateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocSimpleTagUpdateFunction",
-509,
-509,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateJSDocPrivateTag",
-916,
-"compiler/factory/nodeFactory.ts",
-30143,
-30219,
-"getJSDocSimpleTagUpdateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocSimpleTagUpdateFunction",
-509,
-509,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateJSDocProtectedTag",
-922,
-"compiler/factory/nodeFactory.ts",
-30449,
-30529,
-"getJSDocSimpleTagUpdateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocSimpleTagUpdateFunction",
-509,
-509,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateJSDocPublicTag",
-910,
-"compiler/factory/nodeFactory.ts",
-29847,
-29921,
-"getJSDocSimpleTagUpdateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocSimpleTagUpdateFunction",
-509,
-509,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateJSDocReadonlyTag",
-928,
-"compiler/factory/nodeFactory.ts",
-30755,
-30833,
-"getJSDocSimpleTagUpdateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocSimpleTagUpdateFunction",
-509,
-509,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateJSDocReturnTag",
-886,
-"compiler/factory/nodeFactory.ts",
-28691,
-28767,
-"getJSDocTypeLikeTagUpdateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocTypeLikeTagUpdateFunction",
-511,
-511,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateJSDocSatisfiesTag",
-952,
-"compiler/factory/nodeFactory.ts",
-31981,
-32063,
-"getJSDocTypeLikeTagUpdateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocTypeLikeTagUpdateFunction",
-511,
-511,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateJSDocThisTag",
-892,
-"compiler/factory/nodeFactory.ts",
-28979,
-29051,
-"getJSDocTypeLikeTagUpdateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocTypeLikeTagUpdateFunction",
-511,
-511,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateJSDocThrowsTag",
-946,
-"compiler/factory/nodeFactory.ts",
-31673,
-31749,
-"getJSDocTypeLikeTagUpdateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocTypeLikeTagUpdateFunction",
-511,
-511,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateJSDocTypeTag",
-880,
-"compiler/factory/nodeFactory.ts",
-28399,
-28471,
-"getJSDocTypeLikeTagUpdateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocTypeLikeTagUpdateFunction",
-511,
-511,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateJSDocVariadicType",
-829,
-"compiler/factory/nodeFactory.ts",
-26493,
-26573,
-"getJSDocUnaryTypeUpdateFunction"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"getJSDocUnaryTypeUpdateFunction",
-505,
-505,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/factory/nodeFactory.ts",
-"updateUnionTypeNode",
-2564,
-"compiler/factory/nodeFactory.ts",
-103416,
-103436,
-"parenthesizerRules"
-],
-"base": [
-null,
-[
-[
-"compiler/factory/nodeFactory.ts",
-"parenthesizerRules",
-496,
-496,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -29790,6 +26002,34 @@ null,
 {
 "key": [
 "compiler/parser.ts",
+"parseModuleReference",
+8529,
+"compiler/parser.ts",
+420765,
+420792,
+"isExternalModuleReference"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"compiler/parser.ts",
+"isExternalModuleReference",
+8356,
+8359,
+"exact",
+"local_def"
+]
+]
+]
+},
+{
+"key": [
+"compiler/parser.ts",
 "parseSourceFile",
 1603,
 "compiler/parser.ts",
@@ -30509,62 +26749,6 @@ null,
 "createProgram",
 1515,
 "compiler/program.ts",
-72730,
-72757,
-"getDefaultLibraryFileName"
-],
-"base": [
-null,
-[
-[
-"compiler/program.ts",
-"getDefaultLibraryFileName",
-1580,
-1580,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/program.ts",
-"createProgram",
-1515,
-"compiler/program.ts",
-86303,
-86330,
-"getDefaultLibraryFileName"
-],
-"base": [
-null,
-[
-[
-"compiler/program.ts",
-"getDefaultLibraryFileName",
-1580,
-1580,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/program.ts",
-"createProgram",
-1515,
-"compiler/program.ts",
 92958,
 92983,
 "onProgramCreateComplete"
@@ -30717,34 +26901,6 @@ null,
 "fileOrDirectoryExistsUsingSource",
 5020,
 5052,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/program.ts",
-"getIgnoreDeprecationsVersion",
-4431,
-"compiler/program.ts",
-230379,
-230412,
-"reportInvalidIgnoreDeprecations"
-],
-"base": [
-null,
-[
-[
-"compiler/program.ts",
-"reportInvalidIgnoreDeprecations",
-1531,
-1531,
 "exact",
 "local_def"
 ]
@@ -30949,34 +27105,6 @@ null,
 {
 "key": [
 "compiler/program.ts",
-"pathForLibFileWorker",
-3835,
-"compiler/program.ts",
-196781,
-196849,
-"actualResolveLibrary"
-],
-"base": [
-null,
-[
-[
-"compiler/program.ts",
-"actualResolveLibrary",
-1690,
-1690,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/program.ts",
 "readFile",
 546,
 "compiler/program.ts",
@@ -31020,42 +27148,6 @@ null,
 "toPath",
 2139,
 2141,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/program.ts",
-"resolveModuleNamesWorker",
-2059,
-"compiler/program.ts",
-99205,
-99417,
-"actualResolveModuleNamesWorker"
-],
-"base": [
-null,
-[
-[
-"compiler/program.ts",
-"actualResolveModuleNamesWorker",
-1608,
-1623,
-"exact",
-"local_def"
-],
-[
-"compiler/program.ts",
-"actualResolveModuleNamesWorker",
-1628,
-1638,
 "exact",
 "local_def"
 ]
@@ -31128,42 +27220,6 @@ null,
 "getResolutionFromOldProgram",
 2202,
 2205,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/program.ts",
-"resolveTypeReferenceDirectiveNamesWorker",
-2082,
-"compiler/program.ts",
-100489,
-100730,
-"actualResolveTypeReferenceDirectiveNamesWorker"
-],
-"base": [
-null,
-[
-[
-"compiler/program.ts",
-"actualResolveTypeReferenceDirectiveNamesWorker",
-1653,
-1660,
-"exact",
-"local_def"
-],
-[
-"compiler/program.ts",
-"actualResolveTypeReferenceDirectiveNamesWorker",
-1670,
-1680,
 "exact",
 "local_def"
 ]
@@ -31326,90 +27382,6 @@ null,
 "toPath",
 2139,
 2141,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/resolutionCache.ts",
-"createResolutionCache",
-579,
-"compiler/resolutionCache.ts",
-25577,
-25598,
-"getCurrentDirectory"
-],
-"base": [
-null,
-[
-[
-"compiler/resolutionCache.ts",
-"getCurrentDirectory",
-598,
-598,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/resolutionCache.ts",
-"createResolutionCache",
-579,
-"compiler/resolutionCache.ts",
-25952,
-25973,
-"getCurrentDirectory"
-],
-"base": [
-null,
-[
-[
-"compiler/resolutionCache.ts",
-"getCurrentDirectory",
-598,
-598,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/resolutionCache.ts",
-"createResolutionCache",
-579,
-"compiler/resolutionCache.ts",
-26364,
-26385,
-"getCurrentDirectory"
-],
-"base": [
-null,
-[
-[
-"compiler/resolutionCache.ts",
-"getCurrentDirectory",
-598,
-598,
 "exact",
 "local_def"
 ]
@@ -32768,34 +28740,6 @@ null,
 {
 "key": [
 "compiler/sys.ts",
-"watchFile",
-1022,
-"compiler/sys.ts",
-43830,
-43915,
-"nonPollingWatchFile"
-],
-"base": [
-null,
-[
-[
-"compiler/sys.ts",
-"nonPollingWatchFile",
-394,
-415,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/sys.ts",
 "watchMissingFileSystemEntry",
 1339,
 "compiler/sys.ts",
@@ -32957,78 +28901,6 @@ null,
 },
 {
 "key": [
-"compiler/transformer.ts",
-"emitNodeWithNotification",
-414,
-"compiler/transformer.ts",
-16151,
-16187,
-"onEmitNode"
-],
-"base": [
-null,
-[
-[
-"compiler/transformer.ts",
-"onEmitNode",
-303,
-305,
-"exact",
-"local_def"
-],
-[
-"compiler/transformer.ts",
-"onEmitNode",
-306,
-310,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/transformer.ts",
-"substituteNode",
-385,
-"compiler/transformer.ts",
-14478,
-14506,
-"onSubstituteNode"
-],
-"base": [
-null,
-[
-[
-"compiler/transformer.ts",
-"onSubstituteNode",
-295,
-297,
-"exact",
-"local_def"
-],
-[
-"compiler/transformer.ts",
-"onSubstituteNode",
-298,
-302,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
 "compiler/transformers/classFields.ts",
 "setCurrentClassElementAnd",
 869,
@@ -33101,86 +28973,6 @@ null,
 "visitor",
 459,
 532,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/transformers/declarations.ts",
-"handleSymbolAccessibilityError",
-337,
-"compiler/transformers/declarations.ts",
-11746,
-11805,
-"getSymbolAccessibilityDiagnostic"
-],
-"base": [
-null,
-[
-[
-"compiler/transformers/declarations.ts",
-"getSymbolAccessibilityDiagnostic",
-449,
-454,
-"exact",
-"local_def"
-],
-[
-"compiler/transformers/declarations.ts",
-"getSymbolAccessibilityDiagnostic",
-1328,
-1331,
-"exact",
-"local_def"
-],
-[
-"compiler/transformers/declarations.ts",
-"getSymbolAccessibilityDiagnostic",
-1668,
-1672,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"compiler/transformers/declarations.ts",
-"popErrorFallbackNode",
-296,
-"compiler/transformers/declarations.ts",
-8504,
-8525,
-"restoreFallbackNode"
-],
-"base": [
-null,
-[
-[
-"compiler/transformers/declarations.ts",
-"restoreFallbackNode",
-274,
-274,
-"exact",
-"local_def"
-],
-[
-"compiler/transformers/declarations.ts",
-"restoreFallbackNode",
-290,
-293,
 "exact",
 "local_def"
 ]
@@ -39013,30 +34805,114 @@ null,
 },
 {
 "key": [
-"compiler/watch.ts",
-"getDefaultLibFileName",
-850,
-"compiler/watch.ts",
-38858,
-38881,
-"getDefaultLibLocation"
+"compiler/watchPublic.ts",
+"fileExists",
+747,
+"compiler/watchPublic.ts",
+37002,
+37018,
+"toPath"
 ],
 "base": [
+"UnknownName",
+[]
+],
+"proto": [
 null,
 [
 [
-"compiler/watch.ts",
-"getDefaultLibLocation",
-844,
-844,
+"compiler/watchPublic.ts",
+"toPath",
+735,
+737,
 "exact",
 "local_def"
 ]
 ]
+]
+},
+{
+"key": [
+"compiler/watchPublic.ts",
+"getParsedCommandLine",
+983,
+"compiler/watchPublic.ts",
+47745,
+47767,
+"toPath"
+],
+"base": [
+"UnknownName",
+[]
 ],
 "proto": [
-"LocalBindingUnproven",
+null,
+[
+[
+"compiler/watchPublic.ts",
+"toPath",
+735,
+737,
+"exact",
+"local_def"
+]
+]
+]
+},
+{
+"key": [
+"compiler/watchPublic.ts",
+"getSourceFile",
+497,
+"compiler/watchPublic.ts",
+23986,
+24002,
+"toPath"
+],
+"base": [
+"UnknownName",
 []
+],
+"proto": [
+null,
+[
+[
+"compiler/watchPublic.ts",
+"toPath",
+735,
+737,
+"exact",
+"local_def"
+]
+]
+]
+},
+{
+"key": [
+"compiler/watchPublic.ts",
+"onReleaseParsedCommandLine",
+1034,
+"compiler/watchPublic.ts",
+50253,
+50269,
+"toPath"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"compiler/watchPublic.ts",
+"toPath",
+735,
+737,
+"exact",
+"local_def"
+]
+]
 ]
 },
 {
@@ -39129,42 +35005,6 @@ null,
 "predicate",
 684,
 684,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"harness/fourslashImpl.ts",
-"constructor",
-317,
-"harness/fourslashImpl.ts",
-20690,
-21065,
-"memo"
-],
-"base": [
-null,
-[
-[
-"harness/fourslashImpl.ts",
-"memo",
-469,
-469,
-"exact",
-"local_def"
-],
-[
-"harness/fourslashImpl.ts",
-"memo",
-470,
-470,
 "exact",
 "local_def"
 ]
@@ -39277,42 +35117,6 @@ null,
 "action",
 4104,
 4104,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"harness/fourslashImpl.ts",
-"memoWrap",
-452,
-"harness/fourslashImpl.ts",
-20690,
-21065,
-"memo"
-],
-"base": [
-null,
-[
-[
-"harness/fourslashImpl.ts",
-"memo",
-469,
-469,
-"exact",
-"local_def"
-],
-[
-"harness/fourslashImpl.ts",
-"memo",
-470,
-470,
 "exact",
 "local_def"
 ]
@@ -39555,62 +35359,6 @@ null,
 },
 {
 "key": [
-"harness/tsserverLogger.ts",
-"sanitizeLibFileText",
-162,
-"harness/tsserverLogger.ts",
-6970,
-6995,
-"libFileTextReplacements"
-],
-"base": [
-null,
-[
-[
-"harness/tsserverLogger.ts",
-"libFileTextReplacements",
-148,
-160,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"harness/typeWriter.ts",
-"writeTypeOrSymbol",
-236,
-"harness/typeWriter.ts",
-12683,
-12722,
-"createSyntheticNodeUnderliningPrinter"
-],
-"base": [
-null,
-[
-[
-"harness/typeWriter.ts",
-"createSyntheticNodeUnderliningPrinter",
-51,
-177,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
 "harness/typeWriter.ts",
 "writeTypeOrSymbol",
 236,
@@ -39627,34 +35375,6 @@ null,
 "reset",
 167,
 171,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"harness/util.ts",
-"sanitizeTraceResolutionLogEntry",
-24,
-"harness/util.ts",
-1428,
-1474,
-"replaceTypesVersionsMessage"
-],
-"base": [
-null,
-[
-[
-"harness/util.ts",
-"replaceTypesVersionsMessage",
-21,
-21,
 "exact",
 "local_def"
 ]
@@ -39753,90 +35473,6 @@ null,
 "local_def"
 ]
 ]
-]
-},
-{
-"key": [
-"server/editorServices.ts",
-"sendSourceFileChange",
-4034,
-"server/editorServices.ts",
-186216,
-186227,
-"eventKind"
-],
-"base": [
-null,
-[
-[
-"server/editorServices.ts",
-"eventKind",
-4038,
-4043,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"server/editorServices.ts",
-"sendSourceFileChange",
-4034,
-"server/editorServices.ts",
-186510,
-186521,
-"eventKind"
-],
-"base": [
-null,
-[
-[
-"server/editorServices.ts",
-"eventKind",
-4038,
-4043,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"server/editorServices.ts",
-"sendSourceFileChange",
-4034,
-"server/editorServices.ts",
-186678,
-186689,
-"eventKind"
-],
-"base": [
-null,
-[
-[
-"server/editorServices.ts",
-"eventKind",
-4038,
-4043,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -41095,30 +36731,30 @@ null,
 },
 {
 "key": [
-"services/codefixes/importFixes.ts",
-"addSymbol",
-1637,
-"services/codefixes/importFixes.ts",
-86386,
-86437,
-"getModuleSpecifierResolutionHost"
+"services/codefixes/convertToAsyncFunction.ts",
+"getMapEntryOrDefault",
+868,
+"services/codefixes/convertToAsyncFunction.ts",
+45287,
+45314,
+"getOriginalNode"
 ],
 "base": [
+"UnknownName",
+[]
+],
+"proto": [
 null,
 [
 [
-"services/codefixes/importFixes.ts",
-"getModuleSpecifierResolutionHost",
-1634,
-1636,
+"services/codefixes/convertToAsyncFunction.ts",
+"getOriginalNode",
+884,
+886,
 "exact",
 "local_def"
 ]
 ]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
 ]
 },
 {
@@ -41255,90 +36891,6 @@ null,
 "write",
 2393,
 2393,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"services/completions.ts",
-"getCompletionEntryDetails",
-2940,
-"services/completions.ts",
-124262,
-124286,
-"allKeywordsCompletions"
-],
-"base": [
-null,
-[
-[
-"services/completions.ts",
-"allKeywordsCompletions",
-5453,
-5464,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"services/completions.ts",
-"getTypescriptKeywordCompletions",
-5475,
-"services/completions.ts",
-253590,
-253614,
-"allKeywordsCompletions"
-],
-"base": [
-null,
-[
-[
-"services/completions.ts",
-"allKeywordsCompletions",
-5453,
-5464,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"services/completions.ts",
-"isImportableExportInfo",
-4245,
-"services/completions.ts",
-188574,
-188630,
-"getModuleSpecifierResolutionHost"
-],
-"base": [
-null,
-[
-[
-"services/completions.ts",
-"getModuleSpecifierResolutionHost",
-3593,
-3595,
 "exact",
 "local_def"
 ]
@@ -41603,342 +37155,6 @@ null,
 "isNotShadowedByDeeperNodeModulesPackage",
 358,
 364,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"services/exportInfoMap.ts",
-"forEachExternalModule",
-493,
-"services/exportInfoMap.ts",
-23465,
-23501,
-"getIsExcluded"
-],
-"base": [
-null,
-[
-[
-"services/exportInfoMap.ts",
-"getIsExcluded",
-508,
-528,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"services/exportInfoMap.ts",
-"forEachExternalModuleToImportFrom",
-456,
-"services/exportInfoMap.ts",
-21293,
-21354,
-"getIsExcludedPatterns"
-],
-"base": [
-null,
-[
-[
-"services/exportInfoMap.ts",
-"getIsExcludedPatterns",
-484,
-491,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"services/exportInfoMap.ts",
-"forEachExternalModuleToImportFrom",
-456,
-"services/exportInfoMap.ts",
-21363,
-21533,
-"forEachExternalModule"
-],
-"base": [
-null,
-[
-[
-"services/exportInfoMap.ts",
-"forEachExternalModule",
-493,
-506,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"services/exportInfoMap.ts",
-"forEachExternalModuleToImportFrom",
-456,
-"services/exportInfoMap.ts",
-21762,
-22577,
-"forEachExternalModule"
-],
-"base": [
-null,
-[
-[
-"services/exportInfoMap.ts",
-"forEachExternalModule",
-493,
-506,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"services/exportInfoMap.ts",
-"getExportInfoMap",
-537,
-"services/exportInfoMap.ts",
-25931,
-26190,
-"createCacheableExportInfoMap"
-],
-"base": [
-null,
-[
-[
-"services/exportInfoMap.ts",
-"createCacheableExportInfoMap",
-139,
-365,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"services/exportInfoMap.ts",
-"getExportInfoMap",
-537,
-"services/exportInfoMap.ts",
-26460,
-28255,
-"forEachExternalModuleToImportFrom"
-],
-"base": [
-null,
-[
-[
-"services/exportInfoMap.ts",
-"forEachExternalModuleToImportFrom",
-456,
-482,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"services/exportInfoMap.ts",
-"getIsFileExcluded",
-531,
-"services/exportInfoMap.ts",
-25254,
-25347,
-"getIsExcluded"
-],
-"base": [
-null,
-[
-[
-"services/exportInfoMap.ts",
-"getIsExcluded",
-508,
-528,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"services/exportInfoMap.ts",
-"getIsFileExcluded",
-531,
-"services/exportInfoMap.ts",
-25268,
-25340,
-"getIsExcludedPatterns"
-],
-"base": [
-null,
-[
-[
-"services/exportInfoMap.ts",
-"getIsExcludedPatterns",
-484,
-491,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"services/exportInfoMap.ts",
-"getNamesForExportedSymbol",
-621,
-"services/exportInfoMap.ts",
-29673,
-29863,
-"forEachNameOfDefaultExport"
-],
-"base": [
-null,
-[
-[
-"services/exportInfoMap.ts",
-"forEachNameOfDefaultExport",
-635,
-669,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"services/exportInfoMap.ts",
-"isImportable",
-368,
-"services/exportInfoMap.ts",
-17586,
-17633,
-"fileContainsPackageImport"
-],
-"base": [
-null,
-[
-[
-"services/exportInfoMap.ts",
-"fileContainsPackageImport",
-428,
-430,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"services/exportInfoMap.ts",
-"isImportable",
-368,
-"services/exportInfoMap.ts",
-17995,
-18056,
-"fileContainsPackageImport"
-],
-"base": [
-null,
-[
-[
-"services/exportInfoMap.ts",
-"fileContainsPackageImport",
-428,
-430,
-"exact",
-"local_def"
-]
-]
-],
-"proto": [
-"LocalBindingUnproven",
-[]
-]
-},
-{
-"key": [
-"services/exportInfoMap.ts",
-"isImportable",
-368,
-"services/exportInfoMap.ts",
-19460,
-19519,
-"fileContainsPackageImport"
-],
-"base": [
-null,
-[
-[
-"services/exportInfoMap.ts",
-"fileContainsPackageImport",
-428,
-430,
 "exact",
 "local_def"
 ]
@@ -42367,6 +37583,34 @@ null,
 "proto": [
 "LocalBindingUnproven",
 []
+]
+},
+{
+"key": [
+"services/formatting/formatting.ts",
+"find",
+313,
+"services/formatting/formatting.ts",
+11545,
+11560,
+"find"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"services/formatting/formatting.ts",
+"find",
+313,
+323,
+"exact",
+"local_def"
+]
+]
 ]
 },
 {
@@ -43276,6 +38520,62 @@ null,
 "proto": [
 "LocalBindingUnproven",
 []
+]
+},
+{
+"key": [
+"services/utilities.ts",
+"find",
+1739,
+"services/utilities.ts",
+69872,
+69887,
+"find"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"services/utilities.ts",
+"find",
+1739,
+1799,
+"exact",
+"local_def"
+]
+]
+]
+},
+{
+"key": [
+"services/utilities.ts",
+"find",
+1739,
+"services/utilities.ts",
+70181,
+70192,
+"find"
+],
+"base": [
+"UnknownName",
+[]
+],
+"proto": [
+null,
+[
+[
+"services/utilities.ts",
+"find",
+1739,
+1799,
+"exact",
+"local_def"
+]
+]
 ]
 },
 {

@@ -1,51 +1,34 @@
-# S1b planning packet: span-verify every JS/TS export and local route (2026-09-26, r1)
+# S1b planning packet: span-verify every JS/TS export and local route (r2, 2026-09-26)
 
 **Base:** `origin/main` `a6d853f5` (S1 merged). Planning only: nothing under `src/`, `tests/`, `eval/`, `Cargo.*` or
-`CLAUDE.md` changes on this branch. **Status:** awaiting the owner's §0 answers and the spec review.
+`CLAUDE.md` changes on this branch. **Status:** spec round 1 folded (`REVIEW-r1-fold.md`); owner answers E1–E12
+recorded in SPEC §0; three questions open (E5b, E6b, E13); spec round 2 next.
 
 | File | Purpose |
 |---|---|
-| `SPEC.md` | the normative design: §0 owner decisions E1–E12 with options and recommendations; closed binding rules (§3.1); per-route semantics; controls; counters; cache; per-sub-slice tests, mutants and Tier-A fixtures; acceptance as exact audited row-diffs; budget |
-| `PLANNING-PROBES.md` | mechanisms M1–M14 (READ, with file:line) and probes Q0–Q23 (command, pre-run expectation, result, output path); per-corpus, per-route results |
-| `IMPLEMENTOR.md` | dispatch brief for one sub-slice, with mandatory per-batch budget checkpoints |
-| `REVIEWER.md` | the single brief for sol and Opus (model, WRONG vs SMELL, fix + options + "when this would not apply", controller-notes slot) |
-| `probes/` | the S1 tools (extended) plus the independent auditor (`jsscope.py`), census, row-diff audit, edge taxonomy, control generator (153 scenarios, JSX and TSX twins), pre-run expectations, reference control summaries, and `expected/` row-diffs for the public corpora |
-| `prototype/s1b-prototype-v7.diff.txt` | the feasibility prototype (never built into this branch) |
+| `SPEC.md` | normative design r2: §0 owner answers and open questions; §3.1 the binding core as an enumerated table keyed to ECMA-262 and TS declaration spaces, with the fail-safe and the narrower parse rule; per-route semantics; controls; counters; cache; per-sub-slice tests, mutants and Tier-A fixtures; acceptance as exact audited row-diffs per sub-slice; budget |
+| `PLANNING-PROBES.md` | mechanisms M1–M17 and probes Q0–Q35 (command, pre-run expectation, result, output path); r2 results per corpus and route |
+| `REVIEW-r1-fold.md` | every spec round 1 finding → disposition → location → evidence, plus fold findings and disagreements |
+| `IMPLEMENTOR.md` | dispatch brief for one sub-slice, with per-batch budget checkpoints |
+| `REVIEWER.md` | one brief for sol and Opus |
+| `probes/` | tools (auditor `jsscope.py`, `grammar_closure.py`, census, row-diff audit, taxonomy, 218-scenario control generator with JSX/TSX twins), pre-run expectations (addenda 1–6), reference control summaries per sub-slice, `expected/` row-diffs for X, R and T |
+| `prototype/s1b-prototype-v8.diff.txt` | the feasibility prototype (never built into this branch) |
 
-The evidence root is `~/prism-evidence/s1b/planning/` with a `MANIFEST.sha256`.
+Evidence: `~/prism-evidence/s1b/planning/` with a `MANIFEST.sha256`.
 
-## Key measured facts
+## Key measured facts (prototype v8)
 
-- **Where the wrong edges are.** The export routes (D4) and R3 namespace qualifiers are latent: 0 wrong
-  `import_member` rows on four corpora, 0 namespace decoys. R4 `LocalDef` and JSX intrinsic tags are not. The
-  prototype changes X 1,086 rows, F 682, R 118 and T 1,033, all audited:
-  - JSX intrinsic tags bound on every rung (`<input>` → a test helper, `<label>` → action arrows): X 62 rows, F 103
-    removed; plus relabels X 804, F 387, R 117.
-  - R4 multi-target rows re-targeted to the one callable the name denotes: X 134, F 1, T 635 (T removes 1,799 extra
-    target edges).
-  - R4 rows removed: X 86, F 191, R 1, T 398. Static-binding verdicts: statically wrong, may-call (throttle,
-    memoize, HOCs, rewritten bindings), pass-through (`useCallback`, owner decision E4), and right-but-refused by
-    parse recovery (F 7, T 53, both caused by tree-sitter grammar gaps; E6).
-- **0 right edges removed outside parse recovery**, and 0 additions on the corpora.
-- **DFG:** X loses 27 argument → parameter edges, each tied to a removed `local_def` edge.
-- **Controls:** 153 scenarios as pre-registered (4 recorded deviations). Tier-A 162 / 162 on base and prototype;
-  the S1b fixtures are RED on base and green on the prototype.
-- **Suite:** base 4,583 / 0 / 1. The prototype fails only by-design pins (fact representation, a drop reason, a
-  closed audit gap).
-- **Performance:** neutral on T (270.8 s base, 259.0 s prototype), with a per-file memo that is required.
-- **Budget:** about 667 src lines of prototype design code against S1's 342, so the SPEC recommends three
-  sub-slices (E1): S1b-1 core + D4 + intrinsic (cap 300 src), S1b-2 lexical `LocalDef` (340), S1b-3 R3 namespace
-  (120).
-
-## Owner decisions (SPEC §0)
-
-E1 slicing; E2 intrinsic tags (recommend: include, on every rung); E3 a new drop reason; E4 admit `useCallback`;
-E5 drop the may-call class; E6 whole-scope parse-recovery refusal; E7 keep an export-filtered stem lookup for
-unresolvable namespaces; E8 leave non-namespace R3 to S2; E9 imported-local parity; E10 leave indirect sites;
-E11 caps; E12 review process.
-
-## Not measured
-
-The may-call and `useCallback` semantics are library contracts (reported, not decided); sloppy-mode detection is
-avoided by construction; `tier-a --quick`, `--features mcp`, clippy and the Node gate were not run on the prototype;
-incremental rebuild parity is argued and pinned by tests, not measured on the corpora.
+- **Row-diffs (base → v8):** X 1,019, F 536, R 117, T 870, every changed row audited.
+- **Right edges removed:** only by the parse-recovery rule (E6): F 4, T 41, all in files with tree-sitter grammar
+  gaps. The r1 packet's "0 right edges removed outside parse recovery" was false (Opus W9, 21 X rows); v8 fixes it.
+- **Right edges added:** T 10 (an import shadowed by an enclosing function declaration).
+- **May-call rows (E5):** X 40, F 56, T 163 kept at base; 0 changed.
+- **Wrong edges removed:** JSX intrinsic tags X 62 rows / F 103; R4 X 153 rows (134 re-targeted to the one right
+  callable, 19 removed), F 31, T 817 (635 re-targeted, removing 1,799 extra targets); shared-collector fixes F 7, T 2.
+- **Fail-safe cost:** 0 rows on all four corpora. **Scoped vs fixed base module scan:** 0 rows.
+- **E6 narrower rule:** keeps F 7 and T 12 right rows the broad rule refused, risks 0. E6b would recover T's 41 more.
+- **E7:** T's 24 namespace rows stay Exact; F's 4 bare-specifier rows become NameOnly (edges kept).
+- **Suites:** base 4,583 / 0 / 1; prototype 4,574 / 9 / 1 (9 by-design pins). Tier-A base 162 / 162 (+4 new fixtures
+  RED), prototype 166 / 166. Performance on T neutral (r1, Q19).
+- **Budget:** about 1,050 src lines of prototype design code; SPEC §9 proposes four sub-slices with caps
+  60 / 620 / 330 / 185 src (E13, open).

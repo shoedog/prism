@@ -8,7 +8,7 @@ list of findings.
 - **Subject:** `__SUBJECT__`. One of:
   - **Spec review:** `docs/superpowers/plans/2026-09-26-s1b-export-route-span-verify/` (`SPEC.md`,
     `PLANNING-PROBES.md`, `IMPLEMENTOR.md`, `probes/`, `prototype/`).
-  - **Implementation review of sub-slice `__SLICE__` (S1b-a or S1b-b):** frozen commit `__SHA__`, reviewed as the
+  - **Implementation review of sub-slice `__SLICE__` (S1b-1, S1b-2, S1b-3 or S1b-4):** frozen commit `__SHA__`, reviewed as the
     whole diff against `__BASE__`.
 - **Clone:** `__CLONE__`. Tracked files are read-only. You may build, run tests, and run the base, prototype or
   implementation binaries on **synthetic fixtures** (`probes/controls_gen.py` into a temp directory, then
@@ -16,7 +16,7 @@ list of findings.
 - **Never open** the private corpus (F) or `~/prism-evidence/wrapped-export/planning/CORPORA-PRIVATE.txt`. Corpus F
   appears in the packet as aggregates only.
 - **Authority, in order:** `SPEC.md` (normative), including §0 as answered by the owner; `PLANNING-PROBES.md`
-  (labelled MEASURED / READ / ASSUMPTION); `CLAUDE.md`; the S1 packet
+  (labelled MEASURED / READ / ASSUMPTION); `REVIEW-r1-fold.md`; `CLAUDE.md`; the S1 packet
   (`docs/superpowers/plans/2026-09-25-wrapped-export-resolution/`), whose §12 recorded this scope.
 - **Prior rounds:** `__PRIOR__`.
 - **Cap:** 2 rounds per sub-slice, declared by the controller at dispatch. At the cap, the controller classifies the
@@ -25,23 +25,25 @@ list of findings.
 ## The analysis model is fixed
 
 > **Exact is a static-binding grade** (`CLAUDE.md`, "Exact is a static-binding grade"). A JS/TS name denotes a
-> callable when the nearest scope that declares it holds exactly one declaration, that declaration's value is a
-> function (or an admitted React wrapper of one), the scope parses cleanly, and no write in that scope targets the
-> binding (SPEC §3.1). An export denotes what its module-scope binding denotes (§3.2); a namespace member denotes the
-> resolved module's export (§3.4); a lowercase, dashed or namespaced JSX tag denotes no binding at all (§3.5).
-> **Runtime mutation of module objects, `eval`, host globals and `require`/`import()` re-acquisition are out of
-> model for every rung.** A `with` statement is static syntax and is in model: it makes every name ambiguous.
+> callable when the nearest scope that declares it (SPEC §3.1's enumerated table) holds exactly one declaration whose
+> value is a function (or an admitted React wrapper of one), the scope passes the fail-safe and the parse-recovery
+> rule, and the binding is not in the **may-call class** (a written binding, or a call-wrapped declarator with a
+> direct function argument), which **keeps base behavior by owner decision E5**. An export denotes what its
+> module-scope binding denotes (§3.2); a namespace member denotes the resolved module's export (§3.4); a lowercase,
+> dashed or namespaced JSX tag denotes no binding (§3.5). **Runtime mutation of module objects, `eval`, host globals
+> and `require`/`import()` re-acquisition are out of model for every rung.** A `with` statement is in model: it makes
+> every name ambiguous.
 
 **What is a WRONG under this model.** Give the input, the incorrect result, the mechanism and a file:line.
 - An **Exact edge to a callable the name does not statically denote**, on any route S1b owns (the D4 list,
-  default-identifier, function-declaration and declarator export routes; R3 namespace qualifiers; R4 `LocalDef` in
-  S1b-b; any rung for a JSX intrinsic tag). Typical sources: a binding form the declaration collector misses
-  (a shadowing parameter, catch parameter, `for` head, class name, `enum`, `namespace`, import, parameter-default
-  scope, Annex B block function, `with`), a parse-recovery shape that hides a declaration, a same-line collision, a
-  write the write scan misses, a Pattern-2/3/5 over-named candidate, or an incremental rebuild that disagrees with a
-  full build.
-- A **removed or changed edge that was right**, where the SPEC does not record it as an owner-accepted cost. The
-  accepted costs are listed in SPEC §0 and §8 (for example the parse-recovery refusals and the may-call class).
+  default-identifier, function-declaration and declarator export routes; R3 namespace qualifiers; R4 `LocalDef`;
+  any rung for a JSX intrinsic tag). Typical sources: a binding or write form the §3.1 table misses or misclassifies,
+  a grammar kind the closure probe misclassifies as inert, a parse-recovery shape that escapes B1, a same-line
+  collision, an over-named candidate, or an incremental rebuild that disagrees with a full build.
+- A **removed or changed edge that was right**, where the SPEC does not record it as an owner-accepted cost (the
+  accepted costs are in SPEC §0 and §8, for example E6's parse-recovery refusals).
+- **Any changed row in the may-call class** (E5 keeps it at base), or a may-call rule that is not a closed syntactic
+  predicate.
 - A refusal counted twice or not counted; a counter that disagrees with the row-diff.
 - A cap breach (SPEC §9).
 
@@ -53,8 +55,10 @@ view** with the edge cost, not as a finding.
 
 ## What to check
 
-1. **Closure of the declaration collector (SPEC §3.1).** Is every ECMAScript and TypeScript binding form covered,
-   either as a declaration or by the parse-recovery rule? Try each reviewer probe class in **both** the JSX (`.jsx`)
+1. **Closure of the binding core (SPEC §3.1).** Does the enumerated table cover every ECMAScript and TypeScript
+   binding and write form it claims to, keyed to the cited static semantics? Does `probes/grammar_closure.py` derive
+   the suspect kinds soundly, and is every one classified correctly (not just listed)? Is B1's closure argument
+   sound, and is its stated ASSUMPTION the only one? Try each reviewer probe class in **both** the JSX (`.jsx`)
    and TSX (`.tsx`) grammars: parse recovery; quote and string tokens (compare raw tokens, no quote trimming);
    lowercase intrinsic tags, opening versus self-closing elements, and type-only imports; hoisted `var` in nested
    blocks and same-line collisions; barrel and star re-export conflicts; incremental versus full rebuild.

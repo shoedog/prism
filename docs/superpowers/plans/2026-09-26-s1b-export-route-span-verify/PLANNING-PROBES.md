@@ -1,5 +1,10 @@
 # Planning probes: S1b, span-verified JS/TS export and local routes
 
+> **r2 (spec round 1 fold).** The r1 sections below are kept as history. Where they disagree with the **Round 2**
+> section at the end (prototype v8, owner answers E4–E7), Round 2 is current. In particular the r1 claim "0 right edges
+> removed outside parse recovery" was false (Opus W9: 21 X rows); v8 removes 0 right edges outside parse recovery,
+> measured with the corrected auditor.
+
 Grounding for `SPEC.md`. Every mechanism claim is labelled **MEASURED (Qn)**, **READ** (file:line on base
 `a6d853f5`), or **ASSUMPTION**. Where reading and measurement both apply, the measurement is cited.
 
@@ -148,7 +153,7 @@ evidence root.
 | Q20 | full suite on P6 and on P7 | the 9 by-design pins fail, the rest pass | P6 **4,574 / 9 / 1** (29 binaries): exactly the 9 by-design pins. P7 **4,574 / 9 / 1**, the same 9. Tier-A with the S1b fixtures on P7: 165 / 165 (`logs/tier-a-s1bfix-proto-v7.log`) | `logs/proto-v{6,7}-full-suite.log` |
 | Q22 | P6 with `ONLY_A` + `BASE_WRITE_SCAN` on X, F, R and all controls, against P5 `ONLY_A`; P6 default controls against P5 | identical | **identical** dumps and `js_export_local_refusals` on X, F and R, and identical control summaries; P6 default controls identical to P5. So S1b-1 can use the base `js_ts_module_value_written` (SPEC §3.2). T not run (0 `import_member` rows, 0 `written` refusals) | `proto-runs/v6-onlyA-basescan/`, `controls/proto-v6*/` |
 | Q23 | addendum 3 (C113 implicit `arguments`, C114 TS `using`) pre-registered; Python grammar check of `using h = e;` first; then P6 and P7 over all 153 controls; count corpus rows whose callee is `arguments` or `eval` with targets | C113: P7 drops `f`'s call, keeps the arrow's; C114: both drop on P6 and P7 | **as pre-registered.** `using h = e;` parses in TS as `assignment_expression` with no error (in `.js` it is an error). P6 → P7 differs only in C113. Corpus rows with callee `arguments`/`eval` and targets: X 0, F 0, R 0, T 0, so the P5 corpus row-diffs stand for P7 | `controls/proto-v7*/` |
-| Q21 | `shasum -a 256` of every evidence file | — | `MANIFEST.sha256`: 7,344 files, SHA-256 `de73ff88…a9bf` | root |
+| Q21 | `shasum -a 256` of every evidence file | — | `MANIFEST.sha256`: r1 7,344 files (`de73ff88…a9bf`); **r2 12,589 files (`46d9b9ce…650b`)** | root |
 
 ## Results
 
@@ -218,3 +223,87 @@ The ten P4 failures, each with its disposition:
   runs them (IMPLEMENTOR).
 - **Incremental versus full rebuild** is argued (every S1b fact is file-local) and pinned by tests in the SPEC, not
   measured on the corpora.
+
+## Round 2: spec round 1 fold (prototype v8, owner answers E4–E7)
+
+### Custody (r2)
+
+- **Prototype v8.** Same scratch worktree, rewritten binding module; squashed scratch commit `4c124f45`; diff
+  `prototype/s1b-prototype-v8.diff.txt`. Binaries `bin/prism-proto-v8{a,b,c,d,e}`: v8a–v8c were control iterations
+  (addenda 4–6), v8d is the measured behavior, and v8e is v8d plus the E6b measurement switch (identical with the
+  switch unset: controls byte-identical, Q33). Measurement-only switches: `PRISM_S1B_UPTO` (1, 2 or 3: enables the
+  r1-numbered sub-slices up to it), `PRISM_S1B_BROAD_E6`, `PRISM_S1B_NO_FAILSAFE`, `PRISM_S1B_SCOPED_MODULE_SCAN`,
+  `PRISM_S1B_E6_TYPESPACE`, `PRISM_S1B_DEBUG`.
+- **Shared-fix-only binary.** A second scratch worktree at `a6d853f5` with only F1–F3 (`shared-fix-only.diff`,
+  `bin/prism-shared-fix-only`).
+- **Auditor.** `probes/jsscope.py` rewritten against the SPEC §3.1 table (same author as the prototype; see the r1
+  custody note). `probes/grammar_closure.py` derives the kind classification from the pinned grammars.
+- **Reviews.** `~/prism-evidence/s1b/reviews/spec-r1-{opus,sol}.md`.
+
+### New mechanisms (READ / MEASURED)
+
+**M15. Grammar shapes of the r1 forms** (MEASURED Q24, Python grammar): a class static block is
+`class_static_block > statement_block`; a namespace is `internal_module` (inside `expression_statement`) with a
+`statement_block` body; `import f = M.g` is `import_alias` with unfielded children; `label: function f(){}` is
+`labeled_statement > function_declaration`; `{ f = 1 }` is `object_assignment_pattern` (field `left`) in both
+declarations and assignment targets; TS assertion targets are `as_expression`, `non_null_expression`,
+`satisfies_expression`, `type_assertion`; a parameter decorator is `required_parameter > decorator`; `for (var f = 1
+in o)` keeps the `kind` field; **TS `using h = e` is an `assignment_expression` with an anonymous `using` token**
+(no error), and `await using` wraps it in `await_expression`.
+
+**M16. Grammar closure** (MEASURED Q25): 186 concrete named kinds across the three grammars; 76 can hold a statement,
+declaration, pattern, parameter list or binding identifier field (suspect); all 76 are classified in SPEC §3.1; 77
+other non-leaf kinds are mechanically inert. The runtime allowlist is the 154-kind union.
+
+**M17. Shared helpers.** `collect_js_ts_binding_pattern_names` (READ `src/ast.rs:4997`) is shared by the write scans,
+the S1 provenance check, the CJS proof and the shadow guards; `collect_js_ts_parameter_bindings` (`:4955`) reads only
+the `parameters` field (M9). F1–F3 change both.
+
+### Probe log (r2)
+
+| ID | Command | Expected (pre-run) | Actual | Output |
+|---|---|---|---|---|
+| Q24 | Python parse of each r1 input's shape | per M15 | as M15; the `using` shape was unknown before this probe | console |
+| Q25 | `python3 probes/grammar_closure.py --emit-transparent` | 0 unclassified suspect kinds | first runs listed unclassified kinds (the TS grammar admits `internal_module` as an expression; `import_alias` and JSX names bind through unfielded identifiers); after classification: **186 kinds, 76 suspect, 0 unclassified** | `classified-kinds.txt` |
+| Q26 | 218 controls under B0 and v8 (addenda 4–6 written before each run) | `probes/S1b-controls-expectations-pre-run.md` | **as pre-registered**, except C151's second row (addendum 6: the erroneous function *calls* `g`, so the first narrow-E6 draft's mention check refused it; the check was removed before any corpus run, and C150's prediction was revised in the same addendum) | `controls/{base,proto-v8*}/`, `probes/S1b-controls-*.txt` |
+| Q27 | shared-fix-only binary on X, F, R, T; row-diff; auditor check of each changed row | only wrong edges change | **X 0, F 7, R 0, T 2 rows**, all `free_single`/`free_multi` → dropped at sites whose callee is the enclosing arrow's own parameter (8 single-parameter arrows, 1 destructuring default). All wrong | `proto-runs/shared-fix-only/` |
+| Q28 | v8d default vs `NO_FAILSAFE` and vs `SCOPED_MODULE_SCAN`, all four corpora | 0 rows each | **0 rows each**: the fail-safe costs nothing on the corpora, and the fixed base module scan equals the scoped scan | `proto-runs/v8d-{nofailsafe,scopedscan}/*-vs-default.*` |
+| Q29 | v8d on X, F, R, T; row-diff against base; `audit_rowdiff.py` with the r2 auditor (`census-v8/`); `taxonomy.py` | 0 right removed outside parse recovery; 0 may-call rows changed | see §Results (r2). `maycall_changed` **0** on every corpus; the 21 X rows r1 removed for `var (…)` values (Opus W9) are unchanged from base | `proto-runs/v8d/` |
+| Q30 | E7: T's 24 and F's 4 namespace rows; X | T sibling rows Exact; F bare rows NameOnly | **T 24 unchanged Exact; F 4 Exact → NameOnly (edges kept); X 0.** An early v8 relabelled 1,176 T drop reasons (`ImportExternal` ↔ `UnknownName`, no edge); v8d keeps base's reasons | `proto-runs/v8d/F-S1b-4.json` (private) |
+| Q31 | the 10 T rows v8 adds (`UnknownName` → Exact `local_def`), audited | right | **10 / 10 right**: an ESM import shadowed by an enclosing function declaration of the same name (for example `watchPublic.ts` `toPath`); base followed the import and dropped | console |
+| Q32 | E6: v8d vs `BROAD_E6`; the error-agnostic r1 auditor's verdicts on the rows each rule refuses; E6b (`E6_TYPESPACE`) | narrower keeps some right rows, risks none | narrower keeps **F 7, T 12** rows the broad rule refuses, all right (F: 3 plus 4 `useCallback`); risked 0. It still refuses **F 4, T 41** right rows (T: an `in out` variance error in an interface's type parameters, and a `symbol:` tuple label in type arguments). **E6b recovers T's 41** (X, F, R 0) | `proto-runs/v8d-broadE6/`, `proto-runs/v8e-typespace/` |
+| Q33 | Tier-A `--matrix-only` with the four S1b fixtures, B0 and v8e; v8e controls vs v8d | base 162 ok + 4 RED; v8 166 / 166; identical controls | **as expected** (the intrinsic fixture needed `forbid_resolution_kind = "free_single"`: `callers = []` alone did not fail on base) | `logs/tier-a-v8-*.log` |
+| Q34 | `honest_lines.py` on scratch commit `4c124f45`; per-function attribution | – | **1,079 src / 11 tests**; about 30 src lines are measurement switches | console |
+| Q35 | `cargo test --offline --no-fail-fast` on v8e | the 9 by-design pins fail | **4,574 / 9 / 1**, the same 9 as r1 | `logs/proto-v8e-full-suite.log` |
+
+### Results (r2, v8d): per corpus and route
+
+"Wrong" and "right" are static-binding verdicts of the r2 auditor, plus the manual checks named in the probe log.
+May-call rows (E5) are counted but must not change.
+
+| Corpus | Route | Current Exact rows in class | Wrong | Removed | Re-targeted | May-call kept at base | Net correct-edge change |
+|---|---|---|---|---|---|---|---|
+| X | D4 export routes | 2,516 | 0 | 0 | 0 | – | 0 |
+| X | R3 namespace | 0 | – | 0 | 0 | – | 0 |
+| X | JSX intrinsic (every rung) | 62 rows (166 edges) | 62 | 62 | – | – | 0 right lost |
+| X | R4 `local_def` | 2,136 Source rows | 153 (134 multi-target, 19 not callable) | 19 | 134 | 40 | 0 right lost; 0 added |
+| F | D4 | 160 | 0 | 0 | 0 | – | 0 |
+| F | R3 namespace | 4 (bare specifiers) | 0 | 0 (Exact → NameOnly, edges kept) | – | – | 0 edges lost |
+| F | JSX intrinsic | 103 | 103 | 103 | – | – | 0 right lost |
+| F | R4 | 735 | 31 (+4 right refused by E6) | 34 (30 wrong, 4 E6) | 1 | 56 | −4 (E6) |
+| F | shared fixes (R5) | 7 | 7 | 7 | – | – | 0 right lost |
+| R | all | 142 rows with targets | 0 in S1b classes | 0 | 0 | 1 | 0 (117 relabels) |
+| T | D4 | 0 (`.js` specifiers) | – | 0 | 0 | – | 0 |
+| T | R3 namespace | 24 | 0 | 0 | 0 | – | 0 |
+| T | R4 | 18,348 | 817 (635 multi-target, 175 not callable, 7 unbound) (+41 right refused by E6) | 223 (182 wrong, 41 E6) | 635 (1,799 extra edges removed) | 163 | −41 (E6); **+10 right added** |
+| T | shared fixes | 2 | 2 | 2 | – | – | 0 right lost |
+
+Row-diffs (base → v8d): X 1,019, F 536, R 117, T 870. Per sub-slice: SPEC §8.
+
+### Not measured (r2)
+
+- The may-call class's semantic truth (E5 keeps it at base; not audited as right or wrong).
+- `tier-a --quick`, `--features mcp`, clippy and the Node gate on the prototype.
+- Incremental versus full rebuild (every S1b fact is file-local; pinned by tests in the SPEC).
+- A second-author auditor: the r2 auditor is still the planner's; the pinned per-form controls are the independent
+  check the controller asked for.

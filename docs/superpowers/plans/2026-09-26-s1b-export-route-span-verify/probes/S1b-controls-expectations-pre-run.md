@@ -87,3 +87,79 @@ with no error (MEASURED before this run with the Python grammar), so the collect
 |---|---|---|---|
 | C113 `arguments()` inside `function f` and inside a top-level arrow, with a top-level `function arguments` | both Exact → `arguments@1-3` | both Exact (false for `f`'s call) | `f`'s call drops (implicit binding); the arrow's call stays Exact (an arrow at module scope has no `arguments` of its own, so the top-level function is the binding) |
 | C114 (TS) `using h = res(); h();` in `f`, and `h()` in `g`, top-level `function h` | both Exact → `h@2-4` | both drop: the misparsed `using` is a write to the top-level `h` (B5), which refuses every site (fail-closed; `g`'s right edge is lost) | same as v6 |
+
+## Addendum 4 (spec r1 fold, written before the first v8 run)
+
+v8 applies the owner's r1 answers: **E5 = may-call rows keep base behavior** (a written binding, or a declarator
+whose value is a call with a direct function argument, i.e. a Pattern-3 over-named argument), **E4 = `useCallback`
+admitted**, **E6 = the narrower sealed-error rule**, **E7 = sibling-extension Exact / other stem NameOnly**, plus the
+r1 collector fixes (§3.1 table), the kind allowlist fail-safe, and `(name, span)` matching. A declarator whose value
+is a call *without* a direct function argument is not may-call: it holds no callable (refuse). TS `using x = e` is a
+lexical declaration (the grammar spells it as an assignment with an anonymous `using` token), not a write.
+
+Changed expectations for existing scenarios (v7 → v8):
+
+| Scenario | v7 | v8 (predicted) |
+|---|---|---|
+| C21, C77, C139 written exported/top-level function or arrow | drop | **base** (MayCall, E5) |
+| C73 list-exported `create(fn)` | drop | **base** (MayCall) |
+| C89 `useCallback` | drop (strict) | **Exact** (E4) |
+| C90 `throttle(fn)`, C107 `lazy(loader)` | drop | **base** (MayCall) |
+| C91 `let g; g = () => 1` | drop | **base** (MayCall) |
+| C114 (TS) `using h = res()` | both drop | `f`'s call: drop (a using binding holding a call result); `g`'s call: **Exact** → top-level `h` (a `using` is not a write) |
+| everything else in C01–C113 | as v7 | unchanged from v7 |
+
+New scenarios (both grammars unless TS-only):
+
+| Scenario | base (predicted) | v8 (predicted) |
+|---|---|---|
+| C115 static-block `var f = () => 2` called from an arrow in the block, top-level `f` | Exact ×2 | Exact → the static-block arrow |
+| C116 static-block `var f = 1; f()`, outer `function f` | Exact → outer `f` | drop |
+| C117 (TS) namespace-body `var f = () => 2`, top-level `f` | Exact ×2 | Exact → the namespace arrow |
+| C118 same-line `const f = function g(){}; const o = { f: () => 2 }`; `f()` and `o.f()` | `f()` Exact → `o.f`'s arrow (Pattern 2) | `f()` Exact → `g` (by name and span); `o.f()` unchanged |
+| C119 `catch (f) { var f = () => 2; }` then `f()` in the function | Exact ×2 | drop |
+| C120 `with (o) { var f = () => 2; }` then `f()` | Exact ×2 | drop |
+| C121 `function run(a = arguments())`; arrow `(a = arguments()) => a` at module scope | Exact, Exact → `arguments@1-3` | drop; Exact (an arrow has no own `arguments`) |
+| C122 `function f(g, a = g())` with top-level `g` | Exact → `g@1-3` | drop (the parameter `g` is visible in the default) |
+| C123 `var h = (M.h = function(){…}); h()` | Exact → `h` | Exact → `h` (B3 unwraps the assignment chain; right edge kept) |
+| C124 `caller({ f = () => 2 } = {})` then `f()` | Exact ×2 | drop (destructuring-default parameter) |
+| C125 `({ f = other } = obj); f()` with a nested decoy `f` | Exact ×2 | **base** Exact ×2 (the binding is written: MayCall) |
+| C126 lib `export function f` plus `const g = f => { f = 2; }`; app imports `f` | Exact | Exact (the arrow parameter is not the module binding) |
+| C127 labelled function declaration called before it | Exact | Exact |
+| C128 `Lib => Lib.f()` | Exact `import_qualified` | no `import_qualified` edge |
+| C129 `with (obj) { Lib.f(); }` | Exact | no `import_qualified` edge |
+| C130 `Lib = other; Lib.f()` | Exact | no `import_qualified` edge |
+| C131 `import * as Lib from 'foo'` with a repo `foo` module | Exact | NameOnly |
+| C132 `'./a/foo'` where only `b/foo` exports `f` | Exact → `b/foo` | NameOnly → `b/foo` (`./a/foo` does not resolve; stem fallback) |
+| C133 `'./a/foo.js'` where `a/foo` lacks `f` and `b/foo` has it | Exact → `b/foo` | drop `UnknownName` (the sibling resolves; it has no `f`) |
+| C134 `const f = function* () {}`; `f()`; `export { f }` | drop | drop (generator expressions are not indexed; pinned non-goal) |
+| C135 switch-case `const f = () => 2; return f()` and a later `f()` | Exact ×2 each | case call Exact → case `f`; later call Exact → top-level `f` |
+| C136 `for (var f in o) {}` then `f()` | Exact → top-level `f` | drop |
+| C137 `var \u0066 = 2` in the function, then `f()` | Exact → top-level `f` | drop (`escaped_identifier`) |
+| C138 `const t = throttle(() => 1)` with a nested decoy `t` | Exact ×2 | **base** Exact ×2 (MayCall) |
+| C139 top-level `f = other` then `f()` | Exact → `f` | **base** (MayCall) |
+| C140 method param `f` and a sibling method calling top-level `f()` | Exact | Exact |
+| C141 (TS) `import f = M.g` with a nested decoy `f` | Exact → decoy | drop |
+| C142 (TS) `(f as any) = …`, `(<any>f) = …`, `f! = …` with a nested decoy | Exact ×2 | **base** Exact ×2 (written: MayCall) |
+| C143 (TS) `type f = number` next to `function f`; `interface g` next to `function g` | Exact, Exact | Exact, Exact (type space binds no value) |
+| C144 (TS) `import type { f }` next to `function f` | Exact | Exact |
+| C145 (TSX) parameter decorator `@f()` with outer `function f` | Exact → outer `f` | Exact → outer `f` |
+| C146 (TSX) `export const Button` plus `export interface Button`; `<Button/>` | Exact | Exact |
+| C147 (TS) `declare const f` with a nested decoy `f` | Exact → decoy | drop |
+| C148 (TS) `'./lib.js'` naming `lib.ts` with a nested decoy | Exact ×2 | Exact ×1 → the exported `f` (E7 sibling) |
+
+## Addendum 5 (written before the v8b rerun): the narrower parse-recovery rule (E6)
+
+| Scenario | base (predicted) | v8 (predicted) |
+|---|---|---|
+| C149 an error without braces inside another exported function; importer calls `f` | Exact | Exact (the error is sealed in `broken`, whose text never spells `f`) |
+| C150 the same, but the erroneous function spells `f` | Exact | drop (not sealed: the error's function mentions the name) |
+| C151 `let x = ;` inside the function that calls `g()`; another function also calls `g()` | Exact, Exact | drop (the error's function contains that site); Exact (sealed for the other site) |
+
+## Addendum 6 (after the v8b run, before v8c)
+
+C151's "other" call was predicted Exact but dropped: my prediction missed that `run`, the erroneous function, calls
+`g()`, so its text spells `g` and the v8b mention check refused. The mention check guards only against text being
+swallowed into the sealing function, which the file-level brace condition already excludes, so v8c removes it. v8c
+predictions: C149 Exact; **C150 Exact** (the inner `let f = ;` is local to `broken`, so the export binding is
+unaffected); C151 `run`'s call drop, `other`'s call Exact.

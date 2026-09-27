@@ -8,8 +8,9 @@ semantic class, decided by the auditor's reason and, for call-wrapped declarator
   M  may-call: the binding holds a different callable that may run the target later (throttle/debounce/memoize,
      rendering HOCs, test mocks), or holds the target only on some paths (written / later-assigned bindings)
   P  pass-through: the wrapper returns the argument itself (React useCallback)
-Under the static-binding contract every removed edge is a wrong Exact claim; M and P are reported so the owner
-can weigh them (SPEC §0).
+r1 fold: owner E5 keeps may-call rows at base, so M marks an E5 violation (it must be 0), and `useCallback` rows
+(P) are admitted callables (E4). M is decided by the auditor (a written binding, or a call-wrapped declarator with a
+direct function argument), not by the declaration keyword.
 """
 import json, sys, collections
 
@@ -20,15 +21,7 @@ MAYCALL = {'throttle', 'debounce', 'throttleRAF', 'memoize', 'memoizeOne', 'Util
 
 def klass(row):
     v = row['verdict'] or ''
-    a = row.get('audit') or {}
-    d = str(a.get('detail'))
-    if 'intrinsic' in v or v.endswith('multi_incl_right'):
-        return 'W'
-    if 'wrapped' in v:
-        if d in PASS:
-            return 'P'
-        return 'M' if d in MAYCALL else 'W'
-    if v.endswith('written') or d.startswith('let:') or d.startswith('var:'):
+    if v.startswith('MAYCALL'):
         return 'M'
     return 'W'
 
@@ -48,7 +41,7 @@ for r in rows:
     removed = bset - pset
     if r['class'] == 'retargeted_right':
         edges[('removed', 'W', 'retarget_extra')] += len(removed)
-    elif r['class'] == 'removed_right':
+    elif r['class'] in ('removed_right', 'removed_right_parse'):
         edges[('removed', 'RIGHT', 'parse_recovery_or_other')] += len(removed)
     else:
         k = klass(r)

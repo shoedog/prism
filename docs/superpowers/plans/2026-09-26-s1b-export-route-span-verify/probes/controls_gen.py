@@ -271,6 +271,95 @@ S1B["C112_R3_namespace_competed"] = {
 S1B["C113_R4_implicit_arguments"] = {
  "a.{s}": "function arguments() {\n  return 1;\n}\nexport function f() {\n  return arguments();\n}\nexport const g = () => arguments();\n"}
 TS_ONLY = {}
+# ---- spec r1 fold (v8): one row per reviewer input and per SPEC §3.1 table entry.
+S1B["C115_static_block_var_callable"] = {
+ "a.{s}": "function f() {\n  return 1;\n}\nexport class C {\n  static {\n    var f = () => 2;\n    const h = () => f();\n    h();\n  }\n}\n"}
+S1B["C116_static_block_var_noncallable"] = {
+ "a.{s}": "export const outer = () => {\n  function f() {\n    return 1;\n  }\n  class C {\n    static {\n      var f = 1;\n      f();\n    }\n  }\n  return C;\n};\n"}
+S1B["C118_W4_same_line_name_span"] = {
+ "a.{s}": "const f = function g() { return 1; }; const o = { f: () => 2 };\nexport function run() {\n  return f() + o.f();\n}\n"}
+S1B["C119_W5_catch_var_initializer"] = {
+ "a.{s}": "function f() {\n  return 1;\n}\nexport function g() {\n  try {\n    throw 0;\n  } catch (f) {\n    var f = () => 2;\n  }\n  return f();\n}\n"}
+S1B["C120_W5_with_var_initializer"] = {
+ "a.{s}": "function f() {\n  return 1;\n}\nexport function g(o) {\n  with (o) {\n    var f = () => 2;\n  }\n  return f();\n}\n"}
+S1B["C121_W7_arguments_in_param_default"] = {
+ "a.{s}": "function arguments() {\n  return 1;\n}\nexport function run(a = arguments()) {\n  return a;\n}\nexport const run2 = (a = arguments()) => a;\n"}
+S1B["C122_W8_param_visible_in_default"] = {
+ "a.{s}": "function g() {\n  return 1;\n}\nexport function f(g, a = g()) {\n  return a;\n}\n"}
+S1B["C123_W9_assignment_chain_value"] = {
+ "a.{s}": "const M = {};\nvar h = (M.h = function () {\n  return 1;\n});\nexport function run() {\n  return h();\n}\n"}
+S1B["C124_solW1_destructuring_default_param"] = {
+ "a.{s}": "function f() {\n  return 1;\n}\nexport function caller({ f = () => 2 } = {}) {\n  return f();\n}\n"}
+S1B["C125_solW1_destructuring_default_write"] = {
+ "a.{s}": "function f() {\n  return 1;\n}\nfunction outer() {\n  function f() {\n    return 9;\n  }\n  return f;\n}\nexport function caller(obj, other) {\n  ({ f = other } = obj);\n  return f();\n}\n"}
+S1B["C126_solW2_arrow_param_write_export"] = {
+ "lib.{s}": "export function f() {\n  return 1;\n}\nexport const g = f => {\n  f = 2;\n  return f;\n};\n",
+ "app.{s}": "import { f } from './lib';\nexport function run() {\n  return f();\n}\n"}
+S1B["C127_solW5_labelled_function"] = {
+ "a.{s}": "export function caller() {\n  return f();\n  label: function f() {\n    return 7;\n  }\n}\n"}
+S1B["C128_solW6_namespace_arrow_param"] = {
+ "lib.{s}": "export function f() {\n  return 1;\n}\n",
+ "app.{s}": "import * as Lib from './lib';\nexport const host = Lib => Lib.f();\n"}
+S1B["C129_solW6_namespace_with"] = {
+ "lib.{s}": "export function f() {\n  return 1;\n}\n",
+ "app.{s}": "import * as Lib from './lib';\nexport function host(obj) {\n  with (obj) {\n    return Lib.f();\n  }\n}\n"}
+S1B["C130_solW6_namespace_written"] = {
+ "lib.{s}": "export function f() {\n  return 1;\n}\n",
+ "app.{s}": "import * as Lib from './lib';\nexport function host(other) {\n  Lib = other;\n  return Lib.f();\n}\n"}
+S1B["C131_E7_bare_namespace"] = {
+ "foo.{s}": "export function f() {\n  return 1;\n}\n",
+ "app.{s}": "import * as Lib from 'foo';\nexport function run() {\n  return Lib.f();\n}\n"}
+S1B["C132_E7_nonsibling_stem"] = {
+ "a/other.{s}": "export function g() {\n  return 0;\n}\n",
+ "b/foo.{s}": "export function f() {\n  return 1;\n}\n",
+ "app.{s}": "import * as Lib from './a/foo';\nexport function run() {\n  return Lib.f();\n}\n"}
+S1B["C133_E7_sibling_missing_member"] = {
+ "a/foo.{s}": "export function g() {\n  return 0;\n}\n",
+ "b/foo.{s}": "export function f() {\n  return 1;\n}\n",
+ "app.{s}": "import * as Lib from './a/foo.js';\nexport function run() {\n  return Lib.f();\n}\n"}
+S1B["C134_S8_generator_expression"] = {
+ "a.{s}": "const f = function* () {\n  yield 1;\n};\nexport function run() {\n  return f();\n}\nexport { f };\n"}
+S1B["C135_switch_lexical"] = {
+ "a.{s}": "function f() {\n  return 1;\n}\nexport function run(x) {\n  switch (x) {\n    case 1:\n      const f = () => 2;\n      return f();\n  }\n  return f();\n}\n"}
+S1B["C136_for_var_head"] = {
+ "a.{s}": "function f() {\n  return 1;\n}\nexport function run(o) {\n  for (var f in o) {\n  }\n  return f();\n}\n"}
+S1B["C137_escaped_identifier"] = {
+ "a.{s}": "function f() {\n  return 1;\n}\nexport function run() {\n  var \\u0066 = 2;\n  return f();\n}\n"}
+S1B["C138_maycall_throttle_with_decoy"] = {
+ "a.{s}": "import throttle from 'lodash/throttle';\nfunction helper() {\n  function t() {\n    return 9;\n  }\n  return t;\n}\nexport function App() {\n  const t = throttle(() => 1, 10);\n  return t();\n}\n"}
+S1B["C139_maycall_written_function"] = {
+ "a.{s}": "function f() {\n  return 1;\n}\nfunction other() {\n  return 2;\n}\nf = other;\nexport function run() {\n  return f();\n}\n"}
+S1B["C140_decorator_like_member_call"] = {
+ "a.{s}": "function f() {\n  return 1;\n}\nexport class C {\n  m(f) {\n    return f;\n  }\n  n() {\n    return f();\n  }\n}\n"}
+S1B["C149_E6_sealed_error_keeps"] = {
+ "util.{s}": "export function f() {\n  return 1;\n}\nexport function broken() {\n  let x = ;\n  return x;\n}\n",
+ "app.{s}": "import { f } from './util';\nexport function run() {\n  return f();\n}\n"}
+S1B["C150_E6_sealed_error_mentions_name"] = {
+ "util.{s}": "export function f() {\n  return 1;\n}\nexport function broken() {\n  let f = ;\n  return f;\n}\n",
+ "app.{s}": "import { f } from './util';\nexport function run() {\n  return f();\n}\n"}
+S1B["C151_E6_error_in_site_function"] = {
+ "a.{s}": "function g() {\n  return 1;\n}\nexport function run() {\n  g();\n  let x = ;\n}\nexport function other() {\n  return g();\n}\n"}
+TS_ONLY["C117_W1_namespace_body_var"] = {
+ "a.ts": "function f() {\n  return 1;\n}\nnamespace N {\n  var f = () => 2;\n  export function run() {\n    return f();\n  }\n}\n"}
+TS_ONLY["C141_W2_import_alias"] = {
+ "a.ts": "declare namespace M {\n  function g(): number;\n}\nfunction outer() {\n  function f() {\n    return 1;\n  }\n  return f;\n}\nimport f = M.g;\nexport function run() {\n  return f();\n}\n"}
+TS_ONLY["C142_W3_assertion_write"] = {
+ "a.ts": "function f() {\n  return 1;\n}\nfunction outer() {\n  function f() {\n    return 9;\n  }\n  return f;\n}\nexport function run(other: any) {\n  (f as any) = other;\n  (<any>f) = other;\n  f! = other;\n  return f();\n}\n"}
+TS_ONLY["C143_W6_type_space"] = {
+ "a.ts": "function f() {\n  return 1;\n}\ntype f = number;\ninterface g {}\nfunction g() {\n  return 2;\n}\nexport function run() {\n  return f() + g();\n}\n"}
+TS_ONLY["C144_W6_type_only_import"] = {
+ "t.ts": "export type f = number;\n",
+ "a.ts": "import type { f } from './t';\nfunction f() {\n  return 1;\n}\nexport function run() {\n  return f();\n}\n"}
+TS_ONLY["C145_solW4_parameter_decorator"] = {
+ "a.tsx": "export const outer = () => {\n  function f() {\n    return (t: any) => t;\n  }\n  class C {\n    method(@f() f: unknown) {\n      return f;\n    }\n  }\n  return C;\n};\n"}
+TS_ONLY["C146_W6_interface_merge_export"] = {
+ "lib.tsx": "export const Button = () => <div/>;\nexport interface Button {\n  x: number;\n}\n",
+ "app.tsx": "import { Button } from './lib';\nexport function App() {\n  return <Button/>;\n}\n"}
+TS_ONLY["C147_ambient_const"] = {
+ "a.ts": "declare const f: () => number;\nfunction outer() {\n  function f() {\n    return 1;\n  }\n  return f;\n}\nexport function run() {\n  return f();\n}\n"}
+TS_ONLY["C148_E7_js_specifier_sibling"] = {
+ "lib.ts": "function helper() {\n  function f() {\n    return 9;\n  }\n  return f;\n}\nexport function f() {\n  return 1;\n}\n",
+ "app.ts": "import * as Lib from './lib.js';\nexport function run() {\n  return Lib.f();\n}\n"}
 TS_ONLY["C102_R4_ts_overloads"] = {
  "a.ts": "export function f(a: string): void;\nexport function f(a: any) {\n  return a;\n}\nexport function run() {\n  f('x');\n}\n"}
 TS_ONLY["C103_R4_ts_declare_function"] = {
@@ -286,6 +375,7 @@ S.update(TS_ONLY)
 for name, files in S.items():
     os.makedirs(name, exist_ok=True)
     for f, src in files.items():
+        os.makedirs(os.path.dirname(os.path.join(name, f)), exist_ok=True)
         open(os.path.join(name, f), "w").write(src)
 json.dump(sorted(S), open("SCENARIOS.json", "w"), indent=1)
 print(len(S))

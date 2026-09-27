@@ -5,8 +5,10 @@ Each changed row gets exactly one class:
   relabel_intrinsic        drop UnknownName -> JsxIntrinsic on a lowercase/dashed/namespaced plain JSX tag (no edge)
   removed_wrong            base had targets, proto drops, and the auditor says the base targets were WRONG
   removed_right            base had targets the auditor says were RIGHT, and proto drops them (a recall loss)
+  removed_right_parse      refused by the parse-recovery rule (E6); r1 measured every such row right (a recall loss)
   retargeted_right         proto keeps exactly the auditor's expected target out of base's set
   retargeted_other         proto keeps a target the auditor did not expect
+  maycall_changed          the auditor classes the binding as may-call (owner E5: must stay base) yet it changed
   added                    base dropped, proto binds (audited against the auditor where it can)
   other                    anything else
 """
@@ -48,12 +50,16 @@ for x in rows:
     c = cen.get(site)
     verdict = c['verdict'] if c else None
     audit = c.get('audit') if c else None
-    if not btg and not ptg:
+    if verdict and verdict.startswith('MAYCALL') and (btg or ptg):
+        kind = 'maycall_changed'
+    elif not btg and not ptg:
         kind = 'relabel_intrinsic' if pdrop == 'JsxIntrinsic' and intrinsic(k[3], k[4], k[5]) else 'other'
     elif btg and not ptg:
         if pdrop == 'JsxIntrinsic' and intrinsic(k[3], k[4], k[5]):
             kind = 'removed_wrong'
             verdict = verdict or 'WRONG:intrinsic_lowercase_tag'
+        elif verdict == 'WRONG:parse':
+            kind = 'removed_right_parse'
         elif verdict and verdict.startswith('WRONG'):
             kind = 'removed_wrong'
         elif verdict == 'RIGHT':
@@ -62,8 +68,9 @@ for x in rows:
             kind = 'other'
     elif btg and ptg:
         want = audit.get('span') if audit else None
-        pt = [(t[0], t[2], t[3]) for t in ptg]
-        if want and len(pt) == 1 and pt[0] == (k[3], want[0], want[1]):
+        pt = [(t[0], t[1], t[2], t[3]) for t in ptg]
+        wl = audit.get('local') if audit else None
+        if want and len(pt) == 1 and pt[0][2:] == tuple(want) and (wl is None or pt[0][1] == wl):
             kind = 'retargeted_right'
         elif verdict == 'RIGHT' and sorted(map(tuple, btg)) != sorted(map(tuple, ptg)):
             kind = 'retargeted_other'
@@ -81,5 +88,5 @@ for d, n in sorted(detail.items(), key=lambda kv: -kv[1]):
     print('%5d  %s' % (n, ' | '.join(str(p) for p in d)))
 if not private:
     for r in res:
-        if r['class'] in ('removed_right', 'retargeted_other', 'added', 'other'):
+        if r['class'] in ('removed_right', 'retargeted_other', 'added', 'other', 'maycall_changed'):
             print('  ', r['class'], r['key'][3], r['key'][6], r['base'], '->', r['proto'], r['verdict'], r['audit'])

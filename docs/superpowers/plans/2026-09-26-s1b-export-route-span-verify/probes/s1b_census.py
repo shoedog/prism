@@ -71,21 +71,10 @@ def main():
         return hits.pop() if len(hits) == 1 else None
 
     def module_callable(file, local, jsx):
-        s = S(file)
-        ds = [d for nm, d in s.scope_decls(s.root) if nm == local]
-        if len(ds) != 1:
-            return {'status': 'dup' if ds else 'absent', 'detail': [d[0] for d in ds]}
-        d = ds[0]
-        c = s.callable_of(d)
-        if c[0] is None:
-            return {'status': 'not_callable', 'detail': '%s:%s' % (d[0], c[1])}
-        if d[0] in ('let', 'var', 'function_decl') and s.written(s.root, d[1], local):
-            return {'status': 'written', 'detail': d[0], 'span': lines(c[1])}
-        if c[0] == 'wrapped':
-            react = c[2] in REACT
-            st = ('wrapped_jsx' if jsx else 'wrapped_nonjsx') + ('' if react else '_nonreact')
-            return {'status': st, 'span': lines(c[1]), 'detail': c[2]}
-        return {'status': 'callable', 'span': lines(c[1]), 'detail': d[0]}
+        a = S(file).module_callable(local, jsx)
+        if a['status'] == 'wrapped_jsx' and a.get('detail') not in REACT:
+            a['status'] = 'maycall'
+        return a
 
     rows = []
     for line in open(dump):
@@ -137,17 +126,15 @@ def main():
                 rec['verdict'] = 'UNSURE:no_ident'
             else:
                 a = s.resolve_callable(ident, name, jsx)
-                if a['status'] == 'wrapped_jsx':
-                    react = a.get('detail') in REACT
-                    a['status'] = 'wrapped_jsx' + ('' if react else '_nonreact')
-                if a['status'] == 'wrapped_nonjsx' and a.get('detail') not in REACT:
-                    a['status'] = 'wrapped_nonjsx_nonreact'
                 rec['audit'] = a
-                want = [(cf, name, a['span'][0], a['span'][1])] if 'span' in a else None
                 if a['status'] in ('callable', 'wrapped_jsx'):
-                    ok = [t for t in targets if (t[0], t[2], t[3]) == (cf, a['span'][0], a['span'][1])]
+                    ok = [t for t in targets if (t[0], t[1], t[2], t[3]) == (cf, a.get('local'), a['span'][0],
+                                                                              a['span'][1])]
                     rec['verdict'] = 'RIGHT' if len(targets) == 1 and ok else (
                         'WRONG:multi_incl_right' if ok else 'WRONG:wrong_target')
+                elif a['status'] == 'maycall':
+                    d = str(a.get('detail'))
+                    rec['verdict'] = 'MAYCALL:' + (d.split('(')[0] if private else d)
                 else:
                     rec['verdict'] = 'WRONG:' + a['status']
         elif kind == 'import_member':
@@ -158,6 +145,8 @@ def main():
                 rec['verdict'] = 'RIGHT'
             elif a['status'] in ('callable', 'wrapped_jsx'):
                 rec['verdict'] = 'WRONG:wrong_target'
+            elif a['status'] == 'maycall':
+                rec['verdict'] = 'MAYCALL:' + str(a.get('detail'))
             else:
                 rec['verdict'] = 'WRONG:' + a['status']
         elif kind == 'import_qualified':

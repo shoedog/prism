@@ -1,21 +1,16 @@
 """Independent JS/TS lexical-binding auditor for S1b (tree-sitter-python; grammars pinned to Cargo.lock:
-typescript 0.23.2, javascript 0.23.1). It does NOT link prism; it re-derives, from the ECMAScript scoping rules,
-which declaration an identifier at a site statically denotes, and which callable span (if any) that binding holds.
+typescript 0.23.2, javascript 0.23.1). It does not link prism. r1 fold: rewritten against SPEC §3.1's enumerated
+table (ECMA-262 VarScopedDeclarations / LexicallyScopedDeclarations / BoundNames, Annex B.3.3-B.3.4, `with`, the
+implicit `arguments`, class static blocks and TS namespace bodies as var scopes, TS value vs type space, `using`,
+`import x = ...`, labelled declarations, destructuring defaults, parameter scopes and decorators).
 
-binding(site_node, name) walks the site's ancestors. The first scope that declares `name` decides:
-  - function-like node: parameters, a named function expression's own name, `var` hoisted from its body (not
-    crossing nested functions), and lexical declarations directly in its body block;
-  - statement_block / switch_body / for heads / catch clause: `let`/`const`/`class`/function declarations directly
-    in it (module and TS code is strict, so block function declarations are block-scoped);
-  - class declaration/expression: the class name inside the class;
-  - program: imports, every top-level declaration, and `var` hoisted from top-level blocks.
-A scope with 2+ declarations of `name` yields ('dup', ...). The result is a Binding tuple.
+Same author as the prototype: it catches implementation slips, not a shared misreading of the rules. The pinned
+controls (probes/controls_gen.py, one JSX and one TSX row per table entry) are the independent check on the rules.
 
-callable span of a binding (1-indexed lines, the FunctionId identity prism uses):
-  function_declaration -> its node; declarator with arrow/function-expression value -> the value;
-  named function expression self name -> the expression; anything else -> None.
-A binding is 'written' when any assignment/update/for-in/of target of `name` resolves to the same binding.
+resolve_callable(site, name, jsx) -> dict(status, span, detail, local) with status in:
+  callable | wrapped_jsx | wrapped_nonjsx | maycall | not_callable | dup | global | parse | escaped | with
 """
+import re
 import tree_sitter as ts, tree_sitter_typescript as tst, tree_sitter_javascript as tsj
 
 LANG = {'.ts': ts.Language(tst.language_typescript()), '.tsx': ts.Language(tst.language_tsx()),
@@ -23,15 +18,20 @@ LANG = {'.ts': ts.Language(tst.language_typescript()), '.tsx': ts.Language(tst.l
         '.mjs': ts.Language(tsj.language()), '.cjs': ts.Language(tsj.language())}
 FUNCS = {'function_declaration', 'generator_function_declaration', 'function_expression', 'function',
          'generator_function', 'arrow_function', 'method_definition'}
-FN_VALUES = {'arrow_function', 'function_expression', 'function', 'generator_function'}
-BLOCKS = {'statement_block', 'switch_body', 'for_statement', 'for_in_statement', 'for_of_statement',
-          'catch_clause', 'class_body'}
-CASTS = {'as_expression', 'satisfies_expression', 'parenthesized_expression', 'non_null_expression',
-         'type_assertion'}
+CLASSES = {'class_declaration', 'class', 'abstract_class_declaration'}
+FN_VALUES = {'arrow_function', 'function_expression', 'function'}
+REACT = {'forwardRef', 'memo', 'React.forwardRef', 'React.memo'}
+PASS = {'useCallback', 'React.useCallback'}
+WRAPPERS = {'parenthesized_expression', 'as_expression', 'satisfies_expression', 'non_null_expression',
+            'type_assertion', 'assignment_expression'}
 
 
 def lines(n):
     return (n.start_point[0] + 1, n.end_point[0] + 1)
+
+
+def inside(outer, inner):
+    return outer.start_byte <= inner.start_byte and inner.end_byte <= outer.end_byte
 
 
 class Src:
@@ -39,280 +39,363 @@ class Src:
         self.src = open(path, 'rb').read()
         self.tree = ts.Parser(LANG[ext]).parse(self.src)
         self.root = self.tree.root_node
+        self._idx = {}
 
     def t(self, n):
         return self.src[n.start_byte:n.end_byte].decode('utf8', 'replace')
 
-    # ---- declarations -------------------------------------------------------------------------------------
+    # ---- patterns ---------------------------------------------------------------------------------------
     def pattern_names(self, p, out):
         if p is None:
             return
         k = p.type
         if k in ('identifier', 'shorthand_property_identifier_pattern'):
-            out.append((self.t(p), p))
-        elif k in ('object_pattern', 'array_pattern', 'rest_pattern', 'assignment_pattern',
-                   'object_assignment_pattern', 'pair_pattern', 'required_parameter', 'optional_parameter'):
-            if k == 'pair_pattern':
-                self.pattern_names(p.child_by_field_name('value'), out)
-            elif k in ('assignment_pattern', 'object_assignment_pattern'):
-                self.pattern_names(p.child_by_field_name('left'), out)
-            elif k in ('required_parameter', 'optional_parameter'):
-                self.pattern_names(p.child_by_field_name('pattern'), out)
-            else:
-                for c in p.named_children:
-                    self.pattern_names(c, out)
+            out.append(self.t(p))
+        elif k in ('pair_pattern',):
+            self.pattern_names(p.child_by_field_name('value'), out)
+        elif k in ('assignment_pattern', 'object_assignment_pattern'):
+            self.pattern_names(p.child_by_field_name('left'), out)
+        elif k in ('required_parameter', 'optional_parameter'):
+            self.pattern_names(p.child_by_field_name('pattern'), out)
+        elif k in ('as_expression', 'satisfies_expression', 'non_null_expression', 'parenthesized_expression'):
+            if p.named_children:
+                self.pattern_names(p.named_children[0], out)
+        elif k == 'type_assertion':
+            if p.named_children:
+                self.pattern_names(p.named_children[-1], out)
+        elif k in ('object_pattern', 'array_pattern', 'rest_pattern', 'formal_parameters'):
+            for c in p.named_children:
+                self.pattern_names(c, out)
 
-    def decl_kind(self, d):
-        """lexical_declaration / variable_declaration keyword."""
-        if d.type == 'variable_declaration':
-            return 'var'
-        for c in d.children:
-            if c.type in ('const', 'let', 'using', 'await'):
-                return c.type
-        return self.t(d).split(None, 1)[0]
-
-    def var_hoisted(self, node, out, top=True):
-        """`var` declarators under node, not crossing nested functions/classes' method bodies."""
-        for c in node.named_children:
-            if c.type in FUNCS or c.type in ('class_declaration', 'class'):
-                continue
-            if c.type == 'variable_declaration':
-                for d in c.named_children:
-                    if d.type == 'variable_declarator':
-                        names = []
-                        self.pattern_names(d.child_by_field_name('name'), names)
-                        for nm, _ in names:
-                            out.append((nm, ('var', d)))
-            if c.type in ('for_in_statement', 'for_of_statement'):
-                # `for (var x of ...)`: tree-sitter puts `var` as a keyword child and left as identifier
-                kw = [x for x in c.children if x.type == 'var']
-                if kw:
-                    names = []
-                    self.pattern_names(c.child_by_field_name('left'), names)
-                    for nm, _ in names:
-                        out.append((nm, ('var_forin', c)))
-            self.var_hoisted(c, out, False)
-
-    def lexical_in(self, block, out):
-        """Lexical (block-scoped) declarations directly in a block-like node."""
-        kids = block.named_children
-        if block.type == 'switch_body':
-            kids = [s for case in block.named_children for s in case.named_children]
-        for c in kids:
-            d = c
-            if c.type == 'export_statement':
-                d = c.child_by_field_name('declaration')
-                if d is None:
-                    continue
-            if d.type in ('function_declaration', 'generator_function_declaration'):
-                n = d.child_by_field_name('name')
-                if n is not None:
-                    out.append((self.t(n), ('function_decl', d)))
-            elif d.type in ('class_declaration', 'abstract_class_declaration'):
-                n = d.child_by_field_name('name')
-                if n is not None:
-                    out.append((self.t(n), ('class', d)))
-            elif d.type == 'lexical_declaration':
-                kw = self.decl_kind(d)
-                for x in d.named_children:
-                    if x.type == 'variable_declarator':
-                        names = []
-                        self.pattern_names(x.child_by_field_name('name'), names)
-                        for nm, _ in names:
-                            out.append((nm, (kw, x)))
-            elif d.type in ('enum_declaration', 'internal_module', 'module', 'import_alias'):
-                n = d.child_by_field_name('name')
-                if n is not None:
-                    out.append((self.t(n).split('.')[0], ('ts_other', d)))
-            elif d.type == 'ambient_declaration':
-                names = []
-                for x in d.named_children:
-                    if x.type in ('function_signature', 'function_declaration'):
-                        n = x.child_by_field_name('name')
-                        if n is not None:
-                            out.append((self.t(n), ('ambient', x)))
-                    elif x.type in ('lexical_declaration', 'variable_declaration'):
-                        for y in x.named_children:
-                            if y.type == 'variable_declarator':
-                                names = []
-                                self.pattern_names(y.child_by_field_name('name'), names)
-                                for nm, _ in names:
-                                    out.append((nm, ('ambient', y)))
-            elif d.type == 'import_statement':
-                if any(ch.type == 'type' for ch in d.children):
-                    continue
-                for cl in d.named_children:
-                    if cl.type != 'import_clause':
-                        continue
-                    for x in cl.named_children:
-                        if x.type == 'identifier':
-                            out.append((self.t(x), ('import', d)))
-                        elif x.type == 'namespace_import':
-                            for y in x.named_children:
-                                if y.type == 'identifier':
-                                    out.append((self.t(y), ('import', d)))
-                        elif x.type == 'named_imports':
-                            for sp in x.named_children:
-                                if sp.type != 'import_specifier' or any(ch.type == 'type' for ch in sp.children):
-                                    continue
-                                a = sp.child_by_field_name('alias') or sp.child_by_field_name('name')
-                                out.append((self.t(a), ('import', d)))
-
-    def params(self, fn, out):
-        ps = fn.child_by_field_name('parameters')
-        if ps is None:
-            p = fn.child_by_field_name('parameter')
-            if p is not None:
-                out.append((self.t(p), ('param', fn)))
-            return
-        for p in ps.named_children:
-            names = []
-            self.pattern_names(p, names)
-            for nm, _ in names:
-                out.append((nm, ('param', fn)))
-
-    def scope_decls(self, scope):
+    def params(self, fn):
         out = []
-        k = scope.type
-        if k in FUNCS:
-            self.params(scope, out)
-            if k in ('function_expression', 'function', 'generator_function'):
-                n = scope.child_by_field_name('name')
-                if n is not None:
-                    out.append((self.t(n), ('fe_self', scope)))
-            body = scope.child_by_field_name('body')
-            if body is not None and body.type == 'statement_block':
-                self.var_hoisted(body, out)
-                self.lexical_in(body, out)
-        elif k == 'program':
-            self.var_hoisted(scope, out)
-            self.lexical_in(scope, out)
-        elif k in ('class_declaration', 'class', 'abstract_class_declaration'):
-            n = scope.child_by_field_name('name')
-            if n is not None:
-                out.append((self.t(n), ('class_self', scope)))
-        elif k == 'catch_clause':
-            p = scope.child_by_field_name('parameter')
-            names = []
-            self.pattern_names(p, names)
-            for nm, _ in names:
-                out.append((nm, ('catch', scope)))
-        elif k in ('for_statement', 'for_in_statement', 'for_of_statement'):
-            init = scope.child_by_field_name('initializer') or scope.child_by_field_name('left')
-            if init is not None and init.type == 'lexical_declaration':
-                self.lexical_in_decl(init, out)
-            elif k != 'for_statement' and any(c.type in ('let', 'const') for c in scope.children):
-                names = []
-                self.pattern_names(scope.child_by_field_name('left'), names)
-                for nm, _ in names:
-                    out.append((nm, ('let_forin', scope)))
-        elif k in ('statement_block', 'switch_body'):
-            p = scope.parent
-            if not (k == 'statement_block' and p is not None and p.type in FUNCS):
-                self.lexical_in(scope, out)
+        ps = fn.child_by_field_name('parameters')
+        if ps is not None:
+            self.pattern_names(ps, out)
+        p = fn.child_by_field_name('parameter')
+        if p is not None:
+            self.pattern_names(p, out)
         return out
 
-    def lexical_in_decl(self, d, out):
-        kw = self.decl_kind(d)
-        for x in d.named_children:
-            if x.type == 'variable_declarator':
-                names = []
-                self.pattern_names(x.child_by_field_name('name'), names)
-                for nm, _ in names:
-                    out.append((nm, (kw, x)))
+    @staticmethod
+    def using(stmt):
+        if stmt.type != 'expression_statement' or not stmt.named_children:
+            return None
+        e = stmt.named_children[0]
+        if e.type == 'await_expression' and e.named_children:
+            e = e.named_children[0]
+        if e.type == 'assignment_expression' and any(not c.is_named and c.type == 'using' for c in e.children):
+            return e
+        return None
+
+    # ---- declarations -----------------------------------------------------------------------------------
+    def walk(self, node, direct, hoist, taint, out):
+        for ch in node.named_children:
+            k = ch.type
+            nm = ch.child_by_field_name('name')
+            own = self.t(nm).split('.')[0] if nm is not None else None
+            if k in FUNCS or k in CLASSES or k in ('class_static_block', 'enum_declaration', 'decorator',
+                                                    'internal_module', 'module'):
+                decl_kinds = ('function_declaration', 'generator_function_declaration', 'class_declaration',
+                              'abstract_class_declaration', 'internal_module', 'module', 'enum_declaration')
+                if own and direct and k in decl_kinds:
+                    out.append((own, ch))
+                elif own and hoist and k.endswith('function_declaration'):
+                    out.append((own, node))                     # Annex B marker
+                continue
+            if k == 'variable_declarator':
+                ns = []
+                self.pattern_names(ch.child_by_field_name('name'), ns)
+                for n in ns:
+                    out.append((n, node if ('' in taint or n in taint) else ch))
+                continue
+            if k == 'variable_declaration' and not hoist:
+                continue
+            if k == 'lexical_declaration' and not direct:
+                continue
+            if k in ('interface_declaration', 'type_alias_declaration'):
+                continue
+            if k in ('import_statement', 'import_alias'):
+                if direct:
+                    for n in self.import_names(ch):
+                        out.append((n, ch))
+                continue
+            if k == 'function_signature':
+                if direct and own and node.type == 'ambient_declaration':
+                    out.append((own, ch))
+                continue
+            if k == 'for_in_statement' and hoist:
+                if any(c.type == 'var' for c in ch.children):
+                    ns = []
+                    self.pattern_names(ch.child_by_field_name('left'), ns)
+                    for n in ns:
+                        out.append((n, ch))
+            if k == 'catch_clause':
+                ns = list(taint)
+                self.pattern_names(ch.child_by_field_name('parameter'), ns)
+                b = ch.child_by_field_name('body')
+                if b is not None:
+                    self.walk(b, False, hoist, set(ns), out)
+                continue
+            if k == 'with_statement':
+                b = ch.child_by_field_name('body')
+                if b is not None:
+                    self.walk(b, False, hoist, {''}, out)
+                continue
+            u = self.using(ch)
+            if u is not None and direct:
+                ns = []
+                self.pattern_names(u.child_by_field_name('left'), ns)
+                for n in ns:
+                    out.append((n, u))
+                continue
+            transparent = k in ('export_statement', 'expression_statement', 'labeled_statement', 'switch_case',
+                                'switch_default', 'ambient_declaration', 'lexical_declaration',
+                                'variable_declaration')
+            self.walk(ch, direct and transparent, hoist, taint, out)
+
+    def import_names(self, node):
+        if node.type == 'import_alias':
+            return [self.t(node.named_children[0])] if node.named_children else []
+        if any(c.type == 'type' for c in node.children):
+            return []
+        out, stack = [], [node]
+        while stack:
+            n = stack.pop()
+            for c in n.named_children:
+                if c.type == 'identifier':
+                    out.append(self.t(c))
+                elif c.type == 'import_specifier':
+                    if any(x.type == 'type' for x in c.children):
+                        continue
+                    a = c.child_by_field_name('alias') or c.child_by_field_name('name')
+                    out.append(self.t(a))
+                elif c.type in ('import_clause', 'namespace_import', 'named_imports', 'import_require_clause'):
+                    stack.append(c)
+        return out
+
+    def is_scope(self, n):
+        k = n.type
+        if k in ('program', 'formal_parameters', 'for_statement', 'for_in_statement', 'catch_clause',
+                 'switch_body', 'with_statement') or k in FUNCS or k in CLASSES:
+            return True
+        return k == 'statement_block' and not (n.parent is not None and n.parent.type in FUNCS)
+
+    def scope_decls(self, s):
+        if s.id in self._idx:
+            return self._idx[s.id]
+        out = []
+        k = s.type
+        if k == 'catch_clause':
+            ns = []
+            self.pattern_names(s.child_by_field_name('parameter'), ns)
+            out += [(n, s) for n in ns]
+        elif k == 'for_in_statement':
+            if any(c.type in ('let', 'const') for c in s.children):
+                ns = []
+                self.pattern_names(s.child_by_field_name('left'), ns)
+                out += [(n, s) for n in ns]
+        elif k == 'for_statement':
+            init = s.child_by_field_name('initializer')
+            if init is not None and init.type == 'lexical_declaration':
+                self.walk(init, True, False, set(), out)
+        elif k in CLASSES:
+            nm = s.child_by_field_name('name')
+            if nm is not None:
+                out.append((self.t(nm), s))
+        elif k == 'formal_parameters':
+            f = s.parent
+            out += [(n, s) for n in self.params(f)]
+            if f.type != 'arrow_function':
+                out.append(('arguments', s))
+            if f.type in ('function_expression', 'function', 'generator_function'):
+                nm = f.child_by_field_name('name')
+                if nm is not None:
+                    out.append((self.t(nm), f))
+        elif k in FUNCS:
+            at = s.child_by_field_name('parameters') or s.child_by_field_name('parameter') or s
+            out += [(n, at) for n in self.params(s)]
+            if k != 'arrow_function':
+                out.append(('arguments', at))
+            if k in ('function_expression', 'function', 'generator_function'):
+                nm = s.child_by_field_name('name')
+                if nm is not None:
+                    out.append((self.t(nm), s))
+            b = s.child_by_field_name('body')
+            if b is not None and b.type == 'statement_block':
+                self.walk(b, True, True, set(), out)
+        elif k == 'statement_block':
+            var_scope = s.parent is not None and s.parent.type in ('class_static_block', 'internal_module', 'module')
+            self.walk(s, True, var_scope, set(), out)
+        elif k in ('switch_body', 'program'):
+            self.walk(s, True, k == 'program', set(), out)
+        self._idx[s.id] = out
+        return out
+
+    @staticmethod
+    def up(n):
+        if n.type == 'formal_parameters':
+            return n.parent.parent if n.parent is not None else None
+        if n.type == 'decorator':
+            u = n.parent
+            while u is not None and u.type not in CLASSES:
+                u = u.parent
+            return u.parent if u is not None else None
+        return n.parent
 
     def binding(self, site, name):
-        """-> (scope_node, [decl, ...]) for the nearest scope declaring name; (None, []) when global."""
-        n = site
-        cache = getattr(self, '_cache', None)
-        if cache is None:
-            cache = self._cache = {}
+        n = site.parent
         while n is not None:
-            key = n.id
-            if key not in cache:
-                cache[key] = self.scope_decls(n)
-            ds = [d for nm, d in cache[key] if nm == name]
-            if ds:
-                return n, ds
-            n = n.parent
+            if n.type == 'with_statement':
+                return n, [('*', n)]
+            if self.is_scope(n):
+                ds = [d for nm, d in self.scope_decls(n) if nm == name]
+                if ds:
+                    return n, ds
+            n = self.up(n)
         return None, []
 
-    # ---- values ---------------------------------------------------------------------------------------------
-    def callable_of(self, decl):
-        """-> ('plain', fnnode) | ('wrapped', fnnode, callee_text) | (None, reason)."""
-        kind, node = decl
-        if kind == 'function_decl':
-            return ('plain', node)
-        if kind == 'fe_self':
-            return ('plain', node)
-        if kind in ('const', 'let', 'var'):
-            v = node.child_by_field_name('value')
-            if v is None:
-                return (None, 'no_value')
-            u = v
-            while u is not None and u.type in CASTS:
-                u = u.named_children[0] if u.named_children else None
-            if v.type in FN_VALUES:
-                return ('plain', v)
-            if u is not None and u.type in FN_VALUES:
-                return (None, 'fn_behind_cast')
-            if v.type == 'call_expression':
-                args = v.child_by_field_name('arguments')
-                fn = v.child_by_field_name('function')
-                if args is not None:
-                    for a in args.named_children:
-                        if a.type in FN_VALUES and a.child_by_field_name('name') is None:
-                            return ('wrapped', a, ' '.join(self.t(fn).split())[:40] if fn else '?')
-                return (None, 'call')
-            return (None, v.type)
-        return (None, kind)
+    # ---- checks -----------------------------------------------------------------------------------------
+    def escaped(self, scope):
+        stack = [scope]
+        while stack:
+            n = stack.pop()
+            if n.type in ('identifier', 'shorthand_property_identifier_pattern') and '\\' in self.t(n):
+                return True
+            stack.extend(n.named_children)
+        return False
 
-    def written(self, scope, decl_node, name):
-        """Any write whose target name resolves (from the write site) to the same scope."""
-        hits = []
+    def braces_intact(self):
+        if not hasattr(self, '_braces'):
+            ok, stack = True, [self.root]
+            while stack and ok:
+                n = stack.pop()
+                if n.is_missing and n.type in ('{', '}'):
+                    ok = False
+                if n.is_error and re.search(r'[{}]', self.t(n)):
+                    ok = False
+                stack.extend(c for c in n.children if c.has_error or c.is_missing)
+            self._braces = ok
+        return self._braces
 
-        def walk(n):
-            if n.type in ('assignment_expression', 'augmented_assignment_expression', 'update_expression',
-                          'for_in_statement', 'for_of_statement'):
+    def sealed(self, scope, site):
+        if not scope.has_error:
+            return True
+        if not self.braces_intact():
+            return False
+        stack = [scope]
+        while stack:
+            n = stack.pop()
+            if n.is_error or n.is_missing:
+                u = n.parent
+                while u is not None and u.id != scope.id and not (
+                        u.type in CLASSES or u.type == 'class_static_block' or (
+                        u.type in FUNCS and (u.child_by_field_name('body') is not None and
+                                             u.child_by_field_name('body').type == 'statement_block'))):
+                    u = u.parent
+                if u is None or u.id == scope.id or (site is not None and inside(u, site)):
+                    return False
+            stack.extend(c for c in n.children if c.has_error or c.is_missing)
+        return True
+
+    def written(self, scope, name):
+        stack = [scope]
+        while stack:
+            n = stack.pop()
+            k = n.type
+            is_using = any(not c.is_named and c.type == 'using' for c in n.children)
+            if (k in ('assignment_expression', 'augmented_assignment_expression', 'update_expression')
+                    and not is_using) or (k == 'for_in_statement' and not any(
+                    c.type in ('var', 'let', 'const') for c in n.children)):
                 tgt = n.child_by_field_name('left') or n.child_by_field_name('argument')
-                if tgt is None and n.named_children:
-                    tgt = n.named_children[0]
-                names = []
-                if tgt is not None:
-                    if tgt.type == 'parenthesized_expression' and tgt.named_children:
-                        tgt = tgt.named_children[0]
-                    self.pattern_names(tgt, names)
-                for nm, node in names:
-                    if nm == name:
-                        sc, _ = self.binding(node, name)
-                        if sc is not None and sc.id == scope.id:
-                            # a `for (var x ...)` / `let x` declaration head is not a write of an existing binding
-                            if not (n.type in ('for_in_statement', 'for_of_statement')
-                                    and any(c.type in ('var', 'let', 'const') for c in n.children)):
-                                hits.append(n)
-            for c in n.named_children:
-                walk(c)
-        walk(scope)
-        return hits
+                ns = []
+                self.pattern_names(tgt, ns)
+                if name in ns:
+                    s, _ = self.binding(tgt, name)
+                    if s is not None and (s.id == scope.id or s.type == 'with_statement'):
+                        return True
+            stack.extend(n.named_children)
+        return False
+
+    def fn_name(self, fn):
+        nm = fn.child_by_field_name('name')
+        if nm is not None:
+            return self.t(nm)
+        p = fn.parent
+        if p is None:
+            return None
+        if p.type == 'variable_declarator':
+            return self.t(p.child_by_field_name('name'))
+        if p.type == 'pair':
+            return self.t(p.child_by_field_name('key'))
+        if p.type == 'assignment_expression':
+            left = p.child_by_field_name('left')
+            if left.type == 'member_expression':
+                return self.t(left.child_by_field_name('property'))
+            if left.type == 'identifier':
+                return self.t(left)
+        if p.type == 'arguments' and p.parent is not None and p.parent.type == 'call_expression' \
+                and p.parent.parent is not None and p.parent.parent.type == 'variable_declarator':
+            return self.t(p.parent.parent.child_by_field_name('name'))
+        return None
 
     def resolve_callable(self, site, name, jsx):
-        """Full audit: -> dict(status, span, detail). status in
-        callable | wrapped_jsx | wrapped_nonjsx | not_callable | written | dup | global | intrinsic."""
         scope, ds = self.binding(site, name)
         if scope is None:
             return {'status': 'global'}
+        return self.classify(scope, ds, name, site, jsx)
+
+    def module_callable(self, name, jsx):
+        ds = [d for nm, d in self.scope_decls(self.root) if nm == name]
+        if not ds:
+            return {'status': 'absent'}
+        return self.classify(self.root, ds, name, None, jsx)
+
+    def classify(self, scope, ds, name, site, jsx):
+        if self.escaped(scope):
+            return {'status': 'escaped'}
+        if not self.sealed(scope, site):
+            return {'status': 'parse'}
+        if scope.type == 'with_statement':
+            return {'status': 'with'}
         if len(ds) > 1:
-            return {'status': 'dup', 'detail': [d[0] for d in ds]}
+            return {'status': 'dup'}
         d = ds[0]
-        c = self.callable_of(d)
-        if c[0] is None:
-            return {'status': 'not_callable', 'detail': '%s:%s' % (d[0], c[1])}
-        if d[0] in ('let', 'var', 'function_decl') and self.written(scope, d[1], name):
-            return {'status': 'written', 'detail': d[0], 'span': lines(c[1])}
-        if c[0] == 'wrapped':
-            return {'status': 'wrapped_jsx' if jsx else 'wrapped_nonjsx', 'span': lines(c[1]),
-                    'detail': c[2]}
-        return {'status': 'callable', 'span': lines(c[1]), 'detail': d[0]}
+        fe_self = d.type in ('function_expression', 'function', 'generator_function') and \
+            d.child_by_field_name('name') is not None and self.t(d.child_by_field_name('name')) == name
+        using = d.type == 'assignment_expression'
+        declarator = d.type in ('variable_declarator',) or using
+        function = d.type.endswith('function_declaration')
+        if (fe_self or declarator or function) and self.written(scope, name):
+            return {'status': 'maycall', 'detail': 'written'}
+        if function or fe_self:
+            fn = d
+        elif declarator:
+            v = d.child_by_field_name('right' if using else 'value')
+            while v is not None and v.type in WRAPPERS:
+                v = v.child_by_field_name('right') if v.type == 'assignment_expression' else (
+                    v.named_children[-1] if v.type == 'type_assertion' else v.named_children[0])
+            if v is None:
+                return {'status': 'not_callable', 'detail': 'no_value'}
+            if v.type in FN_VALUES:
+                fn = v
+            elif v.type == 'call_expression':
+                callee = ' '.join(self.t(v.child_by_field_name('function')).split())
+                args = v.child_by_field_name('arguments')
+                fargs = [a for a in (args.named_children if args is not None else []) if a.type in FN_VALUES]
+                if not using and callee in REACT | PASS and fargs and d.parent.type == 'lexical_declaration' \
+                        and self.t(d.parent).startswith('const'):
+                    inner = fargs[0]
+                    st = 'callable' if callee in PASS else ('wrapped_jsx' if jsx else 'wrapped_nonjsx')
+                    return {'status': st, 'span': lines(inner), 'local': self.fn_name(inner), 'detail': callee}
+                if fargs:
+                    return {'status': 'maycall', 'detail': callee}
+                return {'status': 'not_callable', 'detail': 'call'}
+            else:
+                return {'status': 'not_callable', 'detail': v.type}
+        else:
+            return {'status': 'not_callable', 'detail': d.type}
+        return {'status': 'callable', 'span': lines(fn), 'local': self.fn_name(fn), 'detail': d.type}
 
     def node_at(self, sb, eb):
         return self.root.descendant_for_byte_range(sb, eb)
