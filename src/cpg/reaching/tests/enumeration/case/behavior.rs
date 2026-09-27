@@ -124,18 +124,11 @@ pub(super) fn assert_ruling(
         ),
         Some(Ruling::Classified) if is_binding => {
             assert!(
-                case.expect
-                    .iter()
-                    .any(|(_, _, label)| matches!(label, FlowConfidence::Exact)),
-                "{}: classified binding behavior needs Exact",
-                case.id
-            );
-            assert!(
-                case.expect.iter().any(|(_, _, label)| matches!(
+                case.expect.iter().all(|(_, _, label)| matches!(
                     label,
-                    FlowConfidence::NameOnly(FlowDoubt::Killed { .. })
+                    FlowConfidence::Exact | FlowConfidence::NameOnly(FlowDoubt::Killed { .. })
                 )),
-                "{}: classified binding behavior needs Killed",
+                "{}: classified binding behavior must be Exact or Killed",
                 case.id
             );
         }
@@ -194,6 +187,45 @@ pub(super) fn assert_row_case_identities() {
     expected.sort_by_key(|entry| format!("{entry:?}"));
     actual.sort_by_key(|entry| format!("{entry:?}"));
     assert_eq!(actual, expected, "case identities");
+    for language in Language::all() {
+        for row in rows(language).iter().filter(|row| {
+            row.ruling == Ruling::Classified
+                && row
+                    .roles
+                    .has(crate::cpg::reaching::binding_table::Role::Binding)
+        }) {
+            let row_cases: Vec<_> = cases
+                .iter()
+                .filter(|case| {
+                    case.language == language
+                        && case.kind == row.kind
+                        && case.row_variant == row.variant
+                        && case.class == CaseClass::Behavioral
+                })
+                .collect();
+            if !row_cases.iter().any(|case| case.id == row.regression) {
+                continue;
+            }
+            assert!(
+                row_cases
+                    .iter()
+                    .flat_map(|case| case.expect)
+                    .any(|(_, _, label)| { matches!(label, FlowConfidence::Exact) }),
+                "{language:?} {}: classified binding cases need Exact preservation",
+                row.kind
+            );
+            assert!(
+                row_cases
+                    .iter()
+                    .flat_map(|case| case.expect)
+                    .any(|(_, _, label)| {
+                        matches!(label, FlowConfidence::NameOnly(FlowDoubt::Killed { .. }))
+                    }),
+                "{language:?} {}: classified binding cases need Killed masking",
+                row.kind
+            );
+        }
+    }
     for case in cases {
         check_case(case);
     }

@@ -210,9 +210,27 @@ pub(crate) fn rows(language: Language) -> &'static [BindingRow] {
             $cell.get_or_init(|| $base.iter().chain($wave).copied().collect())
         }};
     }
+    macro_rules! combined3 {
+        ($cell:ident, $first:expr, $second:expr, $third:expr) => {{
+            static $cell: OnceLock<Vec<BindingRow>> = OnceLock::new();
+            $cell.get_or_init(|| {
+                $first
+                    .iter()
+                    .chain($second)
+                    .chain($third)
+                    .copied()
+                    .collect()
+            })
+        }};
+    }
     match language {
         Language::Python => combined!(PYTHON_ROWS, python::ROWS, python_wave::ROWS),
-        Language::JavaScript => combined!(JAVASCRIPT_ROWS, javascript::ROWS, javascript_wave::ROWS),
+        Language::JavaScript => combined3!(
+            JAVASCRIPT_ROWS,
+            javascript::ROWS,
+            javascript_wave::CLASSIFIED_ROWS,
+            javascript_wave::ROWS
+        ),
         Language::TypeScript => combined!(TYPESCRIPT_ROWS, javascript::ROWS, typescript_wave::ROWS),
         Language::Tsx => combined!(TSX_ROWS, javascript::ROWS, tsx_wave::ROWS),
         Language::Go => combined!(GO_ROWS, go::ROWS, go_wave::ROWS),

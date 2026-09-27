@@ -176,6 +176,14 @@ pub(crate) fn reaching_definitions_with_exact(
     outcome
 }
 
+pub(crate) fn classified_masked_reads(
+    parsed: &ParsedFile,
+    func_node: &Node<'_>,
+    spans: &[crate::ast::PathSpan],
+) -> Vec<crate::ast::PathSpan> {
+    scope::classified_masked_reads(parsed, func_node, spans)
+}
+
 fn reaching_definitions_impl(
     parsed: &ParsedFile,
     func_node: &Node<'_>,

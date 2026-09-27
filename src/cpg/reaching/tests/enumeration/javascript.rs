@@ -87,6 +87,194 @@ pub(super) const CASES: &[super::case::Case] = &[
         ],
         expect_counter: Some(("dfg_label_exact", 2)),
     },
+    super::case::Case {
+        id: "js-catch-param-masks-declared",
+        language: Language::JavaScript,
+        kind: "catch_clause",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "function f() {\n  let x = source();\n  try { risky(); } catch (x) { sink(x); }\n}\n",
+        expect: &[(
+            "2:x",
+            "3:x",
+            FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+        )],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "js-catch-param-masks-undeclared",
+        language: Language::JavaScript,
+        kind: "catch_clause",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "function f() {\n  x = source();\n  try { risky(); } catch (x) { sink(x); }\n}\n",
+        expect: &[(
+            "2:x",
+            "3:x",
+            FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+        )],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "js-catch-after-try-preserved",
+        language: Language::JavaScript,
+        kind: "catch_clause",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "function f() {\n  let x = source();\n  try { risky(); } catch (x) { consume(x); }\n  sink(x);\n}\n",
+        expect: &[("2:x", "4:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    super::case::Case {
+        id: "js-catch-param-assignment-keeps-binding",
+        language: Language::JavaScript,
+        kind: "catch_clause",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "function f() {\n  try { risky(); } catch (x) {\n    x = source();\n    sink(x);\n  }\n}\n",
+        expect: &[("3:x", "4:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    super::case::Case {
+        id: "js-catch-outer-name-assignment-preserved",
+        language: Language::JavaScript,
+        kind: "catch_clause",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "function f() {\n  try { risky(); } catch (x) { y = source(); }\n  sink(y);\n}\n",
+        expect: &[("2:y", "3:y", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    super::case::Case {
+        id: "js-catch-object-rename-masks-value-only",
+        language: Language::JavaScript,
+        kind: "catch_clause",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "function f() {\n  x = source();\n  y = source();\n  try { risky(); } catch ({x: y}) { sink(x); sink(y); }\n}\n",
+        expect: &[
+            ("2:x", "4:x", FlowConfidence::Exact),
+            (
+                "3:y",
+                "4:y",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }),
+            ),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "js-catch-array-default-masks-left-only",
+        language: Language::JavaScript,
+        kind: "catch_clause",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "function f() {\n  x = source();\n  y = source();\n  try { risky(); } catch ([y = x]) { sink(x); sink(y); }\n}\n",
+        expect: &[
+            ("2:x", "4:x", FlowConfidence::Exact),
+            (
+                "3:y",
+                "4:y",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }),
+            ),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "js-catch-object-shorthand-masks-name",
+        language: Language::JavaScript,
+        kind: "catch_clause",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "function f() {\n  x = source();\n  try { risky(); } catch ({x}) { sink(x); }\n}\n",
+        expect: &[(
+            "2:x",
+            "3:x",
+            FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+        )],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "js-catch-underscore-masks-name",
+        language: Language::JavaScript,
+        kind: "catch_clause",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "function f() {\n  _ = source();\n  try { risky(); } catch (_) { sink(_); }\n}\n",
+        expect: &[(
+            "2:_",
+            "3:_",
+            FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+        )],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "js-catch-multiline-param-kill-line-is-construct",
+        language: Language::JavaScript,
+        kind: "catch_clause",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "function f() {\n  x = source();\n  try { risky(); } catch (\n    x\n  ) { sink(x); }\n}\n",
+        expect: &[(
+            "2:x",
+            "5:x",
+            FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+        )],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "js-catch-var-redecl-writes-simple-param",
+        language: Language::JavaScript,
+        kind: "catch_clause",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "function f() {\n  try { risky(); } catch (x) {\n    var x = source();\n    sink(x);\n  }\n}\n",
+        expect: &[("3:x", "4:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    super::case::Case {
+        id: "js-catch-nested-var-redecl-writes-simple-param",
+        language: Language::JavaScript,
+        kind: "catch_clause",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "function f() {\n  try { risky(); } catch (x) {\n    {\n      var x = source();\n      sink(x);\n    }\n  }\n}\n",
+        expect: &[("4:x", "5:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    super::case::Case {
+        id: "js-catch-for-var-redecl-writes-simple-param",
+        language: Language::JavaScript,
+        kind: "catch_clause",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "function f() {\n  try { risky(); } catch (x) {\n    for (var x = source(); ready; step()) {\n      sink(x);\n    }\n  }\n}\n",
+        expect: &[("3:x", "4:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    super::case::Case {
+        id: "js-catch-different-var-keeps-function-binding",
+        language: Language::JavaScript,
+        kind: "catch_clause",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "function f() {\n  try { risky(); } catch (x) { var y = source(); }\n  sink(y);\n}\n",
+        expect: &[("2:y", "3:y", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
 ];
 pub(super) const CURATED: &[(&str, &str)] = &[
     ("statement_block", "e0a-js-statement_block"),
@@ -121,13 +309,22 @@ fn javascript_rows_reproduce_the_old_match_arms() {
             "{language:?}: shared curated prefix"
         );
     }
-    assert!(javascript_rows[curated_len..].iter().all(|row| matches!(
-        row.ruling,
-        Ruling::Uncertain {
-            reason: "not yet curated",
-            ..
-        }
-    )));
+    let catch = &javascript_rows[curated_len];
+    assert_eq!(catch.kind, "catch_clause");
+    assert_eq!(catch.declaration, Some(DeclarationKind::Other));
+    assert!(catch.roles.has(Role::Binding));
+    assert!(catch.roles.has(Role::Scope));
+    assert_eq!(catch.fields, &["parameter"]);
+    assert_eq!(catch.visibility, Visibility::WholeScope);
+    assert!(javascript_rows[curated_len + 1..]
+        .iter()
+        .all(|row| matches!(
+            row.ruling,
+            Ruling::Uncertain {
+                reason: "not yet curated",
+                ..
+            }
+        )));
 
     for k in [
         "statement_block",
