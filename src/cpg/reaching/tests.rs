@@ -563,5 +563,6 @@ mod captures;
 mod cfg_joins;
 mod enumeration;
 mod fix1;
+mod fix2;
 mod limits;
 mod review_regressions;

@@ -2,7 +2,7 @@
 
 use super::binding_table::{select_binding_row, DeclarationKind, Role, Ruling};
 use super::grammar_lint::ByteSpan;
-use super::scope::BindingFacts;
+use super::scope::{BindingFacts, BindingRelation};
 use super::{CfgView, DefId, DefSite, Line};
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
@@ -30,7 +30,6 @@ pub(super) struct HeaderSpan {
     initializer_span: Option<ByteSpan>,
     path: AccessPath,
     kind: DeclarationKind,
-    identifier_byte: usize,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -264,7 +263,6 @@ pub(super) fn binding_metadata(
             initializer_span: binder.initializer_span,
             path: binder.path.clone(),
             kind: binder.kind,
-            identifier_byte: binder.identifier_byte,
         });
         let Some(body) = binder.body_span else {
             continue;
@@ -318,13 +316,23 @@ impl BindingFacts {
             .min()
     }
 
-    pub(super) fn header_shadow(&self, edge: &FlowEdge, use_byte: usize) -> Option<Line> {
+    pub(super) fn header_shadow(
+        &self,
+        parsed: &ParsedFile,
+        edge: &FlowEdge,
+        use_byte: usize,
+        candidates: &[usize],
+    ) -> Option<Line> {
         self.header_spans
             .iter()
             .filter(|span| span.kind == DeclarationKind::GoShort)
             .filter(|span| span.path == edge.to.path)
-            .filter(|span| span.identifier_byte != edge.from.start_byte)
             .filter(|span| span.body_span.is_some_and(|body| body.contains(use_byte)))
+            .filter(|span| {
+                candidates.iter().any(|index| {
+                    self.relation(parsed, edge, *index) == BindingRelation::KilledAt(span.node_line)
+                })
+            })
             .map(|span| span.node_line)
             .min()
     }
