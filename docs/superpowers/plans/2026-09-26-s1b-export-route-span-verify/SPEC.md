@@ -14,6 +14,20 @@ and is in model.
 
 ## 0. Owner decisions
 
+> **Owner answers to the re-plan (`REPLAN-fable.md` §6), 2026-09-26. These are authoritative and supersede every
+> "pending owner choice" marker below.**
+>
+> - **OQ1 = (a):** keep base behavior (`JsLocalBinding::Unchecked`, counted) at unproven positions. This is Option K.
+> - **OQ2 = (a):** the leave predicate. Modeling TS merging becomes a follow-up lane.
+> - **OQ3 = (a):** five sub-slices, S1b-1 / 2a / 2b / 3 / 4, with the re-plan caps.
+> - **OQ4:** one owner-approved **spec round 3** on this packet. There is no round 4; non-convergence goes back to
+>   the owner.
+> - **OQ5 = (a):** fold string-literal export names (`ModuleExportName`) into 2b.
+> - **OQ6:** S1b-1 is unchanged by the re-plan. Its implementation (branch `feat/s1b-1-intrinsic-guard`,
+>   `9a26164a`) found that F3 already removes C128's wrong R3 edge, so C128 moves from S1b-4's list to S1b-1's.
+> - **OQ7 = (a):** named class expressions with decorators are unproven, which gives base behavior.
+
+
 > **Status after spec round 2 (the cap), 2026-09-26.** Both round-2 reviews
 > (`~/prism-evidence/s1b/reviews/spec-r2-{opus,sol}.md`) found new *semantic* misses in kinds the table had
 > classified: TS namespace merging and computed method names. Each yields a wrong Exact edge, which the B0 allowlist
