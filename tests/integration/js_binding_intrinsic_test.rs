@@ -45,10 +45,13 @@ fn a3_f2_f3_parameter_bindings_shadow_cross_file_functions() {
     // F2 (C124, parameter form): `{ f = … }` in a parameter pattern binds `f`.
     let f = "export function f() {\n  return 1;\n}\n";
     let f2 = "export function caller({ f = () => 2 } = {}) {\n  return f();\n}\n";
+    // F3 through the R3 qualifier guard (C128): the qualifier is the arrow's parameter.
+    let c128 = "import * as Lib from './lib';\nexport const host = Lib => Lib.f();\n";
     check(
         &[
             (x, f3, &["L1 x: drop UnknownName"]),
             (f, f2, &["L2 f: drop UnknownName"]),
+            (f, c128, &["L2 f: drop UnknownName"]),
         ],
         BOTH,
     );
