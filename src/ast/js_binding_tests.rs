@@ -353,3 +353,130 @@ fn b18_module_terminal_consumes_markers_and_unknown_strictness() {
         vec![("C111 module scope", &module, "inner", site, outer)],
     );
 }
+
+const NC: JsBinding = JsBinding::Refused("not_callable");
+const MAY: JsBinding = JsBinding::MayCall;
+const UNBOUND: JsBinding = JsBinding::Refused("unbound");
+
+/// Rows for the name `f`, sited at the program node (these sources parse cleanly).
+fn check_f(paths: &[&str], rows: Vec<(&str, &str, JsBinding)>) {
+    let rows = rows
+        .into_iter()
+        .map(|(id, src, want)| (id, src, "f", src, want));
+    check(paths, false, rows.collect());
+}
+
+const CATCH_VAR: &str = "function f() {}\ntry {} catch (f) {\n  var f = () => 2;\n}\n";
+const WITH_VAR: &str = "function f() {}\nwith (o) {\n  var f = () => 2;\n}\n";
+const MEMO: &str = "import { memo } from 'react';\nconst f = memo(() => 1);\n";
+
+#[test]
+fn table_declarations_at_module_scope() {
+    let fe = callable("f", 1, 1);
+    let wrapped = JsBinding::Callable(JsTerminal {
+        local: "f".to_string(),
+        start_line: 2,
+        end_line: 2,
+        wrapped: true,
+    });
+    let let_memo = MEMO.replace("const", "let");
+    let rows = vec![
+        ("D1 function", "function f() {}", fe.clone()),
+        ("D1 generator", "function* f() {}", fe.clone()),
+        ("D1 async", "async function f() {}", fe.clone()),
+        ("D2 class", "class f {}", NC),
+        ("D3 labelled", "l: function f() {}", fe.clone()),
+        ("D4 let arrow", "let f = () => 1;", fe.clone()),
+        ("D4 const fe", "const f = function () {};", fe.clone()),
+        ("D4 block lexical", "{\n  const f = () => 1;\n}\n", UNBOUND),
+        ("D4 value", "const f = 1;", NC),
+        ("D5 named", "import { f } from './x';", NC),
+        ("D5 renamed", "import { g as f } from './x';", NC),
+        ("D5 default", "import f from './x';", NC),
+        ("D5 namespace", "import * as f from './x';", NC),
+        (
+            "D7 block var",
+            "if (x) {\n  var f = () => 1;\n}\n",
+            callable("f", 2, 2),
+        ),
+        ("D7 for-in var", "for (var f in o) {}", NC),
+        ("D7 for-of var", "for (var f of o) {}", NC),
+        ("D7 catch marker", CATCH_VAR, DUP),
+        ("D7 with marker", WITH_VAR, DUP),
+        ("P1 object", "const { f } = o;", NC),
+        ("P1 array", "const [f] = a;", NC),
+        ("P1 pair", "const { a: f } = o;", NC),
+        ("P1 default", "const { f = () => 1 } = o;", NC),
+        ("P1 rest", "const { ...f } = o;", NC),
+        ("P1 var pattern", "function f() {}\nvar { f } = o;", DUP),
+        (
+            "B3 assignment chain",
+            "var f = (M.g = function () {});",
+            callable("g", 1, 1),
+        ),
+        (
+            "B3 parenthesized",
+            "const f = (() => 1);",
+            JsBinding::Refused("unindexed"),
+        ),
+        ("B3 wrapper", MEMO, wrapped),
+        ("M1 let wrapper", &let_memo, MAY),
+        ("M1 function argument", "const f = throttle(() => 1);", MAY),
+        ("M1 no function argument", "const f = make();", NC),
+        ("unbound", "g();", UNBOUND),
+    ];
+    check_f(&BOTH, rows);
+}
+
+#[test]
+fn table_writes_make_may_call() {
+    let rows = vec![
+        ("W1 assignment", "function f() {}\nf = g;", MAY),
+        ("W1 update", "let f = () => 1;\nf++;", MAY),
+        ("W1 augmented", "let f = () => 1;\nf += 1;", MAY),
+        ("W1 destructuring", "let f = () => 1;\n({ f } = o);", MAY),
+        ("W1 for-in head", "let f = () => 1;\nfor (f in o) {}", MAY),
+        (
+            "W1 shadowed",
+            "let f = () => 1;\nfunction g(f) {\n  f = 1;\n}\n",
+            callable("f", 1, 1),
+        ),
+    ];
+    check_f(&BOTH, rows);
+    let rows = vec![
+        ("W1 as", "let f = () => 1;\n(f as any) = g;", MAY),
+        ("W1 non-null", "let f = () => 1;\nf! = g;", MAY),
+    ];
+    check_f(&TS, rows);
+}
+
+#[test]
+fn table_typescript_value_space() {
+    let rows = vec![
+        ("D2 abstract class", "abstract class f {}", NC),
+        ("D6 enum", "enum f {\n  A,\n}\n", NC),
+        ("D6 namespace", "namespace f {}", NC),
+        ("D6 dotted namespace", "namespace f.g {}", NC),
+        ("D6 declare function", "declare function f(): void;", NC),
+        ("D6 declare const", "declare const f: () => void;", NC),
+        (
+            "D6 overload",
+            "function f(a: string): void;\nfunction f(a: any) {}",
+            callable("f", 2, 2),
+        ),
+        ("D5 import alias", "import f = M.g;", NC),
+        ("D5 import require", "import f = require('x');", NC),
+        // A `using` binding is declared (D4; undeclared it would be `unbound`), but the base
+        // module write scan the SPEC prescribes at module scope (§3.2) reads the declaration's
+        // assignment form as a write, so M2 keeps base behavior. W1's `using` exclusion lives in
+        // the scoped scan S1b-3 adds.
+        ("D4 using", "using f = res();", MAY),
+        (
+            "D4 using function argument",
+            "using f = wrap(() => 1);",
+            MAY,
+        ),
+        ("D4 using arrow", "using f = () => 1;", MAY),
+    ];
+    check_f(&TS, rows);
+}
