@@ -4999,7 +4999,8 @@ impl ParsedFile {
         match node.kind() {
             "identifier" | "shorthand_property_identifier_pattern" => {
                 let name = self.node_text(&node);
-                if is_plain_ident(name) {
+                // S1b-1b: `$` is a JS identifier character (`const $ = …`, `{ $f }`).
+                if is_plain_ident(&name.replace('$', "_")) {
                     out.insert(name.to_string());
                 }
             }
