@@ -1,6 +1,8 @@
 //! S1b-2a unit rows (SPEC §7, IMPLEMENTOR "S1b-2a dispatch"): the module terminal's binding
 //! for a name, not an edge (S1b-2b re-asserts these rows as edges). Every row runs in the
-//! JavaScript grammar and the TSX grammar unless it is TS-only or a `.cjs` row.
+//! JavaScript grammar and the TSX grammar unless it is TS-only or a `.cjs` row. Sources are
+//! the controls' (`probes/controls_gen.py` ids), moved to module scope where the control's
+//! site is nested.
 use super::{JsBinding, JsBindingCache, JsTerminal, Strictness, CLASSIFIED};
 use crate::ast::ParsedFile;
 use crate::languages::Language;
@@ -9,6 +11,8 @@ use tree_sitter::Node;
 
 const BOTH: [&str; 2] = ["a.js", "a.tsx"];
 const TS: [&str; 2] = ["a.ts", "a.tsx"];
+const DUP: JsBinding = JsBinding::Refused("duplicate_declaration");
+const PARSE: JsBinding = JsBinding::Refused("parse_recovery");
 
 fn parse(path: &str, src: &str) -> ParsedFile {
     let lang = match path.rsplit('.').next() {
@@ -36,9 +40,6 @@ fn callable(local: &str, start_line: usize, end_line: usize) -> JsBinding {
     })
 }
 
-const DUP: JsBinding = JsBinding::Refused("duplicate_declaration");
-const PARSE: JsBinding = JsBinding::Refused("parse_recovery");
-
 /// `(control id, source, name, site text, expected)`.
 type Row<'s> = (&'s str, &'s str, &'s str, &'s str, JsBinding);
 
@@ -51,7 +52,8 @@ fn check(paths: &[&str], errors: bool, rows: Vec<Row<'_>>) {
         for (id, src, name, at, want) in &rows {
             let p = parse(path, src);
             assert_eq!(p.tree.root_node().has_error(), errors, "{id} {path}: parse");
-            let got = p.js_ts_module_binding(name, node_at(&p, at), &mut JsBindingCache::default());
+            let mut cache = JsBindingCache::default();
+            let got = p.js_ts_module_binding(name, node_at(&p, at), &mut cache);
             if got != *want {
                 wrong.push(format!("{id} {path} `{name}`: got {got:?}, want {want:?}"));
             }
@@ -60,121 +62,125 @@ fn check(paths: &[&str], errors: bool, rows: Vec<Row<'_>>) {
     assert!(wrong.is_empty(), "wrong bindings:\n{}", wrong.join("\n"));
 }
 
+const C74: &str = "var f = () => 1;\nvar f = () => 2;\nexport { f };\n";
+const C75: &str = "export function f() {\n  return 1;\n}\nif (globalThis.x) {\n  var f = 2;\n}\n";
+
 #[test]
 fn b4_duplicate_declarations_refuse() {
-    check(
-        &BOTH,
-        false,
-        vec![
-            (
-                "C74",
-                "var f = () => 1;\nvar f = () => 2;\nexport { f };\n",
-                "f",
-                "export { f }",
-                DUP,
-            ),
-            (
-                "C75",
-                "export function f() {\n  return 1;\n}\nif (globalThis.x) {\n  var f = 2;\n}\n",
-                "f",
-                "export function f",
-                DUP,
-            ),
-        ],
-    );
+    let rows = vec![
+        ("C74", C74, "f", "export { f }", DUP),
+        ("C75", C75, "f", "export function f", DUP),
+    ];
+    check(&BOTH, false, rows);
 }
 
 #[test]
 fn b5_named_function_expression_binds_by_its_own_name() {
-    let src = "const f = function g() {\n  return 1;\n};\nexport { f };\n";
+    let c78 = "const f = function g() {\n  return 1;\n};\nexport { f };\n";
     check(
         &BOTH,
         false,
-        vec![("C78", src, "f", "export { f }", callable("g", 1, 3))],
+        vec![("C78", c78, "f", "export { f }", callable("g", 1, 3))],
     );
 }
 
+const F: &str = "export function f() {\n  return 1;\n}\n";
+const C79: &str = "export function broken() {\n  return <div>{</div>;\n}\n";
+const C149: &str = "export function broken() {\n  let x = ;\n  return x;\n}\n";
+const C150: &str = "export function broken() {\n  let f = ;\n  return f;\n}\n";
+/// B1 (i): an `ERROR` holding a `{` token, and a `MISSING` brace, both sealed by (ii).
+const TOKEN: &str = "function broken() {\n  let x = 1 {;\n  return x;\n}\n";
+const MISSING: &str = "function broken() {\n  let x = ( { );\n}\n";
+
 #[test]
 fn b6_parse_recovery_refuses_unless_sealed() {
-    let c79 = "export function f() {\n  return 1;\n}\nexport function broken() {\n  return <div>{</div>;\n}\n";
-    let c149 = "export function f() {\n  return 1;\n}\nexport function broken() {\n  let x = ;\n  return x;\n}\n";
-    let c150 = "export function f() {\n  return 1;\n}\nexport function broken() {\n  let f = ;\n  return f;\n}\n";
+    let (c79, c149, c150) = (F.to_owned() + C79, F.to_owned() + C149, F.to_owned() + C150);
     let site = "export function f";
-    check(
-        &BOTH,
-        true,
-        vec![
-            ("C79", c79, "f", site, PARSE),
-            ("C149", c149, "f", site, callable("f", 1, 3)),
-            ("C150", c150, "f", site, callable("f", 1, 3)),
-        ],
-    );
+    let rows = vec![
+        ("C79", c79.as_str(), "f", site, PARSE),
+        ("C149", &c149, "f", site, callable("f", 1, 3)),
+        ("C150", &c150, "f", site, callable("f", 1, 3)),
+    ];
+    check(&BOTH, true, rows);
 }
 
 #[test]
 fn b1_structural_braces_in_a_sealed_error_refuse() {
-    let token = "function broken() {\n  let x = 1 {;\n  return x;\n}\nexport function f() {\n  return 1;\n}\n";
-    let missing =
-        "function broken() {\n  let x = ( { );\n}\nexport function f() {\n  return 1;\n}\n";
+    let (token, missing) = (TOKEN.to_owned() + F, MISSING.to_owned() + F);
     let site = "export function f";
-    check(
-        &BOTH,
-        true,
-        vec![
-            ("B1(i) ERROR token", token, "f", site, PARSE),
-            ("B1(i) MISSING brace", missing, "f", site, PARSE),
-        ],
-    );
+    let rows = vec![
+        ("B1(i) ERROR token", token.as_str(), "f", site, PARSE),
+        ("B1(i) MISSING brace", &missing, "f", site, PARSE),
+    ];
+    check(&BOTH, true, rows);
 }
+
+const RUN: &str = "export function run() {\n  return f() + g();\n}\n";
+const C143: &str = "function f() {\n  return 1;\n}\ntype f = number;\ninterface g {}\n\
+    function g() {\n  return 2;\n}\n";
+const C144: &str = "import type { f } from './t';\nfunction f() {\n  return 1;\n}\n";
+const C144B: &str = "import { type f } from './t';\nfunction f() {\n  return 1;\n}\n";
+const C146: &str =
+    "export const Button = () => null;\nexport interface Button {\n  x: number;\n}\n";
 
 #[test]
 fn b8_type_space_declares_nothing() {
-    let c143 = "function f() {\n  return 1;\n}\ntype f = number;\ninterface g {}\nfunction g() {\n  return 2;\n}\nexport function run() {\n  return f() + g();\n}\n";
-    let c144 = "import type { f } from './t';\nfunction f() {\n  return 1;\n}\nexport function run() {\n  return f();\n}\n";
-    let c144b = "import { type f } from './t';\nfunction f() {\n  return 1;\n}\nexport function run() {\n  return f();\n}\n";
-    let c146 = "export const Button = () => null;\nexport interface Button {\n  x: number;\n}\n";
-    let site = "export function run";
-    check(
-        &TS,
-        false,
-        vec![
-            ("C143 type", c143, "f", site, callable("f", 1, 3)),
-            ("C143 interface", c143, "g", site, callable("g", 6, 8)),
-            ("C144", c144, "f", site, callable("f", 2, 4)),
-            ("C144 specifier", c144b, "f", site, callable("f", 2, 4)),
-            (
-                "C146",
-                c146,
-                "Button",
-                "export interface",
-                callable("Button", 1, 1),
-            ),
-        ],
+    let (c143, c144, c144b) = (
+        C143.to_owned() + RUN,
+        C144.to_owned() + RUN,
+        C144B.to_owned() + RUN,
     );
+    let site = "export function run";
+    let rows = vec![
+        ("C143 type", c143.as_str(), "f", site, callable("f", 1, 3)),
+        ("C143 interface", &c143, "g", site, callable("g", 6, 8)),
+        ("C144", &c144, "f", site, callable("f", 2, 4)),
+        ("C144 specifier", &c144b, "f", site, callable("f", 2, 4)),
+        (
+            "C146",
+            C146,
+            "Button",
+            "export interface",
+            callable("Button", 1, 1),
+        ),
+    ];
+    check(&TS, false, rows);
 }
+
+/// RP2-a: the error sits in an arrow's header, not in a delimited child; the first delimited
+/// ancestor is `run`'s body, and `run` holds the site.
+const RP2A: &str = "function f() { return 1; }\n\
+    function run() { let f = 3 ) ` const g = () => { return 2; }; f(); }\n";
 
 #[test]
 fn b14_header_error_is_not_sealed() {
-    // RP2-a: the error sits in an arrow's header, not in a delimited child; the first
-    // delimited ancestor is `run`'s body, and `run` holds the site.
-    let src = "function f() { return 1; }\nfunction run() { let f = 3 ) ` const g = () => { return 2; }; f(); }\n";
-    check(&BOTH, true, vec![("RP2-a", src, "f", "f(); }", PARSE)]);
+    check(&BOTH, true, vec![("RP2-a", RP2A, "f", "f(); }", PARSE)]);
 }
+
+/// RP2-b: an error holding a string whose text is a brace.
+const RP2B: &str = "function f() { return 1; }\nfunction broken() {\n  const x = \"{\" \"y\";\n\
+    return x;\n}\nexport function run() {\n  return f();\n}\n";
 
 #[test]
 fn b15_string_braces_never_break_the_brace_condition() {
-    // RP2-b, both quote forms: the error holds a string whose text is a brace.
-    let double = "function f() { return 1; }\nfunction broken() {\n  const x = \"{\" \"y\";\n  return x;\n}\nexport function run() {\n  return f();\n}\n";
-    let single = "function f() { return 1; }\nfunction broken() {\n  const x = '{' 'y';\n  return x;\n}\nexport function run() {\n  return f();\n}\n";
-    let site = "return f();";
-    check(
-        &BOTH,
-        true,
-        vec![
-            ("RP2-b double", double, "f", site, callable("f", 1, 1)),
-            ("RP2-b single", single, "f", site, callable("f", 1, 1)),
-        ],
-    );
+    let single = RP2B.replace('"', "'");
+    let rows = vec![
+        (
+            "RP2-b double",
+            RP2B,
+            "f",
+            "return f();",
+            callable("f", 1, 1),
+        ),
+        (
+            "RP2-b single",
+            &single,
+            "f",
+            "return f();",
+            callable("f", 1, 1),
+        ),
+    ];
+    check(&BOTH, true, rows);
 }
 
 #[test]
@@ -205,100 +211,48 @@ fn b10_classified_equals_the_pinned_grammars_named_kinds() {
     assert_eq!((missing, extra, runtime.len()), (vec![], vec![], 186));
 }
 
-/// `(path, source, site text, expected)`; the node spelled by the site text starts the walk.
-type StrictRow = (&'static str, &'static str, &'static str, Strictness);
+const PLAIN: &str = "function run() {\n  g();\n}\n";
+const IMPORTS: &str = "import x from 'y';\nfunction run() {\n  g();\n}\n";
+const EXPORTS: &str = "function run() {\n  g();\n}\nexport {};\n";
+const DIRECTIVE: &str = "'use strict';\nfunction run() {\n  g();\n}\n";
+const COMMENTED: &str = "// header\n\"use strict\";\nfunction run() {\n  g();\n}\n";
+const FN_DIRECTIVE: &str = "function run() {\n  'use strict';\n  if (x) {\n    g();\n  }\n}\n";
+const CLASS: &str = "class C {\n  m() {\n    g();\n  }\n}\n";
+const ESCAPED: &str = "function run() {\n  'use\\x20strict';\n  g();\n}\n";
+const LATE: &str = "g();\n'use strict';\n";
 
 #[test]
 fn b18_strictness_predicate() {
     use Strictness::{Sloppy, Strict, Unknown};
-    let plain = "function run() {\n  g();\n}\n";
-    let rows: Vec<StrictRow> = vec![
-        (
-            "a.js",
-            "import x from 'y';\nfunction run() {\n  g();\n}\n",
-            "g();",
-            Strict,
-        ),
-        (
-            "a.tsx",
-            "import x from 'y';\nfunction run() {\n  g();\n}\n",
-            "g();",
-            Strict,
-        ),
-        (
-            "a.js",
-            "function run() {\n  g();\n}\nexport {};\n",
-            "g();",
-            Strict,
-        ),
-        (
-            "a.tsx",
-            "function run() {\n  g();\n}\nexport {};\n",
-            "g();",
-            Strict,
-        ),
-        ("a.mjs", plain, "g();", Strict),
-        ("a.mts", plain, "g();", Strict),
-        (
-            "a.js",
-            "'use strict';\nfunction run() {\n  g();\n}\n",
-            "g();",
-            Strict,
-        ),
-        (
-            "a.tsx",
-            "\"use strict\";\nfunction run() {\n  g();\n}\n",
-            "g();",
-            Strict,
-        ),
-        (
-            "a.js",
-            "// header\n\"use strict\";\nfunction run() {\n  g();\n}\n",
-            "g();",
-            Strict,
-        ),
-        (
-            "a.js",
-            "function run() {\n  'use strict';\n  if (x) {\n    g();\n  }\n}\n",
-            "g();",
-            Strict,
-        ),
-        (
-            "a.tsx",
-            "function run() {\n  \"use strict\";\n  if (x) {\n    g();\n  }\n}\n",
-            "g();",
-            Strict,
-        ),
-        (
-            "a.cjs",
-            "class C {\n  m() {\n    g();\n  }\n}\n",
-            "g();",
-            Strict,
-        ),
-        (
-            "a.tsx",
-            "class C {\n  m() {\n    g();\n  }\n}\n",
-            "g();",
-            Strict,
-        ),
-        ("a.cjs", plain, "g();", Sloppy),
-        (
-            "a.cjs",
-            "function run() {\n  'use\\x20strict';\n  g();\n}\n",
-            "g();",
-            Sloppy,
-        ),
-        ("a.js", plain, "g();", Unknown),
-        ("a.tsx", plain, "g();", Unknown),
-        ("a.ts", plain, "g();", Unknown),
-        ("a.js", "g();\n'use strict';\n", "g();", Unknown),
-        ("a.tsx", "g();\n'use strict';\n", "g();", Unknown),
+    let quoted = FN_DIRECTIVE.replace('\'', "\"");
+    let rows = [
+        ("a.js", IMPORTS, Strict),
+        ("a.tsx", IMPORTS, Strict),
+        ("a.js", EXPORTS, Strict),
+        ("a.tsx", EXPORTS, Strict),
+        ("a.mjs", PLAIN, Strict),
+        ("a.mts", PLAIN, Strict),
+        ("a.js", DIRECTIVE, Strict),
+        ("a.tsx", DIRECTIVE, Strict),
+        ("a.js", COMMENTED, Strict),
+        ("a.tsx", COMMENTED, Strict),
+        ("a.js", FN_DIRECTIVE, Strict),
+        ("a.tsx", &quoted, Strict),
+        ("a.cjs", CLASS, Strict),
+        ("a.tsx", CLASS, Strict),
+        ("a.cjs", PLAIN, Sloppy),
+        ("a.cjs", ESCAPED, Sloppy),
+        ("a.js", PLAIN, Unknown),
+        ("a.tsx", PLAIN, Unknown),
+        ("a.ts", PLAIN, Unknown),
+        ("a.js", LATE, Unknown),
+        ("a.tsx", LATE, Unknown),
     ];
     let mut wrong = Vec::new();
-    for (path, src, at, want) in rows {
+    for (path, src, want) in rows {
         let p = parse(path, src);
         assert!(!p.tree.root_node().has_error(), "{path} {src:?}: parse");
-        let got = p.js_ts_strictness(node_at(&p, at));
+        let got = p.js_ts_strictness(node_at(&p, "g();"));
         if got != want {
             wrong.push(format!("{path} {src:?}: got {got:?}, want {want:?}"));
         }
@@ -306,7 +260,9 @@ fn b18_strictness_predicate() {
     assert!(wrong.is_empty(), "wrong strictness:\n{}", wrong.join("\n"));
 }
 
-const BLOCK_FN: &str = "function inner() {\n  return 0;\n}\nfunction run(flag) {\n  if (flag) {\n    function inner() {\n      return 1;\n    }\n  }\n  return inner();\n}\n";
+const BLOCK_FN: &str =
+    "function inner() {\n  return 0;\n}\nfunction run(flag) {\n  if (flag) {\n    \
+    function inner() {\n      return 1;\n    }\n  }\n  return inner();\n}\n";
 
 /// The declaration walk over `run`'s body, hoisting (as for a function body): the kinds of
 /// the nodes it records for `inner`, and the unknown-strictness Annex-B names.
@@ -317,16 +273,13 @@ fn run_body_inner(path: &str, src: &str) -> (Vec<&'static str>, BTreeSet<String>
         let name = p.language.function_name(f);
         name.is_some_and(|n| p.node_text(&n) == "run")
     });
-    let body = run
-        .and_then(|f| f.child_by_field_name("body"))
-        .expect("run's body");
+    let body = run.and_then(|f| f.child_by_field_name("body"));
+    let body = body.expect("run's body");
     let (mut out, mut annex) = (super::Index::new(), BTreeSet::new());
     let mode = (true, true, p.js_ts_strictness(body));
     p.js_ts_declare_walk(body, mode, &BTreeSet::new(), &mut out, &mut annex);
-    let kinds = out
-        .get("inner")
-        .map(|v| v.iter().map(|n| n.kind()).collect());
-    (kinds.unwrap_or_default(), annex)
+    let kinds = out.get("inner").map(|v| v.iter().map(|n| n.kind()));
+    (kinds.map(Iterator::collect).unwrap_or_default(), annex)
 }
 
 #[test]
@@ -335,29 +288,22 @@ fn b18_annex_b_marker_only_in_sloppy_code() {
     let directive = format!("'use strict';\n{BLOCK_FN}");
     let function_directive = BLOCK_FN.replace("(flag) {\n", "(flag) {\n  \"use strict\";\n");
     let generator = BLOCK_FN.replace("function inner", "function* inner");
-    let generator = generator
-        .replace("return 0", "yield 0")
-        .replace("return 1", "yield 1");
     let asynchronous = BLOCK_FN.replace("    function inner", "    async function inner");
     let c159 = BLOCK_FN.replace("(flag)", "(flag: boolean)");
     let none = || (Vec::<&str>::new(), BTreeSet::new());
     let annex = || (Vec::<&str>::new(), BTreeSet::from(["inner".to_string()]));
+    let marker = (vec!["statement_block"], BTreeSet::new());
     let rows = [
-        (
-            "C163",
-            "a.cjs",
-            BLOCK_FN,
-            (vec!["statement_block"], BTreeSet::new()),
-        ),
-        ("C164", "a.cjs", generator.as_str(), none()),
-        ("async", "a.cjs", asynchronous.as_str(), none()),
-        ("C111", "a.js", module.as_str(), none()),
-        ("C111", "a.tsx", module.as_str(), none()),
-        ("C161", "a.js", directive.as_str(), none()),
-        ("C161", "a.tsx", directive.as_str(), none()),
-        ("C162", "a.js", function_directive.as_str(), none()),
-        ("C162", "a.tsx", function_directive.as_str(), none()),
-        ("C159", "a.ts", c159.as_str(), annex()),
+        ("C163", "a.cjs", BLOCK_FN, marker),
+        ("C164", "a.cjs", &generator, none()),
+        ("async", "a.cjs", &asynchronous, none()),
+        ("C111", "a.js", &module, none()),
+        ("C111", "a.tsx", &module, none()),
+        ("C161", "a.js", &directive, none()),
+        ("C161", "a.tsx", &directive, none()),
+        ("C162", "a.js", &function_directive, none()),
+        ("C162", "a.tsx", &function_directive, none()),
+        ("C159", "a.ts", &c159, annex()),
         ("C160", "a.js", BLOCK_FN, annex()),
         ("C160", "a.tsx", BLOCK_FN, annex()),
     ];
@@ -375,39 +321,35 @@ fn b18_annex_b_marker_only_in_sloppy_code() {
     );
 }
 
+const BLOCK_AT_MODULE: &str = "function inner() {\n  return 0;\n}\nif (flag) {\n\
+    function inner() {\n    return 1;\n  }\n}\n";
+
 #[test]
 fn b18_module_terminal_consumes_markers_and_unknown_strictness() {
-    let block = "function inner() {\n  return 0;\n}\nif (flag) {\n  function inner() {\n    return 1;\n  }\n}\n";
-    let cjs = format!("{block}module.exports = {{ inner }};\n");
+    let cjs = format!("{BLOCK_AT_MODULE}module.exports = {{ inner }};\n");
     let generator = cjs.replace("function inner", "function* inner");
-    let site = "if (flag)";
+    let module = format!("{BLOCK_AT_MODULE}export {{ inner }};\n");
+    let (site, outer) = ("if (flag)", callable("inner", 1, 3));
+    let unknown = JsBinding::Unchecked("annex_b_strictness");
     check(
         &["a.cjs"],
         false,
         vec![("C163 module scope", &cjs, "inner", site, DUP)],
     );
-    let outer = callable("inner", 1, 3);
     check(
         &["a.cjs"],
         false,
         vec![("C164 module scope", &generator, "inner", site, outer)],
     );
-    let unknown = JsBinding::Unchecked("annex_b_strictness");
     check(
         &BOTH,
         false,
-        vec![("C160 module scope", block, "inner", site, unknown)],
+        vec![("C160 module scope", BLOCK_AT_MODULE, "inner", site, unknown)],
     );
-    let module = format!("{block}export {{ inner }};\n");
+    let outer = callable("inner", 1, 3);
     check(
         &BOTH,
         false,
-        vec![(
-            "C111 module scope",
-            &module,
-            "inner",
-            site,
-            callable("inner", 1, 3),
-        )],
+        vec![("C111 module scope", &module, "inner", site, outer)],
     );
 }
