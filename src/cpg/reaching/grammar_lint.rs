@@ -71,7 +71,9 @@ pub(super) fn visibility_span(parsed: &ParsedFile, binder_node: Node<'_>) -> Spa
         {
             return SpanKind::Unknown;
         }
-        let negated = guard_is_negated(parsed, guard, condition);
+        let Some(negated) = guard_is_negated(parsed, guard, condition) else {
+            return SpanKind::Unknown;
+        };
         let mut spans = Vec::new();
         if !negated && row.positive_condition_tail && binder_node.end_byte() < condition.end_byte()
         {
@@ -269,22 +271,34 @@ fn rust_visibility_node(binder_node: Node<'_>) -> Option<Node<'_>> {
     None
 }
 
-fn guard_is_negated(parsed: &ParsedFile, guard: Node<'_>, condition: Node<'_>) -> bool {
+fn guard_is_negated(parsed: &ParsedFile, guard: Node<'_>, condition: Node<'_>) -> Option<bool> {
     let mut current = guard;
     let mut negated = false;
-    while let Some(parent) = current.parent() {
-        if parent.id() == condition.id() {
-            break;
+    loop {
+        if current.id() == condition.id() {
+            return Some(negated);
         }
-        if parent.kind() == "unary_expression" {
-            let is_not = parent
-                .child_by_field_name("operator")
-                .is_some_and(|operator| parsed.node_text(&operator) == "!");
-            negated ^= is_not;
+        let parent = current.parent()?;
+        match parent.kind() {
+            "parenthesized_expression" => {}
+            "unary_expression" => {
+                let operator = parent.child_by_field_name("operator")?;
+                if parsed.node_text(&operator) != "!" {
+                    return None;
+                }
+                negated = !negated;
+            }
+            "binary_expression" => {
+                let operator = parent.child_by_field_name("operator")?;
+                let left = parent.child_by_field_name("left")?;
+                if negated || parsed.node_text(&operator) != "&&" || left.id() != current.id() {
+                    return None;
+                }
+            }
+            _ => return None,
         }
         current = parent;
     }
-    negated
 }
 
 pub(super) fn collect_unclassified_binding_lines(

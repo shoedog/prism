@@ -265,14 +265,7 @@ pub(super) const CASES: &[Case] = &[
         row_variant: None,
         class: CaseClass::Behavioral,
         src: "int f(Object o) {\n    int x = source();\n    if (o instanceof R(var x)) { sink(x); }\n    return x;\n}\n",
-        expect: &[
-            (
-                "2:x",
-                "3:x",
-                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 3 }),
-            ),
-            ("2:x", "4:x", FlowConfidence::Exact),
-        ],
+        expect: &[("2:x", "3:x", ou(3)), ("2:x", "4:x", FlowConfidence::Exact)],
         expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
     },
     Case {
@@ -294,14 +287,7 @@ pub(super) const CASES: &[Case] = &[
         row_variant: None,
         class: CaseClass::Behavioral,
         src: "int f(Object o) {\n    int x = source();\n    if (o instanceof R(var x) && sink(x)) { }\n    return x;\n}\n",
-        expect: &[
-            (
-                "2:x",
-                "3:x",
-                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 3 }),
-            ),
-            ("2:x", "4:x", FlowConfidence::Exact),
-        ],
+        expect: &[("2:x", "3:x", ou(3)), ("2:x", "4:x", FlowConfidence::Exact)],
         expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
     },
     Case {
@@ -323,34 +309,22 @@ pub(super) const CASES: &[Case] = &[
         row_variant: None,
         class: CaseClass::Behavioral,
         src: "f() {\n    x=$(source)\n    for x in a b; do :; done\n    sink \"$x\"\n}\n",
-        expect: &[(
-            "2:x",
-            "4:x",
-            FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 3 }),
-        )],
+        expect: &[("2:x", "4:x", ou(3))],
         expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
     },
 ];
 
-const JAVA_NEGATED_CASE: Case = Case {
-    id: "java-negated-instanceof-branch-aware",
-    language: Language::Java,
-    kind: "record_pattern",
-    variant: None,
-    row_variant: None,
-    class: CaseClass::Behavioral,
-    src: "int f(Object o) {\n    int x = source();\n    if (!(o instanceof R(var x))) {\n        sink(x);\n    } else {\n        consume(x);\n    }\n    return x;\n}\n",
-    expect: &[
+const JAVA_NEGATED_CASE: Case = supplemental_java_case(
+    "java-negated-instanceof-branch-aware",
+    "record_pattern",
+    "int f(Object o) {\n    int x = source();\n    if (!(o instanceof R(var x))) {\n        sink(x);\n    } else {\n        consume(x);\n    }\n    return x;\n}\n",
+    &[
         ("2:x", "4:x", FlowConfidence::Exact),
-        (
-            "2:x",
-            "6:x",
-            FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 3 }),
-        ),
+        ("2:x", "6:x", ou(3)),
         ("2:x", "8:x", FlowConfidence::Exact),
     ],
-    expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
-};
+    1,
+);
 
 const fn supplemental_java_case(
     id: &'static str,
@@ -460,6 +434,14 @@ const JAVA_NEGATED_EMPTY_CASE: Case = supplemental_java_case(
     0,
 );
 
+const JAVA_MIXED_COMPOUND_CASE: Case = supplemental_java_case(
+    "e0c-1-java-mixed-compound-unknown",
+    "instanceof_expression",
+    "int f(Object o, boolean flag) {\n    int x = source();\n    if (!(o instanceof String x) || (flag && guard(x))) {}\n    return x;\n}\n",
+    &[("2:x", "3:x", ou(3))],
+    1,
+);
+
 fn assert_barrier_case(case: &Case) {
     let parsed = super::super::parsed(case.src, case.language);
     let function = super::super::function(&parsed);
@@ -557,6 +539,21 @@ fn empty_span_is_direct_and_behaviorally_preserved() {
     let binder = super::case::nodes_of_kind(&rust, "tuple_struct_pattern")[0];
     assert_eq!(visibility_span(&rust, binder), SpanKind::Empty);
     assert_barrier_case(&JAVA_NEGATED_EMPTY_CASE);
+}
+
+fn java_visibility_span(src: &str) -> SpanKind {
+    let parsed = super::super::parsed(src, Language::Java);
+    let binder = super::case::nodes_of_kind(&parsed, "instanceof_expression")[0];
+    visibility_span(&parsed, binder)
+}
+
+#[test]
+fn java_compound_conditions_fail_closed() {
+    assert_barrier_case(&JAVA_MIXED_COMPOUND_CASE);
+    let compound =
+        "int f(Object o, boolean flag) {\n    if (!(!(o instanceof String x) && flag)) { sink(x); }\n}\n";
+    let spans = [JAVA_MIXED_COMPOUND_CASE.src, compound].map(java_visibility_span);
+    assert_eq!(spans, [SpanKind::Unknown, SpanKind::Unknown]);
 }
 
 fn ancestor_of_kind<'a>(mut node: tree_sitter::Node<'a>, kind: &str) -> tree_sitter::Node<'a> {
