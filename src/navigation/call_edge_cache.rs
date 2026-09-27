@@ -715,7 +715,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 55);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 57);
     }
 
     #[test]

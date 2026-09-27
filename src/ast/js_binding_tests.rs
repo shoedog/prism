@@ -467,17 +467,16 @@ fn table_typescript_value_space() {
         ),
         ("D5 import alias", "import f = M.g;", NC),
         ("D5 import require", "import f = require('x');", NC),
-        // A `using` binding is declared (D4; undeclared it would be `unbound`), but the base
-        // module write scan the SPEC prescribes at module scope (§3.2) reads the declaration's
-        // assignment form as a write, so M2 keeps base behavior. W1's `using` exclusion lives in
-        // the scoped scan S1b-3 adds.
-        ("D4 using", "using f = res();", MAY),
+        // D4: a `using` binding is a declaration, never a W1 write (S1b-2b filters it out of
+        // the module write scan), so it classifies like a `const` declarator.
+        ("D4 using", "using f = res();", NC),
         (
             "D4 using function argument",
             "using f = wrap(() => 1);",
             MAY,
         ),
-        ("D4 using arrow", "using f = () => 1;", MAY),
+        ("D4 using arrow", "using f = () => 1;", callable("f", 1, 1)),
+        ("D4 using written", "using f = () => 1;\nf = g;", MAY),
     ];
     check_f(&TS, rows);
 }
