@@ -216,7 +216,9 @@ use std::path::{Path, PathBuf};
 /// - v97: persist byte-distinct supplemental caller producer facts and labels.
 /// - v98: JS/TS span-verified wrapped React exports (`SpannedLocal`), JSX-element
 ///   call-site flag, declarator skip reasons.
-const CACHE_VERSION: u32 = 98;
+/// - v99: S1b-1 intrinsic JSX tags drop `JsxIntrinsic`; the shared JS/TS binding
+///   collectors see single arrow parameters, `{ f = d }` defaults and TS assertion writes.
+const CACHE_VERSION: u32 = 99;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -755,7 +757,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 98);
+        assert_eq!(super::CACHE_VERSION, 99);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

@@ -2298,6 +2298,18 @@ impl CallGraph {
     /// new precision ladder. Legacy callers continue to use the old resolver
     /// until Tasks 9-11 migrate them.
     pub fn resolve_call_site_full(&self, site: &CallSite) -> ResolutionOutcome<'_> {
+        // S1b §3.5: a plain JSX tag spelled lowercase, dashed or namespaced is an intrinsic
+        // element (TypeScript `isIntrinsicJsxName`, Babel `isCompatTag`). It references no
+        // binding, so no rung may bind it. Member, `_x` and `$x` tags are not intrinsic.
+        if site.jsx_element
+            && site.qualifier.is_none()
+            && (site
+                .callee_name
+                .starts_with(|c: char| c.is_ascii_lowercase())
+                || site.callee_name.contains(['-', ':']))
+        {
+            return ResolutionOutcome::dropped(DropReason::JsxIntrinsic);
+        }
         if let Some(result) = self
             .executable_owner
             .as_ref()
