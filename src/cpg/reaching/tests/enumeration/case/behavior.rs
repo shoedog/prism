@@ -124,6 +124,17 @@ pub(super) fn assert_ruling(
         ),
         Some(Ruling::Classified) if is_binding => {
             assert!(
+                case.expect
+                    .iter()
+                    .any(|(_, _, label)| matches!(label, FlowConfidence::Exact))
+                    && case.expect.iter().any(|(_, _, label)| matches!(
+                        label,
+                        FlowConfidence::NameOnly(FlowDoubt::Killed { .. })
+                    )),
+                "{}: classified mask behavior must assert both Killed and Exact",
+                case.id
+            );
+            assert!(
                 case.expect.iter().all(|(_, _, label)| matches!(
                     label,
                     FlowConfidence::Exact | FlowConfidence::NameOnly(FlowDoubt::Killed { .. })
@@ -374,6 +385,52 @@ fn classified_scope_behavior_rejects_non_exact_invariance() {
         },
         Some(Ruling::Classified),
         false,
+        false,
+    );
+}
+
+#[test]
+#[should_panic(expected = "classified mask behavior must assert both Killed and Exact")]
+fn classified_mask_behavior_rejects_killed_only() {
+    assert_ruling(
+        &Case {
+            id: "killed-only",
+            language: Language::JavaScript,
+            kind: "catch_clause",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src: "",
+            expect: &[(
+                "2:x",
+                "3:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            )],
+            expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+        },
+        Some(Ruling::Classified),
+        true,
+        false,
+    );
+}
+
+#[test]
+#[should_panic(expected = "classified mask behavior must assert both Killed and Exact")]
+fn classified_mask_behavior_rejects_exact_only() {
+    assert_ruling(
+        &Case {
+            id: "exact-only",
+            language: Language::JavaScript,
+            kind: "catch_clause",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src: "",
+            expect: &[("2:x", "3:x", FlowConfidence::Exact)],
+            expect_counter: Some(("dfg_label_exact", 1)),
+        },
+        Some(Ruling::Classified),
+        true,
         false,
     );
 }
