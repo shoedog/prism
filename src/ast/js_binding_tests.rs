@@ -99,7 +99,8 @@ fn b6_parse_recovery_refuses_unless_sealed() {
     let rows = vec![
         ("C79", c79.as_str(), "f", site, PARSE),
         ("C149", &c149, "f", site, callable("f", 1, 3)),
-        ("C150", &c150, "f", site, callable("f", 1, 3)),
+        // r1 fold (Opus W2): the sealed function mentions `f`, so M2 keeps base behavior.
+        ("C150", &c150, "f", site, MAY),
     ];
     check(&BOTH, true, rows);
 }
@@ -479,4 +480,106 @@ fn table_typescript_value_space() {
         ("D4 using arrow", "using f = () => 1;", MAY),
     ];
     check_f(&TS, rows);
+}
+
+// Implementation review r1 fold (Opus W1-W6, sol W1-W2).
+
+/// Writes the base scan misses: evaluated before a function's own environments (J1 parameter
+/// lists, J2 decorators, J3 computed keys), so the function's parameters and body `var`s do
+/// not shadow them.
+const PARAM_WRITE: &str = "function f() {\n  return 1;\n}\nfunction g(a = (f = () => 2)) {\n\
+    var f;\n  function f() {\n    return 3;\n  }\n  return a;\n}\nexport { f };\n";
+const KEY_WRITE: &str =
+    "function f() {\n  return 1;\n}\nclass C {\n  [f = 2]() {\n    var f;\n  }\n}\nexport { f };\n";
+const OBJECT_KEY_WRITE: &str = "const f = () => 1;\nconst o = { [f = g](f) {} };\nexport { f };\n";
+const DECORATOR_WRITE: &str = "function f() {}\nclass C {\n  @d(f = 1) m(f) {}\n}\nexport { f };\n";
+
+#[test]
+fn fold_writes_before_function_environments_are_may_call() {
+    let twin = OBJECT_KEY_WRITE.replace("](f)", "](x)");
+    let rows = vec![
+        ("Opus W1 parameter", PARAM_WRITE, MAY),
+        ("Opus W1 class key", KEY_WRITE, MAY),
+        ("sol W1 object key", OBJECT_KEY_WRITE, MAY),
+        ("sol W1 twin (x)", &twin, MAY),
+        ("J2 decorator", DECORATOR_WRITE, MAY),
+    ];
+    check_f(&BOTH, rows);
+}
+
+const SEALED_WRITE: &str = "function f() {\n  return 1;\n}\nfunction g() {\n  f = () => 2;\n\
+    let x = ;\n}\nexport { f };\n";
+const MANGLED_WRITE: &str =
+    "function f() {\n  return 1;\n}\nfunction g() {\n  f = ;\n}\nexport { f };\n";
+
+#[test]
+fn fold_sealed_error_mentioning_the_name_is_may_call() {
+    let rows = vec![
+        ("Opus W2 intact", SEALED_WRITE, "f", "export { f }", MAY),
+        ("Opus W2 mangled", MANGLED_WRITE, "f", "export { f }", MAY),
+    ];
+    check(&BOTH, true, rows);
+}
+
+#[test]
+fn fold_written_pattern_declarator_is_may_call() {
+    let src = "let { f } = o;\nf = () => 1;\nexport { f };\n";
+    check_f(&BOTH, vec![("Opus W3", src, MAY)]);
+}
+
+#[test]
+fn fold_declare_global_is_not_a_module_binding() {
+    let src = "function f() {}\ndeclare global {\n  var f: any;\n}\nexport { f };\n";
+    check_f(&TS, vec![("Opus W4", src, callable("f", 1, 1))]);
+}
+
+#[test]
+fn fold_b0_precedes_annex_b_uncertainty() {
+    let escaped = format!("{BLOCK_AT_MODULE}var \\u0067 = 1;\n");
+    let want = JsBinding::Refused("escaped_identifier");
+    check(
+        &BOTH,
+        false,
+        vec![("sol W2 B0", &escaped, "inner", "if (flag)", want)],
+    );
+}
+
+#[test]
+fn fold_b1_precedes_annex_b_uncertainty() {
+    let unsealed = format!("{BLOCK_AT_MODULE}let x = ;\n");
+    check(
+        &BOTH,
+        true,
+        vec![("sol W2 B1", &unsealed, "inner", "if (flag)", PARSE)],
+    );
+}
+
+#[test]
+fn fold_b3_unwraps_assertions_around_a_may_call_wrapper() {
+    let rows = vec![("parenthesized", "const f = (throttle(() => 1));", MAY)];
+    check_f(&BOTH, rows);
+    let rows = vec![
+        ("as", "const f = throttle(() => 1) as any;", MAY),
+        (
+            "satisfies",
+            "const f = throttle(() => 1) satisfies unknown;",
+            MAY,
+        ),
+        ("non-null", "const f = throttle(() => 1)!;", MAY),
+    ];
+    check_f(&TS, rows);
+    check_f(
+        &["a.ts"],
+        vec![("type assertion", "const f = <any>throttle(() => 1);", MAY)],
+    );
+}
+
+#[test]
+fn fold_missing_parenthesis_is_not_delimited() {
+    let src = "function g(a, b {\n  return 1;\n}\nexport function f() {\n  return 1;\n}\n";
+    check(
+        &BOTH,
+        true,
+        vec![("Opus W6", src, "f", "export function f", PARSE)],
+    );
 }
