@@ -6,11 +6,13 @@ use super::identity::{arena, loc};
 type Stats = (
     usize,
     usize,
+    usize,
     Vec<(&'static str, usize)>,
     Vec<(&'static str, usize)>,
+    Vec<(&'static str, usize, &'static str, usize)>,
 );
 fn stats(keys: Vec<(&'static str, usize)>) -> Stats {
-    (0, keys.len(), vec![], keys)
+    (0, keys.len(), 0, vec![], keys, vec![])
 }
 fn raw_rd(rows: Vec<(&str, Stats)>) -> Vec<u8> {
     // Ten empty sequence fields followed by RD filename/stat rows. Encoding the
@@ -49,9 +51,9 @@ macro_rules! set_case {
         fn $name() {
             let mut s = stats($keys);
             // Match the post-dedup count so the old count guard cannot mask this.
-            s.1 = s.3.iter().collect::<BTreeSet<_>>().len();
+            s.1 = s.4.iter().collect::<BTreeSet<_>>().len();
             if $over {
-                s = (s.1, 0, s.3, vec![]);
+                s = (s.1, 0, 0, s.4, vec![], vec![]);
             }
             reject_raw(vec![("a.py", s)], "DFG RD set order/duplicate");
         }
@@ -78,17 +80,39 @@ set_case!(
     vec![("g", 1), ("f", 1)]
 );
 #[test]
+fn rd_no_body_entry_duplicate_keys_raw() {
+    let mut s = stats(vec![]);
+    s.2 = 1;
+    s.5 = vec![("f", 1, "body", 2), ("f", 1, "body", 2)];
+    reject_raw(vec![("a.py", s)], "DFG RD set order/duplicate");
+}
+#[test]
+fn rd_no_body_entry_reversed_keys_raw() {
+    let mut s = stats(vec![]);
+    s.2 = 2;
+    s.5 = vec![("g", 1, "body", 2), ("f", 1, "body", 2)];
+    reject_raw(vec![("a.py", s)], "DFG RD set order/duplicate");
+}
+#[test]
 fn rd_unique_keys_raw_roundtrip_bytes() {
     let rows = vec![
         (
             "a.py",
-            (2, 2, vec![("f", 1), ("f", 2)], vec![("f", 1), ("g", 1)]),
+            (
+                2,
+                2,
+                1,
+                vec![("f", 1), ("f", 2)],
+                vec![("f", 1), ("g", 1)],
+                vec![("f", 1, "body", 2)],
+            ),
         ),
         ("b.py", stats(vec![])),
     ];
     let bytes = raw_rd(rows);
     let decoded: CompactDfg = bincode::deserialize(&bytes).unwrap();
     assert_eq!(decoded.rd_function_stats()["a.py"].functions_without_cfg, 2);
+    assert_eq!(decoded.rd_function_stats()["a.py"].no_body_entry, 1);
     assert_eq!(bytes, bincode::serialize(&decoded).unwrap());
 }
 #[test]

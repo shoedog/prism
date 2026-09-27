@@ -92,18 +92,22 @@ pub(crate) struct RdResult {
     /// May-reaching facts, independent of confidence (including flagged CFG
     /// routes). Used only to admit implicit parameter-to-body entry copies.
     pub(crate) reaching_edges: BTreeSet<(VarLocation, VarLocation)>,
+    pub(crate) no_body_entry_binders: BTreeSet<(String, Line)>,
 }
 
 type RdFunctionKey = (String, usize);
+type NoBodyEntryKey = (String, usize, String, Line);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RdFileStats {
     pub functions_over_cap: usize,
     pub functions_without_cfg: usize,
+    pub no_body_entry: usize,
     // These identity sets are the persisted source of truth. The public counts
     // remain derived mirrors for the approved Task 2 interface.
     over_cap_function_keys: BTreeSet<RdFunctionKey>,
     without_cfg_function_keys: BTreeSet<RdFunctionKey>,
+    no_body_entry_keys: BTreeSet<NoBodyEntryKey>,
 }
 
 impl RdFileStats {
@@ -111,6 +115,7 @@ impl RdFileStats {
     pub(crate) fn counts_match_keys(&self) -> bool {
         self.functions_over_cap == self.over_cap_function_keys.len()
             && self.functions_without_cfg == self.without_cfg_function_keys.len()
+            && self.no_body_entry == self.no_body_entry_keys.len()
     }
 
     pub(crate) fn record_over_cap(&mut self, function: String, start_line: usize) {
@@ -124,17 +129,31 @@ impl RdFileStats {
         self.refresh_counts();
     }
 
+    pub(crate) fn record_no_body_entry(
+        &mut self,
+        function: String,
+        start_line: usize,
+        name: String,
+        binder_line: Line,
+    ) {
+        self.no_body_entry_keys
+            .insert((function, start_line, name, binder_line));
+        self.refresh_counts();
+    }
+
     pub(crate) fn merge(&mut self, other: Self) {
         self.over_cap_function_keys
             .extend(other.over_cap_function_keys);
         self.without_cfg_function_keys
             .extend(other.without_cfg_function_keys);
+        self.no_body_entry_keys.extend(other.no_body_entry_keys);
         self.refresh_counts();
     }
 
     fn refresh_counts(&mut self) {
         self.functions_over_cap = self.over_cap_function_keys.len();
         self.functions_without_cfg = self.without_cfg_function_keys.len();
+        self.no_body_entry = self.no_body_entry_keys.len();
     }
 }
 
@@ -247,6 +266,7 @@ fn reaching_definitions_impl(
             exact_labels: BTreeMap::new(),
             loop_carried_edges: BTreeSet::new(),
             reaching_edges: BTreeSet::new(),
+            no_body_entry_binders: BTreeSet::new(),
         });
     }
 
@@ -285,14 +305,13 @@ fn reaching_definitions_impl(
         line_index: &line_index,
         successors: &original_successors,
     };
-    let missing_real_defs = transfer::discover(parsed, func_node, &defs);
-    transfer::materialize_existing_def_sites(
-        &missing_real_defs,
+    let binders = transfer::discover(parsed, func_node, &defs);
+    let materialized_defs = transfer::materialize_existing_def_sites(
+        &binders,
         &line_index,
         &mut defs,
         &mut mapped_defs,
     );
-    let binders = transfer::discover(parsed, func_node, &defs);
     let applied = transfer::apply(
         parsed,
         &binders,
@@ -312,7 +331,7 @@ fn reaching_definitions_impl(
             actual: successors.len(),
         });
     }
-    let binding_facts = scope::BindingFacts::new(parsed, func_node, &defs, &cfg_view);
+    let binding_facts = scope::BindingFacts::new(parsed, func_node, &defs, &cfg_view, &binders);
 
     let node_count = successors.len();
     let mut gen = vec![BitSet::new(defs.len()); node_count];
@@ -322,7 +341,7 @@ fn reaching_definitions_impl(
         }
     }
     let buckets = def_buckets::DefinitionBuckets::new(&defs);
-    let (kill, flat_kill) = buckets.kill_sets(&defs, &gen, &binding_facts);
+    let (kill, flat_kill) = buckets.kill_sets(&defs, &gen, &binding_facts, &materialized_defs);
 
     let in_sets = solve_reaching_sets(&gen, &kill, &predecessors, &successors, entry, defs.len());
     let flat_in_sets = solve_reaching_sets(
@@ -420,7 +439,18 @@ fn reaching_definitions_impl(
         exact_labels,
         loop_carried_edges,
         reaching_edges,
+        no_body_entry_binders: binding_facts.no_entry_identities(),
     })
+}
+
+pub(crate) fn unavailable_labels(
+    edges: &[FlowEdge],
+) -> BTreeMap<(VarLocation, VarLocation), FlowConfidence> {
+    let fallback = FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+    edges
+        .iter()
+        .map(|edge| ((edge.from.clone(), edge.to.clone()), fallback))
+        .collect()
 }
 
 fn solve_reaching_sets(

@@ -80,8 +80,8 @@ pub use context::{CpgContext, CpgScope};
 pub use flow_confidence::{FlowConfidence, FlowDoubt};
 pub use reaching::RdFileStats;
 pub(crate) use reaching::{
-    classified_masked_reads, reaching_definitions_with_exact, DefId, DefSite, FileCfgEdgeIndex,
-    RdOutcome,
+    classified_masked_reads, reaching_definitions_with_exact, unavailable_labels, DefId, DefSite,
+    FileCfgEdgeIndex, RdOutcome,
 };
 pub use trace::{
     BoundaryEdge, BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning,

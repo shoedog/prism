@@ -104,6 +104,7 @@ pub struct DfgLabelStats {
     pub dfg_label_capture_immediate: usize,
     pub dfg_rd_functions_over_cap: usize,
     pub dfg_rd_functions_without_cfg: usize,
+    pub no_body_entry: usize,
 }
 
 impl DfgLabelStats {
@@ -141,6 +142,11 @@ impl DfgLabelStats {
             .rd_function_stats()
             .values()
             .map(|stats| stats.functions_without_cfg)
+            .sum();
+        self.no_body_entry = dfg
+            .rd_function_stats()
+            .values()
+            .map(|stats| stats.no_body_entry)
             .sum();
     }
 }
@@ -2098,6 +2104,7 @@ mod dfg_label_stats_tests {
                 "dfg_label_capture_immediate": 0,
                 "dfg_rd_functions_over_cap": 0,
                 "dfg_rd_functions_without_cfg": 0,
+                "no_body_entry": 0,
             })
         );
     }
@@ -2108,10 +2115,12 @@ mod dfg_label_stats_tests {
         empty.record_rd_stats(&DataFlowGraph::empty());
         assert_eq!(empty.dfg_rd_functions_over_cap, 0);
         assert_eq!(empty.dfg_rd_functions_without_cfg, 0);
+        assert_eq!(empty.no_body_entry, 0);
 
         let mut first = RdFileStats::default();
         first.record_over_cap("large".to_string(), 1);
         first.record_without_cfg("opaque".to_string(), 20);
+        first.record_no_body_entry("looping".to_string(), 30, "x".to_string(), 31);
         let mut second = RdFileStats::default();
         second.record_without_cfg("generated".to_string(), 8);
 
@@ -2125,5 +2134,6 @@ mod dfg_label_stats_tests {
         stats.record_rd_stats(&dfg);
         assert_eq!(stats.dfg_rd_functions_over_cap, 1);
         assert_eq!(stats.dfg_rd_functions_without_cfg, 2);
+        assert_eq!(stats.no_body_entry, 1);
     }
 }

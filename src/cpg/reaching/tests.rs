@@ -562,5 +562,6 @@ fn definition_on_line(defs: &[DefSite], name: &str, line: usize) -> DefSite {
 mod captures;
 mod cfg_joins;
 mod enumeration;
+mod fix1;
 mod limits;
 mod review_regressions;

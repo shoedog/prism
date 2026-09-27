@@ -7,7 +7,7 @@ use super::binding_table::{
 use super::grammar_lint::introduction_is_classified;
 use super::grammar_lint::{collect_unclassified_binding_lines, grammar_introducing_fields};
 use super::scope_python::collect_python_comprehension_declarations;
-use super::transfer::{self, HeaderSpan};
+use super::transfer::{self, HeaderSpan, ReuseBinder};
 use super::{CfgView, DefSite, Line};
 use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
@@ -112,7 +112,6 @@ pub(super) struct BindingFacts {
     declarations: Vec<Declaration>,
     unclassified_binding_lines: BTreeMap<String, BTreeSet<Line>>,
     pub(super) header_spans: Vec<HeaderSpan>,
-    #[allow(dead_code)]
     pub(super) no_entry_binders: BTreeMap<String, BTreeSet<Line>>,
     pub(super) no_entry_spans: Vec<(String, Line, super::grammar_lint::ByteSpan)>,
     function_scope: ScopeSpan,
@@ -130,13 +129,13 @@ impl BindingFacts {
         func_node: &Node<'_>,
         defs: &[DefSite],
         cfg: &CfgView<'_>,
+        binders: &[ReuseBinder],
     ) -> Self {
         #[cfg(test)]
         super::work_tests::bump(|counts| counts.binding_facts += 1);
         let function_scope = function_scope(parsed, func_node);
-        let binders = transfer::discover(parsed, func_node, defs);
         let (header_spans, no_entry_binders, no_entry_spans) =
-            transfer::binding_metadata(parsed, &binders, cfg);
+            transfer::binding_metadata(parsed, binders, cfg);
         let seeds: Vec<Option<(ScopeSpan, DeclarationKind, usize)>> = defs
             .iter()
             .map(|def| declaration_seed(parsed, func_node, def, function_scope))
@@ -297,6 +296,10 @@ impl BindingFacts {
         left == right
             || matches!(left, BindingId::FlatFallback(_))
             || matches!(right, BindingId::FlatFallback(_))
+    }
+
+    pub(super) fn same_def_binding_strict(&self, left: usize, right: usize) -> bool {
+        self.def_bindings[left].id == self.def_bindings[right].id
     }
 
     pub(super) fn lookup_requires_flat_fallback(
@@ -563,7 +566,11 @@ fn declaration_seed(
                     selected_row
                         .and_then(|row| row.declaration)
                         .unwrap_or(DeclarationKind::Other),
-                    left.expect("checked above").end_byte(),
+                    if node.kind() == "range_clause" {
+                        node.child_by_field_name("right")?.end_byte()
+                    } else {
+                        left.expect("checked above").end_byte()
+                    },
                 ));
             }
         }

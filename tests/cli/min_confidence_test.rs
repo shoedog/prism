@@ -370,6 +370,7 @@ fn dfg_stats_empty_repo_emits_all_zero_counters() {
             "dfg_label_capture_immediate": 0,
             "dfg_rd_functions_over_cap": 0,
             "dfg_rd_functions_without_cfg": 0,
+            "no_body_entry": 0,
         })
     );
 }
