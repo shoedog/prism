@@ -274,6 +274,7 @@ fn rust_visibility_node(binder_node: Node<'_>) -> Option<Node<'_>> {
 fn guard_is_negated(parsed: &ParsedFile, guard: Node<'_>, condition: Node<'_>) -> Option<bool> {
     let mut current = guard;
     let mut negated = false;
+    let mut accepted_and = false;
     loop {
         if current.id() == condition.id() {
             return Some(negated);
@@ -283,7 +284,7 @@ fn guard_is_negated(parsed: &ParsedFile, guard: Node<'_>, condition: Node<'_>) -
             "parenthesized_expression" => {}
             "unary_expression" => {
                 let operator = parent.child_by_field_name("operator")?;
-                if parsed.node_text(&operator) != "!" {
+                if parsed.node_text(&operator) != "!" || accepted_and {
                     return None;
                 }
                 negated = !negated;
@@ -294,6 +295,7 @@ fn guard_is_negated(parsed: &ParsedFile, guard: Node<'_>, condition: Node<'_>) -
                 if negated || parsed.node_text(&operator) != "&&" || left.id() != current.id() {
                     return None;
                 }
+                accepted_and = true;
             }
             _ => return None,
         }

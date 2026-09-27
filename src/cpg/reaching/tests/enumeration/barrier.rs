@@ -17,7 +17,6 @@ fn every_adjacent_pair_is_ordered() {
         FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
         FlowConfidence::NameOnly(FlowDoubt::CallNameOnly),
     ];
-
     for pair in ordered.windows(2) {
         let better = pair[0];
         let worse = pair[1];
@@ -25,7 +24,6 @@ fn every_adjacent_pair_is_ordered() {
         assert_eq!(worse.worst(better), worse, "{worse:?} > {better:?}");
     }
 }
-
 fn site(location: &VarLocation) -> String {
     format!(
         "{}:{}:{}:{}:{}:{:?}",
@@ -51,7 +49,6 @@ fn real_folded_paths(fixture: &str) -> BTreeMap<(String, String), FlowConfidence
         .cloned()
         .collect();
     let mut paths = BTreeMap::new();
-
     for from in defs {
         let (reachable, labels) = cpg.dfg_forward_reachable_labeled(&from);
         for to in reachable {
@@ -61,7 +58,6 @@ fn real_folded_paths(fixture: &str) -> BTreeMap<(String, String), FlowConfidence
     }
     paths
 }
-
 #[test]
 fn ruled_path_label_delta_is_exact() {
     type Row = (
@@ -442,6 +438,22 @@ const JAVA_MIXED_COMPOUND_CASE: Case = supplemental_java_case(
     1,
 );
 
+const JAVA_ENCLOSING_NOT_NAME_CASE: Case = supplemental_java_case(
+    "e0c-1-java-enclosing-not-name-unknown",
+    "instanceof_expression",
+    "int f(Object o) {\n    int x = source();\n    if (!(o instanceof String x && guard(x))) {}\n    return x;\n}\n",
+    &[("2:x", "3:x", ou(3))],
+    1,
+);
+
+const JAVA_ENCLOSING_NOT_RECORD_CASE: Case = supplemental_java_case(
+    "e0c-1-java-enclosing-not-record-unknown",
+    "record_pattern",
+    "int f(Object o) {\n    int x = source();\n    if (!(o instanceof R(var x) && guard(x))) {}\n    return x;\n}\n",
+    &[("2:x", "3:x", ou(3))],
+    1,
+);
+
 fn assert_barrier_case(case: &Case) {
     let parsed = super::super::parsed(case.src, case.language);
     let function = super::super::function(&parsed);
@@ -480,57 +492,26 @@ fn assert_barrier_case(case: &Case) {
     }
 }
 
-#[test]
-fn java_instanceof_pattern_uncertain() {
-    assert_barrier_case(&CASES[0]);
+macro_rules! barrier_tests {
+    ($($name:ident => [$($case:expr),+];)+) => {$(
+        #[test]
+        fn $name() {
+            $(assert_barrier_case($case);)+
+        }
+    )+};
 }
 
-#[test]
-fn rust_if_let_uncertain_outside_scope() {
-    assert_barrier_case(&CASES[1]);
-}
-
-#[test]
-fn java_instanceof_same_line_guarded_use() {
-    assert_barrier_case(&CASES[2]);
-}
-
-#[test]
-fn rust_if_let_empty_span() {
-    assert_barrier_case(&CASES[3]);
-}
-
-#[test]
-fn unknown_scope_fail_closed() {
-    assert_barrier_case(&CASES[4]);
-}
-
-#[test]
-fn java_negated_instanceof_is_branch_aware() {
-    assert_barrier_case(&JAVA_NEGATED_CASE);
-}
-
-#[test]
-fn java_negation_parity_through_parentheses_and_unary() {
-    assert_barrier_case(&JAVA_DOUBLE_NEGATED_CASE);
-    assert_barrier_case(&JAVA_TRIPLE_NEGATED_CASE);
-}
-
-#[test]
-fn java_record_pattern_excludes_type_and_generic_identifiers() {
-    assert_barrier_case(&JAVA_RECORD_BINDER_NAMES_CASE);
-}
-
-#[test]
-fn java_instanceof_name_carrier_obeys_guard_spans() {
-    assert_barrier_case(&JAVA_NAME_CARRIER_POSITIVE_CASE);
-    assert_barrier_case(&JAVA_NAME_CARRIER_NEGATED_CASE);
-}
-
-#[test]
-fn java_nested_noncompleting_consequence_controls_post_if_span() {
-    assert_barrier_case(&JAVA_NESTED_NONCOMPLETING_CASE);
-    assert_barrier_case(&JAVA_NESTED_CAN_COMPLETE_CASE);
+barrier_tests! {
+    java_instanceof_pattern_uncertain => [&CASES[0]];
+    rust_if_let_uncertain_outside_scope => [&CASES[1]];
+    java_instanceof_same_line_guarded_use => [&CASES[2]];
+    rust_if_let_empty_span => [&CASES[3]];
+    unknown_scope_fail_closed => [&CASES[4]];
+    java_negated_instanceof_is_branch_aware => [&JAVA_NEGATED_CASE];
+    java_negation_parity_through_parentheses_and_unary => [&JAVA_DOUBLE_NEGATED_CASE, &JAVA_TRIPLE_NEGATED_CASE];
+    java_record_pattern_excludes_type_and_generic_identifiers => [&JAVA_RECORD_BINDER_NAMES_CASE];
+    java_instanceof_name_carrier_obeys_guard_spans => [&JAVA_NAME_CARRIER_POSITIVE_CASE, &JAVA_NAME_CARRIER_NEGATED_CASE];
+    java_nested_noncompleting_consequence_controls_post_if_span => [&JAVA_NESTED_NONCOMPLETING_CASE, &JAVA_NESTED_CAN_COMPLETE_CASE];
 }
 
 #[test]
@@ -541,10 +522,17 @@ fn empty_span_is_direct_and_behaviorally_preserved() {
     assert_barrier_case(&JAVA_NEGATED_EMPTY_CASE);
 }
 
-fn java_visibility_span(src: &str) -> SpanKind {
+fn java_visibility_span((src, kind): (&str, &str)) -> SpanKind {
     let parsed = super::super::parsed(src, Language::Java);
-    let binder = super::case::nodes_of_kind(&parsed, "instanceof_expression")[0];
+    let binder = super::case::nodes_of_kind(&parsed, kind)[0];
     visibility_span(&parsed, binder)
+}
+
+fn assert_java_span_unknown(case: &Case) {
+    assert_eq!(
+        java_visibility_span((case.src, case.kind)),
+        SpanKind::Unknown
+    );
 }
 
 #[test]
@@ -552,8 +540,24 @@ fn java_compound_conditions_fail_closed() {
     assert_barrier_case(&JAVA_MIXED_COMPOUND_CASE);
     let compound =
         "int f(Object o, boolean flag) {\n    if (!(!(o instanceof String x) && flag)) { sink(x); }\n}\n";
-    let spans = [JAVA_MIXED_COMPOUND_CASE.src, compound].map(java_visibility_span);
+    let spans = [
+        (JAVA_MIXED_COMPOUND_CASE.src, "instanceof_expression"),
+        (compound, "instanceof_expression"),
+    ]
+    .map(java_visibility_span);
     assert_eq!(spans, [SpanKind::Unknown, SpanKind::Unknown]);
+}
+
+#[test]
+fn java_enclosing_not_after_name_and_stays_uncertain() {
+    assert_barrier_case(&JAVA_ENCLOSING_NOT_NAME_CASE);
+    assert_java_span_unknown(&JAVA_ENCLOSING_NOT_NAME_CASE);
+}
+
+#[test]
+fn java_enclosing_not_after_record_and_stays_uncertain() {
+    assert_barrier_case(&JAVA_ENCLOSING_NOT_RECORD_CASE);
+    assert_java_span_unknown(&JAVA_ENCLOSING_NOT_RECORD_CASE);
 }
 
 fn ancestor_of_kind<'a>(mut node: tree_sitter::Node<'a>, kind: &str) -> tree_sitter::Node<'a> {
