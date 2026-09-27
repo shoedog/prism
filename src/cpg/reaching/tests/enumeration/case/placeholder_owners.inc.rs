@@ -45,7 +45,6 @@ macro_rules! placeholder_owners {
             (($language::Go, "const_declaration", None::<$predicate>, "e0a-go-const_declaration"), "Task 13"),
             (($language::Go, "expression_switch_statement", None::<$predicate>, "e0a-go-expression_switch_statement"), "Task 13"),
             (($language::Go, "for_statement", None::<$predicate>, "e0a-go-for_statement"), "Task 13"),
-            (($language::Go, "if_statement", None::<$predicate>, "e0a-go-if_statement"), "Task 13"),
             (($language::Go, "parameter_list", None::<$predicate>, "e0a-x-go-parameter_list"), "Task 13"),
             (($language::Go, "select_statement", None::<$predicate>, "e0a-go-select_statement"), "Task 13"),
             (($language::Go, "short_var_declaration", None::<$predicate>, "e0a-go-short_var_declaration"), "Task 13"),

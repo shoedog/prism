@@ -68,6 +68,7 @@ fn collect_python_target_identifiers(
                 id: BindingId::Declaration(declaration_index),
                 scope,
                 declaration_line: Some(node.start_position().row + 1),
+                classified_mask: false,
             },
             name: parsed.node_text(&node).to_string(),
             visible_from,

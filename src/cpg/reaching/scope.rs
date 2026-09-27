@@ -1,11 +1,11 @@
 //! Lexical binding ownership for reaching definitions.
 
 use super::binding_table::{
-    rows, select_binding_row, BindingScopeRule, DeclarationKind, Role, Visibility,
+    rows, select_binding_row, BindingScopeRule, DeclarationKind, Role, Ruling, Visibility,
 };
-use super::grammar_lint::{collect_unclassified_binding_lines, grammar_introducing_fields};
 #[cfg(test)]
 use super::grammar_lint::introduction_is_classified;
+use super::grammar_lint::{collect_unclassified_binding_lines, grammar_introducing_fields};
 use super::scope_python::collect_python_comprehension_declarations;
 use super::{DefSite, Line};
 use crate::ast::ParsedFile;
@@ -45,6 +45,7 @@ pub(super) struct Binding {
     pub(super) id: BindingId,
     pub(super) scope: ScopeSpan,
     pub(super) declaration_line: Option<Line>,
+    pub(super) classified_mask: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -106,6 +107,7 @@ impl<'a> RootFunction<'a> {
 
 pub(super) struct BindingFacts {
     def_bindings: Vec<Binding>,
+    def_sites: BTreeMap<(String, Line, usize), usize>,
     declarations: Vec<Declaration>,
     unclassified_binding_lines: BTreeMap<String, BTreeSet<Line>>,
     function_scope: ScopeSpan,
@@ -136,6 +138,14 @@ impl BindingFacts {
                 &mut declarations,
             );
         }
+        collect_classified_masks(
+            parsed,
+            *func_node,
+            *func_node,
+            defs,
+            function_scope,
+            &mut declarations,
+        );
         let mut unclassified_binding_lines = BTreeMap::new();
         let callable_boundary_kinds = parsed.language.callable_boundary_node_types();
         collect_unclassified_binding_lines(
@@ -178,6 +188,7 @@ impl BindingFacts {
                         id: BindingId::Declaration(declaration_index),
                         scope,
                         declaration_line: Some(defs[index].line),
+                        classified_mask: false,
                     },
                     name,
                     visible_from,
@@ -190,6 +201,11 @@ impl BindingFacts {
 
         let mut facts = Self {
             def_bindings: Vec::with_capacity(defs.len()),
+            def_sites: defs
+                .iter()
+                .enumerate()
+                .map(|(index, def)| ((def.path.base.clone(), def.line, def.start_byte), index))
+                .collect(),
             declarations,
             unclassified_binding_lines,
             function_scope,
@@ -197,8 +213,17 @@ impl BindingFacts {
             use_byte_cache: std::cell::RefCell::new(BTreeMap::new()),
         };
         for (index, def) in defs.iter().enumerate() {
-            let binding = declaration_for_def[index]
-                .map(|declaration| facts.declarations[declaration].binding.clone())
+            let catch_var = seeds[index]
+                .is_some_and(|(_, kind, _)| kind == DeclarationKind::JavaScriptVar)
+                && simple_catch_parameter_owns_def(parsed, func_node.id(), def);
+            let binding = catch_var
+                .then(|| facts.visible_declaration(&def.path.base, def.start_byte))
+                .flatten()
+                .filter(|binding| binding.classified_mask)
+                .or_else(|| {
+                    declaration_for_def[index]
+                        .map(|declaration| facts.declarations[declaration].binding.clone())
+                })
                 .or_else(|| facts.visible_declaration(&def.path.base, def.start_byte))
                 .unwrap_or_else(|| facts.implicit_binding(&def.path.base));
             facts.def_bindings.push(binding);
@@ -219,6 +244,18 @@ impl BindingFacts {
         super::work_tests::bump(|counts| counts.use_byte_misses += 1);
         self.use_byte_cache.borrow_mut().insert(key, value);
         value
+    }
+
+    pub(super) fn mask_on_route(&self, edge: &FlowEdge, use_byte: usize) -> Option<Line> {
+        let def_index = self.def_sites.get(&(
+            edge.from.path.base.clone(),
+            edge.from.line,
+            edge.from.start_byte,
+        ))?;
+        let mask = self.visible_declaration(&edge.to.path.base, use_byte)?;
+        (mask.classified_mask && self.def_bindings[*def_index].id != mask.id)
+            .then_some(mask.declaration_line)
+            .flatten()
     }
 
     pub(super) fn same_def_binding(&self, left: usize, right: usize) -> bool {
@@ -319,8 +356,173 @@ impl BindingFacts {
             id,
             scope: self.function_scope,
             declaration_line: None,
+            classified_mask: false,
         }
     }
+}
+
+fn collect_classified_masks(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    root_function: Node<'_>,
+    defs: &[DefSite],
+    function_scope: ScopeSpan,
+    declarations: &mut Vec<Declaration>,
+) {
+    if node.id() != root_function.id()
+        && parsed
+            .language
+            .callable_boundary_node_types()
+            .contains(&node.kind())
+    {
+        return;
+    }
+    if let Some(row) = select_binding_row(parsed, node).filter(|row| {
+        row.roles.has(Role::Binding)
+            && matches!(
+                row.declaration,
+                Some(DeclarationKind::Other | DeclarationKind::Pattern)
+            )
+            && row.ruling == Ruling::Classified
+    }) {
+        let scope = if row.roles.has(Role::Scope) {
+            scope_span(node)
+        } else {
+            declaration_scope(
+                parsed,
+                &root_function,
+                node,
+                row.declaration.expect("filtered declaration kind"),
+                function_scope,
+            )
+        };
+        for field in row.fields {
+            if let Some(target) = node.child_by_field_name(field) {
+                let mut identifiers = Vec::new();
+                collect_introduced_identifiers(parsed, target, &mut identifiers);
+                for identifier in identifiers {
+                    if defs
+                        .iter()
+                        .any(|def| def.start_byte == identifier.start_byte())
+                    {
+                        continue;
+                    }
+                    let index = declarations.len();
+                    declarations.push(Declaration {
+                        binding: Binding {
+                            id: BindingId::Declaration(index),
+                            scope,
+                            declaration_line: Some(node.start_position().row + 1),
+                            classified_mask: true,
+                        },
+                        name: parsed.node_text(&identifier).to_string(),
+                        visible_from: match row.visibility {
+                            Visibility::WholeScope => scope.start_byte,
+                            Visibility::Header => target.end_byte(),
+                            _ => node.end_byte(),
+                        },
+                        additional_visibility: Vec::new(),
+                    });
+                }
+            }
+        }
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        collect_classified_masks(
+            parsed,
+            child,
+            root_function,
+            defs,
+            function_scope,
+            declarations,
+        );
+    }
+}
+
+fn collect_introduced_identifiers<'a>(
+    parsed: &ParsedFile,
+    node: Node<'a>,
+    identifiers: &mut Vec<Node<'a>>,
+) {
+    if node.kind() == "shorthand_property_identifier_pattern" {
+        identifiers.push(node);
+        return;
+    }
+    if parsed.language.is_identifier_node(node.kind()) {
+        identifiers.push(node);
+        return;
+    }
+    match node.kind() {
+        "pair_pattern" => {
+            if let Some(value) = node.child_by_field_name("value") {
+                collect_introduced_identifiers(parsed, value, identifiers);
+            }
+        }
+        "assignment_pattern" | "object_assignment_pattern" => {
+            if let Some(left) = node.child_by_field_name("left") {
+                collect_introduced_identifiers(parsed, left, identifiers);
+            }
+        }
+        "object_pattern"
+        | "array_pattern"
+        | "rest_pattern"
+        | "parenthesized_expression"
+        | "parenthesized_pattern" => {
+            let mut cursor = node.walk();
+            for child in node.named_children(&mut cursor) {
+                collect_introduced_identifiers(parsed, child, identifiers);
+            }
+        }
+        _ => {}
+    }
+}
+
+pub(super) fn classified_masked_reads(
+    parsed: &ParsedFile,
+    func_node: &Node<'_>,
+    spans: &[crate::ast::PathSpan],
+) -> Vec<crate::ast::PathSpan> {
+    let function_scope = function_scope(parsed, func_node);
+    let mut declarations = Vec::new();
+    collect_classified_masks(
+        parsed,
+        *func_node,
+        *func_node,
+        &[],
+        function_scope,
+        &mut declarations,
+    );
+    spans
+        .iter()
+        .filter(|span| {
+            declarations.iter().any(|declaration| {
+                declaration.binding.classified_mask
+                    && declaration.name == span.path.base
+                    && declaration.binding.scope.contains(span.start_byte)
+                    && declaration.is_visible_at(span.start_byte)
+            })
+        })
+        .cloned()
+        .collect()
+}
+
+fn simple_catch_parameter_owns_def(parsed: &ParsedFile, function_id: usize, def: &DefSite) -> bool {
+    if parsed.language != Language::JavaScript {
+        return false;
+    }
+    parsed
+        .tree
+        .root_node()
+        .descendant_for_byte_range(def.start_byte, def.start_byte.saturating_add(1))
+        .into_iter()
+        .flat_map(|node| std::iter::successors(Some(node), |node| node.parent()))
+        .take_while(|node| node.id() != function_id)
+        .filter(|node| node.kind() == "catch_clause")
+        .filter_map(|node| node.child_by_field_name("parameter"))
+        .any(|parameter| {
+            parameter.kind() == "identifier" && parsed.node_text(&parameter) == def.path.base
+        })
 }
 
 fn declaration_seed(
@@ -350,8 +552,8 @@ fn declaration_seed(
         .root_node()
         .descendant_for_byte_range(def.start_byte, end_byte)?;
     loop {
-        if select_binding_row(parsed, node).is_some_and(|row| row.visibility == Visibility::Header)
-        {
+        let selected_row = select_binding_row(parsed, node);
+        if selected_row.is_some_and(|row| row.visibility == Visibility::Header) {
             let left = node.child_by_field_name("left");
             if left.is_some_and(|left| {
                 left.start_byte() <= def.start_byte && def.start_byte < left.end_byte()
@@ -365,6 +567,26 @@ fn declaration_seed(
         }
         let rule = binding_scope_rule(parsed.language, node.kind());
         if let Some(kind) = rule.declaration {
+            if selected_row.is_some_and(|row| {
+                row.ruling == Ruling::Classified
+                    && row.roles.has(Role::Binding)
+                    && !row.fields.is_empty()
+                    && !row.fields.iter().any(|field| {
+                        node.child_by_field_name(field).is_some_and(|target| {
+                            let mut identifiers = Vec::new();
+                            collect_introduced_identifiers(parsed, target, &mut identifiers);
+                            identifiers
+                                .iter()
+                                .any(|identifier| identifier.start_byte() == def.start_byte)
+                        })
+                    })
+            }) {
+                if node.id() == func_node.id() {
+                    return None;
+                }
+                node = node.parent()?;
+                continue;
+            }
             let value = if kind == DeclarationKind::PythonAssignment {
                 parsed.language.assignment_value(&node)
             } else {

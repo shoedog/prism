@@ -1,9 +1,21 @@
-use super::{provisional_rows, BindingRow};
+use super::{provisional_rows, BindingRow, DeclarationKind, Role, RoleSet, Ruling, Visibility};
 use crate::languages::Language;
 
 pub(super) const DIGEST: &str = "0d80ab597fcf1310efb9694d4276c407655d060b8bbab8f4ffda0223c43e94bf";
 pub(super) const CENSUS_DIGEST: &str =
     "e15c6df31c5f02f5c4053c5951d9b2e59a1607b02e087841b7d3400ca6ec5881";
+
+pub(super) static CLASSIFIED_ROWS: &[BindingRow] = &[BindingRow {
+    language: Language::JavaScript,
+    kind: "catch_clause",
+    variant: None,
+    roles: RoleSet::of(&[Role::Binding, Role::Scope]),
+    fields: &["parameter"],
+    declaration: Some(DeclarationKind::Other),
+    visibility: Visibility::WholeScope,
+    ruling: Ruling::Classified,
+    regression: "js-catch-param-masks-declared",
+}];
 
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
     Language::JavaScript,
@@ -16,7 +28,6 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
             "augmented_assignment_expression",
             "e0b-js-augmented_assignment_expression"
         ),
-        ("catch_clause", "e0b-js-catch_clause"),
         ("class", "e0b-js-class"),
         ("class_heritage", "e0b-js-class_heritage"),
         ("class_static_block", "e0b-js-class_static_block"),

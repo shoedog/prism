@@ -25,14 +25,70 @@ impl Producer {
         parsed: &ParsedFile,
         func_node: &tree_sitter::Node<'_>,
         owner_is_unique: bool,
+        file: &str,
+        function: &str,
+        function_start_line: usize,
         parameter_occurrences: &[(String, usize, usize)],
         raw_aliases: &[(String, String, usize)],
         lvalue_spans: &[PathSpan],
         rvalue_spans: &[PathSpan],
         legacy_edges: &[FlowEdge],
     ) -> Vec<FlowEdge> {
-        if !owner_is_unique || !parsed.exact_read_callable_is_straight_line(func_node) {
+        if !owner_is_unique {
             return Vec::new();
+        }
+
+        let mut candidates = BTreeMap::<ExactFlowEdge, FlowEdge>::new();
+        for read in crate::cpg::classified_masked_reads(parsed, func_node, rvalue_spans) {
+            if !read.path.is_simple()
+                || read.start_byte >= read.end_byte
+                || lvalue_spans.iter().any(|span| {
+                    (span.start_byte, span.end_byte) == (read.start_byte, read.end_byte)
+                })
+                || raw_aliases.iter().any(|(alias, target, _)| {
+                    alias == &read.path.base || AccessPath::from_expr(target).base == read.path.base
+                })
+                || lvalue_spans
+                    .iter()
+                    .chain(rvalue_spans)
+                    .any(|span| span.path.has_fields() && span.path.base == read.path.base)
+            {
+                continue;
+            }
+            let prior_defs: Vec<_> = lvalue_spans
+                .iter()
+                .filter(|span| span.path == read.path && span.line < read.line)
+                .collect();
+            if prior_defs.len() != 1 {
+                continue;
+            }
+            let def = prior_defs[0];
+            let edge = FlowEdge {
+                from: VarLocation {
+                    file: file.to_string(),
+                    function: function.to_string(),
+                    function_start_line,
+                    line: def.line,
+                    path: def.path.clone(),
+                    start_byte: def.start_byte,
+                    end_byte: def.end_byte,
+                    kind: VarAccessKind::Def,
+                },
+                to: VarLocation {
+                    file: file.to_string(),
+                    function: function.to_string(),
+                    function_start_line,
+                    line: read.line,
+                    path: read.path,
+                    start_byte: read.start_byte,
+                    end_byte: read.end_byte,
+                    kind: VarAccessKind::Use,
+                },
+            };
+            candidates.insert(ExactFlowEdge::from_legacy(&edge), edge);
+        }
+        if !parsed.exact_read_callable_is_straight_line(func_node) {
+            return candidates.into_values().collect();
         }
 
         let mut occurrences: BTreeMap<(AccessPath, usize), BTreeSet<(usize, usize)>> =
@@ -46,7 +102,6 @@ impl Producer {
             }
         }
 
-        let mut candidates = BTreeMap::<ExactFlowEdge, FlowEdge>::new();
         for ((path, line), spans) in occurrences {
             if spans.len() < 2
                 || raw_aliases.iter().any(|(alias, target, _)| {

@@ -104,6 +104,13 @@ pub(super) fn classify_edge(
                 })
             })
         });
+    if let Some(kill_line) =
+        edge_use_byte(parsed, edge).and_then(|use_byte| binding_facts.mask_on_route(edge, use_byte))
+    {
+        return FlowConfidence::NameOnly(FlowDoubt::Killed {
+            kill_line: u32::try_from(kill_line).unwrap_or(u32::MAX),
+        });
+    }
     if lookup_uncertain || construct_uncertain {
         return classify_by_reaching_sets(
             candidates,
