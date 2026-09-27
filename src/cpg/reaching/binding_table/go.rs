@@ -1,4 +1,4 @@
-use super::{BindingRow, DeclarationKind, Role, RoleSet, Ruling, Visibility};
+use super::{BindingRow, DeclarationKind, Predicate, Role, RoleSet, Ruling, Visibility};
 use crate::languages::Language;
 
 pub(super) static ROWS: &[BindingRow] = &[
@@ -101,6 +101,28 @@ pub(super) static ROWS: &[BindingRow] = &[
         visibility: Visibility::AfterIntroduction,
         ruling: Ruling::Classified,
         regression: "e0a-go-const_declaration",
+    },
+    BindingRow {
+        language: Language::Go,
+        kind: "range_clause",
+        variant: Some(Predicate::OperatorIs { any_of: &[":="] }),
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &["left"],
+        declaration: Some(DeclarationKind::GoShort),
+        visibility: Visibility::Header,
+        ruling: Ruling::Classified,
+        regression: "go-range-short-var-no-synthesis",
+    },
+    BindingRow {
+        language: Language::Go,
+        kind: "range_clause",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &["left"],
+        declaration: Some(DeclarationKind::Reuse),
+        visibility: Visibility::AfterIntroduction,
+        ruling: Ruling::Classified,
+        regression: "go-range-reuse-inside-loop",
     },
     BindingRow {
         language: Language::Go,

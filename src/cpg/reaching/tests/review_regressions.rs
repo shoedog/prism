@@ -450,7 +450,7 @@ fn unclassified_language_binding_construct_uses_flat_path_fallback() {
 }
 
 #[test]
-fn go_range_target_uncertainty_uses_flat_path_fallback() {
+fn go_range_short_var_binding_kills_at_header() {
     let parsed = parsed(
         "func f(items []int) {\n\tvalue := source()\n\tfor _, value := range items {\n\t\t{\n\t\t\tvalue := clean()\n\t\t\tconsume(value)\n\t\t}\n\t\tsink(value)\n\t}\n\tconsume(value)\n}\n",
         Language::Go,
@@ -467,7 +467,7 @@ fn go_range_target_uncertainty_uses_flat_path_fallback() {
     assert_label(
         &outcome,
         &range_use,
-        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 5 }),
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
     );
 }
 
@@ -509,7 +509,14 @@ fn python_except_and_with_alias_uncertainty_use_flat_path_fallback() {
     );
     let except_func = function(&except_parsed);
     let except_defs = collect_defs(&except_parsed);
-    let except_facts = scope::BindingFacts::new(&except_parsed, &except_func, &except_defs);
+    let empty_lines = BTreeMap::new();
+    let empty_successors = Vec::new();
+    let empty_cfg = CfgView {
+        line_index: &empty_lines,
+        successors: &empty_successors,
+    };
+    let except_facts =
+        scope::BindingFacts::new(&except_parsed, &except_func, &except_defs, &empty_cfg);
     assert_eq!(except_facts.unclassified_binding_lines("value"), vec![4]);
 
     let with_conditional = parsed(
@@ -518,7 +525,7 @@ fn python_except_and_with_alias_uncertainty_use_flat_path_fallback() {
     );
     let func = function(&with_conditional);
     let defs = collect_defs(&with_conditional);
-    let with_facts = scope::BindingFacts::new(&with_conditional, &func, &defs);
+    let with_facts = scope::BindingFacts::new(&with_conditional, &func, &defs, &empty_cfg);
     assert_eq!(
         with_facts.unclassified_binding_lines("value"),
         vec![3, 4, 5, 6]

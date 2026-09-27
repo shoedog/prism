@@ -7,7 +7,8 @@ use super::binding_table::{
 use super::grammar_lint::introduction_is_classified;
 use super::grammar_lint::{collect_unclassified_binding_lines, grammar_introducing_fields};
 use super::scope_python::collect_python_comprehension_declarations;
-use super::{DefSite, Line};
+use super::transfer::{self, HeaderSpan};
+use super::{CfgView, DefSite, Line};
 use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
 use crate::languages::Language;
@@ -106,10 +107,14 @@ impl<'a> RootFunction<'a> {
 }
 
 pub(super) struct BindingFacts {
-    def_bindings: Vec<Binding>,
+    pub(super) def_bindings: Vec<Binding>,
     def_sites: BTreeMap<(String, Line, usize), usize>,
     declarations: Vec<Declaration>,
     unclassified_binding_lines: BTreeMap<String, BTreeSet<Line>>,
+    pub(super) header_spans: Vec<HeaderSpan>,
+    #[allow(dead_code)]
+    pub(super) no_entry_binders: BTreeMap<String, BTreeSet<Line>>,
+    pub(super) no_entry_spans: Vec<(String, Line, super::grammar_lint::ByteSpan)>,
     function_scope: ScopeSpan,
     language: Language,
     /// PR-B perf: zero-width Use byte resolution is a pure function of the
@@ -120,10 +125,18 @@ pub(super) struct BindingFacts {
 }
 
 impl BindingFacts {
-    pub(super) fn new(parsed: &ParsedFile, func_node: &Node<'_>, defs: &[DefSite]) -> Self {
+    pub(super) fn new(
+        parsed: &ParsedFile,
+        func_node: &Node<'_>,
+        defs: &[DefSite],
+        cfg: &CfgView<'_>,
+    ) -> Self {
         #[cfg(test)]
         super::work_tests::bump(|counts| counts.binding_facts += 1);
         let function_scope = function_scope(parsed, func_node);
+        let binders = transfer::discover(parsed, func_node, defs);
+        let (header_spans, no_entry_binders, no_entry_spans) =
+            transfer::binding_metadata(parsed, &binders, cfg);
         let seeds: Vec<Option<(ScopeSpan, DeclarationKind, usize)>> = defs
             .iter()
             .map(|def| declaration_seed(parsed, func_node, def, function_scope))
@@ -172,15 +185,32 @@ impl BindingFacts {
                         .enumerate()
                         .filter(|(_, declaration)| {
                             declaration.name == name
-                                && declaration.binding.scope == scope
+                                && (declaration.binding.scope == scope
+                                    || (kind == DeclarationKind::Reuse
+                                        && declaration
+                                            .binding
+                                            .scope
+                                            .contains(defs[index].start_byte)))
                                 && declaration.is_visible_at(defs[index].start_byte)
                         })
-                        .max_by_key(|(_, declaration)| declaration.visible_from)
+                        .min_by_key(|(declaration_index, declaration)| {
+                            (
+                                declaration.binding.scope.width(),
+                                Reverse(declaration.visible_from),
+                                Reverse(if kind == DeclarationKind::Reuse {
+                                    0
+                                } else {
+                                    *declaration_index
+                                }),
+                            )
+                        })
                         .map(|(declaration_index, _)| declaration_index)
                 })
                 .flatten();
             let declaration_index = if let Some(reused) = reused {
                 reused
+            } else if kind == DeclarationKind::Reuse {
+                continue;
             } else {
                 let declaration_index = declarations.len();
                 declarations.push(Declaration {
@@ -208,6 +238,9 @@ impl BindingFacts {
                 .collect(),
             declarations,
             unclassified_binding_lines,
+            header_spans,
+            no_entry_binders,
+            no_entry_spans,
             function_scope,
             language: parsed.language,
             use_byte_cache: std::cell::RefCell::new(BTreeMap::new()),
@@ -398,9 +431,7 @@ fn collect_classified_masks(
         };
         for field in row.fields {
             if let Some(target) = node.child_by_field_name(field) {
-                let mut identifiers = Vec::new();
-                collect_introduced_identifiers(parsed, target, &mut identifiers);
-                for identifier in identifiers {
+                for identifier in transfer::introduced_identifiers(parsed, target) {
                     if defs
                         .iter()
                         .any(|def| def.start_byte == identifier.start_byte())
@@ -437,44 +468,6 @@ fn collect_classified_masks(
             function_scope,
             declarations,
         );
-    }
-}
-
-fn collect_introduced_identifiers<'a>(
-    parsed: &ParsedFile,
-    node: Node<'a>,
-    identifiers: &mut Vec<Node<'a>>,
-) {
-    if node.kind() == "shorthand_property_identifier_pattern" {
-        identifiers.push(node);
-        return;
-    }
-    if parsed.language.is_identifier_node(node.kind()) {
-        identifiers.push(node);
-        return;
-    }
-    match node.kind() {
-        "pair_pattern" => {
-            if let Some(value) = node.child_by_field_name("value") {
-                collect_introduced_identifiers(parsed, value, identifiers);
-            }
-        }
-        "assignment_pattern" | "object_assignment_pattern" => {
-            if let Some(left) = node.child_by_field_name("left") {
-                collect_introduced_identifiers(parsed, left, identifiers);
-            }
-        }
-        "object_pattern"
-        | "array_pattern"
-        | "rest_pattern"
-        | "parenthesized_expression"
-        | "parenthesized_pattern" => {
-            let mut cursor = node.walk();
-            for child in node.named_children(&mut cursor) {
-                collect_introduced_identifiers(parsed, child, identifiers);
-            }
-        }
-        _ => {}
     }
 }
 
@@ -558,9 +551,18 @@ fn declaration_seed(
             if left.is_some_and(|left| {
                 left.start_byte() <= def.start_byte && def.start_byte < left.end_byte()
             }) {
+                let owner = if node.kind() == "range_clause" {
+                    node.parent()
+                        .filter(|parent| parent.kind() == "for_statement")
+                        .unwrap_or(node)
+                } else {
+                    node
+                };
                 return Some((
-                    scope_span(node),
-                    DeclarationKind::Other,
+                    scope_span(owner),
+                    selected_row
+                        .and_then(|row| row.declaration)
+                        .unwrap_or(DeclarationKind::Other),
                     left.expect("checked above").end_byte(),
                 ));
             }
@@ -573,9 +575,7 @@ fn declaration_seed(
                     && !row.fields.is_empty()
                     && !row.fields.iter().any(|field| {
                         node.child_by_field_name(field).is_some_and(|target| {
-                            let mut identifiers = Vec::new();
-                            collect_introduced_identifiers(parsed, target, &mut identifiers);
-                            identifiers
+                            transfer::introduced_identifiers(parsed, target)
                                 .iter()
                                 .any(|identifier| identifier.start_byte() == def.start_byte)
                         })

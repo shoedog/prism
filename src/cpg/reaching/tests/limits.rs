@@ -79,6 +79,93 @@ fn cap_poles_remain_runnable() {
 }
 
 #[test]
+fn synthetic_def_cap_accepts_equality_and_refuses_plus_one() {
+    let source = two_go_range_reuses_source();
+    let parsed = parsed(&source, Language::Go);
+
+    let accepted_defs = go_defs_with_outer(&parsed, RD_MAX_DEFS - 2);
+    assert_eq!(accepted_defs.len(), RD_MAX_DEFS - 2);
+    assert!(matches!(
+        run(&parsed, &accepted_defs, &[]).0,
+        RdOutcome::Available(_)
+    ));
+
+    let refused_defs = go_defs_with_outer(&parsed, RD_MAX_DEFS - 1);
+    assert_eq!(refused_defs.len(), RD_MAX_DEFS - 1);
+    let (outcome, stats) = run(&parsed, &refused_defs, &[]);
+    assert!(matches!(
+        outcome,
+        RdOutcome::Unavailable(RdUnavailable::DefinitionsCapExceeded { actual })
+            if actual == RD_MAX_DEFS + 1
+    ));
+    assert_eq!(stats.functions_over_cap, 1);
+}
+
+#[test]
+fn synthetic_node_cap_accepts_equality_and_refuses_plus_one() {
+    let accepted = parsed(
+        &go_range_source_with_statement_count(RD_MAX_LINES - 1),
+        Language::Go,
+    );
+    assert_eq!(
+        accepted.statements_in_function(&function(&accepted)).len(),
+        RD_MAX_LINES - 1
+    );
+    let accepted_defs = collect_defs(&accepted);
+    assert!(matches!(
+        run(&accepted, &accepted_defs, &[]).0,
+        RdOutcome::Available(_)
+    ));
+
+    let refused = parsed(
+        &go_range_source_with_statement_count(RD_MAX_LINES),
+        Language::Go,
+    );
+    assert_eq!(
+        refused.statements_in_function(&function(&refused)).len(),
+        RD_MAX_LINES
+    );
+    let refused_defs = collect_defs(&refused);
+    let (outcome, stats) = run(&refused, &refused_defs, &[]);
+    assert!(matches!(
+        outcome,
+        RdOutcome::Unavailable(RdUnavailable::StatementLinesCapExceeded { actual })
+            if actual == RD_MAX_LINES + 2
+    ));
+    assert_eq!(stats.functions_over_cap, 1);
+}
+
+fn two_go_range_reuses_source() -> String {
+    "func f(first []int, second []int) {\n  x := source()\n  for _, x = range first {\n    observe(x)\n  }\n  for _, x = range second {\n    observe(x)\n  }\n}\n"
+        .to_string()
+}
+
+fn go_defs_with_outer(parsed: &ParsedFile, count: usize) -> Vec<DefSite> {
+    let mut defs = vec![def(parsed, 0, "x", 2, 0, false)];
+    defs.extend((1..count).map(|index| DefSite {
+        id: DefId(index as u32),
+        path: AccessPath::simple(format!("v{index}")),
+        line: 1,
+        start_byte: parsed.source.len() + index,
+        alias_derived: false,
+        synthetic: false,
+    }));
+    defs
+}
+
+fn go_range_source_with_statement_count(statement_count: usize) -> String {
+    assert!(statement_count >= 3);
+    let mut source = String::from(
+        "func f(items []int) {\n  x := source()\n  for _, x = range items {\n    observe(x)\n  }\n",
+    );
+    for _ in 0..statement_count - 3 {
+        source.push_str("  tick()\n");
+    }
+    source.push_str("}\n");
+    source
+}
+
+#[test]
 fn zero_cfg_edge_function_returns_unavailable_for_the_no_cfg_reason() {
     let parsed = parsed("def f():\n    pass\n", Language::Python);
     let (outcome, stats) = run(&parsed, &[], &[]);
@@ -97,6 +184,7 @@ fn definitions_cap_has_precedence_when_both_caps_are_exceeded() {
             line: 1,
             start_byte: 0,
             alias_derived: false,
+            synthetic: false,
         })
         .collect();
     assert!(matches!(

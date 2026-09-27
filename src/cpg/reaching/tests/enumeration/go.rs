@@ -1,5 +1,7 @@
-use super::super::super::binding_table::{rows, DeclarationKind, Role, Ruling, Visibility};
-use crate::cpg::FlowConfidence;
+use super::super::super::binding_table::{
+    rows, DeclarationKind, Predicate, Role, Ruling, Visibility,
+};
+use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
 pub(super) const CASES: &[super::case::Case] = &[
@@ -13,6 +15,42 @@ pub(super) const CASES: &[super::case::Case] = &[
         src: "func f() {\n  x := source()\n  if x := f(); c { use(x) }\n  sink(x)\n}\n",
         expect: &[("2:x", "4:x", FlowConfidence::Exact)],
         expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    super::case::Case {
+        id: "go-range-reuse-inside-loop",
+        language: Language::Go,
+        kind: "range_clause",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "func f(items []int) {\n  x := source()\n  for _, x = range items {\n    observe(x)\n  }\n  sink(x)\n}\n",
+        expect: &[
+            (
+                "2:x",
+                "4:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:x", "6:x", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "go-range-short-var-no-synthesis",
+        language: Language::Go,
+        kind: "range_clause",
+        variant: Some("binding"),
+        row_variant: Some(Predicate::OperatorIs { any_of: &[":="] }),
+        class: super::case::CaseClass::Behavioral,
+        src: "func f(items []int) {\n  x := source()\n  for _, x := range items {\n    observe(x)\n  }\n  sink(x)\n}\n",
+        expect: &[
+            (
+                "2:x",
+                "4:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:x", "6:x", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     super::case::Case {
         id: "go-if-init-mask-not-route-kill",
@@ -128,7 +166,7 @@ fn go_rows_reproduce_the_old_match_arms() {
         ),
     ];
 
-    assert!(go_rows[expected.len()..].iter().all(|row| matches!(
+    assert!(go_rows[expected.len() + 2..].iter().all(|row| matches!(
         row.ruling,
         Ruling::Uncertain {
             reason: "not yet curated",
@@ -146,4 +184,19 @@ fn go_rows_reproduce_the_old_match_arms() {
         assert_eq!(row.visibility, visibility, "{kind}");
         assert_eq!(row.regression, regression, "{kind}");
     }
+
+    let range_rows: Vec<_> = go_rows
+        .iter()
+        .filter(|row| row.kind == "range_clause")
+        .collect();
+    assert_eq!(range_rows.len(), 2);
+    assert_eq!(
+        range_rows[0].variant,
+        Some(Predicate::OperatorIs { any_of: &[":="] })
+    );
+    assert_eq!(range_rows[0].declaration, Some(DeclarationKind::GoShort));
+    assert_eq!(range_rows[0].visibility, Visibility::Header);
+    assert_eq!(range_rows[1].variant, None);
+    assert_eq!(range_rows[1].declaration, Some(DeclarationKind::Reuse));
+    assert_eq!(range_rows[1].visibility, Visibility::AfterIntroduction);
 }
