@@ -3675,9 +3675,9 @@ impl CallGraph {
     /// assignment, or barrel differs from the declaring function's actual
     /// name entirely.
     ///
-    /// S1: a span-verified wrapped React export binds only from a JSX element site, and
-    /// only to the one function with its exact span. Non-JSX sites drop
-    /// `WrappedExportNonJsx`; zero or 2+ span matches yield no candidate (never NameOnly).
+    /// S1/S1b: a span-verified export binds only the one function with its exact span; zero
+    /// or 2+ span matches yield no candidate (never NameOnly). A wrapped React export binds
+    /// only from a JSX element site; non-JSX sites drop `WrappedExportNonJsx`.
     fn js_ts_import_member_candidates(
         &self,
         caller: &FunctionId,
@@ -3699,16 +3699,8 @@ impl CallGraph {
         else {
             return Ok(Vec::new());
         };
-        if resolved.span.is_some() && !site.jsx_element {
+        if resolved.wrapped && !site.jsx_element {
             return Err(DropReason::WrappedExportNonJsx);
-        }
-        // A lowercase JSX tag is an intrinsic element; it never references the binding.
-        if resolved.span.is_some()
-            && site
-                .callee_name
-                .starts_with(|c: char| c.is_ascii_lowercase())
-        {
-            return Ok(Vec::new());
         }
         let ids: Vec<&FunctionId> = match self.functions.get(&resolved.local_name) {
             Some(ids) => ids

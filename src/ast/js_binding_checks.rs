@@ -1,5 +1,4 @@
 //! S1b (SPEC §3.1 B0, B1): the fail-safe over node kinds and the sealed-error rule.
-#![allow(dead_code)] // S1b-2b and S1b-3 wire these; remove the allow there
 use super::js_binding::{classified, sealing, JsBindingCache};
 use super::ParsedFile;
 use tree_sitter::Node;

@@ -274,8 +274,8 @@ enum ExportLookup {
     Resolved(ResolvedJsExport, bool),
 }
 
-/// A star-barrel candidate: `(file, local_name, is_class, span)`.
-type BarrelCandidate = (String, String, bool, Option<(usize, usize)>);
+/// A star-barrel candidate: `(file, local_name, is_class, span, wrapped)`.
+type BarrelCandidate = (String, String, bool, Option<(usize, usize)>, bool);
 
 fn resolve_one(
     raw: &BTreeMap<String, JsExportFacts>,
@@ -418,7 +418,7 @@ fn resolve_one_inner(
             telemetry,
         ) {
             ExportLookup::Resolved(hit, is_class) => {
-                candidates.insert((hit.file, hit.local_name, is_class, hit.span));
+                candidates.insert((hit.file, hit.local_name, is_class, hit.span, hit.wrapped));
             }
             ExportLookup::BlockedClaim => return ExportLookup::BlockedClaim,
             ExportLookup::NoTarget => {}
@@ -427,13 +427,14 @@ fn resolve_one_inner(
     match candidates.len() {
         0 => ExportLookup::NoTarget,
         1 => {
-            let (file, local_name, is_class, span) = candidates.into_iter().next().unwrap();
+            let (file, local_name, is_class, span, wrapped) =
+                candidates.into_iter().next().unwrap();
             ExportLookup::Resolved(
                 ResolvedJsExport {
                     file,
                     local_name,
                     span,
-                    wrapped: false,
+                    wrapped,
                 },
                 is_class,
             )

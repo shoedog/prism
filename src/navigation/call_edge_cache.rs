@@ -96,7 +96,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v53: JS/TS/TSX nested-call execution ownership and identity-collision refusal.
 // v54: span-verified wrapped React exports bind JSX sites only (CPG v98).
 // v55: S1b-1 intrinsic JSX tags and shared binding-collector fixes (CPG v99).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 55;
+// v57: S1b-2b ESM local exports through the module-scope binding (CPG v101).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 57;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
