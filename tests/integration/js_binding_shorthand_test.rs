@@ -68,3 +68,32 @@ fn b2_destructuring_default_values_do_not_shadow() {
         BOTH,
     );
 }
+
+#[test]
+fn b3_renamed_and_member_initializer_twins_bind_only_the_local() {
+    // Guards (base-green): `{ g: f }` binds `f`, not the key `g`; `const f = o.f` binds `f`.
+    // The unshadowed `g()` keeps its edge on both routes.
+    let lib = "export function f() {\n  return 1;\n}\nexport function g() {\n  return 2;\n}\n";
+    let body =
+        |decl: &str| format!("export function run(o) {{\n  {decl}\n  f();\n  return g();\n}}\n");
+    let import = |decl: &str| format!("import {{ f, g }} from './lib';\n{}", body(decl));
+    let (renamed, member) = ("const { g: f } = o;", "const f = o.f;");
+    let free_want: &[&str] = &[
+        "L3 f: drop UnknownName",
+        "L4 g: Exact free_single lib:g@4-6",
+    ];
+    let import_want: &[&str] = &[
+        "L4 f: drop UnknownName",
+        "L5 g: Exact import_member lib:g@4-6",
+    ];
+    let apps = [body(renamed), body(member), import(renamed), import(member)];
+    check(
+        &[
+            (lib, &apps[0], free_want),
+            (lib, &apps[1], free_want),
+            (lib, &apps[2], import_want),
+            (lib, &apps[3], import_want),
+        ],
+        BOTH,
+    );
+}
