@@ -126,7 +126,8 @@ fn cjs_refusal_raw_serde_and_esm_custody() {
                 facts.named["other"],
                 JsExportTarget::UnprovenLocal(_)
             ));
-            assert_eq!(matches!(facts.named["item"], JsExportTarget::Local(_)), esm);
+            let verified = matches!(facts.named["item"], JsExportTarget::VerifiedLocal { .. });
+            assert_eq!(verified, esm);
             let restored: JsExportFacts =
                 serde_json::from_slice(&serde_json::to_vec(&facts).unwrap()).unwrap();
             assert_eq!(facts, restored);
