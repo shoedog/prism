@@ -347,3 +347,46 @@ Row-diffs (base → v8d): X 1,019, F 536, R 117, T 870. Per sub-slice: SPEC §8.
 - The may-call class, `tier-a --quick`, `--features mcp`, clippy and the Node gate on the prototype (as r2).
 - Strictness from `package.json` `type` or `tsconfig` `alwaysStrict`: the SPEC keeps such scripts at base
   (Unknown), which the corpora never reach (Q42).
+
+## Round 4: S1b-3 re-planned against the landed code (prototype v10, 2026-09-27)
+
+### Custody (r4)
+
+- **Base.** The S1b-2b head `3961cc21` (approved, awaiting merge; main `761541c2` holds S1b-1, S1b-1b, S1b-2a).
+  Binary `~/prism-evidence/s1b/acceptance-s1b-2b-final/prism-head-3961cc21`, copied to
+  `~/prism-evidence/s1b/s1b3-plan/bin/`.
+- **Prototype v10.** A scratch worktree of `~/code/prism-s1b-2b-impl` (detached; the 2b branch untouched),
+  `~/code/prism-s1b3-proto`, squashed scratch commit `bece3158` (never pushed); diff
+  `prototype/s1b3-prototype-v10.diff.txt`. Iterations v10a–v10e (binaries in `s1b3-plan/bin/`): v10b added the
+  text-based recovered-import markers and moved the local-refusal drop below the name lookup; v10c made `unbound`
+  and `import` drop at R4 (C88, C93, C141, as v9); v10d moved the R5 drop to where base would bind (no relabels) and
+  caught mangled writes beside an `ERROR`; v10e adds M1 for pattern declarators (OQ11 a). Measurement switches:
+  `PRISM_S1B3_NO_SITES` (the 3a/3b split), `PRISM_S1B3_M1_PATTERN_OFF` (OQ11 b).
+- **Evidence root:** `~/prism-evidence/s1b/s1b3-plan/` (runs, row-diffs, audits, stats, controls, RP replay, logs,
+  `MANIFEST.sha256`). F's row-diff by hash (`expected-F-sha256.txt`).
+- **Auditor.** `probes/audit_s1b3.py` (new) classifies every changed row with `jsscope.py`'s lexical binding (same
+  author as the prototype; the controls are the independent check).
+
+### Probe log (r4)
+
+| ID | Command | Expected | Actual | Output |
+|---|---|---|---|---|
+| Q49 | `run_dumps.sh` with the head binary, X F R T | row counts as before | X 19,219, F 13,299, R 953, T 61,712; 0 stderr | `runs/head/` |
+| Q50 | v10e controls (255 scenarios) vs head | carry-forwards 1–9 as the controller listed them | as addendum 8 (not pre-registered, disclosed there); every other row equals v9's reference except S1b-4's rows | `controls/`, `probes/S1b-controls-{head-3961cc21,proto-v10}.txt` |
+| Q51 | v10 controls vs v9's reference | only S1b-4 rows and the new C166–C173 differ | **as expected**; on the way, v10a/b mapped `unbound` and imports to base and lost C88, C93, C141 (fixed in v10c), and v10a–c dropped before base's R5 guard, relabelling `UnknownName` rows (X 265; fixed in v10d) | `controls/diff-*.txt` |
+| Q52 | 2a's unit tests on v10c | C150 and the D5 import rows change by design | also **Opus 2a W2's mangled write `f = ;` turned `Callable`**: tree-sitter parses it as `f` beside an `ERROR` holding `=`, not under it. Fixed in v10d (identifiers that are a child *or sibling* of an `ERROR` are write targets) | `logs-suite-v10c.log` |
+| Q53 | row-diff head → v10d/v10e, X F R T | r3's R4 counts plus carry-forward 4's rows | X 236, F 479 → 476 (v10e), R 0, T 1,125 | `rowdiff/` |
+| Q54 | `audit_s1b3.py` on each | 0 right removed outside E6; `maycall_changed` 0 | **X**: 134 re-targeted right, 102 wrong removed (19 R4, 83 R5: 48 parameters, 33 declarators, 2 `for` heads). **F**: 1 re-targeted, 471 wrong removed (30 R4, 441 R5), 4 E6 right lost. **T**: 635 re-targeted, 439 wrong removed (182 R4 incl. 7 unbound-at-site, 257 R5), 10 right added, 41 E6 right lost. **v10d had 3 F rows the auditor calls may-call** (`const [s, setS] = useState(() => …)`): OQ11; v10e keeps them base, `maycall_changed` 0 on all four. Spot checks by hand of 8 R5 rows (X, T): parameters and destructured locals shadowing a same-named function elsewhere, all wrong | `audit/` |
+| Q55 | `call-stats` head vs v10e | new counters as §5 r4 | as SPEC §5 r4 (`local_binding_unchecked_position` `{}` everywhere) | `stats/` |
+| Q56 | v10e with `PRISM_S1B3_NO_SITES=1` (3a alone), controls and X F R T | 0 corpus rows | **0 rows on all four corpora**; controls: only the C166–C168 and C172 D4 rows (right) | `runs/v10d-3a/`, `controls/v10d-3a/` |
+| Q57 | `honest_lines.py` and `fn_attrib.py` on `bece3158` | – | 664 src (≈ 7 switch lines), 5 tests; 3a 490, 3b 168 | `v10e-fn-attrib.txt` |
+| Q58 | `cargo test --offline --no-fail-fast` on v10e | the by-design failures only | **4,619 / 6 / 1** (head 4,625 / 0 / 1): C150, two D5 import-representation tables, S1b-1b `b5` (carry-forward 4) and the two cache pins | `logs-suite-v10e.log` |
+| Q59 | Tier-A `--matrix-only`, v10e and head, with `s1b_param_shadow_local_def_refused` added | head RED on the fixture, v10e green | **v10e 165 / 165**; head 164 ok + the fixture `regression` (rc 1) | `tier-a-*.log` |
+| Q60 | `grammar_closure.py --rust` on v10 `src/ast`; RP replay on v10e | exit 0; RP equals v9 except S1b-4 | exit 0 (74 rows, 0 differences); RP differs only at RP2-c (`ns.g`, S1b-4) | `rp/v10e/` |
+| Q61 | `/usr/bin/time -p … call-stats --repo T`, head then v10e, sequential, same machine | no blow-up from per-site walks (carry-forward 2) | head 286 s, v10e 259 s wall (single runs; noise not bounded, so "neutral", not "faster") | `timing-T-*.txt` |
+
+### Not measured (r4)
+
+- `--features mcp`, clippy, the Node gate and `tier-a --quick` on v10.
+- The may-call class's truth (E5 keeps it at base).
+- Mutant kills: the prototype has no new tests; SPEC §7's mutants are the implementer's.

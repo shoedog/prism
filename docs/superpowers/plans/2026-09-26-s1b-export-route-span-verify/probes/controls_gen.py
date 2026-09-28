@@ -356,6 +356,32 @@ S1B["C162_annexb_function_directive"] = {
  "a.{s}": "function inner() {\n  return 0;\n}\nfunction run(flag) {\n  \"use strict\";\n  if (flag) {\n    function inner() {\n      return 1;\n    }\n  }\n  return inner();\n}\n"}
 S1B["C165_for_in_left_default"] = {
  "a.{s}": "function f() {\n  return 1;\n}\nexport function run(xs) {\n  for (const { a = f() } of xs) {\n    return a;\n  }\n  for (const { f = f() } of xs) {\n    return f;\n  }\n}\n"}
+# ---- S1b-3 plan (v10, landed 2a/2b base): carry-forwards CF1-CF9.
+S1B["C166_CF1a_let_in_default_param_arrow"] = {
+ "lib.{s}": "function f() {\n  return 1;\n}\nfunction g(a = (() => {\n  let f;\n  f = () => 2;\n})()) {\n  return a;\n}\nexport { f };\nexport function run() {\n  return f();\n}\n",
+ "app.{s}": "import { f } from './lib';\nexport function use() {\n  return f();\n}\n"}
+S1B["C167_CF1b_inner_function_in_sealed_error"] = {
+ "lib.{s}": "function f() {\n  return 1;\n}\nfunction g() {\n  function f() {\n    return 2;\n  }\n  let x = ;\n  return f;\n}\nexport { f };\nexport function run() {\n  return f();\n}\n",
+ "app.{s}": "import { f } from './lib';\nexport function use() {\n  return f();\n}\n"}
+S1B["C168_CF1c_class_inner_name_computed_key_write"] = {
+ "lib.{s}": "function f() {\n  return 1;\n}\nconst C = class f {\n  [(() => { f = 2; })()]() {\n    function f() {\n      return 3;\n    }\n    return f;\n  }\n};\nexport { f, C };\nexport function run() {\n  return f();\n}\n",
+ "app.{s}": "import { f } from './lib';\nexport function use() {\n  return f();\n}\n"}
+S1B["C169_CF3_written_class_forvar_param"] = {
+ "a.{s}": "function f() {\n  return 1;\n}\nexport function runClass(other) {\n  class f {}\n  f = other;\n  return f();\n}\nexport function runFor(o, other) {\n  for (var f in o) {}\n  f = other;\n  return f();\n}\nexport function runParam(f, other) {\n  f = other;\n  return f();\n}\n"}
+S1B["C170_CF4_block_nested_destructuring"] = {
+ "lib.{s}": "export function f() {\n  return 1;\n}\n",
+ "app.{s}": "export function run(o) {\n  if (o) {\n    const { f } = o;\n    return f();\n  }\n  return 0;\n}\n",
+ "top.{s}": "{\n  const { f } = globalThis.o;\n}\nexport function run2() {\n  return f();\n}\n",
+ "hoist.{s}": "{\n  var { f } = globalThis.o;\n}\nexport function run3() {\n  return f();\n}\n"}
+S1B["C172_CF8_sealed_body_declaration_export"] = {
+ "lib.{s}": "export function f() {\n  let x = ;\n  return 1;\n}\nexport { f as g };\n",
+ "app.{s}": "import { f, g } from './lib';\nexport function run() {\n  return f() + g();\n}\n"}
+S1B["C173_CF9_recovered_import_poison"] = {
+ "lib.{s}": "function f() {\n  return 1;\n}\nexport function h() {\n  return 2;\n}\nexport { f as \"GG\" };\n",
+ "app.{s}": "export function run() {\n  return h();\n}\nimport { \"\\u{GG}\" as h } from './lib';\n"}
+TS_ONLY["C171_CF7_namespace_export_destructuring"] = {
+ "lib.ts": "export function f() {\n  return 1;\n}\n",
+ "a.ts": "declare const o: any;\nnamespace N {\n  export const { f } = o;\n}\nexport function run() {\n  return f();\n}\n"}
 TS_ONLY["C163_annexb_sloppy_cjs"] = {
  "a.cjs": "function inner() {\n  return 0;\n}\nfunction run(flag) {\n  if (flag) {\n    function inner() {\n      return 1;\n    }\n  }\n  return inner();\n}\nmodule.exports = { run };\n"}
 TS_ONLY["C164_annexb_sloppy_cjs_generator"] = {

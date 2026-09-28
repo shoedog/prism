@@ -1,26 +1,39 @@
-# S1b planning packet: span-verify every JS/TS export and local route (r3, 2026-09-26)
+# S1b planning packet: span-verify every JS/TS export and local route (r4, 2026-09-27)
 
 **Base:** `origin/main` `a6d853f5` (S1 merged). Planning only: nothing under `src/`, `tests/`, `eval/`, `Cargo.*` or
 `CLAUDE.md` changes on this branch. **Status:** spec round 2 (the cap) found the collector open-class; S1b-1 ships;
 S1b-2..4 are **re-planned in `REPLAN-fable.md`** (evaluation-context table, positional fail-safe, leave predicate);
 the owner took Option K and five sub-slices (OQ1–OQ7, SPEC §0). Spec round 3 (the last) was **folded at the cap**
-(`REVIEW-r3-fold.md`; owner: "targeted fold, then implement"). **Open for the owner:** OQ8 (S1b-1b, the F4 collector
-fix) and OQ9 (re-caps for 2a and 3, which the v9 prototype measures over their caps). Re-plan evidence:
+(`REVIEW-r3-fold.md`; owner: "targeted fold, then implement"). S1b-1, S1b-1b and S1b-2a are on main (`761541c2`);
+S1b-2b is approved (`3961cc21`). **r4 (2026-09-27): S1b-3 re-planned against the landed code** (SPEC §3.8, prototype
+v10, PLANNING-PROBES Q49–Q61). **Open for the owner:** OQ10 (split S1b-3 into 3a/3b), OQ11 (M1 for destructuring
+declarators), OQ12 (R5 reach of carry-forward 4). Re-plan evidence:
 `~/prism-evidence/s1b/replan/`; r3 evidence: `~/prism-evidence/s1b/r3fold/` and `~/prism-evidence/s1b/planning/`.
 
 | File | Purpose |
 |---|---|
 | `SPEC.md` | normative design r2: §0 owner answers and open questions; §3.1 the binding core as an enumerated table keyed to ECMA-262 and TS declaration spaces, with the fail-safe and the narrower parse rule; per-route semantics; controls; counters; cache; per-sub-slice tests, mutants and Tier-A fixtures; acceptance as exact audited row-diffs per sub-slice; budget |
 | `REVIEW-r3-fold.md` | the at-cap round-3 fold: finding → disposition → location → RED rows and mutants → measured |
-| `PLANNING-PROBES.md` | mechanisms M1–M17 and probes Q0–Q48 (r3: Q36–Q48) (command, pre-run expectation, result, output path); r2 results per corpus and route |
+| `PLANNING-PROBES.md` | mechanisms M1–M17 and probes Q0–Q61 (r3: Q36–Q48; r4: Q49–Q61) (command, pre-run expectation, result, output path); r2 results per corpus and route |
 | `REVIEW-r1-fold.md` | every spec round 1 finding → disposition → location → evidence, plus fold findings and disagreements |
 | `REPLAN-fable.md` | re-plan after the round-2 cap: diagnosis (the unit of proof is the position, not the kind), options K / A / B / D with measured yields and budgets, the evaluation-context table, the fold plan for the bounded r2 items, owner questions OQ1–OQ7, the round-3 review brief |
 | `IMPLEMENTOR.md` | dispatch brief for one sub-slice, with per-batch budget checkpoints, and the **S1b-2a dispatch** section |
 | `REVIEWER.md` | one brief for sol and Opus |
 | `probes/` | tools (auditor `jsscope.py`, `grammar_closure.py` with the kind and `E(kind, field)` tables and the runtime equality check, census, row-diff audit, taxonomy, 240-scenario control generator with JSX/TSX twins, `replan/` RP generator and replay), pre-run expectations (addenda 1–7), reference control summaries per sub-slice, `expected/` row-diffs for X, R and T |
+| `prototype/s1b3-prototype-v10.diff.txt` | the S1b-3 prototype on the landed code (r4; scratch, never built into this branch) |
 | `prototype/s1b-prototype-v9.diff.txt` | the feasibility prototype, r3 (never built into this branch) |
 
 Evidence: `~/prism-evidence/s1b/planning/` with a `MANIFEST.sha256`.
+
+## r4 measured facts (prototype v10 on `3961cc21`)
+
+- **Row-diffs, audited:** X 236 (134 re-targeted, 102 wrong removed), F 476 (1 re-targeted, 471 wrong removed, 4 E6
+  right lost), R 0, T 1,125 (635 re-targeted, 439 wrong removed, 10 right added, 41 E6 right lost). r3's R4 counts
+  hold exactly; the rest is carry-forward 4's R5 class (OQ12). `maycall_changed` 0.
+- **3a alone** (the collector, no call-site wiring): 0 rows on all four corpora.
+- **Suites:** v10e 4,619 / 6 / 1 (6 by design; head 4,625 / 0 / 1); Tier-A 165 / 165 with the S1b-3 fixture (RED on
+  head); closure probe exit 0.
+- **Budget:** 664 src (3a 490, 3b 168); proposed caps SPEC §9 r4 (3a 590 / 620 tests, 3b 220 / 800).
 
 ## r3 measured facts (prototype v9)
 

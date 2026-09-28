@@ -191,3 +191,24 @@ unbound there).
 | C163 `.cjs` (sloppy) script | Exact ×2 | drop (Annex-B marker) |
 | C164 `.cjs` block generator declaration | Exact ×2 | Exact → the outer generator... **no row**: generator declarations are indexed but a call to a generator is a call; predicted Exact → outer `inner` (Annex B does not apply to generators) |
 | C165 `for (const { a = f() } of xs)`; `for (const { f = f() } of xs)` | Exact, Exact | Exact → top-level `f`; drop (the head's own `f`, TDZ) |
+
+## Addendum 8 (S1b-3 r4 plan, v10 on the landed `3961cc21`) — NOT pre-registered
+
+Disclosure: the expectations below come from the controller's carry-forward list (2026-09-27) and SPEC §3.8; they
+were not written into this file before the first v10 run. They are recorded here so the implementer's RED rows cite
+one place. The base for these rows is the S1b-2b head `3961cc21` (`S1b-controls-head-3961cc21.txt`), not `a6d853f5`.
+
+| Scenario | head `3961cc21` (measured) | v10e (measured, matches the carry-forward's intent) |
+|---|---|---|
+| C166 `let f` in a default-parameter arrow | importer NameOnly pair; in-file Exact pair | importer Exact `lib:f`; in-file Exact `f` |
+| C167 inner `function f` in a sealed-error function | the same | the same |
+| C168 class inner name written from a computed key | the same | the same |
+| C169 written `class f` / `for (var f in o)` head / parameter | Exact to the module `f` (base) | unchanged (M2 → `MayCall`, owner ruling) |
+| C170 block-nested `const { f }`; module bare-block `var { f }`; module bare-block `const { f }` (P15) | Exact `free_single` ×3 | drop, drop, Exact kept |
+| C171 (TS) `namespace N { export const { f } = o }` + module `run(){ f() }` | Exact `free_single` | unchanged |
+| C172 `export function f(){ let x = ; }` + `export { f as g }` | `f` no edge, `g` Exact | both Exact |
+| C173 `import { "\u{GG}" as h }` recovered as a top-level `ERROR`, `export function h` elsewhere | Exact `free_single` (wrong) | drop |
+| C150 (sealed error mentioning the name) | Exact (D4 `MayCall` → base `Local`) | Exact (D4 `VerifiedLocal`; same edge) |
+
+Every other scenario matches v9's reference (`S1b-controls-proto-v9.txt`) except the S1b-4 rows (C62, C80–C83,
+C129–C133, C148, which S1b-3 does not own). C166–C173 are new.

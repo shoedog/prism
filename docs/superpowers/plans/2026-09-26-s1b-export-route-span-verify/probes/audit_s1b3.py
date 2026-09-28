@@ -1,0 +1,88 @@
+"""S1b-3 row-diff audit against the jsscope auditor's lexical binding (independent of prism).
+
+Usage: python3 audit_s1b3.py <repo_root> <rowdiff.json> <out.json> [--private]
+Classes per changed row (base -> proto):
+  retargeted_right   Exact multi -> Exact single, and the kept target is the auditor's callable (span match)
+  retargeted_other   Exact multi -> single, anything else
+  removed_wrong      base had targets; the auditor binds the name in-file to something that is not any of them
+                     (a parameter, a destructured or other non-callable declaration, a class, an enum, a
+                     namespace, a marker, a duplicate, or a different in-file callable)
+  removed_parse      the auditor refuses the binding scope for parse recovery (E6): recall cost, audited by hand
+  removed_unbound    the auditor finds no in-file binding and base bound a non-local route (a possible right
+                     edge lost): audited by hand. Unbound with only `local_def` targets is removed_wrong
+  removed_import     the auditor binds the name to an import: audited by hand
+  added_right / added_other   base dropped, proto binds
+  relabel            drop reason changed, no edge
+--private prints counts only (corpus F); the JSON stays in the private evidence root.
+"""
+import json, os, sys, collections
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from jsscope import Src, lines, LANG
+
+root, rd, out = sys.argv[1:4]
+private = '--private' in sys.argv
+srcs = {}
+
+
+def S(f):
+    if f not in srcs:
+        ext = os.path.splitext(f)[1]
+        srcs[f] = Src(os.path.join(root, f), ext) if ext in LANG else None
+    return srcs[f]
+
+
+def callee_ident(s, sb, eb):
+    n = s.node_at(sb, eb)
+    while n is not None and not (n.start_byte == sb and n.end_byte == eb):
+        n = n.parent
+    if n is None:
+        return None
+    f = n.child_by_field_name('function') if n.type == 'call_expression' else n.child_by_field_name('name')
+    return (f, n.type != 'call_expression') if f is not None and f.type == 'identifier' else None
+
+
+res = []
+cnt = collections.Counter()
+for r in json.load(open(rd)):
+    f, cn, cl, sf, sb, eb, callee = r['key']
+    (bd, bt), (pd, pt) = r['base'], r['proto']
+    s = S(sf)
+    ident, jsx = (callee_ident(s, sb, eb) if s else None) or (None, False)
+    scope, ds = (s.binding(ident, callee) if ident is not None else (None, []))
+    v = s.classify(scope, ds, callee, ident, jsx) if scope is not None else {'status': 'global'}
+    if v['status'] == 'wrapped_jsx':
+        v['status'] = 'callable'
+    kinds = sorted({d.type for d in ds})
+    if bt and pt:
+        span = tuple(v.get('span') or ())
+        ok = v['status'] == 'callable' and len(pt) == 1 and (pt[0][2], pt[0][3]) == span and pt[0][0] == sf
+        c = 'retargeted_right' if ok else 'retargeted_other'
+    elif bt and not pt:
+        if scope is None and all(t[5] == 'local_def' for t in bt):
+            c = 'removed_wrong'  # unbound at the site: every same-file function is out of scope
+        elif scope is None:
+            c = 'removed_unbound'
+        elif v['status'] == 'parse':
+            c = 'removed_parse'
+        elif any(k in ('import_statement', 'import_alias') for k in kinds):
+            c = 'removed_import'
+        elif v['status'] == 'callable' and any(t[0] == sf and (t[2], t[3]) == tuple(v['span']) for t in bt):
+            c = 'removed_right'
+        else:
+            c = 'removed_wrong'
+    elif pt and not bt:
+        span = tuple(v.get('span') or ())
+        c = 'added_right' if v['status'] == 'callable' and (pt[0][2], pt[0][3]) == span else 'added_other'
+    else:
+        c = 'relabel'
+    route = sorted({t[5] for t in bt}) if bt else []
+    cnt[(c, ','.join(route))] += 1
+    res.append({'key': r['key'], 'class': c, 'auditor': v.get('status'), 'detail': v.get('detail'),
+                'decl_kinds': kinds, 'base': r['base'], 'proto': r['proto']})
+json.dump(res, open(out, 'w'), indent=0)
+for (c, route), n in sorted(cnt.items()):
+    print('%5d %-18s %s' % (n, c, route))
+if not private:
+    for x in res:
+        if x['class'] not in ('retargeted_right', 'removed_wrong', 'relabel'):
+            print('CHECK', x['class'], x['key'][3], x['key'][6], 'L?', x['auditor'], x['decl_kinds'])

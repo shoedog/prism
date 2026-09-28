@@ -106,6 +106,27 @@ miss, a leave-predicate hole, a B1 escape, a right edge removed outside the acce
 counter defect or a cap breach; a base row left at base because its position is unlisted is a SMELL with the row to
 add, not a WRONG.
 
+## S1b-3 addendum (r4, against the landed code)
+
+Subject: the S1b-3 sub-slice (or 3a / 3b, OQ10) implementing SPEC §3.8 on the landed S1b-2a/2b collector. Beyond
+the checklist above:
+- **The write resolver is the review surface.** 2a's predicates (a) and (b) are deleted; a WRONG is a write that
+  reaches a binding but the resolver misses (a `MayCall` lost: name the input and the edge that changes), or a write
+  that does not reach the binding but is counted (a `Callable` lost). The mangled-write rule (identifiers that are a
+  child or sibling of an `ERROR`) is deliberately over-inclusive toward `MayCall`; an over-count is a SMELL unless it
+  removes a right edge the SPEC keeps.
+- **The owner's M2 ruling is fixed:** every written binding keeps base, whatever its kind. A refusal of a written
+  class, `for (var …)` head or parameter is a WRONG.
+- **R5 reach (OQ12):** a drop at R5 is right only for `not_callable`, `duplicate_declaration` and
+  `import_parse_recovery`; a drop for `unbound`, `import`, `with`, `parse_recovery`, B0 or `MayCall` at R5 is a
+  WRONG (name the row). A kept R5 edge for those three reasons is a WRONG.
+- **Recovered imports:** poisoning a name that no broken import spells is a WRONG; poisoning every word of a broken
+  import (including a path segment) is the accepted over-approximation.
+- **Budget:** SPEC §9 r4 caps for the dispatched variant. Tests are expected near the row estimate (≈ 5 lines per
+  unit row, ≈ 30 per end-to-end scenario); a large overrun is a SMELL naming the batches.
+- **Evidence:** the controller's audited row-diff must equal SPEC §8's r4 row (3a: 0 on every corpus);
+  `maycall_changed` 0.
+
 ## Controller notes
 
 <!-- The controller fills this in at dispatch: subject, SHA/base, clone, cap, prior rounds, and any owner rulings
