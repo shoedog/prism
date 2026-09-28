@@ -35,6 +35,19 @@ fn count_nodes_recursive(node: Node<'_>, errors: &mut usize, total: &mut usize) 
     }
 }
 
+/// S1b-1b: whether a JS/TS declaration sits in `collect_js_ts_local_bindings`' root scope: at
+/// module scope (directly or through `export`) or in a function's body block. A bare block,
+/// even at module scope, is nested. That collector never enters a non-root function, so a
+/// function-like parent here is the root.
+fn js_ts_declaration_at_top(decl: Node<'_>) -> bool {
+    decl.parent()
+        .is_some_and(|h| match (h.kind(), h.parent().map_or("", |p| p.kind())) {
+            ("program", _) | ("export_statement", "program") => true,
+            ("statement_block", parent) => is_js_ts_function_like(parent),
+            _ => false,
+        })
+}
+
 fn is_js_ts_function_like(kind: &str) -> bool {
     matches!(
         kind,
@@ -4999,7 +5012,8 @@ impl ParsedFile {
         match node.kind() {
             "identifier" | "shorthand_property_identifier_pattern" => {
                 let name = self.node_text(&node);
-                if is_plain_ident(name) {
+                // S1b-1b: `$` is a JS identifier character (`const $ = …`, `{ $f }`).
+                if is_plain_ident(&name.replace('$', "_")) {
                     out.insert(name.to_string());
                 }
             }
@@ -5063,6 +5077,14 @@ impl ParsedFile {
         }
 
         match node.kind() {
+            // S1b-1b (F4): a top-scope declarator binds the pattern's BoundNames (shorthand
+            // properties included, destructuring-default expressions excluded). A nested one
+            // keeps base (Option K): this set is block-blind; S1b-3's site walk owns blocks.
+            "variable_declarator" if node.parent().is_some_and(js_ts_declaration_at_top) => {
+                if let Some(name) = node.child_by_field_name("name") {
+                    self.collect_js_ts_binding_pattern_names(name, out);
+                }
+            }
             "variable_declarator" => {
                 if let Some(name) = node.child_by_field_name("name") {
                     self.collect_identifier_names(name, out);

@@ -218,7 +218,9 @@ use std::path::{Path, PathBuf};
 ///   call-site flag, declarator skip reasons.
 /// - v99: S1b-1 intrinsic JSX tags drop `JsxIntrinsic`; the shared JS/TS binding
 ///   collectors see single arrow parameters, `{ f = d }` defaults and TS assertion writes.
-const CACHE_VERSION: u32 = 99;
+/// - v100: S1b-1b JS/TS top-scope declarator locals are BoundNames (shorthand destructuring
+///   shadows; destructuring-default expressions no longer do); binding patterns accept `$`.
+const CACHE_VERSION: u32 = 100;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -757,7 +759,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 99);
+        assert_eq!(super::CACHE_VERSION, 100);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
