@@ -3397,7 +3397,13 @@ impl CallGraph {
                                 // A parameter or local binding shadows the imported
                                 // local name; do not mint an exact import edge.
                             } else {
-                                let member = binding.member.as_deref().unwrap_or(name);
+                                // S1b-2b: a JS/TS member import whose name is not matchable
+                                // (no member) binds nothing.
+                                let Some(member) =
+                                    binding.member.as_deref().or((!is_js_ts).then_some(name))
+                                else {
+                                    return ResolutionOutcome::dropped(DropReason::UnknownName);
+                                };
                                 // JS/TS: resolve through the typed, whole-program-
                                 // resolved export facts (P4) — `member` is the raw
                                 // imported/exported NAME, which for a rename/

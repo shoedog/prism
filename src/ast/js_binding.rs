@@ -401,12 +401,15 @@ impl ParsedFile {
     }
 
     /// ECMAScript `ModuleExportName`: an identifier's text, or a string literal's StringValue
-    /// (either quote form, escape sequences decoded).
-    pub(crate) fn js_ts_module_export_name(&self, node: Node<'_>) -> String {
+    /// (either quote form; escapes decoded to UTF-16 code units, so a surrogate pair spelled
+    /// `\uD83D\uDE00` or `\u{D83D}\u{DE00}` is one scalar). `None` when the value is not
+    /// well-formed Unicode (an unpaired surrogate) or an escape does not decode: the name is
+    /// not matchable and callers record no claim for it (fail closed).
+    pub(crate) fn js_ts_module_export_name(&self, node: Node<'_>) -> Option<String> {
         if node.kind() != "string" {
-            return self.node_text(&node).to_string();
+            return Some(self.node_text(&node).to_string());
         }
-        let mut out = String::new();
+        let mut units: Vec<u16> = Vec::new();
         let mut cursor = node.walk();
         for part in node.named_children(&mut cursor) {
             let text = self.node_text(&part);
@@ -414,25 +417,28 @@ impl ParsedFile {
                 .strip_prefix('\\')
                 .filter(|_| part.kind() == "escape_sequence")
             else {
-                out.push_str(text);
+                units.extend(text.encode_utf16());
                 continue;
             };
-            let hex = esc[1..].trim_start_matches('{').trim_end_matches('}');
-            out.extend(match esc.chars().next() {
-                Some('u' | 'x') => u32::from_str_radix(hex, 16).ok().and_then(char::from_u32),
-                Some('n') => Some('\n'),
-                Some('t') => Some('\t'),
-                Some('r') => Some('\r'),
-                Some('b') => Some('\u{8}'),
-                Some('f') => Some('\u{c}'),
-                Some('v') => Some('\u{b}'),
-                Some('0') => Some('\0'),
+            let unit = match esc.chars().next()? {
+                'u' | 'x' => u32::from_str_radix(esc[1..].trim_matches(['{', '}']), 16).ok()?,
+                'n' => 0xA,
+                't' => 0x9,
+                'r' => 0xD,
+                'b' => 0x8,
+                'f' => 0xC,
+                'v' => 0xB,
+                '0' => 0,
                 // A line continuation contributes nothing.
-                Some('\n' | '\r' | '\u{2028}' | '\u{2029}') => None,
-                other => other,
-            });
+                '\n' | '\r' | '\u{2028}' | '\u{2029}' => continue,
+                other => other as u32,
+            };
+            match u16::try_from(unit) {
+                Ok(unit) => units.push(unit),
+                Err(_) => units.extend(char::from_u32(unit)?.encode_utf16(&mut [0; 2]).iter()),
+            }
         }
-        out
+        String::from_utf16(&units).ok()
     }
 }
 

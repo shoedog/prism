@@ -25,6 +25,8 @@ const N55: &[&str] = &["L3 f: NameOnly import_member lib:f@2-2, NameOnly import_
 const N57: &[&str] = &["L3 f: NameOnly import_member lib:f@2-2, NameOnly import_member lib:f@5-7"];
 const N68: &[&str] = &["L3 f: NameOnly import_member lib:f@2-2, NameOnly import_member lib:f@6-8"];
 const H13: &[&str] = &["L3 h: Exact import_member lib:f@1-3"];
+const G46: &[&str] = &["L3 h: Exact import_member lib:g@4-6"];
+const DROP_H: &[&str] = &["L3 h: drop UnknownName"];
 const C126: &str = "export function f() {\n  return 1;\n}\nexport const g = f => {\n  f = 2;\n};\n";
 
 /// `(control id, lib, app, expected app-site outcomes)`; in `lib`, `@D` is [`DECOY`], `@F`
@@ -126,12 +128,59 @@ const ROWS: &[Row] = &[
         "{ \"g\" as h }",
         H13,
     ),
+    // B-16 surrogates (impl r1 W1): a pair decodes to one scalar, escaped or literal, in either
+    // spelling; different pairs never match; an unpaired surrogate is unmatchable on either
+    // side (fail closed, and no fallback to the same-named `h`); `"a😀"` next to `"a"` does not
+    // collide; `\é` is a NonEscapeCharacter.
+    (
+        "pair / literal",
+        "@Fexport { f as \"\\uD83D\\uDE00\" };\n",
+        "{ '😀' as h }",
+        H13,
+    ),
+    (
+        "literal / pair",
+        "@Fexport { f as '😀' };\n",
+        "{ \"\\u{D83D}\\u{DE00}\" as h }",
+        H13,
+    ),
+    (
+        "😀 / 😁",
+        "@Fexport { f as \"\\uD83D\\uDE00\" };\n",
+        "{ '\\uD83D\\uDE01' as h }",
+        DROP_H,
+    ),
+    (
+        "a😀 + a / a",
+        "@F@Gexport { f as \"a\\uD83D\\uDE00\" };\nexport { g as \"a\" };\n",
+        "{ \"a\" as h }",
+        G46,
+    ),
+    (
+        "unpaired / unpaired",
+        "@Fexport { f as \"\\uD83D\" };\n",
+        "{ \"\\uD83D\" as h }",
+        DROP_H,
+    ),
+    (
+        "a / a+lone low (h competitor)",
+        "@Fexport function h() {}\nexport { f as \"a\" };\n",
+        "{ 'a\\uDE00' as h }",
+        DROP_H,
+    ),
+    (
+        "\\é / é",
+        "@Fexport { f as \"\\é\" };\n",
+        "{ 'é' as h }",
+        H13,
+    ),
 ];
 
 fn expand(lib: &str, app: &str) -> (String, String) {
     let lib = lib
         .replace("@D", DECOY)
         .replace("@F", FN)
+        .replace("@G", "function g() {\n  return 2;\n}\n")
         .replace("@I", ISLAND);
     let app = match app {
         "default" => APP_I.replace("{ Island }", "Island"),

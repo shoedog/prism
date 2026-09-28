@@ -2267,10 +2267,12 @@ impl ParsedFile {
                             if self.js_ts_import_specifier_is_type_only(spec) {
                                 continue;
                             }
-                            // `import { "g" as h }` names export `g` (StringValue, S1b-2b).
+                            // `import { "g" as h }` names export `g` (StringValue, S1b-2b); an
+                            // unmatchable name (an unpaired surrogate) keeps the binding with no
+                            // member, which R4c refuses.
                             let name = spec
                                 .child_by_field_name("name")
-                                .map(|n| self.js_ts_module_export_name(n));
+                                .and_then(|n| self.js_ts_module_export_name(n));
                             let alias = spec
                                 .child_by_field_name("alias")
                                 .map(|n| self.node_text(&n).to_string());
@@ -2793,16 +2795,19 @@ impl ParsedFile {
                 {
                     continue;
                 }
+                // An unmatchable name or alias (an unpaired surrogate) records no claim.
                 let Some(name) = spec
                     .child_by_field_name("name")
-                    .map(|n| self.js_ts_module_export_name(n))
+                    .and_then(|n| self.js_ts_module_export_name(n))
                 else {
                     continue;
                 };
                 let alias = spec
                     .child_by_field_name("alias")
                     .map(|n| self.js_ts_module_export_name(n));
-                let exported_as = alias.unwrap_or_else(|| name.clone());
+                let Some(exported_as) = alias.unwrap_or_else(|| Some(name.clone())) else {
+                    continue;
+                };
                 let target = match &source {
                     Some(module_path) => JsExportTarget::ReExport {
                         module_path: module_path.clone(),
