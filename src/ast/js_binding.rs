@@ -404,11 +404,13 @@ impl ParsedFile {
     /// (either quote form; escapes decoded to UTF-16 code units, so a surrogate pair spelled
     /// `\uD83D\uDE00` or `\u{D83D}\u{DE00}` is one scalar). `None` when the value is not
     /// well-formed Unicode (an unpaired surrogate) or an escape does not decode: the name is
-    /// not matchable and callers record no claim for it (fail closed).
+    /// not matchable and callers record no claim for it (fail closed). Callers also treat a
+    /// specifier with a parse error as unmatchable (a recovered `"\xGG"` is identifier `GG`).
     pub(crate) fn js_ts_module_export_name(&self, node: Node<'_>) -> Option<String> {
         if node.kind() != "string" {
             return Some(self.node_text(&node).to_string());
         }
+        let is_digit = |c: char| c.is_ascii_digit();
         let mut units: Vec<u16> = Vec::new();
         let mut cursor = node.walk();
         for part in node.named_children(&mut cursor) {
@@ -428,7 +430,10 @@ impl ParsedFile {
                 'b' => 0x8,
                 'f' => 0xC,
                 'v' => 0xB,
-                '0' => 0,
+                // Legacy octal (`\01`, `\1`, `\0` before a digit) and `\8`/`\9` are module
+                // SyntaxErrors (impl r2 sol W1): unmatchable, never NUL.
+                '0' if esc.len() == 1 && !self.source[part.end_byte()..].starts_with(is_digit) => 0,
+                '0'..='9' => return None,
                 // A line continuation contributes nothing.
                 '\n' | '\r' | '\u{2028}' | '\u{2029}' => continue,
                 other => other as u32,

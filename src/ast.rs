@@ -2268,10 +2268,11 @@ impl ParsedFile {
                                 continue;
                             }
                             // `import { "g" as h }` names export `g` (StringValue, S1b-2b); an
-                            // unmatchable name (an unpaired surrogate) keeps the binding with no
-                            // member, which R4c refuses.
+                            // unmatchable name (an unpaired surrogate, or a specifier with a parse
+                            // error) keeps the binding with no member, which R4c refuses.
                             let name = spec
                                 .child_by_field_name("name")
+                                .filter(|_| !spec.has_error())
                                 .and_then(|n| self.js_ts_module_export_name(n));
                             let alias = spec
                                 .child_by_field_name("alias")
@@ -2792,10 +2793,12 @@ impl ParsedFile {
             for spec in clause.children(&mut cc) {
                 if spec.kind() != "export_specifier"
                     || self.js_ts_import_specifier_is_type_only(spec)
+                    || spec.has_error()
                 {
                     continue;
                 }
-                // An unmatchable name or alias (an unpaired surrogate) records no claim.
+                // An errorful specifier (above) or an unmatchable name or alias (an unpaired
+                // surrogate) records no claim.
                 let Some(name) = spec
                     .child_by_field_name("name")
                     .and_then(|n| self.js_ts_module_export_name(n))

@@ -174,6 +174,32 @@ const ROWS: &[Row] = &[
         "{ 'é' as h }",
         H13,
     ),
+    // B-16 impl r2 (sol W1, W2): a legacy octal escape is unmatchable, never NUL; a specifier
+    // the parser recovered (`"\xGG"` as identifier `GG`) is unmatchable, with no fallback.
+    (
+        "\\0 / \\01",
+        "@F@Hexport { f as \"\\0\" };\n",
+        "{ \"\\01\" as h }",
+        DROP_H,
+    ),
+    (
+        "\\0 / \\0",
+        "@Fexport { f as \"\\0\" };\n",
+        "{ '\\0' as h }",
+        H13,
+    ),
+    (
+        "GG / \\xGG",
+        "@F@Hexport { f as \"GG\" };\n",
+        "{ \"\\xGG\" as h }",
+        DROP_H,
+    ),
+    (
+        "ZZZZ / \\uZZZZ",
+        "@F@Hexport { f as \"ZZZZ\" };\n",
+        "{ \"\\uZZZZ\" as h }",
+        DROP_H,
+    ),
 ];
 
 fn expand(lib: &str, app: &str) -> (String, String) {
@@ -181,6 +207,7 @@ fn expand(lib: &str, app: &str) -> (String, String) {
         .replace("@D", DECOY)
         .replace("@F", FN)
         .replace("@G", "function g() {\n  return 2;\n}\n")
+        .replace("@H", "export function h() {}\n")
         .replace("@I", ISLAND);
     let app = match app {
         "default" => APP_I.replace("{ Island }", "Island"),
