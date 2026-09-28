@@ -210,7 +210,8 @@ fn t_j2_t_j4_jsx_gate_scope() {
         )],
         &["tsx"],
     );
-    // Impl r1 (opus W3): an opening element binds; (opus W1) a lowercase tag is intrinsic.
+    // Impl r1 (opus W3): an opening element binds; (opus W1) a lowercase tag is intrinsic
+    // (S1b §3.5: it drops `JsxIntrinsic`).
     let open = APP.replace("<Island/>", "<Island>x</Island>");
     let lower = APP
         .replace("{ Island }", "{ Island as island }")
@@ -218,7 +219,7 @@ fn t_j2_t_j4_jsx_gate_scope() {
     check(
         &[
             (WRAP, &open, ISLAND_2_4),
-            (WRAP, &lower, &["L3 island: drop UnknownName"]),
+            (WRAP, &lower, &["L3 island: drop JsxIntrinsic"]),
         ],
         &["jsx", "tsx"],
     );

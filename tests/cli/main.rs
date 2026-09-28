@@ -1,4 +1,5 @@
 mod algo_test;
+mod call_stats_jsx_intrinsic_test;
 mod call_stats_test;
 mod call_stats_wrapped_export_test;
 mod confidence_test;

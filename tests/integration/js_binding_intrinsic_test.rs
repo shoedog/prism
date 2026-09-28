@@ -1,0 +1,142 @@
+//! S1b-1 (S1b SPEC §3.5, §3.1 F1–F3, §7 A-1…A-3): the JSX intrinsic guard and the
+//! shared-collector fixes. Rows run in both grammars with exact `(file, name, span)` targets.
+use super::js_wrapped_export_test::{app_sites, check, graph, APP};
+
+const BOTH: &[&str] = &["jsx", "tsx"];
+const NO_LIB: &str = "export const unrelated = 1;\n";
+
+#[test]
+fn a1_intrinsic_tags_drop_on_every_rung() {
+    // C97 (R4c): the JSX tag drops; the plain call of the same import keeps its edge.
+    let lib = "export const island = () => <span/>;\n";
+    let app = "import { island } from './lib';\nexport function App() {\n  island();\n  \
+        return <island/>;\n}\n";
+    let c97: &[&str] = &[
+        "L3 island: Exact import_member lib:island@1-1",
+        "L4 island: drop JsxIntrinsic",
+    ];
+    // C96 (R4 `local_def`, opening tags); uppercase-leading dashed and namespaced tags pin
+    // the `-` and `:` branches; `él` is not ASCII lowercase, so it keeps its binding.
+    let c96 = "function div() {\n  return 1;\n}\nfunction island() {\n  return 2;\n}\n\
+        function él() {\n  return 3;\n}\nexport function App() {\n  return <div><island>x\
+        </island><My-el/><Svg:rect/><él/></div>;\n}\n";
+    let c96_want: &[&str] = &[
+        "L11 My-el: drop JsxIntrinsic",
+        "L11 Svg:rect: drop JsxIntrinsic",
+        "L11 div: drop JsxIntrinsic",
+        "L11 island: drop JsxIntrinsic",
+        "L11 él: Exact local_def app:él@7-9",
+    ];
+    // R5 (the Tier-A fixture's shape): a cross-file free function named like the tag.
+    let input = "export function input() {\n  return 1;\n}\n";
+    let r5 = "export function App() {\n  return <input/>;\n}\n";
+    check(
+        &[
+            (lib, app, c97),
+            (NO_LIB, c96, c96_want),
+            (input, r5, &["L2 input: drop JsxIntrinsic"]),
+        ],
+        BOTH,
+    );
+}
+
+#[test]
+fn a3_f2_f3_parameter_bindings_shadow_cross_file_functions() {
+    // F3 (C101 cross-file): a single unparenthesized arrow parameter binds `x`.
+    let x = "export function x() {\n  return 1;\n}\n";
+    let f3 = "export const run = x => x();\n";
+    // F2 (C124, parameter form): `{ f = … }` in a parameter pattern binds `f`.
+    let f = "export function f() {\n  return 1;\n}\n";
+    let f2 = "export function caller({ f = () => 2 } = {}) {\n  return f();\n}\n";
+    // F3 through the R3 qualifier guard (C128): the qualifier is the arrow's parameter.
+    let c128 = "import * as Lib from './lib';\nexport const host = Lib => Lib.f();\n";
+    check(
+        &[
+            (x, f3, &["L1 x: drop UnknownName"]),
+            (f, f2, &["L2 f: drop UnknownName"]),
+            (f, c128, &["L2 f: drop UnknownName"]),
+        ],
+        BOTH,
+    );
+}
+
+/// A wrapped export whose React wrapper local is preceded by `write`.
+fn wrapped_after(write: &str) -> String {
+    format!(
+        "import {{ forwardRef }} from 'react';\n{write}\nexport const Island = \
+         forwardRef((props, ref) => null);\n"
+    )
+}
+
+#[test]
+fn a3_f1_f2_f3_writes_through_the_base_module_scan() {
+    // S1's provenance check uses the base module write scan (SPEC §3.2): a write to the
+    // wrapper local refuses it (`callee_provenance`), so `<Island/>` has no export fact.
+    let refused = ["L3 Island: drop UnknownName"];
+    let admitted = ["L3 Island: Exact import_member lib:Island@3-3"];
+    let rows: [(&str, &str, &[&str]); 8] = [
+        ("tsx", "(forwardRef as any) = null;", &refused), // F1 (C142)
+        ("tsx", "(forwardRef satisfies any) = null;", &refused), // F1
+        ("tsx", "forwardRef! = null;", &refused),         // F1
+        ("ts", "(<any>forwardRef) = null;", &refused),    // F1 (TS only)
+        ("tsx", "({ forwardRef = null } = {});", &refused), // F2 (C125 write form)
+        // F3 (C126 shape): the arrow's own parameter is written, not the module import.
+        (
+            "tsx",
+            "const g = forwardRef => { forwardRef = 2; };",
+            &admitted,
+        ),
+        ("jsx", "({ forwardRef = null } = {});", &refused), // F2, JSX grammar
+        (
+            "jsx",
+            "const g = forwardRef => { forwardRef = 2; };",
+            &admitted,
+        ), // F3, JSX grammar
+    ];
+    for (ext, write, want) in rows {
+        let (name, lib) = (format!("lib.{ext}"), wrapped_after(write));
+        let app = if ext == "jsx" { "app.jsx" } else { "app.tsx" };
+        let cg = graph(&[(name.as_str(), lib.as_str()), (app, APP)]);
+        assert_eq!(app_sites(&cg), want, "{write}");
+    }
+}
+
+#[test]
+fn a2_member_underscore_dollar_and_uppercase_tags_are_not_intrinsic() {
+    // Guards (base-green). C98: a member tag keeps its qualifier route.
+    let lib = "export const island = () => <span/>;\n";
+    let c98 =
+        "import * as lib from './lib';\nexport function App() {\n  return <lib.island/>;\n}\n";
+    let tags = "function _x() {\n  return 1;\n}\nfunction $x() {\n  return 2;\n}\nfunction Card() \
+        {\n  return 3;\n}\nexport function App() {\n  input();\n  return <_x><$x/><Card/></_x>;\n}\n";
+    let input = "export function input() {\n  return 1;\n}\n";
+    let tags_want: &[&str] = &[
+        "L11 input: Exact free_single lib:input@1-3",
+        "L12 $x: Exact local_def app:$x@4-6",
+        "L12 Card: Exact local_def app:Card@7-9",
+        "L12 _x: Exact local_def app:_x@1-3",
+    ];
+    check(
+        &[
+            (
+                lib,
+                c98,
+                &["L3 island: Exact import_qualified lib:island@1-1"],
+            ),
+            (input, tags, tags_want),
+        ],
+        BOTH,
+    );
+}
+
+#[test]
+fn a3_c126_arrow_parameter_write_leaves_the_export_exact() {
+    // Guard (C126, sol W2): the arrow's `f = 2` writes its parameter, not the export.
+    let lib = "export function f() {\n  return 1;\n}\nexport const g = f => {\n  f = 2;\n  \
+        return f;\n};\n";
+    let app = "import { f } from './lib';\nexport function run() {\n  return f();\n}\n";
+    check(
+        &[(lib, app, &["L3 f: Exact import_member lib:f@1-3"])],
+        BOTH,
+    );
+}

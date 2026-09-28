@@ -4958,6 +4958,9 @@ impl ParsedFile {
             for child in params.children(&mut cursor) {
                 self.collect_js_ts_parameter_binding_names(child, out);
             }
+        } else if let Some(param) = func_node.child_by_field_name("parameter") {
+            // S1b F3: a single unparenthesized arrow parameter (`x => x()`).
+            self.collect_js_ts_binding_pattern_names(param, out);
         }
     }
 
@@ -5011,9 +5014,22 @@ impl ParsedFile {
                     self.collect_js_ts_binding_pattern_names(child, out);
                 }
             }
-            "assignment_pattern" => {
+            // S1b F2: a `{ f = d }` destructuring default binds `f`, like `f = d`.
+            "assignment_pattern" | "object_assignment_pattern" => {
                 if let Some(left) = node.child_by_field_name("left") {
                     self.collect_js_ts_binding_pattern_names(left, out);
+                }
+            }
+            // S1b F1: a TS assertion around a write target still writes its binding.
+            "as_expression" | "satisfies_expression" | "non_null_expression" => {
+                if let Some(inner) = node.named_child(0) {
+                    self.collect_js_ts_binding_pattern_names(inner, out);
+                }
+            }
+            // `<T>x`: the asserted expression is the last named child.
+            "type_assertion" => {
+                if let Some(inner) = node.named_child(node.named_child_count().saturating_sub(1)) {
+                    self.collect_js_ts_binding_pattern_names(inner, out);
                 }
             }
             "object_pattern"

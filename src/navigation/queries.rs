@@ -379,6 +379,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     // absent) so Go misses stop landing unattributed.
     let mut dropped_go_receiver: BTreeMap<String, usize> = BTreeMap::new();
     let mut wrapped_non_jsx = 0usize;
+    let mut jsx_intrinsic = 0usize;
+    let mut local_binding_unproven = 0usize;
     for sites in cg.calls.values() {
         for site in sites {
             total += 1;
@@ -391,6 +393,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 Some(DropReason::FuncValueFanout) => func_value_fanout += 1,
                 Some(DropReason::GoSamePkgAllFiltered) => go_same_pkg_all_filtered_drop += 1,
                 Some(DropReason::WrappedExportNonJsx) => wrapped_non_jsx += 1,
+                Some(DropReason::JsxIntrinsic) => jsx_intrinsic += 1,
+                Some(DropReason::LocalBindingUnproven) => local_binding_unproven += 1,
                 Some(
                     DropReason::ConcreteReceiverPromotedDeferred
                     | DropReason::ConcreteReceiverNoSelector,
@@ -646,6 +650,9 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
             .sum::<usize>(),
         "js_export_skipped_decl_reasons": decl_reasons,
         "dropped_wrapped_export_non_jsx": wrapped_non_jsx,
+        // S1b: intrinsic JSX tags and unproven JS/TS lexical bindings.
+        "dropped_jsx_intrinsic": jsx_intrinsic,
+        "dropped_local_binding_unproven": local_binding_unproven,
         "js_export_skipped_exprs": cg
             .js_ts_exports
             .values()
