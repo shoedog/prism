@@ -16,6 +16,18 @@ and is in model.
 
 ## 0. Owner decisions
 
+> **Owner answers to the S1b-3 re-plan, 2026-09-28. These are authoritative.**
+> - **OQ10 = (a):** split S1b-3 into **3a**, the collector at every scope (0 corpus rows; caps src 590 / tests 620),
+>   and **3b**, the call-site wiring (caps src 220 / tests 800).
+> - **Cache versions:** 3a 102/58, 3b 103/59, S1b-4 104/60.
+> - **OQ11 = (a):** destructuring declarators from a call (`const [s, setS] = useState(…)`) are **may-call**; they
+>   keep base behavior, per E5.
+> - **OQ12 = (a):** accept the R5 reach of carry-forward 4. It removes 781 wrong rows (X 83, F 441, T 257) and loses
+>   0 right ones.
+> - **Earlier (2026-09-27):** any written binding, including a class, a `for (var …)` head or a parameter, keeps base
+>   behavior (M2 kinds).
+
+
 > **Owner decisions for S1b-3, 2026-09-27 (binding).**
 > - **M2 kind list:** any written binding keeps base behavior (`MayCall`, Option K), whatever its kind: a written
 >   `class f`, a written `for (var f in/of …)` head and a written parameter included (they refused `not_callable`
