@@ -4,6 +4,9 @@ use anyhow::{Context, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::{Node, Parser, Tree};
 
+mod js_binding;
+mod js_binding_checks;
+mod js_binding_decls;
 mod js_cjs_export_barriers;
 mod js_cjs_terminal;
 mod js_module_forwarding;
