@@ -251,3 +251,22 @@ fn b2_verified_export_binds_through_a_star_barrel() {
         assert_eq!(app_sites(&graph(&files)), X57, ".{ext}");
     }
 }
+
+#[test]
+fn b16_recovered_reexport_specifier_records_no_claim() {
+    // impl r2 (sol W2, export side): `"\xGG"` recovers as the identifier `GG`; a re-export
+    // bypasses the binding, so only the errorful-specifier check stops the claim. Base (and a
+    // mutant without the check) bind `h()` Exact to `lib:f`, a pre-existing false Exact.
+    let lib = "export function f() {}\nexport function h() {}\n";
+    let mid = "export { f as \"\\xGG\" } from './lib';\n";
+    let app = "import { GG as h } from './mid';\nexport function run() {\n  h();\n}\n";
+    for ext in ["jsx", "tsx"] {
+        let (l, m, a) = (
+            format!("lib.{ext}"),
+            format!("mid.{ext}"),
+            format!("app.{ext}"),
+        );
+        let files = [(&l[..], lib), (&m, mid), (&a, app)];
+        assert_eq!(app_sites(&graph(&files)), DROP_H, ".{ext}");
+    }
+}
