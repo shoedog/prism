@@ -32,6 +32,7 @@ mod inline_prop_receiver_test;
 mod js_binding_export_state_test;
 mod js_binding_export_test;
 mod js_binding_intrinsic_test;
+mod js_binding_shorthand_test;
 mod js_export_reexport_test;
 mod js_export_test;
 mod js_wrapped_export_refusal_test;

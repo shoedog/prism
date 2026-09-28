@@ -218,6 +218,8 @@ use std::path::{Path, PathBuf};
 ///   call-site flag, declarator skip reasons.
 /// - v99: S1b-1 intrinsic JSX tags drop `JsxIntrinsic`; the shared JS/TS binding
 ///   collectors see single arrow parameters, `{ f = d }` defaults and TS assertion writes.
+/// - v100: S1b-1b JS/TS top-scope declarator locals are BoundNames (shorthand destructuring
+///   shadows; destructuring-default expressions no longer do); binding patterns accept `$`.
 /// - v101: S1b-2b ESM local exports bind through the module-scope binding (`VerifiedLocal`,
 ///   `ResolvedJsExport.wrapped`, refusal counts) and string export names by StringValue.
 const CACHE_VERSION: u32 = 101;
