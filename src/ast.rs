@@ -2281,11 +2281,11 @@ impl ParsedFile {
                                 continue;
                             }
                             // `import { "g" as h }` names export `g` (StringValue, S1b-2b); an
-                            // unmatchable name (an unpaired surrogate, or a specifier with a parse
-                            // error) keeps the binding with no member, which R4c refuses.
+                            // unmatchable name (an unpaired surrogate, or any name in a list with a
+                            // parse error: recovery puts the ERROR beside the specifier) keeps the
+                            // binding with no member, which R4c refuses.
                             let name = spec
                                 .child_by_field_name("name")
-                                .filter(|_| !spec.has_error())
                                 .and_then(|n| self.js_ts_module_export_name(n));
                             let alias = spec
                                 .child_by_field_name("alias")
@@ -2295,7 +2295,7 @@ impl ParsedFile {
                                 out.push(ImportBinding {
                                     local,
                                     module_path: module_path.to_string(),
-                                    member: name,
+                                    member: name.filter(|_| !child.has_error()),
                                     kind: ImportBindingKind::MemberImport,
                                     eligible: true,
                                 });
@@ -2806,12 +2806,12 @@ impl ParsedFile {
             for spec in clause.children(&mut cc) {
                 if spec.kind() != "export_specifier"
                     || self.js_ts_import_specifier_is_type_only(spec)
-                    || spec.has_error()
+                    || clause.has_error()
                 {
                     continue;
                 }
-                // An errorful specifier (above) or an unmatchable name or alias (an unpaired
-                // surrogate) records no claim.
+                // An errorful list (above: recovery puts the ERROR beside the specifier) or an
+                // unmatchable name or alias (an unpaired surrogate) records no claim.
                 let Some(name) = spec
                     .child_by_field_name("name")
                     .and_then(|n| self.js_ts_module_export_name(n))

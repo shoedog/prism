@@ -200,6 +200,21 @@ const ROWS: &[Row] = &[
         "{ \"\\uZZZZ\" as h }",
         DROP_H,
     ),
+    // Confirmation (Opus W1): recovery can put the ERROR beside a no-alias specifier, so the
+    // whole errorful list is unmatchable (a module SyntaxError): `"\xGG"` recovers as `GG`,
+    // and a local `GG` is the R5 bait. A valid multi-specifier list stays Exact.
+    (
+        "no-alias \\xGG",
+        "@Fexport { f as \"GG\" };\nfunction GG() {}\n",
+        "import { \"\\xGG\" } from './lib';\nexport function run() {\n  GG();\n}\n",
+        &["L3 GG: drop UnknownName"],
+    ),
+    (
+        "valid list",
+        "@Fexport { f as \"g\", f as k };\n",
+        "{ \"g\" as h, k }",
+        H13,
+    ),
 ];
 
 fn expand(lib: &str, app: &str) -> (String, String) {
@@ -255,12 +270,22 @@ fn b2_verified_export_binds_through_a_star_barrel() {
 #[test]
 fn b16_recovered_reexport_specifier_records_no_claim() {
     // impl r2 (sol W2, export side): `"\xGG"` recovers as the identifier `GG`; a re-export
-    // bypasses the binding, so only the errorful-specifier check stops the claim. Base (and a
-    // mutant without the check) bind `h()` Exact to `lib:f`, a pre-existing false Exact.
+    // bypasses the binding, so only the errorful-list check stops the claim. Base (and a mutant
+    // without the check) bind `h()` Exact to `lib:f`, a pre-existing false Exact. Confirmation
+    // (Opus W1): the no-alias shape, whose ERROR is the specifier's sibling, against a real
+    // `"GG"` export; `h` is an R5 bait in both.
     let lib = "export function f() {}\nexport function h() {}\n";
     let mid = "export { f as \"\\xGG\" } from './lib';\n";
     let app = "import { GG as h } from './mid';\nexport function run() {\n  h();\n}\n";
-    for ext in ["jsx", "tsx"] {
+    let (lib2, app2) = (
+        format!("{lib}export {{ f as \"GG\" }};\n"),
+        app.replace("GG", "'GG'"),
+    );
+    let shapes = [
+        (lib, mid, app),
+        (&lib2, "export { \"\\xGG\" } from './lib';\n", &app2),
+    ];
+    for ((lib, mid, app), ext) in shapes.iter().flat_map(|s| ["jsx", "tsx"].map(|e| (*s, e))) {
         let (l, m, a) = (
             format!("lib.{ext}"),
             format!("mid.{ext}"),
