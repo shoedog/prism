@@ -7,6 +7,9 @@ Classes per changed row (base -> proto):
   removed_wrong      base had targets; the auditor binds the name in-file to something that is not any of them
                      (a parameter, a destructured or other non-callable declaration, a class, an enum, a
                      namespace, a marker, a duplicate, or a different in-file callable)
+  removed_alias      the binding is a declarator (or `using`) whose unwrapped value is outside the closed
+                     "holds no function" class (owner 2026-09-29): it may hold the base target by value
+                     flow, so the removal may lose a right edge. Every such row is listed for a hand audit
   removed_parse      the auditor refuses the binding scope for parse recovery (E6): recall cost, audited by hand
   removed_unbound    the auditor finds no in-file binding and base bound a non-local route (a possible right
                      edge lost): audited by hand. Unbound with only `local_def` targets is removed_wrong
@@ -41,6 +44,35 @@ def callee_ident(s, sb, eb):
     return (f, n.type != 'call_expression') if f is not None and f.type == 'identifier' else None
 
 
+NOFN = {'number', 'string', 'template_string', 'true', 'false', 'null', 'undefined', 'regex'}
+UNWRAP = {'parenthesized_expression', 'as_expression', 'satisfies_expression', 'non_null_expression'}
+
+
+def no_function(v):
+    if v.type in NOFN:
+        return True
+    if v.type == 'array':
+        return all(e.type == 'comment' or no_function(e) for e in v.named_children)
+    if v.type == 'object':
+        return all(m.type == 'comment' or (m.type == 'pair' and m.child_by_field_name('value') is not None
+                                           and no_function(m.child_by_field_name('value')))
+                   for m in v.named_children)
+    return False
+
+
+def alias_value(ds):
+    """The value kind of a single alias declarator, else None."""
+    if len(ds) != 1 or ds[0].type not in ('variable_declarator', 'assignment_expression'):
+        return None
+    v = ds[0].child_by_field_name('right' if ds[0].type == 'assignment_expression' else 'value')
+    while v is not None and (v.type in UNWRAP or v.type in ('type_assertion', 'assignment_expression')):
+        v = v.child_by_field_name('right') if v.type == 'assignment_expression' else (
+            v.named_children[-1] if v.type == 'type_assertion' else v.named_children[0])
+    if v is None or v.type in ('arrow_function', 'function_expression') or no_function(v):
+        return None
+    return v.type
+
+
 res = []
 cnt = collections.Counter()
 for r in json.load(open(rd)):
@@ -58,7 +90,9 @@ for r in json.load(open(rd)):
         ok = v['status'] == 'callable' and len(pt) == 1 and (pt[0][2], pt[0][3]) == span and pt[0][0] == sf
         c = 'retargeted_right' if ok else 'retargeted_other'
     elif bt and not pt:
-        if scope is None and all(t[5] == 'local_def' for t in bt):
+        if alias_value(ds):
+            c = 'removed_alias'
+        elif scope is None and all(t[5] == 'local_def' for t in bt):
             c = 'removed_wrong'  # unbound at the site: every same-file function is out of scope
         elif scope is None:
             c = 'removed_unbound'
@@ -78,7 +112,7 @@ for r in json.load(open(rd)):
     route = sorted({t[5] for t in bt}) if bt else []
     cnt[(c, ','.join(route))] += 1
     res.append({'key': r['key'], 'class': c, 'auditor': v.get('status'), 'detail': v.get('detail'),
-                'decl_kinds': kinds, 'base': r['base'], 'proto': r['proto']})
+                'decl_kinds': kinds, 'alias_value': alias_value(ds), 'base': r['base'], 'proto': r['proto']})
 json.dump(res, open(out, 'w'), indent=0)
 for (c, route), n in sorted(cnt.items()):
     print('%5d %-18s %s' % (n, c, route))

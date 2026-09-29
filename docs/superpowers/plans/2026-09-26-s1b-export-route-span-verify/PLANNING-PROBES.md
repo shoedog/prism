@@ -390,3 +390,31 @@ Row-diffs (base → v8d): X 1,019, F 536, R 117, T 870. Per sub-slice: SPEC §8.
 - `--features mcp`, clippy, the Node gate and `tier-a --quick` on v10.
 - The may-call class's truth (E5 keeps it at base).
 - Mutant kills: the prototype has no new tests; SPEC §7's mutants are the implementer's.
+
+## Round 4 fold: S1b-3 spec round 1 (prototype v11, 2026-09-29)
+
+### Custody (r4 fold)
+
+- **Build receipt (spec r1 sol S1).** Scratch commit `0982f2fdc89c2982939cf6069f77c752d97c2088` in
+  `~/code/prism-s1b3-proto`, `git status` clean, `cargo build --release`; binary
+  `s1b3-plan/bin/prism-proto-v11`, sha256 `da8c11b9…0eff`, `--version` `slicing 3.1.2 (0982f2fdc89c)`; head binary
+  `slicing 3.1.2 (3961cc2118e3)`, sha256 `48271135…8780` (`s1b3-plan/BUILD-v11.txt`). Every r4-fold receipt (controls,
+  X F R T dumps, row-diffs, audits, stats, suite, Tier-A, closure, RP replay) is regenerated from that binary. A first
+  v11 build (`2c3fe0d1`) shadowed the new `local_binding_may_call` counter; its dumps are byte-identical to the
+  clean build's (the counter is not in the dump) and are kept only under `s1b3-plan/old/`.
+- **Pre-registration (spec r1 Opus S3).** C174–C181 and addendum 9 were committed (`01ac45d3`) before v11 was built;
+  C182–C184 and addendum 9b (`6a295f3b`) before they ran; the fixture fix (`C182–C184` called from anonymous arrows,
+  which prism does not index as callers) is recorded as an inadmissible first run.
+- **Auditor.** `probes/audit_s1b3.py` gains `removed_alias` (a declarator whose value is outside the NoFn class).
+
+### Probe log (r4 fold)
+
+| ID | Command | Expected (pre-run) | Actual | Output |
+|---|---|---|---|---|
+| Q62 | controls C174–C184 on head, v10e, v11 | addendum 9 / 9b | **C177–C184 as predicted in every column. C174–C176's head column falsified**: head drops them `UnknownName` because S1b-1b's F4 puts a function-top-level destructuring into the caller's locals and base's R5 guard drops; the Opus W1 shape needs a nested caller (9b, C182–C184, as predicted) | `controls/{head,v10e,v11}/`, `probes/S1b-controls-{head-3961cc21,proto-v11}.txt` |
+| Q63 | `audit_s1b3.py` (with `removed_alias`) on v10e's row-diffs | Opus W1's rows appear as `removed_alias` | **v10e removed through an alias: X 38, F 424, T 212** (X: 33 R5 + 5 R4; T: 188 R5 + 24 R4); these are the rows the owner's narrowing returns to base | `audit/*-v10e-r1.json` |
+| Q64 | row-diff head → clean v11, X F R T; `audit_s1b3.py` | 0 right lost outside E6; `removed_alias` 0 | **X 198** (134 re-targeted right; 64 wrong removed: 14 R4, 50 R5), **F 52** (1 re-targeted; 47 wrong removed: 2 R4, 45 R5; 4 E6), **R 0**, **T 913** (635 re-targeted; 227 wrong removed: 158 R4, 69 R5; 10 right added; 41 E6). `removed_alias` 0, `maycall_changed` 0 on every corpus | `rowdiff/*-v11.*`, `audit/*-v11.*` |
+| Q65 | removals by binding kind (the owner's hand-audit set) | only provably-no-function kinds | X: 62 parameters, 2 `for` heads; F: 41 parameters, 5 single-arrow parameters, 1 `for` head (plus 4 E6); T: 213 parameters, 7 `for` heads, 7 unbound-at-site R4 rows (plus 41 E6). **No removed row has a declarator binding; the hand-audit set (identifier / member / call values) is empty.** Parameter rows are wrong under the static-binding model (owner-listed); their argument value flow is not audited | `audit/*-v11.json` |
+| Q66 | clean v11 vs the same binary with `PRISM_S1B3_ASCII_P1=1` (the old `is_plain_ident` P1), X F R T | small | **0 changed rows on every corpus**: the shared-helper change (sol W1) has no call-site blast radius on the corpora; C180 and C181 are its only visible effect | `runs/v11-asciip1/` |
+| Q67 | `honest_lines.py` / `fn_attrib.py` on `0982f2fd` | – | 745 src (4 switch lines), 5 tests; 3a 582, 3b 159 | `v11-fn-attrib.txt` |
+| Q68 | clean v11: `cargo test --offline --no-fail-fast`; Tier-A `--matrix-only`; closure probe; RP replay; 3a alone (`PRISM_S1B3_NO_SITES=1`) | 5 by-design failures; 165/165; exit 0; RP = v9 but RP2-c; 3a 0 rows | **4,620 / 5 / 1** (C150, two D5 tables, two cache pins; S1b-1b's `b5` now passes); **165 / 165**; exit 0 (74 rows); RP differs only at RP2-c; **3a: 0 rows on X, F, R, T**, controls only C166–C168 and C172's D4 rows | `logs-suite-v11.log`, `tier-a-v11.log`, `rp/v11/`, `runs/v11-3a/` |

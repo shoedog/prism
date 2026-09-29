@@ -160,54 +160,64 @@ v8's).
 - **Suites:** the Verification block below; `cargo clippy` must be clean without any allow beyond the file-level
   `dead_code` one.
 
-## S1b-3 dispatch (r4: against the landed code; SPEC §3.8, §5–§9)
+## S1b-3 dispatch (r4 as folded 2026-09-29: against the landed code; SPEC §3.8, §5–§9)
 
-Read SPEC §3.8 first: it is the normative delta over §3.1/§3.1a/§3.6 against the landed collector. The prototype is
-`prototype/s1b3-prototype-v10.diff.txt` (v10e on `3961cc21`; evidence, not authority; it carries measurement
-switches `PRISM_S1B3_NO_SITES` and `PRISM_S1B3_M1_PATTERN_OFF`, **do not port them**). The dispatch names the
-variant the owner chose at OQ10.
+Read SPEC §3.8 first: it is the normative delta over §3.1/§3.1a/§3.6 against the landed collector, including the
+owner's 2026-09-29 alias class (§3.8 (11)). The prototype is `prototype/s1b3-prototype-v11.diff.txt` (clean build of
+scratch `0982f2fd` on `3961cc21`; evidence, not authority; it carries measurement switches `PRISM_S1B3_NO_SITES`
+and `PRISM_S1B3_ASCII_P1`, **do not port them**). The owner chose OQ10 (a): **3a then 3b**.
 
-- **Base:** main with S1b-2b merged (`3961cc21` or its merge). Record the SHA.
-- **Cache:** one slice **102 / 58**; split **3a 102 / 58**, **3b 103 / 59** (S1b-4 then 104 / 60). Each with the
-  cross-commit row (a cache from the parent's binary is rejected; rebuilt output equals `--no-cache`).
-- **Caps (SPEC §9 r4; stop at the early stop / report point with the enumerated remainder, never compress):**
+- **Base:** main with S1b-2b merged (`3961cc21` or its merge) for 3a; merged 3a for 3b. Record the SHA.
+- **Cache:** **3a 102 / 58**, **3b 103 / 59** (S1b-4 then 104 / 60), each with the cross-commit row (a cache from
+  the parent's binary is rejected; rebuilt output equals `--no-cache`).
+- **Caps (SPEC §9 r4 as folded; stop at the early stop / report point with the enumerated remainder, never
+  compress):**
 
 | Variant | src cap / early stop | tests cap / report point |
 |---|---|---|
-| **3a** collector at every scope | **590** / 530 | **620** / 560 |
-| **3b** call-site wiring | **220** / 200 | **800** / 720 |
-| one slice | **810** / 730 | **1,420** / 1,280 |
+| **3a** collector at every scope | **700** / 630 | **740** / 670 |
+| **3b** call-site wiring | **220** / 200 | **1,320** / 1,190 |
 
-  Measured: v10e 3a 490 / 3b 168 src; tests are row-estimated (≈ 515 / ≈ 720), see SPEC §9 for the basis.
+  Measured on v11: 3a 582 / 3b 159 src. Tests are estimated from enumerated rows (3a ≈ 120 unit rows ≈ 670; 3b 36
+  end-to-end scenarios ≈ 1,200); the basis is SPEC §9. These caps are proposals until the dispatch states the
+  owner's answer.
 - **Owned paths.**
-  - **3a:** `src/ast/js_binding*.rs` (new walk and site files as in v10: `js_binding_walk.rs` with `Pos`, `E_TABLE`,
+  - **3a:** `src/ast/js_binding*.rs` (new walk and site files as in v11: `js_binding_walk.rs` with `Pos`, `E_TABLE`,
     `Walk`, the walk and the leave predicate; `js_binding_site.rs` with `is_scope`, the scope index and lookup, the
-    function names, the scoped write resolver and the recovered-import markers); `js_ts_scope_binding` generalizing
-    the module terminal; `js_ts_classify` (M2 for every kind, M1 for pattern declarators, `JsBinding::Import`); the
-    B1 containment change in `js_binding_checks.rs`; the deletion of `js_ts_written_unseen`; `JsBindingCache`
-    fields; the `has_import_token` visibility; the `mod` lines; the cache bump; 2a's unit tests it changes (C150,
-    D5 → `Import`). `js_ts_site_binding` exists but has no production caller: one file-level
+    function names, the scoped write resolver and the recovered-import predicate and names); `js_ts_scope_binding`
+    generalizing the module terminal; `js_ts_classify` (M2 for every kind, M1 for pattern declarators,
+    `JsBinding::Import`, **`JsBinding::Alias` and the NoFn class**, the D4 alias arm keeping 2b's answer); the B1
+    containment change in `js_binding_checks.rs` (body / class body vs parameter list); the deletion of
+    `js_ts_written_unseen`; `JsBindingCache` fields; **P1 in `collect_js_ts_binding_pattern_names` (`src/ast.rs`)**
+    with its preservation tests; the `mod` lines; the cache bump; 2a's unit tests it changes (C150, D5 → `Import`).
+    `js_ts_site_binding` exists but has no production caller: one file-level
     `#![allow(dead_code)] // S1b-3b wires the call-site binding` in `js_binding_site.rs` only, removed by 3b.
-    **Not in 3a:** `CallSite`, `call_graph.rs`, `resolution.rs`, `queries.rs`, `useCallback`.
-  - **3b:** `CallSite.local_binding` + `JsLocalBinding` and the three source constructors (one
-    `JsBindingCache::for_sites()` per file) plus the test-only `CallSite` literals; `js_local_binding_at`;
+    **New test files** (`js_binding_tests.rs` is 584 lines): for example `src/ast/js_binding_site_tests.rs` and
+    `src/ast/js_binding_walk_tests.rs`, each under 600 lines. **Not in 3a:** `CallSite`, `call_graph.rs`,
+    `resolution.rs`, `queries.rs`, `useCallback`.
+  - **3b:** `CallSite.local_binding` + `JsLocalBinding` (with `MayCall(reason)`) and the three source constructors
+    (one `JsBindingCache::for_sites()` per file) plus the test-only `CallSite` literals; `js_local_binding_at`;
     `resolve_call_site_full` (Callable first, R4 drop on any `Unproven`, R5 drop for `not_callable` /
     `duplicate_declaration` / `import_parse_recovery` where base would bind); `js_ts_local_callable`; the
-    `useCallback` `local_route` flag; `local_binding_unchecked_position`; the cache bump; the S1b-1b `b5` update;
-    `s1b_param_shadow_local_def_refused` (Tier-A; measured RED on `3961cc21`, green on v10e).
+    `useCallback` `local_route` flag; `local_binding_unchecked_position` and `local_binding_may_call`; the cache
+    bump; `s1b_param_shadow_local_def_refused` (Tier-A; measured RED on `3961cc21`, green on v11).
 - **RED rows (SPEC §7):** 3a C-36 (C166–C168 and the mangled-write guard), C-37 (memo), C-38 (C169 plus the
-  unwritten twins), C-39, C-40 (C172), the walk rows C-2–C-4, C-7, C-9–C-17, C-24–C-35 at unit level (the collector's
-  answer), and C-35's `E_TABLE` equality test; 3b C-1, C-5, C-6 guards, C-8, C-18–C-23, C-41 (C170, `b5`), C-42
-  (C173), C-43 (C171), C-44, end to end. One slice: all of them.
-- **Mutants:** 3a C-M2a/b, C-M3–C-M11, C-M15–C-M32 (as they apply to the collector); 3b C-M1, C-M12–C-M14, C-M33–C-M35.
+  unwritten twins), C-39, C-40 (C172), **C-45 (NoFn / alias unit rows), C-46 (C178), C-47 (C180 and P1
+  preservation)**, the C-5/C-6 E5 guards as unit rows, the walk rows C-2–C-4, C-7, C-9–C-17, C-24–C-35 at unit
+  level, and C-35's `E_TABLE` equality test; 3b the 36 scenarios SPEC §9 enumerates (C-1, the six outcome
+  representatives, C-8, C-18, C-20, C-41, C-42 with C179/C181, C-43, C-44, the alias pins C174–C177 and C182–C184,
+  C-5's impostor twins, C114).
+- **Mutants:** 3a C-M2a/b, C-M3–C-M11, C-M15–C-M32, C-M38–C-M42 (as they apply to the collector); 3b C-M1,
+  C-M12–C-M14, C-M33–C-M37.
 - **Closure probe:** `python3 probes/grammar_closure.py --rust src/ast` (no `--kinds-only` from 3a on) exits 0;
   removing one `E_TABLE` row exits 1. Read the exit status directly, not through a pipe.
-- **Smoke:** `probes/controls_gen.py` (255 scenarios) with `probes/run_controls.sh`; compare with
-  `probes/controls_diff.py` against `probes/S1b-controls-head-3961cc21.txt` (3a: only the C166–C168 and C172 D4 rows
-  change; the same as running v10e with `PRISM_S1B3_NO_SITES=1`) and `probes/S1b-controls-proto-v10.txt` (3b or one
-  slice: identical, apart from rows you explain one by one). RP replay: `probes/replan/replay_rp.sh` must equal v9's
-  RP summary except RP2-c (S1b-4).
-- **Corpus acceptance** is the controller's (SPEC §8 r4 row; `probes/expected/S1b-3-r4-{X,R,T}.json`).
+- **Smoke:** `probes/controls_gen.py` (277 scenarios) with `probes/run_controls.sh`; compare with
+  `probes/controls_diff.py` against `probes/S1b-controls-head-3961cc21.txt` (3a: only the C166–C168 and C172 D4
+  rows change, the same as v11 with `PRISM_S1B3_NO_SITES=1`) and `probes/S1b-controls-proto-v11.txt` (3b:
+  identical, apart from rows you explain one by one). RP replay: `probes/replan/replay_rp.sh` must equal v9's RP
+  summary except RP2-c (S1b-4).
+- **Corpus acceptance** is the controller's (SPEC §8 r4 row; `probes/expected/S1b-3-r4-{X,R,T}.json`, regenerated
+  from v11).
 
 ## Verification (report totals from logs)
 

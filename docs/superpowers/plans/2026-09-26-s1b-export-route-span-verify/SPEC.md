@@ -1,10 +1,10 @@
 # S1b: span-verify every JS/TS export and local route
 
-**Status:** revision **r4** (2026-09-27): **S1b-3 re-planned against the landed code** (main `761541c2` with S1b-1,
-S1b-1b and S1b-2a; S1b-2b approved at `3961cc21`), prototype **v10** (§3.8, PLANNING-PROBES Q49–Q61). r3 (spec round
-3, folded at the cap: `REVIEW-r3-fold.md`) remains the design of record for everything §3.8 does not change. Earlier
-folds: `REVIEW-r1-fold.md`, `REPLAN-fable.md`. Nothing under `src/`, `tests/`, `eval/`, `Cargo.*` or `CLAUDE.md` changes on
-this branch.
+**Status:** revision **r4** (2026-09-27; S1b-3 spec round 1 folded 2026-09-29, `REVIEW-s1b3-r1-fold.md`): **S1b-3
+re-planned against the landed code** (main `761541c2` with S1b-1, S1b-1b and S1b-2a; S1b-2b approved at `3961cc21`),
+prototype **v11** (clean build of scratch `0982f2fd`; §3.8, PLANNING-PROBES Q49–Q68). r3 (`REVIEW-r3-fold.md`)
+remains the design of record for everything §3.8 does not change. Earlier folds: `REVIEW-r1-fold.md`,
+`REPLAN-fable.md`.
 
 **Base:** `origin/main` `a6d853f5` (S1 merged). **Grounding:** `PLANNING-PROBES.md` (M-ids for mechanisms, Q-ids for
 measurements; r2 measurements are Q24–Q35 on prototype v8). **Predecessor:** the S1 packet's §12, which recorded this
@@ -16,14 +16,28 @@ and is in model.
 
 ## 0. Owner decisions
 
+> **Owner decision 2026-09-29 (S1b-3 spec round 1 fold; authoritative; corrects OQ12 below).** OQ12's "0 right
+> lost" was false (Opus r1 W1, confirmed by the controller): v10's R5 drop removed right edges reached through a
+> value alias (X `const { t } = useI18n(); t()` and four hook returns; T `const { startLexicalEnvironment, … } =
+> context`, `const { addOutput, getOutputs } = createAddOutput()`). **The drop is narrowed to bindings that provably
+> hold no function**, at R4 and R5 alike: parameters, `for` heads, classes, enums, namespaces, duplicates,
+> recovered imports, and declarators whose unwrapped value is a literal or an object/array literal with no
+> identifier or function member (the closed class of §3.8 (11)). Every other declarator or destructuring
+> (identifier, member, call, `await`, conditional, logical and any other value) **keeps base**, counted
+> `local_binding_may_call: {alias}`. Re-measured on the clean-built v11 (§8 r4): X 64, F 47, T 227 wrong rows removed,
+> **0 right lost outside E6**; the rows v10 removed through an alias (X 38, F 424, T 212) keep base.
+> **Consequence (disclosed):** carry-forward 4's block-nested `const { f } = o` rows (the S1b-1b `b5` in-block
+> rows, F's 2) have an identifier value, so they **keep base** (wrong edges stay); so do `using h = res()` (C114,
+> a call value) and the other alias rows at R4 (X 5, F 28, T 24 rows r3 had removed).
+
 > **Owner answers to the S1b-3 re-plan, 2026-09-28. These are authoritative.**
 > - **OQ10 = (a):** split S1b-3 into **3a**, the collector at every scope (0 corpus rows; caps src 590 / tests 620),
 >   and **3b**, the call-site wiring (caps src 220 / tests 800).
 > - **Cache versions:** 3a 102/58, 3b 103/59, S1b-4 104/60.
 > - **OQ11 = (a):** destructuring declarators from a call (`const [s, setS] = useState(…)`) are **may-call**; they
 >   keep base behavior, per E5.
-> - **OQ12 = (a):** accept the R5 reach of carry-forward 4. It removes 781 wrong rows (X 83, F 441, T 257) and loses
->   0 right ones.
+> - **OQ12 = (a):** accept the R5 reach of carry-forward 4. ~~It removes 781 wrong rows (X 83, F 441, T 257) and
+>   loses 0 right ones.~~ **Superseded 2026-09-29** (above): the counts included alias rows, some right.
 > - **Earlier (2026-09-27):** any written binding, including a class, a `for (var …)` head or a parameter, keeps base
 >   behavior (M2 kinds).
 
@@ -46,8 +60,8 @@ and is in model.
 >   keeps `maycall_changed` at 0)**; (b) refuse (removes the 3 wrong edges). v10 implements (a).
 > - **OQ12, the R5 reach of carry-forward 4.** A name bound in-file to a proven non-callable declaration (a parameter,
 >   a destructured or other non-callable declarator, a `for` head, a class, an enum, a namespace, a recovered import)
->   binds no repo-wide function either. Measured: X 83, F 441, T 257 wrong R5 rows removed, all audited wrong (0
->   right lost). v9 removed only R4 rows. Recommended: accept (carry-forward 4 asked for the "and similar" rows).
+>   binds no repo-wide function either. Measured (v10, **corrected 2026-09-29**: the lexical auditor missed value
+>   aliases): X 83, F 441, T 257 R5 rows removed, not all wrong. v9 removed only R4 rows. Recommended: accept (carry-forward 4 asked for the "and similar" rows).
 
 > **Owner answers after the round-3 fold, 2026-09-27. These are authoritative.**
 > - **OQ8 = (a):** F4 (shorthand-destructuring shadow, routed through `collect_js_ts_binding_pattern_names`) ships
@@ -194,7 +208,7 @@ its subtree indirect. It stops at function-like nodes, classes, `class_static_bl
 | D5 | `import_statement` (default, namespace, named, `import x = require()`), `import_alias` (`import x = N.y`: its first named child) | direct; **value space only**: an `import type` statement and `type` specifiers declare nothing |
 | D6 | TS: `enum_declaration`, `internal_module`/`module` (identifier name, first segment of a dotted name), `function_signature` inside `ambient_declaration`, ambient `var`/`let`/`const`/`class` | direct (value space). `interface_declaration`, `type_alias_declaration` and an overload `function_signature` outside `ambient_declaration` declare nothing |
 | D7 | `var` declarators and `for (var … in/of …)` heads | at any depth while hoisting (T1, T2 bodies, T4 var scopes). A `var` declarator reached through a `catch` clause whose parameter binds the same name, or through a `with` body, records that body as a **marker** (Annex B.3.4: its initializer assigns the catch parameter; under `with`, maybe the object) |
-| P1 | binding patterns | BoundNames: `identifier`, `shorthand_property_identifier_pattern`, `object_pattern`, `array_pattern`, `rest_pattern`, `pair_pattern` (value), `assignment_pattern` (left), **`object_assignment_pattern` (left)**, `required_parameter`/`optional_parameter` (pattern) |
+| P1 | binding patterns | BoundNames (any parser-confirmed identifier spelled without an escape, §3.8 (12)): `identifier`, `shorthand_property_identifier_pattern`, `object_pattern`, `array_pattern`, `rest_pattern`, `pair_pattern` (value), `assignment_pattern` (left), **`object_assignment_pattern` (left)**, `required_parameter`/`optional_parameter` (pattern) |
 | W1 | writes | `assignment_expression` (not a `using` declaration), `augmented_assignment_expression`, `update_expression`, and a `for … in/of` head with no declaration keyword. Target names come from P1 **plus** `parenthesized_expression`, `as_expression`, `satisfies_expression`, `non_null_expression` and `type_assertion`. A write belongs to the scope the site walk finds from the target; a write that resolves to a `with` counts for every scope |
 
 **Shared-collector fixes** (S1b-1; base helpers used by S1, the CJS proof and the shadow guards): **F1** the write-target
@@ -358,7 +372,7 @@ same-file candidates: `Unproven` → `LocalBindingUnproven` (never falls to R5);
 S1's predicate gains a `local_route` flag; on the binding route (not the export arm) it also admits `useCallback`
 (arity 1–2, same ESM-`"react"` provenance and R6 checks), as a plain callable.
 
-### 3.8 S1b-3 against the landed code (r4, prototype v10 on `3961cc21`)
+### 3.8 S1b-3 against the landed code (r4, prototype v11 on `3961cc21`)
 
 The landed S1b-2a collector (`src/ast/js_binding*.rs`) evaluates the core at module scope only; S1b-2b wires it to
 D4. S1b-3 extends it to every scope and wires it to call sites. Normative deltas over §3.1, §3.1a and §3.6:
@@ -386,20 +400,26 @@ D4. S1b-3 extends it to every scope and wires it to call sites. Normative deltas
    `MayCall`. **Owner M2 ruling:** the check applies to every declaration kind (a written class, `for (var …)` head or
    parameter keeps base, C169).
 4. **M1 for destructuring declarators (OQ11 a).** A pattern declarator (or `using`) whose unwrapped value is a call
-   with a direct function argument is may-call; any other pattern declarator is `not_callable` (landed).
+   with a direct function argument is may-call. Any other call value (identifier or pattern declarator) is an
+   **alias** (11), not `not_callable`.
 5. **Imports at sites.** A binding whose single declaration is an `import_statement`/`import_alias` is
    `JsBinding::Import`: the import rungs decide (R4c unchanged); a same-file function is never the binding (R4 drops,
    C141). An `unbound` name likewise drops at R4 (every same-file function is out of scope: C88, C93) and keeps base
    everywhere else.
-6. **B1 containment (carry-forward 8, Opus 2b S1).** An error is sealed iff it lies in a delimited child of a sealer
-   strictly inside the scope **and the site is not inside that delimited child** (was: not inside the sealer). The
+6. **B1 containment (carry-forward 8, Opus 2b S1; narrowed by spec r1 Opus W2).** An error is sealed iff it lies
+   in a delimited child of a sealer strictly inside the scope and the site is outside it, where "it" is **the
+   delimited child for a `body` / `class_body` error** and **the whole sealer for a `formal_parameters` error**
+   (parameters are visible from the body: `export function g(a, f ==) { return f(); }` refuses, C178). The
    declaration-export site (the declaration node, which contains its own body) is therefore outside a sealed body:
    `export function f(){ let x = ; } export { f as g }` now verifies both routes (C172). 0 corpus rows; F's
    `parse_recovery` D4 refusals go 2 → 1.
-7. **Recovered imports (carry-forward 9).** Each top-level `ERROR` holding an `import` token contributes a
-   recovered-import marker to the program index for every identifier-shaped word of its source text (keywords
-   `import`, `from`, `as`, `type`, `typeof` excepted; words can come from string text, because recovery can put the
-   alias there, as in `import { "\u{GG}" as h }`). A binding with such a marker refuses `import_parse_recovery`, which
+7. **Recovered imports (carry-forward 9; spec r1 Opus W3, sol W2).** A top-level `ERROR` is a recovered static
+   import iff its first token is `import` and the next token is neither `.` (`import.meta`) nor `(` (`import()`),
+   C179. It contributes a recovered-import marker to the program index for every `identifier` inside it and for
+   every word of its source text, a word being a maximal run of ASCII identifier characters (`A–Z a–z 0–9 _ $`) and
+   non-ASCII non-whitespace characters, so `é` (e + U+0301) and ZWNJ/ZWJ names stay whole (C181); the keywords
+   `import`, `from`, `as`, `type`, `typeof` and digit-led runs are excepted. Words come from string text too,
+   because recovery can put the alias there, as in `import { "\u{GG}" as h }`. A binding with such a marker refuses `import_parse_recovery`, which
    drops at R4 and at R5 (C173). Over-poisoning is bounded to names spelled in a broken import and costs no measured
    row (0 on all four corpora). **In S1b-3, not a separate slice:** the marker is one arm of the program index that
    the site walk already consults; outside the walk it would need its own per-file fact and resolution guard.
@@ -408,15 +428,30 @@ D4. S1b-3 extends it to every scope and wires it to call sites. Normative deltas
    source constructors with one `JsBindingCache` per file. Unqualified branch: `Callable` first (§3.6); at R4 with
    same-file candidates, any `Unproven` drops `LocalBindingUnproven`; **at R5, where base would bind, `Unproven` with
    reason `not_callable`, `duplicate_declaration` or `import_parse_recovery` drops `LocalBindingUnproven`**
-   (carry-forward 4 and its "similar" class, OQ12; this pins S1b-1b's b5 in-block rows to drop, and the module
-   bare-block `const` P15 stays Exact because the walk finds it unbound, C170). `Position` counts
-   `local_binding_unchecked_position` and keeps base; `MayCall` and other `Unproven` reasons keep base at R5.
+   (carry-forward 4's class as narrowed 2026-09-29: `not_callable` now means provably no function, (11)).
+   `MayCall(reason)`, with `reason` `may_call` (E5) or `alias` (11), keeps base everywhere and counts
+   `local_binding_may_call`; `Position` counts `local_binding_unchecked_position` and keeps base; other `Unproven`
+   reasons keep base at R5. C170: the block-nested `const { f } = o` and the bare-block `var { f } = o` keep base
+   (alias); the bare-block `const` P15 stays Exact (unbound at the site).
 9. **`useCallback` (§3.7).** `JsBindingCache::for_sites()` sets the call-site route; S1's predicate takes a
    `local_route` flag. A `useCallback`-admitted binding is `Callable` with `wrapped: false`; forwardRef/memo stay
    `wrapped`. D4 never admits `useCallback`.
 10. **Namespace-export restriction (carry-forward 7).** `namespace N { export const { f } = o; }` with a module-level
     `run(){ f() }` stays Exact `free_single` (the walk does not enter the namespace body; the S1b-1b collector's
     `export_statement → program` rule), pinned in both S1b-3 and against MX4 (C171).
+11. **The "provably holds no function" class (owner 2026-09-29).** `js_ts_classify` answers `not_callable` for a
+    declarator (or `using`) only when it has no value (and is unwritten), or its unwrapped value is in the closed
+    class NoFn: `number`, `string`, `template_string`, `true`, `false`, `null`, `undefined`, `regex`; an `array` whose
+    every element is in NoFn; an `object` whose every member is a `pair` whose value is in NoFn (a shorthand property,
+    a spread, a method or any other member is not). Any other value is `JsBinding::Alias` (`const t = i18n.t`,
+    `const { t } = useI18n()`, `const x = await f()`, `a ? f : g`, `f || g`, `new X()`, `-1`, …). Parameters, `for`
+    heads, catch parameters, classes, enums, namespaces and markers stay `not_callable`. **D4 is unchanged:** an alias
+    at an export occurrence keeps the landed 2b answer (`UnprovenLocal`, counted `not_callable`).
+12. **P1 identifiers (spec r1 sol W1).** `collect_js_ts_binding_pattern_names` trusts parser-confirmed `identifier`
+    and `shorthand_property_identifier_pattern` nodes: any spelling without a `\` escape is a BoundName (`é` with
+    U+0301, ZWNJ/ZWJ, `$` as S1b-1b), replacing `is_plain_ident`; escaped spellings stay out and B0 refuses their
+    scope. Blast radius of the shared helper (about 20 call edges in 3 files, including S1b-1b's F4 and the write
+    scans): **0 call-site rows on X, F, R, T** (v11 vs v11 with the old predicate, Q66); preservation tests in 3a.
 
 ## 4. Controls (MEASURED, v8; `probes/S1b-controls-*.txt`, expectations in `probes/S1b-controls-expectations-pre-run.md`)
 
@@ -455,7 +490,7 @@ C152–C165 and the reversed C111 match addendum 7, and the v8 → v9 control di
 | C104 (TS) block `enum`; `function N` + `namespace N` | D6, B2 | 3 | → drop (the second is a fail-closed recall loss) |
 | C105, C108, C109, C151 errors that reach the site or its scope's list | B1 (ii) | 3 | → drop |
 | C149, C150 an error sealed in another function | B1 (ii) | 2 | unchanged (Exact) |
-| C114 (TS) `using` | D4 | 3 | the using-bound call → drop; the other call unchanged |
+| C114 (TS) `using` | D4 | 3 | the using-bound call → drop; the other call unchanged. **r4 2026-09-29: `using h = res()` is an alias (a call value) → keeps base Exact** |
 | C115, C117 (Opus W1) static-block and namespace `var` arrows | T4 | 3 | Exact ×2 → Exact → the inner arrow |
 | C116 (sol W3) static-block non-callable `var` | T4 | 3 | → drop |
 | C118 (Opus W4) `const f = function g(){}` next to `o.f` on one line | §3.6 | 3 | Exact → `o.f` → Exact → `g` |
@@ -500,17 +535,19 @@ C152–C165 and the reversed C111 match addendum 7, and the v8 → v9 control di
 
 `multi_target_exact_sites` keeps E8's R3 rows (X 6) and may-call rows (X 14).
 
-**r4 expected for S1b-3 (v10e against the S1b-2b head `3961cc21`, Q55; the table above is r3's):**
+**r4 expected for S1b-3 (clean-built v11 `0982f2fd` against the S1b-2b head `3961cc21`, Q64; the r3 table
+above and the v10 numbers are superseded):**
 
-| Corpus | `dropped_local_binding_unproven` | `local_binding_unchecked_position` | `js_export_local_refusals` | `js_export_local_may_call` | `unresolved_unknown_name` | `multi_target_exact_sites` |
+| Corpus | `dropped_local_binding_unproven` | `local_binding_may_call` (new) | `local_binding_unchecked_position` | `js_export_local_refusals` | `unresolved_unknown_name` | `multi_target_exact_sites` |
 |---|---|---|---|---|---|---|
-| X | 0 → **102** | `{}` | `{not_callable: 6}` (unchanged) | 1 (unchanged) | 10,203 (unchanged) | 158 → 20 |
-| F | 0 → **475** | `{}` | `{not_callable: 28, parse_recovery: 2 → 1}` | 0 | 11,033 (unchanged) | 5 → 3 |
-| R | 0 | `{}` | `{}` | 0 | 604 | 0 |
-| T | 0 → **480** | `{}` | `{parse_recovery: 26 → 25}` | 0 | 28,743 → 28,733 | 680 → 15 |
+| X | 0 → **64** | `{alias: 312, may_call: 48}` | `{}` | `{not_callable: 6}` (unchanged) | 10,203 (unchanged) | 158 → 24 |
+| F | 0 → **51** | `{alias: 1408, may_call: 89}` | `{}` | `{not_callable: 28, parse_recovery: 2 → 1}` | 11,033 (unchanged) | 5 → 3 |
+| R | 0 | `{alias: 26, may_call: 3}` | `{}` | `{}` | 604 | 0 |
+| T | 0 → **268** | `{alias: 444, may_call: 185}` | `{}` | `{parse_recovery: 26 → 25}` | 28,743 → 28,733 | 680 → 17 |
 
-The `parse_recovery` decrements are carry-forward 8 (a declaration export whose body holds a sealed error now
-verifies). Under OQ10 (a), 3a moves only the `js_export_local_refusals` cells; 3b moves the rest.
+`local_binding_may_call` counts call **sites** whose binding keeps base (E5 may-call or a value alias), not changed
+rows. The `parse_recovery` decrements are carry-forward 8. Under OQ10 (a), 3a moves only the
+`js_export_local_refusals` cells; 3b moves the rest. `js_export_local_may_call` is unchanged (X 1).
 
 ## 6. Cache
 
@@ -595,8 +632,8 @@ expectations in `probes/S1b-controls-expectations-pre-run.md` addendum 7, measur
 - **RP replay:** `probes/replan/replay_rp.sh <binary> <out>` (46 scenarios, the set asserted against
   `RP-SCENARIOS.txt`) must match the re-plan's "correct" column (Q39) at S1b-3 and S1b-4 heads.
 
-**r4 additions (S1b-3 against the landed code, v10; controls C166–C173 in `probes/controls_gen.py`, 255
-scenarios; reference summary `probes/S1b-controls-proto-v10.txt`).** Both grammars unless TS-only. With OQ10 (a) the
+**r4 additions (S1b-3 against the landed code; controls C166–C184 in `probes/controls_gen.py`, 277 scenarios;
+reference summaries `probes/S1b-controls-proto-v11.txt` and `probes/S1b-controls-head-3961cc21.txt`).** Both grammars unless TS-only. With OQ10 (a) the
 3a rows are unit rows on the collector (`js_ts_site_binding` / `js_ts_module_binding` results, as 2a's), and the 3b
 rows are end-to-end resolution rows.
 - **C-36 (3a, carry-forward 1, sol 2a-r2 W1–W3):** C166 `let f` in a default-parameter arrow, C167 inner `function f`
@@ -615,22 +652,36 @@ rows are end-to-end resolution rows.
   `not_callable`. Mutant **C-M31** pattern declarators skip M1.
 - **C-40 (3a, carry-forward 8):** C172 declaration export with a sealed body error: both `f` and `{ f as g }` verify.
   Mutant **C-M32** containment tested against the sealer (killed by C172).
-- **C-41 (3b, carry-forward 4, OQ12):** C170 a block-nested `const { f } = o` → drop at R5; a module bare-block `var`
-  → drop; a module bare-block `const` (P15) → Exact kept. **Update S1b-1b's `b5_nested_declarators_keep_base`**: its
-  in-block rows now drop (the function-level rows keep base). Plus one R5 row per reason (`not_callable` parameter,
-  `duplicate_declaration`, `import_parse_recovery`) and one `MayCall` row that keeps base at R5. Mutants **C-M33** R5
-  drop removed, **C-M34** R5 drop for every `Unproven` reason (the `with`/`parse_recovery` rows then drop).
+- **C-41 (3b, carry-forward 4 as narrowed 2026-09-29):** C170 a block-nested `const { f } = o` and a module
+  bare-block `var { f } = o` → **Exact kept** (alias; S1b-1b's `b5` rows are unchanged); the bare-block `const` (P15)
+  → Exact kept. Plus one R5 row per dropping reason (a parameter `not_callable`, `duplicate_declaration`,
+  `import_parse_recovery`) and one `MayCall` row that keeps base at R5. Mutants **C-M33** R5 drop removed, **C-M34**
+  R5 drop for every `Unproven` reason (the `with`/`parse_recovery` rows then drop).
 - **C-42 (3b, carry-forward 9):** C173 `import { "\u{GG}" as h }` recovered as a top-level `ERROR` with a later
-  `h()` and an `export function h` elsewhere → drop; a clean-import twin keeps R4c. Mutant **C-M35** no recovered
-  markers.
+  `h()` and an `export function h` elsewhere → drop; a clean-import twin keeps R4c; **C179** `import.meta load)` and
+  `import('./x') load2)` at top level → Exact kept (spec r1 Opus W3); **C181** Unicode aliases `é` (U+0301) and
+  `a‌b` (ZWNJ) → drop (sol W2). Mutants **C-M35** no recovered markers, **C-M36** any `import` token marks (C179),
+  **C-M37** ASCII-only word scanner (C181).
 - **C-43 (3b, carry-forward 7, TS-only):** C171 `namespace N { export const { f } = o; }` with a module-level
   `run(){ f() }` → Exact `free_single` kept (kills S1b-1b's MX4 as well).
 - **C-44 (3b):** `import f = M.g` (C141) and an unbound name with only out-of-scope same-file functions (C88, C93)
   → drop at R4; the same names keep base at R4c/R5.
-- **Existing tests to update (r4, measured on v10e: 6 fail, all by design):** 2a's
+- **C-45 (3a, owner 2026-09-29, the alias class):** unit rows for NoFn (each literal kind, nested object/array
+  literals → `not_callable`; a shorthand, spread, method, identifier element → `Alias`) and for alias values
+  (identifier, member, call without a function argument, `await`, conditional, logical, `new`); end to end (3b)
+  C174–C177 and C182–C184 (pre-registered, addendum 9/9b): a hook-returned `t`, `ctx.make`, `{ g } = ctx` keep Exact;
+  `const f = 0`, `{ k } = { k: 1 }` drop; `[m] = [1, g]` keeps Exact; C177 alias at R4 keeps `local_def`. Mutants
+  **C-M38** alias treated as `not_callable` (C182, C177 fail), **C-M39** NoFn admits identifiers (C184 `m` drops),
+  **C-M40** D4 maps `Alias` to base `Local` (an existing 2b refusal row changes).
+- **C-46 (3a, spec r1 Opus W2):** C178 `export function g(a, f ==) { return f(); }` → refuse (drop at R4); C172 still
+  verifies. Mutant **C-M41** containment against the delimited child for a parameter-list error (C178).
+- **C-47 (3a, spec r1 sol W1):** C180 `const é = 0; é()` beside `function é` → drop; P1 preservation rows for the
+  shared helper in both grammars: ASCII and non-ASCII declarators, parameters, shorthand patterns, writes, `$`
+  names (S1b-1b), an escaped spelling left out. Mutant **C-M42** `is_plain_ident` restored (C180).
+- **Existing tests to update (r4, measured on clean v11: 5 fail, all by design):** 2a's
   `b6_parse_recovery_refuses_unless_sealed` (C150 `MayCall` → `Callable`), `table_declarations_at_module_scope` and
-  `table_typescript_value_space` (a D5 import → `JsBinding::Import`), S1b-1b's `b5_nested_declarators_keep_base`
-  (C-41), and the two cache pins (§6).
+  `table_typescript_value_space` (a D5 import → `JsBinding::Import`), and the two cache pins (§6). S1b-1b's
+  `b5_nested_declarators_keep_base` now **passes unchanged** (its in-block rows are aliases).
 
 **Tier-A fixtures** (`eval/fixtures/typescript/`, each RED on base and green on v8, Q33): S1b-1
 `s1b_jsx_intrinsic_tag_refused`; S1b-2 `s1b_list_export_nested_decoy_refused`; S1b-3
@@ -651,14 +702,17 @@ rows are end-to-end resolution rows.
 | S1b-2a, S1b-2b | 0 | 0 | 0 | 0 |
 | S1b-3 | 153 (134 re-targeted, 19 wrong removed) | 35 (1, 30 wrong, 4 parse-recovery right refused) | 0 | 868 (635, 182 wrong, 41 parse-recovery right refused, 10 right added) |
 | S1b-4 | 0 | 4 (Exact → NameOnly, edge kept) | 0 | 0 |
-| **S1b-3, r4 (v10e vs `3961cc21`, audited, Q54)** | **236**: 134 re-targeted right; 102 wrong removed (19 R4, 83 R5); 0 right lost | **476**: 1 re-targeted right; 471 wrong removed (30 R4, 441 R5); 4 right lost (E6 parse recovery) | **0** | **1,125**: 635 re-targeted right; 439 wrong removed (182 R4, 257 R5); 10 right added; 41 right lost (E6) |
+| **S1b-3, r4 (clean v11 `0982f2fd` vs `3961cc21`, audited, Q64–Q65)** | **198**: 134 re-targeted right; 64 wrong removed (14 R4, 50 R5); 0 right lost | **52**: 1 re-targeted right; 47 wrong removed (2 R4, 45 R5); 4 right lost (E6 parse recovery) | **0** | **913**: 635 re-targeted right; 227 wrong removed (158 R4, 69 R5); 10 right added; 41 right lost (E6) |
 | S1b-3a alone (OQ10 a) | 0 | 0 | 0 | 0 |
 | S1b-3b (OQ10 a) | the S1b-3 r4 row | the S1b-3 r4 row | 0 | the S1b-3 r4 row |
 
-   **r4:** the S1b-3 row above supersedes the r3 S1b-3 row: re-derived with the landed S1b-1b/2a/2b in place, it
-   keeps r3's R4 counts exactly (X 134 + 19, F 1 + 30 + 4, T 635 + 182 + 41 + 10) and adds the R5 rows of
-   carry-forward 4 / OQ12. `maycall_changed` is 0 on every corpus (after OQ11 a). Expected files:
-   `probes/expected/S1b-3-r4-{X,R,T}.json` (F by hash in the evidence root).
+   **r4 (2026-09-29 fold):** the S1b-3 row supersedes r3's and v10's. Every removal is a parameter (X 62, F 46
+   including 5 single-arrow parameters, T 213), a `for` head (X 2, F 1, T 7), or an R4 name unbound at the site (T 7);
+   **no removed row has a declarator binding** outside E6 (`audit_s1b3.py` `removed_alias`: 0 on every corpus), so
+   the hand audit the owner asked for (every removed row whose declarator value is an identifier, member or call)
+   has **0 rows**. The rows v10 removed through an alias keep base in v11: **X 38, F 424, T 212** (v10's
+   `removed_alias`, Q63). `maycall_changed` 0. Expected files `probes/expected/S1b-3-r4-{X,R,T}.json` (regenerated
+   from v11; F by hash in the evidence root).
    The S1b-1b row is measured against the S1b-1 head (Q45); with S1b-1b landed, S1b-3's expected row-diff is
    re-derived on the S1b-1b base before dispatch. Measured overlap of the F4 row keys with v9's S1b-3 row keys
    (upto1 → upto2): **0 on every corpus** (X 91 / 153, F 16 / 35, T 5 / 868), so the counts above are expected to
@@ -726,30 +780,39 @@ about 40 lines; the closure probe would then compare the expanded table.
 | S1b-3 | 533 | 480 / 430 | **590** / 530 | **850** / 765 (C-31–C-35) |
 | S1b-4 | 177 | 185 / 165 | **195** / 175 | 330 / 300 |
 
-**r4 measurement (v10 on `3961cc21`, Q57; OQ9's S1b-3 caps are superseded).** Prototype v10 (v10e, squashed
-scratch commit `bece3158`) adds **664 src** honest lines (about 7 of them measurement switches, not ported) and
-deletes 2a's predicates (105 physical lines). Per function (`budget/fn_attrib.py`, split by the §3.8 ownership):
-**3a 490** (walk and `E_TABLE` 225, scope index / lookup / function names / write resolver 202, scope binding and
-classify changes 52 including OQ11 a's M1 helper, of which 12 lines are moved code, B1 containment 9, module lines
-4) and **3b 168** (call-site constructors and
-`js_local_binding_at` 77, resolution 44, `useCallback` and the site cache 39, counter 5, cache 2, re-export 1).
+**r4 measurement (clean-built v11 `0982f2fd` on `3961cc21`, Q67; supersedes v10's and the 2026-09-28 caps).** v11
+adds **745 src** honest lines (4 of them the two measurement switches, not ported) and deletes 2a's predicates (105
+physical lines). By §3.8 ownership (`budget/fn_attrib.py`): **3a 582** (walk and `E_TABLE` 225, scope index / lookup /
+function names / write resolver 198, recovered-import predicate and names 39, classify / alias class / M1 helper /
+scope binding 86, B1 containment 18, P1 4, D4 alias arm 7, module and cache lines 5) and **3b 159** (call-site
+constructors, `JsLocalBinding` and `js_local_binding_at` 78, resolution 44, `useCallback`, the site cache and
+`js_ts_site_binding` 25, counters 13, sidecar cache 1, less the 2-line switch). v10's 3a 490 / 3b 168 used a coarser
+split (cache and re-export lines in 3b); the fold added about 92 lines to 3a (the alias class, W2, W3, sol W1–W2)
+and about 8 to 3b (the `local_binding_may_call` counter).
 
 **Calibration from the landed slices** (prototype → landed src; test estimate → landed tests): S1b-2a 557 → 612 src
 (×1.10), 560 → 518 tests; S1b-2b 123 → 163 src (×1.33), 200 → 474 tests (×2.4); S1b-1b 1 → 16 src, 120 → 149 tests.
-Source grows 10–33 % from prototype to landed (docs are free; checks and error paths are not). **Tests are estimated
-from rows, not from the prototype:** 2a's unit tests cost 5.2 lines per row with both grammars (516 lines / 99 rows,
-harness included); 2b's and 1b's end-to-end tests cost 25–45 lines per scenario (multi-file fixtures, both grammars,
-rustfmt-stacked expectation tuples).
-- 3a rows (unit level, like 2a): about 90 (§7 r4: the walk, scope, write, M2-kind, M1-pattern, B1, recovered-import
-  and E-table rows) × 5.2 ≈ 470, plus the `E_TABLE` equality test and mutant support ≈ 45 → **≈ 515**.
-- 3b rows (end to end): about 20 new scenarios × 30 ≈ 600, plus counters, serde, epochs, pins and the cross-commit
-  cache row ≈ 120, plus updating the existing tests §7 lists → **≈ 720**.
+Tests are estimated from rows: 2a's unit tests cost 5.2 lines per row with both grammars (516 / 99, harness
+included); end-to-end scenarios cost 25–45 lines (Opus r1 S1 uses 30).
+- **3a (unit rows, new files; `js_binding_tests.rs` is 584 lines, spec r1 Opus S3):** about 120 rows — the walk,
+  scope, write, M2-kind, M1-pattern, alias-class (C174–C177, C182–C184 at unit level and the NoFn table), B1 (C172,
+  C178), recovered-import (C173, C179, C181), P1 (C180 and the shared-helper preservation rows: declarators,
+  parameters, shorthand patterns, writes, `$`), E-table rows, **plus the C-5/C-6 E5 guards moved here as unit rows
+  (Opus r1 S1's alternative)** — × 5.2 ≈ 625, plus the `E_TABLE` equality test and mutant support ≈ 45 → **≈ 670**.
+- **3b (end to end), enumerated:** C-1 (2), one representative per `JsLocalBinding` outcome (Callable, MayCall
+  `may_call`, MayCall `alias`, Unproven at R4, Unproven at R5, Position: 6), C-8 (1), C-18 (1), C-20 (2), C-41 (C170
+  and one R5 row per dropping reason: 4), C-42 (C173 and a clean twin, C179 ×2, C181: 5), C-43 (1), C-44 (3), the
+  alias pins C174–C177 and C182–C184 end to end (7), C-5's `useCallback` impostor twins (3), C114 (1) → **36
+  scenarios × 30 ≈ 1,080**, plus counters (2 new maps), serde, epochs, pins and the cross-commit cache row ≈ 120 →
+  **≈ 1,200**. Keeping the C-5/C-6 guards end to end instead adds 9 scenarios (≈ 270).
 
 | Sub-slice (OQ10 a) | measured src | **proposed src cap / early stop** | estimated tests | **proposed tests cap / report point** | basis |
 |---|---|---|---|---|---|
-| S1b-3a (collector at every scope) | 490 | **590** / 530 | ≈ 515 | **620** / 560 | src ×1.2; tests rows × 5.2 + 20 % |
-| S1b-3b (call-site wiring) | 168 | **220** / 200 | ≈ 720 | **800** / 720 | src ×1.3; tests scenarios × 30 + 10 % |
-| S1b-3 as one slice (OQ10 b) | 658 | **810** / 730 | ≈ 1,235 | **1,420** / 1,280 | the sum |
+| S1b-3a (collector at every scope) | 582 | **700** / 630 | ≈ 670 | **740** / 670 | src ×1.2; tests 120 rows × 5.2 + 45, +10 % |
+| S1b-3b (call-site wiring) | 159 | **220** / 200 (unchanged) | ≈ 1,200 | **1,320** / 1,190 | src ×1.33 of 165; tests 36 × 30 + 120, +10 % |
+
+The 2026-09-28 caps (3a 590 / 620, 3b 220 / 800) are superseded: 3a's src exceeds 590 by measurement (582 before the
+×1.1–1.3 landing growth), and 3b's tests are re-forecast by enumeration (Opus r1 S1).
 
 The E-table row-sharing option (r3, about 40 lines) is still open to the implementer as design, never as compression.
 
@@ -778,3 +841,4 @@ The E-table row-sharing option (r3, about 40 lines) is still open to the impleme
 | spec r3 (sol) | FIX 4 WRONG / 0 SMELL | W1 Annex-B predicate (C111 reversed), W2 closure probe second table, W3 probe custody, W4 cache schedule + counter: all folded |
 | **cap (round 3 of 3)** | **disclosed at-cap targeted fold** (owner: "targeted fold, then implement") | Both reviews were converging, so per the convergence rule the valid fixes were folded without a round 4 (`REVIEW-r3-fold.md`): each fix is a closed, enumerable row with RED controls (C-31–C-35, C111 reversed) and mutants (C-M20–C-M25) that the sub-slice implementation reviews verify. Measured corpus change of the whole fold: 0 rows (Q42). The fold pushes 2a and 3 over their caps (OQ9, §9); S1b-1b (F4) is proposed (OQ8) |
 | **r4 re-plan (2026-09-27)** | S1b-3 against the landed 2a/2b | prototype v10, 4-corpus audited row-diffs, 255 controls, carry-forwards 1–9, owner's M2/cache/budget rulings; OQ10–OQ12 (§0, §3.8, §9) |
+| **S1b-3 spec r1 (Opus FIX 3/3, sol FIX 2/1) → fold (2026-09-29)** | round 1 of 2 | Owner narrowed OQ12 to provably-no-function bindings (alias class, §3.8 (11)); Opus W2/W3 and sol W1/W2 fixed; S1–S3 and sol S1 addressed; clean-built v11 re-measured, 0 right lost outside E6; `REVIEW-s1b3-r1-fold.md` |
