@@ -229,3 +229,17 @@ markers only after a leading static `import`; parser-confirmed Unicode identifie
 | C179 `import.meta load)`; `import('./x') load2)` at top level; `load`, `load2` functions in `lib` | Exact ×2 | drop ×2 (W3 over-poison) | Exact ×2 |
 | C180 `function é(){}`; `const é = 0; é()` (`é` = e + U+0301) | Exact `local_def` (sol W1) | Exact (unchanged) | drop |
 | C181 `import { "\u{GG}" as é, "\u{GG}" as a‌b }` recovered as an `ERROR`; `é()`, `a‌b()` (ZWNJ), functions in `lib` | Exact ×2 | Exact ×2 (sol W2) | drop ×2 |
+
+### Addendum 9 result for C174–C181, and 9b (pre-registered before C182–C184 run)
+
+- **C177–C181: as predicted** in all three columns.
+- **C174–C176: the head column was falsified.** Head drops all of them `UnknownName`, not Exact: S1b-1b's F4 collects a
+  function-top-level destructuring into the caller's locals, so base's R5 guard already drops. v10e and v11 match
+  head (no change). The Opus W1 rows are reached only when the **caller is a nested function** (an arrow callback)
+  and the declaration is in an enclosing function, which the base guard does not see. 9b adds those shapes:
+
+| Scenario | head (predicted) | v10e (predicted) | v11 (predicted) |
+|---|---|---|---|
+| C182 `const { t } = useI18n(); xs.map((x) => t(x))` | Exact `free_single lib:t` | drop | Exact kept, counted `alias` |
+| C183 `const h = ctx.make; const { g } = ctx; xs.map(() => h() + g())` | Exact ×2 | drop ×2 | Exact ×2, counted `alias` |
+| C184 `const f = 0; const { k } = { k: 1 }; const [m] = [1, g]; xs.map(() => f() + k() + m())` | Exact ×3 | drop ×3 | drop, drop, Exact (`m` alias) |

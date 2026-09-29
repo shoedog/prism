@@ -402,6 +402,15 @@ S1B["C180_solW1_unicode_binding_name"] = {
 S1B["C181_solW2_unicode_recovered_alias"] = {
  "lib.{s}": "export function e\u0301() {\n  return 1;\n}\nexport function a\u200cb() {\n  return 2;\n}\n",
  "app.{s}": "export function run() {\n  return e\u0301() + a\u200cb();\n}\nimport { \"\\u{GG}\" as e\u0301, \"\\u{GG}\" as a\u200cb } from './lib';\n"}
+S1B["C182_OQ12_hook_destructure_alias_inner_caller"] = {
+ "lib.{s}": "export function t(k) {\n  return k;\n}\nexport function useI18n() {\n  return { t };\n}\n",
+ "app.{s}": "import { useI18n } from './lib';\nexport function run(xs) {\n  const { t } = useI18n();\n  return xs.map((x) => t(x));\n}\n"}
+S1B["C183_OQ12_identifier_member_alias_inner_caller"] = {
+ "lib.{s}": "export function h() {\n  return 1;\n}\nexport function g() {\n  return 2;\n}\n",
+ "app.{s}": "export function run(ctx, xs) {\n  const h = ctx.make;\n  const { g } = ctx;\n  return xs.map(() => h() + g());\n}\n"}
+S1B["C184_OQ12_literal_values_inner_caller"] = {
+ "lib.{s}": "export function f() {\n  return 1;\n}\nexport function k() {\n  return 2;\n}\nexport function m() {\n  return 3;\n}\n",
+ "app.{s}": "export function run(g, xs) {\n  const f = 0;\n  const { k } = { k: 1 };\n  const [m] = [1, g];\n  return xs.map(() => f() + k() + m());\n}\n"}
 TS_ONLY["C171_CF7_namespace_export_destructuring"] = {
  "lib.ts": "export function f() {\n  return 1;\n}\n",
  "a.ts": "declare const o: any;\nnamespace N {\n  export const { f } = o;\n}\nexport function run() {\n  return f();\n}\n"}
