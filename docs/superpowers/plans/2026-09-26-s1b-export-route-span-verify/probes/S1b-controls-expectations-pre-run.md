@@ -243,3 +243,7 @@ markers only after a leading static `import`; parser-confirmed Unicode identifie
 | C182 `const { t } = useI18n(); xs.map((x) => t(x))` | Exact `free_single lib:t` | drop | Exact kept, counted `alias` |
 | C183 `const h = ctx.make; const { g } = ctx; xs.map(() => h() + g())` | Exact ×2 | drop ×2 | Exact ×2, counted `alias` |
 | C184 `const f = 0; const { k } = { k: 1 }; const [m] = [1, g]; xs.map(() => f() + k() + m())` | Exact ×3 | drop ×3 | drop, drop, Exact (`m` alias) |
+
+**9b probe fix (inadmissible first run, no comparison drawn):** the first C182–C184 fixtures called from anonymous
+arrows (`xs.map((x) => t(x))`), which prism does not index as callers, so no row existed to compare. The fixtures now
+call from a named nested `function each`; the predictions above stand unchanged.
