@@ -379,6 +379,29 @@ S1B["C172_CF8_sealed_body_declaration_export"] = {
 S1B["C173_CF9_recovered_import_poison"] = {
  "lib.{s}": "function f() {\n  return 1;\n}\nexport function h() {\n  return 2;\n}\nexport { f as \"GG\" };\n",
  "app.{s}": "export function run() {\n  return h();\n}\nimport { \"\\u{GG}\" as h } from './lib';\n"}
+# ---- S1b-3 spec r1 fold (v11): OQ12 correction, Opus W2/W3, sol W1/W2. Pre-registered in addendum 9.
+S1B["C174_OQ12_hook_destructure_alias"] = {
+ "lib.{s}": "export function t(k) {\n  return k;\n}\nexport function useI18n() {\n  return { t };\n}\n",
+ "app.{s}": "import { useI18n } from './lib';\nexport function run() {\n  const { t } = useI18n();\n  return t('x');\n}\n"}
+S1B["C175_OQ12_identifier_member_alias"] = {
+ "lib.{s}": "export function h() {\n  return 1;\n}\nexport function g() {\n  return 2;\n}\n",
+ "app.{s}": "export function run(ctx) {\n  const h = ctx.make;\n  const { g } = ctx;\n  return h() + g();\n}\n"}
+S1B["C176_OQ12_literal_values_drop"] = {
+ "lib.{s}": "export function f() {\n  return 1;\n}\nexport function k() {\n  return 2;\n}\nexport function m() {\n  return 3;\n}\n",
+ "app.{s}": "export function run(g) {\n  const f = 0;\n  const { k } = { k: 1 };\n  const [m] = [1, g];\n  return f() + k() + m();\n}\n"}
+S1B["C177_OQ12_alias_at_R4"] = {
+ "a.{s}": "function t() {\n  return 1;\n}\nfunction make() {\n  return { t };\n}\nexport function run() {\n  const { t } = make();\n  return t();\n}\n"}
+S1B["C178_W2_param_list_error_not_sealed"] = {
+ "a.{s}": "function f() {\n  return 1;\n}\nexport function g(a, f ==) {\n  return f();\n}\n"}
+S1B["C179_W3_import_meta_and_dynamic_not_poison"] = {
+ "lib.{s}": "export function load() {\n  return 1;\n}\nexport function load2() {\n  return 2;\n}\n",
+ "app.{s}": "import.meta load)\nexport function run() {\n  return load();\n}\n",
+ "dyn.{s}": "import('./x') load2)\nexport function run2() {\n  return load2();\n}\n"}
+S1B["C180_solW1_unicode_binding_name"] = {
+ "a.{s}": "function e\u0301() {\n  return 1;\n}\nexport function run() {\n  const e\u0301 = 0;\n  return e\u0301();\n}\n"}
+S1B["C181_solW2_unicode_recovered_alias"] = {
+ "lib.{s}": "export function e\u0301() {\n  return 1;\n}\nexport function a\u200cb() {\n  return 2;\n}\n",
+ "app.{s}": "export function run() {\n  return e\u0301() + a\u200cb();\n}\nimport { \"\\u{GG}\" as e\u0301, \"\\u{GG}\" as a\u200cb } from './lib';\n"}
 TS_ONLY["C171_CF7_namespace_export_destructuring"] = {
  "lib.ts": "export function f() {\n  return 1;\n}\n",
  "a.ts": "declare const o: any;\nnamespace N {\n  export const { f } = o;\n}\nexport function run() {\n  return f();\n}\n"}

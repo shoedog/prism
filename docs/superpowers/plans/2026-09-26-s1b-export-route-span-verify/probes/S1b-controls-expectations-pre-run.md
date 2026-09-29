@@ -212,3 +212,20 @@ one place. The base for these rows is the S1b-2b head `3961cc21` (`S1b-controls-
 
 Every other scenario matches v9's reference (`S1b-controls-proto-v9.txt`) except the S1b-4 rows (C62, C80–C83,
 C129–C133, C148, which S1b-3 does not own). C166–C173 are new.
+
+## Addendum 9 (S1b-3 spec r1 fold, v11) — PRE-REGISTERED, written before v11 is built or run
+
+Base: `prism-head-3961cc21`. "v10e" is the reviewed prototype; "v11" the fold (owner 2026-09-29: the R5 drop narrowed
+to bindings that provably hold no function; B1 relaxation only for body / class-body errors; recovered-import
+markers only after a leading static `import`; parser-confirmed Unicode identifiers). Both grammars.
+
+| Scenario | head (predicted) | v10e (predicted) | v11 (predicted) |
+|---|---|---|---|
+| C174 `const { t } = useI18n(); t()`, `t` a function in `lib` | Exact `free_single lib:t` (right) | drop (the Opus W1 loss) | Exact kept, counted `alias` |
+| C175 `const h = ctx.make; const { g } = ctx; h(); g()`, `h`, `g` functions in `lib` | Exact ×2 | drop ×2 | Exact ×2 kept, counted `alias` |
+| C176 `const f = 0`, `const { k } = { k: 1 }`, `const [m] = [1, g]`; functions `f`, `k`, `m` in `lib` | Exact ×3 | drop ×3 | drop, drop, **Exact kept** (`m`: the array holds an identifier, alias) |
+| C177 same-file `function t` + `const { t } = make()` in `run` | Exact `local_def` | drop | Exact `local_def` kept (alias at R4) |
+| C178 `export function g(a, f ==) { return f(); }` + module `function f` | Exact `local_def` | Exact (the W2 bug) | drop (parameter-list error not sealed for a body site) |
+| C179 `import.meta load)`; `import('./x') load2)` at top level; `load`, `load2` functions in `lib` | Exact ×2 | drop ×2 (W3 over-poison) | Exact ×2 |
+| C180 `function é(){}`; `const é = 0; é()` (`é` = e + U+0301) | Exact `local_def` (sol W1) | Exact (unchanged) | drop |
+| C181 `import { "\u{GG}" as é, "\u{GG}" as a‌b }` recovered as an `ERROR`; `é()`, `a‌b()` (ZWNJ), functions in `lib` | Exact ×2 | Exact ×2 (sol W2) | drop ×2 |
