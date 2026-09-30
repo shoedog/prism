@@ -85,25 +85,22 @@ fn d_fold_collector_answer_for_names_spelled_in_a_broken_import() {
     let zwnj = "import { a\u{200c}b as h };\nh();\n";
     let clean_import_control = "import { h } from './x';\nh();\n";
     let trivia_control = "import /* c */ { \"\\u{47}\\u{47}\" as h };\nh();\n";
-    for (id, src, name, want_recovery) in [
-        ("D-1 ASCII", ascii, "h", true),
-        ("D-2 combining mark", combining_mark, "h", true),
-        ("D-3 ZWNJ", zwnj, "h", true),
-        ("D-4 clean import control", clean_import_control, "h", false),
-        ("D-5 trivia control", trivia_control, "h", true),
+    for (id, src, want_recovery) in [
+        ("D-1 ASCII", ascii, true),
+        ("D-2 combining mark", combining_mark, true),
+        ("D-3 ZWNJ", zwnj, true),
+        ("D-4 clean import control", clean_import_control, false),
+        ("D-5 trivia control", trivia_control, true),
     ] {
         let p = parse("a.js", src);
         let mut cache = crate::ast::js_binding::JsBindingCache::default();
-        let got = p.js_ts_module_binding(name, p.tree.root_node(), &mut cache);
-        if want_recovery {
-            assert_eq!(
-                got,
-                crate::ast::js_binding::JsBinding::Refused("import_parse_recovery"),
-                "{id}"
-            );
+        let got = p.js_ts_module_binding("h", p.tree.root_node(), &mut cache);
+        let want = if want_recovery {
+            crate::ast::js_binding::JsBinding::Refused("import_parse_recovery")
         } else {
-            assert_eq!(got, crate::ast::js_binding::JsBinding::Import, "{id}");
-        }
+            crate::ast::js_binding::JsBinding::Import
+        };
+        assert_eq!(got, want, "{id}");
     }
 }
 
