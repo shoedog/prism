@@ -1,0 +1,1445 @@
+diff --git a/eval/fixtures/typescript/s1b_param_shadow_local_def_refused/a.ts b/eval/fixtures/typescript/s1b_param_shadow_local_def_refused/a.ts
+new file mode 100644
+index 00000000..c8480179
+--- /dev/null
++++ b/eval/fixtures/typescript/s1b_param_shadow_local_def_refused/a.ts
+@@ -0,0 +1,7 @@
++export function run(f: () => number) {
++  return f();
++}
++export function holder() {
++  const f = () => 1;
++  return f;
++}
+diff --git a/eval/fixtures/typescript/s1b_param_shadow_local_def_refused/expected.toml b/eval/fixtures/typescript/s1b_param_shadow_local_def_refused/expected.toml
+new file mode 100644
+index 00000000..33c293cc
+--- /dev/null
++++ b/eval/fixtures/typescript/s1b_param_shadow_local_def_refused/expected.toml
+@@ -0,0 +1,12 @@
++[case]
++language = "typescript"
++capability = "s1b_param_shadow_local_def_refused"
++status = "pass"
++[seed]
++symbol = "f"
++file = "a.ts"
++line = 5
++[expect]
++callers = []
++exact = false
++forbid_resolution_kind = "local_def"
+diff --git a/src/ast.rs b/src/ast.rs
+index b8de8f60..c84b61fb 100644
+--- a/src/ast.rs
++++ b/src/ast.rs
+@@ -7,6 +7,9 @@ use tree_sitter::{Node, Parser, Tree};
+ mod js_binding;
+ mod js_binding_checks;
+ mod js_binding_decls;
++mod js_binding_site;
++mod js_binding_walk;
++pub(crate) use js_binding::{JsBinding, JsBindingCache, JsTerminal};
+ mod js_cjs_export_barriers;
+ mod js_cjs_terminal;
+ mod js_module_forwarding;
+@@ -2920,7 +2923,7 @@ impl ParsedFile {
+                                 facts.insert_named(name_text, target);
+                                 continue;
+                             }
+-                            Some("call_expression") => self.js_ts_wrapped_export(decl, d),
++                            Some("call_expression") => self.js_ts_wrapped_export(decl, d, false),
+                             _ => Err("non_call_initializer"),
+                         };
+                         match admitted {
+@@ -5034,8 +5037,13 @@ impl ParsedFile {
+         match node.kind() {
+             "identifier" | "shorthand_property_identifier_pattern" => {
+                 let name = self.node_text(&node);
+-                // S1b-1b: `$` is a JS identifier character (`const $ = …`, `{ $f }`).
+-                if is_plain_ident(&name.replace('$', "_")) {
++                // S1b-3 (spec r1 sol W1): the parser confirmed an ECMAScript identifier, so any
++                // IdentifierName counts (`é` with U+0301, ZWNJ/ZWJ, `$`, S1b-1b); only an escaped
++                // spelling is left out (B0 refuses those scopes). MEASUREMENT: PRISM_S1B3_ASCII_P1.
++                let old = std::env::var_os("PRISM_S1B3_ASCII_P1").is_some();
++                if (old && is_plain_ident(&name.replace('$', "_")))
++                    || (!old && !name.contains('\\'))
++                {
+                     out.insert(name.to_string());
+                 }
+             }
+diff --git a/src/ast/js_binding.rs b/src/ast/js_binding.rs
+index c689ec1d..2b872196 100644
+--- a/src/ast/js_binding.rs
++++ b/src/ast/js_binding.rs
+@@ -13,12 +13,12 @@ use tree_sitter::Node;
+ 
+ /// A proven callable: its registered name (`Language::function_name`), its line span, and
+ /// whether it is a wrapped React render function (bindable from JSX element sites only).
+-#[derive(Debug, Clone, PartialEq, Eq)]
+-pub(crate) struct JsTerminal {
+-    pub(crate) local: String,
+-    pub(crate) start_line: usize,
+-    pub(crate) end_line: usize,
+-    pub(crate) wrapped: bool,
++#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
++pub struct JsTerminal {
++    pub local: String,
++    pub start_line: usize,
++    pub end_line: usize,
++    pub wrapped: bool,
+ }
+ 
+ /// What a name denotes at a site (SPEC §3.1 classification).
+@@ -30,6 +30,12 @@ pub(crate) enum JsBinding {
+     Refused(&'static str),
+     /// Owner OQ1 = (a), Option K: unproven, so base behavior, counted by reason.
+     Unchecked(&'static str),
++    /// A well-formed import binding: the import rungs decide (base behavior, uncounted).
++    Import,
++    /// S1b-3 (owner 2026-09-29): a declarator whose value may hold a function by value flow
++    /// (anything but a function, a literal, or a literal object or array without identifier
++    /// or function members): keeps base behavior at call sites, counted `alias`.
++    Alias,
+ }
+ 
+ /// Strictness of the code holding a scope, for Annex B.3.2 (SPEC §3.1 D1).
+@@ -47,12 +53,18 @@ pub(super) type ExportScope<'a> = (BTreeSet<String>, JsBindingCache<'a>);
+ pub(super) type Index<'a> = BTreeMap<String, Vec<Node<'a>>>;
+ 
+ /// Per-file memo: scope declaration indexes (with the unknown-strictness Annex-B names),
+-/// B0 results, both keyed by scope node id, and the file-level B1 brace condition.
++/// B0 results, both keyed by scope node id, the file-level B1 brace condition, the leave
++/// predicate's partner counts, and M2's write targets and `(scope, name)` answers (C-19).
+ #[derive(Default)]
+ pub(crate) struct JsBindingCache<'a> {
+     pub(super) decls: BTreeMap<usize, (Index<'a>, BTreeSet<String>)>,
+     pub(super) clean: BTreeMap<usize, Result<(), &'static str>>,
+     pub(super) braces: Option<bool>,
++    pub(super) partners: Option<BTreeMap<String, usize>>,
++    pub(super) write_targets: Option<BTreeMap<String, Vec<Node<'a>>>>,
++    pub(super) written: BTreeMap<(usize, String), bool>,
++    /// The call-site route (S1b-3), where `useCallback` is admitted (E4); not D4.
++    pub(crate) sites: bool,
+ }
+ 
+ /// B0's allowlist: every named node kind, leaf or not, of the pinned JavaScript, TypeScript
+@@ -97,6 +109,16 @@ type_predicate_annotation type_query unary_expression undefined union_type \
+ update_expression variable_declaration variable_declarator while_statement with_statement \
+ yield_expression";
+ 
++impl JsBindingCache<'_> {
++    /// The memo for a file's call sites (S1b-3).
++    pub(crate) fn for_sites() -> Self {
++        Self {
++            sites: true,
++            ..Self::default()
++        }
++    }
++}
++
+ pub(super) fn classified(kind: &str) -> bool {
+     static SET: OnceLock<BTreeSet<&'static str>> = OnceLock::new();
+     SET.get_or_init(|| CLASSIFIED.split_whitespace().collect())
+@@ -130,26 +152,38 @@ impl ParsedFile {
+         site: Node<'a>,
+         cache: &mut JsBindingCache<'a>,
+     ) -> JsBinding {
+-        let root = self.tree.root_node();
+-        let (index, annex) = cache.decls.entry(root.id()).or_insert_with(|| {
+-            let (mut index, mut annex) = (Index::new(), BTreeSet::new());
+-            let mode = (true, true, self.js_ts_strictness(root));
+-            self.js_ts_declare_walk(root, mode, &BTreeSet::new(), &mut index, &mut annex);
+-            (index, annex)
+-        });
+-        let (decls, annex_b) = (index.get(name).cloned(), annex.contains(name));
++        self.js_ts_scope_binding(self.tree.root_node(), None, name, site, cache)
++    }
++
++    /// What `name` denotes in `scope`, the scope the site walk stopped at (`explicit`: the
++    /// `with` or dotted-namespace node that binds it), used at `site`.
++    pub(super) fn js_ts_scope_binding<'a>(
++        &'a self,
++        scope: Node<'a>,
++        explicit: Option<Node<'a>>,
++        name: &str,
++        site: Node<'a>,
++        cache: &mut JsBindingCache<'a>,
++    ) -> JsBinding {
++        let (decls, annex_b) = match explicit {
++            Some(d) => (Some(vec![d]), false),
++            None => self.js_ts_scope_lookup(scope, name, cache),
++        };
+         if decls.is_none() && !annex_b {
+             return JsBinding::Refused("unbound");
+         }
++        if decls.iter().flatten().any(|d| d.is_error()) {
++            return JsBinding::Refused("import_parse_recovery");
++        }
+         // B0 and B1 precede the Annex-B uncertainty, which precedes B2 (sol r1 W2).
+-        if let Err(reason) = self.js_ts_scope_clean(root, cache) {
++        if let Err(reason) = self.js_ts_scope_clean(scope, cache) {
+             return JsBinding::Refused(reason);
+         }
+-        let Some(sealers) = self.js_ts_recovery_sealed(root, site, cache) else {
++        if !self.js_ts_recovery_sealed(scope, site, cache) {
+             return JsBinding::Refused("parse_recovery");
+-        };
++        }
+         match decls {
+-            Some(decls) if !annex_b => self.js_ts_classify(root, &decls, name, &sealers),
++            Some(decls) if !annex_b => self.js_ts_classify(scope, &decls, name, cache),
+             _ => JsBinding::Unchecked("annex_b_strictness"),
+         }
+     }
+@@ -161,7 +195,7 @@ impl ParsedFile {
+         scope: Node<'a>,
+         decls: &[Node<'a>],
+         name: &str,
+-        sealers: &[Node<'a>],
++        cache: &mut JsBindingCache<'a>,
+     ) -> JsBinding {
+         if scope.kind() == "with_statement" {
+             return JsBinding::Refused("with");
+@@ -169,6 +203,9 @@ impl ParsedFile {
+         let [decl] = decls else {
+             return JsBinding::Refused("duplicate_declaration");
+         };
++        if matches!(decl.kind(), "import_statement" | "import_alias") {
++            return JsBinding::Import;
++        }
+         let fe_self = matches!(decl.kind(), "function_expression" | "generator_function")
+             && decl
+                 .child_by_field_name("name")
+@@ -184,17 +221,14 @@ impl ParsedFile {
+             decl.kind(),
+             "function_declaration" | "generator_function_declaration"
+         );
+-        // M2. Module scope uses the base write scan after F1–F3 (SPEC §3.2, identical to the
+-        // scoped scan on the corpora, Q28), with `using` declarations not writes (S1b-2b) and
+-        // widened by the writes it cannot see; S1b-3 adds the scoped scan for nested scopes.
+-        if (fe_self || binding || function)
+-            && (self.js_ts_module_written(name, true) || self.js_ts_written_unseen(name, sealers))
+-        {
++        // M2 (owner 2026-09-27): any written binding, whatever its kind, keeps base behavior.
++        // S1b-3's scoped resolver replaces the module scan and 2a's widening predicates.
++        if self.js_ts_scoped_written(scope, name, cache) {
+             return JsBinding::MayCall;
+         }
+         let callable = if function || fe_self {
+             *decl
+-        } else if declarator {
++        } else if binding {
+             let field = if using { "right" } else { "value" };
+             let Some(mut value) = decl.child_by_field_name(field) else {
+                 return JsBinding::Refused("not_callable");
+@@ -212,9 +246,15 @@ impl ParsedFile {
+                 value = inner;
+             }
+             match value.kind() {
+-                "arrow_function" | "function_expression" => value,
+-                "call_expression" => return self.js_ts_classify_call(*decl, value, using),
+-                _ => return JsBinding::Refused("not_callable"),
++                "arrow_function" | "function_expression" if declarator => value,
++                "call_expression" if declarator => {
++                    return self.js_ts_classify_call(*decl, value, using, cache.sites);
++                }
++                // M1 for a destructuring declarator (S1b-3 OQ11 a): its names may hold what a
++                // call with a function argument returns.
++                "call_expression" => return js_ts_call_may_call(value),
++                _ if js_ts_holds_no_function(value) => return JsBinding::Refused("not_callable"),
++                _ => return JsBinding::Alias,
+             }
+         } else {
+             return JsBinding::Refused("not_callable");
+@@ -231,72 +271,29 @@ impl ParsedFile {
+         })
+     }
+ 
+-    /// Writes of `name` the base scan's closer-binding test cannot see (impl r1 fold, Opus W1/W2,
+-    /// sol W1); counting them only moves answers toward M2, which is base behavior. (a) A write
+-    /// target under a position a function-like evaluates before entering its own environments
+-    /// (SPEC §3.1a: J1 `formal_parameters`, J2 `decorator`, J3 `computed_property_name`; its
+-    /// other positions hold a binding name or types, never a W1 form), which the base test
+-    /// shadows by the function's parameters and body `var`s. (b) An identifier spelled `name`
+-    /// in a B1-sealed node, whose error the base test reads as a closer binding and which may
+-    /// have mangled a write.
+-    fn js_ts_written_unseen(&self, name: &str, sealers: &[Node<'_>]) -> bool {
+-        let spelled = |n: Node<'_>| {
+-            matches!(
+-                n.kind(),
+-                "identifier"
+-                    | "shorthand_property_identifier"
+-                    | "shorthand_property_identifier_pattern"
+-            ) && self.node_text(&n) == name
+-        };
+-        if sealers.iter().any(|s| any_node(*s, spelled)) {
+-            return true;
+-        }
+-        any_node(self.tree.root_node(), |n| {
+-            let Some(target) = self.js_ts_write_target(n) else {
+-                return false;
+-            };
+-            let mut names = BTreeSet::new();
+-            self.collect_js_ts_binding_pattern_names(target, &mut names);
+-            let mut up = n.parent();
+-            while let Some(a) = up.filter(|a| {
+-                !matches!(
+-                    a.kind(),
+-                    "formal_parameters" | "decorator" | "computed_property_name"
+-                )
+-            }) {
+-                up = a.parent();
+-            }
+-            names.contains(name) && up.is_some()
+-        })
+-    }
+-
+     /// B3's admitted React wrapper (S1's predicate, wrapped) and M1: any other call with a
+     /// direct function argument is may-call; a call without one holds no callable.
+-    fn js_ts_classify_call(&self, decl: Node<'_>, call: Node<'_>, using: bool) -> JsBinding {
+-        let admitted = match decl.parent() {
+-            Some(list) if !using => self.js_ts_wrapped_export(list, decl).ok(),
+-            _ => None,
+-        };
++    fn js_ts_classify_call(
++        &self,
++        decl: Node<'_>,
++        call: Node<'_>,
++        using: bool,
++        sites: bool,
++    ) -> JsBinding {
++        let list = decl.parent().filter(|_| !using);
++        let admitted = list.and_then(|l| self.js_ts_wrapped_export(l, decl, sites).ok());
+         if let Some((local, start_line, end_line)) = admitted {
++            // Admitted only on the site route: `useCallback`, which returns the function
++            // itself, a plain callable (E4); forwardRef/memo render functions stay JSX-only.
++            let wrapped = list.is_some_and(|l| self.js_ts_wrapped_export(l, decl, false).is_ok());
+             return JsBinding::Callable(JsTerminal {
+                 local,
+                 start_line,
+                 end_line,
+-                wrapped: true,
++                wrapped,
+             });
+         }
+-        let Some(args) = call.child_by_field_name("arguments") else {
+-            return JsBinding::Refused("not_callable");
+-        };
+-        let mut cursor = args.walk();
+-        let function_argument = args
+-            .named_children(&mut cursor)
+-            .any(|a| matches!(a.kind(), "arrow_function" | "function_expression"));
+-        if function_argument {
+-            JsBinding::MayCall
+-        } else {
+-            JsBinding::Refused("not_callable")
+-        }
++        js_ts_call_may_call(call)
+     }
+ 
+     /// The file is an ES module: a top-level `import`/`export` statement, or `.mjs`/`.mts`.
+@@ -388,8 +385,17 @@ impl ParsedFile {
+                 facts.local_export_may_call += 1;
+                 JsExportTarget::Local(name)
+             }
+-            // Unreachable at D4: an export statement makes the file a strict module.
+-            JsBinding::Unchecked(_) => JsExportTarget::Local(name),
++            // Unreachable at D4: an export statement makes the file a strict module, and
++            // imported names are filtered above.
++            JsBinding::Unchecked(_) | JsBinding::Import => JsExportTarget::Local(name),
++            // D4 keeps the landed S1b-2b answer for a value-flow alias: `not_callable`.
++            JsBinding::Alias => {
++                *facts
++                    .local_export_refusals
++                    .entry("not_callable".into())
++                    .or_default() += 1;
++                JsExportTarget::UnprovenLocal(name)
++            }
+             JsBinding::Refused(reason) => {
+                 *facts
+                     .local_export_refusals
+@@ -447,17 +453,42 @@ impl ParsedFile {
+     }
+ }
+ 
+-/// Whether `pred` holds for `node` or any named descendant.
+-fn any_node<'a>(node: Node<'a>, mut pred: impl FnMut(Node<'a>) -> bool) -> bool {
+-    let mut stack = vec![node];
+-    while let Some(n) = stack.pop() {
+-        if pred(n) {
+-            return true;
+-        }
+-        let mut cursor = n.walk();
+-        stack.extend(n.named_children(&mut cursor));
++/// M1: a call with a direct function argument may return a callable (base behavior, E5); any
++/// other call may return one by value flow (`alias`, owner 2026-09-29).
++fn js_ts_call_may_call(call: Node<'_>) -> JsBinding {
++    let Some(args) = call.child_by_field_name("arguments") else {
++        return JsBinding::Alias;
++    };
++    let mut cursor = args.walk();
++    let function_argument = args
++        .named_children(&mut cursor)
++        .any(|a| matches!(a.kind(), "arrow_function" | "function_expression"));
++    if function_argument {
++        JsBinding::MayCall
++    } else {
++        JsBinding::Alias
++    }
++}
++
++/// The closed "provably holds no function" value class (owner 2026-09-29): a literal, or an
++/// object or array literal whose every member value is itself in the class (a shorthand
++/// property, a spread, a method or any other expression is not).
++fn js_ts_holds_no_function(value: Node<'_>) -> bool {
++    let mut cursor = value.walk();
++    match value.kind() {
++        "number" | "string" | "template_string" | "true" | "false" | "null" | "undefined"
++        | "regex" => true,
++        "array" => value
++            .named_children(&mut cursor)
++            .all(|e| e.kind() == "comment" || js_ts_holds_no_function(e)),
++        "object" => value.named_children(&mut cursor).all(|m| {
++            m.kind() == "comment"
++                || (m.kind() == "pair"
++                    && m.child_by_field_name("value")
++                        .is_some_and(js_ts_holds_no_function))
++        }),
++        _ => false,
+     }
+-    false
+ }
+ 
+ #[cfg(test)]
+diff --git a/src/ast/js_binding_checks.rs b/src/ast/js_binding_checks.rs
+index 5d019010..4bcb1abc 100644
+--- a/src/ast/js_binding_checks.rs
++++ b/src/ast/js_binding_checks.rs
+@@ -42,24 +42,25 @@ impl ParsedFile {
+     /// in string, template, regex or comment text never count), and (ii) every error in the
+     /// scope lies inside a delimited child (a `body` or `class_body` with paired braces, a
+     /// `parameters` list with paired parentheses) of a class, static block or braced function
+-    /// that is strictly inside the scope and does not contain the site. A header error (name,
+-    /// type parameters, return type, heritage) is not sealed. `Some` holds the sealing nodes
+-    /// that contain errors (empty for a clean scope); `None` refuses.
++    /// that is strictly inside the scope, and the site is not inside that delimited child when
++    /// it is a body or class body (S1b-3, Opus 2b S1: a site in the sealer's header, such as an
++    /// exported declaration itself, is outside the sealed body), nor inside the sealer at all
++    /// when the error is in its parameter list (spec r1 Opus W2). A header error (name, type parameters, return
++    /// type, heritage) is not sealed. `false` refuses.
+     pub(super) fn js_ts_recovery_sealed<'a>(
+         &self,
+         scope: Node<'a>,
+         site: Node<'a>,
+         cache: &mut JsBindingCache<'a>,
+-    ) -> Option<Vec<Node<'a>>> {
+-        let mut sealers = Vec::new();
++    ) -> bool {
+         if !scope.has_error() {
+-            return Some(sealers);
++            return true;
+         }
+         if !*cache
+             .braces
+             .get_or_insert_with(|| self.js_ts_braces_paired())
+         {
+-            return None;
++            return false;
+         }
+         // ASSUMPTION (Opus r1 S1): (i) proves braces paired; a parameter list's parentheses are
+         // taken as paired when both edge tokens are present and not `MISSING`.
+@@ -86,11 +87,23 @@ impl ParsedFile {
+                 while let Some(d) = up.filter(|d| d.id() != scope.id() && !delimited(*d)) {
+                     up = d.parent();
+                 }
+-                let sealer = up
+-                    .filter(|d| d.id() != scope.id())
+-                    .and_then(|d| d.parent())
+-                    .filter(|f| f.id() != scope.id() && !inside(*f, site));
+-                sealers.push(sealer?);
++                // The site must lie outside the sealed child: a body or class body (a site in the
++                // sealer's header is outside it), but for a parameter-list error the whole sealer,
++                // since parameters are visible from the body (spec r1 Opus W2).
++                let Some(d) = up.filter(|d| d.id() != scope.id()) else {
++                    return false;
++                };
++                let Some(f) = d.parent().filter(|f| f.id() != scope.id()) else {
++                    return false;
++                };
++                let seal = if d.kind() == "formal_parameters" {
++                    f
++                } else {
++                    d
++                };
++                if inside(seal, site) {
++                    return false;
++                }
+             }
+             let mut cursor = n.walk();
+             stack.extend(
+@@ -98,7 +111,7 @@ impl ParsedFile {
+                     .filter(|c| c.has_error() || c.is_missing()),
+             );
+         }
+-        Some(sealers)
++        true
+     }
+ 
+     /// B1 (i): no `MISSING` brace, and no `ERROR` holding an anonymous `{`/`}` token (directly
+diff --git a/src/ast/js_binding_site.rs b/src/ast/js_binding_site.rs
+new file mode 100644
+index 00000000..d8f694db
+--- /dev/null
++++ b/src/ast/js_binding_site.rs
+@@ -0,0 +1,287 @@
++//! S1b-3 (SPEC §3.1, §3.1a): nested scopes, the binding at a call site, and the scoped write
++//! resolver (M2). A write counts against a binding only when its target, walked like a site,
++//! resolves to that binding's scope.
++use super::js_binding::{is_class, Index, JsBinding, JsBindingCache};
++use super::js_binding_decls::js_ts_is_using;
++use super::js_binding_walk::Walk;
++use super::{is_js_ts_function_like, ParsedFile};
++use std::collections::{BTreeMap, BTreeSet};
++use tree_sitter::Node;
++
++/// Environment creators whose declarations the site walk looks up (SPEC §3.1 T1–T9). A
++/// function's body block belongs to the function's own environment.
++pub(super) fn is_scope(node: Node<'_>) -> bool {
++    match node.kind() {
++        "program" | "formal_parameters" | "for_statement" | "for_in_statement" | "catch_clause"
++        | "switch_body" | "with_statement" => true,
++        "statement_block" => !node
++            .parent()
++            .is_some_and(|p| is_js_ts_function_like(p.kind())),
++        k => is_js_ts_function_like(k) || is_class(k),
++    }
++}
++
++impl ParsedFile {
++    /// What `name`, used at the identifier `ident`, denotes (SPEC §3.1, §3.1a).
++    pub(crate) fn js_ts_site_binding<'a>(
++        &'a self,
++        ident: Node<'a>,
++        name: &str,
++        cache: &mut JsBindingCache<'a>,
++    ) -> JsBinding {
++        match self.js_ts_binding_walk(ident, name, cache) {
++            Walk::Found(scope, explicit) => {
++                self.js_ts_scope_binding(scope, explicit, name, ident, cache)
++            }
++            Walk::Unbound => JsBinding::Refused("unbound"),
++            Walk::Unchecked(reason) => JsBinding::Unchecked(reason),
++        }
++    }
++
++    /// `scope`'s declarations of `name` (memoized per scope) and whether the name is an
++    /// unknown-strictness Annex-B name there.
++    pub(super) fn js_ts_scope_lookup<'a>(
++        &'a self,
++        scope: Node<'a>,
++        name: &str,
++        cache: &mut JsBindingCache<'a>,
++    ) -> (Option<Vec<Node<'a>>>, bool) {
++        let (index, annex) = cache
++            .decls
++            .entry(scope.id())
++            .or_insert_with(|| self.js_ts_scope_index(scope));
++        (index.get(name).cloned(), annex.contains(name))
++    }
++
++    /// Every name `scope` declares itself, with the declaring nodes (SPEC §3.1 table).
++    fn js_ts_scope_index<'a>(&'a self, scope: Node<'a>) -> (Index<'a>, BTreeSet<String>) {
++        let (mut out, mut annex) = (Index::new(), BTreeSet::new());
++        let strict = self.js_ts_strictness(scope);
++        let mut names = BTreeSet::new();
++        let kind = scope.kind();
++        let walk = |at: Node<'a>, mode, out: &mut Index<'a>, annex: &mut BTreeSet<String>| {
++            self.js_ts_declare_walk(at, mode, &BTreeSet::new(), out, annex)
++        };
++        match kind {
++            "catch_clause" | "for_in_statement" => {
++                let lexical = kind == "catch_clause"
++                    || scope
++                        .child_by_field_name("kind")
++                        .is_some_and(|k| matches!(self.node_text(&k), "let" | "const"));
++                let field = if kind == "catch_clause" {
++                    "parameter"
++                } else {
++                    "left"
++                };
++                if let Some(p) = scope.child_by_field_name(field).filter(|_| lexical) {
++                    self.collect_js_ts_binding_pattern_names(p, &mut names);
++                }
++            }
++            "for_statement" => {
++                if let Some(init) = scope
++                    .child_by_field_name("initializer")
++                    .filter(|i| i.kind() == "lexical_declaration")
++                {
++                    walk(init, (true, false, strict), &mut out, &mut annex);
++                }
++            }
++            // T10: the members of an enum body (StringValue), non-callable.
++            "enum_body" => {
++                let mut cursor = scope.walk();
++                for m in scope.named_children(&mut cursor) {
++                    let key = match m.kind() {
++                        "enum_assignment" => m.child_by_field_name("name"),
++                        _ => Some(m),
++                    };
++                    names.extend(key.and_then(|k| self.js_ts_module_export_name(k)));
++                }
++            }
++            k if is_class(k) => {
++                let name = scope.child_by_field_name("name");
++                names.extend(name.map(|n| self.node_text(&n).to_string()));
++            }
++            _ => {}
++        }
++        for name in names {
++            out.entry(name).or_default().push(scope);
++        }
++        match kind {
++            "formal_parameters" => {
++                if let Some(f) = scope.parent().filter(|f| is_js_ts_function_like(f.kind())) {
++                    self.js_ts_function_names(f, scope, &mut out);
++                }
++            }
++            k if is_js_ts_function_like(k) => {
++                // Parameters are recorded at their list (or the single arrow parameter).
++                let at = scope
++                    .child_by_field_name("parameters")
++                    .or_else(|| scope.child_by_field_name("parameter"))
++                    .unwrap_or(scope);
++                self.js_ts_function_names(scope, at, &mut out);
++                let body = scope.child_by_field_name("body");
++                if let Some(b) = body.filter(|b| b.kind() == "statement_block") {
++                    walk(b, (true, true, strict), &mut out, &mut annex);
++                }
++            }
++            "statement_block" => {
++                // A static block or namespace body is a `var` scope (T4).
++                let var_scope = scope.parent().is_some_and(|p| {
++                    matches!(
++                        p.kind(),
++                        "class_static_block" | "internal_module" | "module"
++                    )
++                });
++                walk(scope, (true, var_scope, strict), &mut out, &mut annex);
++            }
++            "switch_body" | "program" => {
++                walk(
++                    scope,
++                    (true, kind == "program", strict),
++                    &mut out,
++                    &mut annex,
++                );
++            }
++            _ => {}
++        }
++        if kind == "program" {
++            let mut cursor = scope.walk();
++            for e in scope
++                .children(&mut cursor)
++                .filter(|e| self.js_ts_recovered_import(*e))
++            {
++                for w in self.js_ts_recovered_import_names(e) {
++                    out.entry(w).or_default().push(e);
++                }
++            }
++        }
++        (out, annex)
++    }
++
++    /// Carry-forward 9: a top-level `ERROR` that is a recovered static import: its first token
++    /// is `import` and the next is neither `.` (`import.meta`) nor `(` (`import()`).
++    fn js_ts_recovered_import(&self, e: Node<'_>) -> bool {
++        let mut leaves = Vec::new();
++        let mut stack = vec![e];
++        while let Some(n) = stack.pop().filter(|_| leaves.len() < 2) {
++            if n.child_count() == 0 {
++                leaves.push(self.node_text(&n));
++                continue;
++            }
++            let mut c = n.walk();
++            let children: Vec<_> = n.children(&mut c).collect();
++            stack.extend(children.into_iter().rev());
++        }
++        e.is_error()
++            && leaves.first() == Some(&"import")
++            && !matches!(leaves.get(1).copied(), Some("." | "("))
++    }
++
++    /// The names a recovered import may bind, which the tree does not keep (an alias can land in
++    /// string text): every `identifier` in it, and every word of its source, where a word is a
++    /// run of ASCII identifier characters and non-ASCII non-whitespace characters (so `é` with
++    /// U+0301 and ZWNJ/ZWJ stay whole), minus the import keywords and digit-led runs.
++    fn js_ts_recovered_import_names(&self, e: Node<'_>) -> std::collections::BTreeSet<String> {
++        let mut out = std::collections::BTreeSet::new();
++        let mut stack = vec![e];
++        while let Some(n) = stack.pop() {
++            if n.kind() == "identifier" {
++                out.insert(self.node_text(&n).to_string());
++            }
++            let mut c = n.walk();
++            stack.extend(n.named_children(&mut c));
++        }
++        let text = self.node_text(&e);
++        let breaks = |c: char| {
++            c.is_whitespace()
++                || (c.is_ascii() && !(c.is_ascii_alphanumeric() || c == '_' || c == '$'))
++        };
++        out.extend(text.split(breaks).map(str::to_string));
++        out.retain(|w| {
++            !w.is_empty()
++                && !w.starts_with(|c: char| c.is_ascii_digit())
++                && !matches!(w.as_str(), "import" | "from" | "as" | "type" | "typeof")
++        });
++        out
++    }
++
++    /// A function's own names: its parameters (at `at`), `arguments` (not for arrows), and a
++    /// function expression's own name.
++    fn js_ts_function_names<'a>(&self, f: Node<'a>, at: Node<'a>, out: &mut Index<'a>) {
++        let mut params = BTreeSet::new();
++        self.collect_js_ts_parameter_bindings(f, &mut params);
++        if f.kind() != "arrow_function" {
++            params.insert("arguments".to_string());
++        }
++        for p in params {
++            out.entry(p).or_default().push(at);
++        }
++        if matches!(f.kind(), "function_expression" | "generator_function") {
++            if let Some(n) = f.child_by_field_name("name") {
++                out.entry(self.node_text(&n).into()).or_default().push(f);
++            }
++        }
++    }
++
++    /// M2 (SPEC §3.1 W rows): some write's target resolves to `scope`'s binding of `name` (or
++    /// passes a `with`, or sits at an unproven position). The file's write targets are
++    /// indexed once and each `(scope, name)` answer is memoized (C-19).
++    pub(super) fn js_ts_scoped_written<'a>(
++        &'a self,
++        scope: Node<'a>,
++        name: &str,
++        cache: &mut JsBindingCache<'a>,
++    ) -> bool {
++        let key = (scope.id(), name.to_string());
++        if let Some(w) = cache.written.get(&key) {
++            return *w;
++        }
++        let targets = cache
++            .write_targets
++            .get_or_insert_with(|| self.js_ts_write_targets())
++            .get(name)
++            .cloned()
++            .unwrap_or_default();
++        let written = targets
++            .into_iter()
++            .any(|t| match self.js_ts_binding_walk(t, name, cache) {
++                Walk::Found(s, _) => s.id() == scope.id() || s.kind() == "with_statement",
++                Walk::Unchecked(_) => true,
++                Walk::Unbound => false,
++            });
++        cache.written.insert(key, written);
++        written
++    }
++
++    /// W1 targets by name: assignment, update and `delete` targets and bare `for (x in/of …)`
++    /// heads (a `using` declaration and a declaring head are not writes), and every
++    /// identifier that is a child or a sibling of an `ERROR` (recovery may have mangled a
++    /// write, as in `f = ;`, parsed as `f` beside an `ERROR` holding `=`).
++    fn js_ts_write_targets<'a>(&'a self) -> BTreeMap<String, Vec<Node<'a>>> {
++        let mut out = BTreeMap::<String, Vec<Node<'a>>>::new();
++        let mut stack = vec![self.tree.root_node()];
++        while let Some(n) = stack.pop() {
++            let declares =
++                n.kind() == "for_in_statement" && n.child_by_field_name("kind").is_some();
++            let mut targets: Vec<Node<'a>> = Vec::new();
++            if !declares && !js_ts_is_using(n) {
++                targets.extend(self.js_ts_write_target(n));
++            }
++            let mut cursor = n.walk();
++            let errorful = n.is_error() || n.children(&mut cursor).any(|c| c.is_error());
++            for c in n.named_children(&mut cursor) {
++                if errorful && c.kind() == "identifier" {
++                    targets.push(c);
++                }
++                stack.push(c);
++            }
++            for t in targets {
++                let mut names = BTreeSet::new();
++                self.collect_js_ts_binding_pattern_names(t, &mut names);
++                for w in names {
++                    out.entry(w).or_default().push(t);
++                }
++            }
++        }
++        out
++    }
++}
+diff --git a/src/ast/js_binding_walk.rs b/src/ast/js_binding_walk.rs
+new file mode 100644
+index 00000000..50bdd799
+--- /dev/null
++++ b/src/ast/js_binding_walk.rs
+@@ -0,0 +1,257 @@
++//! S1b-3 (SPEC §3.1a): the site walk, driven by the evaluation-context table `E(kind, field)`.
++//! At every step from a child to its parent the walk looks up the parent's kind and the
++//! child's field. Kinds outside Σ′ are structural. Every field of a Σ′ kind has a rule; a
++//! field without one is an unproven position and keeps base behavior (owner OQ1 = K).
++use super::js_binding::{is_class, JsBindingCache};
++use super::js_binding_site::is_scope;
++use super::{is_js_ts_function_like, ParsedFile};
++use std::collections::BTreeMap;
++use tree_sitter::Node;
++
++/// How the child at a Σ′ kind's field is evaluated.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(crate) enum Pos {
++    /// In the environment the kind opens (look the name up there if it is a scope).
++    Inside,
++    /// J1: in the parameter environment, already looked up; skip the function's own.
++    Param,
++    /// In the enclosing environment: skip this node's (J3, the `with` object).
++    Outside,
++    /// The `with` body: an object environment that may supply any name.
++    WithBody,
++    /// A decorator expression: J2 by holder.
++    Decorator,
++    /// A namespace or enum body: on leaving it unbound, apply the leave predicate.
++    Leave,
++    /// Never a site position (a binding name or type space); unproven if reached.
++    Unlisted,
++}
++
++/// The walk's answer: the scope that binds the name (`explicit` declarations for a `with`
++/// body or a dotted-namespace segment, otherwise the scope's index), no binding, or an
++/// unproven position (base behavior, counted by reason).
++pub(crate) enum Walk<'a> {
++    Found(Node<'a>, Option<Node<'a>>),
++    Unbound,
++    Unchecked(&'static str),
++}
++
++/// The evaluation-context table (SPEC §3.1a). `probes/grammar_closure.py` derives every
++/// `(kind, field)` of every Σ′ kind from the pinned grammars and checks this table against
++/// it; "children" names the unfielded named children.
++pub(crate) const E_TABLE: &[(&str, &str, Pos)] = &[
++    ("program", "children", Pos::Inside),
++    ("function_declaration", "body", Pos::Inside),
++    ("function_declaration", "parameters", Pos::Param),
++    ("function_declaration", "name", Pos::Unlisted),
++    ("function_declaration", "return_type", Pos::Unlisted),
++    ("function_declaration", "type_parameters", Pos::Unlisted),
++    ("generator_function_declaration", "body", Pos::Inside),
++    ("generator_function_declaration", "parameters", Pos::Param),
++    ("generator_function_declaration", "name", Pos::Unlisted),
++    (
++        "generator_function_declaration",
++        "return_type",
++        Pos::Unlisted,
++    ),
++    (
++        "generator_function_declaration",
++        "type_parameters",
++        Pos::Unlisted,
++    ),
++    ("function_expression", "body", Pos::Inside),
++    ("function_expression", "parameters", Pos::Param),
++    ("function_expression", "name", Pos::Unlisted),
++    ("function_expression", "return_type", Pos::Unlisted),
++    ("function_expression", "type_parameters", Pos::Unlisted),
++    ("generator_function", "body", Pos::Inside),
++    ("generator_function", "parameters", Pos::Param),
++    ("generator_function", "name", Pos::Unlisted),
++    ("generator_function", "return_type", Pos::Unlisted),
++    ("generator_function", "type_parameters", Pos::Unlisted),
++    ("arrow_function", "body", Pos::Inside),
++    ("arrow_function", "parameters", Pos::Param),
++    ("arrow_function", "parameter", Pos::Param),
++    ("arrow_function", "return_type", Pos::Unlisted),
++    ("arrow_function", "type_parameters", Pos::Unlisted),
++    ("method_definition", "body", Pos::Inside),
++    ("method_definition", "parameters", Pos::Param),
++    ("method_definition", "name", Pos::Outside),
++    ("method_definition", "decorator", Pos::Outside),
++    ("method_definition", "children", Pos::Unlisted),
++    ("method_definition", "return_type", Pos::Unlisted),
++    ("method_definition", "type_parameters", Pos::Unlisted),
++    ("formal_parameters", "children", Pos::Inside),
++    ("statement_block", "children", Pos::Inside),
++    ("class_static_block", "body", Pos::Inside),
++    ("for_statement", "initializer", Pos::Inside),
++    ("for_statement", "condition", Pos::Inside),
++    ("for_statement", "increment", Pos::Inside),
++    ("for_statement", "body", Pos::Inside),
++    ("for_in_statement", "left", Pos::Inside),
++    ("for_in_statement", "right", Pos::Inside),
++    ("for_in_statement", "value", Pos::Inside),
++    ("for_in_statement", "body", Pos::Inside),
++    ("catch_clause", "parameter", Pos::Inside),
++    ("catch_clause", "body", Pos::Inside),
++    ("catch_clause", "type", Pos::Unlisted),
++    ("switch_body", "children", Pos::Inside),
++    ("class_declaration", "body", Pos::Inside),
++    ("class_declaration", "children", Pos::Inside),
++    ("class_declaration", "decorator", Pos::Outside),
++    ("class_declaration", "name", Pos::Unlisted),
++    ("class_declaration", "type_parameters", Pos::Unlisted),
++    ("class", "body", Pos::Inside),
++    ("class", "children", Pos::Inside),
++    ("class", "decorator", Pos::Outside),
++    ("class", "name", Pos::Unlisted),
++    ("class", "type_parameters", Pos::Unlisted),
++    ("abstract_class_declaration", "body", Pos::Inside),
++    ("abstract_class_declaration", "children", Pos::Inside),
++    ("abstract_class_declaration", "decorator", Pos::Outside),
++    ("abstract_class_declaration", "name", Pos::Unlisted),
++    (
++        "abstract_class_declaration",
++        "type_parameters",
++        Pos::Unlisted,
++    ),
++    ("with_statement", "object", Pos::Outside),
++    ("with_statement", "body", Pos::WithBody),
++    ("internal_module", "body", Pos::Leave),
++    ("internal_module", "name", Pos::Unlisted),
++    ("module", "body", Pos::Leave),
++    ("module", "name", Pos::Unlisted),
++    ("enum_declaration", "body", Pos::Leave),
++    ("enum_declaration", "name", Pos::Unlisted),
++    ("enum_body", "children", Pos::Inside),
++    ("enum_body", "name", Pos::Inside),
++    ("decorator", "children", Pos::Decorator),
++];
++
++fn e_rule(kind: &str, field: &str) -> Option<Pos> {
++    let mut known = false;
++    for (k, f, p) in E_TABLE {
++        if *k == kind {
++            known = true;
++            if *f == field {
++                return Some(*p);
++            }
++        }
++    }
++    known.then_some(Pos::Unlisted)
++}
++
++/// The field through which `child` hangs off `parent` ("children" when unfielded).
++fn field_of(parent: Node<'_>, child: Node<'_>) -> &'static str {
++    let mut cursor = parent.walk();
++    if cursor.goto_first_child() {
++        loop {
++            if cursor.node().id() == child.id() {
++                return cursor.field_name().unwrap_or("children");
++            }
++            if !cursor.goto_next_sibling() {
++                break;
++            }
++        }
++    }
++    "children"
++}
++
++impl ParsedFile {
++    /// The nearest environment enclosing `site` that declares `name` (SPEC §3.1a).
++    pub(crate) fn js_ts_binding_walk<'a>(
++        &'a self,
++        site: Node<'a>,
++        name: &str,
++        cache: &mut JsBindingCache<'a>,
++    ) -> Walk<'a> {
++        let mut child = site;
++        let mut current = site.parent();
++        while let Some(node) = current {
++            let kind = node.kind();
++            let field = field_of(node, child);
++            let mut next = node;
++            match e_rule(kind, field) {
++                None | Some(Pos::Param) | Some(Pos::Outside) => {}
++                Some(Pos::Unlisted) => return Walk::Unchecked("unproven_position"),
++                Some(Pos::WithBody) => return Walk::Found(node, Some(node)),
++                Some(Pos::Decorator) => {
++                    let Some(holder) = node.parent() else {
++                        return Walk::Unchecked("unproven_position");
++                    };
++                    if holder.kind() == "class" && holder.child_by_field_name("name").is_some() {
++                        return Walk::Unchecked("decorated_class_expression");
++                    }
++                    if is_class(holder.kind()) {
++                        next = holder; // J2: a class decorator is evaluated outside the class
++                    } else {
++                        // A member or parameter decorator is evaluated in the class scope (T8).
++                        let mut up = Some(holder);
++                        while let Some(n) = up.filter(|n| n.kind() != "class_body") {
++                            up = n.parent();
++                        }
++                        let Some(body) = up else {
++                            return Walk::Unchecked("unproven_position");
++                        };
++                        child = body;
++                        current = body.parent();
++                        continue;
++                    }
++                }
++                Some(Pos::Leave) => {
++                    // Dotted `namespace A.B.C`: inside the body, B and C denote namespaces.
++                    let text = node.child_by_field_name("name");
++                    let text = text.map_or("", |n| self.node_text(&n));
++                    if kind == "internal_module"
++                        && text.split('.').skip(1).any(|s| s.trim() == name)
++                    {
++                        return Walk::Found(node, Some(node));
++                    }
++                    if self.js_ts_merge_leave(node, cache) {
++                        return Walk::Unchecked("namespace_leave");
++                    }
++                }
++                Some(Pos::Inside) => {
++                    let own = !(is_js_ts_function_like(kind) && field != "body");
++                    if own && (is_scope(node) || kind == "enum_body") {
++                        let (decls, annex_b) = self.js_ts_scope_lookup(node, name, cache);
++                        if decls.is_some() || annex_b {
++                            return Walk::Found(node, None);
++                        }
++                    }
++                }
++            }
++            child = next;
++            current = next.parent();
++        }
++        Walk::Unbound
++    }
++
++    /// Leaving a namespace or enum body unbound (SPEC §3.1a leave predicate): unproven when
++    /// another namespace, module or enum in the file shares the first name segment (a merge
++    /// partner), or the file is a script (cross-file merging).
++    fn js_ts_merge_leave<'a>(&'a self, node: Node<'a>, cache: &mut JsBindingCache<'a>) -> bool {
++        let first = |n: Node<'_>| {
++            n.child_by_field_name("name").map(|x| {
++                let text = self.node_text(&x);
++                text.split('.').next().unwrap_or("").trim().to_string()
++            })
++        };
++        let partners = cache.partners.get_or_insert_with(|| {
++            let mut out = BTreeMap::<String, usize>::new();
++            let mut stack = vec![self.tree.root_node()];
++            while let Some(n) = stack.pop() {
++                if matches!(n.kind(), "internal_module" | "module" | "enum_declaration") {
++                    if let Some(f) = first(n) {
++                        *out.entry(f).or_default() += 1;
++                    }
++                }
++                let mut cursor = n.walk();
++                stack.extend(n.named_children(&mut cursor));
++            }
++            out
++        });
++        let shared = first(node).is_some_and(|f| partners.get(&f).copied().unwrap_or(0) >= 2);
++        shared || !self.js_ts_is_module()
++    }
++}
+diff --git a/src/ast/js_wrapped_export.rs b/src/ast/js_wrapped_export.rs
+index e7e96482..1201cdbb 100644
+--- a/src/ast/js_wrapped_export.rs
++++ b/src/ast/js_wrapped_export.rs
+@@ -23,6 +23,7 @@ impl ParsedFile {
+         &self,
+         decl: Node<'_>,
+         declarator: Node<'_>,
++        local_route: bool,
+     ) -> Result<(String, usize, usize), &'static str> {
+         if decl.kind() != "lexical_declaration"
+             || decl.child_by_field_name("kind").map(|k| k.kind()) != Some("const")
+@@ -74,7 +75,10 @@ impl ParsedFile {
+             }
+             _ => return Err("callee_not_admitted"),
+         };
+-        if !WRAPPERS.contains(&wrapper.as_str()) {
++        // S1b-3 (owner E4): a binding at a call site, not an export, may also hold React
++        // `useCallback(fn, deps)`, which returns its first argument.
++        let passthrough = local_route && wrapper == "useCallback";
++        if !WRAPPERS.contains(&wrapper.as_str()) && !passthrough {
+             return Err("callee_not_admitted");
+         }
+         // R6 P1–P5, in SPEC order: unique binding, value-typed, unwritten, uncompeted at
+diff --git a/src/call_graph.rs b/src/call_graph.rs
+index 92aaddf9..95a6b314 100644
+--- a/src/call_graph.rs
++++ b/src/call_graph.rs
+@@ -497,6 +497,28 @@ pub struct CallSite {
+     /// Excluded from cmp_key. Only span-verified wrapped export targets consult it.
+     #[serde(default)]
+     pub jsx_element: bool,
++    /// S1b-3: the JS/TS lexical binding of an unqualified identifier callee at this site.
++    /// Excluded from `cmp_key`; `Unchecked` keeps the pre-S1b behavior.
++    #[serde(default)]
++    pub local_binding: JsLocalBinding,
++}
++
++/// S1b-3 (SPEC §3.6): what a JS/TS unqualified callee statically denotes at its site.
++#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
++pub enum JsLocalBinding {
++    /// Not computed: another language, or a synthetic or non-identifier callee.
++    #[default]
++    Unchecked,
++    /// The binding holds exactly this callable.
++    Callable(crate::ast::JsTerminal),
++    /// Keeps base behavior, counted by reason: `may_call` (owner E5: M1, M2, a written binding
++    /// or a non-admitted call wrapper) or `alias` (a value that may hold a function by value
++    /// flow, owner 2026-09-29).
++    MayCall(String),
++    /// No single proven in-file callable, by reason (`unbound` and `import` included).
++    Unproven(String),
++    /// Owner OQ1 (K): an unproven position keeps base behavior, counted by reason.
++    Position(String),
+ }
+ 
+ /// Parameter arity for a method definition (language-agnostic shape).
+@@ -1337,6 +1359,7 @@ impl CallGraph {
+         // Phase 2: Find all call sites within each function
+         for (file_path, parsed) in files {
+             let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
++            let mut binding_cache = crate::ast::JsBindingCache::for_sites();
+             for func_node in parsed.all_functions() {
+                 let func_name = match parsed.language.function_name(&func_node) {
+                     Some(n) => parsed.node_text(&n).to_string(),
+@@ -1402,6 +1425,13 @@ impl CallGraph {
+                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
+                         pre_resolved_target: None,
+                         jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
++                        local_binding: Self::js_local_binding_at(
++                            parsed,
++                            start_byte,
++                            end_byte,
++                            &callee_name,
++                            &mut binding_cache,
++                        ),
+                     };
+                     calls
+                         .entry(caller_id.clone())
+@@ -1735,6 +1765,7 @@ impl CallGraph {
+                 let proven_imported_receiver_types =
+                     proven_python_imported_receiver_types.get(file_path);
+                 let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
++                let mut binding_cache = crate::ast::JsBindingCache::for_sites();
+ 
+                 for func_node in parsed.all_functions() {
+                     let func_name = match parsed.language.function_name(&func_node) {
+@@ -1804,7 +1835,7 @@ impl CallGraph {
+                             .js_ts_receiver_lexically_bound_at_call(&func_node, meta.receiver_node);
+                         let site = CallSite {
+                             caller: caller_id.clone(),
+-                            callee_name,
++                            callee_name: callee_name.clone(),
+                             source_callee_name: None,
+                             line,
+                             kind: meta.kind_override.unwrap_or_else(|| {
+@@ -1835,6 +1866,13 @@ impl CallGraph {
+                             origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
+                             pre_resolved_target: None,
+                             jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
++                            local_binding: Self::js_local_binding_at(
++                                parsed,
++                                start_byte,
++                                end_byte,
++                                &callee_name,
++                                &mut binding_cache,
++                            ),
+                         };
+                         file_call_sites.push((caller_id.clone(), site));
+                     }
+@@ -2875,6 +2913,7 @@ impl CallGraph {
+             origin: CallSiteOrigin::IndirectResolution,
+             pre_resolved_target: None,
+             jsx_element: false,
++            local_binding: JsLocalBinding::Unchecked,
+         }
+     }
+ 
+@@ -5038,6 +5077,7 @@ impl CallGraph {
+             }
+             let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
+             let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
++            let mut binding_cache = crate::ast::JsBindingCache::for_sites();
+             for func_node in parsed.all_functions() {
+                 let func_name = match parsed.language.function_name(&func_node) {
+                     Some(n) => parsed.node_text(&n).to_string(),
+@@ -5134,6 +5174,13 @@ impl CallGraph {
+                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
+                         pre_resolved_target: None,
+                         jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
++                        local_binding: Self::js_local_binding_at(
++                            parsed,
++                            start_byte,
++                            end_byte,
++                            &callee_name,
++                            &mut binding_cache,
++                        ),
+                     };
+                     calls
+                         .entry(caller_id.clone())
+@@ -5510,6 +5557,52 @@ impl CallGraph {
+     }
+ 
+     /// True iff the node spanning exactly these bytes is a JSX element tag (S1).
++    /// S1b-3: the binding of a JS/TS unqualified identifier callee at a site.
++    fn js_local_binding_at<'a>(
++        parsed: &'a ParsedFile,
++        start_byte: usize,
++        end_byte: usize,
++        callee: &str,
++        cache: &mut crate::ast::JsBindingCache<'a>,
++    ) -> JsLocalBinding {
++        use crate::ast::JsBinding;
++        use crate::languages::Language;
++        // MEASUREMENT ONLY (prototype): `PRISM_S1B3_NO_SITES` measures the 3a/3b split.
++        if !matches!(
++            parsed.language,
++            Language::JavaScript | Language::TypeScript | Language::Tsx
++        ) || std::env::var_os("PRISM_S1B3_NO_SITES").is_some()
++        {
++            return JsLocalBinding::Unchecked;
++        }
++        let ident = parsed
++            .tree
++            .root_node()
++            .descendant_for_byte_range(start_byte, end_byte)
++            .filter(|n| n.start_byte() == start_byte && n.end_byte() == end_byte)
++            .and_then(|site| match site.kind() {
++                "call_expression" => site.child_by_field_name("function"),
++                "jsx_self_closing_element" | "jsx_opening_element" => {
++                    site.child_by_field_name("name")
++                }
++                _ => None,
++            })
++            .filter(|n| n.kind() == "identifier" && parsed.node_text(n) == callee);
++        let Some(ident) = ident else {
++            return JsLocalBinding::Unchecked;
++        };
++        match parsed.js_ts_site_binding(ident, callee, cache) {
++            JsBinding::Callable(t) => JsLocalBinding::Callable(t),
++            JsBinding::MayCall => JsLocalBinding::MayCall("may_call".to_string()),
++            JsBinding::Alias => JsLocalBinding::MayCall("alias".to_string()),
++            // Unbound or an import: no in-file function is the binding (R4 drops); the import
++            // and repo-wide rungs keep base behavior.
++            JsBinding::Import => JsLocalBinding::Unproven("import".to_string()),
++            JsBinding::Refused(r) => JsLocalBinding::Unproven(r.to_string()),
++            JsBinding::Unchecked(r) => JsLocalBinding::Position(r.to_string()),
++        }
++    }
++
+     fn jsx_element_at(parsed: &ParsedFile, start_byte: usize, end_byte: usize) -> bool {
+         parsed
+             .tree
+diff --git a/src/cpg_cache.rs b/src/cpg_cache.rs
+index fa6cae4b..859848ab 100644
+--- a/src/cpg_cache.rs
++++ b/src/cpg_cache.rs
+@@ -222,7 +222,7 @@ use std::path::{Path, PathBuf};
+ ///   shadows; destructuring-default expressions no longer do); binding patterns accept `$`.
+ /// - v101: S1b-2b ESM local exports bind through the module-scope binding (`VerifiedLocal`,
+ ///   `ResolvedJsExport.wrapped`, refusal counts) and string export names by StringValue.
+-const CACHE_VERSION: u32 = 101;
++const CACHE_VERSION: u32 = 102;
+ 
+ pub const SKIP_POLICY_VERSION: u32 = 2;
+ 
+diff --git a/src/navigation/call_edge_cache.rs b/src/navigation/call_edge_cache.rs
+index 5dda8539..bf92107a 100644
+--- a/src/navigation/call_edge_cache.rs
++++ b/src/navigation/call_edge_cache.rs
+@@ -98,7 +98,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
+ // v55: S1b-1 intrinsic JSX tags and shared binding-collector fixes (CPG v99).
+ // v56: S1b-1b JS/TS declarator locals are BoundNames (CPG v100).
+ // v57: S1b-2b ESM local exports through the module-scope binding (CPG v101).
+-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 57;
++const NAV_CALL_EDGE_CACHE_VERSION: u32 = 58;
+ const CACHE_BIN: &str = "resolved-call-edge-index.bin";
+ const CACHE_META: &str = "resolved-call-edge-index-meta.json";
+ const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
+diff --git a/src/navigation/partition_site_dump.rs b/src/navigation/partition_site_dump.rs
+index 4eaab518..75a16073 100644
+--- a/src/navigation/partition_site_dump.rs
++++ b/src/navigation/partition_site_dump.rs
+@@ -104,6 +104,7 @@ mod tests {
+             origin: CallSiteOrigin::Source,
+             pre_resolved_target: None,
+             jsx_element: false,
++            local_binding: Default::default(),
+         };
+         let outcome = ResolutionOutcome {
+             resolved: vec![crate::resolution::ResolvedCallee {
+diff --git a/src/navigation/queries.rs b/src/navigation/queries.rs
+index 6b89cee3..ca105556 100644
+--- a/src/navigation/queries.rs
++++ b/src/navigation/queries.rs
+@@ -381,9 +381,20 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
+     let mut wrapped_non_jsx = 0usize;
+     let mut jsx_intrinsic = 0usize;
+     let mut local_binding_unproven = 0usize;
++    let mut unchecked_position: BTreeMap<String, usize> = BTreeMap::new();
++    let mut site_may_call: BTreeMap<String, usize> = BTreeMap::new();
+     for sites in cg.calls.values() {
+         for site in sites {
+             total += 1;
++            match &site.local_binding {
++                crate::call_graph::JsLocalBinding::Position(r) => {
++                    *unchecked_position.entry(r.clone()).or_default() += 1
++                }
++                crate::call_graph::JsLocalBinding::MayCall(r) => {
++                    *site_may_call.entry(r.clone()).or_default() += 1
++                }
++                _ => {}
++            }
+             let out = cg.resolve_call_site_full(site);
+             match out.drop {
+                 Some(DropReason::MultiOwnerCollision) => multi += 1,
+@@ -660,6 +671,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
+         // S1b: intrinsic JSX tags and unproven JS/TS lexical bindings.
+         "dropped_jsx_intrinsic": jsx_intrinsic,
+         "dropped_local_binding_unproven": local_binding_unproven,
++        "local_binding_unchecked_position": unchecked_position,
++        "local_binding_may_call": site_may_call,
+         "js_export_skipped_exprs": cg
+             .js_ts_exports
+             .values()
+diff --git a/src/resolution.rs b/src/resolution.rs
+index d390e711..4a3f5825 100644
+--- a/src/resolution.rs
++++ b/src/resolution.rs
+@@ -3373,6 +3373,12 @@ impl CallGraph {
+                 ResolutionOutcome::dropped(DropReason::MultiOwnerCollision)
+             }
+             None => {
++                use crate::call_graph::JsLocalBinding;
++                // S1b-3 (SPEC §3.6): a JS/TS name whose binding holds one callable binds it, by
++                // registered name and span, before any import or same-name lookup.
++                if let JsLocalBinding::Callable(t) = &site.local_binding {
++                    return self.js_ts_local_callable(caller, name, t, site);
++                }
+                 // R4c: import-member resolution (Python/JS/TS).
+                 // Must fire before the functions.get(name) check because aliases
+                 // mean the call-site name ("p") differs from the function name
+@@ -3475,7 +3481,6 @@ impl CallGraph {
+                     Some(v) => v,
+                     None => return ResolutionOutcome::dropped(DropReason::UnknownName),
+                 };
+-
+                 let free: Vec<&FunctionId> = ids
+                     .iter()
+                     .filter(|fid| !self.method_owners.contains_key(*fid))
+@@ -3488,6 +3493,10 @@ impl CallGraph {
+                     .filter(|f| f.file == caller.file)
+                     .collect();
+                 if !local.is_empty() {
++                    // S1b-3: a refused JS/TS binding never falls back to a same-name function.
++                    if matches!(site.local_binding, JsLocalBinding::Unproven(_)) {
++                        return ResolutionOutcome::dropped(DropReason::LocalBindingUnproven);
++                    }
+                     return ResolutionOutcome::hit(exact(local, ResolutionKind::LocalDef));
+                 }
+ 
+@@ -3600,6 +3609,18 @@ impl CallGraph {
+                             .contains(&(fid.file.clone(), name.to_string()))
+                     })
+                     .collect();
++                // S1b-3: a name bound to a proven non-callable in-file declaration (or a
++                // recovered import) is not a repo-wide function of that spelling.
++                if let JsLocalBinding::Unproven(r) = &site.local_binding {
++                    let local = [
++                        "not_callable",
++                        "duplicate_declaration",
++                        "import_parse_recovery",
++                    ];
++                    if !nonstatic.is_empty() && local.contains(&r.as_str()) {
++                        return ResolutionOutcome::dropped(DropReason::LocalBindingUnproven);
++                    }
++                }
+                 match nonstatic.len() {
+                     0 => ResolutionOutcome::dropped(DropReason::UnknownName),
+                     1 => ResolutionOutcome::hit(exact(nonstatic, ResolutionKind::FreeSingle)),
+@@ -3609,6 +3630,35 @@ impl CallGraph {
+         }
+     }
+ 
++    /// S1b-3: the in-file callable a proven binding holds, matched by registered name and span.
++    fn js_ts_local_callable(
++        &self,
++        caller: &FunctionId,
++        name: &str,
++        t: &crate::ast::JsTerminal,
++        site: &CallSite,
++    ) -> ResolutionOutcome<'_> {
++        if t.wrapped && !site.jsx_element {
++            return ResolutionOutcome::dropped(DropReason::WrappedExportNonJsx);
++        }
++        let local = |n: &str| -> Vec<&FunctionId> {
++            self.functions.get(n).map_or(Vec::new(), |ids| {
++                ids.iter()
++                    .filter(|f| f.file == caller.file && !self.method_owners.contains_key(*f))
++                    .collect()
++            })
++        };
++        let hit: Vec<&FunctionId> = local(&t.local)
++            .into_iter()
++            .filter(|f| f.start_line == t.start_line && f.end_line == t.end_line)
++            .collect();
++        match hit.len() {
++            1 => ResolutionOutcome::hit(exact(hit, ResolutionKind::LocalDef)),
++            _ if local(name).is_empty() => ResolutionOutcome::dropped(DropReason::UnknownName),
++            _ => ResolutionOutcome::dropped(DropReason::LocalBindingUnproven),
++        }
++    }
++
+     fn go_profile_for(&self, file: &str) -> Option<crate::go_build_profile::GoBuildProfile> {
+         self.go_file_profiles.get(file).cloned()
+     }
+@@ -4542,6 +4592,7 @@ mod scope_resolution_predicate_tests {
+             origin: CallSiteOrigin::Source,
+             pre_resolved_target: None,
+             jsx_element: false,
++            local_binding: Default::default(),
+         }
+     }
+ 
+diff --git a/src/resolution_disproof.rs b/src/resolution_disproof.rs
+index 9708720a..9ad904fc 100644
+--- a/src/resolution_disproof.rs
++++ b/src/resolution_disproof.rs
+@@ -107,6 +107,7 @@ mod tests {
+             origin: CallSiteOrigin::Source,
+             pre_resolved_target: None,
+             jsx_element: false,
++            local_binding: Default::default(),
+         }
+     }
+ 
+diff --git a/tests/name_resolution/consumer_test.rs b/tests/name_resolution/consumer_test.rs
+index 7da68bf5..ac364e6d 100644
+--- a/tests/name_resolution/consumer_test.rs
++++ b/tests/name_resolution/consumer_test.rs
+@@ -115,6 +115,7 @@ fn call_site(file: &str, name: &str, byte: usize) -> CallSite {
+         origin: CallSiteOrigin::Source,
+         pre_resolved_target: None,
+         jsx_element: false,
++        local_binding: Default::default(),
+     }
+ }
+ 
+diff --git a/tests/navigation/scoped_calls_test.rs b/tests/navigation/scoped_calls_test.rs
+index a5a5150d..321c0d48 100644
+--- a/tests/navigation/scoped_calls_test.rs
++++ b/tests/navigation/scoped_calls_test.rs
+@@ -69,6 +69,7 @@ fn resolved_targets(
+                 origin: CallSiteOrigin::Source,
+                 pre_resolved_target: None,
+                 jsx_element: false,
++                local_binding: Default::default(),
+             }
+         });
+     resolve_site_nav(cg, &site)
