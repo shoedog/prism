@@ -2,25 +2,7 @@
 //! child, not the whole sealer, for a body/class-body error.
 use super::JsBindingCache;
 use crate::ast::js_binding::{JsBinding, JsTerminal};
-use crate::ast::ParsedFile;
-use crate::languages::Language;
-use tree_sitter::Node;
-
-fn parse(path: &str, src: &str) -> ParsedFile {
-    let lang = if path.ends_with(".tsx") {
-        Language::Tsx
-    } else {
-        Language::JavaScript
-    };
-    ParsedFile::parse(path, src, lang).unwrap()
-}
-
-fn node_at<'a>(p: &'a ParsedFile, at: &str) -> Node<'a> {
-    let start = p.source.find(at).unwrap_or_else(|| panic!("no {at:?}"));
-    let root = p.tree.root_node();
-    root.descendant_for_byte_range(start, start + at.len())
-        .unwrap()
-}
+use crate::ast::js_binding_helper_tests::{node_at, parse};
 
 #[test]
 fn c40_c172_declaration_export_site_is_outside_its_own_sealed_body() {

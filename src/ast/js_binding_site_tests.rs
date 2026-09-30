@@ -2,37 +2,7 @@
 //! end-to-end classification at a call site (`js_ts_site_binding`), through nested scopes.
 use super::{JsBinding, JsBindingCache};
 use crate::ast::js_binding::JsTerminal;
-use crate::ast::ParsedFile;
-use crate::languages::Language;
-use tree_sitter::Node;
-
-fn parse(path: &str, src: &str) -> ParsedFile {
-    let lang = match path.rsplit('.').next() {
-        Some("tsx") => Language::Tsx,
-        Some("ts") => Language::TypeScript,
-        _ => Language::JavaScript,
-    };
-    ParsedFile::parse(path, src, lang).unwrap()
-}
-
-fn ident<'a>(p: &'a ParsedFile, name: &str, n: usize) -> Node<'a> {
-    fn walk<'a>(node: Node<'a>, name: &str, text: &str, out: &mut Vec<Node<'a>>) {
-        if matches!(node.kind(), "identifier" | "type_identifier")
-            && &text[node.start_byte()..node.end_byte()] == name
-        {
-            out.push(node);
-        }
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            walk(child, name, text, out);
-        }
-    }
-    let mut out = Vec::new();
-    walk(p.tree.root_node(), name, &p.source, &mut out);
-    out.into_iter()
-        .nth(n)
-        .unwrap_or_else(|| panic!("no occurrence {n} of {name:?}"))
-}
+use crate::ast::js_binding_helper_tests::{ident, parse};
 
 fn callable(local: &str, start_line: usize, end_line: usize) -> JsBinding {
     JsBinding::Callable(JsTerminal {

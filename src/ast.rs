@@ -7,6 +7,8 @@ use tree_sitter::{Node, Parser, Tree};
 mod js_binding;
 mod js_binding_checks;
 mod js_binding_decls;
+#[cfg(test)]
+mod js_binding_helper_tests;
 mod js_binding_recovery;
 mod js_binding_site;
 mod js_binding_values;

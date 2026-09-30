@@ -2,13 +2,9 @@
 //! destructuring-default test.
 use super::{js_ts_has_default, js_ts_holds_no_function};
 use crate::ast::js_binding::{JsBinding, JsBindingCache};
+use crate::ast::js_binding_helper_tests::parse;
 use crate::ast::ParsedFile;
-use crate::languages::Language;
 use tree_sitter::Node;
-
-fn parse(src: &str) -> ParsedFile {
-    ParsedFile::parse("a.js", src, Language::JavaScript).unwrap()
-}
 
 /// The initializer value of the first `variable_declarator` in `src`.
 fn decl_value(p: &ParsedFile) -> Node<'_> {
@@ -60,7 +56,7 @@ fn c45_nofn_literals() {
         "const x = { a: 1, b: { c: 'd' } };",
     ];
     for src in nofn {
-        let p = parse(src);
+        let p = parse("a.js", src);
         assert!(
             js_ts_holds_no_function(decl_value(&p)),
             "{src:?} should be NoFn"
@@ -83,7 +79,7 @@ fn c45_not_nofn() {
         "const x = new X();",
     ];
     for src in not_nofn {
-        let p = parse(src);
+        let p = parse("a.js", src);
         assert!(
             !js_ts_holds_no_function(decl_value(&p)),
             "{src:?} should not be NoFn"
@@ -96,7 +92,10 @@ fn c45_not_nofn() {
 /// not_callable when the value is NoFn, `Alias` otherwise (never specially may-call).
 #[test]
 fn c39_pattern_declarator_call_with_function_argument_is_may_call() {
-    let p = parse("const [s, setS] = useState(() => 0);\nexport { s };\n");
+    let p = parse(
+        "a.js",
+        "const [s, setS] = useState(() => 0);\nexport { s };\n",
+    );
     let mut cache = JsBindingCache::default();
     let site = p.tree.root_node();
     let got = p.js_ts_module_binding("s", site, &mut cache);
@@ -115,7 +114,7 @@ fn c39_pattern_declarator_call_with_function_argument_is_may_call() {
 fn c47_c180_non_ascii_bound_name_shadows() {
     let src = "function \u{e9}\u{301}() {\n  return 1;\n}\nconst \u{e9}\u{301} = 0;\n\
         \u{e9}\u{301}();\nexport {};\n";
-    let p = parse(src);
+    let p = parse("a.js", src);
     let mut cache = JsBindingCache::default();
     let name = "\u{e9}\u{301}";
     let site = p.tree.root_node();
@@ -133,7 +132,7 @@ fn c_m40_d4_keeps_unproven_local_for_an_alias_export() {
     // landed 2b answer (`UnprovenLocal`, counted `not_callable`), not base `Local` (mutant
     // C-M40).
     let src = "const t = i18n.t;\nexport { t };\n";
-    let p = parse(src);
+    let p = parse("a.js", src);
     let root = p.tree.root_node();
     let mut facts = crate::js_exports::JsExportFacts::default();
     let mut scope: (std::collections::BTreeSet<String>, JsBindingCache<'_>) =
@@ -156,7 +155,7 @@ fn c48_has_default() {
         "const { f = 0 } = {};",
     ];
     for src in with_default {
-        let p = parse(src);
+        let p = parse("a.js", src);
         assert!(
             js_ts_has_default(decl_pattern(&p)),
             "{src:?} should have a default"
@@ -164,7 +163,7 @@ fn c48_has_default() {
     }
     let without_default = ["const { a } = o;", "const [a] = o;", "const a = o;"];
     for src in without_default {
-        let p = parse(src);
+        let p = parse("a.js", src);
         assert!(
             !js_ts_has_default(decl_pattern(&p)),
             "{src:?} should not have a default"

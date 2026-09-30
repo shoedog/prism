@@ -2,40 +2,8 @@
 //! (`Walk`), covering unproven positions, `with`, decorators and dotted namespaces directly.
 //! `js_binding_site_tests.rs` covers the full end-to-end classification through nested scopes.
 use super::{Walk, E_TABLE};
-use crate::ast::ParsedFile;
-use crate::languages::Language;
+use crate::ast::js_binding_helper_tests::{ident, parse};
 use std::collections::BTreeSet;
-use tree_sitter::Node;
-
-fn parse(path: &str, src: &str) -> ParsedFile {
-    let lang = match path.rsplit('.').next() {
-        Some("tsx") => Language::Tsx,
-        Some("ts") => Language::TypeScript,
-        _ => Language::JavaScript,
-    };
-    ParsedFile::parse(path, src, lang).unwrap()
-}
-
-/// The `n`-th (0-indexed) `identifier` node spelled `name`, in source order: the exact node a
-/// real call or JSX site would hand the walk (never a container spanning extra tokens).
-fn ident<'a>(p: &'a ParsedFile, name: &str, n: usize) -> Node<'a> {
-    fn walk<'a>(node: Node<'a>, name: &str, text: &str, out: &mut Vec<Node<'a>>) {
-        if matches!(node.kind(), "identifier" | "type_identifier")
-            && &text[node.start_byte()..node.end_byte()] == name
-        {
-            out.push(node);
-        }
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            walk(child, name, text, out);
-        }
-    }
-    let mut out = Vec::new();
-    walk(p.tree.root_node(), name, &p.source, &mut out);
-    out.into_iter()
-        .nth(n)
-        .unwrap_or_else(|| panic!("no occurrence {n} of {name:?}"))
-}
 
 const BOTH: [&str; 2] = ["a.js", "a.tsx"];
 

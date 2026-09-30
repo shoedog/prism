@@ -1,25 +1,12 @@
 //! S1b-3 unit rows (SPEC §7 C-42, C-49, carry-forward 9): the recovered top-level import
 //! predicate and the names it may bind.
-use crate::ast::ParsedFile;
-use crate::languages::Language;
+use crate::ast::js_binding_helper_tests::{parse, root_errors};
 use std::collections::BTreeSet;
-
-fn parse(src: &str) -> ParsedFile {
-    ParsedFile::parse("a.js", src, Language::JavaScript).unwrap()
-}
-
-fn root_errors<'a>(p: &'a ParsedFile) -> Vec<tree_sitter::Node<'a>> {
-    let root = p.tree.root_node();
-    let mut cursor = root.walk();
-    root.children(&mut cursor)
-        .filter(|n| n.is_error())
-        .collect()
-}
 
 #[test]
 fn c173_recovered_import_is_detected() {
     let src = "import { \"\\u{47}\\u{47}\" as h };\nh();\n";
-    let p = parse(src);
+    let p = parse("a.js", src);
     assert!(p.tree.root_node().has_error(), "fixture should recover");
     let errors = root_errors(&p);
     assert!(
@@ -31,7 +18,7 @@ fn c173_recovered_import_is_detected() {
 #[test]
 fn c179_import_meta_and_dynamic_import_are_not_recovered_imports() {
     for src in ["import.meta load)\n", "import('./x') load2)\n"] {
-        let p = parse(src);
+        let p = parse("a.js", src);
         assert!(
             p.tree.root_node().has_error(),
             "{src:?}: fixture should recover"
@@ -51,7 +38,7 @@ fn c179_import_meta_and_dynamic_import_are_not_recovered_imports() {
 fn c189_comment_trivia_does_not_defeat_the_check() {
     let cases = ["import /* c */ .meta load)\n", "import // c\n.meta load)\n"];
     for src in cases {
-        let p = parse(src);
+        let p = parse("a.js", src);
         assert!(
             p.tree.root_node().has_error(),
             "{src:?}: fixture should recover"
@@ -71,7 +58,7 @@ fn c189_comment_trivia_does_not_defeat_the_check() {
 fn c181_unicode_and_zwnj_names_stay_whole() {
     // `é` (e + U+0301) and a ZWNJ-joined name must not be split at the combining mark.
     let src = "import { \u{e9}\u{301} as h };\nh();\n";
-    let p = parse(src);
+    let p = parse("a.js", src);
     let errors = root_errors(&p);
     let e = *errors
         .iter()
@@ -89,7 +76,7 @@ fn c181_unicode_and_zwnj_names_stay_whole() {
 #[test]
 fn recovered_import_names_exclude_keywords_and_digit_led_runs() {
     let src = "import { 9x as h } from a type typeof;\nh();\n";
-    let p = parse(src);
+    let p = parse("a.js", src);
     let e = root_errors(&p)
         .into_iter()
         .find(|e| p.js_ts_recovered_import(*e))

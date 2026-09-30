@@ -1,11 +1,6 @@
 //! S1b-3 unit rows (SPEC §7 C-19, C-36 mangled write): the scoped write resolver and its memo.
 use super::JsBindingCache;
-use crate::ast::ParsedFile;
-use crate::languages::Language;
-
-fn parse(src: &str) -> ParsedFile {
-    ParsedFile::parse("a.js", src, Language::JavaScript).unwrap()
-}
+use crate::ast::js_binding_helper_tests::parse;
 
 /// C-37: a unit test (inside `src/ast`, where the cache fields are visible) binds N sites of
 /// one file with one `JsBindingCache` and asserts `write_targets` is filled and `written` holds
@@ -14,7 +9,7 @@ fn parse(src: &str) -> ParsedFile {
 fn c37_memo_fills_write_targets_and_caches_per_scope_and_name() {
     let src = "let f = () => 1;\nf = () => 2;\nfunction g() {\n  return f();\n}\n\
         function h() {\n  return f();\n}\n";
-    let p = parse(src);
+    let p = parse("a.js", src);
     let root = p.tree.root_node();
     let mut cache = JsBindingCache::default();
     assert!(cache.write_targets.is_none());
@@ -39,7 +34,7 @@ fn c37_memo_fills_write_targets_and_caches_per_scope_and_name() {
 fn write_in_a_different_scope_does_not_count() {
     let src = "let f = () => 1;\nfunction g() {\n  let f = () => 2;\n  f = () => 3;\n}\n\
         f();\n";
-    let p = parse(src);
+    let p = parse("a.js", src);
     let root = p.tree.root_node();
     let mut cache = JsBindingCache::default();
     // The module-scope `f` is never written; only `g`'s own local `f` is.
@@ -49,7 +44,7 @@ fn write_in_a_different_scope_does_not_count() {
 #[test]
 fn a_write_through_with_counts_for_every_scope() {
     let src = "let f = () => 1;\nwith (o) {\n  f = 2;\n}\nf();\n";
-    let p = parse(src);
+    let p = parse("a.js", src);
     let root = p.tree.root_node();
     let mut cache = JsBindingCache::default();
     assert!(p.js_ts_scoped_written(root, "f", &mut cache));
@@ -59,7 +54,7 @@ fn a_write_through_with_counts_for_every_scope() {
 fn c36_mangled_write_beside_an_error_still_counts() {
     // `f = ;` parses as `f` beside an `ERROR` holding `=`: recovery may have mangled a write.
     let src = "let f = () => 1;\nfunction g() {\n  f = ;\n}\nf();\n";
-    let p = parse(src);
+    let p = parse("a.js", src);
     assert!(p.tree.root_node().has_error());
     let root = p.tree.root_node();
     let mut cache = JsBindingCache::default();
