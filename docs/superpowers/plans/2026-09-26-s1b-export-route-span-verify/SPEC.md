@@ -16,6 +16,13 @@ and is in model.
 
 ## 0. Owner decisions
 
+> **Owner cap amendments for S1b-3a (authoritative):**
+> - **2026-09-29:** after the first implementation measured 828 tests, the owner approved de-duplicating the test
+>   scaffolding, adding a C-M41 killing row, and raising **the tests cap to 820** (src stays 700).
+> - **2026-09-30:** after the round-1 review found items A–G, the owner raised **the tests cap to 920** for the fold.
+> - These supersede the 740 figure below. The 3b caps (220 / 1,320) are unchanged.
+
+
 > **Owner decision 2026-09-29 (S1b-3 spec round 1 fold; authoritative; corrects OQ12 below).** OQ12's "0 right
 > lost" was false (Opus r1 W1, confirmed by the controller): v10's R5 drop removed right edges reached through a
 > value alias (X `const { t } = useI18n(); t()` and four hook returns; T `const { startLexicalEnvironment, … } =
