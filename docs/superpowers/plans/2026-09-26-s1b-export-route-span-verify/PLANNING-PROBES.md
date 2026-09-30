@@ -418,3 +418,26 @@ Row-diffs (base → v8d): X 1,019, F 536, R 117, T 870. Per sub-slice: SPEC §8.
 | Q66 | clean v11 vs the same binary with `PRISM_S1B3_ASCII_P1=1` (the old `is_plain_ident` P1), X F R T | small | **0 changed rows on every corpus**: the shared-helper change (sol W1) has no call-site blast radius on the corpora; C180 and C181 are its only visible effect | `runs/v11-asciip1/` |
 | Q67 | `honest_lines.py` / `fn_attrib.py` on `0982f2fd` | – | 745 src (4 switch lines), 5 tests; 3a 582, 3b 159 | `v11-fn-attrib.txt` |
 | Q68 | clean v11: `cargo test --offline --no-fail-fast`; Tier-A `--matrix-only`; closure probe; RP replay; 3a alone (`PRISM_S1B3_NO_SITES=1`) | 5 by-design failures; 165/165; exit 0; RP = v9 but RP2-c; 3a 0 rows | **4,620 / 5 / 1** (C150, two D5 tables, two cache pins; S1b-1b's `b5` now passes); **165 / 165**; exit 0 (74 rows); RP differs only at RP2-c; **3a: 0 rows on X, F, R, T**, controls only C166–C168 and C172's D4 rows | `logs-suite-v11.log`, `tier-a-v11.log`, `rp/v11/`, `runs/v11-3a/` |
+
+## Round 4 fold 2: S1b-3 spec round 2 of 2, the cap (prototype v12, 2026-09-29)
+
+### Custody
+
+- **Build receipt.** Scratch `0968ef789405a63e616e2f01f8920906be3cb9a1`, `git status` clean; binary
+  `s1b3-plan/bin/prism-proto-v12`, sha256 `c03bf01c…1b5f`, `--version` `slicing 3.1.2 (0968ef789405)`
+  (`s1b3-plan/BUILD-v12.txt`). Every round-2 receipt is from that binary. A first v12 build (`9e8eaabb`, controls
+  only) skipped recovery `ERROR` nodes as extras; recorded in addendum 10.
+- **Pre-registration.** C185–C189 and addendum 10 committed (`bfcd6ba3`) before v12 was built.
+- **New probe.** `probes/param_valueflow.py` (the owner's parameter value-flow cost; F's output private).
+
+### Probe log
+
+| ID | Command | Expected (pre-run) | Actual | Output |
+|---|---|---|---|---|
+| Q69 | controls C185–C189, head / v11 / v12 | addendum 10 | **as predicted**; v11 → v12 changes only C185–C189 | `controls/{head,v11,v12}/`, `probes/S1b-controls-proto-v12.txt` |
+| Q70 | row-diff head → clean v12, X F R T; v11 → v12 | v11 = v12 on the corpora | **X 198, F 52, R 0, T 913; v11 → v12 0 rows on every corpus** (no corpus row has a default-bearing pattern with a NoFn value, or a commented `import.`/`import(`) | `rowdiff/*-v12.*` |
+| Q71 | `audit_s1b3.py` with `removed_alias` covering default-bearing patterns, on v12; the same on sol's C900 shape (C185, head → v11) | v12: 0 alias rows; C185 under v11 classed `removed_alias` | **v12 `removed_alias` 0 on every corpus; C185 (v11) now `removed_alias`** (was `removed_wrong`) | `audit/*-v12.*` |
+| Q72 | `param_valueflow.py` on v12's parameter removals: syntactic call sites of the parameter's function by name; single caller; argument (or destructured property, or JSX attribute) bound lexically to a same-file base target, or the inline function by span | a lower bound, Opus ≥ 10 on X | **X 62 parameter rows: 6 lost (single caller), 5 more under the all-suppliers reading, 22 passed another value, 29 undetermined. F 46: 2 lost (NameOnly), 2 more (all suppliers), 9 other, 33 undetermined. T 213: 5 lost, 10 more (all suppliers), 43 other, 155 undetermined.** Opus's X rows: `easeToValuesRAF` (5) and `getViewportCoords` (1) are single-caller losses; `transformXY` (4) has four call sites of which the supplying one passes the target (all-suppliers). Spot-checked T losses (`fsWatch`, `getCompilerOptionsObjectLiteralSyntax`, `collector`) by reading the sources. Two probe iterations tightened the rule before any number was recorded: a name-only match across files credited unrelated same-named functions; an unbound identifier match credited shadowing parameters | `valueflow/` |
+| Q73 | `honest_lines.py` / `fn_attrib.py` on `0968ef78` | – | 757 src (4 switch lines), 5 tests; 3a 596, 3b 161 | `v12-fn-attrib.txt` |
+| Q74 | clean v12: suite, Tier-A matrix, closure, RP replay | 5 by-design failures; 165/165; exit 0; RP = v9 but RP2-c | **4,620 / 5 / 1; 165 / 165; exit 0; RP2-c only** | `logs-suite-v12.log`, `tier-a-v12.log`, `rp/v12/` |
+| Q75 | v12 with `PRISM_S1B3_NO_SITES=1` (3a alone): controls and X F R T | 0 rows | **0 rows on X, F, R, T**; controls: only C166–C168 and C172's D4 rows | `runs/v12-3a/`, `controls/v12-3a/` |

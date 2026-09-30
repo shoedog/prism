@@ -8,7 +8,7 @@ Classes per changed row (base -> proto):
                      (a parameter, a destructured or other non-callable declaration, a class, an enum, a
                      namespace, a marker, a duplicate, or a different in-file callable)
   removed_alias      the binding is a declarator (or `using`) whose unwrapped value is outside the closed
-                     "holds no function" class (owner 2026-09-29): it may hold the base target by value
+                     "holds no function" class, or a destructuring pattern holding a default (owner 2026-09-29): it may hold the base target by value
                      flow, so the removal may lose a right edge. Every such row is listed for a hand audit
   removed_parse      the auditor refuses the binding scope for parse recovery (E6): recall cost, audited by hand
   removed_unbound    the auditor finds no in-file binding and base bound a non-local route (a possible right
@@ -60,10 +60,24 @@ def no_function(v):
     return False
 
 
+def has_default(p):
+    stack = [p]
+    while stack:
+        n = stack.pop()
+        if n.type in ('assignment_pattern', 'object_assignment_pattern'):
+            return True
+        stack.extend(n.named_children)
+    return False
+
+
 def alias_value(ds):
-    """The value kind of a single alias declarator, else None."""
+    """The value kind of a single alias declarator, else None. A destructuring pattern holding a default is an alias
+    whatever its value (spec r2 sol W1: `{ missing: x = fallback } = {}` binds the default)."""
     if len(ds) != 1 or ds[0].type not in ('variable_declarator', 'assignment_expression'):
         return None
+    pat = ds[0].child_by_field_name('left' if ds[0].type == 'assignment_expression' else 'name')
+    if pat is not None and pat.type != 'identifier' and has_default(pat):
+        return 'pattern_with_default'
     v = ds[0].child_by_field_name('right' if ds[0].type == 'assignment_expression' else 'value')
     while v is not None and (v.type in UNWRAP or v.type in ('type_assertion', 'assignment_expression')):
         v = v.child_by_field_name('right') if v.type == 'assignment_expression' else (
