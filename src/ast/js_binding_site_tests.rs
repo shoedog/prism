@@ -210,6 +210,20 @@ fn c38_m2_any_declaration_kind_kept_written() {
 }
 
 #[test]
+fn c_fold_default_bearing_nofn_pattern_shadows_at_a_call_site() {
+    // Fold C (C-M43): the same default-bearing NoFn guard through the site-walk entry point
+    // (`js_ts_site_binding`), not just the module terminal: a nested default-bearing pattern
+    // with a NoFn value shadows an outer same-named function as an alias (keeps base), not
+    // `not_callable`.
+    let src = "function f() {\n  return 1;\n}\nfunction holder() {\n  const { f = 0 } = {};\n  \
+        return f();\n}\n";
+    check(
+        &BOTH,
+        vec![("C-fold-C site", src, "f", 1, JsBinding::Alias)],
+    );
+}
+
+#[test]
 fn c46_c178_parameter_list_error_seals_the_whole_function() {
     // SPEC §3.8 (6), spec r1 Opus W2: a `formal_parameters` error seals only when the site is
     // outside the whole sealer (parameters are visible from the body). A reference to an
@@ -258,5 +272,35 @@ fn b_t3_shared_binding_writes_cross_the_formal_parameters_function_split() {
             ("Bold-4", arguments_default_writes_body, "arguments", 1, MAY),
             ("Bold-5 shadow negative", shadow_negative, "f", 3, NC),
         ],
+    );
+}
+
+#[test]
+fn e_fold_escaped_class_name_bypasses_b0() {
+    // Fold E (gpt-6.1-sol r1 W2): a class's own inner name (D2/T8) is a `type_identifier`,
+    // which B0's escape check (`js_binding_checks.rs`) missed; an escaped spelling there must
+    // refuse the scope, same as an escaped `identifier`/pattern, not silently fall through to
+    // an outer same-named function.
+    let escaped = "function C() {\n  return 1;\n}\nconst x = class \\u0043 {\n  m() {\n    \
+        C();\n  }\n};\n";
+    let unescaped_control =
+        "function C() {\n  return 1;\n}\nconst x = class C {\n  m() {\n    C();\n  }\n};\n";
+    check(
+        &BOTH,
+        vec![(
+            "E-1 escaped",
+            escaped,
+            "C",
+            1,
+            JsBinding::Refused("escaped_identifier"),
+        )],
+    );
+    // Unescaped control: the class's own inner name is a real declaration in its own scope
+    // (T8) and correctly shadows the outer function; a class is never callable (D2), so the
+    // call inside `m` refuses `not_callable` — never `Callable(outer C)`, the escaped bug's
+    // wrong answer.
+    check(
+        &BOTH,
+        vec![("E-2 unescaped control", unescaped_control, "C", 2, NC)],
     );
 }

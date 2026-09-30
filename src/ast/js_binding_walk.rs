@@ -4,7 +4,7 @@
 //! field without one is an unproven position and keeps base behavior (owner OQ1 = K).
 use super::js_binding::{is_class, JsBindingCache};
 use super::js_binding_site::is_scope;
-use super::{is_js_ts_function_like, ParsedFile};
+use super::ParsedFile;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 
@@ -212,15 +212,20 @@ impl ParsedFile {
                     }
                 }
                 Some(Pos::Inside) => {
-                    // Any non-`body` field of a function-like kind is skipped here regardless
-                    // of its own `Pos` (J1/J3 already route those fields to `Param`/`Outside`).
-                    // This masks a mutant that flips `method_definition`'s computed `name` from
-                    // Outside to Inside (C-M15): the field guard below still excludes it, so no
-                    // runtime test can distinguish the two `Pos` values for that row. The
-                    // authority for J3 is `grammar_closure.py --rust src/ast`'s exact E_TABLE
-                    // equality check (owner-accepted 2026-09-29), not a classify-level mutant.
-                    let own = !(is_js_ts_function_like(kind) && field != "body");
-                    if own && (is_scope(node) || kind == "enum_body") {
+                    // Fold F (gpt-6.1-sol r1 W-S; Opus r1 S1 independently found the same dead
+                    // code): for every Σ′ kind, `Pos::Inside` is reached only through a field
+                    // this table maps to `Inside`, and a function-like kind's only `Inside`
+                    // field is `body` (its other fields are `Param`/`Unlisted`), so a guard
+                    // gating this arm by "own field is body" was always true and never fired
+                    // for any other value — dead code, confirmed behavior-preserving by two
+                    // independent reviewers (1,247/1,247 library tests unchanged) and dropped.
+                    // This also directly restores C-M15 (`method_definition`'s computed `name`
+                    // field, Outside vs Inside) as a classify-level killable mutant: with the
+                    // guard gone, flipping that row to Inside makes the walk look the computed
+                    // key up inside the method's own environment, killed by
+                    // `fold_writes_before_function_environments_are_may_call`'s J2 decorator
+                    // row and the new C-M15 row below.
+                    if is_scope(node) || kind == "enum_body" {
                         let (decls, annex_b) = self.js_ts_scope_lookup(node, name, cache);
                         if decls.is_some() || annex_b {
                             return Walk::Found(node, None);

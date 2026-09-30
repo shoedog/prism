@@ -127,6 +127,38 @@ fn c47_c180_non_ascii_bound_name_shadows() {
 }
 
 #[test]
+fn c_fold_default_bearing_nofn_patterns_are_alias_not_not_callable() {
+    // Fold C (C-M43, found by three round-1 reviewers): the owner's conservative cut (SPEC
+    // §0 (2), §3.8 (11)) makes ANY destructuring pattern with a default an alias, whatever its
+    // value — including a NoFn value, which the default-free path would otherwise classify
+    // `not_callable`. The prior "P1 default" row (`{ f = () => 1 } = o`) cannot discriminate
+    // the guard, since its non-default path is already Alias for an identifier value; these
+    // rows use a NoFn value (`0`, `{}`, `[]`) so the guard's removal is observable.
+    let rows = [
+        ("shorthand default, NoFn", "const { f = 0 } = {};"),
+        ("pair default, NoFn", "const { k: f = 0 } = {};"),
+        ("array default, NoFn", "const [f = 0] = [];"),
+        ("nested default, NoFn", "const [{ f = 0 }] = [{}];"),
+    ];
+    for (id, src) in rows {
+        let p = parse("a.js", src);
+        let mut cache = JsBindingCache::default();
+        let got = p.js_ts_module_binding("f", p.tree.root_node(), &mut cache);
+        assert_eq!(got, JsBinding::Alias, "{id}");
+    }
+    // No-default negative: the same NoFn value without a default falls through to the NoFn
+    // check instead, giving not_callable (the guard is what makes the difference above).
+    let p = parse("a.js", "const { f } = {};");
+    let mut cache = JsBindingCache::default();
+    let got = p.js_ts_module_binding("f", p.tree.root_node(), &mut cache);
+    assert_eq!(
+        got,
+        JsBinding::Refused("not_callable"),
+        "no-default negative"
+    );
+}
+
+#[test]
 fn a_d4_import_alias_and_require_export_stay_unproven_with_a_nested_decoy() {
     // Fold A (Opus r1 W1): an exported `import f = M.g` or `import f = require('./x')` is a
     // single declaration whose kind is `import_alias`/`import_statement` (JsBinding::Import);

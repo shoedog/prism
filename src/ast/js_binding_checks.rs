@@ -21,9 +21,12 @@ impl ParsedFile {
                 result = Err("unclassified_kind");
                 break;
             }
+            // Fold E (gpt-6.1-sol r1 W2): a TS class's own inner name (D2/T8) is a
+            // `type_identifier`, not `identifier`; an escaped spelling there must refuse the
+            // scope exactly as an escaped `identifier`/pattern does, or B0 lets it through.
             if matches!(
                 n.kind(),
-                "identifier" | "shorthand_property_identifier_pattern"
+                "identifier" | "shorthand_property_identifier_pattern" | "type_identifier"
             ) && self.node_text(&n).contains('\\')
             {
                 result = Err("escaped_identifier");

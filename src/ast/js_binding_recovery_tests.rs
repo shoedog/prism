@@ -74,6 +74,40 @@ fn c181_unicode_and_zwnj_names_stay_whole() {
 }
 
 #[test]
+fn d_fold_collector_answer_for_names_spelled_in_a_broken_import() {
+    // Fold D (gpt-6.1-sol r1 W3b): a collector-answer (not just predicate/name-extraction)
+    // row for a name spelled inside a recovered top-level import, through
+    // `js_ts_module_binding` — the entry point the marker actually feeds. Disabling marker
+    // insertion (`js_binding_site.rs`'s program-scope arm) passed every existing test; these
+    // rows exercise the classify() answer directly.
+    let ascii = "import { \"\\u{47}\\u{47}\" as h };\nh();\n";
+    let combining_mark = "import { \u{e9}\u{301} as h };\nh();\n";
+    let zwnj = "import { a\u{200c}b as h };\nh();\n";
+    let clean_import_control = "import { h } from './x';\nh();\n";
+    let trivia_control = "import /* c */ { \"\\u{47}\\u{47}\" as h };\nh();\n";
+    for (id, src, name, want_recovery) in [
+        ("D-1 ASCII", ascii, "h", true),
+        ("D-2 combining mark", combining_mark, "h", true),
+        ("D-3 ZWNJ", zwnj, "h", true),
+        ("D-4 clean import control", clean_import_control, "h", false),
+        ("D-5 trivia control", trivia_control, "h", true),
+    ] {
+        let p = parse("a.js", src);
+        let mut cache = crate::ast::js_binding::JsBindingCache::default();
+        let got = p.js_ts_module_binding(name, p.tree.root_node(), &mut cache);
+        if want_recovery {
+            assert_eq!(
+                got,
+                crate::ast::js_binding::JsBinding::Refused("import_parse_recovery"),
+                "{id}"
+            );
+        } else {
+            assert_eq!(got, crate::ast::js_binding::JsBinding::Import, "{id}");
+        }
+    }
+}
+
+#[test]
 fn recovered_import_names_exclude_keywords_and_digit_led_runs() {
     let src = "import { 9x as h } from a type typeof;\nh();\n";
     let p = parse("a.js", src);
