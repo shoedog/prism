@@ -107,6 +107,93 @@ fn with_object_walk_resumes_outside_the_with() {
 }
 
 #[test]
+fn c_m19_enum_body_is_a_scope_for_a_sibling_member() {
+    // T10: an enum body declares its own member names; a later member's initializer sees an
+    // earlier sibling directly, resolved at the enum body itself (not left unbound/leaving).
+    let src = "enum E {\n  A,\n  B = A,\n}\n";
+    let p = parse("a.ts", src);
+    let mut cache = super::JsBindingCache::default();
+    // The declaration is a `property_identifier`; only the reference is an `identifier`.
+    let site = ident(&p, "A", 0);
+    match p.js_ts_binding_walk(site, "A", &mut cache) {
+        Walk::Found(scope, explicit) => {
+            assert_eq!(scope.kind(), "enum_body");
+            assert!(explicit.is_none());
+        }
+        _ => panic!("expected Found(enum_body)"),
+    }
+}
+
+#[test]
+fn c_m25_enum_member_names_compare_by_string_value_not_raw_text() {
+    // C158: a string-literal member key (`'f' = 1`) declares `f` by StringValue, not the
+    // quoted raw text `'f'`; a sibling member's initializer referencing `f` finds it.
+    let src = "enum E {\n  'f' = 1,\n  g = f(),\n}\n";
+    let p = parse("a.ts", src);
+    let mut cache = super::JsBindingCache::default();
+    let site = ident(&p, "f", 0);
+    match p.js_ts_binding_walk(site, "f", &mut cache) {
+        Walk::Found(scope, explicit) => {
+            assert_eq!(scope.kind(), "enum_body");
+            assert!(explicit.is_none());
+        }
+        _ => panic!("expected Found(enum_body): the string-literal key decodes to `f`"),
+    }
+}
+
+#[test]
+fn c_m15_j3_computed_method_name_is_outside_the_method() {
+    // A `method_definition`'s computed `name` is Outside (J3): the key is evaluated where the
+    // class is defined, not inside the method's own environment.
+    let src = "let f = 1;\nclass C {\n  [f]() {\n    return 1;\n  }\n}\n";
+    let p = parse("a.ts", src);
+    let mut cache = super::JsBindingCache::default();
+    let site = ident(&p, "f", 1); // occurrence 0 is the declaration; 1 is the computed key.
+    match p.js_ts_binding_walk(site, "f", &mut cache) {
+        Walk::Found(scope, explicit) => {
+            assert_eq!(scope.kind(), "program");
+            assert!(explicit.is_none());
+        }
+        _ => panic!("expected Found(program): J3 must skip the method's own environment"),
+    }
+}
+
+#[test]
+fn c_m10_j2_class_decorator_resumes_above_the_class() {
+    // A decorator on the class node itself (a plain declaration, not a named expression) is
+    // evaluated where the class is defined (J2): the walk resumes above the class.
+    let src = "let d = 1;\n@d\nclass C {}\n";
+    let p = parse("a.ts", src);
+    let mut cache = super::JsBindingCache::default();
+    let site = ident(&p, "d", 1); // occurrence 0 is the declaration; 1 is `@d`.
+    match p.js_ts_binding_walk(site, "d", &mut cache) {
+        Walk::Found(scope, explicit) => {
+            assert_eq!(scope.kind(), "program");
+            assert!(explicit.is_none());
+        }
+        _ => panic!("expected Found(program): J2 must resume above the class"),
+    }
+}
+
+#[test]
+fn c_m20_member_decorator_is_inside_the_class() {
+    // A decorator under `class_body` (a member or parameter decorator) is evaluated in the
+    // class scope (T8): the walk resumes at `class_body`, so the class's own inner name is
+    // visible from it (unlike a class-node decorator, J2).
+    let src = "class C {\n  @d(C) m() {}\n}\n";
+    let p = parse("a.ts", src);
+    let mut cache = super::JsBindingCache::default();
+    let site = ident(&p, "C", 1); // occurrence 0 is the class's own name; 1 is `@d(C)`.
+    match p.js_ts_binding_walk(site, "C", &mut cache) {
+        Walk::Found(scope, explicit) => {
+            assert_eq!(scope.kind(), "class_declaration");
+            assert!(explicit.is_none());
+        }
+        _ => panic!("expected Found(class_declaration): a member decorator sees the class name"),
+    }
+}
+
+#[test]
 fn c29_named_class_expression_decorator_is_unproven() {
     let src = "const x = @d class Named {};\n";
     let p = parse("a.ts", src);
@@ -178,6 +265,23 @@ fn c25_c28_leave_predicate() {
         );
         assert_eq!(got, want_unproven, "{src:?}");
     }
+}
+
+#[test]
+fn c_m17_partner_index_compares_first_segments_not_full_dotted_names() {
+    // Two namespaces that differ in their full dotted spelling but share the first segment are
+    // still merge partners (the leave predicate compares first segments, C-M17).
+    let src = "export {};\nnamespace A.B {\n  f();\n}\nnamespace A.C {\n  function f() {}\n}\n";
+    let p = parse("a.ts", src);
+    let mut cache = super::JsBindingCache::default();
+    let site = ident(&p, "f", 0);
+    assert!(
+        matches!(
+            p.js_ts_binding_walk(site, "f", &mut cache),
+            Walk::Unchecked("namespace_leave")
+        ),
+        "A.B and A.C share the first segment A and must be counted as partners"
+    );
 }
 
 /// C-35: the shipped `E_TABLE` names every field of every Σ′ kind exactly once, with no

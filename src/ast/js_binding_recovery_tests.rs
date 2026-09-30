@@ -30,9 +30,15 @@ fn c173_recovered_import_is_detected() {
 
 #[test]
 fn c179_import_meta_and_dynamic_import_are_not_recovered_imports() {
-    for src in ["import.meta;\nload();\n", "import('./x');\nload2();\n"] {
+    for src in ["import.meta load)\n", "import('./x') load2)\n"] {
         let p = parse(src);
-        for e in root_errors(&p) {
+        assert!(
+            p.tree.root_node().has_error(),
+            "{src:?}: fixture should recover"
+        );
+        let errors = root_errors(&p);
+        assert!(!errors.is_empty(), "{src:?}: expected a top-level ERROR");
+        for e in errors {
             assert!(
                 !p.js_ts_recovered_import(e),
                 "{src:?}: import.meta/import() must not poison"
@@ -43,13 +49,16 @@ fn c179_import_meta_and_dynamic_import_are_not_recovered_imports() {
 
 #[test]
 fn c189_comment_trivia_does_not_defeat_the_check() {
-    let cases = [
-        "import /* c */ . meta;\nload();\n",
-        "import // c\n.meta;\nload();\n",
-    ];
+    let cases = ["import /* c */ .meta load)\n", "import // c\n.meta load)\n"];
     for src in cases {
         let p = parse(src);
-        for e in root_errors(&p) {
+        assert!(
+            p.tree.root_node().has_error(),
+            "{src:?}: fixture should recover"
+        );
+        let errors = root_errors(&p);
+        assert!(!errors.is_empty(), "{src:?}: expected a top-level ERROR");
+        for e in errors {
             assert!(
                 !p.js_ts_recovered_import(e),
                 "{src:?}: a comment must not turn `.meta` into an import"

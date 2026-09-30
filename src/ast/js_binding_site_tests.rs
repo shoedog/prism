@@ -81,6 +81,15 @@ fn c3_shadowing_parameter_drops() {
 }
 
 #[test]
+fn c_m4_single_arrow_parameter_shadows() {
+    // F3 (S1b-1): a single unparenthesized arrow parameter (`x => x()`) is recorded at the
+    // arrow's own `parameter` field, not the (absent) `parameters` list; a same-named module
+    // function must not leak through it (C-M4).
+    let src = "function f() {\n  return 1;\n}\nconst g = f => f();\n";
+    check(&BOTH, vec![("C-M4", src, "f", 2, NC)]);
+}
+
+#[test]
 fn c122_default_parameter_sees_a_sibling_default() {
     // T3: the parameter environment holds every parameter, so a default expression can see a
     // sibling parameter's binding, which the site walk resolves at the `formal_parameters`
@@ -111,6 +120,15 @@ fn c4_implicit_arguments_drops_global_keeps() {
 /// `const arguments = 1;` binds a value alias literal (`1` is NoFn), so `not_callable`.
 fn callable_or_alias() -> JsBinding {
     NC
+}
+
+#[test]
+fn c_m8_d7_taint_marks_a_catch_shadowed_hoisted_var() {
+    // Annex B.3.4 (D7): a `var` hoisted through a `catch` clause whose parameter binds the
+    // same name is a non-callable marker, not a real declaration, even though its own value is
+    // a proper arrow function (C-M8: without the taint, this would wrongly verify).
+    let src = "try {} catch (f) {\n  var f = () => 1;\n}\nf();\n";
+    check(&BOTH, vec![("C-M8", src, "f", 2, NC)]);
 }
 
 #[test]
