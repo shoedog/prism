@@ -285,22 +285,20 @@ fn e_fold_escaped_class_name_bypasses_b0() {
         C();\n  }\n};\n";
     let unescaped_control =
         "function C() {\n  return 1;\n}\nconst x = class C {\n  m() {\n    C();\n  }\n};\n";
+    // E-2 (unescaped control): the class's own inner name is a real declaration in its own
+    // scope (T8) and correctly shadows the outer function; a class is never callable (D2), so
+    // the call refuses `not_callable` — never `Callable(outer C)`, the escaped bug's answer.
     check(
         &BOTH,
-        vec![(
-            "E-1 escaped",
-            escaped,
-            "C",
-            1,
-            JsBinding::Refused("escaped_identifier"),
-        )],
-    );
-    // Unescaped control: the class's own inner name is a real declaration in its own scope
-    // (T8) and correctly shadows the outer function; a class is never callable (D2), so the
-    // call inside `m` refuses `not_callable` — never `Callable(outer C)`, the escaped bug's
-    // wrong answer.
-    check(
-        &BOTH,
-        vec![("E-2 unescaped control", unescaped_control, "C", 2, NC)],
+        vec![
+            (
+                "E-1 escaped",
+                escaped,
+                "C",
+                1,
+                JsBinding::Refused("escaped_identifier"),
+            ),
+            ("E-2 unescaped control", unescaped_control, "C", 2, NC),
+        ],
     );
 }
