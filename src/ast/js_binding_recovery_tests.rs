@@ -1,5 +1,6 @@
 //! S1b-3 unit rows (SPEC §7 C-42, C-49, carry-forward 9): the recovered top-level import
 //! predicate and the names it may bind.
+use crate::ast::js_binding::{JsBinding, JsBindingCache};
 use crate::ast::js_binding_helper_tests::{parse, root_errors};
 use std::collections::BTreeSet;
 
@@ -93,12 +94,12 @@ fn d_fold_collector_answer_for_names_spelled_in_a_broken_import() {
         ("D-5 trivia control", trivia_control, true),
     ] {
         let p = parse("a.js", src);
-        let mut cache = crate::ast::js_binding::JsBindingCache::default();
+        let mut cache = JsBindingCache::default();
         let got = p.js_ts_module_binding("h", p.tree.root_node(), &mut cache);
         let want = if want_recovery {
-            crate::ast::js_binding::JsBinding::Refused("import_parse_recovery")
+            JsBinding::Refused("import_parse_recovery")
         } else {
-            crate::ast::js_binding::JsBinding::Import
+            JsBinding::Import
         };
         assert_eq!(got, want, "{id}");
     }
