@@ -19,10 +19,7 @@ fn c40_c172_declaration_export_site_is_outside_its_own_sealed_body() {
     });
     for path in ["a.js", "a.tsx"] {
         let p = parse(path, src);
-        assert!(
-            p.tree.root_node().has_error(),
-            "{path}: fixture should recover"
-        );
+        assert!(p.tree.root_node().has_error());
         for at in ["function f", "export { f as g }"] {
             let mut cache = JsBindingCache::default();
             let got = p.js_ts_module_binding("f", node_at(&p, at), &mut cache);
