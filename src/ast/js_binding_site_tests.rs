@@ -208,3 +208,25 @@ fn c38_m2_any_declaration_kind_kept_written() {
         ],
     );
 }
+
+#[test]
+fn c46_c178_parameter_list_error_seals_the_whole_function() {
+    // SPEC §3.8 (6), spec r1 Opus W2: a `formal_parameters` error seals only when the site is
+    // outside the whole sealer (parameters are visible from the body). A reference to an
+    // outer, otherwise-clean name from inside a function whose own parameter list is broken is
+    // refused, even though the site is nowhere near the parameter list itself (mutant C-M41,
+    // containment tested against just the parameter list, would wrongly verify since the site
+    // sits in the body).
+    let src = "function g(a, x ==) {\n  return outer();\n}\nfunction outer() {\n  return 1;\n}\n\
+        export { outer };\n";
+    check(
+        &BOTH,
+        vec![(
+            "C178",
+            src,
+            "outer",
+            0,
+            JsBinding::Refused("parse_recovery"),
+        )],
+    );
+}

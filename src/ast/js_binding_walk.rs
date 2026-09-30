@@ -212,6 +212,13 @@ impl ParsedFile {
                     }
                 }
                 Some(Pos::Inside) => {
+                    // Any non-`body` field of a function-like kind is skipped here regardless
+                    // of its own `Pos` (J1/J3 already route those fields to `Param`/`Outside`).
+                    // This masks a mutant that flips `method_definition`'s computed `name` from
+                    // Outside to Inside (C-M15): the field guard below still excludes it, so no
+                    // runtime test can distinguish the two `Pos` values for that row. The
+                    // authority for J3 is `grammar_closure.py --rust src/ast`'s exact E_TABLE
+                    // equality check (owner-accepted 2026-09-29), not a classify-level mutant.
                     let own = !(is_js_ts_function_like(kind) && field != "body");
                     if own && (is_scope(node) || kind == "enum_body") {
                         let (decls, annex_b) = self.js_ts_scope_lookup(node, name, cache);
