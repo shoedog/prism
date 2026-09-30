@@ -263,3 +263,18 @@ fn c35_e_table_has_no_duplicate_rows() {
     }
     assert_eq!(E_TABLE.len(), 74, "E_TABLE row count drifted");
 }
+
+/// Fold-r2 item 2 (sol r2 SMELL 2): compares every row, `Pos` included, against a checked-in
+/// reference (sorted `kind.field=Pos`, joined by `;`), so a mutation to any row's `Pos` (e.g.
+/// C-M15, `method_definition.name` Outside->Inside) is killed by `cargo test` directly, not
+/// only by the external closure probe.
+#[test]
+fn c35_e_table_matches_the_checked_in_reference() {
+    let mut rows: Vec<String> = E_TABLE
+        .iter()
+        .map(|(k, f, p)| format!("{k}.{f}={p:?}"))
+        .collect();
+    rows.sort();
+    let reference = "abstract_class_declaration.body=Inside;abstract_class_declaration.children=Inside;abstract_class_declaration.decorator=Outside;abstract_class_declaration.name=Unlisted;abstract_class_declaration.type_parameters=Unlisted;arrow_function.body=Inside;arrow_function.parameter=Param;arrow_function.parameters=Param;arrow_function.return_type=Unlisted;arrow_function.type_parameters=Unlisted;catch_clause.body=Inside;catch_clause.parameter=Inside;catch_clause.type=Unlisted;class.body=Inside;class.children=Inside;class.decorator=Outside;class.name=Unlisted;class.type_parameters=Unlisted;class_declaration.body=Inside;class_declaration.children=Inside;class_declaration.decorator=Outside;class_declaration.name=Unlisted;class_declaration.type_parameters=Unlisted;class_static_block.body=Inside;decorator.children=Decorator;enum_body.children=Inside;enum_body.name=Inside;enum_declaration.body=Leave;enum_declaration.name=Unlisted;for_in_statement.body=Inside;for_in_statement.left=Inside;for_in_statement.right=Inside;for_in_statement.value=Inside;for_statement.body=Inside;for_statement.condition=Inside;for_statement.increment=Inside;for_statement.initializer=Inside;formal_parameters.children=Inside;function_declaration.body=Inside;function_declaration.name=Unlisted;function_declaration.parameters=Param;function_declaration.return_type=Unlisted;function_declaration.type_parameters=Unlisted;function_expression.body=Inside;function_expression.name=Unlisted;function_expression.parameters=Param;function_expression.return_type=Unlisted;function_expression.type_parameters=Unlisted;generator_function.body=Inside;generator_function.name=Unlisted;generator_function.parameters=Param;generator_function.return_type=Unlisted;generator_function.type_parameters=Unlisted;generator_function_declaration.body=Inside;generator_function_declaration.name=Unlisted;generator_function_declaration.parameters=Param;generator_function_declaration.return_type=Unlisted;generator_function_declaration.type_parameters=Unlisted;internal_module.body=Leave;internal_module.name=Unlisted;method_definition.body=Inside;method_definition.children=Unlisted;method_definition.decorator=Outside;method_definition.name=Outside;method_definition.parameters=Param;method_definition.return_type=Unlisted;method_definition.type_parameters=Unlisted;module.body=Leave;module.name=Unlisted;program.children=Inside;statement_block.children=Inside;switch_body.children=Inside;with_statement.body=WithBody;with_statement.object=Outside";
+    assert_eq!(rows.join(";"), reference);
+}
