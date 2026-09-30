@@ -140,22 +140,22 @@ fn c_fold_default_bearing_nofn_patterns_are_alias_not_not_callable() {
         ("array default, NoFn", "const [f = 0] = [];"),
         ("nested default, NoFn", "const [{ f = 0 }] = [{}];"),
     ];
-    for (id, src) in rows {
+    // The negative: the same NoFn value without a default falls through to the NoFn check
+    // instead of the guard, giving not_callable — the difference the guard makes above.
+    for (id, src, want) in rows
+        .into_iter()
+        .map(|(id, src)| (id, src, JsBinding::Alias))
+        .chain([(
+            "no-default negative",
+            "const { f } = {};",
+            JsBinding::Refused("not_callable"),
+        )])
+    {
         let p = parse("a.js", src);
         let mut cache = JsBindingCache::default();
         let got = p.js_ts_module_binding("f", p.tree.root_node(), &mut cache);
-        assert_eq!(got, JsBinding::Alias, "{id}");
+        assert_eq!(got, want, "{id}");
     }
-    // No-default negative: the same NoFn value without a default falls through to the NoFn
-    // check instead, giving not_callable (the guard is what makes the difference above).
-    let p = parse("a.js", "const { f } = {};");
-    let mut cache = JsBindingCache::default();
-    let got = p.js_ts_module_binding("f", p.tree.root_node(), &mut cache);
-    assert_eq!(
-        got,
-        JsBinding::Refused("not_callable"),
-        "no-default negative"
-    );
 }
 
 #[test]
