@@ -260,3 +260,10 @@ base); the recovered-import check reads the first two non-comment tokens. Both g
 | C187 `const { z = fallback } = {}; z()` | Exact `local_def` | drop | Exact kept |
 | C188 `const { f = 0 } = {}` in `run`, `f()` from nested `each`, `f` a function in `lib` | Exact `free_single` | drop (NoFn `{}`) | Exact kept (a default: alias, the conservative cut) |
 | C189 `import /* c */ . meta load)`, `import /* c */ ('./x') load2)`, `import // c` + `.meta load3)` | Exact ×3 | drop ×3 (sol r2 W2) | Exact ×3 |
+
+### Addendum 10 result
+
+**C185–C189: as predicted in every column** (head, v11, v12), both grammars. The first v12 build (`9e8eaabb`)
+skipped every extra leaf and so also skipped tree-sitter's recovery `ERROR` nodes (flagged as extras), regressing
+C173 and C181 to Exact; the clean v12 (`0968ef78`) skips only non-`ERROR` extras and comments, and C173/C181 drop
+again. That first build produced no corpus receipt.

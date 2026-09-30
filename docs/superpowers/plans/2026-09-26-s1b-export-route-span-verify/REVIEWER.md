@@ -117,19 +117,22 @@ the checklist above:
   removes a right edge the SPEC keeps.
 - **The owner's M2 ruling is fixed:** every written binding keeps base, whatever its kind. A refusal of a written
   class, `for (var …)` head or parameter is a WRONG.
-- **R5 reach (OQ12 as narrowed 2026-09-29):** a drop (R4 or R5) is right only for a binding that provably holds no
-  function: a parameter, `for` head, catch parameter, class, enum, namespace, duplicate, recovered import, marker,
-  or a declarator with no value or a NoFn value (§3.8 (11)). A drop of a declarator whose value is outside NoFn
-  (identifier, member, call, `await`, conditional, logical, …) is a WRONG (name the row: it may be a right edge
-  reached by value flow, as Opus r1 W1 found). A drop at R5 for `unbound`, `import`, `with`, `parse_recovery`, B0 or
-  `MayCall` is a WRONG. **A lexical auditor cannot certify an alias removal**; `audit_s1b3.py`'s `removed_alias`
-  class must be 0, or every such row hand-audited.
+- **What drops (SPEC §3.8 (11), owner 2026-09-29 rounds 1 and 2).** A drop (R4 or R5) is right for a binding that
+  is not statically bound (a parameter or catch parameter: the owner-accepted value-flow cost, §0 (3), is not a
+  finding unless the measured count in §8 is wrong) or that provably holds no function (`for` head, class, enum,
+  namespace, marker, duplicate, recovered import, or a declarator with no value or a NoFn value **and no default in
+  its pattern**). A drop of a declarator whose value is outside NoFn, or whose pattern holds a default, is a WRONG
+  (name the row). A drop at R5 for `unbound`, `import`, `with`, `parse_recovery`, B0 or `MayCall` is a WRONG. A
+  lexical auditor cannot certify an alias removal: `audit_s1b3.py`'s `removed_alias` (now including default-bearing
+  patterns) must be 0, or every such row hand-audited.
+- **The NoFn class is closed by the owner's conservative cut:** a finding that asks for more precision (for example
+  property-sensitive destructuring) is out of scope; a row the cut makes base is not a WRONG.
 - **P1:** the shared `collect_js_ts_binding_pattern_names` trusts parser-confirmed identifiers (non-ASCII, ZWNJ/ZWJ,
   `$`); a changed row elsewhere that this causes is reported with the preservation test that pins it.
-- **Recovered imports:** only a top-level `ERROR` whose first token is `import` and whose next token is neither `.`
-  nor `(` marks names; poisoning a name that no such broken import spells is a WRONG; poisoning every word of one
+- **Recovered imports:** only a top-level `ERROR` whose first two non-comment tokens are `import` and something other
+  than `.` or `(` marks names; poisoning a name that no such broken import spells is a WRONG; poisoning every word of one
   (including a path segment) is the accepted over-approximation; a Unicode alias split into fragments is a WRONG.
-- **Budget:** SPEC §9 r4 caps as folded 2026-09-29 (3a 700 / 740, 3b 220 / 1,320). Tests are expected near the
+- **Budget:** owner-approved caps (3a src 700 / tests 740; 3b src 220 / tests 1,320, report point 1,190). Tests are expected near the
   row estimate (≈ 5 lines per unit row, ≈ 30 per end-to-end scenario); a large overrun is a SMELL naming the batches.
 - **Evidence:** the controller's audited row-diff must equal SPEC §8's r4 row (3a: 0 on every corpus);
   `maycall_changed` 0.

@@ -6,36 +6,36 @@ S1b-2..4 are **re-planned in `REPLAN-fable.md`** (evaluation-context table, posi
 the owner took Option K and five sub-slices (OQ1–OQ7, SPEC §0). Spec round 3 (the last) was **folded at the cap**
 (`REVIEW-r3-fold.md`; owner: "targeted fold, then implement"). S1b-1, S1b-1b and S1b-2a are on main (`761541c2`);
 S1b-2b is approved (`3961cc21`). **r4 (2026-09-27): S1b-3 re-planned against the landed code** (SPEC §3.8, prototype
-v11, PLANNING-PROBES Q49–Q68); owner answers OQ10–OQ12 (2026-09-28) and the OQ12 narrowing (2026-09-29) are in
-SPEC §0; S1b-3 spec round 1 is folded (`REVIEW-s1b3-r1-fold.md`). **Open for the owner:** the re-forecast S1b-3
-caps (SPEC §9: 3a 700 / 740, 3b 220 / 1,320). S1b-3 evidence: `~/prism-evidence/s1b/s1b3-plan/`. Re-plan evidence:
+v12, PLANNING-PROBES Q49–Q75); S1b-3 spec rounds 1 and 2 (the cap) are folded (`REVIEW-s1b3-r{1,2}-fold.md`) and
+the owner approved the caps (3a 700 / 740, 3b 220 / 1,320) on 2026-09-29. **S1b-3a is ready to dispatch.** S1b-3 evidence: `~/prism-evidence/s1b/s1b3-plan/`. Re-plan evidence:
 `~/prism-evidence/s1b/replan/`; r3 evidence: `~/prism-evidence/s1b/r3fold/` and `~/prism-evidence/s1b/planning/`.
 
 | File | Purpose |
 |---|---|
 | `SPEC.md` | normative design r2: §0 owner answers and open questions; §3.1 the binding core as an enumerated table keyed to ECMA-262 and TS declaration spaces, with the fail-safe and the narrower parse rule; per-route semantics; controls; counters; cache; per-sub-slice tests, mutants and Tier-A fixtures; acceptance as exact audited row-diffs per sub-slice; budget |
 | `REVIEW-r3-fold.md` | the at-cap round-3 fold: finding → disposition → location → RED rows and mutants → measured |
-| `PLANNING-PROBES.md` | mechanisms M1–M17 and probes Q0–Q68 (r3: Q36–Q48; r4: Q49–Q68) (command, pre-run expectation, result, output path); r2 results per corpus and route |
+| `PLANNING-PROBES.md` | mechanisms M1–M17 and probes Q0–Q75 (r3: Q36–Q48; r4: Q49–Q75) (command, pre-run expectation, result, output path); r2 results per corpus and route |
 | `REVIEW-r1-fold.md` | every spec round 1 finding → disposition → location → evidence, plus fold findings and disagreements |
 | `REPLAN-fable.md` | re-plan after the round-2 cap: diagnosis (the unit of proof is the position, not the kind), options K / A / B / D with measured yields and budgets, the evaluation-context table, the fold plan for the bounded r2 items, owner questions OQ1–OQ7, the round-3 review brief |
 | `IMPLEMENTOR.md` | dispatch brief for one sub-slice, with per-batch budget checkpoints, and the **S1b-2a dispatch** section |
 | `REVIEWER.md` | one brief for sol and Opus |
 | `probes/` | tools (auditor `jsscope.py`, `grammar_closure.py` with the kind and `E(kind, field)` tables and the runtime equality check, census, row-diff audit, taxonomy, 240-scenario control generator with JSX/TSX twins, `replan/` RP generator and replay), pre-run expectations (addenda 1–7), reference control summaries per sub-slice, `expected/` row-diffs for X, R and T |
-| `prototype/s1b3-prototype-v11.diff.txt` | the S1b-3 prototype on the landed code (r4 as folded; clean-built scratch `0982f2fd`, never built into this branch) |
+| `prototype/s1b3-prototype-v12.diff.txt` | the S1b-3 prototype on the landed code (r4 after spec round 2; clean-built scratch `0968ef78`, never built into this branch) |
+| `REVIEW-s1b3-r2-fold.md` | S1b-3 spec round 2 (the cap): the disclosed at-cap fold |
 | `REVIEW-s1b3-r1-fold.md` | S1b-3 spec round 1: finding → disposition → location → controls/mutants → measured |
 | `prototype/s1b-prototype-v9.diff.txt` | the feasibility prototype, r3 (never built into this branch) |
 
 Evidence: `~/prism-evidence/s1b/planning/` with a `MANIFEST.sha256`.
 
-## r4 measured facts (clean-built v11 on `3961cc21`, after the S1b-3 spec r1 fold)
+## r4 measured facts (clean-built v12 on `3961cc21`, after S1b-3 spec round 2)
 
-- **Row-diffs, audited:** X 198 (134 re-targeted, 64 wrong removed), F 52 (1 re-targeted, 47 wrong removed, 4 E6
-  right lost), R 0, T 913 (635 re-targeted, 227 wrong removed, 10 right added, 41 E6 right lost). **0 right lost
-  outside E6**; every removal is a parameter, a `for` head or an unbound-at-site R4 row. Alias rows v10 removed and
-  v11 keeps at base: X 38, F 424, T 212.
-- **3a alone:** 0 rows on all four corpora (the P1 change included: 0 rows).
+- **Row-diffs, audited:** X 198 (134 re-targeted; 58 wrong removed; **6 parameter rows right lost**, owner-accepted),
+  F 52 (1; 45 wrong; **2 parameter rows lost**; 4 E6), R 0, T 913 (635; 222 wrong; **5 parameter rows lost**; 10
+  right added; 41 E6). Parameter losses are lower bounds from `probes/param_valueflow.py` (single-caller rule); the
+  all-suppliers reading adds X 5, F 2, T 10. No declarator binding is removed.
+- **3a alone:** 0 rows on all four corpora.
 - **Suites:** 4,620 / 5 / 1 (5 by design); Tier-A 165 / 165; closure probe exit 0.
-- **Budget:** 745 src (3a 582, 3b 159); proposed caps SPEC §9 (3a 700 / 740, 3b 220 / 1,320).
+- **Budget:** 757 src (3a 596, 3b 161) against the approved 700 / 220.
 
 ## r3 measured facts (prototype v9)
 
