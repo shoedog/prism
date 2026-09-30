@@ -588,53 +588,6 @@ fn fold_b3_unwraps_assertions_around_a_may_call_wrapper() {
 }
 
 #[test]
-fn c_m40_d4_keeps_unproven_local_for_an_alias_export() {
-    // SPEC §3.8 (11): "D4 is unchanged": an alias value at an export occurrence keeps the
-    // landed 2b answer (`UnprovenLocal`, counted `not_callable`), not base `Local`.
-    let src = "const t = i18n.t;\nexport { t };\n";
-    let p = parse("a.js", src);
-    let site = node_at(&p, "export { t }");
-    let mut facts = crate::js_exports::JsExportFacts::default();
-    let mut scope: super::ExportScope<'_> =
-        (std::collections::BTreeSet::new(), JsBindingCache::default());
-    let got = p.js_ts_local_export_target("t".to_string(), site, &mut facts, &mut scope);
-    assert_eq!(
-        got,
-        crate::js_exports::JsExportTarget::UnprovenLocal("t".to_string())
-    );
-    assert_eq!(facts.local_export_refusals.get("not_callable"), Some(&1));
-}
-
-#[test]
-fn c40_c172_declaration_export_site_is_outside_its_own_sealed_body() {
-    // SPEC §3.8 (6), carry-forward 8: the declaration-export site (the declaration node, which
-    // contains its own body) is outside a sealed body: both the declaration route and a
-    // re-export elsewhere verify. Mutant C-M32 (containment tested against the whole sealer
-    // instead of the delimited body) would wrongly refuse both.
-    let src = "export function f() {\n  let x = ;\n}\nexport { f as g };\n";
-    check(
-        &BOTH,
-        true,
-        vec![
-            (
-                "C172 declaration",
-                src,
-                "f",
-                "function f",
-                callable("f", 1, 3),
-            ),
-            (
-                "C172 re-export",
-                src,
-                "f",
-                "export { f as g }",
-                callable("f", 1, 3),
-            ),
-        ],
-    );
-}
-
-#[test]
 fn fold_missing_parenthesis_is_not_delimited() {
     let src = "function g(a, b {\n  return 1;\n}\nexport function f() {\n  return 1;\n}\n";
     check(

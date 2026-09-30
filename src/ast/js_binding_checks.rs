@@ -138,3 +138,7 @@ impl ParsedFile {
         true
     }
 }
+
+#[cfg(test)]
+#[path = "js_binding_checks_tests.rs"]
+mod tests;

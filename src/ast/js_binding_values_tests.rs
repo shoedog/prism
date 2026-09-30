@@ -127,6 +127,25 @@ fn c47_c180_non_ascii_bound_name_shadows() {
     );
 }
 
+#[test]
+fn c_m40_d4_keeps_unproven_local_for_an_alias_export() {
+    // SPEC §3.8 (11): "D4 is unchanged": an alias value at an export occurrence keeps the
+    // landed 2b answer (`UnprovenLocal`, counted `not_callable`), not base `Local` (mutant
+    // C-M40).
+    let src = "const t = i18n.t;\nexport { t };\n";
+    let p = parse(src);
+    let root = p.tree.root_node();
+    let mut facts = crate::js_exports::JsExportFacts::default();
+    let mut scope: (std::collections::BTreeSet<String>, JsBindingCache<'_>) =
+        (std::collections::BTreeSet::new(), JsBindingCache::default());
+    let got = p.js_ts_local_export_target("t".to_string(), root, &mut facts, &mut scope);
+    assert_eq!(
+        got,
+        crate::js_exports::JsExportTarget::UnprovenLocal("t".to_string())
+    );
+    assert_eq!(facts.local_export_refusals.get("not_callable"), Some(&1));
+}
+
 /// C-48: a destructuring default anywhere in the pattern is detected, whatever the value.
 #[test]
 fn c48_has_default() {
