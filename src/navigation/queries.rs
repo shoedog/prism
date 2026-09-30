@@ -563,10 +563,15 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     });
 
     let mut decl_reasons: BTreeMap<String, usize> = BTreeMap::new();
+    let (mut local_refusals, mut local_may_call) = (BTreeMap::<String, usize>::new(), 0);
     for facts in cg.js_ts_exports.values() {
         for (reason, n) in &facts.skipped_decl_reasons {
             *decl_reasons.entry(reason.clone()).or_default() += n;
         }
+        for (reason, n) in &facts.local_export_refusals {
+            *local_refusals.entry(reason.clone()).or_default() += n;
+        }
+        local_may_call += facts.local_export_may_call;
     }
     let mut stats = serde_json::json!({
         "total_call_sites": total,
@@ -649,6 +654,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
             .map(|f| f.spanned_admitted)
             .sum::<usize>(),
         "js_export_skipped_decl_reasons": decl_reasons,
+        "js_export_local_refusals": local_refusals,
+        "js_export_local_may_call": local_may_call,
         "dropped_wrapped_export_non_jsx": wrapped_non_jsx,
         // S1b: intrinsic JSX tags and unproven JS/TS lexical bindings.
         "dropped_jsx_intrinsic": jsx_intrinsic,

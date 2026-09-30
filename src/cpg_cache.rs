@@ -220,7 +220,9 @@ use std::path::{Path, PathBuf};
 ///   collectors see single arrow parameters, `{ f = d }` defaults and TS assertion writes.
 /// - v100: S1b-1b JS/TS top-scope declarator locals are BoundNames (shorthand destructuring
 ///   shadows; destructuring-default expressions no longer do); binding patterns accept `$`.
-const CACHE_VERSION: u32 = 100;
+/// - v101: S1b-2b ESM local exports bind through the module-scope binding (`VerifiedLocal`,
+///   `ResolvedJsExport.wrapped`, refusal counts) and string export names by StringValue.
+const CACHE_VERSION: u32 = 101;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -759,7 +761,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 100);
+        assert_eq!(super::CACHE_VERSION, 101);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

@@ -43,6 +43,13 @@ pub enum JsExportTarget {
         start_line: usize,
         end_line: usize,
     },
+    /// S1b: an ESM local export whose module-scope binding holds exactly this plain
+    /// callable (SPEC §3.2); R4c binds it by span from any site.
+    VerifiedLocal {
+        local: String,
+        start_line: usize,
+        end_line: usize,
+    },
     /// `export { imported as exported_name } from './y'` (also used for the
     /// re-export half of barrel resolution). `imported` is the name as
     /// declared/exported in the target module (`"default"` for a default
@@ -100,6 +107,13 @@ pub struct JsExportFacts {
     /// Declarator skips (a subset of `skipped_expr_count`) keyed by refusal reason.
     #[serde(default)]
     pub skipped_decl_reasons: BTreeMap<String, usize>,
+    /// S1b: ESM local exports whose module-scope binding holds no single proven callable,
+    /// by refusal reason (SPEC §3.2).
+    #[serde(default)]
+    pub local_export_refusals: BTreeMap<String, usize>,
+    /// S1b: ESM local exports kept at base `Local` because the binding is may-call (E5).
+    #[serde(default)]
+    pub local_export_may_call: usize,
 }
 
 impl JsExportFacts {
@@ -114,6 +128,8 @@ impl JsExportFacts {
             && self.conflicted.is_empty()
             && self.spanned_admitted == 0
             && self.skipped_decl_reasons.is_empty()
+            && self.local_export_refusals.is_empty()
+            && self.local_export_may_call == 0
     }
 
     /// Record a named-export raw fact, poisoning (marking conflicted) a name
@@ -139,9 +155,12 @@ impl JsExportFacts {
 pub struct ResolvedJsExport {
     pub file: String,
     pub local_name: String,
-    /// `SpannedLocal` targets only: the inner function's exact `(start, end)` lines.
+    /// `SpannedLocal` / `VerifiedLocal` targets: the callable's exact `(start, end)` lines.
     #[serde(default)]
     pub span: Option<(usize, usize)>,
+    /// S1b: the span is a wrapped React render function, bindable from JSX sites only.
+    #[serde(default)]
+    pub wrapped: bool,
 }
 
 /// Whole-program resolution output: per-file resolved export tables plus
@@ -255,8 +274,8 @@ enum ExportLookup {
     Resolved(ResolvedJsExport, bool),
 }
 
-/// A star-barrel candidate: `(file, local_name, is_class, span)`.
-type BarrelCandidate = (String, String, bool, Option<(usize, usize)>);
+/// A star-barrel candidate: `(file, local_name, is_class, span, wrapped)`.
+type BarrelCandidate = (String, String, bool, Option<(usize, usize)>, bool);
 
 fn resolve_one(
     raw: &BTreeMap<String, JsExportFacts>,
@@ -305,11 +324,17 @@ fn resolve_one_inner(
                 local,
                 start_line,
                 end_line,
+            }
+            | JsExportTarget::VerifiedLocal {
+                local,
+                start_line,
+                end_line,
             } => ExportLookup::Resolved(
                 ResolvedJsExport {
                     file: file.to_string(),
                     local_name: local.clone(),
                     span: Some((*start_line, *end_line)),
+                    wrapped: matches!(target, JsExportTarget::SpannedLocal { .. }),
                 },
                 false,
             ),
@@ -319,6 +344,7 @@ fn resolve_one_inner(
                     file: file.to_string(),
                     local_name: local.clone(),
                     span: None,
+                    wrapped: false,
                 },
                 matches!(target, JsExportTarget::Class(_)),
             ),
@@ -392,7 +418,7 @@ fn resolve_one_inner(
             telemetry,
         ) {
             ExportLookup::Resolved(hit, is_class) => {
-                candidates.insert((hit.file, hit.local_name, is_class, hit.span));
+                candidates.insert((hit.file, hit.local_name, is_class, hit.span, hit.wrapped));
             }
             ExportLookup::BlockedClaim => return ExportLookup::BlockedClaim,
             ExportLookup::NoTarget => {}
@@ -401,12 +427,14 @@ fn resolve_one_inner(
     match candidates.len() {
         0 => ExportLookup::NoTarget,
         1 => {
-            let (file, local_name, is_class, span) = candidates.into_iter().next().unwrap();
+            let (file, local_name, is_class, span, wrapped) =
+                candidates.into_iter().next().unwrap();
             ExportLookup::Resolved(
                 ResolvedJsExport {
                     file,
                     local_name,
                     span,
+                    wrapped,
                 },
                 is_class,
             )
@@ -437,6 +465,8 @@ mod tests {
             conflicted: BTreeSet::new(),
             spanned_admitted: 0,
             skipped_decl_reasons: BTreeMap::new(),
+            local_export_refusals: BTreeMap::new(),
+            local_export_may_call: 0,
         }
     }
 
@@ -473,6 +503,7 @@ mod tests {
                 file: "util.ts".to_string(),
                 local_name: "process".to_string(),
                 span: None,
+                wrapped: false,
             }
         );
         assert_eq!(out.chain_unresolved, 0);
@@ -497,6 +528,7 @@ mod tests {
                 file: "impl.ts".to_string(),
                 local_name: "process".to_string(),
                 span: None,
+                wrapped: false,
             }
         );
         assert_eq!(out.chain_unresolved, 0);
@@ -524,6 +556,7 @@ mod tests {
                 file: "impl.ts".to_string(),
                 local_name: "process".to_string(),
                 span: None,
+                wrapped: false,
             }
         );
         assert_eq!(out.chain_unresolved, 0);
@@ -585,6 +618,7 @@ mod tests {
                 file: "impl.ts".to_string(),
                 local_name: "process".to_string(),
                 span: None,
+                wrapped: false,
             }
         );
     }
@@ -648,9 +682,48 @@ mod tests {
                 file: "impl.ts".to_string(),
                 local_name: "process".to_string(),
                 span: None,
+                wrapped: false,
             }
         );
         assert_eq!(out.barrel_conflicts, 0);
+    }
+
+    /// S1b-2b (§7 B-11): `wrapped` is part of a barrel candidate's identity. The same
+    /// `(file, local, span)` claimed wrapped and plain is two targets (fail closed); a single
+    /// wrapped claim keeps `wrapped` through the barrel.
+    #[test]
+    fn barrel_candidate_key_includes_wrapped() {
+        let span = |wrapped: bool| {
+            let (local, start_line, end_line) = ("g".to_string(), 1, 1);
+            match wrapped {
+                true => JsExportTarget::SpannedLocal {
+                    local,
+                    start_line,
+                    end_line,
+                },
+                false => JsExportTarget::VerifiedLocal {
+                    local,
+                    start_line,
+                    end_line,
+                },
+            }
+        };
+        let mut raw = BTreeMap::new();
+        raw.insert(
+            "impl.ts".into(),
+            facts(&[("W", span(true)), ("P", span(false))], &[]),
+        );
+        raw.insert("a.ts".into(), facts(&[("X", reexport("./impl", "W"))], &[]));
+        raw.insert("b.ts".into(), facts(&[("X", reexport("./impl", "P"))], &[]));
+        raw.insert("index.ts".into(), facts(&[], &["./a", "./b"]));
+        raw.insert("one.ts".into(), facts(&[], &["./a"]));
+        let out = resolve_js_exports(&raw, &resolve_dot);
+        assert!(!out
+            .resolved
+            .get("index.ts")
+            .is_some_and(|m| m.contains_key("X")));
+        assert_eq!(out.barrel_conflicts, 1);
+        assert!(out.resolved["one.ts"]["X"].wrapped);
     }
 
     #[test]

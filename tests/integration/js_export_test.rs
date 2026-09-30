@@ -16,6 +16,16 @@ use prism::languages::Language;
 use prism::resolution::{ResolutionConfidence, ResolutionKind};
 use std::collections::BTreeMap;
 
+/// S1b-2b: an ESM local export of a proven one-line callable (SPEC §3.2).
+fn verified(local: &str, line: usize) -> JsExportTarget {
+    let (local, start_line, end_line) = (local.to_string(), line, line);
+    JsExportTarget::VerifiedLocal {
+        local,
+        start_line,
+        end_line,
+    }
+}
+
 fn files(pairs: &[(&str, &str, Language)]) -> BTreeMap<String, ParsedFile> {
     pairs
         .iter()
@@ -64,10 +74,7 @@ fn extract_default_export_named_function() {
     )
     .unwrap();
     let facts = parsed.extract_js_ts_export_facts();
-    assert_eq!(
-        facts.named.get("default"),
-        Some(&JsExportTarget::Local("process".to_string()))
-    );
+    assert_eq!(facts.named.get("default"), Some(&verified("process", 1)));
     // The default-exported function's own name is NOT itself a named export.
     assert!(!facts.named.contains_key("process"));
 }
@@ -81,10 +88,7 @@ fn extract_default_export_identifier() {
     )
     .unwrap();
     let facts = parsed.extract_js_ts_export_facts();
-    assert_eq!(
-        facts.named.get("default"),
-        Some(&JsExportTarget::Local("process".to_string()))
-    );
+    assert_eq!(facts.named.get("default"), Some(&verified("process", 1)));
 }
 
 #[test]
@@ -168,14 +172,8 @@ fn extract_named_export_list_with_rename() {
     )
     .unwrap();
     let facts = parsed.extract_js_ts_export_facts();
-    assert_eq!(
-        facts.named.get("a"),
-        Some(&JsExportTarget::Local("a".to_string()))
-    );
-    assert_eq!(
-        facts.named.get("c"),
-        Some(&JsExportTarget::Local("b".to_string()))
-    );
+    assert_eq!(facts.named.get("a"), Some(&verified("a", 1)));
+    assert_eq!(facts.named.get("c"), Some(&verified("b", 2)));
     assert!(!facts.named.contains_key("b"));
 }
 
@@ -278,10 +276,7 @@ fn extract_const_arrow_export() {
     )
     .unwrap();
     let facts = parsed.extract_js_ts_export_facts();
-    assert_eq!(
-        facts.named.get("process"),
-        Some(&JsExportTarget::Local("process".to_string()))
-    );
+    assert_eq!(facts.named.get("process"), Some(&verified("process", 1)));
 }
 
 #[test]
@@ -293,10 +288,7 @@ fn extract_const_function_expression_export() {
     )
     .unwrap();
     let facts = parsed.extract_js_ts_export_facts();
-    assert_eq!(
-        facts.named.get("process"),
-        Some(&JsExportTarget::Local("process".to_string()))
-    );
+    assert_eq!(facts.named.get("process"), Some(&verified("process", 1)));
 }
 
 // F4 (review-fix wave, codex MAJOR 2): a variable-declarator export fact must

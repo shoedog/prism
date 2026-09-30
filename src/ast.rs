@@ -2280,9 +2280,13 @@ impl ParsedFile {
                             if self.js_ts_import_specifier_is_type_only(spec) {
                                 continue;
                             }
+                            // `import { "g" as h }` names export `g` (StringValue, S1b-2b); an
+                            // unmatchable name (an unpaired surrogate, or any name in a list with a
+                            // parse error: recovery puts the ERROR beside the specifier) keeps the
+                            // binding with no member, which R4c refuses.
                             let name = spec
                                 .child_by_field_name("name")
-                                .map(|n| self.node_text(&n).to_string());
+                                .and_then(|n| self.js_ts_module_export_name(n));
                             let alias = spec
                                 .child_by_field_name("alias")
                                 .map(|n| self.node_text(&n).to_string());
@@ -2291,7 +2295,7 @@ impl ParsedFile {
                                 out.push(ImportBinding {
                                     local,
                                     module_path: module_path.to_string(),
-                                    member: name,
+                                    member: name.filter(|_| !child.has_error()),
                                     kind: ImportBindingKind::MemberImport,
                                     eligible: true,
                                 });
@@ -2441,10 +2445,21 @@ impl ParsedFile {
 
         let root = self.tree.root_node();
         let mut cjs = crate::js_exports::JsExportFacts::default();
+        // A local export of an imported binding is not an in-file callable.
+        // Forwarding requires separate proof; do not let a nested same-name
+        // declaration satisfy the existing Local(file, name) route.
+        let types = self.js_ts_type_only_imports();
+        let imports = self.extract_import_bindings().into_iter().map(|b| b.local);
+        let mut d4 = (
+            imports.chain(types.keys().cloned()).collect(),
+            Default::default(),
+        );
         let mut cursor = root.walk();
         for child in root.children(&mut cursor) {
             match child.kind() {
-                "export_statement" => self.collect_js_ts_export_statement(child, &mut facts),
+                "export_statement" => {
+                    self.collect_js_ts_export_statement(child, &mut facts, &mut d4)
+                }
                 "expression_statement" => self.collect_js_ts_cjs_export_statement(child, &mut cjs),
                 _ => {}
             }
@@ -2472,21 +2487,12 @@ impl ParsedFile {
             }
         }
         facts.esm_named_imports = self.js_ts_esm_named_imports(None);
-        facts.type_only_imports = self.js_ts_type_only_imports();
+        facts.type_only_imports = types;
         facts.module_value_bindings = self.js_ts_function_local_bindings(&root);
         facts.forwardable_function_locals = self.js_ts_forwardable_functions();
-        // A local export of an imported binding is not an in-file callable.
-        // Forwarding requires separate proof; do not let a nested same-name
-        // declaration satisfy the existing Local(file, name) route.
-        let imported: BTreeSet<_> = self
-            .extract_import_bindings()
-            .into_iter()
-            .map(|b| b.local)
-            .chain(facts.type_only_imports.keys().cloned())
-            .collect();
         for (exported, target) in &facts.named {
             if let crate::js_exports::JsExportTarget::Local(local) = target {
-                if imported.contains(local) {
+                if d4.0.contains(local) {
                     facts.conflicted.insert(exported.clone());
                 }
             }
@@ -2752,10 +2758,11 @@ impl ParsedFile {
     /// Handle a single top-level `export_statement` node: default exports,
     /// named export lists (local or re-export), direct declaration exports
     /// (`export function`/`export const`), and `export * [from]`.
-    fn collect_js_ts_export_statement(
-        &self,
-        node: Node<'_>,
+    fn collect_js_ts_export_statement<'a>(
+        &'a self,
+        node: Node<'a>,
         facts: &mut crate::js_exports::JsExportFacts,
+        d4: &mut js_binding::ExportScope<'a>,
     ) {
         use crate::js_exports::JsExportTarget;
 
@@ -2799,19 +2806,24 @@ impl ParsedFile {
             for spec in clause.children(&mut cc) {
                 if spec.kind() != "export_specifier"
                     || self.js_ts_import_specifier_is_type_only(spec)
+                    || clause.has_error()
                 {
                     continue;
                 }
+                // An errorful list (above: recovery puts the ERROR beside the specifier) or an
+                // unmatchable name or alias (an unpaired surrogate) records no claim.
                 let Some(name) = spec
                     .child_by_field_name("name")
-                    .map(|n| self.node_text(&n).to_string())
+                    .and_then(|n| self.js_ts_module_export_name(n))
                 else {
                     continue;
                 };
                 let alias = spec
                     .child_by_field_name("alias")
-                    .map(|n| self.node_text(&n).to_string());
-                let exported_as = alias.unwrap_or_else(|| name.clone());
+                    .map(|n| self.js_ts_module_export_name(n));
+                let Some(exported_as) = alias.unwrap_or_else(|| Some(name.clone())) else {
+                    continue;
+                };
                 let target = match &source {
                     Some(module_path) => JsExportTarget::ReExport {
                         module_path: module_path.clone(),
@@ -2819,7 +2831,7 @@ impl ParsedFile {
                     },
                     None => self
                         .js_ts_forwarded_import(&name)
-                        .unwrap_or(JsExportTarget::Local(name)),
+                        .unwrap_or_else(|| self.js_ts_local_export_target(name, spec, facts, d4)),
                 };
                 facts.insert_named(exported_as, target);
             }
@@ -2840,7 +2852,7 @@ impl ParsedFile {
                 }
                 let target = self
                     .js_ts_forwarded_import(&name)
-                    .unwrap_or(JsExportTarget::Local(name));
+                    .unwrap_or_else(|| self.js_ts_local_export_target(name, value, facts, d4));
                 facts.insert_named("default".to_string(), target);
             } else {
                 facts.skipped_expr_count += 1;
@@ -2872,7 +2884,8 @@ impl ParsedFile {
                         } else {
                             name_text.clone()
                         };
-                        facts.insert_named(exported_as, JsExportTarget::Local(name_text));
+                        let target = self.js_ts_local_export_target(name_text, decl, facts, d4);
+                        facts.insert_named(exported_as, target);
                     }
                 }
                 "lexical_declaration" | "variable_declaration" => {
@@ -2902,10 +2915,9 @@ impl ParsedFile {
                         // span-verified React wrapper; every other skip names its reason.
                         let admitted = match d.child_by_field_name("value").map(|v| v.kind()) {
                             Some("arrow_function") | Some("function_expression") => {
-                                facts.insert_named(
-                                    name_text.clone(),
-                                    JsExportTarget::Local(name_text),
-                                );
+                                let target =
+                                    self.js_ts_local_export_target(name_text.clone(), d, facts, d4);
+                                facts.insert_named(name_text, target);
                                 continue;
                             }
                             Some("call_expression") => self.js_ts_wrapped_export(decl, d),
@@ -4651,13 +4663,19 @@ impl ParsedFile {
     /// an escaping callable, revokes the whole-file owner proof. Shadow writes
     /// are separated by the same lexical predicate used for receiver mutations.
     pub(crate) fn js_ts_module_value_written(&self, name: &str) -> bool {
+        self.js_ts_module_written(name, false)
+    }
+
+    /// The module write scan; with `skip_using`, a TS `using` declaration declares and is
+    /// never a W1 write (S1b SPEC §3.1 D4, W1).
+    pub(crate) fn js_ts_module_written(&self, name: &str, skip_using: bool) -> bool {
         if !matches!(
             self.language,
             Language::JavaScript | Language::TypeScript | Language::Tsx
         ) {
             return false;
         }
-        fn walk(parsed: &ParsedFile, node: Node<'_>, root_id: usize, name: &str) -> bool {
+        fn walk(parsed: &ParsedFile, node: Node<'_>, root_id: usize, name: &str, u: bool) -> bool {
             if matches!(
                 node.kind(),
                 "assignment_expression"
@@ -4666,7 +4684,8 @@ impl ParsedFile {
                     | "for_in_statement"
                     | "for_of_statement"
                     | "for_await_statement"
-            ) {
+            ) && !(u && js_binding_decls::js_ts_is_using(node))
+            {
                 if let Some(target) = node
                     .child_by_field_name("left")
                     .or_else(|| node.child_by_field_name("argument"))
@@ -4684,11 +4703,11 @@ impl ParsedFile {
             let mut cursor = node.walk();
             let written = node
                 .named_children(&mut cursor)
-                .any(|child| walk(parsed, child, root_id, name));
+                .any(|child| walk(parsed, child, root_id, name, u));
             written
         }
         let root = self.tree.root_node();
-        walk(self, root, root.id(), name)
+        walk(self, root, root.id(), name, skip_using)
     }
 
     fn js_ts_receiver_has_closer_binding(

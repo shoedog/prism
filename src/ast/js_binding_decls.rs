@@ -1,5 +1,4 @@
 //! S1b (SPEC §3.1 D, P rows): the declarations a scope's statement list holds, by one walk.
-#![allow(dead_code)] // S1b-2b and S1b-3 wire these; remove the allow there
 use super::js_binding::{is_class, Index, Strictness};
 use super::{is_js_ts_function_like, ParsedFile};
 use std::collections::BTreeSet;
@@ -173,12 +172,7 @@ impl ParsedFile {
         if expr.kind() == "await_expression" {
             expr = expr.named_child(0)?;
         }
-        let mut cursor = expr.walk();
-        let using = expr.kind() == "assignment_expression"
-            && expr
-                .children(&mut cursor)
-                .any(|c| !c.is_named() && c.kind() == "using");
-        using.then_some(expr)
+        js_ts_is_using(expr).then_some(expr)
     }
 
     /// D5: the value names an `import` statement or an `import x = N.y` alias binds. An
@@ -217,4 +211,14 @@ impl ParsedFile {
         }
         out
     }
+}
+
+/// An assignment expression carrying the anonymous `using` token: a TS `using` declaration.
+pub(super) fn js_ts_is_using(expr: Node<'_>) -> bool {
+    let mut cursor = expr.walk();
+    let using = expr.kind() == "assignment_expression"
+        && expr
+            .children(&mut cursor)
+            .any(|c| !c.is_named() && c.kind() == "using");
+    using
 }

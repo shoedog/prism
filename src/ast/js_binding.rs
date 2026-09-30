@@ -5,8 +5,8 @@
 //! classified (B0). A written binding, or a declarator whose value is any other call with a
 //! function argument, is the may-call class and keeps base behavior (owner E5). Runtime
 //! mutation is out of model. S1b-2a evaluates the core at module scope only.
-#![allow(dead_code)] // S1b-2b and S1b-3 wire these; remove the allow there
 use super::{is_js_ts_function_like, ParsedFile};
+use crate::js_exports::{JsExportFacts, JsExportTarget};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 use tree_sitter::Node;
@@ -39,6 +39,9 @@ pub(crate) enum Strictness {
     Sloppy,
     Unknown,
 }
+
+/// D4's per-file context: the imported locals (base `Local`, poisoned later: E9) and the memo.
+pub(super) type ExportScope<'a> = (BTreeSet<String>, JsBindingCache<'a>);
 
 /// Declared names and their declaring nodes (markers included).
 pub(super) type Index<'a> = BTreeMap<String, Vec<Node<'a>>>;
@@ -182,10 +185,10 @@ impl ParsedFile {
             "function_declaration" | "generator_function_declaration"
         );
         // M2. Module scope uses the base write scan after F1–F3 (SPEC §3.2, identical to the
-        // scoped scan on the corpora, Q28), widened by the writes it cannot see; S1b-3 adds the
-        // scoped scan for nested scopes.
+        // scoped scan on the corpora, Q28), with `using` declarations not writes (S1b-2b) and
+        // widened by the writes it cannot see; S1b-3 adds the scoped scan for nested scopes.
         if (fe_self || binding || function)
-            && (self.js_ts_module_value_written(name) || self.js_ts_written_unseen(name, sealers))
+            && (self.js_ts_module_written(name, true) || self.js_ts_written_unseen(name, sealers))
         {
             return JsBinding::MayCall;
         }
@@ -353,6 +356,94 @@ impl ParsedFile {
             }
         }
         false
+    }
+}
+
+impl ParsedFile {
+    /// D4 (SPEC §3.2): the target an ESM local export occurrence of `name` at `site` records.
+    /// Proven callables carry their span (`wrapped` ones as S1's `SpannedLocal`); may-call
+    /// keeps base `Local` (E5, counted); a refusal is `UnprovenLocal`, counted by reason.
+    pub(super) fn js_ts_local_export_target<'a>(
+        &'a self,
+        name: String,
+        site: Node<'a>,
+        facts: &mut JsExportFacts,
+        (imported, cache): &mut ExportScope<'a>,
+    ) -> JsExportTarget {
+        if imported.contains(&name) {
+            return JsExportTarget::Local(name);
+        }
+        match self.js_ts_module_binding(&name, site, cache) {
+            JsBinding::Callable(t) if t.wrapped => JsExportTarget::SpannedLocal {
+                local: t.local,
+                start_line: t.start_line,
+                end_line: t.end_line,
+            },
+            JsBinding::Callable(t) => JsExportTarget::VerifiedLocal {
+                local: t.local,
+                start_line: t.start_line,
+                end_line: t.end_line,
+            },
+            JsBinding::MayCall => {
+                facts.local_export_may_call += 1;
+                JsExportTarget::Local(name)
+            }
+            // Unreachable at D4: an export statement makes the file a strict module.
+            JsBinding::Unchecked(_) => JsExportTarget::Local(name),
+            JsBinding::Refused(reason) => {
+                *facts
+                    .local_export_refusals
+                    .entry(reason.to_string())
+                    .or_default() += 1;
+                JsExportTarget::UnprovenLocal(name)
+            }
+        }
+    }
+
+    /// ECMAScript `ModuleExportName`: an identifier's text, or a string literal's StringValue
+    /// (either quote form; escapes decoded to UTF-16 code units, so a surrogate pair spelled
+    /// `\uD83D\uDE00` or `\u{D83D}\u{DE00}` is one scalar). `None` when the value is not
+    /// well-formed Unicode (an unpaired surrogate) or an escape does not decode: the name is
+    /// not matchable and callers record no claim for it (fail closed). Callers also treat a
+    /// specifier with a parse error as unmatchable (a recovered `"\xGG"` is identifier `GG`).
+    pub(crate) fn js_ts_module_export_name(&self, node: Node<'_>) -> Option<String> {
+        if node.kind() != "string" {
+            return Some(self.node_text(&node).to_string());
+        }
+        let is_digit = |c: char| c.is_ascii_digit();
+        let mut units: Vec<u16> = Vec::new();
+        let mut cursor = node.walk();
+        for part in node.named_children(&mut cursor) {
+            let text = self.node_text(&part);
+            let Some(esc) = text
+                .strip_prefix('\\')
+                .filter(|_| part.kind() == "escape_sequence")
+            else {
+                units.extend(text.encode_utf16());
+                continue;
+            };
+            let unit = match esc.chars().next()? {
+                'u' | 'x' => u32::from_str_radix(esc[1..].trim_matches(['{', '}']), 16).ok()?,
+                'n' => 0xA,
+                't' => 0x9,
+                'r' => 0xD,
+                'b' => 0x8,
+                'f' => 0xC,
+                'v' => 0xB,
+                // Legacy octal (`\01`, `\1`, `\0` before a digit) and `\8`/`\9` are module
+                // SyntaxErrors (impl r2 sol W1): unmatchable, never NUL.
+                '0' if esc.len() == 1 && !self.source[part.end_byte()..].starts_with(is_digit) => 0,
+                '0'..='9' => return None,
+                // A line continuation contributes nothing.
+                '\n' | '\r' | '\u{2028}' | '\u{2029}' => continue,
+                other => other as u32,
+            };
+            match u16::try_from(unit) {
+                Ok(unit) => units.push(unit),
+                Err(_) => units.extend(char::from_u32(unit)?.encode_utf16(&mut [0; 2]).iter()),
+            }
+        }
+        String::from_utf16(&units).ok()
     }
 }
 
