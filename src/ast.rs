@@ -7,6 +7,11 @@ use tree_sitter::{Node, Parser, Tree};
 mod js_binding;
 mod js_binding_checks;
 mod js_binding_decls;
+mod js_binding_recovery;
+mod js_binding_site;
+mod js_binding_values;
+mod js_binding_walk;
+mod js_binding_writes;
 mod js_cjs_export_barriers;
 mod js_cjs_terminal;
 mod js_module_forwarding;
@@ -5034,8 +5039,10 @@ impl ParsedFile {
         match node.kind() {
             "identifier" | "shorthand_property_identifier_pattern" => {
                 let name = self.node_text(&node);
-                // S1b-1b: `$` is a JS identifier character (`const $ = …`, `{ $f }`).
-                if is_plain_ident(&name.replace('$', "_")) {
+                // S1b-3 (spec r1 sol W1): the parser confirmed an ECMAScript IdentifierName, so
+                // any spelling without a `\` escape is a BoundName (`é` with U+0301, ZWNJ/ZWJ,
+                // `$`, S1b-1b); an escaped spelling stays out and B0 refuses its scope.
+                if !name.contains('\\') {
                     out.insert(name.to_string());
                 }
             }

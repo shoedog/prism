@@ -99,8 +99,10 @@ fn b6_parse_recovery_refuses_unless_sealed() {
     let rows = vec![
         ("C79", c79.as_str(), "f", site, PARSE),
         ("C149", &c149, "f", site, callable("f", 1, 3)),
-        // r1 fold (Opus W2): the sealed function mentions `f`, so M2 keeps base behavior.
-        ("C150", &c150, "f", site, MAY),
+        // S1b-3 (SPEC §3.8 (3), carry-forward 1): the inner `let f = ;` is a declaration, not a
+        // write to the module `f`; the scoped write resolver no longer treats a sealed node's
+        // mere mention of the name as a write (C-36).
+        ("C150", &c150, "f", site, callable("f", 1, 3)),
     ];
     check(&BOTH, true, rows);
 }
@@ -358,6 +360,8 @@ fn b18_module_terminal_consumes_markers_and_unknown_strictness() {
 const NC: JsBinding = JsBinding::Refused("not_callable");
 const MAY: JsBinding = JsBinding::MayCall;
 const UNBOUND: JsBinding = JsBinding::Refused("unbound");
+const ALIAS: JsBinding = JsBinding::Alias;
+const IMPORT: JsBinding = JsBinding::Import;
 
 /// Rows for the name `f`, sited at the program node (these sources parse cleanly).
 fn check_f(paths: &[&str], rows: Vec<(&str, &str, JsBinding)>) {
@@ -391,10 +395,12 @@ fn table_declarations_at_module_scope() {
         ("D4 const fe", "const f = function () {};", fe.clone()),
         ("D4 block lexical", "{\n  const f = () => 1;\n}\n", UNBOUND),
         ("D4 value", "const f = 1;", NC),
-        ("D5 named", "import { f } from './x';", NC),
-        ("D5 renamed", "import { g as f } from './x';", NC),
-        ("D5 default", "import f from './x';", NC),
-        ("D5 namespace", "import * as f from './x';", NC),
+        // S1b-3 (SPEC §3.8 (5)): a name whose single declaration is an import is `Import`; the
+        // import rungs decide (R4 drops, C141), never a same-file function.
+        ("D5 named", "import { f } from './x';", IMPORT),
+        ("D5 renamed", "import { g as f } from './x';", IMPORT),
+        ("D5 default", "import f from './x';", IMPORT),
+        ("D5 namespace", "import * as f from './x';", IMPORT),
         (
             "D7 block var",
             "if (x) {\n  var f = () => 1;\n}\n",
@@ -404,11 +410,15 @@ fn table_declarations_at_module_scope() {
         ("D7 for-of var", "for (var f of o) {}", NC),
         ("D7 catch marker", CATCH_VAR, DUP),
         ("D7 with marker", WITH_VAR, DUP),
-        ("P1 object", "const { f } = o;", NC),
-        ("P1 array", "const [f] = a;", NC),
-        ("P1 pair", "const { a: f } = o;", NC),
-        ("P1 default", "const { f = () => 1 } = o;", NC),
-        ("P1 rest", "const { ...f } = o;", NC),
+        // S1b-3 (SPEC §3.8 (11)): a pattern declarator's unwrapped value is an identifier, not
+        // in the closed NoFn class, so it is an alias (keeps base), not `not_callable`.
+        ("P1 object", "const { f } = o;", ALIAS),
+        ("P1 array", "const [f] = a;", ALIAS),
+        ("P1 pair", "const { a: f } = o;", ALIAS),
+        // A destructuring default anywhere is an alias whatever its value (owner 2026-09-29,
+        // the conservative cut, C-48).
+        ("P1 default", "const { f = () => 1 } = o;", ALIAS),
+        ("P1 rest", "const { ...f } = o;", ALIAS),
         ("P1 var pattern", "function f() {}\nvar { f } = o;", DUP),
         (
             "B3 assignment chain",
@@ -423,7 +433,9 @@ fn table_declarations_at_module_scope() {
         ("B3 wrapper", MEMO, wrapped),
         ("M1 let wrapper", &let_memo, MAY),
         ("M1 function argument", "const f = throttle(() => 1);", MAY),
-        ("M1 no function argument", "const f = make();", NC),
+        // S1b-3 (SPEC §3.8 (11)): a call value with no direct function argument may still hold
+        // a function by value flow, so it is an alias (owner 2026-09-29), not `not_callable`.
+        ("M1 no function argument", "const f = make();", ALIAS),
         ("unbound", "g();", UNBOUND),
     ];
     check_f(&BOTH, rows);
@@ -465,11 +477,13 @@ fn table_typescript_value_space() {
             "function f(a: string): void;\nfunction f(a: any) {}",
             callable("f", 2, 2),
         ),
-        ("D5 import alias", "import f = M.g;", NC),
-        ("D5 import require", "import f = require('x');", NC),
+        ("D5 import alias", "import f = M.g;", IMPORT),
+        ("D5 import require", "import f = require('x');", IMPORT),
         // D4: a `using` binding is a declaration, never a W1 write (S1b-2b filters it out of
-        // the module write scan), so it classifies like a `const` declarator.
-        ("D4 using", "using f = res();", NC),
+        // the module write scan), so it classifies like a `const` declarator. Its call value has
+        // no direct function argument, so it is an alias (SPEC §3.8 (11); r4 owner note: `using
+        // h = res()` keeps base Exact).
+        ("D4 using", "using f = res();", ALIAS),
         (
             "D4 using function argument",
             "using f = wrap(() => 1);",

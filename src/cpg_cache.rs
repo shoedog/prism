@@ -222,7 +222,10 @@ use std::path::{Path, PathBuf};
 ///   shadows; destructuring-default expressions no longer do); binding patterns accept `$`.
 /// - v101: S1b-2b ESM local exports bind through the module-scope binding (`VerifiedLocal`,
 ///   `ResolvedJsExport.wrapped`, refusal counts) and string export names by StringValue.
-const CACHE_VERSION: u32 = 101;
+/// - v102: S1b-3a extends the binding core to every scope (scoped M2, pattern-declarator M1,
+///   the alias/NoFn value class, the B1 containment fold): D4 export facts on C166-C168, C172
+///   change.
+const CACHE_VERSION: u32 = 102;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -761,7 +764,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 101);
+        assert_eq!(super::CACHE_VERSION, 102);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
