@@ -247,3 +247,16 @@ markers only after a leading static `import`; parser-confirmed Unicode identifie
 **9b probe fix (inadmissible first run, no comparison drawn):** the first C182–C184 fixtures called from anonymous
 arrows (`xs.map((x) => t(x))`), which prism does not index as callers, so no row existed to compare. The fixtures now
 call from a named nested `function each`; the predictions above stand unchanged.
+
+## Addendum 10 (S1b-3 spec r2 fold, v12) — PRE-REGISTERED, written before v12 is built or run
+
+Owner 2026-09-29 (conservative cut): a destructuring declarator whose pattern contains a default is `Alias` (keeps
+base); the recovered-import check reads the first two non-comment tokens. Both grammars.
+
+| Scenario | head (predicted) | v11 (predicted) | v12 (predicted) |
+|---|---|---|---|
+| C185 `const { missing: x = fallback } = {}; x()`, `fallback = function x(){}` | Exact `local_def x@1` | drop (sol r2 W1) | Exact kept (alias) |
+| C186 `const [y = fallback] = []; y()` | Exact `local_def` | drop | Exact kept |
+| C187 `const { z = fallback } = {}; z()` | Exact `local_def` | drop | Exact kept |
+| C188 `const { f = 0 } = {}` in `run`, `f()` from nested `each`, `f` a function in `lib` | Exact `free_single` | drop (NoFn `{}`) | Exact kept (a default: alias, the conservative cut) |
+| C189 `import /* c */ . meta load)`, `import /* c */ ('./x') load2)`, `import // c` + `.meta load3)` | Exact ×3 | drop ×3 (sol r2 W2) | Exact ×3 |

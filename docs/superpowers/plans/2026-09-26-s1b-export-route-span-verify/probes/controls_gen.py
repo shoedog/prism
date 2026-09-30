@@ -411,6 +411,21 @@ S1B["C183_OQ12_identifier_member_alias_inner_caller"] = {
 S1B["C184_OQ12_literal_values_inner_caller"] = {
  "lib.{s}": "export function f() {\n  return 1;\n}\nexport function k() {\n  return 2;\n}\nexport function m() {\n  return 3;\n}\n",
  "app.{s}": "export function run(g, xs) {\n  const f = 0;\n  const { k } = { k: 1 };\n  const [m] = [1, g];\n  function each() {\n    return f() + k() + m();\n  }\n  return xs.map(each);\n}\n"}
+# ---- S1b-3 spec r2 fold (v12): sol W1 destructuring defaults, sol W2 comment trivia. Pre-registered in addendum 10.
+S1B["C185_r2W1_object_default_alias"] = {
+ "a.{s}": "const fallback = function x() {\n  return 1;\n};\nexport function run() {\n  const { missing: x = fallback } = {};\n  return x();\n}\n"}
+S1B["C186_r2W1_array_default_alias"] = {
+ "a.{s}": "const fallback = function y() {\n  return 1;\n};\nexport function run() {\n  const [y = fallback] = [];\n  return y();\n}\n"}
+S1B["C187_r2W1_shorthand_default_alias"] = {
+ "a.{s}": "const fallback = function z() {\n  return 1;\n};\nexport function run() {\n  const { z = fallback } = {};\n  return z();\n}\n"}
+S1B["C188_r2W1_literal_default_still_alias"] = {
+ "lib.{s}": "export function f() {\n  return 1;\n}\n",
+ "app.{s}": "export function run(xs) {\n  const { f = 0 } = {};\n  function each() {\n    return f();\n  }\n  return xs.map(each);\n}\n"}
+S1B["C189_r2W2_comment_trivia_not_poison"] = {
+ "lib.{s}": "export function load() {\n  return 1;\n}\nexport function load2() {\n  return 2;\n}\nexport function load3() {\n  return 3;\n}\n",
+ "app.{s}": "import /* c */ . meta load)\nexport function run() {\n  return load();\n}\n",
+ "dyn.{s}": "import /* c */ ('./x') load2)\nexport function run2() {\n  return load2();\n}\n",
+ "line.{s}": "import // c\n.meta load3)\nexport function run3() {\n  return load3();\n}\n"}
 TS_ONLY["C171_CF7_namespace_export_destructuring"] = {
  "lib.ts": "export function f() {\n  return 1;\n}\n",
  "a.ts": "declare const o: any;\nnamespace N {\n  export const { f } = o;\n}\nexport function run() {\n  return f();\n}\n"}
