@@ -162,6 +162,41 @@ fn c_m20_member_decorator_is_inside_the_class() {
 }
 
 #[test]
+fn c_m20_parameter_decorator_resolves_the_outer_callable_not_the_parameter() {
+    // Fold-r2 item 3 (sol r2 SMELL 3): distinguishes two C-M20 mutants. The SPEC-faithful
+    // mutant (member/parameter decorators treated as Outside, resuming above the class) is
+    // already KILLED by `c_m20_member_decorator_is_inside_the_class` above. A second,
+    // "holder-only" mutant (unconditionally `next = holder` regardless of `is_class`) does NOT
+    // implement Outside and survives that test, because ordinary member traversal still
+    // reaches `class_body` then the class either way. It is not globally equivalent, though:
+    // for a *parameter* decorator whose argument name collides with the parameter's own name,
+    // holder-only makes `next` the `required_parameter` node itself, so the walk lands in the
+    // owning `formal_parameters` scope (which binds the parameter) instead of climbing to
+    // `class_body`/the class and out to the enclosing scope. The real walk must resolve `f` to
+    // the outer, module-level function declaration, not the method's own parameter `f`.
+    let src = "function f() {}\nclass C {\n  m(@d(f) f) {}\n}\n";
+    let p = parse("a.tsx", src);
+    let mut cache = super::JsBindingCache::default();
+    // Occurrence 0 is the outer `function f`; 1 is `@d(f)`'s argument; 2 is the parameter's own
+    // name (not a site, but still an `identifier` node, so it counts towards the index).
+    let site = ident(&p, "f", 1);
+    match p.js_ts_binding_walk(site, "f", &mut cache) {
+        Walk::Found(scope, explicit) => {
+            assert_eq!(
+                scope.kind(),
+                "program",
+                "expected the decorator's `f` to resolve to the outer callable, not the parameter"
+            );
+            assert!(explicit.is_none());
+        }
+        _ => panic!(
+            "expected Found(program): a parameter decorator sees the outer scope, \
+            not the method's own parameter environment"
+        ),
+    }
+}
+
+#[test]
 fn c29_named_class_expression_decorator_is_unproven() {
     let src = "const x = @d class Named {};\n";
     let p = parse("a.ts", src);
