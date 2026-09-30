@@ -210,20 +210,6 @@ fn c38_m2_any_declaration_kind_kept_written() {
 }
 
 #[test]
-fn c_fold_default_bearing_nofn_pattern_shadows_at_a_call_site() {
-    // Fold C (C-M43): the same default-bearing NoFn guard through the site-walk entry point
-    // (`js_ts_site_binding`), not just the module terminal: a nested default-bearing pattern
-    // with a NoFn value shadows an outer same-named function as an alias (keeps base), not
-    // `not_callable`.
-    let src = "function f() {\n  return 1;\n}\nfunction holder() {\n  const { f = 0 } = {};\n  \
-        return f();\n}\n";
-    check(
-        &BOTH,
-        vec![("C-fold-C site", src, "f", 1, JsBinding::Alias)],
-    );
-}
-
-#[test]
 fn c46_c178_parameter_list_error_seals_the_whole_function() {
     // SPEC §3.8 (6), spec r1 Opus W2: a `formal_parameters` error seals only when the site is
     // outside the whole sealer (parameters are visible from the body). A reference to an
@@ -263,6 +249,11 @@ fn b_t3_shared_binding_writes_cross_the_formal_parameters_function_split() {
     // Negative: inner's own default-write must not leak into outer's distinct `f` parameter.
     let shadow_negative = "function outer(f) {\n  function inner(f = (f = 1)) {\n    return 1;\n  \
         }\n  return f;\n}\n";
+    // Fold C (C-M43) site row: a nested default-bearing NoFn pattern shadows an outer
+    // same-named function as an alias (keeps base) through the site-walk entry point, not just
+    // the module terminal.
+    let default_nofn_shadow = "function f() {\n  return 1;\n}\nfunction holder() {\n  \
+        const { f = 0 } = {};\n  return f();\n}\n";
     check(
         &BOTH,
         vec![
@@ -271,6 +262,7 @@ fn b_t3_shared_binding_writes_cross_the_formal_parameters_function_split() {
             ("Bold-3", named_fe_default_writes_body, "f", 2, MAY),
             ("Bold-4", arguments_default_writes_body, "arguments", 1, MAY),
             ("Bold-5 shadow negative", shadow_negative, "f", 3, NC),
+            ("Fold-C site", default_nofn_shadow, "f", 1, JsBinding::Alias),
         ],
     );
 }
