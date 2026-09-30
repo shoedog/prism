@@ -20,6 +20,7 @@ and is in model.
 > - **2026-09-29:** after the first implementation measured 828 tests, the owner approved de-duplicating the test
 >   scaffolding, adding a C-M41 killing row, and raising **the tests cap to 820** (src stays 700).
 > - **2026-09-30:** after the round-1 review found items A–G, the owner raised **the tests cap to 920** for the fold.
+> - **2026-09-30 (final fold):** tests cap raised to **950** for the at-cap test-only fold (reverse-direction B rows, C-35 full equality, parameter-decorator row).
 > - These supersede the 740 figure below. The 3b caps (220 / 1,320) are unchanged.
 
 
