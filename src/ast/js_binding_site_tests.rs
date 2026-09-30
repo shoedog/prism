@@ -239,13 +239,20 @@ fn b_t3_shared_binding_writes_cross_the_formal_parameters_function_split() {
     // resolved scope must be compared canonically, not by raw id, in both directions.
     let default_writes_body =
         "function target() {\n  return 1;\n}\nfunction g(f = (f = target)) {\n  f();\n}\n";
+    // Reverse direction (Opus r2 W1, sol r2 S1): the query site is in the default, the write is
+    // in the body. The prior "body_writes_default" fixture was mislabelled (it wrote in a
+    // default and read in the body, the same direction as Bold-1) and is replaced here.
     let body_writes_default =
-        "function target() {\n  return 1;\n}\nfunction g(f, h = (f = 2)) {\n  f();\n}\n";
+        "function target() {\n  return 1;\n}\nfunction g(f, a = f(), b) {\n  \
+        f = 1;\n}\n";
     let named_fe_default_writes_body =
         "function target() {\n  return 1;\n}\nconst q = function f(x = (f = target)) {\n  \
         f();\n};\n";
+    let named_fe_body_writes_default =
+        "function target() {\n  return 1;\n}\nconst h = function f(a = f()) {\n  f = 1;\n};\n";
     let arguments_default_writes_body =
         "function g(a = (arguments = 1)) {\n  return arguments;\n}\n";
+    let arguments_body_writes_default = "function g(a = arguments.length) {\n  arguments = 1;\n}\n";
     // Negative: inner's own default-write must not leak into outer's distinct `f` parameter.
     let shadow_negative = "function outer(f) {\n  function inner(f = (f = 1)) {\n    return 1;\n  \
         }\n  return f;\n}\n";
@@ -258,9 +265,17 @@ fn b_t3_shared_binding_writes_cross_the_formal_parameters_function_split() {
         &BOTH,
         vec![
             ("Bold-1", default_writes_body, "f", 2, MAY),
-            ("Bold-2", body_writes_default, "f", 2, MAY),
+            ("Bold-2 reverse", body_writes_default, "f", 1, MAY),
             ("Bold-3", named_fe_default_writes_body, "f", 2, MAY),
+            ("Bold-3 reverse", named_fe_body_writes_default, "f", 1, MAY),
             ("Bold-4", arguments_default_writes_body, "arguments", 1, MAY),
+            (
+                "Bold-4 reverse",
+                arguments_body_writes_default,
+                "arguments",
+                0,
+                MAY,
+            ),
             ("Bold-5 shadow negative", shadow_negative, "f", 3, NC),
             ("Fold-C site", default_nofn_shadow, "f", 1, JsBinding::Alias),
         ],
