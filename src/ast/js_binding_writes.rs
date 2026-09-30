@@ -18,7 +18,8 @@ impl ParsedFile {
         name: &str,
         cache: &mut JsBindingCache<'a>,
     ) -> bool {
-        let key = (scope.id(), name.to_string());
+        let canon = canonical_write_scope(scope);
+        let key = (canon.id(), name.to_string());
         if let Some(w) = cache.written.get(&key) {
             return *w;
         }
@@ -31,7 +32,9 @@ impl ParsedFile {
         let written = targets
             .into_iter()
             .any(|t| match self.js_ts_binding_walk(t, name, cache) {
-                Walk::Found(s, _) => s.id() == scope.id() || s.kind() == "with_statement",
+                Walk::Found(s, _) => {
+                    canonical_write_scope(s).id() == canon.id() || s.kind() == "with_statement"
+                }
                 Walk::Unchecked(_) => true,
                 Walk::Unbound => false,
             });
@@ -70,6 +73,20 @@ impl ParsedFile {
             }
         }
         out
+    }
+}
+
+/// A `formal_parameters` node (T3) and its owning function (T2) index the same shared
+/// bindings (parameters, `arguments`, a named function expression's own name) at two distinct
+/// node ids: a default-expression write walks to T3, a body reference walks to T2. Bug fold
+/// (gpt-5.6-sol W1, gpt-6.1-sol W1): comparing raw ids misses the write in either direction.
+/// `formal_parameters` never indexes a body-only declaration (its own scope index calls only
+/// `js_ts_function_names`), so mapping it to its parent is always safe here.
+fn canonical_write_scope(n: Node<'_>) -> Node<'_> {
+    if n.kind() == "formal_parameters" {
+        n.parent().unwrap_or(n)
+    } else {
+        n
     }
 }
 

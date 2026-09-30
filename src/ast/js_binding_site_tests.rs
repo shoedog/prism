@@ -230,3 +230,33 @@ fn c46_c178_parameter_list_error_seals_the_whole_function() {
         )],
     );
 }
+
+#[test]
+fn b_t3_shared_binding_writes_cross_the_formal_parameters_function_split() {
+    // Fold B (gpt-5.6-sol W1, gpt-6.1-sol W1): a `formal_parameters` node (T3) and its owning
+    // function (T2) index the same shared binding (a parameter, `arguments`, a named function
+    // expression's own name) at two distinct node ids; a write's resolved scope and a query's
+    // resolved scope must be compared canonically, not by raw id, in both directions.
+    let default_writes_body =
+        "function target() {\n  return 1;\n}\nfunction g(f = (f = target)) {\n  f();\n}\n";
+    let body_writes_default =
+        "function target() {\n  return 1;\n}\nfunction g(f, h = (f = 2)) {\n  f();\n}\n";
+    let named_fe_default_writes_body =
+        "function target() {\n  return 1;\n}\nconst q = function f(x = (f = target)) {\n  \
+        f();\n};\n";
+    let arguments_default_writes_body =
+        "function g(a = (arguments = 1)) {\n  return arguments;\n}\n";
+    // Negative: inner's own default-write must not leak into outer's distinct `f` parameter.
+    let shadow_negative = "function outer(f) {\n  function inner(f = (f = 1)) {\n    return 1;\n  \
+        }\n  return f;\n}\n";
+    check(
+        &BOTH,
+        vec![
+            ("Bold-1", default_writes_body, "f", 2, MAY),
+            ("Bold-2", body_writes_default, "f", 2, MAY),
+            ("Bold-3", named_fe_default_writes_body, "f", 2, MAY),
+            ("Bold-4", arguments_default_writes_body, "arguments", 1, MAY),
+            ("Bold-5 shadow negative", shadow_negative, "f", 3, NC),
+        ],
+    );
+}

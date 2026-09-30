@@ -367,12 +367,16 @@ impl ParsedFile {
                 facts.local_export_may_call += 1;
                 JsExportTarget::Local(name)
             }
-            // Unreachable at D4: an export statement makes the file a strict module, and
-            // imported names are filtered above.
-            JsBinding::Unchecked(_) | JsBinding::Import => JsExportTarget::Local(name),
-            // D4 keeps the landed S1b-2b answer for a value-flow alias: `not_callable` (SPEC
-            // §3.8 (11): "D4 is unchanged").
-            JsBinding::Alias => {
+            // Unreachable at D4: an export statement makes the file a strict module.
+            JsBinding::Unchecked(_) => JsExportTarget::Local(name),
+            // D4 keeps the landed S1b-2b answer for a value-flow alias (SPEC §3.8 (11): "D4 is
+            // unchanged") and, likewise, for an `Import` (fold A, Opus r1 W1): the D4 `imported`
+            // set only poisons the value-import forms it recognizes (`extract_import_bindings`
+            // plus type-only), so an `import f = M.g` / `import f = require(...)` alias export
+            // is not filtered above and would otherwise leak an unpoisoned `Local`, letting R4c
+            // bind a same-file decoy Exact — re-opening the edge S1b-2b closed. Both count
+            // `not_callable`.
+            JsBinding::Alias | JsBinding::Import => {
                 *facts
                     .local_export_refusals
                     .entry("not_callable".into())

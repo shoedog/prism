@@ -127,6 +127,45 @@ fn c47_c180_non_ascii_bound_name_shadows() {
 }
 
 #[test]
+fn a_d4_import_alias_and_require_export_stay_unproven_with_a_nested_decoy() {
+    // Fold A (Opus r1 W1): an exported `import f = M.g` or `import f = require('./x')` is a
+    // single declaration whose kind is `import_alias`/`import_statement` (JsBinding::Import);
+    // D4's `imported` set (extract_import_bindings + type-only) does not recognize either
+    // form, so before the fix `Import` fell through to base `Local(name)` (unpoisoned),
+    // letting R4c bind a nested same-file decoy `function f` as Exact — re-opening the edge
+    // 2b had closed. Both stay `UnprovenLocal`, counted `not_callable`.
+    let import_alias =
+        "import f = M.g;\nfunction outer() {\n  function f() {\n    return 1;\n  }\n  \
+        return f;\n}\nexport { f, outer };\n";
+    let import_require =
+        "import f = require('./x');\nfunction outer() {\n  function f() {\n    return 1;\n  \
+        }\n  return f;\n}\nexport { f, outer };\n";
+    for (id, src) in [
+        ("IA1 import_alias", import_alias),
+        ("IA2 require", import_require),
+    ] {
+        for path in ["a.ts", "a.tsx"] {
+            let p = parse(path, src);
+            let site = p.tree.root_node();
+            let mut facts = crate::js_exports::JsExportFacts::default();
+            let mut scope: (std::collections::BTreeSet<String>, JsBindingCache<'_>) =
+                (std::collections::BTreeSet::new(), JsBindingCache::default());
+            let got = p.js_ts_local_export_target("f".to_string(), site, &mut facts, &mut scope);
+            assert_eq!(
+                got,
+                crate::js_exports::JsExportTarget::UnprovenLocal("f".to_string()),
+                "{id} {path}"
+            );
+            assert_eq!(
+                facts.local_export_refusals.get("not_callable"),
+                Some(&1),
+                "{id} {path}"
+            );
+        }
+    }
+}
+
+#[test]
 fn c_m40_d4_keeps_unproven_local_for_an_alias_export() {
     // SPEC §3.8 (11): "D4 is unchanged": an alias value at an export occurrence keeps the
     // landed 2b answer (`UnprovenLocal`, counted `not_callable`), not base `Local` (mutant
