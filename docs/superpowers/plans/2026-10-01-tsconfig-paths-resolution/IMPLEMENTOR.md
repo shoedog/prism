@@ -1,6 +1,6 @@
 # Sonnet dispatch — P1 tsconfig paths import members
 
-READ: planning continues under the controller interim OQ1–OQ4 dispositions in OQ-paths.md, pending owner confirmation. P1 implementation dispatch still requires fresh F aggregates, Opus plan approval and controller commit/authority binding. Read SPEC, OQ-paths, MEASUREMENTS and BUILD-MANIFEST.md. Use the retained bound TypeScript package path as TS_JS. Review cap is two rounds; numeric LOC caps do not exist. Do not restart the prototype. Implementer starts from the controller-applied **cumulative P1.diff** off bound base `5048f443`, not from a rewrite.
+READ: planning continues under the controller interim OQ1–OQ4 dispositions in OQ-paths.md, pending owner confirmation. P1 implementation dispatch still requires fresh F aggregates, Opus plan approval and controller commit/authority binding. Read SPEC, OQ-paths, MEASUREMENTS and BUILD-MANIFEST.md. Use the retained bound TypeScript package path as TS_JS. READ: Opus round 1 returned FIX (2 WRONG / 5 SMELL), all dispositions are folded; round 2 is pending. Review cap is two rounds; numeric LOC caps do not exist. Do not restart the prototype. Implementer starts from the controller-applied **cumulative P1.diff** off bound base `5048f443`, not from a rewrite.
 
 READ: controller fills `__PLAN_COMMIT__`, `__PROTO_COMMIT__`, `__IMPLEMENTATION_PARENT__`, owner answers and review dispositions before dispatch. If parent, scope or membership ruling differs, stop the dependent work and ask the controller; do not infer a ruling. Existing user authorization covers completing P1, tests and fixes within the answered scope, not P2, pushing or merging.
 
@@ -8,9 +8,9 @@ READ: controller fills `__PLAN_COMMIT__`, `__PROTO_COMMIT__`, `__IMPLEMENTATION_
 
 READ: the controller creates `proto/tsconfig-paths` from implementation parent `5048f44300a7bb8161444e83c0d02713529a33fd`, applies **`target/paths-proto/P1.diff`**, and commits exactly **`target/paths-proto/P1-owned-files.txt`**. Sonnet begins on that resulting `__PROTO_COMMIT__`, carrying all prototype source, tests and fixtures forward. This is the cumulative implementation body; no rewrite or fresh resolver implementation is requested.
 
-MEASURED: the refreshed patch SHA-256 is `ef6f07891471fb287d6b5ff5d35cca85823c6fe15a7682116bfd6615287c089f`. `target/paths-proto/source-hashes.json` binds both base and final file bytes; `target/paths-proto/P1-owned-files.tar.gz` contains the same 35 owned files. `target/paths-plan/patch-replay-final.log` and `resume-binding.json` verify an exact replay. Earlier patch/archive snapshots are superseded because they predate the final position-injection test compile fix. Use the final hashes in BUILD-MANIFEST.md.
+MEASURED: the refreshed patch SHA-256 is `33f8fc33a0145952c28c676b5c3b85579cceb31ee39812ea0dbc81b81ecc049c`. `target/paths-proto/source-hashes.json` binds both base and final file bytes; `target/paths-proto/P1-owned-files.tar.gz` contains the same 37 owned files. `target/paths-plan/r1/final-evidence/patch-replay.log` and `source-binding.json` verify an exact replay. The earlier d53cacbd patch and 93494168 applied body are superseded by this cumulative R1 fold. Preserve the existing reviewed artifact; apply the updated cumulative bytes against the same 5048f443 parent. Use the final hashes in BUILD-MANIFEST.md.
 
-READ: exact owned-file list (35 paths, relative to the prototype repository; also retained as the newline-delimited `P1-owned-files.txt`):
+READ: exact owned-file list (37 paths, relative to the prototype repository; also retained as the newline-delimited `P1-owned-files.txt`):
 
 ```text
 eval/fixtures/javascript/tsconfig_paths_positive/app.jsx
@@ -38,6 +38,7 @@ eval/fixtures/typescript/tsconfig_paths_refusal/tsconfig.json
 src/call_graph.rs
 src/cpg/build.rs
 src/cpg_cache.rs
+src/js_exports.rs
 src/js_paths.rs
 src/js_paths_snapshot.rs
 src/js_paths_syntax.rs
@@ -46,23 +47,24 @@ src/navigation/call_edge_cache.rs
 src/navigation/call_resolve.rs
 src/repo_loader.rs
 src/resolution.rs
+tests/integration/fixtures/js_paths_r1.json
 tests/integration/js_paths_test.rs
 tests/integration/main.rs
 ```
 
-ASSUMPTION: controller custody sequence: verify the final patch/archive/list hashes; check every parent file hash against `base_sha256` and absence for null base hashes; apply the cumulative patch in the new worktree; check every resulting owned file against `prototype_sha256`; commit only the listed paths and fill the dispatch placeholders. Stop if any path/hash/parent differs. Prototype commit recommendation: `feat(paths): resolve finite tsconfig paths import members`. The planner performs none of these Git writes.
+ASSUMPTION: controller custody sequence: verify the final patch/archive/list hashes; check every parent file hash against `base_sha256` and absence for null base hashes; apply the cumulative patch in the new worktree; check every resulting owned file against `prototype_sha256`; commit only the listed paths and fill the dispatch placeholders. Stop if any path/hash/parent differs. Prototype commit recommendation: `fix(paths): enforce root membership and skipped-star alias barriers`. The planner performs none of these Git writes.
 
 ## Model and scope
 
 READ: Exact is static binding. Option K keeps every unproven complete base row. No runtime-mutation guard, package/workspace resolver, namespace/class change, new corpus, speculative NameOnly-to-Exact upgrade or permissive name fallback. P1’s module match alone is insufficient: retain the landed import eligibility, local shadow, export/wrapper/span/unique callable gates. CJS span-less exports, require bindings (including a module shared with ESM) and positions lacking the specific imported binding proof stay at base through the new non-relative route.
 
-ASSUMPTION: the SPEC §3 cut is the dispatch recommendation. Node/Node10, exact and one-star singleton paths, local single-parent captured extends, effective property origins, nearest including ancestor, supported JSONC/globs, unique physical indexed candidates. Unsupported input preserves base. Do not “complete TypeScript semantics” beyond that cut.
+ASSUMPTION: the SPEC §3 cut is the dispatch recommendation. Node/Node10, exact and one-star singleton paths, local single-parent captured extends, effective property origins, nearest including ancestor, corrected parent/dotted exclude and JavaScript-family membership, same-stem/declaration sibling barrier, package/Unicode/case membership barriers, jsconfig/references/files-empty barriers, supported JSONC/globs, unknown dotted suffix probes and unique physical indexed candidates. Unsupported input preserves base. Do not “complete TypeScript semantics” beyond that cut.
 
 ## Owned files
 
-READ: the cumulative patch enumerates its exact paths. Production ownership: new `src/js_paths.rs`, `src/js_paths_snapshot.rs`, `src/js_paths_syntax.rs`; `src/lib.rs`; `ScopeGraphBuildInputs` and the derived map/full recompute in `src/call_graph.rs`; loader-created snapshot/topology in `src/repo_loader.rs`; R4c member-module helper/span requirement in `src/resolution.rs`; `src/navigation/call_resolve.rs`; incremental recomputation in `src/cpg/build.rs`; cache versions and pin tests in `src/cpg_cache.rs` and `src/navigation/call_edge_cache.rs`.
+READ: the cumulative patch enumerates its exact paths. Production ownership: `src/js_exports.rs` skipped-star provenance; new `src/js_paths.rs`, `src/js_paths_snapshot.rs`, `src/js_paths_syntax.rs`; `src/lib.rs`; `ScopeGraphBuildInputs` and the derived map/full recompute in `src/call_graph.rs`; loader-created snapshot/topology in `src/repo_loader.rs`; R4c member-module helper/span requirement in `src/resolution.rs`; `src/navigation/call_resolve.rs`; incremental recomputation in `src/cpg/build.rs`; cache versions and pin tests in `src/cpg_cache.rs` and `src/navigation/call_edge_cache.rs`.
 
-READ: tests: `tests/integration/js_paths_test.rs`, its main module entry; four new Tier-A directories `eval/fixtures/{javascript,typescript}/tsconfig_paths_{positive,refusal}`. No other existing test expectation is changed. Do not edit CLAUDE.md or existing Tier-A baselines. The Go symlink manifest test remains unchanged: its initially observed regression was fixed by omitting JS occupancy topology when no config exists.
+READ: tests: `tests/integration/js_paths_test.rs`, its main module entry; four new Tier-A directories `eval/fixtures/{javascript,typescript}/tsconfig_paths_{positive,refusal}`. R1 also owns src/js_exports.rs and tests/integration/fixtures/js_paths_r1.json. The alias-only skipped-star provenance leaves base relative binding results intact; value-empty parsed modules retain empty facts. All relative/alias prefix guards trim first; alias map keys retain the raw spelling. No other existing test expectation is changed. Do not edit CLAUDE.md or existing Tier-A baselines. The Go symlink manifest test remains unchanged: its initially observed regression was fixed by omitting JS occupancy topology when no config exists.
 
 ## Execution order
 
@@ -73,7 +75,7 @@ ASSUMPTION: perform the following bounded build sequence, retaining prototype co
 3. ASSUMPTION: examine the three small kernel modules first. Resolve any owner/model amendments in place. Configuration bytes and occupancy must be read into loader inputs, never fetched by a call-resolution helper. Convention-only inputs remain empty.
 4. ASSUMPTION: retain the one R4c helper integration and nav incoming-caller helper. Do not change relative export closure or R3. Fresh whole-graph inputs recompute the derived map on incremental/config-only rebuilds before graph/DFG assembly. Retain 104/60 (or actual parent +1) and both pins.
 5. MEASURED requirement: run all integration rows in JSX and TSX, `controls_gen.py`, public rowdiff and TypeScript audit. Every changed row must independently pass site-import, module, callable/name/span identity checks. Any unproven changed row is an open gate. Controller alone runs private F; do not read private inputs or raw private evidence.
-6. MEASURED requirement: rerun all ten kernel mutants and the four integration mutants; each alone, with admissible behavioral output. Kernel mutation does not certify graph wiring. The CJS span-less case is the I03 boundary control, not a claim that every CJS callable is wrong. I04 kills bypass of the specific binding/position guard; preserve Position/Unchecked/MayCall/unbound states.
+6. MEASURED requirement: rerun all twenty kernel mutants and the ten integration mutants; each alone, with admissible behavioral output. Serialize mutation and suite builds when using a shared target directory; never replace a live binary pathname. Use immutable target/paths-plan/r1/head-membership-final/prism for measurements. Kernel mutation does not certify graph wiring. The CJS span-less case is the I03 boundary control, not a claim that every CJS callable is wrong. I04 kills bypass of the specific binding/position guard; preserve Position/Unchecked/MayCall/unbound states.
 7. MEASURED requirement: verify with the full suite, release build, Tier-A matrix/quick and formatter; run scoped clippy. Largest runnable subsets and exact exclusions are reported. Do not install/fetch. Full `--corpus all` Tier-A remains human-triggered.
 8. READ custody requirement: refresh HANDOFF at each stable point using the steering template. Controller commits explicit owned paths. Report source/test/fixture size, remaining work, commands/results and every exclusion; no push, merge or P2 adoption.
 
@@ -107,3 +109,17 @@ python3 probes/cache_probe.py "$BASE_BIN" "$HEAD_BIN" "$OUT/cache"
 ```
 
 ASSUMPTION: size forecast **750–900 source / 650–850 tests / 70–100 fixtures**; no cap. Stop only for changed scope/authority or a non-converging open-class model issue. For closed enumerable review findings, fold bounded fixes on this body and rerun the discriminating evidence. At round two classify convergence before acting; disclose any owner-authorized extension.
+
+## Round-1 fold and controller remeasurement
+
+READ: W1 and W2 remain WRONG, corrected in place; S1–S5 remain SMELL, addressed without downgrading findings. See MEASUREMENTS for killing controls and per-row results. If independent round 2 finds further membership mismatches, use the controller’s refuse-on-any-doubt disposition; do not widen the model piecemeal.
+
+Controller F command (defaults bind the fresh immutable binary):
+
+```bash
+bash docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/probes/CONTROLLER-paths.sh
+```
+
+Provide CORPUS_F_ROOT, PRIVATE_EVIDENCE_ROOT and TS_JS privately. Stdout contains counts/classes, the head hash and one aggregate refusal-reason code per unchanged oracle-recoverable row. Reasons are independent ordered P1 cuts, not production telemetry; UNCLASSIFIED_P1_PROOF stays open. The revised oracle requires explicit effective Node/Node10 and applies delegated-project barriers; prior F 2,345/3,102 (75.60%) is controller-supplied and uses the earlier denominator. Never open private source or raw receipts in the planner lane.
+
+Controller commit recommendations: plan `docs(paths): fold Opus spec review round one`; prototype `fix(paths): enforce root membership and skipped-star alias barriers` (cumulative body still starts at 5048f443).

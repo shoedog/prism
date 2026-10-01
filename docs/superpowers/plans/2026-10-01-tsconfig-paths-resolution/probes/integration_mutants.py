@@ -5,8 +5,14 @@ repo=Path(sys.argv[1]).resolve();out=Path(sys.argv[2]).resolve();target=Path(sys
 mutations={
  'I01-no-config-fingerprint':('src/js_paths_snapshot.rs','for (p, b) in &self.configs {','for (p, b) in self.configs.iter().take(0) {','js_paths_test::js_paths_config_change_and_incremental_rebuild'),
  'I02-no-post-merge-map':('src/cpg/build.rs','            cached_cg.apply_js_paths(scope_inputs);','            // mutant omitted post-merge map','js_paths_test::js_paths_config_change_and_incremental_rebuild'),
- 'I03-no-span-requirement':('src/resolution.rs',"if !binding.module_path.starts_with('.') && resolved.span.is_none() {","if false && !binding.module_path.starts_with('.') && resolved.span.is_none() {",'js_paths_test::js_paths_cjs_terminal_without_span_preserves_base'),
- 'I04-no-binding-position-guard':('src/resolution.rs',"if !binding.module_path.starts_with('.')\n            && (", "if false && !binding.module_path.starts_with('.')\n            && (",'js_paths_test::js_paths_require_alias_preserves_base_even_with_esm_same_module'),
+ 'I03-no-span-requirement':('src/resolution.rs',"if !binding.module_path.trim().starts_with('.') && resolved.span.is_none() {","if false && !binding.module_path.trim().starts_with('.') && resolved.span.is_none() {",'js_paths_test::js_paths_cjs_terminal_without_span_preserves_base'),
+ 'I04-no-binding-position-guard':('src/resolution.rs',"if !binding.module_path.trim().starts_with('.')\n            && (", "if false && !binding.module_path.trim().starts_with('.')\n            && (",'js_paths_test::js_paths_require_alias_preserves_base_even_with_esm_same_module'),
+ 'I05-no-skipped-star-guard':('src/resolution.rs',"if !binding.module_path.trim().starts_with('.') && resolved.via_unresolved_star {", "if false && !binding.module_path.trim().starts_with('.') && resolved.via_unresolved_star {",'js_paths_test::js_paths_r1_skipped_star_preserves_base'),
+ 'I06-all-file-occupancy':('src/js_paths_snapshot.rs','self.opaque_directories.contains(*p)', 'true || self.opaque_directories.contains(*p)','js_paths_test::js_paths_unrelated_text_keeps_topology'),
+ 'I07-no-proven-empty-facts':('src/call_graph.rs','if !exports.is_empty() || !parsed.tree.root_node().has_error() {','if !exports.is_empty() {','js_paths_test::js_paths_r1_membership_barriers_dot_and_relative'),
+ 'I08-no-opaque-star-guard':('src/js_exports.rs','facts.skipped_expr_count > facts.skipped_decl_reasons.values().sum::<usize>()','false','js_paths_test::js_paths_r1_skipped_star_preserves_base'),
+ 'I09-ignore-skipped-declaration-name':('src/js_exports.rs','facts.module_value_bindings.contains(name)','false','js_paths_test::js_paths_r1_skipped_star_preserves_base'),
+ 'I10-trim-alias-cache-key':('src/call_graph.rs','.get(&(caller.into(), module.into()))','.get(&(caller.into(), module.trim().into()))','js_paths_test::js_paths_r1_membership_barriers_dot_and_relative'),
 }
 results=[]
 for label,(file,old,new,test) in mutations.items():

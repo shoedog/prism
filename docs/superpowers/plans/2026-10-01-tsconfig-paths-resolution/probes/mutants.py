@@ -13,12 +13,22 @@ mutants={
  'M02-shortest-prefix':('js_paths.rs','Some((m, _, _)) if *m > n => {}','Some((m, _, _)) if *m < n => {}'),
  'M03-child-paths-origin':('js_paths.rs','c.base.as_deref().unwrap_or(&origin)','c.base.as_deref().unwrap_or(dir(file))'),
  'M04-ignore-include':('js_paths.rs','Some(true) => break Some(c),','Some(true) | Some(false) => break Some(c),'),
- 'M05-ignore-exclude':('js_paths.rs','if pattern_matches(p, file)? {','if false && pattern_matches(p, file)? {'),
+ 'M05-ignore-exclude':('js_paths.rs','let exact = exclude_matches(p, file)?;','let exact = false;'),
  'M06-ignore-declaration-blocker':('js_paths.rs','for ext in [".ts", ".tsx", ".d.ts", ".js", ".jsx"] {','for ext in [".ts", ".tsx", ".js", ".jsx"] {'),
  'M07-ignore-package-boundary':('js_paths.rs','.contains_key(&format!("{p}/package.json"))','.contains_key(&format!("{p}/__mutant_absent.json"))'),
  'M08-accept-tied-pattern':('js_paths.rs','if tied || s.is_empty() {','if s.is_empty() {'),
  'M09-ignore-baseurl-origin':('js_paths.rs','c.base.as_deref().unwrap_or(&origin)','&origin'),
  'M10-unmatched-target-star':('js_paths.rs',"if !key.contains('*') && raw_target.contains('*') {", "if false && !key.contains('*') && raw_target.contains('*') {"),
+ 'M11-no-allowjs':('js_paths.rs','Some("js" | "jsx" | "mjs" | "cjs")','Some("__never")'),
+ 'M12-no-outdir-barrier':('js_paths.rs','if !out.is_empty() {','if false && !out.is_empty() {'),
+ 'M13-exclude-fullpath-only':('js_paths_syntax.rs','prefix = parent;','return Some(false);'),
+ 'M14-no-same-stem-barrier':('js_paths.rs','["js", "jsx", "mjs", "cjs"].contains(&ext)','["__never"].contains(&ext)'),
+ 'M15-include-package-folders':('js_paths_syntax.rs','if !exclude\n        && file', 'if false && !exclude\n        && file'),
+ 'M16-no-declaration-priority':('js_paths.rs','file.strip_suffix(".d.ts")','file.strip_suffix(".__never")'),
+ 'M17-byte-unicode-glob':('js_paths_syntax.rs','if !pattern.is_ascii()\n        || !file.is_ascii()','if false'),
+ 'M18-no-include-case-barrier':('js_paths.rs','if !exact && pattern_matches(', 'if false && !exact && pattern_matches('),
+ 'M19-no-exclude-case-barrier':('js_paths.rs','if !exact && exclude_matches(', 'if false && !exact && exclude_matches('),
+ 'M20-ignore-case-config':('js_paths_snapshot.rs','let config_name = name.to_ascii_lowercase();','let config_name = name.to_owned();'),
 }
 results=[];baseline=None
 for label,mutation in [('reference',None),*mutants.items()]:

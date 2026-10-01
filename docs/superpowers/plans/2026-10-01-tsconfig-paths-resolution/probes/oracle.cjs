@@ -9,7 +9,7 @@ const byFile=new Map(facts.map(x=>[x.file,x]));
 const rows=fs.readFileSync(dumpPath,'utf8').trim().split('\n').map(JSON.parse).filter(x=>x.record_kind==='call_site');
 const rel=p=>path.relative(root,p).split(path.sep).join('/');
 const within=p=>{const r=rel(p);return r!== '..' && !r.startsWith('../') && !path.isAbsolute(r);};
-const configCache=new Map(), chosen=new Map(), resolutions=new Map();
+const configCache=new Map(), chosen=new Map(), barriers=new Map(), resolutions=new Map();
 const inputHashes=new Map();
 function config(p){
  if(configCache.has(p))return configCache.get(p);
@@ -24,8 +24,15 @@ function select(file){
  const absolute=path.join(root,file);if(chosen.has(absolute))return chosen.get(absolute);
  let dir=path.dirname(absolute), selected=null;
  while(within(dir)){
+  const js=path.join(dir,'jsconfig.json');
+  if(fs.existsSync(js)){config(js);barriers.set(absolute,'JSCONFIG_BARRIER');break;}
   const p=path.join(dir,'tsconfig.json');
-  if(fs.existsSync(p)) {const c=config(p);if(c.members.has(absolute)){selected=c;break;}}
+  if(fs.existsSync(p)) {
+   const c=config(p), raw=c.c?.raw;
+   if(raw && (Object.hasOwn(raw,'references') || (Array.isArray(raw.files)&&raw.files.length===0))){barriers.set(absolute,'DELEGATED_CONFIG_BARRIER');break;}
+   if(c.diagnostics.length){barriers.set(absolute,'INVALID_CONFIG_BARRIER');break;}
+   if(c.members.has(absolute)){selected=c;break;}
+  }
   if(dir===root)break;dir=path.dirname(dir);
  }
  chosen.set(absolute,selected);return selected;
@@ -49,7 +56,7 @@ function resolve(file,spec){
   }else if(opts.baseUrl && mod && within(mod.resolvedFileName) && !mod.isExternalLibraryImport)via='baseUrl';
   else if(mod)via='package_or_other';
  }
- const v={config:cf?rel(cf.p):null,diagnostics:cf?.diagnostics||[],chain:cf?.read.filter(p=>p!==cf.p&&p.endsWith('.json')).map(rel)||[],references:cf?.c?.projectReferences?.length||0,pattern,via,removal_same:removalSame||false,target:mod?rel(mod.resolvedFileName):null,external:mod?!within(mod.resolvedFileName):false,extension:mod?.extension||null,options:cf?{baseUrl:opts.baseUrl?rel(opts.baseUrl):null,pathsBasePath:opts.pathsBasePath?rel(opts.pathsBasePath):null,moduleResolution:opts.moduleResolution,paths:opts.paths||{}}:null};
+ const v={config:cf?rel(cf.p):null,ownership_barrier:barriers.get(path.join(root,file))||null,diagnostics:cf?.diagnostics||[],chain:cf?.read.filter(p=>p!==cf.p&&p.endsWith('.json')).map(rel)||[],references:cf?.c?.projectReferences?.length||0,pattern,via,removal_same:removalSame||false,target:mod?rel(mod.resolvedFileName):null,external:mod?!within(mod.resolvedFileName):false,extension:mod?.extension||null,options:cf?{baseUrl:opts.baseUrl?rel(opts.baseUrl):null,pathsBasePath:opts.pathsBasePath?rel(opts.pathsBasePath):null,moduleResolution:opts.moduleResolution,outDir:opts.outDir,rootDirs:opts.rootDirs,moduleSuffixes:opts.moduleSuffixes,noResolve:opts.noResolve,paths:opts.paths||{}}:null};
  resolutions.set(k,v);return v;
 }
 // Independent checker, with TypeScript's resolver receiving each file's selected config.
@@ -64,7 +71,110 @@ function exportsFor(file){
  const symbol=checker.getSymbolAtLocation(sf);if(!symbol)return null;
  return new Map(checker.getExportsOfModule(symbol).map(s=>[s.name,unalias(s)]));
 }
-const exportsCache=new Map();
+const exportsCache=new Map(), barrelDiagnostics=new Map();
+// TS first-wins symbol lookup does not certify an ambiguous star binding.
+function ambiguousBarrel(file,seen=new Set()){
+ if(seen.has(file))return false;seen.add(file);
+ if(barrelDiagnostics.has(file))return barrelDiagnostics.get(file);
+ const sf=program.getSourceFile(path.join(root,file));if(!sf)return false;
+ const exports=sf.statements.filter(st=>ts.isExportDeclaration(st)&&st.moduleSpecifier);
+ if(!exports.length)return false;
+ if(program.getSemanticDiagnostics(sf).some(d=>d.code===2308)){barrelDiagnostics.set(file,true);return true;}
+ for(const st of exports){const m=resolve(file,st.moduleSpecifier.text);if(m.target&&!m.external&&ambiguousBarrel(m.target,seen)){barrelDiagnostics.set(file,true);return true;}}
+ return false;
+}
+function nonrelativeExportHop(file,member,seen=new Set()){
+ const key=file+'\0'+member;if(seen.has(key))return false;seen.add(key);
+ const sf=program.getSourceFile(path.join(root,file));if(!sf)return false;
+ function hop(spec,name){
+  if(!spec.startsWith('.'))return true;
+  const m=resolve(file,spec);return !!(m.target&&!m.external&&nonrelativeExportHop(m.target,name,seen));
+ }
+ function local(name){
+  for(const st of sf.statements){
+   if(!ts.isImportDeclaration(st)||!st.importClause)continue;
+   const c=st.importClause;
+   if(c.name?.text===name)return hop(st.moduleSpecifier.text,'default');
+   if(c.namedBindings&&ts.isNamedImports(c.namedBindings)){
+    const binding=c.namedBindings.elements.find(e=>e.name.text===name);
+    if(binding)return hop(st.moduleSpecifier.text,(binding.propertyName||binding.name).text);
+   }
+  }
+  return false;
+ }
+ for(const st of sf.statements){
+  if(ts.isExportAssignment(st)&&member==='default'&&ts.isIdentifier(st.expression)&&local(st.expression.text))return true;
+  if(!ts.isExportDeclaration(st))continue;
+  if(st.exportClause&&ts.isNamedExports(st.exportClause)){
+   const binding=st.exportClause.elements.find(e=>e.name.text===member);
+   if(binding){const name=(binding.propertyName||binding.name).text;if(st.moduleSpecifier?hop(st.moduleSpecifier.text,name):local(name))return true;}
+  }else if(!st.exportClause&&st.moduleSpecifier&&member!=='default'){
+   const m=resolve(file,st.moduleSpecifier.text);
+   if(m.target&&!m.external&&exportsFor(m.target)?.has(member)&&hop(st.moduleSpecifier.text,member))return true;
+  }
+ }
+ return false;
+}
+const duplicateConfigCache=new Map();
+function duplicateConfig(p){
+ if(duplicateConfigCache.has(p))return duplicateConfigCache.get(p);
+ const sf=ts.parseJsonText(p,fs.readFileSync(p,'utf8'));let duplicate=false;
+ function visit(n){
+  if(ts.isObjectLiteralExpression(n)){
+   const names=new Set();for(const prop of n.properties){const name=prop.name?.text;if(name!==undefined){if(names.has(name))duplicate=true;names.add(name);}}
+  }
+  ts.forEachChild(n,visit);
+ }
+ visit(sf);duplicateConfigCache.set(p,duplicate);return duplicate;
+}
+function opaqueExportHop(file,seen=new Set()){
+ if(seen.has(file))return false;seen.add(file);
+ const sf=program.getSourceFile(path.join(root,file));if(!sf)return false;
+ for(const st of sf.statements){
+  if(ts.isExportAssignment(st)&&!ts.isIdentifier(st.expression))return true;
+  if(ts.isExpressionStatement(st)&&ts.isBinaryExpression(st.expression)){
+   const x=st.expression,left=x.left.getText(sf).replace(/\s/g,'');
+   if((left==='module.exports'||left.startsWith('module.exports.')||left.startsWith('exports.'))&&!ts.isIdentifier(x.right))return true;
+  }
+  if(ts.isExportDeclaration(st)&&st.moduleSpecifier){const m=resolve(file,st.moduleSpecifier.text);if(m.target&&!m.external&&opaqueExportHop(m.target,seen))return true;}
+ }
+ return false;
+}
+// Ordered independent explanations of P1 cuts, not production telemetry.
+// The explicit fallback remains an open reason; it is never called a scope proof.
+function refusalReason(a,m,t){
+ const o=m.options||{}, paths=o.paths||{};
+ if(m.ownership_barrier)return m.ownership_barrier;
+ if(!m.config)return 'NO_OWNING_CONFIG';
+ if(m.diagnostics.length)return 'CONFIG_DIAGNOSTIC';
+ if(o.moduleResolution!==ts.ModuleResolutionKind.Node10)return 'MODULE_RESOLUTION_OUTSIDE_P1';
+ if(Object.keys(paths).some(k=>k.split('*').length>2 || !Array.isArray(paths[k]) || paths[k].length!==1 || paths[k].some(v=>v.split('*').length>2)))return 'PATHS_SHAPE_OUTSIDE_P1';
+ if(o.rootDirs!==undefined||o.moduleSuffixes!==undefined||o.noResolve!==undefined)return 'OPTIONS_OUTSIDE_P1';
+ const cf=config(path.join(root,m.config));
+ if(cf.read.filter(p=>/^tsconfig(?:\..+)?\.json$/.test(path.basename(p))).some(duplicateConfig))return 'DUPLICATE_CONFIG_KEY';
+ if(o.outDir && cf.c?.raw?.exclude===undefined)return 'OUTDIR_BARRIER';
+ if(m.via!=='paths')return 'BARE_BASEURL_OUTSIDE_P1';
+ const key=m.pattern,cap=key?.includes('*')?a.b.module_path.slice(key.indexOf('*'),a.b.module_path.length-(key.length-key.indexOf('*')-1)):'';
+ if(key?.includes('*')&&!cap)return 'EMPTY_CAPTURE';
+ const prefix=key?.indexOf('*');
+ if(prefix>=0&&Object.keys(paths).filter(k=>k.indexOf('*')===prefix&&a.b.module_path.startsWith(k.slice(0,prefix))&&a.b.module_path.endsWith(k.slice(prefix+1))).length>1)return 'TIED_PATTERN';
+ const target=paths[key]?.[0];
+ if(target?.includes('*')&&!key?.includes('*'))return 'UNMATCHED_TARGET_STAR';
+ if(target){
+  const subst=path.resolve(root,o.baseUrl||o.pathsBasePath||path.dirname(m.config),target.replace('*',cap));
+  if(/\.(jsx?|[cm][jt]s|json)$/.test(subst))return 'EXPLICIT_EXTENSION_OUTSIDE_P1';
+  if(fs.existsSync(path.join(subst,'package.json')))return 'PACKAGE_BOUNDARY';
+  if(!/\.tsx?$/.test(subst)){
+   const probes=['.ts','.tsx','.d.ts','.js','.jsx'].flatMap(e=>[subst+e,path.join(subst,'index'+e)]).filter(p=>fs.existsSync(p));
+   if(probes.length!==1)return 'CANDIDATE_COMPETITION_OR_ABSENCE';
+   if(probes[0].endsWith('.d.ts'))return 'DECLARATION_BLOCKER';
+  }
+ }
+ if(m.target&&nonrelativeExportHop(m.target,a.member))return 'NONRELATIVE_EXPORT_HOP';
+ if(m.target&&opaqueExportHop(m.target))return 'OPAQUE_EXPORT_BRANCH';
+ if(a.s.local_binding?.Unproven!=='import'||a.b.kind!=='MemberImport')return 'BINDING_OR_SITE_GUARD';
+ return 'UNCLASSIFIED_P1_PROOF';
+}
 function reactWrapper(call){
  let name,ref;
  if(ts.isIdentifier(call.expression)){name=call.expression.text;ref=call.expression;}
@@ -80,6 +190,7 @@ function reactWrapper(call){
 }
 function terminal(file,member){
  if(!exportsCache.has(file))exportsCache.set(file,exportsFor(file));
+ if(ambiguousBarrel(file))return {class:'ambiguous_star_diagnostic'};
  const symbol=exportsCache.get(file)?.get(member);if(!symbol)return {class:'missing_export'};
  const ds=symbol.declarations||[];
  const vals=ds.filter(d=>(ts.isFunctionDeclaration(d)&&d.body)||ts.isVariableDeclaration(d)||ts.isClassDeclaration(d)||ts.isExportAssignment(d));
@@ -131,7 +242,8 @@ for(const r of rows){
  if(m.target&&a.b.module_path.endsWith('.js')&&m.target.endsWith('.ts'))record.mechanisms.push('js_to_ts');
  if(m.target&&/\/index\.[cm]?[jt]sx?$/.test(m.target))record.mechanisms.push('index_file');
  if(m.via==='package_or_other')record.mechanisms.push('package_exports_or_workspace');
- record.recoverable=low&&record.site_import_proof==='import'&&['paths','baseUrl'].includes(m.via)&&['function','function_variable','wrapped_function'].includes(t.class)&&m.diagnostics.length===0&&(t.class!=='wrapped_function'||a.s.jsx_element);
+ record.refusal_reason=refusalReason(a,m,t);
+ record.recoverable=m.options?.moduleResolution===ts.ModuleResolutionKind.Node10&&!m.ownership_barrier&&low&&record.site_import_proof==='import'&&['paths','baseUrl'].includes(m.via)&&['function','function_variable','wrapped_function'].includes(t.class)&&m.diagnostics.length===0&&(t.class!=='wrapped_function'||a.s.jsx_element);
  allAliasRows.push(record);if(low&&record.site_import_proof==='import')candidates.push(record);
 }
 const counts={total_sites:rows.length,nonrelative_import_bindings:imports,module_resolved_bindings:modules,associated_nonrelative_sites:allAliasRows.length,associated_low_sites:allAliasRows.filter(c=>c.low).length,site_binding_counts:{},low_sites:candidates.length,paths_baseurl_resolve_low:candidates.filter(c=>['paths','baseUrl'].includes(c.via)&&c.target&&!c.external).length,callable_recoverable:candidates.filter(c=>c.recoverable).length,mechanisms:{},terminal_classes:{}};

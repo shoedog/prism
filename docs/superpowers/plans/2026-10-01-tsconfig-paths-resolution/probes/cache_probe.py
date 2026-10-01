@@ -21,6 +21,19 @@ results['head_hit']=query('head_hit',head,'left')
 results['head_nocache']=query('head_nocache',head,'left',False)
 assert results['head_cold']==results['head_hit']==results['head_nocache']
 assert results['base_cache']!=results['head_cold'],'cross-binary RED did not discriminate'
+cache_bins=list(cache.rglob('cpg-cache.bin'));assert len(cache_bins)==1,cache_bins
+cache_bin=cache_bins[0]
+cache_before=(cache_bin.stat().st_mtime_ns,__import__('hashlib').sha256(cache_bin.read_bytes()).hexdigest())
+(root/'unrelated.txt').write_text('irrelevant')
+results['text_added_hit']=query('text_added_hit',head,'left')
+assert results['text_added_hit']==results['head_hit']
+assert 'rebuilding' not in (out/'text_added_hit.stderr').read_text().lower()
+assert cache_before==(cache_bin.stat().st_mtime_ns,__import__('hashlib').sha256(cache_bin.read_bytes()).hexdigest()), 'cache was rebuilt'
+(root/'unrelated.txt').unlink()
+results['text_removed_hit']=query('text_removed_hit',head,'left')
+assert results['text_removed_hit']==results['head_hit']
+assert 'rebuilding' not in (out/'text_removed_hit.stderr').read_text().lower()
+assert cache_before==(cache_bin.stat().st_mtime_ns,__import__('hashlib').sha256(cache_bin.read_bytes()).hexdigest())
 cfg('right/util')
 results['config_changed_new']=query('config_changed_new',head,'right')
 results['config_changed_old']=query('config_changed_old',head,'left')
@@ -32,5 +45,30 @@ def functions(r):
 assert any(x['file']=='app.tsx' and x['name']=='run' for x in functions(results['head_hit']))
 assert any(x['file']=='app.tsx' and x['name']=='run' for x in functions(results['config_changed_new']))
 assert not functions(results['config_changed_old'])
-(out/'summary.json').write_text(json.dumps({'claim':'MEASURED','cross_binary_red':True,'cold_full_hit_sidecar_nocache_equal':True,'config_only_change_moves_caller_to_right':True},indent=2))
+# Candidate occupancy addition/removal must agree with fresh construction.
+blocker=root/'right/util.d.ts';blocker.write_text('export declare function real(): number;')
+results['candidate_added']=query('candidate_added',head,'right')
+results['candidate_added_nocache']=query('candidate_added_nocache',head,'right',False)
+assert results['candidate_added']==results['candidate_added_nocache']
+assert not functions(results['candidate_added'])
+blocker.unlink()
+results['candidate_removed']=query('candidate_removed',head,'right')
+results['candidate_removed_nocache']=query('candidate_removed_nocache',head,'right',False)
+assert results['candidate_removed']==results['candidate_removed_nocache']==results['config_changed_new']
+# Local extends and package.json occupancy controls.
+(root/'tsconfig.parent.json').write_text((root/'tsconfig.json').read_text())
+(root/'tsconfig.json').write_text('{"extends":"./tsconfig.parent.json"}')
+results['extends_before']=query('extends_before',head,'right')
+(root/'tsconfig.parent.json').write_text(json.dumps({'compilerOptions':{'moduleResolution':'node','paths':{'@lib':['left/util']}},'include':['**/*']}))
+results['extends_after']=query('extends_after',head,'left')
+assert results['extends_after']==query('extends_after_nocache',head,'left',False)
+assert functions(results['extends_after'])
+(root/'left/util').mkdir();(root/'left/util/package.json').write_text('{}')
+results['package_added']=query('package_added',head,'left')
+assert results['package_added']==query('package_added_nocache',head,'left',False)
+assert not functions(results['package_added'])
+(root/'left/util/package.json').unlink()
+results['package_removed']=query('package_removed',head,'left')
+assert results['package_removed']==query('package_removed_nocache',head,'left',False)==results['extends_after']
+(out/'summary.json').write_text(json.dumps({'claim':'MEASURED','cross_binary_red':True,'cold_full_hit_sidecar_nocache_equal':True,'config_only_change_moves_caller_to_right':True,'unrelated_text_add_remove_keeps_hit':True,'candidate_add_remove_parity':True,'extends_parent_edit':True,'package_add_remove_parity':True},indent=2))
 print((out/'summary.json').read_text())

@@ -7,7 +7,7 @@ set -euo pipefail
 : "${CORPUS_F_ROOT:?private root supplied by controller}"
 : "${PRIVATE_EVIDENCE_ROOT:?private evidence directory supplied by controller}"
 : "${TS_JS:?offline TypeScript 5.9.3 lib/typescript.js}"
-BASE="$1"; HEAD="$2"; FACTS="$3"
+BASE="${1:-/Users/wesleyjinks/code/prism-paths-plan/target/paths-plan/base/prism}"; HEAD="${2:-/Users/wesleyjinks/code/prism-paths-plan/target/paths-plan/r1/head-membership-final/prism}"; FACTS="${3:-/Users/wesleyjinks/code/prism-paths-plan/target/paths-plan/base/dump_imports}"
 PROBES="$(cd "$(dirname "$0")" && pwd)"
 OUT="$PRIVATE_EVIDENCE_ROOT"
 if ! mkdir -p "$OUT" 2>/dev/null; then
@@ -20,7 +20,7 @@ exec 2> "$OUT/controller.stderr"
 "$FACTS" "$CORPUS_F_ROOT" > "$OUT/private-imports.jsonl" 2> "$OUT/private-imports.stderr"
 python3 "$PROBES/rowdiff.py" "$OUT/private-base.jsonl" "$OUT/private-head.jsonl" "$OUT/private-changes.json" > "$OUT/private-rowdiff.log" 2> "$OUT/private-rowdiff.stderr"
 node "$PROBES/oracle.cjs" "$TS_JS" "$CORPUS_F_ROOT" "$OUT/private-base.jsonl" "$OUT/private-imports.jsonl" "$OUT/private" "$OUT/private-changes.json" > "$OUT/private-oracle.log" 2>&1
-python3 - "$OUT/private-P0.json" "$OUT/private-base.jsonl" "$OUT/private-head.jsonl" "$PROBES" 2> "$OUT/private-aggregates.stderr" <<'PY'
+PATHS_HEAD_BIN="$HEAD" python3 - "$OUT/private-P0.json" "$OUT/private-base.jsonl" "$OUT/private-head.jsonl" "$PROBES" "$OUT/private-alias-sites.json" 2> "$OUT/private-aggregates.stderr" <<'PY'
 import json,sys
 sys.path.insert(0,sys.argv[4])
 from rowdiff import load
@@ -29,6 +29,13 @@ p=json.load(open(sys.argv[1]));c=p['counts'];classes=p.get('classes',{})
 assert c['total_sites']>0, 'zero-site private probe is inadmissible'
 assert p['oracle']['version']=='5.9.3', 'oracle version drift'
 assert p['oracle']['sha256']=='3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675', 'oracle byte drift'
-print(json.dumps({'claim':'MEASURED','corpus':'F','counts':c,'changed_rows':p['changed_rows'],'classes':classes,'keys_added':0,'keys_removed':0,'oracle_version':p['oracle']['version'],'oracle_sha256':p['oracle']['sha256']},sort_keys=True))
+from collections import Counter
+aliases=json.load(open(sys.argv[5]));hist=Counter()
+for row in aliases:
+ if row['recoverable']:
+  key=tuple(row['key'])
+  if a[key]==b[key]:hist[row['refusal_reason']]+=1
+assert sum(hist.values())==sum(r['recoverable'] and a[tuple(r['key'])]==b[tuple(r['key'])] for r in aliases)
+print(json.dumps({'refusal_reason_histogram':dict(sorted(hist.items())),'refusal_reasons':'independent ordered P1 cuts; UNCLASSIFIED remains open','head_sha256':__import__('hashlib').sha256(open(__import__('os').environ['PATHS_HEAD_BIN'],'rb').read()).hexdigest(),'claim':'MEASURED','corpus':'F','counts':c,'changed_rows':p['changed_rows'],'classes':classes,'keys_added':0,'keys_removed':0,'oracle_version':p['oracle']['version'],'oracle_sha256':p['oracle']['sha256']},sort_keys=True))
 if any(k not in ('CORRECT_STATIC_BINDING','CORRECT_STATIC_REFUSAL') and v for k,v in classes.items()):sys.exit(1)
 PY

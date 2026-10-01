@@ -1,63 +1,71 @@
-# Build and evidence manifest — lane P
+# Lane-P round-1 source and evidence manifest
 
-MEASURED: resumed planner checkout `plan/tsconfig-paths` at `5e7570c3aad19b3aa08e832a92d153d4691887fe`; implementation/base parent `5048f44300a7bb8161444e83c0d02713529a33fd`. Controller commits `33e6391d` and `5e7570c3` hold the earlier packet and interim OQ dispositions. No Git write was run by this planner. This manifest binds the modified prototype by file/patch/binary hashes, rather than its inherited Git identity.
+MEASURED: planner `plan/tsconfig-paths` HEAD `d53cacbd4ad1503140b544e1e89a59d23fb40aa5`; base `5048f44300a7bb8161444e83c0d02713529a33fd`. READ: controller's previous prototype is `93494168`; it is superseded by this cumulative R1 patch. No Git writes, private F reads, installs or network were performed. The 18 pre-existing eval snapshot deletions are outside this task and preserved.
 
-## Final prototype custody
+## Final source custody
 
-MEASURED: 35 owned paths agree across final source, owned-file archive and exact patch replay. An initial 259-path production/build-input check passed; an expanded check then verified all 1445 non-owned tracked files under src/tests/scripts/eval and Cargo/build inputs against the base, with zero private-name paths encountered (`resume-all-input-hashes.json`). This also verifies that existing test/fixture expectations were not changed. See `target/paths-plan/resume-binding.json` and `patch-replay-final.log`. `target/paths-proto/replay-final-v2/` is the verified replay. The earlier patch/archive is superseded by the final position-injection test compile fix.
+MEASURED: **37 owned paths**, exactly `target/paths-proto/P1-owned-files.txt`, agree across current source, archive and patch replay. The replay is `target/paths-proto/replay-r1-membership-final/`; receipt `target/paths-plan/r1/final-evidence/patch-replay.log`. `source-binding.json` records both equalities and **1,444 non-owned tracked build/source/test/eval inputs equal to the bound base**. The private-name exclusion count is zero. The previous 1,445 count included js_exports.rs, now an owned path. No existing fixture expectations were edited outside ownership.
 
-| Artifact | SHA-256 |
+| Owned artifact | SHA-256 |
 |---|---|
-| `target/paths-proto/P1.diff` | `ef6f07891471fb287d6b5ff5d35cca85823c6fe15a7682116bfd6615287c089f` |
-| `target/paths-proto/P1-owned-files.tar.gz` | `38449873e57b284db5b098e83a55f2c35d0c6b470ee5978807d9db065730de1a` |
-| `target/paths-proto/source-hashes.json` | `bb696c829e4f1e46db364f7d879538883a692e78c45dba6b0ed48c1085b78fc4` |
-| `target/paths-proto/P1-owned-files.txt` | `a2231602ef421f2e15f54689e5151d8e4d985bec0a9d1b57012638f41ac91b5a` |
+| target/paths-proto/P1.diff | 33f8fc33a0145952c28c676b5c3b85579cceb31ee39812ea0dbc81b81ecc049c |
+| target/paths-proto/P1-owned-files.tar.gz | 4a60a0ee117d230fc101fb47b66e54d44d1539916d2b8ba307eb4836b2cfeceb |
+| target/paths-proto/source-hashes.json | b12d47e4cc60ebf6ff568a5bf509e1fed3db326664609f716d243ff15fc7e52d |
+| target/paths-proto/P1-owned-files.txt | 37ac50dc456248f6f870bb52d629a0858e9964da3443415307369e4fba31cfa7 |
 
-MEASURED: final size is 671 added / 18 removed honest source lines, 506 added test lines and 70 added fixture lines. The integration test is 511 physical lines. Full per-path accounting is `target/paths-plan/size.json`. READ: the explicit owned-file list and P1 dispatch are in IMPLEMENTOR.md.
+MEASURED: size **838 added / 20 removed honest production source lines**, **574 added test-code lines**, **1,538 declarative test-data physical lines**, **70 added Tier-A fixture lines**. Integration Rust source is 580 physical lines. Per-file counts: `target/paths-plan/r1/final-evidence/size.json`. Data is reported separately; no numeric LOC cap is asserted.
 
-## Binaries and oracle
+## Immutable binaries and compiler
 
-MEASURED: an immediate `CARGO_TARGET_DIR=<workspace>/target cargo build --release --offline` in `target/paths-proto/repo` completed; build output is `target/paths-plan/resume-build.log`. The rebuilt executable was copied to the final head path. The current dirty planner Git identity is build metadata, not the implementation parent.
+MEASURED: release build `CARGO_TARGET_DIR=<workspace>/target cargo build --release --offline` ran in `target/paths-proto/repo`; log `final-evidence/build.log`. The executable was copied once to the immutable head path before measurement. Base reports `slicing 3.1.2 (5048f44300a7)`; head reports `slicing 3.1.2 (d53cacbd4ad1-dirty)`. The latter is inherited build metadata, not implementation-parent/source proof. File hashes, patch replay and suite source hashes bind the modified body. READ: base and fact executables were retained from the earlier base build, originally bound in `target/paths-plan/checkpoint.json`; both were freshly executed against the final public/synthetic inputs in this environment.
 
-| Artifact | SHA-256 |
+| Binary / compiler | SHA-256 |
 |---|---|
-| `/Users/wesleyjinks/code/prism-paths-plan/target/paths-plan/base/prism` | `8fd563208316411d799e0ef828f09a3ef66f6ca5151031e02fda578642295299` |
-| `/Users/wesleyjinks/code/prism-paths-plan/target/paths-plan/head/prism` | `255b1185b03c0b6805609219b567876ffdff42b2b7a46e1f9b78b373c59509e5` |
-| `/Users/wesleyjinks/code/prism-paths-plan/target/paths-plan/base/dump_imports` | `b00fbeba53b3ca3f7516a3e0f8df74540c39ac84c80c6ebea298db5d7a4f2644` |
-| `/Users/wesleyjinks/prism-evidence/native-positional-gap/gate-inputs/typescript-5.9.3/package/lib/typescript.js` | `3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675` |
+| /Users/wesleyjinks/code/prism-paths-plan/target/paths-plan/base/prism | 8fd563208316411d799e0ef828f09a3ef66f6ca5151031e02fda578642295299 |
+| /Users/wesleyjinks/code/prism-paths-plan/target/paths-plan/r1/head-membership-final/prism | 40cbbd8f970477fa8e28063025bc6a592c4fd0aa95d1522767cc2487b2c39b95 |
+| /Users/wesleyjinks/code/prism-paths-plan/target/paths-plan/base/dump_imports | b00fbeba53b3ca3f7516a3e0f8df74540c39ac84c80c6ebea298db5d7a4f2644 |
+| /Users/wesleyjinks/prism-evidence/native-positional-gap/gate-inputs/typescript-5.9.3/package/lib/typescript.js | 3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675 |
 
-MEASURED: base reports `slicing 3.1.2 (5048f44300a7)`; rebuilt head reports `slicing 3.1.2 (5e7570c3aad1-dirty)`. READ: the retained base/fact executables were built before prototype changes in the earlier uninterrupted planner segment; their original base binding is in `target/paths-plan/checkpoint.json`. The fresh public rerun uses those same base executables as the same-environment control.
+MEASURED: current `oracle.cjs` SHA-256 `c95bb36ff2df5db38e0e6db9ec80b8b351727f569f7242c969621fbcb81a55fa`; `CONTROLLER-paths.sh` SHA-256 `3c97b3afc3aca92765504801c3b77a9779f112591c78321fb6d303813a4ba2d7`. Full probe hashes and receipt hashes are in `final-evidence/BUILD-RECEIPTS.json`. TS compiler version/bytes are checked in the aggregate script. Recoverability is effective explicit Node/Node10 and respects jsconfig/delegated barriers; TS2308 checks the TSX first-wins star conflict; JSX without checkJs retains that symbol-lookup blind spot, while production refusal is verified in both grammars.
 
-## Execution receipts
+## Fresh execution receipts
 
-READ: the completed full-suite executions were retained across the interruption and were **not rerun** during receipt completion. MEASURED: this resume reparsed every result group and matched the saved totals (`target/paths-plan/resume-suite-receipts.json`).
+MEASURED: all integration mutations completed before the final three suites, serially with one shared Cargo target. Every suite's `*-totals.json` contains identical before/after hashes for all 37 owned files, matching the frozen source and final archive. No concurrent mutation or live binary overwrite is admitted. Final `verification-summary.json` records source hashes after formatter/clippy too.
 
-| Retained execution | Passed | Failed | Ignored | Groups | Log SHA-256 |
-|---|---:|---:|---:|---:|---|
-| `base/cargo-test.log` | 4750 | 0 | 1 | 29 | `8678f2e85e90b3dffb163fa966e473782f6bf2b408b66aaa8298caee00bb9e94` |
-| `proto-full-test.log` | 4960 | 0 | 1 | 31 | `c29239f07d00c4d13fc449a33292d5738b7302be452448936ed3a57c028d7724` |
-| `proto-all-features-test.log` | 4983 | 0 | 1 | 31 | `ba76f3e1ef14a453d6d7dc3d59672f96527ff2960c6c7fab9ad9aee533e16ccc` |
+| Final execution | Passed / failed / ignored | Groups | Log SHA-256 |
+|---|---|---|---|
+| default | 4770 / 0 / 1 | 29 | 7ea7a9848568a56ac3151263365a61ba8575f11b51204dadbc347935fbd434ea |
+| mcp | 4963 / 0 / 1 | 31 | cc7256b3003945c6ce720eaa10161b1fb3bc3203ba95930e45bbb8ebbe8046e5 |
+| all-features | 4986 / 0 / 1 | 31 | af7b5fe1e0c9e9dc22a7b065f58c4220a4197db41f60ded4c04b0c1a74a42a7a |
 
-MEASURED: the immediately rebuilt final prototype Tier-A matrix was rerun: 169 fixtures passed, zero regressions. Receipt: `target/paths-plan/resume-tier-a-matrix.log`, SHA-256 `019485d7afec61c2e017c985cc4d469c225738c069d280a99f84fb0a3a3706a9`; parsed result is `resume-matrix-receipts.json`. The command used the existing Python 3.12 interpreter with `-B -m tier_a.cli --matrix-only --allow-stale-sut --sut-bin <rebuilt binary>`, from the prototype eval directory; no install or uv cache retry.
+MEASURED: matrix **169 passed / 0 failed**, immediately preceded by the release rebuild in the same worktree; log SHA-256 `019485d7afec61c2e017c985cc4d469c225738c069d280a99f84fb0a3a3706a9`. Installed Python 3.12 ran `-B -m tier_a.cli --matrix-only --allow-stale-sut --sut-bin <immutable head>` from prototype/eval. No install or denied uv retry. Formatter passes; clippy passes with **139 library warnings**. All-features uses PRISM_TYPESCRIPT bound to the offline package. Existing ignored SliceElem test remains ignored; no unrelated failure was rebaselined.
 
-READ retained controls: `controls-verification.log` records 76 scenarios / 84 sites / 30 changed rows / zero preservation violations. Independent classes are 28 CORRECT_STATIC_BINDING and 2 CORRECT_STATIC_REFUSAL. `mutants-summary.json` records ten kernel kills; `integration-mutants-summary.json` records four integration kills, with behavioral assertion output retained in their directories. `cache-probe.log` records cache/caller controls. `proto-fmt.log` is empty (formatter passed); `proto-clippy.log` records 139 library warnings and successful completion. No warning-free or newly executed mutant/cache/suite claim is made.
+MEASURED: controls **152 scenarios / 166 sites / 55 changes** (**53 CORRECT_STATIC_BINDING + 2 CORRECT_STATIC_REFUSAL**), zero complete-row preservation/key/metadata violations. Kernel mutants **20/20 killed**; actual-source integration mutants **10/10 killed**, with one selected test and assertion panic per mutant. Logs, copied mutated source and summaries are retained. Cache probe passes cross-binary rejection, cold/full-hit/config/extends/candidate/package parity and unrelated .txt hit preservation. MEASUREMENTS contains full control/mutant tables and exclusions.
 
-## Final public rerun
+READ retained execution, not fresh suite claims: base default 4,750 passed / 0 failed / 1 ignored, 29 groups; base standalone P1 harness 8 behavioral RED / 9 preservation passes, 17 groups. Old prototype binary `255b1185b03c0b6805609219b567876ffdff42b2b7a46e1f9b78b373c59509e5` supplies fresh pre-change synthetic rows; 54 scenarios differ from corrected head. Additional final membership probes retain TS root membership plus concrete wrong outputs. Inadmissible setup/custody outputs are logged separately, not counted as RED/kills/final runs.
 
-MEASURED: the final same-environment base/head/TypeScript rerun completed. X has 19,219 sites and 3,121 changed rows, all CORRECT_STATIC_BINDING; R has 953 sites and 0 changes; T has 61,712 sites and 0 changes. Every new edge changes empty UnknownName to exactly one Exact/import_member and matches the independent TypeScript import/module/callable/name/span proof. Added/removed keys and non-resolution metadata changes are 0 in every corpus. No other class is present. Fresh rows and import facts reproduce the earlier base/head rows exactly.
+## Fresh public expectations and classes
 
-MEASURED: authoritative receipt `target/paths-plan/resume-public/FINAL-SUMMARY.json`; raw X/R/T dumps, rowdiff, P0 and per-row TypeScript classifications are in the same subtree. `source-input-hashes.json` binds 640 X, 53 R and 721 T source/context files; TypeScript-recorded in-root config/context hashes were checked against current bytes. Corpora are READ trusted read-only inputs; this is not a concurrent snapshot-security claim. `target/paths-plan/resume-public.log` records command completion. MEASUREMENTS.md contains the complete P0 mechanism table and final changed-row classes.
+MEASURED: final public X/R/T signature **3,121 / 0 / 0**, all 3,121 X changes CORRECT_STATIC_BINDING; zero other changed classes, added/removed site keys or metadata changes. Count delta from the earlier signature is **0 / 0 / 0**. `final-evidence/public/FINAL-SUMMARY.json` binds each per-row result; TypeScript-derived expected files are fresh and checked against head. Source/context hashes are current and TypeScript-recorded config bytes agree. Corpora are trusted read-only inputs; concurrent snapshot-security guarantees are not claimed.
 
-## Controller-only F and exclusions
+| Corpus | Expected SHA-256 | Input files |
+|---|---|---|
+| X | f3b9915cbd9801208b839e5a4593660a756526336656703b42ada266fd93a383 | 640 |
+| R | 37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570 | 51 |
+| T | 37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570 | 722 |
 
-MEASURED: `probes/CONTROLLER-paths.sh` passes `bash -n` and an actual execution using only the public C01 TSX synthetic fixture. One aggregate JSON object, one correct binding, no stderr or raw identities: `target/paths-plan/controller-public-smoke/receipt.json`. This smoke is not F evidence. Script SHA-256: `9bb2ba42d1c5f6c3c3584410cdcc3d3f3bf1e78a445ea140c1f5e3b4022e2e73`.
+MEASURED: the public retained-candidate histogram has eight NONRELATIVE_EXPORT_HOP and two UNCLASSIFIED_P1_PROOF in X; R/T none. The name-directed reason classifier avoids attributing unrelated barrel exports to the requested member. Unclassified reasons remain open explanations. Earlier public/verified/accepted/intermediate runs are superseded by **final-evidence/**, except specifically labeled retained or pre-change evidence.
 
-READ: actual private F, the prototype own-worktree Tier-A quick, full multi-corpus Tier-A, external Opus review, owner confirmation, Git commits/worktree creation, push and merge were not performed. The prototype quick has no admissible receipt because ignored scratch source has no tracked universe and its committed pin differs; see `tier-a-quick-inadmissible.json`. Full multi-corpus is human-triggered. Snapshot concurrency/security and performance overhead remain unmeasured.
+## Controller boundary
 
-READ: inadmissible setup probes and the source/archive correction are recorded in `target/paths-plan/PROBE-LOG.md` and `RESUME-PROBE-LOG.md`. No setup failure is counted as semantic RED or mutant kill.
+MEASURED: CONTROLLER-paths.sh defaults to the immutable head above, passes bash syntax and public-only aggregate execution with 152 scenarios; final wrapper `controller-public-receipt.json` explicitly marks `actual_F_run: false`. Stdout is one JSON object, controller stderr empty; no raw path/function/site identities are exported. Reasons are independent ordered P1 cuts, not production telemetry. READ: prior private F 2,345/3,102 (75.60%) is controller-supplied on older binary/oracle; fresh F counts and histogram must be supplied by the controller. Never open its source or raw evidence here.
 
-## Final snapshots
+READ: prototype-own Tier-A quick is excluded because ignored scratch has no tracked Git source universe and the corpus pin differs; the controller's updated actual worktree must run it. Full multi-corpus Tier-A is human-triggered. Fresh F, independent Opus round 2, owner confirmation, controller application/commits, push/merge and P2 are not performed. Large-tree overhead and snapshot concurrency/security remain unmeasured. No buildable prototype work remains pending locally.
 
-READ: final local archive destinations are `target/paths-proto/P1-evidence-final.tar.gz` and `target/paths-proto/P1-plan-final.tar.gz`; `target/paths-proto/final-snapshot-hashes.json` is the post-write hash/verification receipt. These archives are created after this packet is reconciled, avoiding a self-referential archive hash in its contents. The evidence archive includes source/patch/hash artifacts, base/head/fact executables and public raw/text evidence; large intermediate test libraries/executables and compiler/build directories are excluded. The packet archive contains this final planning packet. Local archives are snapshots; controller commit and external custody remain open.
+## Local snapshots and controller commits
 
-ASSUMPTION controller commit messages: plan `docs(paths): finalize lane-P receipts and P1 dispatch`; prototype `feat(paths): resolve finite tsconfig paths import members`. Plan owned changes are SPEC.md, MEASUREMENTS.md, IMPLEMENTOR.md, HANDOFF.md, new BUILD-MANIFEST.md and probes/CONTROLLER-paths.sh. Prototype ownership is exactly P1-owned-files.txt (35 paths).
+MEASURED: source/archive/patch replay are complete. Final local destinations are `target/paths-proto/P1-evidence-r1-final.tar.gz`, `P1-plan-r1-final.tar.gz` and `final-snapshot-r1-hashes.json`. The post-write JSON binds snapshot hashes; the manifest avoids self-referential archive hashes. Evidence includes final public raw rows/expected data/logs, source/patch hashes and bound binaries. Intermediate build directories and compiled mutant binaries are excluded; mutated owned source and behavioral logs are included. Local snapshots do not replace controller Git/external custody.
+
+ASSUMPTION controller commit messages: plan `docs(paths): fold Opus spec review round one`; prototype `fix(paths): enforce root membership and skipped-star alias barriers`. Plan ownership: SPEC, MEASUREMENTS, IMPLEMENTOR, OQ-paths, BUILD-MANIFEST, HANDOFF, REVIEWER and changed probes (CONTROLLER-paths.sh, cache_probe.py, controls_gen.py, integration_mutants.py, mutants.py, oracle.cjs), plus new final_receipts.py, changed verify_controls.py and root VERIFICATION.md (16 plan/report paths total). Prototype ownership is exactly 37 paths in P1-owned-files.txt. Exclude the pre-existing eval snapshot deletions from commits. The planner performs no Git writes.
+
+MEASURED verification-gate supplement: `VERIFICATION.md` is at the planner repository root. `hook-suite-revalidation.json` confirms the recorded full-suite output hashes, reparsed totals and unchanged production/test source. New control assertions are GREEN on the final oracle and RED on the d53cacbd oracle; O01 histogram mutant is killed. Final snapshots are refreshed for 16 plan/report paths; P1.diff and the 37 prototype paths are unchanged. Full-suite execution is not claimed to have been repeated for documentation/evidence-assertion-only changes.
