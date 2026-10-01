@@ -1,4 +1,4 @@
-"""Four bounded integration mutants, each in its own copied source tree."""
+"""Eleven bounded integration mutants, each in its own copied source tree."""
 import subprocess,sys,shutil,json
 from pathlib import Path
 repo=Path(sys.argv[1]).resolve();out=Path(sys.argv[2]).resolve();target=Path(sys.argv[3]).resolve()
@@ -13,11 +13,12 @@ mutations={
  'I08-no-opaque-star-guard':('src/js_exports.rs','facts.skipped_expr_count > facts.skipped_decl_reasons.values().sum::<usize>()','false','js_paths_test::js_paths_r1_skipped_star_preserves_base'),
  'I09-ignore-skipped-declaration-name':('src/js_exports.rs','facts.module_value_bindings.contains(name)','false','js_paths_test::js_paths_r1_skipped_star_preserves_base'),
  'I10-trim-alias-cache-key':('src/call_graph.rs','.get(&(caller.into(), module.into()))','.get(&(caller.into(), module.trim().into()))','js_paths_test::js_paths_r1_membership_barriers_dot_and_relative'),
+ 'I11-taint-namespace-terminal':('src/ast.rs','                        via_unresolved_star: false,','                        via_unresolved_star: true,','js_paths_test::js_paths_s1b_namespace_star_proof_is_reused'),
 }
 results=[]
 for label,(file,old,new,test) in mutations.items():
  d=out/'integration-mutants'/label/'repo'
- shutil.copytree(repo,d,dirs_exist_ok=True,ignore=shutil.ignore_patterns('target','__pycache__'))
+ shutil.copytree(repo,d,dirs_exist_ok=True,ignore=shutil.ignore_patterns('target','__pycache__','.git'))
  p=d/file;s=p.read_text();assert s.count(old)==1,(label,s.count(old));p.write_text(s.replace(old,new))
  env=__import__('os').environ.copy();env['CARGO_TARGET_DIR']=str(target)
  cmd=['cargo','test','--offline','--manifest-path',str(d/'Cargo.toml'),'--test','integration',test,'--','--exact']

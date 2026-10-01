@@ -9,7 +9,7 @@ READ: D5 approved this planning lane, Exact is static binding, Option K preserve
 | OQ3 | Must fresh F aggregates be folded before P1 implementation dispatch? | Yes. Controller runs the provided script; fold only aggregates. Prior F 2,345/3,102 is controller-supplied, not planner-measured; the revised binary and oracle require fresh controller aggregates. | Dispatch using public evidence first, explicitly leaving F acceptance open. Saves controller latency but cannot certify the private corpus. | __OWNER_OQ3__ |
 | OQ4 | After P1, should P2 be parked unless F supplies material incremental yield? | Yes. Public MEASURED yield is 0 for bare baseUrl, non-relative .js→.ts, references and package/workspace routes. Re-measure each future mechanism before authorizing it. | Authorize a general resolver lane now for API completeness, with broader cost and review surface despite no public measured gain. | __OWNER_OQ4__ |
 
-READ: no question asks to redefine Exact or to reopen Option K. READ: cache numbers on this bound base are CPG 103 and nav 59; prototype uses 104/60. If the implementation parent changes, bind that revision, use its actual versions +1 and re-run the controls and corpus comparisons. No stale approval transfers across that change.
+READ: no question asks to redefine Exact or to reopen Option K. READ: cache numbers on this bound base are CPG 104 and nav 60; prototype uses 105/61. If the implementation parent changes, bind that revision, use its actual versions +1 and re-run the controls and corpus comparisons. No stale approval transfers across that change.
 
 ## Controller interim dispositions (2026-10-01; the owner is asleep, so the owner answer slots above stay open)
 

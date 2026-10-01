@@ -1,6 +1,6 @@
-# Lane-P round-1 fold measurements
+# Lane-P measurements after e61d52b8 rebind
 
-MEASURED: the final prototype source is frozen under `target/paths-proto/repo`, bound by `target/paths-plan/r1/final-evidence/source-hashes-frozen.json`. The cumulative P1.diff is byte-exactly replayed from 5048f443. All local round-1 receipts below use `target/paths-plan/r1/final-evidence/` unless explicitly labeled inherited. BUILD-MANIFEST binds source, binaries, compiler, logs and expected files. No private F corpus or raw private result was opened. No Git write was made.
+MEASURED: the final prototype source is frozen in `/Users/wesleyjinks/code/prism-paths-proto` at 9c52a382 plus three integration changes, bound by `target/paths-plan/rebind-e61/evidence/source-hashes-frozen.json`. The cumulative P1.diff is byte-exactly replayed from e61d52b8. All current receipts below use `target/paths-plan/rebind-e61/evidence/` unless explicitly labeled historical. BUILD-MANIFEST binds source, binaries, compiler, logs and expected files. No private F corpus or raw private result was opened. No Git write was made.
 
 ## Finding dispositions
 
@@ -14,9 +14,9 @@ MEASURED: the final prototype source is frozen under `target/paths-proto/repo`, 
 | S4 SMELL | Addressed | Config/extends and package bytes plus relevant source/opaque occupancy fingerprint. Unrelated .txt retains cache bytes/mtime; config, parent, candidate and package edit/add/remove parity is tested. |
 | S5 SMELL | Addressed | Trim relative prefix classification/delegation; keep raw alias keys. C51/C58 preserve relative ESM/CJS, C62 refuses borrowed spelling proof and C63 admits distinct exact raw keys. |
 
-READ: the review's W1 rows (a)–(d) are respectively represented by C39/C40, C41, C42 and C43, in both grammars. Pre-change `old-prism` is the retained d53cacbd prototype binary; same-environment base/head/old rows demonstrate 54 scenario differences (`prechange-control-rows.json`). `membership-doubt-probe/*-pre.json` additionally records the TS fileNames and actual ancestor/decoy errors that motivated final barriers. These are behavioral artifacts, not exit-status claims.
+READ historical R1: the review's W1 rows (a)–(d) are respectively represented by C39/C40, C41, C42 and C43, in both grammars. Pre-change `old-prism` is the retained d53cacbd prototype binary; same-environment base/head/old rows demonstrate 54 scenario differences (`target/paths-plan/r1/final-evidence/prechange-control-rows.json`). `membership-doubt-probe/*-pre.json` additionally records the TS fileNames and actual ancestor/decoy errors that motivated final barriers. These are behavioral artifacts, not exit-status claims.
 
-MEASURED: the final audit found literal package-folder, Unicode-byte glob and declaration-priority membership errors. Rather than keep expanding the matcher after the correction cap, wildcard membership now refuses non-ASCII paths/patterns, case disagreements, package folders and case-variant config names. Explicit files remain authoritative, including Unicode. C64–C69 pin these cuts; C70/C71 prove Unicode target/explicit-file admission. These cuts cost zero final public X/R/T changed rows. They are stated P1 scope cuts, not claims of full TypeScript membership emulation. Independent round 2 may trigger the controller's broader refuse-on-any-doubt switch.
+READ historical R1 audit: the final audit found literal package-folder, Unicode-byte glob and declaration-priority membership errors. Rather than keep expanding the matcher after the correction cap, wildcard membership now refuses non-ASCII paths/patterns, case disagreements, package folders and case-variant config names. Explicit files remain authoritative, including Unicode. C64–C69 pin these cuts; C70/C71 prove Unicode target/explicit-file admission. These cuts cost zero final public X/R/T changed rows. They are stated P1 scope cuts, not claims of full TypeScript membership emulation. Independent round 2 may trigger the controller's broader refuse-on-any-doubt switch.
 
 ## Oracle admissibility
 
@@ -52,7 +52,7 @@ MEASURED: X recovers **3,121 / 3,131 = 99.68%**, leaving ten static callable can
 
 READ controller-supplied, prior binary/oracle: F had **13,299 sites**, **2,345 changed rows**, all CORRECT_STATIC_BINDING, **3,102 callable-recoverable** rows and zero added/removed keys. Yield **75.60%**, gap **757**; all 3,102 used wildcard paths and 724 had index destinations. The old denominator admitted module-resolution modes outside P1. Its 757-row gap is not locally attributed or certified by this fold. The controller must rerun the new immutable binary and oracle to obtain fresh F yield, denominator and refusal histogram. No fresh F claim is made here.
 
-MEASURED: CONTROLLER-paths.sh defaults to `target/paths-plan/r1/head-membership-final/prism`, emits one aggregates-only JSON object and retains paths/source/rows/diagnostics privately. Public-only script smoke passed on all 152 synthetic scenarios; 55 changes (53 bindings, 2 refusals), zero keys, empty controller stderr. The wrapper receipt explicitly says PUBLIC_SYNTHETIC_CONTROLS_ONLY and actual_F_run=false; the script's fixed `corpus: F` label in that smoke is not F evidence.
+MEASURED: CONTROLLER-paths.sh defaults to `target/paths-plan/rebind-e61/head/prism`, emits one aggregates-only JSON object and retains paths/source/rows/diagnostics privately. Public-only script smoke passed on all 152 synthetic scenarios; 55 changes (53 bindings, 2 refusals), zero keys, empty controller stderr. The wrapper receipt explicitly says PUBLIC_SYNTHETIC_CONTROLS_ONLY and actual_F_run=false; the script's fixed `corpus: F` label in that smoke is not F evidence.
 
 ## Control table
 
@@ -106,28 +106,31 @@ MEASURED: **152 scenarios / 166 sites / 55 changes = 53 CORRECT_STATIC_BINDING +
 | I08-no-opaque-star-guard | js_paths_r1_skipped_star_preserves_base | KILLED |
 | I09-ignore-skipped-declaration-name | js_paths_r1_skipped_star_preserves_base | KILLED |
 | I10-trim-alias-cache-key | js_paths_r1_membership_barriers_dot_and_relative | KILLED |
+| I11-taint-namespace-terminal | js_paths_s1b_namespace_star_proof_is_reused | KILLED |
 
-MEASURED: all **20 kernel + 10 integration** mutants are killed. Kernel mutants compile the actual three production resolver modules and compare concrete module outputs; integration mutants use copied actual source trees and each compile/select one test/produce an assertion panic. Setup, zero-test and compile failures count as no evidence. Boundary mutants (outDir, case/Unicode cuts, full-file topology) enforce conservative policy rather than independently demonstrate wrong targets. Existing M01–M10 and I01–I04 remain killed; no mutant was quietly removed.
+MEASURED: all **20 kernel + 11 integration** mutants are killed. Kernel mutants compile the actual three production resolver modules and compare concrete module outputs; integration mutants use copied actual source trees and each compile/select one test/produce an assertion panic. Setup, zero-test and compile failures count as no evidence. Boundary mutants (outDir, case/Unicode cuts, full-file topology) enforce conservative policy rather than independently demonstrate wrong targets. Existing M01–M10 and I01–I04 remain killed; no mutant was quietly removed.
 
 ## Suites, matrix and cache
 
 | Final suite | Passed | Failed | Ignored | Result groups |
 |---|---|---|---|---|
-| default | 4770 | 0 | 1 | 29 |
-| mcp | 4963 | 0 | 1 | 31 |
-| all-features | 4986 | 0 | 1 | 31 |
+| default | 4808 | 0 | 1 | 29 |
+| mcp | 5001 | 0 | 1 | 31 |
+| all-features | 5024 | 0 | 1 | 31 |
 
-MEASURED: release rebuild preceded the matrix in the same prototype tree. Matrix **169 passed / 0 failed**, including four added positive/declaration-refusal fixtures, no existing expectation rebaseline. Formatter passes. Scoped `cargo clippy --offline --lib --features mcp` passes; 139 library warnings are reported, not hidden.
+MEASURED: release rebuild preceded the matrix in the same prototype tree. Matrix **170 passed / 0 failed** (fresh e61d52b8 base matrix **166 / 0**; four P1 fixtures), including four added positive/declaration-refusal fixtures, no existing expectation rebaseline. Formatter passes. Scoped `cargo clippy --offline --lib --features mcp` passes; 139 library warnings are reported, not hidden.
 
 MEASURED: cache CLI probe passes cross-binary rejection, cold/full-hit/sidecar/no-cache equality, config-only left→right caller movement, extends parent edit, candidate and package add/remove parity, and unrelated .txt add/remove keeping the existing cache bytes/mtime. The empty-source-change incremental versus full graph test passes in the suites. Tests assert actual caller/function artifacts and cache state, not only command status. Fingerprinting excludes ordinary directories and unrelated text/markdown/hidden regular files; source-candidate occupancy, opaque directories, config chains, package bytes and completeness remain inputs. Large-tree performance remains unmeasured.
 
-READ retained pre-change execution: base default suite **4,750 passed / 0 failed / 1 ignored**, 29 groups; standalone base P1 harness **8 behavioral RED / 9 preservation passes**, 17 groups (`target/paths-plan/base/`). These original execution receipts are distinct from this fold's fresh same-environment base binary corpus/control executions and fresh final suites. The ignored upstream test remains `integration::resolution_test::slice_elem_variant_reserved`; no inherited failure was rebaselined or silently fixed.
+MEASURED: fresh e61d52b8 standalone base P1 harness **8 behavioral RED / 9 preservation passes**; same standalone harness on head **17 GREEN**, in this environment (`base-harness.log`, `head-harness.log`). READ historical: old 5048f443 base full suite 4,750/0/1 is not a new-parent suite claim; no full base suite was rerun. The ignored upstream test remains `integration::resolution_test::slice_elem_variant_reserved`; no inherited failure was rebaselined or silently fixed.
 
 ## Exclusions and inadmissible work
 
-READ: no private F source/raw evidence; fresh aggregates are controller work. Prototype-own Tier-A quick has no admissible result: ignored scratch inherits the enclosing Git identity and has no tracked source universe, plus the corpus pin differs. The controller must rebuild/apply this patch in its real prototype worktree and run quick there. Full multi-corpus Tier-A is human-triggered, not run. Independent Opus round 2, owner confirmation, Git commit/push/merge and actual worktree application are not performed here. Snapshot race/security guarantees and large-tree overhead are unmeasured; public corpora are trusted read-only inputs.
+READ: no private F source/raw evidence; fresh aggregates are controller work. Full multi-corpus Tier-A is human-triggered, not run. Independent Opus round 2, owner confirmation, Git commit/push/merge and P2 are not performed here. Snapshot race/security guarantees and large-tree overhead remain unmeasured; public corpora are trusted read-only inputs.
 
-READ: PROBE-LOG.md records inadmissible cache setup paths, no-final-newline diff emission, replaced-binary SIGKILL and concurrent mutant/suite executable custody. Those receipts are excluded. Final runs use immutable binary paths; integration mutations precede suites serially, with source hashes before/after every suite. The local correction cap and disclosed targeted extension are recorded; final membership doubts were handled by fail-closed cuts rather than a new conformance expansion. No artifact restart or external review approval is claimed.
+MEASURED: second actual-worktree Tier-A quick **completed in 474.24 seconds** within its 900-second bound, return code 2. Its accuracy baseline is **invalid** for **corpus pin drift (9c52a3824662 != 20c8490591a3)** and **C-method stratum only 4/6 successful probes**. Oracle error rate 0.0667, SUT error rate 0; all 170 matrix outcomes are ok. No pin, query, oracle, grade or baseline override. quick-summary.json and quick-second/generated retain the actual report, raw run and inventory snapshot. No regression attribution is made without a same-environment base quick control; that control was not run.
+
+MEASURED: PROBE-LOG.md separates setup failures (redirect/archive/copy/boundary/premature-finalization and refused process inventory) from admissible behavior. Every final suite hashes the same 38 files before/after. Mutation builds precede suites serially, while binary measurements use copied immutable executables. No integration repair extension was needed beyond round one; no artifact restart or independent review approval is claimed.
 
 ## Reproduction
 
@@ -143,6 +146,10 @@ python3 probes/cache_probe.py "$BASE_BIN" "$HEAD_BIN" "$OUT/cache"
 bash probes/CONTROLLER-paths.sh
 ```
 
-## Verification-gate follow-up
+## Integration and source-bound verification
 
-MEASURED: root `VERIFICATION.md` records exact commands, full-suite totals, RED/edge coverage and environment-limited exclusions. Full-suite log hashes/counts and the unchanged 37-file source binding were independently rechecked (`hook-suite-revalidation.json`); no Rust behavior changed after those complete runs. Added oracle-contract assertions pass on final controls and are RED on the d53cacbd oracle (18 violations across 14 cases). Requested-member histogram assertions pass on X and kill O01, which restores the earlier whole-module scan mechanism. These supplementary evidence tests are separate from the 20 kernel / 10 integration mutants. Production/test source, binary and P1.diff hashes are unchanged.
+MEASURED: head versus fresh main has **411 S1b-4 scenarios / 639 sites** with byte-identical complete dumps, function inventories and stderr. Both summaries also match the committed S1b-controls-s1b4-r5-impl.txt reference: SHA-256 b550a2c7466fdbe4d331f93843d44f0bfcfb6c62febf81f115c86a9ab64dd5ca (`s1b-identity.json`).
+
+MEASURED: local namespace Callable terminals initialize via_unresolved_star=false. The unchanged landed namespace_identity returns Err before insertion on any unresolved star branch; explicit named exports override stars. P1 reuses landed extraction, module/position binding classification, relative-module resolution, R4c span/wrapper/unique callable gates, and both export projections. Its alias-only skipped-star provenance preserves the legacy relative row policy; it is not a second namespace resolver. The two namespace resolver functions are byte-identical to main. Landed is_empty already retains complete namespace facts; extra P1 empty facts have namespace_proof_complete=false and cannot grant namespace authority. The added JSX/TSX regression covers clean, unresolved-sibling and explicit-named-override routes; I11 kills a true terminal initializer.
+
+MEASURED: root VERIFICATION.md records the actual commands and exclusions. Full-suite hashes/totals and all 38 source hashes were rechecked (`verification-summary.json`). Historical R1 oracle RED/O01 evidence is retained in r1/final-evidence, not rerun here. Current 152 controls execute their strengthened oracle assertions, and fresh public finalization checks requested-member histogram assertions. No Rust behavior changed after the full suites.

@@ -1,0 +1,3585 @@
+diff --git a/eval/fixtures/javascript/tsconfig_paths_positive/app.jsx b/eval/fixtures/javascript/tsconfig_paths_positive/app.jsx
+new file mode 100644
+index 00000000..909aebe3
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_positive/app.jsx
+@@ -0,0 +1,2 @@
++import { real as picked } from '@lib/util';
++export function run() { picked(); }
+diff --git a/eval/fixtures/javascript/tsconfig_paths_positive/decoy/util.jsx b/eval/fixtures/javascript/tsconfig_paths_positive/decoy/util.jsx
+new file mode 100644
+index 00000000..86a5a8a0
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_positive/decoy/util.jsx
+@@ -0,0 +1 @@
++export function real() { return 2; }
+diff --git a/eval/fixtures/javascript/tsconfig_paths_positive/expected.toml b/eval/fixtures/javascript/tsconfig_paths_positive/expected.toml
+new file mode 100644
+index 00000000..1a401a94
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_positive/expected.toml
+@@ -0,0 +1,14 @@
++[case]
++language = "javascript"
++capability = "tsconfig_paths_positive"
++status = "pass"
++[seed]
++symbol = "real"
++file = "src/util.jsx"
++line = 1
++[[expect.callers]]
++file = "app.jsx"
++line = 2
++[expect]
++exact = true
++resolution_kind = "import_member"
+diff --git a/eval/fixtures/javascript/tsconfig_paths_positive/src/util.jsx b/eval/fixtures/javascript/tsconfig_paths_positive/src/util.jsx
+new file mode 100644
+index 00000000..2c21ad07
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_positive/src/util.jsx
+@@ -0,0 +1 @@
++export function real() { return 1; }
+diff --git a/eval/fixtures/javascript/tsconfig_paths_positive/tsconfig.json b/eval/fixtures/javascript/tsconfig_paths_positive/tsconfig.json
+new file mode 100644
+index 00000000..8b3cc817
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_positive/tsconfig.json
+@@ -0,0 +1 @@
++{"compilerOptions": {"moduleResolution": "node", "allowJs": true, "paths": {"@lib/*": ["src/*"]}}}
+\ No newline at end of file
+diff --git a/eval/fixtures/javascript/tsconfig_paths_refusal/app.jsx b/eval/fixtures/javascript/tsconfig_paths_refusal/app.jsx
+new file mode 100644
+index 00000000..909aebe3
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_refusal/app.jsx
+@@ -0,0 +1,2 @@
++import { real as picked } from '@lib/util';
++export function run() { picked(); }
+diff --git a/eval/fixtures/javascript/tsconfig_paths_refusal/decoy/util.jsx b/eval/fixtures/javascript/tsconfig_paths_refusal/decoy/util.jsx
+new file mode 100644
+index 00000000..86a5a8a0
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_refusal/decoy/util.jsx
+@@ -0,0 +1 @@
++export function real() { return 2; }
+diff --git a/eval/fixtures/javascript/tsconfig_paths_refusal/expected.toml b/eval/fixtures/javascript/tsconfig_paths_refusal/expected.toml
+new file mode 100644
+index 00000000..683367c0
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_refusal/expected.toml
+@@ -0,0 +1,10 @@
++[case]
++language = "javascript"
++capability = "tsconfig_paths_refusal"
++status = "pass"
++[seed]
++symbol = "real"
++file = "src/util.jsx"
++line = 1
++[expect]
++exact = true
+diff --git a/eval/fixtures/javascript/tsconfig_paths_refusal/src/util.d.ts b/eval/fixtures/javascript/tsconfig_paths_refusal/src/util.d.ts
+new file mode 100644
+index 00000000..ecc37363
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_refusal/src/util.d.ts
+@@ -0,0 +1 @@
++export declare function real(): number;
+diff --git a/eval/fixtures/javascript/tsconfig_paths_refusal/src/util.jsx b/eval/fixtures/javascript/tsconfig_paths_refusal/src/util.jsx
+new file mode 100644
+index 00000000..2c21ad07
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_refusal/src/util.jsx
+@@ -0,0 +1 @@
++export function real() { return 1; }
+diff --git a/eval/fixtures/javascript/tsconfig_paths_refusal/tsconfig.json b/eval/fixtures/javascript/tsconfig_paths_refusal/tsconfig.json
+new file mode 100644
+index 00000000..8b3cc817
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_refusal/tsconfig.json
+@@ -0,0 +1 @@
++{"compilerOptions": {"moduleResolution": "node", "allowJs": true, "paths": {"@lib/*": ["src/*"]}}}
+\ No newline at end of file
+diff --git a/eval/fixtures/typescript/tsconfig_paths_positive/app.tsx b/eval/fixtures/typescript/tsconfig_paths_positive/app.tsx
+new file mode 100644
+index 00000000..909aebe3
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_positive/app.tsx
+@@ -0,0 +1,2 @@
++import { real as picked } from '@lib/util';
++export function run() { picked(); }
+diff --git a/eval/fixtures/typescript/tsconfig_paths_positive/decoy/util.tsx b/eval/fixtures/typescript/tsconfig_paths_positive/decoy/util.tsx
+new file mode 100644
+index 00000000..86a5a8a0
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_positive/decoy/util.tsx
+@@ -0,0 +1 @@
++export function real() { return 2; }
+diff --git a/eval/fixtures/typescript/tsconfig_paths_positive/expected.toml b/eval/fixtures/typescript/tsconfig_paths_positive/expected.toml
+new file mode 100644
+index 00000000..0264d470
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_positive/expected.toml
+@@ -0,0 +1,14 @@
++[case]
++language = "typescript"
++capability = "tsconfig_paths_positive"
++status = "pass"
++[seed]
++symbol = "real"
++file = "src/util.tsx"
++line = 1
++[[expect.callers]]
++file = "app.tsx"
++line = 2
++[expect]
++exact = true
++resolution_kind = "import_member"
+diff --git a/eval/fixtures/typescript/tsconfig_paths_positive/src/util.tsx b/eval/fixtures/typescript/tsconfig_paths_positive/src/util.tsx
+new file mode 100644
+index 00000000..2c21ad07
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_positive/src/util.tsx
+@@ -0,0 +1 @@
++export function real() { return 1; }
+diff --git a/eval/fixtures/typescript/tsconfig_paths_positive/tsconfig.json b/eval/fixtures/typescript/tsconfig_paths_positive/tsconfig.json
+new file mode 100644
+index 00000000..8b3cc817
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_positive/tsconfig.json
+@@ -0,0 +1 @@
++{"compilerOptions": {"moduleResolution": "node", "allowJs": true, "paths": {"@lib/*": ["src/*"]}}}
+\ No newline at end of file
+diff --git a/eval/fixtures/typescript/tsconfig_paths_refusal/app.tsx b/eval/fixtures/typescript/tsconfig_paths_refusal/app.tsx
+new file mode 100644
+index 00000000..909aebe3
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_refusal/app.tsx
+@@ -0,0 +1,2 @@
++import { real as picked } from '@lib/util';
++export function run() { picked(); }
+diff --git a/eval/fixtures/typescript/tsconfig_paths_refusal/decoy/util.tsx b/eval/fixtures/typescript/tsconfig_paths_refusal/decoy/util.tsx
+new file mode 100644
+index 00000000..86a5a8a0
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_refusal/decoy/util.tsx
+@@ -0,0 +1 @@
++export function real() { return 2; }
+diff --git a/eval/fixtures/typescript/tsconfig_paths_refusal/expected.toml b/eval/fixtures/typescript/tsconfig_paths_refusal/expected.toml
+new file mode 100644
+index 00000000..c4061559
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_refusal/expected.toml
+@@ -0,0 +1,10 @@
++[case]
++language = "typescript"
++capability = "tsconfig_paths_refusal"
++status = "pass"
++[seed]
++symbol = "real"
++file = "src/util.tsx"
++line = 1
++[expect]
++exact = true
+diff --git a/eval/fixtures/typescript/tsconfig_paths_refusal/src/util.d.ts b/eval/fixtures/typescript/tsconfig_paths_refusal/src/util.d.ts
+new file mode 100644
+index 00000000..ecc37363
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_refusal/src/util.d.ts
+@@ -0,0 +1 @@
++export declare function real(): number;
+diff --git a/eval/fixtures/typescript/tsconfig_paths_refusal/src/util.tsx b/eval/fixtures/typescript/tsconfig_paths_refusal/src/util.tsx
+new file mode 100644
+index 00000000..2c21ad07
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_refusal/src/util.tsx
+@@ -0,0 +1 @@
++export function real() { return 1; }
+diff --git a/eval/fixtures/typescript/tsconfig_paths_refusal/tsconfig.json b/eval/fixtures/typescript/tsconfig_paths_refusal/tsconfig.json
+new file mode 100644
+index 00000000..8b3cc817
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_refusal/tsconfig.json
+@@ -0,0 +1 @@
++{"compilerOptions": {"moduleResolution": "node", "allowJs": true, "paths": {"@lib/*": ["src/*"]}}}
+\ No newline at end of file
+diff --git a/src/ast.rs b/src/ast.rs
+index 177113e9..de9e8ffa 100644
+--- a/src/ast.rs
++++ b/src/ast.rs
+@@ -2539,6 +2539,9 @@ impl ParsedFile {
+                         local_name: t.local,
+                         span: Some((t.start_line, t.end_line)),
+                         wrapped: t.wrapped,
++                        // Local callable terminals have traversed no star. The
++                        // namespace resolver rejects any unresolved branch.
++                        via_unresolved_star: false,
+                     });
+             }
+         }
+diff --git a/src/call_graph.rs b/src/call_graph.rs
+index 4a5234f6..f2a86d66 100644
+--- a/src/call_graph.rs
++++ b/src/call_graph.rs
+@@ -621,6 +621,8 @@ pub struct ScopeGraphBuildInputs {
+     #[serde(default)]
+     pub manifest_snapshot: crate::ManifestSnapshot,
+     #[serde(default)]
++    pub js_paths_snapshot: crate::js_paths_snapshot::JsPathsSnapshot,
++    #[serde(default)]
+     pub skipped_go_testdata_files: usize,
+     pub cfg: RustCrateConfig,
+     pub complete: bool,
+@@ -633,6 +635,7 @@ impl ScopeGraphBuildInputs {
+             all_file_paths: files.keys().cloned().collect(),
+             manifest_hashes: BTreeMap::new(),
+             manifest_snapshot: crate::ManifestSnapshot::default(),
++            js_paths_snapshot: Default::default(),
+             skipped_go_testdata_files: 0,
+             cfg: RustCrateConfig::from_convention(files),
+             complete: true,
+@@ -876,6 +879,9 @@ pub struct CallGraph {
+     /// R4c: authority flag — which files prism has actually indexed.
+     #[serde(default)]
+     pub indexed_files: BTreeSet<String>,
++    /// P1 proven non-relative modules; empty for convention-only builds.
++    #[serde(default)]
++    pub js_ts_path_modules: BTreeMap<(String, String), String>,
+     /// P4: JS/TS raw (per-file, un-resolved) export facts — default exports,
+     /// named export lists (incl. renames), exported const-arrow/
+     /// function-expression declarations, CommonJS assignments, and re-export
+@@ -1217,6 +1223,7 @@ impl CallGraph {
+             import_bindings: BTreeMap::new(),
+             module_bindings: BTreeMap::new(),
+             indexed_files: BTreeSet::new(),
++            js_ts_path_modules: BTreeMap::new(),
+             js_ts_exports: BTreeMap::new(),
+             js_ts_resolved_exports: BTreeMap::new(),
+             js_ts_namespace_exports: BTreeMap::new(),
+@@ -1496,6 +1503,7 @@ impl CallGraph {
+             import_bindings: BTreeMap::new(),
+             module_bindings: BTreeMap::new(),
+             indexed_files: BTreeSet::new(),
++            js_ts_path_modules: BTreeMap::new(),
+             js_ts_exports: BTreeMap::new(),
+             js_ts_resolved_exports: BTreeMap::new(),
+             js_ts_namespace_exports: BTreeMap::new(),
+@@ -1962,6 +1970,7 @@ impl CallGraph {
+             import_bindings,
+             module_bindings,
+             indexed_files,
++            js_ts_path_modules: BTreeMap::new(),
+             js_ts_exports,
+             js_ts_resolved_exports: BTreeMap::new(),
+             js_ts_namespace_exports: BTreeMap::new(),
+@@ -2068,6 +2077,7 @@ impl CallGraph {
+         cg.apply_framework_entries(files);
+         // P4: JS/TS export-fact resolution (re-export chains/barrels) is ALSO
+         // whole-program derived, same rationale as the Go passes above.
++        cg.apply_js_paths(scope_inputs);
+         cg.apply_js_export_resolution();
+         // Recompute the remaining whole-program indirect passes after all
+         // resolution facts are installed, including Go B1 Level-3 callbacks.
+@@ -2158,7 +2168,9 @@ impl CallGraph {
+             }
+ 
+             let exports = parsed.extract_js_ts_export_facts();
+-            if !exports.is_empty() {
++            // A successfully parsed value-empty module is a proven empty star
++            // branch, distinct from a missing/opaque branch in alias provenance.
++            if !exports.is_empty() || !parsed.tree.root_node().has_error() {
+                 export_facts.insert(file_path.clone(), exports);
+             }
+ 
+@@ -2191,6 +2203,53 @@ impl CallGraph {
+     /// `apply_go_registrations`/`apply_go_interface_dispatch`: a barrel's
+     /// resolution can depend on an unchanged file elsewhere, so it can't be
+     /// incrementally patched per changed file.
++    pub(crate) fn apply_js_paths(&mut self, inputs: Option<&ScopeGraphBuildInputs>) {
++        self.js_ts_path_modules.clear();
++        let Some(inputs) = inputs else {
++            return;
++        };
++        let mut resolver = crate::js_paths::Resolver::new(&inputs.js_paths_snapshot);
++        for (file, bindings) in &self.import_bindings {
++            if !matches!(
++                crate::languages::Language::from_path(file),
++                Some(
++                    crate::languages::Language::JavaScript
++                        | crate::languages::Language::TypeScript
++                        | crate::languages::Language::Tsx
++                )
++            ) {
++                continue;
++            }
++            for b in bindings {
++                if b.eligible
++                    && b.kind == ImportBindingKind::MemberImport
++                    && self
++                        .js_ts_exports
++                        .get(file)
++                        .is_some_and(|exports| exports.esm_named_imports.contains(&b.local))
++                {
++                    if let Some(target) =
++                        resolver.resolve(file, &b.module_path, &self.indexed_files)
++                    {
++                        self.js_ts_path_modules
++                            .insert((file.clone(), b.module_path.clone()), target);
++                    }
++                }
++            }
++        }
++    }
++
++    pub(crate) fn resolve_js_ts_member_module(&self, module: &str, caller: &str) -> Option<String> {
++        let relative = module.trim();
++        if relative.starts_with("./") || relative.starts_with("../") {
++            resolve_js_ts_relative_module(relative, caller, &self.indexed_files)
++        } else {
++            self.js_ts_path_modules
++                .get(&(caller.into(), module.into()))
++                .cloned()
++        }
++    }
++
+     pub fn apply_js_export_resolution(&mut self) {
+         self.clear_js_export_resolution();
+         let indexed_files = &self.indexed_files;
+@@ -5256,6 +5315,7 @@ impl CallGraph {
+             import_bindings: import_bindings_map,
+             module_bindings: module_bindings_map,
+             indexed_files,
++            js_ts_path_modules: BTreeMap::new(),
+             js_ts_exports,
+             // P4: whole-program resolved export facts — left empty here,
+             // exactly like the Go whole-program state below:
+diff --git a/src/cpg/build.rs b/src/cpg/build.rs
+index 9419fd5f..c18e1266 100644
+--- a/src/cpg/build.rs
++++ b/src/cpg/build.rs
+@@ -620,6 +620,7 @@ impl CodePropertyGraph {
+             // P4: JS/TS export-fact resolution (re-export chains/barrels) is
+             // ALSO whole-program derived — recompute after merge, same
+             // rationale as the Go passes above.
++            cached_cg.apply_js_paths(scope_inputs);
+             cached_cg.apply_js_export_resolution();
+             // Match full construction: recompute the remaining indirect passes,
+             // including Go B1 Level-3 callbacks, after every whole-program
+diff --git a/src/cpg_cache.rs b/src/cpg_cache.rs
+index da2982b4..8fa1b844 100644
+--- a/src/cpg_cache.rs
++++ b/src/cpg_cache.rs
+@@ -229,7 +229,8 @@ use std::path::{Path, PathBuf};
+ ///   lexical binding resolves first (Callable), and an `Unproven` binding drops the R4/R5
+ ///   same-name fallback (SPEC §3.6, §3.8 (8)).
+ /// - v104: S1b-4 qualifier proof and positive-only namespace R3 refinement.
+-const CACHE_VERSION: u32 = 104;
++/// - v105: lane-P P1 tsconfig `paths` import-member resolution and config-input cache key.
++const CACHE_VERSION: u32 = 105;
+ 
+ pub const SKIP_POLICY_VERSION: u32 = 2;
+ 
+@@ -768,7 +769,7 @@ mod tests {
+ 
+     #[test]
+     fn cache_versions_are_pinned_for_cpg_semantics() {
+-        assert_eq!(super::CACHE_VERSION, 104);
++        assert_eq!(super::CACHE_VERSION, 105);
+         assert_eq!(super::SKIP_POLICY_VERSION, 2);
+     }
+ 
+diff --git a/src/js_exports.rs b/src/js_exports.rs
+index 7d8b46ee..4672bcc1 100644
+--- a/src/js_exports.rs
++++ b/src/js_exports.rs
+@@ -169,6 +169,9 @@ pub struct ResolvedJsExport {
+     /// S1b: the span is a wrapped React render function, bindable from JSX sites only.
+     #[serde(default)]
+     pub wrapped: bool,
++    /// Alias routes decline any closure that skipped an unresolved/opaque star.
++    #[serde(default)]
++    pub via_unresolved_star: bool,
+ }
+ 
+ /// Whole-program resolution output: per-file resolved export tables plus
+@@ -206,9 +209,11 @@ pub fn resolve_js_exports(
+         let mut per_file = BTreeMap::new();
+         for name in names {
+             let mut visited = BTreeSet::new();
+-            if let ExportLookup::Resolved(hit, false) =
++            if let ExportLookup::Resolved(mut hit, false) =
+                 resolve_one(raw, resolve_module, file, &name, 0, &mut visited, &mut out)
+             {
++                hit.via_unresolved_star =
++                    skipped_star(raw, resolve_module, file, &name, &mut BTreeSet::new());
+                 per_file.insert(name, hit);
+             }
+         }
+@@ -333,6 +338,51 @@ fn namespace_identity(
+     result
+ }
+ 
++// A skipped branch can have no candidate of its own, so propagate provenance
++// over the complete star closure, including empty nested branches. Direct named
++// exports override stars; named reexports carry their target's provenance.
++fn skipped_star(
++    raw: &BTreeMap<String, JsExportFacts>,
++    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
++    file: &str,
++    name: &str,
++    visited: &mut BTreeSet<(String, String)>,
++) -> bool {
++    let key = (file.to_owned(), name.to_owned());
++    if visited.len() > MAX_REEXPORT_DEPTH || !visited.insert(key.clone()) {
++        return true;
++    }
++    let result = match raw.get(file) {
++        None => true,
++        Some(facts) => match facts.named.get(name) {
++            Some(
++                JsExportTarget::ReExport {
++                    module_path,
++                    imported,
++                }
++                | JsExportTarget::ImportForward {
++                    module_path,
++                    imported,
++                },
++            ) => resolve_module(file, module_path)
++                .is_none_or(|target| skipped_star(raw, resolve_module, &target, imported, visited)),
++            Some(_) => false,
++            None => {
++                facts.skipped_expr_count > facts.skipped_decl_reasons.values().sum::<usize>()
++                    || (!facts.skipped_decl_reasons.is_empty()
++                        && facts.module_value_bindings.contains(name))
++                    || facts.star_reexports.iter().any(|module_path| {
++                        resolve_module(file, module_path).is_none_or(|target| {
++                            skipped_star(raw, resolve_module, &target, name, visited)
++                        })
++                    })
++            }
++        },
++    };
++    visited.remove(&key);
++    result
++}
++
+ /// Collect the set of exported names a file can plausibly serve, including
+ /// names only reachable via `export * from` barrels (which don't enumerate
+ /// names syntactically — the candidate set has to be discovered from the
+@@ -456,6 +506,7 @@ fn resolve_one_inner(
+                     file: file.to_string(),
+                     local_name: local.clone(),
+                     span: Some((*start_line, *end_line)),
++                    via_unresolved_star: false,
+                     wrapped: matches!(target, JsExportTarget::SpannedLocal { .. }),
+                 },
+                 false,
+@@ -466,6 +517,7 @@ fn resolve_one_inner(
+                     file: file.to_string(),
+                     local_name: local.clone(),
+                     span: None,
++                    via_unresolved_star: false,
+                     wrapped: false,
+                 },
+                 matches!(target, JsExportTarget::Class(_)),
+@@ -556,6 +608,7 @@ fn resolve_one_inner(
+                     file,
+                     local_name,
+                     span,
++                    via_unresolved_star: false,
+                     wrapped,
+                 },
+                 is_class,
+@@ -627,6 +680,7 @@ mod tests {
+                 file: "util.ts".to_string(),
+                 local_name: "process".to_string(),
+                 span: None,
++                via_unresolved_star: false,
+                 wrapped: false,
+             }
+         );
+@@ -652,6 +706,7 @@ mod tests {
+                 file: "impl.ts".to_string(),
+                 local_name: "process".to_string(),
+                 span: None,
++                via_unresolved_star: false,
+                 wrapped: false,
+             }
+         );
+@@ -680,6 +735,7 @@ mod tests {
+                 file: "impl.ts".to_string(),
+                 local_name: "process".to_string(),
+                 span: None,
++                via_unresolved_star: false,
+                 wrapped: false,
+             }
+         );
+@@ -743,6 +799,7 @@ mod tests {
+                 local_name: "process".to_string(),
+                 span: None,
+                 wrapped: false,
++                via_unresolved_star: false,
+             }
+         );
+     }
+@@ -807,6 +864,7 @@ mod tests {
+                 local_name: "process".to_string(),
+                 span: None,
+                 wrapped: false,
++                via_unresolved_star: false,
+             }
+         );
+         assert_eq!(out.barrel_conflicts, 0);
+diff --git a/src/js_paths.rs b/src/js_paths.rs
+new file mode 100644
+index 00000000..a4717dd9
+--- /dev/null
++++ b/src/js_paths.rs
+@@ -0,0 +1,326 @@
++//! P1: conservative paths-only module proof for named/default ESM import members.
++use crate::js_paths_snapshot::JsPathsSnapshot;
++use crate::js_paths_syntax::{dir, exclude_matches, jsonc, norm, pattern_matches};
++use serde_json::Value;
++use std::collections::{BTreeMap, BTreeSet};
++#[derive(Clone, Default)]
++struct Config {
++    options: BTreeMap<String, Value>,
++    paths: Option<(String, BTreeMap<String, Vec<String>>)>,
++    base: Option<String>,
++    files: Option<Vec<String>>,
++    include: Option<Vec<String>>,
++    exclude: Option<Vec<String>>,
++}
++fn strings(v: &Value) -> Option<Vec<String>> {
++    v.as_array()?
++        .iter()
++        .map(|x| x.as_str().map(String::from))
++        .collect()
++}
++pub(crate) struct Resolver<'a> {
++    snapshot: &'a JsPathsSnapshot,
++    configs: BTreeMap<String, Option<Config>>,
++    selected: BTreeMap<String, Option<Config>>,
++}
++impl<'a> Resolver<'a> {
++    pub(crate) fn new(snapshot: &'a JsPathsSnapshot) -> Self {
++        Self {
++            snapshot,
++            configs: BTreeMap::new(),
++            selected: BTreeMap::new(),
++        }
++    }
++    fn config(&mut self, p: &str, seen: &mut BTreeSet<String>) -> Option<Config> {
++        if let Some(c) = self.configs.get(p) {
++            return c.clone();
++        }
++        if seen.len() >= 16 || !seen.insert(p.into()) {
++            return None;
++        }
++        let result = self.config_inner(p, seen);
++        seen.remove(p);
++        self.configs.insert(p.into(), result.clone());
++        result
++    }
++    fn config_inner(&mut self, p: &str, seen: &mut BTreeSet<String>) -> Option<Config> {
++        let value = jsonc(self.snapshot.configs.get(p)?.as_ref()?)?;
++        let object = value.as_object()?;
++        if object.contains_key("references")
++            || object
++                .get("files")
++                .is_some_and(|v| v.as_array().is_some_and(Vec::is_empty))
++        {
++            return None;
++        }
++        let mut c = if let Some(ext) = object.get("extends") {
++            let ext = ext.as_str()?;
++            if !ext.starts_with('.') {
++                return None;
++            }
++            let mut parent = norm(dir(p), ext)?;
++            if !parent.ends_with(".json") {
++                parent.push_str(".json");
++            }
++            self.config(&parent, seen)?
++        } else {
++            Config::default()
++        };
++        for (key, slot) in [
++            ("files", &mut c.files),
++            ("include", &mut c.include),
++            ("exclude", &mut c.exclude),
++        ] {
++            if let Some(v) = object.get(key) {
++                let list = strings(v)?;
++                *slot = Some(
++                    list.into_iter()
++                        .map(|s| norm(dir(p), &s))
++                        .collect::<Option<Vec<_>>>()?,
++                );
++            }
++        }
++        if let Some(v) = object.get("compilerOptions") {
++            let opts = v.as_object()?;
++            for (k, v) in opts {
++                c.options.insert(k.clone(), v.clone());
++            }
++            if let Some(v) = opts.get("baseUrl") {
++                c.base = Some(norm(dir(p), v.as_str()?)?);
++            }
++            if let Some(v) = opts.get("paths") {
++                let mut paths = BTreeMap::new();
++                for (k, v) in v.as_object()? {
++                    if k.matches('*').count() > 1 {
++                        return None;
++                    }
++                    let targets = strings(v)?;
++                    if targets.len() != 1 || targets.iter().any(|t| t.matches('*').count() > 1) {
++                        return None;
++                    }
++                    paths.insert(k.clone(), targets);
++                }
++                c.paths = Some((dir(p).into(), paths));
++            }
++        }
++        Some(c)
++    }
++    fn includes(&self, c: &Config, file: &str, config_path: &str) -> Option<bool> {
++        if c.files
++            .as_ref()
++            .is_some_and(|f| f.iter().any(|x| x == file))
++        {
++            return Some(true);
++        }
++        if c.files
++            .as_ref()
++            .is_some_and(|f| f.iter().any(|x| x.eq_ignore_ascii_case(file)))
++        {
++            return None;
++        }
++        if matches!(file.rsplit('.').next(), Some("js" | "jsx" | "mjs" | "cjs"))
++            && c.options.get("allowJs").and_then(Value::as_bool) != Some(true)
++        {
++            return Some(false);
++        }
++        // Wildcard extension-priority dedupe is deliberately a barrier, not an
++        // ancestor fallback. Explicit files entries above remain authoritative.
++        let lower_priority_stem = file.strip_suffix(".d.ts").or_else(|| {
++            let (stem, ext) = file.rsplit_once('.')?;
++            ["js", "jsx", "mjs", "cjs"].contains(&ext).then_some(stem)
++        });
++        if lower_priority_stem.is_some_and(|stem| {
++            ["ts", "tsx"]
++                .iter()
++                .any(|e| self.snapshot.entries.contains_key(&format!("{stem}.{e}")))
++        }) {
++            return None;
++        }
++        let default;
++        let inc = if let Some(i) = &c.include {
++            i
++        } else if c.files.is_some() {
++            return Some(false);
++        } else {
++            default = vec![norm(dir(config_path), "**/*")?];
++            &default
++        };
++        let mut included = false;
++        for p in inc {
++            let exact = pattern_matches(p, file)?;
++            if !exact && pattern_matches(&p.to_ascii_lowercase(), &file.to_ascii_lowercase())? {
++                return None;
++            }
++            included |= exact;
++        }
++        if !included {
++            return Some(false);
++        }
++        if let Some(ex) = &c.exclude {
++            for p in ex {
++                let exact = exclude_matches(p, file)?;
++                if !exact && exclude_matches(&p.to_ascii_lowercase(), &file.to_ascii_lowercase())? {
++                    return None;
++                }
++                if exact {
++                    return Some(false);
++                }
++            }
++        } else if let Some(out) = c.options.get("outDir").and_then(Value::as_str) {
++            // outDir is origin-sensitive; P1 declines default-exclude inference here.
++            if !out.is_empty() {
++                return None;
++            }
++        }
++        Some(true)
++    }
++    fn select(&mut self, file: &str) -> Option<Config> {
++        if let Some(c) = self.selected.get(file) {
++            return c.clone();
++        }
++        let mut directory = dir(file);
++        let result = loop {
++            let p = if directory.is_empty() {
++                "tsconfig.json".into()
++            } else {
++                format!("{directory}/tsconfig.json")
++            };
++            let jsconfig = if directory.is_empty() {
++                "jsconfig.json".into()
++            } else {
++                format!("{directory}/jsconfig.json")
++            };
++            if self.snapshot.configs.contains_key(&jsconfig) {
++                break None;
++            }
++            if self.snapshot.configs.contains_key(&p) {
++                let Some(c) = self.config(&p, &mut BTreeSet::new()) else {
++                    break None;
++                };
++                match self.includes(&c, file, &p) {
++                    Some(true) => break Some(c),
++                    Some(false) => {}
++                    None => break None,
++                }
++            }
++            if directory.is_empty() {
++                break None;
++            }
++            directory = dir(directory);
++        };
++        self.selected.insert(file.into(), result.clone());
++        result
++    }
++    pub(crate) fn resolve(
++        &mut self,
++        file: &str,
++        spec: &str,
++        indexed: &BTreeSet<String>,
++    ) -> Option<String> {
++        if !self.snapshot.complete
++            || spec.starts_with('.')
++            || spec.contains(['\\', ':'])
++            || spec.starts_with('/')
++        {
++            return None;
++        }
++        let c = self.select(file)?;
++        let mode = c
++            .options
++            .get("moduleResolution")
++            .and_then(Value::as_str)?
++            .to_ascii_lowercase();
++        if !["node", "node10"].contains(&mode.as_str())
++            || ["rootDirs", "moduleSuffixes", "noResolve"]
++                .iter()
++                .any(|k| c.options.contains_key(*k))
++        {
++            return None;
++        }
++        let (origin, paths) = c.paths?;
++        let (key, capture) = if paths.contains_key(spec) {
++            (spec.to_owned(), String::new())
++        } else {
++            let mut best: Option<(usize, String, String)> = None;
++            let mut tied = false;
++            for k in paths.keys() {
++                let Some((pre, post)) = k.split_once('*') else {
++                    continue;
++                };
++                if !spec.starts_with(pre)
++                    || !spec.ends_with(post)
++                    || spec.len() < pre.len() + post.len()
++                {
++                    continue;
++                }
++                let n = pre.len();
++                let capture = spec[n..spec.len() - post.len()].to_owned();
++                match &best {
++                    Some((m, _, _)) if *m == n => tied = true,
++                    Some((m, _, _)) if *m > n => {}
++                    _ => {
++                        best = Some((n, k.clone(), capture));
++                        tied = false;
++                    }
++                }
++            }
++            let (_, k, s) = best?;
++            if tied || s.is_empty() {
++                return None;
++            }
++            (k, s)
++        };
++        let raw_target = paths.get(&key)?.first()?;
++        if !key.contains('*') && raw_target.contains('*') {
++            return None;
++        }
++        let target = raw_target.replacen('*', &capture, 1);
++        let p = norm(c.base.as_deref().unwrap_or(&origin), &target)?;
++        if !self.snapshot.unblocked(&p) {
++            return None;
++        }
++        if p.ends_with(".ts") || p.ends_with(".tsx") {
++            return (self.snapshot.entries.get(&p) == Some(&0)
++                && indexed.contains(&p)
++                && !p.ends_with(".d.ts"))
++            .then_some(p);
++        }
++        // TS probes unknown suffixes (user.service.ts) on the full substitution.
++        // Known non-TS extensions require substitution precedence, outside P1.
++        if [".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".json"]
++            .iter()
++            .any(|e| p.ends_with(e))
++        {
++            return None;
++        }
++        if self
++            .snapshot
++            .entries
++            .contains_key(&format!("{p}/package.json"))
++        {
++            return None;
++        }
++        // P1 leaves competing file/index/extension candidates at base. A declaration-only
++        // winner or an unindexed/opaque source must never be bypassed for a lower candidate.
++        let mut present = Vec::new();
++        for ext in [".ts", ".tsx", ".d.ts", ".js", ".jsx"] {
++            for q in [format!("{p}{ext}"), format!("{p}/index{ext}")] {
++                if self.snapshot.entries.contains_key(&q) {
++                    present.push(q);
++                }
++            }
++        }
++        if self.snapshot.entries.get(&p) == Some(&0) {
++            return None;
++        }
++        if present.len() != 1 {
++            return None;
++        }
++        let q = present.pop()?;
++        (self.snapshot.unblocked(&q)
++            && self.snapshot.entries.get(&q) == Some(&0)
++            && indexed.contains(&q)
++            && !q.ends_with(".d.ts"))
++        .then_some(q)
++    }
++}
+diff --git a/src/js_paths_snapshot.rs b/src/js_paths_snapshot.rs
+new file mode 100644
+index 00000000..8173a99c
+--- /dev/null
++++ b/src/js_paths_snapshot.rs
+@@ -0,0 +1,145 @@
++//! Bounded, no-follow configuration/occupancy snapshot for the P1 resolver.
++use sha2::{Digest, Sha256};
++use std::collections::{BTreeMap, BTreeSet};
++use std::path::Path;
++
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct JsPathsSnapshot {
++    pub(crate) configs: BTreeMap<String, Option<Vec<u8>>>,
++    pub(crate) entries: BTreeMap<String, u8>, // 0 regular, 1 directory, 2 opaque
++    pub(crate) complete: bool,
++    opaque_directories: BTreeSet<String>,
++    package_hashes: BTreeMap<String, String>,
++}
++impl JsPathsSnapshot {
++    pub(crate) fn capture(root: &Path) -> Self {
++        if root.as_os_str().is_empty() {
++            return Self::default();
++        }
++        let mut s = Self {
++            complete: true,
++            ..Self::default()
++        };
++        if s.walk(root, root).is_err() {
++            s.complete = false;
++        }
++        s
++    }
++    fn walk(&mut self, root: &Path, dir: &Path) -> std::io::Result<()> {
++        for entry in std::fs::read_dir(dir)? {
++            let entry = entry?;
++            if self.entries.len() >= 200_000 {
++                return Err(std::io::Error::other("P1 snapshot budget"));
++            }
++            let p = entry.path();
++            let rel = p.strip_prefix(root).map_err(std::io::Error::other)?;
++            let Some(rel) = rel.to_str() else {
++                return Err(std::io::Error::other("P1 non-UTF8 path"));
++            };
++            let ft = entry.file_type()?;
++            let name = entry.file_name();
++            let name = name
++                .to_str()
++                .ok_or_else(|| std::io::Error::other("P1 path"))?;
++            let blocked = ft.is_symlink()
++                || name.starts_with('.')
++                || ["target", "node_modules", "vendor", "dist", "build"].contains(&name);
++            if blocked && (ft.is_dir() || ft.is_symlink()) {
++                self.opaque_directories.insert(rel.to_owned());
++            }
++            if name == "package.json" {
++                let digest = if !blocked && ft.is_file() && entry.metadata()?.len() <= 262_144 {
++                    std::fs::read(&p)
++                        .ok()
++                        .map(|b| format!("{:x}", Sha256::digest(b)))
++                } else {
++                    None
++                };
++                self.package_hashes
++                    .insert(rel.to_owned(), digest.unwrap_or_else(|| "opaque".into()));
++            }
++            self.entries.insert(
++                rel.to_owned(),
++                if blocked {
++                    2
++                } else if ft.is_dir() {
++                    1
++                } else if ft.is_file() {
++                    0
++                } else {
++                    2
++                },
++            );
++            let config_name = name.to_ascii_lowercase();
++            if config_name == "jsconfig.json"
++                || config_name == "tsconfig.json"
++                || (config_name.starts_with("tsconfig.") && config_name.ends_with(".json"))
++            {
++                let bytes = if name == config_name
++                    && !blocked
++                    && ft.is_file()
++                    && entry.metadata()?.len() <= 262_144
++                {
++                    std::fs::read(&p).ok()
++                } else {
++                    None
++                };
++                let key = format!("{}{}", &rel[..rel.len() - name.len()], config_name);
++                self.configs.insert(key, bytes);
++            }
++            if ft.is_dir() && !blocked {
++                self.walk(root, &p)?;
++            }
++        }
++        Ok(())
++    }
++    pub(crate) fn topology(&self) -> BTreeMap<String, String> {
++        let mut out = BTreeMap::new();
++        if self.configs.is_empty() {
++            return out;
++        }
++        for (p, b) in &self.configs {
++            out.insert(
++                format!("js_paths_config:{p}"),
++                b.as_ref()
++                    .map(|b| format!("{:x}", Sha256::digest(b)))
++                    .unwrap_or_else(|| "opaque".into()),
++            );
++        }
++        // Additions, removals, skipped candidates, symlink and directory replacement all invalidate.
++        let occupancy: BTreeMap<_, _> = self
++            .entries
++            .iter()
++            .filter(|(p, kind)| {
++                let name = p.rsplit('/').next().unwrap_or(p);
++                self.opaque_directories.contains(*p)
++                    || (**kind != 1
++                        && (name == "package.json"
++                            || (!name.starts_with('.') && !name.contains('.'))
++                            || [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts"]
++                                .iter()
++                                .any(|e| name.ends_with(e))))
++            })
++            .collect();
++        let bytes = bincode::serialize(&(&occupancy, &self.package_hashes, self.complete))
++            .expect("snapshot serializes");
++        out.insert(
++            "js_paths_occupancy".into(),
++            format!("{:x}", Sha256::digest(bytes)),
++        );
++        out
++    }
++    pub(crate) fn unblocked(&self, p: &str) -> bool {
++        let mut prefix = String::new();
++        for part in p.split('/') {
++            if !prefix.is_empty() {
++                prefix.push('/');
++            }
++            prefix.push_str(part);
++            if self.entries.get(&prefix) == Some(&2) {
++                return false;
++            }
++        }
++        true
++    }
++}
+diff --git a/src/js_paths_syntax.rs b/src/js_paths_syntax.rs
+new file mode 100644
+index 00000000..f538bd30
+--- /dev/null
++++ b/src/js_paths_syntax.rs
+@@ -0,0 +1,234 @@
++//! P1 supported config syntax. Unsupported input declines, preserving base.
++use serde::de::{DeserializeSeed, MapAccess, SeqAccess, Visitor};
++use serde_json::Value;
++use std::fmt;
++struct Unique;
++impl<'de> Visitor<'de> for Unique {
++    type Value = Value;
++    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
++        f.write_str("JSON without duplicate keys")
++    }
++    fn visit_map<A: MapAccess<'de>>(self, mut a: A) -> Result<Value, A::Error> {
++        let mut m = serde_json::Map::new();
++        while let Some(k) = a.next_key::<String>()? {
++            if m.contains_key(&k) {
++                return Err(serde::de::Error::custom("duplicate key"));
++            }
++            m.insert(k, a.next_value_seed(Unique)?);
++        }
++        Ok(Value::Object(m))
++    }
++    fn visit_seq<A: SeqAccess<'de>>(self, mut a: A) -> Result<Value, A::Error> {
++        let mut v = Vec::new();
++        while let Some(x) = a.next_element_seed(Unique)? {
++            v.push(x);
++        }
++        Ok(Value::Array(v))
++    }
++    fn visit_str<E: serde::de::Error>(self, s: &str) -> Result<Value, E> {
++        Ok(Value::String(s.into()))
++    }
++    fn visit_bool<E: serde::de::Error>(self, b: bool) -> Result<Value, E> {
++        Ok(Value::Bool(b))
++    }
++    fn visit_i64<E: serde::de::Error>(self, n: i64) -> Result<Value, E> {
++        Ok(n.into())
++    }
++    fn visit_u64<E: serde::de::Error>(self, n: u64) -> Result<Value, E> {
++        Ok(n.into())
++    }
++    fn visit_f64<E: serde::de::Error>(self, n: f64) -> Result<Value, E> {
++        serde_json::Number::from_f64(n)
++            .map(Value::Number)
++            .ok_or_else(|| E::custom("number"))
++    }
++    fn visit_unit<E: serde::de::Error>(self) -> Result<Value, E> {
++        Ok(Value::Null)
++    }
++}
++impl<'de> DeserializeSeed<'de> for Unique {
++    type Value = Value;
++    fn deserialize<D: serde::Deserializer<'de>>(self, d: D) -> Result<Value, D::Error> {
++        d.deserialize_any(self)
++    }
++}
++pub(crate) fn jsonc(bytes: &[u8]) -> Option<Value> {
++    let mut b = bytes.to_vec();
++    let mut i = 0;
++    let mut quoted = false;
++    while i < b.len() {
++        if quoted {
++            if b[i] == b'\\' {
++                i += 2;
++                continue;
++            }
++            if b[i] == b'"' {
++                quoted = false;
++            }
++            i += 1;
++            continue;
++        }
++        if b[i] == b'"' {
++            quoted = true;
++            i += 1;
++            continue;
++        }
++        if b.get(i..i + 2) == Some(b"//") {
++            while i < b.len() && b[i] != b'\n' {
++                b[i] = b' ';
++                i += 1;
++            }
++            continue;
++        }
++        if b.get(i..i + 2) == Some(b"/*") {
++            b[i] = b' ';
++            b[i + 1] = b' ';
++            i += 2;
++            while i + 1 < b.len() && &b[i..i + 2] != b"*/" {
++                b[i] = b' ';
++                i += 1;
++            }
++            if i + 1 >= b.len() {
++                return None;
++            }
++            b[i] = b' ';
++            b[i + 1] = b' ';
++            i += 2;
++            continue;
++        }
++        i += 1;
++    }
++    i = 0;
++    quoted = false;
++    while i < b.len() {
++        if quoted {
++            if b[i] == b'\\' {
++                i += 2;
++                continue;
++            }
++            if b[i] == b'"' {
++                quoted = false;
++            }
++        } else if b[i] == b'"' {
++            quoted = true;
++        } else if b[i] == b',' {
++            let mut j = i + 1;
++            while j < b.len() && b[j].is_ascii_whitespace() {
++                j += 1;
++            }
++            if b.get(j).is_some_and(|x| *x == b'}' || *x == b']') {
++                b[i] = b' ';
++            }
++        }
++        i += 1;
++    }
++    let mut d = serde_json::Deserializer::from_slice(&b);
++    let v = Unique.deserialize(&mut d).ok()?;
++    d.end().ok()?;
++    Some(v)
++}
++pub(crate) fn norm(base: &str, p: &str) -> Option<String> {
++    if p.starts_with('/') || p.contains('\\') || p.contains(':') {
++        return None;
++    }
++    let joined = if base.is_empty() {
++        p.into()
++    } else {
++        format!("{base}/{p}")
++    };
++    let mut out = Vec::new();
++    for s in joined.split('/') {
++        match s {
++            "" | "." => {}
++            ".." => {
++                out.pop()?;
++            }
++            _ => out.push(s),
++        }
++    }
++    Some(out.join("/"))
++}
++pub(crate) fn dir(p: &str) -> &str {
++    p.rsplit_once('/').map_or("", |(d, _)| d)
++}
++fn seg_match(p: &[u8], s: &[u8]) -> bool {
++    let mut previous = vec![false; s.len() + 1];
++    previous[0] = true;
++    for &token in p {
++        let mut next = vec![false; s.len() + 1];
++        next[0] = token == b'*' && previous[0];
++        for j in 1..=s.len() {
++            next[j] = if token == b'*' {
++                previous[j] || next[j - 1]
++            } else {
++                previous[j - 1] && (token == b'?' || token == s[j - 1])
++            };
++        }
++        previous = next;
++    }
++    previous[s.len()]
++}
++fn path_match(p: &[&str], s: &[&str]) -> bool {
++    let mut previous = vec![false; s.len() + 1];
++    previous[0] = true;
++    for &part in p {
++        let mut next = vec![false; s.len() + 1];
++        next[0] = part == "**" && previous[0];
++        for j in 1..=s.len() {
++            next[j] = if part == "**" {
++                previous[j] || next[j - 1]
++            } else {
++                previous[j - 1] && seg_match(part.as_bytes(), s[j - 1].as_bytes())
++            };
++        }
++        previous = next;
++    }
++    previous[s.len()]
++}
++fn matches(pattern: &str, file: &str, exclude: bool) -> Option<bool> {
++    if !pattern.is_ascii()
++        || !file.is_ascii()
++        || pattern.len() > 512
++        || file.len() > 4096
++        || pattern.contains(['[', ']', '{', '}', '\\', ':'])
++        || pattern.ends_with("/**")
++        || pattern.split('/').any(|s| s.contains("**") && s != "**")
++    {
++        return None;
++    }
++    if !exclude
++        && file
++            .split('/')
++            .any(|s| ["node_modules", "bower_components", "jspm_packages"].contains(&s))
++    {
++        return None;
++    }
++    let p = if !exclude
++        && !pattern.contains(['*', '?'])
++        && !pattern.rsplit('/').next()?.contains('.')
++    {
++        format!("{pattern}/**/*")
++    } else {
++        pattern.into()
++    };
++    Some(path_match(
++        &p.split('/').collect::<Vec<_>>(),
++        &file.split('/').collect::<Vec<_>>(),
++    ))
++}
++
++pub(crate) fn pattern_matches(pattern: &str, file: &str) -> Option<bool> {
++    matches(pattern, file, false)
++}
++pub(crate) fn exclude_matches(pattern: &str, file: &str) -> Option<bool> {
++    let mut prefix = file;
++    loop {
++        if matches(pattern, prefix, true)? {
++            return Some(true);
++        }
++        let Some((parent, _)) = prefix.rsplit_once('/') else {
++            return Some(false);
++        };
++        prefix = parent;
++    }
++}
+diff --git a/src/lib.rs b/src/lib.rs
+index 160f3128..7348752b 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -66,6 +66,9 @@ mod go_receiver_index_visibility;
+ mod go_selector_supply;
+ mod go_type_alias;
+ pub mod js_exports;
++mod js_paths;
++pub mod js_paths_snapshot;
++mod js_paths_syntax;
+ pub mod js_ts_props;
+ pub mod languages;
+ 
+diff --git a/src/navigation/call_edge_cache.rs b/src/navigation/call_edge_cache.rs
+index a448c721..44477afa 100644
+--- a/src/navigation/call_edge_cache.rs
++++ b/src/navigation/call_edge_cache.rs
+@@ -101,7 +101,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
+ // v58: S1b-3a extends the binding core to every scope (CPG v102).
+ // v59: S1b-3b wires the binding core to call sites, `CallSite.local_binding` (CPG v103).
+ // v60: S1b-4 qualifier proof and positive-only namespace R3 refinement (CPG v104).
+-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 60;
++// v61: lane-P P1 tsconfig `paths` import-member resolution (CPG v105).
++const NAV_CALL_EDGE_CACHE_VERSION: u32 = 61;
+ const CACHE_BIN: &str = "resolved-call-edge-index.bin";
+ const CACHE_META: &str = "resolved-call-edge-index-meta.json";
+ const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
+@@ -720,7 +721,7 @@ mod tests {
+ 
+     #[test]
+     fn sidecar_version_is_pinned_for_receiver_authority() {
+-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 60);
++        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 61);
+     }
+ 
+     #[test]
+diff --git a/src/navigation/call_resolve.rs b/src/navigation/call_resolve.rs
+index 83cd2c3c..2b2a2e0b 100644
+--- a/src/navigation/call_resolve.rs
++++ b/src/navigation/call_resolve.rs
+@@ -57,14 +57,11 @@ pub(crate) fn scoped_caller_site_match_count(
+             // barrels — resolve it through `js_ts_resolved_exports` (the same
+             // typed facts R4c itself consults) to the real local name before
+             // comparing, instead of assuming member == target_name.
+-            let js_ts_resolved_match = crate::call_graph::resolve_js_ts_relative_module(
+-                &b.module_path,
+-                &site.caller.file,
+-                &cg.indexed_files,
+-            )
+-            .and_then(|candidate_file| cg.js_ts_resolved_exports.get(&candidate_file))
+-            .and_then(|exports| exports.get(member))
+-            .is_some_and(|resolved| resolved.local_name == target_name);
++            let js_ts_resolved_match = cg
++                .resolve_js_ts_member_module(&b.module_path, &site.caller.file)
++                .and_then(|candidate_file| cg.js_ts_resolved_exports.get(&candidate_file))
++                .and_then(|exports| exports.get(member))
++                .is_some_and(|resolved| resolved.local_name == target_name);
+             if member == target_name || js_ts_resolved_match {
+                 count += 1;
+             }
+diff --git a/src/repo_loader.rs b/src/repo_loader.rs
+index 2c1825bd..40fff225 100644
+--- a/src/repo_loader.rs
++++ b/src/repo_loader.rs
+@@ -196,7 +196,9 @@ fn scope_graph_build_inputs_from_snapshot(
+     files: &BTreeMap<String, ParsedFile>,
+     manifest_snapshot: ManifestSnapshot,
+ ) -> ScopeGraphBuildInputs {
+-    let manifest_hashes = manifest_snapshot.topology_hashes();
++    let mut manifest_hashes = manifest_snapshot.topology_hashes();
++    let js_paths_snapshot = crate::js_paths_snapshot::JsPathsSnapshot::capture(root);
++    manifest_hashes.extend(js_paths_snapshot.topology());
+     let cfg = parse_rust_crate_config(files, &manifest_snapshot)
+         .unwrap_or_else(|| RustCrateConfig::from_convention(files));
+     let complete = has_complete_rust_coverage(root, files);
+@@ -206,6 +208,7 @@ fn scope_graph_build_inputs_from_snapshot(
+         manifest_hashes,
+         manifest_snapshot,
+         skipped_go_testdata_files: 0,
++        js_paths_snapshot,
+         cfg,
+         complete,
+     }
+diff --git a/src/resolution.rs b/src/resolution.rs
+index e7e759ac..45b01503 100644
+--- a/src/resolution.rs
++++ b/src/resolution.rs
+@@ -3771,11 +3771,21 @@ impl CallGraph {
+         member: &str,
+         site: &CallSite,
+     ) -> Result<Vec<&FunctionId>, DropReason> {
+-        let Some(candidate_file) = crate::call_graph::resolve_js_ts_relative_module(
+-            &binding.module_path,
+-            &caller.file,
+-            &self.indexed_files,
+-        ) else {
++        // A caller/module cache entry can also be shared by a require binding.
++        // Prove this particular ESM binding and position before consulting it.
++        if !binding.module_path.trim().starts_with('.')
++            && (!self
++                .js_ts_exports
++                .get(&caller.file)
++                .is_some_and(|exports| exports.esm_named_imports.contains(&binding.local))
++                || !matches!(&site.local_binding,
++                crate::call_graph::JsLocalBinding::Unproven(reason) if reason == "import"))
++        {
++            return Ok(Vec::new());
++        }
++        let Some(candidate_file) =
++            self.resolve_js_ts_member_module(&binding.module_path, &caller.file)
++        else {
+             return Ok(Vec::new());
+         };
+         let Some(resolved) = self
+@@ -3785,9 +3795,17 @@ impl CallGraph {
+         else {
+             return Ok(Vec::new());
+         };
++        if !binding.module_path.trim().starts_with('.') && resolved.via_unresolved_star {
++            return Ok(Vec::new());
++        }
+         if resolved.wrapped && !site.jsx_element {
+             return Err(DropReason::WrappedExportNonJsx);
+         }
++        // New alias authority requires a source-backed callable span. Existing
++        // relative/CJS and may-call fallback semantics are not widened by P1.
++        if !binding.module_path.trim().starts_with('.') && resolved.span.is_none() {
++            return Ok(Vec::new());
++        }
+         let ids: Vec<&FunctionId> = match self.functions.get(&resolved.local_name) {
+             Some(ids) => ids
+                 .iter()
+diff --git a/tests/integration/fixtures/js_paths_r1.json b/tests/integration/fixtures/js_paths_r1.json
+new file mode 100644
+index 00000000..368e4f09
+--- /dev/null
++++ b/tests/integration/fixtures/js_paths_r1.json
+@@ -0,0 +1,1538 @@
++[
++  {
++    "case": "C39-exclude-parent-glob-jsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "pkg/src/a/app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/src/a/app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/src/a/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"], \"exclude\": [\"src/*\"]}"
++    }
++  },
++  {
++    "case": "C40-exclude-dotted-parent-jsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "pkg/src/v1.legacy/app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/src/v1.legacy/app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/src/v1.legacy/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"], \"exclude\": [\"src/v1.legacy\"]}"
++    }
++  },
++  {
++    "case": "C41-allowjs-off-mjs-jsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "pkg/app.mjs",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/app.mjs",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.mjs": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
++    }
++  },
++  {
++    "case": "C41-allowjs-off-cjs-jsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "pkg/app.cjs",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/app.cjs",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.cjs": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
++    }
++  },
++  {
++    "case": "C42-same-stem-js-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/app.js",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "pkg/tsconfig.json",
++      "pkg/app.ts"
++    ],
++    "app": "pkg/app.js",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.js": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.ts": "export const other = 0;"
++    }
++  },
++  {
++    "case": "C42-same-stem-jsx-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "pkg/tsconfig.json",
++      "pkg/app.tsx"
++    ],
++    "app": "pkg/app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.tsx": "export const other = 0;"
++    }
++  },
++  {
++    "case": "C43-package-folder-bower_components-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "bower_components/x/app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx"
++    ],
++    "app": "bower_components/x/app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "bower_components/x/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n"
++    }
++  },
++  {
++    "case": "C43-package-folder-jspm_packages-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "jspm_packages/x/app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx"
++    ],
++    "app": "jspm_packages/x/app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "jspm_packages/x/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n"
++    }
++  },
++  {
++    "case": "C44-skipped-star-0-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "lib/barrel.jsx",
++      "rel.jsx"
++    ],
++    "app": "app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"], \"@ext\": [\"decoy/real\"]}}, \"include\": [\"**/*\"]}",
++      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "lib/barrel.jsx": "export * from '@ext';\nexport * from './real';\n",
++      "rel.jsx": "import { real as picked } from './lib/barrel';\nexport function rel() { picked(); }\n"
++    }
++  },
++  {
++    "case": "C44-skipped-star-1-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "lib/barrel.jsx",
++      "rel.jsx"
++    ],
++    "app": "app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"], \"@ext\": [\"decoy/real\"]}}, \"include\": [\"**/*\"]}",
++      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "lib/barrel.jsx": "export * from './real';\nexport * from '@ext';\n",
++      "rel.jsx": "import { real as picked } from './lib/barrel';\nexport function rel() { picked(); }\n"
++    }
++  },
++  {
++    "case": "C45-jsconfig-barrier-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "pkg/jsconfig.json"
++    ],
++    "app": "pkg/app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "pkg/jsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
++    }
++  },
++  {
++    "case": "C46-solution-barrier-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "pkg/tsconfig.json",
++      "pkg/tsconfig.app.json"
++    ],
++    "app": "pkg/app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"files\":[],\"references\":[{\"path\":\"./tsconfig.app.json\"}]}",
++      "pkg/tsconfig.app.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
++    }
++  },
++  {
++    "case": "C47-allowjs-false-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx"
++    ],
++    "app": "app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": false, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n"
++    }
++  },
++  {
++    "case": "C48-outdir-barrier-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx"
++    ],
++    "app": "app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}, \"outDir\": \"generated\"}, \"include\": [\"**/*\"]}",
++      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n"
++    }
++  },
++  {
++    "case": "C49-dotted-segment-jsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "lib/user.service.jsx"
++    ],
++    "app": "app.jsx",
++    "target": "lib/user.service.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/user.service\"]}}, \"include\": [\"**/*\"]}",
++      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "lib/user.service.jsx": "export function real() { return 1; }\n"
++    }
++  },
++  {
++    "case": "C50-known-extension-cut-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "lib/user.js.jsx"
++    ],
++    "app": "app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/user.js\"]}}, \"include\": [\"**/*\"]}",
++      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "lib/user.js.jsx": "export function real() { return 1; }\n"
++    }
++  },
++  {
++    "case": "C51-leading-space-relative-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx"
++    ],
++    "app": "app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "app.jsx": "import { real as picked } from ' ./lib/real';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n"
++    }
++  },
++  {
++    "case": "C52-exclude-nonmatch-jsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx"
++    ],
++    "app": "app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"], \"exclude\": [\"**/*.test.*\"]}",
++      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n"
++    }
++  },
++  {
++    "case": "C53-files-priority-exempt-jsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "pkg/app.js",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "pkg/app.ts"
++    ],
++    "app": "pkg/app.js",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/app.js\"]}",
++      "pkg/app.js": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "pkg/app.ts": "export const other = 0;"
++    }
++  },
++  {
++    "case": "C54-files-empty-barrier-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"files\":[]}"
++    }
++  },
++  {
++    "case": "C55-nested-opaque-star-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "lib/barrel.jsx",
++      "lib/nested.jsx"
++    ],
++    "app": "app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
++      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "lib/barrel.jsx": "export * from './nested';\nexport * from './real';\n",
++      "lib/nested.jsx": "export * from '@ext';\n"
++    }
++  },
++  {
++    "case": "C56-proven-empty-star-jsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "lib/barrel.jsx",
++      "lib/types.ts"
++    ],
++    "app": "app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
++      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "lib/barrel.jsx": "export * from './types';\nexport * from './real';\n",
++      "lib/types.ts": "export type Empty = number;\n"
++    }
++  },
++  {
++    "case": "C57-opaque-syntax-star-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "lib/barrel.jsx",
++      "lib/types.jsx"
++    ],
++    "app": "app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
++      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "lib/barrel.jsx": "export * from './types';\nexport * from './real';\n",
++      "lib/types.jsx": "export type = ;\n"
++    }
++  },
++  {
++    "case": "C58-leading-space-relative-cjs-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "lib/cjs.js"
++    ],
++    "app": "app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "app.jsx": "import { real as picked } from ' ./lib/cjs';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "lib/cjs.js": "function real() { return 1; }\nmodule.exports.real = real;\n"
++    }
++  },
++  {
++    "case": "C59-opaque-cjs-star-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "lib/barrel.jsx",
++      "lib/opaque.js",
++      "rel.jsx"
++    ],
++    "app": "app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
++      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "lib/barrel.jsx": "export * from './opaque';\nexport * from './real';\n",
++      "lib/opaque.js": "module.exports = buildExports();\n",
++      "rel.jsx": "import { real as picked } from './lib/barrel';\nexport function rel() { picked(); }\n"
++    }
++  },
++  {
++    "case": "C60-skipped-noncall-conflict-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "lib/barrel.jsx",
++      "lib/opaque.jsx"
++    ],
++    "app": "app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
++      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "lib/barrel.jsx": "export * from './opaque';\nexport * from './real';\n",
++      "lib/opaque.jsx": "export const real = 1;\n"
++    }
++  },
++  {
++    "case": "C61-known-noncall-nonconflict-jsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "lib/barrel.jsx",
++      "lib/opaque.jsx"
++    ],
++    "app": "app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
++      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "lib/barrel.jsx": "export * from './opaque';\nexport * from './real';\n",
++      "lib/opaque.jsx": "export const other = 1;\n"
++    }
++  },
++  {
++    "case": "C62-raw-alias-no-borrow-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx"
++    ],
++    "app": "app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "app.jsx": "import { real as other } from '@lib';\nimport { real as picked } from ' @lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n"
++    }
++  },
++  {
++    "case": "C63-raw-alias-exact-key-jsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx"
++    ],
++    "app": "app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\" @lib\": [\"lib/real\"], \"@lib\": [\"decoy/real\"]}}, \"include\": [\"**/*\"]}",
++      "app.jsx": "import { real as other } from '@lib';\nimport { real as picked } from ' @lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n"
++    }
++  },
++  {
++    "case": "C64-literal-package-bower_components-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/bower_components/x/app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/bower_components/x/app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/bower_components/x/app.jsx\"]}",
++      "pkg/bower_components/x/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"bower_components/**/*\"]}"
++    }
++  },
++  {
++    "case": "C64-literal-package-jspm_packages-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/jspm_packages/x/app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/jspm_packages/x/app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/jspm_packages/x/app.jsx\"]}",
++      "pkg/jspm_packages/x/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"jspm_packages/**/*\"]}"
++    }
++  },
++  {
++    "case": "C65-declaration-priority-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/src/app.d.ts",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "pkg/tsconfig.json",
++      "pkg/src/app.ts"
++    ],
++    "app": "pkg/src/app.d.ts",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/src/app.d.ts\"]}",
++      "pkg/src/app.d.ts": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"src/**/*\"]}",
++      "pkg/src/app.ts": "export const other = 0;"
++    }
++  },
++  {
++    "case": "C66-unicode-glob-barrier-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/src/app花.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/src/app花.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/src/app\\u82b1.jsx\"]}",
++      "pkg/src/app花.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"src/app?.jsx\"]}"
++    }
++  },
++  {
++    "case": "C67-case-include-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/src/app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/src/app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/src/app.jsx\"]}",
++      "pkg/src/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"SRC/**/*\"]}"
++    }
++  },
++  {
++    "case": "C68-case-exclude-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/src/app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/src/app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/src/app.jsx\"]}",
++      "pkg/src/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"], \"exclude\": [\"SRC/*\"]}"
++    }
++  },
++  {
++    "case": "C69-case-config-name-jsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "pkg/TSCONFIG.JSON"
++    ],
++    "app": "pkg/app.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "pkg/TSCONFIG.JSON": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
++    }
++  },
++  {
++    "case": "C70-unicode-target-jsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "app.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx",
++      "lib/花.jsx"
++    ],
++    "app": "app.jsx",
++    "target": "lib/花.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/\\u82b1\"]}}, \"include\": [\"**/*\"]}",
++      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n",
++      "lib/花.jsx": "export function real() { return 1; }\n"
++    }
++  },
++  {
++    "case": "C71-unicode-explicit-file-jsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "app花.jsx",
++      "lib/real.jsx",
++      "decoy/real.jsx"
++    ],
++    "app": "app花.jsx",
++    "target": "lib/real.jsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"app\\u82b1.jsx\"]}",
++      "app花.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.jsx": "export function real() { return 1; }\n",
++      "decoy/real.jsx": "export function real() { return 2; }\n"
++    }
++  },
++  {
++    "case": "C39-exclude-parent-glob-tsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "pkg/src/a/app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/src/a/app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/src/a/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"], \"exclude\": [\"src/*\"]}"
++    }
++  },
++  {
++    "case": "C40-exclude-dotted-parent-tsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "pkg/src/v1.legacy/app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/src/v1.legacy/app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/src/v1.legacy/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"], \"exclude\": [\"src/v1.legacy\"]}"
++    }
++  },
++  {
++    "case": "C41-allowjs-off-mjs-tsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "pkg/app.mjs",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/app.mjs",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.mjs": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
++    }
++  },
++  {
++    "case": "C41-allowjs-off-cjs-tsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "pkg/app.cjs",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/app.cjs",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.cjs": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
++    }
++  },
++  {
++    "case": "C42-same-stem-js-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/app.js",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "pkg/tsconfig.json",
++      "pkg/app.ts"
++    ],
++    "app": "pkg/app.js",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.js": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.ts": "export const other = 0;"
++    }
++  },
++  {
++    "case": "C42-same-stem-jsx-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/app.jsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "pkg/tsconfig.json",
++      "pkg/app.tsx"
++    ],
++    "app": "pkg/app.jsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.tsx": "export const other = 0;"
++    }
++  },
++  {
++    "case": "C43-package-folder-bower_components-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "bower_components/x/app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx"
++    ],
++    "app": "bower_components/x/app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "bower_components/x/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n"
++    }
++  },
++  {
++    "case": "C43-package-folder-jspm_packages-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "jspm_packages/x/app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx"
++    ],
++    "app": "jspm_packages/x/app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "jspm_packages/x/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n"
++    }
++  },
++  {
++    "case": "C44-skipped-star-0-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "lib/barrel.tsx",
++      "rel.tsx"
++    ],
++    "app": "app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"], \"@ext\": [\"decoy/real\"]}}, \"include\": [\"**/*\"]}",
++      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "lib/barrel.tsx": "export * from '@ext';\nexport * from './real';\n",
++      "rel.tsx": "import { real as picked } from './lib/barrel';\nexport function rel() { picked(); }\n"
++    }
++  },
++  {
++    "case": "C44-skipped-star-1-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "lib/barrel.tsx",
++      "rel.tsx"
++    ],
++    "app": "app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"], \"@ext\": [\"decoy/real\"]}}, \"include\": [\"**/*\"]}",
++      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "lib/barrel.tsx": "export * from './real';\nexport * from '@ext';\n",
++      "rel.tsx": "import { real as picked } from './lib/barrel';\nexport function rel() { picked(); }\n"
++    }
++  },
++  {
++    "case": "C45-jsconfig-barrier-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "pkg/jsconfig.json"
++    ],
++    "app": "pkg/app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "pkg/jsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
++    }
++  },
++  {
++    "case": "C46-solution-barrier-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "pkg/tsconfig.json",
++      "pkg/tsconfig.app.json"
++    ],
++    "app": "pkg/app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"files\":[],\"references\":[{\"path\":\"./tsconfig.app.json\"}]}",
++      "pkg/tsconfig.app.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
++    }
++  },
++  {
++    "case": "C47-allowjs-false-tsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx"
++    ],
++    "app": "app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": false, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n"
++    }
++  },
++  {
++    "case": "C48-outdir-barrier-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx"
++    ],
++    "app": "app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}, \"outDir\": \"generated\"}, \"include\": [\"**/*\"]}",
++      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n"
++    }
++  },
++  {
++    "case": "C49-dotted-segment-tsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "lib/user.service.tsx"
++    ],
++    "app": "app.tsx",
++    "target": "lib/user.service.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/user.service\"]}}, \"include\": [\"**/*\"]}",
++      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "lib/user.service.tsx": "export function real() { return 1; }\n"
++    }
++  },
++  {
++    "case": "C50-known-extension-cut-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "lib/user.js.tsx"
++    ],
++    "app": "app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/user.js\"]}}, \"include\": [\"**/*\"]}",
++      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "lib/user.js.tsx": "export function real() { return 1; }\n"
++    }
++  },
++  {
++    "case": "C51-leading-space-relative-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx"
++    ],
++    "app": "app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "app.tsx": "import { real as picked } from ' ./lib/real';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n"
++    }
++  },
++  {
++    "case": "C52-exclude-nonmatch-tsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx"
++    ],
++    "app": "app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"], \"exclude\": [\"**/*.test.*\"]}",
++      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n"
++    }
++  },
++  {
++    "case": "C53-files-priority-exempt-tsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "pkg/app.js",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "pkg/app.ts"
++    ],
++    "app": "pkg/app.js",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/app.js\"]}",
++      "pkg/app.js": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "pkg/app.ts": "export const other = 0;"
++    }
++  },
++  {
++    "case": "C54-files-empty-barrier-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"files\":[]}"
++    }
++  },
++  {
++    "case": "C55-nested-opaque-star-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "lib/barrel.tsx",
++      "lib/nested.tsx"
++    ],
++    "app": "app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
++      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "lib/barrel.tsx": "export * from './nested';\nexport * from './real';\n",
++      "lib/nested.tsx": "export * from '@ext';\n"
++    }
++  },
++  {
++    "case": "C56-proven-empty-star-tsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "lib/barrel.tsx",
++      "lib/types.ts"
++    ],
++    "app": "app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
++      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "lib/barrel.tsx": "export * from './types';\nexport * from './real';\n",
++      "lib/types.ts": "export type Empty = number;\n"
++    }
++  },
++  {
++    "case": "C57-opaque-syntax-star-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "lib/barrel.tsx",
++      "lib/types.tsx"
++    ],
++    "app": "app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
++      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "lib/barrel.tsx": "export * from './types';\nexport * from './real';\n",
++      "lib/types.tsx": "export type = ;\n"
++    }
++  },
++  {
++    "case": "C58-leading-space-relative-cjs-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "lib/cjs.js"
++    ],
++    "app": "app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "app.tsx": "import { real as picked } from ' ./lib/cjs';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "lib/cjs.js": "function real() { return 1; }\nmodule.exports.real = real;\n"
++    }
++  },
++  {
++    "case": "C59-opaque-cjs-star-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "lib/barrel.tsx",
++      "lib/opaque.js",
++      "rel.tsx"
++    ],
++    "app": "app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
++      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "lib/barrel.tsx": "export * from './opaque';\nexport * from './real';\n",
++      "lib/opaque.js": "module.exports = buildExports();\n",
++      "rel.tsx": "import { real as picked } from './lib/barrel';\nexport function rel() { picked(); }\n"
++    }
++  },
++  {
++    "case": "C60-skipped-noncall-conflict-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "lib/barrel.tsx",
++      "lib/opaque.tsx"
++    ],
++    "app": "app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
++      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "lib/barrel.tsx": "export * from './opaque';\nexport * from './real';\n",
++      "lib/opaque.tsx": "export const real = 1;\n"
++    }
++  },
++  {
++    "case": "C61-known-noncall-nonconflict-tsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "lib/barrel.tsx",
++      "lib/opaque.tsx"
++    ],
++    "app": "app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
++      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "lib/barrel.tsx": "export * from './opaque';\nexport * from './real';\n",
++      "lib/opaque.tsx": "export const other = 1;\n"
++    }
++  },
++  {
++    "case": "C62-raw-alias-no-borrow-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx"
++    ],
++    "app": "app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "app.tsx": "import { real as other } from '@lib';\nimport { real as picked } from ' @lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n"
++    }
++  },
++  {
++    "case": "C63-raw-alias-exact-key-tsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx"
++    ],
++    "app": "app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\" @lib\": [\"lib/real\"], \"@lib\": [\"decoy/real\"]}}, \"include\": [\"**/*\"]}",
++      "app.tsx": "import { real as other } from '@lib';\nimport { real as picked } from ' @lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n"
++    }
++  },
++  {
++    "case": "C64-literal-package-bower_components-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/bower_components/x/app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/bower_components/x/app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/bower_components/x/app.tsx\"]}",
++      "pkg/bower_components/x/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"bower_components/**/*\"]}"
++    }
++  },
++  {
++    "case": "C64-literal-package-jspm_packages-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/jspm_packages/x/app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/jspm_packages/x/app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/jspm_packages/x/app.tsx\"]}",
++      "pkg/jspm_packages/x/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"jspm_packages/**/*\"]}"
++    }
++  },
++  {
++    "case": "C65-declaration-priority-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/src/app.d.ts",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "pkg/tsconfig.json",
++      "pkg/src/app.ts"
++    ],
++    "app": "pkg/src/app.d.ts",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/src/app.d.ts\"]}",
++      "pkg/src/app.d.ts": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"src/**/*\"]}",
++      "pkg/src/app.ts": "export const other = 0;"
++    }
++  },
++  {
++    "case": "C66-unicode-glob-barrier-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/src/app花.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/src/app花.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/src/app\\u82b1.tsx\"]}",
++      "pkg/src/app花.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"src/app?.tsx\"]}"
++    }
++  },
++  {
++    "case": "C67-case-include-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/src/app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/src/app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/src/app.tsx\"]}",
++      "pkg/src/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"SRC/**/*\"]}"
++    }
++  },
++  {
++    "case": "C68-case-exclude-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/src/app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "pkg/tsconfig.json"
++    ],
++    "app": "pkg/src/app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/src/app.tsx\"]}",
++      "pkg/src/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"], \"exclude\": [\"SRC/*\"]}"
++    }
++  },
++  {
++    "case": "C69-case-config-name-tsx",
++    "expectation": "base",
++    "files": [
++      "tsconfig.json",
++      "pkg/app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "pkg/TSCONFIG.JSON"
++    ],
++    "app": "pkg/app.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
++      "pkg/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "pkg/TSCONFIG.JSON": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
++    }
++  },
++  {
++    "case": "C70-unicode-target-tsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "app.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx",
++      "lib/花.tsx"
++    ],
++    "app": "app.tsx",
++    "target": "lib/花.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/\\u82b1\"]}}, \"include\": [\"**/*\"]}",
++      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n",
++      "lib/花.tsx": "export function real() { return 1; }\n"
++    }
++  },
++  {
++    "case": "C71-unicode-explicit-file-tsx",
++    "expectation": "gain",
++    "files": [
++      "tsconfig.json",
++      "app花.tsx",
++      "lib/real.tsx",
++      "decoy/real.tsx"
++    ],
++    "app": "app花.tsx",
++    "target": "lib/real.tsx",
++    "payload": {
++      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"app\\u82b1.tsx\"]}",
++      "app花.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++      "lib/real.tsx": "export function real() { return 1; }\n",
++      "decoy/real.tsx": "export function real() { return 2; }\n"
++    }
++  }
++]
+diff --git a/tests/integration/js_paths_test.rs b/tests/integration/js_paths_test.rs
+new file mode 100644
+index 00000000..0b663177
+--- /dev/null
++++ b/tests/integration/js_paths_test.rs
+@@ -0,0 +1,633 @@
++use prism::call_graph::CallGraph;
++use prism::repo_loader::load_repo;
++use prism::resolution::ResolutionConfidence;
++use std::path::Path;
++use tempfile::TempDir;
++fn write(root: &Path, p: &str, text: &str) {
++    let p = root.join(p);
++    std::fs::create_dir_all(p.parent().unwrap()).unwrap();
++    std::fs::write(p, text).unwrap();
++}
++fn graph(root: &Path) -> CallGraph {
++    let r = load_repo(root).unwrap();
++    CallGraph::build_with_scope_graph_inputs(&r.files, r.scope_graph_inputs.as_ref())
++}
++fn outcome(g: &CallGraph, file: &str, name: &str) -> serde_json::Value {
++    let rows = prism::navigation::queries::call_site_dump(g);
++    let r = rows
++        .into_iter()
++        .find(|r| r["caller"]["file"] == file && r["callee_text"] == name)
++        .unwrap();
++    serde_json::from_str(&r.to_string()).unwrap()
++}
++fn assert_hit(g: &CallGraph, file: &str, callee: &str, target: &str) {
++    let r = outcome(g, file, callee);
++    let t = r["resolved_targets"].as_array().unwrap();
++    assert_eq!(t.len(), 1, "{r}");
++    assert_eq!(t[0]["function_id"]["file"], target, "{r}");
++    assert_eq!(t[0]["function_id"]["name"], "real", "{r}");
++    assert_eq!(t[0]["function_id"]["start_line"], 1, "{r}");
++    assert_eq!(t[0]["function_id"]["end_line"], 1, "{r}");
++    assert_eq!(t[0]["confidence"], "exact", "{r}");
++    assert_eq!(t[0]["kind"], "import_member", "{r}");
++}
++fn config(paths: serde_json::Value) -> String {
++    serde_json::json!({"compilerOptions":{"moduleResolution":"node","allowJs":true,"baseUrl":".","paths":paths},"include":["**/*"]}).to_string()
++}
++fn fixture(ext: &str, spec: &str, cfg: &str) -> TempDir {
++    let d = TempDir::new().unwrap();
++    write(d.path(), "tsconfig.json", cfg);
++    write(
++        d.path(),
++        &format!("app.{ext}"),
++        &format!(
++            "import {{ real as picked }} from '{spec}';\nexport function run() {{ picked(); }}\n"
++        ),
++    );
++    write(
++        d.path(),
++        &format!("lib/real.{ext}"),
++        "export function real() { return 1; }\n",
++    );
++    write(
++        d.path(),
++        &format!("decoy/real.{ext}"),
++        "export function real() { return 2; }\n",
++    );
++    d
++}
++#[test]
++fn js_paths_exact_and_wildcard_red() {
++    for ext in ["jsx", "tsx"] {
++        for paths in [
++            serde_json::json!({"@lib/real":["lib/real"]}),
++            serde_json::json!({"@lib/*":["lib/*"]}),
++        ] {
++            let d = fixture(ext, "@lib/real", &config(paths));
++            assert_hit(
++                &graph(d.path()),
++                &format!("app.{ext}"),
++                "picked",
++                &format!("lib/real.{ext}"),
++            );
++        }
++    }
++}
++#[test]
++fn js_paths_exact_precedes_longest_prefix_and_suffix() {
++    for ext in ["jsx", "tsx"] {
++        for paths in [
++            serde_json::json!({"@lib/real":["lib/real"],"@lib/*":["decoy/*"]}),
++            serde_json::json!({"@lib/*end":["lib/*"],"@*end":["decoy/real"]}),
++        ] {
++            let spec = if paths.get("@lib/real").is_some() {
++                "@lib/real"
++            } else {
++                "@lib/realend"
++            };
++            let d = fixture(ext, spec, &config(paths));
++            assert_hit(
++                &graph(d.path()),
++                &format!("app.{ext}"),
++                "picked",
++                &format!("lib/real.{ext}"),
++            );
++        }
++    }
++}
++#[test]
++fn js_paths_parent_origin_without_baseurl_and_child_override() {
++    for ext in ["jsx", "tsx"] {
++        let d = TempDir::new().unwrap();
++        write(
++            d.path(),
++            "packages/tsconfig.base.json",
++            r#"{"compilerOptions":{"moduleResolution":"node","allowJs":true,"paths":{"@lib":["lib/real"]}}}"#,
++        );
++        write(
++            d.path(),
++            "packages/app/tsconfig.json",
++            r#"{"extends":"../tsconfig.base.json","include":["**/*"],"exclude":["dist"]}"#,
++        );
++        write(
++            d.path(),
++            &format!("packages/app/app.{ext}"),
++            "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++        );
++        write(
++            d.path(),
++            &format!("packages/lib/real.{ext}"),
++            "export function real() { return 1; }\n",
++        );
++        write(
++            d.path(),
++            &format!("packages/app/lib/real.{ext}"),
++            "export function real() { return 2; }\n",
++        );
++        assert_hit(
++            &graph(d.path()),
++            &format!("packages/app/app.{ext}"),
++            "picked",
++            &format!("packages/lib/real.{ext}"),
++        );
++        write(
++            d.path(),
++            "packages/app/tsconfig.json",
++            r#"{"extends":"../tsconfig.base.json","compilerOptions":{"paths":{"@lib":["app/lib/real"]}},"include":["**/*"],"exclude":["dist"]}"#,
++        );
++        // Child paths origin is the child config, not the parent's origin.
++        write(
++            d.path(),
++            &format!("packages/app/app/lib/real.{ext}"),
++            "export function real() { return 3; }\n",
++        );
++        assert_hit(
++            &graph(d.path()),
++            &format!("packages/app/app.{ext}"),
++            "picked",
++            &format!("packages/app/app/lib/real.{ext}"),
++        );
++    }
++}
++#[test]
++fn js_paths_baseurl_declaration_origin() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(
++            ext,
++            "@lib",
++            r#"{"compilerOptions":{"moduleResolution":"node","allowJs":true,"baseUrl":"lib"}}"#,
++        );
++        write(
++            d.path(),
++            "pkg/tsconfig.json",
++            r#"{"extends":"../tsconfig.json","compilerOptions":{"paths":{"@lib":["real"]}},"include":["**/*"]}"#,
++        );
++        write(
++            d.path(),
++            &format!("pkg/app.{ext}"),
++            "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++        );
++        assert_hit(
++            &graph(d.path()),
++            &format!("pkg/app.{ext}"),
++            "picked",
++            &format!("lib/real.{ext}"),
++        );
++    }
++}
++#[test]
++fn js_paths_nearest_including_config_and_files_override_exclude() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(
++            ext,
++            "@lib",
++            &config(serde_json::json!({"@lib":["lib/real"]})),
++        );
++        write(
++            d.path(),
++            "pkg/tsconfig.json",
++            r#"{"compilerOptions":{"moduleResolution":"node","allowJs":true,"baseUrl":"..","paths":{"@lib":["decoy/real"]}},"include":["other/**/*"]}"#,
++        );
++        write(
++            d.path(),
++            &format!("pkg/app.{ext}"),
++            "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++        );
++        assert_hit(
++            &graph(d.path()),
++            &format!("pkg/app.{ext}"),
++            "picked",
++            &format!("lib/real.{ext}"),
++        );
++        write(d.path(),"pkg/tsconfig.json",&serde_json::json!({"compilerOptions":{"moduleResolution":"node","allowJs":true,"baseUrl":"..","paths":{"@lib":["decoy/real"]}},"files":[format!("app.{ext}")],"exclude":["**/*"]}).to_string());
++        assert_hit(
++            &graph(d.path()),
++            &format!("pkg/app.{ext}"),
++            "picked",
++            &format!("decoy/real.{ext}"),
++        );
++    }
++}
++#[test]
++fn js_paths_index_and_relative_barrel() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(ext, "@lib", &config(serde_json::json!({"@lib":["lib"]})));
++        write(
++            d.path(),
++            &format!("lib/index.{ext}"),
++            "export { real } from './real';\n",
++        );
++        assert_hit(
++            &graph(d.path()),
++            &format!("app.{ext}"),
++            "picked",
++            &format!("lib/real.{ext}"),
++        );
++    }
++}
++#[test]
++fn js_paths_jsonc_and_unicode_escaped_key() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(
++            ext,
++            "@lib",
++            r#"{// comment
++"compilerOptions":{"moduleResolution":"node","allowJs":true,"paths":{"@\u006cib":["./lib/real"],},},"include":["**/*"], /* end */ }"#,
++        );
++        assert_hit(
++            &graph(d.path()),
++            &format!("app.{ext}"),
++            "picked",
++            &format!("lib/real.{ext}"),
++        );
++    }
++}
++#[test]
++fn js_paths_unproven_configs_preserve_complete_base_row() {
++    for ext in ["jsx", "tsx"] {
++        let cfgs=[r#"{"extends":"./tsconfig.json"}"#.to_string(),r#"{"extends":"missing-package"}"#.to_string(),r#"{"compilerOptions":{"moduleResolution":"node","allowJs":true,"paths":{"@lib":["lib/real"],"@lib":["decoy/real"]}}}"#.to_string(),config(serde_json::json!({"@lib":["missing","lib/real"]})),config(serde_json::json!({"@*ib":["lib/real"],"@*lib":["decoy/real"]})),config(serde_json::json!({"@lib":["../lib/real"]})),config(serde_json::json!({"@lib":["lib/real.js"]})),r#"{"compilerOptions":{"moduleResolution":"NodeNext","allowJs":true,"paths":{"@lib":["lib/real"]}},"include":["**/*"]}"#.to_string(),r#"{"compilerOptions":{"moduleResolution":"node","allowJs":true,"baseUrl":"lib"},"include":["**/*"]}"#.to_string()];
++        for cfg in cfgs {
++            let d = fixture(ext, "@lib", &cfg);
++            let loaded = load_repo(d.path()).unwrap();
++            let base = CallGraph::build(&loaded.files);
++            let head = graph(d.path());
++            assert_eq!(
++                outcome(&head, &format!("app.{ext}"), "picked"),
++                outcome(&base, &format!("app.{ext}"), "picked"),
++                "{cfg}"
++            );
++        }
++    }
++}
++#[test]
++fn js_paths_competing_extensions_declarations_and_package_json_preserve_base() {
++    for ext in ["jsx", "tsx"] {
++        for blocker in ["lib/real.d.ts", "lib/real.js", "lib/real/package.json"] {
++            let d = fixture(
++                ext,
++                "@lib",
++                &config(serde_json::json!({"@lib":["lib/real"]})),
++            );
++            write(
++                d.path(),
++                blocker,
++                if blocker.ends_with("json") {
++                    r#"{"main":"other.js"}"#
++                } else {
++                    "export function real() {}\n"
++                },
++            );
++            let loaded = load_repo(d.path()).unwrap();
++            let base = CallGraph::build(&loaded.files);
++            assert_eq!(
++                outcome(&graph(d.path()), &format!("app.{ext}"), "picked"),
++                outcome(&base, &format!("app.{ext}"), "picked")
++            );
++        }
++    }
++}
++#[cfg(unix)]
++#[test]
++fn js_paths_symlink_candidate_preserves_base() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(
++            ext,
++            "@lib",
++            &config(serde_json::json!({"@lib":["lib/link"]})),
++        );
++        std::os::unix::fs::symlink(
++            format!("real.{ext}"),
++            d.path().join(format!("lib/link.{ext}")),
++        )
++        .unwrap();
++        let loaded = load_repo(d.path()).unwrap();
++        let base = CallGraph::build(&loaded.files);
++        assert_eq!(
++            outcome(&graph(d.path()), &format!("app.{ext}"), "picked"),
++            outcome(&base, &format!("app.{ext}"), "picked")
++        );
++    }
++}
++#[test]
++fn js_paths_config_change_and_incremental_rebuild() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(
++            ext,
++            "@lib",
++            &config(serde_json::json!({"@lib":["lib/real"]})),
++        );
++        let old = load_repo(d.path()).unwrap();
++        let old_graph = graph(d.path());
++        assert_hit(
++            &old_graph,
++            &format!("app.{ext}"),
++            "picked",
++            &format!("lib/real.{ext}"),
++        );
++        write(
++            d.path(),
++            "tsconfig.json",
++            &config(serde_json::json!({"@lib":["decoy/real"]})),
++        );
++        let new = load_repo(d.path()).unwrap();
++        assert_ne!(old.manifest_hashes, new.manifest_hashes);
++        let cached = prism::cpg::CodePropertyGraph::build_enriched_with_scope_graph_inputs(
++            &old.files,
++            None,
++            old.scope_graph_inputs.as_ref(),
++        );
++        let rebuilt = prism::cpg::CodePropertyGraph::build_incremental_with_scope_graph_inputs(
++            cached.call_graph,
++            cached.dfg,
++            &Default::default(),
++            &new.files,
++            None,
++            new.scope_graph_inputs.as_ref(),
++        );
++        let full = graph(d.path());
++        assert_hit(
++            &full,
++            &format!("app.{ext}"),
++            "picked",
++            &format!("decoy/real.{ext}"),
++        );
++        assert_eq!(
++            outcome(&rebuilt.call_graph, &format!("app.{ext}"), "picked"),
++            outcome(&full, &format!("app.{ext}"), "picked")
++        );
++    }
++}
++#[test]
++fn js_paths_s1b_namespace_star_proof_is_reused() {
++    for ext in ["jsx", "tsx"] {
++        for (barrel, proven) in [
++            ("export * from './lib/real';\n", true),
++            (
++                "export * from './lib/real';\nexport * from './missing';\n",
++                false,
++            ),
++            (
++                "export { real } from './lib/real';\nexport * from './missing';\n",
++                true,
++            ),
++        ] {
++            let d = fixture(ext, "@lib", &config(serde_json::json!({"@lib":["barrel"]})));
++            write(d.path(), &format!("barrel.{ext}"), barrel);
++            write(d.path(), &format!("app.{ext}"), "import { real as picked } from '@lib';\nimport * as Lib from './barrel';\nexport function run() { picked(); Lib.real(); }\n");
++            let loaded = load_repo(d.path()).unwrap();
++            let base = CallGraph::build(&loaded.files);
++            let head = graph(d.path());
++            let namespace = head
++                .js_ts_namespace_exports
++                .get(&format!("barrel.{ext}"))
++                .and_then(|exports| exports.get("real"));
++            assert_eq!(namespace.is_some(), proven);
++            if let Some(terminal) = namespace {
++                assert!(!terminal.via_unresolved_star);
++                assert_hit(
++                    &head,
++                    &format!("app.{ext}"),
++                    "picked",
++                    &format!("lib/real.{ext}"),
++                );
++            } else {
++                assert!(
++                    head.js_ts_resolved_exports[&format!("barrel.{ext}")]["real"]
++                        .via_unresolved_star
++                );
++                assert_eq!(
++                    outcome(&head, &format!("app.{ext}"), "picked"),
++                    outcome(&base, &format!("app.{ext}"), "picked")
++                );
++            }
++            // P1 only adds named-import aliases; the landed relative namespace
++            // route keeps precisely its original complete row in every case.
++            assert_eq!(
++                outcome(&head, &format!("app.{ext}"), "real"),
++                outcome(&base, &format!("app.{ext}"), "real")
++            );
++        }
++    }
++}
++
++#[test]
++fn js_paths_namespace_route_and_parameter_shadow_remain_base() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(
++            ext,
++            "@lib",
++            &config(serde_json::json!({"@lib":["lib/real"]})),
++        );
++        write(d.path(),&format!("app.{ext}"),"import { real as picked } from '@lib';\nimport * as Lib from '@lib';\nexport function run(picked) { picked(); Lib.real(); }\n");
++        let loaded = load_repo(d.path()).unwrap();
++        let base = CallGraph::build(&loaded.files);
++        let head = graph(d.path());
++        assert_eq!(
++            outcome(&head, &format!("app.{ext}"), "picked"),
++            outcome(&base, &format!("app.{ext}"), "picked")
++        );
++        assert_eq!(
++            outcome(&head, &format!("app.{ext}"), "real"),
++            outcome(&base, &format!("app.{ext}"), "real")
++        );
++        assert!(head
++            .resolve_call_site(&head.calls.values().flat_map(|s| s).next().unwrap())
++            .iter()
++            .all(|t| t.confidence != ResolutionConfidence::Exact));
++    }
++}
++
++#[test]
++fn js_paths_explicit_exclude_preserves_base() {
++    for ext in ["jsx", "tsx"] {
++        let cfg = serde_json::json!({"compilerOptions":{"moduleResolution":"node","allowJs":true,"paths":{"@lib":["lib/real"]}},"include":["**/*"],"exclude":[format!("app.{ext}")]});
++        let d = fixture(ext, "@lib", &cfg.to_string());
++        let loaded = load_repo(d.path()).unwrap();
++        assert_eq!(
++            outcome(&graph(d.path()), &format!("app.{ext}"), "picked"),
++            outcome(
++                &CallGraph::build(&loaded.files),
++                &format!("app.{ext}"),
++                "picked"
++            )
++        );
++    }
++}
++
++#[test]
++fn js_paths_cjs_terminal_without_span_preserves_base() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(
++            ext,
++            "@lib",
++            &config(serde_json::json!({"@lib":["lib/real"]})),
++        );
++        write(
++            d.path(),
++            &format!("lib/real.{ext}"),
++            "function real() { return 1; }\nmodule.exports = { real };\n",
++        );
++        let loaded = load_repo(d.path()).unwrap();
++        assert_eq!(
++            outcome(&graph(d.path()), &format!("app.{ext}"), "picked"),
++            outcome(
++                &CallGraph::build(&loaded.files),
++                &format!("app.{ext}"),
++                "picked"
++            )
++        );
++    }
++}
++
++#[test]
++fn js_paths_require_alias_preserves_base_even_with_esm_same_module() {
++    for ext in ["jsx", "tsx"] {
++        for prefix in ["", "import { real as other } from '@lib';\n"] {
++            let d = fixture(
++                ext,
++                "@lib",
++                &config(serde_json::json!({"@lib":["lib/real"]})),
++            );
++            write(d.path(), &format!("app.{ext}"), &format!("{prefix}const {{ real: picked }} = require('@lib');\nexport function run() {{ picked(); }}\n"));
++            let loaded = load_repo(d.path()).unwrap();
++            assert_eq!(
++                outcome(&graph(d.path()), &format!("app.{ext}"), "picked"),
++                outcome(
++                    &CallGraph::build(&loaded.files),
++                    &format!("app.{ext}"),
++                    "picked"
++                )
++            );
++        }
++    }
++}
++
++#[test]
++fn js_paths_unmatched_target_star_preserves_base() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(ext, "@lib", &config(serde_json::json!({"@lib":["lib/*"]})));
++        write(
++            d.path(),
++            &format!("lib/index.{ext}"),
++            "export function real() { return 1; }\n",
++        );
++        let loaded = load_repo(d.path()).unwrap();
++        assert_eq!(
++            outcome(&graph(d.path()), &format!("app.{ext}"), "picked"),
++            outcome(
++                &CallGraph::build(&loaded.files),
++                &format!("app.{ext}"),
++                "picked"
++            )
++        );
++    }
++}
++
++#[test]
++fn js_paths_unproven_positions_preserve_base() {
++    use prism::call_graph::JsLocalBinding;
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(
++            ext,
++            "@lib",
++            &config(serde_json::json!({"@lib":["lib/real"]})),
++        );
++        let loaded = load_repo(d.path()).unwrap();
++        for state in [
++            JsLocalBinding::Position("dynamic_scope".into()),
++            JsLocalBinding::Unchecked,
++            JsLocalBinding::MayCall("may_call".into()),
++            JsLocalBinding::Unproven("unbound".into()),
++        ] {
++            let mut head = graph(d.path());
++            let mut base = CallGraph::build(&loaded.files);
++            for g in [&mut head, &mut base] {
++                for sites in g.calls.values_mut() {
++                    *sites = std::mem::take(sites)
++                        .into_iter()
++                        .map(|mut s| {
++                            if s.callee_name == "picked" {
++                                s.local_binding = state.clone();
++                            }
++                            s
++                        })
++                        .collect();
++                }
++            }
++            assert_eq!(
++                outcome(&head, &format!("app.{ext}"), "picked"),
++                outcome(&base, &format!("app.{ext}"), "picked"),
++                "{state:?}"
++            );
++        }
++    }
++}
++
++fn r1_controls(stars: bool) {
++    let cases: serde_json::Value =
++        serde_json::from_str(include_str!("fixtures/js_paths_r1.json")).unwrap();
++    for case in cases.as_array().unwrap() {
++        let name = case["case"].as_str().unwrap();
++        if (name.starts_with("C44")
++            || name.starts_with("C55")
++            || name.starts_with("C59")
++            || name.starts_with("C60")
++            || name.starts_with("C61"))
++            != stars
++        {
++            continue;
++        }
++        let d = TempDir::new().unwrap();
++        for (p, text) in case["payload"].as_object().unwrap() {
++            write(d.path(), p, text.as_str().unwrap());
++        }
++        let loaded = load_repo(d.path()).unwrap();
++        let head = graph(d.path());
++        let base = CallGraph::build(&loaded.files);
++        let app = case["app"].as_str().unwrap();
++        if case["expectation"] == "gain" {
++            assert_hit(&head, app, "picked", case["target"].as_str().unwrap());
++        } else {
++            assert_eq!(
++                outcome(&head, app, "picked"),
++                outcome(&base, app, "picked"),
++                "{name}"
++            );
++        }
++        if name.starts_with("C44") || name.starts_with("C59") {
++            let ext = name.rsplit('-').next().unwrap();
++            let relative = format!("rel.{ext}");
++            assert_eq!(
++                outcome(&head, &relative, "picked"),
++                outcome(&base, &relative, "picked"),
++                "relative {name}"
++            );
++        }
++    }
++}
++#[test]
++fn js_paths_r1_membership_barriers_dot_and_relative() {
++    r1_controls(false);
++}
++#[test]
++fn js_paths_r1_skipped_star_preserves_base() {
++    r1_controls(true);
++}
++#[test]
++fn js_paths_unrelated_text_keeps_topology() {
++    let d = fixture(
++        "tsx",
++        "@lib",
++        &config(serde_json::json!({"@lib":["lib/real"]})),
++    );
++    let before = load_repo(d.path()).unwrap().manifest_hashes;
++    write(d.path(), "unrelated.txt", "irrelevant");
++    let after = load_repo(d.path()).unwrap().manifest_hashes;
++    assert_eq!(before, after);
++    write(
++        d.path(),
++        "lib/real.d.ts",
++        "export declare function real(): number;",
++    );
++    assert_ne!(before, load_repo(d.path()).unwrap().manifest_hashes);
++}
+diff --git a/tests/integration/main.rs b/tests/integration/main.rs
+index c0456a8a..c657711f 100644
+--- a/tests/integration/main.rs
++++ b/tests/integration/main.rs
+@@ -41,6 +41,7 @@ mod js_binding_scope_resolution_test;
+ mod js_binding_shorthand_test;
+ mod js_export_reexport_test;
+ mod js_export_test;
++mod js_paths_test;
+ mod js_wrapped_export_refusal_test;
+ mod js_wrapped_export_state_test;
+ mod js_wrapped_export_test;
