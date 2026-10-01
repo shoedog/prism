@@ -12,11 +12,11 @@ for row in aliases:
  case=row['key'][0].split('/')[0]
  if row['recoverable'] and ((row.get('options') or {}).get('moduleResolution')!=2 or row.get('ownership_barrier')):
   oracle_errors.append((case,'recoverability outside Node/Node10 or past ownership barrier'))
- if case.startswith(('C01-','C56-')) and not row['recoverable']:
+ if case.startswith(('C01-','C56-','C72-')) and not row['recoverable']:
   oracle_errors.append((case,'ordinary/proven-empty positive lost'))
  if case.startswith('C17-') and row['recoverable']:
   oracle_errors.append((case,'NodeNext incorrectly recoverable'))
- for prefix,barrier in [('C45-','JSCONFIG_BARRIER'),('C46-','DELEGATED_CONFIG_BARRIER'),('C54-','DELEGATED_CONFIG_BARRIER')]:
+ for prefix,barrier in [('C45-','JSCONFIG_BARRIER'),('C73-','JSCONFIG_BARRIER'),('C46-','DELEGATED_CONFIG_BARRIER'),('C54-','DELEGATED_CONFIG_BARRIER')]:
   if case.startswith(prefix) and (row['recoverable'] or row.get('ownership_barrier')!=barrier):
    oracle_errors.append((case,'missing '+barrier))
  if case.startswith('C44-') and case.endswith('-tsx') and row['terminal']['class']!='ambiguous_star_diagnostic':

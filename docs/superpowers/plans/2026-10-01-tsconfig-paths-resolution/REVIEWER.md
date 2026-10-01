@@ -4,6 +4,8 @@ READ: exactly **two plan review rounds**. Controller binds the plan/prototype co
 
 READ: review the finite P1 cut, not all of TypeScript. Label every claim MEASURED / READ / ASSUMPTION. A WRONG needs input/state, reachable incorrect result, mechanism/file:line, bounded fix and a realistic failing regression. A request for unsupported P2 precision is a SMELL with measured cost unless it constructs an in-scope incorrect result. WRONG first; unproven concerns are never blockers. Do not downgrade an earlier WRONG without mechanism-level proof.
 
+READ: the controller-found precedence defect is corrected in place: same-directory jsconfig is ignored, strictly-nearer jsconfig still refuses, and solution-style references remain barriers. Review C72/C73 JSX/TSX controls and M21 in the current jsconfig-precedence receipts. Historical rebind receipts do not bind the corrected source.
+
 ## Check the causal seams
 
 ASSUMPTION: verify these independent questions against SPEC and actual source:

@@ -101,5 +101,8 @@ for e in ['jsx','tsx']:
  add('C70-unicode-target',e,paths={'@lib':['lib/花']},files={f'lib/花.{e}':'export function real() { return 1; }\n'})
  app=f'app花.{e}'
  add('C71-unicode-explicit-file',e,app=app,extra={'files':[app],'include':[]})
+ # Same-directory tsconfig wins; a strictly nearer jsconfig still blocks it.
+ add('C72-same-directory-config-twins',e,files={'jsconfig.json':near()})
+ add('C73-strictly-nearer-config-twins',e,app=f'pkg/app.{e}',files={'jsconfig.json':near(),'pkg/jsconfig.json':near()},expected='base')
 (root/'manifest.json').write_text(json.dumps(cases,indent=2))
 print('scenarios',len(cases))

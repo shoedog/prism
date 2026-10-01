@@ -29,6 +29,7 @@ mutants={
  'M18-no-include-case-barrier':('js_paths.rs','if !exact && pattern_matches(', 'if false && !exact && pattern_matches('),
  'M19-no-exclude-case-barrier':('js_paths.rs','if !exact && exclude_matches(', 'if false && !exact && exclude_matches('),
  'M20-ignore-case-config':('js_paths_snapshot.rs','let config_name = name.to_ascii_lowercase();','let config_name = name.to_owned();'),
+ 'M21-restore-same-directory-jsconfig-barrier':('js_paths.rs','!self.snapshot.configs.contains_key(&p)\n                && self.snapshot.configs.contains_key(&jsconfig)','self.snapshot.configs.contains_key(&jsconfig)'),
 }
 results=[];baseline=None
 for label,mutation in [('reference',None),*mutants.items()]:

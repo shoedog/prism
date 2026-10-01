@@ -1,6 +1,6 @@
 diff --git a/eval/fixtures/javascript/tsconfig_paths_positive/app.jsx b/eval/fixtures/javascript/tsconfig_paths_positive/app.jsx
 new file mode 100644
-index 00000000..909aebe3
+index 0000000000000000000000000000000000000000..909aebe364dcc0e68de736b66bc0e89525302aae
 --- /dev/null
 +++ b/eval/fixtures/javascript/tsconfig_paths_positive/app.jsx
 @@ -0,0 +1,2 @@
@@ -8,14 +8,14 @@ index 00000000..909aebe3
 +export function run() { picked(); }
 diff --git a/eval/fixtures/javascript/tsconfig_paths_positive/decoy/util.jsx b/eval/fixtures/javascript/tsconfig_paths_positive/decoy/util.jsx
 new file mode 100644
-index 00000000..86a5a8a0
+index 0000000000000000000000000000000000000000..86a5a8a0830894f1570a751c46e71aab6fc798d1
 --- /dev/null
 +++ b/eval/fixtures/javascript/tsconfig_paths_positive/decoy/util.jsx
 @@ -0,0 +1 @@
 +export function real() { return 2; }
 diff --git a/eval/fixtures/javascript/tsconfig_paths_positive/expected.toml b/eval/fixtures/javascript/tsconfig_paths_positive/expected.toml
 new file mode 100644
-index 00000000..1a401a94
+index 0000000000000000000000000000000000000000..1a401a94efbc9801c02c7cf55275b204fca86fd9
 --- /dev/null
 +++ b/eval/fixtures/javascript/tsconfig_paths_positive/expected.toml
 @@ -0,0 +1,14 @@
@@ -35,14 +35,14 @@ index 00000000..1a401a94
 +resolution_kind = "import_member"
 diff --git a/eval/fixtures/javascript/tsconfig_paths_positive/src/util.jsx b/eval/fixtures/javascript/tsconfig_paths_positive/src/util.jsx
 new file mode 100644
-index 00000000..2c21ad07
+index 0000000000000000000000000000000000000000..2c21ad07231fca2b74c68e6c9e9412712cbd240c
 --- /dev/null
 +++ b/eval/fixtures/javascript/tsconfig_paths_positive/src/util.jsx
 @@ -0,0 +1 @@
 +export function real() { return 1; }
 diff --git a/eval/fixtures/javascript/tsconfig_paths_positive/tsconfig.json b/eval/fixtures/javascript/tsconfig_paths_positive/tsconfig.json
 new file mode 100644
-index 00000000..8b3cc817
+index 0000000000000000000000000000000000000000..8b3cc817760bf46debf66f685d9fda3bbcba065e
 --- /dev/null
 +++ b/eval/fixtures/javascript/tsconfig_paths_positive/tsconfig.json
 @@ -0,0 +1 @@
@@ -50,7 +50,7 @@ index 00000000..8b3cc817
 \ No newline at end of file
 diff --git a/eval/fixtures/javascript/tsconfig_paths_refusal/app.jsx b/eval/fixtures/javascript/tsconfig_paths_refusal/app.jsx
 new file mode 100644
-index 00000000..909aebe3
+index 0000000000000000000000000000000000000000..909aebe364dcc0e68de736b66bc0e89525302aae
 --- /dev/null
 +++ b/eval/fixtures/javascript/tsconfig_paths_refusal/app.jsx
 @@ -0,0 +1,2 @@
@@ -58,14 +58,14 @@ index 00000000..909aebe3
 +export function run() { picked(); }
 diff --git a/eval/fixtures/javascript/tsconfig_paths_refusal/decoy/util.jsx b/eval/fixtures/javascript/tsconfig_paths_refusal/decoy/util.jsx
 new file mode 100644
-index 00000000..86a5a8a0
+index 0000000000000000000000000000000000000000..86a5a8a0830894f1570a751c46e71aab6fc798d1
 --- /dev/null
 +++ b/eval/fixtures/javascript/tsconfig_paths_refusal/decoy/util.jsx
 @@ -0,0 +1 @@
 +export function real() { return 2; }
 diff --git a/eval/fixtures/javascript/tsconfig_paths_refusal/expected.toml b/eval/fixtures/javascript/tsconfig_paths_refusal/expected.toml
 new file mode 100644
-index 00000000..683367c0
+index 0000000000000000000000000000000000000000..683367c0d4ce7cf14c07510f502a8855433c5973
 --- /dev/null
 +++ b/eval/fixtures/javascript/tsconfig_paths_refusal/expected.toml
 @@ -0,0 +1,10 @@
@@ -81,21 +81,21 @@ index 00000000..683367c0
 +exact = true
 diff --git a/eval/fixtures/javascript/tsconfig_paths_refusal/src/util.d.ts b/eval/fixtures/javascript/tsconfig_paths_refusal/src/util.d.ts
 new file mode 100644
-index 00000000..ecc37363
+index 0000000000000000000000000000000000000000..ecc37363bc4fd6d093b2edc230c3a6a30836c6f2
 --- /dev/null
 +++ b/eval/fixtures/javascript/tsconfig_paths_refusal/src/util.d.ts
 @@ -0,0 +1 @@
 +export declare function real(): number;
 diff --git a/eval/fixtures/javascript/tsconfig_paths_refusal/src/util.jsx b/eval/fixtures/javascript/tsconfig_paths_refusal/src/util.jsx
 new file mode 100644
-index 00000000..2c21ad07
+index 0000000000000000000000000000000000000000..2c21ad07231fca2b74c68e6c9e9412712cbd240c
 --- /dev/null
 +++ b/eval/fixtures/javascript/tsconfig_paths_refusal/src/util.jsx
 @@ -0,0 +1 @@
 +export function real() { return 1; }
 diff --git a/eval/fixtures/javascript/tsconfig_paths_refusal/tsconfig.json b/eval/fixtures/javascript/tsconfig_paths_refusal/tsconfig.json
 new file mode 100644
-index 00000000..8b3cc817
+index 0000000000000000000000000000000000000000..8b3cc817760bf46debf66f685d9fda3bbcba065e
 --- /dev/null
 +++ b/eval/fixtures/javascript/tsconfig_paths_refusal/tsconfig.json
 @@ -0,0 +1 @@
@@ -103,7 +103,7 @@ index 00000000..8b3cc817
 \ No newline at end of file
 diff --git a/eval/fixtures/typescript/tsconfig_paths_positive/app.tsx b/eval/fixtures/typescript/tsconfig_paths_positive/app.tsx
 new file mode 100644
-index 00000000..909aebe3
+index 0000000000000000000000000000000000000000..909aebe364dcc0e68de736b66bc0e89525302aae
 --- /dev/null
 +++ b/eval/fixtures/typescript/tsconfig_paths_positive/app.tsx
 @@ -0,0 +1,2 @@
@@ -111,14 +111,14 @@ index 00000000..909aebe3
 +export function run() { picked(); }
 diff --git a/eval/fixtures/typescript/tsconfig_paths_positive/decoy/util.tsx b/eval/fixtures/typescript/tsconfig_paths_positive/decoy/util.tsx
 new file mode 100644
-index 00000000..86a5a8a0
+index 0000000000000000000000000000000000000000..86a5a8a0830894f1570a751c46e71aab6fc798d1
 --- /dev/null
 +++ b/eval/fixtures/typescript/tsconfig_paths_positive/decoy/util.tsx
 @@ -0,0 +1 @@
 +export function real() { return 2; }
 diff --git a/eval/fixtures/typescript/tsconfig_paths_positive/expected.toml b/eval/fixtures/typescript/tsconfig_paths_positive/expected.toml
 new file mode 100644
-index 00000000..0264d470
+index 0000000000000000000000000000000000000000..0264d47032ad956e9f48bf7062e520f068169aff
 --- /dev/null
 +++ b/eval/fixtures/typescript/tsconfig_paths_positive/expected.toml
 @@ -0,0 +1,14 @@
@@ -138,14 +138,14 @@ index 00000000..0264d470
 +resolution_kind = "import_member"
 diff --git a/eval/fixtures/typescript/tsconfig_paths_positive/src/util.tsx b/eval/fixtures/typescript/tsconfig_paths_positive/src/util.tsx
 new file mode 100644
-index 00000000..2c21ad07
+index 0000000000000000000000000000000000000000..2c21ad07231fca2b74c68e6c9e9412712cbd240c
 --- /dev/null
 +++ b/eval/fixtures/typescript/tsconfig_paths_positive/src/util.tsx
 @@ -0,0 +1 @@
 +export function real() { return 1; }
 diff --git a/eval/fixtures/typescript/tsconfig_paths_positive/tsconfig.json b/eval/fixtures/typescript/tsconfig_paths_positive/tsconfig.json
 new file mode 100644
-index 00000000..8b3cc817
+index 0000000000000000000000000000000000000000..8b3cc817760bf46debf66f685d9fda3bbcba065e
 --- /dev/null
 +++ b/eval/fixtures/typescript/tsconfig_paths_positive/tsconfig.json
 @@ -0,0 +1 @@
@@ -153,7 +153,7 @@ index 00000000..8b3cc817
 \ No newline at end of file
 diff --git a/eval/fixtures/typescript/tsconfig_paths_refusal/app.tsx b/eval/fixtures/typescript/tsconfig_paths_refusal/app.tsx
 new file mode 100644
-index 00000000..909aebe3
+index 0000000000000000000000000000000000000000..909aebe364dcc0e68de736b66bc0e89525302aae
 --- /dev/null
 +++ b/eval/fixtures/typescript/tsconfig_paths_refusal/app.tsx
 @@ -0,0 +1,2 @@
@@ -161,14 +161,14 @@ index 00000000..909aebe3
 +export function run() { picked(); }
 diff --git a/eval/fixtures/typescript/tsconfig_paths_refusal/decoy/util.tsx b/eval/fixtures/typescript/tsconfig_paths_refusal/decoy/util.tsx
 new file mode 100644
-index 00000000..86a5a8a0
+index 0000000000000000000000000000000000000000..86a5a8a0830894f1570a751c46e71aab6fc798d1
 --- /dev/null
 +++ b/eval/fixtures/typescript/tsconfig_paths_refusal/decoy/util.tsx
 @@ -0,0 +1 @@
 +export function real() { return 2; }
 diff --git a/eval/fixtures/typescript/tsconfig_paths_refusal/expected.toml b/eval/fixtures/typescript/tsconfig_paths_refusal/expected.toml
 new file mode 100644
-index 00000000..c4061559
+index 0000000000000000000000000000000000000000..c4061559c1f28a114f82388ae1813f9386da4e63
 --- /dev/null
 +++ b/eval/fixtures/typescript/tsconfig_paths_refusal/expected.toml
 @@ -0,0 +1,10 @@
@@ -184,28 +184,28 @@ index 00000000..c4061559
 +exact = true
 diff --git a/eval/fixtures/typescript/tsconfig_paths_refusal/src/util.d.ts b/eval/fixtures/typescript/tsconfig_paths_refusal/src/util.d.ts
 new file mode 100644
-index 00000000..ecc37363
+index 0000000000000000000000000000000000000000..ecc37363bc4fd6d093b2edc230c3a6a30836c6f2
 --- /dev/null
 +++ b/eval/fixtures/typescript/tsconfig_paths_refusal/src/util.d.ts
 @@ -0,0 +1 @@
 +export declare function real(): number;
 diff --git a/eval/fixtures/typescript/tsconfig_paths_refusal/src/util.tsx b/eval/fixtures/typescript/tsconfig_paths_refusal/src/util.tsx
 new file mode 100644
-index 00000000..2c21ad07
+index 0000000000000000000000000000000000000000..2c21ad07231fca2b74c68e6c9e9412712cbd240c
 --- /dev/null
 +++ b/eval/fixtures/typescript/tsconfig_paths_refusal/src/util.tsx
 @@ -0,0 +1 @@
 +export function real() { return 1; }
 diff --git a/eval/fixtures/typescript/tsconfig_paths_refusal/tsconfig.json b/eval/fixtures/typescript/tsconfig_paths_refusal/tsconfig.json
 new file mode 100644
-index 00000000..8b3cc817
+index 0000000000000000000000000000000000000000..8b3cc817760bf46debf66f685d9fda3bbcba065e
 --- /dev/null
 +++ b/eval/fixtures/typescript/tsconfig_paths_refusal/tsconfig.json
 @@ -0,0 +1 @@
 +{"compilerOptions": {"moduleResolution": "node", "allowJs": true, "paths": {"@lib/*": ["src/*"]}}}
 \ No newline at end of file
 diff --git a/src/ast.rs b/src/ast.rs
-index 177113e9..de9e8ffa 100644
+index 177113e90b17c05713a160bc802813b1ea8377e5..de9e8ffa5c9da90b7c57ca406ddbc16a56127671 100644
 --- a/src/ast.rs
 +++ b/src/ast.rs
 @@ -2539,6 +2539,9 @@ impl ParsedFile {
@@ -219,7 +219,7 @@ index 177113e9..de9e8ffa 100644
              }
          }
 diff --git a/src/call_graph.rs b/src/call_graph.rs
-index 4a5234f6..f2a86d66 100644
+index 4a5234f60a913e54c12e33901a362d0c3d760051..f2a86d66d989ecfb59cc574e860fd98e9635c24a 100644
 --- a/src/call_graph.rs
 +++ b/src/call_graph.rs
 @@ -621,6 +621,8 @@ pub struct ScopeGraphBuildInputs {
@@ -355,7 +355,7 @@ index 4a5234f6..f2a86d66 100644
              // P4: whole-program resolved export facts — left empty here,
              // exactly like the Go whole-program state below:
 diff --git a/src/cpg/build.rs b/src/cpg/build.rs
-index 9419fd5f..c18e1266 100644
+index 9419fd5f1cd58bc1c25499c011a92ee4894a56d5..c18e12664664302a43b9b86db57f4753118d900d 100644
 --- a/src/cpg/build.rs
 +++ b/src/cpg/build.rs
 @@ -620,6 +620,7 @@ impl CodePropertyGraph {
@@ -367,7 +367,7 @@ index 9419fd5f..c18e1266 100644
              // Match full construction: recompute the remaining indirect passes,
              // including Go B1 Level-3 callbacks, after every whole-program
 diff --git a/src/cpg_cache.rs b/src/cpg_cache.rs
-index da2982b4..8fa1b844 100644
+index da2982b4ba1b508f25efd9431484cd56b3e751ba..8fa1b8441db8ff50eb06bfbe4695299b3770a4c6 100644
 --- a/src/cpg_cache.rs
 +++ b/src/cpg_cache.rs
 @@ -229,7 +229,8 @@ use std::path::{Path, PathBuf};
@@ -390,7 +390,7 @@ index da2982b4..8fa1b844 100644
      }
  
 diff --git a/src/js_exports.rs b/src/js_exports.rs
-index 7d8b46ee..4672bcc1 100644
+index 7d8b46eec584374f65168386681d4e4356a17681..4672bcc145f827aad09dac1416e92b077a0afdc7 100644
 --- a/src/js_exports.rs
 +++ b/src/js_exports.rs
 @@ -169,6 +169,9 @@ pub struct ResolvedJsExport {
@@ -534,10 +534,10 @@ index 7d8b46ee..4672bcc1 100644
          assert_eq!(out.barrel_conflicts, 0);
 diff --git a/src/js_paths.rs b/src/js_paths.rs
 new file mode 100644
-index 00000000..a4717dd9
+index 0000000000000000000000000000000000000000..09a398405798f03a088e710681af675df27b920c
 --- /dev/null
 +++ b/src/js_paths.rs
-@@ -0,0 +1,326 @@
+@@ -0,0 +1,330 @@
 +//! P1: conservative paths-only module proof for named/default ESM import members.
 +use crate::js_paths_snapshot::JsPathsSnapshot;
 +use crate::js_paths_syntax::{dir, exclude_matches, jsonc, norm, pattern_matches};
@@ -730,7 +730,11 @@ index 00000000..a4717dd9
 +            } else {
 +                format!("{directory}/jsconfig.json")
 +            };
-+            if self.snapshot.configs.contains_key(&jsconfig) {
++            // tsserver searches tsconfig before jsconfig in each directory.
++            // A sibling jsconfig is ignored even if this tsconfig excludes file.
++            if !self.snapshot.configs.contains_key(&p)
++                && self.snapshot.configs.contains_key(&jsconfig)
++            {
 +                break None;
 +            }
 +            if self.snapshot.configs.contains_key(&p) {
@@ -866,7 +870,7 @@ index 00000000..a4717dd9
 +}
 diff --git a/src/js_paths_snapshot.rs b/src/js_paths_snapshot.rs
 new file mode 100644
-index 00000000..8173a99c
+index 0000000000000000000000000000000000000000..8173a99c7da90b05fbee5e92619197fff12688ee
 --- /dev/null
 +++ b/src/js_paths_snapshot.rs
 @@ -0,0 +1,145 @@
@@ -1017,7 +1021,7 @@ index 00000000..8173a99c
 +}
 diff --git a/src/js_paths_syntax.rs b/src/js_paths_syntax.rs
 new file mode 100644
-index 00000000..f538bd30
+index 0000000000000000000000000000000000000000..f538bd30b33e1f7d2f8da88fd3b2ee337dd1a0c4
 --- /dev/null
 +++ b/src/js_paths_syntax.rs
 @@ -0,0 +1,234 @@
@@ -1256,7 +1260,7 @@ index 00000000..f538bd30
 +    }
 +}
 diff --git a/src/lib.rs b/src/lib.rs
-index 160f3128..7348752b 100644
+index 160f312872ae37f2418615dea607b1d29479a4fa..7348752bffea5a65d9da181aee7807c010f45469 100644
 --- a/src/lib.rs
 +++ b/src/lib.rs
 @@ -66,6 +66,9 @@ mod go_receiver_index_visibility;
@@ -1270,7 +1274,7 @@ index 160f3128..7348752b 100644
  pub mod languages;
  
 diff --git a/src/navigation/call_edge_cache.rs b/src/navigation/call_edge_cache.rs
-index a448c721..44477afa 100644
+index a448c7214724f3053425f596a69a7738ff4e6392..44477afa8912b60a776e9ba7d80d3f7a1d2a522d 100644
 --- a/src/navigation/call_edge_cache.rs
 +++ b/src/navigation/call_edge_cache.rs
 @@ -101,7 +101,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
@@ -1293,7 +1297,7 @@ index a448c721..44477afa 100644
  
      #[test]
 diff --git a/src/navigation/call_resolve.rs b/src/navigation/call_resolve.rs
-index 83cd2c3c..2b2a2e0b 100644
+index 83cd2c3c7b5b2f36240e92e3c604f609bed3eeb0..2b2a2e0b51aa614b84cea7a98829059202c3f70d 100644
 --- a/src/navigation/call_resolve.rs
 +++ b/src/navigation/call_resolve.rs
 @@ -57,14 +57,11 @@ pub(crate) fn scoped_caller_site_match_count(
@@ -1317,7 +1321,7 @@ index 83cd2c3c..2b2a2e0b 100644
                  count += 1;
              }
 diff --git a/src/repo_loader.rs b/src/repo_loader.rs
-index 2c1825bd..40fff225 100644
+index 2c1825bdd40ca3b196a8b40058a20aa8c5809aaa..40fff2250d592ad16488f863a0336c18f15ad29d 100644
 --- a/src/repo_loader.rs
 +++ b/src/repo_loader.rs
 @@ -196,7 +196,9 @@ fn scope_graph_build_inputs_from_snapshot(
@@ -1340,7 +1344,7 @@ index 2c1825bd..40fff225 100644
          complete,
      }
 diff --git a/src/resolution.rs b/src/resolution.rs
-index e7e759ac..45b01503 100644
+index e7e759ac2c6d88fff24b9bf23a23c0b067ee91fc..45b0150330982d16779d8f25fd0a9122e622b4bc 100644
 --- a/src/resolution.rs
 +++ b/src/resolution.rs
 @@ -3771,11 +3771,21 @@ impl CallGraph {
@@ -1390,7 +1394,7 @@ index e7e759ac..45b01503 100644
                  .iter()
 diff --git a/tests/integration/fixtures/js_paths_r1.json b/tests/integration/fixtures/js_paths_r1.json
 new file mode 100644
-index 00000000..368e4f09
+index 0000000000000000000000000000000000000000..368e4f0958a2a09d7943bae3c231317f5aaac548
 --- /dev/null
 +++ b/tests/integration/fixtures/js_paths_r1.json
 @@ -0,0 +1,1538 @@
@@ -2934,10 +2938,10 @@ index 00000000..368e4f09
 +]
 diff --git a/tests/integration/js_paths_test.rs b/tests/integration/js_paths_test.rs
 new file mode 100644
-index 00000000..0b663177
+index 0000000000000000000000000000000000000000..9530c4a6ad79aaaf6acfd28fab241a453286eedd
 --- /dev/null
 +++ b/tests/integration/js_paths_test.rs
-@@ -0,0 +1,633 @@
+@@ -0,0 +1,693 @@
 +use prism::call_graph::CallGraph;
 +use prism::repo_loader::load_repo;
 +use prism::resolution::ResolutionConfidence;
@@ -2996,6 +3000,66 @@ index 00000000..0b663177
 +    );
 +    d
 +}
++#[test]
++fn js_paths_same_directory_tsconfig_precedes_jsconfig() {
++    for ext in ["jsx", "tsx"] {
++        for jsconfig in [
++            config(serde_json::json!({"@lib":["decoy/real"]})),
++            "{ invalid ignored jsconfig".into(),
++        ] {
++            let d = fixture(
++                ext,
++                "@lib",
++                &config(serde_json::json!({"@lib":["lib/real"]})),
++            );
++            write(d.path(), "jsconfig.json", &jsconfig);
++            assert_hit(
++                &graph(d.path()),
++                &format!("app.{ext}"),
++                "picked",
++                &format!("lib/real.{ext}"),
++            );
++        }
++    }
++}
++
++#[test]
++fn js_paths_strictly_nearer_or_only_jsconfig_preserves_base() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(
++            ext,
++            "@lib",
++            &config(serde_json::json!({"@lib":["lib/real"]})),
++        );
++        write(
++            d.path(),
++            "jsconfig.json",
++            &config(serde_json::json!({"@lib":["decoy/real"]})),
++        );
++        write(
++            d.path(),
++            "pkg/jsconfig.json",
++            &config(serde_json::json!({"@lib":["../decoy/real"]})),
++        );
++        let app = format!("pkg/app.{ext}");
++        write(
++            d.path(),
++            &app,
++            "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++        );
++        for tsconfig_present in [true, false] {
++            if !tsconfig_present {
++                std::fs::remove_file(d.path().join("tsconfig.json")).unwrap();
++            }
++            let loaded = load_repo(d.path()).unwrap();
++            assert_eq!(
++                outcome(&graph(d.path()), &app, "picked"),
++                outcome(&CallGraph::build(&loaded.files), &app, "picked")
++            );
++        }
++    }
++}
++
 +#[test]
 +fn js_paths_exact_and_wildcard_red() {
 +    for ext in ["jsx", "tsx"] {
@@ -3572,7 +3636,7 @@ index 00000000..0b663177
 +    assert_ne!(before, load_repo(d.path()).unwrap().manifest_hashes);
 +}
 diff --git a/tests/integration/main.rs b/tests/integration/main.rs
-index c0456a8a..c657711f 100644
+index c0456a8af25f966421d31d935f46d6fbe6cc152e..c657711fb7f54d4c1b931dd0cf02d0ccd6f88764 100644
 --- a/tests/integration/main.rs
 +++ b/tests/integration/main.rs
 @@ -41,6 +41,7 @@ mod js_binding_scope_resolution_test;

@@ -24,9 +24,14 @@ function select(file){
  const absolute=path.join(root,file);if(chosen.has(absolute))return chosen.get(absolute);
  let dir=path.dirname(absolute), selected=null;
  while(within(dir)){
-  const js=path.join(dir,'jsconfig.json');
-  if(fs.existsSync(js)){config(js);barriers.set(absolute,'JSCONFIG_BARRIER');break;}
   const p=path.join(dir,'tsconfig.json');
+  const js=path.join(dir,'jsconfig.json');
+  // TypeScript 5.9.3 ProjectService.forEachConfigFileLocation checks tsconfig
+  // before jsconfig at each directory; tsc's findConfigFile defaults to tsconfig.
+  // https://github.com/microsoft/TypeScript/blob/v5.9.3/src/server/editorServices.ts#L2566-L2578
+  // https://github.com/microsoft/TypeScript/blob/v5.9.3/src/compiler/program.ts#L327-L331
+  // Preserve P1's nearest-including rule, but ignore a sibling jsconfig entirely.
+  if(!fs.existsSync(p)&&fs.existsSync(js)){config(js);barriers.set(absolute,'JSCONFIG_BARRIER');break;}
   if(fs.existsSync(p)) {
    const c=config(p), raw=c.c?.raw;
    if(raw && (Object.hasOwn(raw,'references') || (Array.isArray(raw.files)&&raw.files.length===0))){barriers.set(absolute,'DELEGATED_CONFIG_BARRIER');break;}

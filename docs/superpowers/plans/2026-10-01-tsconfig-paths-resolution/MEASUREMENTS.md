@@ -1,3 +1,41 @@
+# Lane-P measurements — jsconfig precedence correction
+
+MEASURED: integrated prototype 304f24b2 plus src/js_paths.rs and tests/integration/js_paths_test.rs; plan HEAD 38519a04; cumulative base e61d52b8. Current receipts target/paths-plan/jsconfig-precedence/evidence. BUILD-MANIFEST binds exact source, patch, executables, probes and logs.
+
+READ controller-found WRONG, corrected in place: **a same-directory jsconfig barrier removed all F yield**. MEASURED generic constructible input: an admitted tsconfig paths alias with a sibling jsconfig returned empty UnknownName instead of one exact/import_member target. The bounded fix gates jsconfig only where that directory has no tsconfig. Strictly-nearer/no-tsconfig and delegated-project barriers remain. Private restoration has not been verified.
+
+MEASURED: TypeScript 5.9.3 ProjectService.forEachConfigFileLocation probes tsconfig then jsconfig per directory ([source](https://github.com/microsoft/TypeScript/blob/v5.9.3/src/server/editorServices.ts#L2566-L2578)); tsc's findConfigFile defaults to tsconfig ([source](https://github.com/microsoft/TypeScript/blob/v5.9.3/src/compiler/program.ts#L327-L331)). The oracle applies that precedence while preserving P1's nearest-including root-file policy. membership-control.json proves both public twins have valid tsconfig membership and resolve independently of prism. This rules out invalid config/excluded membership as the cause; hypothesis-probe-result.log records expectations, alternatives and inadmissible probes.
+
+| Current check | Result |
+|---|---|
+| X / R / T correct changed bindings | 3,121 / 0 / 0; delta 0 / 0 / 0 |
+| Complete-row public comparison | 0 added/removed keys; 0 metadata changes; all changed rows independently correct |
+| Full default | 4810 passed / 0 failed / 1 ignored |
+| Full MCP | 5003 passed / 0 failed / 1 ignored |
+| Tier-A matrix | 170 ok / 0 regressions |
+| Controls | 156 scenarios / 170 sites / 57 changes = 55 bindings + 2 refusals; 0 preservation violations |
+| Paths Rust tests | 23 passed; pre-change same-directory test assertion RED |
+| Kernel mutants | 21/21 killed; M21 killed by C72 JSX and TSX |
+| Formatter / diff / clippy | pass; clippy 139 warnings |
+| Controller public synthetic smoke | 170 sites / 57 correct changes; actual_F_run=false |
+
+| New control | JSX | TSX | Before-head / oracle | Corrected head / oracle |
+|---|---|---|---|---|
+| C72 same-directory tsconfig+jsconfig | gain | gain | UnknownName / JSCONFIG_BARRIER | one exact target / recoverable |
+| C73 strictly-nearer jsconfig, parent config pair | preserve base | preserve base | base / JSCONFIG_BARRIER | identical base / JSCONFIG_BARRIER |
+
+MEASURED: before-head-controls.json asserts that only the two C72 rows differ across complete old/new rows. All previous controls and solution references remain identical. C72 plus M21 expose the exact lost-yield mechanism in both grammars. Rust additionally tests an invalid ignored sibling, and nearer-jsconfig refusal with and without any tsconfig. M21 changes exactly two resolved kernel requests to None; compile errors are never counted as kills.
+
+MEASURED: Tier-A quick completed in 311.49 seconds. Baseline validity: False; invalid reasons: ['corpus_sha_drift: 304f24b2d2b0 != pinned 20c8490591a3', 'stratum C-method: 4/6 successful probes']. Matrix 170 checks, 0 regressions. No pin, query, grade, oracle or baseline override. Read quick/result.json and quick/receipt.json for full accuracy validity reasons. This quick cannot support an accepted accuracy baseline if meta.baseline_invalid is true. No regression attribution without a same-environment base quick control.
+
+MEASURED: P1.diff SHA-256 **1b238c4d2cc96760c7e4db59b8cbe536835e08d8d383104cfbccd4488aebbc3b**, against e61d52b8; exact Gitless replay of all 38 owned paths. Head SHA-256 **c56c364608b44bb1d6c8ad4660870c257c41c2580f2f88d6868002620b757bbc**. Full source and packet snapshots bind these bytes. No Git writes or private corpus reads.
+
+READ exclusions this turn: private restoration, all-features Cargo, eleven integration mutants, S1b-4 byte-equivalence probe, cache acceptance probe, parent full suites/quick and full multi-corpus Tier-A were not rerun. Existing default/MCP tests exercised their covered paths; historical dedicated receipts below are not current acceptance. Independent round two, owner decisions and P2 remain external/parked.
+
+# Historical rebind-e61 measurements
+
+READ: everything below is retained historical evidence for the previous 9c52a382 integration packet. Its source/binary/hash/count assertions are superseded as current claims by the section above; they are not reruns on the corrected body.
+
 # Lane-P measurements after e61d52b8 rebind
 
 MEASURED: the final prototype source is frozen in `/Users/wesleyjinks/code/prism-paths-proto` at 9c52a382 plus three integration changes, bound by `target/paths-plan/rebind-e61/evidence/source-hashes-frozen.json`. The cumulative P1.diff is byte-exactly replayed from e61d52b8. All current receipts below use `target/paths-plan/rebind-e61/evidence/` unless explicitly labeled historical. BUILD-MANIFEST binds source, binaries, compiler, logs and expected files. No private F corpus or raw private result was opened. No Git write was made.
@@ -153,3 +191,19 @@ MEASURED: head versus fresh main has **411 S1b-4 scenarios / 639 sites** with by
 MEASURED: local namespace Callable terminals initialize via_unresolved_star=false. The unchanged landed namespace_identity returns Err before insertion on any unresolved star branch; explicit named exports override stars. P1 reuses landed extraction, module/position binding classification, relative-module resolution, R4c span/wrapper/unique callable gates, and both export projections. Its alias-only skipped-star provenance preserves the legacy relative row policy; it is not a second namespace resolver. The two namespace resolver functions are byte-identical to main. Landed is_empty already retains complete namespace facts; extra P1 empty facts have namespace_proof_complete=false and cannot grant namespace authority. The added JSX/TSX regression covers clean, unresolved-sibling and explicit-named-override routes; I11 kills a true terminal initializer.
 
 MEASURED: root VERIFICATION.md records the actual commands and exclusions. Full-suite hashes/totals and all 38 source hashes were rechecked (`verification-summary.json`). Historical R1 oracle RED/O01 evidence is retained in r1/final-evidence, not rerun here. Current 152 controls execute their strengthened oracle assertions, and fresh public finalization checks requested-member histogram assertions. No Rust behavior changed after the full suites.
+
+## Controller F acceptance after the jsconfig-precedence fix (private, aggregates only; 2026-10-01)
+
+Run with head `060092b4` (cumulative on `e61d52b8`), the manifest base binary, and the TypeScript 5.9.3 oracle.
+
+**Result:**
+- Changed rows: **2,345**, all `CORRECT_STATIC_BINDING`.
+- Keys added or removed: 0.
+- Callable-recoverable: 3,106. Module-resolved bindings: 5,043.
+
+**Refusal histogram:**
+- `NONRELATIVE_EXPORT_HOP`: 619. A candidate for a later P2 slice; re-measure before authorizing it.
+- `UNCLASSIFIED_P1_PROOF`: 119.
+- `BINDING_OR_SITE_GUARD`: 23.
+
+**Controller-found defect:** before this fix, a same-directory jsconfig barrier (from the round-1 S1 disposition) removed all F yield. The interim rebind run measured 0. Lesson: run the private-corpus acceptance immediately after every fold that adds a barrier.
