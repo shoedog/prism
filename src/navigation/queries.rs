@@ -381,9 +381,25 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     let mut wrapped_non_jsx = 0usize;
     let mut jsx_intrinsic = 0usize;
     let mut local_binding_unproven = 0usize;
+    // S1b-3b (SPEC §5): bindings kept at base behavior, by reason, observable regardless of
+    // the resolution outcome a site lands on (a `MayCall`/`Position` site can still drop for
+    // an unrelated reason downstream, for example `UnknownName`).
+    let mut local_binding_unchecked_position: BTreeMap<String, usize> = BTreeMap::new();
+    let mut local_binding_may_call: BTreeMap<String, usize> = BTreeMap::new();
     for sites in cg.calls.values() {
         for site in sites {
             total += 1;
+            match &site.local_binding {
+                crate::call_graph::JsLocalBinding::Position(r) => {
+                    *local_binding_unchecked_position
+                        .entry(r.clone())
+                        .or_default() += 1
+                }
+                crate::call_graph::JsLocalBinding::MayCall(r) => {
+                    *local_binding_may_call.entry(r.clone()).or_default() += 1
+                }
+                _ => {}
+            }
             let out = cg.resolve_call_site_full(site);
             match out.drop {
                 Some(DropReason::MultiOwnerCollision) => multi += 1,
@@ -660,6 +676,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         // S1b: intrinsic JSX tags and unproven JS/TS lexical bindings.
         "dropped_jsx_intrinsic": jsx_intrinsic,
         "dropped_local_binding_unproven": local_binding_unproven,
+        "local_binding_unchecked_position": local_binding_unchecked_position,
+        "local_binding_may_call": local_binding_may_call,
         "js_export_skipped_exprs": cg
             .js_ts_exports
             .values()

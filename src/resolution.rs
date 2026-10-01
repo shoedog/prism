@@ -3373,6 +3373,12 @@ impl CallGraph {
                 ResolutionOutcome::dropped(DropReason::MultiOwnerCollision)
             }
             None => {
+                use crate::call_graph::JsLocalBinding;
+                // S1b-3b (SPEC §3.6): a JS/TS name whose binding holds one callable binds it,
+                // by registered name and span, before any import or same-name lookup.
+                if let JsLocalBinding::Callable(t) = &site.local_binding {
+                    return self.js_ts_local_callable(caller, name, t, site);
+                }
                 // R4c: import-member resolution (Python/JS/TS).
                 // Must fire before the functions.get(name) check because aliases
                 // mean the call-site name ("p") differs from the function name
@@ -3488,6 +3494,11 @@ impl CallGraph {
                     .filter(|f| f.file == caller.file)
                     .collect();
                 if !local.is_empty() {
+                    // S1b-3b: a refused JS/TS binding never falls back to a same-name
+                    // function (SPEC §3.8 (8): any `Unproven` reason drops at R4).
+                    if matches!(site.local_binding, JsLocalBinding::Unproven(_)) {
+                        return ResolutionOutcome::dropped(DropReason::LocalBindingUnproven);
+                    }
                     return ResolutionOutcome::hit(exact(local, ResolutionKind::LocalDef));
                 }
 
@@ -3600,12 +3611,58 @@ impl CallGraph {
                             .contains(&(fid.file.clone(), name.to_string()))
                     })
                     .collect();
+                // S1b-3b (SPEC §3.8 (8), carry-forward 4 as narrowed 2026-09-29): a name bound
+                // in-file to a declaration that provably holds no function, a duplicate
+                // declaration, or a recovered import is not a repo-wide function of that
+                // spelling either.
+                if let JsLocalBinding::Unproven(r) = &site.local_binding {
+                    let drops_at_r5 = matches!(
+                        r.as_str(),
+                        "not_callable" | "duplicate_declaration" | "import_parse_recovery"
+                    );
+                    if !nonstatic.is_empty() && drops_at_r5 {
+                        return ResolutionOutcome::dropped(DropReason::LocalBindingUnproven);
+                    }
+                }
                 match nonstatic.len() {
                     0 => ResolutionOutcome::dropped(DropReason::UnknownName),
                     1 => ResolutionOutcome::hit(exact(nonstatic, ResolutionKind::FreeSingle)),
                     _ => ResolutionOutcome::hit(demoted(nonstatic, ResolutionKind::FreeMulti)),
                 }
             }
+        }
+    }
+
+    /// S1b-3b: the in-file callable a proven binding holds, matched by registered name and
+    /// span (SPEC §3.6). `t.local` can differ from the call-site spelling `name` (a renamed
+    /// binding, W4 option a).
+    fn js_ts_local_callable(
+        &self,
+        caller: &FunctionId,
+        name: &str,
+        t: &crate::ast::JsTerminal,
+        site: &CallSite,
+    ) -> ResolutionOutcome<'_> {
+        if t.wrapped && !site.jsx_element {
+            return ResolutionOutcome::dropped(DropReason::WrappedExportNonJsx);
+        }
+        let local = |n: &str| -> Vec<&FunctionId> {
+            self.functions.get(n).map_or(Vec::new(), |ids| {
+                ids.iter()
+                    .filter(|f| f.file == caller.file && !self.method_owners.contains_key(*f))
+                    .collect()
+            })
+        };
+        let hit: Vec<&FunctionId> = local(&t.local)
+            .into_iter()
+            .filter(|f| f.start_line == t.start_line && f.end_line == t.end_line)
+            .collect();
+        match hit.len() {
+            1 => ResolutionOutcome::hit(exact(hit, ResolutionKind::LocalDef)),
+            // No same-file function shares this span: fall back by the call-site spelling
+            // (`name`), which can differ from `t.local` (SPEC §3.6).
+            _ if local(name).is_empty() => ResolutionOutcome::dropped(DropReason::UnknownName),
+            _ => ResolutionOutcome::dropped(DropReason::LocalBindingUnproven),
         }
     }
 
@@ -4542,6 +4599,7 @@ mod scope_resolution_predicate_tests {
             origin: CallSiteOrigin::Source,
             pre_resolved_target: None,
             jsx_element: false,
+            local_binding: Default::default(),
         }
     }
 
