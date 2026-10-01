@@ -10,3 +10,11 @@ READ: D5 approved this planning lane, Exact is static binding, Option K preserve
 | OQ4 | After P1, should P2 be parked unless F supplies material incremental yield? | Yes. Public MEASURED yield is 0 for bare baseUrl, non-relative .js→.ts, references and package/workspace routes. Re-measure each future mechanism before authorizing it. | Authorize a general resolver lane now for API completeness, with broader cost and review surface despite no public measured gain. | __OWNER_OQ4__ |
 
 READ: no question asks to redefine Exact or to reopen Option K. READ: cache numbers on this bound base are CPG 103 and nav 59; prototype uses 104/60. If the implementation parent changes, bind that revision, use its actual versions +1 and re-run the controls and corpus comparisons. No stale approval transfers across that change.
+
+## Controller interim dispositions (2026-10-01; the owner is asleep, so the owner answer slots above stay open)
+
+The owner authorized overnight orchestration, including scope cuts and splits. The positions below let planning and review continue. Each one is **pending owner confirmation**, and none redefines Exact or Option K.
+- **OQ1: proceed with the recommended finite P1 scope.** It is a scope cut that preserves base on everything outside it, so no new accepted cost.
+- **OQ2: proceed with root-file membership,** as TypeScript defines it.
+- **OQ3: yes.** The controller runs `CONTROLLER-paths.sh` and folds the F aggregates before the P1 implementation dispatch.
+- **OQ4: P2 is parked** until a re-measurement shows yield. That is a scheduling position; the owner decides any later lane.
