@@ -1,246 +1,190 @@
-# S1b-4 r3 measurements — spec-review r1 fold, 2026-10-01
+# S1b-4 r4 measurements — final spec-review r2 fold, 2026-10-01
 
-MEASURED: the prototype and packet fold W1–W4 / S1–S5 in place. No Git writes,
-F reads, installs, providers or network acquisition were performed. No owner
-question remains. Opus spec r1 consumed round1 of2; no independent post-fold
-review has been dispatched. Local verification stayed within its declared
-three-attempt cap; the third pass narrowed a closed opaque-cell origin defect.
-R1's bounded follow-up closed an enumerated coverage gap; no restart occurred.
+MEASURED: plan/s1b-4 @922f00df, prototype proto/s1b-4 @beec4a23 plus
+final owned fold. Base915fca43. No Git writes, F opens, installs, providers or
+network acquisition. Opus2/2 is converging; final targeted fold, no new plan
+round, restart or E5 exception. All r2/r3 references are historical.
 
-## Custody and build
+## Custody and cumulative starting point
 
-MEASURED: plan/s1b-4 @564ebc8c, prototype proto/s1b-4 @fceb0b4e plus the owned
-fold; source base915fca43d84ea1730959453091fbf8ae97763af8. Eight owned files are
-dirty relative to fceb0b4e; the cumulative body owns17 files. Controller freezes
-a cumulative source commit for adoption off main; Sonnet starts from those owned
-files and completes tests/RED/verification/handback. COMMIT-FILES-s1b4.md names
-all18 packet paths, eight fold paths and17 cumulative prototype paths.
+MEASURED: BUILD-MANIFEST.json binds18 owned files,270 crate inputs, dirty
+build identity and cumulative/fold patches. Controller squashes
+`915fca43..<final proto>` into one commit on `proto/s1b-4-final`, fills its SHA
+in IMPLEMENTOR/manifest, and dispatches that one cumulative starting point.
+No incremental child is the adoption artifact. COMMIT-FILES lists exact paths.
 
-| Artifact | Version | SHA256 |
+| Artifact | Identity | SHA256 |
 |---|---|---|
 | base/prism | slicing 3.1.2 (915fca43d84e) | d3fc31233253ddfec36f9f623d780c1cc6d9e376f31806ff516965a141974859 |
-| head/prism-r3-final | slicing 3.1.2 (fceb0b4e75a8-dirty) | c4f3d25a7095a11fcb4b70716f38291dc4923954755cfd20ed6c53b4cc1a7371 |
+| head/prism-r4-final | slicing 3.1.2 (beec4a23cdfa-dirty) | 03c5e6ce67a01e625afa0687f91aeb2ba7695f39347ed747ff44d9efe2426e07 |
+| cumulative patch | proto-r4.diff | 0bb693a10d4ccb427b52151bc55c8cc618ed28b7edf0e61c3061c0f4ab080be4 |
+| final fold | proto-fold-r2.diff | be4955b45c3f3ab922475f169c13a089ea7bb6cba8e76ab022459680d703d97a |
 
-MEASURED: BUILD-MANIFEST.json binds every owned file and tracked crate input,
-actual dirty build identity, cumulative patchSHA **4c913ab7b14688b50861af010f9a0b6915548b2814dbeb16690acefab06dd18b**
-and fold patchSHA **abf87287315e7527c83e4bb153bf06819f477f5711001d7b2bbbd6adf035aa26**. The final rebuild has identical
-binary bytes to the final binary used for r3 corpus/control measurements. The
-final private-barrel correction is source-bound separately from preceding stages. Its actual command is head/build-r3-restored.log.
-BUILD-MANIFEST-r2.json and r2 references remain unchanged. Earlier r3 stages
-are retained as BUILD-MANIFEST-r3-before-using.json and
-BUILD-MANIFEST-r3-before-opacity-proof.json with their patches.
-The unbound copied-inode SIGKILL is inadmissible; the fresh bound inode runs.
-Cache versions are106/62. There are no stray reports/snapshots in the proto tree.
-Final source/packet snapshots and SHA inventory are under target/plan-s1b4.
+MEASURED: CONTROLLER-S1b4.sh selects the r4 binary, beec4a23 source identity
+and r4 round. Syntax and public hash preflight pass; private commands were
+never executed. BUILD-MANIFEST-r3.json retains the original r3 manifest.
+Prototype cache pins106/62 are retained as controller-scoped iteration pins;
+landed cache bump remains once103/59 ->104/60. No cache claim is transferred
+from these dirty prototype bytes to a clean implementation commit.
 
-## Fresh public row diffs and classes
+## Fresh X/R/T row diffs
 
-MEASURED: freshly run base and head dumps, full unique populations, empty stderr;
-rowdiff, independent target multiset/key guard and audit outputs under
-base/dumps-r3, head/dumps-r3 (X/R), head/dumps-r3-direct (T) and head/{X,R,T}-{rowdiff,audit,valueflow}-r3.*.
+MEASURED: freshly rerun base and head direct dumps,1200s bound per command;
+complete unique keys, empty stderr, binary-hash/time receipts retained under
+base/dumps-r4 and head/dumps-r4. rowdiff plus independent valueflow guards
+retain complete target multisets and site keys.
 
-| Corpus | Base / head sites | Changed | Removed / retargeted / added / demoted / relabeled / accepted-cost | Lost IDs | Missing keys |
+| Corpus | Base/head sites | Changed | Removed/retargeted/added/demoted/relabeled/accepted-cost | Lost IDs | Missing keys |
 |---|---:|---:|---|---:|---:|
-| X | 19,219 /19,219 |0|0/0/0/0/0/0|0|0|
-| R |953 /953|0|0/0/0/0/0/0|0|0|
-| T |61,712 /61,712|0|0/0/0/0/0/0|0|0|
-| F r3 | controller-only, not measured | unknown | unknown | unknown | unknown |
+| X |19219/19219|0|0/0/0/0/0/0|0|0|
+| R |953/953|0|0/0/0/0/0/0|0|0|
+| T |61712/61712|0|0/0/0/0/0/0|0|0|
+| F r4 |not run, controller-only|unknown|unknown|unknown|unknown|
 
-MEASURED: probes/expected/S1b-4-r3-{X,R,T}.json are fresh[]; r2 retained.
-Zero lost identities proves zero public target IDs lost without certifying that
-retained base targets are right. No uncertified changed public row remains. The combined dump wrapper
-reached300 seconds on T and is inadmissible; direct T retry finished
-in255.57 seconds with a1200-second bound, returncode0 and complete rows.
-An auditor invocation under Python3.12 lacked tree_sitter and was inadmissible;
-the existing system Python dependencies produced the accepted audit. Neither
-setup failure updated resolver beliefs or was attributed to the change.
-Audit cannot follow alias returns, parameters, object members or runtime writes;
-it never certifies a removed edge from qualifier non-callability alone.
+MEASURED: all public diffs equal retained r3[]; no r4 expected files created.
+No changed public row needs a new lexical audit. Equality does not certify the
+retained base edges as right. Historical F aggregates do not certify r4.
 
-INHERITED: controller's r2 F acceptance (prior committed measurement record):
-13,299 equal sites, four Exact→NameOnly/import_qualified changes with edges kept,
-zero lost IDs, zero counter differences. It does not certify r3. Updated
-CONTROLLER-S1b4.sh selects prism-r3-final, verifies binary and all source/input
-hashes, and preserves full command/completeness/audit/identity receipts privately.
-Script syntax and public custody preflight pass; private F was never invoked.
+## Controls, replay and accounting
 
-## Controls, replay and telemetry
-
-MEASURED:397 generated controls,344 identical sections /53 changed versus
-base; original349:309/40; new48:35/13. Pre-fold comparison:358 identical /39
-changed. All keys and complete function inventories agree; stderr0. All349
-historical generated source repositories remain byte-identical. Every registered
-column is asserted by registered-controls-r3.json; CONTROLS enumerates every
-changed row and all new preservation columns. C129/C210/C201 are early-SyntaxError
-pins, outside reachable behavior. TS-only syntax in JSX is only recovery.
-
-MEASURED: supplementary R1 using probes have both grammars. Valid TSX base
-wrong Exact→UnknownName; JSX recovery drops on both. d13 permanently proves
-not_callable with both legacy receiver flags false. These two scope probes are
-separate from the397 generated repositories. Six more opacity-origin twins
-prove renamed resolved Exact preservation, renamed bare E7 NameOnly and cyclic
-exported-rootFn preservation. Same-environment base/first-fold/final rows and
-independent Node function identity are retained under opacity-origin; d10/d12
-RED13/2 then GREEN15/0. The broad cell-file/name filter was refuted in place. No wrong target is accepted here.
-
-MEASURED: RP46 complete sections, four RP2-c twins UnknownName→Exact to the
-renamed exported terminal, other42 unchanged. Whole r3 summary equals r2 byte
-for byte. All46 full function inventories/keys/stderr agree, including fixed
-no-call fixtures; the generic empty-dump comparator failure was inadmissible.
-References: probes/S1b-controls-s1b4-r3-proto.txt and S1b-replay-s1b4-r3-proto.txt.
-
-MEASURED: every js_export_* counter agrees on399 repositories (all397 controls
-plus X/R); head/export-counters-r3/comparison.json contains complete maps.
-T aggregate counters were not re-measured (the r2 base probe hit180 seconds);
-complete T site dumps did finish. Qualified MayCall/Position maps remain the
-intended accounting; unqualified and D4 facts/counters are preserved.
-INHERITED: C220's independent Node source-identity experiment remains r2 evidence;
-this turn replays its edge but does not re-execute that experiment.
+MEASURED:411 controls,358 identical/53 changed against same-environment base,
+complete keys/inventories and empty stderr. Original397 whole sections equal
+r3, and722 old generated source files remain byte-identical. All14 new
+C245-C251 twins equal whole base sections. Twelve new namespace rows differ
+from r3; C245's escape twins already kept base. Every changed base-to-head row
+is individually explained in CONTROLS; no changed class is added by this fold.
+Preregistered columns checked in head/registered-controls-r4.json; pre-change
+r3 and final/base new namespace rows retained in final-fold-control-rows-r4.json.
+RP46 head sections equal r3; original base-to-head RP2-c four changes remain
+unchanged. Export-counter maps on413 repositories (411 controls +X/R) agree,
+including all original js_export_* counters. T aggregate counters were not
+remeasured; complete T site dumps were.
 
 ## Full mutant table
 
-MEASURED: **30 distinct executable variants KILLED** by actual permanent-suite
-assertions, not setup/compile/zero-test failures. One mutation at a time,180-second
-per-run bound, exact-byte restoration. Final receipts are head/mutants-r3-final/results.json and per-case logs/patches.
-All30 ran against the final production/test body. Earlier25 and reviewer
-follow-up receipts are retained as history, including first R1 survival. R1 initially survived
-and was corrected with the valid using row, never inferred equivalent.
-Full suites validate the final semantic body after the using and private-barrel
-corrections; afterward one blank line was removed to keep the test file under600.
-All final mutants compile that identical semantic body. Source
-hash restoration and the final source-bound manifest/snapshots were checked.
+MEASURED:39 executable variants,37 KILLED/2 SURVIVED/0 INADMISSIBLE.
+One mutation at a time, one180s attempt each. Failed assertion output and
+selected permanent tests were inspected; no compile/setup/zero-test failure
+counted as a kill. Restoration receipt binds18 owned/270 crate inputs exactly.
+Results, patches and logs: head/mutants-r4. X1 fails d15's non-private premise;
+E5 independently preserves its escape row, so row-only assertion would mask
+that premise mutant. X3 also has premise failures; table lists actual failed
+permanent tests. A projection-map absence assertion is the immediate D-M12
+kill; no compilation failure is involved.
 
-| Variant | Actual killing permanent test | Result |
+| Variant | Actual failing permanent tests | Result |
 |---|---|---|
-| D-M1 | js_binding_namespace_test::d1_direct_and_directory_decoys | KILLED |
-| D-M2 | js_binding_namespace_test::d4_scope_write_recovery_and_positions | KILLED |
-| D-M3 | js_binding_namespace_test::d5_authoritative_missing_member_and_fallback | KILLED |
-| D-M4 | js_binding_namespace_test::d6_non_namespace_imports_keep_base | KILLED |
-| D-M5-import | js_binding_namespace_test::d9_written_import_and_export_keep_base | KILLED |
-| D-M5-kind | js_binding_namespace_test::d9_written_import_and_export_keep_base | KILLED |
-| D-M6-span | js_binding_namespace_test::d1_direct_and_directory_decoys | KILLED |
-| D-M6-wrapped | js_binding_namespace_test::d2_wrapped_call_and_jsx | KILLED |
-| D-M7 | js_binding_namespace_test::d3_rename_named_and_star_barrels | KILLED |
-| D-M8 | js_binding_namespace_test::d4_scope_write_recovery_and_positions | KILLED |
-| D-M9 | js_binding_namespace_test::d4_scope_write_recovery_and_positions | KILLED |
-| D-M10 | js_binding_namespace_test::d4_scope_write_recovery_and_positions | KILLED |
-| D-M11 | js_binding_namespace_test::d5_authoritative_missing_member_and_fallback | KILLED |
-| D-M12-named | js_binding_namespace_test::d10_alias_opacity_direct_named_star_forwarded_and_d4_pin | KILLED |
-| D-M12-star | js_binding_namespace_test::d10_alias_opacity_direct_named_star_forwarded_and_d4_pin | KILLED |
-| D-M13 | js_binding_namespace_test::d10_alias_opacity_direct_named_star_forwarded_and_d4_pin | KILLED |
-| D-M14-site | js_binding_namespace_test::d8_serde_cache_and_incremental_epochs | KILLED |
-| D-M14-cache | cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics, navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority | KILLED |
-| R3-jsx-sibling | js_binding_namespace_test::d14_jsx_specifier_tsx_sibling | KILLED |
-| R5-opaque-fallback-skipped | js_binding_namespace_test::d12_pattern_alias_and_skipped_maycall_and_bare_alias | KILLED |
-| R7-skipped-maycall-not-opaque | js_binding_namespace_test::d12_pattern_alias_and_skipped_maycall_and_bare_alias | KILLED |
-| W1-incomplete-absence-final | js_binding_namespace_test::d11_incomplete_exports_and_depth_keep_base | KILLED |
-| W2-pattern-opacity-omitted | js_binding_namespace_test::d12_pattern_alias_and_skipped_maycall_and_bare_alias | KILLED |
-| W3-all-unproven-refused | js_binding_namespace_test::d13_b0_and_nonproving_refusals_keep_base | KILLED |
-| S1-barrel-decoy-kept | js_binding_namespace_test::d10_alias_opacity_direct_named_star_forwarded_and_d4_pin | KILLED |
-| S1-opaque-cell-is-not-function-origin | js_binding_namespace_test::d10_alias_opacity_direct_named_star_forwarded_and_d4_pin | KILLED |
-| R1-namespace-refused-off | js_binding_namespace_test::d13_b0_and_nonproving_refusals_keep_base | KILLED |
-| R2-recovered-type-admitted | js_binding_namespace_test::d6_non_namespace_imports_keep_base | KILLED |
-| R4-wrapped-fallback-final | js_binding_namespace_test::d5_authoritative_missing_member_and_fallback | KILLED |
-| R11-resolved-opaque-dropped | js_binding_namespace_test::d12_pattern_alias_and_skipped_maycall_and_bare_alias | KILLED |
+| D-M1 | d1_direct_and_directory_decoys | KILLED |
+| D-M2 | d4_scope_write_recovery_and_positions | KILLED |
+| D-M3 | d5_authoritative_missing_member_and_fallback | KILLED |
+| D-M4 | d6_non_namespace_imports_keep_base | KILLED |
+| D-M5-import | d9_written_import_and_export_keep_base | KILLED |
+| D-M5-kind | d9_written_import_and_export_keep_base | KILLED |
+| D-M6-span | d1_direct_and_directory_decoys | KILLED |
+| D-M6-wrapped | d2_wrapped_call_and_jsx | KILLED |
+| D-M7 | d3_rename_named_and_star_barrels | KILLED |
+| D-M8 | d4_scope_write_recovery_and_positions | KILLED |
+| D-M9 | d4_scope_write_recovery_and_positions | KILLED |
+| D-M10 | d4_scope_write_recovery_and_positions | KILLED |
+| D-M11 | d5_authoritative_missing_member_and_fallback | KILLED |
+| D-M12-named | d10_alias_opacity_direct_named_star_forwarded_and_d4_pin | KILLED |
+| D-M12-star | d10_alias_opacity_direct_named_star_forwarded_and_d4_pin | KILLED |
+| D-M13 | d10_alias_opacity_direct_named_star_forwarded_and_d4_pin | KILLED |
+| D-M14-site | d8_serde_cache_and_incremental_epochs | KILLED |
+| D-M14-cache | navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority, cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics | KILLED |
+| R3-jsx-sibling | d14_jsx_specifier_tsx_sibling | KILLED |
+| R5-opaque-fallback-skipped | d12_pattern_alias_and_skipped_maycall_and_bare_alias | KILLED |
+| R7-skipped-maycall-not-opaque | d12_pattern_alias_and_skipped_maycall_and_bare_alias | KILLED |
+| W1-incomplete-absence-final | d11_incomplete_exports_and_depth_keep_base | KILLED |
+| W2-pattern-opacity-omitted | d12_pattern_alias_and_skipped_maycall_and_bare_alias | KILLED |
+| W3-all-unproven-refused | d13_b0_and_nonproving_refusals_keep_base | KILLED |
+| S1-barrel-decoy-kept | d10_alias_opacity_direct_named_star_forwarded_and_d4_pin | KILLED |
+| S1-opaque-cell-is-not-function-origin | d10_alias_opacity_direct_named_star_forwarded_and_d4_pin | KILLED |
+| R1-namespace-refused-off | d13_b0_and_nonproving_refusals_keep_base | KILLED |
+| R2-recovered-type-admitted | d6_non_namespace_imports_keep_base | KILLED |
+| R4-wrapped-fallback-final | d5_authoritative_missing_member_and_fallback | KILLED |
+| R11-resolved-opaque-dropped | d12_pattern_alias_and_skipped_maycall_and_bare_alias | KILLED |
+| X1_private_barrel_any_stmt | d15_executable_barrel_escape_keeps_exact | KILLED |
+| X2_private_barrel_ignores_local_opaque | 22 namespace tests passed | SURVIVED |
+| X3_private_barrel_allows_local_export | d16_e5c_star_written_keeps_base, d10_alias_opacity_direct_named_star_forwarded_and_d4_pin | KILLED |
+| X4_cycle_not_final | d10_barrel_conflict_cycle_final_depth_keeps_base, d11_incomplete_exports_and_depth_keep_base | KILLED |
+| X5_no_depth_cut | d10_barrel_conflict_cycle_final_depth_keeps_base, d11_incomplete_exports_and_depth_keep_base | KILLED |
+| X6_export_decl_allowed | 22 namespace tests passed | SURVIVED |
+| E5-origin-omitted | d16_e5b_bare_written_keeps_base, d16_e5e_named_maycall_keeps_base, d16_e5c_star_written_keeps_base, d16_e5a_bare_maycall_keeps_base | KILLED |
+| E5-origin-bypassed | d16_e5b_bare_written_keeps_base, d16_e5e_named_maycall_keeps_base, d16_e5c_star_written_keeps_base, d16_e5a_bare_maycall_keeps_base | KILLED |
+| E5-written-kind-projection-omitted | d17_written_kinds_keep_base | KILLED |
 
-| Non-executable or equivalent reviewer variant | Mechanism proof / disposition |
-|---|---|
-| R6 insert_named opacity poison | Equivalent on valid programs: competing duplicate exports are early errors |
-| R8 sibling basename guard | Equivalent on valid indexed inputs: the exact replacement candidate has resolver precedence; unsupported mts/cts are not indexed |
-| R9 program scope check | Equivalent: exact declaring-node identity must equal a top-level inventory import |
-| R10 duplicate opacity insertion | Equivalent on valid programs: repeated export/binding claims are early errors |
-| R12 resolved NameOnly branch | Removed; span projection admits one identity or none, so the branch was dead |
+READ: X2 is a redundant conjunct survivor: top-level export declarations/
+values and executable CJS expressions cannot be private; local named opacity
+claims also fail the all-ReExport/ImportForward kind guard. Removing only
+the opaque-map emptiness conjunct cannot admit those forms. X6 is a disclosed
+coverage survivor, not equivalent: export namespace/enum bodies plus a cycle
+can expose a private function if export declarations are admitted. No cheap
+runtime test row was added for S7. All prior30 mutants remain killed.
+Historical non-executable/equivalent variants R6/R8/R9/R10 and removed dead R12
+remain as recorded in r3; no new execution claim for those variants.
 
-READ: these equivalents are recorded as the supplied controller disposition,
-checked against their mechanisms; no failed test or runtime kill is claimed.
-.mjs→.mts and .cjs→.cts arms remain unavailable through current indexing.
+## Suites and harnesses
 
-## Final suites and harnesses
-
-MEASURED: final unmutated prototype commands, after the using guard and private-barrel proof, with actual
-behavioral output inspected. All default/mcp tests were rerun on the final body.
-
-| Check | Passed | Failed | Ignored / skipped | Evidence |
+| Check | Passed | Failed | Ignored | Evidence |
 |---|---:|---:|---:|---|
-| cargo test --offline --no-fail-fast,29 groups |4,765|0|1|head/tests-default-r3-opacity.log|
-| cargo test --offline --features mcp --no-fail-fast,31 groups |4,958|0|1|head/tests-mcp-r3-opacity.log|
-| Namespace permanent matrix |15|0|0|final integration group|
-| Tier-A matrix, immediate preceding rebuild |166|0|0|head/tier-a-matrix-r3-restored.log|
-| Node gate |853|0|1|head/node-gate-r3-final/receipt.json and log.txt|
+| default,29 groups |4772|0|1|head/default-r4.log|
+| mcp,31 groups |4965|0|1|head/mcp-r4.log|
+| namespace permanent matrix |22|0|0|head/spec-r2-green.log|
+| Tier-A matrix |166|0|0|head/tier-a-matrix-r4.log|
+| Node gate |853|0|1|head/node-gate-r4/receipt.json|
 
-MEASURED: fmt and source/packet diff checks pass. Clippy completes with warnings;
-head/clippy-r3-opacity.log is not warning-clean. The opaque helper
-uses next_back after the final correction; remaining warnings are reported,
-without regression/inheritance attribution to an unrerun base clippy control.
-Unrelated warnings were not repaired.
-Grammar closure:186 named kinds,76 suspect,0 unclassified;74 E_TABLE positions,
-zero missing/extra/different (head/grammar-closure-r3.log).
+MEASURED: source-bound RED on beec4a23: four E5 assertions fail; all primary
+E5 cases have both-grammar CLI RED/base controls as well. Written class direct
+RED is retained separately. d15 is a mutant guard, not a claimed pre-change
+behavior regression. d18 verifies bincode/serde defaulting and incremental
+MayCall ->Alias ->MayCall replacement. The first default attempt's own two
+new-test expectation/layout failures were corrected in place; it is history,
+not final acceptance. Hypothesis/probe/alternatives and inadmissible harness
+setup attempts are recorded in PROBE-LOG-r4.md.
 
-MEASURED: Node uses existing validated cached inputs, no network acquisition.
-Its skip is RED adapter exposes compressed alias binding ordinal; excluded file
-is docs/eval/receiver-closure/audit-imported-props-source.test.mjs, reason
-inputs-not-reconstructible. Node gate was rerun after the final source corrections and mutant restoration.
+MEASURED: source-restored rebuild has the same bound binary bytes; Tier-A
+matrix166/0. cargo fmt and separate split-test rustfmt checks pass. Clippy
+completes with warnings (not warning-clean); no base clippy control was run, so
+no warning regression/inheritance attribution is made. Grammar closure186 named
+kinds/76 suspect/0 unclassified,74 E_TABLE positions,0 missing/extra/different.
+Node853/0/1 uses existing cached inputs, no acquisition; excluded file:
+docs/eval/receiver-closure/audit-imported-props-source.test.mjs, reason
+inputs-not-reconstructible (compressed alias binding ordinal). The Rust ignored
+row is resolution_test::slice_elem_variant_reserved.
 
-MEASURED: Tier-A quick has three300-second attempts: two on preceding r3
-bodies and one source-bound attempt on the final106/62 body. All ended
- deadline_no_complete_result, returncode-2, without a complete artifact; none
-is GREEN. head/quick-r3{,-retry,-final}/receipt.json retains them. The final
-receipt binds the binary/patch/cache hashes. After the final production change,
-one last attempt was necessary to avoid borrowing old-source verification;
-at the declared third quick attempt the repeated incomplete harness is parked.
-The final attempt ran before the Node gate and after the other heavy checks.
-Resource contention is not established, and no regression/inheritance attribution
-is made without a same-environment base quick control. uv was not retried after
-its known sandbox refusal; installed Python3.12 invokes tier_a.cli.main with
-normal queries/oracle/grades and only a writable nav cache. Generated inventories
-are under evidence, never adopted as snapshots or docs/eval baselines.
+MEASURED exclusion: one fresh source-bound quick attempt ends
+deadline_no_complete_result after300.09s (bound300s,returncode-2); no complete
+quick/oracle artifact and no retry. Prior three incomplete r3 attempts remain
+historical exclusions. No performance regression is attributed without a
+same-environment base quick control. Full multi-corpus Tier-A is human-triggered
+and not run. T aggregate export counters, clean parent103/59 -> final104/60
+whole-process warm cache transition, clean committed binary, private F and a
+new independent post-fold review were not verified. CPG serde/incremental and
+cold/partial graph-cache checks are covered by permanent tests, not substituted
+for whole-process transition acceptance.
 
-MEASURED: d8 covers graph serde/defaults, disk cold/full/partial CPG cache and
-incremental per-file export/qualifier/write changes, plus two positions in one
-file;106/62 pins pass. NOT VERIFIED: whole-process parent103/59→r3 106/62 clean
-warm-sidecar transition, since the authorized body remains dirty and Git writes
-are controller-only. Prior r2 transition receipts are historical, not r3 credit.
-The ignored Rust row is resolution_test::slice_elem_variant_reserved, a reserved
-SliceElem path. No real-corpus lost target or wrong Exact was inferred from
-suite exit status. The new Tier-A fixture has direct same-environment RED/GREEN:
-base includes wrong util:f@2 and right util:f@5; final head keeps only f@5
-(head/tier-a-fixture-red-green-r3/receipt.json).
+MEASURED: final source/packet snapshots, hashes, current manifest/patches and
+verification receipts are checked by final_custody_r4.py and FINAL-CHECK-r4.json.
+MANIFEST-r4.sha256 inventories the retained evidence. Legacy crate_input_digest
+was removed from the current manifest; current canonical crate_input_map_sha256
+and every input hash bind all270 inputs. No reports/snapshots remain in proto.
 
 ## Size and dispositions
 
-MEASURED: nonblank non-// diff against915fca43, after rustfmt; test helpers,
-tests/** and fixtures counted separately. Source **486 added /
-19 removed /467 net**; tests/fixtures **629
-added /6 removed /623 net**. Full per-file
-size-r3.json. Namespace test file599 physical lines. Generated repositories,
-packet scripts and evidence excluded. Forecast:486–560 added src and
-629–750 added tests, not caps; no restart or new slice proposed.
+MEASURED: nonblank non-// cumulative diff against915fca43 after rustfmt:
+source528 added/19 removed/509 net; tests/fixtures833 added/6 removed/827 net.
+size-r4.json includes the untracked split test file. Namespace files600 and209
+physical lines. Forecast528-600 added source /833-925 added tests, no caps.
+Generated controls, packet scripts and evidence excluded. No new slice/restart.
 
-
-| Review item | Disposition |
+| Finding | Disposition |
 |---|---|
-| W1 WRONG | Fixed: ESM-complete/untruncated absence; CJS/TS/depth controls preserve base; true ESM absence/conflict/cycle remains final |
-| W2 WRONG | Fixed: every pattern name gets namespace-only opacity, both object/array controls |
-| W3 WRONG | Fixed: only proved non-import bindings refuse base R3; valid B0 and named twin preserve; using row kills guard deletion |
-| W4 WRONG | Fixed: permanent bare-Alias and skipped-MayCall rows kill R5/R7, both in dispatch |
-| S1 SMELL | Applied existing rules: non-escaping private-barrel decoy removed; opaque binding cell never proves origin/name; original fallback edges kept at E7 NameOnly |
-| S2 SMELL | Relabelled C129/C210/C201 early SyntaxErrors outside runtime argument |
-| S3 SMELL | JSX→TSX test kills R3; dead NameOnly removed; R6/R8/R9/R10 equivalents, R12 removed |
-| S4 SMELL | Current fceb0b4e plus fold and cumulative17-file adoption; implementer starts prototype body |
-| S5 SMELL | Recorded as inherited D4 function/namespace merge policy; no classifier change |
+| W5 WRONG MATERIAL | Escape twin d15/C245 both grammars keeps lib:f Exact; explicit non-private premise guards X1 (KILLED) |
+| W6 WRONG E5 IMMATERIAL | E5 as written: raw terminal MayCall/write origin, namespace-only projection, full base before E7/private filtering; E5a/b/c/e plus kinds/epochs guards; no exception |
+| S6 SMELL IMMATERIAL | One cumulative squash on proto/s1b-4-final; controller fills SHA |
+| S7 SMELL IMMATERIAL | X6 export-declaration-admitted disclosed survivor: TS namespace/enum plus cycle; no cheap runtime row added |
+| all r1 items | CLOSED per Opus r2; original397 expectations preserved |
 
-READ: no semantic owner question remains. Controller commits packet/prototype,
-preserves ignored evidence and runs private F r3; spec round2 may then review
-the revision-bound artifact. No post-fold independent approval is claimed.
-NOT VERIFIED: private F r3, full human-triggered multi-corpus Tier-A, complete
-quick/oracle acceptance, a same-environment base quick attribution control,
-T aggregate telemetry, clean warm-sidecar transition, and Git publication/adoption.
-No buildable implementation step is parked; excluded controller/harness work is
-explicit. All three quick attempts are retained as exclusions, never silently skipped.
-
-## Controller F acceptance r3 (after spec r1 fold; aggregates only; 2026-10-01)
-
-- Prototype: `beec4a23` vs `915fca43`. Sites: 13,299 on base and on head.
-- Changed rows: **4**, Exact → NameOnly `import_qualified`, edge kept.
-- Lost targets: 0. Export counters changed: 0.
-- The result is identical to r2.
+Questions the owner owes an answer to: None. Operational controller custody
+and private F are pending; no semantic exception is recommended.

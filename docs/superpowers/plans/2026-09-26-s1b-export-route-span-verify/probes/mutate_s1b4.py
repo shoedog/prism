@@ -44,6 +44,15 @@ cases=[
 ('R4-wrapped-fallback-final', [edit(ns,'                Err(DropReason::WrappedExportNonJsx) => wrapped = true,','                Err(DropReason::WrappedExportNonJsx) => return Some(ResolutionOutcome::dropped(DropReason::WrappedExportNonJsx)),')], 'd5_authoritative_missing_member_and_fallback'),
 ('R11-resolved-opaque-dropped', [edit(ns,'            if export.span.is_none() {\n                if export.file','            if export.span.is_none() { return Some(missing()); }\n            if export.span.is_none() {\n                if export.file')], 'd12_pattern_alias_and_skipped_maycall_and_bare_alias'),
 
+('X1_private_barrel_any_stmt', [edit('src/ast.rs','                    _ => false,\n                };\n            }\n            match child.kind() {','                    _ => true,\n                };\n            }\n            match child.kind() {')], 'd15_executable_barrel_escape_keeps_exact'),
+('X2_private_barrel_ignores_local_opaque', [edit('src/ast.rs','            && facts.namespace_opaque_exports.is_empty()\n','')], 'js_binding_namespace_test'),
+('X3_private_barrel_allows_local_export', [edit('src/ast.rs','            && facts.named.values().all(|t| {','            && facts.named.values().any(|t| {')], 'js_binding_namespace_test'),
+('X4_cycle_not_final', [edit(exports,'    if visited.contains(file) {\n        return true;','    if visited.contains(file) {\n        return false;')], 'js_binding_namespace_test'),
+('X5_no_depth_cut', [edit(exports,'    if depth > MAX_REEXPORT_DEPTH {\n        return false;','    if depth > 99 {\n        return false;')], 'js_binding_namespace_test'),
+('X6_export_decl_allowed', [edit('src/ast.rs','                        child.child_by_field_name("declaration").is_none()\n','                        true\n')], 'js_binding_namespace_test'),
+('E5-origin-omitted', [edit('src/ast.rs','            if self.js_ts_module_binding(local, root, &mut d4.1) == JsBinding::MayCall {','            if false {')], 'd16_'),
+('E5-origin-bypassed', [edit(ns,'        export.span.is_none()','        false && export.span.is_none()')], 'd16_'),
+('E5-written-kind-projection-omitted', [edit(exports,'                if facts.namespace_may_call_locals.contains(local) {','                if false && facts.namespace_may_call_locals.contains(local) {')], 'd17_written_kinds_keep_base'),
 ]
 report=[]
 for name,edits,test in cases:

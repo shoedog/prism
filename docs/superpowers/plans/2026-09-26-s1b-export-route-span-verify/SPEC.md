@@ -451,7 +451,12 @@ runs only for a missing entry, so a proved terminal remains usable even when
 another export form is incomplete. Unknown absence never proves no function.
 No new accepted cost is introduced by preserving incomplete paths.
 
-READ (E5/OQ12/Option K): unspanned same-module terminals preserve base. Alias,
+READ (E5/OQ12/Option K): an export terminal kept as base Local because it is
+may-call/written must keep R3 base behavior too, whatever its binding kind.
+Carry its opacity origin (namespace_may_call_locals keyed by terminal file/local);
+neither E7 NameOnly grading nor the private-barrel exclusion may change its row.
+This applies to named, star and eligible ImportForward terminals. Unspanned
+same-module terminals also preserve base. Alias,
 MayCall, written exports and syntactic CJS UnprovenLocal claims use namespace-only
 opacity. Object/array declarator patterns record every collected name as opaque.
 D4 facts and all original counters are unchanged. Unique opacity projects to
@@ -469,11 +474,11 @@ function declarations and export clauses/star forwarding (no export declaration
 or value); its named facts are all ReExport/ImportForward and it has no opaque
 local claim. No module-level executable expression can pass a private function
 out, no export can expose it, and its function bodies cannot be invoked from
-outside. When that barrel forwards to another opaque cell, exclude only the
+outside. When that barrel forwards to another opaque cell outside E5, exclude only the
 original base candidates in the barrel's own file; retain all other base R3
 candidates. Empty results drop with the base reason. Other resolved opaque
 routes keep base. This proves the pinned private decoy wrong without inventing
-value-flow authority. On unresolved non-sibling stem/directory fallback, retain
+value-flow authority. On unresolved non-sibling stem/directory fallback outside E5, retain
 the original base candidates at E7 NameOnly, excluding proved private-barrel
 functions; never substitute the opaque cell's local name for callable identity.
 Keep-base applies wherever no contrary target evidence is proved.
@@ -515,7 +520,7 @@ deduplicate FunctionIds and grade every surviving candidate NameOnly. Never
 promote a lone stem hit to Exact. Wrapped candidates cannot suppress a valid
 plain candidate; WrappedExportNonJsx applies when no eligible candidate remains
 and the only otherwise valid hits were wrapped. Empty fallback uses the base
-reasons. Incomplete absence keeps base. Known opaque matches keep original
+reasons. Incomplete absence keeps base. Known opaque matches outside E5 keep original
 base candidates at NameOnly as specified above; their binding-cell name/file
 does not grant callable-origin authority.
 
@@ -1173,3 +1178,17 @@ on the same export/outcome surface; no restart or further slice is proposed.
 | **r4 re-plan (2026-09-27)** | S1b-3 against the landed 2a/2b | prototype v10, 4-corpus audited row-diffs, 255 controls, carry-forwards 1–9, owner's M2/cache/budget rulings; OQ10–OQ12 (§0, §3.8, §9) |
 | **S1b-3 spec r1 (Opus FIX 3/3, sol FIX 2/1) → fold (2026-09-29)** | round 1 of 2 | Owner narrowed OQ12 to provably-no-function bindings (alias class, §3.8 (11)); Opus W2/W3 and sol W1/W2 fixed; S1–S3 and sol S1 addressed; clean-built v11 re-measured, 0 right lost outside E6; `REVIEW-s1b3-r1-fold.md` |
 | **S1b-3 spec r2 of 2 (the cap): Opus FIX 1/2, sol FIX 2/0 (open-class) → owner conservative cut (2026-09-29)** | disclosed at-cap fold | NoFn closed by the cut (defaults → Alias), trivia-skipping import check, parameters dropped on the not-statically-bound ground with the value-flow cost measured and owner-accepted (X 6, F 1, T 5, lower bounds), caps approved, file split planned; clean v12; `REVIEW-s1b3-r2-fold.md` |
+
+### S1b-4 final spec r2 disposition (2026-10-01, round 2 of 2)
+
+READ: converging at the cap; targeted final fold, no further plan round.
+W5 adds d15/C245 in both grammars, preserving the escaping lib:f Exact and
+asserting the executable statement revokes the private-barrel premise; E5
+otherwise masks X1's row effect. W6 complies with E5 as written via terminal
+origin, d16/C246-C249 and written-kind/epoch guards d17-d18/C250-C251.
+No E5 exception or owner question is proposed. S6 uses one cumulative squash
+starting point in IMPLEMENTOR. S7 discloses X6 export-declaration admission
+as a TS namespace/enum plus cycle survivor; no cheap runtime fixture was added.
+X2 is redundant: all named facts must be forwards, excluding the local opaque
+claims that would make the removed conjunct relevant. Neither survivor is a
+claimed kill. Measurements contain the final full table and exclusions.

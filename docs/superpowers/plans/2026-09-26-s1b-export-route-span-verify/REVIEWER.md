@@ -146,14 +146,14 @@ verify the independent value-flow inventory/hand audit, not a lexical
 not-callable annotation. C220 is a constructible right alias-export edge on
 the base. OQ-S1b4-1 is resolved by the controller: namespace-only Alias opacity
 keeps R3 base while D4 remains unchanged. The prototype, r2 expected rows,
-397-control r3 reference and 53-row hand audit are present; the expanded
+411-control r4 reference (397 old sections byte-identical to r3) and 53-row hand audit are present; the expanded
 mutant receipts and explicit equivalent variants are in S1b-4-MEASUREMENTS.md.
 Verify the source/binary hashes in BUILD-MANIFEST and the controller's eventual
 commit binding before dispatch. Private F and bounded quick exclusions are
 explicit in the measurements; neither is implicit approval.
-Opus spec r1 consumed round1 of2 and is folded below. The next review surface
-is the finite qualifier outcome/export/E7 matrix and its bounded private-barrel
-proof. Opaque binding-cell file/name must never stand in for callable origin;
+Both Opus spec rounds are consumed; this final fold precedes implementation.
+The implementation review surface is the finite qualifier outcome/export/E7
+matrix and its bounded private-barrel proof. Opaque binding-cell file/name must never stand in for callable origin;
 renamed and cyclic alias guards have same-environment base and Node evidence.
 
 ## Controller notes
@@ -162,8 +162,12 @@ renamed and cyclic alias guards have same-environment base and Node evidence.
      made since the packet was written. -->
 __CONTROLLER_NOTES__
 
-READ current S1b-4 review subject: plan564ebc8c plus the r1 fold; source base
-915fca43, prototype fceb0b4e plus the cumulative owned fold. Opus r1 is folded
-in place, consuming round1 of2. Audit W1–W4 and S1–S5 against current §3.4 and
-the r3 measurements. No pending owner question. Private F is controller-only;
-its supplied r2 aggregate cannot certify r3.
+READ current S1b-4 review subject: plan922f00df plus the final r2 fold; source
+base915fca43, prototype beec4a23 plus final owned fold. Both plan rounds are
+consumed; the controller classified convergence and authorized this final fold.
+W5/W6/S6/S7 dispositions are in SPEC and r4 measurements. E5 has no exception: may-call
+and written export terminals preserve full base rows on every route, whatever kind.
+X1 must be killed; X2 is redundant and X6 is the disclosed S7 survivor.
+Implementation starts from the controller's single cumulative squash commit on
+proto/s1b-4-final; its SHA is filled in before dispatch. No owner question remains.
+Private F is controller-only; no historical F aggregate certifies r4.

@@ -79,3 +79,26 @@ g cell; keep the original Exact. Only a private forwarding barrel's non-escaping
 functions may be removed. Both grammars and the Node identity check are in
 opacity-origin; d10/d12 permanently assert all outcomes. This does not revise
 any of the397 preregistered columns.
+
+## Final r2 review fold: r4 pre-run registration
+
+READ: C245-C251 have both JSX/TSX twins and must keep their complete base
+sections. C245 escape keeps lib:f@2 Exact; C246 E5a bare M1 keeps lib:f@2
+Exact; C247 E5b bare written, C248 E5c star written, C249 E5e named M1,
+C250 written class and C251 written ImportForward keep lib:f@1 Exact.
+The original 397 sections must equal r3; no old expectation is re-baselined.
+D15 independently asserts the barrel is not private, so E5 cannot mask X1.
+D16 also guards eligible ImportForward to M1; D17 guards written class,
+literal and arrow kinds; D18 checks serde defaults and origin epoch replacement.
+X2 is a redundant-premise survivor; X6 is a disclosed TS namespace/enum-cycle
+coverage survivor (S7), with no cheap runtime fixture added in this fold.
+
+## r4 post-run result (registration retained)
+
+MEASURED: all411 scenarios reach registered columns: original397 equal r3,
+new14 equal base,358 unchanged/53 changed against base. All keys/inventories
+agree and stderr is empty. Complete r4 X/R/T reruns equal retained r3[]; no
+r4 expected files created. RP46 equals r3. Every original js_export_* map
+agrees on413 repositories. Final mutation table:37 killed, X2/X6 survive,
+0 inadmissible; X1 is killed by d15's private-barrel premise assertion.
+Source/input restoration and binary binding are in BUILD-MANIFEST and receipts.

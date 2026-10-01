@@ -1,13 +1,14 @@
-# S1b-4 r3 controls — spec-review r1 fold, 2026-10-01
+# S1b-4 r4 controls — final spec-review r2 fold, 2026-10-01
 
-MEASURED: **397 scenarios; 344 identical sections, 53 changed versus base
+MEASURED: **411 scenarios; 358 identical sections, 53 changed versus base
 915fca43**. Every complete site-key set and function inventory agrees; stderr is
 empty. 349 historical controls: 309 identical / 40 changed. New C221–C244,
 48 both-grammar rows: 35 identical / 13 changed. Against the pre-fold prototype,
-358 sections are identical / 39 changed. r2 references are retained; r3 summary
-is probes/S1b-controls-s1b4-r3-proto.txt. Complete comparisons and the registered
-column assertions are target/plan-s1b4/head/{controls-comparison-r3.json,
-controls-fold-r3.json,registered-controls-r3.json}.
+358 sections are identical / 39 changed. r2 references are retained; r4 summary
+is probes/S1b-controls-s1b4-r4-proto.txt. Complete comparisons and the registered
+column assertions are target/plan-s1b4/head/{controls-comparison-r4.json,
+registered-controls-r4.json}. Original397 sections equal r3; all14 new sections
+equal base. The prior r1 comparison (358 identical/39 changed) is historical.
 
 READ: **C129/C210 with and C201 duplicate import are early-SyntaxError inputs**
 in a module, outside the reachable-behavior argument. Their six rows now keep
@@ -15,12 +16,13 @@ base, matching non-proving Unproven doctrine; any runtime outcome is irrelevant.
 TS-only syntax under JSX (C225/C226/C244) is a parse-recovery pin; TSX carries
 the valid TypeScript semantic assertion. No invalid input proves wrong authority.
 
-READ: every row below was audited against its actual qualifier declaration,
+INHERITED: r3 source audit below checks each actual qualifier declaration,
 caller-relative producer and terminal identity. An opaque cell's file/name does
 not prove callable origin; only the private-barrel non-escape proof disproves
 that barrel's local decoys. Missing facts alone cannot prove absence. Alias/MayCall
 and CJS export interop preserve base where unproven, while opaque fallback keeps
-edges at E7 NameOnly. These are source-bound claims, not lexical guesses about
+edges outside E5 at E7 NameOnly. May-call/written terminals retain full base
+rows on every route, whatever kind. These are source-bound claims, not lexical guesses about
 value flow. C244 TSX is an inherited-core-policy cost, not a wrong target.
 
 | Scenario | Same-environment base row | Folded prototype row | Class / explanation |
@@ -170,3 +172,29 @@ origins. d12 retains renamed bare-Alias edges at NameOnly. Permanent RED is
 13 passed/2 failed in head/opacity-origin-red.log, then15/0 GREEN. Final six
 registered supplementary outcomes are opacity-origin/after.json; they are
 separate from the397 generated controls. No new value-flow cost is introduced.
+
+## Final r2 review fold preservation controls
+
+MEASURED: C245-C251 have JSX/TSX twins, all identical to same-environment
+base, with full inventories/keys and empty stderr. No original397 section
+changes, so the 53 individually explained rows above remain the whole
+base-to-head changed population. Complete new-control pre-change r3 outputs
+are head/reviewer-r3-new-controls; final base/head controls-r4 retain all calls,
+including helper/initializer calls, rather than comparing only ns.f.
+
+| Both-grammar control | Final namespace row | Disposition |
+|---|---|---|
+| C245 escape twin | lib:f@2 Exact | W5: setG(f) can expose private f; d15 also revokes private-barrel premise |
+| C246 E5a bare M1 | lib:f@2 Exact | W6: r3 NameOnly -> base Exact; function-argument call opacity origin |
+| C247 E5b bare written | lib:f@1 Exact | W6: r3 NameOnly -> base Exact; M2 origin |
+| C248 E5c private star -> written | lib:f@1 Exact | W6: r3 drop -> base decoy kept under unconditional E5 |
+| C249 E5e private named -> M1 | lib:f@1 Exact | W6: r3 drop -> base decoy kept under unconditional E5 |
+| C250 written class | lib:f@1 Exact | r3 drop -> base; E5 whatever-kind guard; namespace-only projection, D4 untouched |
+| C251 eligible imported-local -> written | lib:f@1 Exact | r3 drop -> base; E5 forwarding origin; renamed import preserves the producer's competitor rule |
+
+READ: C248/C249 base decoys are preserved by explicit owner E5, despite the
+non-escape proof; no exception is proposed. d16 covers M1 through eligible
+ImportForward too; d17 covers written class/literal/arrow with complete base
+rows (the arrow has two base targets). d18 exercises serde defaulting and
+MayCall -> Alias -> MayCall incremental origin replacement. Historical r1
+using and independent Node identity receipts below/above are inherited here.

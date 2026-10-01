@@ -564,6 +564,14 @@ NS4["C241_star_cycle_final"] = {"lib.{x}": "export * from './a';\n", "a.{x}": "e
 NS4["C242_nonsibling_opaque_e7"] = {"other/lib.{x}": NS4["C220_ns_export_alias_valueflow"]["lib.{x}"], "app.{x}": NS_APP}
 NS4["C243_mixed_cjs_missing_keep"] = {"lib.{x}": "export {};\nfunction f(){}\nObject.assign(module.exports,{f});\n", "app.{x}": NS_APP}
 NS4["C244_ts_function_namespace_inherited"] = {"lib.{x}": "export function f(){}\nexport namespace f { export const x=1; }\n", "app.{x}": NS_APP}
+# Final spec-review fold: expectations are base rows in both grammars.
+NS4["C245_executable_barrel_escape"] = {"lib.{x}": "import { setG } from './impl';\nfunction f(){}\nsetG(f);\nexport { g as f } from './impl';\n", "impl.{x}": "export let g = null; export function setG(x){ g = x; }\n", "app.{x}": NS_APP}
+NS4["C246_e5a_bare_maycall"] = {"lib.{x}": "function wrap(x){return x;}\nexport const f=wrap(function f(){});\n", "app.{x}": NS_APP.replace("'./lib'", "'pkg/lib'")}
+NS4["C247_e5b_bare_written"] = {"lib.{x}": "export function f(){}; f=o;\n", "app.{x}": NS_APP.replace("'./lib'", "'pkg/lib'")}
+NS4["C248_e5c_star_written"] = {"lib.{x}": "function holder(){function f(){}}\nexport * from './impl';\n", "impl.{x}": "export function f(){}; f=o;\n", "app.{x}": NS_APP}
+NS4["C249_e5e_named_maycall"] = {"lib.{x}": "function f(){}\nexport {f} from './impl';\n", "impl.{x}": "function wrap(x){return x;}\nexport const f=wrap(function f(){});\n", "app.{x}": NS_APP}
+NS4["C250_e5_written_class"] = {"lib.{x}": "function h(){function f(){}}\nexport class f {}\nf=o;\n", "app.{x}": NS_APP}
+NS4["C251_e5_written_importforward"] = {"lib.{x}": "function h(){function f(){}}\nimport {f as alias} from './impl'; export {alias as f};\n", "impl.{x}": "export function f(){}; f=o;\n", "app.{x}": NS_APP}
 for name, files in NS4.items():
     for ext in ('jsx', 'tsx'):
         S[name + '_' + ext] = {f.replace('{x}', ext): src for f, src in files.items()}

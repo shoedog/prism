@@ -7,7 +7,7 @@ set -euo pipefail
 P=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(git -C "$P" rev-parse --show-toplevel)
 B="$ROOT/target/plan-s1b4/base/prism"
-H="$ROOT/target/plan-s1b4/head/prism-r3-final"
+H="$ROOT/target/plan-s1b4/head/prism-r4-final"
 M="$ROOT/target/plan-s1b4/BUILD-MANIFEST.json"
 test -x "$B"; test -x "$H"; test -s "$M"
 # Reject overwritten/unbound executables before private measurement.
@@ -17,8 +17,8 @@ m=json.load(open(sys.argv[1]))
 for lane,path in zip(('base','head'),sys.argv[2:]):
  assert hashlib.sha256(open(path,'rb').read()).hexdigest()==m[lane+'_binary_sha256'],lane+' binary custody mismatch'
 assert m['source_base_sha']=='915fca43d84ea1730959453091fbf8ae97763af8'
-assert m['proto_head'].startswith('fceb0b4e') and m['measurement_round']=='r3'
-assert m['head_binary_relative_path']=='target/plan-s1b4/head/prism-r3-final'
+assert m['proto_head'].startswith('beec4a23') and m['measurement_round']=='r4'
+assert m['head_binary_relative_path']=='target/plan-s1b4/head/prism-r4-final'
 assert m['cache_versions']==[106,62]
 from pathlib import Path
 root=Path(sys.argv[4])

@@ -64,7 +64,7 @@ controller-only; the commit file lists and snapshots are ready for custody.
 The recommendation and unavailable-worktree paragraphs above describe the
 pre-disposition state and do not reopen either resolved question.
 
-## Spec-review r1 owner disposition (current, 2026-10-01)
+## Spec-review r1 owner disposition (historical, 2026-10-01)
 
 READ: W1–W4 and S1–S5 are folded under the supplied controller dispositions.
 Keep-base applies to unproven facts, not a target proved wrong. An inert private
@@ -77,3 +77,15 @@ refusals keep base. No new accepted cost or owner question is proposed.
 S5 is recorded as inherited core policy; no classifier change is made.
 Current custody is plan564ebc8c / protofceb0b4e plus this fold, superseding the
 r2 WIP references. The controller adopts the cumulative 17 owned files only.
+
+## Final spec-review r2 controller disposition (current, 2026-10-01)
+
+READ: W6 uses E5 unchanged. May-call and written export terminals keep the
+whole base R3 row on every route, whatever kind; namespace-only origin metadata
+preserves this through named/star/eligible ImportForward projection. E7 and
+private-barrel filtering have no E5 exception. Public row cost measured by Opus:
+0 X/R/T rows; planner reruns are in S1b-4-MEASUREMENTS.md. No exception is
+recommended and no owner question remains. W5/S6/S7 follow the controller's
+final dispositions. Current custody: plan922f00df/protobeec4a23 plus final
+fold; controller squashes 915fca43..<final proto> into one commit on
+proto/s1b-4-final and fills in its SHA before implementation dispatch.

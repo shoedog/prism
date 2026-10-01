@@ -1,15 +1,13 @@
-# S1b-4 controller commit files — spec-review r1 fold, 2026-10-01
+# Final S1b-4 controller commit files — r2 review fold, 2026-10-01
 
-READ: controller performs all Git writes. Planner performed none. Keep ignored
-r3 evidence and snapshots under target/plan-s1b4 in durable custody before
-cleanup. No publication, push or merge is performed by this handback.
+READ: no Git writes by planner. Retain target/plan-s1b4 ignored receipts,
+manifest, binaries, patches and checked snapshots before cleanup. No publication,
+push or merge is authorized here. Plan922f00df; protobeec4a23 plus final fold.
 
 ## Plan tree
 
-MEASURED: /Users/wesleyjinks/code/prism-s1b-4-plan, plan/s1b-4 @
-564ebc8c59b1df8c6a2541d424b70f883f619642 plus the packet fold (PR335).
-Recommended commit: **docs: fold S1b-4 export lookup spec review and r3 evidence**.
-Stage only the following explicit paths; r2 reference files remain unchanged.
+Recommended message: **docs: fold final S1b-4 spec review and r4 evidence**.
+Stage these14 explicit paths; r2/r3 references and expected[] files unchanged:
 
 - `docs/superpowers/plans/2026-09-26-s1b-export-route-span-verify/COMMIT-FILES-s1b4.md`
 - `docs/superpowers/plans/2026-09-26-s1b-export-route-span-verify/CONTROLLER-S1b4.sh`
@@ -21,43 +19,30 @@ Stage only the following explicit paths; r2 reference files remain unchanged.
 - `docs/superpowers/plans/2026-09-26-s1b-export-route-span-verify/S1b-4-MEASUREMENTS.md`
 - `docs/superpowers/plans/2026-09-26-s1b-export-route-span-verify/SPEC.md`
 - `docs/superpowers/plans/2026-09-26-s1b-export-route-span-verify/probes/S1b-4-EXPECTATIONS.md`
-- `docs/superpowers/plans/2026-09-26-s1b-export-route-span-verify/probes/S1b-controls-s1b4-r3-proto.txt`
-- `docs/superpowers/plans/2026-09-26-s1b-export-route-span-verify/probes/S1b-replay-s1b4-r3-proto.txt`
+- `docs/superpowers/plans/2026-09-26-s1b-export-route-span-verify/probes/S1b-controls-s1b4-r4-proto.txt`
 - `docs/superpowers/plans/2026-09-26-s1b-export-route-span-verify/probes/controls_gen.py`
-- `docs/superpowers/plans/2026-09-26-s1b-export-route-span-verify/probes/expected/S1b-4-r3-R.json`
-- `docs/superpowers/plans/2026-09-26-s1b-export-route-span-verify/probes/expected/S1b-4-r3-T.json`
-- `docs/superpowers/plans/2026-09-26-s1b-export-route-span-verify/probes/expected/S1b-4-r3-X.json`
 - `docs/superpowers/plans/2026-09-26-s1b-export-route-span-verify/probes/mutate_s1b4.py`
-- `docs/superpowers/plans/2026-09-26-s1b-export-route-span-verify/prototype/s1b4-prototype-r3.diff.txt`
+- `docs/superpowers/plans/2026-09-26-s1b-export-route-span-verify/prototype/s1b4-prototype-r4.diff.txt`
 
 ## Prototype tree
 
-MEASURED: target/plan-s1b4/proto, proto/s1b-4 @
-fceb0b4e75a8a2543acc3df70bb6c23ae6e5960e plus this owned fold; source base
-915fca43d84ea1730959453091fbf8ae97763af8. Recommended fold/final message:
-**fix(js-ts): preserve uncertain namespace exports and remove proven decoys**.
-The eight currently dirty files relative to fceb0b4e are:
+Recommended fold message: **fix(js-ts): preserve E5 namespace terminals and guard barrel escape**.
+Five dirty fold paths relative to beec4a23:
 
 - `src/ast.rs`
-- `src/ast/js_binding_namespace.rs`
-- `src/cpg_cache.rs`
 - `src/js_exports.rs`
-- `src/navigation/call_edge_cache.rs`
-- `src/resolution.rs`
 - `src/resolution_js_namespace.rs`
 - `tests/integration/js_binding_namespace_test.rs`
+- `tests/integration/js_binding_namespace/spec_r2.rs`
 
-READ: dispatch adoption is the **cumulative prototype body**, not an incremental
-fold-only commit. Controller freezes a final cumulative proto commit containing
-all17 owned files below, based off main, and cherry-picks that final commit onto
-a fresh implementer branch off main. If an incremental fold commit is retained
-in custody, it must not be cherry-picked alone: the original prototype's nine
-other owned files are required. This planner does not prescribe a Git history
-rewrite or execute the controller's Git steps.
-
-The Sonnet implementer **starts from the prototype's owned files**, completes
-tests, source-bound RED evidence, verification and handback, and does not
-re-implement the body. Final cumulative ownership is:
+READ: **the controller squashes `915fca43..298006b3` into one commit on
+`proto/s1b-4-final`**. Recommended cumulative message:
+**feat(js-ts): verify namespace exports while preserving E5 base rows**.
+Fill that single cumulative starting SHA into IMPLEMENTOR and the adoption
+field in BUILD-MANIFEST, then dispatch the implementer from it. The measured
+beec4a23-dirty binary/source hashes remain their actual build identity.
+The implementer starts from this body and completes implementation handback.
+All18 cumulative owned files (including the new split test) are required:
 
 - `eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/app.ts`
 - `eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/expected.toml`
@@ -76,15 +61,8 @@ re-implement the body. Final cumulative ownership is:
 - `tests/integration/js_binding_namespace_test.rs`
 - `tests/integration/main.rs`
 - `tests/integration/module_binding_audit_test.rs`
+- `tests/integration/js_binding_namespace/spec_r2.rs`
 
-READ: fceb0b4e already excludes the stray Tier-A reports and generated snapshot.
-Never stage docs/eval reports, eval/snapshots or target artifacts as implementation.
-New quick inventories were retained under head/quick-r3{,-retry}, not in proto.
-Only the existing Tier-A fixture remains among owned eval paths.
-
-MEASURED: BUILD-MANIFEST.json, proto-r3.diff, proto-fold-r1.diff,
-prototype/s1b4-prototype-r3.diff.txt and size-r3.json bind the actual dirty body
-and r3 binary; BUILD-MANIFEST-r2.json retains the old identity. No commit-only
-change is described as source behavior. Controller reruns F via the updated
-script after retaining evidence; private rows and source stay private.
-After Git custody, refresh the handoff with the real plan/final prototype SHAs.
+Never adopt docs/eval reports, eval/snapshots or generated target evidence.
+Controller runs private F via CONTROLLER-S1b4.sh; no historical F receipt
+certifies r4. Refresh HANDOFF with actual custody SHAs after Git writes.
