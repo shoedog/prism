@@ -491,7 +491,7 @@ fn js_paths_namespace_route_and_parameter_shadow_remain_base() {
             outcome(&base, &format!("app.{ext}"), "real")
         );
         assert!(head
-            .resolve_call_site(&head.calls.values().flat_map(|s| s).next().unwrap())
+            .resolve_call_site(head.calls.values().flatten().next().unwrap())
             .iter()
             .all(|t| t.confidence != ResolutionConfidence::Exact));
     }
