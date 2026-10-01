@@ -130,15 +130,18 @@ fn rep_unbound_name_through_an_unrelated_parameter_keeps_base_at_r5() {
 // --- C-41: one R5 row per dropping reason (4 total with the alias row already pinned). ---
 // `import_parse_recovery` is `c42_recovered_static_import_poisons_its_names_at_r5` above;
 // `not_callable` is `rep_unproven_at_r5_not_callable_for_head_drops`/`..._enum_ts_drops`/
-// `..._namespace_ts_drops` above. `duplicate_declaration` at R5 could not be constructed:
-// every attempt (module-level duplicates, duplicates inside the caller's own function,
-// duplicates inside a sibling function, two classes of the same name) either registers a
-// same-file `FunctionId` or is independently tracked by the pre-existing JS/TS import-local
-// guard and so drops with `UnknownName` before S1b-3b's R5 check runs (routing through R4
-// instead, as `c8_same_line_collision_drops` and `c41_duplicate_declaration_drops_at_r4`
-// below pin), or is invisible from the caller's own scope chain (correctly reducing to plain
-// `unbound`, which is not one of the three narrowed reasons). This is disclosed in SPEC
-// §3.8 (8)'s implementer note rather than asserted with a misleading construction.
+// `..._namespace_ts_drops` above. `duplicate_declaration` at R5 **is** reachable (round-1
+// review fold, sol WRONG 3): `js_binding_scope_resolution_fold2_test.rs`'s
+// `td_duplicate_for_heads_drop_at_r5` (two `for (var f of …)` heads, no same-file
+// candidate) and `td_nested_arrow_parameter_drops_at_r5` (a parameter shadow whose call
+// site's own caller is a nested arrow, not the shadowing function) both genuinely exercise
+// this reason at R5, past every pre-existing guard. A captured catch parameter is the one
+// representative that remains masked by the pre-existing JS/TS import-local guard
+// (`td_captured_catch_parameter_still_masked_by_the_older_guard`, disclosed there, not
+// claimed as a working construction). The original "could not be constructed" claim here
+// was wrong; module-level duplicates and duplicates inside the caller's own function are
+// still masked (routing through R4 instead, as `c8_same_line_collision_drops` and
+// `c41_duplicate_declaration_drops_at_r4` below pin), but that is not the general case.
 
 #[test]
 fn c41_duplicate_declaration_drops_at_r4() {
