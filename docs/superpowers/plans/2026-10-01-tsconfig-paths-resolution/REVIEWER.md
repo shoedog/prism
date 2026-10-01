@@ -1,39 +1,11 @@
-# Opus-5.5 reviewer brief — lane P plan / P1 prototype
+# Lane-P review handback — round 2 at the cap
 
-READ: exactly **two plan review rounds**. Controller binds the plan/prototype commits and owner answers at dispatch. READ: supplied round 1 returned FIX (2 WRONG / 5 SMELL), now folded; round 2 is the next independent review; do not treat self-checks as Opus approval. READ precedents: S1 D5/§12, S1b §0 dated amendments, CLAUDE.md Exact static-binding model. Runtime mutation and the owner’s Option K are fixed. Numeric LOC caps are abolished.
+READ: Opus spec-r2-opus.md returned FIX (2 WRONG / 4 SMELL). The controller authorizes this disclosed targeted fold and no new review round. The existing reviewed artifact is retained. W1-r2/W3 are corrected in place; neither is downgraded. S6 stays an owner question after Fix B's measured cost of 89 X gains selects Fix A.
 
-READ: review the finite P1 cut, not all of TypeScript. Label every claim MEASURED / READ / ASSUMPTION. A WRONG needs input/state, reachable incorrect result, mechanism/file:line, bounded fix and a realistic failing regression. A request for unsupported P2 precision is a SMELL with measured cost unless it constructs an in-scope incorrect result. WRONG first; unproven concerns are never blockers. Do not downgrade an earlier WRONG without mechanism-level proof.
+Read BUILD-MANIFEST, MEASUREMENTS, SPEC, OQ-paths and IMPLEMENTOR for current source, custody, counts and unresolved authority. Current local checks are self-verification, not independent approval. The dispatch starting artifact is proto/tsconfig-paths-final @ controller fills, on cumulative parent e61d52b8.
 
-READ: the controller-found precedence defect is corrected in place: same-directory jsconfig is ignored, strictly-nearer jsconfig still refuses, and solution-style references remain barriers. Review C72/C73 JSX/TSX controls and M21 in the current jsconfig-precedence receipts. Historical rebind receipts do not bind the corrected source.
+The independent oracle obtains ownership from real offline TypeScript 5.9.3 ProjectService.getDefaultProjectForFile, cross-checks root-file ownership, and classifies every disagreement UNPROVEN. Public changed rows certify; C80's two synthetic transitive changed rows do not. This remaining ambiguity must not be described as closed, accepted cost, or “all controls certified.”
 
-## Check the causal seams
+Finite matcher and Fix-A tests preserve complete base rows, not merely absence of Exact. There is a mutant for every new barrier; 28 kernel and 11 integration mutants are killed by admissible output. S1b main equivalence is freshly measured on 411 controls/639 sites. No namespace resolver rewrite, P2, corpus F read, Git write, baseline edit or runtime authority is included.
 
-ASSUMPTION: verify these independent questions against SPEC and actual source:
-
-- Configuration selection: nearest supported including ancestor, invalid nearer barriers, inherited/replaced files/include/exclude, JS admission, outDir default-exclude refusal; package-folder, non-ASCII wildcard and case disagreement barriers; declaration sibling priority and explicit-files exemptions. Root-file ownership is OQ2; do not silently impose transitive ownership after the owner answers.
-- Provenance: paths without baseUrl use the paths-declaring directory; inherited baseUrl keeps its declaring directory; child paths override wholesale. Exact key before longest prefix; declaration-order ties are deliberately refused. Missing selected mapping never tries a less-specific key.
-- Candidate precision: outside root, opaque/symlink/unindexed/declaration blockers, extension/file/index competition and package boundary cannot manufacture a new module proof. False negatives specifically declared by the finite cut preserve base; no permissive global/stem fallback.
-- Integration: the S1b-4 namespace resolver functions remain byte-identical; 411 scenarios / 639 sites and the r5 summary must be byte-identical to main. The namespace constructor is false at local terminals; unresolved stars grant no namespace identity. I11 kills a true terminal initializer.
-- Callable authority: module target differs from callable origin through barrels; only existing span-backed callable proof and wrapping/JSX/unique function guards grant new Exact. Parameter shadowing, unproven positions, require bindings sharing a module with ESM, CJS span-less origins, written/may-call exports and namespace/class routes stay base. R3 and relative export closure must not change.
-- Cache: content/occupancy keys, addition/removal and inherited config edits, 105/61 bound to actual 104/60 parent, cold/full-hit/sidecar/no-cache and config-only incremental parity. No-config Go topology is unchanged.
-- Evidence independence: the compiler package’s bytes and version are bound. TypeScript config parser/checker and call-token/import proof are independent of prism’s helpers. Caller/source universe is intentionally inherited from main’s dump/import facts. Root ownership and React wrapper grading use the stated contract; neither is a proof of runtime behavior.
-
-## Verify evidence and tests
-
-MEASURED planner reference: X 3,121 changed rows, all individually correct static bindings; R/T zero; key additions/removals zero. This is changed-row correctness, not whole-corpus precision. Private F is open until fresh controller aggregates; no historic F count certifies this body. Verify the raw JSON/source hashes and actual function spans, including typed arrow variables and React render arguments, rather than trusting aggregate prose.
-
-ASSUMPTION: rerun the base/head controls, at least three of twenty kernel mutants, and the config-only cache control. Check the eleven integration mutants’ behavioral failures. Pin both JSX/TSX grammars and wrong-file/nested decoys. Distinguish a conservative boundary mutant from a proven false-Exact mutant. Confirm every preservation control has full-row equality, not only “no Exact.” Setup/compile/zero-test errors are inadmissible.
-
-ASSUMPTION: challenge the design with one accepted and one refused input per path, including the R1 C39–C71 controls: include/file/exclude selection; nested packages and inheritance; exact/wildcard suffix/capture/tie; malformed JSONC/duplicates; occupied declaration/ignored candidate; directory index/package.json; CJS/span/wrapper/shadow; config addition/removal/byte edit. Rebind checkout and base before attributing any failure; same-environment base controls are required.
-
-## Finding and convergence format
-
-ASSUMPTION: for each finding supply tag, concrete failure (for WRONG), bounded fix, at least one alternative with cost/risk/maintenance tradeoffs, and assumptions under which it would not apply. Close prior findings as CLOSED / NOT CLOSED / OUT OF MODEL (test) / DEFERRED (owner decision). Distinguish receipts from local execution.
-
-READ: at round two do not silently extend. Closed enumerable findings get a targeted fold; open-class ownership/extensions get parked and escalated. Never restart this partially reviewed artifact without explicit owner approval and a written unsalvageability reason. Give a convergence view and verified/not-verified statement.
-
-READ: finish with exactly `VERDICT: APPROVE` (zero WRONG) or `VERDICT: FIX (<n> WRONG / <m> SMELL)`.
-
-## Controller notes
-
-READ: subject `__PLAN_COMMIT__`; cumulative prototype `__PROTO_COMMIT__`; implementation parent `__IMPLEMENTATION_PARENT__`; round `__ROUND__` of 2; prior findings `__PRIOR_FINDINGS__`; owner answers `__OWNER_ANSWERS__`.
+Controller next actions: preserve/commit the listed artifacts, run the updated controller wrapper privately, fold only aggregate F receipts, and obtain the existing owner decisions (especially S6/OQ2). The wrapper keeps an error exit for UNPROVEN changed rows; its public synthetic smoke intentionally rejects the two C80 cases. An unexplained private residual remains a follow-up yield question, never a claimed correctness certification.

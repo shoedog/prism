@@ -12,7 +12,7 @@ mutants={
  'M01-no-exact':('js_paths.rs','if paths.contains_key(spec) {','if false {'),
  'M02-shortest-prefix':('js_paths.rs','Some((m, _, _)) if *m > n => {}','Some((m, _, _)) if *m < n => {}'),
  'M03-child-paths-origin':('js_paths.rs','c.base.as_deref().unwrap_or(&origin)','c.base.as_deref().unwrap_or(dir(file))'),
- 'M04-ignore-include':('js_paths.rs','Some(true) => break Some(c),','Some(true) | Some(false) => break Some(c),'),
+ 'M04-ignore-include':('js_paths.rs','if !included {','if false && !included {'),
  'M05-ignore-exclude':('js_paths.rs','let exact = exclude_matches(p, file)?;','let exact = false;'),
  'M06-ignore-declaration-blocker':('js_paths.rs','for ext in [".ts", ".tsx", ".d.ts", ".js", ".jsx"] {','for ext in [".ts", ".tsx", ".js", ".jsx"] {'),
  'M07-ignore-package-boundary':('js_paths.rs','.contains_key(&format!("{p}/package.json"))','.contains_key(&format!("{p}/__mutant_absent.json"))'),
@@ -30,6 +30,13 @@ mutants={
  'M19-no-exclude-case-barrier':('js_paths.rs','if !exact && exclude_matches(', 'if false && !exact && exclude_matches('),
  'M20-ignore-case-config':('js_paths_snapshot.rs','let config_name = name.to_ascii_lowercase();','let config_name = name.to_owned();'),
  'M21-restore-same-directory-jsconfig-barrier':('js_paths.rs','!self.snapshot.configs.contains_key(&p)\n                && self.snapshot.configs.contains_key(&jsconfig)','self.snapshot.configs.contains_key(&jsconfig)'),
+ 'M22-no-mjs-priority':('js_paths.rs','(".mjs", [".mts", ".d.mts"])','(".__never", [".mts", ".d.mts"])'),
+ 'M23-no-cjs-priority':('js_paths.rs','(".cjs", [".cts", ".d.cts"])','(".__never", [".cts", ".d.cts"])'),
+ 'M24-no-minified-barrier':('js_paths.rs','basename.ends_with(".min.js")','false'),
+ 'M25-no-dotfile-barrier':('js_paths.rs',"basename.starts_with('.')",'false'),
+ 'M26-no-question-prefix-barrier':('js_paths.rs',"segment.starts_with('?')",'false'),
+ 'M27-no-excluding-jsconfig-barrier':('js_paths.rs','if self.snapshot.configs.contains_key(&jsconfig)','if false'),
+ 'M28-no-disable-solution-barrier':('js_paths.rs','.get("disableSolutionSearching")','.get("__mutant_absent")'),
 }
 results=[];baseline=None
 for label,mutation in [('reference',None),*mutants.items()]:
@@ -37,7 +44,6 @@ for label,mutation in [('reference',None),*mutants.items()]:
  for f,s in text.items():
   if mutation and f==mutation[0]:
    old,new=mutation[1:];assert s.count(old)==1,(label,s.count(old));s=s.replace(old,new)
-   if label=='M04-ignore-include':s=s.replace('Some(false) => {}','')
   (d/f).write_text(s)
  shutil.copy2(packet/'resolver_driver.rs',d/'main.rs')
  cmd=['rustc','--edition=2021',str(d/'main.rs'),'-L',f'dependency={deps}']

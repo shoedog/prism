@@ -7,7 +7,7 @@ set -euo pipefail
 : "${CORPUS_F_ROOT:?private root supplied by controller}"
 : "${PRIVATE_EVIDENCE_ROOT:?private evidence directory supplied by controller}"
 : "${TS_JS:?offline TypeScript 5.9.3 lib/typescript.js}"
-BASE="${1:-/Users/wesleyjinks/code/prism-paths-plan/target/paths-plan/rebind-e61/base/prism}"; HEAD="${2:-/Users/wesleyjinks/code/prism-paths-plan/target/paths-plan/jsconfig-precedence/head/prism}"; FACTS="${3:-/Users/wesleyjinks/code/prism-paths-plan/target/paths-plan/rebind-e61/base/dump_imports}"
+BASE="${1:-/Users/wesleyjinks/code/prism-paths-plan/target/paths-plan/rebind-e61/base/prism}"; HEAD="${2:-/Users/wesleyjinks/code/prism-paths-plan/target/paths-plan/spec-r2/head/prism}"; FACTS="${3:-/Users/wesleyjinks/code/prism-paths-plan/target/paths-plan/rebind-e61/base/dump_imports}"
 PROBES="$(cd "$(dirname "$0")" && pwd)"
 OUT="$PRIVATE_EVIDENCE_ROOT"
 if ! mkdir -p "$OUT" 2>/dev/null; then
@@ -30,12 +30,15 @@ assert c['total_sites']>0, 'zero-site private probe is inadmissible'
 assert p['oracle']['version']=='5.9.3', 'oracle version drift'
 assert p['oracle']['sha256']=='3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675', 'oracle byte drift'
 from collections import Counter
-aliases=json.load(open(sys.argv[5]));hist=Counter()
+aliases=json.load(open(sys.argv[5]));hist=Counter();details=Counter()
 for row in aliases:
  if row['recoverable']:
   key=tuple(row['key'])
-  if a[key]==b[key]:hist[row['refusal_reason']]+=1
+  if a[key]==b[key]:
+   hist[row['refusal_reason']]+=1
+   details.update(row.get('refusal_detail_codes',[]))
 assert sum(hist.values())==sum(r['recoverable'] and a[tuple(r['key'])]==b[tuple(r['key'])] for r in aliases)
-print(json.dumps({'refusal_reason_histogram':dict(sorted(hist.items())),'refusal_reasons':'independent ordered P1 cuts; UNCLASSIFIED remains open','head_sha256':__import__('hashlib').sha256(open(__import__('os').environ['PATHS_HEAD_BIN'],'rb').read()).hexdigest(),'claim':'MEASURED','corpus':'F','counts':c,'changed_rows':p['changed_rows'],'classes':classes,'keys_added':0,'keys_removed':0,'oracle_version':p['oracle']['version'],'oracle_sha256':p['oracle']['sha256']},sort_keys=True))
+disagreement=Counter('CHANGED' if a[tuple(r['key'])]!=b[tuple(r['key'])] else 'UNCHANGED' for r in aliases if r.get('tsserver_disagreement'))
+print(json.dumps({'refusal_detail_histogram':dict(sorted(details.items())),'tsserver_disagreement_histogram':dict(sorted(disagreement.items())),'changed_tsserver_disagreements':p.get('changed_tsserver_disagreements',0),'refusal_reason_histogram':dict(sorted(hist.items())),'refusal_reasons':'independent ordered P1 cuts; UNCLASSIFIED remains open','head_sha256':__import__('hashlib').sha256(open(__import__('os').environ['PATHS_HEAD_BIN'],'rb').read()).hexdigest(),'claim':'MEASURED','corpus':'F','counts':c,'changed_rows':p['changed_rows'],'classes':classes,'keys_added':0,'keys_removed':0,'oracle_version':p['oracle']['version'],'oracle_sha256':p['oracle']['sha256']},sort_keys=True))
 if any(k not in ('CORRECT_STATIC_BINDING','CORRECT_STATIC_REFUSAL') and v for k,v in classes.items()):sys.exit(1)
 PY

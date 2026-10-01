@@ -104,5 +104,18 @@ for e in ['jsx','tsx']:
  # Same-directory tsconfig wins; a strictly nearer jsconfig still blocks it.
  add('C72-same-directory-config-twins',e,files={'jsconfig.json':near()})
  add('C73-strictly-nearer-config-twins',e,app=f'pkg/app.{e}',files={'jsconfig.json':near(),'pkg/jsconfig.json':near()},expected='base')
+ # R2: wildcard matcher doubts, each with a discriminating kernel mutant.
+ for suffix,sibling in [('mjs','mts'),('mjs','d.mts'),('cjs','cts'),('cjs','d.cts')]:
+  add('C74-extension-priority-'+sibling,e,app='pkg/app.'+suffix,files={'pkg/tsconfig.json':near(),'pkg/app.'+sibling:'export const other = 0;'},expected='base')
+ add('C75-minified-js',e,app='pkg/app.min.js',files={'pkg/tsconfig.json':near()},expected='base')
+ add('C76-hidden-file',e,app='pkg/.app.js',files={'pkg/tsconfig.json':near()},expected='base')
+ add('C77-question-prefix-include',e,extra={'include':['?pp.'+e]},expected='base')
+ add('C78-excluding-twins',e,app='pkg/app.'+e,files={'pkg/tsconfig.json':near(include=['other']),'pkg/jsconfig.json':near()},expected='base')
+ add('C79-disable-solution-search',e,app='pkg/app.'+e,files={'pkg/tsconfig.json':json.dumps({'compilerOptions':{'moduleResolution':'node','allowJs':True,'disableSolutionSearching':True},'include':['other']})},expected='base')
+ add('C80-transitive-ownership',e,app='pkg/app.'+e,files={'pkg/tsconfig.json':near(compilerOptions={'moduleResolution':'node','allowJs':True,'jsx':'preserve','paths':{'@lib':['../decoy/real']}},include=['index.'+e]),'pkg/index.'+e:"import './app';\n"},expected='owner_question')
+ add('C81-import-forward-written',e,paths={'@lib':['lib/barrel']},files={'lib/barrel.'+e:"import { real } from './real';\nexport { real };\n",'lib/real.'+e:'export const real = () => { return 1; };\nreal.displayName = "real";\n'},expected='base')
+ add('C82-import-forward-unwritten',e,paths={'@lib':['lib/barrel']},files={'lib/barrel.'+e:"import { real } from './real';\nexport { real };\n"})
+ add('C83-import-forward-written-declaration',e,paths={'@lib':['lib/barrel']},files={'lib/barrel.'+e:"import { real } from './real';\nexport { real };\n",'lib/real.'+e:'export function real() { return 1; }\nreal.displayName = "real";\n'})
+ add('C84-import-forward-unwritten-variable',e,paths={'@lib':['lib/barrel']},files={'lib/barrel.'+e:"import { real } from './real';\nexport { real };\n",'lib/real.'+e:'export const real = () => { return 1; };\n'},expected='base')
 (root/'manifest.json').write_text(json.dumps(cases,indent=2))
 print('scenarios',len(cases))
