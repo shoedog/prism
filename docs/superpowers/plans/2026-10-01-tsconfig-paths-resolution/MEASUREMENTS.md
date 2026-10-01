@@ -98,3 +98,14 @@ export TS_JS=/Users/wesleyjinks/prism-evidence/native-positional-gap/gate-inputs
 # Controller supplies CORPUS_F_ROOT and PRIVATE_EVIDENCE_ROOT privately.
 bash probes/CONTROLLER-paths.sh "$BASE_BIN" "$HEAD_BIN" "$BASE_FACTS_BIN"
 ```
+
+## Controller F acceptance (private corpus, aggregates only; 2026-10-01)
+
+`probes/CONTROLLER-paths.sh` was run with the manifest base, head and facts binaries and the TypeScript 5.9.3 oracle (sha `3ae902c9`).
+
+- Sites: 13,299. Keys added or removed: 0.
+- Changed rows: **2,345**, all `CORRECT_STATIC_BINDING` under the oracle.
+- P0 callable-recoverable: 3,102, all via a `paths` wildcard; 724 also pass through an index file.
+- Terminal classes among the module-resolved bindings: 2,260 function_variable, 508 function, 334 wrapped_function, 408 value/alias/non-callable, 36 missing export, 2,805 unresolved or external.
+
+The gap between 2,345 and 3,102 is not classified here and is left to the plan review. Evidence is retained privately.
