@@ -286,15 +286,11 @@ fn namespace_identity(
                     let next = resolve_module(file, module_path).ok_or(())?;
                     namespace_identity(raw, resolve_module, &next, imported, depth + 1, visiting)
                 }
-                JsExportTarget::Local(local)
-                | JsExportTarget::UnprovenLocal(local)
-                | JsExportTarget::Class(local) => {
-                    let candidates = facts.namespace_callable_locals.get(local).ok_or(())?;
-                    match candidates.as_slice() {
-                        [only] => Ok(Some(only.clone())),
-                        _ => Err(()),
-                    }
-                }
+                // Local/UnprovenLocal/Class are never a proven Callable terminal
+                // (MayCall, import, refusal, class): keep base.
+                JsExportTarget::Local(_)
+                | JsExportTarget::UnprovenLocal(_)
+                | JsExportTarget::Class(_) => Err(()),
                 JsExportTarget::SpannedLocal {
                     local,
                     start_line,

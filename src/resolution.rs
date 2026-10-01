@@ -3778,30 +3778,13 @@ impl CallGraph {
         ) else {
             return Ok(Vec::new());
         };
-        self.js_ts_export_candidates(&candidate_file, member, site)
-    }
-
-    fn js_ts_export_candidates(
-        &self,
-        candidate_file: &str,
-        member: &str,
-        site: &CallSite,
-    ) -> Result<Vec<&FunctionId>, DropReason> {
         let Some(resolved) = self
             .js_ts_resolved_exports
-            .get(candidate_file)
+            .get(&candidate_file)
             .and_then(|exports| exports.get(member))
         else {
             return Ok(Vec::new());
         };
-        self.js_ts_export_target_candidates(resolved, site)
-    }
-
-    fn js_ts_export_target_candidates(
-        &self,
-        resolved: &crate::js_exports::ResolvedJsExport,
-        site: &CallSite,
-    ) -> Result<Vec<&FunctionId>, DropReason> {
         if resolved.wrapped && !site.jsx_element {
             return Err(DropReason::WrappedExportNonJsx);
         }
