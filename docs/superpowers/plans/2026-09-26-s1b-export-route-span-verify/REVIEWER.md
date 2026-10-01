@@ -1,3 +1,27 @@
+# S1b-4 implementation repair review amendment — 2026-10-01
+
+Round 2 at `29686b66`: sol61 APPROVE; Opus FIX 1 WRONG / 2 SMELL.
+The controller authorized a targeted fold at the two-round cap: W1 refuses
+unproven terminals, six exact-base N1/N5/N6 tests pin both grammars, S1 folds
+mechanically, and S2 remains disclosed. Evidence is `target/repair-r2/`;
+bind its dirty-source input hashes and frozen binary. No third review round
+is requested or claimed. Current controls reference remains r5 if comparison
+is byte-identical; see the current MEASUREMENTS and HANDOFF.
+
+For the repaired PR #336 artifact, SPEC §0's "Controller re-scope 2026-10-01
+(impl r1, open-class)" and revised §3.4 supersede historical S1b-4 instructions
+below. Review only positive unique Callable identity filtering within actual
+base R3 candidates, unchanged qualifier proof and E7 regrading with every edge
+kept. Absence, private-barrel filtering, separate E5 origin inventory and target
+addition are cut. Deliberately retained base decoys/gaps are disclosed costs,
+not omissions; E7 grade changes include former origin-inventory exceptions.
+New WRONG requires concrete new bad behavior under rules1-7, not a requested
+precision lane. Never open F. Current reference is r5-impl; r4 receipts are
+historical. Bind the controller's repair commit and source/binary manifests
+before transferring any verdict. Numeric LOC caps below are abolished.
+
+## Historical shared review brief
+
 # Review brief: S1b, span-verified JS/TS export and local routes (one brief for sol and Opus)
 
 Review as a **senior or principal engineer whose goal is prism's long-term health**. Be rigorous in finding real

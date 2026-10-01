@@ -58,6 +58,7 @@ pub(super) type ExportScope<'a> = (BTreeSet<String>, JsBindingCache<'a>);
 
 /// Declared names and their declaring nodes (markers included).
 pub(super) type Index<'a> = BTreeMap<String, Vec<Node<'a>>>;
+pub(super) type NamespaceImports<'a> = BTreeMap<String, Vec<(Node<'a>, Option<String>)>>;
 
 /// Per-file memo: scope declaration indexes (with the unknown-strictness Annex-B names), B0
 /// results, both keyed by scope node id, the file-level B1 brace condition, the leave
@@ -71,6 +72,7 @@ pub(crate) struct JsBindingCache<'a> {
     pub(super) partners: Option<BTreeMap<String, usize>>,
     pub(super) write_targets: Option<BTreeMap<String, Vec<Node<'a>>>>,
     pub(super) written: BTreeMap<(usize, String), bool>,
+    pub(super) namespace_imports: Option<NamespaceImports<'a>>,
 }
 
 impl<'a> JsBindingCache<'a> {

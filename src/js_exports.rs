@@ -71,6 +71,12 @@ pub enum JsExportTarget {
 /// (`import_bindings`, `module_bindings`): removed/merged wholesale per file.
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct JsExportFacts {
+    /// R3 positive proof only: no unrecorded/skipped export or incomplete module.
+    #[serde(default)]
+    pub namespace_proof_complete: bool,
+    /// Terminal identities admitted by the landed binding core as Callable.
+    #[serde(default)]
+    pub namespace_callable_locals: BTreeMap<String, Vec<ResolvedJsExport>>,
     /// Syntactic module value declarations, used only to forbid repo-global
     /// name fallback. This is not callable or forwarding authority.
     #[serde(default)]
@@ -118,7 +124,9 @@ pub struct JsExportFacts {
 
 impl JsExportFacts {
     pub fn is_empty(&self) -> bool {
-        self.named.is_empty()
+        !self.namespace_proof_complete
+            && self.namespace_callable_locals.is_empty()
+            && self.named.is_empty()
             && self.module_value_bindings.is_empty()
             && self.forwardable_function_locals.is_empty()
             && self.esm_named_imports.is_empty()
@@ -209,6 +217,120 @@ pub fn resolve_js_exports(
         }
     }
     out
+}
+
+/// Namespace-only positive proof. Unknown branches invalidate uniqueness even
+/// when another branch has a terminal. Absence is never row authority.
+pub fn resolve_js_namespace_exports(
+    raw: &BTreeMap<String, JsExportFacts>,
+    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
+) -> BTreeMap<String, BTreeMap<String, ResolvedJsExport>> {
+    let mut resolved = BTreeMap::new();
+    for file in raw.keys() {
+        let mut telemetry = JsExportResolution::default();
+        let names = collect_candidate_names(
+            raw,
+            resolve_module,
+            file,
+            0,
+            &mut BTreeSet::new(),
+            &mut telemetry,
+        );
+        for name in names {
+            if let Ok(Some(target)) =
+                namespace_identity(raw, resolve_module, file, &name, 0, &mut BTreeSet::new())
+            {
+                resolved
+                    .entry(file.clone())
+                    .or_insert_with(BTreeMap::new)
+                    .insert(name, target);
+            }
+        }
+    }
+    resolved
+}
+
+fn namespace_identity(
+    raw: &BTreeMap<String, JsExportFacts>,
+    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
+    file: &str,
+    name: &str,
+    depth: usize,
+    visiting: &mut BTreeSet<(String, String)>,
+) -> Result<Option<ResolvedJsExport>, ()> {
+    if depth > MAX_REEXPORT_DEPTH {
+        return Err(());
+    }
+    let key = (file.to_string(), name.to_string());
+    if !visiting.insert(key.clone()) {
+        return Err(());
+    }
+    let result = (|| {
+        let facts = raw
+            .get(file)
+            .filter(|f| f.namespace_proof_complete)
+            .ok_or(())?;
+        if facts.conflicted.contains(name) {
+            return Err(());
+        }
+        if let Some(target) = facts.named.get(name) {
+            return match target {
+                JsExportTarget::ReExport {
+                    module_path,
+                    imported,
+                }
+                | JsExportTarget::ImportForward {
+                    module_path,
+                    imported,
+                } => {
+                    let next = resolve_module(file, module_path).ok_or(())?;
+                    namespace_identity(raw, resolve_module, &next, imported, depth + 1, visiting)
+                }
+                // Local/UnprovenLocal/Class are never a proven Callable terminal
+                // (MayCall, import, refusal, class): keep base.
+                JsExportTarget::Local(_)
+                | JsExportTarget::UnprovenLocal(_)
+                | JsExportTarget::Class(_) => Err(()),
+                JsExportTarget::SpannedLocal {
+                    local,
+                    start_line,
+                    end_line,
+                }
+                | JsExportTarget::VerifiedLocal {
+                    local,
+                    start_line,
+                    end_line,
+                } => {
+                    let candidates = facts.namespace_callable_locals.get(local).ok_or(())?;
+                    let matching = candidates
+                        .iter()
+                        .filter(|t| t.span == Some((*start_line, *end_line)))
+                        .collect::<Vec<_>>();
+                    match matching.as_slice() {
+                        [only] => Ok(Some((*only).clone())),
+                        _ => Err(()),
+                    }
+                }
+            };
+        }
+        let mut unique = None;
+        if name != "default" {
+            for module in &facts.star_reexports {
+                let next = resolve_module(file, module).ok_or(())?;
+                if let Some(target) =
+                    namespace_identity(raw, resolve_module, &next, name, depth + 1, visiting)?
+                {
+                    if unique.as_ref().is_some_and(|prior| prior != &target) {
+                        return Err(());
+                    }
+                    unique = Some(target);
+                }
+            }
+        }
+        Ok(unique)
+    })();
+    visiting.remove(&key);
+    result
 }
 
 /// Collect the set of exported names a file can plausibly serve, including
@@ -452,6 +574,8 @@ mod tests {
 
     fn facts(named: &[(&str, JsExportTarget)], star: &[&str]) -> JsExportFacts {
         JsExportFacts {
+            namespace_proof_complete: true,
+            namespace_callable_locals: BTreeMap::new(),
             module_value_bindings: BTreeSet::new(),
             forwardable_function_locals: BTreeSet::new(),
             esm_named_imports: BTreeSet::new(),

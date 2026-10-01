@@ -1,4 +1,27 @@
-# Implementer brief: S1b sub-slice `__SLICE__` (S1b-1, S1b-1b, S1b-2a, S1b-2b, S1b-3 / 3a / 3b or S1b-4)
+# Implementation repair round-2 fold at the cap — 2026-10-01
+
+Current starting head is `29686b66`, base `5048f443`; evidence is
+`target/repair-r2/`. The closed W1 receives the reviewer's refusing arm plus
+six exact-base N1/N5/N6 assertions, in both grammars. Keep the callable map and
+producer used by the span-checked proven targets. S1 is a mechanical helper
+fold; S2 is unchanged and disclosed in MEASUREMENTS. No third review round,
+restart, Git writes or F reads. Controller commit files and current exclusions
+are in COMMIT-FILES-s1b4.md, VERIFICATION.md and HANDOFF-s1b4.md.
+
+## Historical implementation repair r1 dispatch amendment
+
+The controller's positive-proof-only R3 rules in SPEC §0/§3.4 supersede every
+historical S1b-4 instruction below. Repair existing `8796dc55` in this clone;
+base is `5048f443`. No Git writes, delegation, F reads or new precision lane.
+Public X/R/T checks are explicitly authorized for this repair. Commit and
+private F acceptance belong to the controller. Evidence: `target/repair-r1/`.
+Cache stays104/60. Two verification rounds; setup errors are inadmissible.
+The repair keeps qualifier proof, filters only actual base R3 candidates to a
+complete unique Callable identity, and grades E7 without filtering. Missing,
+opaque, written, uncertain and private-barrel rows keep base; renamed identities
+outside base are not added. Tests and controls disclose each forgone change.
+
+Historical implementer brief: S1b sub-slice `__SLICE__` (S1b-1, S1b-1b, S1b-2a, S1b-2b, S1b-3 / 3a / 3b or S1b-4)
 
 > **Owner decisions (SPEC §0): Option K, OQ1–OQ7 = (a), and after spec round 3 "targeted fold, then implement".**
 > S1b-2 dispatches as **S1b-2a** and **S1b-2b**; S1b-3 carries the evaluation-context table. The owned paths and caps

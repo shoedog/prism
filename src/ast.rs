@@ -15,6 +15,7 @@ mod js_binding_checks;
 mod js_binding_decls;
 #[cfg(test)]
 mod js_binding_helper_tests;
+mod js_binding_namespace;
 mod js_binding_recovery;
 mod js_binding_site;
 mod js_binding_values;
@@ -2467,10 +2468,18 @@ impl ParsedFile {
             imports.chain(types.keys().cloned()).collect(),
             Default::default(),
         );
+        let mut has_esm_exports = false;
+        let mut unsupported_export = root.has_error();
+        facts.namespace_proof_complete = true;
         let mut cursor = root.walk();
         for child in root.children(&mut cursor) {
             match child.kind() {
                 "export_statement" => {
+                    has_esm_exports = true;
+                    let mut export_cursor = child.walk();
+                    unsupported_export |= child
+                        .children(&mut export_cursor)
+                        .any(|n| matches!(n.kind(), "=" | "import_alias"));
                     self.collect_js_ts_export_statement(child, &mut facts, &mut d4)
                 }
                 "expression_statement" => self.collect_js_ts_cjs_export_statement(child, &mut cjs),
@@ -2480,8 +2489,15 @@ impl ParsedFile {
         // Preserve ESM provenance: an unsafe CJS use cannot erase an
         // independently extracted ESM export. Safe cross-form duplicates still
         // pass through the normal conflict-aware insertion path.
+        let cjs_safe = self.js_ts_cjs_export_object_safe();
+        facts.namespace_proof_complete &= has_esm_exports
+            && !unsupported_export
+            && cjs.is_empty()
+            && cjs_safe
+            && facts.skipped_expr_count == 0
+            && facts.local_export_refusals.is_empty();
         facts.skipped_expr_count += cjs.skipped_expr_count;
-        if cjs.conflicted.is_empty() && self.js_ts_cjs_export_object_safe() {
+        if cjs.conflicted.is_empty() && cjs_safe {
             for (name, target) in cjs.named {
                 facts.insert_named(name, target);
             }
@@ -2508,6 +2524,22 @@ impl ParsedFile {
                 if d4.0.contains(local) {
                     facts.conflicted.insert(exported.clone());
                 }
+            }
+        }
+        for local in &facts.module_value_bindings {
+            // The landed core's wrapper provenance check is structural and cannot
+            // re-enter classification through a self/mutual initializer cycle.
+            if let JsBinding::Callable(t) = self.js_ts_module_binding(local, root, &mut d4.1) {
+                facts
+                    .namespace_callable_locals
+                    .entry(t.local.clone())
+                    .or_default()
+                    .push(crate::js_exports::ResolvedJsExport {
+                        file: self.path.clone(),
+                        local_name: t.local,
+                        span: Some((t.start_line, t.end_line)),
+                        wrapped: t.wrapped,
+                    });
             }
         }
         facts
@@ -2798,7 +2830,10 @@ impl ParsedFile {
         for child in node.children(&mut ec) {
             match child.kind() {
                 "export_clause" => export_clause = Some(child),
-                "namespace_export" => has_namespace_export = true,
+                "namespace_export" => {
+                    has_namespace_export = true;
+                    facts.namespace_proof_complete = false;
+                }
                 _ => {}
             }
         }
@@ -2829,12 +2864,14 @@ impl ParsedFile {
                     .child_by_field_name("name")
                     .and_then(|n| self.js_ts_module_export_name(n))
                 else {
+                    facts.namespace_proof_complete = false;
                     continue;
                 };
                 let alias = spec
                     .child_by_field_name("alias")
                     .map(|n| self.js_ts_module_export_name(n));
                 let Some(exported_as) = alias.unwrap_or_else(|| Some(name.clone())) else {
+                    facts.namespace_proof_complete = false;
                     continue;
                 };
                 let target = match &source {
@@ -2911,6 +2948,7 @@ impl ParsedFile {
                             continue;
                         };
                         if name_node.kind() != "identifier" {
+                            facts.namespace_proof_complete = false;
                             continue;
                         }
                         let name_text = self.node_text(&name_node).to_string();
@@ -2956,9 +2994,11 @@ impl ParsedFile {
                         }
                     }
                 }
-                // Class exports are deliberately out of scope.
-                _ => {}
+                // Unrecorded value exports cannot establish a unique namespace identity.
+                _ => facts.namespace_proof_complete = false,
             }
+        } else {
+            facts.namespace_proof_complete = false;
         }
     }
 
