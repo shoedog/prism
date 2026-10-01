@@ -41,7 +41,7 @@ according to the landed E_TABLE; a body-only declaration must not suppress them.
 Unsealed recovery refuses under E6; an unrelated sealed body error keeps proof.
 Every expectation is checked against the same-environment base before attribution.
 
-## Post-run disposition, 2026-10-01 (registration above retained)
+## Historical r2 post-run disposition, 2026-10-01 (registration above retained)
 
 READ: controller resolved OQ-S1b4-1 under existing OQ12/Option K: Alias
 terminals keep base through namespace-only opacity, including named/star barrels;
@@ -57,3 +57,25 @@ zero changed rows and zero lost targets under complete-key/multiset comparison.
 Full measurements, limits and exclusions are in ../S1b-4-MEASUREMENTS.md; F is
 controller-only and pending. No preregistered expectation was rewritten into a
 post-hoc baseline.
+
+## r3 fold registration and result, 2026-10-01 (supersedes current r2 outcomes)
+
+READ: C221–C244 add 48 both-grammar rows. C221–C231/C233/C238/C239/C243
+preserve the right base edge; C232/C242 retain Alias edges at E7 NameOnly;
+C234–C236 remove the disproved barrel-local decoy; C237 is Exact to lib.tsx
+through .jsx→.tsx; C240/C241 are final complete ESM conflict/cycle controls.
+C244 TSX retains inherited D4 function/namespace merge refusal; JSX is only
+recovery. C129/C210/C201 are early SyntaxErrors: keep base, with no reachable
+semantic claim. W1–W4/S1–S5 follow the controller dispositions in SPEC §3.4.
+MEASURED: all397 registered columns pass; 344 sections identical to base,53
+changed. Public X/R/T diffs are fresh []; all keys equal,0 lost targets.
+RP46 is byte-identical to r2,4 sections changed versus base. Old r2 files remain.
+Full row explanations, custody and exclusions are in the current records.
+
+READ supplementary origin registration: a renamed opaque g cell is not the
+registered callable f; keep resolved base targets and grade bare targets NameOnly.
+A cyclic alias may return the barrel's exported rootFn through another module's
+g cell; keep the original Exact. Only a private forwarding barrel's non-escaping
+functions may be removed. Both grammars and the Node identity check are in
+opacity-origin; d10/d12 permanently assert all outcomes. This does not revise
+any of the397 preregistered columns.

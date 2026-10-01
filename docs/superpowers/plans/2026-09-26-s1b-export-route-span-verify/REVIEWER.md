@@ -146,15 +146,24 @@ verify the independent value-flow inventory/hand audit, not a lexical
 not-callable annotation. C220 is a constructible right alias-export edge on
 the base. OQ-S1b4-1 is resolved by the controller: namespace-only Alias opacity
 keeps R3 base while D4 remains unchanged. The prototype, r2 expected rows,
-349-control reference, 46-row hand audit and 18 mutant receipts are present.
+397-control r3 reference and 53-row hand audit are present; the expanded
+mutant receipts and explicit equivalent variants are in S1b-4-MEASUREMENTS.md.
 Verify the source/binary hashes in BUILD-MANIFEST and the controller's eventual
 commit binding before dispatch. Private F and bounded quick exclusions are
 explicit in the measurements; neither is implicit approval.
-No plan review has been dispatched or consumed yet. The expected next review
-surface is the finite qualifier outcome/export/E7 matrix, not a new binding core.
+Opus spec r1 consumed round1 of2 and is folded below. The next review surface
+is the finite qualifier outcome/export/E7 matrix and its bounded private-barrel
+proof. Opaque binding-cell file/name must never stand in for callable origin;
+renamed and cyclic alias guards have same-environment base and Node evidence.
 
 ## Controller notes
 
 <!-- The controller fills this in at dispatch: subject, SHA/base, clone, cap, prior rounds, and any owner rulings
      made since the packet was written. -->
 __CONTROLLER_NOTES__
+
+READ current S1b-4 review subject: plan564ebc8c plus the r1 fold; source base
+915fca43, prototype fceb0b4e plus the cumulative owned fold. Opus r1 is folded
+in place, consuming round1 of2. Audit W1–W4 and S1–S5 against current §3.4 and
+the r3 measurements. No pending owner question. Private F is controller-only;
+its supplied r2 aggregate cannot certify r3.

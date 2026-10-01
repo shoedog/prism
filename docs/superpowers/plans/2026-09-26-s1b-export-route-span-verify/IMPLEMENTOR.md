@@ -250,105 +250,58 @@ node scripts/gate-inputs/acquire.mjs && node scripts/gate-inputs/gate.mjs --out 
 
 ## S1b-4 dispatch
 
-READ — 2026-10-01: this section supersedes the historical S1b-4 ownership,
-reference, cache and numeric-budget rows above. OQ-S1b4-1 and worktree custody
-are resolved. The prototype and public references are measured. The controller
-must bind this packet and prototype to its real commits, supply private F
-aggregates, and complete plan review before dispatching implementation. No
-review round has been consumed; cap is **2 rounds**. At the cap classify
-converging versus open-class findings; do not silently extend or restart.
+READ — spec-review round 1 folded 2026-10-01. Source base is
+915fca43d84ea1730959453091fbf8ae97763af8. Plan is plan/s1b-4 @ 564ebc8c plus
+this packet fold; prototype is proto/s1b-4 @ **fceb0b4e plus the owned fold**.
+This dispatch supersedes the general "branch from planning commit" instruction
+for S1b-4. Controller freezes one cumulative prototype commit containing the
+17 owned files listed in COMMIT-FILES-s1b4.md, based off main, then cherry-picks
+that final proto commit onto a fresh implementation branch off main. An
+incremental fold-only child of fceb0b4e is not a cumulative source commit.
+The **Sonnet implementer starts from the prototype's owned files**, completes
+tests, RED evidence, verification and handback, and does not re-implement them.
+Never adopt docs/eval reports, eval/snapshots or any generated target evidence.
 
-READ: source base **915fca43d84ea1730959453091fbf8ae97763af8**, S1b-3b merged.
-Planning predecessor is bd93e7e8 (draft 53eb3155). Prototype is on proto/s1b-4
-at controller WIP commit 39faa3aa, parent 915fca43, with clean owned source. Cache is
-**104 / 60**. No numeric LOC caps apply. MEASURED: 335 added/18 removed src;
-442 added/6 removed tests/fixtures, excluding blanks and // after rustfmt.
-ASSUMPTION: landing forecast 335–400 added src and 442–550 added tests; see §9.
+READ: review cap remains **2 rounds**, with Opus spec r1 consumed and folded.
+At the cap classify convergence; do not silently extend or restart. No numeric
+LOC caps. Cache: the landed slice bumps **once** from main 103 / 59 to **104 / 60** (controller 2026-10-01; the prototype used 106 / 62 only to separate its own iterations). The bump covers persisted completeness and private-barrel proof.
+Measured size: 486 added/19 removed src; 629 added/6 removed tests/fixtures.
+Forecast: 486–560 src and 629–750 tests added, not a budget.
 
-READ (owned paths; exact prototype list in `COMMIT-FILES-s1b4.md`):
+READ: follow SPEC §3.4's current W1/W2/W3/S1 amendment. Export absence requires
+ESM-complete facts and untruncated bounded traversal; unknown absence keeps base.
+CJS claims and pattern Alias/MayCall opacity never grant D4 authority. An opaque
+cell does not prove callable origin/name; only the inert private-barrel proof
+filters that barrel's own base candidates. Renamed and cyclic aliases preserve
+their unproven origins. Opaque E7
+non-sibling fallback retains its edges at NameOnly. Callable/not_callable/unindexed
+and a proved nearer non-import duplicate suppress base R3; B0, recovery, with,
+import and other unproven reasons keep base rungs, subject to existing guards.
+TS function/namespace merges retain the inherited core policy. Type-only imports,
+constructors, subscripts and non-namespace routes remain preservation guards.
 
-- `src/ast/js_binding_namespace.rs` (new): per-file top-level value namespace
-  inventory, StringValue source and exact qualifier proof using the landed core.
-- `src/ast/js_binding.rs`: namespace cache type/field and Alias local-export
-  opacity metadata under the exported name; `src/ast.rs`: module wiring and
-  direct skipped Alias/MayCall initializer metadata. Original D4 facts/counters
-  remain unchanged. No E_TABLE, scope/write/recovery or wrapper redesign.
-- `src/call_graph.rs`: `NamespaceImport { module_path }`, the existing shared
-  site extractor, separate serde-default namespace export map, all constructors
-  and full/cached/incremental recomputation. No second CallSite binding enum.
-- `src/js_exports.rs`: namespace-only raw opacity and conflict handling, clone
-  projection through the existing bounded/cycle/class-aware traversal. Discard
-  projection telemetry; preserve the original D4 resolution. Existing eligible
-  ImportForward can propagate opacity; its producer's competitor proof stays.
-- `src/resolution.rs` and new `src/resolution_js_namespace.rs`: proven R3 before
-  legacy shadow flags; refused qualified bindings suppress only namespace R3;
-  Alias/MayCall/Position keep the whole old ladder; shared export identity
-  projection without R4c behavior changes; exact sibling E7 and NameOnly fallback.
-- `src/cpg_cache.rs`, `src/navigation/call_edge_cache.rs`: constants and pins.
-- `src/ast/js_binding_values_tests.rs`: signature wiring only;
-  `tests/integration/js_binding_namespace_test.rs` (new both-grammar matrix),
-  `main.rs`, `module_binding_audit_test.rs` (only esm_namespace_import audit
-  Gap→Supported), `coverage_test.rs` (three production module inventories).
-- `eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/{app.ts,util.ts,expected.toml}`.
+MEASURED references (r2 retained):
+- probes/S1b-controls-s1b4-r3-proto.txt: 397 complete scenarios, 344 identical
+  to same-environment base, 53 changes individually explained in CONTROLS.
+- probes/S1b-replay-s1b4-r3-proto.txt: RP2-c's four twins Exact; other 42
+  unchanged. Whole r3 summary equals r2, complete site populations checked.
+- probes/expected/S1b-4-r3-{X,R,T}.json: fresh empty diffs; 0 lost IDs;
+  complete keys and empty stderr. F r3 awaits controller-only remeasurement.
+- S1b-4-MEASUREMENTS.md and target/plan-s1b4/BUILD-MANIFEST.json: actual
+  binary/source hashes, verification receipts and exclusions.
 
-READ (mechanism): follow SPEC §3.4's dated amendment, not its historical paragraph.
-An Import classification alone is insufficient: the qualifier walk must select
-one program declaration with the very namespace import_statement's node id,
-after existing recovery and scoped-write checks. Type-only/named/default/require/
-import-equals, constructors, subscripts and nested/asserted receivers do not
-enter the route. A non-callable qualifier does not prove its members non-callable.
-A decoded, indexed relative module or exact E7 sibling is authoritative even
-when the member is missing. Otherwise file exports filter the legacy stem set;
-even one survivor is NameOnly. Wrapped non-JSX and terminal spans apply to both
-routes. An unspanned terminal keeps base. Namespace Alias opacity must never
-be copied into original D4 authority or counters. Conflicts/cycles/depth refuse.
-
-MEASURED (RED and preservation rows): base dumps are
-`target/plan-s1b4/base/controls-r2/` from the same environment/binary used for
-head. `S1b-4-CONTROLS.md` names every base/head row and incorrect output:
-C190/C191 (same-file/directory decoy), C192/C193 and RP2-c (renamed/barrel export
-miss), C201 (duplicate import's wrong authority), C205/C207 (nested/import
-identity), C206/C208 (body-only shadow incorrectly blocks parameter/key
-positions), C210 (with-body namespace authority), C214 (ordinary wrapped call),
-C215 (non-exported target), C216 (non-sibling decoy plus Exact), C217 (exact
-indexed sibling versus non-sibling). Both .jsx/.tsx twins are end-to-end.
-C202/C203 recovery already refuses on base and is a negative guard; C204 sealed
-error is positive. Written/alias C197–C199/C218–C220, with-object C209, parameters
-C195/C196 and C194/C211–C213 non-goals are base-preservation guards. TS-only
-syntax in .jsx is a recovery twin; .tsx carries the TypeScript semantic assertion.
-
-MEASURED (acceptance references):
-
-- `probes/S1b-controls-s1b4-r2-proto.txt`: all 349 scenarios. Original 287:
-  269 identical/18 individually explained changed rows. New 62: 34 preservation
-  rows identical/28 correct changed rows. Site keys and function inventories agree.
-- `probes/S1b-replay-s1b4-r2-proto.txt`: all four RP2-c twins GREEN to lib:f@1-1
-  Exact/import_qualified; other 42 complete sections identical to base.
-- `probes/expected/S1b-4-r2-{X,R,T}.json`: zero changed rows, fresh full dumps
-  and complete-key/target guards. F is controller-only, pending aggregates.
-- `S1b-4-MEASUREMENTS.md`: source/binary hashes, commands, audit limits,
-  mutants, cache transitions, tests and explicit exclusions.
-
-MEASURED (Tier-A RED): the new fixture seeds nested util:f@2, expects no callers,
-exact=false and forbids import_qualified. Base yields a regression; head matrix
-passes 166/166. d1 separately asserts the exported util/lib f is Exact and has
-one resolved caller, while the nested decoy has none. Empty callers alone
-would not prove recall. No baseline or expected-status re-baselining is allowed.
-
-READ (tests/mutants): implement all D-1–D-10 and negative/edge cases, both
-grammars, exact `(file, registered name, start, end)` targets. Eleven prototype
-tests share a matrix; do not duplicate each source just to grow LOC. D-M1–D-M14
-are unconditional and have **18 independently killed variants**. D-M5 tests
-written import and written non-import kinds separately; D-M6 span and wrapped;
-D-M12 named and star; D-M14 site/epoch and both version pins. See the measured
-table. `probes/mutate_s1b4.py PROTO OUT` applies one variant per run, restores
-original bytes in finally, and rejects compile/setup/zero-test “kills”. If
-implementation anchors differ, apply the named semantic mutation manually and
-record the actual assertion. Do not mutate during other builds/measurements.
-
-READ (verification, implementation cwd; outputs under target):
+READ tests: keep d1–d10 and the added d11–d14 matrix in both grammars, asserting
+registered file/name/span/grade, recall and negative cases. Capture RED per
+behavior on the pre-change body in the same environment; controls-pre-fold and
+spec-r1-red.log retain this fold's concrete failures. R5 (bare Alias fallback)
+and R7 (skipped MayCall opacity) must be killed by permanent tests. D-M12 also
+pins opaque barrels whose original base target belongs to the terminal directory,
+renamed binding cells and a valid cyclic alias returning the barrel's function.
+S3's .jsx→.tsx sibling row kills R3. R6/R8/R9/R10 are equivalent on valid
+programs; R12's dead NameOnly branch is removed. See the full mutant table.
 
 ```bash
+python3 "$P/probes/mutate_s1b4.py" "$PROTO" "$OUT/mutants"
 cargo fmt --check
 cargo clippy --offline --all-targets --features mcp
 cargo test --offline --no-fail-fast
@@ -360,63 +313,37 @@ uv run tier-a --matrix-only --allow-stale-sut
 uv run tier-a --quick --allow-stale-sut
 ```
 
-READ: release rebuild immediately precedes Tier-A in this worktree. On this
-sandbox uv is blocked; use installed Python 3.12 with `PYTHONPATH=eval` from
-repo root and `-c 'from tier_a.cli import main; raise SystemExit(main())'`,
-then the same flags. `python -m tier_a` is invalid (no __main__). The bounded
-quick helper changes only nav cache location, never query/oracle/grade, and
-reports incomplete/invalid results as exclusions. See measured receipts before
-calling a quick run GREEN. Clippy has inherited warnings, not a clean receipt.
-Node gate uses already-cached validated inputs, with no network acquisition:
-
-```bash
-PRISM_GATE_INPUTS_ROOT="$INPUT_CACHE" node scripts/gate-inputs/gate.mjs --out "$OUT/node-gate"
-```
-
-READ (smoke; P is packet absolute path, BIN rebuilt implementation absolute path):
+READ: one independently compiled mutation at a time; no concurrent source edits,
+builds or measurements. Reject compile/setup/zero-selected tests as inadmissible,
+restore exact bytes in finally, and inspect the failed assertion. Driver has all
+18 original variants plus R1/R2/R3/R4/R5/R7/R11, W1/W2/W3 and two S1 guards
+(decoy retention and cell/origin confusion): 30 executable variants. Version pins in the landed code are 104/60 (the prototype pinned 106/62).
+Rebuild immediately before Tier-A; if uv is sandbox-blocked use installed Python
+3.12 and tier_a.cli.main with the same flags. Never call an invalid or incomplete
+quick artifact GREEN. Full multi-corpus Tier-A remains human-triggered.
 
 ```bash
 mkdir -p "$GEN"
 (cd "$GEN" && python3 "$P/probes/controls_gen.py")
 bash "$P/probes/run_controls.sh" "$BIN" "$GEN" "$OUT/controls"
 python3 "$P/probes/compare_controls_s1b4.py" "$BASE_CONTROLS" "$OUT/controls" "$OUT/controls-diff.json"
-cmp "$P/probes/S1b-controls-s1b4-r2-proto.txt" "$OUT/controls/SUMMARY.txt"
+cmp "$P/probes/S1b-controls-s1b4-r3-proto.txt" "$OUT/controls/SUMMARY.txt"
 bash "$P/probes/replan/replay_rp.sh" "$BIN" "$OUT/replay"
-cmp "$P/probes/S1b-replay-s1b4-r2-proto.txt" "$OUT/replay/SUMMARY.txt"
+cmp "$P/probes/S1b-replay-s1b4-r3-proto.txt" "$OUT/replay/SUMMARY.txt"
+PRISM_GATE_INPUTS_ROOT="$INPUT_CACHE" node scripts/gate-inputs/gate.mjs --out "$OUT/node-gate"
 ```
 
-READ: preserve original 287 source byte hashes, compare full sections/function
-inventories/site keys, and reject nonempty stderr, missing or duplicate keys and
-empty dumps. controls_diff.py alone ignores inventories/trailing rows. Compare
-all js_export_* fields via `export_counters_s1b4.py BASE HEAD OUT --repo LABEL
-PATH`; qualified MayCall/Position map changes are intentional.
+READ: compare whole sections, inventories, complete unique keys and stderr;
+empty RP dumps are legitimate only for the fixed no-call fixtures. Original
+controls must reproduce r3 exactly; do not re-baseline expected status.
+Compare every js_export_* counter with export_counters_s1b4.py. Hand-audit all
+changed corpus rows and target identities; lexical annotations do not certify
+value-flow losses. C129/C210/C201 are early-SyntaxError pins and excluded from
+reachable-behavior arguments. Capture the new Tier-A fixture's base regression
+and head recall; no baseline editing. The controller alone runs F with
+CONTROLLER-S1b4.sh and returns aggregate classes/custody hashes.
 
-READ (cache acceptance): generate actual parent 103/59 cache artifacts with
-base nav `--cache-dir "$CACHE" call-stats --repo "$FIXTURE" --dump-sites`,
-then callers `--symbol f --location lib.tsx:5 --format json`; snapshot both
-cache-meta.json and resolved-call-edge-index-meta.json. Repeat on head, then
-compare rebuilt output to head `--no-cache`. Both headers must become 104/60.
-This tests real parent→head rebuild behavior; build identity/layout also change,
-so it does not uniquely prove that the version number alone caused rejection.
-The pin mutant separately guards version declarations. d8 tests real CPG disk
-cache cold/full/partial epochs plus incremental qualifier/reaching-write/export
-edits with only the changed file nominated, and same-file different-site proof.
-
-READ (corpus acceptance): explicitly run X R T in run_dumps.sh; its default
-includes F and must never be used by planner/implementer. Run rowdiff.py,
-audit_s1b4.py and valueflow_guard_s1b4.py after every writer finishes. The latter
-checks complete keys/multiset targets independent of lexical annotation. Every
-lost/gained/retargeted row needs a hand source/export/value-flow audit before
-classification. Lexical absence cannot certify absence of a callable member,
-alias result or parameter-supplied value. Compare the exact r2 JSON references.
-Controller alone runs `CONTROLLER-S1b4.sh`; return F aggregates/hashes only.
-
-READ (handback): real base/plan/head SHAs and dirty status; exact files/patch and
-source/binary SHA256; honest added/removed/net size; same-environment RED rows
-and negative guards; every mutant killing receipt; 349 controls/RP complete
-comparison; corpus complete dumps/diffs/class/value-flow audit; actual parent
-cache artifacts and head/fresh equality; full suite totals/logs and exclusions;
-Tier-A regressions/flip candidates; deviations/questions; refreshed handoff.
-The controller alone performs Git writes in this lane: hand back separate
-explicit-path file lists and commit messages. No push, merge or adoption is
-authorized by this planning packet, and no uncreated SHA is reported.
+READ handback: exact checkout/base/head/source patch, all owned paths and honest
+size, source-bound RED/GREEN and mutant assertions, default/mcp totals, fmt,
+clippy, Tier-A matrix/quick, Node gate, full controls/replay/corpus diffs and
+exclusions. Controller commits; this planner lane performs no Git writes.

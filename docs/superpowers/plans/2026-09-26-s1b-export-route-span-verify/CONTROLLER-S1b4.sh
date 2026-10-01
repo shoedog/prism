@@ -7,16 +7,25 @@ set -euo pipefail
 P=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(git -C "$P" rev-parse --show-toplevel)
 B="$ROOT/target/plan-s1b4/base/prism"
-H="$ROOT/target/plan-s1b4/head/prism"
+H="$ROOT/target/plan-s1b4/head/prism-r3-final"
 M="$ROOT/target/plan-s1b4/BUILD-MANIFEST.json"
 test -x "$B"; test -x "$H"; test -s "$M"
 # Reject overwritten/unbound executables before private measurement.
-python3 - "$M" "$B" "$H" <<'PY'
+python3 - "$M" "$B" "$H" "$ROOT/target/plan-s1b4/proto" <<'PY'
 import hashlib,json,sys
 m=json.load(open(sys.argv[1]))
 for lane,path in zip(('base','head'),sys.argv[2:]):
  assert hashlib.sha256(open(path,'rb').read()).hexdigest()==m[lane+'_binary_sha256'],lane+' binary custody mismatch'
 assert m['source_base_sha']=='915fca43d84ea1730959453091fbf8ae97763af8'
+assert m['proto_head'].startswith('fceb0b4e') and m['measurement_round']=='r3'
+assert m['head_binary_relative_path']=='target/plan-s1b4/head/prism-r3-final'
+assert m['cache_versions']==[106,62]
+from pathlib import Path
+root=Path(sys.argv[4])
+for name,digest in m['owned_file_sha256'].items():
+ assert hashlib.sha256((root/name).read_bytes()).hexdigest()==digest,'owned source custody mismatch: '+name
+for name,digest in m['crate_input_sha256'].items():
+ assert hashlib.sha256((root/name).read_bytes()).hexdigest()==digest,'crate input custody mismatch: '+name
 PY
 mkdir -p "$PRIVATE_F_EVIDENCE/base" "$PRIVATE_F_EVIDENCE/head"
 cp "$M" "$PRIVATE_F_EVIDENCE/BUILD-MANIFEST.json"

@@ -540,6 +540,30 @@ NS4["C219_ns_call_wrapped_export_e5"] = {
     "lib.{x}": "function helper() { function f() { return 9; } return f; }\nexport const f = throttle(() => 1);\n", "app.{x}": NS_APP}
 NS4["C220_ns_export_alias_valueflow"] = {
     "lib.{x}": "function make() {\n  function f() { return 1; }\n  return f;\n}\nexport const f = make();\n", "app.{x}": NS_APP}
+# Spec-review r1: enumerate incomplete exports, opacity, B0, and E7 edges.
+NS4["C221_cjs_spread_keep"] = {"lib.{x}": "const base=require('./base');\nfunction f(){}\nmodule.exports={...base,f};\n", "app.{x}": NS_APP}
+NS4["C222_cjs_assign_keep"] = {"lib.{x}": "function f(){}\nObject.assign(module.exports,{f});\n", "app.{x}": NS_APP}
+NS4["C223_exports_fnexpr_keep"] = {"lib.{x}": "exports.f=function f(){};\n", "app.{x}": NS_APP}
+NS4["C224_module_exports_arrow_keep"] = {"lib.{x}": "module.exports.f=()=>1;\n", "app.{x}": NS_APP}
+NS4["C225_ts_export_equals_keep"] = {"lib.{x}": "function f(){}\nexport = {f};\n", "app.{x}": NS_APP}
+NS4["C226_ts_export_import_keep"] = {"lib.{x}": "namespace N { export function f(){} }\nexport import f=N.f;\n", "app.{x}": NS_APP}
+NS4["C227_star_depth3_keep"] = {"lib/index.{x}": "export * from './a';\n", "lib/a.{x}": "export * from './b';\n", "lib/b.{x}": "export * from './c';\n", "lib/c.{x}": "export function f(){}\n", "app.{x}": NS_APP}
+NS4["C228_object_pattern_alias_keep"] = {"lib.{x}": "const o={ f(){return 1;} };\nexport const {f}=o;\n", "app.{x}": NS_APP}
+NS4["C229_array_pattern_alias_keep"] = {"lib.{x}": "const arr=[function f(){}];\nexport const [f]=arr;\n", "app.{x}": NS_APP}
+NS4["C230_b0_escape_namespace_keep"] = {"lib.{x}": NS_LIB, "app.{x}": NS_APP + "function g(){const a\\u0062c=1;}\n"}
+NS4["C231_b0_escape_named_keep"] = {"lib.{x}": NS_LIB, "app.{x}": NS_APP.replace('* as ns','{f}').replace('ns.f()','f()') + "function g(){const a\\u0062c=1;}\n"}
+NS4["C232_bare_alias_e7"] = {"lib.{x}": NS4["C220_ns_export_alias_valueflow"]["lib.{x}"], "app.{x}": NS_APP.replace("'./lib'", "'pkg/lib'")}
+NS4["C233_skipped_maycall_keep"] = {"lib.{x}": "function wrap(x){return x;}\nexport const f=wrap(function f(){return 1;});\n", "app.{x}": NS_APP}
+for number,barrel in [(234,"export {f} from './impl';"),(235,"export * from './impl';"),(236,"import {f as alias} from './impl'; export {alias as f};")]:
+    NS4[f"C{number}_opaque_barrel_decoy_removed"] = {"lib.{x}": "function holder(){function f(){} return f;}\n"+barrel+"\n", "impl.{x}": NS4["C220_ns_export_alias_valueflow"]["lib.{x}"], "app.{x}": NS_APP}
+NS4["C237_jsx_tsx_sibling"] = {"lib.tsx": NS_LIB, "app.{x}": NS_APP.replace("'./lib'", "'./lib.jsx'")}
+NS4["C238_cjs_identifier_keep"] = {"lib.{x}": "function f(){}\nexports.f=f;\n", "app.{x}": NS_APP}
+NS4["C239_star_depth2_exact"] = {"lib/index.{x}": "export * from './a';\n", "lib/a.{x}": "export * from './b';\n", "lib/b.{x}": "export function f(){}\n", "app.{x}": NS_APP}
+NS4["C240_star_conflict_final"] = {"lib.{x}": "export * from './a'; export * from './b';\n", "a.{x}": NS_LIB, "b.{x}": NS_LIB, "app.{x}": NS_APP}
+NS4["C241_star_cycle_final"] = {"lib.{x}": "export * from './a';\n", "a.{x}": "export * from './lib';\n", "other/lib.{x}": NS_LIB, "app.{x}": NS_APP}
+NS4["C242_nonsibling_opaque_e7"] = {"other/lib.{x}": NS4["C220_ns_export_alias_valueflow"]["lib.{x}"], "app.{x}": NS_APP}
+NS4["C243_mixed_cjs_missing_keep"] = {"lib.{x}": "export {};\nfunction f(){}\nObject.assign(module.exports,{f});\n", "app.{x}": NS_APP}
+NS4["C244_ts_function_namespace_inherited"] = {"lib.{x}": "export function f(){}\nexport namespace f { export const x=1; }\n", "app.{x}": NS_APP}
 for name, files in NS4.items():
     for ext in ('jsx', 'tsx'):
         S[name + '_' + ext] = {f.replace('{x}', ext): src for f, src in files.items()}

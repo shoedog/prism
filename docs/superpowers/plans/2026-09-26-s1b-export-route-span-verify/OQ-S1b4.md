@@ -54,7 +54,7 @@ alternative has been authorized in response to the pending question.
   - The controller created the git worktree `target/plan-s1b4/proto` on branch `proto/s1b-4` at `915fca43`.
   - The planner edits files in both trees and never runs git write commands. The controller commits at each stable point the planner names.
 
-## Planner continuation result, 2026-10-01
+## Historical r2 planner continuation result, 2026-10-01
 
 MEASURED: the full prototype, including Alias opacity, is built in the
 controller-created worktree. Public measurements, controls and mutant receipts
@@ -63,3 +63,17 @@ cost, scope change, split or owner question is proposed. Git writes remain
 controller-only; the commit file lists and snapshots are ready for custody.
 The recommendation and unavailable-worktree paragraphs above describe the
 pre-disposition state and do not reopen either resolved question.
+
+## Spec-review r1 owner disposition (current, 2026-10-01)
+
+READ: W1–W4 and S1–S5 are folded under the supplied controller dispositions.
+Keep-base applies to unproven facts, not a target proved wrong. An inert private
+forwarding barrel excludes its own non-escaping decoys; an opaque cell alone
+does not prove a callable origin/name. Renamed cells and cyclic aliases preserve
+base origins. Opaque non-sibling fallback keeps original base edges at E7
+NameOnly. Missing/blocked entries require ESM completeness and no depth cut
+before becoming final. Pattern names are opaque; B0 and non-proving qualifier
+refusals keep base. No new accepted cost or owner question is proposed.
+S5 is recorded as inherited core policy; no classifier change is made.
+Current custody is plan564ebc8c / protofceb0b4e plus this fold, superseding the
+r2 WIP references. The controller adopts the cumulative 17 owned files only.
