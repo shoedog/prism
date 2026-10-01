@@ -16,6 +16,25 @@ and is in model.
 
 ## 0. Owner decisions
 
+> **READ — S1b-4 spec-review r1 fold, 2026-10-01:** source base is
+> `915fca43d84ea1730959453091fbf8ae97763af8`; plan branch `plan/s1b-4` at
+> `564ebc8c`; prototype `proto/s1b-4` at `fceb0b4e` plus this owned fold.
+> No numeric LOC caps. Spec review cap remains **2 rounds**; Opus round 1 is
+> folded in place (4 WRONG / 5 SMELL). Local verification cap is 3 attempts.
+> E5, narrowed OQ12, Option K, E6 and E7 apply. Cache is **106 / 62**,
+> superseding the historical schedule below for the added persisted metadata.
+> Missing exports are final only with complete ESM facts and no traversal cut.
+> Unproven qualifier reasons preserve base; only a proved nearer non-import
+> binding suppresses base R3. Alias/pattern/MayCall/CJS opacity never grants D4
+> authority. An opaque cell does not prove callable origin. An inert private
+> forwarding barrel excludes its own non-escaping decoys; opaque non-sibling
+> fallback edges are kept at NameOnly under E7. These apply existing owner rules.
+> The controller commits both trees and cherry-picks the final **cumulative**
+> prototype commit (all 17 owned files, parent off main) onto the implementer's
+> fresh branch off main. The Sonnet implementer starts from that body and completes
+> tests, RED evidence, verification and handback; it does not re-implement it.
+> Private F remains controller-only; r2 aggregates are historical until rerun.
+
 > **Owner cap amendments for S1b-3a (authoritative):**
 > - **2026-09-29:** after the first implementation measured 828 tests, the owner approved de-duplicating the test
 >   scaffolding, adding a C-M41 killing row, and raising **the tests cap to 820** (src stays 700).
@@ -78,7 +97,7 @@ and is in model.
 > **Open for the owner from the r4 plan (recommendations in §3.8 and §9):**
 > - **OQ10, split S1b-3 into 3a (the collector at every scope, 0 corpus rows measured) and 3b (the call-site wiring:
 >   every corpus row).** Recommended (a) split. It needs one more cache number: 3a 102 / 58, 3b 103 / 59, S1b-4
->   104 / 60 (3a changes persisted export facts on the CF1/CF8 controls, so it bumps). (b) one slice at 102 / 58.
+>   105 / 61 (3a changes persisted export facts on the CF1/CF8 controls, so it bumps). (b) one slice at 102 / 58.
 > - **OQ11, M1 for destructuring declarators.** `const [s, setS] = useState(() => init)`: the landed classifier refuses
 >   a pattern declarator `not_callable`, the SPEC's M1 text and the auditor call it may-call. Measured: 3 F rows (X, R,
 >   T 0), each a wrong R5 edge. (a) **may-call (keep base; recommended: E5 says may-call rows never change, and it
@@ -359,6 +378,155 @@ span matches yield no candidate. S1's R4c-only lowercase check is deleted (§3.5
 
 ### 3.4 R3 namespace qualifiers (S1b-4)
 
+#### Dated amendment — 2026-10-01, landed-core design and measured prototype
+
+READ: this amendment replaces the old mechanism below. The landed APIs are
+`js_ts_site_binding`, `js_ts_binding_walk`, `js_ts_scope_lookup`,
+`js_ts_scoped_written` and the B0/B1 checks. Do not recreate Σ, E_TABLE, the
+declaration walk, write resolution, recovered-import scanner or wrapper
+provenance. The latter is non-classifying specifically to avoid recursion.
+
+READ (implemented design): extend `CallSite.local_binding`
+with `JsLocalBinding::NamespaceImport { module_path }`; reuse MayCall, Position,
+Unproven and Unchecked for the namespace qualifier. This field denotes the
+callee at an unqualified site and the simple qualifier at an eligible namespace
+site; it remains serde-defaulted and excluded from cmp_key. No second binding
+enum or wide CallSite-literal rewrite is needed. All three source constructors
+use the same per-file JsBindingCache. Synthetic/indirect sites stay Unchecked.
+
+READ (qualifier extraction/proof):
+1. Locate the exact source node by start/end byte. Calls use their `function`,
+   JSX opening/self-closing sites their `name`. Admit only a member_expression
+   with an identifier object q and a static member matching the recorded
+   callee. A nested receiver, subscript, asserted receiver or unmatched span
+   keeps its base behavior. Constructors stay Unchecked because their source node is new_expression;
+   simple subscript and nested/asserted receiver shapes also stay Unchecked.
+2. Enter the new route only if the file contains a top-level **value** ESM
+   namespace-import spelling q. Cache this syntax inventory once per file.
+   A type-only import (including JSX recovery of ERROR(type)), named/default
+   import, require declarator or
+   `import x = require()` never grants this authority. Do not consult the
+   lossy flat imports map as provenance. Existing non-namespace qualifiers
+   and their receiver guards retain base behavior.
+3. Run the landed core at q. NamespaceImport requires Walk::Found(program,
+   None), one declaration in that program index, exactly that namespace
+   import_statement, and JsBinding::Import after B0/B1 and the scoped-write
+   check. Recheck node identity against the namespace inventory; Import alone
+   is insufficient. Retain its syntax-backed specifier (StringValue); an
+   undecodable source does not prove a namespace module.
+4. JsBinding::MayCall or Alias maps to MayCall and keeps the **whole base
+   ladder**, including its existing receiver guards; never use the new export
+   projection or demotion for those sites. A written import, written shadow,
+   written parameter/class/loop binding has the same rule. Position/Unchecked
+   keeps base under Option K. Count qualified MayCall/Position in the existing
+   maps once per site, without changing unqualified rows.
+5. A clean shadow or duplicate does not prove the imported namespace. Suppress
+   this namespace R3 interpretation and continue through the existing receiver
+   ladder. Callable q does not prove a namespace object, and not_callable q
+   does not prove absence of callable **members** (classes and enums can have
+   them). Do not add a blanket member-call drop from that classifier result.
+   B0/B1/recovered-import refusals suppress new namespace authority but keep
+   the base import rungs; existing receiver guards and E6 remain unchanged. A written qualifier is never suppressed merely because
+   it is written. Explicitly pin with-body vs with-object positions.
+6. Proven namespace authority pre-empts the old syntactic shadow guard, which
+   does not model all E_TABLE positions (for example parameter-default sites
+   with a body-only declaration). It does not rely on receiver flags to prove
+   the import. The proof is never reused at another byte span or file.
+
+READ (export lookup): share export target identity with R4c, without changing
+R4c output. Lookup precedes functions.get(member), permitting renamed exports.
+A spanned terminal matches file, registered local name and exact start/end,
+excluding methods. Zero or 2+ span matches refuse; the only admitted spanned
+candidate is Exact. Wrapped non-JSX refuses WrappedExportNonJsx. The former
+resolved-route NameOnly branch is removed: it was unreachable.
+
+READ (W1, absence authority): namespace_esm_complete is serde-default raw
+metadata. A module must contain ESM export syntax, have no CJS facts/claims or
+unsafe export-object use, no export = / export import, and no parse recovery.
+Known skipped Alias/MayCall and destructuring names have per-name opacity.
+Missing/blocked members are final only when the whole bounded re-export walk
+is ESM-complete and untruncated; unresolved modules or depth cuts keep base.
+Complete ESM star conflicts and cycles remain final. The completeness proof
+runs only for a missing entry, so a proved terminal remains usable even when
+another export form is incomplete. Unknown absence never proves no function.
+No new accepted cost is introduced by preserving incomplete paths.
+
+READ (E5/OQ12/Option K): an export terminal kept as base Local because it is
+may-call/written must keep R3 base behavior too, whatever its binding kind.
+Carry its opacity origin (namespace_may_call_locals keyed by terminal file/local);
+neither E7 NameOnly grading nor the private-barrel exclusion may change its row.
+This applies to named, star and eligible ImportForward terminals. Unspanned
+same-module terminals also preserve base. Alias,
+MayCall, written exports and syntactic CJS UnprovenLocal claims use namespace-only
+opacity. Object/array declarator patterns record every collected name as opaque.
+D4 facts and all original counters are unchanged. Unique opacity projects to
+unspanned Local through the same bounded named/star/eligible ImportForward walk;
+projection telemetry is discarded. The ImportForward producer's competitor
+proof remains unchanged. Derived export maps recompute after every epoch.
+
+READ (S1): an opaque terminal identifies a value binding cell, not the callable's
+origin or registered name. A renamed cell can hold a differently named function,
+including a function imported from the barrel itself in a valid module cycle.
+Do not filter base candidates to that cell's file/name. Instead, serde-default
+namespace_private_barrel proves a limited non-escape fact: the module is
+ESM-complete; its top-level named children are only imports, comments, private
+function declarations and export clauses/star forwarding (no export declaration
+or value); its named facts are all ReExport/ImportForward and it has no opaque
+local claim. No module-level executable expression can pass a private function
+out, no export can expose it, and its function bodies cannot be invoked from
+outside. When that barrel forwards to another opaque cell outside E5, exclude only the
+original base candidates in the barrel's own file; retain all other base R3
+candidates. Empty results drop with the base reason. Other resolved opaque
+routes keep base. This proves the pinned private decoy wrong without inventing
+value-flow authority. On unresolved non-sibling stem/directory fallback outside E5, retain
+the original base candidates at E7 NameOnly, excluding proved private-barrel
+functions; never substitute the opaque cell's local name for callable identity.
+Keep-base applies wherever no contrary target evidence is proved.
+
+READ (W3): Callable and declaration-backed not_callable/unindexed classifications
+prove a non-import qualifier. duplicate_declaration suppresses R3 only after a
+walk to a nearer non-program scope with non-import declarations, recorded as
+namespace_shadow. escaped_identifier/B0, unclassified_kind, parse_recovery,
+import_parse_recovery, with, import, unbound and other non-proving reasons keep
+base import rungs, matching S1b-3 C-M34. Existing receiver guards still apply.
+C129/C210 with and C201 duplicate import are early SyntaxErrors, outside the
+reachable-behavior argument; they are invalid-program preservation pins.
+
+READ (S5, inherited core policy): TS function/namespace declaration merges are
+refused as duplicate_declaration by the landed D4 classifier; named-import twins
+already refuse on base. Reusing that core on R3 carries this inherited policy.
+C244 TSX records the cost; its JSX twin is only a parse-recovery pin. No change
+to the declaration-merge classifier is part of this slice.
+
+MEASURED: r3 controls C221–C244, d11–d14 and revised d10 cover W1–W4/S1/S3.
+All 397 controls reach their registered columns; supplementary renamed-cell and
+cyclic cross-module alias rows guard the limited private-barrel proof. The changed-row audit
+and permanent-suite mutant kills are in the measurement and controls records.
+
+READ (E7 split, implemented): first use the existing relative
+resolver. Only on failure, replace the final suffix `.js` -> `.ts`, then
+`.tsx`; `.jsx` -> `.tsx`; `.mjs` -> `.mts`; `.cjs` -> `.cts`, and require the
+exact caller-relative replacement file to be indexed. Use base precedence;
+do not admit an index directory or append another extension to the replacement.
+This extension substitution belongs only to namespace R3, not the shared
+barrel resolver or named/default-import paths. Unsupported .mts/.cts parsing
+does not create an indexed file. The fixture must assert an indexed sibling,
+not assume the filename makes it indexed.
+
+READ (E7 fallback): only when neither relative nor sibling resolution
+succeeds, retain the legacy stem/directory match, filter spanned candidates through
+their file's exports under the member name and exact terminal identity,
+deduplicate FunctionIds and grade every surviving candidate NameOnly. Never
+promote a lone stem hit to Exact. Wrapped candidates cannot suppress a valid
+plain candidate; WrappedExportNonJsx applies when no eligible candidate remains
+and the only otherwise valid hits were wrapped. Empty fallback uses the base
+reasons. Incomplete absence keeps base. Known opaque matches outside E5 keep original
+base candidates at NameOnly as specified above; their binding-cell name/file
+does not grant callable-origin authority.
+
+READ: the old paragraph below is historical, particularly its proposed
+NamespaceImport/Unproven-only state and its treatment of written qualifiers.
+
 Applies when the caller is JS/TS and the qualifier `q` has exactly one import binding in the file, a `ModuleImport`
 (an ESM `import * as q`).
 - **Qualifier proof.** At extraction, the site's walk from the qualifier identifier must find the program scope with
@@ -583,10 +751,42 @@ C152–C165 and the reversed C111 match addendum 7, and the v8 → v9 control di
 | C81 `./lib.js` + decoy | §3.4 | 4 | Exact ×2 → Exact ×1 |
 | C82 namespace wrapped call / JSX | §3.4 | 4 | → `WrappedExportNonJsx`, Exact |
 | C83 namespace re-export rename | §3.4 | 4 | drop → Exact |
-| C128, C129, C130 (sol W6) parameter / `with` / written qualifier | §3.4 proof | 4 | Exact → no R3 edge |
+| C128 parameter qualifier | §3.4; READ owner OQ6 | 1; preservation in 4 | MEASURED base has no R3 edge; ASSUMPTION unchanged |
+| C129 `with` qualifier | §3.4 amended proof | 4 | ASSUMPTION no namespace authority; existing receiver ladder |
+| C130 written qualifier | READ E5, §3.4 amendment | 4 | ASSUMPTION whole base row kept |
 | C131, C132 (E7) bare / non-sibling stem | §3.4 | 4 | Exact → NameOnly |
 | C133 (E7) sibling without the member | §3.4 | 4 | Exact to another directory → drop |
-| C84, C85, C112 non-goal qualifiers | E8 | – | unchanged |
+| C84, C85 named/default qualifiers | READ E8 | – | ASSUMPTION unchanged |
+| C112 duplicate/competed qualifier | §3.4 amended proof | 4 | ASSUMPTION no namespace authority; preserve existing non-R3 result |
+
+**MEASURED — 2026-10-01 S1b-4 base controls:** 349 scenarios, comprising the
+original 287 plus C190–C220 in true .jsx/.tsx twins. All original 287 generated
+sources are byte-identical. Both original and extended base runs have empty
+stderr. `probes/S1b-4-EXPECTATIONS.md` is the pre-run registration;
+`target/plan-s1b4/base/controls-r2/SUMMARY.txt` is the base reference.
+ASSUMPTION: direct/directory decoys C190/C191/C205/C207 narrow to exported
+identity; C192/C193 add renamed/star-barrel edges; C194 namespace-object and
+C195/C196 parameter shapes are preservation pins; C197/C198/C199 and
+C218/C219 keep base (written/alias/E5 export); C200/C201 lose namespace authority;
+C202/C203/C204 cover recovery refusal/sealing; C206/C208/C209/C210 cover
+evaluation positions; C211/C212/C213 preserve type-only/import-equals/named/default
+non-goals; C214 gates wrappers; C215 refuses a non-exported decoy; C216 uses
+NameOnly fallback. C217's .tsx sibling becomes Exact, while its .jsx target for
+a `.js` specifier is a non-sibling NameOnly fallback. C220 preserves its base
+row under the resolved Alias policy.
+
+**MEASURED — final head:** all 349 historical r2 scenarios completed with empty stderr and
+identical function inventories/site-key sets. Original 287: 269 identical,
+18 changed rows explained individually in `S1b-4-CONTROLS.md`. New 62: 34
+identical preservation rows, 28 changed to their registered correct column.
+That historical 46-row audit is superseded for current acceptance by the r3
+53-row audit in that file. RP2-c is GREEN in js/jsx/ts/tsx;
+the other 42 replay sections are byte-identical. References are
+`probes/S1b-controls-s1b4-r2-proto.txt` and
+`probes/S1b-replay-s1b4-r2-proto.txt`. Qualified MayCall/Position counts use the
+existing maps; every js_export_* counter remains identical on all controls
+and X/R. T aggregate stats hit the 180-second bound on the base; that extra
+telemetry comparison is excluded, with no inferred head result (see measurements).
 
 ## 5. Counters
 
@@ -638,7 +838,7 @@ rows. The `parse_recovery` decrements are carry-forward 8. Under OQ10 (a), 3a mo
 
 **r4 (owner 2026-09-27; the table above is superseded):** S1b-1 99/55, S1b-1b 100/56, 2a none, 2b 101/57 (landed
 pins), **S1b-3 102/58**, **S1b-4 103/59**. If S1b-3 splits (OQ10 a): **3a 102/58** (the export facts of CF1/CF8
-shapes change, so a cached D4 fact is stale), **3b 103/59** (`CallSite.local_binding`), **S1b-4 104/60**. Each carries
+shapes change, so a cached D4 fact is stale), **3b 103/59** (`CallSite.local_binding`), **S1b-4 106/62**. Each carries
 the B-17-style cross-commit row: a cache written by its parent's binary is rejected and the rebuilt output equals
 `--no-cache`.
 
@@ -667,7 +867,7 @@ esm_namespace_import` (Gap → Supported).
 | S1b-1 | A-1 C96/C97 (self-closing, opening, `-`, `:`); A-2 C98, `_x`, `$x` (guard); A-3 C126, C124-param and a TS assertion write through the base scan (F1–F3); A-4 counters; A-5 pins | A-M1 no guard; A-M2 guard on member tags; A-M3 each of F1, F2, F3 reverted |
 | S1b-2 | B-1 C06, C68; B-2 C69–C71; B-3 C72; B-4 C74, C75; B-5 C78; B-6 C79, C149, C150; B-7 C21, C77, C73, C139 (E5 guards); B-8 C143, C144, C146; B-9 C126; B-10 grammar-closure unit test (every kind the probe lists is in the allowlist); B-11 serde + barrel key; B-12 full vs incremental epochs; B-13 pins | B-M1 record `Local`; B-M2 skip B2; B-M3 broad B1; B-M4 drop B1 (i); B-M5 treat `interface`/`type` as declarations; B-M6 key R4c's gate on `span`; B-M7 drop `wrapped` from the barrel key; B-M8 remove one allowlist kind (refusal appears) |
 | S1b-3 | C-1 C63, C106; C-2 C86, C62/C11 producers, C135; C-3 C87, C101, C124, C92, C136, C104, C103, C147; C-4 C88, C113, C121; C-5 C89 + impostor twins; C-6 C90, C107, C138, C91, C125, C142 (E5 guards); C-7 C93, C111, C127, C94, C99, C102; C-8 C95; C-9 C105, C108, C109, C151; C-10 C110, **C122 (B-10b)**; C-11 C115, C116, C117; C-12 C118; C-13 C119, C120; C-14 C114; C-15 C137; C-16 C141; C-17 C145, C140; C-18 C134 (non-goal pin); C-19 memo keyed by scope and name; C-20 indirect/qualified sites unchanged; C-21 epochs; C-22 serde; C-23 pins | C-M1 ignore `local_binding`; **C-M2a** no `formal_parameters` scope (killed by C122); **C-M2b** no J1 jump (killed by C110); C-M3 no Annex-B marker; C-M4 no single-arrow `parameter`; C-M5 `with` not a scope; C-M6 no catch parameter; C-M7 no implicit `arguments`; C-M8 no D7 taint; C-M9 static blocks not var scopes; C-M10 no J2; C-M11 span-only match; C-M12 fall to R5 on `Unproven`; C-M13 admit `useCallback` without provenance; C-M14 M1 without the function-argument requirement |
-| S1b-4 | D-1 C62, C80, C81, C148; D-2 C82; D-3 C83; D-4 C128–C130; D-5 C131–C133; D-6 C84, C85, C112 guards; D-7 nav callers for C62; D-8 pins | D-M1 stem lookup for resolving modules; D-M2 skip the qualifier proof; D-M3 Exact for non-sibling stems; D-M4 namespace rule on named imports |
+| S1b-4 (READ required rows; MEASURED prototype, 2026-10-01) | D-1 C62/C80/C81/C148 + C190/C191: exact exported identity; D-2 C82/C214 wrappers; D-3 C83/C192/C193 + RP2-c (all 4 twins): renamed/StringValue/star exports; D-4 C128/C129/C130/C112 + C195–C210: proof, duplicate/shadow/write/recovery and positional rules; D-5 C131–C133/C215–C217: E7 + authoritative missing-member refusal; D-6 C84/C85/C194/C211–C213: named/default/type-only/import-equals/nested-namespace non-goals; D-7 nav callers/CPG target for C62/C190, with decoy absent; D-8 serde/default/pins/full vs incremental/cross-commit 106/62; D-9 C218/C219 + written-class/parameter E5 pins; D-10 C220 + direct/list/named/star/eligible-forward Alias twins and D4 preservation; D-11 incomplete CJS/TS exports and depth guards; D-12 patterns, bare Alias and skipped MayCall; D-13 valid B0/named twin and non-proving reasons; D-14 .jsx→.tsx sibling | D-M1 stem instead of resolved module; D-M2 skip scope/node-identity proof; D-M3 Exact for a single non-sibling stem; D-M4 route named/default/require as namespace; D-M5 ignore M2/E5; D-M6 span or wrapped omitted from export projection; D-M7 functions.get(member) before export rename; D-M8 shadowed write counted against import; D-M9 no recovery refusal/sealing; D-M10 old shadow guard vetoes a proven E_TABLE position; D-M11 zero export falls to unrelated stem; D-M12 alias-opacity lost in a named or star barrel; D-M13 opacity grants callable authority at R4c; D-M14 proof reused at another site/cache epoch or cache pins reverted; R3 JSX sibling; R5 opaque fallback skipped; R7 skipped MayCall opacity; W1 incomplete absence final; W2 pattern opacity omitted; W3 all Unproven refused; S1 barrel decoy kept; S1 opaque-cell origin confusion. R6/R8/R9/R10 equivalent on valid programs; R12 branch removed |
 
 **Re-plan additions (owner OQ1–OQ7 = a; `REPLAN-fable.md` §3–§5).** S1b-2 splits into **S1b-2a** (B-4–B-6, B-8,
 B-10 with the leaf allowlist, plus **B-14** RP2-a header error → refuse and **B-15** RP2-b string brace → kept, both
@@ -786,6 +986,44 @@ rows are end-to-end resolution rows.
 | **S1b-3, r4 (clean v12 `0968ef78` vs `3961cc21`, audited, Q70–Q72)** | **198**: 134 re-targeted right; 64 removed: 58 wrong (2 `for` heads, 56 parameter rows) + **6 parameter rows right lost (accepted value-flow cost)**; 0 right lost otherwise | **52**: 1 re-targeted right; 47 removed: 45 wrong (1 `for` head, 44 parameter rows) + **2 parameter rows right lost (NameOnly)**; 4 right lost (E6) | **0** | **913**: 635 re-targeted right; 227 removed: 222 wrong (7 `for` heads, 7 unbound-at-site R4, 208 parameter rows) + **5 parameter rows right lost**; 10 right added; 41 right lost (E6) |
 | S1b-3a alone (OQ10 a) | 0 | 0 | 0 | 0 |
 | S1b-3b (OQ10 a) | the S1b-3 r4 row | the S1b-3 r4 row | 0 | the S1b-3 r4 row |
+| S1b-4 r2, 2026-10-01 | **MEASURED 0 changed / 0 lost IDs**; 19,219 sites, equal complete keys | **PENDING controller**; READ old forecast 4 demotions, no lost IDs | **MEASURED 0 changed / 0 lost IDs**; 953 sites, equal complete keys | **MEASURED 0 changed / 0 lost IDs**; 61,712 sites, equal complete keys |
+
+**MEASURED / READ — S1b-4 r2 reconciliation:** the old S1b-4 row is an
+older-base forecast, not current acceptance evidence. Its old empty public
+expected files stay unchanged. Fresh final-head dumps against 915fca43 produce
+`probes/expected/S1b-4-r2-{X,R,T}.json`, each []; rowdiff, lexical audit and
+independent complete-dump target-identity checks all report zero changes/losses.
+All call-site key sets agree and stderr is empty. Thus every public class
+(removed, retargeted, added, demoted, relabeled, accepted-cost) is zero and no
+uncertified changed row needs a hand audit. This proves zero public target
+identities lost regardless of value-flow uncertainty; it does not prove every
+retained baseline edge is right. F's old four-demotion forecast cannot be
+reconciled without private measurements, which the controller alone supplies.
+Source/binary hashes, counts, commands and audit limits are in
+`S1b-4-MEASUREMENTS.md` and `target/plan-s1b4/BUILD-MANIFEST.json`.
+
+**MEASURED — S1b-4 r3:** fresh X/R/T full dumps against 915fca43 have
+19,219 / 953 / 61,712 sites on each side; complete unique keys agree, stderr is
+empty, and every row/target class is zero. `probes/expected/S1b-4-r3-{X,R,T}.json`
+are fresh []; r2 files stay unchanged. F r3 is not measured by the planner;
+controller rerun uses the r3 binary and BUILD-MANIFEST. Its r2 supplied aggregate
+was 13,299 equal sites, 4 Exact→NameOnly rows, 0 lost IDs and 0 counter changes.
+Zero public losses do not prove retained base targets are right.
+
+READ (audit requirement): `audit_s1b4.py` inventories every changed row and
+annotates lexical qualifier declarations; it cannot follow alias initializers,
+function/hook returns, destructuring/defaults, parameter suppliers, callable
+object members, merged namespaces or runtime writes. It therefore never calls
+a removal wrong just because the qualifier is not callable. Run
+`valueflow_guard_s1b4.py` on **complete dumps** to inventory every missing target
+identity, including entire missing site keys; duplicate keys make comparison
+inadmissible. Hand-audit each lost identity, plus every gained/retargeted row,
+using the qualifier's actual value origin and the producer's exported value
+flow. Record base/head tuple, source slices, flow path, alternative mechanism
+ruled out, class and owner-cost citation. A zero-loss identity result is proof
+that no target was removed independent of lexical assumptions; it is not proof
+that retained edges are right. For nonempty losses, a zero-right-loss claim
+requires this hand audit and cannot come from the lexical annotation alone.
 
    **r4 (2026-09-29, rounds 1 and 2):** the S1b-3 row supersedes r3's, v10's and v11's (v11 and v12 differ on 0
    corpus rows). Removals are parameters (X 62, F 46, T 213), `for` heads (X 2, F 1, T 7) and unbound-at-site R4
@@ -902,6 +1140,17 @@ The 2026-09-28 caps (3a 590 / 620, 3b 220 / 800) are superseded: 3a's src exceed
 
 The E-table row-sharing option (r3, about 40 lines) is still open to the implementer as design, never as compression.
 
+**MEASURED — S1b-4 r3 size, against 915fca43:** **486 added / 19 removed
+production lines (467 net)**; **629 added / 6 removed tests/fixtures (623 net)**.
+Nonblank, non-// diff lines after rustfmt; cfg(test) helpers count as tests.
+`target/plan-s1b4/size-r3.json` attributes every owned file. Generated controls,
+packet/probe scripts and evidence are excluded. r2's 335/18 and 442/6 are retained
+as history in size-final.json. The fold adds 151 src / 187 tests in this measure.
+
+**ASSUMPTION — landing forecast, not a cap:** 486–560 added production lines and
+629–750 added test/fixture lines. The fold addresses closed enumerated defects
+on the same export/outcome surface; no restart or further slice is proposed.
+
 ## 10. Risks
 
 - **The collector's closure** remains the review surface. The table is keyed to the specification, every suspect
@@ -929,3 +1178,17 @@ The E-table row-sharing option (r3, about 40 lines) is still open to the impleme
 | **r4 re-plan (2026-09-27)** | S1b-3 against the landed 2a/2b | prototype v10, 4-corpus audited row-diffs, 255 controls, carry-forwards 1–9, owner's M2/cache/budget rulings; OQ10–OQ12 (§0, §3.8, §9) |
 | **S1b-3 spec r1 (Opus FIX 3/3, sol FIX 2/1) → fold (2026-09-29)** | round 1 of 2 | Owner narrowed OQ12 to provably-no-function bindings (alias class, §3.8 (11)); Opus W2/W3 and sol W1/W2 fixed; S1–S3 and sol S1 addressed; clean-built v11 re-measured, 0 right lost outside E6; `REVIEW-s1b3-r1-fold.md` |
 | **S1b-3 spec r2 of 2 (the cap): Opus FIX 1/2, sol FIX 2/0 (open-class) → owner conservative cut (2026-09-29)** | disclosed at-cap fold | NoFn closed by the cut (defaults → Alias), trivia-skipping import check, parameters dropped on the not-statically-bound ground with the value-flow cost measured and owner-accepted (X 6, F 1, T 5, lower bounds), caps approved, file split planned; clean v12; `REVIEW-s1b3-r2-fold.md` |
+
+### S1b-4 final spec r2 disposition (2026-10-01, round 2 of 2)
+
+READ: converging at the cap; targeted final fold, no further plan round.
+W5 adds d15/C245 in both grammars, preserving the escaping lib:f Exact and
+asserting the executable statement revokes the private-barrel premise; E5
+otherwise masks X1's row effect. W6 complies with E5 as written via terminal
+origin, d16/C246-C249 and written-kind/epoch guards d17-d18/C250-C251.
+No E5 exception or owner question is proposed. S6 uses one cumulative squash
+starting point in IMPLEMENTOR. S7 discloses X6 export-declaration admission
+as a TS namespace/enum plus cycle survivor; no cheap runtime fixture was added.
+X2 is redundant: all named facts must be forwards, excluding the local opaque
+claims that would make the removed conjunct relevant. Neither survivor is a
+claimed kill. Measurements contain the final full table and exclusions.

@@ -245,4 +245,115 @@ node scripts/gate-inputs/acquire.mjs && node scripts/gate-inputs/gate.mjs --out 
 - Deviations from the SPEC, each with its reason; each is a question for the owner.
 - Commit on the branch with the session's attribution trailers. Do not push or merge.
 
-> **Caps amended by the owner:** tests 820 (2026-09-29), then **920** (2026-09-30); src stays 700. See SPEC §0.
+> **READ historical caps:** tests 820 (2026-09-29), then 920 (2026-09-30), src 700.
+> The later owner decision 2026-09-30 abolishes all numeric LOC caps; see SPEC §0.
+
+## S1b-4 dispatch
+
+READ — final spec-review round 2 of 2 folded 2026-10-01. Source base is
+915fca43d84ea1730959453091fbf8ae97763af8. Plan is plan/s1b-4 @922f00df plus
+this packet fold; prototype is proto/s1b-4 @beec4a23 plus this final fold.
+This dispatch supersedes the general "branch from planning commit" instruction
+for S1b-4: **the controller squashes `915fca43..298006b3` into one commit
+on `proto/s1b-4-final`**. The controller fills in that cumulative commit's SHA
+here before dispatch: **CONTROLLER_PENDING_FINAL_PROTO_SHA**. That is the one
+starting commit; cherry-pick it onto the fresh implementer branch off main.
+The cumulative owned paths are in COMMIT-FILES-s1b4.md.
+The **Sonnet implementer starts from the prototype's owned files**, completes
+tests, RED evidence, verification and handback, and does not re-implement them.
+Never adopt docs/eval reports, eval/snapshots or any generated target evidence.
+
+READ: review cap is **2 rounds**, both consumed. Round 2 is converging; this
+closed final fold adds no plan review round or restart. No numeric
+LOC caps. Cache: the landed slice bumps **once** from main 103 / 59 to **104 / 60** (controller 2026-10-01; the prototype used 106 / 62 only to separate its own iterations). The bump covers persisted completeness, private-barrel proof and E5 opacity origin.
+Measured size: 528 added/19 removed src; 833 added/6 removed tests/fixtures.
+Forecast: 528–600 src and 833–925 tests added, not a budget.
+
+READ: follow SPEC §3.4's current W1/W2/W3/S1 amendment. Export absence requires
+ESM-complete facts and untruncated bounded traversal; unknown absence keeps base.
+CJS claims and pattern Alias/MayCall opacity never grant D4 authority. An opaque
+cell does not prove callable origin/name; only the inert private-barrel proof
+filters that barrel's own base candidates outside E5. Renamed and cyclic aliases preserve
+their unproven origins. Opaque E7
+non-sibling fallback outside E5 retains its edges at NameOnly. May-call and
+written terminals carry their origin and keep the entire base row on every R3
+route, regardless of kind; E7 and private-barrel filtering cannot override E5. Callable/not_callable/unindexed
+and a proved nearer non-import duplicate suppress base R3; B0, recovery, with,
+import and other unproven reasons keep base rungs, subject to existing guards.
+TS function/namespace merges retain the inherited core policy. Type-only imports,
+constructors, subscripts and non-namespace routes remain preservation guards.
+
+MEASURED r4 references (r2/r3 retained):
+- probes/S1b-controls-s1b4-r4-proto.txt: 411 complete scenarios, 358 identical
+  to same-environment base, 53 changes individually explained in CONTROLS.
+- probes/S1b-replay-s1b4-r3-proto.txt: RP2-c's four twins Exact; other 42
+  unchanged. Current r4 summary equals retained r3/r2; complete site populations checked.
+- probes/expected/S1b-4-r3-{X,R,T}.json: r4 reruns match retained empty diffs; 0 lost IDs;
+  complete keys and empty stderr. F r4 awaits controller-only remeasurement.
+- S1b-4-MEASUREMENTS.md and target/plan-s1b4/BUILD-MANIFEST.json: actual
+  binary/source hashes, verification receipts and exclusions.
+
+READ tests: keep d1–d18 across the namespace matrix and its included final-fold
+test file, in both grammars, asserting
+registered file/name/span/grade, recall and negative cases. Capture RED per
+behavior on the pre-change body in the same environment; controls-pre-fold and
+spec-r1-red.log retain r1 failures; spec-r2-red.log and final-fold-control-rows-r4.json
+retain this final fold's four primary E5 regressions in both grammars. R5 (bare Alias fallback)
+and R7 (skipped MayCall opacity) must be killed by permanent tests. D-M12 also
+pins opaque barrels whose original base target belongs to the terminal directory,
+renamed binding cells and a valid cyclic alias returning the barrel's function.
+S3's .jsx→.tsx sibling row kills R3. R6/R8/R9/R10 are equivalent on valid
+programs; R12's dead NameOnly branch is removed. See the full mutant table.
+
+```bash
+python3 "$P/probes/mutate_s1b4.py" "$PROTO" "$OUT/mutants"
+cargo fmt --check
+cargo clippy --offline --all-targets --features mcp
+cargo test --offline --no-fail-fast
+cargo test --offline --features mcp --no-fail-fast
+python3 "$P/probes/grammar_closure.py" --rust src/ast
+cargo build --offline --release
+cd eval
+uv run tier-a --matrix-only --allow-stale-sut
+uv run tier-a --quick --allow-stale-sut
+```
+
+READ: one independently compiled mutation at a time; no concurrent source edits,
+builds or measurements. Reject compile/setup/zero-selected tests as inadmissible,
+restore exact bytes in finally, and inspect the failed assertion. Driver includes the original 30, reviewer X1-X6 and three E5 origin guards:
+39 executable variants. X1 must be killed by d15; X2 is redundant and X6
+is the disclosed S7 TS namespace/enum-cycle coverage survivor. Version pins in the landed code are 104/60 (the prototype pinned 106/62).
+Rebuild immediately before Tier-A; if uv is sandbox-blocked use installed Python
+3.12 and tier_a.cli.main with the same flags. Never call an invalid or incomplete
+quick artifact GREEN. Full multi-corpus Tier-A remains human-triggered.
+
+```bash
+mkdir -p "$GEN"
+(cd "$GEN" && python3 "$P/probes/controls_gen.py")
+bash "$P/probes/run_controls.sh" "$BIN" "$GEN" "$OUT/controls"
+python3 "$P/probes/compare_controls_s1b4.py" "$BASE_CONTROLS" "$OUT/controls" "$OUT/controls-diff.json"
+cmp "$P/probes/S1b-controls-s1b4-r4-proto.txt" "$OUT/controls/SUMMARY.txt"
+bash "$P/probes/replan/replay_rp.sh" "$BIN" "$OUT/replay"
+cmp "$P/probes/S1b-replay-s1b4-r3-proto.txt" "$OUT/replay/SUMMARY.txt"
+PRISM_GATE_INPUTS_ROOT="$INPUT_CACHE" node scripts/gate-inputs/gate.mjs --out "$OUT/node-gate"
+```
+
+READ: compare whole sections, inventories, complete unique keys and stderr;
+empty RP dumps are legitimate only for the fixed no-call fixtures. Original
+397 controls must reproduce r3 exactly; C245-C251 must reproduce base exactly; do not re-baseline expected status.
+Compare every js_export_* counter with export_counters_s1b4.py. Hand-audit all
+changed corpus rows and target identities; lexical annotations do not certify
+value-flow losses. C129/C210/C201 are early-SyntaxError pins and excluded from
+reachable-behavior arguments. Capture the new Tier-A fixture's base regression
+and head recall; no baseline editing. The controller alone runs F with
+CONTROLLER-S1b4.sh and returns aggregate classes/custody hashes.
+
+READ handback: exact checkout/base/head/source patch, all owned paths and honest
+size, source-bound RED/GREEN and mutant assertions, default/mcp totals, fmt,
+clippy, Tier-A matrix/quick, Node gate, full controls/replay/corpus diffs and
+exclusions. Controller commits; this planner lane performs no Git writes.
+
+> **Controller fill-in (2026-10-01):**
+> - **Cumulative start commit:** `19bbbb1e` on `proto/s1b-4-final`. It is a squash of `915fca43..298006b3`, and its tree equals `298006b3`.
+> - **How you get it:** the controller cherry-picks it onto your branch off `main`.
+> - **Cache:** the prototype pins **106 / 62**. Set them to **104 / 60** (one bump from main's 103 / 59), and update both version-assert tests.

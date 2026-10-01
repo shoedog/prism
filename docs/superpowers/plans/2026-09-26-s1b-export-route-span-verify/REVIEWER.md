@@ -137,8 +137,37 @@ the checklist above:
 - **Evidence:** the controller's audited row-diff must equal SPEC §8's r4 row (3a: 0 on every corpus);
   `maycall_changed` 0.
 
+## S1b-4 addendum — 2026-10-01
+
+READ: review cap is **2 rounds**, and numeric LOC caps are abolished by the
+owner. Historical cap-breach WRONG/checkpoint rules in this brief do not apply.
+Review the dated SPEC §3.4 amendment and S1b-4 dispatch against landed 915fca43;
+verify the independent value-flow inventory/hand audit, not a lexical
+not-callable annotation. C220 is a constructible right alias-export edge on
+the base. OQ-S1b4-1 is resolved by the controller: namespace-only Alias opacity
+keeps R3 base while D4 remains unchanged. The prototype, r2 expected rows,
+411-control r4 reference (397 old sections byte-identical to r3) and 53-row hand audit are present; the expanded
+mutant receipts and explicit equivalent variants are in S1b-4-MEASUREMENTS.md.
+Verify the source/binary hashes in BUILD-MANIFEST and the controller's eventual
+commit binding before dispatch. Private F and bounded quick exclusions are
+explicit in the measurements; neither is implicit approval.
+Both Opus spec rounds are consumed; this final fold precedes implementation.
+The implementation review surface is the finite qualifier outcome/export/E7
+matrix and its bounded private-barrel proof. Opaque binding-cell file/name must never stand in for callable origin;
+renamed and cyclic alias guards have same-environment base and Node evidence.
+
 ## Controller notes
 
 <!-- The controller fills this in at dispatch: subject, SHA/base, clone, cap, prior rounds, and any owner rulings
      made since the packet was written. -->
 __CONTROLLER_NOTES__
+
+READ current S1b-4 review subject: plan922f00df plus the final r2 fold; source
+base915fca43, prototype beec4a23 plus final owned fold. Both plan rounds are
+consumed; the controller classified convergence and authorized this final fold.
+W5/W6/S6/S7 dispositions are in SPEC and r4 measurements. E5 has no exception: may-call
+and written export terminals preserve full base rows on every route, whatever kind.
+X1 must be killed; X2 is redundant and X6 is the disclosed S7 survivor.
+Implementation starts from the controller's single cumulative squash commit on
+proto/s1b-4-final; its SHA is filled in before dispatch. No owner question remains.
+Private F is controller-only; no historical F aggregate certifies r4.
