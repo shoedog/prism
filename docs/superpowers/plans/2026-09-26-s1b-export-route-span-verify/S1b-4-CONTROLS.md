@@ -1,3 +1,16 @@
+# S1b-4 round-2 fold controls — 2026-10-01
+
+MEASURED on the repaired dirty source at29686b66: all411 scenarios reproduce
+r5 byte-for-byte; reference remains probes/S1b-controls-s1b4-r5-impl.txt.
+No r6 reference. Fresh base5048f443 comparison:381 unchanged/30 changed;
+15 positive filters/15 same-identity E7 regrades,0 added identities. Full keys,
+function inventories and empty stderr pass. Current evidence:
+target/repair-r2/{r5-comparison,controls-comparison,controls-audit}.json.
+The explanatory inventory below remains unchanged; its r1 export-counter
+receipts were not rerun in this fold and remain historical.
+
+## Historical r5 controls and exhaustive explanation
+
 # S1b-4 r5 implementation repair controls — 2026-10-01
 
 Current authority: SPEC §0, Controller re-scope (impl r1, open-class).

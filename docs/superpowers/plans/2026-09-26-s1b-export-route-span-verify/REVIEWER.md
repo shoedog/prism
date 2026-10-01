@@ -1,5 +1,13 @@
 # S1b-4 implementation repair review amendment — 2026-10-01
 
+Round 2 at `29686b66`: sol61 APPROVE; Opus FIX 1 WRONG / 2 SMELL.
+The controller authorized a targeted fold at the two-round cap: W1 refuses
+unproven terminals, six exact-base N1/N5/N6 tests pin both grammars, S1 folds
+mechanically, and S2 remains disclosed. Evidence is `target/repair-r2/`;
+bind its dirty-source input hashes and frozen binary. No third review round
+is requested or claimed. Current controls reference remains r5 if comparison
+is byte-identical; see the current MEASUREMENTS and HANDOFF.
+
 For the repaired PR #336 artifact, SPEC §0's "Controller re-scope 2026-10-01
 (impl r1, open-class)" and revised §3.4 supersede historical S1b-4 instructions
 below. Review only positive unique Callable identity filtering within actual

@@ -1,4 +1,14 @@
-# Implementation repair r1 dispatch amendment — 2026-10-01
+# Implementation repair round-2 fold at the cap — 2026-10-01
+
+Current starting head is `29686b66`, base `5048f443`; evidence is
+`target/repair-r2/`. The closed W1 receives the reviewer's refusing arm plus
+six exact-base N1/N5/N6 assertions, in both grammars. Keep the callable map and
+producer used by the span-checked proven targets. S1 is a mechanical helper
+fold; S2 is unchanged and disclosed in MEASUREMENTS. No third review round,
+restart, Git writes or F reads. Controller commit files and current exclusions
+are in COMMIT-FILES-s1b4.md, VERIFICATION.md and HANDOFF-s1b4.md.
+
+## Historical implementation repair r1 dispatch amendment
 
 The controller's positive-proof-only R3 rules in SPEC §0/§3.4 supersede every
 historical S1b-4 instruction below. Repair existing `8796dc55` in this clone;

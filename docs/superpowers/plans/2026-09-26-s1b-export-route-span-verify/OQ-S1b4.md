@@ -6,7 +6,8 @@ SPEC §0/§3.4 rules1-7 govern: keep qualifier proof, filter only actual base
 candidates through a complete unique Callable identity, preserve uncertainty
 and absence, delete private-barrel/E5-origin machinery, regrade E7 only.
 Historical opacity recommendations below are superseded. Current evidence is
-in target/repair-r1; r5 controls/measurements and the handoff name actual
+in target/repair-r2 for the closed round-2 W1 fold at29686b66; r5 remains the
+controls reference. Measurements and the handoff name actual
 verification and exclusions. Git commits and private F remain controller work;
 F's historical four-demotion result needs the bound repaired-head rerun.
 

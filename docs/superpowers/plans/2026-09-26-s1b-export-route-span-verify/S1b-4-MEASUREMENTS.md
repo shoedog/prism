@@ -1,4 +1,61 @@
-# S1b-4 r5 implementation repair measurements — 2026-10-01
+# S1b-4 implementation repair round-2 fold — 2026-10-01
+
+Current fold starts at 29686b668d3c225542da6edc1709bec5ea14c585, base 5048f443.
+Evidence: target/repair-r2/. The r5 and r4 sections below remain historical.
+At the two-review-round cap, the converging closed W1 receives a targeted fix
+on the existing artifact; no new review round or restart. W1 refuses
+Local/UnprovenLocal/Class, preserving base. The callable map and ast producer
+remain live for the VerifiedLocal/SpannedLocal arm's checks of name and span.
+S1's two single-caller helpers are mechanically inlined into the original
+js_ts_import_member_candidates helper. Verification results follow.
+
+## Current verification and custody
+
+MEASURED: default4787/0/1 (29 groups), MCP4980/0/1 (31 groups); final-layout
+reruns match the first pass. Namespace37/0/0; six exact-base CLI fixtures.
+Fmt and split rustfmt pass. Clippy:26 touched-file warning instances on both
+same-environment archived29686b66 and final source;0 new. Tier-A matrix166/166
+via the installed Python entry point after an immediate rebuild; initial uv
+cache refusal is inadmissible. See VERIFICATION.md for exact commands.
+
+MEASURED: full driver26 variants:25 KILLED,1 SURVIVED,0 INADMISSIBLE.
+REV-local-arm-lookup is KILLED by all six N1/N5/N6 assertions in both grammars,
+rechecked on the final include layout. P6-noncallable-terminal survives its
+former r1_rule6 row because the repaired consumer refuses that Local terminal.
+This remains a disclosed coverage survivor; no global-equivalence claim.
+All six assertions fail on pre-fix29686b66 in the same environment. Source
+restoration hashes and namespace GREEN follow mutations. PROBE-LOG-r2.md
+records the settled name-lookup cause and the write alternative ruled out.
+
+MEASURED: controls411 byte-identical to r5; no r6 reference. Fresh base comparison
+381 unchanged/30 changed,15 positive filters/15 same-identity E7 regrades,0
+added identities; complete call-site keys, function inventories and empty stderr.
+X19219/R953/T61712 sites per binary:0 changed/lost/missing keys; empty stderr.
+Six fresh W1 CLI probes assert the exact production base tuples.
+
+MEASURED: CONTROLLER-S1b4.sh now selects target/repair-r2/prism-head and the new
+BUILD-MANIFEST.json, binding complete repaired input bytes and both executables.
+Starting SHA29686b66 is explicitly a dirty-source build, not a new commit.
+Frozen head SHA256: 3e57da928119a21cab33baea4b0d46667758917d889cf38e586332e28cb2ca12. Cache stays104/60.
+Final snapshot/file hashes are retained in target/repair-r2/. No Git writes.
+
+NOT VERIFIED locally: private F; Tier-A quick/full multi-corpus; Node/runtime,
+RP/export-counter replay; new cache transitions; reviewer S2 perf replication;
+new independent review or clean committed executable. Earlier receipts are
+historical. Controller owns Git/evidence retention and private F acceptance.
+
+## S2 — disclosed IMMATERIAL performance item; unchanged
+
+INHERITED reviewer measurement from impl-s1b4-r2-opus.md: eager whole-program
+namespace projection resolves every exported name of every file on every
+build, including files no namespace import targets. A synthetic three-level
+star tree with 4,000 exports and 400 ns.* calls took 4.20s and 3.45s on base,
+6.67s and 5.91s on 29686b66 (two timings each). The reviewer did not retain
+the synthetic probe. Projection remains depth-bounded by MAX_REEXPORT_DEPTH=2
+and guarded against cycles. This is an IMMATERIAL disclosed perf item for this slice;
+no lazy-projection implementation or local performance verification is claimed.
+
+## Historical r5 implementation repair measurements
 
 MEASURED in /Users/wesleyjinks/code/prism-s1b-4-impl, branch feat/s1b-4-namespace,
 starting8796dc55 vs main5048f443. Controller positive-proof-only re-scope is

@@ -1,82 +1,84 @@
-# Handoff — S1b-4 implementation repair r1, positive-proof-only R3
+# Handoff — S1b-4 repair round 2, targeted fold at the cap
 
-**Written:** 2026-10-01 · **By:** repairer /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/prism-s1b-4-impl · feat/s1b-4-namespace · **Measured state:** `[MEASURED]` HEAD 8796dc55caa7aece1b5bce461ac018c23f8b8b0d · Tree DIRTY · Probe git status/diff · Output target/repair-r1/FINAL-CHECK.json and FILES.txt
-**Predecessor:** controller implementation repair r1 dispatch; impl-s1b4-r1-opus.md (4W/2S) and impl-s1b4-r1-sol61.md (5W/0S), both read fully.
+**Written:** 2026-10-01T17:42:20.937464+00:00 · **By:** repairer /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/prism-s1b-4-impl · feat/s1b-4-namespace · **Measured state:** `[MEASURED]` HEAD 29686b668d3c225542da6edc1709bec5ea14c585 · Tree DIRTY · Probe git status/diff · Output target/repair-r2/FINAL-CHECK.json
+**Predecessor:** controller round-2 dispatch; impl-s1b4-r2-opus.md and supplied sol61 APPROVE.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
 
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[INHERITED]` controller assigned this clone to repairer; no delegation authorized or used — RESOLVED.
-**(b) Custody exposure** — `[MEASURED]`25 changed/new explicit files, including root VERIFICATION.md; final snapshot and source/binary hashes retained in target/repair-r1. No Git writes — OPEN controller must retain ignored evidence/binaries and commit.
-**(c) In flight / irreversible** — `[MEASURED]` every foreground command finished and mutations restored, including verification-hook full suites after final test layout — RESOLVED locally; hook-suites.json default4781/0/1 and MCP4974/0/1. No buildable work pending.
-**(d) Authorization granted but not exercised** — "No git writes." "Corpus F: never open it." Public X/R/T measurements explicitly authorized by this repair dispatch.
+**(b) Custody exposure** — `[MEASURED]`14 Git-visible changed/new files plus ignored VERIFICATION.md, manifest, frozen binaries and final snapshot in target/repair-r2/; controller must retain ignored evidence and commit — OPEN.
+**(c) In flight / irreversible** — `[MEASURED]` all foreground suites, mutation runs, rebuilds, matrix and public dumps finished; final-layout default4787/0/1 and MCP4980/0/1 — RESOLVED locally.
+**(d) Authorization granted but not exercised** — "No git writes." "Never open corpus F."
 
 ## 1. Resume order
 
-1. Run `shasum -a 256 -c target/repair-r1/MANIFEST.sha256` from this clone; retain the ignored evidence and frozen binaries before cleanup.
-2. Commit the exact25 paths in COMMIT-FILES-s1b4.md, using its two recommended messages. No semantic owner decision is pending.
-3. Controller runs CONTROLLER-S1b4.sh privately, audits every changed F row and reconciles the historical four-demotion forecast. The script checks the repaired head/source hashes and104/60 pins.
+1. From this clone run `shasum -a 256 -c target/repair-r2/MANIFEST.sha256`; retain the ignored evidence/frozen binaries before cleanup.
+2. Controller commits the exact14 files in COMMIT-FILES-s1b4.md with its two recommended messages; record the commit association with the verified dirty snapshot.
+3. Controller privately runs CONTROLLER-S1b4.sh and audits F. A clean rebuild requires refreshed binary/source provenance.
 
-**STOP conditions:** no implementer F reads or Git writes; never transfer historical r4 acceptance to repaired head; do not count incomplete quick as GREEN. Two repair verification rounds converged; no extension used.
+**STOP conditions:** no implementer Git writes or F reads. No third review round or restart. Do not transfer historical F acceptance or incomplete quick receipts to this fold.
 
 ## 2. State ledger
 
 | Item | State | Evidence / correction |
 |---|---|---|
-| Positive-only source/qualifier | done | `[MEASURED]` unchanged qualifier proof; actual base-candidate intersection; Callable core; uncertainty rejects proof |
-| Review regressions | done | `[MEASURED]` namespace matrix31/0, CLI62 GREEN/45 old-head RED; repair_r1.rs covers every WRONG class |
-| Controls/replay/counters | done | `[MEASURED]` controls411:381 unchanged/30 changed;15 filters/15 regrades; counters411 equal; RP46 all equal base |
-| Public corpus rows | done | `[MEASURED]` X19219/R953/T61712,0 changed/lost/missing keys; corpora.json |
-| Mutants | done | `[MEASURED]` mutants-final.json25 KILLED/0 SURVIVED/0 INADMISSIBLE; first-pass setup/survival retained separately |
-| Hook-directed full suites | done | `[MEASURED]` hook-suites.json default4781/0/1 and MCP4974/0/1; root VERIFICATION.md complete |
-| Suites/build/grammar | done | `[MEASURED]` default4781/0/1; MCP4974/0/1; fmt/release/Tier-A166/0/grammar186 and74 pass |
-| Clippy | done | `[MEASURED]` same-environment base/head37 touched-file warning instances each,0 new; clippy-comparison.json |
-| Cache | done | `[MEASURED]`103/59->104/60 and old104->repair104 cold/warm/fresh equality; both receipt.json files |
-| Quick | parked | `[MEASURED]` deadline_no_complete_result300.15s,returncode-2; no complete oracle artifact; quick/receipt.json |
+| W1 | done | `[MEASURED]` six pre-fix exact-base failures; six CLI base/head equals; final arm mutant six named failures; w1/results.json, pre-fix-red.log, arm-mutant-final/results.json |
+| Producer | done | `[MEASURED]` entire map/ast producer remains live for VerifiedLocal/SpannedLocal name and span checks; no layout change |
+| S1 | done | `[MEASURED]` two single-caller helpers mechanically inlined; full suites and controls preserve behavior |
+| S2 | done | `[INHERITED]` reviewer synthetic timings disclosed IMMATERIAL; implementation unchanged, no local perf replication |
+| Final suites | done | `[MEASURED]` full default4787/0/1,29 groups; MCP4980/0/1,31 groups; final-layout-verification.json |
+| Fmt/clippy/matrix | done | `[MEASURED]` fmt/split fmt pass;26 warnings each,0 new;166 matrix ok; clippy-comparison.json, matrix-final.json |
+| Controls | done | `[MEASURED]`411 r5 byte-identical;381 unchanged/30 changed vs base;15 filters/15 regrades; controls-audit.json |
+| X/R/T | done | `[MEASURED]`19219/953/61712 sites each;0 changed/lost/missing keys; corpora.json |
+| Mutants | done | `[MEASURED]`26 variants:25 killed,1 P6 coverage survivor,0 inadmissible; final arm recheck killed; mutants/results.json |
+| Final custody | done | `[MEASURED]` public preflight, complete input/binary/packet hashes and snapshot checked; BUILD-MANIFEST.json, FINAL-CHECK.json |
 
 ## 3. Corrections to standing documents and memory
 
 | Location | Stale or false assertion | Correction |
 |---|---|---|
-| SPEC/CONTROLS/MEASUREMENTS/IMPLEMENTOR/REVIEWER/OQ/COMMIT-FILES | absence finality, private barrel, E5 origin inventory, synthesized identities/r4 current acceptance | `[MEASURED]` current dated blocks supersede historical claims;27 controls/RP rename gains cut-to-base; E7 grades only |
-| Historical F aggregate | four demotions certify repair | `[INHERITED]` historical controller result only; rerun bound new head |
-| Memory | None | No memory files used for task facts or edited |
+| Handoff/verification/file list/controller/manifest | r1 is current | `[MEASURED]` replaced with r2 bindings/results and dirty starting29686b66 |
+| MEASUREMENTS/CONTROLS/IMPLEMENTOR/REVIEWER/OQ/SPEC | r1-only state | `[MEASURED]` dated r2 fold/dispositions; old measurements retain historical labels |
+| Old P6 kill | still killed after W1 | `[MEASURED]` disclosed1 survivor; no global equivalence claim; current arm killed |
+| Memory | None | no relevant memory used or edited |
 
 ## 4. Open work
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Git/evidence custody | pending | retain ignored artifacts, commit exact25 files | controller-only Git | COMMIT-FILES-s1b4.md |
-| 2 | Private F | pending | run private controller script and audit grade population | explicit private boundary | CONTROLLER-S1b4.sh |
-| 3 | Complete quick/full corpus oracle | parked | separately authorize a bounded follow-up if needed | quick cap; full multi-corpus human-triggered | quick/receipt.json |
+| 1 | Git/evidence custody | pending | retain ignored evidence and commit exact14 files | controller-only Git | COMMIT-FILES-s1b4.md |
+| 2 | Private F | pending | execute updated script and audit privately | explicit F boundary | CONTROLLER-S1b4.sh |
+| 3 | Broader excluded checks | parked | separately authorize if needed | bounded fold scope | VERIFICATION.md |
 
 ## 5. Invariants and traps — do not do these
 
 - Never open F or write Git; explicit scope.
-- Refine only the candidates passed by existing R3; zero matching identities keeps base. Absence never changes a row.
-- Every supplying star branch must complete; depth cuts and unproven cycles keep base even with another positive branch.
-- E7 grades all base candidates, including opaque/written cells; no origin inventory exception or filtering.
-- Self/mutual initializers use non-classifying wrapper provenance; do not reintroduce classifier recursion.
-- Split tests are included in the umbrella; helpers moved without body/fixture/assertion changes to keep it599 lines. Final31-test matrix and formatting rechecked.
-- CLI `--cache-dir` and `--no-cache` conflict; use one at a time.
+- Local/UnprovenLocal/Class refuse identity; same-named function expressions are not binding proof.
+- Keep the callable map/producer for proven targets; match name AND span.
+- Mutations run alone and restore exact bytes; failed compilation/setup/zero selection is inadmissible.
+- The test umbrella is599 lines; repair_r1 includes repair_r2 without changing any body.
+- uv default cache is blocked; use installed eval/.venv/bin/python, immediately after rebuilding.
+- P6 is a disclosed coverage survivor. Do not quote the historical25-kill receipt as current all-green.
 
 ## 6. Identifiers
 
 | Item | Verbatim |
 |---|---|
-| Base | `5048f443` (src equivalent to retained base binary915fca43) |
-| Starting head | `8796dc55caa7aece1b5bce461ac018c23f8b8b0d` |
-| Evidence | `target/repair-r1/` |
-| Head binary | `target/repair-r1/prism-head` |
-| Head SHA256 | `eebe8054eccae7c5a3d07353de9518e1e2da4efc141dc5acf112f5e873daf025` |
-| Current reference | `probes/S1b-controls-s1b4-r5-impl.txt` |
-| New tests | `tests/integration/js_binding_namespace/repair_r1.rs` |
+| Starting head | `29686b668d3c225542da6edc1709bec5ea14c585` |
+| Base | `5048f443` (retained binary built915fca43, equivalent source) |
+| Evidence | `target/repair-r2/` |
+| Head | `target/repair-r2/prism-head` |
+| Head SHA256 | `3e57da928119a21cab33baea4b0d46667758917d889cf38e586332e28cb2ca12` |
+| Manifest | `target/repair-r2/BUILD-MANIFEST.json` |
+| Reference | `probes/S1b-controls-s1b4-r5-impl.txt` |
+| New tests | `tests/integration/js_binding_namespace/repair_r2.rs` |
 | Cache | `104 / 60` |
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED · claim: "head filters actual base candidates only to a complete unique Callable identity, or regrades E7 without losing an identity" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: target/repair-r1/{review-regressions/results,controls-audit,mutants-final,corpora}.json and cache receipts
+**§2c verdict:** SURVIVED · claim: "unproven export terminals keep exact base rows; positive narrowing and E7 behavior remain preserved" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: target/repair-r2/{pre-fix-red.log,w1/results.json,arm-mutant-final/results.json,r5-comparison.json,corpora.json}
 
-**Questions the owner owes an answer to:** None. Re-scope is decided. Git custody and private F belong to the controller.
+**Questions the owner owes an answer to:** None. Controller-only custody and F remain operational work.

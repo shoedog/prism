@@ -158,7 +158,22 @@ cases = [('D-M1',
   [('src/resolution_js_namespace.rs',
     '            base.iter()\n                .map(|target| ResolvedCallee {',
     '            base.iter().take(1)\n                .map(|target| ResolvedCallee {')],
-  'r1_rule7_')]
+  'r1_rule7_'),
+ ('REV-local-arm-lookup',
+  [('src/js_exports.rs',
+    '                JsExportTarget::Local(_)\n'
+    '                | JsExportTarget::UnprovenLocal(_)\n'
+    '                | JsExportTarget::Class(_) => Err(()),',
+    '                JsExportTarget::Local(local)\n'
+    '                | JsExportTarget::UnprovenLocal(local)\n'
+    '                | JsExportTarget::Class(local) => {\n'
+    '                    let candidates = facts.namespace_callable_locals.get(local).ok_or(())?;\n'
+    '                    match candidates.as_slice() {\n'
+    '                        [only] => Ok(Some(only.clone())),\n'
+    '                        _ => Err(()),\n'
+    '                    }\n'
+    '                }')],
+  'r2_')]
 report=[]
 for name,edits,test in cases:
  if len(sys.argv)>3 and name not in sys.argv[3:]: continue

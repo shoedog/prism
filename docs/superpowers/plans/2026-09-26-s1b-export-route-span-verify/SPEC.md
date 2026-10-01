@@ -38,6 +38,9 @@ proportionality; no restart or further absence inventory is authorized.
    unwritten and not MayCall. Alias/enum/namespace/ambient/class-poisoned terminals
    keep base. Delete the separate E5 origin inventory. Reuse non-classifying
    wrapper provenance to bound classification; test self and mutual cycles.
+   Round-2 W1 fold at29686b66: Local/UnprovenLocal/Class cannot borrow a
+   same-named function expression's identity. Only the proven target variants
+   consume the callable map, matching both name and span.
 7. Unresolved non-sibling E7 may only regrade base Exact to NameOnly, keeping
    every edge. No export filter runs there. This is independent of positive
    identity refinement; the old E5 inventory's E7 grade exceptions are forgone.
