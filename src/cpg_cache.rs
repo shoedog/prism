@@ -228,7 +228,7 @@ use std::path::{Path, PathBuf};
 /// - v103: S1b-3b wires the binding core to call sites (`CallSite.local_binding`): a JS/TS
 ///   lexical binding resolves first (Callable), and an `Unproven` binding drops the R4/R5
 ///   same-name fallback (SPEC §3.6, §3.8 (8)).
-const CACHE_VERSION: u32 = 106;
+const CACHE_VERSION: u32 = 104;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -767,7 +767,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 106);
+        assert_eq!(super::CACHE_VERSION, 104);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
