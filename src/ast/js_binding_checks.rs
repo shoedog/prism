@@ -21,9 +21,12 @@ impl ParsedFile {
                 result = Err("unclassified_kind");
                 break;
             }
+            // Fold E (gpt-6.1-sol r1 W2): a TS class's own inner name (D2/T8) is a
+            // `type_identifier`, not `identifier`; an escaped spelling there must refuse the
+            // scope exactly as an escaped `identifier`/pattern does, or B0 lets it through.
             if matches!(
                 n.kind(),
-                "identifier" | "shorthand_property_identifier_pattern"
+                "identifier" | "shorthand_property_identifier_pattern" | "type_identifier"
             ) && self.node_text(&n).contains('\\')
             {
                 result = Err("escaped_identifier");
@@ -36,30 +39,31 @@ impl ParsedFile {
         result
     }
 
-    /// B1 (owner E6, the narrower rule, with the re-plan folds). A binding scope with a parse
-    /// error is usable only when (i) no structural brace is missing or a direct token of an
-    /// `ERROR` anywhere in the file (so every braced node's extent is its true extent; braces
-    /// in string, template, regex or comment text never count), and (ii) every error in the
-    /// scope lies inside a delimited child (a `body` or `class_body` with paired braces, a
-    /// `parameters` list with paired parentheses) of a class, static block or braced function
-    /// that is strictly inside the scope and does not contain the site. A header error (name,
-    /// type parameters, return type, heritage) is not sealed. `Some` holds the sealing nodes
-    /// that contain errors (empty for a clean scope); `None` refuses.
+    /// B1 (owner E6, the narrower rule, with the re-plan folds; SPEC §3.8 (6)). A binding scope
+    /// with a parse error is usable only when (i) no structural brace is missing or a direct
+    /// token of an `ERROR` anywhere in the file (so every braced node's extent is its true
+    /// extent; braces in string, template, regex or comment text never count), and (ii) every
+    /// error in the scope lies inside a delimited child of a sealer (a class, static block or
+    /// braced function) that is strictly inside the scope, and the site is not inside that
+    /// delimited child when it is a `body`/`class_body` (a site in the sealer's header, such as
+    /// an exported declaration itself, is outside the sealed body), nor inside the sealer at
+    /// all when the error is in its `formal_parameters` (parameters are visible from the body,
+    /// spec r1 Opus W2). A header error (name, type parameters, return type, heritage) is not
+    /// sealed. `true` when every error is sealed (including a clean scope); `false` refuses.
     pub(super) fn js_ts_recovery_sealed<'a>(
         &self,
         scope: Node<'a>,
         site: Node<'a>,
         cache: &mut JsBindingCache<'a>,
-    ) -> Option<Vec<Node<'a>>> {
-        let mut sealers = Vec::new();
+    ) -> bool {
         if !scope.has_error() {
-            return Some(sealers);
+            return true;
         }
         if !*cache
             .braces
             .get_or_insert_with(|| self.js_ts_braces_paired())
         {
-            return None;
+            return false;
         }
         // ASSUMPTION (Opus r1 S1): (i) proves braces paired; a parameter list's parentheses are
         // taken as paired when both edge tokens are present and not `MISSING`.
@@ -86,11 +90,22 @@ impl ParsedFile {
                 while let Some(d) = up.filter(|d| d.id() != scope.id() && !delimited(*d)) {
                     up = d.parent();
                 }
-                let sealer = up
-                    .filter(|d| d.id() != scope.id())
-                    .and_then(|d| d.parent())
-                    .filter(|f| f.id() != scope.id() && !inside(*f, site));
-                sealers.push(sealer?);
+                let Some(d) = up.filter(|d| d.id() != scope.id()) else {
+                    return false;
+                };
+                let Some(f) = d.parent().filter(|f| f.id() != scope.id()) else {
+                    return false;
+                };
+                // A `formal_parameters` error seals only when the site is outside the whole
+                // sealer; a body/class-body error seals when the site is outside that child.
+                let seal = if d.kind() == "formal_parameters" {
+                    f
+                } else {
+                    d
+                };
+                if inside(seal, site) {
+                    return false;
+                }
             }
             let mut cursor = n.walk();
             stack.extend(
@@ -98,7 +113,7 @@ impl ParsedFile {
                     .filter(|c| c.has_error() || c.is_missing()),
             );
         }
-        Some(sealers)
+        true
     }
 
     /// B1 (i): no `MISSING` brace, and no `ERROR` holding an anonymous `{`/`}` token (directly
@@ -126,3 +141,7 @@ impl ParsedFile {
         true
     }
 }
+
+#[cfg(test)]
+#[path = "js_binding_checks_tests.rs"]
+mod tests;

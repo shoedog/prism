@@ -98,7 +98,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v55: S1b-1 intrinsic JSX tags and shared binding-collector fixes (CPG v99).
 // v56: S1b-1b JS/TS declarator locals are BoundNames (CPG v100).
 // v57: S1b-2b ESM local exports through the module-scope binding (CPG v101).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 57;
+// v58: S1b-3a extends the binding core to every scope (CPG v102).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 58;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -717,7 +718,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 57);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 58);
     }
 
     #[test]

@@ -16,6 +16,15 @@ and is in model.
 
 ## 0. Owner decisions
 
+> **Owner cap amendments for S1b-3a (authoritative):**
+> - **2026-09-29:** after the first implementation measured 828 tests, the owner approved de-duplicating the test
+>   scaffolding, adding a C-M41 killing row, and raising **the tests cap to 820** (src stays 700).
+> - **2026-09-30:** after the round-1 review found items A–G, the owner raised **the tests cap to 920** for the fold.
+> - **2026-09-30 (final fold):** tests cap raised to **950** for the at-cap test-only fold (reverse-direction B rows, C-35 full equality, parameter-decorator row).
+> - **2026-09-30 (later): the owner dropped numeric LOC caps entirely (src and tests, every S1b sub-slice).** Slice size
+>   is a planning forecast only; split slices that would not converge in 2 review rounds. All cap figures in this
+>   SPEC (§0 caps, §9) are historical.
+
 > **Owner decisions 2026-09-29, after S1b-3 spec round 2 of 2 (the cap; disclosed at-cap fold,
 > `REVIEW-s1b3-r2-fold.md`). Authoritative.**
 > 1. **Caps approved:** 3a src **700** / tests **740**; 3b src **220** / tests **1,320** (report point **1,190**). The

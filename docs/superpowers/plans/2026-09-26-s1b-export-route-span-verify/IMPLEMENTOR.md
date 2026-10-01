@@ -244,3 +244,5 @@ node scripts/gate-inputs/acquire.mjs && node scripts/gate-inputs/gate.mjs --out 
 - The synthetic smoke diff against the sub-slice's reference summary.
 - Deviations from the SPEC, each with its reason; each is a question for the owner.
 - Commit on the branch with the session's attribution trailers. Do not push or merge.
+
+> **Caps amended by the owner:** tests 820 (2026-09-29), then **920** (2026-09-30); src stays 700. See SPEC §0.

@@ -3,8 +3,15 @@
 //! declaration whose value is a function (or an admitted React wrapper of one), the scope
 //! parses cleanly or its errors are sealed (B1), and every named node kind in it is
 //! classified (B0). A written binding, or a declarator whose value is any other call with a
-//! function argument, is the may-call class and keeps base behavior (owner E5). Runtime
-//! mutation is out of model. S1b-2a evaluates the core at module scope only.
+//! function argument, is the may-call class and keeps base behavior (owner E5). A declarator
+//! whose value may hold a function by value flow (anything but a function, or a literal that
+//! provably holds none) is an alias, which also keeps base behavior (owner 2026-09-29).
+//! Runtime mutation is out of model. S1b-3 evaluates the core at every scope (SPEC §3.1a,
+//! §3.8): the site walk lives in `js_binding_walk.rs`, the per-scope index and the call-site
+//! entry point in `js_binding_site.rs`, the scoped write resolver in `js_binding_writes.rs`,
+//! the recovered-import predicate in `js_binding_recovery.rs`, and call-value/NoFn
+//! classification in `js_binding_values.rs`.
+use super::js_binding_values::{js_ts_has_default, js_ts_holds_no_function};
 use super::{is_js_ts_function_like, ParsedFile};
 use crate::js_exports::{JsExportFacts, JsExportTarget};
 use std::collections::{BTreeMap, BTreeSet};
@@ -30,6 +37,12 @@ pub(crate) enum JsBinding {
     Refused(&'static str),
     /// Owner OQ1 = (a), Option K: unproven, so base behavior, counted by reason.
     Unchecked(&'static str),
+    /// A well-formed import binding (SPEC §3.8 (5)): the import rungs decide, uncounted.
+    Import,
+    /// S1b-3 (owner 2026-09-29, SPEC §3.8 (11)): a declarator whose value may hold a function
+    /// by value flow (anything but a function, or a literal that provably holds none): keeps
+    /// base behavior, counted `alias`.
+    Alias,
 }
 
 /// Strictness of the code holding a scope, for Annex B.3.2 (SPEC §3.1 D1).
@@ -46,13 +59,18 @@ pub(super) type ExportScope<'a> = (BTreeSet<String>, JsBindingCache<'a>);
 /// Declared names and their declaring nodes (markers included).
 pub(super) type Index<'a> = BTreeMap<String, Vec<Node<'a>>>;
 
-/// Per-file memo: scope declaration indexes (with the unknown-strictness Annex-B names),
-/// B0 results, both keyed by scope node id, and the file-level B1 brace condition.
+/// Per-file memo: scope declaration indexes (with the unknown-strictness Annex-B names), B0
+/// results, both keyed by scope node id, the file-level B1 brace condition, the leave
+/// predicate's namespace/enum partner counts, and M2's write-target index and `(scope, name)`
+/// answers (SPEC §3.8 (2)(3), C-19, C-37).
 #[derive(Default)]
 pub(crate) struct JsBindingCache<'a> {
     pub(super) decls: BTreeMap<usize, (Index<'a>, BTreeSet<String>)>,
     pub(super) clean: BTreeMap<usize, Result<(), &'static str>>,
     pub(super) braces: Option<bool>,
+    pub(super) partners: Option<BTreeMap<String, usize>>,
+    pub(super) write_targets: Option<BTreeMap<String, Vec<Node<'a>>>>,
+    pub(super) written: BTreeMap<(usize, String), bool>,
 }
 
 /// B0's allowlist: every named node kind, leaf or not, of the pinned JavaScript, TypeScript
@@ -122,46 +140,61 @@ pub(super) fn sealing(node: Node<'_>) -> bool {
 }
 
 impl ParsedFile {
-    /// The module terminal (SPEC §3.1 at module scope, §3.2 step 3): what `name`, used at
-    /// `site`, denotes when the site's walk reaches the program scope.
+    /// The module terminal (SPEC §3.1 at module scope, §3.2 step 3, §3.8 (2)): what `name`,
+    /// used at `site`, denotes when the site's walk reaches the program scope. The program
+    /// scope's case of `js_ts_scope_binding`.
     pub(crate) fn js_ts_module_binding<'a>(
         &'a self,
         name: &str,
         site: Node<'a>,
         cache: &mut JsBindingCache<'a>,
     ) -> JsBinding {
-        let root = self.tree.root_node();
-        let (index, annex) = cache.decls.entry(root.id()).or_insert_with(|| {
-            let (mut index, mut annex) = (Index::new(), BTreeSet::new());
-            let mode = (true, true, self.js_ts_strictness(root));
-            self.js_ts_declare_walk(root, mode, &BTreeSet::new(), &mut index, &mut annex);
-            (index, annex)
-        });
-        let (decls, annex_b) = (index.get(name).cloned(), annex.contains(name));
+        self.js_ts_scope_binding(self.tree.root_node(), None, name, site, cache)
+    }
+
+    /// What `name` denotes in `scope`, the scope the site walk stopped at (`explicit`: the
+    /// `with` or dotted-namespace node that binds it), used at `site` (SPEC §3.8 (2)).
+    pub(super) fn js_ts_scope_binding<'a>(
+        &'a self,
+        scope: Node<'a>,
+        explicit: Option<Node<'a>>,
+        name: &str,
+        site: Node<'a>,
+        cache: &mut JsBindingCache<'a>,
+    ) -> JsBinding {
+        let (decls, annex_b) = match explicit {
+            Some(d) => (Some(vec![d]), false),
+            None => self.js_ts_scope_lookup(scope, name, cache),
+        };
         if decls.is_none() && !annex_b {
             return JsBinding::Refused("unbound");
         }
+        // A recovered-import marker (its declaring node is the `ERROR` itself, §3.8 (7)).
+        if decls.iter().flatten().any(|d| d.is_error()) {
+            return JsBinding::Refused("import_parse_recovery");
+        }
         // B0 and B1 precede the Annex-B uncertainty, which precedes B2 (sol r1 W2).
-        if let Err(reason) = self.js_ts_scope_clean(root, cache) {
+        if let Err(reason) = self.js_ts_scope_clean(scope, cache) {
             return JsBinding::Refused(reason);
         }
-        let Some(sealers) = self.js_ts_recovery_sealed(root, site, cache) else {
+        if !self.js_ts_recovery_sealed(scope, site, cache) {
             return JsBinding::Refused("parse_recovery");
-        };
+        }
         match decls {
-            Some(decls) if !annex_b => self.js_ts_classify(root, &decls, name, &sealers),
+            Some(decls) if !annex_b => self.js_ts_classify(scope, &decls, name, cache),
             _ => JsBinding::Unchecked("annex_b_strictness"),
         }
     }
 
-    /// Classification of a binding that passed B0 and B1 (`sealers` are B1's sealing nodes),
-    /// in the SPEC §3.1 order: `with`, B2, M2, B3, M1, then `not_callable` and `unindexed`.
+    /// Classification of a binding that passed B0 and B1, in the SPEC §3.1 order (as amended
+    /// by §3.8 (3)(4)(5)(11)): `with`, B2, `Import`, M2 (any declaration kind), B3, M1, NoFn,
+    /// then `unindexed` and `unbound`.
     fn js_ts_classify<'a>(
         &'a self,
         scope: Node<'a>,
         decls: &[Node<'a>],
         name: &str,
-        sealers: &[Node<'a>],
+        cache: &mut JsBindingCache<'a>,
     ) -> JsBinding {
         if scope.kind() == "with_statement" {
             return JsBinding::Refused("with");
@@ -169,6 +202,9 @@ impl ParsedFile {
         let [decl] = decls else {
             return JsBinding::Refused("duplicate_declaration");
         };
+        if matches!(decl.kind(), "import_statement" | "import_alias") {
+            return JsBinding::Import;
+        }
         let fe_self = matches!(decl.kind(), "function_expression" | "generator_function")
             && decl
                 .child_by_field_name("name")
@@ -184,17 +220,15 @@ impl ParsedFile {
             decl.kind(),
             "function_declaration" | "generator_function_declaration"
         );
-        // M2. Module scope uses the base write scan after F1–F3 (SPEC §3.2, identical to the
-        // scoped scan on the corpora, Q28), with `using` declarations not writes (S1b-2b) and
-        // widened by the writes it cannot see; S1b-3 adds the scoped scan for nested scopes.
-        if (fe_self || binding || function)
-            && (self.js_ts_module_written(name, true) || self.js_ts_written_unseen(name, sealers))
-        {
+        // M2 (owner 2026-09-27, SPEC §3.8 (3)): any written binding, whatever its kind, keeps
+        // base behavior. The scoped resolver replaces the module write scan and 2a's widening
+        // predicates (`js_ts_written_unseen`, deleted).
+        if self.js_ts_scoped_written(scope, name, cache) {
             return JsBinding::MayCall;
         }
         let callable = if function || fe_self {
             *decl
-        } else if declarator {
+        } else if binding {
             let field = if using { "right" } else { "value" };
             let Some(mut value) = decl.child_by_field_name(field) else {
                 return JsBinding::Refused("not_callable");
@@ -211,10 +245,22 @@ impl ParsedFile {
             } {
                 value = inner;
             }
+            // Owner 2026-09-29 (spec r2 sol W1, the conservative cut, SPEC §3.8 (11)): a
+            // destructuring pattern holding a default anywhere may bind the default's value.
+            let pattern = decl.child_by_field_name(if using { "left" } else { "name" });
+            if !declarator && pattern.is_some_and(js_ts_has_default) {
+                return JsBinding::Alias;
+            }
             match value.kind() {
-                "arrow_function" | "function_expression" => value,
-                "call_expression" => return self.js_ts_classify_call(*decl, value, using),
-                _ => return JsBinding::Refused("not_callable"),
+                "arrow_function" | "function_expression" if declarator => value,
+                "call_expression" if declarator => {
+                    return self.js_ts_classify_call(*decl, value, using);
+                }
+                // M1 for a destructuring declarator (S1b-3 OQ11 a, SPEC §3.8 (4)): its names
+                // may hold what a call with a function argument returns.
+                "call_expression" => return super::js_binding_values::js_ts_call_may_call(value),
+                _ if js_ts_holds_no_function(value) => return JsBinding::Refused("not_callable"),
+                _ => return JsBinding::Alias,
             }
         } else {
             return JsBinding::Refused("not_callable");
@@ -229,74 +275,6 @@ impl ParsedFile {
             end_line,
             wrapped: false,
         })
-    }
-
-    /// Writes of `name` the base scan's closer-binding test cannot see (impl r1 fold, Opus W1/W2,
-    /// sol W1); counting them only moves answers toward M2, which is base behavior. (a) A write
-    /// target under a position a function-like evaluates before entering its own environments
-    /// (SPEC §3.1a: J1 `formal_parameters`, J2 `decorator`, J3 `computed_property_name`; its
-    /// other positions hold a binding name or types, never a W1 form), which the base test
-    /// shadows by the function's parameters and body `var`s. (b) An identifier spelled `name`
-    /// in a B1-sealed node, whose error the base test reads as a closer binding and which may
-    /// have mangled a write.
-    fn js_ts_written_unseen(&self, name: &str, sealers: &[Node<'_>]) -> bool {
-        let spelled = |n: Node<'_>| {
-            matches!(
-                n.kind(),
-                "identifier"
-                    | "shorthand_property_identifier"
-                    | "shorthand_property_identifier_pattern"
-            ) && self.node_text(&n) == name
-        };
-        if sealers.iter().any(|s| any_node(*s, spelled)) {
-            return true;
-        }
-        any_node(self.tree.root_node(), |n| {
-            let Some(target) = self.js_ts_write_target(n) else {
-                return false;
-            };
-            let mut names = BTreeSet::new();
-            self.collect_js_ts_binding_pattern_names(target, &mut names);
-            let mut up = n.parent();
-            while let Some(a) = up.filter(|a| {
-                !matches!(
-                    a.kind(),
-                    "formal_parameters" | "decorator" | "computed_property_name"
-                )
-            }) {
-                up = a.parent();
-            }
-            names.contains(name) && up.is_some()
-        })
-    }
-
-    /// B3's admitted React wrapper (S1's predicate, wrapped) and M1: any other call with a
-    /// direct function argument is may-call; a call without one holds no callable.
-    fn js_ts_classify_call(&self, decl: Node<'_>, call: Node<'_>, using: bool) -> JsBinding {
-        let admitted = match decl.parent() {
-            Some(list) if !using => self.js_ts_wrapped_export(list, decl).ok(),
-            _ => None,
-        };
-        if let Some((local, start_line, end_line)) = admitted {
-            return JsBinding::Callable(JsTerminal {
-                local,
-                start_line,
-                end_line,
-                wrapped: true,
-            });
-        }
-        let Some(args) = call.child_by_field_name("arguments") else {
-            return JsBinding::Refused("not_callable");
-        };
-        let mut cursor = args.walk();
-        let function_argument = args
-            .named_children(&mut cursor)
-            .any(|a| matches!(a.kind(), "arrow_function" | "function_expression"));
-        if function_argument {
-            JsBinding::MayCall
-        } else {
-            JsBinding::Refused("not_callable")
-        }
     }
 
     /// The file is an ES module: a top-level `import`/`export` statement, or `.mjs`/`.mts`.
@@ -361,8 +339,9 @@ impl ParsedFile {
 
 impl ParsedFile {
     /// D4 (SPEC §3.2): the target an ESM local export occurrence of `name` at `site` records.
-    /// Proven callables carry their span (`wrapped` ones as S1's `SpannedLocal`); may-call
-    /// keeps base `Local` (E5, counted); a refusal is `UnprovenLocal`, counted by reason.
+    /// Proven callables carry their span (`wrapped` ones as S1's `SpannedLocal`); may-call and
+    /// alias values keep base `Local` (E5, counted); a refusal is `UnprovenLocal`, counted by
+    /// reason (an alias counts as `not_callable`, the landed 2b answer, §3.8 (11)).
     pub(super) fn js_ts_local_export_target<'a>(
         &'a self,
         name: String,
@@ -390,6 +369,20 @@ impl ParsedFile {
             }
             // Unreachable at D4: an export statement makes the file a strict module.
             JsBinding::Unchecked(_) => JsExportTarget::Local(name),
+            // D4 keeps the landed S1b-2b answer for a value-flow alias (SPEC §3.8 (11): "D4 is
+            // unchanged") and, likewise, for an `Import` (fold A, Opus r1 W1): the D4 `imported`
+            // set only poisons the value-import forms it recognizes (`extract_import_bindings`
+            // plus type-only), so an `import f = M.g` / `import f = require(...)` alias export
+            // is not filtered above and would otherwise leak an unpoisoned `Local`, letting R4c
+            // bind a same-file decoy Exact — re-opening the edge S1b-2b closed. Both count
+            // `not_callable`.
+            JsBinding::Alias | JsBinding::Import => {
+                *facts
+                    .local_export_refusals
+                    .entry("not_callable".into())
+                    .or_default() += 1;
+                JsExportTarget::UnprovenLocal(name)
+            }
             JsBinding::Refused(reason) => {
                 *facts
                     .local_export_refusals
@@ -402,7 +395,7 @@ impl ParsedFile {
 
     /// ECMAScript `ModuleExportName`: an identifier's text, or a string literal's StringValue
     /// (either quote form; escapes decoded to UTF-16 code units, so a surrogate pair spelled
-    /// `\uD83D\uDE00` or `\u{D83D}\u{DE00}` is one scalar). `None` when the value is not
+    /// `😀` or `\u{D83D}\u{DE00}` is one scalar). `None` when the value is not
     /// well-formed Unicode (an unpaired surrogate) or an escape does not decode: the name is
     /// not matchable and callers record no claim for it (fail closed). Callers also treat a
     /// specifier with a parse error as unmatchable (a recovered `"\xGG"` is identifier `GG`).
@@ -445,19 +438,6 @@ impl ParsedFile {
         }
         String::from_utf16(&units).ok()
     }
-}
-
-/// Whether `pred` holds for `node` or any named descendant.
-fn any_node<'a>(node: Node<'a>, mut pred: impl FnMut(Node<'a>) -> bool) -> bool {
-    let mut stack = vec![node];
-    while let Some(n) = stack.pop() {
-        if pred(n) {
-            return true;
-        }
-        let mut cursor = n.walk();
-        stack.extend(n.named_children(&mut cursor));
-    }
-    false
 }
 
 #[cfg(test)]
