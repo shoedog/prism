@@ -196,7 +196,9 @@ fn scope_graph_build_inputs_from_snapshot(
     files: &BTreeMap<String, ParsedFile>,
     manifest_snapshot: ManifestSnapshot,
 ) -> ScopeGraphBuildInputs {
-    let manifest_hashes = manifest_snapshot.topology_hashes();
+    let mut manifest_hashes = manifest_snapshot.topology_hashes();
+    let js_paths_snapshot = crate::js_paths_snapshot::JsPathsSnapshot::capture(root);
+    manifest_hashes.extend(js_paths_snapshot.topology());
     let cfg = parse_rust_crate_config(files, &manifest_snapshot)
         .unwrap_or_else(|| RustCrateConfig::from_convention(files));
     let complete = has_complete_rust_coverage(root, files);
@@ -206,6 +208,7 @@ fn scope_graph_build_inputs_from_snapshot(
         manifest_hashes,
         manifest_snapshot,
         skipped_go_testdata_files: 0,
+        js_paths_snapshot,
         cfg,
         complete,
     }

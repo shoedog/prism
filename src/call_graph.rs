@@ -621,6 +621,8 @@ pub struct ScopeGraphBuildInputs {
     #[serde(default)]
     pub manifest_snapshot: crate::ManifestSnapshot,
     #[serde(default)]
+    pub js_paths_snapshot: crate::js_paths_snapshot::JsPathsSnapshot,
+    #[serde(default)]
     pub skipped_go_testdata_files: usize,
     pub cfg: RustCrateConfig,
     pub complete: bool,
@@ -633,6 +635,7 @@ impl ScopeGraphBuildInputs {
             all_file_paths: files.keys().cloned().collect(),
             manifest_hashes: BTreeMap::new(),
             manifest_snapshot: crate::ManifestSnapshot::default(),
+            js_paths_snapshot: Default::default(),
             skipped_go_testdata_files: 0,
             cfg: RustCrateConfig::from_convention(files),
             complete: true,
@@ -876,6 +879,9 @@ pub struct CallGraph {
     /// R4c: authority flag — which files prism has actually indexed.
     #[serde(default)]
     pub indexed_files: BTreeSet<String>,
+    /// P1 proven non-relative modules; empty for convention-only builds.
+    #[serde(default)]
+    pub js_ts_path_modules: BTreeMap<(String, String), String>,
     /// P4: JS/TS raw (per-file, un-resolved) export facts — default exports,
     /// named export lists (incl. renames), exported const-arrow/
     /// function-expression declarations, CommonJS assignments, and re-export
@@ -1217,6 +1223,7 @@ impl CallGraph {
             import_bindings: BTreeMap::new(),
             module_bindings: BTreeMap::new(),
             indexed_files: BTreeSet::new(),
+            js_ts_path_modules: BTreeMap::new(),
             js_ts_exports: BTreeMap::new(),
             js_ts_resolved_exports: BTreeMap::new(),
             js_ts_namespace_exports: BTreeMap::new(),
@@ -1496,6 +1503,7 @@ impl CallGraph {
             import_bindings: BTreeMap::new(),
             module_bindings: BTreeMap::new(),
             indexed_files: BTreeSet::new(),
+            js_ts_path_modules: BTreeMap::new(),
             js_ts_exports: BTreeMap::new(),
             js_ts_resolved_exports: BTreeMap::new(),
             js_ts_namespace_exports: BTreeMap::new(),
@@ -1962,6 +1970,7 @@ impl CallGraph {
             import_bindings,
             module_bindings,
             indexed_files,
+            js_ts_path_modules: BTreeMap::new(),
             js_ts_exports,
             js_ts_resolved_exports: BTreeMap::new(),
             js_ts_namespace_exports: BTreeMap::new(),
@@ -2068,6 +2077,7 @@ impl CallGraph {
         cg.apply_framework_entries(files);
         // P4: JS/TS export-fact resolution (re-export chains/barrels) is ALSO
         // whole-program derived, same rationale as the Go passes above.
+        cg.apply_js_paths(scope_inputs);
         cg.apply_js_export_resolution();
         // Recompute the remaining whole-program indirect passes after all
         // resolution facts are installed, including Go B1 Level-3 callbacks.
@@ -2158,7 +2168,9 @@ impl CallGraph {
             }
 
             let exports = parsed.extract_js_ts_export_facts();
-            if !exports.is_empty() {
+            // A successfully parsed value-empty module is a proven empty star
+            // branch, distinct from a missing/opaque branch in alias provenance.
+            if !exports.is_empty() || !parsed.tree.root_node().has_error() {
                 export_facts.insert(file_path.clone(), exports);
             }
 
@@ -2191,6 +2203,53 @@ impl CallGraph {
     /// `apply_go_registrations`/`apply_go_interface_dispatch`: a barrel's
     /// resolution can depend on an unchanged file elsewhere, so it can't be
     /// incrementally patched per changed file.
+    pub(crate) fn apply_js_paths(&mut self, inputs: Option<&ScopeGraphBuildInputs>) {
+        self.js_ts_path_modules.clear();
+        let Some(inputs) = inputs else {
+            return;
+        };
+        let mut resolver = crate::js_paths::Resolver::new(&inputs.js_paths_snapshot);
+        for (file, bindings) in &self.import_bindings {
+            if !matches!(
+                crate::languages::Language::from_path(file),
+                Some(
+                    crate::languages::Language::JavaScript
+                        | crate::languages::Language::TypeScript
+                        | crate::languages::Language::Tsx
+                )
+            ) {
+                continue;
+            }
+            for b in bindings {
+                if b.eligible
+                    && b.kind == ImportBindingKind::MemberImport
+                    && self
+                        .js_ts_exports
+                        .get(file)
+                        .is_some_and(|exports| exports.esm_named_imports.contains(&b.local))
+                {
+                    if let Some(target) =
+                        resolver.resolve(file, &b.module_path, &self.indexed_files)
+                    {
+                        self.js_ts_path_modules
+                            .insert((file.clone(), b.module_path.clone()), target);
+                    }
+                }
+            }
+        }
+    }
+
+    pub(crate) fn resolve_js_ts_member_module(&self, module: &str, caller: &str) -> Option<String> {
+        let relative = module.trim();
+        if relative.starts_with("./") || relative.starts_with("../") {
+            resolve_js_ts_relative_module(relative, caller, &self.indexed_files)
+        } else {
+            self.js_ts_path_modules
+                .get(&(caller.into(), module.into()))
+                .cloned()
+        }
+    }
+
     pub fn apply_js_export_resolution(&mut self) {
         self.clear_js_export_resolution();
         let indexed_files = &self.indexed_files;
@@ -5256,6 +5315,7 @@ impl CallGraph {
             import_bindings: import_bindings_map,
             module_bindings: module_bindings_map,
             indexed_files,
+            js_ts_path_modules: BTreeMap::new(),
             js_ts_exports,
             // P4: whole-program resolved export facts — left empty here,
             // exactly like the Go whole-program state below:

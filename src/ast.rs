@@ -2539,6 +2539,9 @@ impl ParsedFile {
                         local_name: t.local,
                         span: Some((t.start_line, t.end_line)),
                         wrapped: t.wrapped,
+                        // Local callable terminals have traversed no star. The
+                        // namespace resolver rejects any unresolved branch.
+                        via_unresolved_star: false,
                     });
             }
         }

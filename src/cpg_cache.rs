@@ -229,7 +229,8 @@ use std::path::{Path, PathBuf};
 ///   lexical binding resolves first (Callable), and an `Unproven` binding drops the R4/R5
 ///   same-name fallback (SPEC §3.6, §3.8 (8)).
 /// - v104: S1b-4 qualifier proof and positive-only namespace R3 refinement.
-const CACHE_VERSION: u32 = 104;
+/// - v105: lane-P P1 tsconfig `paths` import-member resolution and config-input cache key.
+const CACHE_VERSION: u32 = 105;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -768,7 +769,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 104);
+        assert_eq!(super::CACHE_VERSION, 105);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

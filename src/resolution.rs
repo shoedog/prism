@@ -3771,11 +3771,21 @@ impl CallGraph {
         member: &str,
         site: &CallSite,
     ) -> Result<Vec<&FunctionId>, DropReason> {
-        let Some(candidate_file) = crate::call_graph::resolve_js_ts_relative_module(
-            &binding.module_path,
-            &caller.file,
-            &self.indexed_files,
-        ) else {
+        // A caller/module cache entry can also be shared by a require binding.
+        // Prove this particular ESM binding and position before consulting it.
+        if !binding.module_path.trim().starts_with('.')
+            && (!self
+                .js_ts_exports
+                .get(&caller.file)
+                .is_some_and(|exports| exports.esm_named_imports.contains(&binding.local))
+                || !matches!(&site.local_binding,
+                crate::call_graph::JsLocalBinding::Unproven(reason) if reason == "import"))
+        {
+            return Ok(Vec::new());
+        }
+        let Some(candidate_file) =
+            self.resolve_js_ts_member_module(&binding.module_path, &caller.file)
+        else {
             return Ok(Vec::new());
         };
         let Some(resolved) = self
@@ -3785,8 +3795,16 @@ impl CallGraph {
         else {
             return Ok(Vec::new());
         };
+        if !binding.module_path.trim().starts_with('.') && resolved.via_unresolved_star {
+            return Ok(Vec::new());
+        }
         if resolved.wrapped && !site.jsx_element {
             return Err(DropReason::WrappedExportNonJsx);
+        }
+        // New alias authority requires a source-backed callable span. Existing
+        // relative/CJS and may-call fallback semantics are not widened by P1.
+        if !binding.module_path.trim().starts_with('.') && resolved.span.is_none() {
+            return Ok(Vec::new());
         }
         let ids: Vec<&FunctionId> = match self.functions.get(&resolved.local_name) {
             Some(ids) => ids

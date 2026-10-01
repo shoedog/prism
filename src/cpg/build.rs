@@ -620,6 +620,7 @@ impl CodePropertyGraph {
             // P4: JS/TS export-fact resolution (re-export chains/barrels) is
             // ALSO whole-program derived — recompute after merge, same
             // rationale as the Go passes above.
+            cached_cg.apply_js_paths(scope_inputs);
             cached_cg.apply_js_export_resolution();
             // Match full construction: recompute the remaining indirect passes,
             // including Go B1 Level-3 callbacks, after every whole-program

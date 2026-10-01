@@ -57,14 +57,11 @@ pub(crate) fn scoped_caller_site_match_count(
             // barrels — resolve it through `js_ts_resolved_exports` (the same
             // typed facts R4c itself consults) to the real local name before
             // comparing, instead of assuming member == target_name.
-            let js_ts_resolved_match = crate::call_graph::resolve_js_ts_relative_module(
-                &b.module_path,
-                &site.caller.file,
-                &cg.indexed_files,
-            )
-            .and_then(|candidate_file| cg.js_ts_resolved_exports.get(&candidate_file))
-            .and_then(|exports| exports.get(member))
-            .is_some_and(|resolved| resolved.local_name == target_name);
+            let js_ts_resolved_match = cg
+                .resolve_js_ts_member_module(&b.module_path, &site.caller.file)
+                .and_then(|candidate_file| cg.js_ts_resolved_exports.get(&candidate_file))
+                .and_then(|exports| exports.get(member))
+                .is_some_and(|resolved| resolved.local_name == target_name);
             if member == target_name || js_ts_resolved_match {
                 count += 1;
             }
