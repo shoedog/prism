@@ -188,3 +188,11 @@ Generated controls, packet scripts and evidence excluded. No new slice/restart.
 
 Questions the owner owes an answer to: None. Operational controller custody
 and private F are pending; no semantic exception is recommended.
+
+## Controller F acceptance r4 (final plan fold; aggregates only; 2026-10-01)
+
+- Prototype: `298006b3` (cumulative `19bbbb1e`) vs `915fca43`. Sites: 13,299 on base and on head.
+- Changed rows: **4**, Exact → NameOnly `import_qualified`, edge kept.
+- Lost targets: 0. Export counters changed: 0.
+- The result is identical to r2 and r3.
+- Spec review: Opus r1 FIX 4W/5S folded; r2 (cap) FIX 2W/2S converging, folded by the planner and verified by the controller, with no third plan round.
