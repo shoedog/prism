@@ -117,5 +117,23 @@ for e in ['jsx','tsx']:
  add('C82-import-forward-unwritten',e,paths={'@lib':['lib/barrel']},files={'lib/barrel.'+e:"import { real } from './real';\nexport { real };\n"})
  add('C83-import-forward-written-declaration',e,paths={'@lib':['lib/barrel']},files={'lib/barrel.'+e:"import { real } from './real';\nexport { real };\n",'lib/real.'+e:'export function real() { return 1; }\nreal.displayName = "real";\n'})
  add('C84-import-forward-unwritten-variable',e,paths={'@lib':['lib/barrel']},files={'lib/barrel.'+e:"import { real } from './real';\nexport { real };\n",'lib/real.'+e:'export const real = () => { return 1; };\n'},expected='base')
+ # Post-cap W1 residual: both target grammars, including literal-file exemptions.
+ for label,suffix,sibling in [('C85-tsx-ts-priority','tsx','ts'),('C86-jsx-js-priority','jsx','js')]:
+  app='pkg/app.'+suffix
+  add(label,e,app=app,files={'pkg/tsconfig.json':near(),'pkg/app.'+sibling:'export const other = 0;'},expected='base')
+  add('C88-files-priority-exempt-'+suffix,e,app=app,extra={'files':[app],'include':[]},files={'pkg/app.'+sibling:'export const other = 0;'})
+ for suffix in ['js','jsx']:
+  add('C89-declaration-js-exception-'+suffix,e,app='pkg/app.'+suffix,files={'pkg/app.d.ts':'export declare const other: number;\n'})
+# Scenario O from the confirmation: all three alias calls and the exact wrong target.
+o=root/'C87-scenario-O';o.mkdir(exist_ok=True)
+payload={'pkg/tsconfig.json':json.dumps({'compilerOptions':{'allowJs':True,'jsx':'preserve','moduleResolution':'node','paths':{'@u':['wrong/util.ts']}},'include':['**/*']}),
+ 'pkg/src/app.ts':"import { f } from '@u';\nexport function run() { f(); }\n",
+ 'pkg/src/app.tsx':"import { f } from '@u';\nexport function run() { f(); }\n",
+ 'pkg/src/b.js':'export const other = 0;\n',
+ 'pkg/src/b.jsx':"import { f } from '@u';\nexport function run() { f(); }\n",
+ 'pkg/wrong/util.ts':'export function f() { return 1; }\n'}
+for p,s in payload.items():
+ q=o/p;q.parent.mkdir(parents=True,exist_ok=True);q.write_text(s)
+cases.append({'case':o.name,'expectation':'mixed','files':list(payload)})
 (root/'manifest.json').write_text(json.dumps(cases,indent=2))
 print('scenarios',len(cases))

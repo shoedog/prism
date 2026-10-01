@@ -30,10 +30,16 @@ for row in aliases:
    if not row['tsserver_disagreement'] or row['config']!=expected:oracle_errors.append((case,'independent ProjectService ownership control failed'))
  if case.startswith(('C81-','C84-')) and row['refusal_reason']!='IMPORT_FORWARD_NOT_FORWARDABLE':oracle_errors.append((case,'written import forward reason missing'))
  if case.startswith(('C82-','C83-')) and row['refusal_reason']=='IMPORT_FORWARD_NOT_FORWARDABLE':oracle_errors.append((case,'unwritten import forward falsely classified'))
+ if case.startswith(('C85-','C86-')) or (case=='C87-scenario-O' and row['key'][0].endswith(('app.tsx','b.jsx'))):
+  if row['config'] is not None or row['target'] is not None or row['recoverable']:
+   oracle_errors.append((case,'priority-dropped file incorrectly owns a configured alias'))
 assert not oracle_errors, json.dumps({'oracle_contract_violations':oracle_errors})
 assert len(classified)==len(changes)
 assert all(c['class'] in ('CORRECT_STATIC_BINDING','CORRECT_STATIC_REFUSAL') or (c['class']=='UNPROVEN' and c['key'][0].startswith('C80-') and c['oracle']['tsserver_disagreement']) for c in classified), 'unexpected uncertified changed row'
 raw_a,raw_b=raw_load(base),raw_load(head)
+for k in a:
+ if k[0].startswith('C87-scenario-O/') and k[0].endswith(('app.tsx','b.jsx')):
+  assert raw_a[k]==raw_b[k], ('scenario O dropped caller', k)
 for c in changes:counts[c['key'][0].split('/')[0]]=counts.get(c['key'][0].split('/')[0],0)+1
 for case in json.loads((root/'manifest.json').read_text()):
  n=counts.get(case['case'],0)

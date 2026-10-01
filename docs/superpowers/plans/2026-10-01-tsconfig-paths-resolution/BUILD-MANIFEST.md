@@ -1,68 +1,74 @@
-# Lane-P build manifest — capped Opus round-2 targeted fold
+# Lane-P build manifest — W1 extension-priority residual
 
-MEASURED: plan HEAD **71a10b85**, prototype HEAD **88b61108**, initial prototype tree equals reviewed **060092b4**. The fold has three incremental prototype paths and 39 cumulative paths against **e61d52b8c6dfea9ad8db868797122a0bd067d27d**. Current receipts: **target/paths-plan/spec-r2/evidence/**. No Git writes, installs, network/provider use or corpus F reads.
+MEASURED: plan HEAD **2b3b9970**, writable prototype HEAD **32a5e893**; initial prototype tree **099d0e6e9e97cf7c81a2338fb15fe6a34b7b990f** exactly equals **bab21e62**. Both trees were clean before this fold. Three incremental prototype paths; **40 cumulative paths** against **e61d52b8c6dfea9ad8db868797122a0bd067d27d**. Current receipts: **target/paths-plan/extension-priority/evidence/**. No Git writes, installs, network/provider use or F reads.
 
-READ: Opus round 2 is FIX (2 WRONG / 4 SMELL). This is the disclosed targeted fold at the two-round cap, with no restart or additional review. **Fix A applies. S6 remains an owner question.**
+READ: spec-confirm-opus.md found **1 WRONG / 0 SMELL**, a closed W1 extension-priority residual after the review cap. User authorized this targeted fold. No restart or additional independent review round; implementation/measurement cap was three rounds. The production change passed its first GREEN. The exhaustive table harness required two bounded expectation corrections, fully enumerated in hypothesis-probe-result.log; no production retry resulted from those setup assertions. **Fix A and owner-parked S6/OQ2 remain unchanged.** Previous spec-r2 receipts and the bab21e62 patch are historical.
 
-MEASURED pre-fold cost: the old root-file model selects ancestors for 102 X alias sites in 17 files; the actual reviewed kernel admits modules for **94**, already refusing 8. **89 are changed gains**, so Fix B would remove 89 X gains and exceeds the controller threshold. The 156 original controls have 12 root-model sites, of which the kernel admits **8**, all changed gains (4 already refused). Receipts: X/controls-fallthrough.json, X/controls-production-fallthrough.json and before-kernel/*-resolutions.json. Fix B was halted before any production edit.
+## Source and binary binding
 
-MEASURED: W1-r2 refuses wildcard MJS/MTS/declaration-MTS, CJS/CTS/declaration-CTS, minified JS, dot-prefixed basenames and include segments starting with ?. Explicit files retain the existing exemption. Fix A refuses an excluding/not-listed tsconfig only when it has a sibling jsconfig or enables disableSolutionSearching. Including tsconfig still wins. S7 takes ownership from real offline TypeScript 5.9.3 ProjectService.getDefaultProjectForFile; root-file selection is only a cross-check. Any ownership disagreement is UNPROVEN. S9 reports requested import-forward terminal classes, member-write detail codes, and finite membership/star/syntax classes. These are independent explanations, not instrumented production reasons.
-
-## Source and binaries
-
-MEASURED: cumulative patch SHA-256 **56345833cc6fc5ff22806507347fbe29998419f6e988a96a5763cf1056b8e0dd**. target/paths-proto/P1.diff and tracked prototype/P1.diff.txt contain identical bytes. A fresh Gitless archive replay on e61d52b8 reproduces all **39** owned file hashes, and **1362 non-owned source/test/eval/build inputs** match that base. source-binding.json records the exact parent hash or required absence and resulting hash per owned path. Cache versions remain **105/61** on parent **104/60**.
+MEASURED: cumulative P1.diff SHA-256 **92e5c1212915f12049fdf3d02e583e1df572a4c415d58201dc59cf23cbb8da95**. `target/paths-proto/P1.diff`, extension-priority/P1.diff and tracked `prototype/P1.diff.txt` have identical bytes. Fresh Gitless archive replay on e61d52b8 reproduces all **40** owned hashes; **1362 non-owned source/test/eval/build inputs** equal base. source-binding.json records each parent hash or required absence and the resulting hash. Cache versions remain 105/61 on parent 104/60.
 
 | Artifact | SHA-256 |
 |---|---|
-| Cumulative P1.diff | 56345833cc6fc5ff22806507347fbe29998419f6e988a96a5763cf1056b8e0dd |
-| P1-owned-files.tar.gz | ff174ef83e7b3a14e65d088a9c41e0adf0934f7319d2faaeb2ee83a0bd8ba18d |
-| source-hashes-frozen.json | 48db87f0b46c41117e09a533e0e00d4566bfcffd6aa08d9b73fa4936ccc46128 |
-| source-binding.json | 4c97c49473bd83db5d9d2edb792a5ce216c9e341dcd53d6fae35dbeda06c615d |
-| Final head/prism | a8456c670f1cbbf72891e3772cb6087ffbbe077e2e849b4761e7bb50c35dde03 |
+| P1.diff | 92e5c1212915f12049fdf3d02e583e1df572a4c415d58201dc59cf23cbb8da95 |
+| P1-owned-files.tar.gz | b51c277201dbf8e582a1ce86e1e8e26a3c5a35fb2aec9352ff45e50525b23b91 |
+| source-hashes-frozen.json | 36a4b0f88ff6b59ca7791a72cb083c0f930163897887d481079e3bd54de34483 |
+| source-binding.json | 71b4fbc476c8e209280b1bf444d5c72b2a757c9a6a7fc3bcf9ae9cbec371ef83 |
+| Immutable head/prism | 0c8de8336cc05f8678fafa303a468935c6cbc5ec8cfd5022e231b7c92ff5eb12 |
 | Offline TypeScript 5.9.3 | 3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675 |
 
-MEASURED: final embedded binary version is `slicing 3.1.2 (88b61108f5b3-dirty)`; a dirty Git identity alone is not a source binding. Binary paths and hashes are in binary-binding.json. Physical additions from Git numstat are **900 production / 714 test-code / 1916 regression-data / 70 Tier-A fixture lines**; integration source is 713 lines. This physical-line method replaces earlier code-only size prose; no LOC cap exists.
+MEASURED: binary version `slicing 3.1.2 (32a5e8933889-dirty)`; the dirty Git identity is supplemented by the source hashes, replay and release-build receipt. CONTROLLER-paths.sh defaults to `target/paths-plan/extension-priority/head/prism`. before/prism was rebuilt here from the pre-change production source at 32a5e893 before editing the barrier. Base prism and import-facts binaries retain inherited rebind-e61 build provenance: their hashes match spec-r2 and both were freshly executed in this environment; they were not rebuilt. binary-binding.json binds all four executables.
 
-## Remeasurement
+MEASURED physical additions against e61d52b8: **914 production / 756 test-code / 2166 regression-data / 70 Tier-A fixture lines**. Integration source has 755 physical lines; size.json has per-path counts. No LOC cap is implied.
 
-| Corpus | Sites | Changed rows and classes | Ownership-disagreement sites / files | Changed disagreements |
-|---|---:|---|---:|---:|
-| X | 19219 | 3121 / {'CORRECT_STATIC_BINDING': 3121} | 6 / 2 | 0 |
-| R | 953 | 0 / none | 144 / 17 | 0 |
-| T | 61712 | 0 / none | 15 / 5 | 0 |
+## Priority port and RED/GREEN
 
-MEASURED: all public keys and row metadata are unchanged. X retains ten recoverable refusals: **8 NONRELATIVE_EXPORT_HOP + 2 IMPORT_FORWARD_NOT_FORWARDABLE**, **0 UNCLASSIFIED**. X's six ownership disagreements are unchanged rows; R/T disagreements also keep base. public/FINAL-SUMMARY.json binds expected rows, 649/55/722 input files, hashes and classifications.
+READ: TypeScript 5.9.3 `typescript.js:22530–22544` defines allSupportedExtensions; `43831–43843` applies wildcard dedupe; `43966–43997` implements higher/lower-priority handling. Production ports the three groups generically, chooses the longest compound suffix and barriers earlier same-stem occupants. `.d.ts` does not suppress `.js`/`.jsx`; exact `files` entries remain authoritative. Existing conservative cross-group MJS/CJS versus TS/TSX barriers remain. Occupants need not themselves be matched, so this is a conservative proof barrier.
 
-MEASURED: **184 controls / 198 sites / 63 changes**: **59 CORRECT_STATIC_BINDING + 2 CORRECT_STATIC_REFUSAL + 2 UNPROVEN**. The two UNPROVEN rows are the S6 transitive C80 controls, explicitly pending OQ2 rather than waived. Every declared Option-K preservation control equals the complete base row. All **18 new matcher/Fix-A barrier rows** mint Exact before the fold and preserve base after it (r2-red-population.json, red-test.log, green-test.log). J/C78 independently owns the sibling jsconfig, K/C79 is inferred, N/C80 owns the nearer transitive project in both target grammars.
+MEASURED: **four C85/C86 RED rows**, one missing pair in each target grammar, and **two scenario-O dropped callers** mint Exact on the freshly rebuilt pre-change binary and equal complete base rows after the fix. Both pair tests fail on pre-change production and all **27 paths integration tests** pass after. C87 scenario O retains its included app.ts Exact target `pkg/wrong/util.ts:f`, while app.tsx and b.jsx have inferred ProjectService ownership, undefined alias targets and complete base preservation. C88 covers both literal-file exemptions in both target grammars; C89 covers both declaration/JavaScript exceptions. priority-red-population.json and RED/GREEN logs retain behavioral outputs.
 
-MEASURED: **28/28 kernel mutants killed**, including one per new matcher barrier and one per Fix-A condition; **11/11 integration mutants killed**, each selecting one test with an actual failing assertion. Kernel dependencies are the matching release artifacts. Setup, missing-file, wrapper/cache and fixture-construction failures are inadmissible and recorded in hypothesis-probe-result.log; no such status is counted as a behavioral result.
+MEASURED: extension_priority_check.cjs extracts the compiler's actual table and checks every ordered pair with wildcard and literal membership in both target grammars: **64 cases; 26 actual TS drops refused; 32 literal exemptions; four declaration/JavaScript exceptions; two conservative declaration barriers; zero errors**. The pre-change source-bound kernel fails **eight rows** across all four changed priority behaviors. TypeScript's suffix stop only special-cases .d.ts: its sorted walk retains .d.cts beside .cts, while later .mts removes .d.mts. The final generic barrier conservatively refuses the retained declaration pair. No exact TS membership-equivalence claim is made.
+
+## Fresh remeasurement
+
+| Corpus | Sites | Changed rows | Classes | Ownership disagreements sites / files | Changed disagreements |
+|---|---:|---:|---|---:|---:|
+| X | 19219 | 3121 | {'CORRECT_STATIC_BINDING': 3121} | 6 / 2 | 0 |
+| R | 953 | 0 | {} | 144 / 17 | 0 |
+| T | 61712 | 0 | {} | 15 / 5 | 0 |
+
+MEASURED: **X/R/T = 3121 / 0 / 0**, all public keys and metadata unchanged. X retains **8 NONRELATIVE_EXPORT_HOP + 2 IMPORT_FORWARD_NOT_FORWARDABLE**, **0 UNCLASSIFIED**. Input hashes, positional target identities, expected rows and binary hashes are in public/FINAL-SUMMARY.json and its linked artifacts. Unchanged ownership disagreements remain unchanged rows.
+
+MEASURED: **197 controls / 213 sites / 72 changes**: **68 CORRECT_STATIC_BINDING + 2 CORRECT_STATIC_REFUSAL + 2 UNPROVEN**. Every Option-K preservation control equals the complete base row. The two UNPROVEN gains are existing C80/S6, pending OQ2; they are not waived or certified. Scenario O's dropped callers preserve base.
+
+MEASURED: **30/30 kernel mutants killed**, including M29 (.tsx/.ts order) and M30 (.jsx/.js order), each with two target-grammar witnesses. M14/M16/M22/M23 were rebound to the generic implementation. **11/11 integration mutants killed**, each compiling, selecting one test and producing an intended assertion failure. Separate mutation target directories avoid suite interference. Setup assertions and guessed optional-path failures are recorded as inadmissible in the hypothesis log, not counted as behavioral results.
 
 | Full suite | Passed | Failed | Ignored | Groups | Log SHA-256 |
 |---|---:|---:|---:|---:|---|
-| default | 4811 | 0 | 1 | 29 | bcd076cbb00256979aeb610fe24b4289024413499c4102c814b7865a0881f1bf |
-| mcp | 5004 | 0 | 1 | 31 | 15d79870f5855dbc80eb9fdd1d1ccb7f0047ddf0039c351d9a6819c6b064966e |
+| default | 4814 | 0 | 1 | 29 | 5793b24e4c9d82eff4fd52a34c17584b55525db18252eb747c78f944cebb4eb5 |
+| mcp | 5007 | 0 | 1 | 31 | 584a7d20f7d9e3061f09ba0852737e6615f44c49fae4e4886e797390d9ccc507 |
 
-MEASURED: Tier-A matrix **170 ok / 0 regressions** after a release rebuild in the actual prototype. The uv wrapper failed on its protected cache, so installed Python 3.12 ran the same tier_a.cli directly without installs or harness/baseline edits. Formatter and diff checks pass; MCP library clippy passes with **139 warnings**. **411 S1b controls / 639 sites / 1,234 artifacts are byte-identical to e61d52b8 main**, and both summaries equal the committed r5 reference (**b550a2c7466fdbe4d331f93843d44f0bfcfb6c62febf81f115c86a9ab64dd5ca**). Base/facts binaries have inherited rebind-e61 build provenance, were hash-checked and freshly executed in this environment; they were not rebuilt this fold.
+MEASURED: the ignored test in each suite is `resolution_test::slice_elem_variant_reserved` (SliceElem reserved until a future slice). **Tier-A matrix 170 ok / 0 regressions** after an immediately preceding release rebuild in the actual prototype, using installed Python 3.12 `-m tier_a.cli` without uv cache writes or installs. Formatter and both diff checks pass; scoped MCP-library clippy passes with **139 warnings**. **411 S1b-4 controls / 639 sites / 1234 artifacts are byte-identical to e61d52b8**, and both summaries equal the committed r5 reference SHA-256 **b550a2c7466fdbe4d331f93843d44f0bfcfb6c62febf81f115c86a9ab64dd5ca**.
 
-MEASURED: controller wrapper defaults to the final immutable spec-r2 head and returns independent ownership-disagreement, refusal and member-write aggregates. Public synthetic smoke emits one JSON object, empty wrapper stderr, **0 UNCLASSIFIED**, and deliberately exits **1** on the two S6 UNPROVEN gains. That is evidence the rejection gate remains active, not private acceptance. actual_F_run=false; never interpret the wrapper's fixed corpus label on this synthetic run as an F receipt.
+MEASURED: updated controller wrapper smoke uses only these public synthetic controls, emits one JSON object with empty wrapper stderr, 0 UNCLASSIFIED and the fresh head hash, and deliberately exits **1** for the two S6 UNPROVEN gains. **actual_F_run=false**. Its fixed corpus label is not an F receipt.
 
 ## Not verified / remaining authority
 
-READ / UNKNOWN: corpus F and its 119 prior unclassified refusals were never opened or remeasured; the controller must run the updated wrapper. S6's transitive ownership authority remains open under OQ2, and synthetic changed rows remain UNPROVEN. Owner confirmation, independent acceptance, commits/push/merge and P2 are outside this completed fold. All-features Cargo, Tier-A quick/full multi-corpus, dedicated cache acceptance, base full suites, runtime mutation/security/concurrency and large-tree performance were not rerun. Quick has historical pin/probe validity failures; no fresh quick-validity claim or baseline change is made. Requested default/MCP suites, matrix, mutants and S1b identity were freshly executed.
+UNKNOWN: **F was never opened or remeasured**; the controller must privately run the updated wrapper and rebind its aggregates. S6/OQ2 remains owner-parked. No new independent review, owner acceptance, Git commit/push/merge or P2 execution occurred. **All-features/detached-owner-audit Cargo, Tier-A quick/full multi-corpus, dedicated cache acceptance, base full suites, dedicated runtime mutation, security, concurrency stress and large-tree performance checks were not rerun.** Requested default/MCP suites, matrix, mutants, public controls/rows and S1b identity were all freshly executed. The prior quick pin/probe problems are historical, not a fresh failure or validity claim.
 
 ## Controller commit files and messages
 
-Prototype incremental files from 88b61108 (initially tree-equal to reviewed 060092b4):
+Prototype incremental files from writable HEAD 32a5e893 (initial tree equals bab21e62):
 
 ```text
 src/js_paths.rs
 tests/integration/js_paths_test.rs
-tests/integration/fixtures/js_paths_r2.json
+tests/integration/fixtures/js_paths_priority.json
 ```
 
-Message: **fix(paths): refuse matcher doubts and targeted ownership ambiguity**. Controller binds the resulting artifact as **proto/tsconfig-paths-final @ <controller fills>**. A fresh e61d52b8 replay commits all 39 cumulative paths; do not apply the cumulative patch on an integrated prototype.
+Message: **fix(paths): apply TypeScript root-file extension priorities**. Controller must commit/re-squash and fill the new `proto/tsconfig-paths-final` SHA in IMPLEMENTOR. A fresh e61d52b8 replay owns all 40 cumulative paths; never apply it to an integrated prototype.
 
-Plan files from 71a10b85:
+Plan files from 2b3b9970:
 
 ```text
 docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/BUILD-MANIFEST.md
@@ -74,12 +80,10 @@ docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/REVIEWER.md
 docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/SPEC.md
 docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/probes/CONTROLLER-paths.sh
 docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/probes/controls_gen.py
-docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/probes/final_receipts.py
+docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/probes/extension_priority_check.cjs
 docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/probes/mutants.py
-docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/probes/oracle.cjs
-docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/probes/ownership_cost.cjs
 docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/probes/verify_controls.py
 docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/prototype/P1.diff.txt
 ```
 
-Message: **docs(paths): fold capped Opus review and independent ownership evidence**. No commits were made. Root VERIFICATION.md is ignored local custody and mirrors this manifest; tracked patch, source/archive and plan snapshots retain the fold. SNAPSHOT-HASHES.json indexes local custody; controller commits/external backup remain pending.
+Message: **docs(paths): refresh extension-priority evidence and dispatch**. No commits were made. root VERIFICATION.md mirrors this current manifest; local owned-source, plan and evidence archives plus SNAPSHOT-HASHES.json preserve custody. Controller commits/external backup remain pending. Evidence archive omits copied mutant repo trees and executable drivers; source copies, behavioral failure logs, changes and summaries remain, and before/head binaries are retained separately.

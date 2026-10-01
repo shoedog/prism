@@ -1,78 +1,79 @@
-# Handoff — Lane-P capped Opus round-2 fold
+# Handoff — Lane-P W1 extension-priority residual fold
 
-**Written:** 2026-10-01T20:58:21.259146+00:00 · **By:** Lane-P planner · **Provider:** codex
-**Workspace:** prism-paths-plan / prism-paths-proto · **Measured state:** [MEASURED] plan 71a10b85 / prototype 88b61108, DIRTY; initial prototype tree equals reviewed 060092b4 · Probe git rev-parse/status and tree comparison · Output final-checks.json.
-**Predecessor:** supplied spec-r2-opus.md and controller dispositions
+**Written:** 2026-10-01T21:32:12.262958+00:00 · **By:** Lane-P planner · **Provider:** codex
+**Workspace:** prism-paths-plan / prism-paths-proto · **Measured state:** [MEASURED] plan 2b3b9970 / prototype 32a5e893, DIRTY; initial prototype tree equals bab21e62. Probe git rev-parse/status/tree binding; output source-binding.json and final-checks.json.
+**Predecessor:** supplied spec-confirm-opus.md
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0.
-**Provenance:** written live using steering bootstrap/handoff-template.md. [MEASURED] rerun by writer; [INHERITED] controller authority/review. No relevant memory used or updated.
+**Provenance:** written live using prompts-skills-steering/bootstrap/handoff-template.md. [MEASURED] claims rerun here; [INHERITED] claims supplied by user/review. No relevant memory used or updated.
 
 ## 0. Gating facts — settle these before starting anything below
 
-(a) Lane ownership: [INHERITED] planner owns this fold; no subagents dispatched — RESOLVED.
-(b) Custody exposure: [MEASURED] three incremental prototype paths / fifteen plan paths, source/plan snapshots indexed in spec-r2/SNAPSHOT-HASHES.json; no git writes — controller commit/external backup OPEN.
-(c) In flight: [MEASURED] requested local runs finished; no irreversible operation started — RESOLVED.
-(d) Authorization granted but not exercised: [INHERITED] “No git writes.” “Never open corpus F.” Fix B threshold selects Fix A; S6 remains an owner question.
+(a) Lane ownership: [INHERITED] user assigns this planner; no subagents dispatched — RESOLVED.
+(b) Custody exposure: [MEASURED] three incremental prototype / thirteen plan files; source, plan and evidence archives indexed by extension-priority/SNAPSHOT-HASHES.json — local snapshot RESOLVED, controller commit/external backup OPEN.
+(c) In flight / irreversible: [MEASURED] requested local runs finished; no irreversible operation — RESOLVED.
+(d) Authorization granted but not exercised: [INHERITED] “No git writes.” “Never open F.” User authorizes this residual and requested remeasurement; private execution and new authority remain outside the lane.
 
 ## 1. Resume order
 
-1. From prism-paths-plan, read docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/BUILD-MANIFEST.md and spec-r2/SNAPSHOT-HASHES.json; hash-check the final patch and immutable binary. No build is needed merely to bind custody.
-2. Controller preserves/commits the explicit files and fills the final branch SHA in IMPLEMENTOR.
-3. Controller runs CONTROLLER-paths.sh privately and returns aggregates; settle existing OQ2/S6 before claiming all changed rows certified.
+1. Read BUILD-MANIFEST.md and target/paths-plan/extension-priority/SNAPSHOT-HASHES.json; hash-check P1.diff and head/prism. Expected hashes are below. Seconds, no rebuild required to bind custody.
+2. Controller commits the three incremental prototype paths (or replays all40 on fresh e61d52b8), commits thirteen plan paths, and fills the new final SHA in IMPLEMENTOR.
+3. Controller runs updated CONTROLLER-paths.sh privately and returns only aggregates; resolve existing OQ2/S6 before claiming all gains certified.
 
-**STOP conditions:** parent/source/hash drift, unexpected changed-row class, or broader scope. Never open F in this lane or apply the cumulative patch to integrated HEAD.
+**STOP conditions:** base/source/hash drift, unexpected changed class or broader scope. Never apply cumulative patch to integrated HEAD. Implementation/measurement cap was three rounds; no additional review round.
 
 ## 2. State ledger
 
 | Item | State | Evidence / correction |
 |---|---|---|
-| Cost and fix choice | done | [MEASURED] 94 module-admitted X sites / 89 gains; original controls 8 / 8; Fix A selected |
-| Matcher / targeted ownership | done | [MEASURED] 18/18 pre-change Exact rows, Rust RED/GREEN, M22–M28 |
-| Oracle / classes | done | [MEASURED] ProjectService J/K/N, public FINAL-SUMMARY; X/R/T 3121/0/0 |
-| Controls / mutants | done | [MEASURED] 184/198/63; 59 binding + 2 refusal + 2 UNPROVEN; 28 kernel / 11 integration killed |
-| Suites / Tier-A / S1b | done | [MEASURED] 4811 default, 5004 MCP, 1 ignored each; matrix 170; 411 S1b controls byte-identical |
-| Patch and source | done | [MEASURED] 39-path exact e61d52b8 replay; 1362 non-owned inputs equal base |
-| S6 / private acceptance | pending | [INHERITED] owner OQ2 and controller F run remain open |
+| Generic priority table | done | [MEASURED] pinned TS22530-22544,43966-43997; source-bound eight-row kernel RED and64-case GREEN |
+| Missing pairs / scenario O | done | [MEASURED] four C85/C86 plus two O wrong Exact rows before; complete base after; C88/C89 exemptions |
+| Public rows / controls | done | [MEASURED] FINAL-SUMMARY3121/0/0;197/213/72;68 binding+2 refusal+2 S6 UNPROVEN |
+| Mutants / suites / matrix | done | [MEASURED]30 kernel,11 integration killed;4814 default,5007 MCP,0 failures,1 ignored each;matrix170/0 |
+| S1b / patch custody | done | [MEASURED]411/639/1234 byte-identical;40 owned paths replay exactly;1362 non-owned inputs equal base |
+| Controller / owner authority | pending | [INHERITED] F private run, new commit/dispatch SHA and existing OQ2/S6 remain open |
 
 ## 3. Corrections to standing documents and memory
 
 | Location | Stale or false assertion | Correction |
 |---|---|---|
-| SPEC/OQ/IMPLEMENTOR/REVIEWER | shared ownership oracle, always-ignore sibling jsconfig, old dispatch, pending round 2 | [MEASURED] real ProjectService, Fix A / S6 question, final branch with controller SHA, completed capped fold |
-| BUILD/MEASUREMENTS/VERIFICATION/controller/patch | old source/receipt/body as current | [MEASURED] spec-r2 source, binary, patch, updated aggregate wrapper and current counts |
+| BUILD/MEASUREMENTS/SPEC/IMPLEMENTOR/REVIEWER/OQ/HANDOFF | W1 residual closure, prior source/counters/hash | [MEASURED] updated to current generic table, extension-priority receipts,40 paths and fresh counters |
+| Controller / P1 / VERIFICATION | old head binary and patch | [MEASURED] new immutable head and cumulative hash bound in manifest |
 | Memory | None | [INHERITED] no update authorized; no relevant memory used |
 
 ## 4. Open work
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Durable commit/backup | pending | controller commit listed paths and preserve snapshots externally | Git boundary | BUILD-MANIFEST |
-| 2 | Private corpus | pending | controller run updated wrapper and fold aggregates | no planner access | CONTROLLER-paths.sh |
-| 3 | Transitive authority | pending | owner answers OQ2/S6 with 89-X-gain cost | owner | OQ2/C80 |
-| 4 | Broader checks/P2 | parked | only with separate scope/authority | excluded from this fold | BUILD exclusions |
+| 1 | Durable commit/external custody | pending | Controller commits listed files and preserves archives externally | Git boundary | BUILD-MANIFEST |
+| 2 | Private corpus | pending | Controller runs updated wrapper and returns aggregates | No planner F authority | CONTROLLER-paths.sh |
+| 3 | Transitive ownership authority | parked | Owner answers OQ2/S6 | Owner | Existing C80 |
+| 4 | Broader checks / P2 | parked | Separate scope and authority | Excluded here | BUILD exclusions |
 
 ## 5. Invariants and traps — do not do these
 
-- No Git writes or corpus F reads. Public wrapper smoke is synthetic even though the wrapper's fixed corpus label says F.
-- Fix A only; ordinary excluding nearer configs still allow ancestor fallback. S6 is not closed.
-- Never certify an ownership disagreement: the two C80 changed rows remain UNPROVEN and the wrapper rejects them.
-- Property writes alone do not imply S1b refusal for named function declarations; use terminal class plus requested import-forward shape and separate member-write details.
-- uv's protected cache failed once; use installed Python directly, without an install or another cache-write retry.
-- Base binary source provenance is inherited, although its executions here are fresh. Historical quick/cache/all-features receipts are not current checks.
+- No Git writes or F reads. Synthetic wrapper smoke is public even though its fixed label says F.
+- Exact explicit files exempt wildcard dedupe; .d.ts must not suppress .js/.jsx.
+- Longest declaration suffix avoids treating .d.ts as .ts. The generic barrier may conservatively refuse unmatched siblings and .d.cts/.cts; do not claim exact TS membership equality.
+- TS retains .d.cts/.cts but deletes .d.mts when later .mts is walked; actual fileNames are the table probe's authority.
+- Setup expectations are inadmissible behavioral evidence; complete table errors were enumerated before the third capped probe.
+- S6 remains open; the wrapper still rejects its two UNPROVEN gains.
+- Use installed Python directly for matrix, with a preceding release rebuild; do not retry protected uv cache writes.
+- Base executable provenance is inherited; executions here are fresh. Dedicated cache, base full suites and quick/full/all-features remain unverified this fold.
 
 ## 6. Identifiers
 
 | Item | Verbatim |
 |---|---|
-| Plan / writable prototype HEAD | 71a10b85 / 88b61108 |
-| Reviewed source / cumulative base | 060092b4 / e61d52b8 |
-| Patch SHA-256 | 56345833cc6fc5ff22806507347fbe29998419f6e988a96a5763cf1056b8e0dd |
-| Head SHA-256 | a8456c670f1cbbf72891e3772cb6087ffbbe077e2e849b4761e7bb50c35dde03 |
-| Receipts | target/paths-plan/spec-r2/evidence |
-| Prototype commit message | fix(paths): refuse matcher doubts and targeted ownership ambiguity |
-| Plan commit message | docs(paths): fold capped Opus review and independent ownership evidence |
+| Plan / writable prototype | 2b3b9970 / 32a5e893 |
+| Initial reviewed tree / parent | bab21e62 / e61d52b8 |
+| P1.diff SHA-256 | 92e5c1212915f12049fdf3d02e583e1df572a4c415d58201dc59cf23cbb8da95 |
+| Head SHA-256 | 0c8de8336cc05f8678fafa303a468935c6cbc5ec8cfd5022e231b7c92ff5eb12 |
+| Receipts | target/paths-plan/extension-priority/evidence |
+| Prototype commit message | fix(paths): apply TypeScript root-file extension priorities |
+| Plan commit message | docs(paths): refresh extension-priority evidence and dispatch |
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED · claim: "the targeted matcher/Fix-A fold preserves public certified P1 gains while refusing the enumerated new barriers" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: spec-r2/evidence/hypothesis-probe-result.log, RED/GREEN, public classes, mutants and suite receipts. This does not close S6 or private acceptance.
+**§2c verdict:** SURVIVED · claim: "generic priority barriers keep base for every TypeScript priority-dropped caller while preserving public P1 gains" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: extension-priority/evidence/hypothesis-probe-result.log, table RED/GREEN, public/FINAL-SUMMARY.json, controls, mutants and suites.
 
-**Questions the owner owes an answer to:** [INHERITED] OQ2/S6 remains open because Fix B costs 89 X gains; other OQ1/OQ3/OQ4 slots remain pending. Controller private execution and commits are next, without a new automatic review round.
+**Questions the owner owes an answer to:** [INHERITED] existing OQ2/S6 and remaining OQ owner slots. No new question is required for this completed authorized residual fold; controller commits and private acceptance remain next.

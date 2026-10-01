@@ -26,3 +26,7 @@ READ: W1 uses TypeScript root-file membership on the bounded supported patterns,
 ## Round-2 controller dispositions at the cap
 
 READ: supplied spec-r2-opus.md is FIX (2 WRONG / 4 SMELL). Controller authorizes a disclosed targeted fold, with no new review round or restart. W1-r2 is covered by refuse-on-doubt matcher barriers and a mutant per barrier. W3 uses Fix A because pre-fold Fix B would remove 89 X gained rows; 8 original gained controls also rely on fall-through. S6 stays open under OQ2. S7 oracle ownership comes from getDefaultProjectForFile; root-file selection is only a cross-check. S8 dispatch starts at proto/tsconfig-paths-final with the controller's new SHA and parent e61d52b8. S9 independently identifies import-forward terminal classes and reports member writes as detail codes. F is controller-only and remains pending.
+
+## Post-cap W1 residual disposition
+
+READ: spec-confirm-opus.md found one residual WRONG; user authorized a generic TypeScript extension-priority table fold, controls including scenario O, two mutants and complete requested remeasurement. This is a closed targeted correction with no restart or additional review round. Current cumulative body has 40 paths and must receive a fresh controller commit/binary/F binding. Existing S6/OQ2 authority remains open; no private input was opened. Current receipts and counts are in BUILD-MANIFEST and MEASUREMENTS.

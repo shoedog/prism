@@ -2,15 +2,15 @@
 
 READ: planning continues under the controller interim OQ1–OQ4 dispositions in OQ-paths.md, pending owner confirmation. P1 implementation dispatch still requires fresh F aggregates, Opus plan approval and controller commit/authority binding. Read SPEC, OQ-paths, MEASUREMENTS and BUILD-MANIFEST.md. Use the retained bound TypeScript package path as TS_JS. READ: Opus round 1 returned FIX (2 WRONG / 5 SMELL), all dispositions are folded; round 2 returned FIX (2 WRONG / 4 SMELL); this is the disclosed targeted fold at the cap, with S6 parked for the owner. Review cap is two rounds; numeric LOC caps do not exist. Do not restart the prototype. Implementer starts from the controller-applied **cumulative P1.diff** off bound base `e61d52b8`, not from a rewrite.
 
-READ: controller fills `__PROTO_COMMIT__ = bab21e62`, owner answers and review dispositions before dispatch. Implementation parent is fixed to `e61d52b8`. If parent, scope or membership ruling differs, stop the dependent work and ask the controller; do not infer a ruling. Existing user authorization covers completing P1, tests and fixes within the answered scope, not P2, pushing or merging.
+READ: previous reviewed artifact was `proto/tsconfig-paths-final @ bab21e62`; controller must fill `__PROTO_COMMIT__ = __CONTROLLER_FOLDED_PROTO_COMMIT__` after committing this residual. Owner answers and dispatch authority remain with the controller. Implementation parent is fixed to `e61d52b8`. If parent, scope or membership ruling differs, stop the dependent work and ask the controller; do not infer a ruling. Existing user authorization covers completing P1, tests and fixes within the answered scope, not P2, pushing or merging.
 
 ## P1 dispatch and starting artifact
 
-READ: Sonnet starts from **`proto/tsconfig-paths-final` @ `bab21e62` (cumulative squash; tree equals the folded rebased checkout)**, after the controller commits this targeted fold. Implementation parent: **`e61d52b8`**. The planner's writable checkout is `proto/tsconfig-paths-rebased` @ `88b61108`, whose initial tree exactly equals the reviewed `proto/tsconfig-paths-final` @ `060092b4`; it now contains only the three incremental paths listed in BUILD-MANIFEST. Preserve that implementation body. Do not apply the cumulative patch on an already integrated prototype.
+READ: Sonnet starts from **proto/tsconfig-paths-final @ __CONTROLLER_FOLDED_PROTO_COMMIT__**, the controller-committed residual fold. Implementation parent: **e61d52b8**. Previous reviewed final was bab21e62. The planner writable prototype HEAD is 32a5e893, whose initial tree exactly equals bab21e62; the three incremental paths are in BUILD-MANIFEST. Preserve this body and never apply the cumulative patch to an integrated prototype.
 
-MEASURED: cumulative **39-path** `target/paths-proto/P1.diff` SHA-256 **`56345833cc6fc5ff22806507347fbe29998419f6e988a96a5763cf1056b8e0dd`** replays exactly on a Gitless `e61d52b8` archive. `target/paths-proto/source-hashes.json` and the archive bind the same owned files; `target/paths-plan/spec-r2/evidence/source-binding.json` also records each base hash or required absence. Earlier patches and receipts are historical. Use current BUILD-MANIFEST hashes.
+MEASURED: cumulative **40-path** `target/paths-proto/P1.diff` SHA-256 **`92e5c1212915f12049fdf3d02e583e1df572a4c415d58201dc59cf23cbb8da95`** replays exactly on a Gitless `e61d52b8` archive. `target/paths-proto/source-hashes.json` and the archive bind the same owned files; `target/paths-plan/extension-priority/evidence/source-binding.json` also records each base hash or required absence. Earlier patches and receipts are historical. Use current BUILD-MANIFEST hashes.
 
-READ: exact owned-file list (39 paths, relative to the prototype repository; also retained as the newline-delimited `P1-owned-files.txt`):
+READ: exact owned-file list (40 paths, relative to the prototype repository; also retained as the newline-delimited `P1-owned-files.txt`):
 
 ```text
 eval/fixtures/javascript/tsconfig_paths_positive/app.jsx
@@ -50,11 +50,12 @@ src/repo_loader.rs
 src/resolution.rs
 tests/integration/fixtures/js_paths_r1.json
 tests/integration/fixtures/js_paths_r2.json
+tests/integration/fixtures/js_paths_priority.json
 tests/integration/js_paths_test.rs
 tests/integration/main.rs
 ```
 
-ASSUMPTION: controller custody sequence: verify the final patch/archive/list hashes; check every parent file hash against `base_sha256` and absence for null base hashes; apply the cumulative patch in the new worktree; check every resulting owned file against `prototype_sha256`; commit only the listed paths and fill the dispatch placeholders. Stop if any path/hash/parent differs. Prototype commit recommendation: `fix(paths): refuse matcher doubts and targeted ownership ambiguity`. The planner performs none of these Git writes.
+ASSUMPTION: controller custody sequence: verify the final patch/archive/list hashes; check every parent file hash against `base_sha256` and absence for null base hashes; apply the cumulative patch in the new worktree; check every resulting owned file against `prototype_sha256`; commit only the listed paths and fill the dispatch placeholders. Stop if any path/hash/parent differs. Prototype commit recommendation: `fix(paths): apply TypeScript root-file extension priorities`. The planner performs none of these Git writes.
 
 ## Model and scope
 
@@ -77,7 +78,7 @@ ASSUMPTION: perform the following bounded build sequence, retaining prototype co
 3. ASSUMPTION: examine the three small kernel modules first. Resolve any owner/model amendments in place. Configuration bytes and occupancy must be read into loader inputs, never fetched by a call-resolution helper. Convention-only inputs remain empty.
 4. ASSUMPTION: retain the one R4c helper integration and nav incoming-caller helper. Do not change relative export closure or R3. Fresh whole-graph inputs recompute the derived map on incremental/config-only rebuilds before graph/DFG assembly. Retain 105/61 (or actual parent +1) and both pins.
 5. MEASURED requirement: run all integration rows in JSX and TSX, `controls_gen.py`, public rowdiff and TypeScript audit. Every changed row must independently pass site-import, module, callable/name/span identity checks. Any unproven changed row is an open gate. Controller alone runs private F; do not read private inputs or raw private evidence.
-6. MEASURED requirement: rerun all twenty-eight kernel mutants and the eleven integration mutants; each alone, with admissible behavioral output. Serialize mutation and suite builds when using a shared target directory; never replace a live binary pathname. Use immutable target/paths-plan/spec-r2/head/prism for measurements. Kernel mutation does not certify graph wiring. The CJS span-less case is the I03 boundary control, not a claim that every CJS callable is wrong. I04 kills bypass of the specific binding/position guard; preserve Position/Unchecked/MayCall/unbound states.
+6. MEASURED requirement: rerun all thirty kernel mutants and the eleven integration mutants; each alone, with admissible behavioral output. Serialize mutation and suite builds when using a shared target directory; never replace a live binary pathname. Use immutable target/paths-plan/extension-priority/head/prism for measurements. Kernel mutation does not certify graph wiring. The CJS span-less case is the I03 boundary control, not a claim that every CJS callable is wrong. I04 kills bypass of the specific binding/position guard; preserve Position/Unchecked/MayCall/unbound states.
 7. MEASURED requirement: verify with the full suite, release build, Tier-A matrix/quick and formatter; run scoped clippy. Largest runnable subsets and exact exclusions are reported. Do not install/fetch. Full `--corpus all` Tier-A remains human-triggered.
 8. READ custody requirement: refresh HANDOFF at each stable point using the steering template. Controller commits explicit owned paths. Report source/test/fixture size, remaining work, commands/results and every exclusion; no push, merge or P2 adoption.
 
@@ -114,7 +115,7 @@ ASSUMPTION: size forecast **750–900 source / 650–850 tests / 70–100 fixtur
 
 ## Round-1 fold and controller remeasurement
 
-READ: W1-r2 and W3 remain WRONG, corrected in place with matcher barriers and Fix A; S6 remains SMELL and an owner question because Fix B would remove 89 X gains. ProjectService ownership independently classifies every disagreement UNPROVEN. W1 and W2 remain WRONG, corrected in place; S1–S5 remain SMELL, addressed without downgrading findings. See MEASUREMENTS for killing controls and per-row results. If independent round 2 finds further membership mismatches, use the controller’s refuse-on-any-doubt disposition; do not widen the model piecemeal.
+READ: W1-r2 and W3 remain WRONG, corrected in place with matcher barriers and Fix A; the post-cap confirmation residual (1 WRONG / 0 SMELL) is now corrected with the generic compiler priority table, C85/C86/O, literal/declaration exceptions and M29/M30; S6 remains SMELL and an owner question because Fix B would remove 89 X gains. ProjectService ownership independently classifies every disagreement UNPROVEN. W1 and W2 remain WRONG, corrected in place; S1–S5 remain SMELL, addressed without downgrading findings. See MEASUREMENTS for killing controls and per-row results. If independent round 2 finds further membership mismatches, use the controller’s refuse-on-any-doubt disposition; do not widen the model piecemeal.
 
 Controller F command (defaults bind the fresh immutable binary):
 
@@ -124,4 +125,6 @@ bash docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/probes/CONTROLL
 
 Provide CORPUS_F_ROOT, PRIVATE_EVIDENCE_ROOT and TS_JS privately. Stdout contains counts/classes, the head hash and one aggregate refusal-reason code per unchanged oracle-recoverable row. Reasons are independent ordered P1 cuts, not production telemetry; UNCLASSIFIED_P1_PROOF stays open. The revised oracle takes owning projects from real offline ProjectService, classifies every root-file disagreement UNPROVEN and reports disagreements separately; it requires explicit effective Node/Node10 and applies P1 barriers; prior F 2,345/3,102 (75.60%) is controller-supplied and uses the earlier denominator. Never open private source or raw receipts in the planner lane.
 
-Controller commit recommendations: plan `docs(paths): fold capped Opus review and independent ownership evidence`; prototype `fix(paths): refuse matcher doubts and targeted ownership ambiguity` (cumulative patch starts at e61d52b8).
+Controller commit recommendations: plan `docs(paths): refresh extension-priority evidence and dispatch`; prototype `fix(paths): apply TypeScript root-file extension priorities` (cumulative patch starts at e61d52b8).
+
+READ: current residual receipts supersede spec-r2 where source or counts differ. See BUILD-MANIFEST and MEASUREMENTS for 197 controls, fresh default/MCP suites, matrix, S1b identity and exclusions. No new review round is requested.
