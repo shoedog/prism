@@ -137,6 +137,18 @@ the checklist above:
 - **Evidence:** the controller's audited row-diff must equal SPEC §8's r4 row (3a: 0 on every corpus);
   `maycall_changed` 0.
 
+## S1b-4 addendum — 2026-10-01
+
+READ: review cap is **2 rounds**, and numeric LOC caps are abolished by the
+owner. Historical cap-breach WRONG/checkpoint rules in this brief do not apply.
+Review the dated SPEC §3.4 amendment and S1b-4 dispatch against landed 915fca43;
+verify the independent value-flow inventory/hand audit, not a lexical
+not-callable annotation. C220 is a constructible right alias-export edge on
+the base. OQ-S1b4-1 must be answered; prototype/expected/reference measurements
+must be present and revision-bound before the controller dispatches this draft.
+No plan review has been dispatched or consumed yet. The expected next review
+surface is the finite qualifier outcome/export/E7 matrix, not a new binding core.
+
 ## Controller notes
 
 <!-- The controller fills this in at dispatch: subject, SHA/base, clone, cap, prior rounds, and any owner rulings

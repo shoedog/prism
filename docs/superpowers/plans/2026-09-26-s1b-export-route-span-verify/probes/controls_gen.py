@@ -470,6 +470,79 @@ TS_ONLY["C104_R4_ts_namespace_enum_shadow"] = {
  "a.ts": "function E() {\n  return 1;\n}\nfunction N() {\n  return 2;\n}\nexport function run() {\n  enum E { A }\n  return E();\n}\nnamespace N {}\nexport function run2() {\n  return N();\n}\n"}
 TS_ONLY["C114_R4_ts_using_declaration"] = {
  "a.ts": "declare function res(): any;\nfunction h() {\n  return 1;\n}\nexport function f() {\n  using h = res();\n  h();\n}\nexport function g() {\n  return h();\n}\n"}
+# S1b-4 r2: true JSX/TSX twins, including grammar-recovery twins of TS-only syntax.
+# Expectations are registered in S1b-4-EXPECTATIONS.md before either binary runs.
+NS_LIB = "export function f() {\n  return 1;\n}\n"
+NS_DECOY = "function helper() {\n  function f() { return 99; }\n  return f;\n}\n" + NS_LIB
+NS_APP = "import * as ns from './lib';\nexport function run() {\n  return ns.f();\n}\n"
+NS4 = {}
+NS4["C190_ns_direct_decoy"] = {"lib.{x}": NS_DECOY, "app.{x}": NS_APP}
+NS4["C191_ns_directory_decoy"] = {"lib.{x}": NS_LIB, "other/lib.{x}": NS_LIB, "app.{x}": NS_APP}
+NS4["C192_ns_string_rename_barrel"] = {
+    "impl.{x}": "function actual() { return 1; }\nexport { actual as 'g' };\n",
+    "lib.{x}": "export { 'g' as f } from './impl';\n", "app.{x}": NS_APP}
+NS4["C193_ns_star_barrel"] = {"impl.{x}": NS_LIB,
+    "lib.{x}": "export * from './impl';\n", "app.{x}": NS_APP}
+NS4["C194_ns_namespace_object"] = {"impl.{x}": NS_LIB,
+    "lib.{x}": "export * as inner from './impl';\n",
+    "decoy.{x}": "export function inner() { return 9; }\n",
+    "app.{x}": "import * as ns from './lib';\nexport function run() {\n  ns.inner();\n  return ns.inner.f();\n}\n"}
+NS4["C195_ns_parameter_valueflow"] = {"lib.{x}": NS_LIB,
+    "app.{x}": "import * as ns from './lib';\nexport function run(ns) {\n  return ns.f();\n}\nexport function supply() { return run(ns); }\n"}
+NS4["C196_ns_arrow_parameter"] = {"lib.{x}": NS_LIB,
+    "app.{x}": "import * as ns from './lib';\nexport const run = ns => ns.f();\n"}
+NS4["C197_ns_written_import"] = {"lib.{x}": NS_DECOY,
+    "app.{x}": "import * as ns from './lib';\nexport function run(other) {\n  ns = other;\n  return ns.f();\n}\n"}
+NS4["C198_ns_written_class"] = {"lib.{x}": NS_LIB,
+    "app.{x}": "import * as ns from './lib';\nexport function run(other) {\n  class ns { static f() { return 2; } }\n  ns = other;\n  return ns.f();\n}\n"}
+NS4["C199_ns_alias_valueflow"] = {"lib.{x}": NS_LIB,
+    "app.{x}": "import * as actual from './lib';\nimport * as ns from './lib';\nexport function run() {\n  const ns = actual;\n  return ns.f();\n}\n"}
+NS4["C200_ns_literal_shadow"] = {"lib.{x}": NS_LIB,
+    "app.{x}": "import * as ns from './lib';\nexport function run() {\n  const ns = 0;\n  return ns.f();\n}\n"}
+NS4["C201_ns_duplicate_import"] = {"lib.{x}": NS_LIB, "other.{x}": NS_LIB,
+    "app.{x}": "import * as ns from './lib';\nimport * as ns from './other';\nexport function run() {\n  return ns.f();\n}\n"}
+NS4["C202_ns_recovered_import"] = {"lib.{x}": NS_LIB,
+    "app.{x}": "import * as ns ??? from './lib';\nexport function run() {\n  return ns.f();\n}\n"}
+NS4["C203_ns_unsealed_error"] = {"lib.{x}": NS_LIB,
+    "app.{x}": "import * as ns from './lib';\nconst broken = ;\nexport function run() {\n  return ns.f();\n}\n"}
+NS4["C204_ns_sealed_error"] = {"lib.{x}": NS_LIB,
+    "app.{x}": "import * as ns from './lib';\nfunction broken() { let bad = ; }\nexport function run() {\n  return ns.f();\n}\n"}
+NS4["C205_ns_nested_closure"] = {"lib.{x}": NS_DECOY,
+    "app.{x}": "import * as ns from './lib';\nexport function run() {\n  function inner() { return ns.f(); }\n  return inner();\n}\n"}
+NS4["C206_ns_parameter_default_position"] = {"lib.{x}": NS_LIB,
+    "app.{x}": "import * as ns from './lib';\nexport function run(a = ns.f()) {\n  var ns = 0;\n  return a;\n}\n"}
+NS4["C207_ns_inner_write_does_not_reach_import"] = {"lib.{x}": NS_DECOY,
+    "app.{x}": "import * as ns from './lib';\nfunction write(ns) { ns = 0; }\nexport function run() {\n  return ns.f();\n}\n"}
+NS4["C208_ns_computed_key_position"] = {"lib.{x}": NS_LIB,
+    "app.{x}": "import * as ns from './lib';\nexport function run() {\n  const o = { [ns.f()](ns) { return ns; } };\n  return o;\n}\n"}
+NS4["C209_ns_with_object_position"] = {"lib.{x}": NS_LIB,
+    "app.{x}": "import * as ns from './lib';\nexport function run() {\n  with (ns.f()) { return 0; }\n}\n"}
+NS4["C210_ns_with_body"] = {"lib.{x}": NS_LIB,
+    "app.{x}": "import * as ns from './lib';\nexport function run(o) {\n  with (o) { return ns.f(); }\n}\n"}
+NS4["C211_ns_type_only_import"] = {"lib.{x}": NS_DECOY,
+    "app.{x}": "import type * as ns from './lib';\nexport function run() {\n  return ns.f();\n}\n"}
+NS4["C212_ns_import_equals_require"] = {"lib.{x}": NS_DECOY,
+    "app.{x}": "import ns = require('./lib');\nexport function run() {\n  return ns.f();\n}\n"}
+NS4["C213_ns_named_default_non_goals"] = {"lib.{x}": NS_DECOY,
+    "app.{x}": "import ns from './lib';\nexport function run() {\n  return ns.f();\n}\n",
+    "named.{x}": "import { obj as ns } from './lib';\nexport function run2() { return ns.f(); }\n"}
+NS4["C214_ns_wrapped_jsx_and_call"] = {
+    "lib.{x}": "import { memo } from 'react';\nexport const f = memo(() => <div/>);\n",
+    "app.{x}": "import * as ns from './lib';\nexport function run() {\n  ns.f();\n  return <ns.f/>;\n}\n"}
+NS4["C215_ns_missing_export_decoy"] = {"lib.{x}": "function f() { return 9; }\nexport {};\n", "app.{x}": NS_APP}
+NS4["C216_ns_nonsibling_stem"] = {"other/lib.{x}": NS_DECOY,
+    "app.{x}": NS_APP}
+NS4["C217_ns_e7_sibling"] = {"lib.{x}": NS_DECOY,
+    "app.{x}": "import * as ns from './lib.js';\nexport function run() { return ns.f(); }\n"}
+NS4["C218_ns_written_export_e5"] = {
+    "lib.{x}": NS_DECOY + "f = other;\n", "app.{x}": NS_APP}
+NS4["C219_ns_call_wrapped_export_e5"] = {
+    "lib.{x}": "function helper() { function f() { return 9; } return f; }\nexport const f = throttle(() => 1);\n", "app.{x}": NS_APP}
+NS4["C220_ns_export_alias_valueflow"] = {
+    "lib.{x}": "function make() {\n  function f() { return 1; }\n  return f;\n}\nexport const f = make();\n", "app.{x}": NS_APP}
+for name, files in NS4.items():
+    for ext in ('jsx', 'tsx'):
+        S[name + '_' + ext] = {f.replace('{x}', ext): src for f, src in files.items()}
 for name, files in S1B.items():
     for tag, x, s_ in (('jsx', 'jsx', 'js'), ('tsx', 'tsx', 'ts')):
         S[name + '_' + tag] = {f.replace('{x}', x).replace('{s}', s_): src for f, src in files.items()}
