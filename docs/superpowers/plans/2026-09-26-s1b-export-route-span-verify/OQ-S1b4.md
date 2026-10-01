@@ -42,3 +42,14 @@ writes. Alternative: owner authorizes an isolated source snapshot there, with
 patch, source/binary hashes and later controller import to proto/s1b-4. That
 alternative loses commit-bound build custody until import and rebuild. Neither
 alternative has been authorized in response to the pending question.
+
+## Controller disposition, 2026-10-01
+
+- **OQ-S1b4-1: RESOLVED as an application of existing owner rulings, so no new decision is needed.**
+  - OQ12 (narrowed) and Option K already say that an Alias binding keeps base behavior. Only a binding that provably holds no function may drop, and an unproven position keeps base.
+  - An alias export terminal reached through R3 is an Alias, so it keeps base. This is the planner's recommendation: namespace-only opacity metadata, propagated through named and star barrels, with D4 rows and counters preserved exactly.
+  - The literal-D4-refusal alternative would create a new accepted cost, and the owner has not approved one.
+  - The owner dropped LOC caps (2026-09-30), so the scope extension needs no approval.
+- **Custody: RESOLVED.**
+  - The controller created the git worktree `target/plan-s1b4/proto` on branch `proto/s1b-4` at `915fca43`.
+  - The planner edits files in both trees and never runs git write commands. The controller commits at each stable point the planner names.
