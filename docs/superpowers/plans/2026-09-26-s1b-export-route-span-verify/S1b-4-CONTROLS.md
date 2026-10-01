@@ -1,3 +1,81 @@
+# S1b-4 r5 implementation repair controls — 2026-10-01
+
+Current authority: SPEC §0, Controller re-scope (impl r1, open-class).
+MEASURED: 411 scenarios; **381 identical / 30 changed** versus source-equivalent
+base915fca43 / main5048f443, run in this environment. Complete unique site keys,
+function inventories and empty stderr are checked. The thirty changed sites are
+**15 positive identity filters / 15 E7 demotions**, with no added identities or
+new drops. Export counters match on all411 repositories. Current reference is
+`probes/S1b-controls-s1b4-r5-impl.txt`; the r4 reference is retained unchanged.
+Evidence: target/repair-r1/{controls-comparison,controls-audit,controls-forgone}.json.
+
+## Every changed control section
+
+Each source, complete old/new site tuple and explanation is retained in
+controls-audit.json. The following inventory is exhaustive.
+
+| Section | Class | Reason |
+|---|---|---|
+| C131_E7_bare_namespace_jsx | E7 regrade only | bare specifier unresolved |
+| C131_E7_bare_namespace_tsx | E7 regrade only | bare specifier unresolved |
+| C132_E7_nonsibling_stem_jsx | E7 regrade only | non-sibling stem unresolved |
+| C132_E7_nonsibling_stem_tsx | E7 regrade only | non-sibling stem unresolved |
+| C148_E7_js_specifier_sibling | Positive identity filter | exact indexed TS sibling exported f@7-9 |
+| C190_ns_direct_decoy_jsx | Positive identity filter | direct exported f@5-7 excludes nested f@2 |
+| C190_ns_direct_decoy_tsx | Positive identity filter | direct exported f@5-7 excludes nested f@2 |
+| C191_ns_directory_decoy_jsx | Positive identity filter | caller-relative exported lib:f excludes other/lib |
+| C191_ns_directory_decoy_tsx | Positive identity filter | caller-relative exported lib:f excludes other/lib |
+| C205_ns_nested_closure_jsx | Positive identity filter | closure qualifier still names program import; exported f@5-7 |
+| C205_ns_nested_closure_tsx | Positive identity filter | closure qualifier still names program import; exported f@5-7 |
+| C207_ns_inner_write_does_not_reach_import_jsx | Positive identity filter | write in a different parameter scope does not reach namespace import |
+| C207_ns_inner_write_does_not_reach_import_tsx | Positive identity filter | write in a different parameter scope does not reach namespace import |
+| C216_ns_nonsibling_stem_jsx | E7 regrade only | non-sibling stem; both candidates retained |
+| C216_ns_nonsibling_stem_tsx | E7 regrade only | non-sibling stem; both candidates retained |
+| C217_ns_e7_sibling_jsx | E7 regrade only | JSX .js specifier has no supported sibling; both candidates retained |
+| C217_ns_e7_sibling_tsx | Positive identity filter | TSX exact sibling f@5-7; JSX has no admitted .js replacement |
+| C232_bare_alias_e7_jsx | E7 regrade only | bare Alias; edge retained |
+| C232_bare_alias_e7_tsx | E7 regrade only | bare Alias; edge retained |
+| C242_nonsibling_opaque_e7_jsx | E7 regrade only | non-sibling Alias; edge retained |
+| C242_nonsibling_opaque_e7_tsx | E7 regrade only | non-sibling Alias; edge retained |
+| C246_e5a_bare_maycall_jsx | E7 regrade only | E7 applies to bare MayCall; no origin inventory exception |
+| C246_e5a_bare_maycall_tsx | E7 regrade only | E7 applies to bare MayCall; no origin inventory exception |
+| C247_e5b_bare_written_jsx | E7 regrade only | E7 applies to bare written export; no origin inventory exception |
+| C247_e5b_bare_written_tsx | E7 regrade only | E7 applies to bare written export; no origin inventory exception |
+| C62_S1b_namespace_decoy | Positive identity filter | exported Island@6-8 excludes nested Island@3 |
+| C80_R3_namespace_function_decoy_jsx | Positive identity filter | exported f@5-7 excludes nested f@2 |
+| C80_R3_namespace_function_decoy_tsx | Positive identity filter | exported f@5-7 excludes nested f@2 |
+| C81_R3_namespace_js_extension_decoy_jsx | Positive identity filter | relative/exact TS sibling f@5-7 excludes nested f@2 |
+| C81_R3_namespace_js_extension_decoy_tsx | Positive identity filter | relative/exact TS sibling f@5-7 excludes nested f@2 |
+
+## Disclosed precision forgone
+
+27 prior changed sections now equal base. This is an authorized cut, not a
+new wrong-output claim: base's decoys and gaps remain deliberately visible.
+
+| Both-grammar controls unless stated | Why restored |
+|---|---|
+| C133, C215, C241 | rule3: absence never changes a row |
+| C192, C193, C83 | rule4: the proven renamed/out-of-stem terminal was outside base candidates |
+| C206, C208 | rule4: base skipped R3 in these evaluation positions |
+| C214, C82 | rule4/6: wrapped non-JSX keeps base; no drop |
+| C234-C236 | rule5: private-barrel exclusion deleted |
+| C244 TSX | rule6: refused TS merge terminal keeps base |
+
+C246/C247, four sections, newly regrade Exact to NameOnly under rule7; every
+edge stays. The separate E5 origin inventory and its E7 exceptions were cut.
+C216 and C217 JSX also retain their nested candidates while regrading, rather
+than the prior export-filtered fallback. C62/C80 and exact siblings remain
+positive filters where the terminal is already in base.
+
+MEASURED: RP replay46 has complete matching inventories/keys and **0 changed
+sections vs base**. Its former RP2-c rename gains are cut by rule4. Sixty-two
+fresh both-grammar review/positive repositories are GREEN; 45 differ from the
+frozen old head under the new expected rules, providing behavioral RED.
+Permanent namespace matrix31 includes uncertainty, exact candidate membership,
+Callable-only terminals, E7 all-candidate grading and bounded initializer cycles.
+
+## Historical r4 controls (superseded for current S1b-4)
+
 # S1b-4 r4 controls — final spec-review r2 fold, 2026-10-01
 
 MEASURED: **411 scenarios; 358 identical sections, 53 changed versus base

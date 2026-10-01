@@ -1,3 +1,169 @@
+# S1b-4 r5 implementation repair measurements — 2026-10-01
+
+MEASURED in /Users/wesleyjinks/code/prism-s1b-4-impl, branch feat/s1b-4-namespace,
+starting8796dc55 vs main5048f443. Controller positive-proof-only re-scope is
+normative; r4 content below is historical. No Git writes, F reads, delegation,
+installs or network acquisition. Evidence is target/repair-r1/.
+
+## Binary and source custody
+
+| Artifact | SHA256 |
+|---|---|
+| Base, built at915fca43 (src verified equal to main5048f443) | d3fc31233253ddfec36f9f623d780c1cc6d9e376f31806ff516965a141974859 |
+| Frozen old8796dc55 head, review-owned artifact | a35db4cffa39c5e607283b48690663e2064bfdd611937f8427fd340726e35721 |
+| Repaired head8796dc55-dirty | eebe8054eccae7c5a3d07353de9518e1e2da4efc141dc5acf112f5e873daf025 |
+
+MEASURED: BUILD-MANIFEST.json binds270 retained crate inputs plus the repair
+verification files. The final release rebuild equals the frozen repaired head
+byte-for-byte. CONTROLLER-S1b4.sh selects target/repair-r1/prism-head, checks
+104/60 and input/binary hashes; public preflight and shell syntax pass. Private
+commands were never executed. Controller must retain ignored evidence and
+commit the explicit file list; no clean committed repair binary is claimed.
+
+## Complete corpus and synthetic populations
+
+| Corpus | Base/head sites | Changed | Lost targets | Missing keys |
+|---|---:|---:|---:|---:|
+| X | 19219/19219 | 0 | 0 | 0 |
+| R | 953/953 | 0 | 0 | 0 |
+| T | 61712/61712 | 0 | 0 | 0 |
+| F | not opened | unknown | unknown | unknown |
+
+MEASURED: direct fresh no-cache dumps on both binaries, complete unique keys
+and empty stderr. Site row diffs and independent full target-multiset guards
+all show zero changes/losses on X/R/T. No accuracy/performance conclusion is
+transferred to private F. The historical four F demotions remain a forecast;
+rule7 still preserves all identities, but removed origin grading exceptions
+may change its demotion population. The controller reruns the bound new head.
+
+MEASURED: controls411,381 unchanged/30 changed;15 positive identity filters
+and15 E7 demotions with edges kept. No new drop/addition. Every changed site is
+source-audited in controls-audit.json and enumerated in CONTROLS. Twenty-seven
+r4 changes revert to base; four new C246/C247 demotions are disclosed. C62/C80
+remain positive filters. Export counters agree on all411 controls. RP46 has
+complete keys/inventories, empty stderr and zero changed sections vs base.
+The four former RP2-c gains are cut by rule4.
+
+MEASURED:62 both-grammar CLI regression repositories all GREEN;45 behavioral
+RED outcomes on frozen old head. These include every WRONG input class from
+both implementation reviews, plus positive filters and core cycle pins.
+JSX TS-only cases are recovery pins. Test source preservation compares actual
+base R3 behavior, not a lexical value-flow guess. Tier-A fixture fresh base has
+f@2 andf@5 Exact; repaired head has onlyf@5. Matrix166/166, zero regressions.
+
+## Review closure and precision cuts
+
+| Review finding | Rules | Disposition |
+|---|---|---|
+| Opus W1(a-c), absence holes | 2/3/6 | CUT-to-base: HOC/default, parenthesized/asserted/assignment callable, import-equals rows preserved |
+| Opus W2, file revisit hides depth | 2/3 | CUT-to-base: bounded member walk treats cut/cycle as unknown |
+| Opus W3, synthesized candidates | 4/5 | CLOSED: actual base R3 candidates only; skipped sites and escaped specifiers unchanged |
+| Opus W4, E7 sibling filtered | 7 | CLOSED: all base targets kept, grade only |
+| Sol W1, omitted star competition | 2/4 | CLOSED: unknown/non-callable claim prevents positive unique proof; no minted identity |
+| Sol W2, depth competitor | 2/4 | CLOSED: unknown supplying branch invalidates uniqueness |
+| Sol W3, written D6/ambient inventory | 3/6 | CUT-to-base: Callable-only terminal gate; separate E5 origin inventory removed |
+| Sol W4, class poison cycle | 3/6 | CUT-to-base: no absence authority or non-Callable terminal filtering |
+| Sol W5/X6, namespace cycle | 5 | CUT-to-base: private-barrel scan/filter and X6 deleted; both-grammar ordered-cycle row preserves base |
+| Opus S1, cache comments | 104/60 | CLOSED: history comments updated, literal pins retained |
+| Opus S2, X2/X6 survivors | 5 | CUT: obsolete mutants removed with their mechanisms |
+
+Rule1 qualifier proof is unchanged; all retained qualifier mutants die. Direct
+named precedence remains valid because stars cannot supply an explicitly named
+member. A whole-module skipped/unrecorded export conservatively keeps base.
+Self and mutual initializer rows complete; the landed wrapper-provenance walk
+never re-enters classification. No TS merge policy, value-flow lane or shared
+D4 resolver/counter behavior was expanded.
+
+## Mutants
+
+MEASURED: final25/25 KILLED,0 SURVIVED,0 INADMISSIBLE. One variant at a time,
+source bytes restored in finally. The first pass had23 kills, one depth
+survivor and one inadmissible cache setup; both reruns are retained separately.
+The named-chain depth twin kills the real depth guard, independently of the
+star name-inventory bound. Two stale test-call arguments were corrected before
+the cache-pins mutant produced actual failing pinned assertions. No compilation
+or empty-test result counts as a kill. Evidence: mutants-final.json and both
+mutant directories, with patch/command/log/failed assertions for every variant.
+
+| Variant | Failing permanent tests | Result |
+|---|---|---|
+| D-M1 | d1_direct_and_directory_decoys | KILLED |
+| D-M2 | d4_scope_write_recovery_and_positions | KILLED |
+| D-M3 | r1_rule7_e7_only_regrades_all_candidates | KILLED |
+| D-M4 | d6_non_namespace_imports_keep_base | KILLED |
+| D-M5-import | d9_written_import_and_export_keep_base | KILLED |
+| D-M5-kind | d9_written_import_and_export_keep_base | KILLED |
+| D-M6-span | d1_direct_and_directory_decoys | KILLED |
+| D-M6-wrapped | r1_wrapped_nonjsx_keeps_base_jsx_filters | KILLED |
+| D-M8 | d4_scope_write_recovery_and_positions | KILLED |
+| D-M9 | d4_scope_write_recovery_and_positions | KILLED |
+| D-M14-site | d8_serde_cache_and_incremental_epochs | KILLED |
+| D-M14-cache | navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority, cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics | KILLED |
+| R3-jsx-sibling | d14_jsx_specifier_tsx_sibling | KILLED |
+| R1-namespace-refused-off | d13_b0_and_nonproving_refusals_keep_base | KILLED |
+| R2-recovered-type-admitted | d6_non_namespace_imports_keep_base | KILLED |
+| W3-all-unproven-refused | d13_b0_and_nonproving_refusals_keep_base | KILLED |
+| P2-incomplete-module | r1_rule2_uncertain_and_competing_stars_keep_base | KILLED |
+| P2-ignore-unknown-star | r1_rule2_uncertain_and_competing_stars_keep_base | KILLED |
+| P2-depth-unbounded | r1_depth_budget_preserves_decoys | KILLED |
+| P2-cycle-is-absence | r1_rule2_uncertain_and_competing_stars_keep_base | KILLED |
+| P2-competing-star | r1_rule2_uncertain_and_competing_stars_keep_base | KILLED |
+| P4-add-nonbase-target | r1_rule4_never_add_target_or_enter_skipped_r3 | KILLED |
+| P4-zero-match-drops | r1_rule4_never_add_target_or_enter_skipped_r3 | KILLED |
+| P6-noncallable-terminal | r1_rule6_callable_core_only_and_cycles_bounded | KILLED |
+| P7-filter-candidates | r1_rule7_e7_only_regrades_all_candidates | KILLED |
+
+READ: obsolete variants removed: D-M7/D-M10/D-M11/D-M12-named/star/D-M13,
+R4/R5/R7/R11, W1/W2 opacity/absence, S1 barrel/cell origin, X1-X6 and all
+E5-origin variants. Their r4 receipts stay historical; these mechanisms no
+longer exist. P2's five uncertainty mutants, P4's two membership mutants,
+P6's terminal mutant and P7's candidate filter mutant are new; D-M3 kills an
+E7 Exact-grade regression. All are killed by behavioral assertions.
+
+## Suites, cache and exclusions
+
+| Check | Passed | Failed | Ignored |
+|---|---:|---:|---:|
+| Default,29 groups | 4781 | 0 | 1 |
+| MCP,31 groups | 4974 | 0 | 1 |
+| Namespace final matrix | 31 | 0 | 0 |
+| Tier-A matrix | 166 | 0 | 0 |
+
+MEASURED: fmt, split-test rustfmt, release build and grammar closure pass.
+Grammar186 named/76 suspect/0 unclassified; E_TABLE74 rows,0 missing/extra/diff.
+Clippy --all-targets --features mcp completes; same-environment base control
+has the same37 normalized warning instances in touched files,0 new. It is not
+a globally warning-clean claim. The sole initial full-suite failure was the
+owned esm_namespace_import pin; its source-equivalent base CLI row is a Gap.
+The pin reverts to Gap under rule4; final suites pass. The only ignored Rust
+row is resolution_test::slice_elem_variant_reserved. Three helper declarations
+were relocated after the suites to keep the umbrella file599 lines; final
+namespace matrix31 and formatting pass, with no helper body, fixture or assertion change. The verification-hook then
+reran both full suites on the final helper layout:4781/0/1 default and4974/0/1
+MCP, with no outside-scope failures. Root VERIFICATION.md records exact commands,
+behavioral RED/negative coverage and exclusions; hook-suites.json retains totals.
+
+MEASURED: cross-process CPG103->104 and sidecar59->60 metadata transition;
+cold/warm repaired dumps and callers equal fresh no-cache output, onlyf@5.
+Old-head104->repaired104 also refreshes a changed private-barrel row and warm
+matches fresh. Build identity differs too; no version-only causality claim.
+The first cache full comparison was inadmissible (conflicting CLI flags),
+corrected and preserved under cache-check-attempt1. cache-check/receipt.json
+and cache-same-epoch/receipt.json carry actual metadata and artifact comparisons.
+
+MEASURED exclusion: one300s foreground Tier-A quick attempt after an immediate
+release rebuild ended deadline_no_complete_result at300.15s (returncode-2).
+No complete quick/oracle artifact, no retry, no GREEN or performance attribution.
+The source-bound166-row matrix is the completed accuracy subset. Query/oracle
+behavior was unchanged; reports/cache/generated snapshot were routed or moved
+to target/repair-r1/quick. A full quick run was not verified. Private F, clean committed
+repair binary, full multi-corpus Tier-A and Node gate are not verified locally.
+Full multi-corpus is human-triggered; F is explicitly forbidden. Node has no
+changed path in this repair; Rust default/MCP are the requested full suites.
+The final handoff records quick's actual completion/exclusion before handback.
+
+## Historical r4 measurements (superseded for current implementation)
+
 # S1b-4 r4 measurements — final spec-review r2 fold, 2026-10-01
 
 MEASURED: plan/s1b-4 @922f00df, prototype proto/s1b-4 @beec4a23 plus

@@ -16,6 +16,40 @@ and is in model.
 
 ## 0. Owner decisions
 
+### Controller re-scope 2026-10-01 (impl r1, open-class)
+
+Authoritative for S1b-4; supersedes the earlier dated R3 amendments below.
+Implementation starts from PR #336 `8796dc55`, base main `5048f443`.
+Three reviews found new holes in absence finality and adjacent export machinery,
+while X/R/T changed zero rows. The controller cuts that open class under
+proportionality; no restart or further absence inventory is authorized.
+
+1. Keep the qualifier proof unchanged. Refuse only a proven nearer non-import binding.
+2. Refine R3 only through a positive unique export identity with every supplying
+   branch complete. Opaque/unrecorded/skipped exports, incomplete modules, any
+   depth cut, unresolved/opaque/competing stars and unproven cycles keep base.
+3. Absence never drops or changes a row. C133/C215/C241 and like decoy drops revert to base.
+4. Pass the actual base R3 candidate set to refinement. Filter only to the exact
+   `(file, name, span)` identity; no match keeps base. A site base did not take
+   through R3 remains unchanged, including parameter defaults and escaped specifiers.
+5. Delete private-barrel exclusion and its scan. Its decoys revert to base;
+   X1/X2/X3/X6 and the related opaque-origin mutants become obsolete.
+6. The terminal must be Callable in the landed binding core (`js_ts_classify`),
+   unwritten and not MayCall. Alias/enum/namespace/ambient/class-poisoned terminals
+   keep base. Delete the separate E5 origin inventory. Reuse non-classifying
+   wrapper provenance to bound classification; test self and mutual cycles.
+7. Unresolved non-sibling E7 may only regrade base Exact to NameOnly, keeping
+   every edge. No export filter runs there. This is independent of positive
+   identity refinement; the old E5 inventory's E7 grade exceptions are forgone.
+
+Forgone: absence decoy drops, private-barrel decoy drops, rename/new-target gains,
+parameter-position gains when base skipped R3, wrapped non-JSX drops and the
+inherited R3 merge drop. C62/C80 and the nested-decoy Tier-A fixture remain
+positive filters where base already contains the terminal. Cache stays **104/60**.
+Private F remains controller-only: the historical four E7 demotions need rerun,
+not a transferred acceptance claim. All r4 measurements/references are historical.
+
+
 > **READ — S1b-4 spec-review r1 fold, 2026-10-01:** source base is
 > `915fca43d84ea1730959453091fbf8ae97763af8`; plan branch `plan/s1b-4` at
 > `564ebc8c`; prototype `proto/s1b-4` at `fceb0b4e` plus this owned fold.
@@ -428,60 +462,27 @@ READ (qualifier extraction/proof):
    B0/B1/recovered-import refusals suppress new namespace authority but keep
    the base import rungs; existing receiver guards and E6 remain unchanged. A written qualifier is never suppressed merely because
    it is written. Explicitly pin with-body vs with-object positions.
-6. Proven namespace authority pre-empts the old syntactic shadow guard, which
-   does not model all E_TABLE positions (for example parameter-default sites
-   with a body-only declaration). It does not rely on receiver flags to prove
-   the import. The proof is never reused at another byte span or file.
+6. Namespace proof never pre-empts base's R3 receiver flags in this repair.
+   It is consulted only after the existing branch has selected a nonempty
+   candidate set. The proof is never reused at another byte span or file.
 
-READ (export lookup): share export target identity with R4c, without changing
-R4c output. Lookup precedes functions.get(member), permitting renamed exports.
-A spanned terminal matches file, registered local name and exact start/end,
-excluding methods. Zero or 2+ span matches refuse; the only admitted spanned
-candidate is Exact. Wrapped non-JSX refuses WrappedExportNonJsx. The former
-resolved-route NameOnly branch is removed: it was unreachable.
+READ (positive export lookup, impl r1): derive a namespace-only table through
+an independent depth-bounded `(file, exported-name)` walk. A module is eligible
+only when all export statements are recorded, with no skipped/refused value
+export or parse/CJS incompleteness. Direct named precedence is retained; every
+star branch that could supply the member must return complete absence or the
+same unique identity. Unknown/opaque/depth/cycle/conflict makes the proof
+unavailable. Absence only helps check star competition; it never changes a row.
+The terminal identity is collected from Callable results in the landed core,
+including exact registered name/span and wrapped status. Written or other
+unproved terminals cannot filter. Wrapped terminals at non-JSX sites keep base.
+The consumer intersects that identity with actual base R3 candidates; zero or
+multiple matches keep base. R4c raw facts/output/counters are unchanged.
 
-READ (W1, absence authority): namespace_esm_complete is serde-default raw
-metadata. A module must contain ESM export syntax, have no CJS facts/claims or
-unsafe export-object use, no export = / export import, and no parse recovery.
-Known skipped Alias/MayCall and destructuring names have per-name opacity.
-Missing/blocked members are final only when the whole bounded re-export walk
-is ESM-complete and untruncated; unresolved modules or depth cuts keep base.
-Complete ESM star conflicts and cycles remain final. The completeness proof
-runs only for a missing entry, so a proved terminal remains usable even when
-another export form is incomplete. Unknown absence never proves no function.
-No new accepted cost is introduced by preserving incomplete paths.
-
-READ (E5/OQ12/Option K): an export terminal kept as base Local because it is
-may-call/written must keep R3 base behavior too, whatever its binding kind.
-Carry its opacity origin (namespace_may_call_locals keyed by terminal file/local);
-neither E7 NameOnly grading nor the private-barrel exclusion may change its row.
-This applies to named, star and eligible ImportForward terminals. Unspanned
-same-module terminals also preserve base. Alias,
-MayCall, written exports and syntactic CJS UnprovenLocal claims use namespace-only
-opacity. Object/array declarator patterns record every collected name as opaque.
-D4 facts and all original counters are unchanged. Unique opacity projects to
-unspanned Local through the same bounded named/star/eligible ImportForward walk;
-projection telemetry is discarded. The ImportForward producer's competitor
-proof remains unchanged. Derived export maps recompute after every epoch.
-
-READ (S1): an opaque terminal identifies a value binding cell, not the callable's
-origin or registered name. A renamed cell can hold a differently named function,
-including a function imported from the barrel itself in a valid module cycle.
-Do not filter base candidates to that cell's file/name. Instead, serde-default
-namespace_private_barrel proves a limited non-escape fact: the module is
-ESM-complete; its top-level named children are only imports, comments, private
-function declarations and export clauses/star forwarding (no export declaration
-or value); its named facts are all ReExport/ImportForward and it has no opaque
-local claim. No module-level executable expression can pass a private function
-out, no export can expose it, and its function bodies cannot be invoked from
-outside. When that barrel forwards to another opaque cell outside E5, exclude only the
-original base candidates in the barrel's own file; retain all other base R3
-candidates. Empty results drop with the base reason. Other resolved opaque
-routes keep base. This proves the pinned private decoy wrong without inventing
-value-flow authority. On unresolved non-sibling stem/directory fallback outside E5, retain
-the original base candidates at E7 NameOnly, excluding proved private-barrel
-functions; never substitute the opaque cell's local name for callable identity.
-Keep-base applies wherever no contrary target evidence is proved.
+READ (cut): no namespace opacity map, MayCall origin inventory, private-barrel
+predicate or absence-finality walk remains. Alias, written declarations,
+class poison and unrecorded TS value exports keep base on resolved routes.
+E7 uses no export projection and only changes grades on the entire base set.
 
 READ (W3): Callable and declaration-backed not_callable/unindexed classifications
 prove a non-import qualifier. duplicate_declaration suppresses R3 only after a
@@ -492,16 +493,12 @@ base import rungs, matching S1b-3 C-M34. Existing receiver guards still apply.
 C129/C210 with and C201 duplicate import are early SyntaxErrors, outside the
 reachable-behavior argument; they are invalid-program preservation pins.
 
-READ (S5, inherited core policy): TS function/namespace declaration merges are
-refused as duplicate_declaration by the landed D4 classifier; named-import twins
-already refuse on base. Reusing that core on R3 carries this inherited policy.
-C244 TSX records the cost; its JSX twin is only a parse-recovery pin. No change
-to the declaration-merge classifier is part of this slice.
+READ (merge policy): the landed core still refuses TS function/namespace
+merges, but that refusal cannot change a namespace R3 row. C244 TSX reverts
+to base; its JSX twin remains a recovery pin. Named-import policy is unchanged.
 
-MEASURED: r3 controls C221–C244, d11–d14 and revised d10 cover W1–W4/S1/S3.
-All 397 controls reach their registered columns; supplementary renamed-cell and
-cyclic cross-module alias rows guard the limited private-barrel proof. The changed-row audit
-and permanent-suite mutant kills are in the measurement and controls records.
+MEASURED references before impl r1 are historical. Current comparisons and
+review regressions are in target/repair-r1 and the r5 implementation summary.
 
 READ (E7 split, implemented): first use the existing relative
 resolver. Only on failure, replace the final suffix `.js` -> `.ts`, then
@@ -513,16 +510,10 @@ barrel resolver or named/default-import paths. Unsupported .mts/.cts parsing
 does not create an indexed file. The fixture must assert an indexed sibling,
 not assume the filename makes it indexed.
 
-READ (E7 fallback): only when neither relative nor sibling resolution
-succeeds, retain the legacy stem/directory match, filter spanned candidates through
-their file's exports under the member name and exact terminal identity,
-deduplicate FunctionIds and grade every surviving candidate NameOnly. Never
-promote a lone stem hit to Exact. Wrapped candidates cannot suppress a valid
-plain candidate; WrappedExportNonJsx applies when no eligible candidate remains
-and the only otherwise valid hits were wrapped. Empty fallback uses the base
-reasons. Incomplete absence keeps base. Known opaque matches outside E5 keep original
-base candidates at NameOnly as specified above; their binding-cell name/file
-does not grant callable-origin authority.
+READ (E7 fallback, impl r1): only when neither relative nor exact sibling
+resolution succeeds, grade every candidate base selected NameOnly, with all
+identities preserved. Do not inspect candidate exports, filter opacity,
+substitute an origin or drop wrapped hits. Empty base keeps its base reason.
 
 READ: the old paragraph below is historical, particularly its proposed
 NamespaceImport/Unproven-only state and its treatment of written qualifiers.

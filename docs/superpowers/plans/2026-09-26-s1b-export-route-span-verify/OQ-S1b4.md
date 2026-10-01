@@ -1,3 +1,17 @@
+# S1b-4 controller disposition amendment — 2026-10-01
+
+The controller has decided positive-proof-only R3 after implementation r1
+found an open class. No new owner question or semantic exception is pending.
+SPEC §0/§3.4 rules1-7 govern: keep qualifier proof, filter only actual base
+candidates through a complete unique Callable identity, preserve uncertainty
+and absence, delete private-barrel/E5-origin machinery, regrade E7 only.
+Historical opacity recommendations below are superseded. Current evidence is
+in target/repair-r1; r5 controls/measurements and the handoff name actual
+verification and exclusions. Git commits and private F remain controller work;
+F's historical four-demotion result needs the bound repaired-head rerun.
+
+## Historical owner questions and dispositions
+
 # S1b-4 owner questions — 2026-10-01
 
 ## OQ-S1b4-1: alias exports on the namespace route (RESOLVED; historical question)
