@@ -7,9 +7,6 @@ use std::collections::BTreeMap;
 const LIB: &str = "function helper() {\n  function f() { return 99; }\n  return f;\n}\nexport function f() { return 1; }\n";
 const APP: &str = "import * as ns from './lib';\nexport function run() { return ns.f(); }\n";
 const RENAME: &str = "function make() {\n function f() { return 1; }\n return f;\n}\nconst g=make();\nexport {g as f};";
-const CROSS_BAR: &str =
-    "function f(){return 1;} export {f as rootFn}; export {g as f} from './impl';";
-const CROSS_IMPL: &str = "import {rootFn} from './lib'; const g=rootFn; export {g};";
 fn parsed(ext: &str, sources: &[(&str, &str)]) -> BTreeMap<String, ParsedFile> {
     sources
         .iter()
@@ -51,9 +48,6 @@ fn rows(cg: &CallGraph, caller: &str, member: &str) -> Vec<String> {
         })
         .collect()
 }
-fn exact(ext: &str, file: &str, name: &str, line: usize) -> String {
-    format!("{file}.{ext}:{name}@{line}-{line} Exact/import_qualified")
-}
 #[test]
 fn d1_direct_and_directory_decoys() {
     for ext in ["jsx", "tsx"] {
@@ -77,10 +71,7 @@ fn d2_wrapped_call_and_jsx() {
         let cg=graph(ext,&[("lib","import { memo } from 'react';\nexport const f = memo(() => <div/>);\n"),("app","import * as ns from './lib';\nexport function run() { ns.f(); return <ns.f/>; }\n")]);
         assert_eq!(
             rows(&cg, "run", "f"),
-            [
-                "drop WrappedExportNonJsx".to_string(),
-                exact(ext, "lib", "f", 2)
-            ]
+            [exact(ext, "lib", "f", 2), exact(ext, "lib", "f", 2)]
         );
     }
 }
@@ -100,7 +91,8 @@ fn d3_rename_named_and_star_barrels() {
                 ext,
                 &[("impl", implementation), ("lib", barrel), ("app", APP)],
             );
-            assert_eq!(rows(&cg, "run", "f"), [exact(ext, "impl", "actual", 1)]);
+            // Rule 4: renamed terminal is outside base R3 candidates.
+            assert_eq!(rows(&cg, "run", "f"), ["drop UnknownName"]);
         }
     }
 }
@@ -121,7 +113,11 @@ fn d4_scope_write_recovery_and_positions() {
             let cg=graph(ext,&[("lib",LIB),("app",app)]);
             let site=cg.calls.values().flatten().find(|s| s.caller.name=="run" && s.callee_name=="f").unwrap();
             assert_eq!(matches!(site.local_binding,JsLocalBinding::NamespaceImport{..}),want,"{ext}: {app}");
-            if want { assert_eq!(rows(&cg,"run","f"),[exact(ext,"lib","f",5)],"{app}"); }
+            if want {
+                let base=base_rows(&cg,"f");
+                if site.receiver_lexically_bound || site.receiver_materialized { assert_eq!(rows(&cg,"run","f"),base,"{app}"); }
+                else { assert_eq!(rows(&cg,"run","f"),[exact(ext,"lib","f",5)],"{app}"); }
+            }
             else if app.contains("const ns=0") { assert!(cg.resolve_call_site_full(site).resolved.iter().all(|r| r.kind.as_str()!="import_qualified"),"{app}"); }
         }
     }
@@ -140,20 +136,29 @@ fn d5_authoritative_missing_member_and_fallback() {
         );
         assert_eq!(
             rows(&cg, "run", "f"),
-            [format!("b/lib.{ext}:f@1-1 NameOnly/import_qualified")]
+            [format!("a/lib.{ext}:f@2-2 NameOnly/import_qualified, b/lib.{ext}:f@1-1 NameOnly/import_qualified")]
         );
         let cg = graph(ext, &[("a/lib", wrapped), ("app", APP)]);
-        assert_eq!(rows(&cg, "run", "f"), ["drop WrappedExportNonJsx"]);
-
+        assert_eq!(
+            rows(&cg, "run", "f"),
+            [format!("a/lib.{ext}:f@2-2 NameOnly/import_qualified")]
+        );
         let cg = graph(
             ext,
             &[("lib", "export {};"), ("other/lib", LIB), ("app", APP)],
         );
-        assert_eq!(rows(&cg, "run", "f"), ["drop ImportExternal"]);
+        assert_eq!(
+            rows(&cg, "run", "f"),
+            [format!(
+                "{}, {}",
+                exact(ext, "other/lib", "f", 2),
+                exact(ext, "other/lib", "f", 5)
+            )]
+        );
         let cg = graph(ext, &[("other/lib", LIB), ("app", APP)]);
         assert_eq!(
             rows(&cg, "run", "f"),
-            [format!("other/lib.{ext}:f@5-5 NameOnly/import_qualified")]
+            [format!("other/lib.{ext}:f@2-2 NameOnly/import_qualified, other/lib.{ext}:f@5-5 NameOnly/import_qualified")]
         );
         let cg = graph(
             ext,
@@ -162,7 +167,11 @@ fn d5_authoritative_missing_member_and_fallback() {
         let grade = if ext == "tsx" { "Exact" } else { "NameOnly" };
         assert_eq!(
             rows(&cg, "run", "f"),
-            [format!("lib.{ext}:f@5-5 {grade}/import_qualified")]
+            [if ext == "tsx" {
+                format!("lib.{ext}:f@5-5 {grade}/import_qualified")
+            } else {
+                format!("lib.{ext}:f@2-2 {grade}/import_qualified, lib.{ext}:f@5-5 {grade}/import_qualified")
+            }]
         );
     }
 }
@@ -176,7 +185,6 @@ fn d6_non_namespace_imports_keep_base() {
             .flatten()
             .filter(|s| s.caller.name == "run")
             .all(|s| s.local_binding == JsLocalBinding::Unchecked));
-
         for import in [
             "import ns from './lib';",
             "import { thing as ns } from './lib';",
@@ -221,7 +229,6 @@ fn d9_written_import_and_export_keep_base() {
             assert!(matches!(&site.local_binding,JsLocalBinding::MayCall(r) if r=="may_call"));
             assert_eq!(prism::navigation::queries::call_stats(&cg)["local_binding_may_call"]["may_call"],1);
         }
-
         let cg = graph(
             ext,
             &[
@@ -262,10 +269,10 @@ fn d10_alias_opacity_direct_named_star_forwarded_and_d4_pin() {
                 let direct=cg.calls.values().flatten().find(|s| s.caller.name=="direct" && s.callee_name=="f").unwrap();
                 assert!(cg.resolve_call_site_full(direct).resolved.is_empty());
                 // This pure forwarding barrel cannot expose its private decoy.
-                assert_eq!(rows(&cg,"run","f"),if barrel.is_none() {vec![exact(ext,"lib","f",2)]} else {vec!["drop ImportExternal".into()]});
+                assert_eq!(rows(&cg,"run","f"),if barrel.is_none() {vec![exact(ext,"lib","f",2)]} else {vec![exact(ext,"lib","f",1)]});
                 let producer=if barrel.is_none() {"lib"} else {"impl"};
                 assert!(!cg.js_ts_resolved_exports.get(&format!("{producer}.{ext}")).is_some_and(|e| e.contains_key("f")));
-                assert!(cg.js_ts_namespace_exports[&format!("lib.{ext}")]["f"].span.is_none());
+                assert!(!cg.js_ts_namespace_exports.get(&format!("lib.{ext}")).is_some_and(|e|e.contains_key("f")));
             }
             for barrel in ["export {f} from './impl';", "export * from './impl';", "import {f as alias} from './impl'; export {alias as f};"] {
                 let cg=graph(ext,&[("lib/index",barrel),("lib/impl",alias),("app",APP)]);
@@ -332,7 +339,7 @@ fn d11_incomplete_exports_and_depth_keep_base() {
                 ("app", APP),
             ],
         );
-        assert_eq!(rows(&cg, "run", "f"), ["drop ImportExternal"]);
+        assert_eq!(rows(&cg, "run", "f"), [exact(ext, "other/lib", "f", 1)]);
     }
 }
 #[test]
@@ -458,7 +465,6 @@ fn d10_opaque_conflict_never_authority() {
         }
     }
 }
-
 #[test]
 fn d8_serde_cache_and_incremental_epochs() {
     use prism::cpg::CodePropertyGraph;
@@ -559,7 +565,7 @@ fn d8_serde_cache_and_incremental_epochs() {
 fn d10_barrel_conflict_cycle_final_depth_keeps_base() {
     for ext in ["jsx", "tsx"] {
         let alias = "function make(){ function f(){} return f; } export const f=make();";
-        for (i, sources) in [
+        for sources in [
             vec![
                 (
                     "lib",
@@ -583,18 +589,11 @@ fn d10_barrel_conflict_cycle_final_depth_keeps_base() {
             ],
         ]
         .into_iter()
-        .enumerate()
         {
             let cg = graph(ext, &sources);
-            assert_eq!(
-                rows(&cg, "run", "f"),
-                if i == 2 {
-                    vec![exact(ext, "lib", "f", 1)]
-                } else {
-                    vec!["drop ImportExternal".into()]
-                }
-            );
+            assert_eq!(rows(&cg, "run", "f"), vec![exact(ext, "lib", "f", 1)]);
         }
     }
 }
 include!("js_binding_namespace/spec_r2.rs");
+include!("js_binding_namespace/repair_r1.rs");

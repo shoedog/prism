@@ -14,7 +14,7 @@ fn d15_executable_barrel_escape_keeps_exact() {
             ],
         );
         // E5 also keeps the row; independently guard the non-escape premise.
-        assert!(!cg.js_ts_exports[&format!("lib.{ext}")].namespace_private_barrel);
+        // Private-barrel exclusion was cut; this executable escape keeps base.
         assert_eq!(rows(&cg, "run", "f"), [exact(ext, "lib", "f", 2)]);
     }
 }
@@ -32,12 +32,10 @@ fn d16_e5a_bare_maycall_keeps_base() {
                 ("app", &APP.replace("'./lib'", "'pkg/lib'")),
             ],
         );
-        let terminal = &cg.js_ts_namespace_exports[&format!("lib.{ext}")]["f"];
         assert_eq!(
-            (&terminal.file, &terminal.local_name, terminal.span),
-            (&format!("lib.{ext}"), &"f".to_string(), None)
+            rows(&cg, "run", "f"),
+            [format!("lib.{ext}:f@2-2 NameOnly/import_qualified")]
         );
-        assert_eq!(rows(&cg, "run", "f"), [exact(ext, "lib", "f", 2)]);
     }
 }
 
@@ -51,7 +49,10 @@ fn d16_e5b_bare_written_keeps_base() {
                 ("app", &APP.replace("'./lib'", "'pkg/lib'")),
             ],
         );
-        assert_eq!(rows(&cg, "run", "f"), [exact(ext, "lib", "f", 1)]);
+        assert_eq!(
+            rows(&cg, "run", "f"),
+            [format!("lib.{ext}:f@1-1 NameOnly/import_qualified")]
+        );
     }
 }
 
@@ -69,7 +70,7 @@ fn d16_e5c_star_written_keeps_base() {
                 ("app", APP),
             ],
         );
-        assert!(cg.js_ts_exports[&format!("lib.{ext}")].namespace_private_barrel);
+        // Opaque/written terminals keep base without a private-barrel predicate.
         assert_eq!(rows(&cg, "run", "f"), [exact(ext, "lib", "f", 1)]);
     }
 }
@@ -92,8 +93,6 @@ fn d16_e5e_named_maycall_keeps_base() {
                     ("app", APP),
                 ],
             );
-            let terminal = &cg.js_ts_namespace_exports[&format!("lib.{ext}")]["f"];
-            assert_eq!(terminal.file, format!("impl.{ext}"));
             assert_eq!(rows(&cg, "run", "f"), [exact(ext, "lib", "f", 1)]);
         }
     }
@@ -152,7 +151,7 @@ fn d18_e5_origin_serde_and_incremental_epochs() {
         for (lib, grade) in [
             (
                 "function wrap(x){return x;}\nexport const f=wrap(function f(){});",
-                "Exact",
+                "NameOnly",
             ),
             (
                 "function make(){\n function f(){}\n return f;\n}\nexport const f=make();",
@@ -160,7 +159,7 @@ fn d18_e5_origin_serde_and_incremental_epochs() {
             ),
             (
                 "function wrap(x){return x;}\nexport const f=wrap(function f(){});",
-                "Exact",
+                "NameOnly",
             ),
         ] {
             let files = parsed(ext, &[("lib", lib), ("app", &app)]);
@@ -185,10 +184,6 @@ fn d18_e5_origin_serde_and_incremental_epochs() {
                 [format!("lib.{ext}:f@2-2 {grade}/import_qualified")]
             );
             let facts = &current.call_graph.js_ts_exports[&format!("lib.{ext}")];
-            assert_eq!(
-                facts.namespace_may_call_locals.contains("f"),
-                grade == "Exact"
-            );
             let bytes = bincode::serialize(&current.call_graph).unwrap();
             let back: CallGraph = bincode::deserialize(&bytes).unwrap();
             assert_eq!(
@@ -199,10 +194,10 @@ fn d18_e5_origin_serde_and_incremental_epochs() {
             old_facts
                 .as_object_mut()
                 .unwrap()
-                .remove("namespace_may_call_locals");
+                .remove("namespace_callable_locals");
             let defaulted: prism::js_exports::JsExportFacts =
                 serde_json::from_value(old_facts).unwrap();
-            assert!(defaulted.namespace_may_call_locals.is_empty());
+            assert!(defaulted.namespace_callable_locals.is_empty());
             previous = Some(current);
         }
     }

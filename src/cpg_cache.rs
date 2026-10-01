@@ -228,6 +228,7 @@ use std::path::{Path, PathBuf};
 /// - v103: S1b-3b wires the binding core to call sites (`CallSite.local_binding`): a JS/TS
 ///   lexical binding resolves first (Callable), and an `Unproven` binding drops the R4/R5
 ///   same-name fallback (SPEC §3.6, §3.8 (8)).
+/// - v104: S1b-4 qualifier proof and positive-only namespace R3 refinement.
 const CACHE_VERSION: u32 = 104;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;

@@ -100,6 +100,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v57: S1b-2b ESM local exports through the module-scope binding (CPG v101).
 // v58: S1b-3a extends the binding core to every scope (CPG v102).
 // v59: S1b-3b wires the binding core to call sites, `CallSite.local_binding` (CPG v103).
+// v60: S1b-4 qualifier proof and positive-only namespace R3 refinement (CPG v104).
 const NAV_CALL_EDGE_CACHE_VERSION: u32 = 60;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";

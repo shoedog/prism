@@ -369,7 +369,6 @@ impl ParsedFile {
     pub(super) fn js_ts_local_export_target<'a>(
         &'a self,
         name: String,
-        exported: &str,
         site: Node<'a>,
         facts: &mut JsExportFacts,
         (imported, cache): &mut ExportScope<'a>,
@@ -401,10 +400,7 @@ impl ParsedFile {
             // is not filtered above and would otherwise leak an unpoisoned `Local`, letting R4c
             // bind a same-file decoy Exact — re-opening the edge S1b-2b closed. Both count
             // `not_callable`.
-            binding @ (JsBinding::Alias | JsBinding::Import) => {
-                if binding == JsBinding::Alias {
-                    facts.record_namespace_opaque(exported.to_string(), name.clone());
-                }
+            JsBinding::Alias | JsBinding::Import => {
                 *facts
                     .local_export_refusals
                     .entry("not_callable".into())

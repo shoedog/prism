@@ -2562,16 +2562,6 @@ impl CallGraph {
                     )
                 ) && site.receiver_lexically_bound;
 
-                // A core-proven namespace import pre-empts the legacy receiver shadow
-                // flags, which cannot model every evaluation position. Opaque exports
-                // return None to preserve the entire old ladder, including its guards.
-                if let crate::call_graph::JsLocalBinding::NamespaceImport { module_path } =
-                    &site.local_binding
-                {
-                    if let Some(outcome) = self.js_ts_namespace_outcome(module_path, name, site) {
-                        return outcome;
-                    }
-                }
                 let namespace_refused = match &site.local_binding {
                     crate::call_graph::JsLocalBinding::Callable(_) => true,
                     crate::call_graph::JsLocalBinding::Unproven(r) => {
@@ -2613,6 +2603,16 @@ impl CallGraph {
                                 .collect();
                             if matched.is_empty() {
                                 return ResolutionOutcome::dropped(DropReason::ImportExternal);
+                            }
+                            if let crate::call_graph::JsLocalBinding::NamespaceImport {
+                                module_path,
+                            } = &site.local_binding
+                            {
+                                if let Some(outcome) =
+                                    self.js_ts_namespace_outcome(module_path, name, site, &matched)
+                                {
+                                    return outcome;
+                                }
                             }
                             return ResolutionOutcome::hit(exact(
                                 matched,

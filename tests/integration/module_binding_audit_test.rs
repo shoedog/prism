@@ -184,9 +184,11 @@ case!(
     "",
     "import invoke from './origin';\nfunction run() { invoke(); }"
 );
+// Controller impl-r1 rule 4: origin is outside base R3's item candidates.
+// Positive rename proof cannot add a target; the original base gap is retained.
 case!(
     esm_namespace_import,
-    Supported,
+    Gap,
     ESM,
     "",
     "import * as ns from './origin';\nfunction run() { ns.item(); }"
