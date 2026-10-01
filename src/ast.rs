@@ -5,7 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::{Node, Parser, Tree};
 
 mod js_binding;
-pub(crate) use js_binding::{JsBinding, JsBindingCache, JsTerminal};
+pub use js_binding::JsTerminal;
+pub(crate) use js_binding::{JsBinding, JsBindingCache};
 mod js_binding_checks;
 mod js_binding_decls;
 #[cfg(test)]
