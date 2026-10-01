@@ -1,0 +1,12 @@
+[case]
+language = "typescript"
+capability = "s1b_param_shadow_local_def_refused"
+status = "pass"
+[seed]
+symbol = "f"
+file = "a.ts"
+line = 5
+[expect]
+callers = []
+exact = false
+forbid_resolution_kind = "local_def"
