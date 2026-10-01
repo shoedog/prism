@@ -127,12 +127,14 @@ fn td_nested_arrow_parameter_drops_at_r5() {
 }
 
 #[test]
-fn td_captured_catch_parameter_still_masked_by_the_older_guard() {
-    // Disclosed finding (this fold): unlike the nested-arrow parameter above, a catch
-    // parameter captured in a nested arrow is *still* masked by the pre-existing JS/TS
-    // guard (it drops `UnknownName`, not the new `LocalBindingUnproven`) — the guard's
-    // per-caller-function local set evidently includes catch parameters transitively. This
-    // is recorded honestly rather than claimed as a second working construction.
+fn td_captured_catch_parameter_inside_the_arrow_is_still_masked_by_the_older_guard() {
+    // Corrected (round-2 fold, both reviewers S1/SMELL 1): this masking is specific to the
+    // `try`/`catch` sitting *inside* the arrow that calls `f` — the catch parameter is then
+    // that arrow's own local, which the pre-existing JS/TS per-caller-function guard masks
+    // (drops `UnknownName`, not the new `LocalBindingUnproven`). It is **not** a general
+    // masking of captured catch parameters: with the `try`/`catch` *outside* the arrow, the
+    // call genuinely reaches the new R5 drop — see
+    // `js_binding_scope_resolution_fold_r2_test.rs::td_catch_parameter_outside_the_arrow_reaches_r5_drop`.
     let a = (
         "a.js",
         "export function run() {\n  const cb = () => {\n    try {} catch (f) {\n      return f();\n    }\n  };\n  return cb();\n}\n",
