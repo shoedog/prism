@@ -160,64 +160,62 @@ v8's).
 - **Suites:** the Verification block below; `cargo clippy` must be clean without any allow beyond the file-level
   `dead_code` one.
 
-## S1b-3 dispatch (r4 as folded 2026-09-29: against the landed code; SPEC §3.8, §5–§9)
+## S1b-3a dispatch (the collector at every scope; SPEC §3.8, owner decisions 2026-09-27/28/29)
 
-Read SPEC §3.8 first: it is the normative delta over §3.1/§3.1a/§3.6 against the landed collector, including the
-owner's 2026-09-29 alias class (§3.8 (11)). The prototype is `prototype/s1b3-prototype-v11.diff.txt` (clean build of
-scratch `0982f2fd` on `3961cc21`; evidence, not authority; it carries measurement switches `PRISM_S1B3_NO_SITES`
-and `PRISM_S1B3_ASCII_P1`, **do not port them**). The owner chose OQ10 (a): **3a then 3b**.
+Read SPEC §3.8 first (the normative delta against the landed collector, including (11) what drops and why, (12) P1
+and (13) the file split). The prototype is `prototype/s1b3-prototype-v12.diff.txt` (clean build of scratch
+`0968ef78` on `3961cc21`; evidence, not authority; its switches `PRISM_S1B3_NO_SITES` and `PRISM_S1B3_ASCII_P1` are
+**not ported**).
 
-- **Base:** main with S1b-2b merged (`3961cc21` or its merge) for 3a; merged 3a for 3b. Record the SHA.
-- **Cache:** **3a 102 / 58**, **3b 103 / 59** (S1b-4 then 104 / 60), each with the cross-commit row (a cache from
-  the parent's binary is rejected; rebuilt output equals `--no-cache`).
-- **Caps (SPEC §9 r4 as folded; stop at the early stop / report point with the enumerated remainder, never
-  compress):**
+- **Base:** main with S1b-2b merged (`3961cc21` or its merge). Record the SHA.
+- **Cache:** **102 / 58**, with the cross-commit row (a cache from the parent's binary is rejected; the rebuilt output
+  equals `--no-cache`). 3a changes persisted D4 facts (C166–C168, C172).
+- **Caps (owner-approved 2026-09-29):** src **700** / early stop **630**; tests **740** / report point **670**.
+  Measured on v12: 596 src (×1.1–1.2 landing growth ≈ 656–715: report at 630 with the forecast, stop at 700 with the
+  enumerated remainder; never compress). Tests forecast ≈ 710.
+- **Owned paths:** `src/ast/js_binding*.rs` split per §3.8 (13): `js_binding_walk.rs` (new), `js_binding_site.rs`
+  (new), `js_binding_writes.rs` (new), `js_binding_recovery.rs` (new, or in `js_binding_checks.rs`),
+  `js_binding_values.rs` (new, moved from `js_binding.rs`); `js_ts_scope_binding`; `js_ts_classify` (M2 every kind,
+  M1 pattern declarators, `Import`, `Alias`, NoFn, the default test, the D4 alias arm); B1 containment in
+  `js_binding_checks.rs`; the deletion of `js_ts_written_unseen`; `JsBindingCache` fields; P1 in
+  `collect_js_ts_binding_pattern_names` (`src/ast.rs`) with preservation tests; `mod` lines; the cache bump; 2a's
+  unit tests it changes (C150; D5 → `Import`). `js_ts_site_binding` has no production caller yet: one file-level
+  `#![allow(dead_code)] // S1b-3b wires the call-site binding` in `js_binding_site.rs` only. **Not in 3a:**
+  `CallSite`, `call_graph.rs`, `resolution.rs`, `queries.rs`, `useCallback`. New test files per §3.8 (13).
+- **RED rows (SPEC §7), unit level (the collector's answer), both grammars:** C-36, C-37, C-38, C-39, C-40, C-45,
+  C-46, C-47, **C-48** (defaults), **C-49** (trivia), the **C-5/C-6 E5 guards (moved here as unit rows)**, the walk
+  rows C-2–C-4, C-7, C-9–C-17, C-24–C-35, and C-35's `E_TABLE` equality test.
+- **Mutants:** C-M2a/b, C-M3–C-M11, C-M15–C-M32, C-M38–C-M45 (as they apply to the collector).
+- **Closure probe:** `python3 probes/grammar_closure.py --rust src/ast` (no `--kinds-only`) exits 0; one `E_TABLE`
+  row removed exits 1. Read the exit status directly.
+- **Smoke:** `probes/controls_gen.py` (287 scenarios) + `probes/run_controls.sh`; `probes/controls_diff.py` against
+  `probes/S1b-controls-head-3961cc21.txt`: only the C166–C168 and C172 D4 rows change (the same as v12 with
+  `PRISM_S1B3_NO_SITES=1`). **Corpus: 0 rows on X, F, R, T** (the controller's acceptance).
 
-| Variant | src cap / early stop | tests cap / report point |
-|---|---|---|
-| **3a** collector at every scope | **700** / 630 | **740** / 670 |
-| **3b** call-site wiring | **220** / 200 | **1,320** / 1,190 |
+## S1b-3b dispatch (the call-site wiring; SPEC §3.6, §3.8 (8)(9))
 
-  Measured on v11: 3a 582 / 3b 159 src. Tests are estimated from enumerated rows (3a ≈ 120 unit rows ≈ 670; 3b 36
-  end-to-end scenarios ≈ 1,200); the basis is SPEC §9. These caps are proposals until the dispatch states the
-  owner's answer.
-- **Owned paths.**
-  - **3a:** `src/ast/js_binding*.rs` (new walk and site files as in v11: `js_binding_walk.rs` with `Pos`, `E_TABLE`,
-    `Walk`, the walk and the leave predicate; `js_binding_site.rs` with `is_scope`, the scope index and lookup, the
-    function names, the scoped write resolver and the recovered-import predicate and names); `js_ts_scope_binding`
-    generalizing the module terminal; `js_ts_classify` (M2 for every kind, M1 for pattern declarators,
-    `JsBinding::Import`, **`JsBinding::Alias` and the NoFn class**, the D4 alias arm keeping 2b's answer); the B1
-    containment change in `js_binding_checks.rs` (body / class body vs parameter list); the deletion of
-    `js_ts_written_unseen`; `JsBindingCache` fields; **P1 in `collect_js_ts_binding_pattern_names` (`src/ast.rs`)**
-    with its preservation tests; the `mod` lines; the cache bump; 2a's unit tests it changes (C150, D5 → `Import`).
-    `js_ts_site_binding` exists but has no production caller: one file-level
-    `#![allow(dead_code)] // S1b-3b wires the call-site binding` in `js_binding_site.rs` only, removed by 3b.
-    **New test files** (`js_binding_tests.rs` is 584 lines): for example `src/ast/js_binding_site_tests.rs` and
-    `src/ast/js_binding_walk_tests.rs`, each under 600 lines. **Not in 3a:** `CallSite`, `call_graph.rs`,
-    `resolution.rs`, `queries.rs`, `useCallback`.
-  - **3b:** `CallSite.local_binding` + `JsLocalBinding` (with `MayCall(reason)`) and the three source constructors
-    (one `JsBindingCache::for_sites()` per file) plus the test-only `CallSite` literals; `js_local_binding_at`;
-    `resolve_call_site_full` (Callable first, R4 drop on any `Unproven`, R5 drop for `not_callable` /
-    `duplicate_declaration` / `import_parse_recovery` where base would bind); `js_ts_local_callable`; the
-    `useCallback` `local_route` flag; `local_binding_unchecked_position` and `local_binding_may_call`; the cache
-    bump; `s1b_param_shadow_local_def_refused` (Tier-A; measured RED on `3961cc21`, green on v11).
-- **RED rows (SPEC §7):** 3a C-36 (C166–C168 and the mangled-write guard), C-37 (memo), C-38 (C169 plus the
-  unwritten twins), C-39, C-40 (C172), **C-45 (NoFn / alias unit rows), C-46 (C178), C-47 (C180 and P1
-  preservation)**, the C-5/C-6 E5 guards as unit rows, the walk rows C-2–C-4, C-7, C-9–C-17, C-24–C-35 at unit
-  level, and C-35's `E_TABLE` equality test; 3b the 36 scenarios SPEC §9 enumerates (C-1, the six outcome
+- **Base:** merged S1b-3a. Record the SHA.
+- **Cache:** **103 / 59** (`CallSite.local_binding`), with the cross-commit row. S1b-4 then 104 / 60.
+- **Caps (owner-approved 2026-09-29):** src **220** / early stop **200**; tests **1,320** / report point **1,190**.
+  Measured on v12: 161 src (×1.33 ≈ 214). Tests forecast ≈ 1,260 (36 enumerated scenarios × 30 + 120, plus 2
+  round-2 scenarios); report at 1,190 with the forecast.
+- **Owned paths:** `CallSite.local_binding` + `JsLocalBinding` (`Callable`, `MayCall(reason)`, `Unproven(reason)`,
+  `Position(reason)`, `Unchecked`) and the three source constructors (one `JsBindingCache::for_sites()` per file)
+  plus the test-only `CallSite` literals; `js_local_binding_at`; `resolve_call_site_full` (Callable first, R4 drop on
+  any `Unproven`, R5 drop for `not_callable` / `duplicate_declaration` / `import_parse_recovery` where base would
+  bind); `js_ts_local_callable`; the `useCallback` `local_route` flag; `local_binding_unchecked_position` and
+  `local_binding_may_call`; removing 3a's `dead_code` allow; the cache bump; `s1b_param_shadow_local_def_refused`
+  (Tier-A; RED on `3961cc21`, green on v12).
+- **RED rows (SPEC §7, §9), end to end, both grammars:** the 36 scenarios §9 enumerates (C-1, the six outcome
   representatives, C-8, C-18, C-20, C-41, C-42 with C179/C181, C-43, C-44, the alias pins C174–C177 and C182–C184,
-  C-5's impostor twins, C114).
-- **Mutants:** 3a C-M2a/b, C-M3–C-M11, C-M15–C-M32, C-M38–C-M42 (as they apply to the collector); 3b C-M1,
-  C-M12–C-M14, C-M33–C-M37.
-- **Closure probe:** `python3 probes/grammar_closure.py --rust src/ast` (no `--kinds-only` from 3a on) exits 0;
-  removing one `E_TABLE` row exits 1. Read the exit status directly, not through a pipe.
-- **Smoke:** `probes/controls_gen.py` (277 scenarios) with `probes/run_controls.sh`; compare with
-  `probes/controls_diff.py` against `probes/S1b-controls-head-3961cc21.txt` (3a: only the C166–C168 and C172 D4
-  rows change, the same as v11 with `PRISM_S1B3_NO_SITES=1`) and `probes/S1b-controls-proto-v11.txt` (3b:
-  identical, apart from rows you explain one by one). RP replay: `probes/replan/replay_rp.sh` must equal v9's RP
-  summary except RP2-c (S1b-4).
-- **Corpus acceptance** is the controller's (SPEC §8 r4 row; `probes/expected/S1b-3-r4-{X,R,T}.json`, regenerated
-  from v11).
+  C-5's impostor twins, C114) plus 2 round-2 scenarios (one default from C185–C188, one trivia from C189). The C-5 and
+  C-6 guards are 3a's unit rows, not duplicated here.
+- **Mutants:** C-M1, C-M12–C-M14, C-M33–C-M37.
+- **Smoke:** controls against `probes/S1b-controls-proto-v12.txt` (identical, apart from rows explained one by one);
+  RP replay equal to v9's except RP2-c (S1b-4).
+- **Corpus acceptance** (controller): SPEC §8's S1b-3 r4 row, including the owner-accepted parameter value-flow
+  cost (`probes/param_valueflow.py`: X 6, F 2, T 5 lost under the single-caller rule, lower bounds);
+  `probes/expected/S1b-3-r4-{X,R,T}.json`.
 
 ## Verification (report totals from logs)
 

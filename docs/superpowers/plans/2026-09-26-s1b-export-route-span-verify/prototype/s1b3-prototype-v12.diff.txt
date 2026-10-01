@@ -69,7 +69,7 @@ index b8de8f60..c84b61fb 100644
                  }
              }
 diff --git a/src/ast/js_binding.rs b/src/ast/js_binding.rs
-index c689ec1d..2b872196 100644
+index c689ec1d..19985d23 100644
 --- a/src/ast/js_binding.rs
 +++ b/src/ast/js_binding.rs
 @@ -13,12 +13,12 @@ use tree_sitter::Node;
@@ -233,9 +233,16 @@ index c689ec1d..2b872196 100644
              let field = if using { "right" } else { "value" };
              let Some(mut value) = decl.child_by_field_name(field) else {
                  return JsBinding::Refused("not_callable");
-@@ -212,9 +246,15 @@ impl ParsedFile {
+@@ -211,10 +245,22 @@ impl ParsedFile {
+             } {
                  value = inner;
              }
++            // Owner 2026-09-29 (spec r2 sol W1, the conservative cut): a destructuring pattern
++            // holding a default anywhere may bind the default's value, so it is an alias.
++            let pattern = decl.child_by_field_name(if using { "left" } else { "name" });
++            if !declarator && pattern.is_some_and(js_ts_has_default) {
++                return JsBinding::Alias;
++            }
              match value.kind() {
 -                "arrow_function" | "function_expression" => value,
 -                "call_expression" => return self.js_ts_classify_call(*decl, value, using),
@@ -252,7 +259,7 @@ index c689ec1d..2b872196 100644
              }
          } else {
              return JsBinding::Refused("not_callable");
-@@ -231,72 +271,29 @@ impl ParsedFile {
+@@ -231,72 +277,29 @@ impl ParsedFile {
          })
      }
  
@@ -339,7 +346,7 @@ index c689ec1d..2b872196 100644
      }
  
      /// The file is an ES module: a top-level `import`/`export` statement, or `.mjs`/`.mts`.
-@@ -388,8 +385,17 @@ impl ParsedFile {
+@@ -388,8 +391,17 @@ impl ParsedFile {
                  facts.local_export_may_call += 1;
                  JsExportTarget::Local(name)
              }
@@ -359,19 +366,13 @@ index c689ec1d..2b872196 100644
              JsBinding::Refused(reason) => {
                  *facts
                      .local_export_refusals
-@@ -447,17 +453,42 @@ impl ParsedFile {
+@@ -447,11 +459,28 @@ impl ParsedFile {
      }
  }
  
 -/// Whether `pred` holds for `node` or any named descendant.
 -fn any_node<'a>(node: Node<'a>, mut pred: impl FnMut(Node<'a>) -> bool) -> bool {
 -    let mut stack = vec![node];
--    while let Some(n) = stack.pop() {
--        if pred(n) {
--            return true;
--        }
--        let mut cursor = n.walk();
--        stack.extend(n.named_children(&mut cursor));
 +/// M1: a call with a direct function argument may return a callable (base behavior, E5); any
 +/// other call may return one by value flow (`alias`, owner 2026-09-29).
 +fn js_ts_call_may_call(call: Node<'_>) -> JsBinding {
@@ -389,6 +390,19 @@ index c689ec1d..2b872196 100644
 +    }
 +}
 +
++/// A destructuring pattern holding a default (`{ a = d }`, `{ k: a = d }`, `[a = d]`) anywhere.
++fn js_ts_has_default(pattern: Node<'_>) -> bool {
++    let mut stack = vec![pattern];
+     while let Some(n) = stack.pop() {
+-        if pred(n) {
++        if matches!(n.kind(), "assignment_pattern" | "object_assignment_pattern") {
+             return true;
+         }
+         let mut cursor = n.walk();
+@@ -460,6 +489,27 @@ fn any_node<'a>(node: Node<'a>, mut pred: impl FnMut(Node<'a>) -> bool) -> bool
+     false
+ }
+ 
 +/// The closed "provably holds no function" value class (owner 2026-09-29): a literal, or an
 +/// object or array literal whose every member value is itself in the class (a shorthand
 +/// property, a spread, a method or any other expression is not).
@@ -407,11 +421,12 @@ index c689ec1d..2b872196 100644
 +                        .is_some_and(js_ts_holds_no_function))
 +        }),
 +        _ => false,
-     }
--    false
- }
- 
++    }
++}
++
  #[cfg(test)]
+ #[path = "js_binding_tests.rs"]
+ mod tests;
 diff --git a/src/ast/js_binding_checks.rs b/src/ast/js_binding_checks.rs
 index 5d019010..4bcb1abc 100644
 --- a/src/ast/js_binding_checks.rs
@@ -489,10 +504,10 @@ index 5d019010..4bcb1abc 100644
      /// B1 (i): no `MISSING` brace, and no `ERROR` holding an anonymous `{`/`}` token (directly
 diff --git a/src/ast/js_binding_site.rs b/src/ast/js_binding_site.rs
 new file mode 100644
-index 00000000..d8f694db
+index 00000000..3f93064b
 --- /dev/null
 +++ b/src/ast/js_binding_site.rs
-@@ -0,0 +1,287 @@
+@@ -0,0 +1,292 @@
 +//! S1b-3 (SPEC §3.1, §3.1a): nested scopes, the binding at a call site, and the scoped write
 +//! resolver (M2). A write counts against a binding only when its target, walked like a site,
 +//! resolves to that binding's scope.
@@ -653,11 +668,16 @@ index 00000000..d8f694db
 +    }
 +
 +    /// Carry-forward 9: a top-level `ERROR` that is a recovered static import: its first token
-+    /// is `import` and the next is neither `.` (`import.meta`) nor `(` (`import()`).
++    /// is `import` and the next is neither `.` (`import.meta`) nor `(` (`import()`). Tokens are
++    /// leaves that are not comments or other extras (spec r2 sol W2: `import /* c */ .meta`).
 +    fn js_ts_recovered_import(&self, e: Node<'_>) -> bool {
 +        let mut leaves = Vec::new();
 +        let mut stack = vec![e];
 +        while let Some(n) = stack.pop().filter(|_| leaves.len() < 2) {
++            // Tree-sitter also flags recovery `ERROR` nodes as extras; only trivia is skipped.
++            if (n.is_extra() && !n.is_error()) || n.kind() == "comment" {
++                continue;
++            }
 +            if n.child_count() == 0 {
 +                leaves.push(self.node_text(&n));
 +                continue;
