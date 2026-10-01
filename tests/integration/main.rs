@@ -41,6 +41,7 @@ mod js_binding_scope_resolution_test;
 mod js_binding_shorthand_test;
 mod js_export_reexport_test;
 mod js_export_test;
+mod js_paths_r1_test;
 mod js_paths_test;
 mod js_wrapped_export_refusal_test;
 mod js_wrapped_export_state_test;
