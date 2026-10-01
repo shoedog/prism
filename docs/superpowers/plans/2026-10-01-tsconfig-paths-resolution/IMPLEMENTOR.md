@@ -1,0 +1,61 @@
+# Sonnet dispatch — P1 tsconfig paths import members
+
+READ: dispatch is pending owner OQ1–OQ3 answers, Opus plan approval and controller commit binding. Read SPEC, OQ-paths, MEASUREMENTS and BUILD-MANIFEST. Use the retained bound TypeScript package path as TS_JS. Review cap is two rounds; numeric LOC caps do not exist. Do not restart the prototype. Implementer starts from the controller-applied **cumulative P1.diff** off bound base `5048f443`, not from a rewrite.
+
+READ: controller fills `__PLAN_COMMIT__`, `__PROTO_COMMIT__`, `__IMPLEMENTATION_PARENT__`, owner answers and review dispositions before dispatch. If parent, scope or membership ruling differs, stop the dependent work and ask the controller; do not infer a ruling. Existing user authorization covers completing P1, tests and fixes within the answered scope, not P2, pushing or merging.
+
+## Model and scope
+
+READ: Exact is static binding. Option K keeps every unproven complete base row. No runtime-mutation guard, package/workspace resolver, namespace/class change, new corpus, speculative NameOnly-to-Exact upgrade or permissive name fallback. P1’s module match alone is insufficient: retain the landed import eligibility, local shadow, export/wrapper/span/unique callable gates. CJS span-less exports, require bindings (including a module shared with ESM) and positions lacking the specific imported binding proof stay at base through the new non-relative route.
+
+ASSUMPTION: the SPEC §3 cut is the dispatch recommendation. Node/Node10, exact and one-star singleton paths, local single-parent captured extends, effective property origins, nearest including ancestor, supported JSONC/globs, unique physical indexed candidates. Unsupported input preserves base. Do not “complete TypeScript semantics” beyond that cut.
+
+## Owned files
+
+READ: the cumulative patch enumerates its exact paths. Production ownership: new `src/js_paths.rs`, `src/js_paths_snapshot.rs`, `src/js_paths_syntax.rs`; `src/lib.rs`; `ScopeGraphBuildInputs` and the derived map/full recompute in `src/call_graph.rs`; loader-created snapshot/topology in `src/repo_loader.rs`; R4c member-module helper/span requirement in `src/resolution.rs`; `src/navigation/call_resolve.rs`; incremental recomputation in `src/cpg/build.rs`; cache versions and pin tests in `src/cpg_cache.rs` and `src/navigation/call_edge_cache.rs`.
+
+READ: tests: `tests/integration/js_paths_test.rs`, its main module entry; four new Tier-A directories `eval/fixtures/{javascript,typescript}/tsconfig_paths_{positive,refusal}`. No other existing test expectation is changed. Do not edit CLAUDE.md or existing Tier-A baselines. The Go symlink manifest test remains unchanged: its initially observed regression was fixed by omitting JS occupancy topology when no config exists.
+
+## Execution order
+
+ASSUMPTION: perform the following bounded build sequence, retaining prototype code unless a constructible finding requires a targeted correction.
+
+1. MEASURED requirement: bind checkout, parent, dirty/owned paths, source bundle, cumulative patch and binaries. Controller creates the Git worktree/commits. Confirm cache parent versions; 104/60 applies only to this 103/59 parent.
+2. MEASURED requirement: reproduce behavioral RED on the retained base. `probes/P1-tests.rs` is a standalone public-API harness; the controller can compile it with the base library and matching dependencies. At least the exact/wildcard, inherited path origin, baseUrl origin, discovery, JSONC and index/barrel groups must fail with empty UnknownName targets, not setup errors. Synthetic base/head rows retain exact caller and byte spans. The existing negative rows must equal base.
+3. ASSUMPTION: examine the three small kernel modules first. Resolve any owner/model amendments in place. Configuration bytes and occupancy must be read into loader inputs, never fetched by a call-resolution helper. Convention-only inputs remain empty.
+4. ASSUMPTION: retain the one R4c helper integration and nav incoming-caller helper. Do not change relative export closure or R3. Fresh whole-graph inputs recompute the derived map on incremental/config-only rebuilds before graph/DFG assembly. Retain 104/60 (or actual parent +1) and both pins.
+5. MEASURED requirement: run all integration rows in JSX and TSX, `controls_gen.py`, public rowdiff and TypeScript audit. Every changed row must independently pass site-import, module, callable/name/span identity checks. Any unproven changed row is an open gate. Controller alone runs private F; do not read private inputs or raw private evidence.
+6. MEASURED requirement: rerun all ten kernel mutants and the four integration mutants; each alone, with admissible behavioral output. Kernel mutation does not certify graph wiring. The CJS span-less case is the I03 boundary control, not a claim that every CJS callable is wrong. I04 kills bypass of the specific binding/position guard; preserve Position/Unchecked/MayCall/unbound states.
+7. MEASURED requirement: verify with the full suite, release build, Tier-A matrix/quick and formatter; run scoped clippy. Largest runnable subsets and exact exclusions are reported. Do not install/fetch. Full `--corpus all` Tier-A remains human-triggered.
+8. READ custody requirement: refresh HANDOFF at each stable point using the steering template. Controller commits explicit owned paths. Report source/test/fixture size, remaining work, commands/results and every exclusion; no push, merge or P2 adoption.
+
+## Commands
+
+ASSUMPTION: from the implementation worktree, use its rebuilt binary and local evidence root; these commands are executable recommendations, not receipts:
+
+```bash
+cargo fmt --check
+PRISM_TYPESCRIPT="$TS_JS" cargo test --offline --all-features
+cargo build --release --offline
+cd eval
+uv run tier-a --matrix-only --allow-stale-sut
+uv run tier-a --quick --allow-stale-sut
+```
+
+READ: in this sandbox `uv`’s normal cache is not writable. The planner used installed Python 3.12 directly for the stdlib Tier-A harness, without installs; see MEASUREMENTS. Do not repeat the denied uv cache write. A controller-created actual Git worktree is required for the prototype’s own tracked-universe quick run. `quick_control.py` against real main is a separately labeled preservation control, not that check.
+
+ASSUMPTION: public and synthetic measurement:
+
+```bash
+bash probes/run_dumps.sh "$BASE_BIN" "$OUT/base" X R T
+bash probes/run_dumps.sh "$HEAD_BIN" "$OUT/head" X R T
+python3 probes/rowdiff.py "$OUT/base/X-dump-sites.jsonl" "$OUT/head/X-dump-sites.jsonl" "$OUT/X-changes.json"
+# Run oracle.cjs for each corpus with its base import facts and changed-row file;
+# exact positional arguments are recorded by probes/reproduce_public.py.
+python3 probes/controls_gen.py "$OUT/controls"
+python3 probes/mutants.py "$WORKTREE" "$OUT" "$RELEASE_DEPS" "$OUT/controls"
+python3 probes/integration_mutants.py "$WORKTREE" "$OUT" "$CARGO_TARGET_DIR_FOR_MUTANTS"
+python3 probes/cache_probe.py "$BASE_BIN" "$HEAD_BIN" "$OUT/cache"
+```
+
+ASSUMPTION: size forecast **750–900 source / 650–850 tests / 70–100 fixtures**; no cap. Stop only for changed scope/authority or a non-converging open-class model issue. For closed enumerable review findings, fold bounded fixes on this body and rerun the discriminating evidence. At round two classify convergence before acting; disclose any owner-authorized extension.

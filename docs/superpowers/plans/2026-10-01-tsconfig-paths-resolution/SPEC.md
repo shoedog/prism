@@ -1,0 +1,111 @@
+# Lane P — tsconfig paths for JS/TS import members
+
+READ: revision r1, 2026-10-01; planning review subject, **not owner-approved**. Base `5048f44300a7bb8161444e83c0d02713529a33fd`, clean initial checkout `plan/tsconfig-paths`. Successor authority: S1 D5 and §12; S1b packet’s dated cap amendment and custody discipline. Review cap: **two Opus-5.5 plan rounds**. No external review has been dispatched in this planner session.
+
+READ: Exact is the static-binding grade in `CLAUDE.md`. Runtime mutation, eval, reflective host changes and require/import re-acquisition remain out of model. P1 proves a module path, then uses existing declaration/export/callable proof. A file match alone never authorizes an Exact edge. Option K preserves the entire base result on unproven inputs.
+
+## 0. Owner decision blocks
+
+READ: binding inherited rulings: no numeric LOC caps; forecast/split instead; Exact is static binding; Option K. The questions are in [OQ-paths.md](OQ-paths.md). None is answered here.
+
+| ID | Decision needed before dispatch | Recommendation | Answer |
+|---|---|---|---|
+| OQ1 | P1 scope and conservative refusal costs (§3) | ASSUMPTION: approve the finite cut | __OWNER_OQ1__ |
+| OQ2 | Root-file membership versus transitive project membership | ASSUMPTION: parsed root-file set | __OWNER_OQ2__ |
+| OQ3 | Fresh F aggregates before implementation dispatch | ASSUMPTION: require them | __OWNER_OQ3__ |
+| OQ4 | P2 sequencing | ASSUMPTION: park until new measured yield | __OWNER_OQ4__ |
+
+## 1. P0 and proportionality
+
+MEASURED: `MEASUREMENTS.md` and `target/paths-plan/*-P0.json` hold the counts, source hashes, module targets and callable terminals. The oracle is the offline **TypeScript 5.9.3** package, SHA-256 `3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675`. `oracle.cjs` calls TypeScript config parsing, module resolution and symbol/export binding; it does not call prism’s module/export resolver. It independently verifies the call token binds the imported local and derives callable spans from the TypeScript AST. React memo/forwardRef uses TypeScript import-symbol provenance and the existing READ wrapper model. It certifies static binding, not React runtime semantics.
+
+MEASURED: X has 19,219 sites; 3,754 TypeScript-proven imported dropped sites (3,769 import-fact associations, of which 15 are shadowed), 3,156 module-resolved via paths, 3,131 independently identified callable alias sites. Prototype recovers 3,121, all individually validated. R has 953 sites / 168 associated drops / 0 alias callable yield; T has 61,712 / 15 / 0. No NameOnly site is in this eligible associated candidate set: every candidate on this base is `UnknownName`. The associated count is an import-fact census; the imported count excludes the 15 shadowed sites. Only callable candidates with independent site-import proof claim recoverability. F is controller-only and not measured here; ~2.8k is an unmeasured projection.
+
+MEASURED: exact mappings dominate X (2,991 callable candidates), wildcards contribute 140. Extends/per-package configuration supports 2,875 callable candidates; these are overlapping attributes, not additive gains. Index *destinations* account for 2,994 callable candidates, mostly exact mappings spelling `index.ts`; this is not evidence that implicit directory-index lookup causes all those gains. Bare baseUrl, non-relative .js substitution, references and package/workspace routing recover 0 public sites.
+
+ASSUMPTION: 3,121 newly retained static edges (16.24% of all X sites) justify this finite slice. Stop expansion after P1 unless fresh F or a new corpus shows material additional yield. Do not generalize X’s benefit to R/T or invent a private yield.
+
+## 2. Slice split and owned behavior
+
+ASSUMPTION: **P1** is one bounded behavioral slice, with a narrow configuration kernel and one R4c integration route. Implement from the provided cumulative prototype, internally in this order: snapshot/config resolver and tests, then import-member wiring/cache/parity tests. No independent preparatory API is shipped without its consumer. Estimated reviewable source is 750–900 honest lines, tests 650–850 plus 70–100 fixture lines; measured prototype is smaller (§8). If review uncovers open-class project ownership, park that extension rather than restart the artifact.
+
+ASSUMPTION: **P2a** (parked): ordered substitution fallbacks, full extension precedence/.js mapping, bare baseUrl. **P2b** (parked): non-relative export-chain hops/namespace/class seams, NodeNext/Bundler, package exports/workspaces, package/array extends, references/project ownership. Each requires its own P0 and bounded dispatch. No P2 code is in P1.
+
+ASSUMPTION: P1 changes only eligible named/default ESM import-member calls whose non-relative path is proven under §3 and whose current export facts supply one span-backed callable. Existing relative imports, R3 namespace/named/default qualifiers, imported class receivers, CommonJS, synthetic/indirect sites and source call-site ownership retain base behavior. Export-chain resolution remains the existing relative-only closure: an imported alias may target a barrel with already-supported relative hops, but P1 does not add alias hops inside barrels.
+
+## 3. Configuration semantics and module proof
+
+### 3.1 Snapshot and discovery
+
+ASSUMPTION: `JsPathsSnapshot` is captured once at repository loading. It contains config bytes/opaque sentinels and source/directory occupancy; resolution thereafter performs no filesystem reads. Read neither node_modules nor symlink targets. Directory/file read failures, non-UTF8 paths or exceeding the 200,000-entry walk budget make the snapshot incomplete and prevent new module proofs. Config reads are bounded to 256 KiB. Corpus roots are trusted read-only snapshots in this measurement; this is not a descriptor-retention security guarantee for a concurrently mutated tree.
+
+ASSUMPTION: discover ancestor `tsconfig.json` files per source file, bounded by the selected repository root; choose the nearest whose supported, effective root-file set includes that file. An excluded closer config permits the next ancestor; a closer opaque, malformed, cyclic or unsupported config is a barrier and preserves base. No sibling config competes with an ancestor. References do not import the referenced project’s options or make a sibling project the owner. No filesystem context exists in convention-only library builds: they keep base; consumers wanting paths provide loader-created inputs.
+
+ASSUMPTION: P1 snapshots `tsconfig.json` and `tsconfig.*.json` only. It supports local single-string extends, normalized relative to the extending config, optionally adding `.json`, at most 16 configs. Every parent must be captured inside the repo. Package extends, arrays, arbitrary differently named JSON parents, cycles and missing/opaque parents preserve base. Child `compilerOptions` overrides properties; `paths` replaces the entire parent mapping. `files`/`include`/`exclude` are independently inherited or replaced with paths rooted at the config declaring each property.
+
+ASSUMPTION: supported membership patterns have slash components, literal text, `*`, `?`, and whole-component `**`; non-wildcard directory names include their descendants. `files` overrides exclude. With files but no include, only files are roots; with neither, default include is `**/*`. JS/JSX wildcard roots require allowJs. Explicit exclude replaces default excludes. Loader-refused hidden/builtin directories remain opaque; outDir default-exclude inference without an explicit exclude is unproven in P1. Unsupported glob syntax, a trailing `/**`, patterns >512 bytes or paths >4,096 bytes preserve base. Matching uses bounded dynamic programming, not recursive exponential backtracking. JSONC comments/trailing commas are supported with string escape preservation. Duplicate JSON object keys fail closed, including duplicate paths keys.
+
+### 3.2 Paths, baseUrl and precedence
+
+READ: TypeScript 5.9.3 `getPathsBasePath` uses effective baseUrl, otherwise pathsBasePath from the config declaring paths. Its `matchPatternOrExact` selects exact keys first; wildcard matches use the longest literal prefix, and equal-prefix matches use original declaration order. `tryLoadModuleUsingPaths` tries substitutions in array order. These mechanisms were read in the retained oracle package at lines 20349, 3638, 43455, 46417; the differential controls exercise them.
+
+ASSUMPTION: P1 requires explicit `moduleResolution: node|node10` (case-insensitive), singleton substitution arrays and at most one `*` per key/target. A target star without a matching key star preserves base. Exact key wins; otherwise one matching wildcard with maximal prefix length wins. A tie at the maximal prefix or empty wildcard capture is **unproven**, even where TypeScript has a deterministic declaration-order winner. Never retry a shorter key after the selected one misses. Key conflicts/duplicates never grant authority. rootDirs/moduleSuffixes/noResolve settings preserve base. Unsupported entries anywhere in the effective paths object conservatively decline that config.
+
+ASSUMPTION: effective baseUrl is rooted at the config that declares it, even when paths are declared in a child or parent. Without baseUrl, substitutions are rooted at the paths-declaring config. Normalize `.`/`..` without allowing repo escape; reject absolute, backslash or scheme/drive spellings. baseUrl only roots a matched paths substitution in P1; bare lookup is deferred. Substitution capture never opens an outside path.
+
+### 3.3 Candidate precision and Option K
+
+ASSUMPTION: explicit `.ts`/`.tsx` substitutions require that exact regular indexed file (declaration-only `.d.ts` is never a callable origin). Explicit `.js`/`.jsx` and extension substitution are deferred. For extensionless substitutions, consider `.ts`, `.tsx`, `.d.ts`, `.js`, `.jsx` and corresponding `index` files. Exactly one occupied candidate, regular, unblocked and indexed is required. Any occupied unindexed/opaque/declaration candidate, competing extension/file/index candidates, extensionless regular file or directory package.json boundary preserves the complete base row. This conservative cut is narrower than TypeScript’s ordered extension resolution and is an explicit OQ1 cost, not an asserted TypeScript ambiguity.
+
+ASSUMPTION: a module proof is an additive `(caller_file, raw_specifier) -> indexed_target` map, recomputed from current eligible JS/TS member-import facts. R4c consults it only for non-relative imports; relative resolution remains byte-for-byte existing logic. Resolve the imported/exported name using existing `js_ts_resolved_exports`, span, wrapping/JSX gate, local shadow guards and unique function identity. Only specific bindings listed in the caller’s ESM named-import facts and sites with `JsLocalBinding::Unproven("import")` may consult a new alias route. Module-map population also requires ESM provenance; its caller/specifier key alone cannot distinguish a require binding sharing the same module. Position/Unchecked/MayCall and other unproven reasons keep base. New alias routes require a source-backed span; opacity, may-call/written exports or CJS Local fallback never mint a new Exact. No global name/stem fallback is introduced. Zero or unproven callable candidates keep base; the configuration layer itself introduces no new DropReason or counter.
+
+## 4. Cache and rebuilds
+
+MEASURED: this checkout has CPG 103 / navigation call-edge 59. Prototype bumps to **104 / 60**, with the pin tests changed accordingly. Config content hashes and an occupancy/completeness fingerprint join `manifest_hashes`, so both existing topology consumers invalidate. With no captured tsconfig, no JS occupancy key is added; this preserves the established Go manifest topology invariant. Config addition/removal changes the set of topology keys; inherited config changes also invalidate. No mtime-only key is accepted.
+
+ASSUMPTION: persist the derived module map in CallGraph. Full-hit rebuilds use the saved map with the matching topology. Full construction and incremental merge recompute the map before export/call/DFG assembly from current inputs, including config-only changes with no changed source files. Convention-only inputs have an empty snapshot/map. Do not retain removed caller/target authority through merges. On a different implementation parent use that parent’s actual cache versions +1 and re-measure; this packet does not reserve numbers on main.
+
+MEASURED: `cache_probe.py` checks base cache rejection, cold/full-hit/sidecar/no-cache caller equality, and a config-only edit moving the caller from left to right. The integration test compares an empty-source-change incremental build to a full build. These checks read concrete caller/function outputs rather than treating exit status as behavioral evidence.
+
+## 5. RED rows and controls
+
+MEASURED: `probes/P1-tests.rs` executes on the retained base library. Initial 12 groups: **8 behavioral failures / 4 preservation passes**, no compile/setup/zero-test failure counted as RED. Core RED: C01 exact, C02 wildcard, C03 exact precedence, C04 longest prefix, C08 inherited paths origin, C09 baseUrl origin, C10 files override exclude, C12 JSONC, C20 index, C24 relative barrel, C25 default import. The assertions pin exact `(file,name,start,end,confidence,kind)` with distinct decoys. Typed-variable/render spans have an independent TypeScript AST check, not a prism-derived expected span.
+
+ASSUMPTION: all scenario classes run in JSX and TSX. `controls_gen.py` produces 76 scenarios / 84 raw sites at the final fold. C06/C07 tied/empty patterns, C11/C33 excluded roots, C13 duplicate key, C14 cycle, C15 package extends, C16 array fallback, C17 NodeNext, C18 bare baseUrl, C19 .js substitution, C21 declaration precedence, C22 competing extension, C23 package boundary, C26 missing export, C27 parameter shadow, C28 namespace preservation, C29 relative preservation, C30 escape, C32 file/index competition, C34 require, C35 require sharing a module with ESM, and C36 unmatched target star preserve base. The integration harness separately injects Position/Unchecked/MayCall/unbound states into both base and prototype graphs to assert complete Option-K preservation. C08/C09 contain both the declined parent and admitted child calls. C37/C38 exercise the admitted JSX and refused ordinary-call positions of independently proven React wrappers.
+
+ASSUMPTION: add four Tier-A fixtures, positive and declaration-blocker refusal in each language, under `eval/fixtures/{javascript,typescript}/tsconfig_paths_{positive,refusal}`. Positive base is RED, prototype Exact import_member is GREEN. Refusal is a negative preservation control. Do not rebaseline existing fixtures.
+
+## 6. Mutants
+
+MEASURED: ten isolated mutants compile the **actual three prototype resolver modules**, not a model rewritten for testing. `mutants.py` compares module proof outputs over the same concrete files/requests; all ten are killed after adding C33 to close the initially surviving exclude mutant. This is kernel mutation evidence, not proof of cache/rung wiring; integration, cache and independent changed-row checks cover those separately.
+
+| Mutant | Change | Killing control |
+|---|---|---|
+| M01 | Remove exact-key match | C01 |
+| M02 | Prefer shortest wildcard prefix | C04 |
+| M03 | Root inherited paths at caller config | C08 |
+| M04 | Ignore root-file include membership | C08/C11/C33 |
+| M05 | Ignore exclude | C33 |
+| M06 | Bypass .d.ts occupancy blocker | C21 |
+| M07 | Ignore package boundary | C23 |
+| M08 | Accept equal-prefix tie | C06 |
+| M09 | Ignore effective baseUrl origin | C09 |
+| M10 | Substitute an unmatched target star | C36 |
+
+MEASURED: four integration mutants run against separate copies of the actual source: I01 omits config content from topology (config-only cache control fails); I02 omits post-merge map recomputation (incremental parity fails); I03 removes the span requirement (CJS opaque terminal preservation fails); I04 removes the binding/position guard (require sharing a module with ESM preservation fails). Each must compile, select one test and produce the intended assertion failure. ASSUMPTION: rerun these four at landing and at least three kernel mutants independently in review. Equivalent redundant variants must be named rather than called killed.
+
+## 7. Acceptance and admissibility
+
+ASSUMPTION: capture HEAD/source bundle/patch/binary/oracle hashes before comparing. Use base and head binaries in the same environment against the same input hashes. `rowdiff.py` keys retain caller identity and byte spans; key additions/removals are unacceptable without an explicit row audit. Every changed row must have TypeScript import, module and export/callable proof, plus the admitted JSX grade for wrapped Exact edges. A new `WrappedExportNonJsx` refusal is separately classified against TypeScript wrapper/import proof and S1’s fixed model. `UNPROVEN`, wrong target, or span mismatch is an open finding, never included in “0 wrong.” A 0 count is scoped to changed rows, not existing whole-corpus correctness.
+
+MEASURED: expected final public signature is X **3,121** `UnknownName -> exact/import_member`, R **0**, T **0**, with 0 added/removed keys. The raw changed-row JSON and oracle classification retain all target identities. Private F is not certified; controller-only commands return aggregates. Synthetic controls change 30 rows: 28 independent correct static bindings and two correct wrapped-export non-JSX refusals; every preservation row must equal base.
+
+ASSUMPTION: run full cargo suite including MCP; release rebuild; Tier-A matrix and quick; formatter and scoped clippy. If a check cannot run, report its precise exclusion and reason; a failed setup probe supplies no behavioral evidence. Do not install/fetch or start providers. Full multi-corpus Tier-A is human-triggered and not part of this planner’s authorization. Unrelated inherited failures are reported with a same-environment base control, never silently adjusted.
+
+## 8. Size, risk and custody
+
+MEASURED: prototype after rustfmt adds **671 honest source lines**, removes 18; integration adds **503**, fixtures **70** (see `target/paths-plan/size.json`; counts exclude blank and `//` lines). New modules are 279, 107 and 206 physical lines, test file 508; all below CLAUDE.md’s 600-line convention. These are measurements, not caps.
+
+ASSUMPTION: landing forecast source **750–900**, tests **650–850**, fixtures **70–100**; additions mainly strengthen snapshot/refusal/cache controls. Configuration ownership is the high-risk seam. Keep P2 out; if review changes OQ2’s membership semantics, preserve this artifact and fold a bounded model correction with new RED rows instead of restarting it.
+
+READ: no Git writes are authorized. The prototype lives under `target/paths-proto/` as `P1.diff`, an owned-file archive and hashes. Controller creates `proto/tsconfig-paths` from this bound base, applies the cumulative patch, binds a commit, and dispatches Sonnet from that body after owner answers and plan approval. The plan handoff and local archives are snapshots, not a pushed backup. Source-hash/binary custody is in BUILD-MANIFEST; a scratch binary’s inherited Git SHA alone does not bind its modified body.
