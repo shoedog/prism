@@ -32,6 +32,7 @@ mod inline_prop_receiver_test;
 mod js_binding_export_state_test;
 mod js_binding_export_test;
 mod js_binding_intrinsic_test;
+mod js_binding_namespace_test;
 mod js_binding_scope_resolution_fold2_test;
 mod js_binding_scope_resolution_fold_r2_test;
 mod js_binding_scope_resolution_fold_test;

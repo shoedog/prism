@@ -71,6 +71,21 @@ pub enum JsExportTarget {
 /// (`import_bindings`, `module_bindings`): removed/merged wholesale per file.
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct JsExportFacts {
+    /// R3 absence authority only: all module export forms are modelled ESM.
+    #[serde(default)]
+    pub namespace_esm_complete: bool,
+    /// Only forwarding exports and inert imports/private functions at module
+    /// scope. Its private functions cannot escape to an opaque export value.
+    #[serde(default)]
+    pub namespace_private_barrel: bool,
+    /// R3-only keep-base terminals. None poisons duplicate/competing claims.
+    /// These never grant callable authority or alter D4 telemetry.
+    #[serde(default)]
+    pub namespace_opaque_exports: BTreeMap<String, Option<String>>,
+    /// Terminal binding origins classified MayCall (including writes), kept
+    /// at base R3 on every route by E5. Never callable or D4 authority.
+    #[serde(default)]
+    pub namespace_may_call_locals: BTreeSet<String>,
     /// Syntactic module value declarations, used only to forbid repo-global
     /// name fallback. This is not callable or forwarding authority.
     #[serde(default)]
@@ -118,7 +133,11 @@ pub struct JsExportFacts {
 
 impl JsExportFacts {
     pub fn is_empty(&self) -> bool {
-        self.named.is_empty()
+        !self.namespace_esm_complete
+            && !self.namespace_private_barrel
+            && self.namespace_opaque_exports.is_empty()
+            && self.namespace_may_call_locals.is_empty()
+            && self.named.is_empty()
             && self.module_value_bindings.is_empty()
             && self.forwardable_function_locals.is_empty()
             && self.esm_named_imports.is_empty()
@@ -138,6 +157,14 @@ impl JsExportFacts {
     /// local declaration plus a re-export, even two identical re-exports of
     /// the same target -- poisons the name: resolution refuses to bind it.
     pub fn insert_named(&mut self, name: String, target: JsExportTarget) {
+        if let Some(local) = self.namespace_opaque_exports.get_mut(&name) {
+            if local
+                .as_ref()
+                .is_none_or(|l| target != JsExportTarget::UnprovenLocal(l.clone()))
+            {
+                *local = None;
+            }
+        }
         if self.conflicted.contains(&name) {
             return; // already poisoned; nothing more to do
         }
@@ -146,6 +173,13 @@ impl JsExportFacts {
         } else {
             self.named.insert(name, target);
         }
+    }
+
+    pub(crate) fn record_namespace_opaque(&mut self, exported: String, local: String) {
+        let duplicate = self.named.contains_key(&exported)
+            || self.namespace_opaque_exports.contains_key(&exported);
+        self.namespace_opaque_exports
+            .insert(exported, (!duplicate).then_some(local));
     }
 }
 
@@ -209,6 +243,79 @@ pub fn resolve_js_exports(
         }
     }
     out
+}
+
+/// A separate projection through the same bounded traversal. Local without a
+/// span means keep the whole base R3 ladder, never mint callable authority.
+/// D4 receives the original facts and telemetry; this projection's telemetry
+/// is deliberately discarded. ImportForward can carry opaque Alias terminals.
+pub fn resolve_js_namespace_exports(
+    raw: &BTreeMap<String, JsExportFacts>,
+    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
+) -> BTreeMap<String, BTreeMap<String, ResolvedJsExport>> {
+    let mut namespace_raw = raw.clone();
+    for facts in namespace_raw.values_mut() {
+        for (exported, local) in &facts.namespace_opaque_exports {
+            match local {
+                Some(local) if !facts.conflicted.contains(exported) => {
+                    facts
+                        .named
+                        .insert(exported.clone(), JsExportTarget::Local(local.clone()));
+                    facts.forwardable_function_locals.insert(local.clone());
+                }
+                _ => {
+                    facts.conflicted.insert(exported.clone());
+                }
+            }
+        }
+        for target in facts.named.values_mut() {
+            if let JsExportTarget::Local(local)
+            | JsExportTarget::UnprovenLocal(local)
+            | JsExportTarget::Class(local) = target
+            {
+                if facts.namespace_may_call_locals.contains(local) {
+                    facts.forwardable_function_locals.insert(local.clone());
+                    *target = JsExportTarget::Local(local.clone());
+                }
+            }
+        }
+    }
+    resolve_js_exports(&namespace_raw, resolve_module).resolved
+}
+
+/// Absence is final only after a complete, untruncated ESM traversal.
+/// A repeated file is a genuine cycle; unknown modules and depth cuts are not absence.
+pub(crate) fn namespace_exports_complete(
+    raw: &BTreeMap<String, JsExportFacts>,
+    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
+    file: &str,
+    depth: usize,
+    visited: &BTreeSet<String>,
+) -> bool {
+    if visited.contains(file) {
+        return true;
+    }
+    if depth > MAX_REEXPORT_DEPTH {
+        return false;
+    }
+    let Some(facts) = raw.get(file).filter(|f| f.namespace_esm_complete) else {
+        return false;
+    };
+    let mut visited = visited.clone();
+    visited.insert(file.to_string());
+    facts
+        .star_reexports
+        .iter()
+        .chain(facts.named.values().filter_map(|t| match t {
+            JsExportTarget::ReExport { module_path, .. }
+            | JsExportTarget::ImportForward { module_path, .. } => Some(module_path),
+            _ => None,
+        }))
+        .all(|module| {
+            resolve_module(file, module).is_some_and(|target| {
+                namespace_exports_complete(raw, resolve_module, &target, depth + 1, &visited)
+            })
+        })
 }
 
 /// Collect the set of exported names a file can plausibly serve, including
@@ -452,6 +559,10 @@ mod tests {
 
     fn facts(named: &[(&str, JsExportTarget)], star: &[&str]) -> JsExportFacts {
         JsExportFacts {
+            namespace_esm_complete: true,
+            namespace_private_barrel: false,
+            namespace_opaque_exports: BTreeMap::new(),
+            namespace_may_call_locals: BTreeSet::new(),
             module_value_bindings: BTreeSet::new(),
             forwardable_function_locals: BTreeSet::new(),
             esm_named_imports: BTreeSet::new(),

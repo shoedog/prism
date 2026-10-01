@@ -14,6 +14,9 @@ use crate::name_resolution::types::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
+#[path = "resolution_js_namespace.rs"]
+mod js_namespace;
+
 pub use crate::resolution_disproof::{prune, DisproofCx, DisproofPredicate};
 pub use crate::resolution_identity::{
     canonical_external, resolve_type_path_to_type_scope, ReceiverOutcome, ReceiverTypeKey, TypeKey,
@@ -2559,9 +2562,29 @@ impl CallGraph {
                     )
                 ) && site.receiver_lexically_bound;
 
+                // A core-proven namespace import pre-empts the legacy receiver shadow
+                // flags, which cannot model every evaluation position. Opaque exports
+                // return None to preserve the entire old ladder, including its guards.
+                if let crate::call_graph::JsLocalBinding::NamespaceImport { module_path } =
+                    &site.local_binding
+                {
+                    if let Some(outcome) = self.js_ts_namespace_outcome(module_path, name, site) {
+                        return outcome;
+                    }
+                }
+                let namespace_refused = match &site.local_binding {
+                    crate::call_graph::JsLocalBinding::Callable(_) => true,
+                    crate::call_graph::JsLocalBinding::Unproven(r) => {
+                        matches!(
+                            r.as_str(),
+                            "not_callable" | "unindexed" | "namespace_shadow"
+                        )
+                    }
+                    _ => false,
+                };
                 // R3: imported-module qualifier. If an import matches, the
                 // narrowed set is final; empty means the call is external.
-                if !recv_materialized && !js_ts_receiver_lexically_bound {
+                if !recv_materialized && !js_ts_receiver_lexically_bound && !namespace_refused {
                     if let Some(file_imports) = self.imports.get(&caller.file) {
                         if let Some(module_path) = file_imports.get(q) {
                             let ids = match self.functions.get(name) {
@@ -3755,13 +3778,30 @@ impl CallGraph {
         ) else {
             return Ok(Vec::new());
         };
+        self.js_ts_export_candidates(&candidate_file, member, site)
+    }
+
+    fn js_ts_export_candidates(
+        &self,
+        candidate_file: &str,
+        member: &str,
+        site: &CallSite,
+    ) -> Result<Vec<&FunctionId>, DropReason> {
         let Some(resolved) = self
             .js_ts_resolved_exports
-            .get(&candidate_file)
+            .get(candidate_file)
             .and_then(|exports| exports.get(member))
         else {
             return Ok(Vec::new());
         };
+        self.js_ts_export_target_candidates(resolved, site)
+    }
+
+    fn js_ts_export_target_candidates(
+        &self,
+        resolved: &crate::js_exports::ResolvedJsExport,
+        site: &CallSite,
+    ) -> Result<Vec<&FunctionId>, DropReason> {
         if resolved.wrapped && !site.jsx_element {
             return Err(DropReason::WrappedExportNonJsx);
         }

@@ -186,7 +186,7 @@ case!(
 );
 case!(
     esm_namespace_import,
-    Gap,
+    Supported,
     ESM,
     "",
     "import * as ns from './origin';\nfunction run() { ns.item(); }"

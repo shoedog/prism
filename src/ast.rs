@@ -15,6 +15,7 @@ mod js_binding_checks;
 mod js_binding_decls;
 #[cfg(test)]
 mod js_binding_helper_tests;
+mod js_binding_namespace;
 mod js_binding_recovery;
 mod js_binding_site;
 mod js_binding_values;
@@ -2467,10 +2468,31 @@ impl ParsedFile {
             imports.chain(types.keys().cloned()).collect(),
             Default::default(),
         );
+        let mut has_esm_exports = false;
+        let mut unsupported_export = root.has_error();
+        let mut private_barrel = true;
         let mut cursor = root.walk();
         for child in root.children(&mut cursor) {
+            if child.is_named() {
+                private_barrel &= match child.kind() {
+                    "comment"
+                    | "import_statement"
+                    | "function_declaration"
+                    | "generator_function_declaration" => true,
+                    "export_statement" => {
+                        child.child_by_field_name("declaration").is_none()
+                            && child.child_by_field_name("value").is_none()
+                    }
+                    _ => false,
+                };
+            }
             match child.kind() {
                 "export_statement" => {
+                    has_esm_exports = true;
+                    let mut export_cursor = child.walk();
+                    unsupported_export |= child
+                        .children(&mut export_cursor)
+                        .any(|n| matches!(n.kind(), "=" | "import_alias"));
                     self.collect_js_ts_export_statement(child, &mut facts, &mut d4)
                 }
                 "expression_statement" => self.collect_js_ts_cjs_export_statement(child, &mut cjs),
@@ -2480,9 +2502,25 @@ impl ParsedFile {
         // Preserve ESM provenance: an unsafe CJS use cannot erase an
         // independently extracted ESM export. Safe cross-form duplicates still
         // pass through the normal conflict-aware insertion path.
+        let cjs_safe = self.js_ts_cjs_export_object_safe();
+        facts.namespace_esm_complete =
+            has_esm_exports && !unsupported_export && cjs.is_empty() && cjs_safe;
+        facts.namespace_private_barrel = private_barrel
+            && facts.namespace_esm_complete
+            && facts.namespace_opaque_exports.is_empty()
+            && facts.named.values().all(|t| {
+                matches!(
+                    t,
+                    crate::js_exports::JsExportTarget::ReExport { .. }
+                        | crate::js_exports::JsExportTarget::ImportForward { .. }
+                )
+            });
         facts.skipped_expr_count += cjs.skipped_expr_count;
-        if cjs.conflicted.is_empty() && self.js_ts_cjs_export_object_safe() {
+        if cjs.conflicted.is_empty() && cjs_safe {
             for (name, target) in cjs.named {
+                if let crate::js_exports::JsExportTarget::UnprovenLocal(local) = &target {
+                    facts.record_namespace_opaque(name.clone(), local.clone());
+                }
                 facts.insert_named(name, target);
             }
         } else {
@@ -2492,6 +2530,7 @@ impl ParsedFile {
             // No claim is invented for unknown/computed-only export names.
             for name in cjs.named.keys().chain(cjs.conflicted.iter()) {
                 if !facts.named.contains_key(name) && !facts.conflicted.contains(name) {
+                    facts.record_namespace_opaque(name.clone(), name.clone());
                     facts.insert_named(
                         name.clone(),
                         crate::js_exports::JsExportTarget::UnprovenLocal(name.clone()),
@@ -2508,6 +2547,21 @@ impl ParsedFile {
                 if d4.0.contains(local) {
                     facts.conflicted.insert(exported.clone());
                 }
+            }
+        }
+        for local in facts
+            .named
+            .values()
+            .filter_map(|target| match target {
+                crate::js_exports::JsExportTarget::Local(local)
+                | crate::js_exports::JsExportTarget::UnprovenLocal(local)
+                | crate::js_exports::JsExportTarget::Class(local) => Some(local),
+                _ => None,
+            })
+            .chain(facts.namespace_opaque_exports.values().flatten())
+        {
+            if self.js_ts_module_binding(local, root, &mut d4.1) == JsBinding::MayCall {
+                facts.namespace_may_call_locals.insert(local.clone());
             }
         }
         facts
@@ -2842,9 +2896,9 @@ impl ParsedFile {
                         module_path: module_path.clone(),
                         imported: name,
                     },
-                    None => self
-                        .js_ts_forwarded_import(&name)
-                        .unwrap_or_else(|| self.js_ts_local_export_target(name, spec, facts, d4)),
+                    None => self.js_ts_forwarded_import(&name).unwrap_or_else(|| {
+                        self.js_ts_local_export_target(name, &exported_as, spec, facts, d4)
+                    }),
                 };
                 facts.insert_named(exported_as, target);
             }
@@ -2863,9 +2917,9 @@ impl ParsedFile {
                     }
                     return;
                 }
-                let target = self
-                    .js_ts_forwarded_import(&name)
-                    .unwrap_or_else(|| self.js_ts_local_export_target(name, value, facts, d4));
+                let target = self.js_ts_forwarded_import(&name).unwrap_or_else(|| {
+                    self.js_ts_local_export_target(name, "default", value, facts, d4)
+                });
                 facts.insert_named("default".to_string(), target);
             } else {
                 facts.skipped_expr_count += 1;
@@ -2897,7 +2951,13 @@ impl ParsedFile {
                         } else {
                             name_text.clone()
                         };
-                        let target = self.js_ts_local_export_target(name_text, decl, facts, d4);
+                        let target = self.js_ts_local_export_target(
+                            name_text,
+                            &exported_as,
+                            decl,
+                            facts,
+                            d4,
+                        );
                         facts.insert_named(exported_as, target);
                     }
                 }
@@ -2911,6 +2971,11 @@ impl ParsedFile {
                             continue;
                         };
                         if name_node.kind() != "identifier" {
+                            let mut names = BTreeSet::new();
+                            self.collect_js_ts_binding_pattern_names(name_node, &mut names);
+                            for name in names {
+                                facts.record_namespace_opaque(name.clone(), name);
+                            }
                             continue;
                         }
                         let name_text = self.node_text(&name_node).to_string();
@@ -2928,8 +2993,13 @@ impl ParsedFile {
                         // span-verified React wrapper; every other skip names its reason.
                         let admitted = match d.child_by_field_name("value").map(|v| v.kind()) {
                             Some("arrow_function") | Some("function_expression") => {
-                                let target =
-                                    self.js_ts_local_export_target(name_text.clone(), d, facts, d4);
+                                let target = self.js_ts_local_export_target(
+                                    name_text.clone(),
+                                    &name_text,
+                                    d,
+                                    facts,
+                                    d4,
+                                );
                                 facts.insert_named(name_text, target);
                                 continue;
                             }
@@ -2947,6 +3017,12 @@ impl ParsedFile {
                                 facts.insert_named(name_text, target);
                             }
                             Err(reason) => {
+                                if matches!(
+                                    self.js_ts_module_binding(&name_text, d, &mut d4.1),
+                                    JsBinding::Alias | JsBinding::MayCall
+                                ) {
+                                    facts.record_namespace_opaque(name_text.clone(), name_text);
+                                }
                                 facts.skipped_expr_count += 1;
                                 *facts
                                     .skipped_decl_reasons

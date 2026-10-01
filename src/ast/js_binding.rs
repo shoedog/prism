@@ -58,6 +58,7 @@ pub(super) type ExportScope<'a> = (BTreeSet<String>, JsBindingCache<'a>);
 
 /// Declared names and their declaring nodes (markers included).
 pub(super) type Index<'a> = BTreeMap<String, Vec<Node<'a>>>;
+pub(super) type NamespaceImports<'a> = BTreeMap<String, Vec<(Node<'a>, Option<String>)>>;
 
 /// Per-file memo: scope declaration indexes (with the unknown-strictness Annex-B names), B0
 /// results, both keyed by scope node id, the file-level B1 brace condition, the leave
@@ -71,6 +72,7 @@ pub(crate) struct JsBindingCache<'a> {
     pub(super) partners: Option<BTreeMap<String, usize>>,
     pub(super) write_targets: Option<BTreeMap<String, Vec<Node<'a>>>>,
     pub(super) written: BTreeMap<(usize, String), bool>,
+    pub(super) namespace_imports: Option<NamespaceImports<'a>>,
 }
 
 impl<'a> JsBindingCache<'a> {
@@ -367,6 +369,7 @@ impl ParsedFile {
     pub(super) fn js_ts_local_export_target<'a>(
         &'a self,
         name: String,
+        exported: &str,
         site: Node<'a>,
         facts: &mut JsExportFacts,
         (imported, cache): &mut ExportScope<'a>,
@@ -398,7 +401,10 @@ impl ParsedFile {
             // is not filtered above and would otherwise leak an unpoisoned `Local`, letting R4c
             // bind a same-file decoy Exact — re-opening the edge S1b-2b closed. Both count
             // `not_callable`.
-            JsBinding::Alias | JsBinding::Import => {
+            binding @ (JsBinding::Alias | JsBinding::Import) => {
+                if binding == JsBinding::Alias {
+                    facts.record_namespace_opaque(exported.to_string(), name.clone());
+                }
                 *facts
                     .local_export_refusals
                     .entry("not_callable".into())

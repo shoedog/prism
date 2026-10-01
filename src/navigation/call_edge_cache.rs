@@ -100,7 +100,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v57: S1b-2b ESM local exports through the module-scope binding (CPG v101).
 // v58: S1b-3a extends the binding core to every scope (CPG v102).
 // v59: S1b-3b wires the binding core to call sites, `CallSite.local_binding` (CPG v103).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 59;
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 62;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -719,7 +719,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 59);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 62);
     }
 
     #[test]

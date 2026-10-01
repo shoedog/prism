@@ -513,6 +513,8 @@ pub enum JsLocalBinding {
     Unchecked,
     /// The binding holds exactly this callable.
     Callable(crate::ast::JsTerminal),
+    /// S1b-4: one unwritten program namespace import, proved at this site.
+    NamespaceImport { module_path: String },
     /// Keeps base behavior, counted by reason: `may_call` (owner E5: M1, M2, a written
     /// binding) or `alias` (a value that may hold a function by value flow, owner
     /// 2026-09-29).
@@ -886,6 +888,10 @@ pub struct CallGraph {
     /// `js_ts_exports`; recomputed by `apply_js_export_resolution` the same
     /// way `interface_impls`/`go_registrations` are (whole-program derived —
     /// a barrel's resolution can depend on an unchanged file elsewhere).
+    /// S1b-4 namespace-only export projection (unspanned means keep base).
+    #[serde(default)]
+    pub js_ts_namespace_exports:
+        BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>,
     #[serde(default)]
     pub js_ts_resolved_exports:
         BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>,
@@ -1213,6 +1219,7 @@ impl CallGraph {
             indexed_files: BTreeSet::new(),
             js_ts_exports: BTreeMap::new(),
             js_ts_resolved_exports: BTreeMap::new(),
+            js_ts_namespace_exports: BTreeMap::new(),
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
@@ -1491,6 +1498,7 @@ impl CallGraph {
             indexed_files: BTreeSet::new(),
             js_ts_exports: BTreeMap::new(),
             js_ts_resolved_exports: BTreeMap::new(),
+            js_ts_namespace_exports: BTreeMap::new(),
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
@@ -1956,6 +1964,7 @@ impl CallGraph {
             indexed_files,
             js_ts_exports,
             js_ts_resolved_exports: BTreeMap::new(),
+            js_ts_namespace_exports: BTreeMap::new(),
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals,
@@ -2190,6 +2199,8 @@ impl CallGraph {
         };
         let resolution =
             crate::js_exports::resolve_js_exports(&self.js_ts_exports, &resolve_module);
+        self.js_ts_namespace_exports =
+            crate::js_exports::resolve_js_namespace_exports(&self.js_ts_exports, &resolve_module);
         self.js_ts_resolved_exports = resolution.resolved;
         self.js_export_chain_unresolved = resolution.chain_unresolved;
         self.js_export_barrel_conflicts = resolution.barrel_conflicts;
@@ -2197,6 +2208,7 @@ impl CallGraph {
 
     fn clear_js_export_resolution(&mut self) {
         self.js_ts_resolved_exports.clear();
+        self.js_ts_namespace_exports.clear();
         self.js_export_chain_unresolved = 0;
         self.js_export_barrel_conflicts = 0;
     }
@@ -5251,6 +5263,7 @@ impl CallGraph {
             // itself; the caller re-applies `apply_js_export_resolution` on
             // the merged graph.
             js_ts_resolved_exports: BTreeMap::new(),
+            js_ts_namespace_exports: BTreeMap::new(),
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals,
@@ -5588,12 +5601,33 @@ impl CallGraph {
                     site.child_by_field_name("name")
                 }
                 _ => None,
-            })
-            .filter(|n| n.kind() == "identifier" && parsed.node_text(n) == callee);
+            });
         let Some(ident) = ident else {
             return JsLocalBinding::Unchecked;
         };
-        match parsed.js_ts_site_binding(ident, callee, cache) {
+        let binding = if ident.kind() == "identifier" && parsed.node_text(&ident) == callee {
+            parsed.js_ts_site_binding(ident, callee, cache)
+        } else if ident.kind() == "member_expression" {
+            let qualifier = ident
+                .child_by_field_name("object")
+                .filter(|n| n.kind() == "identifier");
+            let member = ident.child_by_field_name("property");
+            let Some(q) =
+                qualifier.filter(|_| member.is_some_and(|m| parsed.node_text(&m) == callee))
+            else {
+                return JsLocalBinding::Unchecked;
+            };
+            let Some((binding, module)) = parsed.js_ts_namespace_binding(q, cache) else {
+                return JsLocalBinding::Unchecked;
+            };
+            if let Some(module_path) = module {
+                return JsLocalBinding::NamespaceImport { module_path };
+            }
+            binding
+        } else {
+            return JsLocalBinding::Unchecked;
+        };
+        match binding {
             JsBinding::Callable(t) => JsLocalBinding::Callable(t),
             JsBinding::MayCall => JsLocalBinding::MayCall("may_call".to_string()),
             JsBinding::Alias => JsLocalBinding::MayCall("alias".to_string()),
