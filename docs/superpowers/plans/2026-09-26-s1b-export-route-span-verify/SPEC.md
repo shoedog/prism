@@ -460,6 +460,28 @@ D4. S1b-3 extends it to every scope and wires it to call sites. Normative deltas
    `local_binding_may_call`; `Position` counts `local_binding_unchecked_position` and keeps base; other `Unproven`
    reasons keep base at R5. C170: the block-nested `const { f } = o` and the bare-block `var { f } = o` keep base
    (alias); the bare-block `const` P15 stays Exact (unbound at the site).
+
+   **S1b-3b implementer note (C-44, `import f = M.g`/`require()`).** A pre-existing JS/TS guard
+   (`is_js_ts_import_member_file` + `js_ts_function_locals`/`import_bindings`/`js_ts_exports`, predating S1b) already
+   excludes an `import_alias`-bound name from R4/R5's same-name fallback before `site.local_binding`'s `Unproven("import")`
+   is ever consulted (R4's `local` set is empty: an `import_alias` registers no `FunctionId`). The row's qualitative
+   outcome (no edge; C-44's "drop at R4") holds, but the recorded `DropReason` is the older guard's `UnknownName`, not
+   `LocalBindingUnproven`. This is correct and requires no reordering: SPEC §3.8 (8) only narrows what `Unproven`
+   *adds* at R4/R5; it was never meant to pre-empt guards that already produce the same no-edge result earlier.
+   `tests/integration/js_binding_scope_resolution_test.rs::c44_import_alias_drops` asserts the actual observed reason.
+
+   **S1b-3b implementer note (C-M37, ASCII-only word scanner).** The mutant that restricts `js_ts_recovered_import_names`'s
+   text-based word scanner to ASCII (breaking a combining mark's attachment to its base letter, or a ZWNJ join) does
+   not surface through an end-to-end `CallSite` resolution test when the poisoned alias is spelled as a bare
+   `identifier` node outside string text: `js_ts_recovered_import_names` also walks the tree's own `identifier`
+   children directly (not just the text scanner), so the clean identifier token independently supplies the correctly
+   joined name regardless of the scanner mutant. Two end-to-end constructions were tried
+   (a combining-mark identifier per 3a's own `c181_unicode_and_zwnj_names_stay_whole` fixture, and the same name
+   reached through R4/R5 resolution) and both left the mutant alive for this reason. The mutant is owned by 3a's
+   `js_binding_recovery.rs` (not a S1b-3b file) and is killed at the unit level by 3a's own `c181_unicode_and_zwnj_names_stay_whole`
+   test the moment the scanner, not the identifier-walk, is exercised in isolation (i.e. a case where the alias text
+   sits inside a malformed string specifier rather than a clean identifier node). Disclosed as a known survivor at the
+   `CallSite`-resolution level rather than silently patched or claimed killed.
 9. **`useCallback` (§3.7).** `JsBindingCache::for_sites()` sets the call-site route; S1's predicate takes a
    `local_route` flag. A `useCallback`-admitted binding is `Callable` with `wrapped: false`; forwardRef/memo stay
    `wrapped`. D4 never admits `useCallback`.
