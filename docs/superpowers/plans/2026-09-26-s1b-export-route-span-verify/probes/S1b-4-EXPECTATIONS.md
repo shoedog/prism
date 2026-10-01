@@ -40,3 +40,20 @@ ASSUMPTION: parameter-default and computed-key positions bind the outer import
 according to the landed E_TABLE; a body-only declaration must not suppress them.
 Unsealed recovery refuses under E6; an unrelated sealed body error keeps proof.
 Every expectation is checked against the same-environment base before attribution.
+
+## Post-run disposition, 2026-10-01 (registration above retained)
+
+READ: controller resolved OQ-S1b4-1 under existing OQ12/Option K: Alias
+terminals keep base through namespace-only opacity, including named/star barrels;
+original D4 rows/counters stay unchanged. Prototype custody is available and
+controller WIP39faa3aa captures its completed source body.
+MEASURED: the registered 349 controls reach their correct columns; all 46 changed
+rows (18 original, 28 new) are listed individually in ../S1b-4-CONTROLS.md.
+C206/C208 actually change from base refusal to the correct Exact outer import,
+not just preservation guards. C202/C203 already refuse on base; sealed C204
+keeps proof. C220 preserves its independently evaluated callable source identity.
+RP2-c is GREEN in all four twins, with other42 sections unchanged. X/R/T have
+zero changed rows and zero lost targets under complete-key/multiset comparison.
+Full measurements, limits and exclusions are in ../S1b-4-MEASUREMENTS.md; F is
+controller-only and pending. No preregistered expectation was rewritten into a
+post-hoc baseline.

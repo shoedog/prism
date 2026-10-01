@@ -144,8 +144,12 @@ owner. Historical cap-breach WRONG/checkpoint rules in this brief do not apply.
 Review the dated SPEC §3.4 amendment and S1b-4 dispatch against landed 915fca43;
 verify the independent value-flow inventory/hand audit, not a lexical
 not-callable annotation. C220 is a constructible right alias-export edge on
-the base. OQ-S1b4-1 must be answered; prototype/expected/reference measurements
-must be present and revision-bound before the controller dispatches this draft.
+the base. OQ-S1b4-1 is resolved by the controller: namespace-only Alias opacity
+keeps R3 base while D4 remains unchanged. The prototype, r2 expected rows,
+349-control reference, 46-row hand audit and 18 mutant receipts are present.
+Verify the source/binary hashes in BUILD-MANIFEST and the controller's eventual
+commit binding before dispatch. Private F and bounded quick exclusions are
+explicit in the measurements; neither is implicit approval.
 No plan review has been dispatched or consumed yet. The expected next review
 surface is the finite qualifier outcome/export/E7 matrix, not a new binding core.
 

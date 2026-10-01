@@ -1,6 +1,6 @@
 # S1b-4 owner questions — 2026-10-01
 
-## OQ-S1b4-1: alias exports on the namespace route (OPEN)
+## OQ-S1b4-1: alias exports on the namespace route (RESOLVED; historical question)
 
 MEASURED: C220 (`probes/controls_gen.py`, JSX and TSX) has `make()` return its
 unique nested function f and exports `const f = make()`. Base 915fca43 R3
@@ -27,7 +27,7 @@ loses one right edge in each grammar, and alias-export value-flow losses become
 a new accepted cost. No real-corpus alias-export loss has been measured. The
 planner does not accept that cost or choose the scope extension for the owner.
 
-## Custody / prototype location (OPEN; operational, not a semantic cost)
+## Custody / prototype location (RESOLVED; historical operational question)
 
 READ: the environment makes `.git` read-only and disables escalation. The
 planner cannot create `proto/s1b-4` or commit `plan/s1b-4`. The controller can
@@ -53,3 +53,13 @@ alternative has been authorized in response to the pending question.
 - **Custody: RESOLVED.**
   - The controller created the git worktree `target/plan-s1b4/proto` on branch `proto/s1b-4` at `915fca43`.
   - The planner edits files in both trees and never runs git write commands. The controller commits at each stable point the planner names.
+
+## Planner continuation result, 2026-10-01
+
+MEASURED: the full prototype, including Alias opacity, is built in the
+controller-created worktree. Public measurements, controls and mutant receipts
+are complete; `S1b-4-MEASUREMENTS.md` is the current record. No new semantic
+cost, scope change, split or owner question is proposed. Git writes remain
+controller-only; the commit file lists and snapshots are ready for custody.
+The recommendation and unavailable-worktree paragraphs above describe the
+pre-disposition state and do not reopen either resolved question.

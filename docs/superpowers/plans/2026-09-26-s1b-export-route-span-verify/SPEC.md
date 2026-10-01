@@ -21,9 +21,14 @@ and is in model.
 > **2 rounds**. E5 preserves may-call and every written binding; OQ12's
 > conservative cut, accepted parameter value-flow cost, Option K and E6 remain
 > in force. S1b-4 cache is **104 / 60**, including the cross-commit row.
-> **OPEN:** `OQ-S1b4.md` records alias-export policy and the unavailable Git-write
-> capability. The S1b-4 draft is not dispatchable until these are settled and
-> the prototype measurements replace the pending §8 row.
+> **READ — controller disposition, 2026-10-01:** OQ-S1b4-1 and prototype custody
+> are resolved. Alias export terminals keep R3 base behavior through namespace-only
+> opacity propagated through named/star barrels; original D4 rows and counters stay
+> unchanged. The prototype started at 915fca43; the controller captured its
+> completed body as WIP commit 39faa3aa during verification. Owned source is clean.
+> The planner never performs Git writes; the controller commits both trees and
+> supplies private F aggregates. Public prototype measurements are in §8.
+> Plan review has not started; cap remains two rounds before implementation dispatch.
 
 > **Owner cap amendments for S1b-3a (authoritative):**
 > - **2026-09-29:** after the first implementation measured 828 tests, the owner approved de-duplicating the test
@@ -368,7 +373,7 @@ span matches yield no candidate. S1's R4c-only lowercase check is deleted (§3.5
 
 ### 3.4 R3 namespace qualifiers (S1b-4)
 
-#### Dated amendment — 2026-10-01, landed-core design; measurements pending
+#### Dated amendment — 2026-10-01, landed-core design and measured prototype
 
 READ: this amendment replaces the old mechanism below. The landed APIs are
 `js_ts_site_binding`, `js_ts_binding_walk`, `js_ts_scope_lookup`,
@@ -376,7 +381,7 @@ READ: this amendment replaces the old mechanism below. The landed APIs are
 declaration walk, write resolution, recovered-import scanner or wrapper
 provenance. The latter is non-classifying specifically to avoid recursion.
 
-ASSUMPTION (implementation design to verify): extend `CallSite.local_binding`
+READ (implemented design): extend `CallSite.local_binding`
 with `JsLocalBinding::NamespaceImport { module_path }`; reuse MayCall, Position,
 Unproven and Unchecked for the namespace qualifier. This field denotes the
 callee at an unqualified site and the simple qualifier at an eligible namespace
@@ -384,16 +389,17 @@ site; it remains serde-defaulted and excluded from cmp_key. No second binding
 enum or wide CallSite-literal rewrite is needed. All three source constructors
 use the same per-file JsBindingCache. Synthetic/indirect sites stay Unchecked.
 
-ASSUMPTION (qualifier extraction/proof):
+READ (qualifier extraction/proof):
 1. Locate the exact source node by start/end byte. Calls use their `function`,
    JSX opening/self-closing sites their `name`. Admit only a member_expression
    with an identifier object q and a static member matching the recorded
    callee. A nested receiver, subscript, asserted receiver or unmatched span
-   keeps its base behavior. Constructors remain a preservation pin unless
-   their existing extraction gives the same eligible member shape.
+   keeps its base behavior. Constructors stay Unchecked because their source node is new_expression;
+   simple subscript and nested/asserted receiver shapes also stay Unchecked.
 2. Enter the new route only if the file contains a top-level **value** ESM
    namespace-import spelling q. Cache this syntax inventory once per file.
-   A type-only import, named/default import, require declarator or
+   A type-only import (including JSX recovery of ERROR(type)), named/default
+   import, require declarator or
    `import x = require()` never grants this authority. Do not consult the
    lossy flat imports map as provenance. Existing non-namespace qualifiers
    and their receiver guards retain base behavior.
@@ -422,13 +428,13 @@ ASSUMPTION (qualifier extraction/proof):
    with a body-only declaration). It does not rely on receiver flags to prove
    the import. The proof is never reused at another byte span or file.
 
-ASSUMPTION (export lookup): factor the candidate-file half of
+READ (export lookup): factor the candidate-file half of
 `js_ts_import_member_candidates` into `js_ts_export_candidates(file, member,
 site)`, shared by R4c and namespace R3. The R4c relative resolver and outputs
 remain identical. Lookup precedes `functions.get(member)` so renamed and
 StringValue exports can target a differently registered local name (RP2-c).
-Use the landed resolved export table, with its depth/cycle/conflict and class
-rules. Match terminal file, registered local name and, when present, exact
+Use the namespace projection of the landed resolved export table, with the
+same depth/cycle/conflict and class rules. R4c reads the original table. Match terminal file, registered local name and, when present, exact
 start/end lines; exclude methods. A spanned terminal with 0 or 2+ identity
 matches has no candidate. Wrapped + non-JSX gives WrappedExportNonJsx. An
 authoritatively resolved module is final even when it exports no member;
@@ -437,22 +443,35 @@ Exact; multiple unspanned candidates are NameOnly. Empty result is UnknownName
 if no registered member name exists, otherwise ImportExternal. Err is final.
 
 READ (E5): an export terminal kept as base Local because it is may-call/written
-must keep R3 base behavior too. ASSUMPTION: conservatively return to the base
+must keep R3 base behavior too. READ: conservatively return to the base
 ladder for an unspanned resolved Local, rather than narrowing an E5 row. This
 also preserves opaque CJS Local rows without changing CJS production.
 
-**OPEN OQ-S1b4-1:** Alias exports are deliberately UnprovenLocal in D4. C220
-proves that applying that absence literally to R3 can lose a right edge.
-ASSUMPTION / recommendation: record a namespace-only opaque terminal for that
-Alias outcome, propagate a keep-base signal through the existing bounded
-export traversal, and leave R4c results/counters unchanged. This requires
-owner approval for the owned-fact/producer extension. The alternative is a
-new accepted alias value-flow cost; the planner chooses neither. The signal
-must not masquerade as callable authority or let a conflicted/duplicate
-export become Exact. Direct, named-forward and star-barrel alias controls
-are required before dispatch if preservation is selected.
+**READ — OQ-S1b4-1 resolved:** Alias exports remain UnprovenLocal in D4.
+Record `JsExportFacts.namespace_opaque_exports` under the exported spelling
+when the local classifier is Alias, including direct skipped const initializers;
+MayCall skipped initializers receive the same R3-only keep-base metadata.
+A unique entry is Some(local); duplicate/competing claims are None. Do not
+change the original named fact, skipped-expression/refusal/may-call counters
+or D4 authority. `resolve_js_namespace_exports` clones the raw facts, projects
+unique opacity to unspanned Local plus its forwardable local, and invokes the
+same bounded export traversal. Its telemetry is discarded. This propagates
+opacity through named, star and already-eligible ImportForward barrels; the
+original ImportForward producer's whole-file competitor proof is unchanged.
+The graph stores and recomputes this separate derived map in full, cached and
+incremental construction. An unspanned terminal returns to the entire old R3
+ladder; it does not assert callable authority or mint a new Exact edge.
+Conflicted/duplicate, cyclic and over-depth paths remain final refusals.
 
-READ (E7 split); ASSUMPTION (implementation): first use the existing relative
+MEASURED: C220's returned callable is independently checked by Node and the
+base/head rows are identical. The d10 direct/list/named/star/eligible-forward
+controls preserve base even with a barrel-local decoy; a paired named-import
+consumer retains its D4 refusal. The imported-local form with a same-name
+nested competitor remains rejected by its existing producer; use a distinct
+local alias to test an admitted ImportForward route. No forwarding rule is
+relaxed. `S1b-4-MEASUREMENTS.md` binds these checks to source and binaries.
+
+READ (E7 split, implemented): first use the existing relative
 resolver. Only on failure, replace the final suffix `.js` -> `.ts`, then
 `.tsx`; `.jsx` -> `.tsx`; `.mjs` -> `.mts`; `.cjs` -> `.cts`, and require the
 exact caller-relative replacement file to be indexed. Use base precedence;
@@ -462,7 +481,7 @@ barrel resolver or named/default-import paths. Unsupported .mts/.cts parsing
 does not create an indexed file. The fixture must assert an indexed sibling,
 not assume the filename makes it indexed.
 
-ASSUMPTION (E7 fallback): only when neither relative nor sibling resolution
+READ (E7 fallback): only when neither relative nor sibling resolution
 succeeds, retain the legacy stem/directory match, filter candidates through
 their file's exports under the member name and exact terminal identity,
 deduplicate FunctionIds and grade every surviving candidate NameOnly. Never
@@ -719,8 +738,20 @@ C202/C203/C204 cover recovery refusal/sealing; C206/C208/C209/C210 cover
 evaluation positions; C211/C212/C213 preserve type-only/import-equals/named/default
 non-goals; C214 gates wrappers; C215 refuses a non-exported decoy; C216 uses
 NameOnly fallback. C217's .tsx sibling becomes Exact, while its .jsx target for
-a `.js` specifier is a non-sibling NameOnly fallback. C220 is the OPEN owner
-policy control, not an accepted-cost assertion. Head summary is pending.
+a `.js` specifier is a non-sibling NameOnly fallback. C220 preserves its base
+row under the resolved Alias policy.
+
+**MEASURED — final head:** all 349 scenarios completed with empty stderr and
+identical function inventories/site-key sets. Original 287: 269 identical,
+18 changed rows explained individually in `S1b-4-CONTROLS.md`. New 62: 34
+identical preservation rows, 28 changed to their registered correct column.
+The complete 46-row hand audit is in that file. RP2-c is GREEN in js/jsx/ts/tsx;
+the other 42 replay sections are byte-identical. References are
+`probes/S1b-controls-s1b4-r2-proto.txt` and
+`probes/S1b-replay-s1b4-r2-proto.txt`. Qualified MayCall/Position counts use the
+existing maps; every js_export_* counter remains identical on all controls
+and X/R. T aggregate stats hit the 180-second bound on the base; that extra
+telemetry comparison is excluded, with no inferred head result (see measurements).
 
 ## 5. Counters
 
@@ -801,7 +832,7 @@ esm_namespace_import` (Gap → Supported).
 | S1b-1 | A-1 C96/C97 (self-closing, opening, `-`, `:`); A-2 C98, `_x`, `$x` (guard); A-3 C126, C124-param and a TS assertion write through the base scan (F1–F3); A-4 counters; A-5 pins | A-M1 no guard; A-M2 guard on member tags; A-M3 each of F1, F2, F3 reverted |
 | S1b-2 | B-1 C06, C68; B-2 C69–C71; B-3 C72; B-4 C74, C75; B-5 C78; B-6 C79, C149, C150; B-7 C21, C77, C73, C139 (E5 guards); B-8 C143, C144, C146; B-9 C126; B-10 grammar-closure unit test (every kind the probe lists is in the allowlist); B-11 serde + barrel key; B-12 full vs incremental epochs; B-13 pins | B-M1 record `Local`; B-M2 skip B2; B-M3 broad B1; B-M4 drop B1 (i); B-M5 treat `interface`/`type` as declarations; B-M6 key R4c's gate on `span`; B-M7 drop `wrapped` from the barrel key; B-M8 remove one allowlist kind (refusal appears) |
 | S1b-3 | C-1 C63, C106; C-2 C86, C62/C11 producers, C135; C-3 C87, C101, C124, C92, C136, C104, C103, C147; C-4 C88, C113, C121; C-5 C89 + impostor twins; C-6 C90, C107, C138, C91, C125, C142 (E5 guards); C-7 C93, C111, C127, C94, C99, C102; C-8 C95; C-9 C105, C108, C109, C151; C-10 C110, **C122 (B-10b)**; C-11 C115, C116, C117; C-12 C118; C-13 C119, C120; C-14 C114; C-15 C137; C-16 C141; C-17 C145, C140; C-18 C134 (non-goal pin); C-19 memo keyed by scope and name; C-20 indirect/qualified sites unchanged; C-21 epochs; C-22 serde; C-23 pins | C-M1 ignore `local_binding`; **C-M2a** no `formal_parameters` scope (killed by C122); **C-M2b** no J1 jump (killed by C110); C-M3 no Annex-B marker; C-M4 no single-arrow `parameter`; C-M5 `with` not a scope; C-M6 no catch parameter; C-M7 no implicit `arguments`; C-M8 no D7 taint; C-M9 static blocks not var scopes; C-M10 no J2; C-M11 span-only match; C-M12 fall to R5 on `Unproven`; C-M13 admit `useCallback` without provenance; C-M14 M1 without the function-argument requirement |
-| S1b-4 (READ required rows; ASSUMPTION implementation expectations, 2026-10-01) | D-1 C62/C80/C81/C148 + C190/C191: exact exported identity; D-2 C82/C214 wrappers; D-3 C83/C192/C193 + RP2-c (all 4 twins): renamed/StringValue/star exports; D-4 C128/C129/C130/C112 + C195–C210: proof, duplicate/shadow/write/recovery and positional rules; D-5 C131–C133/C215–C217: E7 + authoritative missing-member refusal; D-6 C84/C85/C194/C211–C213: named/default/type-only/import-equals/nested-namespace non-goals; D-7 nav callers/CPG target for C62/C190, with decoy absent; D-8 serde/default/pins/full vs incremental/cross-commit 104/60; D-9 C218/C219 + written-class/parameter E5 pins; D-10 C220 + direct/named/star alias twins conditional on OQ-S1b4-1 | D-M1 stem instead of resolved module; D-M2 skip scope/node-identity proof; D-M3 Exact for a single non-sibling stem; D-M4 route named/default/require as namespace; D-M5 ignore M2/E5; D-M6 span or wrapped omitted from export projection; D-M7 functions.get(member) before export rename; D-M8 shadowed write counted against import; D-M9 no recovery refusal/sealing; D-M10 old shadow guard vetoes a proven E_TABLE position; D-M11 zero export falls to unrelated stem; D-M12 alias-opacity lost in a barrel (conditional OQ); D-M13 opacity grants callable authority at R4c (conditional OQ); D-M14 tuple identity reused at a different site/cache epoch |
+| S1b-4 (READ required rows; MEASURED prototype, 2026-10-01) | D-1 C62/C80/C81/C148 + C190/C191: exact exported identity; D-2 C82/C214 wrappers; D-3 C83/C192/C193 + RP2-c (all 4 twins): renamed/StringValue/star exports; D-4 C128/C129/C130/C112 + C195–C210: proof, duplicate/shadow/write/recovery and positional rules; D-5 C131–C133/C215–C217: E7 + authoritative missing-member refusal; D-6 C84/C85/C194/C211–C213: named/default/type-only/import-equals/nested-namespace non-goals; D-7 nav callers/CPG target for C62/C190, with decoy absent; D-8 serde/default/pins/full vs incremental/cross-commit 104/60; D-9 C218/C219 + written-class/parameter E5 pins; D-10 C220 + direct/list/named/star/eligible-forward Alias twins, D4 preservation and conflict/cycle/depth guards | D-M1 stem instead of resolved module; D-M2 skip scope/node-identity proof; D-M3 Exact for a single non-sibling stem; D-M4 route named/default/require as namespace; D-M5 ignore M2/E5; D-M6 span or wrapped omitted from export projection; D-M7 functions.get(member) before export rename; D-M8 shadowed write counted against import; D-M9 no recovery refusal/sealing; D-M10 old shadow guard vetoes a proven E_TABLE position; D-M11 zero export falls to unrelated stem; D-M12 alias-opacity lost in a named or star barrel; D-M13 opacity grants callable authority at R4c; D-M14 proof reused at another site/cache epoch or cache pins reverted |
 
 **Re-plan additions (owner OQ1–OQ7 = a; `REPLAN-fable.md` §3–§5).** S1b-2 splits into **S1b-2a** (B-4–B-6, B-8,
 B-10 with the leaf allowlist, plus **B-14** RP2-a header error → refuse and **B-15** RP2-b string brace → kept, both
@@ -920,15 +951,21 @@ rows are end-to-end resolution rows.
 | **S1b-3, r4 (clean v12 `0968ef78` vs `3961cc21`, audited, Q70–Q72)** | **198**: 134 re-targeted right; 64 removed: 58 wrong (2 `for` heads, 56 parameter rows) + **6 parameter rows right lost (accepted value-flow cost)**; 0 right lost otherwise | **52**: 1 re-targeted right; 47 removed: 45 wrong (1 `for` head, 44 parameter rows) + **2 parameter rows right lost (NameOnly)**; 4 right lost (E6) | **0** | **913**: 635 re-targeted right; 227 removed: 222 wrong (7 `for` heads, 7 unbound-at-site R4, 208 parameter rows) + **5 parameter rows right lost**; 10 right added; 41 right lost (E6) |
 | S1b-3a alone (OQ10 a) | 0 | 0 | 0 | 0 |
 | S1b-3b (OQ10 a) | the S1b-3 r4 row | the S1b-3 r4 row | 0 | the S1b-3 r4 row |
-| S1b-4 r2, 2026-10-01 | **PENDING head measurement**; MEASURED base 19,219 sites / 15 R3 rows | **PENDING controller**; READ old forecast 4 demotions, no lost IDs | **PENDING head measurement**; MEASURED base 953 sites / 0 R3 | **PENDING head measurement**; MEASURED base 61,712 sites / 26 R3 rows (24 namespace, 2 named IO non-goals) |
+| S1b-4 r2, 2026-10-01 | **MEASURED 0 changed / 0 lost IDs**; 19,219 sites, equal complete keys | **PENDING controller**; READ old forecast 4 demotions, no lost IDs | **MEASURED 0 changed / 0 lost IDs**; 953 sites, equal complete keys | **MEASURED 0 changed / 0 lost IDs**; 61,712 sites, equal complete keys |
 
-**MEASURED / READ — S1b-4 r2 reconciliation:** the old S1b-4 row is an older-base
-forecast, not current acceptance evidence. All three old expected JSON files are
-empty and remain unchanged. No head binary exists yet; do not copy those empty
-files to `S1b-4-r2-{X,R,T}.json` or call a base self-comparison a head result.
-After the prototype build, use rowdiff.py on X/R/T and retain the complete base
-and head dumps. Reconcile every deviation from the old 0 / 4-demotions / 0 / 0
-row before dispatch. F is controller-only, with aggregates returned to this row.
+**MEASURED / READ — S1b-4 r2 reconciliation:** the old S1b-4 row is an
+older-base forecast, not current acceptance evidence. Its old empty public
+expected files stay unchanged. Fresh final-head dumps against 915fca43 produce
+`probes/expected/S1b-4-r2-{X,R,T}.json`, each []; rowdiff, lexical audit and
+independent complete-dump target-identity checks all report zero changes/losses.
+All call-site key sets agree and stderr is empty. Thus every public class
+(removed, retargeted, added, demoted, relabeled, accepted-cost) is zero and no
+uncertified changed row needs a hand audit. This proves zero public target
+identities lost regardless of value-flow uncertainty; it does not prove every
+retained baseline edge is right. F's old four-demotion forecast cannot be
+reconciled without private measurements, which the controller alone supplies.
+Source/binary hashes, counts, commands and audit limits are in
+`S1b-4-MEASUREMENTS.md` and `target/plan-s1b4/BUILD-MANIFEST.json`.
 
 READ (audit requirement): `audit_s1b4.py` inventories every changed row and
 annotates lexical qualifier declarations; it cannot follow alias initializers,
@@ -1060,25 +1097,29 @@ The 2026-09-28 caps (3a 590 / 620, 3b 220 / 800) are superseded: 3a's src exceed
 
 The E-table row-sharing option (r3, about 40 lines) is still open to the implementer as design, never as compression.
 
-**ASSUMPTION — S1b-4 forecast, 2026-10-01, against landed 915fca43 (not a cap):**
-src **260–340** without the OQ alias-preservation extension; **320–440** if that
-extension is approved. Basis: namespace inventory + core proof 55–75;
-extraction/enum/memo/counter integration 45–60; R3 routing + fallback 70–95;
-shared export projection + E7 helper 55–75; cache/docs/pins 15–25; namespace-only
-alias fact/traversal 60–100 if approved. Ranges include formatting/landing growth;
-the earlier ~167 / 177 forecasts are historical and predate the landed APIs.
-Tests **1,000–1,400**: 31 new control scenarios × roughly 25–35 honest lines
-with a both-grammar harness = 775–1,085; missing older wrapper/nav representatives,
-serde/epoch/cache/counter checks and E7 extension precedence add 150–250; the
-conditional alias-barrel guards add 100–150. This is an enumerated forecast,
-not a prototype recount. Recount after rustfmt on the prototype and replace
-these ranges with measured attribution before the two-round review dispatch.
-ASSUMPTION: one slice can converge because the scope/write grammar is already
-landed and the new surface is this finite outcome/export/E7 matrix. If the
-prototype reveals another mechanism or the forecast expands beyond that matrix,
-record a recommended split in OQ-S1b4; do not independently authorize the split
-or silently extend the two-round review cap. Numeric cap/checkpoint stop rules
-in the historical budgets do not apply.
+**MEASURED — S1b-4 prototype size, 2026-10-01, against 915fca43:**
+335 added / 18 removed honest src lines (**317 net**); 442 added / 6 removed
+honest test/fixture lines (**436 net**). `size-final.json` gives every file.
+Basis: namespace inventory/proof 75 new lines, namespace outcome/E7 module
+118 new lines, graph/extraction +32 net, export facts/traversal +39 net,
+shared resolver integration +29 net, AST producer wiring +18 net, binding
+memo/export hook +6 net. Version substitutions are net zero. Tests include
+407 new namespace matrix lines, 19 Tier-A fixture lines and 10 net wiring/pin
+lines. Blank and // lines are excluded after rustfmt; cfg(test), tests/** and
+fixture paths are test lines. Generated 349 control repositories and planning
+scripts are excluded, not hidden source implementation.
+
+**ASSUMPTION — landing forecast, not a cap:** roughly **335–400 added src**
+and **442–550 added tests/fixtures**, allowing modest review-driven growth from
+the measured body. The earlier ~167/177 forecast omitted the landed binding
+integration, independent namespace opacity projection and cache epochs. The
+prior 1,000–1,400 test forecast assumed per-scenario duplication; the measured
+11-test matrix shares fixtures/assertions while checking both grammars and all
+D rows, with 18 killed mutant variants. One slice remains reasonable because
+scope/write/recovery are reused and the new outcome/export/E7 matrix is finite.
+No new owner question or split is proposed. Review cap remains two rounds;
+open-class discoveries at that cap go to design, never to silent retries.
+Historical numeric budgets below/above do not govern this slice.
 
 ## 10. Risks
 
