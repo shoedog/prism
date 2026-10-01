@@ -1,0 +1,1629 @@
+diff --git a/eval/fixtures/javascript/tsconfig_paths_positive/app.jsx b/eval/fixtures/javascript/tsconfig_paths_positive/app.jsx
+new file mode 100644
+index 00000000..909aebe3
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_positive/app.jsx
+@@ -0,0 +1,2 @@
++import { real as picked } from '@lib/util';
++export function run() { picked(); }
+diff --git a/eval/fixtures/javascript/tsconfig_paths_positive/decoy/util.jsx b/eval/fixtures/javascript/tsconfig_paths_positive/decoy/util.jsx
+new file mode 100644
+index 00000000..86a5a8a0
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_positive/decoy/util.jsx
+@@ -0,0 +1 @@
++export function real() { return 2; }
+diff --git a/eval/fixtures/javascript/tsconfig_paths_positive/expected.toml b/eval/fixtures/javascript/tsconfig_paths_positive/expected.toml
+new file mode 100644
+index 00000000..1a401a94
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_positive/expected.toml
+@@ -0,0 +1,14 @@
++[case]
++language = "javascript"
++capability = "tsconfig_paths_positive"
++status = "pass"
++[seed]
++symbol = "real"
++file = "src/util.jsx"
++line = 1
++[[expect.callers]]
++file = "app.jsx"
++line = 2
++[expect]
++exact = true
++resolution_kind = "import_member"
+diff --git a/eval/fixtures/javascript/tsconfig_paths_positive/src/util.jsx b/eval/fixtures/javascript/tsconfig_paths_positive/src/util.jsx
+new file mode 100644
+index 00000000..2c21ad07
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_positive/src/util.jsx
+@@ -0,0 +1 @@
++export function real() { return 1; }
+diff --git a/eval/fixtures/javascript/tsconfig_paths_positive/tsconfig.json b/eval/fixtures/javascript/tsconfig_paths_positive/tsconfig.json
+new file mode 100644
+index 00000000..8b3cc817
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_positive/tsconfig.json
+@@ -0,0 +1 @@
++{"compilerOptions": {"moduleResolution": "node", "allowJs": true, "paths": {"@lib/*": ["src/*"]}}}
+\ No newline at end of file
+diff --git a/eval/fixtures/javascript/tsconfig_paths_refusal/app.jsx b/eval/fixtures/javascript/tsconfig_paths_refusal/app.jsx
+new file mode 100644
+index 00000000..909aebe3
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_refusal/app.jsx
+@@ -0,0 +1,2 @@
++import { real as picked } from '@lib/util';
++export function run() { picked(); }
+diff --git a/eval/fixtures/javascript/tsconfig_paths_refusal/decoy/util.jsx b/eval/fixtures/javascript/tsconfig_paths_refusal/decoy/util.jsx
+new file mode 100644
+index 00000000..86a5a8a0
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_refusal/decoy/util.jsx
+@@ -0,0 +1 @@
++export function real() { return 2; }
+diff --git a/eval/fixtures/javascript/tsconfig_paths_refusal/expected.toml b/eval/fixtures/javascript/tsconfig_paths_refusal/expected.toml
+new file mode 100644
+index 00000000..683367c0
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_refusal/expected.toml
+@@ -0,0 +1,10 @@
++[case]
++language = "javascript"
++capability = "tsconfig_paths_refusal"
++status = "pass"
++[seed]
++symbol = "real"
++file = "src/util.jsx"
++line = 1
++[expect]
++exact = true
+diff --git a/eval/fixtures/javascript/tsconfig_paths_refusal/src/util.d.ts b/eval/fixtures/javascript/tsconfig_paths_refusal/src/util.d.ts
+new file mode 100644
+index 00000000..ecc37363
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_refusal/src/util.d.ts
+@@ -0,0 +1 @@
++export declare function real(): number;
+diff --git a/eval/fixtures/javascript/tsconfig_paths_refusal/src/util.jsx b/eval/fixtures/javascript/tsconfig_paths_refusal/src/util.jsx
+new file mode 100644
+index 00000000..2c21ad07
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_refusal/src/util.jsx
+@@ -0,0 +1 @@
++export function real() { return 1; }
+diff --git a/eval/fixtures/javascript/tsconfig_paths_refusal/tsconfig.json b/eval/fixtures/javascript/tsconfig_paths_refusal/tsconfig.json
+new file mode 100644
+index 00000000..8b3cc817
+--- /dev/null
++++ b/eval/fixtures/javascript/tsconfig_paths_refusal/tsconfig.json
+@@ -0,0 +1 @@
++{"compilerOptions": {"moduleResolution": "node", "allowJs": true, "paths": {"@lib/*": ["src/*"]}}}
+\ No newline at end of file
+diff --git a/eval/fixtures/typescript/tsconfig_paths_positive/app.tsx b/eval/fixtures/typescript/tsconfig_paths_positive/app.tsx
+new file mode 100644
+index 00000000..909aebe3
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_positive/app.tsx
+@@ -0,0 +1,2 @@
++import { real as picked } from '@lib/util';
++export function run() { picked(); }
+diff --git a/eval/fixtures/typescript/tsconfig_paths_positive/decoy/util.tsx b/eval/fixtures/typescript/tsconfig_paths_positive/decoy/util.tsx
+new file mode 100644
+index 00000000..86a5a8a0
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_positive/decoy/util.tsx
+@@ -0,0 +1 @@
++export function real() { return 2; }
+diff --git a/eval/fixtures/typescript/tsconfig_paths_positive/expected.toml b/eval/fixtures/typescript/tsconfig_paths_positive/expected.toml
+new file mode 100644
+index 00000000..0264d470
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_positive/expected.toml
+@@ -0,0 +1,14 @@
++[case]
++language = "typescript"
++capability = "tsconfig_paths_positive"
++status = "pass"
++[seed]
++symbol = "real"
++file = "src/util.tsx"
++line = 1
++[[expect.callers]]
++file = "app.tsx"
++line = 2
++[expect]
++exact = true
++resolution_kind = "import_member"
+diff --git a/eval/fixtures/typescript/tsconfig_paths_positive/src/util.tsx b/eval/fixtures/typescript/tsconfig_paths_positive/src/util.tsx
+new file mode 100644
+index 00000000..2c21ad07
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_positive/src/util.tsx
+@@ -0,0 +1 @@
++export function real() { return 1; }
+diff --git a/eval/fixtures/typescript/tsconfig_paths_positive/tsconfig.json b/eval/fixtures/typescript/tsconfig_paths_positive/tsconfig.json
+new file mode 100644
+index 00000000..8b3cc817
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_positive/tsconfig.json
+@@ -0,0 +1 @@
++{"compilerOptions": {"moduleResolution": "node", "allowJs": true, "paths": {"@lib/*": ["src/*"]}}}
+\ No newline at end of file
+diff --git a/eval/fixtures/typescript/tsconfig_paths_refusal/app.tsx b/eval/fixtures/typescript/tsconfig_paths_refusal/app.tsx
+new file mode 100644
+index 00000000..909aebe3
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_refusal/app.tsx
+@@ -0,0 +1,2 @@
++import { real as picked } from '@lib/util';
++export function run() { picked(); }
+diff --git a/eval/fixtures/typescript/tsconfig_paths_refusal/decoy/util.tsx b/eval/fixtures/typescript/tsconfig_paths_refusal/decoy/util.tsx
+new file mode 100644
+index 00000000..86a5a8a0
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_refusal/decoy/util.tsx
+@@ -0,0 +1 @@
++export function real() { return 2; }
+diff --git a/eval/fixtures/typescript/tsconfig_paths_refusal/expected.toml b/eval/fixtures/typescript/tsconfig_paths_refusal/expected.toml
+new file mode 100644
+index 00000000..c4061559
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_refusal/expected.toml
+@@ -0,0 +1,10 @@
++[case]
++language = "typescript"
++capability = "tsconfig_paths_refusal"
++status = "pass"
++[seed]
++symbol = "real"
++file = "src/util.tsx"
++line = 1
++[expect]
++exact = true
+diff --git a/eval/fixtures/typescript/tsconfig_paths_refusal/src/util.d.ts b/eval/fixtures/typescript/tsconfig_paths_refusal/src/util.d.ts
+new file mode 100644
+index 00000000..ecc37363
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_refusal/src/util.d.ts
+@@ -0,0 +1 @@
++export declare function real(): number;
+diff --git a/eval/fixtures/typescript/tsconfig_paths_refusal/src/util.tsx b/eval/fixtures/typescript/tsconfig_paths_refusal/src/util.tsx
+new file mode 100644
+index 00000000..2c21ad07
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_refusal/src/util.tsx
+@@ -0,0 +1 @@
++export function real() { return 1; }
+diff --git a/eval/fixtures/typescript/tsconfig_paths_refusal/tsconfig.json b/eval/fixtures/typescript/tsconfig_paths_refusal/tsconfig.json
+new file mode 100644
+index 00000000..8b3cc817
+--- /dev/null
++++ b/eval/fixtures/typescript/tsconfig_paths_refusal/tsconfig.json
+@@ -0,0 +1 @@
++{"compilerOptions": {"moduleResolution": "node", "allowJs": true, "paths": {"@lib/*": ["src/*"]}}}
+\ No newline at end of file
+diff --git a/src/call_graph.rs b/src/call_graph.rs
+index e8d790d8..4e3dccdd 100644
+--- a/src/call_graph.rs
++++ b/src/call_graph.rs
+@@ -619,6 +619,8 @@ pub struct ScopeGraphBuildInputs {
+     #[serde(default)]
+     pub manifest_snapshot: crate::ManifestSnapshot,
+     #[serde(default)]
++    pub js_paths_snapshot: crate::js_paths_snapshot::JsPathsSnapshot,
++    #[serde(default)]
+     pub skipped_go_testdata_files: usize,
+     pub cfg: RustCrateConfig,
+     pub complete: bool,
+@@ -631,6 +633,7 @@ impl ScopeGraphBuildInputs {
+             all_file_paths: files.keys().cloned().collect(),
+             manifest_hashes: BTreeMap::new(),
+             manifest_snapshot: crate::ManifestSnapshot::default(),
++            js_paths_snapshot: Default::default(),
+             skipped_go_testdata_files: 0,
+             cfg: RustCrateConfig::from_convention(files),
+             complete: true,
+@@ -874,6 +877,9 @@ pub struct CallGraph {
+     /// R4c: authority flag — which files prism has actually indexed.
+     #[serde(default)]
+     pub indexed_files: BTreeSet<String>,
++    /// P1 proven non-relative modules; empty for convention-only builds.
++    #[serde(default)]
++    pub js_ts_path_modules: BTreeMap<(String, String), String>,
+     /// P4: JS/TS raw (per-file, un-resolved) export facts — default exports,
+     /// named export lists (incl. renames), exported const-arrow/
+     /// function-expression declarations, CommonJS assignments, and re-export
+@@ -1211,6 +1217,7 @@ impl CallGraph {
+             import_bindings: BTreeMap::new(),
+             module_bindings: BTreeMap::new(),
+             indexed_files: BTreeSet::new(),
++            js_ts_path_modules: BTreeMap::new(),
+             js_ts_exports: BTreeMap::new(),
+             js_ts_resolved_exports: BTreeMap::new(),
+             js_export_chain_unresolved: 0,
+@@ -1489,6 +1496,7 @@ impl CallGraph {
+             import_bindings: BTreeMap::new(),
+             module_bindings: BTreeMap::new(),
+             indexed_files: BTreeSet::new(),
++            js_ts_path_modules: BTreeMap::new(),
+             js_ts_exports: BTreeMap::new(),
+             js_ts_resolved_exports: BTreeMap::new(),
+             js_export_chain_unresolved: 0,
+@@ -1954,6 +1962,7 @@ impl CallGraph {
+             import_bindings,
+             module_bindings,
+             indexed_files,
++            js_ts_path_modules: BTreeMap::new(),
+             js_ts_exports,
+             js_ts_resolved_exports: BTreeMap::new(),
+             js_export_chain_unresolved: 0,
+@@ -2059,6 +2068,7 @@ impl CallGraph {
+         cg.apply_framework_entries(files);
+         // P4: JS/TS export-fact resolution (re-export chains/barrels) is ALSO
+         // whole-program derived, same rationale as the Go passes above.
++        cg.apply_js_paths(scope_inputs);
+         cg.apply_js_export_resolution();
+         // Recompute the remaining whole-program indirect passes after all
+         // resolution facts are installed, including Go B1 Level-3 callbacks.
+@@ -2182,6 +2192,52 @@ impl CallGraph {
+     /// `apply_go_registrations`/`apply_go_interface_dispatch`: a barrel's
+     /// resolution can depend on an unchanged file elsewhere, so it can't be
+     /// incrementally patched per changed file.
++    pub(crate) fn apply_js_paths(&mut self, inputs: Option<&ScopeGraphBuildInputs>) {
++        self.js_ts_path_modules.clear();
++        let Some(inputs) = inputs else {
++            return;
++        };
++        let mut resolver = crate::js_paths::Resolver::new(&inputs.js_paths_snapshot);
++        for (file, bindings) in &self.import_bindings {
++            if !matches!(
++                crate::languages::Language::from_path(file),
++                Some(
++                    crate::languages::Language::JavaScript
++                        | crate::languages::Language::TypeScript
++                        | crate::languages::Language::Tsx
++                )
++            ) {
++                continue;
++            }
++            for b in bindings {
++                if b.eligible
++                    && b.kind == ImportBindingKind::MemberImport
++                    && self
++                        .js_ts_exports
++                        .get(file)
++                        .is_some_and(|exports| exports.esm_named_imports.contains(&b.local))
++                {
++                    if let Some(target) =
++                        resolver.resolve(file, &b.module_path, &self.indexed_files)
++                    {
++                        self.js_ts_path_modules
++                            .insert((file.clone(), b.module_path.clone()), target);
++                    }
++                }
++            }
++        }
++    }
++
++    pub(crate) fn resolve_js_ts_member_module(&self, module: &str, caller: &str) -> Option<String> {
++        if module.starts_with("./") || module.starts_with("../") {
++            resolve_js_ts_relative_module(module, caller, &self.indexed_files)
++        } else {
++            self.js_ts_path_modules
++                .get(&(caller.into(), module.into()))
++                .cloned()
++        }
++    }
++
+     pub fn apply_js_export_resolution(&mut self) {
+         self.clear_js_export_resolution();
+         let indexed_files = &self.indexed_files;
+@@ -5244,6 +5300,7 @@ impl CallGraph {
+             import_bindings: import_bindings_map,
+             module_bindings: module_bindings_map,
+             indexed_files,
++            js_ts_path_modules: BTreeMap::new(),
+             js_ts_exports,
+             // P4: whole-program resolved export facts — left empty here,
+             // exactly like the Go whole-program state below:
+diff --git a/src/cpg/build.rs b/src/cpg/build.rs
+index 9419fd5f..c18e1266 100644
+--- a/src/cpg/build.rs
++++ b/src/cpg/build.rs
+@@ -620,6 +620,7 @@ impl CodePropertyGraph {
+             // P4: JS/TS export-fact resolution (re-export chains/barrels) is
+             // ALSO whole-program derived — recompute after merge, same
+             // rationale as the Go passes above.
++            cached_cg.apply_js_paths(scope_inputs);
+             cached_cg.apply_js_export_resolution();
+             // Match full construction: recompute the remaining indirect passes,
+             // including Go B1 Level-3 callbacks, after every whole-program
+diff --git a/src/cpg_cache.rs b/src/cpg_cache.rs
+index 3ee34be8..b632e508 100644
+--- a/src/cpg_cache.rs
++++ b/src/cpg_cache.rs
+@@ -228,7 +228,7 @@ use std::path::{Path, PathBuf};
+ /// - v103: S1b-3b wires the binding core to call sites (`CallSite.local_binding`): a JS/TS
+ ///   lexical binding resolves first (Callable), and an `Unproven` binding drops the R4/R5
+ ///   same-name fallback (SPEC §3.6, §3.8 (8)).
+-const CACHE_VERSION: u32 = 103;
++const CACHE_VERSION: u32 = 104;
+ 
+ pub const SKIP_POLICY_VERSION: u32 = 2;
+ 
+@@ -767,7 +767,7 @@ mod tests {
+ 
+     #[test]
+     fn cache_versions_are_pinned_for_cpg_semantics() {
+-        assert_eq!(super::CACHE_VERSION, 103);
++        assert_eq!(super::CACHE_VERSION, 104);
+         assert_eq!(super::SKIP_POLICY_VERSION, 2);
+     }
+ 
+diff --git a/src/js_paths.rs b/src/js_paths.rs
+new file mode 100644
+index 00000000..dc39e59f
+--- /dev/null
++++ b/src/js_paths.rs
+@@ -0,0 +1,279 @@
++//! P1: conservative paths-only module proof for named/default ESM import members.
++use crate::js_paths_snapshot::JsPathsSnapshot;
++use crate::js_paths_syntax::{dir, jsonc, norm, pattern_matches};
++use serde_json::Value;
++use std::collections::{BTreeMap, BTreeSet};
++#[derive(Clone, Default)]
++struct Config {
++    options: BTreeMap<String, Value>,
++    paths: Option<(String, BTreeMap<String, Vec<String>>)>,
++    base: Option<String>,
++    files: Option<Vec<String>>,
++    include: Option<Vec<String>>,
++    exclude: Option<Vec<String>>,
++}
++fn strings(v: &Value) -> Option<Vec<String>> {
++    v.as_array()?
++        .iter()
++        .map(|x| x.as_str().map(String::from))
++        .collect()
++}
++pub(crate) struct Resolver<'a> {
++    snapshot: &'a JsPathsSnapshot,
++    configs: BTreeMap<String, Option<Config>>,
++    selected: BTreeMap<String, Option<Config>>,
++}
++impl<'a> Resolver<'a> {
++    pub(crate) fn new(snapshot: &'a JsPathsSnapshot) -> Self {
++        Self {
++            snapshot,
++            configs: BTreeMap::new(),
++            selected: BTreeMap::new(),
++        }
++    }
++    fn config(&mut self, p: &str, seen: &mut BTreeSet<String>) -> Option<Config> {
++        if let Some(c) = self.configs.get(p) {
++            return c.clone();
++        }
++        if seen.len() >= 16 || !seen.insert(p.into()) {
++            return None;
++        }
++        let result = self.config_inner(p, seen);
++        seen.remove(p);
++        self.configs.insert(p.into(), result.clone());
++        result
++    }
++    fn config_inner(&mut self, p: &str, seen: &mut BTreeSet<String>) -> Option<Config> {
++        let value = jsonc(self.snapshot.configs.get(p)?.as_ref()?)?;
++        let object = value.as_object()?;
++        let mut c = if let Some(ext) = object.get("extends") {
++            let ext = ext.as_str()?;
++            if !ext.starts_with('.') {
++                return None;
++            }
++            let mut parent = norm(dir(p), ext)?;
++            if !parent.ends_with(".json") {
++                parent.push_str(".json");
++            }
++            self.config(&parent, seen)?
++        } else {
++            Config::default()
++        };
++        for (key, slot) in [
++            ("files", &mut c.files),
++            ("include", &mut c.include),
++            ("exclude", &mut c.exclude),
++        ] {
++            if let Some(v) = object.get(key) {
++                let list = strings(v)?;
++                *slot = Some(
++                    list.into_iter()
++                        .map(|s| norm(dir(p), &s))
++                        .collect::<Option<Vec<_>>>()?,
++                );
++            }
++        }
++        if let Some(v) = object.get("compilerOptions") {
++            let opts = v.as_object()?;
++            for (k, v) in opts {
++                c.options.insert(k.clone(), v.clone());
++            }
++            if let Some(v) = opts.get("baseUrl") {
++                c.base = Some(norm(dir(p), v.as_str()?)?);
++            }
++            if let Some(v) = opts.get("paths") {
++                let mut paths = BTreeMap::new();
++                for (k, v) in v.as_object()? {
++                    if k.matches('*').count() > 1 {
++                        return None;
++                    }
++                    let targets = strings(v)?;
++                    if targets.len() != 1 || targets.iter().any(|t| t.matches('*').count() > 1) {
++                        return None;
++                    }
++                    paths.insert(k.clone(), targets);
++                }
++                c.paths = Some((dir(p).into(), paths));
++            }
++        }
++        Some(c)
++    }
++    fn includes(c: &Config, file: &str, config_path: &str) -> Option<bool> {
++        if c.files
++            .as_ref()
++            .is_some_and(|f| f.iter().any(|x| x == file))
++        {
++            return Some(true);
++        }
++        if matches!(file.rsplit('.').next(), Some("js" | "jsx"))
++            && c.options.get("allowJs").and_then(Value::as_bool) != Some(true)
++        {
++            return Some(false);
++        }
++        let default;
++        let inc = if let Some(i) = &c.include {
++            i
++        } else if c.files.is_some() {
++            return Some(false);
++        } else {
++            default = vec![norm(dir(config_path), "**/*")?];
++            &default
++        };
++        let mut included = false;
++        for p in inc {
++            included |= pattern_matches(p, file)?;
++        }
++        if !included {
++            return Some(false);
++        }
++        if let Some(ex) = &c.exclude {
++            for p in ex {
++                if pattern_matches(p, file)? {
++                    return Some(false);
++                }
++            }
++        } else if let Some(out) = c.options.get("outDir").and_then(Value::as_str) {
++            // outDir is origin-sensitive; P1 declines default-exclude inference here.
++            if !out.is_empty() {
++                return None;
++            }
++        }
++        Some(true)
++    }
++    fn select(&mut self, file: &str) -> Option<Config> {
++        if let Some(c) = self.selected.get(file) {
++            return c.clone();
++        }
++        let mut directory = dir(file);
++        let result = loop {
++            let p = if directory.is_empty() {
++                "tsconfig.json".into()
++            } else {
++                format!("{directory}/tsconfig.json")
++            };
++            if self.snapshot.configs.contains_key(&p) {
++                let Some(c) = self.config(&p, &mut BTreeSet::new()) else {
++                    break None;
++                };
++                match Self::includes(&c, file, &p) {
++                    Some(true) => break Some(c),
++                    Some(false) => {}
++                    None => break None,
++                }
++            }
++            if directory.is_empty() {
++                break None;
++            }
++            directory = dir(directory);
++        };
++        self.selected.insert(file.into(), result.clone());
++        result
++    }
++    pub(crate) fn resolve(
++        &mut self,
++        file: &str,
++        spec: &str,
++        indexed: &BTreeSet<String>,
++    ) -> Option<String> {
++        if !self.snapshot.complete
++            || spec.starts_with('.')
++            || spec.contains(['\\', ':'])
++            || spec.starts_with('/')
++        {
++            return None;
++        }
++        let c = self.select(file)?;
++        let mode = c
++            .options
++            .get("moduleResolution")
++            .and_then(Value::as_str)?
++            .to_ascii_lowercase();
++        if !["node", "node10"].contains(&mode.as_str())
++            || ["rootDirs", "moduleSuffixes", "noResolve"]
++                .iter()
++                .any(|k| c.options.contains_key(*k))
++        {
++            return None;
++        }
++        let (origin, paths) = c.paths?;
++        let (key, capture) = if paths.contains_key(spec) {
++            (spec.to_owned(), String::new())
++        } else {
++            let mut best: Option<(usize, String, String)> = None;
++            let mut tied = false;
++            for k in paths.keys() {
++                let Some((pre, post)) = k.split_once('*') else {
++                    continue;
++                };
++                if !spec.starts_with(pre)
++                    || !spec.ends_with(post)
++                    || spec.len() < pre.len() + post.len()
++                {
++                    continue;
++                }
++                let n = pre.len();
++                let capture = spec[n..spec.len() - post.len()].to_owned();
++                match &best {
++                    Some((m, _, _)) if *m == n => tied = true,
++                    Some((m, _, _)) if *m > n => {}
++                    _ => {
++                        best = Some((n, k.clone(), capture));
++                        tied = false;
++                    }
++                }
++            }
++            let (_, k, s) = best?;
++            if tied || s.is_empty() {
++                return None;
++            }
++            (k, s)
++        };
++        let raw_target = paths.get(&key)?.first()?;
++        if !key.contains('*') && raw_target.contains('*') {
++            return None;
++        }
++        let target = raw_target.replacen('*', &capture, 1);
++        let p = norm(c.base.as_deref().unwrap_or(&origin), &target)?;
++        if !self.snapshot.unblocked(&p) {
++            return None;
++        }
++        if p.ends_with(".ts") || p.ends_with(".tsx") {
++            return (self.snapshot.entries.get(&p) == Some(&0)
++                && indexed.contains(&p)
++                && !p.ends_with(".d.ts"))
++            .then_some(p);
++        }
++        if p.rsplit('/').next()?.contains('.') {
++            return None;
++        }
++        if self
++            .snapshot
++            .entries
++            .contains_key(&format!("{p}/package.json"))
++        {
++            return None;
++        }
++        // P1 leaves competing file/index/extension candidates at base. A declaration-only
++        // winner or an unindexed/opaque source must never be bypassed for a lower candidate.
++        let mut present = Vec::new();
++        for ext in [".ts", ".tsx", ".d.ts", ".js", ".jsx"] {
++            for q in [format!("{p}{ext}"), format!("{p}/index{ext}")] {
++                if self.snapshot.entries.contains_key(&q) {
++                    present.push(q);
++                }
++            }
++        }
++        if self.snapshot.entries.get(&p) == Some(&0) {
++            return None;
++        }
++        if present.len() != 1 {
++            return None;
++        }
++        let q = present.pop()?;
++        (self.snapshot.unblocked(&q)
++            && self.snapshot.entries.get(&q) == Some(&0)
++            && indexed.contains(&q)
++            && !q.ends_with(".d.ts"))
++        .then_some(q)
++    }
++}
+diff --git a/src/js_paths_snapshot.rs b/src/js_paths_snapshot.rs
+new file mode 100644
+index 00000000..73dcbe48
+--- /dev/null
++++ b/src/js_paths_snapshot.rs
+@@ -0,0 +1,107 @@
++//! Bounded, no-follow configuration/occupancy snapshot for the P1 resolver.
++use sha2::{Digest, Sha256};
++use std::collections::BTreeMap;
++use std::path::Path;
++
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct JsPathsSnapshot {
++    pub(crate) configs: BTreeMap<String, Option<Vec<u8>>>,
++    pub(crate) entries: BTreeMap<String, u8>, // 0 regular, 1 directory, 2 opaque
++    pub(crate) complete: bool,
++}
++impl JsPathsSnapshot {
++    pub(crate) fn capture(root: &Path) -> Self {
++        if root.as_os_str().is_empty() {
++            return Self::default();
++        }
++        let mut s = Self {
++            complete: true,
++            ..Self::default()
++        };
++        if s.walk(root, root).is_err() {
++            s.complete = false;
++        }
++        s
++    }
++    fn walk(&mut self, root: &Path, dir: &Path) -> std::io::Result<()> {
++        for entry in std::fs::read_dir(dir)? {
++            let entry = entry?;
++            if self.entries.len() >= 200_000 {
++                return Err(std::io::Error::other("P1 snapshot budget"));
++            }
++            let p = entry.path();
++            let rel = p.strip_prefix(root).map_err(std::io::Error::other)?;
++            let Some(rel) = rel.to_str() else {
++                return Err(std::io::Error::other("P1 non-UTF8 path"));
++            };
++            let ft = entry.file_type()?;
++            let name = entry.file_name();
++            let name = name
++                .to_str()
++                .ok_or_else(|| std::io::Error::other("P1 path"))?;
++            let blocked = ft.is_symlink()
++                || name.starts_with('.')
++                || ["target", "node_modules", "vendor", "dist", "build"].contains(&name);
++            self.entries.insert(
++                rel.to_owned(),
++                if blocked {
++                    2
++                } else if ft.is_dir() {
++                    1
++                } else if ft.is_file() {
++                    0
++                } else {
++                    2
++                },
++            );
++            if name == "tsconfig.json" || (name.starts_with("tsconfig.") && name.ends_with(".json"))
++            {
++                let bytes = if !blocked && ft.is_file() && entry.metadata()?.len() <= 262_144 {
++                    std::fs::read(&p).ok()
++                } else {
++                    None
++                };
++                self.configs.insert(rel.to_owned(), bytes);
++            }
++            if ft.is_dir() && !blocked {
++                self.walk(root, &p)?;
++            }
++        }
++        Ok(())
++    }
++    pub(crate) fn topology(&self) -> BTreeMap<String, String> {
++        let mut out = BTreeMap::new();
++        if self.configs.is_empty() {
++            return out;
++        }
++        for (p, b) in &self.configs {
++            out.insert(
++                format!("js_paths_config:{p}"),
++                b.as_ref()
++                    .map(|b| format!("{:x}", Sha256::digest(b)))
++                    .unwrap_or_else(|| "opaque".into()),
++            );
++        }
++        // Additions, removals, skipped candidates, symlink and directory replacement all invalidate.
++        let bytes =
++            bincode::serialize(&(&self.entries, self.complete)).expect("snapshot serializes");
++        out.insert(
++            "js_paths_occupancy".into(),
++            format!("{:x}", Sha256::digest(bytes)),
++        );
++        out
++    }
++    pub(crate) fn unblocked(&self, p: &str) -> bool {
++        let mut prefix = String::new();
++        for part in p.split('/') {
++            if !prefix.is_empty() {
++                prefix.push('/');
++            }
++            prefix.push_str(part);
++            if self.entries.get(&prefix) == Some(&2) {
++                return false;
++            }
++        }
++        true
++    }
++}
+diff --git a/src/js_paths_syntax.rs b/src/js_paths_syntax.rs
+new file mode 100644
+index 00000000..f4cbd98d
+--- /dev/null
++++ b/src/js_paths_syntax.rs
+@@ -0,0 +1,206 @@
++//! P1 supported config syntax. Unsupported input declines, preserving base.
++use serde::de::{DeserializeSeed, MapAccess, SeqAccess, Visitor};
++use serde_json::Value;
++use std::fmt;
++struct Unique;
++impl<'de> Visitor<'de> for Unique {
++    type Value = Value;
++    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
++        f.write_str("JSON without duplicate keys")
++    }
++    fn visit_map<A: MapAccess<'de>>(self, mut a: A) -> Result<Value, A::Error> {
++        let mut m = serde_json::Map::new();
++        while let Some(k) = a.next_key::<String>()? {
++            if m.contains_key(&k) {
++                return Err(serde::de::Error::custom("duplicate key"));
++            }
++            m.insert(k, a.next_value_seed(Unique)?);
++        }
++        Ok(Value::Object(m))
++    }
++    fn visit_seq<A: SeqAccess<'de>>(self, mut a: A) -> Result<Value, A::Error> {
++        let mut v = Vec::new();
++        while let Some(x) = a.next_element_seed(Unique)? {
++            v.push(x);
++        }
++        Ok(Value::Array(v))
++    }
++    fn visit_str<E: serde::de::Error>(self, s: &str) -> Result<Value, E> {
++        Ok(Value::String(s.into()))
++    }
++    fn visit_bool<E: serde::de::Error>(self, b: bool) -> Result<Value, E> {
++        Ok(Value::Bool(b))
++    }
++    fn visit_i64<E: serde::de::Error>(self, n: i64) -> Result<Value, E> {
++        Ok(n.into())
++    }
++    fn visit_u64<E: serde::de::Error>(self, n: u64) -> Result<Value, E> {
++        Ok(n.into())
++    }
++    fn visit_f64<E: serde::de::Error>(self, n: f64) -> Result<Value, E> {
++        serde_json::Number::from_f64(n)
++            .map(Value::Number)
++            .ok_or_else(|| E::custom("number"))
++    }
++    fn visit_unit<E: serde::de::Error>(self) -> Result<Value, E> {
++        Ok(Value::Null)
++    }
++}
++impl<'de> DeserializeSeed<'de> for Unique {
++    type Value = Value;
++    fn deserialize<D: serde::Deserializer<'de>>(self, d: D) -> Result<Value, D::Error> {
++        d.deserialize_any(self)
++    }
++}
++pub(crate) fn jsonc(bytes: &[u8]) -> Option<Value> {
++    let mut b = bytes.to_vec();
++    let mut i = 0;
++    let mut quoted = false;
++    while i < b.len() {
++        if quoted {
++            if b[i] == b'\\' {
++                i += 2;
++                continue;
++            }
++            if b[i] == b'"' {
++                quoted = false;
++            }
++            i += 1;
++            continue;
++        }
++        if b[i] == b'"' {
++            quoted = true;
++            i += 1;
++            continue;
++        }
++        if b.get(i..i + 2) == Some(b"//") {
++            while i < b.len() && b[i] != b'\n' {
++                b[i] = b' ';
++                i += 1;
++            }
++            continue;
++        }
++        if b.get(i..i + 2) == Some(b"/*") {
++            b[i] = b' ';
++            b[i + 1] = b' ';
++            i += 2;
++            while i + 1 < b.len() && &b[i..i + 2] != b"*/" {
++                b[i] = b' ';
++                i += 1;
++            }
++            if i + 1 >= b.len() {
++                return None;
++            }
++            b[i] = b' ';
++            b[i + 1] = b' ';
++            i += 2;
++            continue;
++        }
++        i += 1;
++    }
++    i = 0;
++    quoted = false;
++    while i < b.len() {
++        if quoted {
++            if b[i] == b'\\' {
++                i += 2;
++                continue;
++            }
++            if b[i] == b'"' {
++                quoted = false;
++            }
++        } else if b[i] == b'"' {
++            quoted = true;
++        } else if b[i] == b',' {
++            let mut j = i + 1;
++            while j < b.len() && b[j].is_ascii_whitespace() {
++                j += 1;
++            }
++            if b.get(j).is_some_and(|x| *x == b'}' || *x == b']') {
++                b[i] = b' ';
++            }
++        }
++        i += 1;
++    }
++    let mut d = serde_json::Deserializer::from_slice(&b);
++    let v = Unique.deserialize(&mut d).ok()?;
++    d.end().ok()?;
++    Some(v)
++}
++pub(crate) fn norm(base: &str, p: &str) -> Option<String> {
++    if p.starts_with('/') || p.contains('\\') || p.contains(':') {
++        return None;
++    }
++    let joined = if base.is_empty() {
++        p.into()
++    } else {
++        format!("{base}/{p}")
++    };
++    let mut out = Vec::new();
++    for s in joined.split('/') {
++        match s {
++            "" | "." => {}
++            ".." => {
++                out.pop()?;
++            }
++            _ => out.push(s),
++        }
++    }
++    Some(out.join("/"))
++}
++pub(crate) fn dir(p: &str) -> &str {
++    p.rsplit_once('/').map_or("", |(d, _)| d)
++}
++fn seg_match(p: &[u8], s: &[u8]) -> bool {
++    let mut previous = vec![false; s.len() + 1];
++    previous[0] = true;
++    for &token in p {
++        let mut next = vec![false; s.len() + 1];
++        next[0] = token == b'*' && previous[0];
++        for j in 1..=s.len() {
++            next[j] = if token == b'*' {
++                previous[j] || next[j - 1]
++            } else {
++                previous[j - 1] && (token == b'?' || token == s[j - 1])
++            };
++        }
++        previous = next;
++    }
++    previous[s.len()]
++}
++fn path_match(p: &[&str], s: &[&str]) -> bool {
++    let mut previous = vec![false; s.len() + 1];
++    previous[0] = true;
++    for &part in p {
++        let mut next = vec![false; s.len() + 1];
++        next[0] = part == "**" && previous[0];
++        for j in 1..=s.len() {
++            next[j] = if part == "**" {
++                previous[j] || next[j - 1]
++            } else {
++                previous[j - 1] && seg_match(part.as_bytes(), s[j - 1].as_bytes())
++            };
++        }
++        previous = next;
++    }
++    previous[s.len()]
++}
++pub(crate) fn pattern_matches(pattern: &str, file: &str) -> Option<bool> {
++    if pattern.len() > 512
++        || file.len() > 4096
++        || pattern.contains(['[', ']', '{', '}', '\\', ':'])
++        || pattern.ends_with("/**")
++        || pattern.split('/').any(|s| s.contains("**") && s != "**")
++    {
++        return None;
++    }
++    let p = if !pattern.contains(['*', '?']) && !pattern.rsplit('/').next()?.contains('.') {
++        format!("{pattern}/**/*")
++    } else {
++        pattern.into()
++    };
++    Some(path_match(
++        &p.split('/').collect::<Vec<_>>(),
++        &file.split('/').collect::<Vec<_>>(),
++    ))
++}
+diff --git a/src/lib.rs b/src/lib.rs
+index 160f3128..7348752b 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -66,6 +66,9 @@ mod go_receiver_index_visibility;
+ mod go_selector_supply;
+ mod go_type_alias;
+ pub mod js_exports;
++mod js_paths;
++pub mod js_paths_snapshot;
++mod js_paths_syntax;
+ pub mod js_ts_props;
+ pub mod languages;
+ 
+diff --git a/src/navigation/call_edge_cache.rs b/src/navigation/call_edge_cache.rs
+index b4b06855..c4275d29 100644
+--- a/src/navigation/call_edge_cache.rs
++++ b/src/navigation/call_edge_cache.rs
+@@ -100,7 +100,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
+ // v57: S1b-2b ESM local exports through the module-scope binding (CPG v101).
+ // v58: S1b-3a extends the binding core to every scope (CPG v102).
+ // v59: S1b-3b wires the binding core to call sites, `CallSite.local_binding` (CPG v103).
+-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 59;
++const NAV_CALL_EDGE_CACHE_VERSION: u32 = 60;
+ const CACHE_BIN: &str = "resolved-call-edge-index.bin";
+ const CACHE_META: &str = "resolved-call-edge-index-meta.json";
+ const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
+@@ -719,7 +719,7 @@ mod tests {
+ 
+     #[test]
+     fn sidecar_version_is_pinned_for_receiver_authority() {
+-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 59);
++        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 60);
+     }
+ 
+     #[test]
+diff --git a/src/navigation/call_resolve.rs b/src/navigation/call_resolve.rs
+index 83cd2c3c..2b2a2e0b 100644
+--- a/src/navigation/call_resolve.rs
++++ b/src/navigation/call_resolve.rs
+@@ -57,14 +57,11 @@ pub(crate) fn scoped_caller_site_match_count(
+             // barrels — resolve it through `js_ts_resolved_exports` (the same
+             // typed facts R4c itself consults) to the real local name before
+             // comparing, instead of assuming member == target_name.
+-            let js_ts_resolved_match = crate::call_graph::resolve_js_ts_relative_module(
+-                &b.module_path,
+-                &site.caller.file,
+-                &cg.indexed_files,
+-            )
+-            .and_then(|candidate_file| cg.js_ts_resolved_exports.get(&candidate_file))
+-            .and_then(|exports| exports.get(member))
+-            .is_some_and(|resolved| resolved.local_name == target_name);
++            let js_ts_resolved_match = cg
++                .resolve_js_ts_member_module(&b.module_path, &site.caller.file)
++                .and_then(|candidate_file| cg.js_ts_resolved_exports.get(&candidate_file))
++                .and_then(|exports| exports.get(member))
++                .is_some_and(|resolved| resolved.local_name == target_name);
+             if member == target_name || js_ts_resolved_match {
+                 count += 1;
+             }
+diff --git a/src/repo_loader.rs b/src/repo_loader.rs
+index 2c1825bd..40fff225 100644
+--- a/src/repo_loader.rs
++++ b/src/repo_loader.rs
+@@ -196,7 +196,9 @@ fn scope_graph_build_inputs_from_snapshot(
+     files: &BTreeMap<String, ParsedFile>,
+     manifest_snapshot: ManifestSnapshot,
+ ) -> ScopeGraphBuildInputs {
+-    let manifest_hashes = manifest_snapshot.topology_hashes();
++    let mut manifest_hashes = manifest_snapshot.topology_hashes();
++    let js_paths_snapshot = crate::js_paths_snapshot::JsPathsSnapshot::capture(root);
++    manifest_hashes.extend(js_paths_snapshot.topology());
+     let cfg = parse_rust_crate_config(files, &manifest_snapshot)
+         .unwrap_or_else(|| RustCrateConfig::from_convention(files));
+     let complete = has_complete_rust_coverage(root, files);
+@@ -206,6 +208,7 @@ fn scope_graph_build_inputs_from_snapshot(
+         manifest_hashes,
+         manifest_snapshot,
+         skipped_go_testdata_files: 0,
++        js_paths_snapshot,
+         cfg,
+         complete,
+     }
+diff --git a/src/resolution.rs b/src/resolution.rs
+index aa2ab4bf..2ecfc824 100644
+--- a/src/resolution.rs
++++ b/src/resolution.rs
+@@ -3748,11 +3748,21 @@ impl CallGraph {
+         member: &str,
+         site: &CallSite,
+     ) -> Result<Vec<&FunctionId>, DropReason> {
+-        let Some(candidate_file) = crate::call_graph::resolve_js_ts_relative_module(
+-            &binding.module_path,
+-            &caller.file,
+-            &self.indexed_files,
+-        ) else {
++        // A caller/module cache entry can also be shared by a require binding.
++        // Prove this particular ESM binding and position before consulting it.
++        if !binding.module_path.starts_with('.')
++            && (!self
++                .js_ts_exports
++                .get(&caller.file)
++                .is_some_and(|exports| exports.esm_named_imports.contains(&binding.local))
++                || !matches!(&site.local_binding,
++                crate::call_graph::JsLocalBinding::Unproven(reason) if reason == "import"))
++        {
++            return Ok(Vec::new());
++        }
++        let Some(candidate_file) =
++            self.resolve_js_ts_member_module(&binding.module_path, &caller.file)
++        else {
+             return Ok(Vec::new());
+         };
+         let Some(resolved) = self
+@@ -3765,6 +3775,11 @@ impl CallGraph {
+         if resolved.wrapped && !site.jsx_element {
+             return Err(DropReason::WrappedExportNonJsx);
+         }
++        // New alias authority requires a source-backed callable span. Existing
++        // relative/CJS and may-call fallback semantics are not widened by P1.
++        if !binding.module_path.starts_with('.') && resolved.span.is_none() {
++            return Ok(Vec::new());
++        }
+         let ids: Vec<&FunctionId> = match self.functions.get(&resolved.local_name) {
+             Some(ids) => ids
+                 .iter()
+diff --git a/tests/integration/js_paths_test.rs b/tests/integration/js_paths_test.rs
+new file mode 100644
+index 00000000..1d9e9945
+--- /dev/null
++++ b/tests/integration/js_paths_test.rs
+@@ -0,0 +1,511 @@
++use prism::call_graph::CallGraph;
++use prism::repo_loader::load_repo;
++use prism::resolution::ResolutionConfidence;
++use std::path::Path;
++use tempfile::TempDir;
++fn write(root: &Path, p: &str, text: &str) {
++    let p = root.join(p);
++    std::fs::create_dir_all(p.parent().unwrap()).unwrap();
++    std::fs::write(p, text).unwrap();
++}
++fn graph(root: &Path) -> CallGraph {
++    let r = load_repo(root).unwrap();
++    CallGraph::build_with_scope_graph_inputs(&r.files, r.scope_graph_inputs.as_ref())
++}
++fn outcome(g: &CallGraph, file: &str, name: &str) -> serde_json::Value {
++    let rows = prism::navigation::queries::call_site_dump(g);
++    let r = rows
++        .into_iter()
++        .find(|r| r["caller"]["file"] == file && r["callee_text"] == name)
++        .unwrap();
++    serde_json::from_str(&r.to_string()).unwrap()
++}
++fn assert_hit(g: &CallGraph, file: &str, callee: &str, target: &str) {
++    let r = outcome(g, file, callee);
++    let t = r["resolved_targets"].as_array().unwrap();
++    assert_eq!(t.len(), 1, "{r}");
++    assert_eq!(t[0]["function_id"]["file"], target, "{r}");
++    assert_eq!(t[0]["function_id"]["name"], "real", "{r}");
++    assert_eq!(t[0]["function_id"]["start_line"], 1, "{r}");
++    assert_eq!(t[0]["function_id"]["end_line"], 1, "{r}");
++    assert_eq!(t[0]["confidence"], "exact", "{r}");
++    assert_eq!(t[0]["kind"], "import_member", "{r}");
++}
++fn config(paths: serde_json::Value) -> String {
++    serde_json::json!({"compilerOptions":{"moduleResolution":"node","allowJs":true,"baseUrl":".","paths":paths},"include":["**/*"]}).to_string()
++}
++fn fixture(ext: &str, spec: &str, cfg: &str) -> TempDir {
++    let d = TempDir::new().unwrap();
++    write(d.path(), "tsconfig.json", cfg);
++    write(
++        d.path(),
++        &format!("app.{ext}"),
++        &format!(
++            "import {{ real as picked }} from '{spec}';\nexport function run() {{ picked(); }}\n"
++        ),
++    );
++    write(
++        d.path(),
++        &format!("lib/real.{ext}"),
++        "export function real() { return 1; }\n",
++    );
++    write(
++        d.path(),
++        &format!("decoy/real.{ext}"),
++        "export function real() { return 2; }\n",
++    );
++    d
++}
++#[test]
++fn js_paths_exact_and_wildcard_red() {
++    for ext in ["jsx", "tsx"] {
++        for paths in [
++            serde_json::json!({"@lib/real":["lib/real"]}),
++            serde_json::json!({"@lib/*":["lib/*"]}),
++        ] {
++            let d = fixture(ext, "@lib/real", &config(paths));
++            assert_hit(
++                &graph(d.path()),
++                &format!("app.{ext}"),
++                "picked",
++                &format!("lib/real.{ext}"),
++            );
++        }
++    }
++}
++#[test]
++fn js_paths_exact_precedes_longest_prefix_and_suffix() {
++    for ext in ["jsx", "tsx"] {
++        for paths in [
++            serde_json::json!({"@lib/real":["lib/real"],"@lib/*":["decoy/*"]}),
++            serde_json::json!({"@lib/*end":["lib/*"],"@*end":["decoy/real"]}),
++        ] {
++            let spec = if paths.get("@lib/real").is_some() {
++                "@lib/real"
++            } else {
++                "@lib/realend"
++            };
++            let d = fixture(ext, spec, &config(paths));
++            assert_hit(
++                &graph(d.path()),
++                &format!("app.{ext}"),
++                "picked",
++                &format!("lib/real.{ext}"),
++            );
++        }
++    }
++}
++#[test]
++fn js_paths_parent_origin_without_baseurl_and_child_override() {
++    for ext in ["jsx", "tsx"] {
++        let d = TempDir::new().unwrap();
++        write(
++            d.path(),
++            "packages/tsconfig.base.json",
++            r#"{"compilerOptions":{"moduleResolution":"node","allowJs":true,"paths":{"@lib":["lib/real"]}}}"#,
++        );
++        write(
++            d.path(),
++            "packages/app/tsconfig.json",
++            r#"{"extends":"../tsconfig.base.json","include":["**/*"],"exclude":["dist"]}"#,
++        );
++        write(
++            d.path(),
++            &format!("packages/app/app.{ext}"),
++            "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++        );
++        write(
++            d.path(),
++            &format!("packages/lib/real.{ext}"),
++            "export function real() { return 1; }\n",
++        );
++        write(
++            d.path(),
++            &format!("packages/app/lib/real.{ext}"),
++            "export function real() { return 2; }\n",
++        );
++        assert_hit(
++            &graph(d.path()),
++            &format!("packages/app/app.{ext}"),
++            "picked",
++            &format!("packages/lib/real.{ext}"),
++        );
++        write(
++            d.path(),
++            "packages/app/tsconfig.json",
++            r#"{"extends":"../tsconfig.base.json","compilerOptions":{"paths":{"@lib":["app/lib/real"]}},"include":["**/*"],"exclude":["dist"]}"#,
++        );
++        // Child paths origin is the child config, not the parent's origin.
++        write(
++            d.path(),
++            &format!("packages/app/app/lib/real.{ext}"),
++            "export function real() { return 3; }\n",
++        );
++        assert_hit(
++            &graph(d.path()),
++            &format!("packages/app/app.{ext}"),
++            "picked",
++            &format!("packages/app/app/lib/real.{ext}"),
++        );
++    }
++}
++#[test]
++fn js_paths_baseurl_declaration_origin() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(
++            ext,
++            "@lib",
++            r#"{"compilerOptions":{"moduleResolution":"node","allowJs":true,"baseUrl":"lib"}}"#,
++        );
++        write(
++            d.path(),
++            "pkg/tsconfig.json",
++            r#"{"extends":"../tsconfig.json","compilerOptions":{"paths":{"@lib":["real"]}},"include":["**/*"]}"#,
++        );
++        write(
++            d.path(),
++            &format!("pkg/app.{ext}"),
++            "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++        );
++        assert_hit(
++            &graph(d.path()),
++            &format!("pkg/app.{ext}"),
++            "picked",
++            &format!("lib/real.{ext}"),
++        );
++    }
++}
++#[test]
++fn js_paths_nearest_including_config_and_files_override_exclude() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(
++            ext,
++            "@lib",
++            &config(serde_json::json!({"@lib":["lib/real"]})),
++        );
++        write(
++            d.path(),
++            "pkg/tsconfig.json",
++            r#"{"compilerOptions":{"moduleResolution":"node","allowJs":true,"baseUrl":"..","paths":{"@lib":["decoy/real"]}},"include":["other/**/*"]}"#,
++        );
++        write(
++            d.path(),
++            &format!("pkg/app.{ext}"),
++            "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
++        );
++        assert_hit(
++            &graph(d.path()),
++            &format!("pkg/app.{ext}"),
++            "picked",
++            &format!("lib/real.{ext}"),
++        );
++        write(d.path(),"pkg/tsconfig.json",&serde_json::json!({"compilerOptions":{"moduleResolution":"node","allowJs":true,"baseUrl":"..","paths":{"@lib":["decoy/real"]}},"files":[format!("app.{ext}")],"exclude":["**/*"]}).to_string());
++        assert_hit(
++            &graph(d.path()),
++            &format!("pkg/app.{ext}"),
++            "picked",
++            &format!("decoy/real.{ext}"),
++        );
++    }
++}
++#[test]
++fn js_paths_index_and_relative_barrel() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(ext, "@lib", &config(serde_json::json!({"@lib":["lib"]})));
++        write(
++            d.path(),
++            &format!("lib/index.{ext}"),
++            "export { real } from './real';\n",
++        );
++        assert_hit(
++            &graph(d.path()),
++            &format!("app.{ext}"),
++            "picked",
++            &format!("lib/real.{ext}"),
++        );
++    }
++}
++#[test]
++fn js_paths_jsonc_and_unicode_escaped_key() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(
++            ext,
++            "@lib",
++            r#"{// comment
++"compilerOptions":{"moduleResolution":"node","allowJs":true,"paths":{"@\u006cib":["./lib/real"],},},"include":["**/*"], /* end */ }"#,
++        );
++        assert_hit(
++            &graph(d.path()),
++            &format!("app.{ext}"),
++            "picked",
++            &format!("lib/real.{ext}"),
++        );
++    }
++}
++#[test]
++fn js_paths_unproven_configs_preserve_complete_base_row() {
++    for ext in ["jsx", "tsx"] {
++        let cfgs=[r#"{"extends":"./tsconfig.json"}"#.to_string(),r#"{"extends":"missing-package"}"#.to_string(),r#"{"compilerOptions":{"moduleResolution":"node","allowJs":true,"paths":{"@lib":["lib/real"],"@lib":["decoy/real"]}}}"#.to_string(),config(serde_json::json!({"@lib":["missing","lib/real"]})),config(serde_json::json!({"@*ib":["lib/real"],"@*lib":["decoy/real"]})),config(serde_json::json!({"@lib":["../lib/real"]})),config(serde_json::json!({"@lib":["lib/real.js"]})),r#"{"compilerOptions":{"moduleResolution":"NodeNext","allowJs":true,"paths":{"@lib":["lib/real"]}},"include":["**/*"]}"#.to_string(),r#"{"compilerOptions":{"moduleResolution":"node","allowJs":true,"baseUrl":"lib"},"include":["**/*"]}"#.to_string()];
++        for cfg in cfgs {
++            let d = fixture(ext, "@lib", &cfg);
++            let loaded = load_repo(d.path()).unwrap();
++            let base = CallGraph::build(&loaded.files);
++            let head = graph(d.path());
++            assert_eq!(
++                outcome(&head, &format!("app.{ext}"), "picked"),
++                outcome(&base, &format!("app.{ext}"), "picked"),
++                "{cfg}"
++            );
++        }
++    }
++}
++#[test]
++fn js_paths_competing_extensions_declarations_and_package_json_preserve_base() {
++    for ext in ["jsx", "tsx"] {
++        for blocker in ["lib/real.d.ts", "lib/real.js", "lib/real/package.json"] {
++            let d = fixture(
++                ext,
++                "@lib",
++                &config(serde_json::json!({"@lib":["lib/real"]})),
++            );
++            write(
++                d.path(),
++                blocker,
++                if blocker.ends_with("json") {
++                    r#"{"main":"other.js"}"#
++                } else {
++                    "export function real() {}\n"
++                },
++            );
++            let loaded = load_repo(d.path()).unwrap();
++            let base = CallGraph::build(&loaded.files);
++            assert_eq!(
++                outcome(&graph(d.path()), &format!("app.{ext}"), "picked"),
++                outcome(&base, &format!("app.{ext}"), "picked")
++            );
++        }
++    }
++}
++#[cfg(unix)]
++#[test]
++fn js_paths_symlink_candidate_preserves_base() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(
++            ext,
++            "@lib",
++            &config(serde_json::json!({"@lib":["lib/link"]})),
++        );
++        std::os::unix::fs::symlink(
++            format!("real.{ext}"),
++            d.path().join(format!("lib/link.{ext}")),
++        )
++        .unwrap();
++        let loaded = load_repo(d.path()).unwrap();
++        let base = CallGraph::build(&loaded.files);
++        assert_eq!(
++            outcome(&graph(d.path()), &format!("app.{ext}"), "picked"),
++            outcome(&base, &format!("app.{ext}"), "picked")
++        );
++    }
++}
++#[test]
++fn js_paths_config_change_and_incremental_rebuild() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(
++            ext,
++            "@lib",
++            &config(serde_json::json!({"@lib":["lib/real"]})),
++        );
++        let old = load_repo(d.path()).unwrap();
++        let old_graph = graph(d.path());
++        assert_hit(
++            &old_graph,
++            &format!("app.{ext}"),
++            "picked",
++            &format!("lib/real.{ext}"),
++        );
++        write(
++            d.path(),
++            "tsconfig.json",
++            &config(serde_json::json!({"@lib":["decoy/real"]})),
++        );
++        let new = load_repo(d.path()).unwrap();
++        assert_ne!(old.manifest_hashes, new.manifest_hashes);
++        let cached = prism::cpg::CodePropertyGraph::build_enriched_with_scope_graph_inputs(
++            &old.files,
++            None,
++            old.scope_graph_inputs.as_ref(),
++        );
++        let rebuilt = prism::cpg::CodePropertyGraph::build_incremental_with_scope_graph_inputs(
++            cached.call_graph,
++            cached.dfg,
++            &Default::default(),
++            &new.files,
++            None,
++            new.scope_graph_inputs.as_ref(),
++        );
++        let full = graph(d.path());
++        assert_hit(
++            &full,
++            &format!("app.{ext}"),
++            "picked",
++            &format!("decoy/real.{ext}"),
++        );
++        assert_eq!(
++            outcome(&rebuilt.call_graph, &format!("app.{ext}"), "picked"),
++            outcome(&full, &format!("app.{ext}"), "picked")
++        );
++    }
++}
++#[test]
++fn js_paths_namespace_route_and_parameter_shadow_remain_base() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(
++            ext,
++            "@lib",
++            &config(serde_json::json!({"@lib":["lib/real"]})),
++        );
++        write(d.path(),&format!("app.{ext}"),"import { real as picked } from '@lib';\nimport * as Lib from '@lib';\nexport function run(picked) { picked(); Lib.real(); }\n");
++        let loaded = load_repo(d.path()).unwrap();
++        let base = CallGraph::build(&loaded.files);
++        let head = graph(d.path());
++        assert_eq!(
++            outcome(&head, &format!("app.{ext}"), "picked"),
++            outcome(&base, &format!("app.{ext}"), "picked")
++        );
++        assert_eq!(
++            outcome(&head, &format!("app.{ext}"), "real"),
++            outcome(&base, &format!("app.{ext}"), "real")
++        );
++        assert!(head
++            .resolve_call_site(&head.calls.values().flat_map(|s| s).next().unwrap())
++            .iter()
++            .all(|t| t.confidence != ResolutionConfidence::Exact));
++    }
++}
++
++#[test]
++fn js_paths_explicit_exclude_preserves_base() {
++    for ext in ["jsx", "tsx"] {
++        let cfg = serde_json::json!({"compilerOptions":{"moduleResolution":"node","allowJs":true,"paths":{"@lib":["lib/real"]}},"include":["**/*"],"exclude":[format!("app.{ext}")]});
++        let d = fixture(ext, "@lib", &cfg.to_string());
++        let loaded = load_repo(d.path()).unwrap();
++        assert_eq!(
++            outcome(&graph(d.path()), &format!("app.{ext}"), "picked"),
++            outcome(
++                &CallGraph::build(&loaded.files),
++                &format!("app.{ext}"),
++                "picked"
++            )
++        );
++    }
++}
++
++#[test]
++fn js_paths_cjs_terminal_without_span_preserves_base() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(
++            ext,
++            "@lib",
++            &config(serde_json::json!({"@lib":["lib/real"]})),
++        );
++        write(
++            d.path(),
++            &format!("lib/real.{ext}"),
++            "function real() { return 1; }\nmodule.exports = { real };\n",
++        );
++        let loaded = load_repo(d.path()).unwrap();
++        assert_eq!(
++            outcome(&graph(d.path()), &format!("app.{ext}"), "picked"),
++            outcome(
++                &CallGraph::build(&loaded.files),
++                &format!("app.{ext}"),
++                "picked"
++            )
++        );
++    }
++}
++
++#[test]
++fn js_paths_require_alias_preserves_base_even_with_esm_same_module() {
++    for ext in ["jsx", "tsx"] {
++        for prefix in ["", "import { real as other } from '@lib';\n"] {
++            let d = fixture(
++                ext,
++                "@lib",
++                &config(serde_json::json!({"@lib":["lib/real"]})),
++            );
++            write(d.path(), &format!("app.{ext}"), &format!("{prefix}const {{ real: picked }} = require('@lib');\nexport function run() {{ picked(); }}\n"));
++            let loaded = load_repo(d.path()).unwrap();
++            assert_eq!(
++                outcome(&graph(d.path()), &format!("app.{ext}"), "picked"),
++                outcome(
++                    &CallGraph::build(&loaded.files),
++                    &format!("app.{ext}"),
++                    "picked"
++                )
++            );
++        }
++    }
++}
++
++#[test]
++fn js_paths_unmatched_target_star_preserves_base() {
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(ext, "@lib", &config(serde_json::json!({"@lib":["lib/*"]})));
++        write(
++            d.path(),
++            &format!("lib/index.{ext}"),
++            "export function real() { return 1; }\n",
++        );
++        let loaded = load_repo(d.path()).unwrap();
++        assert_eq!(
++            outcome(&graph(d.path()), &format!("app.{ext}"), "picked"),
++            outcome(
++                &CallGraph::build(&loaded.files),
++                &format!("app.{ext}"),
++                "picked"
++            )
++        );
++    }
++}
++
++#[test]
++fn js_paths_unproven_positions_preserve_base() {
++    use prism::call_graph::JsLocalBinding;
++    for ext in ["jsx", "tsx"] {
++        let d = fixture(
++            ext,
++            "@lib",
++            &config(serde_json::json!({"@lib":["lib/real"]})),
++        );
++        let loaded = load_repo(d.path()).unwrap();
++        for state in [
++            JsLocalBinding::Position("dynamic_scope".into()),
++            JsLocalBinding::Unchecked,
++            JsLocalBinding::MayCall("may_call".into()),
++            JsLocalBinding::Unproven("unbound".into()),
++        ] {
++            let mut head = graph(d.path());
++            let mut base = CallGraph::build(&loaded.files);
++            for g in [&mut head, &mut base] {
++                for sites in g.calls.values_mut() {
++                    *sites = std::mem::take(sites)
++                        .into_iter()
++                        .map(|mut s| {
++                            if s.callee_name == "picked" {
++                                s.local_binding = state.clone();
++                            }
++                            s
++                        })
++                        .collect();
++                }
++            }
++            assert_eq!(
++                outcome(&head, &format!("app.{ext}"), "picked"),
++                outcome(&base, &format!("app.{ext}"), "picked"),
++                "{state:?}"
++            );
++        }
++    }
++}
+diff --git a/tests/integration/main.rs b/tests/integration/main.rs
+index 469d601d..37625988 100644
+--- a/tests/integration/main.rs
++++ b/tests/integration/main.rs
+@@ -40,6 +40,7 @@ mod js_binding_scope_resolution_test;
+ mod js_binding_shorthand_test;
+ mod js_export_reexport_test;
+ mod js_export_test;
++mod js_paths_test;
+ mod js_wrapped_export_refusal_test;
+ mod js_wrapped_export_state_test;
+ mod js_wrapped_export_test;
