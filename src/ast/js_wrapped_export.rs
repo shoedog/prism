@@ -18,11 +18,14 @@ struct ReactImports {
 impl ParsedFile {
     /// Checks R2–R12 in SPEC order for a `call_expression` initializer (R1 is the caller's
     /// kind dispatch). `Ok` is the inner function's registered name and line span; `Err`
-    /// is the first failed reason.
+    /// is the first failed reason. `local_route` (S1b-3, owner E4): a binding at a call site,
+    /// not an export, may also hold React `useCallback(fn, deps)`, which returns its first
+    /// argument, as a plain (unwrapped) callable.
     pub(super) fn js_ts_wrapped_export(
         &self,
         decl: Node<'_>,
         declarator: Node<'_>,
+        local_route: bool,
     ) -> Result<(String, usize, usize), &'static str> {
         if decl.kind() != "lexical_declaration"
             || decl.child_by_field_name("kind").map(|k| k.kind()) != Some("const")
@@ -74,7 +77,8 @@ impl ParsedFile {
             }
             _ => return Err("callee_not_admitted"),
         };
-        if !WRAPPERS.contains(&wrapper.as_str()) {
+        let passthrough = local_route && wrapper == "useCallback";
+        if !WRAPPERS.contains(&wrapper.as_str()) && !passthrough {
             return Err("callee_not_admitted");
         }
         // R6 P1–P5, in SPEC order: unique binding, value-typed, unwritten, uncompeted at

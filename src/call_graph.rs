@@ -497,6 +497,30 @@ pub struct CallSite {
     /// Excluded from cmp_key. Only span-verified wrapped export targets consult it.
     #[serde(default)]
     pub jsx_element: bool,
+    /// S1b-3b (SPEC §3.6, §3.8 (8)): the JS/TS static lexical binding of this site's callee,
+    /// when it is a plain identifier (call `function` field or JSX `name`). `Unchecked` is the
+    /// default for every other language, synthetic and indirect sites, and non-identifier
+    /// callees. Excluded from `cmp_key`.
+    #[serde(default)]
+    pub local_binding: JsLocalBinding,
+}
+
+/// S1b-3b (SPEC §3.6): what a JS/TS unqualified callee statically denotes at its site.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JsLocalBinding {
+    /// Not computed: another language, or a synthetic or non-identifier callee.
+    #[default]
+    Unchecked,
+    /// The binding holds exactly this callable.
+    Callable(crate::ast::JsTerminal),
+    /// Keeps base behavior, counted by reason: `may_call` (owner E5: M1, M2, a written
+    /// binding) or `alias` (a value that may hold a function by value flow, owner
+    /// 2026-09-29).
+    MayCall(String),
+    /// No single proven in-file callable, by reason (`unbound` and `import` included).
+    Unproven(String),
+    /// Owner OQ1 (Option K): an unproven position keeps base behavior, counted by reason.
+    Position(String),
 }
 
 /// Parameter arity for a method definition (language-agnostic shape).
@@ -1337,6 +1361,7 @@ impl CallGraph {
         // Phase 2: Find all call sites within each function
         for (file_path, parsed) in files {
             let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
+            let mut binding_cache = crate::ast::JsBindingCache::for_sites();
             for func_node in parsed.all_functions() {
                 let func_name = match parsed.language.function_name(&func_node) {
                     Some(n) => parsed.node_text(&n).to_string(),
@@ -1402,6 +1427,13 @@ impl CallGraph {
                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                         pre_resolved_target: None,
                         jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
+                        local_binding: Self::js_local_binding_at(
+                            parsed,
+                            start_byte,
+                            end_byte,
+                            &callee_name,
+                            &mut binding_cache,
+                        ),
                     };
                     calls
                         .entry(caller_id.clone())
@@ -1735,6 +1767,7 @@ impl CallGraph {
                 let proven_imported_receiver_types =
                     proven_python_imported_receiver_types.get(file_path);
                 let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
+                let mut binding_cache = crate::ast::JsBindingCache::for_sites();
 
                 for func_node in parsed.all_functions() {
                     let func_name = match parsed.language.function_name(&func_node) {
@@ -1804,7 +1837,7 @@ impl CallGraph {
                             .js_ts_receiver_lexically_bound_at_call(&func_node, meta.receiver_node);
                         let site = CallSite {
                             caller: caller_id.clone(),
-                            callee_name,
+                            callee_name: callee_name.clone(),
                             source_callee_name: None,
                             line,
                             kind: meta.kind_override.unwrap_or_else(|| {
@@ -1835,6 +1868,13 @@ impl CallGraph {
                             origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                             pre_resolved_target: None,
                             jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
+                            local_binding: Self::js_local_binding_at(
+                                parsed,
+                                start_byte,
+                                end_byte,
+                                &callee_name,
+                                &mut binding_cache,
+                            ),
                         };
                         file_call_sites.push((caller_id.clone(), site));
                     }
@@ -2875,6 +2915,8 @@ impl CallGraph {
             origin: CallSiteOrigin::IndirectResolution,
             pre_resolved_target: None,
             jsx_element: false,
+            // E10 non-goal: indirect-resolution sites never carry a lexical binding.
+            local_binding: JsLocalBinding::Unchecked,
         }
     }
 
@@ -5038,6 +5080,7 @@ impl CallGraph {
             }
             let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
             let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
+            let mut binding_cache = crate::ast::JsBindingCache::for_sites();
             for func_node in parsed.all_functions() {
                 let func_name = match parsed.language.function_name(&func_node) {
                     Some(n) => parsed.node_text(&n).to_string(),
@@ -5134,6 +5177,13 @@ impl CallGraph {
                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                         pre_resolved_target: None,
                         jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
+                        local_binding: Self::js_local_binding_at(
+                            parsed,
+                            start_byte,
+                            end_byte,
+                            &callee_name,
+                            &mut binding_cache,
+                        ),
                     };
                     calls
                         .entry(caller_id.clone())
@@ -5507,6 +5557,52 @@ impl CallGraph {
             .into_iter()
             .find(|receiver| line_text.contains(&format!("{receiver}.{callee_name}")))
             .map(str::to_string)
+    }
+
+    /// S1b-3b: the JS/TS lexical binding of an unqualified identifier callee at a site (SPEC
+    /// §3.6). `None` (default `Unchecked`) for another language or a non-identifier callee
+    /// (qualified calls, synthetic sites, indirect sites: §2 non-goals, E10).
+    fn js_local_binding_at<'a>(
+        parsed: &'a ParsedFile,
+        start_byte: usize,
+        end_byte: usize,
+        callee: &str,
+        cache: &mut crate::ast::JsBindingCache<'a>,
+    ) -> JsLocalBinding {
+        use crate::ast::JsBinding;
+        use crate::languages::Language;
+        if !matches!(
+            parsed.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return JsLocalBinding::Unchecked;
+        }
+        let ident = parsed
+            .tree
+            .root_node()
+            .descendant_for_byte_range(start_byte, end_byte)
+            .filter(|n| n.start_byte() == start_byte && n.end_byte() == end_byte)
+            .and_then(|site| match site.kind() {
+                "call_expression" => site.child_by_field_name("function"),
+                "jsx_self_closing_element" | "jsx_opening_element" => {
+                    site.child_by_field_name("name")
+                }
+                _ => None,
+            })
+            .filter(|n| n.kind() == "identifier" && parsed.node_text(n) == callee);
+        let Some(ident) = ident else {
+            return JsLocalBinding::Unchecked;
+        };
+        match parsed.js_ts_site_binding(ident, callee, cache) {
+            JsBinding::Callable(t) => JsLocalBinding::Callable(t),
+            JsBinding::MayCall => JsLocalBinding::MayCall("may_call".to_string()),
+            JsBinding::Alias => JsLocalBinding::MayCall("alias".to_string()),
+            // Unbound or an import: no in-file function is the binding (R4 drops); the
+            // import and repo-wide rungs keep base behavior.
+            JsBinding::Import => JsLocalBinding::Unproven("import".to_string()),
+            JsBinding::Refused(r) => JsLocalBinding::Unproven(r.to_string()),
+            JsBinding::Unchecked(r) => JsLocalBinding::Position(r.to_string()),
+        }
     }
 
     /// True iff the node spanning exactly these bytes is a JSX element tag (S1).

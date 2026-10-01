@@ -107,6 +107,7 @@ mod tests {
             origin: CallSiteOrigin::Source,
             pre_resolved_target: None,
             jsx_element: false,
+            local_binding: Default::default(),
         }
     }
 

@@ -225,7 +225,10 @@ use std::path::{Path, PathBuf};
 /// - v102: S1b-3a extends the binding core to every scope (scoped M2, pattern-declarator M1,
 ///   the alias/NoFn value class, the B1 containment fold): D4 export facts on C166-C168, C172
 ///   change.
-const CACHE_VERSION: u32 = 102;
+/// - v103: S1b-3b wires the binding core to call sites (`CallSite.local_binding`): a JS/TS
+///   lexical binding resolves first (Callable), and an `Unproven` binding drops the R4/R5
+///   same-name fallback (SPEC §3.6, §3.8 (8)).
+const CACHE_VERSION: u32 = 103;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -764,7 +767,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 102);
+        assert_eq!(super::CACHE_VERSION, 103);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

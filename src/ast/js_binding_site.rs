@@ -1,6 +1,6 @@
 //! S1b-3 (SPEC §3.1, §3.1a, §3.8 (2)): the scope index at every scope, and the binding at a
-//! call site. `js_ts_site_binding` has no production caller yet.
-#![allow(dead_code)] // S1b-3b wires the call-site binding.
+//! call site. `js_ts_site_binding` is wired to `CallSite.local_binding` in S1b-3b
+//! (`src/call_graph.rs`).
 use super::js_binding::{is_class, Index, JsBinding, JsBindingCache};
 use super::js_binding_walk::Walk;
 use super::{is_js_ts_function_like, ParsedFile};
@@ -30,7 +30,8 @@ impl ParsedFile {
     ) -> JsBinding {
         match self.js_ts_binding_walk(ident, name, cache) {
             Walk::Found(scope, explicit) => {
-                self.js_ts_scope_binding(scope, explicit, name, ident, cache)
+                // A call-site lookup is the local route (SPEC §3.7): `useCallback` admits.
+                self.js_ts_scope_binding(scope, explicit, name, ident, cache, true)
             }
             Walk::Unbound => JsBinding::Refused("unbound"),
             Walk::Unchecked(reason) => JsBinding::Unchecked(reason),

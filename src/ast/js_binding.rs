@@ -20,8 +20,8 @@ use tree_sitter::Node;
 
 /// A proven callable: its registered name (`Language::function_name`), its line span, and
 /// whether it is a wrapped React render function (bindable from JSX element sites only).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct JsTerminal {
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct JsTerminal {
     pub(crate) local: String,
     pub(crate) start_line: usize,
     pub(crate) end_line: usize,
@@ -71,6 +71,13 @@ pub(crate) struct JsBindingCache<'a> {
     pub(super) partners: Option<BTreeMap<String, usize>>,
     pub(super) write_targets: Option<BTreeMap<String, Vec<Node<'a>>>>,
     pub(super) written: BTreeMap<(usize, String), bool>,
+}
+
+impl<'a> JsBindingCache<'a> {
+    /// S1b-3b: one cache per file, shared across every call-site binding lookup in it.
+    pub(crate) fn for_sites() -> Self {
+        Self::default()
+    }
 }
 
 /// B0's allowlist: every named node kind, leaf or not, of the pinned JavaScript, TypeScript
@@ -149,11 +156,14 @@ impl ParsedFile {
         site: Node<'a>,
         cache: &mut JsBindingCache<'a>,
     ) -> JsBinding {
-        self.js_ts_scope_binding(self.tree.root_node(), None, name, site, cache)
+        // D4 never admits `useCallback` (SPEC §3.7, §3.8 (9)): `local_route` is false.
+        self.js_ts_scope_binding(self.tree.root_node(), None, name, site, cache, false)
     }
 
     /// What `name` denotes in `scope`, the scope the site walk stopped at (`explicit`: the
     /// `with` or dotted-namespace node that binds it), used at `site` (SPEC §3.8 (2)).
+    /// `local_route` is true only for a call-site binding lookup (S1b-3b): on that route, B3's
+    /// admitted-wrapper check also accepts `useCallback` as a plain callable (E4).
     pub(super) fn js_ts_scope_binding<'a>(
         &'a self,
         scope: Node<'a>,
@@ -161,6 +171,7 @@ impl ParsedFile {
         name: &str,
         site: Node<'a>,
         cache: &mut JsBindingCache<'a>,
+        local_route: bool,
     ) -> JsBinding {
         let (decls, annex_b) = match explicit {
             Some(d) => (Some(vec![d]), false),
@@ -181,7 +192,7 @@ impl ParsedFile {
             return JsBinding::Refused("parse_recovery");
         }
         match decls {
-            Some(decls) if !annex_b => self.js_ts_classify(scope, &decls, name, cache),
+            Some(decls) if !annex_b => self.js_ts_classify(scope, &decls, name, cache, local_route),
             _ => JsBinding::Unchecked("annex_b_strictness"),
         }
     }
@@ -195,6 +206,7 @@ impl ParsedFile {
         decls: &[Node<'a>],
         name: &str,
         cache: &mut JsBindingCache<'a>,
+        local_route: bool,
     ) -> JsBinding {
         if scope.kind() == "with_statement" {
             return JsBinding::Refused("with");
@@ -254,7 +266,7 @@ impl ParsedFile {
             match value.kind() {
                 "arrow_function" | "function_expression" if declarator => value,
                 "call_expression" if declarator => {
-                    return self.js_ts_classify_call(*decl, value, using);
+                    return self.js_ts_classify_call(*decl, value, using, local_route);
                 }
                 // M1 for a destructuring declarator (S1b-3 OQ11 a, SPEC §3.8 (4)): its names
                 // may hold what a call with a function argument returns.

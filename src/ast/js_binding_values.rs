@@ -7,23 +7,26 @@ use tree_sitter::Node;
 impl ParsedFile {
     /// B3's admitted React wrapper (S1's predicate, wrapped) and M1: any other call with a
     /// direct function argument may-calls (base behavior); any other call value is an alias
-    /// (owner 2026-09-29).
+    /// (owner 2026-09-29). `local_route` (SPEC §3.7, §3.8 (9)): a call-site binding lookup
+    /// also admits `useCallback`, a plain (unwrapped) callable; D4 never does.
     pub(super) fn js_ts_classify_call(
         &self,
         decl: Node<'_>,
         call: Node<'_>,
         using: bool,
+        local_route: bool,
     ) -> JsBinding {
-        let admitted = match decl.parent() {
-            Some(list) if !using => self.js_ts_wrapped_export(list, decl).ok(),
-            _ => None,
-        };
+        let list = decl.parent().filter(|_| !using);
+        let admitted = list.and_then(|l| self.js_ts_wrapped_export(l, decl, local_route).ok());
         if let Some((local, start_line, end_line)) = admitted {
+            // `wrapped` is true only for forwardRef/memo (bindable from JSX sites only); a
+            // `useCallback` admission, possible only on the local route, stays unwrapped.
+            let wrapped = list.is_some_and(|l| self.js_ts_wrapped_export(l, decl, false).is_ok());
             return JsBinding::Callable(super::js_binding::JsTerminal {
                 local,
                 start_line,
                 end_line,
-                wrapped: true,
+                wrapped,
             });
         }
         js_ts_call_may_call(call)
