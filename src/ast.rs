@@ -5,8 +5,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::{Node, Parser, Tree};
 
 mod js_binding;
-pub use js_binding::JsTerminal;
 pub(crate) use js_binding::{JsBinding, JsBindingCache};
+// S3 fold note (owner review, 2026-09-30): narrowing this to `pub(crate)` compiles but warns
+// `private_interfaces` at `JsLocalBinding::Callable`'s field in src/call_graph.rs (`JsTerminal`
+// is less visible than the `pub` enum variant that carries it); kept `pub` to stay clean under
+// `cargo clippy -W clippy::all`, which the acceptance gate treats as a no-new-warnings bar.
+pub use js_binding::JsTerminal;
 mod js_binding_checks;
 mod js_binding_decls;
 #[cfg(test)]

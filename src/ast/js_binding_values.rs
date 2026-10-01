@@ -1,6 +1,6 @@
 //! S1b-3 (SPEC §3.1 M1, B3, §3.8 (4)(11)): call-value classification, the closed "provably
 //! holds no function" class (NoFn), and the destructuring-default test.
-use super::js_binding::JsBinding;
+use super::js_binding::{JsBinding, JsBindingCache};
 use super::ParsedFile;
 use tree_sitter::Node;
 
@@ -9,15 +9,42 @@ impl ParsedFile {
     /// direct function argument may-calls (base behavior); any other call value is an alias
     /// (owner 2026-09-29). `local_route` (SPEC §3.7, §3.8 (9)): a call-site binding lookup
     /// also admits `useCallback`, a plain (unwrapped) callable; D4 never does.
-    pub(super) fn js_ts_classify_call(
-        &self,
-        decl: Node<'_>,
-        call: Node<'_>,
+    ///
+    /// Fold r1 (Opus W1 / sol WRONG 1): the wrapper is admitted only when the callee
+    /// identifier's (or the `React.x` form's namespace/default object identifier's) nearest
+    /// binding *at this initializer* is the program-scope admitted React import. A parameter,
+    /// a local or block `const`, or any other nearer declaration of that spelling means the
+    /// call is not statically the React wrapper; it falls to the ordinary M1 call-with-
+    /// function-argument class instead (keeps base, owner E5). At module scope (D4) this is
+    /// always true (no nearer scope exists), so D4's behavior is unchanged.
+    pub(super) fn js_ts_classify_call<'a>(
+        &'a self,
+        decl: Node<'a>,
+        call: Node<'a>,
         using: bool,
         local_route: bool,
+        cache: &mut JsBindingCache<'a>,
     ) -> JsBinding {
         let list = decl.parent().filter(|_| !using);
-        let admitted = list.and_then(|l| self.js_ts_wrapped_export(l, decl, local_route).ok());
+        let provenance = call
+            .child_by_field_name("function")
+            .and_then(|f| match f.kind() {
+                "identifier" => Some(f),
+                "member_expression" => f
+                    .child_by_field_name("object")
+                    .filter(|o| o.kind() == "identifier"),
+                _ => None,
+            })
+            .is_some_and(|ident| {
+                let name = self.node_text(&ident).to_string();
+                matches!(
+                    self.js_ts_site_binding(ident, &name, cache),
+                    JsBinding::Import
+                )
+            });
+        let admitted = list
+            .filter(|_| provenance)
+            .and_then(|l| self.js_ts_wrapped_export(l, decl, local_route).ok());
         if let Some((local, start_line, end_line)) = admitted {
             // `wrapped` is true only for forwardRef/memo (bindable from JSX sites only); a
             // `useCallback` admission, possible only on the local route, stays unwrapped.

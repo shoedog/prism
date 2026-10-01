@@ -215,7 +215,17 @@ impl ParsedFile {
             return JsBinding::Refused("duplicate_declaration");
         };
         if matches!(decl.kind(), "import_statement" | "import_alias") {
-            return JsBinding::Import;
+            // Fold r1 (sol WRONG 2, owner M2 ruling): a written import binding keeps base on
+            // the call-site route, whatever its kind — an identifier write
+            // (`f = g`) is W1 syntax, not module-object mutation. D4/R4c are unaffected: an
+            // exported name already filtered as an import never reaches this arm there, but
+            // gate on `local_route` explicitly so a namespace/`import =` export that does
+            // reach it keeps the landed `Import` answer (pinned by `d4_written_import_pin`).
+            return if local_route && self.js_ts_scoped_written(scope, name, cache) {
+                JsBinding::MayCall
+            } else {
+                JsBinding::Import
+            };
         }
         let fe_self = matches!(decl.kind(), "function_expression" | "generator_function")
             && decl
@@ -266,7 +276,7 @@ impl ParsedFile {
             match value.kind() {
                 "arrow_function" | "function_expression" if declarator => value,
                 "call_expression" if declarator => {
-                    return self.js_ts_classify_call(*decl, value, using, local_route);
+                    return self.js_ts_classify_call(*decl, value, using, local_route, cache);
                 }
                 // M1 for a destructuring declarator (S1b-3 OQ11 a, SPEC §3.8 (4)): its names
                 // may hold what a call with a function argument returns.
