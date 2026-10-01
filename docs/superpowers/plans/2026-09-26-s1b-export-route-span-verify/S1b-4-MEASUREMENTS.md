@@ -237,3 +237,10 @@ quick/oracle acceptance, a same-environment base quick attribution control,
 T aggregate telemetry, clean warm-sidecar transition, and Git publication/adoption.
 No buildable implementation step is parked; excluded controller/harness work is
 explicit. All three quick attempts are retained as exclusions, never silently skipped.
+
+## Controller F acceptance r3 (after spec r1 fold; aggregates only; 2026-10-01)
+
+- Prototype: `beec4a23` vs `915fca43`. Sites: 13,299 on base and on head.
+- Changed rows: **4**, Exact → NameOnly `import_qualified`, edge kept.
+- Lost targets: 0. Export counters changed: 0.
+- The result is identical to r2.
