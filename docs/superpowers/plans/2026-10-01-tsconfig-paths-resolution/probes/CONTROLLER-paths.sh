@@ -1,5 +1,5 @@
 #!/bin/bash
-# READ: controller-only private F measurement. Never run this in the planner lane.
+# READ: controller-only private F measurement. Planner smoke tests use public synthetic inputs only.
 # Required env: CORPUS_F_ROOT, PRIVATE_EVIDENCE_ROOT (private destination), TS_JS.
 # Usage: bash CONTROLLER-paths.sh BASE_BIN HEAD_BIN BASE_IMPORT_FACTS_BIN
 # stdout is aggregates only. Raw paths, rows, source and diagnostics stay private.

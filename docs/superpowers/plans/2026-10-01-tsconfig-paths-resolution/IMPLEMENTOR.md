@@ -1,8 +1,56 @@
 # Sonnet dispatch — P1 tsconfig paths import members
 
-READ: dispatch is pending owner OQ1–OQ3 answers, Opus plan approval and controller commit binding. Read SPEC, OQ-paths, MEASUREMENTS and BUILD-MANIFEST. Use the retained bound TypeScript package path as TS_JS. Review cap is two rounds; numeric LOC caps do not exist. Do not restart the prototype. Implementer starts from the controller-applied **cumulative P1.diff** off bound base `5048f443`, not from a rewrite.
+READ: planning continues under the controller interim OQ1–OQ4 dispositions in OQ-paths.md, pending owner confirmation. P1 implementation dispatch still requires fresh F aggregates, Opus plan approval and controller commit/authority binding. Read SPEC, OQ-paths, MEASUREMENTS and BUILD-MANIFEST.md. Use the retained bound TypeScript package path as TS_JS. Review cap is two rounds; numeric LOC caps do not exist. Do not restart the prototype. Implementer starts from the controller-applied **cumulative P1.diff** off bound base `5048f443`, not from a rewrite.
 
 READ: controller fills `__PLAN_COMMIT__`, `__PROTO_COMMIT__`, `__IMPLEMENTATION_PARENT__`, owner answers and review dispositions before dispatch. If parent, scope or membership ruling differs, stop the dependent work and ask the controller; do not infer a ruling. Existing user authorization covers completing P1, tests and fixes within the answered scope, not P2, pushing or merging.
+
+## P1 dispatch and starting artifact
+
+READ: the controller creates `proto/tsconfig-paths` from implementation parent `5048f44300a7bb8161444e83c0d02713529a33fd`, applies **`target/paths-proto/P1.diff`**, and commits exactly **`target/paths-proto/P1-owned-files.txt`**. Sonnet begins on that resulting `__PROTO_COMMIT__`, carrying all prototype source, tests and fixtures forward. This is the cumulative implementation body; no rewrite or fresh resolver implementation is requested.
+
+MEASURED: the refreshed patch SHA-256 is `ef6f07891471fb287d6b5ff5d35cca85823c6fe15a7682116bfd6615287c089f`. `target/paths-proto/source-hashes.json` binds both base and final file bytes; `target/paths-proto/P1-owned-files.tar.gz` contains the same 35 owned files. `target/paths-plan/patch-replay-final.log` and `resume-binding.json` verify an exact replay. Earlier patch/archive snapshots are superseded because they predate the final position-injection test compile fix. Use the final hashes in BUILD-MANIFEST.md.
+
+READ: exact owned-file list (35 paths, relative to the prototype repository; also retained as the newline-delimited `P1-owned-files.txt`):
+
+```text
+eval/fixtures/javascript/tsconfig_paths_positive/app.jsx
+eval/fixtures/javascript/tsconfig_paths_positive/decoy/util.jsx
+eval/fixtures/javascript/tsconfig_paths_positive/expected.toml
+eval/fixtures/javascript/tsconfig_paths_positive/src/util.jsx
+eval/fixtures/javascript/tsconfig_paths_positive/tsconfig.json
+eval/fixtures/javascript/tsconfig_paths_refusal/app.jsx
+eval/fixtures/javascript/tsconfig_paths_refusal/decoy/util.jsx
+eval/fixtures/javascript/tsconfig_paths_refusal/expected.toml
+eval/fixtures/javascript/tsconfig_paths_refusal/src/util.d.ts
+eval/fixtures/javascript/tsconfig_paths_refusal/src/util.jsx
+eval/fixtures/javascript/tsconfig_paths_refusal/tsconfig.json
+eval/fixtures/typescript/tsconfig_paths_positive/app.tsx
+eval/fixtures/typescript/tsconfig_paths_positive/decoy/util.tsx
+eval/fixtures/typescript/tsconfig_paths_positive/expected.toml
+eval/fixtures/typescript/tsconfig_paths_positive/src/util.tsx
+eval/fixtures/typescript/tsconfig_paths_positive/tsconfig.json
+eval/fixtures/typescript/tsconfig_paths_refusal/app.tsx
+eval/fixtures/typescript/tsconfig_paths_refusal/decoy/util.tsx
+eval/fixtures/typescript/tsconfig_paths_refusal/expected.toml
+eval/fixtures/typescript/tsconfig_paths_refusal/src/util.d.ts
+eval/fixtures/typescript/tsconfig_paths_refusal/src/util.tsx
+eval/fixtures/typescript/tsconfig_paths_refusal/tsconfig.json
+src/call_graph.rs
+src/cpg/build.rs
+src/cpg_cache.rs
+src/js_paths.rs
+src/js_paths_snapshot.rs
+src/js_paths_syntax.rs
+src/lib.rs
+src/navigation/call_edge_cache.rs
+src/navigation/call_resolve.rs
+src/repo_loader.rs
+src/resolution.rs
+tests/integration/js_paths_test.rs
+tests/integration/main.rs
+```
+
+ASSUMPTION: controller custody sequence: verify the final patch/archive/list hashes; check every parent file hash against `base_sha256` and absence for null base hashes; apply the cumulative patch in the new worktree; check every resulting owned file against `prototype_sha256`; commit only the listed paths and fill the dispatch placeholders. Stop if any path/hash/parent differs. Prototype commit recommendation: `feat(paths): resolve finite tsconfig paths import members`. The planner performs none of these Git writes.
 
 ## Model and scope
 
