@@ -9,7 +9,7 @@ use prism::call_graph::CallGraph;
 use prism::languages::Language;
 use std::collections::BTreeMap;
 
-fn graph(path: &str, src: &str) -> CallGraph {
+pub(super) fn graph(path: &str, src: &str) -> CallGraph {
     let lang = Language::from_path(path).unwrap();
     let mut files = BTreeMap::new();
     files.insert(
@@ -19,7 +19,7 @@ fn graph(path: &str, src: &str) -> CallGraph {
     CallGraph::build(&files)
 }
 
-fn two_file_graph(a: (&str, &str), b: (&str, &str)) -> CallGraph {
+pub(super) fn two_file_graph(a: (&str, &str), b: (&str, &str)) -> CallGraph {
     let mut files = BTreeMap::new();
     for (path, src) in [a, b] {
         let lang = Language::from_path(path).unwrap();
@@ -32,7 +32,7 @@ fn two_file_graph(a: (&str, &str), b: (&str, &str)) -> CallGraph {
 }
 
 /// Every call site in the graph, as `L<line> <callee>: <outcome>`.
-fn sites(cg: &CallGraph) -> Vec<String> {
+pub(super) fn sites(cg: &CallGraph) -> Vec<String> {
     let mut out = Vec::new();
     for site in cg.calls.values().flatten() {
         let outcome = cg.resolve_call_site_full(site);
@@ -62,7 +62,7 @@ fn sites(cg: &CallGraph) -> Vec<String> {
 }
 
 /// Table runner: `src` with `{ext}` substituted for each of `exts`.
-fn check(src: &str, exts: &[&str], expected: &[&str]) {
+pub(super) fn check(src: &str, exts: &[&str], expected: &[&str]) {
     for ext in exts {
         let path = format!("a.{ext}");
         assert_eq!(sites(&graph(&path, src)), expected, ".{ext}");
