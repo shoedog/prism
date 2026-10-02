@@ -147,3 +147,18 @@ READ retained spec-r2 execution: C74 covers MJS/MTS/declaration-MTS and CJS/CTS/
 MEASURED: C85 and C86 add .tsx/.ts and .jsx/.js preservation rows in both target grammars; both pair tests fail on pre-change production and pass after. C87 is confirmation scenario O: app.ts remains a configured Exact gain; app.tsx and b.jsx preserve complete base rows and have inferred tsserver ownership with undefined alias targets. All six previously wrong Exact rows have source-bound RED/GREEN. C88 tests both literal-files exemptions; C89 tests both .d.ts/JavaScript exceptions in each target grammar. M29 swaps .ts/.tsx priority and M30 swaps .js/.jsx priority; both admit the forbidden callers and are killed by both target grammars. All 30 kernel and 11 integration mutants were freshly run.
 
 MEASURED: extension_priority_check.cjs reads allSupportedExtensions directly from the bound compiler and exhausts every ordered pair in both target grammars, with wildcard and literal membership: 64 cases, 26 actual TypeScript drops, 32 literal exemptions, four declaration/JavaScript exceptions and two conservative declaration barriers. The fresh pre-change kernel fails eight rows across four changed priority behaviors; final kernel passes all 64. TS's .cts suffix stop retains .d.cts beside .cts, while later .mts deletes .d.mts; this is recorded rather than claiming exact membership equivalence.
+
+## §0 Owner decision 2026-10-02: ambient-declaration shadowing is a disclosed accepted cost (P1)
+
+Four review rounds each found new ways a `declare module` could shadow a `paths` alias. The fences built to prove the ambient world closed at the repository boundary either removed all yield on installed checkouts (installed X went from 3,121 to 0) or kept leaking. On every measured corpus (X, and F privately) zero alias rows are shadowed this way.
+
+**Owner decision: "Accept disclosed risk".**
+- P1 keeps cheap in-repo fences:
+  - a `declare module` matching an alias anywhere in repository files, including `node_modules` and `@types` inside the root, keeps the row at base;
+  - the Node10 first-pass check for JS-family targets;
+  - case-insensitive collision refusal;
+  - the type-input rules.
+- The scan is tolerant and **not fail-closed**: unreadable, out-of-root-symlinked or unparseable files are skipped and counted, with a warning.
+- The repository-boundary closure declines are dropped.
+
+**New accepted cost.** An ambient module declared only outside the repository, or reachable only through unscanned transitive imports, whose name exactly matches a `paths` alias, can produce a wrong Exact edge. This cost is recorded and disclosed. It is not a review finding.
