@@ -1,4 +1,6 @@
-# Handoff — Lane P P1 r2d local repair complete; controller acceptance pending
+> Current r3 is **PARKED / NOT SHIPPABLE**. [REPAIR-R3-HANDOFF.md](REPAIR-R3-HANDOFF.md) supersedes the operational state below. The r2d facts and controller commands are historical; their binaries and wrapper defaults do not certify r3. Do not execute the historical acceptance flow for the parked patch.
+
+# Historical handoff — Lane P P1 r2d local repair complete; controller acceptance pending
 
 **Written:** 2026-10-02 · **By:** /root repairer · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/prism-paths-impl · **Measured state:** [MEASURED] HEAD 6965da75eb85f32d3ae0dda9e96704ad432375e6 · Tree DIRTY · Probe git rev-parse/status, frozen input/binary hashes and completed verification · Output target/repair-r2d/boundary-final

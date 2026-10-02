@@ -1,4 +1,6 @@
-# Lane P P1 r2d build binding
+> Current r3 is **PARKED / NOT SHIPPABLE**, on HEAD 247f1627 with local modifications. Current binding: target/repair-r3/current/final-binding.json; immutable executable SHA256 **887fef5c61bcf407bab937dfe920fcfba125de22817f34896f57f952d87ceccc**. Source/doc and lean receipt snapshots are bound in target/repair-r3/current/custody-final.json. Pre-main binding remains target/repair-r3/final-binding-pre-main.json. See [REPAIR-R3-RESULTS.md](REPAIR-R3-RESULTS.md) and [REPAIR-R3-HANDOFF.md](REPAIR-R3-HANDOFF.md). The following r2d binding is historical evidence.
+
+# Historical Lane P P1 r2d build binding
 
 [MEASURED] Original base a66b877f; controller custody HEAD 6965da75eb85f32d3ae0dda9e96704ad432375e6; final source dirty, frozen across1017 build inputs in target/repair-r2d/boundary-final/production-binding.json. Immutable binary target/repair-r2d/head/prism-r2d-boundary, SHA256 **ab4fdc0091c53696dfe38239001c3d689f592fcd3546162030b5ad958fe8222c**, byte-identical to the immediate release rebuild.
 

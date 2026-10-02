@@ -404,6 +404,13 @@ fn js_paths_repair_package_above_root_and_ts_control() {
             "lib/real.tsx",
             "export function real() { return 1; }\n",
         );
+        assert_base(&root, &format!("app.{ext}"));
+        // Explicit empty types suppress automatic ancestor @types inclusion.
+        let mut cfg: serde_json::Value =
+            serde_json::from_str(&config(serde_json::json!({"utils/format":["lib/real"]})))
+                .unwrap();
+        cfg["compilerOptions"]["types"] = serde_json::json!([]);
+        write(&root, "tsconfig.json", &cfg.to_string());
         assert_alias(
             &root,
             &graph(&root),

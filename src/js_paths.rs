@@ -155,6 +155,12 @@ impl<'a> Resolver<'a> {
         {
             return None;
         }
+        if !self
+            .snapshot
+            .boundary_closed(p, c.options.contains_key("types"))
+        {
+            return None;
+        }
         c.config_path = p.into();
         if self.snapshot.references.iter().any(|(file, references)| {
             self.includes(&c, file, &c.config_path) != Some(false)

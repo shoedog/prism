@@ -1,4 +1,8 @@
-# Lane P P1 r2d verification
+# Lane P P1 r3 PARKED — current verification complete, acceptance failed
+
+[MEASURED] Current-only receipts: target/repair-r3/current. **X/installed-X/R/T = 3,121/0/0/0**; X gains all CORRECT, installed oracle executed and yield FAIL. Installed base/head **33.2905/50.1396 s, 757,202,944/795,099,136 bytes RSS**; four configs decline through two falsely unsafe in-root non-type ordinary-main targets, 74 failing requests. One fresh pre-main control recovers 3,121 all CORRECT on the same tree. Four additional WRONGs reproduce in both grammars. Suites **4,917/5,110/5,133**, zero failures/one existing ignore each; fmt/clippy pass; matrix **170/0/0**; mutants **82/82 integration/unit and 68/68 kernel**; cache **105/61**; S1b-4 **411** identical controls; synthetic **487/503, 0 recovered/0 lost** versus freshly controlled r2d. Serial Nx wall ratios **1.1086/1.0488/1.1195**, RSS ratios **1.2508/1.0659/1.2364**: two RSS FAILs. See [REPAIR-R3-RESULTS.md](REPAIR-R3-RESULTS.md) for warnings, dispositions, exact numbers, provenance and limits; [REPAIR-R3-HANDOFF.md](REPAIR-R3-HANDOFF.md) records the required design stop. Earlier sections and pre-main receipts are historical.
+
+# Historical Lane P P1 r2d verification
 
 [MEASURED] Original comparison base a66b877f49ba858c27b749b0a36bfccf4bc7da7d; current controller custody HEAD 6965da75eb85f32d3ae0dda9e96704ad432375e6. The controller created WIP6965da75 during this repair. No repairer Git writes. Final source is dirty and frozen across1017 build inputs. Immutable binary: target/repair-r2d/head/prism-r2d-boundary, SHA256 **ab4fdc0091c53696dfe38239001c3d689f592fcd3546162030b5ad958fe8222c**. Evidence: target/repair-r2d/boundary-final. Earlier r2d receipts are superseded for current claims.
 

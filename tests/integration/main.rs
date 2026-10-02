@@ -47,6 +47,7 @@ mod js_paths_r1_test;
 mod js_paths_r2b_test;
 mod js_paths_r2c_test;
 mod js_paths_r2d_test;
+mod js_paths_r3_test;
 mod js_paths_repair_test;
 mod js_paths_test;
 mod js_wrapped_export_refusal_test;
