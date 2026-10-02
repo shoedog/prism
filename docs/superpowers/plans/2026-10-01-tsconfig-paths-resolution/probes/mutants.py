@@ -40,12 +40,36 @@ mutants={
  'M29-no-tsx-ts-priority':('js_paths.rs','&[".ts", ".tsx", ".d.ts", ".js", ".jsx"]','&[".tsx", ".ts", ".d.ts", ".js", ".jsx"]'),
  'M30-no-jsx-js-priority':('js_paths.rs','&[".ts", ".tsx", ".d.ts", ".js", ".jsx"]','&[".ts", ".tsx", ".d.ts", ".jsx", ".js"]'),
 }
+# Rebind legacy mutations to the repaired production expressions. Redundant
+# gates are disabled together when they implement the same invariant.
+mutants['M03-child-paths-origin']=('js_paths.rs','c.base.as_deref().unwrap_or(origin)','c.base.as_deref().unwrap_or(dir(file))')
+mutants['M09-ignore-baseurl-origin']=('js_paths.rs','c.base.as_deref().unwrap_or(origin)','origin')
+mutants['M07-ignore-package-boundary']=('js_paths.rs','.kind(&format!("{p}/package.json"))','.kind(&format!("{p}/__mutant_absent.json"))')
+mutants['M11-no-allowjs']=('js_paths.rs','c.options.get("allowJs").and_then(Value::as_bool) != Some(true)','false')
+mutants['M12-no-outdir-barrier']=('js_paths.rs','if c.exclude.is_none()','if false && c.exclude.is_none()')
+mutants.update({
+ 'M31-no-replacement-candidate':('js_paths.rs','.kind(&format!("{stem}.d.{suffix}.ts"))','.kind(&format!("{stem}.__absent.ts"))'),
+ 'M32-no-spec-slash-cut':('js_paths.rs','|| directory_target(spec)','|| false'),
+ 'M33-no-target-slash-cut':('js_paths.rs','if directory_target(&target) {','if false && directory_target(&target) {'),
+ 'M34-no-js-package-cut':('js_paths.rs','self.snapshot.package_present(file, spec)','false'),
+ 'M35-no-ambient-cut':('js_paths.rs','if self\n            .snapshot\n            .ambient','if false && self\n            .snapshot\n            .ambient'),
+ 'M36-no-raw-membership-cut':('js_paths.rs','if list.iter().any(|s| !membership_pattern(s, key == "files")) {','if false && list.iter().any(|s| !membership_pattern(s, key == "files")) {'),
+ 'M37-no-declarationdir-cut':('js_paths.rs','"declarationDir",','"__absentDir",'),
+ 'M38-no-rootdir-cut':('js_paths.rs','"rootDir",','"__absentRoot",'),
+})
+# Preflight the entire mutation population before compiling any mutant.
+for label,(file,old,new) in mutants.items():
+ expected=2 if label in ['M06-ignore-declaration-blocker','M11-no-allowjs','M32-no-spec-slash-cut'] else 1
+ assert text[file].count(old)==expected,(label,text[file].count(old),expected)
 results=[];baseline=None
 for label,mutation in [('reference',None),*mutants.items()]:
  d=evidence/'mutants'/label;d.mkdir(parents=True,exist_ok=True)
  for f,s in text.items():
   if mutation and f==mutation[0]:
-   old,new=mutation[1:];assert s.count(old)==1,(label,s.count(old));s=s.replace(old,new)
+   old,new=mutation[1:];s=s.replace(old,new)
+   if label=='M12-no-outdir-barrier':s=s.replace('if !out.is_empty() {','if false && !out.is_empty() {')
+   if label=='M26-no-question-prefix-barrier':s=s.replace("['?', '[', ']', '{', '}', '\\\\', ':']", "['[', ']', '{', '}', '\\\\', ':']")
+  if label=='M17-byte-unicode-glob' and f=='js_paths.rs':s=s.replace('(literal || p.is_ascii())','true')
   (d/f).write_text(s)
  shutil.copy2(packet/'resolver_driver.rs',d/'main.rs')
  cmd=['rustc','--edition=2021',str(d/'main.rs'),'-L',f'dependency={deps}']

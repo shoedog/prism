@@ -1,3 +1,5 @@
+> Repair-r1 supersedes the historical prototype dispatch below. Current checkout: feat/tsconfig-paths-p1 at 7f5a862a plus the source-bound repair in target/repair-r1; base dab8251c. No git writes or corpus F reads are authorized. Use BUILD-MANIFEST, MEASUREMENTS, HANDOFF and the updated controller wrapper for current files, receipts and commit instructions. The old prototype patch and old review counts remain historical; do not apply that cumulative patch to this integrated branch. S6/OQ2 remains parked.
+
 # Lane-P review handback — round 2 at the cap
 
 READ: Opus spec-r2-opus.md returned FIX (2 WRONG / 4 SMELL). The controller authorizes this disclosed targeted fold and no new review round. The existing reviewed artifact is retained. W1-r2/W3 are corrected in place; the confirmation residual is folded via the generic compiler table; neither is downgraded. S6 stays an owner question after Fix B's measured cost of 89 X gains selects Fix A.
