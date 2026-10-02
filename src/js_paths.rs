@@ -13,6 +13,8 @@ struct Config {
     files: Option<Vec<String>>,
     include: Option<Vec<String>>,
     exclude: Option<Vec<String>>,
+    type_roots: Option<Vec<String>>,
+    types_origin: String,
 }
 fn strings(v: &Value) -> Option<Vec<String>> {
     v.as_array()?
@@ -87,6 +89,33 @@ impl<'a> Resolver<'a> {
         }
         if let Some(v) = object.get("compilerOptions") {
             let opts = v.as_object()?;
+            if let Some(roots) = opts.get("typeRoots") {
+                c.type_roots = Some(
+                    strings(roots)?
+                        .iter()
+                        .map(|root| self.snapshot.covered_root(dir(p), root))
+                        .collect::<Option<Vec<_>>>()?,
+                );
+                if c.type_roots.as_ref()?.iter().any(|root| {
+                    !self.snapshot.input_references_covered(
+                        root,
+                        c.type_roots.as_deref(),
+                        &mut BTreeSet::new(),
+                    )
+                }) {
+                    return None;
+                }
+            }
+            if let Some(types) = opts.get("types") {
+                c.types_origin = dir(p).into();
+                if strings(types)?.iter().any(|name| {
+                    !self
+                        .snapshot
+                        .covered_type(dir(p), name, c.type_roots.as_deref())
+                }) {
+                    return None;
+                }
+            }
             for (k, v) in opts {
                 if k != "paths" {
                     c.options.insert(k.clone(), v.clone());
@@ -110,6 +139,15 @@ impl<'a> Resolver<'a> {
                 c.paths = Some((dir(p).into(), paths));
             }
         }
+        if let Some(types) = c.options.get("types") {
+            if strings(types)?.iter().any(|name| {
+                !self
+                    .snapshot
+                    .covered_type(&c.types_origin, name, c.type_roots.as_deref())
+            }) {
+                return None;
+            }
+        }
         if c.exclude.is_none()
             && ["outDir", "declarationDir", "rootDir", "rootDirs"]
                 .iter()
@@ -118,6 +156,16 @@ impl<'a> Resolver<'a> {
             return None;
         }
         c.config_path = p.into();
+        if self.snapshot.references.iter().any(|(file, references)| {
+            self.includes(&c, file, &c.config_path) != Some(false)
+                && references.iter().any(|(kind, name)| {
+                    !self
+                        .snapshot
+                        .reference_covered(dir(file), kind, name, c.type_roots.as_deref())
+                })
+        }) {
+            return None;
+        }
         Some(c)
     }
     fn includes(&self, c: &Config, file: &str, config_path: &str) -> Option<bool> {
@@ -330,17 +378,11 @@ impl<'a> Resolver<'a> {
             }
             (k, s)
         };
-        if self
-            .snapshot
-            .ambient
-            .iter()
-            .any(|(ambient_file, patterns)| {
-                patterns
-                    .iter()
-                    .any(|pattern| ambient_matches(pattern, spec))
-                    && self.includes(&c, ambient_file, &c.config_path) != Some(false)
-            })
-        {
+        if self.snapshot.ambient.values().any(|patterns| {
+            patterns
+                .iter()
+                .any(|pattern| ambient_matches(pattern, spec))
+        }) {
             return None;
         }
         let raw_target = paths.get(&key)?.first()?;
@@ -355,7 +397,13 @@ impl<'a> Resolver<'a> {
         let q = self.prove_path(&p, indexed)?;
         if js_family(&q)
             && (c.options.get("allowJs").and_then(Value::as_bool) != Some(true)
-                || self.snapshot.package_present(file, spec))
+                || !crate::js_paths_first_pass::absent(
+                    self.snapshot,
+                    file,
+                    spec,
+                    &p,
+                    c.type_roots.as_deref(),
+                ))
         {
             return None;
         }
@@ -370,7 +418,7 @@ impl<'a> Resolver<'a> {
         file: &str,
         spec: &str,
         indexed: &BTreeSet<String>,
-        allow_js: bool,
+        _allow_js: bool,
     ) -> Option<String> {
         if !self.snapshot.complete
             || !(spec.starts_with("./") || spec.starts_with("../"))
@@ -388,7 +436,7 @@ impl<'a> Resolver<'a> {
             }
         }
         let q = self.prove_path(&p, indexed)?;
-        (!js_family(&q) || allow_js).then_some(q)
+        (!js_family(&q)).then_some(q)
     }
     fn prove_path(&self, p: &str, indexed: &BTreeSet<String>) -> Option<String> {
         if !self.snapshot.unblocked(p) {

@@ -1,81 +1,69 @@
-# Handoff — Lane-P P1 implementation repair round 1
+# Handoff — Lane P P1 r2d local repair complete; controller acceptance pending
 
-**Written:** 2026-10-01 · **By:** repairer gpt-6.1-sol · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/prism-paths-impl · feat/tsconfig-paths-p1 · **Measured state:** `[MEASURED]` HEAD 7f5a862afd002dd5953108a3ab5b611d8745bde9 · Tree DIRTY · Probe git status/diff and source binding · Output target/repair-r1/
-**Predecessor:** impl-P1-r1-opus.md and impl-P1-r1-sol61.md supplied by controller.
+**Written:** 2026-10-02 · **By:** /root repairer · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/prism-paths-impl · **Measured state:** [MEASURED] HEAD 6965da75eb85f32d3ae0dda9e96704ad432375e6 · Tree DIRTY · Probe git rev-parse/status, frozen input/binary hashes and completed verification · Output target/repair-r2d/boundary-final
+**Predecessor:** owner-supplied squashed r2c a66b877f; controller-created custody WIP6965da75 during this turn.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
-**Provenance:** written live using prompts-skills-steering/bootstrap/handoff-template.md. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
+**Provenance:** written live by repairer; [MEASURED] claims were run this turn; [INHERITED] claims came from the owner.
 
 ## 0. Gating facts — settle these before starting anything below
-
-- Lane ownership RESOLVED: [INHERITED] controller assigned this repair round; no delegation authorized or used.
-- Custody RESOLVED locally, OPEN externally: [MEASURED] fresh base/pre-repair archives, immutable binaries, final repair.patch/owned-files.tar.gz and source/file hashes under target/repair-r1; custody-final.json binds receipts. No Git writes allowed; controller commits/preserves evidence externally.
-- In flight RESOLVED: [MEASURED] all repair foreground work completed, including serial performance. No irreversible action in flight.
-- Authority RESOLVED: [INHERITED] “No git writes.” “Never open corpus F.” Both honored. Public repair/verification authorized; controller alone owns commits and F.
+**(a) Lane ownership** — [INHERITED] assigned repairer; no delegates. RESOLVED for local work.
+**(b) Custody exposure** — [MEASURED] controller WIP exists, final delta and receipts locally archived/byte-checked. OPEN for controller commit/external backup.
+**(c) In flight / irreversible** — [MEASURED] all own verification jobs and18 serial measurement children ended. RESOLVED.
+**(d) Authorization granted but not exercised** — [INHERITED] “No git writes.” “Never open F.” “Cache stays at105/61.” Controller runs F before acceptance.
 
 ## 1. Resume order
-
-1. Verify final owned-file/source/executable hashes under target/repair-r1 against this dirty parent.
-2. Controller commits the three groups in REPAIR-R1-FILES.md and preserves evidence externally.
-3. Rebuild/rebind the committed binary and measure private F with CONTROLLER-paths.sh, retaining S6/OQ2.
-
-**STOP conditions:** checkout drift, unexpected incorrect public Exact or a new open-class model gap. [MEASURED] This is repair round 1; two internal verification passes were declared. At the cap, disclosed one finite decline-performance ordering/guard extension and retained the artifact. No independent review denominator reset.
+1. Compare head/prism-r2d-boundary SHA256 ab4fdc0091c53696dfe38239001c3d689f592fcd3546162030b5ad958fe8222c against boundary-final/custody-final.json (seconds).
+2. Controller runs probes/CONTROLLER-paths.sh with CORPUS_F_ROOT, PRIVATE_EVIDENCE_ROOT and TS_JS; default head is corrected. Only F aggregates may return to this lane.
+3. Obtain independent review/required quiet-host attestation, then controller handles Git custody using REPAIR-R2D-FILES.md.
+**STOP conditions:** repairer F access, Git writes, installs/network, cache/baseline/threshold changes or open-class findings. Original three-round cap reached; disclosed closed ordering, normalization, lexical, coverage and boundary extensions folded the existing artifact. No restart.
 
 ## 2. State ledger
-
-| Item | State | Evidence / correction |
+| Item | State | Evidence |
 |---|---|---|
-| Alias-only hop proof | done | [MEASURED] both-grammar barrel negatives and I12 killed; relative tables unchanged; X retains 2943 indirect and 178 direct gains |
-| Node10 / raw membership / allowJs cuts | done | [MEASURED] expanded 317-scenario packet, 84 pre-repair rows return to complete base, original control/X gain loss zero |
-| Dependency topology / Rc sharing / warning / case / helpers | done | [MEASURED] both cache probes, budget RED/GREEN, case unit+I14, full suites; cache versions 106/62 |
-| Full suites / clippy / matrix | done | [MEASURED] 4827/5020/5043 passed, zero failures, one existing ignore each; no new warnings; matrix 170 ok |
-| Public oracle | done | [MEASURED] public-verified/FINAL-SUMMARY.json: X/R/T 3121/0/0, all changed CORRECT_STATIC_BINDING |
-| Mutations / S1b | done | [MEASURED] 38 kernel +14 integration/library killed; 411/639/1234 byte-identical controls |
-| Quick | completed, invalid | [MEASURED] paired quick identical oracle invalidation reasons; SUT probe and pinned values identical. Base matrix two known paths positives RED, repaired all170 ok. No rebaseline |
-| Performance | done | [MEASURED] Nx +15.8% wall/+16.6% RSS; declined Bundler no observed time penalty; wildcard slower/variable, fully reported |
-| Verification hook | done | [MEASURED] root VERIFICATION.md records exact commands/totals/coverage/limits; source still matches full suites; fresh pre-repair performance gate RED (Nx/Bundler RSS 3.07x/2.91x base), repaired gate GREEN; final archive contains 26 owned files |
+| First-pass repair; retained rules | done | [MEASURED] source citations; preserved-rules.json |
+| Suites | done | [MEASURED]4897/5090/5113,0fail/1existingignore each |
+| Mutants | done | [MEASURED]68kernel/57integration behavior kills |
+| Public and controls | done | [MEASURED]3121/0/0;38certified+1parked recovered;5 retained cost |
+| Cache and S1b | done | [MEASURED]105/61;411 controls/1234 identical artifacts |
+| Matrix and quick | done with limit | [MEASURED]170matrix; shared4/6 oracle floor;28 identical SUT outputs |
+| Serial performance | done with limit | [MEASURED]18 children pass1.20; host quiescence UNKNOWN |
+| F and independent acceptance | not-started | [INHERITED] controller owns them |
 
 ## 3. Corrections to standing documents and memory
-
-| Location | Stale or false assertion | Correction |
+| Location | Stale assertion | Correction |
 |---|---|---|
-| BUILD-MANIFEST / MEASUREMENTS | Prototype checkout and receipts presented as current | [MEASURED] replaced with integrated repair receipts and explicit source/executable binding |
-| SPEC / dispatch docs | Legacy table as alias authority, piecemeal membership, no package metadata reads | [MEASURED] owner-authorized A–F semantics folded; current documents distinguish historical prototype sections |
-| Controller wrapper | Prototype binary default | [MEASURED] final immutable repair binary default and executed hash |
-| Memory | None | [INHERITED] no relevant memory hits; no update requested or performed |
+| settled/lexical earlier completion | eligible final candidate | [MEASURED] REFUTED by native whitespace/root/filesystem witnesses; corrected and rebound in boundary-final |
+| SPEC/IMPLEMENTOR/REVIEWER | prior operational authority | [MEASURED] current r2d section and current reports supersede historical sections |
+| Earlier HEAD claims | current=a66b877f | [MEASURED] original comparison base=a66b877f; controller custody HEAD=6965da75eb85f32d3ae0dda9e96704ad432375e6 |
+| Memory | None used for lane facts | No memory write authorized |
 
 ## 4. Open work
-
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Repair implementation / verification | done | No buildable repair work remains; read final manifests/snapshot | None | target/repair-r1 |
-| 2 | Commit/external custody | controller-only | Commit three file groups; preserve evidence externally; rebuild/rebind commit | Explicit no-Git boundary | REPAIR-R1-FILES.md |
-| 3 | Private F | controller-only | Run updated wrapper with private roots; compare prior receipt yield | Explicit never-open-F boundary | CONTROLLER-paths.sh |
-| 4 | S6/OQ2 | parked | Owner decides transitive ownership model; C80 remains UNPROVEN | Owner authority | Two unchanged C80 control gains |
+|1|F|pending|controller private wrapper run|private controller access|corrected binary SHA above|
+|2|Independent acceptance|pending|review bound final delta; attest host if required|controller workflow|MEASUREMENTS.md|
+|3|Git/external custody|pending|controller commits/backs up approved final delta|owner no-repairer-Git instruction|REPAIR-R2D-FILES.md|
 
 ## 5. Invariants and traps — do not do these
-
-- [INHERITED] No Git writes, network/install or private F access.
-- [MEASURED] Use only immutable head/prism-r1-verified. Older mutable/overwritten head paths and interrupted artifacts are superseded; no attribution from SIGKILL/empty artifacts.
-- [MEASURED] Base archive version banner inherits outer repository identity; source and binary hashes bind the actual base bytes.
-- [MEASURED] Preserve relative/namespace legacy behavior and parked S6. All new aliases require proven hop projection and existing source-span/binding guards.
-- [MEASURED] BSD time -l sysctl is sandbox-denied; do not repeat. Isolated one-child resource.getrusage provides CPU/RSS and monotonic wall time.
-- [MEASURED] Tier-A quick is invalid on both paired runs; do not call it green or rebaseline. Matrix/suites independently pass.
-- [MEASURED] Controller smoke uses public synthetic input despite wrapper's fixed F label; actual_F_run=false. Independent refusal explanation has an explicit UNCLASSIFIED fallback.
+- Never open F or write Git as repairer; private measurement and Git custody belong to controller.
+- Keep cuts2–6, r2c classifier, cache105/61, threshold1.20 and parked S6/OQ2.
+- Compiler/setup/zero-test failures are inadmissible; kernel externs must be exact and integration targets isolated.
+- A single paths omission is redundantly protected; paired invariant mutation is required.
+- Aliased parents remain opaque after child deletion; remove the parent before asserting Exact.
+- Default uv-cache class was sandbox-denied; installed Python ran the same harness without installation/network.
+- Earlier receipts certify earlier binaries only. Local archives do not claim an external backup.
 
 ## 6. Identifiers
-
 | Item | Verbatim |
 |---|---|
-| HEAD / base | 7f5a862afd002dd5953108a3ab5b611d8745bde9 / dab8251c6013b28b0db4cb4042f36db444eb556c |
-| Final repaired binary | target/repair-r1/head/prism-r1-verified |
-| Binary SHA-256 | c8a4427ee44b147c7eaa45eea553a5dedc135eaa49c719b431bdd4d6fd4b75cb |
-| Evidence / exact source binding | target/repair-r1 / source-binary-binding.json |
-| TypeScript | 5.9.3 / 3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675 |
-| Cache versions | CPG 106 / navigation 62 |
-| Commit file list | docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/REPAIR-R1-FILES.md |
+| Current HEAD | 6965da75eb85f32d3ae0dda9e96704ad432375e6 |
+| Original base | a66b877f49ba858c27b749b0a36bfccf4bc7da7d |
+| Binary | target/repair-r2d/head/prism-r2d-boundary |
+| Binary SHA256 | ab4fdc0091c53696dfe38239001c3d689f592fcd3546162030b5ad958fe8222c |
+| Final evidence | target/repair-r2d/boundary-final |
+| Cache |105/61|
 
 ## 7. Refutation verdict and owner questions
-
-**§2c verdict:** SURVIVED · claim: "new alias edges require TS-faithful hop proof and current dependency topology while existing relative consumers retain base" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: target/repair-r1/controls-verify.log, public-verified/FINAL-SUMMARY.json, cache-verified.log and mutation summaries
-**Questions the owner owes an answer to:** [INHERITED] S6/OQ2 remains parked; private F/commit are controller tasks. No new approval question.
+**§2c verdict:** REFUTED — corrected in place · claim: “JS Exact admission requires readable native first-pass absence” · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: hypothesis-probe-result.log; boundary-final/native/cache/mutation witnesses and final source binding.
+**Questions the owner owes an answer to:** None beyond the already assigned controller acceptance/custody work; S6/OQ2 remains explicitly parked.

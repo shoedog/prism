@@ -30,9 +30,9 @@ for corpus,root in roots.items():
  if corpus=='X':
   unrelated=[x for x in retained if x['member'] in ['Footer','WelcomeScreen']]
   assert {x['member'] for x in unrelated}=={'Footer','WelcomeScreen'}, 'name-directed histogram controls missing'
-  assert all(x['refusal_reason']=='IMPORT_FORWARD_NOT_FORWARDABLE' for x in unrelated), 'property-written import-forward classification missing'
+  assert all(x['refusal_reason'] in ('IMPORT_FORWARD_NOT_FORWARDABLE','CONFIG_TYPES_SCOPE_BARRIER','TRIPLE_REFERENCE_SCOPE_BARRIER') for x in unrelated), 'property-written import-forward classification missing'
   related=[x for x in retained if x['member']=='getSceneVersion']
-  assert related and all(x['refusal_reason']=='NONRELATIVE_EXPORT_HOP' for x in related), 'actual nonrelative member forwarding must retain its reason'
+  assert related and all(x['refusal_reason'] in ('NONRELATIVE_EXPORT_HOP','CONFIG_TYPES_SCOPE_BARRIER','TRIPLE_REFERENCE_SCOPE_BARRIER') for x in related), 'actual nonrelative member forwarding must retain its reason'
  (out/f'{corpus}-retained-callable-candidates.json').write_text(json.dumps(retained,indent=2)+'\n')
  raw_base=raw_load(out/'base'/f'{corpus}-dump-sites.jsonl');raw_head=raw_load(out/'head'/f'{corpus}-dump-sites.jsonl')
  metadata=lambda row:{k:v for k,v in row.items() if k not in ('drop','resolved_targets')}

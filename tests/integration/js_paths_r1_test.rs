@@ -112,7 +112,18 @@ fn r1_controls(stars: bool) {
         let base = CallGraph::build(&loaded.files);
         let app = case["app"].as_str().unwrap();
         if case["expectation"] == "gain" {
-            assert_hit(&head, app, "picked", case["target"].as_str().unwrap());
+            let assert = if name.starts_with("C56") || name.starts_with("C61") {
+                assert_hop_alias
+            } else {
+                assert_alias
+            };
+            assert(
+                d.path(),
+                &head,
+                app,
+                "picked",
+                case["target"].as_str().unwrap(),
+            );
         } else {
             assert_eq!(
                 outcome(&head, app, "picked"),
@@ -193,7 +204,13 @@ fn extension_priority_controls(prefixes: &[&str]) {
         let app = case["app"].as_str().unwrap();
         let head = graph(d.path());
         if case["expectation"] == "gain" {
-            assert_hit(&head, app, "picked", case["target"].as_str().unwrap());
+            assert_alias(
+                d.path(),
+                &head,
+                app,
+                "picked",
+                case["target"].as_str().unwrap(),
+            );
         } else {
             let loaded = load_repo(d.path()).unwrap();
             assert_eq!(

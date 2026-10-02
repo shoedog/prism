@@ -22,7 +22,13 @@ fn js_paths_repair_config_swap_cache_key() {
         let app = format!("app.{ext}");
         write(d.path(), &app, "import { real as picked } from '@first';\nimport { real as other } from '@second';\nexport function run() { picked(); other(); }\n");
         let before = load_repo(d.path()).unwrap();
-        assert_hit(&graph(d.path()), &app, "picked", &format!("lib/real.{ext}"));
+        assert_alias(
+            d.path(),
+            &graph(d.path()),
+            &app,
+            "picked",
+            &format!("lib/real.{ext}"),
+        );
         write(
             d.path(),
             "tsconfig.json",
@@ -30,7 +36,8 @@ fn js_paths_repair_config_swap_cache_key() {
         );
         let after = load_repo(d.path()).unwrap();
         assert_ne!(before.manifest_hashes, after.manifest_hashes);
-        assert_hit(
+        assert_alias(
+            d.path(),
             &graph(d.path()),
             &app,
             "picked",
@@ -66,7 +73,13 @@ fn js_paths_repair_barrel_hops() {
                     &format!("lib/leaf.{ext}"),
                     "export function real() { return 1; }\n",
                 );
-                assert_hit(&graph(d.path()), &app, "picked", &format!("lib/leaf.{ext}"));
+                assert_hop_alias(
+                    d.path(),
+                    &graph(d.path()),
+                    &app,
+                    "picked",
+                    &format!("lib/leaf.{ext}"),
+                );
                 write(d.path(), &app, "import { real as picked } from '@lib';\nimport { real as relative } from './lib/barrel';\nexport function run() { picked(); relative(); }\n");
                 match blocker {
                     "competition" => write(
@@ -150,7 +163,8 @@ fn js_paths_repair_dotted_replacement() {
                     &format!("lib/{stem}.service.{ext}"),
                     "export function real() { return 1; }\n",
                 );
-                assert_hit(
+                assert_alias(
+                    d.path(),
                     &graph(d.path()),
                     &app,
                     "picked",
@@ -197,7 +211,8 @@ fn js_paths_repair_package_js_pass() {
                 "lib/js.jsx",
                 "export function real() { return 1; }\n",
             );
-            assert_hit(
+            assert_alias(
+                d.path(),
                 &graph(d.path()),
                 &format!("app.{ext}"),
                 "picked",
@@ -287,7 +302,8 @@ fn js_paths_repair_output_options() {
             assert_base(d.path(), &format!("app.{ext}"));
             cfg["exclude"] = serde_json::json!([]);
             write(d.path(), "tsconfig.json", &cfg.to_string());
-            assert_hit(
+            assert_alias(
+                d.path(),
                 &graph(d.path()),
                 &format!("app.{ext}"),
                 "picked",
@@ -369,7 +385,8 @@ fn js_paths_repair_package_above_root_and_ts_control() {
             "lib/real.jsx",
             "export function real() { return 1; }\n",
         );
-        assert_hit(
+        assert_alias(
+            &root,
             &graph(&root),
             &format!("app.{ext}"),
             "picked",
@@ -387,7 +404,8 @@ fn js_paths_repair_package_above_root_and_ts_control() {
             "lib/real.tsx",
             "export function real() { return 1; }\n",
         );
-        assert_hit(
+        assert_alias(
+            &root,
             &graph(&root),
             &format!("app.{ext}"),
             "picked",
@@ -413,7 +431,8 @@ fn js_paths_repair_allowjs_barrel_terminal() {
         assert_base(d.path(), &format!("app.{ext}"));
         cfg["compilerOptions"]["allowJs"] = serde_json::json!(true);
         write(d.path(), "tsconfig.json", &cfg.to_string());
-        assert_hit(
+        assert_hop_alias(
+            d.path(),
             &graph(d.path()),
             &format!("app.{ext}"),
             "picked",

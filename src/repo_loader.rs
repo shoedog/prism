@@ -202,7 +202,7 @@ fn scope_graph_build_inputs_from_snapshot(
     if !js_paths_snapshot.configs.is_empty() {
         let indexed = files.keys().cloned().collect();
         let mut resolver = crate::js_paths::Resolver::new(&js_paths_snapshot);
-        let mut admitted_alias = false;
+        let mut pending = BTreeSet::new();
         for (file, parsed) in files {
             if !matches!(
                 parsed.language,
@@ -213,23 +213,19 @@ fn scope_graph_build_inputs_from_snapshot(
                 continue;
             }
             for binding in parsed.extract_import_bindings() {
-                admitted_alias |= resolver
-                    .resolve(file, &binding.module_path, &indexed)
-                    .is_some();
+                if let Some(target) = resolver.resolve(file, &binding.module_path, &indexed) {
+                    pending.insert(target);
+                }
             }
         }
-        // Export projection is built only when an alias was admitted. In
-        // particular, declining a large tree must not run export extraction twice.
-        if admitted_alias {
-            for (file, parsed) in files {
-                if !matches!(
-                    parsed.language,
-                    crate::languages::Language::JavaScript
-                        | crate::languages::Language::TypeScript
-                        | crate::languages::Language::Tsx
-                ) {
-                    continue;
-                }
+        // Prime only the export closure consulted by admitted alias modules.
+        // Visiting every file repeats expensive extraction for unrelated callers.
+        let mut visited = BTreeSet::new();
+        while let Some(file) = pending.pop_first() {
+            if !visited.insert(file.clone()) {
+                continue;
+            }
+            if let Some(parsed) = files.get(&file) {
                 let exports = parsed.extract_js_ts_export_facts();
                 for module in
                     exports
@@ -244,7 +240,9 @@ fn scope_graph_build_inputs_from_snapshot(
                             _ => None,
                         }))
                 {
-                    resolver.relative(file, module, &indexed, true);
+                    if let Some(target) = resolver.relative(&file, module, &indexed, true) {
+                        pending.insert(target);
+                    }
                 }
             }
         }
@@ -262,6 +260,43 @@ fn scope_graph_build_inputs_from_snapshot(
         js_paths_snapshot,
         cfg,
         complete,
+    }
+}
+
+#[cfg(test)]
+mod paths_projection_tests {
+    use super::*;
+
+    #[test]
+    fn primes_alias_export_closure_without_unrelated_exports() {
+        let d = tempfile::TempDir::new().unwrap();
+        for (name, text) in [
+            (
+                "tsconfig.json",
+                r#"{"compilerOptions":{"moduleResolution":"node","paths":{"@lib":["lib/barrel.ts"]}}}"#,
+            ),
+            (
+                "app.ts",
+                "import {real} from '@lib'; export function run(){real();}",
+            ),
+            (
+                "lib/barrel.ts",
+                "export {real} from './leaf'; export * from './missing';",
+            ),
+            ("lib/leaf.ts", "export {real} from './last';"),
+            ("lib/last.ts", "export function real(){return 1;}"),
+            ("unrelated/barrel.ts", "export * from './missing';"),
+        ] {
+            let p = d.path().join(name);
+            std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+            std::fs::write(p, text).unwrap();
+        }
+        let loaded = load_repo(d.path()).unwrap();
+        let snapshot = &loaded.scope_graph_inputs.unwrap().js_paths_snapshot;
+        assert!(snapshot.was_probed("lib/leaf.ts"));
+        assert!(snapshot.was_probed("lib/last.ts"));
+        assert!(snapshot.was_probed("lib/missing.ts"));
+        assert!(!snapshot.was_probed("unrelated/missing.ts"));
     }
 }
 

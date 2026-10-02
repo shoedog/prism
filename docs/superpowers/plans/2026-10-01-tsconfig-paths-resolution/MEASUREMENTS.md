@@ -1,77 +1,45 @@
-# Lane-P P1 repair round 1 measurements
+# Lane P P1 r2d verification
 
-[MEASURED] Integrated parent `7f5a862afd002dd5953108a3ab5b611d8745bde9`, branch `feat/tsconfig-paths-p1`; base `dab8251c6013b28b0db4cb4042f36db444eb556c`. No Git writes. This report supersedes prototype-era operational receipts in the prior version of this document. Evidence is local under `target/repair-r1/`; private corpus F was never opened.
+[MEASURED] Original comparison base a66b877f49ba858c27b749b0a36bfccf4bc7da7d; current controller custody HEAD 6965da75eb85f32d3ae0dda9e96704ad432375e6. The controller created WIP6965da75 during this repair. No repairer Git writes. Final source is dirty and frozen across1017 build inputs. Immutable binary: target/repair-r2d/head/prism-r2d-boundary, SHA256 **ab4fdc0091c53696dfe38239001c3d689f592fcd3546162030b5ad958fe8222c**. Evidence: target/repair-r2d/boundary-final. Earlier r2d receipts are superseded for current claims.
 
-The same-environment base binary and import-facts helper were freshly built offline from a Gitless archive of the base. The pre-repair binary was freshly built before production edits. Final production is frozen in `head/prism-r1-verified`; source and executable hashes are recorded in BUILD-MANIFEST and `source-binary-binding.json`. TypeScript 5.9.3 is supplied offline through PRISM_TYPESCRIPT.
+Cut1 uses the pinned TypeScript5.9.3 Node10 first-pass absence proof. It covers paths candidates and TS/declaration extensions, directory indexes, package types/typings/main/typesVersions, importer ancestors as node_modules files/directories, @types and custom typeRoots. Native source confirms custom roots follow node_modules and use declaration files/directories (typescript.js45322–45325,46573–46594); only node_modules/@types mangles scoped names (44284–44286). Full source ranges and digest are in src/js_paths_first_pass.rs and SPEC.
 
-## Finding dispositions
+JS-only absence binds Exact. Any occupied, opaque, unread, outside or skipped first-pass location keeps the full base row; missing uninstalled module directories count absent. Root file stems record opaque sibling candidates. Physical occupancy through captured readable parents catches filesystem aliases without following unknown parents. Every enumerated occupancy probe enters cache dependencies. Metadata order, duplicate-last values, numeric keys, native version ranges, absolute normalization and ECMAScript whitespace follow the pinned source. Cuts2–6 and the r2c type-input classifier remain unchanged (preserved-rules.json). Cache remains **105/61**, with a semantic occupancy discriminator rather than a version bump.
 
-The inherited denominators are Opus **7 WRONG / 5 SMELL** and sol61 **4 WRONG / 2 SMELL**. No finding was downgraded or discarded. Each mechanism was repaired in place, with conservative refusals retaining complete base rows.
+## Counts and controls
 
-| Findings | Repair / disposition | Measured cost and evidence |
-|---|---|---|
-| sol W1 (A) | CLOSED: separate alias export projection proves every named, star and import-forward hop; relative/namespace consumers retain legacy tables | C97 refuses 24 formerly admitted rows; X loses zero of 3,121 gains, including 2,943 indirect terminals. Both-grammar integration/packet negatives and I12 kill |
-| Opus W1 / sol W2 (B1) | CLOSED by refusal: dotted last-suffix replacement occupant or opacity | C90 8 rows return to base, including body/declaration and multiple-dot variants; M31 kill |
-| Opus W2 (B2) | CLOSED by refusal: trailing slash and directory target spellings | C91 6 rows return to base; M32/M33 kill |
-| Opus W3 (B3) | CLOSED by refusal: JS terminals when the specifier package or @types package is occupied at any ancestor | C92 8 package rows return to base; two absent-package positive rows retained; M34 kill; above-root cache parity. X has zero JS-family alias targets |
-| Opus W4 (B4) | CLOSED by refusal: matching in-scope ambient exact/wildcard declarations | C93 12 rows return to base in .ts/.d.ts and both target grammars; M35 kill |
-| Opus W5 / sol W3 (C) | CLOSED by whitelist barrier: raw membership syntax and output options without explicit exclude | C94 20 and C95 4 rows return to base. Original 197 controls lose zero gains; X cost zero. Six explicit-exclude output positives retained; M36–M38 kill |
-| Opus W7 / sol W4 (D) | CLOSED: exact occupancy dependencies, ambient patterns and ancestor package facts join topology | Both CLI cache probes pass; new 16 cases / 32 add-remove directions, unrelated text preserves cache bytes/mtime; I13 kill |
-| Opus W6 / sol S1 (E) | Config maps Rc-shared, raw paths JSON not duplicated; decline work skips ambient scans and duplicate export extraction | CLOSED: Nx median wall +15.8%, median RSS +16.6% versus base; declined Bundler shows no observed time penalty. Full comparator/ranges below |
-| Opus S1 | CLOSED by refusal: allowJs-off JS alias and barrel terminals | C96 2 rows return to base; relative parity controls pass; M11 kill |
-| Opus S2 / sol S2 | CLOSED: post-split integration selectors and meaningful config-fingerprint witness | All 11 legacy mutants plus three new alias/cache/case mutants killed on final source |
-| Opus S3 | CLOSED: warning on the 200,000-entry budget failure | Pre-repair missing-warning assertion RED; repaired 200,001 filler fixture returns two complete base rows with warning |
-| Opus S4 | CLOSED: any folded config-name collision is a barrier regardless of read order | Unit exercises both orders; I14 killing mutant killed. Native case-sensitive filesystem coexistence is not verified on this Mac |
-| Opus S5 | CLOSED: shared integration helpers | `tests/integration/js_paths_common.rs`; full suites pass |
+X/R/T: **3121 /0 /0 changes**, across19219/953/61712 sites. Every X change is CORRECT_STATIC_BINDING. Final streams exactly match the independently native-classified streams; all1426 public input files were reverified unchanged. The existing native classification was reused after byte parity, rather than rerunning the oracle on identical inputs. public-final-parity.json.
 
-## Public yield
+**487 scenarios /503 sites /115 changes**:111 correct bindings,2 correct refusals,2 deliberately parked S6/OQ2 UNPROVEN ownership rows; zero preservation violations. Fifty new negative first-pass/boundary controls preserve the entire base row. Final native certification ran exclusively after earlier producers ended: controls-oracle-exclusive.log, controls-verify-exclusive.log and controls-classified.json.
 
-Final frozen-binary public/oracle run: X 19,219 sites / 3,121 changes, R 953 sites / zero changes, T 61,712 sites / zero changes. Every changed row is CORRECT_STATIC_BINDING; classes for R/T are empty. Zero site-key or metadata changes. X/R/T unchanged ProjectService ownership disagreements: 6/144/15 sites in 2/17/5 files; changed disagreements zero. Final receipts: public-verified/FINAL-SUMMARY.json.
+Recovery versus r2c: **38 certified rows +1 parked =39** (37 bindings,1 refusal,1 parked). Original cut cost:39 correct rows (38 bindings,1 refusal) plus1 parked out of the original80 changed-control census. Restored from that cost:33 bindings,1 refusal,1 parked; four supplemental absence bindings account for the additional recovery. **Five correct bindings remain lost**, all retained cut2 JS export hops: C24/C56/C61/C82/C83 JSX. control-recovery-cost.json preserves the original denominator. [INHERITED] Controller F aggregates report2343→344 correct, a cost of1999; no new F claim is made.
 
-X retains 3,121/3,121 existing Exact gains; 178 target their direct module and 2,943 terminate through barrels/forwarding. Alias modules: 3,087 .ts, 34 .tsx; terminals: 3,090 .ts, 31 .tsx. Across all 3,156 paths-associated X rows, explicit JS-family substitutions and resolved JS-family module/terminal targets are each zero (X-yield.json). X loss by cause: hop proof 0, dotted replacement 0, slash 0, JS/package 0, ambient 0, membership/output whitelist 0, allowJs 0. No prior X gain falls back to base. Final receipts bind input hashes, site metadata, source-backed expected terminal spans and every class.
+S1b-4: **411 controls /639 sites /1234 artifacts byte-identical** to r2c, summary SHA256 b550a2c7466fdbe4d331f93843d44f0bfcfb6c62febf81f115c86a9ab64dd5ca. s1b-byte-identity.json.
 
-## Controls and source-bound RED/GREEN
+## Suites, mutants and cache
 
-Regenerated packet: **317 scenarios / 333 sites / 80 changes** = **76 CORRECT_STATIC_BINDING + 2 CORRECT_STATIC_REFUSAL + 2 UNPROVEN**. All preservation rows equal complete base; zero site-key changes or preservation violations. Existing C80/S6 ownership disagreement gains remain UNPROVEN and parked under OQ2, never certified.
+Full default/MCP/all-features: **4897/5090/5113 passed**, zero failures, one existing ignored test each; no suite excluded. The existing ignore is resolution_test::slice_elem_variant_reserved. Default includes101 paths tests and4 first-pass units; native range fixture53 cases and the complete Unicode scalar population checked against25 native whitespace characters. suite-summary.json, focused-tests-from-full-suite.json.
 
-Original 197 scenarios / 213 sites retain their 72 changed rows with zero loss. Added 120 scenarios contribute eight safe gains: six output-option controls with explicit exclude and two JS package-absent controls. The other new controls enforce the repair cuts. Pre-repair-to-repair loss: **84 rows**, broken down C90 8, C91 6, C92 8, C93 12, C94 20, C95 4, C96 2, C97 24. This is measured conservative refusal cost, not an assertion that every formerly admitted row is wrong. Pre-repair oracle classes over 164 changed rows were 125 CORRECT_STATIC_BINDING, 2 CORRECT_STATIC_REFUSAL, 21 UNPROVEN and 16 WRONG_OR_SPAN_MISMATCH. All required new scenario families have JSX and TSX witnesses.
+**68/68 kernel and57/57 integration/library mutants killed by behavioral mismatches/assertion failures**; no compiler/setup/zero-test failure counts as a kill. Kernel uses exact immutable Cargo extern filenames; integration uses isolated targets. Nine first-pass location classes have direct both-grammar kernel witnesses, plus killed dependency, blanket-cut, metadata and boundary variants. mutants-summary.json, integration-mutants-summary.json, mutant-location-witnesses.json.
 
-The pre-repair archive with the new regression tests runs 12 repair groups: 11 behavioral failures and one preservation pass. The preserved config-swap group discriminates cache config bytes from exact dependency occupancy and kills I01; it does not claim a new behavioral repair. Budget warning separately fails before repair. Compiler, selector and environment errors are inadmissible, recorded in hypothesis-probe-result.log. Final-source mutants: **38/38 kernel killed** (30 legacy + 8 new) and **14/14 integration/library killed** (11 legacy integration + 2 new integration + 1 case-collision library). Every integration/library mutant compiles, selects exactly one test and produces the intended assertion panic; no zero-test or setup failure counted. M10/M17 needed additional witnesses because overlapping refusal gates masked their initial controls; the full defect/selector population was enumerated and rerun after adding C36b/C98.
+Cache105/61:34 native location cases,16 native boundary cases,8 lexical comparisons and12 normalization comparisons pass; same-environment preceding artifacts establish RED/GREEN. Old-cache rebuild, stable next hits and fresh/cached parity are checked. Retained r2c type-input cache8 and scanner8 cases/64 states pass. location-complete-cache/cache-summary.json, boundary-native-cache.json, lexical-native-cache.json, normalization-parity.json, type-input-cache/cache-summary.json and scan-cache/summary.json.
 
-## Suites and parity
+Historical invalid probes remain labeled in hypothesis-probe-result.log: mixed extern setup, one-edit paths omission protected by an independent gate, aliased-parent deletion expectation, and overlapping superseded producers. Corrected paired paths mutants disable both enforcement points. The alias probe now removes the opaque parent before expecting Exact. No production edit followed a probe-only error.
 
-| Full suite | Passed | Failed | Ignored | Groups |
+## Accuracy and serial performance
+
+Immediate release rebuild then existing Tier-A matrix: **170/170 OK**. The uv launcher refused its default cache outside writable roots; the same installed CLI ran via Python without installation/network. Paired quick is **baseline-invalid on both** at C-method4/6, oracle error1/15, SUT error0. All28 successful SUT caller/callee outputs and pinned values match. No quick-green claim. tier-a-quick-comparison.json and raw paired receipts.
+
+| Scenario | Base/final wall s | Wall ratio | Base/final RSS MB | RSS ratio |
 |---|---:|---:|---:|---:|
-| default | 4,827 | 0 | 1 | 29 |
-| mcp | 5,020 | 0 | 1 | 31 |
-| all-features | 5,043 | 0 | 1 | 31 |
+| nx | 6.723/7.067 | 1.051 | 764.7/904.8 | 1.183 |
+| nx_bundler | 7.273/7.348 | 1.010 | 768.4/770.4 | 1.003 |
+| nx_wild | 7.247/7.651 | 1.056 | 769.1/891.9 | 1.160 |
 
-PRISM_TYPESCRIPT points to the hash-pinned offline 5.9.3 package. Existing ignored test: `resolution_test::slice_elem_variant_reserved`. `cargo fmt --check` and `git diff --check` pass. Full all-features/all-targets clippy: base 372 warning diagnostics, head 372, no new warnings, measured in the same environment.
+All18 measurement children ran serially after own verification jobs ended; each produced64000 sites, expected Exact counts and pinned row hashes. All pass the unchanged1.20 wall/RSS bound. Quiet-host certification is unverified, so no exclusive attribution is made. perf/perf-summary.json.
 
-Tier-A matrix after immediate release rebuild: **170 ok / zero regressions**, no baseline edits. Paired same-corpus Tier-A quick with rust-analyzer completed but **both baseline-invalid**: C-method 4/6, C-name 4/6 and oracle error rate 0.1333 exceeds 0.10. Both SUT error rates are zero; M1, every SUT probe value and pinned SUT values are identical. One oracle site list differs only in order. Pinned outcomes in both: one flip candidate, two missing, one ok. Base matrix 168 ok / two expected paths-positive RED; repaired matrix 170 ok. Same-environment control therefore does not attribute the invalid quick to this change. No quick-green claim or rebaseline; tier-a-quick-comparison.json preserves detail. Full multi-corpus Tier-A is human-triggered and not run.
+## Limits and custody
 
-S1b-4: **411 scenarios / 639 sites / 1,234 artifacts** byte-identical between fresh base and frozen repaired binary. Summary SHA-256 `b550a2c7466fdbe4d331f93843d44f0bfcfb6c62febf81f115c86a9ab64dd5ca`. Old interrupted/overwritten-binary artifacts are superseded and inadmissible; the full population was enumerated before rerunning.
+Not verified: private F, independent post-repair review, quiet-host attestation, human-triggered full multi-corpus Tier-A, Linux case behavior or concurrent-tree security. The existing ignored test was not forced; clippy was not rerun. S6/OQ2 stays parked. No repairer commit/push, installation/network, baseline/threshold/cache-version change or external-backup claim.
 
-## Performance and limits
-
-Nx fixtures reproduce the reviewer shape: 500 aliases, 8,000 callers, 500 implementation files, 64,000 call sites; Bundler declines and one-key wildcard is a comparator. Three paired runs alternate execution order. Resource accounting uses an isolated one-child Python wrapper (monotonic wall, macOS RUSAGE_CHILDREN peak RSS), avoiding the sandbox-denied BSD time -l sysctl. Each run reads 64,000 actual site rows and validates Exact count: base 0, admitted head 64,000, declined head 0.
-
-| Scenario | Base/head median seconds | Time ratio | Base/head median peak RSS MB | RSS ratio | Base/head maximum RSS MB |
-|---|---:|---:|---:|---:|---:|
-| Nx 500 aliases | 6.930 / 8.022 | 1.158 | 764.2 / 890.8 | 1.166 | 770.3 / 892.6 |
-| Bundler decline | 8.979 / 7.141 | 0.795 | 650.1 / 735.3 | 1.131 | 767.1 / 760.3 |
-| One-key wildcard comparator | 8.521 / 14.039 | 1.647 | 657.3 / 774.7 | 1.179 | 760.6 / 903.7 |
-
-Nx meets the approximate 10–20% target in wall and memory, and removes the reviewed files-times-paths allocation mechanism. Bundler has no observed time penalty; median RSS is 13.1% higher while maximum RSS is lower, so this does not prove literally zero overhead. The wildcard comparator is slower, with timing variation; all measured runs are retained, not averaged into the better Nx result. No isolated root-cause or steady-host performance claim is made for that comparator. Child median CPU seconds: Nx 9.437/10.916, Bundler 11.292/9.732, wildcard 10.785/15.167. The initial batch overlapped other repair verification and is retained separately in perf-loaded; the table is the serial final batch, with no other repair jobs in flight.
-
-Verification-gate follow-up adds an executable regression bound over the process receipts: Nx and declined Bundler median time/RSS must each be at most 1.20x base. Repaired receipts pass both checks. A fresh three-pair replay of the immutable pre-repair binary fails both checks: Nx base/pre-repair median 8.054/14.642 seconds and 770.2/2366.0 MB RSS (3.07x memory); declined Bundler 6.801/10.607 seconds and 768.1/2237.1 MB RSS (2.91x memory). Each run validates 64,000 actual sites. This supplies same-environment behavioral RED/GREEN for the sharing/performance repair, rather than relying only on inherited reviewer timings. No production or Rust test changes occurred after the full suites. Root VERIFICATION.md records exact commands and the per-behavior negative/edge coverage.
-
-Private F is controller-only; CONTROLLER-paths.sh points to the final frozen binary and emits its hash. No Git commit/push, network/install, independent round-2 review, full multi-corpus Tier-A, Linux case-sensitive filesystem run or concurrent-filesystem custody audit was performed. The packet's stable-tree assumption and parked S6/OQ2 boundary remain. Local evidence/snapshots require controller commit/external custody. Two internal passes were declared; one bounded, disclosed extension at the cap fixed finite decline ordering/duplicate-extraction work without restarting the artifact.
-
-> **Controller note (2026-10-01):** the landed cache stays **105 / 61**, one bump from main 104 / 60. The repairer's 106 / 62 only separated its own iterations. Verification receipts that name 106 / 62 refer to the frozen repair binary.
-
-## Controller F acceptance after implementation repair r1 (private, aggregates only; 2026-10-01)
-
-- **Changed rows:** **2,343**, all `CORRECT_STATIC_BINDING`. That is 2 fewer than the 2,345 before the repair: the refuse-on-doubt cuts refused 2 correct F rows, which is a disclosed conservative cost.
-- **Disagreements and keys:** 0 changed rows disagree with tsserver ownership; 0 keys added or removed.
-- **Refusal histogram:** HOP 717, GUARD 23, UNCLASSIFIED 23.
+CONTROLLER-paths.sh defaults to the corrected immutable binary and was checked with bash -n only. Controller must run F before acceptance. Files/messages: REPAIR-R2D-FILES.md. Source, binary and lean receipts are locally bound by production-binding.json, owned-files.tar.gz, essential-receipts.tar.gz and custody-final.json. Earlier settled/lexical receipts remain historical and cannot certify this binary.

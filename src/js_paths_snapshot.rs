@@ -1,7 +1,7 @@
 //! Bounded, no-follow configuration/occupancy snapshot for the P1 resolver.
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
@@ -12,11 +12,48 @@ pub struct JsPathsSnapshot {
     opaque_directories: BTreeSet<String>,
     package_hashes: BTreeMap<String, String>,
     pub(crate) ambient: BTreeMap<String, Vec<String>>,
-    root: PathBuf,
+    pub(crate) references: BTreeMap<String, Vec<(String, String)>>,
+    // The ambient scan, unlike the indexing walk, covers skipped directories.
+    covered: BTreeMap<String, u8>, // 0 source read, 1 directory traversed
+    root: String,
+    type_redirects: BTreeMap<String, Option<Vec<String>>>,
+    #[serde(skip)]
+    module_packages: BTreeMap<String, Option<Vec<u8>>>,
+    #[serde(skip)]
+    external_modules: BTreeMap<String, u8>,
+    #[serde(skip)]
+    type_metadata_bytes: u64,
+    #[serde(skip)]
+    pub(crate) scan_stats: ScanStats,
     #[serde(skip)]
     probes: Arc<Mutex<BTreeSet<String>>>,
     #[serde(skip)]
-    packages: Arc<Mutex<BTreeMap<String, u8>>>,
+    first_pass_facts: Arc<Mutex<BTreeMap<String, Option<u8>>>>,
+    #[serde(skip)]
+    type_entries: BTreeMap<String, u8>,
+    #[serde(skip)]
+    absent_inputs: Arc<Mutex<BTreeSet<(String, String)>>>,
+    #[serde(skip)]
+    unsafe_inputs: Arc<Mutex<BTreeSet<(String, String)>>>,
+}
+
+enum TypeInput {
+    Present(String),
+    Absent,
+    Unsafe,
+}
+
+// Bound traversal, retained dependencies, and bytes, including node_modules/@types.
+const SCAN_ENTRIES: usize = 200_000;
+const SCAN_BYTES: u64 = 256 * 1024 * 1024;
+const SCAN_FILE_BYTES: u64 = 16 * 1024 * 1024;
+#[derive(Debug, Clone, Default, serde::Serialize)]
+pub(crate) struct ScanStats {
+    entries: usize,
+    files: usize,
+    bytes: u64,
+    types_files: usize,
+    types_bytes: u64,
 }
 impl JsPathsSnapshot {
     pub(crate) fn capture(root: &Path) -> Self {
@@ -25,7 +62,10 @@ impl JsPathsSnapshot {
         }
         let mut s = Self {
             complete: true,
-            root: std::path::absolute(root).unwrap_or_else(|_| root.to_path_buf()),
+            root: std::path::absolute(root)
+                .ok()
+                .and_then(|p| p.to_str().map(str::to_owned))
+                .unwrap_or_default(),
             ..Self::default()
         };
         if let Err(error) = s.walk(root, root) {
@@ -34,6 +74,30 @@ impl JsPathsSnapshot {
                 "warning: P1 paths disabled: {error} ({} entries)",
                 s.entries.len()
             );
+        }
+        // Indexing may skip directories; declaration absence never may. Avoid
+        // this additional scan only when no config can authorize P1 at all.
+        if s.complete && !s.configs.is_empty() {
+            if let Err(error) = s.scan(root, root, 0) {
+                s.complete = false;
+                eprintln!(
+                    "warning: P1 paths disabled: {error} ({} scan entries, {} bytes)",
+                    s.scan_stats.entries, s.scan_stats.bytes
+                );
+            }
+        }
+        if !s.configs.is_empty() {
+            // Retain r1's outside-capture boundary: missing ancestor module
+            // directories prove absence; existing/unread ones are opaque.
+            for ancestor in Path::new(&s.root).ancestors().skip(1) {
+                let path = ancestor.join("node_modules");
+                let kind = match std::fs::symlink_metadata(&path) {
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => 0,
+                    _ => 2,
+                };
+                s.external_modules
+                    .insert(path.to_string_lossy().into(), kind);
+            }
         }
         s
     }
@@ -82,23 +146,6 @@ impl JsPathsSnapshot {
                     2
                 },
             );
-            if !blocked
-                && ft.is_file()
-                && [".ts", ".tsx", ".mts", ".cts"]
-                    .iter()
-                    .any(|e| name.ends_with(e))
-            {
-                let patterns = if entry.metadata()?.len() > 16 * 1024 * 1024 {
-                    vec!["*".into()]
-                } else {
-                    std::fs::read_to_string(&p)
-                        .map(|s| ambient_patterns(&s))
-                        .unwrap_or_else(|_| vec!["*".into()])
-                };
-                if !patterns.is_empty() {
-                    self.ambient.insert(rel.to_owned(), patterns);
-                }
-            }
             let config_name = name.to_ascii_lowercase();
             if config_name == "jsconfig.json"
                 || config_name == "tsconfig.json"
@@ -118,6 +165,139 @@ impl JsPathsSnapshot {
             }
             if ft.is_dir() && !blocked {
                 self.walk(root, &p)?;
+            }
+        }
+        Ok(())
+    }
+    fn scan(&mut self, root: &Path, directory: &Path, depth: usize) -> std::io::Result<()> {
+        if depth >= 128 {
+            return Err(std::io::Error::other("P1 ambient scan depth budget"));
+        }
+        for entry in std::fs::read_dir(directory)? {
+            let entry = entry?;
+            if self.scan_stats.entries >= SCAN_ENTRIES {
+                return Err(std::io::Error::other("P1 ambient scan entry budget"));
+            }
+            self.scan_stats.entries += 1;
+            let path = entry.path();
+            let rel = path.strip_prefix(root).map_err(std::io::Error::other)?;
+            let rel = rel
+                .to_str()
+                .ok_or_else(|| std::io::Error::other("P1 ambient non-UTF8 path"))?;
+            let kind = entry.file_type()?;
+            self.type_entries.insert(
+                rel.into(),
+                if kind.is_dir() {
+                    1
+                } else if kind.is_file() {
+                    0
+                } else {
+                    2
+                },
+            );
+            // A no-follow scan cannot establish declaration absence through a link.
+            if kind.is_symlink() {
+                return Err(std::io::Error::other("P1 ambient scan symlink"));
+            }
+            if kind.is_dir() {
+                self.scan(root, &path, depth + 1)?;
+                self.covered.insert(rel.into(), 1);
+                continue;
+            }
+            // Package metadata is a type-input dependency, separate from the
+            // unchanged ambient source scan. Opaque metadata declines only a
+            // config whose type inputs reach this directory.
+            if path.file_name().is_some_and(|name| name == "package.json") {
+                use std::io::Read;
+                let bytes = if kind.is_file() && self.type_metadata_bytes < SCAN_BYTES {
+                    std::fs::File::open(&path).ok().and_then(|file| {
+                        let mut bytes = Vec::new();
+                        file.take(262_145).read_to_end(&mut bytes).ok()?;
+                        (bytes.len() <= 262_144
+                            && self.type_metadata_bytes + bytes.len() as u64 <= SCAN_BYTES)
+                            .then_some(bytes)
+                    })
+                } else {
+                    None
+                };
+                if let Some(bytes) = &bytes {
+                    self.type_metadata_bytes += bytes.len() as u64;
+                }
+                self.package_hashes.insert(
+                    format!("type-package:{rel}"),
+                    bytes
+                        .as_ref()
+                        .map(|b| format!("{:x}", Sha256::digest(b)))
+                        .unwrap_or_else(|| "opaque".into()),
+                );
+                let redirects = bytes.as_ref().and_then(|b| type_redirects(b));
+                self.type_redirects.insert(rel.into(), redirects);
+                self.module_packages.insert(rel.into(), bytes);
+            }
+            let ts = [".ts", ".tsx", ".mts", ".cts"]
+                .iter()
+                .any(|e| rel.ends_with(e));
+            let js = [".js", ".jsx", ".mjs", ".cjs"]
+                .iter()
+                .any(|e| rel.ends_with(e));
+            if !ts && !js {
+                continue;
+            }
+            if !kind.is_file() {
+                return Err(std::io::Error::other("P1 ambient scan non-regular source"));
+            }
+            let len = entry.metadata()?.len();
+            if len > SCAN_FILE_BYTES || self.scan_stats.bytes.saturating_add(len) > SCAN_BYTES {
+                return Err(std::io::Error::other("P1 ambient scan byte budget"));
+            }
+            // Bound the actual read as well as metadata. Concurrent trees are
+            // outside P1's stable-tree contract, but cannot exceed this allocation.
+            use std::io::Read;
+            let mut bytes = Vec::new();
+            std::fs::File::open(&path)?
+                .take(SCAN_FILE_BYTES + 1)
+                .read_to_end(&mut bytes)?;
+            if bytes.len() as u64 > SCAN_FILE_BYTES
+                || self.scan_stats.bytes + bytes.len() as u64 > SCAN_BYTES
+            {
+                return Err(std::io::Error::other("P1 ambient scan byte budget"));
+            }
+            self.scan_stats.files += 1;
+            self.scan_stats.bytes += bytes.len() as u64;
+            if rel
+                .split('/')
+                .collect::<Vec<_>>()
+                .windows(2)
+                .any(|p| p == ["node_modules", "@types"])
+            {
+                self.scan_stats.types_files += 1;
+                self.scan_stats.types_bytes += bytes.len() as u64;
+            }
+            let source = std::str::from_utf8(&bytes)
+                .map_err(|_| std::io::Error::other("P1 ambient scan non-UTF8 source"))?;
+            let patterns = if ts {
+                ambient_patterns(source)
+            } else {
+                Vec::new()
+            };
+            let references = triple_references(source);
+            let referenced = !references.is_empty();
+            self.covered.insert(rel.into(), 0);
+            // Every read has occupancy custody. Content custody is needed when
+            // declarations or project references bear on P1's decision.
+            self.package_hashes.insert(
+                format!("scan:{rel}"),
+                if !patterns.is_empty() || referenced {
+                    format!("{:x}", Sha256::digest(&bytes))
+                } else {
+                    "regular".into()
+                },
+            );
+            if !patterns.is_empty() {
+                self.ambient.insert(rel.into(), patterns);
+            }
+            if referenced {
+                self.references.insert(rel.into(), references);
             }
         }
         Ok(())
@@ -161,17 +341,40 @@ impl JsPathsSnapshot {
             .lock()
             .unwrap()
             .iter()
-            .map(|p| (p.clone(), self.entries.get(p).copied()))
+            .map(|p| {
+                (
+                    p.clone(),
+                    self.first_pass_facts
+                        .lock()
+                        .unwrap()
+                        .get(p)
+                        .copied()
+                        .unwrap_or_else(|| {
+                            self.type_entries
+                                .get(p)
+                                .or_else(|| self.entries.get(p))
+                                .copied()
+                        }),
+                )
+            })
             .collect();
         let bytes = bincode::serialize(&(
+            "node10-first-pass-absence-v2",
             &occupancy,
             &dependencies,
             &self.package_hashes,
             &self.ambient,
-            &*self.packages.lock().unwrap(),
+            &self.references,
+            &self.covered,
+            &self.type_redirects,
+            &self.external_modules,
             self.complete,
         ))
         .expect("snapshot serializes");
+        let absent = self.absent_inputs.lock().unwrap().len();
+        if absent != 0 {
+            eprintln!("P1 paths: absent type inputs={absent} (distinct origin/input pairs)");
+        }
         out.insert(
             "js_paths_occupancy".into(),
             format!("{:x}", Sha256::digest(bytes)),
@@ -182,59 +385,290 @@ impl JsPathsSnapshot {
         self.probes.lock().unwrap().insert(p.into());
         self.entries.get(p).copied()
     }
-    // These are no-follow occupancy probes, including ancestors above the repo.
-    // Loader primes them before freezing topology; graph builds reuse the facts.
-    pub(crate) fn package_present(&self, file: &str, spec: &str) -> bool {
-        let parts: Vec<_> = spec.split('/').collect();
-        let (package, types) =
-            if spec.starts_with('@') && parts.get(1).is_some_and(|name| !name.is_empty()) {
-                let name = parts[1];
-                (
-                    format!("{}/{name}", parts[0]),
-                    format!("{}__{name}", &parts[0][1..]),
-                )
+    // Candidate occupancy comes from the full scan, including directories the
+    // indexing walk skips. Every probe, even an absent one, joins topology.
+    pub(crate) fn first_pass_absent(&self, p: &str) -> bool {
+        self.probes.lock().unwrap().insert(p.into());
+        self.complete && self.first_pass_occupancy(p).is_none()
+    }
+    fn first_pass_occupancy(&self, p: &str) -> Option<u8> {
+        if let Some(fact) = self.first_pass_facts.lock().unwrap().get(p).copied() {
+            return fact;
+        }
+        let inspect = || {
+            // Literal snapshot keys alone cannot prove absence on filesystems
+            // with case or Unicode aliases. Never follow an unknown parent:
+            // captured, traversed directories are the only readable chain.
+            if self.root.is_empty()
+                || p.is_empty()
+                || p.split('/')
+                    .any(|part| part.is_empty() || part == "." || part == "..")
+                || p.contains(['\\', ':'])
+            {
+                return Some(2);
+            }
+            let mut prefix = String::new();
+            let mut parts = p.split('/').peekable();
+            while let Some(part) = parts.next() {
+                if !prefix.is_empty() {
+                    prefix.push('/');
+                }
+                prefix.push_str(part);
+                let kind = self
+                    .type_entries
+                    .get(&prefix)
+                    .or_else(|| self.entries.get(&prefix));
+                if parts.peek().is_none() {
+                    if let Some(kind) = kind {
+                        return Some(*kind);
+                    }
+                } else if kind.is_some() {
+                    if self.covered.get(&prefix) == Some(&1) {
+                        continue;
+                    }
+                    return if kind == Some(&0) { None } else { Some(2) };
+                }
+                // All prior parents were captured readable directories. An
+                // alias/new entry is opaque; a missing parent proves absence
+                // without descending through an uninstalled node_modules.
+                return match std::fs::symlink_metadata(Path::new(&self.root).join(&prefix)) {
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+                    _ => Some(2),
+                };
+            }
+            Some(2)
+        };
+        let fact = inspect();
+        self.first_pass_facts.lock().unwrap().insert(p.into(), fact);
+        fact
+    }
+    pub(crate) fn first_pass_root_file_absent(&self, ts: bool) -> bool {
+        // TypeScript appends extensions to the absolute root name, producing
+        // sibling files outside this capture. Record each opaque candidate.
+        let extensions: &[&str] = if ts {
+            &[".ts", ".tsx", ".d.ts"]
+        } else {
+            &[".d.ts"]
+        };
+        extensions.iter().fold(true, |absent, extension| {
+            self.first_pass_absent(&format!("{}{extension}", self.root)) & absent
+        })
+    }
+    pub(crate) fn first_pass_package(&self, p: &str) -> Result<Option<&[u8]>, ()> {
+        if self.first_pass_absent(p) {
+            return Ok(None);
+        }
+        self.module_packages
+            .get(p)
+            .and_then(Option::as_deref)
+            .map(Some)
+            .ok_or(())
+    }
+    pub(crate) fn external_first_pass_absent(&self) -> bool {
+        self.external_modules.values().all(|kind| *kind == 0)
+    }
+    pub(crate) fn input_path(&self, base: &str, path: &str) -> Option<String> {
+        use crate::js_paths_syntax::norm;
+        let p = if path.starts_with('/') {
+            // Normalize before checking containment: root/../outside is outside.
+            let absolute = norm("", path.trim_start_matches('/'))?;
+            let root = norm("", self.root.trim_start_matches('/'))?;
+            if absolute == root {
+                String::new()
             } else {
-                (parts[0].to_owned(), parts[0].to_owned())
-            };
-        let caller = self.root.join(file);
-        for ancestor in caller.parent().into_iter().flat_map(Path::ancestors) {
-            for name in [&package, &format!("@types/{types}")] {
-                let candidate = ancestor.join("node_modules").join(name);
-                let key = candidate.to_string_lossy().into_owned();
-                let cached = self.packages.lock().unwrap().get(&key).copied();
-                let kind = cached.unwrap_or_else(|| {
-                    let mut kind = 3; // absent
-                    let mut prefix = ancestor.to_path_buf();
-                    for component in candidate.strip_prefix(ancestor).unwrap().components() {
-                        prefix.push(component);
-                        match std::fs::symlink_metadata(&prefix) {
-                            Ok(m) if m.file_type().is_symlink() || !m.is_dir() => {
-                                kind = 2;
-                                break;
-                            }
-                            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
-                                kind = 2;
-                                break;
-                            }
-                            _ => {}
-                        }
+                absolute.strip_prefix(&(root + "/"))?.to_owned()
+            }
+        } else {
+            norm(base, path)?
+        };
+        Some(p)
+    }
+    fn classify_path(&self, base: &str, path: &str) -> TypeInput {
+        let Some(p) = self
+            .input_path(base, path)
+            .filter(|_| !path.is_empty() && self.complete)
+        else {
+            return TypeInput::Unsafe;
+        };
+        self.probes.lock().unwrap().insert(p.clone());
+        if p.is_empty() || self.covered.contains_key(&p) {
+            TypeInput::Present(p)
+        } else if self.type_entries.contains_key(&p) || self.entries.contains_key(&p) {
+            TypeInput::Unsafe
+        } else {
+            TypeInput::Absent
+        }
+    }
+    fn record_input(&self, base: &str, name: &str, input: &TypeInput) {
+        match input {
+            TypeInput::Absent => {
+                self.absent_inputs
+                    .lock()
+                    .unwrap()
+                    .insert((base.into(), name.into()));
+            }
+            TypeInput::Unsafe => {
+                if self
+                    .unsafe_inputs
+                    .lock()
+                    .unwrap()
+                    .insert((base.into(), name.into()))
+                {
+                    eprintln!("warning: P1 paths config declined: outside-root or unread type input {name:?} from {base:?}");
+                }
+            }
+            TypeInput::Present(_) => {}
+        }
+    }
+    pub(crate) fn covered_root(&self, base: &str, path: &str) -> Option<String> {
+        let input = self.classify_path(base, path);
+        self.record_input(base, path, &input);
+        match input {
+            TypeInput::Present(p) => Some(p),
+            TypeInput::Absent => self.input_path(base, path),
+            TypeInput::Unsafe => None,
+        }
+    }
+    #[cfg(test)]
+    pub(crate) fn was_probed(&self, path: &str) -> bool {
+        self.probes.lock().unwrap().contains(path)
+    }
+    fn covered_redirect(&self, base: &str, target: &str) -> TypeInput {
+        if !target.contains('*') {
+            return self.classify_path(base, target);
+        }
+        // typesVersions may select any file under this scanned directory.
+        let (prefix, suffix) = target.split_once('*').unwrap();
+        if suffix.contains("..") || suffix.contains(':') || suffix.contains('\\') {
+            return TypeInput::Unsafe;
+        }
+        let directory = crate::js_paths_syntax::dir(prefix);
+        self.classify_path(base, if directory.is_empty() { "." } else { directory })
+    }
+    pub(crate) fn covered_type(&self, base: &str, name: &str, roots: Option<&[String]>) -> bool {
+        let input = self.resolve_type(base, name, roots);
+        self.record_input(base, name, &input);
+        match input {
+            TypeInput::Present(p) => self.input_references_covered(&p, roots, &mut BTreeSet::new()),
+            TypeInput::Absent => true,
+            TypeInput::Unsafe => false,
+        }
+    }
+    fn resolve_type(&self, base: &str, name: &str, roots: Option<&[String]>) -> TypeInput {
+        if name.is_empty() {
+            return TypeInput::Unsafe;
+        }
+        if name.starts_with('.') || name.starts_with('/') {
+            return self.classify_path(base, name);
+        }
+        let resolve = |directory: &str, name: &str| {
+            ["", ".d.ts", ".d.mts", ".d.cts"]
+                .iter()
+                .map(|suffix| self.classify_path(directory, &format!("{name}{suffix}")))
+                .find(|input| !matches!(input, TypeInput::Absent))
+                .unwrap_or(TypeInput::Absent)
+        };
+        let mangled = name.strip_prefix('@').map(|s| s.replacen('/', "__", 1));
+        let typed_name = mangled.as_deref().unwrap_or(name);
+        if let Some(roots) = roots {
+            if let Some(input) = roots
+                .iter()
+                .map(|root| resolve(root, typed_name))
+                .find(|input| !matches!(input, TypeInput::Absent))
+            {
+                return input;
+            }
+        }
+        // Node10's secondary lookup still searches node_modules after custom
+        // typeRoots miss, including when the caller supplied an empty array.
+        let mut directory = base;
+        loop {
+            for candidate in [
+                format!("node_modules/@types/{typed_name}"),
+                format!("node_modules/{name}"),
+            ] {
+                let input = resolve(directory, &candidate);
+                if !matches!(input, TypeInput::Absent) {
+                    return input;
+                }
+            }
+            if directory.is_empty() {
+                return TypeInput::Absent;
+            }
+            directory = crate::js_paths_syntax::dir(directory);
+        }
+    }
+    pub(crate) fn reference_covered(
+        &self,
+        base: &str,
+        kind: &str,
+        name: &str,
+        roots: Option<&[String]>,
+    ) -> bool {
+        let input = if kind == "path" {
+            self.classify_path(base, name)
+        } else {
+            self.resolve_type(base, name, roots)
+        };
+        self.record_input(base, name, &input);
+        match input {
+            TypeInput::Present(p) => self.input_references_covered(&p, roots, &mut BTreeSet::new()),
+            TypeInput::Absent => true,
+            TypeInput::Unsafe => false,
+        }
+    }
+    pub(crate) fn input_references_covered(
+        &self,
+        input: &str,
+        roots: Option<&[String]>,
+        seen: &mut BTreeSet<String>,
+    ) -> bool {
+        // Every queued path belongs to the bounded scan inventory. Iteration
+        // handles long reference chains and safe cycles without a second cap.
+        let mut pending = vec![input.to_owned()];
+        while let Some(input) = pending.pop() {
+            if !seen.insert(input.clone()) {
+                continue;
+            }
+            for (file, redirects) in self
+                .type_redirects
+                .iter()
+                .filter(|(file, _)| input.is_empty() || file.starts_with(&format!("{input}/")))
+            {
+                let Some(redirects) = redirects else {
+                    return false;
+                };
+                for target in redirects {
+                    let base = crate::js_paths_syntax::dir(file);
+                    let input = self.covered_redirect(base, target);
+                    self.record_input(base, target, &input);
+                    match input {
+                        TypeInput::Present(p) => pending.push(p),
+                        TypeInput::Absent => {}
+                        TypeInput::Unsafe => return false,
                     }
-                    if kind == 3 {
-                        kind = match std::fs::symlink_metadata(&candidate) {
-                            Ok(_) => 0,
-                            Err(e) if e.kind() == std::io::ErrorKind::NotFound => 3,
-                            Err(_) => 2,
-                        };
+                }
+            }
+            for (file, references) in self.references.iter().filter(|(file, _)| {
+                file.as_str() == input || input.is_empty() || file.starts_with(&format!("{input}/"))
+            }) {
+                for (kind, name) in references {
+                    let base = crate::js_paths_syntax::dir(file);
+                    let input = if kind == "path" {
+                        self.classify_path(base, name)
+                    } else {
+                        self.resolve_type(base, name, roots)
+                    };
+                    self.record_input(base, name, &input);
+                    match input {
+                        TypeInput::Present(p) => pending.push(p),
+                        TypeInput::Absent => {}
+                        TypeInput::Unsafe => return false,
                     }
-                    self.packages.lock().unwrap().insert(key, kind);
-                    kind
-                });
-                if kind != 3 {
-                    return true;
                 }
             }
         }
-        false
+        true
     }
     pub(crate) fn unblocked(&self, p: &str) -> bool {
         let mut prefix = String::new();
@@ -251,61 +685,283 @@ impl JsPathsSnapshot {
     }
 }
 
-// Over-approximate ambient declarations: comments/strings may only cost yield.
-// Escaped or multi-wildcard names are opaque and barrier every alias.
-fn ambient_patterns(source: &str) -> Vec<String> {
-    fn trivia(mut s: &str) -> &str {
-        loop {
-            s = s.trim_start();
-            if let Some(rest) = s.strip_prefix("/*") {
-                let Some((_, tail)) = rest.split_once("*/") else {
-                    return "";
-                };
-                s = tail;
-            } else if let Some(rest) = s.strip_prefix("//") {
-                s = rest.split_once('\n').map_or("", |(_, tail)| tail);
-            } else {
-                return s;
+fn type_redirects(bytes: &[u8]) -> Option<Vec<String>> {
+    fn strings(value: &serde_json::Value, out: &mut Vec<String>) -> Option<()> {
+        match value {
+            serde_json::Value::String(s) if !s.is_empty() => out.push(s.clone()),
+            serde_json::Value::Array(a) => {
+                for v in a {
+                    strings(v, out)?;
+                }
             }
+            serde_json::Value::Object(o) => {
+                for v in o.values() {
+                    strings(v, out)?;
+                }
+            }
+            _ => return None,
+        }
+        Some(())
+    }
+    let value: serde_json::Value = serde_json::from_slice(bytes).ok()?;
+    let object = value.as_object()?;
+    let mut out = Vec::new();
+    for key in ["types", "typings", "typesVersions"] {
+        if let Some(v) = object.get(key) {
+            strings(v, &mut out)?;
         }
     }
-    let mut patterns = Vec::new();
-    for (start, _) in source.match_indices("declare") {
-        if start > 0
-            && source[..start]
-                .chars()
-                .next_back()
-                .is_some_and(|c| c.is_alphanumeric() || c == '_' || c == '$')
-        {
+    // P1 supports Node10, whose type-directive lookup ignores exports.
+    Some(out)
+}
+
+fn whitespace(c: char) -> bool {
+    c.is_whitespace() || c == '\u{feff}'
+}
+fn line_end(c: char) -> bool {
+    matches!(c, '\r' | '\n' | '\u{2028}' | '\u{2029}')
+}
+fn trivia(mut s: &str) -> &str {
+    loop {
+        s = s.trim_start_matches(whitespace);
+        if let Some(rest) = s.strip_prefix("/*") {
+            s = rest.split_once("*/").map_or("", |(_, tail)| tail);
+        } else if let Some(rest) = s.strip_prefix("//") {
+            s = rest.find(line_end).map_or("", |end| &rest[end..]);
+        } else if let Some(rest) = s.strip_prefix('\\').filter(|s| s.starts_with(line_end)) {
+            s = rest.trim_start_matches(line_end);
+        } else {
+            return s;
+        }
+    }
+}
+fn identifier(c: char) -> bool {
+    c.is_alphanumeric() || c == '_' || c == '$'
+}
+fn keyword<'a>(s: &'a str, word: &str) -> Option<&'a str> {
+    let rest = s.strip_prefix(word)?;
+    (!rest.starts_with(identifier)).then_some(rest)
+}
+// Return decoded name and remaining input. An unsupported or malformed name
+// barriers the repository rather than establishing declaration absence.
+fn literal(s: &str) -> Option<(String, &str)> {
+    let quote = s.chars().next()?;
+    if !matches!(quote, '\'' | '"') {
+        return None;
+    }
+    let mut rest = &s[1..];
+    let mut name = String::new();
+    while let Some(c) = rest.chars().next() {
+        rest = &rest[c.len_utf8()..];
+        if c == quote {
+            return Some((name, rest));
+        }
+        if line_end(c) {
+            return None;
+        }
+        if c != '\\' {
+            name.push(c);
             continue;
         }
-        let rest = &source[start + 7..];
-        let rest = trivia(rest);
-        let Some(rest) = rest.strip_prefix("module") else {
+        let escaped = rest.chars().next()?;
+        rest = &rest[escaped.len_utf8()..];
+        if line_end(escaped) {
+            if escaped == '\r' {
+                rest = rest.strip_prefix('\n').unwrap_or(rest);
+            }
+            continue;
+        }
+        let decoded = match escaped {
+            'u' | 'x' => {
+                let value = if escaped == 'u' && rest.starts_with('{') {
+                    let end = rest.find('}')?;
+                    let digits = &rest[1..end];
+                    if digits.is_empty()
+                        || digits.len() > 6
+                        || !digits.bytes().all(|b| b.is_ascii_hexdigit())
+                    {
+                        return None;
+                    }
+                    let v = u32::from_str_radix(digits, 16).ok()?;
+                    rest = &rest[end + 1..];
+                    v
+                } else {
+                    let n = if escaped == 'u' { 4 } else { 2 };
+                    let digits = rest.get(..n)?;
+                    if !digits.bytes().all(|b| b.is_ascii_hexdigit()) {
+                        return None;
+                    }
+                    let mut v = u32::from_str_radix(digits, 16).ok()?;
+                    rest = &rest[n..];
+                    if (0xd800..=0xdbff).contains(&v) {
+                        let low = rest.strip_prefix("\\u")?.get(..4)?;
+                        if !low.bytes().all(|b| b.is_ascii_hexdigit()) {
+                            return None;
+                        }
+                        let low = u32::from_str_radix(low, 16).ok()?;
+                        if !(0xdc00..=0xdfff).contains(&low) {
+                            return None;
+                        }
+                        v = 0x10000 + ((v - 0xd800) << 10) + low - 0xdc00;
+                        rest = &rest[6..];
+                    }
+                    v
+                };
+                char::from_u32(value)?
+            }
+            'n' => '\n',
+            'r' => '\r',
+            't' => '\t',
+            'b' => '\u{8}',
+            'f' => '\u{c}',
+            'v' => '\u{b}',
+            '0' if !rest.starts_with(|c: char| c.is_ascii_digit()) => '\0',
+            '0'..='9' => return None,
+            c => c,
+        };
+        name.push(decoded);
+    }
+    None
+}
+// This absence proof intentionally over-approximates: apparent declarations in
+// comments or strings can cost yield, but ordinary source syntax cannot hide a
+// declaration candidate. Only an unparseable declare-module candidate is global.
+fn ambient_patterns(source: &str) -> Vec<String> {
+    let mut patterns = Vec::new();
+    for (start, _) in source.match_indices("declare") {
+        if start > 0 && source[..start].chars().next_back().is_some_and(identifier) {
+            continue;
+        }
+        let Some(rest) = keyword(&source[start..], "declare") else {
             continue;
         };
-        let rest = trivia(rest);
-        let Some(quote @ ('\'' | '"')) = rest.chars().next() else {
+        let Some(rest) = keyword(trivia(rest), "module") else {
             continue;
         };
-        let body = &rest[1..];
-        let Some(end) = body.find(quote) else {
-            patterns.push("*".into());
-            continue;
-        };
-        let name = &body[..end];
-        if name.contains('\\') || name.matches('*').count() > 1 {
-            patterns.push("*".into());
-        } else {
-            patterns.push(name.into());
+        match literal(trivia(rest)) {
+            Some((name, _)) => patterns.push(if name.matches('*').count() > 1 {
+                "*".into()
+            } else {
+                name
+            }),
+            None => return vec!["*".into()],
         }
     }
     patterns
+}
+fn triple_references(source: &str) -> Vec<(String, String)> {
+    let mut references = Vec::new();
+    for (i, _) in source.match_indices("///") {
+        let rest = source[i + 3..].trim_start_matches(whitespace);
+        let Some(mut rest) = rest.strip_prefix("<reference") else {
+            continue;
+        };
+        if !rest.starts_with(whitespace) {
+            continue;
+        }
+        loop {
+            rest = rest.trim_start_matches(whitespace);
+            if rest.starts_with('/') || rest.starts_with('>') {
+                break;
+            }
+            let end = rest
+                .find(|c: char| !identifier(c) && c != '-')
+                .unwrap_or(rest.len());
+            let key = &rest[..end];
+            let tail = rest[end..].trim_start_matches(whitespace);
+            let value = tail
+                .strip_prefix('=')
+                .map(|s| s.trim_start_matches(whitespace));
+            let parsed = value.and_then(|s| {
+                let quote = s.chars().next()?;
+                if !matches!(quote, '\'' | '"') {
+                    return None;
+                }
+                let end = s[1..].find(quote)? + 1;
+                Some((s[1..end].to_owned(), &s[end + 1..]))
+            });
+            let Some((name, tail)) = parsed else {
+                // Malformed apparent directives cannot prove input coverage.
+                references.push(("path".into(), String::new()));
+                break;
+            };
+            if matches!(key, "path" | "types") {
+                references.push((key.into(), name));
+            }
+            rest = tail;
+        }
+    }
+    references
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn ambient_literals_and_fail_closed_candidates() {
+        for (source, expected) in [
+            (r#"declare module '\u0040\x6cib' {}"#, "@lib"),
+            (r#"declare module '\u{1f600}' {}"#, "😀"),
+            (r#"declare module '\ud83d\ude00' {}"#, "😀"),
+            (r#"declare module 'a\'b' {}"#, "a'b"),
+            (r#"declare module '\u{110000}' {}"#, "*"),
+            (r#"declare module '\ud800' {}"#, "*"),
+            (r#"declare module '\xZZ' {}"#, "*"),
+            (r#"declare module '\01' {}"#, "*"),
+            (r#"declare module '*a*' {}"#, "*"),
+            ("declare module /* unterminated", "*"),
+            ("declare module 'unterminated", "*"),
+        ] {
+            assert_eq!(ambient_patterns(source), [expected], "{source}");
+        }
+        assert!(ambient_patterns("const pattern = /[\"']/; const text = `it's multiline`; undeclare module '@lib'; declare moduleFoo '@lib';").is_empty());
+        assert_eq!(
+            ambient_patterns("declare //separator\u{2028}module '@lib' {}"),
+            ["@lib"]
+        );
+    }
+    #[test]
+    fn scan_budgets_disable_repository() {
+        let d = tempfile::TempDir::new().unwrap();
+        std::fs::write(d.path().join("tsconfig.json"), "{}").unwrap();
+        let file = std::fs::File::create(d.path().join("large.d.ts")).unwrap();
+        file.set_len(SCAN_FILE_BYTES + 1).unwrap();
+        assert!(!JsPathsSnapshot::capture(d.path()).complete);
+        std::fs::remove_file(d.path().join("large.d.ts")).unwrap();
+        let mut s = JsPathsSnapshot::default();
+        s.scan_stats.entries = SCAN_ENTRIES;
+        assert!(s
+            .scan(d.path(), d.path(), 0)
+            .unwrap_err()
+            .to_string()
+            .contains("entry budget"));
+        s.scan_stats.entries = 0;
+        s.scan_stats.bytes = SCAN_BYTES;
+        std::fs::write(d.path().join("small.d.ts"), "declare module '@lib' {}").unwrap();
+        assert!(s
+            .scan(d.path(), d.path(), 0)
+            .unwrap_err()
+            .to_string()
+            .contains("byte budget"));
+        assert!(s
+            .scan(d.path(), d.path(), 128)
+            .unwrap_err()
+            .to_string()
+            .contains("depth budget"));
+    }
+    #[test]
+    fn unreadable_declaration_scan_disables_repository() {
+        let d = tempfile::TempDir::new().unwrap();
+        std::fs::write(d.path().join("tsconfig.json"), "{}").unwrap();
+        std::fs::write(d.path().join("bad.d.ts"), [0xff]).unwrap();
+        assert!(!JsPathsSnapshot::capture(d.path()).complete);
+        std::fs::remove_file(d.path().join("bad.d.ts")).unwrap();
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink("elsewhere", d.path().join("linked")).unwrap();
+            assert!(!JsPathsSnapshot::capture(d.path()).complete);
+        }
+    }
     #[test]
     fn config_case_collision_is_order_independent_barrier() {
         for variants in [[Some(b"{}".to_vec()), None], [None, Some(b"{}".to_vec())]] {

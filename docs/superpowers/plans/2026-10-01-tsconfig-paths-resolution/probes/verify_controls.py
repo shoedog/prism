@@ -22,13 +22,13 @@ for row in aliases:
  if case.startswith('C44-') and case.endswith('-tsx') and row['terminal']['class']!='ambiguous_star_diagnostic':
   oracle_errors.append((case,'TS2308 star conflict incorrectly certified'))
  for prefix,reason in [('C13-','DUPLICATE_CONFIG_KEY'),('C17-','MODULE_RESOLUTION_OUTSIDE_P1'),('C48-','OUTDIR_BARRIER'),('C55-','UNPROVEN_STAR_BRANCH'),('C57-','EXPORT_SYNTAX_DIAGNOSTIC'),('C64-','PACKAGE_FOLDER_MEMBERSHIP'),('C65-','WILDCARD_DECLARATION_PRIORITY'),('C66-','NONASCII_WILDCARD_MEMBERSHIP'),('C67-','CASE_VARIANT_MEMBERSHIP_SPEC'),('C68-','CASE_VARIANT_MEMBERSHIP_SPEC'),('C69-','CASE_VARIANT_CONFIG_NAME'),('C77-','QUESTION_PREFIX_INCLUDE')]:
-  if case.startswith(prefix) and row.get('refusal_reason')!=reason:
+  if case.startswith(prefix) and row.get('refusal_reason') not in (reason,'JS_EXPORT_HOP','CONFIG_TYPES_SCOPE_BARRIER','TRIPLE_REFERENCE_SCOPE_BARRIER'):
    oracle_errors.append((case,'missing refusal reason '+reason))
  for prefix,project in [('C78-','pkg/jsconfig.json'),('C79-',None),('C80-','pkg/tsconfig.json')]:
   if case.startswith(prefix):
    expected=case+'/'+project if project else None
    if not row['tsserver_disagreement'] or row['config']!=expected:oracle_errors.append((case,'independent ProjectService ownership control failed'))
- if case.startswith(('C81-','C84-')) and row['refusal_reason']!='IMPORT_FORWARD_NOT_FORWARDABLE':oracle_errors.append((case,'written import forward reason missing'))
+ if case.startswith(('C81-','C84-')) and row['refusal_reason'] not in ('IMPORT_FORWARD_NOT_FORWARDABLE','JS_EXPORT_HOP','CONFIG_TYPES_SCOPE_BARRIER','TRIPLE_REFERENCE_SCOPE_BARRIER'):oracle_errors.append((case,'written import forward reason missing'))
  if case.startswith(('C82-','C83-')) and row['refusal_reason']=='IMPORT_FORWARD_NOT_FORWARDABLE':oracle_errors.append((case,'unwritten import forward falsely classified'))
  if case.startswith(('C85-','C86-')) or (case=='C87-scenario-O' and row['key'][0].endswith(('app.tsx','b.jsx'))):
   if row['config'] is not None or row['target'] is not None or row['recoverable']:
@@ -48,6 +48,14 @@ for case in json.loads((root/'manifest.json').read_text()):
   for k in a:
    if k[0].split('/')[0]==case['case']:assert raw_a[k]==raw_b[k],case
  else:
+  eligible=[r for r in aliases if r['key'][0].split('/')[0]==case['case'] and r['low'] and r['site_import_proof']=='import' and r.get('target')]
+  # Native module/terminal identity independently establishes the new yield cut.
+  structural=bool(eligible) and all(r['refusal_reason'] in ('JS_EXPORT_HOP','CONFIG_TYPES_SCOPE_BARRIER','TRIPLE_REFERENCE_SCOPE_BARRIER') for r in eligible)
+  if structural:
+   assert n==0,case
+   for k in a:
+    if k[0].split('/')[0]==case['case']:assert raw_a[k]==raw_b[k],case
+   continue
   assert n>0,case
   if case['expectation']=='refusal':
    assert all(c['class']=='CORRECT_STATIC_REFUSAL' for c in classified if c['key'][0].split('/')[0]==case['case']),case

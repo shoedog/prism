@@ -16,7 +16,8 @@ fn js_paths_same_directory_tsconfig_precedes_jsconfig() {
                 &config(serde_json::json!({"@lib":["lib/real"]})),
             );
             write(d.path(), "jsconfig.json", &jsconfig);
-            assert_hit(
+            assert_alias(
+                d.path(),
                 &graph(d.path()),
                 &format!("app.{ext}"),
                 "picked",
@@ -71,7 +72,8 @@ fn js_paths_exact_and_wildcard_red() {
             serde_json::json!({"@lib/*":["lib/*"]}),
         ] {
             let d = fixture(ext, "@lib/real", &config(paths));
-            assert_hit(
+            assert_alias(
+                d.path(),
                 &graph(d.path()),
                 &format!("app.{ext}"),
                 "picked",
@@ -93,7 +95,8 @@ fn js_paths_exact_precedes_longest_prefix_and_suffix() {
                 "@lib/realend"
             };
             let d = fixture(ext, spec, &config(paths));
-            assert_hit(
+            assert_alias(
+                d.path(),
                 &graph(d.path()),
                 &format!("app.{ext}"),
                 "picked",
@@ -131,7 +134,8 @@ fn js_paths_parent_origin_without_baseurl_and_child_override() {
             &format!("packages/app/lib/real.{ext}"),
             "export function real() { return 2; }\n",
         );
-        assert_hit(
+        assert_alias(
+            d.path(),
             &graph(d.path()),
             &format!("packages/app/app.{ext}"),
             "picked",
@@ -148,7 +152,8 @@ fn js_paths_parent_origin_without_baseurl_and_child_override() {
             &format!("packages/app/app/lib/real.{ext}"),
             "export function real() { return 3; }\n",
         );
-        assert_hit(
+        assert_alias(
+            d.path(),
             &graph(d.path()),
             &format!("packages/app/app.{ext}"),
             "picked",
@@ -174,7 +179,8 @@ fn js_paths_baseurl_declaration_origin() {
             &format!("pkg/app.{ext}"),
             "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
         );
-        assert_hit(
+        assert_alias(
+            d.path(),
             &graph(d.path()),
             &format!("pkg/app.{ext}"),
             "picked",
@@ -200,14 +206,16 @@ fn js_paths_nearest_including_config_and_files_override_exclude() {
             &format!("pkg/app.{ext}"),
             "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
         );
-        assert_hit(
+        assert_alias(
+            d.path(),
             &graph(d.path()),
             &format!("pkg/app.{ext}"),
             "picked",
             &format!("lib/real.{ext}"),
         );
         write(d.path(),"pkg/tsconfig.json",&serde_json::json!({"compilerOptions":{"moduleResolution":"node","allowJs":true,"baseUrl":"..","paths":{"@lib":["decoy/real"]}},"files":[format!("app.{ext}")],"exclude":["**/*"]}).to_string());
-        assert_hit(
+        assert_alias(
+            d.path(),
             &graph(d.path()),
             &format!("pkg/app.{ext}"),
             "picked",
@@ -224,7 +232,8 @@ fn js_paths_index_and_relative_barrel() {
             &format!("lib/index.{ext}"),
             "export { real } from './real';\n",
         );
-        assert_hit(
+        assert_hop_alias(
+            d.path(),
             &graph(d.path()),
             &format!("app.{ext}"),
             "picked",
@@ -241,7 +250,8 @@ fn js_paths_jsonc_and_unicode_escaped_key() {
             r#"{// comment
 "compilerOptions":{"moduleResolution":"node","allowJs":true,"paths":{"@\u006cib":["./lib/real"],},},"include":["**/*"], /* end */ }"#,
         );
-        assert_hit(
+        assert_alias(
+            d.path(),
             &graph(d.path()),
             &format!("app.{ext}"),
             "picked",
@@ -325,7 +335,8 @@ fn js_paths_config_change_and_incremental_rebuild() {
         );
         let old = load_repo(d.path()).unwrap();
         let old_graph = graph(d.path());
-        assert_hit(
+        assert_alias(
+            d.path(),
             &old_graph,
             &format!("app.{ext}"),
             "picked",
@@ -352,7 +363,8 @@ fn js_paths_config_change_and_incremental_rebuild() {
             new.scope_graph_inputs.as_ref(),
         );
         let full = graph(d.path());
-        assert_hit(
+        assert_alias(
+            d.path(),
             &full,
             &format!("app.{ext}"),
             "picked",
@@ -391,7 +403,8 @@ fn js_paths_s1b_namespace_star_proof_is_reused() {
             assert_eq!(namespace.is_some(), proven);
             if let Some(terminal) = namespace {
                 assert!(!terminal.via_unresolved_star);
-                assert_hit(
+                assert_hop_alias(
+                    d.path(),
                     &head,
                     &format!("app.{ext}"),
                     "picked",

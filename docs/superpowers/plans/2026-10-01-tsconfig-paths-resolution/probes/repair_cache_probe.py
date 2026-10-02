@@ -7,7 +7,7 @@ for ext in ['jsx','tsx']:
  for label,target,blocker,kind,js in [('dotted','lib/user.service','lib/user.service','file',False),('directory','lib/real','lib/real.d.ts','dir',False),('replacement','lib/user.service','lib/user.d.service.ts','file',False),('replacement-dir','lib/user.multi.service','lib/user.multi.d.service.ts','dir',False),('text-target','lib/name.txt','lib/name.txt','file',False),('ambient','lib/real','types/ambient.d.ts','ambient',False),('package','lib/real','node_modules/utils','dir',True),('types-above','lib/real','../node_modules/@types/utils','dir',True)]:
   outer=out/(label+'-'+ext);root=outer/'repo';root.mkdir(parents=True,exist_ok=True);cache=outer/'cache'
   def write(p,s):p.parent.mkdir(parents=True,exist_ok=True);p.write_text(s)
-  target_ext='jsx' if js else ext
+  target_ext='jsx' if js else 'tsx'
   write(root/(target+'.'+target_ext),'export function real() { return 1; }\n')
   write(root/('app.'+ext),'import { real as picked } from "utils/format";\nexport function run() { picked(); }\n')
   write(root/'tsconfig.json',json.dumps({'compilerOptions':{'moduleResolution':'node','allowJs':True,'paths':{'utils/format':[target]}},'include':['**/*']}))
@@ -16,7 +16,7 @@ for ext in ['jsx','tsx']:
    (outer/(label+'.jsonl')).write_text(proc.stdout);(outer/(label+'.stderr')).write_text(proc.stderr);assert proc.returncode==0,proc.stderr
    rows=[json.loads(s) for s in proc.stdout.splitlines()];return [r for r in rows if r.get('record_kind')=='call_site']
   cold=query('cold',True);assert cold==query('cold-fresh',False)
-  assert any(r['resolved_targets'] for r in cold if r['callee_text']=='picked')
+  assert any(r['resolved_targets'] for r in cold if r['callee_text']=='picked') == (not js), (label,ext,'structural JS cut')
   b=root/blocker
   if kind=='dir':b.mkdir(parents=True)
   else:write(b,'declare module "utils/format" { export function real(): number; }' if kind=='ambient' else 'occupied')

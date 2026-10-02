@@ -67,6 +67,7 @@ mod go_selector_supply;
 mod go_type_alias;
 pub mod js_exports;
 mod js_paths;
+mod js_paths_first_pass;
 pub mod js_paths_snapshot;
 mod js_paths_syntax;
 pub mod js_ts_props;
