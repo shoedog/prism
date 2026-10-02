@@ -306,7 +306,23 @@ fn structural_ambient_lexical_boundaries() {
         ] {
             let d = ts_fixture(ext);
             write(d.path(), "types/ambient.d.ts", text);
-            base_row(d.path(), &format!("app.{ext}"));
+            if [
+                "declare module",
+                "declare module '\\uQQQQ' {}",
+                "declare module Unparsed {}",
+                "declare module '@lib",
+            ]
+            .contains(&text)
+            {
+                assert_hit(
+                    &graph(d.path()),
+                    &format!("app.{ext}"),
+                    "picked",
+                    "lib/real.tsx",
+                );
+            } else {
+                base_row(d.path(), &format!("app.{ext}"));
+            }
         }
         let d = ts_fixture(ext);
         write(

@@ -1,4 +1,4 @@
-//! Bounded repository closure and configuration/occupancy snapshot for P1.
+//! Bounded tolerant ambient scan and configuration/occupancy snapshot for P1.
 #[path = "js_paths_boundary.rs"]
 mod boundary;
 use sha2::{Digest, Sha256};
@@ -16,21 +16,13 @@ pub struct JsPathsSnapshot {
     pub(crate) ambient: BTreeMap<String, Vec<String>>,
     pub(crate) references: BTreeMap<String, Vec<(String, String)>>,
     // The ambient scan, unlike the indexing walk, covers skipped directories.
-    covered: BTreeMap<String, u8>, // 0 source read, 1 directory traversed
+    covered: BTreeMap<String, u8>, // 1 directory traversed
     root: String,
     type_redirects: BTreeMap<String, Option<Vec<String>>>,
     case_insensitive: bool,
     folded_entries: BTreeMap<String, Option<String>>,
     links: BTreeMap<String, Option<String>>,
-    external_types: BTreeMap<String, u8>,
-    module_dependencies: BTreeMap<String, Option<Vec<String>>>,
     root_spelling: String,
-    #[serde(skip)]
-    declined_configs: Arc<Mutex<BTreeSet<String>>>,
-    #[serde(skip)]
-    boundary_failure: Arc<std::sync::OnceLock<Option<String>>>,
-    #[serde(skip)]
-    boundary_inputs: Arc<Mutex<BTreeMap<String, bool>>>,
     #[serde(skip)]
     module_packages: BTreeMap<String, Option<Vec<u8>>>,
     #[serde(skip)]
@@ -67,6 +59,7 @@ pub(crate) struct ScanStats {
     types_files: usize,
     types_bytes: u64,
     declaration_files: usize,
+    skipped: BTreeMap<String, usize>,
 }
 impl JsPathsSnapshot {
     pub(crate) fn capture(root: &Path) -> Self {
@@ -95,7 +88,7 @@ impl JsPathsSnapshot {
                 s.entries.len()
             );
         }
-        // Indexing may skip directories; declaration absence never may. Avoid
+        // Scan skipped indexing directories too. Avoid
         // this additional scan only when no config can authorize P1 at all.
         if s.complete && !s.configs.is_empty() {
             if let Err(error) = s.scan(&root, &root, 0) {
@@ -106,6 +99,12 @@ impl JsPathsSnapshot {
                 );
             }
         }
+        if !s.scan_stats.skipped.is_empty() {
+            eprintln!(
+                "warning: P1 paths tolerant scan skipped: {}",
+                serde_json::to_string(&s.scan_stats.skipped).expect("skip counts serialize")
+            );
+        }
         if !s.configs.is_empty() {
             // Retain r1's outside-capture boundary: missing ancestor module
             // directories prove absence; existing/unread ones are opaque.
@@ -115,13 +114,6 @@ impl JsPathsSnapshot {
                     Err(e) if e.kind() == std::io::ErrorKind::NotFound => 0,
                     _ => 2,
                 };
-                let types = path.join("@types");
-                let type_kind = match std::fs::symlink_metadata(&types) {
-                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => 0,
-                    _ => 2,
-                };
-                s.external_types
-                    .insert(types.to_string_lossy().into(), type_kind);
                 s.external_modules
                     .insert(path.to_string_lossy().into(), kind);
             }
@@ -130,21 +122,28 @@ impl JsPathsSnapshot {
         s
     }
     fn walk(&mut self, root: &Path, dir: &Path) -> std::io::Result<()> {
-        for entry in std::fs::read_dir(dir)? {
-            let entry = entry?;
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return Ok(());
+        };
+        for entry in entries {
+            let Ok(entry) = entry else {
+                continue;
+            };
             if self.entries.len() >= 200_000 {
                 return Err(std::io::Error::other("P1 snapshot budget"));
             }
             let p = entry.path();
             let rel = p.strip_prefix(root).map_err(std::io::Error::other)?;
             let Some(rel) = rel.to_str() else {
-                return Err(std::io::Error::other("P1 non-UTF8 path"));
+                continue;
             };
-            let ft = entry.file_type()?;
+            let Ok(ft) = entry.file_type() else {
+                continue;
+            };
             let name = entry.file_name();
-            let name = name
-                .to_str()
-                .ok_or_else(|| std::io::Error::other("P1 path"))?;
+            let Some(name) = name.to_str() else {
+                continue;
+            };
             let blocked = ft.is_symlink()
                 || name.starts_with('.')
                 || ["target", "node_modules", "vendor", "dist", "build"].contains(&name);
@@ -152,7 +151,10 @@ impl JsPathsSnapshot {
                 self.opaque_directories.insert(rel.to_owned());
             }
             if name == "package.json" {
-                let digest = if !blocked && ft.is_file() && entry.metadata()?.len() <= 262_144 {
+                let digest = if !blocked
+                    && ft.is_file()
+                    && entry.metadata().is_ok_and(|m| m.len() <= 262_144)
+                {
                     std::fs::read(&p)
                         .ok()
                         .map(|b| format!("{:x}", Sha256::digest(b)))
@@ -182,7 +184,7 @@ impl JsPathsSnapshot {
                 let bytes = if name == config_name
                     && !blocked
                     && ft.is_file()
-                    && entry.metadata()?.len() <= 262_144
+                    && entry.metadata().is_ok_and(|m| m.len() <= 262_144)
                 {
                     std::fs::read(&p).ok()
                 } else {
@@ -254,7 +256,7 @@ impl JsPathsSnapshot {
             })
             .collect();
         let bytes = bincode::serialize(&(
-            "repository-ambient-closure-v3-main-unicode16",
+            "repository-ambient-tolerant-v4-unicode16",
             &occupancy,
             &dependencies,
             &self.package_hashes,
@@ -263,9 +265,7 @@ impl JsPathsSnapshot {
             &self.covered,
             &self.type_redirects,
             &self.external_modules,
-            &self.external_types,
             &self.links,
-            &self.module_dependencies,
             self.case_insensitive,
             self.complete,
         ))
@@ -273,10 +273,6 @@ impl JsPathsSnapshot {
         let absent = self.absent_inputs.lock().unwrap().len();
         if absent != 0 {
             eprintln!("P1 paths: absent type inputs={absent} (distinct origin/input pairs)");
-        }
-        let declined = self.declined_configs.lock().unwrap().len();
-        if declined != 0 {
-            eprintln!("P1 paths: boundary-declined configs={declined}");
         }
         out.insert(
             "js_paths_occupancy".into(),
@@ -414,7 +410,13 @@ impl JsPathsSnapshot {
         if self.case_collision(&p) {
             return TypeInput::Unsafe;
         }
-        if p.is_empty() || self.covered.contains_key(&p) {
+        if p.is_empty()
+            || self.covered.contains_key(&p)
+            || matches!(
+                self.type_entries.get(&p).or_else(|| self.entries.get(&p)),
+                Some(0 | 1)
+            )
+        {
             TypeInput::Present(p)
         } else if self.first_pass_occupancy(&p).is_some() {
             TypeInput::Unsafe
@@ -550,14 +552,13 @@ impl JsPathsSnapshot {
         roots: Option<&[String]>,
         seen: &mut BTreeSet<String>,
     ) -> bool {
-        self.input_closure_covered(input, roots, seen, true)
+        self.input_closure_covered(input, roots, seen)
     }
     fn input_closure_covered(
         &self,
         input: &str,
         roots: Option<&[String]>,
         seen: &mut BTreeSet<String>,
-        references: bool,
     ) -> bool {
         // Every queued path belongs to the bounded scan inventory. Iteration
         // handles long reference chains and safe cycles without a second cap.
@@ -566,51 +567,13 @@ impl JsPathsSnapshot {
             if !seen.insert(input.clone()) {
                 continue;
             }
-            // Ordinary module resolution also consults package main. Type
-            // directives do not. Probe the selected directory's literal metadata
-            // name so case aliases/opaque metadata are cache-bound refusals.
-            if !references {
-                if self.type_entries.get(&input) == Some(&1)
-                    && self
-                        .first_pass_package(format!("{input}/package.json").trim_start_matches('/'))
-                        .is_err()
-                {
-                    return false;
-                }
-                for (file, bytes) in self
-                    .module_packages
-                    .iter()
-                    .filter(|(file, _)| input.is_empty() || file.starts_with(&format!("{input}/")))
-                {
-                    let Some(value) = bytes
-                        .as_ref()
-                        .and_then(|b| serde_json::from_slice::<serde_json::Value>(b).ok())
-                    else {
-                        return false;
-                    };
-                    if let Some(target) = value
-                        .get("main")
-                        .and_then(serde_json::Value::as_str)
-                        .filter(|s| !s.is_empty())
-                    {
-                        let base = crate::js_paths_syntax::dir(file);
-                        let target_input = self.covered_redirect(base, target);
-                        self.record_input(base, target, &target_input);
-                        match target_input {
-                            TypeInput::Present(p) => pending.push(p),
-                            TypeInput::Absent => {}
-                            TypeInput::Unsafe => return false,
-                        }
-                    }
-                }
-            }
             for (file, redirects) in self
                 .type_redirects
                 .iter()
                 .filter(|(file, _)| input.is_empty() || file.starts_with(&format!("{input}/")))
             {
                 let Some(redirects) = redirects else {
-                    return false;
+                    continue;
                 };
                 for target in redirects {
                     let base = crate::js_paths_syntax::dir(file);
@@ -622,12 +585,6 @@ impl JsPathsSnapshot {
                         TypeInput::Unsafe => return false,
                     }
                 }
-            }
-            // The repository module boundary checks every scanned declaration's
-            // directives separately. A literal .js import can resolve to .d.ts;
-            // do not promote strings in the unused JS implementation to inputs.
-            if !references {
-                continue;
             }
             for (file, references) in self.references.iter().filter(|(file, _)| {
                 file.as_str() == input || input.is_empty() || file.starts_with(&format!("{input}/"))
@@ -666,29 +623,28 @@ impl JsPathsSnapshot {
 }
 
 fn type_redirects(bytes: &[u8]) -> Option<Vec<String>> {
-    fn strings(value: &serde_json::Value, out: &mut Vec<String>) -> Option<()> {
+    fn strings(value: &serde_json::Value, out: &mut Vec<String>) {
         match value {
             serde_json::Value::String(s) if !s.is_empty() => out.push(s.clone()),
             serde_json::Value::Array(a) => {
                 for v in a {
-                    strings(v, out)?;
+                    strings(v, out);
                 }
             }
             serde_json::Value::Object(o) => {
                 for v in o.values() {
-                    strings(v, out)?;
+                    strings(v, out);
                 }
             }
-            _ => return None,
+            _ => {} // Skip this malformed field, retaining valid sibling redirects.
         }
-        Some(())
     }
     let value: serde_json::Value = serde_json::from_slice(bytes).ok()?;
     let object = value.as_object()?;
     let mut out = Vec::new();
     for key in ["types", "typings", "typesVersions"] {
         if let Some(v) = object.get(key) {
-            strings(v, &mut out)?;
+            strings(v, &mut out);
         }
     }
     // P1 supports Node10, whose type-directive lookup ignores exports.
@@ -723,7 +679,7 @@ fn keyword<'a>(s: &'a str, word: &str) -> Option<&'a str> {
     (!rest.starts_with(identifier)).then_some(rest)
 }
 // Return decoded name and remaining input. An unsupported or malformed name
-// barriers the repository rather than establishing declaration absence.
+// is skipped by the tolerant ambient scan.
 pub(super) fn literal(s: &str) -> Option<(String, &str)> {
     let quote = s.chars().next()?;
     if !matches!(quote, '\'' | '"') {
@@ -804,17 +760,17 @@ pub(super) fn literal(s: &str) -> Option<(String, &str)> {
     None
 }
 // Tolerant syntax separates declaration candidates from comments and literals.
-// The Unicode-aware lexical fallback still fences malformed real candidates.
-fn ambient_patterns(source: &str) -> Vec<String> {
+// The Unicode-aware lexical fallback counts unsupported occurrences and skips them.
+fn ambient_patterns(source: &str) -> (Vec<String>, usize) {
     let mut parser = tree_sitter::Parser::new();
     if parser
         .set_language(&tree_sitter_typescript::LANGUAGE_TSX.into())
         .is_err()
     {
-        return vec!["*".into()];
+        return (Vec::new(), 1);
     }
     let Some(tree) = parser.parse(source, None) else {
-        return vec!["*".into()];
+        return (Vec::new(), 1);
     };
     let mut pending = vec![tree.root_node()];
     let mut literals = Vec::new();
@@ -830,6 +786,7 @@ fn ambient_patterns(source: &str) -> Vec<String> {
         }
     }
     let mut patterns = Vec::new();
+    let mut skipped = 0;
     for (start, _) in source.match_indices("declare") {
         if literals.iter().any(|range| range.contains(&start)) {
             continue;
@@ -844,15 +801,11 @@ fn ambient_patterns(source: &str) -> Vec<String> {
             continue;
         };
         match literal(trivia(rest)) {
-            Some((name, _)) => patterns.push(if name.matches('*').count() > 1 {
-                "*".into()
-            } else {
-                name
-            }),
-            None => return vec!["*".into()],
+            Some((name, _)) if name.matches('*').count() <= 1 => patterns.push(name),
+            _ => skipped += 1,
         }
     }
-    patterns
+    (patterns, skipped)
 }
 fn triple_references(source: &str) -> Vec<(String, String)> {
     let mut references = Vec::new();
@@ -925,7 +878,7 @@ fn triple_references(source: &str) -> Vec<(String, String)> {
 mod tests {
     use super::*;
     #[test]
-    fn ambient_literals_and_fail_closed_candidates() {
+    fn ambient_literals_and_tolerant_candidates() {
         for (source, expected) in [
             (r#"declare module '\u0040\x6cib' {}"#, "@lib"),
             (r#"declare module '\u{1f600}' {}"#, "😀"),
@@ -939,11 +892,18 @@ mod tests {
             ("declare module /* unterminated", "*"),
             ("declare module 'unterminated", "*"),
         ] {
-            assert_eq!(ambient_patterns(source), [expected], "{source}");
+            let (patterns, skipped) = ambient_patterns(source);
+            if expected == "*" {
+                assert!(patterns.is_empty(), "{source}");
+                assert_eq!(skipped, 1, "{source}");
+            } else {
+                assert_eq!(patterns, [expected], "{source}");
+                assert_eq!(skipped, 0);
+            }
         }
-        assert!(ambient_patterns("const pattern = /[\"']/; const text = `it's multiline`; undeclare module '@lib'; declare moduleFoo '@lib';").is_empty());
+        assert!(ambient_patterns("const pattern = /[\"']/; const text = `it's multiline`; undeclare module '@lib'; declare moduleFoo '@lib';").0.is_empty());
         assert_eq!(
-            ambient_patterns("declare //separator\u{2028}module '@lib' {}"),
+            ambient_patterns("declare //separator\u{2028}module '@lib' {}").0,
             ["@lib"]
         );
     }
@@ -966,11 +926,13 @@ mod tests {
         assert_eq!(s.scan_stats.bytes, SCAN_BYTES);
     }
     #[test]
-    fn unreadable_declaration_scan_disables_repository() {
+    fn unreadable_declaration_scan_skips_file() {
         let d = tempfile::TempDir::new().unwrap();
         std::fs::write(d.path().join("tsconfig.json"), "{}").unwrap();
         std::fs::write(d.path().join("bad.d.ts"), [0xff]).unwrap();
-        assert!(!JsPathsSnapshot::capture(d.path()).complete);
+        let snapshot = JsPathsSnapshot::capture(d.path());
+        assert!(snapshot.complete);
+        assert_eq!(snapshot.scan_stats.skipped["non_utf8_source"], 1);
     }
     #[test]
     fn config_case_collision_is_order_independent_barrier() {

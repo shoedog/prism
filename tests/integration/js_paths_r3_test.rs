@@ -38,7 +38,7 @@ fn expect(root: &Path, ext: &str, implementation: &str, exact: bool) {
 }
 
 #[test]
-fn ancestor_automatic_named_and_referenced_types_keep_base() {
+fn ancestor_automatic_types_do_not_decline_but_explicit_outside_inputs_do() {
     for ext in ["jsx", "tsx"] {
         for arm in ["implicit", "types", "reference", "roots", "empty", "absent"] {
             let d = TempDir::new().unwrap();
@@ -54,7 +54,11 @@ fn ancestor_automatic_named_and_referenced_types_keep_base() {
                 write(
                     d.path(),
                     "node_modules/@types/custom/index.d.ts",
-                    "declare module 'utils/format' { export function real(): number; }",
+                    if arm == "implicit" {
+                        "export interface Empty {}"
+                    } else {
+                        "declare module 'utils/format' { export function real(): number; }"
+                    },
                 );
             }
             if arm == "reference" {
@@ -64,7 +68,12 @@ fn ancestor_automatic_named_and_referenced_types_keep_base() {
                     "/// <reference types='custom' />\nexport {};",
                 );
             }
-            expect(&root, ext, "tsx", matches!(arm, "empty" | "absent"));
+            expect(
+                &root,
+                ext,
+                "tsx",
+                matches!(arm, "implicit" | "empty" | "absent"),
+            );
         }
     }
 }
@@ -112,7 +121,7 @@ fn uppercase_ambient_reference_files_and_type_package_keep_base() {
 }
 
 #[test]
-fn declaration_module_dependencies_outside_root_keep_base() {
+fn scanned_module_imports_do_not_close_the_repository_boundary() {
     for ext in ["jsx", "tsx"] {
         for implementation in ["jsx", "tsx"] {
             for body in [
@@ -130,13 +139,9 @@ fn declaration_module_dependencies_outside_root_keep_base() {
                     implementation,
                     serde_json::json!({"typeRoots":["types"]}),
                 );
-                write(
-                    d.path(),
-                    "outside/global.d.ts",
-                    "declare module 'utils/format' { export function real(): number; }",
-                );
+                write(d.path(), "outside/global.d.ts", "export interface Value {}");
                 write(&root, "types/local/index.d.ts", body);
-                expect(&root, ext, implementation, false);
+                expect(&root, ext, implementation, !body.starts_with("///"));
                 write(&root, "types/local/index.d.ts", "export interface Empty {}");
                 expect(&root, ext, implementation, true);
                 write(
@@ -152,16 +157,12 @@ fn declaration_module_dependencies_outside_root_keep_base() {
 }
 
 #[test]
-fn absolute_and_external_symlink_module_dependencies_keep_base() {
+fn unrelated_absolute_imports_and_external_links_skip() {
     for ext in ["jsx", "tsx"] {
         let d = TempDir::new().unwrap();
         let root = d.path().join("project");
         setup(&root, ext, "tsx", serde_json::json!({"types":[]}));
-        write(
-            d.path(),
-            "outside/global.d.ts",
-            "declare module 'utils/format' {}",
-        );
+        write(d.path(), "outside/global.d.ts", "export interface Empty {}");
         write(
             &root,
             "types/local.d.ts",
@@ -170,10 +171,10 @@ fn absolute_and_external_symlink_module_dependencies_keep_base() {
                 d.path().join("outside/global").to_str().unwrap()
             ),
         );
-        expect(&root, ext, "tsx", false);
+        expect(&root, ext, "tsx", true);
         std::fs::remove_file(root.join("types/local.d.ts")).unwrap();
         std::os::unix::fs::symlink(d.path().join("outside"), root.join("types/link")).unwrap();
-        expect(&root, ext, "tsx", false);
+        expect(&root, ext, "tsx", true);
     }
 }
 
@@ -181,8 +182,18 @@ fn absolute_and_external_symlink_module_dependencies_keep_base() {
 fn installed_bin_and_internal_workspace_links_recover() {
     for ext in ["jsx", "tsx"] {
         let d = TempDir::new().unwrap();
-        setup(d.path(), ext, "tsx", serde_json::json!({}));
+        setup(
+            d.path(),
+            ext,
+            "tsx",
+            serde_json::json!({"types":["./node_modules/workspace"]}),
+        );
         write(d.path(), "node_modules/.bin/.keep", "");
+        write(
+            d.path(),
+            "node_modules/.bin/ignored.d.ts",
+            "declare module 'utils/format' {}",
+        );
         std::os::unix::fs::symlink("../missing/bin/tsc", d.path().join("node_modules/.bin/tsc"))
             .unwrap();
         write(
@@ -268,13 +279,13 @@ fn absent_scheme_module_is_not_an_absolute_boundary() {
                 "types/local.d.ts",
                 &format!("import {name:?}; export interface Empty {{}}"),
             );
-            expect(d.path(), ext, "tsx", false);
+            expect(d.path(), ext, "tsx", true);
         }
     }
 }
 
 #[test]
-fn declaration_import_package_redirects_cannot_leave_root() {
+fn unrelated_import_package_redirects_do_not_decline() {
     for ext in ["jsx", "tsx"] {
         for (name, field) in [
             ("./local", "types"),
@@ -316,12 +327,8 @@ fn declaration_import_package_redirects_cannot_leave_root() {
                 format!("{package}/package.json").trim_start_matches('/'),
                 &serde_json::json!({field:escapes}).to_string(),
             );
-            write(
-                d.path(),
-                "outside/global.d.ts",
-                "declare module 'utils/format' { export function real(): number; }",
-            );
-            expect(&root, ext, "tsx", false);
+            write(d.path(), "outside/global.d.ts", "export interface Empty {}");
+            expect(&root, ext, "tsx", true);
             write(
                 &root,
                 format!("{package}/package.json").trim_start_matches('/'),
@@ -342,7 +349,7 @@ fn declaration_import_package_redirects_cannot_leave_root() {
                     root.join(format!("{package}/PACKAGE.JSON").trim_start_matches('/')),
                 )
                 .unwrap();
-                expect(&root, ext, "tsx", false);
+                expect(&root, ext, "tsx", true);
             }
         }
     }
@@ -440,6 +447,121 @@ fn first_pass_physical_unicode_alias_keeps_base() {
             expect(d.path(), ext, "jsx", false);
             std::fs::remove_file(d.path().join("node_modules/cafe\u{301}.d.ts")).unwrap();
             expect(d.path(), ext, "jsx", true);
+        }
+    }
+}
+
+#[test]
+fn accepted_cost_outside_ambient_shadowing_can_still_produce_wrong_exact() {
+    // SPEC §0: ambient declarations found only outside this repository, including
+    // through unscanned transitive imports, are the owner's disclosed accepted cost.
+    // The current Exact below is intentionally asserted, not closed by a new fence.
+    for ext in ["jsx", "tsx"] {
+        for shape in ["ancestor", "transitive"] {
+            let d = TempDir::new().unwrap();
+            let root = d.path().join("project");
+            setup(&root, ext, "tsx", serde_json::json!({}));
+            write(
+                d.path(),
+                "node_modules/@types/custom/index.d.ts",
+                "declare module 'utils/format' { export function real(): number; }",
+            );
+            if shape == "transitive" {
+                write(
+                    &root,
+                    "types/local.d.ts",
+                    "import '../../node_modules/@types/custom'; export interface Empty {}",
+                );
+            }
+            expect(&root, ext, "tsx", true);
+        }
+    }
+}
+
+#[test]
+fn installed_odd_files_skip_without_declining_in_both_grammars() {
+    use std::os::unix::fs::{symlink, PermissionsExt};
+    for ext in ["jsx", "tsx"] {
+        for arm in [
+            "bin",
+            "executable",
+            "json",
+            "workspace",
+            "outside",
+            "unread",
+            "unparseable",
+            "main",
+        ] {
+            let d = TempDir::new().unwrap();
+            let root = d.path().join("project");
+            setup(&root, ext, "tsx", serde_json::json!({"types":[]}));
+            match arm {
+                "bin" => {
+                    write(&root, "node_modules/.bin/.keep", "");
+                    symlink("../missing/tool", root.join("node_modules/.bin/tool")).unwrap();
+                }
+                "executable" => {
+                    write(
+                        &root,
+                        "node_modules/pkg/bin/tool",
+                        "#!/usr/bin/env node\ndeclare module 'utils/format' {}",
+                    );
+                    std::fs::set_permissions(
+                        root.join("node_modules/pkg/bin/tool"),
+                        std::fs::Permissions::from_mode(0o755),
+                    )
+                    .unwrap();
+                }
+                "json" => write(
+                    &root,
+                    "node_modules/pkg/constants.json",
+                    r#"{"text":"declare module 'utils/format' {}"}"#,
+                ),
+                "workspace" => {
+                    write(
+                        &root,
+                        "packages/workspace/index.d.ts",
+                        "export interface Empty {}",
+                    );
+                    std::fs::create_dir_all(root.join("node_modules")).unwrap();
+                    symlink("../packages/workspace", root.join("node_modules/workspace")).unwrap();
+                }
+                "outside" => {
+                    write(d.path(), "outside.d.ts", "export interface Empty {}");
+                    symlink(d.path().join("outside.d.ts"), root.join("link.d.ts")).unwrap();
+                }
+                "unread" => {
+                    std::fs::create_dir_all(root.join("node_modules/pkg")).unwrap();
+                    std::fs::write(root.join("node_modules/pkg/bad.d.ts"), [0xff]).unwrap();
+                }
+                "unparseable" => write(
+                    &root,
+                    "node_modules/pkg/bad.d.ts",
+                    r#"declare module '\xZZ' {}"#,
+                ),
+                "main" => {
+                    write(&root, "types/local.d.ts", "import 'terser';");
+                    write(
+                        &root,
+                        "node_modules/terser/package.json",
+                        r#"{"main":"bin/terser"}"#,
+                    );
+                    write(
+                        &root,
+                        "node_modules/terser/bin/terser",
+                        "#!/usr/bin/env node",
+                    );
+                }
+                _ => unreachable!(),
+            }
+            expect(&root, ext, "tsx", true);
+            // A skipped file cannot suppress a different, valid matching declaration.
+            write(
+                &root,
+                "node_modules/guard/ambient.D.TS",
+                "declare module 'utils/format' {}",
+            );
+            expect(&root, ext, "tsx", false);
         }
     }
 }

@@ -246,7 +246,9 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
         NavQuery::CallStats { repo, dump_sites } => {
             let session = prism::api::nav_session(repo, &nav_options)?;
             if *dump_sites {
-                for site in prism::navigation::queries::call_site_dump(session.index.call_graph()) {
+                for site in
+                    prism::navigation::queries::call_site_dump_iter(session.index.call_graph())
+                {
                     println!("{}", serde_json::to_string(&site)?);
                 }
             } else {

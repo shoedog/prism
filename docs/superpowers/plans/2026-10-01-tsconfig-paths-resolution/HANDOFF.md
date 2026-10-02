@@ -1,4 +1,6 @@
-> Current r3 is **PARKED / NOT SHIPPABLE**. [REPAIR-R3-HANDOFF.md](REPAIR-R3-HANDOFF.md) supersedes the operational state below. The r2d facts and controller commands are historical; their binaries and wrapper defaults do not certify r3. Do not execute the historical acceptance flow for the parked patch.
+> **Current r4: owner-authorized accepted-risk repair; all requested local gates PASS.** SPEC §0 (2026-10-02) supersedes r3 boundary closure. See [REPAIR-R4-RESULTS.md](REPAIR-R4-RESULTS.md), [REPAIR-R4-HANDOFF.md](REPAIR-R4-HANDOFF.md) and [REPAIR-R4-FILES.md](REPAIR-R4-FILES.md). Final binary SHA-256 `79b00a7c85938f7aafdae22bbb2321a47e1d67c307fbe5c8814a67a1b05b34f6`; cache **105/61**. Extra paired quick has identical SUT outputs but an invalid oracle baseline. Earlier r3/r2 claims below are historical. No Git writes or F access.
+
+> Historical r3 was **PARKED / NOT SHIPPABLE**. [REPAIR-R3-HANDOFF.md](REPAIR-R3-HANDOFF.md) supersedes the operational state below. The r2d facts and controller commands are historical; their binaries and wrapper defaults do not certify r3. Do not execute the historical acceptance flow for the parked patch.
 
 # Historical handoff — Lane P P1 r2d local repair complete; controller acceptance pending
 

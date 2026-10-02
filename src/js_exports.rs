@@ -201,8 +201,18 @@ pub fn resolve_js_exports(
     raw: &BTreeMap<String, JsExportFacts>,
     resolve_module: &dyn Fn(&str, &str) -> Option<String>,
 ) -> JsExportResolution {
+    resolve_js_exports_for(raw, resolve_module, raw.keys())
+}
+
+// Alias consumers query only admitted root modules. Keep the complete raw map
+// for the same dependency traversal, conflicts and unresolved-star proofs.
+pub(crate) fn resolve_js_exports_for<'a>(
+    raw: &BTreeMap<String, JsExportFacts>,
+    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
+    roots: impl IntoIterator<Item = &'a String>,
+) -> JsExportResolution {
     let mut out = JsExportResolution::default();
-    for file in raw.keys() {
+    for file in roots {
         let mut visited_files = BTreeSet::new();
         let names =
             collect_candidate_names(raw, resolve_module, file, 0, &mut visited_files, &mut out);

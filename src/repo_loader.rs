@@ -266,6 +266,7 @@ fn scope_graph_build_inputs_from_snapshot(
 #[cfg(test)]
 mod paths_projection_tests {
     use super::*;
+    use crate::call_graph::CallGraph;
 
     #[test]
     fn primes_alias_export_closure_without_unrelated_exports() {
@@ -285,18 +286,44 @@ mod paths_projection_tests {
             ),
             ("lib/leaf.ts", "export {real} from './last';"),
             ("lib/last.ts", "export function real(){return 1;}"),
-            ("unrelated/barrel.ts", "export * from './missing';"),
+            (
+                "unrelated/barrel.ts",
+                "export function untouched() {} export * from './missing';",
+            ),
         ] {
             let p = d.path().join(name);
             std::fs::create_dir_all(p.parent().unwrap()).unwrap();
             std::fs::write(p, text).unwrap();
         }
         let loaded = load_repo(d.path()).unwrap();
-        let snapshot = &loaded.scope_graph_inputs.unwrap().js_paths_snapshot;
+        let snapshot = &loaded
+            .scope_graph_inputs
+            .as_ref()
+            .unwrap()
+            .js_paths_snapshot;
         assert!(snapshot.was_probed("lib/leaf.ts"));
         assert!(snapshot.was_probed("lib/last.ts"));
         assert!(snapshot.was_probed("lib/missing.ts"));
         assert!(!snapshot.was_probed("unrelated/missing.ts"));
+        let graph = CallGraph::build_with_scope_graph_inputs(
+            &loaded.files,
+            loaded.scope_graph_inputs.as_ref(),
+        );
+        let projection = &graph.js_ts_path_exports[&false];
+        assert_eq!(
+            projection.keys().map(String::as_str).collect::<Vec<_>>(),
+            ["lib/barrel.ts"]
+        );
+        assert_eq!(projection["lib/barrel.ts"]["real"].file, "lib/last.ts");
+        // The explicit named route does not depend on the missing sibling star.
+        assert!(!projection["lib/barrel.ts"]["real"].via_unresolved_star);
+        assert_eq!(
+            projection["lib/barrel.ts"],
+            graph.js_ts_resolved_exports["lib/barrel.ts"]
+        );
+        assert!(graph
+            .js_ts_resolved_exports
+            .contains_key("unrelated/barrel.ts"));
     }
 }
 

@@ -164,7 +164,7 @@ fn transitive_absent_and_redirect_inputs() {
                 "node_modules/local/client.d.ts",
                 "/// <reference path='./unread.txt' />",
             );
-            expect(&d, ext, false);
+            expect(&d, ext, true); // non-source type input is a disclosed scan skip
         }
     }
 }
@@ -190,6 +190,20 @@ fn custom_roots_miss_uses_secondary_package_lookup() {
                     &serde_json::json!({"types":external.path().join("outside.d.ts")}).to_string(),
                 );
                 expect(&d, ext, false);
+                // A malformed sibling field must not erase a valid selected
+                // type redirect. This keeps r2c's explicit outside-input fence.
+                for malformed in [serde_json::Value::Null, serde_json::json!(123)] {
+                    write(
+                        d.path(),
+                        "node_modules/local/package.json",
+                        &serde_json::json!({
+                            "types":external.path().join("outside.d.ts"),
+                            "typesVersions":malformed,
+                        })
+                        .to_string(),
+                    );
+                    expect(&d, ext, false);
+                }
             }
         }
     }

@@ -95,7 +95,7 @@ fn uncovered_config_type_inputs() {
                     } else {
                         write(d.path(), "tsconfig.json", &cfg.to_string());
                     }
-                    expect(&d, ext, input == "./missing");
+                    expect(&d, ext, matches!(input, "./missing" | "./unread.txt"));
                 }
             }
         }
@@ -163,7 +163,7 @@ fn uncovered_triple_reference_inputs() {
                 expect(
                     &d,
                     ext,
-                    input == "./missing.d.ts" || input == "missing-package",
+                    matches!(input, "./missing.d.ts" | "missing-package" | "./unread.txt"),
                 );
             }
         }
@@ -366,7 +366,7 @@ fn type_package_redirects_must_reach_scanned_inputs() {
 }
 
 #[test]
-fn opaque_type_metadata_declines() {
+fn opaque_type_metadata_is_skipped() {
     for ext in ["jsx", "tsx"] {
         for raw in [
             "{".to_owned(),
@@ -387,7 +387,7 @@ fn opaque_type_metadata_declines() {
             .unwrap();
             cfg["compilerOptions"]["types"] = serde_json::json!(["local"]);
             write(d.path(), "tsconfig.json", &cfg.to_string());
-            expect(&d, ext, raw == r#"{"types":"./missing.d.ts"}"#);
+            expect(&d, ext, true);
         }
     }
 }

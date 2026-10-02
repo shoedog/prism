@@ -1,4 +1,4 @@
-//! Repository closure. In-root links are scanned once; external inputs decline.
+//! Tolerant repository ambient scan; direct external type inputs still decline.
 use super::*;
 
 // Read-only volume probe: compare a known entry with an alternate ASCII case.
@@ -63,6 +63,9 @@ fn excluded(path: &Path, case_insensitive: bool) -> bool {
 }
 
 impl JsPathsSnapshot {
+    fn skip(&mut self, reason: &str) {
+        *self.scan_stats.skipped.entry(reason.into()).or_default() += 1;
+    }
     pub(super) fn scan(
         &mut self,
         root: &Path,
@@ -71,23 +74,34 @@ impl JsPathsSnapshot {
     ) -> std::io::Result<()> {
         let mut pending = vec![directory.to_path_buf()];
         let mut seen = BTreeSet::new();
-        let mut parser = tree_sitter::Parser::new();
-        parser
-            .set_language(&tree_sitter_typescript::LANGUAGE_TSX.into())
-            .map_err(std::io::Error::other)?;
         while let Some(mut path) = pending.pop() {
             let relative = path.strip_prefix(root).map_err(std::io::Error::other)?;
             if excluded(relative, self.case_insensitive) {
+                self.skip("excluded");
                 continue;
             }
-            let mut rel = relative
-                .to_str()
-                .ok_or_else(|| std::io::Error::other("P1 ambient non-UTF8 path"))?
-                .to_owned();
-            let mut metadata = std::fs::symlink_metadata(&path)?;
+            let Some(relative) = relative.to_str() else {
+                self.skip("non_utf8_path");
+                continue;
+            };
+            let mut rel = relative.to_owned();
+            let Ok(mut metadata) = std::fs::symlink_metadata(&path) else {
+                self.skip("unreadable");
+                continue;
+            };
             if metadata.is_symlink() {
                 self.type_entries.insert(rel.clone(), 2);
-                let target = path.canonicalize().ok().filter(|p| p.starts_with(root));
+                let target = match path.canonicalize() {
+                    Ok(target) if target.starts_with(root) => Some(target),
+                    Ok(_) => {
+                        self.skip("outside_root_symlink");
+                        None
+                    }
+                    Err(_) => {
+                        self.skip("unreadable");
+                        None
+                    }
+                };
                 self.links.insert(
                     rel.clone(),
                     target
@@ -101,55 +115,69 @@ impl JsPathsSnapshot {
                     target.strip_prefix(root).map_err(std::io::Error::other)?,
                     self.case_insensitive,
                 ) {
+                    self.skip("excluded");
                     continue;
                 }
                 path = target;
-                rel = path
-                    .strip_prefix(root)
-                    .map_err(std::io::Error::other)?
-                    .to_str()
-                    .ok_or_else(|| std::io::Error::other("P1 ambient non-UTF8 target"))?
-                    .to_owned();
-                metadata = std::fs::symlink_metadata(&path)?;
+                let Some(target_rel) = path.strip_prefix(root).ok().and_then(Path::to_str) else {
+                    self.skip("non_utf8_path");
+                    continue;
+                };
+                rel = target_rel.to_owned();
+                let Ok(target_metadata) = std::fs::symlink_metadata(&path) else {
+                    self.skip("unreadable");
+                    continue;
+                };
+                metadata = target_metadata;
             }
-            // Physical paths are canonical after link resolution; repeated links
-            // and directory cycles contribute neither duplicate reads nor bytes.
+            // Canonical paths dedupe links and cycles without duplicate reads.
             if !seen.insert(path.clone()) {
                 continue;
             }
             self.scan_stats.entries += 1;
-            self.type_entries.insert(
-                rel.clone(),
-                if metadata.is_dir() {
-                    1
-                } else if metadata.is_file() {
-                    0
-                } else {
-                    2
-                },
-            );
+            let kind = if metadata.is_dir() {
+                1
+            } else if metadata.is_file() {
+                0
+            } else {
+                2
+            };
+            // The indexing inventory already owns most source/directory paths.
+            if self.entries.get(&rel) != Some(&kind) {
+                self.type_entries.insert(rel.clone(), kind);
+            }
             if metadata.is_dir() {
-                for entry in std::fs::read_dir(&path)? {
-                    pending.push(entry?.path());
+                let Ok(entries) = std::fs::read_dir(&path) else {
+                    self.skip("unreadable");
+                    continue;
+                };
+                for entry in entries {
+                    match entry {
+                        Ok(entry) => pending.push(entry.path()),
+                        Err(_) => self.skip("unreadable"),
+                    }
                 }
                 self.covered.insert(rel, 1);
                 continue;
             }
             if path.file_name().is_some_and(|n| n == "package.json") {
                 use std::io::Read;
-                let bytes = if metadata.is_file() && self.type_metadata_bytes < SCAN_BYTES {
+                let bytes = if metadata.is_file() {
                     std::fs::File::open(&path).ok().and_then(|f| {
                         let mut bytes = Vec::new();
                         f.take(262_145).read_to_end(&mut bytes).ok()?;
-                        (bytes.len() <= 262_144
-                            && self.type_metadata_bytes + bytes.len() as u64 <= SCAN_BYTES)
-                            .then_some(bytes)
+                        (bytes.len() <= 262_144).then_some(bytes)
                     })
                 } else {
                     None
                 };
                 if let Some(bytes) = &bytes {
                     self.type_metadata_bytes += bytes.len() as u64;
+                    if self.type_metadata_bytes > SCAN_BYTES {
+                        return Err(std::io::Error::other("P1 ambient scan byte budget"));
+                    }
+                } else {
+                    self.skip("unreadable");
                 }
                 self.package_hashes.insert(
                     format!("type-package:{rel}"),
@@ -165,29 +193,31 @@ impl JsPathsSnapshot {
                 self.module_packages.insert(rel.clone(), bytes);
             }
             let lower = rel.to_ascii_lowercase();
-            let ts = [".ts", ".tsx", ".mts", ".cts"]
+            let source_file = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"]
                 .iter()
                 .any(|e| lower.ends_with(e));
-            // Keep existing JavaScript triple-reference coverage, but declaration
-            // parsing and the normative source byte budget concern TS-family files.
-            let js = [".js", ".jsx", ".mjs", ".cjs"]
-                .iter()
-                .any(|e| lower.ends_with(e));
-            if !ts && !js {
+            if !source_file {
+                self.skip("non_source");
                 continue;
             }
             if !metadata.is_file() {
-                return Err(std::io::Error::other("P1 ambient scan non-regular source"));
+                self.skip("non_regular_source");
+                continue;
             }
+            // File occupancy classifies direct inputs; scan hashes bind read
+            // dependencies. Only traversed directories need coverage records.
             let remaining = SCAN_BYTES.saturating_sub(self.scan_stats.bytes);
             if metadata.len() > remaining {
                 return Err(std::io::Error::other("P1 ambient scan byte budget"));
             }
             use std::io::Read;
             let mut bytes = Vec::new();
-            std::fs::File::open(&path)?
-                .take(remaining + 1)
-                .read_to_end(&mut bytes)?;
+            let read = std::fs::File::open(&path)
+                .and_then(|f| f.take(remaining + 1).read_to_end(&mut bytes));
+            if read.is_err() {
+                self.skip("unreadable");
+                continue;
+            }
             if bytes.len() as u64 > remaining {
                 return Err(std::io::Error::other("P1 ambient scan byte budget"));
             }
@@ -197,39 +227,45 @@ impl JsPathsSnapshot {
                 self.scan_stats.types_files += 1;
                 self.scan_stats.types_bytes += bytes.len() as u64;
             }
-            let source = std::str::from_utf8(&bytes)
-                .map_err(|_| std::io::Error::other("P1 ambient scan non-UTF8 source"))?;
-            let declares = ts && bytes.windows(7).any(|w| w == b"declare");
-            let patterns = if declares {
+            let Ok(source) = std::str::from_utf8(&bytes) else {
+                self.skip("non_utf8_source");
+                self.package_hashes
+                    .insert(format!("scan:{rel}"), "non_utf8".into());
+                continue;
+            };
+            let declares = bytes.windows(7).any(|w| w == b"declare");
+            let (patterns, unparseable) = if declares {
                 super::ambient_patterns(source)
             } else {
-                Vec::new()
+                (Vec::new(), 0)
             };
+            if unparseable != 0 {
+                *self
+                    .scan_stats
+                    .skipped
+                    .entry("unparseable_declare_module".into())
+                    .or_default() += unparseable;
+            }
             let references = super::triple_references(source);
-            let declaration = ts
-                && (declares
-                    || [".d.ts", ".d.mts", ".d.cts"]
-                        .iter()
-                        .any(|e| lower.ends_with(e)));
-            let dependencies = declaration.then(|| module_dependencies(&mut parser, source));
-            self.scan_stats.declaration_files += usize::from(declaration);
-            self.covered.insert(rel.clone(), 0);
-            self.package_hashes.insert(
-                format!("scan:{rel}"),
-                if declaration || !references.is_empty() {
-                    format!("{:x}", Sha256::digest(&bytes))
-                } else {
-                    "regular".into()
-                },
-            );
+            self.scan_stats.declaration_files += usize::from(declares);
+            // Indexed source occupancy already binds addition/removal; the
+            // loader hashes its bytes. Keep extra read receipts for sources in
+            // skipped directories and all declaration/reference content.
+            if declares || !references.is_empty() || self.entries.get(&rel) != Some(&0) {
+                self.package_hashes.insert(
+                    format!("scan:{rel}"),
+                    if declares || !references.is_empty() {
+                        format!("{:x}", Sha256::digest(&bytes))
+                    } else {
+                        "regular".into()
+                    },
+                );
+            }
             if !patterns.is_empty() {
                 self.ambient.insert(rel.clone(), patterns);
             }
             if !references.is_empty() {
-                self.references.insert(rel.clone(), references);
-            }
-            if let Some(dependencies) = dependencies {
-                self.module_dependencies.insert(rel, dependencies);
+                self.references.insert(rel, references);
             }
         }
         Ok(())
@@ -240,8 +276,12 @@ impl JsPathsSnapshot {
             return;
         }
         for path in self.entries.keys().chain(self.type_entries.keys()) {
+            let folded = fold(path);
+            if folded == *path {
+                continue;
+            }
             self.folded_entries
-                .entry(fold(path))
+                .entry(folded)
                 .and_modify(|prior| {
                     if prior.as_deref() != Some(path) {
                         *prior = None;
@@ -261,10 +301,13 @@ impl JsPathsSnapshot {
                 prefix.push('/');
             }
             prefix.push_str(part);
-            if self
-                .folded_entries
-                .get(&fold(&prefix))
-                .is_some_and(|p| p.as_deref() != Some(prefix.as_str()))
+            let folded = fold(&prefix);
+            if (folded != prefix
+                && (self.entries.contains_key(&folded) || self.type_entries.contains_key(&folded)))
+                || self
+                    .folded_entries
+                    .get(&folded)
+                    .is_some_and(|p| p.as_deref() != Some(prefix.as_str()))
             {
                 return true;
             }
@@ -307,161 +350,6 @@ impl JsPathsSnapshot {
                     })
         })
     }
-    pub(crate) fn boundary_closed(&self, config: &str, explicit_types: bool) -> bool {
-        let reason = if !explicit_types && self.external_types.values().any(|k| *k != 0) {
-            Some("ancestor @types above repository root".to_owned())
-        } else {
-            self.boundary_failure
-                .get_or_init(|| self.global_boundary_failure())
-                .clone()
-        };
-        if let Some(reason) = reason {
-            if self.declined_configs.lock().unwrap().insert(config.into()) {
-                eprintln!("warning: P1 paths config declined: {config}: {reason}");
-            }
-            return false;
-        }
-        true
-    }
-    fn global_boundary_failure(&self) -> Option<String> {
-        if let Some((link, _)) = self.links.iter().find(|(_, target)| target.is_none()) {
-            Some(format!("outside-root symlink {link}"))
-        } else {
-            self.module_dependencies
-                .iter()
-                .find_map(|(file, dependencies)| {
-                    let Some(dependencies) = dependencies else {
-                        return Some(format!("unread module dependency in {file}"));
-                    };
-                    for name in dependencies {
-                        if !self.module_dependency_inside(file, name) {
-                            return Some(format!(
-                                "outside-root module dependency {name:?} from {file}"
-                            ));
-                        }
-                    }
-                    // Declaration directives are boundaries regardless of includes.
-                    if self.references.get(file).is_some_and(|refs| {
-                        refs.iter().any(|(kind, name)| {
-                            !self.reference_covered(
-                                crate::js_paths_syntax::dir(file),
-                                kind,
-                                name,
-                                None,
-                            )
-                        })
-                    }) {
-                        return Some(format!("outside-root declaration reference from {file}"));
-                    }
-                    None
-                })
-        }
-    }
-    fn module_dependency_inside(&self, file: &str, name: &str) -> bool {
-        // A bare module can contain a colon (node:fs, bun:test). Only a drive
-        // prefix or a rooted/backslash path denotes an external absolute input.
-        let drive = name.as_bytes().get(1) == Some(&b':')
-            && name.as_bytes().first().is_some_and(u8::is_ascii_alphabetic);
-        if name.starts_with('/') || name.contains('\\') || drive {
-            return false;
-        }
-        if name.starts_with('.') {
-            let Some(path) = self.input_path(crate::js_paths_syntax::dir(file), name) else {
-                return false;
-            };
-            let Some(path) = self.link_target(&path) else {
-                return false;
-            };
-            return self.boundary_input_covered(&path);
-        }
-        if self
-            .ambient
-            .values()
-            .flatten()
-            .any(|p| match p.split_once('*') {
-                Some((pre, post)) => name.starts_with(pre) && name.ends_with(post),
-                None => p == name,
-            })
-        {
-            return true;
-        }
-        // An existing in-root package cannot leave the capture except through a
-        // retained link or a package redirect, both checked explicitly here.
-        let mut parts = name.split('/');
-        let first = parts.next().unwrap_or_default();
-        let package = if name.starts_with('@') {
-            format!("{first}/{}", parts.next().unwrap_or_default())
-        } else {
-            first.into()
-        };
-        let mut directory = crate::js_paths_syntax::dir(file);
-        loop {
-            let base = if directory.is_empty() {
-                "node_modules".into()
-            } else {
-                format!("{directory}/node_modules")
-            };
-            let path = format!("{base}/{package}");
-            let Some(path) = self.link_target(&path) else {
-                return false;
-            };
-            if self.type_entries.contains_key(&path) {
-                return self.boundary_input_covered(&path);
-            }
-            if directory.is_empty() {
-                break;
-            }
-            directory = crate::js_paths_syntax::dir(directory);
-        }
-        let mangled = name.strip_prefix('@').map(|s| s.replacen('/', "__", 1));
-        self.external_type_absent(name, mangled.as_deref().unwrap_or(name))
-    }
-    fn boundary_input_covered(&self, path: &str) -> bool {
-        let mut inputs = self.boundary_inputs.lock().unwrap();
-        *inputs
-            .entry(path.into())
-            .or_insert_with(|| self.input_closure_covered(path, None, &mut BTreeSet::new(), false))
-    }
-}
-
-// The TSX grammar tolerates declaration/source syntax; ambient matching itself
-// remains the Unicode-aware over-approximation in the parent module. Comments
-// and string contents are not module dependencies.
-fn module_dependencies(parser: &mut tree_sitter::Parser, source: &str) -> Option<Vec<String>> {
-    let tree = parser.parse(source, None)?;
-    let mut pending = vec![tree.root_node()];
-    let mut dependencies = BTreeSet::new();
-    while let Some(node) = pending.pop() {
-        let candidate = match node.kind() {
-            "import_statement" | "export_statement" | "import_require_clause" => {
-                node.child_by_field_name("source")
-            }
-            "call_expression" => {
-                let name = node
-                    .child_by_field_name("function")?
-                    .utf8_text(source.as_bytes())
-                    .ok()?;
-                if ["import", "require"].contains(&name) {
-                    let arguments = node.child_by_field_name("arguments")?;
-                    let mut cursor = arguments.walk();
-                    let argument = arguments
-                        .named_children(&mut cursor)
-                        .find(|c| c.kind() != "comment");
-                    argument
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        };
-        if let Some(candidate) = candidate {
-            let text = candidate.utf8_text(source.as_bytes()).ok()?;
-            dependencies.insert(super::literal(text)?.0);
-        }
-        let mut cursor = node.walk();
-        pending.extend(node.named_children(&mut cursor));
-    }
-    Some(dependencies.into_iter().collect())
 }
 
 #[cfg(test)]
@@ -497,6 +385,35 @@ mod tests {
         assert_eq!(s.kind("src/ς.ts"), None);
     }
     #[test]
+    fn compact_inventory_reuses_lowercase_paths_and_preserves_collisions() {
+        let d = tempfile::TempDir::new().unwrap();
+        std::fs::write(d.path().join("tsconfig.json"), "{}").unwrap();
+        std::fs::write(d.path().join("lower.ts"), "export {};").unwrap();
+        let s = JsPathsSnapshot::capture(d.path());
+        assert!(!s.type_entries.contains_key("lower.ts"));
+        assert!(!s.covered.contains_key("lower.ts"));
+        assert!(!s.package_hashes.contains_key("scan:lower.ts"));
+        let mut s = JsPathsSnapshot {
+            case_insensitive: true,
+            ..JsPathsSnapshot::default()
+        };
+        s.entries.insert("src".into(), 1);
+        s.entries.insert("src/lower.ts".into(), 0);
+        s.type_entries.insert("node_modules".into(), 1);
+        s.type_entries.insert("node_modules/lower.ts".into(), 0);
+        s.finish_case_inventory();
+        assert!(s.folded_entries.is_empty());
+        for path in ["src/LOWER.ts", "SRC/absent.ts", "node_modules/LOWER.ts"] {
+            assert!(s.case_collision(path), "{path}");
+        }
+        assert!(!s.case_collision("src/lower.ts"));
+        assert!(!s.case_collision("src/absent.ts"));
+        s.entries.insert("src/Lower.ts".into(), 0);
+        s.finish_case_inventory();
+        assert!(s.case_collision("src/lower.ts"));
+        assert!(s.case_collision("src/Lower.ts"));
+    }
+    #[test]
     fn only_bin_and_git_are_excluded() {
         for p in [".git/a.ts", "nested/.git/a.ts", "node_modules/.bin/a.ts"] {
             assert!(excluded(Path::new(p), false));
@@ -522,39 +439,6 @@ mod tests {
         assert_eq!(s.ambient["a.ts"], ["test"]);
     }
     #[test]
-    fn dependency_forms_and_literal_content() {
-        let mut p = tree_sitter::Parser::new();
-        p.set_language(&tree_sitter_typescript::LANGUAGE_TSX.into())
-            .unwrap();
-        for source in [
-            "import '/outside';",
-            "export * from '/outside';",
-            "export type T=import('/outside').T;",
-            "import T = require('/outside');",
-            "declare const t: typeof import('/outside');",
-            "declare const t: any; require('/outside');",
-            "import\u{feff}'/outside';",
-            "export\u{feff}*\u{feff}from\u{feff}'/outside';",
-        ] {
-            assert_eq!(
-                module_dependencies(&mut p, source),
-                Some(vec!["/outside".into()]),
-                "{source}"
-            );
-        }
-        assert_eq!(
-            module_dependencies(&mut p, "declare const t: any; import(variable);"),
-            None
-        );
-        assert_eq!(
-            module_dependencies(
-                &mut p,
-                "// import '/outside';\nconst text=\"require('/outside')\";"
-            ),
-            Some(vec![])
-        );
-    }
-    #[test]
     #[cfg(unix)]
     fn linked_source_is_scanned_and_counted_once() {
         let d = tempfile::TempDir::new().unwrap();
@@ -571,6 +455,92 @@ mod tests {
         assert_eq!(s.ambient.len(), 1);
         assert_eq!(s.links.len(), 2);
     }
+    #[test]
+    fn tolerant_scan_counts_each_skip_arm_and_retains_valid_patterns() {
+        let d = tempfile::TempDir::new().unwrap();
+        let root = d.path().join("project");
+        std::fs::create_dir_all(root.join("node_modules/.bin")).unwrap();
+        std::fs::create_dir_all(root.join(".git")).unwrap();
+        std::fs::write(root.join("tsconfig.json"), "{}").unwrap();
+        std::fs::write(root.join("tool"), "declare module 'ignored' {}").unwrap();
+        std::fs::write(root.join("constants.json"), "{}").unwrap();
+        std::fs::write(root.join("bad.d.ts"), [0xff]).unwrap();
+        std::fs::write(
+            root.join("malformed.d.ts"),
+            "declare module '\\xZZ' {}\ndeclare module 'kept' {}",
+        )
+        .unwrap();
+        std::fs::write(d.path().join("outside.d.ts"), "declare module 'ignored' {}").unwrap();
+        std::os::unix::fs::symlink(d.path().join("outside.d.ts"), root.join("outside.d.ts"))
+            .unwrap();
+        std::os::unix::fs::symlink("missing", root.join("missing.d.ts")).unwrap();
+        let s = JsPathsSnapshot::capture(&root);
+        assert!(s.complete);
+        assert_eq!(
+            s.scan_stats.skipped,
+            BTreeMap::from([
+                ("excluded".into(), 2),
+                ("non_source".into(), 3),
+                ("outside_root_symlink".into(), 1),
+                ("unreadable".into(), 1),
+                ("non_utf8_source".into(), 1),
+                ("unparseable_declare_module".into(), 1),
+            ])
+        );
+        assert_eq!(s.ambient["malformed.d.ts"], ["kept"]);
+        let mut missing = JsPathsSnapshot::default();
+        missing.scan(&root, &root.join("no-file.ts"), 0).unwrap();
+        assert_eq!(missing.scan_stats.skipped["unreadable"], 1);
+    }
+
+    #[test]
+    fn unreadable_source_and_directory_skip() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = tempfile::TempDir::new().unwrap();
+        let file = d.path().join("unread.ts");
+        let dir = d.path().join("unread");
+        std::fs::write(&file, "declare module 'ignored' {}").unwrap();
+        std::fs::create_dir(&dir).unwrap();
+        for path in [&file, &dir] {
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o0)).unwrap();
+        }
+        let mut s = JsPathsSnapshot::default();
+        let result = s.scan(d.path(), d.path(), 0);
+        let walk_result = s.walk(d.path(), d.path());
+        for path in [&file, &dir] {
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        result.unwrap();
+        walk_result.unwrap();
+        assert_eq!(s.scan_stats.skipped["unreadable"], 2);
+        assert!(s.ambient.is_empty());
+    }
+    #[test]
+    fn non_regular_and_non_utf8_paths_skip() {
+        use std::os::unix::ffi::OsStringExt;
+        let d = tempfile::TempDir::new().unwrap();
+        // A FIFO exercises non-regular source metadata without binding a socket.
+        let output = std::process::Command::new("mkfifo")
+            .arg(d.path().join("pipe.ts"))
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let non_utf8 = d.path().join(std::ffi::OsString::from_vec(vec![0xff]));
+        let mut s = JsPathsSnapshot::default();
+        s.scan(d.path(), d.path(), 0).unwrap();
+        assert_eq!(s.scan_stats.skipped["non_regular_source"], 1);
+        // Reject the spelling before metadata; no filesystem creation is needed.
+        s.scan(d.path(), &non_utf8, 0).unwrap();
+        assert_eq!(s.scan_stats.skipped["non_utf8_path"], 1);
+        assert!(s.ambient.is_empty());
+        // The indexing inventory is tolerant too, before the ambient scan.
+        s.walk(d.path(), d.path()).unwrap();
+    }
+
     #[test]
     fn references_are_leading_line_comments_only() {
         let reference = "///\u{feff}<reference path='/outside.d.ts' />";

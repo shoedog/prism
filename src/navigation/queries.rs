@@ -233,11 +233,17 @@ fn classify_recovery_typepath(cg: &CallGraph, site: &CallSite) -> &'static str {
 
 /// Deterministic JSONL-ready custody records for every raw call-graph site.
 pub fn call_site_dump(cg: &CallGraph) -> Vec<serde_json::Value> {
+    call_site_dump_iter(cg).collect()
+}
+
+/// Build one custody record at a time, keeping large CLI dumps bounded.
+pub fn call_site_dump_iter(cg: &CallGraph) -> impl Iterator<Item = serde_json::Value> + '_ {
     use crate::resolution::ResolutionConfidence;
 
-    let mut records = Vec::new();
-    for sites in cg.calls.values() {
-        for site in sites {
+    cg.calls
+        .values()
+        .flat_map(|sites| sites.iter())
+        .map(move |site| {
             let outcome = cg.resolve_call_site_full(site);
             let resolved_targets: Vec<_> = outcome
                 .resolved
@@ -253,7 +259,7 @@ pub fn call_site_dump(cg: &CallGraph) -> Vec<serde_json::Value> {
                     })
                 })
                 .collect();
-            records.push(serde_json::json!({
+            serde_json::json!({
                 "record_kind": "call_site",
                 "caller": site.caller,
                 "source_span": {
@@ -269,31 +275,29 @@ pub fn call_site_dump(cg: &CallGraph) -> Vec<serde_json::Value> {
                 "exact_target": site.pre_resolved_target,
                 "resolved_targets": resolved_targets,
                 "drop": outcome.drop.map(|drop| format!("{drop:?}")),
-            }));
-        }
-    }
-    records.extend(cg.go_level3_b1_telemetry.sites.iter().map(|site| {
-        serde_json::json!({
-            "record_kind": "go_level3_b1_candidate",
-            "inbound_caller": site.inbound_caller,
-            "inbound_span": {
-                "file": site.inbound_caller.file,
-                "line": site.inbound_line,
-                "start_byte": site.inbound_start_byte,
-                "end_byte": site.inbound_end_byte,
-            },
-            "hof_name": site.hof_name,
-            "slot": site.slot,
-            "argument": site.argument,
-            "hof": site.hof,
-            "exact_target": site.target,
-            "callback_parameter": site.callback_parameter,
-            "invocation_spans": site.invocation_spans,
-            "decision": if site.accepted { "accepted" } else { "dropped" },
-            "drop_reason": site.drop_reason,
+            })
         })
-    }));
-    records
+        .chain(cg.go_level3_b1_telemetry.sites.iter().map(|site| {
+            serde_json::json!({
+                "record_kind": "go_level3_b1_candidate",
+                "inbound_caller": site.inbound_caller,
+                "inbound_span": {
+                    "file": site.inbound_caller.file,
+                    "line": site.inbound_line,
+                    "start_byte": site.inbound_start_byte,
+                    "end_byte": site.inbound_end_byte,
+                },
+                "hof_name": site.hof_name,
+                "slot": site.slot,
+                "argument": site.argument,
+                "hof": site.hof,
+                "exact_target": site.target,
+                "callback_parameter": site.callback_parameter,
+                "invocation_spans": site.invocation_spans,
+                "decision": if site.accepted { "accepted" } else { "dropped" },
+                "drop_reason": site.drop_reason,
+            })
+        }))
 }
 
 pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
@@ -2620,5 +2624,43 @@ fn item_fn(
         fallback: false,
         why: vec![],
         snippet: None,
+    }
+}
+
+#[cfg(test)]
+mod call_site_dump_stream_tests {
+    use super::*;
+    use crate::ast::ParsedFile;
+    use crate::languages::Language;
+
+    #[test]
+    fn empty_and_partial_stream_keep_source_then_callback_custody_order() {
+        let empty = CallGraph::build(&BTreeMap::new());
+        assert_eq!(call_site_dump_iter(&empty).next(), None);
+        let parsed = ParsedFile::parse(
+            "callbacks.go",
+            "package p\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\nfunc accepted() { invoke(safe) }\nfunc dropped() { safe := func() {}; invoke(safe) }\n",
+            Language::Go,
+        ).unwrap();
+        let cg = CallGraph::build(&BTreeMap::from([("callbacks.go".into(), parsed)]));
+        let mut rows = call_site_dump_iter(&cg);
+        let first = rows.next().unwrap();
+        assert_eq!(first["record_kind"], "call_site");
+        assert_eq!(first["caller"]["name"], "accepted");
+        let remaining: Vec<_> = rows.collect();
+        let candidates: Vec<_> = remaining
+            .iter()
+            .filter(|r| r["record_kind"] == "go_level3_b1_candidate")
+            .collect();
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(
+            remaining.last().unwrap()["record_kind"],
+            "go_level3_b1_candidate"
+        );
+        assert!(candidates.iter().any(|r| r["decision"] == "accepted"));
+        assert!(candidates.iter().any(|r| r["decision"] == "dropped"));
+        let collected = call_site_dump(&cg);
+        assert_eq!(collected[0], first);
+        assert_eq!(collected[1..], remaining);
     }
 }

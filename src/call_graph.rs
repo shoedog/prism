@@ -2257,8 +2257,16 @@ impl CallGraph {
             let resolve_module = |from: &str, spec: &str| {
                 resolver.relative(from, spec, &self.indexed_files, allow_js)
             };
-            let resolution =
-                crate::js_exports::resolve_js_exports(&self.js_ts_exports, &resolve_module);
+            let roots = self
+                .js_ts_path_modules
+                .values()
+                .filter_map(|(file, allow)| (*allow == allow_js).then_some(file))
+                .collect::<BTreeSet<_>>();
+            let resolution = crate::js_exports::resolve_js_exports_for(
+                &self.js_ts_exports,
+                &resolve_module,
+                roots,
+            );
             self.js_ts_path_exports
                 .insert(allow_js, resolution.resolved);
         }
