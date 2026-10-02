@@ -43,3 +43,17 @@ All18 measurement children ran serially after own verification jobs ended; each 
 Not verified: private F, independent post-repair review, quiet-host attestation, human-triggered full multi-corpus Tier-A, Linux case behavior or concurrent-tree security. The existing ignored test was not forced; clippy was not rerun. S6/OQ2 stays parked. No repairer commit/push, installation/network, baseline/threshold/cache-version change or external-backup claim.
 
 CONTROLLER-paths.sh defaults to the corrected immutable binary and was checked with bash -n only. Controller must run F before acceptance. Files/messages: REPAIR-R2D-FILES.md. Source, binary and lean receipts are locally bound by production-binding.json, owned-files.tar.gz, essential-receipts.tar.gz and custody-final.json. Earlier settled/lexical receipts remain historical and cannot certify this binary.
+
+## Controller F acceptance after repair r2 to r2d (private, aggregates only; 2026-10-02)
+
+The controller built the head from `f5ef9c1e`.
+
+**Result:**
+- Changed rows: **2,313**, all `CORRECT_STATIC_BINDING`.
+- 0 changed rows disagree with tsserver ownership.
+- 0 keys added or removed.
+- Refusals: JS_EXPORT_HOP 749, GUARD 22, UNCLASSIFIED 21, HOP 1.
+
+**Cost:** 30 rows below round 1 (2,343). That is the disclosed price of the ambient-declaration and Node10 first-pass fences.
+
+**Interim regressions, now superseded:** a blanket JS-target refusal measured 344 (r2c), and a type-input decline measured X 0 (r2). The controller ordered both cuts; both were replaced by faithful ports of the TypeScript rules.
