@@ -3788,8 +3788,21 @@ impl CallGraph {
         else {
             return Ok(Vec::new());
         };
-        let Some(resolved) = self
-            .js_ts_resolved_exports
+        let exports = if binding.module_path.trim().starts_with('.') {
+            &self.js_ts_resolved_exports
+        } else {
+            let Some((_, allow_js)) = self
+                .js_ts_path_modules
+                .get(&(caller.file.clone(), binding.module_path.clone()))
+            else {
+                return Ok(Vec::new());
+            };
+            let Some(exports) = self.js_ts_path_exports.get(allow_js) else {
+                return Ok(Vec::new());
+            };
+            exports
+        };
+        let Some(resolved) = exports
             .get(&candidate_file)
             .and_then(|exports| exports.get(member))
         else {

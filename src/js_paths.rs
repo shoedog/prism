@@ -3,9 +3,11 @@ use crate::js_paths_snapshot::JsPathsSnapshot;
 use crate::js_paths_syntax::{dir, exclude_matches, jsonc, norm, pattern_matches};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
 #[derive(Clone, Default)]
 struct Config {
     options: BTreeMap<String, Value>,
+    config_path: String,
     paths: Option<(String, BTreeMap<String, Vec<String>>)>,
     base: Option<String>,
     files: Option<Vec<String>>,
@@ -20,8 +22,8 @@ fn strings(v: &Value) -> Option<Vec<String>> {
 }
 pub(crate) struct Resolver<'a> {
     snapshot: &'a JsPathsSnapshot,
-    configs: BTreeMap<String, Option<Config>>,
-    selected: BTreeMap<String, Option<Config>>,
+    configs: BTreeMap<String, Option<Rc<Config>>>,
+    selected: BTreeMap<String, Option<Rc<Config>>>,
 }
 impl<'a> Resolver<'a> {
     pub(crate) fn new(snapshot: &'a JsPathsSnapshot) -> Self {
@@ -31,14 +33,14 @@ impl<'a> Resolver<'a> {
             selected: BTreeMap::new(),
         }
     }
-    fn config(&mut self, p: &str, seen: &mut BTreeSet<String>) -> Option<Config> {
+    fn config(&mut self, p: &str, seen: &mut BTreeSet<String>) -> Option<Rc<Config>> {
         if let Some(c) = self.configs.get(p) {
             return c.clone();
         }
         if seen.len() >= 16 || !seen.insert(p.into()) {
             return None;
         }
-        let result = self.config_inner(p, seen);
+        let result = self.config_inner(p, seen).map(Rc::new);
         seen.remove(p);
         self.configs.insert(p.into(), result.clone());
         result
@@ -62,7 +64,7 @@ impl<'a> Resolver<'a> {
             if !parent.ends_with(".json") {
                 parent.push_str(".json");
             }
-            self.config(&parent, seen)?
+            self.config(&parent, seen)?.as_ref().clone()
         } else {
             Config::default()
         };
@@ -73,6 +75,9 @@ impl<'a> Resolver<'a> {
         ] {
             if let Some(v) = object.get(key) {
                 let list = strings(v)?;
+                if list.iter().any(|s| !membership_pattern(s, key == "files")) {
+                    return None;
+                }
                 *slot = Some(
                     list.into_iter()
                         .map(|s| norm(dir(p), &s))
@@ -83,7 +88,9 @@ impl<'a> Resolver<'a> {
         if let Some(v) = object.get("compilerOptions") {
             let opts = v.as_object()?;
             for (k, v) in opts {
-                c.options.insert(k.clone(), v.clone());
+                if k != "paths" {
+                    c.options.insert(k.clone(), v.clone());
+                }
             }
             if let Some(v) = opts.get("baseUrl") {
                 c.base = Some(norm(dir(p), v.as_str()?)?);
@@ -103,6 +110,14 @@ impl<'a> Resolver<'a> {
                 c.paths = Some((dir(p).into(), paths));
             }
         }
+        if c.exclude.is_none()
+            && ["outDir", "declarationDir", "rootDir", "rootDirs"]
+                .iter()
+                .any(|k| c.options.contains_key(*k))
+        {
+            return None;
+        }
+        c.config_path = p.into();
         Some(c)
     }
     fn includes(&self, c: &Config, file: &str, config_path: &str) -> Option<bool> {
@@ -150,7 +165,7 @@ impl<'a> Resolver<'a> {
             if group[..priority].iter().any(|e| {
                 // Declaration files do not suppress JavaScript implementations.
                 !(*e == ".d.ts" && [".js", ".jsx"].contains(suffix))
-                    && self.snapshot.entries.contains_key(&format!("{stem}{e}"))
+                    && self.snapshot.kind(&format!("{stem}{e}")).is_some()
             }) {
                 return None;
             }
@@ -158,7 +173,7 @@ impl<'a> Resolver<'a> {
             if [".mjs", ".cjs"].contains(suffix)
                 && groups[0][..2]
                     .iter()
-                    .any(|e| self.snapshot.entries.contains_key(&format!("{stem}{e}")))
+                    .any(|e| self.snapshot.kind(&format!("{stem}{e}")).is_some())
             {
                 return None;
             }
@@ -204,7 +219,7 @@ impl<'a> Resolver<'a> {
         }
         Some(true)
     }
-    fn select(&mut self, file: &str) -> Option<Config> {
+    fn select(&mut self, file: &str) -> Option<Rc<Config>> {
         if let Some(c) = self.selected.get(file) {
             return c.clone();
         }
@@ -265,6 +280,7 @@ impl<'a> Resolver<'a> {
             || spec.starts_with('.')
             || spec.contains(['\\', ':'])
             || spec.starts_with('/')
+            || directory_target(spec)
         {
             return None;
         }
@@ -281,7 +297,7 @@ impl<'a> Resolver<'a> {
         {
             return None;
         }
-        let (origin, paths) = c.paths?;
+        let (origin, paths) = c.paths.as_ref()?;
         let (key, capture) = if paths.contains_key(spec) {
             (spec.to_owned(), String::new())
         } else {
@@ -314,20 +330,75 @@ impl<'a> Resolver<'a> {
             }
             (k, s)
         };
+        if self
+            .snapshot
+            .ambient
+            .iter()
+            .any(|(ambient_file, patterns)| {
+                patterns
+                    .iter()
+                    .any(|pattern| ambient_matches(pattern, spec))
+                    && self.includes(&c, ambient_file, &c.config_path) != Some(false)
+            })
+        {
+            return None;
+        }
         let raw_target = paths.get(&key)?.first()?;
         if !key.contains('*') && raw_target.contains('*') {
             return None;
         }
         let target = raw_target.replacen('*', &capture, 1);
-        let p = norm(c.base.as_deref().unwrap_or(&origin), &target)?;
-        if !self.snapshot.unblocked(&p) {
+        if directory_target(&target) {
+            return None;
+        }
+        let p = norm(c.base.as_deref().unwrap_or(origin), &target)?;
+        let q = self.prove_path(&p, indexed)?;
+        if js_family(&q)
+            && (c.options.get("allowJs").and_then(Value::as_bool) != Some(true)
+                || self.snapshot.package_present(file, spec))
+        {
+            return None;
+        }
+        Some(q)
+    }
+    pub(crate) fn allow_js(&mut self, file: &str) -> bool {
+        self.select(file)
+            .is_some_and(|c| c.options.get("allowJs").and_then(Value::as_bool) == Some(true))
+    }
+    pub(crate) fn relative(
+        &self,
+        file: &str,
+        spec: &str,
+        indexed: &BTreeSet<String>,
+        allow_js: bool,
+    ) -> Option<String> {
+        if !self.snapshot.complete
+            || !(spec.starts_with("./") || spec.starts_with("../"))
+            || directory_target(spec)
+        {
+            return None;
+        }
+        let p = norm(dir(file), spec)?;
+        if let Some(stem) = p.strip_suffix(".tsx").or_else(|| p.strip_suffix(".ts")) {
+            for ext in [".ts", ".tsx", ".d.ts", ".js", ".jsx"] {
+                let candidate = format!("{stem}{ext}");
+                if candidate != p && self.snapshot.kind(&candidate).is_some() {
+                    return None;
+                }
+            }
+        }
+        let q = self.prove_path(&p, indexed)?;
+        (!js_family(&q) || allow_js).then_some(q)
+    }
+    fn prove_path(&self, p: &str, indexed: &BTreeSet<String>) -> Option<String> {
+        if !self.snapshot.unblocked(p) {
             return None;
         }
         if p.ends_with(".ts") || p.ends_with(".tsx") {
-            return (self.snapshot.entries.get(&p) == Some(&0)
-                && indexed.contains(&p)
+            return (self.snapshot.kind(p) == Some(0)
+                && indexed.contains(p)
                 && !p.ends_with(".d.ts"))
-            .then_some(p);
+            .then_some(p.to_owned());
         }
         // TS probes unknown suffixes (user.service.ts) on the full substitution.
         // Known non-TS extensions require substitution precedence, outside P1.
@@ -337,24 +408,30 @@ impl<'a> Resolver<'a> {
         {
             return None;
         }
-        if self
-            .snapshot
-            .entries
-            .contains_key(&format!("{p}/package.json"))
-        {
+        if self.snapshot.kind(&format!("{p}/package.json")).is_some() {
             return None;
         }
         // P1 leaves competing file/index/extension candidates at base. A declaration-only
         // winner or an unindexed/opaque source must never be bypassed for a lower candidate.
+        if let Some((stem, suffix)) = p.rsplit_once('.') {
+            if !suffix.contains('/')
+                && self
+                    .snapshot
+                    .kind(&format!("{stem}.d.{suffix}.ts"))
+                    .is_some()
+            {
+                return None;
+            }
+        }
         let mut present = Vec::new();
         for ext in [".ts", ".tsx", ".d.ts", ".js", ".jsx"] {
             for q in [format!("{p}{ext}"), format!("{p}/index{ext}")] {
-                if self.snapshot.entries.contains_key(&q) {
+                if self.snapshot.kind(&q).is_some() {
                     present.push(q);
                 }
             }
         }
-        if self.snapshot.entries.get(&p) == Some(&0) {
+        if self.snapshot.kind(p) == Some(0) {
             return None;
         }
         if present.len() != 1 {
@@ -362,9 +439,39 @@ impl<'a> Resolver<'a> {
         }
         let q = present.pop()?;
         (self.snapshot.unblocked(&q)
-            && self.snapshot.entries.get(&q) == Some(&0)
+            && self.snapshot.kind(&q) == Some(0)
             && indexed.contains(&q)
             && !q.ends_with(".d.ts"))
         .then_some(q)
     }
+}
+
+fn directory_target(p: &str) -> bool {
+    p.ends_with('/') || p.ends_with("/.")
+}
+fn js_family(p: &str) -> bool {
+    [".js", ".jsx", ".mjs", ".cjs"]
+        .iter()
+        .any(|e| p.ends_with(e))
+}
+fn ambient_matches(pattern: &str, spec: &str) -> bool {
+    match pattern.split_once('*') {
+        Some((pre, post)) => spec.starts_with(pre) && spec.ends_with(post),
+        None => pattern == spec,
+    }
+}
+// Validate raw strings before norm can erase unsupported syntax.
+fn membership_pattern(p: &str, literal: bool) -> bool {
+    let p = p.strip_prefix("./").unwrap_or(p);
+    !p.is_empty()
+        && p.len() <= 512
+        && !p.starts_with('/')
+        && !p.contains("..")
+        && !p.contains(['?', '[', ']', '{', '}', '\\', ':'])
+        && (literal || p.is_ascii())
+        && (!literal || !p.contains('*'))
+        && p != "**"
+        && !p.ends_with("/**")
+        && p.split('/')
+            .all(|s| !s.is_empty() && s != "." && (!s.contains("**") || s == "**"))
 }

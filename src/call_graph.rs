@@ -881,7 +881,12 @@ pub struct CallGraph {
     pub indexed_files: BTreeSet<String>,
     /// P1 proven non-relative modules; empty for convention-only builds.
     #[serde(default)]
-    pub js_ts_path_modules: BTreeMap<(String, String), String>,
+    pub js_ts_path_modules: BTreeMap<(String, String), (String, bool)>,
+    /// Alias-only export tables. Every hop uses P1 occupancy/Node10 proof;
+    /// the boolean partitions callers by their owning project's allowJs.
+    #[serde(default)]
+    pub js_ts_path_exports:
+        BTreeMap<bool, BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>>,
     /// P4: JS/TS raw (per-file, un-resolved) export facts — default exports,
     /// named export lists (incl. renames), exported const-arrow/
     /// function-expression declarations, CommonJS assignments, and re-export
@@ -1224,6 +1229,7 @@ impl CallGraph {
             module_bindings: BTreeMap::new(),
             indexed_files: BTreeSet::new(),
             js_ts_path_modules: BTreeMap::new(),
+            js_ts_path_exports: BTreeMap::new(),
             js_ts_exports: BTreeMap::new(),
             js_ts_resolved_exports: BTreeMap::new(),
             js_ts_namespace_exports: BTreeMap::new(),
@@ -1504,6 +1510,7 @@ impl CallGraph {
             module_bindings: BTreeMap::new(),
             indexed_files: BTreeSet::new(),
             js_ts_path_modules: BTreeMap::new(),
+            js_ts_path_exports: BTreeMap::new(),
             js_ts_exports: BTreeMap::new(),
             js_ts_resolved_exports: BTreeMap::new(),
             js_ts_namespace_exports: BTreeMap::new(),
@@ -1971,6 +1978,7 @@ impl CallGraph {
             module_bindings,
             indexed_files,
             js_ts_path_modules: BTreeMap::new(),
+            js_ts_path_exports: BTreeMap::new(),
             js_ts_exports,
             js_ts_resolved_exports: BTreeMap::new(),
             js_ts_namespace_exports: BTreeMap::new(),
@@ -2205,6 +2213,7 @@ impl CallGraph {
     /// incrementally patched per changed file.
     pub(crate) fn apply_js_paths(&mut self, inputs: Option<&ScopeGraphBuildInputs>) {
         self.js_ts_path_modules.clear();
+        self.js_ts_path_exports.clear();
         let Some(inputs) = inputs else {
             return;
         };
@@ -2231,11 +2240,27 @@ impl CallGraph {
                     if let Some(target) =
                         resolver.resolve(file, &b.module_path, &self.indexed_files)
                     {
-                        self.js_ts_path_modules
-                            .insert((file.clone(), b.module_path.clone()), target);
+                        self.js_ts_path_modules.insert(
+                            (file.clone(), b.module_path.clone()),
+                            (target, resolver.allow_js(file)),
+                        );
                     }
                 }
             }
+        }
+        for allow_js in self
+            .js_ts_path_modules
+            .values()
+            .map(|(_, allow)| *allow)
+            .collect::<BTreeSet<_>>()
+        {
+            let resolve_module = |from: &str, spec: &str| {
+                resolver.relative(from, spec, &self.indexed_files, allow_js)
+            };
+            let resolution =
+                crate::js_exports::resolve_js_exports(&self.js_ts_exports, &resolve_module);
+            self.js_ts_path_exports
+                .insert(allow_js, resolution.resolved);
         }
     }
 
@@ -2246,7 +2271,7 @@ impl CallGraph {
         } else {
             self.js_ts_path_modules
                 .get(&(caller.into(), module.into()))
-                .cloned()
+                .map(|(target, _)| target.clone())
         }
     }
 
@@ -5316,6 +5341,7 @@ impl CallGraph {
             module_bindings: module_bindings_map,
             indexed_files,
             js_ts_path_modules: BTreeMap::new(),
+            js_ts_path_exports: BTreeMap::new(),
             js_ts_exports,
             // P4: whole-program resolved export facts — left empty here,
             // exactly like the Go whole-program state below:

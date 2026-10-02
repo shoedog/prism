@@ -198,6 +198,57 @@ fn scope_graph_build_inputs_from_snapshot(
 ) -> ScopeGraphBuildInputs {
     let mut manifest_hashes = manifest_snapshot.topology_hashes();
     let js_paths_snapshot = crate::js_paths_snapshot::JsPathsSnapshot::capture(root);
+    // Prime every production proof/refusal dependency, including absent paths.
+    if !js_paths_snapshot.configs.is_empty() {
+        let indexed = files.keys().cloned().collect();
+        let mut resolver = crate::js_paths::Resolver::new(&js_paths_snapshot);
+        let mut admitted_alias = false;
+        for (file, parsed) in files {
+            if !matches!(
+                parsed.language,
+                crate::languages::Language::JavaScript
+                    | crate::languages::Language::TypeScript
+                    | crate::languages::Language::Tsx
+            ) {
+                continue;
+            }
+            for binding in parsed.extract_import_bindings() {
+                admitted_alias |= resolver
+                    .resolve(file, &binding.module_path, &indexed)
+                    .is_some();
+            }
+        }
+        // Export projection is built only when an alias was admitted. In
+        // particular, declining a large tree must not run export extraction twice.
+        if admitted_alias {
+            for (file, parsed) in files {
+                if !matches!(
+                    parsed.language,
+                    crate::languages::Language::JavaScript
+                        | crate::languages::Language::TypeScript
+                        | crate::languages::Language::Tsx
+                ) {
+                    continue;
+                }
+                let exports = parsed.extract_js_ts_export_facts();
+                for module in
+                    exports
+                        .star_reexports
+                        .iter()
+                        .chain(exports.named.values().filter_map(|target| match target {
+                            crate::js_exports::JsExportTarget::ReExport { module_path, .. }
+                            | crate::js_exports::JsExportTarget::ImportForward {
+                                module_path,
+                                ..
+                            } => Some(module_path),
+                            _ => None,
+                        }))
+                {
+                    resolver.relative(file, module, &indexed, true);
+                }
+            }
+        }
+    }
     manifest_hashes.extend(js_paths_snapshot.topology());
     let cfg = parse_rust_crate_config(files, &manifest_snapshot)
         .unwrap_or_else(|| RustCrateConfig::from_convention(files));
