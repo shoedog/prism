@@ -69,3 +69,9 @@ Verification-gate follow-up adds an executable regression bound over the process
 Private F is controller-only; CONTROLLER-paths.sh points to the final frozen binary and emits its hash. No Git commit/push, network/install, independent round-2 review, full multi-corpus Tier-A, Linux case-sensitive filesystem run or concurrent-filesystem custody audit was performed. The packet's stable-tree assumption and parked S6/OQ2 boundary remain. Local evidence/snapshots require controller commit/external custody. Two internal passes were declared; one bounded, disclosed extension at the cap fixed finite decline ordering/duplicate-extraction work without restarting the artifact.
 
 > **Controller note (2026-10-01):** the landed cache stays **105 / 61**, one bump from main 104 / 60. The repairer's 106 / 62 only separated its own iterations. Verification receipts that name 106 / 62 refer to the frozen repair binary.
+
+## Controller F acceptance after implementation repair r1 (private, aggregates only; 2026-10-01)
+
+- **Changed rows:** **2,343**, all `CORRECT_STATIC_BINDING`. That is 2 fewer than the 2,345 before the repair: the refuse-on-doubt cuts refused 2 correct F rows, which is a disclosed conservative cost.
+- **Disagreements and keys:** 0 changed rows disagree with tsserver ownership; 0 keys added or removed.
+- **Refusal histogram:** HOP 717, GUARD 23, UNCLASSIFIED 23.
