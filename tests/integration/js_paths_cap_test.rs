@@ -235,7 +235,8 @@ fn structural_js_module_and_hop_terminals() {
                         },
                     );
                 }
-                if form == "direct" && ["js", "jsx"].contains(&js) {
+                // P2 also proves the unopposed named/star/forward relative JS hop.
+                if ["js", "jsx"].contains(&js) {
                     assert_hit(
                         &graph(d.path()),
                         &format!("app.{ext}"),

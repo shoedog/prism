@@ -21,10 +21,7 @@ impl ParsedFile {
         let bindings = self.extract_import_bindings();
         let mut matches = bindings.iter().filter(|b| b.local == local);
         let binding = matches.next()?;
-        if matches.next().is_some()
-            || binding.kind != ImportBindingKind::MemberImport
-            || !(binding.module_path.starts_with("./") || binding.module_path.starts_with("../"))
-        {
+        if matches.next().is_some() || binding.kind != ImportBindingKind::MemberImport {
             return None;
         }
         Some(JsExportTarget::ImportForward {

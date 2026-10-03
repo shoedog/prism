@@ -230,7 +230,10 @@ use std::path::{Path, PathBuf};
 ///   same-name fallback (SPEC §3.6, §3.8 (8)).
 /// - v104: S1b-4 qualifier proof and positive-only namespace R3 refinement.
 /// - v105: lane-P P1 tsconfig `paths` import-member resolution and config-input cache key.
-const CACHE_VERSION: u32 = 105;
+/// - v106: lane-P P2 Node10 proof for relative/non-relative JS export hops;
+///   CallGraph path-module values and export-table keys carry caller config
+///   paths (String) instead of allowJs flags (bool).
+const CACHE_VERSION: u32 = 106;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -769,7 +772,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 105);
+        assert_eq!(super::CACHE_VERSION, 106);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

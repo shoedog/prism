@@ -201,7 +201,7 @@ pub fn resolve_js_exports(
     raw: &BTreeMap<String, JsExportFacts>,
     resolve_module: &dyn Fn(&str, &str) -> Option<String>,
 ) -> JsExportResolution {
-    resolve_js_exports_for(raw, resolve_module, raw.keys())
+    resolve_js_exports_for_projection(raw, resolve_module, raw.keys(), ExportProjection::Legacy)
 }
 
 // Alias consumers query only admitted root modules. Keep the complete raw map
@@ -211,6 +211,36 @@ pub(crate) fn resolve_js_exports_for<'a>(
     resolve_module: &dyn Fn(&str, &str) -> Option<String>,
     roots: impl IntoIterator<Item = &'a String>,
 ) -> JsExportResolution {
+    resolve_js_exports_for_projection(raw, resolve_module, roots, ExportProjection::CallerPaths)
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ExportProjection {
+    Legacy,
+    CallerPaths,
+}
+
+struct ExportResolver<'a> {
+    module: &'a dyn Fn(&str, &str) -> Option<String>,
+    projection: ExportProjection,
+}
+
+// Import-forward eligibility is about the raw literal. The legacy module
+// helper trims strings, so it cannot establish this boundary for us.
+fn raw_relative_literal(spec: &str) -> bool {
+    (spec.starts_with("./") || spec.starts_with("../")) && spec.trim() == spec
+}
+
+fn resolve_js_exports_for_projection<'a>(
+    raw: &BTreeMap<String, JsExportFacts>,
+    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
+    roots: impl IntoIterator<Item = &'a String>,
+    projection: ExportProjection,
+) -> JsExportResolution {
+    let resolver = ExportResolver {
+        module: resolve_module,
+        projection,
+    };
     let mut out = JsExportResolution::default();
     for file in roots {
         let mut visited_files = BTreeSet::new();
@@ -220,7 +250,7 @@ pub(crate) fn resolve_js_exports_for<'a>(
         for name in names {
             let mut visited = BTreeSet::new();
             if let ExportLookup::Resolved(mut hit, false) =
-                resolve_one(raw, resolve_module, file, &name, 0, &mut visited, &mut out)
+                resolve_one(raw, &resolver, file, &name, 0, &mut visited, &mut out)
             {
                 hit.via_unresolved_star =
                     skipped_star(raw, resolve_module, file, &name, &mut BTreeSet::new());
@@ -298,6 +328,12 @@ fn namespace_identity(
                     module_path,
                     imported,
                 } => {
+                    // Namespace exports also use the legacy relative projection.
+                    if matches!(target, JsExportTarget::ImportForward { .. })
+                        && !raw_relative_literal(module_path)
+                    {
+                        return Err(());
+                    }
                     let next = resolve_module(file, module_path).ok_or(())?;
                     namespace_identity(raw, resolve_module, &next, imported, depth + 1, visiting)
                 }
@@ -461,7 +497,7 @@ type BarrelCandidate = (String, String, bool, Option<(usize, usize)>, bool);
 
 fn resolve_one(
     raw: &BTreeMap<String, JsExportFacts>,
-    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
+    resolver: &ExportResolver<'_>,
     file: &str,
     name: &str,
     hops: usize,
@@ -473,14 +509,14 @@ fn resolve_one(
         telemetry.chain_unresolved += 1;
         return ExportLookup::NoTarget; // cycle; existing bounded traversal policy
     }
-    let result = resolve_one_inner(raw, resolve_module, file, name, hops, visited, telemetry);
+    let result = resolve_one_inner(raw, resolver, file, name, hops, visited, telemetry);
     visited.remove(&key);
     result
 }
 
 fn resolve_one_inner(
     raw: &BTreeMap<String, JsExportFacts>,
-    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
+    resolver: &ExportResolver<'_>,
     file: &str,
     name: &str,
     hops: usize,
@@ -540,22 +576,44 @@ fn resolve_one_inner(
                 module_path,
                 imported,
             } => {
+                let nonrelative_forward = matches!(target, JsExportTarget::ImportForward { .. })
+                    && !raw_relative_literal(module_path);
                 if hops + 1 > MAX_REEXPORT_DEPTH {
                     telemetry.chain_unresolved += 1;
+                    // Preserve the claim even when the next hop exceeds the bound.
+                    if nonrelative_forward {
+                        return ExportLookup::BlockedClaim;
+                    }
                     return ExportLookup::NoTarget;
                 }
-                let Some(target_file) = resolve_module(file, module_path) else {
+                let target_file =
+                    if nonrelative_forward && resolver.projection == ExportProjection::Legacy {
+                        None
+                    } else {
+                        (resolver.module)(file, module_path)
+                    };
+                let Some(target_file) = target_file else {
+                    // A non-relative imported-local claim must not disappear
+                    // from a star barrel when this projection cannot resolve it.
+                    if nonrelative_forward {
+                        return ExportLookup::BlockedClaim;
+                    }
                     return ExportLookup::NoTarget;
                 };
                 let result = resolve_one(
                     raw,
-                    resolve_module,
+                    resolver,
                     &target_file,
                     imported,
                     hops + 1,
                     visited,
                     telemetry,
                 );
+                // Every failed recursive exit retains a newly admitted claim:
+                // absent member/facts, empty stars, cycles and the depth bound.
+                if nonrelative_forward && matches!(result, ExportLookup::NoTarget) {
+                    return ExportLookup::BlockedClaim;
+                }
                 let ExportLookup::Resolved(hit, is_class) = result else {
                     return result;
                 };
@@ -585,7 +643,7 @@ fn resolve_one_inner(
     // spans are different targets (S1).
     let mut candidates: BTreeSet<BarrelCandidate> = BTreeSet::new();
     for module_path in &facts.star_reexports {
-        let Some(target_file) = resolve_module(file, module_path) else {
+        let Some(target_file) = (resolver.module)(file, module_path) else {
             continue;
         };
         // Fork the visited set per barrel branch: sibling barrels shouldn't
@@ -594,7 +652,7 @@ fn resolve_one_inner(
         let mut branch_visited = visited.clone();
         match resolve_one(
             raw,
-            resolve_module,
+            resolver,
             &target_file,
             name,
             hops + 1,
@@ -978,5 +1036,54 @@ mod tests {
         let out = resolve_js_exports(&raw, &resolve_dot);
         assert!(!out.resolved.contains_key("index.ts"));
         assert!(out.chain_unresolved > 0);
+    }
+
+    #[test]
+    fn namespace_forward_uses_raw_literal() {
+        let terminal = ResolvedJsExport {
+            file: "leaf.ts".into(),
+            local_name: "real".into(),
+            span: Some((1, 1)),
+            wrapped: false,
+            via_unresolved_star: false,
+        };
+        let mut leaf = facts(
+            &[(
+                "real",
+                JsExportTarget::VerifiedLocal {
+                    local: "real".into(),
+                    start_line: 1,
+                    end_line: 1,
+                },
+            )],
+            &[],
+        );
+        leaf.namespace_callable_locals
+            .insert("real".into(), vec![terminal.clone()]);
+        // Model the legacy helper's trim; the raw fact must control admission.
+        let resolve = |_: &str, spec: &str| (spec.trim() == "./leaf").then(|| "leaf.ts".into());
+        for spec in ["./leaf", " ./leaf", "./leaf "] {
+            for forward in [true, false] {
+                let target = if forward {
+                    JsExportTarget::ImportForward {
+                        module_path: spec.into(),
+                        imported: "real".into(),
+                    }
+                } else {
+                    reexport(spec, "real")
+                };
+                let raw = BTreeMap::from([
+                    ("barrel.ts".into(), facts(&[("real", target)], &[])),
+                    ("leaf.ts".into(), leaf.clone()),
+                ]);
+                let out = resolve_js_namespace_exports(&raw, &resolve);
+                let hit = out.get("barrel.ts").and_then(|e| e.get("real"));
+                assert_eq!(
+                    hit,
+                    (!forward || spec == "./leaf").then_some(&terminal),
+                    "{spec:?} forward={forward}"
+                );
+            }
+        }
     }
 }

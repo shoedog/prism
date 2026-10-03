@@ -4,7 +4,9 @@
   "lib_test_prefixes": [
     "js_paths_snapshot::",
     "js_paths_first_pass::",
-    "repo_loader::"
+    "repo_loader::",
+    "cpg_cache::",
+    "navigation::call_edge_cache::"
   ],
   "intent_revisions": {
     "R4-04-non-utf8-declines": {
@@ -12,6 +14,46 @@
       "intent": "Disable UTF-16 LE/BE BOM decoding; encoded ambient declarations must still suppress paths recovery.",
       "reason": "r5 decodes successfully read non-UTF-8 lossily, so the old non-UTF-8-declines obligation no longer exists. Preserve the historical ID and the 93-mutant population with a distinct decoding obligation, rather than duplicating R4-11's unreadable-file obligation.",
       "killing_fixture": "native_decoding_keeps_ambient_in_both_grammars exercises latin1, UTF-16 LE/BE, UTF-8 and UTF-8 BOM for JSX and TSX, plus a documentation-only negative case."
+    },
+    "I12-legacy-alias-hop-table": {
+      "disposition": "rebound",
+      "intent": "Lane-P P2 repartitions the alias export table by caller config path instead of an allowJs bool; the mutant now defeats that per-project lookup by always falling back to the relative-only export table.",
+      "reason": "P2 (W1b fold) changed js_ts_path_exports from BTreeMap<bool, ...> to BTreeMap<String, ...> keyed by config path; the old allowJs-bool anchor no longer exists.",
+      "killing_fixture": "js_paths_repair_test::js_paths_repair_barrel_hops exercises a non-relative @lib alias hop alongside a relative hop to the same barrel."
+    },
+    "I15-no-js-hop-cut": {
+      "disposition": "rebound",
+      "intent": "P1 unconditionally refused JS-family relative hops; P2 admits them under an allowJs + local Node10 priority-pass proof. The mutant now removes that admission guard instead of the old blanket refusal.",
+      "reason": "P2 replaced the single-line `(!js_family(&q)).then_some(q)` cut with a conditional admission guard in `Resolver::relative`; the old anchor text no longer exists.",
+      "killing_fixture": "js_paths_p2_test::relative_js_guards_preserve_base's 'allow-off' case: without the guard, a JS hop would wrongly bind although allowJs is off."
+    },
+    "I28-no-reachable-export-priming": {
+      "disposition": "rebound",
+      "intent": "The loader BFS that primes reachable re-exports now also tracks the owning caller project per pending file; the mutant drops the queued (project, target) pair instead of the old bare target.",
+      "reason": "P2 changed `pending` from a `BTreeSet<String>` to `BTreeSet<(String, String)>` so the per-caller-project export table partitions correctly; the old anchor's `pending.insert(target)` shape no longer exists.",
+      "killing_fixture": "repo_loader::paths_projection_tests::primes_alias_export_closure_without_unrelated_exports checks that the transitive barrel chain is fully probed and projected."
+    },
+    "R4-23-project-wrong-allowjs-roots": {
+      "disposition": "rebound",
+      "intent": "The per-project root-file filter now compares config paths instead of allowJs bools; the mutant still flips the filter's equality to prove the roots partition is load-bearing.",
+      "reason": "P2 renamed `js_ts_path_modules`'s value type and this filter's binding from `allow`/`allow_js` (bool) to `owner`/`project` (String); the old anchor text no longer exists.",
+      "killing_fixture": "repo_loader::paths_projection_tests::primes_alias_export_closure_without_unrelated_exports: flipping the filter empties the single project's root set. Its project key remains, with an empty export-table value; the expected lib/barrel.ts root is absent."
+    },
+    "I27-global-export-priming": {
+      "disposition": "rebound",
+      "intent": "Over-seed the reachable-export priming frontier with every file in the repo (tagged with its own project) instead of only files reachable through real import bindings, to prove priming stays scoped to the actual closure.",
+      "reason": "P2 changed `pending` from BTreeSet<String> to BTreeSet<(String, String)> (file plus owning caller project), so the old bare-String over-seed no longer type-checks.",
+      "killing_fixture": "repo_loader::paths_projection_tests::primes_alias_export_closure_without_unrelated_exports: over-seeding with every file would wrongly probe unrelated/missing.ts through unrelated/barrel.ts's own star re-export."
+    },
+    "W02-block-relative-forward": {
+      "disposition": "rebound",
+      "intent": "Preserve inherited unresolved relative ImportForward and non-relative ReExport sibling behavior.",
+      "reason": "Round-1 repair replaces starts_with(dot) with the raw relative-literal helper; the original negative obligation is unchanged."
+    },
+    "W03-block-unresolved-reexport": {
+      "disposition": "rebound",
+      "intent": "Preserve inherited unresolved relative ImportForward and non-relative ReExport sibling behavior.",
+      "reason": "Round-1 repair replaces starts_with(dot) with the raw relative-literal helper; the original negative obligation is unchanged."
     }
   },
   "mutations": {
@@ -83,7 +125,7 @@
     ],
     "I12-legacy-alias-hop-table": [
       "src/resolution.rs",
-      "let Some(exports) = self.js_ts_path_exports.get(allow_js) else {",
+      "let Some(exports) = self.js_ts_path_exports.get(project) else {",
       "let Some(exports) = Some(&self.js_ts_resolved_exports) else {",
       "js_paths_repair_test::js_paths_repair_barrel_hops"
     ],
@@ -101,9 +143,9 @@
     ],
     "I15-no-js-hop-cut": [
       "src/js_paths.rs",
-      "(!js_family(&q)).then_some(q)",
-      "Some(q)",
-      "js_paths_cap_test::structural_js_module_and_hop_terminals"
+      "        if js_family(&q)\n            && (!allow_js || !crate::js_paths_first_pass::relative_absent(self.snapshot, &p))\n        {\n            return None;\n        }\n        Some(q)",
+      "        Some(q)",
+      "js_paths_p2_test::relative_js_guards_preserve_base"
     ],
     "I16-no-config-types-cut": [
       "src/js_paths.rs",
@@ -162,13 +204,13 @@
     "I27-global-export-priming": [
       "src/repo_loader.rs",
       "let mut pending = BTreeSet::new();",
-      "let mut pending: BTreeSet<String> = files.keys().cloned().collect();",
+      "let mut pending: BTreeSet<(String, String)> = files.keys().filter_map(|f| Some((resolver.project(f)?, f.clone()))).collect();",
       "repo_loader::paths_projection_tests::primes_alias_export_closure_without_unrelated_exports"
     ],
     "I28-no-reachable-export-priming": [
       "src/repo_loader.rs",
-      "if let Some(target) = resolver.relative(&file, module, &indexed, true) {\n                        pending.insert(target);\n                    }",
-      "let _ = resolver.relative(&file, module, &indexed, true);",
+      "                    if let Some(target) = resolver.hop(&project, &file, module, &indexed) {\n                        pending.insert((project.clone(), target));\n                    }",
+      "                    let _ = resolver.hop(&project, &file, module, &indexed);",
       "repo_loader::paths_projection_tests::primes_alias_export_closure_without_unrelated_exports"
     ],
     "I29-no-package-types": [
@@ -569,9 +611,177 @@
     ],
     "R4-23-project-wrong-allowjs-roots": [
       "src/call_graph.rs",
-      "(*allow == allow_js).then_some(file)",
-      "(*allow != allow_js).then_some(file)",
+      "(*owner == project).then_some(file)",
+      "(*owner != project).then_some(file)",
       "repo_loader::paths_projection_tests::primes_alias_export_closure_without_unrelated_exports"
+    ],
+    "W01-drop-blocked-forward": [
+      "src/js_exports.rs",
+      "                    if nonrelative_forward {\n                        return ExportLookup::BlockedClaim;\n                    }\n                    return ExportLookup::NoTarget;\n                };\n                let result = resolve_one(",
+      "                    return ExportLookup::NoTarget;\n                };\n                let result = resolve_one(",
+      "js_paths_p2_test::legacy_star_nonrelative_forwards_preserve_complete_main_rows"
+    ],
+    "W02-block-relative-forward": [
+      "src/js_exports.rs",
+      "let nonrelative_forward = matches!(target, JsExportTarget::ImportForward { .. })\n                    && !raw_relative_literal(module_path);",
+      "let nonrelative_forward = matches!(target, JsExportTarget::ImportForward { .. });",
+      "js_paths_p2_test::legacy_star_other_unresolved_claims_keep_existing_behavior"
+    ],
+    "W03-block-unresolved-reexport": [
+      "src/js_exports.rs",
+      "let nonrelative_forward = matches!(target, JsExportTarget::ImportForward { .. })\n                    && !raw_relative_literal(module_path);",
+      "let nonrelative_forward = true\n                    && !raw_relative_literal(module_path);",
+      "js_paths_p2_test::legacy_star_other_unresolved_claims_keep_existing_behavior"
+    ],
+    "W04-depth-before-blocked-forward": [
+      "src/js_exports.rs",
+      "                if hops + 1 > MAX_REEXPORT_DEPTH {\n                    telemetry.chain_unresolved += 1;\n                    // Preserve the claim even when the next hop exceeds the bound.\n                    if nonrelative_forward {\n                        return ExportLookup::BlockedClaim;\n                    }\n                    return ExportLookup::NoTarget;\n                }",
+      "                if hops + 1 > MAX_REEXPORT_DEPTH {\n                    telemetry.chain_unresolved += 1;\n                    return ExportLookup::NoTarget;\n                }",
+      "js_paths_p2_test::legacy_star_nonrelative_forwards_preserve_complete_main_rows"
+    ],
+    "P2-M01-refuse-js": [
+      "src/js_paths.rs",
+      "        Some(q)\n    }\n    fn prove_path",
+      "        (!js_family(&q)).then_some(q)\n    }\n    fn prove_path",
+      "js_paths_p2_test::relative_js_hops_bind_in_both_grammars"
+    ],
+    "P2-M02-ignore-first-pass": [
+      "src/js_paths.rs",
+      "|| !crate::js_paths_first_pass::relative_absent(self.snapshot, &p)",
+      "|| false",
+      "js_paths_p2_test::relative_js_priority_candidates_preserve_complete_base"
+    ],
+    "P2-M03-ignore-allowjs": [
+      "src/js_paths.rs",
+      "!allow_js",
+      "false",
+      "js_paths_p2_test::relative_js_guards_preserve_base"
+    ],
+    "P2-M04-no-explicit-js": [
+      "src/js_paths.rs",
+      "if js_family(&p) {",
+      "if false {",
+      "js_paths_p2_test::explicit_js_hops_bind_after_local_priority_pass"
+    ],
+    "P2-M05-nonrelative-search": [
+      "src/js_paths_first_pass.rs",
+      "Pass { snapshot }.relative(target, true, 0).unwrap_or(false)",
+      "absent(snapshot, \"barrel.ts\", \"@lib\", target, Some(&[\"types\".into()]))",
+      "js_paths_p2_test::relative_hops_do_not_search_nonrelative_type_roots"
+    ],
+    "P2-M06-no-suffix-replacement": [
+      "src/js_paths_first_pass.rs",
+      "absent &= self.extensions(stem, extension, ts);",
+      "absent &= true;",
+      "js_paths_p2_test::explicit_js_hops_bind_after_local_priority_pass"
+    ],
+    "P2-M07-no-implicit-extension": [
+      "src/js_paths_first_pass.rs",
+      "absent & self.extensions(p, \"\", ts)",
+      "absent",
+      "js_paths_p2_test::relative_js_priority_candidates_preserve_complete_base"
+    ],
+    "P2-M08-no-declarations": [
+      "src/js_paths_first_pass.rs",
+      "&[\".ts\", \".tsx\", \".d.ts\"]",
+      "&[\".ts\", \".tsx\"]",
+      "js_paths_p2_test::explicit_js_hops_bind_after_local_priority_pass"
+    ],
+    "P2-M09-no-dmts": [
+      "src/js_paths_first_pass.rs",
+      "&[\".mts\", \".d.mts\"]",
+      "&[\".mts\"]",
+      "js_paths_p2_test::explicit_js_hops_bind_after_local_priority_pass"
+    ],
+    "P2-M10-no-dcts": [
+      "src/js_paths_first_pass.rs",
+      "&[\".cts\", \".d.cts\"]",
+      "&[\".cts\"]",
+      "js_paths_p2_test::explicit_js_hops_bind_after_local_priority_pass"
+    ],
+    "P2-M11-cpg-cache-version": [
+      "src/cpg_cache.rs",
+      "const CACHE_VERSION: u32 = 106;",
+      "const CACHE_VERSION: u32 = 105;",
+      "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
+    ],
+    "P2-M12-nav-cache-version": [
+      "src/navigation/call_edge_cache.rs",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 62;",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 61;",
+      "navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority"
+    ],
+    "N01-refuse-alias-hop": [
+      "src/js_paths.rs",
+      "self.resolve_in(c, from, spec, indexed)",
+      "None",
+      "js_paths_p2_test::nonrelative_hops_reuse_p1_alias_proof"
+    ],
+    "N02-share-project-options": [
+      "src/js_paths.rs",
+      "let c = self.configs.get(project)?.as_ref()?;",
+      "let c = self.configs.values().filter_map(Option::as_ref).next()?;",
+      "js_paths_p2_test::hop_options_belong_to_caller_program"
+    ],
+    "N03-ignore-alias-first-pass": [
+      "src/js_paths.rs",
+      "|| !crate::js_paths_first_pass::absent(",
+      "|| false && !crate::js_paths_first_pass::absent(",
+      "js_paths_p2_test::alias_hops_retain_ancestor_priority_pass"
+    ],
+    "N04-drop-ambient-fence": [
+      "src/js_paths.rs",
+      "if self.snapshot.ambient.values().any(|patterns| {",
+      "if false && self.snapshot.ambient.values().any(|patterns| {",
+      "js_paths_p2_test::nonrelative_hop_refusals_preserve_base"
+    ],
+    "N05-treat-alias-as-relative": [
+      "src/js_paths.rs",
+      "self.resolve_in(c, from, spec, indexed)",
+      "self.relative(from, &format!(\"./{spec}\"), indexed, self.allow_js(project))",
+      "js_paths_p2_test::nonrelative_hops_reuse_p1_alias_proof"
+    ],
+    "N06-restore-forward-literal-gate": [
+      "src/ast/js_module_forwarding.rs",
+      "|| binding.kind != ImportBindingKind::MemberImport",
+      "|| binding.kind != ImportBindingKind::MemberImport\n            || !binding.module_path.starts_with(\".\")",
+      "js_paths_p2_test::nonrelative_hops_reuse_p1_alias_proof"
+    ],
+    "N07-skip-alias-priming": [
+      "src/repo_loader.rs",
+      "resolver.hop(&project, &file, module, &indexed)",
+      "resolver.relative(&file, module, &indexed, true)",
+      "repo_loader::paths_projection_tests::primes_nonrelative_hop_absence_before_topology_hash"
+    ],
+    "P2-R1-01-dot-is-relative": [
+      "src/js_exports.rs",
+      "(spec.starts_with(\"./\") || spec.starts_with(\"../\")) && spec.trim() == spec",
+      "spec.starts_with('.')",
+      "js_paths_p2_test::legacy_star_nonrelative_forwards_preserve_complete_main_rows"
+    ],
+    "P2-R1-02-trim-relative-literal": [
+      "src/js_exports.rs",
+      "(spec.starts_with(\"./\") || spec.starts_with(\"../\")) && spec.trim() == spec",
+      "spec.starts_with(\"./\") || spec.starts_with(\"../\")",
+      "js_paths_p2_test::legacy_forward_spelling_is_raw"
+    ],
+    "P2-R1-03-legacy-follows-nonrelative": [
+      "src/js_exports.rs",
+      "nonrelative_forward && resolver.projection == ExportProjection::Legacy",
+      "false",
+      "js_paths_p2_test::legacy_forward_spelling_is_raw"
+    ],
+    "P2-R1-04-drop-recursive-claim": [
+      "src/js_exports.rs",
+      "if nonrelative_forward && matches!(result, ExportLookup::NoTarget) {",
+      "if false && nonrelative_forward && matches!(result, ExportLookup::NoTarget) {",
+      "js_paths_p2_test::nonrelative_forward_recursive_no_target_preserves_claim"
+    ],
+    "P2-R1-05-callers-legacy-table": [
+      "src/navigation/call_resolve.rs",
+      "if b.module_path.trim().starts_with('.') {",
+      "if true {",
+      "js_paths_p2_test::callers_use_caller_project_for_renamed_alias_hops"
     ]
   },
   "extra": {

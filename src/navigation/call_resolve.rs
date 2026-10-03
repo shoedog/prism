@@ -54,12 +54,20 @@ pub(crate) fn scoped_caller_site_match_count(
             // JS/TS (P4): `member` is the EXPORTED name, which can diverge
             // from the real declared name via default exports, `export { a as
             // b }` renames, CommonJS assignments, and re-export chains/
-            // barrels — resolve it through `js_ts_resolved_exports` (the same
-            // typed facts R4c itself consults) to the real local name before
-            // comparing, instead of assuming member == target_name.
+            // barrels. Select the same caller-project projection as call
+            // resolution before comparing the real local name.
             let js_ts_resolved_match = cg
                 .resolve_js_ts_member_module(&b.module_path, &site.caller.file)
-                .and_then(|candidate_file| cg.js_ts_resolved_exports.get(&candidate_file))
+                .and_then(|candidate_file| {
+                    let exports = if b.module_path.trim().starts_with('.') {
+                        Some(&cg.js_ts_resolved_exports)
+                    } else {
+                        cg.js_ts_path_modules
+                            .get(&(site.caller.file.clone(), b.module_path.clone()))
+                            .and_then(|(_, project)| cg.js_ts_path_exports.get(project))
+                    };
+                    exports.and_then(|exports| exports.get(&candidate_file))
+                })
                 .and_then(|exports| exports.get(member))
                 .is_some_and(|resolved| resolved.local_name == target_name);
             if member == target_name || js_ts_resolved_match {

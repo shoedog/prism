@@ -23,8 +23,8 @@ fn parse(files: &[(String, String)]) -> BTreeMap<String, ParsedFile> {
 
 #[test]
 fn b11_facts_serde_and_cpg_cache_full_hit() {
-    // One verified, one refused and one may-call export occurrence; the imported `k` keeps
-    // base `Local`, poisoned, uncounted (SPEC §3.2 step 2).
+    // One verified, one refused and one may-call export occurrence. P2 captures
+    // imported `k` as an inert forward fact; bare package lookup still refuses.
     let src = "function f() {\n  return 1;\n}\nconst g = f ? 1 : 2;\nlet h = () => 1;\nh = f;\n\
         import { k } from 'pkg';\nexport { f, g, h, k };\n";
     let facts = ParsedFile::parse("lib.tsx", src, Language::Tsx)
@@ -41,8 +41,14 @@ fn b11_facts_serde_and_cpg_cache_full_hit() {
         JsExportTarget::UnprovenLocal("g".to_string())
     );
     assert_eq!(facts.named["h"], JsExportTarget::Local("h".to_string()));
-    assert_eq!(facts.named["k"], JsExportTarget::Local("k".to_string()));
-    assert!(facts.conflicted.contains("k"));
+    assert_eq!(
+        facts.named["k"],
+        JsExportTarget::ImportForward {
+            module_path: "pkg".to_string(),
+            imported: "k".to_string()
+        }
+    );
+    assert!(!facts.conflicted.contains("k"));
     let refusals = BTreeMap::from([("not_callable".to_string(), 1)]);
     assert_eq!(
         (&facts.local_export_refusals, facts.local_export_may_call),
