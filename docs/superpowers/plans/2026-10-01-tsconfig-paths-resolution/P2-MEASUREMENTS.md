@@ -1,3 +1,65 @@
+# P2 prototype checkpoint — relative JS export hops
+
+MEASURED: Working-tree prototype on `plan/tsconfig-paths-p2` HEAD `8bd3c2dad641bf209f82073017b1549a8f377dff`. No worker Git writes or private F reads. The owner-supplied F materiality decision supersedes the P2-0 public-only stop recommendation below. The prototype reuses P1's local Node10 priority-pass proof, admits member-written terminals consistently with existing E5 behavior, and keeps all other export/binding/site guards. Actual private prototype recovery remains **OPEN** pending controller aggregate; no ceiling is reported as a measured gain.
+
+## Current yield
+
+All public streams were rerun with original base, P1 final and the immutable P2 binary in the same environment. P2 and P1 are byte-identical, including the complete site population and metadata. Native certificates for the retained P1 gains were reused only after full row parity and live native/fact input rehash; no fresh public gain-oracle certification is claimed where no row changed.
+
+| Corpus | Complete sites | P2 changed vs original base | P2 changed vs P1 final | Evidence |
+|---|---:|---:|---:|---|
+| X | 19,219 | 3,121 | 0 | MEASURED, full byte parity |
+| installed-X | 19,219 | 3,121 | 0 | MEASURED, full byte parity |
+| R | 953 | 0 | 0 | MEASURED, full byte parity |
+| T | 61,712 | 0 | 0 | MEASURED, full byte parity |
+| F | controller-only | P1 supplied 2,313 + P2 pending | P2 pending | READ supplied ceiling; actual wrapper run OPEN |
+
+READ: Expected opportunity ceiling from supplied aggregates is **749** in JS_EXPORT_HOP (775 bucket rows, 26 without callable/owner agreement), and **up to792** if all21 UNCLASSIFIED_P1_PROOF and22 BINDING_OR_SITE_GUARD rows share the admitted mechanism. This body changes no binding/site or forwardability guard to force those43. Without the457 member-written top-bucket rows, the top ceiling would be292; including both extra buckets and their18 member-written rows gives792 with475 /317 without. Those ceilings are not an admissible claim of realized F recovery.
+
+The updated `p2-probes/CONTROLLER-p2.sh P1_BIN FACTS_BIN P2_BIN` now runs the P2 binary, validates identical complete keys/site metadata and certifies **every changed row** against the actual native caller ProjectService/checker terminal and ownership. Aggregate stdout reports actual gains by P1 reason, recovered member-written counts and the independent resolution ceiling; raw private rows/paths remain private. The bound head run was requested asynchronously. Its P2 branch was exercised on public synthetic inputs: **80 scenarios /160 sites /64 gains**, all64 CORRECT_STATIC_BINDING, all96 negative rows retained, zero uncertified changes. No private run was executed by this planner.
+
+Receipts: `target/p2-plan/p2-public/summary.json`, lossless complete dumps, `p2-controls/summary.json`, `p2-controls/aggregate.json`. Native inputs rehashed: X633 /installed-X2219 /R48 /T606. Retained fact source files rehashed:628 /628 /50 /707. X and installed-X are copies of one snapshot; their gains are not additive.
+
+## E5 and the native port
+
+READ: E5/E5b keeps **written bindings** at base on every route. Both scoped writes (`src/ast/js_binding_writes.rs:49–71`) and module writes (`src/ast.rs:4730–4775`) collect names through `collect_js_ts_binding_pattern_names` (`src/ast.rs:5098–5148`). Member/subscript targets produce no binding names. The existing export resolver retains the same forwardability/span gates (`src/js_exports.rs:502–570`). No extraction/write/binding code changed.
+
+MEASURED: Unchanged P1, built from this HEAD's archive in the same environment, passes local and legacy relative **Call and JSX** probes with dot/subscript member writes in both grammars:16 observations, `p2-e5-base-corrected.log`. Prototype positive controls and native synthetic rows admit the member-written alias-hop terminals; binding writes still equal the complete base row. **Bind the457** when the remaining proof succeeds. No new E5 owner ruling is needed; OQ-paths-p2 records the resolved determination and both ceilings.
+
+READ: Pinned TypeScript 5.9.3 SHA256 `3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675`: priority passes45240–45243; relative branch45327–45338; file-before-directory/full-candidate lookup45341–45394; suffix replacement/appending45423–45503; package/index45745–45813. P2 calls the exact existing local `Pass::relative(target,true,0)` through a six-line adapter. Non-relative ancestor/@types/custom-root searches are not added. Explicit JS-family literals get that proof; missing literals and other secondary/package redirects remain refused. P1 alias entries and explicit TS hops remain unchanged. SPEC's P2 amendment is normative.
+
+## Controls, mutations and suites
+
+MEASURED: Six product groups in JSX/TSX cover named/star/eligible function import-forward, intermediate JS barrels, explicit `.js/.jsx/.mjs/.cjs`, unknown dotted suffixes, TS/declaration competition, member writes, binding writes, shadow/allowJs/non-relative/star/package refusal and local-only roots. P1 RED has three behaviorally failing positive groups and three green preservation/E5 groups; initial invalid fixture setup is excluded. The final negative suffix competitors cover each JS family. Two pre-existing tests encoded the old Cut2 refusal. Same-environment P1 controls both pass; only the authorized newly admitted states' expectations were updated. No unrelated suite failure was found.
+
+MEASURED: **12/12 admissible mutants killed** against an isolated source copy; six-group unmutated baseline green. M01 refuses JS; M02 drops local priority proof; M03 ignores allowJs; M04 drops explicit-JS support; M05 imports non-relative searches; M06 drops suffix replacement; M07 drops appending; M08 drops declarations; M09/M10 drop .d.mts/.d.cts; M11/M12 revert CPG/navigation cache versions. First ten are behavioral kills; last two are version-pin kills. Manifest, source hashes and failing assertions: `p2-mutant-manifest.json`, `p2-mutants.json`, `P2-M*.log`.
+
+MEASURED: Cache106/62 from105/61. **8 cases /40 states** pass old-P1 cache rebuild, warm/unrelated hits and intermediate/terminal TS/declaration add/remove parity against fresh output (`p2-cache/summary.json`). **S1b-4:411 controls /639 sites /822 outputs byte-identical**, zero stderr (`p2-s1b.json`). Four Tier-A fixtures expose the private-shaped multi-hop member-written pattern and declaration refusal in both grammars.
+
+| Verification | Current result |
+|---|---|
+| Full default | 4,935 passed /0 failed /1 existing ignore |
+| Full mcp | 5,128 passed /0 failed /1 existing ignore |
+| Full all-features | 5,151 passed /0 failed /1 existing ignore |
+| fmt | PASS |
+| all-targets/all-features clippy | PASS;372 warning emissions, none in changed resolver/new test file |
+| release + Tier-A matrix | 174 OK /0 regressions /0 skips |
+| Tier-A quick | INCOMPLETE: interrupted after1,642s in a SUT callers subprocess; no completed accuracy receipt |
+
+MEASURED: All three Rust suites are unfiltered, with no environment exclusions; existing ignore is `resolution_test::slice_elem_variant_reserved`. Initial matrix setup was inadmissible because empty caller expectations cannot specify resolution_kind. Enumerating all fixture schemas found exactly both new refusal fixtures; both corrected, then immediate rebuild and174/174. Exact commands, RED/GREEN coverage and exclusions are in root `VERIFICATION.md`. Logs and hypothesis/probe/result record remain lean under target/p2-plan.
+
+## Size, custody and remaining gates
+
+MEASURED: Four production paths:31 added /7 removed lines. Five test paths:302-line new regression file plus small helper/expectation/module updates. Twenty-six fixture paths:78 lines. The shared local port keeps the source delta smaller than the P2-0 forecast; there is no new resolver table or global guard. ASSUMPTION forecast for the dispatch remains40–80 source /300–450 tests /70–120 fixtures; one bounded kernel/cache slice, no numeric cap. Independent controller plan review cap2, used0/2.
+
+MEASURED: Immutable head `target/p2-plan/bin/prism-p2` SHA256 `3310ec8621dc82d4a93bd1b51f1697d0e3bde925a84f1553e4f523ba1f344ca7`, matching304 frozen production/vendor/build inputs. P1 final `907d110c…`; original base `8722d1af…`. Build binding, exact file split, owned snapshot and controller commit recommendations are in P2-FILES/HANDOFF and target/p2-plan. Controller commits the prototype; no push or merge.
+
+READ/UNKNOWN: Not verified: actual F recovery and classification of its43 extra rows; independent review; human-triggered full multi-corpus Tier-A; Linux/case-sensitive and concurrent-tree behavior; quiet-host/resource gate attestation. Public input/fact bytes were freshly rehashed, not freshly re-extracted or gain-oracle reclassified; all complete public rows equal P1. Quick has no completed accuracy result; it was interrupted after1,642s waiting in a SUT callers subprocess (`p2-tier-a-quick.log`). No same-environment P1 quick control was run, so no regression attribution is made. Its generated oracle snapshot was retained under target, outside committed baselines.
+
+---
+
+## Historical P2-0 measurement checkpoint (superseded decision boundary)
+
 # Lane P, P2-0 measurement checkpoint
 
 ASSUMPTION: **Stop implementation dispatch at this checkpoint.** The measured public opportunity is ten distinct sites targeting six callable spans: eight non-relative export hops and two import-forwarded arrows. That is 0.052% of X's 19,219 sites, or 0.32% of P1's 3,121 gains. I recommend treating that public-only yield as immaterial. The historical 749-row F JS-hop bucket could change the decision substantially; its current resolution-admissible yield is still unmeasured. This is a public measurement result and an F gate, not a completed all-corpus P2-0 or a global recommendation to abandon P2.

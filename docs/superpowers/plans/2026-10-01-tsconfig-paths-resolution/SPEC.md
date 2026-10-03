@@ -1,3 +1,47 @@
+# P2 amendment — relative JavaScript export-hop proof
+
+READ: Owner authorized this slice on 2026-10-03 after controller aggregates established material F yield. This amendment supersedes P1 Cut 2's blanket relative JS-hop refusal **only for the tsconfig-paths alias export projection**. The P1 sections below remain historical where they describe that refusal or cache 105/61. Working-tree prototype starts at `8bd3c2dad641bf209f82073017b1549a8f377dff`; no planner Git writes and no F access. Actual private prototype recovery is controller-measured, not inferred from the ceiling.
+
+## P2 contract
+
+A supported P1 alias entry may traverse existing named, star or eligible import-forward export facts through relative JS-family modules. Every admitted JS hop must have caller-project `allowJs=true`, captured readable/no-follow source identity, an indexed implementation, and **absence of every local Node10 TypeScript/declaration priority candidate**. Reuse `js_paths_first_pass::Pass::relative(target, true, 0)` exactly; do not implement a second suffix/package table. Opaque, present, case-colliding, unindexed or outside-root priority candidates preserve the complete base row. Configuration selection and all existing P1 eligibility/ambient/membership barriers remain.
+
+Pinned TypeScript 5.9.3 `lib/typescript.js` SHA256 `3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675`:
+
+| Rule ported or retained | Source lines |
+|---|---|
+| Node10 priority TS/declaration pass before secondary JS pass | 45240–45243 |
+| Non-relative optional settings/ancestors/@types/custom roots; **relative branch instead normalizes and loads local file/folder** | 45287–45338, especially 45327–45338 |
+| Relative normalization; file first, then directory on the **full candidate** | 45341–45394 |
+| File suffix replacement then implicit appended extensions | 45423–45444 |
+| `.js` → `.ts/.tsx/.d.ts`; `.jsx` → `.tsx/.ts/.d.ts`; `.mjs/.cjs` → `.mts/.cts` and their declarations; unknown-suffix declaration probe | 45461–45503 |
+| Local directory package types/typings/main/typesVersions and index | 45745–45813 |
+| Explicit non-relative paths substitution shortcut, distinct from relative lookup | 46417–46440 |
+
+Relative hops **do not consult importing ancestors, node_modules/@types or custom typeRoots**. TypeScript performs those searches on the non-relative branch. P1's global ambient/config capture remains in force; it is not an extra relative module search.
+
+For extensionless/unknown-suffix hops, retain P1's conservative unique indexed source rule, including file/index competition. For explicit `.js/.jsx/.mjs/.cjs`, admit the indexed literal source, which is the first JS secondary candidate for that spelling, after the identical local first-pass proof. Explicit spellings with missing literal source, redirected secondary/package winners, `.js` to sibling TS recovery, extensionless `.mjs/.cjs` discovery and all other P1 entry precedence expansions remain refused. Competing TS/declaration files are never bypassed for JS. Existing explicit TS hop behavior remains unchanged.
+
+A module result is insufficient for an Exact edge. The existing alias projection retains complete star provenance/opacity, cycle/depth limits, duplicate identity and callable/span checks, wrapper provenance, eligible singleton imported binding and exact site/shadow proof. Named/star terminal arrows retain existing verified spans; import-forwarded arrows remain refused by `forwardable_function_locals`. Written bindings, aliases, may-call and unproven positions keep their complete base result. No non-relative export resolution, namespace/class extension, package/workspace resolver or S6 ownership inference is added.
+
+## E5 determination
+
+READ: S1b E5/E5b applies to **binding writes** on every route. `ast/js_binding_writes.rs:49–71` indexes write targets through `collect_js_ts_binding_pattern_names`; `ast.rs:5098–5148` collects identifiers/patterns/assertions and returns no binding names for member/subscript expressions. The module write scan (`ast.rs:4730–4775`) uses the same collector. `f.displayName = ...` and `f['displayName'] = ...` therefore do not write binding `f`.
+
+MEASURED: `js_paths_p2_test::e5_member_writes_match_local_and_legacy_relative_routes` runs local and legacy relative Call **and JSX** sites in JSX/TSX with dot/subscript member writes. The unchanged P1 archive passes in the same environment (`target/p2-plan/p2-e5-base-corrected.log`). Native synthetic controls independently certify member-written alias-hop terminals. Thus admitting them here is consistent; **bind member-written terminals without changing any write guard**. `f = ...` still keeps base; the negative test and scoped guard mutants pin it.
+
+READ forecast: JS_EXPORT_HOP ceiling is 749 **with** the 457 member-written rows, 292 without. Including the 21/22 buckets gives 792 with their additional 18 member-written rows, 317 without. These are supplied callable/ownership ceilings, not production recovery promises. Fold only rows recovered by this exact mechanism; do not weaken binding/site/import-forward guards to force the 43.
+
+## Cache and acceptance
+
+CPG cache **106**, navigation edge cache **62**, from actual parent 105/61. Loader closure priming already calls the same relative resolver; every new first-pass occupancy fact joins snapshot topology before cache hashing. Retain version pins, old-P1-cache rebuild, warm-hit and candidate add/remove cached-versus-fresh controls.
+
+Accept only after: all four public full streams are byte-identical to P1, unchanged P1 gains against original base; every private changed row is native callable/name/file/span and owner-certified by the controller wrapper; both-grammar product and native controls; scoped mutants; default/MCP suites, fmt, clippy, immediate-rebuild Tier-A matrix and S1b-4 byte identity. Quick is required by project steering before review when runnable; report exact exclusions. Full multi-corpus Tier-A remains human-triggered. No baseline update, push or merge.
+
+Forecast using the existing local port: **40–80 production lines**, **300–450 test lines**, **70–120 fixture lines**, plus bounded measurement/control runners. One kernel/cache slice; no model expansion. Controller review cap **2 rounds**, currently **0/2**. At the cap classify convergence before acting; retain and target-fix the prototype.
+
+---
+
 > **Current adopted fix `b28f6e72`: full requested verification PASS.** Production behavior unchanged; no Git writes or F access. Complete totals, gates, driver rebindings and limits: [VERIFY-FABLE-RESULTS.md](VERIFY-FABLE-RESULTS.md). Earlier r4 and lint-stop receipts are historical.
 
 

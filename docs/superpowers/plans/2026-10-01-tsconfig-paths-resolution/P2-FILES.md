@@ -1,24 +1,83 @@
-# P2 checkpoint file inventory and controller commits
+# P2 file inventory and controller commits
 
-READ: No planner Git writes. ASSUMPTION: suggested controller commits after reviewing the measurement checkpoint; first the five probes, then the four documents:
+MEASURED: Entry HEAD8bd3c2dad641bf209f82073017b1549a8f377dff; no planner Git writes. Prototype is in this clone's working tree. Controller commits the **plan** set to the plan branch and the **prototype** set to proto/tsconfig-paths-p2 after checking the frozen owned-file hashes. Do not apply the prototype twice or rewrite it. Local source/binary evidence is target/p2-plan; actual F yield and independent review remain open.
+
+Suggested controller commit messages:
+
+- Plan: `docs(paths): specify and measure P2 relative JS export hops`
+- Prototype: `feat(paths): prove local Node10 absence for JS export hops`
+
+## Plan files
 
 ```text
-test(paths): add aggregate-only P2 native measurement probes
-docs(paths): record P2 public residuals and F dispatch gate
+VERIFICATION.md
+docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/HANDOFF-P2.md
+docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/IMPLEMENTOR.md
+docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/OQ-paths-p2.md
+docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/P2-FILES.md
+docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/P2-MEASUREMENTS.md
+docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/SPEC.md
+docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/p2-probes/CONTROLLER-p2.sh
+docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/p2-probes/cache.py
+docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/p2-probes/compare.py
+docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/p2-probes/controls.py
+docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/p2-probes/mutants.py
+docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/p2-probes/public_head.py
+docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/p2-probes/s1b.py
+docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/p2-probes/verify.py
 ```
 
-READ: New files in `docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/`:
+## Prototype files
 
-| File | Purpose |
-|---|---|
-| `P2-MEASUREMENTS.md` | Complete public bucket census, native bindings, source rules, ranked forecasts and explicit F gate |
-| `OQ-paths-p2.md` | Materiality, controller aggregate and conditional prototype questions |
-| `HANDOFF-P2.md` | Live eight-section lane handoff |
-| `P2-FILES.md` | This inventory and controller commit message |
-| `p2-probes/native.cjs` | Real caller ProjectService program/checker; requested export-hop traces and aggregate counts |
-| `p2-probes/CONTROLLER-p2.sh` | Controller-only F probe; aggregate-only stdout and private intermediates |
-| `p2-probes/public.py` | Fresh public dumps and oracles, retained-fact input validation and full-stream parity |
-| `p2-probes/smoke.py` | Both-grammar measurement-instrument controls and stdout privacy checks |
-| `p2-probes/summarize.py` | Complete denominators, native/input hash checks, parked traits and callable span census |
+```text
+eval/fixtures/javascript/tsconfig_paths_js_export_hop/app.jsx
+eval/fixtures/javascript/tsconfig_paths_js_export_hop/expected.toml
+eval/fixtures/javascript/tsconfig_paths_js_export_hop/src/barrel.ts
+eval/fixtures/javascript/tsconfig_paths_js_export_hop/src/middle.js
+eval/fixtures/javascript/tsconfig_paths_js_export_hop/src/real.jsx
+eval/fixtures/javascript/tsconfig_paths_js_export_hop/tsconfig.json
+eval/fixtures/javascript/tsconfig_paths_js_export_hop_refusal/app.jsx
+eval/fixtures/javascript/tsconfig_paths_js_export_hop_refusal/expected.toml
+eval/fixtures/javascript/tsconfig_paths_js_export_hop_refusal/src/barrel.ts
+eval/fixtures/javascript/tsconfig_paths_js_export_hop_refusal/src/middle.js
+eval/fixtures/javascript/tsconfig_paths_js_export_hop_refusal/src/real.d.ts
+eval/fixtures/javascript/tsconfig_paths_js_export_hop_refusal/src/real.jsx
+eval/fixtures/javascript/tsconfig_paths_js_export_hop_refusal/tsconfig.json
+eval/fixtures/typescript/tsconfig_paths_js_export_hop/app.tsx
+eval/fixtures/typescript/tsconfig_paths_js_export_hop/expected.toml
+eval/fixtures/typescript/tsconfig_paths_js_export_hop/src/barrel.ts
+eval/fixtures/typescript/tsconfig_paths_js_export_hop/src/middle.js
+eval/fixtures/typescript/tsconfig_paths_js_export_hop/src/real.jsx
+eval/fixtures/typescript/tsconfig_paths_js_export_hop/tsconfig.json
+eval/fixtures/typescript/tsconfig_paths_js_export_hop_refusal/app.tsx
+eval/fixtures/typescript/tsconfig_paths_js_export_hop_refusal/expected.toml
+eval/fixtures/typescript/tsconfig_paths_js_export_hop_refusal/src/barrel.ts
+eval/fixtures/typescript/tsconfig_paths_js_export_hop_refusal/src/middle.js
+eval/fixtures/typescript/tsconfig_paths_js_export_hop_refusal/src/real.d.ts
+eval/fixtures/typescript/tsconfig_paths_js_export_hop_refusal/src/real.jsx
+eval/fixtures/typescript/tsconfig_paths_js_export_hop_refusal/tsconfig.json
+src/cpg_cache.rs
+src/js_paths.rs
+src/js_paths_first_pass.rs
+src/navigation/call_edge_cache.rs
+tests/integration/js_paths_cap_test.rs
+tests/integration/js_paths_common.rs
+tests/integration/js_paths_p2_test.rs
+tests/integration/js_paths_repair_test.rs
+tests/integration/main.rs
+```
 
-READ: Evidence stays under `target/p2-plan`, with complete public streams/native rows compressed losslessly, a summary, source/input/probe hashes, smoke receipts, an explicit-path native witness and a local owned-file snapshot. It is local custody, not a pushed backup. No cargo build directories exist in this lane. The conditional production patch, amendment, mutants, Tier-A fixture and P2 implementor dispatch are absent because fresh F has not established the build gate.
+## Private measurement command
+
+With controller-held CORPUS_F_ROOT, a new PRIVATE_EVIDENCE_ROOT and TS_JS already set:
+
+```bash
+bash docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/p2-probes/CONTROLLER-p2.sh \
+  /Users/wesleyjinks/code/prism-paths-impl/target/repair-r5/head/prism \
+  /Users/wesleyjinks/code/prism-paths-impl/target/repair-r1/base/dump_imports \
+  /Users/wesleyjinks/code/prism-paths-p2-plan/target/p2-plan/bin/prism-p2
+```
+
+Return aggregate stdout only. P2 SHA2563310ec8621dc82d4a93bd1b51f1697d0e3bde925a84f1553e4f523ba1f344ca7. Every changed row must be certified; unsupported/uncertified output rejects acceptance. Raw private evidence stays private. The optional third argument retains P2-0 census-only compatibility.
+
+Custody: p2-build-binding.json covers304 production inputs and the binary; p2-file-split.json enumerates the two sets; p2-owned-snapshot.tar.gz and final source hashes retain local bytes. No external-backup or controller-commit claim is made. Rust build caches are reproducible intermediates, not evidence; only lane-owned completed intermediates may be removed. Preserve the immutable P2 binary, compressed complete public streams, native/suite/cache/mutant receipts and owned snapshot.
