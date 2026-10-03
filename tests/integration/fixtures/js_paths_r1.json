@@ -1,0 +1,1538 @@
+[
+  {
+    "case": "C39-exclude-parent-glob-jsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "pkg/src/a/app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/src/a/app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/src/a/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"], \"exclude\": [\"src/*\"]}"
+    }
+  },
+  {
+    "case": "C40-exclude-dotted-parent-jsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "pkg/src/v1.legacy/app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/src/v1.legacy/app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/src/v1.legacy/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"], \"exclude\": [\"src/v1.legacy\"]}"
+    }
+  },
+  {
+    "case": "C41-allowjs-off-mjs-jsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "pkg/app.mjs",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/app.mjs",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.mjs": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "C41-allowjs-off-cjs-jsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "pkg/app.cjs",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/app.cjs",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.cjs": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "C42-same-stem-js-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/app.js",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "pkg/tsconfig.json",
+      "pkg/app.ts"
+    ],
+    "app": "pkg/app.js",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.js": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.ts": "export const other = 0;"
+    }
+  },
+  {
+    "case": "C42-same-stem-jsx-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "pkg/tsconfig.json",
+      "pkg/app.tsx"
+    ],
+    "app": "pkg/app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.tsx": "export const other = 0;"
+    }
+  },
+  {
+    "case": "C43-package-folder-bower_components-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "bower_components/x/app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx"
+    ],
+    "app": "bower_components/x/app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "bower_components/x/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n"
+    }
+  },
+  {
+    "case": "C43-package-folder-jspm_packages-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "jspm_packages/x/app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx"
+    ],
+    "app": "jspm_packages/x/app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "jspm_packages/x/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n"
+    }
+  },
+  {
+    "case": "C44-skipped-star-0-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "lib/barrel.jsx",
+      "rel.jsx"
+    ],
+    "app": "app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"], \"@ext\": [\"decoy/real\"]}}, \"include\": [\"**/*\"]}",
+      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "lib/barrel.jsx": "export * from '@ext';\nexport * from './real';\n",
+      "rel.jsx": "import { real as picked } from './lib/barrel';\nexport function rel() { picked(); }\n"
+    }
+  },
+  {
+    "case": "C44-skipped-star-1-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "lib/barrel.jsx",
+      "rel.jsx"
+    ],
+    "app": "app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"], \"@ext\": [\"decoy/real\"]}}, \"include\": [\"**/*\"]}",
+      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "lib/barrel.jsx": "export * from './real';\nexport * from '@ext';\n",
+      "rel.jsx": "import { real as picked } from './lib/barrel';\nexport function rel() { picked(); }\n"
+    }
+  },
+  {
+    "case": "C45-jsconfig-barrier-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "pkg/jsconfig.json"
+    ],
+    "app": "pkg/app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "pkg/jsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "C46-solution-barrier-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "pkg/tsconfig.json",
+      "pkg/tsconfig.app.json"
+    ],
+    "app": "pkg/app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"files\":[],\"references\":[{\"path\":\"./tsconfig.app.json\"}]}",
+      "pkg/tsconfig.app.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "C47-allowjs-false-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx"
+    ],
+    "app": "app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": false, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n"
+    }
+  },
+  {
+    "case": "C48-outdir-barrier-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx"
+    ],
+    "app": "app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}, \"outDir\": \"generated\"}, \"include\": [\"**/*\"]}",
+      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n"
+    }
+  },
+  {
+    "case": "C49-dotted-segment-jsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "lib/user.service.jsx"
+    ],
+    "app": "app.jsx",
+    "target": "lib/user.service.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/user.service\"]}}, \"include\": [\"**/*\"]}",
+      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "lib/user.service.jsx": "export function real() { return 1; }\n"
+    }
+  },
+  {
+    "case": "C50-known-extension-cut-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "lib/user.js.jsx"
+    ],
+    "app": "app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/user.js\"]}}, \"include\": [\"**/*\"]}",
+      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "lib/user.js.jsx": "export function real() { return 1; }\n"
+    }
+  },
+  {
+    "case": "C51-leading-space-relative-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx"
+    ],
+    "app": "app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "app.jsx": "import { real as picked } from ' ./lib/real';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n"
+    }
+  },
+  {
+    "case": "C52-exclude-nonmatch-jsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx"
+    ],
+    "app": "app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"], \"exclude\": [\"**/*.test.*\"]}",
+      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n"
+    }
+  },
+  {
+    "case": "C53-files-priority-exempt-jsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "pkg/app.js",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "pkg/app.ts"
+    ],
+    "app": "pkg/app.js",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/app.js\"]}",
+      "pkg/app.js": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "pkg/app.ts": "export const other = 0;"
+    }
+  },
+  {
+    "case": "C54-files-empty-barrier-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"files\":[]}"
+    }
+  },
+  {
+    "case": "C55-nested-opaque-star-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "lib/barrel.jsx",
+      "lib/nested.jsx"
+    ],
+    "app": "app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
+      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "lib/barrel.jsx": "export * from './nested';\nexport * from './real';\n",
+      "lib/nested.jsx": "export * from '@ext';\n"
+    }
+  },
+  {
+    "case": "C56-proven-empty-star-jsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "lib/barrel.jsx",
+      "lib/types.ts"
+    ],
+    "app": "app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
+      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "lib/barrel.jsx": "export * from './types';\nexport * from './real';\n",
+      "lib/types.ts": "export type Empty = number;\n"
+    }
+  },
+  {
+    "case": "C57-opaque-syntax-star-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "lib/barrel.jsx",
+      "lib/types.jsx"
+    ],
+    "app": "app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
+      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "lib/barrel.jsx": "export * from './types';\nexport * from './real';\n",
+      "lib/types.jsx": "export type = ;\n"
+    }
+  },
+  {
+    "case": "C58-leading-space-relative-cjs-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "lib/cjs.js"
+    ],
+    "app": "app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "app.jsx": "import { real as picked } from ' ./lib/cjs';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "lib/cjs.js": "function real() { return 1; }\nmodule.exports.real = real;\n"
+    }
+  },
+  {
+    "case": "C59-opaque-cjs-star-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "lib/barrel.jsx",
+      "lib/opaque.js",
+      "rel.jsx"
+    ],
+    "app": "app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
+      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "lib/barrel.jsx": "export * from './opaque';\nexport * from './real';\n",
+      "lib/opaque.js": "module.exports = buildExports();\n",
+      "rel.jsx": "import { real as picked } from './lib/barrel';\nexport function rel() { picked(); }\n"
+    }
+  },
+  {
+    "case": "C60-skipped-noncall-conflict-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "lib/barrel.jsx",
+      "lib/opaque.jsx"
+    ],
+    "app": "app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
+      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "lib/barrel.jsx": "export * from './opaque';\nexport * from './real';\n",
+      "lib/opaque.jsx": "export const real = 1;\n"
+    }
+  },
+  {
+    "case": "C61-known-noncall-nonconflict-jsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "lib/barrel.jsx",
+      "lib/opaque.jsx"
+    ],
+    "app": "app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
+      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "lib/barrel.jsx": "export * from './opaque';\nexport * from './real';\n",
+      "lib/opaque.jsx": "export const other = 1;\n"
+    }
+  },
+  {
+    "case": "C62-raw-alias-no-borrow-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx"
+    ],
+    "app": "app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "app.jsx": "import { real as other } from '@lib';\nimport { real as picked } from ' @lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n"
+    }
+  },
+  {
+    "case": "C63-raw-alias-exact-key-jsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx"
+    ],
+    "app": "app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\" @lib\": [\"lib/real\"], \"@lib\": [\"decoy/real\"]}}, \"include\": [\"**/*\"]}",
+      "app.jsx": "import { real as other } from '@lib';\nimport { real as picked } from ' @lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n"
+    }
+  },
+  {
+    "case": "C64-literal-package-bower_components-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/bower_components/x/app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/bower_components/x/app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/bower_components/x/app.jsx\"]}",
+      "pkg/bower_components/x/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"bower_components/**/*\"]}"
+    }
+  },
+  {
+    "case": "C64-literal-package-jspm_packages-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/jspm_packages/x/app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/jspm_packages/x/app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/jspm_packages/x/app.jsx\"]}",
+      "pkg/jspm_packages/x/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"jspm_packages/**/*\"]}"
+    }
+  },
+  {
+    "case": "C65-declaration-priority-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/src/app.d.ts",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "pkg/tsconfig.json",
+      "pkg/src/app.ts"
+    ],
+    "app": "pkg/src/app.d.ts",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/src/app.d.ts\"]}",
+      "pkg/src/app.d.ts": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"src/**/*\"]}",
+      "pkg/src/app.ts": "export const other = 0;"
+    }
+  },
+  {
+    "case": "C66-unicode-glob-barrier-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/src/app花.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/src/app花.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/src/app\\u82b1.jsx\"]}",
+      "pkg/src/app花.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"src/app?.jsx\"]}"
+    }
+  },
+  {
+    "case": "C67-case-include-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/src/app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/src/app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/src/app.jsx\"]}",
+      "pkg/src/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"SRC/**/*\"]}"
+    }
+  },
+  {
+    "case": "C68-case-exclude-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/src/app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/src/app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/src/app.jsx\"]}",
+      "pkg/src/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"], \"exclude\": [\"SRC/*\"]}"
+    }
+  },
+  {
+    "case": "C69-case-config-name-jsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "pkg/TSCONFIG.JSON"
+    ],
+    "app": "pkg/app.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "pkg/TSCONFIG.JSON": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "C70-unicode-target-jsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "app.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx",
+      "lib/花.jsx"
+    ],
+    "app": "app.jsx",
+    "target": "lib/花.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/\\u82b1\"]}}, \"include\": [\"**/*\"]}",
+      "app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n",
+      "lib/花.jsx": "export function real() { return 1; }\n"
+    }
+  },
+  {
+    "case": "C71-unicode-explicit-file-jsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "app花.jsx",
+      "lib/real.jsx",
+      "decoy/real.jsx"
+    ],
+    "app": "app花.jsx",
+    "target": "lib/real.jsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"app\\u82b1.jsx\"]}",
+      "app花.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.jsx": "export function real() { return 1; }\n",
+      "decoy/real.jsx": "export function real() { return 2; }\n"
+    }
+  },
+  {
+    "case": "C39-exclude-parent-glob-tsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "pkg/src/a/app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/src/a/app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/src/a/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"], \"exclude\": [\"src/*\"]}"
+    }
+  },
+  {
+    "case": "C40-exclude-dotted-parent-tsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "pkg/src/v1.legacy/app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/src/v1.legacy/app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/src/v1.legacy/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"], \"exclude\": [\"src/v1.legacy\"]}"
+    }
+  },
+  {
+    "case": "C41-allowjs-off-mjs-tsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "pkg/app.mjs",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/app.mjs",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.mjs": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "C41-allowjs-off-cjs-tsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "pkg/app.cjs",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/app.cjs",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.cjs": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "C42-same-stem-js-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/app.js",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "pkg/tsconfig.json",
+      "pkg/app.ts"
+    ],
+    "app": "pkg/app.js",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.js": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.ts": "export const other = 0;"
+    }
+  },
+  {
+    "case": "C42-same-stem-jsx-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/app.jsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "pkg/tsconfig.json",
+      "pkg/app.tsx"
+    ],
+    "app": "pkg/app.jsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.jsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.tsx": "export const other = 0;"
+    }
+  },
+  {
+    "case": "C43-package-folder-bower_components-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "bower_components/x/app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx"
+    ],
+    "app": "bower_components/x/app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "bower_components/x/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n"
+    }
+  },
+  {
+    "case": "C43-package-folder-jspm_packages-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "jspm_packages/x/app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx"
+    ],
+    "app": "jspm_packages/x/app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "jspm_packages/x/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n"
+    }
+  },
+  {
+    "case": "C44-skipped-star-0-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "lib/barrel.tsx",
+      "rel.tsx"
+    ],
+    "app": "app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"], \"@ext\": [\"decoy/real\"]}}, \"include\": [\"**/*\"]}",
+      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "lib/barrel.tsx": "export * from '@ext';\nexport * from './real';\n",
+      "rel.tsx": "import { real as picked } from './lib/barrel';\nexport function rel() { picked(); }\n"
+    }
+  },
+  {
+    "case": "C44-skipped-star-1-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "lib/barrel.tsx",
+      "rel.tsx"
+    ],
+    "app": "app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"], \"@ext\": [\"decoy/real\"]}}, \"include\": [\"**/*\"]}",
+      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "lib/barrel.tsx": "export * from './real';\nexport * from '@ext';\n",
+      "rel.tsx": "import { real as picked } from './lib/barrel';\nexport function rel() { picked(); }\n"
+    }
+  },
+  {
+    "case": "C45-jsconfig-barrier-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "pkg/jsconfig.json"
+    ],
+    "app": "pkg/app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "pkg/jsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "C46-solution-barrier-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "pkg/tsconfig.json",
+      "pkg/tsconfig.app.json"
+    ],
+    "app": "pkg/app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"files\":[],\"references\":[{\"path\":\"./tsconfig.app.json\"}]}",
+      "pkg/tsconfig.app.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "C47-allowjs-false-tsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx"
+    ],
+    "app": "app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": false, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n"
+    }
+  },
+  {
+    "case": "C48-outdir-barrier-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx"
+    ],
+    "app": "app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}, \"outDir\": \"generated\"}, \"include\": [\"**/*\"]}",
+      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n"
+    }
+  },
+  {
+    "case": "C49-dotted-segment-tsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "lib/user.service.tsx"
+    ],
+    "app": "app.tsx",
+    "target": "lib/user.service.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/user.service\"]}}, \"include\": [\"**/*\"]}",
+      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "lib/user.service.tsx": "export function real() { return 1; }\n"
+    }
+  },
+  {
+    "case": "C50-known-extension-cut-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "lib/user.js.tsx"
+    ],
+    "app": "app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/user.js\"]}}, \"include\": [\"**/*\"]}",
+      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "lib/user.js.tsx": "export function real() { return 1; }\n"
+    }
+  },
+  {
+    "case": "C51-leading-space-relative-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx"
+    ],
+    "app": "app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "app.tsx": "import { real as picked } from ' ./lib/real';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n"
+    }
+  },
+  {
+    "case": "C52-exclude-nonmatch-tsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx"
+    ],
+    "app": "app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"], \"exclude\": [\"**/*.test.*\"]}",
+      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n"
+    }
+  },
+  {
+    "case": "C53-files-priority-exempt-tsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "pkg/app.js",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "pkg/app.ts"
+    ],
+    "app": "pkg/app.js",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/app.js\"]}",
+      "pkg/app.js": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "pkg/app.ts": "export const other = 0;"
+    }
+  },
+  {
+    "case": "C54-files-empty-barrier-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"files\":[]}"
+    }
+  },
+  {
+    "case": "C55-nested-opaque-star-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "lib/barrel.tsx",
+      "lib/nested.tsx"
+    ],
+    "app": "app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
+      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "lib/barrel.tsx": "export * from './nested';\nexport * from './real';\n",
+      "lib/nested.tsx": "export * from '@ext';\n"
+    }
+  },
+  {
+    "case": "C56-proven-empty-star-tsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "lib/barrel.tsx",
+      "lib/types.ts"
+    ],
+    "app": "app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
+      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "lib/barrel.tsx": "export * from './types';\nexport * from './real';\n",
+      "lib/types.ts": "export type Empty = number;\n"
+    }
+  },
+  {
+    "case": "C57-opaque-syntax-star-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "lib/barrel.tsx",
+      "lib/types.tsx"
+    ],
+    "app": "app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
+      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "lib/barrel.tsx": "export * from './types';\nexport * from './real';\n",
+      "lib/types.tsx": "export type = ;\n"
+    }
+  },
+  {
+    "case": "C58-leading-space-relative-cjs-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "lib/cjs.js"
+    ],
+    "app": "app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "app.tsx": "import { real as picked } from ' ./lib/cjs';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "lib/cjs.js": "function real() { return 1; }\nmodule.exports.real = real;\n"
+    }
+  },
+  {
+    "case": "C59-opaque-cjs-star-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "lib/barrel.tsx",
+      "lib/opaque.js",
+      "rel.tsx"
+    ],
+    "app": "app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
+      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "lib/barrel.tsx": "export * from './opaque';\nexport * from './real';\n",
+      "lib/opaque.js": "module.exports = buildExports();\n",
+      "rel.tsx": "import { real as picked } from './lib/barrel';\nexport function rel() { picked(); }\n"
+    }
+  },
+  {
+    "case": "C60-skipped-noncall-conflict-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "lib/barrel.tsx",
+      "lib/opaque.tsx"
+    ],
+    "app": "app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
+      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "lib/barrel.tsx": "export * from './opaque';\nexport * from './real';\n",
+      "lib/opaque.tsx": "export const real = 1;\n"
+    }
+  },
+  {
+    "case": "C61-known-noncall-nonconflict-tsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "lib/barrel.tsx",
+      "lib/opaque.tsx"
+    ],
+    "app": "app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/barrel\"]}}, \"include\": [\"**/*\"]}",
+      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "lib/barrel.tsx": "export * from './opaque';\nexport * from './real';\n",
+      "lib/opaque.tsx": "export const other = 1;\n"
+    }
+  },
+  {
+    "case": "C62-raw-alias-no-borrow-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx"
+    ],
+    "app": "app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "app.tsx": "import { real as other } from '@lib';\nimport { real as picked } from ' @lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n"
+    }
+  },
+  {
+    "case": "C63-raw-alias-exact-key-tsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx"
+    ],
+    "app": "app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\" @lib\": [\"lib/real\"], \"@lib\": [\"decoy/real\"]}}, \"include\": [\"**/*\"]}",
+      "app.tsx": "import { real as other } from '@lib';\nimport { real as picked } from ' @lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n"
+    }
+  },
+  {
+    "case": "C64-literal-package-bower_components-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/bower_components/x/app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/bower_components/x/app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/bower_components/x/app.tsx\"]}",
+      "pkg/bower_components/x/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"bower_components/**/*\"]}"
+    }
+  },
+  {
+    "case": "C64-literal-package-jspm_packages-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/jspm_packages/x/app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/jspm_packages/x/app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/jspm_packages/x/app.tsx\"]}",
+      "pkg/jspm_packages/x/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"jspm_packages/**/*\"]}"
+    }
+  },
+  {
+    "case": "C65-declaration-priority-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/src/app.d.ts",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "pkg/tsconfig.json",
+      "pkg/src/app.ts"
+    ],
+    "app": "pkg/src/app.d.ts",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/src/app.d.ts\"]}",
+      "pkg/src/app.d.ts": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"src/**/*\"]}",
+      "pkg/src/app.ts": "export const other = 0;"
+    }
+  },
+  {
+    "case": "C66-unicode-glob-barrier-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/src/app花.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/src/app花.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/src/app\\u82b1.tsx\"]}",
+      "pkg/src/app花.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"src/app?.tsx\"]}"
+    }
+  },
+  {
+    "case": "C67-case-include-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/src/app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/src/app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/src/app.tsx\"]}",
+      "pkg/src/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"SRC/**/*\"]}"
+    }
+  },
+  {
+    "case": "C68-case-exclude-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/src/app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "pkg/tsconfig.json"
+    ],
+    "app": "pkg/src/app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"pkg/src/app.tsx\"]}",
+      "pkg/src/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "pkg/tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"], \"exclude\": [\"SRC/*\"]}"
+    }
+  },
+  {
+    "case": "C69-case-config-name-tsx",
+    "expectation": "base",
+    "files": [
+      "tsconfig.json",
+      "pkg/app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "pkg/TSCONFIG.JSON"
+    ],
+    "app": "pkg/app.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [\"**/*\"]}",
+      "pkg/app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "pkg/TSCONFIG.JSON": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"../decoy/real\"]}}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "C70-unicode-target-tsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "app.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx",
+      "lib/花.tsx"
+    ],
+    "app": "app.tsx",
+    "target": "lib/花.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/\\u82b1\"]}}, \"include\": [\"**/*\"]}",
+      "app.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n",
+      "lib/花.tsx": "export function real() { return 1; }\n"
+    }
+  },
+  {
+    "case": "C71-unicode-explicit-file-tsx",
+    "expectation": "gain",
+    "files": [
+      "tsconfig.json",
+      "app花.tsx",
+      "lib/real.tsx",
+      "decoy/real.tsx"
+    ],
+    "app": "app花.tsx",
+    "target": "lib/real.tsx",
+    "payload": {
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"paths\": {\"@lib\": [\"lib/real\"]}}, \"include\": [], \"files\": [\"app\\u82b1.tsx\"]}",
+      "app花.tsx": "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+      "lib/real.tsx": "export function real() { return 1; }\n",
+      "decoy/real.tsx": "export function real() { return 2; }\n"
+    }
+  }
+]

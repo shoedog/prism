@@ -1,0 +1,10 @@
+[case]
+language = "typescript"
+capability = "tsconfig_paths_refusal"
+status = "pass"
+[seed]
+symbol = "real"
+file = "src/util.tsx"
+line = 1
+[expect]
+exact = true

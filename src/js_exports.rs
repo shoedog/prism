@@ -169,6 +169,9 @@ pub struct ResolvedJsExport {
     /// S1b: the span is a wrapped React render function, bindable from JSX sites only.
     #[serde(default)]
     pub wrapped: bool,
+    /// Alias routes decline any closure that skipped an unresolved/opaque star.
+    #[serde(default)]
+    pub via_unresolved_star: bool,
 }
 
 /// Whole-program resolution output: per-file resolved export tables plus
@@ -198,17 +201,29 @@ pub fn resolve_js_exports(
     raw: &BTreeMap<String, JsExportFacts>,
     resolve_module: &dyn Fn(&str, &str) -> Option<String>,
 ) -> JsExportResolution {
+    resolve_js_exports_for(raw, resolve_module, raw.keys())
+}
+
+// Alias consumers query only admitted root modules. Keep the complete raw map
+// for the same dependency traversal, conflicts and unresolved-star proofs.
+pub(crate) fn resolve_js_exports_for<'a>(
+    raw: &BTreeMap<String, JsExportFacts>,
+    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
+    roots: impl IntoIterator<Item = &'a String>,
+) -> JsExportResolution {
     let mut out = JsExportResolution::default();
-    for file in raw.keys() {
+    for file in roots {
         let mut visited_files = BTreeSet::new();
         let names =
             collect_candidate_names(raw, resolve_module, file, 0, &mut visited_files, &mut out);
         let mut per_file = BTreeMap::new();
         for name in names {
             let mut visited = BTreeSet::new();
-            if let ExportLookup::Resolved(hit, false) =
+            if let ExportLookup::Resolved(mut hit, false) =
                 resolve_one(raw, resolve_module, file, &name, 0, &mut visited, &mut out)
             {
+                hit.via_unresolved_star =
+                    skipped_star(raw, resolve_module, file, &name, &mut BTreeSet::new());
                 per_file.insert(name, hit);
             }
         }
@@ -330,6 +345,51 @@ fn namespace_identity(
         Ok(unique)
     })();
     visiting.remove(&key);
+    result
+}
+
+// A skipped branch can have no candidate of its own, so propagate provenance
+// over the complete star closure, including empty nested branches. Direct named
+// exports override stars; named reexports carry their target's provenance.
+fn skipped_star(
+    raw: &BTreeMap<String, JsExportFacts>,
+    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
+    file: &str,
+    name: &str,
+    visited: &mut BTreeSet<(String, String)>,
+) -> bool {
+    let key = (file.to_owned(), name.to_owned());
+    if visited.len() > MAX_REEXPORT_DEPTH || !visited.insert(key.clone()) {
+        return true;
+    }
+    let result = match raw.get(file) {
+        None => true,
+        Some(facts) => match facts.named.get(name) {
+            Some(
+                JsExportTarget::ReExport {
+                    module_path,
+                    imported,
+                }
+                | JsExportTarget::ImportForward {
+                    module_path,
+                    imported,
+                },
+            ) => resolve_module(file, module_path)
+                .is_none_or(|target| skipped_star(raw, resolve_module, &target, imported, visited)),
+            Some(_) => false,
+            None => {
+                facts.skipped_expr_count > facts.skipped_decl_reasons.values().sum::<usize>()
+                    || (!facts.skipped_decl_reasons.is_empty()
+                        && facts.module_value_bindings.contains(name))
+                    || facts.star_reexports.iter().any(|module_path| {
+                        resolve_module(file, module_path).is_none_or(|target| {
+                            skipped_star(raw, resolve_module, &target, name, visited)
+                        })
+                    })
+            }
+        },
+    };
+    visited.remove(&key);
     result
 }
 
@@ -456,6 +516,7 @@ fn resolve_one_inner(
                     file: file.to_string(),
                     local_name: local.clone(),
                     span: Some((*start_line, *end_line)),
+                    via_unresolved_star: false,
                     wrapped: matches!(target, JsExportTarget::SpannedLocal { .. }),
                 },
                 false,
@@ -466,6 +527,7 @@ fn resolve_one_inner(
                     file: file.to_string(),
                     local_name: local.clone(),
                     span: None,
+                    via_unresolved_star: false,
                     wrapped: false,
                 },
                 matches!(target, JsExportTarget::Class(_)),
@@ -556,6 +618,7 @@ fn resolve_one_inner(
                     file,
                     local_name,
                     span,
+                    via_unresolved_star: false,
                     wrapped,
                 },
                 is_class,
@@ -627,6 +690,7 @@ mod tests {
                 file: "util.ts".to_string(),
                 local_name: "process".to_string(),
                 span: None,
+                via_unresolved_star: false,
                 wrapped: false,
             }
         );
@@ -652,6 +716,7 @@ mod tests {
                 file: "impl.ts".to_string(),
                 local_name: "process".to_string(),
                 span: None,
+                via_unresolved_star: false,
                 wrapped: false,
             }
         );
@@ -680,6 +745,7 @@ mod tests {
                 file: "impl.ts".to_string(),
                 local_name: "process".to_string(),
                 span: None,
+                via_unresolved_star: false,
                 wrapped: false,
             }
         );
@@ -743,6 +809,7 @@ mod tests {
                 local_name: "process".to_string(),
                 span: None,
                 wrapped: false,
+                via_unresolved_star: false,
             }
         );
     }
@@ -807,6 +874,7 @@ mod tests {
                 local_name: "process".to_string(),
                 span: None,
                 wrapped: false,
+                via_unresolved_star: false,
             }
         );
         assert_eq!(out.barrel_conflicts, 0);

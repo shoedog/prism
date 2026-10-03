@@ -1,79 +1,79 @@
-# Handoff — Lane-P W1 extension-priority residual fold
+> **Current r5 targeted fold: all requested local gates PASS.** HEAD `5aa30552` plus the dirty repair; retained binary `target/repair-r5/head/prism`, SHA-256 `907d110c70962063d5fde23acd22b6d92b62b117d837b97a81f6d65ed263aa03`; source binding `ddd3a9c4d844a180a7b43ebda7db8daef23265ccccd9e37919806b4d9d04fbad`. Cache **105/61**. [Results and every repeat](REPAIR-R5-RESULTS.md), [handoff](REPAIR-R5-HANDOFF.md), [files and proposed commits](REPAIR-R5-FILES.md). Earlier receipts below are historical. Controller Git custody remains open. No repairer Git writes or F access.
 
-**Written:** 2026-10-01T21:32:12.262958+00:00 · **By:** Lane-P planner · **Provider:** codex
-**Workspace:** prism-paths-plan / prism-paths-proto · **Measured state:** [MEASURED] plan 2b3b9970 / prototype 32a5e893, DIRTY; initial prototype tree equals bab21e62. Probe git rev-parse/status/tree binding; output source-binding.json and final-checks.json.
-**Predecessor:** supplied spec-confirm-opus.md
-**Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0.
-**Provenance:** written live using prompts-skills-steering/bootstrap/handoff-template.md. [MEASURED] claims rerun here; [INHERITED] claims supplied by user/review. No relevant memory used or updated.
+> **Historical adopted fix `b28f6e72`: full requested verification PASS.** Production behavior unchanged; no Git writes or F access. Complete totals, gates, driver rebindings and limits: [VERIFY-FABLE-RESULTS.md](VERIFY-FABLE-RESULTS.md). Earlier r4 and lint-stop receipts are historical.
+
+
+
+> **Historical r4:** owner-authorized accepted-risk repair and its then-requested local verification. See [REPAIR-R4-RESULTS.md](REPAIR-R4-RESULTS.md), [REPAIR-R4-HANDOFF.md](REPAIR-R4-HANDOFF.md) and [REPAIR-R4-FILES.md](REPAIR-R4-FILES.md). Earlier receipts do not certify the adopted performance fix.
+
+> Historical r3 was **PARKED / NOT SHIPPABLE**. [REPAIR-R3-HANDOFF.md](REPAIR-R3-HANDOFF.md) supersedes the operational state below. The r2d facts and controller commands are historical; their binaries and wrapper defaults do not certify r3. Do not execute the historical acceptance flow for the parked patch.
+
+# Historical handoff — Lane P P1 r2d local repair complete; controller acceptance pending
+
+**Written:** 2026-10-02 · **By:** /root repairer · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/prism-paths-impl · **Measured state:** [MEASURED] HEAD 6965da75eb85f32d3ae0dda9e96704ad432375e6 · Tree DIRTY · Probe git rev-parse/status, frozen input/binary hashes and completed verification · Output target/repair-r2d/boundary-final
+**Predecessor:** owner-supplied squashed r2c a66b877f; controller-created custody WIP6965da75 during this turn.
+**Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
+**Provenance:** written live by repairer; [MEASURED] claims were run this turn; [INHERITED] claims came from the owner.
 
 ## 0. Gating facts — settle these before starting anything below
-
-(a) Lane ownership: [INHERITED] user assigns this planner; no subagents dispatched — RESOLVED.
-(b) Custody exposure: [MEASURED] three incremental prototype / thirteen plan files; source, plan and evidence archives indexed by extension-priority/SNAPSHOT-HASHES.json — local snapshot RESOLVED, controller commit/external backup OPEN.
-(c) In flight / irreversible: [MEASURED] requested local runs finished; no irreversible operation — RESOLVED.
-(d) Authorization granted but not exercised: [INHERITED] “No git writes.” “Never open F.” User authorizes this residual and requested remeasurement; private execution and new authority remain outside the lane.
+**(a) Lane ownership** — [INHERITED] assigned repairer; no delegates. RESOLVED for local work.
+**(b) Custody exposure** — [MEASURED] controller WIP exists, final delta and receipts locally archived/byte-checked. OPEN for controller commit/external backup.
+**(c) In flight / irreversible** — [MEASURED] all own verification jobs and18 serial measurement children ended. RESOLVED.
+**(d) Authorization granted but not exercised** — [INHERITED] “No git writes.” “Never open F.” “Cache stays at105/61.” Controller runs F before acceptance.
 
 ## 1. Resume order
-
-1. Read BUILD-MANIFEST.md and target/paths-plan/extension-priority/SNAPSHOT-HASHES.json; hash-check P1.diff and head/prism. Expected hashes are below. Seconds, no rebuild required to bind custody.
-2. Controller commits the three incremental prototype paths (or replays all40 on fresh e61d52b8), commits thirteen plan paths, and fills the new final SHA in IMPLEMENTOR.
-3. Controller runs updated CONTROLLER-paths.sh privately and returns only aggregates; resolve existing OQ2/S6 before claiming all gains certified.
-
-**STOP conditions:** base/source/hash drift, unexpected changed class or broader scope. Never apply cumulative patch to integrated HEAD. Implementation/measurement cap was three rounds; no additional review round.
+1. Compare head/prism-r2d-boundary SHA256 ab4fdc0091c53696dfe38239001c3d689f592fcd3546162030b5ad958fe8222c against boundary-final/custody-final.json (seconds).
+2. Controller runs probes/CONTROLLER-paths.sh with CORPUS_F_ROOT, PRIVATE_EVIDENCE_ROOT and TS_JS; default head is corrected. Only F aggregates may return to this lane.
+3. Obtain independent review/required quiet-host attestation, then controller handles Git custody using REPAIR-R2D-FILES.md.
+**STOP conditions:** repairer F access, Git writes, installs/network, cache/baseline/threshold changes or open-class findings. Original three-round cap reached; disclosed closed ordering, normalization, lexical, coverage and boundary extensions folded the existing artifact. No restart.
 
 ## 2. State ledger
-
-| Item | State | Evidence / correction |
+| Item | State | Evidence |
 |---|---|---|
-| Generic priority table | done | [MEASURED] pinned TS22530-22544,43966-43997; source-bound eight-row kernel RED and64-case GREEN |
-| Missing pairs / scenario O | done | [MEASURED] four C85/C86 plus two O wrong Exact rows before; complete base after; C88/C89 exemptions |
-| Public rows / controls | done | [MEASURED] FINAL-SUMMARY3121/0/0;197/213/72;68 binding+2 refusal+2 S6 UNPROVEN |
-| Mutants / suites / matrix | done | [MEASURED]30 kernel,11 integration killed;4814 default,5007 MCP,0 failures,1 ignored each;matrix170/0 |
-| S1b / patch custody | done | [MEASURED]411/639/1234 byte-identical;40 owned paths replay exactly;1362 non-owned inputs equal base |
-| Controller / owner authority | pending | [INHERITED] F private run, new commit/dispatch SHA and existing OQ2/S6 remain open |
+| First-pass repair; retained rules | done | [MEASURED] source citations; preserved-rules.json |
+| Suites | done | [MEASURED]4897/5090/5113,0fail/1existingignore each |
+| Mutants | done | [MEASURED]68kernel/57integration behavior kills |
+| Public and controls | done | [MEASURED]3121/0/0;38certified+1parked recovered;5 retained cost |
+| Cache and S1b | done | [MEASURED]105/61;411 controls/1234 identical artifacts |
+| Matrix and quick | done with limit | [MEASURED]170matrix; shared4/6 oracle floor;28 identical SUT outputs |
+| Serial performance | done with limit | [MEASURED]18 children pass1.20; host quiescence UNKNOWN |
+| F and independent acceptance | not-started | [INHERITED] controller owns them |
 
 ## 3. Corrections to standing documents and memory
-
-| Location | Stale or false assertion | Correction |
+| Location | Stale assertion | Correction |
 |---|---|---|
-| BUILD/MEASUREMENTS/SPEC/IMPLEMENTOR/REVIEWER/OQ/HANDOFF | W1 residual closure, prior source/counters/hash | [MEASURED] updated to current generic table, extension-priority receipts,40 paths and fresh counters |
-| Controller / P1 / VERIFICATION | old head binary and patch | [MEASURED] new immutable head and cumulative hash bound in manifest |
-| Memory | None | [INHERITED] no update authorized; no relevant memory used |
+| settled/lexical earlier completion | eligible final candidate | [MEASURED] REFUTED by native whitespace/root/filesystem witnesses; corrected and rebound in boundary-final |
+| SPEC/IMPLEMENTOR/REVIEWER | prior operational authority | [MEASURED] current r2d section and current reports supersede historical sections |
+| Earlier HEAD claims | current=a66b877f | [MEASURED] original comparison base=a66b877f; controller custody HEAD=6965da75eb85f32d3ae0dda9e96704ad432375e6 |
+| Memory | None used for lane facts | No memory write authorized |
 
 ## 4. Open work
-
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Durable commit/external custody | pending | Controller commits listed files and preserves archives externally | Git boundary | BUILD-MANIFEST |
-| 2 | Private corpus | pending | Controller runs updated wrapper and returns aggregates | No planner F authority | CONTROLLER-paths.sh |
-| 3 | Transitive ownership authority | parked | Owner answers OQ2/S6 | Owner | Existing C80 |
-| 4 | Broader checks / P2 | parked | Separate scope and authority | Excluded here | BUILD exclusions |
+|1|F|pending|controller private wrapper run|private controller access|corrected binary SHA above|
+|2|Independent acceptance|pending|review bound final delta; attest host if required|controller workflow|MEASUREMENTS.md|
+|3|Git/external custody|pending|controller commits/backs up approved final delta|owner no-repairer-Git instruction|REPAIR-R2D-FILES.md|
 
 ## 5. Invariants and traps — do not do these
-
-- No Git writes or F reads. Synthetic wrapper smoke is public even though its fixed label says F.
-- Exact explicit files exempt wildcard dedupe; .d.ts must not suppress .js/.jsx.
-- Longest declaration suffix avoids treating .d.ts as .ts. The generic barrier may conservatively refuse unmatched siblings and .d.cts/.cts; do not claim exact TS membership equality.
-- TS retains .d.cts/.cts but deletes .d.mts when later .mts is walked; actual fileNames are the table probe's authority.
-- Setup expectations are inadmissible behavioral evidence; complete table errors were enumerated before the third capped probe.
-- S6 remains open; the wrapper still rejects its two UNPROVEN gains.
-- Use installed Python directly for matrix, with a preceding release rebuild; do not retry protected uv cache writes.
-- Base executable provenance is inherited; executions here are fresh. Dedicated cache, base full suites and quick/full/all-features remain unverified this fold.
+- Never open F or write Git as repairer; private measurement and Git custody belong to controller.
+- Keep cuts2–6, r2c classifier, cache105/61, threshold1.20 and parked S6/OQ2.
+- Compiler/setup/zero-test failures are inadmissible; kernel externs must be exact and integration targets isolated.
+- A single paths omission is redundantly protected; paired invariant mutation is required.
+- Aliased parents remain opaque after child deletion; remove the parent before asserting Exact.
+- Default uv-cache class was sandbox-denied; installed Python ran the same harness without installation/network.
+- Earlier receipts certify earlier binaries only. Local archives do not claim an external backup.
 
 ## 6. Identifiers
-
 | Item | Verbatim |
 |---|---|
-| Plan / writable prototype | 2b3b9970 / 32a5e893 |
-| Initial reviewed tree / parent | bab21e62 / e61d52b8 |
-| P1.diff SHA-256 | 92e5c1212915f12049fdf3d02e583e1df572a4c415d58201dc59cf23cbb8da95 |
-| Head SHA-256 | 0c8de8336cc05f8678fafa303a468935c6cbc5ec8cfd5022e231b7c92ff5eb12 |
-| Receipts | target/paths-plan/extension-priority/evidence |
-| Prototype commit message | fix(paths): apply TypeScript root-file extension priorities |
-| Plan commit message | docs(paths): refresh extension-priority evidence and dispatch |
+| Current HEAD | 6965da75eb85f32d3ae0dda9e96704ad432375e6 |
+| Original base | a66b877f49ba858c27b749b0a36bfccf4bc7da7d |
+| Binary | target/repair-r2d/head/prism-r2d-boundary |
+| Binary SHA256 | ab4fdc0091c53696dfe38239001c3d689f592fcd3546162030b5ad958fe8222c |
+| Final evidence | target/repair-r2d/boundary-final |
+| Cache |105/61|
 
 ## 7. Refutation verdict and owner questions
-
-**§2c verdict:** SURVIVED · claim: "generic priority barriers keep base for every TypeScript priority-dropped caller while preserving public P1 gains" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: extension-priority/evidence/hypothesis-probe-result.log, table RED/GREEN, public/FINAL-SUMMARY.json, controls, mutants and suites.
-
-**Questions the owner owes an answer to:** [INHERITED] existing OQ2/S6 and remaining OQ owner slots. No new question is required for this completed authorized residual fold; controller commits and private acceptance remain next.
+**§2c verdict:** REFUTED — corrected in place · claim: “JS Exact admission requires readable native first-pass absence” · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: hypothesis-probe-result.log; boundary-final/native/cache/mutation witnesses and final source binding.
+**Questions the owner owes an answer to:** None beyond the already assigned controller acceptance/custody work; S6/OQ2 remains explicitly parked.

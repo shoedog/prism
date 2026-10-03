@@ -18,6 +18,35 @@ function config(p){
  const c=ts.getParsedCommandLineOfConfigFile(p,{},host);
  if(c)diagnostics.push(...c.errors.filter(e=>![18002,18003].includes(e.code)));
  const v={p,c,members:new Set((c?.fileNames||[]).map(q=>path.resolve(q))),read:[...new Set(read)],diagnostics:diagnostics.map(d=>({code:d.code,message:ts.flattenDiagnosticMessageText(d.messageText,' ')}))};
+ // Independent reachability check using the native type-directive resolver.
+ v.p1TypeKeys=[...new Set(v.read.filter(q=>q.endsWith('.json')).flatMap(q=>{
+  const opts=ts.parseConfigFileTextToJson(q,ts.sys.readFile(q)||'').config?.compilerOptions||{};
+  const safe=q=>within(q)&&(!fs.existsSync(q)||!fs.lstatSync(q).isSymbolicLink());
+  const roots=opts.typeRoots?.map(r=>path.resolve(path.dirname(q),r));
+  const effective={...(c?.options||{}),...(roots?{typeRoots:roots}:{})};
+  const bad=[];
+  if(roots?.some(r=>!safe(r)))bad.push('typeRoots');
+  if(opts.types?.some(name=>{
+   const direct=name.startsWith('.')||path.isAbsolute(name)?path.resolve(path.dirname(q),name):null;
+   const resolved=direct||ts.resolveTypeReferenceDirective(name,q,effective,ts.sys).resolvedTypeReferenceDirective?.resolvedFileName;
+   return !!resolved&&!safe(resolved);
+  }))bad.push('types');
+  return bad;
+ }))];
+ const visited=new Set();
+ const uncovered=q=>{
+  if(!within(q))return true;
+  if(!fs.existsSync(q))return false;
+  if(fs.lstatSync(q).isSymbolicLink())return true;
+  if(visited.has(q))return false;visited.add(q);
+  const refs=ts.preProcessFile(ts.sys.readFile(q)||'',true);
+  return refs.referencedFiles.some(r=>uncovered(path.resolve(path.dirname(q),r.fileName)))||refs.typeReferenceDirectives.some(r=>{
+   const name=r.fileName;
+   const resolved=name.startsWith('.')||path.isAbsolute(name)?path.resolve(path.dirname(q),name):ts.resolveTypeReferenceDirective(name,q,c?.options||{},ts.sys).resolvedTypeReferenceDirective?.resolvedFileName;
+   return !!resolved&&uncovered(resolved);
+  });
+ };
+ v.p1Triple=[...v.members].some(uncovered);
  configCache.set(p,v);return v;
 }
 function rootSelect(file){
@@ -244,6 +273,8 @@ function refusalReason(a,m,t){
  if(Object.keys(paths).some(k=>k.split('*').length>2 || !Array.isArray(paths[k]) || paths[k].length!==1 || paths[k].some(v=>v.split('*').length>2)))return 'PATHS_SHAPE_OUTSIDE_P1';
  if(o.rootDirs!==undefined||o.moduleSuffixes!==undefined||o.noResolve!==undefined)return 'OPTIONS_OUTSIDE_P1';
  const cf=config(path.join(root,m.config));
+ if(cf.p1TypeKeys.length)return 'CONFIG_TYPES_SCOPE_BARRIER';
+ if(cf.p1Triple)return 'TRIPLE_REFERENCE_SCOPE_BARRIER';
  if(cf.read.filter(p=>/^tsconfig(?:\..+)?\.json$/.test(path.basename(p))).some(duplicateConfig))return 'DUPLICATE_CONFIG_KEY';
  if(o.outDir && cf.c?.raw?.exclude===undefined)return 'OUTDIR_BARRIER';
  const membership=membershipCut(a.s.caller.file);if(membership)return membership;
@@ -264,6 +295,7 @@ function refusalReason(a,m,t){
    if(probes[0].endsWith('.d.ts'))return 'DECLARATION_BLOCKER';
   }
  }
+ if(t.file&&t.file!==m.target&&/\.(?:js|jsx|mjs|cjs)$/.test(t.file))return 'JS_EXPORT_HOP';
  if(m.target&&nonrelativeExportHop(m.target,a.member))return 'NONRELATIVE_EXPORT_HOP';
  if(m.target&&opaqueExportHop(m.target))return 'OPAQUE_EXPORT_BRANCH';
  const star=m.target&&starCut(m.target);if(star)return star;

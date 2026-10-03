@@ -1,96 +1,90 @@
-# Lane-P measurements — W1 extension-priority residual
+> **Current r5 targeted fold: all requested local gates PASS.** HEAD `5aa30552` plus the dirty repair; retained binary `target/repair-r5/head/prism`, SHA-256 `907d110c70962063d5fde23acd22b6d92b62b117d837b97a81f6d65ed263aa03`; source binding `ddd3a9c4d844a180a7b43ebda7db8daef23265ccccd9e37919806b4d9d04fbad`. Cache **105/61**. [Results and every repeat](REPAIR-R5-RESULTS.md), [handoff](REPAIR-R5-HANDOFF.md), [files and proposed commits](REPAIR-R5-FILES.md). Earlier receipts below are historical. Controller Git custody remains open. No repairer Git writes or F access.
 
-MEASURED: plan HEAD **2b3b9970**, writable prototype HEAD **32a5e893**; initial prototype tree **099d0e6e9e97cf7c81a2338fb15fe6a34b7b990f** exactly equals **bab21e62**. Both trees were clean before this fold. Three incremental prototype paths; **40 cumulative paths** against **e61d52b8c6dfea9ad8db868797122a0bd067d27d**. Current receipts: **target/paths-plan/extension-priority/evidence/**. No Git writes, installs, network/provider use or F reads.
+> **Historical adopted fix `b28f6e72`: full requested verification PASS.** Production behavior unchanged; no Git writes or F access. Complete totals, gates, driver rebindings and limits: [VERIFY-FABLE-RESULTS.md](VERIFY-FABLE-RESULTS.md). Earlier r4 and lint-stop receipts are historical.
 
-READ: spec-confirm-opus.md found **1 WRONG / 0 SMELL**, a closed W1 extension-priority residual after the review cap. User authorized this targeted fold. No restart or additional independent review round; implementation/measurement cap was three rounds. The production change passed its first GREEN. The exhaustive table harness required two bounded expectation corrections, fully enumerated in hypothesis-probe-result.log; no production retry resulted from those setup assertions. **Fix A and owner-parked S6/OQ2 remain unchanged.** Previous spec-r2 receipts and the bab21e62 patch are historical.
+## Adopted performance fix — historical measured totals
 
-## Source and binary binding
+| Suite | Passed | Failed | Ignored |
+|---|---:|---:|---:|
+| default | 4924 | 0 | 1 |
+| mcp | 5117 | 0 | 1 |
+| all-features | 5140 | 0 | 1 |
 
-MEASURED: cumulative P1.diff SHA-256 **92e5c1212915f12049fdf3d02e583e1df572a4c415d58201dc59cf23cbb8da95**. `target/paths-proto/P1.diff`, extension-priority/P1.diff and tracked `prototype/P1.diff.txt` have identical bytes. Fresh Gitless archive replay on e61d52b8 reproduces all **40** owned hashes; **1362 non-owned source/test/eval/build inputs** equal base. source-binding.json records each parent hash or required absence and the resulting hash. Cache versions remain 105/61 on parent 104/60.
+Fmt passes; clippy zero new touched warnings (22/22 versus same-environment r4). Tier-A matrix 170/0/0. Mutants 67/67 kernel, 93/93 integration/library, 2/2 resource; 53 unmutated baseline selectors green. Cache packet20, scanner10/80, reviewer12/24, tolerant10/40 pass. Controls487/503 identical to r4; S1b411/639 sites,822 byte comparisons,zero stderr/differences. Corpus X/installed-X/R/T3121/3121/0/0, all changed CORRECT, no key additions/removals.
 
-| Artifact | SHA-256 |
-|---|---|
-| P1.diff | 92e5c1212915f12049fdf3d02e583e1df572a4c415d58201dc59cf23cbb8da95 |
-| P1-owned-files.tar.gz | b51c277201dbf8e582a1ce86e1e8e26a3c5a35fb2aec9352ff45e50525b23b91 |
-| source-hashes-frozen.json | 36a4b0f88ff6b59ca7791a72cb083c0f930163897887d481079e3bd54de34483 |
-| source-binding.json | 71b4fbc476c8e209280b1bf444d5c72b2a757c9a6a7fc3bcf9ae9cbec371ef83 |
-| Immutable head/prism | 0c8de8336cc05f8678fafa303a468935c6cbc5ec8cfd5022e231b7c92ff5eb12 |
-| Offline TypeScript 5.9.3 | 3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675 |
-
-MEASURED: binary version `slicing 3.1.2 (32a5e8933889-dirty)`; the dirty Git identity is supplemented by the source hashes, replay and release-build receipt. CONTROLLER-paths.sh defaults to `target/paths-plan/extension-priority/head/prism`. before/prism was rebuilt here from the pre-change production source at 32a5e893 before editing the barrier. Base prism and import-facts binaries retain inherited rebind-e61 build provenance: their hashes match spec-r2 and both were freshly executed in this environment; they were not rebuilt. binary-binding.json binds all four executables.
-
-MEASURED physical additions against e61d52b8: **914 production / 756 test-code / 2166 regression-data / 70 Tier-A fixture lines**. Integration source has 755 physical lines; size.json has per-path counts. No LOC cap is implied.
-
-## Priority port and RED/GREEN
-
-READ: TypeScript 5.9.3 `typescript.js:22530–22544` defines allSupportedExtensions; `43831–43843` applies wildcard dedupe; `43966–43997` implements higher/lower-priority handling. Production ports the three groups generically, chooses the longest compound suffix and barriers earlier same-stem occupants. `.d.ts` does not suppress `.js`/`.jsx`; exact `files` entries remain authoritative. Existing conservative cross-group MJS/CJS versus TS/TSX barriers remain. Occupants need not themselves be matched, so this is a conservative proof barrier.
-
-MEASURED: **four C85/C86 RED rows**, one missing pair in each target grammar, and **two scenario-O dropped callers** mint Exact on the freshly rebuilt pre-change binary and equal complete base rows after the fix. Both pair tests fail on pre-change production and all **27 paths integration tests** pass after. C87 scenario O retains its included app.ts Exact target `pkg/wrong/util.ts:f`, while app.tsx and b.jsx have inferred ProjectService ownership, undefined alias targets and complete base preservation. C88 covers both literal-file exemptions in both target grammars; C89 covers both declaration/JavaScript exceptions. priority-red-population.json and RED/GREEN logs retain behavioral outputs.
-
-MEASURED: extension_priority_check.cjs extracts the compiler's actual table and checks every ordered pair with wildcard and literal membership in both target grammars: **64 cases; 26 actual TS drops refused; 32 literal exemptions; four declaration/JavaScript exceptions; two conservative declaration barriers; zero errors**. The pre-change source-bound kernel fails **eight rows** across all four changed priority behaviors. TypeScript's suffix stop only special-cases .d.ts: its sorted walk retains .d.cts beside .cts, while later .mts removes .d.mts. The final generic barrier conservatively refuses the retained declaration pair. No exact TS membership-equivalence claim is made.
-
-## Fresh remeasurement
-
-| Corpus | Sites | Changed rows | Classes | Ownership disagreements sites / files | Changed disagreements |
-|---|---:|---:|---|---:|---:|
-| X | 19219 | 3121 | {'CORRECT_STATIC_BINDING': 3121} | 6 / 2 | 0 |
-| R | 953 | 0 | {} | 144 / 17 | 0 |
-| T | 61712 | 0 | {} | 15 / 5 | 0 |
-
-MEASURED: **X/R/T = 3121 / 0 / 0**, all public keys and metadata unchanged. X retains **8 NONRELATIVE_EXPORT_HOP + 2 IMPORT_FORWARD_NOT_FORWARDABLE**, **0 UNCLASSIFIED**. Input hashes, positional target identities, expected rows and binary hashes are in public/FINAL-SUMMARY.json and its linked artifacts. Unchanged ownership disagreements remain unchanged rows.
-
-MEASURED: **197 controls / 213 sites / 72 changes**: **68 CORRECT_STATIC_BINDING + 2 CORRECT_STATIC_REFUSAL + 2 UNPROVEN**. Every Option-K preservation control equals the complete base row. The two UNPROVEN gains are existing C80/S6, pending OQ2; they are not waived or certified. Scenario O's dropped callers preserve base.
-
-MEASURED: **30/30 kernel mutants killed**, including M29 (.tsx/.ts order) and M30 (.jsx/.js order), each with two target-grammar witnesses. M14/M16/M22/M23 were rebound to the generic implementation. **11/11 integration mutants killed**, each compiling, selecting one test and producing an intended assertion failure. Separate mutation target directories avoid suite interference. Setup assertions and guessed optional-path failures are recorded as inadmissible in the hypothesis log, not counted as behavioral results.
-
-| Full suite | Passed | Failed | Ignored | Groups | Log SHA-256 |
+| Scenario | Base/head median wall s | Wall ratio | Base/head median RSS bytes | RSS ratio | Gate |
 |---|---:|---:|---:|---:|---|
-| default | 4814 | 0 | 1 | 29 | 5793b24e4c9d82eff4fd52a34c17584b55525db18252eb747c78f944cebb4eb5 |
-| mcp | 5007 | 0 | 1 | 31 | 584a7d20f7d9e3061f09ba0852737e6615f44c49fae4e4886e797390d9ccc507 |
+| installed-X | 35.627627 / 40.427853 | 1.134733x | 758628352 / 868728832 | 1.145131x | PASS |
+| nx | 6.442015 / 6.681905 | 1.037238x | 765673472 / 656850944 | 0.857873x | PASS |
+| nx_bundler | 6.523864 / 6.425766 | 0.984963x | 768180224 / 644268032 | 0.838694x | PASS |
+| nx_wild | 6.596521 / 6.870606 | 1.041550x | 764690432 / 668450816 | 0.874146x | PASS |
 
-MEASURED: the ignored test in each suite is `resolution_test::slice_elem_variant_reserved` (SliceElem reserved until a future slice). **Tier-A matrix 170 ok / 0 regressions** after an immediately preceding release rebuild in the actual prototype, using installed Python 3.12 `-m tier_a.cli` without uv cache writes or installs. Formatter and both diff checks pass; scoped MCP-library clippy passes with **139 warnings**. **411 S1b-4 controls / 639 sites / 1234 artifacts are byte-identical to e61d52b8**, and both summaries equal the committed r5 reference SHA-256 **b550a2c7466fdbe4d331f93843d44f0bfcfb6c62febf81f115c86a9ab64dd5ca**.
+Limits wall1.30x/RSS1.20x; 3 alternating pairs per scenario. Host load 3.532–7.455; no quiet-host attestation. None. All requested hard gates passed. Reusable mutant driver rebindings only; production unchanged. Full evidence and limits in VERIFY-FABLE-RESULTS.md; current receipts in target/verify-fable/current/. The following sections are historical.
 
-MEASURED: updated controller wrapper smoke uses only these public synthetic controls, emits one JSON object with empty wrapper stderr, 0 UNCLASSIFIED and the fresh head hash, and deliberately exits **1** for the two S6 UNPROVEN gains. **actual_F_run=false**. Its fixed corpus label is not an F receipt.
 
-## Not verified / remaining authority
 
-UNKNOWN: **F was never opened or remeasured**; the controller must privately run the updated wrapper and rebind its aggregates. S6/OQ2 remains owner-parked. No new independent review, owner acceptance, Git commit/push/merge or P2 execution occurred. **All-features/detached-owner-audit Cargo, Tier-A quick/full multi-corpus, dedicated cache acceptance, base full suites, dedicated runtime mutation, security, concurrency stress and large-tree performance checks were not rerun.** Requested default/MCP suites, matrix, mutants, public controls/rows and S1b identity were all freshly executed. The prior quick pin/probe problems are historical, not a fresh failure or validity claim.
+> **Historical r4:** owner-authorized accepted-risk repair and its then-requested local verification. SPEC §0 (2026-10-02) supersedes r3 boundary closure. See [REPAIR-R4-RESULTS.md](REPAIR-R4-RESULTS.md), [REPAIR-R4-HANDOFF.md](REPAIR-R4-HANDOFF.md) and [REPAIR-R4-FILES.md](REPAIR-R4-FILES.md). Binary SHA-256 `79b00a7c85938f7aafdae22bbb2321a47e1d67c307fbe5c8814a67a1b05b34f6`; cache **105/61**. Earlier receipts do not certify the adopted performance fix.
 
-## Controller commit files and messages
+# Historical Lane P P1 r3 PARKED — r3 verification complete, acceptance failed
 
-Prototype incremental files from writable HEAD 32a5e893 (initial tree equals bab21e62):
+[MEASURED] Current-only receipts: target/repair-r3/current. **X/installed-X/R/T = 3,121/0/0/0**; X gains all CORRECT, installed oracle executed and yield FAIL. Installed base/head **33.2905/50.1396 s, 757,202,944/795,099,136 bytes RSS**; four configs decline through two falsely unsafe in-root non-type ordinary-main targets, 74 failing requests. One fresh pre-main control recovers 3,121 all CORRECT on the same tree. Four additional WRONGs reproduce in both grammars. Suites **4,917/5,110/5,133**, zero failures/one existing ignore each; fmt/clippy pass; matrix **170/0/0**; mutants **82/82 integration/unit and 68/68 kernel**; cache **105/61**; S1b-4 **411** identical controls; synthetic **487/503, 0 recovered/0 lost** versus freshly controlled r2d. Serial Nx wall ratios **1.1086/1.0488/1.1195**, RSS ratios **1.2508/1.0659/1.2364**: two RSS FAILs. See [REPAIR-R3-RESULTS.md](REPAIR-R3-RESULTS.md) for warnings, dispositions, exact numbers, provenance and limits; [REPAIR-R3-HANDOFF.md](REPAIR-R3-HANDOFF.md) records the required design stop. Earlier sections and pre-main receipts are historical.
 
-```text
-src/js_paths.rs
-tests/integration/js_paths_test.rs
-tests/integration/fixtures/js_paths_priority.json
-```
+# Historical Lane P P1 r2d verification
 
-Message: **fix(paths): apply TypeScript root-file extension priorities**. Controller must commit/re-squash and fill the new `proto/tsconfig-paths-final` SHA in IMPLEMENTOR. A fresh e61d52b8 replay owns all 40 cumulative paths; never apply it to an integrated prototype.
+[MEASURED] Original comparison base a66b877f49ba858c27b749b0a36bfccf4bc7da7d; current controller custody HEAD 6965da75eb85f32d3ae0dda9e96704ad432375e6. The controller created WIP6965da75 during this repair. No repairer Git writes. Final source is dirty and frozen across1017 build inputs. Immutable binary: target/repair-r2d/head/prism-r2d-boundary, SHA256 **ab4fdc0091c53696dfe38239001c3d689f592fcd3546162030b5ad958fe8222c**. Evidence: target/repair-r2d/boundary-final. Earlier r2d receipts are superseded for current claims.
 
-Plan files from 2b3b9970:
+Cut1 uses the pinned TypeScript5.9.3 Node10 first-pass absence proof. It covers paths candidates and TS/declaration extensions, directory indexes, package types/typings/main/typesVersions, importer ancestors as node_modules files/directories, @types and custom typeRoots. Native source confirms custom roots follow node_modules and use declaration files/directories (typescript.js45322–45325,46573–46594); only node_modules/@types mangles scoped names (44284–44286). Full source ranges and digest are in src/js_paths_first_pass.rs and SPEC.
 
-```text
-docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/BUILD-MANIFEST.md
-docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/HANDOFF.md
-docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/IMPLEMENTOR.md
-docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/MEASUREMENTS.md
-docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/OQ-paths.md
-docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/REVIEWER.md
-docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/SPEC.md
-docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/probes/CONTROLLER-paths.sh
-docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/probes/controls_gen.py
-docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/probes/extension_priority_check.cjs
-docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/probes/mutants.py
-docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/probes/verify_controls.py
-docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/prototype/P1.diff.txt
-```
+JS-only absence binds Exact. Any occupied, opaque, unread, outside or skipped first-pass location keeps the full base row; missing uninstalled module directories count absent. Root file stems record opaque sibling candidates. Physical occupancy through captured readable parents catches filesystem aliases without following unknown parents. Every enumerated occupancy probe enters cache dependencies. Metadata order, duplicate-last values, numeric keys, native version ranges, absolute normalization and ECMAScript whitespace follow the pinned source. Cuts2–6 and the r2c type-input classifier remain unchanged (preserved-rules.json). Cache remains **105/61**, with a semantic occupancy discriminator rather than a version bump.
 
-Message: **docs(paths): refresh extension-priority evidence and dispatch**. No commits were made. root VERIFICATION.md mirrors this current manifest; local owned-source, plan and evidence archives plus SNAPSHOT-HASHES.json preserve custody. Controller commits/external backup remain pending. Evidence archive omits copied mutant repo trees and executable drivers; source copies, behavioral failure logs, changes and summaries remain, and before/head binaries are retained separately.
+## Counts and controls
 
-## Controller verification of the extension-priority fold (2026-10-01; no further review round, per the reviewer's convergence note)
+X/R/T: **3121 /0 /0 changes**, across19219/953/61712 sites. Every X change is CORRECT_STATIC_BINDING. Final streams exactly match the independently native-classified streams; all1426 public input files were reverified unchanged. The existing native classification was reused after byte parity, rather than rerunning the oracle on identical inputs. public-final-parity.json.
 
-- **Patch replay:** `prototype/P1.diff.txt` (sha `92e5c121`) applied to `e61d52b8` reproduces cumulative `ed374d97` exactly.
-- **Release binary:** the controller built it from `ed374d97` (version `ed374d9752b2`).
-- **Scenario O (synthetic, explicit `moduleResolution: node`):** `app.ts` and `m.js` bind Exact to the right target. `app.tsx` and `m.jsx`, which a same-name `.ts` / `.js` displaces, keep base UnknownName. The positive control without `moduleResolution` binds nothing (Node10-only scope); that probe was not counted.
-- **Private F with the controller-built head:** 2,345 changed, all `CORRECT_STATIC_BINDING`; 0 changed tsserver disagreements; 0 keys added or removed. Refusals: HOP 717, GUARD 23, UNCLASSIFIED 21.
+**487 scenarios /503 sites /115 changes**:111 correct bindings,2 correct refusals,2 deliberately parked S6/OQ2 UNPROVEN ownership rows; zero preservation violations. Fifty new negative first-pass/boundary controls preserve the entire base row. Final native certification ran exclusively after earlier producers ended: controls-oracle-exclusive.log, controls-verify-exclusive.log and controls-classified.json.
+
+Recovery versus r2c: **38 certified rows +1 parked =39** (37 bindings,1 refusal,1 parked). Original cut cost:39 correct rows (38 bindings,1 refusal) plus1 parked out of the original80 changed-control census. Restored from that cost:33 bindings,1 refusal,1 parked; four supplemental absence bindings account for the additional recovery. **Five correct bindings remain lost**, all retained cut2 JS export hops: C24/C56/C61/C82/C83 JSX. control-recovery-cost.json preserves the original denominator. [INHERITED] Controller F aggregates report2343→344 correct, a cost of1999; no new F claim is made.
+
+S1b-4: **411 controls /639 sites /1234 artifacts byte-identical** to r2c, summary SHA256 b550a2c7466fdbe4d331f93843d44f0bfcfb6c62febf81f115c86a9ab64dd5ca. s1b-byte-identity.json.
+
+## Suites, mutants and cache
+
+Full default/MCP/all-features: **4897/5090/5113 passed**, zero failures, one existing ignored test each; no suite excluded. The existing ignore is resolution_test::slice_elem_variant_reserved. Default includes101 paths tests and4 first-pass units; native range fixture53 cases and the complete Unicode scalar population checked against25 native whitespace characters. suite-summary.json, focused-tests-from-full-suite.json.
+
+**68/68 kernel and57/57 integration/library mutants killed by behavioral mismatches/assertion failures**; no compiler/setup/zero-test failure counts as a kill. Kernel uses exact immutable Cargo extern filenames; integration uses isolated targets. Nine first-pass location classes have direct both-grammar kernel witnesses, plus killed dependency, blanket-cut, metadata and boundary variants. mutants-summary.json, integration-mutants-summary.json, mutant-location-witnesses.json.
+
+Cache105/61:34 native location cases,16 native boundary cases,8 lexical comparisons and12 normalization comparisons pass; same-environment preceding artifacts establish RED/GREEN. Old-cache rebuild, stable next hits and fresh/cached parity are checked. Retained r2c type-input cache8 and scanner8 cases/64 states pass. location-complete-cache/cache-summary.json, boundary-native-cache.json, lexical-native-cache.json, normalization-parity.json, type-input-cache/cache-summary.json and scan-cache/summary.json.
+
+Historical invalid probes remain labeled in hypothesis-probe-result.log: mixed extern setup, one-edit paths omission protected by an independent gate, aliased-parent deletion expectation, and overlapping superseded producers. Corrected paired paths mutants disable both enforcement points. The alias probe now removes the opaque parent before expecting Exact. No production edit followed a probe-only error.
+
+## Accuracy and serial performance
+
+Immediate release rebuild then existing Tier-A matrix: **170/170 OK**. The uv launcher refused its default cache outside writable roots; the same installed CLI ran via Python without installation/network. Paired quick is **baseline-invalid on both** at C-method4/6, oracle error1/15, SUT error0. All28 successful SUT caller/callee outputs and pinned values match. No quick-green claim. tier-a-quick-comparison.json and raw paired receipts.
+
+| Scenario | Base/final wall s | Wall ratio | Base/final RSS MB | RSS ratio |
+|---|---:|---:|---:|---:|
+| nx | 6.723/7.067 | 1.051 | 764.7/904.8 | 1.183 |
+| nx_bundler | 7.273/7.348 | 1.010 | 768.4/770.4 | 1.003 |
+| nx_wild | 7.247/7.651 | 1.056 | 769.1/891.9 | 1.160 |
+
+All18 measurement children ran serially after own verification jobs ended; each produced64000 sites, expected Exact counts and pinned row hashes. All pass the unchanged1.20 wall/RSS bound. Quiet-host certification is unverified, so no exclusive attribution is made. perf/perf-summary.json.
+
+## Limits and custody
+
+Not verified: private F, independent post-repair review, quiet-host attestation, human-triggered full multi-corpus Tier-A, Linux case behavior or concurrent-tree security. The existing ignored test was not forced; clippy was not rerun. S6/OQ2 stays parked. No repairer commit/push, installation/network, baseline/threshold/cache-version change or external-backup claim.
+
+CONTROLLER-paths.sh defaults to the corrected immutable binary and was checked with bash -n only. Controller must run F before acceptance. Files/messages: REPAIR-R2D-FILES.md. Source, binary and lean receipts are locally bound by production-binding.json, owned-files.tar.gz, essential-receipts.tar.gz and custody-final.json. Earlier settled/lexical receipts remain historical and cannot certify this binary.
+
+## Controller F acceptance after repair r2 to r2d (private, aggregates only; 2026-10-02)
+
+The controller built the head from `f5ef9c1e`.
+
+**Result:**
+- Changed rows: **2,313**, all `CORRECT_STATIC_BINDING`.
+- 0 changed rows disagree with tsserver ownership.
+- 0 keys added or removed.
+- Refusals: JS_EXPORT_HOP 749, GUARD 22, UNCLASSIFIED 21, HOP 1.
+
+**Cost:** 30 rows below round 1 (2,343). That is the disclosed price of the ambient-declaration and Node10 first-pass fences.
+
+**Interim regressions, now superseded:** a blanket JS-target refusal measured 344 (r2c), and a type-input decline measured X 0 (r2). The controller ordered both cuts; both were replaced by faithful ports of the TypeScript rules.

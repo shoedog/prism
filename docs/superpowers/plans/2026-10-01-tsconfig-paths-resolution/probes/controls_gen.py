@@ -135,5 +135,38 @@ payload={'pkg/tsconfig.json':json.dumps({'compilerOptions':{'allowJs':True,'jsx'
 for p,s in payload.items():
  q=o/p;q.parent.mkdir(parents=True,exist_ok=True);q.write_text(s)
 cases.append({'case':o.name,'expectation':'mixed','files':list(payload)})
+# Repair-r1: finite Node10, hop-provenance and refuse-on-doubt controls.
+for e in ['jsx','tsx']:
+ for stem in ['user','user.multi']:
+  for variant,body in [('body','export function real() { return 2; }'),('decl','export declare function real(): number;')]:
+   add('C90-replace-'+stem+'-'+variant,e,{'@lib':[f'lib/{stem}.service']},opts={'allowArbitraryExtensions':True},files={f'lib/{stem}.service.{e}':'export function real() { return 1; }',f'lib/{stem}.d.service.ts':body},expected='base')
+ for label,spec,target in [('spec','@lib/','lib/real'),('target','@lib','lib/real/'),('dot','@lib','lib/real/.')]:
+  add('C91-slash-'+label,e,{spec:[target]},spec=spec,expected='base')
+ for package in ['utils','@types/utils','@scope/utils','@types/scope__utils']:
+  spec='@scope/utils/format' if 'scope' in package else 'utils/format'
+  add('C92-js-package-'+package.replace('/','-'),e,{spec:['lib/js']},spec=spec,files={'lib/js.jsx':'export function real() { return 1; }',f'node_modules/{package}/format.d.ts':'export declare function real(): number;'},expected='base')
+ add('C92-js-no-package',e,{'utils/format':['lib/js']},spec='utils/format',files={'lib/js.jsx':'export function real() { return 1; }'})
+ for pattern in ['@lib','@*','*']:
+  for suffix in ['ts','d.ts']:
+   add('C93-ambient-'+pattern.replace('*','wild')+'-'+suffix,e,files={f'types/ambient.{suffix}':f'declare module "{pattern}" {{ export function real(): number; }}'},expected='base')
+ for key in ['include','exclude','files']:
+  for n,pattern in enumerate(['**','./**','src/**/../*','../app.'+e,'a..b','?pp.*','[ab]/*']):
+   add('C94-raw-'+key+'-'+str(n),e,extra={key:[pattern]},expected='base')
+ for key in ['outDir','declarationDir','rootDir']:
+  add('C95-output-'+key,e,opts={key:'gen'},expected='base')
+  add('C95-output-explicit-exclude-'+key,e,opts={key:'gen'},extra={'exclude':[]})
+ add('C96-allowjs-target',e,{'@lib':['lib/js']},opts={'allowJs':False},extra={'files':['app.'+e]},files={'lib/js.jsx':'export function real() { return 1; }'},expected='base')
+ for form,barrel in [('named',"export { real } from './leaf';"),('star',"export * from './leaf';"),('forward',"import { real } from './leaf'; export { real };")]:
+  for cut in ['competition','declaration','package','substitution']:
+   payload={f'lib/barrel.{e}':barrel,f'lib/leaf.{e}':'export function real() { return 1; }'}
+   if cut=='competition':payload['lib/leaf.'+('ts' if e=='jsx' else 'js')]='export function real() { return 2; }'
+   if cut=='declaration':payload['lib/leaf.d.ts']='export declare function real(): number;'
+   if cut=='package':
+    del payload[f'lib/leaf.{e}'];payload[f'lib/leaf/index.{e}']='export function real() { return 1; }';payload['lib/leaf/package.json']='{"types":"../real.tsx"}'
+   if cut=='substitution':payload[f'lib/barrel.{e}']=barrel.replace('./leaf','./leaf.js');payload['lib/leaf.js']='export function real() { return 2; }'
+   add('C97-hop-'+form+'-'+cut,e,{'@lib':['lib/barrel']},files=payload,expected='base')
+for e in ['jsx','tsx']:
+ add('C36b-unmatched-middle-target-star',e,{'@lib':['lib/re*al']},expected='base')
+ add('C98-unicode-wildcard-membership',e,app=f'app花.{e}',expected='base')
 (root/'manifest.json').write_text(json.dumps(cases,indent=2))
 print('scenarios',len(cases))

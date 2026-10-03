@@ -63,15 +63,31 @@ struct ParseOutcome {
 
 pub fn load_repo(root: &Path) -> Result<LoadedRepo> {
     let (items, candidates, manifest_snapshot) = collect_walk_items(root)?;
+    // The ambient scan reads only the filesystem. Taking it before the source
+    // parse lets the parse reuse the pages its dropped parse trees freed.
+    let js_paths_snapshot = crate::js_paths_snapshot::JsPathsSnapshot::capture(root);
     let outcomes = parse_candidates_parallel(candidates);
-    Ok(merge_walk_items(root, items, outcomes, manifest_snapshot))
+    Ok(merge_walk_items(
+        root,
+        items,
+        outcomes,
+        manifest_snapshot,
+        js_paths_snapshot,
+    ))
 }
 
 #[cfg_attr(not(test), allow(dead_code))] // parity twin: used by the in-module loader test
 pub(crate) fn load_repo_serial_reference(root: &Path) -> Result<LoadedRepo> {
     let (items, candidates, manifest_snapshot) = collect_walk_items(root)?;
+    let js_paths_snapshot = crate::js_paths_snapshot::JsPathsSnapshot::capture(root);
     let outcomes = parse_candidates_serial(candidates);
-    Ok(merge_walk_items(root, items, outcomes, manifest_snapshot))
+    Ok(merge_walk_items(
+        root,
+        items,
+        outcomes,
+        manifest_snapshot,
+        js_paths_snapshot,
+    ))
 }
 
 fn collect_walk_items(
@@ -124,6 +140,7 @@ fn merge_walk_items(
     items: Vec<MergeItem>,
     outcomes: Vec<ParseOutcome>,
     manifest_snapshot: ManifestSnapshot,
+    js_paths_snapshot: crate::js_paths_snapshot::JsPathsSnapshot,
 ) -> LoadedRepo {
     let mut files = BTreeMap::new();
     let mut file_hashes = BTreeMap::new();
@@ -167,8 +184,12 @@ fn merge_walk_items(
         .iter()
         .filter(|skip| skip.reason == SkipReason::GoTestdata)
         .count();
-    let mut scope_graph_inputs =
-        scope_graph_build_inputs_from_snapshot(root, &files, manifest_snapshot.clone());
+    let mut scope_graph_inputs = scope_graph_build_inputs_from_snapshot(
+        root,
+        &files,
+        manifest_snapshot.clone(),
+        js_paths_snapshot,
+    );
     scope_graph_inputs.skipped_go_testdata_files = skipped_go_testdata_files;
     let manifest_hashes = scope_graph_inputs.manifest_hashes.clone();
 
@@ -188,15 +209,84 @@ pub fn scope_graph_build_inputs(
     root: &Path,
     files: &BTreeMap<String, ParsedFile>,
 ) -> ScopeGraphBuildInputs {
-    scope_graph_build_inputs_from_snapshot(root, files, collect_manifest_snapshot(root))
+    scope_graph_build_inputs_from_snapshot(
+        root,
+        files,
+        collect_manifest_snapshot(root),
+        crate::js_paths_snapshot::JsPathsSnapshot::capture(root),
+    )
 }
 
 fn scope_graph_build_inputs_from_snapshot(
     root: &Path,
     files: &BTreeMap<String, ParsedFile>,
     manifest_snapshot: ManifestSnapshot,
+    js_paths_snapshot: crate::js_paths_snapshot::JsPathsSnapshot,
 ) -> ScopeGraphBuildInputs {
-    let manifest_hashes = manifest_snapshot.topology_hashes();
+    let mut manifest_hashes = manifest_snapshot.topology_hashes();
+    // Prime every production proof/refusal dependency, including absent paths.
+    if !js_paths_snapshot.configs.is_empty() {
+        let indexed = files.keys().cloned().collect();
+        let mut resolver = crate::js_paths::Resolver::new(&js_paths_snapshot);
+        let mut pending = BTreeSet::new();
+        for (file, parsed) in files {
+            if !matches!(
+                parsed.language,
+                crate::languages::Language::JavaScript
+                    | crate::languages::Language::TypeScript
+                    | crate::languages::Language::Tsx
+            ) {
+                continue;
+            }
+            for binding in parsed.extract_import_bindings() {
+                if let Some(target) = resolver.resolve(file, &binding.module_path, &indexed) {
+                    pending.insert(target);
+                }
+            }
+        }
+        // Prime only the export closure consulted by admitted alias modules.
+        // Visiting every file repeats expensive extraction for unrelated callers.
+        // Extraction is a pure per-file function, memoized on the parsed
+        // file; each frontier is extracted in parallel and then consulted in
+        // sorted order, which reaches the same closure as a one-at-a-time walk.
+        let mut visited = BTreeSet::new();
+        while !pending.is_empty() {
+            let frontier: Vec<String> = std::mem::take(&mut pending)
+                .into_iter()
+                .filter(|file| visited.insert(file.clone()))
+                .collect();
+            frontier
+                .par_iter()
+                .filter_map(|file| files.get(file))
+                .for_each(|parsed| {
+                    parsed.extract_js_ts_export_facts();
+                });
+            for file in frontier {
+                let Some(parsed) = files.get(&file) else {
+                    continue;
+                };
+                let exports = parsed.extract_js_ts_export_facts();
+                for module in
+                    exports
+                        .star_reexports
+                        .iter()
+                        .chain(exports.named.values().filter_map(|target| match target {
+                            crate::js_exports::JsExportTarget::ReExport { module_path, .. }
+                            | crate::js_exports::JsExportTarget::ImportForward {
+                                module_path,
+                                ..
+                            } => Some(module_path),
+                            _ => None,
+                        }))
+                {
+                    if let Some(target) = resolver.relative(&file, module, &indexed, true) {
+                        pending.insert(target);
+                    }
+                }
+            }
+        }
+    }
+    manifest_hashes.extend(js_paths_snapshot.topology());
     let cfg = parse_rust_crate_config(files, &manifest_snapshot)
         .unwrap_or_else(|| RustCrateConfig::from_convention(files));
     let complete = has_complete_rust_coverage(root, files);
@@ -206,8 +296,73 @@ fn scope_graph_build_inputs_from_snapshot(
         manifest_hashes,
         manifest_snapshot,
         skipped_go_testdata_files: 0,
+        js_paths_snapshot,
         cfg,
         complete,
+    }
+}
+
+#[cfg(test)]
+mod paths_projection_tests {
+    use super::*;
+    use crate::call_graph::CallGraph;
+
+    #[test]
+    fn primes_alias_export_closure_without_unrelated_exports() {
+        let d = tempfile::TempDir::new().unwrap();
+        for (name, text) in [
+            (
+                "tsconfig.json",
+                r#"{"compilerOptions":{"moduleResolution":"node","paths":{"@lib":["lib/barrel.ts"]}}}"#,
+            ),
+            (
+                "app.ts",
+                "import {real} from '@lib'; export function run(){real();}",
+            ),
+            (
+                "lib/barrel.ts",
+                "export {real} from './leaf'; export * from './missing';",
+            ),
+            ("lib/leaf.ts", "export {real} from './last';"),
+            ("lib/last.ts", "export function real(){return 1;}"),
+            (
+                "unrelated/barrel.ts",
+                "export function untouched() {} export * from './missing';",
+            ),
+        ] {
+            let p = d.path().join(name);
+            std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+            std::fs::write(p, text).unwrap();
+        }
+        let loaded = load_repo(d.path()).unwrap();
+        let snapshot = &loaded
+            .scope_graph_inputs
+            .as_ref()
+            .unwrap()
+            .js_paths_snapshot;
+        assert!(snapshot.was_probed("lib/leaf.ts"));
+        assert!(snapshot.was_probed("lib/last.ts"));
+        assert!(snapshot.was_probed("lib/missing.ts"));
+        assert!(!snapshot.was_probed("unrelated/missing.ts"));
+        let graph = CallGraph::build_with_scope_graph_inputs(
+            &loaded.files,
+            loaded.scope_graph_inputs.as_ref(),
+        );
+        let projection = &graph.js_ts_path_exports[&false];
+        assert_eq!(
+            projection.keys().map(String::as_str).collect::<Vec<_>>(),
+            ["lib/barrel.ts"]
+        );
+        assert_eq!(projection["lib/barrel.ts"]["real"].file, "lib/last.ts");
+        // The explicit named route does not depend on the missing sibling star.
+        assert!(!projection["lib/barrel.ts"]["real"].via_unresolved_star);
+        assert_eq!(
+            projection["lib/barrel.ts"],
+            graph.js_ts_resolved_exports["lib/barrel.ts"]
+        );
+        assert!(graph
+            .js_ts_resolved_exports
+            .contains_key("unrelated/barrel.ts"));
     }
 }
 
