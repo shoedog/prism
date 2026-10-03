@@ -1,0 +1,10 @@
+[case]
+language = "typescript"
+capability = "tsconfig_paths_nonrelative_hop_refusal"
+status = "pass"
+[seed]
+symbol = "real"
+file = "src/real.jsx"
+line = 1
+[expect]
+exact = true

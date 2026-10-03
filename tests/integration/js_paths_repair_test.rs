@@ -130,9 +130,11 @@ fn js_paths_repair_barrel_hops() {
                     }
                     _ => unreachable!(),
                 }
-                // Explicit .tsx is supported; .jsx requires unsupported substitution.
-                if blocker != "substitution" || ext == "jsx" {
+                // P2 supports an unopposed explicit relative .jsx as well as .tsx.
+                if blocker != "substitution" {
                     assert_base(d.path(), &app);
+                } else {
+                    assert_hit(&graph(d.path()), &app, "picked", &format!("lib/leaf.{ext}"));
                 }
                 let loaded = load_repo(d.path()).unwrap();
                 assert_eq!(

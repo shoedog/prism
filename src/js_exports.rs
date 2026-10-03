@@ -540,11 +540,22 @@ fn resolve_one_inner(
                 module_path,
                 imported,
             } => {
+                let nonrelative_forward = matches!(target, JsExportTarget::ImportForward { .. })
+                    && !module_path.starts_with('.');
                 if hops + 1 > MAX_REEXPORT_DEPTH {
                     telemetry.chain_unresolved += 1;
+                    // Preserve the claim even when the next hop exceeds the bound.
+                    if nonrelative_forward {
+                        return ExportLookup::BlockedClaim;
+                    }
                     return ExportLookup::NoTarget;
                 }
                 let Some(target_file) = resolve_module(file, module_path) else {
+                    // A non-relative imported-local claim must not disappear
+                    // from a star barrel when this projection cannot resolve it.
+                    if nonrelative_forward {
+                        return ExportLookup::BlockedClaim;
+                    }
                     return ExportLookup::NoTarget;
                 };
                 let result = resolve_one(

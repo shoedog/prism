@@ -320,6 +320,12 @@ fn mangle(spec: &str) -> String {
         .filter(|s| s.contains('/'))
         .map_or_else(|| spec.into(), |s| s.replacen('/', "__", 1))
 }
+/// Node10's *relative* priority pass (typescript.js:45327-45338).
+/// Unlike `absent`, this never visits importing ancestors, @types or typeRoots.
+/// Reuse the identical suffix/package proof used by P1's local terminal probe.
+pub(crate) fn relative_absent(snapshot: &JsPathsSnapshot, target: &str) -> bool {
+    Pass { snapshot }.relative(target, true, 0).unwrap_or(false)
+}
 pub(crate) fn absent(
     snapshot: &JsPathsSnapshot,
     file: &str,

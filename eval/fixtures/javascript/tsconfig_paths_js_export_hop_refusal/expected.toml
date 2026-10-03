@@ -1,0 +1,10 @@
+[case]
+language = "javascript"
+capability = "tsconfig_paths_js_export_hop_refusal"
+status = "pass"
+[seed]
+symbol = "real"
+file = "src/real.jsx"
+line = 1
+[expect]
+exact = true

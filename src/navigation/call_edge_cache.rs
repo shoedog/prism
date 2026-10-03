@@ -102,7 +102,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v59: S1b-3b wires the binding core to call sites, `CallSite.local_binding` (CPG v103).
 // v60: S1b-4 qualifier proof and positive-only namespace R3 refinement (CPG v104).
 // v61: lane-P P1 tsconfig `paths` import-member resolution (CPG v105).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 61;
+// v62: lane-P P2 relative JS export-hop proof (CPG v106).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 62;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -721,7 +722,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 61);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 62);
     }
 
     #[test]

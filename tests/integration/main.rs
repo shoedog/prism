@@ -43,6 +43,7 @@ mod js_export_reexport_test;
 mod js_export_test;
 mod js_paths_cap_test;
 mod js_paths_common;
+mod js_paths_p2_test;
 mod js_paths_r1_test;
 mod js_paths_r2b_test;
 mod js_paths_r2c_test;

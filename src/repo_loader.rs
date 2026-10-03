@@ -240,7 +240,10 @@ fn scope_graph_build_inputs_from_snapshot(
             }
             for binding in parsed.extract_import_bindings() {
                 if let Some(target) = resolver.resolve(file, &binding.module_path, &indexed) {
-                    pending.insert(target);
+                    pending.insert((
+                        resolver.project(file).expect("resolved caller project"),
+                        target,
+                    ));
                 }
             }
         }
@@ -251,17 +254,17 @@ fn scope_graph_build_inputs_from_snapshot(
         // sorted order, which reaches the same closure as a one-at-a-time walk.
         let mut visited = BTreeSet::new();
         while !pending.is_empty() {
-            let frontier: Vec<String> = std::mem::take(&mut pending)
+            let frontier: Vec<(String, String)> = std::mem::take(&mut pending)
                 .into_iter()
-                .filter(|file| visited.insert(file.clone()))
+                .filter(|entry| visited.insert(entry.clone()))
                 .collect();
             frontier
                 .par_iter()
-                .filter_map(|file| files.get(file))
+                .filter_map(|(_, file)| files.get(file))
                 .for_each(|parsed| {
                     parsed.extract_js_ts_export_facts();
                 });
-            for file in frontier {
+            for (project, file) in frontier {
                 let Some(parsed) = files.get(&file) else {
                     continue;
                 };
@@ -279,8 +282,8 @@ fn scope_graph_build_inputs_from_snapshot(
                             _ => None,
                         }))
                 {
-                    if let Some(target) = resolver.relative(&file, module, &indexed, true) {
-                        pending.insert(target);
+                    if let Some(target) = resolver.hop(&project, &file, module, &indexed) {
+                        pending.insert((project.clone(), target));
                     }
                 }
             }
@@ -306,6 +309,31 @@ fn scope_graph_build_inputs_from_snapshot(
 mod paths_projection_tests {
     use super::*;
     use crate::call_graph::CallGraph;
+
+    #[test]
+    fn primes_nonrelative_hop_absence_before_topology_hash() {
+        let d = tempfile::TempDir::new().unwrap();
+        for (name, text) in [
+            (
+                "tsconfig.json",
+                r#"{"compilerOptions":{"moduleResolution":"node10","allowJs":true,"paths":{"@lib":["barrel.ts"],"@/x":["real"]}}}"#,
+            ),
+            (
+                "app.tsx",
+                "import {real} from '@lib'; export function run(){real();}",
+            ),
+            ("barrel.ts", "export {real} from '@/x';"),
+            ("real.js", "export function real(){return 1;}"),
+        ] {
+            std::fs::write(d.path().join(name), text).unwrap();
+        }
+        let loaded = load_repo(d.path()).unwrap();
+        let inputs = loaded.scope_graph_inputs.as_ref().unwrap();
+        let before = inputs.js_paths_snapshot.topology();
+        assert!(inputs.js_paths_snapshot.was_probed("real.d.ts"));
+        CallGraph::build_with_scope_graph_inputs(&loaded.files, Some(inputs));
+        assert_eq!(before, inputs.js_paths_snapshot.topology());
+    }
 
     #[test]
     fn primes_alias_export_closure_without_unrelated_exports() {
@@ -348,7 +376,7 @@ mod paths_projection_tests {
             &loaded.files,
             loaded.scope_graph_inputs.as_ref(),
         );
-        let projection = &graph.js_ts_path_exports[&false];
+        let projection = &graph.js_ts_path_exports["tsconfig.json"];
         assert_eq!(
             projection.keys().map(String::as_str).collect::<Vec<_>>(),
             ["lib/barrel.ts"]

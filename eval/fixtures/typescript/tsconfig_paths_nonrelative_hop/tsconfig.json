@@ -1,0 +1,1 @@
+{"compilerOptions":{"moduleResolution":"node10","allowJs":true,"paths":{"@lib":["src/barrel.ts"],"@/middle":["src/middle"],"@/x":["src/real"]}},"include":["**/*"]}

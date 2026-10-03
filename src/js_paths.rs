@@ -333,6 +333,23 @@ impl<'a> Resolver<'a> {
             return None;
         }
         let c = self.select(file)?;
+        self.resolve_in(&c, file, spec, indexed)
+    }
+    fn resolve_in(
+        &self,
+        c: &Config,
+        file: &str,
+        spec: &str,
+        indexed: &BTreeSet<String>,
+    ) -> Option<String> {
+        if !self.snapshot.complete
+            || spec.starts_with('.')
+            || spec.contains(['\\', ':'])
+            || spec.starts_with('/')
+            || directory_target(spec)
+        {
+            return None;
+        }
         let mode = c
             .options
             .get("moduleResolution")
@@ -409,16 +426,38 @@ impl<'a> Resolver<'a> {
         }
         Some(q)
     }
-    pub(crate) fn allow_js(&mut self, file: &str) -> bool {
-        self.select(file)
+    fn allow_js(&self, project: &str) -> bool {
+        self.configs
+            .get(project)
+            .and_then(Option::as_ref)
             .is_some_and(|c| c.options.get("allowJs").and_then(Value::as_bool) == Some(true))
+    }
+    pub(crate) fn project(&mut self, file: &str) -> Option<String> {
+        Some(self.select(file)?.config_path.clone())
+    }
+    /// TypeScript 5.9.3:127381-127394 passes program options for every file;
+    /// 128816-128818 only substitutes referenced-project options (P1 refuses
+    /// references). Never reselect the barrel's nearest owning config.
+    pub(crate) fn hop(
+        &self,
+        project: &str,
+        from: &str,
+        spec: &str,
+        indexed: &BTreeSet<String>,
+    ) -> Option<String> {
+        let c = self.configs.get(project)?.as_ref()?;
+        if spec.starts_with("./") || spec.starts_with("../") {
+            self.relative(from, spec, indexed, self.allow_js(project))
+        } else {
+            self.resolve_in(c, from, spec, indexed)
+        }
     }
     pub(crate) fn relative(
         &self,
         file: &str,
         spec: &str,
         indexed: &BTreeSet<String>,
-        _allow_js: bool,
+        allow_js: bool,
     ) -> Option<String> {
         if !self.snapshot.complete
             || !(spec.starts_with("./") || spec.starts_with("../"))
@@ -435,8 +474,24 @@ impl<'a> Resolver<'a> {
                 }
             }
         }
-        let q = self.prove_path(&p, indexed)?;
-        (!js_family(&q)).then_some(q)
+        // Relative known JS spellings use suffix replacement, not the paths
+        // substitution's literal shortcut (typescript.js:45423-45503 vs 46431).
+        // An indexed literal JS source is the first secondary candidate for
+        // its spelling; other secondary/package winners remain outside P2.
+        let q = if js_family(&p) {
+            (self.snapshot.unblocked(&p)
+                && self.snapshot.kind(&p) == Some(0)
+                && indexed.contains(&p))
+            .then_some(p.clone())?
+        } else {
+            self.prove_path(&p, indexed)?
+        };
+        if js_family(&q)
+            && (!allow_js || !crate::js_paths_first_pass::relative_absent(self.snapshot, &p))
+        {
+            return None;
+        }
+        Some(q)
     }
     fn prove_path(&self, p: &str, indexed: &BTreeSet<String>) -> Option<String> {
         if !self.snapshot.unblocked(p) {

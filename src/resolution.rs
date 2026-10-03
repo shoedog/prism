@@ -3791,13 +3791,13 @@ impl CallGraph {
         let exports = if binding.module_path.trim().starts_with('.') {
             &self.js_ts_resolved_exports
         } else {
-            let Some((_, allow_js)) = self
+            let Some((_, project)) = self
                 .js_ts_path_modules
                 .get(&(caller.file.clone(), binding.module_path.clone()))
             else {
                 return Ok(Vec::new());
             };
-            let Some(exports) = self.js_ts_path_exports.get(allow_js) else {
+            let Some(exports) = self.js_ts_path_exports.get(project) else {
                 return Ok(Vec::new());
             };
             exports

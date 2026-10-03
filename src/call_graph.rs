@@ -881,12 +881,12 @@ pub struct CallGraph {
     pub indexed_files: BTreeSet<String>,
     /// P1 proven non-relative modules; empty for convention-only builds.
     #[serde(default)]
-    pub js_ts_path_modules: BTreeMap<(String, String), (String, bool)>,
+    pub js_ts_path_modules: BTreeMap<(String, String), (String, String)>,
     /// Alias-only export tables. Every hop uses P1 occupancy/Node10 proof;
-    /// the boolean partitions callers by their owning project's allowJs.
+    /// the config path partitions callers by their owning project's options.
     #[serde(default)]
     pub js_ts_path_exports:
-        BTreeMap<bool, BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>>,
+        BTreeMap<String, BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>>,
     /// P4: JS/TS raw (per-file, un-resolved) export facts — default exports,
     /// named export lists (incl. renames), exported const-arrow/
     /// function-expression declarations, CommonJS assignments, and re-export
@@ -2242,33 +2242,34 @@ impl CallGraph {
                     {
                         self.js_ts_path_modules.insert(
                             (file.clone(), b.module_path.clone()),
-                            (target, resolver.allow_js(file)),
+                            (
+                                target,
+                                resolver.project(file).expect("resolved caller project"),
+                            ),
                         );
                     }
                 }
             }
         }
-        for allow_js in self
+        for project in self
             .js_ts_path_modules
             .values()
-            .map(|(_, allow)| *allow)
+            .map(|(_, project)| project.clone())
             .collect::<BTreeSet<_>>()
         {
-            let resolve_module = |from: &str, spec: &str| {
-                resolver.relative(from, spec, &self.indexed_files, allow_js)
-            };
+            let resolve_module =
+                |from: &str, spec: &str| resolver.hop(&project, from, spec, &self.indexed_files);
             let roots = self
                 .js_ts_path_modules
                 .values()
-                .filter_map(|(file, allow)| (*allow == allow_js).then_some(file))
+                .filter_map(|(file, owner)| (*owner == project).then_some(file))
                 .collect::<BTreeSet<_>>();
             let resolution = crate::js_exports::resolve_js_exports_for(
                 &self.js_ts_exports,
                 &resolve_module,
                 roots,
             );
-            self.js_ts_path_exports
-                .insert(allow_js, resolution.resolved);
+            self.js_ts_path_exports.insert(project, resolution.resolved);
         }
     }
 

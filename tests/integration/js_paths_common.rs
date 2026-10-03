@@ -33,20 +33,15 @@ pub(super) fn assert_hit(g: &CallGraph, file: &str, callee: &str, target: &str) 
 pub(super) fn assert_alias(_root: &Path, g: &CallGraph, file: &str, callee: &str, target: &str) {
     assert_hit(g, file, callee, target);
 }
-// Cut 2 still refuses JS-family relative export hops.
-pub(super) fn assert_hop_alias(root: &Path, g: &CallGraph, file: &str, callee: &str, target: &str) {
-    if [".js", ".jsx", ".mjs", ".cjs"]
-        .iter()
-        .any(|ext| target.ends_with(ext))
-    {
-        let loaded = load_repo(root).unwrap();
-        assert_eq!(
-            outcome(g, file, callee),
-            outcome(&CallGraph::build(&loaded.files), file, callee)
-        );
-    } else {
-        assert_hit(g, file, callee, target);
-    }
+// P2 admits the existing fixture's unopposed relative JS hop.
+pub(super) fn assert_hop_alias(
+    _root: &Path,
+    g: &CallGraph,
+    file: &str,
+    callee: &str,
+    target: &str,
+) {
+    assert_hit(g, file, callee, target);
 }
 pub(super) fn config(paths: serde_json::Value) -> String {
     serde_json::json!({"compilerOptions":{"moduleResolution":"node","allowJs":true,"baseUrl":".","paths":paths},"include":["**/*"]}).to_string()
