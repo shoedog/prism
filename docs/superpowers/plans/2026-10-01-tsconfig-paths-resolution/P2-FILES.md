@@ -1,8 +1,29 @@
-# Current P2 diagnostic inventory
+# Current P2 non-relative file inventory
 
-MEASURED: checkout `proto/tsconfig-paths-p2` at `e80fbf541d53ace5c547d5f26c9135e46e7be12b`; no Git writes. The prototype and original plan are already committed by the controller. INHERITED: controller reports +32 certified JS-hop rows, so P2 is not material. Current work is diagnosis only; no production adoption/dispatch is authorized by this packet.
+[MEASURED] No Git writes. The physical checkout is plan/tsconfig-paths-p2 @35c481cf. The exact proto parent e80fbf54 is exported to `target/p2-nonrelative/work`; apply its incremental patch only after the controller switches to that prototype branch. The plan files below are edited in the physical plan checkout. No private F input/evidence was opened.
 
-New packet files: `P2-GAP-DIAGNOSIS.md`; `p2-probes/CONTROLLER-p2-gap.sh`, `gap.cjs`, `gap-class-catalog.json`, `gap-source-binding.json`, `gap-driver.rs`, `gap-kernel.rs`, `build-gap-driver.py`, `gap-controls.py`, `gap-projection.cjs`, `gap-guard-controls.cjs`, `gap-kernel-controls.py`. Updated current-state docs: this file, `P2-MEASUREMENTS.md`, `OQ-paths-p2.md`, `SPEC.md`, `IMPLEMENTOR.md`, `HANDOFF-P2.md`. Root `VERIFICATION.md` is an ignored local receipt, retained in the snapshot; do not lose it when transferring the packet. The controller command and local snapshot/verification receipts are in P2-GAP-DIAGNOSIS and HANDOFF-P2. Controller owns committing this exact diagnostic set; no push/merge claim.
+Suggested controller commits:
+
+- Prototype: `feat(paths): prove non-relative export hops with caller project options`
+- Plan: `docs(paths): bind P2 non-relative yield, controls and controller audit`
+
+## Prototype set (relative to gitless work / e80fbf54)
+
+- `src/js_paths.rs`, `src/call_graph.rs`, `src/resolution.rs`, `src/repo_loader.rs`, `src/ast/js_module_forwarding.rs`.
+- `tests/integration/js_paths_p2_test.rs`, `tests/integration/js_binding_export_state_test.rs` (authorized inert-forward-fact expectation).
+- All26 files under `eval/fixtures/{javascript,typescript}/tsconfig_paths_nonrelative_hop{,_refusal}/`.
+
+Measured delta: source5 files **93 added /28 removed** (includes the new loader test), integration tests2 files **212 added /4 removed**, fixtures26 files **78 added**. Full33-path inventory: `target/p2-nonrelative/proto-files.json`. Forecast80–140 source /200–280 tests /70–100 fixture LOC, plus bounded probe runners. Cache106/62 already exists on e80fbf54; no new cache edit.
+
+## Plan set (physical plan checkout / 35c481cf)
+
+- `P2-MEASUREMENTS.md`, `SPEC.md`, `IMPLEMENTOR.md`, `P2-FILES.md`, `HANDOFF-P2.md`, `OQ-paths-p2.md`, `P2-GAP-DIAGNOSIS.md`.
+- `p2-probes/CONTROLLER-p2.sh`, `p2-probes/s1b.py`.
+- New `p2-probes/hop-audit.cjs`, `hop-audit-controls.py`, `nonrelative-controls.py`, `nonrelative-public.py`, `nonrelative-rebuild-parity.py`, `nonrelative-mutants.py`.
+
+The original gap diagnostic source binding remains historical/e80fbf54 and must not be pointed at new source without rebuilding/rebinding it. The new standalone hop audit consumes its retained private row partition plus live native inputs; it never assumes old boolean projection tables match the new caller-config tables. Root VERIFICATION.md is local/ignored; retained in the owned snapshot.
+
+Local snapshot/patch hashes and final commands are in HANDOFF-P2. Controller owns branch switching, committing and external custody; no push/merge requested.
 
 ---
 

@@ -1,4 +1,24 @@
-# Current P2 result — diagnosis only
+# Current P2 checkpoint — non-relative export hops
+
+[MEASURED] Prototype built in the exact gitless e80fbf54 tree at `target/p2-nonrelative/work`. Physical checkout remains plan/tsconfig-paths-p2 @35c481cf; no worker Git writes or F reads. Frozen final binary: `target/p2-nonrelative/bin/prism-p2-nonrelative-verified`, SHA256 `df0cca2f4a1d79be5ff33a55dff5ac1b71ae53106d47612385f44d5a6d0f1d85`. `final-build-binding.json` binds production/vendor/build inputs; final custody refresh is in HANDOFF.
+
+[MEASURED] Public native controls: **82 scenarios /168 sites /72 new CORRECT /96 preserved**, including both grammars, member writes, alias/relative chains, caller-options separation, noncontributing and unresolved star branches, package/declaration/ambient/competition/explicit-substitution refusals, CJS no-span and export= refusal. Receipt: `target/p2-nonrelative/controls-verified/summary.json`. **S1b-4 411 controls /639 sites /822 outputs byte-identical**, stderr0: `s1b-verified.json`.
+
+[MEASURED] Complete same-environment public base/P1/P2 streams: X **19,219 sites /+8 new CORRECT**, installed-X **19,219 /+8 new CORRECT**, R **953 /0 byte-identical**, T **61,712 /0 byte-identical**. Site population and metadata unchanged; all original P1 gains retained, X total gain3129 against original base. X and installed-X are one source snapshot, not additive. Every changed row was freshly certified by the actual caller ProjectService/checker. Fact hashes rechecked628/628/50/707; native inputs633/2219/48/606. Receipts:`public/summary.json`. Post-test rebuild replays complete head rows and rehashes native inputs before reusing those exact certificates:`public-verified/summary.json`; all four rebuilt streams are byte-identical to their certified predecessors.
+
+[MEASURED] Product RED on exact e80fbf54 with final controls: **7 groups pass /3 new positive groups fail**; added library dependency-prime control **0 pass /1 fail**. Same-environment b11 old assertion **1 pass**. Initial library-only integration probe was INADMISSIBLE and corrected. Final **10 regression groups GREEN**; **full unfiltered MCP nextest 5,131 passed /0 failed /1 existing skip**, plus **2 MCP doctests passed**. Original skip is `resolution_test::slice_elem_variant_reserved`. Three verification rounds converged after two bounded corrections; cap3 reached GREEN, no extension. No failure outside this task's expectation change was found.
+
+[MEASURED] **7/7 admissible scoped mutants killed**, all behavioral: alias-hop refusal, shared project options, omitted Node10 priority pass, ambient fence, alias-as-relative lookup, restored extraction literal gate, omitted alias priming. Incremental builds in isolated copies; unmutated10-group reference GREEN. `mutants/manifest.json`, `results.json`, per-mutant logs. **fmt PASS /MCP all-targets clippy PASS** (existing warnings; no new resolver/test warning). Immediate same-tree release rebuild + **Tier-A matrix178 OK /0 regressions /0 skips**, including four new fixtures. `gates.json`, `tier-a-matrix.log`, `matrix-rebuild.log`, `nextest-mcp-verified.log`, `doctests.log`.
+
+[MEASURED] Public diagnostic-partition seam controls: **8 ABSENT = noncontributing star branch**, complete barrel/site binds the exact callable through the other alias branch; **8 unresolved /8 preserved at P1**. All16 actual site import symbols agree with native callable spans. `controls-verified/audit-seam-summary.json`; origin explicitly synthetic, no F claim. CommonJS no-span and export= controls remain at base. ESM alias import-forward functions bind; imported arrows/written bindings remain refused.
+
+[INHERITED] F's prior +32 relative gains and 697 nonrelative population are supplied aggregates, preserved in historical sections below. [UNKNOWN] Final F recovery, explanation of the exact350 ABSENT and retention of the98 unresolved rows await controller `CONTROLLER-p2.sh ... NEW_P2_BIN PRIOR_GAP_EVIDENCE_DIR`. Public controls prove a noncontributing star branch can be ABSENT while the full barrel/site binds the other branch's exact callable; they do not prove this is all350. The aggregate audit distinguishes that mechanism from CommonJS/export= and unresolved explanations.
+
+Size forecast: **80–140 source /200–280 tests /70–100 fixtures LOC** plus bounded measurement runners. Cache stays106/62. Private F, independent review, Linux/case-sensitive/concurrent-tree behavior, full multi-corpus Tier-A and quiet-host resource attestation have not been verified; owner-tier work uses matrix, not another broad quick/full sweep.
+
+---
+
+# Historical P2 result — diagnosis only
 
 INHERITED, controller aggregate supplied 2026-10-03: **32** changed rows, all `CORRECT_STATIC_BINDING`, all `JS_EXPORT_HOP`; **24** member-written; **0** keys added/removed. Native relative JS-resolution ceiling **33**. Against **749** native callable, owner-agreeing bucket rows this is **717** actual unrecovered rows (roughly **716** outside the ceiling). P2 as built is **not material**. The earlier opportunity-based materiality decision below is superseded.
 

@@ -1,6 +1,15 @@
-# Current authority — P2 diagnosis only
+# P2 dispatch — non-relative export-hop prototype
 
-INHERITED: the committed prototype `e80fbf54` recovers +32 certified JS-hop rows (24 member-written), native relative ceiling 33; it is not material. No new production work is authorized. The previous dispatch below is historical/completed. Controller next runs `p2-probes/CONTROLLER-p2-gap.sh P1_BIN FACTS_BIN P2_BIN`; see [P2-GAP-DIAGNOSIS.md](P2-GAP-DIAGNOSIS.md) for exact prerequisites, output, public shapes, forecasts and unresolved-query handling. No worker Git writes or F reads.
+[INHERITED] Owner authorized this bounded extension on 2026-10-03. Adopt the existing prototype increment; do not rewrite it. No worker Git writes or F reads. Production parent is `proto/tsconfig-paths-p2 @ e80fbf54`; plan parent is `plan/tsconfig-paths-p2 @ 35c481cf`. The worker used an exact gitless prototype tree because the physical clone was not switched by the controller. Source, frozen binary and receipts are under `target/p2-nonrelative/`.
+
+1. Bind the incremental prototype patch and owned-file hashes in P2-FILES/HANDOFF. Apply it only to e80fbf54; retain the already-present relative-hop proof and cache **106/62** (main 105/61). No second bump.
+2. Adopt `resolve_in`/`project`/`hop`, caller-config keyed module/export tables, matching loader closure priming, and the extractor's removal of only the relative-literal restriction on eligible ESM imported-local forwarding. Preserve all P1 resolver/membership/ambient/source fences and all export/site/span/write/forwardability guards. S6 stays refused. Bare package/directory/unsupported-extension/competition controls stay at base.
+3. Use caller-project options for the entire chain: TypeScript5.9.3 lines **127381–127394 / 128816–128818**. Never select a barrel's nearer config. Two callers with the same allowJs but different paths must bind different terminals.
+4. Read current P2-MEASUREMENTS. Run `CONTROLLER-p2.sh P1_BIN FACTS_BIN NEW_P2_BIN PRIOR_GAP_EVIDENCE_DIR` immediately in the controller's private environment; return aggregate stdout only. The final argument is needed to explain the exact 350 ABSENT and 98 unresolved rows. Every new edge must be a CORRECT_STATIC_BINDING certificate for the actual caller import symbol's full-chain callable span. Unknown audit cases stay open.
+5. Owner-tier gates: one successful full `cargo nextest run --offline --features mcp --no-fail-fast`, MCP doctests, scoped `nonrelative-mutants.py` with incremental builds, fmt/clippy, immediate rebuild + Tier-A matrix, `nonrelative-controls.py`, `nonrelative-public.py`, and S1b-4 byte parity. Do not rerun unrelated mutant campaigns/all-feature sweeps or update baselines. Three verification rounds reached GREEN at cap3 after two bounded corrections; no extension.
+6. Controller commits prototype and plan file sets separately. No auto-merge. Independent review was not dispatched by the worker. Forecast **80–140 source / 200–280 tests / 70–100 fixtures LOC** plus bounded probe runners; inspect measured size and full file inventory in P2-FILES.
+
+---
 
 # Historical P2 dispatch — relative JS export-hop proof
 

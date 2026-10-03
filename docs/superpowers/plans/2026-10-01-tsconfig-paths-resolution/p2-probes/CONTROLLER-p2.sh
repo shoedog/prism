@@ -1,12 +1,12 @@
 #!/bin/bash
 # READ: controller-only private measurement. Stdout is aggregate counts and hashes only.
-# Usage: CORPUS_F_ROOT=... PRIVATE_EVIDENCE_ROOT=... TS_JS=... bash CONTROLLER-p2.sh P1_BIN FACTS_BIN [P2_BIN]
+# Usage: CORPUS_F_ROOT=... PRIVATE_EVIDENCE_ROOT=... TS_JS=... bash CONTROLLER-p2.sh P1_BIN FACTS_BIN P2_NONRELATIVE_BIN [PRIOR_GAP_EVIDENCE]
 set -euo pipefail
 : "${CORPUS_F_ROOT:?controller supplies private root}"
 : "${PRIVATE_EVIDENCE_ROOT:?controller supplies private output directory}"
 : "${TS_JS:?offline TypeScript 5.9.3 lib/typescript.js}"
 P1="${1:?P1 binary}"; FACTS="${2:?import facts binary}"
-P2="${3:-}"
+P2="${3:?new non-relative P2 binary}"; PRIOR_GAP="${4:-}"
 PROBES="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$PRIVATE_EVIDENCE_ROOT"
 OUT="$PRIVATE_EVIDENCE_ROOT"
@@ -19,12 +19,14 @@ if [ -n "$P2" ]; then
   "$P2" nav --no-cache call-stats --repo "$CORPUS_F_ROOT" --dump-sites > "$OUT/p2-sites.jsonl" 2> "$OUT/p2-sites.stderr"
   python3 "$PROBES/compare.py" "$OUT/p1-sites.jsonl" "$OUT/p2-sites.jsonl" "$OUT/F-native-rows.json" "$OUT/p2-comparison" > "$OUT/comparison.log"
 fi
+node "$PROBES/hop-audit.cjs" "$TS_JS" "$CORPUS_F_ROOT" "$OUT" ${PRIOR_GAP:+"$PRIOR_GAP"} > "$OUT/hop-audit.log" 2>&1
 python3 - "$OUT" "$P1" "$FACTS" "$PROBES/native.cjs" "$PROBES/../probes/oracle.cjs" "$P2" "$PROBES/compare.py" <<'PY'
 import json,sys,hashlib
 from pathlib import Path
 out=Path(sys.argv[1]); d=json.load(open(out/'F-native-summary.json')); p=json.load(open(out/'F-P0.json'))
 assert p['counts']['total_sites']>0, 'zero-site probe inadmissible'
 d.update(corpus='F', total_sites=p['counts']['total_sites'], p1_counts=p['counts'])
+d['hop_audit']=json.load(open(out/'hop-audit-aggregate.json'))
 d['binary_hashes']={k:hashlib.sha256(Path(v).read_bytes()).hexdigest() for k,v in zip(['p1','facts'],sys.argv[2:4])}
 d['probe_hashes']={k:hashlib.sha256(Path(v).read_bytes()).hexdigest() for k,v in zip(['native','p1_oracle'],sys.argv[4:6])}
 if sys.argv[6]:

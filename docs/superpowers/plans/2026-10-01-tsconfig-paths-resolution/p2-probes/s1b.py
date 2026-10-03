@@ -20,5 +20,6 @@ for f in fixtures:
         if mode=='sites': sites+=sum(json.loads(l).get('record_kind')=='call_site' for l in outputs[1].splitlines())
     records.append(rec)
 summary={'controls':len(fixtures),'sites':sites,'byte_identical_comparisons':822,'stderr_bytes':0,'records':records}
-out=Path('target/p2-plan/p2-s1b.json');out.write_text(json.dumps(summary,indent=2)+'\n')
+out=Path(sys.argv[2]) if len(sys.argv)>2 else Path('target/p2-plan/p2-s1b.json')
+out.write_text(json.dumps(summary,indent=2)+'\n')
 print(json.dumps({k:v for k,v in summary.items() if k!='records'}))

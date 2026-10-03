@@ -1,8 +1,24 @@
-# Current boundary — P2 gap diagnosis
+# Current P2 amendment — non-relative export hops
 
-INHERITED: controller supplied +32 certified `JS_EXPORT_HOP` rows, 24 member-written, no key changes, native relative ceiling 33. P2 as built is not material. The prototype is committed at `proto/tsconfig-paths-p2` `e80fbf54`; plan predecessor `1cb46b80`. This round adds aggregate-only diagnostics and public controls; no production change or broader resolver port is authorized. See [P2-GAP-DIAGNOSIS.md](P2-GAP-DIAGNOSIS.md). The amendment below remains the implemented prototype contract; its opportunity-based materiality sentence is historical.
+[INHERITED] Owner authorized the non-relative prototype on 2026-10-03, after the controller partitioned 717 remaining native-callable JS_EXPORT_HOP rows into 697 nonrelative_hop, 18 binding/site guards and 2 directory literals. Of the 697, standalone TypeScript module resolution reports 599 JS-secondary and 98 unresolved; hop export names are PRESENT 249, ABSENT 350, unresolved 98. These supplied counts are not this worker's private measurement.
 
-# P2 amendment — relative JavaScript export-hop proof
+[MEASURED] P2 reuses the reviewed P1 alias resolver at a non-relative export/import-forward hop. `resolve_in` is the extracted existing resolver body: paths selection, supported inherited baseUrl/substitution origin, ambient fences, indexed/readable source, singleton candidates, Node10 priority-pass absence, allowJs and all config/membership refusals remain unchanged. Bare baseUrl discovery, packages/node_modules, package directories, explicit non-TS substitutions and competing candidates gain no authority.
+
+The caller's selected config path is the projection key. Both graph export closure and loader dependency priming carry that key through every hop, including mixed relative/alias chains. A barrel's nearer tsconfig is never reselected. The existing per-file ESM extractor now records eligible non-relative ImportForward facts; they are inert in legacy relative projection and become usable only through the same alias proof. Binding writes/shadows, arrow-forwardability, callable span, wrapper, star completeness, depth/cycle and ambiguity guards are unchanged. Member/subscript writes remain admitted under resolved E5.
+
+Pinned TypeScript 5.9.3 typescript.js SHA256 `3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675`: **127381–127394** passes the program's options into each module-resolution request; **128816–128818** substitutes referenced-project options only (references are outside P1). Alias origin/pattern rules remain **44966–44978 / 46417–46440**, priority passes **45240–45243**, non-relative ancestors/@types/custom roots **45287–45326 / 46298–46445 / 46573–46596**. Relative hops retain the prior P2 local proof, **45327–45394 / 45423–45503**.
+
+A hop module's missing export does not by itself disprove the full caller binding: an `export *` branch can lack the name while another branch supplies it. The old diagnostic reports the first refused branch, not necessarily the contributing branch. `hop-audit.cjs` binds the prior private partition and rechecks that distinction in the actual caller program; it also reports CommonJS/export= markers and unexplained cases. Every changed row is independently certified by `compare.py` against the actual caller import symbol's final callable file/name/start/end span. No certificate is inferred from standalone module resolution or a hop-name count.
+
+[UNKNOWN] The actual explanation of all 350 and retention count for all 98 remain controller-only until the new aggregate arrives. The wrapper asserts complete-row preservation for each prior unresolved row and reports its denominator and retained count. Public noncontributing-star and unresolved-star controls exercise both cases. Do not claim 98/98 measured, or 249/599 realized recovery, from the supplied aggregates.
+
+Cache remains **106/62**, one bump from main 105/61. The controller folds this incremental body onto **proto/tsconfig-paths-p2 @ e80fbf54**, not onto the plan tree. The worker did not change .git: the physical clone remains plan/tsconfig-paths-p2 @ 35c481cf; exact prototype bytes are in `target/p2-nonrelative/work`, with a patch/snapshot at handoff.
+
+Owner-tier acceptance: complete MCP nextest suite (plus doctests), scoped changed-code mutants, fmt, clippy, immediate-rebuild Tier-A matrix, S1b-4 byte identity, all four complete public streams preserving P1 gains and allowing only new native CORRECT rows, and controller F changed-row plus 350/98 audit. No rebaseline, push or merge. Forecast: **80–140 source LOC / 200–280 behavioral-test LOC / 70–100 fixture LOC**, excluding bounded measurement runners; one resolver/context slice. Local verification cap **3**, completed **3/3 GREEN** after two bounded corrections; no extension. Independent review remains controller-owned, not dispatched.
+
+---
+
+# Historical P2 amendment — relative JavaScript export-hop proof
 
 READ: Owner authorized this slice on 2026-10-03 after controller aggregates established material F yield. This amendment supersedes P1 Cut 2's blanket relative JS-hop refusal **only for the tsconfig-paths alias export projection**. The P1 sections below remain historical where they describe that refusal or cache 105/61. Working-tree prototype starts at `8bd3c2dad641bf209f82073017b1549a8f377dff`; no planner Git writes and no F access. Actual private prototype recovery is controller-measured, not inferred from the ceiling.
 

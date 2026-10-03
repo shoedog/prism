@@ -1,4 +1,12 @@
-# P2 gap diagnosis packet
+# Current boundary — diagnosis received; non-relative prototype authorized
+
+[INHERITED] The controller's completed classification is 697 nonrelative_hop (599 JS-secondary,98 unresolved;249 names PRESENT,350 ABSENT,98 unresolved),18 binding/site guards,2 directory literals. The owner now authorized a P1-resolver-only non-relative prototype. Current implementation/yield/gates are in SPEC/P2-MEASUREMENTS; the packet below is the historical diagnosis of e80fbf54, not a production-dispatch prohibition.
+
+The old classifier's first refused `export *` branch can be unrelated to the callable's contributing branch. `p2-probes/hop-audit.cjs` plus `CONTROLLER-p2.sh ... NEW_P2_BIN PRIOR_GAP_EVIDENCE_DIR` bind that old partition and count noncontributing stars, CommonJS/export= markers, changed checker state, still-unexplained cases, and prior unresolved-row preservation. Do not rerun the old boolean-table sidecar against the new config-keyed projection without a separate source/shape rebind. No worker private reads or Git writes.
+
+---
+
+# Historical P2 gap diagnosis packet
 
 [INHERITED] Controller supplied **32** changed rows, all `CORRECT_STATIC_BINDING` and `JS_EXPORT_HOP`, **24** member-written, no key changes; relative JS-resolution ceiling **33**. The native-callable, owner-agreeing bucket has **749** rows, so **717** are unrecovered by this prototype. The roughly **716** figure is 749 minus the resolution ceiling, not the exact unrecovered-row denominator. P2 as built is not material. No private input was read by this planner.
 
