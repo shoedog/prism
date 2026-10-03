@@ -1,0 +1,58 @@
+........................FF.....................
+======================================================================
+FAIL: test_location_in_failure_payload_requires_confirmation (scripts.mutgate.test_mutgate.GateRegressionTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 298, in test_location_in_failure_payload_requires_confirmation
+    self.assertEqual(summary['results']['m']['schema_observation']['confirmation_reasons'],
+AssertionError: Lists differ: ['fai[22 chars] src/lib.rs:12:3', 'failure-payload-location: src/lib.rs:4:10'] != ['fai[22 chars] src/lib.rs:12:3']
+
+First list contains 1 additional elements.
+First extra element 1:
+'failure-payload-location: src/lib.rs:4:10'
+
+- ['failure-payload-location: src/lib.rs:12:3',
+?                                             ^
+
++ ['failure-payload-location: src/lib.rs:12:3']
+?                                             ^
+
+-  'failure-payload-location: src/lib.rs:4:10']
+
+======================================================================
+FAIL: test_plain_unwrap_genuine_kills_stay_in_schema_without_confirmation (scripts.mutgate.test_mutgate.GateRegressionTests) (replacement='Some(2)')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 286, in test_plain_unwrap_genuine_kills_stay_in_schema_without_confirmation
+    self.assertEqual(summary['results']['m']['mode'], 'schema')
+AssertionError: 'schema+text' != 'schema'
+- schema+text
++ schema
+
+
+======================================================================
+FAIL: test_plain_unwrap_genuine_kills_stay_in_schema_without_confirmation (scripts.mutgate.test_mutgate.GateRegressionTests) (replacement='None::<u32>')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 286, in test_plain_unwrap_genuine_kills_stay_in_schema_without_confirmation
+    self.assertEqual(summary['results']['m']['mode'], 'schema')
+AssertionError: 'schema+text' != 'schema'
+- schema+text
++ schema
+
+
+======================================================================
+FAIL: test_safe_local_macro_genuine_kill_stays_in_schema (scripts.mutgate.test_mutgate.GateRegressionTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 316, in test_safe_local_macro_genuine_kill_stays_in_schema
+    self.assertEqual(summary['results']['m']['mode'], 'schema')
+AssertionError: 'schema+text' != 'schema'
+- schema+text
++ schema
+
+
+----------------------------------------------------------------------
+Ran 48 tests in 7.250s
+
+FAILED (failures=4)

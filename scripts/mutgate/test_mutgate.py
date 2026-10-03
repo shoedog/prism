@@ -100,7 +100,7 @@ class PlanSchemataTests(unittest.TestCase):
         self.assertEqual(units, {})
         self.assertIn('m1', static)
 
-    def test_macro_rules_body_nested_in_fn_demotes_for_unknown_expansion(self):
+    def test_safe_macro_rules_body_nested_in_fn_stays_in_schema(self):
         s = (
             'fn two() -> i32 {\n'
             '    macro_rules! lit { () => { 2 }; }\n'
@@ -109,8 +109,8 @@ class PlanSchemataTests(unittest.TestCase):
         )
         muts = one_mutant('m1', 'src/lib.rs', '{ 2 }', '{ 3 }')
         units, static = mutgate.plan_schemata(muts, {'src/lib.rs': s})
-        self.assertEqual(static, {'m1': 'source-location'})
-        self.assertEqual(units, {})
+        self.assertEqual(static, {})
+        self.assertEqual(len(units), 1)
 
     def test_const_fn_schema_included(self):
         s = 'const fn add(a: i32, b: i32) -> i32 {\n    a + b\n}\n'
@@ -271,6 +271,50 @@ class GateRegressionTests(unittest.TestCase):
         self.assertEqual(status, 1)
         self.assertEqual(mutgate.verdict(summary['results']['m']), 'SURVIVED')
         self.assertTrue(summary['results']['m']['schema_observation']['killed'])
+        self.assertEqual(summary['text_confirmations'], 1)
+        self.assertIn('location-sensitive-test: t', summary['results']['m']['schema_observation']['confirmation_reasons'])
+
+    def test_plain_unwrap_genuine_kills_stay_in_schema_without_confirmation(self):
+        source = 'fn f() -> u32 { Some(1).unwrap() }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n'
+        # Both a wrong value and an actual unwrap panic are genuine, location-free
+        # kills. The automatic libtest panic header must not force a text build.
+        for replacement in ('Some(2)', 'None::<u32>'):
+            with self.subTest(replacement=replacement):
+                status, summary = self.gate(source, {'m': ['src/lib.rs', 'Some(1)', replacement, 't']}, 'schema')
+                self.assertEqual(status, 0)
+                self.assertEqual(summary['static'], {})
+                self.assertEqual(summary['results']['m']['mode'], 'schema')
+                self.assertEqual(summary['results']['m']['verdict'], 'KILLED')
+                self.assertEqual(summary['text_confirmations'], 0)
+                self.assertNotIn('text_mode', summary['timings'])
+
+    def test_location_in_failure_payload_requires_confirmation(self):
+        source = ('fn f() -> bool { true }\n#[test]\n'
+                  'fn t() { assert!(f(), "observed src/lib.rs:12:3"); }\n')
+        status, summary = self.gate(source, {'m': ['src/lib.rs', '{ true }', '{ false }', 't']}, 'schema')
+        self.assertEqual(status, 0)
+        self.assertEqual(summary['results']['m']['mode'], 'schema+text')
+        self.assertEqual(summary['text_confirmations'], 1)
+        self.assertEqual(summary['results']['m']['schema_observation']['confirmation_reasons'],
+                         ['failure-payload-location: src/lib.rs:12:3'])
+
+    def test_location_expected_by_should_panic_requires_confirmation(self):
+        source = ('fn f() -> bool { true }\n#[test]\n#[should_panic(expected="src/lib.rs:")]\n'
+                  'fn t() { if f() { panic!("src/lib.rs:"); } else { panic!("wrong"); } }\n')
+        status, summary = self.gate(source, {'m': ['src/lib.rs', '{ true }', '{ false }', 't']}, 'schema')
+        self.assertEqual(status, 0)
+        self.assertEqual(summary['results']['m']['mode'], 'schema+text')
+        self.assertEqual(summary['text_confirmations'], 1)
+        self.assertIn('location-sensitive-test: t', summary['results']['m']['schema_observation']['confirmation_reasons'])
+
+    def test_safe_local_macro_genuine_kill_stays_in_schema(self):
+        source = ('macro_rules! lit { () => { 1 }; }\nfn f() -> u32 { lit!() + 1 }\n'
+                  '#[test]\nfn t() { assert_eq!(f(), 2); }\n')
+        status, summary = self.gate(source, {'m': ['src/lib.rs', 'lit!() + 1', 'lit!() + 2', 't']}, 'schema')
+        self.assertEqual(status, 0)
+        self.assertEqual(summary['static'], {})
+        self.assertEqual(summary['results']['m']['mode'], 'schema')
+        self.assertEqual(summary['text_confirmations'], 0)
 
     def test_w2_timeout_never_kills(self):
         source = ('fn f() -> u32 { let ignored = 1; '
@@ -384,8 +428,8 @@ class AdmissibilityTests(unittest.TestCase):
         self.assertFalse(result['admissible'])
 
     def test_location_observers_in_original_or_mutated_body_demote(self):
-        for expression in ('line!()', 'column!()', 'file!()', 'panic!("x")',
-                           'assert!(true)', 'Some(1).unwrap()', 'wrapped!()',
+        for expression in ('line!()', 'column!()', 'file!()', 'module_path!()', 'dbg!(1)',
+                           'let _: Option<std::panic::Location> = None',
                            'std::panic::Location::caller().line()'):
             for in_mutant in (False, True):
                 with self.subTest(expression=expression, in_mutant=in_mutant):
@@ -395,6 +439,65 @@ class AdmissibilityTests(unittest.TestCase):
                     units, static = mutgate.plan_schemata(muts, {'src/lib.rs': source})
                     self.assertEqual(units, {})
                     self.assertEqual(static['m'], 'source-location')
+
+    def test_plain_panics_unwraps_and_safe_macros_do_not_demote(self):
+        for expression in ('panic!("x")', 'assert!(true)', 'Some(1).unwrap()', 'Some(1).expect("x")',
+                           'vec![1]', 'format!("{}", 1)', 'write!(w, "x")', 'debug_assert!(true)',
+                           'matches!(1, 1)', 'std::assert_eq!(1, 1)', 'serde_json::json!({"x": 1})'):
+            for in_mutant in (False, True):
+                with self.subTest(expression=expression, in_mutant=in_mutant):
+                    source = 'fn f() { let ignored = 1; ' + ('' if in_mutant else expression + ';') + ' }'
+                    replacement = 'let ignored = 2; ' + (expression + ';' if in_mutant else '')
+                    units, static = mutgate.plan_schemata(one_mutant('m', 'src/lib.rs', 'let ignored = 1;', replacement),
+                                                         {'src/lib.rs': source})
+                    self.assertEqual(static, {})
+                    self.assertEqual(len(units), 1)
+
+    def test_unknown_macro_is_inspected_before_demotion(self):
+        for definition, expected in (('macro_rules! custom { () => { vec![1] }; }', False),
+                                     ('macro_rules! custom { () => { line!() }; }', True),
+                                     ('macro_rules! custom { () => { helper!() }; }\n'
+                                      'macro_rules! helper { () => { Location::caller() }; }', True),
+                                     ('macro_rules! custom { () => { external::wrap!() }; }', True),
+                                     ('', True)):
+            with self.subTest(definition=definition):
+                source = 'fn f() { let ignored = 1; custom!(); }'
+                units, static = mutgate.plan_schemata(one_mutant('m', 'src/lib.rs', 'let ignored = 1;', 'let ignored = 2;'),
+                                                     {'src/lib.rs': source, 'src/macros.rs': definition})
+                self.assertEqual(bool(static), expected)
+                self.assertEqual(bool(units), not expected)
+
+    def test_macro_std_name_shadowing_and_external_qualifiers(self):
+        sources = {'src/lib.rs': 'macro_rules! vec { () => { line!() }; }\nfn f() { let n = 1; vec!(); }'}
+        muts = one_mutant('m', 'src/lib.rs', 'let n = 1;', 'let n = 2;')
+        self.assertIn('m', mutgate.plan_schemata(muts, sources)[1])
+        sources['src/lib.rs'] = sources['src/lib.rs'].replace('vec!();', 'std::vec!();')
+        self.assertEqual(mutgate.plan_schemata(muts, sources)[1], {})
+        sources['src/lib.rs'] = sources['src/lib.rs'].replace('std::vec!();', 'external::vec!();')
+        self.assertEqual(mutgate.plan_schemata(muts, sources)[1], {'m': 'unaudited-macro: external::vec'})
+
+    def test_new_nested_macro_observer_and_safe_macro_arguments_demote(self):
+        for replacement in ('macro_rules! lit { () => { line!() }; } lit!();', 'format!("{}", line!());'):
+            source = 'fn f() { let ignored = 1; }'
+            units, static = mutgate.plan_schemata(one_mutant('m', 'src/lib.rs', 'let ignored = 1;', replacement),
+                                                 {'src/lib.rs': source})
+            self.assertEqual(units, {})
+            self.assertEqual(static['m'], 'source-location')
+
+    def test_observer_text_in_strings_comments_does_not_demote(self):
+        source = 'fn f() { let n = 1; let text = "line!() Location::caller()"; /* wrapped!() */ }'
+        self.assertEqual(mutgate.plan_schemata(one_mutant('m', 'src/lib.rs', 'let n = 1;', 'let n = 2;'),
+                                              {'src/lib.rs': source})[1], {})
+
+    def test_track_caller_on_nested_callee_demotes(self):
+        source = 'fn f() { let n = 1; #[track_caller] fn helper() {} helper(); }'
+        self.assertEqual(mutgate.plan_schemata(one_mutant('m', 'src/lib.rs', 'let n = 1;', 'let n = 2;'),
+                                              {'src/lib.rs': source})[1], {'m': 'source-location'})
+
+    def test_negated_conditions_are_not_macro_invocations(self):
+        source = 'fn f() { let n = 1; if !(n == 1) {} while ![true].contains(&true) {} }'
+        self.assertEqual(mutgate.plan_schemata(one_mutant('m', 'src/lib.rs', 'let n = 1;', 'let n = 2;'),
+                                              {'src/lib.rs': source})[1], {})
 
     def test_track_caller_attribute_demotes(self):
         source = '#[track_caller]\nfn f() -> u32 { 1 }'
@@ -413,6 +516,58 @@ class AdmissibilityTests(unittest.TestCase):
         muts = one_mutant('m', 'src/gone.rs', '{ 1 }', '{ 2 }')
         with patch.object(mutgate, 'changed_lines', return_value={}):
             self.assertEqual(mutgate.select_scoped(muts, {}, 'main', 'line'), ['m'])
+
+
+class ConfirmationTests(unittest.TestCase):
+    def test_panic_header_is_metadata_but_payload_locations_are_retained(self):
+        log = ("thread 't' panicked at /scratch/src/lib.rs:91:3:\n"
+               'assertion failed: wrong value\n')
+        self.assertEqual(mutgate.failure_locations(log), [])
+        self.assertEqual(mutgate.failure_locations(log.replace("'t' panicked", "'t' (1234) panicked")), [])
+        self.assertEqual(mutgate.failure_locations(log + 'observed /scratch/src/lib.rs:5:2\n'),
+                         ['/scratch/src/lib.rs:5:2'])
+        old = "thread 't' panicked at 'observed src/lib.rs:5:2', src/lib.rs:91:3\n"
+        self.assertEqual(mutgate.failure_locations(old), ['src/lib.rs:5:2'])
+
+    def test_run_test_scans_full_payload_before_tail_truncation(self):
+        output = ('running 1 test\n'
+                  "thread 't' panicked at src/lib.rs:91:3:\nobserved src/lib.rs:5:2\n" + 'x' * 2000 + '\n'
+                  'test result: FAILED. 0 passed; 1 failed; 0 ignored;\n')
+        with patch.object(mutgate.subprocess, 'run') as run:
+            run.return_value.stdout = output; run.return_value.stderr = ''; run.return_value.returncode = 101
+            result = mutgate.run_test('exe', 't', 'm', 1, {})
+        self.assertTrue(result['killed'])
+        self.assertNotIn('src/lib.rs:5:2', result['log_tail'])
+        self.assertEqual(result['failure_locations'], ['src/lib.rs:5:2'])
+
+    def test_only_killing_test_and_locations_in_own_edited_files_confirm(self):
+        m = one_mutant('m', 'src/lib.rs', 'a', 'b')['m']; m['tests'] = ['kill', 'pass']
+        runs = [{'killed': True, 'failure_locations': ['src/other.rs:2:1']},
+                {'killed': False, 'failure_locations': []}]
+        observation = {'runs': runs}
+        self.assertEqual(mutgate.confirmation_reasons(m, observation, {'kill': False, 'pass': True}), [])
+        runs[0]['failure_locations'] = ['/scratch/src/lib.rs:2:1']
+        self.assertEqual(mutgate.confirmation_reasons(m, observation, {}),
+                         ['failure-payload-location: /scratch/src/lib.rs:2:1'])
+        runs[0]['failure_locations'] = ['src/notlib.rs:2:1']
+        self.assertEqual(mutgate.confirmation_reasons(m, observation, {}), [])
+        self.assertEqual(mutgate.confirmation_reasons(m, observation, {'kill': True}),
+                         ['location-sensitive-test: kill'])
+
+    def test_test_api_scan_includes_helpers_constants_and_should_panic(self):
+        for source in ('#[test] fn t() { line!(); }', '#[test] fn t() { column!(); }',
+                       '#[test] fn t() { let _: Option<Location> = None; }',
+                       'const AFTER: u32 = line!(); #[test] fn t() { use_value(AFTER); }',
+                       'fn helper() { std::panic::Location::caller(); } #[test] fn t() { helper(); }',
+                       '#[test] #[should_panic(expected="src/lib.rs:")] fn t() { panic!("x"); }'):
+            with self.subTest(source=source):
+                self.assertEqual(mutgate.location_sensitive_tests(['m::t', 'calm'], {'src/lib.rs': source}),
+                                 {'m::t': True, 'calm': False})
+
+    def test_unrelated_observers_and_literals_do_not_make_a_test_sensitive(self):
+        source = ('fn unused() { line!(); } const UNUSED: u32 = line!();\n'
+                  '#[test] fn t() { let text = "Location line!() src/lib.rs:"; /* line!() */ assert!(true); }')
+        self.assertEqual(mutgate.location_sensitive_tests(['t'], {'src/lib.rs': source}), {'t': False})
 
 
 class RegistryIntentTests(unittest.TestCase):

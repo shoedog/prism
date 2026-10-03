@@ -1,0 +1,547 @@
+diff --git a/scripts/mutgate/README.md b/scripts/mutgate/README.md
+index abc7914d..8517aac9 100644
+--- a/scripts/mutgate/README.md
++++ b/scripts/mutgate/README.md
+@@ -2,8 +2,9 @@
+ 
+ A pre-merge mutation gate. Eligible mutants become `match` arms inside their
+ enclosing function in a scratch copy, built together and selected with
+-`PRISM_MUTANT`. Every schema kill must also kill in a clean text-mode build
+-before the gate reports KILLED. Production `src/` is never edited.
++`PRISM_MUTANT`. Location-sensitive schema failures require a clean text-mode
++confirmation; other admissible schema kills stand directly. Production `src/`
++is never edited.
+ 
+ ## Defining a lane
+ 
+@@ -71,13 +72,23 @@ Other flags: `--jobs N` (parallel test runs, default half the CPU count),
+ ## Tiers
+ 
+ - Scoped round (`--since <ref>`): a local filter for one review round. Target
+-  under 5–10 minutes. Line/fn scope selects overlapping anchors/functions;
++  well under 5 minutes. Line/fn scope selects overlapping anchors/functions;
+   file scope selects all mutants in changed files. These do not trace callers
+   or dependencies and can omit mutants affected by helper changes. Missing
+   registry paths/anchors are selected even outside the diff, to fail visibly.
+-- Full gate: every lane mutant, at most 15 minutes. The full gate is the
++- Full gate: every lane mutant, at most 15 minutes, ideally 2–3 minutes with
++  reusable Cargo artifacts. The full gate is the
+   authority before merge; a green scoped result cannot replace it.
+ 
++Round-2 certification of the current 93-ID lane: all 93 admissible kills in
++both modes, zero ID-bound verdict differences; schema **90.00 s**, pure text
++**513.64 s**, and a nonempty three-mutant synthetic fn-scope control **33.50 s**.
++Of the 93, 89 ran as schemas, four demoted for struct-field edits, and zero
++schema kills required text confirmation. See the [per-ID certification table](evidence/repair-r2/certification-table.md)
++and [demotion table](evidence/repair-r2/demotion-table.md). These timings are
++machine/cache dependent; the scoped measurement injects changed lines because
++the production source diff is empty.
++
+ ## Limits
+ 
+ - A mutant whose edit falls outside any function body, or whose unit fails
+@@ -87,13 +98,41 @@ Other flags: `--jobs N` (parallel test runs, default half the CPU count),
+   (duplicating its body across match arms can fail RPIT's single-hidden-type
+   inference when the body contains a closure or other anonymous-type
+   expression) and runs any mutant touching it in text mode instead.
+-- Bodies containing macro invocations (including unknown wrappers), location
+-  queries, `unwrap`/`expect`, or a `#[track_caller]` attribute stay in text mode.
+-  Both original and mutated bodies are checked. Text mode preserves the
+-  locations of the ordinary text edit; duplication cannot preserve them.
+-  Observations hidden behind calls or expansions elsewhere are protected by
+-  mandatory text confirmation. Schema failures awaiting confirmation are
+-  observations, not accepted kills; the summary retains them separately.
++- Both original and mutated bodies demote for direct `line!`, `column!`,
++  `file!`, `std::panic::Location`, `Location::caller`, and `#[track_caller]`
++  (on the function or nested callees). `module_path!` is conservatively treated
++  as an observer, as is `dbg!`, which prints a location. Plain `panic!`,
++  `unwrap` and `expect` do not themselves make a body location-sensitive.
++- The safe std macro allowlist is `vec`, `format`, `format_args`,
++  `format_args_nl`, `write`, `writeln`, `print`, `println`, `eprint`, `eprintln`,
++  `assert`, `assert_eq`, `assert_ne`, `debug_assert`, `debug_assert_eq`,
++  `debug_assert_ne`, `matches`, `panic`, `unreachable`, `todo`, `unimplemented`,
++  `concat`, `stringify`, `cfg`, `env`, `option_env`, `include_str`, `include_bytes`.
++  Arguments are still scanned for observers. Local `macro_rules!` definitions
++  are scanned across the crate, including transitive expansions and std-name
++  shadowing; a known-safe local wrapper remains in schema mode. Same-name
++  definitions are conservatively merged rather than resolving Rust scopes.
++  New/changed nested definitions are inspected in the mutant too.
++- The external safe list contains only `serde_json::json` (JSON construction
++  without location APIs). All other external macros, including `anyhow::{anyhow,
++  bail, ensure}`, `log::*`, `tracing::*`, and `tokio::*`, plus unresolved imported
++  macros and `include!`, demote as `unaudited-macro`. Inspect an expansion before
++  adding it to the safe list; recognition alone is insufficient.
++- A schema kill needs text confirmation only when its **failure payload** has
++  a numeric `.rs:line[:column]` location in one of that mutant's edited files,
++  or its killing test uses location APIs or `should_panic(expected="… .rs: …")`.
++  Rust's automatic panic diagnostic header is excluded: it reports provenance,
++  rather than proving the test observed it. The full output is scanned before
++  tail truncation. The test scan includes referenced constants and helpers
++  (for example `AFTER = line!()`); same-name items are conservatively merged.
++  The summary records confirmation counts and reasons, and preserves the
++  schema observation separately from the confirmed verdict.
++- These are lexical protections, not a Rust resolver or a general equivalence
++  proof. Aliased location APIs, dynamic calls, proc/attribute macro expansions,
++  external helpers or hooks that observe locations without exposing them in
++  failure text can escape the targeted checks. Keep such mutants/tests in text
++  mode. Each new lane must be certified by ID against pure text mode; this does
++  not certify arbitrary future tests or external expansions.
+ - No perf or memory mutants: the schema's per-call string match on
+   `PRISM_MUTANT` changes timing and allocation behavior, so this gate is
+   unsuitable for timing- or memory-sensitive assertions. Keep those on their
+diff --git a/scripts/mutgate/mutgate.py b/scripts/mutgate/mutgate.py
+index a30f91c3..e56169c0 100644
+--- a/scripts/mutgate/mutgate.py
++++ b/scripts/mutgate/mutgate.py
+@@ -15,8 +15,8 @@ of the tree under $CARGO_TARGET_DIR/mutgate/tree; each mutated function body bec
+ 
+     { match crate::__mutant() { "ID" => { <mutated body> } _ => { <original body> } } }
+ 
+-Bodies with source-location constructs or macro invocations stay in text mode.
+-Every schema kill is confirmed against a clean text mutant before acceptance.
++Bodies with direct location observers or unaudited macro expansions stay in text mode.
++Only location-sensitive schema failures need clean-text confirmation.
+ A mutant whose edit
+ falls outside a function body (struct fields, attributes, consts), or whose unit
+ fails to compile as a schema, runs in text mode (one incremental build per mutant).
+@@ -159,24 +159,95 @@ def invalid_anchors(muts, src_text):
+                    for file, a, _ in m['edits'])}
+ 
+ 
+-def observes_location(body):
+-    # Unknown macros may expand to line!/panic!/track-caller calls. Comments and
+-    # strings cannot invoke them. Hidden observations through function calls are
+-    # covered by the mandatory clean-text confirmation, not lexical guessing.
+-    mask = code_mask(body)
+-    code = ''.join(c if mask[i] else ' ' for i, c in enumerate(body))
+-    return bool(re.search(r'\b\w+\s*!\s*[(\[{]|\b(?:unwrap|unwrap_err|expect|expect_err)\b|\bLocation\s*::\s*caller\b', code))
++SAFE_STD_MACROS = frozenset(('vec format format_args format_args_nl write writeln '
++    'print println eprint eprintln assert assert_eq assert_ne debug_assert '
++    'debug_assert_eq debug_assert_ne matches panic unreachable todo unimplemented '
++    'concat stringify cfg env option_env include_str include_bytes').split())
++# Audited external expansion: JSON construction, with no location APIs. All
++# other external/unknown macros are unaudited and can conceal an observer.
++SAFE_EXTERNAL_MACROS = frozenset({'serde_json::json'})
++LOCATION = re.compile(r'\b(?:line|column|file|module_path|dbg)\s*!\s*[(\[{]'
++    r'|\bstd\s*::\s*panic\s*::\s*Location\b'
++    r'|\bLocation\s*::\s*caller\b|#\s*\[\s*(?:cfg_attr\b[^\]]*\b)?track_caller\b')
++MACRO_CALL = re.compile(r'\b(?!if\b|while\b|return\b|break\b|yield\b|match\b)'
++                       r'[A-Za-z_]\w*(?:\s*::\s*[A-Za-z_]\w*)*\s*!\s*[(\[{]')
++
++
++def masked_code(s):
++    mask = code_mask(s)
++    return ''.join(c if mask[i] else ' ' for i, c in enumerate(s))
++
++
++def macro_rules_bodies(s):
++    """Collect real definitions (including nested ones), never strings/comments."""
++    code = masked_code(s); out = {}
++    for m in re.finditer(r'\bmacro_rules\s*!\s*([A-Za-z_]\w*)\s*([({\[])', code):
++        start = m.end() - 1; stack = []; end = start
++        for end in range(start, len(code)):
++            c = code[end]
++            if c in '([{': stack.append(c)
++            elif c in ')]}':
++                if not stack or stack.pop() != {')': '(', ']': '[', '}': '{'}[c]: break
++                if not stack: break
++        out.setdefault(m[1], []).append(code[start:end + 1])
++    return out
++
++
++def crate_macros(src_text):
++    out = {}
++    for s in src_text.values():
++        for name, definitions in macro_rules_bodies(s).items():
++            out.setdefault(name, []).extend(definitions)
++    return out
++
++
++def location_reason(code, macros, seen=None):
++    """Code is already masked. Expand inspected local macros transitively.
++
++    Check every same-name local definition rather than assuming Rust scope or
++    imports. Cycles alone cannot introduce an observer; visit each name once.
++    Invocation arguments remain in code and are checked even for safe macros.
++    """
++    if LOCATION.search(code): return 'source-location'
++    seen = set() if seen is None else seen
++    for m in MACRO_CALL.finditer(code):
++        path = re.sub(r'\s+', '', m[0].split('!')[0]); parts = path.split('::'); name = parts[-1]
++        local = len(parts) == 1 or parts[0] in ('crate', 'self', 'super')
++        if local and name in macros:
++            if name in seen: continue
++            seen.add(name)
++            for definition in macros[name]:
++                reason = location_reason(definition, macros, seen)
++                if reason: return f'macro-location: {name} ({reason})'
++        elif (len(parts) == 1 or parts[0] in ('std', 'core', 'alloc')) and name in SAFE_STD_MACROS:
++            continue
++        elif path in SAFE_EXTERNAL_MACROS:
++            continue
++        else:
++            return f'unaudited-macro: {path}'
++    return None
++
++
++def observes_location(body, macros=None):
++    macros = crate_macros({'body': body}) if macros is None else macros
++    return location_reason(masked_code(body), macros) is not None
++
++
++def fn_prefix(s, fn_start, code=None):
++    code = masked_code(s) if code is None else code
++    previous = max(code.rfind('}', 0, fn_start), code.rfind(';', 0, fn_start), code.rfind('{', 0, fn_start))
++    return s[previous + 1:fn_start]
+ 
+ 
+ def track_caller(s, fn_start):
+-    previous = max(s.rfind('}', 0, fn_start), s.rfind(';', 0, fn_start), s.rfind('{', 0, fn_start))
+-    return bool(re.search(r'\btrack_caller\b', s[previous + 1:fn_start]))
++    return bool(re.search(r'\btrack_caller\b', masked_code(fn_prefix(s, fn_start))))
+ 
+ 
+ # ---------------------------------------------------------------- schemata
+ def plan_schemata(muts, src_text):
+     """Return (units, static). units: (file, body_open, body_close) -> {id: [(start, end, replacement)]}."""
+     static = invalid_anchors(muts, src_text)
++    macros = crate_macros(src_text)
+     bodies = {}
+     for file, s in src_text.items():
+         mask = code_mask(s)
+@@ -209,8 +280,14 @@ def plan_schemata(muts, src_text):
+             for st, en, repl in sorted(eds, reverse=True):
+                 mutated = mutated[:st - o - 1] + repl + mutated[en - o - 1:]
+             fstart = next(bd[0] for bd in bodies[file] if bd[1] == o)
+-            if track_caller(s, fstart) or observes_location(inner) or observes_location(mutated):
+-                static[m['id']] = 'source-location'; break
++            # Include new/changed nested macro definitions in the mutant too.
++            mutant_macros = dict(macros)
++            mutant_macros.update(macro_rules_bodies(mutated))
++            reason = ('source-location' if track_caller(s, fstart) else
++                      location_reason(masked_code(inner), macros) or
++                      location_reason(masked_code(mutated), mutant_macros))
++            if reason:
++                static[m['id']] = reason; break
+         if m['id'] in static: continue
+         for unit, ed in placed:
+             units.setdefault(unit, {}).setdefault(m['id'], []).append(ed)
+@@ -313,7 +390,75 @@ def run_test(exe, test, mutant, timeout, env):
+     killed = status != 'timeout' and ran and result[1] == 'FAILED' and int(result[3]) == 1
+     survived = status == 0 and ran and result[1] == 'ok' and int(result[2]) == 1
+     return {'killed': killed, 'timeout': status == 'timeout', 'admissible': killed or survived,
+-            'status': status, 'seconds': round(time.monotonic() - t, 3), 'log_tail': log[-1500:]}
++            'status': status, 'seconds': round(time.monotonic() - t, 3), 'log_tail': log[-1500:],
++            'failure_locations': failure_locations(log) if killed else []}
++
++
++def failure_locations(log):
++    # Rust's panic header reports diagnostic provenance, not an observation by
++    # the test. Keep payload/assertion/stdout locations, even outside log_tail.
++    payload = re.sub(r"^thread '[^\n]*?'(?: \(\d+\))? panicked at [^\n]*\.rs:\d+:\d+:\s*$", '', log, flags=re.M)
++    # Older Rust puts the header's location after the quoted panic payload.
++    payload = re.sub(r"(?m)(^thread '[^\n]*?'(?: \(\d+\))? panicked at '[^\n]*'), [^\n]*\.rs:\d+:\d+\s*$", r'\1', payload)
++    return sorted(set(re.findall(r'[^\s\'"`<>(),]+\.rs:\d+(?::\d+)?', payload)))
++
++
++def location_sensitive_tests(tests, sources):
++    """Lexical test/constant/helper closure, conservatively merging same names.
++
++    Include referenced constants (AFTER = line!()) and helpers: looking only at
++    the test's body misses the hidden track-caller regression. No Rust resolver
++    is claimed here; aliases/dynamic dispatch are a documented limit.
++    """
++    nodes = {}; roots = {}
++    def add(name, code, observer=False):
++        nodes.setdefault(name, []).append((observer or bool(LOCATION.search(code)),
++                                         set(re.findall(r'\b[A-Za-z_]\w*\b', code))))
++    for s in sources.values():
++        mask = code_mask(s); code = ''.join(c if mask[i] else ' ' for i, c in enumerate(s))
++        for start, o, c in fn_bodies(s, mask):
++            name = re.match(r'fn\s+([A-Za-z_]\w*)', code[start:])[1]
++            prefix = fn_prefix(s, start, code); body = code[o + 1:c]
++            attr_observer = bool(re.search(r'#\s*\[\s*should_panic\s*\([^\]]*expected\s*=\s*"[^"\n]*\.rs:', prefix))
++            roots[name] = roots.get(name, False) or attr_observer or bool(re.search(r'\bLocation\b', body))
++            add(name, body, bool(re.search(r'\btrack_caller\b', masked_code(prefix))))
++        for m in re.finditer(r'\b(?:const|static)\s+(?:mut\s+)?([A-Za-z_]\w*)\s*:[^;=]*=', code):
++            depth = 0; end = m.end()
++            while end < len(code):
++                ch = code[end]
++                if ch in '([{': depth += 1
++                elif ch in ')]}': depth -= 1
++                elif ch == ';' and depth == 0: break
++                end += 1
++            add(m[1], code[m.end():end])
++        for name, definitions in macro_rules_bodies(s).items():
++            for definition in definitions: add(name, definition)
++    out = {}
++    for test in tests:
++        name = test.split('::')[-1]; pending = [name]; seen = set()
++        sensitive = roots.get(name, False)
++        while pending and not sensitive:
++            name = pending.pop()
++            if name in seen: continue
++            seen.add(name)
++            for observer, refs in nodes.get(name, []):
++                if observer: sensitive = True; break
++                pending.extend(refs.intersection(nodes).difference(seen))
++        out[test] = sensitive
++    return out
++
++
++def confirmation_reasons(m, observation, sensitive_tests):
++    reasons = []
++    files = {file for file, _, _ in m['edits']}
++    for test, run in zip(m['tests'], observation['runs']):
++        if not run['killed']: continue
++        if sensitive_tests.get(test, False): reasons.append(f'location-sensitive-test: {test}')
++        for location in run.get('failure_locations', []):
++            path = location.split('.rs:', 1)[0] + '.rs'
++            if any(path == file or path.endswith('/' + file) for file in files):
++                reasons.append(f'failure-payload-location: {location}')
++    return sorted(set(reasons))
+ 
+ 
+ # ---------------------------------------------------------------- scoping
+@@ -511,13 +656,20 @@ def main():
+         with cf.ThreadPoolExecutor(a.jobs) as ex:
+             rr = list(ex.map(lambda j: (j, run_test(exes[j[1]], j[2], j[0], a.timeout, env)), jobs))
+         timings['schema_runs'] = round(time.monotonic() - t, 2)
++        t = time.monotonic()
++        test_sources = dict(src_text)
++        test_sources.update({str(p.relative_to(ROOT)): p.read_text() for p in (ROOT / 'tests').rglob('*.rs')})
++        sensitive_tests = location_sensitive_tests({j[2] for j in jobs}, test_sources)
++        timings['confirmation_scan'] = round(time.monotonic() - t, 2)
+         by_mid = {}
+         for (mid, _, _), r in rr: by_mid.setdefault(mid, []).append(r)
+         for mid, runs in by_mid.items():
+             observation = aggregate(runs, mode='schema')
+-            if verdict(observation) == 'KILLED':
++            reasons = confirmation_reasons(eligible[mid], observation, sensitive_tests)
++            if verdict(observation) == 'KILLED' and reasons:
++                observation['confirmation_reasons'] = reasons
+                 schema_observations[mid] = observation
+-                log(f'{mid} schema failure; awaiting clean-text confirmation')
++                log(f'{mid} schema failure; awaiting clean-text confirmation: {reasons}')
+             else:
+                 results[mid] = observation
+                 log(f'{mid} {verdict(observation)}')
+@@ -537,6 +689,7 @@ def main():
+     killed = sum(verdict(r) == 'KILLED' for r in results.values()); adm = sum(r['admissible'] for r in results.values())
+     summary = {'selected': len(sel), 'killed': killed, 'admissible': adm, 'timings': timings,
+                'baselines': baselines, 'static': static,
++               'text_confirmations': len(schema_observations),
+                'results': {mid: dict(r, verdict=verdict(r)) for mid, r in results.items()}}
+     (out / 'summary.json').write_text(json.dumps(summary, indent=2))
+     log(f'TOTAL killed {killed}/{len(sel)} admissible {adm} timings {timings}')
+diff --git a/scripts/mutgate/test_mutgate.py b/scripts/mutgate/test_mutgate.py
+index 4c963db5..0ae5366a 100644
+--- a/scripts/mutgate/test_mutgate.py
++++ b/scripts/mutgate/test_mutgate.py
+@@ -100,7 +100,7 @@ class PlanSchemataTests(unittest.TestCase):
+         self.assertEqual(units, {})
+         self.assertIn('m1', static)
+ 
+-    def test_macro_rules_body_nested_in_fn_demotes_for_unknown_expansion(self):
++    def test_safe_macro_rules_body_nested_in_fn_stays_in_schema(self):
+         s = (
+             'fn two() -> i32 {\n'
+             '    macro_rules! lit { () => { 2 }; }\n'
+@@ -109,8 +109,8 @@ class PlanSchemataTests(unittest.TestCase):
+         )
+         muts = one_mutant('m1', 'src/lib.rs', '{ 2 }', '{ 3 }')
+         units, static = mutgate.plan_schemata(muts, {'src/lib.rs': s})
+-        self.assertEqual(static, {'m1': 'source-location'})
+-        self.assertEqual(units, {})
++        self.assertEqual(static, {})
++        self.assertEqual(len(units), 1)
+ 
+     def test_const_fn_schema_included(self):
+         s = 'const fn add(a: i32, b: i32) -> i32 {\n    a + b\n}\n'
+@@ -271,6 +271,50 @@ class GateRegressionTests(unittest.TestCase):
+         self.assertEqual(status, 1)
+         self.assertEqual(mutgate.verdict(summary['results']['m']), 'SURVIVED')
+         self.assertTrue(summary['results']['m']['schema_observation']['killed'])
++        self.assertEqual(summary['text_confirmations'], 1)
++        self.assertIn('location-sensitive-test: t', summary['results']['m']['schema_observation']['confirmation_reasons'])
++
++    def test_plain_unwrap_genuine_kills_stay_in_schema_without_confirmation(self):
++        source = 'fn f() -> u32 { Some(1).unwrap() }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n'
++        # Both a wrong value and an actual unwrap panic are genuine, location-free
++        # kills. The automatic libtest panic header must not force a text build.
++        for replacement in ('Some(2)', 'None::<u32>'):
++            with self.subTest(replacement=replacement):
++                status, summary = self.gate(source, {'m': ['src/lib.rs', 'Some(1)', replacement, 't']}, 'schema')
++                self.assertEqual(status, 0)
++                self.assertEqual(summary['static'], {})
++                self.assertEqual(summary['results']['m']['mode'], 'schema')
++                self.assertEqual(summary['results']['m']['verdict'], 'KILLED')
++                self.assertEqual(summary['text_confirmations'], 0)
++                self.assertNotIn('text_mode', summary['timings'])
++
++    def test_location_in_failure_payload_requires_confirmation(self):
++        source = ('fn f() -> bool { true }\n#[test]\n'
++                  'fn t() { assert!(f(), "observed src/lib.rs:12:3"); }\n')
++        status, summary = self.gate(source, {'m': ['src/lib.rs', '{ true }', '{ false }', 't']}, 'schema')
++        self.assertEqual(status, 0)
++        self.assertEqual(summary['results']['m']['mode'], 'schema+text')
++        self.assertEqual(summary['text_confirmations'], 1)
++        self.assertEqual(summary['results']['m']['schema_observation']['confirmation_reasons'],
++                         ['failure-payload-location: src/lib.rs:12:3'])
++
++    def test_location_expected_by_should_panic_requires_confirmation(self):
++        source = ('fn f() -> bool { true }\n#[test]\n#[should_panic(expected="src/lib.rs:")]\n'
++                  'fn t() { if f() { panic!("src/lib.rs:"); } else { panic!("wrong"); } }\n')
++        status, summary = self.gate(source, {'m': ['src/lib.rs', '{ true }', '{ false }', 't']}, 'schema')
++        self.assertEqual(status, 0)
++        self.assertEqual(summary['results']['m']['mode'], 'schema+text')
++        self.assertEqual(summary['text_confirmations'], 1)
++        self.assertIn('location-sensitive-test: t', summary['results']['m']['schema_observation']['confirmation_reasons'])
++
++    def test_safe_local_macro_genuine_kill_stays_in_schema(self):
++        source = ('macro_rules! lit { () => { 1 }; }\nfn f() -> u32 { lit!() + 1 }\n'
++                  '#[test]\nfn t() { assert_eq!(f(), 2); }\n')
++        status, summary = self.gate(source, {'m': ['src/lib.rs', 'lit!() + 1', 'lit!() + 2', 't']}, 'schema')
++        self.assertEqual(status, 0)
++        self.assertEqual(summary['static'], {})
++        self.assertEqual(summary['results']['m']['mode'], 'schema')
++        self.assertEqual(summary['text_confirmations'], 0)
+ 
+     def test_w2_timeout_never_kills(self):
+         source = ('fn f() -> u32 { let ignored = 1; '
+@@ -384,8 +428,8 @@ class AdmissibilityTests(unittest.TestCase):
+         self.assertFalse(result['admissible'])
+ 
+     def test_location_observers_in_original_or_mutated_body_demote(self):
+-        for expression in ('line!()', 'column!()', 'file!()', 'panic!("x")',
+-                           'assert!(true)', 'Some(1).unwrap()', 'wrapped!()',
++        for expression in ('line!()', 'column!()', 'file!()', 'module_path!()', 'dbg!(1)',
++                           'let _: Option<std::panic::Location> = None',
+                            'std::panic::Location::caller().line()'):
+             for in_mutant in (False, True):
+                 with self.subTest(expression=expression, in_mutant=in_mutant):
+@@ -396,6 +440,65 @@ class AdmissibilityTests(unittest.TestCase):
+                     self.assertEqual(units, {})
+                     self.assertEqual(static['m'], 'source-location')
+ 
++    def test_plain_panics_unwraps_and_safe_macros_do_not_demote(self):
++        for expression in ('panic!("x")', 'assert!(true)', 'Some(1).unwrap()', 'Some(1).expect("x")',
++                           'vec![1]', 'format!("{}", 1)', 'write!(w, "x")', 'debug_assert!(true)',
++                           'matches!(1, 1)', 'std::assert_eq!(1, 1)', 'serde_json::json!({"x": 1})'):
++            for in_mutant in (False, True):
++                with self.subTest(expression=expression, in_mutant=in_mutant):
++                    source = 'fn f() { let ignored = 1; ' + ('' if in_mutant else expression + ';') + ' }'
++                    replacement = 'let ignored = 2; ' + (expression + ';' if in_mutant else '')
++                    units, static = mutgate.plan_schemata(one_mutant('m', 'src/lib.rs', 'let ignored = 1;', replacement),
++                                                         {'src/lib.rs': source})
++                    self.assertEqual(static, {})
++                    self.assertEqual(len(units), 1)
++
++    def test_unknown_macro_is_inspected_before_demotion(self):
++        for definition, expected in (('macro_rules! custom { () => { vec![1] }; }', False),
++                                     ('macro_rules! custom { () => { line!() }; }', True),
++                                     ('macro_rules! custom { () => { helper!() }; }\n'
++                                      'macro_rules! helper { () => { Location::caller() }; }', True),
++                                     ('macro_rules! custom { () => { external::wrap!() }; }', True),
++                                     ('', True)):
++            with self.subTest(definition=definition):
++                source = 'fn f() { let ignored = 1; custom!(); }'
++                units, static = mutgate.plan_schemata(one_mutant('m', 'src/lib.rs', 'let ignored = 1;', 'let ignored = 2;'),
++                                                     {'src/lib.rs': source, 'src/macros.rs': definition})
++                self.assertEqual(bool(static), expected)
++                self.assertEqual(bool(units), not expected)
++
++    def test_macro_std_name_shadowing_and_external_qualifiers(self):
++        sources = {'src/lib.rs': 'macro_rules! vec { () => { line!() }; }\nfn f() { let n = 1; vec!(); }'}
++        muts = one_mutant('m', 'src/lib.rs', 'let n = 1;', 'let n = 2;')
++        self.assertIn('m', mutgate.plan_schemata(muts, sources)[1])
++        sources['src/lib.rs'] = sources['src/lib.rs'].replace('vec!();', 'std::vec!();')
++        self.assertEqual(mutgate.plan_schemata(muts, sources)[1], {})
++        sources['src/lib.rs'] = sources['src/lib.rs'].replace('std::vec!();', 'external::vec!();')
++        self.assertEqual(mutgate.plan_schemata(muts, sources)[1], {'m': 'unaudited-macro: external::vec'})
++
++    def test_new_nested_macro_observer_and_safe_macro_arguments_demote(self):
++        for replacement in ('macro_rules! lit { () => { line!() }; } lit!();', 'format!("{}", line!());'):
++            source = 'fn f() { let ignored = 1; }'
++            units, static = mutgate.plan_schemata(one_mutant('m', 'src/lib.rs', 'let ignored = 1;', replacement),
++                                                 {'src/lib.rs': source})
++            self.assertEqual(units, {})
++            self.assertEqual(static['m'], 'source-location')
++
++    def test_observer_text_in_strings_comments_does_not_demote(self):
++        source = 'fn f() { let n = 1; let text = "line!() Location::caller()"; /* wrapped!() */ }'
++        self.assertEqual(mutgate.plan_schemata(one_mutant('m', 'src/lib.rs', 'let n = 1;', 'let n = 2;'),
++                                              {'src/lib.rs': source})[1], {})
++
++    def test_track_caller_on_nested_callee_demotes(self):
++        source = 'fn f() { let n = 1; #[track_caller] fn helper() {} helper(); }'
++        self.assertEqual(mutgate.plan_schemata(one_mutant('m', 'src/lib.rs', 'let n = 1;', 'let n = 2;'),
++                                              {'src/lib.rs': source})[1], {'m': 'source-location'})
++
++    def test_negated_conditions_are_not_macro_invocations(self):
++        source = 'fn f() { let n = 1; if !(n == 1) {} while ![true].contains(&true) {} }'
++        self.assertEqual(mutgate.plan_schemata(one_mutant('m', 'src/lib.rs', 'let n = 1;', 'let n = 2;'),
++                                              {'src/lib.rs': source})[1], {})
++
+     def test_track_caller_attribute_demotes(self):
+         source = '#[track_caller]\nfn f() -> u32 { 1 }'
+         units, static = mutgate.plan_schemata(one_mutant('m', 'src/lib.rs', '{ 1 }', '{ 2 }'),
+@@ -415,6 +518,58 @@ class AdmissibilityTests(unittest.TestCase):
+             self.assertEqual(mutgate.select_scoped(muts, {}, 'main', 'line'), ['m'])
+ 
+ 
++class ConfirmationTests(unittest.TestCase):
++    def test_panic_header_is_metadata_but_payload_locations_are_retained(self):
++        log = ("thread 't' panicked at /scratch/src/lib.rs:91:3:\n"
++               'assertion failed: wrong value\n')
++        self.assertEqual(mutgate.failure_locations(log), [])
++        self.assertEqual(mutgate.failure_locations(log.replace("'t' panicked", "'t' (1234) panicked")), [])
++        self.assertEqual(mutgate.failure_locations(log + 'observed /scratch/src/lib.rs:5:2\n'),
++                         ['/scratch/src/lib.rs:5:2'])
++        old = "thread 't' panicked at 'observed src/lib.rs:5:2', src/lib.rs:91:3\n"
++        self.assertEqual(mutgate.failure_locations(old), ['src/lib.rs:5:2'])
++
++    def test_run_test_scans_full_payload_before_tail_truncation(self):
++        output = ('running 1 test\n'
++                  "thread 't' panicked at src/lib.rs:91:3:\nobserved src/lib.rs:5:2\n" + 'x' * 2000 + '\n'
++                  'test result: FAILED. 0 passed; 1 failed; 0 ignored;\n')
++        with patch.object(mutgate.subprocess, 'run') as run:
++            run.return_value.stdout = output; run.return_value.stderr = ''; run.return_value.returncode = 101
++            result = mutgate.run_test('exe', 't', 'm', 1, {})
++        self.assertTrue(result['killed'])
++        self.assertNotIn('src/lib.rs:5:2', result['log_tail'])
++        self.assertEqual(result['failure_locations'], ['src/lib.rs:5:2'])
++
++    def test_only_killing_test_and_locations_in_own_edited_files_confirm(self):
++        m = one_mutant('m', 'src/lib.rs', 'a', 'b')['m']; m['tests'] = ['kill', 'pass']
++        runs = [{'killed': True, 'failure_locations': ['src/other.rs:2:1']},
++                {'killed': False, 'failure_locations': []}]
++        observation = {'runs': runs}
++        self.assertEqual(mutgate.confirmation_reasons(m, observation, {'kill': False, 'pass': True}), [])
++        runs[0]['failure_locations'] = ['/scratch/src/lib.rs:2:1']
++        self.assertEqual(mutgate.confirmation_reasons(m, observation, {}),
++                         ['failure-payload-location: /scratch/src/lib.rs:2:1'])
++        runs[0]['failure_locations'] = ['src/notlib.rs:2:1']
++        self.assertEqual(mutgate.confirmation_reasons(m, observation, {}), [])
++        self.assertEqual(mutgate.confirmation_reasons(m, observation, {'kill': True}),
++                         ['location-sensitive-test: kill'])
++
++    def test_test_api_scan_includes_helpers_constants_and_should_panic(self):
++        for source in ('#[test] fn t() { line!(); }', '#[test] fn t() { column!(); }',
++                       '#[test] fn t() { let _: Option<Location> = None; }',
++                       'const AFTER: u32 = line!(); #[test] fn t() { use_value(AFTER); }',
++                       'fn helper() { std::panic::Location::caller(); } #[test] fn t() { helper(); }',
++                       '#[test] #[should_panic(expected="src/lib.rs:")] fn t() { panic!("x"); }'):
++            with self.subTest(source=source):
++                self.assertEqual(mutgate.location_sensitive_tests(['m::t', 'calm'], {'src/lib.rs': source}),
++                                 {'m::t': True, 'calm': False})
++
++    def test_unrelated_observers_and_literals_do_not_make_a_test_sensitive(self):
++        source = ('fn unused() { line!(); } const UNUSED: u32 = line!();\n'
++                  '#[test] fn t() { let text = "Location line!() src/lib.rs:"; /* line!() */ assert!(true); }')
++        self.assertEqual(mutgate.location_sensitive_tests(['t'], {'src/lib.rs': source}), {'t': False})
++
++
+ class RegistryIntentTests(unittest.TestCase):
+     def test_r4_04_preserves_a_distinct_decoding_obligation(self):
+         population = mutgate.load_population([LANE])

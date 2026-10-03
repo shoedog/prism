@@ -15,8 +15,8 @@ of the tree under $CARGO_TARGET_DIR/mutgate/tree; each mutated function body bec
 
     { match crate::__mutant() { "ID" => { <mutated body> } _ => { <original body> } } }
 
-Bodies with direct location observers or unaudited macro expansions stay in text mode.
-Only location-sensitive schema failures need clean-text confirmation.
+Bodies with source-location constructs or macro invocations stay in text mode.
+Every schema kill is confirmed against a clean text mutant before acceptance.
 A mutant whose edit
 falls outside a function body (struct fields, attributes, consts), or whose unit
 fails to compile as a schema, runs in text mode (one incremental build per mutant).
@@ -159,95 +159,24 @@ def invalid_anchors(muts, src_text):
                    for file, a, _ in m['edits'])}
 
 
-SAFE_STD_MACROS = frozenset(('vec format format_args format_args_nl write writeln '
-    'print println eprint eprintln assert assert_eq assert_ne debug_assert '
-    'debug_assert_eq debug_assert_ne matches panic unreachable todo unimplemented '
-    'concat stringify cfg env option_env include_str include_bytes').split())
-# Audited external expansion: JSON construction, with no location APIs. All
-# other external/unknown macros are unaudited and can conceal an observer.
-SAFE_EXTERNAL_MACROS = frozenset({'serde_json::json'})
-LOCATION = re.compile(r'\b(?:line|column|file|module_path|dbg)\s*!\s*[(\[{]'
-    r'|\bstd\s*::\s*panic\s*::\s*Location\b'
-    r'|\bLocation\s*::\s*caller\b|#\s*\[\s*(?:cfg_attr\b[^\]]*\b)?track_caller\b')
-MACRO_CALL = re.compile(r'\b(?!if\b|while\b|return\b|break\b|yield\b|match\b)'
-                       r'[A-Za-z_]\w*(?:\s*::\s*[A-Za-z_]\w*)*\s*!\s*[(\[{]')
-
-
-def masked_code(s):
-    mask = code_mask(s)
-    return ''.join(c if mask[i] else ' ' for i, c in enumerate(s))
-
-
-def macro_rules_bodies(s):
-    """Collect real definitions (including nested ones), never strings/comments."""
-    code = masked_code(s); out = {}
-    for m in re.finditer(r'\bmacro_rules\s*!\s*([A-Za-z_]\w*)\s*([({\[])', code):
-        start = m.end() - 1; stack = []; end = start
-        for end in range(start, len(code)):
-            c = code[end]
-            if c in '([{': stack.append(c)
-            elif c in ')]}':
-                if not stack or stack.pop() != {')': '(', ']': '[', '}': '{'}[c]: break
-                if not stack: break
-        out.setdefault(m[1], []).append(code[start:end + 1])
-    return out
-
-
-def crate_macros(src_text):
-    out = {}
-    for s in src_text.values():
-        for name, definitions in macro_rules_bodies(s).items():
-            out.setdefault(name, []).extend(definitions)
-    return out
-
-
-def location_reason(code, macros, seen=None):
-    """Code is already masked. Expand inspected local macros transitively.
-
-    Check every same-name local definition rather than assuming Rust scope or
-    imports. Cycles alone cannot introduce an observer; visit each name once.
-    Invocation arguments remain in code and are checked even for safe macros.
-    """
-    if LOCATION.search(code): return 'source-location'
-    seen = set() if seen is None else seen
-    for m in MACRO_CALL.finditer(code):
-        path = re.sub(r'\s+', '', m[0].split('!')[0]); parts = path.split('::'); name = parts[-1]
-        local = len(parts) == 1 or parts[0] in ('crate', 'self', 'super')
-        if local and name in macros:
-            if name in seen: continue
-            seen.add(name)
-            for definition in macros[name]:
-                reason = location_reason(definition, macros, seen)
-                if reason: return f'macro-location: {name} ({reason})'
-        elif (len(parts) == 1 or parts[0] in ('std', 'core', 'alloc')) and name in SAFE_STD_MACROS:
-            continue
-        elif path in SAFE_EXTERNAL_MACROS:
-            continue
-        else:
-            return f'unaudited-macro: {path}'
-    return None
-
-
-def observes_location(body, macros=None):
-    macros = crate_macros({'body': body}) if macros is None else macros
-    return location_reason(masked_code(body), macros) is not None
-
-
-def fn_prefix(s, fn_start, code=None):
-    code = masked_code(s) if code is None else code
-    previous = max(code.rfind('}', 0, fn_start), code.rfind(';', 0, fn_start), code.rfind('{', 0, fn_start))
-    return s[previous + 1:fn_start]
+def observes_location(body):
+    # Unknown macros may expand to line!/panic!/track-caller calls. Comments and
+    # strings cannot invoke them. Hidden observations through function calls are
+    # covered by the mandatory clean-text confirmation, not lexical guessing.
+    mask = code_mask(body)
+    code = ''.join(c if mask[i] else ' ' for i, c in enumerate(body))
+    return bool(re.search(r'\b\w+\s*!\s*[(\[{]|\b(?:unwrap|unwrap_err|expect|expect_err)\b|\bLocation\s*::\s*caller\b', code))
 
 
 def track_caller(s, fn_start):
-    return bool(re.search(r'\btrack_caller\b', masked_code(fn_prefix(s, fn_start))))
+    previous = max(s.rfind('}', 0, fn_start), s.rfind(';', 0, fn_start), s.rfind('{', 0, fn_start))
+    return bool(re.search(r'\btrack_caller\b', s[previous + 1:fn_start]))
 
 
 # ---------------------------------------------------------------- schemata
 def plan_schemata(muts, src_text):
     """Return (units, static). units: (file, body_open, body_close) -> {id: [(start, end, replacement)]}."""
     static = invalid_anchors(muts, src_text)
-    macros = crate_macros(src_text)
     bodies = {}
     for file, s in src_text.items():
         mask = code_mask(s)
@@ -280,14 +209,8 @@ def plan_schemata(muts, src_text):
             for st, en, repl in sorted(eds, reverse=True):
                 mutated = mutated[:st - o - 1] + repl + mutated[en - o - 1:]
             fstart = next(bd[0] for bd in bodies[file] if bd[1] == o)
-            # Include new/changed nested macro definitions in the mutant too.
-            mutant_macros = dict(macros)
-            mutant_macros.update(macro_rules_bodies(mutated))
-            reason = ('source-location' if track_caller(s, fstart) else
-                      location_reason(masked_code(inner), macros) or
-                      location_reason(masked_code(mutated), mutant_macros))
-            if reason:
-                static[m['id']] = reason; break
+            if track_caller(s, fstart) or observes_location(inner) or observes_location(mutated):
+                static[m['id']] = 'source-location'; break
         if m['id'] in static: continue
         for unit, ed in placed:
             units.setdefault(unit, {}).setdefault(m['id'], []).append(ed)
@@ -390,75 +313,7 @@ def run_test(exe, test, mutant, timeout, env):
     killed = status != 'timeout' and ran and result[1] == 'FAILED' and int(result[3]) == 1
     survived = status == 0 and ran and result[1] == 'ok' and int(result[2]) == 1
     return {'killed': killed, 'timeout': status == 'timeout', 'admissible': killed or survived,
-            'status': status, 'seconds': round(time.monotonic() - t, 3), 'log_tail': log[-1500:],
-            'failure_locations': failure_locations(log) if killed else []}
-
-
-def failure_locations(log):
-    # Rust's panic header reports diagnostic provenance, not an observation by
-    # the test. Keep payload/assertion/stdout locations, even outside log_tail.
-    payload = re.sub(r"^thread '[^\n]*?'(?: \(\d+\))? panicked at [^\n]*\.rs:\d+:\d+:\s*$", '', log, flags=re.M)
-    # Older Rust puts the header's location after the quoted panic payload.
-    payload = re.sub(r"(?m)(^thread '[^\n]*?'(?: \(\d+\))? panicked at '[^\n]*'), [^\n]*\.rs:\d+:\d+\s*$", r'\1', payload)
-    return sorted(set(re.findall(r'[^\s\'"`<>(),]+\.rs:\d+(?::\d+)?', payload)))
-
-
-def location_sensitive_tests(tests, sources):
-    """Lexical test/constant/helper closure, conservatively merging same names.
-
-    Include referenced constants (AFTER = line!()) and helpers: looking only at
-    the test's body misses the hidden track-caller regression. No Rust resolver
-    is claimed here; aliases/dynamic dispatch are a documented limit.
-    """
-    nodes = {}; roots = {}
-    def add(name, code, observer=False):
-        nodes.setdefault(name, []).append((observer or bool(LOCATION.search(code)),
-                                         set(re.findall(r'\b[A-Za-z_]\w*\b', code))))
-    for s in sources.values():
-        mask = code_mask(s); code = ''.join(c if mask[i] else ' ' for i, c in enumerate(s))
-        for start, o, c in fn_bodies(s, mask):
-            name = re.match(r'fn\s+([A-Za-z_]\w*)', code[start:])[1]
-            prefix = fn_prefix(s, start, code); body = code[o + 1:c]
-            attr_observer = bool(re.search(r'#\s*\[\s*should_panic\s*\([^\]]*expected\s*=\s*"[^"\n]*\.rs:', prefix))
-            roots[name] = roots.get(name, False) or attr_observer or bool(re.search(r'\bLocation\b', body))
-            add(name, body, bool(re.search(r'\btrack_caller\b', masked_code(prefix))))
-        for m in re.finditer(r'\b(?:const|static)\s+(?:mut\s+)?([A-Za-z_]\w*)\s*:[^;=]*=', code):
-            depth = 0; end = m.end()
-            while end < len(code):
-                ch = code[end]
-                if ch in '([{': depth += 1
-                elif ch in ')]}': depth -= 1
-                elif ch == ';' and depth == 0: break
-                end += 1
-            add(m[1], code[m.end():end])
-        for name, definitions in macro_rules_bodies(s).items():
-            for definition in definitions: add(name, definition)
-    out = {}
-    for test in tests:
-        name = test.split('::')[-1]; pending = [name]; seen = set()
-        sensitive = roots.get(name, False)
-        while pending and not sensitive:
-            name = pending.pop()
-            if name in seen: continue
-            seen.add(name)
-            for observer, refs in nodes.get(name, []):
-                if observer: sensitive = True; break
-                pending.extend(refs.intersection(nodes).difference(seen))
-        out[test] = sensitive
-    return out
-
-
-def confirmation_reasons(m, observation, sensitive_tests):
-    reasons = []
-    files = {file for file, _, _ in m['edits']}
-    for test, run in zip(m['tests'], observation['runs']):
-        if not run['killed']: continue
-        if sensitive_tests.get(test, False): reasons.append(f'location-sensitive-test: {test}')
-        for location in run.get('failure_locations', []):
-            path = location.split('.rs:', 1)[0] + '.rs'
-            if any(path == file or path.endswith('/' + file) for file in files):
-                reasons.append(f'failure-payload-location: {location}')
-    return sorted(set(reasons))
+            'status': status, 'seconds': round(time.monotonic() - t, 3), 'log_tail': log[-1500:]}
 
 
 # ---------------------------------------------------------------- scoping
@@ -656,20 +511,13 @@ def main():
         with cf.ThreadPoolExecutor(a.jobs) as ex:
             rr = list(ex.map(lambda j: (j, run_test(exes[j[1]], j[2], j[0], a.timeout, env)), jobs))
         timings['schema_runs'] = round(time.monotonic() - t, 2)
-        t = time.monotonic()
-        test_sources = dict(src_text)
-        test_sources.update({str(p.relative_to(ROOT)): p.read_text() for p in (ROOT / 'tests').rglob('*.rs')})
-        sensitive_tests = location_sensitive_tests({j[2] for j in jobs}, test_sources)
-        timings['confirmation_scan'] = round(time.monotonic() - t, 2)
         by_mid = {}
         for (mid, _, _), r in rr: by_mid.setdefault(mid, []).append(r)
         for mid, runs in by_mid.items():
             observation = aggregate(runs, mode='schema')
-            reasons = confirmation_reasons(eligible[mid], observation, sensitive_tests)
-            if verdict(observation) == 'KILLED' and reasons:
-                observation['confirmation_reasons'] = reasons
+            if verdict(observation) == 'KILLED':
                 schema_observations[mid] = observation
-                log(f'{mid} schema failure; awaiting clean-text confirmation: {reasons}')
+                log(f'{mid} schema failure; awaiting clean-text confirmation')
             else:
                 results[mid] = observation
                 log(f'{mid} {verdict(observation)}')
@@ -689,7 +537,6 @@ def main():
     killed = sum(verdict(r) == 'KILLED' for r in results.values()); adm = sum(r['admissible'] for r in results.values())
     summary = {'selected': len(sel), 'killed': killed, 'admissible': adm, 'timings': timings,
                'baselines': baselines, 'static': static,
-               'text_confirmations': len(schema_observations),
                'results': {mid: dict(r, verdict=verdict(r)) for mid, r in results.items()}}
     (out / 'summary.json').write_text(json.dumps(summary, indent=2))
     log(f'TOTAL killed {killed}/{len(sel)} admissible {adm} timings {timings}')

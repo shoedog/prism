@@ -1,0 +1,463 @@
+test_ignored_selector_is_not_a_survivor (test_mutgate.AdmissibilityTests) ... ok
+test_inadmissibility_has_priority_over_a_kill (test_mutgate.AdmissibilityTests) ... ok
+test_location_observers_in_original_or_mutated_body_demote (test_mutgate.AdmissibilityTests) ... test_macro_std_name_shadowing_and_external_qualifiers (test_mutgate.AdmissibilityTests) ... FAIL
+test_new_nested_macro_observer_and_safe_macro_arguments_demote (test_mutgate.AdmissibilityTests) ... ok
+test_observer_text_in_strings_comments_does_not_demote (test_mutgate.AdmissibilityTests) ... ok
+test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) ... test_scope_file_includes_other_functions_in_changed_file (test_mutgate.AdmissibilityTests) ... ok
+test_scope_stale_anchor_is_not_silently_omitted (test_mutgate.AdmissibilityTests) ... ok
+test_track_caller_attribute_demotes (test_mutgate.AdmissibilityTests) ... ok
+test_track_caller_on_nested_callee_demotes (test_mutgate.AdmissibilityTests) ... FAIL
+test_unknown_macro_is_inspected_before_demotion (test_mutgate.AdmissibilityTests) ... test_byte_string_braces_are_masked (test_mutgate.CodeMaskTests) ... ok
+test_raw_string_braces_are_masked (test_mutgate.CodeMaskTests) ... ok
+test_only_killing_test_and_locations_in_own_edited_files_confirm (test_mutgate.ConfirmationTests) ... ERROR
+test_panic_header_is_metadata_but_payload_locations_are_retained (test_mutgate.ConfirmationTests) ... ERROR
+test_run_test_scans_full_payload_before_tail_truncation (test_mutgate.ConfirmationTests) ... ERROR
+test_test_api_scan_includes_helpers_constants_and_should_panic (test_mutgate.ConfirmationTests) ... test_unrelated_observers_and_literals_do_not_make_a_test_sensitive (test_mutgate.ConfirmationTests) ... ERROR
+test_const_fn_is_detected (test_mutgate.FnBodiesTests) ... ok
+test_nested_fn_bodies_both_discovered_outer_first (test_mutgate.FnBodiesTests) ... ok
+test_raw_string_with_unbalanced_brace_does_not_confuse_depth_counting (test_mutgate.FnBodiesTests) ... ok
+test_empty_selector_list_and_missing_anchor_fail (test_mutgate.GateRegressionTests) ... ok
+test_location_expected_by_should_panic_requires_confirmation (test_mutgate.GateRegressionTests) ... ERROR
+test_location_in_failure_payload_requires_confirmation (test_mutgate.GateRegressionTests) ... ERROR
+test_plain_unwrap_genuine_kills_stay_in_schema_without_confirmation (test_mutgate.GateRegressionTests) ... test_safe_local_macro_genuine_kill_stays_in_schema (test_mutgate.GateRegressionTests) ... FAIL
+test_w1_constructed_false_kill_survives_both_modes (test_mutgate.GateRegressionTests) ... ok
+test_w1_hidden_track_caller_false_kill_requires_text_confirmation (test_mutgate.GateRegressionTests) ... ERROR
+test_w2_timeout_never_kills (test_mutgate.GateRegressionTests) ... ok
+test_w3_bad_baseline_does_not_disappear_from_denominator (test_mutgate.GateRegressionTests) ... ok
+test_w3_red_baseline_is_inadmissible_both_modes (test_mutgate.GateRegressionTests) ... ok
+test_w4_missing_selector_fails_even_with_killing_selector (test_mutgate.GateRegressionTests) ... ok
+test_w4_selector_removed_or_ignored_by_mutant_is_inadmissible (test_mutgate.GateRegressionTests) ... ok
+test_w5_failed_extra_edit_is_restored_before_next_mutant (test_mutgate.GateRegressionTests) ... ok
+test_w5_static_fallback_contains_only_its_own_edits (test_mutgate.GateRegressionTests) ... ok
+test_closure_inside_fn_uses_enclosing_fn_body (test_mutgate.PlanSchemataTests) ... ok
+test_const_fn_schema_included (test_mutgate.PlanSchemataTests) ... ok
+test_impl_trait_return_demotes_to_static (test_mutgate.PlanSchemataTests) ... ok
+test_macro_rules_body_at_module_scope_demotes_to_static (test_mutgate.PlanSchemataTests) ... ok
+test_multiple_mutants_in_one_function_become_separate_arms (test_mutgate.PlanSchemataTests) ... ok
+test_mutation_outside_any_fn_body_demotes_to_static (test_mutgate.PlanSchemataTests) ... ok
+test_nested_fn_mutation_attaches_to_outermost_enclosing_fn (test_mutgate.PlanSchemataTests) ... ok
+test_non_impl_trait_fn_after_impl_trait_fn_is_unaffected (test_mutgate.PlanSchemataTests) ... ok
+test_safe_macro_rules_body_nested_in_fn_stays_in_schema (test_mutgate.PlanSchemataTests) ... FAIL
+test_static_inside_fn_body_schema_included (test_mutgate.PlanSchemataTests) ... ok
+test_r4_04_preserves_a_distinct_decoding_obligation (test_mutgate.RegistryIntentTests) ... ok
+test_accessor_for_main_and_bin_use_prism_path (test_mutgate.RenderTests) ... ok
+
+======================================================================
+ERROR: test_only_killing_test_and_locations_in_own_edited_files_confirm (test_mutgate.ConfirmationTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 542, in test_only_killing_test_and_locations_in_own_edited_files_confirm
+    self.assertEqual(mutgate.confirmation_reasons(m, observation, {'kill': False, 'pass': True}), [])
+AttributeError: module 'round1' has no attribute 'confirmation_reasons'
+
+======================================================================
+ERROR: test_panic_header_is_metadata_but_payload_locations_are_retained (test_mutgate.ConfirmationTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 520, in test_panic_header_is_metadata_but_payload_locations_are_retained
+    self.assertEqual(mutgate.failure_locations(log), [])
+AttributeError: module 'round1' has no attribute 'failure_locations'
+
+======================================================================
+ERROR: test_run_test_scans_full_payload_before_tail_truncation (test_mutgate.ConfirmationTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 535, in test_run_test_scans_full_payload_before_tail_truncation
+    self.assertEqual(result['failure_locations'], ['src/lib.rs:5:2'])
+KeyError: 'failure_locations'
+
+======================================================================
+ERROR: test_test_api_scan_includes_helpers_constants_and_should_panic (test_mutgate.ConfirmationTests) (source='#[test] fn t() { line!(); }')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 558, in test_test_api_scan_includes_helpers_constants_and_should_panic
+    self.assertEqual(mutgate.location_sensitive_tests(['m::t', 'calm'], {'src/lib.rs': source}),
+AttributeError: module 'round1' has no attribute 'location_sensitive_tests'
+
+======================================================================
+ERROR: test_test_api_scan_includes_helpers_constants_and_should_panic (test_mutgate.ConfirmationTests) (source='#[test] fn t() { column!(); }')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 558, in test_test_api_scan_includes_helpers_constants_and_should_panic
+    self.assertEqual(mutgate.location_sensitive_tests(['m::t', 'calm'], {'src/lib.rs': source}),
+AttributeError: module 'round1' has no attribute 'location_sensitive_tests'
+
+======================================================================
+ERROR: test_test_api_scan_includes_helpers_constants_and_should_panic (test_mutgate.ConfirmationTests) (source='#[test] fn t() { let _: Option<Location> = None; }')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 558, in test_test_api_scan_includes_helpers_constants_and_should_panic
+    self.assertEqual(mutgate.location_sensitive_tests(['m::t', 'calm'], {'src/lib.rs': source}),
+AttributeError: module 'round1' has no attribute 'location_sensitive_tests'
+
+======================================================================
+ERROR: test_test_api_scan_includes_helpers_constants_and_should_panic (test_mutgate.ConfirmationTests) (source='const AFTER: u32 = line!(); #[test] fn t() { use_value(AFTER); }')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 558, in test_test_api_scan_includes_helpers_constants_and_should_panic
+    self.assertEqual(mutgate.location_sensitive_tests(['m::t', 'calm'], {'src/lib.rs': source}),
+AttributeError: module 'round1' has no attribute 'location_sensitive_tests'
+
+======================================================================
+ERROR: test_test_api_scan_includes_helpers_constants_and_should_panic (test_mutgate.ConfirmationTests) (source='fn helper() { std::panic::Location::caller(); } #[test] fn t() { helper(); }')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 558, in test_test_api_scan_includes_helpers_constants_and_should_panic
+    self.assertEqual(mutgate.location_sensitive_tests(['m::t', 'calm'], {'src/lib.rs': source}),
+AttributeError: module 'round1' has no attribute 'location_sensitive_tests'
+
+======================================================================
+ERROR: test_test_api_scan_includes_helpers_constants_and_should_panic (test_mutgate.ConfirmationTests) (source='#[test] #[should_panic(expected="src/lib.rs:")] fn t() { panic!("x"); }')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 558, in test_test_api_scan_includes_helpers_constants_and_should_panic
+    self.assertEqual(mutgate.location_sensitive_tests(['m::t', 'calm'], {'src/lib.rs': source}),
+AttributeError: module 'round1' has no attribute 'location_sensitive_tests'
+
+======================================================================
+ERROR: test_unrelated_observers_and_literals_do_not_make_a_test_sensitive (test_mutgate.ConfirmationTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 564, in test_unrelated_observers_and_literals_do_not_make_a_test_sensitive
+    self.assertEqual(mutgate.location_sensitive_tests(['t'], {'src/lib.rs': source}), {'t': False})
+AttributeError: module 'round1' has no attribute 'location_sensitive_tests'
+
+======================================================================
+ERROR: test_location_expected_by_should_panic_requires_confirmation (test_mutgate.GateRegressionTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 307, in test_location_expected_by_should_panic_requires_confirmation
+    self.assertEqual(summary['text_confirmations'], 1)
+KeyError: 'text_confirmations'
+
+======================================================================
+ERROR: test_location_in_failure_payload_requires_confirmation (test_mutgate.GateRegressionTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 297, in test_location_in_failure_payload_requires_confirmation
+    self.assertEqual(summary['text_confirmations'], 1)
+KeyError: 'text_confirmations'
+
+======================================================================
+ERROR: test_w1_hidden_track_caller_false_kill_requires_text_confirmation (test_mutgate.GateRegressionTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 274, in test_w1_hidden_track_caller_false_kill_requires_text_confirmation
+    self.assertEqual(summary['text_confirmations'], 1)
+KeyError: 'text_confirmations'
+
+======================================================================
+FAIL: test_location_observers_in_original_or_mutated_body_demote (test_mutgate.AdmissibilityTests) (expression='let _: Option<std::panic::Location> = None', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 440, in test_location_observers_in_original_or_mutated_body_demote
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 7, 70): {'m': [(23, 25, '2; ')]}} != {}
+- {('src/lib.rs', 7, 70): {'m': [(23, 25, '2; ')]}}
++ {}
+
+======================================================================
+FAIL: test_location_observers_in_original_or_mutated_body_demote (test_mutgate.AdmissibilityTests) (expression='let _: Option<std::panic::Location> = None', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 440, in test_location_observers_in_original_or_mutated_body_demote
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 7, 27): {'m': [(23, 24, '2[44 chars]')]}} != {}
++ {}
+- {('src/lib.rs', 7, 27): {'m': [(23,
+-                                 24,
+-                                 '2; let _: Option<std::panic::Location> = '
+-                                 'None')]}}
+
+======================================================================
+FAIL: test_macro_std_name_shadowing_and_external_qualifiers (test_mutgate.AdmissibilityTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 475, in test_macro_std_name_shadowing_and_external_qualifiers
+    self.assertEqual(mutgate.plan_schemata(muts, sources)[1], {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='panic!("x")', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='panic!("x")', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='assert!(true)', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='assert!(true)', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='Some(1).unwrap()', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='Some(1).unwrap()', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='Some(1).expect("x")', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='Some(1).expect("x")', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='vec![1]', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='vec![1]', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='format!("{}", 1)', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='format!("{}", 1)', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='write!(w, "x")', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='write!(w, "x")', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='debug_assert!(true)', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='debug_assert!(true)', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='matches!(1, 1)', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='matches!(1, 1)', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='std::assert_eq!(1, 1)', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='std::assert_eq!(1, 1)', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='serde_json::json!({"x": 1})', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_panics_unwraps_and_safe_macros_do_not_demote (test_mutgate.AdmissibilityTests) (expression='serde_json::json!({"x": 1})', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 453, in test_plain_panics_unwraps_and_safe_macros_do_not_demote
+    self.assertEqual(static, {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_track_caller_on_nested_callee_demotes (test_mutgate.AdmissibilityTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 494, in test_track_caller_on_nested_callee_demotes
+    self.assertEqual(mutgate.plan_schemata(one_mutant('m', 'src/lib.rs', 'let n = 1;', 'let n = 2;'),
+AssertionError: {} != {'m': 'source-location'}
+- {}
++ {'m': 'source-location'}
+
+======================================================================
+FAIL: test_unknown_macro_is_inspected_before_demotion (test_mutgate.AdmissibilityTests) (definition='macro_rules! custom { () => { vec![1] }; }')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 467, in test_unknown_macro_is_inspected_before_demotion
+    self.assertEqual(bool(static), expected)
+AssertionError: True != False
+
+======================================================================
+FAIL: test_plain_unwrap_genuine_kills_stay_in_schema_without_confirmation (test_mutgate.GateRegressionTests) (replacement='Some(2)')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 285, in test_plain_unwrap_genuine_kills_stay_in_schema_without_confirmation
+    self.assertEqual(summary['static'], {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_plain_unwrap_genuine_kills_stay_in_schema_without_confirmation (test_mutgate.GateRegressionTests) (replacement='None::<u32>')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 285, in test_plain_unwrap_genuine_kills_stay_in_schema_without_confirmation
+    self.assertEqual(summary['static'], {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_safe_local_macro_genuine_kill_stays_in_schema (test_mutgate.GateRegressionTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 315, in test_safe_local_macro_genuine_kill_stays_in_schema
+    self.assertEqual(summary['static'], {})
+AssertionError: {'m': 'source-location'} != {}
+- {'m': 'source-location'}
++ {}
+
+======================================================================
+FAIL: test_safe_macro_rules_body_nested_in_fn_stays_in_schema (test_mutgate.PlanSchemataTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 112, in test_safe_macro_rules_body_nested_in_fn_stays_in_schema
+    self.assertEqual(static, {})
+AssertionError: {'m1': 'source-location'} != {}
+- {'m1': 'source-location'}
++ {}
+
+----------------------------------------------------------------------
+Ran 48 tests in 6.939s
+
+FAILED (failures=31, errors=13)
