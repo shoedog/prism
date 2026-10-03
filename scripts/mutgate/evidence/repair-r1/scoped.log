@@ -1,0 +1,7 @@
+[    0.0s] 93 mutants in 1 lane file(s); selected 3
+[   11.6s] source baseline 3 selectors, 0 inadmissible mutants
+[   21.6s] I17-no-project-reference-cut KILLED (text)
+[   30.9s] I73-declare-prefilter KILLED (text)
+[   37.5s] R4-08-dropped-import-decline KILLED (text)
+[   37.5s] TOTAL killed 3/3 admissible 3 timings {'source_baseline_build': 9.56, 'source_baseline': 0.45, 'text_mode': 25.85, 'total': 37.53}
+{"exit": 0, "wall_seconds": 37.540828666, "synthetic_changed_lines": {"src/js_paths_boundary.rs": [169]}, "ids": ["I17-no-project-reference-cut", "I73-declare-prefilter", "R4-08-dropped-import-decline"]}

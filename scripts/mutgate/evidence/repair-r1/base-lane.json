@@ -6,14 +6,6 @@
     "js_paths_first_pass::",
     "repo_loader::"
   ],
-  "intent_revisions": {
-    "R4-04-non-utf8-declines": {
-      "disposition": "redefined",
-      "intent": "Disable UTF-16 LE/BE BOM decoding; encoded ambient declarations must still suppress paths recovery.",
-      "reason": "r5 decodes successfully read non-UTF-8 lossily, so the old non-UTF-8-declines obligation no longer exists. Preserve the historical ID and the 93-mutant population with a distinct decoding obligation, rather than duplicating R4-11's unreadable-file obligation.",
-      "killing_fixture": "native_decoding_keeps_ambient_in_both_grammars exercises latin1, UTF-16 LE/BE, UTF-8 and UTF-8 BOM for JSX and TSX, plus a documentation-only negative case."
-    }
-  },
   "mutations": {
     "I01-no-config-fingerprint": [
       "src/js_paths_snapshot.rs",
@@ -455,9 +447,9 @@
     ],
     "R4-04-non-utf8-declines": [
       "src/js_paths_boundary.rs",
-      "if bytes.starts_with(&[255, 254]) || bytes.starts_with(&[254, 255]) {",
-      "if false && (bytes.starts_with(&[255, 254]) || bytes.starts_with(&[254, 255])) {",
-      "js_paths_r3_test::native_decoding_keeps_ambient_in_both_grammars"
+      "let Some(read) = &scanned.read else {",
+      "let Some(read) = &scanned.read else { return Err(std::io::Error::other(\"mutant\"));",
+      "js_paths_snapshot::boundary::tests::unreadable_source_and_directory_skip"
     ],
     "R4-05-malformed-wildcard": [
       "src/js_paths_snapshot.rs",

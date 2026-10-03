@@ -1,0 +1,130 @@
+[    0.0s] 93 mutants in 1 lane file(s); selected 93
+[   12.4s] source baseline 54 selectors, 0 inadmissible mutants
+[   13.8s] schemata: 20 fn units, 27 schema mutants, 66 static: {'I01-no-config-fingerprint': 'source-location', 'I03-no-span-requirement': 'source-location', 'I04-no-binding-position-guard': 'source-location', 'I05-no-skipped-star-guard': 'source-location', 'I06-all-file-occupancy': 'source-location', 'I07-no-proven-empty-facts': 'source-location', 'I11-taint-namespace-terminal': 'source-location', 'I12-legacy-alias-hop-table': 'source-location', 'I13-no-probe-occupancy': 'source-location', 'I15-no-js-hop-cut': 'source-location', 'I17-no-project-reference-cut': 'source-location', 'I18-no-ambient-content-hash': 'source-location', 'I19-no-ambient-read-occupancy': 'source-location', 'I20-no-js-module-cut': 'source-location', 'I22-no-reference-path-arm': 'source-location', 'I23-no-reference-types-arm': 'source-location', 'I24-no-reference-closure': 'source-location', 'I27-global-export-priming': 'source-location', 'I28-no-reachable-export-priming': 'source-location', 'I35-no-installed-ambient': 'source-location', 'I37-outside-is-absent': 'source-location', 'I38-no-secondary-type-lookup': 'source-location', 'I39-no-first-pass-dependencies': 'source-location', 'I40-restore-blanket-JS-cut': 'source-location', 'I41-no-node-file': 'source-location', 'I42-no-node-index': 'source-location', 'I43-no-at-types': 'source-location', 'I44-no-module-types': 'outside-fn-body', 'I45-no-module-typings': 'outside-fn-body', 'I46-no-module-versions': 'source-location', 'I47-no-module-typeRoots': 'source-location', 'I48-no-module-main': 'outside-fn-body', 'I52-relative-only-package-field': 'source-location', 'I53-relative-only-version-substitution': 'source-location', 'I54-remap-out-of-package-entry': 'source-location', 'I55-truthy-empty-exact-key': 'source-location', 'I56-no-paths-first-pass': 'source-location', 'I57-Rust-version-whitespace': 'source-location', 'I59-no-physical-absence': 'source-location', 'I61-ancestor-named-types': 'source-location', 'I66-uppercase-suffix': 'source-location', 'I67-candidate-fold': 'source-location', 'I71-internal-link': 'source-location', 'I72-large-source-bound': 'source-location', 'I73-declare-prefilter': 'source-location', 'I74-tolerant-literal-exclusion': 'source-location', 'I78-canonical-dedupe': 'source-location', 'I79-byte-budget': 'source-location', 'I80-unknown-volume': 'source-location', 'R4-01-unread-metadata-declines': 'source-location', 'R4-02-outside-link-declines': 'source-location', 'R4-03-non-source-declines': 'source-location', 'R4-05-malformed-wildcard': 'source-location', 'R4-06-skipped-type-unsafe': 'source-location', 'R4-07-opaque-package-declines': 'source-location', 'R4-08-dropped-import-decline': 'outside-fn-body', 'R4-09-dropped-ancestor-decline': 'source-location', 'R4-11-unread-file-declines': 'source-location', 'R4-12-unread-dir-declines': 'source-location', 'R4-13-non-regular-declines': 'source-location', 'R4-14-non-utf8-path-declines': 'source-location', 'R4-15-duplicate-scan-inventory': 'source-location', 'R4-18-unread-walk-declines': 'source-location', 'R4-19-duplicate-file-coverage': 'source-location', 'R4-20-duplicate-indexed-read-receipt': 'source-location', 'R4-23-project-wrong-allowjs-roots': 'source-location'}
+[   29.8s] schemata build rc=0 in 15.92s
+[   32.2s] schema baseline 54 selectors, 0 inadmissible mutants
+[   33.1s] I02-no-post-merge-map schema failure; awaiting clean-text confirmation
+[   33.1s] I08-no-opaque-star-guard schema failure; awaiting clean-text confirmation
+[   33.1s] I09-ignore-skipped-declaration-name schema failure; awaiting clean-text confirmation
+[   33.1s] I10-trim-alias-cache-key schema failure; awaiting clean-text confirmation
+[   33.1s] I14-last-config-wins schema failure; awaiting clean-text confirmation
+[   33.1s] I16-no-config-types-cut schema failure; awaiting clean-text confirmation
+[   33.1s] I21-no-typeRoots-coverage schema failure; awaiting clean-text confirmation
+[   33.1s] I29-no-package-types schema failure; awaiting clean-text confirmation
+[   33.1s] I30-no-package-typings schema failure; awaiting clean-text confirmation
+[   33.1s] I31-no-package-typesVersions schema failure; awaiting clean-text confirmation
+[   33.1s] I32-broad-package-exports-cut schema failure; awaiting clean-text confirmation
+[   33.1s] I34-absent-declines schema failure; awaiting clean-text confirmation
+[   33.1s] I36-all-wildcards-match schema failure; awaiting clean-text confirmation
+[   33.1s] I49-no-JS-object-order schema failure; awaiting clean-text confirmation
+[   33.1s] I50-no-last-duplicate-value schema failure; awaiting clean-text confirmation
+[   33.1s] I51-range-u64-overflow schema failure; awaiting clean-text confirmation
+[   33.1s] I58-no-root-file-boundary schema failure; awaiting clean-text confirmation
+[   33.1s] I68-bin-exclusion schema failure; awaiting clean-text confirmation
+[   33.1s] I69-git-exclusion schema failure; awaiting clean-text confirmation
+[   33.1s] I81-unicode-fold schema failure; awaiting clean-text confirmation
+[   33.1s] I82-entry-budget schema failure; awaiting clean-text confirmation
+[   33.1s] R4-04-non-utf8-declines schema failure; awaiting clean-text confirmation
+[   33.1s] R4-10-skip-counter schema failure; awaiting clean-text confirmation
+[   33.1s] R4-16-duplicate-fold-inventory schema failure; awaiting clean-text confirmation
+[   33.1s] R4-17-no-canonical-case-collision schema failure; awaiting clean-text confirmation
+[   33.1s] R4-21-drop-valid-redirect-with-malformed-sibling schema failure; awaiting clean-text confirmation
+[   33.1s] R4-22-project-all-modules schema failure; awaiting clean-text confirmation
+[   33.1s] schema runs: 27 in 0.81s (jobs=7)
+[   46.2s] I01-no-config-fingerprint KILLED (text)
+[   56.5s] I02-no-post-merge-map KILLED (text)
+[   66.2s] I03-no-span-requirement KILLED (text)
+[   73.2s] I04-no-binding-position-guard KILLED (text)
+[   80.8s] I05-no-skipped-star-guard KILLED (text)
+[   87.1s] I06-all-file-occupancy KILLED (text)
+[   95.3s] I07-no-proven-empty-facts KILLED (text)
+[  101.6s] I08-no-opaque-star-guard KILLED (text)
+[  106.9s] I09-ignore-skipped-declaration-name KILLED (text)
+[  112.0s] I10-trim-alias-cache-key KILLED (text)
+[  117.2s] I11-taint-namespace-terminal KILLED (text)
+[  124.5s] I12-legacy-alias-hop-table KILLED (text)
+[  134.6s] I13-no-probe-occupancy KILLED (text)
+[  151.5s] I14-last-config-wins KILLED (text)
+[  160.0s] I15-no-js-hop-cut KILLED (text)
+[  165.3s] I16-no-config-types-cut KILLED (text)
+[  172.2s] I17-no-project-reference-cut KILLED (text)
+[  179.7s] I18-no-ambient-content-hash KILLED (text)
+[  186.0s] I19-no-ambient-read-occupancy KILLED (text)
+[  193.5s] I20-no-js-module-cut KILLED (text)
+[  201.6s] I21-no-typeRoots-coverage KILLED (text)
+[  212.3s] I22-no-reference-path-arm KILLED (text)
+[  222.0s] I23-no-reference-types-arm KILLED (text)
+[  236.5s] I24-no-reference-closure KILLED (text)
+[  247.6s] I27-global-export-priming KILLED (text)
+[  257.7s] I28-no-reachable-export-priming KILLED (text)
+[  270.4s] I29-no-package-types KILLED (text)
+[  280.5s] I30-no-package-typings KILLED (text)
+[  291.5s] I31-no-package-typesVersions KILLED (text)
+[  301.5s] I32-broad-package-exports-cut KILLED (text)
+[  310.5s] I34-absent-declines KILLED (text)
+[  321.4s] I35-no-installed-ambient KILLED (text)
+[  334.9s] I36-all-wildcards-match KILLED (text)
+[  347.3s] I37-outside-is-absent KILLED (text)
+[  359.7s] I38-no-secondary-type-lookup KILLED (text)
+[  372.9s] I39-no-first-pass-dependencies KILLED (text)
+[  384.8s] I40-restore-blanket-JS-cut KILLED (text)
+[  392.1s] I41-no-node-file KILLED (text)
+[  397.8s] I42-no-node-index KILLED (text)
+[  404.3s] I43-no-at-types KILLED (text)
+[  410.4s] I44-no-module-types KILLED (text)
+[  415.2s] I45-no-module-typings KILLED (text)
+[  422.2s] I46-no-module-versions KILLED (text)
+[  428.6s] I47-no-module-typeRoots KILLED (text)
+[  434.6s] I48-no-module-main KILLED (text)
+[  441.7s] I49-no-JS-object-order KILLED (text)
+[  449.2s] I50-no-last-duplicate-value KILLED (text)
+[  456.8s] I51-range-u64-overflow KILLED (text)
+[  466.0s] I52-relative-only-package-field KILLED (text)
+[  473.5s] I53-relative-only-version-substitution KILLED (text)
+[  480.1s] I54-remap-out-of-package-entry KILLED (text)
+[  485.0s] I55-truthy-empty-exact-key KILLED (text)
+[  490.4s] I56-no-paths-first-pass KILLED (text)
+[  495.7s] I57-Rust-version-whitespace KILLED (text)
+[  500.7s] I58-no-root-file-boundary KILLED (text)
+[  507.1s] I59-no-physical-absence KILLED (text)
+[  513.4s] I61-ancestor-named-types KILLED (text)
+[  519.8s] I66-uppercase-suffix KILLED (text)
+[  526.7s] I67-candidate-fold KILLED (text)
+[  538.8s] I68-bin-exclusion KILLED (text)
+[  548.7s] I69-git-exclusion KILLED (text)
+[  558.1s] I71-internal-link KILLED (text)
+[  565.4s] I72-large-source-bound KILLED (text)
+[  571.2s] I73-declare-prefilter KILLED (text)
+[  576.3s] I74-tolerant-literal-exclusion KILLED (text)
+[  581.9s] I78-canonical-dedupe KILLED (text)
+[  586.7s] I79-byte-budget KILLED (text)
+[  590.4s] I80-unknown-volume KILLED (text)
+[  594.8s] I81-unicode-fold KILLED (text)
+[  599.4s] I82-entry-budget KILLED (text)
+[  603.3s] R4-01-unread-metadata-declines KILLED (text)
+[  607.8s] R4-02-outside-link-declines KILLED (text)
+[  612.1s] R4-03-non-source-declines KILLED (text)
+[  620.3s] R4-04-non-utf8-declines KILLED (text)
+[  625.9s] R4-05-malformed-wildcard KILLED (text)
+[  636.7s] R4-06-skipped-type-unsafe KILLED (text)
+[  649.0s] R4-07-opaque-package-declines KILLED (text)
+[  657.3s] R4-08-dropped-import-decline KILLED (text)
+[  662.5s] R4-09-dropped-ancestor-decline KILLED (text)
+[  666.9s] R4-10-skip-counter KILLED (text)
+[  670.8s] R4-11-unread-file-declines KILLED (text)
+[  675.1s] R4-12-unread-dir-declines KILLED (text)
+[  679.4s] R4-13-non-regular-declines KILLED (text)
+[  683.8s] R4-14-non-utf8-path-declines KILLED (text)
+[  688.1s] R4-15-duplicate-scan-inventory KILLED (text)
+[  692.8s] R4-16-duplicate-fold-inventory KILLED (text)
+[  697.2s] R4-17-no-canonical-case-collision KILLED (text)
+[  702.4s] R4-18-unread-walk-declines KILLED (text)
+[  707.1s] R4-19-duplicate-file-coverage KILLED (text)
+[  711.9s] R4-20-duplicate-indexed-read-receipt KILLED (text)
+[  718.8s] R4-21-drop-valid-redirect-with-malformed-sibling KILLED (text)
+[  726.5s] R4-22-project-all-modules KILLED (text)
+[  732.9s] R4-23-project-wrong-allowjs-roots KILLED (text)
+[  733.2s] TOTAL killed 93/93 admissible 93 timings {'source_baseline_build': 7.46, 'source_baseline': 3.45, 'schema_build': 15.92, 'schema_baseline': 2.49, 'schema_runs': 0.81, 'text_mode': 699.83, 'total': 733.24}
+real 733.28
+user 674.21
+sys 220.49

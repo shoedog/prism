@@ -1,19 +1,26 @@
 #!/usr/bin/env python3
-"""Unit tests for the mutgate rewriter (schema planning, not execution).
+"""Planner tests and compiled gate regressions (offline, dependency-free Rust).
 
 Run with:
     python3 -m unittest scripts/mutgate/test_mutgate.py
 
-These tests exercise code_mask, fn_bodies, plan_schemata and render directly
-on small synthetic Rust snippets. They do not touch cargo, the scratch tree,
-or any lane registry file, so they run in well under a second.
+The gate regressions use temporary Cargo projects and exercise the same main
+entry point, baseline, compilation and verdict aggregation as a real lane.
 """
+import contextlib
+import io
+import json
+import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mutgate  # noqa: E402
+
+LANE = Path(__file__).resolve().parents[2] / 'mutants/lane-p-tsconfig-paths.json'
 
 
 def one_mutant(mid, file, a, b, test='t'):
@@ -93,7 +100,7 @@ class PlanSchemataTests(unittest.TestCase):
         self.assertEqual(units, {})
         self.assertIn('m1', static)
 
-    def test_macro_rules_body_nested_in_fn_uses_enclosing_fn_unit(self):
+    def test_macro_rules_body_nested_in_fn_demotes_for_unknown_expansion(self):
         s = (
             'fn two() -> i32 {\n'
             '    macro_rules! lit { () => { 2 }; }\n'
@@ -102,8 +109,8 @@ class PlanSchemataTests(unittest.TestCase):
         )
         muts = one_mutant('m1', 'src/lib.rs', '{ 2 }', '{ 3 }')
         units, static = mutgate.plan_schemata(muts, {'src/lib.rs': s})
-        self.assertEqual(static, {})
-        self.assertEqual(len(units), 1)
+        self.assertEqual(static, {'m1': 'source-location'})
+        self.assertEqual(units, {})
 
     def test_const_fn_schema_included(self):
         s = 'const fn add(a: i32, b: i32) -> i32 {\n    a + b\n}\n'
@@ -214,6 +221,215 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(mutgate.accessor_for('src/bin/foo.rs'), 'prism::__mutant')
         self.assertEqual(mutgate.accessor_for('src/lib.rs'), 'crate::__mutant')
         self.assertEqual(mutgate.accessor_for('src/ast.rs'), 'crate::__mutant')
+
+
+class GateRegressionTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix='mutgate-regression-')
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        (self.root / 'src').mkdir()
+        (self.root / 'Cargo.toml').write_text(
+            '[package]\nname="prism"\nversion="0.0.0"\nedition="2021"\n')
+
+    def gate(self, source, mutations, mode, extra=None, timeout=5):
+        (self.root / 'src/lib.rs').write_text(source)
+        lane = self.root / 'lane.json'
+        lane.write_text(json.dumps({'mutations': mutations, 'extra': extra or {},
+                                    'lib_test_prefixes': ['']}))
+        out = self.root / ('report-' + mode)
+        args = ['mutgate', '--lane', str(lane), '--mode', mode, '--jobs', '2',
+                '--timeout', str(timeout), '--out', str(out)]
+        with patch.object(mutgate, 'ROOT', self.root), patch.object(sys, 'argv', args), \
+                patch.dict(os.environ, {'CARGO_TARGET_DIR': str(self.root / 'target')}), \
+                contextlib.redirect_stdout(io.StringIO()):
+            try:
+                status = mutgate.main()
+            except SystemExit as e:
+                status = e.code
+        summary = json.loads((out / 'summary.json').read_text()) if (out / 'summary.json').exists() else {}
+        return status, summary
+
+    def test_w1_constructed_false_kill_survives_both_modes(self):
+        source = ('pub fn f() -> u32 {\n    let ignored = 1;\n    line!()\n}\n'
+                  'const AFTER: u32 = line!();\n#[test]\n'
+                  'fn t() { assert_eq!(AFTER - f(), 2); }\n')
+        mutation = {'m': ['src/lib.rs', 'let ignored = 1;', 'let ignored = 2;', 't']}
+        for mode in ('text', 'schema'):
+            with self.subTest(mode=mode):
+                status, summary = self.gate(source, mutation, mode)
+                self.assertEqual(status, 1)
+                self.assertEqual(mutgate.verdict(summary['results']['m']), 'SURVIVED')
+
+    def test_w1_hidden_track_caller_false_kill_requires_text_confirmation(self):
+        source = ('pub fn f() -> u32 {\n    let ignored = 1;\n    location()\n}\n'
+                  'const AFTER: u32 = line!();\n#[track_caller]\n'
+                  'fn location() -> u32 { std::panic::Location::caller().line() }\n'
+                  '#[test]\nfn t() { assert_eq!(AFTER - f(), 2); }\n')
+        mutation = {'m': ['src/lib.rs', 'let ignored = 1;', 'let ignored = 2;', 't']}
+        status, summary = self.gate(source, mutation, 'schema')
+        self.assertEqual(status, 1)
+        self.assertEqual(mutgate.verdict(summary['results']['m']), 'SURVIVED')
+        self.assertTrue(summary['results']['m']['schema_observation']['killed'])
+
+    def test_w2_timeout_never_kills(self):
+        source = ('fn f() -> u32 { let ignored = 1; '
+                  'if ignored == 2 { std::thread::sleep(std::time::Duration::from_millis(150)); } '
+                  '1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n')
+        mutation = {'m': ['src/lib.rs', 'let ignored = 1;', 'let ignored = 2;', 't']}
+        for mode in ('text', 'schema'):
+            with self.subTest(mode=mode):
+                status, summary = self.gate(source, mutation, mode, timeout=0.05)
+                self.assertEqual(status, 1)
+                self.assertEqual(mutgate.verdict(summary['results']['m']), 'TIMEOUT')
+                self.assertFalse(summary['results']['m']['killed'])
+                # The same finite, equivalent mutant completes successfully
+                # with enough time; the short timeout cannot stand in for a kill.
+                status, summary = self.gate(source, mutation, mode, timeout=1)
+                self.assertEqual(status, 1)
+                self.assertEqual(mutgate.verdict(summary['results']['m']), 'SURVIVED')
+
+    def test_w3_red_baseline_is_inadmissible_both_modes(self):
+        source = 'fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 2); }\n'
+        mutation = {'m': ['src/lib.rs', '{ 1 }', '{ 1 + 0 }', 't']}
+        for mode in ('text', 'schema'):
+            with self.subTest(mode=mode):
+                status, summary = self.gate(source, mutation, mode)
+                self.assertEqual(status, 1)
+                self.assertEqual(mutgate.verdict(summary['results']['m']), 'INADMISSIBLE')
+                self.assertIn('baseline', summary['results']['m']['error'])
+
+    def test_w4_missing_selector_fails_even_with_killing_selector(self):
+        source = 'fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n'
+        mutation = {'m': ['src/lib.rs', '{ 1 }', '{ 2 }', ['t', 't_missing']]}
+        for mode in ('text', 'schema'):
+            with self.subTest(mode=mode):
+                status, summary = self.gate(source, mutation, mode)
+                self.assertEqual(status, 1)
+                self.assertEqual(mutgate.verdict(summary['results']['m']), 'INADMISSIBLE')
+
+    def test_w4_selector_removed_or_ignored_by_mutant_is_inadmissible(self):
+        source = ('fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n'
+                  '#[test]\nfn other() { assert_eq!(f(), 1); }\n')
+        mutation = {'m': ['src/lib.rs', '{ 1 }', '{ 2 }', ['t', 'other']]}
+        for replacement in ('fn other()', '#[test]\n#[ignore]\nfn other()'):
+            extra = {'m': [['src/lib.rs', '#[test]\nfn other()', replacement]]}
+            for mode in ('text', 'schema'):
+                with self.subTest(replacement=replacement, mode=mode):
+                    status, summary = self.gate(source, mutation, mode, extra)
+                    self.assertEqual(status, 1)
+                    self.assertEqual(mutgate.verdict(summary['results']['m']), 'INADMISSIBLE')
+                    self.assertTrue(summary['results']['m']['runs'][0]['killed'])
+
+    def test_w3_bad_baseline_does_not_disappear_from_denominator(self):
+        source = ('fn f() -> u32 { 1 }\nfn g() -> u32 { 3 }\n'
+                  '#[test]\nfn t() { assert_eq!(f(), 1); }\n'
+                  '#[test]\nfn bad() { assert_eq!(g(), 9); }\n')
+        mutations = {'good': ['src/lib.rs', '{ 1 }', '{ 2 }', 't'],
+                     'bad': ['src/lib.rs', '{ 3 }', '{ 4 }', 'bad']}
+        for mode in ('text', 'schema'):
+            with self.subTest(mode=mode):
+                status, summary = self.gate(source, mutations, mode)
+                self.assertEqual(status, 1)
+                self.assertEqual(summary['selected'], 2)
+                self.assertEqual(summary['killed'], 1)
+                self.assertEqual(mutgate.verdict(summary['results']['bad']), 'INADMISSIBLE')
+
+    def test_w5_failed_extra_edit_is_restored_before_next_mutant(self):
+        source = 'fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n'
+        mutations = {'bad': ['src/lib.rs', '{ 1 }', '{ missing }', 't'],
+                     'good': ['src/lib.rs', '{ 1 }', '{ 2 }', 't']}
+        status, summary = self.gate(source, mutations, 'text')
+        self.assertEqual(status, 1)
+        self.assertEqual(mutgate.verdict(summary['results']['bad']), 'INADMISSIBLE')
+        self.assertEqual(mutgate.verdict(summary['results']['good']), 'KILLED')
+        self.assertEqual((self.root / 'target/mutgate/tree/src/lib.rs').read_text(), source)
+
+    def test_empty_selector_list_and_missing_anchor_fail(self):
+        source = 'fn f() -> u32 { 1 }\n'
+        for mutation in (['src/lib.rs', '{ 1 }', '{ 2 }', []],
+                         ['src/lib.rs', 'gone', 'other', 't']):
+            with self.subTest(mutation=mutation):
+                status, summary = self.gate(source, {'m': mutation}, 'text')
+                self.assertEqual(status, 1)
+                self.assertEqual(mutgate.verdict(summary['results']['m']), 'INADMISSIBLE')
+
+    def test_w5_static_fallback_contains_only_its_own_edits(self):
+        source = ('struct S { a: u32 }\nfn f() -> S { S { a: 1 } }\n'
+                  '#[test]\nfn t() { assert_eq!(f().a, 1); }\n')
+        mutations = {'A': ['src/lib.rs', 'S { a: 1 }', 'S { a: 2 }', 't'],
+                     'B': ['src/lib.rs', 'struct S { a: u32 }', 'struct S { a: u32, b: u32 }', 't']}
+        extra = {'B': [['src/lib.rs', 'S { a: 1 }', 'S { a: 3, b: 0 }']]}
+        for mode in ('text', 'schema'):
+            with self.subTest(mode=mode):
+                status, summary = self.gate(source, mutations, mode, extra)
+                self.assertEqual(status, 0)
+                self.assertEqual(mutgate.verdict(summary['results']['B']), 'KILLED')
+                tree = self.root / 'target/mutgate/tree/src/lib.rs'
+                self.assertEqual(tree.read_text(), source)
+
+
+class AdmissibilityTests(unittest.TestCase):
+    def test_inadmissibility_has_priority_over_a_kill(self):
+        self.assertEqual(mutgate.verdict({'killed': True, 'admissible': False}), 'INADMISSIBLE')
+
+    def test_ignored_selector_is_not_a_survivor(self):
+        output = ('running 1 test\ntest t ... ignored\n'
+                  'test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out;\n')
+        with patch.object(mutgate.subprocess, 'run') as run:
+            run.return_value.stdout = output
+            run.return_value.stderr = ''
+            run.return_value.returncode = 0
+            result = mutgate.run_test('exe', 't', None, 1, {})
+        self.assertFalse(result['admissible'])
+
+    def test_location_observers_in_original_or_mutated_body_demote(self):
+        for expression in ('line!()', 'column!()', 'file!()', 'panic!("x")',
+                           'assert!(true)', 'Some(1).unwrap()', 'wrapped!()',
+                           'std::panic::Location::caller().line()'):
+            for in_mutant in (False, True):
+                with self.subTest(expression=expression, in_mutant=in_mutant):
+                    source = 'fn f() { let ignored = 1; ' + ('' if in_mutant else expression + ';') + ' }'
+                    replacement = 'let ignored = 2; ' + (expression + ';' if in_mutant else '')
+                    muts = one_mutant('m', 'src/lib.rs', 'let ignored = 1;', replacement)
+                    units, static = mutgate.plan_schemata(muts, {'src/lib.rs': source})
+                    self.assertEqual(units, {})
+                    self.assertEqual(static['m'], 'source-location')
+
+    def test_track_caller_attribute_demotes(self):
+        source = '#[track_caller]\nfn f() -> u32 { 1 }'
+        units, static = mutgate.plan_schemata(one_mutant('m', 'src/lib.rs', '{ 1 }', '{ 2 }'),
+                                             {'src/lib.rs': source})
+        self.assertEqual(units, {})
+        self.assertEqual(static['m'], 'source-location')
+
+    def test_scope_file_includes_other_functions_in_changed_file(self):
+        source = 'fn f() -> u32 { 1 }\nfn g() -> u32 { 2 }\n'
+        muts = one_mutant('m', 'src/lib.rs', '{ 1 }', '{ 3 }')
+        with patch.object(mutgate, 'changed_lines', return_value={'src/lib.rs': {2}}):
+            self.assertEqual(mutgate.select_scoped(muts, {'src/lib.rs': source}, 'main', 'file'), ['m'])
+
+    def test_scope_stale_anchor_is_not_silently_omitted(self):
+        muts = one_mutant('m', 'src/gone.rs', '{ 1 }', '{ 2 }')
+        with patch.object(mutgate, 'changed_lines', return_value={}):
+            self.assertEqual(mutgate.select_scoped(muts, {}, 'main', 'line'), ['m'])
+
+
+class RegistryIntentTests(unittest.TestCase):
+    def test_r4_04_preserves_a_distinct_decoding_obligation(self):
+        population = mutgate.load_population([LANE])
+        mid = 'R4-04-non-utf8-declines'
+        # The original registry silently duplicated unreadable-file coverage.
+        # Preserve a distinct obligation, backed by the existing LE/BE fixture
+        # and its non-declaration/other-encoding negative cases.
+        self.assertNotEqual(population[mid]['edits'],
+                            population['R4-11-unread-file-declines']['edits'])
+        self.assertIn('js_paths_r3_test::native_decoding_keeps_ambient_in_both_grammars',
+                      population[mid]['tests'])
+        revisions = json.loads(LANE.read_text()).get('intent_revisions', {})
+        self.assertIn(mid, revisions)
+        self.assertEqual(revisions[mid]['disposition'], 'redefined')
+        self.assertTrue(revisions[mid]['reason'])
 
 
 if __name__ == '__main__':
