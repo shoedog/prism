@@ -1,81 +1,84 @@
-# Handoff — lane P, non-relative P2 prototype
+# Handoff — lane P, P2 Opus spec round-1 fold
 
-**Written:** 2026-10-03 · **By:** Codex planner · **Provider:** codex
-**Workspace:** `/Users/wesleyjinks/code/prism-paths-p2-plan` · `plan/tsconfig-paths-p2` · **Measured state:** `[MEASURED]` HEAD35c481cf, DIRTY plan packet; exact gitless prototype tree e80fbf54+owned edits under target/p2-nonrelative/work. Probe `git branch --show-current; git rev-parse HEAD`; session output and final file hashes.
-**Predecessor:** owner-supplied e80fbf54 relative prototype and35c481cf plan gap aggregates.
+**Written:** 2026-10-03 · **By:** Codex planner/repairer · **Provider:** codex
+**Workspace:** `/Users/wesleyjinks/code/prism-paths-p2-plan` · **Measured state:** `[MEASURED]` plan/tsconfig-paths-p2 HEAD bb4e4743, tracked tree CLEAN. Probe `git status --short --branch`; round-1 prepared snapshot under target/p2-spec-r1.
+**Predecessor:** owner-supplied plan bb4e4743 / cumulative prototype b9fd3775 / main c50de85a and Opus spec review round1 FIX.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
-**Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
+**Provenance:** written live by the worker using installed `/Users/wesleyjinks/.codex/handoff-template.md`. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
 
 ## 0. Gating facts — settle these before starting anything below
 
-**(a) Lane ownership** — `[INHERITED]` owner assigned this planner; no subagent/reviewer dispatched. Local verification cap3 reached GREEN at3/3 after two bounded corrections; no extension. RESOLVED within the brief.
-**(b) Custody exposure** — `[MEASURED]` Git writes prohibited; local snapshots/patch/hashes under target/p2-nonrelative. Controller branch switch/commit/external custody OPEN. The physical plan branch was never claimed to be a switched prototype.
-**(c) In flight / irreversible** — `[MEASURED]` all local checks complete; no task process or irreversible action remains. Private controller action remains separate.
-**(d) Authorization granted but not exercised** — `[INHERITED]` "Prototype the non-relative hop proof"; "No git writes"; "Never open F"; "Yield first"; owner tiered gates and packet updates remain binding. Private run/controller fold not exercised by worker.
+**(a) Lane ownership** — `[INHERITED]` owner assigned planner/repairer for Opus review1 fold. No subagents dispatched. Spec review cap2, used1/2; repair gate cap2 attempts. RESOLVED within the brief.
+**(b) Custody exposure** — `[MEASURED]` candidates/sources/baseline rows retained in `target/p2-spec-r1/prepared-owned-snapshot.tar.gz`, `prepared-proto.patch`, `prepared-source-binding.json`. No Git writes. Controller prototype branch switch remains OPEN: this clone is still plan bb4e4743 with no prototype worktree; an async controller-switch request is pending. Code candidates have not been applied to tracked files.
+**(c) In flight / irreversible** — `[MEASURED]` baseline RED and H1 reference probes completed; no task process running. RESOLVED. Product gates have not started before correct branch custody.
+**(d) Authorization granted but not exercised** — `[INHERITED]` "Edit the prototype on its branch checkout, and the plan docs on the plan branch"; "No git writes"; "Never open F". Controller must switch checkout; worker must not bypass the branch requirement with a gitless implementation.
 
 ## 1. Resume order
 
-1. Controller sets CORPUS_F_ROOT, fresh PRIVATE_EVIDENCE_ROOT and pinned TS_JS; run `bash docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/p2-probes/CONTROLLER-p2.sh /Users/wesleyjinks/code/prism-paths-impl/target/repair-r5/head/prism /Users/wesleyjinks/code/prism-paths-impl/target/repair-r1/base/dump_imports /Users/wesleyjinks/code/prism-paths-p2-plan/target/p2-nonrelative/bin/prism-p2-nonrelative-verified PRIOR_GAP_EVIDENCE_DIR`. Minutes; aggregate stdout only. Fourth arg binds the old350/98 population.
-2. Read final P2-MEASUREMENTS, final-build-binding.json, proto-files.json, snapshots/hashes and final verification receipts. Unknown private counts remain OPEN; no ceiling is a measured gain.
-3. Controller switches to proto/tsconfig-paths-p2 @e80fbf54 and applies only the incremental proto patch; commit the33 proto paths separately from the enumerated plan set on plan/tsconfig-paths-p2 @35c481cf. Preserve cache106/62; no second bump or duplicate relative-hop patch.
-4. Independent review/controller acceptance remain separate. No worker push or merge.
+1. Controller switches the clean clone to `proto/tsconfig-paths-p2 @ b9fd3775`. Worker rebinds status/HEAD and exact base hashes, applies four prepared prototype paths, runs focused regression and gates (minutes). Required branch action is blocked by no-worker-Git-writes instruction; async request pending.
+2. Run one full `cargo nextest run --offline --features mcp --no-fail-fast`, scoped `spec-r1-mutants.py`, fmt/clippy, release rebuild immediately followed by Tier-A matrix, `legacy-forward-controls.py`, `nonrelative-cache.py`, S1b-4 and all complete public streams.
+3. Freeze repaired binary at `target/p2-spec-r1/bin/prism-p2-spec-r1` with production input/binary hashes and source snapshot; controller preserves prototype bytes and switches back to plan bb4e4743 for prepared plan edits. Worker performs no .git writes.
+4. Controller supplies private environment and accepted prototype binary via `ACCEPTED_P2_BIN`; run updated `CONTROLLER-p2.sh P1_BIN FACTS_BIN REPAIRED_P2_BIN PRIOR_GAP_EVIDENCE`. Return aggregate stdout only; expected F repair impact0. Main acceptance +629 is supplied evidence, not a repaired-binary receipt.
+5. Controller commits/squashes the final cumulative prototype on main c50de85a and commits the plan set separately; dispatch implementer from that final cumulative artifact. Round2 review remains controller-owned.
 
-**STOP conditions:** unexpected source/input/binary drift, any uncertified public/private changed row, prior unresolved row changed, prototype patch wrong parent, private worker access, or cap reached with open-class findings.
+**STOP conditions:** wrong branch/base/hash, any uncertified changed row, complete-row loss, nonzero F repair impact, private worker access, open-class defect at the repair cap. No restart.
 
 ## 2. State ledger
 
 | Item | State | Evidence / correction |
 |---|---|---|
-| Alias kernel/context/extractor | done | `[MEASURED]` gitless proto tree; source inspection +10 focused regression groups green. |
-| Yield-first dispatch | done | `[MEASURED]` frozen final binary, updated wrapper, async controller notifications. Earlier binaries superseded by source-bound verified binary df0cca2f; final command in §1. |
-| Public native controls | done | `[MEASURED]` controls-verified/summary.json:82 scenarios,168 sites,72 CORRECT,96 preserved. |
-| S1b-4 | done | `[MEASURED]` s1b-verified.json:411 controls,639 sites,822 byte-identical outputs. |
-| Public corpora | done | `[MEASURED]` public-verified/summary.json: X+8 /installed-X+8 CORRECT, R/T0 byte-identical to P1; all complete rebuilt streams match certified predecessors, live native inputs rehashed. |
-| Full suite / scoped mutants / lint / matrix | done | `[MEASURED]` gates.json: MCP5,131 passed/0 failed/1 existing skip, doctests2; mutants7/7 killed, fmt/clippy PASS, matrix178/178. |
-| Private350/98 explanation and F gains | pending | `[UNKNOWN]` controller-only; owner supplied prior counts, new wrapper requested. |
+| W1 diagnosis / same-environment main control | done | `[MEASURED]` legacy-red-corrected/summary.json:8 fixtures/16 sites; main refuses, unmodified proto selects wrong sibling in both grammars/orders. control-source-binding.json:304/304 input hashes match each exact revision. |
+| W1 code, both-grammar regressions, baseline rows | pending | `[MEASURED]` four prototype candidates in proto-prepared; tracked application/gates await controller checkout. |
+| S1 authority / S2–S6 disclosures | pending | `[MEASURED]` plan-prepared headers replace UNKNOWN350/98/+629 with supplied controller acceptance and cumulative dispatch; not yet applied on plan. |
+| S5 H1 cache control | done | `[MEASURED]` cache-reference-corrected/summary.json:2 grammars/10 states, cold/warm x, declaration add refuses/remove restores x, caller paths edit moves y, every cached output equals fresh. Repaired run pending. |
+| F acceptance of b9fd3775 | done | `[INHERITED]` P2-MEASUREMENTS controller acceptance at bb4e4743:+629 CORRECT,350 explained,98/98 retained. |
+| Fresh repaired gates / F impact | pending | `[UNKNOWN]` no repaired branch build yet; worker has no F observing capability. |
 
 ## 3. Corrections to standing documents and memory
 
 | Location | Stale or false assertion | Correction |
 |---|---|---|
-| SPEC / IMPLEMENTOR / P2-MEASUREMENTS / P2-FILES / OQ / gap diagnosis | Diagnosis-only authority / switched physical prototype / future nonrelative work parked | `[MEASURED]` current sections replaced with owner-authorized nonrelative body and precise gitless custody; old sections marked historical. |
-| Old b11 serialization expectation | Nonrelative import-forward must stay poisoned Local | `[MEASURED]` exact-base same-environment control passes; assertion updated for inert ImportForward. Package still refuses. |
-| Memory | None | No relevant quick-pass hit; no memory writes. |
+| SPEC | Non-relative forwarding facts inert on legacy route | `[MEASURED]` W1 re-probed; draft amendment explicitly preserves unresolved non-relative imported-local claims as BlockedClaim. |
+| IMPLEMENTOR/HANDOFF/P2-FILES | Apply old incremental patch to e80fbf54; review not dispatched | `[INHERITED]` cumulative prototype is b9fd3775 on c50de85a; draft dispatch starts from controller's final cumulative squash; spec review1/2 returned FIX. |
+| P2-MEASUREMENTS/OQ | +629/350/98 unknown | `[INHERITED]` controller measured +629,350/350 noncontributing branches,98/98 retained; OQ2/4/5 closed for b9fd3775. Repaired F gate stays separate. |
+| cpg_cache.rs | v106 mentions only relative hop proof | `[MEASURED]` candidate comment describes caller-config String serde shape too; no version bump. |
+| Memory | None | No relevant quick-pass hit; no memory write. |
 
 ## 4. Open work
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Final local verification / custody | done | Local snapshot, hashes, patch replay33/33 byte-identical; verify final-seal.json | Controller external custody still open | target/p2-nonrelative |
-| 2 | Actual F /350 /98 counts | pending | Run exact four-argument wrapper and return aggregate | Controller-only | CONTROLLER-p2.sh |
-| 3 | Branch fold / commits | pending | Apply incremental proto patch on e80fbf54; commit plan set on35c481cf | No worker .git writes | P2-FILES |
+| 1 | Branch-bound prototype edit/gates | blocked | Controller switch to proto b9fd3775; apply candidates, verify | No-worker-Git-writes rule | prepared-source-binding.json |
+| 2 | Branch-bound plan fold | pending | Apply prepared docs/probe runners on plan bb4e4743 after product gates | Controller checkout custody | plan-prepared |
+| 3 | Actual repaired F impact | pending | Controller updated wrapper with ACCEPTED_P2_BIN | Never open F; repaired binary not yet built | CONTROLLER-p2.sh |
+| 4 | S2 three-row class | parked | Controller may name gate class; until then disclose residual | Private-only rows | review S2 |
 
 ## 5. Invariants and traps — do not do these
 
-- Never open F or write .git; branch switching is a controller action.
-- Never reselect a barrel's config; module lookup options belong to the caller program.
-- Missing export on a star branch is not the full terminal; every changed site needs actual native full-chain certification.
-- 98 unresolved retention and350 explanation are UNKNOWN until bound controller counts return.
-- P1 bare packages, package directories, unsupported substitution extensions, competition, ambient and membership guards stay refused.
-- CommonJS name-only spans and export= do not gain authority from native-callable labels alone.
-- Old gap sidecar is bound to e80fbf54 boolean projection tables; new standalone audit consumes its old rows, not new tables.
+- Never open F or write .git; branch switching/commits are controller actions.
+- Never apply the old e80fbf54 increment onto an integrated cumulative prototype.
+- Never reselect the barrel's config; caller program options persist through the chain.
+- W1 only blocks unresolved non-relative ImportForward; inherited ReExport/relative/star claim limitations are S3 disclosures, outside this repair.
+- Initial runners rejected normal warning/cache stderr: INADMISSIBLE; corrected scripts save diagnostics and inspect full output rows. Receipts stay outside scanned sources.
+- +629/350/98 are accepted-checkpoint controller measurements; expected repaired F impact0 is not a fresh measurement.
 
 ## 6. Identifiers
 
 | Item | Verbatim |
 |---|---|
-| Prototype parent | e80fbf541d53ace5c547d5f26c9135e46e7be12b |
-| Plan parent |35c481cfe47d320e1f6759a3926c1b5ab3b25961 |
-| Gitless source | target/p2-nonrelative/work |
-| Final binary | target/p2-nonrelative/bin/prism-p2-nonrelative-verified |
-| Binary SHA256 |df0cca2f4a1d79be5ff33a55dff5ac1b71ae53106d47612385f44d5a6d0f1d85 |
-| Compiler SHA256 |3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675 |
-| Source/binary binding | target/p2-nonrelative/final-build-binding.json |
-| Incremental proto patch | target/p2-nonrelative/proto.patch |
-| Owned snapshot and seal | target/p2-nonrelative/owned-snapshot.tar.gz; final-seal.json |
+| Plan parent | bb4e47436447b800593cfdc798defca7f14bde6b |
+| Reviewed prototype | b9fd3775a91a206c556e05e26656285ee0c66bff |
+| Cumulative production parent | c50de85a |
+| Main-source-bound P1 binary | /Users/wesleyjinks/code/prism-paths-impl/target/repair-r5/head/prism |
+| P1 SHA256 | 907d110c70962063d5fde23acd22b6d92b62b117d837b97a81f6d65ed263aa03 |
+| Reviewed-source-bound prototype binary | target/p2-nonrelative/bin/prism-p2-nonrelative-verified |
+| Prototype binary SHA256 | df0cca2f4a1d79be5ff33a55dff5ac1b71ae53106d47612385f44d5a6d0f1d85 |
+| Review | /Users/wesleyjinks/prism-evidence/paths/reviews-p2/spec-r1-opus.md |
+| Compiler SHA256 | 3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675 |
+| Current repair receipts | target/p2-spec-r1 |
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED · claim: "on the supplied public inputs, new non-relative bindings agree with actual caller native callable spans and preserve all P1 rows except certified gains" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: public-verified/summary.json, controls-verified/summary.json, mutants/results.json and hypothesis-probe-result.md. Independent review not dispatched; private F claim stays OPEN.
+**§2c verdict:** NOT RUN — prepared fix has not been applied/built on its required branch · claim: "the repaired prototype restores complete main refusal on legacy A1/A4 without losing accepted alias yield" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: STATIC-ONLY · record: prepared-proto.patch; fresh baseline RED and H1 receipts in target/p2-spec-r1.
 
-**Questions the owner owes an answer to:** controller F aggregate including exact350 explanation and98 retention; controller branch fold/external custody. No new scope permission requested.
+**Questions the owner owes an answer to:** controller prototype checkout switch, then plan checkout for plan fold; repaired F aggregate; round2 review and external custody. No new scope permission requested.

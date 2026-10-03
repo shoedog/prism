@@ -1,4 +1,32 @@
-# Current P2 non-relative file inventory
+# Current P2 spec round-1 file inventory — prepared, awaiting branch custody
+
+[MEASURED] This clone remains plan/tsconfig-paths-p2 @bb4e4743 with a clean tracked tree. Four prototype candidates and ten plan candidates are retained under target/p2-spec-r1; none have been applied to tracked paths. The controller must switch to proto b9fd3775 for prototype edits, then plan bb4e4743 for the plan fold. No worker Git writes or F reads. All earlier inventories below are historical.
+
+Suggested controller commits:
+
+- Prototype: `fix(paths): preserve unresolved non-relative forward claims in legacy stars`
+- Plan: `docs(paths): fold Opus P2 spec review and refresh cumulative dispatch`
+
+Prototype set, incremental from reviewed b9fd3775:
+
+- `src/js_exports.rs`
+- `src/cpg_cache.rs` (comment only)
+- `tests/integration/js_paths_p2_test.rs`
+- `tests/integration/fixtures/js_paths_p2_legacy_refusal.json` (new frozen complete main rows)
+
+Plan set, under this packet directory, incremental from bb4e4743:
+
+- `IMPLEMENTOR.md`, `HANDOFF-P2.md`, `SPEC.md`, `P2-MEASUREMENTS.md`, `OQ-paths-p2.md`, `P2-FILES.md`.
+- `p2-probes/CONTROLLER-p2.sh`.
+- New `p2-probes/legacy-forward-controls.py`, `p2-probes/nonrelative-cache.py`, `p2-probes/spec-r1-mutants.py`.
+
+Fresh checks completed so far: exact-revision304/304 production input hash binding for main and cumulative prototype, eight legacy RED fixtures/16 sites against both binaries in the same environment, two H1 reference fixtures/10 real CPG cache states, controller-wrapper shell syntax. Repaired Rust suite, scoped mutants, fmt/clippy, matrix, S1b-4, complete public streams and controller repaired F parity are pending. Expected F repair impact0 is not measured.
+
+Custody: prepared-owned-snapshot.tar.gz, prepared-source-binding.json, prepared-proto.patch, prepared-plan.patch, INTERIM-HANDOFF.md and hypothesis-probe-result.md in target/p2-spec-r1. Starting implementation remains the final cumulative prototype the controller squashes onto main c50de85a, not a reapplication of the old e80fbf54 increment.
+
+---
+
+# Historical P2 non-relative file inventory
 
 [MEASURED] No Git writes. The physical checkout is plan/tsconfig-paths-p2 @35c481cf. The exact proto parent e80fbf54 is exported to `target/p2-nonrelative/work`; apply its incremental patch only after the controller switches to that prototype branch. The plan files below are edited in the physical plan checkout. No private F input/evidence was opened.
 

@@ -1,4 +1,30 @@
-# Current P2 checkpoint — non-relative export hops
+# Current P2 checkpoint — Opus spec review round 1 fold
+
+Current authority: plan **bb4e4743**, reviewed cumulative prototype **b9fd3775** on main **c50de85a**. Start implementation from the final cumulative prototype the controller squashes; old incremental/gitless adoption instructions are historical. Cache **106/62** is already present. Review **1/2**, FIX: one closed WRONG (W1), S1 documentation refresh, S2–S6 disclosures. Repair gate cap **2 attempts**. No worker Git writes or F reads.
+
+[MEASURED — controller acceptance recorded at bb4e4743; supplied evidence] **F +629**, all CORRECT_STATIC_BINDING, **628 JS_EXPORT_HOP +1 NONRELATIVE_EXPORT_HOP**, **0/0 keys added/removed**, **419 member-written**, **697/697 full-chain span agreement**, **98/98 unresolved retained**. All **350 ABSENT** rows are `NONCONTRIBUTING_STAR_BRANCH_FULL_BARREL_BINDS_TERMINAL`. F total **2,942 = 2,313 +629**. These are measured controller results, not this worker's private execution. OQ2/OQ4/OQ5 are closed for b9fd3775. **W1 repair F impact is expected 0; actual impact awaits the controller re-run on the frozen repaired binary.**
+
+## Round-1 disclosures and reviewer evidence
+
+Evidence: `/Users/wesleyjinks/prism-evidence/paths/reviews-p2/spec-r1-opus.md` and its `spec-r1-opus-probes/RESULTS.txt`; 33 same-environment base/head/TypeScript probes. Base c50de85a / head b9fd3775; TypeScript 5.9.3 SHA256 `3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675`. These are supplied review receipts unless a fresh command is recorded below.
+
+| Finding | Disclosure / disposition | Review evidence |
+|---|---|---|
+| W1 WRONG | Unresolved non-relative ImportForward must be BlockedClaim rather than discarded NoTarget. Restore complete legacy base refusal; retain alias yield. | A1: base UnknownName, head wrong Exact b.ts:k. A4: base UnknownName for call/JSX, head wrong Exact b.jsx:K; TypeScript binds k2.jsx with no diagnostics. D5 alias unresolved package stays refused. |
+| S1 SMELL | Current dispatch, amendment, OQ, measurements and handoff now bind the cumulative prototype and measured F acceptance. Historical e80fbf54 instructions do not authorize double application. | Review S1 vs recorded controller acceptance of b9fd3775. |
+| S2 SMELL | **3 resolvable non-relative rows remain unexplained and unrecovered.** 697 = 599 resolvable +98 unresolved; 628 recovered JS_EXPORT_HOP minus32 relative =596 non-relative, leaving3. Full749 =628+98+18+2+3. Option K preserves them; controller may supply their gate class later. | Review S2 arithmetic against controller aggregates. No invented gate class or recovery claim. |
+| S3 SMELL | Inherited type-only, broken named/forward and absent-supplier star treatment may discard a competing claim. F shows **0 affected changed rows**, as all changed rows are certified. Owner disclosure; separate type-export/claim-without-supplier design required. | D2/D2b type-only: TypeScript UNBOUND/TS2308, head Exact sibling. D3 broken ReExport and D6 broken alias ImportForward: UNBOUND, head Exact sibling. Base E2/E3/E4 and A5/A6 demonstrate inheritance. D1/D4/D5 value/CJS/unresolved package are refused. Types erase in D2; D3/D6 fail linking; TypeScript rejects this class. |
+| S4 SMELL | v106 comment now describes both Node10 hop proof and CallGraph serde format change: module values `(String,bool)`→`(String,String)`, export keys `bool`→`String`. No second version bump: shipped main is105, prototype106 unreleased. | Review S4; only unreleased e80fbf54 caches shared106 before the format change. |
+| S5 SMELL | Cheap H1-shaped integration cache control will pin cold/warm, barrel-ancestor package declaration add/remove, and caller paths edit to a different terminal. | Review H1 real cpg-cache.bin passed all four states; previous production coverage was loader topology unit control only. |
+| S6 SMELL | Export tables are recomputed per caller config path, including configs with identical effective options. Monorepo cost scales with admitted config count; F completed, no measured cost problem. Effective-options fingerprint is a separate optimization, not a P2 gate. | Review apply_js_paths table key; options would include paths/baseUrl origin/allowJs/typeRoots/moduleResolution. |
+
+## Repair verification
+
+[UNKNOWN] Fresh repair gates and repaired binary binding pending the controller's prototype checkout switch. Historical receipts below remain bound to their earlier artifacts.
+
+---
+
+# Historical P2 checkpoint — non-relative export hops
 
 [MEASURED] Prototype built in the exact gitless e80fbf54 tree at `target/p2-nonrelative/work`. Physical checkout remains plan/tsconfig-paths-p2 @35c481cf; no worker Git writes or F reads. Frozen final binary: `target/p2-nonrelative/bin/prism-p2-nonrelative-verified`, SHA256 `df0cca2f4a1d79be5ff33a55dff5ac1b71ae53106d47612385f44d5a6d0f1d85`. `final-build-binding.json` binds production/vendor/build inputs; final custody refresh is in HANDOFF.
 

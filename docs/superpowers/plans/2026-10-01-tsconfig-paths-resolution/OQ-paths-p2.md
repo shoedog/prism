@@ -1,12 +1,16 @@
-# Owner questions — current non-relative P2
+# Owner questions — current cumulative P2 after spec round 1
+
+Controller measurements below are supplied evidence recorded in P2-MEASUREMENTS at plan bb4e4743, bound to accepted prototype b9fd3775. The worker never opens F. Old e80fbf54 gitless/incremental adoption instructions are historical.
 
 | ID | Question | Evidence and disposition | State |
 |---|---|---|---|
-| P2-OQ1 | Is relative-only P2 material? | INHERITED controller:+32 /749; prior relative-only decision remains not material. New non-relative yield is not inferred from ceilings. | RESOLVED for old prototype; new F pending |
-| P2-OQ2 | What does the new prototype recover on F? | Controller wrapper certifies every actual changed site/name/file/span; no private worker read. | OPEN: controller aggregate |
-| P2-OQ3 | Where are proto and plan bytes? | MEASURED physical plan checkout35c481cf; exact gitless e80fbf54 prototype+edits in target/p2-nonrelative/work, patch/snapshot in HANDOFF. No .git write. | RESOLVED; controller switch/fold pending |
-| P2-OQ4 | Why were350 hop symbols ABSENT? | INHERITED old count; public noncontributing-star witness shows a concrete explanation. New aggregate audit binds exact old rows and distinguishes CommonJS/export= / changed checker / unexplained cases. | OPEN for private350 |
-| P2-OQ5 | How many98 unresolved rows stay base? | Public unresolved-star controls retain complete base. Wrapper asserts each old unresolved row remains complete-row identical and reports denominator. | OPEN for private98 |
-| P2-E5 | Should member-written terminals bind? | Existing binding-name collector does not mark member/subscript writes as binding writes. New both-grammar native controls cover member-written terminals. No write guard was changed. | RESOLVED |
+| P2-OQ1 | Is relative-only P2 material? | Controller +32/749 was not material alone; cumulative relative/non-relative P2 recovers629 CORRECT on F. | RESOLVED |
+| P2-OQ2 | What does cumulative P2 recover on F? | MEASURED controller acceptance: +629, all CORRECT_STATIC_BINDING;628 JS_EXPORT_HOP+1 NONRELATIVE_EXPORT_HOP,0/0 keys,419 member-written; total2942 from P1 2313. | CLOSED for b9fd3775 |
+| P2-OQ3 | Where are proto and plan bytes? | Start from cumulative final proto the controller squashes onto main c50de85a; reviewed checkpoint b9fd3775. Plan checkpoint bb4e4743. No double application of old incremental patch; worker performs no Git writes. | RESOLVED authority; controller custody pending |
+| P2-OQ4 | Why were350 hop symbols ABSENT? | MEASURED controller audit:350/350 NONCONTRIBUTING_STAR_BRANCH_FULL_BARREL_BINDS_TERMINAL. The branch lacks the name while another branch supplies the full-chain terminal. | CLOSED |
+| P2-OQ5 | How many98 unresolved rows stay base? | MEASURED controller complete-row preservation:98/98 retained at P1. | CLOSED |
+| P2-E5 | Should member-written terminals bind? | Existing collector excludes member/subscript writes from binding writes; reviewer F1/F3 and both-grammar native controls certify the admitted terminal. Binding writes still refuse (F2). | RESOLVED |
+| P2-R1-F | What is W1 repair's impact on accepted F yield? | Expected0: W1 restores unresolved non-relative ImportForward claim refusal. Prior accepted gains are certified, unresolved alias branches already refuse. Actual repaired-binary comparison belongs to controller. | OPEN controller re-run |
+| P2-R1-S2 | Why are3 resolvable non-relative rows unrecovered? | Review arithmetic:599 resolvable minus596 recovered non-relative=3. Complete base results retained; gate class not supplied. | DISCLOSED residual |
 
-Owner scope is the non-relative export/import-forward proof using existing reviewed P1 alias authority, caller-program options, and cache106/62. S6, binding/site guards, imported-arrow refusal, bare packages and other P1 refusals stay settled. Local correction cap3, used2; independent review not dispatched. No new owner permission is required for the remaining authorized local gates.
+Scope is the existing P1 alias proof with caller-program options and cache106/62. W1 is a closed targeted repair; the inherited S3 star-claim class and S6 recompute optimization are disclosed separate designs. Binding/site guards, imported-arrow refusal, packages and all P1 fences stay settled. Spec review cap2, used1/2; repair gate cap2 attempts. Controller owns F re-run, round2 review, squash, commits, push and merge.

@@ -1,4 +1,19 @@
-# P2 dispatch — non-relative export-hop prototype
+# P2 dispatch — cumulative prototype after Opus spec round 1
+
+Current authority supersedes every historical dispatch below. Start from the **cumulative final `proto/tsconfig-paths-p2`**, which the controller squashes from the final prototype onto **main `c50de85a`**. The reviewed checkpoint is **`b9fd3775`**, with relative and non-relative hops and cache **106/62 already present**. Do not apply the old incremental e80fbf54 patch to this integrated prototype; the old gitless steps are historical.
+
+[MEASURED — controller aggregate, supplied evidence] F acceptance of b9fd3775 is **+629 CORRECT_STATIC_BINDING**, 628 JS_EXPORT_HOP and 1 NONRELATIVE_EXPORT_HOP, zero added/removed keys, 419 member-written terminals. All **350 ABSENT** hop symbols are noncontributing star branches whose full barrel binds the terminal; **98/98 unresolved** rows retain the complete P1 result. Total F is **2,942**, from P1 2,313. The worker never opens F. See P2-MEASUREMENTS' controller acceptance record.
+
+1. Retain and target-fix the existing prototype for Opus spec review **round 1 of 2** (`/Users/wesleyjinks/prism-evidence/paths/reviews-p2/spec-r1-opus.md`, FIX). W1: an unresolved **non-relative ImportForward** is a **BlockedClaim**, so a legacy star sibling cannot win. ReExport and unresolved relative behavior stay unchanged. Pin A1/A4 in both grammars, complete base refusal, and a killing integration mutant.
+2. Keep the caller-selected config through every hop and retain P1 proof/binding/site/span/forwardability fences. S3's inherited type-only/broken/absent claim treatment is disclosed; its separate provenance design is outside P2.
+3. Fold S1 authority refresh and S2–S6 disclosures; fix the v106 format comment and add H1 cache invalidation coverage if cheap. The three unexplained resolvable rows remain an explicit residual, not an assumed gain.
+4. Run the owner tiers: **one full MCP nextest**, scoped changed-code mutants, fmt/clippy, immediate-rebuild Tier-A matrix, S1b-4 byte identity, X/installed-X/R/T vs P1 **+8/+8/0/0**, all new edges CORRECT. Repair gate cap **2 attempts**, classify at the cap. No baseline changes.
+5. Supply the frozen repaired binary to `CONTROLLER-p2.sh`; the controller re-runs F and compares it with the accepted prototype. **Expected W1 F impact: 0; actual post-repair F impact remains controller-only.** Do not transfer b9fd3775 acceptance to repaired bytes without that run.
+6. Controller commits the enumerated prototype and plan sets separately and squashes the final cumulative prototype for implementation dispatch. No worker Git writes, push, merge, F access, or restart.
+
+---
+
+# Historical P2 dispatch — non-relative export-hop prototype
 
 [INHERITED] Owner authorized this bounded extension on 2026-10-03. Adopt the existing prototype increment; do not rewrite it. No worker Git writes or F reads. Production parent is `proto/tsconfig-paths-p2 @ e80fbf54`; plan parent is `plan/tsconfig-paths-p2 @ 35c481cf`. The worker used an exact gitless prototype tree because the physical clone was not switched by the controller. Source, frozen binary and receipts are under `target/p2-nonrelative/`.
 
