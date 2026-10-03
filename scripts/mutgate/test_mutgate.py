@@ -232,23 +232,125 @@ class GateRegressionTests(unittest.TestCase):
         (self.root / 'Cargo.toml').write_text(
             '[package]\nname="prism"\nversion="0.0.0"\nedition="2021"\n')
 
-    def gate(self, source, mutations, mode, extra=None, timeout=5):
+    def gate(self, source, mutations, mode=None, extra=None, timeout=5, flags=()):
         (self.root / 'src/lib.rs').write_text(source)
         lane = self.root / 'lane.json'
         lane.write_text(json.dumps({'mutations': mutations, 'extra': extra or {},
                                     'lib_test_prefixes': ['']}))
-        out = self.root / ('report-' + mode)
-        args = ['mutgate', '--lane', str(lane), '--mode', mode, '--jobs', '2',
-                '--timeout', str(timeout), '--out', str(out)]
+        out = self.root / ('report-' + str(mode))
+        args = ['mutgate', '--lane', str(lane), '--jobs', '2',
+                '--timeout', str(timeout), '--out', str(out), *flags]
+        if mode: args += ['--mode', mode]
+        if mode == 'schema': args += ['--since', 'HEAD', '--scope', 'file']
+        output = io.StringIO()
         with patch.object(mutgate, 'ROOT', self.root), patch.object(sys, 'argv', args), \
                 patch.dict(os.environ, {'CARGO_TARGET_DIR': str(self.root / 'target')}), \
-                contextlib.redirect_stdout(io.StringIO()):
+                patch.object(mutgate, 'changed_lines', return_value={'src/lib.rs': {1}}), \
+                contextlib.redirect_stdout(output):
             try:
                 status = mutgate.main()
             except SystemExit as e:
                 status = e.code
+        self.last_output = output.getvalue()
         summary = json.loads((out / 'summary.json').read_text()) if (out / 'summary.json').exists() else {}
         return status, summary
+
+    def test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills(self):
+        fixtures = Path(__file__).with_name('fixtures')
+        mutation = {'m': ['src/lib.rs', 'let ignored = 1;', 'let ignored = 2;', 't']}
+        for fixture in sorted(fixtures.iterdir()):
+            with self.subTest(fixture=fixture.name):
+                observer = self.root / 'src/observer.rs'
+                observer.unlink(missing_ok=True)
+                for p in (fixture / 'src').glob('*.rs'):
+                    (self.root / 'src' / p.name).write_bytes(p.read_bytes())
+                source = (fixture / 'src/lib.rs').read_text()
+                for mode, flags in ((None, ()), (None, ('--since', 'HEAD', '--scope', 'file', '--authoritative')),
+                                    ('schema', ())):
+                    status, summary = self.gate(source, mutation, mode, flags=flags)
+                    advisory = mode == 'schema'
+                    self.assertEqual(summary['selected'], 1)
+                    self.assertEqual(status, 0 if advisory else 1)
+                    self.assertEqual(summary['authoritative'], not advisory)
+                    self.assertIn('ADVISORY' if advisory else 'AUTHORITATIVE', self.last_output)
+                    self.assertEqual(summary['results']['m']['verdict'], 'KILLED' if advisory else 'SURVIVED')
+                    self.assertEqual(summary['results']['m']['mode'], 'schema' if advisory else 'text')
+                    self.assertTrue(summary['results']['m']['admissible'])
+                    self.assertTrue(all(r['admissible'] and not r['killed']
+                                        for r in summary['baselines']['source'].values()))
+
+    def test_schema_without_scope_and_authoritative_schema_are_rejected(self):
+        source = 'fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n'
+        mutation = {'m': ['src/lib.rs', '{ 1 }', '{ 2 }', 't']}
+        for flags in (('--mode', 'schema'), ('--since', 'HEAD', '--mode', 'schema', '--authoritative'),
+                      ('--jobs', '0')):
+            with self.subTest(flags=flags):
+                status, _ = self.gate(source, mutation, flags=flags)
+                self.assertEqual(status, 2)
+
+    def test_scoped_default_is_advisory_and_explicit_text_is_authoritative(self):
+        source = 'fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n'
+        mutation = {'m': ['src/lib.rs', '{ 1 }', '{ 2 }', 't']}
+        for mode in (None, 'text'):
+            with self.subTest(mode=mode):
+                status, summary = self.gate(source, mutation, mode, flags=('--since', 'HEAD'))
+                self.assertEqual(status, 0)
+                self.assertEqual(summary['authoritative'], mode == 'text')
+
+    def test_parallel_text_workers_have_private_trees_targets_and_cleanup(self):
+        source = 'fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n'
+        mutations = {str(n): ['src/lib.rs', '{ 1 }', '{ ' + str(n) + ' }', 't'] for n in (2, 3, 4)}
+        builds = []
+        original = mutgate.build
+        def record(tree, target, targets):
+            builds.append((tree, target, (tree / 'src/lib.rs').read_text()))
+            return original(tree, target, targets)
+        with patch.object(mutgate, 'build', side_effect=record):
+            status, summary = self.gate(source, mutations)
+        self.assertEqual(status, 0)
+        worker_builds = builds[1:]
+        self.assertEqual(len({target for _, target, _ in worker_builds}), 2)
+        self.assertEqual(len({tree for tree, _, _ in worker_builds}), 2)
+        self.assertEqual(sum(text == source for _, _, text in worker_builds), 2)
+        self.assertEqual({text for _, _, text in worker_builds if text != source},
+                         {source.replace('{ 1 }', '{ ' + str(n) + ' }') for n in (2, 3, 4)})
+        self.assertTrue(summary['resources']['workers_cleaned'])
+        self.assertGreater(summary['resources']['worker_disk_peak_bytes'], 0)
+        self.assertFalse(list((self.root / 'target/mutgate').glob('workers-*')))
+        self.assertEqual((self.root / 'src/lib.rs').read_text(), source)
+
+    def test_worker_relocation_failure_cannot_kill_an_equivalent_mutant(self):
+        self.root = self.root.resolve()
+        warm_path = str(self.root / 'target/mutgate/tree')
+        mutation = {'m': ['src/lib.rs', 'let ignored = 1;', 'let ignored = 2;', 't']}
+        for compile_failure in (False, True):
+            with self.subTest(compile_failure=compile_failure):
+                source = 'fn f() { let ignored = 1; }\n'
+                if compile_failure:
+                    source += f'const _: [(); {len(warm_path)}] = [(); env!("CARGO_MANIFEST_DIR").len()];\n'
+                    source += '#[test]\nfn t() { f(); }\n'
+                else:
+                    source += '#[test]\nfn t() { f(); assert_eq!(env!("CARGO_MANIFEST_DIR"), ' + json.dumps(warm_path) + '); }\n'
+                status, summary = self.gate(source, mutation)
+                self.assertEqual(status, 1)
+                self.assertEqual(summary['selected'], 1)
+                self.assertEqual(summary['results']['m']['verdict'], 'INADMISSIBLE')
+                self.assertIn('baseline', summary['results']['m']['error'])
+                self.assertTrue(all(r['admissible'] and not r['killed'] for r in summary['baselines']['source'].values()))
+                self.assertEqual(len(summary['baselines']['workers']), 1)
+                self.assertTrue(summary['resources']['workers_cleaned'])
+
+    def test_seed_failure_refuses_entire_population_and_cleans_workers(self):
+        source = 'fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n'
+        mutations = {str(n): ['src/lib.rs', '{ 1 }', '{ ' + str(n) + ' }', 't'] for n in (2, 3)}
+        with patch.object(mutgate, 'seed_target', side_effect=OSError('seed refused')):
+            status, summary = self.gate(source, mutations)
+        self.assertEqual(status, 1)
+        self.assertEqual(summary['selected'], 2)
+        self.assertTrue(all(r['verdict'] == 'INADMISSIBLE' and 'seed refused' in r['error']
+                            for r in summary['results'].values()))
+        self.assertTrue(summary['resources']['workers_cleaned'])
+        self.assertFalse(list((self.root / 'target/mutgate').glob('workers-*')))
 
     def test_w1_constructed_false_kill_survives_both_modes(self):
         source = ('pub fn f() -> u32 {\n    let ignored = 1;\n    line!()\n}\n'
@@ -411,6 +513,29 @@ class GateRegressionTests(unittest.TestCase):
                 self.assertEqual(mutgate.verdict(summary['results']['B']), 'KILLED')
                 tree = self.root / 'target/mutgate/tree/src/lib.rs'
                 self.assertEqual(tree.read_text(), source)
+
+
+class WorkerSeedTests(unittest.TestCase):
+    def test_copy_and_failed_clone_fallback_are_private_and_exclude_workers(self):
+        with tempfile.TemporaryDirectory(prefix='mutgate-seed-') as tmp:
+            root = Path(tmp); source = root / 'warm'
+            (source / 'debug').mkdir(parents=True)
+            (source / 'debug/artifact').write_bytes(b'original')
+            (source / 'mutgate/workers').mkdir(parents=True)
+            (source / 'mutgate/workers/secret').write_text('do not copy')
+            for platform in ('linux', 'darwin'):
+                with self.subTest(platform=platform), patch.object(mutgate.sys, 'platform', platform), \
+                        patch.object(mutgate.subprocess, 'run') as run:
+                    def failed_clone(*args, **kwargs):
+                        (root / platform / 'partial').write_text('partial clone')
+                        return type('Result', (), {'returncode': 1})()
+                    run.side_effect = failed_clone
+                    target = root / platform
+                    self.assertEqual(mutgate.seed_target(source, target), 'copy')
+                    self.assertFalse((target / 'mutgate').exists())
+                    self.assertFalse((target / 'partial').exists())
+                    (target / 'debug/artifact').write_bytes(b'changed')
+                    self.assertEqual((source / 'debug/artifact').read_bytes(), b'original')
 
 
 class AdmissibilityTests(unittest.TestCase):

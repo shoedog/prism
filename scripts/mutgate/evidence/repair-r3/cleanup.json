@@ -1,0 +1,11 @@
+{
+  "completed_utc": "2026-10-03T19:48:42.191422+00:00",
+  "removed_path": "/Users/wesleyjinks/code/prism-mutation-gate/target",
+  "existed_at_session_start": false,
+  "before_allocated_bytes": 5671170048,
+  "after_exists": false,
+  "workers_cleaned_in_all_reports": true,
+  "all_certification_processes_completed": true,
+  "preserved_evidence": "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/evidence/repair-r3",
+  "physical_reclaim_not_measured": true
+}

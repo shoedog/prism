@@ -1,10 +1,12 @@
-# mutgate: generated function-body mutant schemata
+# mutgate: authoritative text gate and advisory scoped checks
 
-A pre-merge mutation gate. Eligible mutants become `match` arms inside their
-enclosing function in a scratch copy, built together and selected with
-`PRISM_MUTANT`. Location-sensitive schema failures require a clean text-mode
-confirmation; other admissible schema kills stand directly. Production `src/`
-is never edited.
+Before merge, run the full gate. Every authoritative verdict comes from an
+isolated text mutant containing only its own main and `extra` edits. Source
+baseline preflight must pass first. Schema mode never decides an authoritative
+verdict. Production `src/` is never edited.
+
+For each review round, use a fast advisory scoped run, or add `--authoritative`
+when that round needs certainty about the selected mutants.
 
 ## Defining a lane
 
@@ -40,100 +42,93 @@ Each `mutants/<lane>.json` has a flat `mutations` map:
 ## Commands
 
 ```bash
-python3 scripts/mutgate/mutgate.py                      # full gate, every lane file
-python3 scripts/mutgate/mutgate.py --since main                       # scoped: line-level
-python3 scripts/mutgate/mutgate.py --since main --scope fn            # scoped: whole enclosing fn
-python3 scripts/mutgate/mutgate.py --since main --scope file          # scoped: all mutants in changed files
+python3 scripts/mutgate/mutgate.py                              # authoritative full gate, pre-merge
+python3 scripts/mutgate/mutgate.py --jobs 2                     # two isolated text workers
+python3 scripts/mutgate/mutgate.py --since main --scope fn       # ADVISORY scoped round
+python3 scripts/mutgate/mutgate.py --since main --scope line     # ADVISORY overlapping anchors
+python3 scripts/mutgate/mutgate.py --since main --scope file     # ADVISORY changed files
+python3 scripts/mutgate/mutgate.py --since main --scope fn --authoritative
 python3 scripts/mutgate/mutgate.py --lane mutants/lane-p-tsconfig-paths.json --only I17-no-project-reference-cut
-python3 scripts/mutgate/mutgate.py --plan-only             # print the schema plan, build nothing
+python3 scripts/mutgate/mutgate.py --plan-only                   # planner diagnostics, no verdicts/build
+python3 -m unittest                                            # all driver regressions
 ```
 
-Other flags: `--jobs N` (parallel test runs, default half the CPU count),
-`--mode schema|text` (force text-mode, skipping schema rendering),
-`--timeout SECS` (per-test, default 120; a timeout fails the gate),
-`--out DIR` (summary location override).
+`--jobs N` sets the number of isolated text workers and parallel baseline/schema
+test runs (default **4**, positive integer). `--timeout SECS` limits each test
+(default 120). `--out DIR` overrides the report directory. `--mode text` is an
+alias for authoritative evaluation; `--mode schema` requires `--since` and
+cannot be combined with `--authoritative`. `--lane` and `--only` restrict the
+population, so a partial selection does not certify the full lane.
 
-## Exit codes and output
+## Soundness contracts and exit codes
 
-- Exit `0` only if every selected mutant is admissible and KILLED. SURVIVED,
-  TIMEOUT and INADMISSIBLE each fail the gate. Timeouts never count as kills;
-  this driver provides no timeout exemptions.
-- Both modes compile unmutated source and preflight every selected selector.
-  Schema mode also preflights the inactive schema tree. A red, missing,
-  ignored or timed-out baseline makes that selector's mutants INADMISSIBLE.
-- The summary (per-mutant verdict, timings, mode) is written to
-  `$CARGO_TARGET_DIR/mutgate/report/summary.json` (default
-  `./target/mutgate/report/summary.json`).
-- Build state lives under `$CARGO_TARGET_DIR/mutgate/` (the scratch tree at
-  `mutgate/tree`). Cargo artifacts are reused in `$CARGO_TARGET_DIR`; remove
-  that build directory to reclaim them. Each text mutant starts from original
-  source with only its own main and `extra` edits; no inactive schemas remain.
+**Authoritative full gate:** no `--since` means pure text mode. Every mutant is
+built separately from original source with only its own edits, with a private
+scratch tree and private `CARGO_TARGET_DIR`. No schema bodies or helper are
+injected, and no lexical observer detector is used to accept a verdict. An
+unmutated-source build and preflight of every selector precede mutation, both
+in the shared warm tree and each worker's own tree/target. Worker preflight
+refuses relocation-induced test or compile failures, including observations
+of `CARGO_MANIFEST_DIR`, rather than counting them as mutation kills.
 
-## Tiers
+**Advisory scoped mode:** `--since REV --scope line|fn|file` defaults to schema
+mode. Eligible function-body edits are compiled together as `match` arms and
+activated via `PRISM_MUTANT`. Output lines say **ADVISORY**, and summary JSON
+contains `"authoritative": false`. Schema rendering changes source locations
+and execution overhead. Lexical demotions and targeted text confirmations
+remain useful heuristics, but cannot establish sound verdicts: macro-generated
+helpers, aliases, location Debug output and caught payloads can falsely kill
+equivalent mutants. Six compiled fixtures retain these counterexamples.
+Even text fallbacks/confirmations do not make a schema run authoritative.
 
-- Scoped round (`--since <ref>`): a local filter for one review round. Target
-  well under 5 minutes. Line/fn scope selects overlapping anchors/functions;
-  file scope selects all mutants in changed files. These do not trace callers
-  or dependencies and can omit mutants affected by helper changes. Missing
-  registry paths/anchors are selected even outside the diff, to fail visibly.
-- Full gate: every lane mutant, at most 15 minutes, ideally 2–3 minutes with
-  reusable Cargo artifacts. The full gate is the
-  authority before merge; a green scoped result cannot replace it.
+**Authoritative scoped mode:** add `--authoritative` (or `--mode text`) to
+apply the text contract to the selected population. This gives certainty about
+those registered mutants, not about all mutants affected by the diff.
 
-Round-2 certification of the current 93-ID lane: all 93 admissible kills in
-both modes, zero ID-bound verdict differences; schema **90.00 s**, pure text
-**513.64 s**, and a nonempty three-mutant synthetic fn-scope control **33.50 s**.
-Of the 93, 89 ran as schemas, four demoted for struct-field edits, and zero
-schema kills required text confirmation. See the [per-ID certification table](evidence/repair-r2/certification-table.md)
-and [demotion table](evidence/repair-r2/demotion-table.md). These timings are
-machine/cache dependent; the scoped measurement injects changed lines because
-the production source diff is empty.
+Both modes exit **0** when every selected verdict is admissible and KILLED;
+SURVIVED, TIMEOUT and INADMISSIBLE exit **1**. Advisory exit 0 is only an
+advisory result. Every selector must run exactly one non-ignored test; all
+selectors must be admissible and at least one must fail on the mutant. Timeouts
+never count as kills. A red, missing, ignored or timed-out source baseline
+makes its mutants INADMISSIBLE, preserving the selected denominator. Advisory
+mode also preflights inactive schemas. A zero selection is explicitly reported
+as `selected: 0`; it provides no mutation coverage.
 
-## Limits
+Scopes are local filters: line scope selects overlapping anchors, fn scope
+the enclosing function, and file scope all mutants in changed files. They do
+not trace callers/dependencies and can omit effects of helper changes. Missing
+registered paths/anchors are selected even outside the diff and fail visibly.
+A green scoped run cannot replace the full pre-merge gate.
 
-- A mutant whose edit falls outside any function body, or whose unit fails
-  to compile as a schema, demotes automatically to a one-off incremental
-  text-mode build; this is normal, not an error.
-- A function returning `impl Trait` is excluded from schema rendering
-  (duplicating its body across match arms can fail RPIT's single-hidden-type
-  inference when the body contains a closure or other anonymous-type
-  expression) and runs any mutant touching it in text mode instead.
-- Both original and mutated bodies demote for direct `line!`, `column!`,
-  `file!`, `std::panic::Location`, `Location::caller`, and `#[track_caller]`
-  (on the function or nested callees). `module_path!` is conservatively treated
-  as an observer, as is `dbg!`, which prints a location. Plain `panic!`,
-  `unwrap` and `expect` do not themselves make a body location-sensitive.
-- The safe std macro allowlist is `vec`, `format`, `format_args`,
-  `format_args_nl`, `write`, `writeln`, `print`, `println`, `eprint`, `eprintln`,
-  `assert`, `assert_eq`, `assert_ne`, `debug_assert`, `debug_assert_eq`,
-  `debug_assert_ne`, `matches`, `panic`, `unreachable`, `todo`, `unimplemented`,
-  `concat`, `stringify`, `cfg`, `env`, `option_env`, `include_str`, `include_bytes`.
-  Arguments are still scanned for observers. Local `macro_rules!` definitions
-  are scanned across the crate, including transitive expansions and std-name
-  shadowing; a known-safe local wrapper remains in schema mode. Same-name
-  definitions are conservatively merged rather than resolving Rust scopes.
-  New/changed nested definitions are inspected in the mutant too.
-- The external safe list contains only `serde_json::json` (JSON construction
-  without location APIs). All other external macros, including `anyhow::{anyhow,
-  bail, ensure}`, `log::*`, `tracing::*`, and `tokio::*`, plus unresolved imported
-  macros and `include!`, demote as `unaudited-macro`. Inspect an expansion before
-  adding it to the safe list; recognition alone is insufficient.
-- A schema kill needs text confirmation only when its **failure payload** has
-  a numeric `.rs:line[:column]` location in one of that mutant's edited files,
-  or its killing test uses location APIs or `should_panic(expected="… .rs: …")`.
-  Rust's automatic panic diagnostic header is excluded: it reports provenance,
-  rather than proving the test observed it. The full output is scanned before
-  tail truncation. The test scan includes referenced constants and helpers
-  (for example `AFTER = line!()`); same-name items are conservatively merged.
-  The summary records confirmation counts and reasons, and preserves the
-  schema observation separately from the confirmed verdict.
-- These are lexical protections, not a Rust resolver or a general equivalence
-  proof. Aliased location APIs, dynamic calls, proc/attribute macro expansions,
-  external helpers or hooks that observe locations without exposing them in
-  failure text can escape the targeted checks. Keep such mutants/tests in text
-  mode. Each new lane must be certified by ID against pure text mode; this does
-  not certify arbitrary future tests or external expansions.
-- No perf or memory mutants: the schema's per-call string match on
-  `PRISM_MUTANT` changes timing and allocation behavior, so this gate is
-  unsuitable for timing- or memory-sensitive assertions. Keep those on their
-  own driver (see `mutants.py` for the kernel lane's resource mutants).
+## Build state, resources and cleanup
+
+The shared warm build lives in `$CARGO_TARGET_DIR` (default `./target`); its
+baseline scratch tree is `mutgate/tree`. Each text worker seeds a private target
+once from the shared warm target using APFS `cp -cR` when available, otherwise
+real copies. Mutable Cargo artifacts are never hard-linked. Workers restore
+source between mutants; their trees and targets are deleted after execution,
+including handled failures. Only the shared warm cache and reports remain.
+Disk grows with the active worker count rather than the number of mutants.
+
+The default summary is `$CARGO_TARGET_DIR/mutgate/report/summary.json`, containing
+mode, authority, selected IDs, baselines, verdicts, timings, seed methods and
+sampled peak worker disk. `du` counts allocated blocks and can count shared APFS
+clone extents repeatedly; it does not measure unique physical storage. Remove
+the shared target when its warm cache is no longer needed; save reports first.
+
+The warm lane-P target is **at most five minutes at four workers**. Measured
+round-3 timings, peak disk/RSS, exact ID comparison against r2 pure text and
+full test results are recorded in [repair-r3 evidence](evidence/repair-r3/README.md).
+Earlier schema timings are historical advisory measurements, not a sound full
+gate certification.
+
+## Advisory planner limits
+
+Edits outside function bodies, functions returning `impl Trait`, direct location
+observers and unaudited macros demote to isolated text. Failed schema compilation
+also demotes implicated units (three-build cap). Local macro expansion scans,
+helper/constant test scans and failure payload scans remain lexical heuristics;
+aliases, dynamic calls, external helpers and generated code can escape them.
+The full authoritative gate does not depend on these protections. Performance
+or memory-sensitive tests need a dedicated resource driver rather than schema
+instrumentation (see `mutants.py`).

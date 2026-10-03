@@ -546,7 +546,7 @@ def parallel_text_mode(muts, ids, target, timeout, jobs, log):
     count = min(jobs, len(ids))
     resources = {'workers': count, 'seed_methods': [], 'worker_disk_peak_bytes': 0,
                  'disk_measurement': 'du -sk; allocated blocks, shared clone extents may be counted repeatedly',
-                 'workers_cleaned': False, 'worker_baselines': {}}
+                 'workers_cleaned': False}
     with tempfile.TemporaryDirectory(prefix='workers-', dir=target / 'mutgate') as scratch:
         scratch = Path(scratch)
         stop = threading.Event()
@@ -563,40 +563,18 @@ def parallel_text_mode(muts, ids, target, timeout, jobs, log):
             home = scratch / str(index); home.mkdir()
             private_target = home / 'target'
             tree = home / 'tree'
-            preflight = {}
             try:
                 method = seed_target(target, private_target)
                 log(f'text worker {index + 1}/{count}: {len(batch)} mutants, seed={method}')
-                # Relocation itself can change env!("CARGO_MANIFEST_DIR"),
-                # include paths, or build-script output. Validate original source
-                # in THIS worker context before attributing any failure to edits.
-                sync_tree(tree, {})
-                selected = {mid: muts[mid] for mid in batch}
-                tgts = {test_target(m, t) for m in selected.values() for t in m['tests']}
-                start = time.monotonic(); rc, exes, _, err = build(tree, private_target, tgts)
-                preflight['build_seconds'] = round(time.monotonic() - start, 2)
-                results = {}
-                if rc:
-                    preflight['error'] = 'worker baseline compile'
-                    results = {mid: {'mode': 'text', 'killed': False, 'admissible': False,
-                                     'error': 'worker baseline compile', 'log_tail': err[-1500:]} for mid in batch}
-                else:
-                    base = baseline(selected, exes, private_target, timeout, 1)
-                    preflight['runs'] = {str(k): v for k, v in base.items()}
-                    refuse_red_baselines(selected, base, results, 'text')
-                    log(f'text worker {index + 1}: baseline {len(base)} selectors, {len(results)} inadmissible mutants')
-                    ready = [mid for mid in batch if mid not in results]
-                    if ready: results.update(text_mode(muts, ready, private_target, timeout, log, tree))
-                return results, method, preflight
+                return text_mode(muts, batch, private_target, timeout, log, tree), method
             except Exception as e:
                 return {mid: {'mode': 'text', 'killed': False, 'admissible': False,
-                              'error': f'worker failure: {e}'} for mid in batch}, 'failed', preflight
+                              'error': f'worker failure: {e}'} for mid in batch}, 'failed'
         results = {}
         try:
             with cf.ThreadPoolExecutor(count) as executor:
-                for index, (batch, method, preflight) in enumerate(executor.map(worker, range(count))):
+                for batch, method in executor.map(worker, range(count)):
                     results.update(batch); resources['seed_methods'].append(method)
-                    resources['worker_baselines'][str(index)] = preflight
         finally:
             stop.set(); watcher.join(); sample_disk()
     resources['workers_cleaned'] = not scratch.exists()
@@ -763,7 +741,6 @@ def main():
         t = time.monotonic()
         text_results, resources = parallel_text_mode(muts, text_ids, target, a.timeout, a.jobs, log)
         results.update(text_results)
-        baselines['workers'] = resources.pop('worker_baselines')
         timings['text_mode'] = round(time.monotonic() - t, 2)
         for mid, observation in schema_observations.items():
             results[mid]['mode'] = 'schema+text'

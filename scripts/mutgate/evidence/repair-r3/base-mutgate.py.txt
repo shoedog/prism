@@ -1,13 +1,27 @@
 #!/usr/bin/env python3
-"""Authoritative isolated text gate; fast scoped schema observations are advisory.
+"""prism mutation gate: generated function-body mutant schemata + text-mode fallback.
 
-Full runs use text mode with four private workers by default. --since REV
-selects a local scope and defaults to ADVISORY schema mode; --authoritative
-or --mode text evaluates that selection using isolated text builds instead.
-Production source is never edited. Workers clone/copy the shared warm target
-once and are removed after execution; the shared warm target remains reusable.
+One command:
+    python3 scripts/mutgate/mutgate.py                 # full gate (every lane file)
+    python3 scripts/mutgate/mutgate.py --since main    # scoped: mutants whose anchor
+                                                       # touches lines changed since main
+Options: --lane FILE (repeatable), --only ID (repeatable), --jobs N, --mode schema|text,
+         --scope line|fn|file, --timeout SECS, --out DIR, --plan-only.
+Build state lives in $CARGO_TARGET_DIR (default ./target) under mutgate/; it is reused across
+rounds for incremental builds. Reclaim it with `rm -rf $CARGO_TARGET_DIR/mutgate`.
+
+Production source is never edited. The schemata are generated into a scratch copy
+of the tree under $CARGO_TARGET_DIR/mutgate/tree; each mutated function body becomes
+
+    { match crate::__mutant() { "ID" => { <mutated body> } _ => { <original body> } } }
+
+Bodies with direct location observers or unaudited macro expansions stay in text mode.
+Only location-sensitive schema failures need clean-text confirmation.
+A mutant whose edit
+falls outside a function body (struct fields, attributes, consts), or whose unit
+fails to compile as a schema, runs in text mode (one incremental build per mutant).
 """
-import argparse, concurrent.futures as cf, json, os, re, shutil, subprocess, sys, tempfile, threading, time
+import argparse, concurrent.futures as cf, json, os, re, subprocess, sys, time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -516,93 +530,6 @@ def text_mode(muts, ids, target, timeout, log, tree=None):
     return res
 
 
-def seed_target(source, target):
-    """Private Cargo cache: APFS copy-on-write clones, otherwise real copies.
-
-    Never hard-link mutable Cargo artifacts. Exclude mutgate (which contains
-    the destination workers) to prevent recursive copying of the scratch tree.
-    """
-    target.mkdir(parents=True)
-    entries = [p for p in source.iterdir() if p.name != 'mutgate']
-    if sys.platform == 'darwin':
-        for p in entries:
-            dst = target / p.name
-            result = subprocess.run(['cp', '-cR', str(p), str(dst)], capture_output=True)
-            if result.returncode:
-                # Discard a partial clone before switching the entire seed to copy.
-                shutil.rmtree(target); target.mkdir()
-                break
-        else:
-            return 'apfs-clone'
-    for p in entries:
-        dst = target / p.name
-        if p.is_dir(): shutil.copytree(p, dst, symlinks=True)
-        else: shutil.copy2(p, dst, follow_symlinks=False)
-    return 'copy'
-
-
-def parallel_text_mode(muts, ids, target, timeout, jobs, log):
-    """Each serial worker owns its source tree AND Cargo target for its lifetime."""
-    count = min(jobs, len(ids))
-    resources = {'workers': count, 'seed_methods': [], 'worker_disk_peak_bytes': 0,
-                 'disk_measurement': 'du -sk; allocated blocks, shared clone extents may be counted repeatedly',
-                 'workers_cleaned': False, 'worker_baselines': {}}
-    with tempfile.TemporaryDirectory(prefix='workers-', dir=target / 'mutgate') as scratch:
-        scratch = Path(scratch)
-        stop = threading.Event()
-        def sample_disk():
-            p = subprocess.run(['du', '-sk', str(scratch)], capture_output=True, text=True)
-            if p.returncode == 0:
-                resources['worker_disk_peak_bytes'] = max(resources['worker_disk_peak_bytes'],
-                                                         int(p.stdout.split()[0]) * 1024)
-        def monitor():
-            while not stop.wait(1): sample_disk()
-        watcher = threading.Thread(target=monitor, daemon=True); watcher.start()
-        def worker(index):
-            batch = ids[index::count]
-            home = scratch / str(index); home.mkdir()
-            private_target = home / 'target'
-            tree = home / 'tree'
-            preflight = {}
-            try:
-                method = seed_target(target, private_target)
-                log(f'text worker {index + 1}/{count}: {len(batch)} mutants, seed={method}')
-                # Relocation itself can change env!("CARGO_MANIFEST_DIR"),
-                # include paths, or build-script output. Validate original source
-                # in THIS worker context before attributing any failure to edits.
-                sync_tree(tree, {})
-                selected = {mid: muts[mid] for mid in batch}
-                tgts = {test_target(m, t) for m in selected.values() for t in m['tests']}
-                start = time.monotonic(); rc, exes, _, err = build(tree, private_target, tgts)
-                preflight['build_seconds'] = round(time.monotonic() - start, 2)
-                results = {}
-                if rc:
-                    preflight['error'] = 'worker baseline compile'
-                    results = {mid: {'mode': 'text', 'killed': False, 'admissible': False,
-                                     'error': 'worker baseline compile', 'log_tail': err[-1500:]} for mid in batch}
-                else:
-                    base = baseline(selected, exes, private_target, timeout, 1)
-                    preflight['runs'] = {str(k): v for k, v in base.items()}
-                    refuse_red_baselines(selected, base, results, 'text')
-                    log(f'text worker {index + 1}: baseline {len(base)} selectors, {len(results)} inadmissible mutants')
-                    ready = [mid for mid in batch if mid not in results]
-                    if ready: results.update(text_mode(muts, ready, private_target, timeout, log, tree))
-                return results, method, preflight
-            except Exception as e:
-                return {mid: {'mode': 'text', 'killed': False, 'admissible': False,
-                              'error': f'worker failure: {e}'} for mid in batch}, 'failed', preflight
-        results = {}
-        try:
-            with cf.ThreadPoolExecutor(count) as executor:
-                for index, (batch, method, preflight) in enumerate(executor.map(worker, range(count))):
-                    results.update(batch); resources['seed_methods'].append(method)
-                    resources['worker_baselines'][str(index)] = preflight
-        finally:
-            stop.set(); watcher.join(); sample_disk()
-    resources['workers_cleaned'] = not scratch.exists()
-    return results, resources
-
-
 def verdict(r):
     if any(x.get('timeout') for x in r.get('runs', [])): return 'TIMEOUT'
     if not r['admissible']: return 'INADMISSIBLE'
@@ -641,23 +568,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--lane', action='append'); ap.add_argument('--only', action='append')
     ap.add_argument('--since'); ap.add_argument('--scope', choices=['line', 'fn', 'file'], default='line')
-    ap.add_argument('--mode', choices=['schema', 'text'], default=None)
-    ap.add_argument('--authoritative', action='store_true', help='evaluate scoped mutants in isolated text mode')
-    ap.add_argument('--jobs', type=int, default=4)
+    ap.add_argument('--mode', choices=['schema', 'text'], default='schema')
+    ap.add_argument('--jobs', type=int, default=max(1, (os.cpu_count() or 4) // 2))
     ap.add_argument('--timeout', type=float, default=120.0)
     ap.add_argument('--out', default=None)
     ap.add_argument('--plan-only', action='store_true')
     a = ap.parse_args()
-    if a.jobs < 1: ap.error('--jobs must be positive')
-    if a.mode == 'schema' and (not a.since or a.authoritative):
-        ap.error('schema verdicts are advisory: use --since REV without --authoritative')
-    a.mode = 'text' if a.authoritative else (a.mode or ('schema' if a.since else 'text'))
-    authoritative = a.mode == 'text'
-    label = 'AUTHORITATIVE' if authoritative else 'ADVISORY'
     T0 = time.monotonic()
-    target = Path(os.environ.get('CARGO_TARGET_DIR', ROOT / 'target')).resolve()
+    target = Path(os.environ.get('CARGO_TARGET_DIR', ROOT / 'target'))
     out = Path(a.out or target / 'mutgate' / 'report'); out.mkdir(parents=True, exist_ok=True)
-    def log(msg): print(f'[{time.monotonic() - T0:7.1f}s] {label} {msg}', flush=True)
+    def log(msg): print(f'[{time.monotonic() - T0:7.1f}s] {msg}', flush=True)
     lanes = a.lane or sorted(str(p) for p in ROOT.glob(LANES_GLOB))
     muts = load_population(lanes)
     src_text = {str(p.relative_to(ROOT)): p.read_text() for p in (ROOT / 'src').rglob('*.rs')}
@@ -668,10 +588,9 @@ def main():
     log(f'{len(muts)} mutants in {len(lanes)} lane file(s); selected {len(sel)}')
     timings = {}
     results = {}
-    units, static = plan_schemata(sel, src_text) if a.mode == 'schema' or a.plan_only else ({}, {})
+    units, static = plan_schemata(sel, src_text)
     if a.plan_only:
-        (out / 'schemata-plan.json').write_text(json.dumps({'units': len(units), 'static': static,
-                                                         'authoritative': authoritative, 'execution_mode': a.mode}, indent=2))
+        (out / 'schemata-plan.json').write_text(json.dumps({'units': len(units), 'static': static}, indent=2))
         return 1 if invalid_anchors(sel, src_text) else 0
     for mid, reason in invalid_anchors(sel, src_text).items():
         results[mid] = {'mode': 'none', 'killed': False, 'admissible': False, 'error': reason}
@@ -758,12 +677,8 @@ def main():
         text_ids = [i for i in eligible if i not in results and (i in static or i in schema_observations)]
     else:
         text_ids = list(eligible)
-    resources = {}
     if text_ids:
-        t = time.monotonic()
-        text_results, resources = parallel_text_mode(muts, text_ids, target, a.timeout, a.jobs, log)
-        results.update(text_results)
-        baselines['workers'] = resources.pop('worker_baselines')
+        t = time.monotonic(); results.update(text_mode(muts, text_ids, target, a.timeout, log, tree))
         timings['text_mode'] = round(time.monotonic() - t, 2)
         for mid, observation in schema_observations.items():
             results[mid]['mode'] = 'schema+text'
@@ -772,9 +687,7 @@ def main():
     if eligible: sync_tree(tree, {})
     timings['total'] = round(time.monotonic() - T0, 2)
     killed = sum(verdict(r) == 'KILLED' for r in results.values()); adm = sum(r['admissible'] for r in results.values())
-    summary = {'authoritative': authoritative, 'label': label, 'execution_mode': a.mode, 'jobs': a.jobs,
-               'since': a.since, 'scope': a.scope if a.since else None,
-               'selected': len(sel), 'killed': killed, 'admissible': adm, 'timings': timings, 'resources': resources,
+    summary = {'selected': len(sel), 'killed': killed, 'admissible': adm, 'timings': timings,
                'baselines': baselines, 'static': static,
                'text_confirmations': len(schema_observations),
                'results': {mid: dict(r, verdict=verdict(r)) for mid, r in results.items()}}

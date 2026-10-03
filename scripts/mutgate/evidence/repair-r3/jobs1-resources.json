@@ -1,0 +1,21 @@
+{
+  "command": [
+    "/Library/Developer/CommandLineTools/usr/bin/python3",
+    "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/mutgate.py",
+    "--jobs",
+    "1",
+    "--out",
+    "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/evidence/repair-r3/jobs1"
+  ],
+  "exit": 0,
+  "wall_seconds": 471.46,
+  "monitor_wall_seconds": 471.72,
+  "peak_rusage_rss_bytes": 2087731200,
+  "peak_target_disk_bytes": 3560153088,
+  "samples": 884,
+  "sample_interval_seconds": 0.5,
+  "measurement": "macOS getrusage(RUSAGE_CHILDREN) maximum RSS in bytes, including nested waited children (not aggregate concurrent RSS); sampled du -sk target blocks (APFS shared extents can be counted repeatedly)",
+  "measurement_errors": [
+    "du: du: /Users/wesleyjinks/code/prism-mutation-gate/target/mutgate/workers-xpmcm7fj/0/target/debug/.fingerprint/shlex-542c2df3577692c3: No such file or directory\ndu: /Users/wesleyjinks/code/prism-mutation-gate/target/mutgate/workers-xpmcm7fj/0/target/debug/.fingerprint/generic-array-90299ebd2a8d37e0: No such file or directory"
+  ]
+}

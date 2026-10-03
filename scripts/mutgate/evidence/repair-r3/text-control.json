@@ -1,0 +1,98 @@
+[
+  {
+    "fixture": "aliased-Location",
+    "exit": 1,
+    "verdict": "SURVIVED",
+    "baseline": {
+      "('lib', 't')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.004,
+        "log_tail": "\nrunning 1 test\ntest t ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+        "failure_locations": []
+      }
+    }
+  },
+  {
+    "fixture": "aliased-other-module",
+    "exit": 1,
+    "verdict": "SURVIVED",
+    "baseline": {
+      "('lib', 't')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.003,
+        "log_tail": "\nrunning 1 test\ntest t ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+        "failure_locations": []
+      }
+    }
+  },
+  {
+    "fixture": "debug-aliased-Location",
+    "exit": 1,
+    "verdict": "SURVIVED",
+    "baseline": {
+      "('lib', 't')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.003,
+        "log_tail": "\nrunning 1 test\ntest t ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+        "failure_locations": []
+      }
+    }
+  },
+  {
+    "fixture": "generated-should-panic",
+    "exit": 1,
+    "verdict": "SURVIVED",
+    "baseline": {
+      "('lib', 't')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.003,
+        "log_tail": "\nrunning 1 test\ntest t - should panic ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+        "failure_locations": []
+      }
+    }
+  },
+  {
+    "fixture": "generated-track-caller",
+    "exit": 1,
+    "verdict": "SURVIVED",
+    "baseline": {
+      "('lib', 't')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.003,
+        "log_tail": "\nrunning 1 test\ntest t ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+        "failure_locations": []
+      }
+    }
+  },
+  {
+    "fixture": "panic-without-rs-colon",
+    "exit": 1,
+    "verdict": "SURVIVED",
+    "baseline": {
+      "('lib', 't')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.003,
+        "log_tail": "\nrunning 1 test\ntest t ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+        "failure_locations": []
+      }
+    }
+  }
+]
