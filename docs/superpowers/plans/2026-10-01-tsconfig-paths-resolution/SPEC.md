@@ -1,3 +1,71 @@
+# Current P2 amendment — non-relative export hops
+
+[INHERITED] Owner authorized the non-relative prototype on 2026-10-03, after the controller partitioned 717 remaining native-callable JS_EXPORT_HOP rows into 697 nonrelative_hop, 18 binding/site guards and 2 directory literals. Of the 697, standalone TypeScript module resolution reports 599 JS-secondary and 98 unresolved; hop export names are PRESENT 249, ABSENT 350, unresolved 98. These supplied counts are not this worker's private measurement.
+
+[MEASURED] P2 reuses the reviewed P1 alias resolver at a non-relative export/import-forward hop. `resolve_in` is the extracted existing resolver body: paths selection, supported inherited baseUrl/substitution origin, ambient fences, indexed/readable source, singleton candidates, Node10 priority-pass absence, allowJs and all config/membership refusals remain unchanged. Bare baseUrl discovery, packages/node_modules, package directories, explicit non-TS substitutions and competing candidates gain no authority.
+
+The caller's selected config path is the projection key. Both graph export closure and loader dependency priming carry that key through every hop, including mixed relative/alias chains. A barrel's nearer tsconfig is never reselected. The existing per-file ESM extractor now records eligible non-relative ImportForward facts; an unresolved non-relative ImportForward is a BlockedClaim in any projection that cannot resolve it, including the exit where the next hop exceeds MAX_REEXPORT_DEPTH. The non-relative forward predicate is evaluated before the depth guard; both depth and unresolved-module exits preserve the claim. This preserves main's legacy poisoned-claim refusal inside star barrels; a sibling must not win by discarding that claim. Resolvable alias forwards become usable only through the same alias proof. Binding writes/shadows, arrow-forwardability, callable span, wrapper, star completeness, depth/cycle and ambiguity guards are unchanged. Member/subscript writes remain admitted under resolved E5.
+
+Pinned TypeScript 5.9.3 typescript.js SHA256 `3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675`: **127381–127394** passes the program's options into each module-resolution request; **128816–128818** substitutes referenced-project options only (references are outside P1). Alias origin/pattern rules remain **44966–44978 / 46417–46440**, priority passes **45240–45243**, non-relative ancestors/@types/custom roots **45287–45326 / 46298–46445 / 46573–46596**. Relative hops retain the prior P2 local proof, **45327–45394 / 45423–45503**.
+
+A hop module's missing export does not by itself disprove the full caller binding: an `export *` branch can lack the name while another branch supplies it. The old diagnostic reports the first refused branch, not necessarily the contributing branch. `hop-audit.cjs` binds the prior private partition and rechecks that distinction in the actual caller program; it also reports CommonJS/export= markers and unexplained cases. Every changed row is independently certified by `compare.py` against the actual caller import symbol's final callable file/name/start/end span. No certificate is inferred from standalone module resolution or a hop-name count.
+
+[MEASURED — controller aggregate recorded at plan bb4e4743, supplied evidence] F acceptance of the cumulative prototype **b9fd3775**: **629 CORRECT_STATIC_BINDING** gains vs P1 (628 JS_EXPORT_HOP, 1 NONRELATIVE_EXPORT_HOP), 0 added/removed keys, 419 member-written terminals, full-chain span agreement 697/697. All **350 ABSENT** rows are `NONCONTRIBUTING_STAR_BRANCH_FULL_BARREL_BINDS_TERMINAL`; **98/98 unresolved** rows retain their complete P1 results. OQ2/OQ4/OQ5 are closed for this accepted checkpoint. This is recorded controller measurement; the worker has no private observing capability. [INHERITED — owner/controller aggregate, 2026-10-03] The post-W1 F re-run is complete: **+629 CORRECT_STATIC_BINDING unchanged**, impact **0**. Final post-W1b bytes still require direct controller verification; the worker has not opened F.
+
+The inherited star limitation remains disclosed: type-only or broken named claims, absent suppliers, and legacy unresolved ReExport/star branches may be treated as noncontributing even where TypeScript sees a competing first export. Review cases D2/D2b/D3/D6 and base controls E2/E3/E4/A5/A6 demonstrate this existing class; F certification found **0 affected changed rows**. Fixing it needs type-export facts and claim-without-supplier provenance, outside this slice. W1 restores only the newly regressed non-relative ImportForward claim; it does not redefine that inherited class.
+
+Cache remains **106/62**, one bump from main 105/61. v106 also carries the CallGraph serde format change: config-path Strings replace allowJs bools in js_ts_path_modules values and js_ts_path_exports keys. Start from **the controller's cumulative squash of `c50de85a..<final proto>` on `proto/tsconfig-paths-p2-final`**; controller fills SHA. This targeted fold starts at **92f7d152**, plan patch parent **2821f1a8**; W1 is already fixed at a7c77f4e and fmt at 92f7d152. e80fbf54 incremental/gitless adoption instructions below are historical and must not be applied twice.
+
+Owner-tier acceptance: complete MCP nextest suite (plus doctests), scoped changed-code mutants, fmt, clippy, immediate-rebuild Tier-A matrix, S1b-4 byte identity, all four complete public streams preserving P1 gains and allowing only new native CORRECT rows, and controller F changed-row plus 350/98 audit. No rebaseline, push or merge. Forecast: **80–140 source LOC / 200–280 behavioral-test LOC / 70–100 fixture LOC**, excluding bounded measurement runners; one resolver/context slice. Local verification cap **3**, completed **3/3 GREEN** after two bounded corrections; no extension. Opus spec review round 2/2 returned the closed depth-exit residual W1b; W1 is already folded and W1b is now folded into the same artifact with K1/K2 both-grammar regressions and a depth-arm mutant. Repair gate cap is2 attempts.
+
+Cap 2/2 reached, converging: owner-authorized targeted W1b/S1b/S7 fold on the existing artifact; no further spec round, controller verifies directly.
+
+---
+
+# Historical P2 amendment — relative JavaScript export-hop proof
+
+READ: Owner authorized this slice on 2026-10-03 after controller aggregates established material F yield. This amendment supersedes P1 Cut 2's blanket relative JS-hop refusal **only for the tsconfig-paths alias export projection**. The P1 sections below remain historical where they describe that refusal or cache 105/61. Working-tree prototype starts at `8bd3c2dad641bf209f82073017b1549a8f377dff`; no planner Git writes and no F access. Actual private prototype recovery is controller-measured, not inferred from the ceiling.
+
+## P2 contract
+
+A supported P1 alias entry may traverse existing named, star or eligible import-forward export facts through relative JS-family modules. Every admitted JS hop must have caller-project `allowJs=true`, captured readable/no-follow source identity, an indexed implementation, and **absence of every local Node10 TypeScript/declaration priority candidate**. Reuse `js_paths_first_pass::Pass::relative(target, true, 0)` exactly; do not implement a second suffix/package table. Opaque, present, case-colliding, unindexed or outside-root priority candidates preserve the complete base row. Configuration selection and all existing P1 eligibility/ambient/membership barriers remain.
+
+Pinned TypeScript 5.9.3 `lib/typescript.js` SHA256 `3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675`:
+
+| Rule ported or retained | Source lines |
+|---|---|
+| Node10 priority TS/declaration pass before secondary JS pass | 45240–45243 |
+| Non-relative optional settings/ancestors/@types/custom roots; **relative branch instead normalizes and loads local file/folder** | 45287–45338, especially 45327–45338 |
+| Relative normalization; file first, then directory on the **full candidate** | 45341–45394 |
+| File suffix replacement then implicit appended extensions | 45423–45444 |
+| `.js` → `.ts/.tsx/.d.ts`; `.jsx` → `.tsx/.ts/.d.ts`; `.mjs/.cjs` → `.mts/.cts` and their declarations; unknown-suffix declaration probe | 45461–45503 |
+| Local directory package types/typings/main/typesVersions and index | 45745–45813 |
+| Explicit non-relative paths substitution shortcut, distinct from relative lookup | 46417–46440 |
+
+Relative hops **do not consult importing ancestors, node_modules/@types or custom typeRoots**. TypeScript performs those searches on the non-relative branch. P1's global ambient/config capture remains in force; it is not an extra relative module search.
+
+For extensionless/unknown-suffix hops, retain P1's conservative unique indexed source rule, including file/index competition. For explicit `.js/.jsx/.mjs/.cjs`, admit the indexed literal source, which is the first JS secondary candidate for that spelling, after the identical local first-pass proof. Explicit spellings with missing literal source, redirected secondary/package winners, `.js` to sibling TS recovery, extensionless `.mjs/.cjs` discovery and all other P1 entry precedence expansions remain refused. Competing TS/declaration files are never bypassed for JS. Existing explicit TS hop behavior remains unchanged.
+
+A module result is insufficient for an Exact edge. The existing alias projection retains complete star provenance/opacity, cycle/depth limits, duplicate identity and callable/span checks, wrapper provenance, eligible singleton imported binding and exact site/shadow proof. Named/star terminal arrows retain existing verified spans; import-forwarded arrows remain refused by `forwardable_function_locals`. Written bindings, aliases, may-call and unproven positions keep their complete base result. No non-relative export resolution, namespace/class extension, package/workspace resolver or S6 ownership inference is added.
+
+## E5 determination
+
+READ: S1b E5/E5b applies to **binding writes** on every route. `ast/js_binding_writes.rs:49–71` indexes write targets through `collect_js_ts_binding_pattern_names`; `ast.rs:5098–5148` collects identifiers/patterns/assertions and returns no binding names for member/subscript expressions. The module write scan (`ast.rs:4730–4775`) uses the same collector. `f.displayName = ...` and `f['displayName'] = ...` therefore do not write binding `f`.
+
+MEASURED: `js_paths_p2_test::e5_member_writes_match_local_and_legacy_relative_routes` runs local and legacy relative Call **and JSX** sites in JSX/TSX with dot/subscript member writes. The unchanged P1 archive passes in the same environment (`target/p2-plan/p2-e5-base-corrected.log`). Native synthetic controls independently certify member-written alias-hop terminals. Thus admitting them here is consistent; **bind member-written terminals without changing any write guard**. `f = ...` still keeps base; the negative test and scoped guard mutants pin it.
+
+READ forecast: JS_EXPORT_HOP ceiling is 749 **with** the 457 member-written rows, 292 without. Including the 21/22 buckets gives 792 with their additional 18 member-written rows, 317 without. These are supplied callable/ownership ceilings, not production recovery promises. Fold only rows recovered by this exact mechanism; do not weaken binding/site/import-forward guards to force the 43.
+
+## Cache and acceptance
+
+CPG cache **106**, navigation edge cache **62**, from actual parent 105/61. Loader closure priming already calls the same relative resolver; every new first-pass occupancy fact joins snapshot topology before cache hashing. Retain version pins, old-P1-cache rebuild, warm-hit and candidate add/remove cached-versus-fresh controls.
+
+Accept only after: all four public full streams are byte-identical to P1, unchanged P1 gains against original base; every private changed row is native callable/name/file/span and owner-certified by the controller wrapper; both-grammar product and native controls; scoped mutants; default/MCP suites, fmt, clippy, immediate-rebuild Tier-A matrix and S1b-4 byte identity. Quick is required by project steering before review when runnable; report exact exclusions. Full multi-corpus Tier-A remains human-triggered. No baseline update, push or merge.
+
+Forecast using the existing local port: **40–80 production lines**, **300–450 test lines**, **70–120 fixture lines**, plus bounded measurement/control runners. One kernel/cache slice; no model expansion. Controller review cap **2 rounds**, currently **0/2**. At the cap classify convergence before acting; retain and target-fix the prototype.
+
+---
+
 > **Current adopted fix `b28f6e72`: full requested verification PASS.** Production behavior unchanged; no Git writes or F access. Complete totals, gates, driver rebindings and limits: [VERIFY-FABLE-RESULTS.md](VERIFY-FABLE-RESULTS.md). Earlier r4 and lint-stop receipts are historical.
 
 
@@ -174,3 +242,8 @@ Four review rounds each found new ways a `declare module` could shadow a `paths`
 The repository scan decodes sources using the pinned TypeScript 5.9.3 `sys.readFile` rules (`typescript.js:8525–8549`): UTF-16LE/BE BOMs select UTF-16, UTF-8 BOMs are stripped, and remaining bytes use lossy UTF-8. Raw bytes still determine hashes and budgets. Non-UTF-8 source bytes no longer cause a skip. Source eligibility and relative reference bases follow each in-root link's lexical name; its target supplies the content, and physical source reads are deduplicated within each traversal after eligibility. Captured `files`, explicit `include` prefixes and hidden-name wildcard matches, type-input roots and reached reference/metadata paths supplement the scan in excluded directories; unrequested `.git`/`.bin` tooling retains the blanket skip. Unsupported type inputs may still decline their configs and preserve base.
 
 An aggregate stat-size reservation precedes parallel reads. Workers read only their reserved size, detect growth using one stack byte, and refuse on growth. Large jobs serialize reading/decoding/parsing. The closure memo remains keyed by both input and roots; the two-root regression observes different closure results. The final targeted extension preserves the existing artifact, cache **105/61**, thresholds and the accepted outside/transitive cost. See [REPAIR-R5-RESULTS.md](REPAIR-R5-RESULTS.md) for final evidence and limits.
+
+## §0 Owner decisions 2026-10-03
+
+- **S6 / OQ2: keep refusing.** The case is a file excluded from its nearest project's root set but imported by one of that project's files, so tsserver and root-file membership disagree on the owning project. Option K applies: the call keeps base behavior. No program-graph ownership computation will be added.
+- **Next lane: P2, measure first.** The P1 refusal buckets (F: `JS_EXPORT_HOP` 749; P0: `NONRELATIVE_EXPORT_HOP`) are re-measured by mechanism. Only material, precision-safe mechanisms get built.

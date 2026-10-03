@@ -1,3 +1,50 @@
+# P2 dispatch — final targeted W1b/S1b/S7 fold
+
+Current authority supersedes every historical dispatch below. The starting commit is **the controller's cumulative squash of `c50de85a..826df3b3` on `proto/tsconfig-paths-p2-final`** = **`c0a97207`** (controller-filled 2026-10-03; tree equals `826df3b3`). This fold starts on `proto/tsconfig-paths-p2 @ 92f7d152`, with plan patch parent `2821f1a8`. W1 is already fixed by `a7c77f4e`, and its formatting is fixed by `92f7d152`. The final fold closes W1b's depth-bound exit; no W1 repair remains in this dispatch. Relative/non-relative hops and cache **106/62** are already present. Old incremental/gitless steps are historical.
+
+[INHERITED — owner/controller aggregate, 2026-10-03] The **post-W1 F re-run is done: +629 CORRECT_STATIC_BINDING unchanged**. The accepted checkpoint has 628 JS_EXPORT_HOP +1 NONRELATIVE_EXPORT_HOP, 0/0 added/removed keys, 419 member-written terminals, all 350 ABSENT branches explained, and 98/98 unresolved rows retaining P1. Total F is 2,942 from P1 2,313. The worker never opens F. Final post-W1b binary verification remains assigned to the controller.
+
+Cap 2/2 reached, converging: owner-authorized targeted W1b/S1b/S7 fold on the existing artifact; no further spec round, controller verifies directly.
+
+1. Bind the controller's final squash SHA, cumulative source and frozen binary to `target/p2-fold2/` receipts; do not double-apply an incremental prototype patch.
+2. Retain caller-selected config and every P1 proof/binding/site/span/forwardability fence. W1b preserves BlockedClaim at the non-relative ImportForward depth exit; A1/A4/K1/K2 pin complete legacy refusal in JSX/TSX and both star orders. Alias yield stays +8/+8/0/0. S3's inherited provenance design remains outside P2.
+3. Check the owner-tier receipts: full MCP nextest, scoped W1/W1b mutants, fmt PASS, clippy 0 new warnings, immediate-rebuild Tier-A matrix, S1b-4 byte identity, and X/installed-X/R/T with all new rows CORRECT. Repair gate cap 2 attempts; classify at the cap. S5 cache evidence is the `nonrelative-cache.py` probe runner plus receipts, not a product test.
+4. Use the frozen release default in `CONTROLLER-p2.sh` for direct post-W1b F verification. The completed post-W1 re-run does not certify different final bytes.
+5. Controller commits the enumerated prototype edits and exact plan patch separately, fills the cumulative squash SHA, and owns external custody. No worker Git writes, push, merge, F access, restart, or further spec round.
+
+---
+
+# Historical P2 dispatch — non-relative export-hop prototype
+
+[INHERITED] Owner authorized this bounded extension on 2026-10-03. Adopt the existing prototype increment; do not rewrite it. No worker Git writes or F reads. Production parent is `proto/tsconfig-paths-p2 @ e80fbf54`; plan parent is `plan/tsconfig-paths-p2 @ 35c481cf`. The worker used an exact gitless prototype tree because the physical clone was not switched by the controller. Source, frozen binary and receipts are under `target/p2-nonrelative/`.
+
+1. Bind the incremental prototype patch and owned-file hashes in P2-FILES/HANDOFF. Apply it only to e80fbf54; retain the already-present relative-hop proof and cache **106/62** (main 105/61). No second bump.
+2. Adopt `resolve_in`/`project`/`hop`, caller-config keyed module/export tables, matching loader closure priming, and the extractor's removal of only the relative-literal restriction on eligible ESM imported-local forwarding. Preserve all P1 resolver/membership/ambient/source fences and all export/site/span/write/forwardability guards. S6 stays refused. Bare package/directory/unsupported-extension/competition controls stay at base.
+3. Use caller-project options for the entire chain: TypeScript5.9.3 lines **127381–127394 / 128816–128818**. Never select a barrel's nearer config. Two callers with the same allowJs but different paths must bind different terminals.
+4. Read current P2-MEASUREMENTS. Run `CONTROLLER-p2.sh P1_BIN FACTS_BIN NEW_P2_BIN PRIOR_GAP_EVIDENCE_DIR` immediately in the controller's private environment; return aggregate stdout only. The final argument is needed to explain the exact 350 ABSENT and 98 unresolved rows. Every new edge must be a CORRECT_STATIC_BINDING certificate for the actual caller import symbol's full-chain callable span. Unknown audit cases stay open.
+5. Owner-tier gates: one successful full `cargo nextest run --offline --features mcp --no-fail-fast`, MCP doctests, scoped `nonrelative-mutants.py` with incremental builds, fmt/clippy, immediate rebuild + Tier-A matrix, `nonrelative-controls.py`, `nonrelative-public.py`, and S1b-4 byte parity. Do not rerun unrelated mutant campaigns/all-feature sweeps or update baselines. Three verification rounds reached GREEN at cap3 after two bounded corrections; no extension.
+6. Controller commits prototype and plan file sets separately. No auto-merge. Independent review was not dispatched by the worker. Forecast **80–140 source / 200–280 tests / 70–100 fixtures LOC** plus bounded probe runners; inspect measured size and full file inventory in P2-FILES.
+
+---
+
+# Historical P2 dispatch — relative JS export-hop proof
+
+READ: Owner authorized a working-tree prototype in this clone; controller will commit it as `proto/tsconfig-paths-p2`. Starting HEAD `8bd3c2dad641bf209f82073017b1549a8f377dff`. Controller binds the prototype commit after enumerated file/hash verification. This is a port/adoption brief for the existing body, not a request to rewrite it. No worker Git writes, F access, push or merge. Independent plan review is controller-dispatched with cap **2**, used **0/2**. Private prototype recovery/certification remains an OPEN acceptance gate until the controller returns its aggregate.
+
+Read SPEC's P2 amendment, P2-MEASUREMENTS, OQ-paths-p2, HANDOFF-P2 and P2-FILES. P1 paragraphs below are historical where they forbid the now-authorized relative JS hop or pin 105/61.
+
+1. Rebind the exact parent, dirty scope, owned-file snapshot and immutable binary using `target/p2-plan/p2-build-binding.json`. Do not transfer old P1 receipts to this prototype without source/input/row binding. Controller commits plan and prototype file sets separately.
+2. Adopt `Resolver::relative` and the small `relative_absent` adapter on P1's existing local `Pass::relative`. Preserve its suffix/package/native-version semantics. Relative hops use local lookup only; never call the whole non-relative `absent` helper. Keep caller-project allowJs, indexed source identity and physical absence/readability. Do not expand P1 alias entry resolution.
+3. Retain existing call-graph/loader wiring, binding/site/span/wrapper/star/depth/write guards. E5 member writes are admitted consistently with unchanged local/legacy relative JSX behavior; binding writes keep base. The 21/22 rows get folded only if this unchanged proof already recovers them. Import-forwarded arrows and non-relative export hops remain refused.
+4. Preserve cache 106/62 and its pins. Run `p2-probes/cache.py` against the immutable head: old-P1 caches must rebuild, warm and unrelated-text hits remain stable, and each TS/declaration candidate add/remove equals fresh output.
+5. Run `p2-probes/controls.py HEAD_BIN`, `public_head.py HEAD_BIN`, `s1b.py HEAD_BIN`, `mutants.py`, and `verify.py`. Default/MCP tests are complete suites; no new test mirrors code. Native synthetic controls expose the private-shaped barrel pattern in JSX/TSX with explicit/implicit JS, named/star/import-forward, member writes and TS/declaration competitors. Keep the four Tier-A fixtures and old-scope expectation updates.
+6. Controller alone runs the updated `CONTROLLER-p2.sh P1_BIN FACTS_BIN P2_BIN` with private environment settings. Return aggregate stdout only. `compare.py` validates the complete site population, metadata and every changed target against the native ProjectService/checker. Any uncertified changed row is a gate failure, not a promised gain. Preserve raw rows/paths privately.
+7. Target-fix constructible closed findings in this body and rerun affected evidence. No restart or silent review-cap extension. Report exact totals, mutations, actual size and every exclusion; refresh handoff and local snapshot at stable points.
+
+Suggested commits: plan `docs(paths): specify and measure P2 relative JS export hops`; prototype `feat(paths): prove local Node10 absence for JS export hops`. Forecast: 40–80 source /300–450 tests /70–120 fixtures. No numeric LOC cap.
+
+---
+
 > **Current authority: owner-authorized P1 repair r2d from original base a66b877f; controller custody HEAD 6965da75.** This section supersedes earlier operational claims below. Cache stays **105/61**. No repairer Git writes or F access. Final local checks are complete; current records are MEASUREMENTS, BUILD-MANIFEST and HANDOFF. Controller F acceptance and independent review remain pending.
 
 Cut 1 now admits a JS-family target only after proving every TypeScript 5.9.3 Node10 priority-pass location absent and readable in the captured tree. Existing, opaque, outside-root or skipped candidates preserve the complete base result. The port covers the selected paths substitution, extension replacement/appending, directory/package types/typings/main/typesVersions, importing-file ancestor node_modules file and directory probes, @types and custom typeRoots. Package metadata member order, duplicate values, numeric-key ordering and native version ranges are preserved. Readable absolute package entries inside the capture normalize to relative dependencies; outside entries refuse. A file stem equal to the capture root records opaque sibling candidates. Literal-name absence is physically checked no-follow through captured readable parents, so filesystem aliases preserve base; those facts are memoized probe dependencies. Version parsing uses the native ECMAScript whitespace population and empty-alternative behavior. Custom roots are verified from the TypeScript source, not assumed. Cuts 2–6 and the r2c type-input classifier remain unchanged; JS relative export hops still refuse.
