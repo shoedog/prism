@@ -714,3 +714,28 @@ class RegistryIntentTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestExecutionSerialization(unittest.TestCase):
+    """C2-W1: concurrent workers must never execute two tests at once (shared runtime state)."""
+
+    def test_run_test_executions_never_overlap(self):
+        import threading as th, time as tm, unittest.mock as um, subprocess as sp
+        active = {'now': 0, 'max': 0}
+        guard = th.Lock()
+
+        def fake_run(*a, **k):
+            with guard:
+                active['now'] += 1
+                active['max'] = max(active['max'], active['now'])
+            tm.sleep(0.05)
+            with guard:
+                active['now'] -= 1
+            return sp.CompletedProcess(a[0], 0, 'running 1 test\ntest result: ok. 1 passed; 0 failed; 0 ignored;\n', '')
+
+        with um.patch.object(mutgate.subprocess, 'run', side_effect=fake_run):
+            threads = [th.Thread(target=mutgate.run_test, args=('exe', 't', None, 5, {})) for _ in range(6)]
+            for x in threads: x.start()
+            for x in threads: x.join()
+        self.assertEqual(active['max'], 1)
+

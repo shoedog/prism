@@ -361,12 +361,20 @@ def build(tree, target, targets):
     return p.returncode, exes, diags, p.stderr
 
 
+# Test executables share the process working directory and any runtime state reachable from it
+# (temp files, markers, ports). Builds run in parallel per worker, but test *execution* is
+# serialized across all workers so concurrent tests cannot interfere and fake a kill
+# (confirmation-2 C2-W1). Test runs are short (~0.2 s), so the cost is negligible.
+TEST_EXECUTION_LOCK = threading.Lock()
+
+
 def run_test(exe, test, mutant, timeout, env):
     e = dict(env)
     if mutant: e['PRISM_MUTANT'] = mutant
     t = time.monotonic()
     try:
-        p = subprocess.run([exe, test, '--exact', '--test-threads=1'], capture_output=True, text=True, env=e, timeout=timeout)
+        with TEST_EXECUTION_LOCK:
+            p = subprocess.run([exe, test, '--exact', '--test-threads=1'], capture_output=True, text=True, env=e, timeout=timeout)
         log = p.stdout + p.stderr; status = p.returncode
     except subprocess.TimeoutExpired as ex:
         log = (ex.stdout or b'').decode(errors='replace') if isinstance(ex.stdout, bytes) else (ex.stdout or ''); status = 'timeout'

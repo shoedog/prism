@@ -50,7 +50,7 @@ python3 scripts/mutgate/mutgate.py --since main --scope file     # ADVISORY chan
 python3 scripts/mutgate/mutgate.py --since main --scope fn --authoritative
 python3 scripts/mutgate/mutgate.py --lane mutants/lane-p-tsconfig-paths.json --only I17-no-project-reference-cut
 python3 scripts/mutgate/mutgate.py --plan-only                   # planner diagnostics, no verdicts/build
-python3 -m unittest                                            # all driver regressions
+python3 -m unittest scripts/mutgate/test_mutgate.py            # all driver regressions
 ```
 
 `--jobs N` sets the number of isolated text workers and parallel baseline/schema
