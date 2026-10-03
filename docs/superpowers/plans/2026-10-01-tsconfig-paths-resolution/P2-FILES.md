@@ -1,12 +1,18 @@
-# Applied-fold verification inventory — a7c77f4e /plan45c6d124
+# Final targeted P2 fold inventory — proto92f7d152 /plan2821f1a8
 
-[MEASURED] Controller-applied W1 is committed as a7c77f4e over b9fd3775. Current physical checkout is the clean prototype branch; no worker Git writes or F access. All requested gates finished, with fmt FAIL only new W1 test formatting; other gates PASS. Fresh counts and exclusions are in `target/p2-applied-verify/VERIFICATION.md` and `summary.json`. The earlier prepared-only inventory below is historical and superseded.
+[MEASURED] Prototype edits are applied directly on `proto/tsconfig-paths-p2 @92f7d152`; the plan changes are prepared as `target/p2-fold2/plan.patch` against exact `2821f1a8`. No branch switch or worker Git writes. W1 is done at a7c77f4e; fmt correction is adopted at 92f7d152. W1b now preserves the non-relative forward claim at the depth-bound exit. All earlier inventories below are historical.
 
-Controller plan set, incremental from45c6d124: `p2-probes/CONTROLLER-p2.sh` (frozen binary path/hash), `HANDOFF-P2.md`, `P2-MEASUREMENTS.md`, `P2-FILES.md` (fresh gate state/custody). Apply `target/p2-applied-verify/plan-final.patch` once, or its disjoint `CONTROLLER-plan.patch` and `gate-docs-plan.patch` components. Prepared full candidates: `target/p2-applied-verify/plan-prepared/`. No physical plan branch edit is claimed.
+Prototype set: `src/js_exports.rs`, `tests/integration/js_paths_p2_test.rs`.
 
-Formatting-only prototype candidate: `target/p2-applied-verify/W1-format.patch` changes only `tests/integration/js_paths_p2_test.rs`; isolated candidate passes rustfmt, and has not been applied to the tested a7c77f4e artifact. Controller owns adoption/revision binding.
+Plan set in this packet: `IMPLEMENTOR.md`, `HANDOFF-P2.md`, `SPEC.md`, `OQ-paths-p2.md`, `P2-MEASUREMENTS.md`, `P2-FILES.md`, `p2-probes/CONTROLLER-p2.sh`, `p2-probes/spec-r1-mutants.py`. The mutant runner adds W04, which restores the depth exit before BlockedClaim and is killed by K1/K2 in both grammars; A1/A4 remain GREEN under W04.
 
-Frozen binary: `/Users/wesleyjinks/code/prism-paths-p2-plan/target/p2-applied-verify/bin/prism-p2-a7c77f4e`. SHA256 `55e7e32b9eaf5e3f85ba2c9a109acde87c622ffe5aaff9459268395766eb0f4b`. Hash/source binding and receipts are snapshotted in `owned-snapshot.tar.gz`; complete public dumps are compressed, and verifier-owned mutant source copies were removed after successful receipts. Git/external custody remains controller-owned.
+Suggested controller commits: prototype `fix(paths): preserve non-relative forward claims at the re-export depth bound`; plan `docs(paths): close final P2 fold and bind controller verification`. Controller owns commits, final cumulative squash SHA, and external custody. Starting implementation commit is the controller's cumulative squash of `c50de85a..<final proto>` on `proto/tsconfig-paths-p2-final`, filled in by the controller.
+
+[INHERITED] Owner/controller reports the post-W1 F re-run complete: +629 CORRECT unchanged. No private F source or raw receipt was opened here; post-W1b frozen-binary verification is still controller-owned. S5 cache coverage is `nonrelative-cache.py` plus its probe receipts, not a product test.
+
+Cap 2/2 reached, converging: owner-authorized targeted W1b/S1b/S7 fold on the existing artifact; no further spec round, controller verifies directly.
+
+Final gate totals and frozen binary path/hash are in the final handoff and `target/p2-fold2/summary.json`, `binding.json`; source and plan snapshot custody is in `owned-snapshot.tar.gz`. These receipts supersede earlier applied-fold gate status for current bytes.
 
 ---
 

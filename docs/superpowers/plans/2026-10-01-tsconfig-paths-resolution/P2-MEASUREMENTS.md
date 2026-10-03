@@ -1,8 +1,26 @@
-# Current P2 checkpoint — Opus spec review round 1 fold
+# Current P2 checkpoint — final targeted fold
+
+[MEASURED] Fold starts at `proto/tsconfig-paths-p2 @92f7d152`; the exact plan patch parent is `2821f1a8`. W1 was fixed by a7c77f4e and fmt by92f7d152. W1b closes the remaining depth exit in the existing artifact. Starting implementation commit is the controller's cumulative squash of `c50de85a..<final proto>` on `proto/tsconfig-paths-p2-final`; controller fills SHA. Cache stays 106/62.
+
+Cap 2/2 reached, converging: owner-authorized targeted W1b/S1b/S7 fold on the existing artifact; no further spec round, controller verifies directly.
+
+[INHERITED — owner/controller aggregate] Post-W1 F re-run completed with **+629 CORRECT_STATIC_BINDING unchanged**, impact0. This closes P2-R1-F. Post-W1b frozen-binary F verification remains assigned to the controller; the worker never opens private inputs or raw receipts.
+
+[MEASURED] The expanded legacy regression selects A1/A4/K1/K2 layouts in JSX/TSX, pkg/no-tsconfig and paths-alias variants, and both star orders:24 cases /48 Call+JSX rows. On unchanged92f7d152 production, K1/K2 each have8 wrong sibling variants while A1/A4 have0 mismatches; after the fold all12 P2 groups pass. All4 scoped W1/W1b mutants are admissibly killed; W04 reverts only depth BlockedClaim and reproduces K1/K2=8/8 with A1/A4=0. `target/p2-fold2/red.log`, `red-binding.json`, `green.log`, `mutants/results.json`.
+
+[MEASURED] Full MCP nextest **5,133 passed /0 failed /1 existing skip**, MCP doctests **2/2**, **fmt PASS**, same-environment Clippy control at 92f7d152 and fold each **371 warning emissions /232 normalized unique /0 new or removed**. Immediate same-worktree release rebuild plus Tier-A matrix **178 OK /0 regression /0 skip**. `nextest-mcp.log`, `doctests.log`, `fmt.log`, `clippy-comparison.json`, `matrix-summary.json`.
+
+[MEASURED] Frozen binary `/Users/wesleyjinks/code/prism-paths-p2-plan/target/p2-fold2/bin/prism-p2-fold2`, SHA256 `e29981a9c89cff8db0e5005ca6ddcd1427814fa3e2ce0089862bf9995162b8a0`; default recorded in the plan's `CONTROLLER-p2.sh`. `binding.json` binds production/vendor/build/test/fixture inputs. Fresh complete public X/installed-X/R/T remains **+8/+8/0/0**, all16 new rows **CORRECT_STATIC_BINDING**, every P1 gain retained, no key/site metadata drift. Full populations19219/19219/953/61712; fact inputs628/628/50/707 and native inputs633/2219/48/606 rehashed. S1b-4:411 controls /639 sites /822 byte-identical comparisons /stderr0. H1 probe:2 grammars /10 states /2 sites per state, all parity/invalidation checks pass. Receipts: `target/p2-fold2/public/summary.json`, `s1b.json`, `h1-cache/summary.json`. S5 cache coverage is the `nonrelative-cache.py` probe runner plus receipts, not a product integration test.
+
+Not verified here: F, Tier-A quick/full multi-corpus, separate default/all-features/opt-in detached-owner-audit sweeps, Linux/case-sensitive/concurrent-tree behavior, quiet-host resource attestation, forced existing skip, independent review, Git/publication or external backup custody. Historical evidence below is source-bound to earlier artifacts.
+
+---
+
+# Historical P2 checkpoint — Opus spec review round 1 fold
 
 Current authority: plan **bb4e4743**, reviewed cumulative prototype **b9fd3775** on main **c50de85a**. Start implementation from the final cumulative prototype the controller squashes; old incremental/gitless adoption instructions are historical. Cache **106/62** is already present. Review **1/2**, FIX: one closed WRONG (W1), S1 documentation refresh, S2–S6 disclosures. Repair gate cap **2 attempts**. No worker Git writes or F reads.
 
-[MEASURED — controller acceptance recorded at bb4e4743; supplied evidence] **F +629**, all CORRECT_STATIC_BINDING, **628 JS_EXPORT_HOP +1 NONRELATIVE_EXPORT_HOP**, **0/0 keys added/removed**, **419 member-written**, **697/697 full-chain span agreement**, **98/98 unresolved retained**. All **350 ABSENT** rows are `NONCONTRIBUTING_STAR_BRANCH_FULL_BARREL_BINDS_TERMINAL`. F total **2,942 = 2,313 +629**. These are measured controller results, not this worker's private execution. OQ2/OQ4/OQ5 are closed for b9fd3775. **W1 repair F impact is expected 0; actual impact awaits the controller re-run on the frozen repaired binary.**
+[MEASURED — controller acceptance recorded at bb4e4743; supplied evidence] **F +629**, all CORRECT_STATIC_BINDING, **628 JS_EXPORT_HOP +1 NONRELATIVE_EXPORT_HOP**, **0/0 keys added/removed**, **419 member-written**, **697/697 full-chain span agreement**, **98/98 unresolved retained**. All **350 ABSENT** rows are `NONCONTRIBUTING_STAR_BRANCH_FULL_BARREL_BINDS_TERMINAL`. F total **2,942 = 2,313 +629**. These are measured controller results, not this worker's private execution. OQ2/OQ4/OQ5 are closed for b9fd3775. **[INHERITED — owner/controller aggregate] The post-W1 F re-run is complete: +629 CORRECT_STATIC_BINDING unchanged, impact0.** Final post-W1b binary verification remains controller-owned.
 
 ## Round-1 disclosures and reviewer evidence
 
@@ -15,20 +33,20 @@ Evidence: `/Users/wesleyjinks/prism-evidence/paths/reviews-p2/spec-r1-opus.md` a
 | S2 SMELL | **3 resolvable non-relative rows remain unexplained and unrecovered.** 697 = 599 resolvable +98 unresolved; 628 recovered JS_EXPORT_HOP minus32 relative =596 non-relative, leaving3. Full749 =628+98+18+2+3. Option K preserves them; controller may supply their gate class later. | Review S2 arithmetic against controller aggregates. No invented gate class or recovery claim. |
 | S3 SMELL | Inherited type-only, broken named/forward and absent-supplier star treatment may discard a competing claim. F shows **0 affected changed rows**, as all changed rows are certified. Owner disclosure; separate type-export/claim-without-supplier design required. | D2/D2b type-only: TypeScript UNBOUND/TS2308, head Exact sibling. D3 broken ReExport and D6 broken alias ImportForward: UNBOUND, head Exact sibling. Base E2/E3/E4 and A5/A6 demonstrate inheritance. D1/D4/D5 value/CJS/unresolved package are refused. Types erase in D2; D3/D6 fail linking; TypeScript rejects this class. |
 | S4 SMELL | v106 comment now describes both Node10 hop proof and CallGraph serde format change: module values `(String,bool)`→`(String,String)`, export keys `bool`→`String`. No second version bump: shipped main is105, prototype106 unreleased. | Review S4; only unreleased e80fbf54 caches shared106 before the format change. |
-| S5 SMELL | Cheap H1-shaped integration cache control will pin cold/warm, barrel-ancestor package declaration add/remove, and caller paths edit to a different terminal. | Review H1 real cpg-cache.bin passed all four states; previous production coverage was loader topology unit control only. |
+| S5 SMELL | Coverage is the `p2-probes/nonrelative-cache.py` probe runner plus receipts at `target/p2-fold2/h1-cache/summary.json`: cold/warm, barrel-ancestor package declaration add/remove, and caller paths edit to a different terminal. This is probe evidence, not a product integration test. | Review H1 real cpg-cache.bin passed all four states; previous production coverage was loader topology unit control only. |
 | S6 SMELL | Export tables are recomputed per caller config path, including configs with identical effective options. Monorepo cost scales with admitted config count; F completed, no measured cost problem. Effective-options fingerprint is a separate optimization, not a P2 gate. | Review apply_js_paths table key; options would include paths/baseUrl origin/allowJs/typeRoots/moduleResolution. |
 
 ## Repair verification
 
 [MEASURED] Applied prototype **a7c77f4e** over **b9fd3775**, verified in the clean physical prototype checkout. One full MCP nextest **5133 passed /0 failed /1 existing skip**, doctests **2/2**, A1/A4 **8 cases /16 Call+JSX sites per revision RED on b9fd3775 /GREEN on a7c77f4e** in both grammars/orders, scoped mutants **10/10** killed (7 nonrelative +3 W1), matrix **178 OK /0 regression /0 skip**, S1b-4 **411 controls /639 sites /822 byte-identical comparisons**, H1 **2 cases /10 states** all pass.
 
-[MEASURED] **fmt FAIL** only newly added W1 tests; same-environment pre-W1 full formatter control PASS. SMELL: formatting-only candidate in `target/p2-applied-verify/W1-format.patch`, not applied here. Clippy PASS, head/base **371 warning emissions /229 unique /0 new**, compared on identical unchanged source statements after mapping the cache comment's two-line shift. All other requested gates pass. **No whole-artifact green claim**.
+[INHERITED] The applied-fold verification originally found **fmt FAIL** in new W1 tests; the controller adopted the formatter correction as **92f7d152**, so formatting adoption is done. That older Clippy comparison was **371 warning emissions /229 unique /0 new**, with exact unchanged-source mapping. Final W1b gate receipts below supersede those bytes for current status.
 
 [MEASURED] Fresh complete public X /installed-X /R /T vs P1 final **+8 /+8 /0 /0**, all changed rows **CORRECT_STATIC_BINDING**, no key/site metadata drift; populations **19219 /19219 /953 /61712**. Every new row has fresh native caller checker/ownership certification; facts628/628/50/707 and native inputs633/2219/48/606 rehashed. X/installed-X represent one snapshot and are not additive.
 
 [MEASURED] Frozen release: `/Users/wesleyjinks/code/prism-paths-p2-plan/target/p2-applied-verify/bin/prism-p2-a7c77f4e`, SHA256 `55e7e32b9eaf5e3f85ba2c9a109acde87c622ffe5aaff9459268395766eb0f4b`. Immediately rebuilt release before matrix has identical hash; all1226 source/test/vendor/fixture inputs unchanged. `target/p2-applied-verify/summary.json`, `VERIFICATION.md`, `binding.json`, `owned-snapshot.tar.gz` retain receipts. Only prototype checkout exists, so the plan path/hash and these record updates are prepared against45c6d124 for controller adoption; no Git writes or F reads.
 
-[UNKNOWN] Actual repaired F impact remains controller-only and unmeasured here. Not run: broad Tier-A quick/full, separate default/all-features/opt-in detached-owner-audit sweeps, Linux/case-sensitive/concurrent-tree/quiet-host resource behavior, forced existing ignore, independent review or Git/publication. Historical receipts below remain source-bound to earlier artifacts.
+[INHERITED] Post-W1 repaired F impact is measured by the controller: +629 CORRECT unchanged. [UNKNOWN] Final post-W1b F verification remains controller-only and unmeasured here. Not run: broad Tier-A quick/full, separate default/all-features/opt-in detached-owner-audit sweeps, Linux/case-sensitive/concurrent-tree/quiet-host resource behavior, forced existing ignore, independent review or Git/publication. Historical receipts below remain source-bound to earlier artifacts.
 
 ---
 
@@ -308,3 +326,11 @@ Run with `CONTROLLER-p2-gap.sh`. Population: 749 natively callable `JS_EXPORT_HO
 F total: 2,313 (P1) + 629 = **2,942**, about +27%.
 
 Public corpora: X +8 CORRECT, installed X +8 CORRECT, R 0, T 0, with every P1 gain preserved.
+
+## Controller verification of the final fold (2026-10-03; disclosed extension past the spec-review cap, no third round)
+
+- **Final prototype:** `826df3b3`. The cumulative squash is `proto/tsconfig-paths-p2-final` @ `c0a97207`, on `c50de85a`.
+- **Reviewer probe cases, on the controller's build** (`826df3b3`) vs P1/main:
+  - K1–K4 and A1–A4 match base: the legacy-star refusal is preserved.
+  - D2, D2b, D3 and D6 differ. These are the disclosed S3 class: new alias-route bindings through type-only or broken star branches, only in programs that TypeScript reports as errors. F has 0 instances.
+- **F:** +629 changed rows, all CORRECT_STATIC_BINDING; 0 keys added, 0 removed.

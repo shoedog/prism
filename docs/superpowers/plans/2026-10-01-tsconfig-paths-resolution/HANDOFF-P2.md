@@ -1,88 +1,88 @@
-# Handoff — Lane-P P2 applied-fold gates
+# Handoff — Lane-P P2 final targeted fold
 
-**Written:** 2026-10-03 · **By:** Codex verifier · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/prism-paths-p2-plan · proto/tsconfig-paths-p2 · **Measured state:** `[MEASURED]` HEAD a7c77f4eaf541418c70ecd58684ab379e218a8e7 · Tree CLEAN · Probe git status --short --branch; git rev-parse HEAD; source hash recheck · Output checkpoint-recheck.json (1226 inputs,0 mismatches)
-**Predecessor:** controller applied W1 a7c77f4e over b9fd3775; plan 45c6d124.
+**Written:** 2026-10-03T19:36:02.505829+00:00 · **By:** Codex repairer · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/prism-paths-p2-plan · proto/tsconfig-paths-p2 · **Measured state:** `[MEASURED]` HEAD 92f7d152c6b1aaa1958b3acfd34cc41d43d2de29 · Tree DIRTY (two proto paths) · Probe git status/rev-parse, binding recheck, gates · Output target/p2-fold2/summary.json
+**Predecessor:** controller dispatch from spec-confirm-opus.md, round 2 of 2; exact plan patch parent 2821f1a8.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
-**Provenance:** written live by the worker using installed /Users/wesleyjinks/.codex/handoff-template.md. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
+**Provenance:** written live using installed bootstrap/handoff-template.md. `[MEASURED]` claims were probed here; `[INHERITED]` claims were supplied.
 
 ## 0. Gating facts — settle these before starting anything below
 
-**(a) Lane ownership** — `[INHERITED]` user assigned verifier; no subagent/review dispatch. Setup correction cap2 per gate, no extension; only clippy comparator required a second setup attempt. RESOLVED.
-**(b) Custody exposure** — `[MEASURED]` controller committed source; current logs/manifests/complete compressed public dumps/certificates/frozen binary and prepared patches retained in target/p2-applied-verify, with owned-snapshot.tar.gz. No worker Git writes. Controller external custody OPEN.
-**(c) In flight / irreversible** — `[MEASURED]` all requested gates finished; no verifier process remains. fmt FAIL only new W1 test formatting; other gates PASS. No irreversible operation. RESOLVED for verification; formatting adoption remains OPEN.
-**(d) Authorization granted but not exercised** — `[INHERITED]` "Record the binary path in CONTROLLER-p2.sh (plan branch)"; "No git writes"; "Never open F." Only prototype worktree exists; the authorized plan edit is prepared against45c6d124. An async controller-switch request was sent; no switch arrived before completion. Do not apply plan-parent edits to stale prototype docs.
+**(a) Lane ownership** — `[INHERITED]` owner assigned final repairer, no delegation or further spec dispatch. Cap 2/2 reached, converging: owner-authorized targeted W1b/S1b/S7 fold on the existing artifact; no further spec round, controller verifies directly. RESOLVED.
+**(b) Custody exposure** — `[MEASURED]` two direct prototype edits plus eight-path plan.patch against exact2821f1a8. Source, patches, final candidates and manifests retained in target/p2-fold2 with owned-snapshot.tar.gz. No worker Git writes; controller external custody OPEN.
+**(c) In flight / irreversible** — `[MEASURED]` all worker gate processes finished, fmt PASS; its original formatting defect was fixed by92f7d152 before this fold. No irreversible operation. RESOLVED. `[INHERITED]` post-W1 F re-run done: +629 CORRECT unchanged. `[UNKNOWN]` final post-W1b F impact remains controller-only.
+**(d) Authorization granted but not exercised** — `[INHERITED]` "No git writes. Never open F. Keep disk use lean." "Don't switch branches: prepare the plan doc changes as a patch file (`target/p2-fold2/plan.patch`) against `2821f1a8`, and edit the code directly in the working tree." Controller alone performs final private verification and Git custody.
 
 ## 1. Resume order
 
-1. Read target/p2-applied-verify/summary.json and VERIFICATION.md. Verification is complete, with one fmt gate failure. W1-format.patch is the complete formatter correction for tests/integration/js_paths_p2_test.rs; its isolated candidate passed rustfmt check. Controller decides adoption and binds any resulting source revision separately.
-2. On plan/tsconfig-paths-p2 @45c6d124, controller applies CONTROLLER-plan.patch (one path) plus gate-docs-plan.patch (three paths), or the combined plan-final.patch (four paths). Do not apply both alternatives. Full prepared candidates are in plan-prepared/.
-3. Controller runs F on the frozen binary with the plan wrapper, then reconciles the repaired-F aggregate. F was never opened here. Git/publication and independent review remain controller-owned.
+1. Read target/p2-fold2/summary.json, binding.json and plan-files.json; verify current source and frozen binary hashes. Source parent is92f7d152, plan parent 2821f1a8. Worker checks are finished.
+2. Controller commits the two prototype paths. On exact plan2821f1a8, apply target/p2-fold2/plan.patch once; it includes the controller binary default and four-mutant runner. No old incremental patch is reapplied.
+3. Controller directly verifies F using the plan wrapper's frozen W1b binary, then reconciles its result. Post-W1 +629 is completed inherited evidence, not certification of these final bytes.
+4. Bind starting implementation commit as the controller's cumulative squash of c50de85a through final proto on proto/tsconfig-paths-p2-final; fill its SHA in dispatch. No further spec round or worker Git/publication action.
 
-**STOP conditions:** wrong branch/parent, source/oracle drift, private F access, or promoting fmt FAIL /unmeasured F impact to PASS.
+**STOP conditions:** wrong parent, source/binary/oracle drift, private input access by worker, unclassified wrong changed row, or an open-class scope expansion.
 
 ## 2. State ledger
 
 | Item | State | Evidence / correction |
 |---|---|---|
-| Release binding | done | `[MEASURED]` cargo build --release PASS; matrix rebuild hash identical; binding.json |
-| One MCP nextest | done | `[MEASURED]` 5133 passed /0 failed /1 existing skip; nextest-mcp.log |
-| MCP doctests | done | `[MEASURED]` 2 passed /0 failed; doctests.log |
-| A1/A4 | done | `[MEASURED]` b9fd3775 RED /a7c77f4e GREEN; 8 cases /16 sites each, JSX/TSX and both star orders; legacy-red/green/summary.json |
-| Mutants | done | `[MEASURED]` 10/10 admissible killed; 7 non-relative +3 W1; both unmutated references12/12; per-mutant assertions retained |
-| fmt | done | `[MEASURED]` FAIL only two new W1 tests; same-environment b9fd3775 control PASS. SMELL, formatting-only candidate; fmt.log, fmt-base.log, W1-format.patch |
-| Clippy | done | `[MEASURED]` 371 warning emissions /229 unique on head and same-environment b9fd3775;0 new or removed after exact unchanged-line mapping; clippy-comparison.json |
-| Matrix | done | `[MEASURED]` 178 OK /0 regression /0 skip; immediate release rebuild; matrix-summary.json |
-| S1b-4 | done | `[MEASURED]` 411 controls /639 sites /822 byte-identical comparisons /stderr0; s1b.json |
-| Public corpora | done | `[MEASURED]` X/installed-X/R/T +8/+8/0/0; all16 added rows CORRECT_STATIC_BINDING; complete19219/19219/953/61712-site streams, no key/metadata drift; public/summary.json |
-| H1 cache reference | done | `[MEASURED]` 2 grammars /10 states /2 sites per state; cached/fresh parity, warm hit, barrel-ancestor declaration add/remove and caller paths edit invalidation; h1-cache/summary.json |
-| Plan edit | pending | `[MEASURED]` exact45c6d124 parent patches and candidates prepared; no plan checkout or Git writes |
-| Repaired F /independent review | pending | `[UNKNOWN]` controller-only F impact and review have not run here |
+| W1/W1b | done | `[MEASURED]` W1 already a7c77f4e; fold depth exit now BlockedClaim. src/js_exports.rs and proto.patch |
+| A1/A4/K1/K2 | done | `[MEASURED]`24 cases /48 rows in both grammars/orders/pkg+alias; K1/K2 RED8/8 at 92f7d152, A1/A4 unchanged, GREEN12/12 groups; red.log, red-binding.json, green.log |
+| Full MCP suite | done | `[MEASURED]`5133 pass /0 fail /1 existing skip;2 doctests pass; nextest-mcp.log, doctests.log |
+| Scoped mutants | done | `[MEASURED]`4/4 admissibly killed; W04 kills K1/K2=8/8 while A1/A4=0; mutants/results.json |
+| fmt /Clippy | done | `[MEASURED]`fmt PASS; same-environment92f7d152 base and fold each 371 emissions /232 normalized unique /0 new or removed; fmt.log, fmt-base.log, clippy-comparison.json |
+| Tier-A matrix | done | `[MEASURED]`immediate same-tree release rebuild;178 OK /0 regressions /0 skips; release.log, matrix-summary.json |
+| Public streams | done | `[MEASURED]`X/installed-X/R/T +8/+8/0/0,16 CORRECT rows; populations19219/19219/953/61712, no key/metadata drift, all P1 gains retained; fresh native certificates and live fact/input rehash in public/summary.json |
+| S1b-4 | done | `[MEASURED]`411 controls /639 sites /822 byte-identical comparisons /stderr0; s1b.json |
+| H1 cache probe | done | `[MEASURED]`nonrelative-cache.py plus receipts,2 grammars /10 states /2 sites per state; cached/fresh equality, warm hit, declaration add/remove and config edit invalidation; h1-cache/summary.json. This is probe coverage, not a product test |
+| Release binding | done | `[MEASURED]`1226 source/build/vendor/test/fixture hashes unchanged; binding.json and checkpoint-recheck.json |
+| Post-W1 F | done | `[INHERITED]`owner/controller supplied +629 CORRECT unchanged, impact0; P2-R1-F closed |
+| Plan patch | done | `[MEASURED]`eight exact-parent candidates plus plan.patch; dry-run and replay checked; plan-files.json, plan-patch-check.log, plan-replay-check.json |
+| Final W1b F /Git custody | pending | `[UNKNOWN]`controller-only; worker never opened F or wrote Git |
 
 ## 3. Corrections to standing documents and memory
 
 | Location | Stale or false assertion | Correction |
 |---|---|---|
-| Root VERIFICATION.md | earlier current/historical gates | `[MEASURED]` refreshed this turn with exact a7c77f4e receipts and fmt FAIL |
-| Plan HANDOFF-P2 /P2-MEASUREMENTS /P2-FILES | applied fold and fresh gates pending | `[MEASURED]` corrected prepared replacements in gate-docs-plan.patch; controller application OPEN |
-| Plan CONTROLLER-p2.sh | default frozen repaired binary not present | `[MEASURED]` path/hash correction in CONTROLLER-plan.patch; controller application OPEN |
-| Memory | None | No relevant memory hit; no memory update authorized |
+| IMPLEMENTOR /SPEC /OQ | redo W1, vague starting commit, further review pending | W1 done; final squash branch and controller SHA fill specified; cap 2/2 targeted fold, no further spec round |
+| HANDOFF-P2 /P2-MEASUREMENTS /P2-FILES | fmt FAIL/adoption pending | Fixed at 92f7d152; fresh fold fmt PASS and gates recorded |
+| OQ P2-R1-F /SPEC /measurements | post-W1 F re-run pending | `[INHERITED]`completed +629 CORRECT unchanged; final W1b private check separately pending |
+| S5 disclosure | product integration cache test | Probe runner nonrelative-cache.py plus receipts; no new product cache test |
+| CONTROLLER-p2.sh | old applied-fold binary default | Final frozen path/hash in exact plan patch; shell syntax checked, no private execution |
+| Memory | None | No relevant memory hit or update |
 
 ## 4. Open work
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Formatting adoption | pending | Controller applies W1-format.patch to prototype if desired; resulting revision needs its own done-claim | verifier preserves tested revision /one full suite requested | a7c77f4e |
-| 2 | Plan adoption | pending | Controller applies four-path plan-final.patch on exact plan parent | no worker Git writes /no plan checkout | 45c6d124 |
-| 3 | Repaired F impact | pending | Controller runs wrapper with frozen SUT and accepted b9fd3775 reference | private F exclusion | CONTROLLER-p2.sh |
-| 4 | Independent review /external custody | pending | Controller owns dispatch/commits/publication | not requested here | prior spec review1/2 inherited |
+|1|Controller custody|pending|Commit two proto paths, apply eight-path plan.patch to 2821f1a8, snapshot externally|No worker Git writes|proto.patch /plan.patch|
+|2|Final F /dispatch SHA|pending|Run frozen W1b wrapper directly, reconcile aggregate, fill final cumulative squash SHA|Private F exclusion|CONTROLLER-p2.sh /proto/tsconfig-paths-p2-final|
 
 ## 5. Invariants and traps — do not do these
 
-- No Git writes or F reads; frozen public binary is ready for the controller's measurement.
-- This is a gate report, not implementation adoption or whole-feature approval. fmt remains FAIL until a changed artifact is adopted and checked.
-- Use plan45c6d124 scripts; checked-out prototype docs are historical.
-- Two warning locations move by +2 lines from cache documentation: exact unchanged-line mapping proves identical diagnostics. Raw line-number comparator failure was inadmissible.
-- Sandbox denies ps; no retry was made and no CPU/liveness conclusion was drawn. All actual gate processes completed.
-- Mutations ran in isolated copies sharing one target; only verifier-created copies were removed. Complete public dumps are compressed.
-- Not verified: F, quick/full Tier-A, separate default/all-features/opt-in detached-owner-audit sweeps, Linux/case-sensitive/concurrent-tree/quiet-host resource behavior, forced existing ignore, independent review or Git/publication custody.
+- No worker Git writes, branch switches or F reads.
+- Do not redo W1 or apply old incremental patches to the cumulative prototype.
+- Preserve caller-config authority, alias yield, cache106/62, and inherited unresolved relative/ReExport behavior.
+- Post-W1 +629 is inherited controller evidence; it does not certify final W1b bytes.
+- Scoped mutants used isolated reproducible copies and one shared target serially; copies removed after receipts. Public complete dumps and large native/alias JSON tables are losslessly compressed; compressed-artifacts.json records raw hashes.
+- Not verified: F, Tier-A quick/full, separate default/all-features/opt-in sweeps, Linux/case-sensitive/concurrent-tree/quiet-host behavior, forced existing skip, independent review, Git/publication or external backup.
 
 ## 6. Identifiers
 
 | Item | Verbatim |
 |---|---|
-| Prototype | a7c77f4eaf541418c70ecd58684ab379e218a8e7 |
-| Pre-W1 control | b9fd3775a91a206c556e05e26656285ee0c66bff |
-| Plan parent | 45c6d124a46f1dde4d1d38682d062b55f29bef2b |
-| Frozen binary | /Users/wesleyjinks/code/prism-paths-p2-plan/target/p2-applied-verify/bin/prism-p2-a7c77f4e |
-| Binary SHA256 | 55e7e32b9eaf5e3f85ba2c9a109acde87c622ffe5aaff9459268395766eb0f4b |
-| P1 binary SHA256 | 907d110c70962063d5fde23acd22b6d92b62b117d837b97a81f6d65ed263aa03 |
-| b9fd3775 binary SHA256 | df0cca2f4a1d79be5ff33a55dff5ac1b71ae53106d47612385f44d5a6d0f1d85 |
-| Compiler SHA256 | 3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675 |
-| Receipts | target/p2-applied-verify |
+| Prototype parent |92f7d152c6b1aaa1958b3acfd34cc41d43d2de29|
+| Plan patch parent |2821f1a8|
+| Starting implementation |Controller cumulative squash of c50de85a through final proto on proto/tsconfig-paths-p2-final; SHA filled by controller|
+| Frozen binary |/Users/wesleyjinks/code/prism-paths-p2-plan/target/p2-fold2/bin/prism-p2-fold2|
+| Binary SHA256 |e29981a9c89cff8db0e5005ca6ddcd1427814fa3e2ce0089862bf9995162b8a0|
+| Compiler SHA256 |3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675|
+| Evidence |target/p2-fold2/summary.json /binding.json /owned-snapshot.tar.gz|
+| Proto commit message |fix(paths): preserve non-relative forward claims at the re-export depth bound|
+| Plan commit message |docs(paths): close final P2 fold and bind controller verification|
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED within tested seams · claim: "applied W1 restores complete A1/A4 P1 refusals and retains +8/+8/0/0 public yield" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: legacy-red/green, mutation assertions and fresh public native certificates
+**§2c verdict:** SURVIVED within worker gate scope · claim: "the W1b depth exit preserves complete legacy refusal without changing alias yield" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: red.log, green.log, four mutation failures, fresh public native certificates, HYPOTHESES.md
 
-**Questions the owner owes an answer to:** No new scope question. Controller actions remain formatting/plan adoption, F aggregate, independent review and external custody.
+**Questions the owner owes an answer to:** None; controller F verification, final SHA binding and external custody are assigned actions.

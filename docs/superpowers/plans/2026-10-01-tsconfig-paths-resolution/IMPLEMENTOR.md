@@ -1,15 +1,16 @@
-# P2 dispatch — cumulative prototype after Opus spec round 1
+# P2 dispatch — final targeted W1b/S1b/S7 fold
 
-Current authority supersedes every historical dispatch below. Start from the **cumulative final `proto/tsconfig-paths-p2`**, which the controller squashes from the final prototype onto **main `c50de85a`**. The reviewed checkpoint is **`b9fd3775`**, with relative and non-relative hops and cache **106/62 already present**. Do not apply the old incremental e80fbf54 patch to this integrated prototype; the old gitless steps are historical.
+Current authority supersedes every historical dispatch below. The starting commit is **the controller's cumulative squash of `c50de85a..826df3b3` on `proto/tsconfig-paths-p2-final`**; the controller fills in its SHA before implementation dispatch. This fold starts on `proto/tsconfig-paths-p2 @ 92f7d152`, with plan patch parent `2821f1a8`. W1 is already fixed by `a7c77f4e`, and its formatting is fixed by `92f7d152`. The final fold closes W1b's depth-bound exit; no W1 repair remains in this dispatch. Relative/non-relative hops and cache **106/62** are already present. Old incremental/gitless steps are historical.
 
-[MEASURED — controller aggregate, supplied evidence] F acceptance of b9fd3775 is **+629 CORRECT_STATIC_BINDING**, 628 JS_EXPORT_HOP and 1 NONRELATIVE_EXPORT_HOP, zero added/removed keys, 419 member-written terminals. All **350 ABSENT** hop symbols are noncontributing star branches whose full barrel binds the terminal; **98/98 unresolved** rows retain the complete P1 result. Total F is **2,942**, from P1 2,313. The worker never opens F. See P2-MEASUREMENTS' controller acceptance record.
+[INHERITED — owner/controller aggregate, 2026-10-03] The **post-W1 F re-run is done: +629 CORRECT_STATIC_BINDING unchanged**. The accepted checkpoint has 628 JS_EXPORT_HOP +1 NONRELATIVE_EXPORT_HOP, 0/0 added/removed keys, 419 member-written terminals, all 350 ABSENT branches explained, and 98/98 unresolved rows retaining P1. Total F is 2,942 from P1 2,313. The worker never opens F. Final post-W1b binary verification remains assigned to the controller.
 
-1. Retain and target-fix the existing prototype for Opus spec review **round 1 of 2** (`/Users/wesleyjinks/prism-evidence/paths/reviews-p2/spec-r1-opus.md`, FIX). W1: an unresolved **non-relative ImportForward** is a **BlockedClaim**, so a legacy star sibling cannot win. ReExport and unresolved relative behavior stay unchanged. Pin A1/A4 in both grammars, complete base refusal, and a killing integration mutant.
-2. Keep the caller-selected config through every hop and retain P1 proof/binding/site/span/forwardability fences. S3's inherited type-only/broken/absent claim treatment is disclosed; its separate provenance design is outside P2.
-3. Fold S1 authority refresh and S2–S6 disclosures; fix the v106 format comment and add H1 cache invalidation coverage if cheap. The three unexplained resolvable rows remain an explicit residual, not an assumed gain.
-4. Run the owner tiers: **one full MCP nextest**, scoped changed-code mutants, fmt/clippy, immediate-rebuild Tier-A matrix, S1b-4 byte identity, X/installed-X/R/T vs P1 **+8/+8/0/0**, all new edges CORRECT. Repair gate cap **2 attempts**, classify at the cap. No baseline changes.
-5. Supply the frozen repaired binary to `CONTROLLER-p2.sh`; the controller re-runs F and compares it with the accepted prototype. **Expected W1 F impact: 0; actual post-repair F impact remains controller-only.** Do not transfer b9fd3775 acceptance to repaired bytes without that run.
-6. Controller commits the enumerated prototype and plan sets separately and squashes the final cumulative prototype for implementation dispatch. No worker Git writes, push, merge, F access, or restart.
+Cap 2/2 reached, converging: owner-authorized targeted W1b/S1b/S7 fold on the existing artifact; no further spec round, controller verifies directly.
+
+1. Bind the controller's final squash SHA, cumulative source and frozen binary to `target/p2-fold2/` receipts; do not double-apply an incremental prototype patch.
+2. Retain caller-selected config and every P1 proof/binding/site/span/forwardability fence. W1b preserves BlockedClaim at the non-relative ImportForward depth exit; A1/A4/K1/K2 pin complete legacy refusal in JSX/TSX and both star orders. Alias yield stays +8/+8/0/0. S3's inherited provenance design remains outside P2.
+3. Check the owner-tier receipts: full MCP nextest, scoped W1/W1b mutants, fmt PASS, clippy 0 new warnings, immediate-rebuild Tier-A matrix, S1b-4 byte identity, and X/installed-X/R/T with all new rows CORRECT. Repair gate cap 2 attempts; classify at the cap. S5 cache evidence is the `nonrelative-cache.py` probe runner plus receipts, not a product test.
+4. Use the frozen release default in `CONTROLLER-p2.sh` for direct post-W1b F verification. The completed post-W1 re-run does not certify different final bytes.
+5. Controller commits the enumerated prototype edits and exact plan patch separately, fills the cumulative squash SHA, and owns external custody. No worker Git writes, push, merge, F access, restart, or further spec round.
 
 ---
 
