@@ -63,15 +63,31 @@ struct ParseOutcome {
 
 pub fn load_repo(root: &Path) -> Result<LoadedRepo> {
     let (items, candidates, manifest_snapshot) = collect_walk_items(root)?;
+    // The ambient scan reads only the filesystem. Taking it before the source
+    // parse lets the parse reuse the pages its dropped parse trees freed.
+    let js_paths_snapshot = crate::js_paths_snapshot::JsPathsSnapshot::capture(root);
     let outcomes = parse_candidates_parallel(candidates);
-    Ok(merge_walk_items(root, items, outcomes, manifest_snapshot))
+    Ok(merge_walk_items(
+        root,
+        items,
+        outcomes,
+        manifest_snapshot,
+        js_paths_snapshot,
+    ))
 }
 
 #[cfg_attr(not(test), allow(dead_code))] // parity twin: used by the in-module loader test
 pub(crate) fn load_repo_serial_reference(root: &Path) -> Result<LoadedRepo> {
     let (items, candidates, manifest_snapshot) = collect_walk_items(root)?;
+    let js_paths_snapshot = crate::js_paths_snapshot::JsPathsSnapshot::capture(root);
     let outcomes = parse_candidates_serial(candidates);
-    Ok(merge_walk_items(root, items, outcomes, manifest_snapshot))
+    Ok(merge_walk_items(
+        root,
+        items,
+        outcomes,
+        manifest_snapshot,
+        js_paths_snapshot,
+    ))
 }
 
 fn collect_walk_items(
@@ -124,6 +140,7 @@ fn merge_walk_items(
     items: Vec<MergeItem>,
     outcomes: Vec<ParseOutcome>,
     manifest_snapshot: ManifestSnapshot,
+    js_paths_snapshot: crate::js_paths_snapshot::JsPathsSnapshot,
 ) -> LoadedRepo {
     let mut files = BTreeMap::new();
     let mut file_hashes = BTreeMap::new();
@@ -167,8 +184,12 @@ fn merge_walk_items(
         .iter()
         .filter(|skip| skip.reason == SkipReason::GoTestdata)
         .count();
-    let mut scope_graph_inputs =
-        scope_graph_build_inputs_from_snapshot(root, &files, manifest_snapshot.clone());
+    let mut scope_graph_inputs = scope_graph_build_inputs_from_snapshot(
+        root,
+        &files,
+        manifest_snapshot.clone(),
+        js_paths_snapshot,
+    );
     scope_graph_inputs.skipped_go_testdata_files = skipped_go_testdata_files;
     let manifest_hashes = scope_graph_inputs.manifest_hashes.clone();
 
@@ -188,16 +209,21 @@ pub fn scope_graph_build_inputs(
     root: &Path,
     files: &BTreeMap<String, ParsedFile>,
 ) -> ScopeGraphBuildInputs {
-    scope_graph_build_inputs_from_snapshot(root, files, collect_manifest_snapshot(root))
+    scope_graph_build_inputs_from_snapshot(
+        root,
+        files,
+        collect_manifest_snapshot(root),
+        crate::js_paths_snapshot::JsPathsSnapshot::capture(root),
+    )
 }
 
 fn scope_graph_build_inputs_from_snapshot(
     root: &Path,
     files: &BTreeMap<String, ParsedFile>,
     manifest_snapshot: ManifestSnapshot,
+    js_paths_snapshot: crate::js_paths_snapshot::JsPathsSnapshot,
 ) -> ScopeGraphBuildInputs {
     let mut manifest_hashes = manifest_snapshot.topology_hashes();
-    let js_paths_snapshot = crate::js_paths_snapshot::JsPathsSnapshot::capture(root);
     // Prime every production proof/refusal dependency, including absent paths.
     if !js_paths_snapshot.configs.is_empty() {
         let indexed = files.keys().cloned().collect();
@@ -220,12 +246,25 @@ fn scope_graph_build_inputs_from_snapshot(
         }
         // Prime only the export closure consulted by admitted alias modules.
         // Visiting every file repeats expensive extraction for unrelated callers.
+        // Extraction is a pure per-file function, memoized on the parsed
+        // file; each frontier is extracted in parallel and then consulted in
+        // sorted order, which reaches the same closure as a one-at-a-time walk.
         let mut visited = BTreeSet::new();
-        while let Some(file) = pending.pop_first() {
-            if !visited.insert(file.clone()) {
-                continue;
-            }
-            if let Some(parsed) = files.get(&file) {
+        while !pending.is_empty() {
+            let frontier: Vec<String> = std::mem::take(&mut pending)
+                .into_iter()
+                .filter(|file| visited.insert(file.clone()))
+                .collect();
+            frontier
+                .par_iter()
+                .filter_map(|file| files.get(file))
+                .for_each(|parsed| {
+                    parsed.extract_js_ts_export_facts();
+                });
+            for file in frontier {
+                let Some(parsed) = files.get(&file) else {
+                    continue;
+                };
                 let exports = parsed.extract_js_ts_export_facts();
                 for module in
                     exports

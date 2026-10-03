@@ -41,6 +41,10 @@ pub struct JsPathsSnapshot {
     absent_inputs: Arc<Mutex<BTreeSet<(String, String)>>>,
     #[serde(skip)]
     unsafe_inputs: Arc<Mutex<BTreeSet<(String, String)>>>,
+    // Closure results are pure in (input, roots) over immutable scan state;
+    // their set side effects are idempotent, so repeats are served from here.
+    #[serde(skip)]
+    closure_memo: Arc<Mutex<BTreeMap<(String, Option<Vec<String>>), bool>>>,
 }
 
 enum TypeInput {
@@ -552,7 +556,18 @@ impl JsPathsSnapshot {
         roots: Option<&[String]>,
         seen: &mut BTreeSet<String>,
     ) -> bool {
-        self.input_closure_covered(input, roots, seen)
+        // Only a fresh `seen` makes the result a function of (input, roots);
+        // the walk below is deterministic and never reads the probe sets.
+        if !seen.is_empty() {
+            return self.input_closure_covered(input, roots, seen);
+        }
+        let key = (input.to_owned(), roots.map(<[String]>::to_vec));
+        if let Some(covered) = self.closure_memo.lock().unwrap().get(&key) {
+            return *covered;
+        }
+        let covered = self.input_closure_covered(input, roots, seen);
+        self.closure_memo.lock().unwrap().insert(key, covered);
+        covered
     }
     fn input_closure_covered(
         &self,
@@ -567,11 +582,20 @@ impl JsPathsSnapshot {
             if !seen.insert(input.clone()) {
                 continue;
             }
-            for (file, redirects) in self
-                .type_redirects
-                .iter()
-                .filter(|(file, _)| input.is_empty() || file.starts_with(&format!("{input}/")))
-            {
+            // Sorted keys keep every `input/...` descendant contiguous, so a
+            // range walk visits the same files in the same order as a filter.
+            let prefix = format!("{input}/");
+            let redirects: Box<dyn Iterator<Item = (&String, &Option<Vec<String>>)>> =
+                if input.is_empty() {
+                    Box::new(self.type_redirects.iter())
+                } else {
+                    Box::new(
+                        self.type_redirects
+                            .range(prefix.clone()..)
+                            .take_while(|(file, _)| file.starts_with(prefix.as_str())),
+                    )
+                };
+            for (file, redirects) in redirects {
                 let Some(redirects) = redirects else {
                     continue;
                 };
@@ -586,9 +610,23 @@ impl JsPathsSnapshot {
                     }
                 }
             }
-            for (file, references) in self.references.iter().filter(|(file, _)| {
-                file.as_str() == input || input.is_empty() || file.starts_with(&format!("{input}/"))
-            }) {
+            let references: Box<dyn Iterator<Item = (&String, &Vec<(String, String)>)>> =
+                if input.is_empty() {
+                    Box::new(self.references.iter())
+                } else {
+                    // `input` itself sorts before, and adjacent to, `input/...`.
+                    Box::new(
+                        self.references
+                            .get_key_value(input.as_str())
+                            .into_iter()
+                            .chain(
+                                self.references
+                                    .range(prefix.clone()..)
+                                    .take_while(|(file, _)| file.starts_with(prefix.as_str())),
+                            ),
+                    )
+                };
+            for (file, references) in references {
                 for (kind, name) in references {
                     let base = crate::js_paths_syntax::dir(file);
                     let input = if kind == "path" {
@@ -761,7 +799,24 @@ pub(super) fn literal(s: &str) -> Option<(String, &str)> {
 }
 // Tolerant syntax separates declaration candidates from comments and literals.
 // The Unicode-aware lexical fallback counts unsupported occurrences and skips them.
+// A `declare` occurrence can only yield a pattern or a skip after passing the
+// identifier, keyword and trivia checks below; the literal exclusion only
+// removes occurrences. Without any such occurrence the parse cannot matter.
+pub(super) fn ambient_candidate(source: &str) -> bool {
+    source.match_indices("declare").any(|(start, _)| {
+        !(start > 0 && source[..start].chars().next_back().is_some_and(identifier))
+            && keyword(&source[start..], "declare")
+                .and_then(|rest| keyword(trivia(rest), "module"))
+                .is_some()
+    })
+}
 fn ambient_patterns(source: &str) -> (Vec<String>, usize) {
+    if !ambient_candidate(source) {
+        return (Vec::new(), 0);
+    }
+    ambient_patterns_parsed(source)
+}
+fn ambient_patterns_parsed(source: &str) -> (Vec<String>, usize) {
     let mut parser = tree_sitter::Parser::new();
     if parser
         .set_language(&tree_sitter_typescript::LANGUAGE_TSX.into())
@@ -785,10 +840,13 @@ fn ambient_patterns(source: &str) -> (Vec<String>, usize) {
             pending.extend(node.named_children(&mut cursor));
         }
     }
+    // Literal nodes are never descended into, so their ranges are disjoint.
+    literals.sort_unstable_by_key(|range| range.start);
     let mut patterns = Vec::new();
     let mut skipped = 0;
     for (start, _) in source.match_indices("declare") {
-        if literals.iter().any(|range| range.contains(&start)) {
+        let next = literals.partition_point(|range| range.start <= start);
+        if next > 0 && literals[next - 1].contains(&start) {
             continue;
         }
         if start > 0 && source[..start].chars().next_back().is_some_and(identifier) {
@@ -906,6 +964,47 @@ mod tests {
             ambient_patterns("declare //separator\u{2028}module '@lib' {}").0,
             ["@lib"]
         );
+    }
+    #[test]
+    fn ambient_candidate_prefilter_matches_parsed_scan() {
+        // Non-candidates must be exactly what the parse-backed scan reports
+        // as empty; candidates include every spelling the scan can admit.
+        for source in [
+            "",
+            "declare",
+            "const declared = 1; declare const x: number;",
+            "xdeclare module 'a' {}",
+            "$declare module 'a' {}",
+            "declare modules 'a' {}",
+            "declaremodule 'a' {}",
+        ] {
+            assert!(!ambient_candidate(source), "{source:?}");
+            assert_eq!(
+                ambient_patterns_parsed(source),
+                (Vec::new(), 0),
+                "{source:?}"
+            );
+            assert_eq!(ambient_patterns(source), (Vec::new(), 0), "{source:?}");
+        }
+        for (source, parsed) in [
+            ("declare module 'a' {}", (vec!["a".to_owned()], 0)),
+            ("declare /* c */ module \"a\" {}", (vec!["a".to_owned()], 0)),
+            ("declare //c\n module 'a' {}", (vec!["a".to_owned()], 0)),
+            ("// declare module 'a'\nexport {};", (Vec::new(), 0)),
+            ("const s = \"declare module 'a'\";", (Vec::new(), 0)),
+            ("declare module", (Vec::new(), 1)),
+            ("// declare module\n'a' {}", (Vec::new(), 0)),
+            ("declare module 'unterminated", (Vec::new(), 1)),
+            ("declare module /* unterminated", (Vec::new(), 1)),
+            (
+                "declare module 'a' {} declare module 'b' {}",
+                (vec!["a".to_owned(), "b".to_owned()], 0),
+            ),
+        ] {
+            assert!(ambient_candidate(source), "{source:?}");
+            assert_eq!(ambient_patterns_parsed(source), parsed, "{source:?}");
+            assert_eq!(ambient_patterns(source), parsed, "{source:?}");
+        }
     }
     #[test]
     fn scan_budgets_disable_repository() {

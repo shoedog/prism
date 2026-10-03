@@ -462,6 +462,9 @@ pub struct ParsedFile {
     /// AST-only consumers, and callers with no resolved-call args pay nothing; the
     /// cold CPG/nav build that runs Step 5b builds it on demand.
     call_args: std::sync::OnceLock<CallArgsIndex>,
+    /// Lazily-extracted JS/TS export facts: a pure function of the parsed
+    /// file, shared by the P1 loader priming and the call-graph build.
+    js_export_facts: std::sync::OnceLock<crate::js_exports::JsExportFacts>,
 }
 
 impl ParsedFile {
@@ -494,6 +497,7 @@ impl ParsedFile {
             framework: std::sync::OnceLock::new(),
             functions: Vec::new(),
             call_args: std::sync::OnceLock::new(),
+            js_export_facts: std::sync::OnceLock::new(),
         };
         pf.functions = pf.build_function_table();
         Ok(pf)
@@ -2449,6 +2453,11 @@ impl ParsedFile {
     /// TS `export =` CJS interop, anonymous/aliased class exports, anonymous default
     /// function/arrow exports, spread in `module.exports = { ...x }`.
     pub fn extract_js_ts_export_facts(&self) -> crate::js_exports::JsExportFacts {
+        self.js_export_facts
+            .get_or_init(|| self.extract_js_ts_export_facts_uncached())
+            .clone()
+    }
+    fn extract_js_ts_export_facts_uncached(&self) -> crate::js_exports::JsExportFacts {
         let mut facts = crate::js_exports::JsExportFacts::default();
         if !matches!(
             self.language,

@@ -62,6 +62,110 @@ fn excluded(path: &Path, case_insensitive: bool) -> bool {
             .any(|c| equal(c[0], "node_modules") && equal(c[1], ".bin"))
 }
 
+enum Event {
+    Skip(&'static str),
+    Entry,
+    TypeEntry(String, u8),
+    Link(String, Option<String>),
+    Covered(String),
+    Package {
+        rel: String,
+        path: std::path::PathBuf,
+        is_file: bool,
+    },
+    Source(usize),
+}
+
+struct SourceJob {
+    rel: String,
+    path: std::path::PathBuf,
+    len: u64,
+}
+
+struct Scanned {
+    read: Option<Read>,
+}
+struct Read {
+    len: u64,
+    text: Option<Text>,
+}
+struct Text {
+    declares: bool,
+    candidate: bool,
+    // Present exactly when the sequential scan hashed the file.
+    digest: Option<String>,
+    references: Vec<(String, String)>,
+}
+struct ScanResults {
+    files: Vec<Scanned>,
+    parsed: BTreeMap<String, (Vec<String>, usize)>,
+}
+
+// Candidates above this size parse one at a time; smaller trees may be live
+// on every worker at once.
+const INLINE_PARSE_BYTES: u64 = 256 * 1024;
+
+// Read, prefilter, hash and parse every source job. Each result is a pure
+// function of the file bytes; identical bytes share one parse by digest.
+// Small candidates parse on any worker; large ones take the `large` lock so
+// at most one large tree is live, which bounds the scan's memory high-water
+// mark at the sequential scan's single-tree peak.
+fn scan_sources(jobs: &[SourceJob]) -> ScanResults {
+    use rayon::prelude::*;
+    let parsed: Mutex<BTreeMap<String, (Vec<String>, usize)>> = Mutex::new(BTreeMap::new());
+    let large = Mutex::new(());
+    let files: Vec<Scanned> = jobs
+        .par_iter()
+        .map(|job| {
+            use std::io::Read as _;
+            let mut bytes = Vec::with_capacity(job.len.min(SCAN_BYTES + 1) as usize);
+            let read = std::fs::File::open(&job.path)
+                .and_then(|f| f.take(SCAN_BYTES + 1).read_to_end(&mut bytes));
+            if read.is_err() {
+                return Scanned { read: None };
+            }
+            let len = bytes.len() as u64;
+            let Ok(source) = std::str::from_utf8(&bytes) else {
+                return Scanned {
+                    read: Some(Read { len, text: None }),
+                };
+            };
+            let declares = bytes.windows(7).any(|w| w == b"declare");
+            let candidate = declares && super::ambient_candidate(source);
+            let references = super::triple_references(source);
+            let digest = (declares || !references.is_empty())
+                .then(|| format!("{:x}", Sha256::digest(&bytes)));
+            if candidate {
+                let digest = digest.as_ref().expect("candidates declare");
+                let _one_large_tree = (len > INLINE_PARSE_BYTES).then(|| large.lock().unwrap());
+                if !parsed.lock().unwrap().contains_key(digest) {
+                    let result = super::ambient_patterns(source);
+                    parsed
+                        .lock()
+                        .unwrap()
+                        .entry(digest.clone())
+                        .or_insert(result);
+                }
+            }
+            Scanned {
+                read: Some(Read {
+                    len,
+                    text: Some(Text {
+                        declares,
+                        candidate,
+                        digest,
+                        references,
+                    }),
+                }),
+            }
+        })
+        .collect();
+    ScanResults {
+        files,
+        parsed: parsed.into_inner().unwrap(),
+    }
+}
+
 impl JsPathsSnapshot {
     fn skip(&mut self, reason: &str) {
         *self.scan_stats.skipped.entry(reason.into()).or_default() += 1;
@@ -72,60 +176,82 @@ impl JsPathsSnapshot {
         directory: &Path,
         _depth: usize,
     ) -> std::io::Result<()> {
+        // The traversal records every bookkeeping effect in order and reads
+        // nothing it would write. Source files are then read, prefiltered,
+        // hashed and parsed off the traversal, and the journal is replayed in
+        // traversal order, so every map, counter and the byte budget stop at
+        // exactly the entry the sequential scan stopped at.
+        let (events, jobs, traversal) = self.traverse(root, directory);
+        let results = scan_sources(&jobs);
+        self.replay(events, jobs, results)?;
+        traversal
+    }
+
+    fn traverse(
+        &self,
+        root: &Path,
+        directory: &Path,
+    ) -> (Vec<Event>, Vec<SourceJob>, std::io::Result<()>) {
+        let mut events = Vec::new();
+        let mut jobs = Vec::new();
         let mut pending = vec![directory.to_path_buf()];
         let mut seen = BTreeSet::new();
         while let Some(mut path) = pending.pop() {
-            let relative = path.strip_prefix(root).map_err(std::io::Error::other)?;
+            let relative = match path.strip_prefix(root) {
+                Ok(relative) => relative,
+                Err(error) => return (events, jobs, Err(std::io::Error::other(error))),
+            };
             if excluded(relative, self.case_insensitive) {
-                self.skip("excluded");
+                events.push(Event::Skip("excluded"));
                 continue;
             }
             let Some(relative) = relative.to_str() else {
-                self.skip("non_utf8_path");
+                events.push(Event::Skip("non_utf8_path"));
                 continue;
             };
             let mut rel = relative.to_owned();
             let Ok(mut metadata) = std::fs::symlink_metadata(&path) else {
-                self.skip("unreadable");
+                events.push(Event::Skip("unreadable"));
                 continue;
             };
             if metadata.is_symlink() {
-                self.type_entries.insert(rel.clone(), 2);
+                events.push(Event::TypeEntry(rel.clone(), 2));
                 let target = match path.canonicalize() {
                     Ok(target) if target.starts_with(root) => Some(target),
                     Ok(_) => {
-                        self.skip("outside_root_symlink");
+                        events.push(Event::Skip("outside_root_symlink"));
                         None
                     }
                     Err(_) => {
-                        self.skip("unreadable");
+                        events.push(Event::Skip("unreadable"));
                         None
                     }
                 };
-                self.links.insert(
+                events.push(Event::Link(
                     rel.clone(),
                     target
                         .as_ref()
                         .and_then(|p| p.strip_prefix(root).ok()?.to_str().map(str::to_owned)),
-                );
+                ));
                 let Some(target) = target else {
                     continue;
                 };
-                if excluded(
-                    target.strip_prefix(root).map_err(std::io::Error::other)?,
-                    self.case_insensitive,
-                ) {
-                    self.skip("excluded");
+                let target_relative = match target.strip_prefix(root) {
+                    Ok(relative) => relative,
+                    Err(error) => return (events, jobs, Err(std::io::Error::other(error))),
+                };
+                if excluded(target_relative, self.case_insensitive) {
+                    events.push(Event::Skip("excluded"));
                     continue;
                 }
                 path = target;
                 let Some(target_rel) = path.strip_prefix(root).ok().and_then(Path::to_str) else {
-                    self.skip("non_utf8_path");
+                    events.push(Event::Skip("non_utf8_path"));
                     continue;
                 };
                 rel = target_rel.to_owned();
                 let Ok(target_metadata) = std::fs::symlink_metadata(&path) else {
-                    self.skip("unreadable");
+                    events.push(Event::Skip("unreadable"));
                     continue;
                 };
                 metadata = target_metadata;
@@ -134,7 +260,7 @@ impl JsPathsSnapshot {
             if !seen.insert(path.clone()) {
                 continue;
             }
-            self.scan_stats.entries += 1;
+            events.push(Event::Entry);
             let kind = if metadata.is_dir() {
                 1
             } else if metadata.is_file() {
@@ -144,129 +270,183 @@ impl JsPathsSnapshot {
             };
             // The indexing inventory already owns most source/directory paths.
             if self.entries.get(&rel) != Some(&kind) {
-                self.type_entries.insert(rel.clone(), kind);
+                events.push(Event::TypeEntry(rel.clone(), kind));
             }
             if metadata.is_dir() {
                 let Ok(entries) = std::fs::read_dir(&path) else {
-                    self.skip("unreadable");
+                    events.push(Event::Skip("unreadable"));
                     continue;
                 };
                 for entry in entries {
                     match entry {
                         Ok(entry) => pending.push(entry.path()),
-                        Err(_) => self.skip("unreadable"),
+                        Err(_) => events.push(Event::Skip("unreadable")),
                     }
                 }
-                self.covered.insert(rel, 1);
+                events.push(Event::Covered(rel));
                 continue;
             }
             if path.file_name().is_some_and(|n| n == "package.json") {
-                use std::io::Read;
-                let bytes = if metadata.is_file() {
-                    std::fs::File::open(&path).ok().and_then(|f| {
-                        let mut bytes = Vec::new();
-                        f.take(262_145).read_to_end(&mut bytes).ok()?;
-                        (bytes.len() <= 262_144).then_some(bytes)
-                    })
-                } else {
-                    None
-                };
-                if let Some(bytes) = &bytes {
-                    self.type_metadata_bytes += bytes.len() as u64;
-                    if self.type_metadata_bytes > SCAN_BYTES {
-                        return Err(std::io::Error::other("P1 ambient scan byte budget"));
-                    }
-                } else {
-                    self.skip("unreadable");
-                }
-                self.package_hashes.insert(
-                    format!("type-package:{rel}"),
-                    bytes
-                        .as_ref()
-                        .map(|b| format!("{:x}", Sha256::digest(b)))
-                        .unwrap_or_else(|| "opaque".into()),
-                );
-                self.type_redirects.insert(
-                    rel.clone(),
-                    bytes.as_ref().and_then(|b| super::type_redirects(b)),
-                );
-                self.module_packages.insert(rel.clone(), bytes);
+                events.push(Event::Package {
+                    rel: rel.clone(),
+                    path: path.clone(),
+                    is_file: metadata.is_file(),
+                });
             }
             let lower = rel.to_ascii_lowercase();
             let source_file = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"]
                 .iter()
                 .any(|e| lower.ends_with(e));
             if !source_file {
-                self.skip("non_source");
+                events.push(Event::Skip("non_source"));
                 continue;
             }
             if !metadata.is_file() {
-                self.skip("non_regular_source");
+                events.push(Event::Skip("non_regular_source"));
                 continue;
             }
-            // File occupancy classifies direct inputs; scan hashes bind read
-            // dependencies. Only traversed directories need coverage records.
-            let remaining = SCAN_BYTES.saturating_sub(self.scan_stats.bytes);
-            if metadata.len() > remaining {
+            events.push(Event::Source(jobs.len()));
+            jobs.push(SourceJob {
+                rel,
+                path,
+                len: metadata.len(),
+            });
+        }
+        (events, jobs, Ok(()))
+    }
+
+    fn replay(
+        &mut self,
+        events: Vec<Event>,
+        jobs: Vec<SourceJob>,
+        results: ScanResults,
+    ) -> std::io::Result<()> {
+        for event in events {
+            match event {
+                Event::Skip(reason) => self.skip(reason),
+                Event::Entry => self.scan_stats.entries += 1,
+                Event::TypeEntry(rel, kind) => {
+                    self.type_entries.insert(rel, kind);
+                }
+                Event::Link(rel, target) => {
+                    self.links.insert(rel, target);
+                }
+                Event::Covered(rel) => {
+                    self.covered.insert(rel, 1);
+                }
+                Event::Package { rel, path, is_file } => {
+                    self.replay_package(rel, &path, is_file)?
+                }
+                Event::Source(index) => {
+                    let job = &jobs[index];
+                    let scanned = &results.files[index];
+                    self.replay_source(job, scanned, &results.parsed)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn replay_package(&mut self, rel: String, path: &Path, is_file: bool) -> std::io::Result<()> {
+        use std::io::Read;
+        let bytes = if is_file {
+            std::fs::File::open(path).ok().and_then(|f| {
+                let mut bytes = Vec::new();
+                f.take(262_145).read_to_end(&mut bytes).ok()?;
+                (bytes.len() <= 262_144).then_some(bytes)
+            })
+        } else {
+            None
+        };
+        if let Some(bytes) = &bytes {
+            self.type_metadata_bytes += bytes.len() as u64;
+            if self.type_metadata_bytes > SCAN_BYTES {
                 return Err(std::io::Error::other("P1 ambient scan byte budget"));
             }
-            use std::io::Read;
-            let mut bytes = Vec::new();
-            let read = std::fs::File::open(&path)
-                .and_then(|f| f.take(remaining + 1).read_to_end(&mut bytes));
-            if read.is_err() {
-                self.skip("unreadable");
-                continue;
-            }
-            if bytes.len() as u64 > remaining {
-                return Err(std::io::Error::other("P1 ambient scan byte budget"));
-            }
-            self.scan_stats.files += 1;
-            self.scan_stats.bytes += bytes.len() as u64;
-            if rel.contains("node_modules/@types/") {
-                self.scan_stats.types_files += 1;
-                self.scan_stats.types_bytes += bytes.len() as u64;
-            }
-            let Ok(source) = std::str::from_utf8(&bytes) else {
-                self.skip("non_utf8_source");
-                self.package_hashes
-                    .insert(format!("scan:{rel}"), "non_utf8".into());
-                continue;
-            };
-            let declares = bytes.windows(7).any(|w| w == b"declare");
-            let (patterns, unparseable) = if declares {
-                super::ambient_patterns(source)
-            } else {
-                (Vec::new(), 0)
-            };
-            if unparseable != 0 {
-                *self
-                    .scan_stats
-                    .skipped
-                    .entry("unparseable_declare_module".into())
-                    .or_default() += unparseable;
-            }
-            let references = super::triple_references(source);
-            self.scan_stats.declaration_files += usize::from(declares);
-            // Indexed source occupancy already binds addition/removal; the
-            // loader hashes its bytes. Keep extra read receipts for sources in
-            // skipped directories and all declaration/reference content.
-            if declares || !references.is_empty() || self.entries.get(&rel) != Some(&0) {
-                self.package_hashes.insert(
-                    format!("scan:{rel}"),
-                    if declares || !references.is_empty() {
-                        format!("{:x}", Sha256::digest(&bytes))
-                    } else {
-                        "regular".into()
-                    },
-                );
-            }
-            if !patterns.is_empty() {
-                self.ambient.insert(rel.clone(), patterns);
-            }
-            if !references.is_empty() {
-                self.references.insert(rel, references);
-            }
+        } else {
+            self.skip("unreadable");
+        }
+        self.package_hashes.insert(
+            format!("type-package:{rel}"),
+            bytes
+                .as_ref()
+                .map(|b| format!("{:x}", Sha256::digest(b)))
+                .unwrap_or_else(|| "opaque".into()),
+        );
+        self.type_redirects.insert(
+            rel.clone(),
+            bytes.as_ref().and_then(|b| super::type_redirects(b)),
+        );
+        self.module_packages.insert(rel, bytes);
+        Ok(())
+    }
+
+    fn replay_source(
+        &mut self,
+        job: &SourceJob,
+        scanned: &Scanned,
+        parsed: &BTreeMap<String, (Vec<String>, usize)>,
+    ) -> std::io::Result<()> {
+        let rel = &job.rel;
+        // File occupancy classifies direct inputs; scan hashes bind read
+        // dependencies. Only traversed directories need coverage records.
+        let remaining = SCAN_BYTES.saturating_sub(self.scan_stats.bytes);
+        if job.len > remaining {
+            return Err(std::io::Error::other("P1 ambient scan byte budget"));
+        }
+        let Some(read) = &scanned.read else {
+            self.skip("unreadable");
+            return Ok(());
+        };
+        if read.len > remaining {
+            return Err(std::io::Error::other("P1 ambient scan byte budget"));
+        }
+        self.scan_stats.files += 1;
+        self.scan_stats.bytes += read.len;
+        if rel.contains("node_modules/@types/") {
+            self.scan_stats.types_files += 1;
+            self.scan_stats.types_bytes += read.len;
+        }
+        let Some(text) = &read.text else {
+            self.skip("non_utf8_source");
+            self.package_hashes
+                .insert(format!("scan:{rel}"), "non_utf8".into());
+            return Ok(());
+        };
+        let declares = text.declares;
+        let (patterns, unparseable) = match &text.digest {
+            Some(digest) if text.candidate => parsed
+                .get(digest)
+                .cloned()
+                .expect("every candidate digest is parsed"),
+            _ => (Vec::new(), 0),
+        };
+        if unparseable != 0 {
+            *self
+                .scan_stats
+                .skipped
+                .entry("unparseable_declare_module".into())
+                .or_default() += unparseable;
+        }
+        let references = &text.references;
+        self.scan_stats.declaration_files += usize::from(declares);
+        // Indexed source occupancy already binds addition/removal; the
+        // loader hashes its bytes. Keep extra read receipts for sources in
+        // skipped directories and all declaration/reference content.
+        if declares || !references.is_empty() || self.entries.get(rel) != Some(&0) {
+            self.package_hashes.insert(
+                format!("scan:{rel}"),
+                match &text.digest {
+                    Some(digest) => digest.clone(),
+                    None => "regular".into(),
+                },
+            );
+        }
+        if !patterns.is_empty() {
+            self.ambient.insert(rel.clone(), patterns);
+        }
+        if !references.is_empty() {
+            self.references.insert(rel.clone(), references.clone());
         }
         Ok(())
     }
