@@ -1,0 +1,14 @@
+[    0.0s] 93 mutants in 1 lane file(s); selected 3
+[    8.2s] source baseline 3 selectors, 0 inadmissible mutants
+[   10.6s] schemata: 1 fn units, 2 schema mutants, 1 static: {'R4-08-dropped-import-decline': 'outside-fn-body'}
+[   18.8s] schemata build rc=0 in 8.16s
+[   19.1s] schema baseline 3 selectors, 0 inadmissible mutants
+[   24.5s] I17-no-project-reference-cut KILLED
+[   24.5s] I73-declare-prefilter KILLED
+[   24.5s] schema runs: 2 in 0.18s (jobs=7)
+[   33.4s] R4-08-dropped-import-decline KILLED (text)
+[   33.4s] TOTAL killed 3/3 admissible 3 timings {'source_baseline_build': 5.43, 'source_baseline': 0.31, 'schema_build': 8.16, 'schema_baseline': 0.33, 'schema_runs': 0.18, 'confirmation_scan': 5.17, 'text_mode': 8.95, 'total': 33.44}
+{"exit": 0, "wall_seconds": 33.444629917, "synthetic_changed_lines": {"src/js_paths_boundary.rs": [169]}, "ids": ["I17-no-project-reference-cut", "I73-declare-prefilter", "R4-08-dropped-import-decline"], "production_diff": "empty: this is a synthetic selector control, not an actual source diff"}
+real 33.50
+user 36.51
+sys 9.58

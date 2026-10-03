@@ -1,0 +1,21 @@
+
+======================================================================
+FAIL: test_worker_relocation_failure_cannot_kill_an_equivalent_mutant (scripts.mutgate.test_mutgate.GateRegressionTests) (compile_failure=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 335, in test_worker_relocation_failure_cannot_kill_an_equivalent_mutant
+    self.assertEqual(status, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_worker_relocation_failure_cannot_kill_an_equivalent_mutant (scripts.mutgate.test_mutgate.GateRegressionTests) (compile_failure=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 338, in test_worker_relocation_failure_cannot_kill_an_equivalent_mutant
+    self.assertIn('baseline', summary['results']['m']['error'])
+AssertionError: 'baseline' not found in 'compile'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.473s
+
+FAILED (failures=2)

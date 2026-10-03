@@ -18,6 +18,21 @@ cargo build --bin prism-mcp --features mcp  # Build the MCP stdio server
 cargo test --features mcp                   # Run tests with MCP enabled
 ```
 
+### Mutation gate
+```bash
+python3 scripts/mutgate/mutgate.py                            # authoritative full gate before merge; default 4 workers
+python3 scripts/mutgate/mutgate.py --since main --scope fn    # fast ADVISORY check each review round
+python3 scripts/mutgate/mutgate.py --since main --scope fn --authoritative  # scoped round needing certainty
+```
+Full and authoritative scoped verdicts use isolated text builds with only each
+mutant's own edits and green source baselines in the shared and worker contexts;
+TIMEOUT/INADMISSIBLE fail.
+Scoped schema results are labeled ADVISORY (`authoritative: false`), can falsely
+kill equivalent location-observing mutants, and cannot certify a pre-merge gate.
+Scopes do not trace dependency effects. Exit 0 means all selected verdicts are
+KILLED under the stated contract. Warm lane-P target: at most 5 minutes at 4 jobs.
+Details (lane format, cleanup, measurements, limits): `scripts/mutgate/README.md`.
+
 ## Accuracy Harness (Tier-A)
 
 When a change touches call resolution, navigation queries, or CPG construction

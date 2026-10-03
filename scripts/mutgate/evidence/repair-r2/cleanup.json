@@ -1,0 +1,13 @@
+{
+  "removed": [
+    "/Users/wesleyjinks/code/prism-mutation-gate/target"
+  ],
+  "target_created_by_this_task": true,
+  "logical_kib_before": 4736020,
+  "live_use_check": "All task command sessions completed; exclusive Cargo debug lock acquired before removal.",
+  "scratch_source_restored_before_removal": true,
+  "build_target_absent": true,
+  "physical_reclaim": "not measured; logical du only",
+  "retained_evidence": "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/evidence/repair-r2",
+  "snapshot": "/private/tmp/mutgate-repair-r2-final.tar.gz"
+}

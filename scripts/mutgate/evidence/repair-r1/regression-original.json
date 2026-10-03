@@ -1,0 +1,960 @@
+[
+  {
+    "case": "test_empty_selector_list_and_missing_anchor_fail",
+    "mode": "text",
+    "status": 1,
+    "source": "fn f() -> u32 { 1 }\n",
+    "mutations": {
+      "m": [
+        "src/lib.rs",
+        "{ 1 }",
+        "{ 2 }",
+        []
+      ]
+    },
+    "extra": null,
+    "timeout": 5,
+    "summary": {
+      "selected": 1,
+      "killed": 0,
+      "admissible": 1,
+      "timings": {
+        "text_mode": 0.19,
+        "total": 0.19
+      },
+      "results": {
+        "m": {
+          "killed": false,
+          "admissible": true,
+          "build_seconds": 0.18,
+          "runs": [],
+          "mode": "text"
+        }
+      }
+    }
+  },
+  {
+    "case": "test_empty_selector_list_and_missing_anchor_fail",
+    "mode": "text",
+    "status": 1,
+    "source": "fn f() -> u32 { 1 }\n",
+    "mutations": {
+      "m": [
+        "src/lib.rs",
+        "gone",
+        "other",
+        "t"
+      ]
+    },
+    "extra": null,
+    "timeout": 5,
+    "summary": {
+      "selected": 1,
+      "killed": 0,
+      "admissible": 0,
+      "timings": {
+        "text_mode": 0.0,
+        "total": 0.0
+      },
+      "results": {
+        "m": {
+          "killed": false,
+          "admissible": false,
+          "error": "anchor missing in src/lib.rs",
+          "mode": "text"
+        }
+      }
+    }
+  },
+  {
+    "case": "test_w1_constructed_false_kill_survives_both_modes",
+    "mode": "text",
+    "status": 1,
+    "source": "pub fn f() -> u32 {\n    let ignored = 1;\n    line!()\n}\nconst AFTER: u32 = line!();\n#[test]\nfn t() { assert_eq!(AFTER - f(), 2); }\n",
+    "mutations": {
+      "m": [
+        "src/lib.rs",
+        "let ignored = 1;",
+        "let ignored = 2;",
+        "t"
+      ]
+    },
+    "extra": null,
+    "timeout": 5,
+    "summary": {
+      "selected": 1,
+      "killed": 0,
+      "admissible": 1,
+      "timings": {
+        "text_mode": 0.15,
+        "total": 0.15
+      },
+      "results": {
+        "m": {
+          "killed": false,
+          "admissible": true,
+          "build_seconds": 0.14,
+          "runs": [
+            {
+              "killed": false,
+              "timeout": false,
+              "admissible": true,
+              "status": 0,
+              "seconds": 0.003,
+              "log_tail": "\nrunning 1 test\ntest t ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+            }
+          ],
+          "mode": "text"
+        }
+      }
+    }
+  },
+  {
+    "case": "test_w1_constructed_false_kill_survives_both_modes",
+    "mode": "schema",
+    "status": 0,
+    "source": "pub fn f() -> u32 {\n    let ignored = 1;\n    line!()\n}\nconst AFTER: u32 = line!();\n#[test]\nfn t() { assert_eq!(AFTER - f(), 2); }\n",
+    "mutations": {
+      "m": [
+        "src/lib.rs",
+        "let ignored = 1;",
+        "let ignored = 2;",
+        "t"
+      ]
+    },
+    "extra": null,
+    "timeout": 5,
+    "summary": {
+      "selected": 1,
+      "killed": 1,
+      "admissible": 1,
+      "timings": {
+        "schema_build": 0.12,
+        "baseline": 0.01,
+        "schema_runs": 0.0,
+        "total": 0.13
+      },
+      "results": {
+        "m": {
+          "mode": "schema",
+          "runs": [
+            {
+              "killed": true,
+              "timeout": false,
+              "admissible": true,
+              "status": 101,
+              "seconds": 0.002,
+              "log_tail": "\nrunning 1 test\ntest t ... FAILED\n\nfailures:\n\n---- t stdout ----\n\nthread 't' (115901814) panicked at src/lib.rs:11:10:\nassertion `left == right` failed\n  left: 5\n right: 2\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    t\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+            }
+          ],
+          "killed": true,
+          "admissible": true
+        }
+      }
+    }
+  },
+  {
+    "case": "test_w1_hidden_track_caller_false_kill_requires_text_confirmation",
+    "mode": "schema",
+    "status": 0,
+    "source": "pub fn f() -> u32 {\n    let ignored = 1;\n    location()\n}\nconst AFTER: u32 = line!();\n#[track_caller]\nfn location() -> u32 { std::panic::Location::caller().line() }\n#[test]\nfn t() { assert_eq!(AFTER - f(), 2); }\n",
+    "mutations": {
+      "m": [
+        "src/lib.rs",
+        "let ignored = 1;",
+        "let ignored = 2;",
+        "t"
+      ]
+    },
+    "extra": null,
+    "timeout": 5,
+    "summary": {
+      "selected": 1,
+      "killed": 1,
+      "admissible": 1,
+      "timings": {
+        "schema_build": 0.12,
+        "baseline": 0.0,
+        "schema_runs": 0.0,
+        "total": 0.13
+      },
+      "results": {
+        "m": {
+          "mode": "schema",
+          "runs": [
+            {
+              "killed": true,
+              "timeout": false,
+              "admissible": true,
+              "status": 101,
+              "seconds": 0.002,
+              "log_tail": "\nrunning 1 test\ntest t ... FAILED\n\nfailures:\n\n---- t stdout ----\n\nthread 't' (115901944) panicked at src/lib.rs:13:10:\nassertion `left == right` failed\n  left: 5\n right: 2\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    t\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+            }
+          ],
+          "killed": true,
+          "admissible": true
+        }
+      }
+    }
+  },
+  {
+    "case": "test_w2_timeout_never_kills",
+    "mode": "text",
+    "status": 0,
+    "source": "fn f() -> u32 { let ignored = 1; if ignored == 2 { std::thread::sleep(std::time::Duration::from_millis(150)); } 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n",
+    "mutations": {
+      "m": [
+        "src/lib.rs",
+        "let ignored = 1;",
+        "let ignored = 2;",
+        "t"
+      ]
+    },
+    "extra": null,
+    "timeout": 0.05,
+    "summary": {
+      "selected": 1,
+      "killed": 1,
+      "admissible": 1,
+      "timings": {
+        "text_mode": 0.17,
+        "total": 0.17
+      },
+      "results": {
+        "m": {
+          "killed": true,
+          "admissible": true,
+          "build_seconds": 0.11,
+          "runs": [
+            {
+              "killed": true,
+              "timeout": true,
+              "admissible": true,
+              "status": "timeout",
+              "seconds": 0.054,
+              "log_tail": "\nrunning 1 test\ntest t ... "
+            }
+          ],
+          "mode": "text"
+        }
+      }
+    }
+  },
+  {
+    "case": "test_w2_timeout_never_kills",
+    "mode": "schema",
+    "status": 0,
+    "source": "fn f() -> u32 { let ignored = 1; if ignored == 2 { std::thread::sleep(std::time::Duration::from_millis(150)); } 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n",
+    "mutations": {
+      "m": [
+        "src/lib.rs",
+        "let ignored = 1;",
+        "let ignored = 2;",
+        "t"
+      ]
+    },
+    "extra": null,
+    "timeout": 0.05,
+    "summary": {
+      "selected": 1,
+      "killed": 1,
+      "admissible": 1,
+      "timings": {
+        "schema_build": 0.11,
+        "baseline": 0.0,
+        "schema_runs": 0.05,
+        "total": 0.16
+      },
+      "results": {
+        "m": {
+          "mode": "schema",
+          "runs": [
+            {
+              "killed": true,
+              "timeout": true,
+              "admissible": true,
+              "status": "timeout",
+              "seconds": 0.053,
+              "log_tail": "\nrunning 1 test\ntest t ... "
+            }
+          ],
+          "killed": true,
+          "admissible": true
+        }
+      }
+    }
+  },
+  {
+    "case": "test_w3_bad_baseline_does_not_disappear_from_denominator",
+    "mode": "text",
+    "status": 0,
+    "source": "fn f() -> u32 { 1 }\nfn g() -> u32 { 3 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n#[test]\nfn bad() { assert_eq!(g(), 9); }\n",
+    "mutations": {
+      "good": [
+        "src/lib.rs",
+        "{ 1 }",
+        "{ 2 }",
+        "t"
+      ],
+      "bad": [
+        "src/lib.rs",
+        "{ 3 }",
+        "{ 4 }",
+        "bad"
+      ]
+    },
+    "extra": null,
+    "timeout": 5,
+    "summary": {
+      "selected": 2,
+      "killed": 2,
+      "admissible": 2,
+      "timings": {
+        "text_mode": 0.21,
+        "total": 0.21
+      },
+      "results": {
+        "good": {
+          "killed": true,
+          "admissible": true,
+          "build_seconds": 0.11,
+          "runs": [
+            {
+              "killed": true,
+              "timeout": false,
+              "admissible": true,
+              "status": 101,
+              "seconds": 0.003,
+              "log_tail": "\nrunning 1 test\ntest t ... FAILED\n\nfailures:\n\n---- t stdout ----\n\nthread 't' (115902329) panicked at src/lib.rs:4:10:\nassertion `left == right` failed\n  left: 2\n right: 1\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    t\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s\n\n"
+            }
+          ],
+          "mode": "text"
+        },
+        "bad": {
+          "killed": true,
+          "admissible": true,
+          "build_seconds": 0.09,
+          "runs": [
+            {
+              "killed": true,
+              "timeout": false,
+              "admissible": true,
+              "status": 101,
+              "seconds": 0.003,
+              "log_tail": "\nrunning 1 test\ntest bad ... FAILED\n\nfailures:\n\n---- bad stdout ----\n\nthread 'bad' (115902444) panicked at src/lib.rs:6:12:\nassertion `left == right` failed\n  left: 4\n right: 9\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    bad\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s\n\n"
+            }
+          ],
+          "mode": "text"
+        }
+      }
+    }
+  },
+  {
+    "case": "test_w3_bad_baseline_does_not_disappear_from_denominator",
+    "mode": "schema",
+    "status": "baseline red: [('lib', 'bad')]",
+    "source": "fn f() -> u32 { 1 }\nfn g() -> u32 { 3 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n#[test]\nfn bad() { assert_eq!(g(), 9); }\n",
+    "mutations": {
+      "good": [
+        "src/lib.rs",
+        "{ 1 }",
+        "{ 2 }",
+        "t"
+      ],
+      "bad": [
+        "src/lib.rs",
+        "{ 3 }",
+        "{ 4 }",
+        "bad"
+      ]
+    },
+    "extra": null,
+    "timeout": 5,
+    "summary": {}
+  },
+  {
+    "case": "test_w3_red_baseline_is_inadmissible_both_modes",
+    "mode": "text",
+    "status": 0,
+    "source": "fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 2); }\n",
+    "mutations": {
+      "m": [
+        "src/lib.rs",
+        "{ 1 }",
+        "{ 1 + 0 }",
+        "t"
+      ]
+    },
+    "extra": null,
+    "timeout": 5,
+    "summary": {
+      "selected": 1,
+      "killed": 1,
+      "admissible": 1,
+      "timings": {
+        "text_mode": 0.11,
+        "total": 0.12
+      },
+      "results": {
+        "m": {
+          "killed": true,
+          "admissible": true,
+          "build_seconds": 0.11,
+          "runs": [
+            {
+              "killed": true,
+              "timeout": false,
+              "admissible": true,
+              "status": 101,
+              "seconds": 0.003,
+              "log_tail": "\nrunning 1 test\ntest t ... FAILED\n\nfailures:\n\n---- t stdout ----\n\nthread 't' (115902678) panicked at src/lib.rs:3:10:\nassertion `left == right` failed\n  left: 1\n right: 2\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    t\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+            }
+          ],
+          "mode": "text"
+        }
+      }
+    }
+  },
+  {
+    "case": "test_w3_red_baseline_is_inadmissible_both_modes",
+    "mode": "schema",
+    "status": "baseline red: [('lib', 't')]",
+    "source": "fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 2); }\n",
+    "mutations": {
+      "m": [
+        "src/lib.rs",
+        "{ 1 }",
+        "{ 1 + 0 }",
+        "t"
+      ]
+    },
+    "extra": null,
+    "timeout": 5,
+    "summary": {}
+  },
+  {
+    "case": "test_w4_missing_selector_fails_even_with_killing_selector",
+    "mode": "text",
+    "status": 0,
+    "source": "fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n",
+    "mutations": {
+      "m": [
+        "src/lib.rs",
+        "{ 1 }",
+        "{ 2 }",
+        [
+          "t",
+          "t_missing"
+        ]
+      ]
+    },
+    "extra": null,
+    "timeout": 5,
+    "summary": {
+      "selected": 1,
+      "killed": 1,
+      "admissible": 0,
+      "timings": {
+        "text_mode": 0.12,
+        "total": 0.12
+      },
+      "results": {
+        "m": {
+          "killed": true,
+          "admissible": false,
+          "build_seconds": 0.11,
+          "runs": [
+            {
+              "killed": true,
+              "timeout": false,
+              "admissible": true,
+              "status": 101,
+              "seconds": 0.003,
+              "log_tail": "\nrunning 1 test\ntest t ... FAILED\n\nfailures:\n\n---- t stdout ----\n\nthread 't' (115902915) panicked at src/lib.rs:3:10:\nassertion `left == right` failed\n  left: 2\n right: 1\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    t\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+            },
+            {
+              "killed": false,
+              "timeout": false,
+              "admissible": false,
+              "status": 0,
+              "seconds": 0.002,
+              "log_tail": "\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s\n\n"
+            }
+          ],
+          "mode": "text"
+        }
+      }
+    }
+  },
+  {
+    "case": "test_w4_missing_selector_fails_even_with_killing_selector",
+    "mode": "schema",
+    "status": "baseline red: [('lib', 't_missing')]",
+    "source": "fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n",
+    "mutations": {
+      "m": [
+        "src/lib.rs",
+        "{ 1 }",
+        "{ 2 }",
+        [
+          "t",
+          "t_missing"
+        ]
+      ]
+    },
+    "extra": null,
+    "timeout": 5,
+    "summary": {}
+  },
+  {
+    "case": "test_w4_selector_removed_or_ignored_by_mutant_is_inadmissible",
+    "mode": "text",
+    "status": 0,
+    "source": "fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n#[test]\nfn other() { assert_eq!(f(), 1); }\n",
+    "mutations": {
+      "m": [
+        "src/lib.rs",
+        "{ 1 }",
+        "{ 2 }",
+        [
+          "t",
+          "other"
+        ]
+      ]
+    },
+    "extra": {
+      "m": [
+        [
+          "src/lib.rs",
+          "#[test]\nfn other()",
+          "fn other()"
+        ]
+      ]
+    },
+    "timeout": 5,
+    "summary": {
+      "selected": 1,
+      "killed": 1,
+      "admissible": 0,
+      "timings": {
+        "text_mode": 0.12,
+        "total": 0.12
+      },
+      "results": {
+        "m": {
+          "killed": true,
+          "admissible": false,
+          "build_seconds": 0.11,
+          "runs": [
+            {
+              "killed": true,
+              "timeout": false,
+              "admissible": true,
+              "status": 101,
+              "seconds": 0.003,
+              "log_tail": "\nrunning 1 test\ntest t ... FAILED\n\nfailures:\n\n---- t stdout ----\n\nthread 't' (115903153) panicked at src/lib.rs:3:10:\nassertion `left == right` failed\n  left: 2\n right: 1\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    t\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+            },
+            {
+              "killed": false,
+              "timeout": false,
+              "admissible": false,
+              "status": 0,
+              "seconds": 0.002,
+              "log_tail": "\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s\n\n"
+            }
+          ],
+          "mode": "text"
+        }
+      }
+    }
+  },
+  {
+    "case": "test_w4_selector_removed_or_ignored_by_mutant_is_inadmissible",
+    "mode": "schema",
+    "status": 0,
+    "source": "fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n#[test]\nfn other() { assert_eq!(f(), 1); }\n",
+    "mutations": {
+      "m": [
+        "src/lib.rs",
+        "{ 1 }",
+        "{ 2 }",
+        [
+          "t",
+          "other"
+        ]
+      ]
+    },
+    "extra": {
+      "m": [
+        [
+          "src/lib.rs",
+          "#[test]\nfn other()",
+          "fn other()"
+        ]
+      ]
+    },
+    "timeout": 5,
+    "summary": {
+      "selected": 1,
+      "killed": 1,
+      "admissible": 0,
+      "timings": {
+        "schema_build": 0.1,
+        "baseline": 0.0,
+        "schema_runs": 0.0,
+        "text_mode": 0.1,
+        "total": 0.2
+      },
+      "results": {
+        "m": {
+          "killed": true,
+          "admissible": false,
+          "build_seconds": 0.09,
+          "runs": [
+            {
+              "killed": true,
+              "timeout": false,
+              "admissible": true,
+              "status": 101,
+              "seconds": 0.003,
+              "log_tail": "\nrunning 1 test\ntest t ... FAILED\n\nfailures:\n\n---- t stdout ----\n\nthread 't' (115903377) panicked at src/lib.rs:4:10:\nassertion `left == right` failed\n  left: 2\n right: 1\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    t\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+            },
+            {
+              "killed": false,
+              "timeout": false,
+              "admissible": false,
+              "status": 0,
+              "seconds": 0.002,
+              "log_tail": "\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s\n\n"
+            }
+          ],
+          "mode": "text"
+        }
+      }
+    }
+  },
+  {
+    "case": "test_w4_selector_removed_or_ignored_by_mutant_is_inadmissible",
+    "mode": "text",
+    "status": 0,
+    "source": "fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n#[test]\nfn other() { assert_eq!(f(), 1); }\n",
+    "mutations": {
+      "m": [
+        "src/lib.rs",
+        "{ 1 }",
+        "{ 2 }",
+        [
+          "t",
+          "other"
+        ]
+      ]
+    },
+    "extra": {
+      "m": [
+        [
+          "src/lib.rs",
+          "#[test]\nfn other()",
+          "#[test]\n#[ignore]\nfn other()"
+        ]
+      ]
+    },
+    "timeout": 5,
+    "summary": {
+      "selected": 1,
+      "killed": 1,
+      "admissible": 1,
+      "timings": {
+        "text_mode": 0.1,
+        "total": 0.1
+      },
+      "results": {
+        "m": {
+          "killed": true,
+          "admissible": true,
+          "build_seconds": 0.09,
+          "runs": [
+            {
+              "killed": true,
+              "timeout": false,
+              "admissible": true,
+              "status": 101,
+              "seconds": 0.003,
+              "log_tail": "\nrunning 1 test\ntest t ... FAILED\n\nfailures:\n\n---- t stdout ----\n\nthread 't' (115903485) panicked at src/lib.rs:3:10:\nassertion `left == right` failed\n  left: 2\n right: 1\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    t\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s\n\n"
+            },
+            {
+              "killed": false,
+              "timeout": false,
+              "admissible": true,
+              "status": 0,
+              "seconds": 0.002,
+              "log_tail": "\nrunning 1 test\ntest other ... ignored\n\ntest result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 1 filtered out; finished in 0.00s\n\n"
+            }
+          ],
+          "mode": "text"
+        }
+      }
+    }
+  },
+  {
+    "case": "test_w4_selector_removed_or_ignored_by_mutant_is_inadmissible",
+    "mode": "schema",
+    "status": 0,
+    "source": "fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n#[test]\nfn other() { assert_eq!(f(), 1); }\n",
+    "mutations": {
+      "m": [
+        "src/lib.rs",
+        "{ 1 }",
+        "{ 2 }",
+        [
+          "t",
+          "other"
+        ]
+      ]
+    },
+    "extra": {
+      "m": [
+        [
+          "src/lib.rs",
+          "#[test]\nfn other()",
+          "#[test]\n#[ignore]\nfn other()"
+        ]
+      ]
+    },
+    "timeout": 5,
+    "summary": {
+      "selected": 1,
+      "killed": 1,
+      "admissible": 1,
+      "timings": {
+        "schema_build": 0.1,
+        "baseline": 0.0,
+        "schema_runs": 0.0,
+        "text_mode": 0.1,
+        "total": 0.2
+      },
+      "results": {
+        "m": {
+          "killed": true,
+          "admissible": true,
+          "build_seconds": 0.09,
+          "runs": [
+            {
+              "killed": true,
+              "timeout": false,
+              "admissible": true,
+              "status": 101,
+              "seconds": 0.003,
+              "log_tail": "\nrunning 1 test\ntest t ... FAILED\n\nfailures:\n\n---- t stdout ----\n\nthread 't' (115903704) panicked at src/lib.rs:4:10:\nassertion `left == right` failed\n  left: 2\n right: 1\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    t\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s\n\n"
+            },
+            {
+              "killed": false,
+              "timeout": false,
+              "admissible": true,
+              "status": 0,
+              "seconds": 0.002,
+              "log_tail": "\nrunning 1 test\ntest other ... ignored\n\ntest result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 1 filtered out; finished in 0.00s\n\n"
+            }
+          ],
+          "mode": "text"
+        }
+      }
+    }
+  },
+  {
+    "case": "test_w5_failed_extra_edit_is_restored_before_next_mutant",
+    "mode": "text",
+    "status": 1,
+    "source": "fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n",
+    "mutations": {
+      "bad": [
+        "src/lib.rs",
+        "{ 1 }",
+        "{ missing }",
+        "t"
+      ],
+      "good": [
+        "src/lib.rs",
+        "{ 1 }",
+        "{ 2 }",
+        "t"
+      ]
+    },
+    "extra": null,
+    "timeout": 5,
+    "summary": {
+      "selected": 2,
+      "killed": 1,
+      "admissible": 1,
+      "timings": {
+        "text_mode": 0.16,
+        "total": 0.16
+      },
+      "results": {
+        "bad": {
+          "killed": false,
+          "admissible": false,
+          "error": "compile",
+          "build_seconds": 0.06,
+          "log_tail": "   Compiling prism v0.0.0 (/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/mutgate-regression-cb9v1djw/target/mutgate/tree)\nerror: could not compile `prism` (lib test) due to 1 previous error\n",
+          "mode": "text"
+        },
+        "good": {
+          "killed": true,
+          "admissible": true,
+          "build_seconds": 0.09,
+          "runs": [
+            {
+              "killed": true,
+              "timeout": false,
+              "admissible": true,
+              "status": 101,
+              "seconds": 0.003,
+              "log_tail": "\nrunning 1 test\ntest t ... FAILED\n\nfailures:\n\n---- t stdout ----\n\nthread 't' (115903867) panicked at src/lib.rs:3:10:\nassertion `left == right` failed\n  left: 2\n right: 1\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    t\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+            }
+          ],
+          "mode": "text"
+        }
+      }
+    }
+  },
+  {
+    "case": "test_w5_static_fallback_contains_only_its_own_edits",
+    "mode": "text",
+    "status": 0,
+    "source": "struct S { a: u32 }\nfn f() -> S { S { a: 1 } }\n#[test]\nfn t() { assert_eq!(f().a, 1); }\n",
+    "mutations": {
+      "A": [
+        "src/lib.rs",
+        "S { a: 1 }",
+        "S { a: 2 }",
+        "t"
+      ],
+      "B": [
+        "src/lib.rs",
+        "struct S { a: u32 }",
+        "struct S { a: u32, b: u32 }",
+        "t"
+      ]
+    },
+    "extra": {
+      "B": [
+        [
+          "src/lib.rs",
+          "S { a: 1 }",
+          "S { a: 3, b: 0 }"
+        ]
+      ]
+    },
+    "timeout": 5,
+    "summary": {
+      "selected": 2,
+      "killed": 2,
+      "admissible": 2,
+      "timings": {
+        "text_mode": 0.21,
+        "total": 0.21
+      },
+      "results": {
+        "A": {
+          "killed": true,
+          "admissible": true,
+          "build_seconds": 0.11,
+          "runs": [
+            {
+              "killed": true,
+              "timeout": false,
+              "admissible": true,
+              "status": 101,
+              "seconds": 0.003,
+              "log_tail": "\nrunning 1 test\ntest t ... FAILED\n\nfailures:\n\n---- t stdout ----\n\nthread 't' (115903980) panicked at src/lib.rs:4:10:\nassertion `left == right` failed\n  left: 2\n right: 1\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    t\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+            }
+          ],
+          "mode": "text"
+        },
+        "B": {
+          "killed": true,
+          "admissible": true,
+          "build_seconds": 0.09,
+          "runs": [
+            {
+              "killed": true,
+              "timeout": false,
+              "admissible": true,
+              "status": 101,
+              "seconds": 0.003,
+              "log_tail": "\nrunning 1 test\ntest t ... FAILED\n\nfailures:\n\n---- t stdout ----\n\nthread 't' (115904087) panicked at src/lib.rs:4:10:\nassertion `left == right` failed\n  left: 3\n right: 1\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    t\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+            }
+          ],
+          "mode": "text"
+        }
+      }
+    }
+  },
+  {
+    "case": "test_w5_static_fallback_contains_only_its_own_edits",
+    "mode": "schema",
+    "status": 1,
+    "source": "struct S { a: u32 }\nfn f() -> S { S { a: 1 } }\n#[test]\nfn t() { assert_eq!(f().a, 1); }\n",
+    "mutations": {
+      "A": [
+        "src/lib.rs",
+        "S { a: 1 }",
+        "S { a: 2 }",
+        "t"
+      ],
+      "B": [
+        "src/lib.rs",
+        "struct S { a: u32 }",
+        "struct S { a: u32, b: u32 }",
+        "t"
+      ]
+    },
+    "extra": {
+      "B": [
+        [
+          "src/lib.rs",
+          "S { a: 1 }",
+          "S { a: 3, b: 0 }"
+        ]
+      ]
+    },
+    "timeout": 5,
+    "summary": {
+      "selected": 2,
+      "killed": 1,
+      "admissible": 1,
+      "timings": {
+        "schema_build": 0.1,
+        "baseline": 0.0,
+        "schema_runs": 0.0,
+        "text_mode": 0.05,
+        "total": 0.16
+      },
+      "results": {
+        "A": {
+          "mode": "schema",
+          "runs": [
+            {
+              "killed": true,
+              "timeout": false,
+              "admissible": true,
+              "status": 101,
+              "seconds": 0.002,
+              "log_tail": "\nrunning 1 test\ntest t ... FAILED\n\nfailures:\n\n---- t stdout ----\n\nthread 't' (115904211) panicked at src/lib.rs:5:10:\nassertion `left == right` failed\n  left: 2\n right: 1\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    t\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+            }
+          ],
+          "killed": true,
+          "admissible": true
+        },
+        "B": {
+          "killed": false,
+          "admissible": false,
+          "error": "compile",
+          "build_seconds": 0.05,
+          "log_tail": "   Compiling prism v0.0.0 (/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/mutgate-regression-nw4nbolf/target/mutgate/tree)\nerror: could not compile `prism` (lib test) due to 1 previous error\n",
+          "mode": "text"
+        }
+      }
+    }
+  }
+]

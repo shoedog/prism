@@ -1,0 +1,13 @@
+{
+  "wall_seconds": 477.98,
+  "peak_rusage_rss_bytes": null,
+  "rss_exclusion": "time -l blocked by sysctl; original wrapper failed parsing absent RSS; gate summary and time -p wall remain valid",
+  "worker_peak_disk_bytes": 2126761984,
+  "selected": 93,
+  "killed": 93,
+  "admissible": 93,
+  "id_bound_differences": 0,
+  "authoritative": true,
+  "driver_exit_by_contract": 0,
+  "wrapper_exit_observed": 1
+}

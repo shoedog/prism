@@ -1,0 +1,38 @@
+test_ignored_selector_is_not_a_survivor (scripts.mutgate.test_mutgate.AdmissibilityTests) ... ok
+test_inadmissibility_has_priority_over_a_kill (scripts.mutgate.test_mutgate.AdmissibilityTests) ... ok
+test_location_observers_in_original_or_mutated_body_demote (scripts.mutgate.test_mutgate.AdmissibilityTests) ... ok
+test_scope_file_includes_other_functions_in_changed_file (scripts.mutgate.test_mutgate.AdmissibilityTests) ... ok
+test_scope_stale_anchor_is_not_silently_omitted (scripts.mutgate.test_mutgate.AdmissibilityTests) ... ok
+test_track_caller_attribute_demotes (scripts.mutgate.test_mutgate.AdmissibilityTests) ... ok
+test_byte_string_braces_are_masked (scripts.mutgate.test_mutgate.CodeMaskTests) ... ok
+test_raw_string_braces_are_masked (scripts.mutgate.test_mutgate.CodeMaskTests) ... ok
+test_const_fn_is_detected (scripts.mutgate.test_mutgate.FnBodiesTests) ... ok
+test_nested_fn_bodies_both_discovered_outer_first (scripts.mutgate.test_mutgate.FnBodiesTests) ... ok
+test_raw_string_with_unbalanced_brace_does_not_confuse_depth_counting (scripts.mutgate.test_mutgate.FnBodiesTests) ... ok
+test_empty_selector_list_and_missing_anchor_fail (scripts.mutgate.test_mutgate.GateRegressionTests) ... ok
+test_w1_constructed_false_kill_survives_both_modes (scripts.mutgate.test_mutgate.GateRegressionTests) ... ok
+test_w1_hidden_track_caller_false_kill_requires_text_confirmation (scripts.mutgate.test_mutgate.GateRegressionTests) ... ok
+test_w2_timeout_never_kills (scripts.mutgate.test_mutgate.GateRegressionTests) ... ok
+test_w3_bad_baseline_does_not_disappear_from_denominator (scripts.mutgate.test_mutgate.GateRegressionTests) ... ok
+test_w3_red_baseline_is_inadmissible_both_modes (scripts.mutgate.test_mutgate.GateRegressionTests) ... ok
+test_w4_missing_selector_fails_even_with_killing_selector (scripts.mutgate.test_mutgate.GateRegressionTests) ... ok
+test_w4_selector_removed_or_ignored_by_mutant_is_inadmissible (scripts.mutgate.test_mutgate.GateRegressionTests) ... ok
+test_w5_failed_extra_edit_is_restored_before_next_mutant (scripts.mutgate.test_mutgate.GateRegressionTests) ... ok
+test_w5_static_fallback_contains_only_its_own_edits (scripts.mutgate.test_mutgate.GateRegressionTests) ... ok
+test_closure_inside_fn_uses_enclosing_fn_body (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_const_fn_schema_included (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_impl_trait_return_demotes_to_static (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_macro_rules_body_at_module_scope_demotes_to_static (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_macro_rules_body_nested_in_fn_demotes_for_unknown_expansion (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_multiple_mutants_in_one_function_become_separate_arms (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_mutation_outside_any_fn_body_demotes_to_static (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_nested_fn_mutation_attaches_to_outermost_enclosing_fn (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_non_impl_trait_fn_after_impl_trait_fn_is_unaffected (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_static_inside_fn_body_schema_included (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_r4_04_preserves_a_distinct_decoding_obligation (scripts.mutgate.test_mutgate.RegistryIntentTests) ... ok
+test_accessor_for_main_and_bin_use_prism_path (scripts.mutgate.test_mutgate.RenderTests) ... ok
+
+----------------------------------------------------------------------
+Ran 33 tests in 4.794s
+
+OK

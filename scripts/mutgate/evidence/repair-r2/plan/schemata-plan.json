@@ -1,0 +1,9 @@
+{
+  "units": 50,
+  "static": {
+    "I44-no-module-types": "outside-fn-body",
+    "I45-no-module-typings": "outside-fn-body",
+    "I48-no-module-main": "outside-fn-body",
+    "R4-08-dropped-import-decline": "outside-fn-body"
+  }
+}

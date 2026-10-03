@@ -1,0 +1,80 @@
+{
+  "candidate_exit": 1,
+  "candidate": {
+    "authoritative": true,
+    "label": "AUTHORITATIVE",
+    "execution_mode": "text",
+    "jobs": 2,
+    "since": null,
+    "scope": null,
+    "selected": 1,
+    "killed": 0,
+    "admissible": 0,
+    "timings": {
+      "source_baseline_build": 0.13,
+      "source_baseline": 0.01,
+      "total": 0.14
+    },
+    "resources": {},
+    "baselines": {
+      "source": {
+        "('lib', 't')": {
+          "killed": true,
+          "timeout": false,
+          "admissible": true,
+          "status": 101,
+          "seconds": 0.004,
+          "log_tail": "\nrunning 1 test\ntest t ... FAILED\n\nfailures:\n\n---- t stdout ----\n\nthread 't' (116765022) panicked at src/lib.rs:3:15:\nassertion `left == right` failed\n  left: \"/private/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/mutgate-regression-o3sg096x/target/mutgate/tree\"\n right: \"/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/mutgate-regression-o3sg096x/target/mutgate/tree\"\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    t\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+          "failure_locations": []
+        }
+      }
+    },
+    "static": {},
+    "text_confirmations": 0,
+    "results": {
+      "m": {
+        "mode": "none",
+        "killed": false,
+        "admissible": false,
+        "error": "baseline not green: ['t']",
+        "verdict": "INADMISSIBLE"
+      }
+    }
+  },
+  "base_exit": 1,
+  "base": {
+    "selected": 1,
+    "killed": 0,
+    "admissible": 0,
+    "timings": {
+      "source_baseline_build": 0.02,
+      "source_baseline": 0.0,
+      "total": 0.02
+    },
+    "baselines": {
+      "source": {
+        "('lib', 't')": {
+          "killed": true,
+          "timeout": false,
+          "admissible": true,
+          "status": 101,
+          "seconds": 0.003,
+          "log_tail": "\nrunning 1 test\ntest t ... FAILED\n\nfailures:\n\n---- t stdout ----\n\nthread 't' (116765065) panicked at src/lib.rs:3:15:\nassertion `left == right` failed\n  left: \"/private/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/mutgate-regression-o3sg096x/target/mutgate/tree\"\n right: \"/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/mutgate-regression-o3sg096x/target/mutgate/tree\"\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    t\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+          "failure_locations": []
+        }
+      }
+    },
+    "static": {},
+    "text_confirmations": 0,
+    "results": {
+      "m": {
+        "mode": "none",
+        "killed": false,
+        "admissible": false,
+        "error": "baseline not green: ['t']",
+        "verdict": "INADMISSIBLE"
+      }
+    }
+  },
+  "fixture": "fn f() { let ignored = 1; }\n#[test]\nfn t() { f(); assert_eq!(env!(\"CARGO_MANIFEST_DIR\"), \"/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/mutgate-regression-o3sg096x/target/mutgate/tree\"); }\n"
+}

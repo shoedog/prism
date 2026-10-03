@@ -1,0 +1,598 @@
+{
+  "lane": "P tsconfig-paths (2026-10-01)",
+  "source": "docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/probes/adopted-mutants.json",
+  "lib_test_prefixes": [
+    "js_paths_snapshot::",
+    "js_paths_first_pass::",
+    "repo_loader::"
+  ],
+  "intent_revisions": {
+    "R4-04-non-utf8-declines": {
+      "disposition": "redefined",
+      "intent": "Disable UTF-16 LE/BE BOM decoding; encoded ambient declarations must still suppress paths recovery.",
+      "reason": "r5 decodes successfully read non-UTF-8 lossily, so the old non-UTF-8-declines obligation no longer exists. Preserve the historical ID and the 93-mutant population with a distinct decoding obligation, rather than duplicating R4-11's unreadable-file obligation.",
+      "killing_fixture": "native_decoding_keeps_ambient_in_both_grammars exercises latin1, UTF-16 LE/BE, UTF-8 and UTF-8 BOM for JSX and TSX, plus a documentation-only negative case."
+    }
+  },
+  "mutations": {
+    "I01-no-config-fingerprint": [
+      "src/js_paths_snapshot.rs",
+      "for (p, b) in &self.configs {",
+      "for (p, b) in self.configs.iter().take(0) {",
+      "js_paths_repair_test::js_paths_repair_config_swap_cache_key"
+    ],
+    "I02-no-post-merge-map": [
+      "src/cpg/build.rs",
+      "            cached_cg.apply_js_paths(scope_inputs);",
+      "            // mutant omitted post-merge map",
+      "js_paths_test::js_paths_config_change_and_incremental_rebuild"
+    ],
+    "I03-no-span-requirement": [
+      "src/resolution.rs",
+      "if !binding.module_path.trim().starts_with('.') && resolved.span.is_none() {",
+      "if false && !binding.module_path.trim().starts_with('.') && resolved.span.is_none() {",
+      "js_paths_test::js_paths_cjs_terminal_without_span_preserves_base"
+    ],
+    "I04-no-binding-position-guard": [
+      "src/resolution.rs",
+      "if !binding.module_path.trim().starts_with('.')\n            && (",
+      "if false && !binding.module_path.trim().starts_with('.')\n            && (",
+      "js_paths_r1_test::js_paths_require_alias_preserves_base_even_with_esm_same_module"
+    ],
+    "I05-no-skipped-star-guard": [
+      "src/resolution.rs",
+      "if !binding.module_path.trim().starts_with('.') && resolved.via_unresolved_star {",
+      "if false && !binding.module_path.trim().starts_with('.') && resolved.via_unresolved_star {",
+      "js_paths_r1_test::js_paths_r1_skipped_star_preserves_base"
+    ],
+    "I06-all-file-occupancy": [
+      "src/js_paths_snapshot.rs",
+      "self.opaque_directories.contains(*p)",
+      "true || self.opaque_directories.contains(*p)",
+      "js_paths_r1_test::js_paths_unrelated_text_keeps_topology"
+    ],
+    "I07-no-proven-empty-facts": [
+      "src/call_graph.rs",
+      "if !exports.is_empty() || !parsed.tree.root_node().has_error() {",
+      "if !exports.is_empty() {",
+      "js_paths_r1_test::js_paths_r1_membership_barriers_dot_and_relative"
+    ],
+    "I08-no-opaque-star-guard": [
+      "src/js_exports.rs",
+      "facts.skipped_expr_count > facts.skipped_decl_reasons.values().sum::<usize>()",
+      "false",
+      "js_paths_cap_test::structural_opaque_ts_hop"
+    ],
+    "I09-ignore-skipped-declaration-name": [
+      "src/js_exports.rs",
+      "facts.module_value_bindings.contains(name)",
+      "false",
+      "js_paths_r1_test::js_paths_r1_skipped_star_preserves_base"
+    ],
+    "I10-trim-alias-cache-key": [
+      "src/call_graph.rs",
+      ".get(&(caller.into(), module.into()))",
+      ".get(&(caller.into(), module.trim().into()))",
+      "js_paths_r1_test::js_paths_r1_membership_barriers_dot_and_relative"
+    ],
+    "I11-taint-namespace-terminal": [
+      "src/ast.rs",
+      "                        via_unresolved_star: false,",
+      "                        via_unresolved_star: true,",
+      "js_paths_test::js_paths_s1b_namespace_star_proof_is_reused"
+    ],
+    "I12-legacy-alias-hop-table": [
+      "src/resolution.rs",
+      "let Some(exports) = self.js_ts_path_exports.get(allow_js) else {",
+      "let Some(exports) = Some(&self.js_ts_resolved_exports) else {",
+      "js_paths_repair_test::js_paths_repair_barrel_hops"
+    ],
+    "I13-no-probe-occupancy": [
+      "src/js_paths_snapshot.rs",
+      "(\n                    p.clone(),\n                    self.first_pass_facts\n                        .lock()\n                        .unwrap()\n                        .get(p)\n                        .copied()\n                        .unwrap_or_else(|| {\n                            self.type_entries\n                                .get(p)\n                                .or_else(|| self.entries.get(p))\n                                .copied()\n                        }),\n                )",
+      "(p.clone(), None::<u8>)",
+      "js_paths_repair_test::js_paths_repair_cache_occupancy"
+    ],
+    "I14-last-config-wins": [
+      "src/js_paths_snapshot.rs",
+      ".and_modify(|prior| *prior = None)",
+      ".and_modify(|prior| *prior = bytes.clone())",
+      "js_paths_snapshot::tests::config_case_collision_is_order_independent_barrier"
+    ],
+    "I15-no-js-hop-cut": [
+      "src/js_paths.rs",
+      "(!js_family(&q)).then_some(q)",
+      "Some(q)",
+      "js_paths_cap_test::structural_js_module_and_hop_terminals"
+    ],
+    "I16-no-config-types-cut": [
+      "src/js_paths.rs",
+      "get(\"types\")",
+      "get(\"__absent_types\")",
+      "js_paths_r2b_test::uncovered_config_type_inputs"
+    ],
+    "I17-no-project-reference-cut": [
+      "src/js_paths_boundary.rs",
+      "let references = super::triple_references(&source);",
+      "let references = Vec::new();",
+      "js_paths_cap_test::structural_project_triple_references"
+    ],
+    "I18-no-ambient-content-hash": [
+      "src/js_paths_boundary.rs",
+      "Some(digest) => digest.clone(),",
+      "Some(_) => \"regular\".into(),",
+      "js_paths_cap_test::structural_scan_dependency_add_remove_edit"
+    ],
+    "I19-no-ambient-read-occupancy": [
+      "src/js_paths_boundary.rs",
+      "|| self.entries.get(rel) != Some(&0)",
+      "|| false",
+      "js_paths_cap_test::structural_scan_dependency_add_remove_edit"
+    ],
+    "I20-no-js-module-cut": [
+      "src/js_paths.rs",
+      "if js_family(&q)\n",
+      "if false && js_family(&q)\n",
+      "js_paths_r2d_test::node_modules_file_directory_and_types_keep_base"
+    ],
+    "I21-no-typeRoots-coverage": [
+      "src/js_paths.rs",
+      ".map(|root| self.snapshot.covered_root(dir(p), root))",
+      ".map(|root| Some(root.clone()))",
+      "js_paths_r2b_test::uncovered_config_type_inputs"
+    ],
+    "I22-no-reference-path-arm": [
+      "src/js_paths_snapshot.rs",
+      "if matches!(key, \"path\" | \"types\") {",
+      "if key == \"types\" {",
+      "js_paths_r2b_test::uncovered_triple_reference_inputs"
+    ],
+    "I23-no-reference-types-arm": [
+      "src/js_paths_snapshot.rs",
+      "if matches!(key, \"path\" | \"types\") {",
+      "if key == \"path\" {",
+      "js_paths_r2b_test::uncovered_triple_reference_inputs"
+    ],
+    "I24-no-reference-closure": [
+      "src/js_paths_snapshot.rs",
+      "for (file, references) in references {",
+      "for (file, references) in references.take(0) {",
+      "js_paths_r2b_test::transitive_references_and_cycles"
+    ],
+    "I27-global-export-priming": [
+      "src/repo_loader.rs",
+      "let mut pending = BTreeSet::new();",
+      "let mut pending: BTreeSet<String> = files.keys().cloned().collect();",
+      "repo_loader::paths_projection_tests::primes_alias_export_closure_without_unrelated_exports"
+    ],
+    "I28-no-reachable-export-priming": [
+      "src/repo_loader.rs",
+      "if let Some(target) = resolver.relative(&file, module, &indexed, true) {\n                        pending.insert(target);\n                    }",
+      "let _ = resolver.relative(&file, module, &indexed, true);",
+      "repo_loader::paths_projection_tests::primes_alias_export_closure_without_unrelated_exports"
+    ],
+    "I29-no-package-types": [
+      "src/js_paths_snapshot.rs",
+      "[\"types\", \"typings\", \"typesVersions\"]",
+      "[\"__types\", \"typings\", \"typesVersions\"]",
+      "js_paths_r2b_test::type_package_redirects_must_reach_scanned_inputs"
+    ],
+    "I30-no-package-typings": [
+      "src/js_paths_snapshot.rs",
+      "[\"types\", \"typings\", \"typesVersions\"]",
+      "[\"types\", \"__typings\", \"typesVersions\"]",
+      "js_paths_r2b_test::type_package_redirects_must_reach_scanned_inputs"
+    ],
+    "I31-no-package-typesVersions": [
+      "src/js_paths_snapshot.rs",
+      "[\"types\", \"typings\", \"typesVersions\"]",
+      "[\"types\", \"typings\", \"__typesVersions\"]",
+      "js_paths_r2b_test::type_package_redirects_must_reach_scanned_inputs"
+    ],
+    "I32-broad-package-exports-cut": [
+      "src/js_paths_snapshot.rs",
+      "Some(out)",
+      "if object.contains_key(\"exports\") { out.push(\"/__outside.d.ts\".into()); } Some(out)",
+      "js_paths_r2b_test::type_package_redirects_must_reach_scanned_inputs"
+    ],
+    "I34-absent-declines": [
+      "src/js_paths_snapshot.rs",
+      "TypeInput::Absent => true,",
+      "TypeInput::Absent => false,",
+      "js_paths_r2c_test::absent_type_inputs_bind"
+    ],
+    "I35-no-installed-ambient": [
+      "src/js_paths_boundary.rs",
+      "Some(digest) if text.candidate => parsed",
+      "Some(digest) if false && text.candidate => parsed",
+      "js_paths_r2c_test::installed_matching_ambient_keeps_base"
+    ],
+    "I36-all-wildcards-match": [
+      "src/js_paths.rs",
+      "fn ambient_matches(pattern: &str, spec: &str) -> bool {",
+      "fn ambient_matches(pattern: &str, spec: &str) -> bool { if pattern.contains('*') { return true; }",
+      "js_paths_r2c_test::installed_nonmatching_wildcard_binds"
+    ],
+    "I37-outside-is-absent": [
+      "src/js_paths_snapshot.rs",
+      "filter(|_| !path.is_empty() && self.complete)\n        else {\n            return TypeInput::Unsafe;",
+      "filter(|_| !path.is_empty() && self.complete)\n        else {\n            return TypeInput::Absent;",
+      "js_paths_r2c_test::outside_type_inputs_decline"
+    ],
+    "I38-no-secondary-type-lookup": [
+      "src/js_paths_snapshot.rs",
+      "let mut directory = base;",
+      "if roots.is_some() { return TypeInput::Absent; } let mut directory = base;",
+      "js_paths_r2c_test::custom_roots_miss_uses_secondary_package_lookup"
+    ],
+    "I39-no-first-pass-dependencies": [
+      "src/js_paths_snapshot.rs",
+      "        self.probes.lock().unwrap().insert(p.into());\n        self.complete",
+      "        self.complete",
+      "js_paths_first_pass::tests::every_location_is_an_occupancy_dependency"
+    ],
+    "I40-restore-blanket-JS-cut": [
+      "src/js_paths.rs",
+      "if js_family(&q)\n",
+      "if js_family(&q) || js_family(&q)\n",
+      "js_paths_r2d_test::js_only_first_pass_absent_binds_exact"
+    ],
+    "I41-no-node-file": [
+      "src/js_paths_first_pass.rs",
+      "let suffixes: &[&str] = match original {",
+      "if stem.contains(\"node_modules/\") && !stem.contains(\"/@types/\") && !stem.ends_with(\"/index\") { return true; } let suffixes: &[&str] = match original {",
+      "js_paths_r2d_test::node_modules_file_directory_and_types_keep_base"
+    ],
+    "I42-no-node-index": [
+      "src/js_paths_first_pass.rs",
+      "let suffixes: &[&str] = match original {",
+      "if stem.contains(\"node_modules/\") && !stem.contains(\"/@types/\") && stem.ends_with(\"/index\") { return true; } let suffixes: &[&str] = match original {",
+      "js_paths_r2d_test::node_modules_file_directory_and_types_keep_base"
+    ],
+    "I43-no-at-types": [
+      "src/js_paths_first_pass.rs",
+      "absent &= pass.module(&format!(\"{modules}/@types\"), &mangle(spec), false)?;",
+      "/* omit @types */",
+      "js_paths_r2d_test::node_modules_file_directory_and_types_keep_base"
+    ],
+    "I44-no-module-types": [
+      "src/js_paths_first_pass.rs",
+      "types: Value,",
+      "#[serde(rename=\"__types\")] types: Value,",
+      "js_paths_r2d_test::package_fields_and_versions_keep_base"
+    ],
+    "I45-no-module-typings": [
+      "src/js_paths_first_pass.rs",
+      "typings: Value,",
+      "#[serde(rename=\"__typings\")] typings: Value,",
+      "js_paths_r2d_test::package_fields_and_versions_keep_base"
+    ],
+    "I46-no-module-versions": [
+      "src/js_paths_first_pass.rs",
+      "range_matches(range) == Some(true)",
+      "false",
+      "js_paths_r2d_test::package_fields_and_versions_keep_base"
+    ],
+    "I47-no-module-typeRoots": [
+      "src/js_paths_first_pass.rs",
+      "for root in roots.unwrap_or_default() {",
+      "for root in roots.unwrap_or_default().iter().take(0) {",
+      "js_paths_r2d_test::custom_type_roots_file_directory_and_scoped_names_keep_base"
+    ],
+    "I48-no-module-main": [
+      "src/js_paths_first_pass.rs",
+      "main: Value,",
+      "#[serde(rename=\"__main\")] main: Value,",
+      "js_paths_r2d_test::package_fields_and_versions_keep_base"
+    ],
+    "I49-no-JS-object-order": [
+      "src/js_paths_first_pass.rs",
+      ".filter(|n| *n != u32::MAX && n.to_string() == *key)",
+      ".filter(|_| false)",
+      "js_paths_r2d_test::types_versions_javascript_object_order_and_large_versions"
+    ],
+    "I50-no-last-duplicate-value": [
+      "src/js_paths_first_pass.rs",
+      ".find(|(name, _)| name == &key)",
+      ".find(|_| false)",
+      "js_paths_r2d_test::types_versions_javascript_object_order_and_large_versions"
+    ],
+    "I51-range-u64-overflow": [
+      "src/js_paths_first_pass.rs",
+      "let n = part.parse().ok()?;",
+      "let n = part.parse::<u64>().ok()? as f64;",
+      "js_paths_r2d_test::types_versions_javascript_object_order_and_large_versions"
+    ],
+    "I52-relative-only-package-field": [
+      "src/js_paths_first_pass.rs",
+      "self.snapshot.input_path(p, s)",
+      "crate::js_paths_syntax::norm(p, s)",
+      "js_paths_r2d_test::package_entries_normalize_inside_the_captured_root"
+    ],
+    "I53-relative-only-version-substitution": [
+      "src/js_paths_first_pass.rs",
+      "self.snapshot.input_path(base, &target)",
+      "crate::js_paths_syntax::norm(base, &target)",
+      "js_paths_r2d_test::package_entries_normalize_inside_the_captured_root"
+    ],
+    "I54-remap-out-of-package-entry": [
+      "src/js_paths_first_pass.rs",
+      "entry.strip_prefix(&format!(\"{p}/\"))",
+      "entry.strip_prefix(&format!(\"{p}/\")).or(Some(\"index\"))",
+      "js_paths_r2d_test::package_entries_normalize_inside_the_captured_root"
+    ],
+    "I55-truthy-empty-exact-key": [
+      "src/js_paths_first_pass.rs",
+      "if key.is_empty() {",
+      "if false && key.is_empty() {",
+      "js_paths_r2d_test::package_entries_normalize_inside_the_captured_root"
+    ],
+    "I56-no-paths-first-pass": [
+      "src/js_paths_first_pass.rs",
+      "let mut absent = pass.relative(target, true, 0)?;",
+      "let mut absent = true;",
+      "js_paths_r3_test::case_variant_candidate_priority_and_m65_row_keep_base"
+    ],
+    "I57-Rust-version-whitespace": [
+      "src/js_paths_first_pass.rs",
+      "fn version_whitespace(c: char) -> bool {",
+      "fn version_whitespace(c: char) -> bool { return c.is_whitespace();",
+      "js_paths_r2d_test::types_versions_ecmascript_whitespace"
+    ],
+    "I58-no-root-file-boundary": [
+      "src/js_paths_first_pass.rs",
+      "if p.is_empty() {",
+      "if false && p.is_empty() {",
+      "js_paths_r2d_test::package_root_file_candidates_are_outside_capture"
+    ],
+    "I59-no-physical-absence": [
+      "src/js_paths_snapshot.rs",
+      "fn first_pass_occupancy(&self, p: &str) -> Option<u8> {",
+      "fn first_pass_occupancy(&self, p: &str) -> Option<u8> { return self.type_entries.get(p).or_else(|| self.entries.get(p)).copied();",
+      "js_paths_r3_test::first_pass_physical_unicode_alias_keeps_base"
+    ],
+    "I61-ancestor-named-types": [
+      "src/js_paths_boundary.rs",
+      "pub(super) fn external_type_absent(&self, name: &str, mangled: &str) -> bool {",
+      "pub(super) fn external_type_absent(&self, name: &str, mangled: &str) -> bool { return true;",
+      "js_paths_r3_test::ancestor_automatic_types_do_not_decline_but_explicit_outside_inputs_do"
+    ],
+    "I66-uppercase-suffix": [
+      "src/js_paths_boundary.rs",
+      "let lower = rel.to_ascii_lowercase();",
+      "let lower = rel.clone();",
+      "js_paths_r3_test::uppercase_ambient_reference_files_and_type_package_keep_base"
+    ],
+    "I67-candidate-fold": [
+      "src/js_paths_snapshot.rs",
+      "if self.case_collision(p) {",
+      "if false && self.case_collision(p) {",
+      "js_paths_r3_test::case_variant_candidate_priority_and_m65_row_keep_base"
+    ],
+    "I68-bin-exclusion": [
+      "src/js_paths_boundary.rs",
+      "equal(c[0], \"node_modules\") && equal(c[1], \".bin\")",
+      "false",
+      "js_paths_r3_test::installed_bin_and_internal_workspace_links_recover"
+    ],
+    "I69-git-exclusion": [
+      "src/js_paths_boundary.rs",
+      "components.iter().any(|c| equal(c, \".git\"))",
+      "false",
+      "js_paths_r3_test::installed_bin_and_internal_workspace_links_recover"
+    ],
+    "I71-internal-link": [
+      "src/js_paths_boundary.rs",
+      "Ok(target) if target.starts_with(root) => Some(target),",
+      "Ok(target) if target.starts_with(root) => None::<std::path::PathBuf>,",
+      "js_paths_r3_test::installed_bin_and_internal_workspace_links_recover"
+    ],
+    "I72-large-source-bound": [
+      "src/js_paths_boundary.rs",
+      "if job.len > remaining {",
+      "if job.len > remaining || job.len > 16 * 1024 * 1024 {",
+      "js_paths_r3_test::large_installed_source_tree_under_byte_budget_recovers"
+    ],
+    "I73-declare-prefilter": [
+      "src/js_paths_boundary.rs",
+      "let declares = source.as_bytes().windows(7).any(|w| w == b\"declare\");",
+      "let declares = false;",
+      "js_paths_r3_test::uppercase_ambient_reference_files_and_type_package_keep_base"
+    ],
+    "I74-tolerant-literal-exclusion": [
+      "src/js_paths_snapshot.rs",
+      "if next > 0 && literals[next - 1].contains(&start) {",
+      "if false && next > 0 && literals[next - 1].contains(&start) {",
+      "js_paths_r3_test::installed_declaration_documentation_does_not_create_wildcard_ambient"
+    ],
+    "I78-canonical-dedupe": [
+      "src/js_paths_boundary.rs",
+      "if let Some(&index) = source_jobs.get(&path) {",
+      "if let Some(&index) = None::<&usize> {",
+      "js_paths_snapshot::boundary::tests::linked_source_is_scanned_and_counted_once"
+    ],
+    "I79-byte-budget": [
+      "src/js_paths_boundary.rs",
+      "SCAN_BYTES.saturating_sub(self.scan_stats.bytes)",
+      "SCAN_BYTES",
+      "js_paths_snapshot::tests::scan_budgets_disable_repository"
+    ],
+    "I80-unknown-volume": [
+      "src/js_paths_snapshot.rs",
+      "boundary::case_insensitive(&root).unwrap_or(true)",
+      "boundary::case_insensitive(&root).unwrap_or(false)",
+      "js_paths_snapshot::boundary::tests::volume_probe_and_unknown_fallback"
+    ],
+    "I81-unicode-fold": [
+      "src/js_paths_boundary.rs",
+      "s.chars().map(case_fold::simple).collect()",
+      "s.to_ascii_lowercase()",
+      "js_paths_snapshot::boundary::tests::unicode_candidate_parent_and_sensitive_occupancy"
+    ],
+    "I82-entry-budget": [
+      "src/js_paths_boundary.rs",
+      "Event::Entry => self.scan_stats.entries += 1,",
+      "Event::Entry => { if self.scan_stats.entries >= 200_000 { return Err(std::io::Error::other(\"entry budget\")); } self.scan_stats.entries += 1; },",
+      "js_paths_snapshot::boundary::tests::source_entry_count_does_not_bound_scan"
+    ],
+    "R4-01-unread-metadata-declines": [
+      "src/js_paths_boundary.rs",
+      "let Ok(mut metadata) = std::fs::symlink_metadata(&path) else {",
+      "let Ok(mut metadata) = std::fs::symlink_metadata(&path) else { return (events, jobs, Err(std::io::Error::other(\"mutant\")));",
+      "js_paths_snapshot::boundary::tests::tolerant_scan_counts_each_skip_arm_and_retains_valid_patterns"
+    ],
+    "R4-02-outside-link-declines": [
+      "src/js_paths_boundary.rs",
+      "Ok(_) => {",
+      "Ok(_) => { return (events, jobs, Err(std::io::Error::other(\"mutant\")));",
+      "js_paths_snapshot::boundary::tests::tolerant_scan_counts_each_skip_arm_and_retains_valid_patterns"
+    ],
+    "R4-03-non-source-declines": [
+      "src/js_paths_boundary.rs",
+      "if !source_file {",
+      "if !source_file { return (events, jobs, Err(std::io::Error::other(\"mutant\")));",
+      "js_paths_snapshot::boundary::tests::tolerant_scan_counts_each_skip_arm_and_retains_valid_patterns"
+    ],
+    "R4-04-non-utf8-declines": [
+      "src/js_paths_boundary.rs",
+      "if bytes.starts_with(&[255, 254]) || bytes.starts_with(&[254, 255]) {",
+      "if false && (bytes.starts_with(&[255, 254]) || bytes.starts_with(&[254, 255])) {",
+      "js_paths_r3_test::native_decoding_keeps_ambient_in_both_grammars"
+    ],
+    "R4-05-malformed-wildcard": [
+      "src/js_paths_snapshot.rs",
+      "_ => skipped += 1,",
+      "_ => { skipped += 1; patterns.push(\"*\".into()); },",
+      "js_paths_snapshot::boundary::tests::tolerant_scan_counts_each_skip_arm_and_retains_valid_patterns"
+    ],
+    "R4-06-skipped-type-unsafe": [
+      "src/js_paths_snapshot.rs",
+      "Some(0 | 1)",
+      "Some(255)",
+      "js_paths_r2c_test::transitive_absent_and_redirect_inputs"
+    ],
+    "R4-07-opaque-package-declines": [
+      "src/js_paths_snapshot.rs",
+      "let Some(redirects) = redirects else {\n                    continue;",
+      "let Some(redirects) = redirects else {\n                    return false;",
+      "js_paths_r2b_test::opaque_type_metadata_is_skipped"
+    ],
+    "R4-08-dropped-import-decline": [
+      "src/js_paths_boundary.rs",
+      "let declares = text.declares;",
+      "if text.has_import { return Err(std::io::Error::other(\"mutant\")); } let declares = text.declares;",
+      "js_paths_r3_test::scanned_module_imports_do_not_close_the_repository_boundary"
+    ],
+    "R4-09-dropped-ancestor-decline": [
+      "src/js_paths_snapshot.rs",
+      "s.finish_case_inventory();",
+      "if s.external_modules.values().any(|k| *k != 0) { s.complete = false; } s.finish_case_inventory();",
+      "js_paths_r3_test::ancestor_automatic_types_do_not_decline_but_explicit_outside_inputs_do"
+    ],
+    "R4-10-skip-counter": [
+      "src/js_paths_boundary.rs",
+      "*self.scan_stats.skipped.entry(reason.into()).or_default() += 1;",
+      "let _ = reason;",
+      "js_paths_snapshot::boundary::tests::tolerant_scan_counts_each_skip_arm_and_retains_valid_patterns"
+    ],
+    "R4-11-unread-file-declines": [
+      "src/js_paths_boundary.rs",
+      "let Some(read) = &scanned.read else {",
+      "let Some(read) = &scanned.read else { return Err(std::io::Error::other(\"mutant\"));",
+      "js_paths_snapshot::boundary::tests::unreadable_source_and_directory_skip"
+    ],
+    "R4-12-unread-dir-declines": [
+      "src/js_paths_boundary.rs",
+      "let Ok(entries) = std::fs::read_dir(&path) else {",
+      "let Ok(entries) = std::fs::read_dir(&path) else { return (events, jobs, Err(std::io::Error::other(\"mutant\")));",
+      "js_paths_snapshot::boundary::tests::unreadable_source_and_directory_skip"
+    ],
+    "R4-13-non-regular-declines": [
+      "src/js_paths_boundary.rs",
+      "if !metadata.is_file() {",
+      "if !metadata.is_file() { return (events, jobs, Err(std::io::Error::other(\"mutant\")));",
+      "js_paths_snapshot::boundary::tests::non_regular_and_non_utf8_paths_skip"
+    ],
+    "R4-14-non-utf8-path-declines": [
+      "src/js_paths_boundary.rs",
+      "let Some(relative) = relative.to_str() else {",
+      "let Some(relative) = relative.to_str() else { return (events, jobs, Err(std::io::Error::other(\"mutant\")));",
+      "js_paths_snapshot::boundary::tests::non_regular_and_non_utf8_paths_skip"
+    ],
+    "R4-15-duplicate-scan-inventory": [
+      "src/js_paths_boundary.rs",
+      "if self.entries.get(&rel) != Some(&kind) {",
+      "if true {",
+      "js_paths_snapshot::boundary::tests::compact_inventory_reuses_lowercase_paths_and_preserves_collisions"
+    ],
+    "R4-16-duplicate-fold-inventory": [
+      "src/js_paths_boundary.rs",
+      "if folded == *path {",
+      "if false {",
+      "js_paths_snapshot::boundary::tests::compact_inventory_reuses_lowercase_paths_and_preserves_collisions"
+    ],
+    "R4-17-no-canonical-case-collision": [
+      "src/js_paths_boundary.rs",
+      "self.entries.contains_key(&folded) || self.type_entries.contains_key(&folded)",
+      "false",
+      "js_paths_snapshot::boundary::tests::compact_inventory_reuses_lowercase_paths_and_preserves_collisions"
+    ],
+    "R4-18-unread-walk-declines": [
+      "src/js_paths_snapshot.rs",
+      "let Ok(entries) = std::fs::read_dir(dir) else {\n            return Ok(());",
+      "let Ok(entries) = std::fs::read_dir(dir) else {\n            return Err(std::io::Error::other(\"mutant\"));",
+      "js_paths_snapshot::boundary::tests::unreadable_source_and_directory_skip"
+    ],
+    "R4-19-duplicate-file-coverage": [
+      "src/js_paths_boundary.rs",
+      "// File occupancy classifies direct inputs; scan hashes bind read",
+      "self.covered.insert(rel.clone(), 0); // File occupancy classifies direct inputs; scan hashes bind read",
+      "js_paths_snapshot::boundary::tests::compact_inventory_reuses_lowercase_paths_and_preserves_collisions"
+    ],
+    "R4-20-duplicate-indexed-read-receipt": [
+      "src/js_paths_boundary.rs",
+      "|| self.entries.get(rel) != Some(&0)",
+      "|| true",
+      "js_paths_snapshot::boundary::tests::compact_inventory_reuses_lowercase_paths_and_preserves_collisions"
+    ],
+    "R4-21-drop-valid-redirect-with-malformed-sibling": [
+      "src/js_paths_snapshot.rs",
+      "let object = value.as_object()?;",
+      "let object = value.as_object()?; if object.get(\"typesVersions\").is_some_and(|v| !v.is_object()) { return None; }",
+      "js_paths_r2c_test::custom_roots_miss_uses_secondary_package_lookup"
+    ],
+    "R4-22-project-all-modules": [
+      "src/js_exports.rs",
+      "for file in roots {",
+      "for file in raw.keys() {",
+      "repo_loader::paths_projection_tests::primes_alias_export_closure_without_unrelated_exports"
+    ],
+    "R4-23-project-wrong-allowjs-roots": [
+      "src/call_graph.rs",
+      "(*allow == allow_js).then_some(file)",
+      "(*allow != allow_js).then_some(file)",
+      "repo_loader::paths_projection_tests::primes_alias_export_closure_without_unrelated_exports"
+    ]
+  },
+  "extra": {
+    "R4-08-dropped-import-decline": [
+      [
+        "src/js_paths_boundary.rs",
+        "struct Text {",
+        "struct Text { has_import: bool,"
+      ],
+      [
+        "src/js_paths_boundary.rs",
+        "text: Text {",
+        "text: Text { has_import: source.contains(\"import \"),"
+      ]
+    ],
+    "I56-no-paths-first-pass": [
+      [
+        "src/js_paths.rs",
+        "if self.snapshot.kind(&q).is_some() {",
+        "if (q.ends_with(\".js\") || q.ends_with(\".jsx\")) && self.snapshot.kind(&q).is_some() {"
+      ]
+    ]
+  }
+}

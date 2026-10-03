@@ -1,0 +1,795 @@
+#!/usr/bin/env python3
+"""Authoritative isolated text gate; fast scoped schema observations are advisory.
+
+Full runs use text mode with four private workers by default. --since REV
+selects a local scope and defaults to ADVISORY schema mode; --authoritative
+or --mode text evaluates that selection using isolated text builds instead.
+Production source is never edited. Workers clone/copy the shared warm target
+once and are removed after execution; the shared warm target remains reusable.
+"""
+import argparse, concurrent.futures as cf, json, os, re, shutil, subprocess, sys, tempfile, threading, time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+LANES_GLOB = 'mutants/*.json'
+LIB_PREFIXES_DEFAULT = ()
+COPIED = ['src', 'vendor', 'Cargo.toml', 'Cargo.lock', 'build.rs']
+HELPER = '''
+#[doc(hidden)]
+#[inline(never)]
+pub fn __mutant() -> &'static str {
+    static M: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    M.get_or_init(|| std::env::var("PRISM_MUTANT").unwrap_or_default()).as_str()
+}
+'''
+ALLOW = '#![allow(unreachable_code, unused_variables, unused_mut, unused_assignments, dead_code, unused_imports)]\n'
+
+
+# ---------------------------------------------------------------- Rust lexing
+def code_mask(s):
+    """Return a list of bools: True where s[i] is code (not comment/string/char)."""
+    n = len(s); m = [True] * n; i = 0
+    while i < n:
+        c = s[i]
+        if s.startswith('//', i):
+            j = s.find('\n', i); j = n if j < 0 else j
+            for k in range(i, j): m[k] = False
+            i = j; continue
+        if s.startswith('/*', i):
+            depth = 1; j = i + 2
+            while j < n and depth:
+                if s.startswith('/*', j): depth += 1; j += 2
+                elif s.startswith('*/', j): depth -= 1; j += 2
+                else: j += 1
+            for k in range(i, j): m[k] = False
+            i = j; continue
+        r = re.match(r'b?r(#*)"', s[i:i + 300]) if c in 'br' and (i == 0 or not (s[i - 1].isalnum() or s[i - 1] == '_')) else None
+        if r:
+            close = '"' + r.group(1); j = s.find(close, i + r.end()); j = n if j < 0 else j + len(close)
+            for k in range(i, j): m[k] = False
+            i = j; continue
+        if c == '"' or (c == 'b' and s.startswith('b"', i) and (i == 0 or not (s[i - 1].isalnum() or s[i - 1] == '_'))):
+            j = i + (2 if c == 'b' else 1)
+            while j < n and s[j] != '"':
+                j += 2 if s[j] == '\\' else 1
+            j += 1
+            for k in range(i, min(j, n)): m[k] = False
+            i = j; continue
+        if c == "'":
+            ch = re.match(r"'(\\(x[0-9a-fA-F]{2}|u\{[0-9a-fA-F]+\}|.)|[^\\'])'", s[i:i + 16])
+            if ch:
+                for k in range(i, i + ch.end()): m[k] = False
+                i += ch.end(); continue
+        i += 1
+    return m
+
+
+def fn_bodies(s, mask):
+    """[(fn_start, body_open, body_close)] for every `fn name ... { ... }` item."""
+    out = []
+    for f in re.finditer(r'\bfn\s+[A-Za-z_][A-Za-z0-9_]*', s):
+        if not mask[f.start()]: continue
+        depth = 0; j = f.end(); body = None
+        while j < len(s):
+            if mask[j]:
+                ch = s[j]
+                if ch in '([': depth += 1
+                elif ch in ')]': depth -= 1
+                elif depth == 0 and ch == ';': break
+                elif depth == 0 and ch == '{': body = j; break
+            j += 1
+        if body is None: continue
+        d = 0; k = body
+        while k < len(s):
+            if mask[k]:
+                if s[k] == '{': d += 1
+                elif s[k] == '}':
+                    d -= 1
+                    if d == 0: break
+            k += 1
+        out.append((f.start(), body, k))
+    return out
+
+
+def sig_has_impl_trait(s, mask, fn_start, body_open):
+    """True if the fn signature (fn_start..body_open) returns `impl Trait`.
+
+    Duplicating a function body that returns an opaque `impl Trait` type across
+    match arms can fail to compile: each literal closure (or other anonymous-
+    type expression) is its own distinct type even when byte-identical, so two
+    copies of the same closure expression do not unify to the single hidden
+    type RPIT inference requires. Such a unit must stay in text mode, where
+    only one body copy ever exists in the tree at a time."""
+    seg = s[fn_start:body_open]
+    masked = ''.join(seg[i] if mask[fn_start + i] else ' ' for i in range(len(seg)))
+    return re.search(r'->\s*impl\b', masked) is not None
+
+
+def min_diff(a, b):
+    p = 0
+    while p < min(len(a), len(b)) and a[p] == b[p]: p += 1
+    q = 0
+    while q < min(len(a), len(b)) - p and a[-1 - q] == b[-1 - q]: q += 1
+    return p, len(a) - q, b[p:len(b) - q]
+
+
+def occurrences(s, a):
+    out = []; i = s.find(a)
+    while i >= 0:
+        out.append(i); i = s.find(a, i + len(a))
+    return out
+
+
+# ---------------------------------------------------------------- population
+def load_population(lane_files):
+    muts = {}
+    for lf in lane_files:
+        d = json.loads(Path(lf).read_text())
+        extra = d.get('extra', {})
+        for mid, (file, a, b, test) in d['mutations'].items():
+            assert mid not in muts, ('duplicate mutant id', mid, lf)
+            edits = [(file, a, b)] + [tuple(e) for e in extra.get(mid, [])]
+            tests = test if isinstance(test, list) else [test]
+            muts[mid] = {'id': mid, 'lane': Path(lf).stem, 'edits': edits, 'tests': tests,
+                         'lib_prefixes': tuple(d.get('lib_test_prefixes', LIB_PREFIXES_DEFAULT))}
+    return muts
+
+
+def test_target(m, test):
+    return 'lib' if test.startswith(m['lib_prefixes']) else 'integration'
+
+
+def invalid_anchors(muts, src_text):
+    return {mid: 'anchor-missing' for mid, m in muts.items()
+            if any(not a or file not in src_text or a not in src_text[file]
+                   for file, a, _ in m['edits'])}
+
+
+SAFE_STD_MACROS = frozenset(('vec format format_args format_args_nl write writeln '
+    'print println eprint eprintln assert assert_eq assert_ne debug_assert '
+    'debug_assert_eq debug_assert_ne matches panic unreachable todo unimplemented '
+    'concat stringify cfg env option_env include_str include_bytes').split())
+# Audited external expansion: JSON construction, with no location APIs. All
+# other external/unknown macros are unaudited and can conceal an observer.
+SAFE_EXTERNAL_MACROS = frozenset({'serde_json::json'})
+LOCATION = re.compile(r'\b(?:line|column|file|module_path|dbg)\s*!\s*[(\[{]'
+    r'|\bstd\s*::\s*panic\s*::\s*Location\b'
+    r'|\bLocation\s*::\s*caller\b|#\s*\[\s*(?:cfg_attr\b[^\]]*\b)?track_caller\b')
+MACRO_CALL = re.compile(r'\b(?!if\b|while\b|return\b|break\b|yield\b|match\b)'
+                       r'[A-Za-z_]\w*(?:\s*::\s*[A-Za-z_]\w*)*\s*!\s*[(\[{]')
+
+
+def masked_code(s):
+    mask = code_mask(s)
+    return ''.join(c if mask[i] else ' ' for i, c in enumerate(s))
+
+
+def macro_rules_bodies(s):
+    """Collect real definitions (including nested ones), never strings/comments."""
+    code = masked_code(s); out = {}
+    for m in re.finditer(r'\bmacro_rules\s*!\s*([A-Za-z_]\w*)\s*([({\[])', code):
+        start = m.end() - 1; stack = []; end = start
+        for end in range(start, len(code)):
+            c = code[end]
+            if c in '([{': stack.append(c)
+            elif c in ')]}':
+                if not stack or stack.pop() != {')': '(', ']': '[', '}': '{'}[c]: break
+                if not stack: break
+        out.setdefault(m[1], []).append(code[start:end + 1])
+    return out
+
+
+def crate_macros(src_text):
+    out = {}
+    for s in src_text.values():
+        for name, definitions in macro_rules_bodies(s).items():
+            out.setdefault(name, []).extend(definitions)
+    return out
+
+
+def location_reason(code, macros, seen=None):
+    """Code is already masked. Expand inspected local macros transitively.
+
+    Check every same-name local definition rather than assuming Rust scope or
+    imports. Cycles alone cannot introduce an observer; visit each name once.
+    Invocation arguments remain in code and are checked even for safe macros.
+    """
+    if LOCATION.search(code): return 'source-location'
+    seen = set() if seen is None else seen
+    for m in MACRO_CALL.finditer(code):
+        path = re.sub(r'\s+', '', m[0].split('!')[0]); parts = path.split('::'); name = parts[-1]
+        local = len(parts) == 1 or parts[0] in ('crate', 'self', 'super')
+        if local and name in macros:
+            if name in seen: continue
+            seen.add(name)
+            for definition in macros[name]:
+                reason = location_reason(definition, macros, seen)
+                if reason: return f'macro-location: {name} ({reason})'
+        elif (len(parts) == 1 or parts[0] in ('std', 'core', 'alloc')) and name in SAFE_STD_MACROS:
+            continue
+        elif path in SAFE_EXTERNAL_MACROS:
+            continue
+        else:
+            return f'unaudited-macro: {path}'
+    return None
+
+
+def observes_location(body, macros=None):
+    macros = crate_macros({'body': body}) if macros is None else macros
+    return location_reason(masked_code(body), macros) is not None
+
+
+def fn_prefix(s, fn_start, code=None):
+    code = masked_code(s) if code is None else code
+    previous = max(code.rfind('}', 0, fn_start), code.rfind(';', 0, fn_start), code.rfind('{', 0, fn_start))
+    return s[previous + 1:fn_start]
+
+
+def track_caller(s, fn_start):
+    return bool(re.search(r'\btrack_caller\b', masked_code(fn_prefix(s, fn_start))))
+
+
+# ---------------------------------------------------------------- schemata
+def plan_schemata(muts, src_text):
+    """Return (units, static). units: (file, body_open, body_close) -> {id: [(start, end, replacement)]}."""
+    static = invalid_anchors(muts, src_text)
+    macros = crate_macros(src_text)
+    bodies = {}
+    for file, s in src_text.items():
+        mask = code_mask(s)
+        bodies[file] = [bd for bd in fn_bodies(s, mask) if not sig_has_impl_trait(s, mask, bd[0], bd[1])]
+    units = {}  # (file, open, close) -> {id: [(start,end,repl)]}
+    for m in muts.values():
+        if m['id'] in static: continue
+        placed = []
+        for file, a, b in m['edits']:
+            s = src_text[file]
+            p, e_rel, repl = min_diff(a, b)
+            for occ in occurrences(s, a):
+                st, en = occ + p, occ + e_rel
+                outer = [bd for bd in bodies[file] if bd[1] < st and en <= bd[2]]
+                if not outer:
+                    placed = None; break
+                o = min(outer, key=lambda bd: bd[1])  # outermost enclosing fn body
+                placed.append(((file, o[1], o[2]), (st, en, repl)))
+            if placed is None: break
+        if not placed:
+            static[m['id']] = 'outside-fn-body'; continue
+        # Test both complete bodies; a mutation may introduce an observer or a
+        # macro even when the original has none. One unsafe unit demotes the
+        # whole mutant, including all extra edits in other units.
+        affected = {}
+        for unit, ed in placed:
+            affected.setdefault(unit, []).append(ed)
+        for (file, o, c), eds in affected.items():
+            s = src_text[file]; inner = s[o + 1:c]; mutated = inner
+            for st, en, repl in sorted(eds, reverse=True):
+                mutated = mutated[:st - o - 1] + repl + mutated[en - o - 1:]
+            fstart = next(bd[0] for bd in bodies[file] if bd[1] == o)
+            # Include new/changed nested macro definitions in the mutant too.
+            mutant_macros = dict(macros)
+            mutant_macros.update(macro_rules_bodies(mutated))
+            reason = ('source-location' if track_caller(s, fstart) else
+                      location_reason(masked_code(inner), macros) or
+                      location_reason(masked_code(mutated), mutant_macros))
+            if reason:
+                static[m['id']] = reason; break
+        if m['id'] in static: continue
+        for unit, ed in placed:
+            units.setdefault(unit, {}).setdefault(m['id'], []).append(ed)
+    # outermost-unit normalisation: drop units nested in other units of the same file
+    keys = sorted(units)
+    for u in keys:
+        for v in keys:
+            if u != v and u[0] == v[0] and v[1] < u[1] and u[2] <= v[2] and u in units and v in units:
+                for mid, eds in units.pop(u).items():
+                    units[v].setdefault(mid, []).extend(eds)
+    return units, static
+
+
+def render(src_text, units, accessor):
+    out = dict(src_text)
+    by_file = {}
+    for (file, o, c), arms in units.items():
+        by_file.setdefault(file, []).append((o, c, arms))
+    for file, us in by_file.items():
+        s = src_text[file]
+        for o, c, arms in sorted(us, reverse=True):
+            inner = s[o + 1:c]
+            parts = [f'{{ match {accessor(file)}() {{']
+            for mid, eds in sorted(arms.items()):
+                mi = inner
+                for st, en, repl in sorted(eds, reverse=True):
+                    mi = mi[:st - o - 1] + repl + mi[en - o - 1:]
+                parts.append(f' {json.dumps(mid)} => {{{mi}}}')
+            parts.append(f' _ => {{{inner}}} }} }}')
+            s = s[:o] + ''.join(parts) + s[c + 1:]
+        out[file] = s
+    return out
+
+
+def accessor_for(file):
+    return 'prism::__mutant' if file in ('src/main.rs',) or file.startswith('src/bin/') else 'crate::__mutant'
+
+
+# ---------------------------------------------------------------- tree sync
+def sync_tree(tree, overrides):
+    """Build the scratch tree: real copies of src/ (rendered) and the manifest files, symlinks
+    to the live repo for every other top-level entry (tests, fixtures, README, eval, docs...).
+    Only files whose bytes differ are written, so mtimes stay stable and cargo stays incremental."""
+    tree.mkdir(parents=True, exist_ok=True)
+    want = set()
+    for item in COPIED:
+        src = ROOT / item
+        files = [src] if src.is_file() else [p for p in src.rglob('*') if p.is_file()]
+        for p in files:
+            rel = str(p.relative_to(ROOT)); want.add(rel)
+            data = overrides[rel].encode() if rel in overrides else p.read_bytes()
+            dst = tree / rel
+            if not dst.exists() or dst.read_bytes() != data:
+                dst.parent.mkdir(parents=True, exist_ok=True); dst.write_bytes(data)
+    for p in [q for d in ('src', 'vendor') for q in (tree / d).rglob('*')]:
+        if p.is_file() and str(p.relative_to(tree)) not in want: p.unlink()
+    for entry in ROOT.iterdir():
+        if entry.name in COPIED or entry.name in ('target', '.git'): continue
+        link = tree / entry.name
+        if not link.is_symlink(): link.symlink_to(entry)
+
+
+def cargo_env(target):
+    env = os.environ.copy()
+    env.update(CARGO_TARGET_DIR=str(target), CARGO_INCREMENTAL='1', CARGO_PROFILE_DEV_DEBUG='0')
+    env.setdefault('PRISM_TYPESCRIPT', '/Users/wesleyjinks/prism-evidence/native-positional-gap/gate-inputs/typescript-5.9.3/package/lib/typescript.js')
+    env.pop('PRISM_MUTANT', None)
+    return env
+
+
+def build(tree, target, targets):
+    args = ['cargo', 'test', '--offline', '--manifest-path', str(tree / 'Cargo.toml'), '--no-run', '--message-format=json']
+    for t in sorted(targets): args += ['--lib'] if t == 'lib' else ['--test', t]
+    p = subprocess.run(args, capture_output=True, text=True, env=cargo_env(target))
+    exes, diags = {}, []
+    for l in p.stdout.splitlines():
+        try: j = json.loads(l)
+        except ValueError: continue
+        if j.get('reason') == 'compiler-artifact' and j.get('executable') and j.get('profile', {}).get('test'):
+            name = 'lib' if 'lib' in j['target']['kind'] else j['target']['name']
+            exes[name] = j['executable']
+        if j.get('reason') == 'compiler-message' and j['message'].get('level') == 'error':
+            for sp in j['message'].get('spans', []):
+                if sp.get('is_primary'): diags.append((sp['file_name'], sp['byte_start']))
+    return p.returncode, exes, diags, p.stderr
+
+
+# Test executables share the process working directory and any runtime state reachable from it
+# (temp files, markers, ports). Builds run in parallel per worker, but test *execution* is
+# serialized across all workers so concurrent tests cannot interfere and fake a kill
+# (confirmation-2 C2-W1). Test runs are short (~0.2 s), so the cost is negligible.
+TEST_EXECUTION_LOCK = threading.Lock()
+
+
+def run_test(exe, test, mutant, timeout, env):
+    e = dict(env)
+    if mutant: e['PRISM_MUTANT'] = mutant
+    t = time.monotonic()
+    try:
+        with TEST_EXECUTION_LOCK:
+            p = subprocess.run([exe, test, '--exact', '--test-threads=1'], capture_output=True, text=True, env=e, timeout=timeout)
+        log = p.stdout + p.stderr; status = p.returncode
+    except subprocess.TimeoutExpired as ex:
+        log = (ex.stdout or b'').decode(errors='replace') if isinstance(ex.stdout, bytes) else (ex.stdout or ''); status = 'timeout'
+    result = re.search(r'^test result: (ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored;', log, re.M)
+    ran = bool(re.search(r'^running 1 test$', log, re.M) and result
+               and int(result[2]) + int(result[3]) == 1 and int(result[4]) == 0)
+    killed = status != 'timeout' and ran and result[1] == 'FAILED' and int(result[3]) == 1
+    survived = status == 0 and ran and result[1] == 'ok' and int(result[2]) == 1
+    return {'killed': killed, 'timeout': status == 'timeout', 'admissible': killed or survived,
+            'status': status, 'seconds': round(time.monotonic() - t, 3), 'log_tail': log[-1500:],
+            'failure_locations': failure_locations(log) if killed else []}
+
+
+def failure_locations(log):
+    # Rust's panic header reports diagnostic provenance, not an observation by
+    # the test. Keep payload/assertion/stdout locations, even outside log_tail.
+    payload = re.sub(r"^thread '[^\n]*?'(?: \(\d+\))? panicked at [^\n]*\.rs:\d+:\d+:\s*$", '', log, flags=re.M)
+    # Older Rust puts the header's location after the quoted panic payload.
+    payload = re.sub(r"(?m)(^thread '[^\n]*?'(?: \(\d+\))? panicked at '[^\n]*'), [^\n]*\.rs:\d+:\d+\s*$", r'\1', payload)
+    return sorted(set(re.findall(r'[^\s\'"`<>(),]+\.rs:\d+(?::\d+)?', payload)))
+
+
+def location_sensitive_tests(tests, sources):
+    """Lexical test/constant/helper closure, conservatively merging same names.
+
+    Include referenced constants (AFTER = line!()) and helpers: looking only at
+    the test's body misses the hidden track-caller regression. No Rust resolver
+    is claimed here; aliases/dynamic dispatch are a documented limit.
+    """
+    nodes = {}; roots = {}
+    def add(name, code, observer=False):
+        nodes.setdefault(name, []).append((observer or bool(LOCATION.search(code)),
+                                         set(re.findall(r'\b[A-Za-z_]\w*\b', code))))
+    for s in sources.values():
+        mask = code_mask(s); code = ''.join(c if mask[i] else ' ' for i, c in enumerate(s))
+        for start, o, c in fn_bodies(s, mask):
+            name = re.match(r'fn\s+([A-Za-z_]\w*)', code[start:])[1]
+            prefix = fn_prefix(s, start, code); body = code[o + 1:c]
+            attr_observer = bool(re.search(r'#\s*\[\s*should_panic\s*\([^\]]*expected\s*=\s*"[^"\n]*\.rs:', prefix))
+            roots[name] = roots.get(name, False) or attr_observer or bool(re.search(r'\bLocation\b', body))
+            add(name, body, bool(re.search(r'\btrack_caller\b', masked_code(prefix))))
+        for m in re.finditer(r'\b(?:const|static)\s+(?:mut\s+)?([A-Za-z_]\w*)\s*:[^;=]*=', code):
+            depth = 0; end = m.end()
+            while end < len(code):
+                ch = code[end]
+                if ch in '([{': depth += 1
+                elif ch in ')]}': depth -= 1
+                elif ch == ';' and depth == 0: break
+                end += 1
+            add(m[1], code[m.end():end])
+        for name, definitions in macro_rules_bodies(s).items():
+            for definition in definitions: add(name, definition)
+    out = {}
+    for test in tests:
+        name = test.split('::')[-1]; pending = [name]; seen = set()
+        sensitive = roots.get(name, False)
+        while pending and not sensitive:
+            name = pending.pop()
+            if name in seen: continue
+            seen.add(name)
+            for observer, refs in nodes.get(name, []):
+                if observer: sensitive = True; break
+                pending.extend(refs.intersection(nodes).difference(seen))
+        out[test] = sensitive
+    return out
+
+
+def confirmation_reasons(m, observation, sensitive_tests):
+    reasons = []
+    files = {file for file, _, _ in m['edits']}
+    for test, run in zip(m['tests'], observation['runs']):
+        if not run['killed']: continue
+        if sensitive_tests.get(test, False): reasons.append(f'location-sensitive-test: {test}')
+        for location in run.get('failure_locations', []):
+            path = location.split('.rs:', 1)[0] + '.rs'
+            if any(path == file or path.endswith('/' + file) for file in files):
+                reasons.append(f'failure-payload-location: {location}')
+    return sorted(set(reasons))
+
+
+# ---------------------------------------------------------------- scoping
+def changed_lines(since):
+    diff = subprocess.run(['git', '-C', str(ROOT), 'diff', '--no-renames', '-U0', since, '--', 'src'], capture_output=True, text=True, check=True).stdout
+    out = {}; cur = None
+    for l in diff.splitlines():
+        if l.startswith('+++ '):
+            cur = l[6:] if l.startswith('+++ b/') else None
+        elif l.startswith('@@') and cur:
+            h = re.match(r'@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@', l)
+            o, oc, n, nc = int(h.group(1)), int(h.group(2) or 1), int(h.group(3)), int(h.group(4) or 1)
+            # pure deletions touch the line they were deleted after
+            out.setdefault(cur, set()).update(range(n, n + nc) if nc else {n, n + 1})
+    return out
+
+
+def select_scoped(muts, src_text, since, scope):
+    ch = changed_lines(since); sel = []
+    bodies = {f: fn_bodies(s, code_mask(s)) for f, s in src_text.items() if f in ch}
+    for m in muts.values():
+        hit = m['id'] in invalid_anchors({m['id']: m}, src_text)
+        for file, a, b in m['edits']:
+            if file not in ch: continue
+            if scope == 'file': hit = True; break
+            s = src_text.get(file, '')
+            if a not in s: hit = True; break
+            for occ in occurrences(s, a):
+                lo, hi = s.count('\n', 0, occ) + 1, s.count('\n', 0, occ + len(a)) + 1
+                if scope == 'fn':
+                    enc = [bd for bd in bodies[file] if bd[0] <= occ < bd[2]]
+                    if enc:
+                        bd = min(enc, key=lambda x: x[2] - x[0])
+                        lo, hi = s.count('\n', 0, bd[0]) + 1, s.count('\n', 0, bd[2]) + 1
+                if any(lo <= x <= hi for x in ch[file]): hit = True; break
+            if hit: break
+        if hit: sel.append(m['id'])
+    return sel
+
+
+# ---------------------------------------------------------------- text mode
+def text_mode(muts, ids, target, timeout, log, tree=None):
+    # Drop all schema edits and the helper before applying a single text mutant.
+    # Reuse Cargo artifacts, never the polluted source. Restore every own edit in
+    # finally so the next mutant also starts from the unmutated tree.
+    tree = tree or target / 'mutgate' / 'tree'
+    sync_tree(tree, {})
+    res = {}
+    for mid in ids:
+        m = muts[mid]; saved = {}
+        try:
+            for file, a, b in m['edits']:
+                p = tree / file; s = p.read_text()
+                if a not in s: raise RuntimeError(f'anchor missing in {file}')
+                saved.setdefault(file, p.read_bytes()); p.write_text(s.replace(a, b))
+            tgts = {test_target(m, t) for t in m['tests']}
+            t0 = time.monotonic(); rc, exes, _, err = build(tree, target, tgts); bt = time.monotonic() - t0
+            if rc != 0:
+                res[mid] = {'killed': False, 'admissible': False, 'error': 'compile', 'build_seconds': round(bt, 2), 'log_tail': err[-1500:]}
+            else:
+                runs = [run_test(exes[test_target(m, t)], t, None, timeout, cargo_env(target)) for t in m['tests']]
+                res[mid] = aggregate(runs, mode='text', build_seconds=round(bt, 2))
+        except Exception as e:
+            res[mid] = {'killed': False, 'admissible': False, 'error': str(e)}
+        finally:
+            for f, data in saved.items(): (tree / f).write_bytes(data)
+        res[mid]['mode'] = 'text'
+        log(f'{mid} {verdict(res[mid])} (text)')
+    return res
+
+
+def seed_target(source, target):
+    """Private Cargo cache: APFS copy-on-write clones, otherwise real copies.
+
+    Never hard-link mutable Cargo artifacts. Exclude mutgate (which contains
+    the destination workers) to prevent recursive copying of the scratch tree.
+    """
+    target.mkdir(parents=True)
+    entries = [p for p in source.iterdir() if p.name != 'mutgate']
+    if sys.platform == 'darwin':
+        for p in entries:
+            dst = target / p.name
+            result = subprocess.run(['cp', '-cR', str(p), str(dst)], capture_output=True)
+            if result.returncode:
+                # Discard a partial clone before switching the entire seed to copy.
+                shutil.rmtree(target); target.mkdir()
+                break
+        else:
+            return 'apfs-clone'
+    for p in entries:
+        dst = target / p.name
+        if p.is_dir(): shutil.copytree(p, dst, symlinks=True)
+        else: shutil.copy2(p, dst, follow_symlinks=False)
+    return 'copy'
+
+
+def parallel_text_mode(muts, ids, target, timeout, jobs, log):
+    """Each serial worker owns its source tree AND Cargo target for its lifetime."""
+    count = min(jobs, len(ids))
+    resources = {'workers': count, 'seed_methods': [], 'worker_disk_peak_bytes': 0,
+                 'disk_measurement': 'du -sk; allocated blocks, shared clone extents may be counted repeatedly',
+                 'workers_cleaned': False, 'worker_baselines': {}}
+    with tempfile.TemporaryDirectory(prefix='workers-', dir=target / 'mutgate') as scratch:
+        scratch = Path(scratch)
+        stop = threading.Event()
+        def sample_disk():
+            p = subprocess.run(['du', '-sk', str(scratch)], capture_output=True, text=True)
+            if p.returncode == 0:
+                resources['worker_disk_peak_bytes'] = max(resources['worker_disk_peak_bytes'],
+                                                         int(p.stdout.split()[0]) * 1024)
+        def monitor():
+            while not stop.wait(1): sample_disk()
+        watcher = threading.Thread(target=monitor, daemon=True); watcher.start()
+        def worker(index):
+            batch = ids[index::count]
+            home = scratch / str(index); home.mkdir()
+            private_target = home / 'target'
+            tree = home / 'tree'
+            preflight = {}
+            try:
+                method = seed_target(target, private_target)
+                log(f'text worker {index + 1}/{count}: {len(batch)} mutants, seed={method}')
+                # Relocation itself can change env!("CARGO_MANIFEST_DIR"),
+                # include paths, or build-script output. Validate original source
+                # in THIS worker context before attributing any failure to edits.
+                sync_tree(tree, {})
+                selected = {mid: muts[mid] for mid in batch}
+                tgts = {test_target(m, t) for m in selected.values() for t in m['tests']}
+                start = time.monotonic(); rc, exes, _, err = build(tree, private_target, tgts)
+                preflight['build_seconds'] = round(time.monotonic() - start, 2)
+                results = {}
+                if rc:
+                    preflight['error'] = 'worker baseline compile'
+                    results = {mid: {'mode': 'text', 'killed': False, 'admissible': False,
+                                     'error': 'worker baseline compile', 'log_tail': err[-1500:]} for mid in batch}
+                else:
+                    base = baseline(selected, exes, private_target, timeout, 1)
+                    preflight['runs'] = {str(k): v for k, v in base.items()}
+                    refuse_red_baselines(selected, base, results, 'text')
+                    log(f'text worker {index + 1}: baseline {len(base)} selectors, {len(results)} inadmissible mutants')
+                    ready = [mid for mid in batch if mid not in results]
+                    if ready: results.update(text_mode(muts, ready, private_target, timeout, log, tree))
+                return results, method, preflight
+            except Exception as e:
+                return {mid: {'mode': 'text', 'killed': False, 'admissible': False,
+                              'error': f'worker failure: {e}'} for mid in batch}, 'failed', preflight
+        results = {}
+        try:
+            with cf.ThreadPoolExecutor(count) as executor:
+                for index, (batch, method, preflight) in enumerate(executor.map(worker, range(count))):
+                    results.update(batch); resources['seed_methods'].append(method)
+                    resources['worker_baselines'][str(index)] = preflight
+        finally:
+            stop.set(); watcher.join(); sample_disk()
+    resources['workers_cleaned'] = not scratch.exists()
+    return results, resources
+
+
+def verdict(r):
+    if any(x.get('timeout') for x in r.get('runs', [])): return 'TIMEOUT'
+    if not r['admissible']: return 'INADMISSIBLE'
+    return 'KILLED' if r['killed'] else 'SURVIVED'
+
+
+def aggregate(runs, **fields):
+    admissible = bool(runs) and all(r['admissible'] for r in runs)
+    return dict(fields, runs=runs, admissible=admissible,
+                killed=admissible and any(r['killed'] for r in runs))
+
+
+def baseline(muts, exes, target, timeout, jobs):
+    tests = sorted({(test_target(m, t), t) for m in muts.values() for t in m['tests']})
+    with cf.ThreadPoolExecutor(jobs) as ex:
+        runs = list(ex.map(lambda tt: run_test(exes[tt[0]], tt[1], None, timeout, cargo_env(target)), tests))
+    return dict(zip(tests, runs))
+
+
+def refuse_red_baselines(muts, base, results, mode):
+    for mid, m in muts.items():
+        red = [t for t in m['tests'] if (test_target(m, t), t) not in base
+               or not base[test_target(m, t), t]['admissible']
+               or base[test_target(m, t), t]['killed']]
+        if red or not m['tests']:
+            results[mid] = {'mode': mode, 'killed': False, 'admissible': False,
+                            'error': f'baseline not green: {red or "empty selector list"}'}
+
+
+def gate_passes(results, selected):
+    return len(results) == selected and all(verdict(r) == 'KILLED' for r in results.values())
+
+
+# ---------------------------------------------------------------- main
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--lane', action='append'); ap.add_argument('--only', action='append')
+    ap.add_argument('--since'); ap.add_argument('--scope', choices=['line', 'fn', 'file'], default='line')
+    ap.add_argument('--mode', choices=['schema', 'text'], default=None)
+    ap.add_argument('--authoritative', action='store_true', help='evaluate scoped mutants in isolated text mode')
+    ap.add_argument('--jobs', type=int, default=4)
+    ap.add_argument('--timeout', type=float, default=120.0)
+    ap.add_argument('--out', default=None)
+    ap.add_argument('--plan-only', action='store_true')
+    a = ap.parse_args()
+    if a.jobs < 1: ap.error('--jobs must be positive')
+    if a.mode == 'schema' and (not a.since or a.authoritative):
+        ap.error('schema verdicts are advisory: use --since REV without --authoritative')
+    a.mode = 'text' if a.authoritative else (a.mode or ('schema' if a.since else 'text'))
+    authoritative = a.mode == 'text'
+    label = 'AUTHORITATIVE' if authoritative else 'ADVISORY'
+    T0 = time.monotonic()
+    target = Path(os.environ.get('CARGO_TARGET_DIR', ROOT / 'target')).resolve()
+    out = Path(a.out or target / 'mutgate' / 'report'); out.mkdir(parents=True, exist_ok=True)
+    def log(msg): print(f'[{time.monotonic() - T0:7.1f}s] {label} {msg}', flush=True)
+    lanes = a.lane or sorted(str(p) for p in ROOT.glob(LANES_GLOB))
+    muts = load_population(lanes)
+    src_text = {str(p.relative_to(ROOT)): p.read_text() for p in (ROOT / 'src').rglob('*.rs')}
+    ids = list(muts)
+    if a.since: ids = select_scoped(muts, src_text, a.since, a.scope)
+    if a.only: ids = [i for i in ids if i in set(a.only)]
+    sel = {i: muts[i] for i in ids}
+    log(f'{len(muts)} mutants in {len(lanes)} lane file(s); selected {len(sel)}')
+    timings = {}
+    results = {}
+    units, static = plan_schemata(sel, src_text) if a.mode == 'schema' or a.plan_only else ({}, {})
+    if a.plan_only:
+        (out / 'schemata-plan.json').write_text(json.dumps({'units': len(units), 'static': static,
+                                                         'authoritative': authoritative, 'execution_mode': a.mode}, indent=2))
+        return 1 if invalid_anchors(sel, src_text) else 0
+    for mid, reason in invalid_anchors(sel, src_text).items():
+        results[mid] = {'mode': 'none', 'killed': False, 'admissible': False, 'error': reason}
+    eligible = {mid: m for mid, m in sel.items() if mid not in results}
+    tree = target / 'mutgate' / 'tree'
+    baselines = {}
+    if eligible:
+        # Source baseline is common to both modes and precedes ANY mutation.
+        sync_tree(tree, {})
+        tgts = {test_target(m, t) for m in eligible.values() for t in m['tests']}
+        t = time.monotonic(); rc, exes, _, err = build(tree, target, tgts)
+        timings['source_baseline_build'] = round(time.monotonic() - t, 2)
+        if rc:
+            for mid in eligible:
+                results[mid] = {'mode': 'none', 'killed': False, 'admissible': False,
+                                'error': 'baseline compile', 'log_tail': err[-1500:]}
+        else:
+            t = time.monotonic(); base = baseline(eligible, exes, target, a.timeout, a.jobs)
+            timings['source_baseline'] = round(time.monotonic() - t, 2)
+            baselines['source'] = {str(k): v for k, v in base.items()}
+            refuse_red_baselines(eligible, base, results, 'none')
+            log(f'source baseline {len(base)} selectors, {len(results)} inadmissible mutants')
+    eligible = {mid: m for mid, m in eligible.items() if mid not in results}
+    schema_observations = {}
+    if a.mode == 'schema' and eligible and any(mid not in static for mid in eligible):
+        units, static = plan_schemata(eligible, src_text)
+        # Compile-demotion retry cap: three builds; enumerate all diagnostics
+        # from each build before changing the schema population.
+        for _ in range(3):
+            rendered = render(src_text, units, accessor_for)
+            lib = rendered['src/lib.rs']; rendered['src/lib.rs'] = ALLOW + lib + HELPER
+            log(f'schemata: {len(units)} fn units, {len(eligible) - len(static)} schema mutants, {len(static)} static: {static}')
+            sync_tree(tree, {k: v for k, v in rendered.items() if v != src_text.get(k)})
+            tgts = {test_target(m, t) for m in eligible.values() for t in m['tests']}
+            t = time.monotonic(); rc, exes, diags, err = build(tree, target, tgts); timings['schema_build'] = round(time.monotonic() - t, 2)
+            log(f'schemata build rc={rc} in {timings["schema_build"]}s')
+            if rc == 0: break
+            # demote every mutant whose unit contains a compile error, then retry
+            bad = set()
+            for fname, pos in diags:
+                rel = str(Path(fname).resolve().relative_to(tree.resolve())) if Path(fname).is_absolute() else fname
+                for (f, o, c), arms in units.items():
+                    if f == rel: bad.add((f, o, c))
+            if not bad: sys.exit('schemata build failed outside mutant units:\n' + err[-3000:])
+            for u in bad:
+                for mid in units.pop(u): static[mid] = 'schema-compile-error'
+                # a mutant demoted in one unit must leave all units
+            for u in list(units):
+                for mid in list(units[u]):
+                    if mid in static: del units[u][mid]
+                if not units[u]: del units[u]
+        else:
+            sys.exit('schemata build did not converge')
+        env = cargo_env(target)
+        t = time.monotonic(); base = baseline(eligible, exes, target, a.timeout, a.jobs)
+        timings['schema_baseline'] = round(time.monotonic() - t, 2)
+        baselines['schema'] = {str(k): v for k, v in base.items()}
+        refuse_red_baselines(eligible, base, results, 'schema')
+        log(f'schema baseline {len(base)} selectors, {len(results)} inadmissible mutants')
+        jobs = [(mid, test_target(m, tt), tt) for mid, m in eligible.items()
+                if mid not in static and mid not in results for tt in m['tests']]
+        t = time.monotonic()
+        with cf.ThreadPoolExecutor(a.jobs) as ex:
+            rr = list(ex.map(lambda j: (j, run_test(exes[j[1]], j[2], j[0], a.timeout, env)), jobs))
+        timings['schema_runs'] = round(time.monotonic() - t, 2)
+        t = time.monotonic()
+        test_sources = dict(src_text)
+        test_sources.update({str(p.relative_to(ROOT)): p.read_text() for p in (ROOT / 'tests').rglob('*.rs')})
+        sensitive_tests = location_sensitive_tests({j[2] for j in jobs}, test_sources)
+        timings['confirmation_scan'] = round(time.monotonic() - t, 2)
+        by_mid = {}
+        for (mid, _, _), r in rr: by_mid.setdefault(mid, []).append(r)
+        for mid, runs in by_mid.items():
+            observation = aggregate(runs, mode='schema')
+            reasons = confirmation_reasons(eligible[mid], observation, sensitive_tests)
+            if verdict(observation) == 'KILLED' and reasons:
+                observation['confirmation_reasons'] = reasons
+                schema_observations[mid] = observation
+                log(f'{mid} schema failure; awaiting clean-text confirmation: {reasons}')
+            else:
+                results[mid] = observation
+                log(f'{mid} {verdict(observation)}')
+        log(f'schema runs: {len(jobs)} in {timings["schema_runs"]}s (jobs={a.jobs})')
+        text_ids = [i for i in eligible if i not in results and (i in static or i in schema_observations)]
+    else:
+        text_ids = list(eligible)
+    resources = {}
+    if text_ids:
+        t = time.monotonic()
+        text_results, resources = parallel_text_mode(muts, text_ids, target, a.timeout, a.jobs, log)
+        results.update(text_results)
+        baselines['workers'] = resources.pop('worker_baselines')
+        timings['text_mode'] = round(time.monotonic() - t, 2)
+        for mid, observation in schema_observations.items():
+            results[mid]['mode'] = 'schema+text'
+            results[mid]['schema_observation'] = observation
+    # Restore source even when there were only schema survivors/timeouts.
+    if eligible: sync_tree(tree, {})
+    timings['total'] = round(time.monotonic() - T0, 2)
+    killed = sum(verdict(r) == 'KILLED' for r in results.values()); adm = sum(r['admissible'] for r in results.values())
+    summary = {'authoritative': authoritative, 'label': label, 'execution_mode': a.mode, 'jobs': a.jobs,
+               'since': a.since, 'scope': a.scope if a.since else None,
+               'selected': len(sel), 'killed': killed, 'admissible': adm, 'timings': timings, 'resources': resources,
+               'baselines': baselines, 'static': static,
+               'text_confirmations': len(schema_observations),
+               'results': {mid: dict(r, verdict=verdict(r)) for mid, r in results.items()}}
+    (out / 'summary.json').write_text(json.dumps(summary, indent=2))
+    log(f'TOTAL killed {killed}/{len(sel)} admissible {adm} timings {timings}')
+    return 0 if gate_passes(results, len(sel)) else 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

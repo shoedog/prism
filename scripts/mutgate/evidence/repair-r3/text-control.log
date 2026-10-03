@@ -1,0 +1,32 @@
+[
+  {
+    "fixture": "aliased-Location",
+    "exit": 1,
+    "verdict": "SURVIVED"
+  },
+  {
+    "fixture": "aliased-other-module",
+    "exit": 1,
+    "verdict": "SURVIVED"
+  },
+  {
+    "fixture": "debug-aliased-Location",
+    "exit": 1,
+    "verdict": "SURVIVED"
+  },
+  {
+    "fixture": "generated-should-panic",
+    "exit": 1,
+    "verdict": "SURVIVED"
+  },
+  {
+    "fixture": "generated-track-caller",
+    "exit": 1,
+    "verdict": "SURVIVED"
+  },
+  {
+    "fixture": "panic-without-rs-colon",
+    "exit": 1,
+    "verdict": "SURVIVED"
+  }
+]

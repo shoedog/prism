@@ -1,0 +1,14 @@
+test_r4_04_preserves_a_distinct_decoding_obligation (scripts.mutgate.test_mutgate.RegistryIntentTests) ... FAIL
+
+======================================================================
+FAIL: test_r4_04_preserves_a_distinct_decoding_obligation (scripts.mutgate.test_mutgate.RegistryIntentTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 425, in test_r4_04_preserves_a_distinct_decoding_obligation
+    self.assertNotEqual(population[mid]['edits'],
+AssertionError: [('src/js_paths_boundary.rs', 'let Some(read) = &scanned.read else {', 'let Some(read) = &scanned.read else { return Err(std::io::Error::other("mutant"));')] == [('src/js_paths_boundary.rs', 'let Some(read) = &scanned.read else {', 'let Some(read) = &scanned.read else { return Err(std::io::Error::other("mutant"));')]
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (failures=1)

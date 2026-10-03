@@ -1,0 +1,603 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 2fdc85e8..4f690712 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -20,10 +20,18 @@ cargo test --features mcp                   # Run tests with MCP enabled
+ 
+ ### Mutation gate
+ ```bash
+-python3 scripts/mutgate/mutgate.py --since main --scope fn   # scoped round: 5-10 min, each review round
+-python3 scripts/mutgate/mutgate.py                            # full gate: 15 min target / 30 min hard cap, before merge
++python3 scripts/mutgate/mutgate.py                            # authoritative full gate before merge; default 4 workers
++python3 scripts/mutgate/mutgate.py --since main --scope fn    # fast ADVISORY check each review round
++python3 scripts/mutgate/mutgate.py --since main --scope fn --authoritative  # scoped round needing certainty
+ ```
+-Details (lane format, exit codes, limits): `scripts/mutgate/README.md`.
++Full and authoritative scoped verdicts use isolated text builds with only each
++mutant's own edits and green source baselines in the shared and worker contexts;
++TIMEOUT/INADMISSIBLE fail.
++Scoped schema results are labeled ADVISORY (`authoritative: false`), can falsely
++kill equivalent location-observing mutants, and cannot certify a pre-merge gate.
++Scopes do not trace dependency effects. Exit 0 means all selected verdicts are
++KILLED under the stated contract. Warm lane-P target: at most 5 minutes at 4 jobs.
++Details (lane format, cleanup, measurements, limits): `scripts/mutgate/README.md`.
+ 
+ ## Accuracy Harness (Tier-A)
+ 
+diff --git a/scripts/mutgate/README.md b/scripts/mutgate/README.md
+index 8517aac9..0937f92b 100644
+--- a/scripts/mutgate/README.md
++++ b/scripts/mutgate/README.md
+@@ -1,10 +1,12 @@
+-# mutgate: generated function-body mutant schemata
++# mutgate: authoritative text gate and advisory scoped checks
+ 
+-A pre-merge mutation gate. Eligible mutants become `match` arms inside their
+-enclosing function in a scratch copy, built together and selected with
+-`PRISM_MUTANT`. Location-sensitive schema failures require a clean text-mode
+-confirmation; other admissible schema kills stand directly. Production `src/`
+-is never edited.
++Before merge, run the full gate. Every authoritative verdict comes from an
++isolated text mutant containing only its own main and `extra` edits. Source
++baseline preflight must pass first. Schema mode never decides an authoritative
++verdict. Production `src/` is never edited.
++
++For each review round, use a fast advisory scoped run, or add `--authoritative`
++when that round needs certainty about the selected mutants.
+ 
+ ## Defining a lane
+ 
+@@ -40,100 +42,93 @@ Each `mutants/<lane>.json` has a flat `mutations` map:
+ ## Commands
+ 
+ ```bash
+-python3 scripts/mutgate/mutgate.py                      # full gate, every lane file
+-python3 scripts/mutgate/mutgate.py --since main                       # scoped: line-level
+-python3 scripts/mutgate/mutgate.py --since main --scope fn            # scoped: whole enclosing fn
+-python3 scripts/mutgate/mutgate.py --since main --scope file          # scoped: all mutants in changed files
++python3 scripts/mutgate/mutgate.py                              # authoritative full gate, pre-merge
++python3 scripts/mutgate/mutgate.py --jobs 2                     # two isolated text workers
++python3 scripts/mutgate/mutgate.py --since main --scope fn       # ADVISORY scoped round
++python3 scripts/mutgate/mutgate.py --since main --scope line     # ADVISORY overlapping anchors
++python3 scripts/mutgate/mutgate.py --since main --scope file     # ADVISORY changed files
++python3 scripts/mutgate/mutgate.py --since main --scope fn --authoritative
+ python3 scripts/mutgate/mutgate.py --lane mutants/lane-p-tsconfig-paths.json --only I17-no-project-reference-cut
+-python3 scripts/mutgate/mutgate.py --plan-only             # print the schema plan, build nothing
++python3 scripts/mutgate/mutgate.py --plan-only                   # planner diagnostics, no verdicts/build
++python3 -m unittest                                            # all driver regressions
+ ```
+ 
+-Other flags: `--jobs N` (parallel test runs, default half the CPU count),
+-`--mode schema|text` (force text-mode, skipping schema rendering),
+-`--timeout SECS` (per-test, default 120; a timeout fails the gate),
+-`--out DIR` (summary location override).
+-
+-## Exit codes and output
+-
+-- Exit `0` only if every selected mutant is admissible and KILLED. SURVIVED,
+-  TIMEOUT and INADMISSIBLE each fail the gate. Timeouts never count as kills;
+-  this driver provides no timeout exemptions.
+-- Both modes compile unmutated source and preflight every selected selector.
+-  Schema mode also preflights the inactive schema tree. A red, missing,
+-  ignored or timed-out baseline makes that selector's mutants INADMISSIBLE.
+-- The summary (per-mutant verdict, timings, mode) is written to
+-  `$CARGO_TARGET_DIR/mutgate/report/summary.json` (default
+-  `./target/mutgate/report/summary.json`).
+-- Build state lives under `$CARGO_TARGET_DIR/mutgate/` (the scratch tree at
+-  `mutgate/tree`). Cargo artifacts are reused in `$CARGO_TARGET_DIR`; remove
+-  that build directory to reclaim them. Each text mutant starts from original
+-  source with only its own main and `extra` edits; no inactive schemas remain.
+-
+-## Tiers
+-
+-- Scoped round (`--since <ref>`): a local filter for one review round. Target
+-  well under 5 minutes. Line/fn scope selects overlapping anchors/functions;
+-  file scope selects all mutants in changed files. These do not trace callers
+-  or dependencies and can omit mutants affected by helper changes. Missing
+-  registry paths/anchors are selected even outside the diff, to fail visibly.
+-- Full gate: every lane mutant, at most 15 minutes, ideally 2–3 minutes with
+-  reusable Cargo artifacts. The full gate is the
+-  authority before merge; a green scoped result cannot replace it.
+-
+-Round-2 certification of the current 93-ID lane: all 93 admissible kills in
+-both modes, zero ID-bound verdict differences; schema **90.00 s**, pure text
+-**513.64 s**, and a nonempty three-mutant synthetic fn-scope control **33.50 s**.
+-Of the 93, 89 ran as schemas, four demoted for struct-field edits, and zero
+-schema kills required text confirmation. See the [per-ID certification table](evidence/repair-r2/certification-table.md)
+-and [demotion table](evidence/repair-r2/demotion-table.md). These timings are
+-machine/cache dependent; the scoped measurement injects changed lines because
+-the production source diff is empty.
+-
+-## Limits
+-
+-- A mutant whose edit falls outside any function body, or whose unit fails
+-  to compile as a schema, demotes automatically to a one-off incremental
+-  text-mode build; this is normal, not an error.
+-- A function returning `impl Trait` is excluded from schema rendering
+-  (duplicating its body across match arms can fail RPIT's single-hidden-type
+-  inference when the body contains a closure or other anonymous-type
+-  expression) and runs any mutant touching it in text mode instead.
+-- Both original and mutated bodies demote for direct `line!`, `column!`,
+-  `file!`, `std::panic::Location`, `Location::caller`, and `#[track_caller]`
+-  (on the function or nested callees). `module_path!` is conservatively treated
+-  as an observer, as is `dbg!`, which prints a location. Plain `panic!`,
+-  `unwrap` and `expect` do not themselves make a body location-sensitive.
+-- The safe std macro allowlist is `vec`, `format`, `format_args`,
+-  `format_args_nl`, `write`, `writeln`, `print`, `println`, `eprint`, `eprintln`,
+-  `assert`, `assert_eq`, `assert_ne`, `debug_assert`, `debug_assert_eq`,
+-  `debug_assert_ne`, `matches`, `panic`, `unreachable`, `todo`, `unimplemented`,
+-  `concat`, `stringify`, `cfg`, `env`, `option_env`, `include_str`, `include_bytes`.
+-  Arguments are still scanned for observers. Local `macro_rules!` definitions
+-  are scanned across the crate, including transitive expansions and std-name
+-  shadowing; a known-safe local wrapper remains in schema mode. Same-name
+-  definitions are conservatively merged rather than resolving Rust scopes.
+-  New/changed nested definitions are inspected in the mutant too.
+-- The external safe list contains only `serde_json::json` (JSON construction
+-  without location APIs). All other external macros, including `anyhow::{anyhow,
+-  bail, ensure}`, `log::*`, `tracing::*`, and `tokio::*`, plus unresolved imported
+-  macros and `include!`, demote as `unaudited-macro`. Inspect an expansion before
+-  adding it to the safe list; recognition alone is insufficient.
+-- A schema kill needs text confirmation only when its **failure payload** has
+-  a numeric `.rs:line[:column]` location in one of that mutant's edited files,
+-  or its killing test uses location APIs or `should_panic(expected="… .rs: …")`.
+-  Rust's automatic panic diagnostic header is excluded: it reports provenance,
+-  rather than proving the test observed it. The full output is scanned before
+-  tail truncation. The test scan includes referenced constants and helpers
+-  (for example `AFTER = line!()`); same-name items are conservatively merged.
+-  The summary records confirmation counts and reasons, and preserves the
+-  schema observation separately from the confirmed verdict.
+-- These are lexical protections, not a Rust resolver or a general equivalence
+-  proof. Aliased location APIs, dynamic calls, proc/attribute macro expansions,
+-  external helpers or hooks that observe locations without exposing them in
+-  failure text can escape the targeted checks. Keep such mutants/tests in text
+-  mode. Each new lane must be certified by ID against pure text mode; this does
+-  not certify arbitrary future tests or external expansions.
+-- No perf or memory mutants: the schema's per-call string match on
+-  `PRISM_MUTANT` changes timing and allocation behavior, so this gate is
+-  unsuitable for timing- or memory-sensitive assertions. Keep those on their
+-  own driver (see `mutants.py` for the kernel lane's resource mutants).
++`--jobs N` sets the number of isolated text workers and parallel baseline/schema
++test runs (default **4**, positive integer). `--timeout SECS` limits each test
++(default 120). `--out DIR` overrides the report directory. `--mode text` is an
++alias for authoritative evaluation; `--mode schema` requires `--since` and
++cannot be combined with `--authoritative`. `--lane` and `--only` restrict the
++population, so a partial selection does not certify the full lane.
++
++## Soundness contracts and exit codes
++
++**Authoritative full gate:** no `--since` means pure text mode. Every mutant is
++built separately from original source with only its own edits, with a private
++scratch tree and private `CARGO_TARGET_DIR`. No schema bodies or helper are
++injected, and no lexical observer detector is used to accept a verdict. An
++unmutated-source build and preflight of every selector precede mutation, both
++in the shared warm tree and each worker's own tree/target. Worker preflight
++refuses relocation-induced test or compile failures, including observations
++of `CARGO_MANIFEST_DIR`, rather than counting them as mutation kills.
++
++**Advisory scoped mode:** `--since REV --scope line|fn|file` defaults to schema
++mode. Eligible function-body edits are compiled together as `match` arms and
++activated via `PRISM_MUTANT`. Output lines say **ADVISORY**, and summary JSON
++contains `"authoritative": false`. Schema rendering changes source locations
++and execution overhead. Lexical demotions and targeted text confirmations
++remain useful heuristics, but cannot establish sound verdicts: macro-generated
++helpers, aliases, location Debug output and caught payloads can falsely kill
++equivalent mutants. Six compiled fixtures retain these counterexamples.
++Even text fallbacks/confirmations do not make a schema run authoritative.
++
++**Authoritative scoped mode:** add `--authoritative` (or `--mode text`) to
++apply the text contract to the selected population. This gives certainty about
++those registered mutants, not about all mutants affected by the diff.
++
++Both modes exit **0** when every selected verdict is admissible and KILLED;
++SURVIVED, TIMEOUT and INADMISSIBLE exit **1**. Advisory exit 0 is only an
++advisory result. Every selector must run exactly one non-ignored test; all
++selectors must be admissible and at least one must fail on the mutant. Timeouts
++never count as kills. A red, missing, ignored or timed-out source baseline
++makes its mutants INADMISSIBLE, preserving the selected denominator. Advisory
++mode also preflights inactive schemas. A zero selection is explicitly reported
++as `selected: 0`; it provides no mutation coverage.
++
++Scopes are local filters: line scope selects overlapping anchors, fn scope
++the enclosing function, and file scope all mutants in changed files. They do
++not trace callers/dependencies and can omit effects of helper changes. Missing
++registered paths/anchors are selected even outside the diff and fail visibly.
++A green scoped run cannot replace the full pre-merge gate.
++
++## Build state, resources and cleanup
++
++The shared warm build lives in `$CARGO_TARGET_DIR` (default `./target`); its
++baseline scratch tree is `mutgate/tree`. Each text worker seeds a private target
++once from the shared warm target using APFS `cp -cR` when available, otherwise
++real copies. Mutable Cargo artifacts are never hard-linked. Workers restore
++source between mutants; their trees and targets are deleted after execution,
++including handled failures. Only the shared warm cache and reports remain.
++Disk grows with the active worker count rather than the number of mutants.
++
++The default summary is `$CARGO_TARGET_DIR/mutgate/report/summary.json`, containing
++mode, authority, selected IDs, baselines, verdicts, timings, seed methods and
++sampled peak worker disk. `du` counts allocated blocks and can count shared APFS
++clone extents repeatedly; it does not measure unique physical storage. Remove
++the shared target when its warm cache is no longer needed; save reports first.
++
++The warm lane-P target is **at most five minutes at four workers**. Measured
++round-3 timings, peak disk/RSS, exact ID comparison against r2 pure text and
++full test results are recorded in [repair-r3 evidence](evidence/repair-r3/README.md).
++Earlier schema timings are historical advisory measurements, not a sound full
++gate certification.
++
++## Advisory planner limits
++
++Edits outside function bodies, functions returning `impl Trait`, direct location
++observers and unaudited macros demote to isolated text. Failed schema compilation
++also demotes implicated units (three-build cap). Local macro expansion scans,
++helper/constant test scans and failure payload scans remain lexical heuristics;
++aliases, dynamic calls, external helpers and generated code can escape them.
++The full authoritative gate does not depend on these protections. Performance
++or memory-sensitive tests need a dedicated resource driver rather than schema
++instrumentation (see `mutants.py`).
+diff --git a/scripts/mutgate/mutgate.py b/scripts/mutgate/mutgate.py
+index e56169c0..2294415b 100644
+--- a/scripts/mutgate/mutgate.py
++++ b/scripts/mutgate/mutgate.py
+@@ -1,27 +1,13 @@
+ #!/usr/bin/env python3
+-"""prism mutation gate: generated function-body mutant schemata + text-mode fallback.
+-
+-One command:
+-    python3 scripts/mutgate/mutgate.py                 # full gate (every lane file)
+-    python3 scripts/mutgate/mutgate.py --since main    # scoped: mutants whose anchor
+-                                                       # touches lines changed since main
+-Options: --lane FILE (repeatable), --only ID (repeatable), --jobs N, --mode schema|text,
+-         --scope line|fn|file, --timeout SECS, --out DIR, --plan-only.
+-Build state lives in $CARGO_TARGET_DIR (default ./target) under mutgate/; it is reused across
+-rounds for incremental builds. Reclaim it with `rm -rf $CARGO_TARGET_DIR/mutgate`.
+-
+-Production source is never edited. The schemata are generated into a scratch copy
+-of the tree under $CARGO_TARGET_DIR/mutgate/tree; each mutated function body becomes
+-
+-    { match crate::__mutant() { "ID" => { <mutated body> } _ => { <original body> } } }
+-
+-Bodies with direct location observers or unaudited macro expansions stay in text mode.
+-Only location-sensitive schema failures need clean-text confirmation.
+-A mutant whose edit
+-falls outside a function body (struct fields, attributes, consts), or whose unit
+-fails to compile as a schema, runs in text mode (one incremental build per mutant).
++"""Authoritative isolated text gate; fast scoped schema observations are advisory.
++
++Full runs use text mode with four private workers by default. --since REV
++selects a local scope and defaults to ADVISORY schema mode; --authoritative
++or --mode text evaluates that selection using isolated text builds instead.
++Production source is never edited. Workers clone/copy the shared warm target
++once and are removed after execution; the shared warm target remains reusable.
+ """
+-import argparse, concurrent.futures as cf, json, os, re, subprocess, sys, time
++import argparse, concurrent.futures as cf, json, os, re, shutil, subprocess, sys, tempfile, threading, time
+ from pathlib import Path
+ 
+ ROOT = Path(__file__).resolve().parents[2]
+@@ -530,6 +516,93 @@ def text_mode(muts, ids, target, timeout, log, tree=None):
+     return res
+ 
+ 
++def seed_target(source, target):
++    """Private Cargo cache: APFS copy-on-write clones, otherwise real copies.
++
++    Never hard-link mutable Cargo artifacts. Exclude mutgate (which contains
++    the destination workers) to prevent recursive copying of the scratch tree.
++    """
++    target.mkdir(parents=True)
++    entries = [p for p in source.iterdir() if p.name != 'mutgate']
++    if sys.platform == 'darwin':
++        for p in entries:
++            dst = target / p.name
++            result = subprocess.run(['cp', '-cR', str(p), str(dst)], capture_output=True)
++            if result.returncode:
++                # Discard a partial clone before switching the entire seed to copy.
++                shutil.rmtree(target); target.mkdir()
++                break
++        else:
++            return 'apfs-clone'
++    for p in entries:
++        dst = target / p.name
++        if p.is_dir(): shutil.copytree(p, dst, symlinks=True)
++        else: shutil.copy2(p, dst, follow_symlinks=False)
++    return 'copy'
++
++
++def parallel_text_mode(muts, ids, target, timeout, jobs, log):
++    """Each serial worker owns its source tree AND Cargo target for its lifetime."""
++    count = min(jobs, len(ids))
++    resources = {'workers': count, 'seed_methods': [], 'worker_disk_peak_bytes': 0,
++                 'disk_measurement': 'du -sk; allocated blocks, shared clone extents may be counted repeatedly',
++                 'workers_cleaned': False, 'worker_baselines': {}}
++    with tempfile.TemporaryDirectory(prefix='workers-', dir=target / 'mutgate') as scratch:
++        scratch = Path(scratch)
++        stop = threading.Event()
++        def sample_disk():
++            p = subprocess.run(['du', '-sk', str(scratch)], capture_output=True, text=True)
++            if p.returncode == 0:
++                resources['worker_disk_peak_bytes'] = max(resources['worker_disk_peak_bytes'],
++                                                         int(p.stdout.split()[0]) * 1024)
++        def monitor():
++            while not stop.wait(1): sample_disk()
++        watcher = threading.Thread(target=monitor, daemon=True); watcher.start()
++        def worker(index):
++            batch = ids[index::count]
++            home = scratch / str(index); home.mkdir()
++            private_target = home / 'target'
++            tree = home / 'tree'
++            preflight = {}
++            try:
++                method = seed_target(target, private_target)
++                log(f'text worker {index + 1}/{count}: {len(batch)} mutants, seed={method}')
++                # Relocation itself can change env!("CARGO_MANIFEST_DIR"),
++                # include paths, or build-script output. Validate original source
++                # in THIS worker context before attributing any failure to edits.
++                sync_tree(tree, {})
++                selected = {mid: muts[mid] for mid in batch}
++                tgts = {test_target(m, t) for m in selected.values() for t in m['tests']}
++                start = time.monotonic(); rc, exes, _, err = build(tree, private_target, tgts)
++                preflight['build_seconds'] = round(time.monotonic() - start, 2)
++                results = {}
++                if rc:
++                    preflight['error'] = 'worker baseline compile'
++                    results = {mid: {'mode': 'text', 'killed': False, 'admissible': False,
++                                     'error': 'worker baseline compile', 'log_tail': err[-1500:]} for mid in batch}
++                else:
++                    base = baseline(selected, exes, private_target, timeout, 1)
++                    preflight['runs'] = {str(k): v for k, v in base.items()}
++                    refuse_red_baselines(selected, base, results, 'text')
++                    log(f'text worker {index + 1}: baseline {len(base)} selectors, {len(results)} inadmissible mutants')
++                    ready = [mid for mid in batch if mid not in results]
++                    if ready: results.update(text_mode(muts, ready, private_target, timeout, log, tree))
++                return results, method, preflight
++            except Exception as e:
++                return {mid: {'mode': 'text', 'killed': False, 'admissible': False,
++                              'error': f'worker failure: {e}'} for mid in batch}, 'failed', preflight
++        results = {}
++        try:
++            with cf.ThreadPoolExecutor(count) as executor:
++                for index, (batch, method, preflight) in enumerate(executor.map(worker, range(count))):
++                    results.update(batch); resources['seed_methods'].append(method)
++                    resources['worker_baselines'][str(index)] = preflight
++        finally:
++            stop.set(); watcher.join(); sample_disk()
++    resources['workers_cleaned'] = not scratch.exists()
++    return results, resources
++
++
+ def verdict(r):
+     if any(x.get('timeout') for x in r.get('runs', [])): return 'TIMEOUT'
+     if not r['admissible']: return 'INADMISSIBLE'
+@@ -568,16 +641,23 @@ def main():
+     ap = argparse.ArgumentParser()
+     ap.add_argument('--lane', action='append'); ap.add_argument('--only', action='append')
+     ap.add_argument('--since'); ap.add_argument('--scope', choices=['line', 'fn', 'file'], default='line')
+-    ap.add_argument('--mode', choices=['schema', 'text'], default='schema')
+-    ap.add_argument('--jobs', type=int, default=max(1, (os.cpu_count() or 4) // 2))
++    ap.add_argument('--mode', choices=['schema', 'text'], default=None)
++    ap.add_argument('--authoritative', action='store_true', help='evaluate scoped mutants in isolated text mode')
++    ap.add_argument('--jobs', type=int, default=4)
+     ap.add_argument('--timeout', type=float, default=120.0)
+     ap.add_argument('--out', default=None)
+     ap.add_argument('--plan-only', action='store_true')
+     a = ap.parse_args()
++    if a.jobs < 1: ap.error('--jobs must be positive')
++    if a.mode == 'schema' and (not a.since or a.authoritative):
++        ap.error('schema verdicts are advisory: use --since REV without --authoritative')
++    a.mode = 'text' if a.authoritative else (a.mode or ('schema' if a.since else 'text'))
++    authoritative = a.mode == 'text'
++    label = 'AUTHORITATIVE' if authoritative else 'ADVISORY'
+     T0 = time.monotonic()
+-    target = Path(os.environ.get('CARGO_TARGET_DIR', ROOT / 'target'))
++    target = Path(os.environ.get('CARGO_TARGET_DIR', ROOT / 'target')).resolve()
+     out = Path(a.out or target / 'mutgate' / 'report'); out.mkdir(parents=True, exist_ok=True)
+-    def log(msg): print(f'[{time.monotonic() - T0:7.1f}s] {msg}', flush=True)
++    def log(msg): print(f'[{time.monotonic() - T0:7.1f}s] {label} {msg}', flush=True)
+     lanes = a.lane or sorted(str(p) for p in ROOT.glob(LANES_GLOB))
+     muts = load_population(lanes)
+     src_text = {str(p.relative_to(ROOT)): p.read_text() for p in (ROOT / 'src').rglob('*.rs')}
+@@ -588,9 +668,10 @@ def main():
+     log(f'{len(muts)} mutants in {len(lanes)} lane file(s); selected {len(sel)}')
+     timings = {}
+     results = {}
+-    units, static = plan_schemata(sel, src_text)
++    units, static = plan_schemata(sel, src_text) if a.mode == 'schema' or a.plan_only else ({}, {})
+     if a.plan_only:
+-        (out / 'schemata-plan.json').write_text(json.dumps({'units': len(units), 'static': static}, indent=2))
++        (out / 'schemata-plan.json').write_text(json.dumps({'units': len(units), 'static': static,
++                                                         'authoritative': authoritative, 'execution_mode': a.mode}, indent=2))
+         return 1 if invalid_anchors(sel, src_text) else 0
+     for mid, reason in invalid_anchors(sel, src_text).items():
+         results[mid] = {'mode': 'none', 'killed': False, 'admissible': False, 'error': reason}
+@@ -677,8 +758,12 @@ def main():
+         text_ids = [i for i in eligible if i not in results and (i in static or i in schema_observations)]
+     else:
+         text_ids = list(eligible)
++    resources = {}
+     if text_ids:
+-        t = time.monotonic(); results.update(text_mode(muts, text_ids, target, a.timeout, log, tree))
++        t = time.monotonic()
++        text_results, resources = parallel_text_mode(muts, text_ids, target, a.timeout, a.jobs, log)
++        results.update(text_results)
++        baselines['workers'] = resources.pop('worker_baselines')
+         timings['text_mode'] = round(time.monotonic() - t, 2)
+         for mid, observation in schema_observations.items():
+             results[mid]['mode'] = 'schema+text'
+@@ -687,7 +772,9 @@ def main():
+     if eligible: sync_tree(tree, {})
+     timings['total'] = round(time.monotonic() - T0, 2)
+     killed = sum(verdict(r) == 'KILLED' for r in results.values()); adm = sum(r['admissible'] for r in results.values())
+-    summary = {'selected': len(sel), 'killed': killed, 'admissible': adm, 'timings': timings,
++    summary = {'authoritative': authoritative, 'label': label, 'execution_mode': a.mode, 'jobs': a.jobs,
++               'since': a.since, 'scope': a.scope if a.since else None,
++               'selected': len(sel), 'killed': killed, 'admissible': adm, 'timings': timings, 'resources': resources,
+                'baselines': baselines, 'static': static,
+                'text_confirmations': len(schema_observations),
+                'results': {mid: dict(r, verdict=verdict(r)) for mid, r in results.items()}}
+diff --git a/scripts/mutgate/test_mutgate.py b/scripts/mutgate/test_mutgate.py
+index 0ae5366a..470844a2 100644
+--- a/scripts/mutgate/test_mutgate.py
++++ b/scripts/mutgate/test_mutgate.py
+@@ -232,24 +232,126 @@ class GateRegressionTests(unittest.TestCase):
+         (self.root / 'Cargo.toml').write_text(
+             '[package]\nname="prism"\nversion="0.0.0"\nedition="2021"\n')
+ 
+-    def gate(self, source, mutations, mode, extra=None, timeout=5):
++    def gate(self, source, mutations, mode=None, extra=None, timeout=5, flags=()):
+         (self.root / 'src/lib.rs').write_text(source)
+         lane = self.root / 'lane.json'
+         lane.write_text(json.dumps({'mutations': mutations, 'extra': extra or {},
+                                     'lib_test_prefixes': ['']}))
+-        out = self.root / ('report-' + mode)
+-        args = ['mutgate', '--lane', str(lane), '--mode', mode, '--jobs', '2',
+-                '--timeout', str(timeout), '--out', str(out)]
++        out = self.root / ('report-' + str(mode))
++        args = ['mutgate', '--lane', str(lane), '--jobs', '2',
++                '--timeout', str(timeout), '--out', str(out), *flags]
++        if mode: args += ['--mode', mode]
++        if mode == 'schema': args += ['--since', 'HEAD', '--scope', 'file']
++        output = io.StringIO()
+         with patch.object(mutgate, 'ROOT', self.root), patch.object(sys, 'argv', args), \
+                 patch.dict(os.environ, {'CARGO_TARGET_DIR': str(self.root / 'target')}), \
+-                contextlib.redirect_stdout(io.StringIO()):
++                patch.object(mutgate, 'changed_lines', return_value={'src/lib.rs': {1}}), \
++                contextlib.redirect_stdout(output):
+             try:
+                 status = mutgate.main()
+             except SystemExit as e:
+                 status = e.code
++        self.last_output = output.getvalue()
+         summary = json.loads((out / 'summary.json').read_text()) if (out / 'summary.json').exists() else {}
+         return status, summary
+ 
++    def test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills(self):
++        fixtures = Path(__file__).with_name('fixtures')
++        mutation = {'m': ['src/lib.rs', 'let ignored = 1;', 'let ignored = 2;', 't']}
++        for fixture in sorted(fixtures.iterdir()):
++            with self.subTest(fixture=fixture.name):
++                observer = self.root / 'src/observer.rs'
++                observer.unlink(missing_ok=True)
++                for p in (fixture / 'src').glob('*.rs'):
++                    (self.root / 'src' / p.name).write_bytes(p.read_bytes())
++                source = (fixture / 'src/lib.rs').read_text()
++                for mode, flags in ((None, ()), (None, ('--since', 'HEAD', '--scope', 'file', '--authoritative')),
++                                    ('schema', ())):
++                    status, summary = self.gate(source, mutation, mode, flags=flags)
++                    advisory = mode == 'schema'
++                    self.assertEqual(summary['selected'], 1)
++                    self.assertEqual(status, 0 if advisory else 1)
++                    self.assertEqual(summary['authoritative'], not advisory)
++                    self.assertIn('ADVISORY' if advisory else 'AUTHORITATIVE', self.last_output)
++                    self.assertEqual(summary['results']['m']['verdict'], 'KILLED' if advisory else 'SURVIVED')
++                    self.assertEqual(summary['results']['m']['mode'], 'schema' if advisory else 'text')
++                    self.assertTrue(summary['results']['m']['admissible'])
++                    self.assertTrue(all(r['admissible'] and not r['killed']
++                                        for r in summary['baselines']['source'].values()))
++
++    def test_schema_without_scope_and_authoritative_schema_are_rejected(self):
++        source = 'fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n'
++        mutation = {'m': ['src/lib.rs', '{ 1 }', '{ 2 }', 't']}
++        for flags in (('--mode', 'schema'), ('--since', 'HEAD', '--mode', 'schema', '--authoritative'),
++                      ('--jobs', '0')):
++            with self.subTest(flags=flags):
++                status, _ = self.gate(source, mutation, flags=flags)
++                self.assertEqual(status, 2)
++
++    def test_scoped_default_is_advisory_and_explicit_text_is_authoritative(self):
++        source = 'fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n'
++        mutation = {'m': ['src/lib.rs', '{ 1 }', '{ 2 }', 't']}
++        for mode in (None, 'text'):
++            with self.subTest(mode=mode):
++                status, summary = self.gate(source, mutation, mode, flags=('--since', 'HEAD'))
++                self.assertEqual(status, 0)
++                self.assertEqual(summary['authoritative'], mode == 'text')
++
++    def test_parallel_text_workers_have_private_trees_targets_and_cleanup(self):
++        source = 'fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n'
++        mutations = {str(n): ['src/lib.rs', '{ 1 }', '{ ' + str(n) + ' }', 't'] for n in (2, 3, 4)}
++        builds = []
++        original = mutgate.build
++        def record(tree, target, targets):
++            builds.append((tree, target, (tree / 'src/lib.rs').read_text()))
++            return original(tree, target, targets)
++        with patch.object(mutgate, 'build', side_effect=record):
++            status, summary = self.gate(source, mutations)
++        self.assertEqual(status, 0)
++        worker_builds = builds[1:]
++        self.assertEqual(len({target for _, target, _ in worker_builds}), 2)
++        self.assertEqual(len({tree for tree, _, _ in worker_builds}), 2)
++        self.assertEqual(sum(text == source for _, _, text in worker_builds), 2)
++        self.assertEqual({text for _, _, text in worker_builds if text != source},
++                         {source.replace('{ 1 }', '{ ' + str(n) + ' }') for n in (2, 3, 4)})
++        self.assertTrue(summary['resources']['workers_cleaned'])
++        self.assertGreater(summary['resources']['worker_disk_peak_bytes'], 0)
++        self.assertFalse(list((self.root / 'target/mutgate').glob('workers-*')))
++        self.assertEqual((self.root / 'src/lib.rs').read_text(), source)
++
++    def test_worker_relocation_failure_cannot_kill_an_equivalent_mutant(self):
++        self.root = self.root.resolve()
++        warm_path = str(self.root / 'target/mutgate/tree')
++        mutation = {'m': ['src/lib.rs', 'let ignored = 1;', 'let ignored = 2;', 't']}
++        for compile_failure in (False, True):
++            with self.subTest(compile_failure=compile_failure):
++                source = 'fn f() { let ignored = 1; }\n'
++                if compile_failure:
++                    source += f'const _: [(); {len(warm_path)}] = [(); env!("CARGO_MANIFEST_DIR").len()];\n'
++                    source += '#[test]\nfn t() { f(); }\n'
++                else:
++                    source += '#[test]\nfn t() { f(); assert_eq!(env!("CARGO_MANIFEST_DIR"), ' + json.dumps(warm_path) + '); }\n'
++                status, summary = self.gate(source, mutation)
++                self.assertEqual(status, 1)
++                self.assertEqual(summary['selected'], 1)
++                self.assertEqual(summary['results']['m']['verdict'], 'INADMISSIBLE')
++                self.assertIn('baseline', summary['results']['m']['error'])
++                self.assertTrue(all(r['admissible'] and not r['killed'] for r in summary['baselines']['source'].values()))
++                self.assertEqual(len(summary['baselines']['workers']), 1)
++                self.assertTrue(summary['resources']['workers_cleaned'])
++
++    def test_seed_failure_refuses_entire_population_and_cleans_workers(self):
++        source = 'fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n'
++        mutations = {str(n): ['src/lib.rs', '{ 1 }', '{ ' + str(n) + ' }', 't'] for n in (2, 3)}
++        with patch.object(mutgate, 'seed_target', side_effect=OSError('seed refused')):
++            status, summary = self.gate(source, mutations)
++        self.assertEqual(status, 1)
++        self.assertEqual(summary['selected'], 2)
++        self.assertTrue(all(r['verdict'] == 'INADMISSIBLE' and 'seed refused' in r['error']
++                            for r in summary['results'].values()))
++        self.assertTrue(summary['resources']['workers_cleaned'])
++        self.assertFalse(list((self.root / 'target/mutgate').glob('workers-*')))
++
+     def test_w1_constructed_false_kill_survives_both_modes(self):
+         source = ('pub fn f() -> u32 {\n    let ignored = 1;\n    line!()\n}\n'
+                   'const AFTER: u32 = line!();\n#[test]\n'
+@@ -413,6 +515,29 @@ class GateRegressionTests(unittest.TestCase):
+                 self.assertEqual(tree.read_text(), source)
+ 
+ 
++class WorkerSeedTests(unittest.TestCase):
++    def test_copy_and_failed_clone_fallback_are_private_and_exclude_workers(self):
++        with tempfile.TemporaryDirectory(prefix='mutgate-seed-') as tmp:
++            root = Path(tmp); source = root / 'warm'
++            (source / 'debug').mkdir(parents=True)
++            (source / 'debug/artifact').write_bytes(b'original')
++            (source / 'mutgate/workers').mkdir(parents=True)
++            (source / 'mutgate/workers/secret').write_text('do not copy')
++            for platform in ('linux', 'darwin'):
++                with self.subTest(platform=platform), patch.object(mutgate.sys, 'platform', platform), \
++                        patch.object(mutgate.subprocess, 'run') as run:
++                    def failed_clone(*args, **kwargs):
++                        (root / platform / 'partial').write_text('partial clone')
++                        return type('Result', (), {'returncode': 1})()
++                    run.side_effect = failed_clone
++                    target = root / platform
++                    self.assertEqual(mutgate.seed_target(source, target), 'copy')
++                    self.assertFalse((target / 'mutgate').exists())
++                    self.assertFalse((target / 'partial').exists())
++                    (target / 'debug/artifact').write_bytes(b'changed')
++                    self.assertEqual((source / 'debug/artifact').read_bytes(), b'original')
++
++
+ class AdmissibilityTests(unittest.TestCase):
+     def test_inadmissibility_has_priority_over_a_kill(self):
+         self.assertEqual(mutgate.verdict({'killed': True, 'admissible': False}), 'INADMISSIBLE')
