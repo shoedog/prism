@@ -257,3 +257,20 @@ Run with `CONTROLLER-p2-gap.sh`. Population: 749 natively callable `JS_EXPORT_HO
 | `directory_literal` | 2 | |
 
 **Verdict:** the dominant blocker is barrel export hops whose module specifier is non-relative (an alias or bare specifier). Applying P1's alias resolver at the hop, with the caller project's options, is the candidate P2 mechanism. Its ceiling on F is about 249 to 599 rows.
+
+## Controller F acceptance of the P2 prototype `b9fd3775` (relative and non-relative hops; aggregates only; 2026-10-03)
+
+| Measure | Result |
+|---|---|
+| Changed rows vs P1 final | **629**, all `CORRECT_STATIC_BINDING` |
+| Keys added / removed | 0 / 0 |
+| Recovered by P1 reason | `JS_EXPORT_HOP` 628, `NONRELATIVE_EXPORT_HOP` 1 |
+| Member-written terminals among the recovered rows | 419 |
+| Full-chain span agreement with TypeScript (non-relative hops) | 697 / 697 |
+| Unresolved rows that stayed at P1 | 98 / 98 |
+
+**The 350 ABSENT rows** are all `NONCONTRIBUTING_STAR_BRANCH_FULL_BARREL_BINDS_TERMINAL`: the hop's own module lacks the name, but the full barrel binds the exact terminal through another star branch.
+
+F total: 2,313 (P1) + 629 = **2,942**, about +27%.
+
+Public corpora: X +8 CORRECT, installed X +8 CORRECT, R 0, T 0, with every P1 gain preserved.
