@@ -103,6 +103,20 @@ def fn_bodies(s, mask):
     return out
 
 
+def sig_has_impl_trait(s, mask, fn_start, body_open):
+    """True if the fn signature (fn_start..body_open) returns `impl Trait`.
+
+    Duplicating a function body that returns an opaque `impl Trait` type across
+    match arms can fail to compile: each literal closure (or other anonymous-
+    type expression) is its own distinct type even when byte-identical, so two
+    copies of the same closure expression do not unify to the single hidden
+    type RPIT inference requires. Such a unit must stay in text mode, where
+    only one body copy ever exists in the tree at a time."""
+    seg = s[fn_start:body_open]
+    masked = ''.join(seg[i] if mask[fn_start + i] else ' ' for i in range(len(seg)))
+    return re.search(r'->\s*impl\b', masked) is not None
+
+
 def min_diff(a, b):
     p = 0
     while p < min(len(a), len(b)) and a[p] == b[p]: p += 1
@@ -148,7 +162,8 @@ def plan_schemata(muts, src_text):
                 static[m['id']] = 'anchor-missing'; break
     bodies = {}
     for file, s in src_text.items():
-        bodies[file] = fn_bodies(s, code_mask(s))
+        mask = code_mask(s)
+        bodies[file] = [bd for bd in fn_bodies(s, mask) if not sig_has_impl_trait(s, mask, bd[0], bd[1])]
     units = {}  # (file, open, close) -> {id: [(start,end,repl)]}
     for m in muts.values():
         if m['id'] in static: continue
