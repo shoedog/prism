@@ -18,6 +18,13 @@ cargo build --bin prism-mcp --features mcp  # Build the MCP stdio server
 cargo test --features mcp                   # Run tests with MCP enabled
 ```
 
+### Mutation gate
+```bash
+python3 scripts/mutgate/mutgate.py --since main --scope fn   # scoped round: 5-10 min, each review round
+python3 scripts/mutgate/mutgate.py                            # full gate: 15 min target / 30 min hard cap, before merge
+```
+Details (lane format, exit codes, limits): `scripts/mutgate/README.md`.
+
 ## Accuracy Harness (Tier-A)
 
 When a change touches call resolution, navigation queries, or CPG construction
