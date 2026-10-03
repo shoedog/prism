@@ -505,12 +505,12 @@ fn alias_hops_retain_ancestor_priority_pass() {
 
 #[test]
 fn legacy_star_nonrelative_forwards_preserve_complete_main_rows() {
-    // Frozen complete c50de85a rows, from same-environment A1/A4 controls.
+    // Frozen complete main rows, rechecked at fb27b8f3 in the same environment.
     let expected: serde_json::Value =
         serde_json::from_str(include_str!("fixtures/js_paths_p2_legacy_refusal.json")).unwrap();
     let mut mismatches = Vec::new();
     for grammar in ["jsx", "tsx"] {
-        for module in ["pkg", "@k"] {
+        for module in ["pkg", "@k", ".hidden", "..hidden", ".", ".."] {
             for branches in [["a", "b"], ["b", "a"]] {
                 let d = TempDir::new().unwrap();
                 write(
@@ -550,7 +550,7 @@ fn legacy_star_nonrelative_forwards_preserve_complete_main_rows() {
                     write(
                         d.path(),
                         "tsconfig.json",
-                        &config(serde_json::json!({"@k":["k2"]})),
+                        &config(serde_json::json!({module:["k2"]})),
                     );
                     write(
                         d.path(),
@@ -621,6 +621,212 @@ fn legacy_star_other_unresolved_claims_keep_existing_behavior() {
                 "picked",
                 "lib/real.js",
             );
+        }
+    }
+}
+
+fn caller_rows(g: &CallGraph, file: &str) -> serde_json::Value {
+    serde_json::json!(prism::navigation::queries::call_site_dump(g)
+        .into_iter()
+        .filter(|r| r["caller"]["file"] == file)
+        .collect::<Vec<_>>())
+}
+
+#[test]
+fn legacy_forward_spelling_is_raw() {
+    let expected: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/js_paths_p2_legacy_refusal.json")).unwrap();
+    let mut mismatches = Vec::new();
+    for grammar in ["jsx", "tsx"] {
+        for module in [
+            " ./leaf",
+            "\t./leaf",
+            "\u{a0}./leaf",
+            "\u{2003}./leaf",
+            "./leaf ",
+            "./leaf",
+        ] {
+            let d = TempDir::new().unwrap();
+            write(
+                d.path(),
+                "tsconfig.json",
+                &config(serde_json::json!({
+                    "@entry":["barrel"], module:["real"]
+                })),
+            );
+            write(
+                d.path(),
+                &format!("barrel.{grammar}"),
+                &format!("import {{K}} from '{module}'; export {{K}};\n"),
+            );
+            for leaf in ["leaf", "real"] {
+                write(
+                    d.path(),
+                    &format!("{leaf}.{grammar}"),
+                    "export function K(){ return null; }\n",
+                );
+            }
+            for (file, entry) in [("app", "./barrel"), ("app-alias", "@entry")] {
+                write(d.path(), &format!("{file}.{grammar}"),
+                    &format!("import {{K}} from '{entry}';\nexport function run() {{ K(); return <K />; }}\n"));
+            }
+            write(
+                d.path(),
+                &format!("namespace.{grammar}"),
+                "import * as ns from './barrel';\nexport function run(){ ns.K(); }\n",
+            );
+            let g = graph(d.path());
+            let relative = module == "./leaf";
+            let rows = caller_rows(&g, &format!("app.{grammar}"));
+            if !relative && rows != expected[grammar] {
+                mismatches.push((grammar, module, rows.clone()));
+            }
+            // Leading whitespace is a literal paths key on the caller route.
+            // Trailing whitespace on a ./ hop must also refuse, never trim.
+            for file in [
+                format!("app-alias.{grammar}"),
+                format!("namespace.{grammar}"),
+            ] {
+                let rows = caller_rows(&g, &file);
+                let targets = rows.as_array().unwrap();
+                assert_eq!(
+                    targets.len(),
+                    if file.starts_with("namespace") { 1 } else { 2 }
+                );
+                for row in targets {
+                    // Namespace import-forwards are refused on main too;
+                    // retain that negative control even for a raw relative hop.
+                    if file.starts_with("app-alias") && (relative || !module.starts_with("./")) {
+                        let hit = &row["resolved_targets"][0];
+                        assert_eq!(
+                            hit["function_id"]["file"],
+                            format!("{}.{grammar}", if relative { "leaf" } else { "real" }),
+                            "{row}"
+                        );
+                        assert_eq!(hit["function_id"]["name"], "K", "{row}");
+                        assert_eq!(hit["confidence"], "exact", "{row}");
+                    } else {
+                        assert!(
+                            row["resolved_targets"].as_array().unwrap().is_empty(),
+                            "{module:?} {row}"
+                        );
+                    }
+                }
+            }
+            if relative {
+                assert_eq!(
+                    rows[0]["resolved_targets"][0]["function_id"]["file"],
+                    format!("leaf.{grammar}")
+                );
+            }
+        }
+    }
+    assert!(mismatches.is_empty(), "{mismatches:#?}");
+}
+
+#[test]
+fn nonrelative_forward_recursive_no_target_preserves_claim() {
+    let expected: serde_json::Value = serde_json::from_str(include_str!(
+        "fixtures/js_paths_p2_missing_member_refusal.json"
+    ))
+    .unwrap();
+    let mut mismatches = Vec::new();
+    for grammar in ["jsx", "tsx"] {
+        for branches in [["a", "b"], ["b", "a"]] {
+            for leaf in [
+                "export function Q(){ return null; }\n",
+                "",
+                "export * from './empty';\n",
+                "export {K} from './leaf';\n",
+            ] {
+                let d = TempDir::new().unwrap();
+                write(
+                    d.path(),
+                    "tsconfig.json",
+                    &config(serde_json::json!({
+                        "@entry":["barrel"], "@leaf":["leaf"]
+                    })),
+                );
+                write(
+                    d.path(),
+                    &format!("a.{grammar}"),
+                    "import {K} from '@leaf'; export {K};\n",
+                );
+                write(d.path(), &format!("leaf.{grammar}"), leaf);
+                write(
+                    d.path(),
+                    &format!("empty.{grammar}"),
+                    "export function Q(){}\n",
+                );
+                write(
+                    d.path(),
+                    &format!("b.{grammar}"),
+                    "export function K(){ return null; }\n",
+                );
+                write(
+                    d.path(),
+                    &format!("barrel.{grammar}"),
+                    &branches
+                        .map(|b| format!("export * from './{b}';\n"))
+                        .concat(),
+                );
+                write(
+                    d.path(),
+                    &format!("app.{grammar}"),
+                    "import {K} from '@entry';\nexport function run() { K(); return <K />; }\n",
+                );
+                let rows = caller_rows(&graph(d.path()), &format!("app.{grammar}"));
+                if rows != expected[grammar] {
+                    mismatches.push((grammar, branches, leaf, rows));
+                }
+            }
+        }
+    }
+    assert!(mismatches.is_empty(), "{mismatches:#?}");
+}
+
+#[test]
+fn callers_use_caller_project_for_renamed_alias_hops() {
+    use prism::navigation::{queries, NavigationIndex, NavigationSession};
+    use std::sync::Arc;
+    for grammar in ["jsx", "tsx"] {
+        let d = TempDir::new().unwrap();
+        for project in ["a", "b"] {
+            write(
+                d.path(),
+                &format!("{project}/tsconfig.json"),
+                &config(serde_json::json!({
+                    "@entry":["../shared/barrel.ts"], "@leaf":["real"]
+                })),
+            );
+            write(
+                d.path(),
+                &format!("{project}/app.{grammar}"),
+                "import {alias as picked} from '@entry';\nexport function run(){ picked(); }\n",
+            );
+            write(
+                d.path(),
+                &format!("{project}/real.{grammar}"),
+                "export function real(){}\n",
+            );
+        }
+        write(
+            d.path(),
+            "shared/barrel.ts",
+            "export {real as alias} from '@leaf';\n",
+        );
+        let repo = Arc::new(load_repo(d.path()).unwrap());
+        let index = Arc::new(NavigationIndex::build(&repo));
+        let session = NavigationSession { repo, index };
+        for project in ["a", "b"] {
+            let target = format!("{project}/real.{grammar}");
+            let caller = format!("{project}/app.{grammar}");
+            let callees = queries::callees(&session, Some("run"), Some(&caller), None, 1).unwrap();
+            assert_eq!(callees.items.len(), 1);
+            assert_eq!(callees.items[0].location.file, target);
+            let callers = queries::callers(&session, Some("real"), Some(&target), None, 1).unwrap();
+            assert_eq!(callers.items.len(), 1, "{grammar} {project}: {callers:?}");
+            assert_eq!(callers.items[0].location.file, caller);
         }
     }
 }

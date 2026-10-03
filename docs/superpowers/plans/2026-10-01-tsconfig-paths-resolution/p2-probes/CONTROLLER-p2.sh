@@ -2,15 +2,16 @@
 # READ: controller-only private measurement. Stdout is aggregate counts and hashes only.
 # Usage: CORPUS_F_ROOT=... PRIVATE_EVIDENCE_ROOT=... TS_JS=... bash CONTROLLER-p2.sh P1_BIN FACTS_BIN [REPAIRED_P2_BIN] [PRIOR_GAP_EVIDENCE]
 # Set ACCEPTED_P2_BIN to the accepted b9fd3775 binary for complete-row repair-impact parity.
-# Default: final W1b fold built from proto92f7d152 plus target/p2-fold2/proto.patch.
-# SHA256: e29981a9c89cff8db0e5005ca6ddcd1427814fa3e2ce0089862bf9995162b8a0
+# Default: implementation round-1 repair, dirty source based on 7f1bac15.
+# Binary SHA256: 7b19f4d91c686efbf647959a1a573eef66b55909b14db2ac2da42f91f98243ea
+# Source/binary custody: target/p2-repair-r1/repair-binding.json.
 set -euo pipefail
 : "${CORPUS_F_ROOT:?controller supplies private root}"
 : "${PRIVATE_EVIDENCE_ROOT:?controller supplies private output directory}"
 : "${TS_JS:?offline TypeScript 5.9.3 lib/typescript.js}"
 P1="${1:?P1 binary}"; FACTS="${2:?import facts binary}"
 REPO="$(cd "$(dirname "$0")/../../../../.." && pwd)"
-P2="${3:-$REPO/target/p2-fold2/bin/prism-p2-fold2}"; PRIOR_GAP="${4:-}"
+P2="${3:-$REPO/target/p2-repair-r1/bin/prism-p2-repair-r1}"; PRIOR_GAP="${4:-}"
 ACCEPTED="${ACCEPTED_P2_BIN:-}"
 PROBES="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$PRIVATE_EVIDENCE_ROOT"
