@@ -1,4 +1,25 @@
-> **Current adopted fix `755f85fe`: verification STOPPED at the lint gate.** Fmt passed; same-environment r4 clippy confirms **2 new warnings** in touched code. The default suite was interrupted; remaining gates are unverified. See [VERIFY-FABLE-RESULTS.md](VERIFY-FABLE-RESULTS.md), [VERIFY-FABLE-HANDOFF.md](VERIFY-FABLE-HANDOFF.md) and [VERIFY-FABLE-FILES.md](VERIFY-FABLE-FILES.md). No production changes, Git writes or F access.
+> **Current adopted fix `b28f6e72`: full requested verification PASS.** Production behavior unchanged; no Git writes or F access. Complete totals, gates, driver rebindings and limits: [VERIFY-FABLE-RESULTS.md](VERIFY-FABLE-RESULTS.md). Earlier r4 and lint-stop receipts are historical.
+
+## Adopted performance fix — current measured totals
+
+| Suite | Passed | Failed | Ignored |
+|---|---:|---:|---:|
+| default | 4924 | 0 | 1 |
+| mcp | 5117 | 0 | 1 |
+| all-features | 5140 | 0 | 1 |
+
+Fmt passes; clippy zero new touched warnings (22/22 versus same-environment r4). Tier-A matrix 170/0/0. Mutants 67/67 kernel, 93/93 integration/library, 2/2 resource; 53 unmutated baseline selectors green. Cache packet20, scanner10/80, reviewer12/24, tolerant10/40 pass. Controls487/503 identical to r4; S1b411/639 sites,822 byte comparisons,zero stderr/differences. Corpus X/installed-X/R/T3121/3121/0/0, all changed CORRECT, no key additions/removals.
+
+| Scenario | Base/head median wall s | Wall ratio | Base/head median RSS bytes | RSS ratio | Gate |
+|---|---:|---:|---:|---:|---|
+| installed-X | 35.627627 / 40.427853 | 1.134733x | 758628352 / 868728832 | 1.145131x | PASS |
+| nx | 6.442015 / 6.681905 | 1.037238x | 765673472 / 656850944 | 0.857873x | PASS |
+| nx_bundler | 6.523864 / 6.425766 | 0.984963x | 768180224 / 644268032 | 0.838694x | PASS |
+| nx_wild | 6.596521 / 6.870606 | 1.041550x | 764690432 / 668450816 | 0.874146x | PASS |
+
+Limits wall1.30x/RSS1.20x; 3 alternating pairs per scenario. Host load 3.532–7.455; no quiet-host attestation. None. All requested hard gates passed. Reusable mutant driver rebindings only; production unchanged. Full evidence and limits in VERIFY-FABLE-RESULTS.md; current receipts in target/verify-fable/current/. The following sections are historical.
+
+
 
 > **Historical r4:** owner-authorized accepted-risk repair and its then-requested local verification. SPEC §0 (2026-10-02) supersedes r3 boundary closure. See [REPAIR-R4-RESULTS.md](REPAIR-R4-RESULTS.md), [REPAIR-R4-HANDOFF.md](REPAIR-R4-HANDOFF.md) and [REPAIR-R4-FILES.md](REPAIR-R4-FILES.md). Binary SHA-256 `79b00a7c85938f7aafdae22bbb2321a47e1d67c307fbe5c8814a67a1b05b34f6`; cache **105/61**. Earlier receipts do not certify the adopted performance fix.
 

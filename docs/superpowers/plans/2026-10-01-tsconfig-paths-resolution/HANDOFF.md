@@ -1,4 +1,6 @@
-> **Current adopted fix `755f85fe`: verification STOPPED at the lint gate.** Fmt passed; same-environment r4 clippy confirms **2 new warnings** in touched code. The default suite was interrupted; remaining gates are unverified. Resume from [VERIFY-FABLE-HANDOFF.md](VERIFY-FABLE-HANDOFF.md); results and file inventory are [VERIFY-FABLE-RESULTS.md](VERIFY-FABLE-RESULTS.md) and [VERIFY-FABLE-FILES.md](VERIFY-FABLE-FILES.md). No production changes, Git writes or F access.
+> **Current adopted fix `b28f6e72`: full requested verification PASS.** Production behavior unchanged; no Git writes or F access. Complete totals, gates, driver rebindings and limits: [VERIFY-FABLE-RESULTS.md](VERIFY-FABLE-RESULTS.md). Earlier r4 and lint-stop receipts are historical.
+
+
 
 > **Historical r4:** owner-authorized accepted-risk repair and its then-requested local verification. See [REPAIR-R4-RESULTS.md](REPAIR-R4-RESULTS.md), [REPAIR-R4-HANDOFF.md](REPAIR-R4-HANDOFF.md) and [REPAIR-R4-FILES.md](REPAIR-R4-FILES.md). Earlier receipts do not certify the adopted performance fix.
 
