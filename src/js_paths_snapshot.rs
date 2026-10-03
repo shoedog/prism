@@ -38,6 +38,8 @@ pub struct JsPathsSnapshot {
     #[serde(skip)]
     type_entries: BTreeMap<String, u8>,
     #[serde(skip)]
+    excluded_paths: BTreeSet<String>,
+    #[serde(skip)]
     absent_inputs: Arc<Mutex<BTreeSet<(String, String)>>>,
     #[serde(skip)]
     unsafe_inputs: Arc<Mutex<BTreeSet<(String, String)>>>,
@@ -100,7 +102,10 @@ impl JsPathsSnapshot {
         // Scan skipped indexing directories too. Avoid
         // this additional scan only when no config can authorize P1 at all.
         if s.complete && !s.configs.is_empty() {
-            if let Err(error) = s.scan(&root, &root, 0) {
+            if let Err(error) = s
+                .scan(&root, &root, 0)
+                .and_then(|()| s.scan_loaded_inputs(&root))
+            {
                 s.complete = false;
                 eprintln!(
                     "warning: P1 paths disabled: {error} ({} scan entries, {} bytes)",
@@ -623,6 +628,13 @@ impl JsPathsSnapshot {
                     self.references
                         .get_key_value(input.as_str())
                         .into_iter()
+                        // Classification follows the captured link target;
+                        // references still resolve from the source link name.
+                        .chain(self.links.iter().filter_map(|(alias, target)| {
+                            (target.as_deref() == Some(input.as_str()))
+                                .then(|| self.references.get_key_value(alias))
+                                .flatten()
+                        }))
                         .chain(
                             self.references
                                 .range(prefix.clone()..)
@@ -940,6 +952,41 @@ fn triple_references(source: &str) -> Vec<(String, String)> {
 mod tests {
     use super::*;
     #[test]
+    fn type_closure_memo_separates_roots_with_different_results() {
+        let d = tempfile::TempDir::new().unwrap();
+        std::fs::write(d.path().join("tsconfig.json"), "{}").unwrap();
+        std::fs::write(
+            d.path().join("shared.d.ts"),
+            "/// <reference types='dep' />",
+        )
+        .unwrap();
+        for (root, source) in [
+            ("safe", "export interface Empty {}"),
+            ("unsafe", "/// <reference path='/outside/input.d.ts' />"),
+        ] {
+            std::fs::create_dir_all(d.path().join(root)).unwrap();
+            std::fs::write(d.path().join(root).join("dep.d.ts"), source).unwrap();
+        }
+        for first in ["safe", "unsafe"] {
+            let s = JsPathsSnapshot::capture(d.path());
+            for root in [
+                first,
+                if first == "safe" { "unsafe" } else { "safe" },
+                first,
+            ] {
+                assert_eq!(
+                    s.input_references_covered(
+                        "shared.d.ts",
+                        Some(&[root.into()]),
+                        &mut BTreeSet::new()
+                    ),
+                    root == "safe",
+                    "{first}/{root}"
+                );
+            }
+        }
+    }
+    #[test]
     fn ambient_literals_and_tolerant_candidates() {
         for (source, expected) in [
             (r#"declare module '\u0040\x6cib' {}"#, "@lib"),
@@ -1029,13 +1076,15 @@ mod tests {
         assert_eq!(s.scan_stats.bytes, SCAN_BYTES);
     }
     #[test]
-    fn unreadable_declaration_scan_skips_file() {
+    fn lossy_declaration_scan_retains_file() {
         let d = tempfile::TempDir::new().unwrap();
         std::fs::write(d.path().join("tsconfig.json"), "{}").unwrap();
         std::fs::write(d.path().join("bad.d.ts"), [0xff]).unwrap();
         let snapshot = JsPathsSnapshot::capture(d.path());
         assert!(snapshot.complete);
-        assert_eq!(snapshot.scan_stats.skipped["non_utf8_source"], 1);
+        assert!(!snapshot.scan_stats.skipped.contains_key("non_utf8_source"));
+        assert_eq!(snapshot.scan_stats.files, 1);
+        assert_eq!(snapshot.scan_stats.bytes, 1);
     }
     #[test]
     fn config_case_collision_is_order_independent_barrier() {

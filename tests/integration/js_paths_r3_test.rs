@@ -565,3 +565,173 @@ fn installed_odd_files_skip_without_declining_in_both_grammars() {
         }
     }
 }
+
+#[test]
+fn native_decoding_keeps_ambient_in_both_grammars() {
+    for ext in ["jsx", "tsx"] {
+        for encoding in ["latin1", "le", "be", "utf8", "utf8-bom"] {
+            let d = TempDir::new().unwrap();
+            setup(d.path(), ext, "tsx", serde_json::json!({"types":[]}));
+            let path = d.path().join("types/ambient.d.ts");
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            let encode = |source: &str| match encoding {
+                "latin1" => [b"// caf\xe9\n".as_slice(), source.as_bytes()].concat(),
+                "le" | "be" => {
+                    let mut bytes = if encoding == "le" {
+                        vec![255, 254]
+                    } else {
+                        vec![254, 255]
+                    };
+                    for unit in source.encode_utf16() {
+                        bytes.extend(if encoding == "le" {
+                            unit.to_le_bytes()
+                        } else {
+                            unit.to_be_bytes()
+                        });
+                    }
+                    bytes
+                }
+                "utf8-bom" => [b"\xef\xbb\xbf".as_slice(), source.as_bytes()].concat(),
+                _ => source.as_bytes().to_vec(),
+            };
+            std::fs::write(
+                &path,
+                encode("declare module 'utils/format' { export function real(): number; }"),
+            )
+            .unwrap();
+            expect(d.path(), ext, "tsx", false);
+            // Decoding alone must not create a declaration from documentation.
+            std::fs::write(
+                &path,
+                encode("/* declare module 'utils/format' {} */\nexport interface Empty {}"),
+            )
+            .unwrap();
+            expect(d.path(), ext, "tsx", true);
+        }
+    }
+}
+
+#[test]
+#[cfg(unix)]
+fn lexical_source_link_to_text_keeps_ambient_in_both_grammars() {
+    for ext in ["jsx", "tsx"] {
+        let d = TempDir::new().unwrap();
+        setup(d.path(), ext, "tsx", serde_json::json!({"types":[]}));
+        write(
+            d.path(),
+            "types/body.txt",
+            "declare module 'utils/format' { export function real(): number; }",
+        );
+        std::os::unix::fs::symlink("body.txt", d.path().join("types/ambient.d.ts")).unwrap();
+        let mut cfg: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(d.path().join("tsconfig.json")).unwrap())
+                .unwrap();
+        cfg.as_object_mut().unwrap().remove("include");
+        cfg["files"] =
+            serde_json::json!([format!("app.{ext}"), "src/util.tsx", "types/ambient.d.ts"]);
+        write(d.path(), "tsconfig.json", &cfg.to_string());
+        expect(d.path(), ext, "tsx", false);
+        write(d.path(), "types/body.txt", "export interface Empty {}");
+        expect(d.path(), ext, "tsx", true);
+        // A non-source link name does not make non-source target bytes eligible.
+        std::fs::remove_file(d.path().join("types/ambient.d.ts")).unwrap();
+        std::os::unix::fs::symlink("body.txt", d.path().join("types/ambient.txt")).unwrap();
+        write(
+            d.path(),
+            "types/body.txt",
+            "declare module 'utils/format' {}",
+        );
+        expect(d.path(), ext, "tsx", true);
+
+        // Both aliases must retain their own reference directory, even if
+        // the eligible physical source was scheduled first.
+        write(
+            d.path(),
+            "data/deep/body.d.ts",
+            "/// <reference path='./guard.d.ts' />\nexport interface Empty {}",
+        );
+        write(
+            d.path(),
+            ".git/guard.d.ts",
+            "declare module 'utils/format' { export function real(): number; }",
+        );
+        std::os::unix::fs::symlink("../data/deep/body.d.ts", d.path().join(".git/link.d.ts"))
+            .unwrap();
+        cfg["files"] = serde_json::json!([format!("app.{ext}"), "src/util.tsx", ".git/link.d.ts"]);
+        write(d.path(), "tsconfig.json", &cfg.to_string());
+        expect(d.path(), ext, "tsx", false);
+        write(d.path(), ".git/guard.d.ts", "export interface Empty {}");
+        expect(d.path(), ext, "tsx", true);
+
+        // Direct type classification canonicalizes the file. Its lexical
+        // alias's outside reference must still decline the config.
+        cfg["files"] = serde_json::json!([format!("app.{ext}"), "src/util.tsx"]);
+        cfg["compilerOptions"]["types"] = serde_json::json!(["./.git/link.d.ts"]);
+        write(d.path(), "tsconfig.json", &cfg.to_string());
+        write(
+            d.path(),
+            "data/deep/body.d.ts",
+            "/// <reference path='../../outside.d.ts' />\nexport interface Empty {}",
+        );
+        expect(d.path(), ext, "tsx", false);
+        write(d.path(), "data/deep/body.d.ts", "export interface Empty {}");
+        expect(d.path(), ext, "tsx", true);
+    }
+}
+
+#[test]
+fn loaded_excluded_sources_keep_ambient_in_both_grammars() {
+    for ext in ["jsx", "tsx"] {
+        for directory in [".git", "node_modules/.bin"] {
+            for mode in [
+                "files",
+                "include",
+                "include-name-glob",
+                "include-recursive",
+                "reference",
+                "types",
+                "roots",
+            ] {
+                let d = TempDir::new().unwrap();
+                setup(d.path(), ext, "tsx", serde_json::json!({"types":[]}));
+                let input = format!("{directory}/ambient.d.ts");
+                write(
+                    d.path(),
+                    &input,
+                    "declare module 'utils/format' { export function real(): number; }",
+                );
+                // An unloaded excluded source retains the harmless tooling skip.
+                expect(d.path(), ext, "tsx", true);
+                let mut cfg: serde_json::Value =
+                    serde_json::from_slice(&std::fs::read(d.path().join("tsconfig.json")).unwrap())
+                        .unwrap();
+                match mode {
+                    "files" => cfg["files"] = serde_json::json!([input]),
+                    "include" | "include-name-glob" | "include-recursive" => {
+                        let pattern = match mode {
+                            "include-name-glob" if directory == ".git" => ".g*/**/*".into(),
+                            "include-name-glob" => "node_*/.b*/**/*".into(),
+                            "include-recursive" => format!("**/{directory}/**/*"),
+                            _ => format!("{directory}/**/*"),
+                        };
+                        cfg["include"] = serde_json::json!([format!("app.{ext}"), "src", pattern])
+                    }
+                    "reference" => write(
+                        d.path(),
+                        "src/ref.ts",
+                        &format!("/// <reference path='../{input}' />\nexport {{}};"),
+                    ),
+                    "types" => {
+                        cfg["compilerOptions"]["types"] = serde_json::json!([format!("./{input}")])
+                    }
+                    "roots" => cfg["compilerOptions"]["typeRoots"] = serde_json::json!([directory]),
+                    _ => unreachable!(),
+                }
+                write(d.path(), "tsconfig.json", &cfg.to_string());
+                expect(d.path(), ext, "tsx", false);
+                write(d.path(), &input, "export interface Empty {}");
+                expect(d.path(), ext, "tsx", true);
+            }
+        }
+    }
+}

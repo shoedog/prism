@@ -64,6 +64,7 @@ fn excluded(path: &Path, case_insensitive: bool) -> bool {
 
 enum Event {
     Skip(&'static str),
+    Excluded(String),
     Entry,
     TypeEntry(String, u8),
     Link(String, Option<String>),
@@ -78,6 +79,9 @@ enum Event {
 
 struct SourceJob {
     rel: String,
+    canonical_source: bool,
+    // Only distinct link names allocate aliases; ordinary sources use `rel`.
+    aliases: Vec<String>,
     path: std::path::PathBuf,
     len: u64,
 }
@@ -87,7 +91,7 @@ struct Scanned {
 }
 struct Read {
     len: u64,
-    text: Option<Text>,
+    text: Text,
 }
 struct Text {
     declares: bool,
@@ -105,41 +109,70 @@ struct ScanResults {
 // on every worker at once.
 const INLINE_PARSE_BYTES: u64 = 256 * 1024;
 
-// Read, prefilter, hash and parse every source job. Each result is a pure
-// function of the file bytes; identical bytes share one parse by digest.
-// Small candidates parse on any worker; large ones take the `large` lock so
-// at most one large tree is live, which bounds the scan's memory high-water
-// mark at the sequential scan's single-tree peak.
-fn scan_sources(jobs: &[SourceJob]) -> ScanResults {
+// TypeScript 5.9.3 typescript.js:8525-8549, sys.readFile (SHA256
+// 3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675).
+// Node discards a trailing odd UTF-16 byte. Rust strings replace unpaired
+// surrogates; these cannot be part of an ASCII declaration keyword.
+fn decode_source(bytes: &[u8]) -> std::borrow::Cow<'_, str> {
+    if bytes.starts_with(&[255, 254]) || bytes.starts_with(&[254, 255]) {
+        let little = bytes[0] == 255;
+        let units = bytes[2..].chunks_exact(2).map(|pair| {
+            if little {
+                u16::from_le_bytes([pair[0], pair[1]])
+            } else {
+                u16::from_be_bytes([pair[0], pair[1]])
+            }
+        });
+        return std::char::decode_utf16(units)
+            .map(|c| c.unwrap_or(char::REPLACEMENT_CHARACTER))
+            .collect::<String>()
+            .into();
+    }
+    String::from_utf8_lossy(bytes.strip_prefix(&[239, 187, 191]).unwrap_or(bytes))
+}
+
+// Reserve the sum of stat sizes before dispatching any reads. Each worker
+// reads at most its reservation and checks growth with a one-byte stack
+// buffer. Large jobs hold the lock during reading, decoding AND parsing.
+// Raw buffers therefore fit the shared budget even when files grow.
+fn scan_sources(jobs: &[SourceJob], remaining: u64) -> std::io::Result<ScanResults> {
     use rayon::prelude::*;
+    let budget_error = || std::io::Error::other("P1 ambient scan byte budget");
+    jobs.iter().try_fold(remaining, |left, job| {
+        left.checked_sub(job.len).ok_or_else(budget_error)
+    })?;
     let parsed: Mutex<BTreeMap<String, (Vec<String>, usize)>> = Mutex::new(BTreeMap::new());
     let large = Mutex::new(());
-    let files: Vec<Scanned> = jobs
+    let files: std::io::Result<Vec<Scanned>> = jobs
         .par_iter()
         .map(|job| {
             use std::io::Read as _;
-            let mut bytes = Vec::with_capacity(job.len.min(SCAN_BYTES + 1) as usize);
-            let read = std::fs::File::open(&job.path)
-                .and_then(|f| f.take(SCAN_BYTES + 1).read_to_end(&mut bytes));
+            let _one_large_job = (job.len > INLINE_PARSE_BYTES).then(|| large.lock().unwrap());
+            let mut bytes = Vec::with_capacity(job.len as usize);
+            let mut grew = false;
+            let read = std::fs::File::open(&job.path).and_then(|mut f| {
+                (&mut f).take(job.len).read_to_end(&mut bytes)?;
+                let mut extra = [0];
+                grew = f.read(&mut extra)? != 0;
+                Ok(())
+            });
+            if grew {
+                return Err(budget_error());
+            }
             if read.is_err() {
-                return Scanned { read: None };
+                return Ok(Scanned { read: None });
             }
             let len = bytes.len() as u64;
-            let Ok(source) = std::str::from_utf8(&bytes) else {
-                return Scanned {
-                    read: Some(Read { len, text: None }),
-                };
-            };
-            let declares = bytes.windows(7).any(|w| w == b"declare");
-            let candidate = declares && super::ambient_candidate(source);
-            let references = super::triple_references(source);
+            let source = decode_source(&bytes);
+            let declares = source.as_bytes().windows(7).any(|w| w == b"declare");
+            let candidate = declares && super::ambient_candidate(&source);
+            let references = super::triple_references(&source);
             let digest = (declares || !references.is_empty())
                 .then(|| format!("{:x}", Sha256::digest(&bytes)));
             if candidate {
                 let digest = digest.as_ref().expect("candidates declare");
-                let _one_large_tree = (len > INLINE_PARSE_BYTES).then(|| large.lock().unwrap());
                 if !parsed.lock().unwrap().contains_key(digest) {
-                    let result = super::ambient_patterns(source);
+                    let result = super::ambient_patterns(&source);
                     parsed
                         .lock()
                         .unwrap()
@@ -147,26 +180,150 @@ fn scan_sources(jobs: &[SourceJob]) -> ScanResults {
                         .or_insert(result);
                 }
             }
-            Scanned {
+            Ok(Scanned {
                 read: Some(Read {
                     len,
-                    text: Some(Text {
+                    text: Text {
                         declares,
                         candidate,
                         digest,
                         references,
-                    }),
+                    },
                 }),
-            }
+            })
         })
         .collect();
-    ScanResults {
-        files,
+    Ok(ScanResults {
+        files: files?,
         parsed: parsed.into_inner().unwrap(),
-    }
+    })
 }
 
 impl JsPathsSnapshot {
+    // Loading hints deliberately overapproximate supported configs: inherited
+    // files/options are already in the captured config set. Explicit include
+    // prefixes scan their source subtree. A hidden segment must be explicit
+    // in a native include pattern; default wildcards keep tooling hidden.
+    // Reached reference/metadata paths are added after each supplementary scan.
+    fn loaded_excluded_paths(&self) -> BTreeSet<String> {
+        let mut paths = BTreeSet::new();
+        let mut add = |base: &str, name: &str| {
+            if let Some(path) = self.input_path(base, name) {
+                if excluded(Path::new(&path), self.case_insensitive) {
+                    paths.insert(path);
+                }
+            }
+        };
+        for (config, bytes) in &self.configs {
+            let Some(value) = bytes
+                .as_ref()
+                .and_then(|b| crate::js_paths_syntax::jsonc(b))
+            else {
+                continue;
+            };
+            let base = crate::js_paths_syntax::dir(config);
+            for key in ["files", "include"] {
+                for name in value
+                    .get(key)
+                    .and_then(serde_json::Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(serde_json::Value::as_str)
+                {
+                    if key == "include" {
+                        if let Some(pattern) = self.input_path(base, name) {
+                            for excluded in &self.excluded_paths {
+                                let mut prefix = String::new();
+                                let mut explicit_hidden = false;
+                                for part in pattern.split('/') {
+                                    if !prefix.is_empty() {
+                                        prefix.push('/');
+                                    }
+                                    prefix.push_str(part);
+                                    explicit_hidden |= part.starts_with('.');
+                                    if explicit_hidden
+                                        && crate::js_paths_syntax::exclude_matches(
+                                            &prefix, excluded,
+                                        ) != Some(false)
+                                    {
+                                        add("", excluded);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    let prefix = name.split(['*', '?']).next().unwrap_or("");
+                    let prefix = if key == "include" && prefix != name {
+                        prefix.rsplit_once('/').map_or("", |(dir, _)| dir)
+                    } else {
+                        prefix
+                    };
+                    add(base, prefix);
+                }
+            }
+            if let Some(options) = value.get("compilerOptions") {
+                for key in ["typeRoots", "types"] {
+                    for name in options
+                        .get(key)
+                        .and_then(serde_json::Value::as_array)
+                        .into_iter()
+                        .flatten()
+                        .filter_map(serde_json::Value::as_str)
+                    {
+                        if key == "typeRoots" || name.starts_with(['.', '/']) {
+                            add(base, name);
+                        }
+                    }
+                }
+            }
+        }
+        for (file, references) in &self.references {
+            for (kind, name) in references {
+                if kind == "path" || name.starts_with(['.', '/']) {
+                    add(crate::js_paths_syntax::dir(file), name);
+                }
+            }
+        }
+        for (file, targets) in &self.type_redirects {
+            for target in targets.iter().flatten() {
+                let prefix = target.split('*').next().unwrap_or("");
+                add(
+                    crate::js_paths_syntax::dir(file),
+                    if target.contains('*') {
+                        crate::js_paths_syntax::dir(prefix)
+                    } else {
+                        prefix
+                    },
+                );
+            }
+        }
+        paths
+    }
+
+    pub(super) fn scan_loaded_inputs(&mut self, root: &Path) -> std::io::Result<()> {
+        let mut attempted = BTreeSet::new();
+        loop {
+            let pending: Vec<_> = self
+                .loaded_excluded_paths()
+                .difference(&attempted)
+                .cloned()
+                .collect();
+            if pending.is_empty() {
+                return Ok(());
+            }
+            for path in pending {
+                attempted.insert(path.clone());
+                if self.covered.contains_key(&path)
+                    || self.package_hashes.contains_key(&format!("scan:{path}"))
+                {
+                    continue;
+                }
+                self.scan(root, &root.join(path), 1)?;
+            }
+        }
+    }
+
     fn skip(&mut self, reason: &str) {
         *self.scan_stats.skipped.entry(reason.into()).or_default() += 1;
     }
@@ -174,15 +331,15 @@ impl JsPathsSnapshot {
         &mut self,
         root: &Path,
         directory: &Path,
-        _depth: usize,
+        loaded: usize,
     ) -> std::io::Result<()> {
         // The traversal records every bookkeeping effect in order and reads
         // nothing it would write. Source files are then read, prefiltered,
         // hashed and parsed off the traversal, and the journal is replayed in
-        // traversal order, so every map, counter and the byte budget stop at
-        // exactly the entry the sequential scan stopped at.
-        let (events, jobs, traversal) = self.traverse(root, directory);
-        let results = scan_sources(&jobs);
+        // traversal order. A sized pre-pass rejects over-budget jobs before
+        // dispatch, while replay still accounts for the actual bytes read.
+        let (events, jobs, traversal) = self.traverse(root, directory, loaded != 0);
+        let results = scan_sources(&jobs, SCAN_BYTES.saturating_sub(self.scan_stats.bytes))?;
         self.replay(events, jobs, results)?;
         traversal
     }
@@ -191,9 +348,11 @@ impl JsPathsSnapshot {
         &self,
         root: &Path,
         directory: &Path,
+        loaded: bool,
     ) -> (Vec<Event>, Vec<SourceJob>, std::io::Result<()>) {
         let mut events = Vec::new();
-        let mut jobs = Vec::new();
+        let mut jobs: Vec<SourceJob> = Vec::new();
+        let mut source_jobs: BTreeMap<std::path::PathBuf, usize> = BTreeMap::new();
         let mut pending = vec![directory.to_path_buf()];
         let mut seen = BTreeSet::new();
         while let Some(mut path) = pending.pop() {
@@ -201,8 +360,11 @@ impl JsPathsSnapshot {
                 Ok(relative) => relative,
                 Err(error) => return (events, jobs, Err(std::io::Error::other(error))),
             };
-            if excluded(relative, self.case_insensitive) {
-                events.push(Event::Skip("excluded"));
+            if !loaded && excluded(relative, self.case_insensitive) {
+                events.push(match relative.to_str() {
+                    Some(path) => Event::Excluded(path.into()),
+                    None => Event::Skip("excluded"),
+                });
                 continue;
             }
             let Some(relative) = relative.to_str() else {
@@ -210,11 +372,20 @@ impl JsPathsSnapshot {
                 continue;
             };
             let mut rel = relative.to_owned();
+            let mut lexical_rel = None;
+            // Native eligibility follows the link name, not its target suffix.
+            let lower = rel.to_ascii_lowercase();
+            let source_file = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"]
+                .iter()
+                .any(|e| lower.ends_with(e));
             let Ok(mut metadata) = std::fs::symlink_metadata(&path) else {
                 events.push(Event::Skip("unreadable"));
                 continue;
             };
             if metadata.is_symlink() {
+                if source_file {
+                    lexical_rel = Some(rel.clone());
+                }
                 events.push(Event::TypeEntry(rel.clone(), 2));
                 let target = match path.canonicalize() {
                     Ok(target) if target.starts_with(root) => Some(target),
@@ -236,14 +407,6 @@ impl JsPathsSnapshot {
                 let Some(target) = target else {
                     continue;
                 };
-                let target_relative = match target.strip_prefix(root) {
-                    Ok(relative) => relative,
-                    Err(error) => return (events, jobs, Err(std::io::Error::other(error))),
-                };
-                if excluded(target_relative, self.case_insensitive) {
-                    events.push(Event::Skip("excluded"));
-                    continue;
-                }
                 path = target;
                 let Some(target_rel) = path.strip_prefix(root).ok().and_then(Path::to_str) else {
                     events.push(Event::Skip("non_utf8_path"));
@@ -256,8 +419,9 @@ impl JsPathsSnapshot {
                 };
                 metadata = target_metadata;
             }
-            // Canonical paths dedupe links and cycles without duplicate reads.
-            if !seen.insert(path.clone()) {
+            // Dedupe directories/cycles here, and source reads AFTER lexical
+            // eligibility below. A non-source target cannot consume its alias.
+            if metadata.is_dir() && !seen.insert(path.clone()) {
                 continue;
             }
             events.push(Event::Entry);
@@ -293,10 +457,6 @@ impl JsPathsSnapshot {
                     is_file: metadata.is_file(),
                 });
             }
-            let lower = rel.to_ascii_lowercase();
-            let source_file = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"]
-                .iter()
-                .any(|e| lower.ends_with(e));
             if !source_file {
                 events.push(Event::Skip("non_source"));
                 continue;
@@ -305,9 +465,22 @@ impl JsPathsSnapshot {
                 events.push(Event::Skip("non_regular_source"));
                 continue;
             }
+            if let Some(&index) = source_jobs.get(&path) {
+                if let Some(alias) = lexical_rel {
+                    jobs[index].aliases.push(alias);
+                } else {
+                    jobs[index].canonical_source = true;
+                }
+                continue;
+            }
+            source_jobs.insert(path.clone(), jobs.len());
             events.push(Event::Source(jobs.len()));
+            let canonical_source = lexical_rel.is_none();
+            let aliases = lexical_rel.into_iter().collect();
             jobs.push(SourceJob {
                 rel,
+                canonical_source,
+                aliases,
                 path,
                 len: metadata.len(),
             });
@@ -324,6 +497,10 @@ impl JsPathsSnapshot {
         for event in events {
             match event {
                 Event::Skip(reason) => self.skip(reason),
+                Event::Excluded(path) => {
+                    self.skip("excluded");
+                    self.excluded_paths.insert(path);
+                }
                 Event::Entry => self.scan_stats.entries += 1,
                 Event::TypeEntry(rel, kind) => {
                     self.type_entries.insert(rel, kind);
@@ -407,12 +584,7 @@ impl JsPathsSnapshot {
             self.scan_stats.types_files += 1;
             self.scan_stats.types_bytes += read.len;
         }
-        let Some(text) = &read.text else {
-            self.skip("non_utf8_source");
-            self.package_hashes
-                .insert(format!("scan:{rel}"), "non_utf8".into());
-            return Ok(());
-        };
+        let text = &read.text;
         let declares = text.declares;
         let (patterns, unparseable) = match &text.digest {
             Some(digest) if text.candidate => parsed
@@ -446,7 +618,15 @@ impl JsPathsSnapshot {
             self.ambient.insert(rel.clone(), patterns);
         }
         if !references.is_empty() {
-            self.references.insert(rel.clone(), references.clone());
+            // Reference paths belong to each eligible lexical source name,
+            // even when aliases share one physical read/hash/ambient parse.
+            for alias in job
+                .aliases
+                .iter()
+                .chain(job.canonical_source.then_some(&job.rel))
+            {
+                self.references.insert(alias.clone(), references.clone());
+            }
         }
         Ok(())
     }
@@ -536,6 +716,66 @@ impl JsPathsSnapshot {
 mod tests {
     use super::*;
     #[test]
+    fn source_reservations_precede_reads_and_detect_growth() {
+        // Decoder controls cover BOM stripping, byte order, lossy UTF-8 and
+        // Node's ignored odd trailing UTF-16 byte before exercising reads.
+        for (bytes, expected) in [
+            (vec![239, 187, 191, b'a'], "a"),
+            (vec![255, 254, b'a', 0, 255], "a"),
+            (vec![254, 255, 0, b'a', 255], "a"),
+            (vec![0xe9], "\u{fffd}"),
+            (vec![b'a'], "a"),
+        ] {
+            assert_eq!(decode_source(&bytes), expected);
+        }
+        let d = tempfile::TempDir::new().unwrap();
+        let path = d.path().join("input.d.ts");
+        std::fs::write(&path, "declare module 'kept' {}").unwrap();
+        let len = std::fs::metadata(&path).unwrap().len();
+        let jobs = [SourceJob {
+            rel: "input.d.ts".into(),
+            canonical_source: true,
+            aliases: Vec::new(),
+            path,
+            len,
+        }];
+        let error = scan_sources(&jobs, len - 1)
+            .err()
+            .expect("reject reservation");
+        assert_eq!(error.to_string(), "P1 ambient scan byte budget");
+        let result = scan_sources(&jobs, len).unwrap();
+        assert_eq!(result.files[0].read.as_ref().unwrap().len, len);
+        assert_eq!(result.parsed.values().next().unwrap().0, ["kept"]);
+        std::fs::write(&jobs[0].path, "declare module 'kept' {}x").unwrap();
+        assert!(
+            scan_sources(&jobs, len).is_err(),
+            "growth cannot exceed reservation"
+        );
+        // The aggregate reservation must reject even when each file fits.
+        let jobs = [
+            SourceJob {
+                rel: "a".into(),
+                canonical_source: true,
+                aliases: Vec::new(),
+                path: d.path().join("missing-a"),
+                len: 8,
+            },
+            SourceJob {
+                rel: "b".into(),
+                canonical_source: true,
+                aliases: Vec::new(),
+                path: d.path().join("missing-b"),
+                len: 8,
+            },
+        ];
+        assert!(scan_sources(&jobs, 15).is_err());
+        assert!(scan_sources(&jobs, 16)
+            .unwrap()
+            .files
+            .iter()
+            .all(|f| f.read.is_none()));
+    }
+    #[test]
     fn volume_probe_and_unknown_fallback() {
         let d = tempfile::TempDir::new().unwrap();
         assert_eq!(case_insensitive(d.path()), None);
@@ -623,17 +863,27 @@ mod tests {
     fn linked_source_is_scanned_and_counted_once() {
         let d = tempfile::TempDir::new().unwrap();
         std::fs::write(d.path().join("tsconfig.json"), "{}").unwrap();
-        let source = "declare module 'linked' {}";
+        let source = "/// <reference path='./guard.d.ts' />\ndeclare module 'linked' {}";
         std::fs::write(d.path().join("actual.d.ts"), source).unwrap();
         for name in ["one.d.ts", "two.d.ts"] {
             std::os::unix::fs::symlink("actual.d.ts", d.path().join(name)).unwrap();
         }
+        let root = d.path().canonicalize().unwrap();
+        let (_, jobs, result) = JsPathsSnapshot::default().traverse(&root, &root, false);
+        result.unwrap();
+        assert_eq!(jobs.len(), 1);
+        assert!(jobs[0].canonical_source);
+        assert_eq!(jobs[0].aliases.len(), 2);
         let s = JsPathsSnapshot::capture(d.path());
         assert!(s.complete);
         assert_eq!(s.scan_stats.files, 1);
         assert_eq!(s.scan_stats.bytes, source.len() as u64);
         assert_eq!(s.ambient.len(), 1);
         assert_eq!(s.links.len(), 2);
+        assert_eq!(s.references.len(), 3);
+        for name in ["actual.d.ts", "one.d.ts", "two.d.ts"] {
+            assert_eq!(s.references[name], [("path".into(), "./guard.d.ts".into())]);
+        }
     }
     #[test]
     fn tolerant_scan_counts_each_skip_arm_and_retains_valid_patterns() {
@@ -663,7 +913,6 @@ mod tests {
                 ("non_source".into(), 3),
                 ("outside_root_symlink".into(), 1),
                 ("unreadable".into(), 1),
-                ("non_utf8_source".into(), 1),
                 ("unparseable_declare_module".into(), 1),
             ])
         );
