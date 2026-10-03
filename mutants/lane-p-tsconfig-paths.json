@@ -105,7 +105,7 @@
     ],
     "I17-no-project-reference-cut": [
       "src/js_paths_boundary.rs",
-      "let references = super::triple_references(source);",
+      "let references = super::triple_references(&source);",
       "let references = Vec::new();",
       "js_paths_cap_test::structural_project_triple_references"
     ],
@@ -387,7 +387,7 @@
     ],
     "I73-declare-prefilter": [
       "src/js_paths_boundary.rs",
-      "let declares = bytes.windows(7).any(|w| w == b\"declare\");",
+      "let declares = source.as_bytes().windows(7).any(|w| w == b\"declare\");",
       "let declares = false;",
       "js_paths_r3_test::uppercase_ambient_reference_files_and_type_package_keep_base"
     ],
@@ -399,8 +399,8 @@
     ],
     "I78-canonical-dedupe": [
       "src/js_paths_boundary.rs",
-      "if !seen.insert(path.clone()) {",
-      "if false && !seen.insert(path.clone()) {",
+      "if let Some(&index) = source_jobs.get(&path) {",
+      "if let Some(&index) = None::<&usize> {",
       "js_paths_snapshot::boundary::tests::linked_source_is_scanned_and_counted_once"
     ],
     "I79-byte-budget": [
@@ -447,9 +447,9 @@
     ],
     "R4-04-non-utf8-declines": [
       "src/js_paths_boundary.rs",
-      "let Some(text) = &read.text else {",
-      "let Some(text) = &read.text else { return Err(std::io::Error::other(\"mutant\"));",
-      "js_paths_snapshot::boundary::tests::tolerant_scan_counts_each_skip_arm_and_retains_valid_patterns"
+      "let Some(read) = &scanned.read else {",
+      "let Some(read) = &scanned.read else { return Err(std::io::Error::other(\"mutant\"));",
+      "js_paths_snapshot::boundary::tests::unreadable_source_and_directory_skip"
     ],
     "R4-05-malformed-wildcard": [
       "src/js_paths_snapshot.rs",
@@ -575,8 +575,8 @@
       ],
       [
         "src/js_paths_boundary.rs",
-        "text: Some(Text {",
-        "text: Some(Text { has_import: source.contains(\"import \"),"
+        "text: Text {",
+        "text: Text { has_import: source.contains(\"import \"),"
       ]
     ],
     "I56-no-paths-first-pass": [
