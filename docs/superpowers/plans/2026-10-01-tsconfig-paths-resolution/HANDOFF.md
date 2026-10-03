@@ -1,4 +1,6 @@
-> **Current adopted fix `b28f6e72`: full requested verification PASS.** Production behavior unchanged; no Git writes or F access. Complete totals, gates, driver rebindings and limits: [VERIFY-FABLE-RESULTS.md](VERIFY-FABLE-RESULTS.md). Earlier r4 and lint-stop receipts are historical.
+> **Current r5 targeted fold: all requested local gates PASS.** HEAD `5aa30552` plus the dirty repair; retained binary `target/repair-r5/head/prism`, SHA-256 `907d110c70962063d5fde23acd22b6d92b62b117d837b97a81f6d65ed263aa03`; source binding `ddd3a9c4d844a180a7b43ebda7db8daef23265ccccd9e37919806b4d9d04fbad`. Cache **105/61**. [Results and every repeat](REPAIR-R5-RESULTS.md), [handoff](REPAIR-R5-HANDOFF.md), [files and proposed commits](REPAIR-R5-FILES.md). Earlier receipts below are historical. Controller Git custody remains open. No repairer Git writes or F access.
+
+> **Historical adopted fix `b28f6e72`: full requested verification PASS.** Production behavior unchanged; no Git writes or F access. Complete totals, gates, driver rebindings and limits: [VERIFY-FABLE-RESULTS.md](VERIFY-FABLE-RESULTS.md). Earlier r4 and lint-stop receipts are historical.
 
 
 

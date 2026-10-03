@@ -7,7 +7,7 @@ set -euo pipefail
 : "${CORPUS_F_ROOT:?private root supplied by controller}"
 : "${PRIVATE_EVIDENCE_ROOT:?private evidence directory supplied by controller}"
 : "${TS_JS:?offline TypeScript 5.9.3 lib/typescript.js}"
-BASE="${1:-/Users/wesleyjinks/code/prism-paths-impl/target/repair-r1/base/prism}"; HEAD="${2:-/Users/wesleyjinks/code/prism-paths-impl/target/verify-fable/current/head/prism}"; FACTS="${3:-/Users/wesleyjinks/code/prism-paths-impl/target/repair-r1/base/dump_imports}"
+BASE="${1:-/Users/wesleyjinks/code/prism-paths-impl/target/repair-r1/base/prism}"; HEAD="${2:-/Users/wesleyjinks/code/prism-paths-impl/target/repair-r5/head/prism}"; FACTS="${3:-/Users/wesleyjinks/code/prism-paths-impl/target/repair-r1/base/dump_imports}"
 PROBES="$(cd "$(dirname "$0")" && pwd)"
 OUT="$PRIVATE_EVIDENCE_ROOT"
 if ! mkdir -p "$OUT" 2>/dev/null; then

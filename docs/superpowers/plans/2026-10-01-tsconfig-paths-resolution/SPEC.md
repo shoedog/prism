@@ -168,3 +168,9 @@ Four review rounds each found new ways a `declare module` could shadow a `paths`
 - The repository-boundary closure declines are dropped.
 
 **New accepted cost.** An ambient module declared only outside the repository, or reachable only through unscanned transitive imports, whose name exactly matches a `paths` alias, can produce a wrong Exact edge. This cost is recorded and disclosed. It is not a review finding.
+
+### Owner-directed r5 implementation fold, 2026-10-03
+
+The repository scan decodes sources using the pinned TypeScript 5.9.3 `sys.readFile` rules (`typescript.js:8525–8549`): UTF-16LE/BE BOMs select UTF-16, UTF-8 BOMs are stripped, and remaining bytes use lossy UTF-8. Raw bytes still determine hashes and budgets. Non-UTF-8 source bytes no longer cause a skip. Source eligibility and relative reference bases follow each in-root link's lexical name; its target supplies the content, and physical source reads are deduplicated within each traversal after eligibility. Captured `files`, explicit `include` prefixes and hidden-name wildcard matches, type-input roots and reached reference/metadata paths supplement the scan in excluded directories; unrequested `.git`/`.bin` tooling retains the blanket skip. Unsupported type inputs may still decline their configs and preserve base.
+
+An aggregate stat-size reservation precedes parallel reads. Workers read only their reserved size, detect growth using one stack byte, and refuse on growth. Large jobs serialize reading/decoding/parsing. The closure memo remains keyed by both input and roots; the two-root regression observes different closure results. The final targeted extension preserves the existing artifact, cache **105/61**, thresholds and the accepted outside/transitive cost. See [REPAIR-R5-RESULTS.md](REPAIR-R5-RESULTS.md) for final evidence and limits.
