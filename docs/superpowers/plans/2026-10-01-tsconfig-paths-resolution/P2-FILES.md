@@ -1,3 +1,17 @@
+# Applied-fold verification inventory — a7c77f4e /plan45c6d124
+
+[MEASURED] Controller-applied W1 is committed as a7c77f4e over b9fd3775. Current physical checkout is the clean prototype branch; no worker Git writes or F access. All requested gates finished, with fmt FAIL only new W1 test formatting; other gates PASS. Fresh counts and exclusions are in `target/p2-applied-verify/VERIFICATION.md` and `summary.json`. The earlier prepared-only inventory below is historical and superseded.
+
+Controller plan set, incremental from45c6d124: `p2-probes/CONTROLLER-p2.sh` (frozen binary path/hash), `HANDOFF-P2.md`, `P2-MEASUREMENTS.md`, `P2-FILES.md` (fresh gate state/custody). Apply `target/p2-applied-verify/plan-final.patch` once, or its disjoint `CONTROLLER-plan.patch` and `gate-docs-plan.patch` components. Prepared full candidates: `target/p2-applied-verify/plan-prepared/`. No physical plan branch edit is claimed.
+
+Formatting-only prototype candidate: `target/p2-applied-verify/W1-format.patch` changes only `tests/integration/js_paths_p2_test.rs`; isolated candidate passes rustfmt, and has not been applied to the tested a7c77f4e artifact. Controller owns adoption/revision binding.
+
+Frozen binary: `/Users/wesleyjinks/code/prism-paths-p2-plan/target/p2-applied-verify/bin/prism-p2-a7c77f4e`. SHA256 `55e7e32b9eaf5e3f85ba2c9a109acde87c622ffe5aaff9459268395766eb0f4b`. Hash/source binding and receipts are snapshotted in `owned-snapshot.tar.gz`; complete public dumps are compressed, and verifier-owned mutant source copies were removed after successful receipts. Git/external custody remains controller-owned.
+
+---
+
+# Historical prepared inventory (superseded by applied-fold state)
+
 # Current P2 spec round-1 file inventory — prepared, awaiting branch custody
 
 [MEASURED] This clone remains plan/tsconfig-paths-p2 @bb4e4743 with a clean tracked tree. Four prototype candidates and ten plan candidates are retained under target/p2-spec-r1; none have been applied to tracked paths. The controller must switch to proto b9fd3775 for prototype edits, then plan bb4e4743 for the plan fold. No worker Git writes or F reads. All earlier inventories below are historical.

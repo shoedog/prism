@@ -20,7 +20,15 @@ Evidence: `/Users/wesleyjinks/prism-evidence/paths/reviews-p2/spec-r1-opus.md` a
 
 ## Repair verification
 
-[UNKNOWN] Fresh repair gates and repaired binary binding pending the controller's prototype checkout switch. Historical receipts below remain bound to their earlier artifacts.
+[MEASURED] Applied prototype **a7c77f4e** over **b9fd3775**, verified in the clean physical prototype checkout. One full MCP nextest **5133 passed /0 failed /1 existing skip**, doctests **2/2**, A1/A4 **8 cases /16 Call+JSX sites per revision RED on b9fd3775 /GREEN on a7c77f4e** in both grammars/orders, scoped mutants **10/10** killed (7 nonrelative +3 W1), matrix **178 OK /0 regression /0 skip**, S1b-4 **411 controls /639 sites /822 byte-identical comparisons**, H1 **2 cases /10 states** all pass.
+
+[MEASURED] **fmt FAIL** only newly added W1 tests; same-environment pre-W1 full formatter control PASS. SMELL: formatting-only candidate in `target/p2-applied-verify/W1-format.patch`, not applied here. Clippy PASS, head/base **371 warning emissions /229 unique /0 new**, compared on identical unchanged source statements after mapping the cache comment's two-line shift. All other requested gates pass. **No whole-artifact green claim**.
+
+[MEASURED] Fresh complete public X /installed-X /R /T vs P1 final **+8 /+8 /0 /0**, all changed rows **CORRECT_STATIC_BINDING**, no key/site metadata drift; populations **19219 /19219 /953 /61712**. Every new row has fresh native caller checker/ownership certification; facts628/628/50/707 and native inputs633/2219/48/606 rehashed. X/installed-X represent one snapshot and are not additive.
+
+[MEASURED] Frozen release: `/Users/wesleyjinks/code/prism-paths-p2-plan/target/p2-applied-verify/bin/prism-p2-a7c77f4e`, SHA256 `55e7e32b9eaf5e3f85ba2c9a109acde87c622ffe5aaff9459268395766eb0f4b`. Immediately rebuilt release before matrix has identical hash; all1226 source/test/vendor/fixture inputs unchanged. `target/p2-applied-verify/summary.json`, `VERIFICATION.md`, `binding.json`, `owned-snapshot.tar.gz` retain receipts. Only prototype checkout exists, so the plan path/hash and these record updates are prepared against45c6d124 for controller adoption; no Git writes or F reads.
+
+[UNKNOWN] Actual repaired F impact remains controller-only and unmeasured here. Not run: broad Tier-A quick/full, separate default/all-features/opt-in detached-owner-audit sweeps, Linux/case-sensitive/concurrent-tree/quiet-host resource behavior, forced existing ignore, independent review or Git/publication. Historical receipts below remain source-bound to earlier artifacts.
 
 ---
 

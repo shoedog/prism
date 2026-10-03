@@ -2,14 +2,15 @@
 # READ: controller-only private measurement. Stdout is aggregate counts and hashes only.
 # Usage: CORPUS_F_ROOT=... PRIVATE_EVIDENCE_ROOT=... TS_JS=... bash CONTROLLER-p2.sh P1_BIN FACTS_BIN [REPAIRED_P2_BIN] [PRIOR_GAP_EVIDENCE]
 # Set ACCEPTED_P2_BIN to the accepted b9fd3775 binary for complete-row repair-impact parity.
-# The default P2 binary is the frozen Opus round-1 repair; historical binaries require an explicit argument.
+# Default: a7c77f4e applied-fold release; historical binaries require an explicit argument.
+# SHA256: 55e7e32b9eaf5e3f85ba2c9a109acde87c622ffe5aaff9459268395766eb0f4b
 set -euo pipefail
 : "${CORPUS_F_ROOT:?controller supplies private root}"
 : "${PRIVATE_EVIDENCE_ROOT:?controller supplies private output directory}"
 : "${TS_JS:?offline TypeScript 5.9.3 lib/typescript.js}"
 P1="${1:?P1 binary}"; FACTS="${2:?import facts binary}"
 REPO="$(cd "$(dirname "$0")/../../../../.." && pwd)"
-P2="${3:-$REPO/target/p2-spec-r1/bin/prism-p2-spec-r1}"; PRIOR_GAP="${4:-}"
+P2="${3:-$REPO/target/p2-applied-verify/bin/prism-p2-a7c77f4e}"; PRIOR_GAP="${4:-}"
 ACCEPTED="${ACCEPTED_P2_BIN:-}"
 PROBES="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$PRIVATE_EVIDENCE_ROOT"
