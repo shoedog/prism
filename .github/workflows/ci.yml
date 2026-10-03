@@ -11,8 +11,12 @@ env:
 
 jobs:
   test:
-    name: Test Suite + Coverage
+    name: Test Suite + Coverage (${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
 
@@ -33,33 +37,37 @@ jobs:
 
       # Default-feature configuration must still compile (tests run once, with mcp, below).
       - name: Check default features
+        if: matrix.shard == 1
         run: cargo check --all-targets
 
-      # One instrumented run of the whole suite (mcp is a superset of default):
-      # nextest runs tests in parallel processes; a test failure fails the job.
-      - name: Run tests under coverage (nextest, --features mcp)
-        run: cargo llvm-cov nextest --features mcp --no-report --profile ci
+      # One instrumented run of the whole suite, split across 4 shards (mcp is a superset of
+      # default). nextest runs tests in parallel processes; a test failure fails the job.
+      - name: Run tests under coverage (nextest, --features mcp, shard ${{ matrix.shard }}/4)
+        run: cargo llvm-cov nextest --features mcp --no-report --profile ci --partition hash:${{ matrix.shard }}/4
 
       # nextest does not run doctests; they are fast and uninstrumented.
       - name: Run doctests
+        if: matrix.shard == 1
         run: cargo test --doc --features mcp
 
-      - name: Coverage reports (reuse the single run)
+      - name: Coverage reports (this shard)
         run: |
           cargo llvm-cov report --text --output-path coverage-summary.txt
           cargo llvm-cov report --lcov --output-path lcov.info
 
+      # Codecov merges the four shard uploads for the commit.
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5
         with:
           files: lcov.info
+          flags: shard-${{ matrix.shard }}
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Publish coverage summary to job summary
         run: |
-          echo "## Test Coverage" >> $GITHUB_STEP_SUMMARY
+          echo "## Test Coverage (shard ${{ matrix.shard }}/4; Codecov shows the merged total)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          cat coverage-summary.txt >> $GITHUB_STEP_SUMMARY
+          tail -n 3 coverage-summary.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
   clippy:
