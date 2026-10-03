@@ -44,8 +44,13 @@ pub struct JsPathsSnapshot {
     // Closure results are pure in (input, roots) over immutable scan state;
     // their set side effects are idempotent, so repeats are served from here.
     #[serde(skip)]
-    closure_memo: Arc<Mutex<BTreeMap<(String, Option<Vec<String>>), bool>>>,
+    closure_memo: Arc<Mutex<ClosureMemo>>,
 }
+
+/// Memo of type-input closure results keyed by `(input, roots)`.
+type ClosureMemo = BTreeMap<(String, Option<Vec<String>>), bool>;
+/// A borrowed `(referencing file, references)` stream over the reference index.
+type ReferenceIter<'a> = Box<dyn Iterator<Item = (&'a String, &'a Vec<(String, String)>)> + 'a>;
 
 enum TypeInput {
     Present(String),
@@ -610,22 +615,21 @@ impl JsPathsSnapshot {
                     }
                 }
             }
-            let references: Box<dyn Iterator<Item = (&String, &Vec<(String, String)>)>> =
-                if input.is_empty() {
-                    Box::new(self.references.iter())
-                } else {
-                    // `input` itself sorts before, and adjacent to, `input/...`.
-                    Box::new(
-                        self.references
-                            .get_key_value(input.as_str())
-                            .into_iter()
-                            .chain(
-                                self.references
-                                    .range(prefix.clone()..)
-                                    .take_while(|(file, _)| file.starts_with(prefix.as_str())),
-                            ),
-                    )
-                };
+            let references: ReferenceIter<'_> = if input.is_empty() {
+                Box::new(self.references.iter())
+            } else {
+                // `input` itself sorts before, and adjacent to, `input/...`.
+                Box::new(
+                    self.references
+                        .get_key_value(input.as_str())
+                        .into_iter()
+                        .chain(
+                            self.references
+                                .range(prefix.clone()..)
+                                .take_while(|(file, _)| file.starts_with(prefix.as_str())),
+                        ),
+                )
+            };
             for (file, references) in references {
                 for (kind, name) in references {
                     let base = crate::js_paths_syntax::dir(file);
