@@ -1,4 +1,8 @@
-# P2 dispatch — relative JS export-hop proof
+# Current authority — P2 diagnosis only
+
+INHERITED: the committed prototype `e80fbf54` recovers +32 certified JS-hop rows (24 member-written), native relative ceiling 33; it is not material. No new production work is authorized. The previous dispatch below is historical/completed. Controller next runs `p2-probes/CONTROLLER-p2-gap.sh P1_BIN FACTS_BIN P2_BIN`; see [P2-GAP-DIAGNOSIS.md](P2-GAP-DIAGNOSIS.md) for exact prerequisites, output, public shapes, forecasts and unresolved-query handling. No worker Git writes or F reads.
+
+# Historical P2 dispatch — relative JS export-hop proof
 
 READ: Owner authorized a working-tree prototype in this clone; controller will commit it as `proto/tsconfig-paths-p2`. Starting HEAD `8bd3c2dad641bf209f82073017b1549a8f377dff`. Controller binds the prototype commit after enumerated file/hash verification. This is a port/adoption brief for the existing body, not a request to rewrite it. No worker Git writes, F access, push or merge. Independent plan review is controller-dispatched with cap **2**, used **0/2**. Private prototype recovery/certification remains an OPEN acceptance gate until the controller returns its aggregate.
 

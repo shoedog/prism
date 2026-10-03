@@ -1,4 +1,12 @@
-# P2 file inventory and controller commits
+# Current P2 diagnostic inventory
+
+MEASURED: checkout `proto/tsconfig-paths-p2` at `e80fbf541d53ace5c547d5f26c9135e46e7be12b`; no Git writes. The prototype and original plan are already committed by the controller. INHERITED: controller reports +32 certified JS-hop rows, so P2 is not material. Current work is diagnosis only; no production adoption/dispatch is authorized by this packet.
+
+New packet files: `P2-GAP-DIAGNOSIS.md`; `p2-probes/CONTROLLER-p2-gap.sh`, `gap.cjs`, `gap-class-catalog.json`, `gap-source-binding.json`, `gap-driver.rs`, `gap-kernel.rs`, `build-gap-driver.py`, `gap-controls.py`, `gap-projection.cjs`, `gap-guard-controls.cjs`, `gap-kernel-controls.py`. Updated current-state docs: this file, `P2-MEASUREMENTS.md`, `OQ-paths-p2.md`, `SPEC.md`, `IMPLEMENTOR.md`, `HANDOFF-P2.md`. Root `VERIFICATION.md` is an ignored local receipt, retained in the snapshot; do not lose it when transferring the packet. The controller command and local snapshot/verification receipts are in P2-GAP-DIAGNOSIS and HANDOFF-P2. Controller owns committing this exact diagnostic set; no push/merge claim.
+
+---
+
+# Historical P2 file inventory and controller commits (completed)
 
 MEASURED: Entry HEAD8bd3c2dad641bf209f82073017b1549a8f377dff; no planner Git writes. Prototype is in this clone's working tree. Controller commits the **plan** set to the plan branch and the **prototype** set to proto/tsconfig-paths-p2 after checking the frozen owned-file hashes. Do not apply the prototype twice or rewrite it. Local source/binary evidence is target/p2-plan; actual F yield and independent review remain open.
 

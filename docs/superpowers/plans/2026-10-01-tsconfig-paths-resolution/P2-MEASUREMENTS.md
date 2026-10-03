@@ -1,4 +1,12 @@
-# P2 prototype checkpoint — relative JS export hops
+# Current P2 result — diagnosis only
+
+INHERITED, controller aggregate supplied 2026-10-03: **32** changed rows, all `CORRECT_STATIC_BINDING`, all `JS_EXPORT_HOP`; **24** member-written; **0** keys added/removed. Native relative JS-resolution ceiling **33**. Against **749** native callable, owner-agreeing bucket rows this is **717** actual unrecovered rows (roughly **716** outside the ceiling). P2 as built is **not material**. The earlier opportunity-based materiality decision below is superseded.
+
+MEASURED: this clone is now `proto/tsconfig-paths-p2` at `e80fbf541d53ace5c547d5f26c9135e46e7be12b`; predecessor plan docs are `plan/tsconfig-paths-p2` at `1cb46b80`. This round changes diagnostics/docs only. [P2-GAP-DIAGNOSIS.md](P2-GAP-DIAGNOSIS.md) specifies the controller-only exact-gate partition, public shapes and ASSUMPTION forecasts. Private per-class counts remain UNKNOWN pending that run. No production or Git writes and no private reads.
+
+---
+
+# Historical P2 prototype checkpoint — relative JS export hops
 
 MEASURED: Working-tree prototype on `plan/tsconfig-paths-p2` HEAD `8bd3c2dad641bf209f82073017b1549a8f377dff`. No worker Git writes or private F reads. The owner-supplied F materiality decision supersedes the P2-0 public-only stop recommendation below. The prototype reuses P1's local Node10 priority-pass proof, admits member-written terminals consistently with existing E5 behavior, and keeps all other export/binding/site guards. Actual private prototype recovery remains **OPEN** pending controller aggregate; no ceiling is reported as a measured gain.
 
@@ -217,3 +225,15 @@ Run with `CONTROLLER-p2.sh` on the P1 final binary (sha `907d110c`).
 Rows with no callable candidate and no recovery: `CANDIDATE_COMPETITION_OR_ABSENCE` 2,785 (0 callable), `TERMINAL_VALUE_ALIAS_OR_NONCALLABLE` 375 (0 callable), `UNPROVEN_STAR_BRANCH` 36 (0 callable).
 
 **Verdict:** P2's yield is material on F (749 against P1's 2,313) and about zero on the public corpora. The relative JS export-hop proof ranks first.
+
+## Controller F gap diagnosis (aggregates only; 2026-10-03)
+
+Run with `CONTROLLER-p2-gap.sh`. Population: 749 natively callable `JS_EXPORT_HOP` rows. The prototype recovers 32; 717 remain unrecovered.
+
+| Class | Rows | Breakdown |
+|---|---:|---|
+| `nonrelative_hop` | **697** (398 member-written) | TypeScript resolution: 599 via JS secondary pass, 98 unresolved. Export symbol at the hop: present 249, absent 350, unresolved module 98. |
+| `binding_or_site_guard` | 18 | |
+| `directory_literal` | 2 | |
+
+**Verdict:** the dominant blocker is barrel export hops whose module specifier is non-relative (an alias or bare specifier). Applying P1's alias resolver at the hop, with the caller project's options, is the candidate P2 mechanism. Its ceiling on F is about 249 to 599 rows.

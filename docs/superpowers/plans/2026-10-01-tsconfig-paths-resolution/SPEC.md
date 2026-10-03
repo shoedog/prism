@@ -1,3 +1,7 @@
+# Current boundary — P2 gap diagnosis
+
+INHERITED: controller supplied +32 certified `JS_EXPORT_HOP` rows, 24 member-written, no key changes, native relative ceiling 33. P2 as built is not material. The prototype is committed at `proto/tsconfig-paths-p2` `e80fbf54`; plan predecessor `1cb46b80`. This round adds aggregate-only diagnostics and public controls; no production change or broader resolver port is authorized. See [P2-GAP-DIAGNOSIS.md](P2-GAP-DIAGNOSIS.md). The amendment below remains the implemented prototype contract; its opportunity-based materiality sentence is historical.
+
 # P2 amendment — relative JavaScript export-hop proof
 
 READ: Owner authorized this slice on 2026-10-03 after controller aggregates established material F yield. This amendment supersedes P1 Cut 2's blanket relative JS-hop refusal **only for the tsconfig-paths alias export projection**. The P1 sections below remain historical where they describe that refusal or cache 105/61. Working-tree prototype starts at `8bd3c2dad641bf209f82073017b1549a8f377dff`; no planner Git writes and no F access. Actual private prototype recovery is controller-measured, not inferred from the ceiling.
