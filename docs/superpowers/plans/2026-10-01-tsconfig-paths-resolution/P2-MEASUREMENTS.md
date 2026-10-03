@@ -139,3 +139,19 @@ bash docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/p2-probes/CONTR
 ```
 
 READ: Return stdout JSON only. Raw rows, paths, sources, traces, diagnostics and the actual ProjectService program remain private. A setup failure yields no measurement; its diagnostics are private. Proposed controller commits and the exact file inventory are in [P2-FILES.md](P2-FILES.md).
+
+## Controller F aggregates (private, aggregates only; 2026-10-03)
+
+Run with `CONTROLLER-p2.sh` on the P1 final binary (sha `907d110c`).
+
+| Bucket | Rows | Natively callable, ownership agrees | Rows with `TERMINAL_MEMBER_WRITTEN` |
+|---|---:|---:|---:|
+| `JS_EXPORT_HOP` | 775 | **749** | 457 |
+| `UNCLASSIFIED_P1_PROOF` | 21 | 21 | 8 |
+| `BINDING_OR_SITE_GUARD` | 22 | 22 | 10 |
+| `NONRELATIVE_EXPORT_HOP` | 6 | 1 | — |
+| `TSSERVER_OWNERSHIP_DISAGREEMENT` | 19 | 3 | — |
+
+Rows with no callable candidate and no recovery: `CANDIDATE_COMPETITION_OR_ABSENCE` 2,785 (0 callable), `TERMINAL_VALUE_ALIAS_OR_NONCALLABLE` 375 (0 callable), `UNPROVEN_STAR_BRANCH` 36 (0 callable).
+
+**Verdict:** P2's yield is material on F (749 against P1's 2,313) and about zero on the public corpora. The relative JS export-hop proof ranks first.
