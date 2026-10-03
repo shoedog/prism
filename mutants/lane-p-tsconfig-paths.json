@@ -4,7 +4,9 @@
   "lib_test_prefixes": [
     "js_paths_snapshot::",
     "js_paths_first_pass::",
-    "repo_loader::"
+    "repo_loader::",
+    "cpg_cache::",
+    "navigation::call_edge_cache::"
   ],
   "intent_revisions": {
     "R4-04-non-utf8-declines": {
@@ -36,6 +38,12 @@
       "intent": "The per-project root-file filter now compares config paths instead of allowJs bools; the mutant still flips the filter's equality to prove the roots partition is load-bearing.",
       "reason": "P2 renamed `js_ts_path_modules`'s value type and this filter's binding from `allow`/`allow_js` (bool) to `owner`/`project` (String); the old anchor text no longer exists.",
       "killing_fixture": "repo_loader::paths_projection_tests::primes_alias_export_closure_without_unrelated_exports: flipping the filter empties the single project's root set, which drops its only export-table key."
+    },
+    "I27-global-export-priming": {
+      "disposition": "rebound",
+      "intent": "Over-seed the reachable-export priming frontier with every file in the repo (tagged with its own project) instead of only files reachable through real import bindings, to prove priming stays scoped to the actual closure.",
+      "reason": "P2 changed `pending` from BTreeSet<String> to BTreeSet<(String, String)> (file plus owning caller project), so the old bare-String over-seed no longer type-checks.",
+      "killing_fixture": "repo_loader::paths_projection_tests::primes_alias_export_closure_without_unrelated_exports: over-seeding with every file would wrongly probe unrelated/missing.ts through unrelated/barrel.ts's own star re-export."
     }
   },
   "mutations": {
@@ -186,7 +194,7 @@
     "I27-global-export-priming": [
       "src/repo_loader.rs",
       "let mut pending = BTreeSet::new();",
-      "let mut pending: BTreeSet<String> = files.keys().cloned().collect();",
+      "let mut pending: BTreeSet<(String, String)> = files.keys().filter_map(|f| Some((resolver.project(f)?, f.clone()))).collect();",
       "repo_loader::paths_projection_tests::primes_alias_export_closure_without_unrelated_exports"
     ],
     "I28-no-reachable-export-priming": [
