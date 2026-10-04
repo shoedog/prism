@@ -1,0 +1,114 @@
+{
+  "lane": "S2 import qualifiers (2026-10-03)",
+  "source": "docs/superpowers/plans/2026-10-03-s2-import-qualifiers/SPEC.md",
+  "mutations": {
+    "S2-01-base-set-fence": [
+      "src/resolution.rs",
+      "if !base.resolved.is_empty() {",
+      "if false && !base.resolved.is_empty() {",
+      "js_import_qualifiers_test::any_already_bound_row_is_byte_preserved"
+    ],
+    "S2-02-position-proof": [
+      "src/resolution_js_namespace.rs",
+      "if !raw\n            .qualifiers\n            .import_sites",
+      "if false && !raw\n            .qualifiers\n            .import_sites",
+      "js_import_qualifiers_test::unproven_qualifiers_instances_duplicates_and_shadow_keep_base"
+    ],
+    "S2-03-caller-member-write": [
+      "src/resolution_js_namespace.rs",
+      "if raw.qualifiers.written.contains(qualifier) {",
+      "if false && raw.qualifiers.written.contains(qualifier) {",
+      "js_import_qualifiers_test::member_and_binding_writes_keep_complete_base"
+    ],
+    "S2-04-class-static-only": [
+      "src/ast/js_import_qualifiers.rs",
+      "if class && !tokens.contains(&\"static\") {",
+      "if false && class && !tokens.contains(&\"static\") {",
+      "js_import_qualifiers_test::unproven_qualifiers_instances_duplicates_and_shadow_keep_base"
+    ],
+    "S2-05-unique-member": [
+      "src/ast/js_import_qualifiers.rs",
+      "members.retain(|name, _| counts.get(name) == Some(&1));",
+      "members.retain(|name, _| counts.get(name).is_some());",
+      "js_import_qualifiers_test::object_functions_require_literal_unique_keys"
+    ],
+    "S2-06-provider-member-write": [
+      "src/ast/js_import_qualifiers.rs",
+      "|| out.written.contains(&name)",
+      "|| false && out.written.contains(&name)",
+      "js_import_qualifiers_test::member_and_binding_writes_keep_complete_base"
+    ],
+    "S2-07-forwarded-member-write": [
+      "src/ast/js_import_qualifiers.rs",
+      "if out.written.contains(&local) {",
+      "if false && out.written.contains(&local) {",
+      "js_import_qualifiers_test::forwarding_member_writes_and_namespace_identity_conflicts_keep_base"
+    ],
+    "S2-08-namespace-identity": [
+      "src/js_import_qualifiers.rs",
+      "if unique.as_ref().is_some_and(|prior| prior != &members) {",
+      "if false && unique.as_ref().is_some_and(|prior| prior != &members) {",
+      "js_import_qualifiers_test::forwarding_member_writes_and_namespace_identity_conflicts_keep_base"
+    ],
+    "S2-09-terminal-span": [
+      "src/ast/js_import_qualifiers.rs",
+      "let (start_line, end_line) = self.node_line_range(&node);",
+      "let (start_line, end_line) = self.node_line_range(&node);\n        let start_line = start_line + 1;",
+      "js_import_qualifiers_test::class_statics_and_fields_are_new_exact_in_both_grammars"
+    ],
+    "S2-10-config-option-fence": [
+      "src/js_paths.rs",
+      "if [\"rootDirs\", \"moduleSuffixes\", \"noResolve\"]\n            .iter()",
+      "if false && [\"rootDirs\", \"moduleSuffixes\", \"noResolve\"]\n            .iter()",
+      "js_import_qualifiers_test::s2_caller_ownership_and_declaration_priority_guards"
+    ],
+    "S2-11-shared-qualifier-write": [
+      "src/call_graph.rs",
+      "!written.contains(&(identity.file.clone(), identity.local.clone()))",
+      "true || !written.contains(&(identity.file.clone(), identity.local.clone()))",
+      "js_import_qualifiers_test::all_statically_joined_qualifier_writes_keep_base"
+    ],
+    "S2-12-namespace-core-capture": [
+      "src/js_import_qualifiers.rs",
+      "let captured = raw\n                            .get(&t.file)",
+      "let captured = raw\n                            .get(\"S2-mutant-absent\")",
+      "js_import_qualifiers_test::reexported_namespace_reuses_callable_export_core"
+    ],
+    "S2-14-identity-use-whitelist": [
+      "src/ast/js_import_qualifiers.rs",
+      "out.written.extend(self.js_ts_qualifier_refused_uses());",
+      "// Mutant: omit the closed qualifier-use predicate.",
+      "js_import_qualifiers_test::qualifier_identity_whitelist_refuses_all_value_escapes"
+    ],
+    "S2-13-jsx-substitution-priority": [
+      "src/js_paths.rs",
+      "} else if p.ends_with(\".jsx\") {\n                &[\".tsx\", \".ts\", \".d.ts\"]",
+      "} else if p.ends_with(\".jsx\") {\n                &[\".ts\", \".tsx\", \".d.ts\"]",
+      "js_import_qualifiers_test::explicit_suffix_priority_and_declaration_refusals_in_both_grammars"
+    ]
+  },
+  "extra": {
+    "S2-14-identity-use-whitelist": [
+      [
+        "src/call_graph.rs",
+        "// Revocation is global across the visible files. Refusal-only joins",
+        "// S2-14 scoped selection marker; no behavioral change. Refusal-only joins"
+      ]
+    ],
+    "S2-07-forwarded-member-write": [
+      [
+        "src/call_graph.rs",
+        "!written.contains(&(identity.file.clone(), identity.local.clone()))",
+        "true || !written.contains(&(identity.file.clone(), identity.local.clone()))"
+      ]
+    ],
+    "S2-03-caller-member-write": [
+      [
+        "src/call_graph.rs",
+        "!written.contains(&(identity.file.clone(), identity.local.clone()))",
+        "true || !written.contains(&(identity.file.clone(), identity.local.clone()))"
+      ]
+    ]
+  },
+  "lib_test_prefixes": []
+}

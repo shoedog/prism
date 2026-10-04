@@ -71,6 +71,9 @@ pub enum JsExportTarget {
 /// (`import_bindings`, `module_bindings`): removed/merged wholesale per file.
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct JsExportFacts {
+    /// S2 member authority, isolated from the landed S1b/P export projections.
+    #[serde(default)]
+    pub qualifiers: crate::js_import_qualifiers::QualifierFacts,
     /// R3 positive proof only: no unrecorded/skipped export or incomplete module.
     #[serde(default)]
     pub namespace_proof_complete: bool,
@@ -124,7 +127,8 @@ pub struct JsExportFacts {
 
 impl JsExportFacts {
     pub fn is_empty(&self) -> bool {
-        !self.namespace_proof_complete
+        !self.qualifiers.complete
+            && !self.namespace_proof_complete
             && self.namespace_callable_locals.is_empty()
             && self.named.is_empty()
             && self.module_value_bindings.is_empty()
@@ -695,6 +699,7 @@ mod tests {
 
     fn facts(named: &[(&str, JsExportTarget)], star: &[&str]) -> JsExportFacts {
         JsExportFacts {
+            qualifiers: Default::default(),
             namespace_proof_complete: true,
             namespace_callable_locals: BTreeMap::new(),
             module_value_bindings: BTreeSet::new(),

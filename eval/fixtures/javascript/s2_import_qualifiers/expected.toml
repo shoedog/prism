@@ -1,0 +1,15 @@
+[case]
+language = "javascript"
+capability = "s2_import_qualifiers"
+status = "pass"
+[seed]
+symbol = "s2_target"
+file = "lib.jsx"
+line = 2
+[[expect.callers]]
+file = "app.jsx"
+line = 2
+[expect]
+# The inherited NameOnly shadow edge is retained; the new Exact is line 2.
+exact = false
+resolution_kind = "import_qualified"

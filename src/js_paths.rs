@@ -26,6 +26,7 @@ pub(crate) struct Resolver<'a> {
     snapshot: &'a JsPathsSnapshot,
     configs: BTreeMap<String, Option<Rc<Config>>>,
     selected: BTreeMap<String, Option<Rc<Config>>>,
+    qualifier_mode: bool,
 }
 impl<'a> Resolver<'a> {
     pub(crate) fn new(snapshot: &'a JsPathsSnapshot) -> Self {
@@ -33,7 +34,13 @@ impl<'a> Resolver<'a> {
             snapshot,
             configs: BTreeMap::new(),
             selected: BTreeMap::new(),
+            qualifier_mode: false,
         }
+    }
+    pub(crate) fn for_qualifiers(snapshot: &'a JsPathsSnapshot) -> Self {
+        let mut resolver = Self::new(snapshot);
+        resolver.qualifier_mode = true;
+        resolver
     }
     fn config(&mut self, p: &str, seen: &mut BTreeSet<String>) -> Option<Rc<Config>> {
         if let Some(c) = self.configs.get(p) {
@@ -50,7 +57,12 @@ impl<'a> Resolver<'a> {
     fn config_inner(&mut self, p: &str, seen: &mut BTreeSet<String>) -> Option<Config> {
         let value = jsonc(self.snapshot.configs.get(p)?.as_ref()?)?;
         let object = value.as_object()?;
-        if object.contains_key("references")
+        if (object.contains_key("references")
+            && !(self.qualifier_mode
+                && object
+                    .get("references")
+                    .and_then(Value::as_array)
+                    .is_some_and(Vec::is_empty)))
             || object
                 .get("files")
                 .is_some_and(|v| v.as_array().is_some_and(Vec::is_empty))
@@ -434,6 +446,57 @@ impl<'a> Resolver<'a> {
     }
     pub(crate) fn project(&mut self, file: &str) -> Option<String> {
         Some(self.select(file)?.config_path.clone())
+    }
+    /// S2-only explicit emitted-JS spelling -> captured TS source. Ordinary
+    /// relative and alias hops retain P2's occupancy/priority-pass guards.
+    pub(crate) fn qualifier_hop(
+        &self,
+        project: &str,
+        from: &str,
+        spec: &str,
+        indexed: &BTreeSet<String>,
+    ) -> Option<String> {
+        if spec.trim() != spec || spec.contains('\\') {
+            return None;
+        }
+        let c = self.configs.get(project)?.as_ref()?;
+        if ["rootDirs", "moduleSuffixes", "noResolve"]
+            .iter()
+            .any(|k| c.options.contains_key(*k))
+        {
+            return None;
+        }
+        if spec.starts_with("./") || spec.starts_with("../") {
+            let p = norm(dir(from), spec)?;
+            let suffixes: &[&str] = if p.ends_with(".js") {
+                &[".ts", ".tsx", ".d.ts"]
+            } else if p.ends_with(".jsx") {
+                &[".tsx", ".ts", ".d.ts"]
+            } else if p.ends_with(".mjs") {
+                &[".mts", ".d.mts"]
+            } else if p.ends_with(".cjs") {
+                &[".cts", ".d.cts"]
+            } else {
+                &[]
+            };
+            if !suffixes.is_empty() {
+                let stem = p.rsplit_once('.')?.0;
+                for ext in suffixes {
+                    let q = format!("{stem}{ext}");
+                    if self.snapshot.kind(&q).is_some() {
+                        return (self.snapshot.complete
+                            && self.snapshot.unblocked(&q)
+                            && self.snapshot.kind(&q) == Some(0)
+                            && !ext.starts_with(".d.")
+                            && indexed.contains(&q))
+                        .then_some(q);
+                    }
+                }
+            }
+            self.relative(from, spec, indexed, self.allow_js(project))
+        } else {
+            self.hop(project, from, spec, indexed)
+        }
     }
     /// TypeScript 5.9.3:127381-127394 passes program options for every file;
     /// 128816-128818 only substitutes referenced-project options (P1 refuses

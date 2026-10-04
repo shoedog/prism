@@ -15,7 +15,7 @@ use crate::name_resolution::types::{
 use std::collections::{BTreeMap, BTreeSet};
 
 #[path = "resolution_js_namespace.rs"]
-mod js_namespace;
+pub(crate) mod js_namespace;
 
 pub use crate::resolution_disproof::{prune, DisproofCx, DisproofPredicate};
 pub use crate::resolution_identity::{
@@ -2301,6 +2301,14 @@ impl CallGraph {
     /// new precision ladder. Legacy callers continue to use the old resolver
     /// until Tasks 9-11 migrate them.
     pub fn resolve_call_site_full(&self, site: &CallSite) -> ResolutionOutcome<'_> {
+        let base = self.resolve_call_site_base(site);
+        if !base.resolved.is_empty() {
+            return base;
+        }
+        self.js_ts_import_qualifier_outcome(site).unwrap_or(base)
+    }
+
+    fn resolve_call_site_base(&self, site: &CallSite) -> ResolutionOutcome<'_> {
         // S1b §3.5: a plain JSX tag spelled lowercase, dashed or namespaced is an intrinsic
         // element (TypeScript `isIntrinsicJsxName`, Babel `isCompatTag`). It references no
         // binding, so no rung may bind it. Member, `_x` and `$x` tags are not intrinsic.

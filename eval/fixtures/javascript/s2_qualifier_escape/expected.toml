@@ -1,0 +1,11 @@
+[case]
+language = "javascript"
+capability = "s2_qualifier_escape"
+status = "pass"
+[seed]
+symbol = "escaped_target"
+file = "lib.jsx"
+line = 2
+[expect]
+callers = []
+exact = true

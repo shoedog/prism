@@ -1,0 +1,11 @@
+[case]
+language = "typescript"
+capability = "s2_qualifier_escape"
+status = "pass"
+[seed]
+symbol = "escaped_target"
+file = "lib.tsx"
+line = 2
+[expect]
+callers = []
+exact = true

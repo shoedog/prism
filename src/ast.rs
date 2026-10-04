@@ -23,6 +23,7 @@ mod js_binding_walk;
 mod js_binding_writes;
 mod js_cjs_export_barriers;
 mod js_cjs_terminal;
+mod js_import_qualifiers;
 mod js_module_forwarding;
 mod js_wrapped_export;
 
@@ -2554,6 +2555,7 @@ impl ParsedFile {
                     });
             }
         }
+        facts.qualifiers = self.js_ts_qualifier_facts(&facts);
         facts
     }
 

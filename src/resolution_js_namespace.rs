@@ -6,6 +6,67 @@ use crate::call_graph::{js_ts_relative_module_candidates, resolve_js_ts_relative
 use std::collections::BTreeSet;
 
 impl CallGraph {
+    /// S2 admission is only on a base drop; S1b-4's subset rule below is unchanged.
+    pub(super) fn js_ts_import_qualifier_outcome(
+        &self,
+        site: &CallSite,
+    ) -> Option<ResolutionOutcome<'_>> {
+        use crate::call_graph::ImportBindingKind;
+        if site.jsx_element {
+            return None;
+        }
+        let qualifier = site.qualifier.as_ref()?;
+        let raw = self.js_ts_exports.get(&site.caller.file)?;
+        if !raw
+            .qualifiers
+            .import_sites
+            .contains(&(site.start_byte, site.end_byte))
+        {
+            return None;
+        }
+        if raw.qualifiers.written.contains(qualifier) {
+            return None;
+        }
+        let bindings: Vec<_> = self
+            .import_bindings
+            .get(&site.caller.file)?
+            .iter()
+            .filter(|b| {
+                b.local == *qualifier
+                    && b.eligible
+                    && b.kind == ImportBindingKind::MemberImport
+                    && raw.esm_named_imports.contains(&b.local)
+            })
+            .collect();
+        let [binding] = bindings.as_slice() else {
+            return None;
+        };
+        let (file, project) = self
+            .js_ts_qualifier_modules
+            .get(&(site.caller.file.clone(), binding.module_path.clone()))?;
+        let export = self
+            .js_ts_qualifier_exports
+            .get(project)?
+            .get(file)?
+            .get(binding.member.as_ref()?)?
+            .members
+            .get(&site.callee_name)?;
+        let ids: Vec<_> = self
+            .functions
+            .get(&export.local_name)?
+            .iter()
+            .filter(|t| t.file == export.file && export.span == Some((t.start_line, t.end_line)))
+            .collect();
+        let [target] = ids.as_slice() else {
+            return None;
+        };
+        Some(ResolutionOutcome::hit(vec![ResolvedCallee {
+            target,
+            confidence: ResolutionConfidence::Exact,
+            kind: ResolutionKind::ImportQualified,
+        }]))
+    }
+
     pub(super) fn js_ts_namespace_outcome<'a>(
         &'a self,
         module: &str,

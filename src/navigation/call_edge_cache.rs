@@ -103,7 +103,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v60: S1b-4 qualifier proof and positive-only namespace R3 refinement (CPG v104).
 // v61: lane-P P1 tsconfig `paths` import-member resolution (CPG v105).
 // v62: lane-P P2 relative JS export-hop proof (CPG v106).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 62;
+// v63: S2 positive member proofs on base-dropped import qualifier sites.
+// v64: S2 fail-closed qualifier identity use whitelist (CPG v108).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 64;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -722,7 +724,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 62);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 64);
     }
 
     #[test]

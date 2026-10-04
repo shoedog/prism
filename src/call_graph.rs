@@ -882,6 +882,11 @@ pub struct CallGraph {
     /// P1 proven non-relative modules; empty for convention-only builds.
     #[serde(default)]
     pub js_ts_path_modules: BTreeMap<(String, String), (String, String)>,
+    /// S2 caller/module proof and project-partitioned qualifier member tables.
+    #[serde(default)]
+    pub js_ts_qualifier_modules: BTreeMap<(String, String), (String, String)>,
+    #[serde(default)]
+    pub js_ts_qualifier_exports: BTreeMap<String, crate::js_import_qualifiers::QualifierTable>,
     /// Alias-only export tables. Every hop uses P1 occupancy/Node10 proof;
     /// the config path partitions callers by their owning project's options.
     #[serde(default)]
@@ -1229,6 +1234,8 @@ impl CallGraph {
             module_bindings: BTreeMap::new(),
             indexed_files: BTreeSet::new(),
             js_ts_path_modules: BTreeMap::new(),
+            js_ts_qualifier_modules: BTreeMap::new(),
+            js_ts_qualifier_exports: BTreeMap::new(),
             js_ts_path_exports: BTreeMap::new(),
             js_ts_exports: BTreeMap::new(),
             js_ts_resolved_exports: BTreeMap::new(),
@@ -1510,6 +1517,8 @@ impl CallGraph {
             module_bindings: BTreeMap::new(),
             indexed_files: BTreeSet::new(),
             js_ts_path_modules: BTreeMap::new(),
+            js_ts_qualifier_modules: BTreeMap::new(),
+            js_ts_qualifier_exports: BTreeMap::new(),
             js_ts_path_exports: BTreeMap::new(),
             js_ts_exports: BTreeMap::new(),
             js_ts_resolved_exports: BTreeMap::new(),
@@ -1978,6 +1987,8 @@ impl CallGraph {
             module_bindings,
             indexed_files,
             js_ts_path_modules: BTreeMap::new(),
+            js_ts_qualifier_modules: BTreeMap::new(),
+            js_ts_qualifier_exports: BTreeMap::new(),
             js_ts_path_exports: BTreeMap::new(),
             js_ts_exports,
             js_ts_resolved_exports: BTreeMap::new(),
@@ -2214,6 +2225,8 @@ impl CallGraph {
     pub(crate) fn apply_js_paths(&mut self, inputs: Option<&ScopeGraphBuildInputs>) {
         self.js_ts_path_modules.clear();
         self.js_ts_path_exports.clear();
+        self.js_ts_qualifier_modules.clear();
+        self.js_ts_qualifier_exports.clear();
         let Some(inputs) = inputs else {
             return;
         };
@@ -2270,6 +2283,131 @@ impl CallGraph {
                 roots,
             );
             self.js_ts_path_exports.insert(project, resolution.resolved);
+        }
+        // S2 aliases retain the exact P1/P2 resolver. Relative identity uses
+        // captured occupancy and the same caller-project membership selector.
+        let mut qualifier_resolver =
+            crate::js_paths::Resolver::for_qualifiers(&inputs.js_paths_snapshot);
+        for (file, bindings) in &self.import_bindings {
+            for b in bindings
+                .iter()
+                .filter(|b| b.eligible && b.kind == ImportBindingKind::MemberImport)
+            {
+                if !self
+                    .js_ts_exports
+                    .get(file)
+                    .is_some_and(|f| f.esm_named_imports.contains(&b.local))
+                {
+                    continue;
+                }
+                let proof = if b.module_path.starts_with("./") || b.module_path.starts_with("../") {
+                    qualifier_resolver.project(file).and_then(|project| {
+                        qualifier_resolver
+                            .qualifier_hop(&project, file, &b.module_path, &self.indexed_files)
+                            .map(|target| (target, project))
+                    })
+                } else {
+                    self.js_ts_path_modules
+                        .get(&(file.clone(), b.module_path.clone()))
+                        .cloned()
+                };
+                if let Some(proof) = proof {
+                    self.js_ts_qualifier_modules
+                        .insert((file.clone(), b.module_path.clone()), proof);
+                }
+            }
+        }
+        for project in self
+            .js_ts_qualifier_modules
+            .values()
+            .map(|(_, p)| p.clone())
+            .collect::<BTreeSet<_>>()
+        {
+            let resolve_module = |from: &str, spec: &str| {
+                qualifier_resolver.qualifier_hop(&project, from, spec, &self.indexed_files)
+            };
+            let table = crate::js_import_qualifiers::resolve(&self.js_ts_exports, &resolve_module);
+            self.js_ts_qualifier_exports.insert(project, table);
+        }
+        // Revocation is global across the visible files. Refusal-only joins
+        // may over-approximate; they never supply positive module authority.
+        let mut written = BTreeSet::new();
+        let lexical_refusals = self
+            .js_ts_exports
+            .values()
+            .flat_map(|raw| &raw.qualifiers.written)
+            .collect::<BTreeSet<_>>();
+        for table in self.js_ts_qualifier_exports.values() {
+            for identity in table.values().flat_map(|exports| exports.values()) {
+                if lexical_refusals.contains(&identity.local) {
+                    written.insert((identity.file.clone(), identity.local.clone()));
+                }
+            }
+        }
+        for (file, raw) in &self.js_ts_exports {
+            let mut refusals = Vec::new();
+            if let Some(bindings) = self.import_bindings.get(file) {
+                for b in bindings.iter().filter(|b| {
+                    !raw.qualifiers.complete || raw.qualifiers.written.contains(&b.local)
+                }) {
+                    refusals.push((b.module_path.clone(), b.member.clone()));
+                }
+            }
+            for (name, export) in &raw.qualifiers.named {
+                if let crate::js_import_qualifiers::QualifierExport::Forward { module, imported } =
+                    export
+                {
+                    if raw.qualifiers.written.contains(name)
+                        || raw.qualifiers.written.contains(imported)
+                    {
+                        refusals.push((module.clone(), Some(imported.clone())));
+                    }
+                }
+            }
+            for (spec, member) in refusals {
+                let proven = self
+                    .js_ts_qualifier_modules
+                    .get(&(file.clone(), spec.clone()));
+                for (project, table) in &self.js_ts_qualifier_exports {
+                    let module = proven
+                        .map(|(module, _)| module.clone())
+                        .or_else(|| {
+                            qualifier_resolver.qualifier_hop(
+                                project,
+                                file,
+                                &spec,
+                                &self.indexed_files,
+                            )
+                        })
+                        .or_else(|| {
+                            resolve_js_ts_relative_module(&spec, file, &self.indexed_files)
+                        });
+                    // An unjoined namespace has no captured qualifier identity.
+                    // It cannot revoke unrelated class objects merely by existing.
+                    if module.is_none() && member.is_none() {
+                        continue;
+                    }
+                    // Unjoined named imports conservatively cut matching names.
+                    for (_, exports) in table
+                        .iter()
+                        .filter(|(path, _)| module.as_ref().is_none_or(|m| m == *path))
+                    {
+                        for (_, identity) in exports
+                            .iter()
+                            .filter(|(name, _)| member.as_ref().is_none_or(|m| m == *name))
+                        {
+                            written.insert((identity.file.clone(), identity.local.clone()));
+                        }
+                    }
+                }
+            }
+        }
+        for table in self.js_ts_qualifier_exports.values_mut() {
+            for qualifiers in table.values_mut() {
+                qualifiers.retain(|_, identity| {
+                    !written.contains(&(identity.file.clone(), identity.local.clone()))
+                });
+            }
         }
     }
 
@@ -5350,6 +5488,8 @@ impl CallGraph {
             module_bindings: module_bindings_map,
             indexed_files,
             js_ts_path_modules: BTreeMap::new(),
+            js_ts_qualifier_modules: BTreeMap::new(),
+            js_ts_qualifier_exports: BTreeMap::new(),
             js_ts_path_exports: BTreeMap::new(),
             js_ts_exports,
             // P4: whole-program resolved export facts — left empty here,

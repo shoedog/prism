@@ -66,6 +66,7 @@ mod go_receiver_index_visibility;
 mod go_selector_supply;
 mod go_type_alias;
 pub mod js_exports;
+mod js_import_qualifiers;
 mod js_paths;
 mod js_paths_first_pass;
 pub mod js_paths_snapshot;
