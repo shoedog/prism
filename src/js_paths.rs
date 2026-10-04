@@ -324,17 +324,33 @@ impl<'a> Resolver<'a> {
         spec: &str,
         indexed: &BTreeSet<String>,
     ) -> Option<String> {
+        self.resolution(file, spec, indexed).bound()
+    }
+    pub(crate) fn resolution(
+        &mut self,
+        file: &str,
+        spec: &str,
+        indexed: &BTreeSet<String>,
+    ) -> crate::js_packages::Resolution {
+        use crate::js_packages::Resolution;
         if !self.snapshot.complete
             || spec.starts_with('.')
-            || spec.contains(['\\', ':'])
+            || spec.contains('\\')
             || spec.starts_with('/')
             || directory_target(spec)
         {
-            return None;
+            return Resolution::Unsupported("request syntax or incomplete snapshot".into());
         }
-        let c = self.select(file)?;
-        self.resolve_in(&c, file, spec, indexed)
-            .or_else(|| self.package_in(&c, file, spec, indexed))
+        if file.ends_with(".mts") || file.ends_with(".cts") {
+            return Resolution::Unsupported("unindexed writer extension".into());
+        }
+        let Some(c) = self.select(file) else {
+            return Resolution::Unsupported("writer project ownership".into());
+        };
+        if let Some(module) = self.resolve_in(&c, file, spec, indexed) {
+            return Resolution::Bound(module);
+        }
+        self.package_in(&c, file, spec, indexed)
     }
     fn package_in(
         &self,
@@ -342,9 +358,9 @@ impl<'a> Resolver<'a> {
         file: &str,
         spec: &str,
         indexed: &BTreeSet<String>,
-    ) -> Option<String> {
-        // An unresolved supported/unsupported paths match is not permission
-        // to bypass its candidate. Preserve every lane-P refusal and row.
+    ) -> crate::js_packages::Resolution {
+        // Matching paths retain Lane-P authority. Only the earlier positive
+        // proof may bypass this barrier, including for colon specifiers.
         if c.paths.as_ref().is_some_and(|(_, paths)| {
             paths.keys().any(|k| {
                 k == spec
@@ -352,7 +368,7 @@ impl<'a> Resolver<'a> {
                         .is_some_and(|(pre, post)| spec.starts_with(pre) && spec.ends_with(post))
             })
         }) {
-            return None;
+            return crate::js_packages::Resolution::Unsupported("paths authority".into());
         }
         crate::js_packages::resolve(self.snapshot, &c.options, file, spec, indexed)
     }
@@ -365,7 +381,7 @@ impl<'a> Resolver<'a> {
     ) -> Option<String> {
         if !self.snapshot.complete
             || spec.starts_with('.')
-            || spec.contains(['\\', ':'])
+            || spec.contains('\\')
             || spec.starts_with('/')
             || directory_target(spec)
         {
@@ -377,6 +393,7 @@ impl<'a> Resolver<'a> {
             .and_then(Value::as_str)?
             .to_ascii_lowercase();
         if !["node", "node10"].contains(&mode.as_str())
+            && !(spec.contains(':') && ["node16", "nodenext", "bundler"].contains(&mode.as_str()))
             || ["rootDirs", "moduleSuffixes", "noResolve"]
                 .iter()
                 .any(|k| c.options.contains_key(*k))
@@ -468,10 +485,18 @@ impl<'a> Resolver<'a> {
     ) -> Option<String> {
         let c = self.configs.get(project)?.as_ref()?;
         if spec.starts_with("./") || spec.starts_with("../") {
-            self.relative(from, spec, indexed, self.allow_js(project))
+            let (_, _, node_esm) =
+                crate::js_packages::usage_mode(self.snapshot, &c.options, from).ok()?;
+            if node_esm {
+                // ESM relative export hops never add extensions or guess index.
+                // Keep the writer's project; only the barrel's usage format varies.
+                crate::js_packages::relative_esm(self.snapshot, from, spec, indexed)
+            } else {
+                self.relative(from, spec, indexed, self.allow_js(project))
+            }
         } else {
             self.resolve_in(c, from, spec, indexed)
-                .or_else(|| self.package_in(c, from, spec, indexed))
+                .or_else(|| self.package_in(c, from, spec, indexed).bound())
         }
     }
     pub(crate) fn relative(

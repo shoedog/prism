@@ -27,6 +27,8 @@ pub struct JsPathsSnapshot {
     module_packages: BTreeMap<String, Option<Vec<u8>>>,
     #[serde(skip)]
     external_modules: BTreeMap<String, u8>,
+    // Nearest-first outside-root package scopes: 0 absent, 1 readable, 2 opaque.
+    outer_packages: Vec<(String, u8, Option<Vec<u8>>)>,
     #[serde(skip)]
     type_metadata_bytes: u64,
     #[serde(skip)]
@@ -130,6 +132,17 @@ impl JsPathsSnapshot {
                 };
                 s.external_modules
                     .insert(path.to_string_lossy().into(), kind);
+                let package = ancestor.join("package.json");
+                let (kind, bytes) = match std::fs::symlink_metadata(&package) {
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => (0, None),
+                    Ok(m) if m.is_file() && m.len() <= 262_144 => match std::fs::read(&package) {
+                        Ok(b) if b.len() <= 262_144 => (1, Some(b)),
+                        _ => (2, None),
+                    },
+                    _ => (2, None),
+                };
+                s.outer_packages
+                    .push((package.to_string_lossy().into(), kind, bytes));
             }
         }
         s.finish_case_inventory();
@@ -279,6 +292,7 @@ impl JsPathsSnapshot {
             &self.covered,
             &self.type_redirects,
             &self.external_modules,
+            &self.outer_packages,
             &self.links,
             self.case_insensitive,
             self.complete,
@@ -386,6 +400,16 @@ impl JsPathsSnapshot {
             .and_then(Option::as_deref)
             .map(Some)
             .ok_or(())
+    }
+    pub(crate) fn outer_package(&self) -> Result<Option<&[u8]>, ()> {
+        for (_, kind, bytes) in &self.outer_packages {
+            match kind {
+                0 => {}
+                1 => return bytes.as_deref().map(Some).ok_or(()),
+                _ => return Err(()),
+            }
+        }
+        Ok(None)
     }
     pub(crate) fn external_first_pass_absent(&self) -> bool {
         self.external_modules.values().all(|kind| *kind == 0)

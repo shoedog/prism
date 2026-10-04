@@ -234,7 +234,8 @@ use std::path::{Path, PathBuf};
 ///   CallGraph path-module values and export-table keys carry caller config
 ///   paths (String) instead of allowJs flags (bool).
 // v107: package-entry source proofs use captured package metadata/link identity.
-const CACHE_VERSION: u32 = 107;
+// R1 repairs package probing, per-file modes and ESM export hops.
+const CACHE_VERSION: u32 = 108;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -773,7 +774,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 107);
+        assert_eq!(super::CACHE_VERSION, 108);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

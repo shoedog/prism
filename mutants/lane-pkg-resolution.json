@@ -33,13 +33,13 @@
     "PKG06-stop-on-missing-condition": [
       "src/js_packages.rs",
       "Found::Absent => continue,",
-      "Found::Absent => return Found::Blocked,",
+      "Found::Absent => return Found::Blocked(\"missing condition\"),",
       "js_packages_test::pkg_nested_missing_condition_falls_through_only_on_absence"
     ],
     "PKG07-disable-rung": [
       "src/js_paths.rs",
       "crate::js_packages::resolve(self.snapshot, &c.options, file, spec, indexed)",
-      "None",
+      "crate::js_packages::Resolution::Unsupported(\"disabled package rung\".into())",
       "js_packages_test::pkg_node10_index_and_missing_declared_entry"
     ],
     "PKG08-bypass-paths-refusal": [
@@ -47,7 +47,120 @@
       "if c.paths.as_ref().is_some_and(|(_, paths)| {",
       "if false && c.paths.as_ref().is_some_and(|(_, paths)| {",
       "js_packages_test::pkg_discovery_is_not_binding_and_paths_win"
+    ],
+    "PKG09-exact-ts": [
+      "src/js_packages.rs",
+      "if exact && ts_suffix {",
+      "if false && exact && ts_suffix {",
+      "js_packages_test::pkg_r1_exact_ts_exports"
+    ],
+    "PKG10-literal-star": [
+      "src/js_packages.rs",
+      "if pattern {",
+      "if true {",
+      "js_packages_test::pkg_r1_literal_star_and_pattern"
+    ],
+    "PKG11-legacy-declaration": [
+      "src/js_packages.rs",
+      "Some(\".js\" | \".ts\" | \".d.ts\") => (",
+      "Some(\".js\" | \".ts\") => (",
+      "js_packages_test::pkg_r1_missing_legacy_declaration_substitutes_source"
+    ],
+    "PKG12-extension-mode": [
+      "src/js_packages.rs",
+      "if file.ends_with(\".mjs\") || file.ends_with(\".mts\") {",
+      "if false {",
+      "js_packages_test::pkg_r1_writer_extension_mode"
+    ],
+    "PKG13-outer-scope": [
+      "src/js_packages.rs",
+      ".outer_package()",
+      ".outer_package().map(|_| None)",
+      "js_packages_test::pkg_r1_outer_package_scope"
+    ],
+    "PKG14-self-name": [
+      "src/js_packages.rs",
+      "if modern {",
+      "if exports_enabled {",
+      "js_packages_test::pkg_r1_self_name_with_exports_disabled"
+    ],
+    "PKG15-esm-hop": [
+      "src/js_paths.rs",
+      "if node_esm {",
+      "if false && node_esm {",
+      "js_packages_test::pkg_r1_esm_export_hop"
+    ],
+    "PKG16-imports-shadow": [
+      "src/js_packages.rs",
+      "SpecifierClass::PackageImport => return unsupported(\"package imports\"),",
+      "SpecifierClass::PackageImport => {},",
+      "js_packages_test::pkg_r1_imports_shadow_is_unsupported"
+    ],
+    "PKG17-colon-paths": [
+      "src/js_paths.rs",
+      "spec.contains('\\\\')",
+      "spec.contains(['\\\\', ':'])",
+      "js_packages_test::pkg_r1_colon_paths_precede_scheme"
+    ],
+    "PKG18-null": [
+      "src/js_packages.rs",
+      "Json::Null => Found::Absent,",
+      "Json::Null => Found::Blocked(\"null\"),",
+      "js_packages_test::pkg_r1_null_continuation_and_outer_exports"
+    ],
+    "PKG19-outer-continuation": [
+      "src/js_packages.rs",
+      "            match found {\n                Found::Absent => {}\n                v => return result(v),\n            }",
+      "            match found {\n                Found::Absent => return Resolution::ProvenUnresolved,\n                v => return result(v),\n            }",
+      "js_packages_test::pkg_r1_null_continuation_and_outer_exports"
+    ],
+    "PKG20-canonical-subpath": [
+      "src/js_packages.rs",
+      "match norm(root, &sub) {",
+      "match norm(&lexical, &sub) {",
+      "js_packages_test::pkg_r1_legacy_link_subpath_and_bundler_index"
+    ],
+    "PKG21-bundler-index": [
+      "src/js_packages.rs",
+      "if self.node_esm {",
+      "if true {",
+      "js_packages_test::pkg_r1_legacy_link_subpath_and_bundler_index"
+    ],
+    "PKG22-false-absence": [
+      "src/js_packages.rs",
+      "Found::Blocked(reason) => Resolution::Unsupported(reason.into()),",
+      "Found::Blocked(_reason) => Resolution::ProvenUnresolved,",
+      "js_packages_test::pkg_r1_three_way_no_false_absence"
+    ],
+    "PKG23-bind-class": [
+      "src/js_packages.rs",
+      "Found::Source(s) => Resolution::Bound(s),",
+      "Found::Source(_s) => Resolution::ProvenUnresolved,",
+      "js_packages_test::pkg_r1_three_way_no_false_absence"
+    ],
+    "PKG24-missing-class": [
+      "src/js_packages.rs",
+      "if snapshot.external_first_pass_absent() {\n        Resolution::ProvenUnresolved\n    }",
+      "if snapshot.external_first_pass_absent() {\n        Resolution::Unsupported(\"absence\".into())\n    }",
+      "js_packages_test::pkg_r1_three_way_no_false_absence"
+    ],
+    "PKG25-jsx": [
+      "src/js_packages.rs",
+      "if q.ends_with(\".tsx\") && !self.jsx {",
+      "if false && q.ends_with(\".tsx\") && !self.jsx {",
+      "js_packages_test::pkg_r1_tsx_entry_requires_jsx"
+    ],
+    "PKG26-typesversions-subpath": [
+      "src/js_packages.rs",
+      "if !active_exports\n                            && m.as_ref().is_some_and(|m| m.get(\"typesVersions\").is_some())",
+      "if false && !active_exports\n                            && m.as_ref().is_some_and(|m| m.get(\"typesVersions\").is_some())",
+      "js_packages_test::pkg_r1_typesversions_subpath_is_unsupported"
     ]
   },
-  "lib_test_prefixes": []
+  "lib_test_prefixes": [],
+  "intent_revisions": {
+    "PKG06-stop-on-missing-condition": "Retain missing-condition obligation after Blocked gained an explicit reason payload; old mutation did not compile.",
+    "PKG21-bundler-index": "Add manifest-absent bundler index witness: forcing Node ESM still selected the same index.js sibling when metadata was present.",
+    "PKG24-missing-class": "Observe the reachable final native-absence endpoint instead of the internal Found::Absent conversion, which package search handles by continuation."
+  }
 }
