@@ -15,6 +15,44 @@ impl ParsedFile {
             syntax_incomplete: root.has_error(),
             ..Default::default()
         };
+        // Negative source edges survive B0/name capture failure. They never
+        // grant export authority, and exclude runtime import()/require().
+        let mut cursor = root.walk();
+        for stmt in root.named_children(&mut cursor).filter(|n| {
+            matches!(n.kind(), "import_statement" | "export_statement")
+                && !self.js_ts_import_statement_is_type_only(*n)
+        }) {
+            if let Some(source) = stmt.child_by_field_name("source") {
+                if let Some(spec) = self.js_ts_module_export_name(source) {
+                    out.refusal_sources.insert(spec);
+                } else {
+                    out.refusal_source_unavailable = true;
+                }
+            }
+        }
+        let namespaces = self
+            .extract_import_bindings()
+            .into_iter()
+            .filter(|b| b.member.is_none())
+            .map(|b| b.local)
+            .collect::<BTreeSet<_>>();
+        // Exporting a namespace value exposes its contents through static
+        // bindings. The ordinary own/default-export whitelist cannot bless it.
+        let mut stack = vec![root];
+        while let Some(n) = stack.pop() {
+            if n.kind() == "identifier"
+                && namespaces.contains(self.node_text(&n))
+                && n.parent().is_some_and(|p| {
+                    p.kind() == "export_specifier" && p.child_by_field_name("name") == Some(n)
+                        || p.kind() == "export_statement"
+                            && p.child_by_field_name("value") == Some(n)
+                })
+            {
+                out.written.insert(self.node_text(&n).into());
+            }
+            let mut c = n.walk();
+            stack.extend(n.named_children(&mut c));
+        }
         out.written
             .extend(self.js_ts_qualifier_refused_uses(&mut out.called_members));
         if root.has_error()

@@ -799,13 +799,14 @@ fn qualifier_whitelist_allows_declarations_calls_types_and_own_export() {
             "import X from './m'; export function run() { X.sm(); }",
         );
         hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
-        // An opaque external namespace carries no visible identity equal to C.
+        // An unresolved bare package stays unavailable, with no in-repo targets.
         write(
             d.path(),
             &format!("other.{grammar}"),
             "import * as external from 'opaque-package'; consume(external);",
         );
-        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+        let g = graph(d.path());
+        hit(&g, grammar, "sm", &format!("m.{grammar}"));
     }
 }
 
@@ -1138,7 +1139,7 @@ fn repair_r2_out_of_model_default_reacquisition() {
 }
 
 #[test]
-fn repair_r2_out_of_model_namespace_enumeration() {
+fn repair_r3_statically_bound_namespace_enumeration_keeps_base() {
     for grammar in ["jsx", "tsx"] {
         let d = fixture(
             grammar,
@@ -1155,7 +1156,11 @@ fn repair_r2_out_of_model_namespace_enumeration() {
             &format!("other.{grammar}"),
             "import {M} from './barrel'; Object.values(M).forEach(c=>{c.sm=()=>1;});",
         );
-        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+        let g = graph(d.path());
+        assert_eq!(
+            outcome(&g, &format!("app.{grammar}"), "sm"),
+            outcome(&base(g.clone()), &format!("app.{grammar}"), "sm")
+        );
     }
 }
 
@@ -1213,5 +1218,247 @@ fn repair_r2_static_alias_and_reflective_writes_keep_base() {
                 "{grammar}: {writer}"
             );
         }
+    }
+}
+
+#[test]
+fn repair_r3_reviewer_static_refusals_keep_base() {
+    let cases: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/s2_r3_static_refusals.json")).unwrap();
+    let mut failures = Vec::new();
+    for case in cases.as_array().unwrap() {
+        let d = TempDir::new().unwrap();
+        let files = case["files"].as_object().unwrap();
+        for (file, text) in files {
+            write(d.path(), file, text.as_str().unwrap());
+        }
+        let app = if files.contains_key("app.jsx") {
+            "app.jsx"
+        } else {
+            "app.tsx"
+        };
+        let loaded = prism::repo_loader::load_repo(d.path()).unwrap();
+        let main = CallGraph::build(&loaded.files);
+        let before = outcome(&main, app, "sm");
+        assert!(
+            before["resolved_targets"].as_array().unwrap().is_empty(),
+            "{}: main",
+            case["case"]
+        );
+        let after = outcome(&graph(d.path()), app, "sm");
+        if after != before {
+            failures.push(case["case"].as_str().unwrap().to_string());
+        }
+    }
+    assert!(failures.is_empty(), "complete R3 population: {failures:?}");
+}
+
+#[test]
+fn repair_r3_clean_namespace_and_unrelated_closure_controls() {
+    for grammar in ["jsx", "tsx"] {
+        let d = fixture(
+            grammar,
+            "export class C {static sm(){return 0;}}",
+            "import {C as X} from './m'; export function run(){X.sm();}",
+        );
+        write(
+            d.path(),
+            &format!("barrel.{grammar}"),
+            "export * as M from './m';",
+        );
+        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+        // An opaque writer whose fully resolved static closure cannot expose C
+        // must not revoke the separate m identity. Cycles terminate.
+        write(
+            d.path(),
+            &format!("other.{grammar}"),
+            "import Y from './opaque'; Y.sm=()=>1;",
+        );
+        write(
+            d.path(),
+            &format!("opaque.{grammar}"),
+            r"export {\u0044 as default} from './leaf'; export * from './cycle';",
+        );
+        write(
+            d.path(),
+            &format!("leaf.{grammar}"),
+            "export class D {static sm(){return 2;}}",
+        );
+        write(
+            d.path(),
+            &format!("cycle.{grammar}"),
+            "export * from './opaque';",
+        );
+        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+    }
+}
+
+#[test]
+fn repair_r3b_unresolved_package_without_workspace_targets_is_scoped() {
+    for grammar in ["jsx", "tsx"] {
+        for writer in [
+            "import * as Y from '#unavailable'; Y.default.sm=()=>1;",
+            "import Y from '#unavailable'; Y.sm=()=>1;",
+        ] {
+            let d = fixture(
+                grammar,
+                "export class C {static sm(){return 0;}}",
+                "import {C as X} from './m'; export function run(){X.sm();}",
+            );
+            write(d.path(), &format!("other.{grammar}"), writer);
+            let g = graph(d.path());
+            hit(&g, grammar, "sm", &format!("m.{grammar}"));
+        }
+    }
+}
+
+#[test]
+fn repair_r3_writer_project_and_absence_are_scoped() {
+    for grammar in ["jsx", "tsx"] {
+        let d = fixture(
+            grammar,
+            "export class C {static sm(){return 0;}}",
+            "import {C as X} from './m'; export function run(){X.sm();}",
+        );
+        write(
+            d.path(),
+            &format!("leaf.{grammar}"),
+            "export default class Api {static sm(){return 1;}}",
+        );
+        write(d.path(), "w/tsconfig.json", &serde_json::json!({"compilerOptions":{"allowJs":true,"moduleResolution":"node","baseUrl":".","paths":{"#leaf":["../leaf"]},"jsx":"preserve"},"include":["**/*"]}).to_string());
+        write(
+            d.path(),
+            &format!("w/other.{grammar}"),
+            "import * as Y from '#leaf'; Y.default.sm=()=>2;",
+        );
+        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+        write(
+            d.path(),
+            &format!("absent.{grammar}"),
+            "export const unrelated=1;",
+        );
+        write(
+            d.path(),
+            &format!("other.{grammar}"),
+            "import {missing as Z} from './absent'; Z.sm=()=>2;",
+        );
+        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+    }
+}
+
+#[test]
+fn repair_r3_namespace_own_export_is_refused() {
+    for grammar in ["jsx", "tsx"] {
+        for forward in [
+            "import * as N from './m'; export {N};",
+            "import * as N from './m'; export default N;",
+        ] {
+            let d = fixture(
+                grammar,
+                "export default class Api {static sm(){return 0;}}",
+                "import X from './m'; export function run(){X.sm();}",
+            );
+            write(d.path(), &format!("forward.{grammar}"), forward);
+            let g = graph(d.path());
+            assert_eq!(
+                outcome(&g, &format!("app.{grammar}"), "sm"),
+                outcome(&base(g.clone()), &format!("app.{grammar}"), "sm")
+            );
+        }
+    }
+}
+
+#[test]
+fn repair_r3b_resolved_non_qualifiers_and_missing_names_preserve_unrelated_gains() {
+    for grammar in ["jsx", "tsx"] {
+        for leaf in [
+            "export const value=1;",
+            "export function value(){}",
+            "export const value=()=>{};",
+        ] {
+            for spec in ["./other", "@other"] {
+                let d = fixture(
+                    grammar,
+                    "export class C {static sm(){return 0;}}",
+                    "import {C as X} from './m'; export function run(){X.sm();}",
+                );
+                write(d.path(), &format!("leaf.{grammar}"), leaf);
+                write(d.path(), &format!("other.{grammar}"), "export {value} from './leaf'; import Y from 'external-dependency'; consume(Y);");
+                write(d.path(), "tsconfig.json", &serde_json::json!({"compilerOptions":{"allowJs":true,"checkJs":true,"moduleResolution":"node","baseUrl":".","paths":{"@other":["other"]},"jsx":"preserve"},"include":["**/*"]}).to_string());
+                write(d.path(), &format!("writer.{grammar}"), &format!("import {{value as Y, missing as Z}} from '{spec}'; consume(Y); Z.sm=()=>1;"));
+                hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+            }
+        }
+    }
+}
+
+#[test]
+fn repair_r3b_unavailable_relative_closure_is_scoped_and_fail_closed() {
+    for grammar in ["jsx", "tsx"] {
+        let d = fixture(
+            grammar,
+            "export class C {static sm(){return 0;}}",
+            "import {C as X} from './m'; export function run(){X.sm();}",
+        );
+        write(
+            d.path(),
+            &format!("other.{grammar}"),
+            "import Y from './missing'; Y.sm=()=>1;",
+        );
+        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+        write(
+            d.path(),
+            &format!("other.{grammar}"),
+            "import Y from './broken'; Y.sm=()=>1;",
+        );
+        write(
+            d.path(),
+            &format!("broken.{grammar}"),
+            r"export {\u0044 as default} from './leaf'; import E from './missing';",
+        );
+        write(
+            d.path(),
+            &format!("leaf.{grammar}"),
+            "export class D {static sm(){return 2;}}",
+        );
+        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+        write(
+            d.path(),
+            &format!("broken.{grammar}"),
+            r"export {\u0043 as default} from './m'; import E from './missing';",
+        );
+        let g = graph(d.path());
+        assert_eq!(
+            outcome(&g, &format!("app.{grammar}"), "sm"),
+            outcome(&base(g.clone()), &format!("app.{grammar}"), "sm")
+        );
+    }
+}
+
+#[test]
+fn repair_r3b_unresolved_bare_package_scopes_workspace_identities() {
+    for grammar in ["jsx", "tsx"] {
+        let d = fixture(
+            grammar,
+            "export class C {static sm(){return 0;}}",
+            "import {C as X} from './m'; export function run(){X.sm();}",
+        );
+        write(d.path(), "package.json", r#"{"name":"in-repo-package"}"#);
+        write(
+            d.path(),
+            &format!("other.{grammar}"),
+            "import Y from 'external-dependency'; Y.sm=()=>1;",
+        );
+        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+        write(
+            d.path(),
+            &format!("other.{grammar}"),
+            "import Y from 'in-repo-package'; Y.sm=()=>1;",
+        );
+        let g = graph(d.path());
+        assert_eq!(
+            outcome(&g, &format!("app.{grammar}"), "sm"),
+            outcome(&base(g.clone()), &format!("app.{grammar}"), "sm")
+        );
     }
 }

@@ -76,7 +76,7 @@
     ],
     "S2-14-identity-use-whitelist": [
       "src/ast/js_import_qualifiers.rs",
-      "out.written.extend(self.js_ts_qualifier_refused_uses());",
+      "out.written\n            .extend(self.js_ts_qualifier_refused_uses(&mut out.called_members));",
       "// Mutant: omit the closed qualifier-use predicate.",
       "js_import_qualifiers_test::qualifier_identity_whitelist_refuses_all_value_escapes"
     ],
@@ -85,6 +85,90 @@
       "} else if p.ends_with(\".jsx\") {\n                &[\".tsx\", \".ts\", \".d.ts\"]",
       "} else if p.ends_with(\".jsx\") {\n                &[\".ts\", \".tsx\", \".d.ts\"]",
       "js_import_qualifiers_test::explicit_suffix_priority_and_declaration_refusals_in_both_grammars"
+    ],
+    "S2-15-local-own-call": [
+      "src/ast/js_import_qualifiers.rs",
+      "calls.iter().all(|m| members.contains_key(m))",
+      "true || calls.iter().all(|m| members.contains_key(m))",
+      "js_import_qualifiers_test::repair_r1_non_owned_calls_keep_base"
+    ],
+    "S2-16-import-own-call": [
+      "src/call_graph.rs",
+      "calls.iter().any(|m| !identity.members.contains_key(m))",
+      "false && calls.iter().any(|m| !identity.members.contains_key(m))",
+      "js_import_qualifiers_test::repair_r1_non_owned_calls_keep_base"
+    ],
+    "S2-17-heritage": [
+      "src/ast/js_import_qualifiers.rs",
+      "if d.kind() == \"class_declaration\"",
+      "if false && d.kind() == \"class_declaration\"",
+      "js_import_qualifiers_test::repair_r1_non_owned_calls_keep_base"
+    ],
+    "S2-18-construction": [
+      "src/ast/js_import_qualifiers.rs",
+      "if p.kind() == \"new_expression\" && p.child_by_field_name(\"constructor\") == Some(n) {\n            return false;",
+      "if p.kind() == \"new_expression\" && p.child_by_field_name(\"constructor\") == Some(n) {\n            return true;",
+      "js_import_qualifiers_test::repair_r1_construction_keep_base"
+    ],
+    "S2-26-super-newtarget-carrier": [
+      "src/ast/js_import_qualifiers.rs",
+      "refused.extend(self.js_ts_qualifier_receiver_carriers(n));",
+      "refused.extend(BTreeSet::<String>::new());",
+      "js_import_qualifiers_test::repair_r1_receiver_carriers_keep_base"
+    ],
+    "S2-27-all-plausible-this-carriers": [
+      "src/ast/js_import_qualifiers.rs",
+      "carriers.insert(self.node_text(&id).into());",
+      "carriers.insert(self.node_text(&id).into()); break;",
+      "js_import_qualifiers_test::repair_r1_nested_this_keep_base"
+    ],
+    "S2-29-parse-incomplete-global": [
+      "src/call_graph.rs",
+      ".any(|raw| raw.qualifiers.syntax_incomplete)",
+      ".any(|raw| false && raw.qualifiers.syntax_incomplete)",
+      "js_import_qualifiers_test::repair_r1_parse_incomplete_keep_base"
+    ],
+    "S2-30-refusal-only-legacy-opacity": [
+      "src/js_exports.rs",
+      ".filter(|f| !f.qualifiers.syntax_incomplete || !f.is_empty())",
+      ".filter(|_| true)",
+      "js_import_qualifiers_test::repair_r1b_error_refusals_preserve_legacy_star_opacity"
+    ],
+    "S2-31-static-namespace-cascade": [
+      "src/call_graph.rs",
+      "written.extend(crate::js_import_qualifiers::possible_identities(\n                        &self.js_ts_exports,\n                        table,\n                        &mut resolve_negative,\n                        &file,\n                    ));",
+      "// Mutant: omit namespace content cascade.",
+      "js_import_qualifiers_test::repair_r3_reviewer_static_refusals_keep_base"
+    ],
+    "S2-32-namespace-own-export": [
+      "src/ast/js_import_qualifiers.rs",
+      "out.written.insert(self.node_text(&n).into());",
+      "// Mutant: reallow namespace own/default export.",
+      "js_import_qualifiers_test::repair_r3_namespace_own_export_is_refused"
+    ],
+    "S2-33-writer-project": [
+      "src/call_graph.rs",
+      "let writer_project = qualifier_resolver.project(file);",
+      "let writer_project: Option<String> = None;",
+      "js_import_qualifiers_test::repair_r3_writer_project_and_absence_are_scoped"
+    ],
+    "S2-34-unavailable-join-fallback": [
+      "src/call_graph.rs",
+      "written.extend(possible);",
+      "// Mutant: silently discard unavailable refusal.",
+      "js_import_qualifiers_test::repair_r3_reviewer_static_refusals_keep_base"
+    ],
+    "S2-35-negative-source-capture": [
+      "src/ast/js_import_qualifiers.rs",
+      "out.refusal_sources.insert(spec);",
+      "// Mutant: erase negative source edges on B0 failure.",
+      "js_import_qualifiers_test::repair_r3_reviewer_static_refusals_keep_base"
+    ],
+    "S2-36-negative-depth-independent": [
+      "src/js_import_qualifiers.rs",
+      "stack.push(next);",
+      "if seen.len() <= MAX_REEXPORT_DEPTH { stack.push(next); }",
+      "js_import_qualifiers_test::repair_r3_reviewer_static_refusals_keep_base"
     ]
   },
   "extra": {
@@ -107,6 +191,41 @@
         "src/call_graph.rs",
         "!written.contains(&(identity.file.clone(), identity.local.clone()))",
         "true || !written.contains(&(identity.file.clone(), identity.local.clone()))"
+      ]
+    ],
+    "S2-15-local-own-call": [
+      [
+        "src/call_graph.rs",
+        "// Revocation is global across the visible files. Refusal-only joins",
+        "// S2-15-local-own-call scoped selection marker. Refusal-only joins"
+      ]
+    ],
+    "S2-17-heritage": [
+      [
+        "src/call_graph.rs",
+        "// Revocation is global across the visible files. Refusal-only joins",
+        "// S2-17-heritage scoped selection marker. Refusal-only joins"
+      ]
+    ],
+    "S2-18-construction": [
+      [
+        "src/call_graph.rs",
+        "// Revocation is global across the visible files. Refusal-only joins",
+        "// S2-18-construction scoped selection marker. Refusal-only joins"
+      ]
+    ],
+    "S2-26-super-newtarget-carrier": [
+      [
+        "src/call_graph.rs",
+        "// Revocation is global across the visible files. Refusal-only joins",
+        "// S2-26-super-newtarget-carrier scoped selection marker. Refusal-only joins"
+      ]
+    ],
+    "S2-27-all-plausible-this-carriers": [
+      [
+        "src/call_graph.rs",
+        "// Revocation is global across the visible files. Refusal-only joins",
+        "// S2-27-all-plausible-this-carriers scoped selection marker. Refusal-only joins"
       ]
     ]
   },

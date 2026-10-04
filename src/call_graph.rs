@@ -2385,47 +2385,96 @@ impl CallGraph {
                 }
             }
             for (spec, member, refuse, calls) in refusals {
+                // A writer's own project is the first authority for negative
+                // source resolution, including namespace bindings absent from P1.
+                let writer_project = qualifier_resolver.project(file);
                 let proven = self
                     .js_ts_qualifier_modules
                     .get(&(file.clone(), spec.clone()));
                 for (project, table) in &self.js_ts_qualifier_exports {
-                    let module = proven
-                        .map(|(module, _)| module.clone())
-                        .or_else(|| {
-                            qualifier_resolver.qualifier_hop(
+                    let module = writer_project
+                        .as_ref()
+                        .and_then(|p| {
+                            qualifier_resolver.qualifier_hop(p, file, &spec, &self.indexed_files)
+                        })
+                        .or_else(|| proven.map(|(module, _)| module.clone()));
+                    let module = module
+                        .map(crate::js_import_qualifiers::RefusalModule::Resolved)
+                        .unwrap_or_else(|| {
+                            qualifier_resolver.refusal_module(
                                 project,
                                 file,
                                 &spec,
                                 &self.indexed_files,
                             )
-                        })
-                        .or_else(|| {
-                            resolve_js_ts_relative_module(&spec, file, &self.indexed_files)
                         });
-                    // An unjoined namespace has no captured qualifier identity.
-                    // It cannot revoke unrelated class objects merely by existing.
-                    if module.is_none() && member.is_none() {
-                        continue;
-                    }
-                    // Unjoined named imports conservatively cut matching names.
-                    for (_, exports) in table
-                        .iter()
-                        .filter(|(path, _)| module.as_ref().is_none_or(|m| m == *path))
-                    {
-                        for (_, identity) in exports
-                            .iter()
-                            .filter(|(name, _)| member.as_ref().is_none_or(|m| m == *name))
-                        {
-                            if refuse
-                                || calls.is_some_and(|calls| {
-                                    calls.iter().any(|m| !identity.members.contains_key(m))
-                                })
-                            {
-                                written.insert((identity.file.clone(), identity.local.clone()));
+                    let mut resolve_negative = |from: &str, source: &str| {
+                        qualifier_resolver.refusal_module(
+                            project,
+                            from,
+                            source,
+                            &self.indexed_files,
+                        )
+                    };
+                    use crate::js_import_qualifiers::RefusalJoin;
+                    match crate::js_import_qualifiers::refusal_join(
+                        &self.js_ts_exports,
+                        table,
+                        &mut resolve_negative,
+                        module,
+                        member.as_deref(),
+                    ) {
+                        RefusalJoin::Joined(identities) => {
+                            for identity in identities {
+                                if refuse
+                                    || calls.is_some_and(|calls| {
+                                        calls.iter().any(|m| !identity.members.contains_key(m))
+                                    })
+                                {
+                                    written.insert((identity.file.clone(), identity.local.clone()));
+                                }
                             }
+                        }
+                        RefusalJoin::ProvedAbsent => {}
+                        RefusalJoin::Unavailable(possible) => {
+                            if std::env::var_os("PRISM_S2_REFUSAL_DIAGNOSTICS").is_some() {
+                                eprintln!("S2 unavailable refusal join: writer={file} spec={spec} member={member:?} possible={possible:?}");
+                            }
+                            written.extend(possible);
                         }
                     }
                 }
+            }
+        }
+        // Namespace revocation cascades to every qualifier the namespace can
+        // expose, including forwarded and nested namespace values, to fixpoint.
+        loop {
+            let before = written.len();
+            for (project, table) in &self.js_ts_qualifier_exports {
+                let namespaces = written
+                    .iter()
+                    .filter(|(_, local)| local == "*namespace*")
+                    .map(|(file, _)| file.clone())
+                    .collect::<Vec<_>>();
+                for file in namespaces {
+                    let mut resolve_negative = |from: &str, source: &str| {
+                        qualifier_resolver.refusal_module(
+                            project,
+                            from,
+                            source,
+                            &self.indexed_files,
+                        )
+                    };
+                    written.extend(crate::js_import_qualifiers::possible_identities(
+                        &self.js_ts_exports,
+                        table,
+                        &mut resolve_negative,
+                        &file,
+                    ));
+                }
+            }
+            if written.len() == before {
+                break;
             }
         }
         for table in self.js_ts_qualifier_exports.values_mut() {

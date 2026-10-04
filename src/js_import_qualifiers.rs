@@ -24,6 +24,8 @@ pub enum QualifierExport {
 pub struct QualifierFacts {
     pub complete: bool,
     pub syntax_incomplete: bool,
+    pub refusal_sources: BTreeSet<String>,
+    pub refusal_source_unavailable: bool,
     pub named: BTreeMap<String, QualifierExport>,
     pub conflicted: BTreeSet<String>,
     pub locals: BTreeMap<String, Members>,
@@ -38,6 +40,184 @@ impl QualifierFacts {
             self.conflicted.insert(name);
         }
     }
+}
+
+pub(crate) type RefusedIdentities = BTreeSet<(String, String)>;
+
+/// Absence is a proof outcome, never a failed positive-table lookup.
+pub(crate) enum RefusalJoin {
+    Joined(Vec<QualifierIdentity>),
+    ProvedAbsent,
+    Unavailable(RefusedIdentities),
+}
+
+#[derive(Clone)]
+pub(crate) enum RefusalModule {
+    Resolved(String),
+    Unavailable(BTreeSet<String>),
+    Opaque,
+}
+
+/// Resolution failure carries its reachable module set. Only fully opaque
+/// source spelling permits the global identity set.
+pub(crate) fn refusal_join(
+    raw: &BTreeMap<String, JsExportFacts>,
+    table: &QualifierTable,
+    module: &mut dyn FnMut(&str, &str) -> RefusalModule,
+    target: RefusalModule,
+    member: Option<&str>,
+) -> RefusalJoin {
+    let target = match target {
+        RefusalModule::Resolved(target) => target,
+        other => return RefusalJoin::Unavailable(module_identities(raw, table, module, other)),
+    };
+    // A namespace can expose exports omitted by the positive depth/name proof
+    // even when some other exports joined. Retain its entire static closure.
+    if member.is_none() {
+        return RefusalJoin::Unavailable(possible_identities(raw, table, module, &target));
+    }
+    refusal_name(
+        raw,
+        table,
+        module,
+        &target,
+        member.unwrap(),
+        0,
+        &mut BTreeSet::new(),
+    )
+}
+
+fn refusal_name(
+    raw: &BTreeMap<String, JsExportFacts>,
+    table: &QualifierTable,
+    module: &mut dyn FnMut(&str, &str) -> RefusalModule,
+    target: &str,
+    name: &str,
+    depth: usize,
+    seen: &mut BTreeSet<(String, String)>,
+) -> RefusalJoin {
+    let key = (target.to_owned(), name.to_owned());
+    if depth > MAX_REEXPORT_DEPTH || name.contains('\\') || !seen.insert(key.clone()) {
+        return RefusalJoin::Unavailable(possible_identities(raw, table, module, target));
+    }
+    let result = (|| {
+        let Some(f) = raw
+            .get(target)
+            .filter(|f| f.qualifiers.complete && !f.qualifiers.conflicted.contains(name))
+        else {
+            return RefusalJoin::Unavailable(possible_identities(raw, table, module, target));
+        };
+        if let Some(identity) = table.get(target).and_then(|exports| exports.get(name)) {
+            return RefusalJoin::Joined(vec![identity.clone()]);
+        }
+        match f.qualifiers.named.get(name) {
+            Some(QualifierExport::Other | QualifierExport::Local(_)) => RefusalJoin::ProvedAbsent,
+            Some(QualifierExport::Forward {
+                module: spec,
+                imported,
+            }) => match module(target, spec) {
+                RefusalModule::Resolved(next) => {
+                    refusal_name(raw, table, module, &next, imported, depth + 1, seen)
+                }
+                other => RefusalJoin::Unavailable(module_identities(raw, table, module, other)),
+            },
+            Some(QualifierExport::Namespace(_)) => {
+                RefusalJoin::Unavailable(possible_identities(raw, table, module, target))
+            }
+            None => {
+                let mut joined = Vec::new();
+                let mut possible = BTreeSet::new();
+                let mut unavailable = false;
+                if name != "default" {
+                    for spec in &f.star_reexports {
+                        let resolution = module(target, spec);
+                        let outcome = match resolution {
+                            RefusalModule::Resolved(next) => {
+                                refusal_name(raw, table, module, &next, name, depth + 1, seen)
+                            }
+                            other => RefusalJoin::Unavailable(module_identities(
+                                raw, table, module, other,
+                            )),
+                        };
+                        match outcome {
+                            RefusalJoin::Joined(identities) => joined.extend(identities),
+                            RefusalJoin::ProvedAbsent => {}
+                            RefusalJoin::Unavailable(identities) => {
+                                unavailable = true;
+                                possible.extend(identities);
+                            }
+                        }
+                    }
+                }
+                if unavailable {
+                    possible.extend(joined.into_iter().map(|i| (i.file, i.local)));
+                    RefusalJoin::Unavailable(possible)
+                } else if joined.is_empty() {
+                    RefusalJoin::ProvedAbsent
+                } else {
+                    RefusalJoin::Joined(joined)
+                }
+            }
+        }
+    })();
+    seen.remove(&key);
+    result
+}
+
+fn module_identities(
+    raw: &BTreeMap<String, JsExportFacts>,
+    table: &QualifierTable,
+    module: &mut dyn FnMut(&str, &str) -> RefusalModule,
+    resolution: RefusalModule,
+) -> RefusedIdentities {
+    match resolution {
+        RefusalModule::Resolved(file) => possible_identities(raw, table, module, &file),
+        RefusalModule::Unavailable(files) => files
+            .into_iter()
+            .flat_map(|file| possible_identities(raw, table, module, &file))
+            .collect(),
+        RefusalModule::Opaque => table
+            .values()
+            .flat_map(|exports| exports.values())
+            .map(|i| (i.file.clone(), i.local.clone()))
+            .collect(),
+    }
+}
+
+pub(crate) fn possible_identities(
+    raw: &BTreeMap<String, JsExportFacts>,
+    table: &QualifierTable,
+    module: &mut dyn FnMut(&str, &str) -> RefusalModule,
+    target: &str,
+) -> RefusedIdentities {
+    let mut seen = BTreeSet::new();
+    let mut stack = vec![target.to_string()];
+    let mut opaque = false;
+    while let Some(file) = stack.pop() {
+        if !seen.insert(file.clone()) {
+            continue;
+        }
+        let Some(f) = raw.get(&file) else {
+            continue;
+        };
+        opaque |= f.qualifiers.refusal_source_unavailable;
+        for spec in &f.qualifiers.refusal_sources {
+            match module(&file, spec) {
+                RefusalModule::Resolved(next) => stack.push(next),
+                RefusalModule::Unavailable(files) => stack.extend(files),
+                RefusalModule::Opaque => opaque = true,
+            }
+        }
+    }
+    table
+        .iter()
+        .flat_map(|(file, exports)| {
+            exports
+                .values()
+                .filter(|i| opaque || seen.contains(file) || seen.contains(&i.file))
+        })
+        .map(|i| (i.file.clone(), i.local.clone()))
+        .collect()
 }
 
 pub(crate) fn resolve(

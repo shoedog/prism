@@ -27,6 +27,7 @@ pub(crate) struct Resolver<'a> {
     configs: BTreeMap<String, Option<Rc<Config>>>,
     selected: BTreeMap<String, Option<Rc<Config>>>,
     qualifier_mode: bool,
+    refusal_modules: BTreeMap<(String, String, String), crate::js_import_qualifiers::RefusalModule>,
 }
 impl<'a> Resolver<'a> {
     pub(crate) fn new(snapshot: &'a JsPathsSnapshot) -> Self {
@@ -35,6 +36,7 @@ impl<'a> Resolver<'a> {
             configs: BTreeMap::new(),
             selected: BTreeMap::new(),
             qualifier_mode: false,
+            refusal_modules: BTreeMap::new(),
         }
     }
     pub(crate) fn for_qualifiers(snapshot: &'a JsPathsSnapshot) -> Self {
@@ -447,6 +449,102 @@ impl<'a> Resolver<'a> {
     pub(crate) fn project(&mut self, file: &str) -> Option<String> {
         Some(self.select(file)?.config_path.clone())
     }
+    /// Refusal-only reachability. Failed authority never widens a literal path
+    /// or package name to identities in unrelated modules.
+    pub(crate) fn refusal_module(
+        &mut self,
+        fallback: &str,
+        from: &str,
+        spec: &str,
+        indexed: &BTreeSet<String>,
+    ) -> crate::js_import_qualifiers::RefusalModule {
+        let key = (fallback.to_owned(), from.to_owned(), spec.to_owned());
+        if let Some(result) = self.refusal_modules.get(&key) {
+            return result.clone();
+        }
+        let result = self.refusal_module_inner(fallback, from, spec, indexed);
+        self.refusal_modules.insert(key, result.clone());
+        result
+    }
+
+    fn refusal_module_inner(
+        &mut self,
+        fallback: &str,
+        from: &str,
+        spec: &str,
+        indexed: &BTreeSet<String>,
+    ) -> crate::js_import_qualifiers::RefusalModule {
+        use crate::js_import_qualifiers::RefusalModule;
+        let own = self.project(from);
+        if let Some(target) = own
+            .as_ref()
+            .and_then(|p| self.qualifier_hop(p, from, spec, indexed))
+            .or_else(|| self.qualifier_hop(fallback, from, spec, indexed))
+            .or_else(|| crate::call_graph::resolve_js_ts_relative_module(spec, from, indexed))
+        {
+            return RefusalModule::Resolved(target);
+        }
+        if spec.trim() != spec || spec.contains(['\\', ':']) || spec.starts_with('/') {
+            return RefusalModule::Opaque;
+        }
+        let mut paths = BTreeSet::new();
+        let mut packages = BTreeSet::new();
+        if spec.starts_with("./") || spec.starts_with("../") {
+            if let Some(p) = norm(dir(from), spec) {
+                paths.insert(p);
+            }
+        } else {
+            // Paths substitutions remain possible even when a proof guard or
+            // occupancy conflict prevents selecting a unique winner.
+            for project in own.iter().map(String::as_str).chain([fallback]) {
+                if let Some((origin, aliases)) = self
+                    .configs
+                    .get(project)
+                    .and_then(Option::as_ref)
+                    .and_then(|c| c.paths.as_ref())
+                {
+                    let c = self.configs.get(project).and_then(Option::as_ref).unwrap();
+                    for (pattern, targets) in aliases {
+                        let capture = match pattern.split_once('*') {
+                            Some((pre, post)) => {
+                                spec.strip_prefix(pre).and_then(|s| s.strip_suffix(post))
+                            }
+                            None => (pattern == spec).then_some(""),
+                        };
+                        if let Some(capture) = capture {
+                            for target in targets {
+                                if let Some(p) = norm(
+                                    c.base.as_deref().unwrap_or(origin),
+                                    &target.replace('*', capture),
+                                ) {
+                                    paths.insert(p);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            for (directory, name) in &self.snapshot.qualifier_packages {
+                if name
+                    .as_ref()
+                    .is_none_or(|name| spec == name || spec.starts_with(&format!("{name}/")))
+                {
+                    packages.insert(directory.clone());
+                }
+            }
+        }
+        let candidates = indexed
+            .iter()
+            .filter(|file| {
+                packages
+                    .iter()
+                    .any(|p| p.is_empty() || file.starts_with(&format!("{p}/")))
+                    || paths.iter().any(|p| refusal_path_matches(p, file))
+            })
+            .cloned()
+            .collect();
+        RefusalModule::Unavailable(candidates)
+    }
     /// S2-only explicit emitted-JS spelling -> captured TS source. Ordinary
     /// relative and alias hops retain P2's occupancy/priority-pass guards.
     pub(crate) fn qualifier_hop(
@@ -610,6 +708,19 @@ impl<'a> Resolver<'a> {
             && !q.ends_with(".d.ts"))
         .then_some(q)
     }
+}
+
+fn refusal_path_matches(path: &str, file: &str) -> bool {
+    if file == path {
+        return true;
+    }
+    let stem = [".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"]
+        .iter()
+        .find_map(|suffix| path.strip_suffix(suffix))
+        .unwrap_or(path);
+    [".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"]
+        .iter()
+        .any(|ext| file == &format!("{stem}{ext}") || file == &format!("{path}/index{ext}"))
 }
 
 fn directory_target(p: &str) -> bool {

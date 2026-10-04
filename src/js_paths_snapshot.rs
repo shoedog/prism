@@ -13,6 +13,8 @@ pub struct JsPathsSnapshot {
     pub(crate) complete: bool,
     opaque_directories: BTreeSet<String>,
     package_hashes: BTreeMap<String, String>,
+    #[serde(default)]
+    pub(crate) qualifier_packages: BTreeMap<String, Option<String>>,
     pub(crate) ambient: BTreeMap<String, Vec<String>>,
     pub(crate) references: BTreeMap<String, Vec<(String, String)>>,
     // The ambient scan, unlike the indexing walk, covers skipped directories.
@@ -165,16 +167,25 @@ impl JsPathsSnapshot {
                 self.opaque_directories.insert(rel.to_owned());
             }
             if name == "package.json" {
-                let digest = if !blocked
+                let bytes = if !blocked
                     && ft.is_file()
                     && entry.metadata().is_ok_and(|m| m.len() <= 262_144)
                 {
-                    std::fs::read(&p)
-                        .ok()
-                        .map(|b| format!("{:x}", Sha256::digest(b)))
+                    std::fs::read(&p).ok()
                 } else {
                     None
                 };
+                self.qualifier_packages.insert(
+                    crate::js_paths_syntax::dir(rel).to_string(),
+                    bytes.as_deref().and_then(|b| {
+                        serde_json::from_slice::<serde_json::Value>(b)
+                            .ok()?
+                            .get("name")?
+                            .as_str()
+                            .map(str::to_owned)
+                    }),
+                );
+                let digest = bytes.map(|b| format!("{:x}", Sha256::digest(b)));
                 self.package_hashes
                     .insert(rel.to_owned(), digest.unwrap_or_else(|| "opaque".into()));
             }

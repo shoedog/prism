@@ -1,0 +1,890 @@
+[
+  {
+    "case": "aliased-namespace-jsx",
+    "files": {
+      "app.jsx": "import {C as X} from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "export * as M from './m';\n",
+      "m.jsx": "export class C {static sm(){return 0;}}\n",
+      "other.jsx": "import {M as Q} from './barrel'; const A=Q; A['C'].sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "aliased-namespace-tsx",
+    "files": {
+      "app.tsx": "import {C as X} from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "export * as M from './m';\n",
+      "m.tsx": "export class C {static sm(){return 0;}}\n",
+      "other.tsx": "import {M as Q} from './barrel'; const A=Q; A['C'].sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "computed-named-jsx",
+    "files": {
+      "app.jsx": "import {C as X} from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "export * as M from './m';\n",
+      "m.jsx": "export class C {static sm(){return 0;}}\n",
+      "other.jsx": "import {M as Q} from './barrel'; Q['C'].sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "computed-named-tsx",
+    "files": {
+      "app.tsx": "import {C as X} from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "export * as M from './m';\n",
+      "m.tsx": "export class C {static sm(){return 0;}}\n",
+      "other.tsx": "import {M as Q} from './barrel'; Q['C'].sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "default-alias-jsx",
+    "files": {
+      "app.jsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "export * as M from './m';\n",
+      "forward.jsx": "export {M} from './barrel';\n",
+      "m.jsx": "export default class C {static sm(){return 0;}}\n",
+      "other.jsx": "import {M as Q} from './barrel'; const A=Q.default; A.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "default-alias-tsx",
+    "files": {
+      "app.tsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "export * as M from './m';\n",
+      "forward.tsx": "export {M} from './barrel';\n",
+      "m.tsx": "export default class C {static sm(){return 0;}}\n",
+      "other.tsx": "import {M as Q} from './barrel'; const A=Q.default; A.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "default-computed-jsx",
+    "files": {
+      "app.jsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "export * as M from './m';\n",
+      "forward.jsx": "export {M} from './barrel';\n",
+      "m.jsx": "export default class C {static sm(){return 0;}}\n",
+      "other.jsx": "import {M as Q} from './barrel'; Q['default'].sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "default-computed-tsx",
+    "files": {
+      "app.tsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "export * as M from './m';\n",
+      "forward.tsx": "export {M} from './barrel';\n",
+      "m.tsx": "export default class C {static sm(){return 0;}}\n",
+      "other.tsx": "import {M as Q} from './barrel'; Q['default'].sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "default-direct-jsx",
+    "files": {
+      "app.jsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "export * as M from './m';\n",
+      "forward.jsx": "export {M} from './barrel';\n",
+      "m.jsx": "export default class C {static sm(){return 0;}}\n",
+      "other.jsx": "import {M as Q} from './barrel'; Q.default.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "default-direct-tsx",
+    "files": {
+      "app.tsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "export * as M from './m';\n",
+      "forward.tsx": "export {M} from './barrel';\n",
+      "m.tsx": "export default class C {static sm(){return 0;}}\n",
+      "other.tsx": "import {M as Q} from './barrel'; Q.default.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "default-exported-default-ns-jsx",
+    "files": {
+      "app.jsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "import * as M from './m'; export default M;\n",
+      "forward.jsx": "export {M} from './barrel';\n",
+      "m.jsx": "export default class C {static sm(){return 0;}}\n",
+      "other.jsx": "import Q from './barrel'; Q.default.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "default-exported-default-ns-tsx",
+    "files": {
+      "app.tsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "import * as M from './m'; export default M;\n",
+      "forward.tsx": "export {M} from './barrel';\n",
+      "m.tsx": "export default class C {static sm(){return 0;}}\n",
+      "other.tsx": "import Q from './barrel'; Q.default.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "default-forwarded-jsx",
+    "files": {
+      "app.jsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "export * as M from './m';\n",
+      "forward.jsx": "export {M} from './barrel';\n",
+      "m.jsx": "export default class C {static sm(){return 0;}}\n",
+      "other.jsx": "import {M as Q} from './forward'; Q.default.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "default-forwarded-tsx",
+    "files": {
+      "app.tsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "export * as M from './m';\n",
+      "forward.tsx": "export {M} from './barrel';\n",
+      "m.tsx": "export default class C {static sm(){return 0;}}\n",
+      "other.tsx": "import {M as Q} from './forward'; Q.default.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "default-ns-in-ns-jsx",
+    "files": {
+      "app.jsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "export * as M from './m';\n",
+      "forward.jsx": "export {M} from './barrel';\n",
+      "m.jsx": "export default class C {static sm(){return 0;}}\n",
+      "other.jsx": "import * as B from './barrel'; B.M.default.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "default-ns-in-ns-tsx",
+    "files": {
+      "app.tsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "export * as M from './m';\n",
+      "forward.tsx": "export {M} from './barrel';\n",
+      "m.tsx": "export default class C {static sm(){return 0;}}\n",
+      "other.tsx": "import * as B from './barrel'; B.M.default.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "default-provider-local-default-jsx",
+    "files": {
+      "app.jsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "export * as M from './m';\n",
+      "forward.jsx": "export {M} from './barrel';\n",
+      "m.jsx": "class C {static sm(){return 0;}} export default C;\n",
+      "other.jsx": "import {M as Q} from './barrel'; Q.default.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "default-provider-local-default-tsx",
+    "files": {
+      "app.tsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "export * as M from './m';\n",
+      "forward.tsx": "export {M} from './barrel';\n",
+      "m.tsx": "class C {static sm(){return 0;}} export default C;\n",
+      "other.tsx": "import {M as Q} from './barrel'; Q.default.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "default-reflect-static-jsx",
+    "files": {
+      "app.jsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "export * as M from './m';\n",
+      "forward.jsx": "export {M} from './barrel';\n",
+      "m.jsx": "export default class C {static sm(){return 0;}}\n",
+      "other.jsx": "import {M as Q} from './barrel'; Reflect.set(Q.default,'sm',()=>1);\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "default-reflect-static-tsx",
+    "files": {
+      "app.tsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "export * as M from './m';\n",
+      "forward.tsx": "export {M} from './barrel';\n",
+      "m.tsx": "export default class C {static sm(){return 0;}}\n",
+      "other.tsx": "import {M as Q} from './barrel'; Reflect.set(Q.default,'sm',()=>1);\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "default-writer-control-jsx",
+    "files": {
+      "app.jsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "export {default} from './m';\n",
+      "forward.jsx": "export {M} from './barrel';\n",
+      "m.jsx": "export default class C {static sm(){return 0;}}\n",
+      "other.jsx": "import Q from './barrel'; Q.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "default-writer-control-tsx",
+    "files": {
+      "app.tsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "export {default} from './m';\n",
+      "forward.tsx": "export {M} from './barrel';\n",
+      "m.tsx": "export default class C {static sm(){return 0;}}\n",
+      "other.tsx": "import Q from './barrel'; Q.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "depth-0-jsx",
+    "files": {
+      "app.jsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "m.jsx": "export default class C {static sm(){return 0;}}\n",
+      "other.jsx": "import Y from './m'; Y.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "depth-0-tsx",
+    "files": {
+      "app.tsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "m.tsx": "export default class C {static sm(){return 0;}}\n",
+      "other.tsx": "import Y from './m'; Y.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "depth-1-jsx",
+    "files": {
+      "app.jsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "b1.jsx": "export {default} from './m';\n",
+      "m.jsx": "export default class C {static sm(){return 0;}}\n",
+      "other.jsx": "import Y from './b1'; Y.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "depth-1-tsx",
+    "files": {
+      "app.tsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "b1.tsx": "export {default} from './m';\n",
+      "m.tsx": "export default class C {static sm(){return 0;}}\n",
+      "other.tsx": "import Y from './b1'; Y.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "depth-2-jsx",
+    "files": {
+      "app.jsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "b1.jsx": "export {default} from './m';\n",
+      "b2.jsx": "export {default} from './b1';\n",
+      "m.jsx": "export default class C {static sm(){return 0;}}\n",
+      "other.jsx": "import Y from './b2'; Y.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "depth-2-tsx",
+    "files": {
+      "app.tsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "b1.tsx": "export {default} from './m';\n",
+      "b2.tsx": "export {default} from './b1';\n",
+      "m.tsx": "export default class C {static sm(){return 0;}}\n",
+      "other.tsx": "import Y from './b2'; Y.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "depth-3-jsx",
+    "files": {
+      "app.jsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "b1.jsx": "export {default} from './m';\n",
+      "b2.jsx": "export {default} from './b1';\n",
+      "b3.jsx": "export {default} from './b2';\n",
+      "m.jsx": "export default class C {static sm(){return 0;}}\n",
+      "other.jsx": "import Y from './b3'; Y.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "depth-3-tsx",
+    "files": {
+      "app.tsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "b1.tsx": "export {default} from './m';\n",
+      "b2.tsx": "export {default} from './b1';\n",
+      "b3.tsx": "export {default} from './b2';\n",
+      "m.tsx": "export default class C {static sm(){return 0;}}\n",
+      "other.tsx": "import Y from './b3'; Y.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "depth-4-jsx",
+    "files": {
+      "app.jsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "b1.jsx": "export {default} from './m';\n",
+      "b2.jsx": "export {default} from './b1';\n",
+      "b3.jsx": "export {default} from './b2';\n",
+      "b4.jsx": "export {default} from './b3';\n",
+      "m.jsx": "export default class C {static sm(){return 0;}}\n",
+      "other.jsx": "import Y from './b4'; Y.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "depth-4-tsx",
+    "files": {
+      "app.tsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "b1.tsx": "export {default} from './m';\n",
+      "b2.tsx": "export {default} from './b1';\n",
+      "b3.tsx": "export {default} from './b2';\n",
+      "b4.tsx": "export {default} from './b3';\n",
+      "m.tsx": "export default class C {static sm(){return 0;}}\n",
+      "other.tsx": "import Y from './b4'; Y.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "depth-5-jsx",
+    "files": {
+      "app.jsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "b1.jsx": "export {default} from './m';\n",
+      "b2.jsx": "export {default} from './b1';\n",
+      "b3.jsx": "export {default} from './b2';\n",
+      "b4.jsx": "export {default} from './b3';\n",
+      "b5.jsx": "export {default} from './b4';\n",
+      "m.jsx": "export default class C {static sm(){return 0;}}\n",
+      "other.jsx": "import Y from './b5'; Y.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "depth-5-tsx",
+    "files": {
+      "app.tsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "b1.tsx": "export {default} from './m';\n",
+      "b2.tsx": "export {default} from './b1';\n",
+      "b3.tsx": "export {default} from './b2';\n",
+      "b4.tsx": "export {default} from './b3';\n",
+      "b5.tsx": "export {default} from './b4';\n",
+      "m.tsx": "export default class C {static sm(){return 0;}}\n",
+      "other.tsx": "import Y from './b5'; Y.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "destructure-default-jsx",
+    "files": {
+      "app.jsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "export * as M from './m';\n",
+      "m.jsx": "export default class C {static sm(){return 0;}}\n",
+      "other.jsx": "import {M as Q} from './barrel'; const {default: A}=Q; A.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "destructure-default-tsx",
+    "files": {
+      "app.tsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "export * as M from './m';\n",
+      "m.tsx": "export default class C {static sm(){return 0;}}\n",
+      "other.tsx": "import {M as Q} from './barrel'; const {default: A}=Q; A.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "ns-default-export-write-jsx",
+    "files": {
+      "app.jsx": "import {C as X} from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "import * as M from './m'; export default M;\n",
+      "forward.jsx": "export {M} from './barrel';\n",
+      "m.jsx": "export class C {static sm(){return 0;}}\n",
+      "other.jsx": "import Q from './barrel'; Q.C.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "ns-default-export-write-tsx",
+    "files": {
+      "app.tsx": "import {C as X} from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "import * as M from './m'; export default M;\n",
+      "forward.tsx": "export {M} from './barrel';\n",
+      "m.tsx": "export class C {static sm(){return 0;}}\n",
+      "other.tsx": "import Q from './barrel'; Q.C.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "ns-default-write-jsx",
+    "files": {
+      "app.jsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "export * as M from './m';\n",
+      "forward.jsx": "export {M} from './barrel';\n",
+      "m.jsx": "export default class C {static sm(){return 0;}}\n",
+      "other.jsx": "import {M as Q} from './barrel'; Q.default.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "ns-default-write-tsx",
+    "files": {
+      "app.tsx": "import X from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "export * as M from './m';\n",
+      "forward.tsx": "export {M} from './barrel';\n",
+      "m.tsx": "export default class C {static sm(){return 0;}}\n",
+      "other.tsx": "import {M as Q} from './barrel'; Q.default.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "ns-forward-write-jsx",
+    "files": {
+      "app.jsx": "import {C as X} from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "export * as M from './m';\n",
+      "forward.jsx": "export {M} from './barrel';\n",
+      "m.jsx": "export class C {static sm(){return 0;}}\n",
+      "other.jsx": "import {M as Q} from './forward'; Q.C.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "ns-forward-write-tsx",
+    "files": {
+      "app.tsx": "import {C as X} from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "export * as M from './m';\n",
+      "forward.tsx": "export {M} from './barrel';\n",
+      "m.tsx": "export class C {static sm(){return 0;}}\n",
+      "other.tsx": "import {M as Q} from './forward'; Q.C.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "ns-named-alias-jsx",
+    "files": {
+      "app.jsx": "import {C as X} from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "export * as M from './m';\n",
+      "forward.jsx": "export {M} from './barrel';\n",
+      "m.jsx": "export class C {static sm(){return 0;}}\n",
+      "other.jsx": "import {M} from './barrel'; const A=M.C; A.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "ns-named-alias-tsx",
+    "files": {
+      "app.tsx": "import {C as X} from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "export * as M from './m';\n",
+      "forward.tsx": "export {M} from './barrel';\n",
+      "m.tsx": "export class C {static sm(){return 0;}}\n",
+      "other.tsx": "import {M} from './barrel'; const A=M.C; A.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "ns-named-write-jsx",
+    "files": {
+      "app.jsx": "import {C as X} from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "export * as M from './m';\n",
+      "forward.jsx": "export {M} from './barrel';\n",
+      "m.jsx": "export class C {static sm(){return 0;}}\n",
+      "other.jsx": "import {M} from './barrel'; M.C.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "ns-named-write-tsx",
+    "files": {
+      "app.tsx": "import {C as X} from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "export * as M from './m';\n",
+      "forward.tsx": "export {M} from './barrel';\n",
+      "m.tsx": "export class C {static sm(){return 0;}}\n",
+      "other.tsx": "import {M} from './barrel'; M.C.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "opaque-forward-escaped-jsx",
+    "files": {
+      "app.jsx": "import {C as X} from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "export {\\u0043 as default} from './m';\n",
+      "m.jsx": "export class C {static sm(){return 0;}}\n",
+      "other.jsx": "import Y from './barrel'; Y.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "opaque-forward-escaped-tsx",
+    "files": {
+      "app.tsx": "import {C as X} from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "export {\\u0043 as default} from './m';\n",
+      "m.tsx": "export class C {static sm(){return 0;}}\n",
+      "other.tsx": "import Y from './barrel'; Y.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "opaque-forward-plain-jsx",
+    "files": {
+      "app.jsx": "import {C as X} from './m'; export function run(){return X.sm();}\n",
+      "barrel.jsx": "export {C as default} from './m';\n",
+      "m.jsx": "export class C {static sm(){return 0;}}\n",
+      "other.jsx": "import Y from './barrel'; Y.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "opaque-forward-plain-tsx",
+    "files": {
+      "app.tsx": "import {C as X} from './m'; export function run(){return X.sm();}\n",
+      "barrel.tsx": "export {C as default} from './m';\n",
+      "m.tsx": "export class C {static sm(){return 0;}}\n",
+      "other.tsx": "import Y from './barrel'; Y.sm=()=>1;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"checkJs\": true, \"jsx\": \"preserve\", \"moduleResolution\": \"node\"}, \"include\": [\"**/*\"]}\n"
+    }
+  },
+  {
+    "case": "opus04-forward-ns-jsx",
+    "files": {
+      "m.jsx": "export default class Api {static sm(){return 0;}}",
+      "app.jsx": "import X from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "fwd.jsx": "import * as N from './m'; export {N};",
+      "other.jsx": "import {N} from './fwd'; N.default.sm=()=>1;"
+    }
+  },
+  {
+    "case": "opus05-default-ns-jsx",
+    "files": {
+      "m.jsx": "export default class Api {static sm(){return 0;}}",
+      "app.jsx": "import X from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "fwd.jsx": "import * as N from './m'; export default N;",
+      "other.jsx": "import N from './fwd'; N.default.sm=()=>1;"
+    }
+  },
+  {
+    "case": "opus18-non-owned-jsx",
+    "files": {
+      "m.jsx": "export default class Api {static sm(){return 0;}}",
+      "app.jsx": "import X from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "nsb.jsx": "export * as M from './m';",
+      "other.jsx": "import {M} from './nsb'; Object.assign(M.default.valueOf(), {sm:()=>1});"
+    }
+  },
+  {
+    "case": "opus30-self-jsx",
+    "files": {
+      "m.jsx": "export default class Api {static sm(){return 0;}}",
+      "app.jsx": "import X from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "nsb.jsx": "export * as M from './m'; import {M as Z} from './nsb'; Z.default.sm=()=>1;"
+    }
+  },
+  {
+    "case": "opus12-writer-project-jsx",
+    "files": {
+      "m.jsx": "export default class Api {static sm(){return 0;}}",
+      "app.jsx": "import X from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "w/other.jsx": "import * as ns from '#m'; ns.default.sm=()=>1;",
+      "w/tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"paths\": {\"#m\": [\"../m\"]}, \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "opus15-rename-jsx",
+    "files": {
+      "m.jsx": "export class C {static sm(){return 0;}}",
+      "app.jsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "fwd.jsx": "import {C as D} from './m'; export {D};",
+      "nsa.jsx": "export * as Q from './fwd';",
+      "nsb.jsx": "export * as M from './fwd';",
+      "other.jsx": "import {M} from './nsb'; M.D.sm=()=>1;"
+    }
+  },
+  {
+    "case": "opus20-nested-jsx",
+    "files": {
+      "m.jsx": "export class C {static sm(){return 0;}}",
+      "app.jsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "fwd.jsx": "import {C as D} from './m'; export {D};",
+      "nsa.jsx": "export * as Q from './fwd';",
+      "nsb.jsx": "export * as M from './nsa';",
+      "other.jsx": "import {M} from './nsb'; M.Q.D.sm=()=>1;"
+    }
+  },
+  {
+    "case": "opus23-ns-barrel-jsx",
+    "files": {
+      "m.jsx": "export class C {static sm(){return 0;}}",
+      "app.jsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "fwd.jsx": "import {C as D} from './m'; export {D};",
+      "nsa.jsx": "export * as Q from './fwd';",
+      "nsb.jsx": "export * as M from './fwd';",
+      "other.jsx": "import * as B from './nsb'; B.M.D.sm=()=>1;"
+    }
+  },
+  {
+    "case": "opus17-forward-ns-rename-jsx",
+    "files": {
+      "m.jsx": "export class C {static sm(){return 0;}}",
+      "app.jsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "fwd.jsx": "import {C as D} from './m'; export {D};",
+      "nsa.jsx": "export * as Q from './fwd';",
+      "nsb.jsx": "import * as N from './fwd'; export {N};",
+      "other.jsx": "import {N} from './nsb'; N.D.sm=()=>1;"
+    }
+  },
+  {
+    "case": "named-depth-2-escaped-False-jsx",
+    "files": {
+      "m.jsx": "export class C {static sm(){return 0;}}",
+      "app.jsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "b1.jsx": "export {C as D} from './m';",
+      "b2.jsx": "export {D as D} from './b1';",
+      "other.jsx": "import {D as Y} from './b2'; Y.sm=()=>1;"
+    }
+  },
+  {
+    "case": "named-depth-2-escaped-True-jsx",
+    "files": {
+      "m.jsx": "export class C {static sm(){return 0;}}",
+      "app.jsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "b1.jsx": "export {\\u0043 as D} from './m';",
+      "b2.jsx": "export {D as D} from './b1';",
+      "other.jsx": "import {D as Y} from './b2'; Y.sm=()=>1;"
+    }
+  },
+  {
+    "case": "named-depth-3-escaped-False-jsx",
+    "files": {
+      "m.jsx": "export class C {static sm(){return 0;}}",
+      "app.jsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "b1.jsx": "export {C as D} from './m';",
+      "b2.jsx": "export {D as D} from './b1';",
+      "b3.jsx": "export {D as D} from './b2';",
+      "other.jsx": "import {D as Y} from './b3'; Y.sm=()=>1;"
+    }
+  },
+  {
+    "case": "named-depth-3-escaped-True-jsx",
+    "files": {
+      "m.jsx": "export class C {static sm(){return 0;}}",
+      "app.jsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "b1.jsx": "export {\\u0043 as D} from './m';",
+      "b2.jsx": "export {D as D} from './b1';",
+      "b3.jsx": "export {D as D} from './b2';",
+      "other.jsx": "import {D as Y} from './b3'; Y.sm=()=>1;"
+    }
+  },
+  {
+    "case": "named-depth-5-escaped-False-jsx",
+    "files": {
+      "m.jsx": "export class C {static sm(){return 0;}}",
+      "app.jsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "b1.jsx": "export {C as D} from './m';",
+      "b2.jsx": "export {D as D} from './b1';",
+      "b3.jsx": "export {D as D} from './b2';",
+      "b4.jsx": "export {D as D} from './b3';",
+      "b5.jsx": "export {D as D} from './b4';",
+      "other.jsx": "import {D as Y} from './b5'; Y.sm=()=>1;"
+    }
+  },
+  {
+    "case": "named-depth-5-escaped-True-jsx",
+    "files": {
+      "m.jsx": "export class C {static sm(){return 0;}}",
+      "app.jsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "b1.jsx": "export {\\u0043 as D} from './m';",
+      "b2.jsx": "export {D as D} from './b1';",
+      "b3.jsx": "export {D as D} from './b2';",
+      "b4.jsx": "export {D as D} from './b3';",
+      "b5.jsx": "export {D as D} from './b4';",
+      "other.jsx": "import {D as Y} from './b5'; Y.sm=()=>1;"
+    }
+  },
+  {
+    "case": "opus04-forward-ns-tsx",
+    "files": {
+      "m.tsx": "export default class Api {static sm(){return 0;}}",
+      "app.tsx": "import X from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "fwd.tsx": "import * as N from './m'; export {N};",
+      "other.tsx": "import {N} from './fwd'; N.default.sm=()=>1;"
+    }
+  },
+  {
+    "case": "opus05-default-ns-tsx",
+    "files": {
+      "m.tsx": "export default class Api {static sm(){return 0;}}",
+      "app.tsx": "import X from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "fwd.tsx": "import * as N from './m'; export default N;",
+      "other.tsx": "import N from './fwd'; N.default.sm=()=>1;"
+    }
+  },
+  {
+    "case": "opus18-non-owned-tsx",
+    "files": {
+      "m.tsx": "export default class Api {static sm(){return 0;}}",
+      "app.tsx": "import X from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "nsb.tsx": "export * as M from './m';",
+      "other.tsx": "import {M} from './nsb'; Object.assign(M.default.valueOf(), {sm:()=>1});"
+    }
+  },
+  {
+    "case": "opus30-self-tsx",
+    "files": {
+      "m.tsx": "export default class Api {static sm(){return 0;}}",
+      "app.tsx": "import X from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "nsb.tsx": "export * as M from './m'; import {M as Z} from './nsb'; Z.default.sm=()=>1;"
+    }
+  },
+  {
+    "case": "opus12-writer-project-tsx",
+    "files": {
+      "m.tsx": "export default class Api {static sm(){return 0;}}",
+      "app.tsx": "import X from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "w/other.tsx": "import * as ns from '#m'; ns.default.sm=()=>1;",
+      "w/tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"paths\": {\"#m\": [\"../m\"]}, \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "opus15-rename-tsx",
+    "files": {
+      "m.tsx": "export class C {static sm(){return 0;}}",
+      "app.tsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "fwd.tsx": "import {C as D} from './m'; export {D};",
+      "nsa.tsx": "export * as Q from './fwd';",
+      "nsb.tsx": "export * as M from './fwd';",
+      "other.tsx": "import {M} from './nsb'; M.D.sm=()=>1;"
+    }
+  },
+  {
+    "case": "opus20-nested-tsx",
+    "files": {
+      "m.tsx": "export class C {static sm(){return 0;}}",
+      "app.tsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "fwd.tsx": "import {C as D} from './m'; export {D};",
+      "nsa.tsx": "export * as Q from './fwd';",
+      "nsb.tsx": "export * as M from './nsa';",
+      "other.tsx": "import {M} from './nsb'; M.Q.D.sm=()=>1;"
+    }
+  },
+  {
+    "case": "opus23-ns-barrel-tsx",
+    "files": {
+      "m.tsx": "export class C {static sm(){return 0;}}",
+      "app.tsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "fwd.tsx": "import {C as D} from './m'; export {D};",
+      "nsa.tsx": "export * as Q from './fwd';",
+      "nsb.tsx": "export * as M from './fwd';",
+      "other.tsx": "import * as B from './nsb'; B.M.D.sm=()=>1;"
+    }
+  },
+  {
+    "case": "opus17-forward-ns-rename-tsx",
+    "files": {
+      "m.tsx": "export class C {static sm(){return 0;}}",
+      "app.tsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "fwd.tsx": "import {C as D} from './m'; export {D};",
+      "nsa.tsx": "export * as Q from './fwd';",
+      "nsb.tsx": "import * as N from './fwd'; export {N};",
+      "other.tsx": "import {N} from './nsb'; N.D.sm=()=>1;"
+    }
+  },
+  {
+    "case": "named-depth-2-escaped-False-tsx",
+    "files": {
+      "m.tsx": "export class C {static sm(){return 0;}}",
+      "app.tsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "b1.tsx": "export {C as D} from './m';",
+      "b2.tsx": "export {D as D} from './b1';",
+      "other.tsx": "import {D as Y} from './b2'; Y.sm=()=>1;"
+    }
+  },
+  {
+    "case": "named-depth-2-escaped-True-tsx",
+    "files": {
+      "m.tsx": "export class C {static sm(){return 0;}}",
+      "app.tsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "b1.tsx": "export {\\u0043 as D} from './m';",
+      "b2.tsx": "export {D as D} from './b1';",
+      "other.tsx": "import {D as Y} from './b2'; Y.sm=()=>1;"
+    }
+  },
+  {
+    "case": "named-depth-3-escaped-False-tsx",
+    "files": {
+      "m.tsx": "export class C {static sm(){return 0;}}",
+      "app.tsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "b1.tsx": "export {C as D} from './m';",
+      "b2.tsx": "export {D as D} from './b1';",
+      "b3.tsx": "export {D as D} from './b2';",
+      "other.tsx": "import {D as Y} from './b3'; Y.sm=()=>1;"
+    }
+  },
+  {
+    "case": "named-depth-3-escaped-True-tsx",
+    "files": {
+      "m.tsx": "export class C {static sm(){return 0;}}",
+      "app.tsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "b1.tsx": "export {\\u0043 as D} from './m';",
+      "b2.tsx": "export {D as D} from './b1';",
+      "b3.tsx": "export {D as D} from './b2';",
+      "other.tsx": "import {D as Y} from './b3'; Y.sm=()=>1;"
+    }
+  },
+  {
+    "case": "named-depth-5-escaped-False-tsx",
+    "files": {
+      "m.tsx": "export class C {static sm(){return 0;}}",
+      "app.tsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "b1.tsx": "export {C as D} from './m';",
+      "b2.tsx": "export {D as D} from './b1';",
+      "b3.tsx": "export {D as D} from './b2';",
+      "b4.tsx": "export {D as D} from './b3';",
+      "b5.tsx": "export {D as D} from './b4';",
+      "other.tsx": "import {D as Y} from './b5'; Y.sm=()=>1;"
+    }
+  },
+  {
+    "case": "named-depth-5-escaped-True-tsx",
+    "files": {
+      "m.tsx": "export class C {static sm(){return 0;}}",
+      "app.tsx": "import {C as X} from './m'; export function run(){X.sm();}",
+      "tsconfig.json": "{\"compilerOptions\": {\"allowJs\": true, \"moduleResolution\": \"node\", \"baseUrl\": \".\", \"jsx\": \"preserve\"}, \"include\": [\"**/*\"]}",
+      "b1.tsx": "export {\\u0043 as D} from './m';",
+      "b2.tsx": "export {D as D} from './b1';",
+      "b3.tsx": "export {D as D} from './b2';",
+      "b4.tsx": "export {D as D} from './b3';",
+      "b5.tsx": "export {D as D} from './b4';",
+      "other.tsx": "import {D as Y} from './b5'; Y.sm=()=>1;"
+    }
+  }
+]

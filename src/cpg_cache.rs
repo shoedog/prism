@@ -237,7 +237,9 @@ use std::path::{Path, PathBuf};
 // v108: S2 fail-closed qualifier identity use whitelist.
 // v109: S2 R1 own-member and runtime-namespace refusal facts.
 // R2: S2-O7 static binding; F1/F2/F5/F6/corrected F8.
-const CACHE_VERSION: u32 = 118;
+// R3: retained negative source edges and static namespace/refusal closure.
+// R3b: scoped refusal modules and precise export absence; package-name snapshot.
+const CACHE_VERSION: u32 = 120;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -776,7 +778,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 118);
+        assert_eq!(super::CACHE_VERSION, 120);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
