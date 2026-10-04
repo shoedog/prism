@@ -15,8 +15,10 @@ fn main() {
                 "end_byte":s.end_byte,"qualifier":s.qualifier,"local_binding":s.local_binding,
                 "jsx_element":s.jsx_element,"origin":s.origin})).collect();
         let functions: Vec<_> = cg.functions.values().flatten().filter(|f| &f.file == file).collect();
+        let proofs: Vec<_> = cg.js_ts_qualifier_modules.iter().filter(|((f,_),_)| f == file)
+            .map(|((_,specifier),(module,owner))| serde_json::json!({"specifier":specifier,"module":module,"owner":owner})).collect();
         println!("{}", serde_json::json!({"file":file,"hash":repo.file_hashes.get(file),
             "bindings":cg.import_bindings.get(file),"imports":cg.imports.get(file),
-            "functions":functions,"sites":sites}));
+            "functions":functions,"sites":sites,"module_proofs":proofs}));
     }
 }

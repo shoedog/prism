@@ -165,38 +165,59 @@ function mechanism(checker, q, b, t, program, project, caller) {
   if (sh !== 'other' && sh !== 'unavailable') return b.kind + '_' + sh;
   return b.kind + '_other';
 }
+const candidates = [], exclusions = {}, unjoinable = [];
+const increment = (obj, k) => obj[k] = (obj[k] || 0) + 1;
+const refuseJoin = (r, reason) => {
+  increment(exclusions, 'UNJOINABLE');
+  unjoinable.push({key:key(r), bucket:'UNJOINABLE', reason});
+};
 const grouped = new Map();
 for (const r of sites) {
   const m = metadata.get(JSON.stringify(key(r)));
-  if (!m) throw Error('site/fact join unavailable');
+  if (!m) { refuseJoin(r, 'site_fact_join'); continue; }
   if (r.origin !== 'Source' || !m.qualifier) continue;
   const f = r.caller.file;
   if (!grouped.has(f)) grouped.set(f, []);
   grouped.get(f).push([r,m]);
 }
-const candidates = [], exclusions = {};
-const increment = (obj, k) => obj[k] = (obj[k] || 0) + 1;
 for (const [file, rows] of [...grouped.entries()].sort()) {
   const absolute = path.join(root, file);
   service.openClientFile(absolute, undefined, undefined, root);
   const project = service.getDefaultProjectForFile(ts.server.toNormalizedPath(absolute), true);
-  const program = project.getLanguageService().getProgram(), checker = program?.getTypeChecker(), sf = program?.getSourceFile(absolute);
-  if (!sf || !checker) throw Error('caller program unavailable');
+  const program = project?.getLanguageService().getProgram(), checker = program?.getTypeChecker(), sf = program?.getSourceFile(absolute);
+  if (!sf || !checker) {
+    for (const [r] of rows) refuseJoin(r, 'caller_program');
+    service.closeClientFile(absolute);
+    continue;
+  }
+  // Prism offsets index source bytes; TypeScript's host removes a UTF-8 BOM.
+  const raw = fs.readFileSync(absolute, 'utf8');
+  const bom = raw.startsWith('\uFEFF') && raw.slice(1) === sf.text ? 1 : 0;
   for (const [r,m] of rows) {
-    const pos = Buffer.from(sf.text, 'utf8').subarray(0,r.source_span.start_byte).toString('utf8').length;
+    if (raw.slice(bom) !== sf.text || r.source_span.start_byte > Buffer.byteLength(raw)) {
+      refuseJoin(r, 'source_position'); continue;
+    }
+    const pos = Buffer.from(raw, 'utf8').subarray(0,r.source_span.start_byte).toString('utf8').length - bom;
     let n = ts.getTokenAtPosition(sf, pos);
     while (n && !ts.isCallExpression(n) && !ts.isNewExpression(n) && !ts.isJsxOpeningElement(n) && !ts.isJsxSelfClosingElement(n)) n = n.parent;
     const expr = n && (n.expression || n.tagName);
-    if (!expr || !ts.isPropertyAccessExpression(expr) || !ts.isIdentifier(expr.expression) || expr.expression.text !== m.qualifier || expr.name.text !== r.callee_text) { increment(exclusions,'non_direct_or_unmatched_syntax'); continue; }
+    if (!expr || !ts.isPropertyAccessExpression(expr) || !ts.isIdentifier(expr.expression) || expr.expression.text !== m.qualifier || expr.name.text !== r.callee_text) { refuseJoin(r, 'non_direct_or_unmatched_syntax'); continue; }
     const q = expr.expression, b = binding(checker, q);
     if (!b) { increment(exclusions,'not_s2_binding'); continue; }
     const symbol = checker.getSymbolAtLocation(expr.name), t = terminal(checker, symbol);
+    const importDecl = checker.getSymbolAtLocation(q)?.declarations?.[0];
+    const moduleNode = importDecl && (ts.isImportSpecifier(importDecl) ? importDecl.parent.parent.parent.moduleSpecifier :
+      ts.isImportClause(importDecl) ? importDecl.parent.moduleSpecifier : null);
+    const moduleDeclarations = moduleNode ? (checker.getSymbolAtLocation(moduleNode)?.declarations || []).filter(ts.isSourceFile) : [];
+    const nativeModule = moduleDeclarations.length === 1 ? rel(moduleDeclarations[0].fileName) : null;
+    const prismProof = facts.find(f => f.file === file)?.module_proofs?.find(p => p.specifier === b.specifier) || null;
     const targets = r.resolved_targets || [];
     const low = targets.length === 0 || targets.length > 1 || !targets.some(t => t.confidence === 'exact');
     const callable = ['function','function_value','object_method','class_static_method','class_instance_method','class_static_field','class_instance_field'].includes(t.class) && t.in_repo && !t.declaration_file;
     const equal = target => ['file','name','start_line','end_line'].every(k => t[k] === target.function_id[k]);
     const record = {key:key(r), qualifier:m.qualifier, member:r.callee_text, binding:b, call_kind:r.call_kind,
       owner:project.projectKind === ts.server.ProjectKind.Configured ? rel(project.getProjectName()) : null,
+      native_module:nativeModule, prism_module_proof:prismProof,
       compiler_mode:project.getCompilerOptions().moduleResolution,
       mechanism:mechanism(checker,q,b,t,program,project,absolute), terminal:t, low,
       qualifier_declarations:(unalias(checker,checker.getSymbolAtLocation(q))?.declarations || []).map(declaration),
@@ -212,7 +233,9 @@ for (const [file, rows] of [...grouped.entries()].sort()) {
 const summary = {claim:'MEASURED', total_sites:sites.length, source_files:facts.length, s2_sites:candidates.length,
   low_sites:candidates.filter(r=>r.low).length, callable_low:candidates.filter(r=>r.low&&r.callable).length,
   positive_filter_ceiling:candidates.filter(r=>r.low&&r.base_multiple&&r.base_r3&&r.base_contains_terminal&&!r.binding.type_only).length,
+  unjoinable:unjoinable.length, unjoinable_reasons:{},
   exclusions, mechanisms:{}, binding_kinds:{}, terminal_classes:{}, call_kinds:{}};
+for (const r of unjoinable) increment(summary.unjoinable_reasons, r.reason);
 for (const r of candidates) {
   increment(summary.binding_kinds,r.binding.kind); increment(summary.terminal_classes,r.terminal.class);
   increment(summary.call_kinds,r.call_kind);
@@ -227,6 +250,7 @@ for (const r of candidates) {
   if (r.low && r.terminal.class.startsWith('class_instance_')) m.instance_low++;
 }
 fs.writeFileSync(path.join(out,'candidates.json'),JSON.stringify(candidates,null,2)+'\n');
+fs.writeFileSync(path.join(out,'unjoinable.json'),JSON.stringify(unjoinable,null,2)+'\n');
 fs.writeFileSync(path.join(out,'summary.json'),JSON.stringify(summary,null,2)+'\n');
 fs.writeFileSync(path.join(out,'oracle-inputs.json'),JSON.stringify(Object.fromEntries([...inputs].map(([p,h])=>[rel(p),h])),null,2)+'\n');
 fs.writeFileSync(path.join(out,'receipt.json'),JSON.stringify({claim:'MEASURED',oracle_version:ts.version,oracle_sha256:sha(tsPath),

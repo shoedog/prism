@@ -76,10 +76,17 @@ const {{ nested: Destruct }} = require('./cjs');
 export function shadow(X) {{ X.f(); }}
 export function shadowRequire(require) {{ const Hidden = require('./cjs'); Hidden.f(); }}
 ''')
+        # Mixed-language sites reproduced the former fatal site/fact join.
+        write('main.rs', 'fn helper() {}\nfn caller() { helper(); }\n')
+        caller = root/f'caller.{grammar}'
+        caller.write_bytes(('\uFEFF'+caller.read_text().replace('\n','\r\n')).encode('utf8'))
         run([BIN, 'nav', '--no-cache', 'call-stats', '--repo', root, '--dump-sites'], d/'base-sites.jsonl', d/'base.stderr')
         run([FACTS, root], d/'facts.jsonl', d/'facts.stderr')
         run(['node', HERE/'census.cjs', TS, root, d/'base-sites.jsonl', d/'facts.jsonl', d], d/'oracle.stdout', d/'oracle.stderr')
         rows = json.loads((d/'candidates.json').read_text())
+        summary = json.loads((d/'summary.json').read_text())
+        assert summary['unjoinable_reasons'] == {'site_fact_join':1}, summary
+        assert json.loads((d/'unjoinable.json').read_text())[0]['key'][0]=='main.rs'
         def case(q, member):
             matches = [r for r in rows if r['qualifier'] == q and r['member'] == member]
             assert len(matches) == 1, (q, member, matches)
@@ -139,7 +146,8 @@ export function shadowRequire(require) {{ const Hidden = require('./cjs'); Hidde
         aggregate = json.loads(p.stdout)
         assert aggregate['status']=='COMPLETE' and aggregate['low_sites']==expected['low_sites']
         assert set(aggregate) == {'claim','status','corpus','total_sites','source_files','s2_sites','low_sites',
-            'callable_low','positive_filter_ceiling','mechanisms','binding_kinds','terminal_classes','exclusions'}
+            'callable_low','positive_filter_ceiling','mechanisms','binding_kinds','terminal_classes','exclusions',
+            'unjoinable','unjoinable_reasons'}
         p = subprocess.run(['bash', str(wrapper), str(BIN), str(FACTS), str(TS)], env=env, capture_output=True, text=True)
         assert p.returncode != 0 and json.loads(p.stdout)['stage']=='evidence_directory_exists' and not p.stderr
         env['PRIVATE_EVIDENCE_ROOT']=str(Path(sandbox)/'bad-binary-output')

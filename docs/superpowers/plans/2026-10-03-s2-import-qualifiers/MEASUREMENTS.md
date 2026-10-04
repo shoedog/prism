@@ -1,149 +1,75 @@
-# S2-0 measurements — exact main 4e592daa
+# S2 measurements — provisional prototype; E5 design gate RED
 
-[MEASURED] Current-main census command:
-`python3 docs/superpowers/plans/2026-10-03-s2-import-qualifiers/probes/public.py --out target/s2-plan/current-main`.
-Output: `target/s2-plan/current-main-run.log`; source-bound per-site records,
-source hashes and receipts: `target/s2-plan/current-main/{X,installed-X,R,T}/`.
-[READ] After handback, complete streams and candidate records are compressed in
-`target/s2-plan/evidence.tar.gz`, indexed by `evidence-index.json`.
+**WRONG S2-W1, confidence 100/100:** a local alias `Alias = C` followed by `Alias.sm = replacement` changes the exported class object, but head still adds Exact for imported `C.sm()`. Actual source-bound base drops the site in both grammars; E5 requires retention. A Node same-object control returns replacement result 1 rather than original 0. The TypeScript checker still certifies the original declaration, demonstrating that static oracle correctness is insufficient to establish the independent E5 requirement. Receipt: `target/s2-plan/e5-alias-boundary/summary.json`. At the declared local cap, repeated new write-identity shapes are open-class: dispatch/adoption is parked for SPEC S2-O6 design. No source restart or further semantic correction was attempted.
 
-[MEASURED] Each cell is **low-grade or multi-target sites / native-proven
-in-repo callable implementations**. Counts are disjoint and sum to the total.
-F has not been measured by the planner; the controller wrapper is ready.
+[MEASURED] Planning HEAD `bc0fabb39231666a6b2d64faa314eb45585eae14`; immutable merged-P2 product base `4e592daa7858a195eb3a9eb77c83dfbc763b49fa`; prototype is the uncommitted owned source manifest. No Git writes. Final frozen CLI/facts hashes, source inputs and exact receipts are in BUILD-MANIFEST.json.
 
-| Mechanism | X | Installed X | R | T | F |
-|---|---:|---:|---:|---:|---|
-| Default object | 7 / 0 | 7 / 0 | 0 / 0 | 0 / 0 | unmeasured |
-| Default class | 0 / 0 | 2 / 0 | 0 / 0 | 0 / 0 | unmeasured |
-| Named object | 0 / 0 | 0 / 0 | 0 / 0 | 24 / 0 | unmeasured |
-| Named class | 299 / 299 | 302 / 299 | 0 / 0 | 365 / 365 | unmeasured |
-| Class-instance exports | 3 / 0 | 3 / 0 | 0 / 0 | 16 / 0 | unmeasured |
-| export = | 0 / 0 | 26 / 0 | 0 / 0 | 0 / 0 | unmeasured |
-| CommonJS module.exports / other exports | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | unmeasured |
-| Re-exported namespace | 0 / 0 | 42 / 0 | 0 / 0 | 157 / 157 | unmeasured |
-| require object | 22 / 0 | 22 / 0 | 0 / 0 | 18 / 0 | unmeasured |
-| require destructure | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | unmeasured |
-| Call-result exports (E5) | 55 / 4 | 55 / 4 | 0 / 0 | 969 / 0 | unmeasured |
-| Declared namespace | 2 / 0 | 6 / 0 | 1 / 0 | 1,485 / 1,485 | unmeasured |
-| Function with members | 35 / 0 | 35 / 0 | 0 / 0 | 0 / 0 | unmeasured |
-| Other / unavailable shape | 129 / 0 | 52 / 0 | 29 / 0 | 133 / 79 | unmeasured |
-| **Total** | **552 / 303** | **552 / 303** | **30 / 0** | **3,167 / 2,086** | unmeasured |
+[MEASURED] Final comparison: `target/s2-plan/verified-public/`. It uses immutable base streams freshly replayed in this continuation and byte-equal to S2-0/P2; the final folded head, head facts and TypeScript checker were freshly run. Before reusing base, the runner checks its binary hash and afterward requires identical source and all native config/input hashes. Every corpus completed; no source/config or site-population drift was admitted.
 
-[MEASURED] Total site populations are X 19,219; installed X 19,219; R 953; T
-61,712. All S2-associated sites, including already-single-Exact rows: 561 / 561 /
-30 / 3,168. The low populations split into **dropped / NameOnly / multi-target**:
+## Provisional public yield — native correctness, not admission acceptance
 
-| Corpus | Dropped | NameOnly | Multi-target | Native-certified base-R3 identity filter candidates |
+Counts are changed source rows, each one new singleton Exact from a dropped base site. Every change is CORRECT_STATIC_BINDING, with native module, caller ProjectService owner and full terminal span agreeing. All 358 measured changed rows across the two X snapshots were `ImportExternal` → Exact `ImportQualified`; no populated base row changed.
+
+| Mechanism | X | Installed X | R | T |
 |---|---:|---:|---:|---:|
-| X | 546 | 0 | 6 | 0 |
-| installed-X | 546 | 0 | 6 | 0 |
-| R | 30 | 0 | 0 | 0 |
-| T | 3,157 | 9 | 1 | 0 |
+| Named class static method | 23 | 23 | 0 | 0 |
+| Named class static function-valued field | 156 | 156 | 0 | 0 |
+| Declared namespace | 0 | 0 | 0 | 0 |
+| Re-exported module namespace | 0 | 0 | 0 | 0 |
+| Proven literal-object function member | 0 | 0 | 0 | 0 |
+| **Provisional native-CORRECT Exact rows** | **179** | **179** | **0** | **0** |
+| Lost base edges | **0** | **0** | **0** | **0** |
 
-[MEASURED] The named-class bucket's proved implementations are all static:
-X 299, installed X 299, T 365. X/installed X have 122 static method declarations
-and 177 static function-valued fields; T has 365 static method declarations and
-zero static function-valued fields. Proven instance-method/field implementations
-at these imported-qualifier sites: zero. Class-instance export shapes account for
-3 / 3 / 0 / 16 low rows but provide no unique implementation certificate.
+[READ] X and installed X share the same source snapshot and are not additive. Static method/field counts are call-site rows, not unique declarations. The last three mechanisms have positive native synthetic certification; S2-W1 prevents treating this prototype as a general admission certificate. In particular, public E5 alias/escape closure has not been audited with a sound identity mechanism. This table reports their actual corpus yield rather than their implementation availability.
 
-[MEASURED] All 303 / 303 / 0 / 2,086 proved low callable implementations are
-**dropped** on current main; none is already in a base target set. Highest raw
-callable counts are T's declared-namespace exports (1,485), named classes (365),
-re-exported namespaces (157), and 79 other named value shapes; X has 299 static
-class members plus four call-result members. This is an opportunity census,
-not an authorized recovery promise or a runtime-call guarantee.
+| Complete-stream check | X | Installed X | R | T |
+|---|---:|---:|---:|---:|
+| All source call sites | 19,219 | 19,219 | 953 | 61,712 |
+| Already-bound base rows, byte-preserved | 10,776 | 10,776 | 216 | 27,452 |
+| Low associated S2 rows | 552 | 552 | 30 | 3,167 |
+| Native-proven callable opportunities on low rows | 303 | 303 | 0 | 2,086 |
+| Prior lane-P gain rows, byte-preserved | 3,129 | 3,129 | 0 | 0 |
+| Native-certified changed rows rejected/unproven | 0 | 0 | 0 | 0 |
+| UNJOINABLE across the whole call-site stream | 2,967 | 2,967 | 207 | 7,473 |
 
-[READ] The brief's positive-proof rule prohibits adding a target. Therefore
-these dropped rows cannot be recovered by this S2 refinement. Type declarations,
-opaque call results, unknown members and non-unique symbols keep base under
-Option K; a lack of oracle implementation is not proof of non-callability.
+[MEASURED] The public UNJOINABLE records are `non_direct_or_unmatched_syntax`, not source-bound changed rows. They remain in the complete-site denominator and cannot certify a gain. The mixed-language control separately pins `site_fact_join`. Full per-site candidate/changed records, hashes and refusal buckets remain in the compressed evidence archive.
 
-[MEASURED] The complete multi-target population is enumerable: six `keyTest`
-rows in X (the same source rows in installed X), plus one `IO.readFile` row in T.
-[READ] The six qualifiers are exports initialized by `register({...})`
-(`actions/actionCanvas.tsx:134/175/216`, `actionProperties.tsx:852/876`,
-`actionExport.tsx:300`); E5 preserves their call-result bindings. T's export is
-`let IO: IO` at `harness/harnessIO.ts:46`, written by `setHarnessIO` at line 48;
-TypeScript binds `readFile` to the interface method signature at line 23, not
-one of the two implementation arrows in the base set. E5 preserves that row.
-No absence-based drop or grade promotion is proposed.
+[MEASURED] Lane-P preservation receipt `lane-p-verified.json` compares every original reference/base/head key and requires all P2 bound rows unchanged. The 3,129 prior gain rows in each X corpus remain byte-identical. P2's published +8/+8/0/0 over P1 are an inherited source-bound baseline; preserving every P2 bound row preserves that subset too. The old supplied reference's exact source revision remains unverified; it is used only to identify the retained prior gain population, not as the S2 base. Fresh base streams are byte-equal to retained S2-0/P2 on all four corpora.
 
-[ASSUMPTION] **Recommendation: park current S2 unless F establishes material
-permitted yield.** Public permitted refinement yield is not material: zero
-native-certified existing-target filters, and all seven distinct multi-target
-source sites (13 measured rows across the two X snapshots and T) have an
-independent E5 keep-base reason. No product prototype was built;
-head-vs-base prototype gains are not applicable. This does not claim zero yield
-on F, zero opportunity for a separately authorized target-adding route, or a
-universal proof about every unresolved TypeScript member.
+## Yield limits
 
-[READ] Instrument semantics and limitations:
+[MEASURED] The native opportunity census remains X 299 named-class statics plus four call-result members; T 365 named-class statics, 1,485 declared namespace calls, 157 re-exported namespace calls and 79 other callable shapes. These are implementation certificates, not Prism's full-chain admission proofs. Instance calls are not admitted.
 
-- The census uses each caller's actual offline TypeScript ProjectService default
-  project and checker; it does not use Prism's module/export resolver to certify
-  a terminal. Symbol identity proves the qualifier's import/require declaration.
-- It measures direct identifier-member source sites exposed by Prism, including
-  its JSX member-site representation where associated. Indirect expressions,
-  unmatched syntax and other bindings are reported as exclusions, never as zero
-  yield. Top-level calls absent from Prism's site population are not included.
-- Each candidate records the import shape, actual owner config, all qualifier
-  and member declarations, callable file/name/span when unique, base drop/targets
-  and whether the exact native identity is in those targets. Source hashes are
-  checked against every facts file, including installed X independently.
-- Native callable counts include unique plain implementations and static/instance
-  method/field bodies. Declaration signatures and opaque wrapper/call values do
-  not count as proved implementations. This is deliberately a certified count,
-  not an upper bound on all possible implementation bodies.
-- `positive_filter_ceiling` in the machine schema is an upper bound only within
-  the native-certified identity population, before E5 and branch completeness;
-  it is not a proof that unknown rows can never improve. The seven multi-target
-  rows were separately source-audited above.
-- Require provenance refuses an in-repo implementation binding shadowing
-  `require`; the owner-accepted outside-repo ambient cost remains. Destructure
-  defaults/rest are recorded, not granted prototype authority.
+[MEASURED] T's final 707 facts files contain zero admitted module proofs. Native callable owners are compiler 952, services 531, testRunner 402, server 167, harness 14, typingsInstallerCore 9, tsserver 8, jsTyping 2 and deprecatedCompat 1. Compiler inherits rootDir/outDir without explicit exclude and requests node ambient types; other configurations also carry references and type-input costs. The retained default-exclusion guard is a demonstrated cut, not a complete diagnosis of every T row. A public root/output control pair differs only by explicit `exclude: []`: no exclusion keeps base; explicit exclusion permits a correctly owned gain in both grammars. SPEC S2-O3 asks for a separately designed ownership increment.
 
-[READ] Pinned reference is TypeScript **5.9.3**, `typescript.js` SHA256
-`3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675`.
-Its own rules are called through the checker: import-equals/require at
-53056 onward, default import at 53195 onward, named import at 53502 onward,
-namespace re-export at 53333 onward, alias dispatch/resolution at 53614–53675,
-export=/CommonJS at 54230–54260, and member lookup at 79674 onward.
-Assignment-backed access declarations follow the exact 53608–53612 RHS rule;
-shorthand property aliases use the native checker API. No product resolution
-rule has been reimplemented for S2.
+[READ] X's remaining native-proven static sites can fail the conservative module, class-key, cleanliness, write or callable capture proof; no complete per-refusal partition or recovery claim is made for those 120 rows. The four call-result opportunities remain outside this slice. The complete public multi-target base population remains unchanged; this prototype adds on drops and does not refine those rows.
 
-[MEASURED] A source-binding probe refuted the supplied reference's current-main
-label on X: the supplied `main-prism` differs on 3,129 rows in each X corpus,
-all bare imported-member rows (`UnknownName` → Exact `import_member` on the
-fresh build). Added/removed keys: zero; S2-qualified rows changed: zero. R/T
-complete streams are byte-identical. These results come from same-environment
-runs of both executables, not an attribution inferred from different machines.
-The old binary's exact source revision is unverified. Its hashes and complete
-row diff are preserved. **All final measurements and the F wrapper use freshly
-built 4e592daa binaries**, with checkout-lock package identities verified for
-the facts driver. `probes/reference-binaries.json` pins them; the old hashes are
-in `probes/supplied-reference-binaries.json`.
+## Oracle fix and private F
 
-[MEASURED] Verification completed:
+[MEASURED] Public mixed Rust plus JSX/TSX source reproduces the original fatal join: call-stats emits Rust sites while the facts driver emits JS/TS only. The fixed census records one `UNJOINABLE/site_fact_join` and continues. Source-position controls use UTF-8 BOM plus CRLF. Missing caller program, source position and unmatched/non-direct syntax also fail closed per site; a changed unjoinable row fails comparison. Empty streams, binary/probe/pinned-TS drift and source drift still fail globally.
 
-| Check | Result | Receipt |
+[INHERITED — controller] F failed at native_oracle with an unavailable site/path join. This result is INADMISSIBLE and proves no yield. [UNKNOWN] The mixed-language explanation is likely, but F was never opened, and neither the repaired F census nor an F head comparison was run here. The corrected command is in README; only the controller may run it and publish aggregates.
+
+## Final gates and custody
+
+| Check | Final result | Receipt under target/s2-plan |
 |---|---|---|
-| Fresh offline release main and facts driver | PASS; exact main source, seeded checkout lock, metadata package identity check | `base-build.log`, `facts-build-final.log`, binary manifest |
-| Full MCP nextest | 5,137 passed, 1 existing ignored/skipped | `nextest-mcp.log` |
-| MCP doctests | 2 passed | `doctests-mcp.log` |
-| Source-bound measurement controls | JSX 19 / TSX 20 associated candidate sites; all assertions pass | `source-bound-controls.log`, `controls/results.json` |
-| Negative instrument controls | Empty stream; compressed equality; wrapper argument/evidence-reuse/binary-drift refusal; public runner rejects F | controls logs, `public-reject.log` |
-| Advisory mutation gate, `--since 4e592daa --scope fn` | selected 0; no mutation coverage claimed | `scoped-mutgate/summary.json` |
-| Cargo build cleanup | Removed owned `target/s2-plan/build`; retained runnable current binaries | `cleanup.json` |
+| Offline release + exact-lock facts driver | PASS; final source and package identity checked, immutable base tools preserved | verified-release-build.log, verified-facts-build.log, BUILD-MANIFEST |
+| Full MCP nextest | **5,150 passed /0 failed /1 existing skipped**, 202.163s | nextest-verified.log |
+| MCP doctests | **2 passed** | doctests-verified.log |
+| Native synthetic prototype controls | **92 scenarios /92 sites /29 new CORRECT /0 loss /0 unproven** | native-controls-verified/summary.json |
+| Additional E5 object-alias admission control | **RED: two WRONG admissions; static checker CORRECT on both, ownership/span agree** | e5-alias-boundary/summary.json, e5-alias-boundary.log |
+| Source-bound oracle controls | **JSX 19 /TSX 20 candidates; mixed join, BOM/CRLF, empty/compressed inputs and wrapper negatives PASS** | controls/results.json, oracle-controls-reconciled.log |
+| Advisory scoped mutgate, since bc0fabb, scope file | **7/13 selected, 7 admissible, 6 killed, S2-02 SURVIVED** | mutgate-verified/summary.json |
+| fmt | PASS | fmt-verified.log |
+| Same-environment base/head MCP all-targets Clippy | PASS; **371/371 warning instances, zero new** | clippy-base.jsonl, clippy-verified.jsonl, clippy-verified-comparison.json |
+| Immediate-rebuild Tier-A matrix | **180 OK /0 regression /0 skip**, including two new fixtures | matrix-verified-build.log, tier-a-matrix-verified.log |
+| New Tier-A fixtures on actual base/head | Base fails both; head passes both, retaining inherited shadow edge | tier-a-new-fixtures-red-green.json |
+| S1b-4 controls | **411 controls /639 sites /822 byte-identical outputs /stderr 0** | s1b-verified.json |
+| Complete public oracle/owner + P2 preservation | **+179/+179/0/0, no key/metadata drift, no lost or changed populated base row** | verified-public/, lane-p-verified.json |
 
-[READ] The existing ignored test is
-`tests/integration/resolution_test.rs:575`: SliceElem is reserved until a future
-slice. No unrelated failure was re-baselined or silently repaired. Full
-pre-merge authoritative mutation, a product S2 registry, a new Tier-A fixture,
-Tier-A matrix/quick, Opus review and private F acceptance were not run: no
-product prototype or implementation merge is being proposed. No product source,
-cache pins or committed evaluation baselines changed; no Git write occurred.
-The measurement instrument's first behavioral failure, CLI setup refusal and
-Python TOML-parser availability refusal are documented in PROBES as instrument
-or inadmissible observations, not corpus or product failures.
+[MEASURED] Scoped mutgate selected S2-01/02/03/07/10/11/13. S2-04/05/06/08/09/12 remain unselected because their source paths are untracked in this no-Git-write checkout. S2-07 is selected through its extra tracked-file mutation. The S2-02 survivor is a **SMELL: coverage gap**, not demonstrated product incorrectness and not proved equivalent. Authoritative all-13 coverage remains a controller gate after commit.
+
+[MEASURED] One existing ignore is `resolution_test::slice_elem_variant_reserved`, reserved until a future SliceElem increment. No unrelated test failure was re-baselined or repaired. Same-environment controls isolated the new JSX priority defect and the new-fixture expectation mistake; their red/green receipts are retained. No production edit occurred after the final semantic verification build. The later alias boundary probe found S2-W1 without changing that source; the green full suite lacks this negative case and cannot establish admission safety.
+
+[READ] Not established: full qualifier-object alias/escape write closure or admissible adoption; the extra E5 gate fails. Not verified: private F census/head acceptance, authoritative all-13 mutation coverage, independent review or policy adoption, Tier-A quick/full corpora, optional all-feature/detached-owner sweeps, Linux/case-sensitive/concurrent-tree behavior or quiet-host performance. Tier-A quick is required before the controller dispatches review; no review was dispatched here. Full corpus runs remain human-triggered. Final snapshots are local custody, not a commit, remote backup, push or merge.

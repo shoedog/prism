@@ -26,6 +26,7 @@ python3 - "$PACKET/probes/reference-binaries.json" "$1" "$2" <<'PY'
 import hashlib,json,sys
 from pathlib import Path
 manifest=json.loads(Path(sys.argv[1]).read_text())
+assert hashlib.sha256((Path(sys.argv[1]).parent/'census.cjs').read_bytes()).hexdigest()==manifest['census_sha256'], 'oracle drift'
 for role,p in zip(('base','facts'),sys.argv[2:]):
     assert hashlib.sha256(Path(p).read_bytes()).hexdigest()==manifest['binaries'][role]['sha256'], 'binary drift'
 PY
@@ -41,7 +42,7 @@ from pathlib import Path
 s=json.loads(Path(sys.argv[1]).read_text())
 # Never publish keys, paths, names, config names, source/binary hashes or logs.
 allowed=('total_sites','source_files','s2_sites','low_sites','callable_low','positive_filter_ceiling',
-         'mechanisms','binding_kinds','terminal_classes','exclusions')
+         'mechanisms','binding_kinds','terminal_classes','exclusions','unjoinable','unjoinable_reasons')
 assert s['total_sites']>0
 print(json.dumps({'claim':'MEASURED','status':'COMPLETE','corpus':'F',**{k:s[k] for k in allowed}},sort_keys=True))
 PY
