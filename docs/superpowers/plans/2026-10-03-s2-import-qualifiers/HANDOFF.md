@@ -1,96 +1,89 @@
-# Handoff — S2 provisional prototype; admission parked on E5 identity WRONG
+# Handoff — S2 owner fail-closed repair and plan packet
 
-**Written:** 2026-10-04T03:58:32+00:00 · **By:** Codex planner (requested gpt-6.1-sol) · **Provider:** codex
-**Workspace:** `/Users/wesleyjinks/code/prism-s2-plan` · `plan/s2-import-qualifiers` · **Measured state:** `[MEASURED]` HEAD `bc0fabb39231666a6b2d64faa314eb45585eae14` · Tree DIRTY · Probe `git status --short` plus final gate receipts · Output OWNED-FILES.json / target/s2-plan
-**Predecessor:** controller-committed S2-0; corrected owner admission brief.
+**Written:** 2026-10-04T05:35:22.507531+00:00 · **By:** Codex planner (requested gpt-6.1-sol) · **Provider:** codex
+**Workspace:** `/Users/wesleyjinks/code/prism-s2-plan` · `plan/s2-import-qualifiers` · **Measured state:** `[MEASURED]` HEAD `6e4e0ef19de578d4865d7297eb5cf72a5b6a27a6` · Tree DIRTY · Probe `git status --short`, manifest hashes and final receipts · Output OWNED-FILES.json / target/s2-plan
+**Predecessor:** controller-committed docs and owner S2-O6.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
-**Provenance:** written live by the worker. `[MEASURED]` claims were probed here; `[INHERITED]` controller F failure and prior P2 +8 baseline were not private executions by this worker.
+**Provenance:** written live by the worker. `[MEASURED]` claims were re-run here; `[INHERITED]` F base census and controller interim positions come from OQ-s2, not planner private execution.
 
 ## 0. Gating facts — settle these before starting anything below
 
-**(a) Lane ownership** — `[INHERITED]` Owner assigned this clone to the planner; F and Git writes belong to the controller. `[MEASURED]` No subagents/review rounds dispatched. — **RESOLVED within this session**; external controller activity is not independently inspected.
+**(a) Lane ownership** — `[INHERITED]` Owner assigns this clone to the planner and Git/F to the controller. `[MEASURED]` No agents or review rounds dispatched. **RESOLVED in scope; controller owns subsequent execution/adoption.**
 
-**(b) Custody exposure** — `[MEASURED]` 42 owned modified/new files plus inventory/manifest, including root VERIFICATION.md, no Git writes. Local source/evidence snapshots are `target/s2-plan/s2-final-source.tar.gz` and `s2-final-evidence.tar.gz`; final-custody.json pins archive and binary hashes. They are local snapshots, not an off-machine backup. — **OPEN: controller commits/copies the final packet and retains runnable base/head tools before checkout removal.**
+**(b) Custody exposure** — `[MEASURED]` Product src/tests and packet remain uncommitted; exact paths/hashes are OWNED-FILES/BUILD-MANIFEST. Local source/evidence snapshots are `target/s2-plan/s2-owner-failclosed-{source,evidence}.tar.gz`, hash receipt `owner-final-custody.json`. These are local custody. **OPEN: controller commits/copies packet and frozen tools before checkout removal.**
 
-**(c) In flight / irreversible** — `[MEASURED]` All owned release/test/public/control/mutgate jobs completed; no pending source mutation or Git operation. Final build cleanup is recorded in final-cleanup.json. — **RESOLVED by final tool-session completion and custody receipt.**
+**(c) In flight / irreversible** — `[MEASURED]` Final release, nextest, public/control/parity/mutation/matrix/doctest/fmt/clippy jobs completed. Advisory mutation exit 1 is the disclosed survivor; RED old-prototype control exit 1 is expected. No Git job or source mutation pending. **RESOLVED by completed sessions/receipts; generated targets are removed only after refreshed verified snapshots; owner-final-cleanup.json records the completed literal-path cleanup.**
 
-**(d) Authorization granted but not exercised** — Owner: “No git writes. Never open F. Keep disk lean.” Oracle repair, provisional prototype and public evidence are complete; admission has open WRONG S2-W1. The local cap is reached and implementation retry/adoption is parked for design. Controller still owns the repaired private F run, new-policy decisions, authoritative mutation gate, review/model dispatch and adoption. Do not reinterpret this handoff as merge or execution authority for a new T ownership lane.
+**(d) Authorization granted but not exercised** — Owner: “No git writes. Never open F. Keep disk lean.” Owner S2-O6 authorized the whitelist repair and plan completion. Git/F, authoritative mutation coverage, Tier-A quick, model-bound implementation/review dispatch and adoption remain controller-owned. O1/O2 are controller interim adoption positions; no new T ownership lane is authorized. **OPEN controller follow-through; local requested work complete.**
 
 ## 1. Resume order
 
-1. From this workspace, run `python3 -c 'import json; print(json.load(open("docs/superpowers/plans/2026-10-03-s2-import-qualifiers/BUILD-MANIFEST.json"))["public_yield"])'`; expect +179/+179/0/0 and read final-custody.json. This is a seconds-long read; verify current source hashes before transferring a verdict.
-2. Read WRONG S2-W1 in SPEC §0/OQ first. At the local cap, qualifier write identity is open-class. Decide the fail-closed alias/escape design before another implementation retry; then decide relative proof envelope, composed depth and whether to commission T ownership work. The latter has no current recovery proof.
-3. Controller commits the exact FILES/OWNED-FILES set, preserves archives/binaries, runs the README F command with a new private evidence directory, and returns only aggregates. A repaired census is not an F head acceptance test.
-4. IMPLEMENTOR's S2 dispatch is PARKED on this existing artifact until S2-O6 design and a new explicit dispatch; do not adopt the positive branch. Run all-13 authoritative mutation coverage after anchors are committed; retain S2-02's coverage SMELL until a realistic negative or explicit disposition. Run Tier-A quick before independent review. Review cap two, zero dispatched so far.
+1. From this workspace run `python3 -c 'import json; print(json.load(open("docs/superpowers/plans/2026-10-03-s2-import-qualifiers/BUILD-MANIFEST.json"))["public_yield"])'`; expect 132/132/0/0. Check recorded source/tool hashes and owner-final-custody.json before transferring a verdict. This is a seconds-long read.
+2. Controller preserves source/evidence archives and frozen base/head tools and commits the exact FILES set on the planning branch. Rebuild/version metadata changes require rebind and complete public replay.
+3. Run README's updated private F head command in a new private output directory; publish only aggregates. Run authoritative all-14 mutgate after new anchors are committed. S2-02 survivor remains a disclosed SMELL, not equivalence or a demonstrated product WRONG.
+4. Run Tier-A quick before review. Dispatch serial cumulative independent reviews with cap two; zero dispatched here. Review whitelist/identity/module closure first, then remaining positive mechanisms. Confirm O1/O2 adoption positions. No auto-merge.
 
-**STOP conditions:** F/source/binary/probe drift; any unproven changed row; any changed populated base row; policy disagreement; an open-class defect population at the declared cap. Keep the artifact and ask the controller for the missing decision; do not restart it.
+**STOP conditions:** source/binary/config/oracle drift; changed unproven or populated base rows; policy disagreement; open-class findings at the declared review cap. Preserve the partially reviewed artifact; do not restart it.
 
 ## 2. State ledger
 
 | Item | State | Evidence / correction |
 |---|---|---|
-| Corrected admission authority | done | `[INHERITED]` Owner correction; `[MEASURED]` SPEC/README/MEASUREMENTS/OQ/PROBES/FILES reconciled |
-| Per-site oracle repair | done | `[MEASURED]` controls/results.json; mixed-language join, BOM/CRLF and wrapper controls PASS |
-| Four prototype mechanisms | provisional; admission blocked | `[MEASURED]` 13 integration groups; 92 native scenarios, 29 new CORRECT, zero loss/unproven |
-| Public static-oracle yield and ownership | done; provisional admission | `[MEASURED]` verified-public/summary.json: X179 /installed-X179 /R0 /T0; matching native module/owner/span |
-| Base/P2/S1b preservation | done | `[MEASURED]` lane-p-verified.json; every bound base row unchanged; prior P gains3129 each X; S1b411/639/822 identical |
-| Tests/fmt/Clippy/Tier-A | done | `[MEASURED]` nextest5150 PASS /1 existing skip; doctests2; fmt PASS; Clippy371/371 zero new; matrix180 OK; root VERIFICATION.md records exact commands, regressions and exclusions; all762 tested inputs still match |
-| Additional alias-write admission boundary | blocked | `[MEASURED]` e5-alias-boundary/summary.json: two WRONG admissions, same-object runtime result1; oracle certifies declaration on both |
-| Scoped mutation gate | done with SMELL | `[MEASURED]` 7/13 selected, all7 admissible, 6 killed; S2-02 SURVIVED |
-| T default-exclusion/type/reference ownership | parked for design | `[MEASURED]` zero module proofs; root/output public control pair; SPEC S2-O3 |
-| F / policy / authoritative gate / independent review | pending | `[UNKNOWN]` No private acceptance; S2-W1 open, §0 owner fields unfilled; review0/2 |
-| Git/publication/remote backup | pending controller | `[MEASURED]` no Git writes; local snapshots only |
+| Owner qualifier identity predicate | done | `[MEASURED]` 17 targeted tests; final E5 218/218 base-preserving cases; dynamic property/destructuring and every supported implicit receiver carrier; S2-W1 GREEN in both grammars. |
+| Public yield / refusal partition | done | `[MEASURED]` namespace-final-public: +132/+132/0/0, all CORRECT/owner/span agree; 47 refused = 25 writes +11 value/chained reads +11 namespace arguments. |
+| Full verification | done | `[MEASURED]` namespace-final-nextest: 5,154 passed /1 existing skip; doctests 2; fmt/clippy 0 new; matrix 182 OK. |
+| Landed parity | done | `[MEASURED]` namespace-final-s1b.json: 822 byte comparisons; namespace-final-lane-p.json: every populated P2 row unchanged. |
+| Advisory mutation | done | `[MEASURED]` 8/14 selected, 7 killed, S2-14 killed, S2-02 survives. |
+| Controller replay wrapper | done | `[MEASURED]` namespace-controller-public-selftest.json, public positive 1 CORRECT /negative 0; no F read. |
+| F / authoritative mutation / Tier-A quick / review | pending | `[UNKNOWN]` Controller execution not performed here. README and IMPLEMENTOR give commands/serial gates. |
 
 ## 3. Corrections to standing documents and memory
 
 | Location | Stale or false assertion | Correction |
 |---|---|---|
-| This packet's S2-0 README/MEASUREMENTS/OQ/FILES | Lane-wide no target addition; measurement-only; park unless F existing-target filters | `[MEASURED]` Replaced in place with corrected admission, product prototype, native yield and dispatch |
-| S2-0 PROBES/refinement conclusion | Zero existing-target filter candidates implies no permitted S2 gain | `[MEASURED]` Historical filter statistic retained only in its scope; new dropped-site positive proof admits179 X rows |
-| Previous interim/final HANDOFF | Pending public receipts, then overly broad admission self-pass | `[MEASURED]` Replaced by this parked handoff; static oracle claim retained in its scope, E5 admission claim refuted |
-| Supplied reference current-main label | Old binary was current P2 | `[MEASURED]` Earlier source-bound comparison refuted label; immutable 4e592daa tools remain authority |
-| Memory stores | No update requested | `[MEASURED]` No memory write performed |
+| SPEC/IMPLEMENTOR/README/OQ | S2-O6 unanswered, S2-W1 open, dispatch parked for design | `[MEASURED]` Reconciled: owner design implemented, RED/GREEN recorded; controller adoption/review gates remain. |
+| MEASUREMENTS/VERIFICATION/manifest/inventory/FILES | +179 and old source/gates as current | `[MEASURED]` Replaced with final +132, 47-row partition and current hashes/receipts. |
+| PROBES and older target snapshots | Historical RED/parking claims | `[MEASURED]` Explicitly marked historical/superseded; current ledger precedes them. Old evidence preserved as controls. |
+| Root VERIFICATION.md | Stop hook required exact commands and named sections | `[MEASURED]` Audit uncovered namespace implicit receiver omission. Bounded carrier repair plus regression precedes namespace-final full suite (5,154 pass); 43 refusal families have RED/GREEN evidence. Exact commands and named sections refreshed; see namespace-verification-coverage.json. Earlier stop-hook-verification-audit.json is superseded. |
+| Memory | None used or updated | `[INHERITED]` Memory updates require explicit request; none was made. |
 
 ## 4. Open work
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Final Git and backup custody | pending | Controller commits FILES/OWNED-FILES, copies archives/binaries | Worker Git/write boundary | bc0fabb; final-custody.json |
-| 2 | Qualifier identity design / new policies | blocked | Specify alias/escape refusal or complete write identity; preserve S2-W1 RED until design repair | Open-class family at local cap | S2-O6 then S2-O1/O2/O3 |
-| 3 | F census and head acceptance | pending | Run README command privately, then source-bound private head comparison | Controller-only inputs | CONTROLLER-s2.sh; S2-O4 |
-| 4 | Authoritative mutation coverage | pending | Run registry without since/scope after commit; disposition survivor | Six unselected anchors / survivor | S2-02; S2-04/05/06/08/09/12 |
-| 5 | Review prerequisite and review | pending | Tier-A quick, then independent review cap2 | Controller dispatch | IMPLEMENTOR; review0/2 |
+| 1 | Controller custody/commit | pending | Preserve archives/tools and commit FILES set | Controller Git authority | FILES.md, owner-final-custody.json |
+| 2 | Private F head | pending | README CONTROLLER-s2.sh command | Controller private root | S2-O4 |
+| 3 | Full mutation coverage | pending | Registry run without --since/--scope after commit | Controller; six omitted anchors | S2-02/S2-14, all 14 |
+| 4 | Quick and serial review | pending | Tier-A quick then two cumulative rounds | Controller dispatch | IMPLEMENTOR; cap two |
+| 5 | O1/O2 adoption confirmation | pending | Confirm SPEC §0 controller positions | Owner/controller adoption | S2-O1/S2-O2 |
+| 6 | T ownership expansion | parked | Separately specify exclusions/ambient/references | Not authorized | S2-O3 |
 
 ## 5. Invariants and traps — do not do these
 
-- Never open F or publish private rows; wrapper stdout is aggregates only.
-- Never overwrite main-prism/main-dump_imports; they are immutable S2-0 product controls. build-facts requires --head.
-- Never widen an existing base set; S2 returns the complete landed result before positive recovery.
-- Keep positional import proof separate from CallSite.local_binding; changing the latter breaks the S1b projection contract.
-- Do not collapse distinct namespace identities just because they export the same function.
-- Do not treat name-based writes as object-write closure. Known Alias=C writes still admit wrongly. Existing forwarded/shared/destructuring/this controls enumerate only their observed population.
-- `.jsx` substitutes `.tsx` before `.ts`; `.js` has the opposite priority. `.mts`/`.cts` bodies are unindexed and retain base.
-- T native yield is not ownership proof. Do not remove root/output, ambient or reference guards to inflate counts.
-- From cwd eval, logs live under ../target/s2-plan; an invalid redirect is not a completed rebuild or admissible gate. Use installed Python3.12 with PYTHONPATH=. rather than installing dependencies in the egress-locked sandbox.
-- Frozen bins remain runnable after build cleanup; a rebuild/commit can change CLI revision bytes and requires a fresh binding.
+- Never open F or write Git as planner — explicit owner boundary.
+- Never overwrite immutable main tools — they bind merged-P2/S2-0.
+- Never use checker agreement alone as E5 evidence — old alias mutation is statically CORRECT and behaviorally wrong.
+- Never relax the base-row fence or S1b projection — existing rows stay byte-identical.
+- Never infer that every namespace is every class — refusal joins require visible module identity; named/property tokens still refuse lexically across files.
+- Never replace the whitelist with a blacklist — unfamiliar value use keeps base.
+- Never assert the advisory survivor equivalent or full coverage — scoped omitted six anchors.
+- Use a fresh evidence directory, frozen tools and the installed Python 3.12 CLI; matrix rebuild log is `../target/...` from eval.
+- Snapshot first, remove only generated local targets afterward; archives are not remote backup.
 
 ## 6. Identifiers
 
 | Item | Verbatim |
 |---|---|
-| Workspace | `/Users/wesleyjinks/code/prism-s2-plan` |
-| Plan HEAD | `bc0fabb39231666a6b2d64faa314eb45585eae14` |
-| Product base | `4e592daa7858a195eb3a9eb77c83dfbc763b49fa` |
-| Oracle | `TypeScript 5.9.3` / `3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675` |
-| Frozen head CLI | `target/s2-plan/bin/head-prism` |
-| Frozen head facts | `target/s2-plan/bin/head-dump_imports` |
-| Base binding | `probes/reference-binaries.json` |
-| Final source/receipt binding | `BUILD-MANIFEST.json`, `OWNED-FILES.json`, `target/s2-plan/final-custody.json` |
-| Public receipts | `target/s2-plan/verified-public/` |
-| Scoped registry | `mutants/lane-s2-import-qualifiers.json` |
+| Clone / branch | `/Users/wesleyjinks/code/prism-s2-plan` / `plan/s2-import-qualifiers` |
+| Planning HEAD | `6e4e0ef19de578d4865d7297eb5cf72a5b6a27a6` |
+| Product main | `4e592daa7858a195eb3a9eb77c83dfbc763b49fa` |
+| Frozen tools | `target/s2-plan/bin/{main-prism,main-dump_imports,head-prism,head-dump_imports,pre-whitelist-prism,pre-whitelist-dump_imports,pre-namespace-prism,pre-namespace-dump_imports}` |
+| Current public / controls | `target/s2-plan/namespace-final-public/`, `target/s2-plan/final-e5-complete-{red,green}/` |
+| Packet | `docs/superpowers/plans/2026-10-03-s2-import-qualifiers/` |
+| Cache versions | `CPG 108 / navigation 64` |
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** REFUTED — admission claim corrected in place; source preserved for design · claim: “The prototype satisfies corrected S2 admission, including qualifier-object E5.” · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: e5-alias-boundary/summary.json (two WRONG admissions, same-object runtime control). Public static-oracle module/owner/span certification and zero base loss SURVIVE in their narrower scope. Independent review and F acceptance are NOT RUN.
+**§2c verdict:** SURVIVED · claim: "The owner fail-closed lexical rule keeps S2-W1 and the enumerated escape/write controls at base while retaining only source-certified public gains." · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: namespace-e5-green, namespace-final-public, namespace-final-nextest and mutation/Tier-A/parity receipts.
 
-**Questions the owner owes an answer to:** S2-O6 qualifier identity/escape design before retry; SPEC S2-O1/O2/O3; OQ S2-O4 private census/head gate; S2-O5 surviving mutant disposition. E5's keep-base requirement is resolved authority and may not be waived by these questions.
+**Questions the owner owes an answer to:** `VERIFICATION.md` is a locally excluded snapshot receipt; packet measurements carry its durable claims. O1/O2 adoption confirmation remains as controller-recorded interim positions; no answer is required to use this completed plan packet. F/authoritative mutation/quick/review are controller execution gates, not results inferred by the planner.

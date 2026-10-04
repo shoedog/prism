@@ -1,73 +1,75 @@
-# S2 import qualifiers — bounded positive admission
+# S2 import qualifiers — fail-closed positive admission
 
-## 0. Owner decisions and blocking design gate
+## 0. Decisions and dispatch boundary
 
-**DISPATCH PARKED — WRONG S2-W1 (confidence 100/100):** `export class C { static sm() { return 0; } } const Alias = C; function replacement() { return 1; } Alias.sm = replacement;` followed by an imported `C.sm()` is a base drop. Head adds Exact to the original `sm` despite the qualifier object being written through its statically known alias. Both JSX/TSX and the same-object runtime control reproduce it. The static checker still certifies the declaration; that does not prove E5. Repeated new write-identity forms after the local cap are open-class: park for design, preserve the artifact, and do not adopt these positive edges yet.
+S2-O6 is the owner's 2026-10-03 decision: **“Ship X gain, fail-closed.”** A qualifier stays base whenever its value identity escapes or its member-write closure is unproved. Use a closed whitelist, not an expanding syntax blacklist. This repair continues the existing prototype; no restart or Git write is authorized.
 
-The corrected owner brief authorizes new Exact edges on base-dropped sites after a complete static proof. S1b-4's no-new-identity rule still governs refinement of an existing R3 set. Option K and qualifier-object member-write E5 are binding requirements, not open questions.
+| ID | Disposition | Design used in this packet |
+|---|---|---|
+| S2-O6 | Owner decided | Conservative lexical whitelist in every indexed defining/forwarding/importing file. Any unrecognized value use revokes the entire qualifier identity. |
+| S2-O1 | Controller interim position, pending owner confirmation for adoption | Separate S2 relative-import selector; captured membership/configuration/occupancy proof. Explicit empty references allowed; nonempty references refused. Normal lane-P alias resolver unchanged. |
+| S2-O2 | Controller interim position, pending owner confirmation for adoption | Two qualifier-prefix hops and two callable-export hops, explicitly up to four composed module hops. |
+| S2-O3 | Controller interim position; no new work authorized | T remains base. Origin-sensitive default exclusions, inherited ambient inputs and references require a separate ownership increment. |
+| S2-O4 | Controller-only execution | Wrapper now compares base/head complete rows and native ownership/full spans on F, returning aggregates only. Its current result is not inferred from the base census. |
+| S2-O5 | Disclosed coverage SMELL | Positional-proof mutant survived its older selector. Keep it visible unless a realistic base-dropped negative kills it; no equivalence claim. |
 
-The following new policy choices are explicit placeholders. The working prototype is evidence for these choices; it does not constitute their adoption.
-
-| ID | New policy | Proposed boundary | Owner decision |
-|---|---|---|---|
-| S2-O1 | S2 relative-import ownership envelope | Reuse the captured lane-P membership/configuration/occupancy proof. Only the S2 selector admits an explicit empty `references: []`; nonempty references remain refused. Simple relative imports may use NodeNext with the retained option fences. Bare paths aliases retain P1/P2's unchanged resolver. | `__OWNER_RELATIVE_PROOF_ENVELOPE__` |
-| S2-O2 | Combined namespace-chain depth | Qualifier identity uses the landed depth bound of two. A re-exported module namespace separately uses the landed callable export-chain bound of two; the composed path can contain four module hops. Adopt this explicit bound, or require a single shared two-hop budget and remeasure. | `__OWNER_COMPOSED_DEPTH_BOUND__` |
-| S2-O6 | Qualifier object write/escape identity design | E5 is already mandatory; do not authorize this wrong edge. Prefer a bounded fail-closed escape/alias cut first: any qualifier whose value identity or member-write closure is unproved stays base. A later positive alias analysis must compose local aliases, imported aliases, namespace-member paths and unknown escapes without changing the S1b projection. Decide and review this design before another implementation retry. | `__OWNER_QUALIFIER_IDENTITY_DESIGN__` |
-| S2-O3 | Further T ownership work | Keep this packet's T rows at base. Origin-bound default output-directory exclusions and inherited ambient type inputs require a separately specified ownership increment, with inside/outside exclusion and inherited-origin controls. Do not remove the current guard merely to recover the native census. | `__OWNER_T_OWNERSHIP_INCREMENT__` |
-
-Exact remains a static binding grade; this does not excuse known writes to the qualifier object. The prototype handles direct and statically joined importing writes but lacks object-alias/escape closure. The current implementation therefore does not satisfy the admission invariant below on all inputs. S2-O6 chooses the repair design, not whether to waive E5.
+S2-W1 was WRONG at confidence 100: `const Alias=C; Alias.sm=replacement` changed the same exported class object while the prototype added Exact to the original method. The old binaries reproduce it in both grammars; the whitelist must keep base. Static checker agreement alone cannot establish write closure. The owner decision supplies the design authorization that was missing at the previous open-class cap. This repair declared a three-round cap and disclosed bounded extensions for lexical property/destructuring coverage and the remaining namespace receiver carriers. Neither extension restarts the artifact or changes the whitelist policy. Independent cumulative review has cap two, zero rounds dispatched by the planner.
 
 ## 1. Admission invariant
 
-Compute the complete landed resolution first. If it contains any target, return that result byte-for-byte: S2 neither widens nor replaces it. This part passes complete-row controls; the positive branch remains blocked on S2-W1. Any future narrowing must obey S1b-4's positive subset proof and is outside this prototype.
+Compute landed resolution first. Return any populated base result byte-for-byte. Only an empty base result may gain one Exact `ImportQualified` edge, after every proof succeeds:
 
-For an empty base result, return one Exact `ImportQualified` edge only after every condition below succeeds:
+1. Direct non-element `X.member()` with positional binding-core Import proof; preserve the landed `CallSite.local_binding` projection. Shadowed, indirect, uncertain and type-only bindings do not qualify.
+2. One eligible named/default ESM MemberImport, one indexed module and proven caller ownership. Declaration priority, captured occupancy, ambient inputs and every barrel hop must succeed. No filename-stem fallback supplies admission authority.
+3. One qualifier identity, keyed by defining file and local name. Distinct module namespaces remain distinct even when their functions agree. Conflicts, unresolved stars, cycles and depth overflow refuse.
+4. One literal supported member with a binding-core Callable body/span and exactly one matching indexed FunctionId by file/name/start/end lines.
+5. Closed qualifier-use predicate and member-write closure hold across every visible file. Any failed or unavailable proof returns the whole base outcome, including its drop reason.
 
-1. A direct, non-JSX-element `X.member()` source call has a positional binding-core Import proof. Shadowed, uncertain, indirect and type-only bindings do not qualify. Preserve the existing `CallSite.local_binding` projection.
-2. Exactly one eligible named/default ESM MemberImport binds `X`. Its specifier resolves to one indexed source module under the caller's proven owning configuration. Captured filesystem occupancy, declaration priority, ambient inputs and every barrel hop must succeed. No filename-stem fallback grants a new edge.
-3. The exported qualifier has one identity, including its defining file and local identity. Two different module namespaces that export the same function are different qualifier identities. Conflicting claims, unresolved star branches, cycles and exceeded depth keep base.
-4. The requested member has one supported, unwritten Callable implementation capture with an exact span. The graph contains exactly one matching FunctionId by file, indexed name, start and end lines.
-5. Binding writes or qualifier-object member writes make the row may-call. Writes in the provider, caller, forwarding module or a statically joined importing module invalidate that qualifier identity. Assignment, computed assignment, update, delete, destructuring member targets and lexical `this` writes are covered. A shadowed local object's write does not poison the import.
+## 2. Closed qualifier-use predicate
 
-Every failed proof must keep the whole base outcome, including its drop reason. Native checker absence is never a product proof of non-callability. The oracle is validation evidence; it is not used by production admission.
+Traverse the complete parsed file once, including property and destructuring identifier tokens. Unknown identifier contexts are refused by default. Collect lexical refusals even when scope cleanliness fails. Refused local names are applied across every visible file, including dynamic namespace accesses that lack named import bindings. The allowed contexts are:
 
-## 2. Mechanisms, in yield order
+| Allowed use | Required shape |
+|---|---|
+| Direct call | Identifier is the object of a literal property `C.member`, and that exact member expression is the call's function. Optional/computed/chained accesses refuse. |
+| Construction | Identifier is directly the constructor of `new C(...)`. Uses inside the arguments are checked separately. |
+| Type position | Type identifiers or identifiers nested in explicit type annotations, type arguments/parameters, type aliases or interfaces. Class heritage is a runtime value use and refuses. |
+| Own declaration/import | Declaration name, parameter declaration, or ESM import binding. Initializers and bodies are separately traversed. Import renaming declares a binding; it does not by itself escape its value. |
+| Own export | Same-name named export. A bare `export default C` is allowed only when there is no other direct call/construction/value use of C in that file. `export default class C` is its declaration. |
 
-| Mechanism | Required capture | Kept-base boundary |
+Every other occurrence refuses: alias initialization/assignment/destructuring; arguments/returns/property/array/map/spread values; member extraction; assignments/updates/deletes; computed access; reflective helpers; renamed exports; default export together with other uses. Once `A=C` refuses C, no positive alias walk is necessary to detect later writes through A. Lexical shadow occurrences may also refuse the module identifier; the owner explicitly permits that conservative cost.
+
+Every `this` occurrence is mapped conservatively to the nearest class, object or declared namespace carrier and checked by the same use whitelist. When its lexical carrier is unavailable, the receiver may be a module namespace: a refused occurrence cuts module-namespace identities via their existing `*namespace*` identity marker. It never silently certifies receiver closure. This closes alias/return/argument/member-write/computed/member-value paths for all supported carriers without assuming the dynamic receiver is known. A direct literal `this.member()` remains allowed. The existing member-write walk remains an independent guard, including destructuring and lexical-this writes. Parse errors or scope-cleanliness failure do not certify closure.
+
+Raw `QualifierFacts.written` contains both write and whitelist refusals. Provider refusals suppress local qualifier capture. Caller refusals suppress admission. Importer refusals and renamed source re-exports join to the qualifier identity and revoke it from every project's table. Namespace importer paths conservatively revoke all qualifiers from that module. Refusal joins can use retained resolver hops and indexed relative candidates even when the writer's owning project is unproved; those candidates never grant a positive edge. Unjoined named imports conservatively revoke matching exported names. An unjoined namespace has no captured identity equal to an arbitrary class; it does not blanket-revoke unrelated objects. Its spelled property/destructuring names still participate in the global lexical refusal set. This can reduce yield and must be measured rather than relaxed without proof.
+
+The predicate proves only the visible indexed source universe. It does not claim closure over files excluded from the repository input or arbitrary external runtime code.
+
+## 3. Mechanisms and resolver reuse
+
+| Mechanism | Positive capture | Refusal boundary |
 |---|---|---|
-| Named/default class static methods and function-valued fields | Unique module-scope class binding; literal unique member name; static method or function initializer; clean binding-core Callable body/span | Instance methods, accessors, decorators, duplicate keys, unknown/computed members, writes, parse errors and unindexed bodies |
-| Declared namespaces | Unique namespace identity; exported function declaration proven Callable inside its body | Merged/duplicate namespaces, signatures without a body, non-callable members and writes |
-| Re-exported module namespaces | `export * as N`; landed export resolution plus the S1b-4 binding-core callable capture; unique namespace identity | Wrapped terminals, missing spans, unresolved stars and identity conflicts |
-| Constant object literals | Unique `const` object binding; literal unique method, arrow or named function-expression member | Spreads/computed keys, accessors, duplicates, identifier/shorthand alias members, call-result objects and writes |
+| Class statics | Unique module class, literal unique method/function field, Callable body/span | Instances, accessors, decorators, duplicate/computed/unknown keys, writes/escapes/errors |
+| Declared namespaces | Unique namespace with exported Callable functions | Merging, signatures without bodies, noncallable members, writes/escapes |
+| Re-exported module namespace | Landed export resolver plus S1b-4 namespace Callable captures | Wrapped/unspanned terminals, unresolved stars, conflicting identities, importer escapes |
+| Constant objects | Unique const literal, literal unique method/arrow/named function-expression member | Spreads/computed keys/accessors/duplicates, identifier aliases, call results, writes/escapes |
 
-The class extractor deliberately refuses the complete class when a member key cannot be proved; it can undercount otherwise safe static members. Object and namespace cases already bound by base are preserved even if this table could prove a different singleton.
+`src/ast/js_import_qualifiers.rs` reuses B0 scope cleanliness, binding lookup/writes and JsTerminal. `src/js_import_qualifiers.rs` composes identities with the landed export resolver. Raw unproven named claims remain barriers. Base-bound object/namespace rows remain unchanged even if S2 would refuse their qualifier.
 
-## 3. Resolver and core reuse
+`apply_js_paths` retains the captured lane-P resolver and project partitions. S2 relative selection retains default-exclusion refusal for root/output directory options without explicit exclude; rootDirs, moduleSuffixes and noResolve refuse. Explicit `.js` substitution tries `.ts`, `.tsx`, `.d.ts`; `.jsx` tries `.tsx`, `.ts`, `.d.ts`, consistent with the pinned native controls. Declaration winners stay base. `.mts`/`.cts` body indexing is outside this product slice. Cache versions are **CPG 108 / navigation 64**, invalidating pre-whitelist derived results; whole-table dependency/config invalidation remains landed behavior.
 
-`src/ast/js_import_qualifiers.rs` derives separate qualifier facts using the existing B0 scope-cleanliness checks, scope lookup, binding/write walk and JsBinding/JsTerminal types. Member syntax has no identifier binding; its capture checks the function body, indexed name and exact span before constructing Callable. Declared namespace functions use the existing scoped binding operation directly.
+## 4. Acceptance and measurement
 
-`src/js_import_qualifiers.rs` composes positive qualifier identities. It reuses `resolve_js_exports_for` and the S1b-4 `namespace_callable_locals` captures for module-namespace functions. Raw named claims that are unproven remain barriers rather than disappearing.
+Pinned TypeScript 5.9.3 ProjectService supplies validation evidence, not production admission. Every changed row must have a unique Callable terminal, native module equal to Prism's module proof, caller's native owner equal to Prism's owner, and exact FunctionId file/name/full line span. Complete key populations and source metadata must agree; any changed populated base row fails. Changed UNJOINABLE or unproven rows fail; empty streams and source/config/binary/oracle drift are globally inadmissible.
 
-`apply_js_paths` uses the captured lane-P resolver and partitions tables by caller project. The normal P1/P2 selector remains unchanged. S2's separate relative selector retains the default-exclusion refusal when output/root directory options occur without explicit exclude; it also refuses rootDirs, moduleSuffixes and noResolve. Alias imports use existing P1/P2 module proofs.
+Unjoinable site/fact/program/position/syntax failures remain in the whole-site denominator. Mixed Rust+JS and BOM/CRLF controls pin the oracle boundary. F is never read by the planner. Controller aggregates report the base census and head comparison separately; zero changed rows does not imply every low row was proven.
 
-Explicit `.js` substitution checks `.ts`, `.tsx`, then `.d.ts`; `.jsx` checks `.tsx`, `.ts`, then `.d.ts`, following pinned TypeScript 5.9.3 at lines 45480–45487. Declaration winners keep base. `.mjs`/`.cjs` typed counterparts are checked for priority, but `.mts`/`.cts` bodies are not indexed by this product and therefore cannot supply new Callable edges. Unblocked occupancy and indexed source identity remain mandatory.
+Measure X, installed X, R and T against immutable merged-P2 main `4e592daa7858a195eb3a9eb77c83dfbc763b49fa`. X snapshots are not additive. Partition the old 179 changed rows into survivors and refusals using complete rows and actual qualifier facts, with source locations for refusal causes. Report every new change CORRECT with module/ownership agreement and preserve every lane-P populated row. MEASUREMENTS.md and BUILD-MANIFEST.json carry the current counts and bindings.
 
-Derived facts and project tables are serialized, with CPG cache version 107 and navigation sidecar version 63. Dependency/config invalidation remains the existing lane-P whole-table rebuild. Do not reset the already-merged P2 cache versions or patch derived tables incrementally.
+## 5. Controls and gates
 
-## 4. Oracle and complete-row acceptance
+Both grammars cover every whitelist refusal family in the provider, caller, distinct importer and forwarding importer; source-renamed re-exports, namespace paths, unproved writer ownership, object aliases and `this` escapes have additional controls. Positive declaration/call/new/type/same-name/default-only exports prevent a blanket refusal implementation. The expanded `e5-alias-boundary.py` compares immutable base/old prototype/repaired head. S2-W1 must keep base in both grammars.
 
-The pinned TypeScript 5.9.3 ProjectService uses each caller's actual default project. A changed row must have a unique callable terminal; native import module and owner configuration must equal Prism's module and owner proof; its exact FunctionId file/name/full line span must match. Full base/head key populations and source metadata must agree. No already-bound row may differ, and target membership loss must be zero.
+Mutants registry `mutants/lane-s2-import-qualifiers.json` includes S2-14 removing the whitelist. Its extra tracked-file comment is only a selection marker so the scoped driver includes the new untracked source obligation; it changes no behavior. The scoped run is advisory, and omitted new-source anchors still need the controller's authoritative registry run after commit. Surviving mutants are disclosed SMELLs without an invented failure or equivalence claim.
 
-Join failures are per-site `UNJOINABLE`: missing site/fact join, missing caller program, unsupported/non-direct syntax or unusable source position. They count in the whole-site denominator and never provide a certificate. A changed unjoinable row fails head comparison. Empty streams, binary/probe drift, pinned-oracle drift and source-hash drift remain whole-run INADMISSIBLE errors.
-
-The public mixed Rust + JSX/TSX fixture reproduces the original fatal site/fact join: call-stats exposes a Rust site while the facts driver emits JS/TS facts only. BOM+CRLF controls independently certify valid positions. This is a likely explanation of the supplied F error, not a claim about F's contents.
-
-## 5. Controls and evidence
-
-The existing green integration controls cover all four mechanisms, base-bound preservation, caller ownership, import shadows, callable uniqueness/body spans, export conflicts, unresolved stars, E5 writes and explicit suffix priority/declaration refusals. The additional `probes/e5-alias-boundary.py` admission control is RED in both grammars and must become GREEN before adoption. Existing native synthetic controls run in both grammars; declared namespaces intentionally keep base in the JavaScript grammar.
-
-`mutants/lane-s2-import-qualifiers.json` records behavioral obligations for the scoped and authoritative mutgate. Scoped selection sees tracked diff paths, so several new-source obligations are omitted until the controller commits them; an extra mutation in a tracked file can still select a new-source obligation. A surviving mutant remains a coverage SMELL unless a concrete product failure is demonstrated; do not call it equivalent merely because its current selector stays green.
-
-Tier-A fixtures for JavaScript and TypeScript expect the new imported static edge while allowing the inherited R6SingleOwner shadow edge. Both new fixtures fail on the source-bound base and pass on head. Existing Tier-A baselines are unchanged.
-
-Public yield, complete denominators, preserved P2 rows, source/binary bindings and gate receipts are in MEASUREMENTS.md and BUILD-MANIFEST.json. F remains controller-only. Independent review cap is two; zero rounds have been dispatched. Preserve the existing artifact for targeted corrections at the cap; do not restart it.
+Tier-A positive and alias-write refusal fixtures exist for both JavaScript and TypeScript. Older baselines remain unchanged. The required tiered gates are one full MCP nextest after final semantic edits, MCP doctests, advisory scoped mutgate, fmt/clippy, immediate-rebuild Tier-A matrix, all retained S1b-4 byte parity and complete lane-P public preservation. Tier-A quick is required before independent review; full multi-corpus Tier-A remains human-triggered. The controller owns Git writes, F, model-bound dispatch/review and adoption; no auto-merge.

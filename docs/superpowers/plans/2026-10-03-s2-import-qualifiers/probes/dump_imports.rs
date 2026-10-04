@@ -19,6 +19,7 @@ fn main() {
             .map(|((_,specifier),(module,owner))| serde_json::json!({"specifier":specifier,"module":module,"owner":owner})).collect();
         println!("{}", serde_json::json!({"file":file,"hash":repo.file_hashes.get(file),
             "bindings":cg.import_bindings.get(file),"imports":cg.imports.get(file),
-            "functions":functions,"sites":sites,"module_proofs":proofs}));
+            "functions":functions,"sites":sites,"module_proofs":proofs,
+            "qualifier_facts":cg.js_ts_exports.get(file).map(|f| &f.qualifiers)}));
     }
 }

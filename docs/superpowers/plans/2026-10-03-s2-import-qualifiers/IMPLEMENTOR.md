@@ -1,47 +1,34 @@
-# S2 dispatch — PARKED at the local cap
+# S2 dispatch — existing artifact, fail-closed qualifier identity
 
-**Do not adopt the positive branch yet. WRONG S2-W1:** the legal class-object alias-write control adds Exact despite E5. Static oracle/span/ownership checks pass for that wrong admission; the independent write-state requirement fails. Preserve the current artifact and its receipts. The convergence rule requires qualifier identity/escape design before another implementation retry, rather than another ad hoc syntax patch.
+Owner S2-O6 authorizes the closed lexical refusal design in SPEC §2. The planner repaired the existing prototype; implementation starts from these exact src/tests bytes, not a fresh restart. Cumulative review may proceed after the controller's F/authoritative-mutgate/Tier-A-quick gates. Review cap is **two rounds**; classify at the cap and fold only bounded fixes. The local repair cap was three; bounded extensions for property/destructuring tokens and namespace receiver carriers were disclosed. See PROBES for the enumerated populations and outcomes. Unknown receiver ownership must refuse module-namespace identity closure; it is not permission to add allowed-use contexts.
 
-Start from this existing prototype after the controller commits the packet. Planning HEAD is `bc0fabb39231666a6b2d64faa314eb45585eae14`; the immutable product base is merged P2 `4e592daa7858a195eb3a9eb77c83dfbc763b49fa`. Resolve SPEC §0, especially S2-O6's fail-closed qualifier write-identity design, explicitly. Do not treat working prototype code as an owner answer or rewrite it from scratch.
+Planning HEAD is `6e4e0ef19de578d4865d7297eb5cf72a5b6a27a6`; product base is merged P2 `4e592daa7858a195eb3a9eb77c83dfbc763b49fa`. Product src/tests remain uncommitted. The controller owns Git writes, implementation/review model dispatch and F. Planner model requested by the owner is gpt-6.1-sol; verify any subsequent dispatched model from the actual transcript. No planner subagent/review dispatch or F read occurred.
 
-The controller owns Git writes, implementation/review model dispatch and F. This planner performed no commit, publication, private read or independent review. Requested planner/repair model is gpt-6.1-sol; any implementation model selection is controller-owned and must be verified from its actual transcript.
+1. Bind checkout, parent, dirty inventory, BUILD-MANIFEST hashes and frozen base/head tools. Read SPEC §0 decisions and current MEASUREMENTS before transferring any certificate. O1/O2 are controller interim adoption positions; O3 keeps T at base.
+2. Review the closed predicate first: all unknown uses refuse; direct literal call/new/type/declaration/own-export are the allowed set. Follow provider refusal, importer/forwarder/namespace revocation and unproved writer-owner refusal to every table. Check both-grammar S2-W1 and positive controls. Preserve the S1b-4 resolver and CallSite projection, whole base-row fence and cache versions 108/64.
+3. Review positive module ownership/occupancy, qualifier identity and exact Callable spans; then class fields, declared/re-exported namespaces and literal objects. No dynamic alias acceptance, instance methods, call-result objects, default-exclusion inference or ambient expansion is authorized.
+4. Replay complete public comparisons. Every changed row must be CORRECT with native module/owner/full span agreement; no already-bound row may change. Reconcile yield/refusal causes and source/binary custody after any semantic correction. Do not normalize away a difference or re-baseline a regression.
+5. Controller commits the exact FILES set on the planning branch, runs all registered mutants without scope, runs Tier-A quick, and runs CONTROLLER-s2.sh on F privately. Return aggregates including complete-row correctness and UNJOINABLE/reasons. A commit/rebuild changes binary version metadata: rebind hashes and replay measurements before transferring them.
+6. Dispatch independent review serially with cap two. A closed finding names input/state, wrong result, bounded fix and realistic regression. An open-class population at the cap parks for design; do not discard the partially reviewed artifact. Adoption and merge belong to the controller/owner.
 
-The product change is roughly 0.8k source lines plus 0.55k integration controls, separate from the measurement packet. Review the module/ownership and E5 proof first, then declared/re-exported namespaces, then object literals, with the same cumulative base fence. Keep a two-round independent review cap, classify at the cap, and fold only closed bounded findings into the existing artifact. No new default-exclusion, ambient, instance-method or dynamic-alias mechanism is authorized by this dispatch.
-
-1. Rebind exact checkout, parent, dirty scope and BUILD-MANIFEST hashes. Retain both immutable base binaries. Inspect S2-W1, SPEC, OQ and the survivor receipt; adoption is blocked.
-2. Settle S2-O6 before implementation: specify an alias/escape refusal cut or a complete object-identity write proof, including both-grammar S2-W1 and namespace/imported alias cases. This is a design gate at the cap. Then resolve S2-O1/O2. S2-O3 is a separate design decision; T remains at base unless the controller explicitly commissions that increment. Do not infer adoption from T's raw callable count.
-3. Preserve the landed S1b-4 resolver and CallSite projection; retain separate S2 positional facts, positive module/owner/identity/member proof and cross-import E5 revocation. Preserve cache 107/63. Fix the positional-proof survivor with a realistic base-dropped negative control if one is constructible; otherwise retain it as an explicit coverage SMELL and explain the redundant defenses without asserting complete equivalence.
-4. Require `e5-alias-boundary.py` to keep base in both grammars, with a regression that is RED on this prototype. Then run source-bound synthetic base/head/oracle controls and complete public comparisons. New Exact requires matching native module, owner and full terminal span. Any changed unjoinable or unproven row is a failed gate. Every already-bound row must be unchanged; never normalize away a difference.
-5. Run one full MCP nextest after the final semantic edit, MCP doctests, fmt, same-environment base/head Clippy, the advisory scoped gate, immediate-rebuild Tier-A matrix, S1b-4 byte parity and P2 public preservation. Before independent review run the project-required Tier-A quick, or carry its concrete environment exclusion. Full multi-corpus Tier-A remains human-triggered.
-6. After all new anchors are committed, run the registry's authoritative gate without `--since` or `--scope`; the current scoped result does not cover omitted anchors. The controller runs F privately and returns only aggregates. Adoption/merge also requires S2-W1 closed with the reviewed write-identity design and that controller evidence and the policy/review disposition; do not auto-merge.
-
-Reproduce the current admission failure first (expected classification WRONG and exit 1):
-
-```bash
-python3 docs/superpowers/plans/2026-10-03-s2-import-qualifiers/probes/e5-alias-boundary.py \
-  target/s2-plan/bin/head-prism target/s2-plan/bin/head-dump_imports \
-  target/s2-plan/e5-alias-NEW
-```
-
-Other reproduction from the workspace root:
+Reproduction from the workspace root (choose fresh output directories):
 
 ```bash
 cargo build --offline --release
 python3 docs/superpowers/plans/2026-10-03-s2-import-qualifiers/probes/build-facts.py --head
+python3 docs/superpowers/plans/2026-10-03-s2-import-qualifiers/probes/e5-alias-boundary.py \
+  target/s2-plan/bin/head-prism target/s2-plan/bin/head-dump_imports target/s2-plan/e5-NEW
 python3 docs/superpowers/plans/2026-10-03-s2-import-qualifiers/probes/prototype-controls.py \
-  target/s2-plan/bin/head-prism target/s2-plan/bin/head-dump_imports \
-  target/s2-plan/controls-NEW
+  target/s2-plan/bin/head-prism target/s2-plan/bin/head-dump_imports target/s2-plan/controls-NEW
 python3 docs/superpowers/plans/2026-10-03-s2-import-qualifiers/probes/compare-head.py \
-  target/s2-plan/bin/head-prism target/s2-plan/bin/head-dump_imports \
-  target/s2-plan/public-NEW
+  target/s2-plan/bin/head-prism target/s2-plan/bin/head-dump_imports target/s2-plan/public-NEW
 cargo nextest run --offline --features mcp
 cargo test --offline --features mcp --doc
 cargo fmt --all -- --check
 cargo clippy --offline --features mcp --all-targets
 CARGO_NET_OFFLINE=true python3 scripts/mutgate/mutgate.py \
-  --lane mutants/lane-s2-import-qualifiers.json \
-  --since bc0fabb39231666a6b2d64faa314eb45585eae14 --scope file --jobs 1 \
+  --lane mutants/lane-s2-import-qualifiers.json --since 6e4e0ef1 --scope file --jobs 1 \
   --out target/s2-plan/scoped-NEW
 ```
 
-Use a new evidence directory for each full comparison. Freeze binaries while a run is active; compare-head detects changes. Snapshot the final owned source and receipts before cleanup. The build helper requires `--head` and deliberately never overwrites the S2-0 base tools. A post-commit rebuild can change CLI version metadata; rebind its hash and replay complete public streams before transferring certificates.
+Freeze tools during a run. The helper's `--head` never overwrites immutable base binaries. F command and privacy contract are in README. Authoritative registry command omits `--since`/`--scope`; advisory coverage is insufficient for merge. Snapshots are local custody, not a commit/push/remote backup. Keep disk lean after preserving artifacts and receipts.

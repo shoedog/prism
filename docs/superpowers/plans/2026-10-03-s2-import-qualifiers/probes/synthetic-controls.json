@@ -130,7 +130,7 @@
       "m.{ext}": "export class C { static sm() {} }",
       "app.{ext}": "import { C as X } from \"./m\"; function mutate(X) { X.sm = other; } export function run() { X.sm(); }"
     },
-    "new_exact": 1
+    "new_exact": 0
   },
   "instance": {
     "files": {
