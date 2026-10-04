@@ -1,0 +1,53 @@
+{
+  "mutations": {
+    "PKG01-disable-proof": [
+      "src/js_packages.rs",
+      "if !snapshot.complete",
+      "if true || !snapshot.complete",
+      "js_packages_test::pkg_node10_index_and_missing_declared_entry"
+    ],
+    "PKG02-reverse-conditions": [
+      "src/js_packages.rs",
+      "for (condition, v) in entries {",
+      "for (condition, v) in entries.iter().rev() {",
+      "js_packages_test::pkg_exports_mode_and_source_order"
+    ],
+    "PKG03-reverse-pattern-priority": [
+      "src/js_packages.rs",
+      "std::cmp::Reverse((*pre, *len))",
+      "(*pre, *len)",
+      "js_packages_test::pkg_import_require_and_subpath_patterns"
+    ],
+    "PKG04-main-before-types": [
+      "src/js_packages.rs",
+      "[\"typings\", \"types\", \"main\"]",
+      "[\"main\", \"typings\", \"types\"]",
+      "js_packages_test::pkg_node10_index_and_missing_declared_entry"
+    ],
+    "PKG05-disable-bundler-import": [
+      "src/js_packages.rs",
+      "\"es2015\" | \"es6\" | \"es2020\" | \"es2022\" | \"esnext\" | \"preserve\" => true,",
+      "\"es2015\" | \"es6\" | \"es2020\" | \"es2022\" | \"esnext\" | \"preserve\" => false,",
+      "js_packages_test::pkg_import_require_and_subpath_patterns"
+    ],
+    "PKG06-stop-on-missing-condition": [
+      "src/js_packages.rs",
+      "Found::Absent => continue,",
+      "Found::Absent => return Found::Blocked,",
+      "js_packages_test::pkg_nested_missing_condition_falls_through_only_on_absence"
+    ],
+    "PKG07-disable-rung": [
+      "src/js_paths.rs",
+      "crate::js_packages::resolve(self.snapshot, &c.options, file, spec, indexed)",
+      "None",
+      "js_packages_test::pkg_node10_index_and_missing_declared_entry"
+    ],
+    "PKG08-bypass-paths-refusal": [
+      "src/js_paths.rs",
+      "if c.paths.as_ref().is_some_and(|(_, paths)| {",
+      "if false && c.paths.as_ref().is_some_and(|(_, paths)| {",
+      "js_packages_test::pkg_discovery_is_not_binding_and_paths_win"
+    ]
+  },
+  "lib_test_prefixes": []
+}

@@ -390,6 +390,32 @@ impl JsPathsSnapshot {
     pub(crate) fn external_first_pass_absent(&self) -> bool {
         self.external_modules.values().all(|kind| *kind == 0)
     }
+    /// A captured package link may authorize canonical indexed source, never
+    /// an uninstalled workspace name or a link escaping this repository.
+    pub(crate) fn package_root(&self, lexical: &str) -> Result<Option<String>, ()> {
+        if let Some(target) = self.links.get(lexical) {
+            let target = target.as_ref().ok_or(())?;
+            return (self.unblocked(target) && self.kind(target) == Some(1))
+                .then(|| Some(target.clone()))
+                .ok_or(());
+        }
+        if self.first_pass_absent(lexical) {
+            return Ok(None);
+        }
+        // Ordinary node_modules directories are captured but not indexed.
+        // They shadow an outer link even when no callable implementation is
+        // available; only the final indexed-file proof can admit a target.
+        if self
+            .type_entries
+            .get(lexical)
+            .or_else(|| self.entries.get(lexical))
+            == Some(&1)
+        {
+            Ok(Some(lexical.into()))
+        } else {
+            Err(())
+        }
+    }
     pub(crate) fn input_path(&self, base: &str, path: &str) -> Option<String> {
         use crate::js_paths_syntax::norm;
         let p = if path.starts_with('/') {

@@ -334,6 +334,27 @@ impl<'a> Resolver<'a> {
         }
         let c = self.select(file)?;
         self.resolve_in(&c, file, spec, indexed)
+            .or_else(|| self.package_in(&c, file, spec, indexed))
+    }
+    fn package_in(
+        &self,
+        c: &Config,
+        file: &str,
+        spec: &str,
+        indexed: &BTreeSet<String>,
+    ) -> Option<String> {
+        // An unresolved supported/unsupported paths match is not permission
+        // to bypass its candidate. Preserve every lane-P refusal and row.
+        if c.paths.as_ref().is_some_and(|(_, paths)| {
+            paths.keys().any(|k| {
+                k == spec
+                    || k.split_once('*')
+                        .is_some_and(|(pre, post)| spec.starts_with(pre) && spec.ends_with(post))
+            })
+        }) {
+            return None;
+        }
+        crate::js_packages::resolve(self.snapshot, &c.options, file, spec, indexed)
     }
     fn resolve_in(
         &self,
@@ -450,6 +471,7 @@ impl<'a> Resolver<'a> {
             self.relative(from, spec, indexed, self.allow_js(project))
         } else {
             self.resolve_in(c, from, spec, indexed)
+                .or_else(|| self.package_in(c, from, spec, indexed))
         }
     }
     pub(crate) fn relative(
@@ -557,7 +579,7 @@ fn js_family(p: &str) -> bool {
         .iter()
         .any(|e| p.ends_with(e))
 }
-fn ambient_matches(pattern: &str, spec: &str) -> bool {
+pub(crate) fn ambient_matches(pattern: &str, spec: &str) -> bool {
     match pattern.split_once('*') {
         Some((pre, post)) => spec.starts_with(pre) && spec.ends_with(post),
         None => pattern == spec,
