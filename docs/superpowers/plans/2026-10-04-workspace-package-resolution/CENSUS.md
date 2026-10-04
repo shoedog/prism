@@ -1,3 +1,5 @@
+> Historical prototype record at 92c1d0bc / packet c89bc5b7. R1 current state, repairs, receipt source limits and scheme/status contract supersede operational claims below; see R1-REPORT, SPEC and VERIFICATION. This history does not certify final R1.
+
 # Census — measured before design
 
 Base 4e592daa; fresh offline base executable and import-facts helper bound by planning/base-binding.json. Oracle TS 5.9.3, SHA256 3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675. Each writer uses its actual native ProjectService owner and effective moduleResolution. No F access.

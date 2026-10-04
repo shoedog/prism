@@ -1,3 +1,5 @@
+> Historical prototype record at 92c1d0bc / packet c89bc5b7. R1 current state, repairs, receipt source limits and scheme/status contract supersede operational claims below; see R1-REPORT, SPEC and VERIFICATION. This history does not certify final R1.
+
 # Hypothesis–probe–result log
 
 Repair cap: three attempts per measurement/gate; classify at cap before extending. No independent review round dispatched.

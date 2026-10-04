@@ -1,15 +1,13 @@
 {
-  "status": "FINAL bounded prototype; no adoption or private F acceptance",
+  "status": "R1 bounded repair measured; no independent acceptance, private F or S2 adoption",
+  "source_base": "92c1d0bc05ac90f4d2505f2deb2eb309f08e4318",
+  "packet_base": "c89bc5b74df05e1f8746792c0cfad2805336b0f9",
   "base_head": "4e592daa7858a195eb3a9eb77c83dfbc763b49fa",
-  "tree": "dirty-prototype",
+  "branch": "proto/workspace-package-resolution",
+  "tree": "dirty-R1-over-committed-prototype",
   "cache_epochs": [
-    107,
-    63
-  ],
-  "s2_parent": "61641bdb64c911049c567efc51c29e17ef94ef4f",
-  "s2_overlay_cache_epochs": [
-    121,
-    77
+    108,
+    64
   ],
   "inputs": {
     "Cargo.lock": "f02d0a31d93e2870735d7a011a9f7e0c84d67224c80f8c46504666bff0e2b660",
@@ -363,7 +361,7 @@
     "src/cpg/trace.rs": "7df45f273741cc87da3ec7761f6068cb16e706398c4d4640029d1a02d5a81276",
     "src/cpg/types.rs": "def82a3a51538aa6dc2de0a2158581fac0d79816872d0af40725b2fdb71d685f",
     "src/cpg.rs": "87bb7cb0255ad7876a179258b702f58056a453ffa3c61220e84066eb7f539b10",
-    "src/cpg_cache.rs": "af0dee0a3d78abc6fbfb35f3f7556bfbd11ac3e1810b4772624e087ff40bc488",
+    "src/cpg_cache.rs": "210051b8d3129758736670584bd1452692373d5e85402c4fa00c009fc4c2445c",
     "src/data_flow.rs": "40f6af402a9a092bf17921042b4b3400e5b8f95965421c608f7e16f69ca8f317",
     "src/diff.rs": "8874c0d5911a4c6b57c228b88488185da89cb73c08f269574956c483d6a453a5",
     "src/executable_owner/acquisition.rs": "acbde5b702e10219ef6935f25c8840189c5f5e4b5770821a9f546c60e7285f96",
@@ -417,12 +415,12 @@
     "src/go_type_alias/types.rs": "eec19a2e3feb58c73b48e8a6801392373aece326ef225fec60c4c583552c2b97",
     "src/go_type_alias.rs": "e9b03f48dd63a7914efc11cb43d052a80442e976f85a8be8e537a8317e91f294",
     "src/js_exports.rs": "f59a587ed2994a1244a8e9ab28d75a9c275671c48f3db774295802ba49921d3d",
-    "src/js_packages.rs": "b42e0bec3008f01167de3fa927c61bac5208614497995a86478258d071c3db6b",
-    "src/js_paths.rs": "0bfbe408628c0af5ddc4d138d27b5ab011fc9f6746210daa55b98e3edec833de",
+    "src/js_packages.rs": "129368d2adeb395d77570acd0485c24572572051e8f87b2361608875bffcba66",
+    "src/js_paths.rs": "fa379391977f763d192336783a47165f1b485e7a90d5a54f9ed8a84555c68cc8",
     "src/js_paths_boundary.rs": "b29f7732a9b8e3c810816e03f1c79306625816e83b154f5db2f77e63f1204a91",
     "src/js_paths_case_fold.rs": "265bf5dd018c7ac1ab461c8cba32fe079593554fe295ef8e8e560b983cbc911f",
     "src/js_paths_first_pass.rs": "5dcc03c4584542a79e4780e6658cdace2c7a026251b37f2851e971eb63c0bfee",
-    "src/js_paths_snapshot.rs": "5fded10c42cc8ace80590fea02beeb9c738aa816b0b4fa89589a99760c7dc526",
+    "src/js_paths_snapshot.rs": "8ce9e36a8edd13419512a698787379ea71838ede438c2adb1485cee024db5d25",
     "src/js_paths_syntax.rs": "637bfecf79d12ea104dd3b5f13ec10aff02b1d0d5a56b3d731897ad8c8d410ad",
     "src/js_ts_props.rs": "ce75c3b0ff9b06f0d34209ec9d2668f8a51eacdf415f2ac8cbb9cfba344ed0c8",
     "src/languages/mod.rs": "4131fe22628ca54e64bddeef806a0422933ded67208af04c58a49aed81c43404",
@@ -463,7 +461,7 @@
     "src/name_resolution/rust_populator/walk/types.rs": "20c20c7808f0e474ec3491ba248fdecf739f43868dbf848bfe0e42d2531421cc",
     "src/name_resolution/types.rs": "97cacc59f1b5a6e53252d78e89b7d57373c6c26352320fbaf4f48ccfbfad2a7c",
     "src/navigation/cache.rs": "7cc5ddb52fdbe8d8bd3493363d051b30f6b68826b6387048475ac814b522beb3",
-    "src/navigation/call_edge_cache.rs": "c3b0cf31402a53748b60769020a25bdb0d6ec45d79f0b53f731e8eb07396922e",
+    "src/navigation/call_edge_cache.rs": "0e4624f0debaec546484a49aa8b685cb4ce3159515e3a5415c43d0cb66da6501",
     "src/navigation/call_resolve.rs": "de17b2ce2e9b942eb0a92d2bf35185c50397a7ea38ee47b9ba87b6e6fbd91199",
     "src/navigation/code_context.rs": "627890ac06949e9294a8ffaab4ab2c8e9e59da49ccdade0a0a4e80fa3e488a6b",
     "src/navigation/inventory.rs": "93687efcc715a3b2528411d7616c33c2b9e0da2bde17cf28930bb81d69d70102",
@@ -853,7 +851,7 @@
     "tests/integration/js_binding_shorthand_test.rs": "169cfc5b2f9b7e7bf244f22b62ca824aa73afca010d4ba2ccdbcbcae5d6ac501",
     "tests/integration/js_export_reexport_test.rs": "8f555152aa3fbc731c74993d84541661e19625f628522a6fccb11f72db00ab33",
     "tests/integration/js_export_test.rs": "dbd7cc2170abf15a2f3a44afd4e2644903b845b692c0688f076af04dddb78853",
-    "tests/integration/js_packages_test.rs": "2165134016082bb60609d055ff6f5035afe4a45ad7321a8122f0bca9fff15718",
+    "tests/integration/js_packages_test.rs": "bf2314bc8c76236f7befbf4bedd347ed7bf359db895a0e96c03801bff566df5b",
     "tests/integration/js_paths_cap_test.rs": "ae940f9bf3f1ba9d9d9bc4dfa60d9a63938e74de0cb48d34456ca2c90a6d0dc2",
     "tests/integration/js_paths_common.rs": "70c7c84f4a7cc2b528e5cbd3c32427319501596c7bbb81178e0fd11002b42b57",
     "tests/integration/js_paths_p2_test.rs": "772ca93d9a6f5249a6bf753f8f7b44bad0138ebe54d671a3b2348c70211260f7",
@@ -1009,53 +1007,56 @@
     "tests/reasoning/smoke_test.rs": "fe51612e2dc0e35e3d47dafd2b94233e428442dd5b6682d72117f6d3782faba9",
     "tests/reasoning/taint_reaches_test.rs": "e9d334043c62e55a4b9ed5961ec9db8b31f84cc974f66e3ce00bcc041af52f6d"
   },
+  "mutant_registry": {
+    "path": "mutants/lane-pkg-resolution.json",
+    "sha256": "3f21a1097a24db3985fec7d55f29b3e485d87fdd7d7fe7afda6acef4daf7f78c"
+  },
   "base_binding": "/Users/wesleyjinks/prism-evidence/pkgres/planning/base-binding.json",
   "base_auxiliary_binding": "/Users/wesleyjinks/prism-evidence/pkgres/planning/base-auxiliary-binding.json",
-  "head_binding": "/Users/wesleyjinks/prism-evidence/pkgres/planning/head-v2-binding.json",
-  "s2_pkg_binding": "/Users/wesleyjinks/prism-evidence/pkgres/planning/s2-pkg-v2-binding.json",
+  "head_binding": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/final-source-binding.json",
   "binaries": {
     "base": {
       "path": "/Users/wesleyjinks/prism-evidence/pkgres/planning/bin/base-prism",
       "sha256": "c5aea1b30cd3534972bcaa6d5d111d5dba8c24c22c97997e163d45a2cfdfb979"
     },
-    "head": {
-      "path": "/Users/wesleyjinks/prism-evidence/pkgres/planning/bin/head-v2-prism",
-      "sha256": "cba28d1eebc38fed13dbd9b41ae30f65dceb5050c8d2e89143920ebfc79d21fd"
-    },
     "basefacts": {
       "path": "/Users/wesleyjinks/prism-evidence/pkgres/planning/bin/base-facts",
       "sha256": "c722fd8e8759e9ac7e34cefae323a70f774c54e848d8704d3301090759870147"
     },
+    "head": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/bin/r1-prism",
+      "sha256": "afa9c1bca61297a2ac953c7ec85bf0b5895a4db347b3b03fd53a396be31a0701"
+    },
     "headfacts": {
-      "path": "/Users/wesleyjinks/prism-evidence/pkgres/planning/bin/head-v2-facts",
-      "sha256": "1f31b824babf496af4a3e7c0c8309f72d297a5795d0d658faac3b9f112c40b0d"
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/bin/r1-facts",
+      "sha256": "f5006383ed6c47ef36152086bf37de7a6b5f731cdb9d26eac2b30c63e81b7dd0"
     },
-    "s2base": {
-      "path": "/Users/wesleyjinks/prism-evidence/pkgres/planning/bin/s2-base-prism",
-      "sha256": "4a457b80669cd4d27138e8213e8ef6fc0811cd6a05ad205751bb6b0d5c80acf7"
-    },
-    "s2pkg": {
-      "path": "/Users/wesleyjinks/prism-evidence/pkgres/planning/bin/s2-pkg-v2-prism",
-      "sha256": "3da62e4bcd0c6f24ad5e0d36f5d7a4a399e2ff40815ddbcaaccc4e37cb80b32f"
-    },
-    "s2basefacts": {
-      "path": "/Users/wesleyjinks/prism-evidence/pkgres/planning/bin/s2-base-facts",
-      "sha256": "351175b10cfad74eb42d1392bff3613ce2d12a843b3772ddb6b66390ef12d54f"
-    },
-    "s2pkgfacts": {
-      "path": "/Users/wesleyjinks/prism-evidence/pkgres/planning/bin/s2-pkg-v2-facts",
-      "sha256": "4783be7af9dccc06db19519a0df86438acdcf161a3317b30fa8c50d3f6e5e897"
+    "headresolution": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/bin/r1-resolution",
+      "sha256": "14555a8aa9f4b46ab06238fb32029d8d0b0899708552be36823be95dd5ec3da3"
     }
   },
   "probes": {
+    "cache-invalidation.py": "81349335661b787b26c66b2803d26abaf41e458cbc2e059ca523dce49a025558",
     "census.cjs": "c9c4fbc87a5a994a912f724caceece568bbd9d80314155fbf7c133f307699f76",
     "compare.cjs": "4fae651280fb44832da378d7c2fc68503a3336db588253f72f6e6116502b47a2",
     "controls.py": "645a1732ce36fcff52653ee17f81fb52e026757802e7b9db3b0bbfe305e3ca2c",
-    "dump-facts.rs": "afd110f43ae59e3587070a09cc64a9cffbaf542be7f7472fea1d69675dd196f5",
+    "differential-generate.py": "ee0cb8a436cdd8514106ced0a6cb920d503cf4e11ac1532133c3a4e615ff89ed",
+    "differential-oracle.cjs": "3763d545d8ed715020b57b59acefa94a69e7f47c3d671741b3d651027e045f44",
+    "differential-run.py": "e7d19595860b0e939cb6e0d3d10f4a2f31978fc94f8b1dc8c03cae4db6c224e1",
+    "dump-facts.rs": "68e7284735d6ae1678d7499f4e8c532fc78ba25bed0734b6fa860ad0be96a59e",
+    "dump-resolution.rs": "d50a7760decc02a2efea9ccf40ccde1f50cb8a5767ef9414a260c6e9003a944b",
     "measure.py": "e54e14f4b1b243ad5e66b8ca907af477462d48f425700651b204a23846968430",
+    "native-binding.cjs": "40a9f106e9337e41b1b05c0f4d6d7d4b7f4035e6aa54161cf54d146ed430a479",
+    "public-module-audit.py": "e9820751a27e462341750fde68f4d834f3efa3bf8444564d51e63a21aeaef6de",
+    "reviewer-cases.json": "8804e4a26ffee39ca1cff8ca4dbe88d740558b9c4b1a41a86fc6129d87ed050e",
     "s2-census.cjs": "c0f9679fb84bee78f063c1e4a3b23f17ffeed2d9313a8cfeb149ec2a13fa1caa",
     "s2-compare.py": "dbe94e86e5a7da9db7ab64d9b71e532e1411553e75ac1526f420ace4ec59fd8c",
     "s2-measure.py": "270824369a1aabbecd243c67a286780601f1b7351ddd1c5fe9ea50fd27033ab8"
+  },
+  "controller": {
+    "path": "CONTROLLER-pkg.sh",
+    "sha256": "18801575eb835a26a6610bfab2ec5758b6b48d0353f7e74bd39e3dec7ac6abaf"
   },
   "oracle": {
     "path": "/Users/wesleyjinks/prism-evidence/native-positional-gap/gate-inputs/typescript-5.9.3/package/lib/typescript.js",
@@ -1070,9 +1071,81 @@
     "python": "3.9.6"
   },
   "final_receipts": {
-    "public": "/Users/wesleyjinks/prism-evidence/pkgres/planning/public-v2/summary.json",
-    "controls": "/Users/wesleyjinks/prism-evidence/pkgres/planning/controls-complete/summary.json",
-    "s2": "/Users/wesleyjinks/prism-evidence/pkgres/planning/s2-final/summary.json",
-    "full_suite": "/Users/wesleyjinks/prism-evidence/pkgres/planning/full-v2-totals.json"
+    "public": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/public-r1-final/summary.json",
+      "sha256": "227a68135db4d2bd9317ac5ed216a2f277baaee836d78682a48cd4bca227b256"
+    },
+    "public_modules": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/public-r1-module-audit.json",
+      "sha256": "15bf0dfa03ce6e715c189981e9806bdc732d5156700d2813c6b9986dbf0f83d1"
+    },
+    "differential": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/differential-r1-final/summary.json",
+      "sha256": "8399667e7b3a524286d0f2fd6870efb55a37907473e24b2d396502d4830eb1fe"
+    },
+    "cache": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/cache-r1-final/summary.json",
+      "sha256": "0f46fb212a63b343bd9e8f359c5e5c519891751fc789f394ffa8784009def282"
+    },
+    "mutgate": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/mutgate-r1-final/summary.json",
+      "sha256": "2e1af9a3dfd2fdd59511b8d295150334bc53c8fc430c63d6f8b2824fc04f6775"
+    },
+    "full_suite": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/full-r1-totals.json",
+      "sha256": "35b5f6a33b0e445f1cd2a7c9589879bf4e040bd25356d60a451f226765f06e73"
+    },
+    "full_suite_log": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/full-r1-final.log",
+      "sha256": "c2752b9c0d515083cfc5238d109c1bd5cc1ad08d0a53bc80b9b7ddcfddfb4552"
+    },
+    "nextest_source_limited": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/nextest.log",
+      "sha256": "b3892671872f37d82f2ab9c4d2d03dcc9b0774efda52a0b447584227cbc78864"
+    },
+    "fmt": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/fmt-r1-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "clippy": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/clippy-r1-final.log",
+      "sha256": "429c220de9d4c7a27593b47fa6329f75e72859475af3bd3c08916b90c7d1c62a"
+    },
+    "tier_a_matrix": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/tier-a-r1-final.log",
+      "sha256": "68a5c9b1e28c45bc561686643f21afeb5fcb261806d59e09f9a2af194bd68a4a"
+    },
+    "tier_a_rebuild": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/tier-a-r1-rebuild.log",
+      "sha256": "8ed47c6797e112cd7519d31ef49bbc052387ec2dfdc8a84c5747d63ada88daa2"
+    },
+    "s1b_comparison": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/s1b-r1-comparison.json",
+      "sha256": "11ca4ec66f8babacbb7aa0cd5a48efa22adc3c51f44204cd3848d05b0ff723fd"
+    },
+    "s1b_byte_identity": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/s1b-r1-byte-identity.json",
+      "sha256": "459382889391977c168d95bb28a9ffc961b631d9ab4367f810c7116ecf33927f"
+    },
+    "source_binding": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/final-source-binding.json",
+      "sha256": "345931575ed963457711fae581546bee4e30c8de4963cf5b811cf27b6eaa78c6"
+    },
+    "probe_checks": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/packet-checks.json",
+      "sha256": "b3725404629371ff1511e8e035de2fa17b5ca3712839844a79b8840970876a6c"
+    },
+    "red_control": {
+      "path": "/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/red-control-final.log",
+      "sha256": "590592e993dcd794b4929b7ad9ef21b451910563bfdda43822c57595cc5ceaca"
+    }
+  },
+  "qualifications": {
+    "nextest": "One requested run before final root typesVersions guard; final full cargo suite certifies final source.",
+    "input_census": "Recorded after final source tests; then frozen across custody rebuilds. Not claimed to predate testing.",
+    "compiled_artifact": "Measured MCP CLI matches retained target/release/deps/prism-3ba4b1893b0b8e1d. Mixed feature/transitive dependency builds leave a different top-level executable; never substitute it for measured CLI.",
+    "tier_a": "Immediate same-worktree rebuilt CLI, source-identical but byte-distinct from measured MCP CLI.",
+    "opus_cases": "Ten undefined IDs cannot be recreated from supplied review; not counted as verified.",
+    "historical": "Original packet manifest preserved under repair-r1/historical-packet; planning controls and S2 receipts are historical, not R1 execution."
   }
 }

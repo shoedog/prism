@@ -1,23 +1,18 @@
-# Controller commit groups
+# Controller commit groups — R1 patches
 
-All changes are uncommitted. No S2 scratch file belongs in these commits.
+No Git writes were performed. Source patch is relative to committed prototype 92c1d0bc; docs patch is relative to packet c89bc5b7. Neither adopts S2.
 
-## Source, tests and behavioral registry
+Proposed source commit: `fix(resolution): repair workspace package semantics and preserve native absence status`
 
-Proposed message: `feat(resolution): prototype workspace package entry proofs`
+- src/js_packages.rs: exact/legacy extension tables, pattern-only star replacement, per-file modes, null/outer continuation, self-name and three-way result, JSX/root-typesVersions barriers.
+- src/js_paths.rs: status-preserving package integration, colon paths precedence and Node ESM export hops.
+- src/js_paths_snapshot.rs: retained outside-root package scope and cache topology.
+- src/cpg_cache.rs and src/navigation/call_edge_cache.rs: epochs 108/64.
+- tests/integration/js_packages_test.rs: R1 regressions/edge controls and corrected unresolved-target assertion.
+- mutants/lane-pkg-resolution.json: 26 rule/classification witnesses with explicit intent revisions.
 
-- src/js_packages.rs — new immutable native package-entry proof and scheme classification.
-- src/js_paths.rs — paths-first package rung and P2 hop integration.
-- src/js_paths_snapshot.rs — retained canonical package-root lookup.
-- src/lib.rs — module registration.
-- src/cpg_cache.rs and src/navigation/call_edge_cache.rs — epochs 107/63 and pinned assertions.
-- tests/integration/js_packages_test.rs and tests/integration/main.rs — eight package regressions/registration.
-- mutants/lane-pkg-resolution.json — eight mutation witnesses; scoped execution limitation recorded.
+Proposed packet commit: `docs(resolution): bind R1 repairs to the TS 5.9.3 differential acceptance gate`
 
-## Planning and measurement packet
+The full packet directory: current SPEC, IMPLEMENTOR, OQ, R1-REPORT, MEASUREMENTS, BUILD-MANIFEST, VERIFICATION, HANDOFF, FILES, controller script and probes, including the differential generator/oracle/runner, retained reviewer case descriptions, resolution helper and persisted-cache test. Earlier planning documents remain explicitly dated history where retained. Generated fixtures, caches, binaries and receipts stay under prism-evidence/pkgres/repair-r1, not in the repository.
 
-Proposed message: `docs(plan): record workspace package census and S2 unblock measurements`
-
-The root `VERIFICATION.md` and complete `docs/superpowers/plans/2026-10-04-workspace-package-resolution/` packet: CENSUS, SPEC, IMPLEMENTOR, MEASUREMENTS, PROBES, PROBE-LOG, OQ, CONTROLLER-pkg.sh, BUILD-MANIFEST.md/json, VERIFICATION, FILES, HANDOFF and public-only probe sources. Exclude __pycache__ and generated build/receipt directories. Raw public receipts and pinned binaries remain in `/Users/wesleyjinks/prism-evidence/pkgres/planning`, bound by manifest/custody, rather than checking corpus bytes into the code repository.
-
-These are proposed prototype/planning commits, not an adoption recommendation. Controller evaluates F and independent review before adopting any refusal cut or accepted model/cost change.
+Patches: `/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/R1-src.patch` and R1-docs.patch. Controller must rebind source/probe inputs before any private F run; a local patch or green gate is not independent acceptance or S2 adoption.

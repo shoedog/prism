@@ -1,35 +1,34 @@
-# Build and custody binding
+# R1 build and custody binding
 
-Measured clone: `/Users/wesleyjinks/code/prism-pkgres`, branch `plan/workspace-package-resolution`, base `4e592daa7858a195eb3a9eb77c83dfbc763b49fa`, dirty uncommitted prototype. Runtime caches CPG/nav **107/63**. `BUILD-MANIFEST.json` is the machine-readable controller authority for the final pinned binaries and native probes; it contains 547 production/vendor/script/build inputs and 447 test-file hashes. No Git writes.
+Measured clone `/Users/wesleyjinks/code/prism-pkgres`, branch proto/workspace-package-resolution. Committed source base `92c1d0bc05ac90f4d2505f2deb2eb309f08e4318` plus R1 source patch; separate docs base `c89bc5b74df05e1f8746792c0cfad2805336b0f9`; main comparison `4e592daa7858a195eb3a9eb77c83dfbc763b49fa`. Runtime cache epochs **108/64**. No Git writes.
 
-| Role | Retained path | SHA256 |
+BUILD-MANIFEST.json is the controller authority for immutable binaries and probe hashes. It rehashes 547 production/vendor/script/build inputs and 447 test files, plus the mutant registry, all packet probes and the controller script. The final census was captured after the final full suite and frozen across custody rebuilds; its timing is explicit rather than represented as a pre-test census. Final source gates are listed in VERIFICATION.
+
+| Role | Immutable path | SHA256 |
 |---|---|---|
 | base | `/Users/wesleyjinks/prism-evidence/pkgres/planning/bin/base-prism` | `c5aea1b30cd3534972bcaa6d5d111d5dba8c24c22c97997e163d45a2cfdfb979` |
-| head | `/Users/wesleyjinks/prism-evidence/pkgres/planning/bin/head-v2-prism` | `cba28d1eebc38fed13dbd9b41ae30f65dceb5050c8d2e89143920ebfc79d21fd` |
 | basefacts | `/Users/wesleyjinks/prism-evidence/pkgres/planning/bin/base-facts` | `c722fd8e8759e9ac7e34cefae323a70f774c54e848d8704d3301090759870147` |
-| headfacts | `/Users/wesleyjinks/prism-evidence/pkgres/planning/bin/head-v2-facts` | `1f31b824babf496af4a3e7c0c8309f72d297a5795d0d658faac3b9f112c40b0d` |
-| s2base | `/Users/wesleyjinks/prism-evidence/pkgres/planning/bin/s2-base-prism` | `4a457b80669cd4d27138e8213e8ef6fc0811cd6a05ad205751bb6b0d5c80acf7` |
-| s2pkg | `/Users/wesleyjinks/prism-evidence/pkgres/planning/bin/s2-pkg-v2-prism` | `3da62e4bcd0c6f24ad5e0d36f5d7a4a399e2ff40815ddbcaaccc4e37cb80b32f` |
-| s2basefacts | `/Users/wesleyjinks/prism-evidence/pkgres/planning/bin/s2-base-facts` | `351175b10cfad74eb42d1392bff3613ce2d12a843b3772ddb6b66390ef12d54f` |
-| s2pkgfacts | `/Users/wesleyjinks/prism-evidence/pkgres/planning/bin/s2-pkg-v2-facts` | `4783be7af9dccc06db19519a0df86438acdcf161a3317b30fa8c50d3f6e5e897` |
+| head | `/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/bin/r1-prism` | `afa9c1bca61297a2ac953c7ec85bf0b5895a4db347b3b03fd53a396be31a0701` |
+| headfacts | `/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/bin/r1-facts` | `f5006383ed6c47ef36152086bf37de7a6b5f731cdb9d26eac2b30c63e81b7dd0` |
+| headresolution | `/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/bin/r1-resolution` | `14555a8aa9f4b46ab06238fb32029d8d0b0899708552be36823be95dd5ec3da3` |
 
-Oracle TS **5.9.3**, `/Users/wesleyjinks/prism-evidence/native-positional-gap/gate-inputs/typescript-5.9.3/package/lib/typescript.js`, SHA256 `3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675`. Rust 1.94.0, clippy 0.1.94, nextest 0.9.146, Node 26.0.0, Python 3.9.6. All builds offline; no install/update/fetch.
+TS oracle **5.9.3**: `/Users/wesleyjinks/prism-evidence/native-positional-gap/gate-inputs/typescript-5.9.3/package/lib/typescript.js`, SHA256 `3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675`. Toolchain: Rust 1.94.0, clippy 0.1.94, nextest 0.9.146, Node 26.0.0, Python 3.9.6. All builds offline; no installs/fetch/update.
 
-Base `planning/base-binding.json` was captured before edits, with 304 source/vendor/build inputs. Its retained `base-source.tar` restores the clean base. `base-auxiliary-binding.json` retrospectively pins 242 tracked script assets to exact HEAD bytes and verifies current parity; initial checkout was clean. This retrospective supplement is not presented as a contemporaneous base-build hash census.
+Original main binding and auxiliary script supplement remain under planning; their retrospective timing is unchanged. R1 helper executables were compiled from probes/dump-facts.rs and dump-resolution.rs as temporary Cargo examples and copied into immutable evidence roles, then temporary examples removed. The corrected root-typesVersions source was rebuilt before final differential/public/cache/S1b measurements (build-r1-final.log). Measured r1-prism is byte-identical to the retained compiled MCP dependency artifact prism-3ba4b1893b0b8e1d. A subsequent same-source Cargo rebuild selects a different top-level artifact after mixed feature/transitive dependency builds; this investigation does not prove why Cargo selects it. Its bytes were never substituted into measurements. Tier-A used its immediate separately rebuilt same-source CLI. final-source-binding.json records both hashes and unchanged inputs; do not claim Tier-A binary identity with the measured MCP CLI.
 
-Final `planning/head-v2-binding.json` freezes 547 production inputs before and after release compilation. The facts helper is Cargo-compiled from `probes/dump-facts.rs`, copied to a temporary example, then removed; the probe source hash is part of this manifest. `final-test-binding.json` records final source/test inputs, registry and final full-suite log. Earlier head-final/pre-mode artifacts are historical and do not certify this final candidate.
-
-Reproduction from this exact checkout (temporary example must be removed before fmt/clippy):
+Reproduction from an applied R1 source tree; temporary examples must be removed before fmt/clippy:
 
 ```bash
-cargo build --offline --release --bin prism
-mkdir -p examples
-cp docs/superpowers/plans/2026-10-04-workspace-package-resolution/probes/dump-facts.rs examples/pkgres_final_facts.rs
-cargo build --offline --release --example pkgres_final_facts
-# Copy prism and facts executables to a new immutable evidence directory.
-rm examples/pkgres_final_facts.rs
+CARGO_INCREMENTAL=0 cargo build --offline --release --features mcp --bins
+cp docs/superpowers/plans/2026-10-04-workspace-package-resolution/probes/dump-facts.rs examples/pkgres_r1_facts.rs
+cp docs/superpowers/plans/2026-10-04-workspace-package-resolution/probes/dump-resolution.rs examples/pkgres_r1_resolution.rs
+CARGO_INCREMENTAL=0 cargo build --offline --release --features mcp --example pkgres_r1_facts --example pkgres_r1_resolution
+# Retain Cargo's compiled executables in a new evidence directory and bind their hashes.
+rm examples/pkgres_r1_facts.rs examples/pkgres_r1_resolution.rs
 ```
 
-S2 is a separate scratch snapshot of parent `61641bdb64c911049c567efc51c29e17ef94ef4f`. It retains all tracked include_bytes script assets. Overlay the production delta (apart from the different lib.rs context), register js_packages, and apply the measurement-only external-builtin branch in Resolver::refusal_module_inner. Scratch runtime caches **121/77**, parent **120/76**. No S2 source was adopted or copied back. `planning/s2-pkg-v2-binding.json` includes its complete source/build/helper bytes and executable hashes. Its full test suite was not run; these binaries certify measurements only.
+Keep main base/basefacts roles distinct from the committed-prototype repair base. CONTROLLER-pkg.sh requires current base/head/basefacts/headfacts hashes plus census/compare probe hashes. Before private F, the controller must rebind source and oracle inputs too. This worker did not execute F.
 
-Local checkpoint archives preserve the pre-design census, prototype, and final candidate under planning. Final packet/source custody and removed build directories are recorded in `planning/final-custody.json` after all producers exit. Local copies are not an off-machine backup. Controller commits the two file groups in FILES.md; neither a snapshot nor a green measurement is adoption authority.
+The old eight-role prototype/S2 manifest is archived in repair-r1/historical-packet, with the earlier operational documents. S2 parent/overlay binaries and 0/132 receipts under planning are historical only; no R1 S2 rerun or source adoption. CENSUS, PROBES and PROBE-LOG are explicitly marked historical where retained.
+
+R1-src.patch applies to 92c1d0bc; R1-docs.patch applies to c89bc5b7. final-custody.json records clean patch application, exact reconstructed owned bytes and final local source/packet snapshots. These copies do not claim off-machine backup. Controller owns Git custody and the two FILES commit groups; no green receipt is independent acceptance or S2 adoption.

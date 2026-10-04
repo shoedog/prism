@@ -1,3 +1,5 @@
+> Historical prototype record at 92c1d0bc / packet c89bc5b7. R1 current state, repairs, receipt source limits and scheme/status contract supersede operational claims below; see R1-REPORT, SPEC and VERIFICATION. This history does not certify final R1.
+
 # Probe contract
 
 The census precedes design; results are in CENSUS.md. Each diagnostic's expected observation/falsifier and result belong in PROBE-LOG. Empty populations, compiler/setup errors, source/config/binary drift, partial streams and oracle-schema errors are inadmissible.

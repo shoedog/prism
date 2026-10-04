@@ -1,11 +1,21 @@
-# Implementor handoff
+# Implementor handoff — committed prototype plus R1
 
-Start in `/Users/wesleyjinks/code/prism-pkgres`, branch plan/workspace-package-resolution, exact base 4e592daa. Read SPEC §0, CENSUS, BUILD-MANIFEST, MEASUREMENTS, VERIFICATION and HANDOFF before transferring claims. Source/tests are an uncommitted prototype; docs are a separate proposed controller commit. No Git writes or F access by workers.
+Controller prepares `/Users/wesleyjinks/code/prism-pkgres` from source/test commit `92c1d0bc05ac90f4d2505f2deb2eb309f08e4318`, branch proto/workspace-package-resolution. Overlay the packet directory from `c89bc5b74df05e1f8746792c0cfad2805336b0f9`. Apply `/Users/wesleyjinks/prism-evidence/pkgres/repair-r1/R1-src.patch` relative to the prototype and R1-docs.patch relative to the packet commit. The two commits are separate children of main; checking out the plan commit alone does not provide the prototype. Workers do not write Git.
 
-Preserve this partially reviewed artifact. Repair cap three attempts per gate/measurement; enumerate first-error gates before state-changing retries. At cap classify convergence/open-class failure before acting; do not restart the implementation.
+Before transferring receipts, require exact source/test/probe manifest parity and binary/oracle hashes from BUILD-MANIFEST.json. Read SPEC §0 and its three-way result contract, R1-REPORT, MEASUREMENTS, VERIFICATION, OQ and HANDOFF. Older prototype receipts are dated history, not current resume authority.
 
-The immediate next slice should close JS secondary resolution, one location class at a time, using the existing P1 complete priority-pass machinery. Native controls must include closer JS with outer declarations, @types, custom roots, package metadata, opaque/missing ancestors and symlink identity. Then add exports arrays/version ranges and .mts/.cts/config ownership as separate increments. Do not coalesce all full-Node semantics into a large review slice. Implement declared npm/Yarn/pnpm/lerna inventory as a discovery layer that cannot bind uninstalled names.
+Preserve and repair this artifact in place. WRONG repairs precede any JS-secondary work. Require the generated TS 5.9.3 differential gate as acceptance, including no false native-absence claims and exact declaration spans. Declare a two-round diagnostic cap before dispatch; at the cap enumerate/classify findings, disclose any converging bounded extension, and park open-class design failures. No restart without owner approval.
 
-Reuse `Resolver::package_in`, snapshot package bytes/link/topology, and P2's export-hop callback carrying caller config. A declaration or generated output is not a source implementation. Retain old paths refusals until a native earlier-rung proof allows fallback; do not use package names to route same-name functions.
+Rerunnable differential:
 
-For every new path, add positive plus negative/edge witnesses, same-environment pre-change RED where meaningful, full MCP suite and appropriate gates. Pin TS 5.9.3 via PRISM_TYPESCRIPT. Required source-based native diagnostics retain bytes and actual owner, never independent nearest-config guessing. Controller executes CONTROLLER-pkg.sh on private F, receives aggregates only, then decides any adoption. Scratch S2 changes are never copied into production.
+```bash
+python3 probes/differential-generate.py NEW_FIXTURE_DIRECTORY
+python3 probes/differential-run.py HEAD_RESOLUTION_HELPER TS_5_9_3_JS NEW_FIXTURE_DIRECTORY/manifest.json NEW_OUTPUT_DIRECTORY
+python3 probes/cache-invalidation.py HEAD_PRISM NEW_CACHE_TEST_OUTPUT
+```
+
+Paths are relative to this packet. Compile probes/dump-resolution.rs and dump-facts.rs as temporary Cargo examples against this exact checkout, offline; remove the temporary examples before fmt/clippy. BUILD-MANIFEST.md describes binary binding. Undefined Opus IDs are documented in R1-REPORT; do not manufacture fixture descriptions or claim coverage of absent evidence.
+
+S2 must treat Unsupported as a retained refusal, never empty/out-of-model. Package imports, arrays, typesVersions/version conditions, JS secondary/@types and unsupported writer/owner classes remain gated. Keep generated-output/source remapping and virtual-loader authority parked. After this repair, JS secondary is a separate bounded increment with native ancestor/@types/declaration priority controls; arrays/version ranges and language/config ownership follow serially. Discovery parsers cannot bind uninstalled names.
+
+For any further behavior, add an independently meaningful RED witness against the prior artifact, negative/edge cases, persisted-cache checks, full MCP suite, differential and public gates. Retain caller-project mode through every hop. No F access, network, S2 scratch adoption, auto-merge or unrequested independent review dispatch. Controller alone runs CONTROLLER-pkg.sh against F and decides adoption.
