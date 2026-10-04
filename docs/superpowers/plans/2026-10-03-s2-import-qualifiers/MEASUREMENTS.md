@@ -1,11 +1,13 @@
-# S2 R2 combined measurements
+# S2 R3b complete public comparison
 
-Fresh primary replay of selected source under S2-O7; X snapshots are not additive.
+**STOP: R3b-i loses 132 X rows (>10); selection NONE. R3b-ii is NEW ACCEPTED COST, measured only and not adopted.**
 
 | Candidate | X | Installed X | R | T |
 |---|---:|---:|---:|---:|
-| c357 reference |132|132|0|0|
-| Combined F1/F2/F5/F6/corrected F8 |132|132|0|0|
-| Delta |0|0|0|0|
+|75a35 reference|132|132|0|0|
+|R3b-i|0|0|0|0|
+|R3b-ii — NEW ACCEPTED COST, unadopted|0|0|0|0|
 
-Every changed row is CORRECT_STATIC_BINDING with native module, ownership and complete span agreement; zero unproven changes/lost base edges. X cutoff122 passed. All49,220 populated-base comparisons preserved. R/T streams byte-identical. Primary public/summary.json, lane-p.json and corpus receipt/oracle-inputs/binary-binding files retain exact inputs. Head rebuilt from source; canonical tools and770 source/test inputs bound in BUILD-MANIFEST. Runtime channels excluded by S2-O7 are outside this measurement. R1/R1b isolated costs and old STOPs remain historical; they are not combined R2 evidence.
+Fresh head/facts/native inputs for each variant; source-bound base reuse guarded by exact binary/source/config/oracle input equality. Every complete stream equals base;49,220 populated comparisons preserved per variant; zero changed/lost/unproven rows. X snapshots not additive. Current complete rehash has zero mismatches. No positive ownership certification from zero changes.
+
+i X/installed-X:1035 unavailable joins each (408 relative/27 workspace/600 bare or alias). ii X same; installed-X368 (330/7/31). Five relative joins risk3 storage rows; three workspace joins risk all132; two scheme-opacity joins risk all132. This is possible-set sufficiency, not an exclusive causal counterfactual. See REPAIR-R3b, measurement-ledger.json, unavailable-{i,ii}-{X,installed-X}.json and lane-p.json in repair-r3b. Reference X/installed controls rerun with fresh certificates; R/T reference0 is inherited. Conditional full gates not dispatched afterSTOP.

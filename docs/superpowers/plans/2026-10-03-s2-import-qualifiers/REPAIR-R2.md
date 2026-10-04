@@ -1,3 +1,9 @@
+**R3b supersession (2026-10-04):** current measurements i0/0/0/0 and ii0/0/0/0 (NEW ACCEPTED COST, unadopted); STOP loss132, selectionNONE. Historical evidence below does not certify current bytes. See REPAIR-R3b/VERIFICATION/HANDOFF.
+
+> Historical artifact. Current R3 fixes static F4 namespace/content and unavailable refusal joins;yield0/0/0/0 triggersSTOP,selectionNONE. Read REPAIR-R3/VERIFICATION/HANDOFF. These historical gates,yields,dispatch/model and blanket F4 exclusion claims do not certify current bytes.
+
+> R3 current-state reconciliation: this body is historical R2/R1 evidence. Committed source parent is75a35a5e; committed planning parent isecdb6b0f. R3 static namespace content and unavailable-refusal joins are in model; full F4 exclusion does not transfer. R3 X0 loses132 and triggersSTOP;selectionNONE. Remaining already-running replay evidence is pending; earlier yield/gate/adoption assertions do not certify current R3 bytes. See REPAIR-R3.md.
+
 # S2 repair R2 — static-binding candidate built and measured
 
 Owner **S2-O7**, verbatim “Static-binding contract”, supersedes S2-O6's runtime-mutation scope. Candidate is c35719e1 + original whitelist, F1 own-member/heritage, F2 every construction refusal, F5 new.target/super, F6 all plausible this carriers, corrected F8 incomplete-file retention/global refusal/legacy opacity. Epochs118/74. F3/F4/F7 blanket runtime cuts excluded. Visible static aliases/member writes remain base. SPEC §2a records every channel and its rule/test or CLAUDE static-binding citation; six both-grammar *_out_of_model_* test functions pin disclosed Exact behavior.

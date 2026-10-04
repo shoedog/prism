@@ -1,3 +1,15 @@
+**R3b supersession (2026-10-04):** current measurements i0/0/0/0 and ii0/0/0/0 (NEW ACCEPTED COST, unadopted); STOP loss132, selectionNONE. Historical evidence below does not certify current bytes. See REPAIR-R3b/VERIFICATION/HANDOFF.
+
+# R3 measured probe ledger
+
+**STOP: X loses 132 rows (>10); selection NONE.** The folded candidate is preserved for controller/design review. No further source policy, final gate dispatch, adoption or Git write was selected.
+
+Current predictions,alternatives,results and inadmissible probes are in /Users/wesleyjinks/prism-evidence/s2/repair-r3/probe-log.md. Actual source75a35 control gives2 preservation passes/4 expected new-cut failures;candidate36/36. Current X controls132/132;R3 complete public streams0/0/0/0. All current source/oracle hashes rechecked;B fallback sufficient to revoke all132. Source/evidence/patch custody preserved. Local execution cap extension disclosed;no independent review dispatch or variant selection.
+
+The ledger below is historical. Its broad F4 exclusion/unjoined-namespace skip does not apply to current R3 contract or source.
+
+> R3 current-state reconciliation: this body is historical R2/R1 evidence. Committed source parent is75a35a5e; committed planning parent isecdb6b0f. R3 static namespace content and unavailable-refusal joins are in model; full F4 exclusion does not transfer. R3 X0 loses132 and triggersSTOP;selectionNONE. Remaining already-running replay evidence is pending; earlier yield/gate/adoption assertions do not certify current R3 bytes. See REPAIR-R3.md.
+
 > Historical record. S2-O7/R2 supersede current-state runtime-scope, STOP, binary and completion claims below. F3/F4/F7 are now out of model by owner decision; their old witnesses remain valid under the old contract. Read REPAIR-R2.md and VERIFICATION.md for current bytes.
 
 # S2 owner-repair probe ledger — current results

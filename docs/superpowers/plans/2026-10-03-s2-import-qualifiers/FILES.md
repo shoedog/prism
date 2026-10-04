@@ -1,10 +1,10 @@
-# R2 controller application set and commit boundaries
+# R3b patch application and suggested commit boundaries
 
-Apply/cherry-pick c35719e1 onto the planning checkout, then apply both patches with patch -p1. R2-src.patch is relative to c357. R2-docs.patch compares planning packet files to b8f5b2f3 and the existing mutation registry to c357: exactly the composite tree after that cherry-pick. Source application is not adoption; rebuild all head tools from source, rebind manifest and replay after committing changes the embedded build identity. No worker Git writes.
+**STOP: R3b-i loses 132 X rows (>10); selection NONE. R3b-ii is NEW ACCEPTED COST, measured only and not adopted.**
 
-| Suggested commit | Files / artifact |
+| Suggested controller-only commit message | Files |
 |---|---|
-| `fix(resolution): retain S2 static-binding guards under S2-O7` | R2-src.patch: src/ast/js_import_qualifiers.rs, src/call_graph.rs, src/cpg_cache.rs, src/js_exports.rs, src/js_import_qualifiers.rs, src/navigation/call_edge_cache.rs, tests/integration/js_import_qualifiers_test.rs. |
-| `docs(plan): bind S2-O7 R2 yield, tests and controller replay` | R2-docs.patch: mutants/lane-s2-import-qualifiers.json; packet SPEC, OQ, IMPLEMENTOR, MEASUREMENTS, VERIFICATION, HANDOFF, README, FILES, PROBES, historical REPAIR-R1/R1b, new REPAIR-R2, BUILD-MANIFEST, OWNED-FILES. |
+|`fix(resolution): refine S2 refusal absence and candidate module scopes`|R3b-src.patch relative75a35a5e: R3 namespace/static refusal source, call graph, qualifier module, CPG/navigation epochs, new js_paths/refusal candidates and js_paths_snapshot/package-name facts, integration regressions/retained fixture,28-mutant registry.|
+|`docs(plan): record S2 R3b measurements and yield STOP`|R3b-docs.patch relativeecdb6b0f: planning packet/current report/spec/dispatch/verification/measurements/handoff/inventory/manifest/probes, historical supersession banners and R3 comparator/oracle housekeeping.|
 
-Eight repair-owned product paths are in product-paths.json;762 other initial inputs unchanged. Patches have dry-run/actual exact-byte application receipts. Head tools rebuilt/bound; immutable main untouched. Full source/evidence snapshots and final-custody.json are local custody, not commits. Root VERIFICATION.md stays an excluded local receipt, not in patches. Existing interrupted quick eval snapshot is preserved as an attempt artifact, not adopted baseline. No private F read, review dispatch or adoption/merge by worker.
+No Git writes. These are archival/review boundaries, not selected product commits. Canonical source75a35 already contains R2; do not reapply R2-src. Apply the cumulative R3b-src directly to75a35 (not on top of R3-src); apply cumulative R3b-docs directly to ecdb. Root VERIFICATION is an excluded local receipt. ii source/binaries/external facts stay quarantined in repair-r3b and are excluded from both patches. No selection/restart/new review/adoption afterSTOP. Rebuild/rebind/replay on any future controller-selected committed tree.

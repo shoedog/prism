@@ -1,3 +1,9 @@
+**R3b supersession (2026-10-04):** current measurements i0/0/0/0 and ii0/0/0/0 (NEW ACCEPTED COST, unadopted); STOP loss132, selectionNONE. Historical evidence below does not certify current bytes. See REPAIR-R3b/VERIFICATION/HANDOFF.
+
+> Historical artifact. Current R3 fixes static F4 namespace/content and unavailable refusal joins;yield0/0/0/0 triggersSTOP,selectionNONE. Read REPAIR-R3/VERIFICATION/HANDOFF. These historical gates,yields,dispatch/model and blanket F4 exclusion claims do not certify current bytes.
+
+> R3 current-state reconciliation: this body is historical R2/R1 evidence. Committed source parent is75a35a5e; committed planning parent isecdb6b0f. R3 static namespace content and unavailable-refusal joins are in model; full F4 exclusion does not transfer. R3 X0 loses132 and triggersSTOP;selectionNONE. Remaining already-running replay evidence is pending; earlier yield/gate/adoption assertions do not certify current R3 bytes. See REPAIR-R3.md.
+
 > Historical record. S2-O7/R2 supersede current-state runtime-scope, STOP, binary and completion claims below. F3/F4/F7 are now out of model by owner decision; their old witnesses remain valid under the old contract. Read REPAIR-R2.md and VERIFICATION.md for current bytes.
 
 > Historical R1 snapshot. R1b authorization and measurements supersede current-state, pending-family, gate, binary and completion assertions here. Read [REPAIR-R1b.md](REPAIR-R1b.md) and VERIFICATION for current bytes.

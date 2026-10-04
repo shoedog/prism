@@ -21,14 +21,36 @@ for (const f of facts) {
   sourceHashes[f.file] = actual;
 }
 const inputs = new Map();
+const textInputs = new Map();
+// Decode one retained read exactly as pinned TypeScript 5.9.3 sys.readFile
+// (typescript.js:8525-8549). Bind raw bytes separately from BOM-stripped text.
+function readOracleInput(p) {
+  let bytes;
+  try { bytes = fs.readFileSync(p); } catch { return undefined; }
+  const rawHash = crypto.createHash('sha256').update(bytes).digest('hex');
+  if (inputs.has(p) && inputs.get(p) !== rawHash) throw Error('oracle input drift during run');
+  let text;
+  if (bytes.length >= 2 && bytes[0] === 254 && bytes[1] === 255) {
+    const swapped = Buffer.from(bytes);
+    for (let i = 0; i < (swapped.length & ~1); i += 2) {
+      const first = swapped[i]; swapped[i] = swapped[i + 1]; swapped[i + 1] = first;
+    }
+    text = swapped.toString('utf16le', 2);
+  } else if (bytes.length >= 2 && bytes[0] === 255 && bytes[1] === 254) {
+    text = bytes.toString('utf16le', 2);
+  } else if (bytes.length >= 3 && bytes[0] === 239 && bytes[1] === 187 && bytes[2] === 191) {
+    text = bytes.toString('utf8', 3);
+  } else {
+    text = bytes.toString('utf8');
+  }
+  inputs.set(p, rawHash);
+  textInputs.set(p, crypto.createHash('sha256').update(text).digest('hex'));
+  return text;
+}
 const host = {...ts.sys, getCurrentDirectory: () => root,
   writeFile() { throw Error('oracle source write refused'); },
   watchFile: () => ({close(){}}), watchDirectory: () => ({close(){}}),
-  setTimeout: () => 0, clearTimeout(){}, readFile(p) {
-    const text = ts.sys.readFile(p);
-    if (text !== undefined) inputs.set(p, crypto.createHash('sha256').update(text).digest('hex'));
-    return text;
-  }};
+  setTimeout: () => 0, clearTimeout(){}, readFile: readOracleInput};
 const logger = {hasLevel:()=>false, loggingEnabled:()=>false, info(){}, msg(){}, perftrc(){}, startGroup(){}, endGroup(){}, getLogFileName:()=>undefined};
 const service = new ts.server.ProjectService({host, logger, cancellationToken:{isCancellationRequested:()=>false},
   useSingleInferredProject:false, useInferredProjectPerProjectRoot:true, typingsInstaller:ts.server.nullTypingsInstaller});
@@ -253,7 +275,8 @@ fs.writeFileSync(path.join(out,'candidates.json'),JSON.stringify(candidates,null
 fs.writeFileSync(path.join(out,'unjoinable.json'),JSON.stringify(unjoinable,null,2)+'\n');
 fs.writeFileSync(path.join(out,'summary.json'),JSON.stringify(summary,null,2)+'\n');
 fs.writeFileSync(path.join(out,'oracle-inputs.json'),JSON.stringify(Object.fromEntries([...inputs].map(([p,h])=>[rel(p),h])),null,2)+'\n');
+fs.writeFileSync(path.join(out,'oracle-text-inputs.json'),JSON.stringify(Object.fromEntries([...textInputs].map(([p,h])=>[rel(p),h])),null,2)+'\n');
 fs.writeFileSync(path.join(out,'receipt.json'),JSON.stringify({claim:'MEASURED',oracle_version:ts.version,oracle_sha256:sha(tsPath),
   probe_sha256:sha(__filename),sites_sha256:sha(sitesPath),facts_sha256:sha(factsPath),source_hashes:sourceHashes,
-  oracle_reads:inputs.size},null,2)+'\n');
+  oracle_reads:inputs.size,oracle_input_hash_kind:'raw bytes',oracle_text_hash_kind:'decoded TypeScript UTF-8 text'},null,2)+'\n');
 console.log(JSON.stringify(summary));

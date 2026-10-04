@@ -16,10 +16,17 @@ def key(r):
     return (c['file'],c['name'],c['start_line'],s['file'],s['start_byte'],s['end_byte'],r['callee_text'])
 
 def compare(d):
-    rows = [{key(r):r for r in read(d/name) if r.get('record_kind')=='call_site'} for name in ('base-sites.jsonl','head-sites.jsonl')]
+    rows = []
+    for name in ('base-sites.jsonl','head-sites.jsonl'):
+        stream = [r for r in read(d/name) if r.get('record_kind')=='call_site']
+        keyed = {key(r):r for r in stream}
+        assert len(keyed) == len(stream), f'duplicate site keys: {name}'
+        rows.append(keyed)
     b,h = rows
     assert b.keys() == h.keys(), 'site population changed'
-    native = {tuple(r['key']):r for r in json.loads((d/'candidates.json').read_text())}
+    candidates = json.loads((d/'candidates.json').read_text())
+    native = {tuple(r['key']):r for r in candidates}
+    assert len(native) == len(candidates), 'duplicate native keys'
     changed = []
     summary = dict(total_sites=len(b), base_bound_sites=sum(bool(r['resolved_targets']) for r in b.values()),
                    changed=0, correct=0, lost_base_edges=0, unproven=0, mechanisms={}, classes={})
