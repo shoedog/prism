@@ -1,4 +1,8 @@
+> Historical record. S2-O7/R2 supersede current-state runtime-scope, STOP, binary and completion claims below. F3/F4/F7 are now out of model by owner decision; their old witnesses remain valid under the old contract. Read REPAIR-R2.md and VERIFICATION.md for current bytes.
+
 # S2 owner-repair probe ledger — current results
+
+**R1b current status:** UNSELECTED: strict F4/F7 and combined base trigger yield STOP; F3 unadopted; reflected-codegen F7 WRONG remains open. F4–F8 isolated cuts are measured; see REPAIR-R1b.md, VERIFICATION and repair-r1b/probe-log.md. The remaining entries are historical c35719e1/R1 evidence; their completion, carrier-closure, gate, head and unused-round assertions do not transfer. R1 used; no R2 dispatched. No memory update.
 
 The authoritative current packet is the owner fail-closed repair. Historical prototype entries below retain their original context and do not assert current parking, +179 yield or RED S2-W1.
 

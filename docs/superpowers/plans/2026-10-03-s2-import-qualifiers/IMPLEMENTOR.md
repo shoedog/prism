@@ -1,25 +1,23 @@
-# S2 dispatch — existing artifact, fail-closed qualifier identity
+# S2 dispatch — R2 static-binding candidate
 
-Owner S2-O6 authorizes the closed lexical refusal design in SPEC §2. The planner repaired the existing prototype; implementation starts from these exact src/tests bytes, not a fresh restart. Cumulative review may proceed after the controller's F/authoritative-mutgate/Tier-A-quick gates. Review cap is **two rounds**; classify at the cap and fold only bounded fixes. The local repair cap was three; bounded extensions for property/destructuring tokens and namespace receiver carriers were disclosed. See PROBES for the enumerated populations and outcomes. Unknown receiver ownership must refuse module-namespace identity closure; it is not permission to add allowed-use contexts.
+Source application starts from committed prototype `c35719e1132809dc835f64f476cf31e2c18bd35f`, parent `4e592daa7858a195eb3a9eb77c83dfbc763b49fa`, then the R2 patch `/Users/wesleyjinks/prism-evidence/s2/repair-r2/R2-src.patch`. Planning docs HEAD is `b8f5b2f3fdc39de32877952fdb4ccf01f1483548`. The planning clone's dirty src/tests initially matched all 770 prototype inputs byte-for-byte; the new repair is not yet committed. No Git writes, F read, adoption or merge are authorized to this worker.
 
-Planning HEAD is `6e4e0ef19de578d4865d7297eb5cf72a5b6a27a6`; product base is merged P2 `4e592daa7858a195eb3a9eb77c83dfbc763b49fa`. Product src/tests remain uncommitted. The controller owns Git writes, implementation/review model dispatch and F. Planner model requested by the owner is gpt-6.1-sol; verify any subsequent dispatched model from the actual transcript. No planner subagent/review dispatch or F read occurred.
+The controller applies/cherry-picks c35719e1 onto a bound implementation checkout and then applies R2-src.patch and R2-docs.patch (registry + planning packet), or continues the prototype branch with that same repair. Preserve the existing artifact and reviewed context. Suggested product/docs commit boundaries are in FILES. Controller source application is not adoption. Verify the requested implementation/review model from the actual transcript (brief requests gpt-6.1-sol; a requested label is not execution evidence).
 
-1. Bind checkout, parent, dirty inventory, BUILD-MANIFEST hashes and frozen base/head tools. Read SPEC §0 decisions and current MEASUREMENTS before transferring any certificate. O1/O2 are controller interim adoption positions; O3 keeps T at base.
-2. Review the closed predicate first: all unknown uses refuse; direct literal call/new/type/declaration/own-export are the allowed set. Follow provider refusal, importer/forwarder/namespace revocation and unproved writer-owner refusal to every table. Check both-grammar S2-W1 and positive controls. Preserve the S1b-4 resolver and CallSite projection, whole base-row fence and cache versions 108/64.
-3. Review positive module ownership/occupancy, qualifier identity and exact Callable spans; then class fields, declared/re-exported namespaces and literal objects. No dynamic alias acceptance, instance methods, call-result objects, default-exclusion inference or ambient expansion is authorized.
-4. Replay complete public comparisons. Every changed row must be CORRECT with native module/owner/full span agreement; no already-bound row may change. Reconcile yield/refusal causes and source/binary custody after any semantic correction. Do not normalize away a difference or re-baseline a regression.
-5. Controller commits the exact FILES set on the planning branch, runs all registered mutants without scope, runs Tier-A quick, and runs CONTROLLER-s2.sh on F privately. Return aggregates including complete-row correctness and UNJOINABLE/reasons. A commit/rebuild changes binary version metadata: rebind hashes and replay measurements before transferring them.
-6. Dispatch independent review serially with cap two. A closed finding names input/state, wrong result, bounded fix and realistic regression. An open-class population at the cap parks for design; do not discard the partially reviewed artifact. Adoption and merge belong to the controller/owner.
-
-Reproduction from the workspace root (choose fresh output directories):
+1. Cherry-pick c35719e1, then apply R2-src.patch with `patch -p1`; do not start from an isolated R1b strict candidate. Bind HEAD/base/dirty scope against repair-r2 source hashes and read SPEC §0/§2a/HANDOFF. S2-O7 selects F1/F2/F5/F6/corrected F8 and excludes F3/F4/F7 runtime cuts. Combined X must remain >=122 and every change must be CORRECT_STATIC_BINDING with native module/owner/full-span agreement.
+2. Preserve every populated base row byte-for-byte, the S1b-4 CallSite projection, existing Tier-A baselines and immutable base tools. Refusal joins never grant positive authority. A semantic correction regenerates source hashes, rebuilt binary hashes, measurements and gates.
+3. Rebuild all head tools from this implementation checkout; do not copy a planner binary as a substitute for a build. Use the exact dependency lock. The following commands create a local facts driver and freeze freshly built head tools:
 
 ```bash
 cargo build --offline --release
 python3 docs/superpowers/plans/2026-10-03-s2-import-qualifiers/probes/build-facts.py --head
-python3 docs/superpowers/plans/2026-10-03-s2-import-qualifiers/probes/e5-alias-boundary.py \
-  target/s2-plan/bin/head-prism target/s2-plan/bin/head-dump_imports target/s2-plan/e5-NEW
-python3 docs/superpowers/plans/2026-10-03-s2-import-qualifiers/probes/prototype-controls.py \
-  target/s2-plan/bin/head-prism target/s2-plan/bin/head-dump_imports target/s2-plan/controls-NEW
+```
+
+Immutable main executable and facts executable are listed by path and hash in `probes/reference-binaries.json`; obtain those retained immutable artifacts or rebuild main 4e592daa in an isolated source checkout and establish complete-stream parity before replacing any reference. Never overwrite them via `--head`. Public source roots and pinned native TypeScript are specified in `probes/public.py`; bind native/source/config inputs from retained receipts.
+
+4. Rebind BUILD-MANIFEST `binaries.head-prism` and `head-dump_imports` to rebuilt tools; CONTROLLER-s2.sh checks these exact hashes. Replay complete public comparisons against immutable main in a fresh evidence directory:
+
+```bash
 python3 docs/superpowers/plans/2026-10-03-s2-import-qualifiers/probes/compare-head.py \
   target/s2-plan/bin/head-prism target/s2-plan/bin/head-dump_imports target/s2-plan/public-NEW
 cargo nextest run --offline --features mcp
@@ -27,8 +25,14 @@ cargo test --offline --features mcp --doc
 cargo fmt --all -- --check
 cargo clippy --offline --features mcp --all-targets
 CARGO_NET_OFFLINE=true python3 scripts/mutgate/mutgate.py \
-  --lane mutants/lane-s2-import-qualifiers.json --since 6e4e0ef1 --scope file --jobs 1 \
+  --lane mutants/lane-s2-import-qualifiers.json --since 4e592daa --scope file --jobs 1 \
   --out target/s2-plan/scoped-NEW
 ```
 
-Freeze tools during a run. The helper's `--head` never overwrites immutable base binaries. F command and privacy contract are in README. Authoritative registry command omits `--since`/`--scope`; advisory coverage is insufficient for merge. Snapshots are local custody, not a commit/push/remote backup. Keep disk lean after preserving artifacts and receipts.
+`--since 4e592daa` is an ancestor of both prototype and planning HEAD; 6e4e0ef1 is not an ancestor of c35719e1. Scoped mutation coverage is advisory; authoritative registry omits `--since`/`--scope` after source anchors are committed. S2-02 remains a coverage SMELL unless a realistic failing regression kills it; no equivalence claim.
+
+5. Run immediate-rebuild Tier-A matrix and S1b-4 byte parity; preserve all lane-P public rows. Skip Tier-A quick per R2 brief; record it unverified (prior run hung over an hour). No re-baselining and no new T ownership work. Full multi-corpus Tier-A remains human-triggered.
+6. Controller privately runs README's F wrapper with freshly rebuilt/rebound base/head/head-facts/native tools, returning aggregates only. This worker never reads F. Cumulative review is serial, cap two; R1 used, R2 is the next round. At the cap classify new escape families as open-class and park for design. No restart, auto-merge or adoption by the worker.
+
+
+Current R2 combined yield132/132/0/0; all required worker gates complete, advisory survivor disclosed. Controller review/adoption pending. Runtime F3/F4/F7 findings, including reflected codegen, are out of model under S2-O7; static write/alias refusals remain. No runtime safety assertion follows from this candidate. Review cap two: R1 used, controller R2 next. No restart/auto-merge/adoption by this worker.

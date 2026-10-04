@@ -1,11 +1,13 @@
 {
-  "written_utc": "2026-10-04T05:37:04.006439+00:00",
-  "claim": "MEASURED OWNER FAIL-CLOSED REPAIR INCLUDING ALL SUPPORTED RECEIVER CARRIERS; LOCAL PACKET COMPLETE; CONTROLLER ADOPTION GATES PENDING",
-  "planning_head": "6e4e0ef19de578d4865d7297eb5cf72a5b6a27a6",
+  "written_utc": "2026-10-04T11:04:08.696791+00:00",
+  "claim": "S2-O7 candidate assembled, combined yield132/132/0/0; required worker gates complete; advisory survivor disclosed",
+  "status": "R2_STATIC_BINDING_CANDIDATE_READY_FOR_CONTROLLER_REVIEW",
+  "planning_head": "b8f5b2f3fdc39de32877952fdb4ccf01f1483548",
+  "prototype": "c35719e1132809dc835f64f476cf31e2c18bd35f",
   "product_base": "4e592daa7858a195eb3a9eb77c83dfbc763b49fa",
   "tree": "DIRTY; no Git writes",
-  "requested_planner_model": "gpt-6.1-sol",
-  "owned_inventory_sha256": "cbc4ea3fee83248f97465a447ab40fc8cbb521b491d22d7527d462e76a9dc610",
+  "requested_repair_model": "gpt-6.1-sol (brief label; no worker model-dispatch claim)",
+  "owned_inventory_sha256": "9d0d941135446f7e2b85ed024390f01aa014f028290a3239776a79b5a682a432",
   "source_inputs_sha256": {
     "Cargo.lock": "f02d0a31d93e2870735d7a011a9f7e0c84d67224c80f8c46504666bff0e2b660",
     "Cargo.toml": "4c3127578ab43cf17db09ec98ac1b8a58d70b3336fb63679f520642e08d5484c",
@@ -26,7 +28,7 @@
     "eval/fixtures/typescript/s2_qualifier_escape/expected.toml": "5feb54f06c9e5dc3e3c95a4c4e0266409da54c0a6c0f848d0d00f677a45a6550",
     "eval/fixtures/typescript/s2_qualifier_escape/lib.tsx": "64731758ef3b8773f2e8201da16cb199d5440b44ec1bdeb4793a97ee40d483b6",
     "eval/fixtures/typescript/s2_qualifier_escape/tsconfig.json": "a5a307247ecf08380204efbac6a6dcff90ddd9bc62ef1f2ec626954714176ffb",
-    "mutants/lane-s2-import-qualifiers.json": "2d3de319eabf0376931732417d276eabc0373aef1e4fdb2a7a329fe2264b42b5",
+    "mutants/lane-s2-import-qualifiers.json": "7f1d4e2c40882c61768a0f3faf4aac73c45d9a9541bee18d64caf1087904cb22",
     "src/access_path.rs": "8db3f88408d401fdcfe08968507f930cd5868473360cbb8ef408296f4ac2a1bd",
     "src/algorithms/absence_slice.rs": "47cf70cf4a4b371b68f36909466a4f5285a2ae7f1f17186913284898bf405cc1",
     "src/algorithms/angle_slice.rs": "99a7adc1eaa87d40c11a2c001c852a208726fab358eb86fc9578ac12b0d85fa7",
@@ -85,7 +87,7 @@
     "src/ast/js_binding_writes_tests.rs": "e30252a8108d12b4e9f9ed0e38c7b8b004949d54d9aa395c999c2d8c09cbf202",
     "src/ast/js_cjs_export_barriers.rs": "7a9ab3ec76074a6bc2fd8ad2eeae701c96a4cd918362d525ed47e8cbad2b8e68",
     "src/ast/js_cjs_terminal.rs": "88262678bfdff065c9ce9acf48a7671a0a21999896673d8f6f690560f3df93a4",
-    "src/ast/js_import_qualifiers.rs": "f045e3a4a99627971682c980501ecb59e65ad44f3b0dba4b65ad175c6f4ed2f5",
+    "src/ast/js_import_qualifiers.rs": "55d0fe4cfa8129a29959a55d7fcba18fc6476c35fe277cf8360c611e16433e38",
     "src/ast/js_module_forwarding.rs": "1a7b03767fdb343a70d8434f3c3d06ee6b2894ae0a688a0ccbfbf9e845ed1f0b",
     "src/ast/js_wrapped_export.rs": "88b0e328996b4a3f4826374d3658edb445a58c984e7ca0e0091862ec818e6ed4",
     "src/ast_asserted_member.rs": "adef83cab70a365a55feea048480cb7f54d1dd39ebe212a6d2f1cf5446dc0fd9",
@@ -99,7 +101,7 @@
     "src/ast_required_parameter_tests.rs": "dc0b9305f8e80501223322a5d77b945765724dab8f5dae5266c6252d40b37cfe",
     "src/bin/prism-mcp.rs": "198dc5c70dc43279e4cad6611b4d37c735dad8bad9959a33cfa575c129a5e0b4",
     "src/build_pool.rs": "d0b60763a986b48c26fbe3e5945a92a9637d674b15cf9d031e73a43c73f88d7a",
-    "src/call_graph.rs": "a277b7a79714d9fac147f4932362a4ada9aa221aeb4266f448f3ab01118fe22a",
+    "src/call_graph.rs": "831e60880cff86e12f3d0a963a34e7f9136ddea55d6305b4e666a4bdb1d9177d",
     "src/call_graph/promoted_snapshot_consult_test.rs": "669d6d1f90638132919b108b06da6face9117fcecbce5127dc26c94680f41316",
     "src/cfg.rs": "1436bbd2bb3161c4ed241a5f95e11858ab6936d506345db1a0073e4c15b0714b",
     "src/cli.rs": "c2911b4c8d57254651c7d60116fc53cbe809babb747d63cec733edc9b1dab122",
@@ -134,7 +136,7 @@
     "src/cpg/tests.rs": "f1de2c4f8c2aea2a868ee6e5b12dc25a97dab7ccc761b78be4c233469a028c24",
     "src/cpg/trace.rs": "7df45f273741cc87da3ec7761f6068cb16e706398c4d4640029d1a02d5a81276",
     "src/cpg/types.rs": "def82a3a51538aa6dc2de0a2158581fac0d79816872d0af40725b2fdb71d685f",
-    "src/cpg_cache.rs": "b28b0dd93524720d6b271ce66d8c99166a86295ede7b15cb3df3343406418b62",
+    "src/cpg_cache.rs": "2e74eda6b6369883660f54b434a1cb6f6ec8fb16acc7736f119421118cf19bb3",
     "src/data_flow.rs": "40f6af402a9a092bf17921042b4b3400e5b8f95965421c608f7e16f69ca8f317",
     "src/diff.rs": "8874c0d5911a4c6b57c228b88488185da89cb73c08f269574956c483d6a453a5",
     "src/executable_owner.rs": "7cff3ed454511c06f3b786597abde86cbcf89b159af76b0a6184f8fc66c76f39",
@@ -187,8 +189,8 @@
     "src/go_type_alias.rs": "e9b03f48dd63a7914efc11cb43d052a80442e976f85a8be8e537a8317e91f294",
     "src/go_type_alias/canon.rs": "1dc01119d39aeefb7725931a537de73a35ca15116bda0af0c084483748a2c6ef",
     "src/go_type_alias/types.rs": "eec19a2e3feb58c73b48e8a6801392373aece326ef225fec60c4c583552c2b97",
-    "src/js_exports.rs": "c8abd419a59f7675cc637fa84f4cdad452a69152eb51440cb7b120e6928da528",
-    "src/js_import_qualifiers.rs": "ad94852d998b8f9d3ee35e74692094e583ca9f5f6db0b6379aafc2baa84a4814",
+    "src/js_exports.rs": "b88acdadb0e3b7701d04830ab9bb4e8ecd5c6f7ca1808126d13746ba3c63db77",
+    "src/js_import_qualifiers.rs": "791447059203d2f857ecd8df013aa74cc4b96eaf19a070edeb3c2a920063db20",
     "src/js_paths.rs": "31c12ffe9d0ceaeb4a0ac744c1cc3b56c98fa3b55ab159489c9388e42f807906",
     "src/js_paths_boundary.rs": "b29f7732a9b8e3c810816e03f1c79306625816e83b154f5db2f77e63f1204a91",
     "src/js_paths_case_fold.rs": "265bf5dd018c7ac1ab461c8cba32fe079593554fe295ef8e8e560b983cbc911f",
@@ -234,7 +236,7 @@
     "src/name_resolution/rust_populator/walk/types.rs": "20c20c7808f0e474ec3491ba248fdecf739f43868dbf848bfe0e42d2531421cc",
     "src/name_resolution/types.rs": "97cacc59f1b5a6e53252d78e89b7d57373c6c26352320fbaf4f48ccfbfad2a7c",
     "src/navigation/cache.rs": "7cc5ddb52fdbe8d8bd3493363d051b30f6b68826b6387048475ac814b522beb3",
-    "src/navigation/call_edge_cache.rs": "8eb643b3bd42a9b68bf3ad762d1042edbc01e9abac2b10878ab6c9668425aeb0",
+    "src/navigation/call_edge_cache.rs": "6b36bf2660a3ed212ab65d33dbb6897009c60172d0c1be1037e3b0ec0c37e034",
     "src/navigation/call_resolve.rs": "de17b2ce2e9b942eb0a92d2bf35185c50397a7ea38ee47b9ba87b6e6fbd91199",
     "src/navigation/code_context.rs": "627890ac06949e9294a8ffaab4ab2c8e9e59da49ccdade0a0a4e80fa3e488a6b",
     "src/navigation/inventory.rs": "93687efcc715a3b2528411d7616c33c2b9e0da2bde17cf28930bb81d69d70102",
@@ -593,7 +595,7 @@
     "tests/integration/js_binding_shorthand_test.rs": "169cfc5b2f9b7e7bf244f22b62ca824aa73afca010d4ba2ccdbcbcae5d6ac501",
     "tests/integration/js_export_reexport_test.rs": "8f555152aa3fbc731c74993d84541661e19625f628522a6fccb11f72db00ab33",
     "tests/integration/js_export_test.rs": "dbd7cc2170abf15a2f3a44afd4e2644903b845b692c0688f076af04dddb78853",
-    "tests/integration/js_import_qualifiers_test.rs": "9a0ad410483a10ddd589bb239b05c35b7a7e0362870230085e3563120fa7eea5",
+    "tests/integration/js_import_qualifiers_test.rs": "7c81a23909692c5b84c592f616fcd05b96ccc330fe24610e8876c9326d38e6a4",
     "tests/integration/js_paths_cap_test.rs": "ae940f9bf3f1ba9d9d9bc4dfa60d9a63938e74de0cb48d34456ca2c90a6d0dc2",
     "tests/integration/js_paths_common.rs": "70c7c84f4a7cc2b528e5cbd3c32427319501596c7bbb81178e0fd11002b42b57",
     "tests/integration/js_paths_p2_test.rs": "772ca93d9a6f5249a6bf753f8f7b44bad0138ebe54d671a3b2348c70211260f7",
@@ -781,14 +783,14 @@
   "tested_input_count": 770,
   "source_changes_after_final_full_suite": false,
   "binaries": {
-    "main-prism": "d60396b5346caa53d28f7519fc628bb4de3f58f29b18d8754d16b18aa9bd80cb",
-    "main-dump_imports": "74d91d14ab637770e9990976e01de8cf5345a7db430bcccf572a3d549036ad4e",
-    "head-prism": "a5e02d4803592e7b70c91d6703bed2e5d6612f2bfcafc525014fd1f8187158f5",
-    "head-dump_imports": "90d652cdb0037d9bced9b5ba5e4b102fd15ed93fc4a9aeeec7e3cbbd31ca6e9b",
     "pre-whitelist-prism": "bdf7dcc3aa3fa785ab888263d82b4ebc5dc7fc54a44ebf80026f2445f9b63323",
-    "pre-whitelist-dump_imports": "33d31fa23431ff0d060691a474e798fa1b1127a95ee3b7431ec952027cfce70c",
     "pre-namespace-prism": "5ac90ce3c090d2dc9d680c36483ef2a6e67d1c51b115c9ab3244aab6812838a7",
-    "pre-namespace-dump_imports": "eea9c82f2fa92c9178a527164964113606d10748ac1d2f90635f085485a4715d"
+    "head-dump_imports": "3e6f9aaddd3c4f8ec2b1662d1a71315813cd5004ad176b7c5cacba53608bfb75",
+    "main-dump_imports": "74d91d14ab637770e9990976e01de8cf5345a7db430bcccf572a3d549036ad4e",
+    "head-prism": "7850aac0e00b3d0ba3cb72c84c383a5d2c2d91ce25eb5014af1ffb3c778b7db6",
+    "pre-namespace-dump_imports": "eea9c82f2fa92c9178a527164964113606d10748ac1d2f90635f085485a4715d",
+    "main-prism": "d60396b5346caa53d28f7519fc628bb4de3f58f29b18d8754d16b18aa9bd80cb",
+    "pre-whitelist-dump_imports": "33d31fa23431ff0d060691a474e798fa1b1127a95ee3b7431ec952027cfce70c"
   },
   "public_yield": {
     "X": 132,
@@ -796,159 +798,329 @@
     "R": 0,
     "T": 0
   },
-  "yield_refusals": {
-    "prior_rows_each_X": 179,
-    "survived": 132,
-    "refused": 47,
-    "provider_member_write": 25,
-    "provider_member_value_or_chain": 11,
-    "visible_namespace_argument": 11
+  "reference_public_yield": {
+    "X": 132,
+    "installed-X": 132,
+    "R": 0,
+    "T": 0
   },
   "gates": {
-    "nextest_passed": 5154,
+    "nextest_passed": 5168,
     "nextest_failed": 0,
     "nextest_existing_skipped": 1,
+    "nextest_seconds": 157.031,
+    "s2_tests": 31,
     "doctests": 2,
-    "e5_scenarios": 218,
-    "e5_keep_base": 218,
-    "e5_wrong_head": 0,
-    "old_prototype_static_correct_wrong_e5": 195,
-    "native_scenarios": 92,
-    "native_new_correct": 27,
+    "fmt": "PASS",
+    "clippy": "PASS",
+    "clippy_warning_instances": 371,
+    "fresh_warning_attribution": false,
     "matrix_ok": 182,
     "matrix_regressions": 0,
+    "matrix_skips": 0,
     "s1b_controls": 411,
     "s1b_sites": 639,
     "s1b_byte_identical": 822,
-    "new_clippy_warnings": 0,
-    "scoped_registered": 14,
-    "scoped_selected": 8,
-    "scoped_admissible": 8,
-    "scoped_killed": 7,
+    "scoped_registered": 22,
+    "scoped_selected": 16,
+    "scoped_admissible": 16,
+    "scoped_killed": 15,
     "scoped_survivor": "S2-02-position-proof",
-    "whitelist_mutant": "S2-14-identity-use-whitelist KILLED",
-    "targeted_s2_passed": 17,
-    "refusal_families_with_red_green": 43
-  },
-  "receipts_sha256": {
-    "target/s2-plan/namespace-final-public/summary.json": "ed637022aa0be6281e4cfd0166679e613804a162a107f6c6808d975dd2bfc924",
-    "target/s2-plan/namespace-final-public/X/yield-refusals.json": "1dbf65e53835562bfee582bfdcae2cd023f3d45b45055ba67dbefb1ecd6de7fb",
-    "target/s2-plan/namespace-final-public/installed-X/yield-refusals.json": "1dbf65e53835562bfee582bfdcae2cd023f3d45b45055ba67dbefb1ecd6de7fb",
-    "target/s2-plan/namespace-final-lane-p.json": "e26658e7fb351181da7665076b38065beff6db1668a2f072c83e9fc10095c0cb",
-    "target/s2-plan/namespace-final-native-controls/summary.json": "44340c7b73322d3073977598fc805c3abfddd1e92798564c4ab7baa332954c7f",
-    "target/s2-plan/namespace-e5-red/summary.json": "e034b7c60a82b7ee5152f25b27785a3c3870dab1f2aba382ca4e025281aa6377",
-    "target/s2-plan/namespace-e5-green/summary.json": "3044dcb0cdfb78316bee0617eb328d0f41ffd38a0444fd92c5d0c626f7239408",
-    "target/s2-plan/owner-red/summary.json": "48aadb4693d675655bbe0cf9584b7607de3910e0a58fb0842d9a478bc186325e",
-    "target/s2-plan/dynamic-identity-red/summary.json": "c111dd3a6c09184acabcc44a30a6140b67a1bf9acca2d978dd1def054ad951a2",
-    "target/s2-plan/namespace-final-nextest.log": "6a67dd94e3c20bfaf67055376d2364fcfa486375c5b220a69c724afbb679994a",
-    "target/s2-plan/namespace-final-doctests.log": "abe4c8e13eb23ef9a339c0bf08ce6680e7ce61f27de332ed9133f6823b573f6f",
-    "target/s2-plan/failclosed-clippy-base.jsonl": "83161ac60589696af3083e77dd99fbe881087718120461bd0797dc0334c560af",
-    "target/s2-plan/namespace-final-clippy.jsonl": "ddc83130e66557bbf4217e82e5316b751cff83155912a7ea7c4e73b06123f9ed",
-    "target/s2-plan/namespace-final-clippy-comparison.json": "e9a6b5b9312b1d4d2292d35a583abb1176e469a44d0dc9ae5f1561a5dbfacc48",
-    "target/s2-plan/namespace-final-fmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "target/s2-plan/namespace-final-mutgate/summary.json": "882e400eea9d0560f68c072f0ab90e8c726ec1cfd3500cdc100390623f4c45ad",
-    "target/s2-plan/namespace-final-matrix-build.log": "d1235ea4563620b53ef5bdd2da5f595fec9d54f9efb48376378c20547dd95e57",
-    "target/s2-plan/namespace-final-matrix.log": "69a59e4e1d1d753b705f390902f846372c8b7d863bb1740a281622dcd81be477",
-    "target/s2-plan/namespace-final-tier-a-red-green.json": "0b5a55f960a97414825e413d5bedb3510c2ebbcddb32ed4e4ab9934c5cdcaec5",
-    "target/s2-plan/namespace-final-s1b.json": "9abb95c7df2fa8e0d12a59e0137364ae4b1fa3cecee2f328112a1f5a830468c4",
-    "target/s2-plan/namespace-final-release-build.log": "0892d37067a881957f39bc4ae5d3a6fb0d7c97463f5c778342ef0d51128c35b0",
-    "target/s2-plan/namespace-final-facts-build.log": "ecfffa1ee2303c212a53d3f0c098df6c2c205f0e2be33806b26dd6ac3e2aa950",
-    "target/s2-plan/namespace-controller-public-selftest.json": "4a97fe0e6b3ed974421d922a27a9453fdb0a61b99422d622d05ce7831a613f3d",
-    "target/s2-plan/namespace-whitelist-targeted.log": "4f8d218301cd5e151cfc3322a84b6615c152bd588cc7182ee3ae40e8756d0e22",
-    "target/s2-plan/namespace-verification-coverage.json": "20a9a449e18538befd2a54c11834bdcb8f6dc7bc85740d9ebb8e1c8a55b50513",
-    "target/s2-plan/namespace-full-suite-inputs.json": "bf7478ae5d33258c0bdb7d093d34dda025e99f60da7f6a7368b1919a5ee8b3b1",
-    "target/s2-plan/namespace-verification-setup.json": "4617a1f68a2a66374110ed9894065f5e1b6edf53697c19cbb9ed18697f4ad22d",
-    "target/s2-plan/stop-hook-namespace-this/result.json": "4559770d7d836199d5e5e5713941ef1efdde21ae8f1d8cd3559974c85f4f570b",
-    "target/s2-plan/stop-hook-namespace-this/runtime.json": "25ba8fffc1bc4ed7acbb57d6081130d08f1ef8739b30fb01ef8b390b805bd3f0",
-    "target/s2-plan/stop-hook-namespace-this/repaired.json": "0976bd7015988b7a71ceea0c983c54673d7d2b00cd108a9a8b44f6342b19624f",
-    "target/s2-plan/owner-final-cleanup.json": "684dc2e163b2186811d7e37222e70fb1bf45fb2c884afcaa3f00cc7b895800e8"
+    "scoped_omitted": 6,
+    "new_guard_mutants_killed": 8,
+    "lane_P_all_populated_rows_preserved": true,
+    "bound_row_comparisons": 49220,
+    "new_cut_c357_RED": 5,
+    "c357_preservation_GREEN": 2,
+    "quick": "SKIPPED/UNVERIFIED by R2 brief"
   },
   "not_verified": [
-    "F head comparison (controller only)",
-    "authoritative all-14 mutation gate",
-    "independent review/adoption",
-    "Tier-A quick and full multi-corpus",
-    "optional detached-owner/all-feature sweeps",
-    "Linux/case/concurrent-tree/performance"
+    "Tier-A quick skipped by R2 brief; full multi-corpus Tier-A",
+    "private F",
+    "authoritative all22 mutation run; S2-02 survivor/six omissions",
+    "independent controller R2 review/adoption",
+    "runtime F3/F4/F7 safety out of model",
+    "fresh Clippy attribution/full legacy controls/all-feature/platform/performance/fuzzing",
+    "Git commits/publication/merge"
   ],
   "blocking_findings": [],
   "coverage_smells": [
     {
       "tag": "SMELL",
       "id": "S2-02-position-proof",
-      "state": "Surviving advisory selector; no equivalence claim and no demonstrated wrong output."
+      "state": "SURVIVED advisory; six omitted anchors; no equivalence claim"
     }
   ],
-  "decisions": {
-    "S2-O6": "OWNER: ship X gain, fail-closed whitelist",
-    "S2-O1": "controller interim separate relative envelope; pending adoption confirmation",
-    "S2-O2": "controller interim two hops per leg; pending adoption confirmation",
-    "S2-O3": "T base; separate future ownership slice"
-  },
-  "repair_rounds": {
-    "declared_cap": 3,
-    "completed": 5,
-    "extension": "Disclosed bounded property/destructuring token and global lexical coverage fold; same artifact; no restart.",
-    "namespace_receiver_extension": "Disclosed bounded closed-carrier mapping correction; six refused use shapes over declared/module carriers enumerated; 18 valid RED/GREEN cases plus grammar negatives/direct-this positives; full suite/replay refreshed; same artifact."
-  },
   "review_rounds": {
     "cap": 2,
-    "dispatched": 0
+    "completed": 1,
+    "worker_dispatched": 0,
+    "next": 2,
+    "R2_worker_certificate": "SELF-PASS, NOT INDEPENDENT; static-binding contract only"
+  },
+  "cache_versions": {
+    "CPG": 118,
+    "navigation": 74
   },
   "custody": {
-    "source_snapshot": "target/s2-plan/s2-owner-failclosed-source.tar.gz",
-    "evidence_snapshot": "target/s2-plan/s2-owner-failclosed-evidence.tar.gz",
-    "hash_receipt": "target/s2-plan/owner-final-custody.json",
-    "cleanup_receipt": "target/s2-plan/owner-final-cleanup.json"
+    "initial_snapshot": "/Users/wesleyjinks/prism-evidence/s2/repair-r2/initial-workspace.tar.gz",
+    "source_snapshot": "/Users/wesleyjinks/prism-evidence/s2/repair-r2/repair-r2-source.tar.gz",
+    "evidence_snapshot": "/Users/wesleyjinks/prism-evidence/s2/repair-r2/repair-r2-evidence.tar.gz",
+    "receipt": "/Users/wesleyjinks/prism-evidence/s2/repair-r2/final-custody.json",
+    "source_patch_check": "/Users/wesleyjinks/prism-evidence/s2/repair-r2/source-patch-check.json",
+    "docs_patch_check": "/Users/wesleyjinks/prism-evidence/s2/repair-r2/docs-patch-check.json",
+    "canonical_binary_binding": "/Users/wesleyjinks/prism-evidence/s2/repair-r2/binary-binding.json"
   },
-  "commands": {
-    "suite": "cargo nextest run --offline --features mcp",
-    "mutgate": "CARGO_NET_OFFLINE=true python3 scripts/mutgate/mutgate.py --lane mutants/lane-s2-import-qualifiers.json --since 6e4e0ef1 --scope file --jobs 1 --out target/s2-plan/namespace-final-mutgate",
-    "matrix": "cargo build --offline --release; cwd eval: PYTHONPATH=. installed Python3.12 -m tier_a.cli --matrix-only --allow-stale-sut --sut-bin ../target/release/prism",
-    "clippy_base": "git archive HEAD to local control source; CARGO_TARGET_DIR=target cargo clippy --offline --features mcp --all-targets --message-format=json --manifest-path control/Cargo.toml",
-    "clippy_head": "cargo clippy --offline --features mcp --all-targets --message-format=json"
+  "receipts_sha256": {
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/c357-c-control.log": "7137a2c371f8f60af484dc6108d809821f3de9a22c9e5e99679f7d7dc9756db7",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/fmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/facts-build.log": "0b6f59c39060ce406d0e4b17e60b1bcc66c363761d62b9a95ac9ff0f6fcbe55d",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/model-attestation.json": "75db46aaef8816f93bd9d23a1fcc85487856810e5e7d7d6729d203a38d66c51f",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/final-source-inputs.json": "74feab798b39c3901633dffbb22eda46fae0cc6d429faef1f7a1dfc5da50ccfa",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/product-paths.json": "dd545c54c760bc2006688e7be9bc848562365fec96898aaa2dc45874c62ea508",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/nextest-serial.log": "0c758f08debd8d4970e4f8b1a25df088298c3fa197593d6ac3e82ab3370f4750",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/write-source-patch.py": "6453e747af3b189be57046d974320721347d829b39d51a01cc50a7649a4d4af5",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/finalize-docs.py": "180b0028f5b4268fd80941dbdfb04c20ed917d97c593895ae35cf27ee45653be",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/source-patch-check.json": "107674252c43eff758b24e13e3efedeac7efdaf2faab4ec6558ff790732611ec",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/probe-log.md": "b6aaabf6b9d933eb482d2148b1dfd4dfe1f74c581954c5d660068df3fdca5282",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/source-patch-application.log": "8ecfee62f55d4fbba66ae438aee4182988219c6853573396390548ca5094adec",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/targeted.log": "d08ed50a47d68116d2203a03822cc7f26a7afc4cc667022effa661fbb409c284",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/binary-binding.json": "27f0a1b747baf822d181d94a497a5cbc77976cf201ed818dbd78b01e0329680c",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/c357-control-binding.json": "7b136c30ad1653aa5a3f1e5d99beb5b71bb64a4bd2d4f4ff94ff3c241686c4a1",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/s1b.json": "9abb95c7df2fa8e0d12a59e0137364ae4b1fa3cecee2f328112a1f5a830468c4",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/c357-red.log": "028ef91fbd0951d5747c3857dc082a451b2de07ed05ea92bde557efb26123793",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/candidate-source-binding.json": "1ebcd540c7e04f63e39d5ee6e5b2998d56f1d6143133929a58efae98daeb61e4",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/nextest.log": "6cab71d92671f58f436c20b04759090a85ce33e2023c37b6378436fdcab12719",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/lane-p.json": "599fe569e3253b651e0d425138af2f30cf56616150e97ba681698314079027a7",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/scope-check.json": "6222c8440abb2e24fbee5b470b5576fdaf26a7a0047cbd237159e9894165eab5",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/measurement-continuation.json": "5dbabb5f5ff8fee15ead92eaf7e81b440e88b6a9fd47a3166574710c75b57c12",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/initial-custody.json": "63fcc006b407653d35f4b75e3acbbd840dcfb9fd198e45a44e32bf68a2030c2f",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/release-build.log": "f855c255d2e0888a903bf925bad74117b34e0c8b73e950169e7292dbb7847d01",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/matrix-rebuild.log": "2d5694fb348541fae3d68a033b004800c9c79f8f6edb468d5763b1d8f389597a",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/reconcile-docs.py": "31f7a2e0cd8dfc8d12350774c5da982ceaf96117c4a6c75b840e462663ab856c",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/serial-gate-commands.json": "a54d2a4baa06aaeb7eee1887d78b0754dbc7d84ee711d17df158bb16db403e2a",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/advisory-mutgate.log": "0c41e71ecc664a02963bd06cf4662bf5cefd9ac06ab87c4f9283198e0117fbab",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/s1b.log": "06fd0560caafcbdd6b3e57d0ac499615c298c1c255563807c8759936ed90fd26",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/public.log": "ac25ccd1b5cb61258112a343745943f07f6862ffca04de5620e260bc5b761b44",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/matrix.log": "69a59e4e1d1d753b705f390902f846372c8b7d863bb1740a281622dcd81be477",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/measurement-ledger.json": "605ec3a64cc438d1d3236e88fa0d4de1b1216ec0eaffda8c143cc6bf079a3eae",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/targeted-fixed.log": "496919cdddb8a39bf4d28760332ed0df369433a6e00f8c03379d2605e07af85a",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/supplemental-measurement.json": "f2fbddf3b8745c7c646caa573f1f10ce5786118f2bc096366d69eda064cbcf37",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/doctests.log": "c97c6ade71f38226a048793d942efd9dfdbb2f737adff5aefff1ffbd467de649",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/public/X/comparison.json": "9a61de7b4b427a6d4d3410f53b3ae563ae96cdd0be2752eac878da6e6fc84e85",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/public/X/receipt.json": "9d73fbdaf925d1ed307553743a1b4b71d3c87aa4a3b9a3adb015d5458708b916",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/public/X/oracle-inputs.json": "97651c06eb3a238642fea2d2b597871848aa90550e8ffa772dcee0caba6ea40a",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/public/X/binary-binding.json": "f585d7e8a05a13ccc136917b2f3b7365f548a4077df88bde4508c8a8e647c7d9",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/public/installed-X/comparison.json": "9a61de7b4b427a6d4d3410f53b3ae563ae96cdd0be2752eac878da6e6fc84e85",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/public/installed-X/receipt.json": "d019d396cbb28ed86fc25adfe9f2301d2591feadc1624e0c91451d61b836eb6f",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/public/installed-X/oracle-inputs.json": "81df7892c1f1116dd5f1bccf54216735c7f70ffe9309eb4bbb99b78422c1fa82",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/public/installed-X/binary-binding.json": "f585d7e8a05a13ccc136917b2f3b7365f548a4077df88bde4508c8a8e647c7d9",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/public/R/comparison.json": "2ebbdcbc32665a9c4ac3a61c87102192e26845893144c4e69d517b02a5d423a0",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/public/R/receipt.json": "60e499a9be58119d13e36609d459b4fea8b6164067b8d56d832fb378d1be373f",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/public/R/oracle-inputs.json": "360bf8c1612f31501d04707f20e7a06832fb13a203ee08c905559fc0ad995456",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/public/R/binary-binding.json": "f585d7e8a05a13ccc136917b2f3b7365f548a4077df88bde4508c8a8e647c7d9",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/public/T/comparison.json": "cdb3f117401f883673afcd8fe00bdcc66c64d66e66905b8a630bd80775761ed4",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/public/T/receipt.json": "a8aece0c9c294ecaa2e4d451072eda0bf42910e2b5308a4946c9b5804e5a1d3f",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/public/T/oracle-inputs.json": "4820318431b2c01f8aa911eda08be95c010c1f92839f29208bae1558f484ca11",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/public/T/binary-binding.json": "f585d7e8a05a13ccc136917b2f3b7365f548a4077df88bde4508c8a8e647c7d9",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/public/summary.json": "ed637022aa0be6281e4cfd0166679e613804a162a107f6c6808d975dd2bfc924",
+    "/Users/wesleyjinks/prism-evidence/s2/repair-r2/advisory-mutgate/summary.json": "c93df7e4a3ac82eba69c0e2571307e6d2f1e6ff2777f1392927cc6b4606ebd6d"
   },
   "verification_document": {
     "path": "VERIFICATION.md",
-    "sha256": "2bdde58feb2914c02edff4203ec0145f54db60be1412689b2a9fe9cc98a6432f",
+    "sha256": "8432f7f3e0cea5b12396f787f3c621c246d73c18c3ec9146f94b34b90cbd763b",
     "required_sections_present": true,
     "source_test_inputs_rechecked": 770,
     "source_changes_after_final_full_suite": false,
-    "hook_audit": "target/s2-plan/stop-hook-verification-audit.json",
     "required_sections": [
       "## Verified",
       "## Not verified"
     ],
-    "new_refusal_families_with_red_green": 43,
-    "full_suite_passed": 5154
+    "full_suite_passed": 5168
   },
-  "historical_receipts_sha256": {
-    "target/s2-plan/final-failclosed-public/summary.json": "ed637022aa0be6281e4cfd0166679e613804a162a107f6c6808d975dd2bfc924",
-    "target/s2-plan/final-failclosed-public/X/yield-refusals.json": "1dbf65e53835562bfee582bfdcae2cd023f3d45b45055ba67dbefb1ecd6de7fb",
-    "target/s2-plan/final-failclosed-public/installed-X/yield-refusals.json": "1dbf65e53835562bfee582bfdcae2cd023f3d45b45055ba67dbefb1ecd6de7fb",
-    "target/s2-plan/final-failclosed-lane-p.json": "e26658e7fb351181da7665076b38065beff6db1668a2f072c83e9fc10095c0cb",
-    "target/s2-plan/final-failclosed-native-controls/summary.json": "44340c7b73322d3073977598fc805c3abfddd1e92798564c4ab7baa332954c7f",
-    "target/s2-plan/final-e5-complete-red/summary.json": "bf444b8f575fc586c221116f10d6819ce1f077ddf1a744ef1a64a02cbe8155a8",
-    "target/s2-plan/final-e5-complete-green/summary.json": "1889357a2030b2e904ed40ccbb5ce8c42801e6f0a90d9f0f5d6b885bdf5900ed",
-    "target/s2-plan/owner-red/summary.json": "48aadb4693d675655bbe0cf9584b7607de3910e0a58fb0842d9a478bc186325e",
-    "target/s2-plan/dynamic-identity-red/summary.json": "c111dd3a6c09184acabcc44a30a6140b67a1bf9acca2d978dd1def054ad951a2",
-    "target/s2-plan/final-failclosed-nextest.log": "394cb661644167b39719642a8664eadb80ce88d8f3ee8cb2ac4b674394222b13",
-    "target/s2-plan/final-failclosed-doctests.log": "00baa16daf0a22f25baecfc47f5758690548a849f64d66b3908cc1737b424757",
-    "target/s2-plan/failclosed-clippy-base.jsonl": "83161ac60589696af3083e77dd99fbe881087718120461bd0797dc0334c560af",
-    "target/s2-plan/final-failclosed-clippy.jsonl": "af0dc2938e5ca6fae85d9813f7a862ef830f6bedac6a8b71821c1f631337ea3a",
-    "target/s2-plan/final-failclosed-clippy-comparison.json": "4db3e1ed51c1de8fed17ebe771ac791c2628f0e8c1538d9ea3c03e79c14324e0",
-    "target/s2-plan/final-failclosed-fmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "target/s2-plan/final-failclosed-mutgate/summary.json": "df9790a71370f17374657c0c58d9e25d41a2c0eef069e408df006ff05d507d14",
-    "target/s2-plan/final-failclosed-matrix-build.log": "765f1396d07f30f3a451cd3f9d9cad4e83c92c8e0aecf955ffc09061a6cf1e02",
-    "target/s2-plan/final-failclosed-matrix.log": "69a59e4e1d1d753b705f390902f846372c8b7d863bb1740a281622dcd81be477",
-    "target/s2-plan/final-failclosed-tier-a-red-green.json": "0b5a55f960a97414825e413d5bedb3510c2ebbcddb32ed4e4ab9934c5cdcaec5",
-    "target/s2-plan/final-failclosed-s1b.json": "9abb95c7df2fa8e0d12a59e0137364ae4b1fa3cecee2f328112a1f5a830468c4",
-    "target/s2-plan/final-failclosed-release-build.log": "64d60c32f68ff880bb54eaf62a77dbd1e616b43f0085ee28f54d693ab093ced7",
-    "target/s2-plan/final-failclosed-facts-build.log": "98585eec939c6c5ba55a4bf4ff84157ad459ba9f313c1795519a34e5ac76c4c5",
-    "target/s2-plan/controller-public-selftest.json": "4a97fe0e6b3ed974421d922a27a9453fdb0a61b99422d622d05ce7831a613f3d",
-    "target/s2-plan/whitelist-r4.log": "798cd82ff6ebd22daeb0a798a7a7c58cfe1e8d422575c770d9bc26348e10c878",
-    "target/s2-plan/stop-hook-verification-audit.json": "e056fc5dd1562fbb119e639a10e6f0cf1f0f2715a20676c7d9d45cd0983f56a8",
-    "target/s2-plan/pre-namespace-cleanup.json": "514e789fdb4684957dca95f40d4c9a814c7b74ec06cbad110369dedd2ef42490"
+  "historical_disposition": "R1/R1b runtime-scope findings retained as historical; F3/F4/F7 now out of model by S2-O7",
+  "owner_decision": "S2-O7",
+  "historical_R1b": {
+    "status": "STOP_YIELD_UNSELECTED_F3_UNADOPTED_F7_REFLECTED_CODEGEN_WRONG",
+    "cut_ledger": {
+      "baseline": [
+        132,
+        132,
+        0,
+        0
+      ],
+      "cuts": [
+        {
+          "family": "F4",
+          "yield": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "delta": -132,
+          "receipt": "/Users/wesleyjinks/prism-evidence/s2/repair-r1b/f4-fixed-public/summary.json",
+          "status": "UNSELECTED STOP"
+        },
+        {
+          "family": "F5",
+          "yield": [
+            132,
+            132,
+            0,
+            0
+          ],
+          "delta": 0,
+          "receipt": "/Users/wesleyjinks/prism-evidence/s2/repair-r1b/f5-public/summary.json",
+          "status": "measured independently; not a complete-closure/adoption certificate"
+        },
+        {
+          "family": "F6",
+          "yield": [
+            132,
+            132,
+            0,
+            0
+          ],
+          "delta": 0,
+          "receipt": "/Users/wesleyjinks/prism-evidence/s2/repair-r1b/f6-public/summary.json",
+          "status": "measured independently; not a complete-closure/adoption certificate"
+        },
+        {
+          "family": "F7",
+          "yield": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "delta": -132,
+          "receipt": "/Users/wesleyjinks/prism-evidence/s2/repair-r1b/f7-public/summary.json",
+          "status": "UNSELECTED STOP; remaining reflected-codegen WRONG"
+        },
+        {
+          "family": "F8",
+          "yield": [
+            132,
+            132,
+            0,
+            0
+          ],
+          "delta": 0,
+          "receipt": "/Users/wesleyjinks/prism-evidence/s2/repair-r1b/f8-fixed-public/summary.json",
+          "status": "measured independently; not a complete-closure/adoption certificate"
+        }
+      ],
+      "STOP": true,
+      "STOP_reason": "F4/F7 each lose 132 X (>10); combined X 0 (<110)",
+      "F2_choice": "retained inherited R1 drop-all choice, separately measured 132/132/0/0",
+      "F3_status": "UNADOPTED; no owner selection",
+      "final_candidate_without_F3": true,
+      "final_candidate_yield": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "F3_variants": [
+      {
+        "label": "f3-full",
+        "yield": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "soundness": "No new cost for F3 conservative cut, independent of F4\u2013F8",
+        "new_accepted_cost": false
+      },
+      {
+        "label": "f3-n1",
+        "yield": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "soundness": "No new cost; TS type positions erased",
+        "new_accepted_cost": false
+      },
+      {
+        "label": "f3-n1-literal-ceiling",
+        "yield": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "soundness": "Not sound production code: all literal sources removed; monotone zero-yield ceiling for N3 subsets with opaque retained",
+        "new_accepted_cost": "UNSAFE experiment, no cost accepted"
+      }
+    ],
+    "F3_rejected_or_unverified": {
+      "N2": "UNSOUND; no implementation/sound measurement/static-prefix directory narrowing",
+      "N3": "production resolution certificate unimplemented; Node-only survey; package isolation is a new unaccepted assumption; rejected N2 chain not measured"
+    },
+    "blocking_findings": [
+      {
+        "tag": "WRONG",
+        "id": "F7_REFLECTED_FUNCTION_CONSTRUCTOR",
+        "confidence": 100,
+        "input": "[].filter.constructor(code)() importing and replacing C.sm",
+        "incorrect_result": "both grammars add Exact original sm after awaited same-C mutation returns 1; same-environment main refuses",
+        "receipt": "/Users/wesleyjinks/prism-evidence/s2/repair-r1b/reflected-codegen.json",
+        "disposition": "OPEN-CLASS at cap; design parked; no blacklist iteration"
+      },
+      {
+        "tag": "STOP",
+        "id": "F4_F7_YIELD",
+        "X_single_loss": 132,
+        "X_total": 0,
+        "selection": "controller/owner required; none made"
+      },
+      {
+        "tag": "STOP",
+        "id": "F3_UNADOPTED",
+        "X_total": 0,
+        "selection": "explicit brief prohibition"
+      }
+    ]
   },
-  "historical_receipts_disposition": "Previous final suite/source claims superseded by namespace-final; preserve as controls only. stop-hook-verification-audit predated and missed the namespace receiver carrier."
+  "actual_repair_model": {
+    "transcript": "/Users/wesleyjinks/.codex/sessions/2026/10/04/rollout-2026-10-04T04-39-46-01a1067f-91c8-7302-b253-3443cc557ef0.jsonl",
+    "session_id": "01a1067f-91c8-7302-b253-3443cc557ef0",
+    "timestamp": "2026-10-04T10:39:47.761Z",
+    "model": "gpt-6.1-sol",
+    "cwd": "/Users/wesleyjinks/code/prism-s2-plan"
+  },
+  "cut_ledger": {
+    "combined": [
+      132,
+      132,
+      0,
+      0
+    ],
+    "delta": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "STOP": false,
+    "minimum_X": 122,
+    "included": [
+      "original whitelist",
+      "F1",
+      "F2 drop all",
+      "F5",
+      "F6",
+      "corrected F8"
+    ],
+    "out_of_model": [
+      "F3",
+      "F4",
+      "F7"
+    ]
+  }
 }

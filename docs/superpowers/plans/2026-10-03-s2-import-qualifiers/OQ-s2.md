@@ -1,17 +1,21 @@
 # S2 decisions and controller follow-through
 
-## Owner decision (2026-10-03)
+## Owner decision S2-O7 (2026-10-04)
 
-**S2-O6: “Ship X gain, fail-closed.”** A qualifier class/object stays base when value identity escapes or member-write closure is unproved. Aliases, arguments/returns/stored/spread values, member writes/computed access, reflective helpers, renamed exports and default export with other uses refuse. The rule applies to every visible defining/importing file. A conservative lexical over-approximation is allowed; implement a whitelist of permitted uses.
+**“Static-binding contract.”** Exact grades static binding. [CLAUDE.md](../../../../CLAUDE.md#navigation), lines 233–239, excludes runtime module mutation for every rung. S2-O7 **supersedes S2-O6's runtime-mutation scope**. Runtime re-acquisition F3, namespace enumeration F4, evaluated/reflected codegen F7, including the R1b [].filter.constructor WRONG under the former contract, are out of model by owner decision and disclosed. This is a scope change, not a runtime-safety proof or a mechanism-based downgrade of the old finding.
 
-S2-W1 was a demonstrated WRONG (100/100), reproduced on the frozen old prototype in the same environment and both grammars. Static oracle agreement was insufficient: `Alias===C` and replacement result 1 prove the known member write. The existing artifact now implements the owner's design and its RED/GREEN controls; see MEASUREMENTS/PROBES. The previous dispatch parking for an unanswered S2-O6 is superseded. Adoption still requires controller gates and review.
+Visible static aliases/member writes remain in model and keep base under the original whitelist. Selected R2 candidate: c35719e1 + F1/F2/F5/F6/corrected F8, no F3/F4/F7 global cuts. Combined yield132/132/0/0 and final worker gates complete; see REPAIR-R2/HANDOFF/VERIFICATION for current measurements. Old R1b STOPs are historical option costs, not present authorization gates. R2 stops only if combined X <122 or a correctness/input gate fails.
+
+## Superseded owner decision S2-O6 (2026-10-03)
+
+“Ship X gain, fail-closed.” Its expanded runtime-closure scope is superseded. The conservative lexical whitelist is retained. S2-W1 static Alias=C; Alias.sm=replacement remains an in-model refusal; tests preserve it.
 
 | ID | Current answer / remaining work |
 |---|---|
-| S2-O1 | Controller interim: adopt captured separate S2 relative envelope. Pending owner confirmation for adoption. Lane-P resolver unchanged. |
-| S2-O2 | Controller interim: keep two hops per leg, up to four composed. Pending owner confirmation for adoption. |
-| S2-O3 | Controller interim: keep T at base; a new ownership increment needs separate design/authorization. |
-| S2-O4 | Controller measured F base aggregates: 974 low /32 callable-low; 26 instance methods and six default function members; zero static-class rows; 1,271 UNJOINABLE. Planner did not reverify or read F. Run updated wrapper for the head correctness gate. |
-| S2-O5 | Controller interim: retain positional-proof mutation survivor as a disclosed coverage SMELL unless a realistic negative is found. Authoritative registry gate remains required. |
+| S2-O1 | Controller interim: captured separate S2 relative envelope; pending adoption confirmation; lane-P unchanged. |
+| S2-O2 | Controller interim: two hops per leg, up to four composed; pending adoption confirmation. |
+| S2-O3 | T stays base; ownership increment separately authorized. |
+| S2-O4 | Inherited controller F base aggregates: 974 low /32 callable-low; 26 instance +six default function members; zero static-class rows; 1,271 UNJOINABLE. Not reverified by planner. Private head wrapper remains controller-only. |
+| S2-O5 | Positional mutation survivor disclosed as coverage SMELL; authoritative registry remains controller obligation. |
 
-No instance-method, call-result, CommonJS, positive heap-alias, exclusion-inference or ambient-input expansion is included. No Git writes, F read, review dispatch, publication or merge is authorized for this planner.
+No private F read, Git writes, independent review dispatch, publication/merge or adoption by this worker. R1 review used; cumulative review cap two, R2 next. Tier-A quick skipped/unverified per repair-r2-brief, not a green result.
