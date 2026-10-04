@@ -1,0 +1,16 @@
+{
+  "claim": "READ",
+  "source_revision": "4e592daa7858a195eb3a9eb77c83dfbc763b49fa",
+  "source_revision_authority": "READ owner supplied reference path; MEASURED not behaviorally equal to source 4e592daa on X or installed X",
+  "binaries": {
+    "base": {
+      "name": "main-prism",
+      "sha256": "d5b3a84ff9b10fcc8fbda4b7050a625bdb10f3ef7b9eb27ffca9ac4e88151aa6"
+    },
+    "facts": {
+      "name": "main-dump_imports",
+      "sha256": "fd77e531437d4907313ffd98d11f31d5289aecd0854ca60b72447de010f5a2ca"
+    }
+  },
+  "current_base": false
+}
