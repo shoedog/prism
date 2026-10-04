@@ -765,7 +765,7 @@ fn qualifier_whitelist_namespace_paths_reexports_and_this_keep_base() {
 }
 
 #[test]
-fn qualifier_whitelist_allows_declarations_calls_new_types_and_own_export() {
+fn qualifier_whitelist_allows_declarations_calls_types_and_own_export() {
     for grammar in ["jsx", "tsx"] {
         let types = if grammar == "tsx" {
             "type T = C; let instance: C; type U = typeof C;"
@@ -774,10 +774,25 @@ fn qualifier_whitelist_allows_declarations_calls_new_types_and_own_export() {
         };
         let d = fixture(
             grammar,
-            &format!("class C {{ static sm() {{}} }} export {{ C }}; new C(); C.sm(); {types}"),
-            "import { C as X } from './m'; export function run() { X.sm(); new X(); } export function shadow(X) { X.sm(); }",
+            &format!("class C {{ static sm() {{}} }} export {{ C }}; C.sm(); {types}"),
+            "import { C as X } from './m'; export function run() { X.sm(); } export function shadow(X) { X.sm(); }",
         );
-        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+        let g = graph(d.path());
+        let row = |graph: &CallGraph, caller: &str| {
+            prism::navigation::queries::call_site_dump(graph)
+                .into_iter()
+                .find(|r| {
+                    r["caller"]["file"] == format!("app.{grammar}")
+                        && r["caller"]["name"] == caller
+                        && r["callee_text"] == "sm"
+                })
+                .unwrap()
+        };
+        assert_eq!(
+            row(&g, "run")["resolved_targets"].as_array().unwrap().len(),
+            1
+        );
+        assert_eq!(row(&g, "shadow"), row(&base(g.clone()), "shadow"));
         let d = fixture(
             grammar,
             "class C { static sm() {} } export default C;",
@@ -791,5 +806,412 @@ fn qualifier_whitelist_allows_declarations_calls_new_types_and_own_export() {
             "import * as external from 'opaque-package'; consume(external);",
         );
         hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+    }
+}
+
+#[test]
+fn repair_r1_non_owned_calls_keep_base() {
+    let mut failures = Vec::new();
+    for grammar in ["jsx", "tsx"] {
+        let cases = [
+            ("provider-unused-non-owned", "export class C { static sm() { return 1; } } C.valueOf();", "", ""),
+            ("heritage-unused", "class B {} export class C extends B { static sm() { return 1; } }", "", ""),
+            ("valueOf-alias", "export class C { static sm() { return 1; } }", "", "import { C as Q } from './m'; const v = Q.valueOf(); v.sm = () => 2;"),
+            ("valueOf-argument", "export class C { static sm() { return 1; } }", "", "import { C as Q } from './m'; Object.assign(Q.valueOf(), { sm: () => 2 });"),
+            ("defineGetter", "export class C { static sm() { return 1; } }", "", "import { C as Q } from './m'; Q.__defineGetter__('sm', () => () => 2);"),
+            ("defineSetter", "export class C { static sm() { return 1; } }", "", "import { C as Q } from './m'; Q.__defineSetter__('sm', () => {});"),
+            ("inherited-self", "import { B } from './base'; export class C extends B { static sm() { return 1; } }", "export class B { static self() { return this; } }", "import { C as Q } from './m'; Object.assign(Q.self(), { sm: () => 2 });"),
+            ("inherited-write-provider", "class B { static install(f) { this.sm = f; } } export class C extends B { static sm() { return 1; } } C.install(() => 2);", "", ""),
+            ("inherited-write-importer", "import { B } from './base'; export class C extends B { static sm() { return 1; } }", "export class B { static install(f) { this.sm = f; } }", "import { C as Q } from './m'; Q.install(() => 2);"),
+            ("provider-non-owned", "export class C { static sm() { return 1; } } const v = C.valueOf(); v.sm = () => 2;", "", ""),
+            ("receiver-non-owned", "export class C { static sm() { return 1; } static leak() { return this.valueOf(); } } const v = C.leak(); v.sm = () => 2;", "", ""),
+            ("forwarded-non-owned", "export class C { static sm() { return 1; } }", "", "import { C as Q } from './barrel'; Object.assign(Q.valueOf(), { sm: () => 2 });"),
+        ];
+        for (label, provider, ancestor, writer) in cases {
+            let d = fixture(
+                grammar,
+                provider,
+                "import { C as X } from './m'; export function run() { X.sm(); }",
+            );
+            write(d.path(), &format!("base.{grammar}"), ancestor);
+            write(
+                d.path(),
+                &format!("barrel.{grammar}"),
+                "export { C } from './m';",
+            );
+            write(d.path(), &format!("other.{grammar}"), writer);
+            let g = graph(d.path());
+            let before = outcome(&base(g.clone()), &format!("app.{grammar}"), "sm");
+            assert!(
+                before["resolved_targets"].as_array().unwrap().is_empty(),
+                "{grammar}:{label}: base must drop: {before}"
+            );
+            if outcome(&g, &format!("app.{grammar}"), "sm") != before {
+                failures.push(format!("{grammar}:{label}"));
+            }
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "R1 non-owned-call population: {failures:?}"
+    );
+}
+
+#[test]
+fn repair_r1_owned_calls_remain_exact() {
+    for grammar in ["jsx", "tsx"] {
+        let d = fixture(grammar,
+            "export class C { static sm() { return 1; } static own() { return this.sm(); } } C.own();",
+            "import { C as X } from './m'; export function run() { X.sm(); X.own(); }");
+        write(
+            d.path(),
+            &format!("other.{grammar}"),
+            "import { C as Q } from './m'; Q.own();",
+        );
+        let g = graph(d.path());
+        for name in ["sm", "own"] {
+            assert!(
+                outcome(&base(g.clone()), &format!("app.{grammar}"), name)["resolved_targets"]
+                    .as_array()
+                    .unwrap()
+                    .is_empty()
+            );
+            hit(&g, grammar, name, &format!("m.{grammar}"));
+        }
+    }
+}
+
+#[test]
+fn repair_r1_construction_keep_base() {
+    let mut failures = Vec::new();
+    for grammar in ["jsx", "tsx"] {
+        for writer in [
+            "import { C as Q } from './m'; new Q().constructor.sm = () => 2;",
+            "import { C as Q } from './m'; const A = (new Q()).constructor; A.sm = () => 2;",
+            "import { C as Q } from './m'; Object.getPrototypeOf(new Q()).constructor.sm = () => 2;",
+            "import { C as Q } from './m'; const inst = new Q(); inst['constructor'].sm = () => 2;",
+            "import { C as Q } from './m'; const inst = new Q(); const key = String.fromCharCode(99,111,110,115,116,114,117,99,116,111,114); inst[key].sm = () => 2;",
+            "import { C as Q } from './m'; new Q();",
+        ] {
+            let d = fixture(grammar, "export class C { static sm() { return 1; } }", "import { C as X } from './m'; export function run() { X.sm(); }");
+            write(d.path(), &format!("other.{grammar}"), writer);
+            let g = graph(d.path());
+            let before = outcome(&base(g.clone()), &format!("app.{grammar}"), "sm");
+            assert!(before["resolved_targets"].as_array().unwrap().is_empty());
+            if outcome(&g, &format!("app.{grammar}"), "sm") != before {
+                failures.push(format!("{grammar}:{writer}"));
+            }
+        }
+        let d = fixture(grammar,
+            "function replacement() { return 2; } export class C { static sm() { return 1; } } const A = (new C()).constructor; A.sm = replacement;",
+            "import { C as X } from './m'; export function run() { X.sm(); }");
+        let g = graph(d.path());
+        if outcome(&g, &format!("app.{grammar}"), "sm")
+            != outcome(&base(g.clone()), &format!("app.{grammar}"), "sm")
+        {
+            failures.push(format!("{grammar}:provider-instance-constructor"));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "R1 construction population: {failures:?}"
+    );
+}
+
+#[test]
+fn repair_r1_receiver_carriers_keep_base() {
+    let mut failures = Vec::new();
+    for grammar in ["jsx", "tsx"] {
+        {
+            let d = fixture(grammar, "function replacement(){return 1;} export class C {constructor(){new.target.sm=replacement;} static sm(){return 0;}} new C();", "import { C as X } from './m'; export function run() { X.sm(); }");
+            write(d.path(), &format!("other.{grammar}"), "");
+            let g = graph(d.path());
+            let before = outcome(&base(g.clone()), &format!("app.{grammar}"), "sm");
+            assert!(before["resolved_targets"].as_array().unwrap().is_empty());
+            if outcome(&g, &format!("app.{grammar}"), "sm") != before {
+                failures.push(format!("{grammar}:F5-newtarget"));
+            }
+        }
+        {
+            let d = fixture(grammar, "import {B} from \"./b\"; export class C extends B {static sm(){return 0;}} new C();", "import { C as X } from './m'; export function run() { X.sm(); }");
+            write(d.path(), &format!("other.{grammar}"), "");
+            write(
+                d.path(),
+                &format!("b.{grammar}"),
+                "export class B {constructor(){new.target.sm=()=>1;}}",
+            );
+            let g = graph(d.path());
+            let before = outcome(&base(g.clone()), &format!("app.{grammar}"), "sm");
+            assert!(before["resolved_targets"].as_array().unwrap().is_empty());
+            if outcome(&g, &format!("app.{grammar}"), "sm") != before {
+                failures.push(format!("{grammar}:F5-inherited"));
+            }
+        }
+        {
+            let d = fixture(grammar, "class B {static sm(){return 2;}} export class C extends B {static sm(){return 0;} static init(){super.sm=()=>1;}} C.init();", "import { C as X } from './m'; export function run() { X.sm(); }");
+            write(d.path(), &format!("other.{grammar}"), "");
+            let g = graph(d.path());
+            let before = outcome(&base(g.clone()), &format!("app.{grammar}"), "sm");
+            assert!(before["resolved_targets"].as_array().unwrap().is_empty());
+            if outcome(&g, &format!("app.{grammar}"), "sm") != before {
+                failures.push(format!("{grammar}:F5-super"));
+            }
+        }
+        {
+            let d = fixture(
+                grammar,
+                "export class C {constructor(){const self=new.target;} static sm(){return 0;}}",
+                "import { C as X } from './m'; export function run() { X.sm(); }",
+            );
+            write(d.path(), &format!("other.{grammar}"), "");
+            let g = graph(d.path());
+            let before = outcome(&base(g.clone()), &format!("app.{grammar}"), "sm");
+            assert!(before["resolved_targets"].as_array().unwrap().is_empty());
+            if outcome(&g, &format!("app.{grammar}"), "sm") != before {
+                failures.push(format!("{grammar}:F5-uncalled"));
+            }
+            if !g.js_ts_exports[&format!("m.{grammar}")]
+                .qualifiers
+                .written
+                .contains("C")
+            {
+                failures.push(format!("{grammar}:explicit-new-target-carrier"));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "F5 population: {failures:?}");
+}
+
+#[test]
+fn repair_r1_nested_this_keep_base() {
+    let mut failures = Vec::new();
+    for grammar in ["jsx", "tsx"] {
+        {
+            let d = fixture(grammar, "function replacement(){return 1;} export class C {static sm(){const box={value:this}; return box.value;}} const A=C.sm(); A.sm=replacement;", "import { C as X } from './m'; export function run() { X.sm(); }");
+            write(d.path(), &format!("other.{grammar}"), "");
+            let g = graph(d.path());
+            let before = outcome(&base(g.clone()), &format!("app.{grammar}"), "sm");
+            assert!(before["resolved_targets"].as_array().unwrap().is_empty());
+            if outcome(&g, &format!("app.{grammar}"), "sm") != before {
+                failures.push(format!("{grammar}:F6-value"));
+            }
+        }
+        {
+            let d = fixture(grammar, "function replacement(){return 1;} export class C {static sm(){const box={leak:()=>this}; return box.leak();}} const A=C.sm(); A.sm=replacement;", "import { C as X } from './m'; export function run() { X.sm(); }");
+            write(d.path(), &format!("other.{grammar}"), "");
+            let g = graph(d.path());
+            let before = outcome(&base(g.clone()), &format!("app.{grammar}"), "sm");
+            assert!(before["resolved_targets"].as_array().unwrap().is_empty());
+            if outcome(&g, &format!("app.{grammar}"), "sm") != before {
+                failures.push(format!("{grammar}:F6-arrow"));
+            }
+        }
+        {
+            let d = fixture(grammar, "export class C {static sm(){return 0;} static install(){const box={leak:()=>{this.sm=()=>1;}};box.leak();}} C.install();", "import { C as X } from './m'; export function run() { X.sm(); }");
+            write(d.path(), &format!("other.{grammar}"), "");
+            let g = graph(d.path());
+            let before = outcome(&base(g.clone()), &format!("app.{grammar}"), "sm");
+            assert!(before["resolved_targets"].as_array().unwrap().is_empty());
+            if outcome(&g, &format!("app.{grammar}"), "sm") != before {
+                failures.push(format!("{grammar}:F6-write-arrow"));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "F6 population: {failures:?}");
+}
+
+#[test]
+fn repair_r1_parse_incomplete_keep_base() {
+    let mut failures = Vec::new();
+    for grammar in ["jsx", "tsx"] {
+        {
+            let d = fixture(
+                grammar,
+                "export class C { static sm() { return 0; } }",
+                "import { C as X } from './m'; export function run() { X.sm(); }",
+            );
+            write(d.path(), &format!("other.{grammar}"), "unterminated(");
+            let g = graph(d.path());
+            let before = outcome(&base(g.clone()), &format!("app.{grammar}"), "sm");
+            assert!(before["resolved_targets"].as_array().unwrap().is_empty());
+            if outcome(&g, &format!("app.{grammar}"), "sm") != before {
+                failures.push(format!("{grammar}:F8-incomplete"));
+            }
+            if !g
+                .js_ts_exports
+                .get(&format!("other.{grammar}"))
+                .is_some_and(|f| f.qualifiers.syntax_incomplete)
+            {
+                failures.push(format!("{grammar}:incomplete-facts-retained"));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "F8 population: {failures:?}");
+}
+
+#[test]
+fn repair_r1b_error_refusals_preserve_legacy_star_opacity() {
+    let cases: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/js_paths_r1.json")).unwrap();
+    let mut failures = Vec::new();
+    for case in cases
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|case| case["case"].as_str().unwrap().starts_with("C57-"))
+    {
+        let d = TempDir::new().unwrap();
+        for (file, text) in case["payload"].as_object().unwrap() {
+            write(d.path(), file, text.as_str().unwrap());
+        }
+        let g = graph(d.path());
+        let loaded = prism::repo_loader::load_repo(d.path()).unwrap();
+        let before = CallGraph::build(&loaded.files);
+        let app = case["app"].as_str().unwrap();
+        if outcome(&g, app, "picked") != outcome(&before, app, "picked") {
+            failures.push(case["case"].clone());
+        }
+    }
+    assert!(failures.is_empty(), "legacy opacity: {failures:?}");
+}
+
+// S2-O7: these runtime channels do not change the static-binding grade.
+// Pin the observed Exact so a future contract expansion must change the test.
+#[test]
+fn repair_r2_out_of_model_dynamic_import() {
+    for grammar in ["jsx", "tsx"] {
+        for writer in [
+            "export const ready=import('./m').then(ns=>{ns['C'].sm=()=>1;});",
+            "const path='./m'; export const ready=import(path).then(ns=>{ns['C'].sm=()=>1;});",
+        ] {
+            let d = fixture(
+                grammar,
+                "export class C {static sm(){return 0;}}",
+                "import {C as X} from './m'; export function run(){X.sm();}",
+            );
+            write(d.path(), &format!("other.{grammar}"), writer);
+            hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+        }
+    }
+}
+
+#[test]
+fn repair_r2_out_of_model_require_and_ts_import_require() {
+    for grammar in ["jsx", "tsx"] {
+        let d = fixture(
+            grammar,
+            "export class C {static sm(){return 0;}}",
+            "import {C as X} from './m'; export function run(){X.sm();}",
+        );
+        write(
+            d.path(),
+            &format!("other.{grammar}"),
+            "const ns=require('./m'); ns['C'].sm=()=>1;",
+        );
+        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+        // import = require is TS syntax; exercise it with both provider grammars.
+        write(d.path(), &format!("other.{grammar}"), "");
+        write(
+            d.path(),
+            "writer.ts",
+            "import ns = require('./m'); ns['C'].sm=()=>1;",
+        );
+        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+    }
+}
+
+#[test]
+fn repair_r2_out_of_model_default_reacquisition() {
+    for grammar in ["jsx", "tsx"] {
+        let d = fixture(
+            grammar,
+            "export default class C {static sm(){return 0;}}",
+            "import X from './m'; export function run(){X.sm();}",
+        );
+        write(
+            d.path(),
+            &format!("other.{grammar}"),
+            "export const ready=import('./m').then(ns=>{ns.default.sm=()=>1;});",
+        );
+        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+    }
+}
+
+#[test]
+fn repair_r2_out_of_model_namespace_enumeration() {
+    for grammar in ["jsx", "tsx"] {
+        let d = fixture(
+            grammar,
+            "export class C {static sm(){return 0;}}",
+            "import {C as X} from './m'; export function run(){X.sm();}",
+        );
+        write(
+            d.path(),
+            &format!("barrel.{grammar}"),
+            "export * as M from './m';",
+        );
+        write(
+            d.path(),
+            &format!("other.{grammar}"),
+            "import {M} from './barrel'; Object.values(M).forEach(c=>{c.sm=()=>1;});",
+        );
+        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+    }
+}
+
+#[test]
+fn repair_r2_out_of_model_eval_function_and_reflected_codegen() {
+    for grammar in ["jsx", "tsx"] {
+        for writer in [
+            "export const ready=eval(\"import('./m').then(ns=>{ns.C.sm=()=>1})\");",
+            "export const ready=new Function(\"return import('./m').then(ns=>{ns.C.sm=()=>1})\")();",
+            "export const ready=[].filter.constructor(\"return import('./m').then(ns=>{ns.C.sm=()=>1})\")();",
+            "with (scope) { indirect.sm=replacement; }",
+        ] {
+            let d=fixture(grammar,"export class C {static sm(){return 0;}}","import {C as X} from './m'; export function run(){X.sm();}");
+            write(d.path(), &format!("other.{grammar}"), writer);
+            hit(&graph(d.path()),grammar,"sm",&format!("m.{grammar}"));
+        }
+    }
+}
+
+#[test]
+fn repair_r2_out_of_model_host_globals_and_reflective_lookup() {
+    for grammar in ["jsx", "tsx"] {
+        let d = fixture(
+            grammar,
+            "export class C {static sm(){return 0;}}",
+            "import {C as X} from './m'; export function run(){X.sm();}",
+        );
+        write(
+            d.path(),
+            &format!("other.{grammar}"),
+            "Reflect.get(globalThis,'registry')['C'].sm=()=>1; window['registry']['C'].sm=()=>1;",
+        );
+        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+    }
+}
+
+#[test]
+fn repair_r2_static_alias_and_reflective_writes_keep_base() {
+    for grammar in ["jsx", "tsx"] {
+        for writer in [
+            "import {C as Y} from './m'; const A=Y; A.sm=()=>1;",
+            "import {C as Y} from './m'; Y.sm=()=>1;",
+            "import {C as Y} from './m'; Reflect.set(Y,'sm',()=>1);",
+        ] {
+            let d = fixture(
+                grammar,
+                "export class C {static sm(){return 0;}}",
+                "import {C as X} from './m'; export function run(){X.sm();}",
+            );
+            write(d.path(), &format!("other.{grammar}"), writer);
+            let g = graph(d.path());
+            assert_eq!(
+                outcome(&g, &format!("app.{grammar}"), "sm"),
+                outcome(&base(g.clone()), &format!("app.{grammar}"), "sm"),
+                "{grammar}: {writer}"
+            );
+        }
     }
 }

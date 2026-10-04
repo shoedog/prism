@@ -2189,7 +2189,10 @@ impl CallGraph {
             let exports = parsed.extract_js_ts_export_facts();
             // A successfully parsed value-empty module is a proven empty star
             // branch, distinct from a missing/opaque branch in alias provenance.
-            if !exports.is_empty() || !parsed.tree.root_node().has_error() {
+            if !exports.is_empty()
+                || !parsed.tree.root_node().has_error()
+                || exports.qualifiers.syntax_incomplete
+            {
                 export_facts.insert(file_path.clone(), exports);
             }
 
@@ -2332,6 +2335,20 @@ impl CallGraph {
         // Revocation is global across the visible files. Refusal-only joins
         // may over-approximate; they never supply positive module authority.
         let mut written = BTreeSet::new();
+        if self
+            .js_ts_exports
+            .values()
+            .any(|raw| raw.qualifiers.syntax_incomplete)
+        {
+            for identity in self
+                .js_ts_qualifier_exports
+                .values()
+                .flat_map(|table| table.values())
+                .flat_map(|exports| exports.values())
+            {
+                written.insert((identity.file.clone(), identity.local.clone()));
+            }
+        }
         let lexical_refusals = self
             .js_ts_exports
             .values()
@@ -2347,10 +2364,13 @@ impl CallGraph {
         for (file, raw) in &self.js_ts_exports {
             let mut refusals = Vec::new();
             if let Some(bindings) = self.import_bindings.get(file) {
-                for b in bindings.iter().filter(|b| {
-                    !raw.qualifiers.complete || raw.qualifiers.written.contains(&b.local)
-                }) {
-                    refusals.push((b.module_path.clone(), b.member.clone()));
+                for b in bindings {
+                    let refuse =
+                        !raw.qualifiers.complete || raw.qualifiers.written.contains(&b.local);
+                    let calls = raw.qualifiers.called_members.get(&b.local);
+                    if refuse || calls.is_some() {
+                        refusals.push((b.module_path.clone(), b.member.clone(), refuse, calls));
+                    }
                 }
             }
             for (name, export) in &raw.qualifiers.named {
@@ -2360,11 +2380,11 @@ impl CallGraph {
                     if raw.qualifiers.written.contains(name)
                         || raw.qualifiers.written.contains(imported)
                     {
-                        refusals.push((module.clone(), Some(imported.clone())));
+                        refusals.push((module.clone(), Some(imported.clone()), true, None));
                     }
                 }
             }
-            for (spec, member) in refusals {
+            for (spec, member, refuse, calls) in refusals {
                 let proven = self
                     .js_ts_qualifier_modules
                     .get(&(file.clone(), spec.clone()));
@@ -2396,7 +2416,13 @@ impl CallGraph {
                             .iter()
                             .filter(|(name, _)| member.as_ref().is_none_or(|m| m == *name))
                         {
-                            written.insert((identity.file.clone(), identity.local.clone()));
+                            if refuse
+                                || calls.is_some_and(|calls| {
+                                    calls.iter().any(|m| !identity.members.contains_key(m))
+                                })
+                            {
+                                written.insert((identity.file.clone(), identity.local.clone()));
+                            }
                         }
                     }
                 }

@@ -11,8 +11,12 @@ impl ParsedFile {
     pub(super) fn js_ts_qualifier_facts(&self, facts: &JsExportFacts) -> QualifierFacts {
         let root = self.tree.root_node();
         let mut cache = JsBindingCache::for_sites();
-        let mut out = QualifierFacts::default();
-        out.written.extend(self.js_ts_qualifier_refused_uses());
+        let mut out = QualifierFacts {
+            syntax_incomplete: root.has_error(),
+            ..Default::default()
+        };
+        out.written
+            .extend(self.js_ts_qualifier_refused_uses(&mut out.called_members));
         if root.has_error()
             || self.js_ts_scope_clean(root, &mut cache).is_err()
             || !self.js_ts_is_module()
@@ -102,6 +106,13 @@ impl ParsedFile {
                         continue;
                     }
                     let (ds, annex) = self.js_ts_scope_lookup(root, &name, &mut cache);
+                    let mut heritage = d.walk();
+                    if d.kind() == "class_declaration"
+                        && d.named_children(&mut heritage)
+                            .any(|child| child.kind() == "class_heritage")
+                    {
+                        continue;
+                    }
                     if annex
                         || !ds.is_some_and(|ds| ds.len() == 1 && ds[0].id() == d.id())
                         || self.js_ts_scoped_written(root, &name, &mut cache)
@@ -133,6 +144,11 @@ impl ParsedFile {
                         }
                         _ => None,
                     };
+                    let members = members.filter(|members| {
+                        out.called_members
+                            .get(&name)
+                            .is_none_or(|calls| calls.iter().all(|m| members.contains_key(m)))
+                    });
                     if let Some(members) = members {
                         out.locals.insert(name.clone(), members);
                         if stmt.kind() == "export_statement" {
@@ -328,14 +344,46 @@ impl ParsedFile {
         }
     }
 
+    // Initializers and arrows do not establish receiver ownership. Conservatively
+    // retain every enclosing declaration as a possible receiver carrier.
+    fn js_ts_qualifier_receiver_carriers(&self, n: Node<'_>) -> BTreeSet<String> {
+        let mut carriers = BTreeSet::new();
+        let mut up = n.parent();
+        while let Some(p) = up {
+            let decl = if matches!(p.kind(), "class_declaration" | "internal_module" | "module") {
+                Some(p)
+            } else if p.kind() == "object" {
+                p.parent().filter(|d| d.kind() == "variable_declarator")
+            } else {
+                None
+            };
+            if let Some(id) = decl.and_then(|d| d.child_by_field_name("name")) {
+                carriers.insert(self.node_text(&id).into());
+            }
+            up = p.parent();
+        }
+        if carriers.is_empty() {
+            carriers.insert("*namespace*".into());
+        }
+        carriers
+    }
+
     // Closed lexical whitelist: a new syntax form refuses by default. Shadowed
     // uses deliberately over-approximate the program binding's value uses.
-    fn js_ts_qualifier_refused_uses(&self) -> BTreeSet<String> {
+    fn js_ts_qualifier_refused_uses(
+        &self,
+        called_members: &mut BTreeMap<String, BTreeSet<String>>,
+    ) -> BTreeSet<String> {
         let mut refused = BTreeSet::new();
         let mut default_values = BTreeSet::new();
         let mut active = BTreeSet::new();
         let mut stack = vec![self.tree.root_node()];
         while let Some(n) = stack.pop() {
+            if n.kind() == "super"
+                || n.kind() == "meta_property" && self.node_text(&n) == "new.target"
+            {
+                refused.extend(self.js_ts_qualifier_receiver_carriers(n));
+            }
             if matches!(
                 n.kind(),
                 "identifier"
@@ -344,36 +392,14 @@ impl ParsedFile {
                     | "shorthand_property_identifier_pattern"
                     | "this"
             ) {
-                let name = if n.kind() == "this" {
-                    // Map every implicit receiver to a lexical carrier. Without
-                    // a declaration owner, it may be a module namespace receiver;
-                    // unknown ownership never certifies value-use closure.
-                    let mut up = n.parent();
-                    let mut owner = None;
-                    while let Some(p) = up {
-                        let decl = if matches!(
-                            p.kind(),
-                            "class_declaration" | "internal_module" | "module"
-                        ) {
-                            Some(p)
-                        } else if p.kind() == "object" {
-                            p.parent().filter(|d| d.kind() == "variable_declarator")
-                        } else {
-                            None
-                        };
-                        if let Some(decl) = decl {
-                            owner = decl.child_by_field_name("name");
-                            break;
-                        }
-                        up = p.parent();
-                    }
-                    Some(owner.map_or("*namespace*", |id| self.node_text(&id)))
+                let names = if n.kind() == "this" {
+                    self.js_ts_qualifier_receiver_carriers(n)
                 } else {
-                    Some(self.node_text(&n))
+                    BTreeSet::from([self.node_text(&n).to_string()])
                 };
-                if let Some(name) = name {
+                for name in &names {
                     if !self.js_ts_qualifier_use_allowed(n) {
-                        refused.insert(name.into());
+                        refused.insert(name.to_string());
                     }
                     if n.parent().is_some_and(|p| {
                         p.kind() == "export_statement" && p.child_by_field_name("value") == Some(n)
@@ -381,6 +407,18 @@ impl ParsedFile {
                         default_values.insert(name.to_string());
                     } else if self.js_ts_qualifier_direct_use(n) {
                         active.insert(name.to_string());
+                        // The syntactic call arm is provisional until the joined
+                        // identity proves this is a captured own Callable member.
+                        if let Some(member) = n
+                            .parent()
+                            .filter(|p| p.kind() == "member_expression")
+                            .and_then(|p| p.child_by_field_name("property"))
+                        {
+                            called_members
+                                .entry(name.to_string())
+                                .or_default()
+                                .insert(self.node_text(&member).into());
+                        }
                     }
                 }
             }
@@ -394,7 +432,7 @@ impl ParsedFile {
     fn js_ts_qualifier_direct_use(&self, n: Node<'_>) -> bool {
         let Some(p) = n.parent() else { return false };
         if p.kind() == "new_expression" && p.child_by_field_name("constructor") == Some(n) {
-            return true;
+            return false;
         }
         p.kind() == "member_expression"
             && p.child_by_field_name("object") == Some(n)
@@ -486,30 +524,7 @@ impl ParsedFile {
                             out.insert(name.into());
                         }
                     } else if t.kind() == "this" {
-                        // A static method/block may write its own qualifier through this.
-                        let mut up = n.parent();
-                        while let Some(p) = up {
-                            if p.kind() == "class_declaration" {
-                                if let Some(id) = p.child_by_field_name("name") {
-                                    out.insert(self.node_text(&id).into());
-                                }
-                                break;
-                            }
-                            if p.kind() == "object" {
-                                if let Some(d) =
-                                    p.parent().filter(|d| d.kind() == "variable_declarator")
-                                {
-                                    if let Some(id) = d
-                                        .child_by_field_name("name")
-                                        .filter(|id| id.kind() == "identifier")
-                                    {
-                                        out.insert(self.node_text(&id).into());
-                                    }
-                                }
-                                break;
-                            }
-                            up = p.parent();
-                        }
+                        out.extend(self.js_ts_qualifier_receiver_carriers(t));
                     }
                 }
             }

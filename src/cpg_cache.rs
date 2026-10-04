@@ -235,7 +235,9 @@ use std::path::{Path, PathBuf};
 ///   paths (String) instead of allowJs flags (bool).
 // v107: S2 import qualifier members and derived resolution tables.
 // v108: S2 fail-closed qualifier identity use whitelist.
-const CACHE_VERSION: u32 = 108;
+// v109: S2 R1 own-member and runtime-namespace refusal facts.
+// R2: S2-O7 static binding; F1/F2/F5/F6/corrected F8.
+const CACHE_VERSION: u32 = 118;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -774,7 +776,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 108);
+        assert_eq!(super::CACHE_VERSION, 118);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

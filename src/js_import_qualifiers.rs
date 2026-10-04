@@ -23,10 +23,12 @@ pub enum QualifierExport {
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct QualifierFacts {
     pub complete: bool,
+    pub syntax_incomplete: bool,
     pub named: BTreeMap<String, QualifierExport>,
     pub conflicted: BTreeSet<String>,
     pub locals: BTreeMap<String, Members>,
     pub written: BTreeSet<String>,
+    pub called_members: BTreeMap<String, BTreeSet<String>>,
     pub import_sites: BTreeSet<(usize, usize)>,
 }
 

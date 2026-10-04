@@ -315,8 +315,7 @@ fn namespace_identity(
         return Err(());
     }
     let result = (|| {
-        let facts = raw
-            .get(file)
+        let facts = legacy_export_facts(raw, file)
             .filter(|f| f.namespace_proof_complete)
             .ok_or(())?;
         if facts.conflicted.contains(name) {
@@ -391,6 +390,16 @@ fn namespace_identity(
 // A skipped branch can have no candidate of its own, so propagate provenance
 // over the complete star closure, including empty nested branches. Direct named
 // exports override stars; named reexports carry their target's provenance.
+fn legacy_export_facts<'a>(
+    raw: &'a BTreeMap<String, JsExportFacts>,
+    file: &str,
+) -> Option<&'a JsExportFacts> {
+    // Retaining S2 refusal facts must not turn a formerly missing parse-error
+    // branch into a proven-empty branch for the landed export resolver.
+    raw.get(file)
+        .filter(|f| !f.qualifiers.syntax_incomplete || !f.is_empty())
+}
+
 fn skipped_star(
     raw: &BTreeMap<String, JsExportFacts>,
     resolve_module: &dyn Fn(&str, &str) -> Option<String>,
@@ -402,7 +411,7 @@ fn skipped_star(
     if visited.len() > MAX_REEXPORT_DEPTH || !visited.insert(key.clone()) {
         return true;
     }
-    let result = match raw.get(file) {
+    let result = match legacy_export_facts(raw, file) {
         None => true,
         Some(facts) => match facts.named.get(name) {
             Some(
@@ -451,7 +460,7 @@ fn collect_candidate_names(
         telemetry.chain_unresolved += 1; // cycle in the barrel graph
         return names;
     }
-    if let Some(facts) = raw.get(file) {
+    if let Some(facts) = legacy_export_facts(raw, file) {
         names.extend(facts.named.keys().cloned());
         // F3: conflicted names are attempted (and counted) too, not silently
         // dropped -- `resolve_one_inner` sees `conflicted` before `named`.
@@ -527,7 +536,7 @@ fn resolve_one_inner(
     visited: &mut BTreeSet<(String, String)>,
     telemetry: &mut JsExportResolution,
 ) -> ExportLookup {
-    let Some(facts) = raw.get(file) else {
+    let Some(facts) = legacy_export_facts(raw, file) else {
         return ExportLookup::NoTarget;
     };
 
@@ -623,7 +632,7 @@ fn resolve_one_inner(
                 };
                 if matches!(target, JsExportTarget::ImportForward { .. })
                     && (is_class
-                        || !raw.get(&hit.file).is_some_and(|f| {
+                        || !legacy_export_facts(raw, &hit.file).is_some_and(|f| {
                             f.forwardable_function_locals.contains(&hit.local_name)
                         }))
                 {
