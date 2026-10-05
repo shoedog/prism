@@ -7783,6 +7783,17 @@ impl ParsedFile {
         let Some(parent) = node.parent() else {
             return false;
         };
+        // js-param-defs PR-A: the bare arrow formal is a plain required
+        // parameter; a rest formal's parent is `rest_pattern` and stays out.
+        if matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) && self
+            .js_ts_bare_arrow_parameter(&parent)
+            .is_some_and(|param| param.id() == node.id())
+        {
+            return true;
+        }
         match self.language {
             Language::JavaScript => parent.kind() == "formal_parameters",
             Language::TypeScript | Language::Tsx => {
@@ -10659,10 +10670,40 @@ impl ParsedFile {
         if matches!(self.language, Language::TypeScript | Language::Tsx) {
             return crate::parameter_slots::typescript_parameter_bindings(self, func_node);
         }
+        if let Some(param) = self.js_ts_bare_arrow_parameter(func_node) {
+            // js-param-defs PR-A: `x => …` binds exactly one formal; the
+            // arrow has no `parameters` list for the loop below to walk.
+            let name = self.node_text(&param);
+            if self.js_ts_nested_callable_binds_formal(func_node, name) {
+                return Vec::new();
+            }
+            return vec![(name.to_string(), param.start_byte(), param.end_byte())];
+        }
         let mut params_out = Vec::new();
         if let Some(params) = self.find_parameters_node(func_node) {
+            // js-param-defs PR-A: a JS rest formal is admitted only from a
+            // recovery-free list without duplicate bindings (a rest element
+            // makes the list non-simple, so duplicates are early errors).
+            let admit_js_rest = self.language == Language::JavaScript
+                && crate::parameter_slots::js_ts_parameter_list_is_clean(self, params);
             let mut cursor = params.walk();
             for child in params.children(&mut cursor) {
+                if child.kind() == "rest_pattern" && self.language == Language::JavaScript {
+                    if let Some(name_node) = (admit_js_rest
+                        && crate::parameter_slots::js_ts_is_last_parameter(params, child))
+                    .then(|| self.js_ts_rest_identifier(child))
+                    .flatten()
+                    .filter(|name| {
+                        !self.js_ts_nested_callable_binds_formal(func_node, self.node_text(name))
+                    }) {
+                        params_out.push((
+                            self.node_text(&name_node).to_string(),
+                            name_node.start_byte(),
+                            name_node.end_byte(),
+                        ));
+                    }
+                    continue;
+                }
                 for name_node in self.parameter_binding_name_nodes(child) {
                     params_out.push((
                         self.node_text(&name_node).to_string(),
@@ -10712,6 +10753,77 @@ impl ParsedFile {
                 .collect();
         }
         self.extract_param_name_node(&node).into_iter().collect()
+    }
+
+    /// js-param-defs PR-A: the single unparenthesised formal of a JS/TS/TSX
+    /// `arrow_function` (`x => …`). Tree-sitter stores it in the `parameter`
+    /// field, not in a `parameters` list, so `find_parameters_node` is `None`
+    /// for this shape. `find_parameters_node` deliberately stays unchanged:
+    /// its callers iterate the list's children (an identifier has none) and
+    /// several treat `None` as "no list" with their own `parameter` fallback.
+    pub(crate) fn js_ts_bare_arrow_parameter<'a>(&self, func_node: &Node<'a>) -> Option<Node<'a>> {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) || func_node.kind() != "arrow_function"
+        {
+            return None;
+        }
+        func_node
+            .child_by_field_name("parameter")
+            .filter(|param| param.kind() == "identifier" && !param.is_missing())
+    }
+
+    /// js-param-defs PR-A: `...name` binds one identifier (the engine-created
+    /// array). Destructured rest (`...[a, b]`, `...{a}`) stays refused.
+    pub(crate) fn js_ts_rest_identifier<'a>(&self, rest: Node<'a>) -> Option<Node<'a>> {
+        if rest.kind() != "rest_pattern" {
+            return None;
+        }
+        let mut cursor = rest.walk();
+        let named: Vec<_> = rest
+            .named_children(&mut cursor)
+            .filter(|child| child.kind() != "comment")
+            .collect();
+        match named.as_slice() {
+            [only] if only.kind() == "identifier" => Some(*only),
+            _ => None,
+        }
+    }
+
+    /// js-param-defs PR-A (SPEC D11): whether a callable nested anywhere in
+    /// `func_node` binds `name` as one of its own formals. The legacy
+    /// reference walk (`is_shadowed_at`) fences block declarations but not a
+    /// nested callable's formals, so a Def for an outer formal of that name
+    /// would reach Uses that bind the inner formal. New binding shapes are
+    /// refused in that case; PR-B's callable containment retires this guard.
+    pub(crate) fn js_ts_nested_callable_binds_formal(
+        &self,
+        func_node: &Node<'_>,
+        name: &str,
+    ) -> bool {
+        let boundaries = self.language.callable_boundary_node_types();
+        let root = func_node.id();
+        let mut stack = vec![*func_node];
+        while let Some(node) = stack.pop() {
+            if node.id() != root && boundaries.contains(&node.kind()) {
+                let mut names = BTreeSet::new();
+                self.collect_js_ts_parameter_bindings(node, &mut names);
+                if names.contains(name) {
+                    return true;
+                }
+            }
+            let mut cursor = node.walk();
+            stack.extend(node.named_children(&mut cursor));
+        }
+        false
+    }
+
+    /// JS/TS/TSX byte region holding the parameter bindings: the `parameters`
+    /// list, or the bare arrow formal. Other languages: `find_parameters_node`.
+    pub(crate) fn parameter_binding_region<'a>(&self, func_node: &Node<'a>) -> Option<Node<'a>> {
+        self.find_parameters_node(func_node)
+            .or_else(|| self.js_ts_bare_arrow_parameter(func_node))
     }
 
     /// Find the parameters node within a function definition.
@@ -12280,6 +12392,10 @@ mod asserted_member_tests;
 #[cfg(test)]
 #[path = "ast_required_parameter_tests.rs"]
 mod required_parameter_tests;
+
+#[cfg(test)]
+#[path = "ast_js_param_defs_tests.rs"]
+mod js_param_defs_tests;
 
 #[cfg(test)]
 #[path = "ast_inert_default_parameter_tests.rs"]

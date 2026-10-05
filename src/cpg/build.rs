@@ -199,9 +199,18 @@ fn compute_param_def_nodes(
     // optional forms may occupy slots without a supported Def. Never compress
     // those holes, nor fall back to FunctionInfo names or body definitions.
     let slots = parsed.function_parameter_slot_occurrences(&function)?;
+    // js-param-defs PR-A (SPEC D12): the bare arrow formal (`x => …`) has a
+    // Def but stays a Step-5b hole. The call ladder admits name-inferred
+    // callables (`{ write: s => … }`, `o.f = x => …`) as `free_single` Exact
+    // targets of unrelated bare calls, so filling this slot minted Exact
+    // argument edges the checker refutes (MEASUREMENTS-prA §3).
+    let bare_formal = parsed
+        .js_ts_bare_arrow_parameter(&function)
+        .map(|param| (param.start_byte(), param.end_byte()));
     let supported: BTreeSet<_> = parsed
         .function_parameter_occurrences(&function)
         .into_iter()
+        .filter(|occurrence| Some((occurrence.1, occurrence.2)) != bare_formal)
         .collect();
     Some(
         slots

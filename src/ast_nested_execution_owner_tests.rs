@@ -468,9 +468,11 @@ fn nested_execution_owner_eager_and_own_callable_controls() {
         ParsedFile::parse("arrow.js", "const cb=p=>sink(p);", Language::JavaScript).unwrap();
     let arrow_function = arrow.all_functions()[0];
     assert_eq!(arrow_function.kind(), "arrow_function");
-    assert!(arrow
-        .function_parameter_occurrences(&arrow_function)
-        .is_empty());
+    // js-param-defs PR-A: the unparenthesised formal is now an occurrence.
+    assert_eq!(
+        arrow.function_parameter_occurrences(&arrow_function),
+        vec![("p".to_string(), 9, 10)]
+    );
 
     let shapes = "function outer(){function named(p){}const a=function expr(p){};const b=function(p){};const c=(p)=>{};const d=p=>p;const e=function*(p){};function* gen(p){}async function af(p){}const aa=async(p)=>p;const o={method(p){},get value(){return 1;}};}";
     let shape_file = ParsedFile::parse("shapes.js", shapes, Language::JavaScript).unwrap();

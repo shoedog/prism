@@ -1,0 +1,161 @@
+{
+ "lane": "js-param-defs PR-A binding shapes (2026-10-06)",
+ "source": "docs/superpowers/plans/2026-10-06-js-param-defs/SPEC-prA.md",
+ "lib_test_prefixes": [
+  "ast::",
+  "cpg::",
+  "cpg_cache::"
+ ],
+ "mutations": {
+  "PD-01-bare-arrow-helper-off": [
+   "src/ast.rs",
+   ".filter(|param| param.kind() == \"identifier\" && !param.is_missing())",
+   ".filter(|param| param.kind() == \"identifier\" && !param.is_missing() && false)",
+   [
+    "ast::js_param_defs_tests::bare_arrow_formal_is_one_occurrence",
+    "cpg::js_param_defs_tests::bare_arrow_formal_gets_a_def_at_its_identifier_bytes"
+   ]
+  ],
+  "PD-02-ts-bare-arrow-fast-path-off": [
+   "src/parameter_slots.rs",
+   "    if params.kind() == \"identifier\" {\n        let name = parsed.node_text(&params);",
+   "    if false && params.kind() == \"identifier\" {\n        let name = parsed.node_text(&params);",
+   [
+    "ast::js_param_defs_tests::bare_arrow_formal_is_one_occurrence"
+   ]
+  ],
+  "PD-03-ts-bare-arrow-escape-guard-off": [
+   "src/parameter_slots.rs",
+   "if name.contains('\\\\') || parsed.js_ts_nested_callable_binds_formal(function, name) {",
+   "if parsed.js_ts_nested_callable_binds_formal(function, name) {",
+   [
+    "ast::js_param_defs_tests::destructured_and_duplicate_rest_stay_refused",
+    "cpg::js_param_defs_tests::refused_shapes_gain_no_def"
+   ]
+  ],
+  "PD-04-js-rest-admission-off": [
+   "src/ast.rs",
+   "if let Some(name_node) = (admit_js_rest\n",
+   "if let Some(name_node) = (false\n",
+   [
+    "ast::js_param_defs_tests::identifier_rest_formal_is_an_occurrence_in_declaration_order",
+    "cpg::js_param_defs_tests::identifier_rest_formal_gets_a_def_but_never_a_positional_argument"
+   ]
+  ],
+  "PD-05-js-rest-duplicate-guard-off": [
+   "src/ast.rs",
+   "            let admit_js_rest = self.language == Language::JavaScript\n                && crate::parameter_slots::js_ts_parameter_list_is_clean(self, params);",
+   "            let admit_js_rest = self.language == Language::JavaScript;",
+   [
+    "ast::js_param_defs_tests::destructured_and_duplicate_rest_stay_refused",
+    "cpg::js_param_defs_tests::refused_shapes_gain_no_def"
+   ]
+  ],
+  "PD-06-rest-admits-patterns": [
+   "src/ast.rs",
+   "[only] if only.kind() == \"identifier\" => Some(*only),",
+   "[only] => Some(*only),",
+   [
+    "ast::js_param_defs_tests::destructured_and_duplicate_rest_stay_refused",
+    "cpg::js_param_defs_tests::refused_shapes_gain_no_def"
+   ]
+  ],
+  "PD-07-ts-rest-admission-off": [
+   "src/parameter_slots.rs",
+   "let rest_identifier = (!is_optional && js_ts_is_last_parameter(params, parameter))",
+   "let rest_identifier = (false && js_ts_is_last_parameter(params, parameter))",
+   [
+    "ast::js_param_defs_tests::identifier_rest_formal_is_an_occurrence_in_declaration_order",
+    "cpg::js_param_defs_tests::identifier_rest_formal_gets_a_def_but_never_a_positional_argument"
+   ]
+  ],
+  "PD-08-ts-rest-binds-pattern-bytes": [
+   "src/parameter_slots.rs",
+   "let binding = rest_identifier.unwrap_or(pattern);",
+   "let binding = pattern;",
+   [
+    "ast::js_param_defs_tests::identifier_rest_formal_is_an_occurrence_in_declaration_order"
+   ]
+  ],
+  "PD-09-exact-read-bare-arrow-off": [
+   "src/ast.rs",
+   ".is_some_and(|param| param.id() == node.id())\n        {\n            return true;",
+   ".is_some_and(|param| param.id() == node.id() && false)\n        {\n            return true;",
+   [
+    "ast::js_param_defs_tests::bare_arrow_formal_is_plain_required_but_rest_is_not"
+   ]
+  ],
+  "PD-10-rd-seed-bare-arrow-region-off": [
+   "src/cpg/reaching/scope.rs",
+   ".parameter_binding_region(func_node)",
+   ".find_parameters_node(func_node)",
+   [
+    "cpg::js_param_defs_tests::bare_arrow_labels_match_the_parenthesised_control"
+   ]
+  ],
+  "PD-11-cache-version-not-bumped": [
+   "src/cpg_cache.rs",
+   "const CACHE_VERSION: u32 = 107;",
+   "const CACHE_VERSION: u32 = 106;",
+   [
+    "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
+   ]
+  ],
+  "PD-12-rest-not-last-admitted": [
+   "src/parameter_slots.rs",
+   "        .is_some_and(|last| last.id() == parameter.id())",
+   "        .is_some_and(|_| true)",
+   [
+    "ast::js_param_defs_tests::destructured_and_duplicate_rest_stay_refused"
+   ]
+  ],
+  "PD-13-nested-formal-guard-off": [
+   "src/ast.rs",
+   "                if names.contains(name) {\n                    return true;\n                }\n            }\n            let mut cursor = node.walk();\n            stack.extend",
+   "                if names.contains(name) && false {\n                    return true;\n                }\n            }\n            let mut cursor = node.walk();\n            stack.extend",
+   [
+    "cpg::js_param_defs_tests::new_shapes_refuse_a_formal_rebound_by_a_nested_callable"
+   ]
+  ],
+  "PD-14-js-bare-nested-guard-off": [
+   "src/ast.rs",
+   "            if self.js_ts_nested_callable_binds_formal(func_node, name) {\n                return Vec::new();",
+   "            if false && self.js_ts_nested_callable_binds_formal(func_node, name) {\n                return Vec::new();",
+   [
+    "cpg::js_param_defs_tests::new_shapes_refuse_a_formal_rebound_by_a_nested_callable"
+   ]
+  ],
+  "PD-15-js-rest-nested-guard-off": [
+   "src/ast.rs",
+   "!self.js_ts_nested_callable_binds_formal(func_node, self.node_text(name))",
+   "true || !self.js_ts_nested_callable_binds_formal(func_node, self.node_text(name))",
+   [
+    "cpg::js_param_defs_tests::new_shapes_refuse_a_formal_rebound_by_a_nested_callable"
+   ]
+  ],
+  "PD-16-ts-bare-nested-guard-off": [
+   "src/parameter_slots.rs",
+   "if name.contains('\\\\') || parsed.js_ts_nested_callable_binds_formal(function, name) {",
+   "if name.contains('\\\\') {",
+   [
+    "cpg::js_param_defs_tests::new_shapes_refuse_a_formal_rebound_by_a_nested_callable"
+   ]
+  ],
+  "PD-17-ts-rest-nested-guard-off": [
+   "src/parameter_slots.rs",
+   "                parsed.js_ts_nested_callable_binds_formal(function, parsed.node_text(&rest))",
+   "                false && parsed.js_ts_nested_callable_binds_formal(function, parsed.node_text(&rest))",
+   [
+    "cpg::js_param_defs_tests::new_shapes_refuse_a_formal_rebound_by_a_nested_callable"
+   ]
+  ],
+  "PD-18-step5b-bare-hole-off": [
+   "src/cpg/build.rs",
+   ".filter(|occurrence| Some((occurrence.1, occurrence.2)) != bare_formal)",
+   ".filter(|_| true)",
+   [
+    "cpg::js_param_defs_tests::bare_arrow_formal_stays_a_step5b_hole_but_the_parenthesised_control_binds"
+   ]
+  ]
+ }
+}
