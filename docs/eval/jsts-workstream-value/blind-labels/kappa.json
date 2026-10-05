@@ -1,0 +1,64 @@
+{
+  "gt": {
+    "chance_agreement": 0.7375,
+    "kappa": 0.1428571428571428,
+    "left_counts": {
+      "available": 30,
+      "gt_unavailable": 10
+    },
+    "n": 40,
+    "observed_agreement": 0.775,
+    "right_counts": {
+      "available": 39,
+      "gt_unavailable": 1
+    }
+  },
+  "mechanism": {
+    "chance_agreement": 0.12375,
+    "kappa": 0.25820256776034234,
+    "left_counts": {
+      "C-member": 4,
+      "D-cjs": 1,
+      "E-admission": 3,
+      "H-callback/promise/event": 5,
+      "none": 7,
+      "unavailable_ground_truth": 10,
+      "unresolved": 8,
+      "unresolved-source": 2
+    },
+    "n": 40,
+    "observed_agreement": 0.35,
+    "right_counts": {
+      "A-loop": 2,
+      "B-arguments": 1,
+      "B-default": 1,
+      "C-member": 6,
+      "E-admission": 4,
+      "H-callback/promise/event": 7,
+      "none": 9,
+      "unavailable_ground_truth": 1,
+      "unresolved": 6,
+      "unresolved-source": 3
+    }
+  },
+  "outcome": {
+    "chance_agreement": 0.146875,
+    "kappa": 0.35531135531135527,
+    "left_counts": {
+      "gt_unavailable": 10,
+      "not_reached": 2,
+      "partial": 5,
+      "prism_error": 8,
+      "reached_function_only": 8,
+      "traced": 7
+    },
+    "n": 40,
+    "observed_agreement": 0.45,
+    "right_counts": {
+      "gt_unavailable": 1,
+      "not_reached": 13,
+      "prism_error": 17,
+      "traced": 9
+    }
+  }
+}
