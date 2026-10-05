@@ -1,3 +1,5 @@
+> Historical R0 record. R1 changes ground truth, attribution and conversions; use [R1.md](R1.md) for the current result and verification. Original evidence remains immutable.
+
 # MEAS-A results — pinned Prism 4e592daa
 
 **Recommendation:** provisionally choose workstream **3 before 6**. Their first-break

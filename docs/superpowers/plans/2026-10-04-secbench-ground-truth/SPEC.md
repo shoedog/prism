@@ -1,3 +1,5 @@
+> Historical R0 record. R1 changes ground truth, attribution and conversions; use [R1.md](R1.md) for the current result and verification. Original evidence remains immutable.
+
 # MEAS-A measurement contract
 
 Authority: `/Users/wesleyjinks/prism-evidence/meas/secbench/plan-brief.md`.

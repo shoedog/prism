@@ -13,13 +13,15 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import shutil
 import tempfile
 
 REPO = Path(__file__).resolve().parents[2]
-EVIDENCE = Path('/Users/wesleyjinks/prism-evidence')
+EVIDENCE = Path(os.environ.get('PRISM_EVIDENCE_ROOT', '/Users/wesleyjinks/prism-evidence'))
 SEC_COMMIT = '5d362353550a8baa42bba34edd26e5fb86d41b60'
 SUT_COMMIT = '4e592daa7858a195eb3a9eb77c83dfbc763b49fa'
-COMPILER = EVIDENCE / 'inputs/excalidraw-0642e72c-installed/source/node_modules/typescript/lib/typescript.js'
+COMPILER = Path(os.environ.get('PRISM_TYPESCRIPT', EVIDENCE / 'native-positional-gap/gate-inputs/typescript-5.9.3/package/lib/typescript.js'))
+BINARY_SHA = 'd603e7cd7f372137c254f4d7cf98ea8c33f92ac22dc510bea0e1b00e919aa455'
 OUTCOMES = ('traced', 'reached_function_only', 'partial', 'not_reached', 'prism_error')
 WEIGHTS = {'code-injection': 3, 'command-injection': 3, 'prototype-pollution': 2,
            'path-traversal': 2, 'redos': 1}
@@ -34,6 +36,8 @@ def canonical(value) -> bytes:
 
 
 def workstream(category: str):
+    if category == 'B-plain-argument':
+        return None
     return {'A': 3, 'B': 2, 'C': 3, 'D': 6, 'E': 4, 'F': 5, 'G': 6, 'H': 6}.get(category.split('-')[0])
 
 
@@ -46,10 +50,10 @@ def base_name(value: str) -> str:
 
 
 def data_root(v: dict, source: dict) -> bool:
-    if v.get('file') != source['file'] or v.get('access') != 'def':
+    if v.get('file') != source.get('file') or v.get('access') != 'def':
         return False
-    for p in source['data_parameters']:
-        if base_name(v.get('path', '')) in p['names'] and v.get('line') == p['line']:
+    for p in source.get('data_parameters', []):
+        if base_name(v.get('path', '')) in p.get('names', []) and v.get('line') == source.get('start_line', p['line']):
             # Byte identity binds the input parameter rather than another def on
             # a minified line. Synthetic/missing byte ranges receive no credit.
             if p['start_byte'] <= v.get('start_byte', -1) < p['end_byte']:
@@ -58,12 +62,73 @@ def data_root(v: dict, source: dict) -> bool:
 
 
 def sink_value(v: dict, sink: dict) -> bool:
-    return v.get('file') == sink['file'] and v.get('line') == sink['line'] \
-        and any(v.get('path', '') == occurrence.get('path', occurrence['name'])
+    return v.get('file') == sink['file'] and v.get('access', 'use') == 'use' \
+        and any(v.get('line') == occurrence.get('line', sink['line'])
+                and v.get('path', '') == occurrence.get('path', occurrence['name'])
                 and (v.get('start_byte') == occurrence['start_byte']
                      or v.get('start_byte') == v.get('end_byte')
                      and occurrence.get('line_occurrences') == 1)
                 for occurrence in sink['value_occurrences'])
+
+
+def payload_frontier(row, frontier):
+    """An item belongs only to roots explicitly named in its TaintedBy reasons."""
+    return {'items': [item for item in frontier.get('items', [])
+                      if any(data_root(variable(reason.get('Reasoning', {}).get('TaintedBy', {}).get('source')), row['source'])
+                             for reason in item.get('why', []))]}
+
+
+def registered_roots(row, witness, frontier):
+    symbols = [src.get('source') for sink in witness.get('reasoning', {}).get('per_sink', []) for src in sink.get('sources', [])]
+    symbols += [item.get('symbol') for item in frontier.get('items', [])]
+    symbols += [why.get('Reasoning', {}).get('TaintedBy', {}).get('source')
+                for item in frontier.get('items', []) for why in item.get('why', [])]
+    roots = {canonical(variable(symbol)): variable(symbol) for symbol in symbols if data_root(variable(symbol), row['source'])}
+    return list(roots.values())
+
+
+def source_break(row):
+    source = row['source']
+    params = source.get('data_parameters', [])
+    if source.get('callback_expression_statement'):
+        category, mechanism = 'H-callback/promise/event', 'callback_argument_parameter_registration'
+    elif any(p.get('rest') for p in params):
+        category, mechanism = 'B-rest-spread', 'rest_parameter_no_def'
+    elif source.get('arguments_used') and all(p.get('bare_references', 0) == 0 for p in params):
+        category, mechanism = 'B-arguments', 'legacy_arguments_no_parameter_def'
+    elif any(p.get('member_references', 0) > 0 and p.get('bare_references', 0) == 0 for p in params):
+        category, mechanism = 'C-member', 'member_only_parameter_no_def'
+    elif any(p.get('destructure') for p in params):
+        category, mechanism = 'B-destructure', 'destructured_parameter_no_def'
+    else:
+        category, mechanism = 'unresolved-source', 'source_binding_no_def'
+    return {'category': category, 'mechanism': mechanism, 'stage': 'source_binding',
+            'file': source['file'], 'line': source.get('start_line', 1)}
+
+
+def attribute_error(row, witness=None, frontier=None):
+    records = [v for k, v in row['invocations'].items() if k in ('witness', 'frontier', 'callees') and v.get('error')]
+    errors = [v.get('output_error') or {} for v in records]
+    if any('timeout' in v.get('error', '') for v in records):
+        result = {'category': 'timeout', 'mechanism': 'timeout'}
+    elif any('UnsupportedFile' in e for e in errors) and any(set(Path(row.get(side, {}).get('file', '')).parts) & {'dist', 'build'} for side in ('source', 'sink')):
+        result = {'category': 'E-admission', 'mechanism': 'repo_loader_skipped_dist_build'}
+    elif not row.get('sink', {}).get('value_occurrences', []):
+        result = {'category': 'harness_defect', 'mechanism': 'sink_has_no_data_value'}
+    elif any('SymbolNotFound' in e for e in errors):
+        roots = registered_roots(row, witness or {}, frontier or {})
+        sink_seeds = set(sink_locations(row.get('sink', {}))) if row.get('sink') else set()
+        if row.get('sink', {}).get('nested_callback') and any(e.get('SymbolNotFound', {}).get('seed') in sink_seeds for e in errors):
+            result = {'category': 'H-callback/promise/event', 'mechanism': 'nested_callback_capture_no_sink_symbol'}
+        elif not roots:
+            result = source_break(row)
+        else:
+            result = {'category': 'unresolved-error', 'mechanism': 'symbol_not_found_unresolved'}
+    else:
+        result = {'category': 'harness_defect' if any('output contract' in v.get('error', '') or 'schema/JSON' in v.get('error', '') for v in records) else 'unresolved-error',
+                  'mechanism': 'output_contract' if any('output contract' in v.get('error', '') for v in records) else 'unresolved_invocation_error'}
+    row['error_mechanism'] = {**result, 'workstream': workstream(result['category'])}
+    return result
 
 
 def classify(row: dict, witness: dict, callees: dict, frontier: dict) -> tuple[str, dict]:
@@ -81,7 +146,9 @@ def classify(row: dict, witness: dict, callees: dict, frontier: dict) -> tuple[s
                                  'graph_node': src.get('graph_node')})
             elif src.get('reachability') == 'Reached':
                 rejected.append({'source': v, 'sink': target, 'reason': 'not_a_test_fed_data_parameter'})
-    detail = {'parameter_results': accepted, 'unrelated_reached_roots': rejected,
+    attributed = payload_frontier(row, frontier)
+    detail = {'registered_payload_roots': registered_roots(row, witness, frontier), 'payload_frontier': attributed['items'],
+              'parameter_results': accepted, 'unrelated_reached_roots': rejected,
               'warnings': witness.get('warnings', []),
               'aggregate_reachability': witness['reasoning'].get('reachability')}
     if any(s['verdict'] == 'Reached' for s in accepted):
@@ -95,27 +162,38 @@ def classify(row: dict, witness: dict, callees: dict, frontier: dict) -> tuple[s
     if any(s['verdict'] in ('BoundaryExited', 'Sanitized') for s in accepted):
         return 'partial', detail
     if any(variable(i.get('symbol')).get('line', 0) > row['source']['start_line']
-           for i in frontier.get('items', [])
+           for i in attributed.get('items', [])
            if variable(i.get('symbol')).get('file') == row['source']['file']):
         return 'partial', detail
     return 'not_reached', detail
 
 
-def propose_break(row: dict, frontier: dict) -> dict:
+def propose_break(row: dict, frontier: dict, witness=None) -> dict:
     """First missing path segment heuristic, kept separate from adjudication."""
     source, sink = row['source'], row['sink']
-    for p in source['data_parameters']:
-        if p['destructure'] or p['rest'] or p['default']:
-            category = 'B-destructure' if p['destructure'] else 'B-rest-spread' if p['rest'] else 'B-default'
-            return {'category': category, 'file': source['file'], 'line': p['line'],
-                    'mechanism': 'complex source binding precedes the missing value path', 'text': p['text']}
+    roots = registered_roots(row, witness or {}, frontier)
+    if not roots:
+        return source_break(row)
+    parameters = row['source']['data_parameters']
+    if len(parameters) > 1:
+        results = []
+        for parameter in parameters:
+            single = {**row, 'source': {**row['source'], 'data_parameters': [parameter]}}
+            results.append({'parameter': {k: parameter[k] for k in ('names', 'start_byte', 'end_byte')},
+                            'break': propose_break(single, frontier, witness)})
+        categories = {result['break']['category'] for result in results}
+        if len(categories) == 1:
+            return {**results[0]['break'], 'per_root_breaks': results}
+        return {'category': 'unresolved-multiple-roots', 'mechanism': 'payload_roots_have_different_frontiers',
+                'per_root_breaks': results, 'file': source['file'], 'line': source['start_line']}
+    frontier = payload_frontier(row, frontier)
     chain = row.get('syntactic_path')
     variables = [variable(i.get('symbol')) for i in frontier.get('items', [])]
     locations = {(v.get('file'), v.get('line')) for v in variables}
     names = {n for p in source['data_parameters'] for n in p['names']}
     # Only consider constructs referring to an actual data parameter at an
     # unreached line of the source callable; no whole-package keyword guessing.
-    candidates = [f for f in source['features'] if (source['file'], f['line']) not in locations
+    candidates = [f for f in source['features'] if f['category'] != 'B-default' and (source['file'], f['line']) not in locations
                   and any(re.search(r'\b' + re.escape(n) + r'\b', f['text']) for n in names)]
     order = {'C-merge': 0, 'B-destructure': 1, 'B-rest-spread': 2, 'C-dynamic-key': 3,
              'C-member': 4, 'A-loop': 5, 'H-callback/promise/event': 6}
@@ -125,7 +203,7 @@ def propose_break(row: dict, frontier: dict) -> dict:
     if chain:
         for prev, nxt in zip(chain, chain[1:]):
             if not any(v.get('file') == nxt['file'] and nxt['start_line'] <= v.get('line', 0) <= nxt['end_line'] for v in variables):
-                category = 'D-cjs' if nxt['file'] != prev['file'] else 'H-callback/promise/event' if nxt['name'] == '<anonymous>' else 'B-argument'
+                category = 'D-cjs' if nxt['file'] != prev['file'] else 'H-callback/promise/event' if nxt['name'] == '<anonymous>' else 'B-plain-argument'
                 return {'category': category, 'file': nxt['file'], 'line': nxt['start_line'],
                         'mechanism': 'first syntactic call-chain callable outside observed frontier', 'text': nxt['name']}
     return {'category': 'unresolved', 'file': source['file'], 'line': source['start_line'],
@@ -169,11 +247,15 @@ def invoke(binary: Path, args: list[str], raw: Path, label: str, timeout: int, j
     return parsed, record
 
 
+def sink_locations(sink):
+    return sorted({f"{sink['file']}:{o.get('line', sink['line'])}" for o in sink.get('value_occurrences', [])}) or [f"{sink['file']}:{sink['line']}"]
+
+
 def measure(row, binary, packages, output, timeout):
     row = {k: v for k, v in row.items() if k != 'identities'}
     root = packages / row['class'] / row['entry'] / 'src/package'
     raw = output / 'raw' / row['class'] / row['entry']
-    nav = ['nav', '--no-cache']
+    nav = ['nav', '--cache-dir', str(output / 'cache' / row['class'] / row['entry'])]
     common = ['--repo', str(root)]
     dfg, rec = invoke(binary, nav + ['dfg-stats'] + common, raw, 'dfg-stats', timeout)
     row['invocations'] = {'dfg-stats': rec}
@@ -181,13 +263,14 @@ def measure(row, binary, packages, output, timeout):
     if row['gt_status'] != 'available':
         row['outcome'] = 'gt_unavailable'
         row['first_break'] = {'category': 'unavailable_ground_truth', 'reason': row['gt_reason']}
+        shutil.rmtree(output / 'cache' / row['class'] / row['entry'], ignore_errors=True)
         return row
     source, sink = row['source'], row['sink']
-    sources = sorted(set(f"{source['file']}:{p['line']}" for p in source['data_parameters']))
+    sources = sorted(set(f"{source['file']}:{source['start_line']}" for p in source['data_parameters']))
     source_flags = sum((['--source', s] for s in sources), [])
     loc = f"{source['file']}:{source['start_line']}"
     queries = {
-        'witness': nav + ['taint-reaches'] + common + source_flags + ['--sink', f"{sink['file']}:{sink['line']}", '--format', 'json'],
+        'witness': nav + ['taint-reaches'] + common + source_flags + sum((['--sink', loc] for loc in sink_locations(sink)), []) + ['--format', 'json'],
         'frontier': nav + ['taint-reaches'] + common + source_flags + ['--format', 'json'],
         'callees': nav + ['callees'] + common + ['--location', loc, '--depth', '8', '--format', 'json'],
         'callers': nav + ['callers'] + common + ['--location', f"{sink['file']}:{sink['line']}", '--depth', '8', '--format', 'json'],
@@ -210,16 +293,18 @@ def measure(row, binary, packages, output, timeout):
     decisive = ('witness', 'frontier', 'callees')
     if any(parsed[k] is None for k in decisive):
         row['outcome'] = 'prism_error'
-        row['first_break'] = {'category': 'prism_error', 'reason': '; '.join(row['invocations'][k]['error'] or '' for k in decisive if parsed[k] is None)}
+        row['first_break'] = {**attribute_error(row, parsed.get('witness'), parsed.get('frontier')), 'reason': '; '.join(row['invocations'][k]['error'] or '' for k in decisive if parsed[k] is None)}
     else:
         try:
             row['outcome'], row['trace_detail'] = classify(row, parsed['witness'], parsed['callees'], parsed['frontier'])
-            row['heuristic_break'] = propose_break(row, parsed['frontier']) if row['outcome'] != 'traced' else None
+            row['heuristic_break'] = propose_break(row, parsed['frontier'], parsed['witness']) if row['outcome'] != 'traced' else None
             row['first_break'] = row['heuristic_break'] or {'category': 'none'}
             row['attribution_status'] = 'heuristic_unadjudicated' if row['heuristic_break'] else 'not_applicable'
         except (KeyError, ValueError, TypeError) as exc:
             row['outcome'] = 'prism_error'
-            row['first_break'] = {'category': 'prism_error', 'reason': f'output contract: {exc}'}
+            row['invocations']['witness']['error'] = f'output contract: {exc}'
+            row['first_break'] = {**attribute_error(row), 'reason': f'output contract: {exc}'}
+    shutil.rmtree(output / 'cache' / row['class'] / row['entry'], ignore_errors=True)
     return row
 
 
@@ -384,11 +469,12 @@ def main():
     parser.add_argument('--sut-repo', type=Path, default=REPO, help='exact pinned SUT checkout; separate from harness after controller commit')
     parser.add_argument('--compiler', type=Path, default=COMPILER)
     parser.add_argument('--out', type=Path, default=EVIDENCE / 'meas/secbench/rerun')
-    parser.add_argument('--adjudications', type=Path, default=Path(__file__).with_name('adjudications.json'))
+    parser.add_argument('--adjudications', type=Path, help='revision-bound optional labels; old R0 labels must not override R1 mechanisms')
+    parser.add_argument('--binary', type=Path, help='authenticated pinned binary; requires --no-build')
     parser.add_argument('--inspection', type=Path, help='reuse a complete inspection, after rehashing every input')
     parser.add_argument('--no-build', action='store_true', help='explicitly use the already built, hash-recorded binary')
     parser.add_argument('--workers', type=int, default=2)
-    parser.add_argument('--timeout', type=int, default=30)
+    parser.add_argument('--timeout', type=int, default=120)
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     manifest_file = args.packages / 'manifest.json'
@@ -397,17 +483,21 @@ def main():
         raise ValueError('SecBench manifest pin/count mismatch')
     sut_head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=args.sut_repo, text=True).strip()
     sec_head = subprocess.check_output(['git', '-C', str(args.inputs), 'rev-parse', 'HEAD'], text=True).strip()
-    if sut_head != SUT_COMMIT or sec_head != SEC_COMMIT:
+    if (not args.binary and sut_head != SUT_COMMIT) or sec_head != SEC_COMMIT:
         raise ValueError('checkout revision mismatch')
     subprocess.run(['git', 'diff', '--exit-code', SUT_COMMIT, '--', 'src', 'Cargo.toml', 'Cargo.lock', 'build.rs', 'vendor'],
                    cwd=args.sut_repo, check=True, stdout=subprocess.DEVNULL)
     for e in manifest['entries']:
         if e['status'] == 'ok' and digest((args.packages / e['class'] / e['entry'] / e['tarball']).read_bytes()) != e['sha256']:
             raise ValueError('tarball hash mismatch')
+    if args.binary and not args.no_build:
+        raise ValueError('--binary requires --no-build')
     if not args.no_build:
         with (args.out / 'build.log').open('wb') as log:
             subprocess.run(['cargo', 'build', '--release', '--offline'], cwd=args.sut_repo, stdout=log, stderr=log, check=True)
-    binary = args.sut_repo / 'target/release/prism'
+    binary = args.binary or args.sut_repo / 'target/release/prism'
+    if digest(binary.read_bytes()) != BINARY_SHA:
+        raise ValueError('binary SHA256 pin mismatch')
     version = subprocess.check_output([str(binary), '--version'], text=True).strip()
     if SUT_COMMIT[:12] not in version:
         raise ValueError('binary identity mismatch')
@@ -429,10 +519,10 @@ def main():
     if pin_file.exists() and pin_file.read_bytes() != canonical(pins):
         raise ValueError('input pins changed; use a new output directory')
     pin_file.write_bytes(canonical(pins))
-    binding = {'sut_head': sut_head, 'sut_repo': str(args.sut_repo), 'secbench_head': sec_head, 'binary_sha256': digest(binary.read_bytes()),
+    binding = {'sut_head': SUT_COMMIT, 'harness_checkout': sut_head, 'sut_repo': str(args.sut_repo), 'secbench_head': sec_head, 'binary_sha256': digest(binary.read_bytes()),
                'version': version, 'inspection_sha256': digest(inspection.read_bytes()),
                'pins_sha256': digest(pin_file.read_bytes()), 'workers': args.workers, 'timeout_seconds': args.timeout,
-               'adjudications_sha256': digest(args.adjudications.read_bytes()),
+               'adjudications_sha256': digest(args.adjudications.read_bytes()) if args.adjudications else None,
                'harness_sha256': {p.name: digest(p.read_bytes()) for p in Path(__file__).parent.glob('*') if p.suffix in ('.py', '.mjs')}}
     (args.out / 'binding.json').write_bytes(canonical(binding))
     measured = []
@@ -445,10 +535,10 @@ def main():
             if e['status'] != 'ok':
                 row = {**e, 'outcome': 'acquisition_excluded', 'exclusion_reason': e['status']}
                 measured.append(row); stream.write(canonical(row))
-    labels = json.loads(args.adjudications.read_bytes())
-    if labels['sut_commit'] != sut_head or labels['secbench_commit'] != sec_head:
+    labels = json.loads(args.adjudications.read_bytes()) if args.adjudications else None
+    if labels and (labels['sut_commit'] != SUT_COMMIT or labels['secbench_commit'] != sec_head):
         raise ValueError('adjudication revision mismatch')
-    agreement = apply_adjudications(measured, labels['entries'])
+    agreement = apply_adjudications(measured, labels['entries'] if labels else [])
     (args.out / 'entries.jsonl').write_bytes(b''.join(canonical(r) for r in measured))
     summary = summarize(measured)
     summary['adjudication'] = agreement

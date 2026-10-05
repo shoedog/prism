@@ -1,3 +1,5 @@
+> Historical R0 record. R1 changes ground truth, attribution and conversions; use [R1.md](R1.md) for the current result and verification. Original evidence remains immutable.
+
 # Hypothesis / probe / result log
 
 1. Expect clean declared branch/base and 600 manifest entries; falsifier: mismatch.

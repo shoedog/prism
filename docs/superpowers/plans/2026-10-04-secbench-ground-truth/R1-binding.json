@@ -1,0 +1,29 @@
+{
+  "blind_sample_sha256": "2f5d60a33b98c9cc74680cecaa02f4128240fe751a680d299932336a112df58a",
+  "conversion_binding_sha256": "19e014bac2757d2f3bd465cd2cdf7719833695bee818c22c0aa5b8479fdb4a0d",
+  "evidence_root": "/Users/wesleyjinks/prism-evidence/meas/secbench/repair-r1",
+  "harness_base": "b7512809d38b48d73fd46c0da491ce53bb5c5445",
+  "hook_test_totals": {
+    "Node": 42,
+    "Python": 48,
+    "Rust": 4946,
+    "Rust_ignored": 1,
+    "eval": 986,
+    "eval_skipped": 3,
+    "eval_subtests": 14,
+    "failures": 0
+  },
+  "independent_labelling": "pending controller",
+  "replay_binding_sha256": "11124b7d9e5e9e009e6f24280d39da36656ea8298f019458601d111de94dd03a",
+  "replay_ledger_sha256": "ee78ef66774e1e8497d8b2f12ce7c1be0263d996365bc47974d838340e8d78c6",
+  "report_binding": {
+    "baseline_sha256": "84d58d1d1c3fc1bf987a6be9ad6882d58acfe29516e2d0f6fb57537c353c023a",
+    "conversions_sha256": "a4f05849a1e33f046df1c29e5cc4744535b86aac1dc75625186c8239d2c5f7d0",
+    "entries_sha256": "ee78ef66774e1e8497d8b2f12ce7c1be0263d996365bc47974d838340e8d78c6",
+    "reporter_sha256": "64200616c372b71fe994c84cb2281ead7ff9d123bfb70cc2d2f56a5d669bd81b"
+  },
+  "root_verification_sha256": "9317db12b4ec8f0abc2176398a021e6fb35422bb257c56f9cfb541a1a005e95d",
+  "status": "current_R1",
+  "sut": "4e592daa7858a195eb3a9eb77c83dfbc763b49fa",
+  "verification": "R1.md"
+}

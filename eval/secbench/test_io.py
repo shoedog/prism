@@ -131,6 +131,32 @@ class MeasurementErrorTests(unittest.TestCase):
             seed = json.loads((Path(directory) / 'raw/redos/p_1/seed.json').read_bytes())
             self.assertEqual(seed['files'][0]['diff_lines'], [1])
 
+    def test_shared_nav_cache_is_removed_after_failure_or_unavailable_gt(self):
+        for available in (True,False):
+            with self.subTest(available=available), tempfile.TemporaryDirectory(prefix='secbench-cache-') as directory:
+                output = Path(directory)
+                cache = output/'cache/redos/p_1'
+                row = self.row()
+                if not available:
+                    row.update(gt_status='gt_unavailable',gt_reason='ambiguous_payload_parameter')
+                calls = []
+                def fake(binary,args,raw,label,timeout):
+                    calls.append(args)
+                    raw.mkdir(parents=True,exist_ok=True)
+                    cache.mkdir(parents=True,exist_ok=True)
+                    failed = label=='witness'
+                    return (None if failed else {}), {'error':'invocation failure' if failed else None}
+                with patch.object(run,'invoke',side_effect=fake):
+                    result = run.measure(row,Path('prism'),output,output,1)
+                nav_calls = [args for args in calls if args[0]=='nav']
+                self.assertEqual(len(nav_calls),6 if available else 1)
+                for args in nav_calls:
+                    self.assertIn('--cache-dir',args)
+                    self.assertEqual(args[args.index('--cache-dir')+1],str(cache))
+                    self.assertNotIn('--no-cache',args)
+                self.assertFalse(cache.exists())
+                self.assertEqual(result['outcome'],'prism_error' if available else 'gt_unavailable')
+
 
 if __name__ == '__main__':
     unittest.main()

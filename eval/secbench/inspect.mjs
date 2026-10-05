@@ -1,5 +1,6 @@
 // Parse pre-fetched JavaScript/TypeScript without loading or executing packages.
 import fs from 'node:fs';
+import {lexicalBindings,checkerResolver} from './bindings.mjs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {createRequire} from 'node:module';
@@ -121,7 +122,7 @@ export function inspectEntry(ts,entry,inputs,packages) {
   function info(file) {
     if(cache.has(file))return cache.get(file);
     const sf=parse(file),bindings=new Map(),assignments=[],functions=[];
-    const inf={sf,bindings,assignments,functions};cache.set(file,inf);
+    const inf={sf,bindings,assignments,functions,lexical:lexicalBindings(ts,sf)};cache.set(file,inf);
     function add(name,node) {if(!bindings.has(name))bindings.set(name,[]);bindings.get(name).push(node);}
     walk(ts,sf,n => {
       if(ts.isVariableDeclaration(n)&&ts.isIdentifier(n.name)&&n.initializer)add(n.name.text,n.initializer);
@@ -131,13 +132,8 @@ export function inspectEntry(ts,entry,inputs,packages) {
     });return inf;
   }
   function uniqueBinding(file,name,at) {
-    const arr=info(file).bindings.get(name)||[];
-    // Select only bindings in the callable's lexical ancestor chain, never a
-    // same-named declaration inside an unrelated function.
-    function scope(n){for(let p=n.parent;p;p=p.parent)if(callable(ts,p)||ts.isSourceFile(p))return p;return null;}
-    const chain=[];for(let p=at;p;p=p.parent)if(callable(ts,p)||ts.isSourceFile(p))chain.push(p);
-    for(const s of chain){const selected=arr.filter(n=>scope(n)===s);if(selected.length===1)return selected[0];if(selected.length>1)return null;}
-    return arr.length===1 && scope(arr[0])===info(file).sf ? arr[0] : null;
+    const d=info(file).lexical.stable(name,at);
+    return d&&!ts.isParameter(d)?d.initializer||d:null;
   }
   function objectGet(n,key) {
     if(!ts.isObjectLiteralExpression(n))return null;
@@ -190,7 +186,10 @@ export function inspectEntry(ts,entry,inputs,packages) {
     const start=n.getStart(sf),a=coord(start),end=coord(n.end);
     const name=n.name?.getText(sf)|| (ts.isVariableDeclaration(n.parent)?n.parent.name.getText(sf):ts.isBinaryExpression(n.parent)?n.parent.left.getText(sf):ts.isPropertyAssignment(n.parent)?n.parent.name.getText(sf):'<anonymous>');
     return {file:path.relative(root,file),name,start_line:a.line+1,end_line:end.line+1,start_byte:Buffer.byteLength(sf.text.slice(0,start)),end_byte:Buffer.byteLength(sf.text.slice(0,n.end)),
-      parameters:n.parameters.map((p,ordinal)=>({ordinal,text:p.getText(sf),names:bindingNames(ts,p.name),line:coord(p.getStart(sf)).line+1,start_byte:Buffer.byteLength(sf.text.slice(0,p.name.getStart(sf))),end_byte:Buffer.byteLength(sf.text.slice(0,p.name.end)),destructure:ts.isObjectBindingPattern(p.name)||ts.isArrayBindingPattern(p.name),rest:Boolean(p.dotDotDotToken),default:Boolean(p.initializer)})),
+      parameters:n.parameters.map((p,ordinal)=>({ordinal,text:p.getText(sf),names:bindingNames(ts,p.name),line:coord(p.getStart(sf)).line+1,start_byte:Buffer.byteLength(sf.text.slice(0,p.name.getStart(sf))),end_byte:Buffer.byteLength(sf.text.slice(0,p.name.end)),destructure:ts.isObjectBindingPattern(p.name)||ts.isArrayBindingPattern(p.name),rest:Boolean(p.dotDotDotToken),default:Boolean(p.initializer),
+        ...(()=>{let bare_references=0,member_references=0;walk(ts,n.body,v=>{if(ts.isIdentifier(v)&&bindingNames(ts,p.name).includes(v.text)&&info(file).lexical.declaration(v.text,v)?.pos===p.pos){if((ts.isPropertyAccessExpression(v.parent)||ts.isElementAccessExpression(v.parent))&&v.parent.expression===v)member_references++;else if(!(ts.isPropertyAccessExpression(v.parent)&&v.parent.name===v))bare_references++;}});return {bare_references,member_references};})()})),
+      arguments_used:/\barguments\b/.test(n.body.getText(sf)),
+      callback_expression_statement:(()=>{if(!ts.isCallExpression(n.parent)&&!ts.isNewExpression(n.parent)||!n.parent.arguments?.includes(n))return false;for(let v=n;v.parent;v=v.parent){if(ts.isVariableDeclaration(v.parent))return false;if(ts.isExpressionStatement(v.parent))return ts.isSourceFile(v.parent.parent);}return false;})(),
       features:flags(ts,n,sf,true)};
   }
   const tests=readTree(exploitRoot).filter(f=>f.endsWith('.test.js'));
@@ -198,89 +197,13 @@ export function inspectEntry(ts,entry,inputs,packages) {
   const packageMetadata=fs.readFileSync(path.join(exploitRoot,'package.json'));
   const result={class:entry.class,entry:entry.entry,id:entry.id,census,identities,exploits,metadata_sha256:sha(packageMetadata),gt_status:'gt_unavailable',gt_reason:null};
   try {
-  const dep=Object.keys(entry.deps)[0],candidates=[];let httpExploit=false;
-  for(const test of tests) {
-    const sf=parse(test);if(sf.parseDiagnostics.length){result.gt_reason='exploit_parse_diagnostics';return result;}
-    const aliases=new Map();
-    function payloadEvidence(n,seen=new Set()) {
-      const text=n.getText(sf),evidence=[];
-      if(/__proto__|polluted|writeFileSync|spawnSync|touch\s|(?:\.\.\/)|\b(?:payload|attack_str(?:ing)?|userInput|genstr)\b/.test(text)
-        ||entry.class==='redos'&&/\.repeat\s*\(|Array\s*\(/.test(text))evidence.push(text.slice(0,220));
-      walk(ts,n,v=>{if(ts.isIdentifier(v)&&!seen.has(v.text)) {
-        const defs=aliases.get(v.text)||[];
-        if(defs.length===1&&seen.size<20)evidence.push(...payloadEvidence(defs[0],new Set(seen).add(v.text)));
-      }});
-      return [...new Set(evidence)].slice(0,8);
-    }
-    function requestOrdinals(call) {
-      for(let n=call.parent;n;n=n.parent)if(callable(ts,n)&&n.parameters?.length) {
-        const parent=n.parent;
-        if(ts.isCallExpression(parent)&&parent.expression.getText(sf).endsWith('.createServer')&&parent.arguments.includes(n)) {
-          const name=n.parameters[0].name.getText(sf);
-          return [...(call.arguments||[])].flatMap((a,i)=>a.getText(sf)===name?[i]:[]);
-        }
-      }
-      return [];
-    }
-    function origin(n,seen=new Set()) {
-      if(!n)return null;n=unwrap(ts,n);
-      if(ts.isIdentifier(n)) {if(seen.has(n.text))return null;const targets=aliases.get(n.text)||[];return targets.length===1?origin(targets[0],new Set(seen).add(n.text)):null;}
-      if(ts.isPropertyAccessExpression(n)){const a=origin(n.expression,seen);return a?{...a,parts:[...a.parts,n.name.text]}:null;}
-      if(ts.isNewExpression(n)){const a=origin(n.expression,seen);return a?{...a,instance:true}:null;}
-      if(ts.isCallExpression(n)&&n.expression.getText(sf)==='require'&&n.arguments.length===1&&ts.isStringLiteral(n.arguments[0])) {
-        const spec=n.arguments[0].text;return spec===dep||spec.startsWith(dep+'/')?{spec,parts:[],require_line:sf.getLineAndCharacterOfPosition(n.getStart(sf)).line+1}:null;
-      }
-      if(ts.isCallExpression(n)) {
-        const o=origin(n.expression,seen);return o?{...o,returned_api:true}:null;
-      }
-      return null;
-    }
-    walk(ts,sf,n=>{if(ts.isVariableDeclaration(n)&&n.initializer) {
-      if(ts.isIdentifier(n.name)){const k=n.name.text;if(!aliases.has(k))aliases.set(k,[]);aliases.get(k).push(n.initializer);}
-      else if(ts.isObjectBindingPattern(n.name))for(const e of n.name.elements)if(ts.isIdentifier(e.name)){
-        const o=origin(n.initializer);if(o){const key=prop(ts,e.propertyName||e.name);if(key)aliases.set(e.name.text,[ts.factory.createPropertyAccessExpression(n.initializer,key)]);}
-      }
-    }});
-    walk(ts,sf,n=>{
-      if((ts.isStringLiteral(n)||ts.isNoSubstitutionTemplateLiteral(n)||ts.isTemplateExpression(n))&&/curl[^\n]*http(?:s)?:\/\//.test(n.getText(sf)))httpExploit=true;
-      if(!ts.isCallExpression(n)&&!ts.isNewExpression(n))return;
-      const o=origin(n.expression);if(!o)return;
-      const args=[...(n.arguments||[])].map((a,ordinal)=>({ordinal,text:a.getText(sf).slice(0,1000),callback:ts.isArrowFunction(a)||ts.isFunctionExpression(a),properties:ts.isObjectLiteralExpression(a)?a.properties.map(p=>prop(ts,p.name)).filter(Boolean):[],payload_evidence:payloadEvidence(a)}));
-      if(!args.some(a=>!a.callback))return;
-      const sub=o.spec.slice(dep.length).replace(/^\//,'');
-      const file=resolveFile(sub?path.join(root,sub):root);
-      const target=file&&!o.returned_api?exported(file,o.parts):null;
-      candidates.push({test:path.relative(inputs,test),line:sf.getLineAndCharacterOfPosition(n.getStart(sf)).line+1,call:n.expression.getText(sf),...o,args,request_ordinals:requestOrdinals(n),target});
-    });
-  }
-  result.api_candidates=candidates.map(({target,...c})=>({...c,resolved:target?record(target.file,target.node):null}));
-  if(!candidates.length){result.gt_reason='no_direct_package_api_call_with_data';return result;}
-  if(entry.class==='path-traversal'&&httpExploit&&!candidates.some(c=>c.request_ordinals.length)) {
-    result.gt_reason='http_payload_not_exported_api_argument';return result;
-  }
-  // Setup constructors must not mask the payload method; retain unresolved
-  // method calls rather than quietly falling back to a resolved constructor.
-  const selected=candidates.filter(c=>!candidates.some(d=>d.instance&&d.spec===c.spec)&&!c.parts.length?false:true);
-  const relevant=selected.length?selected:candidates;
-  if(relevant.some(c=>!c.target)){result.gt_reason=relevant.some(c=>c.returned_api)?'gt_parser_unsupported_returned_api':'unresolved_export_or_api_chain';return result;}
-  const targets=new Set(relevant.map(c=>c.target.file+':'+c.target.node.pos));
-  if(targets.size!==1){result.gt_reason='multiple_exported_entry_functions';return result;}
-  const target=relevant[0].target,source=record(target.file,target.node);
-  source.calls=relevant.map(({target,...c})=>c);
-  const payloadArgs=relevant.flatMap(c=>c.args.filter(a=>!a.callback&&a.payload_evidence.length).map(a=>a.ordinal));
-  const requestArgs=relevant.flatMap(c=>c.request_ordinals);
-  source.binding_mode=requestArgs.length?'http_request_parameter':payloadArgs.length?'payload_evidence':'single_supplied_data_parameter';
-  source.supplied_ordinals=[...new Set(requestArgs.length?requestArgs:payloadArgs.length?payloadArgs:relevant.flatMap(c=>c.args.filter(a=>!a.callback).map(a=>a.ordinal)))].sort((a,b)=>a-b);
-  source.data_parameters=source.parameters.filter(p=>source.supplied_ordinals.includes(p.ordinal)||p.rest&&source.supplied_ordinals.some(i=>i>=p.ordinal));
-  if(!source.data_parameters.length){result.gt_reason='no_bindable_data_parameter';result.source=source;return result;}
-  if(!requestArgs.length&&!payloadArgs.length&&source.data_parameters.length!==1){result.gt_reason='ambiguous_payload_parameter';result.source=source;return result;}
-  result.source=source;
   let sinkFile,sinkLine,sinkCol;
   const match=/^(.+):(\d+):(\d+)$/.exec(entry.sink||'');
   if(!match||+match[2]<1||+match[3]<1){result.gt_reason=entry.sink?'invalid_sink_coordinate':'missing_sink_coordinate';return result;}
   [,sinkFile,sinkLine,sinkCol]=match;sinkLine=+sinkLine;sinkCol=+sinkCol;
   if(path.isAbsolute(sinkFile)||sinkFile.split('/').includes('..')){result.gt_reason='unsafe_sink_path';return result;}
   let sinkPath=path.join(root,sinkFile),repair=false;
+  if(fs.existsSync(sinkPath)&&!fs.statSync(sinkPath).isFile()){result.gt_reason='sink_not_regular_file';return result;}
   if(!fs.existsSync(sinkPath)) {
     const matches=files.filter(f=>path.basename(f)===path.basename(sinkFile));
     if(matches.length!==1){result.gt_reason=matches.length?'ambiguous_sink_basename':'missing_sink_file';return result;}
@@ -299,7 +222,7 @@ export function inspectEntry(ts,entry,inputs,packages) {
   const sink=record(sinkPath,sinkNode);
   sink.line=sinkLine;sink.column=sinkCol;sink.original=entry.sink;sink.basename_repair=repair;
   sink.expression=site.getText(sf).slice(0,1000);
-  const sinkArgs=[...(site.arguments||[])].filter(a=>!callable(ts,a));
+  const sinkArgs=[...(site.arguments||[])].filter(a=>!callable(ts,inf.lexical.value(a)||a));
   const valueArgs=entry.class==='path-traversal'?sinkArgs.slice(0,1):sinkArgs;
   const valueNodes=ts.isCallExpression(site)||ts.isNewExpression(site)?[...valueArgs]:[site];
   sink.value_names=ts.isCallExpression(site)||ts.isNewExpression(site)
@@ -310,7 +233,7 @@ export function inspectEntry(ts,entry,inputs,packages) {
   }
   sink.value_occurrences=[];
   for(const value of valueNodes)walk(ts,value,n=>{
-    if(!ts.isIdentifier(n)||ts.isPropertyAccessExpression(n.parent)&&n.parent.name===n
+    if(!(ts.isIdentifier(n)||n.kind===ts.SyntaxKind.ThisKeyword)||ts.isPropertyAccessExpression(n.parent)&&n.parent.name===n
       ||ts.isPropertyAssignment(n.parent)&&n.parent.name===n)return;
     let expression=n;
     while(expression.parent&&(ts.isPropertyAccessExpression(expression.parent)||ts.isElementAccessExpression(expression.parent))&&expression.parent.expression===expression)expression=expression.parent;
@@ -318,19 +241,189 @@ export function inspectEntry(ts,entry,inputs,packages) {
     // not the data member being consumed. Keep data members such as fn.name.
     if(expression!==n&&ts.isCallExpression(expression.parent)&&expression.parent.expression===expression)expression=expression.expression;
     const expectedPath=expression.getText(sf).replace(/\[[^\]]*\]/g,'[]');
+    const occurrenceLine=sf.getLineAndCharacterOfPosition(n.getStart(sf)).line+1;
     let lineOccurrences=0;
-    walk(ts,sf,v=>{if(ts.isIdentifier(v)&&v.text===n.text&&sf.getLineAndCharacterOfPosition(v.getStart(sf)).line+1===sinkLine)lineOccurrences++;});
-    sink.value_occurrences.push({name:n.text,path:expectedPath,start_byte:Buffer.byteLength(sf.text.slice(0,n.getStart(sf))),end_byte:Buffer.byteLength(sf.text.slice(0,n.end)),line_occurrences:lineOccurrences});
+    walk(ts,sf,v=>{if((ts.isIdentifier(v)||v.kind===ts.SyntaxKind.ThisKeyword)&&v.getText(sf)===n.getText(sf)&&sf.getLineAndCharacterOfPosition(v.getStart(sf)).line+1===occurrenceLine)lineOccurrences++;});
+    sink.value_occurrences.push({name:n.getText(sf),path:expectedPath,line:occurrenceLine,start_byte:Buffer.byteLength(sf.text.slice(0,n.getStart(sf))),end_byte:Buffer.byteLength(sf.text.slice(0,n.kind===ts.SyntaxKind.ThisKeyword?expression.end:n.end)),line_occurrences:lineOccurrences});
   });
   sink.value_selection=entry.class==='path-traversal'?'first_path_argument':entry.class==='redos'?'arguments_and_regex_or_string_receiver':'non_callback_arguments_or_assignment';
   sink.kind=ts.isBinaryExpression(site)?'assignment':'call';
+  sink.nested_callback=enclosing.some(n=>n!==sinkNode)&&!ts.isFunctionDeclaration(sinkNode);
+  sink.capture_names=[...new Set(sink.value_occurrences.filter(o=>{const d=inf.lexical.declaration(o.name,site);return d&&ts.isParameter(d)&&d.parent!==sinkNode;}).map(o=>o.name))];
+  result.sink=sink;
+  const dep=Object.keys(entry.deps)[0],candidates=[],bootstrapFiles=new Set();let httpExploit=false;
+  for(const test of tests) {
+    const sf=parse(test);if(sf.parseDiagnostics.length){result.gt_reason='exploit_parse_diagnostics';return result;}
+    const aliases=new Map(),lexical=lexicalBindings(ts,sf);let checker;
+    function payloadEvidence(n,seen=new Set()) {
+      if(callable(ts,lexical.value(n)||n))return [];
+      const text=n.getText(sf),evidence=[];
+      if(/__proto__|polluted|writeFileSync|spawnSync|touch\s|(?:\.\.\/)|\b(?:payload|attack_str(?:ing)?|userInput|genstr)\b/.test(text)
+        ||entry.class==='redos'&&/\.repeat\s*\(|Array\s*\(/.test(text))evidence.push(text.slice(0,220));
+      walk(ts,n,v=>{if(ts.isIdentifier(v)&&!seen.has(v.text)) {
+        const d=lexical.stable(v.text,v),defs=d?.initializer?[d.initializer]:[];
+        if(defs.length===1&&seen.size<20)evidence.push(...payloadEvidence(defs[0],new Set(seen).add(v.text)));
+      }});
+      return [...new Set(evidence)].slice(0,8);
+    }
+    function requestOrdinals(call) {
+      for(let n=call.parent;n;n=n.parent)if(callable(ts,n)&&n.parameters?.length) {
+        const parent=n.parent;
+        if(ts.isCallExpression(parent)&&parent.expression.getText(sf).endsWith('.createServer')&&parent.arguments.includes(n)) {
+          const name=n.parameters[0].name.getText(sf);
+          return [...(call.arguments||[])].flatMap((a,i)=>a.getText(sf)===name?[i]:[]);
+        }
+      }
+      return [];
+    }
+    function origin(n,seen=new Set()) {
+      if(!n)return null;n=unwrap(ts,n);
+      if(ts.isIdentifier(n)) {
+        if(seen.has(n.text))return null;const d=lexical.stable(n.text,n);if(!d||ts.isParameter(d))return null;
+        if(ts.isBindingElement(d)) {const init=d.parent.parent.initializer,o=origin(init,new Set(seen).add(n.text)),key=prop(ts,d.propertyName||d.name);return o&&key?{...o,parts:[...o.parts,key]}:null;}
+        return d.initializer?origin(d.initializer,new Set(seen).add(n.text)):null;
+      }
+      if(ts.isPropertyAccessExpression(n)){const a=origin(n.expression,seen);return a?{...a,parts:[...a.parts,n.name.text]}:null;}
+      if(ts.isNewExpression(n)){const a=origin(n.expression,seen);return a?{...a,instance:true}:null;}
+      if(ts.isCallExpression(n)&&n.expression.getText(sf)==='require'&&n.arguments.length===1&&ts.isStringLiteral(n.arguments[0])) {
+        const spec=n.arguments[0].text;return spec===dep||spec.startsWith(dep+'/')?{spec,parts:[],require_line:sf.getLineAndCharacterOfPosition(n.getStart(sf)).line+1}:null;
+      }
+      if(ts.isCallExpression(n)) {
+        const o=origin(n.expression,seen);return o?{...o,returned_api:true}:null;
+      }
+      return null;
+    }
+    walk(ts,sf,n=>{if(ts.isVariableDeclaration(n)&&n.initializer) {
+      if(ts.isIdentifier(n.name)){const k=n.name.text;if(!aliases.has(k))aliases.set(k,[]);aliases.get(k).push(n.initializer);}
+      else if(ts.isObjectBindingPattern(n.name))for(const e of n.name.elements)if(ts.isIdentifier(e.name)){
+        const o=origin(n.initializer);if(o){const key=prop(ts,e.propertyName||e.name);if(key)aliases.set(e.name.text,[ts.factory.createPropertyAccessExpression(n.initializer,key)]);}
+      }
+    }});
+    walk(ts,sf,n=>{
+      if(ts.isStringLiteral(n)||ts.isNoSubstitutionTemplateLiteral(n)||ts.isTemplateExpression(n)) {
+        const text=n.getText(sf),escaped=dep.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+        for(const m of text.matchAll(new RegExp('node_modules/'+escaped+'/([^\\s"\'`;&]+)','g'))) {
+          const file=resolveFile(path.resolve(root,m[1]));if(file)bootstrapFiles.add(file);
+        }
+        for(const m of text.matchAll(new RegExp('node_modules/'+escaped+'(?:[\\s"\'`;&]|$)','g'))) {
+          const file=resolveFile(root);if(file)bootstrapFiles.add(file);
+        }
+      }
+      if((ts.isStringLiteral(n)||ts.isNoSubstitutionTemplateLiteral(n)||ts.isTemplateExpression(n))&&/curl[^\n]*http(?:s)?:\/\//.test(n.getText(sf)))httpExploit=true;
+      if(!ts.isCallExpression(n)&&!ts.isNewExpression(n))return;
+      const o=origin(n.expression);if(!o)return;
+      const args=[...(n.arguments||[])].map((a,ordinal)=>({ordinal,text:a.getText(sf).slice(0,1000),callback:callable(ts,lexical.value(a)||a),properties:ts.isObjectLiteralExpression(a)?a.properties.map(p=>prop(ts,p.name)).filter(Boolean):[],payload_evidence:payloadEvidence(a)}));
+      const sub=o.spec.slice(dep.length).replace(/^\//,'');
+      const file=resolveFile(sub?path.join(root,sub):root);
+      let target=file&&!o.returned_api?exported(file,o.parts):null,resolution_mode='syntactic_export';
+      if(!target&&file) {
+        checker ||= checkerResolver(ts,test,dep,root,resolveFile);
+        target=checker.resolve(n.getStart(sf),n.end,ts.isNewExpression(n));
+        if(target)resolution_mode='typescript_checker';
+      }
+      if(target?.shift) {
+        const actual=target.mode==='apply'?[...n.arguments[1].elements]:[...n.arguments].slice(1);
+        args.splice(0,args.length,...actual.map((a,ordinal)=>({ordinal,text:a.getText(sf),callback:callable(ts,lexical.value(a)||a),properties:[],payload_evidence:payloadEvidence(a)})));
+      }
+      // Callable bodies are never payload evidence. A separately mutated
+      // function metadata field is data only when the API consumes that field.
+      if(target)for(const arg of args.filter(a=>a.callback)) {
+        const actual=n.arguments[arg.ordinal],value=lexical.value(actual);
+        const formal=target.node.parameters[arg.ordinal];
+        if(!formal||!ts.isIdentifier(formal.name))continue;
+        const fields=new Set();walk(ts,target.node.body,v=>{if(ts.isPropertyAccessExpression(v)&&ts.isIdentifier(v.expression)&&v.expression.text===formal.name.text)fields.add(v.name.text);});
+        walk(ts,sf,v=>{
+          if(ts.isCallExpression(v)&&v.expression.getText(sf)==='Object.defineProperty'&&lexical.value(v.arguments[0])===value&&ts.isStringLiteral(v.arguments[1])&&fields.has(v.arguments[1].text)) {
+            const evidence=payloadEvidence(v.arguments[2]);
+            if(evidence.length){arg.callback=false;arg.data_role='function_metadata_value';arg.payload_evidence=evidence;}
+          }
+        });
+      }
+      if(!args.some(a=>!a.callback))return;
+      candidates.push({test:path.relative(inputs,test),line:sf.getLineAndCharacterOfPosition(n.getStart(sf)).line+1,call:n.expression.getText(sf),...o,args,request_ordinals:requestOrdinals(n),resolution_mode,target});
+    });
+  }
+  result.api_candidates=candidates.map(({target,...c})=>({...c,resolved:target?record(target.file,target.node):null}));
+  let httpTarget=null;
+  if(httpExploit&&!candidates.some(c=>c.request_ordinals.length)
+    &&(entry.class==='path-traversal'||!candidates.some(c=>c.args.some(a=>!a.callback&&a.payload_evidence.length)))) {
+    if(!bootstrapFiles.size&&!candidates.length){result.gt_reason='http_bootstrap_not_bound';return result;}
+    const handlers=[];
+    // Only a launched file, its local imports, or the API/sink file is admitted.
+    const httpFiles=new Set(bootstrapFiles);
+    for(const c of candidates){const sub=c.spec.slice(dep.length).replace(/^\//,'');const file=resolveFile(sub?path.join(root,sub):root);if(file)httpFiles.add(file);}
+    for(const file of httpFiles) {
+      walk(ts,info(file).sf,n=>{if(ts.isCallExpression(n)&&n.expression.getText()==='require'&&ts.isStringLiteral(n.arguments[0])&&n.arguments[0].text.startsWith('.')){const f=resolveFile(path.resolve(path.dirname(file),n.arguments[0].text));if(f)httpFiles.add(f);}});
+    }
+    for(const file of httpFiles) {
+      const current=info(file);if(current.sf.parseDiagnostics.length)continue;
+      walk(ts,current.sf,n=>{
+        if(!ts.isCallExpression(n)||!ts.isPropertyAccessExpression(n.expression))return;
+        const method=n.expression.name.text;
+        function moduleOrigin(v,seen=new Set()) {
+          if(!v||seen.has(v))return null;seen=new Set(seen).add(v);
+          if(ts.isIdentifier(v)){const d=current.lexical.stable(v.text,v);return d?.initializer?moduleOrigin(d.initializer,seen):null;}
+          if(ts.isCallExpression(v)&&v.expression.getText()==='require'&&ts.isStringLiteral(v.arguments[0]))return v.arguments[0].text;
+          if(ts.isCallExpression(v))return moduleOrigin(ts.isPropertyAccessExpression(v.expression)?v.expression.expression:v.expression,seen);
+          return null;
+        }
+        const module=moduleOrigin(n.expression.expression);
+        const registration=method==='createServer'||method==='on'&&n.arguments[0]?.text==='request'
+          ||['use','get','all'].includes(method);
+        if(!registration||!['http','https','express','connect'].includes(module))return;
+        for(const a of n.arguments) {
+          const resolved=callable(ts,a)?{file,node:a}:deref(file,a);
+          if(!resolved||!resolved.node.parameters.length||!ts.isIdentifier(resolved.node.parameters[0].name))continue;
+          const req=resolved.node.parameters[0].name.text;
+          if(!/^(?:req|request)$/.test(req))continue;
+          const queue=[resolved],seen=new Set();let reaches=false;
+          while(queue.length&&seen.size<200) {
+            const t=queue.shift(),key=t.file+':'+t.node.pos;if(seen.has(key))continue;seen.add(key);
+            if(t.file===sinkPath&&t.node.getStart(info(t.file).sf)<=offset&&t.node.end>offset){reaches=true;break;}
+            walk(ts,t.node,v=>{if(ts.isCallExpression(v)){const d=deref(t.file,v.expression);if(d)queue.push(d);}});
+          }
+          if(reaches)handlers.push({...resolved,registration:{file:path.relative(root,file),line:current.sf.getLineAndCharacterOfPosition(n.getStart(current.sf)).line+1,expression:n.expression.getText(current.sf)}});
+        }
+      });
+    }
+    const unique=[...new Map(handlers.map(h=>[h.file+':'+h.node.pos,h])).values()];
+    if(unique.length!==1){result.gt_reason=unique.length?'ambiguous_http_request_handler':'no_unique_http_request_handler';return result;}
+    httpTarget=unique[0];
+    candidates.splice(0,candidates.length,{target:httpTarget,spec:dep,parts:[],args:[{ordinal:0,callback:false,payload_evidence:['exploit HTTP URL/path']}],request_ordinals:[0],resolution_mode:'http_registration',registration:httpTarget.registration});
+  }
+  if(!candidates.length){result.gt_reason='no_direct_package_api_call_with_data';return result;}
+  // Setup constructors must not mask the payload method; retain unresolved
+  // method calls rather than quietly falling back to a resolved constructor.
+  const selected=candidates.filter(c=>c.parts.length||c.args.some(a=>!a.callback&&a.payload_evidence.length)||!candidates.some(d=>d!==c&&d.spec===c.spec&&(d.instance||d.parts.length)));
+  const relevant=(selected.length?selected:candidates).filter(c=>!candidates.some(d=>d!==c&&d.spec===c.spec&&d.returned_api&&d.args.some(a=>!a.callback&&a.payload_evidence.length))||c.returned_api);
+  if(relevant.some(c=>!c.target)){result.gt_reason=relevant.some(c=>c.returned_api)?'gt_parser_unsupported_returned_api':'unresolved_export_or_api_chain';return result;}
+  const targets=new Set(relevant.map(c=>c.target.file+':'+c.target.node.pos));
+  if(targets.size!==1){result.gt_reason='multiple_exported_entry_functions';return result;}
+  const target=relevant[0].target,source=record(target.file,target.node);
+  if(httpTarget){source.registration=httpTarget.registration;
+    const scanner=ts.createScanner(ts.ScriptTarget.Latest,true,ts.LanguageVariant.Standard,httpTarget.node.getText(info(httpTarget.file).sf));let normalized=[];
+    for(let k=scanner.scan();k!==ts.SyntaxKind.EndOfFileToken;k=scanner.scan())normalized.push(k===ts.SyntaxKind.Identifier?'ID':k===ts.SyntaxKind.StringLiteral?'STR':k===ts.SyntaxKind.NumericLiteral?'NUM':scanner.getTokenText());
+    source.normalized_handler_sha256=sha(normalized.join(' '));}
+  source.calls=relevant.map(({target,...c})=>c);
+  const payloadArgs=relevant.flatMap(c=>c.args.filter(a=>!a.callback&&a.payload_evidence.length).map(a=>a.ordinal));
+  const requestArgs=relevant.flatMap(c=>c.request_ordinals);
+  source.binding_mode=requestArgs.length?'http_request_parameter':payloadArgs.length?'payload_evidence':'single_supplied_data_parameter';
+  source.supplied_ordinals=[...new Set(requestArgs.length?requestArgs:payloadArgs.length?payloadArgs:relevant.flatMap(c=>c.args.filter(a=>!a.callback).map(a=>a.ordinal)))].sort((a,b)=>a-b);
+  source.data_parameters=source.parameters.filter(p=>source.supplied_ordinals.includes(p.ordinal)||p.rest&&source.supplied_ordinals.some(i=>i>=p.ordinal));
+  if(!source.data_parameters.length){result.gt_reason='no_bindable_data_parameter';result.source=source;return result;}
+  if(!requestArgs.length&&!payloadArgs.length&&source.data_parameters.length!==1){result.gt_reason='ambiguous_payload_parameter';result.source=source;return result;}
+  source.resolution_mode=relevant[0].resolution_mode;
+  const callbackNames=new Set(source.parameters.filter(p=>relevant.every(c=>c.args.find(a=>a.ordinal===p.ordinal)?.callback)).flatMap(p=>p.names));
+  sink.value_occurrences=sink.value_occurrences.filter(o=>!callbackNames.has(o.name));
+  result.source=source;
+  if(!sink.value_occurrences.length){result.gt_reason='sink_has_no_data_value';return result;}
   result.sink=sink;result.gt_status='available';result.gt_reason=null;
   // Independent, syntactic call-chain candidate. It proves syntax occurrence,
   // not value dependence. Unknown paths remain unknown in the report.
   const key=t=>t.file+':'+t.node.pos,queue=[[target]],seen=new Set();let chain=null;
   while(queue.length&&seen.size<2000) {
     const q=queue.shift(),cur=q.at(-1),k=key(cur);if(seen.has(k))continue;seen.add(k);
-    if(cur.file===sinkPath&&cur.node===sinkNode){chain=q;break;}
+    if(cur.file===sinkPath&&cur.node.pos===sinkNode.pos&&cur.node.end===sinkNode.end){chain=q;break;}
     const current=info(cur.file);
     function visit(n) {
       if(n!==cur.node&&callable(ts,n)){if(n===sinkNode&&cur.file===sinkPath)queue.push([...q,{file:cur.file,node:n}]);return;}

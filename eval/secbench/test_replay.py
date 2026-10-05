@@ -48,6 +48,14 @@ class ReplayTests(unittest.TestCase):
         self.gt.update(gt_status='gt_unavailable', gt_reason='ambiguous_payload_parameter')
         self.assertEqual(reclassify(self.observation, self.gt)['outcome'], 'gt_unavailable')
 
+    def test_every_multiline_terminal_query_is_required(self):
+        self.gt['sink']['value_occurrences'] = [{'name': 'x', 'line': 3}, {'name': 'y', 'line': 4}]
+        with self.assertRaisesRegex(ValueError, 'new seed/sink'):
+            reclassify(self.observation, self.gt)
+        for record in self.observation['invocations'].values():
+            record['argv'] += ['--sink', 'x.js:4']
+        self.assertEqual(reclassify(self.observation, self.gt)['outcome'], 'prism_error')
+
     def test_adjudication_agreement_keeps_unresolved_separate(self):
         rows = [{'class': 'redos', 'entry': 'p_1', 'outcome': 'partial', 'first_break': {'category': 'unresolved'}}]
         label = {'class': 'redos', 'entry': 'p_1', 'expected_outcome': 'partial', 'category': 'unresolved'}

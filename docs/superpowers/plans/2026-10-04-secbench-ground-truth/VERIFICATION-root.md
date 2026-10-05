@@ -1,3 +1,5 @@
+> Historical R0 record. R1 changes ground truth, attribution and conversions; use [R1.md](R1.md) for the current result and verification. Original evidence remains immutable.
+
 # Verification — MEAS-A SecBench harness
 
 Verified checkout: `/Users/wesleyjinks/code/prism-secbench`, branch
