@@ -103,16 +103,16 @@
   ],
   "PD-12-rest-not-last-admitted": [
    "src/parameter_slots.rs",
-   "        .is_some_and(|last| last.id() == parameter.id())",
-   "        .is_some_and(|_| true)",
+   "pub(crate) fn js_ts_is_last_parameter(params: Node<'_>, parameter: Node<'_>) -> bool {\n    named_children(params)\n        .into_iter()\n        .rev()\n        .find(|child| child.kind() != \"comment\")\n        .is_some_and(|last| last.id() == parameter.id())\n        && {\n            let mut cursor = params.walk();\n            let clear = !params\n                .children(&mut cursor)\n                .any(|child| child.start_byte() >= parameter.end_byte() && child.kind() == \",\");\n            clear\n        }\n}",
+   "pub(crate) fn js_ts_is_last_parameter(params: Node<'_>, parameter: Node<'_>) -> bool {\n    true\n}",
    [
     "ast::js_param_defs_tests::destructured_and_duplicate_rest_stay_refused"
    ]
   ],
   "PD-13-nested-formal-guard-off": [
    "src/ast.rs",
-   "                if names.contains(name) {\n                    return true;\n                }\n            }\n            let mut cursor = node.walk();\n            stack.extend",
-   "                if names.contains(name) && false {\n                    return true;\n                }\n            }\n            let mut cursor = node.walk();\n            stack.extend",
+   "if self.js_ts_binding_pattern_may_bind(params, name) {",
+   "if false && self.js_ts_binding_pattern_may_bind(params, name) {",
    [
     "cpg::js_param_defs_tests::new_shapes_refuse_a_formal_rebound_by_a_nested_callable"
    ]
@@ -155,6 +155,86 @@
    ".filter(|_| true)",
    [
     "cpg::js_param_defs_tests::bare_arrow_formal_stays_a_step5b_hole_but_the_parenthesised_control_binds"
+   ]
+  ],
+  "PD-19-catch-binding-guard-off": [
+   "src/ast.rs",
+   "\"catch_clause\" => node.child_by_field_name(\"parameter\"),",
+   "\"catch_clause\" => None,",
+   [
+    "cpg::js_param_defs_tests::r1_catch_binding_refused"
+   ]
+  ],
+  "PD-20-for-head-binding-guard-off": [
+   "src/ast.rs",
+   "\"for_in_statement\" => node.child_by_field_name(\"left\"),",
+   "\"for_in_statement\" => None,",
+   [
+    "cpg::js_param_defs_tests::r1_for_head_bindings_refused"
+   ]
+  ],
+  "PD-21-variable-binding-guard-off": [
+   "src/ast.rs",
+   "\"variable_declarator\"\n                | \"function_expression\"",
+   "\"never_variable_declarator\"\n                | \"function_expression\"",
+   [
+    "cpg::js_param_defs_tests::r1_block_bindings_refused"
+   ]
+  ],
+  "PD-22-function-self-binding-guard-off": [
+   "src/ast.rs",
+   "| \"function_expression\"\n                | \"function_declaration\"",
+   "| \"never_function_expression\"\n                | \"never_function_declaration\"",
+   [
+    "cpg::js_param_defs_tests::r1_named_function_binding_refused"
+   ]
+  ],
+  "PD-23-class-binding-guard-off": [
+   "src/ast.rs",
+   "| \"class\"\n                | \"class_declaration\"",
+   "| \"never_class\"\n                | \"never_class_declaration\"",
+   [
+    "cpg::js_param_defs_tests::r1_named_class_binding_refused"
+   ]
+  ],
+  "PD-24-escaped-binding-guard-off": [
+   "src/ast.rs",
+   "text == name || text.contains('\\\\')",
+   "text == name",
+   [
+    "cpg::js_param_defs_tests::r1_escaped_bindings_refused"
+   ]
+  ],
+  "PD-25-rest-comma-guard-off": [
+   "src/parameter_slots.rs",
+   "child.start_byte() >= parameter.end_byte() && child.kind() == \",\"",
+   "false && child.start_byte() >= parameter.end_byte() && child.kind() == \",\"",
+   [
+    "cpg::js_param_defs_tests::r1_rest_trailing_comma_refused"
+   ]
+  ],
+  "PD-26-new-source-E5-refusal-off": [
+   "src/cpg/build.rs",
+   "if refused.is_empty() {",
+   "if true || refused.is_empty() {",
+   [
+    "cpg::js_param_defs_tests::r1_e5_new_source_direct_and_local_paths_refused"
+   ]
+  ],
+  "PD-27-ts-class-name-guard-off": [
+   "src/ast.rs",
+   "\"identifier\" | \"type_identifier\" | \"shorthand_property_identifier_pattern\" => {",
+   "\"identifier\" | \"shorthand_property_identifier_pattern\" => {",
+   [
+    "cpg::js_param_defs_tests::r1_named_class_binding_refused"
+   ]
+  ],
+  "PD-28-ts-runtime-binding-guard-off": [
+   "src/ast.rs",
+   "| \"abstract_class_declaration\"\n                | \"enum_declaration\"\n                | \"internal_module\"\n                | \"module\"",
+   "| \"never_abstract_class_declaration\"\n                | \"never_enum_declaration\"\n                | \"never_internal_module\"\n                | \"never_module\"",
+   [
+    "cpg::js_param_defs_tests::r1_ts_runtime_declaration_bindings_refused"
    ]
   ]
  }

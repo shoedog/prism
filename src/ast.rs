@@ -10791,32 +10791,76 @@ impl ParsedFile {
         }
     }
 
-    /// js-param-defs PR-A (SPEC D11): whether a callable nested anywhere in
-    /// `func_node` binds `name` as one of its own formals. The legacy
-    /// reference walk (`is_shadowed_at`) fences block declarations but not a
-    /// nested callable's formals, so a Def for an outer formal of that name
-    /// would reach Uses that bind the inner formal. New binding shapes are
-    /// refused in that case; PR-B's callable containment retires this guard.
+    /// PR-A D11: refuse new shapes if another binding anywhere inside the
+    /// owner's body may bind this name. Escaped binding spellings are ambiguous
+    /// and fail closed. Plain-formal admission and the legacy walk stay intact.
     pub(crate) fn js_ts_nested_callable_binds_formal(
         &self,
         func_node: &Node<'_>,
         name: &str,
     ) -> bool {
         let boundaries = self.language.callable_boundary_node_types();
-        let root = func_node.id();
-        let mut stack = vec![*func_node];
+        let mut stack: Vec<_> = func_node.child_by_field_name("body").into_iter().collect();
         while let Some(node) = stack.pop() {
-            if node.id() != root && boundaries.contains(&node.kind()) {
-                let mut names = BTreeSet::new();
-                self.collect_js_ts_parameter_bindings(node, &mut names);
-                if names.contains(name) {
-                    return true;
+            if boundaries.contains(&node.kind()) {
+                if let Some(params) = self
+                    .find_parameters_node(&node)
+                    .or_else(|| node.child_by_field_name("parameter"))
+                {
+                    if self.js_ts_binding_pattern_may_bind(params, name) {
+                        return true;
+                    }
                 }
+            }
+            let binding = match node.kind() {
+                "variable_declarator"
+                | "function_expression"
+                | "function_declaration"
+                | "generator_function"
+                | "generator_function_declaration"
+                | "class"
+                | "class_declaration"
+                | "abstract_class_declaration"
+                | "enum_declaration"
+                | "internal_module"
+                | "module" => node.child_by_field_name("name"),
+                "catch_clause" => node.child_by_field_name("parameter"),
+                "for_in_statement" => node.child_by_field_name("left"),
+                _ => None,
+            };
+            if binding.is_some_and(|binding| self.js_ts_binding_pattern_may_bind(binding, name)) {
+                return true;
             }
             let mut cursor = node.walk();
             stack.extend(node.named_children(&mut cursor));
         }
         false
+    }
+
+    fn js_ts_binding_pattern_may_bind(&self, node: Node<'_>, name: &str) -> bool {
+        match node.kind() {
+            "identifier" | "type_identifier" | "shorthand_property_identifier_pattern" => {
+                let text = self.node_text(&node);
+                text == name || text.contains('\\')
+            }
+            "pair_pattern" => node
+                .child_by_field_name("value")
+                .is_some_and(|n| self.js_ts_binding_pattern_may_bind(n, name)),
+            "assignment_pattern" | "object_assignment_pattern" => node
+                .child_by_field_name("left")
+                .is_some_and(|n| self.js_ts_binding_pattern_may_bind(n, name)),
+            "required_parameter" | "optional_parameter" => node
+                .child_by_field_name("pattern")
+                .is_some_and(|n| self.js_ts_binding_pattern_may_bind(n, name)),
+            "formal_parameters" | "object_pattern" | "array_pattern" | "rest_pattern" => {
+                let mut cursor = node.walk();
+                let found = node
+                    .named_children(&mut cursor)
+                    .any(|n| self.js_ts_binding_pattern_may_bind(n, name));
+                found
+            }
+            _ => false,
+        }
     }
 
     /// JS/TS/TSX byte region holding the parameter bindings: the `parameters`

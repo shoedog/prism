@@ -356,6 +356,13 @@ pub(crate) fn js_ts_is_last_parameter(params: Node<'_>, parameter: Node<'_>) -> 
         .rev()
         .find(|child| child.kind() != "comment")
         .is_some_and(|last| last.id() == parameter.id())
+        && {
+            let mut cursor = params.walk();
+            let clear = !params
+                .children(&mut cursor)
+                .any(|child| child.start_byte() >= parameter.end_byte() && child.kind() == ",");
+            clear
+        }
 }
 
 /// Duplicates invalidate a JS/TS parameter list even if an earlier pattern

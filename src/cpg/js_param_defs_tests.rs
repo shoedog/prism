@@ -335,3 +335,235 @@ fn ts_duplicate_rest_binding_refuses_the_whole_list() {
         );
     }
 }
+
+fn refuses_competing_binding(body: &str) {
+    for language in JS_TS {
+        for signature in ["const outer = x =>", "function outer(...x)"] {
+            let source = format!("{signature} {{\n use(x);\n {body}\n}}\n");
+            let cpg = build(language, &source);
+            let start = source
+                .find(if signature.starts_with("const") {
+                    "x =>"
+                } else {
+                    "...x"
+                })
+                .unwrap()
+                + if signature.starts_with("const") { 0 } else { 3 };
+            assert!(
+                !has_def(&cpg, "outer", "x", start),
+                "{language:?}: {source}: {:?}",
+                defs(&cpg)
+            );
+        }
+    }
+}
+
+#[test]
+fn r1_catch_binding_refused() {
+    refuses_competing_binding("try { fail(); } catch (x) { sink(x); }");
+}
+#[test]
+fn r1_for_head_bindings_refused() {
+    for kind in ["const", "let", "var"] {
+        for op in ["of", "in"] {
+            refuses_competing_binding(&format!("for ({kind} x {op} ys) {{ sink(x); }}"));
+        }
+    }
+}
+#[test]
+fn r1_named_function_binding_refused() {
+    refuses_competing_binding("return function x() { sink(x); };");
+}
+#[test]
+fn r1_named_class_binding_refused() {
+    refuses_competing_binding("return class x { method() { sink(x); } };");
+}
+#[test]
+fn r1_block_bindings_refused() {
+    for body in [
+        "{ let x = other; sink(x); }",
+        "{ const x = other; sink(x); }",
+        "{ class x {} sink(x); }",
+        "{ function x() {} sink(x); }",
+        "{ let {value: x} = other; sink(x); }",
+    ] {
+        refuses_competing_binding(body);
+    }
+    // The block and callable begin on the same line (line-based scope leak).
+    for language in JS_TS {
+        let source = "const outer = x => { { let x = other;\n sink(x); } };";
+        assert!(!has_def(
+            &build(language, source),
+            "outer",
+            "x",
+            source.find("x =>").unwrap()
+        ));
+    }
+}
+#[test]
+fn r1_escaped_bindings_refused() {
+    refuses_competing_binding(r"{ let \u0078 = other; sink(x); }");
+    refuses_competing_binding(r"return function (\u0078) { sink(x); };");
+    // Same-line owners and two different Uses on a line (W3).
+    refuses_competing_binding(r"{ let \u0078 = other; sink(x); } use(x);");
+}
+#[test]
+fn r1_unrelated_bindings_and_captures_kept() {
+    for language in JS_TS {
+        let source = "const outer = x => {\n try {} catch (y) { sink(x); }\n for (const y of ys) { sink(x); }\n const inner = function y(z) { sink(x, z); };\n { let y = other; sink(x); }\n return x;\n};";
+        assert!(has_def(
+            &build(language, source),
+            "outer",
+            "x",
+            source.find("x =>").unwrap()
+        ));
+    }
+}
+#[test]
+fn r1_rest_trailing_comma_refused() {
+    for language in JS_TS {
+        for suffix in [",", " /* comment */, /* after */"] {
+            let source = format!("function outer(...x{suffix}) {{\n sink(x);\n}}");
+            assert!(!has_def(
+                &build(language, &source),
+                "outer",
+                "x",
+                source.find("...x").unwrap() + 3
+            ));
+        }
+        let source = "function outer(...x /* valid */) {\n sink(x);\n}";
+        assert!(has_def(
+            &build(language, source),
+            "outer",
+            "x",
+            source.find("...x").unwrap() + 3
+        ));
+    }
+}
+
+fn source_reaches_inferred(
+    language: Language,
+    signature: &str,
+    body: &str,
+    inferred: bool,
+) -> bool {
+    use petgraph::visit::EdgeRef;
+    let input = format!("{signature}\n {body}");
+    let target = if inferred {
+        "const obj = { Array: (s) =>\n sink(s)\n};"
+    } else {
+        "function Array(s) {\n sink(s);\n}"
+    };
+    let ext = if language == Language::JavaScript {
+        "js"
+    } else if language == Language::Tsx {
+        "tsx"
+    } else {
+        "ts"
+    };
+    let files = BTreeMap::from([
+        (
+            format!("input.{ext}"),
+            ParsedFile::parse(&format!("input.{ext}"), &input, language).unwrap(),
+        ),
+        (
+            format!("callee.{ext}"),
+            ParsedFile::parse(&format!("callee.{ext}"), target, language).unwrap(),
+        ),
+    ]);
+    let cpg = CodePropertyGraph::build(&files);
+    let start = input
+        .find("input =>")
+        .or_else(|| input.find("...input").map(|n| n + 3))
+        .unwrap();
+    let sources: Vec<_> = cpg.graph.node_indices().filter(|&i| matches!(cpg.node(i), CpgNode::Variable { file, access: VarAccess::Def, start_byte, .. } if file.starts_with("input.") && *start_byte == start)).collect();
+    assert_eq!(sources.len(), 1, "valid source binding must remain");
+    let mut seen = BTreeSet::new();
+    let mut stack = sources;
+    while let Some(n) = stack.pop() {
+        if !seen.insert(n) {
+            continue;
+        }
+        if matches!(cpg.node(n), CpgNode::Variable { file, line: 2, access: VarAccess::Use, path, .. } if file.starts_with("callee.") && path.base == "s")
+        {
+            return true;
+        }
+        stack.extend(
+            cpg.graph
+                .edges(n)
+                .filter(|e| matches!(e.weight(), CpgEdge::DataFlow(_)))
+                .map(|e| e.target()),
+        );
+    }
+    false
+}
+#[test]
+fn r1_e5_new_source_direct_and_local_paths_refused() {
+    for language in JS_TS {
+        for (signature, body) in [
+            ("const entry = input =>", "Array(input);"),
+            (
+                "const entry = input => {",
+                "const local = input;\n Array(local);\n}",
+            ),
+            (
+                "function entry(...input) {",
+                "const local = input;\n Array(local);\n}",
+            ),
+        ] {
+            assert!(
+                !source_reaches_inferred(language, signature, body, true),
+                "{language:?}: {body}"
+            );
+        }
+    }
+}
+#[test]
+fn r1_e5_referenceable_target_kept() {
+    for language in JS_TS {
+        assert!(source_reaches_inferred(
+            language,
+            "const entry = input =>",
+            "Array(input);",
+            false
+        ));
+    }
+}
+#[test]
+fn r1_unreachable_rest_is_plain_formal_base_parity() {
+    for language in JS_TS {
+        assert_eq!(
+            dump(language, "function outer(...x) {\n return;\n sink(x);\n}"),
+            dump(language, "function outer(x) {\n return;\n sink(x);\n}")
+        );
+    }
+}
+
+#[test]
+fn r1_ts_runtime_declaration_bindings_refused() {
+    for language in [Language::TypeScript, Language::Tsx] {
+        for binding in [
+            "abstract class x {}",
+            "enum x { A }",
+            "namespace x { export const y = 1; }",
+        ] {
+            let source = format!("const outer = x => {{\n use(x);\n {{ {binding} sink(x); }}\n}};");
+            assert!(
+                !has_def(
+                    &build(language, &source),
+                    "outer",
+                    "x",
+                    source.find("x =>").unwrap()
+                ),
+                "{language:?}: {binding}"
+            );
+        }
+        let source = "const outer = x => {\n { enum y { A } sink(x); }\n return x;\n};";
+        assert!(has_def(
+            &build(language, source),
+            "outer",
+            "x",
+            source.find("x =>").unwrap()
+        ));
+    }
+}
