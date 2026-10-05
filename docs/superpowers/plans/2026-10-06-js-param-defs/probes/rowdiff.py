@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Multiset base/head diff of `nav dfg-stats --edges` rows (EVALUATION.md §3.5 classes).
+"""Multiset base/head diff of wire or owner/byte-enriched DFG rows (EVALUATION.md §3.5 classes).
 
 Usage: rowdiff.py BASE.jsonl HEAD.jsonl OUT.json [--rows OUT_ROWS.jsonl]
 
@@ -7,7 +7,8 @@ Classes, per row identity = row without its label fields (confidence, doubt, kil
   ADDED       identity count grows and no same-identity base row was relabelled into it
   LOST        identity count shrinks
   RELABELLED  same identity, a base label replaced by a different head label (paired 1:1)
-  RE-OWNED    not observable on dfg rows (rows carry no owner field); reported as n/a
+  RE-OWNED    byte records include owners; replacements appear as LOST plus ADDED
+              wire records omit owners; call-site rows are checked separately
 Aggregate-only stdout; --rows writes the changed rows (private for F).
 """
 import json
@@ -70,7 +71,7 @@ def main():
             r = json.loads(ident)
             counts['ADDED:%s->%s' % (r['from']['access'], r['to']['access'])] += 1
             changed.append({'class': 'ADDED', 'row': r, 'head_label': lab})
-    summary = {'base_rows': sum(b.values()), 'head_rows': sum(h.values()), 'RE-OWNED': 'n/a (dfg rows carry no owner)',
+    summary = {'base_rows': sum(b.values()), 'head_rows': sum(h.values()), 'RE-OWNED': 'owner and byte identity included; owner replacements appear as LOST plus ADDED',
                **dict(sorted(counts.items()))}
     with open(out, 'w') as fh:
         json.dump(summary, fh, indent=1, sort_keys=True)

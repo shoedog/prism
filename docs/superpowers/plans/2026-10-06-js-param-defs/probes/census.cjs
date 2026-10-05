@@ -17,10 +17,9 @@ const EXT = new Set(['.js', '.mjs', '.cjs', '.jsx', '.ts', '.tsx']);
 
 function walk(dir, out) {
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (ent.name.startsWith('.')) continue;
     const p = path.join(dir, ent.name);
     if (ent.isSymbolicLink()) continue;
-    if (ent.isDirectory()) { if (!SKIP.has(ent.name)) walk(p, out); continue; }
+    if (ent.isDirectory()) { if (!ent.name.startsWith('.') && !SKIP.has(ent.name)) walk(p, out); continue; }
     if (!ent.isFile() || !EXT.has(path.extname(ent.name))) continue;
     if (fs.statSync(p).size > 2 * 1024 * 1024) continue;
     out.push(p);

@@ -1,3 +1,5 @@
+> **R1 supersession (2026-10-05):** Historical prototype record. Its line-based all-CORRECT verdict is refuted by both spec reviewers. Active repair custody and byte-span binding evidence are in `HANDOFF-repair-r1.md` and `MEASUREMENTS-prA.md`; use the committed prototype `1b2dfdc9` plus R1 patches. Prior D11/D12 isolation and zero-WRONG claims do not apply to the repaired artifact.
+
 # Handoff: lane js-param-defs, planner (step-0 census + PR-A spec/prototype/measurement)
 
 **Written:** 2026-10-05 · **By:** planner subagent (Opus-5.5), controller session `0ec85e7b` · **Provider:** claude

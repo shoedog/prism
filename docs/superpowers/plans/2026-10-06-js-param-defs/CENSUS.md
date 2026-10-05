@@ -58,3 +58,14 @@ Corpora:
   - Expect the RD/perf risk (R6) to be real: there are ~4.5 k (X) and ~5.3 k (T) new DFG passes.
 - **PR-C (member-only) has the most edges.** It adds 3.2 k (X), 7.9 k (T) and 64 k (SB) projected projection edges for named owners alone, plus about a third more once PR-B lands.
   - On T, 1,041 of the 1,781 named bare-arrow formals are member-only. They stay refused after PR-A, because PR-A does not relax the member-only guard.
+
+## R1 hidden-source admission correction
+`[MEASURED]` `probes/census.cjs` now skips hidden **directories** and admits supported hidden regular files. The `.sample.js` regression changes 0 files on the committed census to 1 on the repaired census. Captures are `repair-r1/census-{X,T,secbench}.json`.
+
+| Corpus | Files | Callables | Named | Anonymous | Bare arrows | Projected PR-A Defs / Use rows (bare + rest) |
+|---|---:|---:|---:|---:|---:|---|
+| X | 628 | 8,614 | 4,117 | 4,497 | 4 | 33 / 38 |
+| T | 707 | 21,011 | 15,719 | 5,292 | 3,556 | 846 / 1,015 |
+| SecBench | 25,339 | 199,146 | 129,644 | 69,502 | 1,845 | 744 / 973 |
+
+X's hidden lint-staged file adds two bare arrows and one anonymous owner. It adds no projected PR-A credit: the outer formal is member-only and the inner owner is anonymous. T/SecBench aggregates are unchanged. These counts are projections before actual admission/refusal, not exact row budgets or complete loader parity. Binding ambiguity, E7's property keys and PR-C's member-only proof still affect yield. The R1 D11/D12 cost is measured with byte identities in the repaired measurement record.

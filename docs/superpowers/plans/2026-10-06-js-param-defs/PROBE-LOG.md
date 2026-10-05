@@ -1,3 +1,5 @@
+> **R1 supersession (2026-10-05):** Historical prototype record. Its line-based all-CORRECT verdict is refuted by both spec reviewers. Active repair custody and byte-span binding evidence are in `HANDOFF-repair-r1.md` and `MEASUREMENTS-prA.md`; use the committed prototype `1b2dfdc9` plus R1 patches. Prior D11/D12 isolation and zero-WRONG claims do not apply to the repaired artifact.
+
 # PR-A probe log (hypothesis → expectation → result)
 
 Base binary: `prism-base-006573d9`, sha256 `d2babb6d…b7af`, built from `006573d9` (main + docs).

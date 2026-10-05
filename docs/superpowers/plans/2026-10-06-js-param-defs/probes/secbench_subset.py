@@ -20,6 +20,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path.cwd()))
 from eval.secbench.run import canonical, measure  # noqa: E402
+import eval.secbench.run as harness
+# Preserve measure() and its interpretation; bind every SUT launch to the
+# lane-authorized cache root, including witness and seed queries.
+_original_invoke = harness.invoke
+
+def _lane_invoke(binary, args, *rest, **kwargs):
+    args = list(args)
+    if '--cache-dir' in args:
+        args[args.index('--cache-dir') + 1] = str(Path.home() / 'prism-evidence/js-param-defs/cache')
+    return _original_invoke(binary, args, *rest, **kwargs)
+
+harness.invoke = _lane_invoke
 
 EVIDENCE = Path.home() / 'prism-evidence'
 INSPECTION = EVIDENCE / 'meas/secbench/repair-r1/measured/inspection.jsonl'
@@ -42,6 +54,7 @@ def main():
     ap.add_argument('--select', choices=('targets', 'eligible'), default='targets')
     ap.add_argument('--workers', type=int, default=4)
     ap.add_argument('--timeout', type=int, default=120)
+    ap.add_argument('--only-entry', help='supplemental same-environment control; exact package entry')
     args = ap.parse_args()
     if args.out.exists():
         raise SystemExit('use a new output directory')
@@ -53,10 +66,13 @@ def main():
         rows = [r for r in rows if (r['class'], r['entry']) in TARGETS or r['entry'].startswith(ARROW_ENTRY_PREFIXES)]
     else:
         rows = [r for r in rows if r.get('gt_status') == 'available']
+    if args.only_entry:
+        rows = [r for r in rows if r['entry'] == args.only_entry]
+        if not rows: raise SystemExit('no exact control entry selected')
     args.out.mkdir(parents=True)
     binding = {'binary': str(args.binary.resolve()), 'binary_sha256': hashlib.sha256(args.binary.read_bytes()).hexdigest(),
                'inspection_sha256': INSPECTION_SHA, 'select': args.select, 'rows': len(rows),
-               'timeout': args.timeout, 'workers': args.workers}
+               'timeout': args.timeout, 'workers': args.workers, 'only_entry': args.only_entry}
     (args.out / 'binding.json').write_bytes(canonical(binding))
     started = time.time()
     with (args.out / 'entries.jsonl').open('wb') as stream, ThreadPoolExecutor(args.workers) as pool:

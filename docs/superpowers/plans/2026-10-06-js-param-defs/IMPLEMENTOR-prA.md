@@ -1,62 +1,37 @@
-# IMPLEMENTOR dispatch — lane js-param-defs PR-A "binding shapes" (Sonnet)
+# IMPLEMENTOR dispatch — js-param-defs PR-A binding shapes
 
-You implement PR-A from the committed prototype. Read `SPEC-prA.md` §0 first. It is the design of record, and the reasons below are there so you can catch a prescription bug rather than copy one. If the code disagrees with this brief, or the brief disagrees with the SPEC, stop and report it. Do not pick one yourself.
+Start from committed prototype `1b2dfdc93a37dbd87c6359c34e7723912399b682` (parent/base `c8de720b36c24ae8a7ab274ec10c994f258eb336`) plus `repair-r1/R1-src.patch`. The packet docs are `6b0be4ff` plus `repair-r1/R1-docs.patch`. Historical prA3/prA3fmt have prototype-equivalent source. Read SPEC D1–D13 and its R1 disclosures before dispatch. Exact is a static-binding grade; binding CORRECT does not prove runtime flow.
 
-## Goal (decision served)
-Make prism register a parameter Def for two JS/TS/TSX binding shapes that SecBench showed it misses:
-- the unparenthesised arrow formal (`x => …`);
-- the identifier rest formal (`...xs`).
+## Goal and workspace
+Register Defs for bare `x =>` and identifier rest formals in JS/TS/TSX, preserving existing correct rows and non-JS byte identity. The measured unmodified-package target is six rest traces and one arrow trace; two other arrows retain downstream residuals. Use the controller's implementation clone/branch from the pinned prototype and R1 patch. Use `~/prism-evidence/js-param-defs/cache`. Never open frontend-portal or execute corpus packages. In the repair sandbox no git writes are authorized; the controller commits the patches.
 
-The measured effect is 6/6 rest conversions and 1/3 arrow conversions now trace on unmodified packages (`MEASUREMENTS-prA.md`). Exact remains a static-binding grade. Every ambiguity resolves toward **no** Def.
-
-## Where
-- Clone `~/code/prism-pd-impl`, branch `feat/js-param-defs-a` off the controller's commit of the prototype.
-- Cache dir `~/prism-evidence/js-param-defs/cache`.
-- Never open `~/code/frontend-portal`.
-- Commit at each stable point. The controller pushes.
-
-## The change (prototype already in the tree; port, review and own it)
-| Site | Change | Why (the trap it avoids) |
+## Final change table
+| Site | Behavior | Boundary |
 |---|---|---|
-| `ast.rs` new `js_ts_bare_arrow_parameter`, `js_ts_rest_identifier`, `parameter_binding_region` | Add helpers. They are gated on JS/TS/TSX, `arrow_function` and an `identifier` kind | **Do not** add a `parameter` fallback to `find_parameters_node`, even though EVALUATION §3.2 says to. It has ~16 callers that iterate the returned list's children; an identifier has none, so they would silently see an empty list. Two of them treat `None` as "no list" and already carry their own `parameter` fallback (`collect_js_ts_parameter_bindings`, the S1b F3 single-param binding) or a `?` early return (`js_ts_parameter_receiver_binding`). Changing `find_parameters_node` would drop that binding and change call resolution. The same-base `call-stats` control would show it; the suite might not. |
-| `ast.rs::function_parameter_occurrences` (JS path) | A bare arrow returns its one formal. A `rest_pattern` child yields its identifier only when the whole list is clean (no recovery, no duplicate binding) | Destructured rest stays refused. A duplicate list is an early error once a rest element makes the list non-simple, so the new occurrence is refused. The **pre-existing** sloppy-mode plain duplicates stay byte-identical. Do not "fix" them in this PR. |
-| `parameter_slots.rs::typescript_parameter_bindings` | Use `parameter_binding_region`. An identifier region returns one occurrence unless it is escaped (`\`). `required_parameter` with `pattern: rest_pattern(identifier)` is admitted under the existing child allowlist | The pinned grammar has **no** `rest_parameter` node, despite what EVALUATION §3.2 says. TS rest is `required_parameter` + `rest_pattern` (probe in `PROBE-LOG.md` P2). The binding bytes are the inner identifier, not the `...xs` pattern. |
-| `parameter_slots.rs` new `js_ts_parameter_list_is_clean`, `js_ts_is_last_parameter` | `!contains_recovery && !has_duplicate_js_ts_bindings`; rest must be the last named parameter | Reuse the existing helpers; do not write a third duplicate detector. `(...xs, y)` is an early error that tree-sitter parses **without** recovery, so `contains_recovery` does not catch it. The pre-existing test `reviewer_optional_inert_complete_allowlist_and_old_path_controls` pins it. |
-| `ast.rs` new `js_ts_nested_callable_binds_formal`, called at all 4 new-shape admissions (JS bare, JS rest, TS bare, TS rest) | Refuse the new Def when a nested callable re-binds the name as a formal (SPEC D11) | The legacy reference walk does not fence nested formals (E3). Without the guard, T gained a false **Exact** row (`documentRegistry.ts:197→200`). **Do not** apply it to pre-existing plain formals: that changes existing rows and is PR-B's containment job. |
-| `cpg/build.rs::compute_param_def_nodes` | Drop the bare formal from `supported` (SPEC D12) | The ladder's `free_single` resolves bare calls Exact to name-inferred callables (E5). Filling the slot gave 26 Exact arg→formal rows on T, and only 1 was checker-confirmed. **Do not** "fix" this by changing `slots()`; that would change other consumers. The parenthesised control must keep its edge, and the test pins both. |
-| `ast.rs::exact_read_is_plain_required_parameter` | The bare arrow formal counts as plain required for **JS and TS/TSX**. Rest stays excluded (its parent is `rest_pattern`) | EVALUATION lists the JS arm only. The TS arm needs it too, because the bare formal has no `required_parameter` wrapper. |
-| `cpg/reaching/scope.rs::declaration_seed` (one site) | `parameter_binding_region` instead of `find_parameters_node` | Without this, the bare-arrow Def is seeded as a non-parameter binding, and its labels diverge from the identical `(x) =>` control: 9 T rows were Exact where the parenthesised control is NameOnly(Killed). **Leave `introduction_is_classified` (≈ line 588) alone.** The root callable's own fields are never examined there, so changing it is an equivalent mutant (PROBE-LOG P6). |
-| `cpg_cache.rs` | `CACHE_VERSION` 106 → 107 with a doc line, and pin test 107 | One transition. **Do not** bump `NAV_CALL_EDGE_CACHE_VERSION`: call-site rows are byte-identical on every measured corpus. |
-| `cpg/required_parameter_tests.rs`, `ast_required_parameter_tests.rs`, `ast_nested_execution_owner_tests.rs` | Four assertions that pinned the gap now expect the new occurrence: `rests(...items)` → `items`, `take(...a)` → `a` (the unsupported list keeps `...[a]` instead), `(value?, ...rest)` → `value, rest`, and `p=>sink(p)` → `p`@9..10 | These are intended behaviour changes, not re-baselines. Every other assertion in those tests is untouched. |
-| `mutants/lane-p-tsconfig-paths.json` | Rebind `P2-M11-cpg-cache-version` to the 107 anchor, with an `intent_revisions` entry | Its 106 anchor no longer exists, so the full gate would report it INADMISSIBLE. The obligation is unchanged. This is a cross-lane registry edit; the controller should confirm it. |
+| `ast.rs` shape helpers and occurrence extraction | Bare arrow yields its identifier; rest yields the inner identifier bytes | Keep `find_parameters_node`'s list contract; keep destructured/defaulted/optional rest refused |
+| `parameter_slots.rs` TS occurrences | Bare identifier fast path; required_parameter/rest_pattern(identifier) under the existing child allowlist | Whole-list recovery/duplicate/escape checks remain; TS `this` stays excluded |
+| New-shape D11 admissions, all four call sites | Refuse any competing binding in the owner's body: nested formals, catch, for-in/of heads, variable patterns, named functions/generators/classes, TS abstract classes/enums/namespaces; escaped binding ambiguity refuses | Apply only to new shapes; unrelated names/captures remain; PR-B needs a complete containment proof before retiring this guard |
+| Rest signature guard | Final named parameter and no comma after the rest, including comments | Tree-sitter accepts these early errors without recovery; PD-12 now disables the combined admission guard, PD-25 independently checks comma refusal |
+| `compute_param_def_nodes` | Incoming bare-arrow slot remains a hole | Rest remains variadic; do not change `slots()`; `(x) =>` keeps inherited incoming behavior |
+| CPG assembly after argument/return flow | Reverse-reachability from inferred, unreferenceable callee argument edges; suppress only outgoing new-source edges reaching that region | Includes paths through locals and other callables. Retain static Defs, existing call/argument edges and raw DFG for incremental reconstruction. This closes sol W2's outgoing E5 exposure |
+| Exact-read predicate and RD seed | Bare formal is plain required; parameter_binding_region seeds it as a formal | Rest remains excluded from byte-distinct caller-read expansion; leave introduction_is_classified unchanged |
+| Cache | CPG 106→107, call-edge version stays 62 | One PR transition; P2-M11 and PD-11 intentionally share the cache-pin obligation |
+| Probe/controller packet | Owner/byte-aware dump and exact checker declaration identity; hidden files admitted; explicit SecBench failure intersection | Zero-width endpoints need unanimous represented bindings; mixed/absent remains UNDECIDED; failed/partial producers never enter aggregates |
 
-**Do not touch:** `slots()`/`typescript_slots`/`javascript_slots` (rest must keep stopping positional binding; it is variadic), `has_bare_references` (member-only is PR-C), `languages::function_name` (anonymous callables are PR-B), `seeds.rs` (it gains the new Defs through occurrences, intentionally), and anything outside JS/TS/TSX.
+## Tests and intended re-pins
+Run all `js_param_defs`, `required_parameter`, and `nested_execution_owner` tests. The shape suite includes byte Defs, labels, slots/Step 5b, captures/unrelated binders, each review repro, TS declaration variants and early-error comma comments. W3 has executable oracle controls showing the old oracle's false CORRECT and the byte oracle's WRONG. W6 has an old/new hidden-file census control. W4/E8 and F2/E7 have same-environment plain-formal base controls; those disclosed parity defects are not represented as fixed regressions.
 
-## Tests (already in the tree; each must fail on pre-change code)
-- `src/ast_js_param_defs_tests.rs` has 6 tests. They cover: occurrences for bare/async/`get`/curried arrows; rest in JS/TS/TSX with `this` and a comment; destructured, duplicate and escaped refusals; slots unchanged; the `exact_read` arm; and helpers inert for Rust/Python.
-- `src/cpg/js_param_defs_tests.rs` has 9 tests. They cover:
-  - Defs at identifier bytes;
-  - Step 5b never binds an argument to rest or to the bare formal, while the parenthesised control keeps its edge;
-  - the nested-formal refusal, with an unrelated-name control;
-  - **label parity**: bare vs parenthesised arrow, and rest vs plain formal, give byte-identical `dfg_edge_dump`;
-  - the curried inner arrow gets no Def (that is PR-B);
-  - refused shapes, and whole-list refusal of a TS duplicate.
-- Mutants: `mutants/js-param-defs.json` registers 18 mutants (PD-01 to PD-18). Each must be KILLED. The prototype run gave 18/18 killed (authoritative), and the full gate gave 139/139 (PROBE-LOG P13).
+The only four intended old assertion re-pins are `rests(...items)`, `take(...a)` (keep destructured rest unsupported), `(value?, ...rest)`, and `p=>sink(p)`. Starting from the prototype already includes them; R1 does not authorize further re-baselines. PD-01…PD-28 must be admissible and KILLED. Preserve lane P's population; its P2-M11 duplicates PD-11 and must be reconciled on every later cache transition.
 
-## Gates (report totals, with `[MEASURED]` command + output path)
-1. Touched tests: `cargo test --lib js_param_defs` and `cargo test --lib required_parameter`.
-2. One run of `cargo nextest run --features mcp`. Report pass/fail/skip totals. A failure outside this diff is reported, not fixed.
-3. Advisory mutgate: `python3 scripts/mutgate/mutgate.py --lane mutants/js-param-defs.json --since origin/main --scope fn`, plus the authoritative lane run `--lane mutants/js-param-defs.json` (≤ 15 min).
-4. `cargo fmt --check` and `cargo clippy --all-targets --features mcp -- -D warnings`.
-5. Fresh `cargo build --release`, then `cd eval && UV_CACHE_DIR=/Users/wesleyjinks/.local/share/prism/uv-cache uv run tier-a --matrix-only --allow-stale-sut`.
-6. Row controls with `probes/measure-public.sh BASE HEAD OUT`:
-   - Python, Go and Rust DFG and call-site rows must be byte-identical;
-   - X/Xi/T/SecBench must show ADDED/RELABELLED only;
-   - run `probes/adjudicate.cjs` on every changed-row file. Any `ADDED|…|WRONG` or LOST row is a STOP. Each `EXACT_PRIOR_WRITE` hit gets the same-shape plain-parameter control; it is WRONG only if the control differs (SPEC D13).
+## Gates and measurement
+1. Touched tests, including nested_execution_owner.
+2. `cargo nextest run --features mcp`; report totals and the existing ignored test. A new behavior change after a green run requires the corresponding final suite run; do not transfer source-bound evidence across it.
+3. Advisory scoped mutation: `python3 scripts/mutgate/mutgate.py --since origin/main --scope fn`. The scope selects 29 obligations, including the coupled P2-M11; the authoritative PR-A lane selects 28. Authoritative lane mutation runs serially against the same final source.
+4. `cargo fmt --check`; clippy `--all-targets --features mcp -- -W clippy::all`, with the same-environment base control and no new warning in touched code. `-D warnings` is not the approved gate.
+5. Fresh release build in this worktree; matrix 178/178 and quick VALID, retaining the r2 TS/JS comparison frame. No re-baselining.
+6. `probes/measure-bytes.py`: X, Xi, T, SecBench and Python/Go/Rust controls. Project byte records back to wire identity and compare against actual `dfg-stats --edges` output. Diff owner/span-aware multisets and adjudicate exact identifier bytes. Price R1's forfeited prototype gains separately from LOST correct base rows.
+7. SecBench same `measure()` on unmodified packages, target and GT-eligible rows, plus payload-specific BFS. Exclude failed row producers by the union of failures on either side, recording per-side time/status. Explicitly list clean-css and natural as prism_error on both eligible sweep sides.
+8. Controller F: use the revised six-argument `CONTROLLER-pd.sh diff TS_JS BASE_BIN HEAD_BIN BASE_BYTES_BIN HEAD_BYTES_BIN`, a new PRIVATE_EVIDENCE_ROOT and separately supplied CORPUS_F_ROOT. This repair does not access F.
 
-## STOP and report (do not work around)
-- A LOST row, or an ADDED row the checker calls WRONG.
-- Any non-JS byte difference.
-- Any `call-stats --dump-sites` difference.
-- A test that needs re-baselining for a reason other than the `rests` Def above.
-- The prototype and the SPEC disagree.
+## STOP and disclose
+STOP on LOST checker-correct base rows, non-JS non-identity, changed call-site rows, new checker-WRONG binding outside expressly disclosed E7, or unproved/mixed binding classes. Do not silently extend the capped review loop. E7's non-computed property key is a pre-existing WRONG routed to PR-C; E8's unreachable-rest flow is a pre-existing WRONG proved by same-base plain parity as the repair brief permits. Complete independent CFG flow verification remains unperformed. F and the second capped review remain controller work; patch readiness is not merge/adoption authority.

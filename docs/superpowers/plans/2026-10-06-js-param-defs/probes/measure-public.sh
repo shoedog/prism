@@ -1,7 +1,8 @@
 #!/bin/bash
-# Public-corpus base/head row capture for lane js-param-defs (planner; never F).
+# Historical wire-only public-corpus base/head row capture for lane js-param-defs (planner; never F).
+# Active byte/owner gate: measure-bytes.py plus adjudicate-captures.py.
 # Usage: measure-public.sh BASE_BIN HEAD_BIN OUT_DIR
-# For each corpus: `nav --no-cache dfg-stats --edges` and `nav --no-cache call-stats --dump-sites`
+# For each corpus: `nav --cache-dir "$HOME/prism-evidence/js-param-defs/cache" dfg-stats --edges` and `nav --cache-dir "$HOME/prism-evidence/js-param-defs/cache" call-stats --dump-sites`
 # from both binaries, then rowdiff.py (dfg) and a byte comparison (call sites).
 # SecBench: one row capture per authenticated package root (manifest status ok), concatenated
 # with a `pkg` prefix so rows from different packages never merge.
@@ -19,8 +20,8 @@ declare -a ROOTS=(
   "$HOME/.local/share/prism/corpora/prism-20c8490591a3/source"
 )
 capture() { # name root side bin
-  "$4" nav --no-cache dfg-stats --repo "$2" --edges 2>"$OUT/$1.$3.dfg.err" | LC_ALL=C sort > "$OUT/$1.$3.dfg.jsonl"
-  "$4" nav --no-cache call-stats --repo "$2" --dump-sites 2>"$OUT/$1.$3.sites.err" > "$OUT/$1.$3.sites.jsonl"
+  "$4" nav --cache-dir "$HOME/prism-evidence/js-param-defs/cache" dfg-stats --repo "$2" --edges 2>"$OUT/$1.$3.dfg.err" | LC_ALL=C sort > "$OUT/$1.$3.dfg.jsonl"
+  "$4" nav --cache-dir "$HOME/prism-evidence/js-param-defs/cache" call-stats --repo "$2" --dump-sites 2>"$OUT/$1.$3.sites.err" > "$OUT/$1.$3.sites.jsonl"
 }
 for i in "${!NAMES[@]}"; do
   n="${NAMES[$i]}"; r="${ROOTS[$i]}"
