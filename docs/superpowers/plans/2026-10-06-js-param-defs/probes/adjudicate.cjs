@@ -77,6 +77,21 @@ function unreachable(use) {
   if(ts.isFunctionLike(p))break;
  }return false;
 }
+// Identifiers in property-name/attribute-name positions are not variable references
+// (TS checker semantics); a zero-width collapsed endpoint must only consider references.
+function isReferencePosition(n) {
+ const p=n.parent; if(!p)return true;
+ if(ts.isPropertyAccessExpression(p)&&p.name===n)return false;
+ if(ts.isQualifiedName(p)&&p.right===n)return false;
+ if(ts.isPropertyAssignment(p)&&p.name===n)return false;
+ if(ts.isJsxAttribute(p)&&p.name===n)return false;
+ if(ts.isBindingElement(p)&&p.propertyName===n)return false;
+ if((ts.isImportSpecifier(p)||ts.isExportSpecifier(p))&&p.propertyName===n)return false;
+ if((ts.isPropertySignature(p)||ts.isPropertyDeclaration(p)||ts.isMethodDeclaration(p)||ts.isMethodSignature(p)||
+     ts.isGetAccessorDeclaration(p)||ts.isSetAccessorDeclaration(p)||ts.isEnumMember(p))&&p.name===n)return false;
+ if((ts.isLabeledStatement(p)||ts.isBreakStatement(p)||ts.isContinueStatement(p))&&p.label===n)return false;
+ return true;
+}
 function defUse(c) {
  const from=exactId(c.row.from);if(!from.id)return {step1:from.wrong?'WRONG':'UNDECIDED',why:from.why};
  let uses=[],collapsed=false;
@@ -86,7 +101,7 @@ function defUse(c) {
   collapsed=true;const {sf,ids,why}=index(c.row.to.file),owner=c.row.to.owner;
   if(why)return {step1:'UNDECIDED',why};
   if(!sf||!owner||'ambiguous' in owner)return {step1:'UNDECIDED',why:'collapsed_owner_missing'};
-  uses=[...ids.values()].filter(id=>id.text===c.row.from.path.base &&
+  uses=[...ids.values()].filter(id=>id.text===c.row.from.path.base && isReferencePosition(id) &&
    sf.getLineAndCharacterOfPosition(id.getStart(sf)).line+1===c.row.to.line &&
    owner.start_byte<=byte(sf,id.getStart(sf))&&byte(sf,id.end)<=owner.end_byte);
   if(!uses.length)return {step1:'UNDECIDED',why:'collapsed_no_identifier'};
