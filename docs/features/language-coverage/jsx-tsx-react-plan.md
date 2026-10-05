@@ -754,3 +754,42 @@ Full render cycle modeling (a hypothetical Layer 7) would be needed for: detecti
 1. **oxc allocator lifetime management:** oxc uses arena allocation (`oxc_allocator::Allocator`) with lifetime-bound AST references. The `Scoping` struct (symbol table + scope tree) is designed to be extracted from the `Semantic` result and owns its data independently of the allocator. Confirm this extraction pattern is stable across oxc versions before building on it.
 1. **Dual-parse overhead:** Running both tree-sitter and oxc on the same JS/TS file doubles parse time. oxc is fast enough (~sub-millisecond for typical component files) that this is unlikely to be measurable, but benchmark on the largest JS/TS files in the reviewed repos to confirm.
 1. **oxc eventually replacing tree-sitter for JS/TS:** The supplement architecture is designed to evolve. Once `OxcAnalysis` is battle-tested and oxc reaches 1.0, evaluate whether the tree-sitter layer for JS/TS can be dropped entirely — routing the 26 algorithms through an oxc-to-tree-sitter-node adapter, or rewriting the algorithm traversals to work with oxc’s visitor pattern. This is a future decision, not a current one.
+
+-----
+
+## Parked JS/TS lanes (2026-10-04)
+
+Two JS/TS resolution lanes were parked by the owner on 2026-10-04. Every branch is pushed to `origin`. Each plan packet records the owner decisions (`OQ*.md`), the spec reviews (`reviews/`) and the dispatch briefs (`briefs/`). Bulky evidence stays outside the repo, under `~/prism-evidence/{s2,pkgres}/`.
+
+### Lane S2: JS/TS import-qualifier Exact edges (PR #343, draft)
+
+**Goal:** Exact call edges for `import {C} from './m'; C.m()` and `new C()`. The plan packet is `docs/superpowers/plans/2026-10-03-s2-import-qualifiers/`.
+
+| Branch | Commit | State |
+|---|---|---|
+| `plan/s2-import-qualifiers` | `d5be6cce` | Plan packet: SPEC with the §2a escape-channel table, OQ-s2 with decisions S2-O6 to S2-O9 plus the park, measurements, reviews and briefs |
+| `proto/s2-import-qualifiers` | `c35719e1` | Fail-closed whitelist-of-uses prototype (X +132 CORRECT) |
+| | `75a35a5e` | R2: static-binding guards under S2-O7. **X +132, F 0 changed.** The last positive-yield state, before review round 2's refusal-join fold |
+| | `61641bdb` | R3b: precise refusal joins (X 0) |
+| | `06fdb649` | R4: rebased on lane PKG; only `ProvenUnresolved` imports are out of model (S2-O9). X 0 |
+
+**Why it is parked.** Sound refusal joins need prism to resolve *every* writer import exactly as TypeScript does. One unresolved or unsupported import revokes every gain in that package, because the refusal target can't be narrowed. Yield fell to 0 six times: dynamic re-acquisition, `export *` enumeration, eval, and refusal-join folds R3, R3b and R4. The prize was X +132 class-static edges on a single public corpus; the private target corpus gains nothing.
+
+**To resume:** pick up the S2-O7 static-binding state (`75a35a5e`) with an explicit owner ruling on unresolvable writers. Alternatively, resume after lane PKG reaches full TS parity.
+
+### Lane PKG: JS/TS workspace package-entry resolution (PR #344, draft)
+
+**Goal:** bind bare specifiers to in-repo workspace package entries (`package.json` `exports`/`main`/`types`) under TS 5.9.3 semantics. This was a prerequisite for S2 (owner S2-O8). The plan packet is `docs/superpowers/plans/2026-10-04-workspace-package-resolution/`.
+
+| Branch | Commit | State |
+|---|---|---|
+| `plan/workspace-package-resolution` | `6d64dfb1` | Plan packet: census, SPEC with the three-way result contract (`Bound` / `ProvenUnresolved` / `Unsupported`), the TS 5.9.3 differential gate (`probes/`), reviews and briefs |
+| `proto/workspace-package-resolution` | `92c1d0bc` | Bounded prototype |
+| | `03fa9c29` | R1: folds review round 1. The differential gate passes 5,096 cases with 0 wrong bindings, and public call streams are unchanged |
+
+**Why it is parked.** It adds no call edges on its own; its value was S2. Review round 2 found about eight more closed divergences from TypeScript's resolver: JSON winners, trailing-slash `exports` keys, colon paths for ESM writers, secondary-pass priority, and `@types` siblings. It also found that the gate's axes cannot catch most false `ProvenUnresolved` results.
+
+**Reusable assets:**
+- the differential TS-oracle gate harness;
+- the three-way resolution result contract;
+- the round-1 and round-2 findings, which list every known TS divergence.
