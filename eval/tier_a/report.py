@@ -26,6 +26,7 @@ def render_markdown(run: dict) -> str:
         f"- wall (s): {m['wall_s']}",
         f"- invalid reasons: {m.get('invalid_reasons', [])}",
         f"- oracle configuration: {m.get('oracle_configuration', {})}",
+        f"- oracle retries: {len(m.get('oracle_retries', []))} · restarts: {len(m.get('oracle_restarts', []))}",
         "",
     ]
     for direction, strata in run.get("m2", {}).items():

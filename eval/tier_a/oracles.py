@@ -230,7 +230,12 @@ class LspOracle:
                 for fd in seeds:
                     for direction in ("callers", "callees"):
                         before = len(self.retries)
-                        answers[(fd, direction)] = getattr(self, direction)(fd)
+                        try:
+                            answers[(fd, direction)] = getattr(self, direction)(fd)
+                        except OracleTimeout:
+                            raise  # retain the whole-session recovery/refusal policy
+                        except OracleError as exc:
+                            answers[(fd, direction)] = exc
                 return answers
             except OracleTimeout as exc:
                 if attempt or len(self.retries) == before:
@@ -255,6 +260,10 @@ class LspOracle:
                 self.wait_ready()
                 if rebuilt != inventory:
                     raise OracleError("inventory drift during oracle recovery")
+                # Use the original overlay/real-symbol policy on the new session.
+                from .cli import resolve_capability
+                if not resolve_capability(self, self.capability_probe(), rebuilt):
+                    raise OracleError("capability unsupported during oracle recovery")
         raise AssertionError("unreachable")
 
     def stop(self):

@@ -81,6 +81,7 @@ class TsserverOracle(LspOracle):
         self._opened = set()
         self.client.startup_timeout_s = timeouts.get("startup_timeout_s", 60.0)
         self.oracle_filtered = []
+        self._binding_census = {}
 
     def start(self):
         try:
@@ -156,6 +157,17 @@ class TsserverOracle(LspOracle):
 
     def callers(self, fd):
         calls = self._query(fd, "provideCallHierarchyIncomingCalls")
+        from .member_sample import syntax_census, definition_matches
+        # Parse only seed files that actually have incoming sites. Cache syntax
+        # identities for the immutable corpus during this oracle session.
+        if calls and fd.location.file not in self._binding_census:
+            self._binding_census[fd.location.file] = syntax_census(self, [fd.location.file])['bindings']
+        identities = [d for d in self._binding_census.get(fd.location.file, [])
+                      if (d['line'], d['character']) == (fd.selection_line, fd.selection_char)
+                      and fd.location.start_line <= d['line'] <= fd.location.end_line]
+        # Constructors and unsupported syntax retain the existing exact-token rule.
+        if not identities:
+            identities = [{'file': fd.location.file, 'line': fd.selection_line, 'character': fd.selection_char}]
         kept = []
         for call in calls:
             rel = _relative(call["from"]["file"], self.root)
@@ -166,8 +178,8 @@ class TsserverOracle(LspOracle):
                 # Native spans start at the call-name token, already in UTF-16.
                 defs = self._req("definition", {"file": call["from"]["file"],
                                 "line": span["start"]["line"], "offset": span["start"]["offset"]})
-                matches = [d for d in defs if _relative(d["file"], self.root) == fd.location.file
-                           and d["start"] == {"line": fd.selection_line, "offset": fd.selection_char + 1}]
+                matches = [d for d in defs if any(definition_matches(identity,
+                           {**d, 'file': _relative(d['file'], self.root)}) for identity in identities)]
                 if matches:
                     kept.append({**call, "fromSpans": [span]})
                 else:

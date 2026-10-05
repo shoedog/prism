@@ -1,8 +1,8 @@
 # Tier-A quick repair readout
 
-**Superseded by R1:** the table below is historical worker evidence. Both reviewers
+**Superseded by R2:** the table below is historical worker evidence. Both reviewers
 reproduced Rust INVALID, and TS incoming calls included related implementations.
-Current repairs/results: [R1 readout](r1-readout.md). Historical execution totals
+Current repairs/results: [R2 readout](r2-readout.md). R1 also over-filtered initializer bindings. Historical execution totals
 are retained without claiming present reproducibility.
 
 Written 2026-10-05T03:51:24.740379+00:00. Checkout HEAD `4e592daa7858a195eb3a9eb77c83dfbc763b49fa`, branch

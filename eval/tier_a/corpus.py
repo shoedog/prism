@@ -94,6 +94,13 @@ def load_snapshot(path: Path) -> list[FunctionDef]:
             for r in json.loads(path.read_text())]
 
 
+def node_modules_environment(root: str) -> dict:
+    """Observe the root/ancestor search used by TypeScript module resolution."""
+    root = Path(root).resolve()
+    paths = [str(p / 'node_modules') for p in (root, *root.parents)]
+    return {'search_paths': paths, 'present': [p for p in paths if os.path.lexists(p)]}
+
+
 def verify_source_manifest(cfg: dict) -> tuple[list[str], list[str]]:
     """Verify a Git-free public archive, naming each drifting component.
 
@@ -121,6 +128,10 @@ def verify_source_manifest(cfg: dict) -> tuple[list[str], list[str]]:
         elif hashlib.sha256(p.read_bytes()).hexdigest() != digest:
             drift.append(f"source_content:{rel}")
     known = set(files)
+    if cfg.get('reject_node_modules'):
+        for present in node_modules_environment(str(root))['present']:
+            if Path(present).parent != root.resolve():
+                drift.append('oracle_node_modules_present:' + present)
     for dirpath, dirnames, filenames in os.walk(root):
         if cfg.get("reject_node_modules") and "node_modules" in dirnames:
             drift.append("oracle_node_modules_present:" + (Path(dirpath) / "node_modules").relative_to(root).as_posix())

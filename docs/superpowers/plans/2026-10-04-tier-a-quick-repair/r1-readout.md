@@ -1,5 +1,7 @@
 # R1 repair readout
 
+**Superseded by R2:** round 2 refuted the exact-token definition matcher and the TS nonconcrete-member attribution below. Current results: [R2 readout](r2-readout.md). Fresh measurements confirm TS caller precision90.3% [81.3,95.2], TS member recall10/63, and Node member recall0/84. The remaining body is historical R1 evidence.
+
 Bound to `595430e5545b13529bd9da2412342457da597630`, branch `feat/tier-a-quick-repair`. Changes remain uncommitted; controller owns Git writes. Patch: `/Users/wesleyjinks/prism-evidence/meas/tiera/repair-r1/R1.patch`. All artifacts below are under that evidence directory. No acquisition, Git writes, providers or application source execution occurred. The original artifact was repaired in place.
 
 The requested quick/eval/matrix gates pass on this host with one fixed harness. The underlying native rust-analyzer cancellation cause remains UNKNOWN: the brief's request to settle that upstream mechanism is still open. The broader Node suite also has 18 out-of-scope native-membership failures. These limits prevent a whole-project or cross-host closure claim.

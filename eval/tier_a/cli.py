@@ -28,6 +28,7 @@ from .corpus import (
     untracked_sources,
     universe,
     verify_source_manifest,
+    node_modules_environment,
 )
 from .lsp_client import LspError
 from .matrix import MATRIX_LANGUAGES, run_matrix
@@ -630,7 +631,7 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
         run["meta"]["wall_s"]["oracle_start"] = round(time.monotonic() - t0, 3)
         run["meta"]["oracle"] = oracle.version()
         if cfg["oracle"] == "tsserver":
-            environment = {"oracle": oracle.version(), "node_modules": "absent"}
+            environment = {"oracle": oracle.version(), "node_modules": node_modules_environment(cfg['path'])}
             run["meta"]["oracle_environment"] = environment
             run["meta"]["corpus_identity"]["oracle_environment_sha256"] = hashlib.sha256(
                 json.dumps(environment, sort_keys=True).encode()).hexdigest()
@@ -766,6 +767,8 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
                             if direction == "callers"
                             else oracle.callees(fd)
                         )
+                        if isinstance(osites, OracleError):
+                            raise osites
                     except OracleError as exc:
                         failure(pid, exc)
                         run["probes"][pid] = {**run["failures"][pid], "direction": direction,

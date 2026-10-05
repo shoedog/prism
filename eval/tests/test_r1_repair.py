@@ -160,20 +160,29 @@ def test_native_static_binding_quoted_offsets_and_calibration(tmp_path):
     finally:o.stop()
 
 
-def _runner(monkeypatch,tmp_path,*,pin_failure=None,sut_failure=False,lang='rust',version='fake',expected_version='fake',seeds_override=None,default_per=16):
+def _runner(monkeypatch,tmp_path,*,pin_failure=None,sut_failure=False,lang='rust',version='fake',expected_version='fake',seeds_override=None,default_per=16,prime_errors=None):
     from tier_a import cli
     seeds=[FunctionDef('f'+str(i),'function',None,Location('src/lib.rs' if lang=='rust' else 'a.ts',i+1,i+1),i+1) for i in range(20)]
     if seeds_override is not None:
         seeds=seeds_override
     class Oracle:
         not_quiescent=False
+        retries=[]
+        queries=0
         def start(self):pass
         def stop(self):pass
         def version(self):return version
         def capability_probe(self):return True
         def document_symbols(self,*a):return seeds
-        def callers(self,*a):return []
+        def callers(self,*a):
+            self.queries+=1
+            if prime_errors is not None and self.queries<=prime_errors:
+                raise OracleError('no item')
+            return []
         def callees(self,*a):return []
+    if prime_errors is not None:
+        from tier_a.oracles import LspOracle
+        Oracle.prime_hierarchy=LspOracle.prime_hierarchy
     calls=[]
     def sut_query(*a):
         calls.append(a)
@@ -275,6 +284,7 @@ def test_recovery_once_preserves_deadline_inventory_and_configuration(monkeypatc
         def stop(self):pass
     monkeypatch.setattr(lsp_client,'LspClient',Client)
     o.start=lambda:None;o.wait_ready=lambda:None
+    o.capability_probe=lambda:False
     o.document_symbols=lambda file:[] if mode=='drift' else [fd]
     def query(seed):
         if o.client is old or mode=='persistent':

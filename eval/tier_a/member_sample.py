@@ -35,6 +35,21 @@ def syntax_census(oracle, files):
     return json.loads(p.stdout)
 
 
+def definition_matches(declaration, definition):
+    """Same declaration, including its initializer or contiguous overload names.
+
+    Position containment alone would accept a nested same-name declaration.
+    Older census rows carry only the exact name token, which remains supported.
+    """
+    point = {'line': definition['start']['line'], 'character': definition['start']['offset']-1}
+    positions = declaration.get('definition_positions',
+                                [{'line': declaration['line'], 'character': declaration['character']}])
+    key = lambda p: (p['line'], p['character'])
+    return (definition['file'] == declaration['file'] and point in positions and
+            key(declaration.get('declaration_start', point)) <= key(point) <
+            key(declaration.get('declaration_end', {'line': point['line'], 'character': point['character']+1})))
+
+
 def sample_members(oracle, sut, inventory, census, sample, seed):
     declarations = census['declarations']
     supported_names = {shape: {d['name'] for d in declarations if d['shape'] == shape}
@@ -55,8 +70,7 @@ def sample_members(oracle, sut, inventory, census, sample, seed):
                 row['definitions'] = [{'file': uri_to_rel(Path(d['file']).as_uri(), oracle.root),
                                        'start': d['start'], 'end': d['end']} for d in raw]
                 local = [c for c in declarations if c['shape'] == shape and any(
-                         d['file'] == c['file'] and d['start']['line'] == c['line']
-                         and d['start']['offset'] - 1 == c['character'] for d in row['definitions'])]
+                         definition_matches(c, d) for d in row['definitions'])]
                 if not local:
                     row['outcome'] = 'nonconcrete_or_unsupported_definition'
                     excluded[row['outcome']] += 1
