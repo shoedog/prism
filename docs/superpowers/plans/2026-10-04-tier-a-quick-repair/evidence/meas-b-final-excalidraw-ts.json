@@ -1,0 +1,2345 @@
+{
+ "failures": {},
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 4459,
+  "matched": 2855,
+  "prism_extra": 1207,
+  "prism_missing": 54,
+  "snapshot_prism_missing": 54
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "candidate_tier": {
+     "count": 5,
+     "oracle_confirmed": 1,
+     "oracle_unconfirmed": 4
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "tp": 2
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 4,
+    "raw": {
+     "fn": 0,
+     "fp": 4,
+     "precision": [
+      0.42857142857142855,
+      0.15821985399244537,
+      0.7495416372469643
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.3333333333333333,
+       0.06149194402093078,
+       0.7923404011921757
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.3333333333333333,
+       0.06149194402093078,
+       0.7923404011921757
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "candidate_tier": {
+     "count": 7,
+     "oracle_confirmed": 2,
+     "oracle_unconfirmed": 5
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       0.8333333333333334,
+       0.4364971749742326,
+       0.969946630588185
+      ],
+      "tp": 5
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 6,
+    "raw": {
+     "fn": 1,
+     "fp": 5,
+     "precision": [
+      0.5,
+      0.23659308901147935,
+      0.7634069109885206
+     ],
+     "recall": [
+      0.8333333333333334,
+      0.4364971749742326,
+      0.969946630588185
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "candidate_tier": {
+     "count": 2,
+     "oracle_confirmed": 1,
+     "oracle_unconfirmed": 1
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 9,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.299145051727044
+      ],
+      "tp": 0
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 6,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       0.14285714285714285,
+       0.025679624057823897,
+       0.5131278321392249
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 6,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       0.14285714285714285,
+       0.025679624057823897,
+       0.5131278321392249
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 9,
+    "raw": {
+     "fn": 8,
+     "fp": 1,
+     "precision": [
+      0.5,
+      0.09453120463920084,
+      0.9054687953607992
+     ],
+     "recall": [
+      0.1111111111111111,
+      0.01989088741690992,
+      0.4349997083707909
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.0,
+       0.0,
+       0.7934506882081973
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.0,
+       0.0,
+       0.7934506882081973
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.0,
+       0.0,
+       0.7934506882081973
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 0,
+     "fp": 1,
+     "precision": [
+      0.0,
+      0.0,
+      0.7934506882081973
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "candidate_tier": {
+     "count": 6,
+     "oracle_confirmed": 3,
+     "oracle_unconfirmed": 3
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       0.5,
+       0.18761630498040816,
+       0.8123836950195918
+      ],
+      "tp": 3
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 3,
+    "raw": {
+     "fn": 0,
+     "fp": 3,
+     "precision": [
+      0.6666666666666666,
+      0.35420213352505864,
+      0.8794161825659264
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 10,
+  "checked": [
+   {
+    "probe": "callers:excalidraw-app/data/LocalData.ts:171",
+    "site": "excalidraw-app/data/FileManager.ts:158",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:packages/common/src/appEventBus.ts:101",
+    "site": "excalidraw-app/collab/Portal.tsx:45",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:packages/common/src/appEventBus.ts:101",
+    "site": "excalidraw-app/collab/Portal.tsx:95",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:packages/common/src/appEventBus.ts:101",
+    "site": "excalidraw-app/collab/Portal.tsx:252",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:packages/excalidraw/subset/woff2/woff2-bindings.ts:103",
+    "site": "packages/excalidraw/subset/woff2/woff2-bindings.ts:917",
+    "verdict": "confirmed_fp"
+   }
+  ],
+  "counts": {
+   "alias_site": 1,
+   "ambiguous": 3,
+   "confirmed_fp": 1,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": false,
+  "corpus": "excalidraw-ts",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_identity": {
+   "component": "source_manifest",
+   "drift": [],
+   "expected": "0642e72cfa2d",
+   "manifest_sha256": "1a6c4397bfacafc0dc2651d1f65fe4dd7afed60a0fa21f8f928061b9e20968f0",
+   "observed": "0642e72cfa2d"
+  },
+  "corpus_sha": "0642e72cfa2d",
+  "date": "meas-b-final",
+  "harness_sha": "4e592daa7858",
+  "invalid_reasons": [],
+  "language": "ts",
+  "oracle": "tsserver 6.0.3",
+  "oracle_configuration": {
+   "cargo_features": null
+  },
+  "oracle_error_rate": 0.0,
+  "oracle_not_quiescent": false,
+  "oracle_retries": [],
+  "prism_dirty": false,
+  "prism_sha": "4e592daa7858",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "timeouts": {
+   "oracle_budget_s": 600.0,
+   "query_timeout_s": 10.0,
+   "startup_timeout_s": 60.0
+  },
+  "wall_s": {
+   "m1_oracle_inventory": 4.452,
+   "m2": 60.445,
+   "m3": 0.023,
+   "oracle_start": 0.152,
+   "total": 67.867
+  }
+ },
+ "pending": [
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "excalidraw-app/data/LocalData.ts:171",
+   "site": "excalidraw-app/data/FileManager.ts:158",
+   "site_fingerprint": "f9d3bc37b093d296",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "packages/common/src/appEventBus.ts:101",
+   "site": "excalidraw-app/collab/Portal.tsx:45",
+   "site_fingerprint": "a8a623d8b576cda0",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "packages/common/src/appEventBus.ts:101",
+   "site": "excalidraw-app/collab/Portal.tsx:95",
+   "site_fingerprint": "d98e4f7a0301eef7",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "packages/common/src/appEventBus.ts:101",
+   "site": "excalidraw-app/collab/Portal.tsx:252",
+   "site_fingerprint": "513203e511267bb3",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "packages/excalidraw/lasso/index.ts:71",
+   "site": "packages/excalidraw/components/App.tsx:7927",
+   "site_fingerprint": "f27182cdb00530f7"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "packages/excalidraw/lasso/index.ts:71",
+   "site": "packages/excalidraw/components/App.tsx:8059",
+   "site_fingerprint": "526f540a33fc10ae"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "packages/excalidraw/lasso/index.ts:71",
+   "site": "packages/excalidraw/components/App.tsx:8082",
+   "site_fingerprint": "dac8824f2d8571aa"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "packages/excalidraw/lasso/index.ts:71",
+   "site": "packages/excalidraw/components/App.tsx:8740",
+   "site_fingerprint": "0de6ac628e38603a"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "packages/excalidraw/lasso/index.ts:71",
+   "site": "packages/excalidraw/components/App.tsx:10325",
+   "site_fingerprint": "7072a75c1f5666e3"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "packages/excalidraw/lasso/index.ts:71",
+   "site": "packages/excalidraw/eraser/index.ts:72",
+   "site_fingerprint": "0dba49264a334ea0"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "packages/excalidraw/lasso/index.ts:71",
+   "site": "packages/excalidraw/laserTrails.ts:46",
+   "site_fingerprint": "5f3afae386bb61f2"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "packages/excalidraw/lasso/index.ts:71",
+   "site": "packages/excalidraw/laserTrails.ts:115",
+   "site_fingerprint": "0246fd378ffb7f7d"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callers",
+   "seed_def": "packages/excalidraw/subset/woff2/woff2-bindings.ts:103",
+   "site": "packages/excalidraw/subset/woff2/woff2-bindings.ts:917",
+   "site_fingerprint": "ccff2d972f981cba"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "excalidraw-app/data/LocalData.ts:171",
+   "site": "excalidraw-app/data/LocalData.ts:186",
+   "site_fingerprint": "c5ece834276e4787",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "excalidraw-app/data/LocalData.ts:171",
+   "site": "excalidraw-app/data/LocalData.ts:187",
+   "site_fingerprint": "b33895579cdaf60c",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "excalidraw-app/data/LocalData.ts:171",
+   "site": "excalidraw-app/data/LocalData.ts:189",
+   "site_fingerprint": "94a0c95a11a925d1",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "packages/common/src/appEventBus.ts:101",
+   "site": "packages/common/src/appEventBus.ts:106",
+   "site_fingerprint": "542a1bca17335a5a",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "packages/common/src/appEventBus.ts:101",
+   "site": "packages/common/src/appEventBus.ts:109",
+   "site_fingerprint": "156964a7c2ea328a",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "packages/common/src/appEventBus.ts:101",
+   "site": "packages/common/src/appEventBus.ts:114",
+   "site_fingerprint": "120bf58d79f2f99a",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "packages/common/src/versionedSnapshotStore.ts:61",
+   "site": "packages/common/src/versionedSnapshotStore.ts:67",
+   "site_fingerprint": "095c3132a5570c70",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "packages/element/src/delta.ts:205",
+   "site": "packages/element/src/delta.ts:246",
+   "site_fingerprint": "48f410b0a343f446",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_multi_owner_candidate",
+   "measurement": "callees",
+   "seed_def": "packages/element/src/delta.ts:205",
+   "site": "packages/element/src/delta.ts:247",
+   "site_fingerprint": "8e0af54353803eac",
+   "tier": "candidate"
+  },
+  {
+   "corpus": "excalidraw-ts",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "packages/excalidraw/subset/woff2/woff2-bindings.ts:886",
+   "site": "packages/excalidraw/subset/woff2/woff2-bindings.ts:887",
+   "site_fingerprint": "1a5510209f4fde84"
+  }
+ ],
+ "probes": {
+  "_corpus": "excalidraw-ts",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   },
+   "C-name": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   },
+   "Q-scoped": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   },
+   "U-free": {
+    "eligible_probes": 0,
+    "eligible_symbols": 0,
+    "target": 3
+   },
+   "U-method": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   }
+  },
+  "callees:excalidraw-app/data/LocalData.ts:171": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "excalidraw-app/data/LocalData.ts",
+     "getFiles"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "excalidraw-app/data/LocalData.ts",
+     189,
+     189,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "excalidraw-app/data/LocalData.ts",
+     186,
+     186,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "excalidraw-app/data/LocalData.ts",
+     187,
+     187,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "excalidraw-app/data/LocalData.ts",
+     186,
+     186,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "excalidraw-app/data/LocalData.ts",
+     187,
+     187,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "excalidraw-app/data/LocalData.ts",
+     189,
+     189,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "excalidraw-app/data/LocalData.ts",
+     189,
+     189,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "excalidraw-app/data/LocalData.ts",
+     186,
+     186,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "excalidraw-app/data/LocalData.ts",
+     187,
+     187,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "excalidraw-app/data/LocalData.ts:171",
+   "stratum": "C-method"
+  },
+  "callees:packages/common/src/appEventBus.ts:101": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "packages/common/src/appEventBus.ts",
+     "emit"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "packages/common/src/appEventBus.ts",
+     104,
+     104
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     118,
+     118
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     118,
+     118
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     118,
+     118
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     118,
+     118
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     118,
+     118
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     118,
+     118
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     121,
+     121
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     121,
+     121
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     121,
+     121
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     121,
+     121
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     121,
+     121
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     121,
+     121
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "packages/common/src/appEventBus.ts",
+     "emit"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "packages/common/src/appEventBus.ts",
+     118,
+     118,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     121,
+     121,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     104,
+     104,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     114,
+     114,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     121,
+     121,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     118,
+     118,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     114,
+     114,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     109,
+     109,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     106,
+     106,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     114,
+     114,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     109,
+     109,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "packages/common/src/appEventBus.ts",
+     109,
+     109,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "packages/common/src/appEventBus.ts:101",
+   "stratum": "U-method"
+  },
+  "callees:packages/common/src/versionedSnapshotStore.ts:61": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "packages/common/src/versionedSnapshotStore.ts",
+     "pull"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "packages/common/src/versionedSnapshotStore.ts",
+     63,
+     63
+    ],
+    [
+     "packages/common/src/versionedSnapshotStore.ts",
+     63,
+     63
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "packages/common/src/versionedSnapshotStore.ts",
+     "pull"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "packages/common/src/versionedSnapshotStore.ts",
+     63,
+     63,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "packages/common/src/versionedSnapshotStore.ts",
+     67,
+     67,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "packages/common/src/versionedSnapshotStore.ts",
+     67,
+     67,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "packages/common/src/versionedSnapshotStore.ts",
+     67,
+     67,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "packages/common/src/versionedSnapshotStore.ts:61",
+   "stratum": "C-method"
+  },
+  "callees:packages/element/src/delta.ts:1126": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "packages/element/src/delta.ts",
+     "satisfiesUniqueInvariants"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "packages/element/src/delta.ts:1126",
+   "stratum": "Q-scoped"
+  },
+  "callees:packages/element/src/delta.ts:205": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "packages/element/src/delta.ts",
+     "diffObjects"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "packages/element/src/delta.ts",
+     226,
+     226
+    ],
+    [
+     "packages/element/src/delta.ts",
+     226,
+     226
+    ],
+    [
+     "packages/element/src/delta.ts",
+     226,
+     226
+    ],
+    [
+     "packages/element/src/delta.ts",
+     226,
+     226
+    ],
+    [
+     "packages/element/src/delta.ts",
+     234,
+     234
+    ],
+    [
+     "packages/element/src/delta.ts",
+     234,
+     234
+    ],
+    [
+     "packages/element/src/delta.ts",
+     234,
+     234
+    ],
+    [
+     "packages/element/src/delta.ts",
+     234,
+     234
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "packages/element/src/delta.ts",
+     "diffObjects"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "packages/element/src/delta.ts",
+     226,
+     226,
+     {
+      "resolution_kind": "qualifier_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "packages/element/src/delta.ts",
+     234,
+     234,
+     {
+      "resolution_kind": "qualifier_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "packages/element/src/delta.ts",
+     246,
+     246,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "packages/element/src/delta.ts",
+     247,
+     247,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "packages/element/src/delta.ts",
+     246,
+     246,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "packages/element/src/delta.ts",
+     247,
+     247,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "packages/element/src/delta.ts",
+     246,
+     246,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ],
+    [
+     "packages/element/src/delta.ts",
+     247,
+     247,
+     {
+      "resolution_kind": "r6_multi_owner_candidate",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "packages/element/src/delta.ts:205",
+   "stratum": "U-method"
+  },
+  "callees:packages/element/src/heading.ts:67": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "packages/element/src/heading.ts",
+     "headingIsVertical"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "packages/element/src/heading.ts",
+     67,
+     67
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "packages/element/src/heading.ts",
+     "headingIsVertical"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "packages/element/src/heading.ts",
+     67,
+     67,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "packages/element/src/heading.ts:67",
+   "stratum": "Q-scoped"
+  },
+  "callees:packages/element/src/selection.ts:128": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "packages/element/src/selection.ts",
+     "ret"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "packages/element/src/selection.ts:128",
+   "stratum": "C-name"
+  },
+  "callees:packages/element/src/textElement.ts:389": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "packages/element/src/textElement.ts",
+     "getBoundTextElementPosition"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "packages/element/src/textElement.ts",
+     394,
+     394
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "packages/element/src/textElement.ts",
+     "getBoundTextElementPosition"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "packages/element/src/textElement.ts",
+     394,
+     394,
+     {
+      "resolution_kind": "import_member",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "packages/element/src/textElement.ts:389",
+   "stratum": "C-name"
+  },
+  "callees:packages/excalidraw/charts/charts.helpers.ts:156": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "packages/excalidraw/charts/charts.helpers.ts",
+     "getCircularDistance"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "packages/excalidraw/charts/charts.helpers.ts:156",
+   "stratum": "Q-scoped"
+  },
+  "callees:packages/excalidraw/lasso/index.ts:71": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "packages/excalidraw/lasso/index.ts",
+     "startPath"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "packages/excalidraw/lasso/index.ts",
+     73,
+     73
+    ],
+    [
+     "packages/excalidraw/lasso/index.ts",
+     73,
+     73
+    ],
+    [
+     "packages/excalidraw/lasso/index.ts",
+     75,
+     75
+    ],
+    [
+     "packages/excalidraw/lasso/index.ts",
+     75,
+     75
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "packages/excalidraw/lasso/index.ts",
+     "startPath"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "packages/excalidraw/lasso/index.ts",
+     73,
+     73,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ],
+    [
+     "packages/excalidraw/lasso/index.ts",
+     75,
+     75,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "packages/excalidraw/lasso/index.ts:71",
+   "stratum": "C-method"
+  },
+  "callees:packages/excalidraw/subset/woff2/woff2-bindings.ts:103": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "packages/excalidraw/subset/woff2/woff2-bindings.ts",
+     "readBinary"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "packages/excalidraw/subset/woff2/woff2-bindings.ts",
+     108,
+     108
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "packages/excalidraw/subset/woff2/woff2-bindings.ts",
+     "readBinary"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "packages/excalidraw/subset/woff2/woff2-bindings.ts",
+     108,
+     108,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "packages/excalidraw/subset/woff2/woff2-bindings.ts:103",
+   "stratum": "C-name"
+  },
+  "callees:packages/excalidraw/subset/woff2/woff2-bindings.ts:886": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "packages/excalidraw/subset/woff2/woff2-bindings.ts",
+     "registerDevice"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "packages/excalidraw/subset/woff2/woff2-bindings.ts",
+     887,
+     887
+    ],
+    [
+     "packages/excalidraw/subset/woff2/woff2-bindings.ts",
+     887,
+     887
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "packages/excalidraw/subset/woff2/woff2-bindings.ts",
+     "registerDevice"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "packages/excalidraw/subset/woff2/woff2-bindings.ts:886",
+   "stratum": "U-method"
+  },
+  "callers:excalidraw-app/data/LocalData.ts:171": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "excalidraw-app/data/FileManager.ts",
+     "getFiles"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "excalidraw-app/data/FileManager.ts",
+     158,
+     158,
+     {
+      "resolution_kind": "free_multi",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "excalidraw-app/data/LocalData.ts:171",
+   "stratum": "C-method"
+  },
+  "callers:packages/common/src/appEventBus.ts:101": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "packages/excalidraw/components/App.tsx",
+     "componentDidMount"
+    ],
+    [
+     "packages/excalidraw/components/App.tsx",
+     "componentDidUpdate"
+    ],
+    [
+     "packages/excalidraw/components/App.tsx",
+     "componentWillUnmount"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "packages/excalidraw/components/App.tsx",
+     3183,
+     3183
+    ],
+    [
+     "packages/excalidraw/components/App.tsx",
+     3208,
+     3208
+    ],
+    [
+     "packages/excalidraw/components/App.tsx",
+     3400,
+     3400
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "excalidraw-app/collab/Portal.tsx",
+     "_broadcastSocketData"
+    ],
+    [
+     "excalidraw-app/collab/Portal.tsx",
+     "broadcastUserFollowed"
+    ],
+    [
+     "excalidraw-app/collab/Portal.tsx",
+     "open"
+    ],
+    [
+     "packages/excalidraw/components/App.tsx",
+     "componentDidMount"
+    ],
+    [
+     "packages/excalidraw/components/App.tsx",
+     "componentDidUpdate"
+    ],
+    [
+     "packages/excalidraw/components/App.tsx",
+     "componentWillUnmount"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "excalidraw-app/collab/Portal.tsx",
+     45,
+     45,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "excalidraw-app/collab/Portal.tsx",
+     95,
+     95,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "excalidraw-app/collab/Portal.tsx",
+     252,
+     252,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "packages/excalidraw/components/App.tsx",
+     3183,
+     3183,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "packages/excalidraw/components/App.tsx",
+     3208,
+     3208,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ],
+    [
+     "packages/excalidraw/components/App.tsx",
+     3400,
+     3400,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "packages/common/src/appEventBus.ts:101",
+   "stratum": "U-method"
+  },
+  "callers:packages/common/src/versionedSnapshotStore.ts:61": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "packages/common/src/versionedSnapshotStore.ts:61",
+   "stratum": "C-method"
+  },
+  "callers:packages/element/src/delta.ts:1126": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "packages/element/src/delta.ts",
+     "validate"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "packages/element/src/delta.ts",
+     1143,
+     1143
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "packages/element/src/delta.ts",
+     "validate"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "packages/element/src/delta.ts",
+     1143,
+     1143,
+     {
+      "resolution_kind": "self_receiver",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "packages/element/src/delta.ts:1126",
+   "stratum": "Q-scoped"
+  },
+  "callers:packages/element/src/delta.ts:205": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "packages/element/src/delta.ts",
+     "postProcess"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "packages/element/src/delta.ts",
+     972,
+     972
+    ],
+    [
+     "packages/element/src/delta.ts",
+     979,
+     979
+    ],
+    [
+     "packages/element/src/delta.ts",
+     985,
+     985
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "packages/element/src/delta.ts",
+     "postProcess"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "packages/element/src/delta.ts",
+     972,
+     972,
+     {
+      "resolution_kind": "qualifier_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "packages/element/src/delta.ts",
+     979,
+     979,
+     {
+      "resolution_kind": "qualifier_owner",
+      "score": 1.0
+     }
+    ],
+    [
+     "packages/element/src/delta.ts",
+     985,
+     985,
+     {
+      "resolution_kind": "qualifier_owner",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "packages/element/src/delta.ts:205",
+   "stratum": "U-method"
+  },
+  "callers:packages/element/src/heading.ts:67": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "packages/element/src/heading.ts:67",
+   "stratum": "Q-scoped"
+  },
+  "callers:packages/element/src/selection.ts:128": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "packages/element/src/selection.ts:128",
+   "stratum": "C-name"
+  },
+  "callers:packages/element/src/textElement.ts:389": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "packages/element/src/textElement.ts:389",
+   "stratum": "C-name"
+  },
+  "callers:packages/excalidraw/charts/charts.helpers.ts:156": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "packages/excalidraw/charts/charts.helpers.ts",
+     "getSeriesColors"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "packages/excalidraw/charts/charts.helpers.ts",
+     190,
+     190
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "packages/excalidraw/charts/charts.helpers.ts",
+     "getSeriesColors"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "packages/excalidraw/charts/charts.helpers.ts",
+     190,
+     190,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "packages/excalidraw/charts/charts.helpers.ts:156",
+   "stratum": "Q-scoped"
+  },
+  "callers:packages/excalidraw/lasso/index.ts:71": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "packages/excalidraw/components/App.tsx",
+     "handleCanvasPointerDown"
+    ],
+    [
+     "packages/excalidraw/components/App.tsx",
+     "handleSelectionOnPointerDown"
+    ],
+    [
+     "packages/excalidraw/components/App.tsx",
+     "onPointerMoveFromPointerDownHandler"
+    ],
+    [
+     "packages/excalidraw/eraser/index.ts",
+     "startPath"
+    ],
+    [
+     "packages/excalidraw/laserTrails.ts",
+     "startPath"
+    ],
+    [
+     "packages/excalidraw/laserTrails.ts",
+     "updateCollabTrails"
+    ],
+    [
+     "packages/excalidraw/lasso/index.ts",
+     "startPath"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "packages/excalidraw/laserTrails.ts",
+     46,
+     46
+    ],
+    [
+     "packages/excalidraw/laserTrails.ts",
+     115,
+     115
+    ],
+    [
+     "packages/excalidraw/lasso/index.ts",
+     75,
+     75
+    ],
+    [
+     "packages/excalidraw/eraser/index.ts",
+     72,
+     72
+    ],
+    [
+     "packages/excalidraw/components/App.tsx",
+     8059,
+     8059
+    ],
+    [
+     "packages/excalidraw/components/App.tsx",
+     7927,
+     7927
+    ],
+    [
+     "packages/excalidraw/components/App.tsx",
+     8082,
+     8082
+    ],
+    [
+     "packages/excalidraw/components/App.tsx",
+     8740,
+     8740
+    ],
+    [
+     "packages/excalidraw/components/App.tsx",
+     10325,
+     10325
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "packages/excalidraw/lasso/index.ts",
+     "startPath"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "packages/excalidraw/lasso/index.ts",
+     75,
+     75,
+     {
+      "resolution_kind": "r6_single_owner",
+      "score": 0.6
+     }
+    ]
+   ],
+   "seed_def": "packages/excalidraw/lasso/index.ts:71",
+   "stratum": "C-method"
+  },
+  "callers:packages/excalidraw/subset/woff2/woff2-bindings.ts:103": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "packages/excalidraw/subset/woff2/woff2-bindings.ts",
+     "getBinary"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "packages/excalidraw/subset/woff2/woff2-bindings.ts",
+     917,
+     917,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "packages/excalidraw/subset/woff2/woff2-bindings.ts:103",
+   "stratum": "C-name"
+  },
+  "callers:packages/excalidraw/subset/woff2/woff2-bindings.ts:886": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "packages/excalidraw/subset/woff2/woff2-bindings.ts:886",
+   "stratum": "U-method"
+  }
+ },
+ "site_fingerprints": {
+  "excalidraw-app/collab/Portal.tsx:252": "513203e511267bb3",
+  "excalidraw-app/collab/Portal.tsx:45": "a8a623d8b576cda0",
+  "excalidraw-app/collab/Portal.tsx:95": "d98e4f7a0301eef7",
+  "excalidraw-app/data/FileManager.ts:158": "f9d3bc37b093d296",
+  "excalidraw-app/data/LocalData.ts:186": "c5ece834276e4787",
+  "excalidraw-app/data/LocalData.ts:187": "b33895579cdaf60c",
+  "excalidraw-app/data/LocalData.ts:189": "94a0c95a11a925d1",
+  "packages/common/src/appEventBus.ts:104": "9b9d62b39667911b",
+  "packages/common/src/appEventBus.ts:106": "542a1bca17335a5a",
+  "packages/common/src/appEventBus.ts:109": "156964a7c2ea328a",
+  "packages/common/src/appEventBus.ts:114": "120bf58d79f2f99a",
+  "packages/common/src/appEventBus.ts:118": "ce815bb07c5743b0",
+  "packages/common/src/appEventBus.ts:121": "e14ff1bf9eda3d08",
+  "packages/common/src/versionedSnapshotStore.ts:63": "599da8561c2487d1",
+  "packages/common/src/versionedSnapshotStore.ts:67": "095c3132a5570c70",
+  "packages/element/src/delta.ts:1143": "b6eaeea76306aea0",
+  "packages/element/src/delta.ts:226": "2f6997c979d636cd",
+  "packages/element/src/delta.ts:234": "da9128a0536736ef",
+  "packages/element/src/delta.ts:246": "48f410b0a343f446",
+  "packages/element/src/delta.ts:247": "8e0af54353803eac",
+  "packages/element/src/delta.ts:972": "e2edb4e6392de5b0",
+  "packages/element/src/delta.ts:979": "f730dc9b266bae46",
+  "packages/element/src/delta.ts:985": "f730dc9b266bae46",
+  "packages/element/src/heading.ts:67": "70cc5238731a63e3",
+  "packages/element/src/textElement.ts:394": "fed0077f3138ba01",
+  "packages/excalidraw/charts/charts.helpers.ts:190": "a9592cb1ad7bf307",
+  "packages/excalidraw/components/App.tsx:10325": "7072a75c1f5666e3",
+  "packages/excalidraw/components/App.tsx:3183": "9d94e48d90d6fe90",
+  "packages/excalidraw/components/App.tsx:3208": "a9a1f9acfe0d37ac",
+  "packages/excalidraw/components/App.tsx:3400": "cfbc491b127dc622",
+  "packages/excalidraw/components/App.tsx:7927": "f27182cdb00530f7",
+  "packages/excalidraw/components/App.tsx:8059": "526f540a33fc10ae",
+  "packages/excalidraw/components/App.tsx:8082": "dac8824f2d8571aa",
+  "packages/excalidraw/components/App.tsx:8740": "0de6ac628e38603a",
+  "packages/excalidraw/eraser/index.ts:72": "0dba49264a334ea0",
+  "packages/excalidraw/laserTrails.ts:115": "0246fd378ffb7f7d",
+  "packages/excalidraw/laserTrails.ts:46": "5f3afae386bb61f2",
+  "packages/excalidraw/lasso/index.ts:73": "2c66c2b4e91ca667",
+  "packages/excalidraw/lasso/index.ts:75": "462f4a68d52c73a3",
+  "packages/excalidraw/subset/woff2/woff2-bindings.ts:108": "f7101183b7e8aa8d",
+  "packages/excalidraw/subset/woff2/woff2-bindings.ts:887": "1a5510209f4fde84",
+  "packages/excalidraw/subset/woff2/woff2-bindings.ts:917": "ccff2d972f981cba"
+ },
+ "summary": {
+  "callees": {
+   "exact_tier": {
+    "fn": 2,
+    "fp": 0,
+    "precision": [
+     1.0,
+     0.7224671969739421,
+     0.9999999999999999
+    ],
+    "recall": [
+     0.8333333333333334,
+     0.5519691353881888,
+     0.9530348582430792
+    ],
+    "tp": 10
+   },
+   "raw": {
+    "fn": 1,
+    "fp": 9,
+    "precision": [
+     0.55,
+     0.3420853410191274,
+     0.7418021429623598
+    ],
+    "recall": [
+     0.9166666666666666,
+     0.6461200862787544,
+     0.9851349057603305
+    ],
+    "tp": 11
+   }
+  },
+  "callers": {
+   "exact_tier": {
+    "fn": 12,
+    "fp": 1,
+    "precision": [
+     0.8333333333333334,
+     0.4364971749742326,
+     0.969946630588185
+    ],
+    "recall": [
+     0.29411764705882354,
+     0.1327998952626943,
+     0.5313311024822815
+    ],
+    "tp": 5
+   },
+   "raw": {
+    "fn": 8,
+    "fp": 5,
+    "precision": [
+     0.6428571428571429,
+     0.38764422924295516,
+     0.8365526834990504
+    ],
+    "recall": [
+     0.5294117647058824,
+     0.3096323491502231,
+     0.7383489368862088
+    ],
+    "tp": 9
+   }
+  }
+ }
+}
