@@ -1,70 +1,68 @@
-# Handoff — S2 R3b measured STOP, unselected candidate preserved
+# Handoff — S2 R4 measured yield STOP; artifact preserved
 
-**Written:** 2026-10-04T13:21:46.773897+00:00 · **By:** Codex /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/prism-s2-plan · plan/s2-import-qualifiers · **Measured state:** `[MEASURED]` HEAD ecdb6b0ffb62963e443027e5de07b4b6272f95c3 · Tree DIRTY · Probe git status/source rehash/complete public compare · Output initial-custody.json/measurement-ledger.json/final-custody.json
-**Predecessor:** R3 yield STOP; owner repair-r3b brief
+**Written:** 2026-10-04T23:55:35.687389+00:00 · **By:** Codex /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/prism-s2-plan · plan/s2-import-qualifiers · **Measured state:** `[MEASURED]` HEAD aa55a532a13be8ae7bd7908efd1bc9d2f6f8b229 · Tree DIRTY · Probe byte population comparison / nextest / release build · Output PREFLIGHT-r4b.json/targeted-shortcut.log/binary-binding.json
+**Predecessor:** R4 preflight fetch block, resolved by R4b addendum.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
 
 ## 0. Gating facts — settle these before starting anything below
-**(a) Lane ownership** — [INHERITED] repair-r3b brief authorized continuation and separate measurements; controller owns Git/F/review/adoption. RESOLVED within repair scope; new STOP decision OPEN.
-**(b) Custody exposure** — [MEASURED] initial R3 snapshot771 hashes exact; final i snapshot/frozen canonical binaries and ii quarantined source/binaries; cumulative75a35/ecdb patches and replay receipts. RESOLVED locally; controller must preserve/commit before cleanup.
-**(c) In flight / irreversible** — [MEASURED] all comparison/control jobs completed; first two incomplete timing attempts were interrupted through their exact sessions. No job or irreversible action remains. RESOLVED.
-**(d) Authorization granted but not exercised** — [INHERITED] “more than10 X rows lost → report and choose nothing”; “Measure it and do not adopt it.” [MEASURED] loss132, selectionNONE; ii not adopted; conditional full gates not dispatched.
+**(a) Lane ownership** — [INHERITED] User assigns amended R4 brief. Controller owns Git, private F, review/adoption and any PKG delta. RESOLVED within local repair scope.
+**(b) Custody exposure** — [MEASURED] Initial724 source files and30 packet files byte-exact; snapshots initial-r4b-source-docs.tar.gz,combined-base.tar.gz,candidate-source.tar.gz. RESOLVED locally; controller commits remain required before external adoption.
+**(c) In flight / irreversible** — [MEASURED] All R4 comparison/gap/control/rebuild jobs complete; first timing run interrupted via exact exec session. No live worker job or irreversible action remains. RESOLVED.
+**(d) Authorization granted but not exercised** — [INHERITED] Addendum: “Only ProvenUnresolved” permits exclusion; Unsupported “fails closed”; “build on03fa9c29 now.” Brief: “STOP if it is more than10 rows below132; report attribution and choose nothing.”
 
 ## 1. Resume order
-1. `cat /Users/wesleyjinks/prism-evidence/s2/repair-r3b/STOP.json /Users/wesleyjinks/prism-evidence/s2/repair-r3b/REPORT.md` (seconds).
-2. Inspect unavailable-i-X.json and unavailable-ii-installed-X.json; controller resolves scope/design and yield STOP before any further source/gate choice. Local cap2 reached; no independent review dispatched.
-3. If explicitly selected later, continue this artifact:75a35+cumulativeR3b-src,ecdb+cumulativeR3b-docs. Rebuild/rebind/replay exact committed source. Do not stack R2-src/R3-src beneath cumulativeR3b-src or substitute ii tools.
-**STOP conditions:** X loss>10 (currently132), unproven/owner-mismatched change, populated-base mutation or input drift. No automatic extension/design choice.
+1. `cat /Users/wesleyjinks/prism-evidence/s2/repair-r4/STOP.json /Users/wesleyjinks/prism-evidence/s2/repair-r4/REPORT.md` (seconds). Read every gap-revoking writer before choosing a PKG/spec response.
+2. Controller resolves X yieldSTOP; worker selected nothing. Do not run pending full gates/F/review/adoption or introduce authority exceptions on this archive.
+3. If explicitly authorized later, continue61641bdb + PKG03fa9c29 + replayedR4-src;docsaa55a532 +R4-docs;rebase onto PKG merged main,rebuild/rebind/replay. S2-only projection still needs PKG API.
+**STOP conditions:** X<122 (measured0), unproven/owner-mismatched row, lost edge or input drift. Cap2 plus one disclosed exact-union extension exhausted; no further policy retry.
 
 ## 2. State ledger
 | Item | State | Evidence / correction |
 |---|---|---|
-| Initial diagnosis/custody |done|[MEASURED] diagnosis.json/initial-custody.json; resolved relative/workspace diagnosis holds; bare eslint unresolved|
-| Precision candidate / retained A/C |done|[MEASURED] final39/0 S2;R3 same-environment4 expected failures;registry28 unchanged;candidate-i-2 source freeze|
-| Separate public/native measurements |done|[MEASURED] i0/0/0/0;ii0/0/0/0 NEW ACCEPTED COST;all eight streams/base rows preserved;fresh input rehash0|
-| Same-environment yield control |done|[MEASURED]75a35-control-result.json132/132 CORRECT;source binding inherited/binary current hash verified|
-| Attribution / scope concern |parked|[MEASURED] i1035 X joins;ii installed368;three workspace/two scheme joins risk132;literal-scheme global opacity not certified|
-| Full conditional gates |blocked|[MEASURED] not dispatched after STOP;VERIFICATION explicit exclusions|
-| Exact-parent patches / durable custody |done|[MEASURED] PATCHES.md/patch-application-check.json/final-custody.json|
-| Git/F/review/adoption |pending|[INHERITED] controller-only;no worker action|
+| Initial source/docs/ref custody |done|[MEASURED]PREFLIGHT-r4b.json;724 source/30 packet files exact;controller fetch not repeated|
+| PKG/S2-O9 source and controls |done|[MEASURED]67/67 final targeted;4 same-environment new RED;80 static cases;epochs121/77|
+| Release/facts/source binding |done|[MEASURED]747 candidate inputs and binary-binding.json rehash PASS;canonical tools rebuilt|
+| Four public comparisons |done|[MEASURED]0/0/0/0;49220 populated preserved;source/oracle hashes0 mismatch|
+| Native gap population |done|[MEASURED]0/354/0/0;all354 installed-X potential gain-revoking writers enumerated;zero false native absence|
+| Reference control |done|[MEASURED]fresh75a35 binary control132/132 CORRECT;snapshot source binding inherited,hash verified now|
+| Full conditional gates |blocked|[MEASURED]not dispatched afterX0<122;VERIFICATION names each exclusion|
+| Packet/source/doc patches/custody |done|[MEASURED]exact-parent replay receipts,packet manifest and snapshots;controller Git commit remains pending|
 
 ## 3. Corrections to standing documents and memory
 | Location | Stale or false assertion | Correction |
 |---|---|---|
-| R3 handoff/current packet |Continuation still awaits owner |[MEASURED] R3b authorized continuation measured, now freshSTOP loss132; historicalR3 kept with supersession banner|
-| SPEC |Every unresolved source edge leaves global universe possible |[MEASURED] normative scoped absent/unavailable rule;scheme clause remains uncertified on candidate|
-| Measurements/verification/manifest/dispatch |R3 is current / historical full gates transfer |[MEASURED] R3b separate0/0/0/0,epochs120/76,frozen i tools,ii quarantined,conditional gates unrun|
-| Memory |None |No relevant memory used or updates authorized|
+| Earlier R4 handoff fetch block |Fetch missing |[MEASURED]03fa9c29/fa3bcb02 present;resolved;preflight preserved separately|
+| Packet current R3b state |R3b tools/results current |[MEASURED]R4 source/tools rebuilt;packet current claims reconciled toR4STOP;R3b evidence remains historical|
+| Memory |None |No relevant memory hits or authorized updates|
 
 ## 4. Open work
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-|1|Scope/design and yield decision|parked|Controller reads residual joins and scheme concern;choose no relaxation automatically|Owner STOP|REPAIR-R3b/STOP.json|
-|2|Full conditional gates|blocked|Only on explicitly selected,built,bound candidate;retain28 denominator/omissions|STOP|VERIFICATION.md|
-|3|Commit/private F/review/adoption|pending|Controller actions only after selection/rebuild/rebind|Controller|R3b-src/R3b-docs|
+|1|Yield/PKG coverage decision|parked|Controller reads complete gaps and gain-revoking population;resolve spec/design|OwnerSTOP|measurement-ledger.json/gap-revoking-writers.md|
+|2|Full gates|blocked|Only on explicitly selected,recomposed,rebuilt source|#1|VERIFICATION.md|
+|3|Git/F/independent review/adoption|pending|Controller-only after explicit selection|Controller|No worker Git writes|
 
 ## 5. Invariants and traps — do not do these
-- No private F,Git writes,network installs,publication,merge or worker adoption.
-- Positive two-hop cap and A's namespace cascade remain;no spelling/depth exceptions.
-- ii uses extra native isolation authority and is NEW ACCEPTED COST,not part of source/docs patches.
-- target/release may contain ii;canonical target/s2-plan/bin/head-* and candidate-i-2-bin are frozen i. Rebuild on future selection.
-- Never infer positive accuracy/ownership from zero changes or transfer historical full-gate totals.
-- Incomplete timing/control setup failures are inadmissible;read corrected behavioral logs.
-- No further policy retry at cap/STOP;preserve this partially reviewed artifact.
+- Never open private F or write Git;fetch is already done.
+- Never treat Unsupported as native absence;unknown scope projects conservatively into caller table.
+- Direct native absence is excluded;resolved forwards remain unavailable/scoped past failed proof.
+- Compiler/formatter raw-string setup failure was inadmissible;corrected before behavioral receipts.
+- Preserve747 input hashes and rebuilt canonical tools;do not transfer historical full-gate totals.
+- Do not relax PKG option authority or choose a policy after yieldSTOP.
 
 ## 6. Identifiers
 | Item | Verbatim |
 |---|---|
-|Source parent|`75a35a5ed0145d12acaf2df33834f748704f8ef9`|
-|Plan parent|`ecdb6b0ffb62963e443027e5de07b4b6272f95c3`|
-|Main reference|`4e592daa7858a195eb3a9eb77c83dfbc763b49fa`|
-|Evidence|`/Users/wesleyjinks/prism-evidence/s2/repair-r3b`|
-|Measurements|`public-i-final/` and `public-ii/`|
-|Epochs|`CPG120/navigation76`|
-|Registry|`28;unchanged R3 hash f969cb81fce97447371dda6bde8b0c1d6f7d364f6950c6c4d3a9c7b1345d8c16`|
+|Source|`61641bdb64c911049c567efc51c29e17ef94ef4f`|
+|PKG|`03fa9c29f7b57fbc6c531d3287c37bdf95f4a9ff`|
+|PKG plan|`fa3bcb027a1fd1b8d411ffe2eaa4f97ce616304d`|
+|Docs / HEAD|`aa55a532a13be8ae7bd7908efd1bc9d2f6f8b229`|
+|Main|`4e592daa7858a195eb3a9eb77c83dfbc763b49fa`|
+|Evidence|`/Users/wesleyjinks/prism-evidence/s2/repair-r4`|
+|Epochs|`CPG121/navigation77`|
 
 ## 7. Refutation verdict and owner questions
-**§2c verdict:** REFUTED — yield STOP preserved · claim: “R3b-i preserves >=122 correct X gains” · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: measurement-ledger.json/75a35-control-result.json/unavailable-i-X.json
-**Questions the owner owes an answer to:** Resolve workspace entry/source-scope authority and literal-scheme opacity before any new precision/acceptance choice;resolve yieldSTOP. No question blocks artifact preservation. No option selected by worker.
+**§2c verdict:** REFUTED — yield STOP preserved · claim: “R4 preserves >=122 correct X gains with native ownership agreement and disclosed gaps” · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: measurement-ledger.json/75a35-control-result.json/gap-revoking-writers.json
+**Questions the owner owes an answer to:** Resolve PKG compiler-option/native-scope coverage versus owner yield boundary before any further policy or gate selection. No option chosen by worker;no question blocks preservation.

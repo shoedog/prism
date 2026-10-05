@@ -1,24 +1,16 @@
-# S2 R3b verification — STOP, unselected
+# S2 R4 verification — STOP, unselected
 
-**STOP: R3b-i loses 132 X rows (>10); selection NONE. R3b-ii is NEW ACCEPTED COST, measured only and not adopted.**
+**STOP: R4 yield 0/0/0/0; X shortfall 132 from132 exceeds10; selection NONE.**
 
-## Verified
+## Behavioral controls and gates
 
-Evidence root `/Users/wesleyjinks/prism-evidence/s2/repair-r3b`.
+- Final-source targeted MCP nextest:67 passed /0 failed;5138 not selected. The80-case resolved static regression fixture includes both W2 mechanisms and both grammars.
+- Same-host exact61641bdb + new-test overlay:4 inherited assertions PASS;4 new R4 tests behavioral RED. Final new4 GREEN; each pairs native-absence/builtin admission with resolved/ambient/Unsupported negative controls in both grammars. Four inherited empty-scope expectations were explicitly superseded by addendum fail-closed policy; clean non-qualifier control retained.
+- Release and facts builds PASS; rebuilt canonical target/s2-plan/bin/head-* and source-bound hashes in BUILD-MANIFEST. Formatter applied; final fmt check not dispatched.
+- Registered mutant S2-37 makes Unsupported become ProvenUnresolved;29 S2 mutants registered,0 executed on R4. No kill/equivalence claim.
+- Full conditional gates NOT RUN after yieldSTOP: full MCP nextest (5138 tests not selected in targeted run), MCP doctests, final fmt check, all-target MCP clippy, advisory mutgate (29 registered;0 executed), Tier-A matrix, S1b-4 byte parity. Full suite was intentionally not claimed done. Tier-A quick explicitly skipped; full multi-corpus human-triggered.
+- Lane-P populated public rows unchanged. S1b-4 controls not executed on R4 and no byte-parity claim is made.
 
-- Exact current R3 source custody:771 inputs rehash without mismatch; original source snapshot retained. Source parent75a35a5e/docs ecdb6b0f. No Git writes.
-- Final memoized i targeted S2: **39 passed /0 failed**; reviewer static namespace/default/escaped/depth-boundary regressions remain. Same-environment original R3 + new-test overlay: **4 selected /4 expected failures** at new scoped-positive assertions. Embedded-asset setup failures are inadmissible, not behavioral observations.
-- i release/facts and separately quarantined ii release/facts builds pass. CPG120/navigation76. Canonical target/s2-plan/bin/head-* stay bound to i; target/release may contain experimental ii and must not be used as i.
-- i and ii X/installed-X/R/T: **0/0/0/0**; eight complete head streams byte-identical to immutable base.49,220 populated comparisons unchanged per variant; lane-P rows unchanged, zero metadata/key/population changes, zero lost/unproven changes. Zero changed rows gives no positive ownership/accuracy certificate.
-- Every variant's source/oracle raw hashes rechecked with zero mismatch. Installed-X bound in new directories; no drifted json5 BOM receipt reused. Base stream reuse verified against immutable binary, retained current-main bytes and fresh source/config/oracle-input hashes.
-- Native external isolation experiment:406 installed writer/specifier pairs/0 X/0 R/0 T; realpath outside indexed universe in node_modules, workspace links excluded. **NEW ACCEPTED COST**; extra native authority; never adopted.
-- Candidate i source frozen at STOP; no policy changes afterward. 28-mutant registry unchanged from R3, included in source patch for controller commit. Source/docs snapshots and exact-parent patches preserved.
+Behavioral retry cap2 converged67/67. One disclosed bounded extension added an identity-union shortcut after the first public timing run was interrupted through its exact exec session. If candidate files cover every table key, the original closure union already contains every table identity and can contain no other identity; otherwise original closure runs. Classification and refusal policy are unchanged. The interrupted timing artifact and raw-string/ps setup failures are inadmissible; they are not yield or regression evidence. See probe-log.md and timing-policy-parity.json.
 
-## Not verified
-
-- **Full MCP nextest, MCP doctests, final fmt check, all-target MCP clippy, advisory mutgate, Tier-A matrix and S1b-4 controls NOT RUN** because R3b-i loses132>10. Formatter was applied before builds; this is not a final fmt-check receipt. Old R2/R3 full-gate totals do not certify this tree.
--28 registered does not mean28 executed; historical S2-02 survivor and omitted anchors remain inherited SMELLs without an equivalence claim. No mutant execution or registry adoption on R3b.
-- Scheme-opacity scope concern: `virtual:pwa-register` and `node:url` are classified globally opaque; no proof that captured literal schemes justify global reachability under R3b. This clause remains uncertified; workspace joins independently triggerSTOP.
-- Tier-A quick explicitly skipped; full multi-corpus human-triggered. Private F never opened.
-- Exhaustive grammar/config/platform/performance/cache behavior, independent review/adoption, Git commits/push/merge not performed. Runtime channels outside S2-O7 remain outside model; invisible .mts/.cts writers remain disclosed.
-- No implementation-complete, accepted-cost adoption or ready-for-adoption claim. Prechange binary's source binding is inherited from R3, and its current hash/control output is checked separately.
+Not verified: all listed conditional gates, Tier-A quick/full, private F/controller execution, independent review/adoption, performance/RSS budget, exhaustive grammar/config/platform/cache/TS behavior, PKG round2 deltas not handed to this worker, Git commits/push/merge. Source/docs snapshots and three exact-parent replayed patches are retained; stop means choose nothing.

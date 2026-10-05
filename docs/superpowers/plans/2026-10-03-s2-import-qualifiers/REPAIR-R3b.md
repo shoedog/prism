@@ -1,3 +1,5 @@
+**R4 supersession:** **STOP: R4 yield 0/0/0/0; X shortfall 132 from132 exceeds10; selection NONE.** Current source/tool/gate state is REPAIR-R4/VERIFICATION/HANDOFF. Historical evidence below does not certifyR4.
+
 # S2 R3b repair — measured STOP, no selection
 
 **STOP: R3b-i loses 132 X rows (>10); selection NONE. R3b-ii is NEW ACCEPTED COST, measured only and not adopted.**

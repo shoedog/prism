@@ -1,10 +1,10 @@
-# R3b patch application and suggested commit boundaries
+# R4 patch and proposed commit boundaries
 
-**STOP: R3b-i loses 132 X rows (>10); selection NONE. R3b-ii is NEW ACCEPTED COST, measured only and not adopted.**
+**STOP: R4 yield 0/0/0/0; X shortfall 132 from132 exceeds10; selection NONE.**
 
-| Suggested controller-only commit message | Files |
+| Proposed controller-only commit message | Files and exact parent |
 |---|---|
-|`fix(resolution): refine S2 refusal absence and candidate module scopes`|R3b-src.patch relative75a35a5e: R3 namespace/static refusal source, call graph, qualifier module, CPG/navigation epochs, new js_paths/refusal candidates and js_paths_snapshot/package-name facts, integration regressions/retained fixture,28-mutant registry.|
-|`docs(plan): record S2 R3b measurements and yield STOP`|R3b-docs.patch relativeecdb6b0f: planning packet/current report/spec/dispatch/verification/measurements/handoff/inventory/manifest/probes, historical supersession banners and R3 comparator/oracle housekeeping.|
+| `fix(resolution): gate S2 writer exclusion on PKG proven absence` | R4-src.patch relative61641bdb + PKG03fa9c29: src/js_paths.rs,src/js_import_qualifiers.rs,src/call_graph.rs,CPG/nav epochs,integration S2 tests,29-mutant S2 registry. R4-s2-only.patch projects the same S2 changes onto61641bdb without PKG hunks/files. |
+| `docs(plan): record S2 R4 yield STOP and PKG coverage gaps` | R4-docs.patch relativeaa55a532: S2 packet/spec/OQ/dispatch/report/verification/measurements/handoff/inventory/manifest plus facts writer-status extraction and usage-mode native gap oracle. |
 
-No Git writes. These are archival/review boundaries, not selected product commits. Canonical source75a35 already contains R2; do not reapply R2-src. Apply the cumulative R3b-src directly to75a35 (not on top of R3-src); apply cumulative R3b-docs directly to ecdb. Root VERIFICATION is an excluded local receipt. ii source/binaries/external facts stay quarantined in repair-r3b and are excluded from both patches. No selection/restart/new review/adoption afterSTOP. Rebuild/rebind/replay on any future controller-selected committed tree.
+No commits made. Patches are archival/review artifacts, not selected product changes. Separate PKG implementation is03fa9c29; S2 depends on its prior merge. Exact replay checks and patch hashes:repair-r4/patch-application-check.json/PATCHES.md. Private F and controller acceptance were never executed. Preserve snapshots before cleanup.

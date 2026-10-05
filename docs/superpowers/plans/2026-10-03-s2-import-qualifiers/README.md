@@ -1,3 +1,11 @@
+# S2 R4 — PKG prerequisite, yield STOP
+
+**STOP: R4 yield 0/0/0/0; X shortfall 132 from132 exceeds10; selection NONE.**
+
+Read REPAIR-R4,SPEC,OQ-s2,IMPLEMENTOR,MEASUREMENTS,VERIFICATION and HANDOFF. All changed rows/main preservation use source-bound public comparisons; no private F access or adoption. Rebuilt head tools are unselected but manifest-bound for future controller authorization. All requested conditional full gates remain unrun afterSTOP.
+
+## Historical R3b controller instructions
+
 # S2 import qualifiers — R3b yield STOP
 
 **STOP: R3b-i loses 132 X rows (>10); selection NONE. R3b-ii is NEW ACCEPTED COST, measured only and not adopted.**

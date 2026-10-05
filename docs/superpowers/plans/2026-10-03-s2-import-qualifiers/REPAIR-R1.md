@@ -1,3 +1,5 @@
+**R4 supersession:** **STOP: R4 yield 0/0/0/0; X shortfall 132 from132 exceeds10; selection NONE.** Current source/tool/gate state is REPAIR-R4/VERIFICATION/HANDOFF. Historical evidence below does not certifyR4.
+
 **R3b supersession (2026-10-04):** current measurements i0/0/0/0 and ii0/0/0/0 (NEW ACCEPTED COST, unadopted); STOP loss132, selectionNONE. Historical evidence below does not certify current bytes. See REPAIR-R3b/VERIFICATION/HANDOFF.
 
 > Historical artifact. Current R3 fixes static F4 namespace/content and unavailable refusal joins;yield0/0/0/0 triggersSTOP,selectionNONE. Read REPAIR-R3/VERIFICATION/HANDOFF. These historical gates,yields,dispatch/model and blanket F4 exclusion claims do not certify current bytes.
