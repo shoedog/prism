@@ -799,14 +799,18 @@ fn qualifier_whitelist_allows_declarations_calls_types_and_own_export() {
             "import X from './m'; export function run() { X.sm(); }",
         );
         hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
-        // An unresolved bare package stays unavailable, with no in-repo targets.
+        // PKG cannot discharge this fixture's baseUrl authority. Unsupported
+        // remains fail-closed even when lexical package scope has no targets.
         write(
             d.path(),
             &format!("other.{grammar}"),
             "import * as external from 'opaque-package'; consume(external);",
         );
         let g = graph(d.path());
-        hit(&g, grammar, "sm", &format!("m.{grammar}"));
+        assert_eq!(
+            outcome(&g, &format!("app.{grammar}"), "sm"),
+            outcome(&base(g.clone()), &format!("app.{grammar}"), "sm")
+        );
     }
 }
 
@@ -1294,7 +1298,7 @@ fn repair_r3_clean_namespace_and_unrelated_closure_controls() {
 }
 
 #[test]
-fn repair_r3b_unresolved_package_without_workspace_targets_is_scoped() {
+fn repair_r4_unsupported_package_without_workspace_targets_keeps_base() {
     for grammar in ["jsx", "tsx"] {
         for writer in [
             "import * as Y from '#unavailable'; Y.default.sm=()=>1;",
@@ -1307,7 +1311,10 @@ fn repair_r3b_unresolved_package_without_workspace_targets_is_scoped() {
             );
             write(d.path(), &format!("other.{grammar}"), writer);
             let g = graph(d.path());
-            hit(&g, grammar, "sm", &format!("m.{grammar}"));
+            assert_eq!(
+                outcome(&g, &format!("app.{grammar}"), "sm"),
+                outcome(&base(g.clone()), &format!("app.{grammar}"), "sm")
+            );
         }
     }
 }
@@ -1386,6 +1393,20 @@ fn repair_r3b_resolved_non_qualifiers_and_missing_names_preserve_unrelated_gains
                 write(d.path(), &format!("other.{grammar}"), "export {value} from './leaf'; import Y from 'external-dependency'; consume(Y);");
                 write(d.path(), "tsconfig.json", &serde_json::json!({"compilerOptions":{"allowJs":true,"checkJs":true,"moduleResolution":"node","baseUrl":".","paths":{"@other":["other"]},"jsx":"preserve"},"include":["**/*"]}).to_string());
                 write(d.path(), &format!("writer.{grammar}"), &format!("import {{value as Y, missing as Z}} from '{spec}'; consume(Y); Z.sm=()=>1;"));
+                // The external import has Unsupported baseUrl authority and
+                // revokes this caller table; no native-absence claim is made.
+                let g = graph(d.path());
+                assert_eq!(
+                    outcome(&g, &format!("app.{grammar}"), "sm"),
+                    outcome(&base(g.clone()), &format!("app.{grammar}"), "sm")
+                );
+                // Removing that distinct unsupported writer restores the
+                // resolved non-qualifier/missing-name preservation control.
+                write(
+                    d.path(),
+                    &format!("other.{grammar}"),
+                    "export {value} from './leaf';",
+                );
                 hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
             }
         }
@@ -1436,7 +1457,7 @@ fn repair_r3b_unavailable_relative_closure_is_scoped_and_fail_closed() {
 }
 
 #[test]
-fn repair_r3b_unresolved_bare_package_scopes_workspace_identities() {
+fn repair_r4_unsupported_bare_package_scopes_workspace_identities() {
     for grammar in ["jsx", "tsx"] {
         let d = fixture(
             grammar,
@@ -1449,7 +1470,11 @@ fn repair_r3b_unresolved_bare_package_scopes_workspace_identities() {
             &format!("other.{grammar}"),
             "import Y from 'external-dependency'; Y.sm=()=>1;",
         );
-        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+        let g = graph(d.path());
+        assert_eq!(
+            outcome(&g, &format!("app.{grammar}"), "sm"),
+            outcome(&base(g.clone()), &format!("app.{grammar}"), "sm")
+        );
         write(
             d.path(),
             &format!("other.{grammar}"),
@@ -1460,5 +1485,106 @@ fn repair_r3b_unresolved_bare_package_scopes_workspace_identities() {
             outcome(&g, &format!("app.{grammar}"), "sm"),
             outcome(&base(g.clone()), &format!("app.{grammar}"), "sm")
         );
+    }
+}
+
+fn r4_fixture(grammar: &str, spec: &str) -> TempDir {
+    let d = fixture(
+        grammar,
+        "export class C {static sm(){return 0;}}",
+        "import {C as X} from './m'; export function run(){X.sm();}",
+    );
+    write(
+        d.path(),
+        "tsconfig.json",
+        r#"{"compilerOptions":{"allowJs":true,"checkJs":true,"moduleResolution":"bundler","module":"esnext","jsx":"preserve"},"include":["**/*"]}"#,
+    );
+    write(
+        d.path(),
+        "package.json",
+        r#"{"name":"@ws/lib","exports":"./dist/index.js"}"#,
+    );
+    write(
+        d.path(),
+        &format!("writer.{grammar}"),
+        &format!("import {{C as Y}} from '{spec}'; Y.sm=()=>1;"),
+    );
+    d
+}
+
+#[test]
+fn repair_r4_out_of_model_unresolvable_dist_export_in_both_grammars() {
+    for grammar in ["jsx", "tsx"] {
+        let d = r4_fixture(grammar, "@ws/lib");
+        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+        // Once the export resolves to C, its writer remains in model.
+        write(
+            d.path(),
+            "package.json",
+            &serde_json::json!({"name":"@ws/lib","exports":format!("./m.{grammar}")}).to_string(),
+        );
+        let g = graph(d.path());
+        assert_eq!(
+            outcome(&g, &format!("app.{grammar}"), "sm"),
+            outcome(&base(g.clone()), &format!("app.{grammar}"), "sm")
+        );
+    }
+}
+
+#[test]
+fn repair_r4_out_of_model_unresolvable_virtual_scheme_in_both_grammars() {
+    for grammar in ["jsx", "tsx"] {
+        let d = r4_fixture(grammar, "virtual:loader");
+        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+        // Ambient resolution is Unsupported, never native absence.
+        write(
+            d.path(),
+            "ambient.d.ts",
+            "declare module 'virtual:loader' { export class C {static sm():number;} }",
+        );
+        let g = graph(d.path());
+        assert_eq!(
+            outcome(&g, &format!("app.{grammar}"), "sm"),
+            outcome(&base(g.clone()), &format!("app.{grammar}"), "sm")
+        );
+    }
+}
+
+#[test]
+fn repair_r4_node_builtin_proved_absent_in_both_grammars() {
+    for grammar in ["jsx", "tsx"] {
+        let d = r4_fixture(grammar, "node:fs");
+        hit(&graph(d.path()), grammar, "sm", &format!("m.{grammar}"));
+        // Paths precede builtin classification: a bound source must revoke.
+        write(d.path(), "tsconfig.json", &serde_json::json!({"compilerOptions":{"allowJs":true,"moduleResolution":"node","jsx":"preserve","paths":{"node:fs":["./m"]}},"include":["**/*"]}).to_string());
+        let g = graph(d.path());
+        assert_eq!(
+            outcome(&g, &format!("app.{grammar}"), "sm"),
+            outcome(&base(g.clone()), &format!("app.{grammar}"), "sm")
+        );
+    }
+}
+
+#[test]
+fn repair_r4_unsupported_boundary_keeps_base_in_both_grammars() {
+    for grammar in ["jsx", "tsx"] {
+        for spec in ["@ws/lib", "#loader"] {
+            let d = r4_fixture(grammar, spec);
+            write(
+                d.path(),
+                "package.json",
+                r##"{"name":"@ws/lib","exports":"./entry.d.ts","imports":{"#loader":"./entry.d.ts"}}"##,
+            );
+            write(
+                d.path(),
+                "entry.d.ts",
+                "export declare class C {static sm():number;}",
+            );
+            let g = graph(d.path());
+            assert_eq!(
+                outcome(&g, &format!("app.{grammar}"), "sm"),
+                outcome(&base(g.clone()), &format!("app.{grammar}"), "sm")
+            );
+        }
     }
 }

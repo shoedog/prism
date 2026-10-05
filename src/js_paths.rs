@@ -338,16 +338,53 @@ impl<'a> Resolver<'a> {
         spec: &str,
         indexed: &BTreeSet<String>,
     ) -> Option<String> {
+        self.resolution(file, spec, indexed).bound()
+    }
+    pub(crate) fn resolution(
+        &mut self,
+        file: &str,
+        spec: &str,
+        indexed: &BTreeSet<String>,
+    ) -> crate::js_packages::Resolution {
+        use crate::js_packages::Resolution;
         if !self.snapshot.complete
             || spec.starts_with('.')
-            || spec.contains(['\\', ':'])
+            || spec.contains('\\')
             || spec.starts_with('/')
             || directory_target(spec)
         {
-            return None;
+            return Resolution::Unsupported("request syntax or incomplete snapshot".into());
         }
-        let c = self.select(file)?;
-        self.resolve_in(&c, file, spec, indexed)
+        if file.ends_with(".mts") || file.ends_with(".cts") {
+            return Resolution::Unsupported("unindexed writer extension".into());
+        }
+        let Some(c) = self.select(file) else {
+            return Resolution::Unsupported("writer project ownership".into());
+        };
+        if let Some(module) = self.resolve_in(&c, file, spec, indexed) {
+            return Resolution::Bound(module);
+        }
+        self.package_in(&c, file, spec, indexed)
+    }
+    fn package_in(
+        &self,
+        c: &Config,
+        file: &str,
+        spec: &str,
+        indexed: &BTreeSet<String>,
+    ) -> crate::js_packages::Resolution {
+        // Matching paths retain Lane-P authority. Only the earlier positive
+        // proof may bypass this barrier, including for colon specifiers.
+        if c.paths.as_ref().is_some_and(|(_, paths)| {
+            paths.keys().any(|k| {
+                k == spec
+                    || k.split_once('*')
+                        .is_some_and(|(pre, post)| spec.starts_with(pre) && spec.ends_with(post))
+            })
+        }) {
+            return crate::js_packages::Resolution::Unsupported("paths authority".into());
+        }
+        crate::js_packages::resolve(self.snapshot, &c.options, file, spec, indexed)
     }
     fn resolve_in(
         &self,
@@ -358,7 +395,7 @@ impl<'a> Resolver<'a> {
     ) -> Option<String> {
         if !self.snapshot.complete
             || spec.starts_with('.')
-            || spec.contains(['\\', ':'])
+            || spec.contains('\\')
             || spec.starts_with('/')
             || directory_target(spec)
         {
@@ -370,6 +407,7 @@ impl<'a> Resolver<'a> {
             .and_then(Value::as_str)?
             .to_ascii_lowercase();
         if !["node", "node10"].contains(&mode.as_str())
+            && !(spec.contains(':') && ["node16", "nodenext", "bundler"].contains(&mode.as_str()))
             || ["rootDirs", "moduleSuffixes", "noResolve"]
                 .iter()
                 .any(|k| c.options.contains_key(*k))
@@ -476,15 +514,45 @@ impl<'a> Resolver<'a> {
     ) -> crate::js_import_qualifiers::RefusalModule {
         use crate::js_import_qualifiers::RefusalModule;
         let own = self.project(from);
-        if let Some(target) = own
-            .as_ref()
-            .and_then(|p| self.qualifier_hop(p, from, spec, indexed))
-            .or_else(|| self.qualifier_hop(fallback, from, spec, indexed))
-            .or_else(|| crate::call_graph::resolve_js_ts_relative_module(spec, from, indexed))
+        if let Some(target) = spec
+            .starts_with('.')
+            .then(|| {
+                own.as_ref()
+                    .and_then(|p| self.qualifier_hop(p, from, spec, indexed))
+                    .or_else(|| self.qualifier_hop(fallback, from, spec, indexed))
+                    .or_else(|| {
+                        crate::call_graph::resolve_js_ts_relative_module(spec, from, indexed)
+                    })
+            })
+            .flatten()
         {
             return RefusalModule::Resolved(target);
         }
-        if spec.trim() != spec || spec.contains(['\\', ':']) || spec.starts_with('/') {
+        // Only the writer's captured native-resolution authority may certify
+        // absence. A resolved forward remains in model in refusal_name.
+        let unsupported = if !spec.starts_with('.') {
+            match self.resolution(from, spec, indexed) {
+                crate::js_packages::Resolution::Bound(target) => {
+                    return RefusalModule::Resolved(target);
+                }
+                crate::js_packages::Resolution::ProvenUnresolved => {
+                    return if spec.starts_with("node:") {
+                        RefusalModule::ExternalBuiltin
+                    } else {
+                        RefusalModule::ProvenUnresolved
+                    };
+                }
+                crate::js_packages::Resolution::Unsupported(reason) => {
+                    if std::env::var_os("PRISM_S2_REFUSAL_DIAGNOSTICS").is_some() {
+                        eprintln!("S2 unsupported writer import: writer={from} spec={spec} reason={reason}");
+                    }
+                    true
+                }
+            }
+        } else {
+            false
+        };
+        if spec.trim() != spec || spec.contains('\\') || spec.starts_with('/') {
             return RefusalModule::Opaque;
         }
         let mut paths = BTreeSet::new();
@@ -533,7 +601,7 @@ impl<'a> Resolver<'a> {
                 }
             }
         }
-        let candidates = indexed
+        let mut candidates: BTreeSet<String> = indexed
             .iter()
             .filter(|file| {
                 packages
@@ -543,6 +611,11 @@ impl<'a> Resolver<'a> {
             })
             .cloned()
             .collect();
+        if unsupported && candidates.is_empty() {
+            // Unknown native scope cannot be an empty absence certificate.
+            // The consumer still projects these files into its caller table.
+            candidates.clone_from(indexed);
+        }
         RefusalModule::Unavailable(candidates)
     }
     /// S2-only explicit emitted-JS spelling -> captured TS source. Ordinary
@@ -608,9 +681,18 @@ impl<'a> Resolver<'a> {
     ) -> Option<String> {
         let c = self.configs.get(project)?.as_ref()?;
         if spec.starts_with("./") || spec.starts_with("../") {
-            self.relative(from, spec, indexed, self.allow_js(project))
+            let (_, _, node_esm) =
+                crate::js_packages::usage_mode(self.snapshot, &c.options, from).ok()?;
+            if node_esm {
+                // ESM relative export hops never add extensions or guess index.
+                // Keep the writer's project; only the barrel's usage format varies.
+                crate::js_packages::relative_esm(self.snapshot, from, spec, indexed)
+            } else {
+                self.relative(from, spec, indexed, self.allow_js(project))
+            }
         } else {
             self.resolve_in(c, from, spec, indexed)
+                .or_else(|| self.package_in(c, from, spec, indexed).bound())
         }
     }
     pub(crate) fn relative(
@@ -731,7 +813,7 @@ fn js_family(p: &str) -> bool {
         .iter()
         .any(|e| p.ends_with(e))
 }
-fn ambient_matches(pattern: &str, spec: &str) -> bool {
+pub(crate) fn ambient_matches(pattern: &str, spec: &str) -> bool {
     match pattern.split_once('*') {
         Some((pre, post)) => spec.starts_with(pre) && spec.ends_with(post),
         None => pattern == spec,

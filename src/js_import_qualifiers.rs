@@ -48,12 +48,15 @@ pub(crate) type RefusedIdentities = BTreeSet<(String, String)>;
 pub(crate) enum RefusalJoin {
     Joined(Vec<QualifierIdentity>),
     ProvedAbsent,
+    OutOfModelUnresolvable,
     Unavailable(RefusedIdentities),
 }
 
 #[derive(Clone)]
 pub(crate) enum RefusalModule {
     Resolved(String),
+    ProvenUnresolved,
+    ExternalBuiltin,
     Unavailable(BTreeSet<String>),
     Opaque,
 }
@@ -69,6 +72,8 @@ pub(crate) fn refusal_join(
 ) -> RefusalJoin {
     let target = match target {
         RefusalModule::Resolved(target) => target,
+        RefusalModule::ProvenUnresolved => return RefusalJoin::OutOfModelUnresolvable,
+        RefusalModule::ExternalBuiltin => return RefusalJoin::ProvedAbsent,
         other => return RefusalJoin::Unavailable(module_identities(raw, table, module, other)),
     };
     // A namespace can expose exports omitted by the positive depth/name proof
@@ -119,6 +124,10 @@ fn refusal_name(
                 RefusalModule::Resolved(next) => {
                     refusal_name(raw, table, module, &next, imported, depth + 1, seen)
                 }
+                RefusalModule::ProvenUnresolved => {
+                    RefusalJoin::Unavailable(possible_identities(raw, table, module, target))
+                }
+                RefusalModule::ExternalBuiltin => RefusalJoin::ProvedAbsent,
                 other => RefusalJoin::Unavailable(module_identities(raw, table, module, other)),
             },
             Some(QualifierExport::Namespace(_)) => {
@@ -135,6 +144,10 @@ fn refusal_name(
                             RefusalModule::Resolved(next) => {
                                 refusal_name(raw, table, module, &next, name, depth + 1, seen)
                             }
+                            RefusalModule::ProvenUnresolved => RefusalJoin::Unavailable(
+                                possible_identities(raw, table, module, target),
+                            ),
+                            RefusalModule::ExternalBuiltin => RefusalJoin::ProvedAbsent,
                             other => RefusalJoin::Unavailable(module_identities(
                                 raw, table, module, other,
                             )),
@@ -142,6 +155,7 @@ fn refusal_name(
                         match outcome {
                             RefusalJoin::Joined(identities) => joined.extend(identities),
                             RefusalJoin::ProvedAbsent => {}
+                            RefusalJoin::OutOfModelUnresolvable => unreachable!("resolved chain"),
                             RefusalJoin::Unavailable(identities) => {
                                 unavailable = true;
                                 possible.extend(identities);
@@ -171,7 +185,17 @@ fn module_identities(
     resolution: RefusalModule,
 ) -> RefusedIdentities {
     match resolution {
+        RefusalModule::ProvenUnresolved | RefusalModule::ExternalBuiltin => BTreeSet::new(),
         RefusalModule::Resolved(file) => possible_identities(raw, table, module, &file),
+        // Every table file is visited by the original union, even when its
+        // raw facts are absent. Closure cannot add an identity outside table.
+        // Thus this coverage test gives exactly that union without repeated
+        // whole-repository walks for unknown native package scope.
+        RefusalModule::Unavailable(files) if table.keys().all(|file| files.contains(file)) => table
+            .values()
+            .flat_map(|exports| exports.values())
+            .map(|i| (i.file.clone(), i.local.clone()))
+            .collect(),
         RefusalModule::Unavailable(files) => files
             .into_iter()
             .flat_map(|file| possible_identities(raw, table, module, &file))
@@ -203,6 +227,7 @@ pub(crate) fn possible_identities(
         opaque |= f.qualifiers.refusal_source_unavailable;
         for spec in &f.qualifiers.refusal_sources {
             match module(&file, spec) {
+                RefusalModule::ProvenUnresolved | RefusalModule::ExternalBuiltin => {}
                 RefusalModule::Resolved(next) => stack.push(next),
                 RefusalModule::Unavailable(files) => stack.extend(files),
                 RefusalModule::Opaque => opaque = true,

@@ -109,7 +109,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // R2: S2-O7 static binding; F1/F2/F5/F6/corrected F8.
 // R3: static namespace/refusal closure (CPG v119).
 // R3b: precise absent/unavailable joins and scoped refusal modules (CPG v120).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 76;
+// R4: combined PKG/S2-O9 semantics (CPG v121).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 77;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -728,7 +729,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 75);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 77);
     }
 
     #[test]

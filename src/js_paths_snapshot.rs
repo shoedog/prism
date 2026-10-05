@@ -29,6 +29,8 @@ pub struct JsPathsSnapshot {
     module_packages: BTreeMap<String, Option<Vec<u8>>>,
     #[serde(skip)]
     external_modules: BTreeMap<String, u8>,
+    // Nearest-first outside-root package scopes: 0 absent, 1 readable, 2 opaque.
+    outer_packages: Vec<(String, u8, Option<Vec<u8>>)>,
     #[serde(skip)]
     type_metadata_bytes: u64,
     #[serde(skip)]
@@ -132,6 +134,17 @@ impl JsPathsSnapshot {
                 };
                 s.external_modules
                     .insert(path.to_string_lossy().into(), kind);
+                let package = ancestor.join("package.json");
+                let (kind, bytes) = match std::fs::symlink_metadata(&package) {
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => (0, None),
+                    Ok(m) if m.is_file() && m.len() <= 262_144 => match std::fs::read(&package) {
+                        Ok(b) if b.len() <= 262_144 => (1, Some(b)),
+                        _ => (2, None),
+                    },
+                    _ => (2, None),
+                };
+                s.outer_packages
+                    .push((package.to_string_lossy().into(), kind, bytes));
             }
         }
         s.finish_case_inventory();
@@ -290,6 +303,7 @@ impl JsPathsSnapshot {
             &self.covered,
             &self.type_redirects,
             &self.external_modules,
+            &self.outer_packages,
             &self.links,
             self.case_insensitive,
             self.complete,
@@ -398,8 +412,44 @@ impl JsPathsSnapshot {
             .map(Some)
             .ok_or(())
     }
+    pub(crate) fn outer_package(&self) -> Result<Option<&[u8]>, ()> {
+        for (_, kind, bytes) in &self.outer_packages {
+            match kind {
+                0 => {}
+                1 => return bytes.as_deref().map(Some).ok_or(()),
+                _ => return Err(()),
+            }
+        }
+        Ok(None)
+    }
     pub(crate) fn external_first_pass_absent(&self) -> bool {
         self.external_modules.values().all(|kind| *kind == 0)
+    }
+    /// A captured package link may authorize canonical indexed source, never
+    /// an uninstalled workspace name or a link escaping this repository.
+    pub(crate) fn package_root(&self, lexical: &str) -> Result<Option<String>, ()> {
+        if let Some(target) = self.links.get(lexical) {
+            let target = target.as_ref().ok_or(())?;
+            return (self.unblocked(target) && self.kind(target) == Some(1))
+                .then(|| Some(target.clone()))
+                .ok_or(());
+        }
+        if self.first_pass_absent(lexical) {
+            return Ok(None);
+        }
+        // Ordinary node_modules directories are captured but not indexed.
+        // They shadow an outer link even when no callable implementation is
+        // available; only the final indexed-file proof can admit a target.
+        if self
+            .type_entries
+            .get(lexical)
+            .or_else(|| self.entries.get(lexical))
+            == Some(&1)
+        {
+            Ok(Some(lexical.into()))
+        } else {
+            Err(())
+        }
     }
     pub(crate) fn input_path(&self, base: &str, path: &str) -> Option<String> {
         use crate::js_paths_syntax::norm;

@@ -2436,6 +2436,11 @@ impl CallGraph {
                             }
                         }
                         RefusalJoin::ProvedAbsent => {}
+                        RefusalJoin::OutOfModelUnresolvable => {
+                            if std::env::var_os("PRISM_S2_REFUSAL_DIAGNOSTICS").is_some() {
+                                eprintln!("S2 out_of_model_unresolvable: writer={file} spec={spec} member={member:?}");
+                            }
+                        }
                         RefusalJoin::Unavailable(possible) => {
                             if std::env::var_os("PRISM_S2_REFUSAL_DIAGNOSTICS").is_some() {
                                 eprintln!("S2 unavailable refusal join: writer={file} spec={spec} member={member:?} possible={possible:?}");

@@ -42,6 +42,7 @@ mod js_binding_shorthand_test;
 mod js_export_reexport_test;
 mod js_export_test;
 mod js_import_qualifiers_test;
+mod js_packages_test;
 mod js_paths_cap_test;
 mod js_paths_common;
 mod js_paths_p2_test;

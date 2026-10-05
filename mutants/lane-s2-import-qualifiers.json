@@ -169,6 +169,12 @@
       "stack.push(next);",
       "if seen.len() <= MAX_REEXPORT_DEPTH { stack.push(next); }",
       "js_import_qualifiers_test::repair_r3_reviewer_static_refusals_keep_base"
+    ],
+    "S2-37-out-of-model-boundary": [
+      "src/js_paths.rs",
+      "crate::js_packages::Resolution::Unsupported(reason) => {",
+      "crate::js_packages::Resolution::Unsupported(reason) => {\n                    if !reason.is_empty() { return RefusalModule::ProvenUnresolved; }",
+      "js_import_qualifiers_test::repair_r4_unsupported_boundary_keeps_base_in_both_grammars"
     ]
   },
   "extra": {
