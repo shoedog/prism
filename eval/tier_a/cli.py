@@ -6,6 +6,7 @@ corrected metrics additionally apply the current adjudication store.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -34,11 +35,18 @@ from .metrics import precision_recall
 from .model import CallEdge, FunctionDef, Location, SelectionMatcher, edge_tier
 from .oracles import OracleError, OracleTimeout
 from .report import write_reports
-from .spotcheck import classify_site, find_call_position
-from .strata import filter_to_universe, inventory_diff, sample_strata
-from .sut import PrismCli, SutAmbiguous, SutError, SutStale, SutTimeout
+from .spotcheck import classify_site, find_call_position, utf16_column
+from .strata import classify, filter_to_universe, inventory_diff, sample_strata
+from .sut import PrismCli, SutAmbiguous, SutError, SutStale, SutTimeout, configure_seed_addresses
 
 EVAL_DIR = Path(__file__).resolve().parents[1]
+
+
+def seed_id(fd, line_counts):
+    key = f"{fd.location.file}:{fd.selection_line}"
+    if line_counts[(fd.location.file, fd.selection_line)] > 1:
+        key += ":" + json.dumps([fd.selection_char, fd.name, fd.kind, fd.container], separators=(",", ":"))
+    return key
 
 
 def _site_parts(site) -> tuple[str, int, int, dict]:
@@ -363,7 +371,8 @@ def load_corpora() -> dict:
             path = os.path.join(EVAL_DIR.parent, path)
         c["path"] = os.path.abspath(path)
         if c.get("source_manifest"):
-            c["source_manifest"] = os.path.abspath(os.path.expanduser(c["source_manifest"]))
+            manifest = os.path.expanduser(c["source_manifest"])
+            c["source_manifest"] = str(Path(manifest) if os.path.isabs(manifest) else EVAL_DIR.parent / manifest)
     return cfg
 
 
@@ -496,7 +505,9 @@ def run_m3_spotcheck(
     cap: int,
 ) -> dict:
     """Spot-check prism-only caller sites against oracle definitions."""
-    by_seed = {f"{fd.location.file}:{fd.selection_line}": fd for fd in snapshot}
+    from collections import Counter
+    counts = Counter((fd.location.file, fd.selection_line) for fd in snapshot)
+    by_seed = {seed_id(fd, counts): fd for fd in snapshot}
     counts = {"confirmed_tp": 0, "confirmed_fp": 0, "ambiguous": 0, "alias_site": 0}
     checked = []
     for pid, probe in sorted(probes.items()):
@@ -521,7 +532,7 @@ def run_m3_spotcheck(
             defs = []
             if char is not None:
                 try:
-                    defs = oracle.definitions_at(snapshot, file, line, char)
+                    defs = oracle.definitions_at(snapshot, file, line, utf16_column(text, char))
                 except OracleError as exc:
                     if isinstance(exc, OracleTimeout):
                         verdict = "oracle_timeout"
@@ -563,7 +574,9 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
             "corpus_dirty": (bool(source_drift) if manifest_files is not None else
                              corpus_dirty(cfg["path"]) or bool(untracked)),
             "corpus_identity": {"component": "source_manifest" if manifest_files is not None else "git_head",
-                                "expected": cfg.get("pinned_sha"), "observed": sha,
+                                "expected": cfg.get("source_manifest_sha256", cfg.get("pinned_sha")),
+                                "observed": (hashlib.sha256(Path(cfg["source_manifest"]).read_bytes()).hexdigest()
+                                             if manifest_files is not None else sha),
                                 "manifest_sha256": cfg.get("source_manifest_sha256"),
                                 "drift": source_drift},
             "language": cfg["lang"],
@@ -588,6 +601,7 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
     }
     if initial_invalid_reasons and manifest_files is not None:
         run["meta"]["baseline_invalid"] = True
+        run["meta"]["invalid_reasons"] = initial_invalid_reasons
         progress(f"INVALID source drift: {initial_invalid_reasons}")
         return run
     oracle_cfg = {
@@ -615,6 +629,13 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
         oracle.start()
         run["meta"]["wall_s"]["oracle_start"] = round(time.monotonic() - t0, 3)
         run["meta"]["oracle"] = oracle.version()
+        if cfg["oracle"] == "tsserver":
+            environment = {"oracle": oracle.version(), "node_modules": "absent"}
+            run["meta"]["oracle_environment"] = environment
+            run["meta"]["corpus_identity"]["oracle_environment_sha256"] = hashlib.sha256(
+                json.dumps(environment, sort_keys=True).encode()).hexdigest()
+            if environment["oracle"] != cfg.get("oracle_version"):
+                initial_invalid_reasons.append("oracle_version_drift")
         run["meta"]["oracle_not_quiescent"] = oracle.not_quiescent
         # §2.2 capability probe, two-stage: the overlay probe is the fast path, but
         # servers that only analyze workspace-member files (rust-analyzer: an overlay
@@ -647,6 +668,10 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
             3,
         )
 
+        if cfg["lang"] == "rust" and hasattr(oracle, "wait_ready"):
+            progress("waiting for post-inventory rust-analyzer quiescence")
+            oracle.wait_ready()
+
         if not resolve_capability(oracle, overlay_probe_ok, oracle_inv):
             run["meta"].update(
                 baseline_invalid=True,
@@ -667,7 +692,12 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
             "anon_prism": diff.anon_prism,
         }
         sp = snapshot_path(str(EVAL_DIR / "snapshots"), name, sha)
-        if sp.exists():
+        if cfg["lang"] in ("ts", "js"):
+            # A fresh native inventory preserves newly supported quoted methods.
+            # Historical snapshots and anchors remain unchanged.
+            snap = oracle_inv
+            run["meta"]["sampling_inventory"] = "live"
+        elif sp.exists():
             snap = load_snapshot(sp)
         else:
             snap = oracle_inv
@@ -681,7 +711,8 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
         for fd in snap:
             if fd.name:
                 n_defs[fd.name] = n_defs.get(fd.name, 0) + 1
-        per = 3 if args.quick else defaults["per_stratum"]
+        per = getattr(args, "sample", None) or (3 if args.quick else defaults["per_stratum"])
+        run["meta"]["sample_per_stratum"] = per
         pkg_dirs = package_dirs(cfg["path"]) if cfg["lang"] == "python" else None
         sample = sample_strata(
             snap,
@@ -691,6 +722,18 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
             per,
             package_dirs=pkg_dirs,
         )
+        from collections import Counter
+        oracle_lines = Counter((fd.location.file, fd.selection_line) for fd in snap)
+        oracle_named_lines = Counter((fd.location.file, fd.selection_line, fd.name) for fd in snap)
+        sut_lines = Counter((fd.location.file, fd.location.start_line) for fd in prism_inv)
+        configure_seed_addresses(sut, prism_inv)
+        ambiguous_lines = {line for line, count in oracle_lines.items() if count > 1}
+        run["m1"]["shared_oracle_selection_lines"] = len(ambiguous_lines)
+        run["m1"]["shared_sut_start_lines"] = sum(count > 1 for count in sut_lines.values())
+        primed = {}
+        if cfg["lang"] == "rust" and hasattr(oracle, "prime_hierarchy"):
+            progress("validating complete Rust hierarchy sample; one bounded session recovery allowed")
+            primed = oracle.prime_hierarchy([fd for fds in sample.values() for fd in fds], files, oracle_inv)
         strata_counts: dict = {}
         run["probes"]["_strata"] = {}
         t0 = time.monotonic()
@@ -698,18 +741,27 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
             progress(f"M2 {stratum}: {len(fds)} symbols")
             strata_counts[stratum] = {"eligible": len(fds) * 2, "successful": 0}
             run["probes"]["_strata"][stratum] = {
+                "population_symbols": sum(classify(f, n_defs, cfg["lang"], pkg_dirs) == stratum for f in snap if f.name),
                 "eligible_symbols": len(fds),
                 "eligible_probes": len(fds) * 2,
                 "target": per,
             }
             for fd in fds:
-                sd = f"{fd.location.file}:{fd.selection_line}"
+                sd = seed_id(fd, oracle_lines)
                 pfd = snapshot_matches.get(fd)
                 for direction in ("callers", "callees"):
                     pid = f"{direction}:{sd}"
                     progress(f"M2 {pid}")
+                    if pfd in sut.unaddressable_seeds or pfd is not None and oracle_named_lines[
+                            (fd.location.file, fd.selection_line, fd.name)] > 1:
+                        acc.record(pid, "seed_unaddressable")
+                        run["failures"][pid] = {"outcome": "seed_unaddressable",
+                            "error": "SUT file:line seed cannot select one callable among same-line declarations"}
+                        run["probes"][pid] = {**run["failures"][pid], "direction": direction,
+                                              "stratum": stratum, "seed_def": sd}
+                        continue
                     try:
-                        osites = (
+                        osites = primed[(fd, direction)] if (fd, direction) in primed else (
                             oracle.callers(fd)
                             if direction == "callers"
                             else oracle.callees(fd)
@@ -744,6 +796,9 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
                         "direction": direction,
                         "stratum": stratum,
                         "seed_def": sd,
+                        "seed_address_mode": "symbol" if pfd in sut.symbol_seeds else
+                                             "interior_location" if pfd in sut.location_seeds else "location",
+                        "seed_location_line": sut.location_seeds.get(pfd, pfd.location.start_line) if pfd else None,
                         "prism_sites": _stored_sites(psites, direction),
                         "oracle_sites": _stored_sites(osites, direction),
                         "prism_functions": _stored_functions(psites, snap),
@@ -756,6 +811,9 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
             t0 = time.monotonic()
             run["pinned"] = pinned_mod.run_pinned(oracle, sut, snap, cfg["path"],
                                                   prism_by_oracle=snapshot_matches)
+            for p in run["pinned"]:
+                if p.get("outcome") in ("oracle_error", "oracle_timeout", "sut_error", "sut_timeout"):
+                    acc.record("pinned:" + p["id"], "sut_error" if p["outcome"].startswith("sut") else p["outcome"])
             run["meta"]["wall_s"]["pinned"] = round(time.monotonic() - t0, 3)
             t0 = time.monotonic()
             run["matrix"] = [
@@ -774,6 +832,25 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
         run["m3"] = run_m3_spotcheck(run["probes"], oracle, snap, cfg["path"], m3_cap)
         run["meta"]["wall_s"]["m3"] = round(time.monotonic() - t0, 3)
 
+        if cfg["oracle"] == "tsserver":
+            from collections import Counter
+            from .member_sample import syntax_census, sample_members
+            progress("independent syntax census and property/getter definition sample")
+            census = syntax_census(oracle, files)
+            run["frame"] = {
+                "hierarchy_named": len([f for f in oracle_inv if f.name]),
+                "prism_named": len([f for f in prism_inv if f.name]),
+                "prism_outside_hierarchy": len(diff.prism_extra),
+                "outside_by_kind": dict(Counter(f.kind for f in diff.prism_extra)),
+                "syntax_callable_by_shape": dict(Counter(d["shape"] for d in census["declarations"])),
+                "policy": "native hierarchy inventory plus independent property/getter site sampling",
+            }
+            run["member_sites"] = sample_members(oracle, sut, prism_inv, census, per, defaults["seed"])
+            for shape, measurement in run["member_sites"]["shapes"].items():
+                for i, row in enumerate(measurement["rows"]):
+                    if row["outcome"] in ("oracle_error", "oracle_timeout", "sut_error", "sut_timeout"):
+                        run["failures"][f"member:{shape}:{i}"] = row
+
         run["meta"]["oracle_error_rate"] = acc.oracle_error_rate()
         run["meta"]["sut_error_rate"] = acc.sut_error_rate()
         ok, reasons = evaluate_floors(
@@ -789,10 +866,18 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
             run["meta"]["invalid_reasons"].append("oracle_inventory_incomplete")
         if any(f["outcome"] == "oracle_timeout" for f in run["failures"].values()):
             run["meta"]["invalid_reasons"].append("oracle_timeout")
+        if any(f["outcome"] == "sut_timeout" for f in run["failures"].values()):
+            run["meta"]["invalid_reasons"].append("sut_timeout")
+        if any(f["outcome"] == "seed_unaddressable" for f in run["failures"].values()):
+            run["meta"]["invalid_reasons"].append("seed_unaddressable")
+        if any(pid.startswith("member:") for pid in run["failures"]):
+            run["meta"]["invalid_reasons"].append("member_sample_error")
         if any(c.get("verdict") in ("oracle_timeout", "oracle_error") for c in run["m3"]["checked"]):
             run["meta"]["invalid_reasons"].append("m3_oracle_error")
-        if any(p.get("outcome") in ("error", "oracle_timeout", "sut_timeout") for p in run.get("pinned", [])):
-            run["meta"]["invalid_reasons"].append("pinned_oracle_error")
+        for p in run.get("pinned", []):
+            if p.get("outcome") in ("error", "oracle_error", "oracle_timeout", "sut_error", "sut_timeout"):
+                run["meta"]["invalid_reasons"].append("pinned_" + p["outcome"])
+                run["failures"]["pinned:" + p["id"]] = p
         if not any(p.get("outcome") in ("ok", "inventory_miss") for pid, p in run["probes"].items() if not pid.startswith("_")):
             run["meta"]["invalid_reasons"].append("no_scored_probes")
         run["meta"]["baseline_invalid"] = bool(run["meta"]["invalid_reasons"])
@@ -817,6 +902,9 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
         return run
     finally:
         run["meta"]["oracle_retries"] = getattr(oracle, "retries", [])
+        run["meta"]["oracle_readiness"] = getattr(oracle, "readiness", [])
+        run["meta"]["oracle_restarts"] = getattr(oracle, "restarts", [])
+        run["oracle_filtered"] = getattr(oracle, "oracle_filtered", [])
         stop = getattr(oracle, "stop", None)
         if stop is not None:
             stop()
@@ -853,10 +941,12 @@ def invalid_corpus_run(name: str, cfg: dict, defaults: dict, args, exc: Exceptio
             "harness_sha": hsha,
             "oracle": cfg.get("oracle", "unknown"),
             "oracle_not_quiescent": False,
-            "oracle_error_rate": 1.0,
-            "sut_error_rate": 0.0,
+            "oracle_error_rate": float(not isinstance(exc, (SutError, OSError, ValueError))),
+            "sut_error_rate": float(isinstance(exc, SutError)),
             "baseline_invalid": True,
-            "invalid_reasons": ["oracle_timeout" if isinstance(exc, OracleTimeout) else "oracle_unavailable"],
+            "invalid_reasons": ["oracle_timeout" if isinstance(exc, OracleTimeout) else
+                                "sut_error" if isinstance(exc, (SutError, SutAmbiguous)) else
+                                "input_unavailable" if isinstance(exc, (OSError, ValueError)) else "oracle_unavailable"],
             "error": str(exc),
             "wall_s": {},
         },
@@ -878,7 +968,7 @@ def summarize_m2(m2: dict) -> dict:
 
 def select_corpora(cfg, args):
     names = (list(cfg["corpus"]) if args.corpus == "all" else [args.corpus]) if args.corpus else (
-        cfg.get("quick", {}).get("corpora", ["prism"]) if args.quick else ["prism"])
+        cfg.get("quick", {}).get("corpora", ["prism"]) if args.quick or args.lang else ["prism"])
     if args.lang:
         langs = set(args.lang.split(","))
         names = [n for n in names if cfg["corpus"][n]["lang"] in langs]
@@ -891,6 +981,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(prog="tier-a")
     ap.add_argument("--corpus", default=None)
     ap.add_argument("--lang", help="filter selected corpora, e.g. ts,js")
+    ap.add_argument("--sample", type=int, help="symbols per stratum; overrides quick's smoke sample of 3")
     ap.add_argument("--out-dir", type=Path, help="report directory (keeps exploratory runs separate from baseline)")
     for key in ("query_timeout_s", "startup_timeout_s", "oracle_budget_s"):
         ap.add_argument("--" + key.replace("_", "-"), type=float)
@@ -906,6 +997,8 @@ def main() -> int:
                          "do not clobber the committed baseline anchors")
     ap.add_argument("--date", default=None)
     args = ap.parse_args()
+    if args.sample is not None and args.sample <= 0:
+        ap.error("sample must be positive")
     if any(getattr(args, k) is not None and (not math.isfinite(getattr(args, k)) or getattr(args, k) <= 0) for k in ("query_timeout_s", "startup_timeout_s", "oracle_budget_s")):
         ap.error("timeouts must be positive")
     if args.date is None:

@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import time
 from pathlib import Path
 
 from .lsp_client import LspClient, LspError, LspServerError, LspTimeout
@@ -18,8 +19,10 @@ from .oracles import LspOracle, OracleError, OracleTimeout, enrich_definitions, 
 
 class TsserverClient(LspClient):
     def start(self):
+        begun = time.monotonic()
         self._spawn()
-        self.request("configure", {"preferences": {"includePackageJsonAutoImports": "off"}})
+        self.request("configure", {"preferences": {"includePackageJsonAutoImports": "off"}},
+                     timeout=max(0, getattr(self, "startup_timeout_s", self._timeout) - (time.monotonic() - begun)))
 
     def _encode(self, obj):
         return (json.dumps(obj) + "\n").encode()
@@ -76,12 +79,16 @@ class TsserverOracle(LspOracle):
             session_timeout=timeouts.get("oracle_budget_s", 600.0))
         self._cmd = cmd
         self._opened = set()
+        self.client.startup_timeout_s = timeouts.get("startup_timeout_s", 60.0)
+        self.oracle_filtered = []
 
     def start(self):
         try:
             self.client.start()
         except LspTimeout as exc:
             raise OracleTimeout(f"tsserver startup: {exc}") from exc
+        except OSError as exc:
+            raise OracleError(f"tsserver launch: {exc}") from exc
 
     def capability_probe(self):
         # The real-symbol fallback avoids altering the pinned input project.
@@ -126,7 +133,9 @@ class TsserverOracle(LspOracle):
                     if isinstance(items, dict):
                         items = [items]
                     for item in items or []:
-                        if item["file"] != args["file"] or item["name"] != node["text"]:
+                        if (item["file"] != args["file"] or
+                                item["selectionSpan"]["start"] != sel["start"] or
+                                item["selectionSpan"]["end"] != sel["end"]):
                             continue  # imports/aliases are not definitions here
                         selection = item["selectionSpan"]["start"]
                         kind = {"method": "method", "constructor": "constructor"}.get(node["kind"], "function")
@@ -139,19 +148,43 @@ class TsserverOracle(LspOracle):
 
     def _query(self, fd, command):
         self._open(fd.location.file)
-        return self._req(command, {"file": os.path.join(self.root, fd.location.file),
-                                  "line": fd.selection_line, "offset": fd.selection_char + 1})
+        args = {"file": os.path.join(self.root, fd.location.file),
+                "line": fd.selection_line, "offset": fd.selection_char + 1}
+        if not self._req("prepareCallHierarchy", args, allow_null=True):
+            raise OracleError(f"prepareCallHierarchy: no item for {fd.name}")
+        return self._req(command, args)
 
     def callers(self, fd):
-        return map_ts_calls(fd, self._query(fd, "provideCallHierarchyIncomingCalls"), self.root, "callers")
+        calls = self._query(fd, "provideCallHierarchyIncomingCalls")
+        kept = []
+        for call in calls:
+            rel = _relative(call["from"]["file"], self.root)
+            if rel is None:
+                continue
+            self._open(rel)
+            for span in call["fromSpans"]:
+                # Native spans start at the call-name token, already in UTF-16.
+                defs = self._req("definition", {"file": call["from"]["file"],
+                                "line": span["start"]["line"], "offset": span["start"]["offset"]})
+                matches = [d for d in defs if _relative(d["file"], self.root) == fd.location.file
+                           and d["start"] == {"line": fd.selection_line, "offset": fd.selection_char + 1}]
+                if matches:
+                    kept.append({**call, "fromSpans": [span]})
+                else:
+                    self.oracle_filtered.append({"seed": f"{fd.location.file}:{fd.selection_line}",
+                                                 "file": rel, "span": span, "definitions": defs})
+        return map_ts_calls(fd, kept, self.root, "callers")
 
     def callees(self, fd):
         return map_ts_calls(fd, self._query(fd, "provideCallHierarchyOutgoingCalls"), self.root, "callees")
 
-    def definitions_at(self, inventory, rel_path, line, character):
+    def raw_definitions_at(self, rel_path, line, character):
         self._open(rel_path)
-        defs = self._req("definition", {"file": os.path.join(self.root, rel_path),
-                                       "line": line, "offset": character + 1})
+        return self._req("definition", {"file": os.path.join(self.root, rel_path),
+                                        "line": line, "offset": character + 1})
+
+    def definitions_at(self, inventory, rel_path, line, character):
+        defs = self.raw_definitions_at(rel_path, line, character)
         def lsp_pos(pos):
             return {"line": pos["line"] - 1, "character": pos["offset"] - 1}
         raw = [{"uri": Path(d["file"]).as_uri(), "range": {

@@ -32,7 +32,7 @@ def render_markdown(run: dict) -> str:
         lines += [
             f"## M2 {direction}",
             "",
-            "| stratum | site raw P | site raw R | site corr P | site corr R | fn raw P | fn raw R | tp/fp/fn | pending | shortfall |",
+            "| stratum | site raw P | site raw R | site corr P | site corr R | caller context P | caller context R | tp/fp/fn | pending | shortfall |",
             "|---|---|---|---|---|---|---|---|---|---|",
         ]
         for s, d in strata.items():
@@ -73,8 +73,11 @@ def render_markdown(run: dict) -> str:
                 )
             lines.append("")
     for key, title in (
-        ("summary", "Edge-weighted M2 summary"),
-        ("failures", "Oracle failures (excluded from accuracy, retained for validity)"),
+        ("summary", "Sample-pooled M2 summary (95% Wilson intervals)"),
+        ("failures", "Oracle and SUT failures (excluded from accuracy, retained for validity)"),
+        ("oracle_filtered", "Incoming sites excluded by static definition binding"),
+        ("frame", "Callable population and hierarchy coverage"),
+        ("member_sites", "Member calls and getter accesses: definition-at-site sample"),
         ("m1", "M1 inventory diff"),
         ("m3", "M3 spot-check"),
         ("matrix", "Capability matrix"),

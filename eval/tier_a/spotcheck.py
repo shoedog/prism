@@ -7,9 +7,13 @@ from .model import DefTarget, FunctionDef
 
 
 def _strip_strings_comments(line: str) -> str:
-    line = re.sub(r'"(?:[^"\\]|\\.)*"', '""', line)
-    line = re.sub(r"'(?:[^'\\]|\\.)*'", "''", line)
+    line = re.sub(r'"(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\'|`(?:[^`\\]|\\.)*`|/\*.*?\*/',
+                  lambda m: " " * len(m.group()), line)
     return re.split(r"//|#", line, maxsplit=1)[0]
+
+
+def utf16_column(text: str, codepoint_column: int) -> int:
+    return len(text[:codepoint_column].encode("utf-16-le")) // 2
 
 
 def find_call_position(line: str, name: str) -> int | None:

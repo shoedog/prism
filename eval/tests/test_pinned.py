@@ -128,6 +128,6 @@ def test_ambiguous_symbol_unexpected_error_is_recorded_not_raised(monkeypatch):
         }],
     )
     [got] = run_pinned(oracle=None, sut=BadSut(), snapshot=[], corpus_root="/repo")
-    assert got["outcome"] == "regression"
-    assert not got["ambiguous_ok"]
+    assert got["outcome"] == "sut_error"
+    assert "ambiguous_ok" not in got
     assert got["error"] == "nav failed"

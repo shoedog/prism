@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .model import FunctionDef, Location
+from .sut import run_bounded
 
 
 MATRIX_LANGUAGES = ["rust", "go", "python", "javascript", "typescript"]
@@ -548,7 +549,7 @@ def _run_dfg_case(case: Case, lang: str, sut) -> CaseResult:
         "--repo", str(case.path), "--edges",
     ]
     try:
-        completed = subprocess.run(command, capture_output=True, text=True)
+        completed = run_bounded(sut, command)
     except OSError as exc:
         got = f"DFG_ORACLE_LAUNCH_FAILED|{exc}"
         return CaseResult(
@@ -601,7 +602,7 @@ def _run_dfg_case(case: Case, lang: str, sut) -> CaseResult:
             getattr(sut, "bin", "prism"), "nav", *cache_args, "dfg-stats",
             "--repo", str(case.path),
         ]
-        stats_completed = subprocess.run(stats_command, capture_output=True, text=True)
+        stats_completed = run_bounded(sut, stats_command)
         if stats_completed.returncode != 0:
             got_stats = {
                 "error": "DFG_STATS_COMMAND_FAILED",

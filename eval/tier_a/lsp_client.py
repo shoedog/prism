@@ -27,12 +27,14 @@ class LspServerError(LspError):
 class LspClient:
     def __init__(self, cmd: list[str], cwd: str, default_timeout: float = 30.0,
                  root_uri: str | None = None, session_timeout: float = 600.0,
-                 initialization_options: dict | None = None):
+                 initialization_options: dict | None = None,
+                 server_status: bool = False):
         # root_uri: live LSP servers (rust-analyzer/gopls/pyright) need workspace
         # context for documentSymbol/callHierarchy; the echo-server tests pass None.
         self._cmd, self._cwd, self._timeout = cmd, cwd, default_timeout
         self._root_uri = root_uri
         self._initialization_options = initialization_options
+        self._server_status = server_status
         self._session_timeout = session_timeout
         self.deadline: float | None = None
         self._dead = threading.Event()
@@ -51,6 +53,9 @@ class LspClient:
                       "textDocument": {"documentSymbol": {
                           "hierarchicalDocumentSymbolSupport": True}},
                   }}
+        params["capabilities"]["workspace"] = {"configuration": True}
+        if self._server_status:
+            params["capabilities"]["experimental"] = {"serverStatusNotification": True}
         if self._root_uri:
             params["workspaceFolders"] = [{"uri": self._root_uri, "name": "corpus"}]
         if self._initialization_options is not None:
@@ -59,7 +64,8 @@ class LspClient:
         self.notify("initialized", {})
 
     def _spawn(self) -> None:
-        self.deadline = time.monotonic() + self._session_timeout
+        self.deadline = min(self.deadline if self.deadline is not None else float("inf"),
+                            time.monotonic() + self._session_timeout)
         self._proc = subprocess.Popen(
             self._cmd, cwd=self._cwd, stdin=subprocess.PIPE,
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -150,10 +156,24 @@ class LspClient:
                 slot["msg"] = msg
                 slot["event"].set()
         elif "id" in msg and "method" in msg:
-            self._write({"jsonrpc": "2.0", "id": msg["id"], "result": None})
+            result = None
+            if msg["method"] == "workspace/configuration":
+                result = [self._configuration(item.get("section", ""))
+                          for item in msg["params"]["items"]]
+            self._write({"jsonrpc": "2.0", "id": msg["id"], "result": result})
             self._notifications.append(msg)
         else:
             self._notifications.append(msg)
+
+    def _configuration(self, section):
+        settings = self._initialization_options or {}
+        if section == "rust-analyzer":
+            return settings
+        if section.startswith("rust-analyzer."):
+            section = section.removeprefix("rust-analyzer.")
+        for part in section.split(".") if section else []:
+            settings = settings.get(part, {}) if isinstance(settings, dict) else {}
+        return settings
 
     def _request_object(self, method, params, rid):
         obj = {"jsonrpc": "2.0", "method": method, "params": params}

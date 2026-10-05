@@ -114,7 +114,7 @@ def verify_source_manifest(cfg: dict) -> tuple[list[str], list[str]]:
             raise ValueError(f"malformed source manifest entry: {line!r}")
         files.append(rel)
         p = root / rel
-        if any(parent.is_symlink() for parent in [p, *p.parents] if parent != root.parent):
+        if any((root / parent).is_symlink() for parent in [path, *path.parents]):
             drift.append(f"source_symlink:{rel}")
         elif not p.is_file():
             drift.append(f"source_missing:{rel}")
@@ -122,6 +122,8 @@ def verify_source_manifest(cfg: dict) -> tuple[list[str], list[str]]:
             drift.append(f"source_content:{rel}")
     known = set(files)
     for dirpath, dirnames, filenames in os.walk(root):
+        if cfg.get("reject_node_modules") and "node_modules" in dirnames:
+            drift.append("oracle_node_modules_present:" + (Path(dirpath) / "node_modules").relative_to(root).as_posix())
         dirnames[:] = [d for d in dirnames if d not in (".git", "target", "node_modules", ".venv")]
         for filename in filenames:
             rel = (Path(dirpath) / filename).relative_to(root).as_posix()

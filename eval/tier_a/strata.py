@@ -15,7 +15,9 @@ def is_nested(fd: FunctionDef, lang: str, package_dirs: set[str] | None = None) 
     if lang == "rust":
         # spec §2.5 + review m10: path-based; crate roots are the only non-nested files
         return f not in ("src/lib.rs", "src/main.rs")
-    if lang in ("go", "ts", "js"):
+    if lang in ("ts", "js"):
+        return fd.container is not None
+    if lang == "go":
         return "/" in f
     if lang == "python":
         parts = f.split("/")[:-1]

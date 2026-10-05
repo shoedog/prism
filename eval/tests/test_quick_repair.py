@@ -191,7 +191,7 @@ def test_js_ts_extensions_and_strata(tmp_path):
     assert universe(str(tmp_path), "js", []) == ["a.js", "b.jsx"]
     assert universe(str(tmp_path), "ts", []) == ["c.ts", "d.tsx"]
     fd = FunctionDef("f", "function", None, Location("src/a.ts", 1, 2), 1)
-    assert is_nested(fd, "ts")
+    assert not is_nested(fd, "ts")  # path nesting is not lexical nesting
 
 
 def test_quick_honors_explicit_corpus_and_language_filter():
@@ -281,9 +281,10 @@ def test_content_modified_retry_is_bounded_and_visible():
     def permanent(*args, **kwargs):
         raise LspServerError({"code": -32801, "message": "content modified"})
     o.client.request = permanent
-    with pytest.raises(OracleError):
-        o._req("query", {})
-    assert len(o.retries) == 3  # at most two retries per request
+    from tier_a.oracles import OracleTimeout
+    with pytest.raises(OracleTimeout):
+        o._req("query", {}, timeout=0.15)
+    assert len(o.retries) >= 3  # time-based backoff under the original deadline
 
 
 @pytest.mark.parametrize("stage", ["start", "inventory", "query"])
