@@ -14,8 +14,43 @@ seed = 42
 per_stratum = 8
 quiescence_cap_s = 300
 settle_s = 5.0
-oracle_error_floor = { rust = 0.10, go = 0.10, python = 0.25 }
+oracle_error_floor = { rust = 0.10, go = 0.10, python = 0.25, ts = 0.10, js = 0.10 }
 sut_error_floor = 0.05
+query_timeout_s = 10.0
+startup_timeout_s = 60.0
+oracle_budget_s = 600.0
+
+# Immutable quick inputs, separate names preserve historical dogfood anchors.
+[quick]
+corpora = ["prism-quick", "excalidraw-ts", "excalidraw-js"]
+
+[corpus.prism-quick]
+lang = "rust"
+cargo_features = ["mcp"]  # inventory includes this cfg-gated module; preserve its probes
+path = "~/.local/share/prism/corpora/prism-20c8490591a3/source"
+source_manifest = "~/.local/share/prism/corpora/prism-20c8490591a3/source-file-manifest.sha256"
+source_manifest_sha256 = "9c0598b8a737df30dd329ef2175498c8ce12e5ce2ecb82e5fbf20b8003e4b4f8"
+oracle = "rust-analyzer"
+excludes = ["tests/fixtures/*", "eval/fixtures/*", "target/*"]
+pinned_sha = "20c8490591a3"
+pinned_probes = true
+
+[corpus.excalidraw-ts]
+lang = "ts"
+path = "~/prism-evidence/inputs/excalidraw-0642e72c/source"
+source_manifest = "~/prism-evidence/inputs/excalidraw-0642e72c/source-file-manifest.sha256"
+source_manifest_sha256 = "1a6c4397bfacafc0dc2651d1f65fe4dd7afed60a0fa21f8f928061b9e20968f0"
+oracle = "tsserver"
+pinned_sha = "0642e72cfa2d"
+excludes = ["*.d.ts"]
+
+[corpus.excalidraw-js]
+lang = "js"
+path = "~/prism-evidence/inputs/excalidraw-0642e72c/source"
+source_manifest = "~/prism-evidence/inputs/excalidraw-0642e72c/source-file-manifest.sha256"
+source_manifest_sha256 = "1a6c4397bfacafc0dc2651d1f65fe4dd7afed60a0fa21f8f928061b9e20968f0"
+oracle = "tsserver"
+pinned_sha = "0642e72cfa2d"
 
 # ============================================================================
 # 1. COMMITTED ANCHORS

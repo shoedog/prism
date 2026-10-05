@@ -4,7 +4,8 @@ from __future__ import annotations
 from .compare import site_compare
 from .metrics import precision_recall
 from .model import CallEdge, FunctionDef
-from .sut import SutAmbiguous
+from .oracles import OracleTimeout
+from .sut import SutAmbiguous, SutTimeout
 
 PINNED = [
     {"id": "target-c-method", "symbol": "target", "file": "src/algorithms/taint.rs",
@@ -114,7 +115,8 @@ def run_pinned(oracle, sut, snapshot: list[FunctionDef], corpus_root: str,
             out.append({
                 "id": probe["id"],
                 "expected": probe["expected"],
-                "outcome": "error",
+                "outcome": ("oracle_timeout" if isinstance(exc, OracleTimeout) else
+                            "sut_timeout" if isinstance(exc, SutTimeout) else "error"),
                 "error": str(exc),
             })
             continue

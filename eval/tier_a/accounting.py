@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-OUTCOMES = ("ok", "oracle_error", "sut_error", "inventory_miss")
+OUTCOMES = ("ok", "oracle_error", "oracle_timeout", "sut_error", "inventory_miss")
 
 
 @dataclass
@@ -33,7 +33,7 @@ class CorpusAccounting:
         )
 
     def oracle_error_rate(self) -> float:
-        return self._rate("oracle_error")
+        return self._rate("oracle_error") + self._rate("oracle_timeout")
 
     def sut_error_rate(self) -> float:
         return self._rate("sut_error")

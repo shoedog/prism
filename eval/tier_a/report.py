@@ -24,6 +24,8 @@ def render_markdown(run: dict) -> str:
         f" baseline_invalid: {m['baseline_invalid']} ·"
         f" oracle_not_quiescent: {m['oracle_not_quiescent']}",
         f"- wall (s): {m['wall_s']}",
+        f"- invalid reasons: {m.get('invalid_reasons', [])}",
+        f"- oracle configuration: {m.get('oracle_configuration', {})}",
         "",
     ]
     for direction, strata in run.get("m2", {}).items():
@@ -71,6 +73,8 @@ def render_markdown(run: dict) -> str:
                 )
             lines.append("")
     for key, title in (
+        ("summary", "Edge-weighted M2 summary"),
+        ("failures", "Oracle failures (excluded from accuracy, retained for validity)"),
         ("m1", "M1 inventory diff"),
         ("m3", "M3 spot-check"),
         ("matrix", "Capability matrix"),

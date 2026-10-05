@@ -10,12 +10,17 @@ import json
 import os
 import re
 import subprocess
+import time
 
 from .model import CallEdge, FunctionDef, Location
 
 
 class SutError(Exception):
     """SUT-side failure consumed by the accounting layer."""
+
+
+class SutTimeout(SutError):
+    """A bounded SUT command failed to finish; no accuracy answer is available."""
 
 
 class SutStale(SutError):
@@ -139,6 +144,10 @@ class PrismCli:
             prism_repo, "target/release/prism"
         )
         self.allow_stale = allow_stale
+        # The platform default (~/Library/Caches on macOS) is outside managed
+        # workspace roots. A writable cache prevents a cold CPG rebuild on EVERY
+        # sampled call while preserving Prism's existing content-based keys.
+        self.cache_dir = os.path.join(prism_repo, "target", "tier-a-nav-cache")
         # When True, nav calls pass `--no-cache` so the per-repo nav store is
         # bypassed. The matrix runner sets this for deterministic fixture eval —
         # a stale fixture cache silently served pre-S3 results and produced false
@@ -183,11 +192,20 @@ class PrismCli:
         # getattr default keeps objects built via __new__ in tests working
         # (and defaults to cache-on, the safe behavior).
         cache_args = ["--no-cache"] if getattr(self, "no_cache", False) else []
-        p = subprocess.run(
-            [self.bin, "nav", *cache_args, *args, "--format", "json"],
-            capture_output=True,
-            text=True,
-        )
+        if not cache_args and getattr(self, "cache_dir", None):
+            cache_args = ["--cache-dir", self.cache_dir]
+        timeout = getattr(self, "query_timeout_s", 120.0)
+        if getattr(self, "deadline", None) is not None:
+            timeout = min(timeout, self.deadline - time.monotonic())
+        if timeout <= 0:
+            raise SutTimeout("sut_timeout: corpus budget exhausted")
+        try:
+            p = subprocess.run(
+                [self.bin, "nav", *cache_args, *args, "--format", "json"],
+                capture_output=True, text=True, timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise SutTimeout(f"sut_timeout: prism nav {args[0]} exceeded {timeout:.3f}s") from exc
         if p.returncode != 0:
             blob = p.stdout or p.stderr
             if "AmbiguousSymbol" in blob:

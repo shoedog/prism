@@ -5,7 +5,7 @@ import os
 import random
 from dataclasses import dataclass, field
 
-from .model import FunctionDef, Location, match_by_selection
+from .model import FunctionDef, Location, SelectionMatcher
 
 STRATA = ("C-method", "C-name", "Q-scoped", "U-method", "U-free")
 
@@ -15,7 +15,7 @@ def is_nested(fd: FunctionDef, lang: str, package_dirs: set[str] | None = None) 
     if lang == "rust":
         # spec §2.5 + review m10: path-based; crate roots are the only non-nested files
         return f not in ("src/lib.rs", "src/main.rs")
-    if lang == "go":
+    if lang in ("go", "ts", "js"):
         return "/" in f
     if lang == "python":
         parts = f.split("/")[:-1]
@@ -48,17 +48,16 @@ def inventory_diff(oracle: list[FunctionDef], prism: list[FunctionDef]) -> Inven
     d.anon_oracle = sum(1 for f in oracle if f.name is None)
     d.anon_prism = sum(1 for f in prism if f.name is None)
     named_prism = [f for f in prism if f.name is not None]
-    used: set[FunctionDef] = set()
+    matcher = SelectionMatcher(named_prism)
     for ofd in oracle:
         if ofd.name is None:
             continue
-        m = match_by_selection(ofd, [p for p in named_prism if p not in used])
+        m = matcher.match(ofd)
         if m is None:
             d.prism_missing.append(ofd)
         else:
-            used.add(m)
             d.matched.append((ofd, m))
-    d.prism_extra = [p for p in named_prism if p not in used]
+    d.prism_extra = [p for p in named_prism if p not in matcher.used]
     return d
 
 
