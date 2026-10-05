@@ -103,7 +103,7 @@ def test_run_happy_path_json_decode_and_argv(monkeypatch):
     assert seen == [
         (
             ["/tmp/prism", "nav", "callers", "--repo", "/repo", "--format", "json"],
-            {"capture_output": True, "text": True},
+            {"capture_output": True, "text": True, "timeout": 120.0},
         )
     ]
 

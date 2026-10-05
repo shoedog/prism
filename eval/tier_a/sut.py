@@ -10,12 +10,17 @@ import json
 import os
 import re
 import subprocess
+import time
 
 from .model import CallEdge, FunctionDef, Location
 
 
 class SutError(Exception):
     """SUT-side failure consumed by the accounting layer."""
+
+
+class SutTimeout(SutError):
+    """A bounded SUT command failed to finish; no accuracy answer is available."""
 
 
 class SutStale(SutError):
@@ -127,6 +132,50 @@ def extract_callees(seed: FunctionDef, ev: dict) -> list[CallEdge]:
     return edges
 
 
+def configure_seed_addresses(sut, inventory):
+    """Bind shared-line seeds to an exact name or unique innermost range."""
+    from collections import Counter, defaultdict
+    lines = Counter((f.location.file, f.location.start_line) for f in inventory)
+    names = Counter((f.location.file, f.name) for f in inventory)
+    by_file = defaultdict(list)
+    for f in inventory:
+        by_file[f.location.file].append(f)
+    sut.symbol_seeds, sut.location_seeds, sut.unaddressable_seeds = set(), {}, set()
+    for fd in inventory:
+        loc = fd.location
+        if lines[(loc.file, loc.start_line)] <= 1:
+            continue
+        if fd.name and names[(loc.file, fd.name)] == 1:
+            sut.symbol_seeds.add(fd)
+            continue
+        siblings = by_file[loc.file]
+        candidates = {loc.start_line, loc.end_line}
+        for other in siblings:
+            candidates.update((other.location.start_line - 1, other.location.end_line + 1))
+        for line in sorted(x for x in candidates if loc.start_line <= x <= loc.end_line):
+            containing = [f for f in siblings if f.location.start_line <= line <= f.location.end_line]
+            shortest = min(f.location.end_line - f.location.start_line for f in containing)
+            winners = [f for f in containing if f.location.end_line - f.location.start_line == shortest]
+            if winners == [fd]:
+                sut.location_seeds[fd] = line
+                break
+        else:
+            sut.unaddressable_seeds.add(fd)
+
+
+def run_bounded(sut, command):
+    """One deadline policy for JSON, JSONL and matrix subprocesses."""
+    timeout = getattr(sut, "query_timeout_s", 120.0)
+    if getattr(sut, "deadline", None) is not None:
+        timeout = min(timeout, sut.deadline - time.monotonic())
+    if timeout <= 0:
+        raise SutTimeout("sut_timeout: corpus budget exhausted")
+    try:
+        return subprocess.run(command, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        raise SutTimeout(f"sut_timeout: {command} exceeded {timeout:.3f}s") from exc
+
+
 class PrismCli:
     def __init__(
         self,
@@ -139,6 +188,10 @@ class PrismCli:
             prism_repo, "target/release/prism"
         )
         self.allow_stale = allow_stale
+        # The platform default (~/Library/Caches on macOS) is outside managed
+        # workspace roots. A writable cache prevents a cold CPG rebuild on EVERY
+        # sampled call while preserving Prism's existing content-based keys.
+        self.cache_dir = os.path.join(prism_repo, "target", "tier-a-nav-cache")
         # When True, nav calls pass `--no-cache` so the per-repo nav store is
         # bypassed. The matrix runner sets this for deterministic fixture eval —
         # a stale fixture cache silently served pre-S3 results and produced false
@@ -183,11 +236,9 @@ class PrismCli:
         # getattr default keeps objects built via __new__ in tests working
         # (and defaults to cache-on, the safe behavior).
         cache_args = ["--no-cache"] if getattr(self, "no_cache", False) else []
-        p = subprocess.run(
-            [self.bin, "nav", *cache_args, *args, "--format", "json"],
-            capture_output=True,
-            text=True,
-        )
+        if not cache_args and getattr(self, "cache_dir", None):
+            cache_args = ["--cache-dir", self.cache_dir]
+        p = run_bounded(self, [self.bin, "nav", *cache_args, *args, "--format", "json"])
         if p.returncode != 0:
             blob = p.stdout or p.stderr
             if "AmbiguousSymbol" in blob:
@@ -203,11 +254,18 @@ class PrismCli:
     def inventory(self, corpus_root: str) -> list[FunctionDef]:
         return extract_functions(self._run(["functions", "--repo", corpus_root]))
 
+    def _seed_args(self, seed):
+        if seed in getattr(self, "unaddressable_seeds", set()):
+            raise SutError("seed_unaddressable: multiple declarations share both line and file-scoped name")
+        if seed in getattr(self, "symbol_seeds", set()):
+            return ["--symbol", seed.name, "--file", seed.location.file]
+        line = getattr(self, "location_seeds", {}).get(seed, seed.location.start_line)
+        return ["--location", f"{seed.location.file}:{line}"]
+
     def callers(
         self, corpus_root: str, seed: FunctionDef, confidence: str = "all"
     ) -> list[CallEdge]:
-        loc = f"{seed.location.file}:{seed.location.start_line}"
-        args = ["callers", "--repo", corpus_root, "--location", loc, "--depth", "1"]
+        args = ["callers", "--repo", corpus_root, *self._seed_args(seed), "--depth", "1"]
         # Default ("all") omits the flag so existing baselines stay byte-for-byte.
         if confidence != "all":
             args += ["--confidence", confidence]
@@ -220,8 +278,7 @@ class PrismCli:
     def callees(
         self, corpus_root: str, seed: FunctionDef, confidence: str = "all"
     ) -> list[CallEdge]:
-        loc = f"{seed.location.file}:{seed.location.start_line}"
-        args = ["callees", "--repo", corpus_root, "--location", loc, "--depth", "1"]
+        args = ["callees", "--repo", corpus_root, *self._seed_args(seed), "--depth", "1"]
         if confidence != "all":
             args += ["--confidence", confidence]
         try:

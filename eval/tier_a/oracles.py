@@ -145,38 +145,126 @@ class OracleError(Exception):
     """Per-probe oracle failure consumed by the accounting layer."""
 
 
+class OracleTimeout(OracleError):
+    """Deadline exceeded; never score this as an empty oracle answer."""
+
+
 class LspOracle:
     """Shared live LSP lifecycle and wrappers that normalize oracle failures."""
 
-    def __init__(self, cmd, root, lang, settle_s=2.0, quiescence_cap_s=300.0):
+    def __init__(self, cmd, root, lang, settle_s=2.0, quiescence_cap_s=300.0,
+                 query_timeout_s=10.0, startup_timeout_s=60.0, oracle_budget_s=600.0,
+                 cargo_features=None):
         from .lsp_client import LspClient
 
         self.root, self.lang = os.path.abspath(root), lang
         self.not_quiescent = False
         self._cmd = cmd
         root_uri = "file://" + urllib.parse.quote(self.root)
-        self.client = LspClient(cmd, cwd=self.root, root_uri=root_uri)
+        self.client = LspClient(cmd, cwd=self.root, root_uri=root_uri,
+                                default_timeout=query_timeout_s,
+                                session_timeout=oracle_budget_s,
+                                initialization_options=({"cargo": {"features": cargo_features}}
+                                    if cargo_features is not None else None),
+                                server_status=lang == "rust")
         self._settle, self._cap = settle_s, quiescence_cap_s
+        self._startup_timeout = startup_timeout_s
+        self.retries = []
+        self._active = set()
+        self._quiescent = False
+        self._quiet_since = time.monotonic()
+        self.readiness = []
+        self.restarts = []
 
     def start(self):
-        self.client.start()
-        deadline = time.monotonic() + self._cap
-        active: set = set()
-        quiet_since = time.monotonic()
+        from .lsp_client import LspTimeout
+        begun = time.monotonic()
+        query_timeout = self.client._timeout if hasattr(self.client, "_timeout") else None
+        try:
+            if query_timeout is not None:
+                self.client._timeout = min(query_timeout, self._startup_timeout)
+            self.client.start()
+        except LspTimeout as exc:
+            raise OracleTimeout(f"initialize: {exc}") from exc
+        except OSError as exc:
+            raise OracleError(f"oracle launch: {exc}") from exc
+        finally:
+            if query_timeout is not None:
+                self.client._timeout = query_timeout
+        deadline = min(begun + self._startup_timeout,
+                       time.monotonic() + self._cap, self.client.deadline)
+        self.wait_ready(deadline)
+
+    def wait_ready(self, deadline=None):
+        deadline = deadline if deadline is not None else min(
+            time.monotonic() + self._startup_timeout, self.client.deadline)
         while time.monotonic() < deadline:
             for n in self.client.drain_notifications():
+                if n.get("method") == "experimental/serverStatus":
+                    self._quiescent = n["params"].get("quiescent", False)
+                    self.readiness.append(n["params"])
                 if n.get("method") == "$/progress":
                     tok = n["params"]["token"]
                     kind = n["params"]["value"].get("kind")
                     if kind == "begin":
-                        active.add(tok)
+                        self._active.add(tok)
                     elif kind == "end":
-                        active.discard(tok)
-                    quiet_since = time.monotonic()
-            if not active and time.monotonic() - quiet_since >= self._settle:
+                        self._active.discard(tok)
+                    self._quiet_since = time.monotonic()
+            if (not self._active and (self.lang != "rust" or self._quiescent)
+                    and time.monotonic() - self._quiet_since >= self._settle):
                 return
             time.sleep(0.1)
         self.not_quiescent = True
+        raise OracleTimeout("startup: oracle did not become quiescent before deadline")
+
+    def prime_hierarchy(self, seeds, files, inventory):
+        """Validate the whole sample before scoring; one persistent-cancellation
+        recovery, with identical inventory/config and the original session budget.
+        """
+        from .lsp_client import LspClient
+        for attempt in range(2):
+            answers = {}
+            before = len(self.retries)
+            try:
+                for fd in seeds:
+                    for direction in ("callers", "callees"):
+                        before = len(self.retries)
+                        try:
+                            answers[(fd, direction)] = getattr(self, direction)(fd)
+                        except OracleTimeout:
+                            raise  # retain the whole-session recovery/refusal policy
+                        except OracleError as exc:
+                            answers[(fd, direction)] = exc
+                return answers
+            except OracleTimeout as exc:
+                if attempt or len(self.retries) == before:
+                    raise
+                old = self.client
+                deadline = old.deadline
+                self.restarts.append({"reason": str(exc), "seed": f"{fd.location.file}:{fd.selection_line}",
+                                      "direction": direction, "policy": "once; original session deadline"})
+                old.stop()
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise OracleTimeout("recovery: original session budget exhausted") from exc
+                self.client = LspClient(self._cmd, self.root, root_uri=old._root_uri,
+                    default_timeout=old._timeout, session_timeout=remaining,
+                    initialization_options=old._initialization_options, server_status=old._server_status)
+                self.client.deadline = deadline
+                self._active.clear()
+                self._quiescent = False
+                self._quiet_since = time.monotonic()
+                self.start()
+                rebuilt = [fd for file in files for fd in self.document_symbols(file)]
+                self.wait_ready()
+                if rebuilt != inventory:
+                    raise OracleError("inventory drift during oracle recovery")
+                # Use the original overlay/real-symbol policy on the new session.
+                from .cli import resolve_capability
+                if not resolve_capability(self, self.capability_probe(), rebuilt):
+                    raise OracleError("capability unsupported during oracle recovery")
+        raise AssertionError("unreachable")
 
     def stop(self):
         self.client.stop()
@@ -188,12 +276,16 @@ class LspOracle:
             with open(p, encoding="utf-8", errors="replace") as f:
                 content = f.read()
         lang_id = {"rust": "rust", "go": "go", "python": "python"}[self.lang]
-        self.client.notify("textDocument/didOpen", {"textDocument": {
+        from .lsp_client import LspTimeout
+        try:
+            self.client.notify("textDocument/didOpen", {"textDocument": {
             "uri": "file://" + urllib.parse.quote(p),
             "languageId": lang_id,
             "version": 1,
             "text": content,
-        }})
+            }})
+        except LspTimeout as exc:
+            raise OracleTimeout(f"didOpen: {exc}") from exc
 
     def capability_probe(self) -> bool:
         """Overlay a probe file and require call hierarchy incomingCalls support."""
@@ -203,26 +295,44 @@ class LspOracle:
         col = {"rust": 3, "go": 5, "python": 4}[self.lang]
         line = {"rust": 0, "go": 2, "python": 0}[self.lang]
         try:
-            items = self.client.request(
+            items = self._req(
                 "textDocument/prepareCallHierarchy",
                 {"textDocument": {"uri": uri},
                  "position": {"line": line, "character": col}},
             )
             if not items:
                 return False
-            calls = self.client.request("callHierarchy/incomingCalls",
+            calls = self._req("callHierarchy/incomingCalls",
                                         {"item": items[0]})
             return calls is not None and len(calls) >= 1
-        except Exception:
+        except OracleTimeout:
+            raise
+        except OracleError:
             return False
 
     def _req(self, method, params, timeout=None):
-        from .lsp_client import LspError
-
-        try:
-            r = self.client.request(method, params, timeout=timeout)
-        except LspError as e:
-            raise OracleError(f"{method}: {e}") from e
+        from .lsp_client import LspError, LspServerError, LspTimeout
+        # ContentModified retries share ONE original query deadline with backoff;
+        # no timeout or other server error is retried.
+        deadline = time.monotonic() + (timeout if timeout is not None else getattr(self.client, "_timeout", 10.0))
+        attempt = 0
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise OracleTimeout(f"{method}: query deadline exhausted")
+            try:
+                r = self.client.request(method, params, timeout=remaining)
+                break
+            except LspTimeout as e:
+                raise OracleTimeout(f"{method}: {e}") from e
+            except LspServerError as e:
+                if e.err.get("code") != -32801:
+                    raise OracleError(f"{method}: {e}") from e
+                self.retries.append({"method": method, "code": -32801, "attempt": attempt + 1})
+                attempt += 1
+                time.sleep(min(0.1 * 2 ** min(attempt - 1, 3), max(0, deadline - time.monotonic())))
+            except LspError as e:
+                raise OracleError(f"{method}: {e}") from e
         if r is None:
             raise OracleError(f"{method}: null result")
         return r
