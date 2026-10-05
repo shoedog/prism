@@ -1,5 +1,10 @@
 # Tier-A quick repair readout
 
+**Superseded by R1:** the table below is historical worker evidence. Both reviewers
+reproduced Rust INVALID, and TS incoming calls included related implementations.
+Current repairs/results: [R1 readout](r1-readout.md). Historical execution totals
+are retained without claiming present reproducibility.
+
 Written 2026-10-05T03:51:24.740379+00:00. Checkout HEAD `4e592daa7858a195eb3a9eb77c83dfbc763b49fa`, branch
 `plan/tier-a-quick-repair`; working changes are uncommitted for the controller.
 Execution authority: `/Users/wesleyjinks/prism-evidence/meas/tiera/plan-brief.md`.
@@ -48,7 +53,8 @@ install was present; broader project/type-context completeness is not certified.
 | excalidraw-js callers | 1.0000 | 0.6250 | 5/0/3 | 1.0000/0.6250 |
 | excalidraw-js callees | 1.0000 | 0.6000 | 3/0/2 | 1.0000/0.6000 |
 
-Function-set totals provide a separate view of target/caller identity: TS callers
+Function-set totals compare the caller context containing each call site, in
+both directions. They do not measure callee target identity. Historical TS callers
 7/5/6 tp/fp/fn, TS callees 8/4/0; JS callers 4/0/2, JS callees 3/4/0. Call-site
 agreement alone must not be read as target-identity precision.
 

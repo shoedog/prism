@@ -22,7 +22,7 @@ oracle_budget_s = 600.0
 
 # Immutable quick inputs, separate names preserve historical dogfood anchors.
 [quick]
-corpora = ["prism-quick", "excalidraw-ts", "excalidraw-js"]
+corpora = ["prism-quick", "excalidraw-ts", "secbench-node"]
 
 [corpus.prism-quick]
 lang = "rust"
@@ -41,6 +41,8 @@ path = "~/prism-evidence/inputs/excalidraw-0642e72c/source"
 source_manifest = "~/prism-evidence/inputs/excalidraw-0642e72c/source-file-manifest.sha256"
 source_manifest_sha256 = "1a6c4397bfacafc0dc2651d1f65fe4dd7afed60a0fa21f8f928061b9e20968f0"
 oracle = "tsserver"
+oracle_version = "tsserver 6.0.3"
+reject_node_modules = true
 pinned_sha = "0642e72cfa2d"
 excludes = ["*.d.ts"]
 
@@ -50,7 +52,21 @@ path = "~/prism-evidence/inputs/excalidraw-0642e72c/source"
 source_manifest = "~/prism-evidence/inputs/excalidraw-0642e72c/source-file-manifest.sha256"
 source_manifest_sha256 = "1a6c4397bfacafc0dc2651d1f65fe4dd7afed60a0fa21f8f928061b9e20968f0"
 oracle = "tsserver"
+oracle_version = "tsserver 6.0.3"
+reject_node_modules = true
 pinned_sha = "0642e72cfa2d"
+
+# Runtime Node stratum: pinned cached server/process/config/search packages.
+[corpus.secbench-node]
+lang = "js"
+path = "~/.local/share/prism/corpora/secbench-node-r1/source"
+source_manifest = "eval/manifests/secbench-node-r1.sha256"
+source_manifest_sha256 = "6c9e7e9252d173b60f083dff36734e597b8121943fba0e1d6946a315e4b812d0"
+oracle = "tsserver"
+oracle_version = "tsserver 6.0.3"
+reject_node_modules = true
+pinned_sha = "secbench-node-r1"
+excludes = ["*/scripts/*", "*/dist/*"] # Node runtime source, not duplicated browser/minified builds
 
 # ============================================================================
 # 1. COMMITTED ANCHORS

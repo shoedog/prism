@@ -1,5 +1,10 @@
 # Handoff — MEAS-B Tier-A quick repair
 
+**Superseded:** active checkout is feat/tier-a-quick-repair at 595430e5; both
+reviewers reproduced Rust INVALID. Active R1 handoff:
+/Users/wesleyjinks/prism-evidence/meas/tiera/repair-r1/handoff.md. The old
+all-three-valid and TS accuracy assertions below are historical, not current.
+
 **Written:** 2026-10-05T04:13:10.248380+00:00 · **By:** Codex root · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/prism-tiera · plan/tier-a-quick-repair · **Measured state:** `[MEASURED]` HEAD 4e592daa7858a195eb3a9eb77c83dfbc763b49fa · Tree DIRTY · Probe git status --short / rev-parse · Output /Users/wesleyjinks/prism-evidence/meas/tiera/final-git-status.txt
 **Predecessor:** none — first in lane

@@ -88,24 +88,45 @@ Run from `eval/`:
 ```bash
 uv run tier-a --corpus all              # full run, human-triggered
 uv run tier-a --corpus prism            # one corpus
-uv run tier-a --quick                   # pinned Rust + Excalidraw TS + JS; reduced sample; matrix
-uv run tier-a --quick --lang ts,js       # JS/TS call-resolution accuracy only
+uv run tier-a --quick                   # pinned Rust + Excalidraw TS + SecBench Node; smoke sample; matrix
+uv run tier-a --quick --lang ts,js       # JS/TS call-resolution smoke check
+uv run tier-a --lang ts,js --sample 20 --out-dir <new-path> # decision sample, 20 symbols/stratum
 uv run tier-a --matrix-only             # capability matrix only, no LSP
 uv run tier-a --report-only <run.json>  # replay metrics and re-render reports
 ```
 
 `--quick` honors an explicit `--corpus`; `--lang` filters selected corpora.
+Without `--corpus`, `--lang ts,js` selects the pinned quick inputs even without
+`--quick`. `--sample N` overrides the symbols per stratum; pooled results are
+sample agreement, not population-weighted estimates. Wilson intervals are 95%
+binomial intervals over matched site counts, not design/cluster-adjusted intervals.
+TS/JS Q-scoped means lexical container nesting, not directory nesting.
+
+`frame` reports the entire Prism-named population outside native call hierarchy
+and an independent TypeScript syntax census. `member_sites` separately samples
+calls to object-property callbacks and getter accesses, using native definition
+queries at AST-derived UTF-16 positions. It reports site detection recall and
+explicit nonconcrete/unsupported definitions; it cannot estimate precision for
+the complete incoming edge population. Alias and generic/interface binding
+limitations remain oracle calibration limits; pending differences are retained.
+
+The Node corpus contains runtime server, process, configuration and search code
+from five cached SecBench packages; vulnerable-package selection biases this
+stratum, so it is not a general JavaScript population estimate.
+Reproduction recipe: [R1 preparation](../docs/superpowers/plans/2026-10-04-tier-a-quick-repair/r1-prepare.md).
 Use `--out-dir <path>` for exploratory reports so committed anchors are preserved.
-Each report's `summary` contains edge-weighted raw and Exact-tier caller/callee
+Each report's `summary` contains sample-pooled raw and Exact-tier caller/callee
 P/R with tp/fp/fn counts; per-stratum metrics and pending differences remain.
 These are sampled in-repository call sites, with Wilson intervals, not whole
 program soundness or data-flow/async measurements. Excalidraw runs here use local
-source without installed project dependencies; the oracle version is recorded.
+source without installed project dependencies. Corpus validity binds tsserver
+6.0.3 and rejects any node_modules directory inside the source manifest root.
 
 Defaults: LSP requests 10s, startup 60s, each corpus/oracle budget 600s; SUT commands
 120s within that corpus budget. Override LSP limits with `--query-timeout-s`,
-`--startup-timeout-s`, `--oracle-budget-s`. Rust `ContentModified` gets at most
-three attempts sharing one query deadline; retries are recorded. Transport
+`--startup-timeout-s`, `--oracle-budget-s`. Rust readiness requires explicit serverStatus quiescence and completed progress
+both at startup and after document inventory. `ContentModified` retries use
+backoff within one original query deadline; retries/readiness are recorded. Transport
 writes and shutdown are bounded too. `oracle_timeout`/`sut_timeout` retain their
 probe and error, invalidate rather than mint an empty oracle answer, and appear
 in progress, run JSON, and Markdown. Partial inventories are not saved as new
