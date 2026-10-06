@@ -94,12 +94,12 @@ impl ParsedFile {
     /// the Def. Binders: nested callable formals and `var`/function-scope
     /// declarations, function/class-expression self names, catch
     /// parameters, `let`/`const` for/for-in/for-of heads and block-level
-    /// lexical/function/class declarations. Escaped binding spellings may
-    /// bind any name and fence (fail closed).
+    /// lexical/function/class/enum declarations. Binding environments are
+    /// compared at each occurrence, including defaults and computed keys.
     pub(crate) fn js_ts_reference_fenced(
         &self,
         reference: &Node<'_>,
-        owner: &Node<'_>,
+        _owner: &Node<'_>,
         name: &str,
         def_byte: usize,
     ) -> bool {
@@ -109,57 +109,103 @@ impl ParsedFile {
         ) {
             return false;
         }
+        self.js_ts_binding_scope_at(reference.start_byte(), name)
+            .map(|s| s.0)
+            != self.js_ts_binding_scope_at(def_byte, name).map(|s| s.0)
+    }
+
+    /// Scope identity and visibility span of a binding at an evaluated byte.
+    /// Callable body vars exclude defaults; method keys exclude all formals.
+    fn js_ts_binding_scope_at(&self, byte: usize, name: &str) -> Option<(usize, (usize, usize))> {
+        let leaf = self
+            .tree
+            .root_node()
+            .descendant_for_byte_range(byte, byte + 1)?;
         let boundaries = self.language.callable_boundary_node_types();
-        let mut current = reference.parent();
+        let mut current = leaf.parent();
         while let Some(scope) = current {
-            if scope.id() == owner.id() {
-                return false;
-            }
-            let contains_def = scope.start_byte() <= def_byte && def_byte < scope.end_byte();
-            if !contains_def && self.js_ts_scope_binds(scope, &boundaries, name) {
-                return true;
+            if self.js_ts_scope_binds(scope, &boundaries, name, byte) {
+                let mut region = scope;
+                if boundaries.contains(&scope.kind()) {
+                    let params_bind = self
+                        .parameter_binding_region(&scope)
+                        .is_some_and(|p| self.js_ts_fence_pattern_binds(p, name));
+                    let self_bind =
+                        matches!(scope.kind(), "function_expression" | "generator_function")
+                            && scope
+                                .child_by_field_name("name")
+                                .is_some_and(|n| self.js_ts_fence_pattern_binds(n, name));
+                    if !params_bind && !self_bind {
+                        region = scope.child_by_field_name("body")?;
+                    }
+                }
+                return Some((region.id(), (region.start_byte(), region.end_byte())));
             }
             current = scope.parent();
         }
-        false
+        None
     }
 
-    fn js_ts_scope_binds(&self, scope: Node<'_>, boundaries: &[&str], name: &str) -> bool {
+    fn js_ts_scope_binds(
+        &self,
+        scope: Node<'_>,
+        boundaries: &[&str],
+        name: &str,
+        byte: usize,
+    ) -> bool {
         if boundaries.contains(&scope.kind()) {
+            let body = scope.child_by_field_name("body");
+            let params = self.parameter_binding_region(&scope);
+            let inside = |n: Node<'_>| n.start_byte() <= byte && byte < n.end_byte();
+            let in_self_name = matches!(scope.kind(), "function_expression" | "generator_function")
+                && scope.child_by_field_name("name").is_some_and(inside);
+            // Legacy TS type predicates/queries can refer to formals. Preserve
+            // those static-binding rows even though new synthetic Uses erase types.
+            let in_return_type = scope.child_by_field_name("return_type").is_some_and(inside);
+            if !body.is_some_and(inside)
+                && !params.is_some_and(inside)
+                && !in_self_name
+                && !in_return_type
+            {
+                return false; // computed method key executes in the enclosing environment
+            }
             if let Some(params) = self
                 .find_parameters_node(&scope)
                 .or_else(|| scope.child_by_field_name("parameter"))
             {
-                if self.js_ts_binding_pattern_may_bind(params, name) {
+                if self.js_ts_fence_pattern_binds(params, name) {
                     return true;
                 }
             }
             if matches!(scope.kind(), "function_expression" | "generator_function")
                 && scope
                     .child_by_field_name("name")
-                    .is_some_and(|n| self.js_ts_binding_pattern_may_bind(n, name))
+                    .is_some_and(|n| self.js_ts_fence_pattern_binds(n, name))
             {
                 return true;
             }
             // Function-scope (`var`, hoisted declarations) of the nested callable.
-            return scope
-                .child_by_field_name("body")
-                .is_some_and(|body| self.js_ts_function_scope_binds(body, boundaries, name));
+            return body.is_some_and(|body| {
+                inside(body) && self.js_ts_function_scope_binds(body, boundaries, name)
+            });
         }
         match scope.kind() {
             "class" => scope
                 .child_by_field_name("name")
-                .is_some_and(|n| self.js_ts_binding_pattern_may_bind(n, name)),
+                .is_some_and(|n| self.js_ts_fence_pattern_binds(n, name)),
             "catch_clause" => scope
                 .child_by_field_name("parameter")
-                .is_some_and(|p| self.js_ts_binding_pattern_may_bind(p, name)),
+                .is_some_and(|p| self.js_ts_fence_pattern_binds(p, name)),
+            "class_static_block" => scope
+                .child_by_field_name("body")
+                .is_some_and(|body| self.js_ts_function_scope_binds(body, boundaries, name)),
             "for_in_statement" => {
                 scope
                     .child_by_field_name("kind")
                     .is_some_and(|k| matches!(self.node_text(&k), "let" | "const"))
                     && scope
                         .child_by_field_name("left")
-                        .is_some_and(|l| self.js_ts_binding_pattern_may_bind(l, name))
+                        .is_some_and(|l| self.js_ts_fence_pattern_binds(l, name))
             }
             "for_statement" => scope
                 .child_by_field_name("initializer")
@@ -182,9 +228,10 @@ impl ParsedFile {
             "function_declaration"
             | "generator_function_declaration"
             | "class_declaration"
-            | "abstract_class_declaration" => stmt
+            | "abstract_class_declaration"
+            | "enum_declaration" => stmt
                 .child_by_field_name("name")
-                .is_some_and(|n| self.js_ts_binding_pattern_may_bind(n, name)),
+                .is_some_and(|n| self.js_ts_fence_pattern_binds(n, name)),
             "switch_case" | "switch_default" => {
                 let mut cursor = stmt.walk();
                 let found = stmt
@@ -201,7 +248,7 @@ impl ParsedFile {
         let found = decl.named_children(&mut cursor).any(|d| {
             d.kind() == "variable_declarator"
                 && d.child_by_field_name("name")
-                    .is_some_and(|n| self.js_ts_binding_pattern_may_bind(n, name))
+                    .is_some_and(|n| self.js_ts_fence_pattern_binds(n, name))
         });
         found
     }
@@ -212,7 +259,13 @@ impl ParsedFile {
     fn js_ts_function_scope_binds(&self, body: Node<'_>, boundaries: &[&str], name: &str) -> bool {
         let mut stack = vec![body];
         while let Some(node) = stack.pop() {
-            if node.id() != body.id() && boundaries.contains(&node.kind()) {
+            if node.id() != body.id()
+                && (boundaries.contains(&node.kind())
+                    || matches!(
+                        node.kind(),
+                        "class_static_block" | "class" | "class_declaration"
+                    ))
+            {
                 continue;
             }
             if node.kind() == "variable_declaration" && self.js_ts_declaration_binds(node, name) {
@@ -226,7 +279,7 @@ impl ParsedFile {
                     .is_some_and(|k| self.node_text(&k) == "var")
                 && node
                     .child_by_field_name("left")
-                    .is_some_and(|l| self.js_ts_binding_pattern_may_bind(l, name))
+                    .is_some_and(|l| self.js_ts_fence_pattern_binds(l, name))
             {
                 return true;
             }
@@ -243,6 +296,86 @@ impl ParsedFile {
             stack.extend(node.named_children(&mut cursor));
         }
         false
+    }
+
+    // Fence-specific decoding leaves PR-A's conservative D11 refusal intact.
+    fn js_ts_fence_pattern_binds(&self, node: Node<'_>, name: &str) -> bool {
+        match node.kind() {
+            "identifier" | "type_identifier" | "shorthand_property_identifier_pattern" => {
+                let text = self.node_text(&node);
+                if !text.contains('\\') {
+                    return text == name;
+                }
+                Self::js_ts_decoded_identifier(text).is_some_and(|decoded| decoded == name)
+            }
+            "pair_pattern" => node
+                .child_by_field_name("value")
+                .is_some_and(|n| self.js_ts_fence_pattern_binds(n, name)),
+            "assignment_pattern" | "object_assignment_pattern" => node
+                .child_by_field_name("left")
+                .is_some_and(|n| self.js_ts_fence_pattern_binds(n, name)),
+            "required_parameter" | "optional_parameter" => node
+                .child_by_field_name("pattern")
+                .is_some_and(|n| self.js_ts_fence_pattern_binds(n, name)),
+            "formal_parameters" | "object_pattern" | "array_pattern" | "rest_pattern" => {
+                let mut cursor = node.walk();
+                let found = node
+                    .named_children(&mut cursor)
+                    .any(|n| self.js_ts_fence_pattern_binds(n, name));
+                found
+            }
+            _ => false,
+        }
+    }
+
+    fn js_ts_decoded_identifier(text: &str) -> Option<String> {
+        let mut chars = text.chars();
+        let mut decoded = String::new();
+        while let Some(c) = chars.next() {
+            if c != '\\' {
+                decoded.push(c);
+                continue;
+            }
+            if chars.next()? != 'u' {
+                return None;
+            }
+            let first = chars.next()?;
+            let hex = if first == '{' {
+                let mut hex = String::new();
+                loop {
+                    let c = chars.next()?;
+                    if c == '}' {
+                        break;
+                    }
+                    hex.push(c);
+                }
+                hex
+            } else {
+                let mut hex = String::from(first);
+                for _ in 0..3 {
+                    hex.push(chars.next()?);
+                }
+                hex
+            };
+            if hex.is_empty() || hex.len() > 6 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+                return None;
+            }
+            decoded.push(char::from_u32(u32::from_str_radix(&hex, 16).ok()?)?);
+        }
+        // Validate the decoded token with the same ECMAScript grammar: numeric,
+        // punctuation, malformed escapes and surrogate values cannot bind a name.
+        let mut parser = Parser::new();
+        parser
+            .set_language(&Language::JavaScript.tree_sitter_language())
+            .ok()?;
+        let tree = parser.parse(format!("{decoded};"), None)?;
+        let root = tree.root_node();
+        let ident = root.named_child(0)?.named_child(0)?;
+        (!root.has_error()
+            && ident.kind() == "identifier"
+            && ident.start_byte() == 0
+            && ident.end_byte() == decoded.len())
+        .then_some(decoded)
     }
 
     /// PR-B reference-position classifier (E7 must not grow): an rvalue span
@@ -274,7 +407,7 @@ impl ParsedFile {
             .root_node()
             .descendant_for_byte_range(start_byte, end_byte)
             .filter(|n| n.start_byte() == start_byte && n.end_byte() == end_byte)
-            .filter(|n| n.kind() == "identifier")
+            .filter(|n| n.kind() == "identifier" || Self::is_field_access_node(n.kind()))
             .is_some_and(|n| self.js_ts_identifier_is_not_a_read(n))
     }
 
@@ -399,6 +532,7 @@ impl ParsedFile {
                 | "class"
                 | "class_declaration"
                 | "abstract_class_declaration"
+                | "enum_declaration"
                 | "import_specifier"
                 | "namespace_import"
                 | "import_clause" => {
@@ -416,47 +550,16 @@ impl ParsedFile {
         false
     }
 
-    /// PR-B Def-scope fence for synthetic passes (E10 must not grow): the
-    /// byte region a lexical Def binds in. `let`/`const` declarators bind in
-    /// their enclosing block / `for` head; `var`, assignments and formals are
-    /// function-scoped (`None` = the whole owner).
-    pub(crate) fn js_ts_lexical_def_scope(
+    /// Binding scope for every JS/TS Def, including assignment targets and
+    /// member bases. Never expand a reference walk beyond its DFG owner.
+    pub(crate) fn js_ts_def_scope(
         &self,
+        owner: &Node<'_>,
+        name: &str,
         def_start: usize,
-        def_end: usize,
     ) -> Option<(usize, usize)> {
-        let node = self
-            .tree
-            .root_node()
-            .descendant_for_byte_range(def_start, def_end)?;
-        let mut current = node.parent();
-        let mut declarator_seen = false;
-        while let Some(n) = current {
-            match n.kind() {
-                "variable_declarator" => declarator_seen = true,
-                "object_pattern"
-                | "array_pattern"
-                | "pair_pattern"
-                | "assignment_pattern"
-                | "object_assignment_pattern"
-                | "rest_pattern"
-                | "shorthand_property_identifier_pattern" => {}
-                "lexical_declaration" if declarator_seen => {
-                    let scope = n.parent()?;
-                    return Some((scope.start_byte(), scope.end_byte()));
-                }
-                // `for (const k of …)` / `for (let k in …)`: the loop owns k.
-                "for_in_statement" => {
-                    let lexical = n
-                        .child_by_field_name("kind")
-                        .is_some_and(|k| matches!(self.node_text(&k), "let" | "const"));
-                    return lexical.then(|| (n.start_byte(), n.end_byte()));
-                }
-                _ => return None,
-            }
-            current = n.parent();
-        }
-        None
+        let (_, (start, end)) = self.js_ts_binding_scope_at(def_start, name)?;
+        (owner.start_byte() <= start && end <= owner.end_byte()).then_some((start, end))
     }
 
     /// PR-B (synthetic passes): `this.x` in a nested non-arrow function, a
@@ -597,7 +700,9 @@ impl ParsedFile {
                 let this_rebound = reads_only
                     && path.base == "this"
                     && self.js_ts_this_rebound_between(&node, owner);
-                if !this_rebound && !self.js_ts_reference_fenced(&node, owner, &path.base, def_byte)
+                if !this_rebound
+                    && !self.js_ts_reference_fenced(&node, owner, &path.base, def_byte)
+                    && !(reads_only && self.js_ts_identifier_is_not_a_read(node))
                 {
                     out.insert(line);
                 }

@@ -578,3 +578,292 @@ fn synthetic_rows_and_labels_equal_the_named_control() {
         assert_eq!(extra, expected, "{language:?}");
     }
 }
+
+// R1 regressions use real endpoint bytes as well as the wire line/path keys.
+fn r1_label(
+    cpg: &CodePropertyGraph,
+    owner: &str,
+    path_name: &str,
+    d: usize,
+    u: usize,
+) -> super::FlowConfidence {
+    let found: Vec<_> = cpg
+        .graph
+        .edge_indices()
+        .filter_map(|e| {
+            let CpgEdge::DataFlow(label) = cpg.graph[e] else {
+                return None;
+            };
+            let (a, b) = cpg.graph.edge_endpoints(e)?;
+            match (cpg.node(a), cpg.node(b)) {
+                (
+                    CpgNode::Variable {
+                        function,
+                        path,
+                        line,
+                        access: VarAccess::Def,
+                        ..
+                    },
+                    CpgNode::Variable {
+                        line: use_line,
+                        access: VarAccess::Use,
+                        ..
+                    },
+                ) if function == owner
+                    && path.to_string() == path_name
+                    && *line == d
+                    && *use_line == u =>
+                {
+                    Some(label)
+                }
+                _ => None,
+            }
+        })
+        .collect();
+    assert_eq!(found.len(), 1, "{owner}.{path_name}@{d}->{u}: {found:?}");
+    found[0]
+}
+
+#[test]
+fn r1_nested_writes_are_kill_only_and_named_parity_is_preserved() {
+    let body = "(x) => {\n  let z = x;\n  g(() => {\n    z = 2;\n  });\n  sink(z);\n}";
+    for language in JS_TS {
+        let anonymous = format!("reg({body});\n");
+        let named = format!("const f = {body};\n");
+        let a = build(language, &anonymous);
+        let n = build(language, &named);
+        let label = r1_label(&a, "<cb@1:5>", "z", 2, 6);
+        assert_eq!(label, r1_label(&n, "f", "z", 2, 6));
+        assert!(matches!(
+            label,
+            super::FlowConfidence::NameOnly(super::FlowDoubt::Killed { .. })
+        ));
+        assert!(!defs(&a).contains(&("<cb@1:5>".into(), "z".into(), at(&anonymous, "z = 2", 0))));
+        let rebound = anonymous.replace("() =>", "(z) =>");
+        assert_eq!(
+            r1_label(&build(language, &rebound), "<cb@1:5>", "z", 2, 6),
+            super::FlowConfidence::Exact
+        );
+    }
+}
+
+#[test]
+fn r1_assignment_defs_stay_with_catch_block_and_nested_formals() {
+    let src = "reg((x) => {\n  try { t(); } catch (e) {\n    e = x;\n    sink(e);\n  }\n  sink(e);\n  { let q;\n    q = x;\n    sink(q);\n  }\n  sink(q);\n});\n";
+    let nested =
+        "function h(y) {\n  a(function(y) {\n    y = 1;\n    use(y);\n  });\n  use(y);\n}\n";
+    for language in JS_TS {
+        let r = rows(&build(language, src));
+        assert!(edge(&r, "<cb@1:5>", "e", 3, 4), "{language:?}: {r:?}");
+        assert!(!edge(&r, "<cb@1:5>", "e", 3, 6), "{language:?}: {r:?}");
+        assert!(edge(&r, "<cb@1:5>", "q", 8, 9), "{language:?}: {r:?}");
+        assert!(!edge(&r, "<cb@1:5>", "q", 8, 11), "{language:?}: {r:?}");
+        let r = rows(&build(language, nested));
+        assert!(edge(&r, "h", "y", 3, 4), "{language:?}: {r:?}");
+        assert!(!edge(&r, "h", "y", 3, 6), "{language:?}: {r:?}");
+        assert!(!edge(&r, "h", "y", 3, 1), "{language:?}: {r:?}");
+    }
+}
+
+#[test]
+fn r1_defaults_and_computed_keys_keep_outer_captures() {
+    for language in JS_TS {
+        for declaration in ["var y", "let y", "var q"] {
+            let src = format!("function h(y) {{\n  g(function(z = y) {{\n    {declaration} = 1;\n    use(z);\n  }});\n}}\n");
+            let cpg = build(language, &src);
+            let r = rows(&cpg);
+            assert!(
+                r.contains(&(
+                    "h".into(),
+                    "y".into(),
+                    1,
+                    2,
+                    at(&src, "y", 0),
+                    at(&src, "  g", 0)
+                )),
+                "{language:?}: {r:?}"
+            );
+            assert_eq!(
+                r1_label(&cpg, "h", "y", 1, 2),
+                super::FlowConfidence::NameOnly(super::FlowDoubt::CfgIncomplete)
+            );
+            assert!(!edge(&r, "<cb@2:5>", "y", 3, 2), "{language:?}: {r:?}");
+        }
+        let key = "function h(y) {\n  const o = {\n    [\n      y\n    ](y) {\n      use(y);\n    }\n  };\n}\n";
+        let cpg = build(language, key);
+        let r = rows(&cpg);
+        assert!(
+            r.contains(&(
+                "h".into(),
+                "y".into(),
+                1,
+                4,
+                at(key, "y", 0),
+                at(key, "      y", 0)
+            )),
+            "{language:?}: {r:?}"
+        );
+        assert!(!edge(&r, "h", "y", 1, 6), "{language:?}: {r:?}");
+        assert_eq!(
+            r1_label(&cpg, "h", "y", 1, 4),
+            super::FlowConfidence::NameOnly(super::FlowDoubt::CfgIncomplete)
+        );
+    }
+    for language in [Language::TypeScript, Language::Tsx] {
+        for annotation in ["y is string", "typeof y"] {
+            let src =
+                format!("const h = (\n  y: unknown,\n): {annotation} => {{\n  use(y);\n}};\n");
+            let r = rows(&build(language, &src));
+            assert!(
+                r.contains(&(
+                    "h".into(),
+                    "y".into(),
+                    1,
+                    3,
+                    at(&src, "y", 0),
+                    at(&src, "): ", 0)
+                )),
+                "{language:?}: {r:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn r1_member_writes_are_not_value_reads() {
+    for language in JS_TS {
+        for base in ["this", "obj"] {
+            let src = format!(
+                "f(function() {{\n  {base}.x = 0;\n  {base}.x = 1;\n  use({base}.x);\n}});\n"
+            );
+            let cpg = build(language, &src);
+            let r = rows(&cpg);
+            assert!(
+                !edge(&r, "<cb@1:3>", &format!("{base}.x"), 2, 3),
+                "{language:?}: {r:?}"
+            );
+            assert!(
+                r.contains(&(
+                    "<cb@1:3>".into(),
+                    format!("{base}.x"),
+                    3,
+                    4,
+                    at(&src, &format!("{base}.x = 1"), 0),
+                    at(&src, &format!("{base}.x"), 2)
+                )),
+                "{language:?}: {r:?}"
+            );
+            assert_eq!(
+                r1_label(&cpg, "<cb@1:3>", &format!("{base}.x"), 3, 4),
+                super::FlowConfidence::Exact
+            );
+            for operation in ["+= 1", "++"] {
+                let read = src.replace("= 1", operation);
+                assert!(edge(
+                    &rows(&build(language, &read)),
+                    "<cb@1:3>",
+                    &format!("{base}.x"),
+                    2,
+                    3
+                ));
+            }
+        }
+    }
+}
+
+#[test]
+fn r1_runtime_enums_fence_only_matching_bindings() {
+    for language in [Language::TypeScript, Language::Tsx] {
+        for prefix in ["enum", "const enum"] {
+            let src = format!(
+                "f(function(p) {{\n  {{\n    {prefix} p {{ A }}\n    use(p);\n  }}\n}});\n"
+            );
+            let r = rows(&build(language, &src));
+            assert!(!edge(&r, "<cb@1:3>", "p", 1, 3), "{language:?}: {r:?}");
+            assert!(!edge(&r, "<cb@1:3>", "p", 1, 4), "{language:?}: {r:?}");
+            let unrelated = src.replace(&format!("{prefix} p"), &format!("{prefix} q"));
+            assert!(edge(
+                &rows(&build(language, &unrelated)),
+                "<cb@1:3>",
+                "p",
+                1,
+                4
+            ));
+        }
+    }
+}
+
+#[test]
+fn r1_same_line_defs_and_alias_twins_keep_lvalue_bytes() {
+    for language in JS_TS {
+        let src =
+            "f(function(a, c) {\n  { const b = a; } { const b = c;\n    use(b, c);\n  }\n});\n";
+        let r = rows(&build(language, src));
+        let b: Vec<_> = r
+            .iter()
+            .filter(|r| r.0 == "<cb@1:3>" && r.1 == "b" && r.2 == 2 && r.3 == 3)
+            .collect();
+        assert_eq!(b.len(), 1, "{language:?}: {r:?}");
+        assert_eq!(b[0].4, at(src, "b = c", 0), "{language:?}: {r:?}");
+        for statement in [
+            "var b = other(); b = a;",
+            "var b = a; b = other();",
+            "var b = c; b = a;",
+            "var b = a; b = a;",
+        ] {
+            let src = format!("f(function(a, c) {{\n  {statement}\n  use(a, c, b);\n}});\n");
+            let r = rows(&build(language, &src));
+            let actual: BTreeSet<_> = r
+                .iter()
+                .filter(|r| r.0 == "<cb@1:3>" && r.1 == "a" && r.2 == 2)
+                .map(|r| r.4)
+                .collect();
+            let expected: BTreeSet<_> = src.match_indices("b = a").map(|(b, _)| b).collect();
+            assert_eq!(actual, expected, "{language:?}: {r:?}");
+        }
+        let blocks = "f(function() {\n  class C { static { var p = 1; } static { var p = 2;\n    use(p);\n  } }\n});\n";
+        let r = rows(&build(language, blocks));
+        let actual: BTreeSet<_> = r
+            .iter()
+            .filter(|r| r.0 == "<cb@1:3>" && r.1 == "p" && r.3 == 3)
+            .map(|r| r.4)
+            .collect();
+        assert_eq!(
+            actual,
+            BTreeSet::from([at(blocks, "p = 2", 0)]),
+            "{language:?}: {r:?}"
+        );
+    }
+}
+
+#[test]
+fn r1_decoded_escaped_binders_preserve_unrelated_captures() {
+    for language in JS_TS {
+        for (escaped, matching) in [
+            ("\\u0078", false),
+            ("\\u{78}", false),
+            ("\\u0079", true),
+            ("\\u{79}", true),
+        ] {
+            let src =
+                format!("function h(y) {{\n  g(function({escaped}) {{\n    use(y);\n  }});\n}}\n");
+            let cpg = build(language, &src);
+            let r = rows(&cpg);
+            assert_eq!(edge(&r, "h", "y", 1, 3), !matching, "{language:?}: {r:?}");
+            if !matching {
+                assert!(r.contains(&(
+                    "h".into(),
+                    "y".into(),
+                    1,
+                    3,
+                    at(&src, "y", 0),
+                    at(&src, "    use", 0)
+                )));
+                assert_eq!(
+                    r1_label(&cpg, "h", "y", 1, 3),
+                    super::FlowConfidence::NameOnly(super::FlowDoubt::CfgIncomplete)
+                );
+            }
+        }
+    }
+}

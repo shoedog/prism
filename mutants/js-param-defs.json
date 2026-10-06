@@ -283,41 +283,41 @@
    ]
   ],
   "PD-34-lexical-def-scope-off": [
-   "src/data_flow.rs",
-   "let def_scope = if synthetic {",
-   "let def_scope = if false {",
+   "src/ast_callback_identity.rs",
+   "            \"statement_block\" | \"switch_body\" => {",
+   "            \"never_statement_block\" | \"never_switch_body\" => {",
    [
     "cpg::callback_identity_tests::synthetic_lexical_def_stays_in_its_block"
    ]
   ],
   "PD-35-alias-twin-line-restriction-off": [
    "src/data_flow.rs",
-   "Self::resolve_on_alias_line(&raw_aliases, &span.path, span.line)",
-   "Self::resolve_path(&alias_map, &span.path)",
+   "let target = alias_targets_by_byte.get(&start_byte)?;",
+   "let target = alias_targets_by_byte.values().next()?;",
    [
-    "cpg::callback_identity_tests::synthetic_alias_twin_only_on_the_alias_line"
+    "cpg::callback_identity_tests::r1_same_line_defs_and_alias_twins_keep_lvalue_bytes"
    ]
   ],
   "PD-36-e3-fence-off": [
    "src/ast_callback_identity.rs",
-   "if !contains_def && self.js_ts_scope_binds(scope, &boundaries, name) {",
-   "if false && self.js_ts_scope_binds(scope, &boundaries, name) {",
+   "        self.js_ts_binding_scope_at(reference.start_byte(), name)\n            .map(|s| s.0)\n            != self.js_ts_binding_scope_at(def_byte, name).map(|s| s.0)",
+   "        false",
    [
     "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
    ]
   ],
   "PD-37-e3-def-containment-off": [
    "src/ast_callback_identity.rs",
-   "let contains_def = scope.start_byte() <= def_byte && def_byte < scope.end_byte();",
-   "let contains_def = false;",
+   "self.js_ts_binding_scope_at(def_byte, name).map(|s| s.0)",
+   "Some(usize::MAX)",
    [
     "cpg::callback_identity_tests::enclosing_walk_keeps_captured_reads_and_var_redeclarations"
    ]
   ],
   "PD-38-e3-nested-formal-binder-off": [
    "src/ast_callback_identity.rs",
-   "                if self.js_ts_binding_pattern_may_bind(params, name) {\n                    return true;",
-   "                if false && self.js_ts_binding_pattern_may_bind(params, name) {\n                    return true;",
+   "if self.js_ts_fence_pattern_binds(params, name) {",
+   "if false && self.js_ts_fence_pattern_binds(params, name) {",
    [
     "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
    ]
@@ -332,8 +332,8 @@
   ],
   "PD-40-e3-function-scope-binder-off": [
    "src/ast_callback_identity.rs",
-   "                .is_some_and(|body| self.js_ts_function_scope_binds(body, boundaries, name));",
-   "                .is_some_and(|body| false && self.js_ts_function_scope_binds(body, boundaries, name));",
+   "inside(body) && self.js_ts_function_scope_binds(body, boundaries, name)",
+   "inside(body) && false && self.js_ts_function_scope_binds(body, boundaries, name)",
    [
     "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
    ]
@@ -356,8 +356,8 @@
   ],
   "PD-43-e3-for-in-binder-off": [
    "src/ast_callback_identity.rs",
-   "            \"for_in_statement\" => {",
-   "            \"never_for_in_statement\" => {",
+   "            \"for_in_statement\" => {\n                scope",
+   "            \"never_for_in_statement\" => {\n                scope",
    [
     "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
    ]
@@ -404,8 +404,8 @@
   ],
   "PD-49-for-head-def-scope-off": [
    "src/ast_callback_identity.rs",
-   "                \"for_in_statement\" => {\n                    let lexical",
-   "                \"never_for_in_statement\" => {\n                    let lexical",
+   "            \"for_in_statement\" => {\n                scope",
+   "            \"never_for_in_statement\" => {\n                scope",
    [
     "cpg::callback_identity_tests::synthetic_for_head_def_stays_in_its_loop"
    ]
@@ -449,6 +449,86 @@
    [
     "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
    ]
+  ],
+  "PD-55-r1-nested-write-kill-off": [
+   "src/data_flow.rs",
+   "for span in &nested_write_spans {",
+   "for span in nested_write_spans.iter().take(0) {",
+   [
+    "cpg::callback_identity_tests::r1_nested_writes_are_kill_only_and_named_parity_is_preserved"
+   ]
+  ],
+  "PD-56-r1-computed-key-environment-off": [
+   "src/ast_callback_identity.rs",
+   "            if !body.is_some_and(inside)\n                && !params.is_some_and(inside)\n                && !in_self_name\n                && !in_return_type\n            {",
+   "            if false && !body.is_some_and(inside)\n                && !params.is_some_and(inside)\n                && !in_self_name\n                && !in_return_type\n            {",
+   [
+    "cpg::callback_identity_tests::r1_defaults_and_computed_keys_keep_outer_captures"
+   ]
+  ],
+  "PD-57-r1-default-body-visibility-off": [
+   "src/ast_callback_identity.rs",
+   "inside(body) && self.js_ts_function_scope_binds(body, boundaries, name)",
+   "self.js_ts_function_scope_binds(body, boundaries, name)",
+   [
+    "cpg::callback_identity_tests::r1_defaults_and_computed_keys_keep_outer_captures"
+   ]
+  ],
+  "PD-58-r1-member-read-role-off": [
+   "src/ast_callback_identity.rs",
+   "&& !(reads_only && self.js_ts_identifier_is_not_a_read(node))",
+   "&& !(false && self.js_ts_identifier_is_not_a_read(node))",
+   [
+    "cpg::callback_identity_tests::r1_member_writes_are_not_value_reads"
+   ]
+  ],
+  "PD-59-r1-enum-binder-off": [
+   "src/ast_callback_identity.rs",
+   "            | \"enum_declaration\" => stmt",
+   "            | \"never_enum_declaration\" => stmt",
+   [
+    "cpg::callback_identity_tests::r1_runtime_enums_fence_only_matching_bindings"
+   ]
+  ],
+  "PD-60-r1-alias-byte-identity-off": [
+   "src/data_flow.rs",
+   "let target = alias_targets_by_byte.get(&start_byte)?;",
+   "let target = alias_targets_by_byte.values().next()?;",
+   [
+    "cpg::callback_identity_tests::r1_same_line_defs_and_alias_twins_keep_lvalue_bytes"
+   ]
+  ],
+  "PD-61-r1-endpoint-byte-identity-off": [
+   "src/data_flow.rs",
+   "let occurrence_byte = |byte| if synthetic { byte } else { 0 };",
+   "let occurrence_byte = |_byte| 0;",
+   [
+    "cpg::callback_identity_tests::r1_same_line_defs_and_alias_twins_keep_lvalue_bytes"
+   ]
+  ],
+  "PD-62-r1-decoded-binder-comparison-off": [
+   "src/ast_callback_identity.rs",
+   "Self::js_ts_decoded_identifier(text).is_some_and(|decoded| decoded == name)",
+   "text.contains('\\\\')",
+   [
+    "cpg::callback_identity_tests::r1_decoded_escaped_binders_preserve_unrelated_captures"
+   ]
+  ],
+  "PD-63-r1-static-block-scope-off": [
+   "src/ast_callback_identity.rs",
+   "            \"class_static_block\" => scope",
+   "            \"never_class_static_block\" => scope",
+   [
+    "cpg::callback_identity_tests::r1_same_line_defs_and_alias_twins_keep_lvalue_bytes"
+   ]
+  ],
+  "PD-64-r1-return-type-visibility-off": [
+   "src/ast_callback_identity.rs",
+   "let in_return_type = scope.child_by_field_name(\"return_type\").is_some_and(inside);",
+   "let in_return_type = false;",
+   [
+    "cpg::callback_identity_tests::r1_defaults_and_computed_keys_keep_outer_captures"
+   ]
   ]
  },
  "intent_revisions": {
@@ -457,6 +537,54 @@
    "intent": "Revert the current CPG cache version by one; the pinned-version test must fail.",
    "reason": "js-param-defs PR-B bumped CACHE_VERSION 107 -> 108 (one transition); the 107 anchor no longer exists. Obligation unchanged; P2-M11 rebound in the same transition (Opus F6 coupling).",
    "killing_fixture": "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics pins 108."
+  },
+  "PD-34-lexical-def-scope-off": {
+   "disposition": "rebound",
+   "intent": "Preserve the original guard obligation through the R1 binding environment and lvalue occurrence model.",
+   "reason": "Old anchor was superseded by R1; def containment is now two-position environment equality, lexical/loop scope follows the same binder inventory, alias lookup is byte keyed.",
+   "killing_fixture": "cpg::callback_identity_tests::synthetic_lexical_def_stays_in_its_block"
+  },
+  "PD-35-alias-twin-line-restriction-off": {
+   "disposition": "rebound",
+   "intent": "Preserve the original guard obligation through the R1 binding environment and lvalue occurrence model.",
+   "reason": "Old anchor was superseded by R1; def containment is now two-position environment equality, lexical/loop scope follows the same binder inventory, alias lookup is byte keyed.",
+   "killing_fixture": "cpg::callback_identity_tests::r1_same_line_defs_and_alias_twins_keep_lvalue_bytes"
+  },
+  "PD-36-e3-fence-off": {
+   "disposition": "rebound",
+   "intent": "Preserve the original guard obligation through the R1 binding environment and lvalue occurrence model.",
+   "reason": "Old anchor was superseded by R1; def containment is now two-position environment equality, lexical/loop scope follows the same binder inventory, alias lookup is byte keyed.",
+   "killing_fixture": "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
+  },
+  "PD-37-e3-def-containment-off": {
+   "disposition": "rebound",
+   "intent": "Preserve the original guard obligation through the R1 binding environment and lvalue occurrence model.",
+   "reason": "Old anchor was superseded by R1; def containment is now two-position environment equality, lexical/loop scope follows the same binder inventory, alias lookup is byte keyed.",
+   "killing_fixture": "cpg::callback_identity_tests::enclosing_walk_keeps_captured_reads_and_var_redeclarations"
+  },
+  "PD-38-e3-nested-formal-binder-off": {
+   "disposition": "rebound",
+   "intent": "Preserve the original guard obligation through the R1 binding environment and lvalue occurrence model.",
+   "reason": "Old anchor was superseded by R1; def containment is now two-position environment equality, lexical/loop scope follows the same binder inventory, alias lookup is byte keyed.",
+   "killing_fixture": "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
+  },
+  "PD-40-e3-function-scope-binder-off": {
+   "disposition": "rebound",
+   "intent": "Preserve the original guard obligation through the R1 binding environment and lvalue occurrence model.",
+   "reason": "Old anchor was superseded by R1; def containment is now two-position environment equality, lexical/loop scope follows the same binder inventory, alias lookup is byte keyed.",
+   "killing_fixture": "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
+  },
+  "PD-43-e3-for-in-binder-off": {
+   "disposition": "rebound",
+   "intent": "Preserve the original guard obligation through the R1 binding environment and lvalue occurrence model.",
+   "reason": "Old anchor was superseded by R1; def containment is now two-position environment equality, lexical/loop scope follows the same binder inventory, alias lookup is byte keyed.",
+   "killing_fixture": "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
+  },
+  "PD-49-for-head-def-scope-off": {
+   "disposition": "rebound",
+   "intent": "Preserve the original guard obligation through the R1 binding environment and lvalue occurrence model.",
+   "reason": "Old anchor was superseded by R1; def containment is now two-position environment equality, lexical/loop scope follows the same binder inventory, alias lookup is byte keyed.",
+   "killing_fixture": "cpg::callback_identity_tests::synthetic_for_head_def_stays_in_its_loop"
   }
  }
 }
