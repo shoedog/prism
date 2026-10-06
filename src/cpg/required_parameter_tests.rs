@@ -188,11 +188,14 @@ fn unsupported_parameters_are_not_introduced_and_do_not_compress_slots() {
         assert!(default_middle.iter().any(|(name, _, _)| name == "a"));
         assert!(default_middle.iter().any(|(name, _, _)| name == "c"));
         assert!(!default_middle.iter().any(|(name, _, _)| name == "middle"));
-        for (function, forbidden) in [
-            ("rests", "items"),
-            ("destructured", "field"),
-            ("constructor", "property"),
-        ] {
+        // js-param-defs PR-A: an identifier rest formal is a binding
+        // occurrence (its own Def) but never a positional slot.
+        let items = source.find("...items").unwrap() + 3;
+        assert!(
+            parameter_defs(&cpg, "rests").contains(&("items".into(), items, items + 5)),
+            "{language:?}: identifier rest formal must gain its Def"
+        );
+        for (function, forbidden) in [("destructured", "field"), ("constructor", "property")] {
             assert!(
                 parameter_defs(&cpg, function)
                     .iter()

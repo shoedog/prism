@@ -317,8 +317,11 @@ fn declaration_seed(
     def: &DefSite,
     function_scope: ScopeSpan,
 ) -> Option<(ScopeSpan, DeclarationKind, usize)> {
+    // js-param-defs PR-A: the bare arrow formal (`x => …`) has no
+    // `parameters` list; without its region the Def is seeded as a non-
+    // parameter binding and its labels diverge from the `(x) => …` control.
     if parsed
-        .find_parameters_node(func_node)
+        .parameter_binding_region(func_node)
         .is_some_and(|parameters| {
             parameters.start_byte() <= def.start_byte && def.start_byte < parameters.end_byte()
         })
