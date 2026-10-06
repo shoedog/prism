@@ -1,3 +1,5 @@
+> **Current authority (R4, 2026-10-06): STOP; PR-B PARKED.** R4 repaired ordered conditional parameter sources and bounded early errors. Six invoked-default design cells still require callable timing/captured side-effect design; 18 main-correct synthetic rows remain lost. No adoption or shipping claim. Read MEASUREMENTS-prB-R4.md and HANDOFF-repair-prB-r4.md; earlier results remain historical. Source base 1af4301f; docs base a3dda010.
+
 # Handoff — js-param-defs PR-B R3 STOP; retained draft parked
 
 **Written:** 2026-10-06T22:41:16.492785+00:00 · **By:** Codex root, turn01a11355-b740-77e1-ad33-6c9556a5b5d0 · **Provider:** codex

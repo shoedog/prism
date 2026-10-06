@@ -1,5 +1,4 @@
-> **Current authority (R3, 2026-10-06): STOP; PR-B PARKED.** The R3 draft loses ES-correct earlier sources when later defaults are supplied. No further implementation, gate, measurement, adoption or shipping authority. Read MEASUREMENTS-prB-R3.md and HANDOFF-repair-prB-r3.md. The R2b source/binary/table claims below are historical and confer no R3 acceptance. Source base f8c768b3; docs base35d780e1.
-
+> **Current authority (R4, 2026-10-06): STOP; PR-B PARKED.** R4 repaired ordered conditional parameter sources and bounded early errors. Six invoked-default design cells still require callable timing/captured side-effect design; 18 main-correct synthetic rows remain lost. No adoption or shipping claim. Read MEASUREMENTS-prB-R4.md and HANDOFF-repair-prB-r4.md; earlier results remain historical. Source base 1af4301f; docs base a3dda010.
 
 > **Historical custody/dispatch (R2, 2026-10-06):** R1 source/docs patches are committed as `cb996630`/`2cb7102a`. Resume from those commits plus `prB/repair-r2/R2-src.patch` and `R2-docs.patch`; follow IMPLEMENTOR-prB and HANDOFF-repair-prB-r2. R2 is STOP on four checker-CORRECT LOST SecBench rows; no acceptance or continuation authority. See current R2 measurements/handoff and STOP-secbench-evidence. The record below retains historical R1 observations, not current R2 gates or closure.
 

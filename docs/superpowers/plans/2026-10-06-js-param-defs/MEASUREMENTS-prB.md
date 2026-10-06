@@ -1,3 +1,5 @@
+> **Current authority (R4, 2026-10-06): STOP; PR-B PARKED.** R4 repaired ordered conditional parameter sources and bounded early errors. Six invoked-default design cells still require callable timing/captured side-effect design; 18 main-correct synthetic rows remain lost. No adoption or shipping claim. Read MEASUREMENTS-prB-R4.md and HANDOFF-repair-prB-r4.md; earlier results remain historical. Source base 1af4301f; docs base a3dda010.
+
 > **Historical planner record — superseded for current authority (2026-10-06):** source is committed `0660b3c5`, docs `41de010c`. Owner STOP-1(a), O1 and O2 are resolved; the old zero-WRONG/zero-loss claims are refuted by both R1 reviews. Use SPEC/IMPLEMENTOR R1 clauses, `MEASUREMENTS-prB-R1.md` and `HANDOFF-repair-prB-r1.md` (also `~/prism-evidence/js-param-defs/prB/repair-r1/HANDOFF.md`). Current STOP is none on the admitted population; clippy warning parity remains unmet by one SMELL. Old gates are inherited, not R1 verification. TS 5.9.3 parameter-default scope is an oracle blind spot (Opus F4).
 
 # PR-B measurements (callback identity)

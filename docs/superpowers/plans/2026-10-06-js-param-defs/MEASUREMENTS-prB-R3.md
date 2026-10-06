@@ -1,3 +1,5 @@
+> **Current authority (R4, 2026-10-06): STOP; PR-B PARKED.** R4 repaired ordered conditional parameter sources and bounded early errors. Six invoked-default design cells still require callable timing/captured side-effect design; 18 main-correct synthetic rows remain lost. No adoption or shipping claim. Read MEASUREMENTS-prB-R4.md and HANDOFF-repair-prB-r4.md; earlier results remain historical. Source base 1af4301f; docs base a3dda010.
+
 # PR-B R3 STOP — further default-source binding-environment instance
 
 PR-B is **PARKED** under the explicit R3 brief. The retained draft is **not accepted**. One owner-authorized principled fold was attempted; no additional review round, restart or source repair followed the STOP. Source base `f8c768b35340d32b92533099091a8536b5b26284`; docs base/HEAD `35d780e1b0fc0be426b2d95b3014b65249456d92`; branch `plan/js-param-defs-prB`. Entry724 source/test/mutant files are byte-identical to the proto. Session turn metadata confirms `gpt-6.1-sol`.

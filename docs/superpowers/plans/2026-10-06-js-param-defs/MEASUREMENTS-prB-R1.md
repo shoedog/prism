@@ -1,3 +1,5 @@
+> **Current authority (R4, 2026-10-06): STOP; PR-B PARKED.** R4 repaired ordered conditional parameter sources and bounded early errors. Six invoked-default design cells still require callable timing/captured side-effect design; 18 main-correct synthetic rows remain lost. No adoption or shipping claim. Read MEASUREMENTS-prB-R4.md and HANDOFF-repair-prB-r4.md; earlier results remain historical. Source base 1af4301f; docs base a3dda010.
+
 # PR-B repair R1 measurements
 
 Status: authorized source/eval/doc repair and final evidence collection complete. All measured STOP conditions are clear on the admitted population; exclusions and unresolved rows remain explicit. This document supersedes historical b10 completion claims only where fresh evidence is stated. Review cap remains two rounds. No adoption, commit, push or F result is claimed. Clippy warning parity is not achieved (one new SMELL).
