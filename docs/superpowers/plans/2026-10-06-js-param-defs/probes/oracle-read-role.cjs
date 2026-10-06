@@ -2,7 +2,8 @@
 
 function valueNotARead(ts, node) {
   for (let child = node, p = node.parent; p; child = p, p = p.parent) {
-    if (ts.isParenthesizedExpression(p) || ts.isAsExpression(p) || ts.isNonNullExpression(p)) continue;
+    if (ts.isParenthesizedExpression(p) || ts.isAsExpression(p) || ts.isNonNullExpression(p) ||
+        ts.isSatisfiesExpression(p) || ts.isTypeAssertionExpression(p)) continue;
     if (ts.isArrayLiteralExpression(p) || ts.isObjectLiteralExpression(p) || ts.isArrayBindingPattern(p) || ts.isObjectBindingPattern(p)) continue;
     if (ts.isPropertyAssignment(p) && p.initializer === child || ts.isBindingElement(p) && p.name === child) continue;
     if (ts.isBinaryExpression(p)) return p.left === child && p.operatorToken.kind === ts.SyntaxKind.EqualsToken;

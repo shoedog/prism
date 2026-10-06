@@ -1,3 +1,7 @@
+> **Current authority (R2b, 2026-10-06):** The retained owner-authorized copy fold and full583-root measurement are complete with explicit exclusions. Row/identity contract SELF-PASS (NOT INDEPENDENT); Rust quick remains INVALID, so full gates are unmet. Original row1 is KEPT/Exact; rows2–4 LOST WRONG by disclosed E12. Source cache111/binaries and cumulative cb996630/2cb7102a patches are bound under repair-r2b. Initial synthetic ADDED attribution was refuted by unchanged frozen-R2 WRONG parity. Use MEASUREMENTS-prB-R2b.md/HANDOFF-repair-prB-r2b.md. STOP:none on admitted population. Historical body below has no current dispatch authority.
+
+> **Historical custody/dispatch (R2, 2026-10-06):** R1 source/docs patches are committed as `cb996630`/`2cb7102a`. Resume from those commits plus `prB/repair-r2/R2-src.patch` and `R2-docs.patch`; follow IMPLEMENTOR-prB and HANDOFF-repair-prB-r2. R2 is STOP on four checker-CORRECT LOST SecBench rows; no acceptance or continuation authority. See current R2 measurements/handoff and STOP-secbench-evidence. The record below retains historical R1 observations, not current R2 gates or closure.
+
 # Handoff — js-param-defs PR-B repair R1
 
 **Written:** 2026-10-06 · **By:** gpt-6.1-sol root (transcript-verified) · **Provider:** codex

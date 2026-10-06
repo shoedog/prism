@@ -14,3 +14,22 @@ for (const [source, written] of [
   assert.equal(memberNotARead(ts, base, ['x']), written);
   assert.equal(valueNotARead(ts, base), false, 'a member receiver is still evaluated');
 });
+
+for (const wrap of [x => `(${x})`, x => `${x}!`, x => `(${x} as any)`,
+  x => `(${x} satisfies any)`, x => `(<any>${x})`]) {
+  for (const member of [false, true]) {
+    const access = member ? 'obj.x' : 'x';
+    test(`wrapped ${wrap(access)} write/read role`, () => {
+      for (const [operator, written] of [['=', true], ['+=', false]]) {
+        const sf = ts.createSourceFile('case.ts', `${wrap(access)} ${operator} 1;`, ts.ScriptTarget.ESNext, true);
+        let node;
+        const visit = n => {
+          if (member ? ts.isPropertyAccessExpression(n) : ts.isIdentifier(n) && n.text === 'x') node = n;
+          ts.forEachChild(n, visit);
+        };
+        visit(sf); assert.ok(node);
+        assert.equal(member ? memberNotARead(ts, node.expression, ['x']) : valueNotARead(ts, node), written);
+      }
+    });
+  }
+}
