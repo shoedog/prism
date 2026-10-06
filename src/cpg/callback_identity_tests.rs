@@ -1280,3 +1280,102 @@ fn r2b_copy_same_line_and_default_assignment_negatives() {
         }
     }
 }
+
+// R3: all C1 source-byte rows, across JS/TS/TSX; collect the complete RED population.
+#[test]
+fn r3_c1_rows_use_the_standard_rd_labels() {
+    use super::{FlowConfidence as C, FlowDoubt as D};
+    let cases = [
+        ("short_ml", "function h(f, d = 0) {\n var f;\n c && (f = 2);\n use(f);\n}\n", 11, 51, C::NameOnly(D::Killed { kill_line: 3 })),
+        ("short_inline", "function h(f, d = 0) {\n var f; c && (f = 2); use(f);\n}\n", 11, 49, C::NameOnly(D::CfgIncomplete)),
+        ("ternary", "function h(f, d = 0) {\n var f;\n c ? (f = 2) : 0;\n use(f);\n}\n", 11, 54, C::NameOnly(D::Killed { kill_line: 3 })),
+        ("try", "function h(f, d = 0) {\n var f;\n try {\n  f = g();\n } catch (e) {}\n use(f);\n}\n", 11, 70, C::NameOnly(D::Killed { kill_line: 4 })),
+        ("closure", "function h(f, d = 0) {\n var f;\n const k = () => {\n  f = 3;\n };\n use(f);\n}\n", 11, 68, C::NameOnly(D::Killed { kill_line: 4 })),
+        ("array", "function h(f, d = 0) {\n use(f);\n var [f] = [9];\n}\n", 11, 28, C::Exact),
+        ("forin", "function h(f, d = 0) {\n use(f);\n for (var f in o) {}\n}\n", 11, 28, C::Exact),
+        ("defaultwrite", "function h(f, d = (f = 5)) {\n var f;\n use(f);\n}\n", 19, 42, C::NameOnly(D::SameLine)),
+        ("catchvar", "function h(f, d = 0) {\n var f;\n try {\n  throw 0;\n } catch(f) {\n  var f = 2;\n }\n use(f);\n}\n", 11, 84, C::NameOnly(D::CfgIncomplete)),
+    ];
+    let mut failures = Vec::new();
+    for language in JS_TS {
+        for (name, src, def_byte, use_byte, expected) in cases {
+            let cpg = build(language, src);
+            let use_line = src[..src.find("use(f)").unwrap()]
+                .bytes()
+                .filter(|b| *b == b'\n')
+                .count()
+                + 1;
+            let actual: Vec<_> = cpg
+                .graph
+                .edge_indices()
+                .filter_map(|e| {
+                    let CpgEdge::DataFlow(label) = cpg.graph[e] else {
+                        return None;
+                    };
+                    let (a, b) = cpg.graph.edge_endpoints(e)?;
+                    match (cpg.node(a), cpg.node(b)) {
+                        (
+                            CpgNode::Variable {
+                                file,
+                                function,
+                                function_start_line,
+                                line,
+                                path,
+                                access: VarAccess::Def,
+                                start_byte,
+                                end_byte,
+                            },
+                            CpgNode::Variable {
+                                file: use_file,
+                                function: use_owner,
+                                function_start_line: use_start,
+                                line: to_line,
+                                path: use_path,
+                                access: VarAccess::Use,
+                                start_byte: to_byte,
+                                end_byte: to_end,
+                            },
+                        ) if file == file_name(language)
+                            && use_file == file
+                            && function == "h"
+                            && use_owner == function
+                            && *function_start_line == 1
+                            && use_start == function_start_line
+                            && path.to_string() == "f"
+                            && use_path == path
+                            && *line == 1
+                            && *start_byte == def_byte
+                            && *end_byte == def_byte + 1
+                            && *to_line == use_line
+                            && *to_byte == use_byte =>
+                        {
+                            Some((label, *to_end))
+                        }
+                        _ => None,
+                    }
+                })
+                .collect();
+            let expected_end = use_byte + 1;
+            if actual != vec![(expected, expected_end)] {
+                failures.push(format!("{language:?}/{name}: expected {expected:?} at {def_byte}->{use_byte}, got {actual:?}; rows={:?}", rows(&cpg)));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+
+#[test]
+fn r3_diagnostic_skipped_defaults_preserve_each_reaching_source() {
+    let src = "function h(f, d = (f = 5), e = (f = 7)) {\n var f;\n use(f);\n}\n";
+    let sources = [at(src, "f,", 0), at(src, "f = 5", 0), at(src, "f = 7", 0)];
+    let use_byte = at(src, "use(f)", 0) + 4;
+    let expected: BTreeSet<_> = sources.into_iter().map(|b| ("h".to_string(), "f".to_string(), 1, 3, b, use_byte)).collect();
+    let mut failures = Vec::new();
+    for language in JS_TS {
+        let r = rows(&build(language, src));
+        let actual: BTreeSet<_> = r.iter().filter(|(o,p,d,u,_,_)| o == "h" && p == "f" && *d == 1 && *u == 3).cloned().collect();
+        if actual != expected { failures.push(format!("{language:?}: expected={expected:?}, actual={actual:?}; all={r:?}")); }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

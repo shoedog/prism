@@ -209,32 +209,11 @@ impl ParsedFile {
             return None;
         }
         let boundaries = self.language.callable_boundary_node_types();
-        let mut stack = vec![body];
-        while let Some(node) = stack.pop() {
-            if node.id() != body.id()
-                && (boundaries.contains(&node.kind())
-                    || matches!(
-                        node.kind(),
-                        "class" | "class_declaration" | "class_static_block"
-                    ))
-            {
-                continue;
-            }
-            if node.kind() == "variable_declarator"
-                && node
-                    .parent()
-                    .is_some_and(|p| p.kind() == "variable_declaration")
-            {
-                if let Some(binding) = node.child_by_field_name("name").filter(|n| {
-                    n.kind() == "identifier" && self.js_ts_fence_pattern_binds(*n, name)
-                }) {
-                    return Some((binding.start_byte(), binding.end_byte()));
-                }
-            }
-            let mut cursor = node.walk();
-            stack.extend(node.named_children(&mut cursor));
-        }
-        None
+        // Use precisely the predicate that selects the separate environment
+        // in the fence. The body's entry byte identifies that environment,
+        // including when its only var declaration is inside a catch binding.
+        self.js_ts_function_scope_binds(body, &boundaries, name)
+            .then_some((body.start_byte(), body.start_byte() + 1))
     }
 
     /// End of the evaluated write, rather than its lvalue token. `var f;`
@@ -259,10 +238,16 @@ impl ParsedFile {
         }
     }
 
-    /// The line CFG collapses an inline if's header and write. For the entry
-    /// copy only, a preceding if without else has a syntactic bypass. This
-    /// does not make the CFG precise; the emitted copy stays NameOnly.
-    pub(crate) fn js_ts_copy_write_has_bypass(&self, byte: usize, read: usize) -> bool {
+    /// A completed statement-level write dominates a later evaluated byte
+    /// only along an unconditional sequence of blocks in this callable.
+    /// Conditional expressions, loops, try/catch, labels and nested callables
+    /// provide no such proof, even when the line CFG reports a kill.
+    pub(crate) fn js_ts_statement_write_dominates(
+        &self,
+        owner: &Node<'_>,
+        byte: usize,
+        read: usize,
+    ) -> bool {
         let Some(mut node) = self
             .tree
             .root_node()
@@ -270,30 +255,45 @@ impl ParsedFile {
         else {
             return false;
         };
-        while let Some(parent) = node.parent() {
-            if parent.kind() == "if_statement"
-                && parent.child_by_field_name("alternative").is_none()
-                && parent.end_byte() <= read
-                && parent
-                    .child_by_field_name("consequence")
-                    .is_some_and(|n| n.start_byte() <= byte && byte < n.end_byte())
-                && parent.child_by_field_name("condition").is_some_and(|n| {
-                    !matches!(
-                        self.node_text(&n).trim_matches(['(', ')', ' ']),
-                        "true" | "1"
-                    )
-                })
-            {
-                return true;
-            }
-            if self
-                .language
-                .callable_boundary_node_types()
-                .contains(&parent.kind())
-            {
+        loop {
+            if matches!(
+                node.kind(),
+                "assignment_expression"
+                    | "augmented_assignment_expression"
+                    | "update_expression"
+                    | "variable_declarator"
+            ) {
                 break;
             }
+            let Some(parent) = node.parent() else {
+                return false;
+            };
             node = parent;
+        }
+        if self.js_ts_write_end(byte).is_none_or(|end| end > read) {
+            return false;
+        }
+        let Some(statement) = node.parent() else {
+            return false;
+        };
+        if !matches!(
+            statement.kind(),
+            "expression_statement" | "variable_declaration" | "lexical_declaration"
+        ) {
+            return false;
+        }
+        let Some(body) = owner.child_by_field_name("body") else {
+            return false;
+        };
+        let mut current = statement.parent();
+        while let Some(parent) = current {
+            if parent.id() == body.id() {
+                return true;
+            }
+            if parent.kind() != "statement_block" {
+                return false;
+            }
+            current = parent.parent();
         }
         false
     }

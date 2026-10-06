@@ -210,6 +210,12 @@ pub struct DataFlowGraph {
 }
 
 impl DataFlowGraph {
+    /// S1 owner policy: deterministic parameter-environment copies retain
+    /// the standard RD grade. Change this one return to revise that policy.
+    fn grade_parameter_environment_copy(label: FlowConfidence) -> FlowConfidence {
+        label
+    }
+
     /// Create an empty data flow graph with no edges.
     pub fn empty() -> Self {
         DataFlowGraph {
@@ -683,17 +689,8 @@ impl DataFlowGraph {
                         defs.entry((file_path.clone(), func_name.clone(), start, path.clone()))
                             .or_default()
                             .push(loc.clone());
-                        let formal_written_in_defaults = lvalue_spans.iter().any(|span| {
-                            span.path == path
-                                && span.start_byte
-                                    < func_node
-                                        .child_by_field_name("body")
-                                        .map_or(0, |b| b.start_byte())
-                                && parsed.js_ts_write_end(span.start_byte).is_some()
-                        });
-                        if let Some(binding) = (!formal_written_in_defaults)
-                            .then(|| parsed.js_ts_parameter_copy_binding(&func_node, param_name))
-                            .flatten()
+                        if let Some(binding) =
+                            parsed.js_ts_parameter_copy_binding(&func_node, param_name)
                         {
                             let refs = parsed.find_path_reference_spans_fenced_in(
                                 &func_node,
@@ -703,7 +700,31 @@ impl DataFlowGraph {
                                 parsed.js_ts_def_scope(&func_node, param_name, binding.0),
                                 true,
                             );
-                            parameter_copy_jobs.push((loc.clone(), binding, refs));
+                            // Instantiation copies the parameter's final value,
+                            // including a write evaluated in a later default.
+                            let source = lvalue_spans
+                                .iter()
+                                .filter(|span| {
+                                    span.path == path
+                                        && span.start_byte < binding.0
+                                        && parsed.js_ts_span_in_own_scope(
+                                            &func_node,
+                                            span.start_byte,
+                                            span.end_byte,
+                                        )
+                                        && parsed.js_ts_write_end(span.start_byte).is_some()
+                                })
+                                .max_by_key(|span| span.start_byte)
+                                .map_or_else(
+                                    || loc.clone(),
+                                    |span| VarLocation {
+                                        line: span.line,
+                                        start_byte: span.start_byte,
+                                        end_byte: span.end_byte,
+                                        ..loc.clone()
+                                    },
+                                );
+                            parameter_copy_jobs.push((source, binding, refs));
                         }
                         param_ref_jobs.push((path, loc, refs, param_decl_line));
                     }
@@ -1208,50 +1229,30 @@ impl DataFlowGraph {
                         );
                         for (mut edge, read_byte) in candidates {
                             let key = (edge.from.clone(), edge.to.clone());
-                            // An expression's RHS runs before its own write.
-                            // This also covers a one-line/no-CFG function and
-                            // captures when no preceding write can kill entry.
-                            let prior_writes: Vec<_> = copy_defs
-                                .iter()
-                                .filter(|d| !d.implicit_entry)
-                                .filter(|d| {
-                                    !parsed.js_ts_copy_write_has_bypass(d.start_byte, read_byte)
-                                })
-                                .filter_map(|d| parsed.js_ts_write_end(d.start_byte))
-                                .filter(|end| *end <= read_byte)
-                                .collect();
-                            let before_writes = prior_writes.is_empty();
-                            let same_line_write = prior_writes
-                                .iter()
-                                .any(|end| parsed.line_for_byte(*end) == edge.to.line);
-                            let (reaches, mut label) = match &outcome {
-                                RdOutcome::Available(result) => (
-                                    before_writes
-                                        || (!same_line_write
-                                            && result.reaching_edges.contains(&key)),
+                            let must_kill = copy_defs.iter().any(|d| {
+                                !d.implicit_entry
+                                    && parsed.js_ts_statement_write_dominates(
+                                        &func_node,
+                                        d.start_byte,
+                                        read_byte,
+                                    )
+                            });
+                            let label = match &outcome {
+                                RdOutcome::Available(result) => {
                                     result.labels.get(&key).copied().unwrap_or(
                                         FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
-                                    ),
-                                ),
-                                RdOutcome::Unavailable(_) => (
-                                    before_writes,
-                                    FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
-                                ),
+                                    )
+                                }
+                                RdOutcome::Unavailable(_) => {
+                                    FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
+                                }
                             };
-                            if before_writes
-                                && matches!(
-                                    label,
-                                    FlowConfidence::NameOnly(FlowDoubt::Killed { .. })
-                                )
-                            {
-                                label = FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
-                            }
-                            if reaches {
+                            if !must_kill {
                                 edge.from = formal.clone();
                                 Self::insert_label(
                                     &mut labels,
                                     (edge.from.clone(), edge.to.clone()),
-                                    label,
+                                    Self::grade_parameter_environment_copy(label),
                                 );
                                 edges.push(edge);
                             }
