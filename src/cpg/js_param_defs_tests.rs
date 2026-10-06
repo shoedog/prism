@@ -448,11 +448,18 @@ fn source_reaches_inferred(
     inferred: bool,
 ) -> bool {
     use petgraph::visit::EdgeRef;
-    let input = format!("{signature}\n {body}");
+    let input = format!(
+        "{}{signature}\n {body}",
+        if inferred {
+            ""
+        } else {
+            "import { Array } from './callee';\n"
+        }
+    );
     let target = if inferred {
         "const obj = { Array: (s) =>\n sink(s)\n};"
     } else {
-        "function Array(s) {\n sink(s);\n}"
+        "export function Array(s) {\n sink(s);\n}"
     };
     let ext = if language == Language::JavaScript {
         "js"
@@ -565,5 +572,225 @@ fn r1_ts_runtime_declaration_bindings_refused() {
             "x",
             source.find("x =>").unwrap()
         ));
+    }
+}
+
+fn r2_target_reached(language: Language, input: &str, target: &str, callee: &str) -> bool {
+    use crate::resolution::{ResolutionConfidence, ResolutionKind};
+    use petgraph::visit::EdgeRef;
+    let ext = file_name(language).rsplit('.').next().unwrap();
+    let files = BTreeMap::from([
+        (
+            format!("input.{ext}"),
+            ParsedFile::parse(&format!("input.{ext}"), input, language).unwrap(),
+        ),
+        (
+            format!("callee.{ext}"),
+            ParsedFile::parse(&format!("callee.{ext}"), target, language).unwrap(),
+        ),
+    ]);
+    assert!(files.values().all(|p| p.parse_error_count == 0));
+    let cpg = CodePropertyGraph::build(&files);
+    let site = cpg
+        .call_graph
+        .calls
+        .values()
+        .flatten()
+        .find(|s| s.callee_name == callee)
+        .unwrap();
+    let resolved = cpg.call_graph.resolve_call_site(site);
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(
+        resolved[0].kind,
+        if input.starts_with("import ") {
+            ResolutionKind::ImportMember
+        } else {
+            ResolutionKind::FreeSingle
+        }
+    );
+    assert_ne!(resolved[0].target.file, site.caller.file);
+    let start = input
+        .find("input =>")
+        .or_else(|| input.find("...input").map(|n| n + 3))
+        .unwrap();
+    let sources: Vec<_> = cpg
+        .graph
+        .node_indices()
+        .filter(|&i| {
+            matches!(cpg.node(i),
+        CpgNode::Variable { file, access: VarAccess::Def, start_byte, .. }
+        if file.starts_with("input.") && *start_byte == start)
+        })
+        .collect();
+    assert_eq!(sources.len(), 1, "the static source Def must remain");
+    let mut seen = BTreeSet::new();
+    let mut stack = sources;
+    while let Some(node) = stack.pop() {
+        if !seen.insert(node) {
+            continue;
+        }
+        if matches!(cpg.node(node), CpgNode::Variable {
+            file, line: 2, access: VarAccess::Use, path, ..
+        } if file.starts_with("callee.") && path.base == "s")
+        {
+            return true;
+        }
+        stack.extend(
+            cpg.graph
+                .edges(node)
+                .filter(|e| matches!(e.weight(), CpgEdge::DataFlow(_)))
+                .map(|e| e.target()),
+        );
+    }
+    false
+}
+
+fn r2_w2m(language: Language) {
+    let target = "const obj = { Array(s) {\n sink(s);\n} };";
+    for input in [
+        "const entry = input =>\n Array(input);",
+        "const entry = input => {\n const local = input;\n Array(local);\n};",
+        "function entry(...input) {\n const local = input;\n Array(local);\n}",
+    ] {
+        assert!(
+            !r2_target_reached(language, input, target, "Array"),
+            "{language:?}: {input}"
+        );
+    }
+}
+
+fn r2_w2d(language: Language) {
+    let target = "export function escape(s) {\n sink(s);\n}";
+    for input in [
+        "export const entry = input =>\n escape(input);",
+        "export const entry = input => {\n const local = input;\n escape(local);\n};",
+        "export function entry(...input) {\n const local = input;\n escape(local);\n}",
+    ] {
+        assert!(
+            !r2_target_reached(language, input, target, "escape"),
+            "{language:?}: {input}"
+        );
+    }
+}
+
+#[test]
+fn r2_w2m_js() {
+    r2_w2m(Language::JavaScript);
+}
+#[test]
+fn r2_w2m_ts() {
+    r2_w2m(Language::TypeScript);
+}
+#[test]
+fn r2_w2m_tsx() {
+    r2_w2m(Language::Tsx);
+}
+#[test]
+fn r2_w2d_js() {
+    r2_w2d(Language::JavaScript);
+}
+#[test]
+fn r2_w2d_ts() {
+    r2_w2d(Language::TypeScript);
+}
+#[test]
+fn r2_w2d_tsx() {
+    r2_w2d(Language::Tsx);
+}
+
+#[test]
+fn r2_e5_imported_target_kept() {
+    for language in JS_TS {
+        assert!(r2_target_reached(
+            language,
+            "import { escape } from './callee';\nexport const entry = input =>\n escape(input);",
+            "export function escape(s) {\n sink(s);\n}",
+            "escape"
+        ));
+    }
+}
+
+#[test]
+fn r2_e5_nameonly_targets_kept() {
+    use crate::resolution::ResolutionConfidence;
+    for language in JS_TS {
+        let ext = file_name(language).rsplit('.').next().unwrap();
+        let input = "const entry = program =>\n cb(program);";
+        let files = BTreeMap::from([
+            (
+                format!("input.{ext}"),
+                ParsedFile::parse(&format!("input.{ext}"), input, language).unwrap(),
+            ),
+            (
+                format!("callee.{ext}"),
+                ParsedFile::parse(
+                    &format!("callee.{ext}"),
+                    "const one = { cb: (s) =>\n sink(s) };\nconst two = { cb: (s) =>\n sink(s) };",
+                    language,
+                )
+                .unwrap(),
+            ),
+        ]);
+        let cpg = CodePropertyGraph::build(&files);
+        let site = cpg
+            .call_graph
+            .calls
+            .values()
+            .flatten()
+            .find(|s| s.callee_name == "cb")
+            .unwrap();
+        let resolved = cpg.call_graph.resolve_call_site(site);
+        assert_eq!(resolved.len(), 2);
+        assert!(resolved
+            .iter()
+            .all(|r| r.confidence == ResolutionConfidence::NameOnly));
+        assert!(
+            dfg_edge_dump(&cpg)
+                .iter()
+                .any(|r| r.from.path.base == "program"
+                    && r.from.access == "def"
+                    && r.to.access == "use"),
+            "NameOnly callee candidates must not suppress correct source rows"
+        );
+    }
+}
+
+#[test]
+fn r2_e5_same_file_target_kept() {
+    for language in JS_TS {
+        let source = "function escape(s) {\n sink(s);\n}\nconst entry = input =>\n escape(input);";
+        let cpg = build(language, source);
+        assert!(dfg_edge_dump(&cpg)
+            .iter()
+            .any(|r| r.from.path.base == "input"
+                && r.from.access == "def"
+                && r.to.access == "use"));
+    }
+}
+
+#[test]
+fn r2_e7_nonreference_positions_are_plain_formal_parity() {
+    for suffix in [
+        "q(<C x={1} />, function () {\n return x; });",
+        "q({ x: 1 }, function () {\n return x; });",
+    ] {
+        let bare = format!("const g = x => {suffix}");
+        let plain = format!("const g = (x) => {suffix}");
+        assert_eq!(dump(Language::Tsx, &bare), dump(Language::Tsx, &plain));
+        let key = bare
+            .find(if suffix.starts_with("q(<") {
+                "x={"
+            } else {
+                "x: "
+            })
+            .unwrap();
+        let cpg = build(Language::Tsx, &bare);
+        assert!(cpg.graph.edge_indices().any(|e| {
+            let (from, to) = cpg.graph.edge_endpoints(e).unwrap();
+            matches!(cpg.graph[e], CpgEdge::DataFlow(_))
+                && matches!(cpg.node(from), CpgNode::Variable { access: VarAccess::Def, path, .. } if path.base == "x")
+                && matches!(cpg.node(to), CpgNode::Variable { access: VarAccess::Use, start_byte, end_byte, .. } if (*start_byte, *end_byte) == (key, key + 1))
+        }), "the disclosed non-reference Use must be represented at its exact bytes");
     }
 }

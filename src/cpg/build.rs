@@ -253,6 +253,12 @@ struct PendingStatement {
 /// unit order, then applied by a serial `add_edge` loop (S1 C2 pattern).
 pub(crate) type PendingEdge = (NodeIndex, NodeIndex, CpgEdge);
 
+/// Argument flow retains the resolution evidence needed by the new-source guard.
+struct PendingArgumentFlow {
+    edge: PendingEdge,
+    cross_file_free_single_exact: bool,
+}
+
 // ---------------------------------------------------------------------------
 // Code Property Graph
 // ---------------------------------------------------------------------------
@@ -309,13 +315,13 @@ impl CodePropertyGraph {
     /// flow, and conservative labels. It cannot miss an already assembled E5
     /// path by inspecting only direct reads of the formal. Existing edges and
     /// callable resolution remain unchanged; the new static Def stays present.
-    fn refuse_new_sources_exposing_inferred_callees(
+    fn refuse_new_sources_exposing_free_single_calls(
         graph: &mut DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
+        argument_seeds: Vec<NodeIndex>,
         stats: &mut DfgLabelStats,
     ) {
         let mut new_sources = BTreeSet::new();
-        let mut inferred_owners = BTreeSet::new();
         for (file, parsed) in files {
             if !matches!(
                 parsed.language,
@@ -334,17 +340,6 @@ impl CodePropertyGraph {
                     parsed.node_text(&name).to_string(),
                     parsed.node_line_range(&function).0,
                 );
-                let direct_declarator = function.child_by_field_name("name").is_none()
-                    && function.parent().is_some_and(|p| {
-                        p.kind() == "variable_declarator"
-                            && p.child_by_field_name("name")
-                                .is_some_and(|n| n.kind() == "identifier")
-                    });
-                if matches!(function.kind(), "arrow_function" | "function_expression")
-                    && !direct_declarator
-                {
-                    inferred_owners.insert(owner.clone());
-                }
                 for (_, start, end) in parsed.function_parameter_occurrences(&function) {
                     let is_new = parsed
                         .js_ts_bare_arrow_parameter(&function)
@@ -367,23 +362,11 @@ impl CodePropertyGraph {
                 }
             }
         }
-        if new_sources.is_empty() || inferred_owners.is_empty() {
+        if new_sources.is_empty() || argument_seeds.is_empty() {
             return;
         }
         let mut reached = BTreeSet::new();
-        let mut stack = Vec::new();
-        for edge in graph.edge_references() {
-            if !matches!(edge.weight(), CpgEdge::DataFlow(_)) {
-                continue;
-            }
-            if matches!((&graph[edge.source()], &graph[edge.target()]),
-                (CpgNode::Variable { access: VarAccess::Use, .. },
-                 CpgNode::Variable { file, function, function_start_line, access: VarAccess::Def, .. })
-                 if inferred_owners.contains(&(file.clone(), function.clone(), *function_start_line)))
-            {
-                stack.push(edge.source());
-            }
-        }
+        let mut stack = argument_seeds;
         while let Some(node) = stack.pop() {
             if !reached.insert(node) {
                 continue;
@@ -1210,9 +1193,14 @@ impl CodePropertyGraph {
         }
 
         // --- Step 5b: Interprocedural data flow edges ---
-        for (from, to, w) in
+        let mut argument_seeds = Vec::new();
+        for flow in
             Self::collect_step5b_edges_with_exact(&cg, &var_index, &exact_var_index, &graph, files)
         {
+            let (from, to, w) = flow.edge;
+            if flow.cross_file_free_single_exact {
+                argument_seeds.push(from);
+            }
             if let CpgEdge::DataFlow(confidence) = w {
                 dfg_label_stats.record_label(confidence);
             }
@@ -1231,8 +1219,14 @@ impl CodePropertyGraph {
 
         // D12 incoming holes do not isolate outgoing E5 paths. After all flow
         // construction, refuse only outgoing edges of new sources that can
-        // reach an argument edge to an unreferenceable inferred callable.
-        Self::refuse_new_sources_exposing_inferred_callees(&mut graph, files, &mut dfg_label_stats);
+        // reach a cross-file Exact free_single argument edge (regardless of
+        // callee syntax). Imported and NameOnly targets do not seed refusal.
+        Self::refuse_new_sources_exposing_free_single_calls(
+            &mut graph,
+            files,
+            argument_seeds,
+            &mut dfg_label_stats,
+        );
 
         // --- Step 6: Contains edges ---
         let variable_nodes: Vec<_> = graph
@@ -1533,6 +1527,9 @@ impl CodePropertyGraph {
     ) -> Vec<PendingEdge> {
         let exact_var_index = Self::exact_var_index_from_graph(graph);
         Self::collect_step5b_edges_with_exact(cg, var_index, &exact_var_index, graph, files)
+            .into_iter()
+            .map(|flow| flow.edge)
+            .collect()
     }
 
     fn collect_step5b_edges_with_exact(
@@ -1541,7 +1538,7 @@ impl CodePropertyGraph {
         exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
-    ) -> Vec<PendingEdge> {
+    ) -> Vec<PendingArgumentFlow> {
         use rayon::prelude::*;
 
         files.par_iter().for_each(|(_, p)| {
@@ -1561,7 +1558,7 @@ impl CodePropertyGraph {
                     files,
                 )
             })
-            .collect::<Vec<Vec<PendingEdge>>>()
+            .collect::<Vec<Vec<PendingArgumentFlow>>>()
             .into_iter()
             .flatten()
             .collect()
@@ -1590,6 +1587,9 @@ impl CodePropertyGraph {
             graph,
             files,
         )
+        .into_iter()
+        .map(|flow| flow.edge)
+        .collect()
     }
 
     fn step5b_edges_for_caller_with_exact(
@@ -1600,8 +1600,8 @@ impl CodePropertyGraph {
         exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
-    ) -> Vec<PendingEdge> {
-        let mut out: Vec<PendingEdge> = Vec::new();
+    ) -> Vec<PendingArgumentFlow> {
+        let mut out = Vec::new();
         let mut param_cache: BTreeMap<FunctionId, Option<Vec<Option<NodeIndex>>>> = BTreeMap::new();
         for site in sites {
             for resolved in cg.resolve_call_site(site) {
@@ -1614,6 +1614,9 @@ impl CodePropertyGraph {
                     continue;
                 }
                 let callee_id = resolved.target;
+                let cross_file_free_single_exact = resolved.kind == ResolutionKind::FreeSingle
+                    && resolved.confidence == ResolutionConfidence::Exact
+                    && callee_id.file != caller_id.file;
                 let caller_parsed = match files.get(&caller_id.file) {
                     Some(p) => p,
                     None => continue,
@@ -1672,11 +1675,14 @@ impl CodePropertyGraph {
                         .collect();
                     if let Some(to) = param_idx {
                         for from in arg_idxs {
-                            out.push((
-                                from,
-                                to,
-                                CpgEdge::DataFlow(FlowConfidence::from(resolved.confidence)),
-                            ));
+                            out.push(PendingArgumentFlow {
+                                edge: (
+                                    from,
+                                    to,
+                                    CpgEdge::DataFlow(FlowConfidence::from(resolved.confidence)),
+                                ),
+                                cross_file_free_single_exact,
+                            });
                         }
                     }
                 }

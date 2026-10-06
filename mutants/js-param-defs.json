@@ -236,6 +236,19 @@
    [
     "cpg::js_param_defs_tests::r1_ts_runtime_declaration_bindings_refused"
    ]
+  ],
+  "PD-29-cross-file-free-single-predicate-off": [
+   "src/cpg/build.rs",
+   "let cross_file_free_single_exact = resolved.kind == ResolutionKind::FreeSingle\n                    && resolved.confidence == ResolutionConfidence::Exact\n                    && callee_id.file != caller_id.file;",
+   "let cross_file_free_single_exact = false;",
+   [
+    "cpg::js_param_defs_tests::r2_w2m_js",
+    "cpg::js_param_defs_tests::r2_w2m_ts",
+    "cpg::js_param_defs_tests::r2_w2m_tsx",
+    "cpg::js_param_defs_tests::r2_w2d_js",
+    "cpg::js_param_defs_tests::r2_w2d_ts",
+    "cpg::js_param_defs_tests::r2_w2d_tsx"
+   ]
   ]
  }
 }
