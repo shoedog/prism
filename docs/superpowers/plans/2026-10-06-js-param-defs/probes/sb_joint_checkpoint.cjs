@@ -28,6 +28,8 @@ for(const r of rows){
  const shift=(o,f)=>{if(o&&f===r.source.file){for(const k of ['start_byte','end_byte'])if(Number.isInteger(o[k])&&o[k]>=atByte)o[k]+=delta;}};
  const row=JSON.parse(JSON.stringify(r));delete row.invocations;delete row.outcome;delete row.trace_detail;delete row.first_break;
  delete row.callee_tolerant_outcome;delete row.heuristic_break;delete row.attribution_status;delete row.dfg_stats;delete row.error_mechanism;
+ shift(row.source,row.source.file);
+ for(const p of row.source.parameters||[])shift(p,row.source.file);
  for(const p of row.source.data_parameters){shift(p,row.source.file);p.bare_references=(p.bare_references||0)+1;}
  for(const o of row.sink.value_occurrences||[])shift(o,row.sink.file);
  shift(row.sink,row.sink.file);

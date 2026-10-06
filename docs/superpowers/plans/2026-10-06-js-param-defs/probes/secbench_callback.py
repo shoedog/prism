@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 """PR-B SecBench conversions on the 97 `callback_argument_parameter_registration` rows (planner probe).
 
-Same harness `measure()` as main (unmodified packages, authenticated inspection, lane cache root),
-run on an arbitrary binary. Besides the harness outcome it records a second, clearly labelled
-`callee_tolerant_outcome`: the harness `classify()` re-applied with an EMPTY callees list when
-witness and frontier succeeded but `callees --location` failed. An anonymous callable has no
-navigation identity (SPEC-prB D7: nav stays byte-identical), so `callees --location` at its first
-line is LocationOutOfRange on base and head alike; the tolerant outcome isolates what the taint
-witness itself proves. It is NOT the harness outcome and is never reported as one.
+O1 harness measure() validates anonymous callable/parameter bytes, seeds location
+witness/frontier, and omits anonymous callees. Member-only/rest sources can still
+lack Defs. The inherited callee_tolerant_outcome field is a compatibility diagnostic;
+under O1 it agrees with the harness outcome and supplies no separate credit.
 Usage (repository root): python3 .../secbench_callback.py --binary BIN --out NEW_DIR [--workers 4] [--timeout 120]
 """
 import argparse, hashlib, json, sys, time

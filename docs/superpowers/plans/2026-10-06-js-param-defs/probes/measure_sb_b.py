@@ -31,7 +31,7 @@ def main():
         root = PK / name / 'src/package'; tag = name.replace('/', '__'); p = a.out / 'per' / tag; st = {'name': name}
         for side in ['base', 'head']:
             st[side] = {'bytes': run([getattr(a, side + '_bytes'), root], f'{p}.{side}.bytes.raw', a.timeout),
-                        'sites': run([getattr(a, side), 'nav', '--no-cache', 'call-stats', '--repo', root, '--dump-sites'], f'{p}.{side}.sites', a.timeout)}
+                        'sites': run([getattr(a, side), 'nav', '--cache-dir', str(H / 'prism-evidence/js-param-defs/cache'), 'call-stats', '--repo', root, '--dump-sites'], f'{p}.{side}.sites', a.timeout)}
         st['ok'] = all(v['exit'] == 0 for s in ['base', 'head'] for v in st[s].values())
         if st['ok']:
             st['sites_identical'] = Path(f'{p}.base.sites').read_bytes() == Path(f'{p}.head.sites').read_bytes()

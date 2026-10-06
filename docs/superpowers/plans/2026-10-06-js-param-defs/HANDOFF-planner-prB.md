@@ -1,3 +1,5 @@
+> **Historical planner record — superseded for current authority (2026-10-06):** source is committed `0660b3c5`, docs `41de010c`. Owner STOP-1(a), O1 and O2 are resolved; the old zero-WRONG/zero-loss claims are refuted by both R1 reviews. Use SPEC/IMPLEMENTOR R1 clauses, `MEASUREMENTS-prB-R1.md` and `HANDOFF-repair-prB-r1.md` (also `~/prism-evidence/js-param-defs/prB/repair-r1/HANDOFF.md`). Current STOP is none on the admitted population; clippy warning parity remains unmet by one SMELL. Old gates are inherited, not R1 verification. TS 5.9.3 parameter-default scope is an oracle blind spot (Opus F4).
+
 # Handoff — lane js-param-defs, PR-B "callback identity" planner (spec + prototype + measurement)
 
 **Written:** 2026-10-06 · **By:** planner subagent (Opus-5.5), controller session `0ec85e7b` · **Provider:** claude

@@ -1,23 +1,20 @@
 #!/usr/bin/env python3
 """PR-B static base/head capture with build time and peak RSS. No corpus execution.
-Per corpus and side: byte rows (dumper = full CPG build, timed with /usr/bin/time -l),
-CLI wire rows (`nav --no-cache dfg-stats --edges`, timed) and call sites (`call-stats --dump-sites`).
+Per corpus and side: byte rows (dumper = full CPG build, timed with direct wait4),
+CLI wire rows (`nav --cache-dir <lane> dfg-stats --edges`, timed) and call sites (`call-stats --dump-sites`).
 Usage: measure_b.py OUT --base BIN --base-bytes BIN --head BIN --head-bytes BIN [--only NAME ...] [--secbench]
 A failed producer on either side excludes that corpus from both aggregates.
 """
 import argparse, hashlib, json, re, subprocess, time
 from pathlib import Path
 H=Path.home()
+from timed_process import timed_process
 PUBLIC={'X':H/'prism-evidence/inputs/excalidraw-0642e72c/source','Xi':H/'prism-evidence/inputs/excalidraw-0642e72c-installed/source',
  'T':H/'code/bench-repos/TypeScript/src','R_black':H/'code/bench-repos/black','G_caddy':H/'code/bench-repos/caddy',
  'RS_prism':H/'.local/share/prism/corpora/prism-20c8490591a3/source'}
 def timed(cmd,out,err,timeout):
-  t=time.monotonic()
   with open(out,'wb') as o,open(err,'wb') as e:
-    try: rc=subprocess.run(['/usr/bin/time','-l']+[str(c) for c in cmd],stdout=o,stderr=e,timeout=timeout).returncode
-    except subprocess.TimeoutExpired: rc=124
-  txt=Path(err).read_text(errors='replace'); m=re.search(r'(\d+)\s+maximum resident set size',txt)
-  return {'exit':rc,'seconds':round(time.monotonic()-t,3),'max_rss_bytes':int(m.group(1)) if m else None}
+    return timed_process(cmd,o,e,timeout)
 def main():
   ap=argparse.ArgumentParser();ap.add_argument('out',type=Path)
   for s in ['base','head']:ap.add_argument('--'+s,type=Path,required=True);ap.add_argument('--'+s+'-bytes',type=Path,required=True)
@@ -55,8 +52,8 @@ def main():
           continue
       st[side]={'bytes':timed([dump,root],f'{p}.bytes.raw',f'{p}.bytes.err',a.timeout)}
       if not a.secbench:
-        st[side]['wire']=timed([binp,'nav','--no-cache','dfg-stats','--repo',root,'--edges'],f'{p}.wire.raw',f'{p}.wire.err',a.timeout)
-      st[side]['sites']=timed([binp,'nav','--no-cache','call-stats','--repo',root,'--dump-sites'],f'{p}.sites.jsonl',f'{p}.sites.err',a.timeout)
+        st[side]['wire']=timed([binp,'nav','--cache-dir',str(H/'prism-evidence/js-param-defs/cache'),'dfg-stats','--repo',root,'--edges'],f'{p}.wire.raw',f'{p}.wire.err',a.timeout)
+      st[side]['sites']=timed([binp,'nav','--cache-dir',str(H/'prism-evidence/js-param-defs/cache'),'call-stats','--repo',root,'--dump-sites'],f'{p}.sites.jsonl',f'{p}.sites.err',a.timeout)
       for k in ['bytes','wire']:
         f=Path(f'{p}.{k}.raw')
         if f.exists():

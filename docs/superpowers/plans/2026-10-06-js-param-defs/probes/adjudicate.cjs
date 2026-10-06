@@ -76,18 +76,14 @@ function ownerScope(c,defId,useIds){
 // ECMAScript: `var` declarations and function declarations of one name in one function (or file)
 // scope are a single binding. TS's JS binder can split them (expando constructor functions,
 // function + var redeclaration); treat such pairs as the same binding.
-function varLike(d){return d&&(ts.isFunctionDeclaration(d)&&d.parent&&(ts.isSourceFile(d.parent)||ts.isBlock(d.parent)&&ts.isFunctionLike(d.parent.parent))||
- ts.isVariableDeclaration(d)&&d.parent&&ts.isVariableDeclarationList(d.parent)&&!(d.parent.flags&(ts.NodeFlags.Let|ts.NodeFlags.Const)));}
-function fnScope(d){for(let n=d.parent;n;n=n.parent)if(ts.isFunctionLike(n)||ts.isSourceFile(n))return n;return null;}
-function varMerged(sa,sb){
- const da=sa.valueDeclaration||(sa.declarations||[])[0],db=sb.valueDeclaration||(sb.declarations||[])[0];
- if(!varLike(da)||!varLike(db)||sa.name!==sb.name)return false;
- return fnScope(da)===fnScope(db);
-}
+const environments=require('./oracle-environments.cjs');
+const varMerged=(sa,sb)=>environments.varMerged(ts,sa,sb);
+const roles=require('./oracle-read-role.cjs');
 // Binding scope of a declaration: parameters -> their function; `var` -> nearest function or
 // file; everything else (let/const/class/function/catch/for-head) -> nearest block-like scope.
 function bindingScope(d){
  const isVar=ts.isVariableDeclaration(d)&&d.parent&&ts.isVariableDeclarationList(d.parent)&&!(d.parent.flags&(ts.NodeFlags.Let|ts.NodeFlags.Const));
+ if(isVar)return environments.variableEnvironment(ts,d)||d.getSourceFile();
  let n=ts.isParameter(d)?d.parent:d.parent;
  for(;n;n=n.parent){
   if(ts.isFunctionLike(n)||ts.isSourceFile(n)||ts.isModuleBlock(n))return n;
@@ -181,11 +177,7 @@ function unreachable(use) {
  }return false;
 }
 // PR-B E4 probe: a Use whose identifier only binds or is only written (`=` target).
-function notARead(n){const p=n.parent;if(!p)return false;
- if(ts.isBinaryExpression(p)&&p.left===n&&p.operatorToken.kind===S.EqualsToken)return true;
- if((ts.isVariableDeclaration(p)||ts.isParameter(p)||ts.isBindingElement(p)||ts.isFunctionDeclaration(p)||ts.isFunctionExpression(p)||
-     ts.isClassDeclaration(p)||ts.isClassExpression(p)||ts.isImportSpecifier(p)||ts.isImportClause(p)||ts.isNamespaceImport(p))&&p.name===n)return true;
- return false;}
+function notARead(n){return roles.valueNotARead(ts,n);}
 // Identifiers in property-name/attribute-name positions are not variable references
 // (TS checker semantics); a zero-width collapsed endpoint must only consider references.
 function isReferencePosition(n) {
@@ -286,9 +278,10 @@ function defUseLocal(c,from) {
    if(notVisible)return {step1:'WRONG',why:'alias_binding_not_visible_at_def',mechanism:'alias'};
    return {step1:'UNDECIDED',why:fields?'alias_member':'alias_shape',mechanism:'alias'};}
   target=t;mechanism='alias';}
- const e4=uses.every(notARead);
+ const e4=uses.every(u=>fields?roles.memberNotARead(ts,u,c.row.to.path.fields):notARead(u));
  const verdicts=uses.map(u=>{
   if(!collapsed&&!isReferencePosition(u))return {step1:'WRONG',why:'E7_non_reference_use'};
+  if(fields&&roles.memberNotARead(ts,u,c.row.to.path.fields))return {step1:'WRONG',why:'member_write_only_use'};
   const v=sameBinding(target,u);return v==='CORRECT'?{step1:'CORRECT'}:v==='WRONG'?{step1:'WRONG',why:'symbol_mismatch'}:{step1:'UNDECIDED',why:'unresolved_symbol'};});
  if(verdicts.some(v=>v.step1==='UNDECIDED')||verdicts.some(v=>v.step1!==verdicts[0].step1))
   return {step1:collapsed?'UNDECIDED':verdicts[0].step1,why:collapsed?'collapsed_mixed_bindings':verdicts[0].why,mechanism,collapsed};

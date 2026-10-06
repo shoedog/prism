@@ -1,3 +1,5 @@
+> **PR-B R1 supersession:** owner STOP-1(a), O1 and O2 are resolved. Planner b10 measurement claims are historical and refuted by F1–F3/W1–W6. Active R1 hypothesis/probe/result log: `~/prism-evidence/js-param-defs/prB/repair-r1/PROBE-LOG.md`; fresh results and exceptions are in MEASUREMENTS-prB-R1.md and HANDOFF-repair-prB-r1.md.
+
 > **R2 supersession:** Historical R1/planner record; current dispatch is committed `bd4c30ff` plus `repair-r2/R2-src.patch`, docs `a0e8504e` plus R2 docs patch. Use `HANDOFF-repair-r2.md` and `MEASUREMENTS-r2.md` for the targeted fold and current verification; R2 measurements and gates are complete on the documented successful-pair set; STOP is none.
 
 > **R1 supersession (2026-10-05):** Historical prototype record. Its line-based all-CORRECT verdict is refuted by both spec reviewers. Active repair custody and byte-span binding evidence are in `HANDOFF-repair-r1.md` and `MEASUREMENTS-prA.md`; use the committed prototype `1b2dfdc9` plus R1 patches. Prior D11/D12 isolation and zero-WRONG claims do not apply to the repaired artifact.
@@ -136,7 +138,7 @@ Both are in `~/prism-evidence/js-param-defs/bin/`. Fixtures are under `/private/
 
 # PR-B probe log (hypothesis → expectation → result)
 
-Base: main `da0604b3` → `~/prism-evidence/js-param-defs/prB/bin/prism-base-da0604b3` (sha256 `294b18d0…548f`); byte dumper built from the PR-B `probes/byte_dump.rs` against base (`prism-base-da0604b3-bytes`, `184812b3…6b0b`). Heads: `prism-head-b1…b4` superseded intermediates (deleted); **final measured head `prism-head-b5`** (`c6a0ddde…d9b6`) + `prism-head-b5-bytes` (`f605dfb3…9f63`). Fixtures: `/private/tmp/claude-501/pdb/fx*` (reproduced in `src/cpg/callback_identity_tests.rs`).
+Base: main `da0604b3` → `~/prism-evidence/js-param-defs/prB/bin/prism-base-da0604b3` (sha256 `294b18d0…548f`); byte dumper built from the PR-B `probes/byte_dump.rs` against base (`prism-base-da0604b3-bytes`, `184812b3…6b0b`). Heads: `prism-head-b1…b4` superseded intermediates (deleted); historical b5 (`c6a0ddde…d9b6`); final planner head **b10** (`90e17676…1409`) + `prism-head-b10-bytes` (`fc07124d…a81da`); R1 repair evidence is separate. Fixtures: `/private/tmp/claude-501/pdb/fx*` (reproduced in `src/cpg/callback_identity_tests.rs`).
 
 **PB1. Where do anonymous callables live? (census on prism predicates)**
 - *Hypothesis:* most X/T anonymous callables sit inside named functions (React components), so a full callback pass duplicates legacy rows.
@@ -168,7 +170,7 @@ Base: main `da0604b3` → `~/prism-evidence/js-param-defs/prB/bin/prism-base-da0
 **PB6. b1 ADDED WRONG classes on X (101 WRONG + 290 UNDECIDED of 16,433)**
 - *Hypothesis:* they are inherited legacy mechanisms, not identity bugs.
 - *Result (b1 rows, second adjudicator pass, then source inspection):* 94 WRONG = 33 E7 non-reference Uses (JSX attribute names `elements={elements}`, pair keys, callee properties `match.match(…)`, `console.error`) + 61 symbol mismatches (E10 block-scope escape: `const selectedElements` reaching a sibling block, `for (const path of …)` reaching the `path` import; TS index-signature `[key: string]`); 231 UNDECIDED, mostly alias twins later classified as flow-insensitive E11; E4 Uses at `let r;` / `r = …` LHS among the collapsed rows. No owner/identity error.
-- *Action:* synthetic-only filters B-D9…B-D12 (legacy unchanged). Final b5: **X 15,413 ADDED, all CORRECT**, 0 `USE_NOT_READ`.
+- *Action:* synthetic-only filters B-D9…B-D12 (legacy unchanged). Historical b5: **X 15,413 ADDED, all checker-CORRECT**; final b10 has **15,415** (R1 review refutes the zero-defect claim), 0 `USE_NOT_READ`.
 
 **PB7. Use-byte selection for synthetic owners (NOT probed)**
 - *Concern:* the legacy "first function on the start line" pick in `scope.rs::use_byte` may resolve a zero-width Use of a synthetic pass against another callable that starts on the same line.
@@ -202,7 +204,7 @@ Base: main `da0604b3` → `~/prism-evidence/js-param-defs/prB/bin/prism-base-da0
 - *Hypothesis A:* new identity/containment bugs. *Alternative B:* inherited mechanisms plus TS-checker artefacts specific to JS files.
 - *Probe 1:* `define(["require","exports"], function (require, exports) { exports.a = 1 })` through the pinned checker: `getSymbolAtLocation(exports)` in `exports.a = …` returns the synthesized CommonJS export symbol (a `PropertyAccessExpression` declaration), not the parameter; `getSymbolsInScope` returns the parameter. → 509 `declaration_span_mismatch` + most `symbol_mismatch` were this artefact (AMD/UMD `exports`/`module`). Adjudicator: lexical re-resolution for `exports`/`module`; free `exports` is one binding.
 - *Probe 2 (remaining 255):* `var PromisePolyfill` declared three times in one IIFE (mithril) and `function validate` + `var validate` in one factory (json-schema) are one ECMAScript binding that TS's JS binder splits → adjudicator `varMerged`. Real product residue: `this.x` Defs reaching `this.x` inside nested non-arrow functions (another receiver), `for (var k in o)` inside a nested callable not seen as a function-scope binder, flow-insensitive alias twins on minified lines → three synthetic-only fixes (b10: `js_ts_this_rebound_between`, for-in `var` in `js_ts_function_scope_binds`, `js_ts_own_alias_target`).
-- *Result (b10, final adjudicator):* 255,874 CORRECT, **12 WRONG** (`alias_flow_insensitive`, lodash/phpjs minified lines where two `l` declarators share a line: the twin is keyed by `(name, line)` and attaches to the non-alias declarator). Bounded fix for review: key synthetic alias twins by the lvalue span's start byte instead of its line. Not applied (STOP-1 pending; no further code churn).
+- *Result (b10, final adjudicator):* 255,874 CORRECT, **12 WRONG** (`alias_flow_insensitive`, lodash/phpjs minified lines where two same-name assignments/lvalues share a line: the twin is keyed by `(name, line)` and attaches to the non-alias lvalue). Bounded fix for review: key synthetic alias twins by the lvalue span's start byte instead of its line. Not applied (STOP-1 pending; no further code churn).
 
 **PB14. The single LOST UNDECIDED row (lodash_4.17.15 `x` Def `r@75 [40495]` → Use line 74)**
 - *Hypothesis A:* the fence dropped a correct occurrence (LOST-correct STOP). *Alternative B:* base admitted only wrong occurrences on line 74.

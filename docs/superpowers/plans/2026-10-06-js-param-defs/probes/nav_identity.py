@@ -6,7 +6,7 @@ stdout bytes and exit codes. Usage: nav_identity.py BASE HEAD ROOT OUT [--lines 
 """
 import argparse, hashlib, json, random, re, subprocess
 from pathlib import Path
-CACHE = Path.home() / 'prism-evidence/js-param-defs/prB/navcache'  # one subdir per binary (the nav cache keeps one build identity per repo)
+CACHE = Path.home() / 'prism-evidence/js-param-defs/cache'
 SKIP = {'node_modules', '.git', 'dist', 'build'}
 def lines(root, n, seed):
     cands = []
@@ -28,8 +28,7 @@ def lines(root, n, seed):
     random.Random(seed).shuffle(cands)
     return sorted(cands[:n])
 def run(binary, args):
-    cache = CACHE / hashlib.sha256(Path(binary).read_bytes()).hexdigest()[:16]
-    p = subprocess.run([str(binary), 'nav', '--cache-dir', str(cache), *args], capture_output=True, timeout=600)
+    p = subprocess.run([str(binary), 'nav', '--cache-dir', str(CACHE), *args], capture_output=True, timeout=600)
     return p.returncode, p.stdout
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('base', type=Path); ap.add_argument('head', type=Path)
@@ -43,12 +42,20 @@ def main():
                     ['ego', '--repo', str(a.root), '--location', loc, '--format', 'json'],
                     ['callers', '--repo', str(a.root), '--location', loc, '--format', 'json'],
                     ['callees', '--repo', str(a.root), '--location', loc, '--format', 'json']]
+    captures = {}
+    for side in ['base', 'head']:
+        captures[side] = []
+        for i, q in enumerate(queries):
+            result = run(getattr(a, side), q)
+            (a.out / f'{i:04d}.{side}.json').write_bytes(result[1])
+            captures[side].append(result)
+    (a.out / 'queries.json').write_text(json.dumps(queries, indent=1) + '\n')
     diffs, total = [], 0
-    for q in queries:
-        b, h = run(a.base, q), run(a.head, q)
+    for i, q in enumerate(queries):
+        b, h = captures['base'][i], captures['head'][i]
         total += 1
         if b != h:
-            diffs.append({'query': q[0], 'location': q[4] if len(q) > 4 else None, 'base_rc': b[0], 'head_rc': h[0],
+            diffs.append({'index': i, 'query': q[0], 'location': q[4] if len(q) > 4 else None, 'base_rc': b[0], 'head_rc': h[0],
                           'base_sha': hashlib.sha256(b[1]).hexdigest(), 'head_sha': hashlib.sha256(h[1]).hexdigest()})
     summary = {'root': str(a.root), 'lines': len(sample), 'queries': total, 'differing': len(diffs), 'diffs': diffs[:50],
                'base': hashlib.sha256(a.base.read_bytes()).hexdigest(), 'head': hashlib.sha256(a.head.read_bytes()).hexdigest()}
