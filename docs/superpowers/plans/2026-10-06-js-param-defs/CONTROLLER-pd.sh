@@ -4,6 +4,8 @@
 #   census : step-0 four-gap census on F (no prism binary needed)
 #     CORPUS_F_ROOT=... PRIVATE_EVIDENCE_ROOT=NEW_DIR bash CONTROLLER-pd.sh census TS_JS
 #   diff   : base/head DFG + call-site rows, §3.5 steps 1-2 adjudication of every changed row
+#            (PR-B: build BOTH byte dumpers from probes/byte_dump.rs at this packet revision so
+#            synthetic <cb@L:C> owners are indexed; rowdiff pairs owner-only replacements as RE-OWNED)
 #     CORPUS_F_ROOT=... PRIVATE_EVIDENCE_ROOT=NEW_DIR bash CONTROLLER-pd.sh diff TS_JS BASE_BIN HEAD_BIN BASE_BYTES_BIN HEAD_BYTES_BIN
 # TS_JS is the pinned TypeScript 5.9.3 lib/typescript.js
 # (~/prism-evidence/native-positional-gap/gate-inputs/typescript-5.9.3/package/lib/typescript.js).
@@ -69,7 +71,7 @@ PYCODE
   python3 "$PROBES/rowdiff.py" "$OUT/base.dfg.jsonl" "$OUT/head.dfg.jsonl" "$OUT/dfg-diff.json" --rows "$OUT/dfg-changed.jsonl"
   python3 "$PROBES/rowdiff.py" "$OUT/base.bytes.jsonl" "$OUT/head.bytes.jsonl" "$OUT/byte-diff.json" --rows "$OUT/byte-changed.jsonl"
   STAGE=adjudication
-  node --max-old-space-size=8000 "$PROBES/adjudicate.cjs" "$2" "$CORPUS_F_ROOT" "$OUT/byte-changed.jsonl" "$OUT/adjudication.json" --details "$OUT/adjudication-details.jsonl"
+  node --max-old-space-size=12000 "$PROBES/adjudicate.cjs" "$2" "$CORPUS_F_ROOT" "$OUT/byte-changed.jsonl" "$OUT/adjudication.json" --details "$OUT/adjudication-details.jsonl"
 fi
 STAGE=publish_aggregates
 python3 - "$OUT" "$MODE" <<'PY' >&3
@@ -89,7 +91,11 @@ if mode == 'diff':
     stops = []
     if byte_diff.get('LOST', 0):
         result['lost_requires_adjudication'] = byte_diff['LOST']
-    if any(k.startswith('LOST|') and '|CORRECT' in k for k in adj):
+    if byte_diff.get('RE-OWNED', 0):
+        result['reowned_requires_adjudication'] = byte_diff['RE-OWNED']
+    if any(k.startswith('RE-OWNED|') and (k.endswith('|WRONG') or k.endswith('|UNDECIDED')) for k in adj):
+        stops.append('RE-OWNED row not proved correct')
+    if any(k.startswith('LOST|') and k.split('|')[1] in ('def->use', 'use->def') and k.endswith('|CORRECT') for k in adj):
         stops.append('LOST correct row')
     if any(k.startswith('ADDED|') and k.endswith('|WRONG') for k in adj):
         stops.append('ADDED WRONG binding')
@@ -100,7 +106,7 @@ if mode == 'diff':
     if byte_diff.get('RELABELLED:nameonly->exact', 0):
         stops.append('RELABELLED NameOnly -> Exact (unsafe direction)')
     if not sites_identical:
-        stops.append('call-site rows changed (PR-A must not change call resolution)')
+        stops.append('call-site rows changed (PR-A/PR-B must not change call resolution)')
     # EXACT_PRIOR_WRITE rows are not a STOP by themselves: the planner checks each against the
     # same-shape plain-parameter control (SPEC D13); the count is published for that review.
     result.update({'byte_projection_identical': json.loads((out / 'projection.json').read_text()), 'dfg_diff': diff, 'byte_diff': byte_diff, 'adjudication': adj, 'call_sites_identical': sites_identical,
