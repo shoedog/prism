@@ -26,6 +26,8 @@ mod flow_confidence;
 #[cfg(test)]
 mod inert_default_parameter_tests;
 #[cfg(test)]
+mod js_param_defs_tests;
+#[cfg(test)]
 mod loop_header_def_tests;
 #[cfg(test)]
 mod multiline_call_arg_parity_tests;

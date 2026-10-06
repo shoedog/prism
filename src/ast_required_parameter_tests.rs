@@ -45,7 +45,7 @@ fn required_parameter_identifiers_keep_exact_tokens_across_function_forms() {
 fn required_parameter_unsupported_forms_do_not_supply_definitions() {
     for parameter in [
         "a: any = value",
-        "...a: any[]",
+        "...[a]: any[]",
         "{a}: any",
         "[a]: any",
         "this: any",
@@ -69,6 +69,8 @@ fn required_parameter_unsupported_forms_do_not_supply_definitions() {
         "function take({x}: any, b: any, c: any = value) { sink(b); }",
         &["b"],
     );
+    // js-param-defs PR-A: an identifier rest formal binds its own Def.
+    check("function take(...a: any[]) { sink(a); }", &["a"]);
 }
 
 #[test]
@@ -348,9 +350,11 @@ fn reviewer_optional_inert_complete_allowlist_and_old_path_controls() {
         "function take(value?: unknown, {x}: {x: unknown}) { sink(value); }",
         &["value"],
     );
+    // js-param-defs PR-A: the identifier rest formal is now an occurrence;
+    // the optional formal's old-path admission is unchanged.
     check(
         "function take(value?: unknown, ...rest: unknown[]) { sink(value); }",
-        &["value"],
+        &["value", "rest"],
     );
 
     for parameters in [

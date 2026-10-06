@@ -54,6 +54,12 @@
       "disposition": "rebound",
       "intent": "Preserve inherited unresolved relative ImportForward and non-relative ReExport sibling behavior.",
       "reason": "Round-1 repair replaces starts_with(dot) with the raw relative-literal helper; the original negative obligation is unchanged."
+    },
+    "P2-M11-cpg-cache-version": {
+      "disposition": "rebound",
+      "intent": "Revert the current CPG cache version by one; the pinned-version test must fail.",
+      "reason": "js-param-defs PR-A bumped CACHE_VERSION 106 -> 107 (one transition); the old 106 anchor no longer exists. Obligation unchanged.",
+      "killing_fixture": "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics pins 107."
     }
   },
   "mutations": {
@@ -701,8 +707,8 @@
     ],
     "P2-M11-cpg-cache-version": [
       "src/cpg_cache.rs",
+      "const CACHE_VERSION: u32 = 107;",
       "const CACHE_VERSION: u32 = 106;",
-      "const CACHE_VERSION: u32 = 105;",
       "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
     ],
     "P2-M12-nav-cache-version": [
