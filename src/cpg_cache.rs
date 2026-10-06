@@ -239,7 +239,13 @@ use std::path::{Path, PathBuf};
 /// - v108: js-param-defs PR-B gives anonymous JS/TS/TSX callables their own
 ///   DFG pass under a synthetic `<cb@L:C>` owner and fences every JS/TS
 ///   reference walk at nested binders (E3), adding and removing DataFlow rows.
-const CACHE_VERSION: u32 = 108;
+/// - v109: PR-B R2 binds Use occurrences, shares body-hoisted functions with
+///   simple formals, separates expression-parameter/body vars and refuses
+///   wrapped writes and synthetic with-body references.
+/// - v110: final R2 also refuses with-body Def/Use admission, so preliminary
+///   generation-109 object-backed writes cannot enter final observations.
+/// - v111: PR-B R2b admits kill-aware implicit parameter-to-body-var copies.
+const CACHE_VERSION: u32 = 111;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -778,7 +784,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 108);
+        assert_eq!(super::CACHE_VERSION, 111);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

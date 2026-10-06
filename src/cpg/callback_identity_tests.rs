@@ -274,6 +274,14 @@ fn synthetic_pass_never_counts_non_reference_positions() {
     let src = "f(function (a) {\n  q({ a: 1 }, a);\n  console.a(a);\n});\n";
     for language in JS_TS {
         let cpg = build(language, src);
+        for byte in [at(src, "a: 1", 0), at(src, ".a", 0) + 1] {
+            assert!(
+                !cpg.graph.node_indices().any(|n| matches!(cpg.node(n),
+                CpgNode::Variable { function, access: VarAccess::Use, start_byte, .. }
+                    if function == "<cb@1:3>" && *start_byte == byte)),
+                "{language:?}: non-reference Use at {byte}"
+            );
+        }
         let rows = rows(&cpg);
         for line in [2, 3] {
             let uses: Vec<_> = rows
@@ -357,7 +365,15 @@ fn synthetic_preferred_use_is_the_read_occurrence() {
     let src = "f(function () {\n  let h = 0;\n  return h = g() || h;\n});\n";
     let read = at(src, "|| h", 0) + 3;
     for language in JS_TS {
-        let rows = rows(&build(language, src));
+        let cpg = build(language, src);
+        let write = at(src, "h = g", 0);
+        assert!(
+            !cpg.graph.node_indices().any(|n| matches!(cpg.node(n),
+            CpgNode::Variable { function, access: VarAccess::Use, start_byte, .. }
+                if function == "<cb@1:3>" && *start_byte == write)),
+            "{language:?}: write-only Use at {write}"
+        );
+        let rows = rows(&cpg);
         let u: Vec<_> = rows
             .iter()
             .filter(|r| r.1 == "h" && r.2 == 2 && r.3 == 3)
@@ -864,6 +880,403 @@ fn r1_decoded_escaped_binders_preserve_unrelated_captures() {
                     super::FlowConfidence::NameOnly(super::FlowDoubt::CfgIncomplete)
                 );
             }
+        }
+    }
+}
+
+#[test]
+fn r2_body_function_hoisting_shares_simple_parameters() {
+    for language in JS_TS {
+        for declaration in ["function x() {}", "function q() {}", "var x;", "{ var x; }"] {
+            let src = format!("function h(x) {{\n  {declaration}\n  use(x);\n}}\n");
+            let cpg = build(language, &src);
+            assert!(
+                rows(&cpg).contains(&(
+                    "h".into(),
+                    "x".into(),
+                    1,
+                    3,
+                    at(&src, "x", 0),
+                    at(&src, "x);", 0)
+                )),
+                "{language:?}: {:?}",
+                rows(&cpg)
+            );
+            if declaration.starts_with("function") {
+                assert_eq!(
+                    r1_label(&cpg, "h", "x", 1, 3),
+                    super::FlowConfidence::NameOnly(super::FlowDoubt::CfgIncomplete)
+                );
+            }
+        }
+        let src = "function h(x) {\n  { function x() {}\n    use(x);\n  }\n  use(x);\n}\n";
+        let r = rows(&build(language, src));
+        assert!(!edge(&r, "h", "x", 1, 3), "{language:?}: {r:?}");
+        assert!(edge(&r, "h", "x", 1, 5), "{language:?}: {r:?}");
+    }
+}
+
+#[test]
+fn r2_parameter_expressions_separate_body_vars_and_functions() {
+    for language in JS_TS {
+        for declaration in ["var y = 2;", "function y() {}"] {
+            for default in ["y", "() => y"] {
+                let src = format!("f(function(\n y = 1,\n z = {default}\n) {{\n {declaration}\n use(y, z);\n}});\n");
+                let cpg = build(language, &src);
+                let r = rows(&cpg);
+                assert!(!edge(&r, "<cb@1:3>", "y", 5, 3), "{language:?}: {r:?}");
+                assert!(!edge(&r, "<cb@1:3>", "y", 1, 6), "{language:?}: {r:?}");
+                if declaration.starts_with("var") {
+                    assert!(
+                        r.contains(&(
+                            "<cb@1:3>".into(),
+                            "y".into(),
+                            5,
+                            6,
+                            at(&src, "y = 2", 0),
+                            at(&src, "y, z", 0)
+                        )),
+                        "{language:?}: {r:?}"
+                    );
+                    assert_eq!(
+                        r1_label(&cpg, "<cb@1:3>", "y", 5, 6),
+                        super::FlowConfidence::Exact
+                    );
+                }
+                // This whole non-inert signature deliberately has no default
+                // parameter Defs under PR-A; do not invent registration here.
+            }
+        }
+        let direct = "f(function(y = 1, z = y) {\n var y = 2;\n use(y);\n});\n";
+        let r = rows(&build(language, direct));
+        assert!(!edge(&r, "<cb@1:3>", "y", 2, 1), "{language:?}: {r:?}");
+        assert!(edge(&r, "<cb@1:3>", "y", 2, 3), "{language:?}: {r:?}");
+        let computed = "f(function(y, {[y]: z}) {\n var y = 2;\n use(y, z);\n});\n";
+        let r = rows(&build(language, computed));
+        assert!(!edge(&r, "<cb@1:3>", "y", 2, 1), "{language:?}: {r:?}");
+        assert!(!edge(&r, "<cb@1:3>", "y", 1, 3), "{language:?}: {r:?}");
+        assert!(edge(&r, "<cb@1:3>", "y", 2, 3), "{language:?}: {r:?}");
+        if language != Language::JavaScript {
+            let typed = "f(function(y: number, z: number) {\n var y = 2;\n use(y, z);\n});\n";
+            let r = rows(&build(language, typed));
+            assert!(edge(&r, "<cb@1:3>", "y", 1, 3), "{language:?}: {r:?}");
+        }
+        let simple = direct.replace("y = 1, z = y", "y, z");
+        let r = rows(&build(language, &simple));
+        assert!(edge(&r, "<cb@1:3>", "y", 1, 3), "{language:?}: {r:?}");
+        assert!(edge(&r, "<cb@1:3>", "y", 2, 3), "{language:?}: {r:?}");
+    }
+}
+
+#[test]
+fn r2_use_endpoints_keep_binding_valid_occurrence_bytes() {
+    for language in JS_TS {
+        for body in [
+            "{let b = 2; use(b);} use(b);",
+            "use(b); {let b = 2; use(b);}",
+        ] {
+            let src = format!("f(function() {{\n let b = 1;\n {body}\n}});\n");
+            let cpg = build(language, &src);
+            let outer = if body.starts_with('{') {
+                at(&src, "b);", 1)
+            } else {
+                at(&src, "b);", 0)
+            };
+            let r: Vec<_> = rows(&cpg)
+                .into_iter()
+                .filter(|r| r.1 == "b" && r.2 == 2 && r.3 == 3)
+                .collect();
+            assert_eq!(
+                r,
+                vec![(
+                    "<cb@1:3>".into(),
+                    "b".into(),
+                    2,
+                    3,
+                    at(&src, "b = 1", 0),
+                    outer
+                )],
+                "{language:?}"
+            );
+            assert_eq!(
+                r1_label(&cpg, "<cb@1:3>", "b", 2, 3),
+                super::FlowConfidence::Exact
+            );
+        }
+    }
+}
+
+#[test]
+fn r2_synthetic_with_body_is_refused_but_expression_and_outside_reads_remain() {
+    for property in ["p", "q"] {
+        let src = format!("f(function(p) {{\n with ({{{property}: 2, q: p}}) {{\n  use(p);\n  g(() => use(p));\n }}\n use(p);\n}});\n");
+        let cpg = build(Language::JavaScript, &src);
+        let r = rows(&cpg);
+        assert!(!edge(&r, "<cb@1:3>", "p", 1, 3), "{r:?}");
+        assert!(!edge(&r, "<cb@1:3>", "p", 1, 4), "{r:?}");
+        assert!(edge(&r, "<cb@1:3>", "p", 1, 2), "{r:?}");
+        assert!(edge(&r, "<cb@1:3>", "p", 1, 6), "{r:?}");
+        for byte in [at(&src, "p);", 0), at(&src, "p));", 0)] {
+            assert!(!cpg.graph.node_indices().any(|n| matches!(cpg.node(n),
+                CpgNode::Variable { function, access: VarAccess::Use, start_byte, .. }
+                    if function == "<cb@1:3>" && *start_byte == byte)));
+        }
+    }
+    let block = "f(function(p) {\n {\n  use(p);\n }\n});\n";
+    assert!(edge(
+        &rows(&build(Language::JavaScript, block)),
+        "<cb@1:3>",
+        "p",
+        1,
+        3
+    ));
+    // A callback created inside with must not certify its object-backed capture.
+    let closure = "with ({p: 2}) {\n f(function() {\n  var z = p;\n  use(z, p);\n });\n}\n";
+    assert!(!edge(
+        &rows(&build(Language::JavaScript, closure)),
+        "<cb@2:4>",
+        "p",
+        3,
+        4
+    ));
+    let member = "f(function(obj) {\n obj.x = 0;\n with ({obj: {x: 2}, q: obj.x}) {\n  use(obj.x);\n }\n use(obj.x);\n});\n";
+    let r = rows(&build(Language::JavaScript, member));
+    assert!(!edge(&r, "<cb@1:3>", "obj.x", 2, 4), "{r:?}");
+    assert!(edge(&r, "<cb@1:3>", "obj.x", 2, 3), "{r:?}");
+    assert!(edge(&r, "<cb@1:3>", "obj.x", 2, 6), "{r:?}");
+    let named = "function h(p) {\n with ({p: 2}) {\n  use(p);\n }\n}\n";
+    assert!(edge(
+        &rows(&build(Language::JavaScript, named)),
+        "h",
+        "p",
+        1,
+        3
+    ));
+}
+
+fn r2_wrapped_write_role(wrapper: &str, member: bool) {
+    let languages: &[Language] = match wrapper {
+        "parens" => &JS_TS,
+        "assertion" => &[Language::TypeScript],
+        _ => &[Language::TypeScript, Language::Tsx],
+    };
+    for &language in languages {
+        let path = if member { "this.x" } else { "x" };
+        let target = match wrapper {
+            "parens" => format!("({path})"),
+            "nonnull" => format!("{path}!"),
+            "as" => format!("({path} as any)"),
+            "satisfies" => format!("({path} satisfies any)"),
+            "assertion" => format!("(<any>{path})"),
+            _ => unreachable!(),
+        };
+        let def = if member { "this.x = 0" } else { "let x = 0" };
+        let src = format!("f(function() {{\n {def};\n {target} = 1;\n use({path});\n}});\n");
+        let r = rows(&build(language, &src));
+        assert!(
+            !edge(&r, "<cb@1:3>", path, 2, 3),
+            "{wrapper} {language:?}: {r:?}"
+        );
+        assert!(
+            edge(&r, "<cb@1:3>", path, 2, 4),
+            "{wrapper} {language:?}: {r:?}"
+        );
+        let compound = src.replace(" = 1", " += 1");
+        let r = rows(&build(language, &compound));
+        assert!(
+            edge(&r, "<cb@1:3>", path, 2, 3),
+            "{wrapper} {language:?}: {r:?}"
+        );
+    }
+}
+
+macro_rules! r2_wrapper_tests {
+    ($ident:ident, $member:ident, $kind:literal) => {
+        #[test]
+        fn $ident() {
+            r2_wrapped_write_role($kind, false);
+        }
+        #[test]
+        fn $member() {
+            r2_wrapped_write_role($kind, true);
+        }
+    };
+}
+r2_wrapper_tests!(r2_parens_identifier, r2_parens_member, "parens");
+r2_wrapper_tests!(r2_nonnull_identifier, r2_nonnull_member, "nonnull");
+r2_wrapper_tests!(r2_as_identifier, r2_as_member, "as");
+r2_wrapper_tests!(r2_satisfies_identifier, r2_satisfies_member, "satisfies");
+r2_wrapper_tests!(r2_assertion_identifier, r2_assertion_member, "assertion");
+
+#[test]
+fn r2_with_body_defs_cannot_reach_outside_reads() {
+    for property in ["p", "q"] {
+        let src = format!(
+            "f(function(p) {{\n with ({{{property}: 2}}) {{\n  p = 3;\n }}\n use(p);\n}});\n"
+        );
+        let cpg = build(Language::JavaScript, &src);
+        assert!(!defs(&cpg).contains(&("<cb@1:3>".into(), "p".into(), at(&src, "p = 3", 0))));
+        let r = rows(&cpg);
+        assert!(!edge(&r, "<cb@1:3>", "p", 3, 5), "{r:?}");
+        assert!(
+            r.contains(&(
+                "<cb@1:3>".into(),
+                "p".into(),
+                1,
+                5,
+                at(&src, "p)", 0),
+                at(&src, "p);", 0)
+            )),
+            "{r:?}"
+        );
+    }
+    let member = "f(function(obj) {\n obj.x = 0;\n with ({obj: {x: 2}}) {\n  obj.x = 3;\n }\n use(obj.x);\n});\n";
+    let cpg = build(Language::JavaScript, member);
+    let r = rows(&cpg);
+    assert!(!defs(&cpg).contains(&(
+        "<cb@1:3>".into(),
+        "obj.x".into(),
+        at(member, "obj.x = 3", 0)
+    )));
+    assert!(!edge(&r, "<cb@1:3>", "obj.x", 4, 6), "{r:?}");
+    assert!(edge(&r, "<cb@1:3>", "obj.x", 2, 6), "{r:?}");
+    let block = "f(function(p) {\n {\n  p = 3;\n }\n use(p);\n});\n";
+    let cpg = build(Language::JavaScript, block);
+    assert!(edge(&rows(&cpg), "<cb@1:3>", "p", 3, 5));
+    assert_eq!(
+        r1_label(&cpg, "<cb@1:3>", "p", 3, 5),
+        super::FlowConfidence::Exact
+    );
+    let named = member
+        .replace("f(function(obj)", "function h(obj)")
+        .replace("});", "}");
+    assert!(edge(
+        &rows(&build(Language::JavaScript, &named)),
+        "h",
+        "obj.x",
+        4,
+        6
+    ));
+}
+
+#[test]
+fn r2b_rec_copy_reaches_initializer_but_not_assigned_value() {
+    for language in JS_TS {
+        for (head, owner, tail) in [
+            ("function rec", "rec", "}"),
+            ("f(function", "<cb@1:3>", "});"),
+        ] {
+            let src = format!(
+                "{head}(f, o, fn=null) {{\n var f = f || 'd';\n use(f);\n g(() => f);\n{tail}\n"
+            );
+            let cpg = build(language, &src);
+            let r = rows(&cpg);
+            assert!(edge(&r, owner, "f", 1, 2), "{language:?}: {r:?}");
+            assert_eq!(
+                r1_label(&cpg, owner, "f", 1, 2),
+                super::FlowConfidence::Exact
+            );
+            assert!(!edge(&r, owner, "f", 1, 3), "{language:?}: {r:?}");
+            assert!(!edge(&r, owner, "f", 1, 4), "{language:?}: {r:?}");
+            assert!(edge(&r, owner, "f", 2, 3), "{language:?}: {r:?}");
+            assert!(!edge(&r, owner, "f", 2, 1), "{language:?}: {r:?}");
+        }
+    }
+}
+
+#[test]
+fn r2b_rec2_uninitialised_var_keeps_entry_copy() {
+    for language in JS_TS {
+        for body in [
+            " var f;\n return f;",
+            " return f;\n var f;",
+            " { var f; }\n return f;",
+        ] {
+            let src = format!("function rec2(f, o, fn=null) {{\n{body}\n}}\n");
+            let cpg = build(language, &src);
+            assert!(
+                edge(
+                    &rows(&cpg),
+                    "rec2",
+                    "f",
+                    1,
+                    if body.starts_with(" return") { 2 } else { 3 }
+                ),
+                "{language:?}: {:?}",
+                rows(&cpg)
+            );
+        }
+    }
+}
+
+#[test]
+fn r2b_h_default_closure_and_body_copy_have_distinct_kills() {
+    for language in JS_TS {
+        let src =
+            "function h(f, get=()=>f) {\n use(f);\n var f = 2;\n use(f);\n return get();\n}\n";
+        let cpg = build(language, src);
+        let r = rows(&cpg);
+        assert!(edge(&r, "h", "f", 1, 2), "{language:?}: {r:?}");
+        assert!(!edge(&r, "h", "f", 1, 4), "{language:?}: {r:?}");
+        assert!(!edge(&r, "h", "f", 3, 1), "{language:?}: {r:?}");
+        assert!(edge(&r, "h", "f", 3, 4), "{language:?}: {r:?}");
+    }
+}
+
+#[test]
+fn r2b_copy_is_kill_aware_and_excludes_hoisted_functions() {
+    for language in JS_TS {
+        for body in [
+            "var f;\n f = 3;",
+            "var f = 3;",
+            "var f; function f() {}",
+            "function f() {}",
+        ] {
+            let src = format!("function h(f, o, fn=null) {{\n {body}\n use(f);\n}}\n");
+            let r = rows(&build(language, &src));
+            assert!(
+                !r.iter()
+                    .any(|(owner, path, def, use_line, _, _)| owner == "h"
+                        && path == "f"
+                        && *def == 1
+                        && *use_line > 1),
+                "{language:?}: {r:?}"
+            );
+        }
+        let src = "function h(f, o, fn=null) {\n var f;\n if (o) { f = 3; }\n use(f);\n}\n";
+        let multi = src.replace("if (o) { f = 3; }", "if (o) {\n f = 3;\n }");
+        assert!(
+            edge(&rows(&build(language, &multi)), "h", "f", 1, 6),
+            "{language:?}"
+        );
+        assert!(
+            edge(&rows(&build(language, src)), "h", "f", 1, 4),
+            "{language:?}"
+        );
+        let src = "function h(f, o, fn=null) {\n var f;\n { let f = 3; use(f); }\n use(f);\n}\n";
+        let r = rows(&build(language, src));
+        assert!(!edge(&r, "h", "f", 1, 3), "{language:?}: {r:?}");
+        assert!(edge(&r, "h", "f", 1, 4), "{language:?}: {r:?}");
+    }
+}
+
+#[test]
+fn r2b_copy_same_line_and_default_assignment_negatives() {
+    for language in JS_TS {
+        for (src, expected) in [
+            ("function h(f, fn=null) { var f=f||'d'; }", true),
+            // Frozen R2 emits this same-line WRONG row at 11 -> 41 in all
+            // three languages. Preserve its explicit legacy parity; the
+            // multiline negative above tests the new entry-copy kill path.
+            ("function h(f, fn=null) { var f; f=2; use(f); }", true),
+            ("function h(f, fn=null) { var f=(f=2,f); }", false),
+            ("function h(f, fn=(f=2)) { var f;\n use(f);\n}", false),
+        ] {
+            let r = rows(&build(language, src));
+            let actual = r
+                .iter()
+                .any(|(o, p, _, _, byte, _)| o == "h" && p == "f" && *byte == 11);
+            assert_eq!(actual, expected, "{language:?}: {src}: {r:?}");
         }
     }
 }

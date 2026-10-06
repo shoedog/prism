@@ -58,8 +58,8 @@
     "P2-M11-cpg-cache-version": {
       "disposition": "rebound",
       "intent": "Revert the current CPG cache version by one; the pinned-version test must fail.",
-      "reason": "js-param-defs PR-A bumped CACHE_VERSION 106 -> 107 and PR-B 107 -> 108 (one transition each); the older anchors no longer exist. Obligation unchanged.",
-      "killing_fixture": "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics pins 108."
+      "reason": "R2b cache111 rejects retained R2 generation110; PD-11/P2-M11 remain coupled previous-generation guards.",
+      "killing_fixture": "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics pins 111."
     }
   },
   "mutations": {
@@ -707,8 +707,8 @@
     ],
     "P2-M11-cpg-cache-version": [
       "src/cpg_cache.rs",
-      "const CACHE_VERSION: u32 = 108;",
-      "const CACHE_VERSION: u32 = 107;",
+      "const CACHE_VERSION: u32 = 111;",
+      "const CACHE_VERSION: u32 = 110;",
       "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
     ],
     "P2-M12-nav-cache-version": [

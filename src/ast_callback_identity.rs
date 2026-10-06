@@ -135,8 +135,15 @@ impl ParsedFile {
                             && scope
                                 .child_by_field_name("name")
                                 .is_some_and(|n| self.js_ts_fence_pattern_binds(n, name));
-                    if !params_bind && !self_bind {
-                        region = scope.child_by_field_name("body")?;
+                    let body = scope.child_by_field_name("body");
+                    let separate_body_binding = self.js_ts_parameters_have_expressions(&scope)
+                        && body.is_some_and(|b| {
+                            b.start_byte() <= byte
+                                && byte < b.end_byte()
+                                && self.js_ts_function_scope_binds(b, &boundaries, name)
+                        });
+                    if separate_body_binding || (!params_bind && !self_bind) {
+                        region = body?;
                     }
                 }
                 return Some((region.id(), (region.start_byte(), region.end_byte())));
@@ -144,6 +151,151 @@ impl ParsedFile {
             current = scope.parent();
         }
         None
+    }
+
+    /// Executable defaults and computed destructuring keys require a separate
+    /// body var environment. Types, rest and plain destructuring alone do not.
+    fn js_ts_parameters_have_expressions(&self, callable: &Node<'_>) -> bool {
+        let Some(params) = self.parameter_binding_region(callable) else {
+            return false;
+        };
+        let mut stack = vec![params];
+        while let Some(node) = stack.pop() {
+            if matches!(
+                node.kind(),
+                "assignment_pattern" | "object_assignment_pattern" | "computed_property_name"
+            ) || (matches!(node.kind(), "required_parameter" | "optional_parameter")
+                && node.child_by_field_name("value").is_some())
+            {
+                return true;
+            }
+            if self.language.is_in_erased_type_context(node) {
+                continue;
+            }
+            let mut cursor = node.walk();
+            stack.extend(node.named_children(&mut cursor));
+        }
+        false
+    }
+
+    /// FunctionDeclarationInstantiation copies a same-name formal into a body
+    /// var when parameter expressions create a separate environment. A body
+    /// function declaration supplies its own value instead (ES step 28.5.3).
+    pub(crate) fn js_ts_parameter_copy_binding(
+        &self,
+        owner: &Node<'_>,
+        name: &str,
+    ) -> Option<(usize, usize)> {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) || !self.js_ts_parameters_have_expressions(owner)
+            || !self
+                .parameter_binding_region(owner)
+                .is_some_and(|p| self.js_ts_fence_pattern_binds(p, name))
+        {
+            return None;
+        }
+        let body = owner.child_by_field_name("body")?;
+        let mut cursor = body.walk();
+        if body.named_children(&mut cursor).any(|n| {
+            matches!(
+                n.kind(),
+                "function_declaration" | "generator_function_declaration"
+            ) && n
+                .child_by_field_name("name")
+                .is_some_and(|n| self.js_ts_fence_pattern_binds(n, name))
+        }) {
+            return None;
+        }
+        let boundaries = self.language.callable_boundary_node_types();
+        let mut stack = vec![body];
+        while let Some(node) = stack.pop() {
+            if node.id() != body.id()
+                && (boundaries.contains(&node.kind())
+                    || matches!(
+                        node.kind(),
+                        "class" | "class_declaration" | "class_static_block"
+                    ))
+            {
+                continue;
+            }
+            if node.kind() == "variable_declarator"
+                && node
+                    .parent()
+                    .is_some_and(|p| p.kind() == "variable_declaration")
+            {
+                if let Some(binding) = node.child_by_field_name("name").filter(|n| {
+                    n.kind() == "identifier" && self.js_ts_fence_pattern_binds(*n, name)
+                }) {
+                    return Some((binding.start_byte(), binding.end_byte()));
+                }
+            }
+            let mut cursor = node.walk();
+            stack.extend(node.named_children(&mut cursor));
+        }
+        None
+    }
+
+    /// End of the evaluated write, rather than its lvalue token. `var f;`
+    /// does not assign and must not kill the implicit body entry value.
+    pub(crate) fn js_ts_write_end(&self, byte: usize) -> Option<usize> {
+        let mut node = self
+            .tree
+            .root_node()
+            .descendant_for_byte_range(byte, byte + 1)?;
+        loop {
+            match node.kind() {
+                "variable_declarator" => {
+                    return node.child_by_field_name("value").map(|_| node.end_byte())
+                }
+                "assignment_expression"
+                | "augmented_assignment_expression"
+                | "update_expression"
+                | "for_in_statement" => return Some(node.end_byte()),
+                _ => {}
+            }
+            node = node.parent()?;
+        }
+    }
+
+    /// The line CFG collapses an inline if's header and write. For the entry
+    /// copy only, a preceding if without else has a syntactic bypass. This
+    /// does not make the CFG precise; the emitted copy stays NameOnly.
+    pub(crate) fn js_ts_copy_write_has_bypass(&self, byte: usize, read: usize) -> bool {
+        let Some(mut node) = self
+            .tree
+            .root_node()
+            .descendant_for_byte_range(byte, byte + 1)
+        else {
+            return false;
+        };
+        while let Some(parent) = node.parent() {
+            if parent.kind() == "if_statement"
+                && parent.child_by_field_name("alternative").is_none()
+                && parent.end_byte() <= read
+                && parent
+                    .child_by_field_name("consequence")
+                    .is_some_and(|n| n.start_byte() <= byte && byte < n.end_byte())
+                && parent.child_by_field_name("condition").is_some_and(|n| {
+                    !matches!(
+                        self.node_text(&n).trim_matches(['(', ')', ' ']),
+                        "true" | "1"
+                    )
+                })
+            {
+                return true;
+            }
+            if self
+                .language
+                .callable_boundary_node_types()
+                .contains(&parent.kind())
+            {
+                break;
+            }
+            node = parent;
+        }
+        false
     }
 
     fn js_ts_scope_binds(
@@ -212,9 +364,20 @@ impl ParsedFile {
                 .filter(|init| init.kind() == "lexical_declaration")
                 .is_some_and(|init| self.js_ts_declaration_binds(init, name)),
             "statement_block" | "switch_body" => {
+                let callable_body = scope.parent().is_some_and(|p| {
+                    boundaries.contains(&p.kind())
+                        && p.child_by_field_name("body").map(|b| b.id()) == Some(scope.id())
+                });
                 let mut cursor = scope.walk();
                 let found = scope
                     .named_children(&mut cursor)
+                    .filter(|stmt| {
+                        !callable_body
+                            || !matches!(
+                                stmt.kind(),
+                                "function_declaration" | "generator_function_declaration"
+                            )
+                    })
                     .any(|stmt| self.js_ts_block_statement_binds(stmt, name));
                 found
             }
@@ -495,7 +658,12 @@ impl ParsedFile {
                 "object_pattern"
                 | "array_pattern"
                 | "rest_pattern"
-                | "shorthand_property_identifier_pattern" => {}
+                | "shorthand_property_identifier_pattern"
+                | "parenthesized_expression"
+                | "non_null_expression"
+                | "as_expression"
+                | "satisfies_expression"
+                | "type_assertion" => {}
                 "pair_pattern" => {
                     if p.child_by_field_name("value").map(|v| v.id()) != Some(child.id()) {
                         return false;
@@ -617,13 +785,41 @@ impl ParsedFile {
         within: Option<(usize, usize)>,
         reads_only: bool,
     ) -> BTreeSet<usize> {
+        self.find_path_reference_spans_fenced_in(
+            func_node, path, def_line, def_byte, within, reads_only,
+        )
+        .into_keys()
+        .collect()
+    }
+
+    /// First admitted occurrence per line, after the binding and read-role
+    /// gates. Synthetic edges retain this occurrence instead of substituting
+    /// a different binding's first rvalue on the same line.
+    pub(crate) fn find_path_reference_spans_fenced_in(
+        &self,
+        func_node: &Node<'_>,
+        path: &crate::access_path::AccessPath,
+        def_line: usize,
+        def_byte: usize,
+        within: Option<(usize, usize)>,
+        reads_only: bool,
+    ) -> BTreeMap<usize, (usize, usize)> {
         if !matches!(
             self.language,
             Language::JavaScript | Language::TypeScript | Language::Tsx
         ) {
-            return self.find_path_references_scoped(func_node, path, def_line);
+            return self
+                .find_path_references_scoped(func_node, path, def_line)
+                .into_iter()
+                .map(|line| {
+                    (
+                        line,
+                        (self.line_start_byte(line), self.line_start_byte(line)),
+                    )
+                })
+                .collect();
         }
-        let mut lines = BTreeSet::new();
+        let mut lines = BTreeMap::new();
         let scope_root = within
             .and_then(|(s, e)| self.tree.root_node().descendant_for_byte_range(s, e))
             .filter(|n| within == Some((n.start_byte(), n.end_byte())))
@@ -649,12 +845,21 @@ impl ParsedFile {
         def_line: usize,
         def_byte: usize,
         reads_only: bool,
-        out: &mut BTreeSet<usize>,
+        out: &mut BTreeMap<usize, (usize, usize)>,
     ) {
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
         let Some(query) = get_query(self.language, QueryKind::Identifiers) else {
-            out.extend(self.find_variable_references_scoped(owner, name, def_line));
+            out.extend(
+                self.find_variable_references_scoped(owner, name, def_line)
+                    .into_iter()
+                    .map(|line| {
+                        (
+                            line,
+                            (self.line_start_byte(line), self.line_start_byte(line)),
+                        )
+                    }),
+            );
             return;
         };
         let ident_idx = query
@@ -670,8 +875,10 @@ impl ParsedFile {
                     && !self.is_shadowed_at(&capture.node, owner, name, def_line)
                     && !self.js_ts_reference_fenced(&capture.node, owner, name, def_byte)
                     && !(reads_only && self.js_ts_identifier_is_not_a_read(capture.node))
+                    && !(reads_only && self.js_ts_reference_in_with_body(capture.node))
                 {
-                    out.insert(capture.node.start_position().row + 1);
+                    out.entry(capture.node.start_position().row + 1)
+                        .or_insert((capture.node.start_byte(), capture.node.end_byte()));
                 }
             }
         }
@@ -686,7 +893,7 @@ impl ParsedFile {
         def_line: usize,
         def_byte: usize,
         reads_only: bool,
-        out: &mut BTreeSet<usize>,
+        out: &mut BTreeMap<usize, (usize, usize)>,
     ) {
         let line = node.start_position().row + 1;
         if Self::is_field_access_node(node.kind()) {
@@ -697,14 +904,14 @@ impl ParsedFile {
                     crate::access_path::AccessPath::from_expr(self.node_text(&node))
                 });
             if node_path == *path && line > def_line {
-                let this_rebound = reads_only
-                    && path.base == "this"
-                    && self.js_ts_this_rebound_between(&node, owner);
-                if !this_rebound
-                    && !self.js_ts_reference_fenced(&node, owner, &path.base, def_byte)
-                    && !(reads_only && self.js_ts_identifier_is_not_a_read(node))
+                let refused_read = reads_only
+                    && ((path.base == "this" && self.js_ts_this_rebound_between(&node, owner))
+                        || self.js_ts_identifier_is_not_a_read(node)
+                        || self.js_ts_reference_in_with_body(node));
+                if !refused_read && !self.js_ts_reference_fenced(&node, owner, &path.base, def_byte)
                 {
-                    out.insert(line);
+                    out.entry(line)
+                        .or_insert((node.start_byte(), node.end_byte()));
                 }
                 return;
             }
@@ -713,5 +920,30 @@ impl ParsedFile {
         for child in node.children(&mut cursor) {
             self.collect_fenced_path_refs(child, owner, path, def_line, def_byte, reads_only, out);
         }
+    }
+
+    /// Includes captured references in callbacks created inside a with body.
+    /// The with expression itself evaluates in the enclosing environment.
+    pub(crate) fn js_ts_span_in_with_body(&self, start: usize, end: usize) -> bool {
+        self.tree
+            .root_node()
+            .descendant_for_byte_range(start, end)
+            .is_some_and(|node| self.js_ts_reference_in_with_body(node))
+    }
+
+    fn js_ts_reference_in_with_body(&self, reference: Node<'_>) -> bool {
+        let byte = reference.start_byte();
+        let mut current = reference.parent();
+        while let Some(node) = current {
+            if node.kind() == "with_statement"
+                && node
+                    .child_by_field_name("body")
+                    .is_some_and(|body| body.start_byte() <= byte && byte < body.end_byte())
+            {
+                return true;
+            }
+            current = node.parent();
+        }
+        false
     }
 }

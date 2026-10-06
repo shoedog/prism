@@ -318,6 +318,7 @@ impl DataFlowGraph {
             line: loc.line,
             start_byte: loc.start_byte,
             alias_derived,
+            implicit_entry: false,
         });
     }
 
@@ -583,6 +584,11 @@ impl DataFlowGraph {
                     let mut nested_write_spans = Vec::new();
                     if synthetic {
                         lvalue_spans.retain(|span| {
+                            // W4: object-backed writes are not proved lexical
+                            // Defs, and cannot contribute even kill-only input.
+                            if parsed.js_ts_span_in_with_body(span.start_byte, span.end_byte) {
+                                return false;
+                            }
                             let own = parsed.js_ts_span_in_own_scope(
                                 &func_node,
                                 span.start_byte,
@@ -630,6 +636,7 @@ impl DataFlowGraph {
                         VarLocation,
                     > = BTreeMap::new();
                     let mut param_ref_jobs = Vec::new();
+                    let mut parameter_copy_jobs = Vec::new();
                     let mut rd_defs = Vec::new();
                     let function_edge_start = edges.len();
 
@@ -648,7 +655,7 @@ impl DataFlowGraph {
                         if !parsed.has_bare_references(&func_node, param_name) {
                             continue;
                         }
-                        let refs = parsed.find_path_references_fenced_in(
+                        let refs = parsed.find_path_reference_spans_fenced_in(
                             &func_node,
                             &path,
                             start,
@@ -676,6 +683,28 @@ impl DataFlowGraph {
                         defs.entry((file_path.clone(), func_name.clone(), start, path.clone()))
                             .or_default()
                             .push(loc.clone());
+                        let formal_written_in_defaults = lvalue_spans.iter().any(|span| {
+                            span.path == path
+                                && span.start_byte
+                                    < func_node
+                                        .child_by_field_name("body")
+                                        .map_or(0, |b| b.start_byte())
+                                && parsed.js_ts_write_end(span.start_byte).is_some()
+                        });
+                        if let Some(binding) = (!formal_written_in_defaults)
+                            .then(|| parsed.js_ts_parameter_copy_binding(&func_node, param_name))
+                            .flatten()
+                        {
+                            let refs = parsed.find_path_reference_spans_fenced_in(
+                                &func_node,
+                                &path,
+                                start,
+                                binding.0,
+                                parsed.js_ts_def_scope(&func_node, param_name, binding.0),
+                                true,
+                            );
+                            parameter_copy_jobs.push((loc.clone(), binding, refs));
+                        }
                         param_ref_jobs.push((path, loc, refs, param_decl_line));
                     }
 
@@ -806,6 +835,7 @@ impl DataFlowGraph {
                         rvalue_spans.retain(|span| {
                             !parsed.js_ts_span_is_non_reference(span.start_byte, span.end_byte)
                                 && !parsed.js_ts_span_is_not_a_read(span.start_byte, span.end_byte)
+                                && !parsed.js_ts_span_in_with_body(span.start_byte, span.end_byte)
                         });
                     }
                     let mut preferred_use_locs: BTreeMap<(AccessPath, usize), VarLocation> =
@@ -834,38 +864,69 @@ impl DataFlowGraph {
                         .push(use_loc);
                     }
 
-                    let mut get_use = |path: &AccessPath, ref_line: usize, allow: bool| {
-                        if let Some(existing) = preferred_use_locs.get(&(path.clone(), ref_line)) {
-                            return Some(existing.clone());
-                        }
-                        if !allow {
-                            return None;
-                        }
-                        let anchor = parsed.line_start_byte(ref_line);
-                        let use_loc = VarLocation {
-                            file: file_path.clone(),
-                            function: func_name.clone(),
-                            function_start_line: start,
-                            line: ref_line,
-                            path: path.clone(),
-                            start_byte: anchor,
-                            end_byte: anchor,
-                            kind: VarAccessKind::Use,
+                    let mut get_use =
+                        |path: &AccessPath,
+                         ref_line: usize,
+                         allow: bool,
+                         admitted: (usize, usize)| {
+                            if synthetic {
+                                // The reference walk has already proved this occurrence's
+                                // binding and read role for the current Def.
+                                let use_loc = VarLocation {
+                                    file: file_path.clone(),
+                                    function: func_name.clone(),
+                                    function_start_line: start,
+                                    line: ref_line,
+                                    path: path.clone(),
+                                    start_byte: admitted.0,
+                                    end_byte: admitted.1,
+                                    kind: VarAccessKind::Use,
+                                };
+                                uses.entry((
+                                    file_path.clone(),
+                                    func_name.clone(),
+                                    start,
+                                    path.clone(),
+                                ))
+                                .or_default()
+                                .push(use_loc.clone());
+                                return Some(use_loc);
+                            }
+                            if let Some(existing) =
+                                preferred_use_locs.get(&(path.clone(), ref_line))
+                            {
+                                return Some(existing.clone());
+                            }
+                            if !allow {
+                                return None;
+                            }
+                            let anchor = parsed.line_start_byte(ref_line);
+                            let use_loc = VarLocation {
+                                file: file_path.clone(),
+                                function: func_name.clone(),
+                                function_start_line: start,
+                                line: ref_line,
+                                path: path.clone(),
+                                start_byte: anchor,
+                                end_byte: anchor,
+                                kind: VarAccessKind::Use,
+                            };
+                            debug_assert_eq!(use_loc.start_byte, use_loc.end_byte);
+                            uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
+                                .or_default()
+                                .push(use_loc.clone());
+                            preferred_use_locs.insert((path.clone(), ref_line), use_loc.clone());
+                            Some(use_loc)
                         };
-                        debug_assert_eq!(use_loc.start_byte, use_loc.end_byte);
-                        uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
-                            .or_default()
-                            .push(use_loc.clone());
-                        preferred_use_locs.insert((path.clone(), ref_line), use_loc.clone());
-                        Some(use_loc)
-                    };
 
                     // Create edges from param def to all uses in the function body.
                     for (path, loc, refs, param_decl_line) in &param_ref_jobs {
-                        for ref_line in refs {
+                        for (ref_line, admitted) in refs {
                             let in_signature_line =
                                 *ref_line >= start && *ref_line <= *param_decl_line;
-                            if let Some(use_loc) = get_use(path, *ref_line, !in_signature_line) {
+                            if let Some(use_loc) =
+                                get_use(path, *ref_line, !in_signature_line, *admitted)
+                            {
                                 edges.push(FlowEdge {
                                     from: loc.clone(),
                                     to: use_loc,
@@ -884,7 +945,7 @@ impl DataFlowGraph {
                         // binding environment; body vars cannot reach defaults.
                         let def_scope =
                             parsed.js_ts_def_scope(&func_node, &path.base, span.start_byte);
-                        let refs = parsed.find_path_references_fenced_in(
+                        let refs = parsed.find_path_reference_spans_fenced_in(
                             &func_node,
                             path,
                             def_line,
@@ -892,11 +953,11 @@ impl DataFlowGraph {
                             def_scope,
                             synthetic,
                         );
-                        for ref_line in &refs {
+                        for (ref_line, admitted) in &refs {
                             if *ref_line == def_line {
                                 continue; // Skip self-reference
                             }
-                            let Some(use_loc) = get_use(path, *ref_line, true) else {
+                            let Some(use_loc) = get_use(path, *ref_line, true, *admitted) else {
                                 continue;
                             };
                             let def_loc = def_locs_by_occurrence
@@ -930,7 +991,7 @@ impl DataFlowGraph {
                         };
                         if let Some(resolved) = twin {
                             if resolved != *path {
-                                let resolved_refs = parsed.find_path_references_fenced_in(
+                                let resolved_refs = parsed.find_path_reference_spans_fenced_in(
                                     &func_node,
                                     &resolved,
                                     def_line,
@@ -942,11 +1003,13 @@ impl DataFlowGraph {
                                     ),
                                     synthetic,
                                 );
-                                for ref_line in &resolved_refs {
+                                for (ref_line, admitted) in &resolved_refs {
                                     if *ref_line == def_line {
                                         continue;
                                     }
-                                    let Some(use_loc) = get_use(&resolved, *ref_line, true) else {
+                                    let Some(use_loc) =
+                                        get_use(&resolved, *ref_line, true, *admitted)
+                                    else {
                                         continue;
                                     };
                                     let def_loc = resolved_def_locs_by_occurrence
@@ -975,6 +1038,27 @@ impl DataFlowGraph {
                         }
                     }
 
+                    let mut copy_edges = Vec::new();
+                    for (formal, binding, refs) in parameter_copy_jobs {
+                        let entry = VarLocation {
+                            start_byte: binding.0,
+                            end_byte: binding.1,
+                            ..formal.clone()
+                        };
+                        let mut candidates = Vec::new();
+                        for (line, admitted) in refs {
+                            if let Some(use_loc) = get_use(&formal.path, line, true, admitted) {
+                                candidates.push((
+                                    FlowEdge {
+                                        from: entry.clone(),
+                                        to: use_loc,
+                                    },
+                                    admitted.0,
+                                ));
+                            }
+                        }
+                        copy_edges.push((formal, entry, candidates));
+                    }
                     drop(get_use);
                     // F1: captured writes inside nested callables contribute to
                     // RD kills, but never become emitted Defs or edge sources.
@@ -1078,6 +1162,99 @@ impl DataFlowGraph {
                                 &fallback_labels,
                                 classified,
                             );
+                        }
+                    }
+
+                    // The implicit Def belongs to the body binding but its
+                    // emitted source is the formal. Solve only that binding:
+                    // body writes kill the copy, never the parameter default.
+                    for (formal, entry, candidates) in copy_edges {
+                        let mut copy_defs: Vec<_> = rd_defs
+                            .iter()
+                            .filter(|d| {
+                                d.path == formal.path
+                                    && !d.alias_derived
+                                    && parsed.js_ts_write_end(d.start_byte).is_some()
+                                    && parsed
+                                        .tree
+                                        .root_node()
+                                        .descendant_for_byte_range(d.start_byte, d.start_byte + 1)
+                                        .is_some_and(|n| {
+                                            !parsed.js_ts_reference_fenced(
+                                                &n,
+                                                &func_node,
+                                                &formal.path.base,
+                                                entry.start_byte,
+                                            )
+                                        })
+                            })
+                            .cloned()
+                            .collect();
+                        Self::push_rd_def(&mut copy_defs, &entry, false);
+                        copy_defs
+                            .last_mut()
+                            .expect("entry Def was pushed")
+                            .implicit_entry = true;
+                        let internal_edges: Vec<_> =
+                            candidates.iter().map(|(e, _)| e.clone()).collect();
+                        let outcome = reaching_definitions_with_exact(
+                            parsed,
+                            &func_node,
+                            &copy_defs,
+                            &internal_edges,
+                            &[],
+                            file_cfg_edges
+                                .get_or_init(|| crate::cfg::build_cfg_edges_with_arms(parsed)),
+                        );
+                        for (mut edge, read_byte) in candidates {
+                            let key = (edge.from.clone(), edge.to.clone());
+                            // An expression's RHS runs before its own write.
+                            // This also covers a one-line/no-CFG function and
+                            // captures when no preceding write can kill entry.
+                            let prior_writes: Vec<_> = copy_defs
+                                .iter()
+                                .filter(|d| !d.implicit_entry)
+                                .filter(|d| {
+                                    !parsed.js_ts_copy_write_has_bypass(d.start_byte, read_byte)
+                                })
+                                .filter_map(|d| parsed.js_ts_write_end(d.start_byte))
+                                .filter(|end| *end <= read_byte)
+                                .collect();
+                            let before_writes = prior_writes.is_empty();
+                            let same_line_write = prior_writes
+                                .iter()
+                                .any(|end| parsed.line_for_byte(*end) == edge.to.line);
+                            let (reaches, mut label) = match &outcome {
+                                RdOutcome::Available(result) => (
+                                    before_writes
+                                        || (!same_line_write
+                                            && result.reaching_edges.contains(&key)),
+                                    result.labels.get(&key).copied().unwrap_or(
+                                        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
+                                    ),
+                                ),
+                                RdOutcome::Unavailable(_) => (
+                                    before_writes,
+                                    FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
+                                ),
+                            };
+                            if before_writes
+                                && matches!(
+                                    label,
+                                    FlowConfidence::NameOnly(FlowDoubt::Killed { .. })
+                                )
+                            {
+                                label = FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+                            }
+                            if reaches {
+                                edge.from = formal.clone();
+                                Self::insert_label(
+                                    &mut labels,
+                                    (edge.from.clone(), edge.to.clone()),
+                                    label,
+                                );
+                                edges.push(edge);
+                            }
                         }
                     }
                 }

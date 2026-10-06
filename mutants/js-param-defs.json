@@ -95,8 +95,8 @@
   ],
   "PD-11-cache-version-not-bumped": [
    "src/cpg_cache.rs",
-   "const CACHE_VERSION: u32 = 108;",
-   "const CACHE_VERSION: u32 = 107;",
+   "const CACHE_VERSION: u32 = 111;",
+   "const CACHE_VERSION: u32 = 110;",
    "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
   ],
   "PD-12-rest-not-last-admitted": [
@@ -436,8 +436,8 @@
   ],
   "PD-53-this-rebinding-fence-off": [
    "src/ast_callback_identity.rs",
-   "                let this_rebound = reads_only\n",
-   "                let this_rebound = false\n",
+   "path.base == \"this\" && self.js_ts_this_rebound_between(&node, owner)",
+   "false && path.base == \"this\" && self.js_ts_this_rebound_between(&node, owner)",
    [
     "cpg::callback_identity_tests::synthetic_this_member_def_stops_at_a_nested_receiver"
    ]
@@ -476,8 +476,8 @@
   ],
   "PD-58-r1-member-read-role-off": [
    "src/ast_callback_identity.rs",
-   "&& !(reads_only && self.js_ts_identifier_is_not_a_read(node))",
-   "&& !(false && self.js_ts_identifier_is_not_a_read(node))",
+   "|| self.js_ts_identifier_is_not_a_read(node)",
+   "|| false",
    [
     "cpg::callback_identity_tests::r1_member_writes_are_not_value_reads"
    ]
@@ -529,14 +529,137 @@
    [
     "cpg::callback_identity_tests::r1_defaults_and_computed_keys_keep_outer_captures"
    ]
+  ],
+  "PD-65-r2-parens-write-wrapper-off": [
+   "src/ast_callback_identity.rs",
+   "| \"parenthesized_expression\"",
+   "| \"never_parenthesized_expression\"",
+   [
+    "cpg::callback_identity_tests::r2_parens_identifier",
+    "cpg::callback_identity_tests::r2_parens_member"
+   ]
+  ],
+  "PD-65-r2-nonnull-write-wrapper-off": [
+   "src/ast_callback_identity.rs",
+   "| \"non_null_expression\"",
+   "| \"never_non_null_expression\"",
+   [
+    "cpg::callback_identity_tests::r2_nonnull_identifier",
+    "cpg::callback_identity_tests::r2_nonnull_member"
+   ]
+  ],
+  "PD-65-r2-as-write-wrapper-off": [
+   "src/ast_callback_identity.rs",
+   "| \"as_expression\"",
+   "| \"never_as_expression\"",
+   [
+    "cpg::callback_identity_tests::r2_as_identifier",
+    "cpg::callback_identity_tests::r2_as_member"
+   ]
+  ],
+  "PD-65-r2-satisfies-write-wrapper-off": [
+   "src/ast_callback_identity.rs",
+   "| \"satisfies_expression\"",
+   "| \"never_satisfies_expression\"",
+   [
+    "cpg::callback_identity_tests::r2_satisfies_identifier",
+    "cpg::callback_identity_tests::r2_satisfies_member"
+   ]
+  ],
+  "PD-65-r2-assertion-write-wrapper-off": [
+   "src/ast_callback_identity.rs",
+   "| \"type_assertion\" => {}",
+   "| \"never_type_assertion\" => {}",
+   [
+    "cpg::callback_identity_tests::r2_assertion_identifier",
+    "cpg::callback_identity_tests::r2_assertion_member"
+   ]
+  ],
+  "PD-70-r2-body-hoisting-off": [
+   "src/ast_callback_identity.rs",
+   "!callable_body\n",
+   "true\n",
+   "cpg::callback_identity_tests::r2_body_function_hoisting_shares_simple_parameters"
+  ],
+  "PD-71-r2-parameter-body-separation-off": [
+   "src/ast_callback_identity.rs",
+   "let separate_body_binding = self.js_ts_parameters_have_expressions(&scope)",
+   "let separate_body_binding = false && self.js_ts_parameters_have_expressions(&scope)",
+   "cpg::callback_identity_tests::r2_parameter_expressions_separate_body_vars_and_functions"
+  ],
+  "PD-72-r2-use-occurrence-off": [
+   "src/data_flow.rs",
+   "if synthetic {\n                                // The reference walk",
+   "if false && synthetic {\n                                // The reference walk",
+   "cpg::callback_identity_tests::r2_use_endpoints_keep_binding_valid_occurrence_bytes"
+  ],
+  "PD-73-r2-with-body-refusal-off": [
+   "src/ast_callback_identity.rs",
+   "node.kind() == \"with_statement\"",
+   "node.kind() == \"never_with_statement\"",
+   "cpg::callback_identity_tests::r2_synthetic_with_body_is_refused_but_expression_and_outside_reads_remain"
+  ],
+  "PD-74-r2-computed-parameter-expression-off": [
+   "src/ast_callback_identity.rs",
+   "| \"computed_property_name\"",
+   "| \"never_computed_property_name\"",
+   "cpg::callback_identity_tests::r2_parameter_expressions_separate_body_vars_and_functions"
+  ],
+  "PD-75-r2-with-def-admission-off": [
+   "src/data_flow.rs",
+   "if parsed.js_ts_span_in_with_body(span.start_byte, span.end_byte) {",
+   "if false && parsed.js_ts_span_in_with_body(span.start_byte, span.end_byte) {",
+   "cpg::callback_identity_tests::r2_with_body_defs_cannot_reach_outside_reads"
+  ],
+  "PD-76-r2-with-use-admission-off": [
+   "src/data_flow.rs",
+   "&& !parsed.js_ts_span_in_with_body(span.start_byte, span.end_byte)",
+   "&& true",
+   "cpg::callback_identity_tests::r2_synthetic_with_body_is_refused_but_expression_and_outside_reads_remain"
+  ],
+  "PD-77-r2b-entry-copy-off": [
+   "src/data_flow.rs",
+   "parsed.js_ts_parameter_copy_binding(&func_node, param_name)",
+   "None::<(usize, usize)>",
+   "cpg::callback_identity_tests::r2b_rec_copy_reaches_initializer_but_not_assigned_value"
+  ],
+  "PD-78-r2b-copy-kill-off": [
+   "src/data_flow.rs",
+   "if reaches {",
+   "if true {",
+   "cpg::callback_identity_tests::r2b_rec_copy_reaches_initializer_but_not_assigned_value"
+  ],
+  "PD-79-r2b-default-write-guard-off": [
+   "src/data_flow.rs",
+   "(!formal_written_in_defaults)",
+   "(true)",
+   "cpg::callback_identity_tests::r2b_copy_same_line_and_default_assignment_negatives"
+  ],
+  "PD-80-r2b-function-copy-refusal-off": [
+   "src/ast_callback_identity.rs",
+   "if body.named_children(&mut cursor).any(|n| {",
+   "if false && body.named_children(&mut cursor).any(|n| {",
+   "cpg::callback_identity_tests::r2b_copy_is_kill_aware_and_excludes_hoisted_functions"
+  ],
+  "PD-81-r2b-uninitialised-var-kills": [
+   "src/ast_callback_identity.rs",
+   "return node.child_by_field_name(\"value\").map(|_| node.end_byte())",
+   "return Some(node.end_byte())",
+   "cpg::callback_identity_tests::r2b_rec2_uninitialised_var_keeps_entry_copy"
+  ],
+  "PD-82-r2b-copy-bypass-off": [
+   "src/data_flow.rs",
+   "!parsed.js_ts_copy_write_has_bypass(d.start_byte, read_byte)",
+   "true",
+   "cpg::callback_identity_tests::r2b_copy_is_kill_aware_and_excludes_hoisted_functions"
   ]
  },
  "intent_revisions": {
   "PD-11-cache-version-not-bumped": {
    "disposition": "rebound",
    "intent": "Revert the current CPG cache version by one; the pinned-version test must fail.",
-   "reason": "js-param-defs PR-B bumped CACHE_VERSION 107 -> 108 (one transition); the 107 anchor no longer exists. Obligation unchanged; P2-M11 rebound in the same transition (Opus F6 coupling).",
-   "killing_fixture": "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics pins 108."
+   "reason": "R2b cache111 rejects retained R2 generation110; PD-11/P2-M11 remain coupled previous-generation guards.",
+   "killing_fixture": "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics pins 111."
   },
   "PD-34-lexical-def-scope-off": {
    "disposition": "rebound",
@@ -585,6 +708,22 @@
    "intent": "Preserve the original guard obligation through the R1 binding environment and lvalue occurrence model.",
    "reason": "Old anchor was superseded by R1; def containment is now two-position environment equality, lexical/loop scope follows the same binder inventory, alias lookup is byte keyed.",
    "killing_fixture": "cpg::callback_identity_tests::synthetic_for_head_def_stays_in_its_loop"
+  },
+  "PD-53-this-rebinding-fence-off": {
+   "disposition": "rebound",
+   "intent": "Preserve the existing member receiver/read-role guard obligation through the N1 nonminimal_bool simplification.",
+   "reason": "R2 combines member refusal terms without changing their truth table; anchors now select the individual original term.",
+   "killing_fixture": [
+    "cpg::callback_identity_tests::synthetic_this_member_def_stops_at_a_nested_receiver"
+   ]
+  },
+  "PD-58-r1-member-read-role-off": {
+   "disposition": "rebound",
+   "intent": "Preserve the existing member receiver/read-role guard obligation through the N1 nonminimal_bool simplification.",
+   "reason": "R2 combines member refusal terms without changing their truth table; anchors now select the individual original term.",
+   "killing_fixture": [
+    "cpg::callback_identity_tests::r1_member_writes_are_not_value_reads"
+   ]
   }
  }
 }
