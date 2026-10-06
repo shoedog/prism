@@ -1,9 +1,9 @@
 # SPEC: lane js-param-defs, PR-B "callback identity" (gap 1)
 
-**Status:** R2b retained fold and full583-root measurement complete with explicit exclusions. Source base cb996630/docs base2cb7102a plus cumulative R2b patches, cache111. Row/identity contract SELF-PASS (NOT INDEPENDENT), STOP:none on admitted measured population. Full acceptance gates UNMET: Rust quick INVALID oracle_timeout and corpus-target write denial; no denied-class retry. Row1 KEPT at identical bytes/Exact; rows2–4 LOST WRONG by E12. Synthetic same-line WRONG is unchanged R2 parity, initial ADDED attribution refuted. Current evidence/handoff bound under repair-r2b; STOP-1(a), O1 and standalone O2 remain in force.
+**Status:** R3 STOP; PR-B PARKED on skipped-default parameter-source loss. The retained draft is not accepted. No further source work or gates after STOP; owner design decision required. R2b measurements remain historical.
 **Design input:** `DESIGN-INPUT-fable-evaluation.md` §3.1, §3.2 "Gap 1: callback identity", §3.5–§3.7; SPEC-prA D1–D13, R1/R2 folds, `HANDOFF-repair-r1/r2.md`, reviews in `~/prism-evidence/js-param-defs/review/`.
 **Base:** main `da0604b3` (PR-A merged, `CACHE_VERSION` 107).
-**Evidence:** current `MEASUREMENTS-prB-R2b.md`, `HANDOFF-repair-prB-r2b.md` and `~/prism-evidence/js-param-defs/prB/repair-r2b/`; R2/R1 and b10 measurements are historical.
+**Evidence:** current MEASUREMENTS-prB-R3.md, HANDOFF-repair-prB-r3.md and `~/prism-evidence/js-param-defs/prB/repair-r3/`; all earlier measurements are historical.
 
 ## Goal (decision served)
 JS/TS/TSX anonymous callables (call arguments, assignment RHS, nested statements, JSX `onClick={e=>…}`, `.map(x=>…)`, `useEffect`, IIFE, `return`) get their **own DFG pass** under a **synthetic, non-referenceable identity**, so their formals get Defs. This is the identity half of the SecBench `callback_argument_parameter_registration` population (97 entries); PR-C supplies the member half.

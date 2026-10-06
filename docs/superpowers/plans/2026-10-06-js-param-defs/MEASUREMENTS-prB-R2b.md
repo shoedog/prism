@@ -1,3 +1,5 @@
+> **Current authority (R3, 2026-10-06): STOP; PR-B PARKED.** The R3 draft loses ES-correct earlier sources when later defaults are supplied. No further implementation, gate, measurement, adoption or shipping authority. Read MEASUREMENTS-prB-R3.md and HANDOFF-repair-prB-r3.md. The R2b source/binary/table claims below are historical and confer no R3 acceptance. Source base f8c768b3; docs base35d780e1.
+
 # PR-B R2b retained repair: complete measurement, Rust quick gate unmet
 
 STOP: **none on the admitted measured population**. This is a self-measured result, not independent review or adoption. The single owner-authorized R2b cap extension continued the retained R2 artifact; no restart or extra source round. Full acceptance is **not all-green**: Rust quick is INVALID due to oracle_timeout, with a known sandbox denial of corpus-target Cargo writes. The proposed retry was not exercised under the supplied command-class denial rule.

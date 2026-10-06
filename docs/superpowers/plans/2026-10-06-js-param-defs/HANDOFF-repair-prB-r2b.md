@@ -1,3 +1,5 @@
+> **Current authority (R3, 2026-10-06): STOP; PR-B PARKED.** The R3 draft loses ES-correct earlier sources when later defaults are supplied. No further implementation, gate, measurement, adoption or shipping authority. Read MEASUREMENTS-prB-R3.md and HANDOFF-repair-prB-r3.md. The R2b source/binary/table claims below are historical and confer no R3 acceptance. Source base f8c768b3; docs base35d780e1.
+
 # Handoff — js-param-defs PR-B R2b measured; Rust quick unmet
 
 **Written:** 2026-10-06 · **By:** Codex root · **Provider:** codex
