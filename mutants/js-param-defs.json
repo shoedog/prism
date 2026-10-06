@@ -1,6 +1,6 @@
 {
- "lane": "js-param-defs PR-A binding shapes (2026-10-06)",
- "source": "docs/superpowers/plans/2026-10-06-js-param-defs/SPEC-prA.md",
+ "lane": "js-param-defs PR-A binding shapes + PR-B callback identity (2026-10-06)",
+ "source": "docs/superpowers/plans/2026-10-06-js-param-defs/SPEC-prA.md; SPEC-prB.md (PD-30 onward)",
  "lib_test_prefixes": [
   "ast::",
   "cpg::",
@@ -95,11 +95,9 @@
   ],
   "PD-11-cache-version-not-bumped": [
    "src/cpg_cache.rs",
+   "const CACHE_VERSION: u32 = 108;",
    "const CACHE_VERSION: u32 = 107;",
-   "const CACHE_VERSION: u32 = 106;",
-   [
-    "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
-   ]
+   "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
   ],
   "PD-12-rest-not-last-admitted": [
    "src/parameter_slots.rs",
@@ -249,6 +247,216 @@
     "cpg::js_param_defs_tests::r2_w2d_ts",
     "cpg::js_param_defs_tests::r2_w2d_tsx"
    ]
+  ],
+  "PD-30-synthetic-identity-off": [
+   "src/ast_callback_identity.rs",
+   "        self.js_ts_synthetic_callable_name(func_node)\n    }",
+   "        None\n    }",
+   [
+    "cpg::callback_identity_tests::top_level_callback_formal_gets_a_synthetic_owner_and_def",
+    "cpg::callback_identity_tests::every_anonymous_parent_kind_gets_its_own_pass",
+    "cpg::callback_identity_tests::tsx_jsx_handler_gets_a_synthetic_pass"
+   ]
+  ],
+  "PD-31-own-scope-lvalue-filter-off": [
+   "src/data_flow.rs",
+   "                    if synthetic {\n                        lvalue_spans.retain(",
+   "                    if false {\n                        lvalue_spans.retain(",
+   [
+    "cpg::callback_identity_tests::synthetic_pass_owns_only_its_own_scope"
+   ]
+  ],
+  "PD-32-own-scope-alias-filter-off": [
+   "src/data_flow.rs",
+   "                    let (alias_map, raw_aliases) = if synthetic {",
+   "                    let (alias_map, raw_aliases) = if false {",
+   [
+    "cpg::callback_identity_tests::synthetic_alias_twin_only_on_the_alias_line"
+   ]
+  ],
+  "PD-33-non-reference-filter-off": [
+   "src/data_flow.rs",
+   "                    if synthetic {\n                        // PR-B D9",
+   "                    if false {\n                        // PR-B D9",
+   [
+    "cpg::callback_identity_tests::synthetic_pass_never_counts_non_reference_positions"
+   ]
+  ],
+  "PD-34-lexical-def-scope-off": [
+   "src/data_flow.rs",
+   "let def_scope = if synthetic {",
+   "let def_scope = if false {",
+   [
+    "cpg::callback_identity_tests::synthetic_lexical_def_stays_in_its_block"
+   ]
+  ],
+  "PD-35-alias-twin-line-restriction-off": [
+   "src/data_flow.rs",
+   "Self::resolve_on_alias_line(&raw_aliases, &span.path, span.line)",
+   "Self::resolve_path(&alias_map, &span.path)",
+   [
+    "cpg::callback_identity_tests::synthetic_alias_twin_only_on_the_alias_line"
+   ]
+  ],
+  "PD-36-e3-fence-off": [
+   "src/ast_callback_identity.rs",
+   "if !contains_def && self.js_ts_scope_binds(scope, &boundaries, name) {",
+   "if false && self.js_ts_scope_binds(scope, &boundaries, name) {",
+   [
+    "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
+   ]
+  ],
+  "PD-37-e3-def-containment-off": [
+   "src/ast_callback_identity.rs",
+   "let contains_def = scope.start_byte() <= def_byte && def_byte < scope.end_byte();",
+   "let contains_def = false;",
+   [
+    "cpg::callback_identity_tests::enclosing_walk_keeps_captured_reads_and_var_redeclarations"
+   ]
+  ],
+  "PD-38-e3-nested-formal-binder-off": [
+   "src/ast_callback_identity.rs",
+   "                if self.js_ts_binding_pattern_may_bind(params, name) {\n                    return true;",
+   "                if false && self.js_ts_binding_pattern_may_bind(params, name) {\n                    return true;",
+   [
+    "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
+   ]
+  ],
+  "PD-39-e3-self-name-binder-off": [
+   "src/ast_callback_identity.rs",
+   "if matches!(scope.kind(), \"function_expression\" | \"generator_function\")",
+   "if matches!(scope.kind(), \"never_function_expression\")",
+   [
+    "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
+   ]
+  ],
+  "PD-40-e3-function-scope-binder-off": [
+   "src/ast_callback_identity.rs",
+   "                .is_some_and(|body| self.js_ts_function_scope_binds(body, boundaries, name));",
+   "                .is_some_and(|body| false && self.js_ts_function_scope_binds(body, boundaries, name));",
+   [
+    "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
+   ]
+  ],
+  "PD-41-e3-class-name-binder-off": [
+   "src/ast_callback_identity.rs",
+   "            \"class\" => scope",
+   "            \"never_class\" => scope",
+   [
+    "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
+   ]
+  ],
+  "PD-42-e3-catch-binder-off": [
+   "src/ast_callback_identity.rs",
+   "            \"catch_clause\" => scope",
+   "            \"never_catch_clause\" => scope",
+   [
+    "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
+   ]
+  ],
+  "PD-43-e3-for-in-binder-off": [
+   "src/ast_callback_identity.rs",
+   "            \"for_in_statement\" => {",
+   "            \"never_for_in_statement\" => {",
+   [
+    "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
+   ]
+  ],
+  "PD-44-e3-var-for-head-fenced": [
+   "src/ast_callback_identity.rs",
+   "matches!(self.node_text(&k), \"let\" | \"const\")",
+   "matches!(self.node_text(&k), \"let\" | \"const\" | \"var\")",
+   [
+    "cpg::callback_identity_tests::enclosing_walk_keeps_captured_reads_and_var_redeclarations"
+   ]
+  ],
+  "PD-45-e3-for-statement-binder-off": [
+   "src/ast_callback_identity.rs",
+   "            \"for_statement\" => scope",
+   "            \"never_for_statement\" => scope",
+   [
+    "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
+   ]
+  ],
+  "PD-46-e3-block-declaration-binder-off": [
+   "src/ast_callback_identity.rs",
+   "            \"statement_block\" | \"switch_body\" => {",
+   "            \"never_statement_block\" | \"switch_body\" => {",
+   [
+    "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
+   ]
+  ],
+  "PD-47-nav-synthetic-filter-off": [
+   "src/navigation/queries.rs",
+   "            !matches!(s.index.cpg.node(idx), CpgNode::Variable { function, .. }\n                if crate::ast::is_synthetic_owner(function))",
+   "            !matches!(s.index.cpg.node(idx), CpgNode::Variable { function, .. }\n                if false && crate::ast::is_synthetic_owner(function))",
+   [
+    "cpg::callback_identity_tests::navigation::navigation_hides_synthetic_variables_but_taint_seeds_see_them"
+   ]
+  ],
+  "PD-48-reads-only-filter-off": [
+   "src/ast_callback_identity.rs",
+   "&& !(reads_only && self.js_ts_identifier_is_not_a_read(capture.node))",
+   "&& !(false && self.js_ts_identifier_is_not_a_read(capture.node))",
+   [
+    "cpg::callback_identity_tests::synthetic_pass_counts_reads_only"
+   ]
+  ],
+  "PD-49-for-head-def-scope-off": [
+   "src/ast_callback_identity.rs",
+   "                \"for_in_statement\" => {\n                    let lexical",
+   "                \"never_for_in_statement\" => {\n                    let lexical",
+   [
+    "cpg::callback_identity_tests::synthetic_for_head_def_stays_in_its_loop"
+   ]
+  ],
+  "PD-50-erased-type-read-filter-off": [
+   "src/ast_callback_identity.rs",
+   "        if self.language.is_in_erased_type_context(ident) {\n            return true;",
+   "        if false && self.language.is_in_erased_type_context(ident) {\n            return true;",
+   [
+    "cpg::callback_identity_tests::synthetic_pass_counts_reads_only"
+   ]
+  ],
+  "PD-51-rvalue-read-filter-off": [
+   "src/data_flow.rs",
+   "                                && !parsed.js_ts_span_is_not_a_read(span.start_byte, span.end_byte)",
+   "                                && !(false && parsed.js_ts_span_is_not_a_read(span.start_byte, span.end_byte))",
+   [
+    "cpg::callback_identity_tests::synthetic_preferred_use_is_the_read_occurrence"
+   ]
+  ],
+  "PD-52-plain-binding-alias-filter-off": [
+   "src/ast_callback_identity.rs",
+   "            \"assignment_expression\"\n                if parent.child_by_field_name(\"left\")",
+   "            \"assignment_expression\" | \"augmented_assignment_expression\"\n                if parent.child_by_field_name(\"left\")",
+   [
+    "cpg::callback_identity_tests::synthetic_augmented_assignment_is_not_an_alias"
+   ]
+  ],
+  "PD-53-this-rebinding-fence-off": [
+   "src/ast_callback_identity.rs",
+   "                let this_rebound = reads_only\n",
+   "                let this_rebound = false\n",
+   [
+    "cpg::callback_identity_tests::synthetic_this_member_def_stops_at_a_nested_receiver"
+   ]
+  ],
+  "PD-54-for-in-var-function-scope-off": [
+   "src/ast_callback_identity.rs",
+   "            if node.kind() == \"for_in_statement\"\n                && node\n                    .child_by_field_name(\"kind\")\n                    .is_some_and(|k| self.node_text(&k) == \"var\")",
+   "            if node.kind() == \"never_for_in_statement\"\n                && node\n                    .child_by_field_name(\"kind\")\n                    .is_some_and(|k| self.node_text(&k) == \"var\")",
+   [
+    "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
+   ]
   ]
+ },
+ "intent_revisions": {
+  "PD-11-cache-version-not-bumped": {
+   "disposition": "rebound",
+   "intent": "Revert the current CPG cache version by one; the pinned-version test must fail.",
+   "reason": "js-param-defs PR-B bumped CACHE_VERSION 107 -> 108 (one transition); the 107 anchor no longer exists. Obligation unchanged; P2-M11 rebound in the same transition (Opus F6 coupling).",
+   "killing_fixture": "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics pins 108."
+  }
  }
 }

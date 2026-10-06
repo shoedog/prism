@@ -115,7 +115,8 @@ pub(crate) fn reaching_definitions(
     defs: &[DefSite],
     dfg_edges: &[FlowEdge],
 ) -> RdOutcome {
-    reaching_definitions_with_exact(parsed, func_node, defs, dfg_edges, &[])
+    let cfg_edges = cfg::build_cfg_edges_with_arms(parsed);
+    reaching_definitions_with_exact(parsed, func_node, defs, dfg_edges, &[], &cfg_edges)
 }
 
 pub(crate) fn reaching_definitions_with_exact(
@@ -124,6 +125,9 @@ pub(crate) fn reaching_definitions_with_exact(
     defs: &[DefSite],
     dfg_edges: &[FlowEdge],
     exact_edges: &[FlowEdge],
+    // PR-B perf: the file's CFG edges, built once per file by the caller
+    // (`build_cfg_edges_with_arms` is a pure function of `parsed`).
+    file_cfg_edges: &[(cfg::CfgEdge, cfg::ArmProvenance)],
 ) -> RdOutcome {
     let defs = deduplicate_definitions(defs);
     if defs.len() > RD_MAX_DEFS {
@@ -146,7 +150,7 @@ pub(crate) fn reaching_definitions_with_exact(
         .map(|(index, line)| (*line, index + 1))
         .collect();
     let mut cfg_edges = Vec::new();
-    for (edge, provenance) in cfg::build_cfg_edges_with_arms(parsed) {
+    for (edge, provenance) in file_cfg_edges.iter().cloned() {
         let (Some(&from), Some(&to)) = (
             line_index.get(&edge.from_line),
             line_index.get(&edge.to_line),

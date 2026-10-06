@@ -18,6 +18,8 @@
 #[cfg(test)]
 mod asserted_member_tests;
 mod build;
+#[cfg(test)]
+mod callback_identity_tests;
 mod cfg_queries;
 mod context;
 #[cfg(test)]

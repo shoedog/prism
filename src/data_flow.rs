@@ -549,21 +549,26 @@ impl DataFlowGraph {
                 let mut rd_function_stats = RdFileStats::default();
 
                 let function_nodes = parsed.all_functions();
+                // PR-B perf: one file-level CFG edge build shared by every pass.
+                let file_cfg_edges = std::cell::OnceCell::new();
                 let mut owner_counts = BTreeMap::new();
                 for func_node in &function_nodes {
-                    if let Some(name) = parsed.language.function_name(func_node) {
-                        let key = (
-                            parsed.node_text(&name).to_string(),
-                            parsed.node_line_range(func_node).0,
-                        );
+                    // js-param-defs PR-B: anonymous JS/TS/TSX callables own a
+                    // synthetic, non-referenceable `<cb@L:C>` DFG identity.
+                    if let Some(name) = parsed.dfg_owner_name(func_node) {
+                        let key = (name, parsed.node_line_range(func_node).0);
                         *owner_counts.entry(key).or_insert(0usize) += 1;
                     }
                 }
                 for func_node in function_nodes {
-                    let func_name = match parsed.language.function_name(&func_node) {
-                        Some(n) => parsed.node_text(&n).to_string(),
+                    let func_name = match parsed.dfg_owner_name(&func_node) {
+                        Some(n) => n,
                         None => continue,
                     };
+                    // PR-B: a synthetic pass owns only its own scope (bytes inside
+                    // the callable, outside nested callables). Legacy named passes
+                    // keep their line-based coverage byte-identically.
+                    let synthetic = crate::ast::is_synthetic_owner(&func_name);
                     let (start, end) = parsed.node_line_range(&func_node);
                     let owner_is_unique = owner_counts
                         .get(&(func_name.clone(), start))
@@ -573,10 +578,35 @@ impl DataFlowGraph {
                     // Phase 3: Build local alias map for this function.
                     // Tracks `ptr = dev` so that `ptr->field` resolves to `dev->field`.
                     // Also tracks destructuring: `const { name } = obj` → name resolves to obj.name.
-                    let (alias_map, raw_aliases) =
-                        Self::build_alias_map(parsed, &func_node, &all_lines);
-                    let lvalue_spans =
+                    let mut lvalue_spans =
                         parsed.assignment_lvalue_spans_on_lines(&func_node, &all_lines);
+                    if synthetic {
+                        lvalue_spans.retain(|span| {
+                            parsed.js_ts_span_in_own_scope(
+                                &func_node,
+                                span.start_byte,
+                                span.end_byte,
+                            )
+                        });
+                    }
+                    let (alias_map, raw_aliases) = if synthetic {
+                        // PR-B D11: a synthetic pass derives its aliases from its own
+                        // own-scope lvalue identifiers only (plain `=`, declarators,
+                        // flat object destructuring); outer/nested/augmented
+                        // assignments never mint an alias here (fail closed).
+                        let raw: Vec<_> = lvalue_spans
+                            .iter()
+                            .filter(|span| span.path.is_simple())
+                            .filter_map(|span| {
+                                parsed
+                                    .js_ts_own_alias_target(span.start_byte, span.end_byte)
+                                    .map(|target| (span.path.base.clone(), target, span.line))
+                            })
+                            .collect();
+                        (Self::resolve_alias_chain(&raw), raw)
+                    } else {
+                        Self::build_alias_map(parsed, &func_node, &all_lines)
+                    };
                     let mut def_locs_by_occurrence: BTreeMap<(AccessPath, usize), VarLocation> =
                         BTreeMap::new();
                     let mut resolved_def_locs_by_occurrence: BTreeMap<
@@ -602,7 +632,14 @@ impl DataFlowGraph {
                         if !parsed.has_bare_references(&func_node, param_name) {
                             continue;
                         }
-                        let refs = parsed.find_path_references_scoped(&func_node, &path, start);
+                        let refs = parsed.find_path_references_fenced_in(
+                            &func_node,
+                            &path,
+                            start,
+                            *param_start_byte,
+                            None,
+                            synthetic,
+                        );
                         let param_decl_line = parsed.line_for_byte(*param_start_byte);
 
                         // Parameter Defs are pinned to the function's `start` line for stable lookup.
@@ -656,7 +693,16 @@ impl DataFlowGraph {
                         // For field paths (ptr->field → dev->field): resolves base through alias.
                         // For simple paths from destructuring (name → device.name): creates
                         // a field-qualified def so taint connects through destructured variables.
-                        if let Some(resolved) = Self::resolve_path(&alias_map, &span.path) {
+                        // PR-B D11: in a synthetic pass an alias twin exists only on the
+                        // line that establishes the alias, to that line's target;
+                        // re-assigning the alias name elsewhere breaks the alias, it does
+                        // not write the target (flow-insensitive twins: legacy E11).
+                        let twin = if synthetic {
+                            Self::resolve_on_alias_line(&raw_aliases, &span.path, span.line)
+                        } else {
+                            Self::resolve_path(&alias_map, &span.path)
+                        };
+                        if let Some(resolved) = twin {
                             if resolved != span.path.clone() {
                                 let resolved_loc = VarLocation {
                                     file: file_path.clone(),
@@ -728,8 +774,16 @@ impl DataFlowGraph {
 
                     // R-values: insert real-span occurrences before any line
                     // anchors so CPG var-node dedup keeps the real span.
-                    let rvalue_spans =
+                    let mut rvalue_spans =
                         parsed.rvalue_identifier_spans_on_lines(&func_node, &all_lines);
+                    if synthetic {
+                        // PR-B D9: new passes never count non-reference
+                        // positions (keys, attribute/property names) as Uses.
+                        rvalue_spans.retain(|span| {
+                            !parsed.js_ts_span_is_non_reference(span.start_byte, span.end_byte)
+                                && !parsed.js_ts_span_is_not_a_read(span.start_byte, span.end_byte)
+                        });
+                    }
                     let mut preferred_use_locs: BTreeMap<(AccessPath, usize), VarLocation> =
                         BTreeMap::new();
                     for span in &rvalue_spans {
@@ -802,7 +856,21 @@ impl DataFlowGraph {
                     for span in &lvalue_spans {
                         let path = &span.path;
                         let def_line = span.line;
-                        let refs = parsed.find_path_references_scoped(&func_node, path, def_line);
+                        // PR-B D10: a synthetic pass's let/const Def reaches only
+                        // references inside its lexical scope.
+                        let def_scope = if synthetic {
+                            parsed.js_ts_lexical_def_scope(span.start_byte, span.end_byte)
+                        } else {
+                            None
+                        };
+                        let refs = parsed.find_path_references_fenced_in(
+                            &func_node,
+                            path,
+                            def_line,
+                            span.start_byte,
+                            def_scope,
+                            synthetic,
+                        );
                         for ref_line in &refs {
                             if *ref_line == def_line {
                                 continue; // Skip self-reference
@@ -830,10 +898,21 @@ impl DataFlowGraph {
                         }
 
                         // Phase 3: Also create edges for the alias-resolved path.
-                        if let Some(resolved) = Self::resolve_path(&alias_map, path) {
+                        let twin = if synthetic {
+                            Self::resolve_on_alias_line(&raw_aliases, path, def_line)
+                        } else {
+                            Self::resolve_path(&alias_map, path)
+                        };
+                        if let Some(resolved) = twin {
                             if resolved != *path {
-                                let resolved_refs = parsed
-                                    .find_path_references_scoped(&func_node, &resolved, def_line);
+                                let resolved_refs = parsed.find_path_references_fenced_in(
+                                    &func_node,
+                                    &resolved,
+                                    def_line,
+                                    span.start_byte,
+                                    def_scope,
+                                    synthetic,
+                                );
                                 for ref_line in &resolved_refs {
                                     if *ref_line == def_line {
                                         continue;
@@ -881,6 +960,8 @@ impl DataFlowGraph {
                         &rd_defs,
                         function_edges,
                         &exact_candidates,
+                        file_cfg_edges
+                            .get_or_init(|| crate::cfg::build_cfg_edges_with_arms(parsed)),
                     ) {
                         RdOutcome::Available(result) => {
                             Self::store_supplemental_exact(
@@ -1010,10 +1091,14 @@ impl DataFlowGraph {
         lines: &BTreeSet<usize>,
     ) -> (BTreeMap<String, String>, Vec<(String, String, usize)>) {
         let raw_aliases = parsed.collect_alias_assignments(func_node, lines);
+        (Self::resolve_alias_chain(&raw_aliases), raw_aliases)
+    }
+
+    fn resolve_alias_chain(raw_aliases: &[(String, String, usize)]) -> BTreeMap<String, String> {
         let mut alias_map: BTreeMap<String, String> = BTreeMap::new();
 
         // Process in line order so earlier aliases are available for chain resolution
-        for (alias, target, _line) in &raw_aliases {
+        for (alias, target, _line) in raw_aliases.iter() {
             // Follow chain: if target itself is an alias, resolve transitively
             let mut resolved = target.clone();
             let mut depth = 0;
@@ -1056,7 +1141,7 @@ impl DataFlowGraph {
             }
         }
 
-        (alias_map, raw_aliases)
+        alias_map
     }
 
     /// Phase 3: If a path's base is aliased, return the resolved path.
@@ -1077,6 +1162,28 @@ impl DataFlowGraph {
         } else {
             None
         }
+    }
+
+    /// PR-B D11: a synthetic pass resolves an alias twin only on the line that
+    /// establishes the alias, to that line's own target. Re-assigning the alias
+    /// name elsewhere breaks the alias; it never writes the target, and a later
+    /// alias of the same name never retro-applies (flow-insensitive twins are
+    /// legacy parity, E11).
+    fn resolve_on_alias_line(
+        raw_aliases: &[(String, String, usize)],
+        path: &AccessPath,
+        line: usize,
+    ) -> Option<AccessPath> {
+        let (_, target, _) = raw_aliases
+            .iter()
+            .find(|(alias, _, alias_line)| *alias == path.base && *alias_line == line)?;
+        let target_path = AccessPath::from_expr(target);
+        let mut fields = target_path.fields;
+        fields.extend(path.fields.iter().cloned());
+        Some(AccessPath {
+            base: target_path.base,
+            fields,
+        })
     }
 
     /// Find all locations reachable forward from a given location (transitive).

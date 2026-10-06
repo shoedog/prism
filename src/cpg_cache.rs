@@ -236,7 +236,10 @@ use std::path::{Path, PathBuf};
 /// - v107: js-param-defs PR-A registers JS/TS/TSX parameter Defs for the bare
 ///   arrow formal (`x => …`) and identifier rest formals (`...xs`), adding
 ///   DataFlow rows and RD declaration seeds for them.
-const CACHE_VERSION: u32 = 107;
+/// - v108: js-param-defs PR-B gives anonymous JS/TS/TSX callables their own
+///   DFG pass under a synthetic `<cb@L:C>` owner and fences every JS/TS
+///   reference walk at nested binders (E3), adding and removing DataFlow rows.
+const CACHE_VERSION: u32 = 108;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -775,7 +778,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 107);
+        assert_eq!(super::CACHE_VERSION, 108);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
