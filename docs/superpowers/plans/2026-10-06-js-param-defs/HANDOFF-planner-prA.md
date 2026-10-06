@@ -1,3 +1,5 @@
+> **R2 supersession:** Historical R1/planner record; current dispatch is committed `bd4c30ff` plus `repair-r2/R2-src.patch`, docs `a0e8504e` plus R2 docs patch. Use `HANDOFF-repair-r2.md` and `MEASUREMENTS-r2.md` for the targeted fold and current verification; R2 measurements and gates are complete on the documented successful-pair set; STOP is none.
+
 > **R1 supersession (2026-10-05):** Historical prototype record. Its line-based all-CORRECT verdict is refuted by both spec reviewers. Active repair custody and byte-span binding evidence are in `HANDOFF-repair-r1.md` and `MEASUREMENTS-prA.md`; use the committed prototype `1b2dfdc9` plus R1 patches. Prior D11/D12 isolation and zero-WRONG claims do not apply to the repaired artifact.
 
 # Handoff: lane js-param-defs, planner (step-0 census + PR-A spec/prototype/measurement)

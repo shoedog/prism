@@ -1,3 +1,5 @@
+> **R2 supersession:** Historical R1/planner record; current dispatch is committed `bd4c30ff` plus `repair-r2/R2-src.patch`, docs `a0e8504e` plus R2 docs patch. Use `HANDOFF-repair-r2.md` and `MEASUREMENTS-r2.md` for the targeted fold and current verification; R2 measurements and gates are complete on the documented successful-pair set; STOP is none.
+
 # PR-A R1 measurements
 
 `[MEASURED]` 2026-10-05, static source analysis only. No corpus package executed.

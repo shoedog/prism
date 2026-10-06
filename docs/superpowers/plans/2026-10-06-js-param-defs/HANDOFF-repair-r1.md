@@ -1,3 +1,5 @@
+> **R2 supersession:** Historical R1/planner record; current dispatch is committed `bd4c30ff` plus `repair-r2/R2-src.patch`, docs `a0e8504e` plus R2 docs patch. Use `HANDOFF-repair-r2.md` and `MEASUREMENTS-r2.md` for the targeted fold and current verification; R2 measurements and gates are complete on the documented successful-pair set; STOP is none.
+
 # Handoff — js-param-defs PR-A R1 repair
 
 **Written:** 2026-10-05T23:39:34.266875+00:00 · **By:** /root · **Provider:** codex
