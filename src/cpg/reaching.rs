@@ -31,6 +31,46 @@ pub(crate) type Line = usize;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct DefId(pub(crate) u32);
 
+/// RD transfer through parameter initialisation in evaluation order. An
+/// undefined-argument branch is a may-def: its skip arm preserves every
+/// incoming source. A must-def (for example an unconditional computed key)
+/// replaces the incoming set. These locations remain the emitted sources of
+/// the body's implicit entry copy, rather than synthetic product Defs.
+pub(crate) fn parameter_reaching_sources(
+    initial: VarLocation,
+    writes: impl IntoIterator<Item = (VarLocation, Option<usize>, bool)>,
+) -> Vec<VarLocation> {
+    let mut sources = vec![initial];
+    let mut writes = writes.into_iter().peekable();
+    while let Some((write, group, may_def)) = writes.next() {
+        let skipped = group.map(|_| sources.clone());
+        if !may_def {
+            sources.clear();
+        }
+        sources.push(write);
+        if let Some(group) = group {
+            while writes.peek().is_some_and(|(_, g, _)| *g == Some(group)) {
+                let (write, _, may_def) = writes.next().expect("peeked parameter write");
+                if !may_def {
+                    sources.clear();
+                }
+                sources.push(write);
+            }
+        }
+        if let Some(skipped) = skipped {
+            for source in skipped {
+                if !sources
+                    .iter()
+                    .any(|s| s.start_byte == source.start_byte && s.end_byte == source.end_byte)
+                {
+                    sources.push(source);
+                }
+            }
+        }
+    }
+    sources
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DefSite {
     pub(crate) id: DefId,

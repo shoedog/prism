@@ -700,9 +700,10 @@ impl DataFlowGraph {
                                 parsed.js_ts_def_scope(&func_node, param_name, binding.0),
                                 true,
                             );
-                            // Instantiation copies the parameter's final value,
-                            // including a write evaluated in a later default.
-                            let source = lvalue_spans
+                            // Defaults are sequenced conditional evaluations,
+                            // not unconditional assignments. The skip arm keeps
+                            // all earlier reaching sources in the parameter env.
+                            let mut writes: Vec<_> = lvalue_spans
                                 .iter()
                                 .filter(|span| {
                                     span.path == path
@@ -714,17 +715,35 @@ impl DataFlowGraph {
                                         )
                                         && parsed.js_ts_write_end(span.start_byte).is_some()
                                 })
-                                .max_by_key(|span| span.start_byte)
-                                .map_or_else(
-                                    || loc.clone(),
-                                    |span| VarLocation {
-                                        line: span.line,
-                                        start_byte: span.start_byte,
-                                        end_byte: span.end_byte,
-                                        ..loc.clone()
-                                    },
-                                );
-                            parameter_copy_jobs.push((source, binding, refs));
+                                .filter_map(|span| {
+                                    let (group, may_def) = parsed
+                                        .js_ts_parameter_write_is_conditional(
+                                            &func_node,
+                                            span.start_byte,
+                                            *param_start_byte,
+                                        )?;
+                                    Some((
+                                        VarLocation {
+                                            line: span.line,
+                                            start_byte: span.start_byte,
+                                            end_byte: span.end_byte,
+                                            ..loc.clone()
+                                        },
+                                        group,
+                                        may_def,
+                                    ))
+                                })
+                                .collect();
+                            // RHS effects precede the enclosing assignment's
+                            // commit; start-byte order gets nested writes wrong.
+                            writes.sort_by_key(|(write, _, _)| {
+                                parsed.js_ts_write_end(write.start_byte)
+                            });
+                            for source in
+                                crate::cpg::parameter_reaching_sources(loc.clone(), writes)
+                            {
+                                parameter_copy_jobs.push((source, binding, refs.clone()));
+                            }
                         }
                         param_ref_jobs.push((path, loc, refs, param_decl_line));
                     }

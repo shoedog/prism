@@ -1270,7 +1270,9 @@ fn r2b_copy_same_line_and_default_assignment_negatives() {
             // multiline negative above tests the new entry-copy kill path.
             ("function h(f, fn=null) { var f; f=2; use(f); }", true),
             ("function h(f, fn=null) { var f=(f=2,f); }", false),
-            ("function h(f, fn=(f=2)) { var f;\n use(f);\n}", false),
+            // Supplying fn skips its default, so the incoming formal reaches
+            // the copy as well as the conditional assignment source (R4).
+            ("function h(f, fn=(f=2)) { var f;\n use(f);\n}", true),
         ] {
             let r = rows(&build(language, src));
             let actual = r
@@ -1290,10 +1292,10 @@ fn r3_c1_rows_use_the_standard_rd_labels() {
         ("short_inline", "function h(f, d = 0) {\n var f; c && (f = 2); use(f);\n}\n", 11, 49, C::NameOnly(D::CfgIncomplete)),
         ("ternary", "function h(f, d = 0) {\n var f;\n c ? (f = 2) : 0;\n use(f);\n}\n", 11, 54, C::NameOnly(D::Killed { kill_line: 3 })),
         ("try", "function h(f, d = 0) {\n var f;\n try {\n  f = g();\n } catch (e) {}\n use(f);\n}\n", 11, 70, C::NameOnly(D::Killed { kill_line: 4 })),
-        ("closure", "function h(f, d = 0) {\n var f;\n const k = () => {\n  f = 3;\n };\n use(f);\n}\n", 11, 68, C::NameOnly(D::Killed { kill_line: 4 })),
+        ("closure", "function h(f, d = 0) {\n var f;\n const k = () => {\n  f = 3;\n };\n use(f);\n}\n", 11, 68, C::NameOnly(D::Killed { kill_line: 3 })),
         ("array", "function h(f, d = 0) {\n use(f);\n var [f] = [9];\n}\n", 11, 28, C::Exact),
         ("forin", "function h(f, d = 0) {\n use(f);\n for (var f in o) {}\n}\n", 11, 28, C::Exact),
-        ("defaultwrite", "function h(f, d = (f = 5)) {\n var f;\n use(f);\n}\n", 19, 42, C::NameOnly(D::SameLine)),
+        ("defaultwrite", "function h(f, d = (f = 5)) {\n var f;\n use(f);\n}\n", 19, 42, C::Exact),
         ("catchvar", "function h(f, d = 0) {\n var f;\n try {\n  throw 0;\n } catch(f) {\n  var f = 2;\n }\n use(f);\n}\n", 11, 84, C::NameOnly(D::CfgIncomplete)),
     ];
     let mut failures = Vec::new();
@@ -1364,18 +1366,190 @@ fn r3_c1_rows_use_the_standard_rd_labels() {
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
-
 #[test]
 fn r3_diagnostic_skipped_defaults_preserve_each_reaching_source() {
     let src = "function h(f, d = (f = 5), e = (f = 7)) {\n var f;\n use(f);\n}\n";
     let sources = [at(src, "f,", 0), at(src, "f = 5", 0), at(src, "f = 7", 0)];
     let use_byte = at(src, "use(f)", 0) + 4;
-    let expected: BTreeSet<_> = sources.into_iter().map(|b| ("h".to_string(), "f".to_string(), 1, 3, b, use_byte)).collect();
+    let expected: BTreeSet<_> = sources
+        .into_iter()
+        .map(|b| ("h".to_string(), "f".to_string(), 1, 3, b, use_byte))
+        .collect();
     let mut failures = Vec::new();
     for language in JS_TS {
         let r = rows(&build(language, src));
-        let actual: BTreeSet<_> = r.iter().filter(|(o,p,d,u,_,_)| o == "h" && p == "f" && *d == 1 && *u == 3).cloned().collect();
-        if actual != expected { failures.push(format!("{language:?}: expected={expected:?}, actual={actual:?}; all={r:?}")); }
+        let actual: BTreeSet<_> = r
+            .iter()
+            .filter(|(o, p, d, u, _, _)| o == "h" && p == "f" && *d == 1 && *u == 3)
+            .cloned()
+            .collect();
+        if actual != expected {
+            failures.push(format!(
+                "{language:?}: expected={expected:?}, actual={actual:?}; all={r:?}"
+            ));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn r4_one_default_retains_only_its_normal_completion_sources() {
+    let mut failures = Vec::new();
+    for language in JS_TS {
+        for (head, tail, owner) in [
+            ("function h", "}", "h"),
+            ("register(function", "});", "<cb@1:10>"),
+        ] {
+            for (expr, selected) in [
+                ("(f=5,f=7)", vec!["f=7"]),
+                ("(false && (f=5))", vec![]),
+                ("(true ? (f=5) : (f=7))", vec!["f=5"]),
+                ("(false ? (f=5) : (f=7))", vec!["f=7"]),
+                ("(f=(f=5,7))", vec!["f=("]),
+                ("(f=5,c && (f=7))", vec!["f=5", "f=7"]),
+            ] {
+                let src = format!("{head}(f, d={expr}) {{\n var f;\n use(f);\n{tail}\n");
+                let expected: BTreeSet<_> = std::iter::once(at(&src, "f,", 0))
+                    .chain(selected.iter().map(|s| at(&src, s, 0)))
+                    .collect();
+                let read = at(&src, "use(f)", 0) + 4;
+                let body = at(&src, "var f", 0);
+                let cpg = build(language, &src);
+                let actual: BTreeSet<_> = rows(&cpg)
+                    .iter()
+                    .filter(|(o, p, _, _, d, u)| o == owner && p == "f" && *d < body && *u == read)
+                    .map(|(_, _, _, _, d, _)| *d)
+                    .collect();
+                if actual != expected {
+                    failures.push(format!(
+                        "{language:?}/{owner}/{expr}: expected={expected:?}, actual={actual:?}"
+                    ));
+                }
+                for source in &expected {
+                    let labels: Vec<_> = cpg
+                        .graph
+                        .edge_indices()
+                        .filter_map(|e| {
+                            let CpgEdge::DataFlow(label) = cpg.graph[e] else {
+                                return None;
+                            };
+                            let (a, b) = cpg.graph.edge_endpoints(e)?;
+                            match (cpg.node(a), cpg.node(b)) {
+                                (
+                                    CpgNode::Variable {
+                                        function,
+                                        start_byte,
+                                        ..
+                                    },
+                                    CpgNode::Variable { start_byte: to, .. },
+                                ) if function == owner && start_byte == source && *to == read => {
+                                    Some(label)
+                                }
+                                _ => None,
+                            }
+                        })
+                        .collect();
+                    if labels != vec![super::FlowConfidence::Exact] {
+                        failures.push(format!("{language:?}/{expr}/{source}: labels={labels:?}"));
+                    }
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn r4_parameter_early_errors_refuse_dfg_passes() {
+    let mut failures = Vec::new();
+    for language in JS_TS {
+        for (head, tail) in [("function h", "}"), ("register(function", "});")] {
+            for (signature, body) in [
+                ("f", "let f=2; use(f);"),
+                ("f,d=0", "const f=2; use(f);"),
+                ("f,d=0", "class f {} use(f);"),
+                ("f,d=0", "'use strict'; use(f);"),
+                ("f,...r", "'use strict'; use(f);"),
+                ("f,f=2", "use(f);"),
+            ] {
+                let src = format!("{head}({signature}) {{{body}{tail}\n");
+                let r = rows(&build(language, &src));
+                if !r.is_empty() {
+                    failures.push(format!("{language:?}: {src}: {r:?}"));
+                }
+            }
+            for body in ["var f; use(f);", "{let f=2; use(f);} use(f);"] {
+                let src = format!("{head}(f,d=0) {{{body}{tail}\n");
+                assert!(
+                    !rows(&build(language, &src)).is_empty(),
+                    "{language:?}: {src}"
+                );
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn r4_contextual_strictness_and_decoded_early_errors_are_refused() {
+    let mut failures = Vec::new();
+    for language in JS_TS {
+        for src in [
+            "'use strict';\nfunction h(arguments,d=arguments){use(arguments);}",
+            "export {};\nregister(function(arguments,d=arguments){use(arguments);});",
+            "class C { h(arguments){use(arguments);} }",
+            "function h(f,d=0){let \\u0066=2; use(f);}",
+            "register(function(f,d=0){class \\u0066 {} use(f);});",
+            "function h(f,d=0){try{throw {f:2};}catch({f}){var f=9;}use(f);}",
+        ] {
+            let r = rows(&build(language, src));
+            if !r.is_empty() {
+                failures.push(format!("{language:?}: {src}: {r:?}"));
+            }
+        }
+        for src in [
+            "'use strict';\nfunction h(f,d=0){var f;use(f);}",
+            "export {};\nregister(function(f,d=0){var f;use(f);});",
+            "function h(f,d=0){try{throw 2;}catch(f){var f=9;}use(f);}",
+        ] {
+            assert!(
+                !rows(&build(language, src)).is_empty(),
+                "{language:?}: {src}"
+            );
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn r4_bound_names_and_comment_insensitive_early_errors() {
+    let mut failures = Vec::new();
+    for language in JS_TS {
+        for src in [
+            "function h(f,d=0){/*comment*/'use strict';use(f);}",
+            "/*comment*/'use strict';function h(arguments){use(arguments);}",
+            "function h(f,d=0){let [f]=[2];use(f);}",
+            "register(function(f,d=0){const {f}={f:2};use(f);});",
+            "function h({f},d=0){let f=2;use(f);}",
+            "function h(f,{f}){use(f);}",
+            "'use strict';function h(f,f){use(f);}",
+            "const o={h(f,f){use(f);}};",
+            "register((f,f)=>{use(f);});",
+        ] {
+            let r = rows(&build(language, src));
+            if !r.is_empty() {
+                failures.push(format!("{language:?}: {src}: {r:?}"));
+            }
+        }
+        for src in [
+            "function h(f/*comment*/){'use strict';use(f);}",
+            "function h(f,{f:g}){use(f);}",
+            "function h(f,d=f){use(f);}",
+        ] {
+            if rows(&build(language, src)).is_empty() {
+                failures.push(format!("valid callable refused: {language:?}: {src}"));
+            }
+        }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }

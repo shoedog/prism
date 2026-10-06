@@ -27,10 +27,194 @@ impl ParsedFile {
     /// `<cb@LINE:COL>` identity for an anonymous JS/TS/TSX arrow or function
     /// expression, else `None` (the callable keeps getting no pass).
     pub fn dfg_owner_name(&self, func_node: &Node<'_>) -> Option<String> {
+        if self.js_ts_parameter_early_error(func_node) {
+            return None;
+        }
         if let Some(name) = self.language.function_name(func_node) {
             return Some(self.node_text(&name).to_string());
         }
         self.js_ts_synthetic_callable_name(func_node)
+    }
+
+    /// BoundNames of a binding pattern, excluding keys, types and initializer
+    /// expressions. Keep duplicates so early-error checks can detect them.
+    fn js_ts_pattern_bound_names(&self, node: Node<'_>, names: &mut Vec<String>) {
+        match node.kind() {
+            "identifier" | "type_identifier" | "shorthand_property_identifier_pattern" => {
+                if let Some(name) = Self::js_ts_decoded_identifier(self.node_text(&node)) {
+                    names.push(name);
+                }
+            }
+            "pair_pattern" => {
+                if let Some(value) = node.child_by_field_name("value") {
+                    self.js_ts_pattern_bound_names(value, names);
+                }
+            }
+            "assignment_pattern" | "object_assignment_pattern" => {
+                if let Some(left) = node.child_by_field_name("left") {
+                    self.js_ts_pattern_bound_names(left, names);
+                }
+            }
+            "required_parameter" | "optional_parameter" => {
+                if let Some(pattern) = node.child_by_field_name("pattern") {
+                    self.js_ts_pattern_bound_names(pattern, names);
+                }
+            }
+            "formal_parameters" | "object_pattern" | "array_pattern" | "rest_pattern" => {
+                let mut cursor = node.walk();
+                for child in node.named_children(&mut cursor) {
+                    self.js_ts_pattern_bound_names(child, names);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Tree-sitter accepts semantic early errors. Refuse these callable DFG
+    /// passes rather than manufacturing flows for an unexecutable function.
+    fn js_ts_parameter_early_error(&self, owner: &Node<'_>) -> bool {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return false;
+        }
+        let (Some(params), Some(body)) = (
+            self.parameter_binding_region(owner),
+            owner.child_by_field_name("body"),
+        ) else {
+            return false;
+        };
+        let mut parameter_names = Vec::new();
+        self.js_ts_pattern_bound_names(params, &mut parameter_names);
+        let mut cursor = body.walk();
+        for statement in body.named_children(&mut cursor) {
+            if statement.kind() == "lexical_declaration" {
+                let mut c = statement.walk();
+                if statement
+                    .named_children(&mut c)
+                    .filter_map(|d| d.child_by_field_name("name"))
+                    .any(|name| {
+                        parameter_names
+                            .iter()
+                            .any(|parameter| self.js_ts_fence_pattern_binds(name, parameter))
+                    })
+                {
+                    return true;
+                }
+            }
+            if matches!(
+                statement.kind(),
+                "class_declaration" | "abstract_class_declaration"
+            ) && statement.child_by_field_name("name").is_some_and(|n| {
+                Self::js_ts_decoded_identifier(self.node_text(&n))
+                    .is_some_and(|name| self.js_ts_fence_pattern_binds(params, &name))
+            }) {
+                return true;
+            }
+        }
+        let mut cursor = body.walk();
+        let body_strict = body
+            .named_children(&mut cursor)
+            .filter(|n| n.kind() != "comment")
+            .take_while(|n| {
+                n.kind() == "expression_statement"
+                    && n.named_child(0).is_some_and(|n| n.kind() == "string")
+            })
+            .any(|n| {
+                n.named_child(0).is_some_and(|s| {
+                    matches!(self.node_text(&s), "\"use strict\"" | "'use strict'")
+                })
+            });
+        let mut cursor = params.walk();
+        let simple = params
+            .named_children(&mut cursor)
+            .filter(|n| n.kind() != "comment")
+            .all(|p| {
+                p.kind() == "identifier"
+                    || p.kind() == "required_parameter"
+                        && p.child_by_field_name("value").is_none()
+                        && p.child_by_field_name("pattern")
+                            .is_some_and(|n| n.kind() == "identifier")
+            });
+        if body_strict && !simple {
+            return true;
+        }
+        let boundaries = self.language.callable_boundary_node_types();
+        let mut stack = vec![body];
+        while let Some(node) = stack.pop() {
+            if node.id() != body.id() && boundaries.contains(&node.kind()) {
+                continue;
+            }
+            if node.kind() == "catch_clause" {
+                if let (Some(pattern), Some(catch_body)) = (
+                    node.child_by_field_name("parameter"),
+                    node.child_by_field_name("body"),
+                ) {
+                    if pattern.kind() != "identifier"
+                        && parameter_names.iter().any(|name| {
+                            self.js_ts_fence_pattern_binds(pattern, name)
+                                && self.js_ts_function_scope_binds(catch_body, &boundaries, name)
+                        })
+                    {
+                        return true;
+                    }
+                }
+            }
+            let mut c = node.walk();
+            stack.extend(node.named_children(&mut c));
+        }
+        let mut strict = body_strict;
+        let mut scope = owner.parent();
+        while let Some(node) = scope {
+            if matches!(node.kind(), "class" | "class_declaration" | "class_body") {
+                strict = true;
+            }
+            let statements = if node.kind() == "program" {
+                Some(node)
+            } else if boundaries.contains(&node.kind()) {
+                node.child_by_field_name("body")
+            } else {
+                None
+            };
+            if let Some(statements) = statements {
+                let mut c = statements.walk();
+                strict |= statements
+                    .named_children(&mut c)
+                    .filter(|n| !matches!(n.kind(), "comment" | "hash_bang_line"))
+                    .take_while(|n| {
+                        n.kind() == "expression_statement"
+                            && n.named_child(0).is_some_and(|n| n.kind() == "string")
+                    })
+                    .any(|n| {
+                        n.named_child(0).is_some_and(|n| {
+                            matches!(self.node_text(&n), "'use strict'" | "\"use strict\"")
+                        })
+                    });
+                if node.kind() == "program" {
+                    let mut c = node.walk();
+                    strict |= node
+                        .named_children(&mut c)
+                        .any(|n| matches!(n.kind(), "import_statement" | "export_statement"));
+                }
+            }
+            scope = node.parent();
+        }
+        let mut cursor = owner.walk();
+        let permits_duplicates = simple
+            && !strict
+            && matches!(owner.kind(), "function_declaration" | "function_expression")
+            && !owner.children(&mut cursor).any(|n| n.kind() == "async");
+        if !permits_duplicates {
+            let mut names = std::collections::BTreeSet::new();
+            if parameter_names.iter().any(|name| !names.insert(name)) {
+                return true;
+            }
+        }
+        strict
+            && ["arguments", "eval"]
+                .iter()
+                .any(|name| self.js_ts_fence_pattern_binds(params, name))
     }
 
     /// `<cb@LINE:COL>` (1-based line, 1-based byte column of the callable's
@@ -238,6 +422,96 @@ impl ParsedFile {
         }
     }
 
+    /// Default-expression group and conditionality *within* that expression.
+    /// The group as a whole has a skip arm. Self/later-formal writes are TDZ
+    /// failures, not sources of a normally completed body entry copy.
+    pub(crate) fn js_ts_parameter_write_is_conditional(
+        &self,
+        owner: &Node<'_>,
+        byte: usize,
+        formal_byte: usize,
+    ) -> Option<(Option<usize>, bool)> {
+        let params = self.parameter_binding_region(owner)?;
+        if !(params.start_byte() <= byte && byte < params.end_byte()) {
+            return None;
+        }
+        let mut node = self
+            .tree
+            .root_node()
+            .descendant_for_byte_range(byte, byte + 1)?;
+        let mut c = params.walk();
+        let formal = params
+            .named_children(&mut c)
+            .find(|p| p.start_byte() <= formal_byte && formal_byte < p.end_byte())?;
+        let mut c = params.walk();
+        let evaluated = params
+            .named_children(&mut c)
+            .find(|p| p.start_byte() <= byte && byte < p.end_byte())?;
+        if evaluated.start_byte() <= formal.start_byte() {
+            return None;
+        }
+        let mut conditional = false;
+        let mut group = None;
+        while node.id() != params.id() {
+            if self
+                .language
+                .callable_boundary_node_types()
+                .contains(&node.kind())
+            {
+                return None; // Creating a closure does not execute its writes.
+            }
+            let parent = node.parent()?;
+            if matches!(
+                parent.kind(),
+                "assignment_pattern" | "object_assignment_pattern"
+            ) && parent
+                .child_by_field_name("right")
+                .is_some_and(|rhs| rhs.start_byte() <= byte && byte < rhs.end_byte())
+                || matches!(parent.kind(), "required_parameter" | "optional_parameter")
+                    && parent
+                        .child_by_field_name("value")
+                        .is_some_and(|rhs| rhs.start_byte() <= byte && byte < rhs.end_byte())
+            {
+                group = Some(parent.start_byte());
+            }
+            if parent.kind() == "binary_expression"
+                && parent
+                    .child_by_field_name("right")
+                    .is_some_and(|rhs| rhs.start_byte() <= byte && byte < rhs.end_byte())
+            {
+                let op = parent
+                    .child_by_field_name("operator")
+                    .map(|n| self.node_text(&n));
+                let left = parent
+                    .child_by_field_name("left")
+                    .map(|n| self.node_text(&n));
+                match (op, left) {
+                    (Some("&&"), Some("false")) | (Some("||"), Some("true")) => return None,
+                    (Some("&&"), Some("true"))
+                    | (Some("||"), Some("false"))
+                    | (Some("??"), Some("null" | "undefined")) => {}
+                    (Some("&&" | "||" | "??"), _) => conditional = true,
+                    _ => {}
+                }
+            }
+            if parent.kind() == "ternary_expression" {
+                let condition = parent.child_by_field_name("condition")?;
+                if !(condition.start_byte() <= byte && byte < condition.end_byte()) {
+                    let arm = parent.child_by_field_name("consequence")?;
+                    let consequence = arm.start_byte() <= byte && byte < arm.end_byte();
+                    match self.node_text(&condition) {
+                        "true" if !consequence => return None,
+                        "false" if consequence => return None,
+                        "true" | "false" => {}
+                        _ => conditional = true,
+                    }
+                }
+            }
+            node = parent;
+        }
+        Some((group, conditional))
+    }
+
     /// A completed statement-level write dominates a later evaluated byte
     /// only along an unconditional sequence of blocks in this callable.
     /// Conditional expressions, loops, try/catch, labels and nested callables
@@ -272,6 +546,22 @@ impl ParsedFile {
         }
         if self.js_ts_write_end(byte).is_none_or(|end| end > read) {
             return false;
+        }
+        // Sequence operands and parentheses evaluate in order. A completed
+        // nested RHS write can therefore kill the entry value at a later RHS
+        // read, even before the enclosing declarator finishes.
+        let mut ancestor = node;
+        while let Some(parent) = ancestor.parent() {
+            if !matches!(
+                parent.kind(),
+                "sequence_expression" | "parenthesized_expression"
+            ) {
+                break;
+            }
+            if parent.start_byte() <= read && read < parent.end_byte() {
+                return true;
+            }
+            ancestor = parent;
         }
         let Some(statement) = node.parent() else {
             return false;

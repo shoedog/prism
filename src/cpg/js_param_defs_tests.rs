@@ -302,18 +302,13 @@ fn refused_shapes_gain_no_def() {
             );
         }
         if language == Language::JavaScript {
-            // Duplicate bindings: the rest formal is refused (the list is
-            // invalid); the pre-existing plain-formal occurrence is untouched.
+            // R4: a non-simple duplicate list is an ECMAScript early error.
+            // Refuse the entire callable, including the plain formal.
             let m: Vec<_> = all
                 .iter()
                 .filter(|(owner, path, _, _)| owner == "twice" && path == "m")
                 .collect();
-            let first_m = source.find("m, ...m").unwrap();
-            assert_eq!(
-                m.iter().map(|(_, _, start, _)| *start).collect::<Vec<_>>(),
-                vec![first_m],
-                "{all:?}"
-            );
+            assert!(m.is_empty(), "{all:?}");
         } else {
             let items = span(source, "...items", 3);
             assert!(
