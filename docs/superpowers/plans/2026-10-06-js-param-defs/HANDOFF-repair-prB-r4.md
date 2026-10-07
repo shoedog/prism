@@ -1,3 +1,5 @@
+**R5b supersession (2026-10-06):** Original R5 questions are resolved by prB-repair-r5b-brief.md. Current candidate is STOP on35 actual non-formal outside-certificate rows; read MEASUREMENTS-prB-R5.md/HANDOFF-repair-prB-r5.md. Historical receipts remain unchanged below.
+
 # Handoff — js-param-defs PR-B R4 retained repairs and design STOP
 
 **Written:** 2026-10-06T23:47:44.876021+00:00 · **By:** Codex root repair worker · **Provider:** codex

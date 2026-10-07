@@ -1,9 +1,9 @@
 # SPEC: lane js-param-defs, PR-B "callback identity" (gap 1)
 
-**Status:** R4 loop 1/3: bounded repairs retained; STOP/PARKED on six invoked-default DESIGN-CHANGE cells and 18 proven main-correct source losses. The out-of-model fail-closed policy is also unmet in 272 cells. Fable escalation is prepared locally; no delivery capability is available. The draft is not accepted. Earlier measurements remain historical.
+**Status:** Owner accepted R5 option(b); R5b resolves the original three questions. Focused53 tests and per-binding763-cell matrix pass, but current candidate is STOP/PARKED on35 outside-certificate non-formal rows (R5b-CERT-1). No acceptance or independent review.
 **Design input:** `DESIGN-INPUT-fable-evaluation.md` §3.1, §3.2 "Gap 1: callback identity", §3.5–§3.7; SPEC-prA D1–D13, R1/R2 folds, `HANDOFF-repair-r1/r2.md`, reviews in `~/prism-evidence/js-param-defs/review/`.
 **Base:** main `da0604b3` (PR-A merged, `CACHE_VERSION` 107).
-**Evidence:** current MEASUREMENTS-prB-R4.md, HANDOFF-repair-prB-r4.md and `~/prism-evidence/js-param-defs/prB/repair-r4/`; all earlier measurements are historical.
+**Evidence:** current MEASUREMENTS-prB-R5.md, HANDOFF-repair-prB-r5.md and `~/prism-evidence/js-param-defs/prB/repair-r5/`; earlier receipts, including R4, are historical.
 
 ## Goal (decision served)
 JS/TS/TSX anonymous callables (call arguments, assignment RHS, nested statements, JSX `onClick={e=>…}`, `.map(x=>…)`, `useEffect`, IIFE, `return`) get their **own DFG pass** under a **synthetic, non-referenceable identity**, so their formals get Defs. This is the identity half of the SecBench `callback_argument_parameter_registration` population (97 entries); PR-C supplies the member half.
@@ -13,7 +13,7 @@ Requirements: zero false Defs or edges; 0 LOST correct rows; no wrong RE-OWNED r
 **Historical b10 value:** 0/97 standalone traced conversions and 90/97 joint bare-read potential, with anonymous callee-query errors. O1 now authorizes eval-only byte-bound location seeding through taint/frontier without `callees --location`. R1 O1 results: standalone head 0 traced / 2 partial / 4 function-only / 91 errors; joint bare-read head 90 traced / 2 partial / 5 function-only, versus base 1 traced. See MEASUREMENTS-prB-R1.md for exact controls. O2 ships PR-B standalone; member-only formals and callback invocation/outgoing-call support remain outside this slice.
 
 ## §0 Decisions
-For JS/TS functions with parameter expressions, Exact includes ECMAScript's implicit initialisation of a same-named body `var` from the parameter (FunctionDeclarationInstantiation); reaching-definitions still governs after that copy.
+**R5 decision:** option (b) is accepted. The S1 Exact-copy sentence is WITHDRAWN from PR-B; it returns with the `js-param-env` follow-up slice, where copy rows are modeled. No parameter-environment copy rows are part of PR-B under this decision.
 
 | # | Decision | Why (evidence) |
 |---|---|---|
@@ -31,10 +31,11 @@ For JS/TS functions with parameter expressions, Exact includes ECMAScript's impl
 | B-D12 | **Synthetic Uses must read values.** Filter binding/declaration/plain-write occurrences for identifiers and complete members; compound assignments/updates remain reads and member receivers remain evaluated. | W2 includes field writes and independent oracle read-role controls; enum name tokens are declarations (W3). |
 | B-D13 | **Perf memo (behaviour-preserving):** the file-level CFG edges are built once per file (`reaching_definitions_with_exact` takes them), and a pass memoizes zero-width `use_byte` per `(line, path)`. | Without it X build time +45 % (STOP threshold 25 %); sampling showed RD rebuilding the whole-file CFG per pass and re-querying rvalues per zero-width edge. Both are pure functions of their inputs; legacy rows byte-identical (non-JS controls). |
 | B-D14 | Exact semantics remain PR-A D13/E6. Nested writes to the same binding are RD kill-only inputs, so common rows equal the named control; nested rebinds do not kill an outer binding. | Existing named-control parity plus F1 regression; binding correctness alone is not proof of runtime flow. |
+| B-D15 | **Parameter-expression seam fails closed per binding.** SEAM(c,n) = parameter expressions AND body function-scope rebinding or a body-level function n. Named owners retain main rows; synthetic owners refuse n. Direct eval anywhere refuses all synthetic formals; sloppy simple parameters with arguments outside nested non-arrow callables also refuse all synthetic formals. The copy model is deferred to `js-param-env`. | Owner accepted DESIGN-INPUT-fable-R4.md §4 on 2026-10-06. Candidate certificate remains STOP; do not infer completed implementation from design authority. |
 
 ## Non-goals (disclosed)
 - Anonymous `function*` expressions (`generator_function` is not in `function_node_types()`; adding it changes the function table).
-- The legacy `arguments` object.
+- Direct eval, mapped legacy `arguments`, and the parameter-expression/body-rebinding seam (B-D15 refusal/retention boundary).
 - Callback **invocation** edges (a registration is not an invocation; consumer-visibility doctrine).
 - Outgoing interprocedural flow from a callback body: no Step-5b edge from a synthetic owner, and no call sites for code outside named functions (would change call-site output). 2/97 SecBench rows need it.
 - Member-only formals (PR-C). Destructured parameters.
@@ -55,7 +56,7 @@ For JS/TS functions with parameter expressions, Exact includes ECMAScript's impl
 | Python lambda, Go func literal, Rust closure, every non-JS language | — | byte-identical |
 
 ## §2 Implementation
-Reference implementation: the prototype diff — `src/ast_callback_identity.rs` (new: identity, own-scope, E3 fence, reference-position and read classifiers, binding environment via `js_ts_def_scope`), `src/ast.rs` (module), `src/data_flow.rs` (pass), `src/cpg/reaching.rs` + `src/cpg/reaching/scope.rs` (perf memo), `src/navigation/queries.rs` (nav filter), `src/cpg_cache.rs` (111), tests `src/cpg/callback_identity_tests.rs` (+ `src/cpg.rs` module line) and one intended re-pin in `src/cpg/js_param_defs_tests.rs`. Per-site reasons: `IMPLEMENTOR-prB.md`.
+Reference implementation: the prototype diff — `src/ast_callback_identity.rs` (new: identity, own-scope, E3 fence, reference-position and read classifiers, binding environment via `js_ts_def_scope`), `src/ast.rs` (module), `src/data_flow.rs` (pass), `src/cpg/reaching.rs` + `src/cpg/reaching/scope.rs` (perf memo), `src/navigation/queries.rs` (nav filter), `src/cpg_cache.rs` (112 candidate; mutation coupling pending at STOP), tests `src/cpg/callback_identity_tests.rs` (+ `src/cpg.rs` module line) and one intended re-pin in `src/cpg/js_param_defs_tests.rs`. Per-site reasons: `IMPLEMENTOR-prB.md`.
 
 ## §3 Tests (each fails on the pre-change code; negatives per new path)
 R4 current:55 callback test groups pass, including source-bound RED/GREEN for grouped default transfer, early errors, contextual strictness, BoundNames and comment controls. Per-cell JS/TS/TSX assertions and exact synthetic Node predictions are in the R4 packet. Historical R2b:49 tests in `cpg::callback_identity_tests`: five R2b groups cover entry-copy positives and negatives in JS/TS/TSX; the original four groups fail unchanged retained R2. Six mutants PD-77–82 cover each new guard. Historical44 tests include 15 R2 regression functions cover five wrapper kinds with identifier/member and compound controls, body hoisting, expression-parameter separation, admitted Use bytes and with refusal; the original 14 fail on unchanged `cb996630`. Historical coverage is 29 tests: the original 22 plus seven R1 regression groups covering F1–F3/W1–W6 with byte/label and negative controls. The original coverage includes synthetic owner and Def for top-level / map / IIFE / return / assignment / JSX, name inference, unspellable spelling, binding fences, captured-read identity, own-scope ownership, read-role filters, alias twins, interprocedural isolation, non-JS ownership, navigation visibility and named-control parity. R1 also revises two legacy test assertions with unchanged-prototype controls: optional lexical spills and the exact let-to-var cache delta. See `MEASUREMENTS-prB-R1.md` for RED/GREEN receipts.
@@ -116,3 +117,7 @@ Final R2 also refuses object-backed with-body lvalues before emitted or kill-onl
 Original extra-asciinema row1 is CORRECT: initializer RHS reads the entry copy. Rows2/3 are WRONG formal-value flows after line69 overwrites body f. Row4 is WRONG because signature f is a binder, not an evaluated Use, and body var cannot reach the separate parameter environment. Synthetic multiline controls restore the flow with Exact; focused frozen extra-asciinema capture preserves row1 at identical bytes and Exact, while rows2–4 are LOST. All583 roots recorded;576 admitted/7 whole-pair exclusions. Full tables and gates are in MEASUREMENTS-prB-R2b.md.
 
 The frozen fold uses a non-emitted body entry Def sourced from the existing formal and same-binding RD kills. Cache111 and coupled previous-generation guards are built and verified. A newly added same-line test exposed a WRONG formal11→use41 row, but the same-environment frozen product-main and R2 controls emit the identical full row. Its initial new-regression attribution and STOP are refuted. All12 edge cases were enumerated before correcting the source-byte test predicate;49 callback functions pass, and frozen source remains unchanged during captures. Inherited WRONG is not downgraded or silently fixed.
+
+## R5 option (b), stopped candidate
+
+The owner accepted the measured reversion of the extra-asciinema seam to main: one retained correct row and three inherited false-Exact E12 rows. They are retained main rows, not ADDED WRONG. R5 has not freshly measured X/Xi/T/SecBench and makes no current corpus zero-loss claim. The R2b/R3/R4 copy machinery is deleted in the candidate; retained non-copy fences and generic lvalue paths expose the documented certificate question. See MEASUREMENTS-prB-R5.md and repair-r5/STOP.json.

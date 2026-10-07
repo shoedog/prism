@@ -1,3 +1,5 @@
+**R5b supersession (2026-10-06):** Original R5 questions are resolved by prB-repair-r5b-brief.md. Current candidate is STOP on35 actual non-formal outside-certificate rows; read MEASUREMENTS-prB-R5.md/HANDOFF-repair-prB-r5.md. Historical receipts remain unchanged below.
+
 # R4 retained repairs and design STOP — loop 1 of cap 3
 
 **STOP, not acceptance.** Six DESIGN-CHANGE cells remain. The final frozen head omits **18 ES-proven main-correct rows** in the named-function invoked-default controls. The required LOST CORRECT=0 guarantee is false in the synthetic diagnostic population; no corpus count is inferred from it. ADDED WRONG=0 has not been established. The packet is ready for Fable; no delivery route is available, so it has not been sent.
