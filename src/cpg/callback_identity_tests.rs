@@ -11,6 +11,235 @@ use std::collections::{BTreeMap, BTreeSet};
 
 const JS_TS: [Language; 3] = [Language::JavaScript, Language::TypeScript, Language::Tsx];
 
+fn r5_full_binding_rows(
+    cpg: &CodePropertyGraph,
+    owner: &str,
+    name: &str,
+) -> Vec<serde_json::Value> {
+    let mut result = Vec::new();
+    for e in cpg.graph.edge_indices() {
+        let CpgEdge::DataFlow(label) = cpg.graph[e] else {
+            continue;
+        };
+        let (a, b) = cpg.graph.edge_endpoints(e).unwrap();
+        if let (
+            CpgNode::Variable {
+                function,
+                path,
+                line,
+                start_byte,
+                end_byte,
+                access: VarAccess::Def,
+                ..
+            },
+            CpgNode::Variable {
+                function: to_owner,
+                line: to_line,
+                start_byte: to_byte,
+                end_byte: to_end,
+                access: VarAccess::Use,
+                ..
+            },
+        ) = (cpg.node(a), cpg.node(b))
+        {
+            if function == owner && to_owner == owner && path.is_simple() && path.base == name {
+                let (doubt, kill) = match label {
+                    super::FlowConfidence::Exact => (None, None),
+                    super::FlowConfidence::NameOnly(super::FlowDoubt::Killed { kill_line }) => {
+                        (Some("killed"), Some(kill_line))
+                    }
+                    super::FlowConfidence::NameOnly(super::FlowDoubt::SameLine) => {
+                        (Some("sameline"), None)
+                    }
+                    super::FlowConfidence::NameOnly(super::FlowDoubt::CfgIncomplete) => {
+                        (Some("cfg_incomplete"), None)
+                    }
+                    super::FlowConfidence::NameOnly(super::FlowDoubt::AliasUnstable) => {
+                        (Some("alias_unstable"), None)
+                    }
+                    super::FlowConfidence::NameOnly(super::FlowDoubt::CallNameOnly) => {
+                        (Some("call_nameonly"), None)
+                    }
+                };
+                result.push(serde_json::json!([
+                    line,
+                    start_byte,
+                    end_byte,
+                    to_line,
+                    to_byte,
+                    to_end,
+                    label.level(),
+                    doubt,
+                    kill
+                ]));
+            }
+        }
+    }
+    result.sort_by_key(ToString::to_string);
+    result
+}
+
+#[test]
+fn r5_named_seam_rows_equal_frozen_main_goldens() {
+    let cases: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/js_param_r5_golden.json")).unwrap();
+    let mut failures = Vec::new();
+    for c in cases.as_array().unwrap() {
+        if c["id"].as_str().unwrap().contains("callback") {
+            continue;
+        }
+        for (language, ext) in JS_TS.into_iter().zip(["js", "ts", "tsx"]) {
+            let actual =
+                r5_full_binding_rows(&build(language, c["source"].as_str().unwrap()), "h", "f");
+            let mut expected = c["main"][ext].as_array().unwrap().clone();
+            expected.sort_by_key(ToString::to_string);
+            if actual != expected {
+                failures.push(format!(
+                    "{}/{ext}: expected={expected:?}; actual={actual:?}",
+                    c["id"]
+                ));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn r5_synthetic_seam_formals_and_parameter_endpoints_are_refused() {
+    let cases: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/js_param_r5_golden.json")).unwrap();
+    let mut failures = Vec::new();
+    for c in cases.as_array().unwrap() {
+        let original = c["source"].as_str().unwrap();
+        let source = if original.starts_with("function h") {
+            original
+                .replacen("function h", "register(function", 1)
+                .trim_end()
+                .strip_suffix('}')
+                .unwrap()
+                .to_string()
+                + "});\n"
+        } else {
+            original.to_string()
+        };
+        for language in JS_TS {
+            let parsed = ParsedFile::parse(file_name(language), &source, language).unwrap();
+            let owner = parsed
+                .all_functions()
+                .into_iter()
+                .find(|f| parsed.js_ts_synthetic_callable_name(f).is_some())
+                .unwrap();
+            let name = parsed.js_ts_synthetic_callable_name(&owner).unwrap();
+            let params = parsed.parameter_binding_region(&owner).unwrap();
+            let cpg = build(language, &source);
+            for node in cpg.graph.node_indices() {
+                if matches!(cpg.node(node), CpgNode::Variable { function, path, start_byte, .. }
+                    if function == &name && path.base == "f" && params.start_byte() <= *start_byte && *start_byte < params.end_byte())
+                {
+                    failures.push(format!(
+                        "{}/{language:?}: parameter endpoint {:?}",
+                        c["id"],
+                        cpg.node(node)
+                    ));
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn r5_eval_and_mapped_arguments_refuse_all_formals_with_negative_controls() {
+    let mut failures = Vec::new();
+    for language in JS_TS {
+        for (prefix, signature, body, refused) in [
+            ("", "f,q", "eval('f=9');use(f,q);", true),
+            ("", "f,q", "function inner(){eval('f=9');}use(f,q);", true),
+            ("", "f,q", "arguments[0]=9;use(f,q);", true),
+            ("", "f,q", "(()=>arguments[0])();use(f,q);", true),
+            ("'use strict';", "f,q", "arguments[0]=9;use(f,q);", false),
+            ("export {};", "f,q", "arguments[0]=9;use(f,q);", false),
+            (
+                "",
+                "f,q",
+                "function inner(){return arguments[0];}use(f,q);",
+                false,
+            ),
+            ("", "f,q", "o.eval('f=9');use(f,q);", false),
+            ("", "f,q", "(0,eval)('f=9');use(f,q);", false),
+            ("", "f,q", "eval?.('f=9');use(f,q);", false),
+            ("", "f,q=0", "arguments[0]=9;use(f,q);", false),
+            ("", "f,d=0", "use(f,d);", false),
+            ("", "f,q", "var f;use(f,q);", false),
+        ] {
+            let source = format!("{prefix}register(function({signature}){{{body}}});");
+            let cpg = build(language, &source);
+            let parsed = ParsedFile::parse(file_name(language), &source, language).unwrap();
+            let f = parsed
+                .all_functions()
+                .into_iter()
+                .find(|f| parsed.js_ts_synthetic_callable_name(f).is_some())
+                .unwrap();
+            let owner = parsed.js_ts_synthetic_callable_name(&f).unwrap();
+            for (name, byte, _) in parsed.function_parameter_occurrences(&f) {
+                let admitted = defs(&cpg).contains(&(owner.clone(), name.clone(), byte));
+                if admitted == refused {
+                    failures.push(format!(
+                        "{language:?}: {source}: {name} admitted={admitted}, refused={refused}"
+                    ));
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn r5_seam_body_vars_keep_assignments_and_refuse_default_reads() {
+    for language in JS_TS {
+        for signature in ["f,d=f", "f=1,d=f", "f,d=()=>f", "f,d=(f=5),e=f"] {
+            let source = format!(
+                "register(function({signature}){{\n use(f);\n var f;\n f=2;\n use(f);\n}});"
+            );
+            let cpg = build(language, &source);
+            let owner = "<cb@1:10>";
+            let actual = r5_full_binding_rows(&cpg, owner, "f");
+            let def_byte = source.find("f=2").unwrap();
+            let use_byte = source.rfind("use(f)").unwrap() + 4;
+            assert_eq!(
+                actual,
+                vec![serde_json::json!([
+                    4,
+                    def_byte,
+                    def_byte + 1,
+                    5,
+                    use_byte,
+                    use_byte + 1,
+                    "exact",
+                    null,
+                    null
+                ])],
+                "{language:?}: {source}"
+            );
+            let parsed = ParsedFile::parse(file_name(language), &source, language).unwrap();
+            let function = parsed
+                .all_functions()
+                .into_iter()
+                .find(|f| parsed.js_ts_synthetic_callable_name(f).as_deref() == Some(owner))
+                .unwrap();
+            let params = parsed.parameter_binding_region(&function).unwrap();
+            for node in cpg.graph.node_indices() {
+                assert!(
+                    !matches!(cpg.node(node), CpgNode::Variable { function, path, start_byte, .. }
+                    if function == owner && path.base == "f" && params.start_byte() <= *start_byte && *start_byte < params.end_byte()),
+                    "{language:?}: {source}: {:?}",
+                    cpg.node(node)
+                );
+            }
+        }
+    }
+}
+
 fn file_name(language: Language) -> &'static str {
     match language {
         Language::JavaScript => "cb.js",
@@ -1160,31 +1389,6 @@ fn r2_with_body_defs_cannot_reach_outside_reads() {
 }
 
 #[test]
-fn r2b_rec_copy_reaches_initializer_but_not_assigned_value() {
-    for language in JS_TS {
-        for (head, owner, tail) in [
-            ("function rec", "rec", "}"),
-            ("f(function", "<cb@1:3>", "});"),
-        ] {
-            let src = format!(
-                "{head}(f, o, fn=null) {{\n var f = f || 'd';\n use(f);\n g(() => f);\n{tail}\n"
-            );
-            let cpg = build(language, &src);
-            let r = rows(&cpg);
-            assert!(edge(&r, owner, "f", 1, 2), "{language:?}: {r:?}");
-            assert_eq!(
-                r1_label(&cpg, owner, "f", 1, 2),
-                super::FlowConfidence::Exact
-            );
-            assert!(!edge(&r, owner, "f", 1, 3), "{language:?}: {r:?}");
-            assert!(!edge(&r, owner, "f", 1, 4), "{language:?}: {r:?}");
-            assert!(edge(&r, owner, "f", 2, 3), "{language:?}: {r:?}");
-            assert!(!edge(&r, owner, "f", 2, 1), "{language:?}: {r:?}");
-        }
-    }
-}
-
-#[test]
 fn r2b_rec2_uninitialised_var_keeps_entry_copy() {
     for language in JS_TS {
         for body in [
@@ -1210,256 +1414,6 @@ fn r2b_rec2_uninitialised_var_keeps_entry_copy() {
 }
 
 #[test]
-fn r2b_h_default_closure_and_body_copy_have_distinct_kills() {
-    for language in JS_TS {
-        let src =
-            "function h(f, get=()=>f) {\n use(f);\n var f = 2;\n use(f);\n return get();\n}\n";
-        let cpg = build(language, src);
-        let r = rows(&cpg);
-        assert!(edge(&r, "h", "f", 1, 2), "{language:?}: {r:?}");
-        assert!(!edge(&r, "h", "f", 1, 4), "{language:?}: {r:?}");
-        assert!(!edge(&r, "h", "f", 3, 1), "{language:?}: {r:?}");
-        assert!(edge(&r, "h", "f", 3, 4), "{language:?}: {r:?}");
-    }
-}
-
-#[test]
-fn r2b_copy_is_kill_aware_and_excludes_hoisted_functions() {
-    for language in JS_TS {
-        for body in [
-            "var f;\n f = 3;",
-            "var f = 3;",
-            "var f; function f() {}",
-            "function f() {}",
-        ] {
-            let src = format!("function h(f, o, fn=null) {{\n {body}\n use(f);\n}}\n");
-            let r = rows(&build(language, &src));
-            assert!(
-                !r.iter()
-                    .any(|(owner, path, def, use_line, _, _)| owner == "h"
-                        && path == "f"
-                        && *def == 1
-                        && *use_line > 1),
-                "{language:?}: {r:?}"
-            );
-        }
-        let src = "function h(f, o, fn=null) {\n var f;\n if (o) { f = 3; }\n use(f);\n}\n";
-        let multi = src.replace("if (o) { f = 3; }", "if (o) {\n f = 3;\n }");
-        assert!(
-            edge(&rows(&build(language, &multi)), "h", "f", 1, 6),
-            "{language:?}"
-        );
-        assert!(
-            edge(&rows(&build(language, src)), "h", "f", 1, 4),
-            "{language:?}"
-        );
-        let src = "function h(f, o, fn=null) {\n var f;\n { let f = 3; use(f); }\n use(f);\n}\n";
-        let r = rows(&build(language, src));
-        assert!(!edge(&r, "h", "f", 1, 3), "{language:?}: {r:?}");
-        assert!(edge(&r, "h", "f", 1, 4), "{language:?}: {r:?}");
-    }
-}
-
-#[test]
-fn r2b_copy_same_line_and_default_assignment_negatives() {
-    for language in JS_TS {
-        for (src, expected) in [
-            ("function h(f, fn=null) { var f=f||'d'; }", true),
-            // Frozen R2 emits this same-line WRONG row at 11 -> 41 in all
-            // three languages. Preserve its explicit legacy parity; the
-            // multiline negative above tests the new entry-copy kill path.
-            ("function h(f, fn=null) { var f; f=2; use(f); }", true),
-            ("function h(f, fn=null) { var f=(f=2,f); }", false),
-            // Supplying fn skips its default, so the incoming formal reaches
-            // the copy as well as the conditional assignment source (R4).
-            ("function h(f, fn=(f=2)) { var f;\n use(f);\n}", true),
-        ] {
-            let r = rows(&build(language, src));
-            let actual = r
-                .iter()
-                .any(|(o, p, _, _, byte, _)| o == "h" && p == "f" && *byte == 11);
-            assert_eq!(actual, expected, "{language:?}: {src}: {r:?}");
-        }
-    }
-}
-
-// R3: all C1 source-byte rows, across JS/TS/TSX; collect the complete RED population.
-#[test]
-fn r3_c1_rows_use_the_standard_rd_labels() {
-    use super::{FlowConfidence as C, FlowDoubt as D};
-    let cases = [
-        ("short_ml", "function h(f, d = 0) {\n var f;\n c && (f = 2);\n use(f);\n}\n", 11, 51, C::NameOnly(D::Killed { kill_line: 3 })),
-        ("short_inline", "function h(f, d = 0) {\n var f; c && (f = 2); use(f);\n}\n", 11, 49, C::NameOnly(D::CfgIncomplete)),
-        ("ternary", "function h(f, d = 0) {\n var f;\n c ? (f = 2) : 0;\n use(f);\n}\n", 11, 54, C::NameOnly(D::Killed { kill_line: 3 })),
-        ("try", "function h(f, d = 0) {\n var f;\n try {\n  f = g();\n } catch (e) {}\n use(f);\n}\n", 11, 70, C::NameOnly(D::Killed { kill_line: 4 })),
-        ("closure", "function h(f, d = 0) {\n var f;\n const k = () => {\n  f = 3;\n };\n use(f);\n}\n", 11, 68, C::NameOnly(D::Killed { kill_line: 3 })),
-        ("array", "function h(f, d = 0) {\n use(f);\n var [f] = [9];\n}\n", 11, 28, C::Exact),
-        ("forin", "function h(f, d = 0) {\n use(f);\n for (var f in o) {}\n}\n", 11, 28, C::Exact),
-        ("defaultwrite", "function h(f, d = (f = 5)) {\n var f;\n use(f);\n}\n", 19, 42, C::Exact),
-        ("catchvar", "function h(f, d = 0) {\n var f;\n try {\n  throw 0;\n } catch(f) {\n  var f = 2;\n }\n use(f);\n}\n", 11, 84, C::NameOnly(D::CfgIncomplete)),
-    ];
-    let mut failures = Vec::new();
-    for language in JS_TS {
-        for (name, src, def_byte, use_byte, expected) in cases {
-            let cpg = build(language, src);
-            let use_line = src[..src.find("use(f)").unwrap()]
-                .bytes()
-                .filter(|b| *b == b'\n')
-                .count()
-                + 1;
-            let actual: Vec<_> = cpg
-                .graph
-                .edge_indices()
-                .filter_map(|e| {
-                    let CpgEdge::DataFlow(label) = cpg.graph[e] else {
-                        return None;
-                    };
-                    let (a, b) = cpg.graph.edge_endpoints(e)?;
-                    match (cpg.node(a), cpg.node(b)) {
-                        (
-                            CpgNode::Variable {
-                                file,
-                                function,
-                                function_start_line,
-                                line,
-                                path,
-                                access: VarAccess::Def,
-                                start_byte,
-                                end_byte,
-                            },
-                            CpgNode::Variable {
-                                file: use_file,
-                                function: use_owner,
-                                function_start_line: use_start,
-                                line: to_line,
-                                path: use_path,
-                                access: VarAccess::Use,
-                                start_byte: to_byte,
-                                end_byte: to_end,
-                            },
-                        ) if file == file_name(language)
-                            && use_file == file
-                            && function == "h"
-                            && use_owner == function
-                            && *function_start_line == 1
-                            && use_start == function_start_line
-                            && path.to_string() == "f"
-                            && use_path == path
-                            && *line == 1
-                            && *start_byte == def_byte
-                            && *end_byte == def_byte + 1
-                            && *to_line == use_line
-                            && *to_byte == use_byte =>
-                        {
-                            Some((label, *to_end))
-                        }
-                        _ => None,
-                    }
-                })
-                .collect();
-            let expected_end = use_byte + 1;
-            if actual != vec![(expected, expected_end)] {
-                failures.push(format!("{language:?}/{name}: expected {expected:?} at {def_byte}->{use_byte}, got {actual:?}; rows={:?}", rows(&cpg)));
-            }
-        }
-    }
-    assert!(failures.is_empty(), "{}", failures.join("\n"));
-}
-
-#[test]
-fn r3_diagnostic_skipped_defaults_preserve_each_reaching_source() {
-    let src = "function h(f, d = (f = 5), e = (f = 7)) {\n var f;\n use(f);\n}\n";
-    let sources = [at(src, "f,", 0), at(src, "f = 5", 0), at(src, "f = 7", 0)];
-    let use_byte = at(src, "use(f)", 0) + 4;
-    let expected: BTreeSet<_> = sources
-        .into_iter()
-        .map(|b| ("h".to_string(), "f".to_string(), 1, 3, b, use_byte))
-        .collect();
-    let mut failures = Vec::new();
-    for language in JS_TS {
-        let r = rows(&build(language, src));
-        let actual: BTreeSet<_> = r
-            .iter()
-            .filter(|(o, p, d, u, _, _)| o == "h" && p == "f" && *d == 1 && *u == 3)
-            .cloned()
-            .collect();
-        if actual != expected {
-            failures.push(format!(
-                "{language:?}: expected={expected:?}, actual={actual:?}; all={r:?}"
-            ));
-        }
-    }
-    assert!(failures.is_empty(), "{}", failures.join("\n"));
-}
-
-#[test]
-fn r4_one_default_retains_only_its_normal_completion_sources() {
-    let mut failures = Vec::new();
-    for language in JS_TS {
-        for (head, tail, owner) in [
-            ("function h", "}", "h"),
-            ("register(function", "});", "<cb@1:10>"),
-        ] {
-            for (expr, selected) in [
-                ("(f=5,f=7)", vec!["f=7"]),
-                ("(false && (f=5))", vec![]),
-                ("(true ? (f=5) : (f=7))", vec!["f=5"]),
-                ("(false ? (f=5) : (f=7))", vec!["f=7"]),
-                ("(f=(f=5,7))", vec!["f=("]),
-                ("(f=5,c && (f=7))", vec!["f=5", "f=7"]),
-            ] {
-                let src = format!("{head}(f, d={expr}) {{\n var f;\n use(f);\n{tail}\n");
-                let expected: BTreeSet<_> = std::iter::once(at(&src, "f,", 0))
-                    .chain(selected.iter().map(|s| at(&src, s, 0)))
-                    .collect();
-                let read = at(&src, "use(f)", 0) + 4;
-                let body = at(&src, "var f", 0);
-                let cpg = build(language, &src);
-                let actual: BTreeSet<_> = rows(&cpg)
-                    .iter()
-                    .filter(|(o, p, _, _, d, u)| o == owner && p == "f" && *d < body && *u == read)
-                    .map(|(_, _, _, _, d, _)| *d)
-                    .collect();
-                if actual != expected {
-                    failures.push(format!(
-                        "{language:?}/{owner}/{expr}: expected={expected:?}, actual={actual:?}"
-                    ));
-                }
-                for source in &expected {
-                    let labels: Vec<_> = cpg
-                        .graph
-                        .edge_indices()
-                        .filter_map(|e| {
-                            let CpgEdge::DataFlow(label) = cpg.graph[e] else {
-                                return None;
-                            };
-                            let (a, b) = cpg.graph.edge_endpoints(e)?;
-                            match (cpg.node(a), cpg.node(b)) {
-                                (
-                                    CpgNode::Variable {
-                                        function,
-                                        start_byte,
-                                        ..
-                                    },
-                                    CpgNode::Variable { start_byte: to, .. },
-                                ) if function == owner && start_byte == source && *to == read => {
-                                    Some(label)
-                                }
-                                _ => None,
-                            }
-                        })
-                        .collect();
-                    if labels != vec![super::FlowConfidence::Exact] {
-                        failures.push(format!("{language:?}/{expr}/{source}: labels={labels:?}"));
-                    }
-                }
-            }
-        }
-    }
-    assert!(failures.is_empty(), "{}", failures.join("\n"));
-}
-
-#[test]
 fn r4_parameter_early_errors_refuse_dfg_passes() {
     let mut failures = Vec::new();
     for language in JS_TS {
@@ -1480,8 +1434,12 @@ fn r4_parameter_early_errors_refuse_dfg_passes() {
             }
             for body in ["var f; use(f);", "{let f=2; use(f);} use(f);"] {
                 let src = format!("{head}(f,d=0) {{{body}{tail}\n");
+                let parsed = ParsedFile::parse(file_name(language), &src, language).unwrap();
                 assert!(
-                    !rows(&build(language, &src)).is_empty(),
+                    parsed
+                        .all_functions()
+                        .iter()
+                        .all(|f| parsed.dfg_owner_name(f).is_some()),
                     "{language:?}: {src}"
                 );
             }
@@ -1512,8 +1470,12 @@ fn r4_contextual_strictness_and_decoded_early_errors_are_refused() {
             "export {};\nregister(function(f,d=0){var f;use(f);});",
             "function h(f,d=0){try{throw 2;}catch(f){var f=9;}use(f);}",
         ] {
+            let parsed = ParsedFile::parse(file_name(language), &src, language).unwrap();
             assert!(
-                !rows(&build(language, src)).is_empty(),
+                parsed
+                    .all_functions()
+                    .iter()
+                    .all(|f| parsed.dfg_owner_name(f).is_some()),
                 "{language:?}: {src}"
             );
         }

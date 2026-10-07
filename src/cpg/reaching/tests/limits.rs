@@ -97,7 +97,6 @@ fn definitions_cap_has_precedence_when_both_caps_are_exceeded() {
             line: 1,
             start_byte: 0,
             alias_derived: false,
-            implicit_entry: false,
         })
         .collect();
     assert!(matches!(

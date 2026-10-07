@@ -21,6 +21,30 @@ pub fn is_synthetic_owner(name: &str) -> bool {
     name.starts_with(SYNTHETIC_OWNER_PREFIX)
 }
 
+#[cfg(test)]
+mod r5_tests {
+    use super::*;
+
+    #[test]
+    fn r5_flat_seam_scope_preserves_nested_formal_fence() {
+        for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
+            let source = "function h(f,d=0){var f;use(f);register(function(f){use(f);});}";
+            let parsed = ParsedFile::parse("scope.js", source, language).unwrap();
+            let formal = source.find("f,d").unwrap();
+            let body = source.find("var f").unwrap() + 4;
+            let nested = source.find("function(f").unwrap() + 9;
+            assert_eq!(
+                parsed.js_ts_binding_scope_at(formal, "f"),
+                parsed.js_ts_binding_scope_at(body, "f")
+            );
+            assert_ne!(
+                parsed.js_ts_binding_scope_at(formal, "f"),
+                parsed.js_ts_binding_scope_at(nested, "f")
+            );
+        }
+    }
+}
+
 impl ParsedFile {
     /// Owner name of a callable's DFG pass: the inferred/declared name when
     /// one exists (name inference always wins), else the synthetic
@@ -126,17 +150,7 @@ impl ParsedFile {
                     matches!(self.node_text(&s), "\"use strict\"" | "'use strict'")
                 })
             });
-        let mut cursor = params.walk();
-        let simple = params
-            .named_children(&mut cursor)
-            .filter(|n| n.kind() != "comment")
-            .all(|p| {
-                p.kind() == "identifier"
-                    || p.kind() == "required_parameter"
-                        && p.child_by_field_name("value").is_none()
-                        && p.child_by_field_name("pattern")
-                            .is_some_and(|n| n.kind() == "identifier")
-            });
+        let simple = self.js_ts_parameters_are_simple(params);
         if body_strict && !simple {
             return true;
         }
@@ -164,42 +178,7 @@ impl ParsedFile {
             let mut c = node.walk();
             stack.extend(node.named_children(&mut c));
         }
-        let mut strict = body_strict;
-        let mut scope = owner.parent();
-        while let Some(node) = scope {
-            if matches!(node.kind(), "class" | "class_declaration" | "class_body") {
-                strict = true;
-            }
-            let statements = if node.kind() == "program" {
-                Some(node)
-            } else if boundaries.contains(&node.kind()) {
-                node.child_by_field_name("body")
-            } else {
-                None
-            };
-            if let Some(statements) = statements {
-                let mut c = statements.walk();
-                strict |= statements
-                    .named_children(&mut c)
-                    .filter(|n| !matches!(n.kind(), "comment" | "hash_bang_line"))
-                    .take_while(|n| {
-                        n.kind() == "expression_statement"
-                            && n.named_child(0).is_some_and(|n| n.kind() == "string")
-                    })
-                    .any(|n| {
-                        n.named_child(0).is_some_and(|n| {
-                            matches!(self.node_text(&n), "'use strict'" | "\"use strict\"")
-                        })
-                    });
-                if node.kind() == "program" {
-                    let mut c = node.walk();
-                    strict |= node
-                        .named_children(&mut c)
-                        .any(|n| matches!(n.kind(), "import_statement" | "export_statement"));
-                }
-            }
-            scope = node.parent();
-        }
+        let strict = self.js_ts_callable_is_strict(owner);
         let mut cursor = owner.walk();
         let permits_duplicates = simple
             && !strict
@@ -283,7 +262,7 @@ impl ParsedFile {
     pub(crate) fn js_ts_reference_fenced(
         &self,
         reference: &Node<'_>,
-        _owner: &Node<'_>,
+        owner: &Node<'_>,
         name: &str,
         def_byte: usize,
     ) -> bool {
@@ -291,6 +270,9 @@ impl ParsedFile {
             self.language,
             Language::JavaScript | Language::TypeScript | Language::Tsx
         ) {
+            return false;
+        }
+        if self.language.function_name(owner).is_some() && self.js_ts_seam_binding(owner, name) {
             return false;
         }
         self.js_ts_binding_scope_at(reference.start_byte(), name)
@@ -320,13 +302,7 @@ impl ParsedFile {
                                 .child_by_field_name("name")
                                 .is_some_and(|n| self.js_ts_fence_pattern_binds(n, name));
                     let body = scope.child_by_field_name("body");
-                    let separate_body_binding = self.js_ts_parameters_have_expressions(&scope)
-                        && body.is_some_and(|b| {
-                            b.start_byte() <= byte
-                                && byte < b.end_byte()
-                                && self.js_ts_function_scope_binds(b, &boundaries, name)
-                        });
-                    if separate_body_binding || (!params_bind && !self_bind) {
+                    if !params_bind && !self_bind {
                         region = body?;
                     }
                 }
@@ -362,230 +338,204 @@ impl ParsedFile {
         false
     }
 
-    /// FunctionDeclarationInstantiation copies a same-name formal into a body
-    /// var when parameter expressions create a separate environment. A body
-    /// function declaration supplies its own value instead (ES step 28.5.3).
-    pub(crate) fn js_ts_parameter_copy_binding(
-        &self,
-        owner: &Node<'_>,
-        name: &str,
-    ) -> Option<(usize, usize)> {
+    fn js_ts_parameters_are_simple(&self, params: Node<'_>) -> bool {
+        let mut cursor = params.walk();
+        let simple = params
+            .named_children(&mut cursor)
+            .filter(|n| n.kind() != "comment")
+            .all(|p| {
+                p.kind() == "identifier"
+                    || p.kind() == "required_parameter"
+                        && p.child_by_field_name("value").is_none()
+                        && p.child_by_field_name("pattern")
+                            .is_some_and(|n| n.kind() == "identifier")
+            });
+        simple
+    }
+
+    fn js_ts_callable_is_strict(&self, owner: &Node<'_>) -> bool {
+        let mut strict = owner.child_by_field_name("body").is_some_and(|body| {
+            let mut c = body.walk();
+            let strict = body
+                .named_children(&mut c)
+                .filter(|n| n.kind() != "comment")
+                .take_while(|n| {
+                    n.kind() == "expression_statement"
+                        && n.named_child(0).is_some_and(|n| n.kind() == "string")
+                })
+                .any(|n| {
+                    n.named_child(0).is_some_and(|s| {
+                        matches!(self.node_text(&s), "\"use strict\"" | "'use strict'")
+                    })
+                });
+            strict
+        });
+        let boundaries = self.language.callable_boundary_node_types();
+        let mut scope = owner.parent();
+        while let Some(node) = scope {
+            if matches!(node.kind(), "class" | "class_declaration" | "class_body") {
+                strict = true;
+            }
+            let statements = if node.kind() == "program" {
+                Some(node)
+            } else if boundaries.contains(&node.kind()) {
+                node.child_by_field_name("body")
+            } else {
+                None
+            };
+            if let Some(statements) = statements {
+                let mut c = statements.walk();
+                strict |= statements
+                    .named_children(&mut c)
+                    .filter(|n| !matches!(n.kind(), "comment" | "hash_bang_line"))
+                    .take_while(|n| {
+                        n.kind() == "expression_statement"
+                            && n.named_child(0).is_some_and(|n| n.kind() == "string")
+                    })
+                    .any(|n| {
+                        n.named_child(0).is_some_and(|n| {
+                            matches!(self.node_text(&n), "'use strict'" | "\"use strict\"")
+                        })
+                    });
+                if node.kind() == "program" {
+                    let mut c = node.walk();
+                    strict |= node
+                        .named_children(&mut c)
+                        .any(|n| matches!(n.kind(), "import_statement" | "export_statement"));
+                }
+            }
+            scope = node.parent();
+        }
+        strict
+    }
+
+    /// PR-B option (b): retain main's flat named binding; refuse this formal
+    /// in a synthetic pass when parameter expressions meet a body rebinding.
+    pub fn js_ts_parameter_refusals(&self, owner: &Node<'_>) -> Vec<(String, bool, bool, bool)> {
         if !matches!(
             self.language,
             Language::JavaScript | Language::TypeScript | Language::Tsx
-        ) || !self.js_ts_parameters_have_expressions(owner)
-            || !self
-                .parameter_binding_region(owner)
-                .is_some_and(|p| self.js_ts_fence_pattern_binds(p, name))
-        {
-            return None;
+        ) {
+            return Vec::new();
         }
-        let body = owner.child_by_field_name("body")?;
+        let mut names = Vec::new();
+        if let Some(params) = self.parameter_binding_region(owner) {
+            self.js_ts_pattern_bound_names(params, &mut names);
+        }
+        names.sort();
+        names.dedup();
+        let eval = self.js_ts_direct_eval_anywhere(owner);
+        let args = self.js_ts_mapped_arguments_possible(owner);
+        names
+            .into_iter()
+            .map(|name| {
+                let seam = self.js_ts_seam_binding(owner, &name);
+                (name, seam, eval, args)
+            })
+            .collect()
+    }
+
+    pub(crate) fn js_ts_seam_binding(&self, owner: &Node<'_>, name: &str) -> bool {
+        if !self.js_ts_parameters_have_expressions(owner) {
+            return false;
+        }
+        let Some(body) = owner.child_by_field_name("body") else {
+            return false;
+        };
         let mut cursor = body.walk();
-        if body.named_children(&mut cursor).any(|n| {
+        let body_function = body.named_children(&mut cursor).any(|n| {
             matches!(
                 n.kind(),
                 "function_declaration" | "generator_function_declaration"
             ) && n
                 .child_by_field_name("name")
                 .is_some_and(|n| self.js_ts_fence_pattern_binds(n, name))
-        }) {
-            return None;
-        }
-        let boundaries = self.language.callable_boundary_node_types();
-        // Use precisely the predicate that selects the separate environment
-        // in the fence. The body's entry byte identifies that environment,
-        // including when its only var declaration is inside a catch binding.
-        self.js_ts_function_scope_binds(body, &boundaries, name)
-            .then_some((body.start_byte(), body.start_byte() + 1))
+        });
+        self.js_ts_function_scope_binds(body, &self.language.callable_boundary_node_types(), name)
+            || body_function
     }
 
-    /// End of the evaluated write, rather than its lvalue token. `var f;`
-    /// does not assign and must not kill the implicit body entry value.
-    pub(crate) fn js_ts_write_end(&self, byte: usize) -> Option<usize> {
-        let mut node = self
-            .tree
-            .root_node()
-            .descendant_for_byte_range(byte, byte + 1)?;
-        loop {
-            match node.kind() {
-                "variable_declarator" => {
-                    return node.child_by_field_name("value").map(|_| node.end_byte())
-                }
-                "assignment_expression"
-                | "augmented_assignment_expression"
-                | "update_expression"
-                | "for_in_statement" => return Some(node.end_byte()),
-                _ => {}
-            }
-            node = node.parent()?;
-        }
-    }
-
-    /// Default-expression group and conditionality *within* that expression.
-    /// The group as a whole has a skip arm. Self/later-formal writes are TDZ
-    /// failures, not sources of a normally completed body entry copy.
-    pub(crate) fn js_ts_parameter_write_is_conditional(
-        &self,
-        owner: &Node<'_>,
-        byte: usize,
-        formal_byte: usize,
-    ) -> Option<(Option<usize>, bool)> {
-        let params = self.parameter_binding_region(owner)?;
-        if !(params.start_byte() <= byte && byte < params.end_byte()) {
-            return None;
-        }
-        let mut node = self
-            .tree
-            .root_node()
-            .descendant_for_byte_range(byte, byte + 1)?;
-        let mut c = params.walk();
-        let formal = params
-            .named_children(&mut c)
-            .find(|p| p.start_byte() <= formal_byte && formal_byte < p.end_byte())?;
-        let mut c = params.walk();
-        let evaluated = params
-            .named_children(&mut c)
-            .find(|p| p.start_byte() <= byte && byte < p.end_byte())?;
-        if evaluated.start_byte() <= formal.start_byte() {
-            return None;
-        }
-        let mut conditional = false;
-        let mut group = None;
-        while node.id() != params.id() {
-            if self
-                .language
-                .callable_boundary_node_types()
-                .contains(&node.kind())
-            {
-                return None; // Creating a closure does not execute its writes.
-            }
-            let parent = node.parent()?;
-            if matches!(
-                parent.kind(),
-                "assignment_pattern" | "object_assignment_pattern"
-            ) && parent
-                .child_by_field_name("right")
-                .is_some_and(|rhs| rhs.start_byte() <= byte && byte < rhs.end_byte())
-                || matches!(parent.kind(), "required_parameter" | "optional_parameter")
-                    && parent
-                        .child_by_field_name("value")
-                        .is_some_and(|rhs| rhs.start_byte() <= byte && byte < rhs.end_byte())
-            {
-                group = Some(parent.start_byte());
-            }
-            if parent.kind() == "binary_expression"
-                && parent
-                    .child_by_field_name("right")
-                    .is_some_and(|rhs| rhs.start_byte() <= byte && byte < rhs.end_byte())
-            {
-                let op = parent
-                    .child_by_field_name("operator")
-                    .map(|n| self.node_text(&n));
-                let left = parent
-                    .child_by_field_name("left")
-                    .map(|n| self.node_text(&n));
-                match (op, left) {
-                    (Some("&&"), Some("false")) | (Some("||"), Some("true")) => return None,
-                    (Some("&&"), Some("true"))
-                    | (Some("||"), Some("false"))
-                    | (Some("??"), Some("null" | "undefined")) => {}
-                    (Some("&&" | "||" | "??"), _) => conditional = true,
-                    _ => {}
-                }
-            }
-            if parent.kind() == "ternary_expression" {
-                let condition = parent.child_by_field_name("condition")?;
-                if !(condition.start_byte() <= byte && byte < condition.end_byte()) {
-                    let arm = parent.child_by_field_name("consequence")?;
-                    let consequence = arm.start_byte() <= byte && byte < arm.end_byte();
-                    match self.node_text(&condition) {
-                        "true" if !consequence => return None,
-                        "false" if consequence => return None,
-                        "true" | "false" => {}
-                        _ => conditional = true,
+    /// Direct eval anywhere in the callable, including nested callables.
+    /// Member, sequence/indirect and optional calls do not invoke direct eval.
+    pub(crate) fn js_ts_direct_eval_anywhere(&self, owner: &Node<'_>) -> bool {
+        let mut stack = vec![*owner];
+        while let Some(node) = stack.pop() {
+            if node.kind() == "call_expression" {
+                let mut c = node.walk();
+                let optional = node
+                    .children(&mut c)
+                    .any(|n| matches!(n.kind(), "optional_chain" | "?."));
+                if !optional {
+                    if let Some(mut callee) = node.child_by_field_name("function") {
+                        while callee.kind() == "parenthesized_expression" {
+                            let Some(inner) = callee.named_child(0) else {
+                                break;
+                            };
+                            callee = inner;
+                        }
+                        if callee.kind() == "identifier"
+                            && Self::js_ts_decoded_identifier(self.node_text(&callee)).as_deref()
+                                == Some("eval")
+                        {
+                            return true;
+                        }
                     }
                 }
             }
-            node = parent;
-        }
-        Some((group, conditional))
-    }
-
-    /// A completed statement-level write dominates a later evaluated byte
-    /// only along an unconditional sequence of blocks in this callable.
-    /// Conditional expressions, loops, try/catch, labels and nested callables
-    /// provide no such proof, even when the line CFG reports a kill.
-    pub(crate) fn js_ts_statement_write_dominates(
-        &self,
-        owner: &Node<'_>,
-        byte: usize,
-        read: usize,
-    ) -> bool {
-        let Some(mut node) = self
-            .tree
-            .root_node()
-            .descendant_for_byte_range(byte, byte + 1)
-        else {
-            return false;
-        };
-        loop {
-            if matches!(
-                node.kind(),
-                "assignment_expression"
-                    | "augmented_assignment_expression"
-                    | "update_expression"
-                    | "variable_declarator"
-            ) {
-                break;
-            }
-            let Some(parent) = node.parent() else {
-                return false;
-            };
-            node = parent;
-        }
-        if self.js_ts_write_end(byte).is_none_or(|end| end > read) {
-            return false;
-        }
-        // Sequence operands and parentheses evaluate in order. A completed
-        // nested RHS write can therefore kill the entry value at a later RHS
-        // read, even before the enclosing declarator finishes.
-        let mut ancestor = node;
-        while let Some(parent) = ancestor.parent() {
-            if !matches!(
-                parent.kind(),
-                "sequence_expression" | "parenthesized_expression"
-            ) {
-                break;
-            }
-            if parent.start_byte() <= read && read < parent.end_byte() {
-                return true;
-            }
-            ancestor = parent;
-        }
-        let Some(statement) = node.parent() else {
-            return false;
-        };
-        if !matches!(
-            statement.kind(),
-            "expression_statement" | "variable_declaration" | "lexical_declaration"
-        ) {
-            return false;
-        }
-        let Some(body) = owner.child_by_field_name("body") else {
-            return false;
-        };
-        let mut current = statement.parent();
-        while let Some(parent) = current {
-            if parent.id() == body.id() {
-                return true;
-            }
-            if parent.kind() != "statement_block" {
-                return false;
-            }
-            current = parent.parent();
+            let mut c = node.walk();
+            stack.extend(node.named_children(&mut c));
         }
         false
+    }
+
+    /// Sloppy simple parameters may be aliased through arguments. Arrows
+    /// retain the containing arguments reference; nested non-arrows fence it.
+    pub(crate) fn js_ts_mapped_arguments_possible(&self, owner: &Node<'_>) -> bool {
+        if self.js_ts_callable_is_strict(owner)
+            || !self
+                .parameter_binding_region(owner)
+                .is_some_and(|p| self.js_ts_parameters_are_simple(p))
+        {
+            return false;
+        }
+        let boundaries = self.language.callable_boundary_node_types();
+        let mut stack = vec![*owner];
+        while let Some(node) = stack.pop() {
+            if node.id() != owner.id()
+                && boundaries.contains(&node.kind())
+                && node.kind() != "arrow_function"
+            {
+                continue;
+            }
+            if matches!(node.kind(), "identifier" | "shorthand_property_identifier")
+                && Self::js_ts_decoded_identifier(self.node_text(&node)).as_deref()
+                    == Some("arguments")
+                && !self.js_ts_identifier_is_not_a_read(node)
+            {
+                return true;
+            }
+            let mut c = node.walk();
+            stack.extend(node.named_children(&mut c));
+        }
+        false
+    }
+
+    /// Whether this occurrence belongs to the owner's formal binding. Under
+    /// SEAM the body var is distinct even though named passes use main's flat
+    /// scope. Nested binders keep their own identity in either region.
+    pub(crate) fn js_ts_occurrence_binds_formal(
+        &self,
+        owner: &Node<'_>,
+        name: &str,
+        byte: usize,
+    ) -> bool {
+        if self.js_ts_binding_scope_at(byte, name).map(|s| s.0) != Some(owner.id()) {
+            return false;
+        }
+        !(self.js_ts_seam_binding(owner, name)
+            && owner
+                .child_by_field_name("body")
+                .is_some_and(|body| body.start_byte() <= byte && byte < body.end_byte()))
     }
 
     fn js_ts_scope_binds(
@@ -1016,7 +966,17 @@ impl ParsedFile {
         name: &str,
         def_start: usize,
     ) -> Option<(usize, usize)> {
+        if self.language.function_name(owner).is_some() && self.js_ts_seam_binding(owner, name) {
+            return None;
+        }
         let (_, (start, end)) = self.js_ts_binding_scope_at(def_start, name)?;
+        if self.js_ts_synthetic_callable_name(owner).is_some()
+            && self.js_ts_seam_binding(owner, name)
+            && self.js_ts_binding_scope_at(def_start, name).map(|s| s.0) == Some(owner.id())
+        {
+            let body = owner.child_by_field_name("body")?;
+            return Some((body.start_byte(), body.end_byte()));
+        }
         (owner.start_byte() <= start && end <= owner.end_byte()).then_some((start, end))
     }
 
@@ -1097,7 +1057,10 @@ impl ParsedFile {
         if !matches!(
             self.language,
             Language::JavaScript | Language::TypeScript | Language::Tsx
-        ) {
+        ) || (!reads_only
+            && self.language.function_name(func_node).is_some()
+            && self.js_ts_seam_binding(func_node, &path.base))
+        {
             return self
                 .find_path_references_scoped(func_node, path, def_line)
                 .into_iter()

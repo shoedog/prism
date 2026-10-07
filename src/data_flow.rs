@@ -210,12 +210,6 @@ pub struct DataFlowGraph {
 }
 
 impl DataFlowGraph {
-    /// S1 owner policy: deterministic parameter-environment copies retain
-    /// the standard RD grade. Change this one return to revise that policy.
-    fn grade_parameter_environment_copy(label: FlowConfidence) -> FlowConfidence {
-        label
-    }
-
     /// Create an empty data flow graph with no edges.
     pub fn empty() -> Self {
         DataFlowGraph {
@@ -324,7 +318,6 @@ impl DataFlowGraph {
             line: loc.line,
             start_byte: loc.start_byte,
             alias_derived,
-            implicit_entry: false,
         });
     }
 
@@ -581,6 +574,17 @@ impl DataFlowGraph {
                         .get(&(func_name.clone(), start))
                         .is_some_and(|count| *count == 1);
                     let all_lines: BTreeSet<usize> = (start..=end).collect();
+                    let param_occurrences = parsed.function_parameter_occurrences(&func_node);
+                    let refused_formals: BTreeSet<_> = parsed
+                        .js_ts_parameter_refusals(&func_node)
+                        .into_iter()
+                        .filter(|(_, seam, eval, args)| synthetic && (*seam || *eval || *args))
+                        .map(|(name, _, _, _)| name)
+                        .collect();
+                    let refused_occurrence = |path: &AccessPath, byte| {
+                        refused_formals.contains(path.base.as_str())
+                            && parsed.js_ts_occurrence_binds_formal(&func_node, &path.base, byte)
+                    };
 
                     // Phase 3: Build local alias map for this function.
                     // Tracks `ptr = dev` so that `ptr->field` resolves to `dev->field`.
@@ -592,7 +596,24 @@ impl DataFlowGraph {
                         lvalue_spans.retain(|span| {
                             // W4: object-backed writes are not proved lexical
                             // Defs, and cannot contribute even kill-only input.
-                            if parsed.js_ts_span_in_with_body(span.start_byte, span.end_byte) {
+                            if parsed.js_ts_span_in_with_body(span.start_byte, span.end_byte)
+                                || refused_occurrence(&span.path, span.start_byte)
+                            {
+                                return false;
+                            }
+                            // An uninitialised body var supplies no value after
+                            // the refused seam copy. Keep actual assignments.
+                            if parsed.js_ts_seam_binding(&func_node, &span.path.base)
+                                && parsed
+                                    .tree
+                                    .root_node()
+                                    .descendant_for_byte_range(span.start_byte, span.end_byte)
+                                    .and_then(|n| n.parent())
+                                    .is_some_and(|n| {
+                                        n.kind() == "variable_declarator"
+                                            && n.child_by_field_name("value").is_none()
+                                    })
+                            {
                                 return false;
                             }
                             let own = parsed.js_ts_span_in_own_scope(
@@ -642,7 +663,6 @@ impl DataFlowGraph {
                         VarLocation,
                     > = BTreeMap::new();
                     let mut param_ref_jobs = Vec::new();
-                    let mut parameter_copy_jobs = Vec::new();
                     let mut rd_defs = Vec::new();
                     let function_edge_start = edges.len();
 
@@ -653,8 +673,10 @@ impl DataFlowGraph {
                     // Skip parameters that are only used via field access (e.g. `dev.name`)
                     // to preserve field isolation — a base-only Def would let taint on
                     // `dev.name` leak to unrelated fields like `dev.id`.
-                    let param_occurrences = parsed.function_parameter_occurrences(&func_node);
                     for (param_name, param_start_byte, param_end_byte) in &param_occurrences {
+                        if refused_formals.contains(param_name.as_str()) {
+                            continue;
+                        }
                         let path = AccessPath::simple(param_name.clone());
                         // Skip parameters only used via field access (e.g. `dev.name`)
                         // to preserve field isolation.
@@ -689,62 +711,6 @@ impl DataFlowGraph {
                         defs.entry((file_path.clone(), func_name.clone(), start, path.clone()))
                             .or_default()
                             .push(loc.clone());
-                        if let Some(binding) =
-                            parsed.js_ts_parameter_copy_binding(&func_node, param_name)
-                        {
-                            let refs = parsed.find_path_reference_spans_fenced_in(
-                                &func_node,
-                                &path,
-                                start,
-                                binding.0,
-                                parsed.js_ts_def_scope(&func_node, param_name, binding.0),
-                                true,
-                            );
-                            // Defaults are sequenced conditional evaluations,
-                            // not unconditional assignments. The skip arm keeps
-                            // all earlier reaching sources in the parameter env.
-                            let mut writes: Vec<_> = lvalue_spans
-                                .iter()
-                                .filter(|span| {
-                                    span.path == path
-                                        && span.start_byte < binding.0
-                                        && parsed.js_ts_span_in_own_scope(
-                                            &func_node,
-                                            span.start_byte,
-                                            span.end_byte,
-                                        )
-                                        && parsed.js_ts_write_end(span.start_byte).is_some()
-                                })
-                                .filter_map(|span| {
-                                    let (group, may_def) = parsed
-                                        .js_ts_parameter_write_is_conditional(
-                                            &func_node,
-                                            span.start_byte,
-                                            *param_start_byte,
-                                        )?;
-                                    Some((
-                                        VarLocation {
-                                            line: span.line,
-                                            start_byte: span.start_byte,
-                                            end_byte: span.end_byte,
-                                            ..loc.clone()
-                                        },
-                                        group,
-                                        may_def,
-                                    ))
-                                })
-                                .collect();
-                            // RHS effects precede the enclosing assignment's
-                            // commit; start-byte order gets nested writes wrong.
-                            writes.sort_by_key(|(write, _, _)| {
-                                parsed.js_ts_write_end(write.start_byte)
-                            });
-                            for source in
-                                crate::cpg::parameter_reaching_sources(loc.clone(), writes)
-                            {
-                                parameter_copy_jobs.push((source, binding, refs.clone()));
-                            }
-                        }
                         param_ref_jobs.push((path, loc, refs, param_decl_line));
                     }
 
@@ -876,6 +842,7 @@ impl DataFlowGraph {
                             !parsed.js_ts_span_is_non_reference(span.start_byte, span.end_byte)
                                 && !parsed.js_ts_span_is_not_a_read(span.start_byte, span.end_byte)
                                 && !parsed.js_ts_span_in_with_body(span.start_byte, span.end_byte)
+                                && !refused_occurrence(&span.path, span.start_byte)
                         });
                     }
                     let mut preferred_use_locs: BTreeMap<(AccessPath, usize), VarLocation> =
@@ -910,6 +877,9 @@ impl DataFlowGraph {
                          allow: bool,
                          admitted: (usize, usize)| {
                             if synthetic {
+                                if refused_occurrence(path, admitted.0) {
+                                    return None;
+                                }
                                 // The reference walk has already proved this occurrence's
                                 // binding and read role for the current Def.
                                 let use_loc = VarLocation {
@@ -994,7 +964,11 @@ impl DataFlowGraph {
                             synthetic,
                         );
                         for (ref_line, admitted) in &refs {
-                            if *ref_line == def_line {
+                            if *ref_line == def_line
+                                || (synthetic
+                                    && parsed.js_ts_seam_binding(&func_node, &path.base)
+                                    && admitted.0 < span.start_byte)
+                            {
                                 continue; // Skip self-reference
                             }
                             let Some(use_loc) = get_use(path, *ref_line, true, *admitted) else {
@@ -1078,27 +1052,6 @@ impl DataFlowGraph {
                         }
                     }
 
-                    let mut copy_edges = Vec::new();
-                    for (formal, binding, refs) in parameter_copy_jobs {
-                        let entry = VarLocation {
-                            start_byte: binding.0,
-                            end_byte: binding.1,
-                            ..formal.clone()
-                        };
-                        let mut candidates = Vec::new();
-                        for (line, admitted) in refs {
-                            if let Some(use_loc) = get_use(&formal.path, line, true, admitted) {
-                                candidates.push((
-                                    FlowEdge {
-                                        from: entry.clone(),
-                                        to: use_loc,
-                                    },
-                                    admitted.0,
-                                ));
-                            }
-                        }
-                        copy_edges.push((formal, entry, candidates));
-                    }
                     drop(get_use);
                     // F1: captured writes inside nested callables contribute to
                     // RD kills, but never become emitted Defs or edge sources.
@@ -1202,79 +1155,6 @@ impl DataFlowGraph {
                                 &fallback_labels,
                                 classified,
                             );
-                        }
-                    }
-
-                    // The implicit Def belongs to the body binding but its
-                    // emitted source is the formal. Solve only that binding:
-                    // body writes kill the copy, never the parameter default.
-                    for (formal, entry, candidates) in copy_edges {
-                        let mut copy_defs: Vec<_> = rd_defs
-                            .iter()
-                            .filter(|d| {
-                                d.path == formal.path
-                                    && !d.alias_derived
-                                    && parsed.js_ts_write_end(d.start_byte).is_some()
-                                    && parsed
-                                        .tree
-                                        .root_node()
-                                        .descendant_for_byte_range(d.start_byte, d.start_byte + 1)
-                                        .is_some_and(|n| {
-                                            !parsed.js_ts_reference_fenced(
-                                                &n,
-                                                &func_node,
-                                                &formal.path.base,
-                                                entry.start_byte,
-                                            )
-                                        })
-                            })
-                            .cloned()
-                            .collect();
-                        Self::push_rd_def(&mut copy_defs, &entry, false);
-                        copy_defs
-                            .last_mut()
-                            .expect("entry Def was pushed")
-                            .implicit_entry = true;
-                        let internal_edges: Vec<_> =
-                            candidates.iter().map(|(e, _)| e.clone()).collect();
-                        let outcome = reaching_definitions_with_exact(
-                            parsed,
-                            &func_node,
-                            &copy_defs,
-                            &internal_edges,
-                            &[],
-                            file_cfg_edges
-                                .get_or_init(|| crate::cfg::build_cfg_edges_with_arms(parsed)),
-                        );
-                        for (mut edge, read_byte) in candidates {
-                            let key = (edge.from.clone(), edge.to.clone());
-                            let must_kill = copy_defs.iter().any(|d| {
-                                !d.implicit_entry
-                                    && parsed.js_ts_statement_write_dominates(
-                                        &func_node,
-                                        d.start_byte,
-                                        read_byte,
-                                    )
-                            });
-                            let label = match &outcome {
-                                RdOutcome::Available(result) => {
-                                    result.labels.get(&key).copied().unwrap_or(
-                                        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
-                                    )
-                                }
-                                RdOutcome::Unavailable(_) => {
-                                    FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
-                                }
-                            };
-                            if !must_kill {
-                                edge.from = formal.clone();
-                                Self::insert_label(
-                                    &mut labels,
-                                    (edge.from.clone(), edge.to.clone()),
-                                    Self::grade_parameter_environment_copy(label),
-                                );
-                                edges.push(edge);
-                            }
                         }
                     }
                 }

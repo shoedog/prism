@@ -60,9 +60,7 @@ pub use build::{CodePropertyGraph, DfgLabelStats, ReturnFlowStats};
 pub use context::{CpgContext, CpgScope};
 pub use flow_confidence::{FlowConfidence, FlowDoubt};
 pub use reaching::RdFileStats;
-pub(crate) use reaching::{
-    parameter_reaching_sources, reaching_definitions_with_exact, DefId, DefSite, RdOutcome,
-};
+pub(crate) use reaching::{reaching_definitions_with_exact, DefId, DefSite, RdOutcome};
 pub use trace::{
     BoundaryEdge, BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning,
     Relation, ReturnFlowMode, SameLineOrderView, Trace,
