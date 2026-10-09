@@ -1,3 +1,4 @@
+**R6 continuation (2026-10-06):** Owner prB-repair-r6-brief.md authorizes the closed CERT-1 repair on the retained b249da95 candidate, loop3/3. Historical R5b STOP receipts below remain evidence; current state is MEASUREMENTS-prB-R6.md / HANDOFF-repair-prB-r6.md. No completion or adoption is claimed.
 # Handoff — js-param-defs PR-B R5b outside-certificate STOP
 
 **Written:** 2026-10-07T01:16:48.440459+00:00 · **By:** Codex root · **Provider:** codex

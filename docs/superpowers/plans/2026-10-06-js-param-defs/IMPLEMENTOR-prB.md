@@ -1,6 +1,7 @@
-**R5b supersession (2026-10-06):** Original R5 questions are resolved by prB-repair-r5b-brief.md. Current candidate is STOP on35 actual non-formal outside-certificate rows; read MEASUREMENTS-prB-R5.md/HANDOFF-repair-prB-r5.md. Historical receipts remain unchanged below.
+**R6 continuation (2026-10-06):** Owner prB-repair-r6-brief.md authorizes the closed CERT-1 repair on the retained b249da95 candidate, loop3/3. Historical R5b STOP receipts below remain evidence; current state is MEASUREMENTS-prB-R6.md / HANDOFF-repair-prB-r6.md. No completion or adoption is claimed.
+**Historical R5b supersession (2026-10-06):** Original R5 questions are resolved by prB-repair-r5b-brief.md. At R5b, the candidate was STOP on35 actual non-formal outside-certificate rows; read MEASUREMENTS-prB-R5.md/HANDOFF-repair-prB-r5.md. Historical receipts remain unchanged below.
 
-> **Current authority (R4, 2026-10-06): STOP; PR-B PARKED.** R4 repaired ordered conditional parameter sources and bounded early errors. Six invoked-default design cells still require callable timing/captured side-effect design; 18 main-correct synthetic rows remain lost. No adoption or shipping claim. Read MEASUREMENTS-prB-R4.md and HANDOFF-repair-prB-r4.md; earlier results remain historical. Source base 1af4301f; docs base a3dda010.
+> **Historical R4 authority (2026-10-06): STOP; PR-B PARKED.** R4 repaired ordered conditional parameter sources and bounded early errors. Six invoked-default design cells still require callable timing/captured side-effect design; 18 main-correct synthetic rows remain lost. No adoption or shipping claim. Read MEASUREMENTS-prB-R4.md and HANDOFF-repair-prB-r4.md; earlier results remain historical. Source base 1af4301f; docs base a3dda010.
 
 # Historical retained R2b operation
 
@@ -10,7 +11,7 @@ No source edit, restart, extra review round, Git writes, corpus execution or fro
 
 # Historical IMPLEMENTOR dispatch — js-param-defs PR-B callback identity, R2
 
-**Current state: STOP.** Four checker-CORRECT LOST rows in extra-asciinema_1.0.0 trigger the explicit R2 brief stop rule. Preserve the retained source and exact-base patches; do not continue repair or reclassify the rows without a new owner instruction. See MEASUREMENTS-prB-R2 and external STOP-secbench-evidence.
+**Historical R2 state: STOP.** Four checker-CORRECT LOST rows in extra-asciinema_1.0.0 trigger the explicit R2 brief stop rule. Preserve the retained source and exact-base patches; do not continue repair or reclassify the rows without a new owner instruction. See MEASUREMENTS-prB-R2 and external STOP-secbench-evidence.
 
 Dispatch from committed source `origin/proto/js-param-defs-prB` = `cb99663090966c8b128d19649f3b7fc820907f7a` plus `~/prism-evidence/js-param-defs/prB/repair-r2/R2-src.patch`. Docs/eval base is committed `2cb7102a0b4c186a1a6c09c586dae4620c8e6de8` plus `R2-docs.patch`. The respective R1 patches are already folded into those commits. Product comparison base remains main `da0604b3` (PR-A merged). This is the owner's disclosed one-time cap extension after FIX at review 2/2: targeted repair of closed instances on the retained artifact, with no restart, adoption, merge or further review authority.
 
