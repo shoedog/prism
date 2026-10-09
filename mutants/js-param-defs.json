@@ -583,9 +583,9 @@
   ],
   "PD-71-r2-parameter-body-separation-off": [
    "src/ast_callback_identity.rs",
-   "if self.js_ts_synthetic_callable_name(owner).is_some()",
-   "if false && self.js_ts_synthetic_callable_name(owner).is_some()",
-   "cpg::callback_identity_tests::r2_parameter_expressions_separate_body_vars_and_functions"
+   "!(self.js_ts_seam_binding(owner, name)\n            && owner\n                .child_by_field_name(\"body\")\n                .is_some_and(|body| body.start_byte() <= byte && byte < body.end_byte()))",
+   "true",
+   "cpg::callback_identity_tests::r5_seam_body_vars_keep_assignments_and_refuse_default_reads"
   ],
   "PD-72-r2-use-occurrence-off": [
    "src/data_flow.rs",
@@ -676,6 +676,12 @@
    "if parsed.js_ts_seam_binding(&func_node, &span.path.base)",
    "if false && parsed.js_ts_seam_binding(&func_node, &span.path.base)",
    "cpg::callback_identity_tests::r5_seam_body_vars_keep_assignments_and_refuse_default_reads"
+  ],
+  "PD-93-r6-seam-formal-membership-off": [
+   "src/ast_callback_identity.rs",
+   "if !formal_names.iter().any(|formal| formal == name) {",
+   "if false {",
+   "cpg::callback_identity_tests::r6_named_seam_fallback_excludes_nonformal_body_locals"
   ]
  },
  "intent_revisions": {
@@ -774,8 +780,8 @@
   },
   "PD-71-r2-parameter-body-separation-off": {
    "disposition": "rebound",
-   "reason": "R5 option(b) keeps the non-copy obligation and cache112, anchored to current source.",
-   "killing_fixture": "cpg::callback_identity_tests::r2_parameter_expressions_separate_body_vars_and_functions"
+   "reason": "R6 gate repair: mutate the live formal/body occurrence discriminator; the old Def-scope restriction is redundant after option(b) formal refusal.",
+   "killing_fixture": "cpg::callback_identity_tests::r5_seam_body_vars_keep_assignments_and_refuse_default_reads"
   },
   "PD-72-r2-use-occurrence-off": {
    "disposition": "rebound",
@@ -786,6 +792,20 @@
    "disposition": "rebound",
    "reason": "R5 option(b) keeps the non-copy obligation and cache112, anchored to current source.",
    "killing_fixture": "cpg::callback_identity_tests::r2_with_body_defs_cannot_reach_outside_reads"
+  },
+  "PD-91-r5-named-main-path-off": {
+   "disposition": "rebound",
+   "reason": "R6 gate repair: disable all three named main-path bypasses together; disabling only the reference-span shortcut left the other two bypasses active.",
+   "killing_fixture": "cpg::callback_identity_tests::r5_named_seam_rows_equal_frozen_main_goldens"
   }
+ },
+ "extra": {
+  "PD-91-r5-named-main-path-off": [
+   [
+    "src/ast_callback_identity.rs",
+    "if self.language.function_name(owner).is_some() && self.js_ts_seam_binding(owner, name) {",
+    "if false && self.language.function_name(owner).is_some() && self.js_ts_seam_binding(owner, name) {"
+   ]
+  ]
  }
 }

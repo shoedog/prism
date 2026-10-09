@@ -21,30 +21,6 @@ pub fn is_synthetic_owner(name: &str) -> bool {
     name.starts_with(SYNTHETIC_OWNER_PREFIX)
 }
 
-#[cfg(test)]
-mod r5_tests {
-    use super::*;
-
-    #[test]
-    fn r5_flat_seam_scope_preserves_nested_formal_fence() {
-        for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
-            let source = "function h(f,d=0){var f;use(f);register(function(f){use(f);});}";
-            let parsed = ParsedFile::parse("scope.js", source, language).unwrap();
-            let formal = source.find("f,d").unwrap();
-            let body = source.find("var f").unwrap() + 4;
-            let nested = source.find("function(f").unwrap() + 9;
-            assert_eq!(
-                parsed.js_ts_binding_scope_at(formal, "f"),
-                parsed.js_ts_binding_scope_at(body, "f")
-            );
-            assert_ne!(
-                parsed.js_ts_binding_scope_at(formal, "f"),
-                parsed.js_ts_binding_scope_at(nested, "f")
-            );
-        }
-    }
-}
-
 impl ParsedFile {
     /// Owner name of a callable's DFG pass: the inferred/declared name when
     /// one exists (name inference always wins), else the synthetic
@@ -436,6 +412,14 @@ impl ParsedFile {
     }
 
     pub(crate) fn js_ts_seam_binding(&self, owner: &Node<'_>, name: &str) -> bool {
+        let Some(params) = self.parameter_binding_region(owner) else {
+            return false;
+        };
+        let mut formal_names = Vec::new();
+        self.js_ts_pattern_bound_names(params, &mut formal_names);
+        if !formal_names.iter().any(|formal| formal == name) {
+            return false;
+        }
         if !self.js_ts_parameters_have_expressions(owner) {
             return false;
         }
@@ -1198,5 +1182,29 @@ impl ParsedFile {
             current = node.parent();
         }
         false
+    }
+}
+
+#[cfg(test)]
+mod r5_tests {
+    use super::*;
+
+    #[test]
+    fn r5_flat_seam_scope_preserves_nested_formal_fence() {
+        for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
+            let source = "function h(f,d=0){var f;use(f);register(function(f){use(f);});}";
+            let parsed = ParsedFile::parse("scope.js", source, language).unwrap();
+            let formal = source.find("f,d").unwrap();
+            let body = source.find("var f").unwrap() + 4;
+            let nested = source.find("function(f").unwrap() + 9;
+            assert_eq!(
+                parsed.js_ts_binding_scope_at(formal, "f"),
+                parsed.js_ts_binding_scope_at(body, "f")
+            );
+            assert_ne!(
+                parsed.js_ts_binding_scope_at(formal, "f"),
+                parsed.js_ts_binding_scope_at(nested, "f")
+            );
+        }
     }
 }

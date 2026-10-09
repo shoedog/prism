@@ -80,6 +80,37 @@ fn r5_full_binding_rows(
 }
 
 #[test]
+fn r6_named_seam_fallback_excludes_nonformal_body_locals() {
+    let cases: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/js_param_r6_local_golden.json")).unwrap();
+    let mut failures = Vec::new();
+    for case in cases.as_array().unwrap() {
+        let source = case["source"].as_str().unwrap();
+        let name = case["name"].as_str().unwrap();
+        for (language, ext) in JS_TS.into_iter().zip(["js", "ts", "tsx"]) {
+            let parsed = ParsedFile::parse(file_name(language), source, language).unwrap();
+            let owner = parsed.all_functions().into_iter().next().unwrap();
+            if parsed.js_ts_seam_binding(&owner, name) {
+                failures.push(format!(
+                    "{}/{ext}: nonformal {name} classified as SEAM",
+                    case["id"]
+                ));
+            }
+            let actual = r5_full_binding_rows(&build(language, source), "h", name);
+            let mut expected = case["golden"][ext].as_array().unwrap().clone();
+            expected.sort_by_key(ToString::to_string);
+            if actual != expected {
+                failures.push(format!(
+                    "{}/{ext}: expected={expected:?}; actual={actual:?}",
+                    case["id"]
+                ));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
 fn r5_named_seam_rows_equal_frozen_main_goldens() {
     let cases: serde_json::Value =
         serde_json::from_str(include_str!("fixtures/js_param_r5_golden.json")).unwrap();
@@ -1470,7 +1501,7 @@ fn r4_contextual_strictness_and_decoded_early_errors_are_refused() {
             "export {};\nregister(function(f,d=0){var f;use(f);});",
             "function h(f,d=0){try{throw 2;}catch(f){var f=9;}use(f);}",
         ] {
-            let parsed = ParsedFile::parse(file_name(language), &src, language).unwrap();
+            let parsed = ParsedFile::parse(file_name(language), src, language).unwrap();
             assert!(
                 parsed
                     .all_functions()
