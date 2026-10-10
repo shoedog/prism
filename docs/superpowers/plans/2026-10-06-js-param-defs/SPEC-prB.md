@@ -97,6 +97,18 @@ Touched tests; `cargo nextest run --features mcp`; advisory scoped mutgate plus 
 - **O2, resolved:** PR-B ships standalone; joint-counterfactual measurements are potential, not unmodified-package credit.
 - **O3:** outgoing callback call sites remain a separate lane.
 
+### Owner decisions, 2026-10-09 (after R7 and R8)
+
+- **E13 — Flow-annotated JavaScript is out of scope; the defect class is accepted and disclosed.** Owner: "I don't use Flow in my repos … ignoring the open defect class from Flow syntax and opening an issue as an enhancement linked to the branch/commit (when we merge it)."
+  - *The class:* tree-sitter's JavaScript grammar misreads Flow type syntax. A type such as `?(value: boolean) => mixed`, or a return-type annotation such as `): boolean => {`, is parsed as an arrow function. PR-B's synthetic callback pass then emits rows for it.
+  - *Measured extent:* one admitted SecBench root, `redos/react-native_0.63.0-rc.0`: 82 ADDED WRONG rows (58 labelled Exact) and 6 LOST rows the oracle calls CORRECT. All 22 files involved carry the `@flow` pragma. X, Xi, T and the other 578 admitted SecBench roots have none.
+  - *Why the LOST rows do not count against PR-B:* they are misparse artefacts main emits today (a type name treated as a variable Def; a function whose owner name is `string`), and the TypeScript oracle reports parse errors in 19 of the 22 files, so its verdicts there are not admissible evidence.
+  - *Why it was not guarded:* a per-callable parse-recovery guard covers only 67 of the 82 rows (R8 step 0); 15 rows sit in callables the parser reads as clean. A file-level rule would cover all 82 but its yield cost is unmeasured. Neither is in PR-B.
+  - *Acceptance rule that follows:* the "LOST CORRECT = 0, ADDED WRONG = 0" requirement applies **outside Flow-annotated files**. Rows inside them are reported separately and are not a blocker.
+  - *Follow-up:* an enhancement issue, linked to the merge commit, is opened when PR-B merges.
+- **R7** (the extra bounded loop): the strict-body early-error refusal requires positive proof of non-simple parameters; a formal named `undefined` is simple.
+- **R8** (the parse-error guard) stopped at step 0 and changed no source; see `REPORT-prB-R8.md`.
+
 ## §9 R1 review folds and oracle limits
 F1: nested writes are kill-only. F2/F3: every Def has binding scope. W1: default/computed-key visibility is reference-position-aware and body Defs are scoped. W2: member-value write role. W3: runtime enums. W4/S5: lvalue byte identity throughout aliases and endpoints. W5: `varMerged` proves an actual variable environment, including static blocks and module bodies, before certifying equivalence. W6: validated decoded binder names. Re-adjudicate all measured corpora with the fixed oracle and record the W5-only verdict delta.
 
