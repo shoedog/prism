@@ -1,5 +1,5 @@
 use super::session::canonical_config;
-use super::{ServerConfig, SessionProvider, FIRST_CALL_WAIT_MAX};
+use super::{ServerConfig, SessionProvider, StartupMode, FIRST_CALL_WAIT_MAX};
 use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 
@@ -23,6 +23,8 @@ pub(crate) struct LazyTestHooks {
 
 pub struct LazySessionProvider {
     state: LazyState,
+    /// `Lazy` (build on the first valid `tools/call`) or `Background` (build at startup).
+    startup: StartupMode,
     wait: Duration,
     last_error: Option<String>,
     attempts: usize,
@@ -32,6 +34,10 @@ pub struct LazySessionProvider {
 }
 
 enum LazyState {
+    /// No build has been requested yet. The default (`StartupMode::Lazy`) construction state:
+    /// the index is built only once a valid `tools/call` asks for it, so a client that merely
+    /// handshakes and lists tools never pays for the repository index.
+    Idle,
     Building {
         rx: mpsc::Receiver<anyhow::Result<SessionProvider>>,
         started: Instant,
@@ -53,6 +59,7 @@ impl LazySessionProvider {
         Self::from_canonical_config(
             wait,
             builder,
+            cfg.startup,
             #[cfg(test)]
             LazyTestHooks::default(),
         )
@@ -75,20 +82,25 @@ impl LazySessionProvider {
         hooks: LazyTestHooks,
     ) -> anyhow::Result<Self> {
         canonical_config(cfg)?;
-        Self::from_canonical_config(wait, builder, hooks)
+        Self::from_canonical_config(wait, builder, cfg.startup, hooks)
     }
 
     fn from_canonical_config(
         wait: Duration,
         builder: SessionBuilder,
+        startup: StartupMode,
         #[cfg(test)] hooks: LazyTestHooks,
     ) -> anyhow::Result<Self> {
         validate_wait(wait)?;
+        // This provider never builds before `initialize`; anything but an explicit
+        // Background request is served as Lazy.
+        let startup = match startup {
+            StartupMode::Background => StartupMode::Background,
+            StartupMode::Lazy | StartupMode::Eager => StartupMode::Lazy,
+        };
         let mut provider = Self {
-            state: LazyState::Failed {
-                error: String::new(),
-                at: Instant::now(),
-            },
+            state: LazyState::Idle,
+            startup,
             wait,
             last_error: None,
             attempts: 0,
@@ -96,19 +108,27 @@ impl LazySessionProvider {
             #[cfg(test)]
             hooks,
         };
-        provider.spawn_build();
+        if provider.startup == StartupMode::Background {
+            provider.spawn_build();
+        }
         Ok(provider)
     }
 
+    pub(crate) fn startup_mode(&self) -> StartupMode {
+        self.startup
+    }
+
     pub fn ensure_ready(&mut self) -> Readiness {
-        let retry_failed = match &self.state {
+        // Idle starts the first build; Failed retries it. Both then wait like Building.
+        let start_build = match &self.state {
+            LazyState::Idle => true,
             LazyState::Failed { error, at } => {
                 let _ = (error, at);
                 true
             }
             LazyState::Building { .. } | LazyState::Ready(_) => false,
         };
-        if retry_failed {
+        if start_build {
             self.spawn_build();
         }
 
@@ -137,7 +157,9 @@ impl LazySessionProvider {
                 (rx.recv_timeout(remaining), started.elapsed())
             }
             LazyState::Ready(_) => return Readiness::Ready,
-            LazyState::Failed { .. } => unreachable!("failed state always restarts before waiting"),
+            LazyState::Idle | LazyState::Failed { .. } => {
+                unreachable!("idle and failed states always start a build before waiting")
+            }
         };
 
         match result {
@@ -188,14 +210,14 @@ impl LazySessionProvider {
     pub(crate) fn ready(&self) -> Option<&SessionProvider> {
         match &self.state {
             LazyState::Ready(provider) => Some(provider.as_ref()),
-            LazyState::Building { .. } | LazyState::Failed { .. } => None,
+            LazyState::Idle | LazyState::Building { .. } | LazyState::Failed { .. } => None,
         }
     }
 
     pub(crate) fn ready_mut(&mut self) -> Option<&mut SessionProvider> {
         match &mut self.state {
             LazyState::Ready(provider) => Some(provider.as_mut()),
-            LazyState::Building { .. } | LazyState::Failed { .. } => None,
+            LazyState::Idle | LazyState::Building { .. } | LazyState::Failed { .. } => None,
         }
     }
 
@@ -212,6 +234,7 @@ impl LazySessionProvider {
     #[cfg(test)]
     pub(crate) fn state_kind(&self) -> &'static str {
         match self.state {
+            LazyState::Idle => "idle",
             LazyState::Building { .. } => "building",
             LazyState::Ready(_) => "ready",
             LazyState::Failed { .. } => "failed",
@@ -237,7 +260,7 @@ fn validate_wait(wait: Duration) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mcp::{CacheMode, ServerConfig};
+    use crate::mcp::{CacheMode, ServerConfig, StartupMode};
     use std::sync::{mpsc, Arc, Mutex};
     use std::time::{Duration, Instant};
 
@@ -324,10 +347,19 @@ mod tests {
         wait: Duration,
         before_wait: Option<mpsc::Sender<()>>,
     ) -> (tempfile::TempDir, LazySessionProvider, BlockingBuild) {
+        blocking_lazy_with_startup(wait, before_wait, StartupMode::Lazy)
+    }
+
+    fn blocking_lazy_with_startup(
+        wait: Duration,
+        before_wait: Option<mpsc::Sender<()>>,
+        startup: StartupMode,
+    ) -> (tempfile::TempDir, LazySessionProvider, BlockingBuild) {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("a.py"), "def f():\n    return 1\n").unwrap();
         let mut cfg = ServerConfig::new(dir.path().to_path_buf());
         cfg.cache = CacheMode::NoCache;
+        cfg.startup = startup;
         let (release, rx) = mpsc::channel();
         let (published, published_rx) = mpsc::channel();
         let provider = LazySessionProvider::with_builder_and_hooks(
@@ -341,8 +373,26 @@ mod tests {
     }
 
     #[test]
-    fn construction_starts_one_background_build_without_waiting_for_readiness() {
+    fn lazy_construction_starts_no_build_until_the_first_readiness_check() {
         let (_dir, mut provider, mut build) = blocking_lazy(Duration::from_secs(1));
+
+        assert_eq!(provider.attempts(), 0);
+        assert_eq!(provider.builds(), 0);
+        assert_eq!(provider.state_kind(), "idle");
+        assert!(provider.ready().is_none());
+
+        // Release before the first check: the build the check starts completes at once.
+        build.release();
+        assert!(matches!(provider.ensure_ready(), Readiness::Ready));
+        build.wait();
+        assert_eq!(provider.attempts(), 1);
+        assert_eq!(provider.state_kind(), "ready");
+    }
+
+    #[test]
+    fn background_startup_starts_one_build_at_construction() {
+        let (_dir, mut provider, mut build) =
+            blocking_lazy_with_startup(Duration::from_secs(1), None, StartupMode::Background);
 
         assert_eq!(provider.attempts(), 1);
         assert_eq!(provider.builds(), 1);

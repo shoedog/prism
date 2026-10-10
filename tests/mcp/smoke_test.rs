@@ -138,6 +138,38 @@ fn prism_mcp_protocol_smoke() {
 }
 
 #[test]
+fn prism_mcp_warm_at_startup_restores_the_startup_build_and_conflicts_with_eager() {
+    let repo = tempfile::tempdir().expect("temp repo");
+    std::fs::write(repo.path().join("main.py"), "def main():\n    return 1\n").expect("write repo");
+
+    let output = Command::cargo_bin("prism-mcp")
+        .expect("prism-mcp binary")
+        .args(["--repo", repo.path().to_str().unwrap()])
+        .args(["--warm-at-startup", "--first-call-wait", "0"])
+        .write_stdin(initialize_message())
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+    let responses =
+        parse_json_rpc_stdout(std::str::from_utf8(&output.stdout).expect("stdout utf8"));
+    assert_eq!(
+        response_with_id(&responses, 1)["result"]["instructions"],
+        background_instructions(),
+        "--warm-at-startup must advertise the build started at server startup"
+    );
+
+    Command::cargo_bin("prism-mcp")
+        .expect("prism-mcp binary")
+        .args(["--repo", repo.path().to_str().unwrap()])
+        .args(["--eager", "--warm-at-startup"])
+        .write_stdin(initialize_message())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--warm-at-startup"));
+}
+
+#[test]
 fn prism_mcp_bounds_first_call_wait_and_accepts_eager() {
     let repo = tempfile::tempdir().expect("temp repo");
     std::fs::write(repo.path().join("main.py"), "def main():\n    return 1\n").expect("write repo");
@@ -211,8 +243,12 @@ fn eager_instructions() -> String {
     "Results reflect the repository snapshot loaded when prism-mcp started or last refreshed. If indexed files change during the server session, Prism marks tool results with stale-index metadata and warnings; restart/re-add the MCP server or use CLI nav for a fresh snapshot. Optional LLM views are opt-in: set format to agent_markdown or agent_json. Agent views change only content text and view metadata; structuredContent remains canonical Evidence. agent_json includes normalized locations, canonical symbol_ref handles, deterministic reasons, group summaries, and parser-valid next_queries.".to_string()
 }
 
-fn lazy_instructions() -> String {
+fn background_instructions() -> String {
     "The repository snapshot is loaded by a background build started at server startup; until it completes, tool calls return an `index warming` result — retry shortly. Freshness warnings compare the working tree against the most recently completed build or refresh snapshot. Optional LLM views are opt-in: set format to agent_markdown or agent_json. Agent views change only content text and view metadata; structuredContent remains canonical Evidence. agent_json includes normalized locations, canonical symbol_ref handles, deterministic reasons, group summaries, and parser-valid next_queries.".to_string()
+}
+
+fn lazy_instructions() -> String {
+    "The repository snapshot is loaded by a background build started by the first tool call; until it completes, tool calls return an `index warming` result — retry shortly. Freshness warnings compare the working tree against the most recently completed build or refresh snapshot. Optional LLM views are opt-in: set format to agent_markdown or agent_json. Agent views change only content text and view metadata; structuredContent remains canonical Evidence. agent_json includes normalized locations, canonical symbol_ref handles, deterministic reasons, group summaries, and parser-valid next_queries.".to_string()
 }
 
 fn lifecycle_messages() -> String {

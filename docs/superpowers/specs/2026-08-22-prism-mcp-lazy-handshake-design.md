@@ -1,5 +1,12 @@
 # prism-mcp lazy handshake — design (roadmap #11)
 
+> **2026-10-09 update.** The default no longer starts the background build at spawn: `LazySessionProvider`
+> now starts it on the first valid `tools/call` (`initialize`/`ping`/`tools/list` never trigger it), and
+> `--warm-at-startup` (`StartupMode::Background`) restores the at-spawn build this spec describes. Reason:
+> every codex thread that inherits the project MCP config — including codex-acp's ephemeral session-title
+> thread — and every review session that never navigates was holding the whole index (~1.2 GiB resident on
+> this repo) for nothing. The wait budget, warming result, retry, and `--eager` semantics below are unchanged.
+
 Date: 2026-08-22 · Status: **v3 — A+C; sol round-1 and round-2 findings folded; for sol round 3 (declared cap)** · Owner-approved 2026-08-22: approach **A+C**
 (background bootstrap at spawn, instant handshake, bounded wait on `tools/call` then a structured *warming* result; `--eager` keeps
 today's synchronous startup). Record: `docs/analysis/2026-08-21-tier-c-partd-readout.md` §Caveats; roadmap row 11;

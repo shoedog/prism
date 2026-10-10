@@ -235,7 +235,7 @@ impl SessionRuntime for LazySessionProvider {
     }
 
     fn startup_mode(&self) -> StartupMode {
-        StartupMode::Lazy
+        LazySessionProvider::startup_mode(self)
     }
 
     fn session(&self) -> &NavigationSession {
@@ -407,7 +407,8 @@ fn initialize_response(obj: &Map<String, Value>, id: Value, startup_mode: Startu
 fn server_instructions(startup_mode: StartupMode) -> String {
     let snapshot_notice = match startup_mode {
         StartupMode::Eager => crate::mcp::tools::SNAPSHOT_NOTICE,
-        StartupMode::Lazy => "The repository snapshot is loaded by a background build started at server startup; until it completes, tool calls return an `index warming` result — retry shortly. Freshness warnings compare the working tree against the most recently completed build or refresh snapshot.",
+        StartupMode::Lazy => "The repository snapshot is loaded by a background build started by the first tool call; until it completes, tool calls return an `index warming` result — retry shortly. Freshness warnings compare the working tree against the most recently completed build or refresh snapshot.",
+        StartupMode::Background => "The repository snapshot is loaded by a background build started at server startup; until it completes, tool calls return an `index warming` result — retry shortly. Freshness warnings compare the working tree against the most recently completed build or refresh snapshot.",
     };
     format!("{snapshot_notice} {}", crate::mcp::tools::VIEW_NOTICE)
 }
