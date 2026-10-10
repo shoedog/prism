@@ -1,0 +1,7350 @@
+[
+ {
+  "id": "js-identifier-sloppy-named",
+  "ext": "js",
+  "kind": "identifier",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, p){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     18,
+     18,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     32,
+     32,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     23,
+     24,
+     3,
+     37,
+     38,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-identifier-sloppy-callback",
+  "ext": "js",
+  "kind": "identifier",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, p){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     34,
+     35,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     47,
+     48,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     30,
+     31,
+     3,
+     44,
+     45,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-identifier-strict-named",
+  "ext": "js",
+  "kind": "identifier",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, p){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     33,
+     33,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     47,
+     47,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     38,
+     39,
+     4,
+     52,
+     53,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-identifier-strict-callback",
+  "ext": "js",
+  "kind": "identifier",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, p){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     49,
+     50,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     62,
+     63,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     45,
+     46,
+     4,
+     59,
+     60,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-undefined-sloppy-named",
+  "ext": "js",
+  "kind": "undefined",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, undefined){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     26,
+     26,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     40,
+     40,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     31,
+     32,
+     3,
+     45,
+     46,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-undefined-sloppy-callback",
+  "ext": "js",
+  "kind": "undefined",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, undefined){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     42,
+     43,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     55,
+     56,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     38,
+     39,
+     3,
+     52,
+     53,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-undefined-strict-named",
+  "ext": "js",
+  "kind": "undefined",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, undefined){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     41,
+     41,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     55,
+     55,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     46,
+     47,
+     4,
+     60,
+     61,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-undefined-strict-callback",
+  "ext": "js",
+  "kind": "undefined",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, undefined){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     57,
+     58,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     70,
+     71,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     53,
+     54,
+     4,
+     67,
+     68,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-default-sloppy-named",
+  "ext": "js",
+  "kind": "default",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, p=0){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     20,
+     20,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     34,
+     34,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     25,
+     26,
+     3,
+     39,
+     40,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-default-sloppy-callback",
+  "ext": "js",
+  "kind": "default",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, p=0){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     36,
+     37,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     49,
+     50,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     32,
+     33,
+     3,
+     46,
+     47,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-default-strict-named",
+  "ext": "js",
+  "kind": "default",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, p=0){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "js-default-strict-callback",
+  "ext": "js",
+  "kind": "default",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, p=0){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "js-object-sloppy-named",
+  "ext": "js",
+  "kind": "object",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, {p}){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     20,
+     20,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     34,
+     34,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     25,
+     26,
+     3,
+     39,
+     40,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-object-sloppy-callback",
+  "ext": "js",
+  "kind": "object",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, {p}){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     36,
+     37,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     49,
+     50,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     32,
+     33,
+     3,
+     46,
+     47,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-object-strict-named",
+  "ext": "js",
+  "kind": "object",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, {p}){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "js-object-strict-callback",
+  "ext": "js",
+  "kind": "object",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, {p}){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "js-array-sloppy-named",
+  "ext": "js",
+  "kind": "array",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, [p]){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     20,
+     20,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     34,
+     34,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     25,
+     26,
+     3,
+     39,
+     40,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-array-sloppy-callback",
+  "ext": "js",
+  "kind": "array",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, [p]){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     36,
+     37,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     49,
+     50,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     32,
+     33,
+     3,
+     46,
+     47,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-array-strict-named",
+  "ext": "js",
+  "kind": "array",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, [p]){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "js-array-strict-callback",
+  "ext": "js",
+  "kind": "array",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, [p]){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "js-rest-sloppy-named",
+  "ext": "js",
+  "kind": "rest",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, ...p){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     21,
+     21,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     35,
+     35,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     26,
+     27,
+     3,
+     40,
+     41,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-rest-sloppy-callback",
+  "ext": "js",
+  "kind": "rest",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, ...p){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     37,
+     38,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     50,
+     51,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     33,
+     34,
+     3,
+     47,
+     48,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-rest-strict-named",
+  "ext": "js",
+  "kind": "rest",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, ...p){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "js-rest-strict-callback",
+  "ext": "js",
+  "kind": "rest",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, ...p){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "js-member-sloppy-named",
+  "ext": "js",
+  "kind": "member",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, o.x){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "js-member-sloppy-callback",
+  "ext": "js",
+  "kind": "member",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, o.x){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "js-member-strict-named",
+  "ext": "js",
+  "kind": "member",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, o.x){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "js-member-strict-callback",
+  "ext": "js",
+  "kind": "member",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, o.x){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "js-subscript-sloppy-named",
+  "ext": "js",
+  "kind": "subscript",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, o[x]){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "js-subscript-sloppy-callback",
+  "ext": "js",
+  "kind": "subscript",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, o[x]){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "js-subscript-strict-named",
+  "ext": "js",
+  "kind": "subscript",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, o[x]){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "js-subscript-strict-callback",
+  "ext": "js",
+  "kind": "subscript",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, o[x]){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "js-default-member-rhs-sloppy-named",
+  "ext": "js",
+  "kind": "default-member-rhs",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, p=o.x){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     22,
+     22,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     36,
+     36,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     27,
+     28,
+     3,
+     41,
+     42,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-default-member-rhs-sloppy-callback",
+  "ext": "js",
+  "kind": "default-member-rhs",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, p=o.x){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     38,
+     39,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     51,
+     52,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     34,
+     35,
+     3,
+     48,
+     49,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-default-member-rhs-strict-named",
+  "ext": "js",
+  "kind": "default-member-rhs",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, p=o.x){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "js-default-member-rhs-strict-callback",
+  "ext": "js",
+  "kind": "default-member-rhs",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, p=o.x){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "js-computed-object-sloppy-named",
+  "ext": "js",
+  "kind": "computed-object",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, {[o.x]:p}){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     26,
+     26,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     40,
+     40,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     31,
+     32,
+     3,
+     45,
+     46,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-computed-object-sloppy-callback",
+  "ext": "js",
+  "kind": "computed-object",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, {[o.x]:p}){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     42,
+     43,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     55,
+     56,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     38,
+     39,
+     3,
+     52,
+     53,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "js-computed-object-strict-named",
+  "ext": "js",
+  "kind": "computed-object",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, {[o.x]:p}){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "js-computed-object-strict-callback",
+  "ext": "js",
+  "kind": "computed-object",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, {[o.x]:p}){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "ts-identifier-sloppy-named",
+  "ext": "ts",
+  "kind": "identifier",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, p){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     18,
+     18,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     32,
+     32,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     23,
+     24,
+     3,
+     37,
+     38,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-identifier-sloppy-callback",
+  "ext": "ts",
+  "kind": "identifier",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, p){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     34,
+     35,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     47,
+     48,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     30,
+     31,
+     3,
+     44,
+     45,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-identifier-strict-named",
+  "ext": "ts",
+  "kind": "identifier",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, p){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     33,
+     33,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     47,
+     47,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     38,
+     39,
+     4,
+     52,
+     53,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-identifier-strict-callback",
+  "ext": "ts",
+  "kind": "identifier",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, p){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     49,
+     50,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     62,
+     63,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     45,
+     46,
+     4,
+     59,
+     60,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-undefined-sloppy-named",
+  "ext": "ts",
+  "kind": "undefined",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, undefined){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     26,
+     26,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     40,
+     40,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     31,
+     32,
+     3,
+     45,
+     46,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-undefined-sloppy-callback",
+  "ext": "ts",
+  "kind": "undefined",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, undefined){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     42,
+     43,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     55,
+     56,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     38,
+     39,
+     3,
+     52,
+     53,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-undefined-strict-named",
+  "ext": "ts",
+  "kind": "undefined",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, undefined){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     41,
+     41,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     55,
+     55,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     46,
+     47,
+     4,
+     60,
+     61,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-undefined-strict-callback",
+  "ext": "ts",
+  "kind": "undefined",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, undefined){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     57,
+     58,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     70,
+     71,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     53,
+     54,
+     4,
+     67,
+     68,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-default-sloppy-named",
+  "ext": "ts",
+  "kind": "default",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, p=0){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     20,
+     20,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     34,
+     34,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     25,
+     26,
+     3,
+     39,
+     40,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-default-sloppy-callback",
+  "ext": "ts",
+  "kind": "default",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, p=0){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     36,
+     37,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     49,
+     50,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     32,
+     33,
+     3,
+     46,
+     47,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-default-strict-named",
+  "ext": "ts",
+  "kind": "default",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, p=0){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "ts-default-strict-callback",
+  "ext": "ts",
+  "kind": "default",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, p=0){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "ts-object-sloppy-named",
+  "ext": "ts",
+  "kind": "object",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, {p}){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     20,
+     20,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     34,
+     34,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     25,
+     26,
+     3,
+     39,
+     40,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-object-sloppy-callback",
+  "ext": "ts",
+  "kind": "object",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, {p}){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     36,
+     37,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     49,
+     50,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     32,
+     33,
+     3,
+     46,
+     47,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-object-strict-named",
+  "ext": "ts",
+  "kind": "object",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, {p}){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "ts-object-strict-callback",
+  "ext": "ts",
+  "kind": "object",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, {p}){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "ts-array-sloppy-named",
+  "ext": "ts",
+  "kind": "array",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, [p]){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     20,
+     20,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     34,
+     34,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     25,
+     26,
+     3,
+     39,
+     40,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-array-sloppy-callback",
+  "ext": "ts",
+  "kind": "array",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, [p]){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     36,
+     37,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     49,
+     50,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     32,
+     33,
+     3,
+     46,
+     47,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-array-strict-named",
+  "ext": "ts",
+  "kind": "array",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, [p]){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "ts-array-strict-callback",
+  "ext": "ts",
+  "kind": "array",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, [p]){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "ts-rest-sloppy-named",
+  "ext": "ts",
+  "kind": "rest",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, ...p){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     21,
+     21,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     35,
+     35,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     26,
+     27,
+     3,
+     40,
+     41,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-rest-sloppy-callback",
+  "ext": "ts",
+  "kind": "rest",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, ...p){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     37,
+     38,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     50,
+     51,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     33,
+     34,
+     3,
+     47,
+     48,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-rest-strict-named",
+  "ext": "ts",
+  "kind": "rest",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, ...p){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "ts-rest-strict-callback",
+  "ext": "ts",
+  "kind": "rest",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, ...p){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "ts-member-sloppy-named",
+  "ext": "ts",
+  "kind": "member",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, o.x){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "ts-member-sloppy-callback",
+  "ext": "ts",
+  "kind": "member",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, o.x){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "ts-member-strict-named",
+  "ext": "ts",
+  "kind": "member",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, o.x){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "ts-member-strict-callback",
+  "ext": "ts",
+  "kind": "member",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, o.x){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "ts-subscript-sloppy-named",
+  "ext": "ts",
+  "kind": "subscript",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, o[x]){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "ts-subscript-sloppy-callback",
+  "ext": "ts",
+  "kind": "subscript",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, o[x]){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "ts-subscript-strict-named",
+  "ext": "ts",
+  "kind": "subscript",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, o[x]){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "ts-subscript-strict-callback",
+  "ext": "ts",
+  "kind": "subscript",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, o[x]){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "ts-required-sloppy-named",
+  "ext": "ts",
+  "kind": "required",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, p: number){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     26,
+     26,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     40,
+     40,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     31,
+     32,
+     3,
+     45,
+     46,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-required-sloppy-callback",
+  "ext": "ts",
+  "kind": "required",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, p: number){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     42,
+     43,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     55,
+     56,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     38,
+     39,
+     3,
+     52,
+     53,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-required-strict-named",
+  "ext": "ts",
+  "kind": "required",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     41,
+     41,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     55,
+     55,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     46,
+     47,
+     4,
+     60,
+     61,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-required-strict-callback",
+  "ext": "ts",
+  "kind": "required",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     57,
+     58,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     70,
+     71,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     53,
+     54,
+     4,
+     67,
+     68,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-optional-sloppy-named",
+  "ext": "ts",
+  "kind": "optional",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, p?: number){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     27,
+     27,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     41,
+     41,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     32,
+     33,
+     3,
+     46,
+     47,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-optional-sloppy-callback",
+  "ext": "ts",
+  "kind": "optional",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, p?: number){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     43,
+     44,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     56,
+     57,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     39,
+     40,
+     3,
+     53,
+     54,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-optional-strict-named",
+  "ext": "ts",
+  "kind": "optional",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, p?: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     42,
+     42,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     56,
+     56,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     47,
+     48,
+     4,
+     61,
+     62,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-optional-strict-callback",
+  "ext": "ts",
+  "kind": "optional",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, p?: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     58,
+     59,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     71,
+     72,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     54,
+     55,
+     4,
+     68,
+     69,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-this-sloppy-named",
+  "ext": "ts",
+  "kind": "this",
+  "strict": false,
+  "callback": false,
+  "source": "function h(this: unknown, $){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     26,
+     27,
+     2,
+     30,
+     30,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     26,
+     27,
+     3,
+     44,
+     44,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     35,
+     36,
+     3,
+     49,
+     50,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-this-sloppy-callback",
+  "ext": "ts",
+  "kind": "this",
+  "strict": false,
+  "callback": true,
+  "source": "register(function(this: unknown, $){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     33,
+     34,
+     2,
+     46,
+     47,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     33,
+     34,
+     3,
+     59,
+     60,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     42,
+     43,
+     3,
+     56,
+     57,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-this-strict-named",
+  "ext": "ts",
+  "kind": "this",
+  "strict": true,
+  "callback": false,
+  "source": "function h(this: unknown, $){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     26,
+     27,
+     3,
+     45,
+     45,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     26,
+     27,
+     4,
+     59,
+     59,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     50,
+     51,
+     4,
+     64,
+     65,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-this-strict-callback",
+  "ext": "ts",
+  "kind": "this",
+  "strict": true,
+  "callback": true,
+  "source": "register(function(this: unknown, $){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     33,
+     34,
+     3,
+     61,
+     62,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     33,
+     34,
+     4,
+     74,
+     75,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     57,
+     58,
+     4,
+     71,
+     72,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-non-null-sloppy-named",
+  "ext": "ts",
+  "kind": "non-null",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, p!){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "ts-non-null-sloppy-callback",
+  "ext": "ts",
+  "kind": "non-null",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, p!){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "ts-non-null-strict-named",
+  "ext": "ts",
+  "kind": "non-null",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, p!){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "ts-non-null-strict-callback",
+  "ext": "ts",
+  "kind": "non-null",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, p!){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "ts-public-sloppy-named",
+  "ext": "ts",
+  "kind": "public",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, public p: number){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     33,
+     33,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     47,
+     47,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     38,
+     39,
+     3,
+     52,
+     53,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-public-sloppy-callback",
+  "ext": "ts",
+  "kind": "public",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, public p: number){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     49,
+     50,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     62,
+     63,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     45,
+     46,
+     3,
+     59,
+     60,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-public-strict-named",
+  "ext": "ts",
+  "kind": "public",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, public p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     48,
+     48,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     62,
+     62,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     53,
+     54,
+     4,
+     67,
+     68,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-public-strict-callback",
+  "ext": "ts",
+  "kind": "public",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, public p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     64,
+     65,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     77,
+     78,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     60,
+     61,
+     4,
+     74,
+     75,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-private-sloppy-named",
+  "ext": "ts",
+  "kind": "private",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, private p: number){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     34,
+     34,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     48,
+     48,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     39,
+     40,
+     3,
+     53,
+     54,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-private-sloppy-callback",
+  "ext": "ts",
+  "kind": "private",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, private p: number){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     50,
+     51,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     63,
+     64,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     46,
+     47,
+     3,
+     60,
+     61,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-private-strict-named",
+  "ext": "ts",
+  "kind": "private",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, private p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     49,
+     49,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     63,
+     63,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     54,
+     55,
+     4,
+     68,
+     69,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-private-strict-callback",
+  "ext": "ts",
+  "kind": "private",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, private p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     65,
+     66,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     78,
+     79,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     61,
+     62,
+     4,
+     75,
+     76,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-protected-sloppy-named",
+  "ext": "ts",
+  "kind": "protected",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, protected p: number){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     36,
+     36,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     50,
+     50,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     41,
+     42,
+     3,
+     55,
+     56,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-protected-sloppy-callback",
+  "ext": "ts",
+  "kind": "protected",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, protected p: number){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     52,
+     53,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     65,
+     66,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     48,
+     49,
+     3,
+     62,
+     63,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-protected-strict-named",
+  "ext": "ts",
+  "kind": "protected",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, protected p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     51,
+     51,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     65,
+     65,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     56,
+     57,
+     4,
+     70,
+     71,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-protected-strict-callback",
+  "ext": "ts",
+  "kind": "protected",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, protected p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     67,
+     68,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     80,
+     81,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     63,
+     64,
+     4,
+     77,
+     78,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-readonly-sloppy-named",
+  "ext": "ts",
+  "kind": "readonly",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, readonly p: number){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     35,
+     35,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     49,
+     49,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     40,
+     41,
+     3,
+     54,
+     55,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-readonly-sloppy-callback",
+  "ext": "ts",
+  "kind": "readonly",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, readonly p: number){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     51,
+     52,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     64,
+     65,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     47,
+     48,
+     3,
+     61,
+     62,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-readonly-strict-named",
+  "ext": "ts",
+  "kind": "readonly",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, readonly p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     50,
+     50,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     64,
+     64,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     55,
+     56,
+     4,
+     69,
+     70,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-readonly-strict-callback",
+  "ext": "ts",
+  "kind": "readonly",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, readonly p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     66,
+     67,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     79,
+     80,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     62,
+     63,
+     4,
+     76,
+     77,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-override-sloppy-named",
+  "ext": "ts",
+  "kind": "override",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, override p: number){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     35,
+     35,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     49,
+     49,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     40,
+     41,
+     3,
+     54,
+     55,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-override-sloppy-callback",
+  "ext": "ts",
+  "kind": "override",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, override p: number){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     51,
+     52,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     64,
+     65,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     47,
+     48,
+     3,
+     61,
+     62,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-override-strict-named",
+  "ext": "ts",
+  "kind": "override",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, override p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     50,
+     50,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     64,
+     64,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     55,
+     56,
+     4,
+     69,
+     70,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-override-strict-callback",
+  "ext": "ts",
+  "kind": "override",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, override p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     66,
+     67,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     79,
+     80,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     62,
+     63,
+     4,
+     76,
+     77,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-decorator-sloppy-named",
+  "ext": "ts",
+  "kind": "decorator",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, @dec p: number){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     31,
+     31,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     45,
+     45,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     36,
+     37,
+     3,
+     50,
+     51,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-decorator-sloppy-callback",
+  "ext": "ts",
+  "kind": "decorator",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, @dec p: number){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     47,
+     48,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     60,
+     61,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     43,
+     44,
+     3,
+     57,
+     58,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-decorator-strict-named",
+  "ext": "ts",
+  "kind": "decorator",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, @dec p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     46,
+     46,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     60,
+     60,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     51,
+     52,
+     4,
+     65,
+     66,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-decorator-strict-callback",
+  "ext": "ts",
+  "kind": "decorator",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, @dec p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     62,
+     63,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     75,
+     76,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     58,
+     59,
+     4,
+     72,
+     73,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-default-member-rhs-sloppy-named",
+  "ext": "ts",
+  "kind": "default-member-rhs",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, p=o.x){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     22,
+     22,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     36,
+     36,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     27,
+     28,
+     3,
+     41,
+     42,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-default-member-rhs-sloppy-callback",
+  "ext": "ts",
+  "kind": "default-member-rhs",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, p=o.x){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     38,
+     39,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     51,
+     52,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     34,
+     35,
+     3,
+     48,
+     49,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-default-member-rhs-strict-named",
+  "ext": "ts",
+  "kind": "default-member-rhs",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, p=o.x){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "ts-default-member-rhs-strict-callback",
+  "ext": "ts",
+  "kind": "default-member-rhs",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, p=o.x){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "ts-computed-object-sloppy-named",
+  "ext": "ts",
+  "kind": "computed-object",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, {[o.x]:p}){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     26,
+     26,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     40,
+     40,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     31,
+     32,
+     3,
+     45,
+     46,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-computed-object-sloppy-callback",
+  "ext": "ts",
+  "kind": "computed-object",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, {[o.x]:p}){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     42,
+     43,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     55,
+     56,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     38,
+     39,
+     3,
+     52,
+     53,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "ts-computed-object-strict-named",
+  "ext": "ts",
+  "kind": "computed-object",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, {[o.x]:p}){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "ts-computed-object-strict-callback",
+  "ext": "ts",
+  "kind": "computed-object",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, {[o.x]:p}){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "tsx-identifier-sloppy-named",
+  "ext": "tsx",
+  "kind": "identifier",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, p){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     18,
+     18,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     32,
+     32,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     23,
+     24,
+     3,
+     37,
+     38,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-identifier-sloppy-callback",
+  "ext": "tsx",
+  "kind": "identifier",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, p){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     34,
+     35,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     47,
+     48,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     30,
+     31,
+     3,
+     44,
+     45,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-identifier-strict-named",
+  "ext": "tsx",
+  "kind": "identifier",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, p){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     33,
+     33,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     47,
+     47,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     38,
+     39,
+     4,
+     52,
+     53,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-identifier-strict-callback",
+  "ext": "tsx",
+  "kind": "identifier",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, p){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     49,
+     50,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     62,
+     63,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     45,
+     46,
+     4,
+     59,
+     60,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-undefined-sloppy-named",
+  "ext": "tsx",
+  "kind": "undefined",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, undefined){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     26,
+     26,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     40,
+     40,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     31,
+     32,
+     3,
+     45,
+     46,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-undefined-sloppy-callback",
+  "ext": "tsx",
+  "kind": "undefined",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, undefined){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     42,
+     43,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     55,
+     56,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     38,
+     39,
+     3,
+     52,
+     53,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-undefined-strict-named",
+  "ext": "tsx",
+  "kind": "undefined",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, undefined){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     41,
+     41,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     55,
+     55,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     46,
+     47,
+     4,
+     60,
+     61,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-undefined-strict-callback",
+  "ext": "tsx",
+  "kind": "undefined",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, undefined){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     57,
+     58,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     70,
+     71,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     53,
+     54,
+     4,
+     67,
+     68,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-default-sloppy-named",
+  "ext": "tsx",
+  "kind": "default",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, p=0){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     20,
+     20,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     34,
+     34,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     25,
+     26,
+     3,
+     39,
+     40,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-default-sloppy-callback",
+  "ext": "tsx",
+  "kind": "default",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, p=0){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     36,
+     37,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     49,
+     50,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     32,
+     33,
+     3,
+     46,
+     47,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-default-strict-named",
+  "ext": "tsx",
+  "kind": "default",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, p=0){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "tsx-default-strict-callback",
+  "ext": "tsx",
+  "kind": "default",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, p=0){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "tsx-object-sloppy-named",
+  "ext": "tsx",
+  "kind": "object",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, {p}){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     20,
+     20,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     34,
+     34,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     25,
+     26,
+     3,
+     39,
+     40,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-object-sloppy-callback",
+  "ext": "tsx",
+  "kind": "object",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, {p}){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     36,
+     37,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     49,
+     50,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     32,
+     33,
+     3,
+     46,
+     47,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-object-strict-named",
+  "ext": "tsx",
+  "kind": "object",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, {p}){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "tsx-object-strict-callback",
+  "ext": "tsx",
+  "kind": "object",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, {p}){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "tsx-array-sloppy-named",
+  "ext": "tsx",
+  "kind": "array",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, [p]){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     20,
+     20,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     34,
+     34,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     25,
+     26,
+     3,
+     39,
+     40,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-array-sloppy-callback",
+  "ext": "tsx",
+  "kind": "array",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, [p]){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     36,
+     37,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     49,
+     50,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     32,
+     33,
+     3,
+     46,
+     47,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-array-strict-named",
+  "ext": "tsx",
+  "kind": "array",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, [p]){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "tsx-array-strict-callback",
+  "ext": "tsx",
+  "kind": "array",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, [p]){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "tsx-rest-sloppy-named",
+  "ext": "tsx",
+  "kind": "rest",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, ...p){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     21,
+     21,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     35,
+     35,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     26,
+     27,
+     3,
+     40,
+     41,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-rest-sloppy-callback",
+  "ext": "tsx",
+  "kind": "rest",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, ...p){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     37,
+     38,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     50,
+     51,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     33,
+     34,
+     3,
+     47,
+     48,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-rest-strict-named",
+  "ext": "tsx",
+  "kind": "rest",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, ...p){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "tsx-rest-strict-callback",
+  "ext": "tsx",
+  "kind": "rest",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, ...p){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "tsx-member-sloppy-named",
+  "ext": "tsx",
+  "kind": "member",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, o.x){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "tsx-member-sloppy-callback",
+  "ext": "tsx",
+  "kind": "member",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, o.x){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "tsx-member-strict-named",
+  "ext": "tsx",
+  "kind": "member",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, o.x){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "tsx-member-strict-callback",
+  "ext": "tsx",
+  "kind": "member",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, o.x){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "tsx-subscript-sloppy-named",
+  "ext": "tsx",
+  "kind": "subscript",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, o[x]){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "tsx-subscript-sloppy-callback",
+  "ext": "tsx",
+  "kind": "subscript",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, o[x]){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "tsx-subscript-strict-named",
+  "ext": "tsx",
+  "kind": "subscript",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, o[x]){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "tsx-subscript-strict-callback",
+  "ext": "tsx",
+  "kind": "subscript",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, o[x]){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "tsx-required-sloppy-named",
+  "ext": "tsx",
+  "kind": "required",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, p: number){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     26,
+     26,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     40,
+     40,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     31,
+     32,
+     3,
+     45,
+     46,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-required-sloppy-callback",
+  "ext": "tsx",
+  "kind": "required",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, p: number){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     42,
+     43,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     55,
+     56,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     38,
+     39,
+     3,
+     52,
+     53,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-required-strict-named",
+  "ext": "tsx",
+  "kind": "required",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     41,
+     41,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     55,
+     55,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     46,
+     47,
+     4,
+     60,
+     61,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-required-strict-callback",
+  "ext": "tsx",
+  "kind": "required",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     57,
+     58,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     70,
+     71,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     53,
+     54,
+     4,
+     67,
+     68,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-optional-sloppy-named",
+  "ext": "tsx",
+  "kind": "optional",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, p?: number){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     27,
+     27,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     41,
+     41,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     32,
+     33,
+     3,
+     46,
+     47,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-optional-sloppy-callback",
+  "ext": "tsx",
+  "kind": "optional",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, p?: number){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     43,
+     44,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     56,
+     57,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     39,
+     40,
+     3,
+     53,
+     54,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-optional-strict-named",
+  "ext": "tsx",
+  "kind": "optional",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, p?: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     42,
+     42,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     56,
+     56,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     47,
+     48,
+     4,
+     61,
+     62,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-optional-strict-callback",
+  "ext": "tsx",
+  "kind": "optional",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, p?: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     58,
+     59,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     71,
+     72,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     54,
+     55,
+     4,
+     68,
+     69,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-this-sloppy-named",
+  "ext": "tsx",
+  "kind": "this",
+  "strict": false,
+  "callback": false,
+  "source": "function h(this: unknown, $){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     26,
+     27,
+     2,
+     30,
+     30,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     26,
+     27,
+     3,
+     44,
+     44,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     35,
+     36,
+     3,
+     49,
+     50,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-this-sloppy-callback",
+  "ext": "tsx",
+  "kind": "this",
+  "strict": false,
+  "callback": true,
+  "source": "register(function(this: unknown, $){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     33,
+     34,
+     2,
+     46,
+     47,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     33,
+     34,
+     3,
+     59,
+     60,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     42,
+     43,
+     3,
+     56,
+     57,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-this-strict-named",
+  "ext": "tsx",
+  "kind": "this",
+  "strict": true,
+  "callback": false,
+  "source": "function h(this: unknown, $){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     26,
+     27,
+     3,
+     45,
+     45,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     26,
+     27,
+     4,
+     59,
+     59,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     50,
+     51,
+     4,
+     64,
+     65,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-this-strict-callback",
+  "ext": "tsx",
+  "kind": "this",
+  "strict": true,
+  "callback": true,
+  "source": "register(function(this: unknown, $){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     33,
+     34,
+     3,
+     61,
+     62,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     33,
+     34,
+     4,
+     74,
+     75,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     57,
+     58,
+     4,
+     71,
+     72,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-non-null-sloppy-named",
+  "ext": "tsx",
+  "kind": "non-null",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, p!){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "tsx-non-null-sloppy-callback",
+  "ext": "tsx",
+  "kind": "non-null",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, p!){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "tsx-non-null-strict-named",
+  "ext": "tsx",
+  "kind": "non-null",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, p!){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "tsx-non-null-strict-callback",
+  "ext": "tsx",
+  "kind": "non-null",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, p!){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": false,
+  "invalid_binding": true
+ },
+ {
+  "id": "tsx-public-sloppy-named",
+  "ext": "tsx",
+  "kind": "public",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, public p: number){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     33,
+     33,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     47,
+     47,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     38,
+     39,
+     3,
+     52,
+     53,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-public-sloppy-callback",
+  "ext": "tsx",
+  "kind": "public",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, public p: number){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     49,
+     50,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     62,
+     63,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     45,
+     46,
+     3,
+     59,
+     60,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-public-strict-named",
+  "ext": "tsx",
+  "kind": "public",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, public p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     48,
+     48,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     62,
+     62,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     53,
+     54,
+     4,
+     67,
+     68,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-public-strict-callback",
+  "ext": "tsx",
+  "kind": "public",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, public p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     64,
+     65,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     77,
+     78,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     60,
+     61,
+     4,
+     74,
+     75,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-private-sloppy-named",
+  "ext": "tsx",
+  "kind": "private",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, private p: number){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     34,
+     34,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     48,
+     48,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     39,
+     40,
+     3,
+     53,
+     54,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-private-sloppy-callback",
+  "ext": "tsx",
+  "kind": "private",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, private p: number){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     50,
+     51,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     63,
+     64,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     46,
+     47,
+     3,
+     60,
+     61,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-private-strict-named",
+  "ext": "tsx",
+  "kind": "private",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, private p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     49,
+     49,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     63,
+     63,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     54,
+     55,
+     4,
+     68,
+     69,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-private-strict-callback",
+  "ext": "tsx",
+  "kind": "private",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, private p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     65,
+     66,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     78,
+     79,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     61,
+     62,
+     4,
+     75,
+     76,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-protected-sloppy-named",
+  "ext": "tsx",
+  "kind": "protected",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, protected p: number){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     36,
+     36,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     50,
+     50,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     41,
+     42,
+     3,
+     55,
+     56,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-protected-sloppy-callback",
+  "ext": "tsx",
+  "kind": "protected",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, protected p: number){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     52,
+     53,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     65,
+     66,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     48,
+     49,
+     3,
+     62,
+     63,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-protected-strict-named",
+  "ext": "tsx",
+  "kind": "protected",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, protected p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     51,
+     51,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     65,
+     65,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     56,
+     57,
+     4,
+     70,
+     71,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-protected-strict-callback",
+  "ext": "tsx",
+  "kind": "protected",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, protected p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     67,
+     68,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     80,
+     81,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     63,
+     64,
+     4,
+     77,
+     78,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-readonly-sloppy-named",
+  "ext": "tsx",
+  "kind": "readonly",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, readonly p: number){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     35,
+     35,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     49,
+     49,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     40,
+     41,
+     3,
+     54,
+     55,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-readonly-sloppy-callback",
+  "ext": "tsx",
+  "kind": "readonly",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, readonly p: number){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     51,
+     52,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     64,
+     65,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     47,
+     48,
+     3,
+     61,
+     62,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-readonly-strict-named",
+  "ext": "tsx",
+  "kind": "readonly",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, readonly p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     50,
+     50,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     64,
+     64,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     55,
+     56,
+     4,
+     69,
+     70,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-readonly-strict-callback",
+  "ext": "tsx",
+  "kind": "readonly",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, readonly p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     66,
+     67,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     79,
+     80,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     62,
+     63,
+     4,
+     76,
+     77,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-override-sloppy-named",
+  "ext": "tsx",
+  "kind": "override",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, override p: number){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     35,
+     35,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     49,
+     49,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     40,
+     41,
+     3,
+     54,
+     55,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-override-sloppy-callback",
+  "ext": "tsx",
+  "kind": "override",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, override p: number){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     51,
+     52,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     64,
+     65,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     47,
+     48,
+     3,
+     61,
+     62,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-override-strict-named",
+  "ext": "tsx",
+  "kind": "override",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, override p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     50,
+     50,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     64,
+     64,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     55,
+     56,
+     4,
+     69,
+     70,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-override-strict-callback",
+  "ext": "tsx",
+  "kind": "override",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, override p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     66,
+     67,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     79,
+     80,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     62,
+     63,
+     4,
+     76,
+     77,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-decorator-sloppy-named",
+  "ext": "tsx",
+  "kind": "decorator",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, @dec p: number){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     31,
+     31,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     45,
+     45,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     36,
+     37,
+     3,
+     50,
+     51,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-decorator-sloppy-callback",
+  "ext": "tsx",
+  "kind": "decorator",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, @dec p: number){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     47,
+     48,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     60,
+     61,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     43,
+     44,
+     3,
+     57,
+     58,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-decorator-strict-named",
+  "ext": "tsx",
+  "kind": "decorator",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, @dec p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     3,
+     46,
+     46,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     4,
+     60,
+     60,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     51,
+     52,
+     4,
+     65,
+     66,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-decorator-strict-callback",
+  "ext": "tsx",
+  "kind": "decorator",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, @dec p: number){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": false,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     3,
+     62,
+     63,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     4,
+     75,
+     76,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     3,
+     58,
+     59,
+     4,
+     72,
+     73,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-default-member-rhs-sloppy-named",
+  "ext": "tsx",
+  "kind": "default-member-rhs",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, p=o.x){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     22,
+     22,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     36,
+     36,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     27,
+     28,
+     3,
+     41,
+     42,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-default-member-rhs-sloppy-callback",
+  "ext": "tsx",
+  "kind": "default-member-rhs",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, p=o.x){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     38,
+     39,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     51,
+     52,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     34,
+     35,
+     3,
+     48,
+     49,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-default-member-rhs-strict-named",
+  "ext": "tsx",
+  "kind": "default-member-rhs",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, p=o.x){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "tsx-default-member-rhs-strict-callback",
+  "ext": "tsx",
+  "kind": "default-member-rhs",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, p=o.x){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "tsx-computed-object-sloppy-named",
+  "ext": "tsx",
+  "kind": "computed-object",
+  "strict": false,
+  "callback": false,
+  "source": "function h($, {[o.x]:p}){\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     11,
+     12,
+     2,
+     26,
+     26,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     11,
+     12,
+     3,
+     40,
+     40,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     31,
+     32,
+     3,
+     45,
+     46,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-computed-object-sloppy-callback",
+  "ext": "tsx",
+  "kind": "computed-object",
+  "strict": false,
+  "callback": true,
+  "source": "register(function($, {[o.x]:p}){\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": true,
+  "non_simple": true,
+  "invalid_binding": false,
+  "golden": {
+   "$": [
+    [
+     1,
+     18,
+     19,
+     2,
+     42,
+     43,
+     "exact",
+     null,
+     null
+    ],
+    [
+     1,
+     18,
+     19,
+     3,
+     55,
+     56,
+     "exact",
+     null,
+     null
+    ]
+   ],
+   "a": [
+    [
+     2,
+     38,
+     39,
+     3,
+     52,
+     53,
+     "exact",
+     null,
+     null
+    ]
+   ]
+  }
+ },
+ {
+  "id": "tsx-computed-object-strict-named",
+  "ext": "tsx",
+  "kind": "computed-object",
+  "strict": true,
+  "callback": false,
+  "source": "function h($, {[o.x]:p}){\n \"use strict\";\n var a = $.x;\n use(a, $);\n}\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ },
+ {
+  "id": "tsx-computed-object-strict-callback",
+  "ext": "tsx",
+  "kind": "computed-object",
+  "strict": true,
+  "callback": true,
+  "source": "register(function($, {[o.x]:p}){\n \"use strict\";\n var a = $.x;\n use(a, $);\n});\n",
+  "admitted": false,
+  "non_simple": true,
+  "invalid_binding": false
+ }
+]

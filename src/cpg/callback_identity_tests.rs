@@ -1546,3 +1546,164 @@ fn r4_bound_names_and_comment_insensitive_early_errors() {
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+#[test]
+fn r7_grammar_kind_matrix_has_positive_early_error_proofs() {
+    let cells: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/js_param_r7_kind_matrix.json")).unwrap();
+    let mut failures = Vec::new();
+    for cell in cells.as_array().unwrap() {
+        let language = match cell["ext"].as_str().unwrap() {
+            "js" => Language::JavaScript,
+            "ts" => Language::TypeScript,
+            "tsx" => Language::Tsx,
+            _ => unreachable!(),
+        };
+        let source = cell["source"].as_str().unwrap();
+        let parsed = ParsedFile::parse(file_name(language), source, language).unwrap();
+        let owner = parsed.all_functions().into_iter().next().unwrap();
+        let actual = parsed.dfg_owner_name(&owner).is_some();
+        let expected = cell["admitted"].as_bool().unwrap();
+        if actual != expected {
+            failures.push(format!(
+                "{}: admitted={actual}, expected={expected}",
+                cell["id"]
+            ));
+        }
+        let cpg = build(language, source);
+        if !expected && !rows(&cpg).is_empty() {
+            failures.push(format!("{}: invalid callable has rows", cell["id"]));
+        }
+        // A supported sibling formal and a body-local def must survive every
+        // valid unfamiliar formal kind, including erased TS annotations.
+        if expected && rows(&cpg).is_empty() {
+            failures.push(format!("{}: valid callable lost all rows", cell["id"]));
+        }
+        if expected {
+            let name = parsed.dfg_owner_name(&owner).unwrap();
+            for binding in ["$", "a"] {
+                let actual = r5_full_binding_rows(&cpg, &name, binding);
+                let mut golden = cell["golden"][binding].as_array().unwrap().clone();
+                golden.sort_by_key(ToString::to_string);
+                if actual != golden {
+                    failures.push(format!(
+                        "{}/{binding}: actual={actual:?}, golden={golden:?}",
+                        cell["id"]
+                    ));
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn r7_undefined_bound_names_reject_only_real_early_errors() {
+    let mut failures = Vec::new();
+    for language in JS_TS {
+        for source in [
+            "function h(f,undefined){let undefined=0;use(f);}",
+            "function h(f,undefined){class undefined{};use(f);}",
+            "function h(f,undefined,undefined){'use strict';use(f);}",
+            "register((f,undefined,undefined)=>{use(f);});",
+            "function h(f,undefined,...undefined){use(f);}",
+        ] {
+            if !rows(&build(language, source)).is_empty() {
+                failures.push(format!("{language:?}: invalid: {source}"));
+            }
+        }
+        for source in [
+            "function h(f,undefined,undefined){use(f);}",
+            "function h(f,undefined){var undefined;use(f);}",
+            "function h(f,undefined){let other=0;use(f);}",
+            "function h(f,undefined){'use strict';use(f);}",
+        ] {
+            if rows(&build(language, source)).is_empty() {
+                failures.push(format!("{language:?}: valid: {source}"));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn r7_undefined_seam_and_erased_simple_arguments_are_classified() {
+    let mut failures = Vec::new();
+    for language in JS_TS {
+        for (source, name, seam, args, eval) in [
+            (
+                "register(function(undefined,d=0){var undefined;use(d);});",
+                "undefined",
+                true,
+                false,
+                false,
+            ),
+            (
+                "register(function(undefined,d=0){var other;use(d);});",
+                "other",
+                false,
+                false,
+                false,
+            ),
+            (
+                "register(function(f,undefined){use(arguments);use(f);});",
+                "f",
+                false,
+                true,
+                false,
+            ),
+            (
+                "register(function(f,undefined){'use strict';use(arguments);use(f);});",
+                "f",
+                false,
+                false,
+                false,
+            ),
+            (
+                "register(function(f,undefined=0){use(arguments);use(f);});",
+                "f",
+                false,
+                false,
+                false,
+            ),
+            (
+                "register(function(f,undefined){eval('f');use(f);});",
+                "f",
+                false,
+                false,
+                true,
+            ),
+            (
+                "register(function(f,undefined){obj.eval('f');use(f);});",
+                "f",
+                false,
+                false,
+                false,
+            ),
+        ] {
+            let parsed = ParsedFile::parse(file_name(language), source, language).unwrap();
+            let owner = parsed.all_functions().into_iter().next().unwrap();
+            let actual = (
+                parsed.js_ts_seam_binding(&owner, name),
+                parsed.js_ts_mapped_arguments_possible(&owner),
+                parsed.js_ts_direct_eval_anywhere(&owner),
+            );
+            if actual != (seam, args, eval) {
+                failures.push(format!("{language:?}: {source}: {actual:?}"));
+            }
+        }
+        if language != Language::JavaScript {
+            for source in [
+                "register(function(f, p?: number){use(arguments);use(f);});",
+                "register(function(this: unknown, f: number){use(arguments);use(f);});",
+            ] {
+                let parsed = ParsedFile::parse(file_name(language), source, language).unwrap();
+                let owner = parsed.all_functions().into_iter().next().unwrap();
+                if !parsed.js_ts_mapped_arguments_possible(&owner) {
+                    failures.push(format!("{language:?}: erased simple arguments: {source}"));
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

@@ -541,8 +541,8 @@
   ],
   "PD-65-r2-nonnull-write-wrapper-off": [
    "src/ast_callback_identity.rs",
-   "| \"non_null_expression\"",
-   "| \"never_non_null_expression\"",
+   "| \"parenthesized_expression\"\n                | \"non_null_expression\"",
+   "| \"parenthesized_expression\"\n                | \"never_non_null_expression\"",
    [
     "cpg::callback_identity_tests::r2_nonnull_identifier",
     "cpg::callback_identity_tests::r2_nonnull_member"
@@ -682,6 +682,58 @@
    "if !formal_names.iter().any(|formal| formal == name) {",
    "if false {",
    "cpg::callback_identity_tests::r6_named_seam_fallback_excludes_nonformal_body_locals"
+  ],
+  "PD-94-r7-positive-non-simple-inversion": [
+   "src/ast_callback_identity.rs",
+   "    fn js_ts_parameter_is_non_simple(node: Node<'_>) -> bool {\n        match node.kind() {\n            \"assignment_pattern\" | \"object_pattern\" | \"array_pattern\" | \"rest_pattern\" => true,\n            \"required_parameter\" | \"optional_parameter\" => {\n                node.child_by_field_name(\"value\").is_some()\n                    || node\n                        .child_by_field_name(\"pattern\")\n                        .is_some_and(|p| Self::js_ts_parameter_is_non_simple(p))\n            }\n            \"formal_parameters\" => {\n                let mut cursor = node.walk();\n                let found = node\n                    .named_children(&mut cursor)\n                    .any(|p| Self::js_ts_parameter_is_non_simple(p));\n                found\n            }\n            _ => false,\n        }\n    }\n",
+   "    fn js_ts_parameter_is_non_simple(node: Node<'_>) -> bool {\n        match node.kind() {\n            \"assignment_pattern\" | \"object_pattern\" | \"array_pattern\" | \"rest_pattern\" => true,\n            \"required_parameter\" | \"optional_parameter\" => {\n                node.child_by_field_name(\"value\").is_some()\n                    || node\n                        .child_by_field_name(\"pattern\")\n                        .is_some_and(|p| Self::js_ts_parameter_is_non_simple(p))\n            }\n            \"formal_parameters\" => {\n                let mut cursor = node.walk();\n                let found = node\n                    .named_children(&mut cursor)\n                    .any(|p| Self::js_ts_parameter_is_non_simple(p));\n                found\n            }\n            _ => true,\n        }\n    }\n",
+   [
+    "ast::callback_identity::r5_tests::r7_unknown_node_is_not_non_simple_evidence",
+    "cpg::callback_identity_tests::r7_grammar_kind_matrix_has_positive_early_error_proofs"
+   ]
+  ],
+  "PD-95-r7-undefined-bound-name-off": [
+   "src/ast_callback_identity.rs",
+   "fn js_ts_pattern_bound_names(&self, node: Node<'_>, names: &mut Vec<String>) {\n        match node.kind() {\n            \"identifier\"\n            | \"undefined\"",
+   "fn js_ts_pattern_bound_names(&self, node: Node<'_>, names: &mut Vec<String>) {\n        match node.kind() {\n            \"identifier\"",
+   [
+    "cpg::callback_identity_tests::r7_undefined_bound_names_reject_only_real_early_errors",
+    "cpg::callback_identity_tests::r7_undefined_seam_and_erased_simple_arguments_are_classified"
+   ]
+  ],
+  "PD-96-r7-erased-simple-arguments-off": [
+   "src/ast_callback_identity.rs",
+   "fn js_ts_parameters_are_simple(&self, params: Node<'_>) -> bool {\n        let mut cursor = params.walk();\n        let simple = params\n            .named_children(&mut cursor)\n            .filter(|n| n.kind() != \"comment\")\n            .all(|p| {\n                matches!(p.kind(), \"identifier\" | \"undefined\" | \"this\")\n                    || matches!(p.kind(), \"required_parameter\" | \"optional_parameter\")\n                        && p.child_by_field_name(\"value\").is_none()\n                        && p.child_by_field_name(\"pattern\").is_some_and(|n| {\n                            matches!(n.kind(), \"identifier\" | \"undefined\" | \"this\")\n                        })\n            });\n        simple\n    }\n",
+   "fn js_ts_parameters_are_simple(&self, params: Node<'_>) -> bool {\n        let mut cursor = params.walk();\n        let simple = params\n            .named_children(&mut cursor)\n            .filter(|n| n.kind() != \"comment\")\n            .all(|p| {\n                p.kind() == \"identifier\"\n                    || p.kind() == \"required_parameter\"\n                        && p.child_by_field_name(\"value\").is_none()\n                        && p.child_by_field_name(\"pattern\").is_some_and(|n| {\n                            n.kind() == \"identifier\"\n                        })\n            });\n        simple\n    }\n",
+   [
+    "cpg::callback_identity_tests::r7_undefined_seam_and_erased_simple_arguments_are_classified"
+   ]
+  ],
+  "PD-97-r7-undefined-fence-off": [
+   "src/ast_callback_identity.rs",
+   "fn js_ts_fence_pattern_binds(&self, node: Node<'_>, name: &str) -> bool {\n        match node.kind() {\n            \"identifier\"\n            | \"undefined\"",
+   "fn js_ts_fence_pattern_binds(&self, node: Node<'_>, name: &str) -> bool {\n        match node.kind() {\n            \"identifier\"",
+   [
+    "cpg::callback_identity_tests::r7_undefined_bound_names_reject_only_real_early_errors",
+    "cpg::callback_identity_tests::r7_undefined_seam_and_erased_simple_arguments_are_classified"
+   ]
+  ],
+  "PD-98-r7-undefined-decoder-off": [
+   "src/ast_callback_identity.rs",
+   "matches!(ident.kind(), \"identifier\" | \"undefined\")",
+   "ident.kind() == \"identifier\"",
+   [
+    "cpg::callback_identity_tests::r7_undefined_bound_names_reject_only_real_early_errors",
+    "cpg::callback_identity_tests::r7_undefined_seam_and_erased_simple_arguments_are_classified"
+   ]
+  ],
+  "PD-99-r7-invalid-binding-target-off": [
+   "src/ast_callback_identity.rs",
+   "if Self::js_ts_binding_has_invalid_target(params)",
+   "if false",
+   [
+    "cpg::callback_identity_tests::r7_grammar_kind_matrix_has_positive_early_error_proofs"
+   ]
   ]
  },
  "intent_revisions": {
@@ -807,5 +859,15 @@
     "if false && self.language.function_name(owner).is_some() && self.js_ts_seam_binding(owner, name) {"
    ]
   ]
+ },
+ "dispositions": {
+  "PD-65-r2-nonnull-write-wrapper-off": {
+   "disposition": "rebound",
+   "reason": "R7 positive invalid BindingElement proof adds another non_null_expression match; original read-role predicate and killing fixtures unchanged; qualify exact adjacent branch."
+  },
+  "PD-94-r7-positive-non-simple-inversion": {
+   "disposition": "rebound",
+   "reason": "First R7 authoritative gate enumerated one survivor: inversion now equivalent on corrected known kinds. Mutate unknown branch of positive proof to true, directly reproducing unknown-kind refusal; grammar matrix plus direct unknown-node negative control kill it."
+  }
  }
 }

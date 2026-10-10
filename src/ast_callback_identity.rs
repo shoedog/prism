@@ -40,7 +40,10 @@ impl ParsedFile {
     /// expressions. Keep duplicates so early-error checks can detect them.
     fn js_ts_pattern_bound_names(&self, node: Node<'_>, names: &mut Vec<String>) {
         match node.kind() {
-            "identifier" | "type_identifier" | "shorthand_property_identifier_pattern" => {
+            "identifier"
+            | "undefined"
+            | "type_identifier"
+            | "shorthand_property_identifier_pattern" => {
                 if let Some(name) = Self::js_ts_decoded_identifier(self.node_text(&node)) {
                     names.push(name);
                 }
@@ -127,7 +130,9 @@ impl ParsedFile {
                 })
             });
         let simple = self.js_ts_parameters_are_simple(params);
-        if body_strict && !simple {
+        if Self::js_ts_binding_has_invalid_target(params)
+            || body_strict && Self::js_ts_parameter_is_non_simple(params)
+        {
             return true;
         }
         let boundaries = self.language.callable_boundary_node_types();
@@ -314,17 +319,66 @@ impl ParsedFile {
         false
     }
 
+    /// Positive IsSimpleParameterList failure evidence. Unknown grammar nodes
+    /// are not evidence of a default, destructuring or rest BindingElement.
+    fn js_ts_parameter_is_non_simple(node: Node<'_>) -> bool {
+        match node.kind() {
+            "assignment_pattern" | "object_pattern" | "array_pattern" | "rest_pattern" => true,
+            "required_parameter" | "optional_parameter" => {
+                node.child_by_field_name("value").is_some()
+                    || node
+                        .child_by_field_name("pattern")
+                        .is_some_and(|p| Self::js_ts_parameter_is_non_simple(p))
+            }
+            "formal_parameters" => {
+                let mut cursor = node.walk();
+                let found = node
+                    .named_children(&mut cursor)
+                    .any(|p| Self::js_ts_parameter_is_non_simple(p));
+                found
+            }
+            _ => false,
+        }
+    }
+
+    /// The grammar's pattern supertype also accepts assignment targets which
+    /// are not BindingElements. Inspect binding positions only: member reads
+    /// in default RHS expressions and computed keys remain executable.
+    fn js_ts_binding_has_invalid_target(node: Node<'_>) -> bool {
+        match node.kind() {
+            "member_expression" | "subscript_expression" | "non_null_expression" => true,
+            "required_parameter" | "optional_parameter" => node
+                .child_by_field_name("pattern")
+                .is_some_and(|p| Self::js_ts_binding_has_invalid_target(p)),
+            "assignment_pattern" | "object_assignment_pattern" => node
+                .child_by_field_name("left")
+                .is_some_and(|p| Self::js_ts_binding_has_invalid_target(p)),
+            "pair_pattern" => node
+                .child_by_field_name("value")
+                .is_some_and(|p| Self::js_ts_binding_has_invalid_target(p)),
+            "formal_parameters" | "object_pattern" | "array_pattern" | "rest_pattern" => {
+                let mut cursor = node.walk();
+                let found = node
+                    .named_children(&mut cursor)
+                    .any(|p| Self::js_ts_binding_has_invalid_target(p));
+                found
+            }
+            _ => false,
+        }
+    }
+
     fn js_ts_parameters_are_simple(&self, params: Node<'_>) -> bool {
         let mut cursor = params.walk();
         let simple = params
             .named_children(&mut cursor)
             .filter(|n| n.kind() != "comment")
             .all(|p| {
-                p.kind() == "identifier"
-                    || p.kind() == "required_parameter"
+                matches!(p.kind(), "identifier" | "undefined" | "this")
+                    || matches!(p.kind(), "required_parameter" | "optional_parameter")
                         && p.child_by_field_name("value").is_none()
-                        && p.child_by_field_name("pattern")
-                            .is_some_and(|n| n.kind() == "identifier")
+                        && p.child_by_field_name("pattern").is_some_and(|n| {
+                            matches!(n.kind(), "identifier" | "undefined" | "this")
+                        })
             });
         simple
     }
@@ -688,7 +742,10 @@ impl ParsedFile {
     // Fence-specific decoding leaves PR-A's conservative D11 refusal intact.
     fn js_ts_fence_pattern_binds(&self, node: Node<'_>, name: &str) -> bool {
         match node.kind() {
-            "identifier" | "type_identifier" | "shorthand_property_identifier_pattern" => {
+            "identifier"
+            | "undefined"
+            | "type_identifier"
+            | "shorthand_property_identifier_pattern" => {
                 let text = self.node_text(&node);
                 if !text.contains('\\') {
                     return text == name;
@@ -759,7 +816,7 @@ impl ParsedFile {
         let root = tree.root_node();
         let ident = root.named_child(0)?.named_child(0)?;
         (!root.has_error()
-            && ident.kind() == "identifier"
+            && matches!(ident.kind(), "identifier" | "undefined")
             && ident.start_byte() == 0
             && ident.end_byte() == decoded.len())
         .then_some(decoded)
@@ -1188,6 +1245,30 @@ impl ParsedFile {
 #[cfg(test)]
 mod r5_tests {
     use super::*;
+
+    #[test]
+    fn r7_unknown_node_is_not_non_simple_evidence() {
+        let parsed = ParsedFile::parse("case.js", "let x = 0;", Language::JavaScript).unwrap();
+        let node = parsed
+            .tree
+            .root_node()
+            .descendant_for_byte_range(8, 9)
+            .unwrap();
+        assert_eq!(node.kind(), "number");
+        assert!(!ParsedFile::js_ts_parameter_is_non_simple(node));
+        assert!(!ParsedFile::js_ts_binding_has_invalid_target(node));
+        assert_eq!(
+            ParsedFile::js_ts_decoded_identifier("undefined").as_deref(),
+            Some("undefined")
+        );
+        for invalid in ["0", "this", "a.b", "a-b", "return", "\\uD800"] {
+            assert_eq!(
+                ParsedFile::js_ts_decoded_identifier(invalid),
+                None,
+                "{invalid}"
+            );
+        }
+    }
 
     #[test]
     fn r5_flat_seam_scope_preserves_nested_formal_fence() {
