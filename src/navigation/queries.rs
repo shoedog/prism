@@ -1900,7 +1900,7 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
         };
     }
     let mut items = Vec::new();
-    for idx in s.index.cpg.nodes_at(file, line) {
+    for idx in nav_visible_nodes_at(s, file, line) {
         match s.index.cpg.node(idx) {
             CpgNode::Function {
                 name,
@@ -2003,6 +2003,21 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
         graph: None,
         reasoning: None,
     }
+}
+
+/// js-param-defs PR-B: DFG rows of anonymous JS/TS callables carry a synthetic
+/// `<cb@L:C>` owner. Navigation stays byte-identical by default, so those
+/// Variable nodes are never navigation evidence or ego seeds (SPEC-prB D7).
+fn nav_visible_nodes_at(s: &NavigationSession, file: &str, line: usize) -> Vec<NodeIndex> {
+    s.index
+        .cpg
+        .nodes_at(file, line)
+        .into_iter()
+        .filter(|&idx| {
+            !matches!(s.index.cpg.node(idx), CpgNode::Variable { function, .. }
+                if crate::ast::is_synthetic_owner(function))
+        })
+        .collect()
 }
 
 fn fid_of(sym: &SymbolRef) -> FunctionId {
@@ -2462,7 +2477,7 @@ fn resolve_ego_seed(
 ) -> Result<EgoSeed, QueryError> {
     if let Some(loc) = location {
         let (f, line) = parse_location(loc)?;
-        let mut nodes = s.index.cpg.nodes_at(&f, line);
+        let mut nodes = nav_visible_nodes_at(s, &f, line);
         nodes.sort_by_key(|i| i.index());
         nodes.dedup();
         if nodes.is_empty() {

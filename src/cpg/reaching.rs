@@ -68,6 +68,9 @@ pub(crate) struct RdResult {
     pub(crate) labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence>,
     pub(crate) exact_labels: BTreeMap<ExactFlowEdge, FlowConfidence>,
     pub(crate) loop_carried_edges: BTreeSet<(VarLocation, VarLocation)>,
+    /// May-reaching facts, independent of confidence (including flagged CFG
+    /// routes). Used only to admit implicit parameter-to-body entry copies.
+    pub(crate) reaching_edges: BTreeSet<(VarLocation, VarLocation)>,
 }
 
 type RdFunctionKey = (String, usize);
@@ -115,7 +118,8 @@ pub(crate) fn reaching_definitions(
     defs: &[DefSite],
     dfg_edges: &[FlowEdge],
 ) -> RdOutcome {
-    reaching_definitions_with_exact(parsed, func_node, defs, dfg_edges, &[])
+    let cfg_edges = cfg::build_cfg_edges_with_arms(parsed);
+    reaching_definitions_with_exact(parsed, func_node, defs, dfg_edges, &[], &cfg_edges)
 }
 
 pub(crate) fn reaching_definitions_with_exact(
@@ -124,6 +128,9 @@ pub(crate) fn reaching_definitions_with_exact(
     defs: &[DefSite],
     dfg_edges: &[FlowEdge],
     exact_edges: &[FlowEdge],
+    // PR-B perf: the file's CFG edges, built once per file by the caller
+    // (`build_cfg_edges_with_arms` is a pure function of `parsed`).
+    file_cfg_edges: &[(cfg::CfgEdge, cfg::ArmProvenance)],
 ) -> RdOutcome {
     let defs = deduplicate_definitions(defs);
     if defs.len() > RD_MAX_DEFS {
@@ -146,7 +153,7 @@ pub(crate) fn reaching_definitions_with_exact(
         .map(|(index, line)| (*line, index + 1))
         .collect();
     let mut cfg_edges = Vec::new();
-    for (edge, provenance) in cfg::build_cfg_edges_with_arms(parsed) {
+    for (edge, provenance) in file_cfg_edges.iter().cloned() {
         let (Some(&from), Some(&to)) = (
             line_index.get(&edge.from_line),
             line_index.get(&edge.to_line),
@@ -234,8 +241,19 @@ pub(crate) fn reaching_definitions_with_exact(
     let mut labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence> = BTreeMap::new();
     let mut exact_labels = BTreeMap::new();
     let mut loop_carried_edges = BTreeSet::new();
+    let mut reaching_edges = BTreeSet::new();
     for edge in dfg_edges {
         let key = (edge.from.clone(), edge.to.clone());
+        if innermost_statement(edge.to.line, &spans)
+            .and_then(|line| line_index.get(&line))
+            .is_some_and(|node| {
+                matching_defs(edge, &defs)
+                    .iter()
+                    .any(|index| in_sets[*node].contains(*index))
+            })
+        {
+            reaching_edges.insert(key.clone());
+        }
         let label = classify_edge(
             edge,
             parsed,
@@ -290,6 +308,7 @@ pub(crate) fn reaching_definitions_with_exact(
         labels,
         exact_labels,
         loop_carried_edges,
+        reaching_edges,
     })
 }
 

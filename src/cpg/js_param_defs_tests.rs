@@ -254,16 +254,24 @@ fn rest_labels_match_the_plain_parameter_control() {
 
 #[test]
 fn curried_arrows_bind_only_the_named_outer_formal() {
-    // `y => …` is anonymous (no name inference from an arrow body); its
-    // callable identity is PR-B. The outer named arrow gains `x` only.
+    // `y => …` is anonymous (no name inference from an arrow body). PR-B
+    // (intended re-pin): it owns `y` under its synthetic `<cb@L:C>` identity;
+    // the outer named arrow still gains `x` only.
     let source = "const curry = x => y =>\n  sink(x, y);\n";
     for language in JS_TS {
         let cpg = build(language, source);
         let x = span(source, "x =>", 0);
+        let y = span(source, "y =>", 0);
         assert!(has_def(&cpg, "curry", "x", x), "{language:?}");
         assert!(
-            !defs(&cpg).iter().any(|(_, name, _, _)| name == "y"),
-            "{language:?}: anonymous inner arrow gained a Def: {:?}",
+            has_def(&cpg, &format!("<cb@1:{}>", y + 1), "y", y),
+            "{language:?}"
+        );
+        assert!(
+            !defs(&cpg)
+                .iter()
+                .any(|(owner, name, _, _)| name == "y" && owner == "curry"),
+            "{language:?}: the named outer arrow owns the inner formal: {:?}",
             defs(&cpg)
         );
     }
@@ -294,18 +302,13 @@ fn refused_shapes_gain_no_def() {
             );
         }
         if language == Language::JavaScript {
-            // Duplicate bindings: the rest formal is refused (the list is
-            // invalid); the pre-existing plain-formal occurrence is untouched.
+            // R4: a non-simple duplicate list is an ECMAScript early error.
+            // Refuse the entire callable, including the plain formal.
             let m: Vec<_> = all
                 .iter()
                 .filter(|(owner, path, _, _)| owner == "twice" && path == "m")
                 .collect();
-            let first_m = source.find("m, ...m").unwrap();
-            assert_eq!(
-                m.iter().map(|(_, _, start, _)| *start).collect::<Vec<_>>(),
-                vec![first_m],
-                "{all:?}"
-            );
+            assert!(m.is_empty(), "{all:?}");
         } else {
             let items = span(source, "...items", 3);
             assert!(

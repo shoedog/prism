@@ -1058,14 +1058,7 @@ fn optional_inert_rd_labels_match_required_and_preserve_shadow_controls() {
                     (3, 2, NameOnly(CfgIncomplete)),
                     (3, 4, Exact),
                 ],
-                "shadow" => vec![
-                    (1, 2, Exact),
-                    (1, 5, Exact),
-                    (3, 1, NameOnly(CfgIncomplete)),
-                    (3, 2, NameOnly(CfgIncomplete)),
-                    (3, 4, Exact),
-                    (3, 5, NameOnly(Killed { kill_line: 4 })),
-                ],
+                "shadow" => vec![(1, 2, Exact), (1, 5, Exact), (3, 4, Exact)],
                 _ => unreachable!(),
             };
             assert_eq!(
