@@ -7,7 +7,10 @@
 > thread — and every review session that never navigates was holding the whole index (~1.2 GiB resident on
 > this repo) for nothing. The wait budget, warming result, retry, and `--eager` semantics below are unchanged.
 > One consequence: in Lazy mode the repository snapshot is taken when the first valid call starts the build,
-> so edits made between `initialize` and that call are part of the index rather than stale evidence.
+> so edits made between `initialize` and that call are part of the index rather than stale evidence. The
+> passages that assume the build overlaps the handshake and the agent's first think time (§2.2, §3's
+> "TS warm ≤ 19 s returns real results on the first call", and §4 tests 1 and 9's `attempts() == 1` after
+> construction) now describe `--warm-at-startup` only.
 
 Date: 2026-08-22 · Status: **v3 — A+C; sol round-1 and round-2 findings folded; for sol round 3 (declared cap)** · Owner-approved 2026-08-22: approach **A+C**
 (background bootstrap at spawn, instant handshake, bounded wait on `tools/call` then a structured *warming* result; `--eager` keeps

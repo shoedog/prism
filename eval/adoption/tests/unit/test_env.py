@@ -24,7 +24,7 @@ def test_build_isolated_config_layout(tmp_path):
     assert os.path.isfile(os.path.join(cfg.config_dir, "skills", "prism-code-navigation", "SKILL.md"))
     # the MCP config points prism at the repo
     mcp = json.load(open(cfg.mcp_cfg))
-    assert mcp["mcpServers"]["prism"]["args"] == ["--repo", "/repo/x"]
+    assert mcp["mcpServers"]["prism"]["args"] == ["--repo", "/repo/x", "--warm-at-startup"]
     # settings: no hooks, prism allowed, writes denied
     settings = json.load(open(os.path.join(cfg.config_dir, "settings.json")))
     assert settings["hooks"] == {}

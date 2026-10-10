@@ -179,10 +179,11 @@ while `name_span` and `body_span` point to the inner grammar nodes. `body_span` 
   navigates) stays at a few MB instead of holding the whole index. The first valid `tools/call` starts
   the background build and waits up to `--first-call-wait` (20 seconds by default), then returns an
   error-marked `index warming` JSON result if the build is still running. Retry that same call shortly;
-  no other action is needed, and later calls are fast. A warm nav cache loads in a second or two, so
-  the first call usually completes inside the wait. Use `--warm-at-startup` to start the build at
-  process start instead, and `--eager` only when a synchronous build is desirable, such as pre-warming
-  a shared cache.
+  no other action is needed, and later calls are fast. On a mid-size repo a warm nav cache loads in a
+  second or two, so the first call completes inside the wait; very large repos can take 15–20 s even
+  warm, so raise `--first-call-wait` or use `--warm-at-startup` there. `--warm-at-startup` starts the
+  build at process start instead; use `--eager` only when a synchronous build is desirable, such as
+  pre-warming a shared cache.
 
 ---
 

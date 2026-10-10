@@ -791,6 +791,7 @@ fn lazy_refresh_returns_warming_then_delegates_and_preserves_raced_stale_evidenc
     )
     .unwrap();
     let request = r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"refresh_index","arguments":{}}}"#;
+    assert_eq!(provider.attempts(), 0);
 
     let warming = call_tool_at_cap_with_mode(
         &mut provider,
