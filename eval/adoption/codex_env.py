@@ -87,7 +87,9 @@ def build_isolated_codex_home(
     if include_skill_and_mcp:
         # The [mcp_servers.prism] section registers prism as the only MCP server.
         # Deliberately omitting: skill_dirs, model, approvals_reviewer, projects, notify.
-        mcp_args = ["--repo", mcp_repo]
+        # --warm-at-startup keeps the at-spawn build the adoption baselines ran under (the
+        # prism-mcp default became build-on-first-call on 2026-10-09).
+        mcp_args = ["--repo", mcp_repo, "--warm-at-startup"]
         if cache_dir:
             # Codex spawns the MCP server with cwd = the SESSION cwd (the checkout), not the
             # harness cwd — a relative cache path would resolve inside the checkout and miss the

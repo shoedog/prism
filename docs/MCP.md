@@ -63,13 +63,15 @@ prism-mcp --repo /abs/path/to/repo --eager < /dev/null               # build syn
 |---|---|---|
 | `--repo <PATH>` | yes | The repository this server instance navigates. **One repo per process** — pin an absolute path. |
 | `--cache-dir <PATH>` | no | Where to store the per-repo navigation CPG cache (default: an OS cache dir, keyed by the canonical repo path). |
-| `--no-cache` | no | Don't read/write the nav cache (rebuild every start). Conflicts with `--cache-dir`. |
+| `--no-cache` | no | Don't read/write the nav cache (rebuild from source whenever an index build runs). Conflicts with `--cache-dir`. |
 | `--eager` | no | Build the repository index before answering `initialize`, preserving the historical synchronous startup. Use for explicit pre-warming; normally leave it off. |
-| `--first-call-wait <SECS>` | no | Lazy-mode maximum wait for the first valid `tools/call` while the background build finishes (default `20`, range `0`–`600`). `0` returns a warming result immediately. Accepted but ignored with `--eager`. |
+| `--warm-at-startup` | no | Start the background index build when the process starts instead of on the first valid `tools/call`. Trades memory for a warm first call; every process that uses it holds the full index whether or not a tool is ever called. Conflicts with `--eager`. |
+| `--first-call-wait <SECS>` | no | Maximum wait for the first valid `tools/call` while the background build finishes (default `20`, range `0`–`600`). `0` returns a warming result immediately. Accepted but ignored with `--eager`. |
 
-> **First start warms a cache.** A cold whole-repo CPG build can take ~30 s on a large repo; subsequent
-> starts on an unchanged tree are near-instant (the cache is keyed by the canonical repo path + a grammar
-> fingerprint, and only re-indexes changed files). If you want to pre-warm once, use either
+> **The first index build warms a cache.** A cold whole-repo CPG build can take ~30 s on a large repo;
+> later builds on an unchanged tree are near-instant (the cache is keyed by the canonical repo path + a
+> grammar fingerprint, and only re-indexes changed files). By default that build runs on the first valid
+> `tools/call`, not at process start. If you want to pre-warm once, use either
 > `prism-mcp --repo <REPO> --cache-dir <DIR> --eager < /dev/null` or
 > `prism nav --cache-dir <DIR> repo-map --repo <REPO>` (the `--cache-dir` flag must precede `repo-map`).
 
@@ -172,11 +174,16 @@ while `name_span` and `body_span` point to the inner grammar nodes. `body_span` 
 - **Read-only.** The server never modifies the repo. It also never executes code.
 - **Coordinates are snapshot-relative.** Apply `nav_symbol_spans` offsets only to the indexed snapshot;
   stale-session responses carry the same `StaleIndex` warning and metadata as other navigation tools.
-- **Cold first call.** `initialize`, `ping`, and `tools/list` answer immediately while the repository index
-  builds in the background. A valid `tools/call` waits up to `--first-call-wait` (20 seconds by default),
-  then returns an error-marked `index warming` JSON result if the build is still running. Retry that same
-  call shortly; no other action is needed, and later calls are fast. Use `--eager` only when a synchronous
-  build is desirable, such as pre-warming a shared cache.
+- **Cold first call.** `initialize`, `ping`, and `tools/list` answer immediately and do not start the
+  repository index build; a process that only handshakes and lists tools (an agent thread that never
+  navigates) stays at a few MB instead of holding the whole index. The first valid `tools/call` starts
+  the background build and waits up to `--first-call-wait` (20 seconds by default), then returns an
+  error-marked `index warming` JSON result if the build is still running. Retry that same call shortly;
+  no other action is needed, and later calls are fast. On a mid-size repo a warm nav cache loads in a
+  second or two, so the first call completes inside the wait; very large repos can take 15–20 s even
+  warm, so raise `--first-call-wait` or use `--warm-at-startup` there. `--warm-at-startup` starts the
+  build at process start instead; use `--eager` only when a synchronous build is desirable, such as
+  pre-warming a shared cache.
 
 ---
 

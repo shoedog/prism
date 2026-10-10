@@ -12,6 +12,8 @@ struct Cli {
     refresh_policy: String,
     #[arg(long)]
     eager: bool,
+    #[arg(long, conflicts_with = "eager")]
+    warm_at_startup: bool,
     #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u64).range(0..=600))]
     first_call_wait: u64,
 }
@@ -36,6 +38,8 @@ fn main() -> anyhow::Result<()> {
     cfg.refresh_policy = refresh_policy;
     cfg.startup = if c.eager {
         prism::mcp::StartupMode::Eager
+    } else if c.warm_at_startup {
+        prism::mcp::StartupMode::Background
     } else {
         prism::mcp::StartupMode::Lazy
     };

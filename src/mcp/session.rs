@@ -11,8 +11,14 @@ pub const FIRST_CALL_WAIT_MAX: Duration = Duration::from_secs(600);
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum StartupMode {
+    /// Answer the handshake at once; start the repository index build on the first valid
+    /// `tools/call`. A client that only handshakes and lists tools never pays for the index.
     #[default]
     Lazy,
+    /// Answer the handshake at once; start the index build in the background at startup
+    /// (`--warm-at-startup`). Trades memory for a warm first call.
+    Background,
+    /// Build the index before answering `initialize` (`--eager`).
     Eager,
 }
 

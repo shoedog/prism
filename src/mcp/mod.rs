@@ -26,7 +26,7 @@ pub fn run(cfg: ServerConfig) -> anyhow::Result<()> {
             let mut p = SessionProvider::bootstrap(&cfg)?;
             transport::serve_stdio(&mut p, &r)
         }
-        StartupMode::Lazy => {
+        StartupMode::Lazy | StartupMode::Background => {
             let mut p = lazy::LazySessionProvider::new(&cfg)?;
             transport::serve_stdio_runtime(&mut p, &r)
         }

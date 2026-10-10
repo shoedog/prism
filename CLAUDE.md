@@ -260,6 +260,11 @@ partial-hit builds. The B8 rule that capture reads in deferred or nested callabl
 cargo run --bin prism-mcp --features mcp -- --repo /path/to/repo
 ```
 
+Startup modes: by default the repository index is built on the first valid `tools/call`
+(`initialize`, `ping`, and `tools/list` never start it, so a client that only handshakes costs
+a few MB); `--warm-at-startup` starts the background build at process start; `--eager` builds
+before answering `initialize`. See `docs/MCP.md`.
+
 The server exposes nine tools: seven read-only navigation tools (the six graph/evidence
 queries return Prism `Evidence` JSON; `nav_symbol_spans` returns a dedicated coordinate
 result), one read-only reasoning tool `taint_reaches` (also Evidence), and one
