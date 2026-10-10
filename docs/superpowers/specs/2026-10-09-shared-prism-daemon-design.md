@@ -1,9 +1,10 @@
 # Shared per-repo prism daemon — design
 
-Date: 2026-10-09 · Status: **v2 for owner review** (v1 reviewed by gpt-6-astra, verdict FIX; every finding folded,
-see §13) · Owner decision 2026-10-09: approach **A** (per-repo daemon + stdio shim) with the **C** memory measurement
-folded in as a first-class step. Predecessor: #356 (merged, main cb0eeec0) made `StartupMode::Lazy` defer the index
-build to the first valid `tools/call`; `--warm-at-startup` restores the at-spawn build.
+Date: 2026-10-09 · Status: **v3 for owner review** (two gpt-6-astra rounds at the declared cap; round 2 converged to
+closed corrections, all folded; see §13) · Owner decision 2026-10-09: approach **A** (per-repo daemon + stdio shim)
+with the **C** memory measurement folded in as a first-class step. Predecessor: #356 (merged, main cb0eeec0; this
+branch is rebased on it) made `StartupMode::Lazy` defer the index build to the first valid `tools/call`;
+`--warm-at-startup` restores the at-spawn build.
 
 ## 1. Problem and goal
 
@@ -42,6 +43,7 @@ that do.
 - Changing the experimental owner runtime (`--owner-*`). It stays in-process (`--standalone` is implied).
 - Pinned per-client snapshots. The index is one repository state; refresh is visible to every client (§5).
 - Isolation against a hostile same-uid process. The socket is same-user; it is not a security boundary.
+- Sharing across mount namespaces or containers. The key is host- and mount-scoped (§4.3).
 - Reducing the on-disk cache format. Measurement (§6) decides what the in-memory reductions are.
 
 ## 3. Architecture
@@ -55,8 +57,8 @@ claude session ──stdio──▶ prism-mcp --shared (shim) ──┘   (pream
 - The **shim** is the existing `prism-mcp --repo X` binary in shared mode. After a private readiness handshake
   (§4.4) it is a byte pipe: stdin to the socket, socket to stdout. It holds no index and costs a few MB.
 - The **daemon** is the same binary started as `prism-mcp daemon ...`. It owns one lazily built index, serves each
-  connection on its own thread with its own MCP `Lifecycle` and its own output settings, and retires after an idle
-  TTL.
+  admitted connection on its own thread with its own MCP `Lifecycle` and its own output settings, and retires after
+  an idle TTL.
 - The **identity key** (§4.3) names the socket, locks, pid and log files. It covers everything that changes the
   index content or the analyzer's answers; it deliberately excludes per-connection settings, which travel in the
   preamble.
@@ -64,48 +66,59 @@ claude session ──stdio──▶ prism-mcp --shared (shim) ──┘   (pream
 ### 3.1 Daemon state machine
 
 ```
-Starting ──bind, owner lock, accept loop──▶ Ready ──idle TTL, no admitted connections──▶ Draining ──▶ Stopped
-    │ (bind/lock failure)                      │ (fatal panic, repo root gone, SIGTERM)        │
-    └──────────────────────────────────────────┴──────────────────────────────────────────────┘ files removed only by the owner
+Starting ──owner lock, bind, accept loop──▶ Ready ──idle TTL, no admitted or pending connections──▶ Draining ──▶ Stopped
+    │ (lock/bind failure)                     │ (fatal panic, root identity lost, SIGTERM)             │
+    └─────────────────────────────────────────┴───────────────────────────────────────────────────────┘ files removed only by the owner
 ```
 
 - **Starting:** validate the runtime directory (§4.3), take the **owner lock** (`<key>.owner`, `flock(LOCK_EX|LOCK_NB)`;
   failure = another live daemon owns this key → exit 0 silently), bind the socket, write `<key>.pid`
   (`pid\nstart_time\nbuild_identity\n`), enter the accept loop. The owner lock is held for the daemon's whole life.
-- **Ready:** connections are admitted (§4.4). The index builds on the first valid `tools/call` from any client
-  (`StartupMode::Lazy`), or at start if the starting shim passed `--warm-at-startup`.
-- **Draining:** entered only from the admission-and-retirement critical section (§4.2) when the admitted count has
-  been 0 for the TTL. The daemon unlinks its socket **while still holding the owner lock**, so a shim that connects
-  in the gap either fails `connect` (socket gone) or completes the preamble against a daemon that has already
-  decided to retire and answers `RETIRING` (§4.4); either way the shim retries from the lock step. Then the pid file
-  is removed, the owner lock released, exit 0.
-- **Fatal:** any panic inside provider dispatch (§4.2) is daemon-fatal: the process aborts, attached clients see
-  EOF (exactly what a crash of an in-process server looks like today), and the next shim restarts the daemon through
-  the ordinary start protocol. Repo root disappearance and SIGTERM/SIGINT go through Draining.
+- **Ready:** connections are accepted into a bounded handshake stage and admitted on `READY` (§4.2, §4.4). The index
+  builds on the first valid `tools/call` from any client (`StartupMode::Lazy`), or at start if the starting shim
+  passed `--warm-at-startup`.
+- **Draining:** entered only from the admission-and-retirement critical section (§4.2) when **admitted == 0 and
+  pending == 0** for the TTL and no build is running. Under that same lock the daemon stops accepting, unlinks its
+  socket **while still holding the owner lock**, and answers `RETIRING` to any handshake that races in before the
+  unlink. A shim that nevertheless observes EOF, reset or broken pipe during its preamble treats it as transient
+  and re-enters arbitration (§4.1 step 6), so retirement can never fail a fresh startup. Then the pid file is
+  removed, the owner lock released, exit 0.
+- **Fatal:** any panic inside provider dispatch, the build thread or the control plane is daemon-fatal: the process
+  aborts, attached clients see EOF (exactly what a crash of an in-process server looks like today), and the next
+  shim restarts the daemon through the ordinary start protocol. Loss **or change** of the root's filesystem
+  identity (§4.3) and SIGTERM/SIGINT go through Draining.
 
 ## 4. Components
 
 ### 4.1 Shim (`prism-mcp --repo X --shared ...` ; `--standalone` is today's in-process server)
 
-1. Resolve `ServerConfig` exactly as today (`canonical_config`), plus the **effective cache location**
-   (`CacheMode::Default` resolved to its actual directory; explicit `--cache-dir` canonicalized).
+1. Resolve `ServerConfig` exactly as today (`canonical_config`), plus the **effective cache location**: the cache
+   API treats `--cache-dir` as a base and appends a per-repository suffix, so the shim resolves `CacheMode::Default`
+   and an explicit base to the same canonical base directory before the final directory exists.
 2. Shared mode requires a cache-backed, non-eager, non-owner config. `--eager`, `--no-cache` and `--owner-*` are
    served in-process and `--shared` with any of them is a CLI error, not a silent downgrade.
 3. Resolve the **connection settings** from this shim's own environment and flags: `PRISM_MCP_STRUCTURED_CONTENT`,
    `PRISM_MCP_CONCISE_SHAPE`, the result cap, `--first-call-wait`, and `--warm-at-startup`. They are sent in the
    preamble, never inherited from whichever shim started the daemon.
 4. Compute the identity key and paths (§4.3). Validate the runtime directory. Check the socket path length
-   (≤ 103 bytes); if it does not fit, **fail closed** (step 7).
-5. Try `connect`. On success, run the preamble (§4.4). On `RETIRING`, `ECONNREFUSED` or `ENOENT`, go to 6.
-6. Take the **start lock** (`<key>.start`, `flock(LOCK_EX|LOCK_NB)` retried until one absolute deadline,
-   `--daemon-start-timeout`, default 10 s, covering lock wait + spawn + readiness). Under the lock: re-try
-   `connect` + preamble (another shim may have won). If that fails, test the **owner lock**: if it is held, a daemon
-   is alive — it may still be Starting (wait and retry until the deadline) or wedged (preamble times out → fail closed
-   naming the pid from `<key>.pid`; never unlink a socket whose owner lock is held). If the owner lock is free, the
-   socket file is stale: unlink it and spawn the daemon detached (own session via `setsid`, stdin null, stdout and
-   stderr to `<key>.log`, close-on-exec on every lock descriptor so the child never inherits the start lock, the
-   shim's environment). Keep the start lock until the preamble succeeds or the deadline passes.
-7. **Fail closed.** If no daemon could be reached by the deadline, the shim prints one actionable line to stderr
+   (≤ 103 bytes); if it does not fit, **fail closed** (step 7). Establish the **one absolute deadline**
+   (`--daemon-start-timeout`, default 10 s) that bounds everything from here to `READY`.
+5. Try `connect`; on success run the preamble (§4.4) and, on `READY`, go to 8. On `RETIRING`, `ECONNREFUSED`,
+   `ENOENT`, **or EOF/reset/broken pipe before `READY`**, go to 6. Preamble-time failures are transient by
+   definition: no MCP byte has been forwarded yet, so re-entering arbitration is always safe.
+6. Take the **start lock** (`<key>.start`, `flock(LOCK_EX|LOCK_NB)` retried until the deadline). Under it, re-try
+   step 5 (another shim may have won). If that fails, take the **owner lock** exclusively and non-blocking:
+   - **Acquired:** no daemon owns the key. Holding it, unlink any stale socket and pid file, then **release it** and
+     spawn the daemon detached (own session via `setsid`, stdin null, stdout and stderr to `<key>.log`,
+     close-on-exec on every lock descriptor so the child never inherits either lock, the shim's environment). The
+     child acquires the owner lock itself. If two children exist because an earlier starter died mid-spawn, the one
+     that loses the owner lock exits 0 silently; whichever wins is the daemon. The inspection-and-unlink happens
+     entirely under the owner lock, so a daemon that is about to bind can never have its live socket unlinked.
+   - **Held:** a daemon is alive. It may be Starting (keep retrying step 5 until the deadline) or wedged (preamble
+     times out at the deadline → fail closed naming the pid and start time from `<key>.pid`). A socket whose owner
+     lock is held is **never** unlinked.
+   Keep the start lock until `READY` or the deadline.
+7. **Fail closed.** If no daemon reached `READY` by the deadline, the shim prints one actionable line to stderr
    (key, runtime dir, socket path, pid file contents, log path, and the exact `--standalone` invocation) and exits
    non-zero. It never silently builds a private index: under fan-out, N silent fallbacks are the incident this
    design exists to prevent. The only way to get a private index is to ask for one with `--standalone`.
@@ -123,39 +136,60 @@ bridge) is never approached by another client's build or refresh.
 
 Two independent synchronization domains. Nothing in the control plane ever waits on the provider.
 
-- **Control plane** (`Mutex<Control>` + `Condvar`): admitted-connection count, last-activity instant, retirement
-  decision, and the **readiness state** of the index build (`Idle | Building{started, attempt} | Ready{generation} |
-  Failed{error, attempt}`). The build itself runs on one thread; connections that need readiness wait on the
-  condvar **with their own `--first-call-wait` budget from the preamble**, outside every other lock. This replaces
-  v1's "the daemon uses the first shim's wait": the wait is now connection-local, as it should be.
-- **Provider** (`RwLock<SessionProvider>`): queries take the read lock; `refresh_index` and automatic refresh take
-  the write lock. The build publishes into it once under the write lock. `handle_message` is split so that
-  lifecycle and control methods (`initialize`, `notifications/initialized`, `ping`, `tools/list`, invalid requests,
-  unknown tools) run with **no provider lock**, read-only tool dispatch runs under the read lock with an explicit
-  `&NavigationSession` + `&FreshnessProbe`, and refresh runs under the write lock. This is the transport refactor
-  (§4.5); the `SessionRuntime` trait's `&mut self` readiness/refresh methods remain for the in-process server, and
-  the daemon implements the same split through its two domains.
-- **Per connection:** one thread, one `UnixStreamTransport` (same framing as `StdioTransport`, 1 MiB frame limit
-  retained), one `Lifecycle`, one `ConnectionSettings` from the preamble. Reads and writes happen outside every
-  lock; a slow reader can hold at most one bounded response in flight. The daemon caps admitted connections
-  (`--max-clients`, default 64) and answers `BUSY` in the preamble beyond that.
-- **Idle exit:** the retirement check runs in the same critical section that admits connections (§3.1), so an
-  admission and a retirement cannot interleave. Retirement requires admitted == 0 for `--idle-ttl` (default 15 min;
-  see §11) **and** no build in progress.
+- **Control plane** (`Mutex<Control>` + `Condvar`): pending-handshake count, admitted-connection count,
+  last-activity instant, retirement decision, and the **readiness coordinator** for the index build
+  (`Idle | Building{attempt, started} | Ready{generation} | Failed{attempt, error}`). The build runs on one thread
+  and publishes the provider into the provider slot **before** announcing `Ready`. Lock ordering: a thread holding
+  Control never waits on the provider; a thread holding the provider may briefly take Control to read state.
+- **Readiness semantics (per connection and per build attempt):** a connection's deadline for attempt *n* is set
+  when its first readiness-requiring call arrives during attempt *n* and is cumulative for that attempt: every later
+  call during the same attempt waits only the remaining budget and then returns `index warming` promptly. A
+  warming response is a wait outcome for that connection; it neither cancels the build nor changes any other
+  connection's deadline, and it is not a state transition. When attempt *n* terminates, its outcome (Ready or
+  Failed) is delivered to every connection waiting on it. After Failed, the next readiness-requiring call from any
+  connection starts exactly one retry (attempt *n+1*) with fresh per-connection budgets. Worked example: A and B
+  join attempt 1 with budgets 20 s and 60 s; A expires at 20 s and gets warming; B keeps waiting; publication at
+  35 s serves B directly and A's next call immediately.
+- **Provider** (`RwLock<Option<SessionProvider>>`, empty until the first publication): queries take the read lock
+  and operate on a **read-only facade** of the whole `SessionProvider`, not a narrower tuple, so they see the
+  session, the freshness probe, the generation, **the sticky `known_stale_after_refresh` evidence** and the refresh
+  policy with exactly today's precedence (stored verification evidence over a fresh stamp probe). `refresh_index`
+  and automatic refresh take the write lock; automatic refresh re-checks its trigger after acquiring exclusive
+  access, and every response is bound to the generation it actually queried. `handle_message` is split (§4.5) so
+  lifecycle and control methods run with **no provider lock**, read-only tool dispatch runs under the read lock,
+  and refresh runs under the write lock. The in-process server keeps `LazySessionProvider` and `SessionRuntime`
+  unchanged; the daemon's coordinator is a new type introduced in S3a.
+- **Per connection:** accepted sockets enter a **bounded handshake stage** (non-blocking, preamble line ≤ 4 KiB,
+  preamble timeout); a worker thread, `UnixStreamTransport` (same framing as `StdioTransport`, 1 MiB frame limit
+  retained), `Lifecycle` and `ConnectionSettings` are allocated only after admission. `--max-clients` (default 64)
+  bounds **pending + admitted**; beyond it, new connections are answered `BUSY` without allocating a worker. Reads
+  and writes happen outside every lock; a slow reader can hold at most one bounded response in flight.
+- **Admission and retirement:** one critical section. Admission increments the count before `READY` is written and
+  decrements it if the write fails. Retirement requires admitted == 0 **and** pending == 0 for `--idle-ttl`
+  (default 15 min; see §11) and no build in progress; it stops accepting and unlinks the socket inside the same
+  critical section, so an admission and a retirement cannot interleave, and any handshake that was pending is
+  answered `RETIRING` before exit.
 - **Refusal:** a daemon serves exactly the identity it was started with; the preamble compares the full identity,
   not the 16-hex locator (§4.4).
 - **Panic policy:** a panic anywhere in provider dispatch, the build thread or the control plane aborts the daemon
-  (§3.1 Fatal). A poisoned lock is never unwrapped past; the process is gone before that matters. Panics in a
-  connection's framing or output shaping (outside both domains) close that connection only.
+  (§3.1 Fatal); no lock is ever unwrapped past poisoning. Panics in a connection's framing or output shaping
+  (outside both domains) close that connection only; the implementation marks these boundaries explicitly.
 
 ### 4.3 Identity key, runtime directory and files
 
 - **Identity key** = SHA-256 over a length-prefixed, lossless encoding of: canonical repo root (bytes), the root's
   filesystem identity (`st_dev`, `st_ino`), `CARGO_PKG_VERSION`, `GRAMMAR_FINGERPRINT`,
   **`PRISM_CACHE_BUILD_IDENTITY`** (the analyzer build identity the CPG cache already checks, `src/cpg_cache.rs`),
-  the **shim–daemon protocol version**, the effective cache directory (canonical), and `--refresh-policy`.
-  Excluded by design: `--first-call-wait`, `--warm-at-startup`, output settings (all connection-local).
-  The invariant is therefore "one index per compatible configuration and build", which is what §1 promises.
+  the **shim–daemon protocol version**, the effective cache base directory (canonical, §4.1 step 1), and
+  `--refresh-policy`. Excluded by design: `--first-call-wait`, `--warm-at-startup`, output settings (all
+  connection-local). The invariant is therefore "one index per compatible configuration and build", which is what
+  §1 promises.
+- **Scope of the key:** `st_dev` is the mounted device number, not a persistent volume id, so a volume remount
+  that renumbers the device yields a new key and a new daemon (acceptable: the old one retires when its root's
+  identity no longer matches, see below). A container with a different device view gets its own daemon (§2); a
+  sandbox that sees the same path, device, inode and runtime directory shares (intended). The daemon re-checks its
+  root's `(st_dev, st_ino)` on every admission and on the TTL tick; loss **or change** enters Draining — existence
+  of the pathname alone is not enough.
 - **Runtime directory:** `$PRISM_MCP_RUNTIME_DIR` if set (the test and bridge override), else `dirs::runtime_dir()`
   (Linux `$XDG_RUNTIME_DIR`), else `std::env::temp_dir()` (macOS `$TMPDIR`), joined with `prism-mcpd/`. On every
   use the shim and daemon **validate** it: owned by the current uid, mode 0700, a real directory (not a symlink),
@@ -171,25 +205,27 @@ Two independent synchronization domains. Nothing in the control plane ever waits
 
 ```
 shim  → daemon:  HELLO {"protocol":1,"identity":"<full hex key>","settings":{"structured_content":"always|omit-default-path","concise_shape":...,"result_cap":N,"first_call_wait_secs":N,"warm_at_startup":bool}}
-daemon → shim:   READY {"protocol":1,"identity":"<full hex key>","pid":N,"generation":N,"build":"idle|building|ready|failed"}
+daemon → shim:   READY {"protocol":1,"identity":"<full hex key>","pid":N,"start_time":N,"generation":N,"build":"idle|building|ready|failed"}
              or  RETIRING {}  |  BUSY {"max_clients":N}  |  MISMATCH {"expected":"<key>"}
 ```
 
-- The daemon admits the connection (increments the count under the control lock) only on `READY`; the shim forwards
-  MCP bytes only after `READY`. `connect` succeeding is not readiness evidence; `READY` is.
+- The daemon admits the connection (increments the count under the control lock) only when it writes `READY`; the
+  shim forwards MCP bytes only after `READY`. `connect` succeeding is not readiness evidence; `READY` is.
 - `MISMATCH` cannot happen with a correctly computed key, but the check is what makes the 16-hex filename a locator
-  rather than proof of equality (astra F2).
-- The daemon also checks the peer's uid (`getpeereid`) equals its own and drops the connection otherwise.
-- The preamble has a bounded timeout (`--daemon-start-timeout` shares it); a daemon that accepts but never answers
-  is "live but wedged" and is reported, never replaced (§4.1 step 6).
+  rather than proof of equality.
+- The daemon checks the peer's uid (`getpeereid`) equals its own and drops the connection otherwise.
+- The preamble is bounded by the shim's single deadline (§4.1 step 4) and by the daemon's handshake-stage timeout.
+  A daemon that accepts but never answers is "live but wedged" and is reported, never replaced (§4.1 step 6).
 
 ### 4.5 Transport refactor
 
 - `UnixStreamTransport` implements the existing `Transport` trait with the stdio framing code shared, not copied.
 - `handle_message` is split into `handle_control(message, lifecycle, registry, settings)` (no runtime) and
-  `dispatch_tool(message, runtime_view, settings)` where `runtime_view` is either a read view (session + freshness
-  + generation) or the exclusive refresh path. The in-process server composes both exactly as today through
-  `SessionRuntime`, so standalone behavior is unchanged byte-for-byte (slice 1 ships with that proof).
+  `dispatch_tool(message, view, settings)` where `view` is either the **read-only facade** of a `SessionProvider`
+  (session, freshness probe, generation, sticky stale evidence, refresh policy, with today's precedence) or the
+  exclusive refresh path. The in-process server composes both exactly as today through `SessionRuntime`, so
+  standalone behavior is unchanged byte-for-byte against the post-#356 implementation (S1 ships with that proof
+  over the existing transport test corpus).
 - Output settings become an explicit `ConnectionSettings` argument instead of being read from the process
   environment inside `transport.rs`; the in-process server builds it from its own environment once (today's
   behavior), the daemon builds it per connection from the preamble.
@@ -199,36 +235,39 @@ daemon → shim:   READY {"protocol":1,"identity":"<full hex key>","pid":N,"gene
 | Event | Behavior |
 |---|---|
 | First client for a key | Shim starts the daemon under the start lock; others wait on the lock, then connect |
-| Starter crashes mid-start | Start lock releases with its descriptor; the child it spawned (if any) owns the key via the owner lock; the next shim finds the owner lock held and waits for `READY` |
-| Daemon dies between bind and first accept | Connect fails, or succeeds into the backlog and the preamble times out; the shim retests the owner lock (free) and restarts |
+| Starter crashes mid-start | Start lock releases with its descriptor. If it had spawned a child, that child either already owns the key (next shim sees the owner lock held and waits for `READY`) or loses the owner lock to the next starter's child and exits 0; both outcomes leave exactly one daemon |
+| Daemon dies between bind and first accept | Connect fails, or succeeds into the backlog and the preamble sees EOF; both re-enter arbitration; the owner lock is free, so the socket is replaced |
+| Retirement races a connecting shim | Pending handshakes get `RETIRING`; a shim that sees EOF instead re-enters arbitration within its original deadline |
 | Client exits | Connection drops; admitted count decrements; daemon stays up until idle TTL |
-| Last client gone + TTL, no build running | Draining → files removed by the owner → exit 0 |
+| Last client gone + TTL, no build running, nothing pending | Draining → files removed by the owner → exit 0 |
 | Daemon crashes | Attached clients see EOF; next shim finds the owner lock free, unlinks the stale socket, restarts |
-| New prism build installed | New key, new daemon; the old daemon retires when its last client leaves (overlap is bounded only by client lifetime; `daemon-status` lists every live daemon with its build identity so an operator can see it) |
-| Repo root renamed / replaced | Filesystem identity is in the key; a replaced root is a different daemon. The old daemon exits via Draining when its root is gone; already attached shims get EOF (they cannot switch an established MCP session) |
+| New prism build installed | New key, new daemon; the old daemon retires when its last client leaves (overlap is bounded only by client lifetime; `daemon-status` lists every live daemon with its build identity) |
+| Repo root renamed / replaced / remounted with a new device number | Filesystem identity is in the key; the old daemon detects the identity change and drains; already attached shims get EOF (they cannot switch an established MCP session) |
 | User logs out | Nothing special: the daemon is per-user, not per-login-session; it retires on idle like any other time |
 | Socket dir unwritable / path too long / runtime dir fails validation | Shim fails closed with the diagnostic (§4.1 step 7) |
 
 ### 4.7 Operator surface
 
 `prism-mcp daemon-status [--repo X] [--runtime-dir D]` prints, for every live daemon in the runtime dir (or the one
-for `X`): key, repo root, build identity, pid, start time, admitted clients, build state, generation, idle time, and
-whether its socket answers the preamble. `prism-mcp daemon-shutdown --repo X` asks the verified instance (pid +
-start time from the pid file) to enter Draining when its admitted count reaches 0; it never disconnects other
-clients (§11 decision 3).
+for `X`): key, repo root, build identity, pid, start time, admitted and pending clients, build state and attempt,
+generation, idle time, and whether its socket answers the preamble. `prism-mcp daemon-shutdown --repo X` asks the
+instance verified through the live control exchange (pid + start time echoed in `READY`) to enter Draining when its
+admitted count reaches 0; it never disconnects other clients (§11 decision 3). The integration tests use a
+test-only status probe over the same control exchange (S3a) and do not depend on the operator tool (S5b).
 
 ## 5. Semantics preserved and changed
 
 - **Preserved, for the same indexed snapshot, the same connection settings and the same readiness state:** every
-  tool's result schema and content, the warming result and retry contract, `refresh_index` verification, stale-index
-  warnings, and the `initialize` instructions (the daemon advertises Lazy or Background according to how its index
-  was started).
+  tool's result schema and content, the warming result and retry contract, `refresh_index` verification and its
+  sticky stale evidence, stale-index warnings, and the `initialize` instructions (the daemon advertises Lazy or
+  Background according to how its index was started).
 - **Changed, by design:** the index, its `generation`, and freshness evidence are per daemon, not per client. A
   `refresh_index` from client A changes what client B sees next (B sees the refreshed names, where an in-process
   warn-only server would have returned the old names with a stale warning). A build started by A's first call is
   the build B waits on. These are the semantics of one repository state, and they are stated rather than hidden
-  behind a byte-identical claim (astra F5).
-- **Connection-local, never shared:** output settings, result cap, `--first-call-wait` budget.
+  behind a byte-identical claim.
+- **Connection-local, never shared:** output settings, result cap, `--first-call-wait` budget (per connection and
+  per build attempt, §4.2).
 - **Excluded from shared mode:** `--eager`, `--no-cache`, and the owner runtime (CLI error with `--shared`).
 
 ## 6. Memory measurement (C) and reduction candidates
@@ -247,25 +286,30 @@ triage**: it ranks candidates for a candidate-specific experiment, it does not b
 - Four runs per corpus: warm disk cache, cold uncached build (`--no-cache`), the workload, and one `refresh_index`
   (for the refresh peak). Each run three times on the same host state; the report records min and median.
 - **Component attribution** independent of RSS deltas: total source bytes, tree-sitter node count × per-node size
-  (from `ParsedFile.parse_node_count`), CPG node/edge counts and the string duplication ratio over node payloads
-  (unique bytes / total bytes). These are what distinguish M1 from M3; stage deltas alone cannot.
+  (from `ParsedFile.parse_node_count`; an estimate, not an allocation measurement), CPG node/edge counts and the
+  string duplication ratio over node payloads (unique bytes / total bytes). These rank M1 against M3; the
+  candidate experiment then measures the actual saving before/after.
 - Corpora (**five**): slicing (self), `~/code/bench-repos/{ruff, excalidraw, prometheus, kubernetes}` — Rust,
   TypeScript, Go at three sizes. Each run records commit, dirty state, cache version, grammar fingerprint, binary
   build identity, allocator, and host compression/swap state at the time.
+- **Experiment parameters are pinned before a candidate experiment runs:** the footprint metric
+  (`phys_footprint`), the sampling window (after the workload, after a 5 s settle), repetitions (three, median
+  reported with min/max), and noise treatment (a candidate must beat the baseline's max by its own min).
 
 ### 6.2 Candidates and what would select each
 
 | Id | Change | Expected effect (to be measured) | What the experiment must show |
 |---|---|---|---|
-| M2 | Stream the cache deserialization instead of `fs::read` + `bincode::deserialize` of the whole file | Removes the file-bytes transient (≈300–450 MB of the 1,620 MB peak on slicing, i.e. 19–28 %) | Peak reduction **and** load time not worse than today (streaming is not automatically free) |
+| M2 | Stream the cache deserialization instead of `fs::read` + `bincode::deserialize` of the whole file | Removes the file-bytes transient (≈300–450 MB of the 1,620 MB peak on slicing, i.e. 19–28 %) | Peak reduction on two corpora **and** load time not worse than today (streaming is not automatically free) |
 | M1 | Drop retained tree-sitter trees after the index is built; reparse on demand from the **retained snapshot source** (never the live filesystem) behind a `OnceCell` accessor | Steady-state saving proportional to node count | Saving measured **after** the workload, so regrowth of the per-file tree cache is counted; query p50/p95 within the gate |
 | M3 | Intern repeated strings in CPG node payloads | Depends on the measured duplication ratio | Saving on two corpora; build time within the gate |
 
-Decision rule (a prioritization heuristic, not a correctness gate): implement a candidate if the experiment shows
-≥ 15 % of steady-state footprint **or** ≥ 200 MB absolute on at least two of the five corpora; for M2, ≥ 15 % of
-peak or ≥ 200 MB. Gate for each shipped candidate: no regression on `uv run tier-a --quick`, on single-client nav
-p50, **and** on fan-out latency (8 shims, p95/p99 of the workload, with one concurrent `refresh_index`), all
-measured baseline vs. candidate in the same environment.
+Decision rule (a prioritization and candidate-advancement heuristic, not a shipping decision): advance a candidate
+to its experiment if the readout shows ≥ 15 % of steady-state footprint **or** ≥ 200 MB absolute on at least two
+of the five corpora; for M2, ≥ 15 % of peak or ≥ 200 MB on at least two corpora. Shipping gate for each candidate:
+no regression on `uv run tier-a --quick`, on single-client nav p50, **and** on fan-out latency (8 shims, p95/p99 of
+the workload, with one concurrent `refresh_index`), all measured baseline vs. candidate in the same environment.
+The fan-out gate needs a working shim, so a candidate may **begin** after C1 but may **ship** only after S5a.
 
 ### 6.3 Why not just the reductions
 
@@ -278,11 +322,12 @@ the second.
   daemon checks the peer uid on every accepted connection. This closes pre-existing-directory and symlink games by
   other users; it is not a boundary against a hostile same-uid process (non-goal).
 - No network listener, no code execution; the daemon is as read-only as the in-process server.
-- Bounded resources: `--max-clients`, one in-flight response per connection, the existing 1 MiB frame limit, a
-  bounded preamble timeout, and a capped log.
+- Bounded resources: `--max-clients` over pending + admitted connections, a bounded non-blocking handshake stage
+  with a 4 KiB preamble limit and a timeout, one in-flight response per connection, the existing 1 MiB frame
+  limit, and a capped log.
 - The daemon inherits the environment of the shim that started it only for things that do not affect answers
-  (locale, PATH); every answer-affecting setting is either in the key or in the per-connection preamble (astra F3).
-- Containers and sandboxes have their own filesystem and therefore their own daemon; nothing crosses that boundary.
+  (locale, PATH); every answer-affecting setting is either in the key or in the per-connection preamble.
+- Containers and sandboxes with a different filesystem view have their own daemon; nothing crosses that boundary.
 
 ## 8. Configuration and rollout
 
@@ -303,13 +348,14 @@ the second.
 Deterministic constructions, not sleeps:
 
 - Unit: identity key stability and sensitivity (each input, including build identity and protocol version,
-  changes it; `--first-call-wait` does not); lossless encoding; socket path length; runtime-dir validation
-  (owner/mode/symlink, injected `fs` errors); `UnixStreamTransport` shares the stdio framing tests through the
-  `Transport` trait; preamble encode/decode and every reply variant.
-- Integration (`tests/mcp/`, real sockets under a temp `PRISM_MCP_RUNTIME_DIR`), each with the deterministic hook
-  named:
-  1. Two shims, one build: the builder is blocked on a test barrier; `daemon-status` shows `building` with attempt
-     1; release; B's first call is served from that build. Exposes a supported build counter in `daemon-status`.
+  changes it; `--first-call-wait` does not); lossless encoding; cache-base normalization (Default vs. explicit
+  equivalent, before the directory exists); socket path length; runtime-dir validation (owner/mode/symlink,
+  injected `fs` errors); `UnixStreamTransport` shares the stdio framing tests through the `Transport` trait;
+  preamble encode/decode and every reply variant; readiness coordinator: per-connection, per-attempt budgets,
+  terminal-outcome delivery, single retry.
+- Integration (`tests/mcp/`, real sockets under a temp `PRISM_MCP_RUNTIME_DIR`), each with its deterministic hook:
+  1. Two shims, one build: builder blocked on a test barrier; the test status probe shows `building` attempt 1;
+     release; B's first call is served from that build.
   2. Idle exit: injected clock; observe the disconnect, advance the clock past the TTL, assert Draining; one bounded
      real-clock smoke test alongside.
   3. Stale socket: bind a fixture socket with no owner lock, close its listener, then start the shim → replaced.
@@ -327,6 +373,13 @@ Deterministic constructions, not sleeps:
   11. Partial forwarding: daemon killed after one MCP byte → the shim exits non-zero without reconnecting.
   12. Panic policy: an injected panic in dispatch aborts the daemon; all attached shims see EOF; the next shim
       restarts it.
+  13. Retirement race: a shim paused after `connect` and before `HELLO` while the daemon retires → the shim sees
+      `RETIRING` or EOF, re-enters arbitration, and reaches `READY` on a fresh daemon within its original deadline.
+  14. Sticky stale evidence: a refresh that verifies `Diverged` followed by a clean stamp probe → B's next query
+      still carries the stale warning, and auto-refresh retries.
+  15. Starter death: starter killed between spawning its child and the child taking the owner lock while a second
+      shim starts → exactly one daemon survives and both shims reach `READY`.
+  16. Pending bound: more than `--max-clients` connections stalled before `HELLO` → `BUSY` without worker allocation.
 - Soak: §8 step 2.
 
 ## 10. Error handling matrix
@@ -336,47 +389,62 @@ Deterministic constructions, not sleeps:
 | Start lock not acquired by the deadline | Shim | Fail closed, diagnostic |
 | Daemon spawn fails (exec error) | Shim | Fail closed |
 | Owner lock held but preamble times out | Shim | Fail closed naming the pid; socket left alone |
+| EOF/reset/broken pipe before `READY` | Shim | Transient: re-enter arbitration within the same deadline |
 | `RETIRING` / `BUSY` / `MISMATCH` | Shim | Retry from the lock step (RETIRING); fail closed with the reason (BUSY, MISMATCH) |
 | Socket error after the first forwarded byte | Shim | Exit non-zero (dead server) |
 | Client sends invalid JSON | Daemon | Same `-32700/-32600` responses as stdio; connection stays |
 | Peer uid mismatch | Daemon | Connection dropped before the preamble reply |
 | Panic in provider dispatch, build, or control plane | Daemon | Abort (fatal); clients see EOF |
 | Panic in a connection's framing/output | Daemon | That connection closes |
-| Repo root removed | Daemon | Draining; attached shims see EOF |
+| Root identity lost or changed | Daemon | Draining; attached shims see EOF |
 
-## 11. Decisions for the owner (astra's recommendation in italics)
+## 11. Decisions for the owner (astra's recommendation, confirmed in both rounds, in italics)
 
-1. Idle TTL default: 15 min. *Keep 15; note that with the bridge's 5 min adapter retirement, residency after a
-   session ends is about 20 min.*
+1. Idle TTL default: 15 min. *Keep 15; residency after a bridge session ends is about 20 min only when the
+   bridge's 5 min adapter retirement is what closes the last connection.*
 2. Rollout: opt-in first with the §8 soak acceptance. *Opt-in; the lifecycle protocol needs multi-client evidence.*
-3. `daemon-shutdown` verb for the bridge's reaper. *Yes, graceful and instance-bound; it must never disconnect other
-   active clients.*
+3. `daemon-shutdown` verb for the bridge's reaper. *Yes, graceful and instance-bound, validated through the live
+   control exchange; it must never disconnect other active clients.*
 
 ## 12. Slicing
 
 | PR | Content | Depends on |
 |---|---|---|
-| S1 | Transport/framing refactor (`UnixStreamTransport`, `handle_control`/`dispatch_tool` split, `ConnectionSettings` explicit); standalone byte-for-byte proof | #356 |
-| S2 | Identity key (with build identity + protocol version), runtime-dir validation, preamble encode/decode, connection-local settings | S1 |
-| S3 | Shared provider dispatch: control plane + readiness condvar + `RwLock` provider, refresh visibility, panic policy; tests 1, 6, 7, 9, 12 | S2 |
-| S4 | Daemon ownership, admission/retirement critical section, Draining, deterministic lifecycle tests 2, 3, 4, 8 | S3 |
-| S5 | Shim: connect/lock/spawn/fail-closed/pump, `daemon-status`, `daemon-shutdown`; tests 5, 10, 11 | S4 |
-| S6 | Opt-in launcher/config changes (`.codex/config.toml`, plugin launcher, bridge entry, `PRISM_MCP_RUNTIME_DIR`), docs, soak instrumentation | S5 |
-| C1 | `PRISM_MCP_MEM_REPORT` harness + attribution counters + the five-corpus readout under `docs/analysis/` | none (parallel with S1) |
-| C2-M2 / C2-M1a / C2-M1b / C2-M3 | One PR per candidate the readout selects: M2 streaming; M1 accessor migration (no eviction yet); M1 eviction + reparse-from-snapshot; M3 interning. Each with its own baseline-vs-candidate gate in the same environment | C1 |
+| S1 | Transport/framing refactor (`UnixStreamTransport`, `handle_control`/`dispatch_tool` split, read-only provider facade, `ConnectionSettings` explicit); standalone byte-for-byte proof against post-#356 | #356 |
+| S2 | Identity key (with build identity + protocol version, filesystem identity, normalized cache base), runtime-dir validation, preamble encode/decode, connection-local settings | S1 |
+| S3a | Readiness coordinator (per-connection, per-attempt budgets, publication before Ready, single retry), `RwLock<Option<SessionProvider>>`, test-only status probe; tests 1, 14 | S2 |
+| S3b | Concurrent dispatch, refresh visibility, auto-refresh recheck, panic boundaries; tests 6, 7, 9, 12 | S3a |
+| S4 | Daemon ownership (owner vs. start locks), bounded handshake stage, admission/retirement critical section, Draining, root-identity check; tests 2, 3, 4, 8, 13, 15, 16 | S3b |
+| S5a | Shim: connect/arbitration/spawn/fail-closed/pump with the single deadline; tests 5, 10, 11 | S4 |
+| S5b | `daemon-status`, `daemon-shutdown` | S5a |
+| S6 | Opt-in launcher/config changes (`.codex/config.toml`, plugin launcher, bridge entry, `PRISM_MCP_RUNTIME_DIR`), docs, soak instrumentation | S5b |
+| C1 | `PRISM_MCP_MEM_REPORT` harness + attribution counters + the five-corpus readout under `docs/analysis/` (uses the existing in-process transport; independent of S1 for the baseline, not of the provenance it records) | none |
+| C2-M2 / C2-M1a / C2-M1b / C2-M3 | One PR per candidate the readout advances: M2 streaming; M1 accessor migration (no eviction yet); M1 eviction + reparse-from-snapshot; M3 interning. Experiment may begin after C1; **ship** only after S5a (fan-out gate) | C1; S5a to ship |
 | B | Default flip after the §8 soak acceptance | S6 soak |
 
 ## 13. Review record
 
-- v1 (27be06dd): gpt-6-astra, high reasoning, read-only — **FIX**. WRONG/MATERIAL: F1 silent fallback defeats the
-  goal → §4.1 step 7 fails closed; F2 key omits the analyzer build identity → §4.3 + preamble identity check; F3
+- **v1 (27be06dd) → round 1, gpt-6-astra, high reasoning, read-only: FIX.** WRONG/MATERIAL: F1 silent fallback
+  defeats the goal → fail closed; F2 key omits the analyzer build identity → key + preamble identity check; F3
   env-derived output settings first-starter-wins → `ConnectionSettings` in the preamble, explicit in dispatch; F4
-  one mutex lets a build wait block handshakes → §4.2 two domains, control plane never waits on the provider,
-  connection-local wait budget. WRONG/IMMATERIAL: F5 byte-identical contract → §5 restated. SMELL/MATERIAL: F6
-  lifecycle state machine → §3.1, owner vs. start locks, admission/retirement critical section, readiness via
-  `READY`; F7 panic policy → daemon-fatal; F8 measurement rigor → §6 attribution, footprint metrics, repeated runs,
-  workload-after measurement, five corpora, percentage-or-absolute rule. Also folded: start-deadline covering lock
-  wait, close-on-exec, both connect failure modes, runtime-dir validation and `PRISM_MCP_RUNTIME_DIR`, key
-  normalization, `--first-call-wait` out / `--refresh-policy` in, retry boundary defined by direction, peer-uid
-  check, bounded resources, log cap during life, deterministic test constructions, six-slice split, C2 per
-  candidate, B gated on soak acceptance. Declared cap: one more review round on v2.
+  one mutex lets a build wait block handshakes → two domains, control plane never waits on the provider,
+  connection-local budget. WRONG/IMMATERIAL: F5 byte-identical contract → §5 restated. SMELL/MATERIAL: F6 lifecycle
+  state machine; F7 panic policy → daemon-fatal; F8 measurement rigor → attribution, footprint metrics, repeated
+  runs, workload-after measurement, five corpora, percentage-or-absolute rule. Plus the Q&A folds listed in v2.
+- **v2 (33894146) → round 2 (declared cap): FIX, converging** (6 findings vs. 8, all closed and enumerable, none
+  repeating). F1–F5, F7, F8 FOLDED; F6 PARTIAL. New: N1 WRONG/MATERIAL retirement can hand a pending preamble an
+  EOF the shim did not recover from → §3.1/§4.1 step 5: preamble-time EOF/reset is transient and re-enters
+  arbitration within the one deadline; pending counted in retirement; `RETIRING` to pending handshakes; test 13.
+  N2 WRONG/MATERIAL the narrowed read view dropped sticky `known_stale_after_refresh` evidence → read-only facade
+  of the whole provider with today's precedence; auto-refresh recheck; test 14. N3 SMELL/MATERIAL stale-socket
+  cleanup needed continuous owner-lock protection → inspection and unlink under the owner lock, release before
+  spawn, either child may win; §4.6 corrected; test 15. N4 SMELL/MATERIAL budget lifetime and failed-attempt
+  delivery unspecified → per-connection, per-attempt cumulative deadline, terminal outcomes delivered, one retry,
+  worked example. N5 SMELL/MATERIAL `--max-clients` ignored pending handshakes → bounded handshake stage, pending +
+  admitted bound, 4 KiB preamble; test 16. N6 SMELL/IMMATERIAL slice dependencies → S3a/S3b, S5a/S5b, test-only
+  status probe, C2 begin-vs-ship. Also folded: the coordinator is a new daemon type (standalone keeps
+  `LazySessionProvider`), key scope under remount/container/sandbox and root-identity change detection, cache-base
+  normalization, pinned experiment parameters, M2 two-corpus rule. Provenance: branch rebased onto main so it
+  contains #356.
+- **Convergence classification at the cap:** converging (each round fewer, smaller, non-repeating findings; all
+  closed corrections). Folded and stopped per the convergence rule; a third round is the owner's call.
