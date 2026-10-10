@@ -117,6 +117,21 @@ bash "$PACKET/CONTROLLER-pd.sh" diff "$TS_JS" \
 
 Controller supplies the private root and a NEW evidence directory. Detailed private rows stay private; preserve per-producer timings. Worker/controller classifier parity22/22 and F aggregate consumer controls8/8 pass; no F run or frontend-portal read occurred.
 
+## Controller checks on the committed head (2026-10-10)
+
+Source `wip/js-param-defs-prB-r3` at `fc96688e` (the R10 patch applied to `96817370`; every `src/`, `tests/` and `mutants/` file equals the worker's tree). Docs base `c3ee366b`.
+
+- **Tier-A quick, outside the sandbox, after an immediate release rebuild in the source worktree:** `prism-quick` (rust-analyzer), `excalidraw-ts` and `secbench-node` (tsserver) are all VALID with no invalid reasons. Every metric leaf equals the same-environment run on `96817370`; only commit ids and rust-analyzer session metadata differ. The `96817370` run in turn equals the `2431cb10` run.
+- **Private corpus F, frozen R10 binaries, corrected three-bucket rules (aggregates only):** status COMPLETE, no stops.
+  - ADDED 9,923 rows, all CORRECT, all under synthetic owners; 6,556 Exact and 3,367 NameOnly (cfg_incomplete 3,211; killed 119; alias_unstable 26; sameline 11).
+  - LOST 891 rows, all WRONG on main; 157 of them were Exact.
+  - Call sites identical; both byte-to-wire projections identical.
+  - 0 type-annotated JavaScript files and 0 files with other TypeScript syntactic diagnostics, so every row is in bucket 3 and E13 does not apply to this corpus. 0 overrides and 0 inadmissible proofs: raw and after-override verdicts are equal.
+  - These totals equal the controller's run on `2431cb10`.
+- **Opus check of the four R10 hunks:** APPROVE, no MATERIAL finding. B1, B2, B4 and B5 CLOSED; B3 PARTIAL. Four WRONG / IMMATERIAL instances are recorded in SPEC-prB "R10 follow-ups"; one of them (R10-1) was created by the R10 enum hunk. Cache 114 and both mutant registries are consistent.
+
+Not done by the controller: a gpt-6.1-sol review of the R10 delta (the fold-confirmation round was declared as one round; R10 was a disclosed extension checked by Opus only); the full multi-corpus Tier-A run (human-triggered).
+
 ## Custody, unverified work and STOP
 
 R10-src.patch is relative to96817370; R10-docs.patch relative to29a1d2d9, Git-diff format. Clean exports have no Git metadata; both git apply --check and full-byte reconstruction receipts pass. Final custody rechecks all live source/docs, patches, frozen binaries, old/new captures and producer output hashes before delivery. Source/binary manifests, producer receipts, checked patches and snapshots preserve custody. Controller owns committing and landing; no merge/adoption.
