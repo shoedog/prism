@@ -1,33 +1,96 @@
-# Handoff — js-param-defs PR-B R9 retained repair at STOP
+# Handoff — js-param-defs PR-B R9b authorized bookkeeping continuation
+
+**Written:** 2026-10-10T06:31:53.719249+00:00 · **By:** Codex /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/prism-pd-plan · plan/js-param-defs-prB · **Measured state:** `[MEASURED]` HEAD 5ddbf1d64991b7b9f609b1643b0951bd475b996f · Tree DIRTY; source equals 96817370 · Probe git tree/blob census · Output repair-r9b/entry-binding.json
+**Predecessor:** R9 REPORT/HANDOFF retained in repair-r9
+**Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
+**Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
 
 ## 0. Gating facts — settle these before starting anything below
 
-Source frozen; cache113. Entry source2431cb10 (727/727 exact), docs HEAD3f6e582e after baseb2aa4f21. Static only; no Git writes, corpus execution or frontend-portal access. Corrected certificate: COMPLETE accounting, NOT clean. Outside-class rows62, rootsT, X, Xi. Owner disposition and E13 reaffirmation/revision required before landing; no further repair is authorized.
+**(a) Lane ownership** — [INHERITED] prB-repair-r9b-brief.md assigns this authorized continuation; no delegated agents were used. RESOLVED within the assigned scope; external worker liveness was not inventoried.
+
+**(b) Custody exposure** — [MEASURED] 727 source/test/mutant files match 96817370; docs and probes remain uncommitted because all Git writes are forbidden. entry-binding.json/final-binding.json, the exact-base R9b-docs.patch, patch reconstruction receipt and snapshot preserve work. Controller owns commits. RESOLVED through snapshot custody; commit is pending controller action.
+
+**(c) In flight / irreversible** — [MEASURED] all CEJS producers and certificate/table/identity collection are terminal; no irreversible operation or source mutation. RESOLVED.
+
+**(d) Authorization granted but not exercised** — "Product source is frozen." "Do not change the wording of the owner's decision." The optional six timeout retries were not exercised; no successor may reinterpret their retained exclusions as green.
 
 ## 1. Resume order
 
-Read prB-repair-r9-brief.md, REPORT.md and aggregate.json. Rebind source-manifest.json / binary-binding.json / exact patch bases. Collect-all accounting and identity/nav evidence are terminal; do not alter product/registries. Inspect every excluded/STOP root and exact nav proof. Controller alone supplies private F, Rust quick and Git writes after the owner disposition.
+1. Read `/Users/wesleyjinks/prism-evidence/js-param-defs/prB/repair-r9b/REPORT.md`, aggregate.json, final-binding.json and delivery.json; rebind source 96817370 and docs base 5ddbf1d6. Read-only, minutes.
+2. Controller: inspect exact R9b-docs.patch/apply reconstruction receipt, retain source commit 96817370, commit the corrected docs, and obtain E13 reaffirmation/revision using the per-root §8 extent.
+3. Controller: run IMPLEMENTOR-prB.md's exact private F command and Rust/full Tier-A quick with new evidence directories; preserve per-producer wall times. Never dispatch an implementer to frontend-portal.
+4. On the controller landing checkout, rebind all inputs and required gates before landing; merge/adoption require separate authority.
+
+**STOP conditions:** any failed F9 proof or unclassified differing row, outside LOST CORRECT/ADDED WRONG, newly measured non-JS/call-site delta, or need for product source change. None occurred in R9b.
 
 ## 2. State ledger
 
-Part A complete before edits: four allowlisted early errors;1014INADMISSIBLE table overrides;6,441 classified independent disagreements (6,208 documented/207census/26F2), all26 F2 refusals removed afterward. Nine behavioral RED/GREEN groups complete. Main row restorations87aurelia/503react-native; RN6CORRECT LOST/84WRONG ADDED/5INADMISSIBLE LOST inside typed JS. Measurements586/586;identity586/586;nav results in nav-X/nav-T. Full nextest5241pass/1reservedskip, doctests2, mutants103killed, clippy235/235, fmtclean, matrix178, TS/NodequickVALID. Exact-base source patch checked; docs patch rebuilt only after final docs reconciliation.
+| Item | State | Evidence / correction |
+|---|---|---|
+| Frozen source/binaries | done | [MEASURED] entry-binding.json/final-binding.json: 727 equal; source 96817370 |
+| Certificate | done | [MEASURED] aggregate.json: 586 accounted, 579 admitted, seven exclusions, 497 classified differences, outside 0 |
+| F9 proofs | done | [MEASURED] type-predicate-summary.json and per-row proofs: X 7/4, Xi 7/4, T 20/20 removed/added |
+| Other R9 fixes | done | [MEASURED] R9-fix-audit-summary.json/F2-certificate-accounting.json: zero new f8c differences outside F9 |
+| Byte tables / E13 | done | [MEASURED] REPORT.md/E13-per-root.json: outside gates zero; inside ADDED1079/84/0/0, LOST6/426/26/5 |
+| CEJS | done | [MEASURED] final/redos__cejs_2.0.20170212: bytes296.158 s, census0.674 s, sites314.837 s, wire2.634 s; identity equal |
+| Probe parity / suite | done | [MEASURED] parity-head/summary.json 6/6; probe-tests-final.log 50/50; shell and allowlist controls pass |
+| Product gates | done | [INHERITED] R9 REPORT/gate logs; still valid due exact frozen source/binary binding, not rerun |
+| Docs patch / custody | done | [MEASURED] patch-docs-check.json, R9b-docs.patch, delivery/snapshot manifests |
+| E13 decision, private F, Rust/full quick, landing | pending | [INHERITED] controller/owner prerequisites; exact dispatch in IMPLEMENTOR-prB.md |
 
 ## 3. Corrections to standing documents and memory
 
-SPEC status/cache/E13 extent and IMPLEMENTOR dispatch now describe R9/STOP; history retained in appendix. Owner E13 decision title/quote/acceptance wording preserved. CONTROLLER-pd.sh uses the shared allowlist and typed-JS split; its initial controls pass but final escaped-directive parity control fails (controller W, worker I). Probe remains unchanged under STOP, F blocked; bounded correction and regression are owed. MEASUREMENTS-prB-R9.md and HANDOFF-repair-prB-r9.md mirror current evidence. No memory file was changed; user did not request it. R7 raw receipts remain historical unchanged, Part A correction stored separately.
+| Location | Stale or false assertion | Correction |
+|---|---|---|
+| SPEC status/B-D8/§8 | active R9 STOP, old source/cache/E13 counts, CEJS exclusion | [MEASURED] current source96817370/cache113, clean certificate, full per-root E13 counts; exact owner wording preserved |
+| IMPLEMENTOR-prB.md | 2431cb10 plus source patch, blocked F, unfinished dispatch | [MEASURED] dispatches committed96817370 plus docs patch on5ddbf1d6; F parity fixed; gates and historical appendix |
+| R9 REPORT/HANDOFF and repo measurements/handoff | active STOP62/F block | [MEASURED] current R9b state/pointers; previous records explicitly historical and preserved in repair-r9b/historical-r9, historical-docs and R9 snapshots |
+| R9 STOP.json/delivery.json | current STOP / parked | [MEASURED] current R9b pointers with unchanged historical data nested separately |
+| Memory | None | No relevant memory hit; no memory edits authorized or made |
 
 ## 4. Open work
 
-Controller/owner: first obtain authority to repair the controller escaped-directive parity defect (actual worker I vs controller W; controller-escape-control.json); displayed F command is blocked. Then classify/dispose of complete certificate STOP without silently extending authority; reaffirm/revise E13; private F and Rust/full quick; commits/landing only after that disposition. F10 shared reaching_edges and F11 alias-twin ordering remain follow-ups. The eight excluded byte/identity pairs have no green credit. Operational exclusions remain explicit and must not be retried as a claimed clean result without new controls.
+| # | Work | State | Exact next action | Blocked by | Identifiers |
+|---:|---|---|---|---|---|
+| 1 | E13 reaffirmation/revision | pending | Owner rules on SPEC §8 / E13-per-root.json | owner decision | 84 WRONG ADDED,6 CORRECT LOST,5 INADMISSIBLE LOST inside annotated JS |
+| 2 | Private F / Rust/full quick | pending | Controller executes IMPLEMENTOR-prB.md commands, records producer times | controller facilities/private root | frozen R9 bins, cache113 |
+| 3 | Docs commit / landing | pending | Retain source96817370 and apply checked R9b-docs.patch to5ddbf1d6 | controller Git writes and landing gates | proposed docs commit in IMPLEMENTOR |
+| 4 | Seven excluded roots | parked | No green credit; retry only in an authorized controller scope | retained producer failures | exclusions in REPORT/aggregate |
+| 5 | F10/F11 and remaining lane-P mutants | parked | Separate follow-up; no repair here | scope authority | shared RD / alias ordering / 120 lane-P mutants |
 
 ## 5. Invariants and traps — do not do these
 
-No frontend-portal reads, package execution, Git writes, new repair mechanisms, patch restart, provider calls, changed cache pin or rebaseline. Do not call generic Node SyntaxError an early error; keep INADMISSIBLE separate. @flow is not the parser boundary. Do not trust git diff for untracked source custody. ps was denied: no process-inventory retry. uv cache write denied: installed tier-a direct only. Nav groups must preserve active/terminal output and exact command binding. No landing/adoption claim at STOP.
+- No src/tests/mutants change, Git writes, provider/network use, corpus execution or frontend-portal access; R9b is bookkeeping/probes/docs only.
+- Do not reapply the historical source patch to already committed96817370.
+- Do not classify a decoded escaped literal as a strict directive; compare exact raw source text.
+- Generic Node parsing failures remain INADMISSIBLE; never give them CORRECT/WRONG credit.
+- @flow is not the measurement boundary; use pinned TypeScript diagnostics on .js/.jsx.
+- `.ts` fixtures belong outside the annotated-JavaScript column; the initial wrong unit expectation was inadmissible, corrected and logged.
+- Runtime identifier alone is not a read: write-only targets are rejected; checker identity is independently tested.
+- Do not claim complete named-owner main parity from matching restored F2 rows; full named groups matchf8c while documented prior main differences remain.
+- Missing historical wall times remain unavailable; do not fabricate them or treat timeout as source regression without same-environment control.
+- Frozen R9 gates remain valid; later source changes need fresh binding/gates. No excluded/UNDECIDED/INADMISSIBLE semantic credit.
 
 ## 6. Identifiers
 
-Evidence: /Users/wesleyjinks/prism-evidence/js-param-defs/prB/repair-r9. Source patch base2431cb104db7828d11ae409dc207c1e339270c93; docs patch baseb2aa4f21a901632ea58e2c348f8bdbd4c7a5fa32. Main controla57c5fcf858a8d977f2656d5814750a32823cd00; preserved certificate comparatorf8c768b3. Cache/Users/wesleyjinks/prism-evidence/js-param-defs/cache. Exact binary hashes: binary-binding.json. Source mutation scope: six files in patch-src-check.json. Both registry pins113→112;103authoritative mutants.
+| Item | Verbatim |
+|---|---|
+| Source | `96817370ffb65dd3de14fe574789b6bf31e99ac5` |
+| Source parent | `2431cb104db7828d11ae409dc207c1e339270c93` |
+| Docs base | `5ddbf1d64991b7b9f609b1643b0951bd475b996f` |
+| Certificate comparator | `f8c768b3` |
+| Cache | `/Users/wesleyjinks/prism-evidence/js-param-defs/cache` |
+| Current evidence | `/Users/wesleyjinks/prism-evidence/js-param-defs/prB/repair-r9b` |
+| Frozen head CLI SHA256 | `9a8a9d16f02f34e9cacd1cf770de09b876bd04083ecd4bfbada94b9ae5bed19e` |
+| Frozen byte head SHA256 | `943b8a05849107b86fe898ab63203323808a6942db21ef55cf7cef47c0173d33` |
+| Frozen census SHA256 | `8adb54b3615c9198f0ef8e96b811fbed135a812306e89359f16ac496e2f75fcc` |
+| Docs patch | `/Users/wesleyjinks/prism-evidence/js-param-defs/prB/repair-r9b/R9b-docs.patch` |
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** REFUTED — corrected certificate cannot be called clean. Pass: SELF-PASS (NOT INDEPENDENT); evidence tier: STATIC-ONLY. The full-suite green and matrix green do not remove certificate STOP. Raw595 disputed CORRECT losses were not595 admissible losses;590 raw-CORRECT losses are restored and five disputed rows remain INADMISSIBLE. Owner owes separately authorized controller-probe correction, STOP disposition and E13 reaffirmation/revision before landing; no new permission question was sent by the repair engineer.
+**§2c verdict:** SURVIVED · claim: "R9b certificate COMPLETE and clean on admitted roots, with no product change" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: PROBE-LOG.md, type-predicate-summary.json, aggregate.json, parity-head/summary.json, probe-tests-final.log, final-binding.json. Independent TypeScript AST/checker refers to proof mechanism independence, not a separate reviewing agent.
+
+**Questions the owner owes an answer to:** E13 reaffirmation or revision is still required before landing. Private F/controller Rust/full quick and Git writes remain controller work. No worker permission question is pending; R9b authorized bookkeeping work is complete.
+

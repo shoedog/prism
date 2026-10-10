@@ -1,25 +1,24 @@
-# R9 landing dispatch — retained candidate, STOP / parked
+# R9b final landing dispatch — source 96817370
 
-The R9 repair is frozen. The corrected collect-all certificate has differing rows outside its enumerated classes, so this dispatch does not authorize landing, further repair, a fresh candidate, or merging. First obtain the owner's disposition of the complete STOP population and reaffirmation or revision of E13. Preserve the source and evidence already reviewed. Current measurements and exclusions are in `MEASUREMENTS-prB-R9.md`, `HANDOFF-repair-prB-r9.md`, and `~/prism-evidence/js-param-defs/prB/repair-r9/REPORT.md`.
+The retained source is `96817370ffb65dd3de14fe574789b6bf31e99ac5`. R9b closes the bookkeeping STOP: the controller authorized TYPE_PREDICATE (F9), all 62 rows have independent per-row AST/checker proofs, and controller/worker directive parity passes. Product source remains frozen. The collect-all certificate is COMPLETE and clean on admitted roots; excluded roots receive no semantic credit. E13 reaffirmation or revision, private F, and controller Rust/full quick remain landing prerequisites. No merge or adoption is authorized by this dispatch.
 
-## Exact inputs and commits
+## Exact commits and custody
 
-Source base: `origin/wip/js-param-defs-prB-r3` = `2431cb104db7828d11ae409dc207c1e339270c93`, plus `repair-r9/R9-src.patch`. The patch includes the existing untracked source files as modifications against that base, and passes `git apply --check` on an extracted clean base. Docs base: `b2aa4f21a901632ea58e2c348f8bdbd4c7a5fa32`, plus `repair-r9/R9-docs.patch`; it includes the intervening docs commit `3f6e582ed07a6194c717e20828ca1b47256e5ee3`. Controller owns all Git writes; the repair engineer made none.
+1. Retain source commit `96817370ffb65dd3de14fe574789b6bf31e99ac5` (`fix(js-param-defs): fold R9 recovery and binding boundaries`) on `origin/wip/js-param-defs-prB-r3`. Its parent is `2431cb104db7828d11ae409dc207c1e339270c93`; do not reapply the historical R9 source patch to 96817370.
+2. Retain docs commit `5ddbf1d64991b7b9f609b1643b0951bd475b996f` (`docs(js-param-defs): bind corrected R9 evidence and STOP`), then apply `~/prism-evidence/js-param-defs/prB/repair-r9b/R9b-docs.patch` relative to that exact base. Proposed docs commit: `docs(js-param-defs): close R9 bookkeeping STOP with independent proofs`.
+3. In the controller's landing checkout, bind the complete src/tests/mutants tree to 96817370, including files untracked in the planning checkout. Rebind the docs patch and evidence manifests before transferring any result. All 727 product/test/mutant files matched at R9b entry; controller owns Git writes. There is no R9b source patch.
 
-Proposed separate preservation commits:
+Current evidence: `MEASUREMENTS-prB-R9b.md`, `HANDOFF-repair-prB-r9.md`, and `~/prism-evidence/js-param-defs/prB/repair-r9b/{REPORT,HANDOFF}.md`. The R9 reports preserve the historical STOP as explicitly superseded history.
 
-1. `fix(js-param-defs): fold R9 recovery and binding boundaries`
-2. `docs(js-param-defs): bind corrected R9 evidence and STOP`
+The actual cache pin is `CACHE_VERSION = 113`; both `mutants/js-param-defs.json` PD11 and `mutants/lane-p-tsconfig-paths.json` P2M11 mutate 113 → 112. The authoritative PD registry has 103 anchored mutants, including PD100–109. F10 `RdResult.reaching_edges` and F11 alias-twin ordering remain follow-ups.
 
-The frozen source pins `CACHE_VERSION = 113`; both `mutants/js-param-defs.json` PD11 and `mutants/lane-p-tsconfig-paths.json` P2M11 test the 113 → 112 invalidation. The authoritative PD registry has 103 exact anchored mutants, including PD100–109 for R9. Neither `RdResult.reaching_edges` nor alias-twin ordering was changed; F10 and F11 remain follow-ups.
+## Gates and controller landing order
 
-## Source-bound gates
+R9's source-bound gates stay valid because R9b changes no src/tests/mutants bytes or frozen binaries. They were not rerun: nextest `--features mcp` 5,241 passed / one reserved skip, doctests 2 passed, PD mutants 103/103 killed and admissible, coupled P2-M11 1/1 killed, fmt clean, clippy head/main 235/235 with equal warning multisets, Tier-A matrix 178/178, TS and Node quick VALID. The remaining 120 lane-P mutants were not rerun in R9. VALID is admission, not a precision claim. Historical perf/sample/MCP results are not fresh R9b gates.
 
-R9 has nine RED-on-2431cb10 / GREEN regression groups, 48 Node semantic controls, 56 function-kind × strictness × parameter-shape cells, and the retained 763 semantic / 2,289 grammar cells plus the 200 kind cells. Language-specific syntax uses only valid JS, TS, or TSX variants; TS enums/type predicates and JSX are not asserted as valid plain-JS/.ts syntax. See MATRIX-param-env-R9.md for all cells and negative controls, including ten extra JSX emit/runtime controls.
+Fresh R9b checks are the full probe unit suite (50/50), controller/worker parity (6/6), four early-error allowlist positives plus four generic-parser negatives, and shell syntax. Both raw directives remain strict; escaped literals remain non-strict. The same-environment 5ddbf1d6 helper control fails three escaped cases before the fix.
 
-The current gate receipts record nextest `--features mcp` 5,241 passed / one skipped; doctests 2 passed; mutants 103/103 killed with zero invalid probes; fmt clean; clippy 235/235 with an equal warning multiset; Tier-A matrix 178/178 and TS/Node quick VALID. These bind the frozen R9 source/binaries, not a later controller checkout. Do not rebaseline a regression.
-
-After an owner-authorized landing disposition, apply the exact patches in the respective clean bases and rebind all source hashes and dirty scope. In that landing worktree run the following gates and preserve their complete output:
+Before landing: obtain the owner's E13 reaffirmation/revision on the corrected extent, run the private F command below, and run the controller Rust/full quick. On the eventual clean landing checkout, preserve complete gate logs using new evidence directories:
 
 ```bash
 cargo nextest run --offline --locked --features mcp
@@ -31,16 +30,17 @@ cargo clippy --offline --locked --all-targets --features mcp -- -W clippy::all
 cargo build --offline --locked --release
 cd eval
 .venv/bin/tier-a --matrix-only --allow-stale-sut
+cd ..
+cargo build --offline --locked --release
+cd eval
 .venv/bin/tier-a --quick --allow-stale-sut
 ```
 
-The final command includes the controller-owned Rust quick, excluded from the worker's TS/Node-only quick. A stale allowance is valid only after the immediate release rebuild in the same worktree. Full multi-corpus Tier-A remains human-triggered. Re-run both mutation registries' coupled cache guards and the authoritative PD subset using the packet's recorded mutant runner; use the same-environment main clippy control rather than assuming historical warnings. Report any environment exclusion explicitly.
+The full quick includes the controller-owned Rust check. `--allow-stale-sut` requires the immediately preceding rebuild in that same checkout. Keep the same-environment main clippy control and report any exclusions or regressions; do not rebaseline. Full multi-corpus Tier-A remains human-triggered. Record wall time for every later producer per root; R9b's producer-times.json preserves new timings and explicitly labels unavailable historical times.
 
-## Controller-only F step
+## Controller-only F command — parity block resolved
 
-**BLOCKED:** final controller parity control found a WRONG override for an escaped directive string (worker INADMISSIBLE, controller WRONG). The helper remains unchanged under the R9 STOP rule. Do not run this command until the bounded raw-literal directive correction is separately authorized and tested; see MEASUREMENTS-prB-R9.md and controller-escape-control.json. The command below is retained for review, not ready for execution.
-
-Never open `frontend-portal` in an implementer/reviewer session and never evaluate corpus packages. The controller supplies the private root and a NEW private evidence directory. This is the concrete F command; the root value remains private:
+The bounded raw-literal directive fix is authorized by prB-repair-r9b-brief.md and tested. The command is ready for the controller. Never open `frontend-portal` in an implementer/reviewer session or evaluate corpus packages. The controller supplies the private root and a NEW private evidence directory:
 
 ```bash
 PACKET="$HOME/code/prism-pd-plan/docs/superpowers/plans/2026-10-06-js-param-defs"
@@ -56,9 +56,9 @@ bash "$PACKET/CONTROLLER-pd.sh" diff "$TS_JS" \
   "$R9/bin/prism-head-r9-bytes"
 ```
 
-The script binds all supplied binaries, checks byte-to-wire equality and call sites, and applies the R9 fixture-backed early-error allowlist. Other Node compilation failures are INADMISSIBLE; no CORRECT/WRONG credit. It defines type-annotated `.js`/`.jsx` using TypeScript 5.9.3 diagnostics, not `@flow`, and publishes inside/outside aggregate tables. Keep private paths, rows, and detailed verdicts in the private directory. A differing non-JS/call-site row, unexplained navigation delta, outside LOST CORRECT or ADDED WRONG, or outside-class certificate row remains STOP. Owner E13 wording stays unchanged until the owner rules on the corrected extent.
+The script binds the binaries and probes, verifies byte-to-wire projections and call-site equality, and applies the fixture-backed early-error allowlist. Other compilation failures are INADMISSIBLE. Pinned TypeScript 5.9.3 diagnostics define the type-annotated `.js`/`.jsx` boundary. Detailed private paths and rows remain private; only aggregate counts leave. Outside LOST CORRECT or ADDED WRONG, a non-JS/call-site change, or an unexplained navigation difference is STOP. The independent f8c768b3 certificate and its new TYPE_PREDICATE proofs are in the R9b packet; this F command compares main/head tables and identity.
 
-The frozen R9 binaries and SHA256 values are in `repair-r9/binary-binding.json`; the source manifest and exact-base patch checks are in that evidence packet. No automatic merge or adoption is part of this dispatch.
+Frozen binary hashes remain in `repair-r9/binary-binding.json` and are freshly checked in `repair-r9b/entry-binding.json`. The source commit and the docs patch must retain separate provenance. After the required owner/controller gates pass, the controller may land the retained candidate; merging and adoption require their own authority.
 
 ## Historical appendix — superseded dispatches
 

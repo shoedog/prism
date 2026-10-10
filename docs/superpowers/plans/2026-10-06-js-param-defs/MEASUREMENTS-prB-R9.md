@@ -1,3 +1,11 @@
+# R9b current-state reconciliation
+
+R9b continuation is COMPLETE: certificate clean on 579 admitted / 586 accounted roots, seven exclusions, zero outside-class rows, zero STOP; controller/worker parity 6/6. Source is committed at 96817370 and remains frozen. CEJS is admitted with new certificate/tables/identity. Current report: /Users/wesleyjinks/prism-evidence/js-param-defs/prB/repair-r9b/REPORT.md; current handoff: /Users/wesleyjinks/prism-evidence/js-param-defs/prB/repair-r9b/HANDOFF.md. Owner E13 reaffirmation/revision, private F and controller Rust/full quick still precede landing. No Git writes, merge or adoption.
+
+## Historical R9 record — superseded in full by R9b
+
+The following R9 STOP/F-block statements describe the pre-continuation state, not current authorization or measurement. Original bytes are also preserved in repair-r9b/historical-docs/MEASUREMENTS-prB-R9.md and R9 snapshots.
+
 # R9 retained repair — COMPLETE accounting, NOT clean
 
 **STOP. Product source and mutant registries are frozen.** The single bounded repair pass folded the named final-review instances. STOP-ast-summary.json proves all62 outside-class changes are F9:34 removed TypePredicate name endpoints and28 admitted runtime identifier endpoints (X/Xi7LOST+4ADDED each,T20LOST+20ADDED). This explanation does not waive the certificate contract. Certificate rows outside its enumerated classes trigger the brief's literal STOP even when they result from an approved fix. No extra certificate class, repair, restart, Git write, landing, merge or adoption was performed after STOP. Collect-all evidence finished on the retained artifact.

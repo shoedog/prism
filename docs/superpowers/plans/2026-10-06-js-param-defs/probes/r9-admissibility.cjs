@@ -15,7 +15,7 @@ for(const file of files)if(/\.(js|jsx)$/.test(file)){
  const ds=[...sf.parseDiagnostics,...program.getSyntacticDiagnostics(sf)];
  if(ds.length){typed.add(file);diagnostics[file]=ds.map(d=>({code:d.code,message:ts.flattenDiagnosticMessageText(d.messageText,' ')}));}
 }
-function directive(body){if(!body?.statements)return false;for(const s of body.statements){if(!ts.isExpressionStatement(s)||!ts.isStringLiteral(s.expression))break;if(s.expression.text==='use strict'&&!s.expression.hasExtendedUnicodeEscape)return true;}return false;}
+function directive(body){if(!body?.statements)return false;for(const s of body.statements){if(!ts.isExpressionStatement(s)||!ts.isStringLiteral(s.expression))break;const raw=s.expression.getText();if(raw==='"use strict"'||raw==="'use strict'")return true;}return false;}
 function contextualStrict(c){const file=path.resolve(root,c.file),source=fs.readFileSync(file,'utf8'),sf=ts.createSourceFile(file,source,ts.ScriptTarget.Latest,true);let found=null;
  const byte=p=>Buffer.byteLength(source.slice(0,p));
  function v(n){if(ts.isFunctionLike(n)&&n.body&&byte(n.end)===c.owner.end_byte&&byte(n.getStart(sf))<=c.owner.start_byte)found=n;ts.forEachChild(n,v);}v(sf);
