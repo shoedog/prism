@@ -1707,3 +1707,239 @@ fn r7_undefined_seam_and_erased_simple_arguments_are_classified() {
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+#[test]
+fn r9_recovered_parameters_are_not_positive_early_error_proof() {
+    for language in JS_TS {
+        // Recovery plus duplicate names is not positive evidence of an ES early error.
+        let source = "function q(a,a,broken.) {\n let local = 1;\n use(local);\n}\n";
+        let parsed = ParsedFile::parse(file_name(language), source, language).unwrap();
+        let owner = parsed.all_functions().into_iter().next().unwrap();
+        assert!(owner.child_by_field_name("parameters").unwrap().has_error());
+        assert!(parsed.dfg_owner_name(&owner).is_some(), "{language:?}");
+        let files = BTreeMap::from([(file_name(language).to_string(), parsed)]);
+        assert!(edge(
+            &rows(&CodePropertyGraph::build(&files)),
+            "q",
+            "local",
+            2,
+            3
+        ));
+        let invalid = "register((a,a)=>{use(a);});";
+        let parsed = ParsedFile::parse(file_name(language), invalid, language).unwrap();
+        assert!(parsed.dfg_owner_name(&parsed.all_functions()[0]).is_none());
+    }
+}
+
+#[test]
+fn r9_class_receiver_defs_and_kills_stay_with_the_receiver() {
+    for language in JS_TS {
+        for member in [
+            "y = (this.x = 2);",
+            "static y = (this.x = 2);",
+            "static { this.x = 2; }",
+            "m() { this.x = 2; }",
+        ] {
+            let source = format!("register(function () {{\n this.x = 1;\n const C = class {{\n {member}\n }};\n use(this.x);\n}});\n");
+            let cpg = build(language, &source);
+            let r = rows(&cpg);
+            assert!(
+                !edge(&r, "<cb@1:10>", "this.x", 4, 6),
+                "{language:?}: {r:?}"
+            );
+            assert!(edge(&r, "<cb@1:10>", "this.x", 2, 6), "{language:?}: {r:?}");
+            assert_eq!(
+                r1_label(&cpg, "<cb@1:10>", "this.x", 2, 6),
+                super::FlowConfidence::Exact
+            );
+        }
+        for member in ["[this.x = 2] = 0;", "[this.x = 2]() {}"] {
+            let source = format!("register(function () {{\n this.x = 1;\n const C = class {{\n {member}\n }};\n use(this.x);\n}});\n");
+            assert!(
+                edge(
+                    &rows(&build(language, &source)),
+                    "<cb@1:10>",
+                    "this.x",
+                    4,
+                    6
+                ),
+                "{language:?}: {source}"
+            );
+        }
+        let source = "register(function () {\n let x = 1;\n const C = class { y = (x = 2); };\n use(x);\n});";
+        assert!(edge(
+            &rows(&build(language, source)),
+            "<cb@1:10>",
+            "x",
+            3,
+            4
+        ));
+    }
+}
+
+#[test]
+fn r9_class_declarations_have_an_inner_self_binding() {
+    for language in JS_TS {
+        for prefix in if language == Language::JavaScript {
+            vec![""]
+        } else {
+            vec!["", "abstract "]
+        } {
+            let source = format!("register(function () {{\n {prefix}class C {{ m() {{ use(C); }} }}\n C = 1;\n use(C);\n}});");
+            let r = rows(&build(language, &source));
+            assert!(!edge(&r, "<cb@1:10>", "C", 3, 2), "{language:?}: {r:?}");
+            assert!(edge(&r, "<cb@1:10>", "C", 3, 4));
+        }
+        let source = "register(function () {\n let x=1;\n class C { m(){use(x);} }\n use(x);\n});";
+        assert!(edge(
+            &rows(&build(language, source)),
+            "<cb@1:10>",
+            "x",
+            2,
+            3
+        ));
+    }
+}
+
+#[test]
+fn r9_eval_erasure_wrappers_refuse_only_direct_calls() {
+    for language in JS_TS {
+        let mut direct = vec!["eval", "(eval)"];
+        if language != Language::JavaScript {
+            direct.extend([
+                "eval!",
+                "(eval as any)",
+                "(eval satisfies any)",
+                "((eval as any)!)",
+            ]);
+        }
+        if language == Language::TypeScript {
+            direct.push("(<any>eval)");
+        }
+        for callee in direct {
+            let source = format!("register(function (f) {{\n {callee}(\"f = 2\");\n let local=1;\n use(f,local);\n}});");
+            let cpg = build(language, &source);
+            assert!(
+                !defs(&cpg).iter().any(|d| d.0 == "<cb@1:10>" && d.1 == "f"),
+                "{language:?}: {source}"
+            );
+            assert!(edge(&rows(&cpg), "<cb@1:10>", "local", 3, 4));
+        }
+        for callee in ["(0, eval)", "eval?.", "o.eval"] {
+            let source = format!("register(function (f) {{\n {callee}(\"f = 2\");\n use(f);\n}});");
+            assert!(
+                edge(&rows(&build(language, &source)), "<cb@1:10>", "f", 1, 3),
+                "{language:?}: {source}"
+            );
+        }
+    }
+}
+
+#[test]
+fn r9_jsx_intrinsic_tags_share_the_nonreference_filter() {
+    for language in [Language::JavaScript, Language::Tsx] {
+        for markup in ["<img />", "<img>\n </img>", "<svg:path />"] {
+            let source =
+                format!("register((img) => {{\n use(img);\n return (\n {markup}\n );\n}});");
+            let r = rows(&build(language, &source));
+            assert!(edge(&r, "<cb@1:10>", "img", 1, 2));
+            assert!(
+                !r.iter()
+                    .any(|r| r.0 == "<cb@1:10>" && r.1 == "img" && r.3 >= 4),
+                "{language:?}: {r:?}"
+            );
+        }
+        let source = "register((Item) => {\n return (\n <Item />\n );\n});";
+        assert!(edge(
+            &rows(&build(language, source)),
+            "<cb@1:10>",
+            "Item",
+            1,
+            3
+        ));
+        let source = "register((a) => {\n return (\n <a.B />\n );\n});";
+        let parsed = ParsedFile::parse(file_name(language), source, language).unwrap();
+        let byte = source.find("a.B").unwrap();
+        assert!(!parsed.js_ts_span_is_non_reference(byte, byte + 1));
+    }
+}
+
+#[test]
+fn r9_labelled_body_function_is_a_seam_binding() {
+    for language in JS_TS {
+        let source = "register(function(y,d=0) {\n outer: inner: function y() {}\n use(y);\n});";
+        let parsed = ParsedFile::parse(file_name(language), source, language).unwrap();
+        assert!(
+            parsed.js_ts_seam_binding(&parsed.all_functions()[0], "y"),
+            "{language:?}"
+        );
+        assert!(!edge(
+            &rows(&build(language, source)),
+            "<cb@1:10>",
+            "y",
+            1,
+            3
+        ));
+        let source = "register(function(y) {\n lbl: function y() {}\n use(y);\n});";
+        let parsed = ParsedFile::parse(file_name(language), source, language).unwrap();
+        assert!(!parsed.js_ts_seam_binding(&parsed.all_functions()[0], "y"));
+    }
+}
+
+#[test]
+fn r9_duplicate_formals_follow_function_kind_and_strictness() {
+    for language in JS_TS {
+        for head in [
+            "function q",
+            "async function q",
+            "function* q",
+            "async function* q",
+        ] {
+            for strict in [false, true] {
+                for simple in [false, true] {
+                    let signature = if simple { "a,a" } else { "a,a=0" };
+                    let source = format!(
+                        "{} {head}({signature}) {{\n use(a);\n}}",
+                        if strict { "'use strict';" } else { "" }
+                    );
+                    let parsed = ParsedFile::parse(file_name(language), &source, language).unwrap();
+                    assert_eq!(
+                        parsed.dfg_owner_name(&parsed.all_functions()[0]).is_some(),
+                        simple && !strict,
+                        "{language:?}: {source}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn r9_enum_member_reads_stay_in_the_enum_environment() {
+    for language in [Language::TypeScript, Language::Tsx] {
+        let source = "register(function(y) {\n enum E { y=1, z=y }\n use(y);\n});";
+        let r = rows(&build(language, source));
+        assert!(!edge(&r, "<cb@1:10>", "y", 1, 2), "{language:?}: {r:?}");
+        assert!(edge(&r, "<cb@1:10>", "y", 1, 3));
+        let source = "register(function(y) {\n enum E { x=1, z=y }\n use(y);\n});";
+        assert!(edge(
+            &rows(&build(language, source)),
+            "<cb@1:10>",
+            "y",
+            1,
+            2
+        ));
+    }
+}
+
+#[test]
+fn r9_type_predicate_names_are_erased_uses() {
+    for language in [Language::TypeScript, Language::Tsx] {
+        for predicate in ["v is string", "asserts v is string"] {
+            let source = format!("register((v: unknown):\n {predicate} => {{\n check(v);\n}});");
+            let r = rows(&build(language, &source));
+            assert!(!edge(&r, "<cb@1:10>", "v", 1, 2), "{language:?}: {r:?}");
+            assert!(edge(&r, "<cb@1:10>", "v", 1, 3));
+        }
+    }
+}

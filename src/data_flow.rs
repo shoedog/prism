@@ -598,6 +598,12 @@ impl DataFlowGraph {
                             // Defs, and cannot contribute even kill-only input.
                             if parsed.js_ts_span_in_with_body(span.start_byte, span.end_byte)
                                 || refused_occurrence(&span.path, span.start_byte)
+                                || span.path.base == "this"
+                                    && parsed.js_ts_span_this_rebound_between(
+                                        span.start_byte,
+                                        span.end_byte,
+                                        &func_node,
+                                    )
                             {
                                 return false;
                             }

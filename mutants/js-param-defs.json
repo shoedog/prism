@@ -95,8 +95,8 @@
   ],
   "PD-11-cache-version-not-bumped": [
    "src/cpg_cache.rs",
+   "const CACHE_VERSION: u32 = 113;",
    "const CACHE_VERSION: u32 = 112;",
-   "const CACHE_VERSION: u32 = 111;",
    "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
   ],
   "PD-12-rest-not-last-admitted": [
@@ -340,8 +340,8 @@
   ],
   "PD-41-e3-class-name-binder-off": [
    "src/ast_callback_identity.rs",
-   "            \"class\" => scope",
-   "            \"never_class\" => scope",
+   "            \"class\" | \"class_declaration\" | \"abstract_class_declaration\" => scope",
+   "            \"class\" | \"class_declaration\" | \"abstract_class_declaration\" if false => scope",
    [
     "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
    ]
@@ -412,8 +412,8 @@
   ],
   "PD-50-erased-type-read-filter-off": [
    "src/ast_callback_identity.rs",
-   "        if self.language.is_in_erased_type_context(ident) {\n            return true;",
-   "        if false && self.language.is_in_erased_type_context(ident) {\n            return true;",
+   "|| self.language.is_in_erased_type_context(ident)",
+   "|| false && self.language.is_in_erased_type_context(ident)",
    [
     "cpg::callback_identity_tests::synthetic_pass_counts_reads_only"
    ]
@@ -550,8 +550,8 @@
   ],
   "PD-65-r2-as-write-wrapper-off": [
    "src/ast_callback_identity.rs",
-   "| \"as_expression\"",
-   "| \"never_as_expression\"",
+   "| \"as_expression\"\n                | \"satisfies_expression\"",
+   "| \"satisfies_expression\"",
    [
     "cpg::callback_identity_tests::r2_as_identifier",
     "cpg::callback_identity_tests::r2_as_member"
@@ -559,8 +559,8 @@
   ],
   "PD-65-r2-satisfies-write-wrapper-off": [
    "src/ast_callback_identity.rs",
-   "| \"satisfies_expression\"",
-   "| \"never_satisfies_expression\"",
+   "| \"satisfies_expression\"\n                | \"type_assertion\"",
+   "| \"type_assertion\"",
    [
     "cpg::callback_identity_tests::r2_satisfies_identifier",
     "cpg::callback_identity_tests::r2_satisfies_member"
@@ -734,6 +734,86 @@
    [
     "cpg::callback_identity_tests::r7_grammar_kind_matrix_has_positive_early_error_proofs"
    ]
+  ],
+  "PD-100-r9-recovery-proof-off": [
+   "src/ast_callback_identity.rs",
+   "if params.has_error() {",
+   "if false && params.has_error() {",
+   [
+    "cpg::callback_identity_tests::r9_recovered_parameters_are_not_positive_early_error_proof"
+   ]
+  ],
+  "PD-101-r9-receiver-def-and-kill-fence-off": [
+   "src/data_flow.rs",
+   "|| span.path.base == \"this\"",
+   "|| false && span.path.base == \"this\"",
+   [
+    "cpg::callback_identity_tests::r9_class_receiver_defs_and_kills_stay_with_the_receiver"
+   ]
+  ],
+  "PD-102-r9-class-declaration-self-off": [
+   "src/ast_callback_identity.rs",
+   "\"class\" | \"class_declaration\" | \"abstract_class_declaration\" => scope",
+   "\"class\" => scope",
+   [
+    "cpg::callback_identity_tests::r9_class_declarations_have_an_inner_self_binding"
+   ]
+  ],
+  "PD-103-r9-eval-erasure-off": [
+   "src/ast_callback_identity.rs",
+   "                        while matches!(\n                            callee.kind(),\n                            \"parenthesized_expression\"\n                                | \"as_expression\"\n                                | \"satisfies_expression\"\n                                | \"non_null_expression\"\n                                | \"type_assertion\"\n                        ) {",
+   "                        while callee.kind() == \"parenthesized_expression\" {",
+   [
+    "cpg::callback_identity_tests::r9_eval_erasure_wrappers_refuse_only_direct_calls"
+   ]
+  ],
+  "PD-104-r9-jsx-intrinsic-off": [
+   "src/ast_callback_identity.rs",
+   ".is_some_and(u8::is_ascii_lowercase)",
+   ".is_some_and(|_| false)",
+   [
+    "cpg::callback_identity_tests::r9_jsx_intrinsic_tags_share_the_nonreference_filter"
+   ]
+  ],
+  "PD-105-r9-labelled-seam-off": [
+   "src/ast_callback_identity.rs",
+   "while n.kind() == \"labeled_statement\" {",
+   "while false && n.kind() == \"labeled_statement\" {",
+   [
+    "cpg::callback_identity_tests::r9_labelled_body_function_is_a_seam_binding"
+   ]
+  ],
+  "PD-106-r9-duplicate-function-kinds-off": [
+   "src/ast_callback_identity.rs",
+   "        let permits_duplicates = simple\n            && !strict\n            && matches!(\n                owner.kind(),\n                \"function_declaration\"\n                    | \"function_expression\"\n                    | \"generator_function_declaration\"\n                    | \"generator_function\"\n            );\n",
+   "        let permits_duplicates = simple && !strict && owner.kind() == \"function_declaration\" && !self.node_text(owner).starts_with(\"async\");\n",
+   [
+    "cpg::callback_identity_tests::r9_duplicate_formals_follow_function_kind_and_strictness"
+   ]
+  ],
+  "PD-107-r9-enum-scope-off": [
+   "src/ast_callback_identity.rs",
+   "\"enum_body\" => {",
+   "\"enum_body\" if false => {",
+   [
+    "cpg::callback_identity_tests::r9_enum_member_reads_stay_in_the_enum_environment"
+   ]
+  ],
+  "PD-108-r9-predicate-read-role-off": [
+   "src/ast_callback_identity.rs",
+   "                \"type_predicate\"\n                | \"asserts\"\n                | \"type_predicate_annotation\"\n                | \"asserts_annotation\" => return true,",
+   "                \"type_predicate\"\n                | \"asserts\"\n                | \"type_predicate_annotation\"\n                | \"asserts_annotation\" => return false,",
+   [
+    "cpg::callback_identity_tests::r9_type_predicate_names_are_erased_uses"
+   ]
+  ],
+  "PD-109-r9-computed-method-key-ownership-off": [
+   "src/ast_callback_identity.rs",
+   "if node.kind() == \"method_definition\"",
+   "if false && node.kind() == \"method_definition\"",
+   [
+    "cpg::callback_identity_tests::r9_class_receiver_defs_and_kills_stay_with_the_receiver"
+   ]
   ]
  },
  "intent_revisions": {
@@ -857,6 +937,13 @@
     "src/ast_callback_identity.rs",
     "if self.language.function_name(owner).is_some() && self.js_ts_seam_binding(owner, name) {",
     "if false && self.language.function_name(owner).is_some() && self.js_ts_seam_binding(owner, name) {"
+   ]
+  ],
+  "PD-105-r9-labelled-seam-off": [
+   [
+    "src/ast_callback_identity.rs",
+    "\"labeled_statement\" => stmt",
+    "\"labeled_statement\" if false => stmt"
    ]
   ]
  },

@@ -246,7 +246,8 @@ use std::path::{Path, PathBuf};
 ///   generation-109 object-backed writes cannot enter final observations.
 /// - v111: PR-B R2b admits kill-aware implicit parameter-to-body-var copies.
 /// - v112: PR-B R5 retains flat named seam rows and refuses synthetic formals.
-const CACHE_VERSION: u32 = 112;
+/// - v113: PR-B R9 positive recovery proof, receiver and reference fences.
+const CACHE_VERSION: u32 = 113;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -785,7 +786,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 112);
+        assert_eq!(super::CACHE_VERSION, 113);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

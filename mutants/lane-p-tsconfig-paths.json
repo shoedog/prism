@@ -707,8 +707,8 @@
   ],
   "P2-M11-cpg-cache-version": [
    "src/cpg_cache.rs",
+   "const CACHE_VERSION: u32 = 113;",
    "const CACHE_VERSION: u32 = 112;",
-   "const CACHE_VERSION: u32 = 111;",
    "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
   ],
   "P2-M12-nav-cache-version": [
