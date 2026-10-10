@@ -1,0 +1,1172 @@
+[
+ {
+  "source": "register(function(y){\n { lbl: function y(){} use(y); }\n use(y);\n});",
+  "ext": "js",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "nested",
+  "file": "case000.js",
+  "source_sha256": "afa89784c777c7a261fb54cefbe5030e0e862d5c45e7292b7597d3a31ce4f921",
+  "rows": [
+   [
+    1,
+    18,
+    19,
+    3,
+    60,
+    61,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y){\n lbl: function other(){}\n use(y);\n});",
+  "ext": "js",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "unrelated",
+  "file": "case001.js",
+  "source_sha256": "ba6fae9fe23b28c660acc97b29b2cf1aabb4da779d38a32a70955f6f6a6f856c",
+  "rows": [
+   [
+    1,
+    18,
+    19,
+    3,
+    52,
+    53,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y){\n { outer: inner: function y(){} use(y); }\n use(y);\n});",
+  "ext": "js",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "nested",
+  "file": "case002.js",
+  "source_sha256": "9e64d6aeec3830e5e8f860264dfac69a7955841415dd9f73285545fb38598bd9",
+  "rows": [
+   [
+    1,
+    18,
+    19,
+    3,
+    69,
+    70,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y){\n outer: inner: function other(){}\n use(y);\n});",
+  "ext": "js",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "unrelated",
+  "file": "case003.js",
+  "source_sha256": "ae255860c1cdcd0fb9b3093014ca4e8ec3daa189fc985123b7c6a1d875fc462f",
+  "rows": [
+   [
+    1,
+    18,
+    19,
+    3,
+    61,
+    62,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y){\n { lbl: function y(){} use(y); }\n use(y);\n}",
+  "ext": "js",
+  "owner": "q",
+  "name": "y",
+  "kind": "nested",
+  "file": "case004.js",
+  "source_sha256": "957dc300f5eb697645ae14446b5fecd01342754569e9e902629020b391be3738",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    3,
+    53,
+    54,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y){\n lbl: function other(){}\n use(y);\n}",
+  "ext": "js",
+  "owner": "q",
+  "name": "y",
+  "kind": "unrelated",
+  "file": "case005.js",
+  "source_sha256": "1f6023f89de1c43747647945ec84a4a4da4a83719420024ba5fdf4caaa3204a9",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    3,
+    45,
+    46,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y){\n { outer: inner: function y(){} use(y); }\n use(y);\n}",
+  "ext": "js",
+  "owner": "q",
+  "name": "y",
+  "kind": "nested",
+  "file": "case006.js",
+  "source_sha256": "1e6dbae1e5f00a582b2cdc4b16679945317cb1667c19cfa11db5fe49e73f4768",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    3,
+    62,
+    63,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y){\n outer: inner: function other(){}\n use(y);\n}",
+  "ext": "js",
+  "owner": "q",
+  "name": "y",
+  "kind": "unrelated",
+  "file": "case007.js",
+  "source_sha256": "ecb3dbbf4e41289c8d640598ebe57e8dec9f051faa49ee5f60cc998471329342",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    3,
+    54,
+    55,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y){\n { lbl: function y(){} use(y); }\n use(y);\n});",
+  "ext": "ts",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "nested",
+  "file": "case008.ts",
+  "source_sha256": "afa89784c777c7a261fb54cefbe5030e0e862d5c45e7292b7597d3a31ce4f921",
+  "rows": [
+   [
+    1,
+    18,
+    19,
+    3,
+    60,
+    61,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y){\n lbl: function other(){}\n use(y);\n});",
+  "ext": "ts",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "unrelated",
+  "file": "case009.ts",
+  "source_sha256": "ba6fae9fe23b28c660acc97b29b2cf1aabb4da779d38a32a70955f6f6a6f856c",
+  "rows": [
+   [
+    1,
+    18,
+    19,
+    3,
+    52,
+    53,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y){\n { outer: inner: function y(){} use(y); }\n use(y);\n});",
+  "ext": "ts",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "nested",
+  "file": "case010.ts",
+  "source_sha256": "9e64d6aeec3830e5e8f860264dfac69a7955841415dd9f73285545fb38598bd9",
+  "rows": [
+   [
+    1,
+    18,
+    19,
+    3,
+    69,
+    70,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y){\n outer: inner: function other(){}\n use(y);\n});",
+  "ext": "ts",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "unrelated",
+  "file": "case011.ts",
+  "source_sha256": "ae255860c1cdcd0fb9b3093014ca4e8ec3daa189fc985123b7c6a1d875fc462f",
+  "rows": [
+   [
+    1,
+    18,
+    19,
+    3,
+    61,
+    62,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y){\n enum E { x=1, z=y }\n use(y);\n});",
+  "ext": "ts",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "enum-negative",
+  "file": "case012.ts",
+  "source_sha256": "c68921f3cd3d701959f017b831bd9a807ed960188a7ea415aacd3bfed5182c93",
+  "rows": [
+   [
+    1,
+    18,
+    19,
+    2,
+    39,
+    40,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ],
+   [
+    1,
+    18,
+    19,
+    3,
+    48,
+    49,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y){\n enum E { x=1 } enum E { z=y }\n use(y);\n});",
+  "ext": "ts",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "enum-negative",
+  "file": "case013.ts",
+  "source_sha256": "1bf97b181fb436322277e00c7bd14d49cb0941ade6f874e15fda613e4e5b7a7d",
+  "rows": [
+   [
+    1,
+    18,
+    19,
+    2,
+    49,
+    50,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ],
+   [
+    1,
+    18,
+    19,
+    3,
+    58,
+    59,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y){\n { enum E { y=1 } } enum E { z=y }\n use(y);\n});",
+  "ext": "ts",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "enum-negative",
+  "file": "case014.ts",
+  "source_sha256": "bf20d8ac367a2746d2157431263453682297388cdb55593662733cb872a15e64",
+  "rows": [
+   [
+    1,
+    18,
+    19,
+    2,
+    53,
+    54,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ],
+   [
+    1,
+    18,
+    19,
+    3,
+    62,
+    63,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y){\n { lbl: function y(){} use(y); }\n use(y);\n}",
+  "ext": "ts",
+  "owner": "q",
+  "name": "y",
+  "kind": "nested",
+  "file": "case015.ts",
+  "source_sha256": "957dc300f5eb697645ae14446b5fecd01342754569e9e902629020b391be3738",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    3,
+    53,
+    54,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y){\n lbl: function other(){}\n use(y);\n}",
+  "ext": "ts",
+  "owner": "q",
+  "name": "y",
+  "kind": "unrelated",
+  "file": "case016.ts",
+  "source_sha256": "1f6023f89de1c43747647945ec84a4a4da4a83719420024ba5fdf4caaa3204a9",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    3,
+    45,
+    46,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y){\n { outer: inner: function y(){} use(y); }\n use(y);\n}",
+  "ext": "ts",
+  "owner": "q",
+  "name": "y",
+  "kind": "nested",
+  "file": "case017.ts",
+  "source_sha256": "1e6dbae1e5f00a582b2cdc4b16679945317cb1667c19cfa11db5fe49e73f4768",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    3,
+    62,
+    63,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y){\n outer: inner: function other(){}\n use(y);\n}",
+  "ext": "ts",
+  "owner": "q",
+  "name": "y",
+  "kind": "unrelated",
+  "file": "case018.ts",
+  "source_sha256": "ecb3dbbf4e41289c8d640598ebe57e8dec9f051faa49ee5f60cc998471329342",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    3,
+    54,
+    55,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y){\n enum E { x=1, z=y }\n use(y);\n}",
+  "ext": "ts",
+  "owner": "q",
+  "name": "y",
+  "kind": "enum-negative",
+  "file": "case019.ts",
+  "source_sha256": "d4eac4af967e07f9d864e23d73772c8f10cf8bb242455f96f5e96f8bbf3672d9",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    2,
+    15,
+    15,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ],
+   [
+    1,
+    11,
+    12,
+    3,
+    41,
+    42,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y){\n enum E { x=1 } enum E { z=y }\n use(y);\n}",
+  "ext": "ts",
+  "owner": "q",
+  "name": "y",
+  "kind": "enum-negative",
+  "file": "case020.ts",
+  "source_sha256": "bb8146d36f555626f295b1c5c03ce906d6955b867620d668211fcdc9796a1e2e",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    2,
+    15,
+    15,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ],
+   [
+    1,
+    11,
+    12,
+    3,
+    51,
+    52,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y){\n { enum E { y=1 } } enum E { z=y }\n use(y);\n}",
+  "ext": "ts",
+  "owner": "q",
+  "name": "y",
+  "kind": "enum-negative",
+  "file": "case021.ts",
+  "source_sha256": "132c686a6f232c345d09e1808b691992db00aca20e91b4a6b9982861bdc1ea51",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    2,
+    15,
+    15,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ],
+   [
+    1,
+    11,
+    12,
+    3,
+    55,
+    56,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y){\n { lbl: function y(){} use(y); }\n use(y);\n});",
+  "ext": "tsx",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "nested",
+  "file": "case022.tsx",
+  "source_sha256": "afa89784c777c7a261fb54cefbe5030e0e862d5c45e7292b7597d3a31ce4f921",
+  "rows": [
+   [
+    1,
+    18,
+    19,
+    3,
+    60,
+    61,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y){\n lbl: function other(){}\n use(y);\n});",
+  "ext": "tsx",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "unrelated",
+  "file": "case023.tsx",
+  "source_sha256": "ba6fae9fe23b28c660acc97b29b2cf1aabb4da779d38a32a70955f6f6a6f856c",
+  "rows": [
+   [
+    1,
+    18,
+    19,
+    3,
+    52,
+    53,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y){\n { outer: inner: function y(){} use(y); }\n use(y);\n});",
+  "ext": "tsx",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "nested",
+  "file": "case024.tsx",
+  "source_sha256": "9e64d6aeec3830e5e8f860264dfac69a7955841415dd9f73285545fb38598bd9",
+  "rows": [
+   [
+    1,
+    18,
+    19,
+    3,
+    69,
+    70,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y){\n outer: inner: function other(){}\n use(y);\n});",
+  "ext": "tsx",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "unrelated",
+  "file": "case025.tsx",
+  "source_sha256": "ae255860c1cdcd0fb9b3093014ca4e8ec3daa189fc985123b7c6a1d875fc462f",
+  "rows": [
+   [
+    1,
+    18,
+    19,
+    3,
+    61,
+    62,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y){\n enum E { x=1, z=y }\n use(y);\n});",
+  "ext": "tsx",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "enum-negative",
+  "file": "case026.tsx",
+  "source_sha256": "c68921f3cd3d701959f017b831bd9a807ed960188a7ea415aacd3bfed5182c93",
+  "rows": [
+   [
+    1,
+    18,
+    19,
+    2,
+    39,
+    40,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ],
+   [
+    1,
+    18,
+    19,
+    3,
+    48,
+    49,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y){\n enum E { x=1 } enum E { z=y }\n use(y);\n});",
+  "ext": "tsx",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "enum-negative",
+  "file": "case027.tsx",
+  "source_sha256": "1bf97b181fb436322277e00c7bd14d49cb0941ade6f874e15fda613e4e5b7a7d",
+  "rows": [
+   [
+    1,
+    18,
+    19,
+    2,
+    49,
+    50,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ],
+   [
+    1,
+    18,
+    19,
+    3,
+    58,
+    59,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y){\n { enum E { y=1 } } enum E { z=y }\n use(y);\n});",
+  "ext": "tsx",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "enum-negative",
+  "file": "case028.tsx",
+  "source_sha256": "bf20d8ac367a2746d2157431263453682297388cdb55593662733cb872a15e64",
+  "rows": [
+   [
+    1,
+    18,
+    19,
+    2,
+    53,
+    54,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ],
+   [
+    1,
+    18,
+    19,
+    3,
+    62,
+    63,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y){\n { lbl: function y(){} use(y); }\n use(y);\n}",
+  "ext": "tsx",
+  "owner": "q",
+  "name": "y",
+  "kind": "nested",
+  "file": "case029.tsx",
+  "source_sha256": "957dc300f5eb697645ae14446b5fecd01342754569e9e902629020b391be3738",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    3,
+    53,
+    54,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y){\n lbl: function other(){}\n use(y);\n}",
+  "ext": "tsx",
+  "owner": "q",
+  "name": "y",
+  "kind": "unrelated",
+  "file": "case030.tsx",
+  "source_sha256": "1f6023f89de1c43747647945ec84a4a4da4a83719420024ba5fdf4caaa3204a9",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    3,
+    45,
+    46,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y){\n { outer: inner: function y(){} use(y); }\n use(y);\n}",
+  "ext": "tsx",
+  "owner": "q",
+  "name": "y",
+  "kind": "nested",
+  "file": "case031.tsx",
+  "source_sha256": "1e6dbae1e5f00a582b2cdc4b16679945317cb1667c19cfa11db5fe49e73f4768",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    3,
+    62,
+    63,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y){\n outer: inner: function other(){}\n use(y);\n}",
+  "ext": "tsx",
+  "owner": "q",
+  "name": "y",
+  "kind": "unrelated",
+  "file": "case032.tsx",
+  "source_sha256": "ecb3dbbf4e41289c8d640598ebe57e8dec9f051faa49ee5f60cc998471329342",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    3,
+    54,
+    55,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y){\n enum E { x=1, z=y }\n use(y);\n}",
+  "ext": "tsx",
+  "owner": "q",
+  "name": "y",
+  "kind": "enum-negative",
+  "file": "case033.tsx",
+  "source_sha256": "d4eac4af967e07f9d864e23d73772c8f10cf8bb242455f96f5e96f8bbf3672d9",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    2,
+    15,
+    15,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ],
+   [
+    1,
+    11,
+    12,
+    3,
+    41,
+    42,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y){\n enum E { x=1 } enum E { z=y }\n use(y);\n}",
+  "ext": "tsx",
+  "owner": "q",
+  "name": "y",
+  "kind": "enum-negative",
+  "file": "case034.tsx",
+  "source_sha256": "bb8146d36f555626f295b1c5c03ce906d6955b867620d668211fcdc9796a1e2e",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    2,
+    15,
+    15,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ],
+   [
+    1,
+    11,
+    12,
+    3,
+    51,
+    52,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y){\n { enum E { y=1 } } enum E { z=y }\n use(y);\n}",
+  "ext": "tsx",
+  "owner": "q",
+  "name": "y",
+  "kind": "enum-negative",
+  "file": "case035.tsx",
+  "source_sha256": "132c686a6f232c345d09e1808b691992db00aca20e91b4a6b9982861bdc1ea51",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    2,
+    15,
+    15,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ],
+   [
+    1,
+    11,
+    12,
+    3,
+    55,
+    56,
+    "nameonly",
+    "cfg_incomplete",
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y,d=0){\n lbl: function y(){}\n use(y);\n});",
+  "file": "case0.js",
+  "ext": "js",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "seam",
+  "rows": []
+ },
+ {
+  "source": "register(function(y,d=0){\n outer: inner: function y(){}\n use(y);\n});",
+  "file": "case1.js",
+  "ext": "js",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "seam",
+  "rows": []
+ },
+ {
+  "source": "function q(y,d=0){\n lbl: function y(){}\n use(y);\n}",
+  "file": "case2.js",
+  "ext": "js",
+  "owner": "q",
+  "name": "y",
+  "kind": "seam",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    2,
+    19,
+    19,
+    "exact",
+    null,
+    null
+   ],
+   [
+    1,
+    11,
+    12,
+    3,
+    45,
+    46,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y,d=0){\n outer: inner: function y(){}\n use(y);\n}",
+  "file": "case3.js",
+  "ext": "js",
+  "owner": "q",
+  "name": "y",
+  "kind": "seam",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    2,
+    19,
+    19,
+    "exact",
+    null,
+    null
+   ],
+   [
+    1,
+    11,
+    12,
+    3,
+    54,
+    55,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y,d=0){\n lbl: function y(){}\n use(y);\n});",
+  "file": "case4.ts",
+  "ext": "ts",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "seam",
+  "rows": []
+ },
+ {
+  "source": "register(function(y,d=0){\n outer: inner: function y(){}\n use(y);\n});",
+  "file": "case5.ts",
+  "ext": "ts",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "seam",
+  "rows": []
+ },
+ {
+  "source": "function q(y,d=0){\n lbl: function y(){}\n use(y);\n}",
+  "file": "case6.ts",
+  "ext": "ts",
+  "owner": "q",
+  "name": "y",
+  "kind": "seam",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    2,
+    19,
+    19,
+    "exact",
+    null,
+    null
+   ],
+   [
+    1,
+    11,
+    12,
+    3,
+    45,
+    46,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y,d=0){\n outer: inner: function y(){}\n use(y);\n}",
+  "file": "case7.ts",
+  "ext": "ts",
+  "owner": "q",
+  "name": "y",
+  "kind": "seam",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    2,
+    19,
+    19,
+    "exact",
+    null,
+    null
+   ],
+   [
+    1,
+    11,
+    12,
+    3,
+    54,
+    55,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "register(function(y,d=0){\n lbl: function y(){}\n use(y);\n});",
+  "file": "case8.tsx",
+  "ext": "tsx",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "seam",
+  "rows": []
+ },
+ {
+  "source": "register(function(y,d=0){\n outer: inner: function y(){}\n use(y);\n});",
+  "file": "case9.tsx",
+  "ext": "tsx",
+  "owner": "<cb@1:10>",
+  "name": "y",
+  "kind": "seam",
+  "rows": []
+ },
+ {
+  "source": "function q(y,d=0){\n lbl: function y(){}\n use(y);\n}",
+  "file": "case10.tsx",
+  "ext": "tsx",
+  "owner": "q",
+  "name": "y",
+  "kind": "seam",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    2,
+    19,
+    19,
+    "exact",
+    null,
+    null
+   ],
+   [
+    1,
+    11,
+    12,
+    3,
+    45,
+    46,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ },
+ {
+  "source": "function q(y,d=0){\n outer: inner: function y(){}\n use(y);\n}",
+  "file": "case11.tsx",
+  "ext": "tsx",
+  "owner": "q",
+  "name": "y",
+  "kind": "seam",
+  "rows": [
+   [
+    1,
+    11,
+    12,
+    2,
+    19,
+    19,
+    "exact",
+    null,
+    null
+   ],
+   [
+    1,
+    11,
+    12,
+    3,
+    54,
+    55,
+    "exact",
+    null,
+    null
+   ]
+  ]
+ }
+]

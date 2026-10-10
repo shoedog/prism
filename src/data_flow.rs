@@ -549,38 +549,123 @@ impl DataFlowGraph {
                 let mut rd_function_stats = RdFileStats::default();
 
                 let function_nodes = parsed.all_functions();
+                // PR-B perf: one file-level CFG edge build shared by every pass.
+                let file_cfg_edges = std::cell::OnceCell::new();
                 let mut owner_counts = BTreeMap::new();
                 for func_node in &function_nodes {
-                    if let Some(name) = parsed.language.function_name(func_node) {
-                        let key = (
-                            parsed.node_text(&name).to_string(),
-                            parsed.node_line_range(func_node).0,
-                        );
+                    // js-param-defs PR-B: anonymous JS/TS/TSX callables own a
+                    // synthetic, non-referenceable `<cb@L:C>` DFG identity.
+                    if let Some(name) = parsed.dfg_owner_name(func_node) {
+                        let key = (name, parsed.node_line_range(func_node).0);
                         *owner_counts.entry(key).or_insert(0usize) += 1;
                     }
                 }
                 for func_node in function_nodes {
-                    let func_name = match parsed.language.function_name(&func_node) {
-                        Some(n) => parsed.node_text(&n).to_string(),
+                    let func_name = match parsed.dfg_owner_name(&func_node) {
+                        Some(n) => n,
                         None => continue,
                     };
+                    // PR-B: a synthetic pass owns only its own scope (bytes inside
+                    // the callable, outside nested callables). Legacy named passes
+                    // keep their line-based coverage byte-identically.
+                    let synthetic = crate::ast::is_synthetic_owner(&func_name);
                     let (start, end) = parsed.node_line_range(&func_node);
                     let owner_is_unique = owner_counts
                         .get(&(func_name.clone(), start))
                         .is_some_and(|count| *count == 1);
                     let all_lines: BTreeSet<usize> = (start..=end).collect();
+                    let param_occurrences = parsed.function_parameter_occurrences(&func_node);
+                    let refused_formals: BTreeSet<_> = parsed
+                        .js_ts_parameter_refusals(&func_node)
+                        .into_iter()
+                        .filter(|(_, seam, eval, args)| synthetic && (*seam || *eval || *args))
+                        .map(|(name, _, _, _)| name)
+                        .collect();
+                    let refused_occurrence = |path: &AccessPath, byte| {
+                        refused_formals.contains(path.base.as_str())
+                            && parsed.js_ts_occurrence_binds_formal(&func_node, &path.base, byte)
+                    };
 
                     // Phase 3: Build local alias map for this function.
                     // Tracks `ptr = dev` so that `ptr->field` resolves to `dev->field`.
                     // Also tracks destructuring: `const { name } = obj` → name resolves to obj.name.
-                    let (alias_map, raw_aliases) =
-                        Self::build_alias_map(parsed, &func_node, &all_lines);
-                    let lvalue_spans =
+                    let mut lvalue_spans =
                         parsed.assignment_lvalue_spans_on_lines(&func_node, &all_lines);
-                    let mut def_locs_by_occurrence: BTreeMap<(AccessPath, usize), VarLocation> =
-                        BTreeMap::new();
+                    let mut nested_write_spans = Vec::new();
+                    if synthetic {
+                        lvalue_spans.retain(|span| {
+                            // W4: object-backed writes are not proved lexical
+                            // Defs, and cannot contribute even kill-only input.
+                            if parsed.js_ts_span_in_with_body(span.start_byte, span.end_byte)
+                                || refused_occurrence(&span.path, span.start_byte)
+                                || span.path.base == "this"
+                                    && parsed.js_ts_span_this_rebound_between(
+                                        span.start_byte,
+                                        span.end_byte,
+                                        &func_node,
+                                    )
+                            {
+                                return false;
+                            }
+                            // An uninitialised body var supplies no value after
+                            // the refused seam copy. Keep actual assignments.
+                            if parsed.js_ts_seam_binding(&func_node, &span.path.base)
+                                && parsed
+                                    .tree
+                                    .root_node()
+                                    .descendant_for_byte_range(span.start_byte, span.end_byte)
+                                    .and_then(|n| n.parent())
+                                    .is_some_and(|n| {
+                                        n.kind() == "variable_declarator"
+                                            && n.child_by_field_name("value").is_none()
+                                    })
+                            {
+                                return false;
+                            }
+                            let own = parsed.js_ts_span_in_own_scope(
+                                &func_node,
+                                span.start_byte,
+                                span.end_byte,
+                            );
+                            if !own
+                                && func_node.start_byte() <= span.start_byte
+                                && span.end_byte <= func_node.end_byte()
+                            {
+                                nested_write_spans.push(span.clone());
+                            }
+                            own
+                        });
+                    }
+                    let mut alias_targets_by_byte = BTreeMap::new();
+                    let (alias_map, raw_aliases) = if synthetic {
+                        // PR-B D11: a synthetic pass derives its aliases from its own
+                        // own-scope lvalue identifiers only (plain `=`, declarators,
+                        // flat object destructuring); outer/nested/augmented
+                        // assignments never mint an alias here (fail closed).
+                        let raw: Vec<_> = lvalue_spans
+                            .iter()
+                            .filter(|span| span.path.is_simple())
+                            .filter_map(|span| {
+                                parsed
+                                    .js_ts_own_alias_target(span.start_byte, span.end_byte)
+                                    .map(|target| {
+                                        alias_targets_by_byte
+                                            .insert(span.start_byte, target.clone());
+                                        (span.path.base.clone(), target, span.line)
+                                    })
+                            })
+                            .collect();
+                        (Self::resolve_alias_chain(&raw), raw)
+                    } else {
+                        Self::build_alias_map(parsed, &func_node, &all_lines)
+                    };
+                    let occurrence_byte = |byte| if synthetic { byte } else { 0 };
+                    let mut def_locs_by_occurrence: BTreeMap<
+                        (AccessPath, usize, usize),
+                        VarLocation,
+                    > = BTreeMap::new();
                     let mut resolved_def_locs_by_occurrence: BTreeMap<
-                        (AccessPath, usize),
+                        (AccessPath, usize, usize),
                         VarLocation,
                     > = BTreeMap::new();
                     let mut param_ref_jobs = Vec::new();
@@ -594,15 +679,24 @@ impl DataFlowGraph {
                     // Skip parameters that are only used via field access (e.g. `dev.name`)
                     // to preserve field isolation — a base-only Def would let taint on
                     // `dev.name` leak to unrelated fields like `dev.id`.
-                    let param_occurrences = parsed.function_parameter_occurrences(&func_node);
                     for (param_name, param_start_byte, param_end_byte) in &param_occurrences {
+                        if refused_formals.contains(param_name.as_str()) {
+                            continue;
+                        }
                         let path = AccessPath::simple(param_name.clone());
                         // Skip parameters only used via field access (e.g. `dev.name`)
                         // to preserve field isolation.
                         if !parsed.has_bare_references(&func_node, param_name) {
                             continue;
                         }
-                        let refs = parsed.find_path_references_scoped(&func_node, &path, start);
+                        let refs = parsed.find_path_reference_spans_fenced_in(
+                            &func_node,
+                            &path,
+                            start,
+                            *param_start_byte,
+                            None,
+                            synthetic,
+                        );
                         let param_decl_line = parsed.line_for_byte(*param_start_byte);
 
                         // Parameter Defs are pinned to the function's `start` line for stable lookup.
@@ -648,7 +742,11 @@ impl DataFlowGraph {
                         .or_default()
                         .push(loc.clone());
                         def_locs_by_occurrence
-                            .entry((span.path.clone(), span.line))
+                            .entry((
+                                span.path.clone(),
+                                span.line,
+                                occurrence_byte(span.start_byte),
+                            ))
                             .or_insert(loc.clone());
 
                         // Phase 3: If this path's base is aliased, also register a def under
@@ -656,7 +754,20 @@ impl DataFlowGraph {
                         // For field paths (ptr->field → dev->field): resolves base through alias.
                         // For simple paths from destructuring (name → device.name): creates
                         // a field-qualified def so taint connects through destructured variables.
-                        if let Some(resolved) = Self::resolve_path(&alias_map, &span.path) {
+                        // PR-B D11: in a synthetic pass an alias twin exists only on the
+                        // line that establishes the alias, to that line's target;
+                        // re-assigning the alias name elsewhere breaks the alias, it does
+                        // not write the target (flow-insensitive twins: legacy E11).
+                        let twin = if synthetic {
+                            Self::resolve_on_alias_span(
+                                &alias_targets_by_byte,
+                                &span.path,
+                                span.start_byte,
+                            )
+                        } else {
+                            Self::resolve_path(&alias_map, &span.path)
+                        };
+                        if let Some(resolved) = twin {
                             if resolved != span.path.clone() {
                                 let resolved_loc = VarLocation {
                                     file: file_path.clone(),
@@ -678,7 +789,7 @@ impl DataFlowGraph {
                                 .or_default()
                                 .push(resolved_loc.clone());
                                 resolved_def_locs_by_occurrence
-                                    .entry((resolved, span.line))
+                                    .entry((resolved, span.line, occurrence_byte(span.start_byte)))
                                     .or_insert(resolved_loc);
                             }
                         }
@@ -720,7 +831,7 @@ impl DataFlowGraph {
                                 .or_default()
                                 .push(loc.clone());
                                 resolved_def_locs_by_occurrence
-                                    .entry((resolved_ap, *alias_line))
+                                    .entry((resolved_ap, *alias_line, 0))
                                     .or_insert(loc);
                             }
                         }
@@ -728,8 +839,18 @@ impl DataFlowGraph {
 
                     // R-values: insert real-span occurrences before any line
                     // anchors so CPG var-node dedup keeps the real span.
-                    let rvalue_spans =
+                    let mut rvalue_spans =
                         parsed.rvalue_identifier_spans_on_lines(&func_node, &all_lines);
+                    if synthetic {
+                        // PR-B D9: new passes never count non-reference
+                        // positions (keys, attribute/property names) as Uses.
+                        rvalue_spans.retain(|span| {
+                            !parsed.js_ts_span_is_non_reference(span.start_byte, span.end_byte)
+                                && !parsed.js_ts_span_is_not_a_read(span.start_byte, span.end_byte)
+                                && !parsed.js_ts_span_in_with_body(span.start_byte, span.end_byte)
+                                && !refused_occurrence(&span.path, span.start_byte)
+                        });
+                    }
                     let mut preferred_use_locs: BTreeMap<(AccessPath, usize), VarLocation> =
                         BTreeMap::new();
                     for span in &rvalue_spans {
@@ -756,38 +877,72 @@ impl DataFlowGraph {
                         .push(use_loc);
                     }
 
-                    let mut get_use = |path: &AccessPath, ref_line: usize, allow: bool| {
-                        if let Some(existing) = preferred_use_locs.get(&(path.clone(), ref_line)) {
-                            return Some(existing.clone());
-                        }
-                        if !allow {
-                            return None;
-                        }
-                        let anchor = parsed.line_start_byte(ref_line);
-                        let use_loc = VarLocation {
-                            file: file_path.clone(),
-                            function: func_name.clone(),
-                            function_start_line: start,
-                            line: ref_line,
-                            path: path.clone(),
-                            start_byte: anchor,
-                            end_byte: anchor,
-                            kind: VarAccessKind::Use,
+                    let mut get_use =
+                        |path: &AccessPath,
+                         ref_line: usize,
+                         allow: bool,
+                         admitted: (usize, usize)| {
+                            if synthetic {
+                                if refused_occurrence(path, admitted.0) {
+                                    return None;
+                                }
+                                // The reference walk has already proved this occurrence's
+                                // binding and read role for the current Def.
+                                let use_loc = VarLocation {
+                                    file: file_path.clone(),
+                                    function: func_name.clone(),
+                                    function_start_line: start,
+                                    line: ref_line,
+                                    path: path.clone(),
+                                    start_byte: admitted.0,
+                                    end_byte: admitted.1,
+                                    kind: VarAccessKind::Use,
+                                };
+                                uses.entry((
+                                    file_path.clone(),
+                                    func_name.clone(),
+                                    start,
+                                    path.clone(),
+                                ))
+                                .or_default()
+                                .push(use_loc.clone());
+                                return Some(use_loc);
+                            }
+                            if let Some(existing) =
+                                preferred_use_locs.get(&(path.clone(), ref_line))
+                            {
+                                return Some(existing.clone());
+                            }
+                            if !allow {
+                                return None;
+                            }
+                            let anchor = parsed.line_start_byte(ref_line);
+                            let use_loc = VarLocation {
+                                file: file_path.clone(),
+                                function: func_name.clone(),
+                                function_start_line: start,
+                                line: ref_line,
+                                path: path.clone(),
+                                start_byte: anchor,
+                                end_byte: anchor,
+                                kind: VarAccessKind::Use,
+                            };
+                            debug_assert_eq!(use_loc.start_byte, use_loc.end_byte);
+                            uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
+                                .or_default()
+                                .push(use_loc.clone());
+                            preferred_use_locs.insert((path.clone(), ref_line), use_loc.clone());
+                            Some(use_loc)
                         };
-                        debug_assert_eq!(use_loc.start_byte, use_loc.end_byte);
-                        uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
-                            .or_default()
-                            .push(use_loc.clone());
-                        preferred_use_locs.insert((path.clone(), ref_line), use_loc.clone());
-                        Some(use_loc)
-                    };
 
                     // Create edges from param def to all uses in the function body.
                     for (path, loc, refs, param_decl_line) in &param_ref_jobs {
-                        for ref_line in refs {
+                        for (ref_line, admitted) in refs {
                             let in_signature_line =
                                 *ref_line >= start && *ref_line <= *param_decl_line;
-                            if let Some(use_loc) = get_use(path, *ref_line, !in_signature_line) {
+                            if let Some(use_loc) =
+                                get_use(path, *ref_line, !in_signature_line, *admitted)
+                            {
                                 edges.push(FlowEdge {
                                     from: loc.clone(),
                                     to: use_loc,
@@ -802,16 +957,31 @@ impl DataFlowGraph {
                     for span in &lvalue_spans {
                         let path = &span.path;
                         let def_line = span.line;
-                        let refs = parsed.find_path_references_scoped(&func_node, path, def_line);
-                        for ref_line in &refs {
-                            if *ref_line == def_line {
+                        // R1: every JS/TS Def, including writes, stays in its
+                        // binding environment; body vars cannot reach defaults.
+                        let def_scope =
+                            parsed.js_ts_def_scope(&func_node, &path.base, span.start_byte);
+                        let refs = parsed.find_path_reference_spans_fenced_in(
+                            &func_node,
+                            path,
+                            def_line,
+                            span.start_byte,
+                            def_scope,
+                            synthetic,
+                        );
+                        for (ref_line, admitted) in &refs {
+                            if *ref_line == def_line
+                                || (synthetic
+                                    && parsed.js_ts_seam_binding(&func_node, &path.base)
+                                    && admitted.0 < span.start_byte)
+                            {
                                 continue; // Skip self-reference
                             }
-                            let Some(use_loc) = get_use(path, *ref_line, true) else {
+                            let Some(use_loc) = get_use(path, *ref_line, true, *admitted) else {
                                 continue;
                             };
                             let def_loc = def_locs_by_occurrence
-                                .get(&(path.clone(), def_line))
+                                .get(&(path.clone(), def_line, occurrence_byte(span.start_byte)))
                                 .cloned()
                                 .unwrap_or_else(|| VarLocation {
                                     file: file_path.clone(),
@@ -830,19 +1000,44 @@ impl DataFlowGraph {
                         }
 
                         // Phase 3: Also create edges for the alias-resolved path.
-                        if let Some(resolved) = Self::resolve_path(&alias_map, path) {
+                        let twin = if synthetic {
+                            Self::resolve_on_alias_span(
+                                &alias_targets_by_byte,
+                                path,
+                                span.start_byte,
+                            )
+                        } else {
+                            Self::resolve_path(&alias_map, path)
+                        };
+                        if let Some(resolved) = twin {
                             if resolved != *path {
-                                let resolved_refs = parsed
-                                    .find_path_references_scoped(&func_node, &resolved, def_line);
-                                for ref_line in &resolved_refs {
+                                let resolved_refs = parsed.find_path_reference_spans_fenced_in(
+                                    &func_node,
+                                    &resolved,
+                                    def_line,
+                                    span.start_byte,
+                                    parsed.js_ts_def_scope(
+                                        &func_node,
+                                        &resolved.base,
+                                        span.start_byte,
+                                    ),
+                                    synthetic,
+                                );
+                                for (ref_line, admitted) in &resolved_refs {
                                     if *ref_line == def_line {
                                         continue;
                                     }
-                                    let Some(use_loc) = get_use(&resolved, *ref_line, true) else {
+                                    let Some(use_loc) =
+                                        get_use(&resolved, *ref_line, true, *admitted)
+                                    else {
                                         continue;
                                     };
                                     let def_loc = resolved_def_locs_by_occurrence
-                                        .get(&(resolved.clone(), def_line))
+                                        .get(&(
+                                            resolved.clone(),
+                                            def_line,
+                                            occurrence_byte(span.start_byte),
+                                        ))
                                         .cloned()
                                         .unwrap_or_else(|| VarLocation {
                                             file: file_path.clone(),
@@ -864,6 +1059,46 @@ impl DataFlowGraph {
                     }
 
                     drop(get_use);
+                    // F1: captured writes inside nested callables contribute to
+                    // RD kills, but never become emitted Defs or edge sources.
+                    for span in &nested_write_spans {
+                        let Some(node) = parsed
+                            .tree
+                            .root_node()
+                            .descendant_for_byte_range(span.start_byte, span.end_byte)
+                        else {
+                            continue;
+                        };
+                        let same_binding = rd_defs.iter().any(|d| {
+                            d.path == span.path
+                                && !parsed.js_ts_reference_fenced(
+                                    &node,
+                                    &func_node,
+                                    &span.path.base,
+                                    d.start_byte,
+                                )
+                        });
+                        if !same_binding
+                            || (span.path.base == "this"
+                                && parsed.js_ts_this_rebound_between(&node, &func_node))
+                        {
+                            continue;
+                        }
+                        Self::push_rd_def(
+                            &mut rd_defs,
+                            &VarLocation {
+                                file: file_path.clone(),
+                                function: func_name.clone(),
+                                function_start_line: start,
+                                line: span.line,
+                                path: span.path.clone(),
+                                start_byte: span.start_byte,
+                                end_byte: span.end_byte,
+                                kind: VarAccessKind::Def,
+                            },
+                            false,
+                        );
+                    }
                     let function_edges = &edges[function_edge_start..];
                     let exact_candidates = Self::exact_read_candidates(
                         parsed,
@@ -881,6 +1116,8 @@ impl DataFlowGraph {
                         &rd_defs,
                         function_edges,
                         &exact_candidates,
+                        file_cfg_edges
+                            .get_or_init(|| crate::cfg::build_cfg_edges_with_arms(parsed)),
                     ) {
                         RdOutcome::Available(result) => {
                             Self::store_supplemental_exact(
@@ -1010,10 +1247,14 @@ impl DataFlowGraph {
         lines: &BTreeSet<usize>,
     ) -> (BTreeMap<String, String>, Vec<(String, String, usize)>) {
         let raw_aliases = parsed.collect_alias_assignments(func_node, lines);
+        (Self::resolve_alias_chain(&raw_aliases), raw_aliases)
+    }
+
+    fn resolve_alias_chain(raw_aliases: &[(String, String, usize)]) -> BTreeMap<String, String> {
         let mut alias_map: BTreeMap<String, String> = BTreeMap::new();
 
         // Process in line order so earlier aliases are available for chain resolution
-        for (alias, target, _line) in &raw_aliases {
+        for (alias, target, _line) in raw_aliases.iter() {
             // Follow chain: if target itself is an alias, resolve transitively
             let mut resolved = target.clone();
             let mut depth = 0;
@@ -1056,7 +1297,7 @@ impl DataFlowGraph {
             }
         }
 
-        (alias_map, raw_aliases)
+        alias_map
     }
 
     /// Phase 3: If a path's base is aliased, return the resolved path.
@@ -1077,6 +1318,26 @@ impl DataFlowGraph {
         } else {
             None
         }
+    }
+
+    /// PR-B D11: a synthetic pass resolves an alias twin only on the line that
+    /// establishes the alias, to that line's own target. Re-assigning the alias
+    /// name elsewhere breaks the alias; it never writes the target, and a later
+    /// alias of the same name never retro-applies (flow-insensitive twins are
+    /// legacy parity, E11).
+    fn resolve_on_alias_span(
+        alias_targets_by_byte: &BTreeMap<usize, String>,
+        path: &AccessPath,
+        start_byte: usize,
+    ) -> Option<AccessPath> {
+        let target = alias_targets_by_byte.get(&start_byte)?;
+        let target_path = AccessPath::from_expr(target);
+        let mut fields = target_path.fields;
+        fields.extend(path.fields.iter().cloned());
+        Some(AccessPath {
+            base: target_path.base,
+            fields,
+        })
     }
 
     /// Find all locations reachable forward from a given location (transitive).
