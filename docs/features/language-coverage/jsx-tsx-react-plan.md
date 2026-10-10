@@ -759,7 +759,14 @@ Full render cycle modeling (a hypothetical Layer 7) would be needed for: detecti
 
 ## Parked JS/TS lanes (2026-10-04)
 
-Two JS/TS resolution lanes were parked by the owner on 2026-10-04. Every branch is pushed to `origin`. Each plan packet records the owner decisions (`OQ*.md`), the spec reviews (`reviews/`) and the dispatch briefs (`briefs/`). Bulky evidence stays outside the repo, under `~/prism-evidence/{s2,pkgres}/`.
+Two JS/TS resolution lanes were parked by the owner on 2026-10-04. Every branch is pushed to `origin`. Each plan packet has a `PARKED.md` with branch names, commit states and resume notes, and records the owner decisions (`OQ*.md`), the spec reviews (`reviews/`) and the dispatch briefs (`briefs/`).
+
+| Lane | Tracking issue | Draft PR | Evidence archive |
+|---|---|---|---|
+| S2 | #353 | #343 | `prism-evidence-s2-2026-10-09.tar.zst` |
+| PKG | #352 | #344 | `prism-evidence-pkgres-2026-10-09.tar.zst` |
+
+Bulky evidence is kept out of this repository. It was offloaded on 2026-10-09 to the private repository `shoedog/prism-evidence`, release `offload-2026-10-09`; that repository's README has the lane index, checksums and restore instructions. Private-corpus evidence was not uploaded.
 
 ### Lane S2: JS/TS import-qualifier Exact edges (PR #343, draft)
 
@@ -767,7 +774,7 @@ Two JS/TS resolution lanes were parked by the owner on 2026-10-04. Every branch 
 
 | Branch | Commit | State |
 |---|---|---|
-| `plan/s2-import-qualifiers` | `d5be6cce` | Plan packet: SPEC with the §2a escape-channel table, OQ-s2 with decisions S2-O6 to S2-O9 plus the park, measurements, reviews and briefs |
+| `plan/s2-import-qualifiers` | `0ec9a387` | Plan packet (start at `PARKED.md`): SPEC with the §2a escape-channel table, OQ-s2 with decisions S2-O6 to S2-O9 plus the park, measurements, reviews and briefs |
 | `proto/s2-import-qualifiers` | `c35719e1` | Fail-closed whitelist-of-uses prototype (X +132 CORRECT) |
 | | `75a35a5e` | R2: static-binding guards under S2-O7. **X +132, F 0 changed.** The last positive-yield state, before review round 2's refusal-join fold |
 | | `61641bdb` | R3b: precise refusal joins (X 0) |
@@ -783,7 +790,7 @@ Two JS/TS resolution lanes were parked by the owner on 2026-10-04. Every branch 
 
 | Branch | Commit | State |
 |---|---|---|
-| `plan/workspace-package-resolution` | `6d64dfb1` | Plan packet: census, SPEC with the three-way result contract (`Bound` / `ProvenUnresolved` / `Unsupported`), the TS 5.9.3 differential gate (`probes/`), reviews and briefs |
+| `plan/workspace-package-resolution` | `be611636` | Plan packet (start at `PARKED.md`): census, SPEC with the three-way result contract (`Bound` / `ProvenUnresolved` / `Unsupported`), the TS 5.9.3 differential gate (`probes/`), reviews and briefs |
 | `proto/workspace-package-resolution` | `92c1d0bc` | Bounded prototype |
 | | `03fa9c29` | R1: folds review round 1. The differential gate passes 5,096 cases with 0 wrong bindings, and public call streams are unchanged |
 
