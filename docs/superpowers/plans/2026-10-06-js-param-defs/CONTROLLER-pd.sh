@@ -8,7 +8,7 @@
 #            synthetic <cb@L:C> owners are indexed; rowdiff pairs owner-only replacements as RE-OWNED)
 #     CORPUS_F_ROOT=... PRIVATE_EVIDENCE_ROOT=NEW_DIR bash CONTROLLER-pd.sh diff TS_JS BASE_BIN HEAD_BIN BASE_BYTES_BIN HEAD_BYTES_BIN
 # TS_JS is the pinned TypeScript 5.9.3 lib/typescript.js
-# R9 diff also requires SEAM_CENSUS_BIN (the frozen cache113 product census).
+# Diff requires SEAM_CENSUS_BIN from the bound head (R10: frozen cache114 census).
 # (~/prism-evidence/native-positional-gap/gate-inputs/typescript-5.9.3/package/lib/typescript.js).
 # Rows, sites and per-row verdicts stay in PRIVATE_EVIDENCE_ROOT; only counts leave.
 set -eEuo pipefail
@@ -24,7 +24,7 @@ test "$MODE" = census -a "$#" -eq 2 -o "$MODE" = diff -a "$#" -eq 6
 test ! -e "$PRIVATE_EVIDENCE_ROOT"
 INPUT_BINARIES=( "${@:2}" )
 if [ "$MODE" = diff ]; then
-  : "${SEAM_CENSUS_BIN:?controller supplies the R9 frozen census binary}"
+  : "${SEAM_CENSUS_BIN:?controller supplies the frozen head census binary}"
   INPUT_BINARIES+=( "$SEAM_CENSUS_BIN" )
 fi
 PACKET="$(cd "$(dirname "$0")" && pwd)"
@@ -98,19 +98,28 @@ if mode == 'diff':
     adj = json.loads((out / 'adjudication.json').read_text())
     admissibility = json.loads((out / 'corrected-admissibility.json').read_text())
     corrected = admissibility['counts']
+    # Only bucket 1 is covered by E13; buckets 2 and 3 remain gated.
+    outside = {}
+    for key, count in corrected.items():
+        bucket, classification, verdict = key.split('|')
+        if bucket in ('2', '3'):
+            suffix = classification + '|' + verdict
+            outside[suffix] = outside.get(suffix, 0) + count
     sites_identical = (out / 'base.sites.jsonl').read_bytes() == (out / 'head.sites.jsonl').read_bytes()
     stops = []
     if byte_diff.get('LOST', 0):
         result['lost_requires_adjudication'] = byte_diff['LOST']
     if byte_diff.get('RE-OWNED', 0):
         result['reowned_requires_adjudication'] = byte_diff['RE-OWNED']
-    if any(k.startswith('outside|RE-OWNED|') and (k.endswith('|WRONG') or k.endswith('|UNDECIDED')) for k in corrected):
+    if any(k.startswith('RE-OWNED|') and (k.endswith('|WRONG') or k.endswith('|UNDECIDED')) for k in outside):
         stops.append('RE-OWNED row not proved correct')
-    if corrected.get('outside|LOST|CORRECT', 0):
+    if outside.get('LOST|CORRECT', 0):
         stops.append('LOST correct row')
-    if corrected.get('outside|ADDED|WRONG', 0):
+    elif admissibility['STOP'] and not outside.get('ADDED|WRONG', 0) and not outside.get('RE-OWNED|WRONG', 0):
+        stops.append('raw adverse row without an allowlisted early-error override')
+    if outside.get('ADDED|WRONG', 0):
         stops.append('ADDED WRONG binding')
-    if corrected.get('outside|ADDED|UNDECIDED', 0):
+    if outside.get('ADDED|UNDECIDED', 0):
         stops.append('ADDED binding undecided')
     if adj.get('ADDED|step2|UNREACHABLE', 0):
         stops.append('ADDED proved unreachable use; same-base parity control required')
@@ -120,7 +129,7 @@ if mode == 'diff':
         stops.append('call-site rows changed (PR-A/PR-B must not change call resolution)')
     # EXACT_PRIOR_WRITE rows are not a STOP by themselves: the planner checks each against the
     # same-shape plain-parameter control (SPEC D13); the count is published for that review.
-    result.update({'byte_projection_identical': json.loads((out / 'projection.json').read_text()), 'dfg_diff': diff, 'byte_diff': byte_diff, 'adjudication': adj, 'corrected_admissibility': {'counts': corrected, 'raw': admissibility['raw'], 'type_annotated_JS_files': len(admissibility['type_annotated_JS']), 'overrides': len(admissibility['overrides'])}, 'call_sites_identical': sites_identical,
+    result.update({'byte_projection_identical': json.loads((out / 'projection.json').read_text()), 'dfg_diff': diff, 'byte_diff': byte_diff, 'adjudication': adj, 'corrected_admissibility': {'counts': corrected, 'raw': admissibility['raw'], 'after_override': corrected, 'type_annotated_JS_files': len(admissibility['type_annotated_JS']), 'other_diagnostic_JS_files': len(admissibility['other_diagnostic_JS']), 'overrides': len(admissibility['overrides']), 'inadmissible_proofs': len(admissibility['inadmissible_proofs'])}, 'call_sites_identical': sites_identical,
                    'status': 'STOP' if stops else 'COMPLETE', 'stops': stops})
 print(json.dumps(result, sort_keys=True))
 PY

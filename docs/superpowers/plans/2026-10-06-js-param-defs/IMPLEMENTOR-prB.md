@@ -1,31 +1,27 @@
-# R9b final landing dispatch — source 96817370
+# R10 final landing dispatch — cache 114
 
-The retained source is `96817370ffb65dd3de14fe574789b6bf31e99ac5`. R9b closes the bookkeeping STOP: the controller authorized TYPE_PREDICATE (F9), all 62 rows have independent per-row AST/checker proofs, and controller/worker directive parity passes. Product source remains frozen. The collect-all certificate is COMPLETE and clean on admitted roots; excluded roots receive no semantic credit. E13 reaffirmation or revision, private F, and controller Rust/full quick remain landing prerequisites. No merge or adoption is authorized by this dispatch.
+The R10 candidate is the bounded source fold on **96817370ffb65dd3de14fe574789b6bf31e99ac5**, with docs based on **29a1d2d9139590baf3a281d1f32e233f01337026**. `repair-r10/source-manifest.json` and binary-binding.json bind the uncommitted candidate; controller owns its eventual commit SHA. R10 is COMPLETE and clean on all 579 admitted roots, with zero row/call-site/non-JS/navigation differences and no STOP; read MEASUREMENTS-prB-R10.md and final-custody-check.json for the terminal receipts. Landing is authorized only after a COMPLETE clean certificate, all required gates, owner E13 reaffirmation/revision and private F/controller Rust quick. No merge/adoption authority is granted here.
 
-## Exact commits and custody
+## Exact patches and custody
 
-1. Retain source commit `96817370ffb65dd3de14fe574789b6bf31e99ac5` (`fix(js-param-defs): fold R9 recovery and binding boundaries`) on `origin/wip/js-param-defs-prB-r3`. Its parent is `2431cb104db7828d11ae409dc207c1e339270c93`; do not reapply the historical R9 source patch to 96817370.
-2. Retain docs commit `5ddbf1d64991b7b9f609b1643b0951bd475b996f` (`docs(js-param-defs): bind corrected R9 evidence and STOP`), then apply `~/prism-evidence/js-param-defs/prB/repair-r9b/R9b-docs.patch` relative to that exact base. Proposed docs commit: `docs(js-param-defs): close R9 bookkeeping STOP with independent proofs`.
-3. In the controller's landing checkout, bind the complete src/tests/mutants tree to 96817370, including files untracked in the planning checkout. Rebind the docs patch and evidence manifests before transferring any result. All 727 product/test/mutant files matched at R9b entry; controller owns Git writes. There is no R9b source patch.
+1. On a clean source96817370 checkout, apply checked `~/prism-evidence/js-param-defs/prB/repair-r10/R10-src.patch`. The source patch contains four AST hunks, full row controls and cache114/coupled mutants; it does not reapply historical PR-B work.
+2. On docs29a1d2d9, apply checked R10-docs.patch. Preserve separate source/docs provenance. Each patch has git apply --check and exact reconstructed-byte receipts against a clean export with no Git metadata.
+3. Rebind all728 src/tests/mutants files, including the untracked callback module, tests and fixtures, to R10 source-manifest.json before transferring gates. Commit source/docs only on the controller's landing checkout; all worker Git metadata writes were prohibited.
 
-Current evidence: `MEASUREMENTS-prB-R9b.md`, `HANDOFF-repair-prB-r9.md`, and `~/prism-evidence/js-param-defs/prB/repair-r9b/{REPORT,HANDOFF}.md`. The R9 reports preserve the historical STOP as explicitly superseded history.
+Both registries are required: `mutants/js-param-defs.json` **109** entries (PD110–115 added), and `mutants/lane-p-tsconfig-paths.json` coupled **P2-M11**. CACHE_VERSION114, PD-11/P2-M11 mutate114→113. Historical R9 cache113 receipts cannot replace fresh R10 gates.
 
-The actual cache pin is `CACHE_VERSION = 113`; both `mutants/js-param-defs.json` PD11 and `mutants/lane-p-tsconfig-paths.json` P2M11 mutate 113 → 112. The authoritative PD registry has 103 anchored mutants, including PD100–109. F10 `RdResult.reaching_edges` and F11 alias-twin ordering remain follow-ups.
+## Fresh source-bound gates
 
-## Gates and controller landing order
+R10: nextest --features mcp5247passed/0failed/1reservedskip; doctests2passed; PD109/109killed and admissible; coupled P2-M111/1killed (other120 lane-P mutants not rerun); fmtclean; same-environment local-main c8de720b clippy371/371 emitted warning multisets equal,229distinctlocations each; semantic763/763 +200kind cells with full matrix rows equalR9; Tier-A178/178 after immediate release rebuild; TS and Node quickVALID. VALID proves runnable admission, not precision. Worker/controller parity22/22, full probe suite71/71, F aggregate consumer8/8, shellsyntax pass.
 
-R9's source-bound gates stay valid because R9b changes no src/tests/mutants bytes or frozen binaries. They were not rerun: nextest `--features mcp` 5,241 passed / one reserved skip, doctests 2 passed, PD mutants 103/103 killed and admissible, coupled P2-M11 1/1 killed, fmt clean, clippy head/main 235/235 with equal warning multisets, Tier-A matrix 178/178, TS and Node quick VALID. The remaining 120 lane-P mutants were not rerun in R9. VALID is admission, not a precision claim. Historical perf/sample/MCP results are not fresh R9b gates.
-
-Fresh R9b checks are the full probe unit suite (50/50), controller/worker parity (6/6), four early-error allowlist positives plus four generic-parser negatives, and shell syntax. Both raw directives remain strict; escaped literals remain non-strict. The same-environment 5ddbf1d6 helper control fails three escaped cases before the fix.
-
-Before landing: obtain the owner's E13 reaffirmation/revision on the corrected extent, run the private F command below, and run the controller Rust/full quick. On the eventual clean landing checkout, preserve complete gate logs using new evidence directories:
+In the eventual controller landing checkout, rebind hashes and retain new gate directories:
 
 ```bash
 cargo nextest run --offline --locked --features mcp
 cargo test --offline --locked --doc --features mcp
 cargo fmt --all -- --check
-python3 scripts/mutgate/mutgate.py --lane mutants/js-param-defs.json --authoritative --jobs 4 --out "$R9_CONTROLLER_NEW_PD_GATES"
-python3 scripts/mutgate/mutgate.py --lane mutants/lane-p-tsconfig-paths.json --only P2-M11-cpg-cache-version --authoritative --jobs 1 --out "$R9_CONTROLLER_NEW_CACHE_GATES"
+python3 scripts/mutgate/mutgate.py --lane mutants/js-param-defs.json --authoritative --jobs 4 --out "$R10_CONTROLLER_NEW_PD_GATES"
+python3 scripts/mutgate/mutgate.py --lane mutants/lane-p-tsconfig-paths.json --only P2-M11-cpg-cache-version --authoritative --jobs 1 --out "$R10_CONTROLLER_NEW_CACHE_GATES"
 cargo clippy --offline --locked --all-targets --features mcp -- -W clippy::all
 cargo build --offline --locked --release
 cd eval
@@ -36,33 +32,33 @@ cd eval
 .venv/bin/tier-a --quick --allow-stale-sut
 ```
 
-The full quick includes the controller-owned Rust check. `--allow-stale-sut` requires the immediately preceding rebuild in that same checkout. Keep the same-environment main clippy control and report any exclusions or regressions; do not rebaseline. Full multi-corpus Tier-A remains human-triggered. Record wall time for every later producer per root; R9b's producer-times.json preserves new timings and explicitly labels unavailable historical times.
+The full quick includes controller-owned Rust. Use --allow-stale-sut only after an immediately preceding completed same-checkout release rebuild. Compare clippy with a same-environment clean main; never rebaseline. Full multi-corpus Tier-A remains human-triggered. Preserve each producer's wall time and excluded population. R10 worker does not re-run the seven excluded historical main producers or claim performance/O1/live-MCP verification.
 
-## Controller-only F command — parity block resolved
+## Controller-only F command
 
-The bounded raw-literal directive fix is authorized by prB-repair-r9b-brief.md and tested. The command is ready for the controller. Never open `frontend-portal` in an implementer/reviewer session or evaluate corpus packages. The controller supplies the private root and a NEW private evidence directory:
+Use the corrected helper **and consumer**. Type-annotated JS bucket1 alone has the E13 exception; bucket2 non8xxx diagnostic JS and bucket3 everything else remain gated. Raw and after-override tables are both published. INADMISSIBLE Node proofs leave the oracle verdict unchanged; only the fixture-backed allowlist may override. Raw outside LOST CORRECT without that proof, effective outside LOST CORRECT, or outside ADDED WRONG is STOP. Private rows stay private; worker never opens frontend-portal or executes corpus packages.
 
 ```bash
 PACKET="$HOME/code/prism-pd-plan/docs/superpowers/plans/2026-10-06-js-param-defs"
-R9="$HOME/prism-evidence/js-param-defs/prB/repair-r9"
+R10="$HOME/prism-evidence/js-param-defs/prB/repair-r10"
 TS_JS="$HOME/prism-evidence/native-positional-gap/gate-inputs/typescript-5.9.3/package/lib/typescript.js"
-SEAM_CENSUS_BIN="$R9/bin/seam-census" \
+SEAM_CENSUS_BIN="$R10/bin/seam-census" \
 CORPUS_F_ROOT="$CONTROLLER_PRIVATE_F_ROOT" \
 PRIVATE_EVIDENCE_ROOT="$CONTROLLER_NEW_PRIVATE_EVIDENCE_DIR" \
 bash "$PACKET/CONTROLLER-pd.sh" diff "$TS_JS" \
   "$HOME/prism-evidence/js-param-defs/prB/bin/prism-base-da0604b3" \
-  "$R9/bin/prism-head-r9" \
+  "$R10/bin/prism-head-r10" \
   "$HOME/prism-evidence/js-param-defs/prB/bin/prism-base-da0604b3-bytes" \
-  "$R9/bin/prism-head-r9-bytes"
+  "$R10/bin/prism-head-r10-bytes"
 ```
 
-The script binds the binaries and probes, verifies byte-to-wire projections and call-site equality, and applies the fixture-backed early-error allowlist. Other compilation failures are INADMISSIBLE. Pinned TypeScript 5.9.3 diagnostics define the type-annotated `.js`/`.jsx` boundary. Detailed private paths and rows remain private; only aggregate counts leave. Outside LOST CORRECT or ADDED WRONG, a non-JS/call-site change, or an unexplained navigation difference is STOP. The independent f8c768b3 certificate and its new TYPE_PREDICATE proofs are in the R9b packet; this F command compares main/head tables and identity.
+The controller supplies the private root and a NEW evidence directory; hashes are in repair-r10/binary-binding.json. The owner reaffirms/revises E13 using the corrected measured extent: React Native bucket1ADDED885/84/0/0, LOST11/385/26/0; aurelia LOST0/10/0/0. Earlier sixCORRECT/fiveINADMISSIBLE and all-diagnostic figures are superseded. The owner's actual decision wording is unchanged.
 
-Frozen binary hashes remain in `repair-r9/binary-binding.json` and are freshly checked in `repair-r9b/entry-binding.json`. The source commit and the docs patch must retain separate provenance. After the required owner/controller gates pass, the controller may land the retained candidate; merging and adoption require their own authority.
+F10/F11, recovered annotated-JS residue/file-level guard, malformed-arrow recovery, oracle class-self-name limitation, and cross-file/namespace enum merging remain recorded follow-ups. An unexplained row class, call-site/non-JS/navigation difference, outside adverse row or unrelated gate failure is STOP. Finish collect-all measurement before reporting the complete STOP population.
 
 ## Historical appendix — superseded dispatches
 
-The material below is retained for provenance only. Its source bases, cache versions, counts, and authorization boundaries do not dispatch the R9 head.
+The material below is retained for provenance only. Its source bases, cache versions, counts, and authorization boundaries do not dispatch the R10 head.
 
 **R6 continuation (2026-10-06):** Owner prB-repair-r6-brief.md authorizes the closed CERT-1 repair on the retained b249da95 candidate, loop3/3. Historical R5b STOP receipts below remain evidence; current state is MEASUREMENTS-prB-R6.md / HANDOFF-repair-prB-r6.md. No completion or adoption is claimed.
 **Historical R5b supersession (2026-10-06):** Original R5 questions are resolved by prB-repair-r5b-brief.md. At R5b, the candidate was STOP on35 actual non-formal outside-certificate rows; read MEASUREMENTS-prB-R5.md/HANDOFF-repair-prB-r5.md. Historical receipts remain unchanged below.

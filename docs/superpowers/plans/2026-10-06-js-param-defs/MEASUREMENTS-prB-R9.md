@@ -1,3 +1,5 @@
+> Historical R9/R9b state. R10 supersedes the E13 bucket definition, failed-proof verdict overrides, cache/source dispatch and current handoff. Read `/Users/wesleyjinks/code/prism-pd-plan/docs/superpowers/plans/2026-10-06-js-param-defs/MEASUREMENTS-prB-R10.md` and `/Users/wesleyjinks/prism-evidence/js-param-defs/prB/repair-r10/HANDOFF.md`. Original figures and receipts below remain historical evidence, not R10 dispatch.
+
 # R9b current-state reconciliation
 
 R9b continuation is COMPLETE: certificate clean on 579 admitted / 586 accounted roots, seven exclusions, zero outside-class rows, zero STOP; controller/worker parity 6/6. Source is committed at 96817370 and remains frozen. CEJS is admitted with new certificate/tables/identity. Current report: /Users/wesleyjinks/prism-evidence/js-param-defs/prB/repair-r9b/REPORT.md; current handoff: /Users/wesleyjinks/prism-evidence/js-param-defs/prB/repair-r9b/HANDOFF.md. Owner E13 reaffirmation/revision, private F and controller Rust/full quick still precede landing. No Git writes, merge or adoption.

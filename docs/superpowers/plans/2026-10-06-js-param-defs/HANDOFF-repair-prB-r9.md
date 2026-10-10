@@ -1,3 +1,5 @@
+> Historical R9/R9b state. R10 supersedes the E13 bucket definition, failed-proof verdict overrides, cache/source dispatch and current handoff. Read `/Users/wesleyjinks/code/prism-pd-plan/docs/superpowers/plans/2026-10-06-js-param-defs/MEASUREMENTS-prB-R10.md` and `/Users/wesleyjinks/prism-evidence/js-param-defs/prB/repair-r10/HANDOFF.md`. Original figures and receipts below remain historical evidence, not R10 dispatch.
+
 # Handoff — js-param-defs PR-B R9b authorized bookkeeping continuation
 
 **Written:** 2026-10-10T06:31:53.719249+00:00 · **By:** Codex /root · **Provider:** codex

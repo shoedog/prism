@@ -11,8 +11,10 @@ for(const [literal,strict] of [['"use strict"',true],["'use strict'",true],['"us
   fs.writeFileSync(path.join(root,'details.jsonl'),JSON.stringify({row,class:'LOST',verdict:{step1:'CORRECT'}})+'\n');
   cp.execFileSync(process.execPath,[path.join(__dirname,'r9-admissibility.cjs'),TS,root,path.join(root,'details.jsonl'),path.join(root,'census.jsonl'),path.join(root,'result.json')]);
   const result=JSON.parse(fs.readFileSync(path.join(root,'result.json')));
-  assert.deepEqual(result.counts,{['outside|LOST|'+(strict?'WRONG':'INADMISSIBLE')]:1});
-  assert.deepEqual(result.raw,{'outside|LOST|CORRECT':1});
+  assert.deepEqual(result.counts,{['3|LOST|'+(strict?'WRONG':'CORRECT')]:1});
+  assert.deepEqual(result.raw,{'3|LOST|CORRECT':1});
+  assert.equal(result.STOP,!strict);
+  assert.equal(result.inadmissible_proofs.length,strict?0:1);
   const emitted=`function q(eval) { ${literal}; return eval; }`;
   if(strict)assert.throws(()=>new Function('return ('+emitted+');'),SyntaxError);else assert.doesNotThrow(()=>new Function('return ('+emitted+');'));
  }finally{fs.rmSync(root,{recursive:true,force:true});}

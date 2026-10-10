@@ -1,3 +1,5 @@
+> Historical R9/R9b state. R10 supersedes the E13 bucket definition, failed-proof verdict overrides, cache/source dispatch and current handoff. Read `/Users/wesleyjinks/code/prism-pd-plan/docs/superpowers/plans/2026-10-06-js-param-defs/MEASUREMENTS-prB-R10.md` and `/Users/wesleyjinks/prism-evidence/js-param-defs/prB/repair-r10/HANDOFF.md`. Original figures and receipts below remain historical evidence, not R10 dispatch.
+
 # R9b continuation — certificate COMPLETE and clean
 
 The bookkeeping continuation is complete on frozen source **96817370ffb65dd3de14fe574789b6bf31e99ac5**. Certificate against **f8c768b3**: **586/586 roots accounted, 579 admitted, seven excluded, 497 differing multiset rows, zero outside-class rows, zero STOP**. Exclusions and INADMISSIBLE rows earn no correctness credit. Private F, owner E13 reaffirmation/revision and controller Rust/full quick remain landing prerequisites; no landing, merge or adoption is claimed.
