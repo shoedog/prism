@@ -8,6 +8,7 @@
 #            synthetic <cb@L:C> owners are indexed; rowdiff pairs owner-only replacements as RE-OWNED)
 #     CORPUS_F_ROOT=... PRIVATE_EVIDENCE_ROOT=NEW_DIR bash CONTROLLER-pd.sh diff TS_JS BASE_BIN HEAD_BIN BASE_BYTES_BIN HEAD_BYTES_BIN
 # TS_JS is the pinned TypeScript 5.9.3 lib/typescript.js
+# R9 diff also requires SEAM_CENSUS_BIN (the frozen cache113 product census).
 # (~/prism-evidence/native-positional-gap/gate-inputs/typescript-5.9.3/package/lib/typescript.js).
 # Rows, sites and per-row verdicts stay in PRIVATE_EVIDENCE_ROOT; only counts leave.
 set -eEuo pipefail
@@ -21,6 +22,11 @@ test "$MODE" = census -a "$#" -eq 2 -o "$MODE" = diff -a "$#" -eq 6
 : "${CORPUS_F_ROOT:?controller supplies private root}"
 : "${PRIVATE_EVIDENCE_ROOT:?controller supplies a new private output directory}"
 test ! -e "$PRIVATE_EVIDENCE_ROOT"
+INPUT_BINARIES=( "${@:2}" )
+if [ "$MODE" = diff ]; then
+  : "${SEAM_CENSUS_BIN:?controller supplies the R9 frozen census binary}"
+  INPUT_BINARIES+=( "$SEAM_CENSUS_BIN" )
+fi
 PACKET="$(cd "$(dirname "$0")" && pwd)"
 PROBES="$PACKET/probes"
 OUT="$PRIVATE_EVIDENCE_ROOT"
@@ -28,7 +34,7 @@ mkdir -p "$OUT"
 exec 1> "$OUT/controller.log"
 exec 2> "$OUT/controller.stderr"
 STAGE=binding
-python3 - "$OUT" "$PROBES" "${@:2}" <<'PY'
+python3 - "$OUT" "$PROBES" "${INPUT_BINARIES[@]}" <<'PY'
 import hashlib, json, sys
 from pathlib import Path
 out, probes = Path(sys.argv[1]), Path(sys.argv[2])
@@ -72,6 +78,9 @@ PYCODE
   python3 "$PROBES/rowdiff.py" "$OUT/base.bytes.jsonl" "$OUT/head.bytes.jsonl" "$OUT/byte-diff.json" --rows "$OUT/byte-changed.jsonl"
   STAGE=adjudication
   node --max-old-space-size=12000 "$PROBES/adjudicate.cjs" "$2" "$CORPUS_F_ROOT" "$OUT/byte-changed.jsonl" "$OUT/adjudication.json" --details "$OUT/adjudication-details.jsonl"
+  STAGE=corrected_admissibility
+  "$SEAM_CENSUS_BIN" "$CORPUS_F_ROOT" > "$OUT/parameter-census.jsonl"
+  node --max-old-space-size=12000 "$PROBES/r9-admissibility.cjs" "$2" "$CORPUS_F_ROOT" "$OUT/adjudication-details.jsonl" "$OUT/parameter-census.jsonl" "$OUT/corrected-admissibility.json"
 fi
 STAGE=publish_aggregates
 python3 - "$OUT" "$MODE" <<'PY' >&3
@@ -87,19 +96,21 @@ if mode == 'diff':
     diff = json.loads((out / 'dfg-diff.json').read_text())
     byte_diff = json.loads((out / 'byte-diff.json').read_text())
     adj = json.loads((out / 'adjudication.json').read_text())
+    admissibility = json.loads((out / 'corrected-admissibility.json').read_text())
+    corrected = admissibility['counts']
     sites_identical = (out / 'base.sites.jsonl').read_bytes() == (out / 'head.sites.jsonl').read_bytes()
     stops = []
     if byte_diff.get('LOST', 0):
         result['lost_requires_adjudication'] = byte_diff['LOST']
     if byte_diff.get('RE-OWNED', 0):
         result['reowned_requires_adjudication'] = byte_diff['RE-OWNED']
-    if any(k.startswith('RE-OWNED|') and (k.endswith('|WRONG') or k.endswith('|UNDECIDED')) for k in adj):
+    if any(k.startswith('outside|RE-OWNED|') and (k.endswith('|WRONG') or k.endswith('|UNDECIDED')) for k in corrected):
         stops.append('RE-OWNED row not proved correct')
-    if any(k.startswith('LOST|') and k.split('|')[1] in ('def->use', 'use->def') and k.endswith('|CORRECT') for k in adj):
+    if corrected.get('outside|LOST|CORRECT', 0):
         stops.append('LOST correct row')
-    if any(k.startswith('ADDED|') and k.endswith('|WRONG') for k in adj):
+    if corrected.get('outside|ADDED|WRONG', 0):
         stops.append('ADDED WRONG binding')
-    if any(k.startswith('ADDED|') and k.endswith('|UNDECIDED') for k in adj):
+    if corrected.get('outside|ADDED|UNDECIDED', 0):
         stops.append('ADDED binding undecided')
     if adj.get('ADDED|step2|UNREACHABLE', 0):
         stops.append('ADDED proved unreachable use; same-base parity control required')
@@ -109,7 +120,7 @@ if mode == 'diff':
         stops.append('call-site rows changed (PR-A/PR-B must not change call resolution)')
     # EXACT_PRIOR_WRITE rows are not a STOP by themselves: the planner checks each against the
     # same-shape plain-parameter control (SPEC D13); the count is published for that review.
-    result.update({'byte_projection_identical': json.loads((out / 'projection.json').read_text()), 'dfg_diff': diff, 'byte_diff': byte_diff, 'adjudication': adj, 'call_sites_identical': sites_identical,
+    result.update({'byte_projection_identical': json.loads((out / 'projection.json').read_text()), 'dfg_diff': diff, 'byte_diff': byte_diff, 'adjudication': adj, 'corrected_admissibility': {'counts': corrected, 'raw': admissibility['raw'], 'type_annotated_JS_files': len(admissibility['type_annotated_JS']), 'overrides': len(admissibility['overrides'])}, 'call_sites_identical': sites_identical,
                    'status': 'STOP' if stops else 'COMPLETE', 'stops': stops})
 print(json.dumps(result, sort_keys=True))
 PY
