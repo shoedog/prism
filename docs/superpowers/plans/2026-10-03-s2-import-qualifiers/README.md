@@ -1,3 +1,5 @@
+> **PARKED 2026-10-04.** Branches, commits and how to resume are in [PARKED.md](PARKED.md): `plan/s2-import-qualifiers` (this packet, PR #343) and `proto/s2-import-qualifiers` (`06fdb649`).
+
 # S2 R4 — PKG prerequisite, yield STOP
 
 **STOP: R4 yield 0/0/0/0; X shortfall 132 from132 exceeds10; selection NONE.**
