@@ -7,8 +7,10 @@ Classes, per row identity = row without its label fields (confidence, doubt, kil
   ADDED       identity count grows and no same-identity base row was relabelled into it
   LOST        identity count shrinks
   RELABELLED  same identity, a base label replaced by a different head label (paired 1:1)
-  RE-OWNED    byte records include owners; replacements appear as LOST plus ADDED
-              wire records omit owners; call-site rows are checked separately
+  RE-OWNED    (PR-B) a LOST row and an ADDED row whose identities differ ONLY in the endpoint
+              `owner` objects are paired 1:1 and reported as RE-OWNED (with base/head owners and
+              labels), never as an independent LOST plus ADDED. Wire records omit owners, so the
+              pairing is inert there; call-site rows are checked separately
 Aggregate-only stdout; --rows writes the changed rows (private for F).
 """
 import json
@@ -71,7 +73,41 @@ def main():
             r = json.loads(ident)
             counts['ADDED:%s->%s' % (r['from']['access'], r['to']['access'])] += 1
             changed.append({'class': 'ADDED', 'row': r, 'head_label': lab})
-    summary = {'base_rows': sum(b.values()), 'head_rows': sum(h.values()), 'RE-OWNED': 'owner and byte identity included; owner replacements appear as LOST plus ADDED',
+    # PR-B: pair owner-only replacements (identity minus endpoint owners) as RE-OWNED.
+    def ownerless(row):
+        r = json.loads(json.dumps(row))
+        for end in ('from', 'to'):
+            if isinstance(r.get(end), dict):
+                r[end].pop('owner', None)
+        return json.dumps(r, sort_keys=True)
+    lost_by = defaultdict(list)
+    for i, c in enumerate(changed):
+        if c['class'] == 'LOST':
+            lost_by[ownerless(c['row'])].append(i)
+    reowned = set()
+    for i, c in enumerate(changed):
+        if c['class'] != 'ADDED':
+            continue
+        bucket = lost_by.get(ownerless(c['row']))
+        if not bucket:
+            continue
+        j = bucket.pop()
+        lost = changed[j]
+        reowned.update((i, j))
+        counts['ADDED'] -= 1
+        counts['LOST'] -= 1
+        counts['LOST:' + lost['base_label']['confidence']] -= 1
+        lab = c['head_label']
+        counts['ADDED:%s:%s' % (lab['confidence'], lab['doubt'])] -= 1
+        counts['ADDED:%s->%s' % (c['row']['from']['access'], c['row']['to']['access'])] -= 1
+        counts['RE-OWNED'] += 1
+        counts['RE-OWNED:%s->%s' % (lost['base_label']['confidence'], lab['confidence'])] += 1
+        changed.append({'class': 'RE-OWNED', 'row': c['row'], 'base_row': lost['row'],
+                        'base_label': lost['base_label'], 'head_label': lab})
+    changed = [c for k, c in enumerate(changed) if k not in reowned]
+    counts = Counter({k: v for k, v in counts.items() if v})
+    summary = {'base_rows': sum(b.values()), 'head_rows': sum(h.values()),
+               'RE-OWNED-rule': 'LOST+ADDED pairs differing only in endpoint owners are RE-OWNED',
                **dict(sorted(counts.items()))}
     with open(out, 'w') as fh:
         json.dump(summary, fh, indent=1, sort_keys=True)

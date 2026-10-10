@@ -251,6 +251,42 @@ def sink_locations(sink):
     return sorted({f"{sink['file']}:{o.get('line', sink['line'])}" for o in sink.get('value_occurrences', [])}) or [f"{sink['file']}:{sink['line']}"]
 
 
+def anonymous_source(source):
+    return source.get('name') == '<anonymous>'
+
+
+def source_locations(source, root):
+    """Bind an anonymous seed to physical callable/parameter bytes.
+
+    Prism's location API accepts a line; its returned roots are credited only
+    by data_root's parameter-byte check. No anonymous navigation symbol is used.
+    """
+    if not anonymous_source(source):
+        return [f"{source['file']}:{source['start_line']}"], None
+    data = (root / source['file']).read_bytes()
+    start, end = source['start_byte'], source['end_byte']
+    if not (0 <= start < end <= len(data)):
+        raise ValueError('anonymous callable byte span is outside source')
+    try:
+        data[:start].decode('utf8')
+        data[start:end].decode('utf8')
+    except UnicodeDecodeError as exc:
+        raise ValueError('anonymous callable byte span splits UTF-8') from exc
+    line = data[:start].count(b'\n') + 1
+    if line != source['start_line']:
+        raise ValueError('anonymous callable byte/line identity mismatch')
+    spans = []
+    for parameter in source['data_parameters']:
+        a, b = parameter['start_byte'], parameter['end_byte']
+        if not start <= a < b <= end:
+            raise ValueError('anonymous parameter outside callable byte span')
+        data[:a].decode('utf8')
+        data[a:b].decode('utf8')
+        spans.append({'start_byte': a, 'end_byte': b, 'names': parameter['names']})
+    return [f"{source['file']}:{line}"], {'file': source['file'], 'start_byte': start,
+                                         'end_byte': end, 'parameter_spans': spans}
+
+
 def measure(row, binary, packages, output, timeout):
     row = {k: v for k, v in row.items() if k != 'identities'}
     root = packages / row['class'] / row['entry'] / 'src/package'
@@ -266,16 +302,17 @@ def measure(row, binary, packages, output, timeout):
         shutil.rmtree(output / 'cache' / row['class'] / row['entry'], ignore_errors=True)
         return row
     source, sink = row['source'], row['sink']
-    sources = sorted(set(f"{source['file']}:{source['start_line']}" for p in source['data_parameters']))
+    sources, row['source_seed_identity'] = source_locations(source, root)
     source_flags = sum((['--source', s] for s in sources), [])
     loc = f"{source['file']}:{source['start_line']}"
     queries = {
         'witness': nav + ['taint-reaches'] + common + source_flags + sum((['--sink', loc] for loc in sink_locations(sink)), []) + ['--format', 'json'],
         'frontier': nav + ['taint-reaches'] + common + source_flags + ['--format', 'json'],
-        'callees': nav + ['callees'] + common + ['--location', loc, '--depth', '8', '--format', 'json'],
         'callers': nav + ['callers'] + common + ['--location', f"{sink['file']}:{sink['line']}", '--depth', '8', '--format', 'json'],
         'ego': nav + ['ego'] + common + ['--location', loc, '--hops', '2', '--format', 'json'],
     }
+    if not anonymous_source(source):
+        queries['callees'] = nav + ['callees'] + common + ['--location', loc, '--depth', '8', '--format', 'json']
     parsed = {}
     for name, command in queries.items():
         parsed[name], row['invocations'][name] = invoke(binary, command, raw, name, timeout)
@@ -290,13 +327,13 @@ def measure(row, binary, packages, output, timeout):
         'chop': base + ['--algorithm', 'chop', '--chop-source', sources[0], '--chop-sink', f"{sink['file']}:{sink['line']}"],
     }.items():
         _, row['invocations'][name] = invoke(binary, command, raw, name, timeout)
-    decisive = ('witness', 'frontier', 'callees')
+    decisive = ('witness', 'frontier') if anonymous_source(source) else ('witness', 'frontier', 'callees')
     if any(parsed[k] is None for k in decisive):
         row['outcome'] = 'prism_error'
         row['first_break'] = {**attribute_error(row, parsed.get('witness'), parsed.get('frontier')), 'reason': '; '.join(row['invocations'][k]['error'] or '' for k in decisive if parsed[k] is None)}
     else:
         try:
-            row['outcome'], row['trace_detail'] = classify(row, parsed['witness'], parsed['callees'], parsed['frontier'])
+            row['outcome'], row['trace_detail'] = classify(row, parsed['witness'], parsed.get('callees', {'items': []}), parsed['frontier'])
             row['heuristic_break'] = propose_break(row, parsed['frontier'], parsed['witness']) if row['outcome'] != 'traced' else None
             row['first_break'] = row['heuristic_break'] or {'category': 'none'}
             row['attribution_status'] = 'heuristic_unadjudicated' if row['heuristic_break'] else 'not_applicable'
