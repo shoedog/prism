@@ -543,10 +543,14 @@ impl ParsedFile {
                                 | "non_null_expression"
                                 | "type_assertion"
                         ) {
+                            let mut cursor = callee.walk();
+                            let mut operands = callee
+                                .named_children(&mut cursor)
+                                .filter(|n| n.kind() != "comment");
                             let operand = if callee.kind() == "type_assertion" {
-                                callee.named_child(callee.named_child_count().saturating_sub(1))
+                                operands.last()
                             } else {
-                                callee.named_child(0)
+                                operands.next()
                             };
                             let Some(inner) = operand else {
                                 break;
@@ -666,17 +670,51 @@ impl ParsedFile {
                 .child_by_field_name("name")
                 .is_some_and(|n| self.js_ts_fence_pattern_binds(n, name)),
             "enum_body" => {
-                let mut cursor = scope.walk();
-                let found = scope.named_children(&mut cursor).any(|member| {
-                    let key = if member.kind() == "enum_assignment" {
-                        member.child_by_field_name("name")
-                    } else {
-                        Some(member)
-                    };
-                    key.is_some_and(|key| {
-                        Self::js_ts_decoded_identifier(self.node_text(&key)).as_deref()
-                            == Some(name)
-                    })
+                let member_binds = |body: Node<'_>| {
+                    let mut cursor = body.walk();
+                    let found = body.named_children(&mut cursor).any(|member| {
+                        let key = if member.kind() == "enum_assignment" {
+                            member.child_by_field_name("name")
+                        } else {
+                            Some(member)
+                        };
+                        key.is_some_and(|key| {
+                            let decoded = match key.kind() {
+                                "string" => self.js_ts_module_export_name(key),
+                                "identifier" | "property_identifier" | "type_identifier" => {
+                                    Self::js_ts_decoded_identifier(self.node_text(&key))
+                                }
+                                _ => None,
+                            };
+                            decoded.as_deref() == Some(name)
+                        })
+                    });
+                    found
+                };
+                if member_binds(scope) {
+                    return true;
+                }
+                // Same-file declarations merge only within this lexical scope.
+                // Namespace and cross-file merging are outside this model.
+                let Some(declaration) = scope.parent() else {
+                    return false;
+                };
+                let enum_name = declaration.child_by_field_name("name");
+                let Some(parent) = declaration.parent() else {
+                    return false;
+                };
+                let mut cursor = parent.walk();
+                let found = parent.named_children(&mut cursor).any(|sibling| {
+                    sibling.kind() == "enum_declaration"
+                        && sibling.child_by_field_name("name").is_some_and(|n| {
+                            enum_name.is_some_and(|own| {
+                                Self::js_ts_decoded_identifier(self.node_text(&n))
+                                    == Self::js_ts_decoded_identifier(self.node_text(&own))
+                            })
+                        })
+                        && sibling
+                            .child_by_field_name("body")
+                            .is_some_and(member_binds)
                 });
                 found
             }
@@ -707,9 +745,16 @@ impl ParsedFile {
                 let found = scope
                     .named_children(&mut cursor)
                     .filter(|stmt| {
+                        let mut declaration = *stmt;
+                        while declaration.kind() == "labeled_statement" {
+                            let Some(body) = declaration.child_by_field_name("body") else {
+                                break;
+                            };
+                            declaration = body;
+                        }
                         !callable_body
                             || !matches!(
-                                stmt.kind(),
+                                declaration.kind(),
                                 "function_declaration" | "generator_function_declaration"
                             )
                     })
@@ -915,6 +960,7 @@ impl ParsedFile {
             parent.kind(),
             "jsx_opening_element" | "jsx_closing_element" | "jsx_self_closing_element"
         ) && parent.child_by_field_name("name").map(|n| n.id()) == Some(node.id())
+            && node.kind() == "identifier"
             && (self
                 .node_text(&node)
                 .as_bytes()

@@ -42,7 +42,7 @@ fn r5_full_binding_rows(
             },
         ) = (cpg.node(a), cpg.node(b))
         {
-            if function == owner && to_owner == owner && path.is_simple() && path.base == name {
+            if function == owner && to_owner == owner && path.to_string() == name {
                 let (doubt, kill) = match label {
                     super::FlowConfidence::Exact => (None, None),
                     super::FlowConfidence::NameOnly(super::FlowDoubt::Killed { kill_line }) => {
@@ -1838,14 +1838,18 @@ fn r9_eval_erasure_wrappers_refuse_only_direct_calls() {
 #[test]
 fn r9_jsx_intrinsic_tags_share_the_nonreference_filter() {
     for language in [Language::JavaScript, Language::Tsx] {
-        for markup in ["<img />", "<img>\n </img>", "<svg:path />"] {
+        for (name, markup) in [
+            ("img", "<img />"),
+            ("img", "<img>\n </img>"),
+            ("svg", "<svg:path />"),
+        ] {
             let source =
-                format!("register((img) => {{\n use(img);\n return (\n {markup}\n );\n}});");
+                format!("register(({name}) => {{\n use({name});\n return (\n {markup}\n );\n}});");
             let r = rows(&build(language, &source));
-            assert!(edge(&r, "<cb@1:10>", "img", 1, 2));
+            assert!(edge(&r, "<cb@1:10>", name, 1, 2));
             assert!(
                 !r.iter()
-                    .any(|r| r.0 == "<cb@1:10>" && r.1 == "img" && r.3 >= 4),
+                    .any(|r| r.0 == "<cb@1:10>" && r.1 == name && r.3 >= 4),
                 "{language:?}: {r:?}"
             );
         }
@@ -1941,5 +1945,352 @@ fn r9_type_predicate_names_are_erased_uses() {
             assert!(!edge(&r, "<cb@1:10>", "v", 1, 2), "{language:?}: {r:?}");
             assert!(edge(&r, "<cb@1:10>", "v", 1, 3));
         }
+    }
+}
+
+fn r10_frozen_control_rows(source: &str, language: Language) -> Vec<serde_json::Value> {
+    let controls: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/js_param_r10_controls.json")).unwrap();
+    let ext = match language {
+        Language::JavaScript => "js",
+        Language::TypeScript => "ts",
+        Language::Tsx => "tsx",
+        _ => unreachable!(),
+    };
+    controls
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["source"] == source && c["ext"] == ext)
+        .unwrap()["rows"]
+        .as_array()
+        .unwrap()
+        .clone()
+}
+
+#[test]
+fn r10_labelled_callable_body_rows_survive_without_a_seam() {
+    for language in JS_TS {
+        for named in [false, true] {
+            for labels in ["lbl:", "outer: inner:"] {
+                let (head, tail, owner) = if named {
+                    ("function q", "}", "q")
+                } else {
+                    ("register(function", "});", "<cb@1:10>")
+                };
+                let source = format!("{head}(y){{\n {labels} function y(){{}}\n use(y);\n{tail}");
+                let def = source.find("(y)").unwrap() + 1;
+                let use_byte = source.rfind("y);").unwrap();
+                let mut expected = vec![serde_json::json!([
+                    1,
+                    def,
+                    def + 1,
+                    3,
+                    use_byte,
+                    use_byte + 1,
+                    "exact",
+                    null,
+                    null
+                ])];
+                if named {
+                    let declaration = source.find('\n').unwrap() + 1;
+                    expected.push(serde_json::json!([
+                        1,
+                        def,
+                        def + 1,
+                        2,
+                        declaration,
+                        declaration,
+                        "exact",
+                        null,
+                        null
+                    ]));
+                }
+                expected.sort_by_key(ToString::to_string);
+                assert_eq!(
+                    r5_full_binding_rows(&build(language, &source), owner, "y"),
+                    expected,
+                    "{language:?}: {source}"
+                );
+                let seam = source.replacen("(y)", "(y,d=0)", 1);
+                assert_eq!(
+                    r5_full_binding_rows(&build(language, &seam), owner, "y"),
+                    r10_frozen_control_rows(&seam, language),
+                    "{language:?}: seam"
+                );
+                let nested = format!(
+                    "{head}(y){{\n {{ {labels} function y(){{}} use(y); }}\n use(y);\n{tail}"
+                );
+                assert_eq!(
+                    r5_full_binding_rows(&build(language, &nested), owner, "y"),
+                    r10_frozen_control_rows(&nested, language),
+                    "{language:?}: nested block"
+                );
+                let unrelated = source.replace("function y()", "function other()");
+                assert_eq!(
+                    r5_full_binding_rows(&build(language, &unrelated), owner, "y"),
+                    r10_frozen_control_rows(&unrelated, language),
+                    "{language:?}: unrelated declaration"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn r10_jsx_member_tags_keep_complete_path_rows() {
+    for language in [Language::JavaScript, Language::Tsx] {
+        for path in ["this.Comp", "ui.box", "props.icon"] {
+            for markup in [format!("<{path} />"), format!("<{path}>\n </{path}>")] {
+                let source = format!(
+                    "register(function(){{\n {path}=pick();\n return (\n {markup}\n );\n}});"
+                );
+                let def = source.find(path).unwrap();
+                let uses = source
+                    .match_indices(path)
+                    .skip(1)
+                    .map(|(b, _)| b)
+                    .collect::<Vec<_>>();
+                let mut expected = uses
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, b)| {
+                        serde_json::json!([
+                            2,
+                            def,
+                            def + path.len(),
+                            4 + i,
+                            b,
+                            b + path.len(),
+                            "exact",
+                            null,
+                            null
+                        ])
+                    })
+                    .collect::<Vec<_>>();
+                expected.sort_by_key(ToString::to_string);
+                assert_eq!(
+                    r5_full_binding_rows(&build(language, &source), "<cb@1:10>", path),
+                    expected,
+                    "{language:?}: {source}"
+                );
+            }
+        }
+        for (formal, markup) in [
+            ("svg", "<svg:path />"),
+            ("img", "<img />"),
+            ("foo", "<foo-bar />"),
+        ] {
+            let source = format!(
+                "register(({formal})=>{{\n use({formal});\n return (\n {markup}\n );\n}});"
+            );
+            let def = source.find(formal).unwrap();
+            let use_byte = source.find(&format!("use({formal})")).unwrap() + 4;
+            assert_eq!(
+                r5_full_binding_rows(&build(language, &source), "<cb@1:10>", formal),
+                vec![serde_json::json!([
+                    1,
+                    def,
+                    def + formal.len(),
+                    2,
+                    use_byte,
+                    use_byte + formal.len(),
+                    "exact",
+                    null,
+                    null
+                ])],
+                "{language:?}: intrinsic {markup}"
+            );
+        }
+    }
+}
+
+#[test]
+fn r10_enum_string_and_merged_members_fence_rows() {
+    for language in [Language::TypeScript, Language::Tsx] {
+        for named in [false, true] {
+            let (head, tail, owner) = if named {
+                ("function q", "}", "q")
+            } else {
+                ("register(function", "});", "<cb@1:10>")
+            };
+            for member in ["\"y\"", "'y'", r#""\u0079""#, r#"'\x79'"#] {
+                for merge in [false, true] {
+                    let declaration = if merge {
+                        format!("enum E {{ {member}=1 }} enum E {{ z=y }}")
+                    } else {
+                        format!("enum E {{ {member}=1, z=y }}")
+                    };
+                    let source = format!("{head}(y){{\n {declaration}\n use(y);\n{tail}");
+                    let def = source.find("(y)").unwrap() + 1;
+                    let use_byte = source.rfind("y);").unwrap();
+                    assert_eq!(
+                        r5_full_binding_rows(&build(language, &source), owner, "y"),
+                        vec![serde_json::json!([
+                            1,
+                            def,
+                            def + 1,
+                            3,
+                            use_byte,
+                            use_byte + 1,
+                            "nameonly",
+                            "cfg_incomplete",
+                            null
+                        ])],
+                        "{language:?}: {source}"
+                    );
+                }
+            }
+            for declaration in [
+                "enum E { x=1, z=y }",
+                "enum E { x=1 } enum E { z=y }",
+                "{ enum E { y=1 } } enum E { z=y }",
+            ] {
+                let source = format!("{head}(y){{\n {declaration}\n use(y);\n{tail}");
+                let expected = r10_frozen_control_rows(&source, language);
+                assert_eq!(
+                    r5_full_binding_rows(&build(language, &source), owner, "y"),
+                    expected,
+                    "{language:?}: unrelated/scope negative {source}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn r10_eval_comments_refuse_formals_and_keep_indirect_rows() {
+    for language in JS_TS {
+        for callee in ["(/* c */ eval)", "(/* a */ (/* b */ eval /* c */) /* d */)"] {
+            let source = format!(
+                "register(function(f){{\n {callee}(\"f=2\");\n let local=1;\n use(f,local);\n}});"
+            );
+            let cpg = build(language, &source);
+            assert_eq!(
+                r5_full_binding_rows(&cpg, "<cb@1:10>", "f"),
+                Vec::<serde_json::Value>::new(),
+                "{language:?}: {source}"
+            );
+            let def = source.find("local=1").unwrap();
+            let use_byte = source.rfind("local);").unwrap();
+            assert_eq!(
+                r5_full_binding_rows(&cpg, "<cb@1:10>", "local"),
+                vec![serde_json::json!([
+                    3,
+                    def,
+                    def + 5,
+                    4,
+                    use_byte,
+                    use_byte + 5,
+                    "exact",
+                    null,
+                    null
+                ])]
+            );
+        }
+        for callee in [
+            "(0, /* c */ eval)",
+            "(/* c */ eval)?.",
+            "obj.eval",
+            "new (/* c */ eval)",
+        ] {
+            let source = format!("register(function(f){{\n {callee}(\"f=2\");\n use(f);\n}});");
+            let def = source.find("(f)").unwrap() + 1;
+            let use_byte = source.rfind("f);").unwrap();
+            assert_eq!(
+                r5_full_binding_rows(&build(language, &source), "<cb@1:10>", "f"),
+                vec![serde_json::json!([
+                    1,
+                    def,
+                    def + 1,
+                    3,
+                    use_byte,
+                    use_byte + 1,
+                    "exact",
+                    null,
+                    null
+                ])],
+                "{language:?}: indirect {source}"
+            );
+        }
+    }
+}
+
+#[test]
+fn r10_error_ancestor_walk_preserves_local_rows() {
+    for language in JS_TS {
+        let source = "@ register((a,a)=>{\n let local=1;\n use(local);\n});";
+        let parsed = ParsedFile::parse(file_name(language), source, language).unwrap();
+        let owner = parsed.all_functions()[0];
+        assert!(!owner.child_by_field_name("parameters").unwrap().has_error());
+        let mut ancestor = owner.parent();
+        let mut error = false;
+        while let Some(n) = ancestor {
+            error |= n.is_error();
+            ancestor = n.parent();
+        }
+        assert!(error);
+        let cpg = CodePropertyGraph::build(&BTreeMap::from([(file_name(language).into(), parsed)]));
+        let def = source.find("local=1").unwrap();
+        let use_byte = source.rfind("local);").unwrap();
+        assert_eq!(
+            r5_full_binding_rows(&cpg, "<cb@1:12>", "local"),
+            vec![serde_json::json!([
+                2,
+                def,
+                def + 5,
+                3,
+                use_byte,
+                use_byte + 5,
+                "exact",
+                null,
+                null
+            ])]
+        );
+        let clean = source.trim_start_matches("@ ");
+        assert_eq!(
+            r5_full_binding_rows(&build(language, clean), "<cb@1:10>", "local"),
+            Vec::<serde_json::Value>::new()
+        );
+    }
+}
+
+#[test]
+fn r10_bare_enum_and_asserts_name_arms_have_rows() {
+    for language in [Language::TypeScript, Language::Tsx] {
+        let source = "register(function(y){\n enum E { y, z=y }\n use(y);\n});";
+        let def = source.find("(y)").unwrap() + 1;
+        let use_byte = source.rfind("y);").unwrap();
+        assert_eq!(
+            r5_full_binding_rows(&build(language, source), "<cb@1:10>", "y"),
+            vec![serde_json::json!([
+                1,
+                def,
+                def + 1,
+                3,
+                use_byte,
+                use_byte + 1,
+                "nameonly",
+                "cfg_incomplete",
+                null
+            ])]
+        );
+        let source = "register((v: unknown):\n asserts v => {\n check(v);\n});";
+        let def = source.find("v:").unwrap();
+        let use_byte = source.rfind("v);").unwrap();
+        assert_eq!(
+            r5_full_binding_rows(&build(language, source), "<cb@1:10>", "v"),
+            vec![serde_json::json!([
+                1,
+                def,
+                def + 1,
+                3,
+                use_byte,
+                use_byte + 1,
+                "nameonly",
+                "cfg_incomplete",
+                null
+            ])]
+        );
     }
 }

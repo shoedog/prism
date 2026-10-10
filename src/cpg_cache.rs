@@ -247,7 +247,8 @@ use std::path::{Path, PathBuf};
 /// - v111: PR-B R2b admits kill-aware implicit parameter-to-body-var copies.
 /// - v112: PR-B R5 retains flat named seam rows and refuses synthetic formals.
 /// - v113: PR-B R9 positive recovery proof, receiver and reference fences.
-const CACHE_VERSION: u32 = 113;
+/// - v114: PR-B R10 labelled body, JSX member, enum and commented-eval repairs.
+const CACHE_VERSION: u32 = 114;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -786,7 +787,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 113);
+        assert_eq!(super::CACHE_VERSION, 114);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

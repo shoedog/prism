@@ -95,8 +95,8 @@
   ],
   "PD-11-cache-version-not-bumped": [
    "src/cpg_cache.rs",
+   "const CACHE_VERSION: u32 = 114;",
    "const CACHE_VERSION: u32 = 113;",
-   "const CACHE_VERSION: u32 = 112;",
    "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
   ],
   "PD-12-rest-not-last-admitted": [
@@ -813,6 +813,54 @@
    "if false && node.kind() == \"method_definition\"",
    [
     "cpg::callback_identity_tests::r9_class_receiver_defs_and_kills_stay_with_the_receiver"
+   ]
+  ],
+  "PD-110-r10-labelled-body-exclusion-off": [
+   "src/ast_callback_identity.rs",
+   "while declaration.kind() == \"labeled_statement\" {",
+   "while false && declaration.kind() == \"labeled_statement\" {",
+   [
+    "cpg::callback_identity_tests::r10_labelled_callable_body_rows_survive_without_a_seam"
+   ]
+  ],
+  "PD-111-r10-jsx-member-tag-filter-off": [
+   "src/ast_callback_identity.rs",
+   "&& node.kind() == \"identifier\"\n            && (self",
+   "&& (self",
+   [
+    "cpg::callback_identity_tests::r10_jsx_member_tags_keep_complete_path_rows"
+   ]
+  ],
+  "PD-112-r10-enum-string-value-off": [
+   "src/ast_callback_identity.rs",
+   "\"string\" => self.js_ts_module_export_name(key),",
+   "\"string\" => None,",
+   [
+    "cpg::callback_identity_tests::r10_enum_string_and_merged_members_fence_rows"
+   ]
+  ],
+  "PD-113-r10-enum-merge-off": [
+   "src/ast_callback_identity.rs",
+   "sibling.kind() == \"enum_declaration\"",
+   "false && sibling.kind() == \"enum_declaration\"",
+   [
+    "cpg::callback_identity_tests::r10_enum_string_and_merged_members_fence_rows"
+   ]
+  ],
+  "PD-114-r10-eval-comment-unwrap-off": [
+   "src/ast_callback_identity.rs",
+   ".named_children(&mut cursor)\n                                .filter(|n| n.kind() != \"comment\")",
+   ".named_children(&mut cursor)",
+   [
+    "cpg::callback_identity_tests::r10_eval_comments_refuse_formals_and_keep_indirect_rows"
+   ]
+  ],
+  "PD-115-r10-error-ancestor-proof-off": [
+   "src/ast_callback_identity.rs",
+   "if node.is_error() || node.is_missing() {",
+   "if false && (node.is_error() || node.is_missing()) {",
+   [
+    "cpg::callback_identity_tests::r10_error_ancestor_walk_preserves_local_rows"
    ]
   ]
  },
