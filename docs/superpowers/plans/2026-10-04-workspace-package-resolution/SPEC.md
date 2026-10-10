@@ -1,3 +1,5 @@
+> **PARKED 2026-10-04.** Branches, commits and how to resume are in [PARKED.md](PARKED.md): `plan/workspace-package-resolution` (this packet, PR #344) and `proto/workspace-package-resolution` (`03fa9c29`).
+
 # Lane PKG — workspace package-entry resolution
 
 ## 0. Decisions and authority
