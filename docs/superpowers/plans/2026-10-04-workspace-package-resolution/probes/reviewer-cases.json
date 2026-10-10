@@ -1,0 +1,458 @@
+[
+  {
+    "id": "esm-subpath",
+    "mode": "node16",
+    "rootmeta": {
+      "type": "module"
+    },
+    "meta": {
+      "main": "index.ts"
+    },
+    "spec": "@ws/lib/feature",
+    "files": {
+      "index.ts": "export function real(){return 1;}\n",
+      "feature.ts": "export function real(){return 1;}\n"
+    },
+    "expected": null
+  },
+  {
+    "id": "esm-js-subpath-control",
+    "mode": "node16",
+    "rootmeta": {
+      "type": "module"
+    },
+    "meta": {
+      "main": "index.ts"
+    },
+    "spec": "@ws/lib/feature.js",
+    "files": {
+      "index.ts": "export function real(){return 1;}\n",
+      "feature.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/feature.ts"
+  },
+  {
+    "id": "exports-ts-substitution",
+    "mode": "bundler",
+    "meta": {
+      "exports": "./index.ts"
+    },
+    "files": {
+      "index.tsx": "export function real(){return 1;}\n"
+    },
+    "expected": null
+  },
+  {
+    "id": "exports-ts-substitution-condition",
+    "mode": "bundler",
+    "meta": {
+      "exports": {
+        "types": "./index.ts",
+        "default": "./other.ts"
+      }
+    },
+    "files": {
+      "index.tsx": "export function real(){return 1;}\n",
+      "other.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/other.ts"
+  },
+  {
+    "id": "exports-literal-star",
+    "mode": "bundler",
+    "meta": {
+      "exports": "./index*.ts"
+    },
+    "files": {
+      "index.ts": "export function real(){return 1;}\n"
+    },
+    "expected": null
+  },
+  {
+    "id": "exports-null-root",
+    "mode": "bundler",
+    "meta": {
+      "exports": null,
+      "main": "index.ts"
+    },
+    "files": {
+      "index.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/index.ts"
+  },
+  {
+    "id": "bundler-index",
+    "mode": "bundler",
+    "meta": {},
+    "files": {
+      "index.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/index.ts"
+  },
+  {
+    "id": "node16-esm-index",
+    "mode": "node16",
+    "rootmeta": {
+      "type": "module"
+    },
+    "meta": {},
+    "files": {
+      "index.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/index.ts"
+  },
+  {
+    "id": "closer-js-outer-ts",
+    "mode": "node10",
+    "meta": {
+      "main": "index.ts"
+    },
+    "files": {
+      "index.ts": "export function real(){return 1;}\n"
+    },
+    "inner": {
+      "meta": {
+        "main": "js.js"
+      },
+      "files": {
+        "js.js": "export function real(){return 1;}\n"
+      }
+    },
+    "writer": "app/app.tsx",
+    "expected": "packages/lib/index.ts"
+  },
+  {
+    "id": "null-condition",
+    "mode": "bundler",
+    "meta": {
+      "exports": {
+        "types": null,
+        "default": "./index.ts"
+      }
+    },
+    "files": {
+      "index.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/index.ts"
+  },
+  {
+    "id": "types-directory",
+    "mode": "node10",
+    "meta": {
+      "types": "src"
+    },
+    "files": {
+      "index.ts": "export function real(){return 1;}\n",
+      "src/index.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/src/index.ts"
+  },
+  {
+    "id": "modern-paths-win",
+    "mode": "bundler",
+    "options": {
+      "paths": {
+        "@ws/lib": [
+          "packages/lib/other.ts"
+        ]
+      }
+    },
+    "meta": {
+      "exports": "./index.ts"
+    },
+    "files": {
+      "index.ts": "export function real(){return 1;}\n",
+      "other.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/other.ts"
+  },
+  {
+    "id": "paths-missing-fallback",
+    "mode": "node10",
+    "options": {
+      "paths": {
+        "@ws/lib": [
+          "missing"
+        ]
+      }
+    },
+    "meta": {
+      "types": "index.ts"
+    },
+    "files": {
+      "index.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/index.ts"
+  },
+  {
+    "id": "array",
+    "mode": "bundler",
+    "meta": {
+      "exports": [
+        "./index.ts"
+      ]
+    },
+    "files": {
+      "index.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/index.ts"
+  },
+  {
+    "id": "typesVersions",
+    "mode": "node10",
+    "meta": {
+      "types": "index.ts",
+      "typesVersions": {
+        "*": {
+          "*": [
+            "other.ts"
+          ]
+        }
+      }
+    },
+    "files": {
+      "index.ts": "export function real(){return 1;}\n",
+      "other.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/other.ts"
+  },
+  {
+    "id": "versioned-types",
+    "mode": "bundler",
+    "meta": {
+      "exports": {
+        "types@>=5": "./other.ts",
+        "default": "./index.ts"
+      }
+    },
+    "files": {
+      "index.ts": "export function real(){return 1;}\n",
+      "other.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/other.ts"
+  },
+  {
+    "id": "node16-esm-main-extensionless",
+    "mode": "node16",
+    "rootmeta": {
+      "type": "module"
+    },
+    "meta": {
+      "type": "module",
+      "main": "feature"
+    },
+    "files": {
+      "feature.ts": "export function real(){return 1;}\n",
+      "index.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/index.ts"
+  },
+  {
+    "id": "node16-esm-main-missing",
+    "mode": "node16",
+    "rootmeta": {
+      "type": "module"
+    },
+    "meta": {
+      "type": "module",
+      "main": "feature"
+    },
+    "files": {
+      "feature.ts": "export function real(){return 1;}\n"
+    },
+    "expected": null
+  },
+  {
+    "id": "node16-esm-barrel",
+    "mode": "node16",
+    "rootmeta": {
+      "type": "module"
+    },
+    "meta": {
+      "type": "module",
+      "exports": "./index.ts"
+    },
+    "files": {
+      "index.ts": "export {real} from './impl';\n",
+      "impl.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/index.ts"
+  },
+  {
+    "id": "nodenext-esm-barrel",
+    "mode": "nodenext",
+    "rootmeta": {
+      "type": "module"
+    },
+    "meta": {
+      "type": "module",
+      "exports": "./index.ts"
+    },
+    "files": {
+      "index.ts": "export {real} from './impl';\n",
+      "impl.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/index.ts"
+  },
+  {
+    "id": "bundler-barrel-control",
+    "mode": "bundler",
+    "meta": {
+      "exports": "./index.ts"
+    },
+    "files": {
+      "index.ts": "export {real} from './impl';\n",
+      "impl.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/index.ts"
+  },
+  {
+    "id": "legacy-node10-subpath",
+    "mode": "node10",
+    "meta": {
+      "main": "index.ts"
+    },
+    "spec": "@ws/lib/feature",
+    "files": {
+      "index.ts": "export function real(){return 1;}\n",
+      "feature.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/feature.ts"
+  },
+  {
+    "id": "null-condition-node16",
+    "mode": "node16",
+    "meta": {
+      "exports": {
+        "types": null,
+        "default": "./index.ts"
+      }
+    },
+    "files": {
+      "index.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/index.ts"
+  },
+  {
+    "id": "null-subpath-outer",
+    "mode": "bundler",
+    "meta": {
+      "exports": {
+        "./feature": null
+      }
+    },
+    "spec": "@ws/lib/feature",
+    "files": {
+      "feature.ts": "export function real(){return 1;}\n"
+    },
+    "inner": {
+      "meta": {
+        "exports": {
+          "./feature": null
+        }
+      },
+      "files": {}
+    },
+    "writer": "app/app.tsx",
+    "expected": null
+  },
+  {
+    "id": "extension-js-control",
+    "mode": "bundler",
+    "meta": {
+      "exports": "./index.js"
+    },
+    "files": {
+      "index.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/index.ts"
+  },
+  {
+    "id": "null-subpath-outer-valid",
+    "mode": "bundler",
+    "meta": {
+      "exports": {
+        "./feature": "./feature.ts"
+      }
+    },
+    "spec": "@ws/lib/feature",
+    "files": {
+      "feature.ts": "export function real(){return 1;}\n"
+    },
+    "inner": {
+      "meta": {
+        "exports": {
+          "./feature": null
+        }
+      },
+      "files": {}
+    },
+    "writer": "app/app.tsx",
+    "expected": "packages/lib/feature.ts"
+  },
+  {
+    "id": "null-root-outer-valid",
+    "mode": "bundler",
+    "meta": {
+      "exports": "./index.ts"
+    },
+    "files": {
+      "index.ts": "export function real(){return 1;}\n"
+    },
+    "inner": {
+      "meta": {
+        "exports": null
+      },
+      "files": {}
+    },
+    "writer": "app/app.tsx",
+    "expected": "packages/lib/index.ts"
+  },
+  {
+    "id": "node10-esm-main-control",
+    "mode": "node10",
+    "rootmeta": {
+      "type": "module"
+    },
+    "meta": {
+      "type": "module",
+      "main": "feature"
+    },
+    "files": {
+      "feature.ts": "export function real(){return 1;}\n",
+      "index.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/feature.ts"
+  },
+  {
+    "id": "node16-cjs-main-control",
+    "mode": "node16",
+    "meta": {
+      "type": "module",
+      "main": "feature"
+    },
+    "files": {
+      "feature.ts": "export function real(){return 1;}\n",
+      "index.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/feature.ts"
+  },
+  {
+    "id": "package-imports-shadow",
+    "mode": "bundler",
+    "rootmeta": {
+      "imports": {
+        "#alias": "./packages/lib/other.ts"
+      }
+    },
+    "meta": {
+      "exports": "./index.ts"
+    },
+    "spec": "#alias",
+    "files": {
+      "index.ts": "export function real(){return 1;}\n",
+      "other.ts": "export function real(){return 1;}\n"
+    },
+    "expected": "packages/lib/other.ts"
+  }
+]
