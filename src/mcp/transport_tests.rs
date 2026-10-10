@@ -279,6 +279,97 @@ fn lazy_runtime_serves_the_handshake_and_tools_list_without_starting_a_build() {
 }
 
 #[test]
+fn lazy_first_call_with_a_warm_cache_snapshots_edits_made_before_the_call() {
+    // Warm the nav cache, then handshake lazily, edit the repo, and only then make the first call:
+    // the snapshot is taken by that call, so the edit is part of the index, not stale evidence.
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    write_file(dir.path(), "a.py", "def old():\n    return 1\n");
+    let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
+    cfg.cache = crate::mcp::CacheMode::Dir(cache.path().to_path_buf());
+    drop(crate::mcp::SessionProvider::bootstrap(&cfg).unwrap());
+
+    let mut lazy = crate::mcp::lazy::LazySessionProvider::new(&cfg).unwrap();
+    run_provider(
+        &mut lazy,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+        ],
+    );
+    assert_eq!(lazy.attempts(), 0);
+    write_file(dir.path(), "a.py", "def fresh():\n    return 2\n");
+
+    let nodes = call_tool_at_cap_with_mode(
+        &mut lazy,
+        &ToolRegistry::all_v1(),
+        r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::Always,
+    );
+    let result = &nodes["result"];
+    assert_eq!(result["isError"], false);
+    assert!(result["_meta"]["prism/index_freshness"].is_null());
+    assert!(!evidence_of(result)["warnings"]
+        .as_array()
+        .map_or(false, |warnings| warnings
+            .iter()
+            .any(|warning| warning["kind"] == "StaleIndex")));
+
+    let callees = call_tool_at_cap_with_mode(
+        &mut lazy,
+        &ToolRegistry::all_v1(),
+        r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"nav_callees","arguments":{"seed":{"kind":"symbol","name":"fresh","file":"a.py"}}}}"#,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::Always,
+    );
+    assert_eq!(callees["result"]["isError"], false);
+    assert_eq!(lazy.attempts(), 1);
+}
+
+#[test]
+fn background_startup_with_a_warm_cache_snapshots_before_the_edit_and_reports_stale() {
+    // The same sequence under --warm-at-startup: the build ran at construction, so an edit made
+    // before the first call is stale evidence. This is the pre-change default behavior.
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    write_file(dir.path(), "a.py", "def old():\n    return 1\n");
+    let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
+    cfg.cache = crate::mcp::CacheMode::Dir(cache.path().to_path_buf());
+    cfg.startup = crate::mcp::StartupMode::Background;
+    drop(crate::mcp::SessionProvider::bootstrap(&cfg).unwrap());
+
+    let mut background = crate::mcp::lazy::LazySessionProvider::new(&cfg).unwrap();
+    assert_eq!(background.attempts(), 1);
+    assert!(matches!(
+        background.ensure_ready(),
+        crate::mcp::lazy::Readiness::Ready
+    ));
+    run_provider(
+        &mut background,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+        ],
+    );
+    write_file(dir.path(), "a.py", "def fresh():\n    return 2\n");
+
+    let nodes = call_tool_at_cap_with_mode(
+        &mut background,
+        &ToolRegistry::all_v1(),
+        r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::Always,
+    );
+    assert_eq!(nodes["result"]["_meta"]["prism/index_freshness"], "stale");
+    assert_eq!(background.attempts(), 1);
+}
+
+#[test]
 fn lazy_runtime_validates_bad_calls_before_waiting_or_retrying() {
     let dir = tempfile::tempdir().unwrap();
     write_file(dir.path(), "a.py", "def f():\n    return 1\n");

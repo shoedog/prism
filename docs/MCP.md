@@ -63,14 +63,15 @@ prism-mcp --repo /abs/path/to/repo --eager < /dev/null               # build syn
 |---|---|---|
 | `--repo <PATH>` | yes | The repository this server instance navigates. **One repo per process** — pin an absolute path. |
 | `--cache-dir <PATH>` | no | Where to store the per-repo navigation CPG cache (default: an OS cache dir, keyed by the canonical repo path). |
-| `--no-cache` | no | Don't read/write the nav cache (rebuild every start). Conflicts with `--cache-dir`. |
+| `--no-cache` | no | Don't read/write the nav cache (rebuild from source whenever an index build runs). Conflicts with `--cache-dir`. |
 | `--eager` | no | Build the repository index before answering `initialize`, preserving the historical synchronous startup. Use for explicit pre-warming; normally leave it off. |
 | `--warm-at-startup` | no | Start the background index build when the process starts instead of on the first valid `tools/call`. Trades memory for a warm first call; every process that uses it holds the full index whether or not a tool is ever called. Conflicts with `--eager`. |
 | `--first-call-wait <SECS>` | no | Maximum wait for the first valid `tools/call` while the background build finishes (default `20`, range `0`–`600`). `0` returns a warming result immediately. Accepted but ignored with `--eager`. |
 
-> **First start warms a cache.** A cold whole-repo CPG build can take ~30 s on a large repo; subsequent
-> starts on an unchanged tree are near-instant (the cache is keyed by the canonical repo path + a grammar
-> fingerprint, and only re-indexes changed files). If you want to pre-warm once, use either
+> **The first index build warms a cache.** A cold whole-repo CPG build can take ~30 s on a large repo;
+> later builds on an unchanged tree are near-instant (the cache is keyed by the canonical repo path + a
+> grammar fingerprint, and only re-indexes changed files). By default that build runs on the first valid
+> `tools/call`, not at process start. If you want to pre-warm once, use either
 > `prism-mcp --repo <REPO> --cache-dir <DIR> --eager < /dev/null` or
 > `prism nav --cache-dir <DIR> repo-map --repo <REPO>` (the `--cache-dir` flag must precede `repo-map`).
 

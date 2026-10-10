@@ -92,12 +92,14 @@ impl LazySessionProvider {
         #[cfg(test)] hooks: LazyTestHooks,
     ) -> anyhow::Result<Self> {
         validate_wait(wait)?;
-        // This provider never builds before `initialize`; anything but an explicit
-        // Background request is served as Lazy.
-        let startup = match startup {
-            StartupMode::Background => StartupMode::Background,
-            StartupMode::Lazy | StartupMode::Eager => StartupMode::Lazy,
-        };
+        // This provider never builds before `initialize`; `StartupMode::Eager` is served by
+        // `SessionProvider::bootstrap` (see `mcp::run`), so asking for it here is a caller error.
+        if startup == StartupMode::Eager {
+            anyhow::bail!(
+                "StartupMode::Eager builds before `initialize` via SessionProvider::bootstrap; \
+                 the lazy provider serves Lazy or Background only"
+            );
+        }
         let mut provider = Self {
             state: LazyState::Idle,
             startup,
@@ -498,6 +500,20 @@ mod tests {
 
         build.finish();
         assert!(matches!(provider.ensure_ready(), Readiness::Ready));
+    }
+
+    #[test]
+    fn eager_startup_is_rejected_by_the_lazy_provider() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut cfg = ServerConfig::new(dir.path().to_path_buf());
+        cfg.cache = CacheMode::NoCache;
+        cfg.startup = StartupMode::Eager;
+
+        let error = match LazySessionProvider::new(&cfg) {
+            Ok(_) => panic!("eager startup must not be served by the lazy provider"),
+            Err(error) => error,
+        };
+        assert!(error.to_string().contains("Eager"));
     }
 
     #[test]
