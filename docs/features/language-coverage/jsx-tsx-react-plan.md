@@ -766,7 +766,7 @@ Two JS/TS resolution lanes were parked by the owner on 2026-10-04. Every branch 
 | S2 | #353 | #343 | `prism-evidence-s2-2026-10-09.tar.zst` |
 | PKG | #352 | #344 | `prism-evidence-pkgres-2026-10-09.tar.zst` |
 
-Bulky evidence is kept out of this repository. It was offloaded on 2026-10-09 to the private repository `shoedog/prism-evidence`, release `offload-2026-10-09`; that repository's README has the lane index, checksums and restore instructions. Private-corpus evidence was not uploaded.
+Bulky evidence is kept out of this repository. It was offloaded on 2026-10-09 to the private repository `shoedog/prism-evidence`, release `offload-2026-10-09`; that repository's README has the lane index, checksums and restore instructions. Private-corpus evidence is stored there as a separate, clearly marked archive (`prism-evidence-private-F-2026-10-09.tar.zst`); its contents stay out of this repository, its pull requests and its issues.
 
 ### Lane S2: JS/TS import-qualifier Exact edges (PR #343, draft)
 
