@@ -323,14 +323,15 @@ mod tests {
         ) else {
             // The figure exists on macOS and on Linux with glibc 2.33 or later; a missing sample
             // there is a defect (or a glibc too old for `mallinfo2`), not a reason to skip.
-            assert!(
-                !cfg!(any(
-                    target_os = "macos",
-                    all(target_os = "linux", target_env = "gnu")
-                )),
-                "heap_in_use_bytes is unavailable on a platform that must report it \
-                 (glibc older than 2.33 has no mallinfo2): {before:?} {high:?} {low:?}"
-            );
+            if cfg!(any(
+                target_os = "macos",
+                all(target_os = "linux", target_env = "gnu")
+            )) {
+                panic!(
+                    "heap_in_use_bytes is unavailable on a platform that must report it \
+                     (glibc older than 2.33 has no mallinfo2): {before:?} {high:?} {low:?}"
+                );
+            }
             return; // musl and other Linux libcs have no source for the figure
         };
         assert!(
