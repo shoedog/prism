@@ -48,6 +48,9 @@ fn cases() -> Vec<(&'static str, Vec<u8>, Vec<Got>)> {
     let limit = "x".repeat(MAX_REQUEST_BYTES);
     let over = "x".repeat(MAX_REQUEST_BYTES + 1);
     let accented = "é".repeat(20_000);
+    let mixed = mixed_width_line();
+    // 4 bytes each: 300_000 of them is 1_200_000 bytes, past the limit by a wide margin.
+    let oversized_wide = "𝄞".repeat(300_000);
     vec![
         (
             "two lines",
@@ -95,7 +98,38 @@ fn cases() -> Vec<(&'static str, Vec<u8>, Vec<Got>)> {
             format!("{accented}\nok\n").into_bytes(),
             vec![message(accented.clone()), message("ok")],
         ),
+        (
+            "two-, three- and four-byte characters at every alignment",
+            format!("{mixed}\nok\n").into_bytes(),
+            vec![message(mixed.clone()), message("ok")],
+        ),
+        (
+            "a truncated multi-byte sequence is malformed and the next line is read",
+            vec![b'a', 0xe2, 0x82, b'\n', b'o', b'k', b'\n'],
+            vec![Got::Malformed, message("ok")],
+        ),
+        (
+            "an oversized multi-byte line is malformed and the stream resyncs",
+            format!("{oversized_wide}\n{mixed}\n").into_bytes(),
+            vec![Got::Malformed, message(mixed.clone())],
+        ),
     ]
+}
+
+/// A line holding `é` (2 bytes), `€` (3) and `𝄞` (4), each placed at every byte offset modulo 42
+/// (the least common multiple of the chunk sizes 2, 3 and 7), so a chunk boundary of any size in
+/// the tests falls inside each kind of character.
+fn mixed_width_line() -> String {
+    let mut line = String::new();
+    for ch in ['é', '€', '𝄞'] {
+        for offset in 0..42 {
+            while line.len() % 42 != offset {
+                line.push('a');
+            }
+            line.push(ch);
+        }
+    }
+    line
 }
 
 #[test]
@@ -108,6 +142,143 @@ fn framing_cases_over_an_in_memory_reader() {
             describe(&expected),
             "case: {name}"
         );
+    }
+}
+
+/// A reader whose `fill_buf` yields at most `chunk` bytes, whatever is buffered behind it. Written
+/// out rather than `BufReader::with_capacity(chunk, ..)`: the guarantee is then this adapter's
+/// own three lines, not an implementation detail of std's buffer refill.
+struct Chunked {
+    data: Vec<u8>,
+    at: usize,
+    chunk: usize,
+}
+
+impl Chunked {
+    fn new(data: Vec<u8>, chunk: usize) -> Self {
+        assert!(chunk > 0);
+        Self { data, at: 0, chunk }
+    }
+}
+
+impl std::io::Read for Chunked {
+    fn read(&mut self, out: &mut [u8]) -> std::io::Result<usize> {
+        let available = std::io::BufRead::fill_buf(self)?;
+        let n = available.len().min(out.len());
+        out[..n].copy_from_slice(&available[..n]);
+        std::io::BufRead::consume(self, n);
+        Ok(n)
+    }
+}
+
+impl std::io::BufRead for Chunked {
+    fn fill_buf(&mut self) -> std::io::Result<&[u8]> {
+        let end = (self.at + self.chunk).min(self.data.len());
+        Ok(&self.data[self.at..end])
+    }
+
+    fn consume(&mut self, amount: usize) {
+        self.at = (self.at + amount).min(self.data.len());
+    }
+}
+
+const CHUNK_SIZES: [usize; 4] = [1, 2, 3, 7];
+
+#[test]
+fn framing_cases_when_every_read_is_a_few_bytes() {
+    for chunk in CHUNK_SIZES {
+        for (name, input, expected) in cases() {
+            let mut out = Vec::new();
+            let mut transport = LineTransport::new(Chunked::new(input, chunk), &mut out);
+            assert_eq!(
+                describe(&drain(&mut transport)),
+                describe(&expected),
+                "case: {name}, at most {chunk} byte(s) per read"
+            );
+        }
+    }
+}
+
+#[test]
+fn the_chunk_sizes_put_a_boundary_inside_every_character_width() {
+    let line = mixed_width_line().into_bytes();
+    for chunk in CHUNK_SIZES {
+        // Where a reader that consumes each chunk whole sees its read boundaries.
+        let boundaries: Vec<usize> = (1..)
+            .map(|k| k * chunk)
+            .take_while(|at| *at < line.len())
+            .collect();
+        for ch in ['é', '€', '𝄞'] {
+            let mut encoded = [0u8; 4];
+            let width = ch.encode_utf8(&mut encoded).len();
+            let split = line
+                .windows(width)
+                .enumerate()
+                .filter(|(_, window)| *window == &encoded[..width])
+                .any(|(start, _)| {
+                    boundaries
+                        .iter()
+                        .any(|at| *at > start && *at < start + width)
+                });
+            // A one-byte chunk splits every multi-byte character; larger ones need an alignment
+            // that puts the boundary inside, which the varying prefixes provide.
+            assert!(split, "chunk {chunk}: no boundary inside {ch:?}");
+        }
+    }
+}
+
+#[test]
+fn the_limit_is_one_mebibyte_of_line_content_whatever_the_constant_says() {
+    const LIMIT: usize = 1 << 20;
+    let at_limit = "x".repeat(LIMIT);
+    let over = "x".repeat(LIMIT + 1);
+    let wide_at_limit = "𝄞".repeat(LIMIT / 4);
+    assert_eq!(wide_at_limit.len(), LIMIT);
+    let cases: Vec<(&str, Vec<u8>, Vec<Got>)> = vec![
+        (
+            "exactly 1 << 20 bytes, newline not counted, is accepted",
+            format!("{at_limit}\nok\n").into_bytes(),
+            vec![message(at_limit.clone()), message("ok")],
+        ),
+        (
+            "1 << 20 bytes ending the input is accepted",
+            at_limit.clone().into_bytes(),
+            vec![message(at_limit.clone())],
+        ),
+        (
+            "1 << 20 bytes of 4-byte characters is accepted",
+            format!("{wide_at_limit}\nok\n").into_bytes(),
+            vec![message(wide_at_limit.clone()), message("ok")],
+        ),
+        (
+            "(1 << 20) + 1 bytes is rejected and the stream resyncs",
+            format!("{over}\nok\n").into_bytes(),
+            vec![Got::Malformed, message("ok")],
+        ),
+        (
+            "(1 << 20) + 1 bytes ending the input is rejected",
+            over.clone().into_bytes(),
+            vec![Got::Malformed],
+        ),
+    ];
+    for chunk in [usize::MAX, 7] {
+        for (name, input, expected) in &cases {
+            let mut out = Vec::new();
+            let got = if chunk == usize::MAX {
+                let mut transport =
+                    LineTransport::new(std::io::Cursor::new(input.clone()), &mut out);
+                drain(&mut transport)
+            } else {
+                let mut transport =
+                    LineTransport::new(Chunked::new(input.clone(), chunk), &mut out);
+                drain(&mut transport)
+            };
+            assert_eq!(
+                describe(&got),
+                describe(expected),
+                "case: {name}, read size {chunk}"
+            );
+        }
     }
 }
 
