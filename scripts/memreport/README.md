@@ -38,7 +38,7 @@ that name, is recorded as unavailable, not as 0.
 | Figure | Kind | Source |
 |---|---|---|
 | Stage footprints and peaks | measured | the process's own footprint and peak counters |
-| Steady live heap, index live heap | measured | bytes the process allocator has handed out and not had freed |
+| Steady live heap, index live heap | measured | bytes the allocator reports as in use (macOS: `size_in_use` over all zones; glibc: `uordblks + hblkhd`). On glibc, blocks freed into a thread cache stay counted and allocator bookkeeping is included, so it can sit above the live allocations; it needs glibc 2.33 or later (`mallinfo2`, found at run time) and is `n/a` elsewhere |
 | **M1** retained trees | measured | live tree-sitter heap after the workload and settle (`tree_sitter_heap_bytes`): every live tree-sitter allocation, so the retained trees plus prism's compiled query cache (about 54 KB, fixed per process). An upper bound on what dropping the trees frees; trees that are re-parsed later would come back |
 | **M2** cache buffer | measured file size | size of `cpg-cache.bin`: the buffer `fs::read` allocates and streaming would remove, so an upper bound on the peak saving |
 | Observed load overshoot | measured, lower bound | peak above the larger of the load peak and the built footprint; freed memory stays in the footprint, so 0 is uninformative |

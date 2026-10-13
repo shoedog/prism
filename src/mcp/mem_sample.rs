@@ -32,7 +32,7 @@ pub fn sample() -> MemSample {
     out
 }
 
-/// Bytes the process allocator currently has handed out; see [`MemSample::heap_in_use_bytes`].
+/// Bytes the allocator currently reports as in use; see [`MemSample::heap_in_use_bytes`].
 fn heap_in_use_bytes() -> Option<u64> {
     #[cfg(target_os = "macos")]
     {
