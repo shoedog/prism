@@ -53,7 +53,13 @@
     "chain9",
     "alias-of-param",
     "ident-of-reassigned-let",
-    "rhs-shadowed-at-site"
+    "rhs-shadowed-at-site",
+    "ident-own-name-import",
+    "ident-same-file-fn",
+    "ident-rhs-is-outer-const",
+    "ident-rhs-is-catch-param",
+    "ident-rhs-is-outer-param",
+    "ident-rhs-is-own-param"
   ],
   "local.const.identifier_member": [
     "ns-member",
@@ -129,7 +135,11 @@
     "dot-segment",
     "mid-dotdot-segment",
     "same-stem-two-dirs",
-    "same-stem-two-dirs-js-suffix"
+    "same-stem-two-dirs-js-suffix",
+    "dir-index",
+    "parent-file",
+    "file-beats-directory",
+    "js-suffix-is-not-a-directory"
   ],
   "import.renamed": [
     "renamed",

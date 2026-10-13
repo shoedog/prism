@@ -1,6 +1,6 @@
 # Alias-following variant matrix
 
-1065 enumerated fixtures, each a small repo with one marked call site and an authored ground truth. The pinned TypeScript 5.9.3 checker can type the callee on 671 of them (the rest go through `any`, a parameter or a wrapper) and agrees with the authored truth on 657. The 14 that differ are shapes where the checker answers a different question: `destructured-props-default-overridden` (6): in JavaScript the checker types a defaulted destructured parameter by its default, so it names the default; the caller passes a different function; `named-js-suffix-dts-only` (1): the checker names the `.d.ts` signature, which has no body; there is no in-repo callable; `hook-result-two-slots` (6): in JavaScript the checker types the returned array literal as an array of a union and names its first member; the destructure takes the second slot; `named-js-suffix-literal-and-ts` (1): policy row: TypeScript binds `x.ts`; prism keeps the literal `x.js` as main does. Binaries: `main` = frozen base (main `bab0dfbd`), `e5` = E5 step-2b head, `i1` = the import-suffix branch `aa74eae0`.
+1159 enumerated fixtures, each a small repo with one marked call site and an authored ground truth. The pinned TypeScript 5.9.3 checker can type the callee on 741 of them (the rest go through `any`, a parameter or a wrapper) and agrees with the authored truth on 727. The 14 that differ are shapes where the checker answers a different question: `destructured-props-default-overridden` (6): in JavaScript the checker types a defaulted destructured parameter by its default, so it names the default; the caller passes a different function; `named-js-suffix-dts-only` (1): the checker names the `.d.ts` signature, which has no body; there is no in-repo callable; `hook-result-two-slots` (6): in JavaScript the checker types the returned array literal as an array of a union and names its first member; the destructure takes the second slot; `named-js-suffix-literal-and-ts` (1): policy row: TypeScript binds `x.ts`; prism keeps the literal `x.js` as main does. Binaries: `main` = frozen base (main `bab0dfbd`), `e5` = E5 step-2b head, `i1` = the import-suffix branch `aa74eae0`.
 
 Verdicts: CORRECT (Exact edge to the true callee), PARTIAL (Exact to some of a closed set), MISSING (no edge, a true in-repo callee exists), WRONG (Exact edge to something else), OVERCLAIM (Exact where the callee is only possible), MAY-NONE (no edge where the callee is only possible), NONE-OK (no edge, no in-repo callee), NO-RECORD (prism has no call-site record there).
 
@@ -10,11 +10,11 @@ Verdicts: CORRECT (Exact edge to the true callee), PARTIAL (Exact to some of a c
 
 | Step | Fixtures | CORRECT | PARTIAL | MISSING | WRONG | OVERCLAIM | MAY-NONE | NONE-OK | NO-RECORD |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| local | 788 | 72 | 8 | 489 | 114 | 6 | 41 | 28 | 30 |
+| local | 870 | 78 | 8 | 541 | 124 | 6 | 55 | 28 | 30 |
 | param-args | 156 |  |  | 144 |  |  | 12 |  |  |
-| param-lookup | 6 |  |  |  |  |  | 6 |  |  |
+| param-lookup | 10 |  |  |  | 2 |  | 8 |  |  |
 | import | 31 | 21 |  | 4 |  |  |  | 6 |  |
-| import-path | 34 | 12 |  | 19 |  |  |  | 3 |  |
+| import-path | 42 | 18 |  | 19 |  |  |  | 5 |  |
 | same-file | 28 | 24 |  |  |  |  |  |  | 4 |
 | global | 11 | 9 |  |  | 2 |  |  |  |  |
 | none | 11 | 2 |  | 6 | 3 |  |  |  |  |
@@ -23,11 +23,11 @@ Verdicts: CORRECT (Exact edge to the true callee), PARTIAL (Exact to some of a c
 
 | Step | Fixtures | CORRECT | MISSING | WRONG | MAY-NONE | NONE-OK | NO-RECORD |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| local | 788 | 22 | 607 | 42 | 57 | 30 | 30 |
+| local | 870 | 28 | 667 | 44 | 71 | 30 | 30 |
 | param-args | 156 |  | 144 |  | 12 |  |  |
-| param-lookup | 6 |  |  |  | 6 |  |  |
+| param-lookup | 10 |  |  | 2 | 8 |  |  |
 | import | 31 | 20 | 5 |  |  | 6 |  |
-| import-path | 34 | 12 | 19 |  |  | 3 |  |
+| import-path | 42 | 18 | 19 |  |  | 5 |  |
 | same-file | 28 | 24 |  |  |  |  | 4 |
 | global | 11 | 5 | 4 |  |  | 2 |  |
 | none | 11 | 2 | 6 |  |  | 3 |  |
@@ -36,11 +36,11 @@ Verdicts: CORRECT (Exact edge to the true callee), PARTIAL (Exact to some of a c
 
 | Step | Fixtures | CORRECT | PARTIAL | MISSING | WRONG | OVERCLAIM | MAY-NONE | NONE-OK | NO-RECORD |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| local | 788 | 72 | 8 | 489 | 114 | 6 | 41 | 28 | 30 |
+| local | 870 | 78 | 8 | 541 | 124 | 6 | 55 | 28 | 30 |
 | param-args | 156 |  |  | 144 |  |  | 12 |  |  |
-| param-lookup | 6 |  |  |  |  |  | 6 |  |  |
+| param-lookup | 10 |  |  |  | 2 |  | 8 |  |  |
 | import | 31 | 21 |  | 4 |  |  |  | 6 |  |
-| import-path | 34 | 30 |  | 1 |  |  |  | 3 |  |
+| import-path | 42 | 36 |  | 1 |  |  |  | 5 |  |
 | same-file | 28 | 24 |  |  |  |  |  |  | 4 |
 | global | 11 | 9 |  |  | 2 |  |  |  |  |
 | none | 11 | 2 |  | 6 | 3 |  |  |  |  |
@@ -66,6 +66,11 @@ One row per shape, scope, invocation form and naming; `ts` and `js` are merged w
 | local | ident | outer | call | fresh | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | local | ident | method | call | fresh | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | local | ident | arrow | call | fresh | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ident | fn | call | trap2 | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ident | module | call | trap2 | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ident | outer | call | trap2 | one callee | MISSING | MISSING | MISSING |  |
+| local | ident | method | call | trap2 | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ident | arrow | call | trap2 | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | local | ident | fn | jsx | same | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | local | ident | outer | jsx | same | one callee | CORRECT via free_single | MISSING (LocalBindingUnproven) | CORRECT via free_single |  |
 | local | ident | fn | jsx | trap | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
@@ -93,6 +98,11 @@ One row per shape, scope, invocation form and naming; `ts` and `js` are merged w
 | local | ns-member | outer | call | fresh | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | local | ns-member | method | call | fresh | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | local | ns-member | arrow | call | fresh | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ns-member | fn | call | trap2 | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ns-member | module | call | trap2 | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ns-member | outer | call | trap2 | one callee | MISSING | MISSING | MISSING |  |
+| local | ns-member | method | call | trap2 | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ns-member | arrow | call | trap2 | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | local | ns-member | fn | jsx | same | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | local | ns-member | outer | jsx | same | one callee | CORRECT via free_single | MISSING (LocalBindingUnproven) | CORRECT via free_single |  |
 | local | ns-member | fn | jsx | trap | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
@@ -162,6 +172,8 @@ One row per shape, scope, invocation form and naming; `ts` and `js` are merged w
 | local | let-reassigned | outer | call | trap | closed set | WRONG via free_single | MISSING (LocalBindingUnproven) | WRONG via free_single |  |
 | local | let-reassigned | fn | call | fresh | closed set | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | local | let-reassigned | outer | call | fresh | closed set | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | let-reassigned | fn | call | trap2 | closed set | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | let-reassigned | outer | call | trap2 | closed set | MISSING | MISSING | MISSING |  |
 | local | var | fn | call | same | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | local | var | module | call | same | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | local | var | outer | call | same | one callee | CORRECT via free_single | MISSING (LocalBindingUnproven) | CORRECT via free_single |  |
@@ -336,6 +348,8 @@ One row per shape, scope, invocation form and naming; `ts` and `js` are merged w
 | local | object-param-destructure | outer | call | trap | possible only | WRONG via free_single | MAY-NONE (LocalBindingUnproven) | WRONG via free_single |  |
 | local | object-param-destructure | fn | call | fresh | possible only | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) |  |
 | local | object-param-destructure | outer | call | fresh | possible only | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) |  |
+| local | object-param-destructure | fn | call | trap2 | possible only | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) |  |
+| local | object-param-destructure | outer | call | trap2 | possible only | MAY-NONE | MAY-NONE | MAY-NONE |  |
 | same-file | local-arrow | fn | call | same | one callee | CORRECT via local_def | CORRECT via local_def | CORRECT via local_def |  |
 | same-file | local-arrow | module | call | same | one callee | CORRECT via local_def | CORRECT via local_def | CORRECT via local_def |  |
 | same-file | local-arrow | outer | call | same | one callee | CORRECT via local_def | CORRECT via local_def | CORRECT via local_def |  |
@@ -360,6 +374,8 @@ One row per shape, scope, invocation form and naming; `ts` and `js` are merged w
 | local | hook-result-destructure | outer | call | trap | one callee | WRONG via free_single | MISSING (LocalBindingUnproven) | WRONG via free_single | value returned by a same-file function (hook result) |
 | local | hook-result-destructure | fn | call | fresh | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) | value returned by a same-file function (hook result) |
 | local | hook-result-destructure | outer | call | fresh | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) | value returned by a same-file function (hook result) |
+| local | hook-result-destructure | fn | call | trap2 | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) | value returned by a same-file function (hook result) |
+| local | hook-result-destructure | outer | call | trap2 | one callee | MISSING | MISSING | MISSING | value returned by a same-file function (hook result) |
 | local | await-import-member | fn | call | same | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | local | await-import-member | fn | call | trap | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | local | await-import-member | fn | call | fresh | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
@@ -394,6 +410,8 @@ One row per shape, scope, invocation form and naming; `ts` and `js` are merged w
 | local | alias-of-param | outer | call | trap | possible only | WRONG via free_single | MAY-NONE (LocalBindingUnproven) | WRONG via free_single |  |
 | local | alias-of-param | fn | call | fresh | possible only | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) |  |
 | local | alias-of-param | outer | call | fresh | possible only | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) |  |
+| local | alias-of-param | fn | call | trap2 | possible only | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) |  |
+| local | alias-of-param | outer | call | trap2 | possible only | MAY-NONE | MAY-NONE | MAY-NONE |  |
 | local | catch-binding | fn | call | trap | possible only | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) |  |
 | local | catch-binding | fn | call | fresh | possible only | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) |  |
 | local | shadows-same-file-fn | fn | call | same | one callee | WRONG via local_def | WRONG via local_def | WRONG via local_def |  |
@@ -444,6 +462,29 @@ One row per shape, scope, invocation form and naming; `ts` and `js` are merged w
 | local | hook-result-two-slots | outer | call | trap | one callee | WRONG via free_single | MISSING (LocalBindingUnproven) | WRONG via free_single | value returned by a same-file function (hook result), second of two callable slots |
 | local | hook-result-two-slots | fn | call | fresh | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) | value returned by a same-file function (hook result), second of two callable slots |
 | local | hook-result-two-slots | outer | call | fresh | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) | value returned by a same-file function (hook result), second of two callable slots |
+| local | ident-own-name-import | fn | call | trap | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ident-own-name-import | module | call | trap | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ident-own-name-import | outer | call | trap | one callee | WRONG via free_single | MISSING (LocalBindingUnproven) | WRONG via free_single |  |
+| local | ident-own-name-import | fn | call | fresh | one callee | CORRECT via import_member | CORRECT via import_member | CORRECT via import_member |  |
+| local | ident-own-name-import | module | call | fresh | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ident-own-name-import | outer | call | fresh | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ident-own-name-import | fn | jsx | trap | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ident-own-name-import | outer | jsx | trap | one callee | WRONG via free_single | MISSING (LocalBindingUnproven) | WRONG via free_single |  |
+| local | ident-own-name-import | fn | jsx | fresh | one callee | CORRECT via import_member | CORRECT via import_member | CORRECT via import_member |  |
+| local | ident-own-name-import | outer | jsx | fresh | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ident-same-file-fn | fn | call | same | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ident-same-file-fn | module | call | same | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ident-same-file-fn | outer | call | same | one callee | WRONG via free_single | MISSING (LocalBindingUnproven) | WRONG via free_single |  |
+| local | ident-same-file-fn | fn | call | trap | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ident-same-file-fn | module | call | trap | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ident-same-file-fn | outer | call | trap | one callee | WRONG via free_single | MISSING (LocalBindingUnproven) | WRONG via free_single |  |
+| local | ident-same-file-fn | fn | call | fresh | one callee | CORRECT via local_def | CORRECT via local_def | CORRECT via local_def |  |
+| local | ident-same-file-fn | module | call | fresh | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ident-same-file-fn | outer | call | fresh | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| local | ident-rhs-is-outer-const | fn | call | trap | possible only | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) |  |
+| local | ident-rhs-is-outer-const | fn | call | fresh | possible only | WRONG via import_member | WRONG via import_member | WRONG via import_member |  |
+| local | ident-rhs-is-catch-param | fn | call | trap | possible only | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) |  |
+| local | ident-rhs-is-catch-param | fn | call | fresh | possible only | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) |  |
 | local | ns-member-exported-alias | fn | call | trap | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | local | ns-member-exported-alias | module | call | trap | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | local | ns-member-exported-alias | outer | call | trap | one callee | WRONG via free_single | MISSING (LocalBindingUnproven) | WRONG via free_single |  |
@@ -566,6 +607,8 @@ One row per shape, scope, invocation form and naming; `ts` and `js` are merged w
 | param-args | inline-arrow-arg | param | call | fresh | inline callable | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | param-lookup | shadows-import | param | call | same | possible only | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) |  |
 | local | inner-shadows-import | fn | call | same | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
+| param-lookup | ident-rhs-is-outer-param | param | call | fresh | possible only | WRONG via import_member | WRONG via import_member | WRONG via import_member |  |
+| param-lookup | ident-rhs-is-own-param | param | call | fresh | possible only | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) |  |
 | param-lookup | ns-receiver-is-parameter | param | call | same | possible only | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) |  |
 | param-lookup | inner-param-shadows-alias | param | call | trap | possible only | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) |  |
 | import | named | module | call | n/a | one callee | CORRECT via import_member | CORRECT via import_member | CORRECT via import_member |  |
@@ -602,12 +645,16 @@ One row per shape, scope, invocation form and naming; `ts` and `js` are merged w
 | import-path | mid-dotdot-segment | module | call | n/a | one callee | MISSING (UnknownName) | MISSING (UnknownName) | CORRECT via import_member |  |
 | import-path | same-stem-two-dirs | module | call | trap | one callee | CORRECT via import_member | CORRECT via import_member | CORRECT via import_member |  |
 | import-path | same-stem-two-dirs-js-suffix | module | call | trap | one callee | ts: MISSING (UnknownName); js: CORRECT via import_member | ts: MISSING (UnknownName); js: CORRECT via import_member | CORRECT via import_member |  |
+| import-path | dir-index | module | call | n/a | one callee | CORRECT via import_member | CORRECT via import_member | CORRECT via import_member |  |
+| import-path | parent-file | module | call | n/a | one callee | CORRECT via import_member | CORRECT via import_member | CORRECT via import_member |  |
+| import-path | file-beats-directory | module | call | trap | one callee | CORRECT via import_member | CORRECT via import_member | CORRECT via import_member |  |
+| import-path | js-suffix-is-not-a-directory | module | call | trap | no in-repo callee | NONE-OK (UnknownName) | NONE-OK (UnknownName) | NONE-OK (UnknownName) |  |
 | same-file | hoisted-function | module | call | trap | one callee | CORRECT via local_def | CORRECT via local_def | CORRECT via local_def |  |
 | same-file | nested-shadows-import | module | call | trap | one callee | CORRECT via local_def | CORRECT via local_def | CORRECT via local_def |  |
 | none | module-unbound-module-target | module | call | trap | no in-repo callee | WRONG via free_single | NONE-OK (LocalBindingUnproven) | WRONG via free_single |  |
 | global | lib-global-trap | module | call | trap | no in-repo callee | WRONG via free_single | NONE-OK (LocalBindingUnproven) | WRONG via free_single |  |
-| global | module-to-script-global | module | call | n/a | one callee | CORRECT via free_single | CORRECT via free_single | CORRECT via free_single |  |
-| global | script-to-script-global | module | call | n/a | one callee | CORRECT via free_single | CORRECT via free_single | CORRECT via free_single |  |
+| global | module-to-script-global | module | call | n/a | one callee | CORRECT via free_single | CORRECT via free_single | CORRECT via free_single | holds when glob is loaded as a script (no module wrapper) |
+| global | script-to-script-global | module | call | n/a | one callee | CORRECT via free_single | CORRECT via free_single | CORRECT via free_single | holds when both files are loaded as scripts (no module wrapper) |
 | import | import-equals-require | module | call | n/a | one callee | MISSING (UnknownName) | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | local | import-equals-exported-alias | module | call | n/a | one callee | CORRECT via free_single | MISSING (LocalBindingUnproven) | CORRECT via free_single |  |
 | global | namespace-body-script-global | module | call | n/a | one callee | CORRECT via free_single | MISSING (LocalBindingUnproven) | CORRECT via free_single |  |
@@ -637,7 +684,7 @@ Recorded product sites per binding class from the census (X = Excalidraw, T = Ty
 | import.dynamic_import | 1 (0/0) | 0 | 0 | await-import-member, await-import-default |
 | import.dynamic_import.destructured | 1 (0/0) | 0 | 4 (4/0) | await-import-destructure |
 | import.equals | 0 | 10 (0/3) | 0 | import-equals-exported-alias, ts-import-equals-member, import-equals-require |
-| import.named | 5977 (2347/0) | 14391 (0/0) | 5215 (74/0) | named, barrel-named, barrel-star, named-jsx, named-exported-alias, external-named-trap, external-jsx-trap, named-js-suffix, barrel-named-js-suffix, barrel-star-js-suffix, named-jsx-js-suffix, dot-index, dotdot-index, redundant-slash, dot-segment, mid-dotdot-segment, same-stem-two-dirs, same-stem-two-dirs-js-suffix |
+| import.named | 5977 (2347/0) | 14391 (0/0) | 5215 (74/0) | named, barrel-named, barrel-star, named-jsx, named-exported-alias, external-named-trap, external-jsx-trap, named-js-suffix, barrel-named-js-suffix, barrel-star-js-suffix, named-jsx-js-suffix, dot-index, dotdot-index, redundant-slash, dot-segment, mid-dotdot-segment, same-stem-two-dirs, same-stem-two-dirs-js-suffix, dir-index, parent-file, file-beats-directory, js-suffix-is-not-a-directory |
 | import.renamed | 7 (1/0) | 29 (0/0) | 28 (0/0) | renamed, renamed-to-decoy, barrel-renamed, renamed-to-decoy-js-suffix |
 | import.require.destructured | 17 (0/0) | 0 | 9 (4/0) | require-destructure, require-destructure-parens, require-assign-destructure |
 | local.const.arrow | 1537 (1501/0) | 78 (78/0) | 447 (431/0) | local-arrow |
@@ -649,7 +696,7 @@ Recorded product sites per binding class from the census (X = Excalidraw, T = Ty
 | local.const.destructure.none | 0 | 4 (0/0) | 0 | for-of-element |
 | local.const.element_member | 1 (0/0) | 3 (0/0) | 2 (0/0) | element-member |
 | local.const.function_expression | 15 (15/0) | 0 | 3 (3/0) | local-arrow |
-| local.const.identifier | 5 (0/0) | 3 (0/0) | 5 (0/0) | ident, chain2, chain8, chain9, alias-of-param, ident-of-reassigned-let, rhs-shadowed-at-site |
+| local.const.identifier | 5 (0/0) | 3 (0/0) | 5 (0/0) | ident, chain2, chain8, chain9, alias-of-param, ident-of-reassigned-let, rhs-shadowed-at-site, ident-own-name-import, ident-same-file-fn, ident-rhs-is-outer-const, ident-rhs-is-catch-param, ident-rhs-is-outer-param, ident-rhs-is-own-param |
 | local.const.identifier_member | 7 (0/0) | 47 (0/0) | 4 (0/1) | ns-member, ns-member-paren, ns-member-as, ns-member-nonnull, ns-member-exported-alias, obj-member, props-object-member, require-member, ns-member-satisfies, exported-ns-member, shadows-same-file-fn, ns-via-alias-hop, ns-receiver-is-parameter |
 | local.const.none | 5 (0/0) | 3 (0/0) | 1 (0/0) | for-of-element |
 | local.const.other | 2 (0/0) | 7 (0/1) | 258 (0/0) | styled-template, array-destructure |

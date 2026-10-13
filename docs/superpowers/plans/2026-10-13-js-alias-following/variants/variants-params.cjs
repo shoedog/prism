@@ -105,6 +105,18 @@ function paramVariants() {
       truth: { t: 'one', target: `${cf}:g` }, contract: null,
     });
     out.push({
+      id: `param.ident-rhs-is-outer-param.call.fresh.${lang}`, step: 'param-lookup', shape: 'ident-rhs-is-outer-param', scope: 'param', form: 'call',
+      naming: 'fresh', lang, siteFile: `caller.${e}`,
+      files: { [cf]: calleeSrc(lang), [`caller.${e}`]: `import { f } from './callee';\nexport const keep = f;\nexport function outer(f${a}) {\n  function caller() {\n    const h = f;\n    return h(1); // SITE\n  }\n  return caller;\n}\n` },
+      truth: { t: 'may', targets: [] }, contract: null,
+    });
+    out.push({
+      id: `param.ident-rhs-is-own-param.call.fresh.${lang}`, step: 'param-lookup', shape: 'ident-rhs-is-own-param', scope: 'param', form: 'call',
+      naming: 'fresh', lang, siteFile: `caller.${e}`,
+      files: { [cf]: calleeSrc(lang), [`caller.${e}`]: `import { f } from './callee';\nexport const keep = f;\nexport function caller(f${a}) {\n  const h = f;\n  return h(1); // SITE\n}\n` },
+      truth: { t: 'may', targets: [] }, contract: null,
+    });
+    out.push({
       id: `param.ns-receiver-is-parameter.call.same.${lang}`, step: 'param-lookup', shape: 'ns-receiver-is-parameter', scope: 'param', form: 'call',
       naming: 'same', lang, siteFile: `caller.${e}`,
       files: { [cf]: calleeSrc(lang), [`caller.${e}`]: `import * as N from './callee';\nexport const keep = N.g;\nexport function caller(N${a}) {\n  const f = N.f;\n  return f(1); // SITE\n}\n` },

@@ -8,7 +8,16 @@ const path = require('path');
 const [outDir] = process.argv.slice(2);
 const { all } = require('./variants.cjs');
 const { markerLine, declLine } = require('./lib.cjs');
-const target = (v, t) => { const [file, name] = t.split(':'); return { file, name, line: v.files[file] ? declLine(v.files[file], name) : null }; };
+// A truth target must name a file of the fixture; its line is the declaration line, or null only
+// for the listed names that have no `function|class|const NAME` declaration.
+const NO_DECL_LINE = new Set(['super']);
+const target = (v, t) => {
+  const [file, name] = t.split(':');
+  if (!(file in v.files)) throw new Error(`${v.id}: truth target file ${file} is not in the fixture`);
+  const line = declLine(v.files[file], name);
+  if (line === null && !NO_DECL_LINE.has(name)) throw new Error(`${v.id}: no declaration of ${name} in ${file}`);
+  return { file, name, line };
+};
 const fixtures = [];
 const ids = new Set();
 for (const v of all()) {

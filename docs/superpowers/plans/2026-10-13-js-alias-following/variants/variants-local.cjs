@@ -7,6 +7,8 @@ const ALL_SCOPES = ['fn', 'module', 'outer'];
 const SCOPE_RICH = new Set(['ident', 'ns-member', 'ns-destructure']);
 const FORM_RICH = new Set(['ident', 'ns-member', 'ns-destructure', 'conditional', 'wrapper-call', 'local-arrow']);
 const OPT_FORM = new Set(['ident', 'ns-member']);
+// Shapes that also get the `trap2` naming: two unrelated files export the alias's name.
+const TRAP2 = new Set(['ident', 'ns-member', 'let-reassigned', 'object-param-destructure', 'hook-result-destructure', 'alias-of-param']);
 
 function truthOf(kind, c) {
   const cf = `callee.${ext(c.lang, 'call')}`;
@@ -14,6 +16,7 @@ function truthOf(kind, c) {
   if (kind === 'SET') return { t: 'set', targets: [`${cf}:${c.T}`, `${cf}:${c.ALT}`] };
   if (kind === 'MAY') return { t: 'may', targets: [`${cf}:${c.T}`] };
   if (kind === 'LOCAL') return { t: 'one', target: `${c.callerFile}:${c.L}` };
+  if (kind === 'LOCAL1') return { t: 'one', target: `${c.callerFile}:local1` };
   if (kind === 'ALT') return { t: 'one', target: `${cf}:${c.ALT}` };
   if (kind === 'ANON') return { t: 'anon', file: c.callerFile };
   if (kind === 'DFLT') return { t: 'one', target: `dflt.${ext(c.lang, 'call')}:${c.T}` };
@@ -30,16 +33,17 @@ function localVariants() {
       const forms = FORM_RICH.has(shape) ? ['call', 'jsx', 'new'] : ['call', 'jsx'];
       if (OPT_FORM.has(shape)) forms.push('opt');
       for (const form of forms) {
-        for (const naming of ['same', 'trap', 'fresh']) {
+        for (const naming of ['same', 'trap', 'fresh', 'trap2']) {
+          if (naming === 'trap2' && !(TRAP2.has(shape) && form === 'call')) continue;
           const F = FORMS[form];
-          const L = naming === 'same' ? F.T : naming === 'trap' ? F.trap : F.fresh;
+          const L = naming === 'same' ? F.T : naming === 'fresh' ? F.fresh : F.trap;
           if (form === 'jsx' && !FORM_RICH.has(shape) && !(fn({ lang, form, L: 'X', T: 'X', ALT: 'Y' }).forms || []).includes('jsx')) continue;
           const callerFile = `caller.${ext(lang, form)}`;
           const c = { lang, form, naming, L, T: F.T, ALT: F.ALT, callerFile };
           const s = fn(c);
           if (s.langs && !s.langs.includes(lang)) continue;
           if (s.forms && !s.forms.includes(form)) continue;
-          if (s.namings && !s.namings.includes(naming)) continue;
+          if (s.namings && !s.namings.includes(naming === 'trap2' ? 'trap' : naming)) continue;
           if (shape === 'local-arrow' && naming === 'fresh') continue; // nothing to confuse it with
           let scopes = s.scopes || ALL_SCOPES;
           if (form === 'new' || form === 'opt') scopes = scopes.filter((x) => x === 'fn');

@@ -42,7 +42,8 @@ function otherSrc(lang) {
 function baseFiles(lang, naming) {
   const e = ext(lang, 'call');
   const files = { [`callee.${e}`]: calleeSrc(lang) };
-  if (naming === 'trap') files[`other.${e}`] = otherSrc(lang);
+  if (naming === 'trap' || naming === 'trap2') files[`other.${e}`] = otherSrc(lang);
+  if (naming === 'trap2') files[`other2.${e}`] = otherSrc(lang);
   return files;
 }
 

@@ -154,6 +154,28 @@ for (const v of variants) {
   rows.push(row);
 }
 fs.writeFileSync(path.join(outDir, 'matrix.jsonl'), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+// Cross-check of the authored truth: where the checker can name the callee it must agree, except for
+// the shapes listed here, where it answers a different question than "which callable runs".
+const ORACLE_NOTES = {
+  'destructured-props-default-overridden': 'JavaScript: the checker types a defaulted destructured parameter by its default; the caller passes another function',
+  'named-js-suffix-dts-only': 'the checker names the .d.ts signature, which has no body',
+  'hook-result-two-slots': 'JavaScript: the returned array literal is typed as an array of a union; the checker names its first member',
+  'named-js-suffix-literal-and-ts': 'policy row: TypeScript binds x.ts; prism keeps the literal x.js as main does',
+};
+const oracleOk = (r) => {
+  const o = r.oracle;
+  const T = r.truth;
+  if (T.t === 'one') return o === T.target;
+  if (T.t === 'set') return T.targets.includes(o);
+  if (T.t === 'may') return T.targets.length === 0 || T.targets.includes(o);
+  if (T.t === 'anon') return o.startsWith(`${T.file}:`);
+  return false;
+};
+const typed = rows.filter((r) => r.oracle.includes(':'));
+const unexplained = typed.filter((r) => !oracleOk(r) && !(r.shape in ORACLE_NOTES));
+console.log(`checker: typed ${typed.length} of ${rows.length}, differing ${typed.filter((r) => !oracleOk(r)).length}, unexplained ${unexplained.length}`);
+for (const r of unexplained) console.log(`  UNEXPLAINED ${r.id}: checker ${r.oracle}, truth ${JSON.stringify(r.truth)}`);
+if (unexplained.length) process.exitCode = 1;
 const tally = {};
 for (const r of rows) for (const [tag] of bins) {
   const k = `${tag}\t${r.step}\t${r.results[tag].verdict}`;
