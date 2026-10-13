@@ -132,7 +132,8 @@ impl<R: BufRead, W: Write> Transport for LineTransport<R, W> {
 
 /// The framing over one connected Unix socket. Reads and writes go through independent handles
 /// to the same stream; the writer is buffered and `write_message` flushes once per message, so a
-/// response is one write to the peer rather than one per JSON token.
+/// response is one buffered line followed by a flush rather than one write per JSON token. A
+/// response larger than the `BufWriter` buffer still reaches the peer in several writes.
 // First production consumer: the daemon's connection loop (shared-daemon slice S3a).
 #[cfg(unix)]
 #[cfg_attr(not(test), allow(dead_code))]

@@ -23,7 +23,8 @@ use serde_json::Value;
 /// byte-identical to historical output. `Verbosity::Detailed` and agent views are never
 /// affected by this mode. The `Default` derive stays `Legacy` deliberately: it feeds
 /// `ToolContext::for_test`, whose ~150 call sites pin the legacy canonical shapes; the live
-/// wire default is decided only by `resolve_concise_shape_mode` in `transport.rs`.
+/// wire default is decided only by `ConnectionSettings::from_env` (`settings.rs`, once per
+/// connection), which calls `resolve_concise_shape_mode`.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum ConciseShapeMode {
     #[default]

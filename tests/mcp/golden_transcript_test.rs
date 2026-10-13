@@ -100,7 +100,7 @@ fn first_difference(expected: &[u8], actual: &[u8]) -> Option<String> {
 
 #[test]
 fn standalone_transcripts_match_the_goldens_recorded_before_the_transport_refactor() {
-    let bless = std::env::var_os("PRISM_MCP_BLESS_GOLDEN").is_some();
+    let bless = std::env::var("PRISM_MCP_BLESS_GOLDEN").is_ok_and(|value| value == "1");
     for mode in MODES {
         let repo = tempfile::tempdir().expect("temp repo");
         write_fixture(repo.path());

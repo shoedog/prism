@@ -470,8 +470,10 @@ mod unix {
             let mut transport = UnixStreamTransport::from_stream(server).expect("transport");
             serve_connection(&mut over_socket, &registry, &mut transport, &settings)
         });
-        // Every request is written before any response is consumed; the reader below runs
-        // concurrently only so the two socket buffers cannot deadlock each other.
+        // The script is sent by a separate thread in one `write_all` and then half-closed, while
+        // this thread reads responses at the same time: the server may start answering before
+        // the script is fully written, and neither side's socket buffer can block the other.
+        // The requests are still back to back on the wire, with no waiting for a response.
         let mut write_half = client.try_clone().expect("clone client");
         let writer = std::thread::spawn(move || {
             write_half
