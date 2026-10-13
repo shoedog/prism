@@ -198,28 +198,60 @@
     "js_alias_follow_test::an_alias_of_a_tsconfig_paths_import_binds_through_the_paths_route"
    ]
   ],
-  "AF-27-empty-module-match-continues": [
-   "src/resolution_js_alias.rs",
-   "if matched.is_empty() {",
-   "if false {",
-   [
-    "js_alias_follow_test::a_namespace_member_with_no_candidate_drops_and_never_reaches_the_name_rungs"
-   ]
-  ],
-  "AF-28-no-proof-fallback-dropped": [
-   "src/resolution_js_alias.rs",
-   "None => ResolutionOutcome::hit(exact(matched, ResolutionKind::ImportQualified)),",
-   "None => ResolutionOutcome::dropped(DropReason::UnknownName),",
-   [
-    "js_alias_follow_test::a_namespace_member_alias_without_an_export_proof_grades_like_the_qualified_call"
-   ]
-  ],
   "AF-29-zero-candidate-import-falls-through": [
    "src/resolution_js_alias.rs",
    "0 => ResolutionOutcome::dropped(DropReason::UnknownName),",
    "0 => ResolutionOutcome::hit(exact(Vec::<&FunctionId>::new(), ResolutionKind::ImportMember)),",
    [
     "js_alias_follow_test::an_import_local_with_no_candidate_drops_and_never_reaches_the_name_rungs"
+   ]
+  ],
+  "AF-27-non-relative-module-accepted": [
+   "src/resolution_js_alias.rs",
+   ".starts_with('.')",
+   ".starts_with(|_c: char| true)",
+   [
+    "js_alias_follow_test::a_tsconfig_paths_namespace_import_drops_and_binds_nothing_elsewhere"
+   ]
+  ],
+  "AF-28-missing-export-falls-back-to-name-match": [
+   "src/resolution_js_alias.rs",
+   "        else {\n            return ResolutionOutcome::dropped(DropReason::UnknownName);\n        };\n        if resolved.wrapped",
+   "        else {\n            let ids: Vec<&FunctionId> = self.functions.get(member).map_or_else(Vec::new, |v| v.iter().collect());\n            return ResolutionOutcome::hit(exact(ids, ResolutionKind::ImportMember));\n        };\n        if resolved.wrapped",
+   [
+    "js_alias_follow_test::a_member_missing_from_the_module_never_binds_an_unrelated_file_of_the_same_stem"
+   ]
+  ],
+  "AF-30-wrapped-member-at-non-jsx": [
+   "src/resolution_js_alias.rs",
+   "if resolved.wrapped && !site.jsx_element {",
+   "if false {",
+   [
+    "js_alias_follow_test::a_wrapped_member_binds_from_jsx_only"
+   ]
+  ],
+  "AF-31-span-filter-off": [
+   "src/resolution_js_alias.rs",
+   ".is_none_or(|(s, e)| fid.start_line == s && fid.end_line == e)",
+   ".is_none_or(|(_s, _e)| true)",
+   [
+    "js_alias_follow_test::a_nested_function_of_the_exports_name_does_not_make_the_member_ambiguous"
+   ]
+  ],
+  "AF-32-unresolved-module-continues": [
+   "src/resolution_js_alias.rs",
+   "            return ResolutionOutcome::dropped(DropReason::ImportExternal);\n        };\n        let Some(resolved)",
+   "            return ResolutionOutcome::dropped(DropReason::UnknownName);\n        };\n        let Some(resolved)",
+   [
+    "js_alias_follow_test::an_unresolvable_relative_module_drops_with_import_external"
+   ]
+  ],
+  "AF-33-export-name-not-required": [
+   "src/resolution_js_alias.rs",
+   ".and_then(|exports| exports.get(member))",
+   ".and_then(|exports| exports.values().next())",
+   [
+    "js_alias_follow_test::a_member_of_a_module_that_has_an_unproven_export_is_still_proved_per_export"
    ]
   ]
  }

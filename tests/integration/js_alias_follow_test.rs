@@ -68,7 +68,7 @@ fn namespace_member_alias_binds_the_member_through_the_namespace_route() {
         ("caller.ts", src),
         ("decoy.ts", DECOY),
     ]);
-    assert_eq!(got, ["L4 f: Exact import_qualified target@1-3"]);
+    assert_eq!(got, ["L4 f: Exact import_member target@1-3"]);
 }
 
 #[test]
@@ -84,8 +84,8 @@ fn flat_pattern_over_a_namespace_binds_shorthand_and_renamed_keys() {
     assert_eq!(
         got,
         [
-            "L5 f: Exact import_qualified target@1-3",
-            "L5 target: Exact import_qualified target@1-3",
+            "L5 f: Exact import_member target@1-3",
+            "L5 target: Exact import_member target@1-3",
         ]
     );
 }
@@ -102,7 +102,7 @@ fn jsx_element_sites_follow_aliases_too() {
     ]);
     // (the graph also holds an unrelated derived `Comp` site; the two element sites are pinned)
     for want in [
-        "L6 C: Exact import_qualified Comp@4-6",
+        "L6 C: Exact import_member Comp@4-6",
         "L6 D: Exact import_member Comp@4-6",
     ] {
         assert!(got.iter().any(|s| s == want), "{want} in {got:?}");
@@ -154,7 +154,7 @@ fn a_namespace_member_with_no_candidate_drops_and_never_reaches_the_name_rungs()
     ]);
     assert_eq!(
         got,
-        ["L9 f: drop ImportExternal", "L9 g: drop ImportExternal"],
+        ["L9 f: drop UnknownName", "L9 g: drop ImportExternal"],
         "same-file and repo-wide decoys must not bind"
     );
 }
@@ -223,12 +223,13 @@ fn an_alias_of_a_tsconfig_paths_import_binds_through_the_paths_route() {
 }
 
 #[test]
-fn a_namespace_member_alias_without_an_export_proof_grades_like_the_qualified_call() {
-    // `export const renamed = target;` makes the callee's namespace proof incomplete, so the
-    // route falls back to the stem match exactly as `N.target()` does: Exact import_qualified.
+fn a_member_alias_is_proved_per_export_even_when_the_module_namespace_is_not() {
+    // `export const renamed = target;` makes the callee's whole-namespace proof incomplete. The
+    // alias resolves the way `import { target }` does (per-export facts), so `N.target` still
+    // binds Exact import_member and `N.renamed` (no proven callable) drops.
     let callee = format!("{CALLEE}export const renamed = target;\n");
     let src = "import * as N from './callee';\nexport function run() {\n  const f = N.target;\n  \
-        return [f(), N.target()];\n}\n";
+        const g = N.renamed;\n  return [f(), g()];\n}\n";
     let got = caller_sites(&[
         ("callee.js", &callee),
         ("caller.js", src),
@@ -237,8 +238,8 @@ fn a_namespace_member_alias_without_an_export_proof_grades_like_the_qualified_ca
     assert_eq!(
         got,
         [
-            "L4 f: Exact import_qualified target@1-3",
-            "L4 target: Exact import_qualified target@1-3",
+            "L5 f: Exact import_member target@1-3",
+            "L5 g: drop UnknownName"
         ]
     );
 }
@@ -330,4 +331,186 @@ fn textual_fptr_path_case3_shadowed_right_hand_name_is_still_a_false_exact() {
             "h Source: drop UnknownName",
         ]
     );
+}
+
+// ---- namespace-member terminal: the named-export proof, never a stem match ----
+
+const TRAP_APP: &str = "import * as N from './x';\nexport function outer() {\n  const h = N.f;\n  \
+    return function inner() {\n    return h(1);\n  };\n}\n";
+const TRAP_SAME_FN: &str = "import * as N from './x';\nexport function outer() {\n  \
+    const h = N.f;\n  return h(1);\n}\n";
+
+#[test]
+fn a_member_missing_from_the_module_never_binds_an_unrelated_file_of_the_same_stem() {
+    // `./x` lacks `f`; `other/x.ts` has one. A stem match would bind it Exact; the export
+    // proof finds no `f` in `x.ts` and the site drops.
+    for (label, src, line) in [("nested", TRAP_APP, 5), ("same function", TRAP_SAME_FN, 4)] {
+        let got = caller_sites(&[
+            ("app.ts", src),
+            ("x.ts", "export function other() {}\n"),
+            ("other/x.ts", "export function f() {}\n"),
+        ]);
+        let row = format!("L{line} h: drop UnknownName");
+        assert!(got.contains(&row), "{label}: {row} in {got:?}");
+        assert!(!got.iter().any(|s| s.contains("Exact")), "{label}: {got:?}");
+    }
+}
+
+#[test]
+fn a_member_of_a_module_that_has_an_unproven_export_is_still_proved_per_export() {
+    let x = "export function f() {}\nexport const renamed = f;\n";
+    let app = "import * as N from './x';\nexport function run() {\n  const a = N.f;\n  \
+        const b = N.renamed;\n  return [a(), b()];\n}\n";
+    let got = caller_sites(&[
+        ("app.ts", app),
+        ("x.ts", x),
+        ("other/x.ts", "export function f() {}\n"),
+    ]);
+    assert_eq!(
+        got,
+        ["L5 a: Exact import_member f@1-1", "L5 b: drop UnknownName"]
+    );
+}
+
+#[test]
+fn a_member_through_a_barrel_matches_its_named_import_twin() {
+    let imp = "export function f() {}\n";
+    for barrel in ["export { f } from './impl';\n", "export * from './impl';\n"] {
+        let alias = "import * as N from './barrel';\nexport function run() {\n  const h = N.f;\n  \
+            return h(1);\n}\n";
+        let twin =
+            "import { f } from './barrel';\nexport function run() {\n  // pad\n  return f(1);\n}\n";
+        let files = |app| vec![("app.ts", app), ("barrel.ts", barrel), ("impl.ts", imp)];
+        let norm = |rows: Vec<String>| {
+            rows.iter()
+                .filter(|r| r.starts_with("L4 "))
+                .map(|r| r.split_once(": ").unwrap().1.to_string())
+                .collect::<Vec<_>>()
+        };
+        let got_alias = norm(caller_sites(&files(alias)));
+        let got_twin = norm(caller_sites(&files(twin)));
+        assert_eq!(got_alias, got_twin, "{barrel}");
+        assert!(!got_alias.is_empty(), "{barrel}");
+        assert_eq!(got_alias[0], "Exact import_member f@1-1", "{barrel}");
+    }
+}
+
+#[test]
+fn a_member_that_is_not_a_function_drops() {
+    let x = "export class K {}\nexport const c = 1;\nexport function f() {}\n";
+    let app = "import * as N from './x';\nexport function run() {\n  const a = N.K;\n  \
+        const b = N.c;\n  return [a(), b()];\n}\n";
+    let got = caller_sites(&[("app.ts", app), ("x.ts", x)]);
+    assert_eq!(got, ["L5 a: drop UnknownName", "L5 b: drop UnknownName"]);
+}
+
+#[test]
+fn a_non_relative_namespace_import_drops_and_binds_nothing_elsewhere() {
+    let app = "import * as N from 'pkg';\nexport function run() {\n  const h = N.f;\n  \
+        return h(1);\n}\n";
+    let got = caller_sites(&[
+        ("app.ts", app),
+        ("pkg.ts", "export function f() {}\n"),
+        ("pkg/index.ts", "export function f() {}\n"),
+    ]);
+    assert_eq!(got, ["L4 h: drop ImportExternal"]);
+}
+
+#[test]
+fn a_tsconfig_paths_namespace_import_drops_and_binds_nothing_elsewhere() {
+    // The same file also imports `real` by name from `@lib`, so the paths module table knows
+    // the specifier: only the relative-module requirement keeps the namespace alias out.
+    use super::js_paths_common::{config, fixture, graph, outcome, write};
+    for ext in ["jsx", "tsx"] {
+        let d = fixture(
+            ext,
+            "@lib",
+            &config(serde_json::json!({"@lib": ["lib/real"]})),
+        );
+        write(
+            d.path(),
+            &format!("app.{ext}"),
+            "import * as N from '@lib';\nimport { real as picked } from '@lib';\n\
+             export function run() {\n  const viaNs = N.real;\n  viaNs();\n  picked();\n}\n",
+        );
+        let row = outcome(&graph(d.path()), &format!("app.{ext}"), "viaNs");
+        assert!(
+            row["resolved_targets"].as_array().unwrap().is_empty(),
+            "{row}"
+        );
+        assert_eq!(row["drop"], "ImportExternal", "{row}");
+    }
+}
+
+#[test]
+fn an_unresolvable_relative_module_drops_with_import_external() {
+    // The `.js` suffix does not resolve to a `.ts` file on this base (a separate slice does that).
+    let app =
+        "import * as N from './callee.js';\nexport function run() {\n  const h = N.target;\n  \
+        return h(1);\n}\n";
+    let got = caller_sites(&[("app.ts", app), ("callee.ts", CALLEE)]);
+    assert_eq!(got, ["L4 h: drop ImportExternal"]);
+}
+
+#[test]
+fn duplicate_indirect_and_source_records_reach_consumers_twice() {
+    // Addition A: `const h = f; h(1)` yields a `Source` record and an `IndirectResolution`
+    // record at one site, both resolving to `f`; this counts what consumers see.
+    use prism::cpg::{CpgContext, CpgEdge, CpgNode};
+    let src = "import { f } from './callee';\nexport function run() {\n  const h = f;\n  \
+        return h(1);\n}\n";
+    let mut files = BTreeMap::new();
+    for (path, text) in [F_CALLEE, ("caller.js", src)] {
+        files.insert(
+            path.to_string(),
+            ParsedFile::parse(path, text, Language::JavaScript).unwrap(),
+        );
+    }
+    let ctx = CpgContext::build(&files, None);
+    let g = &ctx.cpg.graph;
+    let to_f = g
+        .edge_indices()
+        .filter(|&e| matches!(g[e], CpgEdge::Call(_)))
+        .filter(|&e| {
+            let (from, to) = g.edge_endpoints(e).unwrap();
+            matches!(g.node_weight(from), Some(CpgNode::Function { name, .. }) if name == "run")
+                && matches!(g.node_weight(to), Some(CpgNode::Function { name, .. }) if name == "f")
+        })
+        .count();
+    let f = ctx.cpg.call_graph.functions["f"][0].clone();
+    let rows = ctx.cpg.call_graph.resolved_caller_edges(&f).len();
+    // Slice L makes the `Source` record resolve to `f` as well, so both records now reach
+    // consumers: two parallel CPG Call edges and two `resolved_caller_edges` rows (main: one
+    // each, from the textual record alone). Pinned as the current, double-counting behavior;
+    // deduplicating by (caller, target, line) is left to a later slice.
+    assert_eq!(
+        (to_f, rows),
+        (2, 2),
+        "(CPG Call edges run -> f, resolved_caller_edges rows)"
+    );
+}
+
+#[test]
+fn a_wrapped_member_binds_from_jsx_only() {
+    let x = "import { memo } from 'react';\nexport const W = memo(() => null);\n";
+    let app = "import * as N from './x';\nconst A = N.W;\nexport function App() {\n  A();\n  \
+        return <A />;\n}\n";
+    let got = caller_sites(&[("app.jsx", app), ("x.jsx", x)]);
+    assert!(
+        got.contains(&"L4 A: drop WrappedExportNonJsx".to_string()),
+        "{got:?}"
+    );
+    assert!(
+        got.contains(&"L5 A: Exact import_member W@2-2".to_string()),
+        "{got:?}"
+    );
+}
+
+#[test]
+fn a_nested_function_of_the_exports_name_does_not_make_the_member_ambiguous() {
+    let x = "export function f() {}\nfunction g() {\n  function f() {}\n  return f;\n}\n";
+    let app = "import * as N from './x';\nexport function run() {\n  const h = N.f;\n  \
+        return h(1);\n}\n";
+    let got = caller_sites(&[("app.ts", app), ("x.ts", x)]);
+    assert_eq!(got, ["L4 h: Exact import_member f@1-1"]);
 }

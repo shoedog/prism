@@ -2579,10 +2579,30 @@ impl CallGraph {
                 if !recv_materialized && !js_ts_receiver_lexically_bound && !namespace_refused {
                     if let Some(file_imports) = self.imports.get(&caller.file) {
                         if let Some(module_path) = file_imports.get(q) {
-                            let Some(matched) = self.module_qualified_matches(module_path, name)
-                            else {
-                                return ResolutionOutcome::dropped(DropReason::UnknownName);
+                            let ids = match self.functions.get(name) {
+                                Some(v) => v.as_slice(),
+                                None => return ResolutionOutcome::dropped(DropReason::UnknownName),
                             };
+                            let module_last = module_path.rsplit('/').next().unwrap_or(module_path);
+                            let module_stem = module_last.rsplit('.').last().unwrap_or(module_last);
+                            let matched: Vec<&FunctionId> = ids
+                                .iter()
+                                // `pkg.f()` names a module-level function, never a method
+                                // on a class defined in that module — exclude methods so
+                                // an imported module with a same-named method can't forge
+                                // a false package-function edge.
+                                .filter(|fid| !self.method_owners.contains_key(*fid))
+                                .filter(|fid| {
+                                    let stem_hit = file_stem(&fid.file) == module_stem;
+                                    let dir_hit = fid
+                                        .file
+                                        .rsplit('/')
+                                        .nth(1)
+                                        .map(|d| d == module_last)
+                                        .unwrap_or(false);
+                                    stem_hit || dir_hit
+                                })
+                                .collect();
                             if matched.is_empty() {
                                 return ResolutionOutcome::dropped(DropReason::ImportExternal);
                             }

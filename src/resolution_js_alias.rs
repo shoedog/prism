@@ -3,42 +3,11 @@
 //! proven in one file, so the site resolves through the route a direct use of the terminal would
 //! take and never falls to the same-file or repo-wide name rungs: no candidate means dropped.
 use super::{
-    demoted, exact, file_stem, CallGraph, CallSite, DropReason, FunctionId, ResolutionKind,
-    ResolutionOutcome,
+    demoted, exact, CallGraph, CallSite, DropReason, FunctionId, ResolutionKind, ResolutionOutcome,
 };
 use crate::call_graph::ImportBinding;
 
 impl CallGraph {
-    /// `pkg.f()` / `N.f()`: the module-level functions named `name` that the module string
-    /// `module_path` can denote by file stem or directory (methods excluded: `pkg.f()` names a
-    /// module-level function, never a method on a class defined in that module, so an imported
-    /// module with a same-named method cannot forge a false package-function edge). `None` when
-    /// no function has that name at all.
-    pub(super) fn module_qualified_matches(
-        &self,
-        module_path: &str,
-        name: &str,
-    ) -> Option<Vec<&FunctionId>> {
-        let ids = self.functions.get(name)?;
-        let module_last = module_path.rsplit('/').next().unwrap_or(module_path);
-        let module_stem = module_last.rsplit('.').next_back().unwrap_or(module_last);
-        Some(
-            ids.iter()
-                .filter(|fid| !self.method_owners.contains_key(*fid))
-                .filter(|fid| {
-                    let stem_hit = file_stem(&fid.file) == module_stem;
-                    let dir_hit = fid
-                        .file
-                        .rsplit('/')
-                        .nth(1)
-                        .map(|d| d == module_last)
-                        .unwrap_or(false);
-                    stem_hit || dir_hit
-                })
-                .collect(),
-        )
-    }
-
     /// The JS/TS import-member route for one eligible member-import binding used at `site`:
     /// the typed export facts decide; zero candidates drop (an unshadowed import names that
     /// module's export, never a same-named global function), several demote.
@@ -86,25 +55,57 @@ impl CallGraph {
     }
 
     /// A chain proven to end at member `member` of the namespace import of `module_path`:
-    /// exactly a qualified call `N.member()` (R3). The module string must name an in-repo
-    /// function of that name by file stem or directory (an external package or a missing
-    /// member has none and drops); the namespace export proof then decides, and without a proof
-    /// the stem match grades exactly as it does for the qualified call.
+    /// "member `m` of `P`'s namespace" is the named export `m` of `P`, so it resolves the way
+    /// `import { m } from P` does: the module file, then the per-export resolved facts, then the
+    /// one function with that file, local name and span. The proof is per export (a module with
+    /// an unproven export still proves its others) and follows re-export chains as named imports
+    /// do. It never uses the qualified-call stem match (R3's legacy fallback), so a same-stem file
+    /// that lacks the export cannot bind. Not relative (package, tsconfig-paths alias) or not a
+    /// resolvable module: `ImportExternal`; anything short of one identity: `UnknownName`.
     pub(super) fn js_ts_alias_member_outcome<'a>(
         &'a self,
         module_path: &str,
         member: &str,
         site: &CallSite,
     ) -> ResolutionOutcome<'a> {
-        let Some(matched) = self.module_qualified_matches(module_path, member) else {
+        let file = &site.caller.file;
+        let Some(module_file) = module_path
+            .trim()
+            .starts_with('.')
+            .then(|| self.resolve_js_ts_member_module(module_path, file))
+            .flatten()
+        else {
+            return ResolutionOutcome::dropped(DropReason::ImportExternal);
+        };
+        let Some(resolved) = self
+            .js_ts_resolved_exports
+            .get(&module_file)
+            .and_then(|exports| exports.get(member))
+        else {
             return ResolutionOutcome::dropped(DropReason::UnknownName);
         };
-        if matched.is_empty() {
-            return ResolutionOutcome::dropped(DropReason::ImportExternal);
+        if resolved.wrapped && !site.jsx_element {
+            return ResolutionOutcome::dropped(DropReason::WrappedExportNonJsx);
         }
-        match self.js_ts_namespace_outcome(module_path, member, site, &matched) {
-            Some(outcome) => outcome,
-            None => ResolutionOutcome::hit(exact(matched, ResolutionKind::ImportQualified)),
+        let ids: Vec<&FunctionId> =
+            self.functions
+                .get(&resolved.local_name)
+                .map_or_else(Vec::new, |ids| {
+                    ids.iter()
+                        .filter(|fid| {
+                            fid.file == resolved.file && !self.method_owners.contains_key(*fid)
+                        })
+                        .filter(|fid| {
+                            resolved
+                                .span
+                                .is_none_or(|(s, e)| fid.start_line == s && fid.end_line == e)
+                        })
+                        .collect()
+                });
+        if ids.len() == 1 {
+            ResolutionOutcome::hit(exact(ids, ResolutionKind::ImportMember))
+        } else {
+            ResolutionOutcome::dropped(DropReason::UnknownName)
         }
     }
 }
