@@ -6,7 +6,7 @@ description = "Code slicing algorithms for defect-focused automated code review,
 license = "Apache-2.0"
 
 [features]
-mcp = []
+mcp = ["dep:libc"]
 # Explicit real-compiler tests only; no production consumer or compiler dependency.
 detached-owner-audit = []
 
@@ -44,6 +44,7 @@ bincode = "1"
 sha2 = "0.10"
 rayon = "1"
 dirs = "6.0.0"
+libc = { version = "0.2", optional = true }
 
 [dev-dependencies]
 tempfile = "3"

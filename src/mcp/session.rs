@@ -22,6 +22,15 @@ pub enum StartupMode {
     Eager,
 }
 
+/// A point in the index build a caller can observe. The memory report samples at each.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BuildStage {
+    /// Sources are read and parsed; no graph exists yet.
+    RepoLoaded,
+    /// The code property graph is loaded from cache or built, and the navigation index exists.
+    IndexBuilt,
+}
+
 #[derive(Clone, Debug)]
 pub struct ServerConfig {
     pub repo_root: PathBuf,
@@ -152,8 +161,16 @@ enum ForcedRefreshForTests {
 
 impl SessionProvider {
     pub fn bootstrap(cfg: &ServerConfig) -> anyhow::Result<Self> {
+        Self::bootstrap_observed(cfg, &mut |_| {})
+    }
+
+    /// `bootstrap`, calling `observe` as each build stage completes.
+    pub fn bootstrap_observed(
+        cfg: &ServerConfig,
+        observe: &mut dyn FnMut(BuildStage),
+    ) -> anyhow::Result<Self> {
         let cfg = canonical_config(cfg)?;
-        let state = build_state(&cfg)?;
+        let state = build_state(&cfg, observe)?;
         Ok(Self {
             cfg,
             session: state.session,
@@ -376,8 +393,12 @@ fn verify_snapshot(
 // `LoadedRepo` is not `Sync`, but the MCP server dispatches single-threaded (spec §8) — `Send+Sync`
 // is deferred to a future async transport (spec §17). Same `Arc<LoadedRepo>` pattern as `build_session`.
 #[allow(clippy::arc_with_non_send_sync)]
-fn build_state(cfg: &ServerConfig) -> anyhow::Result<SessionState> {
+fn build_state(
+    cfg: &ServerConfig,
+    observe: &mut dyn FnMut(BuildStage),
+) -> anyhow::Result<SessionState> {
     let loaded_repo = load_repo(&cfg.repo_root)?;
+    observe(BuildStage::RepoLoaded);
     let snapshot = SnapshotFingerprint::from_repo(&loaded_repo);
     let freshness = FreshnessProbe::from_loaded_repo(&loaded_repo);
     let repo = Arc::new(loaded_repo);
@@ -386,6 +407,7 @@ fn build_state(cfg: &ServerConfig) -> anyhow::Result<SessionState> {
         CacheMode::Default => NavigationIndex::build_cached(&repo),
         CacheMode::Dir(base) => NavigationIndex::build_cached_under(&repo, base),
     };
+    observe(BuildStage::IndexBuilt);
     let index = Arc::new(index);
     Ok(SessionState {
         session: NavigationSession { repo, index },
@@ -899,3 +921,7 @@ mod tests {
         assert_eq!(retry_plan.fallback_reason, Some("file_set_changed"));
     }
 }
+
+#[cfg(test)]
+#[path = "session_stage_tests.rs"]
+mod stage_tests;
