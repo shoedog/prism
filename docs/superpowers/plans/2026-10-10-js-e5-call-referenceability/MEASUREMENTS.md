@@ -132,3 +132,20 @@ All nine samples targeted the intended FunctionId name/file; all36 CLI query pro
 ## Recommended symbol/file inventory and navigation parity
 
 All26 roots selected by any candidate predicate completed base/head functions and repo-map producers. Function inventory JSON is byte-identical; repo-map file nodes, metadata and warnings are identical.98 removed ModuleDep edges are source-bound call-derived dependencies; there are no added dependencies or file nodes. Twelve roots carry recommended target refusals; sampled WRONG caller/callee query pairs cover all ten with a known WRONG refusal (X and React Native only have INADMISSIBLE refusals and are not represented as WRONG samples). These query pairs lose108 caller relationship items and12 callee symbols, adding12 corresponding unresolved source-call placeholders. The full site/graph census covers all581 admitted roots.
+
+## Controller private run (corpus F; 2026-10-12, aggregates only)
+
+Paired `CONTROLLER-e5.sh diff` on the frozen step-0 binaries (hashes verified 12/12 against `final-product-binding.json`; prototype source committed as `65086ee6`). Status COMPLETE; raw equals after-override; 0 overrides; empty stderr.
+
+| | Base | Recommended head |
+|---|---:|---:|
+| Call sites | 13,299 | 13,299 (byte-identical file) |
+| Exact `free_single` JS/TS targets | 113 | 113 |
+| WRONG / CORRECT / UNDECIDED / INADMISSIBLE | 109 / 0 / 4 / 0 | 109 / 0 / 4 / 0 |
+| Graph rows | 54,831 | 54,831 (byte-identical file) |
+
+**The recommended rule removes nothing on F.** Every one of the 113 targets has own-file binding `local_declaration` (callee forms: wrapper call 82 WRONG; direct function 24 WRONG + 4 UNDECIDED; object pair 2 WRONG; function declaration 1 WRONG), which the rule's condition 3 (`Unproven("unbound")` only) excludes. No cost either: no site, target, graph or non-JS difference.
+
+Census predicates on the base rows (not paired head builds on F): R-inferred would cover 84 WRONG, 0 CORRECT, 0 UNDECIDED; R-bound would cover 109 WRONG, 0 CORRECT, 4 UNDECIDED.
+
+This meets the brief's "negligible WRONG yield" STOP for F. The breadth decision goes to the owner with this result. Private rows stay in the controller's private evidence directory.
