@@ -15,7 +15,7 @@
 
 ## 1. Resume order
 1. Read `README.md` in this directory: slice table, the decision table of 2026-10-13, measured facts, and the notes for S4 and S5a that came out of the S2a reviews.
-2. PR #370 (S2b): fold the two reviews (cap two rounds), merge on approval and green CI. It builds "refuse a sub-floor result cap"; if the owner decides "replace", flip it before or after the merge (two lines in `ClientSettings::new`).
+2. PR #370 (S2b): fold the two reviews (cap two rounds), merge on approval and green CI. It builds "refuse a sub-floor result cap"; if the owner decides "replace", that is a decoder change, not a flip (README decision table, row 2).
 3. PR #367 (driver): the implementer is on the second fold (brief: scratchpad `c2-driver-fold2-brief.md`; reviews saved as `reviews/driver-r2-{sol,opus}.md`). When it reports: run the suite, smoke once against a real release binary, push, get one check of the fold delta (this is one step past the declared two rounds; say so in the PR), merge on approval and green CI.
 4. M2 (draft PR #369, head `6770c624`, fully verified): after #367 merges, follow `C2-M2-cache-streaming.md` Task 3 on a quiet host: build baseline (`main` at the candidate's merge base) and candidate release binaries, run `--kinds warm,workload,build --reps 3` for each on the four corpora, `compare --experiment m2`, write the readout. Then `tier-a --quick`, two reviewers on the code and the readout, merge when the criteria pass (the fan-out check is waived).
 5. When S2b is merged, write the S3a plan from the real interfaces (the S2 plan's last section and this directory's README list what S3a, S4 and S5a consume).
@@ -112,7 +112,7 @@
 **§2c verdict:** REFUTED · claim: "a runtime directory that is a real directory, owned by this user, mode 0700, is private (spec §4.3)" · pass: INDEPENDENT (two reviewers, two rounds, each with probes on this host) · evidence tier: TEST-BACKED · record: PR #364; the tests in `src/mcp/shared/dir_chain_tests.rs` and the list tests in `runtime_dir_tests.rs`
 
 **Questions the owner owes an answer to:**
-1. A client-supplied result cap below the floor (12,000 characters): refuse the connection with an error naming the floor (built in S2b), or serve it with the default of 80,000? The client cannot see the daemon's stderr, so a replacement would be silent.
+1. A client-supplied result cap below the floor (12,000 characters): refuse the connection with an error naming the floor (built in S2b, and what both reviewers recommend), or serve it with the default of 80,000? A user's own misconfiguration never reaches this: the shim resolves its settings as a standalone server does (warning on its stderr, default applied). Only a non-conforming client is refused. "Replace" would need a decoder change and would be silent to the client.
 2. Should the shim check the uid of the socket's peer, as the daemon does (spec §4.4 has only the daemon check)? Two review rounds of S2a concluded that checks on the runtime directory's path are hardening and this check is where the guarantee between users has to live. Recommended: yes; it is an S5a item and costs nothing before then.
 
 Answered on 2026-10-13 and recorded in spec §11 items 4, 6–11 and in `README.md`: the runtime directory stays as the spec says; the peer-uid check stays in S4; `--warm-at-startup` is a flag on the daemon's command line; the C2 metric is live heap with a minimum effect size plus a footprint confirmation for M1; four corpora; S2 is implemented from `scratch/s2-validate`; the fan-out latency gate is waived for M2 only.

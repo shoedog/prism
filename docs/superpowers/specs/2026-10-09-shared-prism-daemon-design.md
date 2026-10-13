@@ -425,7 +425,10 @@ Decided 2026-10-13, after S2 planning and the C1 readout (questions in the lane 
 4. Runtime directory on multi-user Linux: **as §4.3 says — DECIDED.** `/tmp/prism-mcpd` is one name for every
    user; a second user's shim fails closed with an error naming `PRISM_MCP_RUNTIME_DIR`.
 5. A client-supplied result cap below the floor: **open.** The owner asked what it means; S2b is built to refuse
-   it (the plan's reading) and the choice is reversible in two lines.
+   it (the plan's reading). Changing to "replace with the default" is more than first recorded here: the
+   one-spelling rule of the decoder rejects a line whose cap was replaced, so it needs a decoder change and a
+   way to tell the client. Both reviewers of S2b recommend "refuse"; a user's own misconfiguration is already
+   handled by the shim as a standalone server handles it.
 6. Peer-uid check: **in S4 — DECIDED**, where connections are accepted.
 7. `--warm-at-startup` on a shared daemon: **a flag on the daemon's command line — DECIDED.** The starting shim
    passes it; the preamble field stays, as information only. S4 adds the flag.
