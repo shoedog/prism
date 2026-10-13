@@ -244,6 +244,32 @@ mod tests {
     }
 
     #[test]
+    fn a_return_value_node_owns_its_file_and_function_strings() {
+        let node = CpgNode::ReturnValue {
+            file: "lib.rs".into(),
+            function: "compute_total".into(),
+            function_start_line: 3,
+            line: 7,
+            return_start_byte: 40,
+            return_end_byte: 60,
+            child_slot: 0,
+            start_byte: 47,
+            end_byte: 60,
+        };
+        let mut tally = StringTally::default();
+        tally.add_node(&node);
+        tally.add_node(&node);
+        assert_eq!(tally.count, 4, "file and function, once per node");
+        assert_eq!(
+            tally.bytes,
+            2 * ("lib.rs".len() + "compute_total".len()) as u64
+        );
+        assert_eq!(tally.unique.len(), 2);
+        assert_eq!(tally.heap_bytes_estimate, 4 * 16);
+        assert_eq!(tally.unique_bytes(), (6 + 13) as u64);
+    }
+
+    #[test]
     fn attribute_counts_a_real_session() {
         let source = "def f():\n    return 1\n\ndef g():\n    return f()\n";
         let session = crate::mcp::tools::test_support::session(&[("a.py", source)]);

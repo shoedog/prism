@@ -162,6 +162,37 @@ fn only_prism_settings_are_echoed_and_never_the_mode_switch() {
     );
 }
 
+/// Whether a file named `name` exists anywhere under `dir`.
+fn exists_under(dir: &std::path::Path, name: &str) -> bool {
+    std::fs::read_dir(dir).is_ok_and(|entries| {
+        entries.flatten().any(|entry| {
+            let path = entry.path();
+            path.is_dir() && exists_under(&path, name) || entry.file_name() == name
+        })
+    })
+}
+
+#[test]
+fn the_report_forces_the_call_edge_index_even_without_a_workload() {
+    // With no workload, nothing but the report's own forcing step asks for resolved call edges,
+    // and the first request for them writes the sidecar. A directory cache makes that visible
+    // whether or not the binary was built from a dirty tree: dirtiness only stops a warm
+    // sidecar from being loaded, never the save.
+    let (_dir, mut cfg) = repo();
+    let cache = tempfile::tempdir().unwrap();
+    cfg.cache = CacheMode::Dir(cache.path().to_path_buf());
+    let report = report(&cfg, &options(None, false));
+    assert!(report["workload"].is_null());
+    assert!(
+        exists_under(cache.path(), "cpg-cache.bin"),
+        "the index cache was written"
+    );
+    assert!(
+        exists_under(cache.path(), "resolved-call-edge-index.bin"),
+        "the report forces the resolved call edges, which saves their sidecar"
+    );
+}
+
 #[test]
 fn workload_generation_is_deterministic_and_bounded_by_the_function_count() {
     let (_dir, cfg) = repo();

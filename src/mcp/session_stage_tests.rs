@@ -45,3 +45,41 @@ fn bootstrap_builds_the_same_session_as_bootstrap_observed() {
         observed.session().repo.file_hashes
     );
 }
+
+/// Whether a file named `name` exists anywhere under `dir`.
+fn exists_under(dir: &std::path::Path, name: &str) -> bool {
+    std::fs::read_dir(dir).is_ok_and(|entries| {
+        entries.flatten().any(|entry| {
+            let path = entry.path();
+            path.is_dir() && exists_under(&path, name) || entry.file_name() == name
+        })
+    })
+}
+
+#[test]
+fn the_stages_fire_around_the_index_build_not_just_in_order() {
+    let repo = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let mut cfg = config(&repo);
+    cfg.cache = CacheMode::Dir(cache.path().to_path_buf());
+
+    let mut seen = Vec::new();
+    let _provider = SessionProvider::bootstrap_observed(&cfg, &mut |stage| {
+        seen.push((
+            stage,
+            exists_under(cache.path(), "cpg-cache.bin"),
+            exists_under(cache.path(), "resolved-call-edge-index.bin"),
+        ));
+    })
+    .unwrap();
+
+    // RepoLoaded fires before the index is built, IndexBuilt after its cache is written. The
+    // call-edge sidecar is written by the first call-edge query, not by the build.
+    assert_eq!(
+        seen,
+        [
+            (BuildStage::RepoLoaded, false, false),
+            (BuildStage::IndexBuilt, true, false),
+        ]
+    );
+}

@@ -128,7 +128,14 @@ fn report_mode_without_eager_fails_naming_the_variable() {
 #[test]
 fn mem_flags_without_the_variable_are_rejected() {
     let repo = repo();
-    for flag in [vec!["--mem-refresh"], vec!["--mem-emit-workload", "2"]] {
+    let workload = repo.path().join("workload.jsonl");
+    std::fs::write(&workload, "{}\n").expect("workload file");
+    let workload = workload.to_str().expect("utf-8 path").to_string();
+    for flag in [
+        vec!["--mem-refresh"],
+        vec!["--mem-emit-workload", "2"],
+        vec!["--mem-workload", workload.as_str()],
+    ] {
         Command::cargo_bin("prism-mcp")
             .expect("prism-mcp binary")
             .arg("--repo")

@@ -9,7 +9,9 @@ pub struct MemSample {
     pub rss_bytes: Option<u64>,
     /// Physical footprint (macOS): what the system charges the process, compressed pages included.
     pub phys_footprint_bytes: Option<u64>,
-    /// Bytes held by the compressor on this process's behalf (macOS).
+    /// The kernel's count of this task's memory currently held by the compressor, as the task
+    /// ledger accounts it (macOS): the size of those pages before compression, not the space the
+    /// compressor uses to store them.
     pub compressed_bytes: Option<u64>,
     /// Process-lifetime peak: footprint on macOS, resident size on Linux. Never decreases.
     pub peak_bytes: Option<u64>,
@@ -198,6 +200,17 @@ mod imp {
 mod tests {
     use super::*;
 
+    /// The tests below allocate and free blocks of 64 to 256 MiB and compare process-wide
+    /// samples before and after. Run concurrently they would see each other's blocks, so each
+    /// holds this lock for its whole body.
+    static LARGE_BLOCKS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn large_blocks_lock() -> std::sync::MutexGuard<'static, ()> {
+        LARGE_BLOCKS
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     #[test]
     fn parse_proc_status_reads_resident_and_peak() {
         let status = "Name:\tprism-mcp\nVmPeak:\t  999999 kB\nVmHWM:\t    2048 kB\nVmRSS:\t    1024 kB\nThreads:\t4\n";
@@ -221,6 +234,7 @@ mod tests {
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     #[test]
     fn sample_tracks_a_touched_allocation() {
+        let _serial = large_blocks_lock();
         const SIZE: usize = 64 << 20;
         let before = sample();
         let mut block = vec![0u8; SIZE];
@@ -264,6 +278,7 @@ mod tests {
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     #[test]
     fn heap_in_use_rises_with_a_live_allocation_and_falls_when_it_is_freed() {
+        let _serial = large_blocks_lock();
         const SIZE: usize = 256 << 20;
         const MIN_CHANGE: u64 = 192 << 20;
         let before = sample();
@@ -302,15 +317,78 @@ mod tests {
         );
     }
 
+    /// `task_info(TASK_VM_INFO)` is read through a hand-written struct layout. Cross-check the
+    /// fields the report uses against `proc_pid_rusage`, which has a binding in `libc`.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn task_info_fields_agree_with_proc_pid_rusage() {
+        const TOLERANCE: u64 = 16 << 20;
+        let _serial = large_blocks_lock();
+        let from_task_info = sample();
+        // SAFETY: `usage` is a writable `rusage_info_v4`, and the flavor names that layout.
+        let mut usage: libc::rusage_info_v4 = unsafe { std::mem::zeroed() };
+        let status = unsafe {
+            libc::proc_pid_rusage(
+                libc::getpid(),
+                libc::RUSAGE_INFO_V4,
+                (&mut usage as *mut libc::rusage_info_v4).cast(),
+            )
+        };
+        assert_eq!(status, 0, "proc_pid_rusage failed");
+
+        let close = |name: &str, ours: u64, reference: u64| {
+            assert!(
+                ours.abs_diff(reference) <= TOLERANCE,
+                "{name}: task_info says {ours}, proc_pid_rusage says {reference}"
+            );
+        };
+        close(
+            "physical footprint",
+            from_task_info.phys_footprint_bytes.expect("footprint"),
+            usage.ri_phys_footprint,
+        );
+        close(
+            "resident size",
+            from_task_info.rss_bytes.expect("resident size"),
+            usage.ri_resident_size,
+        );
+    }
+
     #[cfg(unix)]
     #[test]
     fn ru_maxrss_is_reported_in_bytes() {
-        let max = ru_maxrss_bytes().expect("getrusage on unix");
-        let now = sample().rss_bytes.unwrap_or(0);
-        // A value in kilobytes would be about a thousand times smaller than the resident size.
+        let _serial = large_blocks_lock();
+        const SIZE: usize = 128 << 20;
+        let mut block = vec![0u8; SIZE];
+        for offset in (0..SIZE).step_by(4096) {
+            block[offset] = (offset % 251) as u8 + 1;
+        }
         assert!(
-            max >= now / 2,
-            "ru_maxrss {max} is implausibly small against rss {now}"
+            block
+                .iter()
+                .step_by(1 << 20)
+                .map(|byte| *byte as u64)
+                .sum::<u64>()
+                > 0
         );
+
+        let max = ru_maxrss_bytes().expect("getrusage on unix");
+        // SAFETY: `sysconf` takes a name and returns a value; it touches no memory of ours.
+        let physical = unsafe {
+            libc::sysconf(libc::_SC_PHYS_PAGES) as u64 * libc::sysconf(libc::_SC_PAGESIZE) as u64
+        };
+        assert!(physical > 0, "sysconf reported no physical memory");
+        // The block above is resident, so the lifetime peak is at least its size. A value in
+        // kilobytes would be about a thousand times too small; a bytes value scaled up by 1024
+        // again would exceed the machine's memory.
+        assert!(
+            max >= SIZE as u64,
+            "ru_maxrss {max} is below the 128 MiB just touched"
+        );
+        assert!(
+            max <= physical,
+            "ru_maxrss {max} exceeds physical memory {physical}"
+        );
+        drop(block);
     }
 }
