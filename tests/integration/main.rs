@@ -43,6 +43,7 @@ mod js_binding_scope_resolution_fold_test;
 mod js_binding_scope_resolution_r2_test;
 mod js_binding_scope_resolution_test;
 mod js_binding_shorthand_test;
+mod js_bound_name_refusal_test;
 mod js_export_reexport_test;
 mod js_export_test;
 mod js_paths_cap_test;
