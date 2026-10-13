@@ -285,45 +285,5 @@ class RunOneTests(unittest.TestCase):
         self.assertEqual(result['status'], 'inadmissible')
 
 
-class RenderTests(unittest.TestCase):
-    def test_render_shows_values_inadmissible_counts_and_the_verdict(self):
-        summary = {
-            'provenance': {'build': {'build_identity': 'b', 'git_sha': 'abc'}, 'reps': 3, 'settle': 5},
-            'corpora': {
-                'a': {'commit': '111', 'dirty': 0, 'admissible': {'warm': 3, 'cold': 2, 'workload': 3, 'refresh': 3},
-                      'inadmissible': [{'kind': 'cold', 'rep': 2, 'status': 'timeout', 'reason': 'timeout'}],
-                      'metrics': {'steady': {'min': 900 * MIB, 'median': 1000 * MIB, 'max': 1100 * MIB, 'n': 3}},
-                      'attribution': {'files': 10}},
-            },
-            'verdict': {'M1': {'corpora': [], 'advance': False},
-                        'M2': {'corpora': ['a'], 'advance': False},
-                        'M3': {'corpora': [], 'advance': False}},
-        }
-        text = memreport.render(summary)
-        self.assertIn('1000.0', text)       # median steady state in MiB
-        self.assertIn('timeout', text)      # the excluded run is named
-        self.assertIn('| M2 | a | no |', text)
-        self.assertIn('coarse triage', text)
-
-    def test_provenance_shows_the_dirty_flag_and_the_environment(self):
-        summary = {'provenance': {'build': {'build_identity': 'b', 'binary_input_dirty': True}, 'reps': 3,
-                                  'settle': 5, 'env': {'PRISM_NAV_EDGE_CACHE_LOAD_DIRTY': '1',
-                                                       'PRISM_A': 'x'}},
-                   'corpora': {}, 'verdict': {c: {'corpora': [], 'advance': False} for c in ('M1', 'M2', 'M3')}}
-        text = memreport.render(summary)
-        self.assertIn('binary_input_dirty true', text)
-        self.assertIn('`PRISM_A=x`, `PRISM_NAV_EDGE_CACHE_LOAD_DIRTY=1`', text)
-        summary['provenance']['env'] = {}
-        summary['provenance']['build']['binary_input_dirty'] = False
-        text = memreport.render(summary)
-        self.assertIn('binary_input_dirty false', text)
-        self.assertIn('Environment of the measured process: none.', text)
-        summary['provenance']['env'] = None
-        summary['provenance']['build'] = {}
-        text = memreport.render(summary)
-        self.assertIn('binary_input_dirty n/a', text)
-        self.assertIn('process: n/a.', text)
-
-
 if __name__ == '__main__':
     unittest.main()

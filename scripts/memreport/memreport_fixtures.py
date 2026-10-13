@@ -136,3 +136,29 @@ def fake_prism(directory, reports=None, **cfg):
     path.write_text('#!/usr/bin/env python3\n' + FAKE_PRISM)
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
     return path
+
+
+def ok_result(kind, rep, **canned_args):
+    return {'kind': kind, 'rep': rep, 'status': 'ok', 'report': canned(kind, **canned_args)}
+
+
+def sample_summary(reps=3):
+    """A summary built through build_entry/assemble_summary: corpus 'big' is complete, 'small' lost runs.
+
+    big:   M1 = 300 MiB of 1000 (both arms), M2 = 120 MiB cache file of a 700 MiB peak (fraction arm),
+           M3 = 60 MiB of 1000 (neither arm).
+    small: one workload run excluded, tree heap unavailable on the one that remains, no cache file size.
+    """
+    import memreport
+    corpora = {
+        'big': (dict(path='/c/big', commit='a' * 40, dirty=0, workload={'sha256': 'f' * 64, 'requests': 8},
+                     cache_files={'cpg_cache_bytes': 120 * MIB, 'call_edge_sidecar_bytes': 9 * MIB}),
+                [ok_result(kind, rep) for kind in memreport.KINDS for rep in range(1, reps + 1)]),
+        'small': (dict(path='/c/small', commit='b' * 40, dirty=2, workload={'sha256': 'f' * 64, 'requests': 8},
+                       cache_files={'cpg_cache_bytes': None, 'call_edge_sidecar_bytes': None}),
+                  [ok_result('warm', 1), ok_result('workload', 1, tree=None),
+                   {'kind': 'workload', 'rep': 2, 'status': 'inadmissible', 'reason': 'workload had 1 errors',
+                    'report': canned('workload')}]),
+    }
+    entries = {name: memreport.build_entry(corpus, results) for name, (corpus, results) in corpora.items()}
+    return memreport.assemble_summary({'reps': reps, 'settle': 5, 'timeout': 1800, 'bin': 'fake'}, entries)

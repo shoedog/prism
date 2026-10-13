@@ -19,9 +19,10 @@ import sys
 import time
 from pathlib import Path
 
+from memreport_render import KINDS, MIB, render  # noqa: F401  (render is part of this module's interface)
+
 MARKER = '{"prism_mem_report":'
 REPORT_VERSION = 2
-KINDS = ('warm', 'cold', 'workload', 'refresh')
 PRIME = 'prime'  # the discarded run that fills the cache; its report only has to parse
 # stderr text that means a non-cold run did not load everything from cache, with the reason it is excluded.
 CACHE_MISS_MARKERS = (
@@ -32,7 +33,6 @@ CACHE_MISS_MARKERS = (
     ('nav edge cache: failed to load sidecar',
      'the call-edge sidecar failed to load, so call edges were recomputed'),
 )
-MIB = 1024 * 1024
 RULE_FRACTION = 0.15
 RULE_ABSOLUTE = 200 * MIB
 # candidate -> (estimate metric, base metric). M1 and M3 are judged against the steady state, M2 against the
@@ -509,84 +509,6 @@ def cmd_summarize(args):
             results.append(result)
         entries[directory.name] = build_entry(json.loads(corpus_path.read_text()), results)
     print('wrote %s' % write_summary(out, assemble_summary(settings, entries)))
-
-
-def mib(stats):
-    if not stats:
-        return 'n/a'
-    return '%.1f (%.1f–%.1f, n=%d)' % (stats['median'] / MIB, stats['min'] / MIB, stats['max'] / MIB, stats['n'])
-
-
-def flag(value):
-    return 'n/a' if value is None else ('true' if value else 'false')
-
-
-def env_text(env):
-    if env is None:
-        return 'n/a'
-    return ', '.join('`%s=%s`' % (name, env[name]) for name in sorted(env)) or 'none'
-
-
-def render(summary):
-    build = summary['provenance'].get('build') or {}
-    lines = [
-        '# prism-mcp memory readout',
-        '',
-        'This is **coarse triage**: it ranks reduction candidates for an experiment and selects none.',
-        'Byte figures marked "estimate" come from component counts, not from allocation measurement.',
-        '',
-        '## Provenance',
-        '',
-        '- Binary: build identity `%s`, git `%s`, CPG cache version %s, allocator %s, binary_input_dirty %s.' % (
-            build.get('build_identity'), build.get('git_sha'), build.get('cpg_cache_version'),
-            build.get('allocator'), flag(build.get('binary_input_dirty'))),
-        '- Environment of the measured process: %s.' % env_text(summary['provenance'].get('env')),
-        '- %s repetitions per kind, %s s settle. Values are median (min–max, n) in MiB.' % (
-            summary['provenance'].get('reps'), summary['provenance'].get('settle')),
-        '',
-        '| Corpus | Commit | Dirty files | Admissible runs (warm/cold/workload/refresh) |',
-        '|---|---|---|---|',
-    ]
-    for name, entry in sorted(summary['corpora'].items()):
-        counts = '/'.join(str(entry['admissible'][kind]) for kind in KINDS)
-        lines.append('| %s | `%s` | %s | %s |' % (name, (entry.get('commit') or '')[:12], entry.get('dirty'), counts))
-    lines += ['', '## Footprint', '',
-              '| Corpus | Steady state | Warm-load peak | Observed load overshoot | Refresh peak | Cold peak |',
-              '|---|---|---|---|---|---|']
-    for name, entry in sorted(summary['corpora'].items()):
-        metrics = entry['metrics']
-        lines.append('| %s | %s | %s | %s | %s | %s |' % (
-            name, mib(metrics.get('steady')), mib(metrics.get('peak')), mib(metrics.get('m2_observed_overshoot')),
-            mib(metrics.get('refresh_peak')), mib(metrics.get('cold_peak'))))
-    lines += ['', '## Attribution (estimates)', '',
-              '| Corpus | Files | Source | Tree nodes | Trees, low–high (M1) | CPG nodes / edges | Repeated node strings (M3) | Unique-byte ratio |',
-              '|---|---|---|---|---|---|---|---|']
-    for name, entry in sorted(summary['corpora'].items()):
-        attribution, metrics = entry.get('attribution') or {}, entry['metrics']
-        ratio = attribution.get('node_string_unique_ratio')
-        lines.append('| %s | %s | %.1f | %s | %s – %s | %s / %s | %s | %s |' % (
-            name, attribution.get('files'), (attribution.get('source_bytes') or 0) / MIB,
-            attribution.get('tree_nodes'), mib(metrics.get('m1')), mib(metrics.get('m1')),
-            attribution.get('cpg_nodes'), attribution.get('cpg_edges'), mib(metrics.get('m3')),
-            'n/a' if ratio is None else '%.3f' % ratio))
-    lines += ['', '## Decision rule', '',
-              'A candidate advances to its experiment when its estimate is at least 200 MiB or 15 % of the',
-              'base (steady state for M1 and M3, warm-load peak for M2) on at least two corpora.', '',
-              '| Candidate | Corpora meeting the rule | Advances |', '|---|---|---|']
-    for candidate, _, _ in CANDIDATES:
-        verdict = summary['verdict'][candidate]
-        lines.append('| %s | %s | %s |' % (candidate, ', '.join(verdict['corpora']) or '—',
-                                           'yes' if verdict['advance'] else 'no'))
-    excluded = [(name, item) for name, entry in sorted(summary['corpora'].items())
-                for item in entry['inadmissible']]
-    lines += ['', '## Excluded runs', '']
-    if excluded:
-        lines += ['| Corpus | Kind | Repetition | Status | Reason |', '|---|---|---|---|---|']
-        lines += ['| %s | %s | %s | %s | %s |' % (name, item['kind'], item['rep'], item['status'], item['reason'])
-                  for name, item in excluded]
-    else:
-        lines.append('None.')
-    return '\n'.join(lines) + '\n'
 
 
 def cmd_render(args):
