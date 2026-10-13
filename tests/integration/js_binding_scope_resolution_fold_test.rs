@@ -20,6 +20,8 @@ use std::collections::BTreeMap;
 
 #[test]
 fn f1_param_shadow_all_three_wrappers_keeps_base() {
+    // Slice R (rule 2): a same-file function of the binding's spelling is kept only when it is
+    // written into the binding; the shadowed module-level function is no longer a candidate.
     // sol's exact scenario: all three wrappers shadowed by same-named parameters.
     let src = "import { useCallback, forwardRef, memo } from 'react';\n\
         export function run(useCallback, forwardRef, memo) {\n  const cb = useCallback(() => 1, []);\n  \
@@ -32,9 +34,9 @@ fn f1_param_shadow_all_three_wrappers_keeps_base() {
             "L3 useCallback: drop UnknownName",
             "L4 forwardRef: drop UnknownName",
             "L5 memo: drop UnknownName",
-            "L6 Island: Exact local_def Island@4-4, Exact local_def Island@10-10",
-            "L6 M: Exact local_def M@5-5, Exact local_def M@11-11",
-            "L6 cb: Exact local_def cb@3-3, Exact local_def cb@9-9",
+            "L6 Island: Exact local_def Island@4-4",
+            "L6 M: Exact local_def M@5-5",
+            "L6 cb: Exact local_def cb@3-3",
         ]
     );
     let stats = prism::navigation::queries::call_stats(&cg_jsx);
@@ -53,7 +55,7 @@ fn f1_local_const_shadow_keeps_base() {
         &["jsx", "tsx"],
         &[
             "L5 useCallback: Exact local_def useCallback@4-4",
-            "L6 h: Exact local_def h@2-2, Exact local_def h@5-5",
+            "L6 h: Exact local_def h@5-5",
         ],
     );
 }
@@ -69,7 +71,7 @@ fn f1_block_const_shadow_keeps_base() {
         &["jsx", "tsx"],
         &[
             "L6 forwardRef: Exact local_def forwardRef@5-5",
-            "L7 Foo: Exact local_def Foo@2-2, Exact local_def Foo@6-6",
+            "L7 Foo: Exact local_def Foo@6-6",
         ],
     );
 }
@@ -84,7 +86,7 @@ fn f1_namespace_object_param_shadow_keeps_base() {
         &["jsx", "tsx"],
         &[
             "L4 memo: drop UnknownName",
-            "L5 Foo: Exact local_def Foo@2-2, Exact local_def Foo@4-4",
+            "L5 Foo: Exact local_def Foo@4-4",
         ],
     );
 }
@@ -139,7 +141,9 @@ fn f2_written_namespace_import_keeps_base() {
         .into_iter()
         .filter(|s| s.contains(" f:"))
         .collect();
-    assert_eq!(out, ["L8 f: Exact local_def f@3-3"]);
+    // Slice R: the written namespace import is an unproven value; the unrelated nested `f`
+    // (rule 2) is not written into it, so the site drops instead of binding that decoy.
+    assert_eq!(out, ["L8 f: drop LocalBindingUnproven"]);
     let stats = prism::navigation::queries::call_stats(&cg);
     assert_eq!(stats["local_binding_may_call"]["may_call"], 1);
 }

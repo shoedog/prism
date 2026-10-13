@@ -202,7 +202,8 @@ fn c41_block_nested_destructured_alias_keeps_base() {
     let src = "export function outer() {\n  const { f } = globalThis;\n  return f();\n}\n\
         export function f() {\n  return 1;\n}\n";
     let cg = graph("a.js", src);
-    assert_eq!(sites(&cg), ["L3 f: Exact local_def f@5-7"]);
+    // Slice R (rule 2): the shadowed module-level `f` is not the destructured value.
+    assert_eq!(sites(&cg), ["L3 f: drop LocalBindingUnproven"]);
     let stats = prism::navigation::queries::call_stats(&cg);
     assert_eq!(stats["local_binding_may_call"]["alias"], 1);
 }
@@ -380,9 +381,11 @@ fn alias_at_r4_keeps_local_def() {
     // C177: an alias binding at a call site (the nearest declaration of `t` is an alias) that
     // shadows a different same-file function also named `t` keeps the ordinary R4 hit — the
     // alias classification only ever keeps base, never drops (the accepted value-flow cost).
+    // Slice R (rule 2) retires that cost: the shadowed `t` is not written into the alias, so the
+    // site drops `LocalBindingUnproven`.
     let src = "function t() {\n  return 1;\n}\n\
         export function outer() {\n  const t = ctx.make;\n  return t();\n}\n";
-    check(src, &["js", "ts"], &["L6 t: Exact local_def t@1-3"]);
+    check(src, &["js", "ts"], &["L6 t: drop LocalBindingUnproven"]);
 }
 
 // ---------------------------------------------------------------------------------------

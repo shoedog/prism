@@ -134,8 +134,9 @@ fn b4_dollar_named_locals_shadow() {
 #[test]
 fn b5_nested_declarators_keep_base() {
     // Opus W2 / sol W1 (Option K): a declarator nested in a block keeps base, so its
-    // shorthand never shadows `f()` after the block. The in-block call keeps base's Exact
-    // until S1b-3's site walk; a nested `var` keeps base too.
+    // shorthand never shadows `f()` after the block. Slice R: the in-block call is bound to an
+    // unproven value, so it no longer name-searches the repo (it drops `LocalBindingUnproven`);
+    // the call after the block is unbound there and keeps the repo-wide rung.
     let block = |head: &str, decl: &str| {
         format!("export function run(o) {{\n  {head}{{\n    {decl}\n    f();\n  }}\n  return f();\n}}\n")
     };
@@ -147,21 +148,25 @@ fn b5_nested_declarators_keep_base() {
     let import = format!("import {{ f }} from './lib';\n{in_if}");
     let same_line = "export function run(o) {\n  { const { f } = o; f(); } return f();\n}\n";
     let exact = |l: &str, k: &str| vec![format!("L{l} f: Exact {k} lib:f@1-3")];
-    let free = [exact("4", "free_single"), exact("6", "free_single")].concat();
+    let refused = |l: &str| vec![format!("L{l} f: drop LocalBindingUnproven")];
+    let free = [refused("4"), exact("6", "free_single")].concat();
+    let var_want = [refused("4"), refused("6")].concat();
     let import_want = [exact("5", "import_member"), exact("7", "import_member")].concat();
-    let line2 = [exact("2", "free_single"), exact("2", "free_single")].concat();
+    let line2 = [exact("2", "free_single"), refused("2")].concat();
     // Opus r2 W1 (P15, Q2): a bare block at module scope is nested too; `run()`'s `f()` keeps base.
     let module = "{\n  const { f } = globalThis.o;\n}\nexport function run() {\n  return f();\n}\n"
         .to_string();
     let module_var = module.replace("const", "var");
     let l5 = exact("5", "free_single");
+    // A block-nested module `var` hoists to the program scope, so the later `f()` is bound too.
+    let l5_var = refused("5");
     for (app, want) in [
         (&bare, &free),
         (&in_if, &free),
-        (&var, &free),
+        (&var, &var_want),
         (&import, &import_want),
         (&module, &l5),
-        (&module_var, &l5),
+        (&module_var, &l5_var),
     ] {
         for ext in BOTH {
             assert_eq!(run(LIB_F, app, ext), *want, "{app} .{ext}");

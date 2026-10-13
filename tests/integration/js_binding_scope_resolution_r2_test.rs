@@ -229,7 +229,8 @@ fn c176_destructure_from_identifier_is_alias() {
 fn c177_alias_at_r4_keeps_local_def_named() {
     let src = "function t() {\n  return 1;\n}\n\
         export function outer() {\n  const t = ctx.make;\n  return t();\n}\n";
-    check(src, &["js", "ts"], &["L6 t: Exact local_def t@1-3"]);
+    // Slice R (rule 2): the shadowed same-file `t` is not written into the alias.
+    check(src, &["js", "ts"], &["L6 t: drop LocalBindingUnproven"]);
 }
 
 #[test]
