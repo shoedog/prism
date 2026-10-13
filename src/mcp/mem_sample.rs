@@ -13,11 +13,45 @@ pub struct MemSample {
     pub compressed_bytes: Option<u64>,
     /// Process-lifetime peak: footprint on macOS, resident size on Linux. Never decreases.
     pub peak_bytes: Option<u64>,
+    /// Bytes the process allocator has handed out and not had freed, at this instant (macOS:
+    /// `size_in_use` summed over all malloc zones; Linux glibc: `uordblks + hblkhd`). Unlike the
+    /// footprint, it falls when memory is freed. It is not resident memory: it leaves out
+    /// allocator overhead and mappings that do not come from malloc (thread stacks, mapped files).
+    pub heap_in_use_bytes: Option<u64>,
 }
 
 /// Sample this process now.
 pub fn sample() -> MemSample {
-    imp::sample()
+    let mut out = imp::sample();
+    out.heap_in_use_bytes = heap_in_use_bytes();
+    out
+}
+
+/// Bytes the process allocator currently has handed out; see [`MemSample::heap_in_use_bytes`].
+fn heap_in_use_bytes() -> Option<u64> {
+    #[cfg(target_os = "macos")]
+    {
+        let mut stats = libc::malloc_statistics_t {
+            blocks_in_use: 0,
+            size_in_use: 0,
+            max_size_in_use: 0,
+            size_allocated: 0,
+        };
+        // SAFETY: a null zone asks for the totals over every zone, and `stats` is a writable
+        // `malloc_statistics_t` that the call fills.
+        unsafe { libc::malloc_zone_statistics(std::ptr::null_mut(), &mut stats) };
+        Some(stats.size_in_use as u64)
+    }
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    {
+        // SAFETY: `mallinfo2` takes no arguments and returns a plain struct by value.
+        let info = unsafe { libc::mallinfo2() };
+        Some((info.uordblks as u64).saturating_add(info.hblkhd as u64))
+    }
+    #[cfg(not(any(target_os = "macos", all(target_os = "linux", target_env = "gnu"))))]
+    {
+        None
+    }
 }
 
 /// Peak resident set size from `getrusage`, in bytes (macOS reports bytes, Linux kilobytes).
@@ -57,6 +91,7 @@ fn parse_proc_status(text: &str) -> MemSample {
         phys_footprint_bytes: None,
         compressed_bytes: None,
         peak_bytes: kilobytes("VmHWM:"),
+        heap_in_use_bytes: None,
     }
 }
 
@@ -173,6 +208,7 @@ mod tests {
                 phys_footprint_bytes: None,
                 compressed_bytes: None,
                 peak_bytes: Some(2048 * 1024),
+                heap_in_use_bytes: None,
             }
         );
         assert_eq!(parse_proc_status("Name:\tx\n"), MemSample::default());
@@ -223,6 +259,47 @@ mod tests {
             );
             assert!(after.compressed_bytes.is_some());
         }
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[test]
+    fn heap_in_use_rises_with_a_live_allocation_and_falls_when_it_is_freed() {
+        const SIZE: usize = 256 << 20;
+        const MIN_CHANGE: u64 = 192 << 20;
+        let before = sample();
+        let mut block = vec![0u8; SIZE];
+        for offset in (0..SIZE).step_by(4096) {
+            block[offset] = (offset % 251) as u8 + 1;
+        }
+        let high = sample();
+        // Keep the block alive and observed past the second sample.
+        assert!(
+            block
+                .iter()
+                .step_by(1 << 20)
+                .map(|byte| *byte as u64)
+                .sum::<u64>()
+                > 0
+        );
+        drop(block);
+        let low = sample();
+
+        // Unavailable on this platform (for example Linux without glibc): nothing to assert.
+        let (Some(before), Some(high), Some(low)) = (
+            before.heap_in_use_bytes,
+            high.heap_in_use_bytes,
+            low.heap_in_use_bytes,
+        ) else {
+            return;
+        };
+        assert!(
+            high >= before + MIN_CHANGE,
+            "a live 256 MiB block should add at least 192 MiB in use: {before} -> {high}"
+        );
+        assert!(
+            low + MIN_CHANGE <= high,
+            "freeing the block should drop at least 192 MiB in use: {high} -> {low}"
+        );
     }
 
     #[cfg(unix)]
