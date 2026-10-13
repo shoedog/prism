@@ -16,6 +16,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import memreport  # noqa: E402
+import memreport_builddir  # noqa: E402
 from memreport_fixtures import canned  # noqa: E402
 from test_memreport_kinds import Kinds  # noqa: E402
 
@@ -62,37 +63,122 @@ class BuildDirectoryOwnershipTests(Kinds):
         self.assertIn(str(locked_dir), warning)
         self.assertTrue((locked_dir / 'locked' / 'x.bin').exists())
 
+    def owned_directory(self, after_mkdir=None):
+        root = self.out / 'cache-build'
+        created, owned, refusal = memreport.prepare_repetition(root, 'a', 1, after_mkdir)
+        if owned is not None:
+            self.addCleanup(owned.close)
+        return root, created, owned, refusal
+
+    def quiet_removal(self, created, root, owned, at=None):
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            removed, note = memreport_builddir.remove_created(created, root, owned, at)
+        return removed, note, err.getvalue()
+
     def test_removed_is_true_only_if_the_path_is_gone_afterwards(self):
         self.prepare()
-        root = self.out / 'cache-build'
-        created, identity, refusal = memreport.prepare_repetition(root, 'a', 1)
+        root, created, owned, refusal = self.owned_directory()
         self.assertIsNone(refusal)
         (created / 'x').write_bytes(b'x')
-        with mock.patch.object(shutil, 'rmtree', lambda *a, **k: None):    # "succeeds" and deletes nothing
-            with contextlib.redirect_stderr(io.StringIO()):
-                removed, note = memreport.remove_created(created, root, identity)
+        with mock.patch.object(os, 'rmdir', lambda *a, **k: None):    # "succeeds" and removes nothing
+            removed, note, _ = self.quiet_removal(created, root, owned)
         self.assertIs(removed, False)
         self.assertIn('still exists', note)
-        with contextlib.redirect_stderr(io.StringIO()):
-            self.assertEqual(memreport.remove_created(created, root, identity)[0], True)
-        self.assertFalse(created.exists())
+        self.assertEqual(list(created.iterdir()), [])    # its contents went through the descriptor
 
-    def test_removal_through_a_symlinked_parent_deletes_nothing(self):
+    def test_an_ordinary_removal_deletes_files_and_nested_directories_and_then_the_name(self):
+        self.prepare()
+        root, created, owned, _ = self.owned_directory()
+        (created / 'cpg-cache.bin').write_bytes(b'x' * 10)
+        (created / 'nested' / 'deeper').mkdir(parents=True)
+        (created / 'nested' / 'deeper' / 'f').write_text('f')
+        removed, note, warning = self.quiet_removal(created, root, owned)
+        self.assertEqual((removed, note, warning), (True, None, ''))
+        self.assertFalse(root.exists())    # the empty parents went too
+        self.assertEqual((owned.fd, owned.parent_fd), (None, None))    # no descriptor is left open
+
+    def test_a_symlink_inside_the_directory_is_unlinked_not_followed(self):
+        self.prepare()
+        outside = self.tmp / 'outside'
+        outside.mkdir()
+        (outside / 'precious.txt').write_text('keep')
+        root, created, owned, _ = self.owned_directory()
+        (created / 'link-to-dir').symlink_to(outside)
+        (created / 'link-to-file').symlink_to(outside / 'precious.txt')
+        removed, note, _ = self.quiet_removal(created, root, owned)
+        self.assertEqual((removed, note), (True, None))
+        self.assertEqual((outside / 'precious.txt').read_text(), 'keep')
+
+    def swap_in_evidence(self, created):
+        """Rename the created directory away and move a directory holding a file into its path."""
+        evidence = self.tmp / 'evidence'
+        evidence.mkdir()
+        (evidence / 'precious.txt').write_text('keep')
+        created.rename(self.tmp / 'moved-away')
+        shutil.move(str(evidence), str(created))
+
+    def test_a_replacement_made_just_before_the_contents_are_deleted_is_not_touched(self):
+        # The reviewer's sequence: every check has passed, then the path is made to name other evidence.
+        self.prepare()
+        root, created, owned, _ = self.owned_directory()
+        (created / 'cpg-cache.bin').write_bytes(b'x')
+        removed, note, warning = self.quiet_removal(
+            created, root, owned, lambda step: step == 'before-empty' and self.swap_in_evidence(created))
+        self.assertEqual((created / 'precious.txt').read_text(), 'keep')
+        self.assertIs(removed, False)
+        self.assertIn('no longer the directory this run created', note)
+        self.assertIn(str(created), warning)
+        # What this run created was emptied where it went; nothing else was.
+        self.assertEqual(list((self.tmp / 'moved-away').iterdir()), [])
+
+    def test_a_replacement_made_just_before_the_name_is_removed_is_not_touched(self):
+        # After the identity of the name has been confirmed and before the rmdir: rmdir refuses content.
+        self.prepare()
+        root, created, owned, _ = self.owned_directory()
+        removed, note, _ = self.quiet_removal(
+            created, root, owned, lambda step: step == 'before-rmdir' and self.swap_in_evidence(created))
+        self.assertEqual((created / 'precious.txt').read_text(), 'keep')
+        self.assertIs(removed, False)
+        self.assertIn('could not be deleted', note)
+
+    def test_a_replacement_made_right_after_the_creation_is_refused_and_never_owned(self):
+        # Between the mkdir and the opening: what gets opened is not what was created.
+        self.prepare()
+        created = self.out / 'cache-build' / 'a' / '1'
+        root, directory, owned, refusal = self.owned_directory(lambda: self.swap_in_evidence(created))
+        self.assertEqual((directory, owned), (None, None))
+        self.assertIn('replaced right after it was created', refusal)
+        self.assertEqual((created / 'precious.txt').read_text(), 'keep')
+
+    def test_a_replacement_right_after_the_creation_refuses_the_repetition_and_runs_no_child(self):
+        self.prepare()
+        created = self.out / 'cache-build' / 'a' / '1'
+        real = memreport_builddir.prepare_repetition
+
+        def swapped(root, name, rep):
+            return real(root, name, rep, lambda: self.swap_in_evidence(created))
+
+        with mock.patch.object(memreport, 'prepare_repetition', swapped):
+            self.run_kinds('build', reps=1)
+        self.assertEqual(self.child_calls('warm'), 0)
+        self.assertEqual((created / 'precious.txt').read_text(), 'keep')
+        self.assertIn('replaced', self.summary()['corpora']['a']['inadmissible'][0]['reason'])
+
+    def test_a_parent_swapped_for_a_symlink_during_the_measurement_loses_nothing(self):
         self.prepare()
         victim = self.tmp / 'victim'
         (victim / '1').mkdir(parents=True)
         (victim / '1' / 'keep.txt').write_text('keep')
-        root = self.out / 'cache-build'
-        root.mkdir(parents=True)
-        (root / 'a').symlink_to(victim)
-        cache_dir = root / 'a' / '1'    # the same directory as victim/1, reached through the link
-        identity = memreport.directory_identity(cache_dir)
-        with contextlib.redirect_stderr(io.StringIO()) as err:
-            removed, note = memreport.remove_created(cache_dir, root, identity)
-        self.assertIs(removed, False)
-        self.assertIn('outside', note)
+        root, created, owned, _ = self.owned_directory()
+        (created / 'cpg-cache.bin').write_bytes(b'x')
+        (root / 'a').rename(self.tmp / 'parent-moved-away')
+        (root / 'a').symlink_to(victim)    # the path cache-build/a/1 now names victim/1
+        removed, note, warning = self.quiet_removal(created, root, owned)
         self.assertEqual((victim / '1' / 'keep.txt').read_text(), 'keep')
-        self.assertIn(str(cache_dir), err.getvalue())
+        self.assertIs(removed, False)    # the path still names something, and it says so
+        self.assertIn('still exists', note)
+        self.assertIn(str(created), warning)
+        self.assertFalse((self.tmp / 'parent-moved-away' / '1').exists())    # what this run created is gone
 
     def test_a_symlinked_corpus_directory_with_an_empty_target_gets_nothing_created_and_no_child_runs(self):
         self.prepare()

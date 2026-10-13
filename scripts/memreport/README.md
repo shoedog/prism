@@ -36,24 +36,16 @@ empty list, is refused before anything runs. `warm` also reports `load_ms` (`aft
 `after_load_repo` elapsed time; unavailable if either time is). The readout still lists the four kinds only
 and prints `n/a` for those that were not run; `build` figures are read by `compare`.
 
-A `build` repetition is admissible only if its report says `cache.cpg_hit: false` and
-`cache.call_edges_loaded: false`, it passes the usual structural and build-identity checks and has the
-`after_call_edges` peak, **and the process left both cache files behind**: after it exits the driver records the
-sizes of `cpg-cache.bin` and `resolved-call-edge-index.bin` (`cache_files` in the stored result), and both must be
-integers above 0. The binary catches a failed cache save, prints it and still exits 0 with both flags false, so
-the files are the evidence that the cache was written; stderr containing `failed to save CPG cache` or
-`nav edge cache: failed to save sidecar` also excludes the run. `summarize` and `compare` re-apply the file check to
-the stored sizes (a stored build result without `cache_files` is inadmissible). The driver creates each
-repetition's directory itself and deletes it afterwards (hundreds of MiB each). It is created exclusively and its
-identity (device and inode) is recorded; before deleting, the driver checks without following links that the path
-is still a real directory with that identity, inside the resolved `<out>/cache-build`, and otherwise deletes
-nothing (a directory moved or swapped in during the measurement is left alone). A directory that already existed,
-a symlink at `cache-build` or `cache-build/<corpus>`, or any filesystem error while creating it (a file in the
-way, a read-only directory, a full disk) refuses that repetition (inadmissible, no child run), not the whole run.
-`cache_dir_removed` is true only if the path is gone afterwards; otherwise it is false, `cache_dir_note` says why,
-the path is named on stderr and `compare` prints a warning. The then-empty `cache-build/` directories are removed.
-`build` keeps the settle sleep of `--settle` seconds per repetition; that is harmless, since the peak it reports
-is a lifetime peak.
+Each `build` repetition gets its own cache directory, `<out>/cache-build/<corpus>/<rep>/`, and the driver
+deletes it afterwards. That is the only thing the driver deletes, so it never deletes by path: a path can be
+made to name something else between any two looks at it. The directory is created exclusively, relative to an
+open descriptor of its parent, and opened at once (a repetition is refused if the directory already exists, if
+`cache-build` or the corpus directory is a symlink, or if what is found right after the creation is not
+empty). That descriptor is kept until the measurement is over. The contents are then deleted through it,
+wherever the directory is by then, and the name is removed with `rmdir`, which cannot remove a directory that
+has content. A directory moved into the path during the measurement is therefore never touched. The stored
+result says what was observed: `cache_dir_removed` is true only if the path is gone afterwards, and
+`cache_dir_note` says why not otherwise (the path is also named on stderr, and `compare` prints a warning).
 
 A corpus NAME (in `--corpus NAME=PATH`, for `run` and `gen-workload`) must be letters, digits, `.`, `_` or `-`,
 starting with a letter or digit: it names directories under `--out`.
@@ -85,6 +77,13 @@ mechanism was not identified). "Steady live heap" is repeatable, but it counts a
 memory. Which figure a baseline-against-candidate comparison should use is an open owner question (lane
 README, question 5); until it is answered, compare footprints only between runs at the same level
 (footprint minus live heap tells the levels apart).
+
+## What this tool does not defend against
+
+Raw results are trusted as written. `summarize` and `compare` refuse files that are misnamed, duplicated or
+out of range, which catches accidents (a copied file, a stray backup). They do not authenticate a measurement:
+someone who edits a result file by hand, or copies one under a valid name with its fields changed, can change
+a verdict. The evidence directory's checksums, taken when a run finishes, are what detect that.
 
 ## What is excluded, and why
 

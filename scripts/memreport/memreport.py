@@ -254,11 +254,12 @@ def run_build(args, path, out, name, rep, snapshot):
     """One first build into a cache directory of its own; its file sizes are recorded, then it is deleted.
 
     The directory is created here, exclusively (memreport_builddir.py): an existing one, a symlink on the way or
-    any filesystem error refuses the repetition without running a child. Only that directory is deleted, and
-    `cache_dir_removed` records whether it is gone (with `cache_dir_note` saying why not).
+    any filesystem error refuses the repetition without running a child. Its contents are deleted through a
+    descriptor opened when it was created, never by path, and `cache_dir_removed` records whether the path is
+    gone afterwards (with `cache_dir_note` saying why not).
     """
     root = out / 'cache-build'
-    cache_dir, identity, refusal = prepare_repetition(root, name, rep)
+    cache_dir, owned, refusal = prepare_repetition(root, name, rep)
     if refusal:
         return {'kind': BUILD, 'status': 'inadmissible', 'command': [], 'wall_secs': 0, 'reason': refusal}
     result = None
@@ -269,7 +270,7 @@ def run_build(args, path, out, name, rep, snapshot):
         if reason:
             result.update(status='inadmissible', reason=reason)
     finally:
-        removed, note = remove_created(cache_dir, root, identity)
+        removed, note = remove_created(cache_dir, root, owned)
         if result is not None:
             result['cache_dir_removed'] = removed
             if note:
