@@ -95,12 +95,29 @@ These follow the owner's standing preferences. Confirm or change them before S1 
 
 - **S2:** `ConnectionSettings` (S1) carries the three output settings. The preamble adds `first_call_wait_secs` and
   `warm_at_startup` beside it; do not widen `ConnectionSettings` with fields the dispatch path never reads.
+  **From the S1 review:** `ConnectionSettings` has public fields and no validating constructor. `from_env` floors
+  the result cap at 12,000, but a cap below the floor reaching `cap_after_reserve` panics in debug builds and
+  saturates silently in release. Once the cap arrives from a client in the preamble, decode it through one
+  validating constructor that applies the `resolve_cap_from` rule; a panic in dispatch is daemon-fatal for every
+  attached agent.
 - **S3a:** the read path is `dispatch_tool_read(&call, &provider, &settings)` with `&SessionProvider` as the read-only
   facade (it sees the sticky `known_stale_after_refresh` evidence through `effective_stale_report`, with today's
   precedence). The coordinator is a new daemon type; `LazySessionProvider` stays as the standalone path.
+  **From the S1 review:** `serve_connection` takes `&mut impl SessionRuntime`, which a lock-guarded provider
+  cannot implement (`session(&self) -> &NavigationSession` cannot borrow from a guard), and `error_response` is
+  private. Extract the loop with an injected tool-call step
+  (`serve_loop(transport, registry, startup_mode, settings, |call| -> Value)`) and have `serve_connection` call
+  it, so the daemon does not re-implement the malformed-input and `-32700` handling that spec §10 requires to
+  match stdio. The first read on a fresh snapshot also builds the call-edge index and writes its cache sidecar:
+  thread-safe behind a `OnceLock`, but a disk write on the read path.
 - **S3b:** `ReadDispatch::NeedsAutoRefresh` is the hand-off point for the spec's "re-check the trigger after acquiring
   exclusive access". S1 does not re-check, because standalone has no interleaving; S3b adds the re-check inside the
   write-locked path.
+  **From the S1 review:** `dispatch_tool_auto_refresh` runs the query handler while still holding `&mut provider`,
+  so under a write lock the post-refresh query (including the lazy call-edge build on the fresh snapshot) blocks
+  every reader. It splits mechanically into refresh (exclusive) and finish (shared) if S3b wants the query under
+  shared access. `ReadDispatch::NeedsAutoRefresh` carries no generation and the facade exposes none; spec §4.2
+  wants responses bound to the generation queried, so add a generation accessor (additive).
 - **S5a:** the transcript driver in `tests/mcp/transcript.rs` (S1) is the tool for the "same snapshot, same
   settings, same readiness state" equivalence in spec §5: run one script standalone and through the shim and compare.
 - **S6:** the launcher is `scripts/prism-mcp-launch.sh`; it passes extra arguments through, so `--shared` is a config
