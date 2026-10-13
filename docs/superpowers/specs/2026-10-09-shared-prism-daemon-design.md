@@ -462,9 +462,10 @@ Deterministic constructions, not sleeps:
   questions; they are listed in the lane plan (`docs/superpowers/plans/2026-10-12-shared-prism-daemon/README.md`).
 - **C1 readout record 2026-10-13.** `docs/analysis/2026-10-prism-mcp-memory-readout.md`, four corpora
   (kubernetes not run; projected past the host's memory). By the §6.2 rule M1 and M2 advance on all four and M3
-  does not advance. One pinned parameter of §6.1 did not survive the measurement: `phys_footprint` after a 5 s
-  settle is sampled in one of two states that differ by the freed load-time memory, and the process does not
-  control which; a 60 s settle does not fix it. The steady live heap is repeatable. §6.1 is left as written
-  until the owner chooses the replacement (lane README, question 5); no C2 experiment should be gated on the
-  footprint in the meantime. The §1 figures (1,168 MB idle, 1,620 MB peak) are confirmed within 3–13 % after
-  scaling for a corpus that has grown 21 %.
+  does not advance; two reviewers recomputed this from the raw reports. One pinned parameter of §6.1 did not
+  survive the measurement: `phys_footprint` after a 5 s settle was sampled at one of two levels, 460–790 MiB
+  apart on two corpora, and neither a 5 s nor a 60 s settle decided which. The mechanism was not identified.
+  The steady live heap is repeatable but counts allocations, not physical memory, and is circular for M1. §6.1
+  is left as written until the owner chooses (lane README, question 5); no C2 experiment should be gated on a
+  footprint of unknown level in the meantime. The §1 figures (1,168 MB idle, 1,620 MB peak) are consistent with
+  today's: within 3–13 % after scaling for a corpus that has grown 21 %, if "MB" there means MiB.

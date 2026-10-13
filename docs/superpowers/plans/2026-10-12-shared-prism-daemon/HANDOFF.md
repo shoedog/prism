@@ -1,4 +1,4 @@
-# Handoff — shared per-repo prism daemon lane; S1, C1 and the C1 readout done, S2 planned, six owner questions open
+# Handoff — shared per-repo prism daemon lane; S1, C1 and the C1 readout done, S2 planned, seven owner questions open
 
 **Written:** 2026-10-13T12:30-06:00 · **By:** Claude Code session `fd583811-fdc5-4426-9c4a-55872d2ecc1c` (Opus 5.5) · **Provider:** claude
 **Workspace:** `~/code/prism-c1-readout` · `docs/mcp-memory-readout` (the readout docs PR; this file is on `main` once it merges) · **Measured state:** `[MEASURED]` HEAD = the commit that adds this revision · Tree CLEAN after that commit · Probe `git status --short && git log --oneline -3` · Output inline in the session
@@ -15,9 +15,9 @@
 
 ## 1. Resume order
 1. Read `README.md` in this directory: slice table, the owner questions from S2 planning, measured facts.
-2. Read `docs/analysis/2026-10-prism-mcp-memory-readout.md`, last section first. M1 and M2 advance, M3 does not; the "Steady state" footprint column is not an idle figure.
-3. Get the owner's answers to §7. Question 5 (the steady-state metric) gates the C2 plans; questions 1–4 and 7 gate S2.
-4. Implement S2 as two PRs (S2a = plan Tasks 1–4, S2b = Tasks 5–8), each from `scratch/s2-validate` or by an implementer, reviewed by Opus 5.5 and gpt-6.1-sol, cap two rounds. Write the C2 plans for M2 and M1 from the readout once question 5 is answered; a C2 candidate may begin after C1 but ship only after S5a.
+2. Read `docs/analysis/2026-10-prism-mcp-memory-readout.md`, last section first. M1 and M2 advance, M3 does not; the "Steady state" footprint column is not a repeatable figure.
+3. Get the owner's answers to §7. Question 5 (the steady-state metric) gates the M1 plan; questions 1–4 and 7 gate S2. The M2 plan is not gated: its base is the load peak.
+4. Implement S2 as two PRs (S2a = plan Tasks 1–4, S2b = Tasks 5–8), each from `scratch/s2-validate` or by an implementer, reviewed by Opus 5.5 and gpt-6.1-sol, cap two rounds. Write the C2 plan for M2 from the readout, and the one for M1 once question 5 is answered; a C2 candidate may begin after C1 but ship only after S5a.
 5. When S2 merges, write the S3a plan from its real interfaces (the S2 plan's last section lists what S3a, S4 and S5a consume).
 
 **STOP conditions:** a corpus whose projected peak would exhaust this host's memory (24 GB, usually already swapping): do not run it; report the projection and let the owner decide. A reviewer WRONG finding the controller disagrees with (escalate to the owner). A golden transcript changing in any later slice.
@@ -30,12 +30,12 @@
 | Spec v3 | done | `[MEASURED]` owner-approved 2026-10-12; implementation record added to §13 on 2026-10-13 |
 | S1 transport refactor | done | `[MEASURED]` #361 squash-merged as `f6354e07`. Opus 5.5 and gpt-6.1-sol both APPROVE, no defect; two rounds; full suite 5,286 passed, 0 failed at `8e1873bb`; CI green on the head and on the golden-only commit alone |
 | C1 memory harness | done | `[MEASURED]` #362 squash-merged as `7db8f195`. Two review rounds (both FIX, all folded) plus one confirmation of the last fold (APPROVE), which is one step past the declared cap; full suite 5,321 passed, 0 failed at `8d37f34c`; 145 Python tests; Tier-A matrix 178 of 178 |
-| C1 measurement | done | `[MEASURED]` `run-1`: four corpora (slicing, excalidraw, prometheus, ruff), 48 of 48 runs and 4 of 4 priming runs admissible, binary `7db8f195`. Kubernetes not run: projected first build 27–70 GiB on a 24 GiB host. Supplement `settle60/`: 12 of 12 workload runs admissible at a 60 s settle. Normal-mode probe `idle-probe/`. |
-| C1 readout | done | `[MEASURED]` `docs/analysis/2026-10-prism-mcp-memory-readout.md`. M1 124–559 MiB and M2 136–693 MiB advance on all four corpora; M3 16–58 MiB does not advance. Verdicts recomputed against the live heap: unchanged. |
+| C1 measurement | done | `[MEASURED]` `run-1`: four corpora (slicing, excalidraw, prometheus, ruff), 48 of 48 runs and 4 of 4 priming runs admissible, binary `7db8f195`, one process at a time. Kubernetes not run: projected first build 27–70 GiB on a 24 GiB host. Supplement `settle60/`: 12 of 12 workload runs admissible at a 60 s settle; five of them overlapped a resident normal-mode probe (`idle-probe/`), disclosed in the readout. |
+| C1 readout | done | `[MEASURED]` `docs/analysis/2026-10-prism-mcp-memory-readout.md`. M1 124–559 MiB and M2 136–693 MiB advance on all four corpora; M3 16–58 MiB does not advance. Verdicts recomputed against the live heap: unchanged. Reviewed by Opus 5.5 and gpt-6.1-sol, both of whom recomputed the figures: verdicts confirmed, both FIX on the interpretation (mechanism overstated, live heap is not a physical-memory metric, overlap undisclosed, refresh was a no-change reload); all folded. |
 | S2 plan | done | `[MEASURED]` `S2-identity-preamble.md` committed `dd6b6c7e`; its code replayed on `scratch/s2-validate` `cf873945` (323 MCP unit tests, 13 binary tests; logs read by this writer) |
 | S2 implementation | pending | blocked on §7 |
 | Spec/plan PR #357 | done | `[MEASURED]` squash-merged as `dc3b6bbe` |
-| C2 plans (M2, M1) | pending | blocked on §7 question 5 |
+| C2 plans (M2, M1) | pending | M2: can be written now. M1: blocked on §7 question 5 |
 | S3a–S6, B | pending | each planned when its predecessor merges |
 
 ## 3. Corrections to standing documents and memory
@@ -44,8 +44,8 @@
 |---|---|---|
 | `src/mcp/session.rs`, comment above `build_state` | "`LoadedRepo` is not `Sync`" | `[MEASURED]` `SessionProvider` is `Send + Sync`. Still not corrected in code; S3a replaces the comment with a compile-time assertion. |
 | Spec §6.1 | attribution by "tree nodes × per-node size" | `[MEASURED]` not a bound in either direction (two reviewers, independent measurements). The harness measures tree-sitter's live heap instead. Recorded in spec §13 and at the top of the C1 plan. |
-| Spec §6.1–§6.2 | the M2 transient can be read from the peak | `[MEASURED]` freed memory stays charged to `phys_footprint` for a time the process does not control, so a delta taken seconds later reads near 0. M2's estimate is the CPG cache file size. Where the footprint did drop, the transient was 425–479 MiB on slicing and 803 MiB on prometheus, larger than the cache file. |
-| Spec §6.1 | steady state = `phys_footprint` after a 5 s settle | `[MEASURED]` two states 460–790 MiB apart, not controlled by the settle time (35 of 36 runs in the first state at 5 s; 3 of 12 in the second at 60 s). The live heap is repeatable to 0.2 MiB. Spec text unchanged pending §7 question 5; recorded in spec §13. |
+| Spec §6.1–§6.2 | the M2 transient can be read from the peak | `[MEASURED]` in most runs the footprint had not come down when the next sample was taken, so the delta reads near 0. M2's estimate is the CPG cache file size. Where the footprint did come down, the transient was 425–479 MiB on slicing and 803 MiB on prometheus, larger than the cache file. |
+| Spec §6.1 | steady state = `phys_footprint` after a 5 s settle | `[MEASURED]` two levels 460–790 MiB apart, not decided by the settle time (35 of 36 runs at the higher level at 5 s; 4 of 13 at the lower at 60 s). Mechanism not identified; forcing the move not tried. The live heap is repeatable to 0.13 MiB but counts allocations, not physical memory, and is circular for M1. Spec text unchanged pending §7 question 5; recorded in spec §13. |
 | Spec §6.1 | five corpora | `[MEASURED]` four. Kubernetes not run (§7 question 6). |
 | `CLAUDE.md`, "CPG cache v73" | cache version | `[MEASURED]` 114. Outside this lane; not corrected. |
 | Memory `project_prism_mcp_memory_lane.md` | status lines | Updated 2026-10-13 for the readout result and the open questions. |
@@ -54,17 +54,19 @@
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | C2 plans for M2 and M1 | pending | write from the readout; pin the metric the owner chooses | §7 question 5 | spec §6.2; readout verdict table |
+| 1 | C2 plans for M2 and M1 | pending | M2: write from the readout (base = load peak). M1: pin the metric the owner chooses, with a footprint confirmation | M1: §7 question 5 | spec §6.2; readout verdict table |
 | 2 | Kubernetes corpus | pending | none unless the owner asks for it | §7 question 6 | `~/code/bench-repos/kubernetes` `8d34ac5ef882` |
 | 3 | S2a, S2b | pending | §1 step 4 | §7 | plan `S2-identity-preamble.md`; scratch `cf873945` |
-| 4 | Harness option: release free memory before the settled sample | pending | only if the owner picks option (b) or (c) of question 5 | §7 question 5 | `src/mcp/mem_report.rs` |
+| 4 | Test whether report mode can release free memory before the settled sample | pending | only if the owner picks option (b) of question 5; it would also rank "release after load" as a candidate (157–715 MiB) | §7 question 5 | `src/mcp/mem_report.rs` |
 | 5 | S3a plan | pending | write from S2's merged interfaces | #3 | lane README notes for S3a |
+| 6 | Refresh after files changed | not measured | the measured refresh found nothing stale and reloaded from the cache; a rebuilding refresh may peak higher than the 1.9–2.0 × recorded | — | readout, "Other observations" |
 
 ## 5. Invariants and traps — do not do these
 - Never edit `src/mcp/transport_tests.rs` or `src/mcp/owner_transport_tests.rs`, and never re-record the golden transcripts, in S2–S5 — together they are the proof that standalone stdout is unchanged.
 - Never present the mutation gate as covering this lane — it builds without `--features mcp` and selects no MCP code.
-- Never attribute memory by freeing something and re-measuring, and never read a footprint taken seconds after a load as an idle figure — freed memory stays charged to the footprint until the OS takes it back, at a time the process does not control (measured three ways in this lane).
-- Never gate a C2 experiment on `phys_footprint` at the settle stage until §7 question 5 is answered — a candidate could win or lose 460–790 MiB on which state a run was sampled in.
+- Never attribute memory by freeing something and re-measuring, and never read a footprint taken seconds after a load as an idle figure — the footprint sits at one of two levels and the move between them did not happen at a reproducible time (measured three ways in this lane; mechanism not identified).
+- Never gate a C2 experiment on a `phys_footprint` whose level is unknown, and never judge M1 on live heap alone — the first can swing 460–790 MiB by accident, the second cannot fail.
+- Never run a second prism-mcp while a measurement is running — five supplement runs overlapped a probe this session and had to be disclosed.
 - Never run the kubernetes corpus on this host — projected first build 27–70 GiB against 24 GiB of memory.
 - Never run the memreport driver into a directory that already has results, and never re-run to change a rule: `summarize --run DIR` rescores saved evidence.
 - Never call `mem_tree_alloc::install()` from library code or a library test — it swaps tree-sitter's allocator pointers and is only safe before anything parses, in the report-mode binary.
@@ -92,15 +94,15 @@
 
 **§2c verdict:** SURVIVED · claim: "S1 leaves the in-process server's stdout byte-for-byte unchanged" · pass: INDEPENDENT (two reviewers, each with a same-host base control or mutation probes) · evidence tier: TEST-BACKED · record: PR #361; goldens recorded on the base and CI-green alone (run 38402295489), unchanged through the merge
 
-**§2c verdict:** SURVIVED · claim: "M1 and M2 advance and M3 does not, on four corpora" · pass: SELF (recomputed against a second base, the live heap, after the first base was found unreliable) plus the review recorded in the readout PR · evidence tier: MEASURED · record: readout, sections "Verdict" and "The Steady state column is not an idle figure"
+**§2c verdict:** SURVIVED · claim: "M1 and M2 advance and M3 does not, on four corpora" · pass: INDEPENDENT (Opus 5.5 and gpt-6.1-sol each recomputed the figures from the raw reports; also recomputed against a second base, the live heap) · evidence tier: MEASURED · record: PR #363; readout, section "Verdict"
 
-**§2c verdict:** REFUTED · claim: "`phys_footprint` after a 5 s settle is the steady-state footprint (spec §6.1)" · pass: SELF, by the plan's own cross-check against the 2026-10-09 figures, then three probes (report mode at 60 s, normal mode sampled from outside, a 12-run supplement) · evidence tier: MEASURED · record: readout, same section
+**§2c verdict:** REFUTED · claim: "`phys_footprint` after a 5 s settle is a repeatable steady-state figure (spec §6.1)" · pass: SELF, by the plan's own cross-check against the 2026-10-09 figures, then a report-mode run at 60 s, normal-mode sampling from outside and a 12-run supplement; both reviewers reproduced the counts · evidence tier: MEASURED · record: readout, section "The Steady state column is not an idle figure"
 
 **Questions the owner owes an answer to** (detail in `README.md`, the two "Owner questions" sections):
 1. Runtime directory on multi-user Linux: keep `/tmp/prism-mcpd` as the spec says (other users fail closed, with an error naming the override), or use a per-user name in the temp-dir fallback (a spec change)?
 2. A client-supplied result cap below the floor: refuse it (the plan's choice), or replace it with the default?
 3. The peer-uid check: leave it to S4 where connections are accepted (the plan's choice), or put it in S2?
 4. `--warm-at-startup` on a shared daemon: give the daemon command line the flag, or let the first admitted `HELLO` decide? (S4's decision; S2 only carries the field.)
-5. The steady-state metric for C2 experiments: make the steady live heap primary and report the footprint beside it (recommended, no code change), keep the footprint and add a forced release of free memory before the settled sample (a harness change), or both?
+5. The steady-state metric for C2 experiments: live heap with a pinned minimum effect size as the gate plus a footprint at a known level as a required confirmation for M1 (recommended); or one of the single options (live heap alone, footprint after a forced release, footprint tagged by level)?
 6. Kubernetes: accept the four measured corpora (recommended), run a subtree, or run it on a larger host?
 7. S2 implementation: start from `scratch/s2-validate` as S1 and C1 did, or have Sonnet implementers work the plan?

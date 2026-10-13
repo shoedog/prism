@@ -47,11 +47,13 @@ that name, is recorded as unavailable, not as 0.
 A figure that is unavailable (the sampler had no source, a stage is missing) is `n/a` in the readout and
 absent from every statistic; it is never 0.
 
-**"Steady state (cache-loaded)" is not an idle figure on macOS.** After a cache load the footprint still
-counts memory freed during the load until the OS takes it back, and that happens at a time the process does
-not control (within a second in one measured run, not within 60 s in most). A longer `--settle` does not make
-the figure repeatable. "Steady live heap" is the same in both states and is the figure to compare between a
-baseline and a candidate. Measured in `docs/analysis/2026-10-prism-mcp-memory-readout.md`, last section.
+**"Steady state (cache-loaded)" is not a repeatable figure on macOS.** After a cache load the footprint was
+seen at one of two levels, hundreds of MiB apart, with the same live heap at both, and a longer `--settle`
+did not decide which (measured in `docs/analysis/2026-10-prism-mcp-memory-readout.md`, last section; the
+mechanism was not identified). "Steady live heap" is repeatable, but it counts allocations, not physical
+memory. Which figure a baseline-against-candidate comparison should use is an open owner question (lane
+README, question 5); until it is answered, compare footprints only between runs at the same level
+(footprint minus live heap tells the levels apart).
 
 ## What is excluded, and why
 

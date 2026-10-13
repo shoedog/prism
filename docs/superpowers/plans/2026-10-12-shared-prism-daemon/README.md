@@ -19,7 +19,7 @@ the previous slice's real signatures. Writing S2–S6 task-level plans now would
 | Slice | Content (spec §12) | Depends on | Plan |
 |---|---|---|---|
 | **S1** | Transport/framing refactor, explicit `ConnectionSettings`, control/dispatch split, standalone byte-for-byte proof | #356 | [`S1-transport-refactor.md`](S1-transport-refactor.md) — **MERGED #361** (`f6354e07`, 2026-10-13) |
-| **C1** | `PRISM_MCP_MEM_REPORT` harness, attribution counters, five-corpus readout | none | [`C1-memory-harness.md`](C1-memory-harness.md) — harness **MERGED #362** (`7db8f195`, 2026-10-13); review changed what is measured, see the note at the top of that plan. Readout: [`2026-10-prism-mcp-memory-readout.md`](../../../analysis/2026-10-prism-mcp-memory-readout.md), four corpora (kubernetes not run: projected past this host's memory). **M1 and M2 advance on all four; M3 does not advance.** The readout also found that the spec's pinned steady-state metric is unreliable; see the owner questions below. |
+| **C1** | `PRISM_MCP_MEM_REPORT` harness, attribution counters, five-corpus readout | none | [`C1-memory-harness.md`](C1-memory-harness.md) — harness **MERGED #362** (`7db8f195`, 2026-10-13); review changed what is measured, see the note at the top of that plan. Readout: [`2026-10-prism-mcp-memory-readout.md`](../../../analysis/2026-10-prism-mcp-memory-readout.md), four corpora (kubernetes not run: projected past this host's memory). **M1 and M2 advance on all four; M3 does not advance.** The readout also found that the spec's pinned steady-state metric is not repeatable; see the owner questions below. |
 | S2 | Identity key, runtime-dir validation, preamble encode/decode, connection-local settings | S1 | [`S2-identity-preamble.md`](S2-identity-preamble.md) — **written and validated; not started**. About 4,000 added lines (1,400 code, 2,600 tests), so it ships as two PRs: **S2a** = Tasks 1–4 (runtime directory, cache base, identity key, file paths), **S2b** = Tasks 5–8 (client settings, preamble, bounded reader, proof). Waiting on the owner questions below. |
 | S3a | Readiness coordinator, `RwLock<Option<SessionProvider>>`, test-only status probe (tests 1, 14) | S2 | written when S2 merges |
 | S3b | Concurrent dispatch, refresh visibility, auto-refresh recheck, panic boundaries (tests 6, 7, 9, 12) | S3a | written when S3a merges |
@@ -27,7 +27,7 @@ the previous slice's real signatures. Writing S2–S6 task-level plans now would
 | S5a | Shim: connect, arbitration, spawn, fail-closed, pump (tests 5, 10, 11) | S4 | written when S4 merges |
 | S5b | `daemon-status`, `daemon-shutdown` | S5a | written when S5a merges |
 | S6 | Opt-in launcher/config changes, docs, soak instrumentation | S5b | written when S5b merges |
-| C2-* | One PR per reduction candidate the C1 readout advances: M2 and M1 (M1a, M1b). M3 did not advance and gets no plan. | C1; S5a to ship | not written; waits on the steady-state metric question below |
+| C2-* | One PR per reduction candidate the C1 readout advances: M2 and M1 (M1a, M1b). M3 did not advance and gets no plan. | C1; S5a to ship | not written. The M2 plan can be written now (its base is the load peak). The M1 plan waits on the steady-state metric question below. |
 | B | Default flip | S6 soak | owner decision after the soak |
 
 **S1 and C1 run in parallel.** They share no file except one `mod` line each in `src/mcp/mod.rs` (different
@@ -61,18 +61,32 @@ access to its parent (SI-5); the spec defines no reply for a `HELLO` refused for
 
 ## Owner questions raised by the C1 readout (2026-10-13)
 
-5. **The steady-state metric for C2 experiments.** Spec §6.1 pins `phys_footprint` after a 5 s settle. The readout
-   shows that figure has two states after a cache load (freed load-time memory still counted, or not), 460–790 MiB
-   apart on slicing and prometheus, and that the process does not control which one a sample lands in: 35 of 36
-   runs at 5 s were in the first state, 3 of 12 at 60 s were in the second. Under the pinned noise rule a
-   candidate could win or lose on that accident. Options: (a) make the steady live heap (`heap_in_use_bytes` at
-   the settle stage, stable to 0.2 MiB across repetitions) the primary metric and report the footprint beside
-   it, which needs no code change and is the recommendation; (b) keep the footprint and have report mode ask
-   the allocator to release free memory before the settled sample, which is a harness change that would have
-   to be shown to make the figure repeatable; (c) both.
+5. **The steady-state metric for C2 experiments.** Spec §6.1 pins `phys_footprint` after a 5 s settle. In the
+   readout that figure sat at one of two levels after a cache load, 460–790 MiB apart on slicing and prometheus,
+   and the settle time did not decide which: 35 of 36 runs at 5 s were at the higher level, 4 of 13 at 60 s were
+   at the lower. Under the pinned noise rule a candidate could win or lose on that accident. What moves a process
+   between the levels was not identified, and forcing it was not tried. Options:
+   - (a) Steady live heap (`heap_in_use_bytes` at the settle stage) as the primary metric. Repeatable to
+     0.13 MiB for a cache-loaded index, no code change. It is an allocation metric: for M1 it is circular (the
+     M1 estimate is part of the live heap, so the experiment could not fail and would not show the host gets
+     memory back), and it needs a minimum effect size pinned with it, because the noise rule passes on any change.
+   - (b) Keep the footprint and have report mode ask the allocator to release free memory before the settled
+     sample. A harness change. Untested: it would have to be shown to work, and a forced release can differ
+     from what a serving daemon does.
+   - (c) Keep the footprint and tag each run with its level, which the saved reports already allow (footprint
+     minus live heap is at least 157 MiB at one level and at most 14 MiB at the other). No code change;
+     compares like with like; does not say which level a daemon lives at.
+   - Recommendation: live heap with a pinned minimum effect size as the repeatable gate, **and** a footprint at
+     a known level (c, or b once tested) as a required confirmation for M1. M2 is judged on the load peak and
+     does not depend on this question.
+   A side result for the owner to weigh: if the higher level persists in a serving daemon, releasing free memory
+   after a load is itself worth 157–715 MiB on these corpora. It is unranked until someone tests whether the
+   process can do it.
 6. **Kubernetes.** It was not run: the four measured corpora project its first build at 27–70 GiB on a 24 GiB
-   host. The decision rule needs two corpora and has four. Options: accept four corpora (the recommendation),
-   run a subtree of kubernetes, or run it on a larger host.
+   host. A fifth corpus cannot change a verdict (M1 and M2 have four where two are needed; M3 has none). Options:
+   accept four corpora (the recommendation), run a subtree of kubernetes, or run it on a larger host.
+7. **How S2 is implemented** (a process question, open since S2 planning): start from the validated branch
+   `scratch/s2-validate` as S1 and C1 did, or have implementers work the plan from scratch.
 
 ## Facts measured on 2026-10-12 (branch `spec/shared-prism-daemon`, tree = main `cb0eeec0` + spec commits)
 
@@ -90,7 +104,7 @@ from rather than reusing the prototype's.
 | A scripted 25-response session against the base binary is byte-identical across runs and temp directories, in five modes (eager, lazy, always+legacy, auto-full, auto-incremental with a 20,000 cap); no temp path appears in any response. | Prototype driver against `target/release/prism-mcp` built at `cb0eeec0`, two runs per mode in different temp dirs. | S1's golden-transcript proof is sound. The only build-dependent bytes are `serverInfo.version`. |
 | `libc` 0.2.183 is in `Cargo.lock` transitively but is not a direct dependency. It has `task_info`, `mach_task_self`, `proc_pid_rusage`, `rusage_info_v4`, `getrusage`, `flock`, `getpeereid`, `setsid`; it has no `task_vm_info` struct. | Read of the vendored crate; a scratch program using a hand-declared rev1 `task_vm_info` matched `ps -o rss` to the byte and tracked a 200 MiB allocation. | C1 adds `libc` as an optional dependency of the `mcp` feature; S2/S4 reuse it. C1 declares the struct itself. |
 | Freed memory can stay in `phys_footprint`: after dropping a touched 200 MiB buffer the footprint did not fall. | Same scratch program. | C1 never attributes by drop-and-measure deltas (spec §6.1 "independent of RSS deltas"). |
-| On macOS 26 the footprint of a cache-loaded `prism-mcp` drops by the freed load-time memory at a time the process does not control: within 1 s in one run, after about 18 s in another, not within 60 s in nine of twelve. The live heap is identical in both states. | C1 readout, 2026-10-13: `run-1`, the 60 s supplement and the normal-mode probe under `~/prism-evidence/mcp-memory/c1/`. | A footprint sampled seconds after a load is not an idle figure and is not repeatable. Size a host from the live heap; do not gate a C2 experiment on the footprint. |
+| On macOS 26 the footprint of a cache-loaded `prism-mcp` sits at one of two levels, 157–715 MiB apart on the four corpora, with the same live heap at both. The move to the lower level did not happen at a reproducible time: during the load in two runs, after about 18 s in one, not within 60 s in nine of thirteen. The mechanism was not identified and forcing the move was not tried. | C1 readout, 2026-10-13: `run-1`, the 60 s supplement and the normal-mode probe under `~/prism-evidence/mcp-memory/c1/`. | A footprint sampled seconds after a load is not repeatable. Where the lower level was observed (slicing, prometheus) idle is near the live heap; size a host from the refresh peak, which is about twice the footprint. Pending owner question 5, do not gate a C2 experiment on a footprint whose level is unknown. |
 | The five corpora exist and are clean: ruff `44f6d1865fd2`, excalidraw `0642e72cfa2d`, prometheus `505095b64b43`, kubernetes `8d34ac5ef882` (30,485 tracked files), plus slicing itself. | `git rev-parse` / `git status --porcelain` in `~/code/bench-repos/*`. | C1's readout pins these commits. Kubernetes needs a per-run time cap. |
 | The mutation gate cannot select MCP code: `scripts/mutgate/mutgate.py` builds `--lib` and `--test <target>` with no feature flags, and `src/mcp` exists only under `--features mcp`. | Read of the driver. | The pre-merge gate is still run (it guards the rest of the crate) but its verdict says nothing about this lane's code. Recorded, not pursued here. |
 | `cargo clippy --all-targets --features mcp -- -W clippy::all` already prints 259 warning lines on the base, and CI does not deny warnings. | Ran it. | The bar for each slice is "no new warning in a file the slice touches", not a clean run. |
