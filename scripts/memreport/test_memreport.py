@@ -12,7 +12,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import memreport  # noqa: E402
-from memreport_fixtures import MIB, canned, emit, fake_binary, noise, report, stage, workload_section  # noqa: E402
+from memreport_fixtures import (MIB, canned, emit, fake_binary, noise, report, stage, stage_named,  # noqa: E402
+                                workload_section)
 
 
 class ParseTests(unittest.TestCase):
@@ -88,7 +89,7 @@ class ValidateTests(unittest.TestCase):
             self.assertIsNone(memreport.validate(kind, canned(kind)), kind)
 
     def test_other_report_versions_are_rejected(self):
-        for version in (1, 3, None):
+        for version in (1, 2, 4, None, 3.0, True):
             data = canned('cold')
             data['prism_mem_report'] = version
             self.assertIn('report version', memreport.validate('cold', data))
@@ -116,7 +117,7 @@ class ValidateTests(unittest.TestCase):
         data['stages'] = [entry for entry in data['stages'] if entry['name'] != 'after_index']
         self.assertEqual(memreport.validate('warm', data), 'stage after_index is missing')
         data['stages'] = None
-        self.assertEqual(memreport.validate('warm', data), 'stage after_load_repo is missing')
+        self.assertEqual(memreport.validate('warm', data), 'stages is not a list')
 
     def test_optional_numbers_may_be_null_and_derive_returns_none_for_them(self):
         data = self.mutate('workload', 'after_settle', heap_in_use_bytes=None, tree_sitter_heap_bytes=None)
@@ -126,6 +127,12 @@ class ValidateTests(unittest.TestCase):
         data['attribution'] = {}
         self.assertIsNone(memreport.validate('workload', data))
         self.assertIsNone(memreport.derive('workload', data)['m3'])
+
+    def test_junk_in_an_optional_number_is_rejected_not_read_as_a_number(self):
+        for junk in ('lots', True, 1.5, -1, float('inf'), float('nan'), 2 ** 64, [], {}):
+            for field in ('heap_in_use_bytes', 'tree_sitter_heap_bytes'):
+                data = self.mutate('workload', 'after_settle', **{field: junk})
+                self.assertIn('after_settle.%s is' % field, memreport.validate('workload', data), (field, junk))
 
     def test_a_refresh_that_raced_is_rejected(self):
         data = canned('refresh')
@@ -155,50 +162,47 @@ class ValidateTests(unittest.TestCase):
                       memreport.validate('workload', data, {'requests': 9, 'sha256': 'a' * 64}))
 
 
-class DeriveSafetyTests(unittest.TestCase):
-    """derive never raises on a report that validate accepted, whatever else is wrong with the report."""
+class CacheEvidenceTests(unittest.TestCase):
+    """A run of a cache-loaded kind is admitted only on the report's own record that both caches were used."""
 
-    JUNK = (None, 'x', True, [], {}, -1, 1.5)
+    CPG = 'the CPG cache was not hit, so this was a cold build'
+    EDGES = 'the call-edge index was computed, not loaded from its sidecar'
 
-    def mutations(self, kind):
-        base = canned(kind)
-        for key in list(base):
-            for junk in self.JUNK + ('DELETE',):
-                data = copy.deepcopy(base)
-                data.pop(key) if junk == 'DELETE' else data.__setitem__(key, junk)
-                yield '%s=%r' % (key, junk), data
-        for index, entry in enumerate(base['stages']):
-            for key in list(entry):
-                for junk in self.JUNK + ('DELETE',):
-                    data = copy.deepcopy(base)
-                    data['stages'][index].pop(key) if junk == 'DELETE' else data['stages'][index].__setitem__(key, junk)
-                    yield 'stage %s.%s=%r' % (entry['name'], key, junk), data
-        for key in list(base['attribution']):
-            for junk in self.JUNK + ('DELETE',):
-                data = copy.deepcopy(base)
-                data['attribution'].pop(key) if junk == 'DELETE' else data['attribution'].__setitem__(key, junk)
-                yield 'attribution.%s=%r' % (key, junk), data
+    def with_cache(self, kind, cpg_hit, call_edges_loaded):
+        data = canned(kind)
+        data['cache'] = {'cpg_hit': cpg_hit, 'call_edges_loaded': call_edges_loaded}
+        return data
 
-    def test_no_accepted_report_makes_derive_raise(self):
-        accepted = 0
-        for kind in memreport.KINDS:
-            for label, data in self.mutations(kind):
-                if memreport.validate(kind, data) is None:
-                    accepted += 1
-                    try:
-                        memreport.derive(kind, data)
-                    except Exception as error:  # noqa: BLE001
-                        self.fail('derive(%s) raised %r on an accepted report with %s' % (kind, error, label))
-        self.assertGreater(accepted, 50)    # the mutations are not all rejected: the check really ran
+    def test_a_cache_loaded_kind_needs_both_flags_true(self):
+        for kind in ('warm', 'workload', 'refresh'):
+            self.assertIsNone(memreport.validate(kind, self.with_cache(kind, True, True)), kind)
+            self.assertEqual(memreport.validate(kind, self.with_cache(kind, True, False)), self.EDGES, kind)
+            self.assertEqual(memreport.validate(kind, self.with_cache(kind, False, True)), self.CPG, kind)
+            self.assertEqual(memreport.validate(kind, self.with_cache(kind, False, False)), self.CPG, kind)
 
-    def test_junk_in_an_optional_number_gives_none_not_a_crash(self):
-        run = canned('workload')
-        run['stages'][0]['heap_in_use_bytes'] = 'lots'
-        run['stages'][0]['tree_sitter_heap_bytes'] = True
-        self.assertIsNone(memreport.validate('workload', run))
-        derived = memreport.derive('workload', run)
-        self.assertIsNone(derived['steady_heap'])
-        self.assertIsNone(derived['m1'])
+    def test_an_unknown_flag_is_not_a_hit(self):
+        for kind in ('warm', 'workload', 'refresh'):
+            self.assertEqual(memreport.validate(kind, self.with_cache(kind, None, True)), self.CPG, kind)
+            self.assertEqual(memreport.validate(kind, self.with_cache(kind, True, None)), self.EDGES, kind)
+
+    def test_a_sidecar_that_was_computed_is_caught_with_nothing_on_stderr(self):
+        data = self.with_cache('workload', True, False)
+        with tempfile.TemporaryDirectory() as tmp:
+            result = memreport.run_one([str(fake_binary(tmp, emit(data)))], 'workload', 20)
+        self.assertEqual((result['status'], result['reason']), ('inadmissible', self.EDGES))
+
+    def test_cold_and_priming_runs_need_no_cache(self):
+        self.assertIsNone(memreport.validate('cold', self.with_cache('cold', None, False)))
+        self.assertIsNone(memreport.validate(memreport.PRIME, self.with_cache('warm', False, False)))
+
+    def test_a_marker_on_stderr_still_excludes_and_names_the_cause(self):
+        text = noise('nav edge cache: failed to load sidecar in /x: bad magic; rebuilding')
+        for flags in ((True, True), (True, False)):
+            with tempfile.TemporaryDirectory() as tmp:
+                result = memreport.run_one([str(fake_binary(tmp, emit(self.with_cache('warm', *flags), text)))],
+                                           'warm', 20)
+            self.assertEqual(result['status'], 'inadmissible', flags)
+            self.assertEqual(result['reason'], 'the call-edge sidecar failed to load, so call edges were recomputed')
 
 
 class AdmissionTests(unittest.TestCase):
@@ -210,7 +214,7 @@ class AdmissionTests(unittest.TestCase):
 
     def test_a_warm_report_with_a_null_peak_is_inadmissible_not_an_exception(self):
         data = canned('warm')
-        data['stages'][1]['peak_bytes'] = None
+        stage_named(data, 'after_index')['peak_bytes'] = None
         result = self.run_fake(emit(data), 'warm')
         self.assertEqual(result['status'], 'inadmissible')
         self.assertEqual(result['reason'], 'after_index.peak_bytes is unavailable')
@@ -253,7 +257,7 @@ class RunOneTests(unittest.TestCase):
     def test_a_good_run_is_admissible_and_carries_its_report(self):
         result = self.run_fake(emit(canned('warm')))
         self.assertEqual(result['status'], 'ok')
-        self.assertEqual(result['report']['stages'][1]['name'], 'after_index')
+        self.assertEqual(result['report']['stages'][2]['name'], 'after_index')
 
     def test_timeout_is_recorded_and_does_not_raise(self):
         result = self.run_fake('time.sleep(30)\n', timeout=1)

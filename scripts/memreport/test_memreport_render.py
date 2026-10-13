@@ -89,7 +89,7 @@ class TableTests(unittest.TestCase):
         self.assertIn('Observed load overshoot (lower bound; 0 is uninformative)', self.text)
         row = table_row(self.text, 'big', '1000.0 (1000.0–1000.0, n=3)', '900.0 (900.0–900.0, n=3)')
         self.assertIn('700.0 (700.0–700.0, n=3)', row)
-        self.assertTrue(row.endswith('800.0 (800.0–800.0, n=3) |'), row)
+        self.assertTrue(row.endswith('| 800.0 (800.0–800.0, n=3) | 710.0 |'), row)   # cold peak, first-build peak
 
     def test_a_kind_with_no_admissible_run_is_n_a_not_zero(self):
         row = table_row(self.text, 'small', '1000.0 (1000.0–1000.0, n=1)')
@@ -139,6 +139,37 @@ class TableTests(unittest.TestCase):
         self.assertIs(memreport.render, memreport_render.render)
 
 
+class LabelTests(unittest.TestCase):
+    def setUp(self):
+        self.text = memreport_render.render(sample_summary())
+
+    def test_the_footprint_columns_say_what_each_run_did_with_the_cache(self):
+        self.assertIn('| Corpus | Steady state (cache-loaded) |', self.text)
+        self.assertIn('| Cold peak (no cache write) |', self.text)
+        self.assertIn('| First-build peak (writes the cache, n=1) |', self.text)
+        self.assertNotIn('| Steady state |', self.text)
+        self.assertNotIn('| Cold peak |', self.text)
+
+    def test_the_first_build_peak_is_the_priming_runs_last_stage_peak_or_n_a(self):
+        big = table_row(self.text, 'big', '1000.0 (1000.0–1000.0, n=3)')
+        self.assertTrue(big.endswith('| 710.0 |'), big)       # the canned priming run's after_settle peak
+        small = table_row(self.text, 'small', '1000.0 (1000.0–1000.0, n=1)')
+        self.assertTrue(small.endswith('| n/a | n/a |'), small)   # cold peak and first-build peak
+
+    def test_the_m1_definition_calls_it_an_upper_bound_and_names_the_query_cache(self):
+        self.assertIn('an upper bound on what dropping the trees frees (it includes a fixed ~54 KB query cache, '
+                      'and trees that are re-parsed later would come back)', self.text)
+
+
+class UnknownCommitTests(unittest.TestCase):
+    def test_a_commit_or_dirty_count_git_could_not_give_is_n_a_not_blank_or_zero(self):
+        summary = sample_summary()
+        summary['corpora']['small'].update(commit=None, dirty=None)
+        text = memreport_render.render(summary)
+        self.assertIn('| small | n/a | n/a | 1/0/1/0 |', text)
+        self.assertIn('| big | `aaaaaaaaaaaa` | 0 | 3/3/3/3 |', text)
+
+
 class ProvenanceTests(unittest.TestCase):
     def summary(self, build, env):
         summary = sample_summary()
@@ -151,6 +182,13 @@ class ProvenanceTests(unittest.TestCase):
             {'PRISM_NAV_EDGE_CACHE_LOAD_DIRTY': '1', 'PRISM_A': 'x'}))
         self.assertIn('binary_input_dirty true', text)
         self.assertIn('`PRISM_A=x`, `PRISM_NAV_EDGE_CACHE_LOAD_DIRTY=1`', text)
+
+    def test_provenance_prints_the_thread_count_of_the_measured_process(self):
+        summary = sample_summary()
+        self.assertEqual(summary['provenance']['threads'], 4)
+        self.assertIn('- Worker threads (rayon pool) of the measured process: 4.', memreport_render.render(summary))
+        summary['provenance']['threads'] = None
+        self.assertIn('measured process: n/a.', memreport_render.render(summary))
 
     def test_empty_and_unknown_values_are_distinguished(self):
         text = memreport_render.render(self.summary({'build_identity': 'b', 'binary_input_dirty': False}, {}))

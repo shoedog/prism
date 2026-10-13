@@ -16,7 +16,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import memreport  # noqa: E402
-from memreport_fixtures import MIB, canned, digest, fake_prism  # noqa: E402
+from memreport_fixtures import MIB, canned, digest, fake_prism, stage_named  # noqa: E402
 
 
 def make_repo(parent, name):
@@ -355,7 +355,7 @@ class SummarizeTests(Harness):
         self.assertEqual(self.summary()['corpora']['a']['admissible']['warm'], 2)
         path = self.out / 'raw' / 'a' / 'warm-2.json'
         stored = json.loads(path.read_text())
-        stored['report']['stages'][1]['peak_bytes'] = None
+        stage_named(stored['report'], 'after_index')['peak_bytes'] = None
         path.write_text(json.dumps(stored))
         quiet(memreport.main, ['summarize', '--run', str(self.out)])
         entry = self.summary()['corpora']['a']
@@ -364,6 +364,23 @@ class SummarizeTests(Harness):
                          [{'kind': 'warm', 'rep': 2, 'status': 'inadmissible',
                            'reason': 'after_index.peak_bytes is unavailable'}])
         self.assertEqual(self.summary()['corpora']['b']['admissible']['warm'], 2)
+
+    def test_summarize_applies_the_cache_evidence_stored_in_each_report(self):
+        self.finished_run()
+        for name, flag in (('workload-1', 'call_edges_loaded'), ('warm-2', 'cpg_hit'), ('refresh-1', 'cpg_hit')):
+            path = self.out / 'raw' / 'a' / (name + '.json')
+            stored = json.loads(path.read_text())
+            stored['report']['cache'][flag] = False
+            path.write_text(json.dumps(stored))
+        quiet(memreport.main, ['summarize', '--run', str(self.out)])
+        entry = self.summary()['corpora']['a']
+        self.assertEqual((entry['admissible']['workload'], entry['admissible']['warm'],
+                          entry['admissible']['refresh']), (1, 1, 1))
+        self.assertEqual([(i['kind'], i['rep'], i['reason']) for i in entry['inadmissible']], [
+            ('warm', 2, 'the CPG cache was not hit, so this was a cold build'),
+            ('workload', 1, 'the call-edge index was computed, not loaded from its sidecar'),
+            ('refresh', 1, 'the CPG cache was not hit, so this was a cold build')])
+        self.assertEqual(self.summary()['corpora']['b']['admissible']['workload'], 2)
 
     def test_summarize_does_not_touch_raw_and_needs_no_binary(self):
         self.finished_run()

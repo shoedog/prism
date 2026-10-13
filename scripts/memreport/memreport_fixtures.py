@@ -20,11 +20,21 @@ def stage(name, footprint, peak, rss=None, heap=None, tree=None):
             'heap_in_use_bytes': heap, 'tree_sitter_heap_bytes': tree}
 
 
-def report(stages, attribution=None, workload=None, refresh=None, version=2, env=None, build=None):
+HIT = {'cpg_hit': True, 'call_edges_loaded': True}
+
+
+def report(stages, attribution=None, workload=None, refresh=None, version=3, env=None, build=None, cache=None,
+           threads=4):
     return {'prism_mem_report': version, 'build': build or {'build_identity': 'b', 'binary_input_dirty': False},
             'platform': {'os': 'macos'}, 'config': {}, 'env': env if env is not None else {},
+            'cache': dict(HIT) if cache is None else cache, 'threads': threads,
             'stages': stages, 'ru_maxrss_bytes': 1, 'attribution': attribution or {},
             'workload': workload, 'refresh': refresh}
+
+
+def stage_named(report_dict, name):
+    """The stage called `name` in a canned report (the same dict, so a test can change it)."""
+    return next(entry for entry in report_dict['stages'] if entry['name'] == name)
 
 
 def workload_section(sha256='f' * 64, requests=8, responses=None, errors=0):
@@ -35,14 +45,20 @@ def workload_section(sha256='f' * 64, requests=8, responses=None, errors=0):
 def canned(kind, sha256='f' * 64, requests=8, heap=900 * MIB, tree=300 * MIB):
     """A report that validates for `kind`."""
     if kind == 'warm':
-        return report([stage('after_load_repo', 100 * MIB, 120 * MIB, heap=50 * MIB),
-                       stage('after_index', 400 * MIB, 700 * MIB, heap=350 * MIB)])
+        return report([stage('start', 10 * MIB, 10 * MIB, heap=5 * MIB),
+                       stage('after_load_repo', 100 * MIB, 120 * MIB, heap=50 * MIB),
+                       stage('after_index', 400 * MIB, 700 * MIB, heap=350 * MIB),
+                       stage('after_call_edges', 410 * MIB, 710 * MIB, heap=360 * MIB),
+                       stage('after_settle', 410 * MIB, 710 * MIB, heap=360 * MIB)])
     if kind == 'cold':
-        return report([stage('after_call_edges', 500 * MIB, 800 * MIB)])
+        return report([stage('start', 10 * MIB, 10 * MIB), stage('after_call_edges', 500 * MIB, 800 * MIB)],
+                      cache={'cpg_hit': None, 'call_edges_loaded': False})
     if kind == 'refresh':
-        return report([stage('after_refresh', 500 * MIB, 900 * MIB)], refresh={'status': 'refreshed'})
+        return report([stage('start', 10 * MIB, 10 * MIB), stage('after_refresh', 500 * MIB, 900 * MIB)],
+                      refresh={'status': 'refreshed', 'generation': 1})
     if kind == 'workload':
-        return report([stage('after_settle', 1000 * MIB, 1200 * MIB, heap=heap, tree=tree)],
+        return report([stage('start', 10 * MIB, 10 * MIB),
+                       stage('after_settle', 1000 * MIB, 1200 * MIB, heap=heap, tree=tree)],
                       attribution=dict(ATTRIBUTION), workload=workload_section(sha256, requests))
     raise ValueError(kind)
 
@@ -138,6 +154,11 @@ def fake_prism(directory, reports=None, **cfg):
     return path
 
 
+def prime_result(report_dict=None, status='ok'):
+    """The stored result of the priming run (its report is a warm report by default)."""
+    return {'kind': 'prime', 'status': status, 'report': report_dict or canned('warm')}
+
+
 def ok_result(kind, rep, **canned_args):
     return {'kind': kind, 'rep': rep, 'status': 'ok', 'report': canned(kind, **canned_args)}
 
@@ -147,18 +168,22 @@ def sample_summary(reps=3):
 
     big:   M1 = 300 MiB of 1000 (both arms), M2 = 120 MiB cache file of a 700 MiB peak (fraction arm),
            M3 = 60 MiB of 1000 (neither arm).
-    small: one workload run excluded, tree heap unavailable on the one that remains, no cache file size.
+    small: one workload run excluded, tree heap unavailable on the one that remains, no cache file size, no
+           priming result.
     """
     import memreport
     corpora = {
         'big': (dict(path='/c/big', commit='a' * 40, dirty=0, workload={'sha256': 'f' * 64, 'requests': 8},
                      cache_files={'cpg_cache_bytes': 120 * MIB, 'call_edge_sidecar_bytes': 9 * MIB}),
-                [ok_result(kind, rep) for kind in memreport.KINDS for rep in range(1, reps + 1)]),
+                [ok_result(kind, rep) for kind in memreport.KINDS for rep in range(1, reps + 1)],
+                prime_result()),
         'small': (dict(path='/c/small', commit='b' * 40, dirty=2, workload={'sha256': 'f' * 64, 'requests': 8},
                        cache_files={'cpg_cache_bytes': None, 'call_edge_sidecar_bytes': None}),
                   [ok_result('warm', 1), ok_result('workload', 1, tree=None),
                    {'kind': 'workload', 'rep': 2, 'status': 'inadmissible', 'reason': 'workload had 1 errors',
-                    'report': canned('workload')}]),
+                    'report': canned('workload')}],
+                  None),
     }
-    entries = {name: memreport.build_entry(corpus, results) for name, (corpus, results) in corpora.items()}
+    entries = {name: memreport.build_entry(corpus, results, prime)
+               for name, (corpus, results, prime) in corpora.items()}
     return memreport.assemble_summary({'reps': reps, 'settle': 5, 'timeout': 1800, 'bin': 'fake'}, entries)

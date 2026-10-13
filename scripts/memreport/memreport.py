@@ -20,11 +20,13 @@ import time
 from pathlib import Path
 
 from memreport_render import KINDS, MIB, render
+# The validation names are re-exported: tests and callers use them as `memreport.validate` and so on.
+from memreport_validate import (CACHE_REASONS, CACHED_KINDS, PRIME, REPORT_VERSION, REQUIRED,  # noqa: F401
+                                find_stage, footprint, is_number, validate, well_formed)
 
 MARKER = '{"prism_mem_report":'
-REPORT_VERSION = 2
-PRIME = 'prime'  # the discarded run that fills the cache; its report only has to parse
-# stderr text that means a non-cold run did not load everything from cache, with the reason it is excluded.
+# stderr text that means a cache-loaded run did not load everything from cache. The report's `cache` section
+# is the evidence that decides admission; these only name the cause more precisely when they are present.
 CACHE_MISS_MARKERS = (
     ('CPG cache miss', 'the CPG cache missed, so this was a cold build'),
     ('partial CPG cache hit', 'the CPG cache partially missed, so part of the index was rebuilt'),
@@ -51,98 +53,6 @@ def parse_report(stderr_text):
     return json.loads(lines[0])
 
 
-def stage(report, name):
-    for entry in report['stages']:
-        if entry['name'] == name:
-            return entry
-    raise KeyError('report has no stage %r' % name)
-
-
-def footprint(entry):
-    """Physical footprint where the platform reports it, resident size otherwise."""
-    value = entry.get('phys_footprint_bytes')
-    return value if value is not None else entry.get('rss_bytes')
-
-
-def is_number(value):
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
-
-
-def find_stage(report, name):
-    """The named stage, or None when the report has no such stage."""
-    stages = report.get('stages')
-    if not isinstance(stages, list):
-        return None
-    for entry in stages:
-        if isinstance(entry, dict) and entry.get('name') == name:
-            return entry
-    return None
-
-
-FOOTPRINT = 'footprint'
-# Per kind: the (stage, field) pairs `derive` reads and cannot do without.
-REQUIRED = {
-    'warm': (('after_load_repo', 'peak_bytes'), ('after_index', 'peak_bytes'), ('after_index', FOOTPRINT)),
-    'cold': (('after_call_edges', 'peak_bytes'),),
-    'refresh': (('after_refresh', 'peak_bytes'),),
-    'workload': (('after_settle', FOOTPRINT),),
-    PRIME: (),
-}
-
-
-def validate(kind, report, expected=None):
-    """None when the report may be used as evidence for `kind`, else the reason it may not.
-
-    `expected` (workload runs): {'requests': int, 'sha256': hex} of the workload this run was told to use.
-    """
-    if kind not in REQUIRED:
-        return 'unknown kind %r' % kind
-    if report.get('prism_mem_report') != REPORT_VERSION:
-        return 'report version is %r, expected %d' % (report.get('prism_mem_report'), REPORT_VERSION)
-    for stage_name, field in REQUIRED[kind]:
-        entry = find_stage(report, stage_name)
-        if entry is None:
-            return 'stage %s is missing' % stage_name
-        if field == FOOTPRINT:
-            if not is_number(footprint(entry)):
-                return '%s.phys_footprint_bytes and %s.rss_bytes are unavailable' % (stage_name, stage_name)
-        elif not is_number(entry.get(field)):
-            return '%s.%s is unavailable' % (stage_name, field)
-    if kind == 'refresh':
-        refresh = report.get('refresh')
-        if not isinstance(refresh, dict):
-            return 'report has no refresh section'
-        if refresh.get('status') != 'refreshed':
-            return 'refresh status is %r, not \'refreshed\' (the tree changed during the refresh)' % (
-                refresh.get('status'),)
-    if kind == 'workload':
-        return validate_workload(report, expected)
-    return None
-
-
-def validate_workload(report, expected):
-    if not isinstance(report.get('attribution'), dict):
-        return 'report has no attribution section'
-    workload = report.get('workload')
-    if not isinstance(workload, dict):
-        return 'report has no workload section'
-    requests, responses, errors = (workload.get(key) for key in ('requests', 'responses', 'errors'))
-    if not all(is_number(value) for value in (requests, responses, errors)):
-        return 'workload requests/responses/errors are unavailable'
-    if errors != 0:
-        return 'workload had %d errors' % errors
-    if requests == 0:
-        return 'workload ran no requests'
-    if responses != requests:
-        return 'workload answered %d of %d requests' % (responses, requests)
-    if expected is not None:
-        if requests != expected['requests']:
-            return 'workload ran %d requests, the manifest has %d' % (requests, expected['requests'])
-        if workload.get('sha256') != expected['sha256']:
-            return 'workload sha256 %s differs from the manifest %s' % (workload.get('sha256'), expected['sha256'])
-    return None
-
-
 def summarize(values):
     values = [value for value in values if value is not None]
     if not values:
@@ -166,16 +76,16 @@ def derive(kind, report):
     Never raises for a report that `validate(kind, report)` accepted.
     """
     if kind == 'warm':
-        loaded, built = stage(report, 'after_load_repo'), stage(report, 'after_index')
+        loaded, built = find_stage(report, 'after_load_repo'), find_stage(report, 'after_index')
         overshoot = built['peak_bytes'] - max(loaded['peak_bytes'], footprint(built))
         return {'peak': built['peak_bytes'], 'm2_observed_overshoot': max(0, overshoot),
                 'index_heap': difference(num(built, 'heap_in_use_bytes'), num(loaded, 'heap_in_use_bytes'))}
     if kind == 'cold':
-        return {'cold_peak': stage(report, 'after_call_edges')['peak_bytes']}
+        return {'cold_peak': find_stage(report, 'after_call_edges')['peak_bytes']}
     if kind == 'refresh':
-        return {'refresh_peak': stage(report, 'after_refresh')['peak_bytes']}
+        return {'refresh_peak': find_stage(report, 'after_refresh')['peak_bytes']}
     if kind == 'workload':
-        attribution, settled = report['attribution'], stage(report, 'after_settle')
+        attribution, settled = report['attribution'], find_stage(report, 'after_settle')
         return {
             'steady': footprint(settled),
             'steady_heap': num(settled, 'heap_in_use_bytes'),
@@ -262,24 +172,27 @@ def run_one(command, kind, timeout, expected=None):
         result.update(status='inadmissible', reason=str(error), stderr_tail=stderr[-2000:])
         return result
     result['report'] = report
-    missed = [reason for marker, reason in CACHE_MISS_MARKERS if marker in stderr]
-    if kind not in ('cold', PRIME) and missed:
-        result.update(status='inadmissible', reason='; '.join(missed))
+    reason = validate(kind, report, expected)
+    # The report's own cache section decides admission. A marker on stderr is a second witness: it can only
+    # exclude a run, and it names the cause more precisely than the report's reason does.
+    missed = [text for marker, text in CACHE_MISS_MARKERS if marker in stderr] if kind in CACHED_KINDS else []
+    if missed:
+        reasons = missed + ([reason] if reason and reason not in CACHE_REASONS else [])
+        result.update(status='inadmissible', reason='; '.join(reasons))
+    elif reason is None:
+        result['status'] = 'ok'
     else:
-        reason = validate(kind, report, expected)
-        if reason is None:
-            result['status'] = 'ok'
-        else:
-            result.update(status='inadmissible', reason=reason)
+        result.update(status='inadmissible', reason=reason)
     return result
 
 
 def capture(command):
+    """The stripped stdout of a command, or None when it could not run or exited non-zero."""
     try:
-        return subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                              timeout=30).stdout.decode('utf-8', 'replace').strip()
+        done = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=30)
     except (OSError, subprocess.TimeoutExpired):
         return None
+    return done.stdout.decode('utf-8', 'replace').strip() if done.returncode == 0 else None
 
 
 def host_state():
@@ -293,9 +206,10 @@ def host_state():
 
 
 def corpus_provenance(path):
-    status = capture(['git', '-C', str(path), 'status', '--porcelain']) or ''
-    return {'path': str(path), 'commit': capture(['git', '-C', str(path), 'rev-parse', 'HEAD']),
-            'dirty': len([line for line in status.splitlines() if line])}
+    """Path, commit and count of dirty files; commit and dirty are None when git cannot say (not a checkout)."""
+    status = capture(['git', '-C', str(path), 'status', '--porcelain'])
+    return {'path': str(path), 'commit': capture(['git', '-C', str(path), 'rev-parse', 'HEAD']) or None,
+            'dirty': None if status is None else len([line for line in status.splitlines() if line])}
 
 
 def parse_corpora(pairs):
@@ -370,6 +284,9 @@ def bind_workload(name, directory, commit):
     Returns (bytes, {'sha256', 'requests'}); exits with a message when the file is missing, is not in the
     manifest, differs from it, or was generated at another commit than the corpus is at now.
     """
+    if not commit:
+        raise SystemExit('%s: the corpus has no git commit (not a git checkout, or no commits), so a workload '
+                         'cannot be bound to it' % name)
     path = Path(directory) / (name + '.jsonl')
     if not path.exists():
         raise SystemExit('%s: no workload at %s; run gen-workload first' % (name, path))
@@ -393,8 +310,9 @@ def bind_workload(name, directory, commit):
 def effective_status(result, expected=None):
     """(status, reason) of a stored result after validating its report again with today's rules.
 
-    A result can only lose admission here: markers seen on stderr at run time are not stored, so an
-    inadmissible result stays inadmissible whatever its report says.
+    The report carries the cache evidence (`cache`), so the cache rules are re-applied too. A result can only
+    lose admission here: markers seen on stderr at run time are not stored, so an inadmissible result stays
+    inadmissible whatever its report says.
     """
     status = result.get('status')
     if status != 'ok':
@@ -405,24 +323,45 @@ def effective_status(result, expected=None):
     return ('ok', None) if reason is None else ('inadmissible', reason)
 
 
-def build_entry(corpus, results):
-    """One corpus's entry of summary.json from its corpus.json content and its raw results.
+def prime_peak(prime):
+    """Lifetime peak (bytes) at the last stage of the priming run, the build that writes the cache.
+
+    None when the priming result is absent, was not admitted, or reports no peak.
+    """
+    if not isinstance(prime, dict) or prime.get('status') != 'ok':
+        return None
+    report = prime.get('report')
+    if not isinstance(report, dict) or validate(PRIME, report) is not None or not report['stages']:
+        return None
+    peak = report['stages'][-1].get('peak_bytes')
+    return peak if is_number(peak) else None
+
+
+def build_entry(corpus, results, prime=None):
+    """One corpus's entry of summary.json from its corpus.json content, its raw results and its priming result.
 
     Pure: no subprocess, no clock, no filesystem. A result that is not admissible contributes to
-    `inadmissible` and to nothing else.
+    `inadmissible` and to nothing else. Every admitted result of a corpus must come from the build the first
+    admitted one came from.
     """
     entry = dict(corpus, admissible={kind: 0 for kind in KINDS}, inadmissible=[], metrics={},
-                 attribution=None, build=None, env=None)
-    values = {}
+                 attribution=None, build=None, env=None, threads=None, first_build_peak=prime_peak(prime))
+    values, identity = {}, None
     for result in sorted(results, key=lambda item: (KINDS.index(item['kind']), item['rep'])):
         kind, rep = result['kind'], result['rep']
         status, reason = effective_status(result, corpus.get('workload') if kind == 'workload' else None)
+        if status == 'ok':
+            this_identity = result['report']['build']['build_identity']
+            if identity is None:
+                identity = this_identity
+            elif this_identity != identity:
+                status, reason = 'inadmissible', "build identity differs from this corpus's first admitted run"
         if status != 'ok':
             entry['inadmissible'].append({'kind': kind, 'rep': rep, 'status': status, 'reason': reason})
             continue
         entry['admissible'][kind] += 1
         report = result['report']
-        entry['build'], entry['env'] = report.get('build'), report.get('env')
+        entry['build'], entry['env'], entry['threads'] = report.get('build'), report.get('env'), report.get('threads')
         if kind == 'workload':
             entry['attribution'] = report['attribution']
         for metric, value in derive(kind, report).items():
@@ -431,12 +370,32 @@ def build_entry(corpus, results):
     return entry
 
 
+def exclude_entry(entry, reason):
+    """A copy of a corpus entry with every admitted run moved to `inadmissible` and nothing left to measure."""
+    excluded = dict(entry, admissible={kind: 0 for kind in entry['admissible']}, metrics={}, attribution=None,
+                    build=None, env=None, threads=None, first_build_peak=None,
+                    cache_files=dict.fromkeys(entry.get('cache_files') or {}))
+    excluded['inadmissible'] = list(entry['inadmissible']) + [
+        {'kind': kind, 'rep': 'all %d' % count, 'status': 'inadmissible', 'reason': reason}
+        for kind, count in entry['admissible'].items() if count]
+    return excluded
+
+
 def assemble_summary(settings, entries):
-    provenance = dict(settings, build=None, env=None)
-    for entry in entries.values():
-        if entry.get('build') is not None:
-            provenance['build'], provenance['env'] = entry['build'], entry.get('env')
-    return {'provenance': provenance, 'corpora': entries, 'verdict': evaluate(entries)}
+    """Settings, the corpora and the verdict. Every corpus must come from the build of the first corpus (by
+    name) that has an admitted run; one that does not is excluded whole."""
+    provenance = dict(settings, build=None, env=None, threads=None)
+    checked = {}
+    for name in sorted(entries):
+        entry = entries[name]
+        build = entry.get('build')
+        if build is not None and provenance['build'] is None:
+            provenance.update(build=build, env=entry.get('env'), threads=entry.get('threads'))
+        elif build is not None and build.get('build_identity') != provenance['build'].get('build_identity'):
+            entry = exclude_entry(entry, "build identity differs from the first corpus's (%s)" % (
+                provenance['build'].get('build_identity'),))
+        checked[name] = entry
+    return {'provenance': provenance, 'corpora': checked, 'verdict': evaluate(checked)}
 
 
 def write_summary(out, summary):
@@ -446,7 +405,7 @@ def write_summary(out, summary):
 
 
 def measure_corpus(args, name, path, provenance, snapshot, digest):
-    """Run every kind for one corpus, saving each raw result as it finishes. Returns (corpus, results)."""
+    """Run every kind for one corpus, saving each raw result as it finishes. Returns (corpus, results, prime)."""
     out = Path(args.out)
     raw = out / 'raw' / name
     raw.mkdir(parents=True, exist_ok=True)
@@ -466,11 +425,15 @@ def measure_corpus(args, name, path, provenance, snapshot, digest):
             (raw / ('%s-%d.json' % (kind, rep))).write_text(json.dumps(result, indent=1))
             print('%s %s #%d: %s (%ss)' % (name, kind, rep, result['status'], result['wall_secs']), flush=True)
             results.append(result)
-    return corpus, results
+    return corpus, results, prime
 
 
 def cmd_run(args):
     out = Path(args.out)
+    # One run directory holds one run: a second run would overwrite some raw files and leave others, and
+    # `summarize` would pool the two.
+    if any((out / name).exists() for name in ('raw', 'run.json', 'summary.json')):
+        raise SystemExit("run directory already has results; use a new --out, or 'summarize' to rescore")
     settings = {'reps': args.reps, 'settle': args.settle, 'timeout': args.timeout, 'bin': args.bin}
     # Bind every corpus to its workload before any run starts: a mismatch must not cost hours first.
     bound = {}
@@ -484,8 +447,8 @@ def cmd_run(args):
         snapshot = out / 'workloads' / (name + '.jsonl')
         snapshot.parent.mkdir(parents=True, exist_ok=True)
         snapshot.write_bytes(data)
-        corpus, results = measure_corpus(args, name, path, provenance, snapshot, digest)
-        entries[name] = build_entry(corpus, results)
+        corpus, results, prime = measure_corpus(args, name, path, provenance, snapshot, digest)
+        entries[name] = build_entry(corpus, results, prime)
         write_summary(out, assemble_summary(settings, entries))  # kept after every corpus, not just at the end
     print('wrote %s' % (out / 'summary.json'))
 
@@ -507,7 +470,9 @@ def cmd_summarize(args):
             if result.get('kind') not in KINDS or not isinstance(result.get('rep'), int):
                 raise SystemExit('%s: no kind/rep recorded; re-run instead' % path)
             results.append(result)
-        entries[directory.name] = build_entry(json.loads(corpus_path.read_text()), results)
+        prime_path = directory / 'prime.json'
+        prime = json.loads(prime_path.read_text()) if prime_path.exists() else None
+        entries[directory.name] = build_entry(json.loads(corpus_path.read_text()), results, prime)
     print('wrote %s' % write_summary(out, assemble_summary(settings, entries)))
 
 

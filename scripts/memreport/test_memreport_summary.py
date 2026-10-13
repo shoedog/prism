@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import memreport  # noqa: E402
-from memreport_fixtures import MIB, canned  # noqa: E402
+from memreport_fixtures import MIB, canned, stage_named  # noqa: E402
 
 DIGEST = {'sha256': 'f' * 64, 'requests': 8}
 CORPUS = {'path': '/c', 'commit': 'abc', 'dirty': 0, 'cache_files': {'cpg_cache_bytes': 7, 'call_edge_sidecar_bytes': None},
@@ -48,7 +48,7 @@ class BuildEntryTests(unittest.TestCase):
 
     def test_a_stored_ok_result_is_validated_again(self):
         stored = ok('warm', 1)
-        stored['report']['stages'][1]['peak_bytes'] = None
+        stage_named(stored['report'], 'after_index')['peak_bytes'] = None
         entry = memreport.build_entry(CORPUS, [stored, ok('warm', 2)])
         self.assertEqual(entry['admissible']['warm'], 1)
         self.assertEqual(entry['inadmissible'][0]['reason'], 'after_index.peak_bytes is unavailable')

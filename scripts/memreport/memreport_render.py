@@ -4,7 +4,9 @@ MIB = 1024 * 1024
 KINDS = ('warm', 'cold', 'workload', 'refresh')  # the run kinds, in the order the readout lists them
 
 ESTIMATE_DEFINITIONS = (
-    '- **M1** estimate: measured live tree-sitter heap after the workload and settle. Base: steady-state footprint.',
+    '- **M1** estimate: measured live tree-sitter heap after the workload and settle, an upper bound on what '
+    'dropping the trees frees (it includes a fixed ~54 KB query cache, and trees that are re-parsed later would '
+    'come back). Base: steady-state footprint.',
     '- **M2** estimate: size of the CPG cache file, an upper bound on the buffer that streaming the load would '
     'remove (one measurement per corpus). Base: peak through the index load.',
     '- **M3** estimate: estimated heap of repeated node strings. Base: steady-state footprint.',
@@ -100,6 +102,7 @@ def render(summary):
             na(build.get('build_identity')), na(build.get('git_sha')), na(build.get('cpg_cache_version')),
             na(build.get('allocator')), flag(build.get('binary_input_dirty'))),
         '- Environment of the measured process: %s.' % env_text(provenance.get('env')),
+        '- Worker threads (rayon pool) of the measured process: %s.' % na(provenance.get('threads')),
         '- %s repetitions per kind, %s s settle. Values are median (min–max, n) in MiB.' % (
             provenance.get('reps'), provenance.get('settle')),
         '',
@@ -108,17 +111,20 @@ def render(summary):
     ]
     for name, entry in corpora:
         counts = '/'.join(str(entry['admissible'][kind]) for kind in KINDS)
-        lines.append('| %s | `%s` | %s | %s |' % (name, (entry.get('commit') or '')[:12], entry.get('dirty'), counts))
+        commit = entry.get('commit')
+        lines.append('| %s | %s | %s | %s |' % (name, 'n/a' if not commit else '`%s`' % commit[:12],
+                                                 na(entry.get('dirty')), counts))
     lines += ['', '## Footprint', '',
-              '| Corpus | Steady state | Steady live heap | Peak through index load | '
-              'Observed load overshoot (lower bound; 0 is uninformative) | Refresh peak | Cold peak |',
-              '|---|---|---|---|---|---|---|']
+              '| Corpus | Steady state (cache-loaded) | Steady live heap | Peak through index load | '
+              'Observed load overshoot (lower bound; 0 is uninformative) | Refresh peak | Cold peak (no cache write) | '
+              'First-build peak (writes the cache, n=1) |',
+              '|---|---|---|---|---|---|---|---|']
     for name, entry in corpora:
         metrics = entry['metrics']
-        lines.append('| %s | %s | %s | %s | %s | %s | %s |' % (
+        lines.append('| %s | %s | %s | %s | %s | %s | %s | %s |' % (
             name, mib(metrics.get('steady')), mib(metrics.get('steady_heap')), mib(metrics.get('peak')),
             mib(metrics.get('m2_observed_overshoot')), mib(metrics.get('refresh_peak')),
-            mib(metrics.get('cold_peak'))))
+            mib(metrics.get('cold_peak')), mib_value(entry.get('first_build_peak'))))
     lines += ['', '## Attribution', '',
               '| Corpus | Files | Source (MiB) | Visible tree nodes | Tree heap, measured (M1) | CPG nodes / edges | '
               'Repeated node strings, estimate (M3) | Unique-byte ratio | Index live heap | Attributed (estimate) | '
