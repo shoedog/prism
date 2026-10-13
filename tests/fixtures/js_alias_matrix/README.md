@@ -1,7 +1,7 @@
 # JS/TS alias variant matrix
 
-963 tiny repos, each with one call site marked `// SITE` and an authored ground
-truth for what that site statically calls. The test
+Enumerated tiny repos (one per line of `fixtures.jsonl`), each with one call site
+marked `// SITE` and an authored ground truth for what that site statically calls. The test
 (`tests/integration/js_alias_matrix_test.rs`) runs prism on every fixture and
 compares a derived row with the pinned row in `expected.jsonl`. It pins what
 prism does today, so a product slice shows up as a diff of `expected.jsonl`,
