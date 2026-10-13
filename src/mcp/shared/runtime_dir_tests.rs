@@ -103,8 +103,11 @@ fn a_missing_base_is_an_error_and_nothing_is_created() {
     let base = tempfile::tempdir().unwrap();
     let dir = base.path().join("no-such-base").join("prism-mcpd");
     let outcome = validate_runtime_dir(&dir);
+    // The missing base is found while its location is being judged, before any create.
     assert!(
-        matches!(&outcome, Err(RuntimeDirError::Io { op: "create", .. })),
+        matches!(&outcome, Err(RuntimeDirError::Io { op: "inspect", path, source })
+            if path.ends_with("no-such-base")
+                && source.kind() == std::io::ErrorKind::NotFound),
         "{outcome:?}"
     );
     assert!(!base.path().join("no-such-base").exists());

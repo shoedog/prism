@@ -592,3 +592,18 @@ fn listing(root: &Path) -> BTreeSet<PathBuf> {
 fn the_protocol_version_is_the_specs() {
     assert_eq!(crate::mcp::shared::SHARED_PROTOCOL_VERSION, 1);
 }
+
+/// The filesystem identity is that of the directory a path leads to, not of a symlink that
+/// stands at the path: the daemon compares it against the identity taken from the canonical
+/// root. Rules out `lstat`.
+#[test]
+fn the_filesystem_identity_follows_a_symlink_to_the_directory() {
+    let dir = tempfile::tempdir().unwrap();
+    let real = std::fs::canonicalize(dir.path()).unwrap();
+    std::fs::create_dir(real.join("root")).unwrap();
+    std::os::unix::fs::symlink(real.join("root"), real.join("link")).unwrap();
+    assert_eq!(
+        FsIdentity::of(&real.join("link")).unwrap(),
+        FsIdentity::of(&real.join("root")).unwrap()
+    );
+}

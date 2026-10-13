@@ -14,7 +14,7 @@
 //!
 //! It is checked by path, not through a held descriptor (`bind` and `connect` take paths), so
 //! it is not a defense against a process of the same user (§2) or against root.
-use super::dir_chain::{check_resolution_chain, Exposure};
+use super::dir_chain::{check_location, check_resolution_chain, Exposure};
 use std::ffi::OsString;
 use std::fmt;
 use std::io;
@@ -41,7 +41,9 @@ pub enum RuntimeDirError {
     NotAbsolute {
         path: PathBuf,
     },
-    /// The filesystem refused: `op` is `"inspect"` (the `lstat`) or `"create"` (the `mkdir`).
+    /// The filesystem refused: `op` is `"inspect"` (an `lstat`, a `readlink` or reading the
+    /// access control list, of the directory or of a step on the way to it) or `"create"` (the
+    /// `mkdir`). `path` is what the operation was applied to.
     Io {
         op: &'static str,
         path: PathBuf,
@@ -115,8 +117,8 @@ impl fmt::Display for RuntimeDirError {
             )?,
             Self::HasAcl { path } => write!(
                 f,
-                "runtime directory {} has an access control list, which can let other users in \
-                 whatever its mode; remove it (chmod -N)",
+                "runtime directory {} has an access control list; a list can let other users in \
+                 whatever the mode says, so none is accepted here; remove it (chmod -N)",
                 path.display()
             )?,
             Self::Replaceable {
@@ -244,9 +246,17 @@ pub fn current_uid() -> u32 {
 /// path resolves through.
 pub fn validate_runtime_dir(dir: &Path) -> Result<(), RuntimeDirError> {
     let uid = current_uid();
-    validate_runtime_dir_with(&RealDirAccess, dir, uid)?;
-    // The same spelling the check above inspected (no trailing slash).
+    if !dir.is_absolute() {
+        return Err(RuntimeDirError::NotAbsolute {
+            path: dir.to_path_buf(),
+        });
+    }
+    // The spelling every check below inspects (no trailing slash).
     let dir: PathBuf = dir.components().collect();
+    // First the place the directory is, or would be created: nothing is written to a location
+    // another user could swap out.
+    check_location(&dir, uid)?;
+    validate_runtime_dir_with(&RealDirAccess, &dir, uid)?;
     if has_access_control_list(&dir).map_err(|source| RuntimeDirError::Io {
         op: "inspect",
         path: dir.clone(),
@@ -254,6 +264,7 @@ pub fn validate_runtime_dir(dir: &Path) -> Result<(), RuntimeDirError> {
     })? {
         return Err(RuntimeDirError::HasAcl { path: dir });
     }
+    // Then the last step, the directory itself in its parent, now that it exists.
     check_resolution_chain(&dir, uid)
 }
 
@@ -293,8 +304,9 @@ fn has_access_control_list(path: &Path) -> io::Result<bool> {
     Ok(has_entry)
 }
 
-/// On other Unix systems a POSIX access control list cannot grant more than the group
-/// permission bits allow, and a mode of exactly 0700 allows them nothing.
+/// On Linux a POSIX access control list cannot grant more than the group permission bits
+/// allow, and a mode of exactly 0700 allows them nothing. Other systems with lists that the
+/// mode does not mask are not supported targets and are not checked.
 #[cfg(not(target_os = "macos"))]
 fn has_access_control_list(_path: &Path) -> io::Result<bool> {
     Ok(false)

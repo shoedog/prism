@@ -84,6 +84,17 @@ fn steps_of(path: &Path) -> impl Iterator<Item = OsString> + '_ {
 /// Walk the resolution of `dir` (absolute, and existing) from the root and refuse it if any
 /// directory on the way lets another user rename the step taken through it.
 pub(crate) fn check_resolution_chain(dir: &Path, uid: u32) -> Result<(), RuntimeDirError> {
+    walk(dir, uid, false)
+}
+
+/// [`check_resolution_chain`] for a directory that may not exist yet: if its last step is
+/// absent, the directory it would be created in is judged as the holder of an entry owned by
+/// `uid`. Everything before the last step must exist.
+pub(crate) fn check_location(dir: &Path, uid: u32) -> Result<(), RuntimeDirError> {
+    walk(dir, uid, true)
+}
+
+fn walk(dir: &Path, uid: u32, last_step_may_be_absent: bool) -> Result<(), RuntimeDirError> {
     let inspect_error = |path: &Path, source: io::Error| RuntimeDirError::Io {
         op: "inspect",
         path: path.to_path_buf(),
@@ -99,7 +110,23 @@ pub(crate) fn check_resolution_chain(dir: &Path, uid: u32) -> Result<(), Runtime
         }
         let container = facts(&current).map_err(|source| inspect_error(&current, source))?;
         let entry_path = current.join(&name);
-        let entry = facts(&entry_path).map_err(|source| inspect_error(&entry_path, source))?;
+        let entry = match facts(&entry_path) {
+            Ok(entry) => entry,
+            // What will be created here will be owned by `uid`.
+            Err(error)
+                if last_step_may_be_absent
+                    && pending.is_empty()
+                    && error.kind() == io::ErrorKind::NotFound =>
+            {
+                DirFacts {
+                    is_symlink: false,
+                    is_dir: true,
+                    owner: uid,
+                    mode: 0,
+                }
+            }
+            Err(source) => return Err(inspect_error(&entry_path, source)),
+        };
         if let Some(exposure) = exposure(container, entry.owner, uid) {
             return Err(RuntimeDirError::Replaceable {
                 path: dir.to_path_buf(),

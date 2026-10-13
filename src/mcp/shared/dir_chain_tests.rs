@@ -79,6 +79,19 @@ fn a_sticky_directory_protects_only_entries_of_this_user_or_root() {
 
 // ── The walk, on the real filesystem ──
 
+/// Whether this host's root directory belongs to root or to this user. In a user namespace
+/// that maps only the caller, root-owned directories show an overflow uid and every location
+/// is (rightly) refused, so the tests that expect a location to be accepted cannot run.
+fn host_root_is_trusted() -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let owner = std::fs::metadata("/").unwrap().uid();
+    let trusted = owner == 0 || owner == current_uid();
+    if !trusted {
+        eprintln!("skipped: `/` is owned by uid {owner}, which is neither root nor this user");
+    }
+    trusted
+}
+
 /// A temp directory under the system temp directory, by its real path.
 fn private_root() -> (tempfile::TempDir, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
@@ -107,6 +120,9 @@ fn replaceable_container(outcome: &Result<(), RuntimeDirError>) -> Option<(&Path
 /// protected and the tests below prove nothing.
 #[test]
 fn a_private_directory_in_the_hosts_temp_directory_is_accepted() {
+    if !host_root_is_trusted() {
+        return;
+    }
     let (_guard, root) = private_root();
     let dir = root.join("prism-mcpd");
     validate_runtime_dir(&dir).expect("a private chain");
@@ -114,9 +130,13 @@ fn a_private_directory_in_the_hosts_temp_directory_is_accepted() {
 }
 
 /// The finding this module exists for: a directory that is itself private, below one that
-/// others can write. Rules out checking the final directory only.
+/// others can write. Rules out checking the final directory only. Nothing is created in the
+/// refused place: the location is judged before the directory is made.
 #[test]
 fn a_world_writable_ancestor_without_the_sticky_bit_is_refused() {
+    if !host_root_is_trusted() {
+        return;
+    }
     let (_guard, root) = private_root();
     let open = root.join("open");
     make_dir(&open, 0o777);
@@ -126,6 +146,20 @@ fn a_world_writable_ancestor_without_the_sticky_bit_is_refused() {
         Some((open.as_path(), Exposure::WritableByOthers { mode: 0o777 })),
         "{outcome:?}"
     );
+    assert!(
+        !open.join("prism-mcpd").exists(),
+        "nothing is created in a refused place"
+    );
+    match &outcome {
+        Err(RuntimeDirError::Replaceable { path, .. }) => {
+            assert_eq!(
+                path,
+                &open.join("prism-mcpd"),
+                "the error names the runtime directory"
+            )
+        }
+        other => panic!("{other:?}"),
+    }
     let message = outcome.unwrap_err().to_string();
     assert!(message.contains(open.to_str().unwrap()), "{message}");
     assert!(message.contains("0777"), "{message}");
@@ -135,6 +169,9 @@ fn a_world_writable_ancestor_without_the_sticky_bit_is_refused() {
 /// Rules out walking only the immediate parent.
 #[test]
 fn an_exposed_directory_several_levels_up_is_refused() {
+    if !host_root_is_trusted() {
+        return;
+    }
     let (_guard, root) = private_root();
     let open = root.join("open");
     make_dir(&open, 0o770);
@@ -152,6 +189,9 @@ fn an_exposed_directory_several_levels_up_is_refused() {
 /// without `$XDG_RUNTIME_DIR`; it must stay usable.
 #[test]
 fn a_world_writable_sticky_ancestor_is_accepted_for_this_users_entries() {
+    if !host_root_is_trusted() {
+        return;
+    }
     let (_guard, root) = private_root();
     let shared = root.join("shared");
     make_dir(&shared, 0o1777);
@@ -164,6 +204,9 @@ fn a_world_writable_sticky_ancestor_is_accepted_for_this_users_entries() {
 /// itself can be swapped.
 #[test]
 fn a_symlink_that_leads_through_an_exposed_directory_is_refused() {
+    if !host_root_is_trusted() {
+        return;
+    }
     let (_guard, root) = private_root();
     let safe = root.join("safe");
     make_dir(&safe, 0o700);
@@ -184,6 +227,9 @@ fn a_symlink_that_leads_through_an_exposed_directory_is_refused() {
 /// re-point `hop`. Rules out canonicalizing and checking the result's ancestors.
 #[test]
 fn an_exposed_directory_that_only_holds_an_intermediate_symlink_is_refused() {
+    if !host_root_is_trusted() {
+        return;
+    }
     let (_guard, root) = private_root();
     let safe = root.join("safe");
     make_dir(&safe, 0o700);
@@ -203,6 +249,9 @@ fn an_exposed_directory_that_only_holds_an_intermediate_symlink_is_refused() {
 /// Symlinks in protected directories are fine, relative ones and `..` included.
 #[test]
 fn symlinks_through_protected_directories_are_followed_and_accepted() {
+    if !host_root_is_trusted() {
+        return;
+    }
     let (_guard, root) = private_root();
     let a = root.join("a");
     make_dir(&a, 0o700);
@@ -216,6 +265,9 @@ fn symlinks_through_protected_directories_are_followed_and_accepted() {
 /// accepted, since it is the fallback base on a host with no user runtime directory.
 #[test]
 fn a_directory_under_slash_tmp_is_accepted() {
+    if !host_root_is_trusted() {
+        return;
+    }
     let base = match tempfile::Builder::new()
         .prefix("s2chain")
         .tempdir_in("/tmp")
@@ -237,7 +289,8 @@ fn a_symlink_loop_is_an_inspection_error_not_a_hang() {
     std::os::unix::fs::symlink(root.join("a"), root.join("b")).unwrap();
     let outcome = check_resolution_chain(&root.join("a").join("x"), current_uid());
     assert!(
-        matches!(&outcome, Err(RuntimeDirError::Io { op: "inspect", .. })),
+        matches!(&outcome, Err(RuntimeDirError::Io { op: "inspect", source, .. })
+            if source.raw_os_error() == Some(libc::ELOOP)),
         "{outcome:?}"
     );
 }
@@ -247,6 +300,9 @@ fn a_symlink_loop_is_an_inspection_error_not_a_hang() {
 /// because nothing is reached through it.
 #[test]
 fn dot_dot_steps_back_out_of_a_directory() {
+    if !host_root_is_trusted() {
+        return;
+    }
     let (_guard, root) = private_root();
     make_dir(&root.join("private"), 0o700);
     make_dir(&root.join("private").join("x"), 0o777);
@@ -257,4 +313,69 @@ fn dot_dot_steps_back_out_of_a_directory() {
     make_dir(&root.join("private").join("x").join("prism-mcpd"), 0o700);
     let through = root.join("private").join("x").join("prism-mcpd");
     assert!(replaceable_container(&check_resolution_chain(&through, current_uid())).is_some());
+}
+
+// ── The walk as seen by another user ──
+//
+// `check_resolution_chain` takes the uid it judges for, so one account can ask what a second
+// user would be told about directories that belong to the first.
+
+/// In a sticky directory an entry that belongs to someone else can be renamed by its owner.
+/// The rule knows that; this pins that the walk hands the rule the entry's real owner. Rules
+/// out passing the judged uid as the entry owner, which would accept another user's symlink
+/// in `/tmp` as a step of the path.
+#[test]
+fn the_walk_judges_a_sticky_directorys_entry_by_its_real_owner() {
+    use std::os::unix::fs::MetadataExt;
+    let tmp = std::fs::metadata("/tmp").unwrap();
+    if current_uid() == 0 || tmp.uid() != 0 || tmp.mode() & 0o1002 != 0o1002 {
+        eprintln!(
+            "skipped: /tmp is not a root-owned sticky world-writable directory, or we are root"
+        );
+        return;
+    }
+    let base = match tempfile::Builder::new()
+        .prefix("s2chain")
+        .tempdir_in("/tmp")
+    {
+        Ok(base) => base,
+        Err(error) => {
+            eprintln!("skipped: no directory under /tmp ({error})");
+            return;
+        }
+    };
+    let someone_else = current_uid() + 1;
+    let outcome = check_resolution_chain(base.path(), someone_else);
+    assert!(
+        matches!(
+            &outcome,
+            Err(RuntimeDirError::Replaceable {
+                exposure: Exposure::ForeignEntryInSticky { entry_owner },
+                ..
+            }) if *entry_owner == current_uid()
+        ),
+        "{outcome:?}"
+    );
+}
+
+/// A private directory of this user is, to anyone else, a directory whose owner can replace
+/// what is in it.
+#[test]
+fn another_users_private_directory_is_refused_for_what_it_holds() {
+    let (_guard, root) = private_root();
+    let mine = root.join("mine");
+    make_dir(&mine, 0o700);
+    make_dir(&mine.join("inner"), 0o700);
+    let someone_else = current_uid() + 1;
+    let outcome = check_resolution_chain(&mine.join("inner"), someone_else);
+    assert!(
+        matches!(
+            &outcome,
+            Err(RuntimeDirError::Replaceable {
+                exposure: Exposure::ForeignOwner { owner },
+                ..
+            }) if *owner == current_uid()
+        ),
+        "{outcome:?}"
+    );
 }
