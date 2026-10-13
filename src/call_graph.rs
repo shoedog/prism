@@ -1530,7 +1530,7 @@ impl CallGraph {
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
-            js_ts_free_single_refusals: Self::js_ts_free_single_refusals(files.iter()),
+            js_ts_free_single_refusals: js_referenceability::free_single_refusals(files.iter()),
             js_ts_module_binding_evidence: js_referenceability::module_binding_evidence(
                 files.iter(),
             ),
@@ -2002,7 +2002,7 @@ impl CallGraph {
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals,
-            js_ts_free_single_refusals: Self::js_ts_free_single_refusals(files.iter()),
+            js_ts_free_single_refusals: js_referenceability::free_single_refusals(files.iter()),
             js_ts_module_binding_evidence: js_referenceability::module_binding_evidence(
                 files.iter(),
             ),
@@ -2158,64 +2158,6 @@ impl CallGraph {
         BTreeMap<FunctionId, BTreeSet<String>>,
     ) {
         Self::extract_js_ts_resolution_facts_from_iter(files.iter())
-    }
-
-    fn js_ts_free_single_refusals<'a>(
-        files: impl IntoIterator<Item = (&'a String, &'a ParsedFile)>,
-    ) -> BTreeSet<FunctionId> {
-        let mut refusals = BTreeSet::new();
-        for (file, parsed) in files {
-            if !matches!(
-                parsed.language,
-                crate::languages::Language::JavaScript
-                    | crate::languages::Language::TypeScript
-                    | crate::languages::Language::Tsx
-            ) {
-                continue;
-            }
-            let root = parsed.tree.root_node();
-            let mut cursor = root.walk();
-            let module = root
-                .named_children(&mut cursor)
-                .any(|n| matches!(n.kind(), "import_statement" | "export_statement"));
-            for function in parsed.all_functions() {
-                let inferred = function.child_by_field_name("name").is_none();
-                let parent = function.parent();
-                let unreachable_name = function.kind() == "method_definition"
-                    || inferred
-                        && parent.is_some_and(|p| match p.kind() {
-                            "pair" | "public_field_definition" | "field_definition" => true,
-                            "assignment_expression" => {
-                                p.child_by_field_name("left").is_some_and(|lhs| {
-                                    matches!(
-                                        lhs.kind(),
-                                        "member_expression" | "subscript_expression"
-                                    )
-                                })
-                            }
-                            "arguments" => p
-                                .parent()
-                                .filter(|p| p.kind() == "call_expression")
-                                .and_then(|p| p.parent())
-                                .is_some_and(|p| p.kind() == "variable_declarator"),
-                            _ => false,
-                        });
-                if !module && !unreachable_name {
-                    continue;
-                }
-                let Some(name) = parsed.language.function_name(&function) else {
-                    continue;
-                };
-                let (start_line, end_line) = parsed.node_line_range(&function);
-                refusals.insert(FunctionId {
-                    file: file.clone(),
-                    name: parsed.node_text(&name).to_string(),
-                    start_line,
-                    end_line,
-                });
-            }
-        }
-        refusals
     }
 
     fn parameter_slots_unknown(
@@ -5449,7 +5391,7 @@ impl CallGraph {
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals,
-            js_ts_free_single_refusals: Self::js_ts_free_single_refusals(
+            js_ts_free_single_refusals: js_referenceability::free_single_refusals(
                 subset_files.iter().map(|(file, parsed)| (file, *parsed)),
             ),
             js_ts_module_binding_evidence: js_referenceability::module_binding_evidence(

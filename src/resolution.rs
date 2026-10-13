@@ -1401,11 +1401,6 @@ impl CallGraph {
                 } else {
                     ResolutionKind::FreeSingle
                 };
-                if kind == ResolutionKind::FreeSingle
-                    && self.js_ts_unbound_single_refused(site, ids[0])
-                {
-                    return None;
-                }
                 Some(exact(ids, kind))
             }
             _ => {
@@ -3665,16 +3660,18 @@ impl CallGraph {
     }
 
     fn js_ts_unbound_single_refused(&self, site: &CallSite, target: &FunctionId) -> bool {
+        // Only called at unqualified R5, after R4 has returned every same-file target.
         let step0 = is_js_ts_import_member_file(&site.caller.file)
             && site.origin == crate::call_graph::CallSiteOrigin::Source
             && !site.jsx_element
-            && site.qualifier.is_none()
-            && target.file != site.caller.file
             && matches!(&site.local_binding, crate::call_graph::JsLocalBinding::Unproven(reason) if reason == "unbound")
             && self.js_ts_free_single_refusals.contains(target);
         let module_caller = is_js_ts_import_member_file(&site.caller.file)
-            && target.file != site.caller.file
-            && site.qualifier.is_none()
+            && site.origin == crate::call_graph::CallSiteOrigin::Source
+            // An unbound name with a possible JS script target is decided by arm (a).
+            && !(matches!(&site.local_binding, crate::call_graph::JsLocalBinding::Unproven(reason) if reason == "unbound")
+                && is_js_ts_import_member_file(&target.file)
+                && !self.js_ts_free_single_refusals.contains(target))
             && self
                 .js_ts_module_binding_evidence
                 .get(&site.caller.file)

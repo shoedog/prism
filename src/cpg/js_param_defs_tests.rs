@@ -618,6 +618,10 @@ fn r2_target_reached(language: Language, input: &str, target: &str, callee: &str
     assert_eq!(sources.len(), 1, "the static source Def must remain");
     if resolved.is_empty() {
         // E5 refuses W2m's inferred Array and W2d's unimported escape module.
+        assert!(
+            target.starts_with("const obj") || target.starts_with("export "),
+            "script-global D12 fixtures must resolve before the reachability check"
+        );
         assert!(matches!(callee, "Array" | "escape"));
         assert_eq!(
             cpg.call_graph.resolve_call_site_full(site).drop,
@@ -642,6 +646,23 @@ fn r2_target_reached(language: Language, input: &str, target: &str, callee: &str
         }
     );
     assert_ne!(resolved[0].target.file, site.caller.file);
+    assert_eq!(resolved[0].target.name, callee);
+    assert_eq!(resolved[0].target.file, format!("callee.{ext}"));
+    assert_eq!(
+        (resolved[0].target.start_line, resolved[0].target.end_line),
+        (1, 3)
+    );
+    if !input.contains("...input") {
+        assert!(
+            cpg.graph
+                .edge_references()
+                .any(|e| matches!(e.weight(), CpgEdge::DataFlow(_))
+                    && matches!((cpg.node(e.source()), cpg.node(e.target())),
+                (CpgNode::Variable { file: a, .. }, CpgNode::Variable { file: b, .. })
+                if a.starts_with("input.") && b.starts_with("callee."))),
+            "an argument edge must exist before D12 can suppress its outgoing path"
+        );
+    }
     let mut seen = BTreeSet::new();
     let mut stack = sources;
     while let Some(node) = stack.pop() {
@@ -715,6 +736,45 @@ fn r2_w2d_ts() {
 #[test]
 fn r2_w2d_tsx() {
     r2_w2d(Language::Tsx);
+}
+
+fn r2_d12_script_global(language: Language, callee: &str) {
+    let target = format!("function {callee}(s) {{\n sink(s);\n}}");
+    for input in [
+        format!("const entry = input =>\n {callee}(input);"),
+        format!("const entry = input => {{\n const local = input;\n {callee}(local);\n}};"),
+        format!("function entry(...input) {{\n const local = input;\n {callee}(local);\n}}"),
+    ] {
+        assert!(
+            !r2_target_reached(language, &input, &target, callee),
+            "D12 must act on a retained Exact script-global call: {language:?}: {input}"
+        );
+    }
+}
+
+#[test]
+fn r2_d12_w2m_script_js() {
+    r2_d12_script_global(Language::JavaScript, "Array");
+}
+#[test]
+fn r2_d12_w2m_script_ts() {
+    r2_d12_script_global(Language::TypeScript, "Array");
+}
+#[test]
+fn r2_d12_w2m_script_tsx() {
+    r2_d12_script_global(Language::Tsx, "Array");
+}
+#[test]
+fn r2_d12_w2d_script_js() {
+    r2_d12_script_global(Language::JavaScript, "escape");
+}
+#[test]
+fn r2_d12_w2d_script_ts() {
+    r2_d12_script_global(Language::TypeScript, "escape");
+}
+#[test]
+fn r2_d12_w2d_script_tsx() {
+    r2_d12_script_global(Language::Tsx, "escape");
 }
 
 #[test]

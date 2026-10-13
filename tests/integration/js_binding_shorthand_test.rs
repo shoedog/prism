@@ -126,7 +126,7 @@ fn b4_dollar_named_locals_shadow() {
 }
 
 #[test]
-fn b5_nested_declarators_keep_base() {
+fn b5_nested_declarators_follow_e5_and_preserve_imports() {
     // Opus W2 / sol W1 (Option K): the imported path preserves the nested scope
     // controls. E5's union deliberately drops unsupported module-caller aliases
     // as well as unbound calls, including the nested and hoisted-var fallbacks.

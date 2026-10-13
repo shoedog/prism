@@ -32,7 +32,7 @@ fn resolutions(cg: &CallGraph) -> Vec<(String, String, ResolutionKind, Resolutio
 }
 
 #[test]
-fn e5_module_caller_refuses_unbound_and_alias_singletons() {
+fn e5_module_caller_refuses_module_targets_and_local_alias_singletons() {
     let mut wrong = Vec::new();
     for (lang, ext) in [
         (Language::JavaScript, "js"),
@@ -51,6 +51,11 @@ fn e5_module_caller_refuses_unbound_and_alias_singletons() {
                 "function f(x) { return x; }",
                 "export function f(x) { return x; }",
             ] {
+                if caller == "export {}; function caller(x) { return f(x); }"
+                    && !callee.starts_with("export ")
+                {
+                    continue; // R2: the unbound module-to-script control is below.
+                }
                 let input = files(lang, ext, callee, caller);
                 for cg in [
                     CallGraph::build(&input),
@@ -73,14 +78,14 @@ fn e5_module_caller_refuses_unbound_and_alias_singletons() {
 }
 
 #[test]
-fn e5_module_jsx_alias_and_unbound_refuse_singletons() {
+fn e5_module_source_jsx_alias_and_module_target_refuse_singletons() {
     let mut wrong = Vec::new();
     for (lang, ext) in [(Language::JavaScript, "jsx"), (Language::Tsx, "tsx")] {
         for caller in [
             "export {}; function caller(o) { const F = o.component; return <F />; }",
             "export {}; function caller() { return <F />; }",
         ] {
-            let input = files(lang, ext, "function F() { return null; }", caller);
+            let input = files(lang, ext, "export function F() { return null; }", caller);
             for cg in [
                 CallGraph::build(&input),
                 CallGraph::build_skeleton(&input),
@@ -140,6 +145,7 @@ fn e5_bound_negative_controls_retain_full_resolution_values() {
                 exact(ResolutionKind::FreeSingle)
             );
         }
+        // Earlier-rung protection: import_member, local_def, import_qualified.
         let input = files(
             lang,
             ext,
@@ -287,6 +293,319 @@ fn e5_bound_refusal_removes_only_interprocedural_consumers() {
         for (prefix, expected) in [("", [1, 1, 1, 1, 0]), ("export {};", [0; 5])] {
             let input = files(lang, ext, "function f(x) { return x; }", &format!("{prefix} function outer(o) {{ const f = o.cb; function caller(x) {{ const y = f(x); return y; }} }}"));
             assert_eq!(counts(&input), expected, "{ext}: {prefix}");
+        }
+    }
+}
+
+fn assert_singleton(cg: &CallGraph, name: &str, file: &str) {
+    let sites: Vec<_> = cg
+        .calls
+        .values()
+        .flatten()
+        .filter(|s| s.caller.name == "caller" && s.callee_name == name)
+        .collect();
+    assert_eq!(sites.len(), 1);
+    let out = cg.resolve_call_site_full(sites[0]);
+    assert_eq!(
+        out.drop, None,
+        "site {:?}; evidence {:?}",
+        sites[0], cg.js_ts_module_binding_evidence
+    );
+    let targets: Vec<_> = out
+        .resolved
+        .iter()
+        .map(|r| {
+            (
+                r.target.file.as_str(),
+                r.target.name.as_str(),
+                r.target.start_line,
+                r.target.end_line,
+                r.kind,
+                r.confidence,
+            )
+        })
+        .collect();
+    assert_eq!(
+        targets,
+        vec![(
+            file,
+            name,
+            1,
+            1,
+            ResolutionKind::FreeSingle,
+            ResolutionConfidence::Exact
+        )]
+    );
+}
+
+fn assert_refused(cg: &CallGraph, name: &str) {
+    let sites: Vec<_> = cg
+        .calls
+        .values()
+        .flatten()
+        .filter(|s| s.caller.name == "caller" && s.callee_name == name)
+        .collect();
+    assert_eq!(sites.len(), 1);
+    let out = cg.resolve_call_site_full(sites[0]);
+    assert!(out.resolved.is_empty());
+    assert_eq!(
+        out.drop,
+        Some(DropReason::LocalBindingUnproven),
+        "site {:?}",
+        sites[0]
+    );
+}
+
+#[test]
+fn e5_import_equals_and_awaited_import_evidence_preserve_fallbacks() {
+    for (lang, ext) in [(Language::TypeScript, "ts"), (Language::Tsx, "tsx")] {
+        for caller in [
+            "import f = require('./callee'); function caller(x) { return f(x); }",
+            "import f = require('./callee'); export function caller(x) { return f(x); }",
+            "export import f = require('./callee'); function caller(x) { return f(x); }",
+        ] {
+            let input = files(lang, ext, "function f(x) { return x; } export = f;", caller);
+            for cg in [
+                CallGraph::build(&input),
+                CallGraph::build_skeleton(&input),
+                CallGraph::build_direct_subset(&input, &input.keys().cloned().collect()),
+            ] {
+                assert_singleton(&cg, "f", &format!("callee.{ext}"));
+            }
+        }
+        let input = files(
+            lang,
+            ext,
+            "module.exports = function f(x) { return x; };",
+            "import f = require('./callee'); export function caller(x) { return f(x); }",
+        );
+        assert_singleton(&CallGraph::build(&input), "f", &format!("callee.{ext}"));
+        let input = files(lang, ext, "export namespace N { export function f(x) { return x; } }",
+            "import { N } from './callee'; import f = N.f; export function caller(x) { return f(x); }");
+        assert_singleton(&CallGraph::build(&input), "f", &format!("callee.{ext}"));
+        for binding in [
+            "import g = require('./callee');",
+            "import f = N.g;",
+            "export import f = require; ('callee');",
+            "export import f = require(value);",
+            "export import format = ts.getPathFromPathComponents;",
+        ] {
+            let name = if binding.contains("format") {
+                "format"
+            } else {
+                "f"
+            };
+            let input = files(
+                lang,
+                ext,
+                &format!("export function {name}(x) {{ return x; }}"),
+                &format!("{binding} export function caller(x) {{ return {name}(x); }}"),
+            );
+            assert_refused(&CallGraph::build(&input), name);
+        }
+        let input = files(lang, ext, "function f(x) { return x; } export = f;",
+            "import renamed = require('./callee'); export function caller(x) { return renamed(x); }");
+        let cg = CallGraph::build(&input);
+        assert!(cg.js_ts_module_binding_evidence[&format!("caller.{ext}")].contains("renamed"));
+        assert!(!cg.js_ts_module_binding_evidence[&format!("caller.{ext}")].contains("f"));
+        let site = cg
+            .calls
+            .values()
+            .flatten()
+            .find(|s| s.callee_name == "renamed")
+            .unwrap();
+        assert!(cg.resolve_call_site_full(site).resolved.is_empty()); // evidence proves no target
+    }
+    for (lang, ext) in [
+        (Language::JavaScript, "js"),
+        (Language::TypeScript, "ts"),
+        (Language::Tsx, "tsx"),
+    ] {
+        for binding in [
+            "const { f } = await import('./callee');",
+            "const { g: f } = await import('./callee');",
+            "const { f = null } = await import('./callee');",
+            "const { nested: { f } } = await import('./callee');",
+            "const { nested: [f] } = await import('./callee');",
+            "const { ...f } = await import('./callee');",
+        ] {
+            let input = files(lang, ext, "export function f(x) { return x; }",
+                &format!("export {{}}; async function outer() {{ {binding} function caller(x) {{ return f(x); }} }}"));
+            assert_singleton(&CallGraph::build(&input), "f", &format!("callee.{ext}"));
+        }
+        let input = files(lang, ext, "export function f(x) { return x; }",
+            "export {}; async function outer() { const { f } = await acquire('./callee'); function caller(x) { return f(x); } }");
+        assert_refused(&CallGraph::build(&input), "f");
+        let input = files(lang, ext, "export function f(x) { return x; }",
+            "export {}; async function outer() { const { g } = await import('./callee'); function caller(x) { return f(x); } }");
+        assert_refused(&CallGraph::build(&input), "f");
+    }
+}
+
+#[test]
+fn e5_unbound_module_to_script_global_stays_exact_with_negative_twins() {
+    for (lang, ext) in [
+        (Language::JavaScript, "js"),
+        (Language::TypeScript, "ts"),
+        (Language::Tsx, "tsx"),
+    ] {
+        let input = files(
+            lang,
+            ext,
+            "function f(x) { return x; }",
+            "export {}; function caller(x) { return f(x); }",
+        );
+        for cg in [
+            CallGraph::build(&input),
+            CallGraph::build_skeleton(&input),
+            CallGraph::build_direct_subset(&input, &input.keys().cloned().collect()),
+        ] {
+            assert_singleton(&cg, "f", &format!("callee.{ext}"));
+        }
+        for caller in [
+            "export {}; function outer(o) { const f = o.cb; function caller(x) { return f(x); } }",
+        ] {
+            assert_refused(
+                &CallGraph::build(&files(lang, ext, "function f(x) { return x; }", caller)),
+                "f",
+            );
+        }
+        // Parameter protection returns on an earlier lexical rung.
+        let input = files(
+            lang,
+            ext,
+            "function f(x) { return x; }",
+            "export {}; function caller(f, x) { return f(x); }",
+        );
+        let cg = CallGraph::build(&input);
+        let site = cg
+            .calls
+            .values()
+            .flatten()
+            .find(|s| s.callee_name == "f")
+            .unwrap();
+        let out = cg.resolve_call_site_full(site);
+        assert!(out.resolved.is_empty());
+        assert_eq!(out.drop, Some(DropReason::UnknownName));
+        assert_refused(
+            &CallGraph::build(&files(
+                lang,
+                ext,
+                "export function f(x) { return x; }",
+                "export {}; function caller(x) { return f(x); }",
+            )),
+            "f",
+        );
+    }
+    let input = BTreeMap::from([
+        (
+            "callee.c".into(),
+            ParsedFile::parse("callee.c", "int f(int x) { return x; }", Language::C).unwrap(),
+        ),
+        (
+            "caller.js".into(),
+            ParsedFile::parse(
+                "caller.js",
+                "export function caller(x) { return f(x); }",
+                Language::JavaScript,
+            )
+            .unwrap(),
+        ),
+    ]);
+    assert_refused(&CallGraph::build(&input), "f");
+    for (lang, ext) in [(Language::JavaScript, "jsx"), (Language::Tsx, "tsx")] {
+        let input = files(
+            lang,
+            ext,
+            "function F() { return null; }",
+            "export function caller() { return <F />; }",
+        );
+        assert_singleton(&CallGraph::build(&input), "F", &format!("callee.{ext}"));
+        let input = files(lang, ext, "function F() { return null; }",
+            "export {}; function outer(o) { const F = o.component; function caller() { return <F />; } }");
+        assert_refused(&CallGraph::build(&input), "F");
+    }
+}
+
+#[test]
+fn e5_source_only_preserves_ordinary_and_renamed_jsx_indirect_targets() {
+    for (lang, ext, invocation) in [
+        (Language::JavaScript, "js", "Box.Item(x)"),
+        (Language::JavaScript, "jsx", "<Box.Item />"),
+        (Language::Tsx, "tsx", "<Box.Item />"),
+    ] {
+        let input: BTreeMap<_, _> = [
+            (format!("callee.{ext}"), "export function F(x) { return x; }".to_string()),
+            (format!("box.{ext}"), "import { F } from './callee'; export function Box() { return null; } Box.Item = F;".to_string()),
+            (format!("caller.{ext}"), format!("import {{ Box }} from './box'; export function caller(x) {{ return {invocation}; }}")),
+        ].into_iter().map(|(p,s)| (p.clone(),ParsedFile::parse(&p,&s,lang).unwrap())).collect();
+        let cg = CallGraph::build(&input);
+        let site = cg
+            .calls
+            .values()
+            .flatten()
+            .find(|s| s.caller.name == "caller" && s.callee_name == "F")
+            .unwrap();
+        assert_eq!(
+            site.origin,
+            crate::call_graph::CallSiteOrigin::IndirectResolution
+        );
+        assert_singleton(&cg, "F", &format!("callee.{ext}"));
+    }
+}
+
+#[test]
+fn e5_arm_a_binding_and_jsx_controls_hold_negative_target_constant() {
+    for (lang, ext) in [
+        (Language::JavaScript, "js"),
+        (Language::TypeScript, "ts"),
+        (Language::Tsx, "tsx"),
+    ] {
+        let input = files(
+            lang,
+            ext,
+            "export function f(x) { return x; }",
+            "function outer(o) { const f = o.cb; function caller(x) { return f(x); } }",
+        );
+        assert_singleton(&CallGraph::build(&input), "f", &format!("callee.{ext}"));
+    }
+    for (lang, ext) in [(Language::JavaScript, "jsx"), (Language::Tsx, "tsx")] {
+        let input = files(
+            lang,
+            ext,
+            "export function F() { return null; }",
+            "function caller() { return <F />; }",
+        );
+        assert_singleton(&CallGraph::build(&input), "F", &format!("callee.{ext}"));
+    }
+}
+
+#[test]
+fn e5_target_facts_merge_script_to_module_and_back() {
+    let script = files(
+        Language::JavaScript,
+        "js",
+        "function f(x) { return x; }",
+        "function caller(x) { return f(x); }",
+    );
+    let module = files(
+        Language::JavaScript,
+        "js",
+        "export function f(x) { return x; }",
+        "function caller(x) { return f(x); }",
+    );
+    let mut cg = CallGraph::build(&script);
+    let dirty = BTreeSet::from(["callee.js".to_string()]);
+    for input in [&module, &script, &module, &script] {
+        cg.remove_files(&dirty);
+        cg.merge(CallGraph::build_direct_subset(input, &dirty));
+        let restored: CallGraph = bincode::deserialize(&bincode::serialize(&cg).unwrap()).unwrap();
+        for graph in [&cg, &restored, &CallGraph::build(input)] {
+            if std::ptr::eq(input, &module) {
+                assert_refused(graph, "f");
+            } else {
+                assert_singleton(graph, "f", "callee.js");
+            }
         }
     }
 }

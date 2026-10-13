@@ -248,7 +248,8 @@ use std::path::{Path, PathBuf};
 /// - v112: PR-B R5 retains flat named seam rows and refuses synthetic formals.
 /// - v113: PR-B R9 positive recovery proof, receiver and reference fences.
 /// - v114: PR-B R10 labelled body, JSX member, enum and commented-eval repairs.
-/// - v115: E5 refuses unbound cross-file JS/TS free_single module/inferred targets.
+/// - v115: E5 unions target-syntax refusals with Source module-caller name evidence;
+///   import-equals/awaited imports exempt, and unbound JS script targets use arm (a).
 const CACHE_VERSION: u32 = 115;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;

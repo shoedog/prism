@@ -241,12 +241,12 @@
    "let cross_file_free_single_exact = resolved.kind == ResolutionKind::FreeSingle\n                    && resolved.confidence == ResolutionConfidence::Exact\n                    && callee_id.file != caller_id.file;",
    "let cross_file_free_single_exact = false;",
    [
-    "cpg::js_param_defs_tests::r2_w2m_js",
-    "cpg::js_param_defs_tests::r2_w2m_ts",
-    "cpg::js_param_defs_tests::r2_w2m_tsx",
-    "cpg::js_param_defs_tests::r2_w2d_js",
-    "cpg::js_param_defs_tests::r2_w2d_ts",
-    "cpg::js_param_defs_tests::r2_w2d_tsx"
+    "cpg::js_param_defs_tests::r2_d12_w2m_script_js",
+    "cpg::js_param_defs_tests::r2_d12_w2m_script_ts",
+    "cpg::js_param_defs_tests::r2_d12_w2m_script_tsx",
+    "cpg::js_param_defs_tests::r2_d12_w2d_script_js",
+    "cpg::js_param_defs_tests::r2_d12_w2d_script_ts",
+    "cpg::js_param_defs_tests::r2_d12_w2d_script_tsx"
    ]
   ],
   "PD-30-synthetic-identity-off": [
@@ -868,7 +868,7 @@
    "src/resolution.rs",
    "let module_caller = is_js_ts_import_member_file(&site.caller.file)",
    "let module_caller = false && is_js_ts_import_member_file(&site.caller.file)",
-   "resolution::e5_bound_tests::e5_module_caller_refuses_unbound_and_alias_singletons"
+   "resolution::e5_bound_tests::e5_module_caller_refuses_module_targets_and_local_alias_singletons"
   ],
   "E5-02-script-module-boundary-off": [
    "src/resolution.rs",
@@ -886,7 +886,91 @@
    "src/resolution.rs",
    "let module_caller = is_js_ts_import_member_file(&site.caller.file)",
    "let module_caller = !site.jsx_element && is_js_ts_import_member_file(&site.caller.file)",
-   "resolution::e5_bound_tests::e5_module_jsx_alias_and_unbound_refuse_singletons"
+   "resolution::e5_bound_tests::e5_module_source_jsx_alias_and_module_target_refuse_singletons"
+  ],
+  "E5-05-target-syntax-arm-off": [
+   "src/resolution.rs",
+   "let step0 = is_js_ts_import_member_file(&site.caller.file)",
+   "let step0 = false && is_js_ts_import_member_file(&site.caller.file)",
+   "resolution::e5_bound_tests::e5_target_facts_merge_script_to_module_and_back"
+  ],
+  "E5-06-arm-a-unbound-conjunct-off": [
+   "src/resolution.rs",
+   "            && matches!(&site.local_binding, crate::call_graph::JsLocalBinding::Unproven(reason) if reason == \"unbound\")\n            && self.js_ts_free_single_refusals.contains(target);",
+   "            && self.js_ts_free_single_refusals.contains(target);",
+   "resolution::e5_bound_tests::e5_arm_a_binding_and_jsx_controls_hold_negative_target_constant"
+  ],
+  "E5-07-arm-a-jsx-conjunct-off": [
+   "src/resolution.rs",
+   "            && !site.jsx_element\n            && matches!(&site.local_binding, crate::call_graph::JsLocalBinding::Unproven(reason) if reason == \"unbound\")",
+   "            && matches!(&site.local_binding, crate::call_graph::JsLocalBinding::Unproven(reason) if reason == \"unbound\")",
+   "resolution::e5_bound_tests::e5_arm_a_binding_and_jsx_controls_hold_negative_target_constant"
+  ],
+  "E5-08-merge-target-refusals-off": [
+   "src/call_graph.rs",
+   "        self.js_ts_free_single_refusals\n            .extend(other.js_ts_free_single_refusals);",
+   "",
+   "resolution::e5_bound_tests::e5_target_facts_merge_script_to_module_and_back"
+  ],
+  "E5-09-import-require-equals-evidence-off": [
+   "src/call_graph_js_referenceability.rs",
+   "\"import_require_clause\" => {",
+   "\"import_require_clause\" if false => {",
+   "resolution::e5_bound_tests::e5_import_equals_and_awaited_import_evidence_preserve_fallbacks"
+  ],
+  "E5-10-namespace-equals-evidence-off": [
+   "src/call_graph_js_referenceability.rs",
+   "if parsed.node_text(&local) == terminal",
+   "if false",
+   "resolution::e5_bound_tests::e5_import_equals_and_awaited_import_evidence_preserve_fallbacks"
+  ],
+  "E5-11-awaited-import-evidence-off": [
+   "src/call_graph_js_referenceability.rs",
+   "if pattern.kind() == \"object_pattern\"",
+   "if false && pattern.kind() == \"object_pattern\"",
+   "resolution::e5_bound_tests::e5_import_equals_and_awaited_import_evidence_preserve_fallbacks"
+  ],
+  "E5-12-unbound-script-exception-off": [
+   "src/resolution.rs",
+   "&& !(matches!(&site.local_binding, crate::call_graph::JsLocalBinding::Unproven(reason) if reason == \"unbound\")",
+   "&& !(false && matches!(&site.local_binding, crate::call_graph::JsLocalBinding::Unproven(reason) if reason == \"unbound\")",
+   "resolution::e5_bound_tests::e5_unbound_module_to_script_global_stays_exact_with_negative_twins"
+  ],
+  "E5-13-module-origin-conjunct-off": [
+   "src/resolution.rs",
+   "            && site.origin == crate::call_graph::CallSiteOrigin::Source\n            // An unbound name",
+   "            // An unbound name",
+   "resolution::e5_bound_tests::e5_source_only_preserves_ordinary_and_renamed_jsx_indirect_targets"
+  ],
+  "E5-14-export-require-recovery-off": [
+   "src/call_graph_js_referenceability.rs",
+   "|| terminal == \"require\" && exported_require_alias(node, entity)",
+   "|| false && terminal == \"require\" && exported_require_alias(node, entity)",
+   "resolution::e5_bound_tests::e5_import_equals_and_awaited_import_evidence_preserve_fallbacks"
+  ],
+  "E5-15-namespace-terminal-equality-off": [
+   "src/call_graph_js_referenceability.rs",
+   "if parsed.node_text(&local) == terminal",
+   "if true",
+   "resolution::e5_bound_tests::e5_import_equals_and_awaited_import_evidence_preserve_fallbacks"
+  ],
+  "E5-16-unbound-exception-local-conjunct-off": [
+   "src/resolution.rs",
+   "&& !(matches!(&site.local_binding, crate::call_graph::JsLocalBinding::Unproven(reason) if reason == \"unbound\")",
+   "&& !(true",
+   "resolution::e5_bound_tests::e5_unbound_module_to_script_global_stays_exact_with_negative_twins"
+  ],
+  "E5-17-unbound-exception-language-conjunct-off": [
+   "src/resolution.rs",
+   "                && is_js_ts_import_member_file(&target.file)\n                && !self.js_ts_free_single_refusals.contains(target))",
+   "                && !self.js_ts_free_single_refusals.contains(target))",
+   "resolution::e5_bound_tests::e5_unbound_module_to_script_global_stays_exact_with_negative_twins"
+  ],
+  "E5-18-unbound-exception-target-conjunct-off": [
+   "src/resolution.rs",
+   "                && !self.js_ts_free_single_refusals.contains(target))",
+   ")",
+   "resolution::e5_bound_tests::e5_module_source_jsx_alias_and_module_target_refuse_singletons"
   ]
  },
  "intent_revisions": {
@@ -1002,6 +1086,18 @@
    "disposition": "rebound",
    "reason": "R6 gate repair: disable all three named main-path bypasses together; disabling only the reference-span shortcut left the other two bypasses active.",
    "killing_fixture": "cpg::callback_identity_tests::r5_named_seam_rows_equal_frozen_main_goldens"
+  },
+  "PD-29-cross-file-free-single-predicate-off": {
+   "disposition": "rebound",
+   "reason": "R4: module/inferred variants now drop at E5; script/script variants retain full Exact argument edges before D12 outgoing-path refusal.",
+   "killing_fixture": [
+    "cpg::js_param_defs_tests::r2_d12_w2m_script_js",
+    "cpg::js_param_defs_tests::r2_d12_w2m_script_ts",
+    "cpg::js_param_defs_tests::r2_d12_w2m_script_tsx",
+    "cpg::js_param_defs_tests::r2_d12_w2d_script_js",
+    "cpg::js_param_defs_tests::r2_d12_w2d_script_ts",
+    "cpg::js_param_defs_tests::r2_d12_w2d_script_tsx"
+   ]
   }
  },
  "extra": {
