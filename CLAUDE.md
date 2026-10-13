@@ -209,6 +209,10 @@ receivers route through the existing `owner_lookup → interface_impls → drop`
 (recover-and-route — recovery is syntactic, routing decides interface-vs-concrete).
 It otherwise demotes a single in-repo owner / drops a multi-owner collision (the
 precision floor); module-qualified free functions fall back to file-stem matching.
+JS/TS relative specifiers share one candidate list (`js_ts_relative_module_candidates`): a specifier
+that already has a candidate keeps its list; otherwise a literal `.js` path that is not indexed finds
+the same-stem `.ts` then `.tsx`, `.`/`..` find the directory index, and `//`, `/./`, `/../` segments
+are normalized within the repo root.
 Navigation maps confidence to `score` (Exact 1.0 / NameOnly 0.6) with a
 `Reason::Resolution` and a `Collision` warning when same-name receiver sites are
 dropped. Phase-IP type-confirmed dispatch has **shipped** Go embedding promotion
