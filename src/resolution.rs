@@ -3665,13 +3665,21 @@ impl CallGraph {
     }
 
     fn js_ts_unbound_single_refused(&self, site: &CallSite, target: &FunctionId) -> bool {
-        is_js_ts_import_member_file(&site.caller.file)
+        let step0 = is_js_ts_import_member_file(&site.caller.file)
             && site.origin == crate::call_graph::CallSiteOrigin::Source
             && !site.jsx_element
             && site.qualifier.is_none()
             && target.file != site.caller.file
             && matches!(&site.local_binding, crate::call_graph::JsLocalBinding::Unproven(reason) if reason == "unbound")
-            && self.js_ts_free_single_refusals.contains(target)
+            && self.js_ts_free_single_refusals.contains(target);
+        let module_caller = is_js_ts_import_member_file(&site.caller.file)
+            && target.file != site.caller.file
+            && site.qualifier.is_none()
+            && self
+                .js_ts_module_binding_evidence
+                .get(&site.caller.file)
+                .is_some_and(|names| !names.contains(&site.callee_name));
+        step0 || module_caller
     }
 
     /// S1b-3b: the in-file callable a proven binding holds, matched by registered name and
@@ -4944,3 +4952,7 @@ func invoke(cmd *Command) {\n\tcmd.Run()\n}\n",
 #[cfg(test)]
 #[path = "resolution_e5_tests.rs"]
 mod e5_call_referenceability_tests;
+
+#[cfg(test)]
+#[path = "resolution_e5_bound_tests.rs"]
+mod e5_bound_tests;

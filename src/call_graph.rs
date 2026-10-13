@@ -13,6 +13,9 @@ use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::path::PathBuf;
 
+#[path = "call_graph_js_referenceability.rs"]
+mod js_referenceability;
+
 /// A node in the call graph: a function identified by file path and name.
 #[derive(
     Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
@@ -923,6 +926,10 @@ pub struct CallGraph {
     /// This supplies no import, alias, or callable authority.
     #[serde(default)]
     pub(crate) js_ts_free_single_refusals: BTreeSet<FunctionId>,
+    /// E5: ES-module callers and their own-file import/require name evidence.
+    /// Evidence only exempts a refusal; it does not prove a target binding.
+    #[serde(default)]
+    pub(crate) js_ts_module_binding_evidence: BTreeMap<String, BTreeSet<String>>,
     /// Go package directory index. Plain keys are legacy directory basenames;
     /// `@go-import:` keys carry effective module import paths proven by the
     /// module graph. Qualified `pkg.T` lookup prefers the exact key and uses a
@@ -1241,6 +1248,7 @@ impl CallGraph {
             js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
             js_ts_free_single_refusals: BTreeSet::new(),
+            js_ts_module_binding_evidence: BTreeMap::new(),
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
             go_func_typed_fields: BTreeSet::new(),
@@ -1523,6 +1531,9 @@ impl CallGraph {
             js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
             js_ts_free_single_refusals: Self::js_ts_free_single_refusals(files.iter()),
+            js_ts_module_binding_evidence: js_referenceability::module_binding_evidence(
+                files.iter(),
+            ),
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
             go_func_typed_fields: BTreeSet::new(),
@@ -1992,6 +2003,9 @@ impl CallGraph {
             js_export_barrel_conflicts: 0,
             js_ts_function_locals,
             js_ts_free_single_refusals: Self::js_ts_free_single_refusals(files.iter()),
+            js_ts_module_binding_evidence: js_referenceability::module_binding_evidence(
+                files.iter(),
+            ),
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
             go_func_typed_fields: BTreeSet::new(),
@@ -2531,6 +2545,8 @@ impl CallGraph {
             .retain(|fid, _| !exclude.contains(&fid.file));
         self.js_ts_free_single_refusals
             .retain(|fid| !exclude.contains(&fid.file));
+        self.js_ts_module_binding_evidence
+            .retain(|file, _| !exclude.contains(file));
         // indexed_files tracks the file set; removed files are no longer indexed.
         self.indexed_files.retain(|f| !exclude.contains(f));
 
@@ -2675,6 +2691,8 @@ impl CallGraph {
             .extend(other.js_ts_function_locals);
         self.js_ts_free_single_refusals
             .extend(other.js_ts_free_single_refusals);
+        self.js_ts_module_binding_evidence
+            .extend(other.js_ts_module_binding_evidence);
         // P8: per-file macro-arg facts extend directly -- `other` only ever
         // carries entries for files it (re)built, so this can never
         // double-count a file that remove_files didn't first drop. (This
@@ -5432,6 +5450,9 @@ impl CallGraph {
             js_export_barrel_conflicts: 0,
             js_ts_function_locals,
             js_ts_free_single_refusals: Self::js_ts_free_single_refusals(
+                subset_files.iter().map(|(file, parsed)| (file, *parsed)),
+            ),
+            js_ts_module_binding_evidence: js_referenceability::module_binding_evidence(
                 subset_files.iter().map(|(file, parsed)| (file, *parsed)),
             ),
             // P5: whole-program Go func-value state — left empty here, exactly
