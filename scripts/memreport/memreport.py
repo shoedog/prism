@@ -308,25 +308,50 @@ def parse_corpora(pairs):
     return corpora
 
 
+def write_json_atomically(path, data):
+    temporary = path.with_name(path.name + '.tmp')
+    temporary.write_text(json.dumps(data, indent=2, sort_keys=True) + '\n')
+    os.replace(temporary, path)
+
+
+def emit_workload(binary, path, functions, timeout):
+    """(stdout bytes, None) for a workload the binary emitted, or (None, why not)."""
+    command = [binary, '--repo', str(path), '--eager', '--no-cache', '--mem-emit-workload', str(functions)]
+    try:
+        done = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, timeout=timeout,
+                              env=dict(os.environ, PRISM_MCP_MEM_REPORT='1'))
+    except subprocess.TimeoutExpired:
+        return None, 'timed out after %ss' % timeout
+    except OSError as error:
+        return None, 'could not run %s: %s' % (binary, error)
+    if done.returncode != 0:
+        return None, 'exit %d:\n%s' % (done.returncode, done.stderr.decode('utf-8', 'replace')[-2000:])
+    if done.stdout.count(b'\n') == 0:
+        return None, 'emitted no requests'
+    return done.stdout, None
+
+
 def cmd_gen_workload(args):
+    """Generate a workload per corpus. Each finished corpus is written (file and manifest) before the next starts."""
     directory = Path(args.workloads)
     directory.mkdir(parents=True, exist_ok=True)
     manifest_path = directory / 'MANIFEST.json'
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+    failed = []
     for name, path in parse_corpora(args.corpus).items():
-        command = [args.bin, '--repo', str(path), '--eager', '--no-cache',
-                   '--mem-emit-workload', str(args.functions)]
-        done = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE, timeout=args.timeout,
-                              env=dict(os.environ, PRISM_MCP_MEM_REPORT='1'))
-        if done.returncode != 0:
-            raise SystemExit('%s: workload generation failed:\n%s' % (name, done.stderr.decode()[-2000:]))
-        (directory / (name + '.jsonl')).write_bytes(done.stdout)
-        manifest[name] = dict(corpus_provenance(path), requests=done.stdout.count(b'\n'),
-                              functions_requested=args.functions,
-                              sha256=hashlib.sha256(done.stdout).hexdigest())
-        print('%s: %d requests' % (name, manifest[name]['requests']))
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
+        data, problem = emit_workload(args.bin, path, args.functions, args.timeout)
+        if problem is not None:
+            print('%s: workload generation failed: %s' % (name, problem), file=sys.stderr, flush=True)
+            failed.append(name)
+            continue
+        (directory / (name + '.jsonl')).write_bytes(data)
+        manifest[name] = dict(corpus_provenance(path), requests=data.count(b'\n'),
+                              functions_requested=args.functions, sha256=hashlib.sha256(data).hexdigest())
+        write_json_atomically(manifest_path, manifest)
+        print('%s: %d requests' % (name, manifest[name]['requests']), flush=True)
+    if failed:
+        raise SystemExit('workload generation failed for: %s' % ', '.join(failed))
 
 
 def single_file_size(directory, filename):
@@ -416,9 +441,7 @@ def assemble_summary(settings, entries):
 
 def write_summary(out, summary):
     path = Path(out) / 'summary.json'
-    temporary = path.with_name(path.name + '.tmp')
-    temporary.write_text(json.dumps(summary, indent=2, sort_keys=True) + '\n')
-    os.replace(temporary, path)
+    write_json_atomically(path, summary)
     return path
 
 

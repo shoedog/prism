@@ -159,6 +159,65 @@ class WorkloadBindingTests(Harness):
         self.assertEqual(list((self.tmp / 'a').glob('**/*.jsonl')), [])
 
 
+class GenWorkloadTests(Harness):
+    def manifest(self):
+        return json.loads((self.workloads / 'MANIFEST.json').read_text())
+
+    def test_a_timeout_in_the_second_corpus_keeps_the_first_and_exits_nonzero(self):
+        self.corpus('a')
+        self.corpus('b')
+        self.fake(emit={'a': 3}, emit_sleep=['b'])
+        with self.assertRaises(SystemExit) as caught:
+            self.gen('a', 'b', timeout=1)
+        self.assertIn('b', str(caught.exception))
+        self.assertNotIn('a,', str(caught.exception))
+        self.assertEqual(sorted(self.manifest()), ['a'])
+        self.assertEqual(self.manifest()['a']['requests'], 3)
+        self.assertEqual((self.workloads / 'a.jsonl').read_bytes().count(b'\n'), 3)
+        self.assertFalse((self.workloads / 'b.jsonl').exists())
+
+    def test_a_failure_in_the_first_corpus_does_not_stop_the_second(self):
+        self.corpus('a')
+        self.corpus('b')
+        self.fake(emit={'b': 4}, emit_fail=['a'])
+        with self.assertRaises(SystemExit) as caught:
+            self.gen('a', 'b')
+        self.assertEqual(str(caught.exception), 'workload generation failed for: a')
+        self.assertEqual(sorted(self.manifest()), ['b'])
+
+    def test_every_failed_corpus_is_named(self):
+        self.corpus('a')
+        self.corpus('b')
+        self.fake(emit_fail=['a', 'b'])
+        with self.assertRaises(SystemExit) as caught:
+            self.gen('a', 'b')
+        self.assertEqual(str(caught.exception), 'workload generation failed for: a, b')
+        self.assertFalse((self.workloads / 'MANIFEST.json').exists())
+
+    def test_an_empty_workload_is_a_failure_not_a_manifest_entry(self):
+        self.corpus('a')
+        self.fake(emit={'a': 0})
+        with self.assertRaises(SystemExit):
+            self.gen('a')
+        self.assertFalse((self.workloads / 'a.jsonl').exists())
+
+    def test_a_missing_binary_is_a_failure_per_corpus(self):
+        self.corpus('a')
+        self.fake()
+        self.binary = self.tools / 'does-not-exist'
+        with self.assertRaises(SystemExit) as caught:
+            self.gen('a')
+        self.assertIn('a', str(caught.exception))
+
+    def test_existing_manifest_entries_survive_a_later_generation(self):
+        self.corpus('a')
+        self.corpus('b')
+        self.fake(emit={'a': 2, 'b': 5})
+        self.gen('a')
+        self.gen('b')
+        self.assertEqual({k: v['requests'] for k, v in self.manifest().items()}, {'a': 2, 'b': 5})
+
+
 class CacheFileTests(Harness):
     def test_cache_file_sizes_are_measured_after_the_priming_run(self):
         self.corpus('a')
