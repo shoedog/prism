@@ -496,3 +496,10 @@ Decided 2026-10-13, after S2 planning and the C1 readout (questions in the lane 
   The steady live heap is repeatable but counts allocations, not physical memory, and is circular for M1. §6.1
   was left as written until the owner chose, and was revised on 2026-10-13 (§11 item 8). The §1 figures (1,168 MB idle, 1,620 MB peak) are consistent with
   today's: within 3–13 % after scaling for a corpus that has grown 21 %, if "MB" there means MiB.
+- **S2a review record 2026-10-13.** §4.3's validation ("a directory owned by the current uid with mode 0700, not
+  a symlink") was shown by review to be necessary and not sufficient: a directory that passes it can sit under
+  one that another user may write, and be swapped after the check; and on macOS an access control list can
+  grant what the mode denies. The implementation is stricter than §4.3's sentence in both respects (it walks
+  the directory's whole resolution, and refuses a directory with a list). The default locations are unaffected.
+  Two consequences for later slices are recorded in the lane plan: the shim checks its peer's uid as the daemon
+  does, and the starting shim hands its key to the daemon.

@@ -145,6 +145,41 @@ These follow the owner's standing preferences. Confirm or change them before S1 
   every reader. It splits mechanically into refresh (exclusive) and finish (shared) if S3b wants the query under
   shared access. `ReadDispatch::NeedsAutoRefresh` carries no generation and the facade exposes none; spec §4.2
   wants responses bound to the generation queried, so add a generation accessor (additive).
+- **S4, from the S2a reviews:**
+  - Runtime-directory validation (`shared::runtime_dir::validate_runtime_dir`) now also refuses a directory
+    another user could replace (any directory on its resolution that is group/other-writable and not sticky, or
+    owned by a third user) and, on macOS, one that carries an access control list. It is still a check by path.
+    Open the lock, pid and log files through a held directory descriptor (`openat`, `O_NOFOLLOW`); "the socket
+    calls take paths" covers only the socket.
+  - "Validate on every use" is a convention the types do not carry: `validate_runtime_dir` returns `()` and
+    `DaemonPaths::new` takes any path. Route every use through one function that validates first, or change
+    the return to a newtype that `DaemonPaths::new` requires.
+  - If the runtime directory is removed under a live daemon (logind removing `/run/user/<uid>` at last logout,
+    a temp cleaner), the lock file's inode is replaced and a second daemon can start for the same key until the
+    first idles out. The daemon's periodic check can compare its socket's inode.
+  - The key includes the content-hashed build identity and lock files are never unlinked, so every rebuild leaves
+    five files per repository; on Linux the default directory is a small tmpfs and logs may reach 8 MB each.
+    A cleanup rule is needed (S4 or S5b).
+  - Delete-and-recreate of a repository root can reuse the inode (ext4, tmpfs): same key, and the root check
+    passes. Only the freshness machinery notices.
+  - `PRISM_NAV_EDGE_CACHE_LOAD_DIRTY` (`src/navigation/call_edge_cache.rs`) changes which sidecar loads and is in
+    neither the key nor the preamble; spec §7 says every answer-affecting setting is in one of them. A daemon
+    would inherit it from whichever shim started it.
+- **S5a, from the S2a reviews:**
+  - **The shim checks the uid of the socket's peer too.** Spec §4.4 has only the daemon check its peer. A
+    listener another user planted can echo the key in `READY`; the shim would then pump the client's traffic
+    to it. The runtime-directory checks make planting hard; the peer check makes it not matter.
+  - **Pass the shim's full key to the daemon it starts**, and have the daemon use or check it. The cache base of
+    a directory that does not exist yet is compared as written, so on a case-insensitive filesystem a shim and
+    its daemon can resolve different keys if the directory appears between the two resolutions; the shim then
+    waits out its start deadline. `IdentityKey::from_hex` exists for this.
+  - `DaemonIdentity::resolve` refuses a cache-free configuration and accepts an eager one although neither can
+    be shared (spec §4.1 step 2). The command-line check rejects both before `resolve`, with a message that
+    says what to change.
+  - Paths in error messages are printed raw. A path with a newline or terminal control characters breaks the
+    one-line diagnostic the shim promises; escape them where the line is written.
+  - One `sudo -E` run that keeps the runtime base creates a root-owned `prism-mcpd`, after which the user's own
+    shims fail with `NotOwned` until it is removed. The message already names the uid; the docs should say it.
 - **S5a:** the transcript driver in `tests/mcp/transcript.rs` (S1) is the tool for the "same snapshot, same
   settings, same readiness state" equivalence in spec §5: run one script standalone and through the shim and compare.
 - **S6:** the launcher is `scripts/prism-mcp-launch.sh`; it passes extra arguments through, so `--shared` is a config
