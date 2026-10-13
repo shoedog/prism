@@ -67,3 +67,72 @@ def fake_binary(directory, body, name='fake-prism-mcp'):
 
 def digest(data):
     return hashlib.sha256(data).hexdigest()
+
+
+FAKE_PRISM = r'''
+import hashlib, json, os, sys, time
+here = os.path.dirname(os.path.abspath(__file__))
+cfg = json.load(open(os.path.join(here, 'cfg.json')))
+argv = sys.argv[1:]
+
+
+def opt(name):
+    return argv[argv.index(name) + 1] if name in argv else None
+
+
+def tick(label):
+    path = os.path.join(here, 'calls-' + label)
+    count = int(open(path).read()) if os.path.exists(path) else 0
+    open(path, 'w').write(str(count + 1))
+    return count
+
+
+repo = os.path.basename(opt('--repo').rstrip('/'))
+if '--mem-emit-workload' in argv:
+    if repo in cfg.get('emit_sleep', []):
+        time.sleep(30)
+    if repo in cfg.get('emit_fail', []):
+        print('cannot emit for ' + repo, file=sys.stderr)
+        sys.exit(2)
+    sys.stdout.write('{"id":1}\n' * cfg.get('emit', {}).get(repo, 3))
+    sys.exit(0)
+if '--no-cache' in argv:
+    kind = 'cold'
+elif '--mem-workload' in argv:
+    kind = 'workload'
+elif '--mem-refresh' in argv:
+    kind = 'refresh'
+else:
+    kind = 'warm'
+call = tick(repo + '-' + kind)
+if opt('--cache-dir') and kind == 'warm' and call == 0:
+    d = os.path.join(opt('--cache-dir'), 'h1')
+    os.makedirs(d, exist_ok=True)
+    for name, key in (('cpg-cache.bin', 'cache_bytes'), ('resolved-call-edge-index.bin', 'sidecar_bytes')):
+        if cfg.get(key) is not None:
+            open(os.path.join(d, name), 'wb').write(b'x' * cfg[key])
+report = json.loads(json.dumps(cfg['reports'][kind]))
+if kind == 'workload':
+    data = open(opt('--mem-workload'), 'rb').read()
+    by_call = cfg.get('workload_sha_by_call') or []
+    report['workload']['sha256'] = by_call[call] if call < len(by_call) else hashlib.sha256(data).hexdigest()
+    report['workload']['requests'] = report['workload']['responses'] = data.count(b'\n')
+    if cfg.get('mutate_source'):
+        open(cfg['mutate_source'], 'wb').write(b'{"id":9}\n')
+for text in cfg.get('stderr', {}).get(kind, []):
+    print(text, file=sys.stderr)
+if call in cfg.get('stderr_calls', {}).get(kind, []):
+    print(cfg['stderr_call_text'], file=sys.stderr)
+print(json.dumps(report), file=sys.stderr)
+'''
+
+
+def fake_prism(directory, reports=None, **cfg):
+    """A configurable fake prism-mcp; `cfg` is written next to it as cfg.json (see FAKE_PRISM)."""
+    directory = Path(directory)
+    cfg['reports'] = reports or {kind: canned(kind) for kind in ('warm', 'cold', 'workload', 'refresh')}
+    (directory / 'cfg.json').write_text(json.dumps(cfg))
+    path = directory / 'fake-prism'
+    path.write_text('#!/usr/bin/env python3\n' + FAKE_PRISM)
+    path.chmod(path.stat().st_mode | stat.S_IXUSR)
+    return path

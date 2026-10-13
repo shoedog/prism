@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Memory-report driver for prism-mcp (shared-daemon spec section 6.1).
 
-    memreport.py gen-workload --bin BIN --corpus NAME=PATH [--functions 50]
-    memreport.py run --bin BIN --corpus NAME=PATH [--corpus ...] --out DIR
+    memreport.py gen-workload --bin BIN --corpus NAME=PATH [--functions 50] [--workloads DIR]
+    memreport.py run --bin BIN --corpus NAME=PATH [--corpus ...] --out DIR [--workloads DIR]
     memreport.py render --run DIR --out FILE.md
 
 Runs are sequential on purpose: one index in memory at a time.
@@ -272,8 +272,9 @@ def parse_corpora(pairs):
 
 
 def cmd_gen_workload(args):
-    WORKLOADS.mkdir(parents=True, exist_ok=True)
-    manifest_path = WORKLOADS / 'MANIFEST.json'
+    directory = Path(args.workloads)
+    directory.mkdir(parents=True, exist_ok=True)
+    manifest_path = directory / 'MANIFEST.json'
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     for name, path in parse_corpora(args.corpus).items():
         command = [args.bin, '--repo', str(path), '--eager', '--no-cache',
@@ -283,7 +284,7 @@ def cmd_gen_workload(args):
                               env=dict(os.environ, PRISM_MCP_MEM_REPORT='1'))
         if done.returncode != 0:
             raise SystemExit('%s: workload generation failed:\n%s' % (name, done.stderr.decode()[-2000:]))
-        (WORKLOADS / (name + '.jsonl')).write_bytes(done.stdout)
+        (directory / (name + '.jsonl')).write_bytes(done.stdout)
         manifest[name] = dict(corpus_provenance(path), requests=done.stdout.count(b'\n'),
                               functions_requested=args.functions,
                               sha256=hashlib.sha256(done.stdout).hexdigest())
@@ -291,29 +292,60 @@ def cmd_gen_workload(args):
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
 
 
+def bind_workload(name, directory, commit):
+    """Read a corpus's workload once and check it against the manifest.
+
+    Returns (bytes, {'sha256', 'requests'}); exits with a message when the file is missing, is not in the
+    manifest, differs from it, or was generated at another commit than the corpus is at now.
+    """
+    path = Path(directory) / (name + '.jsonl')
+    if not path.exists():
+        raise SystemExit('%s: no workload at %s; run gen-workload first' % (name, path))
+    data = path.read_bytes()
+    manifest_path = Path(directory) / 'MANIFEST.json'
+    manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+    entry = manifest.get(name)
+    if entry is None:
+        raise SystemExit('%s: %s has no entry for this corpus; re-run gen-workload' % (name, manifest_path))
+    digest = {'sha256': hashlib.sha256(data).hexdigest(), 'requests': data.count(b'\n')}
+    if digest['sha256'] != entry.get('sha256') or digest['requests'] != entry.get('requests'):
+        raise SystemExit('%s: %s has sha256 %s and %d requests but the manifest has %s and %s; '
+                         're-run gen-workload' % (name, path, digest['sha256'], digest['requests'],
+                                                  entry.get('sha256'), entry.get('requests')))
+    if entry.get('commit') != commit:
+        raise SystemExit('%s: the workload was generated at commit %s but the corpus is at %s; '
+                         're-run gen-workload' % (name, entry.get('commit'), commit))
+    return data, digest
+
+
 def cmd_run(args):
     out = Path(args.out)
     summary = {'provenance': {'reps': args.reps, 'settle': args.settle, 'timeout': args.timeout,
                               'bin': args.bin, 'build': None},
                'corpora': {}}
+    # Bind every corpus to its workload before any run starts: a mismatch must not cost hours first.
+    bound = {}
     for name, path in parse_corpora(args.corpus).items():
-        workload = WORKLOADS / (name + '.jsonl')
-        if not workload.exists():
-            raise SystemExit('%s: no workload at %s; run gen-workload first' % (name, workload))
+        provenance = corpus_provenance(path)
+        bound[name] = (path, provenance) + bind_workload(name, args.workloads, provenance['commit'])
+    for name, (path, provenance, data, digest) in bound.items():
+        snapshot = out / 'workloads' / (name + '.jsonl')
+        snapshot.parent.mkdir(parents=True, exist_ok=True)
+        snapshot.write_bytes(data)
         raw = out / 'raw' / name
         raw.mkdir(parents=True, exist_ok=True)
         cache_dir = out / 'cache' / name
-        entry = dict(corpus_provenance(path), admissible={kind: 0 for kind in KINDS},
+        entry = dict(provenance, admissible={kind: 0 for kind in KINDS}, workload=digest,
                      inadmissible=[], metrics={}, attribution=None)
         # Prime the cache with a discarded run so that "warm" means a cache hit.
-        prime = run_one(command_for(args.bin, path, cache_dir, 'warm', workload, 0), 'cold', args.timeout)
+        prime = run_one(command_for(args.bin, path, cache_dir, 'warm', snapshot, 0), 'cold', args.timeout)
         (raw / 'prime.json').write_text(json.dumps(prime, indent=1))
         values = {}
         for kind in KINDS:
             for rep in range(1, args.reps + 1):
                 before = host_state()
-                result = run_one(command_for(args.bin, path, cache_dir, kind, workload, args.settle),
-                                 kind, args.timeout)
+                result = run_one(command_for(args.bin, path, cache_dir, kind, snapshot, args.settle),
+                                 kind, args.timeout, digest if kind == 'workload' else None)
                 result['host_before'] = before
                 (raw / ('%s-%d.json' % (kind, rep))).write_text(json.dumps(result, indent=1))
                 print('%s %s #%d: %s (%ss)' % (name, kind, rep, result['status'], result['wall_secs']),
@@ -429,6 +461,8 @@ def main(argv=None):
     gen = commands.add_parser('gen-workload')
     gen.add_argument('--bin', required=True)
     gen.add_argument('--corpus', action='append', required=True, metavar='NAME=PATH')
+    gen.add_argument('--workloads', type=Path, default=WORKLOADS, metavar='DIR',
+                     help='where workloads/*.jsonl and MANIFEST.json live (default: %(default)s)')
     gen.add_argument('--functions', type=int, default=50)
     gen.add_argument('--timeout', type=int, default=3600)
     gen.set_defaults(handler=cmd_gen_workload)
@@ -436,6 +470,8 @@ def main(argv=None):
     run.add_argument('--bin', required=True)
     run.add_argument('--corpus', action='append', required=True, metavar='NAME=PATH')
     run.add_argument('--out', required=True)
+    run.add_argument('--workloads', type=Path, default=WORKLOADS, metavar='DIR',
+                     help='where workloads/*.jsonl and MANIFEST.json live (default: %(default)s)')
     run.add_argument('--reps', type=int, default=3)
     run.add_argument('--timeout', type=int, default=1800)
     run.add_argument('--settle', type=int, default=5)
