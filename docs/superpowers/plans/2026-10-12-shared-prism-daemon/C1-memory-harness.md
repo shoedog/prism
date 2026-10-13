@@ -477,20 +477,24 @@ mod tests {
 
     #[test]
     fn goto_and_label_names_are_string_payloads_too() {
-        let mut tally = StringTally::default();
-        for kind in [
+        let nodes: Vec<CpgNode> = [
             StmtKind::Goto {
                 target: "out".into(),
             },
             StmtKind::Label { name: "out".into() },
-        ] {
-            tally.add_node(&CpgNode::Statement {
-                file: "a.c".into(),
-                line: 1,
-                kind,
-                start_byte: 0,
-                end_byte: 1,
-            });
+        ]
+        .into_iter()
+        .map(|kind| CpgNode::Statement {
+            file: "a.c".into(),
+            line: 1,
+            kind,
+            start_byte: 0,
+            end_byte: 1,
+        })
+        .collect();
+        let mut tally = StringTally::default();
+        for node in &nodes {
+            tally.add_node(node);
         }
         assert_eq!(tally.count, 4);
         assert_eq!(tally.unique.len(), 2);
@@ -2438,7 +2442,7 @@ if __name__ == '__main__':
 
 Run: `python3 -m unittest scripts/memreport/test_memreport.py > /tmp/c1-t6-green.log 2>&1; tail -4 /tmp/c1-t6-green.log`
 
-Expected: `Ran 21 tests` and `OK`.
+Expected: `Ran 19 tests` and `OK`.
 
 - [ ] **Step 5: Run the driver end to end on a small real repository**
 

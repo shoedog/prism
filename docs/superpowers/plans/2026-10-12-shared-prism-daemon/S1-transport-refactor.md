@@ -440,8 +440,17 @@ fn transcript_comparison_names_the_first_differing_line_and_byte() {
         message.starts_with("response line 2 differs at byte 3"),
         "{message}"
     );
+    // An extra response shows up as a line the golden does not have.
     let message = first_difference(b"a\n", b"a\nb\n").expect("differs");
-    assert!(message.starts_with("line count differs"), "{message}");
+    assert!(
+        message.starts_with("response line 2 differs at byte 0"),
+        "{message}"
+    );
+    let message = first_difference(b"a\nb", b"a\nb\nc").expect("differs");
+    assert!(
+        message.starts_with("line count differs: golden has 2, actual has 3"),
+        "{message}"
+    );
 }
 
 #[test]
@@ -867,21 +876,26 @@ Run: `cargo test --features mcp --lib mcp::framing > /tmp/s1-t3-green.log 2>&1; 
 
 Expected: 4 tests pass (`framing_cases_over_an_in_memory_reader` and the three under `unix::`).
 
-- [ ] **Step 5: Prove the flush test bites**
-
-Temporarily change `self.writer.flush()?;` in `write_message` to `// self.writer.flush()?;`, then run:
-
-`cargo test --features mcp --lib mcp::framing::tests::unix::unix_transport_flushes > /tmp/s1-t3-bite.log 2>&1; grep -E '^test |panicked' /tmp/s1-t3-bite.log`
-
-Expected: FAILED (`first line arrives without closing`, a timed-out read). Restore the line with `git checkout -p src/mcp/framing.rs` (discard only that hunk), re-run Step 4, and confirm 4 pass.
-
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 cargo fmt
 git add src/mcp/framing.rs src/mcp/framing_tests.rs
 git commit -m "feat(mcp): UnixStreamTransport sharing the stdio line framing"
 ```
+
+- [ ] **Step 6: Prove the flush test bites**
+
+With the task committed, comment out the flush and watch the test fail:
+
+```bash
+sed -i.bak 's|^        self.writer.flush()?;$|        // self.writer.flush()?;|' src/mcp/framing.rs && rm src/mcp/framing.rs.bak
+git diff --stat src/mcp/framing.rs        # exactly 1 line changed
+cargo test --features mcp --lib mcp::framing::tests::unix::unix_transport_flushes > /tmp/s1-t3-bite.log 2>&1; grep -E '^test |panicked' -A1 /tmp/s1-t3-bite.log
+git checkout src/mcp/framing.rs && git status --short src/mcp/framing.rs
+```
+
+Expected: the diff shows one changed line; the test is FAILED with `first line arrives without closing` (a timed-out read); after the checkout `git status` prints nothing. Do this only after Step 5: `git checkout` restores the committed file, so an uncommitted Task 3 would be lost with the experiment.
 
 ---
 

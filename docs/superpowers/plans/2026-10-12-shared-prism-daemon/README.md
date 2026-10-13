@@ -54,6 +54,24 @@ from rather than reusing the prototype's.
 | The mutation gate cannot select MCP code: `scripts/mutgate/mutgate.py` builds `--lib` and `--test <target>` with no feature flags, and `src/mcp` exists only under `--features mcp`. | Read of the driver. | The pre-merge gate is still run (it guards the rest of the crate) but its verdict says nothing about this lane's code. Recorded, not pursued here. |
 | `cargo clippy --all-targets --features mcp -- -W clippy::all` already prints 259 warning lines on the base, and CI does not deny warnings. | Ran it. | The bar for each slice is "no new warning in a file the slice touches", not a clean run. |
 
+## The plans' code was compiled and run before hand-off (2026-10-12)
+
+Both slice plans were applied verbatim, block by block, to a throwaway worktree on `origin/main` `bab0dfbd`. The
+results are on two **local** branches in `~/code/slicing` (not pushed, not for merge as they stand):
+
+| Plan | Scratch branch | What ran | Result |
+|---|---|---|---|
+| S1, Tasks 1–4 | `scratch/s1-validate` `24ccfaba` | `cargo test --features mcp --lib mcp::`; `cargo test --features mcp --test mcp`; `cargo check --tests --features mcp,detached-owner-audit`; `cargo check`; clippy filtered to the touched files | 211 passed (195 base + 4 + 12); 8 passed; goldens recorded in Task 1 are byte-identical after Task 4; zero-line diff in `transport_tests.rs` and `owner_transport_tests.rs`; no warning in a touched file |
+| C1, Tasks 1–6 | `scratch/c1-validate` `af033444` | same two test commands; `python3 -m unittest scripts/memreport/test_memreport.py`; the Task 6 driver smoke with the debug binary | 212 passed (195 base + 17); 10 passed; 19 Python tests OK; `DRIVER-SMOKE-OK` with 8 of 8 runs admissible |
+
+Not run on either branch: the full suite, `cargo fmt --check` against the plans' exact text (the scratch files were
+formatted with `cargo fmt`), CI on Linux (so the goldens' platform independence is still unproven), a release build,
+S1 Task 5, and C1 Task 7 (the five-corpus measurement).
+
+Four defects surfaced and are fixed in the plans: a borrow of a temporary in a C1 attribution test; a wrong Python
+test count in C1; a wrong expectation in S1's transcript-comparator test; and S1 Task 3 ran its "prove the test
+bites" experiment before committing, where restoring the file would have discarded the task's own work.
+
 ## How each slice is executed
 
 These follow the owner's standing preferences. Confirm or change them before S1 and C1 are dispatched.
