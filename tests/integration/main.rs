@@ -52,6 +52,7 @@ mod js_paths_r3_test;
 mod js_paths_repair_test;
 mod js_paths_test;
 mod js_relative_extension_test;
+mod js_relative_namespace_test;
 mod js_wrapped_export_refusal_test;
 mod js_wrapped_export_state_test;
 mod js_wrapped_export_test;

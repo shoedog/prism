@@ -6799,7 +6799,7 @@ fn js_ts_normalized_module_candidates(
     Some(candidates)
 }
 
-fn js_ts_literal_module_candidates(
+pub(crate) fn js_ts_literal_module_candidates(
     module_path: &str,
     caller_file: &str,
     indexed_files: &BTreeSet<String>,

@@ -16,7 +16,7 @@ use std::collections::BTreeMap;
 const F_TS: &str = "export function f() { return 1; }\n";
 const DISTRACTOR: &str = "export function f() { return 2; }\n";
 
-fn graph(sources: &[(&str, &str)]) -> CallGraph {
+pub(super) fn graph(sources: &[(&str, &str)]) -> CallGraph {
     let files: BTreeMap<String, ParsedFile> = sources
         .iter()
         .map(|(path, src)| {
@@ -31,7 +31,7 @@ fn graph(sources: &[(&str, &str)]) -> CallGraph {
 }
 
 /// One row per call site `callee` made from a function named `caller`.
-fn rows(cg: &CallGraph, caller: &str, callee: &str) -> Vec<String> {
+pub(super) fn rows(cg: &CallGraph, caller: &str, callee: &str) -> Vec<String> {
     let mut out = Vec::new();
     for site in cg.calls.values().flatten() {
         if site.caller.name != caller || site.callee_name != callee {
@@ -61,7 +61,7 @@ fn rows(cg: &CallGraph, caller: &str, callee: &str) -> Vec<String> {
 /// `plain` in every source, and returns the rows for each spelling. `{I}`
 /// is the barrel import `./index.js` for the spelled run and `./index` for
 /// the plain run.
-fn twin(
+pub(super) fn twin(
     sources: &[(&str, &str)],
     spelled: &str,
     plain: &str,
