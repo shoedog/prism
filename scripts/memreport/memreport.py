@@ -2,7 +2,7 @@
 """Memory-report driver for prism-mcp (shared-daemon spec section 6.1).
 
     memreport.py gen-workload --bin BIN --corpus NAME=PATH [--functions 50] [--workloads DIR]
-    memreport.py run --bin BIN --corpus NAME=PATH [--corpus ...] --out DIR [--workloads DIR]
+    memreport.py run --bin BIN --corpus NAME=PATH [--corpus ...] --out DIR [--workloads DIR] [--kinds LIST]
     memreport.py summarize --run DIR
     memreport.py render --run DIR --out FILE.md
 
@@ -13,6 +13,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import statistics
 import subprocess
 import sys
@@ -176,6 +177,16 @@ def corpus_provenance(path):
     status = capture(['git', '-C', str(path), 'status', '--porcelain'])
     return {'path': str(path), 'commit': capture(['git', '-C', str(path), 'rev-parse', 'HEAD']) or None,
             'dirty': None if status is None else len([line for line in status.splitlines() if line])}
+
+
+def parse_kinds(text):
+    """The kinds named by `--kinds` in the order `run` executes them; exits on an unknown, repeated or empty name."""
+    names = text.split(',')
+    problems = ['%r is not a kind' % name for name in names if name not in RUN_KINDS]
+    problems += ['%s is listed twice' % name for name in sorted(set(names)) if names.count(name) > 1]
+    if problems:
+        raise SystemExit('--kinds %r: %s (kinds: %s)' % (text, '; '.join(problems), ','.join(RUN_KINDS)))
+    return tuple(kind for kind in RUN_KINDS if kind in names)
 
 
 def parse_corpora(pairs):
@@ -375,23 +386,41 @@ def write_summary(out, summary):
     return path
 
 
-def measure_corpus(args, name, path, provenance, snapshot, digest):
-    """Run every kind for one corpus, saving each raw result as it finishes. Returns (corpus, results, prime)."""
+def run_build(args, path, out, name, rep, snapshot):
+    """One first build into a cache directory of its own; its file sizes are recorded, then it is deleted."""
+    cache_dir = out / 'cache-build' / name / str(rep)
+    shutil.rmtree(cache_dir, ignore_errors=True)
+    cache_dir.mkdir(parents=True)
+    try:
+        result = run_one(command_for(args.bin, path, cache_dir, BUILD, snapshot, args.settle), BUILD, args.timeout)
+        result['cache_files'] = cache_file_sizes(cache_dir)
+    finally:
+        shutil.rmtree(cache_dir, ignore_errors=True)
+    return result
+
+
+def measure_corpus(args, name, path, provenance, snapshot, digest, kinds=KINDS):
+    """Run the chosen kinds for one corpus, saving each raw result as it finishes. Returns (corpus, results, prime)."""
     out = Path(args.out)
     raw = out / 'raw' / name
     raw.mkdir(parents=True, exist_ok=True)
     cache_dir = out / 'cache' / name
-    # Prime the cache with a discarded run so that "warm" means a cache hit.
-    prime = run_one(command_for(args.bin, path, cache_dir, 'warm', snapshot, 0), PRIME, args.timeout)
-    (raw / 'prime.json').write_text(json.dumps(prime, indent=1))
+    prime = None
+    if set(kinds) & set(CACHED_KINDS):
+        # Prime the cache with a discarded run so that "warm" means a cache hit.
+        prime = run_one(command_for(args.bin, path, cache_dir, 'warm', snapshot, 0), PRIME, args.timeout)
+        (raw / 'prime.json').write_text(json.dumps(prime, indent=1))
     corpus = dict(provenance, cache_files=cache_file_sizes(cache_dir), workload=digest)
     (raw / 'corpus.json').write_text(json.dumps(corpus, indent=1, sort_keys=True))
     results = []
-    for kind in KINDS:
+    for kind in kinds:
         for rep in range(1, args.reps + 1):
             before = host_state()
-            result = run_one(command_for(args.bin, path, cache_dir, kind, snapshot, args.settle),
-                             kind, args.timeout, digest if kind == 'workload' else None)
+            if kind == BUILD:
+                result = run_build(args, path, out, name, rep, snapshot)
+            else:
+                result = run_one(command_for(args.bin, path, cache_dir, kind, snapshot, args.settle),
+                                 kind, args.timeout, digest if kind == 'workload' else None)
             result.update(rep=rep, host_before=before)
             (raw / ('%s-%d.json' % (kind, rep))).write_text(json.dumps(result, indent=1))
             print('%s %s #%d: %s (%ss)' % (name, kind, rep, result['status'], result['wall_secs']), flush=True)
@@ -400,6 +429,7 @@ def measure_corpus(args, name, path, provenance, snapshot, digest):
 
 
 def cmd_run(args):
+    kinds = parse_kinds(args.kinds)  # before anything else: a typo must not cost a run
     out = Path(args.out)
     # One run directory holds one run: a second run would overwrite some raw files and leave others, and
     # `summarize` would pool the two.
@@ -412,13 +442,13 @@ def cmd_run(args):
         provenance = corpus_provenance(path)
         bound[name] = (path, provenance) + bind_workload(name, args.workloads, provenance['commit'])
     out.mkdir(parents=True, exist_ok=True)
-    (out / 'run.json').write_text(json.dumps(settings, indent=1, sort_keys=True))
+    (out / 'run.json').write_text(json.dumps(dict(settings, kinds=list(kinds)), indent=1, sort_keys=True))
     entries = {}
     for name, (path, provenance, data, digest) in bound.items():
         snapshot = out / 'workloads' / (name + '.jsonl')
         snapshot.parent.mkdir(parents=True, exist_ok=True)
         snapshot.write_bytes(data)
-        corpus, results, prime = measure_corpus(args, name, path, provenance, snapshot, digest)
+        corpus, results, prime = measure_corpus(args, name, path, provenance, snapshot, digest, kinds)
         entries[name] = build_entry(corpus, results, prime)
         write_summary(out, assemble_summary(settings, entries))  # kept after every corpus, not just at the end
     print('wrote %s' % (out / 'summary.json'))
@@ -428,6 +458,7 @@ def cmd_summarize(args):
     """Rebuild summary.json from raw/ alone, validating every stored report with today's rules."""
     out = Path(args.run)
     settings = json.loads((out / 'run.json').read_text())
+    settings.pop('kinds', None)  # which kinds ran is what raw/ holds; a run.json from before --kinds has no key
     entries = {}
     for directory in sorted(path for path in (out / 'raw').iterdir() if path.is_dir()):
         corpus_path = directory / 'corpus.json'
@@ -470,6 +501,8 @@ def main(argv=None):
     run.add_argument('--out', required=True)
     run.add_argument('--workloads', type=Path, default=WORKLOADS, metavar='DIR',
                      help='where workloads/*.jsonl and MANIFEST.json live (default: %(default)s)')
+    run.add_argument('--kinds', default=','.join(KINDS), metavar='LIST',
+                     help='comma-separated subset of %s (default: %%(default)s)' % ','.join(RUN_KINDS))
     run.add_argument('--reps', type=int, default=3)
     run.add_argument('--timeout', type=int, default=1800)
     run.add_argument('--settle', type=int, default=5)

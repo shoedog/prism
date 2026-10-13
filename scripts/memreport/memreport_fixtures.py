@@ -127,15 +127,24 @@ elif '--mem-refresh' in argv:
 else:
     kind = 'warm'
 call = tick(repo + '-' + kind)
-if opt('--cache-dir') and kind == 'warm' and call == 0:
+# A cache directory without the marker is empty: this run builds and writes the cache (a miss). The marker
+# is not a cache file; the second run into the same directory hits.
+marker = os.path.join(opt('--cache-dir') or '', '.fake-primed')
+miss = bool(opt('--cache-dir')) and kind == 'warm' and not os.path.exists(marker)
+if miss:
     d = os.path.join(opt('--cache-dir'), 'h1')
     os.makedirs(d, exist_ok=True)
+    by_call = cfg.get('cache_bytes_by_call') or []
+    sizes = {'cache_bytes': by_call[call] if call < len(by_call) else cfg.get('cache_bytes'),
+             'sidecar_bytes': cfg.get('sidecar_bytes')}
     for name, key in (('cpg-cache.bin', 'cache_bytes'), ('resolved-call-edge-index.bin', 'sidecar_bytes')):
-        if cfg.get(key) is not None:
-            open(os.path.join(d, name), 'wb').write(b'x' * cfg[key])
-report = json.loads(json.dumps(cfg.get('repo_reports', {}).get(repo, {}).get(kind) or cfg['reports'][kind]))
-if opt('--cache-dir') and kind == 'warm' and call == 0:
-    report['cache'] = {'cpg_hit': False, 'call_edges_loaded': False}    # the priming run builds both
+        if sizes[key] is not None:
+            open(os.path.join(d, name), 'wb').write(b'x' * sizes[key])
+    open(marker, 'w').write('1')
+shape = 'build' if miss and 'build' in cfg['reports'] else kind
+report = json.loads(json.dumps(cfg.get('repo_reports', {}).get(repo, {}).get(shape) or cfg['reports'][shape]))
+if miss and cfg.get('miss_cache', True):
+    report['cache'] = {'cpg_hit': False, 'call_edges_loaded': False}    # a first build builds both
 if kind == 'workload':
     data = open(opt('--mem-workload'), 'rb').read()
     by_call = cfg.get('workload_sha_by_call') or []
