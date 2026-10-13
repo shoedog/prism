@@ -106,7 +106,7 @@ Edges of this kind in the corpora today, counted with `variants/r4_adjudicate.cj
 | | X | T | F |
 |---|---:|---:|---:|
 | Same-file edge, target inside the binding's own declaration (kept) | 34 | 154 | 54 |
-| Same-file edge, target elsewhere in the file | 20 | 25 | 28 |
+| Same-file edge, target elsewhere in the file | 20 | 26 | 28 |
 | … of which the file passes the target under the same name (prop or object key) | 0 | 4 | 0 |
 
 On F, 27 of the 28 are `const { x } = props` where an unrelated same-file function is also called `x`. The census had these as "unknown, with an edge", which is why they were not in the 109.
