@@ -1,10 +1,10 @@
 # E5 — owner-selected union, measured prototype
 
-**Status: PLANNER COMPLETE / READY FOR CONTROLLER F AND SPEC REVIEW.** Entry/delivery patch base d994c75d; main product bab0dfbd; union source preserved at e164178b. Adoption remains pending controller F and independent reviews (Opus and gpt-6.1-sol, cap two rounds). The former readiness STOP is resolved by the step1b controller ruling and a serial head PASS.
+**Status: PLANNER COMPLETE / CONTROLLER F DONE (2026-10-13) / IN SPEC REVIEW.** Entry/delivery patch base d994c75d; main product bab0dfbd; union source preserved at e164178b. Adoption remains pending controller F and independent reviews (Opus and gpt-6.1-sol, cap two rounds). The former readiness STOP is resolved by the step1b controller ruling and a serial head PASS.
 
 ## Goal and owner decisions
 
-Reduce false Exact cross-file FreeSingle calls using only caller-file syntax and target declaration syntax. Exact is a static binding by declaration, scope, import and export syntax. Owner chose unchanged step0 arm(a) union R-bound arm(b), with drop, after arm(a) removed no target on F. Narrow-only recommendation is superseded. JSX remains included, with its measured split below; the owner can cut it separately. R-local is an accepted follow-up; D12 stays unchanged.
+Reduce false Exact cross-file FreeSingle calls using only caller-file syntax and target declaration syntax. Exact is a static binding by declaration, scope, import and export syntax. Owner chose unchanged step0 arm(a) union R-bound arm(b), with drop, after arm(a) removed no target on F. Narrow-only recommendation is superseded. JSX remains included, with its measured split below; the owner can cut it separately (open decision: see MEASUREMENTS.md, "Controller note on arm (b) and member-expression JSX"). R-local is an accepted follow-up; D12 stays unchanged.
 
 ## Rule of record: (a) or (b), drop
 
@@ -55,7 +55,7 @@ All581 call-site and graph comparisons are admitted. Every differing call site (
 
 Every one of the 34 UNDECIDED removals is listed with its local binding, oracle reason and up to ten public samples in [UNDECIDED-step1.md](UNDECIDED-step1.md). U/I are exposure, not yield. Zero classified CORRECT loss does not certify unknown oracle cost. [REPORT-step1.md](REPORT-step1.md) contains every graph-kind/verdict count and gate command; [MEASUREMENTS.md](MEASUREMENTS.md) retains historical experiments.
 
-Controller F historical base/narrow head:113 retained,109 W/0 C/4 U/0 I; arm(a) removes0. Historical R-bound census price109 W/4 U. Union F real measurement is pending and is never inferred from those prices.
+Controller F historical base/narrow head:113 retained,109 W/0 C/4 U/0 I; arm(a) removes0. Historical R-bound census price109 W/4 U. **Union F real measurement (controller, 2026-10-13):** 113 of 113 removed, 109 W / 0 C / 4 U / 0 I; 0 targets, sites or graph rows added; non-JS call sites identical; all 113 are ordinary Source calls, so the JSX and indirect part of arm (b) contributes nothing on F. Details in MEASUREMENTS.md, "Controller private run, union head".
 
 ## Existing fixtures and deliberate expectations
 
@@ -97,7 +97,7 @@ Keep call sites with a retained qualifier, earlier proven qualified rungs, same-
 
 ## Acceptance criteria and gates
 
-- Zero CORRECT Exact loss on each admitted public corpus and controller F; any loss invokes STOP. Public criterion passed; F pending.
+- Zero CORRECT Exact loss on each admitted public corpus and controller F; any loss invokes STOP. Public criterion passed; F passed (0 CORRECT lost).
 - Zero new WRONG/target/site/topology; every differing call site and graph row adjudicated. Public added counts all0.
 - Non-JS call bytes and non-call graph digests identical; symbol/file inventories identical; disclose call-derived navigation/dependency changes. All581 public roots passed.
 - Every UNDECIDED removal disclosed; preserve INADMISSIBLE exposures and four producer exclusions without yield or zero-cost credit.

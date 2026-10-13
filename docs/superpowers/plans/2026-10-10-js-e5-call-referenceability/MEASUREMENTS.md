@@ -189,3 +189,33 @@ Paired `CONTROLLER-e5.sh diff` on the frozen step-0 binaries (hashes verified 12
 Census predicates on the base rows (not paired head builds on F): R-inferred would cover 84 WRONG, 0 CORRECT, 0 UNDECIDED; R-bound would cover 109 WRONG, 0 CORRECT, 4 UNDECIDED.
 
 This meets the brief's "negligible WRONG yield" STOP for F. The breadth decision goes to the owner with this result. Private rows stay in the controller's private evidence directory.
+
+## Controller private run, union head (corpus F; 2026-10-13, aggregates only)
+
+Paired `CONTROLLER-e5.sh diff` with the step-0 base binaries and the frozen step-1 head binaries (`head-prism` `38b923a3…`, `head-facts` `f77b5364…`, `head-graph` `07b08eb0…`, matching `step1/binary-binding.json`; product source unchanged between `e164178b` and packet head `2d9253bd`). Status COMPLETE; raw equals after-override; 0 overrides; controller stderr empty; producer stderr identical in size and content class to step 0.
+
+| | Base | Union head |
+|---|---:|---:|
+| Call sites | 13,299 | 13,299 (113 changed; non-JS call sites identical) |
+| Exact `free_single` JS/TS targets | 113 | 0 |
+| Targets removed: WRONG / CORRECT / UNDECIDED / INADMISSIBLE | | 109 / 0 / 4 / 0 |
+| Targets, sites or graph rows added | | 0 / 0 / 0 |
+| Graph rows | 54,831 | 54,562 |
+
+Graph rows removed (269), each adjudicated: Call 113 (109 WRONG, 4 UNDECIDED), Return 113 (109 WRONG, 4 UNDECIDED), DataFlow 42 (all WRONG), ReturnFlow 1 (WRONG).
+
+All 113 removals are ordinary Source calls (census predicate R-bound-source covers 113 of 113), so the JSX and indirect part of arm (b) contributes nothing on F. The four UNDECIDED removals are calls through a local declaration to a variable bound directly to a function; they are exposure, not yield. Census prices on the same base rows: R-local 109 W / 0 C / 4 U; R-local-no-require 109 W / 0 C / 4 U (F's callers are ES modules, so the follow-up predicate adds nothing there beyond the union).
+
+The acceptance criterion "zero CORRECT Exact loss on F" passes. Private rows stay in the controller's private evidence directory.
+
+## Controller note on arm (b) and member-expression JSX (public corpus X)
+
+Reading the Excalidraw source behind the X JSX split (13 W / 23 U / 35 I):
+
+- prism reaches these targets through its indirect record for a static property assignment, for example `DropdownMenu.Item = DropdownMenuItem;` in `dropdownMenu/DropdownMenu.tsx:60`. The site `<DropdownMenu.Item>` in `Actions.tsx` is recorded with callee text `DropdownMenuItem`.
+- Arm (b) then asks whether the **calling** file imports `DropdownMenuItem`. It does not: it imports `DropdownMenu`. The name was written in `DropdownMenu.tsx`, which does import it.
+- The 23 UNDECIDED removals are of this kind (`DropdownMenu.Item`, `DropdownMenu.Item.Badge`, `DropdownMenuSub.Content`, `DropdownMenuSub.Trigger`). By the source they are the assigned component; the checker cannot establish value identity, so they are UNDECIDED, not CORRECT.
+- The 13 WRONG removals are the same mechanism choosing by property name alone: `<DropdownMenu.Trigger>` resolved to `DropdownMenuSubTrigger`, `<DropdownMenu.Content>` to `DropdownMenuSubContent`.
+- A sampled INADMISSIBLE removal is `<DropdownMenuPrimitive.Item>` (imported from `radix-ui`) resolved to the local `DropdownMenuItem`.
+
+So for indirect records arm (b)'s premise is evaluated in a file where the name was never written. This is an open owner decision (keep or cut the indirect/JSX part of arm (b)); the reviewers are asked to assess it.
