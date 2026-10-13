@@ -176,6 +176,25 @@ class GenWorkloadTests(Harness):
         self.assertEqual((self.workloads / 'a.jsonl').read_bytes().count(b'\n'), 3)
         self.assertFalse((self.workloads / 'b.jsonl').exists())
 
+    def test_the_manifest_is_on_disk_before_the_next_corpus_starts(self):
+        self.corpus('a')
+        self.corpus('b')
+        self.fake(emit={'a': 3, 'b': 3})
+        real = memreport.emit_workload
+        seen = {}
+
+        def interrupted_in_b(binary, path, functions, timeout):
+            if path.name == 'b':
+                seen['manifest'] = sorted(self.manifest())
+                raise KeyboardInterrupt
+            return real(binary, path, functions, timeout)
+
+        with mock.patch.object(memreport, 'emit_workload', interrupted_in_b):
+            with self.assertRaises(KeyboardInterrupt):
+                self.gen('a', 'b')
+        self.assertEqual(seen['manifest'], ['a'])
+        self.assertEqual(sorted(self.manifest()), ['a'])
+
     def test_a_failure_in_the_first_corpus_does_not_stop_the_second(self):
         self.corpus('a')
         self.corpus('b')
