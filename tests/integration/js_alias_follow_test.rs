@@ -242,3 +242,92 @@ fn a_namespace_member_alias_without_an_export_proof_grades_like_the_qualified_ca
         ]
     );
 }
+
+/// Every record at the caller's last line, as `callee origin: target kind confidence` (or
+/// `drop`), sorted: the `Source` record and any `IndirectResolution` record the textual
+/// function-pointer path (`call_graph.rs` Level 1) adds at the same site.
+fn records_at(files: &[(&str, &str)], caller_file: &str, line: u64) -> Vec<String> {
+    let cg = graph_n(files);
+    let mut out = Vec::new();
+    for row in prism::navigation::queries::call_site_dump(&cg) {
+        if row["caller"]["file"] != caller_file || row["source_span"]["line"] != line {
+            continue;
+        }
+        let shown = match row["resolved_targets"].as_array().filter(|t| !t.is_empty()) {
+            Some(targets) => targets
+                .iter()
+                .map(|t| {
+                    format!(
+                        "{}:{}@{}-{} {} {}",
+                        t["function_id"]["file"].as_str().unwrap(),
+                        t["function_id"]["name"].as_str().unwrap(),
+                        t["function_id"]["start_line"],
+                        t["function_id"]["end_line"],
+                        t["kind"].as_str().unwrap(),
+                        t["confidence"].as_str().unwrap()
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", "),
+            None => format!("drop {}", row["drop"].as_str().unwrap_or("?")),
+        };
+        out.push(format!(
+            "{} {}: {shown}",
+            row["callee_text"].as_str().unwrap(),
+            row["origin"].as_str().unwrap()
+        ));
+    }
+    out.sort();
+    out
+}
+
+const F_CALLEE: (&str, &str) = ("callee.js", "export function f(x) {\n  return x;\n}\n");
+
+#[test]
+fn textual_fptr_path_case1_alias_of_an_import_under_its_own_name() {
+    let src = "import { f } from './callee';\nexport function run() {\n  const h = f;\n  \
+        return h(1);\n}\n";
+    // Main: the `Source` record for `h` drops UnknownName; the textual path's record binds `f`.
+    // Here both records carry the same target, so a consumer sees the target twice, agreeing.
+    assert_eq!(
+        records_at(&[F_CALLEE, ("caller.js", src)], "caller.js", 4),
+        [
+            "f IndirectResolution: callee.js:f@1-3 import_member exact",
+            "h Source: callee.js:f@1-3 import_member exact",
+        ]
+    );
+}
+
+#[test]
+fn textual_fptr_path_case2_alias_of_a_same_file_function() {
+    let src = "function f() {\n  return 0;\n}\nexport function run() {\n  const h = f;\n  \
+        return h(1);\n}\n";
+    // Main: `Source` drops UnknownName; the textual record binds `f`. Now both bind `f`.
+    assert_eq!(
+        records_at(&[("caller.js", src)], "caller.js", 6),
+        [
+            "f IndirectResolution: caller.js:f@1-3 local_def exact",
+            "h Source: caller.js:f@1-3 local_def exact",
+        ]
+    );
+}
+
+#[test]
+fn textual_fptr_path_case3_shadowed_right_hand_name_is_still_a_false_exact() {
+    // `f` at `const h = f` is the parameter of `outer`, not the import. The binder-based follow
+    // correctly refuses (the `Source` record drops). The textual function-pointer path
+    // (`call_graph.rs` Level 1, `resolve_fptr_assignment`) reads source text, is scope-blind,
+    // and still emits an `IndirectResolution` record with a false Exact import_member edge.
+    // Pinned as CURRENT behavior, unchanged by slice L; making that path binding-aware for
+    // JS/TS is the next slice.
+    let src =
+        "import { f } from './callee';\nexport function outer(f) {\n  function inner() {\n    \
+        const h = f;\n    return h(1);\n  }\n  return inner();\n}\n";
+    assert_eq!(
+        records_at(&[F_CALLEE, ("caller.js", src)], "caller.js", 5),
+        [
+            "f IndirectResolution: callee.js:f@1-3 import_member exact",
+            "h Source: drop UnknownName",
+        ]
+    );
+}
