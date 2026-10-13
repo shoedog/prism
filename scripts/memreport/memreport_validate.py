@@ -26,6 +26,17 @@ BUILD_REASONS = ('the CPG cache was hit, so this was not a first build',
                  'the call-edge index was loaded, so this was not a first build',
                  'the report does not say the CPG cache was missed',
                  'the report does not say the call-edge index was computed')
+# A `build` run is also supposed to leave both cache files behind. The binary catches a failed save, prints it
+# and exits 0 with both flags false, so only the files (and, at run time, the text) show that nothing was written.
+BUILD_CACHE_REASONS = ('the run wrote no cpg-cache.bin, so this was not a build that writes the cache',
+                       'the run wrote no call-edge sidecar, so this was not a build that writes the cache',
+                       'the result records no cache file sizes, so it is not shown to be a build that writes '
+                       'the cache')
+BUILD_SAVE_MARKERS = (
+    ('failed to save CPG cache', 'the CPG cache could not be saved, so this was not a build that writes the cache'),
+    ('nav edge cache: failed to save sidecar',
+     'the call-edge sidecar could not be saved, so this was not a build that writes the cache'),
+)
 # A run of these kinds is supposed to load both caches from a primed directory.
 CACHED_KINDS = ('warm', 'workload', 'refresh')
 
@@ -140,6 +151,17 @@ def well_formed_headers(report):
     threads = report.get('threads')
     if type(threads) is not int or threads < 1 or threads > U64_MAX:
         return 'threads is %r, not a positive integer' % (threads,)
+    return None
+
+
+def build_cache_reason(cache_files):
+    """None when the stored sizes show a build wrote both cache files (integers above 0), else why not."""
+    if not isinstance(cache_files, dict):
+        return BUILD_CACHE_REASONS[2]
+    for position, key in enumerate(('cpg_cache_bytes', 'call_edge_sidecar_bytes')):
+        size = cache_files.get(key)
+        if type(size) is not int or size <= 0:
+            return BUILD_CACHE_REASONS[position]
     return None
 
 

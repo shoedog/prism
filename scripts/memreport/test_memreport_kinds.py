@@ -180,11 +180,60 @@ class BuildKindTests(Kinds):
         self.assertEqual([item['cache_files'] for item in stored], [
             {'cpg_cache_bytes': size, 'call_edge_sidecar_bytes': 7} for size in (111, 222, 333)])
 
-    def test_a_file_the_child_did_not_write_is_none_not_zero(self):
+    def test_a_file_the_child_did_not_write_is_none_not_zero_and_the_run_is_not_a_build(self):
         self.prepare(cache_bytes=5, sidecar_bytes=None)
         self.run_kinds('build', reps=1)
         stored = json.loads((self.out / 'raw' / 'a' / 'build-1.json').read_text())
         self.assertEqual(stored['cache_files'], {'cpg_cache_bytes': 5, 'call_edge_sidecar_bytes': None})
+        self.assertEqual((stored['status'], stored['reason']), (
+            'inadmissible', 'the run wrote no call-edge sidecar, so this was not a build that writes the cache'))
+        self.assertEqual(self.summary()['corpora']['a']['admissible']['build'], 0)
+
+    def test_a_child_that_wrote_no_cache_at_all_gives_no_build_series(self):
+        # The real binary catches a failed cache save, prints it and exits 0 with both flags false.
+        self.prepare(cache_bytes=None, sidecar_bytes=None)
+        self.run_kinds('build', reps=3)
+        entry = self.summary()['corpora']['a']
+        self.assertEqual(entry['admissible']['build'], 0)
+        self.assertEqual(len(entry['inadmissible']), 3)
+        self.assertNotIn('build_peak', entry['metrics'])
+        self.assertIn('wrote no cpg-cache.bin', entry['inadmissible'][0]['reason'])
+
+    def test_an_empty_cache_file_is_not_a_written_cache(self):
+        self.prepare(cache_bytes=0)
+        self.run_kinds('build', reps=1)
+        self.assertEqual(self.summary()['corpora']['a']['admissible']['build'], 0)
+
+    def test_a_save_failure_on_stderr_excludes_the_run_even_if_files_exist(self):
+        for text, cause in (('nav cache: failed to save CPG cache in /x: disk full', 'the CPG cache'),
+                            ('nav edge cache: failed to save sidecar in /x: disk full', 'the call-edge sidecar')):
+            self.tools = self.tmp / ('tools-' + cause.split()[1])
+            self.tools.mkdir()
+            self.out = self.tmp / ('out-' + cause.split()[1])
+            self.corpus('a') if not (self.tmp / 'a').exists() else None
+            self.fake(emit={'a': 4}, reports=all_reports(), miss_stderr=[text])
+            self.gen('a')
+            self.run_kinds('build', reps=1)
+            entry = self.summary()['corpora']['a']
+            self.assertEqual(entry['admissible']['build'], 0, cause)
+            self.assertIn('could not be saved', entry['inadmissible'][0]['reason'])
+            self.assertIn(cause, entry['inadmissible'][0]['reason'])
+
+    def test_summarize_applies_the_cache_evidence_to_a_stored_build_result(self):
+        self.prepare()
+        self.run_kinds('build', reps=3)
+        raw = self.out / 'raw' / 'a'
+        stored = json.loads((raw / 'build-1.json').read_text())
+        stored['cache_files']['cpg_cache_bytes'] = None
+        (raw / 'build-1.json').write_text(json.dumps(stored))
+        stored = json.loads((raw / 'build-2.json').read_text())
+        del stored['cache_files']
+        (raw / 'build-2.json').write_text(json.dumps(stored))
+        base.quiet(memreport.main, ['summarize', '--run', str(self.out)])
+        entry = self.summary()['corpora']['a']
+        self.assertEqual(entry['admissible']['build'], 1)
+        self.assertEqual([(i['rep'], i['status']) for i in entry['inadmissible']],
+                         [(1, 'inadmissible'), (2, 'inadmissible')])
 
     def test_a_repetition_whose_report_says_the_cache_was_hit_is_inadmissible(self):
         hit = canned('build')

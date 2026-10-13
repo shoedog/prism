@@ -28,8 +28,9 @@ from memreport_rule import (CANDIDATES, RULE_ABSOLUTE, RULE_FRACTION, decision_p
 from memreport_summary import (RUN_KINDS, assemble_summary, build_entry, effective_status,  # noqa: F401
                                exclude_entry, prime_peak, summarize, write_json_atomically, write_summary)
 # The validation names are re-exported: tests and callers use them as `memreport.validate` and so on.
-from memreport_validate import (BUILD, CACHE_REASONS, CACHED_KINDS, PRIME, REPORT_VERSION, REQUIRED,  # noqa: F401
-                                find_stage, footprint, is_number, validate, well_formed)
+from memreport_validate import (BUILD, BUILD_SAVE_MARKERS, CACHE_REASONS, CACHED_KINDS, PRIME,  # noqa: F401
+                                REPORT_VERSION, REQUIRED, build_cache_reason, find_stage, footprint, is_number,
+                                validate, well_formed)
 
 MARKER = '{"prism_mem_report":'
 # stderr text that means a cache-loaded run did not load everything from cache. The report's `cache` section
@@ -90,7 +91,8 @@ def run_one(command, kind, timeout, expected=None):
     reason = validate(kind, report, expected)
     # The report's own cache section decides admission. A marker on stderr is a second witness: it can only
     # exclude a run, and it names the cause more precisely than the report's reason does.
-    missed = [text for marker, text in CACHE_MISS_MARKERS if marker in stderr] if kind in CACHED_KINDS else []
+    markers = CACHE_MISS_MARKERS if kind in CACHED_KINDS else BUILD_SAVE_MARKERS if kind == BUILD else ()
+    missed = [text for marker, text in markers if marker in stderr]
     if missed:
         reasons = missed + ([reason] if reason and reason not in CACHE_REASONS else [])
         result.update(status='inadmissible', reason='; '.join(reasons))
@@ -234,6 +236,9 @@ def run_build(args, path, out, name, rep, snapshot):
     try:
         result = run_one(command_for(args.bin, path, cache_dir, BUILD, snapshot, args.settle), BUILD, args.timeout)
         result['cache_files'] = cache_file_sizes(cache_dir)
+        reason = build_cache_reason(result['cache_files']) if result.get('status') == 'ok' else None
+        if reason:
+            result.update(status='inadmissible', reason=reason)
     finally:
         shutil.rmtree(cache_dir, ignore_errors=True)
     return result

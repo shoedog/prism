@@ -135,8 +135,8 @@ if miss:
     d = os.path.join(opt('--cache-dir'), 'h1')
     os.makedirs(d, exist_ok=True)
     by_call = cfg.get('cache_bytes_by_call') or []
-    sizes = {'cache_bytes': by_call[call] if call < len(by_call) else cfg.get('cache_bytes'),
-             'sidecar_bytes': cfg.get('sidecar_bytes')}
+    sizes = {'cache_bytes': by_call[call] if call < len(by_call) else cfg.get('cache_bytes', 1000),
+             'sidecar_bytes': cfg.get('sidecar_bytes', 100)}    # both files by default; null writes none
     for name, key in (('cpg-cache.bin', 'cache_bytes'), ('resolved-call-edge-index.bin', 'sidecar_bytes')):
         if sizes[key] is not None:
             open(os.path.join(d, name), 'wb').write(b'x' * sizes[key])
@@ -152,6 +152,8 @@ if kind == 'workload':
     report['workload']['requests'] = report['workload']['responses'] = data.count(b'\n')
     if cfg.get('mutate_source'):
         open(cfg['mutate_source'], 'wb').write(b'{"id":9}\n')
+for text in cfg.get('miss_stderr', []) if miss else []:
+    print(text, file=sys.stderr)
 for text in cfg.get('stderr', {}).get(kind, []) + cfg.get('repo_stderr', {}).get(repo, {}).get(kind, []):
     print(text, file=sys.stderr)
 if call in cfg.get('stderr_calls', {}).get(kind, []):

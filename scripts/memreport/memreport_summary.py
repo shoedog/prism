@@ -7,7 +7,7 @@ from pathlib import Path
 from memreport_derive import derive
 from memreport_render import KINDS
 from memreport_rule import evaluate
-from memreport_validate import BUILD, PRIME, is_number, validate
+from memreport_validate import BUILD, PRIME, build_cache_reason, is_number, validate
 
 RUN_KINDS = KINDS + (BUILD,)  # every kind `run` accepts; the readout lists only KINDS
 
@@ -38,6 +38,8 @@ def effective_status(result, expected=None):
     if not isinstance(result.get('report'), dict):
         return 'inadmissible', 'result has no report'
     reason = validate(result['kind'], result['report'], expected)
+    if reason is None and result['kind'] == BUILD:
+        reason = build_cache_reason(result.get('cache_files'))
     return ('ok', None) if reason is None else ('inadmissible', reason)
 
 

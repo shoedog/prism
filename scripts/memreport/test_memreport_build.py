@@ -15,11 +15,17 @@ from memreport_fixtures import MIB, canned, report, stage, stage_named  # noqa: 
 CORPUS = {'path': '/c', 'commit': 'abc', 'dirty': 0, 'cache_files': {}, 'workload': None}
 
 
-def ok_build(rep, **changes):
+WROTE = {'cpg_cache_bytes': 1000, 'call_edge_sidecar_bytes': 100}
+
+
+def ok_build(rep, cache_files=WROTE, **changes):
     data = canned('build')
     for name, fields in changes.items():
         stage_named(data, name).update(fields)
-    return {'kind': 'build', 'rep': rep, 'status': 'ok', 'report': data}
+    result = {'kind': 'build', 'rep': rep, 'status': 'ok', 'report': data}
+    if cache_files is not None:
+        result['cache_files'] = dict(cache_files)
+    return result
 
 
 class BuildAdmissionTests(unittest.TestCase):
@@ -87,6 +93,46 @@ class BuildDerivationTests(unittest.TestCase):
             warm = report([stage('after_load_repo', 100, 120, elapsed=loaded),
                            stage('after_index', 400, 700, elapsed=indexed)])
             self.assertIsNone(memreport.derive('warm', warm)['load_ms'])
+
+
+class BuildCacheEvidenceTests(unittest.TestCase):
+    """A build is a build that writes the cache: the files it left behind are part of the evidence."""
+
+    def reasons(self, cache_files):
+        entry = memreport.build_entry(CORPUS, [ok_build(1, cache_files=cache_files)])
+        return entry['admissible']['build'], [item['reason'] for item in entry['inadmissible']]
+
+    def test_both_files_written_is_admissible(self):
+        self.assertEqual(self.reasons(WROTE), (1, []))
+
+    def test_no_cpg_cache_file_is_inadmissible(self):
+        self.assertEqual(self.reasons({'cpg_cache_bytes': None, 'call_edge_sidecar_bytes': 100}), (
+            0, ['the run wrote no cpg-cache.bin, so this was not a build that writes the cache']))
+
+    def test_no_call_edge_sidecar_is_inadmissible(self):
+        self.assertEqual(self.reasons({'cpg_cache_bytes': 1000, 'call_edge_sidecar_bytes': None}), (
+            0, ['the run wrote no call-edge sidecar, so this was not a build that writes the cache']))
+
+    def test_an_empty_file_is_not_a_written_cache(self):
+        self.assertEqual(self.reasons({'cpg_cache_bytes': 0, 'call_edge_sidecar_bytes': 100})[0], 0)
+        self.assertEqual(self.reasons({'cpg_cache_bytes': 1000, 'call_edge_sidecar_bytes': 0})[0], 0)
+
+    def test_a_size_that_is_not_an_integer_is_not_a_written_cache(self):
+        for size in (True, 1.5, '1000', -5):
+            self.assertEqual(self.reasons({'cpg_cache_bytes': size, 'call_edge_sidecar_bytes': 100})[0], 0, size)
+
+    def test_a_stored_build_result_without_cache_files_is_inadmissible(self):
+        absent = ok_build(1, cache_files=None)
+        malformed = dict(ok_build(1), cache_files='x')
+        for result in (absent, malformed):
+            entry = memreport.build_entry(CORPUS, [result])
+            self.assertEqual(entry['admissible']['build'], 0, result.get('cache_files'))
+            self.assertIn('records no cache file sizes', entry['inadmissible'][0]['reason'])
+        self.assertEqual(self.reasons({})[0], 0)
+
+    def test_the_check_is_for_the_build_kind_only(self):
+        warm = {'kind': 'warm', 'rep': 1, 'status': 'ok', 'report': canned('warm')}
+        self.assertEqual(memreport.build_entry(CORPUS, [warm])['admissible']['warm'], 1)
 
 
 class BuildEntryTests(unittest.TestCase):
