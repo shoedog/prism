@@ -187,3 +187,58 @@ fn an_exported_alias_stays_unproven_across_files() {
     let got = caller_sites(&[("producer.js", producer), ("consumer.js", consumer)]);
     assert_eq!(got, ["L3 x: drop UnknownName"]);
 }
+
+#[test]
+fn an_alias_of_a_namespace_import_local_is_not_a_member_import() {
+    // `X` is a program-scope import, but a namespace, not a member: no candidate, and the
+    // same-file decoy `a` must not bind.
+    let src = "import * as X from './callee';\nfunction a() {\n  return 0;\n}\n\
+        export function run() {\n  const a = X;\n  return a();\n}\n";
+    let got = caller_sites(&[("callee.js", CALLEE), ("caller.js", src)]);
+    assert_eq!(got, ["L7 a: drop UnknownName"]);
+}
+
+#[test]
+fn an_alias_of_a_tsconfig_paths_import_binds_through_the_paths_route() {
+    use super::js_paths_common::{config, fixture, graph, outcome, write};
+    for ext in ["jsx", "tsx"] {
+        let d = fixture(
+            ext,
+            "@lib",
+            &config(serde_json::json!({"@lib": ["lib/real"]})),
+        );
+        write(
+            d.path(),
+            &format!("app.{ext}"),
+            "import { real as picked } from '@lib';\nexport function run() {\n  \
+             const viaAlias = picked;\n  viaAlias();\n}\n",
+        );
+        let row = outcome(&graph(d.path()), &format!("app.{ext}"), "viaAlias");
+        let targets = row["resolved_targets"].as_array().unwrap();
+        assert_eq!(targets.len(), 1, "{row}");
+        assert_eq!(targets[0]["function_id"]["file"], format!("lib/real.{ext}"));
+        assert_eq!(targets[0]["confidence"], "exact", "{row}");
+        assert_eq!(targets[0]["kind"], "import_member", "{row}");
+    }
+}
+
+#[test]
+fn a_namespace_member_alias_without_an_export_proof_grades_like_the_qualified_call() {
+    // `export const renamed = target;` makes the callee's namespace proof incomplete, so the
+    // route falls back to the stem match exactly as `N.target()` does: Exact import_qualified.
+    let callee = format!("{CALLEE}export const renamed = target;\n");
+    let src = "import * as N from './callee';\nexport function run() {\n  const f = N.target;\n  \
+        return [f(), N.target()];\n}\n";
+    let got = caller_sites(&[
+        ("callee.js", &callee),
+        ("caller.js", src),
+        ("decoy.js", DECOY),
+    ]);
+    assert_eq!(
+        got,
+        [
+            "L4 f: Exact import_qualified target@1-3",
+            "L4 target: Exact import_qualified target@1-3",
+        ]
+    );
+}

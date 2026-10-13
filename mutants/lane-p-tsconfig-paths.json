@@ -707,14 +707,14 @@
   ],
   "P2-M11-cpg-cache-version": [
    "src/cpg_cache.rs",
+   "const CACHE_VERSION: u32 = 115;",
    "const CACHE_VERSION: u32 = 114;",
-   "const CACHE_VERSION: u32 = 113;",
    "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
   ],
   "P2-M12-nav-cache-version": [
    "src/navigation/call_edge_cache.rs",
+   "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 63;",
    "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 62;",
-   "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 61;",
    "navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority"
   ],
   "N01-refuse-alias-hop": [

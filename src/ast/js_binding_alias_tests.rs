@@ -149,6 +149,24 @@ fn namespace_member_links_name_the_member_of_the_module() {
             "f",
             "f",
         ),
+        (
+            "two shorthand keys",
+            "const { g, f } = N;\nf();\n",
+            "f",
+            "f",
+        ),
+        (
+            "two renamed keys",
+            "const { g: a, h: b } = N;\na();\n",
+            "a",
+            "g",
+        ),
+        (
+            "comment inside parentheses",
+            "const a = (/* c */ N.f);\na();\n",
+            "a",
+            "f",
+        ),
     ];
     let rows = shapes
         .iter()
@@ -321,6 +339,11 @@ fn pattern_shapes_outside_the_flat_object_pattern_are_not_followed() {
         ("computed key", "const { ['f']: a } = N;\na();\n", "a"),
         ("string key", "const { 'f': a } = N;\na();\n", "a"),
         ("numeric key", "const { 1: a } = N;\na();\n", "a"),
+        (
+            "same name bound twice",
+            "const { f, g: f } = N;\nf();\n",
+            "f",
+        ),
         ("array pattern", "const [a] = N;\na();\n", "a"),
         ("array inside object", "const { x: [a] } = N;\na();\n", "a"),
         ("call value", "const { f } = N();\nf();\n", "f"),
@@ -424,6 +447,12 @@ fn the_qualifier_must_be_one_program_scope_value_namespace_import() {
     check(
         &TS,
         vec![
+            row(
+                "import alias of a namespace body is not a program import",
+                "namespace M {\n  import f = Other.g;\n  const a = f;\n  a();\n}\n",
+                "a",
+                None,
+            ),
             row(
                 "type-only namespace import",
                 "import type * as N from './m';\nconst a = N.f;\na();\n",
