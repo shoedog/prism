@@ -1,0 +1,24 @@
+{
+  "claim": "MEASURED",
+  "source_revision": "4e592daa7858a195eb3a9eb77c83dfbc763b49fa",
+  "production_source_clean": true,
+  "source_revision_authority": "fresh offline release build in this exact checkout; current facts driver seeded with checkout Cargo.lock; Cargo metadata package identities checked",
+  "cargo_lock_sha256": "f02d0a31d93e2870735d7a011a9f7e0c84d67224c80f8c46504666bff0e2b660",
+  "facts_source_sha256": "93c132e0f5534f779f362e9467b86f94465899e994f3d27b575adfa0e3ed7e15",
+  "census_sha256": "4d450ced93fa82dec6b18eed47d40eb01c4acd2f7ad6c09e629a64da99089c5e",
+  "binaries": {
+    "base": {
+      "name": "main-prism",
+      "path": "target/s2-plan/bin/main-prism",
+      "sha256": "d60396b5346caa53d28f7519fc628bb4de3f58f29b18d8754d16b18aa9bd80cb"
+    },
+    "facts": {
+      "name": "main-dump_imports",
+      "path": "target/s2-plan/bin/main-dump_imports",
+      "sha256": "74d91d14ab637770e9990976e01de8cf5345a7db430bcccf572a3d549036ad4e"
+    }
+  },
+  "previous_census_sha256": "6e1cc2196f3ca8f8e29f5e858bc8c277947f538367bf3515329c4a6237de7919",
+  "facts_source_authority": "S2-0 facts source committed at bc0fabb; immutable 4e592daa product binary. Current dump_imports.rs is the separate prototype driver.",
+  "oracle_policy": "Join failures are per-site UNJOINABLE; setup and source-binding failures remain INADMISSIBLE."
+}

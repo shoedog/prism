@@ -1,0 +1,411 @@
+{
+  "class-static": {
+    "files": {
+      "m.{ext}": "export class C { static sm() { return 1; } }",
+      "app.{ext}": "import { C as X } from \"./m\"; export function run() { X.sm(); }"
+    },
+    "new_exact": 1
+  },
+  "class-field": {
+    "files": {
+      "m.{ext}": "export class C { static sf = () => 1; }",
+      "app.{ext}": "import { C as X } from \"./m\"; export function run() { X.sf(); }"
+    },
+    "new_exact": 1
+  },
+  "default-class": {
+    "files": {
+      "m.{ext}": "export default class C { static sm() {} }",
+      "app.{ext}": "import X from \"./m\"; export function run() { X.sm(); }"
+    },
+    "new_exact": 1
+  },
+  "paths-class": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} }",
+      "app.{ext}": "import { C as X } from \"@lib\"; export function run() { X.sm(); }"
+    },
+    "new_exact": 1
+  },
+  "declared-namespace": {
+    "files": {
+      "m.{ext}": "export { N } from \"./leaf\";",
+      "app.{ext}": "import { N as X } from \"./m\"; export function run() { X.nf(); }",
+      "leaf.{ext}": "export namespace N { export function nf() {} }"
+    },
+    "new_exact": 1,
+    "typescript_only": true
+  },
+  "module-namespace": {
+    "files": {
+      "m.{ext}": "export * as N from \"./leaf\";",
+      "app.{ext}": "import { N as X } from \"./m\"; export function run() { X.nf(); }",
+      "leaf.{ext}": "export function nf() {}"
+    },
+    "new_exact": 1
+  },
+  "object-method": {
+    "files": {
+      "m.{ext}": "export { obj } from \"./leaf\";",
+      "app.{ext}": "import { obj as X } from \"./m\"; export function run() { X.of(); }",
+      "leaf.{ext}": "export const obj = { of() {} };"
+    },
+    "new_exact": 1
+  },
+  "object-arrow": {
+    "files": {
+      "m.{ext}": "export { obj } from \"./leaf\";",
+      "app.{ext}": "import { obj as X } from \"./m\"; export function run() { X.of(); }",
+      "leaf.{ext}": "export const obj = { of: () => 1 };"
+    },
+    "new_exact": 1
+  },
+  "object-named-function": {
+    "files": {
+      "m.{ext}": "export { obj } from \"./leaf\";",
+      "app.{ext}": "import { obj as X } from \"./m\"; export function run() { X.of(); }",
+      "leaf.{ext}": "export const obj = { of: function named() {} };"
+    },
+    "new_exact": 1
+  },
+  "member-write": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} } C.sm = other;",
+      "app.{ext}": "import { C as X } from \"./m\"; export function run() { X.sm(); }"
+    },
+    "new_exact": 0
+  },
+  "computed-write": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} } C[\"sm\"] = other;",
+      "app.{ext}": "import { C as X } from \"./m\"; export function run() { X.sm(); }"
+    },
+    "new_exact": 0
+  },
+  "binding-write": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} } C = other;",
+      "app.{ext}": "import { C as X } from \"./m\"; export function run() { X.sm(); }"
+    },
+    "new_exact": 0
+  },
+  "delete": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} } delete C.sm;",
+      "app.{ext}": "import { C as X } from \"./m\"; export function run() { X.sm(); }"
+    },
+    "new_exact": 0
+  },
+  "update": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} } C.sm++;",
+      "app.{ext}": "import { C as X } from \"./m\"; export function run() { X.sm(); }"
+    },
+    "new_exact": 0
+  },
+  "caller-write": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} }",
+      "app.{ext}": "import { C as X } from \"./m\"; X.sm = other; export function run() { X.sm(); }"
+    },
+    "new_exact": 0
+  },
+  "forwarded-write": {
+    "files": {
+      "m.{ext}": "import { C } from \"./leaf\"; C.sm = other; export { C };",
+      "app.{ext}": "import { C as X } from \"./m\"; export function run() { X.sm(); }",
+      "leaf.{ext}": "export class C { static sm() {} }"
+    },
+    "new_exact": 0
+  },
+  "shadow": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} }",
+      "app.{ext}": "import { C as X } from \"./m\"; export function run(X) { X.sm(); }"
+    },
+    "new_exact": 0
+  },
+  "shadow-write": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} }",
+      "app.{ext}": "import { C as X } from \"./m\"; function mutate(X) { X.sm = other; } export function run() { X.sm(); }"
+    },
+    "new_exact": 0
+  },
+  "instance": {
+    "files": {
+      "m.{ext}": "export class C { sm() {} }",
+      "app.{ext}": "import { C as X } from \"./m\"; export function run() { X.sm(); }"
+    },
+    "new_exact": 0
+  },
+  "duplicate": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} static sm() {} }",
+      "app.{ext}": "import { C as X } from \"./m\"; export function run() { X.sm(); }"
+    },
+    "new_exact": 0
+  },
+  "getter": {
+    "files": {
+      "m.{ext}": "export class C { static get sm() { return () => 1; } }",
+      "app.{ext}": "import { C as X } from \"./m\"; export function run() { X.sm(); }"
+    },
+    "new_exact": 0
+  },
+  "call-result": {
+    "files": {
+      "m.{ext}": "export const C = register({ sm() {} });",
+      "app.{ext}": "import { C as X } from \"./m\"; export function run() { X.sm(); }"
+    },
+    "new_exact": 0
+  },
+  "parse-error": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} } const bad = ;",
+      "app.{ext}": "import { C as X } from \"./m\"; export function run() { X.sm(); }"
+    },
+    "new_exact": 0
+  },
+  "require": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} }",
+      "app.{ext}": "const X = require(\"./m\"); export function run() { X.sm(); }"
+    },
+    "new_exact": 0
+  },
+  "type-only": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} }",
+      "app.{ext}": "import type { C as X } from \"./m\"; export function run() { X.sm(); }"
+    },
+    "new_exact": 0
+  },
+  "unresolved-star": {
+    "files": {
+      "m.{ext}": "export * from \"./leaf\"; export * from \"./missing\";",
+      "app.{ext}": "import { C as X } from \"./m\"; export function run() { X.sm(); }",
+      "leaf.{ext}": "export class C { static sm() {} }"
+    },
+    "new_exact": 0
+  },
+  "identity-conflict": {
+    "files": {
+      "m.{ext}": "export * from \"./left\"; export * from \"./right\";",
+      "app.{ext}": "import { N as X } from \"./m\"; export function run() { X.nf(); }",
+      "left.{ext}": "export * as N from \"./one\";",
+      "right.{ext}": "export * as N from \"./two\";",
+      "one.{ext}": "export { nf } from \"./real\";",
+      "two.{ext}": "export { nf } from \"./real\";",
+      "real.{ext}": "export function nf() {}"
+    },
+    "new_exact": 0
+  },
+  "base-bound": {
+    "files": {
+      "m.{ext}": "export const obj = { f }; export function f() {}",
+      "app.{ext}": "import { obj as X } from \"./m\"; export function run() { X.f(); }"
+    },
+    "new_exact": 0
+  },
+  "explicit-js": {
+    "files": {
+      "m.ts": "export class C { static sm() {} }",
+      "app.{ext}": "import { C as X } from \"./m.js\"; export function run() { X.sm(); }"
+    },
+    "new_exact": 1
+  },
+  "declaration-priority": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} }",
+      "app.{ext}": "import { C as X } from \"./m.js\"; export function run() { X.sm(); }",
+      "m.ts": "export declare class C { static sm(): void; }"
+    },
+    "new_exact": 0
+  },
+  "references": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} }",
+      "app.{ext}": "import { C as X } from \"./m\"; export function run() { X.sm(); }"
+    },
+    "new_exact": 0,
+    "config": {
+      "compilerOptions": {
+        "allowJs": true,
+        "moduleResolution": "node"
+      },
+      "references": [
+        {
+          "path": "./other"
+        }
+      ]
+    }
+  },
+  "joined-import-write": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} }",
+      "writer.{ext}": "import { C as Y } from './m'; Y.sm = other;",
+      "app.{ext}": "import { C as X } from './m'; export function run() { X.sm(); }"
+    },
+    "new_exact": 0
+  },
+  "destructuring-write": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} } ({ value: C.sm } = other);",
+      "app.{ext}": "import { C as X } from './m'; export function run() { X.sm(); }"
+    },
+    "new_exact": 0
+  },
+  "object-this-write": {
+    "files": {
+      "leaf.{ext}": "export const obj = { of() { this.of = other; } };",
+      "m.{ext}": "export { obj } from './leaf';",
+      "app.{ext}": "import { obj as X } from './m'; export function run() { X.of(); }"
+    },
+    "new_exact": 0
+  },
+  "root-output-default-exclusion-cut": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} }",
+      "app.{ext}": "import { C as X } from './m'; export function run() { X.sm(); }"
+    },
+    "config": {
+      "compilerOptions": {
+        "allowJs": true,
+        "moduleResolution": "node",
+        "rootDir": ".",
+        "outDir": "build"
+      },
+      "include": [
+        "**/*"
+      ]
+    },
+    "new_exact": 0
+  },
+  "root-output-explicit-exclusion-control": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} }",
+      "app.{ext}": "import { C as X } from './m'; export function run() { X.sm(); }"
+    },
+    "config": {
+      "compilerOptions": {
+        "allowJs": true,
+        "moduleResolution": "node",
+        "rootDir": ".",
+        "outDir": "build"
+      },
+      "include": [
+        "**/*"
+      ],
+      "exclude": []
+    },
+    "new_exact": 1
+  },
+  "empty-references-nodenext": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} }",
+      "app.{ext}": "import { C as X } from './m'; export function run() { X.sm(); }"
+    },
+    "config": {
+      "compilerOptions": {
+        "allowJs": true,
+        "moduleResolution": "NodeNext",
+        "module": "NodeNext"
+      },
+      "include": [
+        "**/*"
+      ],
+      "references": []
+    },
+    "new_exact": 1
+  },
+  "suffixes": {
+    "files": {
+      "m.{ext}": "export class C { static sm() {} }",
+      "app.{ext}": "import { C as X } from \"./m\"; export function run() { X.sm(); }"
+    },
+    "new_exact": 0,
+    "config": {
+      "compilerOptions": {
+        "allowJs": true,
+        "moduleResolution": "node",
+        "moduleSuffixes": [
+          ".custom",
+          ""
+        ]
+      }
+    }
+  },
+  "suffix-priority-js": {
+    "files": {
+      "app.{ext}": "import { C as X } from \"./m.js\"; export function run() { X.sm(); }",
+      "m.ts": "export class C { static sm() {} }",
+      "m.tsx": "export class C { static sm() {} }",
+      "m.mts": "export class C { static sm() {} }",
+      "m.cts": "export class C { static sm() {} }"
+    },
+    "new_exact": 1
+  },
+  "suffix-declaration-js": {
+    "files": {
+      "app.{ext}": "import { C as X } from \"./m.js\"; export function run() { X.sm(); }",
+      "m.d.ts": "export declare class C { static sm(): void; }",
+      "m.js": "export class C { static sm() {} }"
+    },
+    "new_exact": 0
+  },
+  "suffix-priority-jsx": {
+    "files": {
+      "app.{ext}": "import { C as X } from \"./m.jsx\"; export function run() { X.sm(); }",
+      "m.ts": "export class C { static sm() {} }",
+      "m.tsx": "export class C { static sm() {} }",
+      "m.mts": "export class C { static sm() {} }",
+      "m.cts": "export class C { static sm() {} }"
+    },
+    "new_exact": 1
+  },
+  "suffix-declaration-jsx": {
+    "files": {
+      "app.{ext}": "import { C as X } from \"./m.jsx\"; export function run() { X.sm(); }",
+      "m.d.ts": "export declare class C { static sm(): void; }",
+      "m.jsx": "export class C { static sm() {} }"
+    },
+    "new_exact": 0
+  },
+  "suffix-priority-mjs": {
+    "files": {
+      "app.{ext}": "import { C as X } from \"./m.mjs\"; export function run() { X.sm(); }",
+      "m.ts": "export class C { static sm() {} }",
+      "m.tsx": "export class C { static sm() {} }",
+      "m.mts": "export class C { static sm() {} }",
+      "m.cts": "export class C { static sm() {} }"
+    },
+    "new_exact": 0
+  },
+  "suffix-declaration-mjs": {
+    "files": {
+      "app.{ext}": "import { C as X } from \"./m.mjs\"; export function run() { X.sm(); }",
+      "m.d.mts": "export declare class C { static sm(): void; }",
+      "m.mjs": "export class C { static sm() {} }"
+    },
+    "new_exact": 0
+  },
+  "suffix-priority-cjs": {
+    "files": {
+      "app.{ext}": "import { C as X } from \"./m.cjs\"; export function run() { X.sm(); }",
+      "m.ts": "export class C { static sm() {} }",
+      "m.tsx": "export class C { static sm() {} }",
+      "m.mts": "export class C { static sm() {} }",
+      "m.cts": "export class C { static sm() {} }"
+    },
+    "new_exact": 0
+  },
+  "suffix-declaration-cjs": {
+    "files": {
+      "app.{ext}": "import { C as X } from \"./m.cjs\"; export function run() { X.sm(); }",
+      "m.d.cts": "export declare class C { static sm(): void; }",
+      "m.cjs": "export class C { static sm() {} }"
+    },
+    "new_exact": 0
+  }
+}
