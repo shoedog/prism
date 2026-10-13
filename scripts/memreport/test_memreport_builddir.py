@@ -150,6 +150,22 @@ class BuildDirectoryOwnershipTests(Kinds):
         self.assertIn('replaced right after it was created', refusal)
         self.assertEqual((created / 'precious.txt').read_text(), 'keep')
 
+    def test_a_symlink_put_in_place_right_after_the_creation_is_not_followed(self):
+        # Even to an empty directory, which the emptiness check alone would accept as the one just created.
+        self.prepare()
+        elsewhere = self.tmp / 'elsewhere'
+        elsewhere.mkdir()
+        created = self.out / 'cache-build' / 'a' / '1'
+
+        def swap_for_a_link():
+            created.rmdir()
+            created.symlink_to(elsewhere)
+
+        root, directory, owned, refusal = self.owned_directory(swap_for_a_link)
+        self.assertEqual((directory, owned), (None, None))
+        self.assertIn('could not create the cache directory', refusal)
+        self.assertEqual(list(elsewhere.iterdir()), [])
+
     def test_a_replacement_right_after_the_creation_refuses_the_repetition_and_runs_no_child(self):
         self.prepare()
         created = self.out / 'cache-build' / 'a' / '1'
