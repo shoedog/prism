@@ -57,7 +57,8 @@ pub enum Verbosity {
 /// `docs/MCP.md`'s environment-variables section). Opt out with
 /// `PRISM_MCP_STRUCTURED_CONTENT=always`. The `Default` derive stays `Always` deliberately: it
 /// feeds `ToolContext::for_test` and agent-view sizing, which pin the always-shape; the live wire
-/// default is decided only by `resolve_structured_content_mode` in `transport.rs`.
+/// default is decided only by `ConnectionSettings::from_env` (`settings.rs`, once per
+/// connection), which calls `resolve_structured_content_mode`.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum StructuredContentMode {
     #[default]

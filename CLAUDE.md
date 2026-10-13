@@ -286,6 +286,17 @@ the adapter disabled.
 `Evidence` also has an additive optional `reasoning` field. It is omitted when
 absent so existing navigation and diff-review output remains byte-compatible.
 
+Transport layout: `src/mcp/framing.rs` holds the newline-delimited JSON framing as one generic
+`LineTransport<R, W>`; stdio and the Unix-socket `UnixStreamTransport` are instantiations of it.
+`src/mcp/transport.rs` splits a message into `handle_control` (lifecycle, `tools/list`, call
+validation; needs no index) and `dispatch_tool_read` / `dispatch_tool_refresh` /
+`dispatch_tool_auto_refresh` (shared versus exclusive access to the provider). Output settings are
+an explicit `ConnectionSettings` (`src/mcp/settings.rs`), resolved from the environment once per
+server, so an invalid `PRISM_MCP_*` output value warns once, at server start, not once per call.
+`tests/fixtures/mcp/golden/` pins the in-process server's stdout; re-record with
+`PRISM_MCP_BLESS_GOLDEN=1 cargo test --features mcp --test mcp golden_transcript_test` only for a
+change that is meant to alter tool output, and say why in the commit.
+
 Algorithms fall into two categories:
 1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`
 2. **Graph-based** (require the CPG; source of truth `SlicingAlgorithm::needs_cpg()`, src/slice.rs:210): `left_flow`, `full_flow`, `relevant_slice`, `conditioned_slice`, `barrier_slice`, `chop`, `taint`, `delta_slice`, `spiral_slice`, `circular_slice`, `vertical_slice`, `threed_slice`, `gradient_slice`, `provenance_slice`, `membrane_slice`, `echo_slice`

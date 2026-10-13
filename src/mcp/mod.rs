@@ -1,6 +1,7 @@
 pub mod concise_shape;
 pub mod error;
 pub mod evidence_view;
+pub mod framing;
 pub mod freshness;
 pub mod input;
 pub mod lazy;
@@ -8,6 +9,7 @@ pub mod output;
 mod owner;
 pub mod registry;
 pub mod session;
+pub mod settings;
 pub mod tools;
 pub mod tools_reasoning;
 pub mod tools_refresh;
