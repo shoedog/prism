@@ -18,8 +18,8 @@ the previous slice's real signatures. Writing S2–S6 task-level plans now would
 
 | Slice | Content (spec §12) | Depends on | Plan |
 |---|---|---|---|
-| **S1** | Transport/framing refactor, explicit `ConnectionSettings`, control/dispatch split, standalone byte-for-byte proof | #356 | [`S1-transport-refactor.md`](S1-transport-refactor.md) — **ready** |
-| **C1** | `PRISM_MCP_MEM_REPORT` harness, attribution counters, five-corpus readout | none | [`C1-memory-harness.md`](C1-memory-harness.md) — **ready** |
+| **S1** | Transport/framing refactor, explicit `ConnectionSettings`, control/dispatch split, standalone byte-for-byte proof | #356 | [`S1-transport-refactor.md`](S1-transport-refactor.md) — **MERGED #361** (`f6354e07`, 2026-10-13) |
+| **C1** | `PRISM_MCP_MEM_REPORT` harness, attribution counters, five-corpus readout | none | [`C1-memory-harness.md`](C1-memory-harness.md) — harness **MERGED #362** (`7db8f195`, 2026-10-13); review changed what is measured, see the note at the top of that plan. The five-corpus readout follows in its own docs PR. |
 | S2 | Identity key, runtime-dir validation, preamble encode/decode, connection-local settings | S1 | [`S2-identity-preamble.md`](S2-identity-preamble.md) — **written and validated; not started**. About 4,000 added lines (1,400 code, 2,600 tests), so it ships as two PRs: **S2a** = Tasks 1–4 (runtime directory, cache base, identity key, file paths), **S2b** = Tasks 5–8 (client settings, preamble, bounded reader, proof). Waiting on the owner questions below. |
 | S3a | Readiness coordinator, `RwLock<Option<SessionProvider>>`, test-only status probe (tests 1, 14) | S2 | written when S2 merges |
 | S3b | Concurrent dispatch, refresh visibility, auto-refresh recheck, panic boundaries (tests 6, 7, 9, 12) | S3a | written when S3a merges |
@@ -82,7 +82,8 @@ from rather than reusing the prototype's.
 ## The plans' code was compiled and run before hand-off (2026-10-12)
 
 Both slice plans were applied verbatim, block by block, to a throwaway worktree on `origin/main` `bab0dfbd`. The
-results are on two **local** branches in `~/code/slicing` (not pushed, not for merge as they stand):
+results were on two local branches, which became the starting points of #361 and #362 and were deleted after
+those merged (2026-10-13):
 
 | Plan | Scratch branch | What ran | Result |
 |---|---|---|---|

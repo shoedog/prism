@@ -1,5 +1,24 @@
 # C1 — Memory Measurement Harness Implementation Plan
 
+> **What review changed (2026-10-13, PR #362).** This plan is the record of what was planned. The merged
+> harness differs in four ways that matter to anyone reading the tasks below:
+> 1. **Tree memory is measured, not estimated.** The 8–88 bytes-per-node bracket (Task 2) was not a bound in
+>    either direction. Report mode now counts tree-sitter's live allocations through `tree_sitter::set_allocator`
+>    hooks (`src/mcp/mem_tree_alloc.rs`); M1 is judged on that figure after the workload and settle.
+> 2. **M2 is the CPG cache file's size**, not `peak - max(...)` (Task 6). Freed memory stays charged to the
+>    physical footprint, so the original estimate read 0.
+> 3. **Admission uses evidence in the report.** The report (version 3) says whether the CPG cache and the
+>    call-edge index were loaded or built, carries the workload digest, the `PRISM_*` environment and the
+>    thread count; the driver structurally validates every report, binds repetitions to one workload snapshot,
+>    refuses a run directory that already has results, and has a `summarize` subcommand that rescores saved
+>    evidence without re-running.
+> 4. **The readout has more columns**: steady live heap, index live heap with its attributed and unattributed
+>    parts, first-build peak, and a decision table that shows estimate, base, percentage and arm per corpus.
+>
+> `scripts/memreport/README.md` on `main` is the current description. Task 7's measurement steps still apply,
+> with `--workloads` pointing outside the measured repository.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Measure where one `prism-mcp` index's memory goes, on five corpora, so the reduction candidates M1–M3 are ranked by evidence before anyone builds one.

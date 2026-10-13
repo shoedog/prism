@@ -451,3 +451,12 @@ Deterministic constructions, not sleeps:
   closed corrections). Folded and stopped per the convergence rule; a third round is the owner's call.
 - **Owner approval 2026-10-12:** v3 approved without a third round; §11 decided as recommended (15 min TTL, opt-in
   first, graceful instance-bound `daemon-shutdown`). Next: implementation plans, S1 and C1 first.
+- **Implementation record 2026-10-13.** S1 merged as #361 (`f6354e07`): §4.5 as written, with one correction to
+  the spec's premise (output settings were resolved per call, not once; S1 makes them once per server, so an
+  invalid value now warns once at server start). C1's harness merged as #362 (`7db8f195`) with three departures
+  from §6.1–§6.2 that two review rounds forced: tree memory is **measured** through tree-sitter allocator hooks
+  instead of estimated as nodes × per-node size (the estimate was not a bound in either direction); M2's
+  estimate is the **CPG cache file size**, because the file-bytes transient cannot be observed as a footprint
+  delta (freed memory stays charged); and a run counts as warm only when the report itself says both caches
+  were loaded. The decision rule in §6.2 is unchanged. S2 planning raised seven spec issues, four of them owner
+  questions; they are listed in the lane plan (`docs/superpowers/plans/2026-10-12-shared-prism-daemon/README.md`).
