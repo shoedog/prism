@@ -10,8 +10,54 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Documentation-only changes run a reduced gate set: this job and the Language Coverage Matrix.
+  # The path rules and their tests are in scripts/ci/. Every Rust job runs unless this job
+  # positively reports `code=false`, so a classifier failure falls back to the full set.
+  changes:
+    name: Classify change (docs-only or code)
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.classify.outputs.code }}
+    steps:
+      # Depth 2: a pull_request checkout is the merge of the PR into its base, so HEAD^1 is the base.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Test the classifier
+        run: bash scripts/ci/classify-changes.test.sh
+
+      - name: Classify changed paths
+        id: classify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          result="code=true"
+          if [ "$EVENT_NAME" = pull_request ]; then
+            if git rev-parse --quiet --verify "HEAD^2" >/dev/null; then base="HEAD^1"; else base=""; fi
+          else
+            base="$BEFORE"
+            git cat-file -e "$base^{commit}" 2>/dev/null \
+              || git fetch --quiet --depth=1 origin "$base" 2>/dev/null || base=""
+          fi
+          if [ -n "$base" ] && paths="$(git diff --name-only --no-renames "$base" HEAD 2>/dev/null)"; then
+            echo "base=$base changed_paths=$(printf '%s\n' "$paths" | grep -c .)"
+            result="$(printf '%s\n' "$paths" | bash scripts/ci/classify-changes.sh)"
+          else
+            echo "change list unavailable (base='$base'): falling back to the full gate set"
+          fi
+          echo "$result" | tee -a "$GITHUB_OUTPUT"
+          if [ "$result" = "code=false" ]; then
+            echo "Documentation-only change: the Rust test, build, clippy and format jobs are skipped." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Code change (or the change list could not be determined): full gate set." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   test:
     name: Test Suite + Coverage (${{ matrix.shard }}/4)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -62,6 +108,8 @@ jobs:
 
   build-checks:
     name: Default-feature check + doctests
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -84,6 +132,8 @@ jobs:
 
   clippy:
     name: Clippy Lint
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -103,6 +153,8 @@ jobs:
 
   format:
     name: Format Check
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
