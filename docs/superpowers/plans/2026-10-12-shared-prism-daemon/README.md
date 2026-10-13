@@ -169,6 +169,24 @@ These follow the owner's standing preferences. Confirm or change them before S1 
   - `PRISM_NAV_EDGE_CACHE_LOAD_DIRTY` (`src/navigation/call_edge_cache.rs`) changes which sidecar loads and is in
     neither the key nor the preamble; spec §7 says every answer-affecting setting is in one of them. A daemon
     would inherit it from whichever shim started it.
+- **S4 and S5a, from the S2b reviews:**
+  - Admission is a convention the types do not carry. `Hello` has public `identity` and `settings`, so a daemon
+    can read the settings without calling `mismatch_against`; and nothing makes a shim compare `Ready.identity`
+    with its own key. Give each side one call that does both (for example `Hello::admit(self, served) ->
+    Result<ClientSettings, Reply>` and `Ready::is_for(&key)`), or keep exactly one call site each and let spec
+    §9 test 10 pin it.
+  - `PreambleLineReader::read_line` has no deadline. A socket read timeout bounds each silence, not the line: a
+    peer sending one byte per timeout holds a pending slot for up to 4,097 timeouts, and pending slots count
+    against `--max-clients`. The handshake stage needs a non-blocking socket polled against its own deadline
+    (spec §4.2 already says so).
+  - A `HELLO` whose settings are refused is an error before the caller sees its identity, so a client of
+    another identity with refused settings cannot be answered `MISMATCH`. Decide with SI-3 whether every decode
+    failure gets one generic refusal or the error carries the parsed key.
+  - New verbs (S3a's status probe, S5b's `daemon-shutdown`) change the wire format and so, by S2's own rule,
+    bump `SHARED_PROTOCOL_VERSION` and every key. Harmless before anything ships; decide before S6 whether
+    control verbs are part of the versioned preamble.
+  - A daemon builds its `ConnectionSettings` from `ClientSettings::output()` only; `ConnectionSettings` still
+    has public fields.
 - **S5a, from the S2a reviews:**
   - **The shim checks the uid of the socket's peer too.** Spec §4.4 has only the daemon check its peer. A
     listener another user planted can echo the key in `READY`; the shim would then pump the client's traffic
