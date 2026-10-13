@@ -1,8 +1,8 @@
 # Shared per-repo prism daemon — design
 
-Date: 2026-10-09 · Status: **v3 for owner review** (two gpt-6-astra rounds at the declared cap; round 2 converged to
-closed corrections, all folded; see §13) · Owner decision 2026-10-09: approach **A** (per-repo daemon + stdio shim)
-with the **C** memory measurement folded in as a first-class step. Predecessor: #356 (merged, main cb0eeec0; this
+Date: 2026-10-09 · Status: **v3 APPROVED by the owner 2026-10-12** (two gpt-6-astra rounds at the declared cap; round
+2 converged to closed corrections, all folded; see §13; §11 decided) · Owner decision 2026-10-09: approach **A**
+(per-repo daemon + stdio shim) with the **C** memory measurement folded in as a first-class step. Predecessor: #356 (merged, main cb0eeec0; this
 branch is rebased on it) made `StartupMode::Lazy` defer the index build to the first valid `tools/call`;
 `--warm-at-startup` restores the at-spawn build.
 
@@ -398,13 +398,14 @@ Deterministic constructions, not sleeps:
 | Panic in a connection's framing/output | Daemon | That connection closes |
 | Root identity lost or changed | Daemon | Draining; attached shims see EOF |
 
-## 11. Decisions for the owner (astra's recommendation, confirmed in both rounds, in italics)
+## 11. Owner decisions (decided 2026-10-12; astra's recommendation, confirmed in both rounds, in italics)
 
-1. Idle TTL default: 15 min. *Keep 15; residency after a bridge session ends is about 20 min only when the
-   bridge's 5 min adapter retirement is what closes the last connection.*
-2. Rollout: opt-in first with the §8 soak acceptance. *Opt-in; the lifecycle protocol needs multi-client evidence.*
-3. `daemon-shutdown` verb for the bridge's reaper. *Yes, graceful and instance-bound, validated through the live
-   control exchange; it must never disconnect other active clients.*
+1. Idle TTL default: **15 min — DECIDED.** *Keep 15; residency after a bridge session ends is about 20 min only
+   when the bridge's 5 min adapter retirement is what closes the last connection.*
+2. Rollout: **opt-in first with the §8 soak acceptance — DECIDED.** *Opt-in; the lifecycle protocol needs
+   multi-client evidence.*
+3. `daemon-shutdown` verb for the bridge's reaper: **yes — DECIDED.** *Graceful and instance-bound, validated
+   through the live control exchange; it must never disconnect other active clients.*
 
 ## 12. Slicing
 
@@ -448,3 +449,5 @@ Deterministic constructions, not sleeps:
   contains #356.
 - **Convergence classification at the cap:** converging (each round fewer, smaller, non-repeating findings; all
   closed corrections). Folded and stopped per the convergence rule; a third round is the owner's call.
+- **Owner approval 2026-10-12:** v3 approved without a third round; §11 decided as recommended (15 min TTL, opt-in
+  first, graceful instance-bound `daemon-shutdown`). Next: implementation plans, S1 and C1 first.
