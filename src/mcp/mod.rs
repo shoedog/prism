@@ -14,6 +14,8 @@ mod owner;
 pub mod registry;
 pub mod session;
 pub mod settings;
+#[cfg(unix)]
+pub mod shared;
 pub mod tools;
 pub mod tools_reasoning;
 pub mod tools_refresh;
