@@ -1,6 +1,7 @@
 pub mod concise_shape;
 pub mod error;
 pub mod evidence_view;
+pub mod framing;
 pub mod freshness;
 pub mod input;
 pub mod lazy;
