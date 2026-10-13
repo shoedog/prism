@@ -1,0 +1,112 @@
+{
+ "lane": "I1 relative-specifier candidates (.js suffix, bare dots, redundant segments) (2026-10-14)",
+ "source": "src/call_graph.rs js_ts_relative_module_candidates; src/resolution_js_namespace.rs",
+ "lib_test_prefixes": [
+  "call_graph::"
+ ],
+ "mutations": {
+  "I1-01-swap-ts-tsx": [
+   "src/call_graph.rs",
+   "[\".ts\", \".tsx\"]",
+   "[\".tsx\", \".ts\"]",
+   "call_graph::js_relative_candidates_test::js_suffix_orders_ts_before_tsx"
+  ],
+  "I1-02-no-js-substitution": [
+   "src/call_graph.rs",
+   ".strip_suffix(\".js\")\n                .filter(|stem| !stem.is_empty()",
+   ".strip_suffix(\".js-never\")\n                .filter(|stem| !stem.is_empty()",
+   "call_graph::js_relative_candidates_test::js_suffix_finds_same_stem_ts"
+  ],
+  "I1-03-no-literal-early-return": [
+   "src/call_graph.rs",
+   "if literal.as_ref().is_some_and(|found| !found.is_empty()) {",
+   "if false {",
+   "call_graph::js_relative_candidates_test::js_suffix_existing_dotted_ts_candidate_is_kept_alone"
+  ],
+  "I1-04-directory-only-no-empty-segment": [
+   "src/call_graph.rs",
+   "Some(&(\"\" | \".\" | \"..\"))",
+   "Some(&(\".\" | \"..\"))",
+   "call_graph::js_relative_candidates_test::trailing_slash_means_directory_only"
+  ],
+  "I1-05-directory-only-no-dot-segment": [
+   "src/call_graph.rs",
+   "Some(&(\"\" | \".\" | \"..\"))",
+   "Some(&(\"\" | \"..\"))",
+   "call_graph::js_relative_candidates_test::terminal_dot_dot_and_dot_segments_are_directory_only"
+  ],
+  "I1-06-directory-only-no-dotdot-segment": [
+   "src/call_graph.rs",
+   "Some(&(\"\" | \".\" | \"..\"))",
+   "Some(&(\"\" | \".\"))",
+   "call_graph::js_relative_candidates_test::terminal_dot_dot_and_dot_segments_are_directory_only"
+  ],
+  "I1-07-root-escape-guard-off": [
+   "src/call_graph.rs",
+   "\"..\" => {\n                parts.pop()?;\n            }\n            name => parts.push(name),",
+   "\"..\" => {\n                parts.pop();\n            }\n            name => parts.push(name),",
+   "call_graph::js_relative_candidates_test::normalized_specifier_escaping_the_root_has_no_candidates"
+  ],
+  "I1-08-d-stem-guard-off": [
+   "src/call_graph.rs",
+   " && !stem.ends_with(\".d\"))",
+   ")",
+   "call_graph::js_relative_candidates_test::redundant_js_spelling_never_selects_a_declaration_file_through_a_d_stem"
+  ],
+  "I1-09-dotfile-stem-guard-off": [
+   "src/call_graph.rs",
+   ".filter(|stem| !stem.is_empty() && !stem.ends_with('/') && !stem.ends_with(\".d\"))",
+   ".filter(|stem| !stem.ends_with(\".d\"))",
+   "call_graph::js_relative_candidates_test::js_suffix_on_a_bare_dotfile_name_has_no_stem_to_substitute"
+  ],
+  "I1-10-normalized-no-trim": [
+   "src/call_graph.rs",
+   "let module_path = module_path.trim();\n    if !is_js_ts_relative_specifier(module_path) {\n        return None;\n    }\n    let caller_dir",
+   "let module_path = module_path;\n    if !is_js_ts_relative_specifier(module_path) {\n        return None;\n    }\n    let caller_dir",
+   "call_graph::js_relative_candidates_test::normalized_specifier_is_trimmed"
+  ],
+  "I1-11-index-probe-drops-tsx": [
+   "src/call_graph.rs",
+   "    for index in JS_TS_INDEX_FILES {\n        let candidate = if target.is_empty() {",
+   "    for index in &JS_TS_INDEX_FILES[..5] {\n        let candidate = if target.is_empty() {",
+   "call_graph::js_relative_candidates_test::normalized_index_probe_covers_every_index_extension"
+  ],
+  "I1-12-index-probe-drops-js": [
+   "src/call_graph.rs",
+   "    for index in JS_TS_INDEX_FILES {\n        let candidate = if target.is_empty() {",
+   "    for index in &JS_TS_INDEX_FILES[1..] {\n        let candidate = if target.is_empty() {",
+   "call_graph::js_relative_candidates_test::normalized_index_probe_covers_every_index_extension"
+  ],
+  "I1-13-first-tier-not-skipped-when-empty": [
+   "src/call_graph.rs",
+   ".find(|tier| !tier.is_empty())",
+   ".find(|_| true)",
+   "call_graph::js_relative_candidates_test::redundant_segments_follow_typescript_order_where_canonical_is_legacy"
+  ],
+  "I1-14-directory-only-substitutes": [
+   "src/call_graph.rs",
+   "if !directory_only && !target.is_empty() {",
+   "if !target.is_empty() {",
+   "call_graph::js_relative_candidates_test::trailing_slash_on_a_js_spelling_does_not_substitute"
+  ],
+  "I1-15-namespace-newly-found-guard-off": [
+   "src/resolution_js_namespace.rs",
+   "if outcome.is_some() || found_on_main {",
+   "if true {",
+   "js_relative_namespace_test::newly_found_module_without_the_member_stays_name_only"
+  ],
+  "I1-16-namespace-sibling-uses-normalized": [
+   "src/resolution_js_namespace.rs",
+   "if let Some(file) = js_ts_literal_module_candidates(&replacement, caller, indexed)?",
+   "if let Some(file) = crate::call_graph::js_ts_relative_module_candidates(&replacement, caller, indexed)?",
+   "js_relative_namespace_test::newly_found_module_without_the_member_stays_name_only"
+  ],
+  "I1-17-member-module-gate-no-bare-dot": [
+   "src/call_graph.rs",
+   "if is_js_ts_relative_specifier(relative) {",
+   "if relative.starts_with(\"./\") || relative.starts_with(\"../\") {",
+   "js_relative_extension_test::bare_dot_import_resolves_to_directory_index"
+  ]
+ },
+ "extra": {}
+}

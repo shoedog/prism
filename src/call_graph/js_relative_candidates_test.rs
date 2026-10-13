@@ -328,3 +328,61 @@ fn existing_candidate_lists_are_unchanged() {
     assert_eq!(list("../pkg/x", "other/app.ts", &indexed).len(), 8);
     assert_eq!(cands("./nothing", APP, &indexed), Some(vec![]));
 }
+
+// Reviewer-identified survivors of the normalized fallback.
+#[test]
+fn terminal_dot_dot_and_dot_segments_are_directory_only() {
+    // `./a/..` is `pkg` itself: only its index, never the sibling file `pkg.ts`.
+    assert_eq!(
+        list("./a/..", APP, &["pkg.ts", "pkg/index.ts"]),
+        v(&["pkg/index.ts"])
+    );
+    // `./a/.` is `pkg/a`: only its index, never the sibling file `pkg/a.ts`.
+    assert_eq!(
+        list("./a/.", APP, &["pkg/a.ts", "pkg/a/index.ts"]),
+        v(&["pkg/a/index.ts"])
+    );
+    assert!(list("./a/..", APP, &["pkg.ts"]).is_empty());
+    assert!(list("./a/.", APP, &["pkg/a.ts"]).is_empty());
+}
+
+#[test]
+fn trailing_slash_on_a_js_spelling_does_not_substitute() {
+    assert!(list("./x.js/", APP, &["pkg/x.ts", "pkg/x.tsx"]).is_empty());
+    assert!(list("./a//x.js/", APP, &["pkg/a/x.ts"]).is_empty());
+}
+
+#[test]
+fn normalized_specifier_is_trimmed() {
+    assert_eq!(list(" ./a//b ", APP, &["pkg/a/b.ts"]), v(&["pkg/a/b.ts"]));
+    assert_eq!(
+        list(" ./a//x.js ", APP, &["pkg/a/x.ts"]),
+        v(&["pkg/a/x.ts"])
+    );
+    assert_eq!(list(" . ", APP, &["pkg/index.ts"]), v(&["pkg/index.ts"]));
+}
+
+#[test]
+fn normalized_index_probe_covers_every_index_extension() {
+    for ext in ["js", "jsx", "mjs", "cjs", "ts", "tsx"] {
+        let index = format!("pkg/sub/index.{ext}");
+        assert_eq!(
+            list("./a/../sub", APP, &[index.as_str()]),
+            v(&[index.as_str()]),
+            "{ext}"
+        );
+        assert_eq!(
+            list("./sub/./", APP, &[index.as_str()]),
+            v(&[index.as_str()]),
+            "{ext}"
+        );
+    }
+    for ext in ["jsx", "mjs", "cjs"] {
+        let index = format!("index.{ext}");
+        assert_eq!(
+            list("..", APP, &[index.as_str()]),
+            v(&[index.as_str()]),
+            "{ext}"
+        );
+    }
+}
