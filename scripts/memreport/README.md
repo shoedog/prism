@@ -47,6 +47,12 @@ that name, is recorded as unavailable, not as 0.
 A figure that is unavailable (the sampler had no source, a stage is missing) is `n/a` in the readout and
 absent from every statistic; it is never 0.
 
+**"Steady state (cache-loaded)" is not an idle figure on macOS.** After a cache load the footprint still
+counts memory freed during the load until the OS takes it back, and that happens at a time the process does
+not control (within a second in one measured run, not within 60 s in most). A longer `--settle` does not make
+the figure repeatable. "Steady live heap" is the same in both states and is the figure to compare between a
+baseline and a candidate. Measured in `docs/analysis/2026-10-prism-mcp-memory-readout.md`, last section.
+
 ## What is excluded, and why
 
 A run is inadmissible, and left out of every statistic, when any of these holds. Each means the run

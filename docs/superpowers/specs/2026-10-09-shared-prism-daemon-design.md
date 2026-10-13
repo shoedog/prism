@@ -460,3 +460,11 @@ Deterministic constructions, not sleeps:
   delta (freed memory stays charged); and a run counts as warm only when the report itself says both caches
   were loaded. The decision rule in §6.2 is unchanged. S2 planning raised seven spec issues, four of them owner
   questions; they are listed in the lane plan (`docs/superpowers/plans/2026-10-12-shared-prism-daemon/README.md`).
+- **C1 readout record 2026-10-13.** `docs/analysis/2026-10-prism-mcp-memory-readout.md`, four corpora
+  (kubernetes not run; projected past the host's memory). By the §6.2 rule M1 and M2 advance on all four and M3
+  does not advance. One pinned parameter of §6.1 did not survive the measurement: `phys_footprint` after a 5 s
+  settle is sampled in one of two states that differ by the freed load-time memory, and the process does not
+  control which; a 60 s settle does not fix it. The steady live heap is repeatable. §6.1 is left as written
+  until the owner chooses the replacement (lane README, question 5); no C2 experiment should be gated on the
+  footprint in the meantime. The §1 figures (1,168 MB idle, 1,620 MB peak) are confirmed within 3–13 % after
+  scaling for a corpus that has grown 21 %.
