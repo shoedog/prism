@@ -6,15 +6,31 @@ bins = list(rows[0]['results'].keys())
 order = ['CORRECT', 'PARTIAL', 'DEMOTED', 'MISSING', 'WRONG', 'OVERCLAIM', 'MAY-NAMEONLY', 'MAY-NONE', 'NONE-OK', 'NONE+NAMEONLY', 'NO-RECORD', 'ERROR']
 out = []
 out.append('# Alias-following variant matrix\n')
+ORACLE_NOTES = {
+    'destructured-props-default-overridden': 'in JavaScript the checker types a defaulted destructured parameter by its default, so it names the default; the caller passes a different function',
+    'named-js-suffix-dts-only': 'the checker names the `.d.ts` signature, which has no body; there is no in-repo callable',
+}
+def oracle_ok(r):
+    o, t = r['oracle'], r['truth']
+    if t['t'] == 'one': return o == t['target']
+    if t['t'] == 'set': return o in t['targets']
+    if t['t'] == 'may': return (o in t['targets']) or not t['targets']
+    if t['t'] == 'anon': return o.startswith(t['file'] + ':')
+    return False
+typed = [r for r in rows if ':' in r['oracle']]
+differ = [r for r in typed if not oracle_ok(r)]
+unexplained = [r['id'] for r in differ if r['shape'] not in ORACLE_NOTES]
+assert not unexplained, unexplained
 out.append(f'{len(rows)} enumerated fixtures, each a small repo with one marked call site and an authored ground truth. '
-           'The pinned TypeScript 5.9.3 checker agrees with the authored truth on every fixture where it can type the callee '
-           f"({sum(1 for r in rows if ':' in r['oracle'])} of {len(rows)}; the rest go through `any`, a parameter or a wrapper). "
+           f'The pinned TypeScript 5.9.3 checker can type the callee on {len(typed)} of them (the rest go through `any`, a parameter or a wrapper) '
+           f'and agrees with the authored truth on {len(typed) - len(differ)}. The {len(differ)} that differ are two shapes where the checker answers a type-level question: '
+           + '; '.join(f"`{k}` ({sum(1 for r in differ if r['shape'] == k)}): {v}" for k, v in ORACLE_NOTES.items()) + '. '
            'Binaries: `main` = frozen base (main `bab0dfbd`), `e5` = E5 step-2b head.\n')
 out.append('Verdicts: CORRECT (Exact edge to the true callee), PARTIAL (Exact to some of a closed set), MISSING (no edge, a true in-repo callee exists), '
            'WRONG (Exact edge to something else), OVERCLAIM (Exact where the callee is only possible), MAY-NONE (no edge where the callee is only possible), '
            'NONE-OK (no edge, no in-repo callee), NO-RECORD (prism has no call-site record there).\n')
 out.append('## Totals by lookup step\n')
-steps = ['local', 'param-args', 'param-lookup', 'import', 'same-file', 'global', 'none']
+steps = ['local', 'param-args', 'param-lookup', 'import', 'import-path', 'same-file', 'global', 'none']
 for b in bins:
     tally = collections.Counter((r['step'], r['results'][b]['verdict']) for r in rows)
     used = [v for v in order if any(tally[(s, v)] for s in steps)]

@@ -1,35 +1,173 @@
 {
-  "local.const.arrow": ["local-arrow"],
-  "local.const.function_expression": ["local-arrow"],
-  "local.const.call_result": ["wrapper-call", "react-memo", "react-usecallback-ident", "react-usecallback-inline", "react-lazy", "bind"],
-  "local.const.conditional": ["conditional", "fallback-or"],
-  "local.const.destructure.await": ["await-import-destructure"],
-  "local.const.destructure.call_result": ["hook-result-destructure", "custom-hook-array-result", "react-usestate-setter", "react-usecontext-destructure"],
-  "local.const.destructure.identifier": ["ns-destructure", "object-param-destructure", "props-destructure-in-body", "default-destructure"],
+  "local.const.arrow": [
+    "local-arrow"
+  ],
+  "local.const.function_expression": [
+    "local-arrow"
+  ],
+  "local.const.call_result": [
+    "wrapper-call",
+    "react-memo",
+    "react-usecallback-ident",
+    "react-usecallback-inline",
+    "react-lazy",
+    "bind"
+  ],
+  "local.const.conditional": [
+    "conditional",
+    "fallback-or"
+  ],
+  "local.const.destructure.await": [
+    "await-import-destructure"
+  ],
+  "local.const.destructure.call_result": [
+    "hook-result-destructure",
+    "custom-hook-array-result",
+    "react-usestate-setter",
+    "react-usecontext-destructure"
+  ],
+  "local.const.destructure.identifier": [
+    "ns-destructure",
+    "object-param-destructure",
+    "props-destructure-in-body",
+    "default-destructure"
+  ],
   "local.const.destructure.identifier_member": [],
-  "local.const.destructure.none": ["for-of-element"],
-  "local.const.destructure.other": ["array-destructure"],
-  "local.const.element_member": ["element-member"],
-  "local.const.identifier": ["ident", "chain2"],
-  "local.const.identifier_member": ["ns-member", "ns-member-paren", "ns-member-as", "ns-member-nonnull", "ns-member-exported-alias", "obj-member", "props-object-member", "require-member"],
-  "local.const.none": ["for-of-element"],
-  "local.const.other": ["styled-template", "array-destructure"],
-  "local.const.other_member": ["deep-member", "require-inline-member"],
-  "local.let": ["let-stable", "let-reassigned", "declared-then-assigned"],
-  "local.var": ["var"],
-  "parameter.plain": ["plain-one-caller", "plain-exported", "plain-two-callers", "plain-member-arg", "forwarded-twice", "closure-param", "inline-arrow-arg", "shadows-import"],
-  "parameter.plain.default": ["default-value"],
-  "parameter.destructured": ["destructured-props", "destructured-props-renamed"],
-  "parameter.destructured.default": [],
-  "import.named": ["named", "barrel-named", "barrel-star", "named-jsx", "named-exported-alias", "external-named-trap", "external-jsx-trap"],
-  "import.renamed": ["renamed", "renamed-to-decoy", "barrel-renamed"],
-  "import.default": ["default", "external-default-trap"],
-  "import.equals": ["import-equals-exported-alias", "ts-import-equals-member", "import-equals-require"],
-  "import.require": ["require-member"],
-  "import.require.destructured": ["require-destructure"],
-  "import.dynamic_import": [],
-  "import.dynamic_import.destructured": ["await-import-destructure"],
-  "same_file.function": ["hoisted-function", "nested-shadows-import"],
-  "global_ambient_library": ["lib-global-trap"],
-  "unresolved": ["module-unbound-module-target", "module-to-script-global", "script-to-script-global", "namespace-body-script-global"]
+  "local.const.destructure.none": [
+    "for-of-element"
+  ],
+  "local.const.destructure.other": [
+    "array-destructure"
+  ],
+  "local.const.element_member": [
+    "element-member"
+  ],
+  "local.const.identifier": [
+    "ident",
+    "chain2",
+    "chain8",
+    "chain9",
+    "alias-of-param",
+    "ident-of-reassigned-let"
+  ],
+  "local.const.identifier_member": [
+    "ns-member",
+    "ns-member-paren",
+    "ns-member-as",
+    "ns-member-nonnull",
+    "ns-member-exported-alias",
+    "obj-member",
+    "props-object-member",
+    "require-member",
+    "ns-member-satisfies",
+    "exported-ns-member"
+  ],
+  "local.const.none": [
+    "for-of-element"
+  ],
+  "local.const.other": [
+    "styled-template",
+    "array-destructure"
+  ],
+  "local.const.other_member": [
+    "deep-member",
+    "require-inline-member"
+  ],
+  "local.let": [
+    "let-stable",
+    "let-reassigned",
+    "declared-then-assigned"
+  ],
+  "local.var": [
+    "var"
+  ],
+  "parameter.plain": [
+    "plain-one-caller",
+    "plain-exported",
+    "plain-two-callers",
+    "plain-member-arg",
+    "forwarded-twice",
+    "closure-param",
+    "inline-arrow-arg",
+    "shadows-import"
+  ],
+  "parameter.plain.default": [
+    "default-value"
+  ],
+  "parameter.destructured": [
+    "destructured-props",
+    "destructured-props-renamed"
+  ],
+  "parameter.destructured.default": [
+    "destructured-props-default-unused",
+    "destructured-props-default-overridden"
+  ],
+  "import.named": [
+    "named",
+    "barrel-named",
+    "barrel-star",
+    "named-jsx",
+    "named-exported-alias",
+    "external-named-trap",
+    "external-jsx-trap",
+    "named-js-suffix",
+    "barrel-named-js-suffix",
+    "barrel-star-js-suffix",
+    "named-jsx-js-suffix",
+    "dot-index",
+    "dotdot-index",
+    "redundant-slash",
+    "dot-segment",
+    "mid-dotdot-segment"
+  ],
+  "import.renamed": [
+    "renamed",
+    "renamed-to-decoy",
+    "barrel-renamed",
+    "renamed-to-decoy-js-suffix"
+  ],
+  "import.default": [
+    "default",
+    "external-default-trap",
+    "default-js-suffix"
+  ],
+  "import.equals": [
+    "import-equals-exported-alias",
+    "ts-import-equals-member",
+    "import-equals-require"
+  ],
+  "import.require": [
+    "require-member",
+    "require-assign"
+  ],
+  "import.require.destructured": [
+    "require-destructure",
+    "require-destructure-parens",
+    "require-assign-destructure"
+  ],
+  "import.dynamic_import": [
+    "await-import-member",
+    "await-import-default"
+  ],
+  "import.dynamic_import.destructured": [
+    "await-import-destructure"
+  ],
+  "same_file.function": [
+    "hoisted-function",
+    "nested-shadows-import"
+  ],
+  "global_ambient_library": [
+    "lib-global-trap"
+  ],
+  "unresolved": [
+    "module-unbound-module-target",
+    "module-to-script-global",
+    "script-to-script-global",
+    "namespace-body-script-global",
+    "enum-merged-ns-script-global",
+    "nonexported-merged-ns-plus-import-script-global",
+    "decorated-class-expr-script-global",
+    "single-ns-script-global",
+    "merged-ns-module-target-trap"
+  ]
 }

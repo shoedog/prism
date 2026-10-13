@@ -14,7 +14,11 @@ const bins = binArgs.map((a) => a.split('='));
 function writeRepo(v, dir) {
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(path.join(dir, 'repo'), { recursive: true });
-  for (const [f, src] of Object.entries(v.files)) fs.writeFileSync(path.join(dir, 'repo', f), src);
+  for (const [f, src] of Object.entries(v.files)) {
+    const p = path.join(dir, 'repo', f);
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, src);
+  }
 }
 function markerLine(src, marker) {
   const lines = src.split('\n');

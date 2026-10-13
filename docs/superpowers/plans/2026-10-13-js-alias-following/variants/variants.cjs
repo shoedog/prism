@@ -244,6 +244,64 @@ const LOCAL_SHAPES = {
     scopes: ['fn', 'outer'],
     contract: 'value returned by a same-file function (hook result)',
   }),
+  'await-import-member': (c) => ({
+    imports: '',
+    decl: `const ${c.L} = (await import('./callee')).${c.T};`,
+    truth: 'T',
+    forms: ['call'],
+    scopes: ['fn'],
+    async: true,
+  }),
+  'await-import-default': (c) => ({
+    imports: '',
+    decl: `const ${c.L} = (await import('./dflt')).default;`,
+    truth: 'DFLT',
+    forms: ['call'],
+    scopes: ['fn'],
+    async: true,
+    dflt: true,
+  }),
+  'ns-member-satisfies': (c) => ({ imports: NS, decl: `const ${c.L} = N.${c.T} satisfies typeof N.${c.T};`, truth: 'T', langs: ['ts'], forms: ['call'] }),
+  'exported-ns-member': (c) => ({ imports: NS, decl: `export const ${c.L} = N.${c.T};`, truth: 'T', forms: ['call'], scopes: ['module'] }),
+  'ident-of-reassigned-let': (c) => ({
+    imports: NS,
+    decl: `let base${ty(c.lang, ': any')} = N.${c.T}; if (c) { base = N.${c.ALT}; }\n  const ${c.L} = base;`,
+    truth: 'SET',
+    forms: ['call'],
+    scopes: ['fn', 'outer'],
+  }),
+  'chain8': (c) => ({
+    imports: `import { ${c.T} as imp } from './callee';`,
+    decl: `const a1 = imp; const a2 = a1; const a3 = a2; const a4 = a3; const a5 = a4; const a6 = a5; const a7 = a6; const ${c.L} = a7;`,
+    truth: 'T',
+    forms: ['call'],
+    scopes: ['fn'],
+  }),
+  'chain9': (c) => ({
+    imports: `import { ${c.T} as imp } from './callee';`,
+    decl: `const a1 = imp; const a2 = a1; const a3 = a2; const a4 = a3; const a5 = a4; const a6 = a5; const a7 = a6; const a8 = a7; const ${c.L} = a8;`,
+    truth: 'T',
+    forms: ['call'],
+    scopes: ['fn'],
+    contract: 'nine alias hops: one past the proposed eight-hop bound',
+  }),
+  'alias-of-param': (c) => ({
+    imports: '',
+    decl: `const ${c.L} = opts;`,
+    truth: 'UNKNOWN',
+    forms: ['call'],
+    namings: ['trap', 'fresh'],
+    scopes: ['fn', 'outer'],
+  }),
+  'catch-binding': (c) => ({
+    imports: NS,
+    decl: `const ${c.L} = N.${c.ALT};\n  try { opts(); } catch (${c.L}${ty(c.lang, ': any')}) {\n    ${FORMS[c.form].site(c.L)}\n  }`,
+    noSite: true,
+    truth: 'UNKNOWN',
+    forms: ['call'],
+    namings: ['trap', 'fresh'],
+    scopes: ['fn'],
+  }),
   'ns-member-exported-alias': (c) => ({
     imports: NS,
     decl: `const ${c.L} = N.renamed;`,
@@ -299,6 +357,7 @@ function localVariants() {
           let scopes = s.scopes || ALL_SCOPES;
           if (form === 'new' || form === 'opt') scopes = scopes.filter((x) => x === 'fn');
           if (form === 'jsx' && !s.scopes) scopes = scopes.filter((x) => x !== 'module');
+          if (SCOPE_RICH.has(shape) && form === 'call') scopes = [...scopes, 'method', 'arrow'];
           for (const scope of scopes) {
             const params = `c${ty(lang, ': boolean')}, opts${ty(lang, ': any')}`;
             const asyncKw = s.async ? 'async ' : '';
@@ -306,6 +365,10 @@ function localVariants() {
             let body;
             if (scope === 'fn') {
               body = `export ${asyncKw}function caller(${params}) {\n  ${s.decl}\n  ${siteLine}\n}\n`;
+            } else if (scope === 'method') {
+              body = `export class Box {\n  caller(${params}) {\n    ${s.decl}\n    ${siteLine}\n  }\n}\n`;
+            } else if (scope === 'arrow') {
+              body = `export const caller = (${params}) => {\n  ${s.decl}\n  ${siteLine}\n};\n`;
             } else if (scope === 'module') {
               body = `${s.decl}\nexport function caller(${params}) {\n  ${siteLine}\n}\n`;
             } else {
@@ -314,7 +377,7 @@ function localVariants() {
             const src = [s.imports, s.pre || '', body].filter(Boolean).join('\n');
             const files = baseFiles(lang, naming);
             files[callerFile] = src;
-            if (shape === 'react-lazy') files[`dflt.${ext(lang, 'call')}`] = `export default function ${F.T}(props${ty(lang, ': any')}) { return null; }\n`;
+            if (shape === 'react-lazy' || s.dflt) files[`dflt.${ext(lang, 'call')}`] = `export default function ${F.T}(props${ty(lang, ': any')}) { return null; }\n`;
             out.push({
               id: `local.${shape}.${scope}.${form}.${naming}.${lang}`,
               step: shape === 'local-arrow' ? 'same-file' : 'local',
@@ -338,6 +401,9 @@ function cjsVariants() {
     'require-member': (L) => `const m = require('./callee');\n  const ${L} = m.f;`,
     'require-destructure': (L) => (L === 'f' ? `const { f } = require('./callee');` : `const { f: ${L} } = require('./callee');`),
     'require-inline-member': (L) => `const ${L} = require('./callee').f;`,
+    'require-assign': (L) => `let ${L};\n  ${L} = require('./callee').f;`,
+    'require-destructure-parens': (L) => (L === 'f' ? `const { f } = (require('./callee'));` : `const { f: ${L} } = (require('./callee'));`),
+    'require-assign-destructure': (L) => `let ${L};\n  ({ f: ${L} } = require('./callee'));`,
   };
   for (const [shape, decl] of Object.entries(shapes)) {
     for (const naming of ['same', 'trap', 'fresh']) {
@@ -420,6 +486,15 @@ function paramVariants() {
           src: `${imp(c)}\nfunction C({ cb: ${c.L} }${a}) {\n  ${c.site}\n}\nexport function App() { return <C cb={imp} />; }\n`,
           truth: { t: 'one', target: `${c.cf}:${c.T}` },
         }));
+        add('destructured-props-default-unused', form, (c) => ({
+          src: `${imp(c)}\nfunction C({ ${c.L} = imp }${a}) {\n  ${c.site}\n}\nexport function App() { return <C />; }\n`,
+          truth: { t: 'one', target: `${c.cf}:${c.T}` },
+          contract: 'destructured parameter default used at the only visible call site',
+        }));
+        add('destructured-props-default-overridden', form, (c) => ({
+          src: `${imp(c)}\nfunction C({ ${c.L} = imp }${a}) {\n  ${c.site}\n}\nexport function App() { return <C ${c.L}={imp2} />; }\n`,
+          truth: { t: 'one', target: `${c.cf}:${c.ALT}` },
+        }));
         add('closure-param', form, (c) => ({
           src: `${imp(c)}\nfunction outer(${c.L}${a}) {\n  function caller() {\n    ${c.site}\n  }\n  return caller;\n}\nexport function driver() { return outer(imp); }\n`,
           truth: { t: 'one', target: `${c.cf}:${c.T}` },
@@ -452,6 +527,12 @@ function paramVariants() {
       naming: 'same', lang, siteFile: `caller.${e}`,
       files: { [cf]: calleeSrc(lang), [`caller.${e}`]: `import { f } from './callee';\nimport * as N from './callee';\nexport const keep = f;\nexport function caller() {\n  const f = N.g;\n  return f(1); // SITE\n}\n` },
       truth: { t: 'one', target: `${cf}:g` }, contract: null,
+    });
+    out.push({
+      id: `param.inner-param-shadows-alias.call.trap.${lang}`, step: 'param-lookup', shape: 'inner-param-shadows-alias', scope: 'param', form: 'call',
+      naming: 'trap', lang, siteFile: `caller.${e}`,
+      files: { [cf]: calleeSrc(lang), [`other.${e}`]: otherSrc(lang), [`caller.${e}`]: `import * as N from './callee';\nexport function outer() {\n  const decoy = N.f;\n  function caller(decoy${a}) {\n    return decoy(1); // SITE\n  }\n  return [caller, decoy];\n}\n` },
+      truth: { t: 'may', targets: [] }, contract: null,
     });
   }
   return out;
@@ -490,6 +571,21 @@ function importVariants() {
     add('named-jsx', { [cf]: callee, [`caller.${ex}`]: `import { F } from './callee';\nexport function App() {\n  return <F />; // SITE\n}\n` }, `caller.${ex}`, one(`${cf}:F`), { form: 'jsx' });
     add('ns-qualified-jsx', { [cf]: callee, [`caller.${ex}`]: `import * as N from './callee';\nexport function App() {\n  return <N.F />; // SITE\n}\n` }, `caller.${ex}`, one(`${cf}:F`), { form: 'jsx' });
     add('external-jsx-trap', { [cf]: callee, [`caller.${ex}`]: `import { F } from 'ext-ui';\nexport function App() {\n  return <F />; // SITE\n}\n` }, `caller.${ex}`, { t: 'none' }, { form: 'jsx', naming: 'trap' });
+    // module path shapes: explicit .js suffix (a TypeScript file on disk when lang is ts), dot specifiers, redundant segments
+    add('named-js-suffix', { [cf]: callee, [`caller.${e}`]: `import { f } from './callee.js';\nexport function caller() {\n  return f(1); // SITE\n}\n` }, `caller.${e}`, one(`${cf}:f`), { step: 'import-path' });
+    add('renamed-to-decoy-js-suffix', { [cf]: callee, [`other.${e}`]: otherSrc(lang), [`caller.${e}`]: `import { f as decoy } from './callee.js';\nexport function caller() {\n  return decoy(1); // SITE\n}\n` }, `caller.${e}`, one(`${cf}:f`), { step: 'import-path', naming: 'trap' });
+    add('default-js-suffix', { [`dflt.${e}`]: `export default function f(x${n}) { return x; }\n`, [`caller.${e}`]: `import d from './dflt.js';\nexport function caller() {\n  return d(1); // SITE\n}\n` }, `caller.${e}`, one(`dflt.${e}:f`), { step: 'import-path' });
+    add('ns-qualified-js-suffix', { [cf]: callee, [`caller.${e}`]: `import * as N from './callee.js';\nexport function caller() {\n  return N.f(1); // SITE\n}\n` }, `caller.${e}`, one(`${cf}:f`), { step: 'import-path' });
+    add('barrel-named-js-suffix', { [cf]: callee, [`barrel.${e}`]: `export { f } from './callee.js';\n`, [`caller.${e}`]: `import { f } from './barrel.js';\nexport function caller() {\n  return f(1); // SITE\n}\n` }, `caller.${e}`, one(`${cf}:f`), { step: 'import-path' });
+    add('barrel-star-js-suffix', { [cf]: callee, [`barrel.${e}`]: `export * from './callee.js';\n`, [`caller.${e}`]: `import { f } from './barrel.js';\nexport function caller() {\n  return f(1); // SITE\n}\n` }, `caller.${e}`, one(`${cf}:f`), { step: 'import-path' });
+    add('named-jsx-js-suffix', { [cf]: callee, [`caller.${ex}`]: `import { F } from './callee.js';\nexport function App() {\n  return <F />; // SITE\n}\n` }, `caller.${ex}`, one(`${cf}:F`), { step: 'import-path', form: 'jsx' });
+    add('ns-member-alias-js-suffix', { [cf]: callee, [`caller.${e}`]: `import * as N from './callee.js';\nexport function caller() {\n  const h = N.f;\n  return h(1); // SITE\n}\n` }, `caller.${e}`, one(`${cf}:f`), { step: 'local', naming: 'fresh' });
+    add('missing-export-js-suffix-trap', { [cf]: callee, [`other.${e}`]: otherSrc(lang), [`caller.${e}`]: `// @ts-ignore\nimport { decoy } from './callee.js';\nexport function caller() {\n  return decoy(1); // SITE\n}\n` }, `caller.${e}`, { t: 'none' }, { step: 'import-path', naming: 'trap' });
+    add('dot-index', { [`pkg/index.${e}`]: callee, [`pkg/app.${e}`]: `import { f } from '.';\nexport function caller() {\n  return f(1); // SITE\n}\n` }, `pkg/app.${e}`, one(`pkg/index.${e}:f`), { step: 'import-path' });
+    add('dotdot-index', { [`pkg/index.${e}`]: callee, [`pkg/sub/app.${e}`]: `import { f } from '..';\nexport function caller() {\n  return f(1); // SITE\n}\n` }, `pkg/sub/app.${e}`, one(`pkg/index.${e}:f`), { step: 'import-path' });
+    add('redundant-slash', { [`lib/callee.${e}`]: callee, [`caller.${e}`]: `import { f } from './lib//callee';\nexport function caller() {\n  return f(1); // SITE\n}\n` }, `caller.${e}`, one(`lib/callee.${e}:f`), { step: 'import-path' });
+    add('dot-segment', { [`lib/callee.${e}`]: callee, [`caller.${e}`]: `import { f } from './lib/./callee';\nexport function caller() {\n  return f(1); // SITE\n}\n` }, `caller.${e}`, one(`lib/callee.${e}:f`), { step: 'import-path' });
+    add('mid-dotdot-segment', { [cf]: callee, [`lib/x.${e}`]: `export const z = 1;\n`, [`caller.${e}`]: `import { f } from './lib/../callee';\nexport function caller() {\n  return f(1); // SITE\n}\n` }, `caller.${e}`, one(`${cf}:f`), { step: 'import-path' });
     // same-file
     add('hoisted-function', { [cf]: callee, [`caller.${e}`]: `export function caller() {\n  return f(1); // SITE\n}\nfunction f(x${n}) { return x * 2; }\n` }, `caller.${e}`, one(`caller.${e}:f`), { group: 'same-file', step: 'same-file', naming: 'trap' });
     add('nested-shadows-import', { [cf]: callee, [`caller.${e}`]: `import { f } from './callee';\nexport const keep = f;\nexport function caller() {\n  function f(x${n}) { return x * 2; }\n  return f(1); // SITE\n}\n` }, `caller.${e}`, one(`caller.${e}:f`), { group: 'same-file', step: 'same-file', naming: 'trap' });
@@ -509,6 +605,37 @@ function importVariants() {
   mk('import-equals-exported-alias', { 'callee.ts': callee, 'caller.ts': `import * as N from './callee';\nimport f = N.renamed;\nexport function caller() {\n  return f(1); // SITE\n}\n` }, 'caller.ts', { t: 'one', target: 'callee.ts:f' }, { step: 'local' });
   mk('namespace-body-script-global', { 'glob.ts': `function f(x: number) { return x; }\n`, 'caller.ts': `export namespace M { export const tag = 1; }\nexport namespace M {\n  export function caller() {\n    return f(1); // SITE\n  }\n}\n` }, 'caller.ts', { t: 'one', target: 'glob.ts:f' }, { group: 'global', step: 'global' });
   mk('super-extends-member', { 'base.ts': `export class Base { constructor(public x: number) {} }\nexport const bag = { super: Base };\n`, 'caller.ts': `import { bag } from './base';\nexport class Child extends bag.super {\n  constructor(x: number) {\n    super(x); // SITE\n  }\n}\n` }, 'caller.ts', { t: 'one', target: 'base.ts:Base' }, { step: 'import', contract: 'super(...) through an imported member' });
+  const G = `function f(x: number) { return x; }\n`;
+  const one = (t) => ({ t: 'one', target: t });
+  mk('named-js-suffix-tsx-target', { 'comp.tsx': `export function F(props: any) { return null; }\n`, 'caller.tsx': `import { F } from './comp.js';\nexport function App() {\n  return <F />; // SITE\n}\n` }, 'caller.tsx', one('comp.tsx:F'), { step: 'import-path', form: 'jsx' });
+  mk('named-jsx-suffix-tsx-target', { 'comp.tsx': `export function F(props: any) { return null; }\n`, 'caller.tsx': `import { F } from './comp.jsx';\nexport function App() {\n  return <F />; // SITE\n}\n` }, 'caller.tsx', one('comp.tsx:F'), { step: 'import-path', form: 'jsx', contract: 'explicit .jsx suffix naming a .tsx file: not modeled by the import-suffix slice' });
+  mk('named-js-suffix-literal-and-ts', { 'callee.js': `export function f(x) { return x; }\n`, 'callee.ts': `export function f(x: number) { return x; }\n`, 'caller.ts': `import { f } from './callee.js';\nexport function caller() {\n  return f(1); // SITE\n}\n` }, 'caller.ts', { t: 'set', targets: ['callee.js:f', 'callee.ts:f'] }, { step: 'import-path', contract: 'both x.js and x.ts exist: prism keeps the literal file, TypeScript prefers x.ts' });
+  mk('named-js-suffix-dts-only', { 'callee.d.ts': `export declare function f(x: number): number;\n`, 'other.ts': `export function f(x: number) { return -x; }\n`, 'caller.ts': `import { f } from './callee.js';\nexport function caller() {\n  return f(1); // SITE\n}\n` }, 'caller.ts', { t: 'none' }, { step: 'import-path', naming: 'trap' });
+  mk('enum-merged-ns-script-global', { 'glob.ts': G, 'caller.ts': `export enum Color { Red = 1 }\nexport namespace Color {\n  export function caller(x: number) {\n    return f(x); // SITE\n  }\n}\n` }, 'caller.ts', one('glob.ts:f'), { group: 'global', step: 'global' });
+  mk('nonexported-merged-ns-plus-import-script-global', { 'glob.ts': G, 'dep.ts': `export const v = 1;\n`, 'caller.ts': `import { v } from './dep';\nexport const keep = v;\nnamespace A { export const a = 1; }\nnamespace A {\n  export function caller(x: number) {\n    return f(x); // SITE\n  }\n}\n` }, 'caller.ts', one('glob.ts:f'), { group: 'global', step: 'global' });
+  mk('decorated-class-expr-script-global', { 'glob.ts': `function f(...args: any[]): any { return () => {}; }\n`, 'caller.ts': `export function caller(x: any) {\n  const K = @f() class Named {}; // SITE\n  return K;\n}\n` }, 'caller.ts', one('glob.ts:f'), { group: 'global', step: 'global' });
+  mk('single-ns-script-global', { 'glob.ts': G, 'caller.ts': `export namespace A {\n  export function caller(x: number) {\n    return f(x); // SITE\n  }\n}\n` }, 'caller.ts', one('glob.ts:f'), { group: 'global', step: 'global' });
+  mk('merged-ns-module-target-trap', { 'callee.ts': `export function f(x: number) { return x; }\n`, 'caller.ts': `export namespace A { export const a = 1; }\nexport namespace A {\n  export function caller(x: number) {\n    // @ts-ignore\n    return f(x); // SITE\n  }\n}\n` }, 'caller.ts', { t: 'none' }, { group: 'global', step: 'none', naming: 'trap' });
+  mk('merged-ns-local-alias-unknown', { 'glob.ts': G, 'caller.ts': `export namespace A { export const a = 1; }\nexport namespace A {\n  export function caller(o: any) {\n    const f = o.cb;\n    return f(1); // SITE\n  }\n}\n` }, 'caller.ts', { t: 'may', targets: [] }, { group: 'global', step: 'local', naming: 'trap' });
+  // indirect records (a static property assigned in another file): outside the bare-name lookup, must not change
+  out.push({
+    id: 'member-alias.static-property-jsx.jsx.js', step: 'none', shape: 'static-property-jsx', scope: 'module', form: 'jsx', naming: 'n/a', lang: 'js', siteFile: 'App.jsx',
+    files: {
+      'App.jsx': `import { Menu } from "./Menu";\nexport function caller() {\n  return <Menu.Item />; // SITE\n}\n`,
+      'Menu.jsx': `import { MenuItem } from "./MenuItem";\nexport function Menu() { return null; }\nMenu.Item = MenuItem;\n`,
+      'MenuItem.jsx': `export function MenuItem() { return null; }\n`,
+    },
+    truth: { t: 'one', target: 'MenuItem.jsx:MenuItem' }, contract: 'indirect record through a static property (E5 review round 1): outside the bare-name lookup',
+  });
+  out.push({
+    id: 'member-alias.static-property-call.call.js', step: 'none', shape: 'static-property-call', scope: 'module', form: 'call', naming: 'n/a', lang: 'js', siteFile: 'caller.js',
+    files: {
+      'api.js': `import { helper } from "./helper.js";\nexport function api() {}\napi.run = helper;\n`,
+      'caller.js': `import { api } from "./api.js";\nexport function caller(x) {\n  return api.run(x); // SITE\n}\n`,
+      'helper.js': `export function helper(x) { return x; }\n`,
+    },
+    truth: { t: 'one', target: 'helper.js:helper' }, contract: 'indirect record through a static property (E5 review round 1): outside the bare-name lookup',
+  });
   out.push({
     id: 'import.super-extends-member-named-super.call.js', step: 'import', shape: 'super-extends-member-named-super', scope: 'module', form: 'call',
     naming: 'same', lang: 'js', siteFile: 'caller.js',

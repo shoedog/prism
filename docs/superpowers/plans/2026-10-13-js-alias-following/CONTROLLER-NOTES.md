@@ -56,15 +56,49 @@ X total 261 of 704; T total 65 of 1,572. "Other local" on X includes 36 `const` 
 **F: inadmissible.** F is 90% untyped JavaScript and has no installed dependencies, so the checker returns no declaration for 1,572 of 1,629 sites, including the 100 `useCallback` sites prism already resolves. That is a failure of the probe, not evidence that nothing is resolvable. A ceiling for F needs a syntactic census of hook returns.
 
 ## The variant matrix
-`variants/` holds 780 enumerated fixtures with authored ground truth (`variants.cjs`), a runner against the frozen binaries with a checker cross-check (`run.cjs`), and the report (`MATRIX.md`, `matrix.jsonl`). The checker agrees with the authored truth on every fixture it can type (0 disagreements). `MATRIX.md` ends with the census population per class and the shapes that cover it. Two classes have sites and no fixture yet: `import.dynamic_import` (X 1) and `parameter.destructured.default` (T 5, F 12).
+`variants/` holds 963 enumerated fixtures with authored ground truth (`variants.cjs`), a runner against the frozen binaries with a checker cross-check (`run.cjs`), the report (`MATRIX.md`, `matrix.jsonl`) and the exporter that feeds the in-repo test (`export.cjs`). The checker can type the callee on 601 fixtures and agrees with the authored truth on 594; the 7 that differ are two shapes where the checker answers a type-level question (listed at the top of `MATRIX.md`). Every census class with sites now has at least one fixture.
 
-Main on the matrix: local aliases 53 correct, 364 missing, 67 wrong of 572; parameters 0 of 132; imports 21 of 25 with an in-repo callee. Main follows no local alias in the same function or at module level. It produces an edge only for an alias declared in an enclosing function, through the repo-wide name search.
+Added on 2026-10-13 after the owner's decision: 30 module-path fixtures (explicit `.js` suffix, `.`/`..`, redundant segments), the two uncovered census classes (dynamic `import()` member and default, destructured parameter defaults), every input the two E5 review rounds reported (merged-namespace, enum and decorated-class script globals; static-property indirect records; the assignment and parenthesised `require` forms), and lookup controls (alias of a parameter, catch binding, inner parameter shadowing an outer alias, eight- and nine-hop chains, class-method and arrow callers).
+
+Main on the matrix: local aliases 54 correct, 465 missing, 72 wrong of 692; parameters 0 of 156; module paths 18 of 26 with an in-repo callee missing; script globals 9 of 9 correct. The E5 head drops four of those nine script-global rows, which reproduces the round-2 finding inside the matrix. Main follows no local alias in the same function or at module level. It produces an edge only for an alias declared in an enclosing function, through the repo-wide name search.
 
 Two things the matrix shows that are not alias-following:
 - `new X()` has no call-site record in JS/TS (34 fixtures).
 - **WRONG on main, outside this lane's scope, reported not fixed:** `const L = lazy(() => import('./mod')); <L />` resolves Exact to the loader arrow, which prism names `L`; the element renders the default export of `./mod`. F has 20 such sites. Whether `lazy` belongs in the admitted wrapper list is a contract question.
 
+## Following a returned value, measured without types (2026-10-13)
+`variants/callresult.cjs` follows the callee's binding with syntax only: const initialisers, object and array literals, destructuring keys, and up to four "value returned by a called function" steps. The called function is taken from prism's own Exact target for the initialiser call, so the count reflects today's import resolution. This is the measurement the owner asked for before committing to hook-result following; it also gives F the ceiling the checker could not.
+
+Recorded product sites whose callee is bound to a local, by where the value comes from:
+
+| Where the value comes from | X | T | F | What it needs |
+|---|---:|---:|---:|---|
+| A function defined in place (`const f = () => …`) | 1,568 | 92 | 551 | resolved today (1,529 / 78 / 534 correct) |
+| **A named function reached through one returned value** | **98** | **14** | **71** | one returned-value step |
+| An anonymous function reached the same way | 1 | 2 | 9 | the same step plus an identity for the inline callable |
+| The called function is imported and prism does not resolve the import | 42 | 201 | 0 | import resolution first (T: the `.js` suffix gap) |
+| `useState` / `useReducer` setter | 59 | 0 | 580 | nothing: no in-repo callee |
+| A hook from an npm dependency | 0 | 0 | 146 | nothing: no in-repo callee |
+| Tagged template (`styled.x\`…\``) | 0 | 0 | 257 | nothing: no in-repo callee |
+| `useContext(...)` value | 25 | 0 | 124 | following the provider's `value` (not designed) |
+| Member of a parameter (`const { onX } = props`) | 23 | 204 | 220 | argument following |
+| Result of a method call (`obj.m()`) | 18 | 41 | 38 | receiver typing |
+| Everything else | 109 | 174 | 48 | mixed; see the per-class output |
+
+- **Precision on typed code.** With `--check` the script compares each followed target with the checker's resolved declaration: X 1,678 agree, 0 disagree (22 where the checker has no body to name); T 106 agree, 0 disagree (10 without a body).
+- **On F the one-step sites include 41 of the 109 wrong edges main has today.** Refusal alone would delete those edges; the returned-value step replaces them with the right callee.
+- **Sites where the right answer is "no edge"** (setters, npm hooks, tagged templates) are 983 on F. Main has 28 wrong edges among them today.
+- F rows stay in the private evidence directory; only these counts leave it.
+
 ## Where the controller's reading differs from the planner's plan (for the owner, not adjudicated)
 1. **Call results.** The plan treats every call result except admitted React wrappers as unsupported. The census says that is where the React population is: destructure-from-call-result is 819 product sites on F and 199 on X, against 9 and 12 for plain or member aliases. On X the checker names a repo implementation for 98 of 252 unresolved call-result sites. A bounded "follow the returned object literal of a same-repo function" step is not in the plan. Its yield on F is unmeasured.
 2. **Order of work by measured value.** The plan's order follows the owner's lookup order. By measured sites the largest single item is I1 (T 15,167, X 7, F 0), which is independent of alias-following and could land first.
 3. **Refusal on F is most of the measured value there.** With the plan's positive slices F gains 4 sites; the binding-aware refusal removes 109 wrong Exact targets and 2,222 NameOnly candidates.
+
+
+## Owner decisions, 2026-10-13
+After reading the analysis the owner chose, in order: (1) the import-suffix fix goes first; (2) binding lookup is the foundation slice: the nearest binding decides, const alias chains resolve, a bound name whose value is unknown gets no repo-wide name search, which replaces E5's exemption list; (3) measure hook-result following on the private corpus before committing to it (measured above); (4) parameters: the lookup step now, argument following later at NameOnly. No review of the plan. Script globals (the plan's item G) were not put to the owner: unbound names keep today's behaviour until that is decided.
+
+Two places where the import-suffix slice as dispatched differs from the plan's I1 text, both disclosed to the reviewers as questions:
+- The plan gives a literal `./x.js` the TypeScript precedence `.ts`, `.tsx`, `.d.ts`, `.js`. The slice is additive instead: an existing `x.js` keeps winning, as on main, and the substitution applies only when nothing resolves today. With the plan's order a hand-typed `x.js` beside `x.d.ts` would lose the edge main has.
+- `.d.ts` is not a substitution candidate, because a declaration file has no callable body to bind to.
