@@ -14,6 +14,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -139,12 +140,18 @@ def parse_kinds(text):
     return tuple(kind for kind in RUN_KINDS if kind in names)
 
 
+CORPUS_NAME = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]*\Z')    # NAME becomes a path component under --out
+
+
 def parse_corpora(pairs):
     corpora = {}
     for pair in pairs:
         name, sep, path = pair.partition('=')
         if not sep or not name or not path:
             raise SystemExit('--corpus takes NAME=PATH, got %r' % pair)
+        if not CORPUS_NAME.match(name):
+            raise SystemExit('--corpus NAME %r must be letters, digits, dots, underscores or hyphens, starting with '
+                             'a letter or digit: it names directories under --out' % name)
         corpora[name] = Path(path).expanduser().resolve()
     return corpora
 
@@ -169,12 +176,13 @@ def emit_workload(binary, path, functions, timeout):
 
 def cmd_gen_workload(args):
     """Generate a workload per corpus. Each finished corpus is written (file and manifest) before the next starts."""
+    corpora = parse_corpora(args.corpus)    # first: a bad NAME must not leave a directory behind
     directory = Path(args.workloads)
     directory.mkdir(parents=True, exist_ok=True)
     manifest_path = directory / 'MANIFEST.json'
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     failed = []
-    for name, path in parse_corpora(args.corpus).items():
+    for name, path in corpora.items():
         data, problem = emit_workload(args.bin, path, args.functions, args.timeout)
         if problem is not None:
             print('%s: workload generation failed: %s' % (name, problem), file=sys.stderr, flush=True)
@@ -228,11 +236,48 @@ def bind_workload(name, directory, commit):
     return data, digest
 
 
+def inside(path, root):
+    """Whether `path` resolves to somewhere strictly under `root` (symlinks followed)."""
+    return Path(root).resolve() in Path(path).resolve().parents
+
+
+def remove_created(cache_dir, root):
+    """Delete a repetition directory this run created, then its parents if they are empty. True when it is gone.
+
+    A failure is reported, not hidden: the caller records it and the path is named on stderr.
+    """
+    try:
+        if not inside(cache_dir, root):
+            raise OSError('it resolves outside %s' % root)
+        shutil.rmtree(cache_dir)
+    except OSError as error:
+        print('warning: could not remove %s: %s' % (cache_dir, error), file=sys.stderr, flush=True)
+        return False
+    for parent in (cache_dir.parent, root):
+        try:
+            parent.rmdir()    # only succeeds when empty
+        except OSError:
+            break
+    return True
+
+
 def run_build(args, path, out, name, rep, snapshot):
-    """One first build into a cache directory of its own; its file sizes are recorded, then it is deleted."""
-    cache_dir = out / 'cache-build' / name / str(rep)
-    shutil.rmtree(cache_dir, ignore_errors=True)
-    cache_dir.mkdir(parents=True)
+    """One first build into a cache directory of its own; its file sizes are recorded, then it is deleted.
+
+    The directory is created here, exclusively: one that already exists (or whose parent resolves outside
+    <out>/cache-build) is not touched and the repetition is refused. Only a directory this call created is deleted.
+    """
+    root = out / 'cache-build'
+    cache_dir = root / name / str(rep)
+    refused = {'kind': BUILD, 'status': 'inadmissible', 'command': [], 'wall_secs': 0}
+    cache_dir.parent.mkdir(parents=True, exist_ok=True)
+    if not inside(cache_dir.parent, root) and cache_dir.parent.resolve() != root.resolve():
+        return dict(refused, reason='the cache directory resolves outside %s' % root)
+    try:
+        cache_dir.mkdir()
+    except FileExistsError:
+        return dict(refused, reason='the cache directory already existed')
+    result = None
     try:
         result = run_one(command_for(args.bin, path, cache_dir, BUILD, snapshot, args.settle), BUILD, args.timeout)
         result['cache_files'] = cache_file_sizes(cache_dir)
@@ -240,7 +285,9 @@ def run_build(args, path, out, name, rep, snapshot):
         if reason:
             result.update(status='inadmissible', reason=reason)
     finally:
-        shutil.rmtree(cache_dir, ignore_errors=True)
+        removed = remove_created(cache_dir, root)
+        if result is not None:
+            result['cache_dir_removed'] = removed
     return result
 
 
