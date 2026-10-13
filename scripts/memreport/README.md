@@ -37,9 +37,19 @@ empty list, is refused before anything runs. `warm` also reports `load_ms` (`aft
 and prints `n/a` for those that were not run; `build` figures are read by `compare`.
 
 A `build` repetition is admissible only if its report says `cache.cpg_hit: false` and
-`cache.call_edges_loaded: false`, and passes the usual structural and build-identity checks and has the
-`after_call_edges` peak. After the process exits the driver records the sizes of the cache files it wrote
-(`cache_files` in the stored result) and deletes that repetition's cache directory (hundreds of MiB each).
+`cache.call_edges_loaded: false`, it passes the usual structural and build-identity checks and has the
+`after_call_edges` peak, **and the process left both cache files behind**: after it exits the driver records the
+sizes of `cpg-cache.bin` and `resolved-call-edge-index.bin` (`cache_files` in the stored result), and both must be
+integers above 0. The binary catches a failed cache save, prints it and still exits 0 with both flags false, so
+the files are the evidence that the cache was written; stderr containing `failed to save CPG cache` or
+`nav edge cache: failed to save sidecar` also excludes the run. `summarize` and `compare` re-apply the file check to
+the stored sizes (a stored build result without `cache_files` is inadmissible). The driver creates each
+repetition's directory itself and deletes it afterwards (hundreds of MiB each); a directory that already existed
+is not touched and the repetition is refused, a deletion that fails is recorded as `cache_dir_removed: false` and
+named on stderr, and the then-empty `cache-build/` directories are removed.
+
+A corpus NAME (in `--corpus NAME=PATH`, for `run` and `gen-workload`) must be letters, digits, `.`, `_` or `-`,
+starting with a letter or digit: it names directories under `--out`.
 
 The priming run happens only when at least one of `warm`, `workload`, `refresh` is selected. Its statistics are discarded, but its lifetime peak at its last stage is kept as "First-build
 peak (writes the cache, n=1)": one build that also writes the cache, shown as `n/a` when the priming run is
@@ -90,10 +100,13 @@ readout; they are never retried silently.
   complaint, since an absent or undecodable sidecar prints nothing. Such runs read about 7 % higher at steady
   state. Stderr text from the cache code (`CPG cache miss`, `partial CPG cache hit`, `nav edge cache: skipping
   warm sidecar load`, `nav edge cache: failed to load sidecar`) also excludes a run and names the cause;
+- a run whose thread count, measured-process environment, allocator or platform (os, arch) differs from the first
+  admitted run of its corpus (the field is named);
 - a run whose build identity differs from the first admitted run of its corpus, or a corpus whose build
   identity differs from the first corpus's (by name) that has an admitted run; the corpus is excluded whole;
 - a `build` run whose report does not say that both caches missed (`cache.cpg_hit` and
-  `cache.call_edges_loaded` must be `false`, not `true` and not `null`): it was not a first build;
+  `cache.call_edges_loaded` must be `false`, not `true` and not `null`): it was not a first build; or that wrote
+  no cache file (above);
 - a refresh run did not report `status: refreshed` (`raced_stale` means the tree changed during it);
 - a workload run had errors, answered fewer requests than it sent, ran none, or ran a workload whose request
   count or sha256 differs from the one the driver gave it.
@@ -130,12 +143,14 @@ must run the same file. Regenerate only when the corpus commit changes.
 <run>/raw/<corpus>/corpus.json        commit, dirty count, cache file sizes, workload digest
 <run>/raw/<corpus>/prime.json         the priming run's result (its peak is the first-build peak)
 <run>/raw/<corpus>/<kind>-<n>.json    one result per run: kind, rep, status, reason, report, host state
+                                      (swap, compressor, load average)
 <run>/cache/<corpus>/                 the primed cache the warm, workload and refresh runs read
 <run>/cache-build/<corpus>/<rep>/     a build run's own empty cache directory; deleted after its run
 <run>/summary.json                    rewritten after each corpus finishes
 ```
 
-`raw/<corpus>/build-<n>.json` also holds `cache_files`, the sizes of the cache files that run wrote. `kinds`
+`raw/<corpus>/build-<n>.json` also holds `cache_files` (the sizes of the cache files that run wrote) and
+`cache_dir_removed`. `kinds`
 in `run.json` is the list that ran; `summarize` does not need it (it scores whatever is in `raw/`), so a
 `run.json` from before `--kinds` existed (no `kinds` key, meaning the default four) still summarizes, as does a
 directory that holds only some kinds.
@@ -163,20 +178,31 @@ python3 scripts/memreport/memreport.py compare --experiment m2 --baseline <run-a
     --out compare.md [--json compare.json] [--allow-same-build]
 ```
 
-reads the two `summary.json` files (it runs nothing) and writes a Markdown report: both runs' provenance (build
-identity, git sha, CPG cache version, allocator, threads, environment, repetitions, settle, per-corpus commit),
-the rule, one table per metric (per corpus: baseline and candidate median with min-max and n, the difference of
-the medians in absolute terms and as a percentage, the outcome) and a verdict table with one line per metric.
-`--json` writes the same content as data. Bytes are MiB with one decimal, durations whole milliseconds, an
-unavailable value `n/a`.
+rebuilds both summaries in memory from each directory's `run.json` and `raw/` with today's rules (the code path
+`summarize` uses; a saved `summary.json` is never read, and a directory without `raw/` is refused), runs nothing,
+and writes a Markdown report: both runs' provenance (build identity, git sha, CPG cache version, allocator,
+`binary_input_dirty`, platform, threads, environment, repetitions, settle, the host's 1-minute load average as
+median and maximum over the admitted runs, `n/a` for runs recorded before it was kept, and the per-corpus commit),
+bold warnings (a binary built from a dirty tree; a corpus with uncommitted files, since equal counts are not equal
+trees), the rule, one table per metric (per corpus: baseline and candidate median with min-max and n, the
+difference of the medians in absolute terms and as a percentage, the outcome), a verdict table with one line per
+metric, and an **Excluded runs** table per side (corpus, kind, repetition, reason; "None." when empty). Run
+directories are named by their last path component. `--json` writes the same content as data, the rule's
+constants and text included. Bytes are MiB with one decimal, durations whole milliseconds, an unavailable value
+`n/a`.
 
 It **refuses** (non-zero exit, every difference named, nothing written) unless the two runs have the same
-corpus names; per corpus the same commit, dirty count and workload sha256; the same repetitions and settle; the
-same thread count, measured-process environment and allocator; and **different** build identities (the same
-build is refused unless `--allow-same-build` is given, for a noise check; the report then says so).
+corpus names; per corpus the same commit, dirty count and workload sha256, and (where both sides have an admitted
+run) the same thread count, measured-process environment, allocator and platform, which must be known; the same
+repetitions and settle; and **different** build identities (the same build is refused unless `--allow-same-build`
+is given, for a noise check; the report then says so). One directory against itself is always refused.
 
-The pinned rule of experiment `m2` (a table in `memreport_compare.py`, `EXPERIMENTS`, so another experiment is a
-new entry):
+Experiment `m2` needs `--kinds warm,workload,build` on both runs: `peak` and `load_ms` come from `warm`,
+`steady_heap` from `workload`, `build_peak` and `build_ms` from `build`. A metric no run measured is "not
+measured".
+
+The pinned rule of experiment `m2` (a table in `memreport_compare_rule.py`, `EXPERIMENTS`, so another experiment is
+a new entry; a gate metric must be in bytes):
 
 | Metric key | Label | Unit | Role |
 |---|---|---|---|
@@ -189,17 +215,20 @@ new entry):
 - **gate**, per corpus: *separated* = candidate max < baseline min; *reduction* = baseline median - candidate
   median; *effect* = reduction of at least 100 MiB or at least 5 % of the baseline median. The corpus **passes**
   when both series have at least 3 runs and it is separated and has an effect. With fewer than 3 runs on either
-  side it is "insufficient runs": not a pass and not a fail. The metric passes when at least 2 corpora pass; if
-  it does not, it is "insufficient runs" when corpora short of runs could still bring the passes to 2, else
-  "fail".
-- **not worse**, per corpus: ok when the candidate median is at most 1.05 times the baseline median. The metric
-  is ok when it is ok on every corpus that has both series; a corpus with a missing series is listed as "not
-  measured".
+  side it is "insufficient runs": not a pass and not a fail. The metric **passes** when at least 2 corpora pass.
+  Otherwise it is **undecided** when fewer than 2 corpora exist, or when the corpora that pass or could still pass
+  with more data (pass, insufficient runs, one-sided, not measured) number at least 2; else **fail**.
+- **not worse**, per corpus: **worse** only when the candidate median is above 1.05 times the baseline median
+  **and** the ranges do not overlap (candidate min > baseline max); otherwise ok. The ratio of the medians is
+  always shown (e.g. `×1.031`). A difference inside the overlap of the two ranges is not evidence either way: on
+  this machine a second run of the same build differed by 15 % in load time while other work was running.
 - **not higher**, per corpus: ok when the candidate median is at most 1 MiB above the baseline median. A lower
   figure is ok: a candidate that allocates more tightly lowers it without changing the index.
-- A metric absent from both runs is "not measured" and decides nothing. The boundaries are exact (a candidate
-  median of exactly 1.05 times is ok, a live heap exactly 1 MiB higher is ok, a candidate max equal to the
-  baseline min is not separated).
+- A series on exactly one side is **one-sided** for that corpus; on neither side, **not measured**. For not worse
+  and not higher the metric is **incomplete** when any corpus is one-sided and none is worse/higher (**worse** or
+  **higher** wins); a metric absent from both runs everywhere is "not measured" and decides nothing. The
+  boundaries are exact (a candidate median of exactly 1.05 times is ok, a live heap exactly 1 MiB higher is ok, a
+  candidate max equal to the baseline min is not separated).
 
 The comparison decides nothing about what ships: it reports the numbers and the pinned rule's outcome.
 
