@@ -329,22 +329,18 @@ fn textual_fptr_path_still_fires_where_the_binder_does_not_follow() {
 }
 
 #[test]
-fn textual_fptr_path_case3_shadowed_right_hand_name_is_still_a_false_exact() {
+fn textual_fptr_path_case3_shadowed_right_hand_name_emits_nothing() {
     // `f` at `const h = f` is the parameter of `outer`, not the import. The binder-based follow
-    // correctly refuses (the `Source` record drops). The textual function-pointer path
-    // (`call_graph.rs` Level 1, `resolve_fptr_assignment`) reads source text, is scope-blind,
-    // and still emits an `IndirectResolution` record with a false Exact import_member edge.
-    // Pinned as CURRENT behavior, unchanged by slice L; making that path binding-aware for
-    // JS/TS is the next slice.
+    // refuses (the `Source` record drops). The textual function-pointer path (`call_graph.rs`
+    // Level 1) used to read source text scope-blind and emit a false Exact import_member
+    // `IndirectResolution` record; slice R rule 3 makes it agree with the binder in JS/TS, and
+    // the right-hand `f` is a parameter, so it emits nothing.
     let src =
         "import { f } from './callee';\nexport function outer(f) {\n  function inner() {\n    \
         const h = f;\n    return h(1);\n  }\n  return inner();\n}\n";
     assert_eq!(
         records_at(&[F_CALLEE, ("caller.js", src)], "caller.js", 5),
-        [
-            "f IndirectResolution: callee.js:f@1-3 import_member exact",
-            "h Source: drop UnknownName",
-        ]
+        ["h Source: drop UnknownName"]
     );
 }
 

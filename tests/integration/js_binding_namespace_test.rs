@@ -226,7 +226,7 @@ fn d9_written_import_and_export_keep_base() {
         ] {
             let cg=graph(ext,&[("lib",LIB),("app",app)]);
             let site=cg.calls.values().flatten().find(|s| s.caller.name=="run" && s.callee_name=="f").unwrap();
-            assert!(matches!(&site.local_binding,JsLocalBinding::MayCall(r) if r=="may_call"));
+            assert!(matches!(&site.local_binding,JsLocalBinding::MayCall{reason:r,..} if r=="may_call"));
             assert_eq!(prism::navigation::queries::call_stats(&cg)["local_binding_may_call"]["may_call"],1);
         }
         let cg = graph(
@@ -245,7 +245,9 @@ fn d9_written_import_and_export_keep_base() {
             .flatten()
             .find(|s| s.caller.name == "run")
             .unwrap();
-        assert!(matches!(&site.local_binding,JsLocalBinding::MayCall(r) if r=="may_call"));
+        assert!(
+            matches!(&site.local_binding,JsLocalBinding::MayCall{reason:r,..} if r=="may_call")
+        );
         assert_eq!(cg.resolve_call_site_full(site).resolved.len(), 2);
         let cg = graph(ext, &[("lib", &format!("{LIB}f=other;")), ("app", APP)]);
         assert_eq!(

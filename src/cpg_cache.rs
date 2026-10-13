@@ -253,7 +253,10 @@ use std::path::{Path, PathBuf};
 ///   `//`, `/./`, `/../` segments are normalized within the repo root.
 /// - v116: slice L follows JS/TS `const` aliases: `CallSite.local_binding` gains
 ///   `AliasCallable`, `AliasImport` and `AliasNamespaceMember`.
-const CACHE_VERSION: u32 = 116;
+/// - v117: slice R refuses name search for a bound name of unproven value:
+///   `JsLocalBinding::MayCall` carries the line spans of the values written to the binding,
+///   and the textual alias path respects JS/TS bindings.
+const CACHE_VERSION: u32 = 117;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -797,7 +800,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 116);
+        assert_eq!(super::CACHE_VERSION, 117);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -1545,6 +1548,53 @@ mod tests {
             other => panic!("expected Hit, got {}", cache_result_kind(&other)),
         }
         force_cache_version(dir.path(), 115);
+        assert!(matches!(
+            load_cache(&hashes, false, dir.path()),
+            CacheResult::Miss
+        ));
+    }
+
+    #[test]
+    fn may_call_bindings_carry_their_written_value_spans_through_the_cache() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            "a.js".to_string(),
+            "export function run(o) {\n  const h = wrap(() => {\n    return 1;\n  });\n  \
+             const k = o.pick;\n  let m;\n  m = o.a;\n  m = o.b;\n  return [h(), k(), m()];\n}\n"
+                .to_string(),
+        );
+        let files: BTreeMap<String, crate::ast::ParsedFile> = sources
+            .iter()
+            .map(|(path, source)| {
+                let parsed = crate::ast::ParsedFile::parse(
+                    path,
+                    source,
+                    crate::languages::Language::JavaScript,
+                )
+                .unwrap();
+                (path.clone(), parsed)
+            })
+            .collect();
+        let cpg = crate::cpg::CodePropertyGraph::build(&files);
+        let hashes = compute_file_hashes(&sources);
+        let dump = call_site_dump(&cpg).join("\n");
+        let compact: String = dump.split_whitespace().collect();
+        for want in [
+            "reason:\"may_call\",values:[(2,4)]",
+            "reason:\"alias\",values:[(5,5)]",
+            "reason:\"may_call\",values:[(7,7),(8,8)]",
+        ] {
+            assert!(compact.contains(want), "{want} missing from {dump}");
+        }
+        save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+        match load_cache(&hashes, false, dir.path()) {
+            CacheResult::Hit(restored) => {
+                assert_eq!(call_site_dump(&cpg), call_site_dump(&restored));
+            }
+            other => panic!("expected Hit, got {}", cache_result_kind(&other)),
+        }
+        force_cache_version(dir.path(), 116);
         assert!(matches!(
             load_cache(&hashes, false, dir.path()),
             CacheResult::Miss

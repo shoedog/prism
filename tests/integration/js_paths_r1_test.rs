@@ -62,7 +62,10 @@ fn js_paths_unproven_positions_preserve_base() {
         for state in [
             JsLocalBinding::Position("dynamic_scope".into()),
             JsLocalBinding::Unchecked,
-            JsLocalBinding::MayCall("may_call".into()),
+            JsLocalBinding::MayCall {
+                reason: "may_call".into(),
+                values: Vec::new(),
+            },
             JsLocalBinding::Unproven("unbound".into()),
         ] {
             let mut head = graph(d.path());

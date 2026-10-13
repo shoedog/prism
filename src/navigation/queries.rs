@@ -399,8 +399,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                         .entry(r.clone())
                         .or_default() += 1
                 }
-                crate::call_graph::JsLocalBinding::MayCall(r) => {
-                    *local_binding_may_call.entry(r.clone()).or_default() += 1
+                crate::call_graph::JsLocalBinding::MayCall { reason, .. } => {
+                    *local_binding_may_call.entry(reason.clone()).or_default() += 1
                 }
                 _ => {}
             }

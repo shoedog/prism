@@ -16,6 +16,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 #[path = "resolution_js_alias.rs"]
 mod js_alias;
+#[path = "resolution_js_bound.rs"]
+mod js_bound;
 #[path = "resolution_js_namespace.rs"]
 mod js_namespace;
 
@@ -3517,6 +3519,13 @@ impl CallGraph {
                     if matches!(site.local_binding, JsLocalBinding::Unproven(_)) {
                         return ResolutionOutcome::dropped(DropReason::LocalBindingUnproven);
                     }
+                    // Slice R, rule 2: a bound name of unproven value keeps only a function
+                    // written into that binding.
+                    if let Some(outcome) =
+                        js_bound::js_ts_may_call_local(&site.local_binding, &local)
+                    {
+                        return outcome;
+                    }
                     return ResolutionOutcome::hit(exact(local, ResolutionKind::LocalDef));
                 }
 
@@ -3641,6 +3650,13 @@ impl CallGraph {
                     if !nonstatic.is_empty() && drops_at_r5 {
                         return ResolutionOutcome::dropped(DropReason::LocalBindingUnproven);
                     }
+                }
+                // Slice R, rule 1: a name bound in-file to a value of unproven shape is not a
+                // repo-wide function of that spelling either (no FreeSingle, no FreeMulti).
+                if !nonstatic.is_empty()
+                    && js_bound::js_ts_may_call_refuses_repo_wide(&site.local_binding)
+                {
+                    return ResolutionOutcome::dropped(DropReason::LocalBindingUnproven);
                 }
                 match nonstatic.len() {
                     0 => ResolutionOutcome::dropped(DropReason::UnknownName),

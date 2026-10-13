@@ -13,6 +13,7 @@ pub(crate) use js_binding_alias::JsFollow;
 // is less visible than the `pub` enum variant that carries it); kept `pub` to stay clean under
 // `cargo clippy -W clippy::all`, which the acceptance gate treats as a no-new-warnings bar.
 pub use js_binding::JsTerminal;
+mod js_alias_text;
 mod js_binding_checks;
 mod js_binding_decls;
 #[cfg(test)]
@@ -23,6 +24,7 @@ mod js_binding_site;
 mod js_binding_values;
 mod js_binding_walk;
 mod js_binding_writes;
+mod js_binding_written;
 mod js_cjs_export_barriers;
 mod js_cjs_terminal;
 mod js_module_forwarding;

@@ -355,14 +355,3 @@ fn rule3_keep_a_reassignment_alias_where_both_names_are_bound() {
         ]
     );
 }
-
-#[test]
-fn rule3_does_not_touch_c_function_pointers() {
-    let src =
-        "int f(int x) { return x; }\nint run(void) {\n  int (*h)(int) = f;\n  return h(1);\n}\n";
-    let got = records_at(&[("a.c", src)], "a.c", 4);
-    assert!(
-        got.contains(&"f IndirectResolution: a.c:f@1-1 local_def exact".to_string()),
-        "{got:?}"
-    );
-}

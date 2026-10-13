@@ -519,10 +519,16 @@ pub enum JsLocalBinding {
     Callable(crate::ast::JsTerminal),
     /// S1b-4: one unwritten program namespace import, proved at this site.
     NamespaceImport { module_path: String },
-    /// Keeps base behavior, counted by reason: `may_call` (owner E5: M1, M2, a written
-    /// binding) or `alias` (a value that may hold a function by value flow, owner
-    /// 2026-09-29).
-    MayCall(String),
+    /// An in-file binding whose value is not proven, counted by reason: `may_call` (owner E5:
+    /// M1, M2, a written binding) or `alias` (a value that may hold a function by value flow,
+    /// owner 2026-09-29). Slice R: it gets no repo-wide name search, and a same-file function of
+    /// the site's spelling only when it lies inside one of `values`, the 1-indexed inclusive
+    /// line spans of the value expressions written to the binding (its initializer and the
+    /// right-hand sides of assignments to it).
+    MayCall {
+        reason: String,
+        values: Vec<(usize, usize)>,
+    },
     /// No single proven in-file callable, by reason (`unbound` and `import` included).
     Unproven(String),
     /// Owner OQ1 (Option K): an unproven position keeps base behavior, counted by reason.
@@ -2712,6 +2718,8 @@ impl CallGraph {
         // then 3 parameter-passed function pointers.
         let known_fn_names: BTreeSet<String> = self.functions.keys().cloned().collect();
         let mut extra_sites: Vec<(FunctionId, CallSite)> = Vec::new();
+        // Slice R, rule 3: one binder cache per file, shared by every text-scan match in it.
+        let mut js_caches: BTreeMap<&str, crate::ast::JsBindingCache<'_>> = BTreeMap::new();
 
         for (caller_id, sites) in &self.calls {
             for site in sites {
@@ -2781,6 +2789,29 @@ impl CallGraph {
                         &site.callee_name,
                         &known_fn_names,
                     ) {
+                        // Slice R, rule 3: in JS/TS the text scan must agree with the binder.
+                        if matches!(
+                            parsed.language,
+                            crate::languages::Language::JavaScript
+                                | crate::languages::Language::TypeScript
+                                | crate::languages::Language::Tsx
+                        ) {
+                            let Some(function) = Self::function_node_for_id(parsed, caller_id)
+                            else {
+                                continue;
+                            };
+                            let cache = js_caches.entry(&caller_id.file).or_default();
+                            if !parsed.js_ts_text_alias_agrees(
+                                function.start_byte(),
+                                site.start_byte,
+                                site.end_byte,
+                                &site.callee_name,
+                                &resolved,
+                                cache,
+                            ) {
+                                continue;
+                            }
+                        }
                         extra_sites.push((
                             caller_id.clone(),
                             Self::indirect_call_site(caller_id, resolved, site),
@@ -5709,23 +5740,16 @@ impl CallGraph {
         ) {
             return JsLocalBinding::Unchecked;
         }
-        let ident = parsed
-            .tree
-            .root_node()
-            .descendant_for_byte_range(start_byte, end_byte)
-            .filter(|n| n.start_byte() == start_byte && n.end_byte() == end_byte)
-            .and_then(|site| match site.kind() {
-                "call_expression" => site.child_by_field_name("function"),
-                "jsx_self_closing_element" | "jsx_opening_element" => {
-                    site.child_by_field_name("name")
-                }
-                _ => None,
-            });
+        let ident = parsed.js_ts_callee_node(start_byte, end_byte);
         let Some(ident) = ident else {
             return JsLocalBinding::Unchecked;
         };
+        let mut written_values = Vec::new();
         let binding = if ident.kind() == "identifier" && parsed.node_text(&ident) == callee {
             let binding = parsed.js_ts_site_binding(ident, callee, cache);
+            if matches!(binding, JsBinding::MayCall | JsBinding::Alias) {
+                written_values = parsed.js_ts_written_value_lines(ident, callee, cache);
+            }
             // Slice L: a `const` alias is followed to what it names; an alias that cannot be
             // followed keeps `Alias` (base behavior).
             if binding == JsBinding::Alias {
@@ -5767,10 +5791,14 @@ impl CallGraph {
         } else {
             return JsLocalBinding::Unchecked;
         };
+        let mut may_call = |reason: &str| JsLocalBinding::MayCall {
+            reason: reason.to_string(),
+            values: std::mem::take(&mut written_values),
+        };
         match binding {
             JsBinding::Callable(t) => JsLocalBinding::Callable(t),
-            JsBinding::MayCall => JsLocalBinding::MayCall("may_call".to_string()),
-            JsBinding::Alias => JsLocalBinding::MayCall("alias".to_string()),
+            JsBinding::MayCall => may_call("may_call"),
+            JsBinding::Alias => may_call("alias"),
             // Unbound or an import: no in-file function is the binding (R4 drops); the
             // import and repo-wide rungs keep base behavior.
             JsBinding::Import => JsLocalBinding::Unproven("import".to_string()),

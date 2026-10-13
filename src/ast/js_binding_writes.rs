@@ -42,6 +42,21 @@ impl ParsedFile {
         written
     }
 
+    /// Slice R: the indexed W1 targets that spell `name` (a cached view of the same index
+    /// `js_ts_scoped_written` consults).
+    pub(super) fn js_ts_named_write_targets<'a>(
+        &'a self,
+        name: &str,
+        cache: &mut JsBindingCache<'a>,
+    ) -> Vec<Node<'a>> {
+        cache
+            .write_targets
+            .get_or_insert_with(|| self.js_ts_write_targets())
+            .get(name)
+            .cloned()
+            .unwrap_or_default()
+    }
+
     /// W1 targets by name: assignment, update and `delete` targets and bare `for (x in/of …)`
     /// heads (a `using` declaration and a declaring head are not writes), and every identifier
     /// that is a child or a sibling of an `ERROR` (recovery may have mangled a write, as in
@@ -82,7 +97,7 @@ impl ParsedFile {
 /// (gpt-5.6-sol W1, gpt-6.1-sol W1): comparing raw ids misses the write in either direction.
 /// `formal_parameters` never indexes a body-only declaration (its own scope index calls only
 /// `js_ts_function_names`), so mapping it to its parent is always safe here.
-fn canonical_write_scope(n: Node<'_>) -> Node<'_> {
+pub(super) fn canonical_write_scope(n: Node<'_>) -> Node<'_> {
     if n.kind() == "formal_parameters" {
         n.parent().unwrap_or(n)
     } else {
