@@ -1,4 +1,4 @@
-**Current status:** Historical receipts below. Step1b is planner-complete; the current union census/measurements, gates, controller command and limits are in REPORT-step1.md, MEASUREMENTS-step1.json and PROBE-LOG-step1b.md. The old readiness STOP is superseded by the controller ruling and serial PASS.
+**Current status:** Step2 bounded repair fold supersedes the current-rule claims below. See SPEC-e5.md, REPORT-step2.md, HANDOFF-step2.md and step2 evidence. The retained step0/step1 tables and commands are historical. Confirming review is round 2/2; private step2 F remains controller work.
 
 # E5 full census — base 40ad8390 versus uncommitted cache115 prototype
 

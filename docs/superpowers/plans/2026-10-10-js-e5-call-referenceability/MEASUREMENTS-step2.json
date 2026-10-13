@@ -1,0 +1,318 @@
+{
+  "status": "PUBLIC_MEASUREMENT_COMPLETE__STOP_R1_SYNTHETIC_CORRECT_LOSS",
+  "corpora": {
+    "SB": {
+      "WRONG": 170,
+      "INADMISSIBLE": 354
+    },
+    "X": {
+      "WRONG": 19,
+      "UNDECIDED": 11,
+      "INADMISSIBLE": 1
+    },
+    "T": {
+      "WRONG": 201,
+      "INADMISSIBLE": 2
+    }
+  },
+  "arms": {
+    "SB": {
+      "a_only|WRONG": 123,
+      "a_only|INADMISSIBLE": 203,
+      "both|WRONG": 3,
+      "b_only|INADMISSIBLE": 29,
+      "both|INADMISSIBLE": 122,
+      "b_only|WRONG": 44
+    },
+    "X": {
+      "b_only|WRONG": 19,
+      "b_only|UNDECIDED": 11,
+      "both|INADMISSIBLE": 1
+    },
+    "T": {
+      "both|WRONG": 53,
+      "b_only|WRONG": 148,
+      "both|INADMISSIBLE": 2
+    }
+  },
+  "invocations": {
+    "SB": {
+      "ordinary|WRONG": 170,
+      "ordinary|INADMISSIBLE": 326,
+      "jsx|INADMISSIBLE": 5,
+      "qualified|INADMISSIBLE": 23
+    },
+    "X": {
+      "jsx|WRONG": 5,
+      "ordinary|UNDECIDED": 11,
+      "ordinary|WRONG": 14,
+      "ordinary|INADMISSIBLE": 1
+    },
+    "T": {
+      "ordinary|WRONG": 201,
+      "ordinary|INADMISSIBLE": 2
+    }
+  },
+  "graph_adjudications": {
+    "SB": {
+      "Call|WRONG": 170,
+      "DataFlow|WRONG": 162,
+      "Return|WRONG": 170,
+      "ReturnFlow|WRONG": 11,
+      "Call|INADMISSIBLE": 354,
+      "DataFlow|INADMISSIBLE": 144,
+      "Return|INADMISSIBLE": 354,
+      "ReturnFlow|INADMISSIBLE": 9,
+      "ReturnContains|CORRECT": 6,
+      "ReturnInput|CORRECT": 8
+    },
+    "X": {
+      "Call|WRONG": 19,
+      "Call|UNDECIDED": 11,
+      "Call|INADMISSIBLE": 1,
+      "DataFlow|WRONG": 5,
+      "DataFlow|UNDECIDED": 7,
+      "Return|WRONG": 19,
+      "Return|UNDECIDED": 11,
+      "Return|INADMISSIBLE": 1,
+      "ReturnFlow|WRONG": 1
+    },
+    "T": {
+      "Call|WRONG": 201,
+      "Call|INADMISSIBLE": 2,
+      "DataFlow|WRONG": 64,
+      "Return|WRONG": 201,
+      "Return|INADMISSIBLE": 2,
+      "ReturnFlow|WRONG": 5
+    }
+  },
+  "origins": {
+    "SB": {
+      "Source|WRONG": 170,
+      "Source|INADMISSIBLE": 354
+    },
+    "X": {
+      "Source|WRONG": 19,
+      "Source|UNDECIDED": 11,
+      "Source|INADMISSIBLE": 1
+    },
+    "T": {
+      "Source|WRONG": 201,
+      "Source|INADMISSIBLE": 2
+    }
+  },
+  "sites_changed": 758,
+  "targets_removed": 758,
+  "graphs_removed": 1938,
+  "added_sites": 0,
+  "added_targets": 0,
+  "added_graph_rows": 0,
+  "nonjs_rows_byte_identical": 43953,
+  "non_call_digests_identical": 581,
+  "undecided_removed": 11,
+  "navigation": {
+    "roots": 581,
+    "functions_byte_identical": true,
+    "file_inventory_byte_identical": true,
+    "removed_call_derived_module_edges": 177,
+    "sampled_navigation_removed_items": {
+      "callers": 127,
+      "callees": 20,
+      "callees_unresolved_placeholders": 20
+    }
+  },
+  "exclusions": [
+    {
+      "name": "SB__path-traversal__atropa-ide_0.2.2-2",
+      "root": "/Users/wesleyjinks/prism-evidence/inputs/secbench-pkgs/path-traversal/atropa-ide_0.2.2-2/src/package",
+      "exit": 124,
+      "reason": "paired exclusion: timeout 1500s",
+      "seconds": 0,
+      "base_seconds": 1500.021
+    },
+    {
+      "name": "SB__redos__clean-css_4.1.10",
+      "root": "/Users/wesleyjinks/prism-evidence/inputs/secbench-pkgs/redos/clean-css_4.1.10/src/package",
+      "exit": -9,
+      "reason": "paired exclusion: exit -9",
+      "seconds": 0,
+      "base_seconds": 394.508
+    },
+    {
+      "name": "SB__redos__natural_5.1.0",
+      "root": "/Users/wesleyjinks/prism-evidence/inputs/secbench-pkgs/redos/natural_5.1.0/src/package",
+      "exit": 124,
+      "reason": "paired exclusion: timeout 1500s",
+      "seconds": 0,
+      "base_seconds": 1500.931
+    },
+    {
+      "name": "SB__redos__three_0.122.0",
+      "root": "/Users/wesleyjinks/prism-evidence/inputs/secbench-pkgs/redos/three_0.122.0/src/package",
+      "exit": 124,
+      "reason": "paired exclusion: timeout 1500s",
+      "seconds": 0,
+      "base_seconds": 1501.928
+    }
+  ],
+  "predictions": {
+    "X": {
+      "WRONG": 19,
+      "CORRECT": 0,
+      "UNDECIDED": 11,
+      "INADMISSIBLE": 1
+    },
+    "T": {
+      "WRONG": 201,
+      "CORRECT": 0,
+      "UNDECIDED": 0,
+      "INADMISSIBLE": 2
+    },
+    "SB": {
+      "WRONG": 170,
+      "CORRECT": 0,
+      "UNDECIDED": 0,
+      "INADMISSIBLE": 354
+    }
+  },
+  "measured": {
+    "SB": {
+      "WRONG": 170,
+      "INADMISSIBLE": 354
+    },
+    "X": {
+      "WRONG": 19,
+      "UNDECIDED": 11,
+      "INADMISSIBLE": 1
+    },
+    "T": {
+      "WRONG": 201,
+      "INADMISSIBLE": 2
+    }
+  },
+  "prediction_deltas": {
+    "X": {
+      "WRONG": 0,
+      "CORRECT": 0,
+      "UNDECIDED": 0,
+      "INADMISSIBLE": 0
+    },
+    "T": {
+      "WRONG": 0,
+      "CORRECT": 0,
+      "UNDECIDED": 0,
+      "INADMISSIBLE": 0
+    },
+    "SB": {
+      "WRONG": 0,
+      "CORRECT": 0,
+      "UNDECIDED": 0,
+      "INADMISSIBLE": 0
+    }
+  },
+  "step1_preserved_by_ruling": {
+    "SB": {
+      "R3|INADMISSIBLE": 64,
+      "R3|WRONG": 1
+    },
+    "X": {
+      "R3|INADMISSIBLE": 36,
+      "R3|WRONG": 8,
+      "R3|UNDECIDED": 23
+    }
+  },
+  "secbench": {
+    "per_root": {
+      "WRONG": 170,
+      "INADMISSIBLE": 354
+    },
+    "distinct_source": {
+      "WRONG": 134,
+      "INADMISSIBLE": 293
+    },
+    "admitted_roots": 579,
+    "contributing_roots": 11,
+    "contributing_distinct_sources": 10,
+    "duplicate_roots": [
+      "SB__prototype-pollution__total.js_3.4.6",
+      "SB__command-injection__total.js_3.4.6"
+    ],
+    "duplicate_rows": 97,
+    "duplicate_verdicts": {
+      "INADMISSIBLE": 61,
+      "WRONG": 36
+    }
+  },
+  "step1_to_step2_rows": 132,
+  "STOP": {
+    "status": "STOP",
+    "finding": "WRONG",
+    "ruling": "R1",
+    "confidence": 99,
+    "input": "import { N } from ./ns; import f = N./* ordinary trivia */f; export function caller(x) { return f(x); }",
+    "expected": "preserve the static namespace import-equals binding ns.ts:f, Exact free_single, as main does",
+    "base": {
+      "call_kind": "Call",
+      "callee_text": "f",
+      "caller": {
+        "end_line": 1,
+        "file": "caller.ts",
+        "name": "caller",
+        "start_line": 1
+      },
+      "drop": null,
+      "exact_target": null,
+      "origin": "Source",
+      "record_kind": "call_site",
+      "resolved_targets": [
+        {
+          "confidence": "exact",
+          "function_id": {
+            "end_line": 1,
+            "file": "ns.ts",
+            "name": "f",
+            "start_line": 1
+          },
+          "kind": "free_single"
+        }
+      ],
+      "source_callee_text": "f",
+      "source_span": {
+        "end_byte": 102,
+        "file": "caller.ts",
+        "line": 1,
+        "start_byte": 98
+      }
+    },
+    "step2": {
+      "call_kind": "Call",
+      "callee_text": "f",
+      "caller": {
+        "end_line": 1,
+        "file": "caller.ts",
+        "name": "caller",
+        "start_line": 1
+      },
+      "drop": "LocalBindingUnproven",
+      "exact_target": null,
+      "origin": "Source",
+      "record_kind": "call_site",
+      "resolved_targets": [],
+      "source_callee_text": "f",
+      "source_span": {
+        "end_byte": 102,
+        "file": "caller.ts",
+        "line": 1,
+        "start_byte": 98
+      }
+    },
+    "mechanism": "raw entity text after the final dot includes a comment; it is not equal to the local name, so E5 fails to collect f and arm (b) drops the singleton",
+    "bounded_fix": "extract the terminal identifier from the nested_identifier AST, ignoring comment children; keep renamed-terminal refusal controls",
+    "regression": "same t24 shape with a comment between the dot and terminal f; assert full ns.ts:f@1-1 FreeSingle/Exact on head and preserve f=N.g / format=ts.getPathFromPathComponents refusal",
+    "evidence": "/Users/wesleyjinks/prism-evidence/js-e5/step2/namespace-alias-trivia-probe",
+    "no_fix_after_STOP": true,
+    "no_running_producers": true,
+    "step1_for_new_fixture": "NOT RUN after STOP",
+    "scope": "synthetic static corpus; public X/T/SB target counts separately passed prediction"
+  }
+}

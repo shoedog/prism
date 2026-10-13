@@ -1,3 +1,5 @@
+**Superseded for current operational state by HANDOFF-step2.md and REPORT-step2.md. This document records the historical step1 head and its receipts.**
+
 # Handoff — js-e5 call referenceability Step 1b, planner complete
 
 **Written:** 2026-10-13T07:06:30.493492+00:00 · **By:** root planner · **Provider:** codex

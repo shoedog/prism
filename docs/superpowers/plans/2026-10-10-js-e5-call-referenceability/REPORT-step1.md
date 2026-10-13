@@ -1,3 +1,5 @@
+**Superseded for current operational state by HANDOFF-step2.md and REPORT-step2.md. This document records the historical step1 head and its receipts.**
+
 # E5 Step1 complete — measured owner-selected union
 
 **Status: PLANNER COMPLETE / READY FOR CONTROLLER F AND SPEC REVIEW; not adopted or landed. No current STOP.** The step1b controller rulings reopened the preserved artifact. Repair round1 of cap2 passed; no extension or restart.

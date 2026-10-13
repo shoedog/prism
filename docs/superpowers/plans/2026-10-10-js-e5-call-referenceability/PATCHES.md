@@ -1,3 +1,7 @@
-# Step1b delivery and custody
+**STOP: R1 loses the valid namespace terminal-trivia binding. Hold further captures and review until controller clears this bounded defect; source is preserved unchanged after STOP.**
 
-Deliver E5-step1b-src.patch and E5-step1b-docs.patch under /Users/wesleyjinks/prism-evidence/js-e5/step1/, relative to d994c75d. Source patch contains four approved integration-test reconciliations and four predicate mutants with lib selector routing. The union implementation is already preserved in e164178b, packet in d994c75d; Step1b does not restart it or alter product src/vendor. Docs patch contains final union spec/measurements/gates, disclosures, controller command, handoff, root VERIFICATION.md and replay tools. Earlier step0/step1 patches remain historical; no Git writes by planner. Final patch validation and hashes are in step1b-patch-manifest.json / step1b-final-custody.json.
+# Step2 delivery and custody
+
+Deliver `E5-step2-src.patch` and `E5-step2-docs.patch` under `/Users/wesleyjinks/prism-evidence/js-e5/step2/`, relative to `ce6de39722c0211d68de3be2d35361e14408731f`. Source patch folds R1–R6 (R1 remains open on trivia) plus the R7 fact-helper/cache comment/test-name repairs into the existing union prototype; the lane registry pins every E5 mutant and rebinds PD-29. Docs patch reconciles spec, measurements, controller command/parity helper, report, handoff and verification. No Git writes by planner; controller commits from this working tree.
+
+Step0 and step1 evidence remain read-only. Source/packet checkpoint is `step2/checkpoint-source-packet.tar.gz`; final patch validation and hashes are in `step2/patch-manifest.json` / `step2/final-custody.json`. Earlier patches and receipts are historical.

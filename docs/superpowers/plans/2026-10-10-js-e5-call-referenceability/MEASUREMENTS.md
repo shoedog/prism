@@ -215,7 +215,26 @@ Reading the Excalidraw source behind the X JSX split (13 W / 23 U / 35 I):
 - prism reaches these targets through its indirect record for a static property assignment, for example `DropdownMenu.Item = DropdownMenuItem;` in `dropdownMenu/DropdownMenu.tsx:60`. The site `<DropdownMenu.Item>` in `Actions.tsx` is recorded with callee text `DropdownMenuItem`.
 - Arm (b) then asks whether the **calling** file imports `DropdownMenuItem`. It does not: it imports `DropdownMenu`. The name was written in `DropdownMenu.tsx`, which does import it.
 - The 23 UNDECIDED removals are of this kind (`DropdownMenu.Item`, `DropdownMenu.Item.Badge`, `DropdownMenuSub.Content`, `DropdownMenuSub.Trigger`). By the source they are the assigned component; the checker cannot establish value identity, so they are UNDECIDED, not CORRECT.
-- The 13 WRONG removals are the same mechanism choosing by property name alone: `<DropdownMenu.Trigger>` resolved to `DropdownMenuSubTrigger`, `<DropdownMenu.Content>` to `DropdownMenuSubContent`.
+- Of the 13 JSX WRONG removals, 8 are IndirectResolution records choosing by property name alone; the other 5 are Source-origin local aliases in examples/with-script-in-browser/components/ExampleApp.tsx. The indirect examples are: `<DropdownMenu.Trigger>` resolved to `DropdownMenuSubTrigger`, `<DropdownMenu.Content>` to `DropdownMenuSubContent`.
 - A sampled INADMISSIBLE removal is `<DropdownMenuPrimitive.Item>` (imported from `radix-ui`) resolved to the local `DropdownMenuItem`.
 
-So for indirect records arm (b)'s premise is evaluated in a file where the name was never written. This is an open owner decision (keep or cut the indirect/JSX part of arm (b)); the reviewers are asked to assess it.
+So for indirect records arm (b)'s premise is evaluated in a file where the name was never written. The controller R3 ruling cuts arm (b) to Source origin. The 8 indirect WRONG rows and all indirect U/I exposures are preserved; the 5 Source-origin JSX aliases stay refused. Source-origin qualified physical rows are super calls, not lost member qualifiers, and stay subject to arm (b).
+
+
+## Current step2 paired measurement (2026-10-13)
+
+| Corpus | Prediction W/C/U/I | Measured W/C/U/I |
+|---|---|---|
+| X | 19 / 0 / 11 / 1 | 19 / 0 / 11 / 1 |
+| T | 201 / 0 / 0 / 2 | 201 / 0 / 0 / 2 |
+| SB | 170 / 0 / 0 / 354 | 170 / 0 / 0 / 354 |
+
+All prediction columns match. Step1-to-step2 differences: 132 fully enumerated rows, all explained by the controller rulings ({"SB":{"R3|INADMISSIBLE":64,"R3|WRONG":1},"X":{"R3|INADMISSIBLE":36,"R3|UNDECIDED":23,"R3|WRONG":8}}). Nothing added; 43953 non-JS call rows byte-identical; all581 non-call digests and inventories identical. 758 target / 758 call-site / 1938 graph-row adjudications complete. Full arm, origin/physical, graph and navigation tables: REPORT-step2.md / MEASUREMENTS-step2.json. Every U removal: UNDECIDED-step2.md. All93 required three-way fixtures pass their designated controls; an additional R1 trivia audit fails preservation and invokes STOP. Table in REVIEWER-FIXTURES-step2.md.
+
+SecBench current per-root 170 | 0 | 0 | 354 versus distinct-source 134 | 0 | 0 | 293 (W/C/U/I); 11 of579 admitted roots contribute, representing 10 distinct sources. The two total.js roots contribute identical97 rows (36 W/61 I). Measured CORRECT zero does not cover import-equals or module-to-script globals; fixtures supply that coverage.
+
+The complete source-bound result is REPORT-step2.md; step0 and step1 are historical. Private step2 F is pending controller execution; step1 F is not transferred.
+
+**Step2 STOP:** a correct import-equals namespace binding with terminal trivia is lost on the synthetic audit. Public zero CORRECT and matched predictions do not close R1. See STOP.json / REPORT-step2.md.
+
+Verification-only hook rerun on unchanged source:5309 run,5307 pass,2 failures,1 ignored; isolated MCP timing5/5 passes, cause unattributed. This changes the latest gate receipt, not the frozen public measurements or R1 STOP.
