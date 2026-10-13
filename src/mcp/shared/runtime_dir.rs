@@ -1,7 +1,7 @@
 //! The per-user runtime directory that holds every daemon's socket, locks, pid file and log
 //! (spec §4.3), and the validation that the shim and the daemon both run on every use (§7).
 //!
-//! Validation is what keeps another local user out. It has three parts:
+//! Validation hardens the directory against other local users. It has three parts:
 //!
 //! - the directory itself is a real directory (not a symlink), owned by the current user, with
 //!   mode 0700;
