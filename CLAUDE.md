@@ -292,7 +292,7 @@ Transport layout: `src/mcp/framing.rs` holds the newline-delimited JSON framing 
 validation; needs no index) and `dispatch_tool_read` / `dispatch_tool_refresh` /
 `dispatch_tool_auto_refresh` (shared versus exclusive access to the provider). Output settings are
 an explicit `ConnectionSettings` (`src/mcp/settings.rs`), resolved from the environment once per
-server, so an invalid `PRISM_MCP_*` output value warns once, not once per call.
+server, so an invalid `PRISM_MCP_*` output value warns once, at server start, not once per call.
 `tests/fixtures/mcp/golden/` pins the in-process server's stdout; re-record with
 `PRISM_MCP_BLESS_GOLDEN=1 cargo test --features mcp --test mcp golden_transcript_test` only for a
 change that is meant to alter tool output, and say why in the commit.
