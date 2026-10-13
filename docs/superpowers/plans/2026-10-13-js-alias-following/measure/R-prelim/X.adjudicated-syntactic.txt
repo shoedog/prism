@@ -1,0 +1,10 @@
+REMOVED exact targets: (part, origin:kind, category, census verdict on main)
+     1  RECORD removed |  | 
+    11  product | Source:free_single | value_unknown:parameter_member | wrong
+    11  product | Source:free_single | matches_followed_value (hops 1) | unknown_edge
+     8  product | Source:free_single | matches_followed_value (hops 1) | wrong
+     6  product | Source:local_def | no_in_repo_callee | unknown_edge
+     5  product | Source:local_def | value_unknown:other_value | unknown_edge
+     4  product | Source:local_def | value_unknown:member_call_result | unknown_edge
+sites that only lost NameOnly candidates: 3 (candidate edges removed: 9)
+ADDED exact targets: {}

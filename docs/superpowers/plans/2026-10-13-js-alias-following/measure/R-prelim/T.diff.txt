@@ -1,0 +1,10 @@
+sites base 61712 head 61712; changed rows 223
+   54443  product same 
+     145  product exact:free_single -> none(LocalBindingUnproven) 
+      48  product name_only:free_multi -> none(LocalBindingUnproven) 
+      25  product exact:local_def -> none(LocalBindingUnproven) 
+       1  product exact:local_def -> exact:local_def 
+    6335  test    same 
+       2  test    exact:local_def -> none(LocalBindingUnproven) 
+       1  test    exact:free_single -> none(LocalBindingUnproven) 
+       1  test    name_only:free_multi -> none(LocalBindingUnproven) 

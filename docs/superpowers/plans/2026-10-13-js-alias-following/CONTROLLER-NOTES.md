@@ -119,3 +119,25 @@ After reading the analysis the owner chose, in order: (1) the import-suffix fix 
 Two places where the import-suffix slice as dispatched differs from the plan's I1 text, both disclosed to the reviewers as questions:
 - The plan gives a literal `./x.js` the TypeScript precedence `.ts`, `.tsx`, `.d.ts`, `.js`. The slice is additive instead: an existing `x.js` keeps winning, as on main, and the substitution applies only when nothing resolves today. With the plan's order a hand-typed `x.js` beside `x.d.ts` would lose the edge main has.
 - `.d.ts` is not a substitution candidate, because a declaration file has no callable body to bind to.
+
+## CORRECTION (2026-10-13, evening): the "wrong edges" the refusal removes are mostly right targets found by spelling
+Earlier sections of these notes, and the E5 packet before them, count F 109 / X 19 / T 201 "wrong Exact edges" on locally bound names. That label came from the census verdict, which meant "the name is bound locally and prism resolved it by a repo-wide name search", i.e. unproven. It did not mean the target is the wrong function. Measured now, with the refusal slice implemented (branch `feat/js-bound-name-refusal`, binary `R1`) against the alias-following binary, every removed Exact edge adjudicated:
+
+| Removed Exact edges (product code) | X | T | F |
+|---|---:|---:|---:|
+| Through the repo-wide name search (`free_single`) | 30 | 145 | 113 |
+| … the target is the real callee | 23 (checker agrees) | 0 shown | 42 (38 equal the callee a one-step returned-value follow derives; 4 are lazily required or imported modules the census had already marked correct) |
+| … the target is certainly not the callee | 1 | 1 | 32 (28 have no in-repo callee: state setters and the like; 4 differ from the followed value) |
+| … unknown (the value is a parameter or a member of one) | 6 | 144 | 39 |
+| Through the same-file by-name rung (`local_def`) | 15 | 26 | 28 |
+| … the target is the real callee | 0 shown | 8 (checker agrees) | 0 shown |
+| … certainly not / unknown | 6 / 9 | 5 / 13 | 1 / 27 |
+| Sites that lose only NameOnly candidates (edges) | 3 (9) | 49 (296) | 286 (2,217) |
+
+X method: the TypeScript checker's resolved declaration for the call against the removed target. F method: the syntactic value-following census (`variants/callresult.cjs`), since F is untyped. X's 23: a component receives the library module object as a typed prop and destructures its members (11), and hook results such as `const { t } = useI18n()` (the rest). They are right because destructured names follow the names of the functions they hold.
+
+What this changes:
+- The refusal is not "removing 109 wrong edges" on F. It removes 113 unproven Exact edges of which at least 42 are right and 32 are certainly wrong. On X nearly everything it removes is right.
+- Order of slices: returned-value following and following `require()` / `import()` destructures must land BEFORE the refusal, so the right edges are kept with proof. After them, what remains unproven is mostly members of parameters (props): X 11 (the checker says right), F 38 and T 143 (unknown).
+- Policy for that remainder is an owner decision with three options: drop (the 2026-10-13 decision as worded), demote to NameOnly, or keep Exact. It should be made on numbers measured after the positive slices.
+- The refusal branch is implemented and pushed but NOT sent to review. Its rule 3 (the textual alias path respects bindings) and the binder data for rule 2 are reusable whatever the policy.

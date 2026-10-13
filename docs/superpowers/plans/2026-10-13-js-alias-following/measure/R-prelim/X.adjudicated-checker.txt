@@ -1,0 +1,9 @@
+      23 product|REMOVED exact:free_single|agree
+       5 product|REMOVED exact:free_single|checker_names_a_signature_without_body
+       1 product|REMOVED exact:free_single|checker_no_declaration
+       1 product|REMOVED exact:free_single|disagree
+       3 product|REMOVED exact:local_def|checker_names_a_signature_without_body
+       7 product|REMOVED exact:local_def|checker_no_declaration
+       5 product|REMOVED exact:local_def|disagree
+       2 product|non-exact change|name_only:free_multi -> none(LocalBindingUnproven)
+       1 product|non-exact change|name_only:free_multi -> none(LocalBindingUnproven+UnknownName)

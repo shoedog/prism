@@ -1,0 +1,9 @@
+     144 product|REMOVED exact:free_single|checker_names_a_signature_without_body
+       1 product|REMOVED exact:free_single|disagree
+       8 product|REMOVED exact:local_def|agree
+      18 product|REMOVED exact:local_def|checker_names_a_signature_without_body
+       2 product|REMOVED exact:local_def|disagree
+      48 product|non-exact change|name_only:free_multi -> none(LocalBindingUnproven)
+       1 test|REMOVED exact:free_single|checker_names_a_signature_without_body
+       8 test|REMOVED exact:local_def|checker_names_a_signature_without_body
+       1 test|non-exact change|name_only:free_multi -> none(LocalBindingUnproven)

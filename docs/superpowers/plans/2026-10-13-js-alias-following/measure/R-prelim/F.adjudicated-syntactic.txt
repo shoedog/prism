@@ -1,0 +1,12 @@
+REMOVED exact targets: (part, origin:kind, category, census verdict on main)
+    38  product | Source:free_single | value_unknown:parameter_member | wrong
+    38  product | Source:free_single | matches_followed_value (hops 1) | wrong
+    28  product | Source:free_single | no_in_repo_callee | wrong
+     4  product | Source:free_single | differs_from_followed (hops 1) | wrong
+     4  product | Source:free_single | site_not_in_local_census:import | correct
+     1  product | Source:free_single | value_unknown:spread_object | wrong
+    27  product | Source:local_def | value_unknown:parameter_member | unknown_edge
+     1  product | Source:local_def | no_in_repo_callee | unknown_edge
+     2  test | Source:local_def | value_unknown:member_call_result | unknown_edge
+sites that only lost NameOnly candidates: 286 (candidate edges removed: 2217)
+ADDED exact targets: {}
