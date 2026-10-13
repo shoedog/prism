@@ -15,12 +15,12 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
 
+from memreport_builddir import directory_identity, inside, prepare_repetition, remove_created  # noqa: F401
 from memreport_compare import EXPERIMENTS, cmd_compare
 from memreport_derive import derive, difference, num  # noqa: F401
 from memreport_render import KINDS, MIB, render  # noqa: F401
@@ -245,47 +245,17 @@ def bind_workload(name, directory, commit):
     return data, digest
 
 
-def inside(path, root):
-    """Whether `path` resolves to somewhere strictly under `root` (symlinks followed)."""
-    return Path(root).resolve() in Path(path).resolve().parents
-
-
-def remove_created(cache_dir, root):
-    """Delete a repetition directory this run created, then its parents if they are empty. True when it is gone.
-
-    A failure is reported, not hidden: the caller records it and the path is named on stderr.
-    """
-    try:
-        if not inside(cache_dir, root):
-            raise OSError('it resolves outside %s' % root)
-        shutil.rmtree(cache_dir)
-    except OSError as error:
-        print('warning: could not remove %s: %s' % (cache_dir, error), file=sys.stderr, flush=True)
-        return False
-    for parent in (cache_dir.parent, root):
-        try:
-            parent.rmdir()    # only succeeds when empty
-        except OSError:
-            break
-    return True
-
-
 def run_build(args, path, out, name, rep, snapshot):
     """One first build into a cache directory of its own; its file sizes are recorded, then it is deleted.
 
-    The directory is created here, exclusively: one that already exists (or whose parent resolves outside
-    <out>/cache-build) is not touched and the repetition is refused. Only a directory this call created is deleted.
+    The directory is created here, exclusively (memreport_builddir.py): an existing one, a symlink on the way or
+    any filesystem error refuses the repetition without running a child. Only that directory is deleted, and
+    `cache_dir_removed` records whether it is gone (with `cache_dir_note` saying why not).
     """
     root = out / 'cache-build'
-    cache_dir = root / name / str(rep)
-    refused = {'kind': BUILD, 'status': 'inadmissible', 'command': [], 'wall_secs': 0}
-    cache_dir.parent.mkdir(parents=True, exist_ok=True)
-    if not inside(cache_dir.parent, root) and cache_dir.parent.resolve() != root.resolve():
-        return dict(refused, reason='the cache directory resolves outside %s' % root)
-    try:
-        cache_dir.mkdir()
-    except FileExistsError:
-        return dict(refused, reason='the cache directory already existed')
+    cache_dir, identity, refusal = prepare_repetition(root, name, rep)
+    if refusal:
+        return {'kind': BUILD, 'status': 'inadmissible', 'command': [], 'wall_secs': 0, 'reason': refusal}
     result = None
     try:
         result = run_one(command_for(args.bin, path, cache_dir, BUILD, snapshot, args.settle), BUILD, args.timeout)
@@ -294,9 +264,11 @@ def run_build(args, path, out, name, rep, snapshot):
         if reason:
             result.update(status='inadmissible', reason=reason)
     finally:
-        removed = remove_created(cache_dir, root)
+        removed, note = remove_created(cache_dir, root, identity)
         if result is not None:
             result['cache_dir_removed'] = removed
+            if note:
+                result['cache_dir_note'] = note
     return result
 
 
