@@ -3,6 +3,7 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 fn repo() -> tempfile::TempDir {
     let dir = tempfile::tempdir().expect("temp repo");
@@ -42,6 +43,7 @@ fn report_line(stderr: &[u8]) -> Value {
 fn report_mode_prints_one_report_and_does_not_serve() {
     let repo = repo();
     let output = report_command(&repo)
+        .env("PRISM_TEST_SETTING", "on")
         // A real client would send this; report mode must not answer it.
         .write_stdin(
             "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{},\"clientInfo\":{\"name\":\"t\",\"version\":\"0\"}}}\n",
@@ -63,6 +65,12 @@ fn report_mode_prints_one_report_and_does_not_serve() {
     let report = report_line(&output.stderr);
     assert_eq!(report["stages"].as_array().unwrap().len(), 5);
     assert_eq!(report["attribution"]["files"], 2);
+    assert_eq!(report["prism_mem_report"], 2);
+    // The child ran with PRISM_MCP_MEM_REPORT=1 and PRISM_TEST_SETTING=on; only the second is a
+    // setting that could change what is measured.
+    assert_eq!(report["env"]["PRISM_TEST_SETTING"], "on");
+    let env = report["env"].as_object().unwrap();
+    assert!(!env.contains_key("PRISM_MCP_MEM_REPORT"), "{env:?}");
 }
 
 #[test]
@@ -90,8 +98,10 @@ fn a_generated_workload_feeds_a_workload_and_refresh_run() {
         .success()
         .get_output()
         .clone();
+    let digest = format!("{:x}", Sha256::digest(&emitted.stdout));
     std::fs::remove_file(&workload).ok();
     let report = report_line(&output.stderr);
+    assert_eq!(report["workload"]["sha256"], digest.as_str());
     assert_eq!(report["workload"]["requests"], 8);
     assert_eq!(report["workload"]["errors"], 0);
     assert_eq!(report["refresh"]["generation"], 1);

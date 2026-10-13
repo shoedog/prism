@@ -12,7 +12,8 @@ use super::{BuildStage, CacheMode, RefreshPolicy, RefreshSummary, ServerConfig, 
 use crate::cpg::CpgNode;
 use anyhow::Context;
 use serde_json::{json, Value};
-use std::collections::VecDeque;
+use sha2::{Digest, Sha256};
+use std::collections::{BTreeMap, VecDeque};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -73,6 +74,9 @@ struct WorkloadStats {
     /// shows up here, and such a run measures nothing.
     errors: u64,
     response_bytes: u64,
+    /// Lowercase hex SHA-256 of the workload file's bytes exactly as this process read them.
+    /// Empty for a workload generated in process and not read from a file.
+    sha256: String,
 }
 
 /// Feeds a handshake and the workload to the serve loop and counts what comes back, keeping no
@@ -128,10 +132,20 @@ fn run_workload(provider: &SessionProvider, requests: &[String]) -> anyhow::Resu
     Ok(transport.stats)
 }
 
-/// Read a workload file: every non-empty line is a `tools/call` request with an id.
-fn load_workload(path: &Path) -> anyhow::Result<Vec<String>> {
-    let text = std::fs::read_to_string(path)
-        .with_context(|| format!("reading workload {}", path.display()))?;
+/// A validated workload file: its requests and the digest of the bytes they were parsed from.
+struct Workload {
+    requests: Vec<String>,
+    sha256: String,
+}
+
+/// Read a workload file: every non-empty line is a `tools/call` request with an id. The digest
+/// is taken over the same buffer that is parsed, not over a second read.
+fn load_workload(path: &Path) -> anyhow::Result<Workload> {
+    let bytes =
+        std::fs::read(path).with_context(|| format!("reading workload {}", path.display()))?;
+    let sha256 = format!("{:x}", Sha256::digest(&bytes));
+    let text = String::from_utf8(bytes)
+        .with_context(|| format!("reading workload {}: not UTF-8", path.display()))?;
     let mut requests = Vec::new();
     for (index, line) in text.lines().enumerate() {
         if line.trim().is_empty() {
@@ -156,7 +170,7 @@ fn load_workload(path: &Path) -> anyhow::Result<Vec<String>> {
         "workload {} has no requests",
         path.display()
     );
-    Ok(requests)
+    Ok(Workload { requests, sha256 })
 }
 
 #[derive(serde::Serialize)]
@@ -181,6 +195,8 @@ struct PlatformSection {
 struct ConfigSection {
     repo_root: String,
     cache: String,
+    /// Echoes the `--refresh-policy` flag. The workload itself is always served by the static,
+    /// warn-only runtime, so the policy does not affect workload results.
     refresh_policy: &'static str,
     workload: Option<String>,
     refresh: bool,
@@ -194,6 +210,9 @@ struct Report {
     build: BuildSection,
     platform: PlatformSection,
     config: ConfigSection,
+    /// Every `PRISM_*` variable set in this process, sorted by name, except the one that selects
+    /// this mode: settings that can change what is measured.
+    env: BTreeMap<String, String>,
     stages: Vec<Stage>,
     ru_maxrss_bytes: Option<u64>,
     attribution: Attribution,
@@ -236,6 +255,22 @@ fn config_section(cfg: &ServerConfig, options: &MemReportOptions) -> ConfigSecti
     }
 }
 
+fn env_section() -> BTreeMap<String, String> {
+    prism_settings(std::env::vars_os())
+}
+
+/// The `PRISM_*` entries of an environment, minus the variable that selects report mode.
+fn prism_settings(
+    vars: impl Iterator<Item = (std::ffi::OsString, std::ffi::OsString)>,
+) -> BTreeMap<String, String> {
+    vars.filter_map(|(name, value)| {
+        let name = name.to_string_lossy().into_owned();
+        (name.starts_with("PRISM_") && name != "PRISM_MCP_MEM_REPORT")
+            .then(|| (name, value.to_string_lossy().into_owned()))
+    })
+    .collect()
+}
+
 /// Build the index in observed stages, run the optional workload and refresh, and write one
 /// JSON line describing the process's memory at each stage.
 pub fn run(
@@ -244,7 +279,7 @@ pub fn run(
     out: &mut dyn Write,
 ) -> anyhow::Result<()> {
     // Reject a bad workload before paying for the build.
-    let requests = options.workload.as_deref().map(load_workload).transpose()?;
+    let workload_file = options.workload.as_deref().map(load_workload).transpose()?;
 
     let mut recorder = Recorder::start();
     let mut provider = SessionProvider::bootstrap_observed(cfg, &mut |stage| {
@@ -259,9 +294,10 @@ pub fn run(
     let _ = provider.session().index.resolved_call_edges();
     recorder.mark("after_call_edges");
 
-    let workload = match &requests {
-        Some(requests) => {
-            let stats = run_workload(&provider, requests)?;
+    let workload = match &workload_file {
+        Some(file) => {
+            let mut stats = run_workload(&provider, &file.requests)?;
+            stats.sha256 = file.sha256.clone();
             recorder.mark("after_workload");
             Some(stats)
         }
@@ -281,13 +317,14 @@ pub fn run(
 
     // Attribution allocates; it runs after the last sample.
     let report = Report {
-        prism_mem_report: 1,
+        prism_mem_report: 2,
         build: build_section(),
         platform: PlatformSection {
             os: std::env::consts::OS,
             arch: std::env::consts::ARCH,
         },
         config: config_section(cfg, options),
+        env: env_section(),
         stages: recorder.stages,
         ru_maxrss_bytes: ru_maxrss_bytes(),
         attribution: attribute(provider.session()),
@@ -413,7 +450,7 @@ mod tests {
         let mut out = Vec::new();
         run(cfg, options, &mut out).unwrap();
         let text = String::from_utf8(out).unwrap();
-        assert!(text.starts_with("{\"prism_mem_report\":1,"), "{text}");
+        assert!(text.starts_with("{\"prism_mem_report\":2,"), "{text}");
         assert_eq!(text.matches('\n').count(), 1, "exactly one line");
         serde_json::from_str(&text).unwrap()
     }
@@ -459,6 +496,11 @@ mod tests {
             env!("CARGO_PKG_VERSION")
         );
         assert_eq!(report["build"]["allocator"], "system");
+        assert_eq!(report["prism_mem_report"], 2);
+        // Every PRISM_* setting is echoed except the variable that selects this mode.
+        let env = report["env"].as_object().expect("env section");
+        assert!(env.keys().all(|name| name.starts_with("PRISM_")), "{env:?}");
+        assert!(!env.contains_key("PRISM_MCP_MEM_REPORT"), "{env:?}");
         assert!(report["build"]["cpg_cache_version"].as_u64().unwrap() > 0);
     }
 
@@ -493,7 +535,7 @@ mod tests {
         let lines = std::fs::read_to_string(&workload).unwrap().lines().count();
         assert_eq!(lines, 8, "four queries for each of two functions");
 
-        let report = report(&cfg, &options(Some(workload), true));
+        let report = report(&cfg, &options(Some(workload.clone()), true));
         assert_eq!(
             stage_names(&report),
             [
@@ -510,8 +552,32 @@ mod tests {
         assert_eq!(report["workload"]["responses"], 8);
         assert_eq!(report["workload"]["errors"], 0);
         assert!(report["workload"]["response_bytes"].as_u64().unwrap() > 0);
+        let digest = format!("{:x}", Sha256::digest(std::fs::read(&workload).unwrap()));
+        assert_eq!(report["workload"]["sha256"], digest.as_str());
+        assert_eq!(digest.len(), 64);
         assert_eq!(report["refresh"]["generation"], 1);
         assert_eq!(report["refresh"]["status"], "refreshed");
+    }
+
+    #[test]
+    fn only_prism_settings_are_echoed_and_never_the_mode_switch() {
+        let vars = [
+            ("PRISM_MCP_MEM_REPORT", "1"),
+            ("PRISM_MCP_CONCISE_SHAPE", "slim"),
+            ("PRISM_A", ""),
+            ("PATH", "/bin"),
+            ("NOT_PRISM_B", "x"),
+            ("prism_lower", "y"),
+        ]
+        .map(|(name, value)| (name.into(), value.into()));
+        let got = prism_settings(vars.into_iter());
+        assert_eq!(
+            got.into_iter().collect::<Vec<_>>(),
+            [
+                ("PRISM_A".to_string(), String::new()),
+                ("PRISM_MCP_CONCISE_SHAPE".to_string(), "slim".to_string()),
+            ]
+        );
     }
 
     #[test]
