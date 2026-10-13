@@ -1,4 +1,4 @@
-// Review-only identity dumper. Copy to examples/r1_byte_dump.rs on each pinned
+// Review-only identity dumper (PR-B: indexes synthetic <cb@L:C> owners). Copy to examples/r1_byte_dump.rs on each pinned
 // archive and build --release --example r1_byte_dump --offline --locked.
 use petgraph::visit::EdgeRef;
 use prism::cpg::{CodePropertyGraph, CpgEdge, CpgNode, FlowConfidence, FlowDoubt, VarAccess};
@@ -11,8 +11,19 @@ fn main() -> anyhow::Result<()> {
     let mut owner_index = std::collections::BTreeMap::new();
     for (file, parsed) in &repo.files {
         for function in parsed.all_functions() {
-            let Some(name) = parsed.language.function_name(&function) else { continue; };
-            let key = (file.clone(), parsed.node_text(&name).to_string(), parsed.node_line_range(&function).0);
+            // PR-B: synthetic owners are indexed with the product's exact `<cb@L:C>` spelling,
+            // computed here so the same source builds against base (which has no synthetic rows).
+            let js = matches!(parsed.language, prism::languages::Language::JavaScript
+                | prism::languages::Language::TypeScript | prism::languages::Language::Tsx);
+            let name = match parsed.language.function_name(&function) {
+                Some(name) => parsed.node_text(&name).to_string(),
+                None if js && matches!(function.kind(), "arrow_function" | "function_expression") => {
+                    let p = function.start_position();
+                    format!("<cb@{}:{}>", p.row + 1, p.column + 1)
+                }
+                None => continue,
+            };
+            let key = (file.clone(), name, parsed.node_line_range(&function).0);
             let entry = owner_index.entry(key).or_insert_with(|| (Vec::new(), std::collections::BTreeSet::new()));
             entry.0.push((function.start_byte(), function.end_byte()));
             entry.1.extend(parsed.function_parameter_occurrences(&function).into_iter().map(|(_,start,end)| (start,end)));

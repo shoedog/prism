@@ -69,3 +69,31 @@ Corpora:
 | SecBench | 25,339 | 199,146 | 129,644 | 69,502 | 1,845 | 744 / 973 |
 
 X's hidden lint-staged file adds two bare arrows and one anonymous owner. It adds no projected PR-A credit: the outer formal is member-only and the inner owner is anonymous. T/SecBench aggregates are unchanged. These counts are projections before actual admission/refusal, not exact row budgets or complete loader parity. Binding ambiguity, E7's property keys and PR-C's member-only proof still affect yield. The R1 D11/D12 cost is measured with byte identities in the repaired measurement record.
+
+## PR-B Gap-1 refresh on main `da0604b3` (PR-A merged), prism's own predicates
+`[MEASURED]` 2026-10-06. **Command:** `pd_census_b <root>…` built from `probes/census_b.rs` (copied to `examples/`, release, offline/locked) against main. It uses prism's `repo_loader`, `Language::function_name`, `function_parameter_occurrences` (PR-A shapes and D11 included) and `has_bare_references` instead of the syntactic TS mirror above. Outputs: `~/prism-evidence/js-param-defs/prB/census/{X,T,SB}.json` (SB = the 583 authenticated package roots). Xi = X (prism skips `node_modules`).
+
+| Quantity | X | T | SB |
+|---|---:|---:|---:|
+| JS/TS files / callables | 628 / 8,614 | 707 / 21,011 | 25,273 / 197,096 |
+| anonymous callables (`function_name` = None) | 4,497 | 5,292 | 68,828 |
+| … arrow / function expression | 4,485 / 12 | 5,289 / 3 | 5,400 / 63,428 |
+| **by parent:** call argument | 3,910 | 5,094 | 58,263 |
+| JSX expression | 406 | 0 | 45 |
+| `new` argument | 49 | 3 | 694 |
+| `return` | 71 | 85 | 2,519 |
+| IIFE (callee position) | 23 | 3 | 2,702 |
+| assignment RHS with non-naming LHS (`o[k] = function…`) | 2 | 7 | 1,199 |
+| other (array, conditional, curried body, default value, export default, `as`, member, sequence, ERROR) | 36 | 100 | 3,406 |
+| **by nesting:** top level (no enclosing callable) | 281 | 343 | 6,974 |
+| only anonymous ancestors | 2,223 | 2,246 | 31,470 |
+| inside a named callable (legacy line coverage; E9) | 1,993 | 2,703 | 30,384 |
+| anonymous-owner formal occurrences | 1,841 | 3,174 | 54,417 |
+| … used bare (projected new parameter Defs) | 1,139 | 2,139 | 33,936 |
+| … of which the owner is a call argument | 940 | 1,929 | 25,302 |
+| … member-only or unused (stay refused; PR-C) | 702 | 1,035 | 20,481 |
+| projected parameter Use lines (fence-free walk) | 3,478 | 4,646 | 89,830 |
+
+The 97 SecBench `callback_argument_parameter_registration` sources are all top-level callbacks (TS parse of each source line); 95 payload formals are member-only and 2 are bare. F (controller census): 7,216 call-argument + 322 JSX anonymous callables.
+
+Differences from the syntactic table above: SB file and callable counts follow prism's loader (25,273 vs 25,339 files) and its parse; "call argument" counts include `arguments` wrapped by parentheses. These are projections; measured rows are in `MEASUREMENTS-prB.md`.

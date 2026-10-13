@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 import time
 from .run import (BINARY_SHA, COMPILER, EVIDENCE, canonical, digest, invoke, classify,
-                  propose_break, attribute_error, sink_locations, workstream, WEIGHTS)
+                  propose_break, attribute_error, sink_locations, source_locations, anonymous_source, workstream, WEIGHTS)
 
 
 def pattern_for(row):
@@ -46,20 +46,23 @@ def observe(row, binary, root, out, timeout):
     source = row['source']
     nav = ['nav', '--cache-dir', str(out / 'cache')]
     common = ['--repo', str(root)]
-    source_flags = ['--source', f"{source['file']}:{source['start_line']}"]
+    locations, row['source_seed_identity'] = source_locations(source, root)
+    source_flags = sum((['--source', location] for location in locations), [])
     values, records = {}, {}
-    for label, args in {
+    queries = {
         'witness': nav + ['taint-reaches'] + common + source_flags + sum((['--sink', loc] for loc in sink_locations(row['sink'])), []) + ['--format', 'json'],
         'frontier': nav + ['taint-reaches'] + common + source_flags + ['--format', 'json'],
-        'callees': nav + ['callees'] + common + ['--location', f"{source['file']}:{source['start_line']}", '--depth', '8', '--format', 'json'],
-    }.items():
+    }
+    if not anonymous_source(source):
+        queries['callees'] = nav + ['callees'] + common + ['--location', f"{source['file']}:{source['start_line']}", '--depth', '8', '--format', 'json']
+    for label, args in queries.items():
         values[label], records[label] = invoke(binary, args, out / 'raw', label, timeout)
     row['invocations'] = records
     if any(v is None for v in values.values()):
         row['outcome'] = 'prism_error'
         row['first_break'] = attribute_error(row, values['witness'], values['frontier'])
     else:
-        row['outcome'], row['trace_detail'] = classify(row, values['witness'], values['callees'], values['frontier'])
+        row['outcome'], row['trace_detail'] = classify(row, values['witness'], values.get('callees', {'items': []}), values['frontier'])
         row['first_break'] = propose_break(row, values['frontier'], values['witness']) if row['outcome'] != 'traced' else {'category': 'none'}
     shutil.rmtree(out / 'cache', ignore_errors=True)
     return row
