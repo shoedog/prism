@@ -305,7 +305,8 @@ explicit `--cache-dir` one canonical spelling before the directory exists; `runt
 resolves `$PRISM_MCP_RUNTIME_DIR`, else the user runtime directory, else the temp directory,
 joined with `prism-mcpd`, and validates it on every use (a real directory, owned by the current
 user, mode 0700, no access control list on macOS, and nothing on its resolution that another user
-could replace, which `dir_chain.rs` walks); `paths.rs` names a daemon's files by the key's first 16 hex digits and enforces
+could replace by owner, mode bits or list, which `dir_chain.rs` walks; this is hardening, and the
+guarantee between users is the peer-uid check the daemon and the shim make); `paths.rs` names a daemon's files by the key's first 16 hex digits and enforces
 the 103-byte socket path limit; `preamble.rs` and `preamble_reader.rs` encode, decode and read the
 one-line `HELLO` / `READY` / `RETIRING` / `BUSY` / `MISMATCH` exchange (4 KiB bound, one accepted
 spelling per message). Settings a client sends in the preamble are a `ClientSettings`
