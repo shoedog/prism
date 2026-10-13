@@ -1,5 +1,7 @@
 # Prototype validation and exclusions
 
+**Current status:** Historical step-0 validation only. The union is STOPPED; current commands, full failure population and exclusions are in REPORT-step1.md and the repository-root VERIFICATION.md.
+
 Product source relative to base40ad8390 is in E5-src.patch. This is uncommitted planning work; no Git writes, provider/network calls or corpus execution occurred. No independent review was dispatched. Diagnostic repair cap was two per probe; the prior 30-binary suite cap was three complete head runs. The complete 15-failure population and then the b5-only scope population were enumerated before repairs; the final cap run passed. The stop hook required one disclosed verification extension with explicit all-target selection. That run added34 example tests and found one inherited assertion failure, confirmed on base and left unchanged. The full suite is therefore not green; root VERIFICATION.md is the current gate record.
 
 | Check | Base/control | Recommended head | Evidence in step0 |

@@ -1,5 +1,7 @@
 # E5 measured rule and downstream ledger
 
+**Current status:** The tables below are historical step-0 builds, including the controller F run. They are not union measurements. Step 1 is STOPPED before real paired union captures; see REPORT-step1.md for completed census-only R-local pricing.
+
 Yield is WRONG Exact targets removed; cost is CORRECT Exact targets lost. U/I are exposures, not yield. Candidate predicates below are evaluated over every admitted base census row; real-build deltas are listed separately. All raw/after-override verdicts agree.
 
 ## Complete native predicate pricing

@@ -1,5 +1,7 @@
 # Handoff — js-e5-call-referenceability Step 0
 
+**Current status:** Historical handoff, superseded for current operation by HANDOFF-step1.md and the owner union decision in plan-brief-step1.md. Its narrow-rule owner questions are closed by that later authority.
+
 **Written:** 2026-10-10 · **By:** root planner · **Provider:** codex
 **Workspace:** /Users/wesleyjinks/code/prism-e5-plan · plan/js-e5-call-referenceability · **Measured state:** `[MEASURED]` HEAD40ad8390d6cb5544a063346033c7bb1817ad3855 · Tree DIRTY (uncommitted prototype115, tests, packet) · Probe git rev-parse/status, source hashes, frozen CLI/graph producers, final full-suite and fresh release/quick controls · Output /Users/wesleyjinks/prism-evidence/js-e5/step0/final-product-binding.json and final-measurements.json
 **Predecessor:** none — first in lane

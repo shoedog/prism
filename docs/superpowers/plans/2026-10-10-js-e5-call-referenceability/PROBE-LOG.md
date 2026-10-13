@@ -1,5 +1,7 @@
 # E5 hypothesis/probe/result log
 
+**Current status:** Historical step-0 probes. Current step-1 hypotheses, fixture corrections and mandatory STOP are in PROBE-LOG-step1.md.
+
 ## P1: base X identity misses
 Hypothesis: call=0/target=1 rows are JSX opening/self-closing elements omitted by the worker's CallExpression-only index. Expected: TS JSX opening nodes share the exact physical start/end bytes. Falsifier: no JSX node matches those bytes. Alternative: UTF-16/UTF-8 or FunctionId line mismatch. Separation: exact JSX physical bytes with a unique matched target refute that alternative for these rows.
 Probe: TS 5.9.3 SourceFile walk at ExampleApp.tsx bytes 5882 and 6541. Result: JsxOpeningElement 5882–5890 and 6541–6811 match both recorded site spans; targets were unique already. Initial 71 unidentified rows are inadmissible evidence for candidate yield. Fold: index JSX elements and record invocation kind; R-inferred remains scoped to ordinary bare calls as the brief states. Re-run X census; no product edit.

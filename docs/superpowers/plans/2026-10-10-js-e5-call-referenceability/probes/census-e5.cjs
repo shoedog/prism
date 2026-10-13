@@ -30,7 +30,12 @@ function census(tsPath,root,sitesFile,options={}) {
  const knownGlobals=new Set('Array Object String Number Boolean Function Promise Math JSON Date RegExp Error TypeError RangeError SyntaxError Set Map WeakSet WeakMap Symbol Reflect Proxy BigInt NaN Infinity undefined parseInt parseFloat isNaN isFinite encodeURI decodeURI encodeURIComponent decodeURIComponent escape unescape eval globalThis Buffer setTimeout setInterval clearTimeout clearInterval setImmediate clearImmediate queueMicrotask fetch atob btoa require console process'.split(' '));
  function symbolDeclarations(id){let s=checker.getSymbolAtLocation(id);if(s&&(s.flags&ts.SymbolFlags.Alias)){let target=checker.getAliasedSymbol(s);if(target&&target.declarations?.length)return {symbol:target,declarations:target.declarations,alias:s};return {symbol:s,declarations:s.declarations||[],unresolvedAlias:true};}return {symbol:s,declarations:s?.declarations||[]};}
  function binding(id){const sym=checker.getSymbolAtLocation(id),ds=sym?.declarations||[];for(const d of ds){const source=importSource(d);if(source!==null)return {axis:'imported',source};const req=requireSource(d);if(req!==null&&ts.isBindingElement(d))return {axis:'require_destructuring',source:req};}
-  if(ds.some(d=>path.resolve(d.getSourceFile().fileName)===path.resolve(id.getSourceFile().fileName)))return {axis:'local_declaration',declarations:ds.map(d=>ts.SyntaxKind[d.kind])};
+  if(ds.some(d=>path.resolve(d.getSourceFile().fileName)===path.resolve(id.getSourceFile().fileName))){
+   const locals=ds.filter(d=>path.resolve(d.getSourceFile().fileName)===path.resolve(id.getSourceFile().fileName));
+   const owners=locals.map(d=>{for(let p=d;p&&!ts.isSourceFile(p);p=p.parent)if(ts.isVariableDeclaration(p)||ts.isParameter(p))return p;return d;});
+   const hasRequire=n=>{if(!n)return false;if(ts.isCallExpression(n)&&ts.isIdentifier(n.expression)&&n.expression.text==='require')return true;let found=false;ts.forEachChild(n,c=>{if(hasRequire(c))found=true;});return found;};
+   return {axis:'local_declaration',declarations:locals.map(d=>ts.SyntaxKind[d.kind]),require_initialized:owners.some(d=>hasRequire(d.initializer)),literal_scalar_require:locals.some(d=>ts.isVariableDeclaration(d)&&ts.isIdentifier(d.name)&&requireSource(d)!==null),details:locals.map(d=>({kind:ts.SyntaxKind[d.kind],line:line(d.getSourceFile(),d.getStart()),text:d.getText().replace(/\s+/g,' ').slice(0,240)}))};
+  }
   if(knownGlobals.has(id.text)||ds.some(d=>/[/\\]lib\.[^/\\]*\.d\.ts$/.test(d.getSourceFile().fileName)))return {axis:'known_global'};return {axis:'none'};
  }
  function targetDeclarationMatches(d,target){if(d===target)return true;if(ts.isVariableDeclaration(d)&&d.initializer===target)return true;if(ts.isPropertyAssignment(d)&&d.initializer===target)return true;if(ts.isBinaryExpression(d)&&d.right===target)return true;return false;}
@@ -79,6 +84,11 @@ function census(tsPath,root,sitesFile,options={}) {
    const inferred=['object_shorthand_method'].includes(row.callee_form)||row.callable_kind==='method_definition'||row.name_source==='inferred'&&['object_pair_value','member_assignment','class_member','variable_wrapper_call'].includes(row.callee_form);
    const bare=row.invocation==='ordinary',source=bare&&site.origin==='Source',unbound=source&&row.prism_binding?.Unproven==='unbound';
    row.rules={'R-inferred':bare&&inferred,'R-inferred-form':bare&&['object_pair_value','object_shorthand_method','member_assignment','class_member','variable_wrapper_call'].includes(row.callee_form),'R-bound':row.cross_file&&row.es_module&&!['imported','require_destructuring'].includes(row.binding),'R-bound-source':row.cross_file&&row.es_module&&source&&!['imported','require_destructuring'].includes(row.binding),'R-unbound-inferred':unbound&&inferred,'R-unbound-module':unbound&&row.callee_module,'R-recommended':unbound&&(inferred||row.callee_module)};
+   // Preserve historical census axes: scalar require is local_declaration.
+   // Price its explicit exemption separately, without changing any oracle verdict.
+   row.rules['R-local']=row.cross_file&&row.binding==='local_declaration';
+   row.rules['R-local-no-require']=row.rules['R-local']&&!row.binding_evidence?.require_initialized;
+   row.rules['R-union']=row.rules['R-recommended']||row.rules['R-bound'];
    rows.push(row);
   }}return {rows,files:files.length,oracle:ts.version};
 }

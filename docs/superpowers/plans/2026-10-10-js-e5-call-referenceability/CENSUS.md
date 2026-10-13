@@ -1,5 +1,7 @@
 # E5 full census — base 40ad8390 versus uncommitted cache115 prototype
 
+**Current status:** Historical step-0 head only. Step-1 refreshed base census preserves the verdict cross-tab and adds R-local pricing; no union head census was captured.
+
 All counts are JS/TS/TSX Exact `free_single` targets. Every site is accounted for in three independent axes. W = WRONG, C = CORRECT, U = UNDECIDED, I = INADMISSIBLE. Unlisted combinations are zero. Native parse/binding failures retain I; producer syntax still supplies the independent callee-form axis. Raw and after-override verdicts are identical (zero overrides).
 
 585 roots requested: X, T, and all 583 SecBench roots. 581 admitted: X, T, SB579. Four base producer exclusions are paired on head; they are not zero-yield roots. Full wall-time receipts are in the evidence directory.
