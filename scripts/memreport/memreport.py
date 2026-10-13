@@ -15,7 +15,6 @@ import hashlib
 import json
 import os
 import shutil
-import statistics
 import subprocess
 import sys
 import time
@@ -23,7 +22,11 @@ from pathlib import Path
 
 from memreport_compare import EXPERIMENTS, cmd_compare
 from memreport_derive import derive, difference, num  # noqa: F401
-from memreport_render import KINDS, MIB, render
+from memreport_render import KINDS, MIB, render  # noqa: F401
+from memreport_rule import (CANDIDATES, RULE_ABSOLUTE, RULE_FRACTION, decision_points, evaluate,  # noqa: F401
+                            meets, rule_arm)
+from memreport_summary import (RUN_KINDS, assemble_summary, build_entry, effective_status,  # noqa: F401
+                               exclude_entry, prime_peak, summarize, write_json_atomically, write_summary)
 # The validation names are re-exported: tests and callers use them as `memreport.validate` and so on.
 from memreport_validate import (BUILD, CACHE_REASONS, CACHED_KINDS, PRIME, REPORT_VERSION, REQUIRED,  # noqa: F401
                                 find_stage, footprint, is_number, validate, well_formed)
@@ -39,12 +42,6 @@ CACHE_MISS_MARKERS = (
     ('nav edge cache: failed to load sidecar',
      'the call-edge sidecar failed to load, so call edges were recomputed'),
 )
-RUN_KINDS = KINDS + (BUILD,)  # every kind `run` accepts; the readout lists only KINDS
-RULE_FRACTION = 0.15
-RULE_ABSOLUTE = 200 * MIB
-# candidate -> (estimate metric, base metric). M1 and M3 are judged against the steady state, M2 against the
-# peak through the index load, because that is the footprint each one would lower.
-CANDIDATES = (('M1', 'm1', 'steady'), ('M2', 'm2', 'peak'), ('M3', 'm3', 'steady'))
 CACHE_FILES = {'cpg_cache_bytes': 'cpg-cache.bin', 'call_edge_sidecar_bytes': 'resolved-call-edge-index.bin'}
 HERE = Path(__file__).resolve().parent
 WORKLOADS = HERE / 'workloads'
@@ -56,57 +53,6 @@ def parse_report(stderr_text):
     if len(lines) != 1:
         raise ValueError('expected exactly one report line, found %d' % len(lines))
     return json.loads(lines[0])
-
-
-def summarize(values):
-    values = [value for value in values if value is not None]
-    if not values:
-        return None
-    return {'min': min(values), 'median': statistics.median(values), 'max': max(values), 'n': len(values)}
-
-
-def rule_arm(estimate, base):
-    """Which arm of the decision rule an estimate meets: absolute, fraction, both, none; None if unjudgeable."""
-    if estimate is None or not base:
-        return None
-    absolute, fraction = estimate >= RULE_ABSOLUTE, estimate / base >= RULE_FRACTION
-    if absolute and fraction:
-        return 'both'
-    return 'absolute' if absolute else 'fraction' if fraction else 'none'
-
-
-def meets(estimate, base):
-    return rule_arm(estimate, base) in ('absolute', 'fraction', 'both')
-
-
-def decision_points(entry):
-    """{metric: (value, n)} the decision rule reads from one corpus entry.
-
-    Per-repetition metrics are medians with the number of runs behind them. m2 is not a series: it is the
-    size of the CPG cache file the priming run wrote, one measurement (n is None).
-    """
-    points = {}
-    for metric, stats in (entry.get('metrics') or {}).items():
-        points[metric] = (stats['median'], stats['n']) if stats else (None, 0)
-    points['m2'] = ((entry.get('cache_files') or {}).get('cpg_cache_bytes'), None)
-    return points
-
-
-def evaluate(entries):
-    """entries: {corpus: corpus entry} -> {candidate: {'corpora': [...], 'advance': bool, 'rows': {...}}}"""
-    verdict = {}
-    for candidate, estimate_key, base_key in CANDIDATES:
-        rows = {}
-        for name, entry in entries.items():
-            points = decision_points(entry)
-            (estimate, estimate_n), (base, base_n) = (points.get(estimate_key, (None, 0)),
-                                                      points.get(base_key, (None, 0)))
-            rows[name] = {'estimate': estimate, 'base': base, 'estimate_n': estimate_n, 'base_n': base_n,
-                          'percent': 100.0 * estimate / base if estimate is not None and base else None,
-                          'arm': rule_arm(estimate, base), 'meets': meets(estimate, base)}
-        hits = sorted(name for name, row in rows.items() if row['meets'])
-        verdict[candidate] = {'corpora': hits, 'advance': len(hits) >= 2, 'rows': rows}
-    return verdict
 
 
 def command_for(binary, repo, cache_dir, kind, workload, settle):
@@ -201,12 +147,6 @@ def parse_corpora(pairs):
     return corpora
 
 
-def write_json_atomically(path, data):
-    temporary = path.with_name(path.name + '.tmp')
-    temporary.write_text(json.dumps(data, indent=2, sort_keys=True) + '\n')
-    os.replace(temporary, path)
-
-
 def emit_workload(binary, path, functions, timeout):
     """(stdout bytes, None) for a workload the binary emitted, or (None, why not)."""
     command = [binary, '--repo', str(path), '--eager', '--no-cache', '--mem-emit-workload', str(functions)]
@@ -284,108 +224,6 @@ def bind_workload(name, directory, commit):
         raise SystemExit('%s: the workload was generated at commit %s but the corpus is at %s; '
                          're-run gen-workload' % (name, entry.get('commit'), commit))
     return data, digest
-
-
-def effective_status(result, expected=None):
-    """(status, reason) of a stored result after validating its report again with today's rules.
-
-    The report carries the cache evidence (`cache`), so the cache rules are re-applied too. A result can only
-    lose admission here: markers seen on stderr at run time are not stored, so an inadmissible result stays
-    inadmissible whatever its report says.
-    """
-    status = result.get('status')
-    if status != 'ok':
-        return status or 'inadmissible', result.get('reason') or 'result has no status'
-    if not isinstance(result.get('report'), dict):
-        return 'inadmissible', 'result has no report'
-    reason = validate(result['kind'], result['report'], expected)
-    return ('ok', None) if reason is None else ('inadmissible', reason)
-
-
-def prime_peak(prime):
-    """Lifetime peak (bytes) at the last stage of the priming run, the build that writes the cache.
-
-    None when the priming result is absent, was not admitted, reports no peak, or did not build
-    the CPG (a cache directory that was already primed makes the "priming" run a warm load, whose
-    peak is not a first-build peak).
-    """
-    if not isinstance(prime, dict) or prime.get('status') != 'ok':
-        return None
-    report = prime.get('report')
-    if not isinstance(report, dict) or validate(PRIME, report) is not None or not report['stages']:
-        return None
-    if report['cache'].get('cpg_hit') is not False:
-        return None
-    peak = report['stages'][-1].get('peak_bytes')
-    return peak if is_number(peak) else None
-
-
-def build_entry(corpus, results, prime=None):
-    """One corpus's entry of summary.json from its corpus.json content, its raw results and its priming result.
-
-    Pure: no subprocess, no clock, no filesystem. A result that is not admissible contributes to
-    `inadmissible` and to nothing else. Every admitted result of a corpus must come from the build the first
-    admitted one came from.
-    """
-    shown = KINDS + ((BUILD,) if any(item['kind'] == BUILD for item in results) else ())
-    entry = dict(corpus, admissible={kind: 0 for kind in shown}, inadmissible=[], metrics={},
-                 attribution=None, build=None, env=None, threads=None, first_build_peak=prime_peak(prime))
-    values, identity = {}, None
-    for result in sorted(results, key=lambda item: (RUN_KINDS.index(item['kind']), item['rep'])):
-        kind, rep = result['kind'], result['rep']
-        status, reason = effective_status(result, corpus.get('workload') if kind == 'workload' else None)
-        if status == 'ok':
-            this_identity = result['report']['build']['build_identity']
-            if identity is None:
-                identity = this_identity
-            elif this_identity != identity:
-                status, reason = 'inadmissible', "build identity differs from this corpus's first admitted run"
-        if status != 'ok':
-            entry['inadmissible'].append({'kind': kind, 'rep': rep, 'status': status, 'reason': reason})
-            continue
-        entry['admissible'][kind] += 1
-        report = result['report']
-        entry['build'], entry['env'], entry['threads'] = report.get('build'), report.get('env'), report.get('threads')
-        if kind == 'workload':
-            entry['attribution'] = report['attribution']
-        for metric, value in derive(kind, report).items():
-            values.setdefault(metric, []).append(value)
-    entry['metrics'] = {metric: summarize(series) for metric, series in sorted(values.items())}
-    return entry
-
-
-def exclude_entry(entry, reason):
-    """A copy of a corpus entry with every admitted run moved to `inadmissible` and nothing left to measure."""
-    excluded = dict(entry, admissible={kind: 0 for kind in entry['admissible']}, metrics={}, attribution=None,
-                    build=None, env=None, threads=None, first_build_peak=None,
-                    cache_files=dict.fromkeys(entry.get('cache_files') or {}))
-    excluded['inadmissible'] = list(entry['inadmissible']) + [
-        {'kind': kind, 'rep': 'all %d' % count, 'status': 'inadmissible', 'reason': reason}
-        for kind, count in entry['admissible'].items() if count]
-    return excluded
-
-
-def assemble_summary(settings, entries):
-    """Settings, the corpora and the verdict. Every corpus must come from the build of the first corpus (by
-    name) that has an admitted run; one that does not is excluded whole."""
-    provenance = dict(settings, build=None, env=None, threads=None)
-    checked = {}
-    for name in sorted(entries):
-        entry = entries[name]
-        build = entry.get('build')
-        if build is not None and provenance['build'] is None:
-            provenance.update(build=build, env=entry.get('env'), threads=entry.get('threads'))
-        elif build is not None and build.get('build_identity') != provenance['build'].get('build_identity'):
-            entry = exclude_entry(entry, "build identity differs from the first corpus's (%s)" % (
-                provenance['build'].get('build_identity'),))
-        checked[name] = entry
-    return {'provenance': provenance, 'corpora': checked, 'verdict': evaluate(checked)}
-
-
-def write_summary(out, summary):
-    path = Path(out) / 'summary.json'
-    write_json_atomically(path, summary)
-    return path
 
 
 def run_build(args, path, out, name, rep, snapshot):
