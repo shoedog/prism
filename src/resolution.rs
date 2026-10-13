@@ -14,6 +14,8 @@ use crate::name_resolution::types::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
+#[path = "resolution_js_alias.rs"]
+mod js_alias;
 #[path = "resolution_js_namespace.rs"]
 mod js_namespace;
 
@@ -2577,30 +2579,10 @@ impl CallGraph {
                 if !recv_materialized && !js_ts_receiver_lexically_bound && !namespace_refused {
                     if let Some(file_imports) = self.imports.get(&caller.file) {
                         if let Some(module_path) = file_imports.get(q) {
-                            let ids = match self.functions.get(name) {
-                                Some(v) => v.as_slice(),
-                                None => return ResolutionOutcome::dropped(DropReason::UnknownName),
+                            let Some(matched) = self.module_qualified_matches(module_path, name)
+                            else {
+                                return ResolutionOutcome::dropped(DropReason::UnknownName);
                             };
-                            let module_last = module_path.rsplit('/').next().unwrap_or(module_path);
-                            let module_stem = module_last.rsplit('.').last().unwrap_or(module_last);
-                            let matched: Vec<&FunctionId> = ids
-                                .iter()
-                                // `pkg.f()` names a module-level function, never a method
-                                // on a class defined in that module — exclude methods so
-                                // an imported module with a same-named method can't forge
-                                // a false package-function edge.
-                                .filter(|fid| !self.method_owners.contains_key(*fid))
-                                .filter(|fid| {
-                                    let stem_hit = file_stem(&fid.file) == module_stem;
-                                    let dir_hit = fid
-                                        .file
-                                        .rsplit('/')
-                                        .nth(1)
-                                        .map(|d| d == module_last)
-                                        .unwrap_or(false);
-                                    stem_hit || dir_hit
-                                })
-                                .collect();
                             if matched.is_empty() {
                                 return ResolutionOutcome::dropped(DropReason::ImportExternal);
                             }
@@ -3402,6 +3384,19 @@ impl CallGraph {
                 if let JsLocalBinding::Callable(t) = &site.local_binding {
                     return self.js_ts_local_callable(caller, name, t, site);
                 }
+                // Slice L: a `const` alias chain proven to end at an import or at a namespace
+                // import's member resolves through that route alone; it never falls to the
+                // same-file or repo-wide name rungs.
+                match &site.local_binding {
+                    JsLocalBinding::AliasImport { local } => {
+                        return self.js_ts_alias_import_outcome(caller, local, site);
+                    }
+                    JsLocalBinding::AliasNamespaceMember {
+                        module_path,
+                        member,
+                    } => return self.js_ts_alias_member_outcome(module_path, member, site),
+                    _ => {}
+                }
                 // R4c: import-member resolution (Python/JS/TS).
                 // Must fire before the functions.get(name) check because aliases
                 // mean the call-site name ("p") differs from the function name
@@ -3416,38 +3411,21 @@ impl CallGraph {
                                     crate::call_graph::ImportBindingKind::MemberImport
                                 )
                         }) {
-                            let is_js_ts = is_js_ts_import_member_file(&caller.file);
-                            if is_js_ts
-                                && self
+                            if is_js_ts_import_member_file(&caller.file) {
+                                // A parameter or local binding shadows the imported local
+                                // name; do not mint an exact import edge.
+                                if !self
                                     .js_ts_function_locals
                                     .get(caller)
                                     .is_some_and(|locals| locals.contains(name))
-                            {
-                                // A parameter or local binding shadows the imported
-                                // local name; do not mint an exact import edge.
+                                {
+                                    return self.js_ts_import_member_outcome(caller, binding, site);
+                                }
                             } else {
-                                // S1b-2b: a JS/TS member import whose name is not matchable
-                                // (no member) binds nothing.
-                                let Some(member) =
-                                    binding.member.as_deref().or((!is_js_ts).then_some(name))
-                                else {
-                                    return ResolutionOutcome::dropped(DropReason::UnknownName);
-                                };
-                                // JS/TS: resolve through the typed, whole-program-
-                                // resolved export facts (P4) — `member` is the raw
-                                // imported/exported NAME, which for a rename/
-                                // default/CJS/barrel form differs from the
-                                // declaring function's actual name, so this can't
-                                // start from `self.functions.get(member)` the way
-                                // the Python arm below does.
-                                let matched: Vec<&FunctionId> = if is_js_ts {
-                                    match self.js_ts_import_member_candidates(
-                                        caller, binding, member, site,
-                                    ) {
-                                        Ok(ids) => ids,
-                                        Err(drop) => return ResolutionOutcome::dropped(drop),
-                                    }
-                                } else if let Some(ids) = self.functions.get(member) {
+                                let member = binding.member.as_deref().unwrap_or(name);
+                                let matched: Vec<&FunctionId> = if let Some(ids) =
+                                    self.functions.get(member)
+                                {
                                     // Python: filter to free, module-level
                                     // functions in matching files.
                                     ids.iter()
@@ -3487,11 +3465,6 @@ impl CallGraph {
                                             matched,
                                             ResolutionKind::ImportMember,
                                         ))
-                                    }
-                                    // An unshadowed JS import names this module's
-                                    // export, not a same-named global function.
-                                    _ if is_js_ts => {
-                                        return ResolutionOutcome::dropped(DropReason::UnknownName)
                                     }
                                     _ => {} // Python retains its existing R5 route.
                                 }
@@ -3773,13 +3746,19 @@ impl CallGraph {
     ) -> Result<Vec<&FunctionId>, DropReason> {
         // A caller/module cache entry can also be shared by a require binding.
         // Prove this particular ESM binding and position before consulting it.
+        // Slice L: a followed alias chain that the binder proved ends at this import local
+        // carries the same proof as a direct call to it.
+        let import_proven = match &site.local_binding {
+            crate::call_graph::JsLocalBinding::Unproven(reason) => reason == "import",
+            crate::call_graph::JsLocalBinding::AliasImport { local } => *local == binding.local,
+            _ => false,
+        };
         if !binding.module_path.trim().starts_with('.')
             && (!self
                 .js_ts_exports
                 .get(&caller.file)
                 .is_some_and(|exports| exports.esm_named_imports.contains(&binding.local))
-                || !matches!(&site.local_binding,
-                crate::call_graph::JsLocalBinding::Unproven(reason) if reason == "import"))
+                || !import_proven)
         {
             return Ok(Vec::new());
         }

@@ -327,11 +327,23 @@ fn c44_unbound_name_with_only_out_of_scope_same_file_functions_drops() {
 // ---------------------------------------------------------------------------------------
 
 #[test]
-fn alias_identifier_value_keeps_base() {
+fn alias_identifier_value_follows_to_the_callable() {
+    // Slice L: `t` is a `const` alias of the same-file function `f`; the alias is followed, so
+    // the site binds `f` by its span (it used to drop UnknownName, counted `alias`).
     let src =
         "function f() {\n  return 1;\n}\nconst t = f;\nexport function g() {\n  return t();\n}\n";
-    // `t` is unbound as a function anywhere, so base drops UnknownName either way; the
-    // counter is what proves the alias classification fired (not a `not_callable` refusal).
+    let cg = graph("a.js", src);
+    assert_eq!(sites(&cg), ["L6 t: Exact local_def f@1-3"]);
+    let stats = prism::navigation::queries::call_stats(&cg);
+    assert!(stats["local_binding_may_call"].get("alias").is_none());
+}
+
+#[test]
+fn alias_identifier_value_that_is_not_const_keeps_base() {
+    // `let` is not an alias link: `t` is unbound as a function anywhere, so base drops
+    // UnknownName; the counter proves the alias classification fired.
+    let src =
+        "function f() {\n  return 1;\n}\nlet t = f;\nexport function g() {\n  return t();\n}\n";
     let cg = graph("a.js", src);
     assert_eq!(sites(&cg), ["L6 t: drop UnknownName"]);
     let stats = prism::navigation::queries::call_stats(&cg);

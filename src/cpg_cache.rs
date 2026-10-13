@@ -248,7 +248,9 @@ use std::path::{Path, PathBuf};
 /// - v112: PR-B R5 retains flat named seam rows and refuses synthetic formals.
 /// - v113: PR-B R9 positive recovery proof, receiver and reference fences.
 /// - v114: PR-B R10 labelled body, JSX member, enum and commented-eval repairs.
-const CACHE_VERSION: u32 = 114;
+/// - v115: slice L follows JS/TS `const` aliases: `CallSite.local_binding` gains
+///   `AliasImport` and `AliasNamespaceMember`, and a followed alias is `Callable`.
+const CACHE_VERSION: u32 = 115;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -792,7 +794,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 114);
+        assert_eq!(super::CACHE_VERSION, 115);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -1495,6 +1497,55 @@ mod tests {
             }
             other => panic!("expected Hit, got {}", cache_result_kind(&other)),
         }
+    }
+
+    #[test]
+    fn followed_js_alias_bindings_round_trip_and_the_previous_version_misses() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            "callee.js".to_string(),
+            "export function target() {\n  return 1;\n}\n".to_string(),
+        );
+        sources.insert(
+            "caller.js".to_string(),
+            "import { target } from './callee';\nimport * as N from './callee';\n\
+             function real() {\n  return 0;\n}\n\
+             export function run() {\n  const a = target;\n  const b = N.target;\n  \
+             const c = real;\n  return [a(), b(), c()];\n}\n"
+                .to_string(),
+        );
+        let files: BTreeMap<String, crate::ast::ParsedFile> = sources
+            .iter()
+            .map(|(path, source)| {
+                let parsed = crate::ast::ParsedFile::parse(
+                    path,
+                    source,
+                    crate::languages::Language::JavaScript,
+                )
+                .unwrap();
+                (path.clone(), parsed)
+            })
+            .collect();
+        let cpg = crate::cpg::CodePropertyGraph::build(&files);
+        let hashes = compute_file_hashes(&sources);
+        let dump = call_site_dump(&cpg).join("\n");
+        for variant in ["AliasImport", "AliasNamespaceMember", "Callable("] {
+            assert!(dump.contains(variant), "{variant} missing from {dump}");
+        }
+
+        save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+        match load_cache(&hashes, false, dir.path()) {
+            CacheResult::Hit(restored) => {
+                assert_eq!(call_site_dump(&cpg), call_site_dump(&restored));
+            }
+            other => panic!("expected Hit, got {}", cache_result_kind(&other)),
+        }
+        force_cache_version(dir.path(), 114);
+        assert!(matches!(
+            load_cache(&hashes, false, dir.path()),
+            CacheResult::Miss
+        ));
     }
 
     #[test]

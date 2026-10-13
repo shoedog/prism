@@ -523,6 +523,12 @@ pub enum JsLocalBinding {
     Unproven(String),
     /// Owner OQ1 (Option K): an unproven position keeps base behavior, counted by reason.
     Position(String),
+    /// Slice L: the callee is a `const` alias chain that ends at the program-scope import
+    /// binding `local` of this file; the JS/TS import-member route decides the target.
+    AliasImport { local: String },
+    /// Slice L: the callee is a `const` alias chain that ends at member `member` of the
+    /// namespace import of `module_path`; the namespace export proof decides the target.
+    AliasNamespaceMember { module_path: String, member: String },
 }
 
 /// Parameter arity for a method definition (language-agnostic shape).
@@ -5677,7 +5683,7 @@ impl CallGraph {
         callee: &str,
         cache: &mut crate::ast::JsBindingCache<'a>,
     ) -> JsLocalBinding {
-        use crate::ast::JsBinding;
+        use crate::ast::{JsBinding, JsFollow};
         use crate::languages::Language;
         if !matches!(
             parsed.language,
@@ -5701,7 +5707,28 @@ impl CallGraph {
             return JsLocalBinding::Unchecked;
         };
         let binding = if ident.kind() == "identifier" && parsed.node_text(&ident) == callee {
-            parsed.js_ts_site_binding(ident, callee, cache)
+            let binding = parsed.js_ts_site_binding(ident, callee, cache);
+            // Slice L: a `const` alias is followed to what it names; an alias that cannot be
+            // followed keeps `Alias` (base behavior).
+            if binding == JsBinding::Alias {
+                match parsed.js_ts_follow_alias(ident, callee, cache) {
+                    Some(JsFollow::Callable(t)) => return JsLocalBinding::Callable(t),
+                    Some(JsFollow::ImportLocal(local)) => {
+                        return JsLocalBinding::AliasImport { local }
+                    }
+                    Some(JsFollow::NamespaceMember {
+                        module_path,
+                        member,
+                    }) => {
+                        return JsLocalBinding::AliasNamespaceMember {
+                            module_path,
+                            member,
+                        }
+                    }
+                    None => {}
+                }
+            }
+            binding
         } else if ident.kind() == "member_expression" {
             let qualifier = ident
                 .child_by_field_name("object")

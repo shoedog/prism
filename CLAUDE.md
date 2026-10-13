@@ -236,7 +236,9 @@ mutation of module objects (monkey-patching, reflective writes, `eval`, host glo
 `require`/`import()`), from the same file or another, is out of model for every rung and every language
 (replan probes, 2026-09-25). Producer-side mutation is modeled only where mutation is the construction
 idiom (CJS `module.exports`, `src/ast/js_cjs_export_barriers.rs`). A slice that wants to model runtime
-mutation proposes it as a new contract, not as a precision fix to an existing rung.
+mutation proposes it as a new contract, not as a precision fix to an existing rung. A JS/TS local alias resolves Exact only when a bounded chain
+of unique, unwritten `const` bindings reaches one callable, an import, or a namespace-import
+member; spelling alone is not binding evidence.
 
 `--resolution nominal` is the default and reports CPG-derived findings as `unlabeled/candidate`;
 `--resolution scoped` reports retained evidence labels. `--min-confidence exact` keeps only Exact
