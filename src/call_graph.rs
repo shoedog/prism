@@ -375,6 +375,10 @@ mod go_level3_callback_tests {
 #[path = "call_graph/promoted_snapshot_consult_test.rs"]
 mod promoted_snapshot_consult_test;
 
+#[cfg(test)]
+#[path = "call_graph/js_relative_candidates_test.rs"]
+mod js_relative_candidates_test;
+
 #[derive(
     Debug,
     Clone,
