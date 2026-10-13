@@ -1,0 +1,25 @@
+# E5 collector and predicate syntax audit
+
+Audit covers all raw node-text reads and positional child/sibling reads in src/call_graph_js_referenceability.rs and the sole live js_ts_unbound_single_refused predicate, plus the import-alias binder feeding its Unproven(unbound) decision. No ruling or predicate was broadened. Shared ParsedFile::extract_imports remains unchanged.
+
+| Place and dependency | Robust or fixed | Fixture / mechanism |
+|---|---|---|
+| is_module: root named-child iteration and kind tests | Robust | e5_target_syntax_and_identifier_text_are_trivia_robust: export declaration/root comments; no child index or text parsing |
+| import_require_clause: first direct identifier, node_text(local) | Robust | require_positions_trivia_ts/tsx, require_unrelated_trivia_ts/tsx; comments are a different kind; source strings never select a local |
+| import_alias: named_child(0)/(1) | Fixed | namespace_positions_trivia/twin_ts/tsx, export_require_positions_trivia_ts/tsx; select semantic children after excluding comments, check identifier kinds |
+| import_alias: raw entity rsplit('.') and local/terminal equality | Fixed | namespace_terminal_trivia/twin_ts/tsx; namespace_deep_terminal/twin_ts/tsx; namespace_whitespace_ts/tsx; terminal from entity property field, text from identifier token only |
+| await_expression: named_child(0) | Fixed | await_operand_trivia_js/ts/tsx; nonimport/unrelated twins; first non-comment semantic operand must be a direct import call |
+| variable_declarator name/value and call function fields | Robust | await_pattern/default/nested/array/rest_trivia_js/ts/tsx; comments cannot shift grammar fields; await_then is not an import callee |
+| exported_require_alias: missing-semicolon children/kind | Robust | export_require_real_semicolon_ts/tsx stays refused; comment children cannot manufacture a missing semicolon |
+| exported_require_alias: next_named_sibling, expression named_child(0), parentheses named_child_count/child(0) | Fixed | export_require_positions/argument_trivia_ts/tsx; nonstring, extra_expression, real_semicolon, nested_parens and type_assertion twins remain refused; skip comments only, require exactly one string semantic child |
+| destructured_names: identifier/shorthand node_text; pair value, assignment left; recursive pattern iteration | Robust | await_pattern/default/nested/array/rest_trivia_js/ts/tsx and unrelated names; comments never match identifier/pattern kinds; field access excludes trivia |
+| free_single_refusals: explicit name field; direct parent kind and wrapper parent chain; assignment left field | Robust | e5_target_syntax_and_identifier_text_are_trivia_robust: object pair, method, member assignment, wrapper argument, class field, exported declaration, explicitly named expression, direct variable function; equal refusal sets and full target/kind/confidence/drop tuples on plain/commented twins for JS/TS/TSX |
+| free_single_refusals: node_text(function_name) constructs FunctionId | Robust | Same robustness table; no suffix/token parsing. Uses the same function-name node and line range as graph target identity. This read constructs an identity, not a syntactic decision |
+| js_ts_unbound_single_refused: origin, JSX, binding reason, language, target refusal membership and caller-name evidence membership | Robust; predicate unchanged | No raw syntax or child indexing. Existing full-result arm(a)/(b), module/script/local/parameter/non-JS/origin controls plus new negative trivia twins pin inputs. Parentheses/assertions change parser nodes; the predicate does not peel them |
+| js_ts_import_value_names import_alias: named_child(0) in binder feeding arm(a) | Fixed | namespace_positions_trivia/twin and export_require_positions_trivia_ts/tsx; choose direct identifier. Base keeps full targets; collector-only repair still dropped them with Unproven(unbound), evidence containing f. Binder diagnostic rules out the import_parse_recovery alternative |
+
+R1 deliberately does not cover `(await import(...))`, `await (import(...))`, `.then(...)`, or `as`/angle-bracket assertion wrappers around the awaited import. Fixtures await_outer_parens, await_inner_parens, await_then, await_as_assertion, await_angle_assertion (TS only) pin this boundary. Exported require recovery also refuses nested argument parentheses and argument assertions. Wrapper nodes are not trivia and are never unwrapped by the repair.
+
+Regression table: e5_r1_trivia_preserves_covered_shapes_and_refuses_twins, 68 fixture rows x 3 constructors = 204 cells; pre-change 28 rows / 84 cells failed, with the entire population retained. Terminal-name differing twins require an empty target list plus LocalBindingUnproven. All preservation cells require file/name/start/end/kind/confidence and no drop. Eight target-syntax plain/commented pairs x 3 grammars = 24 additional pairs.
+
+E5-15 still matches the unchanged equality expression. Its selectors now include the new full-result table so terminal-name differing trivia twins pin the equality. No cache version or ruling changed.

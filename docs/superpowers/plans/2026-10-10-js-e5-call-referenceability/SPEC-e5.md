@@ -1,14 +1,14 @@
 # E5 — owner-selected union, measured prototype
 
-**Status: STEP 2 STOP — R1 OPEN (2026-10-13), confirming review round 2/2 pending.** Step2 patch base ce6de397; historical step1 delivery base d994c75d; main product bab0dfbd; union source preserved at e164178b. Adoption remains pending controller F and independent reviews (Opus and gpt-6.1-sol, cap two rounds). The former readiness STOP is resolved by the step1b controller ruling and a serial head PASS.
+**Status: STEP 2B — R1 trivia class closed; new-head gates and581-root identity complete (2026-10-13).** Patch base 3df0ddfa; frozen main product bab0dfbd. Adoption remains pending controller F and independent reviews (Opus and gpt-6.1-sol, cap two rounds; confirming round 2/2). Current evidence: REPORT-step2b.md and HANDOFF-step2b.md. Zero head-to-head differing call/graph rows on X,T and all579 admitted SecBench roots carries step2 tables/adjudications unchanged. Earlier step2 gate receipts are historical.
 
 ## Goal and owner decisions
 
 Reduce false Exact cross-file FreeSingle calls using only caller-file syntax and target declaration syntax. Exact is a static binding by declaration, scope, import and export syntax. Owner chose unchanged step0 arm(a) union R-bound arm(b), with drop, after arm(a) removed no target on F. Narrow-only recommendation is superseded. Source-origin JSX and super(...) stay subject to arm (b); IndirectResolution records retain main behaviour under the controller R3 ruling. R-local is an accepted follow-up; D12 stays unchanged.
 
-## Current STOP and rule of record: (a) or (b), drop
+## Rule of record: (a) or (b), drop
 
-R1 is not closed: `import f = N./* ordinary trivia */f` still loses Main’s correct Exact ns.ts:f binding because raw suffix text includes the comment. This is WRONG, confidence99, and invokes the brief’s STOP. No implementation changes followed the STOP. Details and bounded next fix: REPORT-step2.md / step2/STOP.json.
+R1 terminal names come from the entity's terminal identifier/property field, ignoring comments and whitespace. Import-alias locals, direct awaited-import operands, and recovered exported-require arguments also ignore comment children. The binder reads the actual import-alias local identifier so trivia cannot falsely arm (a) as an unbound call. Both refusal predicates and all rulings are unchanged. The former terminal-trivia defect is fixed; its differing-terminal twin stays refused. The complete syntax audit and fixtures are in CLASS-AUDIT-step2b.md.
 
 At the final unqualified R5 singleton rung, after same-file R4 returns, refuse a JS/TS/TSX caller’s cross-file target when either predicate applies. The separate graph-target FreeSingle path is Rust-only; its E5 guard was dead and has been removed (R6).
 
@@ -18,13 +18,17 @@ At the final unqualified R5 singleton rung, after same-file R4 returns, refuse a
 
 Evidence starts with `ParsedFile::extract_imports` (scalar, destructured, renamed and nested requires), plus E5-only collection of TypeScript import-require-equals locals, including `export import`; namespace import aliases whose right-most name equals the local; and names destructured from awaited dynamic `import()`. The vendored grammar recovers exported import-require-equals as an import_alias with a missing semicolon followed by a parenthesized string: E5 recognizes only that external-import shape. Other renamed namespace aliases remain refused, including the two `export import format = ts.getPathFromPathComponents` rows. This is exemption evidence, never positive target identity. The shared import extractor is unchanged. Both target and caller fact builders share one is-module helper in `call_graph_js_referenceability.rs`.
 
+R1 deliberately does not cover `(await import(...))`, `await (import(...))`, `.then(...)`, or `as`/angle-bracket type assertions around the awaited import. Exported-require recovery requires one string semantic child and does not peel nested parentheses or argument assertions. These are explicit negative fixtures; wrapper syntax is not trivia.
+
 Indirect records retain main behaviour. Source JSX aliases stay refused; Source `super(...)` remains subject to the same arm. Earlier positive import/local/qualified rungs retain their behaviour. No repo-wide import resolution or tsconfig parity is introduced.
+
+Current step2b gates:5311 run/5310 pass/1 inherited example failure/1 skip; doctests2/2; scoped authoritative mutations19/19 killed/admissible; matrix178/178; valid identical same-worktree TS/JS quick; controller tests14/14;162 four-way fixtures/648 invocations. Exact commands and limits: REPORT-step2b.md. Historical step2 gate receipts below are retained separately.
 
 Final R5 drops a refused singleton with LocalBindingUnproven. Full/skeleton/direct-subset constructors retain both facts; remove/merge replace them and serialization persists them. CACHE_VERSION and both registry pins stay 115; navigation edge cache stays 62. Guard controls and D12 controls pass; all19 scoped authoritative E5+PD-29 mutants are killed/admissible. Earlier full suite:5309 run,5308 pass,1 inherited example failure,1 skip; hook rerun:5307 pass,2 failures (example plus unattributed MCP timing),1 skip; doctests2/2; matrix178/178; fresh same-worktree TS/JS quick passes. Step1 receipts below are historical.
 
 
 
-## Current step2 measured union
+## Current union measurements — step2 tables carried through step2b identity
 
 | Corpus | Prediction W/C/U/I | Measured W/C/U/I |
 |---|---|---|
@@ -32,7 +36,7 @@ Final R5 drops a refused singleton with LocalBindingUnproven. Full/skeleton/dire
 | T | 201 / 0 / 0 / 2 | 201 / 0 / 0 / 2 |
 | SB | 170 / 0 / 0 / 354 | 170 / 0 / 0 / 354 |
 
-All prediction columns match. Step1-to-step2 differences: 132 fully enumerated rows, all explained by the controller rulings ({"SB":{"R3|INADMISSIBLE":64,"R3|WRONG":1},"X":{"R3|INADMISSIBLE":36,"R3|UNDECIDED":23,"R3|WRONG":8}}). Nothing added; 43953 non-JS call rows byte-identical; all581 non-call digests and inventories identical. 758 target / 758 call-site / 1938 graph-row adjudications complete. Full arm, origin/physical, graph and navigation tables: REPORT-step2.md / MEASUREMENTS-step2.json. Every U removal: UNDECIDED-step2.md. All93 required three-way fixtures pass their designated controls; an additional R1 trivia audit fails preservation and invokes STOP. Table in REVIEWER-FIXTURES-step2.md.
+All prediction columns match. Step1-to-step2 differences: 132 fully enumerated rows, all explained by the controller rulings ({"SB":{"R3|INADMISSIBLE":64,"R3|WRONG":1},"X":{"R3|INADMISSIBLE":36,"R3|UNDECIDED":23,"R3|WRONG":8}}). Nothing added; 43953 non-JS call rows byte-identical; all581 non-call digests and inventories identical. 758 target / 758 call-site / 1938 graph-row adjudications complete. Full arm, origin/physical, graph and navigation tables: REPORT-step2.md / MEASUREMENTS-step2.json. Every U removal: UNDECIDED-step2.md. All93 required three-way fixtures pass their designated controls; an additional R1 trivia audit historically failed preservation; step2b closes it. Table in REVIEWER-FIXTURES-step2.md.
 
 SecBench current per-root 170 | 0 | 0 | 354 versus distinct-source 134 | 0 | 0 | 293 (W/C/U/I); 11 of579 admitted roots contribute, representing 10 distinct sources. The two total.js roots contribute identical97 rows (36 W/61 I). Measured CORRECT zero does not cover import-equals or module-to-script globals; fixtures supply that coverage.
 
@@ -120,7 +124,7 @@ Keep call sites with a retained qualifier, earlier proven qualified rungs, same-
 
 ## Acceptance criteria and gates
 
-- Zero CORRECT Exact loss on each admitted public corpus and controller F; any loss invokes STOP. Current public criterion passed; private step2 F pending. Historical step1 F passed (0 CORRECT lost), not transferred to step2.
+- Zero CORRECT Exact loss on each admitted public corpus and controller F; any loss invokes STOP. Current public criterion passed; private step2b F pending. Historical step1 F passed (0 CORRECT lost), not transferred to step2b.
 - Zero new WRONG/target/site/topology; every differing call site and graph row adjudicated. Public added counts all0.
 - Non-JS call bytes and non-call graph digests identical; symbol/file inventories identical; disclose call-derived navigation/dependency changes. All581 public roots passed.
 - Every UNDECIDED removal disclosed; preserve INADMISSIBLE exposures and four producer exclusions without yield or zero-cost credit.
@@ -130,9 +134,9 @@ Keep call sites with a retained qualifier, earlier proven qualified rungs, same-
 
 ## Custody and limits
 
-Current step2 patch base is ce6de397; main is bab0dfbd. The R1–R7 bounded fold is retained in the working tree and snapshotted under step2; historical union source e164178b is the predecessor. New head CLI/fact/graph/module/byte helpers are frozen and source-bound in step2/binary-binding.json. Base binaries and calls/facts/graphs, plus matching-command base navigation artifacts, reuse read-only step0 receipts (step2/base references the retained step1 base view). A fresh empty product diff confirms40ad8390 equals bab0dfbd across src/Cargo/build/vendor. This is reuse, not fresh public base-producer execution. Both quick sides and reviewer fixtures do execute fresh base controls. Every head source byte is restored after the exact-main same-worktree control.
+Current step2b patch base is3df0ddfa; frozen main isbab0dfbd. Step2b binary binding and581-root head-to-head identity are in step2b/binary-binding.json and head-identity.json. The remaining paragraph describes historical step2 custody. The R1–R7 bounded fold is retained in the working tree and snapshotted under step2; historical union source e164178b is the predecessor. New head CLI/fact/graph/module/byte helpers are frozen and source-bound in step2/binary-binding.json. Base binaries and calls/facts/graphs, plus matching-command base navigation artifacts, reuse read-only step0 receipts (step2/base references the retained step1 base view). A fresh empty product diff confirms40ad8390 equals bab0dfbd across src/Cargo/build/vendor. This is reuse, not fresh public base-producer execution. Both quick sides and reviewer fixtures do execute fresh base controls. Every head source byte is restored after the exact-main same-worktree control.
 
-No private step2 F capture, confirming independent review round2/2, Git custody/landing, R-local runtime, D12 narrowing/incoming repair, live MCP refresh, Rust/full Tier-A or full unscoped mutation lane is claimed. The four original SecBench producer exclusions remain excluded. No provider/network calls or corpus package execution occurred. CACHE_VERSION/both registry pins115 and navigation cache62 remain unchanged. CLAUDE.md is unchanged; its prospective sentence is drafted below.
+No private step2b F capture, confirming independent review round2/2, Git custody/landing, R-local runtime, D12 narrowing/incoming repair, live MCP refresh, Rust/full Tier-A or full unscoped mutation lane is claimed. The four original SecBench producer exclusions remain excluded. No provider/network calls or corpus package execution occurred. CACHE_VERSION/both registry pins115 and navigation cache62 remain unchanged. CLAUDE.md is unchanged; its prospective sentence is drafted below.
 
 ## Review coverage and prospective CLAUDE.md sentence (R7)
 
@@ -140,4 +144,8 @@ The measured corpora contain no import-equals or module-to-script-global rows cl
 
 Draft for CLAUDE.md’s R5 description when the PR is made (CLAUDE.md is unchanged here): “For JS/TS/TSX Source calls at unqualified cross-file FreeSingle, E5 drops unbound ordinary calls to negative-syntax targets and module-caller calls without syntactic name evidence; unbound possible script targets are decided by the target-syntax arm alone, and import-equals/awaited-import evidence only exempts refusal.”
 
-Hook stop:5 requested a fresh full suite after STOP:5309 run,5307 pass,2 failures,1 ignored. The out-of-scope queued_calls cumulative-wait timing assertion passed5/5 isolated head checks; no cause or base attribution is claimed. Current R1 STOP is unchanged. VERIFICATION.md is the current exact-command record.
+Hook stop:5 requested a fresh full suite after STOP:5309 run,5307 pass,2 failures,1 ignored. The out-of-scope queued_calls cumulative-wait timing assertion passed5/5 isolated head checks; no cause or base attribution is claimed. These are historical step2 receipts. Step2b closes the terminal-trivia defect; current commands are in REPORT-step2b.md.
+
+## Verification hook stop:5 continuation
+
+On unchanged source, a fresh `cargo nextest run --offline --all-targets --features mcp --no-fail-fast` ran5311 tests:5310 passed,1 inherited d7 example failed,1 skipped (3 slow). Complete assertion left/right values freshly match the retained exact-main same-environment control. Both MCP timing tests pass; no isolated run or code repair followed. Coverage inspection found no missing RED/negative-case regression; no source/test changes. Root VERIFICATION.md now has explicit Verified and Not verified sections, exact commands/totals and exclusions. Receipts: step2b/verification-hook-stop5/{full-suite.log,full-suite-result.json,coverage.json}. No current STOP; private F/independent review remain controller gates.

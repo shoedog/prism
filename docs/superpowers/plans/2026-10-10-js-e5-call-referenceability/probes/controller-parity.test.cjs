@@ -5,7 +5,7 @@ test('actual controller diff matches public worker and emits aggregate-only stdo
  const parent=fs.mkdtempSync(path.join(os.tmpdir(),'e5-controller-public-')),root=path.join(parent,'public'),out=path.join(parent,'evidence');fs.mkdirSync(root);
  fs.writeFileSync(path.join(root,'callee.ts'),'const o = { Array: (s) => { return s + 1; } };');
  fs.writeFileSync(path.join(root,'caller.ts'),'export function caller(x) { /*PUBLIC_PARITY_MARKER*/ const y = Array(x); return y; }');
- const base=path.join(os.homedir(),'prism-evidence/js-e5/step0/bin'),head=path.join(os.homedir(),'prism-evidence/js-e5/step2/bin'),tsPath=path.join(os.homedir(),'prism-evidence/native-positional-gap/gate-inputs/typescript-5.9.3/package/lib/typescript.js');
+ const base=path.join(os.homedir(),'prism-evidence/js-e5/step0/bin'),head=path.join(os.homedir(),'prism-evidence/js-e5/step2b/bin'),tsPath=path.join(os.homedir(),'prism-evidence/native-positional-gap/gate-inputs/typescript-5.9.3/package/lib/typescript.js');
  const args=[path.join(__dirname,'../CONTROLLER-e5.sh'),'diff',tsPath,path.join(base,'base-prism'),path.join(head,'head-prism'),path.join(base,'base-facts-v2'),path.join(head,'head-facts'),path.join(base,'base-graph'),path.join(head,'head-graph')];
  const r=cp.spawnSync('bash',args,{encoding:'utf8',timeout:60000,env:{...process.env,CORPUS_F_ROOT:root,PRIVATE_EVIDENCE_ROOT:out}});
  if(r.status!==0)throw Error('controller parity failed; public artifacts retained at '+parent+'; '+r.stdout+' '+r.stderr);
@@ -18,6 +18,10 @@ test('actual controller diff matches public worker and emits aggregate-only stdo
  assert.deepEqual(result.graph_changes,{'removed|Call':1,'removed|DataFlow':1,'removed|Return':1,'removed|ReturnContains':1,'removed|ReturnFlow':1,'removed|ReturnInput':1});
  assert.deepEqual(result.graph_adjudication,{'removed|Call|WRONG':1,'removed|DataFlow|WRONG':1,'removed|Return|WRONG':1,'removed|ReturnContains|CORRECT':1,'removed|ReturnFlow|WRONG':1,'removed|ReturnInput|CORRECT':1});
  for(const text of [root,'PUBLIC_PARITY_MARKER','callee.ts','caller.ts'])assert.ok(!r.stdout.includes(text));
- fs.writeFileSync(path.join(os.homedir(),'prism-evidence/js-e5/step2/controller-parity.json'),JSON.stringify({status:'PASS',worker_controller_equal:true,raw_equals_after_override:true,stdout_aggregate_only:true,stderr_bytes:r.stderr.length,aggregate:result},null,2)+'\n');
+ const receipts=['base','head'].map(side=>JSON.parse(fs.readFileSync(path.join(out,side+'.sites.jsonl.receipt.json'),'utf8')));
+ const caches=receipts.map(r=>r.command[r.command.indexOf('--cache-dir')+1]);
+ assert.equal(new Set(caches).size,2);
+ for(const cache of caches)assert.ok(cache.startsWith(path.join(os.homedir(),'prism-evidence/js-e5/step2b/') ));
+ fs.writeFileSync(path.join(os.homedir(),'prism-evidence/js-e5/step2b/controller-parity.json'),JSON.stringify({status:'PASS',worker_controller_equal:true,raw_equals_after_override:true,stdout_aggregate_only:true,fresh_caches:caches,stderr_bytes:r.stderr.length,aggregate:result},null,2)+'\n');
  fs.rmSync(parent,{recursive:true});
 });

@@ -1,3 +1,5 @@
+**Historical step2 snapshot — superseded by REPORT-step2b.md / HANDOFF-step2b.md. The controller authorized the bounded repair in plan-brief-step2b.md; R1 terminal trivia is now fixed. All step2 counts and logs below retain their historical provenance.**
+
 # Handoff — E5 step2 STOP, R1 terminal-trivia correct loss
 
 **Written:** 2026-10-13T09:38:52.210398+00:00 · **By:** Codex root · **Provider:** codex
@@ -11,7 +13,7 @@
 **(a) Lane ownership:** `[INHERITED]` controller assigned this worker in plan-brief-step2.md; no agents dispatched. RESOLVED.
 **(b) Custody exposure:** `[MEASURED]` source/packet retained in working tree, checkpoint archives and step2 patches relative to ce6de397; final snapshot and hashes in final-custody.json. Controller owns all Git writes. RESOLVED through snapshots.
 **(c) In flight / irreversible:** `[MEASURED]` measurement process completed; ps census showed no owned producers. No implementation/corpus producers followed STOP. Hook stop:5 explicitly authorized a fresh full suite and five isolated timing checks; all are complete. RESOLVED.
-**(d) Authorization granted but not exercised:** “STOP conditions (report and stop; do not design around them)” and “Any CORRECT Exact resolution lost on any corpus…” Source remains unchanged after the concrete loss. R1 is OPEN; further repair needs controller direction. No restart.
+**(d) Authorization granted but not exercised:** “STOP conditions (report and stop; do not design around them)” and “Any CORRECT Exact resolution lost on any corpus…” Source remains unchanged after the concrete loss. The historical repair direction was supplied in plan-brief-step2b.md; current work is in HANDOFF-step2b.md. No restart.
 
 ## 1. Resume order
 
@@ -19,7 +21,7 @@
 2. Controller directs the bounded AST-terminal-name repair on this existing artifact and adds a full-result trivia regression plus renamed-terminal controls. No implementation authority inferred from this handoff.
 3. After any source repair: rebuild/freeze, rerun appropriate full suite/mutants/Tier-A and source-bound measurement; private F and confirming review remain pending, round2/2 is the last declared round.
 
-**STOP conditions:** the exact brief’s STOP list remains authoritative. Current STOP: R1 correct binding loss. Do not resume producers or edit the prototype without controller direction.
+**STOP conditions:** the exact brief’s STOP list remains authoritative. Historical STOP: R1 correct binding loss, subsequently resolved by the step2b direction and repair.
 
 ## 2. State ledger
 
@@ -37,7 +39,7 @@
 
 ## 3. Corrections to standing documents and memory
 
-SPEC-e5.md, REPORT-step2.md, VERIFICATION.md and controller/handoff status now say STOP/R1 OPEN. Historical reports and handoffs are marked superseded. Public zero CORRECT is not generalized to import-equals; the additional valid trivia shape refutes that completion claim. No relevant memory entry asserts this lane state; no memory updates authorized.
+SPEC-e5.md, REPORT-step2.md, VERIFICATION.md and controller/handoff historical status recorded the terminal-trivia defect; current status is in the step2b packet. Historical reports and handoffs are marked superseded. Public zero CORRECT is not generalized to import-equals; the additional valid trivia shape refutes that completion claim. No relevant memory entry asserts this lane state; no memory updates authorized.
 
 ## 4. Open work
 

@@ -1,7 +1,5 @@
-**STOP: R1 loses the valid namespace terminal-trivia binding. Hold further captures and review until controller clears this bounded defect; source is preserved unchanged after STOP.**
+# Step2b delivery and custody
 
-# Step2 delivery and custody
+Deliver E5-step2b-src.patch and E5-step2b-docs.patch under /Users/wesleyjinks/prism-evidence/js-e5/step2b/, relative to 3df0ddfa88ed94033ef5ec8a1813db0b3d815bd4. Source patch closes the bounded R1 trivia class, including the binder import-alias local selection; E5-15 gains the complete trivia regression selector. Docs patch reconciles spec, class audit, report, fixture table, controller command/parity, handoff and verification. No Git writes; controller commits from this working tree.
 
-Deliver `E5-step2-src.patch` and `E5-step2-docs.patch` under `/Users/wesleyjinks/prism-evidence/js-e5/step2/`, relative to `ce6de39722c0211d68de3be2d35361e14408731f`. Source patch folds R1–R6 (R1 remains open on trivia) plus the R7 fact-helper/cache comment/test-name repairs into the existing union prototype; the lane registry pins every E5 mutant and rebinds PD-29. Docs patch reconciles spec, measurements, controller command/parity helper, report, handoff and verification. No Git writes by planner; controller commits from this working tree.
-
-Step0 and step1 evidence remain read-only. Source/packet checkpoint is `step2/checkpoint-source-packet.tar.gz`; final patch validation and hashes are in `step2/patch-manifest.json` / `step2/final-custody.json`. Earlier patches and receipts are historical.
+Steps0–2 evidence remains read-only. Checkpoint patch/archive: step2b/checkpoint-src.patch and checkpoint-source.tar.gz. Final patch validation/hash manifest is step2b/patch-manifest.json. Current completed planner state is in HANDOFF-step2b.md; earlier patches/receipts are historical.

@@ -1,4 +1,4 @@
-**Current status:** Step2 bounded repair fold supersedes the current-rule claims below. See SPEC-e5.md, REPORT-step2.md, HANDOFF-step2.md and step2 evidence. The retained step0/step1 tables and commands are historical. Confirming review is round 2/2; private step2 F remains controller work.
+**Current status:** Step2b closes the R1 trivia class with gates and zero differing call/graph rows on all581 admitted roots. Step2 tables/adjudications carry unchanged. See SPEC-e5.md, REPORT-step2b.md and HANDOFF-step2b.md. Earlier commands/receipts below are historical. Private F and confirming review round2/2 remain controller work.
 
 # Prototype validation and exclusions
 

@@ -1,3 +1,5 @@
+**Historical step2 snapshot — superseded by REPORT-step2b.md / HANDOFF-step2b.md. The controller authorized the bounded repair in plan-brief-step2b.md; R1 terminal trivia is now fixed. All step2 counts and logs below retain their historical provenance.**
+
 # E5 step2 bounded review fold and re-measurement
 
 **Status: STOP on R1: a valid namespace import-equals with terminal trivia still loses a correct target. Private step2 F and confirming review round 2/2 were not run.** HEAD/patch base ce6de397; main bab0dfbd. Source and packet remain in the working tree; no Git writes. All source/producer claims below are measured this turn unless marked historical/controller-supplied.
@@ -10,7 +12,7 @@ WRONG, confidence99/100. `ns.ts` exports namespace N containing function f; `cal
 
 | Ruling | Change and test | Authoritative mutant |
 |---|---|---|
-| R1 | Plain import-require-equals (including recovered exported form), plain same-terminal namespace alias and awaited-import destructuring implemented. R1 remains OPEN: terminal trivia loses a correct binding. Full Exact targets plus renamed/unrelated/invalid twins in e5_import_equals_and_awaited_import_evidence_preserve_fallbacks. Shared extractor unchanged; both T format rows still refused. | E5-09, 10, 11, 14, 15 |
+| R1 | Plain import-require-equals (including recovered exported form), plain same-terminal namespace alias and awaited-import destructuring implemented. At this historical snapshot terminal trivia lost a binding; fixed in step2b. Full Exact targets plus renamed/unrelated/invalid twins in e5_import_equals_and_awaited_import_evidence_preserve_fallbacks. Shared extractor unchanged; both T format rows still refused. | E5-09, 10, 11, 14, 15 |
 | R2 | Unbound JS/TS/TSX targets outside the refusal set use arm (a) alone. Module-to-script controls in all constructors/grammars; local-alias, parameter, module-target, Source JSX and C-target twins. Parameter protection is earlier-rung UnknownName; local alias exercises E5. | E5-12, 16, 17, 18 |
 | R3 | Source-origin conjunct on arm (b); ordinary and renamed JSX indirect targets preserved. Source JSX local alias still refused. Object+property indirect indexing and never offering super to free-function rungs are follow-ups. | E5-13 |
 | R4 | Six new r2_d12_w2{m,d}_script_{js,ts,tsx} tests retain full Exact FreeSingle targets and argument edges, then assert no outgoing new-formal reachability. Old variants still assert E5 drops. | PD-29 rebound to the six script variants |
@@ -150,7 +152,7 @@ Additional audit fixture: | Namespace terminal trivia | Main Exact free_single n
 
 ## Verification hook stop:5 continuation
 
-The hook explicitly authorized verification/documentation after STOP; implementation remains unchanged and R1 remains open. Exact command: `cargo nextest run --offline --all-targets --features mcp --no-fail-fast`. Fresh result:5309 run,5307 passed,2 failed,1 ignored. The failures are the inherited d7 characterization example (same-environment main control already recorded) and mcp::lazy::tests::queued_calls_share_one_cumulative_wait_budget at its400ms elapsed assertion. The latter is outside the E5 edit scope and remains unattributed; no same-environment base/full-suite control was run for it.
+The hook explicitly authorized verification/documentation after STOP; implementation remains unchanged and This historical defect was subsequently fixed in step2b. Exact command: `cargo nextest run --offline --all-targets --features mcp --no-fail-fast`. Fresh result:5309 run,5307 passed,2 failed,1 ignored. The failures are the inherited d7 characterization example (same-environment main control already recorded) and mcp::lazy::tests::queued_calls_share_one_cumulative_wait_budget at its400ms elapsed assertion. The latter is outside the E5 edit scope and remains unattributed; no same-environment base/full-suite control was run for it.
 
 Five isolated head runs of `cargo nextest run --offline --features mcp --lib -E 'test(mcp::lazy::tests::queued_calls_share_one_cumulative_wait_budget)'` each ran one test and passed. This does not distinguish scheduling pressure from shared-state interference, does not erase the full-suite failure, and does not certify a source regression or inherited failure. The declared cap was five; no whole-suite retry, code repair, timeout change, ignore or re-baseline followed.
 

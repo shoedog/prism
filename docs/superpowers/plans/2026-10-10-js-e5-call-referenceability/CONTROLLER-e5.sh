@@ -41,7 +41,8 @@ if r['exit']:raise SystemExit(r['exit'])
 PY
 }
 STAGE=base_sites
-produce base.sites.jsonl "$3" nav --cache-dir "$HOME/prism-evidence/js-e5/cache" call-stats --repo "$CORPUS_F_ROOT" --dump-sites
+CACHE_BASE=$(mktemp -d "$HOME/prism-evidence/js-e5/step2b/controller-base-cache.XXXXXX")
+produce base.sites.jsonl "$3" nav --cache-dir "$CACHE_BASE" call-stats --repo "$CORPUS_F_ROOT" --dump-sites
 if [ "$MODE" = census ]; then BASE_FACTS="$4"; else BASE_FACTS="$5"; fi
 STAGE=base_facts
 produce base.facts.jsonl "$BASE_FACTS" "$CORPUS_F_ROOT"
@@ -49,7 +50,8 @@ STAGE=base_census
 node --max-old-space-size=8000 "$PROBES/census-e5.cjs" "$2" "$CORPUS_F_ROOT" "$OUT/base.sites.jsonl" "$OUT/base.census.jsonl" --facts "$OUT/base.facts.jsonl" --controller-private
 if [ "$MODE" = diff ]; then
   STAGE=head_sites
-  produce head.sites.jsonl "$4" nav --cache-dir "$HOME/prism-evidence/js-e5/cache" call-stats --repo "$CORPUS_F_ROOT" --dump-sites
+  CACHE_HEAD=$(mktemp -d "$HOME/prism-evidence/js-e5/step2b/controller-head-cache.XXXXXX")
+  produce head.sites.jsonl "$4" nav --cache-dir "$CACHE_HEAD" call-stats --repo "$CORPUS_F_ROOT" --dump-sites
   STAGE=head_facts
   produce head.facts.jsonl "$6" "$CORPUS_F_ROOT"
   STAGE=head_census

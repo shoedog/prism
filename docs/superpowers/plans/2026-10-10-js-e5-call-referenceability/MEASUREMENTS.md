@@ -229,12 +229,20 @@ So for indirect records arm (b)'s premise is evaluated in a file where the name 
 | T | 201 / 0 / 0 / 2 | 201 / 0 / 0 / 2 |
 | SB | 170 / 0 / 0 / 354 | 170 / 0 / 0 / 354 |
 
-All prediction columns match. Step1-to-step2 differences: 132 fully enumerated rows, all explained by the controller rulings ({"SB":{"R3|INADMISSIBLE":64,"R3|WRONG":1},"X":{"R3|INADMISSIBLE":36,"R3|UNDECIDED":23,"R3|WRONG":8}}). Nothing added; 43953 non-JS call rows byte-identical; all581 non-call digests and inventories identical. 758 target / 758 call-site / 1938 graph-row adjudications complete. Full arm, origin/physical, graph and navigation tables: REPORT-step2.md / MEASUREMENTS-step2.json. Every U removal: UNDECIDED-step2.md. All93 required three-way fixtures pass their designated controls; an additional R1 trivia audit fails preservation and invokes STOP. Table in REVIEWER-FIXTURES-step2.md.
+All prediction columns match. Step1-to-step2 differences: 132 fully enumerated rows, all explained by the controller rulings ({"SB":{"R3|INADMISSIBLE":64,"R3|WRONG":1},"X":{"R3|INADMISSIBLE":36,"R3|UNDECIDED":23,"R3|WRONG":8}}). Nothing added; 43953 non-JS call rows byte-identical; all581 non-call digests and inventories identical. 758 target / 758 call-site / 1938 graph-row adjudications complete. Full arm, origin/physical, graph and navigation tables: REPORT-step2.md / MEASUREMENTS-step2.json. Every U removal: UNDECIDED-step2.md. All93 required three-way fixtures pass their designated controls; an additional R1 trivia audit historically failed preservation; the bounded defect is fixed in step2b. Table in REVIEWER-FIXTURES-step2.md.
 
 SecBench current per-root 170 | 0 | 0 | 354 versus distinct-source 134 | 0 | 0 | 293 (W/C/U/I); 11 of579 admitted roots contribute, representing 10 distinct sources. The two total.js roots contribute identical97 rows (36 W/61 I). Measured CORRECT zero does not cover import-equals or module-to-script globals; fixtures supply that coverage.
 
 The complete source-bound result is REPORT-step2.md; step0 and step1 are historical. Private step2 F is pending controller execution; step1 F is not transferred.
 
-**Step2 STOP:** a correct import-equals namespace binding with terminal trivia is lost on the synthetic audit. Public zero CORRECT and matched predictions do not close R1. See STOP.json / REPORT-step2.md.
+**Historical step2 defect:** terminal trivia lost a namespace binding. The step2b full-result table closes this defect; current gates and identity are in REPORT-step2b.md.
 
-Verification-only hook rerun on unchanged source:5309 run,5307 pass,2 failures,1 ignored; isolated MCP timing5/5 passes, cause unattributed. This changes the latest gate receipt, not the frozen public measurements or R1 STOP.
+Verification-only hook rerun on unchanged source:5309 run,5307 pass,2 failures,1 ignored; isolated MCP timing5/5 passes, cause unattributed. This changes the latest gate receipt, not the frozen public measurements; the historical terminal-trivia defect is subsequently fixed in step2b.
+
+## Step2b new-head identity (2026-10-13)
+
+All581 admitted roots:0 differing call rows/0 differing graph rows, no added/removed rows. Step2 tables,758 target/site and1938 graph adjudications, non-JS/non-call parity, inventory and navigation/dependency results carry over unchanged. These were not re-adjudicated or separately re-captured. New-head gates:5311run/5310pass/1 inherited example failure/1 skip; doctests2/2; mutants19/19 killed/admissible; matrix178/178; valid identical base/head TS/JS quick; parity14/14. All162 four-way fixtures/648 CLI invocations meet expected values; original terminal-trivia STOP fixture is restored. No current STOP; private F/confirming review remain controller gates. Full exact commands and scope: REPORT-step2b.md.
+
+## Verification hook stop:5 continuation
+
+On unchanged source, a fresh `cargo nextest run --offline --all-targets --features mcp --no-fail-fast` ran5311 tests:5310 passed,1 inherited d7 example failed,1 skipped (3 slow). Complete assertion left/right values freshly match the retained exact-main same-environment control. Both MCP timing tests pass; no isolated run or code repair followed. Coverage inspection found no missing RED/negative-case regression; no source/test changes. Root VERIFICATION.md now has explicit Verified and Not verified sections, exact commands/totals and exclusions. Receipts: step2b/verification-hook-stop5/{full-suite.log,full-suite-result.json,coverage.json}. No current STOP; private F/independent review remain controller gates.
