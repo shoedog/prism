@@ -44,9 +44,16 @@ integers above 0. The binary catches a failed cache save, prints it and still ex
 the files are the evidence that the cache was written; stderr containing `failed to save CPG cache` or
 `nav edge cache: failed to save sidecar` also excludes the run. `summarize` and `compare` re-apply the file check to
 the stored sizes (a stored build result without `cache_files` is inadmissible). The driver creates each
-repetition's directory itself and deletes it afterwards (hundreds of MiB each); a directory that already existed
-is not touched and the repetition is refused, a deletion that fails is recorded as `cache_dir_removed: false` and
-named on stderr, and the then-empty `cache-build/` directories are removed.
+repetition's directory itself and deletes it afterwards (hundreds of MiB each). It is created exclusively and its
+identity (device and inode) is recorded; before deleting, the driver checks without following links that the path
+is still a real directory with that identity, inside the resolved `<out>/cache-build`, and otherwise deletes
+nothing (a directory moved or swapped in during the measurement is left alone). A directory that already existed,
+a symlink at `cache-build` or `cache-build/<corpus>`, or any filesystem error while creating it (a file in the
+way, a read-only directory, a full disk) refuses that repetition (inadmissible, no child run), not the whole run.
+`cache_dir_removed` is true only if the path is gone afterwards; otherwise it is false, `cache_dir_note` says why,
+the path is named on stderr and `compare` prints a warning. The then-empty `cache-build/` directories are removed.
+`build` keeps the settle sleep of `--settle` seconds per repetition; that is harmless, since the peak it reports
+is a lifetime peak.
 
 A corpus NAME (in `--corpus NAME=PATH`, for `run` and `gen-workload`) must be letters, digits, `.`, `_` or `-`,
 starting with a letter or digit: it names directories under `--out`.
@@ -171,6 +178,13 @@ exclude more: stderr markers are seen while a run happens and are not stored for
 cannot be re-applied (the report's own `cache` section can). `render` then rebuilds the readout from
 `summary.json`.
 
+Rescoring fails closed on a directory it cannot trust: every `*.json` in a corpus directory other than
+`corpus.json` and `prime.json` must be named `<kind>-<rep>.json` for the kind and repetition it holds, with
+`rep` an integer from 1 to the run's `reps`; a copy (`warm-1 copy.json`), a result filed under another name or a
+repetition outside that range makes `summarize` and `compare` exit with a message naming the file, because it
+would otherwise count as another repetition. A `run.json`, `corpus.json`, `prime.json` or result that is not a
+JSON object, or a directory without `run.json` or `raw/`, is refused with a message too.
+
 ## Comparing two runs: `compare`
 
 ```bash
@@ -184,10 +198,10 @@ and writes a Markdown report: both runs' provenance (build identity, git sha, CP
 `binary_input_dirty`, platform, threads, environment, repetitions, settle, the host's 1-minute load average as
 median and maximum over the admitted runs, `n/a` for runs recorded before it was kept, and the per-corpus commit),
 bold warnings (a binary built from a dirty tree; a corpus with uncommitted files, since equal counts are not equal
-trees), the rule, one table per metric (per corpus: baseline and candidate median with min-max and n, the
+trees; a build that left its cache directory behind; one repository given under two corpus names), the rule, one table per metric (per corpus: baseline and candidate median with min-max and n, the
 difference of the medians in absolute terms and as a percentage, the outcome), a verdict table with one line per
 metric, and an **Excluded runs** table per side (corpus, kind, repetition, reason; "None." when empty). Run
-directories are named by their last path component. `--json` writes the same content as data, the rule's
+directories are named by their last path component (parent/last when the two are the same). `--json` writes the same content as data, the rule's
 constants and text included. Bytes are MiB with one decimal, durations whole milliseconds, an unavailable value
 `n/a`.
 
@@ -218,15 +232,18 @@ a new entry; a gate metric must be in bytes):
   side it is "insufficient runs": not a pass and not a fail. The metric **passes** when at least 2 corpora pass.
   Otherwise it is **undecided** when fewer than 2 corpora exist, or when the corpora that pass or could still pass
   with more data (pass, insufficient runs, one-sided, not measured) number at least 2; else **fail**.
-- **not worse**, per corpus: **worse** only when the candidate median is above 1.05 times the baseline median
-  **and** the ranges do not overlap (candidate min > baseline max); otherwise ok. The ratio of the medians is
-  always shown (e.g. `×1.031`). A difference inside the overlap of the two ranges is not evidence either way: on
-  this machine a second run of the same build differed by 15 % in load time while other work was running.
+- **not worse**, per corpus, with r = candidate median / baseline median (always shown, e.g. `×1.031`; the JSON
+  row has `ratio`, `above_band` and `ranges_apart`): **unresolved** when either side has fewer than 3 runs; else
+  **ok** when the candidate median is at most 1.05 times the baseline median; else **worse** when the ranges do
+  not overlap (candidate min > baseline max); else **unresolved** (above the band, ranges overlap). A difference
+  inside the overlap of the two ranges is not evidence either way: on this machine a second run of the same build
+  differed by 15 % in load time while other work was running. The metric is **worse** if any corpus is, else
+  **unresolved** if any is, else **incomplete** if any is one-sided, else **ok**; its Verdict line shows the
+  largest ratio.
 - **not higher**, per corpus: ok when the candidate median is at most 1 MiB above the baseline median. A lower
   figure is ok: a candidate that allocates more tightly lowers it without changing the index.
-- A series on exactly one side is **one-sided** for that corpus; on neither side, **not measured**. For not worse
-  and not higher the metric is **incomplete** when any corpus is one-sided and none is worse/higher (**worse** or
-  **higher** wins); a metric absent from both runs everywhere is "not measured" and decides nothing. The
+- A series on exactly one side is **one-sided** for that corpus; on neither side, **not measured**. For not higher
+  the metric is **higher** if any corpus is, else **incomplete** when any corpus is one-sided, else ok; a metric absent from both runs everywhere is "not measured" and decides nothing. The
   boundaries are exact (a candidate median of exactly 1.05 times is ok, a live heap exactly 1 MiB higher is ok, a
   candidate max equal to the baseline min is not separated).
 

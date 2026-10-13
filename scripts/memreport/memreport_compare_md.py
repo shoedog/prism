@@ -42,13 +42,21 @@ def flag(value):
     return 'n/a' if value is None else ('true' if value else 'false')
 
 
+def run_names(sources):
+    """The two run directories by their last path component; with parent/last when those are the same."""
+    paths = {side: Path(path) for side, path in sources.items()}
+    same = len({path.name for path in paths.values()}) < len(paths)
+    return {side: '%s/%s' % (path.parent.name, path.name) if same and path.parent.name else path.name
+            for side, path in paths.items()}
+
+
 def provenance_lines(label, header, source):
     env = ', '.join('`%s=%s`' % (name, header['env'][name]) for name in sorted(header['env'] or {})) or 'none'
     platform = header['platform'] or {}
     return ['- %s%s: build identity `%s`, git `%s`, CPG cache version %s, allocator %s, binary_input_dirty %s, '
             'platform %s/%s, threads %s, environment %s, %s repetitions, %s s settle, '
             'host 1-minute load average %s.' % (
-                label, ' (%s)' % Path(source).name if source else '', header['build_identity'], header['git_sha'],
+                label, ' (%s)' % source if source else '', header['build_identity'], header['git_sha'],
                 header['cpg_cache_version'], header['allocator'], flag(header['binary_input_dirty']),
                 platform.get('os', 'n/a'), platform.get('arch', 'n/a'), header['threads'], env, header['reps'],
                 header['settle'], load_text(header['host_load']))]
@@ -68,8 +76,9 @@ def to_markdown(result):
     lines = ['# prism-mcp memory comparison: experiment %s' % result['experiment'], '',
              'Baseline against candidate under a pinned rule. Bytes are MiB (one decimal), durations whole ms; '
              'a value that is unavailable is n/a, never 0.', '', '## Provenance', '']
-    lines += provenance_lines('Baseline', result['baseline'], sources.get('baseline'))
-    lines += provenance_lines('Candidate', result['candidate'], sources.get('candidate'))
+    names = run_names(sources)
+    lines += provenance_lines('Baseline', result['baseline'], names.get('baseline'))
+    lines += provenance_lines('Candidate', result['candidate'], names.get('candidate'))
     if result['same_build']:
         lines.append('- **Baseline and candidate are the same build** (`--allow-same-build`): this is a noise check.')
     lines += ['- **%s**' % warning for warning in result.get('warnings') or []]

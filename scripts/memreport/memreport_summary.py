@@ -80,8 +80,8 @@ def build_entry(corpus, results, prime=None):
     shown = KINDS + ((BUILD,) if any(item['kind'] == BUILD for item in results) else ())
     entry = dict(corpus, admissible={kind: 0 for kind in shown}, inadmissible=[], metrics={},
                  attribution=None, build=None, env=None, threads=None, platform=None, load_avg_1m=[],
+                 build_dirs_left=sorted(item['rep'] for item in results if item.get('cache_dir_removed') is False),
                  first_build_peak=prime_peak(prime))
-    entry['load_avg_1m'] = []
     values, identity, first = {}, None, None
     for result in sorted(results, key=lambda item: (RUN_KINDS.index(item['kind']), item['rep'])):
         kind, rep = result['kind'], result['rep']

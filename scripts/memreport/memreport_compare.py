@@ -94,8 +94,9 @@ def excluded_runs(summary):
             for item in entry.get('inadmissible') or []]
 
 
-def warnings_for(base_header, cand_header, corpora):
-    """Conditions the rule cannot see but a reader must: uncommitted changes in a binary's input or a corpus."""
+def warnings_for(baseline, candidate, base_header, cand_header, corpora):
+    """Conditions the rule cannot see but a reader must: uncommitted changes in a binary's input or a corpus, a
+    cache directory a build left behind, and one repository counted as two corpora."""
     lines = []
     for side, header in (('baseline', base_header), ('candidate', cand_header)):
         if header['binary_input_dirty'] is True:
@@ -104,6 +105,18 @@ def warnings_for(base_header, cand_header, corpora):
         if corpus['dirty']:
             lines.append('Corpus %s has %s uncommitted files: equal counts are not equal trees.' % (
                 name, corpus['dirty']))
+    for side, summary in (('baseline', baseline), ('candidate', candidate)):
+        entries = sorted((summary.get('corpora') or {}).items())
+        for name, entry in entries:
+            if entry.get('build_dirs_left'):
+                lines.append('The %s run left the cache directory of build repetitions %s of corpus %s behind '
+                             '(cache_dir_removed false).' % (side, ', '.join(map(str, entry['build_dirs_left'])), name))
+        for position, (name, entry) in enumerate(entries):
+            for other, other_entry in entries[position + 1:]:
+                if entry.get('path') and (entry.get('path'), entry.get('commit')) == (
+                        other_entry.get('path'), other_entry.get('commit')):
+                    lines.append('Corpora %s and %s of the %s are the same repository (same path and commit): they '
+                                 'count as two corpora in the gate.' % (name, other, side))
     return lines
 
 
@@ -134,7 +147,8 @@ def compare(baseline, candidate, experiment, allow_same_build=False):
     return {'experiment': experiment, 'same_build': base_header['build_identity'] == cand_header['build_identity'],
             'baseline': base_header, 'candidate': cand_header, 'corpora': corpora, 'metrics': metrics,
             'excluded': {'baseline': excluded_runs(baseline), 'candidate': excluded_runs(candidate)},
-            'warnings': warnings_for(base_header, cand_header, corpora), 'rule': rule_data()}
+            'warnings': warnings_for(baseline, candidate, base_header, cand_header, corpora),
+            'rule': rule_data()}
 
 
 def cmd_compare(args):

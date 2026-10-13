@@ -30,6 +30,21 @@ class CorpusNameTests(Kinds):
         for name in ('a', 'Big-1', 'x.y_z', '0'):
             self.assertEqual(list(memreport.parse_corpora(['%s=%s' % (name, self.tmp / 'a')])), [name])
 
+    def test_two_names_for_one_path_are_refused_before_anything_is_written(self):
+        self.prepare()
+        (self.tmp / 'alias').symlink_to(self.tmp / 'a')
+        for second in (self.tmp / 'a', self.tmp / 'alias', self.tmp / 'a' / '..' / 'a'):
+            with self.assertRaises(SystemExit) as caught:
+                memreport.parse_corpora(['x=%s' % (self.tmp / 'a'), 'y=%s' % second])
+            self.assertIn('x', str(caught.exception))
+            self.assertIn('y', str(caught.exception))
+            self.assertIn('same', str(caught.exception))
+        with self.assertRaises(SystemExit):
+            memreport.main(self.run_args()[:self.run_args().index('--reps')]
+                           + ['--corpus', 'x=%s' % (self.tmp / 'a'), '--corpus', 'y=%s' % (self.tmp / 'alias')])
+        self.assertFalse(self.out.exists())
+        self.assertEqual(len(memreport.parse_corpora(['x=%s' % (self.tmp / 'a'), 'y=%s' % (self.tmp / 'b')])), 2)
+
     def test_run_and_gen_workload_both_refuse_an_absolute_name_and_touch_nothing(self):
         self.prepare()
         victim = self.tmp / 'elsewhere'

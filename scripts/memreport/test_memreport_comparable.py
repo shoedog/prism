@@ -84,5 +84,43 @@ class WithinACorpusTests(unittest.TestCase):
         self.assertIsNone(entry['platform'])
 
 
+class BuildDirectoriesLeftTests(unittest.TestCase):
+    def build(self, rep, **changes):
+        data = canned('build')
+        result = {'kind': 'build', 'rep': rep, 'status': 'ok', 'report': data,
+                  'cache_files': {'cpg_cache_bytes': 1000, 'call_edge_sidecar_bytes': 100}}
+        result.update(changes)
+        return result
+
+    def test_a_build_result_that_left_its_directory_behind_is_listed_admitted_or_not(self):
+        entry = memreport.build_entry(CORPUS, [self.build(1), self.build(2, cache_dir_removed=False),
+                                               self.build(3, cache_dir_removed=False, status='inadmissible',
+                                                          reason='x'), self.build(4, cache_dir_removed=True)])
+        self.assertEqual(entry['build_dirs_left'], [2, 3])
+
+    def test_an_entry_with_nothing_left_has_an_empty_list(self):
+        self.assertEqual(memreport.build_entry(CORPUS, [self.build(1)])['build_dirs_left'], [])
+        self.assertEqual(memreport.build_entry(CORPUS, [warm(1)])['build_dirs_left'], [])
+
+
+class HostLoadTests(unittest.TestCase):
+    def test_only_admitted_runs_count_in_the_load_average_list(self):
+        results = [warm(1), warm(2), warm(3)]
+        for result, load in zip(results, (1.0, 99.0, 3.0)):
+            result['host_before'] = {'loadavg': [load, 1.0, 1.0]}
+        results[1]['report']['cache']['cpg_hit'] = False    # run 2 is excluded by the cache rule
+        entry = memreport.build_entry(CORPUS, results)
+        self.assertEqual(entry['load_avg_1m'], [1.0, 3.0])
+        self.assertEqual(len(entry['inadmissible']), 1)
+
+    def test_a_missing_or_malformed_load_average_is_not_counted(self):
+        results = [warm(1), warm(2), warm(3), warm(4)]
+        results[0]['host_before'] = {'loadavg': None}
+        results[1]['host_before'] = {'loadavg': []}
+        results[2]['host_before'] = {'loadavg': ['x', 1, 1]}
+        entry = memreport.build_entry(CORPUS, results)
+        self.assertEqual(entry['load_avg_1m'], [])
+
+
 if __name__ == '__main__':
     unittest.main()

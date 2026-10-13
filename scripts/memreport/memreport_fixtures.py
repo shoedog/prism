@@ -219,7 +219,7 @@ def mib(*values):
 
 def make_summary(series, identity='base', reps=3, settle=5, threads=4, env=None, allocator='system',
                  commit=None, dirty=0, sha='f' * 64, platform=PLATFORM, binary_dirty=False, excluded=None,
-                 loads=None, only=None):
+                 loads=None, only=None, dirs_left=None, paths=None):
     """A summary.json shaped like the driver's: `series` is {corpus: {metric: [values]}}.
 
     `threads`, `env`, `allocator`, `platform` apply to every corpus; `only` = {field: {corpus: value}} changes
@@ -237,7 +237,8 @@ def make_summary(series, identity='base', reps=3, settle=5, threads=4, env=None,
             'commit': commit or ('c' * 8 + name), 'dirty': dirty, 'workload': {'sha256': sha, 'requests': 8},
             'build': build, 'env': own['env'], 'threads': own['threads'], 'platform': own['platform'],
             'metrics': {metric: memreport.summarize(series_values) for metric, series_values in metrics.items()},
-            'inadmissible': list((excluded or {}).get(name, [])), 'load_avg_1m': list((loads or {}).get(name, []))}
+            'inadmissible': list((excluded or {}).get(name, [])), 'load_avg_1m': list((loads or {}).get(name, [])),
+            'path': (paths or {}).get(name, '/c/' + name), 'build_dirs_left': list((dirs_left or {}).get(name, []))}
     first = next(iter(corpora.values()), {})
     provenance = {'reps': reps, 'settle': settle, 'timeout': 1800, 'bin': 'x', 'build': first.get('build'),
                   'env': first.get('env'), 'threads': first.get('threads'), 'platform': first.get('platform')}

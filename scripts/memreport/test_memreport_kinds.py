@@ -5,6 +5,7 @@ Run every test module with:
     python3 -m unittest discover -s scripts/memreport -p 'test_*.py'
 """
 import json
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -62,6 +63,24 @@ class SelectionTests(Kinds):
             self.run_kinds('refresh,workload,cold,warm')
         self.assertEqual((self.out / 'summary.json').read_text(), default)
         self.assertEqual(json.loads((self.out / 'run.json').read_text())['kinds'], FOUR)
+
+    def test_every_result_records_the_hosts_load_average_as_three_numbers(self):
+        self.prepare(build=False)
+        self.run_kinds('warm,cold', reps=1)
+        for name in ('warm-1', 'cold-1'):
+            load = json.loads((self.out / 'raw' / 'a' / (name + '.json')).read_text())['host_before']['loadavg']
+            self.assertEqual(len(load), 3, name)
+            self.assertTrue(all(type(value) is float and value >= 0 for value in load), name)
+        self.assertEqual(len(self.summary()['corpora']['a']['load_avg_1m']), 2)
+
+    def test_a_host_without_a_load_average_still_runs_and_records_none(self):
+        self.prepare(build=False)
+        with mock.patch.object(os, 'getloadavg', side_effect=OSError('no load average')):
+            self.run_kinds('warm', reps=1)
+        stored = json.loads((self.out / 'raw' / 'a' / 'warm-1.json').read_text())
+        self.assertIsNone(stored['host_before']['loadavg'])
+        self.assertEqual(self.summary()['corpora']['a']['load_avg_1m'], [])
+        self.assertEqual(self.summary()['corpora']['a']['admissible']['warm'], 1)
 
     def test_a_subset_runs_only_those_kinds(self):
         self.prepare()

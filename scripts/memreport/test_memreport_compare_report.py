@@ -105,8 +105,10 @@ class MarkdownTests(unittest.TestCase):
         rows = [line for line in rows if '---' not in line]
         self.assertEqual(len(rows), 5)
         self.assertEqual(rows[0], '| Load peak (cache-loaded, through the index load) | gate | pass | pass: a, b |')
-        self.assertEqual(rows[2], '| Index load time | not worse | ok (largest ratio ×1.009) | not measured: b; ok: a |')
-        self.assertEqual(rows[3], '| Index build time | not worse | ok (largest ratio ×1.000) | not measured: b; ok: a |')
+        self.assertEqual(rows[2], '| Index load time | not worse | ok (largest ratio ×1.009) | '
+                                  'not measured: b; ok: a |')
+        self.assertEqual(rows[3], '| Index build time | not worse | ok (largest ratio ×1.000) | '
+                                  'not measured: b; ok: a |')
         self.assertTrue(rows[4].startswith('| Steady live heap | not higher | ok |'))
 
     def test_the_same_build_is_flagged(self):
@@ -153,6 +155,48 @@ class ExcludedAndWarningTests(unittest.TestCase):
         self.assertIn('**Corpus a has 2 uncommitted files: equal counts are not equal trees.**',
                       mc.to_markdown(result))
         self.assertIn('Corpus b has 2 uncommitted files', ' '.join(result['warnings']))
+
+
+class MoreWarningTests(unittest.TestCase):
+    series = {'a': {'peak': mib(1000, 1000, 1000)}, 'b': {'peak': mib(1000, 1000, 1000)}}
+
+    def test_a_build_directory_left_behind_on_either_side_gets_a_bold_warning(self):
+        for side in ('baseline', 'candidate'):
+            left = {'b': [2, 3]}
+            base = make_summary(self.series, dirs_left=left if side == 'baseline' else None)
+            cand = make_summary(self.series, 'cand', dirs_left=left if side == 'candidate' else None)
+            result = compare(base, cand)
+            text = mc.to_markdown(result)
+            self.assertIn('**The %s run left the cache directory of build repetitions 2, 3 of corpus b behind '
+                          '(cache_dir_removed false).**' % side, text)
+            self.assertTrue(any('corpus b' in line for line in result['warnings']))
+        self.assertNotIn('cache_dir_removed', mc.to_markdown(compare(make_summary(self.series),
+                                                                      make_summary(self.series, 'cand'))))
+
+    def test_one_corpus_given_under_two_names_gets_a_bold_warning(self):
+        both = make_summary(self.series, commit='1' * 40, paths={'a': '/c/same', 'b': '/c/same'})
+        text = mc.to_markdown(compare(both, make_summary(self.series, 'cand', commit='1' * 40,
+                                                         paths={'a': '/c/same', 'b': '/c/same'})))
+        self.assertIn('**Corpora a and b of the baseline are the same repository (same path and commit): they '
+                      'count as two corpora in the gate.**', text)
+        self.assertIn('of the candidate are the same repository', text)
+
+    def test_two_corpora_with_the_same_commit_at_different_paths_are_not_flagged(self):
+        both = make_summary(self.series, commit='1' * 40)
+        self.assertNotIn('same repository', mc.to_markdown(compare(both, make_summary(self.series, 'cand',
+                                                                                      commit='1' * 40))))
+
+    def test_run_directories_with_the_same_last_component_are_shown_with_their_parent(self):
+        result = compare(make_summary(self.series), make_summary(self.series, 'cand'))
+        result['sources'] = {'baseline': '/x/old/run-1', 'candidate': '/x/new/run-1'}
+        text = mc.to_markdown(result)
+        self.assertIn('Baseline (old/run-1)', text)
+        self.assertIn('Candidate (new/run-1)', text)
+        self.assertNotIn('/x/', text)
+        result['sources'] = {'baseline': '/x/old/run-1', 'candidate': '/x/new/run-2'}
+        text = mc.to_markdown(result)
+        self.assertIn('Baseline (run-1)', text)
+        self.assertIn('Candidate (run-2)', text)
 
 
 class RunDirectoryTests(unittest.TestCase):

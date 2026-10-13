@@ -162,6 +162,11 @@ def parse_corpora(pairs):
             raise SystemExit('--corpus NAME %r must be letters, digits, dots, underscores or hyphens, starting with '
                              'a letter or digit: it names directories under --out' % name)
         corpora[name] = Path(path).expanduser().resolve()
+    for name, path in corpora.items():
+        twins = [other for other, other_path in corpora.items() if other_path == path and other < name]
+        if twins:
+            raise SystemExit('--corpus names %s and %s are the same path (%s): one corpus would count twice'
+                             % (twins[0], name, path))
     return corpora
 
 
