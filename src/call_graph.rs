@@ -6757,15 +6757,32 @@ fn js_ts_normalized_module_candidates(
     }
     let target = parts.join("/");
     let mut candidates = Vec::new();
+    let mut found_file = false;
     if !directory_only && !target.is_empty() {
         for ext in JS_TS_MODULE_EXTENSIONS {
             let candidate = format!("{target}{ext}");
             if indexed_files.contains(&candidate) {
                 candidates.push(candidate);
+                found_file = true;
             }
         }
-        // TypeScript ESM spells the emitted `.js` name for a `.ts`/`.tsx` source.
-        // A literal indexed `.js` file was already returned above.
+    }
+    let mut index_candidates = Vec::new();
+    for index in JS_TS_INDEX_FILES {
+        let candidate = if target.is_empty() {
+            index.to_string()
+        } else {
+            format!("{target}/{index}")
+        };
+        if indexed_files.contains(&candidate) {
+            index_candidates.push(candidate);
+        }
+    }
+    // TypeScript ESM spells the emitted `.js` name for a `.ts`/`.tsx` source.
+    // Substitute only when the normalized spelling found nothing at all, so a
+    // redundant-segment spelling returns exactly what its canonical spelling
+    // does (a literal indexed `.js` file, or an index file, wins alone).
+    if !directory_only && !found_file && index_candidates.is_empty() {
         if let Some(stem) = target
             .strip_suffix(".js")
             .filter(|stem| !stem.is_empty() && !stem.ends_with('/'))
@@ -6778,16 +6795,7 @@ fn js_ts_normalized_module_candidates(
             }
         }
     }
-    for index in JS_TS_INDEX_FILES {
-        let candidate = if target.is_empty() {
-            index.to_string()
-        } else {
-            format!("{target}/{index}")
-        };
-        if indexed_files.contains(&candidate) {
-            candidates.push(candidate);
-        }
-    }
+    candidates.extend(index_candidates);
     Some(candidates)
 }
 

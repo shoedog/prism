@@ -159,6 +159,52 @@ fn redundant_slash_and_dot_segments_are_normalized() {
 }
 
 #[test]
+fn redundant_segments_keep_literal_js_file_alone() {
+    // The plain spelling returns the literal file alone; a redundant-segment
+    // spelling of the same import must not add the same-stem `.ts`.
+    let indexed = ["pkg/a/x.js", "pkg/a/x.ts"];
+    assert_eq!(list("./a/x.js", APP, &indexed), v(&["pkg/a/x.js"]));
+    for spelled in ["./a//x.js", "./a/./x.js", "./a/../a/x.js"] {
+        assert_eq!(
+            list(spelled, APP, &indexed),
+            v(&["pkg/a/x.js"]),
+            "{spelled}"
+        );
+    }
+}
+
+#[test]
+fn redundant_segments_match_the_canonical_spelling() {
+    // (indexed files, redundant spelling, canonical spelling)
+    let cases: [(&[&str], &str, &str); 9] = [
+        (&["pkg/a/x.ts"], "./a//x", "./a/x"),
+        (&["pkg/a/x.ts"], "./a//x.js", "./a/x.js"),
+        (&["pkg/a/x.js", "pkg/a/x.ts"], "./a/./x.js", "./a/x.js"),
+        (&["pkg/a/x.ts", "pkg/a/x.tsx"], "./a/../a/x.js", "./a/x.js"),
+        (
+            &["pkg/a/x.js/index.ts", "pkg/a/x.ts"],
+            "./a//x.js",
+            "./a/x.js",
+        ),
+        (&["pkg/a/sub/index.ts"], "./a//sub", "./a/sub"),
+        (
+            &["pkg/a/sub/index.ts", "pkg/a/sub.ts"],
+            "./a/./sub/",
+            "./a/sub/",
+        ),
+        (&["pkg/a/x.tsx"], "./a//x.jsx", "./a/x.jsx"),
+        (&["pkg/a/x.d.ts"], "./a//x.js", "./a/x.js"),
+    ];
+    for (indexed, redundant, canonical) in cases {
+        assert_eq!(
+            list(redundant, APP, indexed),
+            list(canonical, APP, indexed),
+            "{redundant} vs {canonical} over {indexed:?}"
+        );
+    }
+}
+
+#[test]
 fn inner_parent_segment_is_normalized() {
     assert_eq!(list("./a/../b", APP, &["pkg/b.ts"]), v(&["pkg/b.ts"]));
     assert_eq!(list("./../b", APP, &["b.ts"]), v(&["b.ts"]));
