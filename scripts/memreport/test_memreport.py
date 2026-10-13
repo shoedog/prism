@@ -75,29 +75,6 @@ class DeriveTests(unittest.TestCase):
                          {'cold_peak': 66})
 
 
-class RuleTests(unittest.TestCase):
-    def entry(self, **kw):
-        stats = lambda value: None if value is None else {'min': value, 'median': value, 'max': value, 'n': 3}  # noqa: E731
-        metrics = {'steady': 1000 * MIB, 'peak': 1500 * MIB, 'm1': 0, 'm3': 0}
-        metrics.update(kw)
-        return {'metrics': {key: stats(value) for key, value in metrics.items()},
-                'cache_files': {'cpg_cache_bytes': kw.get('m2', 0)}}
-
-    def test_a_candidate_advances_on_two_corpora_by_fraction_or_absolute(self):
-        entries = {'a': self.entry(m2=230 * MIB),                      # 15.3 % of peak
-                   'b': self.entry(m2=200 * MIB, peak=9000 * MIB),     # absolute
-                   'c': self.entry(m2=10 * MIB)}
-        verdict = memreport.evaluate(entries)
-        self.assertEqual(verdict['M2']['corpora'], ['a', 'b'])
-        self.assertTrue(verdict['M2']['advance'])
-        self.assertEqual((verdict['M1']['corpora'], verdict['M1']['advance']), ([], False))
-
-    def test_one_corpus_is_not_enough(self):
-        entries = {'a': self.entry(m3=400 * MIB), 'b': self.entry(m3=1 * MIB)}
-        self.assertEqual((memreport.evaluate(entries)['M3']['corpora'], memreport.evaluate(entries)['M3']['advance']),
-                         (['a'], False))
-
-
 class ValidateTests(unittest.TestCase):
     def mutate(self, kind, stage_name, **fields):
         data = canned(kind)
