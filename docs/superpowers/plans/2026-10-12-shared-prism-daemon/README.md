@@ -20,7 +20,7 @@ the previous slice's real signatures. Writing S2–S6 task-level plans now would
 |---|---|---|---|
 | **S1** | Transport/framing refactor, explicit `ConnectionSettings`, control/dispatch split, standalone byte-for-byte proof | #356 | [`S1-transport-refactor.md`](S1-transport-refactor.md) — **ready** |
 | **C1** | `PRISM_MCP_MEM_REPORT` harness, attribution counters, five-corpus readout | none | [`C1-memory-harness.md`](C1-memory-harness.md) — **ready** |
-| S2 | Identity key, runtime-dir validation, preamble encode/decode, connection-local settings | S1 | written when S1 merges |
+| S2 | Identity key, runtime-dir validation, preamble encode/decode, connection-local settings | S1 | [`S2-identity-preamble.md`](S2-identity-preamble.md) — **written and validated; not started**. About 4,000 added lines (1,400 code, 2,600 tests), so it ships as two PRs: **S2a** = Tasks 1–4 (runtime directory, cache base, identity key, file paths), **S2b** = Tasks 5–8 (client settings, preamble, bounded reader, proof). Waiting on the owner questions below. |
 | S3a | Readiness coordinator, `RwLock<Option<SessionProvider>>`, test-only status probe (tests 1, 14) | S2 | written when S2 merges |
 | S3b | Concurrent dispatch, refresh visibility, auto-refresh recheck, panic boundaries (tests 6, 7, 9, 12) | S3a | written when S3a merges |
 | S4 | Daemon ownership, bounded handshake stage, admission/retirement, Draining (tests 2, 3, 4, 8, 13, 15, 16) | S3b | written when S3b merges |
@@ -33,6 +33,31 @@ the previous slice's real signatures. Writing S2–S6 task-level plans now would
 **S1 and C1 run in parallel.** They share no file except one `mod` line each in `src/mcp/mod.rs` (different
 positions). C1 deliberately consumes only the public `serve_session_with_freshness` and `Transport` API so it does
 not depend on S1's refactor of `transport.rs`.
+
+## Owner questions raised by S2 planning (2026-10-13)
+
+The S2 plan records 26 decisions it made where the spec was silent (table D1–D26 in the plan) and seven spec
+issues it did not resolve (SI-1–SI-7). These four change what gets built and are the owner's to settle before S2
+is implemented:
+
+1. **Runtime directory on multi-user Linux (SI-1).** With no `$XDG_RUNTIME_DIR` and no override, spec §4.3 gives
+   `/tmp/prism-mcpd`: one name for every user. The first user owns it and every other user's shim fails closed.
+   macOS is unaffected. Options: keep as written (the error names `PRISM_MCP_RUNTIME_DIR` as the way out), or use
+   a per-user name in the temp-dir fallback (`prism-mcpd-<uid>`), which is a spec change.
+2. **A client-supplied result cap below the floor (D15).** The plan refuses it. The alternative is to replace it
+   with the default as the environment path does, but a daemon's client cannot see the stderr warning, so the
+   replacement would be silent.
+3. **Where the peer-uid check lives (D24).** The plan leaves `getpeereid`/`SO_PEERCRED` to S4, where connections
+   are accepted. Moving it into S2 would put all of "who may connect" in one slice at a cost of about 20 lines.
+4. **`--warm-at-startup` across a shared daemon (SI-7).** The spec says it is honored only by the daemon this
+   shim starts, but the daemon has no such flag and cannot tell which `HELLO` came from its starter. Either the
+   daemon command line gets the flag, or the first admitted `HELLO` decides. This one is S4's, not S2's; S2 only
+   carries the field.
+
+Recorded, no decision needed now: a debug and a release binary of one source tree share a daemon (SI-4); the
+runtime-directory check is by path, so a rename between check and bind is possible for a process with write
+access to its parent (SI-5); the spec defines no reply for a `HELLO` refused for a reason other than identity
+(SI-3, S4 decides).
 
 ## Facts measured on 2026-10-12 (branch `spec/shared-prism-daemon`, tree = main `cb0eeec0` + spec commits)
 
