@@ -203,6 +203,17 @@ struct ConfigSection {
     settle_secs: u64,
 }
 
+/// Positive evidence of which caches this run actually used, read right after the call-edge index
+/// is forced. A run that is supposed to be warm is admissible only when both are `true`.
+#[derive(serde::Serialize)]
+struct CacheSection {
+    /// The CPG came from an exact cache hit; `null` when the index has no cache store (`--no-cache`).
+    cpg_hit: Option<bool>,
+    /// The resolved call-edge index was loaded from its sidecar (`false`: it was computed, including
+    /// when caching is off); `null` only if the index was never forced.
+    call_edges_loaded: Option<bool>,
+}
+
 #[derive(serde::Serialize)]
 struct Report {
     /// Report format version. First field, so the line starts with `{"prism_mem_report":`.
@@ -213,6 +224,9 @@ struct Report {
     /// Every `PRISM_*` variable set in this process, sorted by name, except the one that selects
     /// this mode: settings that can change what is measured.
     env: BTreeMap<String, String>,
+    cache: CacheSection,
+    /// Size of the rayon pool that builds the index (`RAYON_NUM_THREADS` and the host decide it).
+    threads: usize,
     stages: Vec<Stage>,
     ru_maxrss_bytes: Option<u64>,
     attribution: Attribution,
@@ -293,6 +307,10 @@ pub fn run(
     // its cost is a stage of its own instead of hiding inside the workload.
     let _ = provider.session().index.resolved_call_edges();
     recorder.mark("after_call_edges");
+    let cache = CacheSection {
+        cpg_hit: provider.session().index.cpg_loaded_from_cache(),
+        call_edges_loaded: provider.session().index.call_edges_loaded_from_cache(),
+    };
 
     let workload = match &workload_file {
         Some(file) => {
@@ -317,7 +335,7 @@ pub fn run(
 
     // Attribution allocates; it runs after the last sample.
     let report = Report {
-        prism_mem_report: 2,
+        prism_mem_report: 3,
         build: build_section(),
         platform: PlatformSection {
             os: std::env::consts::OS,
@@ -325,6 +343,8 @@ pub fn run(
         },
         config: config_section(cfg, options),
         env: env_section(),
+        cache,
+        threads: rayon::current_num_threads(),
         stages: recorder.stages,
         ru_maxrss_bytes: ru_maxrss_bytes(),
         attribution: attribute(provider.session()),

@@ -65,7 +65,7 @@ fn report_mode_prints_one_report_and_does_not_serve() {
     let report = report_line(&output.stderr);
     assert_eq!(report["stages"].as_array().unwrap().len(), 5);
     assert_eq!(report["attribution"]["files"], 2);
-    assert_eq!(report["prism_mem_report"], 2);
+    assert_eq!(report["prism_mem_report"], 3);
     // The child ran with PRISM_MCP_MEM_REPORT=1 and PRISM_TEST_SETTING=on; only the second is a
     // setting that could change what is measured.
     assert_eq!(report["env"]["PRISM_TEST_SETTING"], "on");
@@ -244,4 +244,93 @@ fn the_tree_sitter_heap_figure_covers_the_retained_tree() {
             );
         }
     }
+}
+
+/// A report-mode child that uses a cache directory instead of `--no-cache`.
+///
+/// `PRISM_NAV_EDGE_CACHE_LOAD_DIRTY=1` is set because a binary built from a tree with uncommitted
+/// changes refuses to load the call-edge sidecar (and says so only on stderr). Setting it makes
+/// these tests pass on dirty and clean builds alike; the refusal itself is a separate case.
+fn cached_command(repo: &tempfile::TempDir, cache: &std::path::Path) -> Command {
+    let mut command = Command::cargo_bin("prism-mcp").expect("prism-mcp binary");
+    command
+        .arg("--repo")
+        .arg(repo.path())
+        .arg("--cache-dir")
+        .arg(cache)
+        .arg("--eager")
+        .arg("--mem-settle-secs")
+        .arg("0")
+        .env("PRISM_MCP_MEM_REPORT", "1")
+        .env("PRISM_NAV_EDGE_CACHE_LOAD_DIRTY", "1");
+    command
+}
+
+/// `(cache.cpg_hit, cache.call_edges_loaded)` of one run, as JSON values.
+fn cache_evidence(mut command: Command) -> (Value, Value) {
+    let output = command.assert().success().get_output().clone();
+    let report = report_line(&output.stderr);
+    let cache = report["cache"].as_object().expect("cache section");
+    assert_eq!(cache.len(), 2, "{cache:?}");
+    (cache["cpg_hit"].clone(), cache["call_edges_loaded"].clone())
+}
+
+fn sidecar(cache: &std::path::Path) -> std::path::PathBuf {
+    fn find(dir: &std::path::Path) -> Option<std::path::PathBuf> {
+        for entry in std::fs::read_dir(dir).ok()?.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                if let Some(found) = find(&path) {
+                    return Some(found);
+                }
+            } else if path
+                .file_name()
+                .is_some_and(|n| n == "resolved-call-edge-index.bin")
+            {
+                return Some(path);
+            }
+        }
+        None
+    }
+    find(cache).expect("the first run wrote the call-edge sidecar")
+}
+
+#[test]
+fn the_report_says_whether_each_cache_was_used() {
+    let repo = repo();
+    let cache = tempfile::tempdir().expect("cache dir");
+    let yes = Value::Bool(true);
+    let no = Value::Bool(false);
+
+    // Nothing primed: the CPG is built and the call edges are computed.
+    let first = cache_evidence(cached_command(&repo, cache.path()));
+    assert_eq!(first, (no.clone(), no.clone()), "cold cache directory");
+    let sidecar = sidecar(cache.path());
+
+    let second = cache_evidence(cached_command(&repo, cache.path()));
+    assert_eq!(second, (yes.clone(), yes.clone()), "primed cache directory");
+
+    // The CPG cache is intact but the sidecar is gone: the old stderr-text check saw nothing.
+    std::fs::remove_file(&sidecar).expect("delete sidecar");
+    let deleted = cache_evidence(cached_command(&repo, cache.path()));
+    assert_eq!(deleted, (yes.clone(), no.clone()), "sidecar deleted");
+
+    // That run rewrote the sidecar; corrupt it instead.
+    std::fs::write(&sidecar, b"not-bincode").expect("corrupt sidecar");
+    let corrupt = cache_evidence(cached_command(&repo, cache.path()));
+    assert_eq!(corrupt, (yes.clone(), no.clone()), "sidecar undecodable");
+
+    // The run that found it undecodable rewrote it, so the next one loads it.
+    let healed = cache_evidence(cached_command(&repo, cache.path()));
+    assert_eq!(healed, (yes.clone(), yes), "sidecar rewritten");
+}
+
+#[test]
+fn with_no_cache_there_is_no_cpg_provenance_and_the_edges_are_computed() {
+    let repo = repo();
+    // The accessors report what is true: no cache store means the CPG hit is unknown (null), and the
+    // call edges were computed (false), not "unknown".
+    let (cpg_hit, call_edges_loaded) = cache_evidence(report_command(&repo));
+    assert_eq!(cpg_hit, Value::Null);
+    assert_eq!(call_edges_loaded, Value::Bool(false));
 }

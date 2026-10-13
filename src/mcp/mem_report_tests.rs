@@ -32,7 +32,7 @@ fn report(cfg: &ServerConfig, options: &MemReportOptions) -> Value {
     let mut out = Vec::new();
     run(cfg, options, &mut out).unwrap();
     let text = String::from_utf8(out).unwrap();
-    assert!(text.starts_with("{\"prism_mem_report\":2,"), "{text}");
+    assert!(text.starts_with("{\"prism_mem_report\":3,"), "{text}");
     assert_eq!(text.matches('\n').count(), 1, "exactly one line");
     serde_json::from_str(&text).unwrap()
 }
@@ -78,7 +78,7 @@ fn a_plain_report_has_the_build_stages_and_no_optional_ones() {
         env!("CARGO_PKG_VERSION")
     );
     assert_eq!(report["build"]["allocator"], "system");
-    assert_eq!(report["prism_mem_report"], 2);
+    assert_eq!(report["prism_mem_report"], 3);
     // Every PRISM_* setting is echoed except the variable that selects this mode.
     let env = report["env"].as_object().expect("env section");
     assert!(env.keys().all(|name| name.starts_with("PRISM_")), "{env:?}");
