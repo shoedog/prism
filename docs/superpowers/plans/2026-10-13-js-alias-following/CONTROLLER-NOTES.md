@@ -76,18 +76,20 @@ Recorded product sites whose callee is bound to a local, by where the value come
 | A function defined in place (`const f = () => …`) | 1,568 | 92 | 551 | resolved today (1,529 / 78 / 534 correct) |
 | **A named function reached through one returned value** | **98** | **14** | **71** | one returned-value step |
 | An anonymous function reached the same way | 1 | 2 | 9 | the same step plus an identity for the inline callable |
-| The called function is imported and prism does not resolve the import | 42 | 201 | 0 | import resolution first (T: the `.js` suffix gap) |
-| `useState` / `useReducer` setter | 59 | 0 | 580 | nothing: no in-repo callee |
+| The called function is imported and prism does not resolve the import | 45 | 251 | 0 | import resolution first (T: the `.js` suffix gap) |
+| `useState` / `useReducer` result | 60 | 0 | 580 | nothing: no in-repo callee |
 | A hook from an npm dependency | 0 | 0 | 146 | nothing: no in-repo callee |
 | Tagged template (`styled.x\`…\``) | 0 | 0 | 257 | nothing: no in-repo callee |
 | `useContext(...)` value | 25 | 0 | 124 | following the provider's `value` (not designed) |
-| Member of a parameter (`const { onX } = props`) | 23 | 204 | 220 | argument following |
+| A parameter or a member of one (`const { onX } = props`) | 26 | 204 | 221 | argument following |
 | Result of a method call (`obj.m()`) | 18 | 41 | 38 | receiver typing |
-| Everything else | 109 | 174 | 48 | mixed; see the per-class output |
+| `lazy(() => import(...))` | 0 | 0 | 20 | a contract decision (see the matrix section) |
+| Everything else | 68 | 115 | 27 | mixed; see the per-class output |
+| Total | 1,909 | 719 | 2,044 | |
 
 - **Precision on typed code.** With `--check` the script compares each followed target with the checker's resolved declaration: X 1,678 agree, 0 disagree (22 where the checker has no body to name); T 106 agree, 0 disagree (10 without a body).
-- **On F the one-step sites include 41 of the 109 wrong edges main has today.** Refusal alone would delete those edges; the returned-value step replaces them with the right callee.
-- **Sites where the right answer is "no edge"** (setters, npm hooks, tagged templates) are 983 on F. Main has 28 wrong edges among them today.
+- **Where F's 109 wrong edges sit:** 42 on one-step sites (41 named, 1 anonymous), 38 on parameter members, 29 where there is no in-repo callee. Refusal alone deletes all 109; the returned-value step would replace 42 of them with the right callee.
+- **Sites where the right answer is "no edge"** (state hooks, npm hooks, tagged templates) are 983 on F. Main has 28 wrong edges among them today.
 - F rows stay in the private evidence directory; only these counts leave it.
 
 ## Where the controller's reading differs from the planner's plan (for the owner, not adjudicated)
