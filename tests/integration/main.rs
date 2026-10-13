@@ -30,6 +30,7 @@ mod imported_object_alias_test;
 mod imported_props_identity_audit_test;
 mod inline_prop_receiver_test;
 mod js_alias_matrix_common;
+mod js_alias_matrix_guard;
 mod js_alias_matrix_test;
 mod js_binding_export_state_test;
 mod js_binding_export_test;

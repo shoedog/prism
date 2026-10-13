@@ -129,9 +129,10 @@ pub fn observe(records: &[serde_json::Value]) -> Observed {
     }
 }
 
+/// Callable identity: same file, same name, and the same declaration line when
+/// the truth records one.
 fn hit(t: &Hit, target: &Target) -> bool {
-    t.file == target.file
-        && (t.name == target.name || (target.line.is_some() && Some(t.line) == target.line))
+    t.file == target.file && t.name == target.name && target.line.is_none_or(|line| t.line == line)
 }
 
 /// Verdict vocabulary: see `tests/fixtures/js_alias_matrix/README.md`.
@@ -242,41 +243,6 @@ pub fn orphan_expected(expected: &[Row], actual: &[Row]) -> Vec<String> {
         .collect()
 }
 
-/// Moving INTO WRONG or OVERCLAIM, or OUT OF CORRECT, is a regression.
-/// A fixture with no pinned row has nothing to move from; it counts as a
-/// regression only if it lands in WRONG or OVERCLAIM.
-pub fn is_regression(old: Option<&str>, new: &str) -> bool {
-    match old {
-        Some(old) if old == new => false,
-        Some(old) => matches!(new, "WRONG" | "OVERCLAIM") || old == "CORRECT",
-        None => matches!(new, "WRONG" | "OVERCLAIM"),
-    }
-}
-
-/// The bless guard: ids of changed rows that regress and are not listed as accepted.
-pub fn unaccepted_regressions(changes: &[Change], accepted: &BTreeSet<String>) -> Vec<String> {
-    changes
-        .iter()
-        .filter(|c| {
-            is_regression(
-                c.expected.as_ref().map(|r| r.verdict.as_str()),
-                &c.actual.verdict,
-            ) && !accepted.contains(&c.id)
-        })
-        .map(|c| c.id.clone())
-        .collect()
-}
-
-/// Accepted ids that name no fixture.
-pub fn unknown_accepted(accepted: &BTreeSet<String>, fixtures: &[Fixture]) -> Vec<String> {
-    let live: BTreeSet<&str> = fixtures.iter().map(|f| f.id.as_str()).collect();
-    accepted
-        .iter()
-        .filter(|id| !live.contains(id.as_str()))
-        .cloned()
-        .collect()
-}
-
 /// Counts by `(step, expected verdict -> actual verdict)`, rendered one per line.
 pub fn summary(changes: &[Change], step_of: &BTreeMap<&str, &str>) -> String {
     let mut counts: BTreeMap<(String, String, String), usize> = BTreeMap::new();
@@ -329,110 +295,6 @@ mod tests {
             actual: row(id, new),
         }
     }
-    fn set(ids: &[&str]) -> BTreeSet<String> {
-        ids.iter().map(|s| s.to_string()).collect()
-    }
-
-    #[test]
-    fn regression_into_wrong_or_overclaim() {
-        for old in ["MISSING", "DEMOTED", "NONE-OK", "MAY-NONE", "PARTIAL"] {
-            assert!(is_regression(Some(old), "WRONG"), "{old}->WRONG");
-            assert!(is_regression(Some(old), "OVERCLAIM"), "{old}->OVERCLAIM");
-        }
-    }
-
-    #[test]
-    fn regression_out_of_correct() {
-        for new in [
-            "PARTIAL",
-            "DEMOTED",
-            "MISSING",
-            "WRONG",
-            "NO-RECORD",
-            "NONE-OK",
-        ] {
-            assert!(is_regression(Some("CORRECT"), new), "CORRECT->{new}");
-        }
-    }
-
-    #[test]
-    fn improvements_and_lateral_moves_are_not_regressions() {
-        assert!(!is_regression(Some("MISSING"), "CORRECT"));
-        assert!(!is_regression(Some("WRONG"), "CORRECT"));
-        assert!(!is_regression(Some("OVERCLAIM"), "MAY-NAMEONLY"));
-        assert!(!is_regression(Some("MISSING"), "DEMOTED"));
-        assert!(!is_regression(Some("DEMOTED"), "MISSING"));
-        assert!(!is_regression(Some("PARTIAL"), "CORRECT"));
-    }
-
-    #[test]
-    fn unchanged_verdict_is_not_a_regression_even_when_wrong() {
-        assert!(!is_regression(Some("WRONG"), "WRONG"));
-        assert!(!is_regression(Some("OVERCLAIM"), "OVERCLAIM"));
-        assert!(!is_regression(Some("CORRECT"), "CORRECT"));
-    }
-
-    #[test]
-    fn new_fixture_regresses_only_when_it_lands_wrong_or_overclaim() {
-        assert!(is_regression(None, "WRONG"));
-        assert!(is_regression(None, "OVERCLAIM"));
-        assert!(!is_regression(None, "CORRECT"));
-        assert!(!is_regression(None, "MISSING"));
-    }
-
-    #[test]
-    fn guard_refuses_unaccepted_regressions_and_lists_all() {
-        let cs = vec![
-            change("a", Some("CORRECT"), "MISSING"),
-            change("b", Some("MISSING"), "CORRECT"),
-            change("c", Some("MISSING"), "WRONG"),
-        ];
-        assert_eq!(unaccepted_regressions(&cs, &set(&[])), vec!["a", "c"]);
-    }
-
-    #[test]
-    fn guard_allows_regressions_listed_as_accepted() {
-        let cs = vec![
-            change("a", Some("CORRECT"), "MISSING"),
-            change("c", Some("MISSING"), "WRONG"),
-        ];
-        assert_eq!(unaccepted_regressions(&cs, &set(&["a"])), vec!["c"]);
-        assert!(unaccepted_regressions(&cs, &set(&["a", "c"])).is_empty());
-    }
-
-    #[test]
-    fn accepting_an_id_does_not_excuse_other_rows() {
-        let cs = vec![change("x", Some("CORRECT"), "WRONG")];
-        assert_eq!(unaccepted_regressions(&cs, &set(&["y"])), vec!["x"]);
-    }
-
-    #[test]
-    fn accepted_id_that_names_no_fixture_is_reported() {
-        let fx = vec![fixture("a"), fixture("b")];
-        assert_eq!(
-            unknown_accepted(&set(&["a", "ghost"]), &fx),
-            vec!["ghost".to_string()]
-        );
-        assert!(unknown_accepted(&set(&["a", "b"]), &fx).is_empty());
-    }
-
-    fn fixture(id: &str) -> Fixture {
-        Fixture {
-            id: id.into(),
-            step: "s".into(),
-            shape: "x".into(),
-            scope: "x".into(),
-            form: "x".into(),
-            naming: "x".into(),
-            lang: "ts".into(),
-            contract: None,
-            site_file: "a.ts".into(),
-            site_line: Some(1),
-            truth: Truth::None,
-            files: BTreeMap::new(),
-        }
-    }
-
     #[test]
     fn changes_reports_every_differing_row_not_just_the_first() {
         let expected = vec![
@@ -487,6 +349,49 @@ mod tests {
     }
 
     #[test]
+    fn identity_needs_name_and_line_not_either() {
+        let t = |name: &str, line: Option<u64>| Target {
+            file: "a.ts".into(),
+            name: name.into(),
+            line,
+        };
+        let h = |name: &str, line: u64| Hit {
+            file: "a.ts".into(),
+            name: name.into(),
+            line,
+            kind: "k".into(),
+        };
+        let obs = |exact: Vec<Hit>| Observed {
+            record: true,
+            exact,
+            ..Default::default()
+        };
+        // outer `function f` on line 1, inner `function f` on line 3; truth is the inner one
+        let inner = Truth::One {
+            targets: vec![t("f", Some(3))],
+        };
+        assert_eq!(verdict(&inner, &obs(vec![h("f", 1)])), "WRONG");
+        assert_eq!(verdict(&inner, &obs(vec![h("f", 3)])), "CORRECT");
+        // two functions on one line: a target named `g` does not match a truth for `f`
+        let f_only = Truth::One {
+            targets: vec![t("f", Some(2))],
+        };
+        assert_eq!(verdict(&f_only, &obs(vec![h("g", 2)])), "WRONG");
+        // a truth without a line matches on file and name alone
+        let unlined = Truth::One {
+            targets: vec![t("f", None)],
+        };
+        assert_eq!(verdict(&unlined, &obs(vec![h("f", 9)])), "CORRECT");
+        assert_eq!(verdict(&unlined, &obs(vec![h("g", 9)])), "WRONG");
+        // another file never matches
+        let other = Hit {
+            file: "b.ts".into(),
+            ..h("f", 3)
+        };
+        assert_eq!(verdict(&inner, &obs(vec![other])), "WRONG");
+    }
+
+    #[test]
     fn verdicts_follow_the_reference_definitions() {
         let t = |name: &str, line: u64| Target {
             file: "callee.ts".into(),
@@ -516,11 +421,8 @@ mod tests {
             targets: vec![t("f", 1), t("g", 2)],
         };
         assert_eq!(verdict(&set, &obs(vec![h("f", 1)], vec![])), "PARTIAL");
-        // a line match counts even when the name differs
-        assert_eq!(
-            verdict(&one, &obs(vec![h("renamed", 1)], vec![])),
-            "CORRECT"
-        );
+        // a line match alone is not identity: the name must agree too
+        assert_eq!(verdict(&one, &obs(vec![h("renamed", 1)], vec![])), "WRONG");
         let may = Truth::May {
             targets: vec![t("f", 1)],
         };

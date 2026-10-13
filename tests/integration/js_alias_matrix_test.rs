@@ -9,6 +9,7 @@
 //! regressions.
 
 use super::js_alias_matrix_common::*;
+use super::js_alias_matrix_guard::{bless_problems, ledger_problems, Accepted};
 use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -47,17 +48,43 @@ fn expected() -> Vec<Row> {
     parse_lines("expected.jsonl")
 }
 
-fn accepted() -> BTreeSet<String> {
-    #[derive(serde::Deserialize)]
-    struct Accepted {
-        id: String,
-        #[allow(dead_code)]
-        reason: String,
+fn accepted() -> Vec<Accepted> {
+    parse_lines("accepted_changes.jsonl")
+}
+
+fn ids(fixtures: &[Fixture]) -> Vec<&str> {
+    fixtures.iter().map(|f| f.id.as_str()).collect()
+}
+
+const EXPECTED_AT_HEAD: &str = "HEAD:./tests/fixtures/js_alias_matrix/expected.jsonl";
+
+/// The committed `expected.jsonl`: the old state a bless compares against.
+fn baseline() -> Result<Vec<Row>, String> {
+    let out = std::process::Command::new("git")
+        .args(["show", EXPECTED_AT_HEAD])
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .map_err(|e| format!("cannot run git: {e}"))?;
+    if !out.status.success() {
+        return Err(format!(
+            "`git show {EXPECTED_AT_HEAD}` failed: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
     }
-    parse_lines::<Accepted>("accepted_changes.jsonl")
-        .into_iter()
-        .map(|a| a.id)
+    String::from_utf8(out.stdout)
+        .map_err(|e| e.to_string())?
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .enumerate()
+        .map(|(i, l)| serde_json::from_str(l).map_err(|e| format!("baseline line {}: {e}", i + 1)))
         .collect()
+}
+
+/// Write via a temp file in the same directory, then rename over the target.
+fn write_atomic(path: &Path, text: &str) {
+    let tmp = path.with_extension(format!("jsonl.tmp{}", std::process::id()));
+    std::fs::write(&tmp, text).expect("write temp file");
+    std::fs::rename(&tmp, path).expect("rename over expected.jsonl");
 }
 
 /// The `call_site` records `call-stats --dump-sites` emits for the fixture's marked line.
@@ -83,11 +110,17 @@ fn site_records(f: &Fixture) -> Vec<serde_json::Value> {
         .collect()
 }
 
+/// Fixtures run on prism's large-stack pool: from the global rayon pool (2 MiB
+/// workers) each `nav_session` crosses into the build pool, and the waiting
+/// worker steals another fixture onto the same stack, so depth grows with the
+/// fixture count and overflows on small thread counts.
 fn actual_rows(fixtures: &[Fixture]) -> Vec<Row> {
-    fixtures
-        .par_iter()
-        .map(|f| row_for(f, observe(&site_records(f))))
-        .collect()
+    prism::build_pool::install(|| {
+        fixtures
+            .par_iter()
+            .map(|f| row_for(f, observe(&site_records(f))))
+            .collect()
+    })
 }
 
 fn report(changes: &[Change], fixtures: &[Fixture]) -> String {
@@ -114,6 +147,10 @@ fn report(changes: &[Change], fixtures: &[Fixture]) -> String {
     out
 }
 
+fn bless_requested() -> bool {
+    std::env::var(BLESS_ENV).as_deref() == Ok("1")
+}
+
 #[test]
 fn matrix_matches_pinned_expectations() {
     let fixtures = fixtures();
@@ -124,43 +161,46 @@ fn matrix_matches_pinned_expectations() {
         fixtures.len(),
         started.elapsed().as_secs_f64()
     );
-    let expected = expected();
+    let pinned = expected();
     let accepted = accepted();
+    let ids = ids(&fixtures);
 
-    let unknown = unknown_accepted(&accepted, &fixtures);
-    assert!(
-        unknown.is_empty(),
-        "accepted_changes.jsonl lists ids that are not fixtures: {unknown:?}"
-    );
-
-    let changes = changes(&expected, &actual);
-    let orphans = orphan_expected(&expected, &actual);
-
-    if std::env::var(BLESS_ENV).as_deref() == Ok("1") {
-        let refused = unaccepted_regressions(&changes, &accepted);
+    if bless_requested() {
+        let baseline = baseline().unwrap_or_else(|e| {
+            panic!("refusing to bless: the committed baseline is unavailable ({e}); bless needs git and expected.jsonl committed at HEAD")
+        });
+        let problems = bless_problems(&ids, &baseline, &pinned, &actual, &accepted);
         assert!(
-            refused.is_empty(),
-            "refusing to bless: {} regression(s) not listed in accepted_changes.jsonl \
-             (a row moving into WRONG/OVERCLAIM or out of CORRECT): {refused:?}\n{}",
-            refused.len(),
-            report(&changes, &fixtures)
+            problems.is_empty(),
+            "refusing to bless; nothing was written:\n  {}\n{}",
+            problems.join("\n  "),
+            report(&changes(&pinned, &actual), &fixtures)
         );
-        let path = matrix_dir().join("expected.jsonl");
-        std::fs::write(&path, render(&actual)).expect("write expected.jsonl");
+        write_atomic(&matrix_dir().join("expected.jsonl"), &render(&actual));
         eprintln!(
-            "js_alias_matrix: blessed {} changed row(s), dropped {} orphan row(s)",
-            changes.len(),
-            orphans.len()
+            "js_alias_matrix: blessed ({} row(s) differed from the working tree)",
+            changes(&pinned, &actual).len()
         );
         return;
     }
 
+    let changes = changes(&pinned, &actual);
+    let orphans = orphan_expected(&pinned, &actual);
     assert!(
         changes.is_empty() && orphans.is_empty(),
         "{}\npinned rows with no fixture: {orphans:?}\n\
          If the change is intended, rerun with {BLESS_ENV}=1 and review the expected.jsonl diff.",
         report(&changes, &fixtures)
     );
+}
+
+#[test]
+fn accepted_changes_ledger_has_no_stale_entries() {
+    if bless_requested() {
+        return; // a bless checks the ledger against the rows it is about to write
+    }
+    let problems = ledger_problems(&accepted(), &ids(&fixtures()), &expected());
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
 
 #[test]
@@ -198,6 +238,58 @@ fn every_site_file_is_present_and_its_site_line_is_marked() {
     }
 }
 
+/// `line` (1-indexed) of `file` in the fixture, if both exist.
+fn source_line<'a>(f: &'a Fixture, file: &str, line: u64) -> Option<&'a str> {
+    let n = usize::try_from(line).ok()?.checked_sub(1)?;
+    f.files.get(file)?.lines().nth(n)
+}
+
+#[test]
+fn every_truth_points_at_real_source() {
+    for f in fixtures() {
+        match &f.truth {
+            Truth::One { targets } | Truth::Set { targets } | Truth::May { targets } => {
+                for t in targets {
+                    assert!(
+                        f.files.contains_key(&t.file),
+                        "{}: truth target file {} is not in files",
+                        f.id,
+                        t.file
+                    );
+                    if let Some(line) = t.line {
+                        let text = source_line(&f, &t.file, line).unwrap_or_else(|| {
+                            panic!("{}: target line {line} not in {}", f.id, t.file)
+                        });
+                        assert!(
+                            text.contains(&t.name),
+                            "{}: {}:{line} does not contain `{}`: {text:?}",
+                            f.id,
+                            t.file,
+                            t.name
+                        );
+                    }
+                }
+            }
+            Truth::None => {}
+            Truth::Anon { file, line } => {
+                assert!(
+                    f.files.contains_key(file),
+                    "{}: anon file {file} missing",
+                    f.id
+                );
+                let line = line.unwrap_or_else(|| panic!("{}: anon truth has no line", f.id));
+                let text = source_line(&f, file, line)
+                    .unwrap_or_else(|| panic!("{}: anon line {line} not in {file}", f.id));
+                assert!(
+                    text.contains("// ANON"),
+                    "{}: anon line {file}:{line} lacks `// ANON`: {text:?}",
+                    f.id
+                );
+            }
+        }
+    }
+}
+
 #[test]
 fn every_fixture_has_an_expected_row_and_vice_versa() {
     let fixtures: Vec<_> = fixtures().into_iter().map(|f| f.id).collect();
@@ -205,15 +297,6 @@ fn every_fixture_has_an_expected_row_and_vice_versa() {
     assert_eq!(
         fixtures, expected,
         "fixtures.jsonl and expected.jsonl must list the same ids in the same order"
-    );
-}
-
-#[test]
-fn accepted_changes_name_real_fixtures() {
-    let unknown = unknown_accepted(&accepted(), &fixtures());
-    assert!(
-        unknown.is_empty(),
-        "accepted_changes.jsonl lists ids that are not fixtures: {unknown:?}"
     );
 }
 
