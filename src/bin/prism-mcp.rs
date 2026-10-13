@@ -73,7 +73,9 @@ fn main() -> anyhow::Result<()> {
         );
         // Count tree-sitter's allocations from here on. Nothing has parsed yet, and this process
         // is single-purpose; library code and tests must never install the hooks.
-        prism::mcp::mem_tree_alloc::install();
+        // SAFETY: this is the main thread, before the index build or any other parse starts; no
+        // other thread is inside tree-sitter, and this is the only call.
+        unsafe { prism::mcp::mem_tree_alloc::install() };
         anyhow::ensure!(
             owner.is_none(),
             "memory-report mode does not support --owner-compiler/--owner-config"
@@ -90,7 +92,17 @@ fn main() -> anyhow::Result<()> {
             refresh: c.mem_refresh,
             settle: std::time::Duration::from_secs(c.mem_settle_secs),
         };
-        return prism::mcp::mem_report::run(&cfg, &options, &mut std::io::stderr().lock());
+        // Do not hold the stderr lock while the report runs. The index is built on pool worker
+        // threads while this thread waits, and any `eprintln!` on a worker (the product has several,
+        // and the out-of-memory message in `mem_tree_alloc`) takes that same lock: holding it here
+        // would hang the build forever. The buffer is filled after the last sample, so writing it
+        // out afterwards changes nothing that was measured.
+        let mut report = Vec::new();
+        prism::mcp::mem_report::run(&cfg, &options, &mut report)?;
+        use std::io::Write as _;
+        let mut stderr = std::io::stderr().lock();
+        stderr.write_all(&report)?;
+        return Ok(stderr.flush()?);
     }
 
     match owner {

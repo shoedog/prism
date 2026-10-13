@@ -3,9 +3,11 @@
 //! Tree-sitter allocates its syntax trees through four function pointers that
 //! `tree_sitter::set_allocator` can replace. [`install`] replaces them with wrappers around the
 //! same libc allocator that adds each allocation's usable size to a counter and subtracts it on
-//! free, so [`live_bytes`] is the memory the retained trees hold now, hidden nodes and allocator
-//! rounding included. That is the figure candidate M1 (drop the retained trees) would release;
-//! counting the nodes a traversal visits cannot give it.
+//! free, so [`live_bytes`] is every live tree-sitter allocation: the retained syntax trees (hidden
+//! nodes and allocator rounding included) plus prism's compiled query cache, which is about 54 KB
+//! and fixed per process. It is an upper bound on what candidate M1 (drop the retained trees)
+//! would release, and trees that are re-parsed later would come back; counting the nodes a
+//! traversal visits cannot give it.
 //!
 //! Only the `prism-mcp` binary in memory-report mode installs the hooks. Library code and
 //! library tests must not: tests run concurrently in one process, and swapping the allocator
@@ -18,8 +20,9 @@ use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 static LIVE_BYTES: AtomicI64 = AtomicI64::new(0);
 static INSTALLED: AtomicBool = AtomicBool::new(false);
 
-/// Live bytes of tree-sitter allocations made since [`install`], or `None` when the hooks are
-/// not installed (never called, or the platform has no usable-size call).
+/// Live bytes of tree-sitter allocations made since [`install`] (the retained trees plus prism's
+/// compiled query cache, about 54 KB fixed per process), or `None` when the hooks are not
+/// installed (never called, or the platform has no usable-size call).
 pub fn live_bytes() -> Option<u64> {
     INSTALLED
         .load(Ordering::Acquire)
@@ -35,20 +38,23 @@ fn clamp(live: i64) -> u64 {
 /// Call it once, in the binary, before anything parses; allocations made earlier are not counted
 /// (their later frees are clamped, see [`LIVE_BYTES`]).
 ///
-/// # Safety argument
+/// # Safety
 ///
-/// `tree_sitter::set_allocator` is `unsafe` because it overwrites global function pointers. The
-/// hooks forward to the libc `malloc`/`calloc`/`realloc`/`free` that tree-sitter uses by default,
-/// so a pointer allocated before installation can be freed by the hooks and the reverse. They
-/// are never uninstalled, so no allocation can outlive the hooks that must free it. The caller
-/// must not parse on another thread while this runs.
-pub fn install() {
+/// `tree_sitter::set_allocator` overwrites global function pointers, which tree-sitter reads
+/// without synchronization. The caller must guarantee that no other thread is parsing, or
+/// otherwise inside tree-sitter, while this runs, and must call it once, before anything in the
+/// process parses (a second call returns without doing anything, but a first call made after
+/// parsing began races with the parse). The hooks themselves forward to the libc
+/// `malloc`/`calloc`/`realloc`/`free` that tree-sitter uses by default, so a pointer allocated
+/// before installation can be freed by the hooks and the reverse, and they are never
+/// uninstalled, so no allocation can outlive the hooks that must free it.
+pub unsafe fn install() {
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         if INSTALLED.swap(true, Ordering::AcqRel) {
             return;
         }
-        // SAFETY: see the function documentation.
+        // SAFETY: the caller upholds the contract under `# Safety`; the hooks are libc-compatible.
         unsafe {
             tree_sitter::set_allocator(
                 Some(hook_malloc),
