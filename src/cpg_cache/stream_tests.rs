@@ -265,7 +265,7 @@ fn a_write_that_fails_part_way_leaves_nothing_at_its_path() {
     let path = dir.path().join("cpg-cache.bin.1.0.tmp");
     let result = super::write_new_file(&path, |writer| {
         writer.write_all(b"partial")?;
-        Err(std::io::Error::new(std::io::ErrorKind::Other, "disk full"))
+        Err(std::io::Error::other("disk full"))
     });
     assert_eq!(result.unwrap_err().to_string(), "disk full");
     assert!(!path.exists(), "a failed write must remove its file");

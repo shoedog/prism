@@ -167,12 +167,8 @@ pub(super) fn write_new_file(
 /// Encode `cache` into a new file at `path` and return the number of bytes written.
 pub(super) fn write_cache_file(path: &Path, cache: &CpgCacheRef<'_>) -> io::Result<u64> {
     write_new_file(path, |writer| {
-        bincode::serialize_into(writer, cache).map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("bincode serialize error: {}", e),
-            )
-        })
+        bincode::serialize_into(writer, cache)
+            .map_err(|e| io::Error::other(format!("bincode serialize error: {}", e)))
     })
 }
 
