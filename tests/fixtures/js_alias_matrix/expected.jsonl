@@ -836,6 +836,14 @@
 {"id":"local.ident-rhs-is-catch-param.fn.call.fresh.ts","verdict":"MAY-NONE","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["IndirectResolution","Source"]}
 {"id":"local.ident-rhs-is-catch-param.fn.call.trap.js","verdict":"MAY-NONE","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
 {"id":"local.ident-rhs-is-catch-param.fn.call.fresh.js","verdict":"MAY-NONE","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["IndirectResolution","Source"]}
+{"id":"local.ident-alias-rebound-by-catch.fn.call.trap.ts","verdict":"MAY-NONE","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"local.ident-alias-rebound-by-catch.fn.call.fresh.ts","verdict":"WRONG","record":true,"exact":[{"file":"callee.ts","name":"f","line":1,"kind":"import_member"}],"nameonly":[],"drop":"UnknownName","origins":["IndirectResolution","Source"]}
+{"id":"local.ident-alias-rebound-by-catch.fn.call.trap.js","verdict":"MAY-NONE","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"local.ident-alias-rebound-by-catch.fn.call.fresh.js","verdict":"WRONG","record":true,"exact":[{"file":"callee.js","name":"f","line":1,"kind":"import_member"}],"nameonly":[],"drop":"UnknownName","origins":["IndirectResolution","Source"]}
+{"id":"local.ident-inner-block-does-not-leak.fn.call.trap.ts","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"local.ident-inner-block-does-not-leak.fn.call.fresh.ts","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"local.ident-inner-block-does-not-leak.fn.call.trap.js","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"local.ident-inner-block-does-not-leak.fn.call.fresh.js","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
 {"id":"local.ns-member-exported-alias.fn.call.trap.ts","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
 {"id":"local.ns-member-exported-alias.module.call.trap.ts","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
 {"id":"local.ns-member-exported-alias.outer.call.trap.ts","verdict":"WRONG","record":true,"exact":[{"file":"other.ts","name":"decoy","line":1,"kind":"free_single"}],"nameonly":[],"drop":null,"origins":["Source"]}
@@ -967,6 +975,7 @@
 {"id":"param.ident-rhs-is-outer-param.call.fresh.ts","verdict":"WRONG","record":true,"exact":[{"file":"callee.ts","name":"f","line":1,"kind":"import_member"}],"nameonly":[],"drop":"UnknownName","origins":["IndirectResolution","Source"]}
 {"id":"param.ident-rhs-is-own-param.call.fresh.ts","verdict":"MAY-NONE","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["IndirectResolution","Source"]}
 {"id":"param.ns-receiver-is-parameter.call.same.ts","verdict":"MAY-NONE","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"param.alias-in-sibling-block.call.fresh.ts","verdict":"WRONG","record":true,"exact":[{"file":"callee.ts","name":"g","line":2,"kind":"import_member"}],"nameonly":[],"drop":"UnknownName","origins":["IndirectResolution","Source"]}
 {"id":"param.inner-param-shadows-alias.call.trap.ts","verdict":"MAY-NONE","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
 {"id":"param.plain-one-caller.call.same.js","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
 {"id":"param.plain-exported.call.same.js","verdict":"MAY-NONE","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
@@ -1051,6 +1060,7 @@
 {"id":"param.ident-rhs-is-outer-param.call.fresh.js","verdict":"WRONG","record":true,"exact":[{"file":"callee.js","name":"f","line":1,"kind":"import_member"}],"nameonly":[],"drop":"UnknownName","origins":["IndirectResolution","Source"]}
 {"id":"param.ident-rhs-is-own-param.call.fresh.js","verdict":"MAY-NONE","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["IndirectResolution","Source"]}
 {"id":"param.ns-receiver-is-parameter.call.same.js","verdict":"MAY-NONE","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"param.alias-in-sibling-block.call.fresh.js","verdict":"WRONG","record":true,"exact":[{"file":"callee.js","name":"g","line":2,"kind":"import_member"}],"nameonly":[],"drop":"UnknownName","origins":["IndirectResolution","Source"]}
 {"id":"param.inner-param-shadows-alias.call.trap.js","verdict":"MAY-NONE","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
 {"id":"import.named.call.ts","verdict":"CORRECT","record":true,"exact":[{"file":"callee.ts","name":"f","line":1,"kind":"import_member"}],"nameonly":[],"drop":null,"origins":["Source"]}
 {"id":"import.renamed.call.ts","verdict":"CORRECT","record":true,"exact":[{"file":"callee.ts","name":"f","line":1,"kind":"import_member"}],"nameonly":[],"drop":null,"origins":["Source"]}

@@ -100,10 +100,11 @@ expected row for every fixture.
 
 ## Adding fixtures
 
-Edit the generator under `generator/`, then regenerate `fixtures.jsonl` and bless:
+Edit the generator under `generator/`, then, from the repository root, regenerate
+`fixtures.jsonl` and bless:
 
 ```bash
-node generator/export.cjs tests/fixtures/js_alias_matrix
+node tests/fixtures/js_alias_matrix/generator/export.cjs tests/fixtures/js_alias_matrix
 PRISM_BLESS_JS_ALIAS_MATRIX=1 cargo test --test integration js_alias_matrix_test::matrix_matches
 ```
 

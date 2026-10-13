@@ -58,8 +58,15 @@ fn ids(fixtures: &[Fixture]) -> Vec<&str> {
 
 const EXPECTED_AT_HEAD: &str = "HEAD:./tests/fixtures/js_alias_matrix/expected.jsonl";
 
-/// The committed `expected.jsonl`: the old state a bless compares against.
+/// The committed `expected.jsonl`: the old state a bless compares against. Only `id` and
+/// `verdict` are read from it, so a change that adds or removes a row field can still bless
+/// against a baseline written in the previous shape.
 fn baseline() -> Result<Vec<Row>, String> {
+    #[derive(serde::Deserialize)]
+    struct Pinned {
+        id: String,
+        verdict: String,
+    }
     let out = std::process::Command::new("git")
         .args(["show", EXPECTED_AT_HEAD])
         .current_dir(env!("CARGO_MANIFEST_DIR"))
@@ -76,7 +83,19 @@ fn baseline() -> Result<Vec<Row>, String> {
         .lines()
         .filter(|l| !l.trim().is_empty())
         .enumerate()
-        .map(|(i, l)| serde_json::from_str(l).map_err(|e| format!("baseline line {}: {e}", i + 1)))
+        .map(|(i, l)| {
+            serde_json::from_str::<Pinned>(l)
+                .map(|p| Row {
+                    id: p.id,
+                    verdict: p.verdict,
+                    record: true,
+                    exact: Vec::new(),
+                    nameonly: Vec::new(),
+                    drop: None,
+                    origins: Vec::new(),
+                })
+                .map_err(|e| format!("baseline line {}: {e}", i + 1))
+        })
         .collect()
 }
 

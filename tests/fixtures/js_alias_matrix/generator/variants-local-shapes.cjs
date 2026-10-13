@@ -352,6 +352,23 @@ const LOCAL_SHAPES = {
     namings: ['trap', 'fresh'],
     scopes: ['fn'],
   }),
+  'ident-alias-rebound-by-catch': (c) => ({
+    imports: `import { ${c.T} } from './callee';`,
+    decl: `const ${c.L} = ${c.T};\n  try { opts(${c.L}); } catch (${c.L}${ty(c.lang, ': any')}) {\n    ${FORMS[c.form].site(c.L)}\n  }`,
+    noSite: true,
+    truth: 'UNKNOWN',
+    forms: ['call'],
+    namings: ['trap', 'fresh'],
+    scopes: ['fn'],
+  }),
+  'ident-inner-block-does-not-leak': (c) => ({
+    imports: `import { ${c.T}, ${c.ALT} } from './callee';`,
+    decl: `const ${c.L} = ${c.T};\n  if (c) {\n    const ${c.L} = ${c.ALT};\n    void ${c.L};\n  }`,
+    truth: 'T',
+    forms: ['call'],
+    namings: ['trap', 'fresh'],
+    scopes: ['fn'],
+  }),
   'ns-member-exported-alias': (c) => ({
     imports: NS,
     decl: `const ${c.L} = N.renamed;`,
