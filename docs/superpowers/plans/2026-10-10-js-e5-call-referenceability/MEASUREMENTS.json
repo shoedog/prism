@@ -1,0 +1,865 @@
+{
+  "base": {
+    "totals": {
+      "SB": 2664,
+      "T": 203,
+      "X": 98
+    },
+    "cross_tab": {
+      "SB": {
+        "CORRECT|function_declaration|known_global": 4,
+        "CORRECT|function_declaration|none": 6,
+        "CORRECT|member_assignment|local_declaration": 10,
+        "INADMISSIBLE|class_member|local_declaration": 13,
+        "INADMISSIBLE|class_member|require_destructuring": 10,
+        "INADMISSIBLE|function_declaration|none": 471,
+        "INADMISSIBLE|member_assignment|known_global": 3,
+        "INADMISSIBLE|member_assignment|none": 151,
+        "INADMISSIBLE|object_pair_value|local_declaration": 2,
+        "INADMISSIBLE|object_pair_value|none": 14,
+        "INADMISSIBLE|object_shorthand_method|known_global": 173,
+        "INADMISSIBLE|object_shorthand_method|local_declaration": 2,
+        "INADMISSIBLE|object_shorthand_method|none": 34,
+        "INADMISSIBLE|other:foreign:C|none": 5,
+        "INADMISSIBLE|other:foreign:Java|local_declaration": 3,
+        "INADMISSIBLE|other:identifier_assignment|local_declaration": 4,
+        "INADMISSIBLE|other:identifier_assignment|none": 9,
+        "INADMISSIBLE|variable_direct_function|none": 144,
+        "INADMISSIBLE|variable_wrapper_call|none": 21,
+        "UNDECIDED|function_declaration|known_global": 5,
+        "UNDECIDED|function_declaration|local_declaration": 2,
+        "UNDECIDED|function_declaration|none": 5,
+        "UNDECIDED|object_pair_value|local_declaration": 13,
+        "UNDECIDED|other:named_function_expression|local_declaration": 2,
+        "WRONG|function_declaration|local_declaration": 198,
+        "WRONG|function_declaration|none": 85,
+        "WRONG|member_assignment|known_global": 95,
+        "WRONG|member_assignment|local_declaration": 305,
+        "WRONG|object_pair_value|known_global": 31,
+        "WRONG|object_pair_value|local_declaration": 12,
+        "WRONG|object_pair_value|none": 4,
+        "WRONG|other:identifier_assignment|local_declaration": 3,
+        "WRONG|other:named_function_expression|local_declaration": 80,
+        "WRONG|variable_direct_function|local_declaration": 650,
+        "WRONG|variable_direct_function|none": 94,
+        "WRONG|variable_wrapper_call|local_declaration": 1
+      },
+      "T": {
+        "INADMISSIBLE|member_assignment|none": 2,
+        "WRONG|function_declaration|local_declaration": 131,
+        "WRONG|function_declaration|none": 49,
+        "WRONG|object_pair_value|known_global": 4,
+        "WRONG|object_pair_value|local_declaration": 1,
+        "WRONG|variable_direct_function|local_declaration": 16
+      },
+      "X": {
+        "INADMISSIBLE|variable_direct_function|none": 37,
+        "UNDECIDED|variable_direct_function|local_declaration": 11,
+        "UNDECIDED|variable_direct_function|none": 23,
+        "WRONG|function_declaration|local_declaration": 1,
+        "WRONG|variable_direct_function|local_declaration": 15,
+        "WRONG|variable_direct_function|none": 8,
+        "WRONG|variable_wrapper_call|local_declaration": 3
+      }
+    },
+    "rules": {
+      "SB": {
+        "R-inferred": {
+          "WRONG": 401,
+          "INADMISSIBLE": 322,
+          "UNDECIDED": 13
+        },
+        "R-inferred-form": {
+          "WRONG": 444,
+          "INADMISSIBLE": 323,
+          "CORRECT": 10,
+          "UNDECIDED": 13
+        },
+        "R-bound": {
+          "INADMISSIBLE": 223,
+          "WRONG": 48
+        },
+        "R-bound-source": {
+          "WRONG": 47,
+          "INADMISSIBLE": 125
+        },
+        "R-unbound-inferred": {
+          "WRONG": 126,
+          "INADMISSIBLE": 303
+        },
+        "R-unbound-module": {
+          "INADMISSIBLE": 198
+        },
+        "R-recommended": {
+          "WRONG": 126,
+          "INADMISSIBLE": 325
+        }
+      },
+      "T": {
+        "R-inferred": {
+          "WRONG": 5,
+          "INADMISSIBLE": 2
+        },
+        "R-inferred-form": {
+          "WRONG": 5,
+          "INADMISSIBLE": 2
+        },
+        "R-bound": {
+          "WRONG": 201,
+          "INADMISSIBLE": 2
+        },
+        "R-bound-source": {
+          "WRONG": 201,
+          "INADMISSIBLE": 2
+        },
+        "R-unbound-inferred": {
+          "WRONG": 4,
+          "INADMISSIBLE": 2
+        },
+        "R-unbound-module": {
+          "WRONG": 53,
+          "INADMISSIBLE": 2
+        },
+        "R-recommended": {
+          "WRONG": 53,
+          "INADMISSIBLE": 2
+        }
+      },
+      "X": {
+        "R-inferred": {
+          "WRONG": 3
+        },
+        "R-inferred-form": {
+          "WRONG": 3
+        },
+        "R-bound": {
+          "WRONG": 27,
+          "INADMISSIBLE": 37,
+          "UNDECIDED": 34
+        },
+        "R-bound-source": {
+          "WRONG": 14,
+          "INADMISSIBLE": 1,
+          "UNDECIDED": 11
+        },
+        "R-unbound-inferred": {},
+        "R-unbound-module": {
+          "INADMISSIBLE": 1
+        },
+        "R-recommended": {
+          "INADMISSIBLE": 1
+        }
+      }
+    }
+  },
+  "head": {
+    "totals": {
+      "SB": 2213,
+      "T": 148,
+      "X": 97
+    },
+    "cross_tab": {
+      "SB": {
+        "CORRECT|function_declaration|known_global": 4,
+        "CORRECT|function_declaration|none": 6,
+        "CORRECT|member_assignment|local_declaration": 10,
+        "INADMISSIBLE|class_member|local_declaration": 13,
+        "INADMISSIBLE|class_member|require_destructuring": 10,
+        "INADMISSIBLE|function_declaration|none": 471,
+        "INADMISSIBLE|member_assignment|none": 28,
+        "INADMISSIBLE|object_pair_value|none": 14,
+        "INADMISSIBLE|object_shorthand_method|none": 34,
+        "INADMISSIBLE|other:foreign:C|none": 5,
+        "INADMISSIBLE|other:foreign:Java|local_declaration": 3,
+        "INADMISSIBLE|other:identifier_assignment|local_declaration": 4,
+        "INADMISSIBLE|other:identifier_assignment|none": 8,
+        "INADMISSIBLE|variable_direct_function|none": 123,
+        "INADMISSIBLE|variable_wrapper_call|none": 21,
+        "UNDECIDED|function_declaration|known_global": 5,
+        "UNDECIDED|function_declaration|local_declaration": 2,
+        "UNDECIDED|function_declaration|none": 5,
+        "UNDECIDED|object_pair_value|local_declaration": 13,
+        "UNDECIDED|other:named_function_expression|local_declaration": 2,
+        "WRONG|function_declaration|local_declaration": 198,
+        "WRONG|function_declaration|none": 85,
+        "WRONG|member_assignment|local_declaration": 305,
+        "WRONG|object_pair_value|local_declaration": 12,
+        "WRONG|object_pair_value|none": 4,
+        "WRONG|other:identifier_assignment|local_declaration": 3,
+        "WRONG|other:named_function_expression|local_declaration": 80,
+        "WRONG|variable_direct_function|local_declaration": 650,
+        "WRONG|variable_direct_function|none": 94,
+        "WRONG|variable_wrapper_call|local_declaration": 1
+      },
+      "T": {
+        "WRONG|function_declaration|local_declaration": 131,
+        "WRONG|object_pair_value|local_declaration": 1,
+        "WRONG|variable_direct_function|local_declaration": 16
+      },
+      "X": {
+        "INADMISSIBLE|variable_direct_function|none": 36,
+        "UNDECIDED|variable_direct_function|local_declaration": 11,
+        "UNDECIDED|variable_direct_function|none": 23,
+        "WRONG|function_declaration|local_declaration": 1,
+        "WRONG|variable_direct_function|local_declaration": 15,
+        "WRONG|variable_direct_function|none": 8,
+        "WRONG|variable_wrapper_call|local_declaration": 3
+      }
+    },
+    "rules": {
+      "SB": {
+        "R-inferred": {
+          "WRONG": 275,
+          "INADMISSIBLE": 19,
+          "UNDECIDED": 13
+        },
+        "R-inferred-form": {
+          "WRONG": 318,
+          "INADMISSIBLE": 20,
+          "CORRECT": 10,
+          "UNDECIDED": 13
+        },
+        "R-bound": {
+          "INADMISSIBLE": 99,
+          "WRONG": 45
+        },
+        "R-bound-source": {
+          "WRONG": 44,
+          "INADMISSIBLE": 1
+        },
+        "R-unbound-inferred": {},
+        "R-unbound-module": {},
+        "R-recommended": {}
+      },
+      "T": {
+        "R-inferred": {
+          "WRONG": 1
+        },
+        "R-inferred-form": {
+          "WRONG": 1
+        },
+        "R-bound": {
+          "WRONG": 148
+        },
+        "R-bound-source": {
+          "WRONG": 148
+        },
+        "R-unbound-inferred": {},
+        "R-unbound-module": {},
+        "R-recommended": {}
+      },
+      "X": {
+        "R-inferred": {
+          "WRONG": 3
+        },
+        "R-inferred-form": {
+          "WRONG": 3
+        },
+        "R-bound": {
+          "WRONG": 27,
+          "INADMISSIBLE": 36,
+          "UNDECIDED": 34
+        },
+        "R-bound-source": {
+          "WRONG": 14,
+          "UNDECIDED": 11
+        },
+        "R-unbound-inferred": {},
+        "R-unbound-module": {},
+        "R-recommended": {}
+      }
+    }
+  },
+  "variants": {
+    "R-inferred": {
+      "calls": {
+        "roots": 23,
+        "counts": {
+          "removed|free_single|exact|WRONG": 409,
+          "removed|free_single|exact|UNDECIDED": 13,
+          "removed|free_single|exact|INADMISSIBLE": 324
+        },
+        "by_corpus": {
+          "SB": {
+            "removed|free_single|exact|WRONG": 401,
+            "removed|free_single|exact|UNDECIDED": 13,
+            "removed|free_single|exact|INADMISSIBLE": 322
+          },
+          "X": {
+            "removed|free_single|exact|WRONG": 3
+          },
+          "T": {
+            "removed|free_single|exact|WRONG": 5,
+            "removed|free_single|exact|INADMISSIBLE": 2
+          }
+        }
+      },
+      "graphs": {
+        "roots": 23,
+        "raw_differing_rows": 1900,
+        "classified_rows": 1900,
+        "counts": {
+          "removed|Call|WRONG": 409,
+          "removed|DataFlow|WRONG": 149,
+          "removed|Return|WRONG": 409,
+          "removed|ReturnContains|CORRECT": 14,
+          "removed|ReturnInput|CORRECT": 26,
+          "removed|Call|UNDECIDED": 13,
+          "removed|DataFlow|UNDECIDED": 13,
+          "removed|Return|UNDECIDED": 13,
+          "removed|ReturnFlow|UNDECIDED": 1,
+          "removed|ReturnFlow|WRONG": 69,
+          "removed|Call|INADMISSIBLE": 324,
+          "removed|Return|INADMISSIBLE": 324,
+          "removed|DataFlow|INADMISSIBLE": 130,
+          "removed|ReturnFlow|INADMISSIBLE": 6
+        },
+        "by_corpus": {
+          "SB": {
+            "removed|Call|WRONG": 401,
+            "removed|DataFlow|WRONG": 147,
+            "removed|Return|WRONG": 401,
+            "removed|ReturnContains|CORRECT": 14,
+            "removed|ReturnInput|CORRECT": 26,
+            "removed|Call|UNDECIDED": 13,
+            "removed|DataFlow|UNDECIDED": 13,
+            "removed|Return|UNDECIDED": 13,
+            "removed|ReturnFlow|UNDECIDED": 1,
+            "removed|ReturnFlow|WRONG": 68,
+            "removed|Call|INADMISSIBLE": 322,
+            "removed|Return|INADMISSIBLE": 322,
+            "removed|DataFlow|INADMISSIBLE": 130,
+            "removed|ReturnFlow|INADMISSIBLE": 6
+          },
+          "X": {
+            "removed|Call|WRONG": 3,
+            "removed|DataFlow|WRONG": 2,
+            "removed|Return|WRONG": 3,
+            "removed|ReturnFlow|WRONG": 1
+          },
+          "T": {
+            "removed|Call|WRONG": 5,
+            "removed|Call|INADMISSIBLE": 2,
+            "removed|Return|WRONG": 5,
+            "removed|Return|INADMISSIBLE": 2
+          }
+        },
+        "non_call_digest_changed": false
+      }
+    },
+    "R-bound": {
+      "calls": {
+        "roots": 8,
+        "counts": {
+          "removed|free_single|exact|WRONG": 276,
+          "removed|free_single|exact|INADMISSIBLE": 254,
+          "removed|free_single|exact|UNDECIDED": 34
+        },
+        "by_corpus": {
+          "SB": {
+            "removed|free_single|exact|WRONG": 48,
+            "removed|free_single|exact|INADMISSIBLE": 215
+          },
+          "X": {
+            "removed|free_single|exact|UNDECIDED": 34,
+            "removed|free_single|exact|INADMISSIBLE": 37,
+            "removed|free_single|exact|WRONG": 27
+          },
+          "T": {
+            "removed|free_single|exact|WRONG": 201,
+            "removed|free_single|exact|INADMISSIBLE": 2
+          }
+        }
+      },
+      "graphs": {
+        "roots": 8,
+        "raw_differing_rows": 1306,
+        "classified_rows": 1306,
+        "counts": {
+          "removed|ReturnContains|CORRECT": 1,
+          "removed|ReturnInput|CORRECT": 3,
+          "removed|Call|INADMISSIBLE": 253,
+          "removed|Call|WRONG": 275,
+          "removed|DataFlow|WRONG": 157,
+          "removed|Return|WRONG": 275,
+          "removed|Return|INADMISSIBLE": 253,
+          "removed|ReturnFlow|INADMISSIBLE": 2,
+          "removed|ReturnFlow|WRONG": 8,
+          "removed|Call|UNDECIDED": 36,
+          "removed|DataFlow|UNDECIDED": 7,
+          "removed|Return|UNDECIDED": 36
+        },
+        "by_corpus": {
+          "SB": {
+            "removed|ReturnContains|CORRECT": 1,
+            "removed|ReturnInput|CORRECT": 3,
+            "removed|Call|INADMISSIBLE": 214,
+            "removed|Call|WRONG": 47,
+            "removed|DataFlow|WRONG": 88,
+            "removed|Return|WRONG": 47,
+            "removed|Return|INADMISSIBLE": 214,
+            "removed|ReturnFlow|INADMISSIBLE": 2,
+            "removed|ReturnFlow|WRONG": 2,
+            "removed|Call|UNDECIDED": 2,
+            "removed|Return|UNDECIDED": 2
+          },
+          "X": {
+            "removed|Call|UNDECIDED": 34,
+            "removed|Call|WRONG": 27,
+            "removed|Call|INADMISSIBLE": 37,
+            "removed|DataFlow|WRONG": 5,
+            "removed|DataFlow|UNDECIDED": 7,
+            "removed|Return|WRONG": 27,
+            "removed|Return|INADMISSIBLE": 37,
+            "removed|Return|UNDECIDED": 34,
+            "removed|ReturnFlow|WRONG": 1
+          },
+          "T": {
+            "removed|Call|WRONG": 201,
+            "removed|Call|INADMISSIBLE": 2,
+            "removed|DataFlow|WRONG": 64,
+            "removed|Return|WRONG": 201,
+            "removed|Return|INADMISSIBLE": 2,
+            "removed|ReturnFlow|WRONG": 5
+          }
+        },
+        "non_call_digest_changed": false
+      }
+    },
+    "NameOnly": {
+      "calls": {
+        "roots": 12,
+        "counts": {
+          "removed|free_single|exact|WRONG": 179,
+          "added|free_single|name_only|WRONG": 179,
+          "removed|free_single|exact|INADMISSIBLE": 328,
+          "added|free_single|name_only|INADMISSIBLE": 328
+        },
+        "by_corpus": {
+          "SB": {
+            "removed|free_single|exact|WRONG": 126,
+            "added|free_single|name_only|WRONG": 126,
+            "removed|free_single|exact|INADMISSIBLE": 325,
+            "added|free_single|name_only|INADMISSIBLE": 325
+          },
+          "X": {
+            "removed|free_single|exact|INADMISSIBLE": 1,
+            "added|free_single|name_only|INADMISSIBLE": 1
+          },
+          "T": {
+            "removed|free_single|exact|WRONG": 53,
+            "added|free_single|name_only|WRONG": 53,
+            "removed|free_single|exact|INADMISSIBLE": 2,
+            "added|free_single|name_only|INADMISSIBLE": 2
+          }
+        }
+      },
+      "graphs": {
+        "roots": 12,
+        "raw_differing_rows": 2559,
+        "classified_rows": 1296,
+        "counts": {
+          "relabelled|Call|WRONG": 179,
+          "relabelled|DataFlow|WRONG": 105,
+          "relabelled|Return|WRONG": 179,
+          "removed|ReturnFlow|WRONG": 10,
+          "relabelled|Call|INADMISSIBLE": 328,
+          "relabelled|DataFlow|INADMISSIBLE": 144,
+          "relabelled|Return|INADMISSIBLE": 328,
+          "removed|ReturnFlow|INADMISSIBLE": 9,
+          "removed|ReturnContains|CORRECT": 6,
+          "removed|ReturnInput|CORRECT": 8
+        },
+        "by_corpus": {
+          "SB": {
+            "relabelled|Call|WRONG": 126,
+            "relabelled|DataFlow|WRONG": 75,
+            "relabelled|Return|WRONG": 126,
+            "removed|ReturnFlow|WRONG": 10,
+            "relabelled|Call|INADMISSIBLE": 325,
+            "relabelled|DataFlow|INADMISSIBLE": 144,
+            "relabelled|Return|INADMISSIBLE": 325,
+            "removed|ReturnFlow|INADMISSIBLE": 9,
+            "removed|ReturnContains|CORRECT": 6,
+            "removed|ReturnInput|CORRECT": 8
+          },
+          "X": {
+            "relabelled|Call|INADMISSIBLE": 1,
+            "relabelled|Return|INADMISSIBLE": 1
+          },
+          "T": {
+            "relabelled|Call|WRONG": 53,
+            "relabelled|Call|INADMISSIBLE": 2,
+            "relabelled|DataFlow|WRONG": 30,
+            "relabelled|Return|WRONG": 53,
+            "relabelled|Return|INADMISSIBLE": 2
+          }
+        },
+        "non_call_digest_changed": false
+      }
+    }
+  },
+  "wrong_samples": {
+    "cells": 21,
+    "samples": 155,
+    "per_cell": {
+      "SB|function_declaration|local_declaration": 10,
+      "SB|member_assignment|local_declaration": 10,
+      "SB|variable_direct_function|local_declaration": 10,
+      "SB|object_pair_value|local_declaration": 10,
+      "SB|member_assignment|known_global": 10,
+      "SB|function_declaration|none": 10,
+      "SB|other:identifier_assignment|local_declaration": 3,
+      "SB|object_pair_value|known_global": 10,
+      "SB|variable_direct_function|none": 10,
+      "SB|object_pair_value|none": 4,
+      "SB|other:named_function_expression|local_declaration": 10,
+      "SB|variable_wrapper_call|local_declaration": 1,
+      "T|object_pair_value|known_global": 4,
+      "T|variable_direct_function|local_declaration": 10,
+      "T|function_declaration|local_declaration": 10,
+      "T|object_pair_value|local_declaration": 1,
+      "T|function_declaration|none": 10,
+      "X|variable_direct_function|local_declaration": 10,
+      "X|function_declaration|local_declaration": 1,
+      "X|variable_direct_function|none": 8,
+      "X|variable_wrapper_call|local_declaration": 3
+    }
+  },
+  "recommended_graphs": {
+    "roots": 581,
+    "raw_differing_rows": 1296,
+    "classified_rows": 1296,
+    "counts": {
+      "removed|Call|WRONG": 179,
+      "removed|DataFlow|WRONG": 105,
+      "removed|Return|WRONG": 179,
+      "removed|ReturnFlow|WRONG": 10,
+      "removed|Call|INADMISSIBLE": 328,
+      "removed|DataFlow|INADMISSIBLE": 144,
+      "removed|Return|INADMISSIBLE": 328,
+      "removed|ReturnFlow|INADMISSIBLE": 9,
+      "removed|ReturnContains|CORRECT": 6,
+      "removed|ReturnInput|CORRECT": 8
+    },
+    "by_corpus": {
+      "SB": {
+        "removed|Call|WRONG": 126,
+        "removed|DataFlow|WRONG": 75,
+        "removed|Return|WRONG": 126,
+        "removed|ReturnFlow|WRONG": 10,
+        "removed|Call|INADMISSIBLE": 325,
+        "removed|DataFlow|INADMISSIBLE": 144,
+        "removed|Return|INADMISSIBLE": 325,
+        "removed|ReturnFlow|INADMISSIBLE": 9,
+        "removed|ReturnContains|CORRECT": 6,
+        "removed|ReturnInput|CORRECT": 8
+      },
+      "X": {
+        "removed|Call|INADMISSIBLE": 1,
+        "removed|Return|INADMISSIBLE": 1
+      },
+      "T": {
+        "removed|Call|WRONG": 53,
+        "removed|Call|INADMISSIBLE": 2,
+        "removed|DataFlow|WRONG": 30,
+        "removed|Return|WRONG": 53,
+        "removed|Return|INADMISSIBLE": 2
+      }
+    },
+    "non_call_digest_changed": false
+  },
+  "recommended_calls": {
+    "roots": 581,
+    "counts": {
+      "removed|free_single|exact|WRONG": 179,
+      "removed|free_single|exact|INADMISSIBLE": 328
+    },
+    "by_corpus": {
+      "SB": {
+        "removed|free_single|exact|WRONG": 126,
+        "removed|free_single|exact|INADMISSIBLE": 325
+      },
+      "X": {
+        "removed|free_single|exact|INADMISSIBLE": 1
+      },
+      "T": {
+        "removed|free_single|exact|WRONG": 53,
+        "removed|free_single|exact|INADMISSIBLE": 2
+      }
+    }
+  },
+  "navigation": {
+    "roots": 26,
+    "functions_byte_identical": true,
+    "file_inventory_byte_identical": true,
+    "removed_call_derived_module_edges": 98,
+    "sampled_navigation_removed_items": {
+      "callers": 108,
+      "callees": 12,
+      "callees_unresolved_placeholders": 12
+    }
+  },
+  "variant_navigation": [
+    {
+      "variant": "R-inferred",
+      "corpus": "SB",
+      "root": "SB__code-injection__mathjs_3.10.3",
+      "native_sample_verdict": "WRONG",
+      "queries": {
+        "callers": {
+          "base_items": 9,
+          "head_items": 3,
+          "targeted_symbol": true,
+          "changes": {
+            "RELABELLED": 0,
+            "LOST": 6,
+            "ADDED_SYMBOL": 0
+          }
+        },
+        "callees": {
+          "base_items": 5,
+          "head_items": 5,
+          "targeted_symbol": true,
+          "changes": {
+            "RELABELLED": 0,
+            "LOST": 2,
+            "ADDED_SYMBOL": 0,
+            "ADDED_UNRESOLVED": 2
+          }
+        }
+      }
+    },
+    {
+      "variant": "R-inferred",
+      "corpus": "T",
+      "root": "T",
+      "native_sample_verdict": "WRONG",
+      "queries": {
+        "callers": {
+          "base_items": 4,
+          "head_items": 0,
+          "targeted_symbol": true,
+          "changes": {
+            "RELABELLED": 0,
+            "LOST": 4,
+            "ADDED_SYMBOL": 0
+          }
+        },
+        "callees": {
+          "base_items": 3,
+          "head_items": 3,
+          "targeted_symbol": true,
+          "changes": {
+            "RELABELLED": 0,
+            "LOST": 1,
+            "ADDED_UNRESOLVED": 1,
+            "ADDED_SYMBOL": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "R-inferred",
+      "corpus": "X",
+      "root": "X",
+      "native_sample_verdict": "WRONG",
+      "queries": {
+        "callers": {
+          "base_items": 1,
+          "head_items": 0,
+          "targeted_symbol": true,
+          "changes": {
+            "RELABELLED": 0,
+            "LOST": 1,
+            "ADDED_SYMBOL": 0
+          }
+        },
+        "callees": {
+          "base_items": 3,
+          "head_items": 3,
+          "targeted_symbol": true,
+          "changes": {
+            "RELABELLED": 0,
+            "LOST": 1,
+            "ADDED_UNRESOLVED": 1,
+            "ADDED_SYMBOL": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "R-bound",
+      "corpus": "SB",
+      "root": "SB__prototype-pollution__jointjs_3.4.0",
+      "native_sample_verdict": "WRONG",
+      "queries": {
+        "callers": {
+          "base_items": 2,
+          "head_items": 1,
+          "targeted_symbol": true,
+          "changes": {
+            "RELABELLED": 0,
+            "LOST": 1,
+            "ADDED_SYMBOL": 0
+          }
+        },
+        "callees": {
+          "base_items": 12,
+          "head_items": 12,
+          "targeted_symbol": true,
+          "changes": {
+            "RELABELLED": 0,
+            "LOST": 1,
+            "ADDED_UNRESOLVED": 1,
+            "ADDED_SYMBOL": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "R-bound",
+      "corpus": "T",
+      "root": "T",
+      "native_sample_verdict": "WRONG",
+      "queries": {
+        "callers": {
+          "base_items": 4,
+          "head_items": 0,
+          "targeted_symbol": true,
+          "changes": {
+            "RELABELLED": 0,
+            "LOST": 4,
+            "ADDED_SYMBOL": 0
+          }
+        },
+        "callees": {
+          "base_items": 3,
+          "head_items": 3,
+          "targeted_symbol": true,
+          "changes": {
+            "RELABELLED": 0,
+            "LOST": 1,
+            "ADDED_UNRESOLVED": 1,
+            "ADDED_SYMBOL": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "R-bound",
+      "corpus": "X",
+      "root": "X",
+      "native_sample_verdict": "WRONG",
+      "queries": {
+        "callers": {
+          "base_items": 12,
+          "head_items": 0,
+          "targeted_symbol": true,
+          "changes": {
+            "RELABELLED": 0,
+            "LOST": 12,
+            "ADDED_SYMBOL": 0
+          }
+        },
+        "callees": {
+          "base_items": 41,
+          "head_items": 41,
+          "targeted_symbol": true,
+          "changes": {
+            "RELABELLED": 0,
+            "LOST": 9,
+            "ADDED_SYMBOL": 0,
+            "ADDED_UNRESOLVED": 9
+          }
+        }
+      }
+    },
+    {
+      "variant": "NameOnly",
+      "corpus": "SB",
+      "root": "SB__code-injection__modjs_0.4.0",
+      "native_sample_verdict": "WRONG",
+      "queries": {
+        "callers": {
+          "base_items": 4,
+          "head_items": 4,
+          "targeted_symbol": true,
+          "changes": {
+            "RELABELLED": 4,
+            "LOST": 0,
+            "ADDED_SYMBOL": 0
+          }
+        },
+        "callees": {
+          "base_items": 2,
+          "head_items": 2,
+          "targeted_symbol": true,
+          "changes": {
+            "RELABELLED": 1,
+            "LOST": 0,
+            "ADDED_SYMBOL": 0,
+            "ADDED_UNRESOLVED": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "NameOnly",
+      "corpus": "T",
+      "root": "T",
+      "native_sample_verdict": "WRONG",
+      "queries": {
+        "callers": {
+          "base_items": 4,
+          "head_items": 4,
+          "targeted_symbol": true,
+          "changes": {
+            "RELABELLED": 4,
+            "LOST": 0,
+            "ADDED_SYMBOL": 0
+          }
+        },
+        "callees": {
+          "base_items": 3,
+          "head_items": 3,
+          "targeted_symbol": true,
+          "changes": {
+            "RELABELLED": 1,
+            "LOST": 0,
+            "ADDED_UNRESOLVED": 0,
+            "ADDED_SYMBOL": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "NameOnly",
+      "corpus": "X",
+      "root": "X",
+      "native_sample_verdict": "INADMISSIBLE",
+      "queries": {
+        "callers": {
+          "base_items": 3,
+          "head_items": 3,
+          "targeted_symbol": true,
+          "changes": {
+            "RELABELLED": 1,
+            "LOST": 0,
+            "ADDED_SYMBOL": 0
+          }
+        },
+        "callees": {
+          "base_items": 1,
+          "head_items": 1,
+          "targeted_symbol": true,
+          "changes": {
+            "RELABELLED": 1,
+            "LOST": 0,
+            "ADDED_SYMBOL": 0
+          }
+        }
+      }
+    }
+  ]
+}

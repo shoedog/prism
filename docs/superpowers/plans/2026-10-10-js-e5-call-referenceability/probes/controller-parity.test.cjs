@@ -1,0 +1,23 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('fs'),os=require('os'),path=require('path'),cp=require('child_process');
+const {census,summarize}=require('./census-e5.cjs');
+test('actual controller diff matches public worker and emits aggregate-only stdout',()=>{
+ const parent=fs.mkdtempSync(path.join(os.tmpdir(),'e5-controller-public-')),root=path.join(parent,'public'),out=path.join(parent,'evidence');fs.mkdirSync(root);
+ fs.writeFileSync(path.join(root,'callee.ts'),'const o = { Array: (s) => { return s + 1; } };');
+ fs.writeFileSync(path.join(root,'caller.ts'),'export function caller(x) { /*PUBLIC_PARITY_MARKER*/ const y = Array(x); return y; }');
+ const evidence=path.join(os.homedir(),'prism-evidence/js-e5/step0/bin'),tsPath=path.join(os.homedir(),'prism-evidence/native-positional-gap/gate-inputs/typescript-5.9.3/package/lib/typescript.js');
+ const args=[path.join(__dirname,'../CONTROLLER-e5.sh'),'diff',tsPath,...['base-prism','head-prism','base-facts-v2','head-facts','base-graph','head-graph'].map(n=>path.join(evidence,n))];
+ const r=cp.spawnSync('bash',args,{encoding:'utf8',timeout:60000,env:{...process.env,CORPUS_F_ROOT:root,PRIVATE_EVIDENCE_ROOT:out}});
+ if(r.status!==0)throw Error('controller parity failed; public artifacts retained at '+parent+'; '+r.stdout+' '+r.stderr);
+ assert.equal(r.stderr,'');const result=JSON.parse(r.stdout);
+ const rows=census(tsPath,root,path.join(out,'base.sites.jsonl'),{factsFile:path.join(out,'base.facts.jsonl')}).rows;
+ assert.deepEqual(result.base.raw,summarize(rows));assert.deepEqual(result.base.raw,result.base.after_override);assert.equal(result.base.overrides,0);
+ assert.equal(result.base.raw.total,1);assert.equal(result.head.raw.total,0);
+ assert.deepEqual(result.comparison.target_changes,{'removed|free_single|exact|WRONG':1});
+ assert.equal(result.comparison.non_js_call_sites_identical,true);
+ assert.deepEqual(result.graph_changes,{'removed|Call':1,'removed|DataFlow':1,'removed|Return':1,'removed|ReturnContains':1,'removed|ReturnFlow':1,'removed|ReturnInput':1});
+ assert.deepEqual(result.graph_adjudication,{'removed|Call|WRONG':1,'removed|DataFlow|WRONG':1,'removed|Return|WRONG':1,'removed|ReturnContains|CORRECT':1,'removed|ReturnFlow|WRONG':1,'removed|ReturnInput|CORRECT':1});
+ for(const text of [root,'PUBLIC_PARITY_MARKER','callee.ts','caller.ts'])assert.ok(!r.stdout.includes(text));
+ fs.writeFileSync(path.join(os.homedir(),'prism-evidence/js-e5/step0/controller-parity-v5.json'),JSON.stringify({status:'PASS',worker_controller_equal:true,raw_equals_after_override:true,stdout_aggregate_only:true,stderr_bytes:r.stderr.length,aggregate:result},null,2)+'\n');
+ fs.rmSync(parent,{recursive:true});
+});
