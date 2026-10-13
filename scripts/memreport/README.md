@@ -184,7 +184,7 @@ new entry):
 | `build_peak` | First-build peak (writes the cache) | bytes | gate |
 | `load_ms` | Index load time | ms | not worse |
 | `build_ms` | Index build time | ms | not worse |
-| `steady_heap` | Steady live heap | bytes | unchanged |
+| `steady_heap` | Steady live heap | bytes | not higher |
 
 - **gate**, per corpus: *separated* = candidate max < baseline min; *reduction* = baseline median - candidate
   median; *effect* = reduction of at least 100 MiB or at least 5 % of the baseline median. The corpus **passes**
@@ -195,9 +195,10 @@ new entry):
 - **not worse**, per corpus: ok when the candidate median is at most 1.05 times the baseline median. The metric
   is ok when it is ok on every corpus that has both series; a corpus with a missing series is listed as "not
   measured".
-- **unchanged**, per corpus: ok when the medians differ by at most 1 MiB.
+- **not higher**, per corpus: ok when the candidate median is at most 1 MiB above the baseline median. A lower
+  figure is ok: a candidate that allocates more tightly lowers it without changing the index.
 - A metric absent from both runs is "not measured" and decides nothing. The boundaries are exact (a candidate
-  median of exactly 1.05 times is ok, a difference of exactly 1 MiB is unchanged, a candidate max equal to the
+  median of exactly 1.05 times is ok, a live heap exactly 1 MiB higher is ok, a candidate max equal to the
   baseline min is not separated).
 
 The comparison decides nothing about what ships: it reports the numbers and the pinned rule's outcome.

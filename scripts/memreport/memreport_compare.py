@@ -15,9 +15,9 @@ GATE_CORPORA = 2           # and passes on at least this many corpora
 GATE_ABSOLUTE = 100 * MIB  # effect: a reduction of at least this ...
 GATE_FRACTION = Fraction(5, 100)    # ... or of at least this share of the baseline median
 NOT_WORSE_RATIO = Fraction(105, 100)    # candidate median at most this times the baseline median
-UNCHANGED_BYTES = MIB      # medians differ by at most this
-GATE, NOT_WORSE, UNCHANGED = 'gate', 'not_worse', 'unchanged'
-ROLE_NAMES = {GATE: 'gate', NOT_WORSE: 'not worse', UNCHANGED: 'unchanged'}
+NOT_HIGHER_BYTES = MIB     # candidate median at most this much above the baseline median
+GATE, NOT_WORSE, NOT_HIGHER = 'gate', 'not_worse', 'not_higher'
+ROLE_NAMES = {GATE: 'gate', NOT_WORSE: 'not worse', NOT_HIGHER: 'not higher'}
 # experiment -> metric rows (key in a corpus entry's `metrics`, label, unit, role)
 EXPERIMENTS = {
     'm2': (
@@ -25,7 +25,7 @@ EXPERIMENTS = {
         ('build_peak', 'First-build peak (writes the cache)', 'bytes', GATE),
         ('load_ms', 'Index load time', 'ms', NOT_WORSE),
         ('build_ms', 'Index build time', 'ms', NOT_WORSE),
-        ('steady_heap', 'Steady live heap', 'bytes', UNCHANGED),
+        ('steady_heap', 'Steady live heap', 'bytes', NOT_HIGHER),
     ),
 }
 HEADLINE = ('build_identity', 'git_sha', 'cpg_cache_version', 'allocator')
@@ -101,12 +101,13 @@ def judge_not_worse(base, cand):
     return {'outcome': 'ok' if ok else 'worse', 'detail': ''}
 
 
-def judge_unchanged(base, cand):
-    ok = abs(Fraction(cand['median']) - Fraction(base['median'])) <= UNCHANGED_BYTES
-    return {'outcome': 'ok' if ok else 'changed', 'detail': ''}
+def judge_not_higher(base, cand):
+    """A candidate may lower this figure (tighter allocations do); it must not raise it."""
+    ok = Fraction(cand['median']) - Fraction(base['median']) <= NOT_HIGHER_BYTES
+    return {'outcome': 'ok' if ok else 'higher', 'detail': ''}
 
 
-JUDGES = {GATE: judge_gate, NOT_WORSE: judge_not_worse, UNCHANGED: judge_unchanged}
+JUDGES = {GATE: judge_gate, NOT_WORSE: judge_not_worse, NOT_HIGHER: judge_not_higher}
 
 
 def corpus_row(role, base, cand):
@@ -129,7 +130,7 @@ def metric_verdict(role, rows):
         if passes >= GATE_CORPORA:
             return 'pass'
         return 'insufficient runs' if passes + short >= GATE_CORPORA else 'fail'
-    bad = 'worse' if role == NOT_WORSE else 'changed'
+    bad = 'worse' if role == NOT_WORSE else 'higher'
     return bad if bad in outcomes else 'ok'
 
 
@@ -169,7 +170,8 @@ def rule_lines():
         'pass.' % (GATE_ABSOLUTE // MIB, 100 * GATE_FRACTION, GATE_MIN_RUNS, GATE_CORPORA),
         '- **not worse**, per corpus: ok when the candidate median is at most %g times the baseline median. The '
         'metric is ok when it is ok on every corpus that has both series.' % NOT_WORSE_RATIO,
-        '- **unchanged**, per corpus: ok when the medians differ by at most %d MiB.' % (UNCHANGED_BYTES // MIB),
+        '- **not higher**, per corpus: ok when the candidate median is at most %d MiB above the baseline median '
+        '(lower is ok).' % (NOT_HIGHER_BYTES // MIB),
         '- A series that is missing on either side is "not measured" for that corpus; a metric absent from both '
         'runs is "not measured" and decides nothing.',
     ]

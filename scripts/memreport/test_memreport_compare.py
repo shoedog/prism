@@ -228,13 +228,16 @@ class NotWorseAndUnchangedTests(unittest.TestCase):
     def test_not_worse_needs_no_particular_number_of_runs(self):
         self.assertEqual(self.row('load_ms', [1000], [1000])['outcome'], 'ok')
 
-    def test_unchanged_at_exactly_1_mib_in_either_direction_is_ok(self):
+    def test_not_higher_at_exactly_1_mib_above_is_ok(self):
         self.assertEqual(self.row('steady_heap', [100 * MIB] * 3, [101 * MIB] * 3)['outcome'], 'ok')
-        self.assertEqual(self.row('steady_heap', [100 * MIB] * 3, [99 * MIB] * 3)['outcome'], 'ok')
 
-    def test_unchanged_one_byte_past_1_mib_is_changed(self):
-        self.assertEqual(self.row('steady_heap', [100 * MIB] * 3, [101 * MIB + 1] * 3)['outcome'], 'changed')
-        self.assertEqual(self.row('steady_heap', [100 * MIB] * 3, [99 * MIB - 1] * 3)['outcome'], 'changed')
+    def test_not_higher_one_byte_past_1_mib_above_is_higher(self):
+        self.assertEqual(self.row('steady_heap', [100 * MIB] * 3, [101 * MIB + 1] * 3)['outcome'], 'higher')
+
+    def test_a_lower_live_heap_is_ok_however_much_lower(self):
+        # Tighter allocation lowers the live heap without changing the index; that is not a failure.
+        self.assertEqual(self.row('steady_heap', [100 * MIB] * 3, [99 * MIB - 1] * 3)['outcome'], 'ok')
+        self.assertEqual(self.row('steady_heap', [100 * MIB] * 3, [10 * MIB] * 3)['outcome'], 'ok')
 
     def verdict(self, key, rows):
         base = make_summary({name: {key: values[0]} if values[0] is not None else {} for name, values in rows.items()})
@@ -273,7 +276,7 @@ class NotWorseAndUnchangedTests(unittest.TestCase):
         result = compare(make_summary({'a': {}}), make_summary({'a': {}}, 'cand'))
         self.assertEqual([(item['key'], item['role']) for item in result['metrics']],
                          [('peak', 'gate'), ('build_peak', 'gate'), ('load_ms', 'not_worse'),
-                          ('build_ms', 'not_worse'), ('steady_heap', 'unchanged')])
+                          ('build_ms', 'not_worse'), ('steady_heap', 'not_higher')])
 
     def test_an_unknown_experiment_is_refused(self):
         with self.assertRaises(ValueError):
@@ -346,7 +349,7 @@ class MarkdownTests(unittest.TestCase):
         self.assertEqual(len(rows), 5)
         self.assertEqual(rows[0], '| Load peak (cache-loaded, through the index load) | gate | pass | pass: a, b |')
         self.assertEqual(rows[2], '| Index load time | not worse | ok | not measured: b; ok: a |')
-        self.assertTrue(rows[4].startswith('| Steady live heap | unchanged | ok |'))
+        self.assertTrue(rows[4].startswith('| Steady live heap | not higher | ok |'))
 
     def test_the_same_build_is_flagged(self):
         result = compare(self.baseline, self.same_build, allow_same_build=True)
