@@ -11,6 +11,7 @@ pub mod dir_chain;
 pub mod identity;
 pub mod paths;
 pub mod preamble;
+pub mod preamble_reader;
 pub mod runtime_dir;
 
 /// Version of the private shim–daemon protocol (spec §4.4). It is part of the identity key
