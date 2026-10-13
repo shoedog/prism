@@ -14,6 +14,7 @@ pub(crate) use js_binding_alias::JsFollow;
 // `cargo clippy -W clippy::all`, which the acceptance gate treats as a no-new-warnings bar.
 pub use js_binding::JsTerminal;
 mod js_alias_text;
+pub(crate) use js_alias_text::is_js_ts_language;
 mod js_binding_checks;
 mod js_binding_decls;
 #[cfg(test)]

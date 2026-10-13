@@ -2790,12 +2790,7 @@ impl CallGraph {
                         &known_fn_names,
                     ) {
                         // Slice R, rule 3: in JS/TS the text scan must agree with the binder.
-                        if matches!(
-                            parsed.language,
-                            crate::languages::Language::JavaScript
-                                | crate::languages::Language::TypeScript
-                                | crate::languages::Language::Tsx
-                        ) {
+                        if crate::ast::is_js_ts_language(parsed.language) {
                             let Some(function) = Self::function_node_for_id(parsed, caller_id)
                             else {
                                 continue;

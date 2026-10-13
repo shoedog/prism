@@ -355,3 +355,36 @@ fn rule3_keep_a_reassignment_alias_where_both_names_are_bound() {
         ]
     );
 }
+
+#[test]
+fn rule2_the_function_enclosing_the_binding_is_not_its_value() {
+    // The same-file `h` contains the declaration of the inner `h` but is not written into it.
+    let src = "export function h(o) {\n  const h = o.pick;\n  return h();\n}\n";
+    assert_eq!(
+        records_at(&[("caller.js", src)], "caller.js", 3),
+        ["h Source: drop LocalBindingUnproven"]
+    );
+}
+
+#[test]
+fn rule2_keep_a_function_declaration_that_is_reassigned_it_is_its_own_initial_value() {
+    let src = "function h() {\n  return 0;\n}\nh = wrap(h);\nexport function run() {\n  \
+        return h();\n}\n";
+    assert_eq!(
+        records_at(&[("caller.js", src)], "caller.js", 6),
+        ["h Source: caller.js:h@1-3 local_def exact"]
+    );
+}
+
+#[test]
+fn rule3_does_not_gate_other_languages_function_pointers() {
+    // The mutation lane can only run this binary, not `lang_c` (where the established C
+    // function-pointer tests live and are run unchanged): C keeps the textual record.
+    let src =
+        "int f(int x) { return x; }\nint run(void) {\n  int (*h)(int) = f;\n  return h(1);\n}\n";
+    let got = records_at(&[("a.c", src)], "a.c", 4);
+    assert!(
+        got.contains(&"f IndirectResolution: a.c:f@1-1 local_def exact".to_string()),
+        "{got:?}"
+    );
+}

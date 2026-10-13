@@ -12,6 +12,15 @@ use super::js_binding_writes::canonical_write_scope;
 use super::ParsedFile;
 use tree_sitter::Node;
 
+/// The languages whose textual alias records the binder gates (rule 3).
+pub(crate) fn is_js_ts_language(language: crate::languages::Language) -> bool {
+    use crate::languages::Language;
+    matches!(
+        language,
+        Language::JavaScript | Language::TypeScript | Language::Tsx
+    )
+}
+
 /// The scan's match in the AST: the alias-name identifier and the right-hand identifier.
 struct Matched<'a> {
     alias: Node<'a>,
