@@ -1,3 +1,5 @@
+**Current status:** Historical receipts below. Step1b is planner-complete; the current union census/measurements, gates, controller command and limits are in REPORT-step1.md, MEASUREMENTS-step1.json and PROBE-LOG-step1b.md. The old readiness STOP is superseded by the controller ruling and serial PASS.
+
 # Public replay and bindings
 
 All captures are static. Never load/execute corpus packages, use providers/network, access a frontend-portal directory, or write Git state. Every CLI invocation is bound to `/Users/wesleyjinks/prism-evidence/js-e5/cache`; direct CPG/fact helper APIs use no disk cache. The controller script's explicit private mode is for the controller only.

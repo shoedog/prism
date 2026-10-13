@@ -1,0 +1,150 @@
+{
+  "status": "PUBLIC_ACCEPTANCE_PASSED",
+  "corpora": {
+    "SB": {
+      "WRONG": 171,
+      "INADMISSIBLE": 418
+    },
+    "X": {
+      "UNDECIDED": 34,
+      "INADMISSIBLE": 37,
+      "WRONG": 27
+    },
+    "T": {
+      "WRONG": 201,
+      "INADMISSIBLE": 2
+    }
+  },
+  "arms": {
+    "SB": {
+      "a_only|WRONG": 123,
+      "a_only|INADMISSIBLE": 203,
+      "both|WRONG": 3,
+      "b_only|INADMISSIBLE": 93,
+      "both|INADMISSIBLE": 122,
+      "b_only|WRONG": 45
+    },
+    "X": {
+      "b_only|UNDECIDED": 34,
+      "b_only|INADMISSIBLE": 36,
+      "b_only|WRONG": 27,
+      "both|INADMISSIBLE": 1
+    },
+    "T": {
+      "both|WRONG": 53,
+      "b_only|WRONG": 148,
+      "both|INADMISSIBLE": 2
+    }
+  },
+  "invocations": {
+    "SB": {
+      "ordinary|WRONG": 170,
+      "ordinary|INADMISSIBLE": 326,
+      "qualified|INADMISSIBLE": 87,
+      "jsx|INADMISSIBLE": 5,
+      "qualified|WRONG": 1
+    },
+    "X": {
+      "jsx|UNDECIDED": 23,
+      "jsx|INADMISSIBLE": 35,
+      "jsx|WRONG": 13,
+      "ordinary|UNDECIDED": 11,
+      "ordinary|WRONG": 14,
+      "qualified|INADMISSIBLE": 1,
+      "ordinary|INADMISSIBLE": 1
+    },
+    "T": {
+      "ordinary|WRONG": 201,
+      "ordinary|INADMISSIBLE": 2
+    }
+  },
+  "graph_adjudications": {
+    "SB": {
+      "Call|WRONG": 170,
+      "DataFlow|WRONG": 162,
+      "Return|WRONG": 170,
+      "ReturnFlow|WRONG": 11,
+      "ReturnContains|CORRECT": 7,
+      "ReturnInput|CORRECT": 11,
+      "Call|INADMISSIBLE": 417,
+      "DataFlow|INADMISSIBLE": 144,
+      "Return|INADMISSIBLE": 417,
+      "ReturnFlow|INADMISSIBLE": 11,
+      "Call|UNDECIDED": 2,
+      "Return|UNDECIDED": 2
+    },
+    "X": {
+      "Call|UNDECIDED": 34,
+      "Call|WRONG": 27,
+      "Call|INADMISSIBLE": 37,
+      "DataFlow|WRONG": 5,
+      "DataFlow|UNDECIDED": 7,
+      "Return|WRONG": 27,
+      "Return|INADMISSIBLE": 37,
+      "Return|UNDECIDED": 34,
+      "ReturnFlow|WRONG": 1
+    },
+    "T": {
+      "Call|WRONG": 201,
+      "Call|INADMISSIBLE": 2,
+      "DataFlow|WRONG": 64,
+      "Return|WRONG": 201,
+      "Return|INADMISSIBLE": 2,
+      "ReturnFlow|WRONG": 5
+    }
+  },
+  "sites_changed": 890,
+  "targets_removed": 890,
+  "graphs_removed": 2208,
+  "added_sites": 0,
+  "added_targets": 0,
+  "added_graph_rows": 0,
+  "nonjs_rows_byte_identical": 43953,
+  "non_call_digests_identical": 581,
+  "undecided_removed": 34,
+  "navigation": {
+    "roots": 581,
+    "functions_byte_identical": true,
+    "file_inventory_byte_identical": true,
+    "removed_call_derived_module_edges": 225,
+    "sampled_navigation_removed_items": {
+      "callers": 148,
+      "callees": 27,
+      "callees_unresolved_placeholders": 27
+    }
+  },
+  "exclusions": [
+    {
+      "name": "SB__path-traversal__atropa-ide_0.2.2-2",
+      "root": "/Users/wesleyjinks/prism-evidence/inputs/secbench-pkgs/path-traversal/atropa-ide_0.2.2-2/src/package",
+      "exit": 124,
+      "reason": "paired exclusion: timeout 1500s",
+      "seconds": 0,
+      "base_seconds": 1500.021
+    },
+    {
+      "name": "SB__redos__clean-css_4.1.10",
+      "root": "/Users/wesleyjinks/prism-evidence/inputs/secbench-pkgs/redos/clean-css_4.1.10/src/package",
+      "exit": -9,
+      "reason": "paired exclusion: exit -9",
+      "seconds": 0,
+      "base_seconds": 394.508
+    },
+    {
+      "name": "SB__redos__natural_5.1.0",
+      "root": "/Users/wesleyjinks/prism-evidence/inputs/secbench-pkgs/redos/natural_5.1.0/src/package",
+      "exit": 124,
+      "reason": "paired exclusion: timeout 1500s",
+      "seconds": 0,
+      "base_seconds": 1500.931
+    },
+    {
+      "name": "SB__redos__three_0.122.0",
+      "root": "/Users/wesleyjinks/prism-evidence/inputs/secbench-pkgs/redos/three_0.122.0/src/package",
+      "exit": 124,
+      "reason": "paired exclusion: timeout 1500s",
+      "seconds": 0,
+      "base_seconds": 1501.928
+    }
+  ]
+}

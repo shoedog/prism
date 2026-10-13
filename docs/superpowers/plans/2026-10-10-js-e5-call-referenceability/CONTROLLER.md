@@ -1,8 +1,6 @@
-# Controller-only private measurement — Step 1 candidate
+# Controller-only private measurement — gated public Step1 candidate
 
-**Status: STOP; command prepared, not authorized as an accepted/gated candidate.** The union full suite stopped on an unrelated MCP readiness failure. Head binaries are frozen under step1/bin with hashes in step1/binary-binding.json. Step-1 worker/controller parity was updated but not run. Reopen the stopped lane and complete public measurements/gates before using this private command for acceptance.
-
-Supply the private root and a **new** private evidence directory. The planner must not run this command. It performs static capture only, never loading/executing corpus packages. All source paths, sites, graph rows, native details, logs, hashes and producer wall times stay in the private directory (umask077). Only aggregate JSON reaches stdout; generic failures produce only status/stage. The helper receives an explicit controller-only private-scope flag; ordinary planner workers reject any frontend-portal directory before traversal.
+**Status: command ready; actual-shell worker/controller parity PASS. F union remains controller-only and unmeasured by planner.** Supply a private root and a new private evidence directory. Only aggregates leave that directory; every source path, native detail, differing site/graph row, input/helper hash and producer log stays private. Static capture only; no corpus package execution.
 
 ```bash
 CORPUS_F_ROOT="/path/to/private/root" \
@@ -17,8 +15,6 @@ bash /Users/wesleyjinks/code/prism-e5-plan/docs/superpowers/plans/2026-10-10-js-
   /Users/wesleyjinks/prism-evidence/js-e5/step1/bin/head-graph
 ```
 
-For census only: `CONTROLLER-e5.sh census TS_JS BASE_BIN BASE_FACTS_BIN` with the same environment. Diff mode freezes input/helper hashes before capture and verifies them before publishing; both CLI producers bind the E5 cache. Every producer has a 1500-second timeout. A failed producer is INADMISSIBLE; it is not assigned zero yield. Raw and after-override native verdicts are published side by side (the public run has no overrides). Full private differing call/flow rows are preserved for the controller's decision; only counts escape.
+All CLI producers bind ~/prism-evidence/js-e5/cache; direct helpers have no disk cache. Timeout1500s per producer; unsuccessful producers are INADMISSIBLE, never zero-yield observations. Native TypeScript5.9.3 remains pinned, raw and after-override are side by side. `R-local` and `R-local-no-require` remain in both controller summaries; their runtime adoption is outside E5.
 
-Public parity is exercised by `probes/controller-parity.test.cjs` against the **actual shell script**, real base/head call/fact/graph binaries, and a synthetic public TypeScript fixture. It compares the worker census, changed target, graph adjudication, raw/after-override summaries and stdout redaction. Historical step-0 combined native/controller suite:12 passed,0 failed. Step-1 parity is NOT RUN because of STOP; those historical results do not validate the new binaries. This does not verify the private corpus.
-
-The census helper now publishes `R-local`, `R-local-no-require` and `R-union` pricing. The historical binding axis calls scalar `require` bindings `local_declaration`; their cost and the explicit every-require-initialized exemption are separate census predicates, not adopted product behavior.
+Parity command and14/14 result are in REPORT-step1.md; step1/controller-parity.json binds actual shell script results with step1 head binaries. Final public receipts are in union-measurements.json. No private directory was opened.

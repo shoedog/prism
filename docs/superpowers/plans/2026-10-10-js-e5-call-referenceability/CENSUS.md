@@ -1,6 +1,6 @@
-# E5 full census — base 40ad8390 versus uncommitted cache115 prototype
+**Current status:** Historical receipts below. Step1b is planner-complete; the current union census/measurements, gates, controller command and limits are in REPORT-step1.md, MEASUREMENTS-step1.json and PROBE-LOG-step1b.md. The old readiness STOP is superseded by the controller ruling and serial PASS.
 
-**Current status:** Historical step-0 head only. Step-1 refreshed base census preserves the verdict cross-tab and adds R-local pricing; no union head census was captured.
+# E5 full census — base 40ad8390 versus uncommitted cache115 prototype
 
 All counts are JS/TS/TSX Exact `free_single` targets. Every site is accounted for in three independent axes. W = WRONG, C = CORRECT, U = UNDECIDED, I = INADMISSIBLE. Unlisted combinations are zero. Native parse/binding failures retain I; producer syntax still supplies the independent callee-form axis. Raw and after-override verdicts are identical (zero overrides).
 

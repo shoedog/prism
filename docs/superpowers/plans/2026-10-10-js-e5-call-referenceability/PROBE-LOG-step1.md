@@ -1,3 +1,5 @@
+**Current status:** Historical receipts below. Step1b is planner-complete; the current union census/measurements, gates, controller command and limits are in REPORT-step1.md, MEASUREMENTS-step1.json and PROBE-LOG-step1b.md. The old readiness STOP is superseded by the controller ruling and serial PASS.
+
 # Step 1 hypothesis / probe / result log
 
 ## S1: evidence-directory admission

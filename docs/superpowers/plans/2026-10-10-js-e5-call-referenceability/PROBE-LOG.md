@@ -1,6 +1,6 @@
-# E5 hypothesis/probe/result log
+**Current status:** Historical receipts below. Step1b is planner-complete; the current union census/measurements, gates, controller command and limits are in REPORT-step1.md, MEASUREMENTS-step1.json and PROBE-LOG-step1b.md. The old readiness STOP is superseded by the controller ruling and serial PASS.
 
-**Current status:** Historical step-0 probes. Current step-1 hypotheses, fixture corrections and mandatory STOP are in PROBE-LOG-step1.md.
+# E5 hypothesis/probe/result log
 
 ## P1: base X identity misses
 Hypothesis: call=0/target=1 rows are JSX opening/self-closing elements omitted by the worker's CallExpression-only index. Expected: TS JSX opening nodes share the exact physical start/end bytes. Falsifier: no JSX node matches those bytes. Alternative: UTF-16/UTF-8 or FunctionId line mismatch. Separation: exact JSX physical bytes with a unique matched target refute that alternative for these rows.

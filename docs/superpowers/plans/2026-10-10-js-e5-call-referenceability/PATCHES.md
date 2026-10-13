@@ -1,13 +1,3 @@
-# Delivery and custody
+# Step1b delivery and custody
 
-**Current status:** Historical step-0 patches. Step-1 stopped candidate patches are E5-step1-src.patch and E5-step1-docs.patch relative to d01fd65f under /Users/wesleyjinks/prism-evidence/js-e5/step1/. They preserve unfinished work and do not grant adoption authority. The refreshed docs patch explicitly includes the Git-ignored root VERIFICATION.md as a new file relative to d01fd65f, plus user-hook native regression assertions; the predecessor delivery is preserved under step1/verification-hook/.
-
-Base:40ad8390d6cb5544a063346033c7bb1817ad3855. The source and docs patches are under `/Users/wesleyjinks/prism-evidence/js-e5/step0/` and use ordinary git-diff a/b paths. No commit, index write, push, or merge was performed; the controller owns Git custody.
-
-E5-src.patch contains the three runtime files, two cache mutant pins, five new regression groups and reconciled existing control fixtures. Source patch SHA256: `b21fd2a2f7309e3d0a05c52d1c49a6e267e5dd6f9f08e448ca62243ec727506f`. It applies to the clean base archive with `git apply --check`.
-
-E5-docs.patch contains this packet, full census/samples/measurements, draft spec, handoff, controller script, reusable probes, validation and replay instructions, plus the repository-root VERIFICATION.md required by the stop hook. Its final hash is recorded outside the patch in `step0/patch-manifest.json` to avoid circular hashes. Both patches are checked against a clean base archive. Temporary Rust examples were archived and removed; their reproducible sources remain in packet/probes.
-
-`step0/final-product-binding.json` freezes product/test/pin files and immutable binaries; `step0/final-packet-binding.json` freezes packet bytes, root verification, and patch hashes. `step0/E5-final-source-packet.tar.gz` preserves every changed/new source, packet file, and root verification. The previous delivery is preserved in verification-hook-predecessor. Earlier stable-point checkpoints and superseded/inadmissible probe receipts remain available. Raw public graph/site/native details are retained under step0/base, head, call-comparison, graphs and variants; private F is absent.
-
-This is an owner-reviewable Step0 proposal, not a landed change. The controller should make durable Git custody, run the private paired command in CONTROLLER.md, and resolve the rule breadth/drop/D12 decisions before adoption.
+Deliver E5-step1b-src.patch and E5-step1b-docs.patch under /Users/wesleyjinks/prism-evidence/js-e5/step1/, relative to d994c75d. Source patch contains four approved integration-test reconciliations and four predicate mutants with lib selector routing. The union implementation is already preserved in e164178b, packet in d994c75d; Step1b does not restart it or alter product src/vendor. Docs patch contains final union spec/measurements/gates, disclosures, controller command, handoff, root VERIFICATION.md and replay tools. Earlier step0/step1 patches remain historical; no Git writes by planner. Final patch validation and hashes are in step1b-patch-manifest.json / step1b-final-custody.json.

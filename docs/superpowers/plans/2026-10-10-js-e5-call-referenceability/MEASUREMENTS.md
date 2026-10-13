@@ -1,6 +1,44 @@
-# E5 measured rule and downstream ledger
+# Current Step1 union measurement
 
-**Current status:** The tables below are historical step-0 builds, including the controller F run. They are not union measurements. Step 1 is STOPPED before real paired union captures; see REPORT-step1.md for completed census-only R-local pricing.
+| Corpus | WRONG removed | CORRECT lost | UNDECIDED removed | INADMISSIBLE removed |
+|---|---|---|---|---|
+| X | 27 | 0 | 34 | 37 |
+| T | 201 | 0 | 0 | 2 |
+| SB | 171 | 0 | 0 | 418 |
+
+| Corpus | Arm | WRONG | CORRECT | UNDECIDED | INADMISSIBLE |
+|---|---|---|---|---|---|
+| X | a_only | 0 | 0 | 0 | 0 |
+| X | b_only | 27 | 0 | 34 | 36 |
+| X | both | 0 | 0 | 0 | 1 |
+| T | a_only | 0 | 0 | 0 | 0 |
+| T | b_only | 148 | 0 | 0 | 0 |
+| T | both | 53 | 0 | 0 | 2 |
+| SB | a_only | 123 | 0 | 0 | 203 |
+| SB | b_only | 45 | 0 | 0 | 93 |
+| SB | both | 3 | 0 | 0 | 122 |
+
+| Corpus | Arm(b) invocation | WRONG | CORRECT | UNDECIDED | INADMISSIBLE |
+|---|---|---|---|---|---|
+| X | ordinary | 14 | 0 | 11 | 1 |
+| X | jsx | 13 | 0 | 23 | 35 |
+| X | qualified | 0 | 0 | 0 | 1 |
+| T | ordinary | 201 | 0 | 0 | 2 |
+| T | jsx | 0 | 0 | 0 | 0 |
+| T | qualified | 0 | 0 | 0 | 0 |
+| SB | ordinary | 47 | 0 | 0 | 123 |
+| SB | jsx | 0 | 0 | 0 | 5 |
+| SB | qualified | 1 | 0 | 0 | 87 |
+
+Physical JSX is classified by the native invocation node, not the internal jsx flag:66 JSX spans are carried by IndirectResolution records with jsx=false. The table separately discloses89 qualified physical spans (1 W/88 I);66 are indirect and23 Source records have no retained product qualifier. The unchanged real R-bound guard acts on qualifier-less product call sites; no blanket physical-qualified preservation claim is made. Every ordinary row in this measured b population has Source origin: the real R-bound-source subset is X14 W/0 C/11 U/1 I, T201 W/0 C/0 U/2 I, SB47 W/0 C/0 U/123 I. R-bound minus R-bound-source therefore includes both physical JSX and qualified fallback records.
+
+All581 call-site and graph comparisons are admitted. Every differing call site (890) and graph row (2208) is classed and adjudicated in `union-call-site-adjudications.jsonl` / each graph.adjudicated.jsonl. Added targets/sites/graph rows:0/0/0. All43953 original serialized non-JS call rows are byte-identical; all581 non-call digests match. All581 symbol/file inventories match; 225 call-derived module dependencies are removed. Sampled caller/callee queries cover affected roots; aggregate deltas are `{"callees": 27, "callees_unresolved_placeholders": 27, "callers": 148}`. Unresolved source placeholders are disclosed separately from resolved relationships. Full receipts retain every inventory/query command and any reused base artifact.
+
+All UNDECIDED removals: UNDECIDED-step1.md. R-local accepted follow-up: SPEC-e5.md. Full current graph ledger/gates: REPORT-step1.md.
+
+## Historical step0 measurements (unchanged evidence)
+
+# E5 measured rule and downstream ledger
 
 Yield is WRONG Exact targets removed; cost is CORRECT Exact targets lost. U/I are exposures, not yield. Candidate predicates below are evaluated over every admitted base census row; real-build deltas are listed separately. All raw/after-override verdicts agree.
 
@@ -30,7 +68,7 @@ Yield is WRONG Exact targets removed; cost is CORRECT Exact targets lost. U/I ar
 | R-recommended | T | 53 | 0 | 0 | 2 |
 | R-recommended | SB | 126 | 0 | 0 | 325 |
 
-`R-inferred` respects explicit self-names; `R-inferred-form` ignores that distinction and costs ten CORRECT CJS scalar-require targets. R-bound prices the calling file as an ES module without import/require evidence. R-bound-source also requires ordinary Source invocation. The recommended union requires certified-unbound Source invocation and an inferred target shape or target ES-module syntax. Neither unbound component alone removes the complete recommended population.
+`R-inferred` respects explicit self-names; `R-inferred-form` ignores that distinction and costs ten CORRECT CJS scalar-require targets. R-bound prices the calling file as an ES module without import/require evidence. R-bound-source also requires ordinary Source invocation. Historical step0 R-recommended (now arm(a)) requires certified-unbound Source invocation and an inferred target shape or target ES-module syntax. Neither unbound component alone removes the complete recommended population.
 
 ## Real-build paired target measurements
 

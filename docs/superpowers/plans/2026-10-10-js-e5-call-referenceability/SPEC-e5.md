@@ -1,12 +1,10 @@
-# E5 draft — owner-selected union, stopped prototype
+# E5 — owner-selected union, measured prototype
 
-Status: **STOPPED / INCOMPLETE; not ready for review, adoption or landing.** Step-1 entry and patch base is `d01fd65fd0c821bb54887d9c48b4519d96f49776`, branch `plan/js-e5-call-referenceability`; product main is `bab0dfbd`. `/Users/wesleyjinks/prism-evidence/js-e5/plan-brief-step1.md` supersedes the narrow step-0 recommendation. The verbatim prior spec is preserved in step1/entry-SPEC-e5.md.
+**Status: PLANNER COMPLETE / READY FOR CONTROLLER F AND SPEC REVIEW.** Entry/delivery patch base d994c75d; main product bab0dfbd; union source preserved at e164178b. Adoption remains pending controller F and independent reviews (Opus and gpt-6.1-sol, cap two rounds). The former readiness STOP is resolved by the step1b controller ruling and a serial head PASS.
 
-## Goal and owner decision
+## Goal and owner decisions
 
-Reduce false Exact cross-file FreeSingle calls using only the caller's own syntax and the target's declaration syntax. Exact is a static binding by declaration, scope, import and export syntax; a local alias or parameter sharing a callable's spelling elsewhere is not that proof. The owner chose **arm (a) union R-bound (b), with drop**, after the narrow rule removed no target on private F. The narrow rule alone is no longer recommended.
-
-The first complete union test suite found an unrelated MCP readiness failure, invoking the explicit STOP. Full details and source-bound receipts are in [REPORT-step1.md](REPORT-step1.md). The uncommitted prototype is retained; no adoption claim is made.
+Reduce false Exact cross-file FreeSingle calls using only caller-file syntax and target declaration syntax. Exact is a static binding by declaration, scope, import and export syntax. Owner chose unchanged step0 arm(a) union R-bound arm(b), with drop, after arm(a) removed no target on F. Narrow-only recommendation is superseded. JSX remains included, with its measured split below; the owner can cut it separately. R-local is an accepted follow-up; D12 stays unchanged.
 
 ## Rule of record: (a) or (b), drop
 
@@ -14,33 +12,74 @@ At both existing FreeSingle arms, refuse a JS/TS/TSX cross-file target when eith
 
 **(a), unchanged step-0 arm:** ordinary Source call, non-JSX, unqualified, caller and target differ, own-file binder is `Unproven("unbound")`, and target is in the negative syntax set. That set contains declarations in files with root import/export syntax, methods, and unnamed function values inferred from object pairs, class fields, member/subscript assignments or variable-initializer wrapper calls. Explicit function-expression self-names and direct variable-to-function bindings are not inferred solely by position.
 
-**(b), R-bound:** caller is an ES module by the product parser's root import/export statements, the singleton is cross-file and unqualified, and the calling file has no syntactic import or require evidence for that name. This includes module-caller alias/MayCall/position/unbound and JSX paths. Own-file evidence is extracted conservatively by the existing `ParsedFile::extract_imports`; scalar, destructured, renamed and nested requires can exempt the name. It only exempts refusal, and does not prove binding to the target. Qualified calls and earlier positive ladder rungs retain their behavior. No repo-wide import resolution or tsconfig parity is introduced.
+**(b), R-bound:** caller is an ES module by the product parser's root import/export statements, the singleton is cross-file and its product CallSite.qualifier is None (including indirect sites), and the calling file has no syntactic import or require evidence for that name. This includes module-caller alias/MayCall/position/unbound and JSX paths. Own-file evidence is extracted conservatively by the existing `ParsedFile::extract_imports`; scalar, destructured, renamed and nested requires can exempt the name. It only exempts refusal, and does not prove binding to the target. Call sites with a retained product qualifier and earlier positive ladder rungs retain behavior. Physical source spans for some qualifier-less fallback/indirect records are qualified; they are disclosed separately below. No repo-wide import resolution or tsconfig parity is introduced.
 
-Graph-target resolution declines the refused singleton so the ordinary ladder decides; final R5 drops it with LocalBindingUnproven. Full/skeleton/direct-subset constructors retain caller facts; remove/merge replace them and serialization persists them. CACHE_VERSION stays 115; both mutant cache pins stay 115; navigation edge cache remains 62. All five new regression groups pass, but real corpus validation and new guard mutants remain incomplete.
+Graph-target resolution declines the refused singleton so the ordinary ladder decides; final R5 drops it with LocalBindingUnproven. Full/skeleton/direct-subset constructors retain caller facts; remove/merge replace them and serialization persists them. CACHE_VERSION stays 115; both mutant cache pins stay 115; navigation edge cache remains 62. All ten E5 regression groups pass in the full suite; seven refusal/lifecycle/consumer groups are main-RED. Public capture and four scoped guard mutants are complete.
 
-## Measured evidence and its limits
 
-The following are **historical step-0 real-build measurements**, not sums, projections or measurements of the current union. [MEASUREMENTS.md](MEASUREMENTS.md), [CENSUS.md](CENSUS.md), and their JSONL receipts retain full rows and exclusions.
+## Real union measurements
 
-| Corpus | Step0 arm (a): W / C / U / I removed | Step0 experimental R-bound: W / C / U / I removed | Current union real capture |
-|---|---|---|---|
-| X | 0 / 0 / 0 / 1 | 27 / 0 / 34 / 37 | NOT RUN: STOP |
-| T | 53 / 0 / 0 / 2 | 201 / 0 / 0 / 2 | NOT RUN: STOP |
-| SB579 | 126 / 0 / 0 / 325 | 48 / 0 / 0 / 215 | NOT RUN: STOP |
-| Controller F | 0 / 0 / 0 / 0 | census price only: 109 W, 0 C, 4 U, 0 I | Controller pending |
+| Corpus | WRONG removed | CORRECT lost | UNDECIDED removed | INADMISSIBLE removed |
+|---|---|---|---|---|
+| X | 27 | 0 | 34 | 37 |
+| T | 201 | 0 | 0 | 2 |
+| SB | 171 | 0 | 0 | 418 |
 
-F's supplied step0 base and narrow head both retain 113 Exact FreeSingle targets, 109 WRONG and four UNDECIDED; sites and graph bytes are unchanged. The planner has no private-row access. The union's (a)-only/(b)-only/both and JSX/ordinary splits, every changed target/site/graph adjudication, inventory and non-JS/non-call parity are pending. Its UNDECIDED removals must each be described and up to ten public samples disclosed; none are claimed measured now. Do not transfer step0 zero cost/parity into union acceptance.
+| Corpus | Arm | WRONG | CORRECT | UNDECIDED | INADMISSIBLE |
+|---|---|---|---|---|---|
+| X | a_only | 0 | 0 | 0 | 0 |
+| X | b_only | 27 | 0 | 34 | 36 |
+| X | both | 0 | 0 | 0 | 1 |
+| T | a_only | 0 | 0 | 0 | 0 |
+| T | b_only | 148 | 0 | 0 | 0 |
+| T | both | 53 | 0 | 0 | 2 |
+| SB | a_only | 123 | 0 | 0 | 203 |
+| SB | b_only | 45 | 0 | 0 | 93 |
+| SB | both | 3 | 0 | 0 | 122 |
 
-Pinned oracle remains TypeScript 5.9.3, static allowJs/checkJs, ESNext/Bundler, preserved JSX, no ambient package types and no emit. Identity binds physical callable bytes. Signature-only identity is UNDECIDED; CORRECT requires value-declaration identity or the admitted literal unshadowed scalar-require/physical-callable proof. Native failures remain INADMISSIBLE. Raw and after-override are equal, zero overrides. Reused base binaries were built from 40ad8390 whose product source equals bab0dfbd according to the controller; all binary hashes were freshly checked. Four historical excluded roots remain excluded with their original reasons and timings, not zero-cost observations.
+| Corpus | Arm(b) invocation | WRONG | CORRECT | UNDECIDED | INADMISSIBLE |
+|---|---|---|---|---|---|
+| X | ordinary | 14 | 0 | 11 | 1 |
+| X | jsx | 13 | 0 | 23 | 35 |
+| X | qualified | 0 | 0 | 0 | 1 |
+| T | ordinary | 201 | 0 | 0 | 2 |
+| T | jsx | 0 | 0 | 0 | 0 |
+| T | qualified | 0 | 0 | 0 | 0 |
+| SB | ordinary | 47 | 0 | 0 | 123 |
+| SB | jsx | 0 | 0 | 0 | 5 |
+| SB | qualified | 1 | 0 | 0 | 87 |
 
-## Deliberate test expectation changes and fixture dependencies
+Physical JSX is classified by the native invocation node, not the internal jsx flag:66 JSX spans are carried by IndirectResolution records with jsx=false. The table separately discloses89 qualified physical spans (1 W/88 I);66 are indirect and23 Source records have no retained product qualifier. The unchanged real R-bound guard acts on qualifier-less product call sites; no blanket physical-qualified preservation claim is made. Every ordinary row in this measured b population has Source origin: the real R-bound-source subset is X14 W/0 C/11 U/1 I, T201 W/0 C/0 U/2 I, SB47 W/0 C/0 U/123 I. R-bound minus R-bound-source therefore includes both physical JSX and qualified fallback records.
 
-**No existing test expectation was changed in Step 1 before STOP.** The full first-suite population is in REPORT-step1.md. The prospective alias-policy expectation change is `js_binding_shorthand_test::b5_nested_declarators_keep_base`: module callers without import/require evidence must drop the formerly Exact nested alias/var fallback relationships; imported scope controls retain complete values. Three other failures are fixture dependencies, not proposed assertion weakening: `td_duplicate_for_heads_negative_control_single_head_binds` and `rep_unbound_name_through_an_unrelated_parameter_keeps_base_at_r5` need script callers for script-global scope controls; `c41_with_reason_keeps_base_at_r5` needs script caller and target to retain its pre-existing reason-scoped guard control. These changes are NOT IMPLEMENTED because STOP preceded repairs. The MCP readiness failure is outside both categories. The explicitly excluded parameter-slot example remains unchanged.
+All581 call-site and graph comparisons are admitted. Every differing call site (890) and graph row (2208) is classed and adjudicated in `union-call-site-adjudications.jsonl` / each graph.adjudicated.jsonl. Added targets/sites/graph rows:0/0/0. All43953 original serialized non-JS call rows are byte-identical; all581 non-call digests match. All581 symbol/file inventories match; 225 call-derived module dependencies are removed. Sampled caller/callee queries cover affected roots; aggregate deltas are `{"callees": 27, "callees_unresolved_placeholders": 27, "callers": 148}`. Unresolved source placeholders are disclosed separately from resolved relationships. Full receipts retain every inventory/query command and any reused base artifact.
 
-## R-local pricing and recommendation
+Every one of the 34 UNDECIDED removals is listed with its local binding, oracle reason and up to ten public samples in [UNDECIDED-step1.md](UNDECIDED-step1.md). U/I are exposure, not yield. Zero classified CORRECT loss does not certify unknown oracle cost. [REPORT-step1.md](REPORT-step1.md) contains every graph-kind/verdict count and gate command; [MEASUREMENTS.md](MEASUREMENTS.md) retains historical experiments.
 
-| Predicate (census only) | Corpus | WRONG yield | CORRECT cost | UNDECIDED | INADMISSIBLE | Scalar-require CORRECT costs |
-|---|---|---:|---:|---:|---:|---:|
+Controller F historical base/narrow head:113 retained,109 W/0 C/4 U/0 I; arm(a) removes0. Historical R-bound census price109 W/4 U. Union F real measurement is pending and is never inferred from those prices.
+
+## Existing fixtures and deliberate expectations
+
+| Existing test | Fixture edit | Purpose retained |
+|---|---|---|
+| `td_duplicate_for_heads_negative_control_single_head_binds` | Caller `export function run` → script `function run`; target was already a script | `L2 f: Exact free_single f@1-1` unchanged; negative duplicate/for-head scope control remains reachable outside module refusal. |
+| `rep_unbound_name_through_an_unrelated_parameter_keeps_base_at_r5` | Caller `export function run` → script `function run`; helper/target unchanged scripts | `L5 f: Exact free_single f@1-3` unchanged; unrelated helper parameter remains outside caller scope. |
+| `c41_with_reason_keeps_base_at_r5` | Caller and target declarations lose `export` | `L3 f: Exact free_single f@1-3` unchanged; `Unproven("with")` still proves the older R5 drop is reason-scoped. |
+
+| b5 scenario (both `.jsx` / `.tsx`) | Deliberately changed result | Reason |
+|---|---|---|
+| Bare nested `const { f }` block, L4 | `Exact free_single lib:f@1-3` → `drop LocalBindingUnproven` | Module caller has no import/require evidence, even for in-scope alias. |
+| Nested `if` / `let { f }`, L4 | Same Exact → drop | Same module-caller alias policy decision. |
+| Nested `var { f }` block, L4 | Same Exact → drop | Union overrides unsupported nested var alias fallback. |
+| Nested `var { f }` block, L6 | Same Exact → drop | Union overrides unsupported hoisted var alias fallback. |
+| Same-line nested const block, first L2 call | Same Exact → drop | Module alias lacks import/require evidence; the second L2 call was already drop. |
+| Module-scope nested var block, L5 | Same Exact → drop | Module-level var fallback lacks import/require evidence. |
+
+All already-refused expectations stay unchanged. Imported b5 controls stay at complete values `L5 f: Exact import_member lib:f@1-3` and `L7 f: Exact import_member lib:f@1-3` in both grammars. Six scenario values change (twelve across the two grammars); the bare/if cases share one expectation vector. No assertion is weakened.
+
+## R-local price and accepted disposition
+
+| Predicate (base census only) | Corpus | WRONG | CORRECT | UNDECIDED | INADMISSIBLE | Literal scalar-require C costs |
+|---|---|---|---|---|---|---|
 | R-local | X | 19 | 0 | 11 | 0 | 0 |
 | R-local | T | 148 | 0 | 0 | 0 | 0 |
 | R-local | SB | 1249 | 10 | 17 | 24 | 10 |
@@ -48,43 +87,26 @@ Pinned oracle remains TypeScript 5.9.3, static allowJs/checkJs, ESNext/Bundler, 
 | R-local-no-require | T | 148 | 0 | 0 | 0 | 0 |
 | R-local-no-require | SB | 449 | 0 | 2 | 24 | 0 |
 
-Scalar require is `local_declaration` in the historical census axis, so naive R-local includes ten CORRECT costs, all literal scalar requires in SB. Exempting every require-initialized local yields zero known CORRECT cost and keeps 19/148/449 WRONG (616 total), with 13 UNDECIDED and 24 INADMISSIBLE exposures. This broad exemption sacrifices 800 WRONG and 15 UNDECIDED SB rows. These are whole-base census prices, not real or post-union marginal deltas. Controller summaries publish both predicates for F pricing.
-
-**Make R-local a follow-up.** Do not broaden this stopped union. The no-require predicate needs a separate bounded runtime measurement and regression matrix; the naive census axis violates zero-cost acceptance.
+**Accepted disposition: follow-up, outside this slice.** Naive axis-based R-local costs ten CORRECT literal scalar-require bindings. Exempting every require-initialized local has zero classified CORRECT cost and retains 616 WRONG (19/148/449), plus 13 UNDECIDED and 24 INADMISSIBLE exposures. These are whole-base census prices, not marginal post-union yield. Both predicates remain in controller summaries; no runtime R-local work was added in Step1b.
 
 ## Deliberately uncovered behavior and D12
 
-Keep qualified calls, same-file targets, script-global declarations called from scripts, proven imports/requires, earlier positive rungs, non-JS output, bare/rest incoming slots and callback/synthetic owner identities. Arm (a)'s Source boundary is unchanged; arm (b) deliberately overrides the earlier alias/MayCall/position/JSX fallback policy only for module callers without name evidence. CommonJS local declarations outside R-bound are not added to the rule; R-local is priced only. No runtime corpus execution, global binding graph, module-path proof or TypeScript-resolution parity is introduced.
+Keep call sites with a retained qualifier, earlier proven qualified rungs, same-file targets, script-global declarations called from scripts, syntactic import/require exemptions, earlier positive rungs, non-JS behavior, callback identities and incoming formal slots. CommonJS local aliases outside R-bound remain out of scope. No repo-wide import resolution, tsconfig parity or runtime package execution. Arm(a) Source/non-JSX boundary is unchanged; arm(b) deliberately overrides unsupported alias/MayCall/position/JSX FreeSingle fallbacks only for module callers without name evidence.
 
-**D12 remains unchanged.** It continues refusing outgoing new-formal paths reaching every cross-file Exact FreeSingle argument edge. The union has not been measured on remaining argument reachability and cannot justify removing the blanket protection. Any selective refusal or incoming bare-formal repair requires a separately authorized increment.
+**D12 remains unchanged by owner instruction.** It still refuses outgoing new-formal paths reaching every cross-file Exact FreeSingle argument edge. Any narrower D12/incoming repair needs a separately authorized increment.
 
-## Acceptance criteria
+## Acceptance criteria and gates
 
-- Zero CORRECT Exact resolutions lost on every admitted public corpus and controller F; any loss invokes STOP.
-- Zero new WRONG row, target, site or topology; every differing site and graph row classed and source-bound adjudicated.
-- Non-JS call rows and non-call graph digests byte-identical; symbol/file inventories identical; only call-derived navigation and dependencies may change and their counts must be disclosed.
-- Every actual UNDECIDED removal described, up to ten public samples, with no hidden yield credit. INADMISSIBLE deltas and producer exclusions remain explicit.
-- New ordinary and JSX refusal paths each main-RED/head-GREEN with preserving import/require/same-file/script/qualified/non-JS controls; caller-fact lifecycle, serialization and consumers tested. Add and kill scoped predicate mutants.
-- cargo fmt --check, full cargo nextest run --features mcp with totals, doctests, scoped mutation, fresh release, cache-bound Tier-A matrix and TS/JS quick with same-worktree fresh base control; excluded parameter-slot example separately reported and not repaired. Rust/full multi-corpus boundaries unchanged.
-- Controller actual-shell parity passes on frozen step1 heads before F acceptance. Review is controller-dispatched Opus and gpt-6.1-sol, at most two rounds, after the stopped lane is reopened and candidate evidence is complete.
+- Zero CORRECT Exact loss on each admitted public corpus and controller F; any loss invokes STOP. Public criterion passed; F pending.
+- Zero new WRONG/target/site/topology; every differing call site and graph row adjudicated. Public added counts all0.
+- Non-JS call bytes and non-call graph digests identical; symbol/file inventories identical; disclose call-derived navigation/dependency changes. All581 public roots passed.
+- Every UNDECIDED removal disclosed; preserve INADMISSIBLE exposures and four producer exclusions without yield or zero-cost credit.
+- Main-RED/head-GREEN refusal paths and full-value negative controls; current scoped guard mutants4/4 killed/admissible.
+- Full serial suite, fmt, doctests, fresh release, adapted matrix and same-worktree base/head TS/JS quick complete with excluded example reported. Rust/full Tier-A boundaries remain explicit.
+- Actual-shell controller parity14/14 before F; private zero cost and independent reviews remain gates before adoption.
 
-## Owner decisions
+## Custody and limits
 
-| Decision | Current authority / disposition |
-|---|---|
-| Breadth | Owner selected arm (a) union R-bound (b); narrow-only recommendation superseded. Prototype retained at STOP, not adopted. |
-| Refusal | Owner selected drop. Step0 NameOnly retained known WRONG argument relationships. |
-| JSX | Part of selected R-bound; actual ordinary/JSX split pending. Owner may cut JSX after real measurements. |
-| R-local | Recommend follow-up with explicit require exemptions and separate real measurement. |
-| Private acceptance | Controller runs provisional CONTROLLER.md diff after reopening and completing public gates; zero public loss alone cannot establish F acceptance. |
-| D12 | Leave unchanged; no E5 authority to narrow or remove it. |
+Entry and patch base d994c75d; preserved union source e164178b. Product src/vendor bytes remain identical to the frozen union build; Step1b changes four integration fixtures/expectations and the lane registry, plus measurement/packet tools. CACHE_VERSION and both pins stay115; D12 and navigation cache62 are unchanged. Public and controller captures use original frozen step1/bin/head-prism, head-facts, head-graph; hashes are verified in binary-binding.json and step1b-frozen-head-reuse.json. Base calls/facts/graphs and admitted matching-command base navigation artifacts reuse read-only step0 captures. Base binaries40ad8390 equal main bab0dfbd product source: supplied controller control and the freshly verified empty full Git diff across src/Cargo/build/vendor (base-main-product-equality-step1b.json). New module/byte helpers and gate binary are frozen in step1b-helper-source-binding.json. Fresh quick builds exact main and restored head in this same worktree, immediately before each quick; every modified source byte is restored by hash. No product source changed, so original public/controller head binaries require no re-freeze.
 
-## STOP and custody
-
-STOP is the existing MCP readiness test outside alias-policy/repairable call-binding-fixture purpose. Cause is unresolved; no regression attribution or flakiness exoneration is made. No product repair or MCP retry followed it. The later user-hook synthetic-helper verification extension is recorded below. Current head suite: 5298 run, 5292 pass, six failures, one reserved skip. Raw failures include the one explicitly excluded inherited example. Pre-union control: 5293 run, 5292 pass, one excluded failure, one skip. Release completed from this worktree and immutable heads are under step1/bin with SHA256 binding. Remaining gates and paired union captures were not run.
-
-Source/packet changes stay in the working tree. Relative-d01fd delivery patches and snapshots live under /Users/wesleyjinks/prism-evidence/js-e5/step1/. Step0 evidence is read-only. No Git write, corpus execution, network/provider call, private directory access or independent review occurred. Controller owns committing and any reopening/adoption decision.
-
-## User verification-hook extension
-
-The subsequent user verification hook (`stop:5:/Users/wesleyjinks/.codex/hooks.json`) explicitly requested missing tests and root `## Verified` / `## Not verified` sections. One verification extension added two synthetic native-oracle groups without changing product code or existing expectations. Both fail on the exact archived d01fd65f helper (0 pass / 2 fail); the complete current native-oracle suite passes 13/13. Controls include every require initializer shape, variable/parameter/binding-element/function/class locals, unbound/import/destructured require, both union arms, overlap and script/import negatives. All 734 product files and frozen binary hashes remain unchanged, so Rust totals and the readiness STOP stand. Controller parity, main runtime REDs, remaining product gates and real union corpus captures stay unrun. The root verification file is ignored by Git and is explicitly included as a new file in the refreshed docs patch. Evidence is step1/verification-hook/verification-result.json, base-oracle-red-final.tap and head-oracle.tap.
+Private F union capture; controller Opus/gpt-6.1-sol spec review (cap two rounds); adoption/landing/Git custody; R-local runtime; D12 narrowing or incoming-formal repair; the four excluded SecBench roots. Full human-triggered Tier-A multi-corpus and Rust quick were not run. Rust quick is excluded because rust-analyzer build scripts/proc macros can execute corpus code and write outside granted roots. No provider/network calls, corpus package execution, Git writes or directory named frontend-portal were used.
