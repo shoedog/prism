@@ -151,18 +151,50 @@ def write_summary(out, summary):
     return path
 
 
+def read_object(path):
+    """The JSON object in `path`; exits with a message naming the file when it is not readable JSON or not an object."""
+    try:
+        data = json.loads(Path(path).read_text())
+    except (OSError, ValueError) as error:
+        raise SystemExit('%s: cannot be read as JSON (%s)' % (path, error))
+    if not isinstance(data, dict):
+        raise SystemExit('%s: is not a JSON object' % path)
+    return data
+
+
+def check_result_file(path, result, reps):
+    """Exits unless `path` is exactly `<kind>-<rep>.json` for the kind and rep it holds, with 1 <= rep <= reps.
+
+    The name is the identity of a measurement: a copy, a backup or a result filed under another name would
+    otherwise count as one more repetition. Exact names also make (kind, rep) unique within a directory.
+    """
+    kind, rep = result.get('kind'), result.get('rep')
+    if kind not in RUN_KINDS or type(rep) is not int:
+        raise SystemExit('%s: no kind/rep recorded; re-run instead' % path)
+    if Path(path).name != '%s-%d.json' % (kind, rep):
+        raise SystemExit('%s: is not named %s-%d.json, the kind and repetition it holds; a copied or misfiled '
+                         'result would count as another repetition' % (path, kind, rep))
+    if not 1 <= rep <= reps:
+        raise SystemExit("%s: repetition %d is outside 1..%d (the run's reps)" % (path, rep, reps))
+
+
 def rescore(out):
     """The summary of a run directory rebuilt from run.json and raw/ alone, with today's rules.
 
     Every stored report is validated again (cache evidence, build identity, comparability, build cache files
-    included), so a rule fix applies to saved evidence and a stale summary.json is never trusted. Exits with a
-    message when the directory has no run.json or no raw/.
+    included), so a rule fix applies to saved evidence and a stale summary.json is never trusted. Fails closed:
+    exits with a message naming the file when the directory has no run.json or raw/, when a file is not a JSON
+    object, or when a result file is not named for the kind and repetition it holds (a copy, a result filed
+    under another name, a repetition outside 1..reps).
     """
     out = Path(out)
     if not (out / 'run.json').is_file() or not (out / 'raw').is_dir():
         raise SystemExit('%s: no run.json and raw/, so there is nothing to summarize' % out)
-    settings = json.loads((out / 'run.json').read_text())
+    settings = read_object(out / 'run.json')
     settings.pop('kinds', None)  # which kinds ran is what raw/ holds; a run.json from before --kinds has no key
+    reps = settings.get('reps')
+    if type(reps) is not int or reps < 1:
+        raise SystemExit('%s: reps is %r, not a positive integer' % (out / 'run.json', reps))
     entries = {}
     for directory in sorted(path for path in (out / 'raw').iterdir() if path.is_dir()):
         corpus_path = directory / 'corpus.json'
@@ -172,11 +204,10 @@ def rescore(out):
         for path in sorted(directory.glob('*.json')):
             if path.name in ('corpus.json', 'prime.json'):
                 continue
-            result = json.loads(path.read_text())
-            if result.get('kind') not in RUN_KINDS or not isinstance(result.get('rep'), int):
-                raise SystemExit('%s: no kind/rep recorded; re-run instead' % path)
+            result = read_object(path)
+            check_result_file(path, result, reps)
             results.append(result)
         prime_path = directory / 'prime.json'
-        prime = json.loads(prime_path.read_text()) if prime_path.exists() else None
-        entries[directory.name] = build_entry(json.loads(corpus_path.read_text()), results, prime)
+        prime = read_object(prime_path) if prime_path.exists() else None
+        entries[directory.name] = build_entry(read_object(corpus_path), results, prime)
     return assemble_summary(settings, entries)
