@@ -375,6 +375,10 @@ mod go_level3_callback_tests {
 #[path = "call_graph/promoted_snapshot_consult_test.rs"]
 mod promoted_snapshot_consult_test;
 
+#[cfg(test)]
+#[path = "call_graph/js_relative_candidates_test.rs"]
+mod js_relative_candidates_test;
+
 #[derive(
     Debug,
     Clone,
@@ -2285,7 +2289,7 @@ impl CallGraph {
 
     pub(crate) fn resolve_js_ts_member_module(&self, module: &str, caller: &str) -> Option<String> {
         let relative = module.trim();
-        if relative.starts_with("./") || relative.starts_with("../") {
+        if is_js_ts_relative_specifier(relative) {
             resolve_js_ts_relative_module(relative, caller, &self.indexed_files)
         } else {
             self.js_ts_path_modules
@@ -6720,9 +6724,135 @@ pub fn resolve_js_ts_relative_module(
         .next()
 }
 
+const JS_TS_MODULE_EXTENSIONS: [&str; 7] = [".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ""];
+const JS_TS_INDEX_FILES: [&str; 6] = [
+    "index.js",
+    "index.jsx",
+    "index.mjs",
+    "index.cjs",
+    "index.ts",
+    "index.tsx",
+];
+
 /// Preserve the existing function-import precedence; class identity callers
 /// additionally require candidate cardinality one before consulting a class.
+///
+/// Additive rule (I1): the literal candidate list is returned unchanged
+/// whenever it is non-empty. Only a specifier with no literal candidate falls
+/// through to the normalized form, which (a) resolves bare `.`/`..` and
+/// redundant `//`, `/./`, `/../` segments within the repo root, and (b) maps a
+/// `.js` spelling whose file is not indexed to the same-stem `.ts` then
+/// `.tsx` (the TypeScript ESM convention). `.jsx`/`.mjs`/`.cjs` and `.d.ts`
+/// are not substituted.
 pub(crate) fn js_ts_relative_module_candidates(
+    module_path: &str,
+    caller_file: &str,
+    indexed_files: &BTreeSet<String>,
+) -> Option<Vec<String>> {
+    let literal = js_ts_literal_module_candidates(module_path, caller_file, indexed_files);
+    if literal.as_ref().is_some_and(|found| !found.is_empty()) {
+        return literal;
+    }
+    match js_ts_normalized_module_candidates(module_path, caller_file, indexed_files) {
+        Some(found) if !found.is_empty() => Some(found),
+        _ => literal,
+    }
+}
+
+/// True for the specifier spellings the relative candidate function accepts:
+/// `./x`, `../x`, and the bare directory forms `.` and `..`.
+pub(crate) fn is_js_ts_relative_specifier(module_path: &str) -> bool {
+    let module_path = module_path.trim();
+    module_path == "."
+        || module_path == ".."
+        || module_path.starts_with("./")
+        || module_path.starts_with("../")
+}
+
+fn js_ts_normalized_module_candidates(
+    module_path: &str,
+    caller_file: &str,
+    indexed_files: &BTreeSet<String>,
+) -> Option<Vec<String>> {
+    let module_path = module_path.trim();
+    if !is_js_ts_relative_specifier(module_path) {
+        return None;
+    }
+    let caller_dir = caller_file.rsplit_once('/').map(|(d, _)| d).unwrap_or("");
+    let mut parts: Vec<&str> = if caller_dir.is_empty() {
+        Vec::new()
+    } else {
+        caller_dir.split('/').collect()
+    };
+    let segments: Vec<&str> = module_path.split('/').collect();
+    // `.`, `..`, `./` and `./sub/` name a directory, never a file.
+    let directory_only = matches!(segments.last(), Some(&("" | "." | "..")));
+    for segment in segments {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                parts.pop()?;
+            }
+            name => parts.push(name),
+        }
+    }
+    let target = parts.join("/");
+    let indexed = |candidate: &String| indexed_files.contains(candidate);
+    let mut candidates: Vec<String> = Vec::new();
+    if !directory_only && !target.is_empty() {
+        let has_module_extension = [".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"]
+            .iter()
+            .any(|ext| target.ends_with(ext));
+        if has_module_extension {
+            // TypeScript order for a spelled extension: the literal file, then
+            // (`.js` only) the emitted-name substitution `.ts` before `.tsx`, never
+            // through a `.d` stem, then the spelling with an extension appended.
+            // The first non-empty tier wins; index files follow below.
+            let literal = Some(target.clone()).filter(indexed);
+            let substituted = target
+                .strip_suffix(".js")
+                .filter(|stem| !stem.is_empty() && !stem.ends_with('/') && !stem.ends_with(".d"))
+                .map(|stem| {
+                    [".ts", ".tsx"]
+                        .iter()
+                        .map(|ext| format!("{stem}{ext}"))
+                        .filter(indexed)
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            let appended = JS_TS_MODULE_EXTENSIONS
+                .iter()
+                .map(|ext| format!("{target}{ext}"))
+                .filter(indexed)
+                .collect::<Vec<_>>();
+            candidates = literal
+                .map(|file| vec![file])
+                .into_iter()
+                .chain([substituted, appended])
+                .find(|tier| !tier.is_empty())
+                .unwrap_or_default();
+        } else {
+            candidates = JS_TS_MODULE_EXTENSIONS
+                .iter()
+                .map(|ext| format!("{target}{ext}"))
+                .filter(indexed)
+                .collect();
+        }
+    }
+    for index in JS_TS_INDEX_FILES {
+        let candidate = if target.is_empty() {
+            index.to_string()
+        } else {
+            format!("{target}/{index}")
+        };
+        if indexed_files.contains(&candidate) {
+            candidates.push(candidate);
+        }
+    }
+    Some(candidates)
+}
+
+pub(crate) fn js_ts_literal_module_candidates(
     module_path: &str,
     caller_file: &str,
     indexed_files: &BTreeSet<String>,
@@ -6750,7 +6880,7 @@ pub(crate) fn js_ts_relative_module_candidates(
     let base = base_parts.join("/");
     let mut candidates = Vec::new();
 
-    for ext in &[".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ""] {
+    for ext in &JS_TS_MODULE_EXTENSIONS {
         let candidate = if base.is_empty() {
             format!("{rel}{ext}")
         } else {
@@ -6761,14 +6891,7 @@ pub(crate) fn js_ts_relative_module_candidates(
         }
     }
 
-    for index in &[
-        "index.js",
-        "index.jsx",
-        "index.mjs",
-        "index.cjs",
-        "index.ts",
-        "index.tsx",
-    ] {
+    for index in &JS_TS_INDEX_FILES {
         let candidate = if base.is_empty() {
             format!("{rel}/{index}")
         } else {

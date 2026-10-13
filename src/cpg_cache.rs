@@ -248,9 +248,12 @@ use std::path::{Path, PathBuf};
 /// - v112: PR-B R5 retains flat named seam rows and refuses synthetic formals.
 /// - v113: PR-B R9 positive recovery proof, receiver and reference fences.
 /// - v114: PR-B R10 labelled body, JSX member, enum and commented-eval repairs.
-/// - v115: slice L follows JS/TS `const` aliases: `CallSite.local_binding` gains
+/// - v115: I1 relative-specifier candidates: a `.js` spelling with no indexed `.js` file
+///   finds the same-stem `.ts`/`.tsx`; bare `.`/`..` find the directory index; redundant
+///   `//`, `/./`, `/../` segments are normalized within the repo root.
+/// - v116: slice L follows JS/TS `const` aliases: `CallSite.local_binding` gains
 ///   `AliasCallable`, `AliasImport` and `AliasNamespaceMember`.
-const CACHE_VERSION: u32 = 115;
+const CACHE_VERSION: u32 = 116;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -794,7 +797,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 115);
+        assert_eq!(super::CACHE_VERSION, 116);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -1541,7 +1544,7 @@ mod tests {
             }
             other => panic!("expected Hit, got {}", cache_result_kind(&other)),
         }
-        force_cache_version(dir.path(), 114);
+        force_cache_version(dir.path(), 115);
         assert!(matches!(
             load_cache(&hashes, false, dir.path()),
             CacheResult::Miss

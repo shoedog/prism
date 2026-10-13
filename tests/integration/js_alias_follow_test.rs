@@ -459,12 +459,24 @@ fn a_tsconfig_paths_namespace_import_drops_and_binds_nothing_elsewhere() {
 
 #[test]
 fn an_unresolvable_relative_module_drops_with_import_external() {
-    // The `.js` suffix does not resolve to a `.ts` file on this base (a separate slice does that).
+    let app = "import * as N from './missing';\nexport function run() {\n  const h = N.target;\n  \
+        return h(1);\n}\n";
+    let got = caller_sites(&[
+        ("app.ts", app),
+        ("callee.ts", CALLEE),
+        ("other/missing.ts", CALLEE),
+    ]);
+    assert_eq!(got, ["L4 h: drop ImportExternal"]);
+}
+
+#[test]
+fn a_js_suffixed_relative_module_resolves_to_the_ts_file_like_a_named_import() {
+    // `./callee.js` finds the same-stem `callee.ts` (relative-candidate fallback on main).
     let app =
         "import * as N from './callee.js';\nexport function run() {\n  const h = N.target;\n  \
         return h(1);\n}\n";
     let got = caller_sites(&[("app.ts", app), ("callee.ts", CALLEE)]);
-    assert_eq!(got, ["L4 h: drop ImportExternal"]);
+    assert_eq!(got, ["L4 h: Exact import_member target@1-3"]);
 }
 
 #[test]

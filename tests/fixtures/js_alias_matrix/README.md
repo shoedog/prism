@@ -1,11 +1,11 @@
 # JS/TS alias variant matrix
 
 Enumerated tiny repos (one per line of `fixtures.jsonl`), each with one call site
-marked `// SITE` and an authored ground truth for what that site statically calls. The test
-(`tests/integration/js_alias_matrix_test.rs`) runs prism on every fixture and
-compares a derived row with the pinned row in `expected.jsonl`. It pins what
-prism does today, so a product slice shows up as a diff of `expected.jsonl`,
-row by row.
+marked `// SITE` and an authored ground truth for what that site statically calls.
+The test (`tests/integration/js_alias_matrix_test.rs`) runs prism on every fixture
+and compares a derived row with the pinned row in `expected.jsonl`. It pins what
+prism does today, so a product slice shows up as a diff of `expected.jsonl`, row
+by row.
 
 ## Files
 
@@ -14,9 +14,9 @@ row by row.
   `files` (path to source).
 - `expected.jsonl`: one row per fixture, same order: `id`, `verdict`, `record`,
   `exact`, `nameonly`, `drop`, `origins`.
-- `accepted_changes.jsonl`: regressions a bless run may accept (see below).
-  One `{"id": ..., "reason": ...}` per line. Empty by default.
-- `generator/`: dev-time Node scripts that produced the two files above.
+- `accepted_changes.jsonl`: the ledger of accepted regressions still in effect
+  (see "Updating after a slice"). Empty by default.
+- `generator/`: dev-time Node scripts that produce `fixtures.jsonl`.
 
 `truth` is one of: `one` (exactly one in-repo callable), `set` (a closed set of
 in-repo callables), `may` (possibly these; may be empty; not provable from
@@ -32,10 +32,14 @@ resolved targets split by confidence (`exact` vs anything else), sorted. `drop`
 is the distinct drop reasons joined with `+`; `origins` the distinct origins,
 sorted. `record: false` means no record exists at the site.
 
-## Verdicts
+## Callable identity
 
-A target matches when it is in the same file and has the same name or the same
-declaration line.
+A resolved target is the truth target when it has the same file, the same name,
+and the same declaration line when the truth records a line (a truth without a
+line matches on file and name). A matching name or a matching line alone is not
+enough. An `anon` truth matches on file and the `// ANON` line.
+
+## Verdicts
 
 - `NO-RECORD`: no call-site record exists at the site.
 - `CORRECT`: every exact target is in the truth and all truth targets are covered
@@ -60,7 +64,10 @@ cargo test --test integration js_alias_matrix
 ```
 
 The test reports every differing row (expected row, actual row) and a count by
-`(step, expected verdict -> actual verdict)`. Nothing here needs Node.
+`(step, expected verdict -> actual verdict)`. Nothing here needs Node. It also
+checks the fixture file itself: unique ids, a `// SITE` on every site line, truth
+targets that name real files, lines and (for `anon`) a `// ANON` marker, and an
+expected row for every fixture.
 
 ## Updating after a slice
 
@@ -72,26 +79,38 @@ The test reports every differing row (expected row, actual row) and a count by
    ```
 
    Every changed row is a behavior change the PR must explain.
-2. Bless refuses to write anything if a row would regress: its verdict moves into
-   `WRONG` or `OVERCLAIM`, or out of `CORRECT`. A new fixture with no pinned row
-   counts only if it lands in `WRONG` or `OVERCLAIM`. To accept a regression, add
-   `{"id": "<fixture id>", "reason": "<why>"}` to `accepted_changes.jsonl` and
-   rerun. Accepting one id excuses only that row.
-3. The normal run fails if `accepted_changes.jsonl` names an id that is not a fixture.
+2. Bless compares with the committed baseline, not the working tree: it reads
+   `expected.jsonl` from `git show HEAD:...`, so it needs git and a committed
+   `expected.jsonl`, and editing a pinned row by hand cannot hide a change. A
+   fixture id absent from the baseline is a new fixture and is never a regression.
+3. A row regresses when its new verdict is `WRONG`, `OVERCLAIM` or `NONE+NAMEONLY`;
+   or its old verdict is `CORRECT` or `NONE-OK` and the new one differs; or its new
+   verdict is `NO-RECORD` and the old one was not. Bless refuses, and writes
+   nothing, while any regression is unaccepted.
+4. To accept a regression, add `{"id": ..., "from": ..., "to": ..., "reason": ...}`
+   to `accepted_changes.jsonl`. It excuses exactly that transition for that id
+   (`from` is the baseline verdict, `to` the new one).
+5. The file is a ledger of accepted regressions still in effect. The normal run
+   fails on a stale entry: an id that is not a fixture, or an entry whose `to` is
+   not the currently pinned verdict of that id. When a later change improves the
+   row, delete its entry in that same change.
+6. Bless also refuses when a pinned row names no fixture; delete that row from
+   `expected.jsonl` by hand in the same change. Bless writes atomically (temp file
+   in the same directory, then rename).
 
 ## Adding fixtures
 
-Edit `generator/variants.cjs`, then regenerate. This is a dev-time step, not part
-of `cargo test`. It needs Node, a TypeScript checker (`typescript.js`, used by
-`run.cjs` as a cross-check of the authored truth) and a built prism binary:
+Edit the generator under `generator/`, then, from the repository root, regenerate
+`fixtures.jsonl` and bless:
 
 ```bash
-node generator/run.cjs <typescript.js> <out-dir> main=<path to prism binary>
-node generator/export.cjs <out-dir>/matrix.jsonl <dest-dir> main
+node tests/fixtures/js_alias_matrix/generator/export.cjs tests/fixtures/js_alias_matrix
+PRISM_BLESS_JS_ALIAS_MATRIX=1 cargo test --test integration js_alias_matrix_test::matrix_matches
 ```
 
-`run.cjs` writes `matrix.jsonl`; `export.cjs` takes that file, an output
-directory and the binary tag (`main` above) and writes `fixtures.jsonl` and
-`expected.jsonl`. Copy both here. The rows of any new fixture are pinned from
-the binary that produced them, so check them against their `truth` before
-committing.
+Regeneration is a dev-time step needing Node; it is not part of `cargo test`.
+`export.cjs` writes `fixtures.jsonl` only; `expected.jsonl` always comes from the
+bless step. Check the new rows against their `truth` before committing.
+
+`generator/run.cjs` is an optional dev-time cross-check: it runs a prism binary
+and the TypeScript checker over the fixtures and writes nothing into the repo.
