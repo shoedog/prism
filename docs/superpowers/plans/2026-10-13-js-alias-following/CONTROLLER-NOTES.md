@@ -29,7 +29,7 @@ Not re-derived by the controller: the per-class X and T tables (taken from the p
 
 "Unknown" for imports is a limit of the census, not of prism: 5,778 product import sites use non-relative specifiers, which the census checker does not resolve (it runs without the project's path mapping). The tsconfig-paths lane measured those separately.
 
-Local family on F, by class (product sites / correct / wrong): `const` arrow 447 / 431 / 0; call result 276 / 100 / 1 (`useCallback` 98, all correct; hook-named calls 113; `lazy` 20; other 42; `forwardRef` 3); destructure from a call result 819 / 0 / 70 (`useState` 580 with 27 wrong, hook-named calls 199 with 43 wrong, `useContext` 40); destructure from an identifier 222 / 0 / 37; tagged template 256 of the 258 "other" (styled components, no in-repo callee); plain identifier alias 5; member of an identifier 4 / 0 / 1.
+Local family on F, by class (product sites / correct / wrong): `const` arrow 447 / 431 / 0; call result 276 / 100 / 1 (`useCallback` 98, all correct; hook-named calls 113; `lazy` 20; other 42; `forwardRef` 3); destructure from a call result 819 / 0 / 70 (`useState` 580 with 27 wrong, hook-named calls 199 with 43 wrong, `useContext` 40); destructure from an identifier 222 / 0 / 37; tagged template 256 of the 258 "other" (the census cannot follow a tagged template; the usual source of this shape is a styled-component, which the controller did not confirm); plain identifier alias 5; member of an identifier 4 / 0 / 1.
 
 The 109 wrong targets are exactly the set E5 removes (all `free_single`). In addition 287 product sites carry `free_multi` NameOnly candidates for a locally bound name, 2,222 NameOnly edges in total.
 
