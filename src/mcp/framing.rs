@@ -5,6 +5,8 @@ use serde_json::Value;
 #[cfg(test)]
 use std::collections::VecDeque;
 use std::io::{BufRead, Write};
+#[cfg(unix)]
+use std::os::unix::net::UnixStream;
 
 /// Max inbound JSON-RPC message size (one line). A nav request is tiny; this caps a hostile/buggy
 /// local client's memory (holistic-review MAJOR — `read_line` was unbounded).
@@ -128,6 +130,27 @@ impl<R: BufRead, W: Write> Transport for LineTransport<R, W> {
     }
 }
 
+/// The framing over one connected Unix socket. Reads and writes go through independent handles
+/// to the same stream; the writer is buffered and `write_message` flushes once per message, so a
+/// response is one write to the peer rather than one per JSON token.
+// First production consumer: the daemon's connection loop (shared-daemon slice S3a).
+#[cfg(unix)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(super) type UnixStreamTransport =
+    LineTransport<std::io::BufReader<UnixStream>, std::io::BufWriter<UnixStream>>;
+
+#[cfg(unix)]
+#[cfg_attr(not(test), allow(dead_code))]
+impl UnixStreamTransport {
+    pub(super) fn from_stream(stream: UnixStream) -> std::io::Result<Self> {
+        let reader = stream.try_clone()?;
+        Ok(Self::new(
+            std::io::BufReader::new(reader),
+            std::io::BufWriter::new(stream),
+        ))
+    }
+}
+
 #[cfg(test)]
 pub struct InMemoryTransport {
     inputs: VecDeque<String>,
@@ -159,3 +182,7 @@ impl Transport for InMemoryTransport {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "framing_tests.rs"]
+mod tests;
