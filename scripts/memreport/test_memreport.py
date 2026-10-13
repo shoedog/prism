@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Unit tests for the memory-report driver.
+"""Unit tests for the memory-report driver: parsing, validation, derivation, one run.
 
-Run with:
-    python3 -m unittest scripts/memreport/test_memreport.py
+Run every test module with:
+    python3 -m unittest discover -s scripts/memreport -p 'test_*.py'
 """
 import json
-import stat
 import sys
 import tempfile
 import unittest
@@ -13,27 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import memreport  # noqa: E402
-
-MIB = 1024 * 1024
-
-
-def stage(name, footprint, peak, rss=None):
-    return {'name': name, 'elapsed_ms': 0, 'rss_bytes': rss if rss is not None else footprint,
-            'phys_footprint_bytes': footprint, 'compressed_bytes': 0, 'peak_bytes': peak}
-
-
-def report(stages, attribution=None, workload=None):
-    return {'prism_mem_report': 1, 'build': {'build_identity': 'b'}, 'platform': {'os': 'macos'},
-            'config': {}, 'stages': stages, 'ru_maxrss_bytes': 1,
-            'attribution': attribution or {}, 'workload': workload, 'refresh': None}
-
-
-def fake_binary(directory, body):
-    """A stand-in for prism-mcp: a Python script that runs `body`."""
-    path = Path(directory) / 'fake-prism-mcp'
-    path.write_text('#!/usr/bin/env python3\nimport json, sys, time\n' + body)
-    path.chmod(path.stat().st_mode | stat.S_IXUSR)
-    return path
+from memreport_fixtures import MIB, canned, emit, fake_binary, noise, report, stage, workload_section  # noqa: E402
 
 
 class ParseTests(unittest.TestCase):
@@ -105,6 +84,119 @@ class RuleTests(unittest.TestCase):
         self.assertEqual(memreport.evaluate(rows)['M1'], {'corpora': ['b'], 'advance': False})
 
 
+class ValidateTests(unittest.TestCase):
+    def mutate(self, kind, stage_name, **fields):
+        data = canned(kind)
+        for entry in data['stages']:
+            if entry['name'] == stage_name:
+                entry.update(fields)
+        return data
+
+    def test_a_canned_report_of_each_kind_is_accepted(self):
+        for kind in memreport.KINDS:
+            self.assertIsNone(memreport.validate(kind, canned(kind)), kind)
+
+    def test_other_report_versions_are_rejected(self):
+        for version in (1, 3, None):
+            data = canned('cold')
+            data['prism_mem_report'] = version
+            self.assertIn('report version', memreport.validate('cold', data))
+
+    def test_an_unavailable_number_a_kind_needs_names_the_stage_and_field(self):
+        cases = [
+            ('warm', 'after_index', {'peak_bytes': None}, 'after_index.peak_bytes is unavailable'),
+            ('warm', 'after_load_repo', {'peak_bytes': None}, 'after_load_repo.peak_bytes is unavailable'),
+            ('cold', 'after_call_edges', {'peak_bytes': None}, 'after_call_edges.peak_bytes is unavailable'),
+            ('refresh', 'after_refresh', {'peak_bytes': None}, 'after_refresh.peak_bytes is unavailable'),
+            ('workload', 'after_settle', {'phys_footprint_bytes': None, 'rss_bytes': None},
+             'after_settle.phys_footprint_bytes and after_settle.rss_bytes are unavailable'),
+            ('warm', 'after_index', {'phys_footprint_bytes': None, 'rss_bytes': None},
+             'after_index.phys_footprint_bytes and after_index.rss_bytes are unavailable'),
+        ]
+        for kind, stage_name, fields, reason in cases:
+            self.assertEqual(memreport.validate(kind, self.mutate(kind, stage_name, **fields)), reason)
+
+    def test_a_missing_footprint_falls_back_to_rss_and_is_accepted(self):
+        data = self.mutate('workload', 'after_settle', phys_footprint_bytes=None, rss_bytes=5)
+        self.assertIsNone(memreport.validate('workload', data))
+
+    def test_a_missing_stage_is_named(self):
+        data = canned('warm')
+        data['stages'] = [entry for entry in data['stages'] if entry['name'] != 'after_index']
+        self.assertEqual(memreport.validate('warm', data), 'stage after_index is missing')
+        data['stages'] = None
+        self.assertEqual(memreport.validate('warm', data), 'stage after_load_repo is missing')
+
+    def test_optional_numbers_may_be_null_and_derive_returns_none_for_them(self):
+        data = self.mutate('workload', 'after_settle', heap_in_use_bytes=None, tree_sitter_heap_bytes=None)
+        self.assertIsNone(memreport.validate('workload', data))
+        derived = memreport.derive('workload', data)
+        self.assertEqual(derived['steady'], 1000 * MIB)
+        data['attribution'] = {}
+        self.assertIsNone(memreport.validate('workload', data))
+        self.assertIsNone(memreport.derive('workload', data)['m3'])
+
+    def test_a_refresh_that_raced_is_rejected(self):
+        data = canned('refresh')
+        data['refresh'] = {'status': 'raced_stale'}
+        self.assertIn('raced_stale', memreport.validate('refresh', data))
+        data['refresh'] = None
+        self.assertEqual(memreport.validate('refresh', data), 'report has no refresh section')
+
+    def test_workload_section_rules(self):
+        cases = [
+            (None, 'report has no workload section'),
+            (workload_section(errors=2), 'workload had 2 errors'),
+            (workload_section(requests=8, responses=7), 'workload answered 7 of 8 requests'),
+            (workload_section(requests=0), 'workload ran no requests'),
+            ({'requests': None, 'responses': 1, 'errors': 0}, 'workload requests/responses/errors are unavailable'),
+        ]
+        for section, reason in cases:
+            data = canned('workload')
+            data['workload'] = section
+            self.assertEqual(memreport.validate('workload', data), reason)
+
+    def test_workload_must_match_the_expected_count_and_digest(self):
+        data = canned('workload', sha256='a' * 64, requests=8)
+        self.assertIsNone(memreport.validate('workload', data, {'requests': 8, 'sha256': 'a' * 64}))
+        self.assertIn('differs', memreport.validate('workload', data, {'requests': 8, 'sha256': 'b' * 64}))
+        self.assertIn('ran 8 requests, the manifest has 9',
+                      memreport.validate('workload', data, {'requests': 9, 'sha256': 'a' * 64}))
+
+
+class AdmissionTests(unittest.TestCase):
+    """validate is wired into the run path: a null measurement keeps a run out of the statistics."""
+
+    def run_fake(self, body, kind, expected=None):
+        with tempfile.TemporaryDirectory() as tmp:
+            return memreport.run_one([str(fake_binary(tmp, body))], kind, 20, expected)
+
+    def test_a_warm_report_with_a_null_peak_is_inadmissible_not_an_exception(self):
+        data = canned('warm')
+        data['stages'][1]['peak_bytes'] = None
+        result = self.run_fake(emit(data), 'warm')
+        self.assertEqual(result['status'], 'inadmissible')
+        self.assertEqual(result['reason'], 'after_index.peak_bytes is unavailable')
+        self.assertEqual(result['report'], data)
+
+    def test_a_report_of_the_wrong_version_is_inadmissible(self):
+        data = canned('cold')
+        data['prism_mem_report'] = 1
+        self.assertEqual(self.run_fake(emit(data), 'cold')['status'], 'inadmissible')
+
+    def test_a_raced_refresh_is_inadmissible(self):
+        data = canned('refresh')
+        data['refresh'] = {'status': 'raced_stale'}
+        self.assertEqual(self.run_fake(emit(data), 'refresh')['status'], 'inadmissible')
+
+    def test_expected_workload_digest_is_enforced_by_the_run_path(self):
+        data = canned('workload', sha256='a' * 64)
+        expected = {'requests': 8, 'sha256': 'b' * 64}
+        self.assertEqual(self.run_fake(emit(data), 'workload', expected)['status'], 'inadmissible')
+        expected['sha256'] = 'a' * 64
+        self.assertEqual(self.run_fake(emit(data), 'workload', expected)['status'], 'ok')
+
+
 class CommandTests(unittest.TestCase):
     def test_each_kind_gets_its_flags(self):
         base = ['bin', '--repo', 'r', '--eager', '--mem-settle-secs', '5']
@@ -122,10 +214,9 @@ class RunOneTests(unittest.TestCase):
             return memreport.run_one([str(binary)], kind, timeout)
 
     def test_a_good_run_is_admissible_and_carries_its_report(self):
-        result = self.run_fake(
-            "print(json.dumps({'prism_mem_report': 1, 'stages': [], 'workload': None}), file=sys.stderr)\n")
+        result = self.run_fake(emit(canned('warm')))
         self.assertEqual(result['status'], 'ok')
-        self.assertEqual(result['report']['stages'], [])
+        self.assertEqual(result['report']['stages'][1]['name'], 'after_index')
 
     def test_timeout_is_recorded_and_does_not_raise(self):
         result = self.run_fake('time.sleep(30)\n', timeout=1)
@@ -139,19 +230,19 @@ class RunOneTests(unittest.TestCase):
         self.assertIn('boom', result['stderr_tail'])
 
     def test_warm_run_that_missed_the_cache_is_inadmissible(self):
-        body = ("print('nav cache: CPG cache miss in /x, rebuilding', file=sys.stderr)\n"
-                "print(json.dumps({'prism_mem_report': 1, 'stages': [], 'workload': None}), file=sys.stderr)\n")
-        self.assertEqual(self.run_fake(body, kind='warm')['status'], 'inadmissible')
-        self.assertIn('cache', self.run_fake(body, kind='warm')['reason'])
+        miss = noise('nav cache: CPG cache miss in /x, rebuilding')
+        warm = self.run_fake(emit(canned('warm'), miss), kind='warm')
+        self.assertEqual(warm['status'], 'inadmissible')
+        self.assertIn('cache', warm['reason'])
         # A cold run is expected to build; the same output is fine there.
-        self.assertEqual(self.run_fake(body, kind='cold')['status'], 'ok')
+        self.assertEqual(self.run_fake(emit(canned('cold'), miss), kind='cold')['status'], 'ok')
 
     def test_run_with_workload_errors_is_inadmissible(self):
-        body = ("print(json.dumps({'prism_mem_report': 1, 'stages': [], "
-                "'workload': {'requests': 4, 'responses': 4, 'errors': 1, 'response_bytes': 9}}), file=sys.stderr)\n")
-        result = self.run_fake(body, kind='workload')
+        bad = canned('workload')
+        bad['workload'] = workload_section(requests=4, errors=1)
+        result = self.run_fake(emit(bad), kind='workload')
         self.assertEqual(result['status'], 'inadmissible')
-        self.assertIn('workload', result['reason'])
+        self.assertIn('workload had 1 errors', result['reason'])
 
     def test_a_run_without_a_report_is_inadmissible(self):
         result = self.run_fake("print('nothing useful', file=sys.stderr)\n")

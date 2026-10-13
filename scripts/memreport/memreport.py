@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 
 MARKER = '{"prism_mem_report":'
+REPORT_VERSION = 2
 KINDS = ('warm', 'cold', 'workload', 'refresh')
 CACHE_MISS_MARKERS = ('CPG cache miss', 'partial CPG cache hit')
 MIB = 1024 * 1024
@@ -50,6 +51,84 @@ def footprint(entry):
     return value if value is not None else entry.get('rss_bytes')
 
 
+def is_number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def find_stage(report, name):
+    """The named stage, or None when the report has no such stage."""
+    stages = report.get('stages')
+    if not isinstance(stages, list):
+        return None
+    for entry in stages:
+        if isinstance(entry, dict) and entry.get('name') == name:
+            return entry
+    return None
+
+
+FOOTPRINT = 'footprint'
+# Per kind: the (stage, field) pairs `derive` reads and cannot do without.
+REQUIRED = {
+    'warm': (('after_load_repo', 'peak_bytes'), ('after_index', 'peak_bytes'), ('after_index', FOOTPRINT)),
+    'cold': (('after_call_edges', 'peak_bytes'),),
+    'refresh': (('after_refresh', 'peak_bytes'),),
+    'workload': (('after_settle', FOOTPRINT),),
+}
+
+
+def validate(kind, report, expected=None):
+    """None when the report may be used as evidence for `kind`, else the reason it may not.
+
+    `expected` (workload runs): {'requests': int, 'sha256': hex} of the workload this run was told to use.
+    """
+    if kind not in REQUIRED:
+        return 'unknown kind %r' % kind
+    if report.get('prism_mem_report') != REPORT_VERSION:
+        return 'report version is %r, expected %d' % (report.get('prism_mem_report'), REPORT_VERSION)
+    for stage_name, field in REQUIRED[kind]:
+        entry = find_stage(report, stage_name)
+        if entry is None:
+            return 'stage %s is missing' % stage_name
+        if field == FOOTPRINT:
+            if not is_number(footprint(entry)):
+                return '%s.phys_footprint_bytes and %s.rss_bytes are unavailable' % (stage_name, stage_name)
+        elif not is_number(entry.get(field)):
+            return '%s.%s is unavailable' % (stage_name, field)
+    if kind == 'refresh':
+        refresh = report.get('refresh')
+        if not isinstance(refresh, dict):
+            return 'report has no refresh section'
+        if refresh.get('status') != 'refreshed':
+            return 'refresh status is %r, not \'refreshed\' (the tree changed during the refresh)' % (
+                refresh.get('status'),)
+    if kind == 'workload':
+        return validate_workload(report, expected)
+    return None
+
+
+def validate_workload(report, expected):
+    if not isinstance(report.get('attribution'), dict):
+        return 'report has no attribution section'
+    workload = report.get('workload')
+    if not isinstance(workload, dict):
+        return 'report has no workload section'
+    requests, responses, errors = (workload.get(key) for key in ('requests', 'responses', 'errors'))
+    if not all(is_number(value) for value in (requests, responses, errors)):
+        return 'workload requests/responses/errors are unavailable'
+    if errors != 0:
+        return 'workload had %d errors' % errors
+    if requests == 0:
+        return 'workload ran no requests'
+    if responses != requests:
+        return 'workload answered %d of %d requests' % (responses, requests)
+    if expected is not None:
+        if requests != expected['requests']:
+            return 'workload ran %d requests, the manifest has %d' % (requests, expected['requests'])
+        if workload.get('sha256') != expected['sha256']:
+            return 'workload sha256 %s differs from the manifest %s' % (workload.get('sha256'), expected['sha256'])
+    return None
+
+
 def summarize(values):
     values = [value for value in values if value is not None]
     if not values:
@@ -57,8 +136,21 @@ def summarize(values):
     return {'min': min(values), 'median': statistics.median(values), 'max': max(values), 'n': len(values)}
 
 
+def num(mapping, key):
+    """mapping[key] when it is a number, else None (absent, null or malformed)."""
+    value = mapping.get(key) if isinstance(mapping, dict) else None
+    return value if is_number(value) else None
+
+
+def difference(high, low):
+    return None if high is None or low is None else high - low
+
+
 def derive(kind, report):
-    """The per-run quantities the readout is built from (bytes)."""
+    """The per-run quantities the readout is built from (bytes). A value that is unavailable is None.
+
+    Never raises for a report that `validate(kind, report)` accepted.
+    """
     if kind == 'warm':
         loaded, built = stage(report, 'after_load_repo'), stage(report, 'after_index')
         transient = built['peak_bytes'] - max(loaded['peak_bytes'], footprint(built))
@@ -71,10 +163,10 @@ def derive(kind, report):
         attribution = report['attribution']
         return {
             'steady': footprint(stage(report, 'after_settle')),
-            'm1_low': attribution['tree_bytes_estimate_low'],
-            'm1_high': attribution['tree_bytes_estimate_high'],
-            'm3': attribution['node_string_heap_bytes_estimate']
-            - attribution['node_unique_string_heap_bytes_estimate'],
+            'm1_low': num(attribution, 'tree_bytes_estimate_low'),
+            'm1_high': num(attribution, 'tree_bytes_estimate_high'),
+            'm3': difference(num(attribution, 'node_string_heap_bytes_estimate'),
+                             num(attribution, 'node_unique_string_heap_bytes_estimate')),
         }
     raise ValueError('unknown kind %r' % kind)
 
@@ -104,7 +196,7 @@ def command_for(binary, repo, cache_dir, kind, workload, settle):
     return command
 
 
-def run_one(command, kind, timeout):
+def run_one(command, kind, timeout, expected=None):
     """Run one measurement. Never raises for a bad run: the result says what happened."""
     env = dict(os.environ, PRISM_MCP_MEM_REPORT='1')
     started = time.time()
@@ -127,11 +219,12 @@ def run_one(command, kind, timeout):
     result['report'] = report
     if kind != 'cold' and any(marker in stderr for marker in CACHE_MISS_MARKERS):
         result.update(status='inadmissible', reason='the cache missed, so this was a cold build')
-    elif report.get('workload') and report['workload']['errors']:
-        result.update(status='inadmissible',
-                      reason='workload had %d errors' % report['workload']['errors'])
     else:
-        result['status'] = 'ok'
+        reason = validate(kind, report, expected)
+        if reason is None:
+            result['status'] = 'ok'
+        else:
+            result.update(status='inadmissible', reason=reason)
     return result
 
 
