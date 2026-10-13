@@ -609,3 +609,169 @@ fn e5_target_facts_merge_script_to_module_and_back() {
         }
     }
 }
+
+#[test]
+fn e5_r1_trivia_preserves_covered_shapes_and_refuses_twins() {
+    let mut failures = Vec::new();
+    for (label, lang, ext, callee, caller, keep) in [
+        ("namespace_terminal_trivia_ts", Language::TypeScript, "ts", "export namespace N { export function f(x) { return x; } }", "import { N } from './callee'; import f = N./* terminal */f; export function caller(x) { return f(x); }", true),
+        ("namespace_terminal_twin_ts", Language::TypeScript, "ts", "export namespace N { export function f(x) { return x; } }", "import { N } from './callee'; import f = N./* terminal */g; export function caller(x) { return f(x); }", false),
+        ("namespace_positions_trivia_ts", Language::TypeScript, "ts", "export namespace N { export function f(x) { return x; } }", "import { N } from './callee'; import /*local*/ f /*eq*/ = /*entity*/ N /*dot*/ . /*terminal*/ f; export function caller(x) { return f(x); }", true),
+        ("namespace_positions_twin_ts", Language::TypeScript, "ts", "export namespace N { export function f(x) { return x; } }", "import { N } from './callee'; import /*local*/ f /*eq*/ = /*entity*/ N /*dot*/ . /*terminal*/ g; export function caller(x) { return f(x); }", false),
+        ("namespace_deep_terminal_ts", Language::TypeScript, "ts", "export namespace N { export function f(x) { return x; } }", "import { N } from './callee'; import f = N.Inner./* terminal */f; export function caller(x) { return f(x); }", true),
+        ("namespace_deep_twin_ts", Language::TypeScript, "ts", "export namespace N { export function f(x) { return x; } }", "import { N } from './callee'; import f = N.Inner./* terminal */g; export function caller(x) { return f(x); }", false),
+        ("namespace_whitespace_ts", Language::TypeScript, "ts", "export namespace N { export function f(x) { return x; } }", "import { N } from './callee'; import f = N.\n  f; export function caller(x) { return f(x); }", true),
+        ("require_positions_trivia_ts", Language::TypeScript, "ts", "function f(x) { return x; } export = f;", "import /*local*/ f /*eq*/ = /*entity*/ require /*call*/ (/*arg*/'./callee'/*end*/); export function caller(x) { return f(x); }", true),
+        ("require_unrelated_trivia_ts", Language::TypeScript, "ts", "function f(x) { return x; } export = f;", "import /*local*/ g /*eq*/ = /*entity*/ require /*call*/ (/*arg*/'./callee'/*end*/); export function caller(x) { return f(x); }", false),
+        ("export_require_positions_trivia_ts", Language::TypeScript, "ts", "function f(x) { return x; } export = f;", "export import /*local*/ f /*eq*/ = /*entity*/ require /*call*/ (/*arg*/'./callee'/*end*/); export function caller(x) { return f(x); }", true),
+        ("export_require_argument_trivia_ts", Language::TypeScript, "ts", "function f(x) { return x; } export = f;", "export import f = require(/*arg*/'./callee'/*end*/); export function caller(x) { return f(x); }", true),
+        ("export_require_nonstring_ts", Language::TypeScript, "ts", "function f(x) { return x; } export = f;", "export import f = require(/*arg*/value/*end*/); export function caller(x) { return f(x); }", false),
+        ("export_require_extra_expression_ts", Language::TypeScript, "ts", "function f(x) { return x; } export = f;", "export import f = require(/*arg*/'./callee', value); export function caller(x) { return f(x); }", false),
+        ("export_require_real_semicolon_ts", Language::TypeScript, "ts", "function f(x) { return x; } export = f;", "export import f = require; /*gap*/ ('./callee'); export function caller(x) { return f(x); }", false),
+        ("export_require_nested_parens_ts", Language::TypeScript, "ts", "function f(x) { return x; } export = f;", "export import f = require((/*arg*/'./callee')); export function caller(x) { return f(x); }", false),
+        ("export_require_type_assertion_ts", Language::TypeScript, "ts", "function f(x) { return x; } export = f;", "export import f = require('./callee' as string); export function caller(x) { return f(x); }", false),
+        ("namespace_terminal_trivia_tsx", Language::Tsx, "tsx", "export namespace N { export function f(x) { return x; } }", "import { N } from './callee'; import f = N./* terminal */f; export function caller(x) { return f(x); }", true),
+        ("namespace_terminal_twin_tsx", Language::Tsx, "tsx", "export namespace N { export function f(x) { return x; } }", "import { N } from './callee'; import f = N./* terminal */g; export function caller(x) { return f(x); }", false),
+        ("namespace_positions_trivia_tsx", Language::Tsx, "tsx", "export namespace N { export function f(x) { return x; } }", "import { N } from './callee'; import /*local*/ f /*eq*/ = /*entity*/ N /*dot*/ . /*terminal*/ f; export function caller(x) { return f(x); }", true),
+        ("namespace_positions_twin_tsx", Language::Tsx, "tsx", "export namespace N { export function f(x) { return x; } }", "import { N } from './callee'; import /*local*/ f /*eq*/ = /*entity*/ N /*dot*/ . /*terminal*/ g; export function caller(x) { return f(x); }", false),
+        ("namespace_deep_terminal_tsx", Language::Tsx, "tsx", "export namespace N { export function f(x) { return x; } }", "import { N } from './callee'; import f = N.Inner./* terminal */f; export function caller(x) { return f(x); }", true),
+        ("namespace_deep_twin_tsx", Language::Tsx, "tsx", "export namespace N { export function f(x) { return x; } }", "import { N } from './callee'; import f = N.Inner./* terminal */g; export function caller(x) { return f(x); }", false),
+        ("namespace_whitespace_tsx", Language::Tsx, "tsx", "export namespace N { export function f(x) { return x; } }", "import { N } from './callee'; import f = N.\n  f; export function caller(x) { return f(x); }", true),
+        ("require_positions_trivia_tsx", Language::Tsx, "tsx", "function f(x) { return x; } export = f;", "import /*local*/ f /*eq*/ = /*entity*/ require /*call*/ (/*arg*/'./callee'/*end*/); export function caller(x) { return f(x); }", true),
+        ("require_unrelated_trivia_tsx", Language::Tsx, "tsx", "function f(x) { return x; } export = f;", "import /*local*/ g /*eq*/ = /*entity*/ require /*call*/ (/*arg*/'./callee'/*end*/); export function caller(x) { return f(x); }", false),
+        ("export_require_positions_trivia_tsx", Language::Tsx, "tsx", "function f(x) { return x; } export = f;", "export import /*local*/ f /*eq*/ = /*entity*/ require /*call*/ (/*arg*/'./callee'/*end*/); export function caller(x) { return f(x); }", true),
+        ("export_require_argument_trivia_tsx", Language::Tsx, "tsx", "function f(x) { return x; } export = f;", "export import f = require(/*arg*/'./callee'/*end*/); export function caller(x) { return f(x); }", true),
+        ("export_require_nonstring_tsx", Language::Tsx, "tsx", "function f(x) { return x; } export = f;", "export import f = require(/*arg*/value/*end*/); export function caller(x) { return f(x); }", false),
+        ("export_require_extra_expression_tsx", Language::Tsx, "tsx", "function f(x) { return x; } export = f;", "export import f = require(/*arg*/'./callee', value); export function caller(x) { return f(x); }", false),
+        ("export_require_real_semicolon_tsx", Language::Tsx, "tsx", "function f(x) { return x; } export = f;", "export import f = require; /*gap*/ ('./callee'); export function caller(x) { return f(x); }", false),
+        ("export_require_nested_parens_tsx", Language::Tsx, "tsx", "function f(x) { return x; } export = f;", "export import f = require((/*arg*/'./callee')); export function caller(x) { return f(x); }", false),
+        ("export_require_type_assertion_tsx", Language::Tsx, "tsx", "function f(x) { return x; } export = f;", "export import f = require('./callee' as string); export function caller(x) { return f(x); }", false),
+        ("await_operand_trivia_js", Language::JavaScript, "js", "export function f(x) { return x; }", "export {}; async function outer() { const { f } = await /*operand*/ import /*call*/ ('./callee'); function caller(x) { return f(x); } }", true),
+        ("await_pattern_trivia_js", Language::JavaScript, "js", "export function f(x) { return x; }", "export {}; async function outer() { const { /*key*/ g /*colon*/ : /*value*/ f } = await /*operand*/ import('./callee'); function caller(x) { return f(x); } }", true),
+        ("await_default_trivia_js", Language::JavaScript, "js", "export function f(x) { return x; }", "export {}; async function outer() { const { /*key*/ f /*eq*/ = null } = await /*operand*/ import('./callee'); function caller(x) { return f(x); } }", true),
+        ("await_nested_trivia_js", Language::JavaScript, "js", "export function f(x) { return x; }", "export {}; async function outer() { const { nested: { /*key*/ f } } = await /*operand*/ import('./callee'); function caller(x) { return f(x); } }", true),
+        ("await_array_trivia_js", Language::JavaScript, "js", "export function f(x) { return x; }", "export {}; async function outer() { const { nested: [/*item*/ f] } = await /*operand*/ import('./callee'); function caller(x) { return f(x); } }", true),
+        ("await_rest_trivia_js", Language::JavaScript, "js", "export function f(x) { return x; }", "export {}; async function outer() { const { /*rest*/ ...f } = await /*operand*/ import('./callee'); function caller(x) { return f(x); } }", true),
+        ("await_unrelated_trivia_js", Language::JavaScript, "js", "export function f(x) { return x; }", "export {}; async function outer() { const { /*key*/ g } = await /*operand*/ import('./callee'); function caller(x) { return f(x); } }", false),
+        ("await_nonimport_trivia_js", Language::JavaScript, "js", "export function f(x) { return x; }", "export {}; async function outer() { const { f } = await /*operand*/ acquire('./callee'); function caller(x) { return f(x); } }", false),
+        ("await_outer_parens_js", Language::JavaScript, "js", "export function f(x) { return x; }", "export {}; async function outer() { const { f } = (await import('./callee')); function caller(x) { return f(x); } }", false),
+        ("await_inner_parens_js", Language::JavaScript, "js", "export function f(x) { return x; }", "export {}; async function outer() { const { f } = await (import('./callee')); function caller(x) { return f(x); } }", false),
+        ("await_then_js", Language::JavaScript, "js", "export function f(x) { return x; }", "export {}; async function outer() { const { f } = await import('./callee').then(x => x); function caller(x) { return f(x); } }", false),
+        ("await_operand_trivia_ts", Language::TypeScript, "ts", "export function f(x) { return x; }", "export {}; async function outer() { const { f } = await /*operand*/ import /*call*/ ('./callee'); function caller(x) { return f(x); } }", true),
+        ("await_pattern_trivia_ts", Language::TypeScript, "ts", "export function f(x) { return x; }", "export {}; async function outer() { const { /*key*/ g /*colon*/ : /*value*/ f } = await /*operand*/ import('./callee'); function caller(x) { return f(x); } }", true),
+        ("await_default_trivia_ts", Language::TypeScript, "ts", "export function f(x) { return x; }", "export {}; async function outer() { const { /*key*/ f /*eq*/ = null } = await /*operand*/ import('./callee'); function caller(x) { return f(x); } }", true),
+        ("await_nested_trivia_ts", Language::TypeScript, "ts", "export function f(x) { return x; }", "export {}; async function outer() { const { nested: { /*key*/ f } } = await /*operand*/ import('./callee'); function caller(x) { return f(x); } }", true),
+        ("await_array_trivia_ts", Language::TypeScript, "ts", "export function f(x) { return x; }", "export {}; async function outer() { const { nested: [/*item*/ f] } = await /*operand*/ import('./callee'); function caller(x) { return f(x); } }", true),
+        ("await_rest_trivia_ts", Language::TypeScript, "ts", "export function f(x) { return x; }", "export {}; async function outer() { const { /*rest*/ ...f } = await /*operand*/ import('./callee'); function caller(x) { return f(x); } }", true),
+        ("await_unrelated_trivia_ts", Language::TypeScript, "ts", "export function f(x) { return x; }", "export {}; async function outer() { const { /*key*/ g } = await /*operand*/ import('./callee'); function caller(x) { return f(x); } }", false),
+        ("await_nonimport_trivia_ts", Language::TypeScript, "ts", "export function f(x) { return x; }", "export {}; async function outer() { const { f } = await /*operand*/ acquire('./callee'); function caller(x) { return f(x); } }", false),
+        ("await_outer_parens_ts", Language::TypeScript, "ts", "export function f(x) { return x; }", "export {}; async function outer() { const { f } = (await import('./callee')); function caller(x) { return f(x); } }", false),
+        ("await_inner_parens_ts", Language::TypeScript, "ts", "export function f(x) { return x; }", "export {}; async function outer() { const { f } = await (import('./callee')); function caller(x) { return f(x); } }", false),
+        ("await_then_ts", Language::TypeScript, "ts", "export function f(x) { return x; }", "export {}; async function outer() { const { f } = await import('./callee').then(x => x); function caller(x) { return f(x); } }", false),
+        ("await_as_assertion_ts", Language::TypeScript, "ts", "export function f(x) { return x; }", "export {}; async function outer() { const { f } = await import('./callee') as any; function caller(x) { return f(x); } }", false),
+        ("await_angle_assertion_ts", Language::TypeScript, "ts", "export function f(x) { return x; }", "export {}; async function outer() { const { f } = await <any>import('./callee'); function caller(x) { return f(x); } }", false),
+        ("await_operand_trivia_tsx", Language::Tsx, "tsx", "export function f(x) { return x; }", "export {}; async function outer() { const { f } = await /*operand*/ import /*call*/ ('./callee'); function caller(x) { return f(x); } }", true),
+        ("await_pattern_trivia_tsx", Language::Tsx, "tsx", "export function f(x) { return x; }", "export {}; async function outer() { const { /*key*/ g /*colon*/ : /*value*/ f } = await /*operand*/ import('./callee'); function caller(x) { return f(x); } }", true),
+        ("await_default_trivia_tsx", Language::Tsx, "tsx", "export function f(x) { return x; }", "export {}; async function outer() { const { /*key*/ f /*eq*/ = null } = await /*operand*/ import('./callee'); function caller(x) { return f(x); } }", true),
+        ("await_nested_trivia_tsx", Language::Tsx, "tsx", "export function f(x) { return x; }", "export {}; async function outer() { const { nested: { /*key*/ f } } = await /*operand*/ import('./callee'); function caller(x) { return f(x); } }", true),
+        ("await_array_trivia_tsx", Language::Tsx, "tsx", "export function f(x) { return x; }", "export {}; async function outer() { const { nested: [/*item*/ f] } = await /*operand*/ import('./callee'); function caller(x) { return f(x); } }", true),
+        ("await_rest_trivia_tsx", Language::Tsx, "tsx", "export function f(x) { return x; }", "export {}; async function outer() { const { /*rest*/ ...f } = await /*operand*/ import('./callee'); function caller(x) { return f(x); } }", true),
+        ("await_unrelated_trivia_tsx", Language::Tsx, "tsx", "export function f(x) { return x; }", "export {}; async function outer() { const { /*key*/ g } = await /*operand*/ import('./callee'); function caller(x) { return f(x); } }", false),
+        ("await_nonimport_trivia_tsx", Language::Tsx, "tsx", "export function f(x) { return x; }", "export {}; async function outer() { const { f } = await /*operand*/ acquire('./callee'); function caller(x) { return f(x); } }", false),
+        ("await_outer_parens_tsx", Language::Tsx, "tsx", "export function f(x) { return x; }", "export {}; async function outer() { const { f } = (await import('./callee')); function caller(x) { return f(x); } }", false),
+        ("await_inner_parens_tsx", Language::Tsx, "tsx", "export function f(x) { return x; }", "export {}; async function outer() { const { f } = await (import('./callee')); function caller(x) { return f(x); } }", false),
+        ("await_then_tsx", Language::Tsx, "tsx", "export function f(x) { return x; }", "export {}; async function outer() { const { f } = await import('./callee').then(x => x); function caller(x) { return f(x); } }", false),
+        ("await_as_assertion_tsx", Language::Tsx, "tsx", "export function f(x) { return x; }", "export {}; async function outer() { const { f } = await import('./callee') as any; function caller(x) { return f(x); } }", false),
+    ] {
+        let input = files(lang, ext, callee, caller);
+        for cg in [CallGraph::build(&input), CallGraph::build_skeleton(&input), CallGraph::build_direct_subset(&input, &input.keys().cloned().collect())] {
+            let sites: Vec<_> = cg.calls.values().flatten().filter(|s| s.caller.name == "caller" && s.callee_name == "f").collect();
+            if sites.len() != 1 { failures.push(format!("{label}: sites {sites:?}")); continue; }
+            let out = cg.resolve_call_site_full(sites[0]);
+            let actual: Vec<_> = out.resolved.iter().map(|r| (r.target.file.clone(), r.target.name.clone(), r.target.start_line, r.target.end_line, r.kind, r.confidence)).collect();
+            let expected = if keep { vec![(format!("callee.{ext}"), "f".to_string(), 1, 1, ResolutionKind::FreeSingle, ResolutionConfidence::Exact)] } else { vec![] };
+            let drop = if keep { None } else { Some(DropReason::LocalBindingUnproven) };
+            if actual != expected || out.drop != drop { failures.push(format!("{label}: got {actual:?} / {:?}; expected {expected:?} / {drop:?}; evidence {:?}", out.drop, cg.js_ts_module_binding_evidence)); failures.push(format!("{label}: site {:?}", sites[0])); }
+        }
+    }
+    assert_eq!(
+        failures,
+        Vec::<String>::new(),
+        "all grammar/constructor cells observed"
+    );
+}
+
+#[test]
+fn e5_target_syntax_and_identifier_text_are_trivia_robust() {
+    for (lang, ext) in [
+        (Language::JavaScript, "js"),
+        (Language::TypeScript, "ts"),
+        (Language::Tsx, "tsx"),
+    ] {
+        for (plain, trivia) in [
+            (
+                "const o = { f: (x) => x };",
+                "const o = { /*key*/ f: /*value*/ (x) => x };",
+            ),
+            (
+                "const o = { f(x) { return x; } };",
+                "const o = { /*name*/ f /*args*/ (x) { return x; } };",
+            ),
+            (
+                "o.f = (x) => x;",
+                "o /*dot*/ . f /*eq*/ = /*value*/ (x) => x;",
+            ),
+            (
+                "const f = wrap((x) => x);",
+                "const f /*eq*/ = /*value*/ wrap(/*arg*/ (x) => x);",
+            ),
+            (
+                "class C { f = (x) => x; }",
+                "class C { /*key*/ f /*eq*/ = /*value*/ (x) => x; }",
+            ),
+            (
+                "export function f(x) { return x; }",
+                "export /*decl*/ function /*name*/ f(x) { return x; }",
+            ),
+            (
+                "const o = { f: function f(x) { return x; } };",
+                "const o = { f: function /*self*/ f(x) { return x; } };",
+            ),
+            (
+                "const f = (x) => x;",
+                "const /*var*/ f = /*value*/ (x) => x;",
+            ),
+        ] {
+            let input = files(lang, ext, plain, "function caller(x) { return f(x); }");
+            let commented = files(
+                lang,
+                ext,
+                trivia,
+                "/*root*/ function /*name*/ caller(x) { return /*callee*/ f /*args*/ (x); }",
+            );
+            let base = CallGraph::build(&input);
+            let head = CallGraph::build(&commented);
+            assert_eq!(
+                base.js_ts_free_single_refusals, head.js_ts_free_single_refusals,
+                "{ext}: {trivia}"
+            );
+            let full = |cg: &CallGraph| {
+                let sites: Vec<_> = cg
+                    .calls
+                    .values()
+                    .flatten()
+                    .filter(|s| s.caller.name == "caller" && s.callee_name == "f")
+                    .collect();
+                assert_eq!(sites.len(), 1);
+                let out = cg.resolve_call_site_full(sites[0]);
+                let resolved: Vec<_> = out
+                    .resolved
+                    .iter()
+                    .map(|r| (r.target.clone(), r.kind, r.confidence))
+                    .collect();
+                (resolved, out.drop)
+            };
+            assert_eq!(full(&base), full(&head), "{ext}: {trivia}");
+        }
+    }
+}

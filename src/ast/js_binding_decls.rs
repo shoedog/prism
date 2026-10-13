@@ -179,7 +179,10 @@ impl ParsedFile {
     /// `import type` statement and `type` specifiers bind nothing in value space.
     pub(super) fn js_ts_import_value_names(&self, node: Node<'_>) -> Vec<String> {
         if node.kind() == "import_alias" {
-            let first = node.named_child(0);
+            let mut cursor = node.walk();
+            let first = node
+                .named_children(&mut cursor)
+                .find(|n| n.kind() == "identifier");
             return first
                 .map(|n| self.node_text(&n).to_string())
                 .into_iter()

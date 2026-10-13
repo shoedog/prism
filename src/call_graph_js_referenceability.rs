@@ -14,6 +14,15 @@ fn is_module(parsed: &ParsedFile) -> bool {
 }
 
 // E5-specific evidence: these names exempt refusal, never supply a positive target.
+fn syntax_child(node: tree_sitter::Node<'_>, index: usize) -> Option<tree_sitter::Node<'_>> {
+    let mut cursor = node.walk();
+    let child = node
+        .named_children(&mut cursor)
+        .filter(|n| n.kind() != "comment")
+        .nth(index);
+    child
+}
+
 fn additional_import_evidence(parsed: &ParsedFile, names: &mut BTreeSet<String>) {
     let mut stack = vec![parsed.tree.root_node()];
     while let Some(node) = stack.pop() {
@@ -28,13 +37,17 @@ fn additional_import_evidence(parsed: &ParsedFile, names: &mut BTreeSet<String>)
                 };
             }
             "import_alias" => {
-                if let (Some(local), Some(entity)) = (node.named_child(0), node.named_child(1)) {
-                    let terminal = parsed
-                        .node_text(&entity)
-                        .rsplit('.')
-                        .next()
-                        .unwrap_or("")
-                        .trim();
+                if let (Some(local), Some(entity)) = (syntax_child(node, 0), syntax_child(node, 1))
+                {
+                    // The terminal property is an identifier token, so trivia
+                    // between entity components cannot change its spelling.
+                    let terminal_node = entity.child_by_field_name("property").unwrap_or(entity);
+                    if local.kind() != "identifier"
+                        || !matches!(terminal_node.kind(), "identifier" | "property_identifier")
+                    {
+                        continue;
+                    }
+                    let terminal = parsed.node_text(&terminal_node);
                     if parsed.node_text(&local) == terminal
                         || terminal == "require" && exported_require_alias(node, entity)
                     {
@@ -47,9 +60,8 @@ fn additional_import_evidence(parsed: &ParsedFile, names: &mut BTreeSet<String>)
                     node.child_by_field_name("name"),
                     node.child_by_field_name("value"),
                 ) {
-                    let call = value
-                        .named_child(0)
-                        .filter(|_| value.kind() == "await_expression");
+                    let call =
+                        syntax_child(value, 0).filter(|_| value.kind() == "await_expression");
                     if pattern.kind() == "object_pattern"
                         && call.is_some_and(|call| {
                             call.kind() == "call_expression"
@@ -82,12 +94,19 @@ fn exported_require_alias(node: tree_sitter::Node<'_>, entity: tree_sitter::Node
         && node
             .parent()
             .filter(|p| p.kind() == "export_statement")
-            .and_then(|p| p.next_named_sibling())
+            .and_then(|p| {
+                let mut next = p.next_named_sibling();
+                while next.is_some_and(|n| n.kind() == "comment") {
+                    next = next.and_then(|n| n.next_named_sibling());
+                }
+                next
+            })
             .filter(|n| n.kind() == "expression_statement")
-            .and_then(|n| n.named_child(0))
+            .and_then(|n| syntax_child(n, 0))
             .filter(|n| n.kind() == "parenthesized_expression")
             .is_some_and(|n| {
-                n.named_child_count() == 1 && n.named_child(0).is_some_and(|c| c.kind() == "string")
+                syntax_child(n, 1).is_none()
+                    && syntax_child(n, 0).is_some_and(|c| c.kind() == "string")
             })
 }
 

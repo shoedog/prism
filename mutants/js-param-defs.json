@@ -952,7 +952,10 @@
    "src/call_graph_js_referenceability.rs",
    "if parsed.node_text(&local) == terminal",
    "if true",
-   "resolution::e5_bound_tests::e5_import_equals_and_awaited_import_evidence_preserve_fallbacks"
+   [
+    "resolution::e5_bound_tests::e5_import_equals_and_awaited_import_evidence_preserve_fallbacks",
+    "resolution::e5_bound_tests::e5_r1_trivia_preserves_covered_shapes_and_refuses_twins"
+   ]
   ],
   "E5-16-unbound-exception-local-conjunct-off": [
    "src/resolution.rs",
