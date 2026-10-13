@@ -13,7 +13,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import memreport  # noqa: E402
 import test_memreport_run as base  # noqa: E402
-from memreport_fixtures import MIB, canned  # noqa: E402
+from memreport_fixtures import MIB, canned, fake_prism, stage_named  # noqa: E402
 
 FOUR = ['warm', 'cold', 'workload', 'refresh']
 
@@ -228,6 +228,44 @@ class BuildKindTests(Kinds):
             self.run_kinds('build')
         self.assertIn('manifest', str(caught.exception))
         self.assertFalse((self.out / 'raw').exists())
+
+
+class CompareEndToEndTests(Kinds):
+    """Two `run --kinds warm,build` runs of fake builds, then `compare` over their run directories."""
+
+    def side(self, name, identity, warm_peak, build_peak):
+        reports = all_reports()
+        for data in reports.values():
+            data['build']['build_identity'] = identity
+        stage_named(reports['warm'], 'after_index')['peak_bytes'] = warm_peak * MIB
+        stage_named(reports['build'], 'after_call_edges')['peak_bytes'] = build_peak * MIB
+        tools = self.tmp / ('tools-' + name)
+        tools.mkdir()
+        self.binary = fake_prism(tools, emit={'a': 4, 'b': 4}, reports=reports, cache_bytes=10)
+        self.out = self.tmp / ('run-' + name)
+        argv = self.run_args('a', 'b', reps=3) + ['--kinds', 'warm,build']
+        base.quiet(memreport.main, argv)
+        return self.out
+
+    def test_a_lower_candidate_passes_both_gates_and_the_unmeasured_metric_decides_nothing(self):
+        self.corpus('a')
+        self.corpus('b')
+        self.fake(emit={'a': 4, 'b': 4})
+        self.gen('a', 'b')
+        baseline = self.side('old', 'old-build', 700, 910)
+        candidate = self.side('new', 'new-build', 500, 700)
+        base.quiet(memreport.main, ['compare', '--experiment', 'm2', '--baseline', str(baseline),
+                                    '--candidate', str(candidate), '--out', str(self.tmp / 'm2.md'),
+                                    '--json', str(self.tmp / 'm2.json')])
+        verdicts = {m['key']: m['verdict'] for m in json.loads((self.tmp / 'm2.json').read_text())['metrics']}
+        self.assertEqual(verdicts, {'peak': 'pass', 'build_peak': 'pass', 'load_ms': 'ok', 'build_ms': 'ok',
+                                    'steady_heap': 'not measured'})
+        self.assertIn('| a | 700.0 (700.0–700.0, n=3) | 500.0 (500.0–500.0, n=3) | -200.0 (-28.6 %) | pass',
+                      (self.tmp / 'm2.md').read_text())
+        with self.assertRaises(SystemExit) as caught:    # a run against itself
+            base.quiet(memreport.main, ['compare', '--experiment', 'm2', '--baseline', str(baseline),
+                                        '--candidate', str(baseline), '--out', str(self.tmp / 'again.md')])
+        self.assertIn('same build identity', str(caught.exception))
 
 
 if __name__ == '__main__':

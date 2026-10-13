@@ -5,6 +5,7 @@
     memreport.py run --bin BIN --corpus NAME=PATH [--corpus ...] --out DIR [--workloads DIR] [--kinds LIST]
     memreport.py summarize --run DIR
     memreport.py render --run DIR --out FILE.md
+    memreport.py compare --experiment m2 --baseline DIR --candidate DIR --out FILE.md [--json FILE.json]
 
 Runs are sequential on purpose: one index in memory at a time.
 Unit tests: python3 -m unittest scripts/memreport/test_memreport.py
@@ -20,6 +21,7 @@ import sys
 import time
 from pathlib import Path
 
+from memreport_compare import EXPERIMENTS, cmd_compare
 from memreport_derive import derive, difference, num  # noqa: F401
 from memreport_render import KINDS, MIB, render
 # The validation names are re-exported: tests and callers use them as `memreport.validate` and so on.
@@ -514,6 +516,15 @@ def main(argv=None):
     rendering.add_argument('--run', required=True)
     rendering.add_argument('--out', required=True)
     rendering.set_defaults(handler=cmd_render)
+    comparing = commands.add_parser('compare', help='baseline run against candidate run under a pinned rule')
+    comparing.add_argument('--experiment', required=True, choices=sorted(EXPERIMENTS))
+    comparing.add_argument('--baseline', required=True, type=Path, metavar='DIR')
+    comparing.add_argument('--candidate', required=True, type=Path, metavar='DIR')
+    comparing.add_argument('--out', required=True, metavar='FILE.md')
+    comparing.add_argument('--json', metavar='FILE.json', help='the same content as data')
+    comparing.add_argument('--allow-same-build', action='store_true',
+                           help='compare runs of one build identity (a noise check)')
+    comparing.set_defaults(handler=cmd_compare)
     args = parser.parse_args(argv)
     args.handler(args)
 
