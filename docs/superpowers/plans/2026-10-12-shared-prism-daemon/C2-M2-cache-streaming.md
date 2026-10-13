@@ -222,11 +222,11 @@ The spec's noise rule reads "a candidate must beat the baseline's max by its own
 
 **What ships is decided by the table above, not by the preliminary result.**
 
-## Shipping gate (spec §6.2) and one owner question
+## Shipping gate (spec §6.2): the fan-out check is waived for M2
 
 Spec §6.2 requires, for every candidate, no regression on `uv run tier-a --quick`, on single-client navigation p50, and on fan-out latency with eight shims, the last of which needs slice S5a and so holds every candidate until then.
 
-M2 changes how the cache file is read and written and nothing on the query path. The streamed file is byte-identical and the loaded graph is index-identical, both held by tests. The proposal, **for the owner to accept or refuse**, is that M2 may ship on: the full test suite, the mutation gate, the Tier-A matrix check and `tier-a --quick`, the workload's response size and error count unchanged between baseline and candidate, and criteria P1–P5; and that the fan-out gate, which measures query latency under concurrency, is waived for this candidate only. Until the owner answers, the M2 pull request is opened and reviewed but not merged.
+M2 changes how the cache file is read and written and nothing on the query path. The streamed file is byte-identical and the loaded graph is index-identical, both held by tests. **The owner accepted this on 2026-10-13 (spec §11 item 11):** M2 may ship on: the full test suite, the mutation gate, the Tier-A matrix check and `tier-a --quick`, the workload's response size and error count unchanged between baseline and candidate, and criteria P1–P5; and the fan-out gate, which measures query latency under concurrency, is waived for this candidate only. The M2 pull request merges when its reviews approve, CI is green and those conditions are met.
 
 ## Review Focus
 
@@ -301,7 +301,7 @@ Its full brief is `C2-M2-driver-brief.md` in this directory. It ships as its own
 ### Task 4: Pull request
 
 - [ ] **Step 1:** Open the PR with the comparison's verdict table in the body. Review by Opus 5.5 and gpt-6.1-sol, cap two rounds; reviewers get the evidence directory and are asked to recompute.
-- [ ] **Step 2:** Merge only when the reviews approve, CI is green, the criteria pass, and the owner has answered the shipping-gate question.
+- [ ] **Step 2:** Run `cd eval && uv run tier-a --quick --allow-stale-sut` on the candidate's release build and compare the workload's response size and error count between the two runs. Merge only when the reviews approve, CI is green and the criteria pass (the fan-out check is waived, spec §11 item 11).
 
 ## Self-review record
 

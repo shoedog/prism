@@ -434,6 +434,11 @@ Decided 2026-10-13, after S2 planning and the C1 readout (questions in the lane 
    peak.
 9. Kubernetes: **accept the four measured corpora — DECIDED.**
 10. S2 implementation: **from the validated branch `scratch/s2-validate` — DECIDED.**
+11. Shipping gate for M2 (cache streaming): **the fan-out latency check of §6.2 is waived for M2 only —
+    DECIDED** (owner: "approved, waive check 3 for M2"). M2 changes how the cache file is written and read and
+    nothing on the query path. It ships on the pinned experiment, the full suite, the mutation gate, the Tier-A
+    matrix and `tier-a --quick`, and an unchanged workload response size and error count. Every other candidate
+    keeps all three checks.
 
 ## 12. Slicing
 

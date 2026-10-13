@@ -64,7 +64,7 @@
 | 3 | Driver extension | implemented | open PR, real-binary smoke, review | — | `~/code/prism-c2-driver`, `71acf84a` |
 | 4 | M2 candidate | prototype | plan Task 2: branch from the prototype, full verification | — | `~/code/prism-m2`, `c7c92790` |
 | 5 | M2 experiment | pending | plan Task 3 | #3, #4, quiet host | `~/prism-evidence/mcp-memory/c2-m2/` |
-| 6 | M2 shipping-gate question | open | owner: may M2 ship without the fan-out latency gate? | owner | plan, "Shipping gate" |
+| 6 | M2 shipping gate | decided | the fan-out check is waived for M2 only; `tier-a --quick` and the experiment still apply | — | spec §11 item 11; draft PR #369 |
 | 7 | Decision 2 (sub-floor result cap) | open | owner: refuse (built) or replace with the default | owner | spec §11 item 5 |
 | 8 | S3a plan | pending | write from S2's merged interfaces | #2 | lane README notes for S3a |
 | 9 | M1 plan | pending | write against spec §6.1 as revised | #3 | readout verdict table |
@@ -110,6 +110,6 @@
 
 **Questions the owner owes an answer to:**
 1. A client-supplied result cap below the floor (12,000 characters): refuse the connection with an error naming the floor (built in S2b), or serve it with the default of 80,000? The client cannot see the daemon's stderr, so a replacement would be silent.
-2. May M2 (cache streaming) ship without the fan-out latency gate of spec §6.2? It changes how the cache file is read and written and nothing on the query path; the fan-out gate needs S5a and would hold it for several slices. Recommended: yes, on the conditions the plan lists.
+2. Should the shim check the uid of the socket's peer, as the daemon does (spec §4.4 has only the daemon check)? Two review rounds of S2a concluded that checks on the runtime directory's path are hardening and this check is where the guarantee between users has to live. Recommended: yes; it is an S5a item and costs nothing before then.
 
-Answered on 2026-10-13 and recorded in spec §11 items 4, 6–10 and in `README.md`: the runtime directory stays as the spec says; the peer-uid check stays in S4; `--warm-at-startup` is a flag on the daemon's command line; the C2 metric is live heap with a minimum effect size plus a footprint confirmation for M1; four corpora; S2 is implemented from `scratch/s2-validate`.
+Answered on 2026-10-13: the fan-out latency gate is waived for M2 only (spec §11 item 11). Also answered that day and recorded in spec §11 items 4, 6–10 and in `README.md`: the runtime directory stays as the spec says; the peer-uid check stays in S4; `--warm-at-startup` is a flag on the daemon's command line; the C2 metric is live heap with a minimum effect size plus a footprint confirmation for M1; four corpora; S2 is implemented from `scratch/s2-validate`.
