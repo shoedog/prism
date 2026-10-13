@@ -43,7 +43,7 @@ impl ParsedFile {
         let Some(callee) = self.js_ts_callee_node(site_start, site_end) else {
             return true;
         };
-        if callee.kind() != "identifier" || self.node_text(&callee) != alias {
+        if self.node_text(&callee) != alias {
             return true;
         }
         let Some(m) = self.js_ts_text_alias_match(function_start, site_start, alias, target) else {

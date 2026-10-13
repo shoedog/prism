@@ -161,4 +161,10 @@ fn rule3_does_not_apply_to_a_callee_that_is_not_a_bare_identifier() {
     let mut cache = JsBindingCache::default();
     let end = src.rfind("o.h(1)").unwrap() + "o.h(1)".len();
     assert!(p.js_ts_text_alias_agrees(0, at, end, "h", "f", &mut cache));
+    // A `new h(1)` site has no call or JSX callee node: the rule does not apply either.
+    let src = "function f() {}\nfunction r() {\n  let h = f;\n  return new h(1);\n}\n";
+    let p = parse("a.js", src);
+    let at = src.rfind("new h(1)").unwrap();
+    let mut cache = JsBindingCache::default();
+    assert!(p.js_ts_text_alias_agrees(0, at, at + "new h(1)".len(), "h", "f", &mut cache));
 }

@@ -10,26 +10,6 @@ use super::js_binding_writes::canonical_write_scope;
 use super::ParsedFile;
 use tree_sitter::Node;
 
-/// Pattern wrappers between a write target identifier and its assignment.
-fn is_pattern_part(kind: &str) -> bool {
-    matches!(
-        kind,
-        "object_pattern"
-            | "array_pattern"
-            | "pair_pattern"
-            | "assignment_pattern"
-            | "object_assignment_pattern"
-            | "rest_pattern"
-            | "parenthesized_expression"
-            | "object"
-            | "array"
-            | "pair"
-            | "spread_element"
-            | "shorthand_property_identifier"
-            | "shorthand_property_identifier_pattern"
-    )
-}
-
 impl ParsedFile {
     /// The 1-indexed inclusive line spans of every value expression written to the binding that
     /// `name`, used at `ident`, denotes: the initializer of its declarator (a function
@@ -74,29 +54,20 @@ impl ParsedFile {
         spans
     }
 
-    /// The right-hand side of the assignment that writes `target`, through destructuring
-    /// patterns; `None` for an update, a `for` head or anything that assigns no visible value.
+    /// The right-hand side of the assignment that writes `target` (the write resolver's target
+    /// is the assignment's whole left side, a destructuring pattern included); `None` for an
+    /// update, a `for` head or anything that assigns no visible value.
     fn js_ts_assigned_value<'a>(&self, target: Node<'a>) -> Option<Node<'a>> {
-        let mut child = target;
-        let mut up = target.parent();
-        while let Some(node) = up {
-            match node.kind() {
-                "assignment_expression" | "augmented_assignment_expression" => {
-                    let left = node.child_by_field_name("left")?;
-                    return if left.id() == child.id() {
-                        node.child_by_field_name("right")
-                    } else {
-                        None
-                    };
-                }
-                k if is_pattern_part(k) => {
-                    child = node;
-                    up = node.parent();
-                }
-                _ => return None,
-            }
-        }
-        None
+        let assignment = target.parent().filter(|p| {
+            matches!(
+                p.kind(),
+                "assignment_expression" | "augmented_assignment_expression"
+            )
+        })?;
+        let left = assignment.child_by_field_name("left")?;
+        (left.id() == target.id())
+            .then(|| assignment.child_by_field_name("right"))
+            .flatten()
     }
 
     /// The callee node of the call or JSX element that spans exactly these bytes: the call's

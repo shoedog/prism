@@ -225,6 +225,10 @@ cross-package concrete-asserted keys, and package-level `var` receivers.
 `prism nav call-stats --repo <dir>` reports the resolution-kind histogram and drop
 classification; `prism nav interface-manifest --repo <dir>` emits the PR-2 in-scope
 interface-dispatch manifest (the §8a denominator for the precision gate report).
+A JS/TS callee whose nearest binding is an in-file declaration with an unproven value is not
+resolved by spelling: no repo-wide name search, a same-file function only when it is written into
+that binding (`JsLocalBinding::MayCall` carries the value line spans), and the textual
+function-pointer alias path only when the binder agrees on both names.
 
 `prism nav dfg-stats --repo <dir>` reports `dfg_label_exact`,
 `dfg_label_loop_carried`, five mutually exclusive `dfg_label_nameonly_*` doubt counters, and the

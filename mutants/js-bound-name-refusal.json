@@ -95,12 +95,6 @@
    "if node.end_byte() > site_start {",
    "ast::js_binding_written::tests::rule3_two_matches_or_a_comment_only_match_agree_with_nothing"
   ],
-  "BR-16-rule3-non-identifier-callee-gated": [
-   "src/ast/js_alias_text.rs",
-   "if callee.kind() != \"identifier\" || self.node_text(&callee) != alias {\n            return true;",
-   "if self.node_text(&callee) != alias {\n            return true;",
-   "ast::js_binding_written::tests::rule3_does_not_apply_to_a_callee_that_is_not_a_bare_identifier"
-  ],
   "BR-17-written-values-omit-initializer": [
    "src/ast/js_binding_written.rs",
    "\"variable_declarator\" => decl.child_by_field_name(\"value\"),",
@@ -119,17 +113,23 @@
    "if true {",
    "ast::js_binding_written::tests::value_lines_cover_the_initializer_and_each_assigned_right_hand_side"
   ],
-  "BR-20-written-values-destructuring-assignment-lost": [
-   "src/ast/js_binding_written.rs",
-   "k if is_pattern_part(k) => {",
-   "k if false && is_pattern_part(k) => {",
-   "ast::js_binding_written::tests::value_lines_cover_the_initializer_and_each_assigned_right_hand_side"
-  ],
   "BR-21-written-values-omit-assignments": [
    "src/ast/js_binding_written.rs",
    "self.js_ts_assigned_value(target)\n                        .map(|v| self.node_line_range(&v)),",
    "None::<tree_sitter::Node>\n                        .map(|v| self.node_line_range(&v)),",
    "js_bound_name_refusal_test::rule2_keep_an_inline_function_assigned_later"
+  ],
+  "BR-16-rule3-member-callee-gated": [
+   "src/ast/js_alias_text.rs",
+   "if self.node_text(&callee) != alias {\n            return true;\n        }",
+   "if self.node_text(&callee) != alias {\n            return false;\n        }",
+   "ast::js_binding_written::tests::rule3_does_not_apply_to_a_callee_that_is_not_a_bare_identifier"
+  ],
+  "BR-24-rule3-uncalled-site-gated": [
+   "src/ast/js_alias_text.rs",
+   "self.js_ts_callee_node(site_start, site_end) else {\n            return true;",
+   "self.js_ts_callee_node(site_start, site_end) else {\n            return false;",
+   "ast::js_binding_written::tests::rule3_does_not_apply_to_a_callee_that_is_not_a_bare_identifier"
   ]
  }
 }
