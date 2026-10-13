@@ -92,6 +92,12 @@ fn js_suffix_existing_dotted_ts_candidate_is_kept_alone() {
 
 // Not modeled in this slice: pin that nothing is substituted for these.
 #[test]
+fn js_suffix_on_a_bare_dotfile_name_has_no_stem_to_substitute() {
+    assert!(list("./.js", APP, &["pkg/.ts"]).is_empty());
+    assert!(list("./.js", "app.ts", &[".ts"]).is_empty());
+}
+
+#[test]
 fn jsx_suffix_is_not_substituted() {
     assert!(list("./x.jsx", APP, &["pkg/x.tsx"]).is_empty());
 }
