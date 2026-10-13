@@ -260,7 +260,6 @@ fn every_writer_gets_its_own_temp_name() {
 
 #[test]
 fn a_write_that_fails_part_way_leaves_nothing_at_its_path() {
-    use std::io::Write as _;
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("cpg-cache.bin.1.0.tmp");
     let result = super::write_new_file(&path, |writer| {
