@@ -33,7 +33,10 @@ CACHE_MISS_MARKERS = (
 MIB = 1024 * 1024
 RULE_FRACTION = 0.15
 RULE_ABSOLUTE = 200 * MIB
-CANDIDATES = (('M1', 'm1_high', 'steady'), ('M2', 'm2_transient', 'peak'), ('M3', 'm3', 'steady'))
+# candidate -> (estimate metric, base metric). M1 and M3 are judged against the steady state, M2 against the
+# peak through the index load, because that is the footprint each one would lower.
+CANDIDATES = (('M1', 'm1', 'steady'), ('M2', 'm2', 'peak'), ('M3', 'm3', 'steady'))
+CACHE_FILES = {'cpg_cache_bytes': 'cpg-cache.bin', 'call_edge_sidecar_bytes': 'resolved-call-edge-index.bin'}
 HERE = Path(__file__).resolve().parent
 WORKLOADS = HERE / 'workloads'
 
@@ -161,36 +164,66 @@ def derive(kind, report):
     """
     if kind == 'warm':
         loaded, built = stage(report, 'after_load_repo'), stage(report, 'after_index')
-        transient = built['peak_bytes'] - max(loaded['peak_bytes'], footprint(built))
-        return {'peak': built['peak_bytes'], 'm2_transient': max(0, transient)}
+        overshoot = built['peak_bytes'] - max(loaded['peak_bytes'], footprint(built))
+        return {'peak': built['peak_bytes'], 'm2_observed_overshoot': max(0, overshoot),
+                'index_heap': difference(num(built, 'heap_in_use_bytes'), num(loaded, 'heap_in_use_bytes'))}
     if kind == 'cold':
         return {'cold_peak': stage(report, 'after_call_edges')['peak_bytes']}
     if kind == 'refresh':
         return {'refresh_peak': stage(report, 'after_refresh')['peak_bytes']}
     if kind == 'workload':
-        attribution = report['attribution']
+        attribution, settled = report['attribution'], stage(report, 'after_settle')
         return {
-            'steady': footprint(stage(report, 'after_settle')),
-            'm1_low': num(attribution, 'tree_bytes_estimate_low'),
-            'm1_high': num(attribution, 'tree_bytes_estimate_high'),
+            'steady': footprint(settled),
+            'steady_heap': num(settled, 'heap_in_use_bytes'),
+            'm1': num(settled, 'tree_sitter_heap_bytes'),
             'm3': difference(num(attribution, 'node_string_heap_bytes_estimate'),
                              num(attribution, 'node_unique_string_heap_bytes_estimate')),
         }
     raise ValueError('unknown kind %r' % kind)
 
 
-def meets(estimate, base):
+def rule_arm(estimate, base):
+    """Which arm of the decision rule an estimate meets: absolute, fraction, both, none; None if unjudgeable."""
     if estimate is None or not base:
-        return False
-    return estimate >= RULE_ABSOLUTE or estimate / base >= RULE_FRACTION
+        return None
+    absolute, fraction = estimate >= RULE_ABSOLUTE, estimate / base >= RULE_FRACTION
+    if absolute and fraction:
+        return 'both'
+    return 'absolute' if absolute else 'fraction' if fraction else 'none'
 
 
-def evaluate(rows):
-    """rows: {corpus: {metric: median bytes}} -> {candidate: {'corpora': [...], 'advance': bool}}"""
+def meets(estimate, base):
+    return rule_arm(estimate, base) in ('absolute', 'fraction', 'both')
+
+
+def decision_points(entry):
+    """{metric: (value, n)} the decision rule reads from one corpus entry.
+
+    Per-repetition metrics are medians with the number of runs behind them. m2 is not a series: it is the
+    size of the CPG cache file the priming run wrote, one measurement (n is None).
+    """
+    points = {}
+    for metric, stats in (entry.get('metrics') or {}).items():
+        points[metric] = (stats['median'], stats['n']) if stats else (None, 0)
+    points['m2'] = ((entry.get('cache_files') or {}).get('cpg_cache_bytes'), None)
+    return points
+
+
+def evaluate(entries):
+    """entries: {corpus: corpus entry} -> {candidate: {'corpora': [...], 'advance': bool, 'rows': {...}}}"""
     verdict = {}
     for candidate, estimate_key, base_key in CANDIDATES:
-        hits = sorted(name for name, row in rows.items() if meets(row.get(estimate_key), row.get(base_key)))
-        verdict[candidate] = {'corpora': hits, 'advance': len(hits) >= 2}
+        rows = {}
+        for name, entry in entries.items():
+            points = decision_points(entry)
+            (estimate, estimate_n), (base, base_n) = (points.get(estimate_key, (None, 0)),
+                                                      points.get(base_key, (None, 0)))
+            rows[name] = {'estimate': estimate, 'base': base, 'estimate_n': estimate_n, 'base_n': base_n,
+                          'percent': 100.0 * estimate / base if estimate is not None and base else None,
+                          'arm': rule_arm(estimate, base), 'meets': meets(estimate, base)}
+        hits = sorted(name for name, row in rows.items() if row['meets'])
+        verdict[candidate] = {'corpora': hits, 'advance': len(hits) >= 2, 'rows': rows}
     return verdict
 
 
@@ -292,6 +325,16 @@ def cmd_gen_workload(args):
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
 
 
+def single_file_size(directory, filename):
+    """Size of the one file called `filename` under `directory` (recursive); None unless exactly one."""
+    matches = [path for path in Path(directory).rglob(filename) if path.is_file()]
+    return matches[0].stat().st_size if len(matches) == 1 else None
+
+
+def cache_file_sizes(cache_dir):
+    return {key: single_file_size(cache_dir, filename) for key, filename in CACHE_FILES.items()}
+
+
 def bind_workload(name, directory, commit):
     """Read a corpus's workload once and check it against the manifest.
 
@@ -340,6 +383,7 @@ def cmd_run(args):
         # Prime the cache with a discarded run so that "warm" means a cache hit.
         prime = run_one(command_for(args.bin, path, cache_dir, 'warm', snapshot, 0), 'cold', args.timeout)
         (raw / 'prime.json').write_text(json.dumps(prime, indent=1))
+        entry['cache_files'] = cache_file_sizes(cache_dir)
         values = {}
         for kind in KINDS:
             for rep in range(1, args.reps + 1):
@@ -364,9 +408,7 @@ def cmd_run(args):
                     values.setdefault(metric, []).append(value)
         entry['metrics'] = {metric: summarize(series) for metric, series in sorted(values.items())}
         summary['corpora'][name] = entry
-    rows = {name: {metric: (stats or {}).get('median') for metric, stats in entry['metrics'].items()}
-            for name, entry in summary['corpora'].items()}
-    summary['verdict'] = evaluate(rows)
+    summary['verdict'] = evaluate(summary['corpora'])
     (out / 'summary.json').write_text(json.dumps(summary, indent=2, sort_keys=True) + '\n')
     print('wrote %s' % (out / 'summary.json'))
 
@@ -411,12 +453,12 @@ def render(summary):
         counts = '/'.join(str(entry['admissible'][kind]) for kind in KINDS)
         lines.append('| %s | `%s` | %s | %s |' % (name, (entry.get('commit') or '')[:12], entry.get('dirty'), counts))
     lines += ['', '## Footprint', '',
-              '| Corpus | Steady state | Warm-load peak | Load transient (M2) | Refresh peak | Cold peak |',
+              '| Corpus | Steady state | Warm-load peak | Observed load overshoot | Refresh peak | Cold peak |',
               '|---|---|---|---|---|---|']
     for name, entry in sorted(summary['corpora'].items()):
         metrics = entry['metrics']
         lines.append('| %s | %s | %s | %s | %s | %s |' % (
-            name, mib(metrics.get('steady')), mib(metrics.get('peak')), mib(metrics.get('m2_transient')),
+            name, mib(metrics.get('steady')), mib(metrics.get('peak')), mib(metrics.get('m2_observed_overshoot')),
             mib(metrics.get('refresh_peak')), mib(metrics.get('cold_peak'))))
     lines += ['', '## Attribution (estimates)', '',
               '| Corpus | Files | Source | Tree nodes | Trees, low–high (M1) | CPG nodes / edges | Repeated node strings (M3) | Unique-byte ratio |',
@@ -426,7 +468,7 @@ def render(summary):
         ratio = attribution.get('node_string_unique_ratio')
         lines.append('| %s | %s | %.1f | %s | %s – %s | %s / %s | %s | %s |' % (
             name, attribution.get('files'), (attribution.get('source_bytes') or 0) / MIB,
-            attribution.get('tree_nodes'), mib(metrics.get('m1_low')), mib(metrics.get('m1_high')),
+            attribution.get('tree_nodes'), mib(metrics.get('m1')), mib(metrics.get('m1')),
             attribution.get('cpg_nodes'), attribution.get('cpg_edges'), mib(metrics.get('m3')),
             'n/a' if ratio is None else '%.3f' % ratio))
     lines += ['', '## Decision rule', '',

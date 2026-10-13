@@ -15,7 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import memreport  # noqa: E402
-from memreport_fixtures import canned, digest, fake_prism  # noqa: E402
+from memreport_fixtures import MIB, canned, digest, fake_prism  # noqa: E402
 
 
 def make_repo(parent, name):
@@ -156,6 +156,47 @@ class WorkloadBindingTests(Harness):
         self.prepare(emit={'a': 4})
         self.assertEqual(sorted(p.name for p in self.workloads.iterdir()), ['MANIFEST.json', 'a.jsonl'])
         self.assertEqual(list((self.tmp / 'a').glob('**/*.jsonl')), [])
+
+
+class CacheFileTests(Harness):
+    def test_cache_file_sizes_are_measured_after_the_priming_run(self):
+        self.corpus('a')
+        self.fake(cache_bytes=1234, sidecar_bytes=56)
+        self.gen('a')
+        self.run_cmd('a', reps=1)
+        entry = self.summary()['corpora']['a']
+        self.assertEqual(entry['cache_files'], {'cpg_cache_bytes': 1234, 'call_edge_sidecar_bytes': 56})
+        row = self.summary()['verdict']['M2']['rows']['a']
+        self.assertEqual((row['estimate'], row['estimate_n']), (1234, None))
+        self.assertEqual(row['base'], 700 * MIB)    # the canned warm report's after_index peak
+
+    def test_an_absent_cache_file_is_none_and_never_zero(self):
+        self.corpus('a')
+        self.fake(cache_bytes=None, sidecar_bytes=None)
+        self.gen('a')
+        self.run_cmd('a', reps=1)
+        entry = self.summary()['corpora']['a']
+        self.assertEqual(entry['cache_files'], {'cpg_cache_bytes': None, 'call_edge_sidecar_bytes': None})
+        row = self.summary()['verdict']['M2']['rows']['a']
+        self.assertIsNone(row['estimate'])
+        self.assertFalse(row['meets'])
+
+    def test_exactly_one_match_is_required(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.assertIsNone(memreport.single_file_size(root, 'cpg-cache.bin'))
+            (root / 'x').mkdir()
+            (root / 'x' / 'cpg-cache.bin').write_bytes(b'12345')
+            self.assertEqual(memreport.single_file_size(root, 'cpg-cache.bin'), 5)
+            (root / 'y').mkdir()
+            (root / 'y' / 'cpg-cache.bin').write_bytes(b'1')
+            self.assertIsNone(memreport.single_file_size(root, 'cpg-cache.bin'))
+            self.assertIsNone(memreport.single_file_size(root / 'missing', 'cpg-cache.bin'))
+
+    def test_a_temporary_file_is_not_the_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / 'cpg-cache.bin.tmp').write_bytes(b'1234')
+            self.assertIsNone(memreport.single_file_size(tmp, 'cpg-cache.bin'))
 
 
 if __name__ == '__main__':

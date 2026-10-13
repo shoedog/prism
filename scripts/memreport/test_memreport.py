@@ -37,21 +37,36 @@ class ParseTests(unittest.TestCase):
 
 
 class DeriveTests(unittest.TestCase):
-    def test_m2_transient_is_the_load_peak_above_the_built_index(self):
-        warm = report([stage('after_load_repo', 100, 120), stage('after_index', 400, 700)])
-        self.assertEqual(memreport.derive('warm', warm), {'peak': 700, 'm2_transient': 300})
+    def test_warm_run_yields_the_peak_the_observed_overshoot_and_the_index_heap(self):
+        warm = report([stage('after_load_repo', 100, 120, heap=30), stage('after_index', 400, 700, heap=350)])
+        self.assertEqual(memreport.derive('warm', warm),
+                         {'peak': 700, 'm2_observed_overshoot': 300, 'index_heap': 320})
 
-    def test_m2_transient_is_zero_when_parsing_set_the_peak(self):
-        warm = report([stage('after_load_repo', 100, 900), stage('after_index', 400, 900)])
-        self.assertEqual(memreport.derive('warm', warm)['m2_transient'], 0)
+    def test_observed_overshoot_is_zero_when_the_footprint_is_the_peak(self):
+        warm = report([stage('after_load_repo', 100, 900), stage('after_index', 900, 900)])
+        self.assertEqual(memreport.derive('warm', warm)['m2_observed_overshoot'], 0)
 
-    def test_workload_run_yields_steady_state_and_the_estimates(self):
-        attribution = {'tree_bytes_estimate_low': 8, 'tree_bytes_estimate_high': 88,
-                       'node_string_heap_bytes_estimate': 100,
-                       'node_unique_string_heap_bytes_estimate': 40}
-        run = report([stage('after_settle', 500, 900)], attribution)
+    def test_index_heap_is_none_unless_both_stages_report_a_heap(self):
+        for loaded, built in ((None, 350), (30, None), (None, None)):
+            warm = report([stage('after_load_repo', 100, 120, heap=loaded),
+                           stage('after_index', 400, 700, heap=built)])
+            self.assertIsNone(memreport.derive('warm', warm)['index_heap'])
+
+    def test_workload_run_yields_steady_state_measured_tree_heap_and_the_string_estimate(self):
+        attribution = {'node_string_heap_bytes_estimate': 100, 'node_unique_string_heap_bytes_estimate': 40}
+        run = report([stage('after_settle', 500, 900, heap=420, tree=77)], attribution)
         self.assertEqual(memreport.derive('workload', run),
-                         {'steady': 500, 'm1_low': 8, 'm1_high': 88, 'm3': 60})
+                         {'steady': 500, 'steady_heap': 420, 'm1': 77, 'm3': 60})
+
+    def test_a_workload_run_without_tree_heap_or_heap_in_use_reports_none_not_zero(self):
+        run = report([stage('after_settle', 500, 900)], {})
+        self.assertEqual(memreport.derive('workload', run),
+                         {'steady': 500, 'steady_heap': None, 'm1': None, 'm3': None})
+        self.assertIsNone(memreport.summarize([memreport.derive('workload', run)['m1']]))
+
+    def test_a_zero_tree_heap_is_a_measurement_not_an_absence(self):
+        run = report([stage('after_settle', 500, 900, tree=0)], {})
+        self.assertEqual(memreport.derive('workload', run)['m1'], 0)
 
     def test_refresh_and_cold_runs_yield_their_peaks(self):
         self.assertEqual(memreport.derive('refresh', report([stage('after_refresh', 1, 77)])),
@@ -61,27 +76,26 @@ class DeriveTests(unittest.TestCase):
 
 
 class RuleTests(unittest.TestCase):
-    def row(self, **kw):
-        base = {'steady': 1000 * MIB, 'peak': 1500 * MIB, 'm2_transient': 0, 'm1_high': 0, 'm3': 0}
-        base.update(kw)
-        return base
+    def entry(self, **kw):
+        stats = lambda value: None if value is None else {'min': value, 'median': value, 'max': value, 'n': 3}  # noqa: E731
+        metrics = {'steady': 1000 * MIB, 'peak': 1500 * MIB, 'm1': 0, 'm3': 0}
+        metrics.update(kw)
+        return {'metrics': {key: stats(value) for key, value in metrics.items()},
+                'cache_files': {'cpg_cache_bytes': kw.get('m2', 0)}}
 
     def test_a_candidate_advances_on_two_corpora_by_fraction_or_absolute(self):
-        rows = {'a': self.row(m2_transient=230 * MIB),            # 15.3 % of peak
-                'b': self.row(m2_transient=200 * MIB, peak=9000 * MIB),  # absolute
-                'c': self.row(m2_transient=10 * MIB)}
-        verdict = memreport.evaluate(rows)
-        self.assertEqual(verdict['M2'], {'corpora': ['a', 'b'], 'advance': True})
-        self.assertEqual(verdict['M1'], {'corpora': [], 'advance': False})
+        entries = {'a': self.entry(m2=230 * MIB),                      # 15.3 % of peak
+                   'b': self.entry(m2=200 * MIB, peak=9000 * MIB),     # absolute
+                   'c': self.entry(m2=10 * MIB)}
+        verdict = memreport.evaluate(entries)
+        self.assertEqual(verdict['M2']['corpora'], ['a', 'b'])
+        self.assertTrue(verdict['M2']['advance'])
+        self.assertEqual((verdict['M1']['corpora'], verdict['M1']['advance']), ([], False))
 
     def test_one_corpus_is_not_enough(self):
-        rows = {'a': self.row(m3=400 * MIB), 'b': self.row(m3=1 * MIB)}
-        self.assertEqual(memreport.evaluate(rows)['M3'], {'corpora': ['a'], 'advance': False})
-
-    def test_a_missing_measurement_never_counts(self):
-        rows = {'a': {'steady': None, 'peak': None, 'm2_transient': None, 'm1_high': 900 * MIB, 'm3': None},
-                'b': self.row(m1_high=900 * MIB)}
-        self.assertEqual(memreport.evaluate(rows)['M1'], {'corpora': ['b'], 'advance': False})
+        entries = {'a': self.entry(m3=400 * MIB), 'b': self.entry(m3=1 * MIB)}
+        self.assertEqual((memreport.evaluate(entries)['M3']['corpora'], memreport.evaluate(entries)['M3']['advance']),
+                         (['a'], False))
 
 
 class ValidateTests(unittest.TestCase):
