@@ -512,8 +512,16 @@ mod unix {
             .write_all(br#"{"jsonrpc":"2.0","id":1,"me"#)
             .expect("partial frame");
         drop(client);
-        // The truncated frame is answered with a parse error nobody is left to read. A clean end
-        // or a write error are both acceptable outcomes; a panic is not.
-        let _outcome = server_thread.join().expect("serve loop must not panic");
+        // The loop returns (the join does not hang or panic). End of input arrives after the
+        // truncated frame, which is answered with a parse error; the peer is gone, so that write
+        // fails and the loop returns it as an ordinary `Err` value for the daemon to log and move
+        // on. This is deterministic: the server can only see the end of input after the client
+        // has closed, so the reply is always written to a closed peer. The error text is an OS
+        // string (EPIPE, ECONNRESET) that differs between hosts, so it is not asserted.
+        let outcome = server_thread.join().expect("serve loop must not panic");
+        assert!(
+            outcome.is_err(),
+            "the reply to a closed peer is a write error, not a clean end: {outcome:?}"
+        );
     }
 }
