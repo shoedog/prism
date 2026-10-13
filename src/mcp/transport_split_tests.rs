@@ -394,6 +394,7 @@ fn a_build_failure_carries_the_admission_diagnostic_to_the_wire() {
 fn an_auto_refresh_failure_followed_by_a_tool_error_answers_with_the_bare_tool_error() {
     let registry = ToolRegistry::all_v1();
     let settings = settings(StructuredContentMode::Always);
+    let (_fresh_dir, fresh) = provider(RefreshPolicy::WarnOnly);
     let (dir, mut provider) = provider(RefreshPolicy::AutoFull);
     make_stale(&dir);
     let bad_seed = r#"{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"nav_callees","arguments":{"seed":{"kind":"bogus"}}}}"#;
@@ -414,6 +415,18 @@ fn an_auto_refresh_failure_followed_by_a_tool_error_answers_with_the_bare_tool_e
         "a tool error carries no auto-refresh metadata: {meta}"
     );
     assert!(meta.get("prism/auto_refresh_error").is_none(), "{meta}");
+
+    // The error is the tool's own, not the refresh failure: the same call against an index that
+    // was never stale produces the same content.
+    let bare = match dispatch_tool_read(&call, &fresh, &settings) {
+        ReadDispatch::Response(response) => response,
+        ReadDispatch::NeedsAutoRefresh { .. } => panic!("a fresh index defers nothing"),
+    };
+    assert_eq!(bare["result"]["isError"], true, "{bare}");
+    assert_eq!(
+        response["result"]["content"], bare["result"]["content"],
+        "the tool error's content is unchanged by the failed refresh"
+    );
 }
 
 #[test]
