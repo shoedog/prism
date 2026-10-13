@@ -25,7 +25,7 @@ DELETE = object()
 DIGEST = {'sha256': 'f' * 64, 'requests': 8}
 CORPUS = {'path': '/c', 'commit': 'abc', 'dirty': 0, 'workload': DIGEST,
           'cache_files': {'cpg_cache_bytes': 7, 'call_edge_sidecar_bytes': None}}
-KINDS = memreport.KINDS + (memreport.PRIME,)
+KINDS = memreport.KINDS + (memreport.BUILD, memreport.PRIME)
 
 
 def paths(node, prefix=()):
@@ -78,7 +78,8 @@ def through_the_pipeline(kind, data):
     """derive, build_entry (with the report as its priming run too), assemble_summary and render."""
     kind_for_entry = 'warm' if kind == memreport.PRIME else kind
     prime = {'kind': memreport.PRIME, 'status': 'ok', 'report': data}
-    result = {'kind': kind_for_entry, 'rep': 1, 'status': 'ok', 'report': data}
+    result = {'kind': kind_for_entry, 'rep': 1, 'status': 'ok', 'report': data,
+              'cache_files': {'cpg_cache_bytes': 7, 'call_edge_sidecar_bytes': 3}}
     entry = memreport.build_entry(CORPUS, [result], prime)
     summary = memreport.assemble_summary({'reps': 1, 'settle': 0, 'timeout': 1, 'bin': 'b'}, {'a': entry})
     text = memreport.render(summary)
