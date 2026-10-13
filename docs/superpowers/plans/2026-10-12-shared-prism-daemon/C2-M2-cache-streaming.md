@@ -192,15 +192,30 @@ python3 scripts/memreport/memreport.py run --bin <binary> \
 |---|---|---|
 | P1 | Load peak (`warm`, peak through the index load) | **Gate.** On at least two corpora: candidate max below baseline min, and the median falls by at least 100 MiB or 5 % of the baseline median. |
 | P2 | First-build peak (`build`) | **Gate**, same form. |
-| P3 | Index load time (`warm`) | **Not worse:** candidate median at most 1.05 times the baseline median, on every corpus. |
+| P3 | Index load time (`warm`) | **Not worse.** A corpus is *worse* only when the candidate median is above 1.05 times the baseline median **and** the two ranges do not overlap (candidate min above baseline max). The metric holds when no corpus is worse and every corpus has both series. The ratio of the medians is always printed. |
 | P4 | Index build time (`build`) | **Not worse**, same form. |
 | P5 | Steady live heap (`workload`) | **Not higher:** candidate median at most 1 MiB above the baseline median, on every corpus. A lower figure is fine: a graph built with exact capacity holds less slack. |
+
+The not-worse rule was first written as "at most 1.05 times the baseline median" alone. The driver's review
+measured the same build twice on this machine, once while other work was running: its load time differed by
+15 %. A difference inside the overlap of the two ranges is not evidence in either direction, so the rule now
+requires the ranges to separate, as the gates do. The price is that a regression smaller than the run-to-run
+spread is not caught; the printed ratios and the recorded load average of each run are there so a reader can
+see how tight the comparison was.
+
+A `build` repetition counts only if it wrote both cache files (the driver checks their sizes, and the stderr
+lines the binary prints when a save fails). The binary treats a failed save as a warning and exits 0, and a
+candidate that fails to write would otherwise show the largest peak reduction of all.
+
+A corpus measured on one side only makes a not-worse or not-higher verdict *incomplete*, never ok. A gate that
+cannot reach two passing corpora because data is missing is *undecided*, not failed.
 
 The spec's noise rule reads "a candidate must beat the baseline's max by its own min". Taken literally that passes whenever the two ranges touch. This plan uses the strict reading: the ranges must not overlap. Anything that passes the strict reading passes the literal one.
 
 **Outcomes.**
 
 - P1 and P2 pass, P3–P5 hold: the candidate ships as written.
+- Any verdict is *incomplete* or *undecided*: nothing is decided. Find out why runs are missing, and measure again into a new directory.
 - P2 passes and P1 fails or P3 fails: the save half ships alone (it does not affect load time), and the load half is retried once with the memory-mapped reader. That retry is the only one; a second failure closes the load half as "not worth it" in the readout.
 - P2 fails: the candidate does not ship. The readout says so with the numbers.
 - P5 fails: stop. A candidate that reads and writes a file differently has no reason to hold more live heap; that is a defect to find, not a result.

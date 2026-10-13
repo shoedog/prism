@@ -1,5 +1,11 @@
 # Implementation brief: memreport driver — selectable kinds, a `build` kind, and `compare`
 
+> **Superseded in part by review.** Two reviews changed what the driver does: a `build` repetition must have
+> written both cache files; corpus names are restricted; comparability is checked per corpus and repetition,
+> platform included; `compare` rescores from `raw/`; not-worse requires the ranges to separate; one-sided data
+> gives `incomplete` and a gate short of data is `undecided`. `scripts/memreport/README.md` is the reference;
+> this file is the brief as first issued.
+>
 > As issued to the implementer on 2026-10-13. One rule changed afterwards and is reflected below: the live-heap
 > check is one-sided ("not higher"), because a candidate that allocates more tightly lowers the live heap
 > without changing the index. The scratchpad paths are the session's and are kept as issued.
