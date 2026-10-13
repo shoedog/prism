@@ -9,7 +9,7 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` this session is the only one on the lane; another session works the JS/TS parameter-Def lane and does not touch `src/mcp`. — **RESOLVED 2026-10-13**
-**(b) Custody exposure** — `[MEASURED]` S1, C1, the spec and the plans are on `main` (`dc3b6bbe`). The readout is on `docs/mcp-memory-readout`, pushed. Raw measurement evidence is local only, in `~/prism-evidence/mcp-memory/c1/` with `SHA256SUMS`; it is about two hours of machine time to reproduce. One branch is local only: `scratch/s2-validate` `cf873945` in `~/code/slicing` (worktree `.claude/worktrees/s2-validate`), the S2 plan's code applied and passing; reproducible from the S2 plan by replay. — **RESOLVED 2026-10-13**
+**(b) Custody exposure** — `[MEASURED]` S1, C1, the spec and the plans are on `main` (`dc3b6bbe`). The readout and this handoff are PR #363 (branch `docs/mcp-memory-readout`), on `main` once it is squash-merged. Raw measurement evidence is local only, in `~/prism-evidence/mcp-memory/c1/` with `SHA256SUMS`; it is about two hours of machine time to reproduce. One branch is local only: `scratch/s2-validate` `cf873945` in `~/code/slicing` (worktree `.claude/worktrees/s2-validate`), the S2 plan's code applied and passing; reproducible from the S2 plan by replay. — **RESOLVED 2026-10-13**
 **(c) In flight / irreversible** — `[MEASURED]` nothing is running. The measurement finished at 11:34 and the supplement at 11:54 on 2026-10-13. — **RESOLVED 2026-10-13**
 **(d) Authorization granted but not exercised** — owner, 2026-10-13: "proceed as recommedned. merge pr357 with the code changes". Fully exercised: S1 (#361), C1 (#362), #357, the measurement and the readout PR. It does **not** cover S2 implementation, writing C2 plans, or any change to the spec's pinned parameters. Two different things hold these back: S2 waits on §7 questions 1–4 and 7; the M1 plan waits on question 5; the M2 plan has no open question and needs only the owner's go-ahead.
 
@@ -83,6 +83,7 @@
 | Spec and plan PR | `#357`, branch `spec/shared-prism-daemon` |
 | S1 | PR `#361`, merge `f6354e07` |
 | C1 | PR `#362`, merge `7db8f195` |
+| C1 readout | PR `#363` |
 | S2 validation branch (local) | `scratch/s2-validate` `cf873945`, on `f6354e07` |
 | Measurement worktree | `~/code/prism-c1-corpus`, detached at `7db8f195`; release binary `target/release/prism-mcp`, build identity `d9414cb7b8bc…` |
 | Readout | `docs/analysis/2026-10-prism-mcp-memory-readout.md`; workloads `scripts/memreport/workloads/` |
