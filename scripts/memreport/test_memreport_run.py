@@ -168,7 +168,9 @@ class GenWorkloadTests(Harness):
         self.corpus('b')
         self.fake(emit={'a': 3}, emit_sleep=['b'])
         with self.assertRaises(SystemExit) as caught:
-            self.gen('a', 'b', timeout=1)
+            # 'b' sleeps 30 s. One second was enough for 'a' on an idle machine only: under load the fake
+            # interpreter alone took longer to start, and 'a' timed out too.
+            self.gen('a', 'b', timeout=5)
         self.assertIn('b', str(caught.exception))
         self.assertNotIn('a,', str(caught.exception))
         self.assertEqual(sorted(self.manifest()), ['a'])
