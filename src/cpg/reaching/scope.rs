@@ -121,6 +121,11 @@ pub(super) struct BindingFacts {
     unclassified_binding_lines: BTreeMap<String, BTreeSet<Line>>,
     function_scope: ScopeSpan,
     language: Language,
+    /// PR-B perf: zero-width Use byte resolution is a pure function of the
+    /// pass and `(line, path)`; memoize it per pass (it re-runs whole-function
+    /// rvalue queries per edge otherwise).
+    use_byte_cache:
+        std::cell::RefCell<BTreeMap<(Line, crate::access_path::AccessPath), Option<usize>>>,
 }
 
 impl BindingFacts {
@@ -198,6 +203,7 @@ impl BindingFacts {
             unclassified_binding_lines,
             function_scope,
             language: parsed.language,
+            use_byte_cache: std::cell::RefCell::new(BTreeMap::new()),
         };
         for (index, def) in defs.iter().enumerate() {
             let binding = declaration_for_def[index]
@@ -207,6 +213,19 @@ impl BindingFacts {
             facts.def_bindings.push(binding);
         }
         facts
+    }
+
+    fn use_byte(&self, parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
+        if edge.to.start_byte < edge.to.end_byte {
+            return Some(edge.to.start_byte);
+        }
+        let key = (edge.to.line, edge.to.path.clone());
+        if let Some(cached) = self.use_byte_cache.borrow().get(&key) {
+            return *cached;
+        }
+        let value = use_byte(parsed, edge);
+        self.use_byte_cache.borrow_mut().insert(key, value);
+        value
     }
 
     pub(super) fn same_def_binding(&self, left: usize, right: usize) -> bool {
@@ -226,7 +245,7 @@ impl BindingFacts {
         if matches!(self.def_bindings[def_index].id, BindingId::FlatFallback(_)) {
             return true;
         }
-        let Some(use_byte) = use_byte(parsed, edge) else {
+        let Some(use_byte) = self.use_byte(parsed, edge) else {
             return true;
         };
         self.visible_declaration(&edge.to.path.base, use_byte)
@@ -253,7 +272,7 @@ impl BindingFacts {
         def_index: usize,
     ) -> BindingRelation {
         let definition = &self.def_bindings[def_index];
-        let Some(use_byte) = use_byte(parsed, edge) else {
+        let Some(use_byte) = self.use_byte(parsed, edge) else {
             return if definition
                 .scope
                 .contains(parsed.line_start_byte(edge.to.line))

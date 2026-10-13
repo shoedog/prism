@@ -435,7 +435,7 @@ fn cache_cold_full_hit_and_partial_hit_agree_on_every_label() {
 }
 
 #[test]
-fn cache_partial_hit_replaces_labels_when_edge_identities_and_spans_stay_fixed() {
+fn cache_partial_hit_replaces_edges_and_labels_after_binding_scope_changes() {
     let sources = BTreeMap::from([(
         "labels.js".to_string(),
         "function f() {\n  var value = source();\n  {\n    let value = clean();\n  }\n  sink(value);\n}\n"
@@ -490,10 +490,27 @@ fn cache_partial_hit_replaces_labels_when_edge_identities_and_spans_stay_fixed()
     };
     let edited_cold = CodePropertyGraph::build(&edited_files);
 
+    // R1 removes the two block-local -> outer rows. After let -> var the
+    // inner Def shares the function binding, so these legacy rows return.
+    let before: BTreeSet<_> = cold.dfg.labels.keys().cloned().collect();
+    let after: BTreeSet<_> = edited_cold.dfg.labels.keys().cloned().collect();
+    assert!(before.is_subset(&after));
+    let added: BTreeSet<_> = after
+        .difference(&before)
+        .map(|(from, to)| {
+            (
+                from.line,
+                from.start_byte,
+                from.end_byte,
+                to.line,
+                to.start_byte,
+                to.end_byte,
+            )
+        })
+        .collect();
     assert_eq!(
-        cold.dfg.labels.keys().collect::<BTreeSet<_>>(),
-        edited_cold.dfg.labels.keys().collect::<BTreeSet<_>>(),
-        "let-to-var edit must preserve DFG edge identities and byte spans"
+        added,
+        BTreeSet::from([(4, 51, 56, 2, 15, 15), (4, 51, 56, 6, 79, 84)])
     );
     assert_eq!(
         edited_cold.dfg.labels[&key],

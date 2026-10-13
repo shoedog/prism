@@ -1,0 +1,204 @@
+[
+  {
+    "id": "getsetdeep-loop-key",
+    "name": "key",
+    "source": "function h(f,d=0){\n for(let i=0;i<1;i++){\n  const key=1;\n  use(key);\n }\n const key=2;\n use(key);\n}\n",
+    "invoke": "h(0);",
+    "expected": [
+      1,
+      2
+    ],
+    "golden": {
+      "js": [
+        [
+          3,
+          50,
+          53,
+          4,
+          63,
+          66,
+          "exact",
+          null,
+          null
+        ],
+        [
+          6,
+          79,
+          82,
+          7,
+          91,
+          94,
+          "exact",
+          null,
+          null
+        ]
+      ],
+      "ts": [
+        [
+          3,
+          50,
+          53,
+          4,
+          63,
+          66,
+          "exact",
+          null,
+          null
+        ],
+        [
+          6,
+          79,
+          82,
+          7,
+          91,
+          94,
+          "exact",
+          null,
+          null
+        ]
+      ],
+      "tsx": [
+        [
+          3,
+          50,
+          53,
+          4,
+          63,
+          66,
+          "exact",
+          null,
+          null
+        ],
+        [
+          6,
+          79,
+          82,
+          7,
+          91,
+          94,
+          "exact",
+          null,
+          null
+        ]
+      ]
+    }
+  },
+  {
+    "id": "ion-parser-shadowed-end",
+    "name": "end",
+    "source": "function h(str,x=0,allowTriple=false){\n let end=1;\n use(end);\n while(x<1){\n  let end=2;\n  use(end);\n  x++;\n }\n use(end);\n}\n",
+    "invoke": "h(\"\");",
+    "expected": [
+      1,
+      2,
+      1
+    ],
+    "golden": {
+      "js": [
+        [
+          2,
+          44,
+          47,
+          9,
+          115,
+          118,
+          "exact",
+          null,
+          null
+        ],
+        [
+          2,
+          44,
+          47,
+          3,
+          56,
+          59,
+          "exact",
+          null,
+          null
+        ],
+        [
+          5,
+          81,
+          84,
+          6,
+          94,
+          97,
+          "exact",
+          null,
+          null
+        ]
+      ],
+      "ts": [
+        [
+          2,
+          44,
+          47,
+          9,
+          115,
+          118,
+          "exact",
+          null,
+          null
+        ],
+        [
+          2,
+          44,
+          47,
+          3,
+          56,
+          59,
+          "exact",
+          null,
+          null
+        ],
+        [
+          5,
+          81,
+          84,
+          6,
+          94,
+          97,
+          "exact",
+          null,
+          null
+        ]
+      ],
+      "tsx": [
+        [
+          2,
+          44,
+          47,
+          9,
+          115,
+          118,
+          "exact",
+          null,
+          null
+        ],
+        [
+          2,
+          44,
+          47,
+          3,
+          56,
+          59,
+          "exact",
+          null,
+          null
+        ],
+        [
+          5,
+          81,
+          84,
+          6,
+          94,
+          97,
+          "exact",
+          null,
+          null
+        ]
+      ]
+    }
+  }
+]
