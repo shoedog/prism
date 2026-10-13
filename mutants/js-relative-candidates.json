@@ -91,7 +91,7 @@
   ],
   "I1-15-namespace-newly-found-guard-off": [
    "src/resolution_js_namespace.rs",
-   "if outcome.is_some() || found_on_main {",
+   "if outcome.is_some() || found_by_literal_lookup {",
    "if true {",
    "js_relative_namespace_test::newly_found_module_without_the_member_stays_name_only"
   ],
@@ -106,6 +106,12 @@
    "if is_js_ts_relative_specifier(relative) {",
    "if relative.starts_with(\"./\") || relative.starts_with(\"../\") {",
    "js_relative_extension_test::bare_dot_import_resolves_to_directory_index"
+  ],
+  "I1-18-tiers-only-for-js-spelling": [
+   "src/call_graph.rs",
+   ".any(|ext| target.ends_with(ext));",
+   ".any(|_| target.ends_with(\".js\"));",
+   "call_graph::js_relative_candidates_test::spelled_non_js_extension_takes_the_literal_tier_alone"
   ]
  },
  "extra": {}

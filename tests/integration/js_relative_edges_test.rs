@@ -60,6 +60,27 @@ fn second_star_through_bare_dot_dot_makes_the_name_ambiguous() {
 }
 
 #[test]
+fn second_star_forwarding_a_type_only_import_drops_like_the_canonical_spelling() {
+    // The correct answer is `a.ts:f` Exact/import_member: `b.ts` forwards a
+    // type-only `f`, which is not a value export, so there is no real
+    // conflict. The star-conflict check does not see that today, so the
+    // canonical `export * from './b'` drops on main and on this branch; the
+    // `.js` spelling now inherits that existing limit (main resolved only
+    // `./a`, giving `a.ts:f` Exact). Recorded as a follow-up, not fixed here.
+    let b = "import type { f } from './types';\nexport { f };\n";
+    let types = [("types.ts", "export type f = number;\n")];
+    let canonical = barrel_rows(A, b, "export * from './a';\nexport * from './b';\n", &types);
+    assert_eq!(canonical, ["drop UnknownName"]);
+    let js = barrel_rows(
+        A,
+        b,
+        "export * from './a';\nexport * from './b.js';\n",
+        &types,
+    );
+    assert_eq!(js, canonical);
+}
+
+#[test]
 fn stars_reaching_the_same_declaration_stay_exact() {
     // Control: b.ts re-exports a.ts's declaration, so both stars agree.
     let b = "export { f } from './a';\n";

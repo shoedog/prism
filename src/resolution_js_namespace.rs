@@ -18,15 +18,16 @@ impl CallGraph {
                 .or_else(|| namespace_sibling(module, &site.caller.file, &self.indexed_files));
         if let Some(file) = module_file {
             let outcome = self.js_ts_namespace_proof(&file, member, site, base);
-            // I1: a module found only by the normalized fallback was not found on
-            // main, where a failed proof reached the NameOnly E7 return below. Keep
-            // that outcome instead of letting `None` authorize the legacy Exact stem
-            // match. Modules main already found keep returning `None`.
-            let found_on_main =
+            // A module found only by the normalized fallback does not get the legacy
+            // Exact stem match when its export proof fails: `None` would authorize
+            // it, so keep the NameOnly outcome below. A module the literal lookup
+            // finds (the literal candidate list or the sibling probe) keeps
+            // returning `None`.
+            let found_by_literal_lookup =
                 js_ts_literal_module_candidates(module, &site.caller.file, &self.indexed_files)
                     .is_some_and(|found| !found.is_empty())
                     || namespace_sibling(module, &site.caller.file, &self.indexed_files).is_some();
-            if outcome.is_some() || found_on_main {
+            if outcome.is_some() || found_by_literal_lookup {
                 return outcome;
             }
         }
@@ -83,8 +84,8 @@ impl CallGraph {
     }
 }
 
-// The sibling probe keeps the literal candidate list: it is the pre-I1 module
-// lookup, which the "found on main" test above relies on.
+// The sibling probe keeps the literal candidate list, so `found_by_literal_lookup`
+// above separates literal-lookup modules from ones only the fallback finds.
 fn namespace_sibling(module: &str, caller: &str, indexed: &BTreeSet<String>) -> Option<String> {
     let (prefix, extensions): (&str, &[&str]) = if let Some(p) = module.strip_suffix(".js") {
         (p, &[".ts", ".tsx"])

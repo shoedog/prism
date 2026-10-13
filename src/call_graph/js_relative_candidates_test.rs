@@ -386,3 +386,19 @@ fn normalized_index_probe_covers_every_index_extension() {
         );
     }
 }
+
+#[test]
+fn spelled_non_js_extension_takes_the_literal_tier_alone() {
+    // A normalized target that already names an indexed `.ts`/`.tsx` file
+    // returns it alone; the extension-appended twin (`x.ts.ts`, `x.tsx.ts`) is
+    // a later tier, not a companion. Tiering only for `.js` would return the
+    // appended file first: [pkg/a/x.ts.ts, pkg/a/x.ts].
+    assert_eq!(
+        list("./a//x.ts", APP, &["pkg/a/x.ts", "pkg/a/x.ts.ts"]),
+        v(&["pkg/a/x.ts"])
+    );
+    assert_eq!(
+        list("./a//x.tsx", APP, &["pkg/a/x.tsx", "pkg/a/x.tsx.ts"]),
+        v(&["pkg/a/x.tsx"])
+    );
+}
