@@ -245,12 +245,13 @@ fn c42_recovered_static_import_poisons_its_names_at_r5() {
 fn c41_with_reason_keeps_base_at_r5() {
     // `with` is a closed non-goal refusal (Unproven("with")), which is NOT one of the three
     // reasons SPEC §3.8 (8) narrows the R5 drop to: it must keep base (Exact), proving the
-    // drop is reason-scoped, not blanket (C-M34's target).
+    // drop is reason-scoped, not blanket (C-M34's target). Script caller and target
+    // keep this control outside E5's independent module-caller refusal.
     let a = (
         "a.js",
-        "export function run(o) {\n  with (o) {\n    return f();\n  }\n}\n",
+        "function run(o) {\n  with (o) {\n    return f();\n  }\n}\n",
     );
-    let b = ("b.js", "export function f() {\n  return 2;\n}\n");
+    let b = ("b.js", "function f() {\n  return 2;\n}\n");
     let cg = two_file_graph(a, b);
     let out: Vec<String> = sites(&cg)
         .into_iter()

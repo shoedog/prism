@@ -4,7 +4,8 @@
  "lib_test_prefixes": [
   "ast::",
   "cpg::",
-  "cpg_cache::"
+  "cpg_cache::",
+  "resolution::"
  ],
  "mutations": {
   "PD-01-bare-arrow-helper-off": [
@@ -862,6 +863,30 @@
    [
     "cpg::callback_identity_tests::r10_error_ancestor_walk_preserves_local_rows"
    ]
+  ],
+  "E5-01-module-caller-arm-off": [
+   "src/resolution.rs",
+   "let module_caller = is_js_ts_import_member_file(&site.caller.file)",
+   "let module_caller = false && is_js_ts_import_member_file(&site.caller.file)",
+   "resolution::e5_bound_tests::e5_module_caller_refuses_unbound_and_alias_singletons"
+  ],
+  "E5-02-script-module-boundary-off": [
+   "src/resolution.rs",
+   ".is_some_and(|names| !names.contains(&site.callee_name));",
+   ".map_or(true, |names| !names.contains(&site.callee_name));",
+   "resolution::e5_bound_tests::e5_bound_negative_controls_retain_full_resolution_values"
+  ],
+  "E5-03-import-require-exemption-off": [
+   "src/resolution.rs",
+   ".is_some_and(|names| !names.contains(&site.callee_name));",
+   ".is_some_and(|_names| true);",
+   "resolution::e5_bound_tests::e5_bound_negative_controls_retain_full_resolution_values"
+  ],
+  "E5-04-jsx-arm-off": [
+   "src/resolution.rs",
+   "let module_caller = is_js_ts_import_member_file(&site.caller.file)",
+   "let module_caller = !site.jsx_element && is_js_ts_import_member_file(&site.caller.file)",
+   "resolution::e5_bound_tests::e5_module_jsx_alias_and_unbound_refuse_singletons"
   ]
  },
  "intent_revisions": {

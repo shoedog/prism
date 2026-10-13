@@ -127,9 +127,9 @@ fn b4_dollar_named_locals_shadow() {
 
 #[test]
 fn b5_nested_declarators_keep_base() {
-    // Opus W2 / sol W1 (Option K): a declarator nested in a block keeps base, so its
-    // shorthand never shadows `f()` after the block. E5 now refuses the unimported
-    // module target, while the imported path preserves these scope controls.
+    // Opus W2 / sol W1 (Option K): the imported path preserves the nested scope
+    // controls. E5's union deliberately drops unsupported module-caller aliases
+    // as well as unbound calls, including the nested and hoisted-var fallbacks.
     let block = |head: &str, decl: &str| {
         format!("export function run(o) {{\n  {head}{{\n    {decl}\n    f();\n  }}\n  return f();\n}}\n")
     };
@@ -142,17 +142,17 @@ fn b5_nested_declarators_keep_base() {
     let same_line = "export function run(o) {\n  { const { f } = o; f(); } return f();\n}\n";
     let exact = |l: &str, k: &str| vec![format!("L{l} f: Exact {k} lib:f@1-3")];
     let refused = |l: &str| vec![format!("L{l} f: drop LocalBindingUnproven")];
-    let free = [exact("4", "free_single"), refused("6")].concat();
-    let var_want = [exact("4", "free_single"), exact("6", "free_single")].concat();
+    let free = [refused("4"), refused("6")].concat();
+    let var_want = [refused("4"), refused("6")].concat();
     let import_want = [exact("5", "import_member"), exact("7", "import_member")].concat();
-    let line2 = [exact("2", "free_single"), refused("2")].concat();
+    let line2 = [refused("2"), refused("2")].concat();
     // Opus r2 W1 (P15, Q2): a bare block at module scope is nested too; E5 refuses
     // the unimported callee rather than claiming that the nested block binds it.
     let module = "{\n  const { f } = globalThis.o;\n}\nexport function run() {\n  return f();\n}\n"
         .to_string();
     let module_var = module.replace("const", "var");
     let l5 = refused("5");
-    let module_var_want = exact("5", "free_single");
+    let module_var_want = refused("5");
     for (app, want) in [
         (&bare, &free),
         (&in_if, &free),

@@ -99,7 +99,7 @@ fn td_duplicate_for_heads_negative_control_single_head_binds() {
     // non-duplicate `for` head is itself `not_callable` (D7), still dropping — the real
     // control is removing the loop entirely and using a script-global declaration;
     // E5 now refuses the unimported module variant.
-    let a = ("a.js", "export function run(a) {\n  return f();\n}\n");
+    let a = ("a.js", "function run(a) {\n  return f();\n}\n");
     let lib = ("lib.js", "function f() { return 1; }\n");
     let cg = two_file_graph(a, lib);
     let out: Vec<String> = sites(&cg)
