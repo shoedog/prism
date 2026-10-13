@@ -353,6 +353,11 @@ pub fn current_cache_build_identity() -> &'static str {
     env!("PRISM_CACHE_BUILD_IDENTITY")
 }
 
+/// The on-disk CPG cache format version this binary reads and writes.
+pub fn current_cache_format_version() -> u32 {
+    CACHE_VERSION
+}
+
 pub fn binary_input_dirty() -> bool {
     env!("PRISM_BINARY_INPUT_DIRTY") == "1"
 }

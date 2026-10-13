@@ -118,6 +118,9 @@ pub struct NavigationIndex {
     pub line_range_index: BTreeMap<String, Vec<(usize, usize, NodeIndex)>>,
     pub name_index: BTreeMap<(String, String), Vec<NodeIndex>>,
     resolved_call_edges: OnceLock<NavigationCallEdgeIndex>,
+    /// Provenance of `resolved_call_edges`: `true` when it was loaded from the sidecar, `false` when
+    /// it was computed. Set once, inside the same initialization, and never read by the index itself.
+    call_edges_loaded: OnceLock<bool>,
     call_edge_cache_store: Option<call_edge_cache::NavigationCallEdgeCacheStore>,
 }
 
@@ -222,6 +225,7 @@ impl NavigationIndex {
             line_range_index,
             name_index,
             resolved_call_edges: OnceLock::new(),
+            call_edges_loaded: OnceLock::new(),
             call_edge_cache_store,
         }
     }
@@ -241,6 +245,7 @@ impl NavigationIndex {
     pub fn with_modified_cpg_for_testing(mut self, f: impl FnOnce(&mut CodePropertyGraph)) -> Self {
         f(&mut self.cpg);
         self.resolved_call_edges = OnceLock::new();
+        self.call_edges_loaded = OnceLock::new();
         self.call_edge_cache_store = None;
         self
     }
@@ -249,6 +254,7 @@ impl NavigationIndex {
         self.resolved_call_edges.get_or_init(|| {
             if let Some(store) = &self.call_edge_cache_store {
                 if let Some(index) = store.load_best_effort() {
+                    let _ = self.call_edges_loaded.set(true);
                     return index;
                 }
             }
@@ -256,8 +262,26 @@ impl NavigationIndex {
             if let Some(store) = &self.call_edge_cache_store {
                 store.save_best_effort(&index);
             }
+            let _ = self.call_edges_loaded.set(false);
             index
         })
+    }
+
+    /// Whether the resolved call-edge index came from its on-disk sidecar (`Some(true)`) or was
+    /// computed (`Some(false)`, including when caching is disabled). `None` until the index is first
+    /// forced. Provenance only: it changes nothing about what `resolved_call_edges` returns.
+    #[cfg_attr(not(feature = "mcp"), allow(dead_code))]
+    pub(crate) fn call_edges_loaded_from_cache(&self) -> Option<bool> {
+        self.call_edges_loaded.get().copied()
+    }
+
+    /// Whether the CPG was loaded from an exact cache hit (`Some(true)`) or built (`Some(false)`);
+    /// `None` when this index has no cache store (caching disabled, or fenced off for an ephemeral owner).
+    #[cfg_attr(not(feature = "mcp"), allow(dead_code))]
+    pub(crate) fn cpg_loaded_from_cache(&self) -> Option<bool> {
+        self.call_edge_cache_store
+            .as_ref()
+            .map(call_edge_cache::NavigationCallEdgeCacheStore::cpg_cache_hit)
     }
 
     pub(crate) fn direct_callers(&self, target: &FunctionId) -> &[IndexedIncomingCall] {

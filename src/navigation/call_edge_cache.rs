@@ -183,6 +183,12 @@ impl NavigationCallEdgeCacheStore {
         }
     }
 
+    /// Whether the CPG this store belongs to was an exact cache hit.
+    #[cfg_attr(not(feature = "mcp"), allow(dead_code))]
+    pub(crate) fn cpg_cache_hit(&self) -> bool {
+        self.cpg_cache_hit
+    }
+
     pub(crate) fn load_best_effort(&self) -> Option<NavigationCallEdgeIndex> {
         if !self.cpg_cache_hit {
             return None;

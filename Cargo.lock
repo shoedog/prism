@@ -600,6 +600,7 @@ dependencies = [
  "clap",
  "dirs",
  "hcl-rs",
+ "libc",
  "petgraph",
  "predicates",
  "rayon",

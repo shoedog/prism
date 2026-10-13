@@ -16,6 +16,18 @@ struct Cli {
     warm_at_startup: bool,
     #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u64).range(0..=600))]
     first_call_wait: u64,
+    /// Measurement only (needs PRISM_MCP_MEM_REPORT=1): run this tools/call workload after the build.
+    #[arg(long, hide = true)]
+    mem_workload: Option<std::path::PathBuf>,
+    /// Measurement only: run one refresh at the end, for the refresh peak.
+    #[arg(long, hide = true)]
+    mem_refresh: bool,
+    /// Measurement only: seconds to wait before the steady-state sample.
+    #[arg(long, hide = true, default_value_t = 5, value_parser = clap::value_parser!(u64).range(0..=600))]
+    mem_settle_secs: u64,
+    /// Measurement only: print a workload for this many functions and exit.
+    #[arg(long, hide = true, value_parser = clap::value_parser!(u64).range(1..=10000), conflicts_with_all = ["mem_workload", "mem_refresh"])]
+    mem_emit_workload: Option<u64>,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -44,7 +56,56 @@ fn main() -> anyhow::Result<()> {
         prism::mcp::StartupMode::Lazy
     };
     cfg.first_call_wait = std::time::Duration::from_secs(c.first_call_wait);
-    match c.owner.options()? {
+    let owner = c.owner.options()?;
+
+    let report_mode = std::env::var("PRISM_MCP_MEM_REPORT").is_ok_and(|value| value == "1");
+    let mem_flag = c.mem_workload.is_some() || c.mem_refresh || c.mem_emit_workload.is_some();
+    if mem_flag && !report_mode {
+        anyhow::bail!(
+            "--mem-workload, --mem-refresh and --mem-emit-workload are measurement-only and need PRISM_MCP_MEM_REPORT=1"
+        );
+    }
+    if report_mode {
+        eprintln!("prism-mcp: PRISM_MCP_MEM_REPORT=1 puts this process in memory-report mode; it is not serving MCP");
+        anyhow::ensure!(
+            c.eager,
+            "PRISM_MCP_MEM_REPORT=1 selects memory-report mode, which needs --eager and never serves MCP; unset PRISM_MCP_MEM_REPORT to run the server"
+        );
+        // Count tree-sitter's allocations from here on. Nothing has parsed yet, and this process
+        // is single-purpose; library code and tests must never install the hooks.
+        // SAFETY: this is the main thread, before the index build or any other parse starts; no
+        // other thread is inside tree-sitter, and this is the only call.
+        unsafe { prism::mcp::mem_tree_alloc::install() };
+        anyhow::ensure!(
+            owner.is_none(),
+            "memory-report mode does not support --owner-compiler/--owner-config"
+        );
+        if let Some(functions) = c.mem_emit_workload {
+            return prism::mcp::mem_report::emit_workload(
+                &cfg,
+                functions as usize,
+                &mut std::io::stdout().lock(),
+            );
+        }
+        let options = prism::mcp::mem_report::MemReportOptions {
+            workload: c.mem_workload,
+            refresh: c.mem_refresh,
+            settle: std::time::Duration::from_secs(c.mem_settle_secs),
+        };
+        // Do not hold the stderr lock while the report runs. The index is built on pool worker
+        // threads while this thread waits, and any `eprintln!` on a worker (the product has several,
+        // and the out-of-memory message in `mem_tree_alloc`) takes that same lock: holding it here
+        // would hang the build forever. The buffer is filled after the last sample, so writing it
+        // out afterwards changes nothing that was measured.
+        let mut report = Vec::new();
+        prism::mcp::mem_report::run(&cfg, &options, &mut report)?;
+        use std::io::Write as _;
+        let mut stderr = std::io::stderr().lock();
+        stderr.write_all(&report)?;
+        return Ok(stderr.flush()?);
+    }
+
+    match owner {
         Some(owner) => prism::mcp::run_with_owner(cfg, owner),
         None => prism::mcp::run(cfg),
     }
