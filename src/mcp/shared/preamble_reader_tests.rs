@@ -192,8 +192,37 @@ fn an_interrupted_read_is_retried_and_other_errors_are_passed_on() {
     );
 }
 
-/// The same continuation against a real socket with a read timeout, which is how a shim
-/// bounds its wait for the reply.
+/// One reader, one connection: nothing of a line that the stream ended in, or that a fatal
+/// error cut off, is carried into a later read. Spec §4.1 step 5 has the shim retry after a
+/// preamble-time end of stream; a reader hoisted out of that retry loop must not glue a dying
+/// daemon's partial reply onto the next daemon's line.
+#[test]
+fn nothing_of_an_unfinished_line_survives_the_end_of_the_stream_or_a_fatal_error() {
+    let mut reader = PreambleLineReader::new();
+    let mut dying = Scripted::new(vec![Ok(b"REA")]);
+    assert!(matches!(
+        reader.read_line(&mut dying),
+        Err(PreambleReadError::Eof { received: 3 })
+    ));
+    assert!(matches!(
+        reader.read_line(&mut dying),
+        Err(PreambleReadError::Eof { received: 0 })
+    ));
+    let mut next = Scripted::new(vec![Ok(b"BUSY {}\n")]);
+    assert_eq!(reader.read_line(&mut next).unwrap(), b"BUSY {}");
+
+    let mut reader = PreambleLineReader::new();
+    let mut reset = Scripted::new(vec![Ok(b"REA"), Err(ErrorKind::ConnectionReset)]);
+    assert!(matches!(
+        reader.read_line(&mut reset),
+        Err(PreambleReadError::Io(_))
+    ));
+    let mut next = Scripted::new(vec![Ok(b"BUSY {}\n")]);
+    assert_eq!(reader.read_line(&mut next).unwrap(), b"BUSY {}");
+}
+
+/// The same continuation against a real socket with a read timeout. The timeout bounds each
+/// silence, not the whole line; a deadline for the line is the caller's own.
 #[test]
 fn a_socket_read_timeout_is_an_io_outcome_and_the_line_continues_afterwards() {
     let (mut writer, mut reader_end) = UnixStream::pair().unwrap();

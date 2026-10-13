@@ -58,7 +58,8 @@ impl fmt::Display for SettingsError {
 impl std::error::Error for SettingsError {}
 
 /// Everything one client of a shared daemon chooses for its own connection (spec §4.1 step 3,
-/// §4.4): the output settings dispatch reads, plus the two that only the readiness path reads.
+/// §4.4): the output settings dispatch reads, the first-call wait the readiness path reads, and
+/// the client's warm-at-startup wish, which is carried for information only (see its accessor).
 /// The shim resolves it from its own environment and flags and sends it in the preamble; it is
 /// never inherited from the client that started the daemon.
 ///
@@ -115,8 +116,10 @@ impl ClientSettings {
         self.first_call_wait_secs
     }
 
-    /// Whether this client asked for the index to be built at daemon start. Only the daemon
-    /// this client starts honors it (spec §8).
+    /// Whether this client was started with `--warm-at-startup`. Informational: no daemon acts
+    /// on this field. A daemon builds at start only when it was itself started with the flag on
+    /// its command line, which the starting shim passes (spec §11 item 7); a daemon cannot tell
+    /// from a `HELLO` whether its sender is the shim that started it.
     pub fn warm_at_startup(&self) -> bool {
         self.warm_at_startup
     }

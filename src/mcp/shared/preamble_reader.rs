@@ -11,12 +11,19 @@ pub enum PreambleReadError {
     /// More than [`PREAMBLE_MAX_BYTES`] bytes arrived without a newline. The reader has taken
     /// one byte past the limit and will not return a line again.
     TooLong,
-    /// The stream ended before the newline; `received` bytes of the line had arrived. For a
-    /// shim waiting for the reply this is the transient case of spec §4.1 step 5.
+    /// The stream ended before the newline; `received` bytes of the line had arrived and are
+    /// discarded. For a shim waiting for the reply this is the transient case of spec §4.1
+    /// step 5.
     Eof { received: usize },
     /// A read failed. For `WouldBlock` and `TimedOut` (a non-blocking socket, a read timeout)
     /// the bytes read so far are kept: calling [`PreambleLineReader::read_line`] again
-    /// continues the same line. Whether to call again is the caller's deadline to decide.
+    /// continues the same line. For any other error they are discarded, because the stream
+    /// they came from is finished.
+    ///
+    /// A read timeout bounds silence, not the line: a peer that sends one byte just inside
+    /// each timeout keeps `read_line` going for up to 4,097 timeouts. A total deadline for the
+    /// preamble is the caller's to enforce, with a non-blocking socket it polls against its
+    /// own clock.
     Io(io::Error),
 }
 
@@ -59,6 +66,11 @@ impl PreambleLineReader {
     /// it. Reads one byte at a time: a preamble is a few hundred bytes read once per
     /// connection, and whatever follows the newline must stay in `source` for the transport
     /// that takes over. `source` is typically a `UnixStream`, not a `BufReader`.
+    ///
+    /// It returns only at a newline, at the end of the stream, on overflow or on a read error;
+    /// it has no deadline of its own (see [`PreambleReadError::Io`]). One reader serves one
+    /// connection: after the end of the stream or a fatal error nothing of the unfinished
+    /// line is kept, so a reader reused on another stream starts a new line.
     pub fn read_line(&mut self, source: &mut impl Read) -> Result<Vec<u8>, PreambleReadError> {
         if self.overflowed {
             return Err(PreambleReadError::TooLong);
@@ -67,9 +79,9 @@ impl PreambleLineReader {
         loop {
             match source.read(&mut byte) {
                 Ok(0) => {
-                    return Err(PreambleReadError::Eof {
-                        received: self.line.len(),
-                    })
+                    let received = self.line.len();
+                    self.line.clear();
+                    return Err(PreambleReadError::Eof { received });
                 }
                 Ok(_) if byte[0] == b'\n' => return Ok(std::mem::take(&mut self.line)),
                 Ok(_) => {
@@ -80,7 +92,16 @@ impl PreambleLineReader {
                     self.line.push(byte[0]);
                 }
                 Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
-                Err(error) => return Err(PreambleReadError::Io(error)),
+                Err(error) => {
+                    let resumable = matches!(
+                        error.kind(),
+                        io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
+                    );
+                    if !resumable {
+                        self.line.clear();
+                    }
+                    return Err(PreambleReadError::Io(error));
+                }
             }
         }
     }

@@ -84,6 +84,15 @@ impl fmt::Display for PreambleError {
 
 impl std::error::Error for PreambleError {}
 
+/// `text` with every control character replaced. Text that repeats what the peer sent (a
+/// field name inside a parser's message) must not be able to start a new line or drive a
+/// terminal where the error is logged or shown.
+fn printable(text: &str) -> String {
+    text.chars()
+        .map(|c| if c.is_control() { '\u{fffd}' } else { c })
+        .collect()
+}
+
 /// At most `max` bytes of `text`, cut on a character boundary.
 fn clip(text: &str, max: usize) -> String {
     let mut end = text.len().min(max);
@@ -192,7 +201,7 @@ fn parse_object<'p, T: Deserialize<'p>>(payload: &'p str) -> Result<T, PreambleE
         return Err(invalid("the payload is not a JSON object"));
     }
     serde_json::from_str(payload).map_err(|error| {
-        let detail = clip(&error.to_string(), MAX_DETAIL_BYTES);
+        let detail = clip(&printable(&error.to_string()), MAX_DETAIL_BYTES);
         match error.classify() {
             serde_json::error::Category::Data => PreambleError::Invalid { detail },
             _ => PreambleError::NotJson { detail },
@@ -401,11 +410,18 @@ impl Reply {
                     max_clients: wire.max_clients,
                 }
             }
-            _ => {
+            "MISMATCH" => {
                 let wire: MismatchWire = parse_object(payload)?;
                 Self::Mismatch {
                     expected: key_field("expected", &wire.expected)?,
                 }
+            }
+            // `verb_and_payload` admits only the four verbs above; a verb added to its list
+            // and not given an arm here must not be read as one of the others.
+            other => {
+                return Err(PreambleError::UnknownVerb {
+                    verb: clip(other, MAX_VERB_BYTES),
+                })
             }
         };
         require_canonical(line, &reply.encode())?;
