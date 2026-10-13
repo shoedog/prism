@@ -175,17 +175,15 @@ fn redundant_segments_keep_literal_js_file_alone() {
 
 #[test]
 fn redundant_segments_match_the_canonical_spelling() {
+    // Parity holds except in three corners where the canonical spelling's list
+    // is a legacy answer that TypeScript orders differently; see
+    // `redundant_segments_follow_typescript_order_where_canonical_is_legacy`.
     // (indexed files, redundant spelling, canonical spelling)
-    let cases: [(&[&str], &str, &str); 9] = [
+    let cases: [(&[&str], &str, &str); 8] = [
         (&["pkg/a/x.ts"], "./a//x", "./a/x"),
         (&["pkg/a/x.ts"], "./a//x.js", "./a/x.js"),
         (&["pkg/a/x.js", "pkg/a/x.ts"], "./a/./x.js", "./a/x.js"),
         (&["pkg/a/x.ts", "pkg/a/x.tsx"], "./a/../a/x.js", "./a/x.js"),
-        (
-            &["pkg/a/x.js/index.ts", "pkg/a/x.ts"],
-            "./a//x.js",
-            "./a/x.js",
-        ),
         (&["pkg/a/sub/index.ts"], "./a//sub", "./a/sub"),
         (
             &["pkg/a/sub/index.ts", "pkg/a/sub.ts"],
@@ -202,6 +200,61 @@ fn redundant_segments_match_the_canonical_spelling() {
             "{redundant} vs {canonical} over {indexed:?}"
         );
     }
+}
+
+#[test]
+fn redundant_segments_follow_typescript_order_where_canonical_is_legacy() {
+    // (indexed, canonical list (legacy, unchanged), redundant-spelling list)
+    // TypeScript 5.9.3 resolveModuleName("./x.js") in Bundler, Node10 and
+    // NodeNext: `x.js.ts` alone resolves `x.js.ts`; with `x.ts` beside it, `x.ts`.
+    let cases: [(&[&str], &[&str], &[&str]); 4] = [
+        (&["pkg/a/x.js.ts"], &["pkg/a/x.js.ts"], &["pkg/a/x.js.ts"]),
+        (
+            &["pkg/a/x.js.ts", "pkg/a/x.ts"],
+            &["pkg/a/x.js.ts"],
+            &["pkg/a/x.ts"],
+        ),
+        (
+            &["pkg/a/x.ts", "pkg/a/x.js/index.ts"],
+            &["pkg/a/x.js/index.ts"],
+            &["pkg/a/x.ts", "pkg/a/x.js/index.ts"],
+        ),
+        // The literal normalized file is its own tier: `x.js.ts` does not join it.
+        (
+            &["pkg/a/x.js", "pkg/a/x.js.ts"],
+            &["pkg/a/x.js.ts", "pkg/a/x.js"],
+            &["pkg/a/x.js"],
+        ),
+    ];
+    for (indexed, canonical, redundant) in cases {
+        assert_eq!(
+            list("./a/x.js", APP, indexed),
+            v(canonical),
+            "canonical {indexed:?}"
+        );
+        for spelled in ["./a//x.js", "./a/./x.js"] {
+            assert_eq!(
+                list(spelled, APP, indexed),
+                v(redundant),
+                "{spelled} {indexed:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn redundant_js_spelling_never_selects_a_declaration_file_through_a_d_stem() {
+    for spelled in ["./a/x.d.js", "./a//x.d.js", "./a/./x.d.js"] {
+        assert!(
+            list(spelled, APP, &["pkg/a/x.d.ts"]).is_empty(),
+            "{spelled}"
+        );
+    }
+    // Only the stem's own `.d` is refused; an ordinary dotted stem substitutes.
+    assert_eq!(
+        list("./a//x.dd.js", APP, &["pkg/a/x.dd.ts"]),
+        v(&["pkg/a/x.dd.ts"])
+    );
 }
 
 #[test]
