@@ -201,17 +201,39 @@ fn a_rejected_workload_file_fails_with_its_line_number() {
 /// rounding, taken by a reviewer with a C probe against tree-sitter 0.25.10. The reported
 /// figure counts usable allocation sizes, so it cannot be below that; four times it would mean
 /// something other than the one tree is being counted.
+///
+/// This bound alone is loose: 54_528 of the roughly 120_000 bytes measured for this file is
+/// prism's fixed compiled query cache, so a hook that lost 45 % of the tree would still pass.
+/// `the_tree_sitter_heap_figure_grows_by_the_tree_added` below pins the tree part.
 const GO_TREE_SUBTREE_BYTES: u64 = 64_368;
 
-#[test]
-fn the_tree_sitter_heap_figure_covers_the_retained_tree() {
+/// Run report mode on a Go file of `package main` plus `lines` `var x int` lines and return the
+/// report and the `tree_sitter_heap_bytes` of `after_load_repo` and `after_settle`.
+fn go_tree_report(lines: usize) -> (Value, u64, u64) {
     let dir = tempfile::tempdir().expect("temp repo");
-    let source = format!("package main\n{}", "var x int\n".repeat(100));
+    let source = format!("package main\n{}", "var x int\n".repeat(lines));
     std::fs::write(dir.path().join("main.go"), source).expect("main.go");
     let output = report_command(&dir).assert().success().get_output().clone();
     let report = report_line(&output.stderr);
     assert_eq!(report["attribution"]["files"], 1, "{report}");
+    let figure = |name: &str| {
+        let stage = report["stages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|stage| stage["name"] == name)
+            .unwrap_or_else(|| panic!("no {name} stage in {report}"));
+        stage["tree_sitter_heap_bytes"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("{name}: tree_sitter_heap_bytes is not a number: {stage}"))
+    };
+    let (loaded, settled) = (figure("after_load_repo"), figure("after_settle"));
+    (report, loaded, settled)
+}
 
+#[test]
+fn the_tree_sitter_heap_figure_covers_the_retained_tree() {
+    let (report, _, _) = go_tree_report(100);
     let stages = report["stages"].as_array().unwrap();
     let stage = |name: &str| {
         stages
@@ -243,6 +265,31 @@ fn the_tree_sitter_heap_figure_covers_the_retained_tree() {
                 "{name}: tree-sitter holds {tree_bytes}, more than the whole heap in use {heap}"
             );
         }
+    }
+}
+
+/// The fixed part of the figure (the compiled query cache) cancels in a difference, so this pins
+/// the tree part: 100 more `var x int` lines add about 66_000 bytes of subtree storage (an
+/// independent estimate from the same census as `GO_TREE_SUBTREE_BYTES`). A hook that dropped
+/// 45 % of the tree would fall below the lower bound; one that counted something else that scales
+/// with the file would exceed the upper.
+#[test]
+fn the_tree_sitter_heap_figure_grows_by_the_tree_added() {
+    let (_, loaded_100, settled_100) = go_tree_report(100);
+    let (_, loaded_200, settled_200) = go_tree_report(200);
+    for (name, small, large) in [
+        ("after_load_repo", loaded_100, loaded_200),
+        ("after_settle", settled_100, settled_200),
+    ] {
+        let grew = large.checked_sub(small).unwrap_or_else(|| {
+            panic!("{name}: 200 lines hold {large}, fewer than 100 lines' {small}")
+        });
+        eprintln!("{name}: 100 lines {small}, 200 lines {large}, difference {grew}");
+        assert!(
+            (57_900..=99_000).contains(&grew),
+            "{name}: 100 extra lines changed the figure by {grew} bytes (100 lines {small}, 200 lines {large}); \
+             expected about 66_000"
+        );
     }
 }
 

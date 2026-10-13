@@ -36,8 +36,9 @@ struct Stage {
     elapsed_ms: u64,
     #[serde(flatten)]
     memory: MemSample,
-    /// Usable bytes of live allocations made by tree-sitter (the retained syntax trees), or
-    /// `null` when the counting hooks are not installed (the binary installs them in report mode).
+    /// Usable bytes of every live tree-sitter allocation: the retained syntax trees plus prism's
+    /// compiled query cache (about 54 KB, fixed per process). `null` when the counting hooks are
+    /// not installed (the binary installs them in report mode).
     tree_sitter_heap_bytes: Option<u64>,
 }
 
@@ -225,7 +226,8 @@ struct Report {
     /// this mode: settings that can change what is measured.
     env: BTreeMap<String, String>,
     cache: CacheSection,
-    /// Size of the rayon pool that builds the index (`RAYON_NUM_THREADS` and the host decide it).
+    /// Worker count of the rayon pool that parses and builds the index (`RAYON_NUM_THREADS` and the
+    /// host decide it).
     threads: usize,
     stages: Vec<Stage>,
     ru_maxrss_bytes: Option<u64>,
@@ -344,7 +346,7 @@ pub fn run(
         config: config_section(cfg, options),
         env: env_section(),
         cache,
-        threads: rayon::current_num_threads(),
+        threads: crate::build_pool::build_pool().current_num_threads(),
         stages: recorder.stages,
         ru_maxrss_bytes: ru_maxrss_bytes(),
         attribution: attribute(provider.session()),

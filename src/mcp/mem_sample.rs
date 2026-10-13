@@ -15,10 +15,13 @@ pub struct MemSample {
     pub compressed_bytes: Option<u64>,
     /// Process-lifetime peak: footprint on macOS, resident size on Linux. Never decreases.
     pub peak_bytes: Option<u64>,
-    /// Bytes the process allocator has handed out and not had freed, at this instant (macOS:
-    /// `size_in_use` summed over all malloc zones; Linux glibc: `uordblks + hblkhd`). Unlike the
-    /// footprint, it falls when memory is freed. It is not resident memory: it leaves out
-    /// allocator overhead and mappings that do not come from malloc (thread stacks, mapped files).
+    /// Bytes the allocator reports as in use at this instant (macOS: `size_in_use` summed over all
+    /// malloc zones; Linux glibc: `uordblks + hblkhd`). Unlike the footprint, it falls when memory
+    /// is freed. It is not resident memory: it leaves out mappings that do not come from malloc
+    /// (thread stacks, mapped files). On glibc it is not "handed out and not freed": a block freed
+    /// into a thread cache (tcache) or fastbin still counts as in use, and the allocator's own
+    /// bookkeeping is included, so it can sit above the program's live allocations. `None` where
+    /// there is no source (non-glibc Linux, other platforms, glibc older than 2.33).
     pub heap_in_use_bytes: Option<u64>,
 }
 
@@ -46,8 +49,22 @@ fn heap_in_use_bytes() -> Option<u64> {
     }
     #[cfg(all(target_os = "linux", target_env = "gnu"))]
     {
-        // SAFETY: `mallinfo2` takes no arguments and returns a plain struct by value.
-        let info = unsafe { libc::mallinfo2() };
+        // `mallinfo2` exists only in glibc 2.33 and later. Referencing it directly would make the
+        // whole `mcp` feature fail to link on an older glibc, so it is looked up at run time and
+        // the figure is `None` when the symbol is absent.
+        type Mallinfo2 = unsafe extern "C" fn() -> libc::mallinfo2;
+        // SAFETY: `dlsym` is given the default search scope and a NUL-terminated name; it returns a
+        // pointer or null and touches no memory of ours.
+        let symbol = unsafe { libc::dlsym(libc::RTLD_DEFAULT, c"mallinfo2".as_ptr()) };
+        if symbol.is_null() {
+            return None;
+        }
+        // SAFETY: a non-null `mallinfo2` symbol in glibc is `struct mallinfo2 mallinfo2(void)`,
+        // which is `Mallinfo2`; function and data pointers have the same size on this target.
+        let mallinfo2: Mallinfo2 =
+            unsafe { std::mem::transmute::<*mut libc::c_void, Mallinfo2>(symbol) };
+        // SAFETY: the function takes no arguments and returns a plain struct by value.
+        let info = unsafe { mallinfo2() };
         Some((info.uordblks as u64).saturating_add(info.hblkhd as u64))
     }
     #[cfg(not(any(target_os = "macos", all(target_os = "linux", target_env = "gnu"))))]
@@ -299,13 +316,22 @@ mod tests {
         drop(block);
         let low = sample();
 
-        // Unavailable on this platform (for example Linux without glibc): nothing to assert.
         let (Some(before), Some(high), Some(low)) = (
             before.heap_in_use_bytes,
             high.heap_in_use_bytes,
             low.heap_in_use_bytes,
         ) else {
-            return;
+            // The figure exists on macOS and on Linux with glibc 2.33 or later; a missing sample
+            // there is a defect (or a glibc too old for `mallinfo2`), not a reason to skip.
+            assert!(
+                !cfg!(any(
+                    target_os = "macos",
+                    all(target_os = "linux", target_env = "gnu")
+                )),
+                "heap_in_use_bytes is unavailable on a platform that must report it \
+                 (glibc older than 2.33 has no mallinfo2): {before:?} {high:?} {low:?}"
+            );
+            return; // musl and other Linux libcs have no source for the figure
         };
         assert!(
             high >= before + MIN_CHANGE,
