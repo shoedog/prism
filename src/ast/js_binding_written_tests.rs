@@ -5,6 +5,8 @@ use crate::ast::js_binding_helper_tests::parse;
 
 const ANY: [&str; 3] = ["a.js", "a.ts", "a.tsx"];
 
+type Row = (&'static str, &'static str, Vec<(usize, usize)>);
+
 fn site_of<'a>(p: &'a crate::ast::ParsedFile, src: &str, name: &str) -> tree_sitter::Node<'a> {
     let at = src.rfind(&format!("{name}(")).expect("site");
     let site = p
@@ -24,7 +26,7 @@ fn lines(path: &str, src: &str, name: &str) -> Vec<(usize, usize)> {
 
 #[test]
 fn value_lines_cover_the_initializer_and_each_assigned_right_hand_side() {
-    let rows: [(&str, &str, Vec<(usize, usize)>); 9] = [
+    let rows: [Row; 9] = [
         (
             "initializer",
             "function r(o) {\n  const h = o.pick;\n  return h();\n}\n",
