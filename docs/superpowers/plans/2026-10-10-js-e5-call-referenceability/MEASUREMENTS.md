@@ -246,3 +246,20 @@ All581 admitted roots:0 differing call rows/0 differing graph rows, no added/rem
 ## Verification hook stop:5 continuation
 
 On unchanged source, a fresh `cargo nextest run --offline --all-targets --features mcp --no-fail-fast` ran5311 tests:5310 passed,1 inherited d7 example failed,1 skipped (3 slow). Complete assertion left/right values freshly match the retained exact-main same-environment control. Both MCP timing tests pass; no isolated run or code repair followed. Coverage inspection found no missing RED/negative-case regression; no source/test changes. Root VERIFICATION.md now has explicit Verified and Not verified sections, exact commands/totals and exclusions. Receipts: step2b/verification-hook-stop5/{full-suite.log,full-suite-result.json,coverage.json}. No current STOP; private F/independent review remain controller gates.
+
+## Controller private run, step-2b head (corpus F; 2026-10-13, aggregates only)
+
+Paired `CONTROLLER-e5.sh diff` with the step-0 base binaries and the frozen step-2b head binaries (`head-prism` `a2b4841d…`, `head-facts` `e627ea71…`, `head-graph` `31bdbf0c…`, matching `step2b/binary-binding.json`; source `2783899d`, packet head `44317dde`). Status COMPLETE; raw equals after-override; 0 overrides; controller stderr empty. The two temporary cache directories the script creates under `step2b/` were removed after the run.
+
+| | Base | Step-2b head |
+|---|---:|---:|
+| Call sites | 13,299 | 13,299 (109 changed; non-JS call sites identical) |
+| Exact `free_single` JS/TS targets | 113 | 4 |
+| Targets removed: WRONG / CORRECT / UNDECIDED / INADMISSIBLE | | 109 / 0 / 0 / 0 |
+| Targets, sites or graph rows added | | 0 / 0 / 0 |
+
+Graph rows removed (261), all adjudicated WRONG: Call 109, Return 109, DataFlow 42, ReturnFlow 1.
+
+**Difference from the step-1 head and from the round-1 prediction (109 / 0 / 4 / 0):** the four UNDECIDED targets are now kept. All four are Source-origin calls to a name destructured from an awaited dynamic import (`const { name } = await import(...)`), which ruling R1 counts as import evidence for parity with destructured `require`. They were exposure, not yield; keeping them is main's behaviour. Every WRONG removal of the step-1 head is retained.
+
+The acceptance criterion "zero CORRECT Exact loss on F" passes on the step-2b head. Private rows stay in the controller's private evidence directory.

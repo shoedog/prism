@@ -124,7 +124,7 @@ Keep call sites with a retained qualifier, earlier proven qualified rungs, same-
 
 ## Acceptance criteria and gates
 
-- Zero CORRECT Exact loss on each admitted public corpus and controller F; any loss invokes STOP. Current public criterion passed; private step2b F pending. Historical step1 F passed (0 CORRECT lost), not transferred to step2b.
+- Zero CORRECT Exact loss on each admitted public corpus and controller F; any loss invokes STOP. Current public criterion passed; private step-2b F passed (controller, 2026-10-13): 109 W / 0 C / 0 U / 0 I removed, nothing added; the four UNDECIDED targets the step-1 head removed are kept under R1 (awaited dynamic-import destructuring). See MEASUREMENTS.md, "Controller private run, step-2b head".
 - Zero new WRONG/target/site/topology; every differing call site and graph row adjudicated. Public added counts all0.
 - Non-JS call bytes and non-call graph digests identical; symbol/file inventories identical; disclose call-derived navigation/dependency changes. All581 public roots passed.
 - Every UNDECIDED removal disclosed; preserve INADMISSIBLE exposures and four producer exclusions without yield or zero-cost credit.
@@ -136,7 +136,7 @@ Keep call sites with a retained qualifier, earlier proven qualified rungs, same-
 
 Current step2b patch base is3df0ddfa; frozen main isbab0dfbd. Step2b binary binding and581-root head-to-head identity are in step2b/binary-binding.json and head-identity.json. The remaining paragraph describes historical step2 custody. The R1–R7 bounded fold is retained in the working tree and snapshotted under step2; historical union source e164178b is the predecessor. New head CLI/fact/graph/module/byte helpers are frozen and source-bound in step2/binary-binding.json. Base binaries and calls/facts/graphs, plus matching-command base navigation artifacts, reuse read-only step0 receipts (step2/base references the retained step1 base view). A fresh empty product diff confirms40ad8390 equals bab0dfbd across src/Cargo/build/vendor. This is reuse, not fresh public base-producer execution. Both quick sides and reviewer fixtures do execute fresh base controls. Every head source byte is restored after the exact-main same-worktree control.
 
-No private step2b F capture, confirming independent review round2/2, Git custody/landing, R-local runtime, D12 narrowing/incoming repair, live MCP refresh, Rust/full Tier-A or full unscoped mutation lane is claimed. The four original SecBench producer exclusions remain excluded. No provider/network calls or corpus package execution occurred. CACHE_VERSION/both registry pins115 and navigation cache62 remain unchanged. CLAUDE.md is unchanged; its prospective sentence is drafted below.
+No confirming independent review round2/2, Git custody/landing, R-local runtime, D12 narrowing/incoming repair, live MCP refresh, Rust/full Tier-A or full unscoped mutation lane is claimed. The four original SecBench producer exclusions remain excluded. No provider/network calls or corpus package execution occurred. CACHE_VERSION/both registry pins115 and navigation cache62 remain unchanged. CLAUDE.md is unchanged; its prospective sentence is drafted below.
 
 ## Review coverage and prospective CLAUDE.md sentence (R7)
 
