@@ -12,6 +12,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import memreport  # noqa: E402
@@ -197,6 +198,115 @@ class CacheFileTests(Harness):
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / 'cpg-cache.bin.tmp').write_bytes(b'1234')
             self.assertIsNone(memreport.single_file_size(tmp, 'cpg-cache.bin'))
+
+
+class RawResultTests(Harness):
+    def test_raw_results_record_kind_and_rep_and_each_corpus_has_a_corpus_json(self):
+        self.corpus('a')
+        self.fake(emit={'a': 4}, cache_bytes=99)
+        self.gen('a')
+        self.run_cmd('a', reps=2)
+        raw = self.out / 'raw' / 'a'
+        self.assertEqual(sorted(p.name for p in raw.iterdir()),
+                         ['cold-1.json', 'cold-2.json', 'corpus.json', 'prime.json', 'refresh-1.json',
+                          'refresh-2.json', 'warm-1.json', 'warm-2.json', 'workload-1.json', 'workload-2.json'])
+        for name in ('warm-2', 'workload-1', 'refresh-2', 'cold-1'):
+            stored = json.loads((raw / (name + '.json')).read_text())
+            self.assertEqual((stored['kind'], stored['rep']), (name.split('-')[0], int(name.split('-')[1])))
+        self.assertEqual(json.loads((raw / 'prime.json').read_text())['kind'], memreport.PRIME)
+        corpus = json.loads((raw / 'corpus.json').read_text())
+        self.assertEqual(corpus['cache_files']['cpg_cache_bytes'], 99)
+        self.assertEqual(corpus['workload']['requests'], 4)
+        self.assertEqual(corpus['commit'], memreport.corpus_provenance(self.tmp / 'a')['commit'])
+
+    def test_a_cache_missing_run_is_left_out_of_the_statistics_end_to_end(self):
+        self.corpus('a')
+        self.fake(emit={'a': 4}, stderr={'workload': ['nav cache: CPG cache miss in /x, rebuilding']})
+        self.gen('a')
+        self.run_cmd('a', reps=2)
+        entry = self.summary()['corpora']['a']
+        self.assertEqual(entry['admissible']['workload'], 0)
+        self.assertEqual(len(entry['inadmissible']), 2)
+        self.assertNotIn('steady', entry['metrics'])
+        self.assertEqual(entry['admissible']['warm'], 2)
+
+    def test_summary_json_is_rewritten_after_each_corpus(self):
+        self.corpus('a')
+        self.corpus('b')
+        self.fake(emit={'a': 4, 'b': 4})
+        self.gen('a', 'b')
+        real = memreport.run_one
+
+        def explode_on_b(command, kind, *rest):
+            if str((self.tmp / 'b').resolve()) in command:
+                raise RuntimeError('simulated crash in corpus b')
+            return real(command, kind, *rest)
+
+        with mock.patch.object(memreport, 'run_one', explode_on_b):
+            with self.assertRaises(RuntimeError):
+                self.run_cmd('a', 'b', reps=1)
+        self.assertEqual(sorted(self.summary()['corpora']), ['a'])
+        self.assertEqual(self.summary()['corpora']['a']['admissible']['warm'], 1)
+
+    def test_run_json_records_the_settings(self):
+        self.corpus('a')
+        self.fake(emit={'a': 4})
+        self.gen('a')
+        self.run_cmd('a', reps=1)
+        settings = json.loads((self.out / 'run.json').read_text())
+        self.assertEqual((settings['reps'], settings['settle'], settings['bin']), (1, 0, str(self.binary)))
+
+
+class SummarizeTests(Harness):
+    def finished_run(self, **cfg):
+        self.corpus('a')
+        self.corpus('b')
+        self.fake(emit={'a': 4, 'b': 4}, cache_bytes=10, **cfg)
+        self.gen('a', 'b')
+        self.run_cmd('a', 'b', reps=2)
+
+    def test_summarize_rebuilds_the_same_summary_from_raw(self):
+        self.finished_run()
+        original = (self.out / 'summary.json').read_text()
+        (self.out / 'summary.json').unlink()
+        quiet(memreport.main, ['summarize', '--run', str(self.out)])
+        self.assertEqual((self.out / 'summary.json').read_text(), original)
+
+    def test_summarize_applies_the_current_rules_to_saved_evidence(self):
+        self.finished_run()
+        self.assertEqual(self.summary()['corpora']['a']['admissible']['warm'], 2)
+        path = self.out / 'raw' / 'a' / 'warm-2.json'
+        stored = json.loads(path.read_text())
+        stored['report']['stages'][1]['peak_bytes'] = None
+        path.write_text(json.dumps(stored))
+        quiet(memreport.main, ['summarize', '--run', str(self.out)])
+        entry = self.summary()['corpora']['a']
+        self.assertEqual(entry['admissible']['warm'], 1)
+        self.assertEqual(entry['inadmissible'],
+                         [{'kind': 'warm', 'rep': 2, 'status': 'inadmissible',
+                           'reason': 'after_index.peak_bytes is unavailable'}])
+        self.assertEqual(self.summary()['corpora']['b']['admissible']['warm'], 2)
+
+    def test_summarize_does_not_touch_raw_and_needs_no_binary(self):
+        self.finished_run()
+        before = {p.name: p.read_bytes() for p in (self.out / 'raw' / 'a').iterdir()}
+        self.binary.unlink()
+        quiet(memreport.main, ['summarize', '--run', str(self.out)])
+        self.assertEqual({p.name: p.read_bytes() for p in (self.out / 'raw' / 'a').iterdir()}, before)
+
+    def test_summarize_refuses_a_corpus_without_corpus_json_and_a_result_without_kind(self):
+        self.finished_run()
+        (self.out / 'raw' / 'a' / 'corpus.json').unlink()
+        with self.assertRaises(SystemExit) as caught:
+            quiet(memreport.main, ['summarize', '--run', str(self.out)])
+        self.assertIn('no corpus.json', str(caught.exception))
+        stored = json.loads((self.out / 'raw' / 'b' / 'warm-1.json').read_text())
+        del stored['kind']
+        (self.out / 'raw' / 'b' / 'warm-1.json').write_text(json.dumps(stored))
+        (self.out / 'raw' / 'a' / 'corpus.json').write_text('{}')
+        with self.assertRaises(SystemExit) as caught:
+            quiet(memreport.main, ['summarize', '--run', str(self.out)])
+        self.assertIn('no kind/rep', str(caught.exception))
 
 
 if __name__ == '__main__':

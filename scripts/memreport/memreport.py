@@ -3,6 +3,7 @@
 
     memreport.py gen-workload --bin BIN --corpus NAME=PATH [--functions 50] [--workloads DIR]
     memreport.py run --bin BIN --corpus NAME=PATH [--corpus ...] --out DIR [--workloads DIR]
+    memreport.py summarize --run DIR
     memreport.py render --run DIR --out FILE.md
 
 Runs are sequential on purpose: one index in memory at a time.
@@ -21,6 +22,7 @@ from pathlib import Path
 MARKER = '{"prism_mem_report":'
 REPORT_VERSION = 2
 KINDS = ('warm', 'cold', 'workload', 'refresh')
+PRIME = 'prime'  # the discarded run that fills the cache; its report only has to parse
 # stderr text that means a non-cold run did not load everything from cache, with the reason it is excluded.
 CACHE_MISS_MARKERS = (
     ('CPG cache miss', 'the CPG cache missed, so this was a cold build'),
@@ -84,6 +86,7 @@ REQUIRED = {
     'cold': (('after_call_edges', 'peak_bytes'),),
     'refresh': (('after_refresh', 'peak_bytes'),),
     'workload': (('after_settle', FOOTPRINT),),
+    PRIME: (),
 }
 
 
@@ -245,8 +248,9 @@ def run_one(command, kind, timeout, expected=None):
         done = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                               stderr=subprocess.PIPE, timeout=timeout, env=env)
     except subprocess.TimeoutExpired:
-        return {'status': 'timeout', 'reason': 'timeout', 'command': command, 'wall_secs': timeout}
-    result = {'command': command, 'wall_secs': round(time.time() - started, 1)}
+        return {'kind': kind, 'status': 'timeout', 'reason': 'timeout', 'command': command,
+                'wall_secs': timeout}
+    result = {'kind': kind, 'command': command, 'wall_secs': round(time.time() - started, 1)}
     stderr = done.stderr.decode('utf-8', 'replace')
     if done.returncode != 0:
         result.update(status='failed', reason='exit %d' % done.returncode, exit=done.returncode,
@@ -259,7 +263,7 @@ def run_one(command, kind, timeout, expected=None):
         return result
     result['report'] = report
     missed = [reason for marker, reason in CACHE_MISS_MARKERS if marker in stderr]
-    if kind != 'cold' and missed:
+    if kind not in ('cold', PRIME) and missed:
         result.update(status='inadmissible', reason='; '.join(missed))
     else:
         reason = validate(kind, report, expected)
@@ -361,56 +365,127 @@ def bind_workload(name, directory, commit):
     return data, digest
 
 
+def effective_status(result, expected=None):
+    """(status, reason) of a stored result after validating its report again with today's rules.
+
+    A result can only lose admission here: markers seen on stderr at run time are not stored, so an
+    inadmissible result stays inadmissible whatever its report says.
+    """
+    status = result.get('status')
+    if status != 'ok':
+        return status or 'inadmissible', result.get('reason') or 'result has no status'
+    if not isinstance(result.get('report'), dict):
+        return 'inadmissible', 'result has no report'
+    reason = validate(result['kind'], result['report'], expected)
+    return ('ok', None) if reason is None else ('inadmissible', reason)
+
+
+def build_entry(corpus, results):
+    """One corpus's entry of summary.json from its corpus.json content and its raw results.
+
+    Pure: no subprocess, no clock, no filesystem. A result that is not admissible contributes to
+    `inadmissible` and to nothing else.
+    """
+    entry = dict(corpus, admissible={kind: 0 for kind in KINDS}, inadmissible=[], metrics={},
+                 attribution=None, build=None, env=None)
+    values = {}
+    for result in sorted(results, key=lambda item: (KINDS.index(item['kind']), item['rep'])):
+        kind, rep = result['kind'], result['rep']
+        status, reason = effective_status(result, corpus.get('workload') if kind == 'workload' else None)
+        if status != 'ok':
+            entry['inadmissible'].append({'kind': kind, 'rep': rep, 'status': status, 'reason': reason})
+            continue
+        entry['admissible'][kind] += 1
+        report = result['report']
+        entry['build'], entry['env'] = report.get('build'), report.get('env')
+        if kind == 'workload':
+            entry['attribution'] = report['attribution']
+        for metric, value in derive(kind, report).items():
+            values.setdefault(metric, []).append(value)
+    entry['metrics'] = {metric: summarize(series) for metric, series in sorted(values.items())}
+    return entry
+
+
+def assemble_summary(settings, entries):
+    provenance = dict(settings, build=None, env=None)
+    for entry in entries.values():
+        if entry.get('build') is not None:
+            provenance['build'], provenance['env'] = entry['build'], entry.get('env')
+    return {'provenance': provenance, 'corpora': entries, 'verdict': evaluate(entries)}
+
+
+def write_summary(out, summary):
+    path = Path(out) / 'summary.json'
+    temporary = path.with_name(path.name + '.tmp')
+    temporary.write_text(json.dumps(summary, indent=2, sort_keys=True) + '\n')
+    os.replace(temporary, path)
+    return path
+
+
+def measure_corpus(args, name, path, provenance, snapshot, digest):
+    """Run every kind for one corpus, saving each raw result as it finishes. Returns (corpus, results)."""
+    out = Path(args.out)
+    raw = out / 'raw' / name
+    raw.mkdir(parents=True, exist_ok=True)
+    cache_dir = out / 'cache' / name
+    # Prime the cache with a discarded run so that "warm" means a cache hit.
+    prime = run_one(command_for(args.bin, path, cache_dir, 'warm', snapshot, 0), PRIME, args.timeout)
+    (raw / 'prime.json').write_text(json.dumps(prime, indent=1))
+    corpus = dict(provenance, cache_files=cache_file_sizes(cache_dir), workload=digest)
+    (raw / 'corpus.json').write_text(json.dumps(corpus, indent=1, sort_keys=True))
+    results = []
+    for kind in KINDS:
+        for rep in range(1, args.reps + 1):
+            before = host_state()
+            result = run_one(command_for(args.bin, path, cache_dir, kind, snapshot, args.settle),
+                             kind, args.timeout, digest if kind == 'workload' else None)
+            result.update(rep=rep, host_before=before)
+            (raw / ('%s-%d.json' % (kind, rep))).write_text(json.dumps(result, indent=1))
+            print('%s %s #%d: %s (%ss)' % (name, kind, rep, result['status'], result['wall_secs']), flush=True)
+            results.append(result)
+    return corpus, results
+
+
 def cmd_run(args):
     out = Path(args.out)
-    summary = {'provenance': {'reps': args.reps, 'settle': args.settle, 'timeout': args.timeout,
-                              'bin': args.bin, 'build': None},
-               'corpora': {}}
+    settings = {'reps': args.reps, 'settle': args.settle, 'timeout': args.timeout, 'bin': args.bin}
     # Bind every corpus to its workload before any run starts: a mismatch must not cost hours first.
     bound = {}
     for name, path in parse_corpora(args.corpus).items():
         provenance = corpus_provenance(path)
         bound[name] = (path, provenance) + bind_workload(name, args.workloads, provenance['commit'])
+    out.mkdir(parents=True, exist_ok=True)
+    (out / 'run.json').write_text(json.dumps(settings, indent=1, sort_keys=True))
+    entries = {}
     for name, (path, provenance, data, digest) in bound.items():
         snapshot = out / 'workloads' / (name + '.jsonl')
         snapshot.parent.mkdir(parents=True, exist_ok=True)
         snapshot.write_bytes(data)
-        raw = out / 'raw' / name
-        raw.mkdir(parents=True, exist_ok=True)
-        cache_dir = out / 'cache' / name
-        entry = dict(provenance, admissible={kind: 0 for kind in KINDS}, workload=digest,
-                     inadmissible=[], metrics={}, attribution=None)
-        # Prime the cache with a discarded run so that "warm" means a cache hit.
-        prime = run_one(command_for(args.bin, path, cache_dir, 'warm', snapshot, 0), 'cold', args.timeout)
-        (raw / 'prime.json').write_text(json.dumps(prime, indent=1))
-        entry['cache_files'] = cache_file_sizes(cache_dir)
-        values = {}
-        for kind in KINDS:
-            for rep in range(1, args.reps + 1):
-                before = host_state()
-                result = run_one(command_for(args.bin, path, cache_dir, kind, snapshot, args.settle),
-                                 kind, args.timeout, digest if kind == 'workload' else None)
-                result['host_before'] = before
-                (raw / ('%s-%d.json' % (kind, rep))).write_text(json.dumps(result, indent=1))
-                print('%s %s #%d: %s (%ss)' % (name, kind, rep, result['status'], result['wall_secs']),
-                      flush=True)
-                if result['status'] != 'ok':
-                    entry['inadmissible'].append({'kind': kind, 'rep': rep, 'status': result['status'],
-                                                  'reason': result['reason']})
-                    continue
-                entry['admissible'][kind] += 1
-                report = result['report']
-                summary['provenance']['build'] = report.get('build')
-                summary['provenance']['env'] = report.get('env')
-                if kind == 'workload':
-                    entry['attribution'] = report['attribution']
-                for metric, value in derive(kind, report).items():
-                    values.setdefault(metric, []).append(value)
-        entry['metrics'] = {metric: summarize(series) for metric, series in sorted(values.items())}
-        summary['corpora'][name] = entry
-    summary['verdict'] = evaluate(summary['corpora'])
-    (out / 'summary.json').write_text(json.dumps(summary, indent=2, sort_keys=True) + '\n')
+        corpus, results = measure_corpus(args, name, path, provenance, snapshot, digest)
+        entries[name] = build_entry(corpus, results)
+        write_summary(out, assemble_summary(settings, entries))  # kept after every corpus, not just at the end
     print('wrote %s' % (out / 'summary.json'))
+
+
+def cmd_summarize(args):
+    """Rebuild summary.json from raw/ alone, validating every stored report with today's rules."""
+    out = Path(args.run)
+    settings = json.loads((out / 'run.json').read_text())
+    entries = {}
+    for directory in sorted(path for path in (out / 'raw').iterdir() if path.is_dir()):
+        corpus_path = directory / 'corpus.json'
+        if not corpus_path.exists():
+            raise SystemExit('%s: no corpus.json, so this corpus cannot be summarized' % directory)
+        results = []
+        for path in sorted(directory.glob('*.json')):
+            if path.name in ('corpus.json', 'prime.json'):
+                continue
+            result = json.loads(path.read_text())
+            if result.get('kind') not in KINDS or not isinstance(result.get('rep'), int):
+                raise SystemExit('%s: no kind/rep recorded; re-run instead' % path)
+            results.append(result)
+        entries[directory.name] = build_entry(json.loads(corpus_path.read_text()), results)
+    print('wrote %s' % write_summary(out, assemble_summary(settings, entries)))
 
 
 def mib(stats):
@@ -518,6 +593,9 @@ def main(argv=None):
     run.add_argument('--timeout', type=int, default=1800)
     run.add_argument('--settle', type=int, default=5)
     run.set_defaults(handler=cmd_run)
+    summarizing = commands.add_parser('summarize', help='rebuild summary.json from raw/ of an earlier run')
+    summarizing.add_argument('--run', required=True)
+    summarizing.set_defaults(handler=cmd_summarize)
     rendering = commands.add_parser('render')
     rendering.add_argument('--run', required=True)
     rendering.add_argument('--out', required=True)
