@@ -12,14 +12,16 @@
     "react-usecallback-inline",
     "react-lazy",
     "bind",
-    "call-with-inline-fn"
+    "call-with-inline-fn",
+    "value-is-function"
   ],
   "local.const.conditional": [
     "conditional",
     "fallback-or"
   ],
   "local.const.destructure.await": [
-    "await-import-destructure"
+    "await-import-destructure",
+    "await-async"
   ],
   "local.const.destructure.call_result": [
     "hook-result-destructure",
@@ -27,14 +29,45 @@
     "react-usestate-setter",
     "react-usecontext-destructure",
     "hook-result-two-keys",
-    "hook-result-two-slots"
+    "hook-result-two-slots",
+    "object-shorthand-local-fn",
+    "object-renamed-key-decoy",
+    "object-const-arrow",
+    "object-usecallback",
+    "object-import-value",
+    "object-inline-arrow-prop",
+    "object-method",
+    "object-renamed-binding",
+    "array-slot",
+    "ident-object",
+    "usememo-object",
+    "arrow-expression-body",
+    "default-export-hook",
+    "same-file-hook",
+    "jsx-component",
+    "spread-before-key",
+    "spread-after-key",
+    "divergent-returns",
+    "early-null-return",
+    "param-value",
+    "nested-hook",
+    "external-hook-trap",
+    "hook-is-parameter",
+    "let-binding",
+    "reassigned-binding"
   ],
   "local.const.destructure.identifier": [
     "ns-destructure",
     "object-param-destructure",
     "props-destructure-in-body",
     "default-destructure",
-    "shadows-same-file-fn-props"
+    "shadows-same-file-fn-props",
+    "ns-destructure-dup-rest",
+    "ns-destructure-dup-key",
+    "ns-destructure-rest-sibling",
+    "ns-destructure-nested-sibling",
+    "paths-ns-destructure-nested",
+    "cjs-exports-ns-destructure-nested"
   ],
   "local.const.destructure.identifier_member": [],
   "local.const.destructure.none": [
@@ -59,7 +92,11 @@
     "ident-rhs-is-outer-const",
     "ident-rhs-is-catch-param",
     "ident-rhs-is-outer-param",
-    "ident-rhs-is-own-param"
+    "ident-rhs-is-own-param",
+    "ident-alias-rebound-by-catch",
+    "ident-inner-block-does-not-leak",
+    "alias-in-sibling-block",
+    "ident-of-exported-alias"
   ],
   "local.const.identifier_member": [
     "ns-member",
@@ -74,7 +111,8 @@
     "exported-ns-member",
     "shadows-same-file-fn",
     "ns-via-alias-hop",
-    "ns-receiver-is-parameter"
+    "ns-receiver-is-parameter",
+    "spanless-export-nested-decoy"
   ],
   "local.const.none": [
     "for-of-element"
@@ -139,7 +177,8 @@
     "dir-index",
     "parent-file",
     "file-beats-directory",
-    "js-suffix-is-not-a-directory"
+    "js-suffix-is-not-a-directory",
+    "paths-named"
   ],
   "import.renamed": [
     "renamed",

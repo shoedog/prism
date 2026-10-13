@@ -106,6 +106,20 @@ function importVariants() {
     },
     truth: { t: 'one', target: 'helper.js:helper' }, contract: 'indirect record through a static property (E5 review round 1): outside the bare-name lookup',
   });
+  // --- shapes from the slice L reviews: terminals the alias route cannot prove ------------------
+  const TSCONFIG = `{ "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["src/*"] } } }\n`;
+  const API = `export function fetchUser(id: number) { return id; }\nexport function other(id: number) { return -id; }\n`;
+  mk('paths-named', { 'tsconfig.json': TSCONFIG, 'src/api.ts': API, 'src/app.ts': `import { fetchUser } from '@/api';\nexport function caller() {\n  return fetchUser(1); // SITE\n}\n` }, 'src/app.ts', one('src/api.ts:fetchUser'), { step: 'import-path', contract: 'tsconfig paths alias (control for the paths lane)' });
+  mk('paths-ns-destructure-nested', { 'tsconfig.json': TSCONFIG, 'src/api.ts': API, 'src/app.ts': `import * as api from '@/api';\nexport function outer() {\n  const { fetchUser } = api;\n  return function onClick() {\n    return fetchUser(1); // SITE\n  };\n}\n` }, 'src/app.ts', one('src/api.ts:fetchUser'), { step: 'local', naming: 'same', contract: 'namespace import through a tsconfig paths alias, destructured in an enclosing function' });
+  mk('spanless-export-nested-decoy', { 'producer.ts': `function compute(): any { return () => 1; }\nlet w: any;\nw = compute();\nexport { w };\nexport function other() {\n  function w() { return 2; }\n  return w;\n}\n`, 'caller.ts': `import * as N from './producer';\nexport function caller() {\n  const h = N.w;\n  return h(1); // SITE\n}\n` }, 'caller.ts', { t: 'may', targets: [] }, { step: 'local', naming: 'fresh', contract: 'the export has no callable span; a nested function elsewhere in that file shares its name' });
+  out.push({
+    id: 'local.cjs-exports-ns-destructure-nested.call.js', step: 'local', shape: 'cjs-exports-ns-destructure-nested', scope: 'outer', form: 'call', naming: 'same', lang: 'js', siteFile: 'app.js',
+    files: {
+      'api/cjs.js': `exports.legacy = function (x) { return x; }; // TARGET:legacy\n`,
+      'app.js': `import * as C from './api/cjs';\nexport function outer() {\n  const { legacy } = C;\n  return function onHover() {\n    return legacy(1); // SITE\n  };\n}\n`,
+    },
+    truth: { t: 'one', target: 'api/cjs.js:legacy' }, contract: 'namespace import of a CommonJS module that assigns exports.legacy',
+  });
   out.push({
     id: 'import.super-extends-member-named-super.call.js', step: 'import', shape: 'super-extends-member-named-super', scope: 'module', form: 'call',
     naming: 'same', lang: 'js', siteFile: 'caller.js',

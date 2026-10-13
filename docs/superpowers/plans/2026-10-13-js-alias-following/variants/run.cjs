@@ -161,6 +161,8 @@ const ORACLE_NOTES = {
   'named-js-suffix-dts-only': 'the checker names the .d.ts signature, which has no body',
   'hook-result-two-slots': 'JavaScript: the returned array literal is typed as an array of a union; the checker names its first member',
   'named-js-suffix-literal-and-ts': 'policy row: TypeScript binds x.ts; prism keeps the literal x.js as main does',
+  'ns-destructure-dup-rest': 'invalid program (duplicate binding): the checker still names a declaration',
+  'ns-destructure-dup-key': 'invalid program (duplicate binding): the checker still names a declaration',
 };
 const oracleOk = (r) => {
   const o = r.oracle;

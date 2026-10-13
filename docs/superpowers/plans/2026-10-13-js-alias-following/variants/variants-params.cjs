@@ -123,6 +123,12 @@ function paramVariants() {
       truth: { t: 'may', targets: [] }, contract: null,
     });
     out.push({
+      id: `param.alias-in-sibling-block.call.fresh.${lang}`, step: 'param-lookup', shape: 'alias-in-sibling-block', scope: 'param', form: 'call',
+      naming: 'fresh', lang, siteFile: `caller.${e}`,
+      files: { [cf]: calleeSrc(lang), [`caller.${e}`]: `import { f, g } from './callee';\nexport const keep = [f, g];\nexport function caller(c${ty(lang, ': boolean')}, h${a}) {\n  if (c) {\n    const h = g;\n    return h;\n  } else {\n    return h(1); // SITE\n  }\n}\n` },
+      truth: { t: 'may', targets: [] }, contract: null,
+    });
+    out.push({
       id: `param.inner-param-shadows-alias.call.trap.${lang}`, step: 'param-lookup', shape: 'inner-param-shadows-alias', scope: 'param', form: 'call',
       naming: 'trap', lang, siteFile: `caller.${e}`,
       files: { [cf]: calleeSrc(lang), [`other.${e}`]: otherSrc(lang), [`caller.${e}`]: `import * as N from './callee';\nexport function outer() {\n  const decoy = N.f;\n  function caller(decoy${a}) {\n    return decoy(1); // SITE\n  }\n  return [caller, decoy];\n}\n` },

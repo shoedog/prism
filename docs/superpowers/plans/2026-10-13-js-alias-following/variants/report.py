@@ -34,7 +34,7 @@ out.append('Verdicts: CORRECT (Exact edge to the true callee), PARTIAL (Exact to
            'WRONG (Exact edge to something else), OVERCLAIM (Exact where the callee is only possible), MAY-NONE (no edge where the callee is only possible), '
            'NONE-OK (no edge, no in-repo callee), NO-RECORD (prism has no call-site record there).\n')
 out.append('## Totals by lookup step\n')
-steps = ['local', 'param-args', 'param-lookup', 'import', 'import-path', 'same-file', 'global', 'none']
+steps = ['local', 'returned', 'param-args', 'param-lookup', 'import', 'import-path', 'same-file', 'global', 'none']
 for b in bins:
     tally = collections.Counter((r['step'], r['results'][b]['verdict']) for r in rows)
     used = [v for v in order if any(tally[(s, v)] for s in steps)]
