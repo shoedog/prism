@@ -237,6 +237,28 @@ class RunOneTests(unittest.TestCase):
         # A cold run is expected to build; the same output is fine there.
         self.assertEqual(self.run_fake(emit(canned('cold'), miss), kind='cold')['status'], 'ok')
 
+    def test_warm_run_that_recomputed_call_edges_is_inadmissible_naming_the_sidecar(self):
+        for text in ('nav edge cache: skipping warm sidecar load because prism was built from dirty binary '
+                     'inputs; recomputing resolved call edges',
+                     'nav edge cache: failed to load sidecar in /x: bad magic; rebuilding'):
+            for kind in ('warm', 'workload', 'refresh'):
+                result = self.run_fake(emit(canned(kind), noise(text)), kind=kind)
+                self.assertEqual(result['status'], 'inadmissible', (kind, text))
+                self.assertIn('call-edge sidecar', result['reason'])
+            # a cold run builds everything anyway
+            self.assertEqual(self.run_fake(emit(canned('cold'), noise(text)), kind='cold')['status'], 'ok')
+
+    def test_both_cache_misses_are_named_in_the_reason(self):
+        text = noise('nav cache: CPG cache miss in /x') + noise('nav edge cache: failed to load sidecar in /x')
+        reason = self.run_fake(emit(canned('warm'), text), kind='warm')['reason']
+        self.assertIn('CPG cache', reason)
+        self.assertIn('call-edge sidecar', reason)
+
+    def test_the_override_warning_alone_does_not_exclude_a_run(self):
+        text = noise('nav edge cache: PRISM_NAV_EDGE_CACHE_LOAD_DIRTY=1 set; loading sidecar from dirty '
+                     'binary-input build may serve stale resolved edges')
+        self.assertEqual(self.run_fake(emit(canned('warm'), text), kind='warm')['status'], 'ok')
+
     def test_run_with_workload_errors_is_inadmissible(self):
         bad = canned('workload')
         bad['workload'] = workload_section(requests=4, errors=1)
@@ -268,6 +290,25 @@ class RenderTests(unittest.TestCase):
         self.assertIn('timeout', text)      # the excluded run is named
         self.assertIn('| M2 | a | no |', text)
         self.assertIn('coarse triage', text)
+
+    def test_provenance_shows_the_dirty_flag_and_the_environment(self):
+        summary = {'provenance': {'build': {'build_identity': 'b', 'binary_input_dirty': True}, 'reps': 3,
+                                  'settle': 5, 'env': {'PRISM_NAV_EDGE_CACHE_LOAD_DIRTY': '1',
+                                                       'PRISM_A': 'x'}},
+                   'corpora': {}, 'verdict': {c: {'corpora': [], 'advance': False} for c in ('M1', 'M2', 'M3')}}
+        text = memreport.render(summary)
+        self.assertIn('binary_input_dirty true', text)
+        self.assertIn('`PRISM_A=x`, `PRISM_NAV_EDGE_CACHE_LOAD_DIRTY=1`', text)
+        summary['provenance']['env'] = {}
+        summary['provenance']['build']['binary_input_dirty'] = False
+        text = memreport.render(summary)
+        self.assertIn('binary_input_dirty false', text)
+        self.assertIn('Environment of the measured process: none.', text)
+        summary['provenance']['env'] = None
+        summary['provenance']['build'] = {}
+        text = memreport.render(summary)
+        self.assertIn('binary_input_dirty n/a', text)
+        self.assertIn('process: n/a.', text)
 
 
 if __name__ == '__main__':

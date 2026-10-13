@@ -21,7 +21,15 @@ from pathlib import Path
 MARKER = '{"prism_mem_report":'
 REPORT_VERSION = 2
 KINDS = ('warm', 'cold', 'workload', 'refresh')
-CACHE_MISS_MARKERS = ('CPG cache miss', 'partial CPG cache hit')
+# stderr text that means a non-cold run did not load everything from cache, with the reason it is excluded.
+CACHE_MISS_MARKERS = (
+    ('CPG cache miss', 'the CPG cache missed, so this was a cold build'),
+    ('partial CPG cache hit', 'the CPG cache partially missed, so part of the index was rebuilt'),
+    ('nav edge cache: skipping warm sidecar load',
+     'the call-edge sidecar was not loaded (binary built from a dirty tree), so call edges were recomputed'),
+    ('nav edge cache: failed to load sidecar',
+     'the call-edge sidecar failed to load, so call edges were recomputed'),
+)
 MIB = 1024 * 1024
 RULE_FRACTION = 0.15
 RULE_ABSOLUTE = 200 * MIB
@@ -217,8 +225,9 @@ def run_one(command, kind, timeout, expected=None):
         result.update(status='inadmissible', reason=str(error), stderr_tail=stderr[-2000:])
         return result
     result['report'] = report
-    if kind != 'cold' and any(marker in stderr for marker in CACHE_MISS_MARKERS):
-        result.update(status='inadmissible', reason='the cache missed, so this was a cold build')
+    missed = [reason for marker, reason in CACHE_MISS_MARKERS if marker in stderr]
+    if kind != 'cold' and missed:
+        result.update(status='inadmissible', reason='; '.join(missed))
     else:
         reason = validate(kind, report, expected)
         if reason is None:
@@ -315,7 +324,8 @@ def cmd_run(args):
                     continue
                 entry['admissible'][kind] += 1
                 report = result['report']
-                summary['provenance']['build'] = report['build']
+                summary['provenance']['build'] = report.get('build')
+                summary['provenance']['env'] = report.get('env')
                 if kind == 'workload':
                     entry['attribution'] = report['attribution']
                 for metric, value in derive(kind, report).items():
@@ -335,6 +345,16 @@ def mib(stats):
     return '%.1f (%.1f–%.1f, n=%d)' % (stats['median'] / MIB, stats['min'] / MIB, stats['max'] / MIB, stats['n'])
 
 
+def flag(value):
+    return 'n/a' if value is None else ('true' if value else 'false')
+
+
+def env_text(env):
+    if env is None:
+        return 'n/a'
+    return ', '.join('`%s=%s`' % (name, env[name]) for name in sorted(env)) or 'none'
+
+
 def render(summary):
     build = summary['provenance'].get('build') or {}
     lines = [
@@ -345,9 +365,10 @@ def render(summary):
         '',
         '## Provenance',
         '',
-        '- Binary: build identity `%s`, git `%s`, CPG cache version %s, allocator %s.' % (
+        '- Binary: build identity `%s`, git `%s`, CPG cache version %s, allocator %s, binary_input_dirty %s.' % (
             build.get('build_identity'), build.get('git_sha'), build.get('cpg_cache_version'),
-            build.get('allocator')),
+            build.get('allocator'), flag(build.get('binary_input_dirty'))),
+        '- Environment of the measured process: %s.' % env_text(summary['provenance'].get('env')),
         '- %s repetitions per kind, %s s settle. Values are median (min–max, n) in MiB.' % (
             summary['provenance'].get('reps'), summary['provenance'].get('settle')),
         '',
