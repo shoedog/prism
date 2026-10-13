@@ -207,14 +207,131 @@ fn trailing_bytes_after_a_valid_cache_do_not_make_it_a_miss() {
     ));
 }
 
+fn temp_files(dir: &std::path::Path) -> Vec<String> {
+    let mut names: Vec<String> = fs::read_dir(dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .filter(|name| name.ends_with(".tmp"))
+        .collect();
+    names.sort();
+    names
+}
+
 #[test]
-fn a_write_that_cannot_start_fails_and_leaves_the_previous_cache_usable() {
+fn a_graph_with_no_nodes_or_edges_streams_to_the_owned_encoding_and_loads_back() {
+    // An explicit sequence length of 0 must encode as an empty vector does.
+    let dir = tempfile::tempdir().unwrap();
+    let files: BTreeMap<String, crate::ast::ParsedFile> = BTreeMap::new();
+    let cpg = CodePropertyGraph::build(&files);
+    assert_eq!((cpg.graph.node_count(), cpg.graph.edge_count()), (0, 0));
+    let hashes = BTreeMap::new();
+    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+    assert!(fs::read(cache_bin_path(dir.path())).unwrap() == owned_encoding(&cpg, &hashes));
+    assert!(matches!(
+        load_cache(&hashes, false, dir.path()),
+        CacheResult::Hit(_)
+    ));
+}
+
+#[test]
+fn a_save_leaves_no_temp_file_behind() {
     let dir = tempfile::tempdir().unwrap();
     let (cpg, hashes) = fixture();
     save_cache(&cpg, &hashes, false, dir.path()).unwrap();
-    // A directory where the temp file goes makes the create fail.
-    fs::create_dir(dir.path().join("cpg-cache.bin.tmp")).unwrap();
-    assert!(save_cache(&cpg, &hashes, false, dir.path()).is_err());
+    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+    assert_eq!(temp_files(dir.path()), Vec::<String>::new());
+}
+
+#[test]
+fn every_writer_gets_its_own_temp_name() {
+    // One shared name would let a second writer truncate the file under the first.
+    let dir = tempfile::tempdir().unwrap();
+    let first = super::unique_temp_path(dir.path());
+    let second = super::unique_temp_path(dir.path());
+    assert_ne!(first, second);
+    for path in [&first, &second] {
+        let name = path.file_name().unwrap().to_str().unwrap();
+        assert!(name.starts_with("cpg-cache.bin."), "{name}");
+        assert!(name.ends_with(".tmp"), "{name}");
+        assert!(name.contains(&std::process::id().to_string()), "{name}");
+        assert_eq!(path.parent(), Some(dir.path()));
+    }
+}
+
+#[test]
+fn a_write_that_fails_part_way_leaves_nothing_at_its_path() {
+    use std::io::Write as _;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("cpg-cache.bin.1.0.tmp");
+    let result = super::write_new_file(&path, |writer| {
+        writer.write_all(b"partial")?;
+        Err(std::io::Error::new(std::io::ErrorKind::Other, "disk full"))
+    });
+    assert_eq!(result.unwrap_err().to_string(), "disk full");
+    assert!(!path.exists(), "a failed write must remove its file");
+
+    let written = super::write_new_file(&path, |writer| writer.write_all(b"whole")).unwrap();
+    assert_eq!(written, 5);
+    assert_eq!(fs::read(&path).unwrap(), b"whole");
+}
+
+#[test]
+fn a_dead_writers_temp_file_is_removed_and_a_live_writers_is_kept() {
+    let dir = tempfile::tempdir().unwrap();
+    let (cpg, hashes) = fixture();
+    let now = std::time::SystemTime::now();
+    let age = |seconds: u64| now - std::time::Duration::from_secs(seconds);
+    let plant = |name: &str, modified: std::time::SystemTime| {
+        let path = dir.path().join(name);
+        fs::write(&path, b"partial").unwrap();
+        fs::File::options()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_modified(modified)
+            .unwrap();
+    };
+    plant("cpg-cache.bin.4242.0.tmp", age(15 * 60)); // exactly at the limit: stale
+    plant("cpg-cache.bin.tmp", age(3600)); // the name used before this change
+    plant("cpg-cache.bin.4243.7.tmp", age(15 * 60 - 5)); // written to recently: a live writer
+    plant("resolved-call-edge-index.bin.1.0.tmp", age(3600)); // another cache's temp: not ours
+    plant("cpg-cache.bin", age(3600)); // the cache itself is never a temp file
+
+    super::remove_stale_temp_files(dir.path(), now);
+    assert_eq!(
+        temp_files(dir.path()),
+        vec![
+            "cpg-cache.bin.4243.7.tmp".to_string(),
+            "resolved-call-edge-index.bin.1.0.tmp".to_string()
+        ]
+    );
+    assert!(dir.path().join("cpg-cache.bin").exists());
+
+    // A save runs the same cleanup and still leaves the live writer alone.
+    plant("cpg-cache.bin.4244.0.tmp", age(7200));
+    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+    assert_eq!(
+        temp_files(dir.path()),
+        vec![
+            "cpg-cache.bin.4243.7.tmp".to_string(),
+            "resolved-call-edge-index.bin.1.0.tmp".to_string()
+        ]
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_write_that_cannot_start_fails_and_leaves_the_previous_cache_usable() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let (cpg, hashes) = fixture();
+    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+    // A directory that cannot be written to makes the temp file's creation fail.
+    fs::set_permissions(dir.path(), fs::Permissions::from_mode(0o555)).unwrap();
+    let result = save_cache(&cpg, &hashes, false, dir.path());
+    fs::set_permissions(dir.path(), fs::Permissions::from_mode(0o755)).unwrap();
+    assert!(result.is_err());
+    assert_eq!(temp_files(dir.path()), Vec::<String>::new());
     assert!(matches!(
         load_cache(&hashes, false, dir.path()),
         CacheResult::Hit(_)

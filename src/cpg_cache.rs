@@ -431,15 +431,13 @@ pub fn save_cache_with_topology(
     };
 
     let bin_path = cache_bin_path(cache_dir);
-    let tmp_path = cache_dir.join("cpg-cache.bin.tmp");
-    let encoded_len = match stream::write_cache_file(&tmp_path, &cache) {
-        Ok(len) => len,
-        Err(e) => {
-            let _ = fs::remove_file(&tmp_path);
-            return Err(e);
-        }
-    };
-    fs::rename(&tmp_path, &bin_path)?;
+    stream::remove_stale_temp_files(cache_dir, std::time::SystemTime::now());
+    let tmp_path = stream::unique_temp_path(cache_dir);
+    let encoded_len = stream::write_cache_file(&tmp_path, &cache)?;
+    if let Err(e) = fs::rename(&tmp_path, &bin_path) {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(e);
+    }
 
     // Write human-readable metadata (best-effort, non-fatal).
     let meta = CacheMeta {
