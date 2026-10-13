@@ -147,8 +147,12 @@ These follow the owner's standing preferences. Confirm or change them before S1 
   wants responses bound to the generation queried, so add a generation accessor (additive).
 - **S4, from the S2a reviews:**
   - Runtime-directory validation (`shared::runtime_dir::validate_runtime_dir`) now also refuses a directory
-    another user could replace (any directory on its resolution that is group/other-writable and not sticky, or
-    owned by a third user) and, on macOS, one that carries an access control list. It is still a check by path.
+    another user could replace (any directory on its resolution that is group/other-writable and not sticky,
+    owned by a third user, or on macOS carrying a list entry that allows anything) and, on macOS, a runtime
+    directory with any access control list. It judges the location before creating anything. It is still a
+    check by path and does not examine mount options (a volume mounted to ignore ownership reports every file
+    as the caller's). **It is hardening. The isolation guarantee between users is the peer-uid check**, which
+    the daemon makes on every connection.
     Open the lock, pid and log files through a held directory descriptor (`openat`, `O_NOFOLLOW`); "the socket
     calls take paths" covers only the socket.
   - "Validate on every use" is a convention the types do not carry: `validate_runtime_dir` returns `()` and
@@ -168,7 +172,13 @@ These follow the owner's standing preferences. Confirm or change them before S1 
 - **S5a, from the S2a reviews:**
   - **The shim checks the uid of the socket's peer too.** Spec §4.4 has only the daemon check its peer. A
     listener another user planted can echo the key in `READY`; the shim would then pump the client's traffic
-    to it. The runtime-directory checks make planting hard; the peer check makes it not matter.
+    to it. The runtime-directory checks make planting hard; the peer check makes it not matter. Two review
+    rounds of S2a each found another way to plant (mode bits, lists, lists on ancestors, mount options), which
+    is why this check, not more path checks, is where the guarantee has to live. It is a requirement on S5a
+    that the spec does not yet state; the owner is asked to confirm it.
+  - When the shim hands its key to the daemon, the daemon **checks** it against the key it computes and refuses
+    on a difference; it does not adopt it. Adopting it would hide a root that was replaced between the two
+    resolutions.
   - **Pass the shim's full key to the daemon it starts**, and have the daemon use or check it. The cache base of
     a directory that does not exist yet is compared as written, so on a case-insensitive filesystem a shim and
     its daemon can resolve different keys if the directory appears between the two resolutions; the shim then

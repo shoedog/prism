@@ -500,6 +500,10 @@ Decided 2026-10-13, after S2 planning and the C1 readout (questions in the lane 
   a symlink") was shown by review to be necessary and not sufficient: a directory that passes it can sit under
   one that another user may write, and be swapped after the check; and on macOS an access control list can
   grant what the mode denies. The implementation is stricter than §4.3's sentence in both respects (it walks
-  the directory's whole resolution, and refuses a directory with a list). The default locations are unaffected.
-  Two consequences for later slices are recorded in the lane plan: the shim checks its peer's uid as the daemon
-  does, and the starting shim hands its key to the daemon.
+  the directory's whole resolution, and refuses lists that grant anything). The default locations are
+  unaffected. A second round found two more ways in of the same kind, and both reviewers' conclusion is the
+  design point this record exists for: **checks on paths cannot enumerate every way another user might replace
+  a directory, so they are hardening; the guarantee is the peer-uid check, and §4.4 states it for the daemon
+  only.** The lane plan records, for S5a, that the shim checks its peer's uid as well, and that the starting
+  shim hands its key to the daemon, which checks it. The first of these is a requirement this spec does not
+  yet state and the owner is asked to confirm.
