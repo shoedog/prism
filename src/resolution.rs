@@ -3401,7 +3401,9 @@ impl CallGraph {
                 use crate::call_graph::JsLocalBinding;
                 // S1b-3b (SPEC §3.6): a JS/TS name whose binding holds one callable binds it,
                 // by registered name and span, before any import or same-name lookup.
-                if let JsLocalBinding::Callable(t) = &site.local_binding {
+                if let JsLocalBinding::Callable(t) | JsLocalBinding::AliasCallable(t) =
+                    &site.local_binding
+                {
                     return self.js_ts_local_callable(caller, name, t, site);
                 }
                 // Slice L: a `const` alias chain proven to end at an import or at a namespace

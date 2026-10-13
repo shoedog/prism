@@ -152,7 +152,7 @@
   ],
   "AF-20-callable-terminal-unmapped": [
    "src/call_graph.rs",
-   "Some(JsFollow::Callable(t)) => return JsLocalBinding::Callable(t),",
+   "Some(JsFollow::Callable(t)) => return JsLocalBinding::AliasCallable(t),",
    "Some(JsFollow::Callable(_)) => {}",
    [
     "js_alias_follow_test::alias_of_a_same_file_function_binds_it_by_span_and_not_the_decoy"
@@ -252,6 +252,30 @@
    ".and_then(|exports| exports.values().next())",
    [
     "js_alias_follow_test::a_member_of_a_module_that_has_an_unproven_export_is_still_proved_per_export"
+   ]
+  ],
+  "AF-34-textual-path-never-stands-down": [
+   "src/call_graph.rs",
+   "if !alias_followed\n                    && site",
+   "if true\n                    && site",
+   [
+    "js_alias_follow_test::one_followed_alias_call_is_one_edge_for_every_consumer"
+   ]
+  ],
+  "AF-35-textual-path-stands-down-for-unfollowed-alias": [
+   "src/call_graph.rs",
+   "                        | JsLocalBinding::AliasNamespaceMember { .. }\n                );\n                if !alias_followed",
+   "                        | JsLocalBinding::AliasNamespaceMember { .. }\n                        | JsLocalBinding::MayCall(_)\n                );\n                if !alias_followed",
+   [
+    "js_alias_follow_test::textual_fptr_path_still_fires_where_the_binder_does_not_follow"
+   ]
+  ],
+  "AF-36-callable-alias-resolves-as-unchecked": [
+   "src/resolution.rs",
+   "JsLocalBinding::Callable(t) | JsLocalBinding::AliasCallable(t) =\n                    &site.local_binding",
+   "JsLocalBinding::Callable(t) =\n                    &site.local_binding",
+   [
+    "js_alias_follow_test::alias_of_a_same_file_function_binds_it_by_span_and_not_the_decoy"
    ]
   ]
  }

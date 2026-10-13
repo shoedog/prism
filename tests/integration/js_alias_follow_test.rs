@@ -289,13 +289,10 @@ fn textual_fptr_path_case1_alias_of_an_import_under_its_own_name() {
     let src = "import { f } from './callee';\nexport function run() {\n  const h = f;\n  \
         return h(1);\n}\n";
     // Main: the `Source` record for `h` drops UnknownName; the textual path's record binds `f`.
-    // Here both records carry the same target, so a consumer sees the target twice, agreeing.
+    // Now the binder follows the alias, so the textual path stands down: one `Source` record.
     assert_eq!(
         records_at(&[F_CALLEE, ("caller.js", src)], "caller.js", 4),
-        [
-            "f IndirectResolution: callee.js:f@1-3 import_member exact",
-            "h Source: callee.js:f@1-3 import_member exact",
-        ]
+        ["h Source: callee.js:f@1-3 import_member exact"]
     );
 }
 
@@ -303,13 +300,31 @@ fn textual_fptr_path_case1_alias_of_an_import_under_its_own_name() {
 fn textual_fptr_path_case2_alias_of_a_same_file_function() {
     let src = "function f() {\n  return 0;\n}\nexport function run() {\n  const h = f;\n  \
         return h(1);\n}\n";
-    // Main: `Source` drops UnknownName; the textual record binds `f`. Now both bind `f`.
+    // Main: `Source` drops UnknownName; the textual record binds `f`. Now the binder follows
+    // the alias and the textual path stands down: one `Source` record.
     assert_eq!(
         records_at(&[("caller.js", src)], "caller.js", 6),
+        ["h Source: caller.js:f@1-3 local_def exact"]
+    );
+}
+
+#[test]
+fn textual_fptr_path_still_fires_where_the_binder_does_not_follow() {
+    // Control: `let` is not an alias link, so the binder does not follow `h` and the textual
+    // path behaves exactly as on the base: `Source` drops, the `IndirectResolution` record binds.
+    let src = "import { f } from './callee';\nexport function run() {\n  let h = f;\n  \
+        return h(1);\n}\n";
+    assert_eq!(
+        records_at(&[F_CALLEE, ("caller.js", src)], "caller.js", 4),
         [
-            "f IndirectResolution: caller.js:f@1-3 local_def exact",
-            "h Source: caller.js:f@1-3 local_def exact",
+            "f IndirectResolution: callee.js:f@1-3 import_member exact",
+            "h Source: drop UnknownName",
         ]
+    );
+    let direct = "function h() {\n  return 0;\n}\nexport function run() {\n  return h(1);\n}\n";
+    assert_eq!(
+        records_at(&[("caller.js", direct)], "caller.js", 5),
+        ["h Source: caller.js:h@1-3 local_def exact"]
     );
 }
 
@@ -453,41 +468,45 @@ fn an_unresolvable_relative_module_drops_with_import_external() {
 }
 
 #[test]
-fn duplicate_indirect_and_source_records_reach_consumers_twice() {
-    // Addition A: `const h = f; h(1)` yields a `Source` record and an `IndirectResolution`
-    // record at one site, both resolving to `f`; this counts what consumers see.
+fn one_followed_alias_call_is_one_edge_for_every_consumer() {
+    // `const h = f; h(1)`: the `Source` record resolves to `f`, and the textual function-pointer
+    // path stands down for a followed alias, so consumers see exactly one edge (the base had
+    // one, from the textual record alone).
     use prism::cpg::{CpgContext, CpgEdge, CpgNode};
-    let src = "import { f } from './callee';\nexport function run() {\n  const h = f;\n  \
+    let import_case = "import { f } from './callee';\nexport function run() {\n  const h = f;\n  \
         return h(1);\n}\n";
-    let mut files = BTreeMap::new();
-    for (path, text) in [F_CALLEE, ("caller.js", src)] {
-        files.insert(
-            path.to_string(),
-            ParsedFile::parse(path, text, Language::JavaScript).unwrap(),
+    let same_file = "function f() {\n  return 0;\n}\nexport function run() {\n  const h = f;\n  \
+        return h(1);\n}\n";
+    for (label, inputs) in [
+        ("import", vec![F_CALLEE, ("caller.js", import_case)]),
+        ("same file", vec![("caller.js", same_file)]),
+    ] {
+        let mut files = BTreeMap::new();
+        for (path, text) in inputs {
+            files.insert(
+                path.to_string(),
+                ParsedFile::parse(path, text, Language::JavaScript).unwrap(),
+            );
+        }
+        let ctx = CpgContext::build(&files, None);
+        let g = &ctx.cpg.graph;
+        let to_f = g
+            .edge_indices()
+            .filter(|&e| matches!(g[e], CpgEdge::Call(_)))
+            .filter(|&e| {
+                let (from, to) = g.edge_endpoints(e).unwrap();
+                matches!(g.node_weight(from), Some(CpgNode::Function { name, .. }) if name == "run")
+                    && matches!(g.node_weight(to), Some(CpgNode::Function { name, .. }) if name == "f")
+            })
+            .count();
+        let f = ctx.cpg.call_graph.functions["f"][0].clone();
+        let rows = ctx.cpg.call_graph.resolved_caller_edges(&f).len();
+        assert_eq!(
+            (to_f, rows),
+            (1, 1),
+            "{label}: (CPG Call edges run -> f, resolved_caller_edges rows)"
         );
     }
-    let ctx = CpgContext::build(&files, None);
-    let g = &ctx.cpg.graph;
-    let to_f = g
-        .edge_indices()
-        .filter(|&e| matches!(g[e], CpgEdge::Call(_)))
-        .filter(|&e| {
-            let (from, to) = g.edge_endpoints(e).unwrap();
-            matches!(g.node_weight(from), Some(CpgNode::Function { name, .. }) if name == "run")
-                && matches!(g.node_weight(to), Some(CpgNode::Function { name, .. }) if name == "f")
-        })
-        .count();
-    let f = ctx.cpg.call_graph.functions["f"][0].clone();
-    let rows = ctx.cpg.call_graph.resolved_caller_edges(&f).len();
-    // Slice L makes the `Source` record resolve to `f` as well, so both records now reach
-    // consumers: two parallel CPG Call edges and two `resolved_caller_edges` rows (main: one
-    // each, from the textual record alone). Pinned as the current, double-counting behavior;
-    // deduplicating by (caller, target, line) is left to a later slice.
-    assert_eq!(
-        (to_f, rows),
-        (2, 2),
-        "(CPG Call edges run -> f, resolved_caller_edges rows)"
-    );
 }
 
 #[test]

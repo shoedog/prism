@@ -249,7 +249,7 @@ use std::path::{Path, PathBuf};
 /// - v113: PR-B R9 positive recovery proof, receiver and reference fences.
 /// - v114: PR-B R10 labelled body, JSX member, enum and commented-eval repairs.
 /// - v115: slice L follows JS/TS `const` aliases: `CallSite.local_binding` gains
-///   `AliasImport` and `AliasNamespaceMember`, and a followed alias is `Callable`.
+///   `AliasCallable`, `AliasImport` and `AliasNamespaceMember`.
 const CACHE_VERSION: u32 = 115;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
@@ -1530,7 +1530,7 @@ mod tests {
         let cpg = crate::cpg::CodePropertyGraph::build(&files);
         let hashes = compute_file_hashes(&sources);
         let dump = call_site_dump(&cpg).join("\n");
-        for variant in ["AliasImport", "AliasNamespaceMember", "Callable("] {
+        for variant in ["AliasImport", "AliasNamespaceMember", "AliasCallable("] {
             assert!(dump.contains(variant), "{variant} missing from {dump}");
         }
 

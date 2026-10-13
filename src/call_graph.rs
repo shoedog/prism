@@ -523,6 +523,10 @@ pub enum JsLocalBinding {
     Unproven(String),
     /// Owner OQ1 (Option K): an unproven position keeps base behavior, counted by reason.
     Position(String),
+    /// Slice L: the callee is a `const` alias chain that ends at this in-file callable. Resolves
+    /// exactly like `Callable`; kept distinct so the textual function-pointer path stands down
+    /// only where the binder followed an alias, never for a name bound directly to a function.
+    AliasCallable(crate::ast::JsTerminal),
     /// Slice L: the callee is a `const` alias chain that ends at the program-scope import
     /// binding `local` of this file; the JS/TS import-member route decides the target.
     AliasImport { local: String },
@@ -2748,10 +2752,20 @@ impl CallGraph {
                 }
 
                 // Level 1: local variable function pointer — callee_name is a plain identifier.
-                if site
-                    .callee_name
-                    .chars()
-                    .all(|c| c.is_alphanumeric() || c == '_')
+                // Slice L: where the binder followed the alias (to a callable, an import or a
+                // namespace member) the textual guess stands down: it is the same target (a
+                // duplicate edge) or a scope-blind wrong one. Every other binding is untouched.
+                let alias_followed = matches!(
+                    site.local_binding,
+                    JsLocalBinding::AliasCallable(_)
+                        | JsLocalBinding::AliasImport { .. }
+                        | JsLocalBinding::AliasNamespaceMember { .. }
+                );
+                if !alias_followed
+                    && site
+                        .callee_name
+                        .chars()
+                        .all(|c| c.is_alphanumeric() || c == '_')
                 {
                     let Some(func_source) =
                         Self::extract_func_source_before(parsed, caller_id, site.start_byte)
@@ -5712,7 +5726,7 @@ impl CallGraph {
             // followed keeps `Alias` (base behavior).
             if binding == JsBinding::Alias {
                 match parsed.js_ts_follow_alias(ident, callee, cache) {
-                    Some(JsFollow::Callable(t)) => return JsLocalBinding::Callable(t),
+                    Some(JsFollow::Callable(t)) => return JsLocalBinding::AliasCallable(t),
                     Some(JsFollow::ImportLocal(local)) => {
                         return JsLocalBinding::AliasImport { local }
                     }
