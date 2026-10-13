@@ -1,24 +1,24 @@
-# Handoff — shared per-repo prism daemon lane; S1, C1 and the C1 readout done, S2 planned, seven owner questions open
+# Handoff — shared per-repo prism daemon lane; owner decisions of 2026-10-13 recorded, S2a in review, C2 driver and M2 plan written, M2 experiment not yet run
 
-**Written:** 2026-10-13T12:30-06:00 · **By:** Claude Code session `fd583811-fdc5-4426-9c4a-55872d2ecc1c` (Opus 5.5) · **Provider:** claude
-**Workspace:** `~/code/prism-c1-readout` · `docs/mcp-memory-readout` (the readout docs PR; this file is on `main` once it merges) · **Measured state:** `[MEASURED]` HEAD = the commit that adds this revision · Tree CLEAN after that commit · Probe `git status --short && git log --oneline -3` · Output inline in the session
-**Predecessor:** this session's own handoff of 2026-10-13T09:45-06:00 (same file, previous revision), and before it Claude Code session `afaf5155-ea5e-4ad5-b8d8-be35f747f74d` (Fable 5.1)
+**Written:** 2026-10-13T14:10-06:00 · **By:** Claude Code session `fd583811-fdc5-4426-9c4a-55872d2ecc1c` (Opus 5.5) · **Provider:** claude
+**Workspace:** `~/code/prism-c2-plan` · `plan/c2-m2-cache-streaming` (this docs PR) · **Measured state:** `[MEASURED]` HEAD = the commit that adds this revision · Tree CLEAN after that commit · Probe `git status --short && git log --oneline -3` · Output inline in the session
+**Predecessor:** this session's own handoff of 2026-10-13T12:30-06:00 (same file, previous revision), and before it Claude Code session `afaf5155-ea5e-4ad5-b8d8-be35f747f74d` (Fable 5.1)
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
 
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` this session is the only one on the lane; another session works the JS/TS parameter-Def lane and does not touch `src/mcp`. — **RESOLVED 2026-10-13**
-**(b) Custody exposure** — `[MEASURED]` S1, C1, the spec and the plans are on `main` (`dc3b6bbe`). The readout and this handoff are PR #363 (branch `docs/mcp-memory-readout`), on `main` once it is squash-merged. Raw measurement evidence is local only, in `~/prism-evidence/mcp-memory/c1/` with `SHA256SUMS`; it is about two hours of machine time to reproduce. One branch is local only: `scratch/s2-validate` `cf873945` in `~/code/slicing` (worktree `.claude/worktrees/s2-validate`), the S2 plan's code applied and passing; reproducible from the S2 plan by replay. — **RESOLVED 2026-10-13**
-**(c) In flight / irreversible** — `[MEASURED]` nothing is running. The measurement finished at 11:34 and the supplement at 11:54 on 2026-10-13. — **RESOLVED 2026-10-13**
-**(d) Authorization granted but not exercised** — owner, 2026-10-13: "proceed as recommedned. merge pr357 with the code changes". Fully exercised: S1 (#361), C1 (#362), #357, the measurement and the readout PR. It does **not** cover S2 implementation, writing C2 plans, or any change to the spec's pinned parameters. Two different things hold these back: S2 waits on §7 questions 1–4 and 7; the M1 plan waits on question 5; the M2 plan has no open question and needs only the owner's go-ahead.
+**(b) Custody exposure** — `[MEASURED]` on `main`: S1, C1, spec, plans, readout (`e2701e89`). Pushed branches: `feat/mcp-shared-s2a` (PR #364), `plan/c2-m2-cache-streaming` (this PR). **Local only:** `feat/memreport-experiment-kinds` in `~/code/prism-c2-driver` (the driver extension, 6 commits) until its PR is opened; `scratch/c2-m2-validate` `c7c92790` in `~/code/prism-m2` (the M2 prototype); `scratch/s2-validate` `cf873945` (S2b comes from its last four commits). Raw evidence is local only under `~/prism-evidence/mcp-memory/{c1,c2-m2}/`. — **OPEN until the two local branches are pushed**
+**(c) In flight / irreversible** — `[MEASURED]` at the time of writing two reviewers are working on PR #364. No measurement is running. The host is shared with another session whose test runs push the load average past 50; check `uptime` and `pgrep -fl 'prism-mcp|cargo|nextest|mutgate'` before any measurement. — **OPEN**
+**(d) Authorization granted but not exercised** — owner, 2026-10-13 (second message): answers to questions 1 and 3–7 (table in `README.md`), then "go ahead and write M2 experimenet plan and continue". Read as: write the M2 plan, implement S2 from `scratch/s2-validate`, and carry the lane forward. Question 2 (a client result cap below the floor) was asked back, not answered: S2b is built to refuse it and says so in its PR. Not authorized: merging M2 without the shipping-gate answer the plan asks for; any spec change beyond the ones recorded in §11.
 
 ## 1. Resume order
-1. Read `README.md` in this directory: slice table, the owner questions from S2 planning, measured facts.
-2. Read `docs/analysis/2026-10-prism-mcp-memory-readout.md`, last section first. M1 and M2 advance, M3 does not; the "Steady state" footprint column is not a repeatable figure.
-3. Get the owner's answers to §7. Question 5 (the steady-state metric) gates the M1 plan; questions 1–4 and 7 gate S2. The M2 plan has no open metric question (its base is the load peak); it needs the owner's go-ahead, which has not been asked for separately.
-4. Implement S2 as two PRs (S2a = plan Tasks 1–4, S2b = Tasks 5–8), each from `scratch/s2-validate` or by an implementer, reviewed by Opus 5.5 and gpt-6.1-sol, cap two rounds. Write the C2 plan for M2 from the readout, and the one for M1 once question 5 is answered; a C2 candidate may begin after C1 but ship only after S5a.
-5. When S2 merges, write the S3a plan from its real interfaces (the S2 plan's last section lists what S3a, S4 and S5a consume).
+1. Read `README.md` in this directory: slice table, the decision table of 2026-10-13, measured facts.
+2. PR #364 (S2a): fold the two reviews (cap two rounds), merge on approval and green CI. Then cut S2b from the last four commits of `scratch/s2-validate` (`e531a3d2`, `43eb8b28`, `a0aa033e`, `cf873945`) onto `main`, restore the module doc sentence about the preamble, verify, review, merge.
+3. Driver extension: open the PR from `feat/memreport-experiment-kinds` (242 Python tests pass), smoke it once against a real release binary (`--kinds warm,build --reps 1` on excalidraw), review, merge.
+4. M2: follow `C2-M2-cache-streaming.md` from Task 2. The prototype is `scratch/c2-m2-validate` `c7c92790` (29 module tests pass, eight mutants killed; full suite, mutation gate and Tier-A matrix not yet run on it). Run the pinned experiment only on a quiet host. Do not merge M2 until the owner answers the shipping-gate question in the plan.
+5. When S2 is merged, write the S3a plan from its real interfaces. When the driver is merged and the owner wants M1, write the M1 plan against spec §6.1 as revised.
 
 **STOP conditions:** a corpus whose projected peak would exhaust this host's memory (24 GB, usually already swapping): do not run it; report the projection and let the owner decide. A reviewer WRONG finding the controller disagrees with (escalate to the owner). A golden transcript changing in any later slice.
 
@@ -33,9 +33,13 @@
 | C1 measurement | done | `[MEASURED]` `run-1`: four corpora (slicing, excalidraw, prometheus, ruff), 48 of 48 runs and 4 of 4 priming runs admissible, binary `7db8f195`, one process at a time. Kubernetes not run: projected first build 27–70 GiB on a 24 GiB host. Supplement `settle60/`: 12 of 12 workload runs admissible at a 60 s settle; five of them overlapped a resident normal-mode probe (`idle-probe/`), disclosed in the readout. |
 | C1 readout | done | `[MEASURED]` `docs/analysis/2026-10-prism-mcp-memory-readout.md`. M1 124–559 MiB and M2 136–693 MiB advance on all four corpora; M3 16–58 MiB does not advance. Verdicts recomputed against the live heap: unchanged. Reviewed by Opus 5.5 and gpt-6.1-sol, both of whom recomputed the figures: verdicts confirmed, both FIX on the interpretation (mechanism overstated, live heap is not a physical-memory metric, overlap undisclosed, refresh was a no-change reload); all folded. A confirmation pass by gpt-6.1-sol (one step past the declared one-round cap) found three wording errors in the fold; folded as specified, not re-reviewed. |
 | S2 plan | done | `[MEASURED]` `S2-identity-preamble.md` committed `dd6b6c7e`; its code replayed on `scratch/s2-validate` `cf873945` (323 MCP unit tests, 13 binary tests; logs read by this writer) |
-| S2 implementation | pending | blocked on §7 |
+| S2a (plan Tasks 1–4) | in review | `[MEASURED]` PR #364, head `09137b83`: full suite 5,383 passed, 0 failed at `4cc45a2b`; clippy 258 lines (baseline). Mutation gate stopped at 82 of 230 (all killed): it builds without the `mcp` feature and cannot select this code. |
+| S2b (plan Tasks 5–8) | pending | cut after S2a merges; builds the "refuse a sub-floor cap" reading (decision 2 is open) |
 | Spec/plan PR #357 | done | `[MEASURED]` squash-merged as `dc3b6bbe` |
-| C2 plans (M2, M1) | pending | M2: no open metric question, needs the owner's go-ahead. M1: also blocked on §7 question 5 |
+| C2 driver extension | implemented, not yet in review | `[MEASURED]` `feat/memreport-experiment-kinds` `71acf84a`: `run --kinds`, kind `build`, `compare --experiment m2`; 242 Python tests pass; never run against a real binary |
+| C2-M2 plan | done | `[MEASURED]` `C2-M2-cache-streaming.md`. Prototype `c7c92790`; preliminary, slicing only, busy host: first-build peak 3,092 → 2,400 MiB, load peak 2,016 → 1,621 MiB, cache file byte-identical, load time not comparable |
+| C2-M2 experiment | pending | needs the driver extension and a quiet host |
+| C2-M1 plan | pending | metric decided (spec §6.1 as revised); not written |
 | S3a–S6, B | pending | each planned when its predecessor merges |
 
 ## 3. Corrections to standing documents and memory
@@ -45,8 +49,9 @@
 | `src/mcp/session.rs`, comment above `build_state` | "`LoadedRepo` is not `Sync`" | `[MEASURED]` `SessionProvider` is `Send + Sync`. Still not corrected in code; S3a replaces the comment with a compile-time assertion. |
 | Spec §6.1 | attribution by "tree nodes × per-node size" | `[MEASURED]` not a bound in either direction (two reviewers, independent measurements). The harness measures tree-sitter's live heap instead. Recorded in spec §13 and at the top of the C1 plan. |
 | Spec §6.1–§6.2 | the M2 transient can be read from the peak | `[MEASURED]` in most runs the footprint had not come down when the next sample was taken, so the delta reads near 0. M2's estimate is the CPG cache file size. Where the footprint did come down, the transient was 425–479 MiB on slicing and 803 MiB on prometheus, larger than the cache file. |
-| Spec §6.1 | steady state = `phys_footprint` after a 5 s settle | `[MEASURED]` two levels 460–790 MiB apart, not decided by the settle time (35 of 36 runs at the higher level at 5 s; 4 of 13 at the lower at 60 s). Mechanism not identified; forcing the move not tried. The live heap is repeatable to 0.13 MiB but counts allocations, not physical memory, and is circular for M1. Spec text unchanged pending §7 question 5; recorded in spec §13. |
-| Spec §6.1 | five corpora | `[MEASURED]` four. Kubernetes not run (§7 question 6). |
+| Spec §6.1 | steady state = `phys_footprint` after a 5 s settle | `[MEASURED]` not repeatable (two levels 460–790 MiB apart). **Corrected in the spec on 2026-10-13** by owner decision 8: live heap with a minimum effect size as the gate, a footprint at a known level as a required confirmation for M1, M2 judged on a peak. |
+| Spec §6.1 | five corpora | **Corrected in the spec:** four. Kubernetes is not run (owner decision 9). |
+| Spec §6.2, row M2 | the transient is the file bytes read on load | `[MEASURED]` by reading `src/cpg_cache.rs`: there are three transients, and the largest is on **save** (a clone of the whole index plus the encoded file). Recorded in the lane README and the M2 plan; the spec row is not edited. |
 | `CLAUDE.md`, "CPG cache v73" | cache version | `[MEASURED]` 114. Outside this lane; not corrected. |
 | Memory `project_prism_mcp_memory_lane.md` | status lines | Updated 2026-10-13 for the readout result and the open questions. |
 
@@ -54,12 +59,16 @@
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | C2 plans for M2 and M1 | pending | M2: write from the readout (base = load peak) on the owner's go-ahead. M1: pin the metric the owner chooses, with a footprint confirmation | owner go-ahead; M1 also §7 question 5 | spec §6.2; readout verdict table |
-| 2 | Kubernetes corpus | pending | none unless the owner asks for it | §7 question 6 | `~/code/bench-repos/kubernetes` `8d34ac5ef882` |
-| 3 | S2a, S2b | pending | §1 step 4 | §7 | plan `S2-identity-preamble.md`; scratch `cf873945` |
-| 4 | Test whether report mode can release free memory before the settled sample | pending | only if the owner picks option (b) of question 5; it would also rank "release after load" as a candidate (157–715 MiB) | §7 question 5 | `src/mcp/mem_report.rs` |
-| 5 | S3a plan | pending | write from S2's merged interfaces | #3 | lane README notes for S3a |
-| 6 | Refresh after files changed | not measured | the measured refresh found nothing stale and reloaded from the cache; a rebuilding refresh may peak higher than the 1.9–2.0 × recorded | — | readout, "Other observations" |
+| 1 | S2a | in review | fold reviews, merge | reviewers | PR #364 |
+| 2 | S2b | pending | §1 step 2 | #1 | `scratch/s2-validate` `e531a3d2..cf873945` |
+| 3 | Driver extension | implemented | open PR, real-binary smoke, review | — | `~/code/prism-c2-driver`, `71acf84a` |
+| 4 | M2 candidate | prototype | plan Task 2: branch from the prototype, full verification | — | `~/code/prism-m2`, `c7c92790` |
+| 5 | M2 experiment | pending | plan Task 3 | #3, #4, quiet host | `~/prism-evidence/mcp-memory/c2-m2/` |
+| 6 | M2 shipping-gate question | open | owner: may M2 ship without the fan-out latency gate? | owner | plan, "Shipping gate" |
+| 7 | Decision 2 (sub-floor result cap) | open | owner: refuse (built) or replace with the default | owner | spec §11 item 5 |
+| 8 | S3a plan | pending | write from S2's merged interfaces | #2 | lane README notes for S3a |
+| 9 | M1 plan | pending | write against spec §6.1 as revised | #3 | readout verdict table |
+| 10 | Refresh after files changed | not measured | none planned | — | readout, "Other observations" |
 
 ## 5. Invariants and traps — do not do these
 - Never edit `src/mcp/transport_tests.rs` or `src/mcp/owner_transport_tests.rs`, and never re-record the golden transcripts, in S2–S5 — together they are the proof that standalone stdout is unchanged.
@@ -99,11 +108,8 @@
 
 **§2c verdict:** REFUTED · claim: "`phys_footprint` after a 5 s settle is a repeatable steady-state figure (spec §6.1)" · pass: SELF, by the plan's own cross-check against the 2026-10-09 figures, then a report-mode run at 60 s, normal-mode sampling from outside and a 12-run supplement; both reviewers reproduced the counts · evidence tier: MEASURED · record: readout, section "The Steady state column is not an idle figure"
 
-**Questions the owner owes an answer to** (detail in `README.md`, the two "Owner questions" sections):
-1. Runtime directory on multi-user Linux: keep `/tmp/prism-mcpd` as the spec says (other users fail closed, with an error naming the override), or use a per-user name in the temp-dir fallback (a spec change)?
-2. A client-supplied result cap below the floor: refuse it (the plan's choice), or replace it with the default?
-3. The peer-uid check: leave it to S4 where connections are accepted (the plan's choice), or put it in S2?
-4. `--warm-at-startup` on a shared daemon: give the daemon command line the flag, or let the first admitted `HELLO` decide? (S4's decision; S2 only carries the field.)
-5. The steady-state metric for C2 experiments: live heap with a pinned minimum effect size as the gate plus a footprint at a known level as a required confirmation for M1 (recommended); or one of the single options (live heap alone, footprint after a forced release, footprint tagged by level)?
-6. Kubernetes: accept the four measured corpora (recommended), run a subtree, or run it on a larger host?
-7. S2 implementation: start from `scratch/s2-validate` as S1 and C1 did, or have Sonnet implementers work the plan?
+**Questions the owner owes an answer to:**
+1. A client-supplied result cap below the floor (12,000 characters): refuse the connection with an error naming the floor (built in S2b), or serve it with the default of 80,000? The client cannot see the daemon's stderr, so a replacement would be silent.
+2. May M2 (cache streaming) ship without the fan-out latency gate of spec §6.2? It changes how the cache file is read and written and nothing on the query path; the fan-out gate needs S5a and would hold it for several slices. Recommended: yes, on the conditions the plan lists.
+
+Answered on 2026-10-13 and recorded in spec §11 items 4, 6–10 and in `README.md`: the runtime directory stays as the spec says; the peer-uid check stays in S4; `--warm-at-startup` is a flag on the daemon's command line; the C2 metric is live heap with a minimum effect size plus a footprint confirmation for M1; four corpora; S2 is implemented from `scratch/s2-validate`.

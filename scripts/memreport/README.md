@@ -51,9 +51,10 @@ absent from every statistic; it is never 0.
 seen at one of two levels, hundreds of MiB apart, with the same live heap at both, and a longer `--settle`
 did not decide which (measured in `docs/analysis/2026-10-prism-mcp-memory-readout.md`, last section; the
 mechanism was not identified). "Steady live heap" is repeatable, but it counts allocations, not physical
-memory. Which figure a baseline-against-candidate comparison should use is an open owner question (lane
-README, question 5); until it is answered, compare footprints only between runs at the same level
-(footprint minus live heap tells the levels apart).
+memory. A baseline-against-candidate comparison of steady state therefore uses the live heap with a
+pinned minimum effect size, and a candidate whose saving is itself live heap (dropping the retained trees)
+must also show it in footprints compared between runs at the same level; footprint minus live heap tells the
+levels apart (spec §6.1 as revised 2026-10-13).
 
 ## What is excluded, and why
 

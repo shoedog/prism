@@ -75,8 +75,9 @@ Starting ──owner lock, bind, accept loop──▶ Ready ──idle TTL, no a
   failure = another live daemon owns this key → exit 0 silently), bind the socket, write `<key>.pid`
   (`pid\nstart_time\nbuild_identity\n`), enter the accept loop. The owner lock is held for the daemon's whole life.
 - **Ready:** connections are accepted into a bounded handshake stage and admitted on `READY` (§4.2, §4.4). The index
-  builds on the first valid `tools/call` from any client (`StartupMode::Lazy`), or at start if the starting shim
-  passed `--warm-at-startup`.
+  builds on the first valid `tools/call` from any client (`StartupMode::Lazy`), or at start if the daemon was
+  started with `--warm-at-startup` on its own command line, which the starting shim passes when it was given
+  the flag (owner decision 2026-10-13, §11 item 7; the preamble's `warm_at_startup` field is informational).
 - **Draining:** entered only from the admission-and-retirement critical section (§4.2) when **admitted == 0 and
   pending == 0** for the TTL and no build is running. Under that same lock the daemon stops accepting, unlinks its
   socket **while still holding the owner lock**, and answers `RETIRING` to any handshake that races in before the
@@ -292,9 +293,21 @@ triage**: it ranks candidates for a candidate-specific experiment, it does not b
 - Corpora (**five**): slicing (self), `~/code/bench-repos/{ruff, excalidraw, prometheus, kubernetes}` — Rust,
   TypeScript, Go at three sizes. Each run records commit, dirty state, cache version, grammar fingerprint, binary
   build identity, allocator, and host compression/swap state at the time.
-- **Experiment parameters are pinned before a candidate experiment runs:** the footprint metric
-  (`phys_footprint`), the sampling window (after the workload, after a 5 s settle), repetitions (three, median
-  reported with min/max), and noise treatment (a candidate must beat the baseline's max by its own min).
+- **Experiment parameters are pinned before a candidate experiment runs** (revised 2026-10-13 after the C1
+  readout, owner decision §11 item 8; the original text pinned `phys_footprint` after a 5 s settle as the only
+  steady-state metric, which the readout showed is not repeatable):
+  - **Steady state** is judged on the steady live heap (`heap_in_use_bytes` at the settle stage, cache-loaded
+    index), with a minimum effect size pinned in the candidate's plan before it runs, because the live heap
+    repeats to about 0.1 MiB and the noise rule alone would pass on any change.
+  - **M1 additionally needs a footprint confirmation.** Its estimate is part of the live heap, so live heap
+    alone cannot fail. The saving must also show in `phys_footprint` compared between runs at the same
+    footprint level (the level is read from footprint minus live heap), or after a release of free memory if
+    one is added to the harness and shown to work.
+  - **M2 is judged on a peak** (`peak_bytes`), not on steady state.
+  - Unchanged: the sampling window (after the workload, after a 5 s settle), repetitions (three, median
+    reported with min/max), noise treatment (a candidate must beat the baseline's max by its own min), one
+    measured process at a time.
+  - **Corpora: four**, not five. Kubernetes is not run on this host (owner decision §11 item 9).
 
 ### 6.2 Candidates and what would select each
 
@@ -340,8 +353,8 @@ the second.
    any memory reduction.
 3. **Default flip:** `--shared` becomes the default; `--standalone` opts out. Docs and launchers drop the flag.
 4. Flags: `--shared` / `--standalone`, `--idle-ttl <SECS>` (default 900), `--daemon-start-timeout <SECS>` (default
-   10), `--max-clients <N>` (default 64), `--warm-at-startup` (forwarded in the preamble; honored only by the daemon
-   this shim starts), `PRISM_MCP_RUNTIME_DIR`, `prism-mcp daemon ...` (internal), `daemon-status`, `daemon-shutdown`.
+   10), `--max-clients <N>` (default 64), `--warm-at-startup` (passed by the starting shim on the daemon's command
+   line; the preamble field is informational; §11 item 7), `PRISM_MCP_RUNTIME_DIR`, `prism-mcp daemon ...` (internal), `daemon-status`, `daemon-shutdown`.
 
 ## 9. Testing
 
@@ -407,6 +420,21 @@ Deterministic constructions, not sleeps:
 3. `daemon-shutdown` verb for the bridge's reaper: **yes — DECIDED.** *Graceful and instance-bound, validated
    through the live control exchange; it must never disconnect other active clients.*
 
+Decided 2026-10-13, after S2 planning and the C1 readout (questions in the lane plan's README):
+
+4. Runtime directory on multi-user Linux: **as §4.3 says — DECIDED.** `/tmp/prism-mcpd` is one name for every
+   user; a second user's shim fails closed with an error naming `PRISM_MCP_RUNTIME_DIR`.
+5. A client-supplied result cap below the floor: **open.** The owner asked what it means; S2b is built to refuse
+   it (the plan's reading) and the choice is reversible in two lines.
+6. Peer-uid check: **in S4 — DECIDED**, where connections are accepted.
+7. `--warm-at-startup` on a shared daemon: **a flag on the daemon's command line — DECIDED.** The starting shim
+   passes it; the preamble field stays, as information only. S4 adds the flag.
+8. Steady-state metric for C2 experiments: **live heap with a pinned minimum effect size as the gate, plus a
+   footprint at a known level as a required confirmation for M1 — DECIDED** (§6.1 revised). M2 is judged on a
+   peak.
+9. Kubernetes: **accept the four measured corpora — DECIDED.**
+10. S2 implementation: **from the validated branch `scratch/s2-validate` — DECIDED.**
+
 ## 12. Slicing
 
 | PR | Content | Depends on |
@@ -466,6 +494,5 @@ Deterministic constructions, not sleeps:
   survive the measurement: `phys_footprint` after a 5 s settle was sampled at one of two levels, 460–790 MiB
   apart on two corpora, and neither a 5 s nor a 60 s settle decided which. The mechanism was not identified.
   The steady live heap is repeatable but counts allocations, not physical memory, and is circular for M1. §6.1
-  is left as written until the owner chooses (lane README, question 5); no C2 experiment should be gated on a
-  footprint of unknown level in the meantime. The §1 figures (1,168 MB idle, 1,620 MB peak) are consistent with
+  was left as written until the owner chose, and was revised on 2026-10-13 (§11 item 8). The §1 figures (1,168 MB idle, 1,620 MB peak) are consistent with
   today's: within 3–13 % after scaling for a corpus that has grown 21 %, if "MB" there means MiB.
