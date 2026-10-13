@@ -4,7 +4,7 @@
 Run every test module with:
     python3 -m unittest discover -s scripts/memreport -p 'test_*.py'
 """
-import json
+import copy
 import sys
 import tempfile
 import unittest
@@ -153,6 +153,52 @@ class ValidateTests(unittest.TestCase):
         self.assertIn('differs', memreport.validate('workload', data, {'requests': 8, 'sha256': 'b' * 64}))
         self.assertIn('ran 8 requests, the manifest has 9',
                       memreport.validate('workload', data, {'requests': 9, 'sha256': 'a' * 64}))
+
+
+class DeriveSafetyTests(unittest.TestCase):
+    """derive never raises on a report that validate accepted, whatever else is wrong with the report."""
+
+    JUNK = (None, 'x', True, [], {}, -1, 1.5)
+
+    def mutations(self, kind):
+        base = canned(kind)
+        for key in list(base):
+            for junk in self.JUNK + ('DELETE',):
+                data = copy.deepcopy(base)
+                data.pop(key) if junk == 'DELETE' else data.__setitem__(key, junk)
+                yield '%s=%r' % (key, junk), data
+        for index, entry in enumerate(base['stages']):
+            for key in list(entry):
+                for junk in self.JUNK + ('DELETE',):
+                    data = copy.deepcopy(base)
+                    data['stages'][index].pop(key) if junk == 'DELETE' else data['stages'][index].__setitem__(key, junk)
+                    yield 'stage %s.%s=%r' % (entry['name'], key, junk), data
+        for key in list(base['attribution']):
+            for junk in self.JUNK + ('DELETE',):
+                data = copy.deepcopy(base)
+                data['attribution'].pop(key) if junk == 'DELETE' else data['attribution'].__setitem__(key, junk)
+                yield 'attribution.%s=%r' % (key, junk), data
+
+    def test_no_accepted_report_makes_derive_raise(self):
+        accepted = 0
+        for kind in memreport.KINDS:
+            for label, data in self.mutations(kind):
+                if memreport.validate(kind, data) is None:
+                    accepted += 1
+                    try:
+                        memreport.derive(kind, data)
+                    except Exception as error:  # noqa: BLE001
+                        self.fail('derive(%s) raised %r on an accepted report with %s' % (kind, error, label))
+        self.assertGreater(accepted, 50)    # the mutations are not all rejected: the check really ran
+
+    def test_junk_in_an_optional_number_gives_none_not_a_crash(self):
+        run = canned('workload')
+        run['stages'][0]['heap_in_use_bytes'] = 'lots'
+        run['stages'][0]['tree_sitter_heap_bytes'] = True
+        self.assertIsNone(memreport.validate('workload', run))
+        derived = memreport.derive('workload', run)
+        self.assertIsNone(derived['steady_heap'])
+        self.assertIsNone(derived['m1'])
 
 
 class AdmissionTests(unittest.TestCase):

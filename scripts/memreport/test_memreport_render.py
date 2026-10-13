@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import memreport  # noqa: E402
 import memreport_render  # noqa: E402
-from memreport_fixtures import MIB, ok_result, sample_summary  # noqa: E402
+from memreport_fixtures import MIB, sample_summary  # noqa: E402
 
 
 def table_row(text, *cells):

@@ -387,5 +387,31 @@ class SummarizeTests(Harness):
         self.assertIn('no kind/rep', str(caught.exception))
 
 
+class EndToEndReadoutTests(Harness):
+    """gen-workload, run, summarize and render over two fake corpora, one of them degraded."""
+
+    def scenario(self):
+        self.corpus('big')
+        self.corpus('small')
+        no_tree = canned('workload', tree=None)
+        self.fake(emit={'big': 8, 'small': 8}, cache_bytes=4096, sidecar_bytes=10,
+                  repo_reports={'small': {'workload': no_tree}},
+                  repo_stderr={'small': {'warm': ['nav edge cache: failed to load sidecar in /x: bad; rebuilding']}})
+        self.gen('big', 'small')
+        self.run_cmd('big', 'small', reps=2)
+        quiet(memreport.main, ['render', '--run', str(self.out), '--out', str(self.tmp / 'readout.md')])
+        return (self.tmp / 'readout.md').read_text()
+
+    def test_the_degraded_corpus_is_excluded_and_unavailable_values_are_n_a(self):
+        text = self.scenario()
+        summary = self.summary()
+        self.assertEqual(summary['corpora']['small']['admissible']['warm'], 0)
+        self.assertEqual(summary['corpora']['big']['admissible']['warm'], 2)
+        self.assertIn('| small | warm | 1 | inadmissible | the call-edge sidecar failed to load', text)
+        self.assertIn('| M1 | small | n/a |', text)
+        self.assertIn('| M1 | big | 300.0 | 1000.0 | 30.0 % | both | 2 / 2 |', text)
+        self.assertNotIn('Traceback', text)
+
+
 if __name__ == '__main__':
     unittest.main()

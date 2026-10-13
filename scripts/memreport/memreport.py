@@ -19,7 +19,7 @@ import sys
 import time
 from pathlib import Path
 
-from memreport_render import KINDS, MIB, render  # noqa: F401  (render is part of this module's interface)
+from memreport_render import KINDS, MIB, render
 
 MARKER = '{"prism_mem_report":'
 REPORT_VERSION = 2

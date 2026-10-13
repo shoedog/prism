@@ -111,7 +111,7 @@ if opt('--cache-dir') and kind == 'warm' and call == 0:
     for name, key in (('cpg-cache.bin', 'cache_bytes'), ('resolved-call-edge-index.bin', 'sidecar_bytes')):
         if cfg.get(key) is not None:
             open(os.path.join(d, name), 'wb').write(b'x' * cfg[key])
-report = json.loads(json.dumps(cfg['reports'][kind]))
+report = json.loads(json.dumps(cfg.get('repo_reports', {}).get(repo, {}).get(kind) or cfg['reports'][kind]))
 if kind == 'workload':
     data = open(opt('--mem-workload'), 'rb').read()
     by_call = cfg.get('workload_sha_by_call') or []
@@ -119,7 +119,7 @@ if kind == 'workload':
     report['workload']['requests'] = report['workload']['responses'] = data.count(b'\n')
     if cfg.get('mutate_source'):
         open(cfg['mutate_source'], 'wb').write(b'{"id":9}\n')
-for text in cfg.get('stderr', {}).get(kind, []):
+for text in cfg.get('stderr', {}).get(kind, []) + cfg.get('repo_stderr', {}).get(repo, {}).get(kind, []):
     print(text, file=sys.stderr)
 if call in cfg.get('stderr_calls', {}).get(kind, []):
     print(cfg['stderr_call_text'], file=sys.stderr)
