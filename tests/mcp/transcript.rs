@@ -4,14 +4,15 @@
 #![cfg(feature = "mcp")]
 
 use serde_json::{json, Value};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::sync::mpsc;
 use std::time::Duration;
 
-/// How long a due response may take before the run is declared hung.
-const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
+/// How long a due response, or the tail of output after the last step, may take before the run
+/// is declared hung.
+pub const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub enum Step {
     /// Send this line and read exactly one response line.
@@ -122,23 +123,102 @@ pub fn script() -> Vec<Step> {
     ]
 }
 
+/// Why the output after the last step could not be collected.
+#[derive(Debug)]
+pub enum TailError {
+    /// The channel stayed open, the child's stdout did not close, and no line arrived in time.
+    TimedOut(Duration),
+    /// Reading the child's stdout failed; that is not the same as it ending.
+    ReadFailed(std::io::Error),
+}
+
+impl std::fmt::Display for TailError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TailError::TimedOut(after) => write!(
+                f,
+                "timed out after {after:?} waiting for the child's stdout to close"
+            ),
+            TailError::ReadFailed(error) => write!(f, "reading the child's stdout failed: {error}"),
+        }
+    }
+}
+
+/// Reads `source` line by line on a thread. A clean end drops the sender (the receiver sees a
+/// disconnect); a read error is sent as an `Err` so it cannot be mistaken for the end.
+pub fn spawn_line_reader<R: Read + Send + 'static>(
+    source: R,
+) -> (
+    mpsc::Receiver<std::io::Result<Vec<u8>>>,
+    std::thread::JoinHandle<()>,
+) {
+    let (lines_tx, lines_rx) = mpsc::channel();
+    let reader = std::thread::spawn(move || {
+        let mut source = BufReader::new(source);
+        loop {
+            let mut line = Vec::new();
+            match source.read_until(b'\n', &mut line) {
+                Ok(0) => break,
+                Err(error) => {
+                    let _ = lines_tx.send(Err(error));
+                    break;
+                }
+                Ok(_) => {
+                    if lines_tx.send(Ok(line)).is_err() {
+                        break;
+                    }
+                }
+            }
+        }
+    });
+    (lines_rx, reader)
+}
+
+/// Collects every line still to come after the last step. Anything no step asked for (an answer
+/// to a notification, a stray line) is kept, so it shows up in the comparison instead of being
+/// silently dropped. Only the channel disconnecting (the reader saw end of file) is a clean end.
+pub fn drain_tail(
+    lines: &mpsc::Receiver<std::io::Result<Vec<u8>>>,
+    timeout: Duration,
+    transcript: &mut Vec<u8>,
+) -> Result<(), TailError> {
+    loop {
+        match lines.recv_timeout(timeout) {
+            Ok(Ok(extra)) => transcript.extend_from_slice(&extra),
+            Ok(Err(error)) => return Err(TailError::ReadFailed(error)),
+            Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
+            Err(mpsc::RecvTimeoutError::Timeout) => return Err(TailError::TimedOut(timeout)),
+        }
+    }
+}
+
+/// Kill the child, reap it, and let its reader thread finish (its stdout closes with it).
+fn abort(child: &mut Child, reader: std::thread::JoinHandle<()>) {
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = reader.join();
+}
+
 /// Runs `script` against a fresh `prism-mcp --repo <root> --no-cache <mode.flags>` and returns
 /// everything it wrote to stdout. Panics, naming the step, when a due response does not arrive.
 pub fn run_transcript(root: &Path, mode: &Mode, script: &[Step]) -> Vec<u8> {
-    let stderr_dir = tempfile::tempdir().expect("stderr dir");
-    let stderr_path = stderr_dir.path().join("stderr.txt");
-    let stderr_file = std::fs::File::create(&stderr_path).expect("stderr file");
-    let stderr_text = || std::fs::read_to_string(&stderr_path).unwrap_or_default();
+    run_transcript_with_timeout(root, mode, script, RESPONSE_TIMEOUT)
+        .unwrap_or_else(|failure| panic!("{failure}"))
+}
 
+/// `run_transcript` with the hang budget as a parameter. Returns the failure instead of panicking.
+pub fn run_transcript_with_timeout(
+    root: &Path,
+    mode: &Mode,
+    script: &[Step],
+    timeout: Duration,
+) -> Result<Vec<u8>, String> {
     let mut command = Command::new(assert_cmd::cargo::cargo_bin("prism-mcp"));
     command
         .arg("--repo")
         .arg(root)
         .arg("--no-cache")
-        .args(mode.flags)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::from(stderr_file));
+        .args(mode.flags);
     for key in [
         "PRISM_MCP_STRUCTURED_CONTENT",
         "PRISM_MCP_CONCISE_SHAPE",
@@ -149,25 +229,31 @@ pub fn run_transcript(root: &Path, mode: &Mode, script: &[Step]) -> Vec<u8> {
     for (key, value) in mode.env {
         command.env(key, value);
     }
-    let mut child = command.spawn().expect("spawn prism-mcp");
+    drive(command, mode.name, root, script, timeout)
+}
+
+/// Spawns `command` with piped stdin and stdout, plays `script` against it, and collects stdout.
+/// The child is killed and reaped on every failure path.
+pub fn drive(
+    mut command: Command,
+    label: &str,
+    root: &Path,
+    script: &[Step],
+    timeout: Duration,
+) -> Result<Vec<u8>, String> {
+    let stderr_dir = tempfile::tempdir().expect("stderr dir");
+    let stderr_path = stderr_dir.path().join("stderr.txt");
+    let stderr_file = std::fs::File::create(&stderr_path).expect("stderr file");
+    let stderr_text = || std::fs::read_to_string(&stderr_path).unwrap_or_default();
+
+    command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::from(stderr_file));
+    let mut child = command.spawn().expect("spawn child");
     let mut stdin = child.stdin.take().expect("child stdin");
     let stdout = child.stdout.take().expect("child stdout");
-
-    let (lines_tx, lines_rx) = mpsc::channel::<Vec<u8>>();
-    let reader = std::thread::spawn(move || {
-        let mut stdout = BufReader::new(stdout);
-        loop {
-            let mut line = Vec::new();
-            match stdout.read_until(b'\n', &mut line) {
-                Ok(0) | Err(_) => break,
-                Ok(_) => {
-                    if lines_tx.send(line).is_err() {
-                        break;
-                    }
-                }
-            }
-        }
-    });
+    let (lines_rx, reader) = spawn_line_reader(stdout);
 
     let mut transcript = Vec::new();
     for (index, step) in script.iter().enumerate() {
@@ -175,14 +261,20 @@ pub fn run_transcript(root: &Path, mode: &Mode, script: &[Step]) -> Vec<u8> {
             Step::Request(line) => {
                 writeln!(stdin, "{line}").expect("write request");
                 stdin.flush().expect("flush request");
-                let response = lines_rx.recv_timeout(RESPONSE_TIMEOUT).unwrap_or_else(|_| {
-                    panic!(
-                        "mode {}: no response to step {index}: {line}\nstderr:\n{}",
-                        mode.name,
-                        stderr_text()
-                    )
-                });
-                transcript.extend_from_slice(&response);
+                match lines_rx.recv_timeout(timeout) {
+                    Ok(Ok(response)) => transcript.extend_from_slice(&response),
+                    outcome => {
+                        let why = match outcome {
+                            Ok(Err(error)) => format!("stdout read failed: {error}"),
+                            _ => "no response".to_string(),
+                        };
+                        let stderr = stderr_text();
+                        abort(&mut child, reader);
+                        return Err(format!(
+                            "mode {label}: {why} to step {index}: {line}\nstderr:\n{stderr}"
+                        ));
+                    }
+                }
             }
             Step::Notify(line) => {
                 writeln!(stdin, "{line}").expect("write notification");
@@ -194,18 +286,21 @@ pub fn run_transcript(root: &Path, mode: &Mode, script: &[Step]) -> Vec<u8> {
         }
     }
     drop(stdin);
-    // Anything no step asked for (an answer to a notification, a stray line) is kept, so it
-    // shows up in the comparison instead of being silently dropped.
-    while let Ok(extra) = lines_rx.recv_timeout(RESPONSE_TIMEOUT) {
-        transcript.extend_from_slice(&extra);
+    if let Err(failure) = drain_tail(&lines_rx, timeout, &mut transcript) {
+        let stderr = stderr_text();
+        abort(&mut child, reader);
+        return Err(format!(
+            "mode {label}: after the last step, {failure}; output so far was {} bytes\nstderr:\n{stderr}",
+            transcript.len()
+        ));
     }
     reader.join().expect("stdout reader thread");
-    let status = child.wait().expect("wait for prism-mcp");
-    assert!(
-        status.success(),
-        "mode {}: prism-mcp exited with {status}\nstderr:\n{}",
-        mode.name,
-        stderr_text()
-    );
-    transcript
+    let status = child.wait().expect("wait for child");
+    if !status.success() {
+        return Err(format!(
+            "mode {label}: child exited with {status}\nstderr:\n{}",
+            stderr_text()
+        ));
+    }
+    Ok(transcript)
 }
