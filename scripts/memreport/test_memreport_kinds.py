@@ -54,10 +54,12 @@ class SelectionTests(Kinds):
 
     def test_naming_all_four_in_any_order_is_the_default(self):
         self.prepare(build=False)
-        self.run_kinds(None)
-        default = (self.out / 'summary.json').read_text()
-        self.out = self.out.with_name('out2')
-        self.run_kinds('refresh,workload,cold,warm')
+        # The summary records the host's load average before each run; it must not differ between the two runs.
+        with mock.patch.object(memreport, 'load_average', return_value=[1.0, 2.0, 3.0]):
+            self.run_kinds(None)
+            default = (self.out / 'summary.json').read_text()
+            self.out = self.out.with_name('out2')
+            self.run_kinds('refresh,workload,cold,warm')
         self.assertEqual((self.out / 'summary.json').read_text(), default)
         self.assertEqual(json.loads((self.out / 'run.json').read_text())['kinds'], FOUR)
 
