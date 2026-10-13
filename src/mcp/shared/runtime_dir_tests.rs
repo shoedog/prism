@@ -607,6 +607,45 @@ fn a_parent_whose_list_only_denies_is_accepted() {
     validate_runtime_dir(&parent.join("prism-mcpd")).expect("a deny-only list grants nothing");
 }
 
+/// A deny entry comes first in a list; an allow entry after it still grants. Rules out judging
+/// a list by its first entry.
+#[cfg(target_os = "macos")]
+#[test]
+fn a_list_with_a_deny_entry_and_then_an_allow_entry_is_refused() {
+    use crate::mcp::shared::dir_chain::Exposure;
+    let base = tempfile::tempdir().unwrap();
+    let parent = private_dir(base.path(), "parent");
+    if add_acl(&parent, "everyone deny delete").is_none() {
+        eprintln!("skipped: access control lists cannot be set here");
+        return;
+    }
+    add_acl(
+        &parent,
+        "everyone allow search,add_subdirectory,delete_child",
+    )
+    .unwrap();
+    let listing = std::process::Command::new("/bin/ls")
+        .arg("-lde")
+        .arg(&parent)
+        .output()
+        .unwrap();
+    let listing = String::from_utf8_lossy(&listing.stdout).into_owned();
+    let deny = listing.find(" deny ").expect("a deny entry");
+    let allow = listing.find(" allow ").expect("an allow entry");
+    assert!(deny < allow, "the deny entry is listed first: {listing}");
+    let outcome = validate_runtime_dir(&parent.join("prism-mcpd"));
+    assert!(
+        matches!(
+            &outcome,
+            Err(RuntimeDirError::Replaceable {
+                exposure: Exposure::ListAllows,
+                ..
+            })
+        ),
+        "{outcome:?}"
+    );
+}
+
 /// A list entry that grants "write security" lets its grantee change the directory's mode and
 /// then remove the list. If that happens after the mode was accepted and before the list is
 /// read, a validation that never looks at the mode again accepts a world-writable directory.
