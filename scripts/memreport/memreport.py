@@ -27,7 +27,7 @@ from memreport_render import KINDS, MIB, render  # noqa: F401
 from memreport_rule import (CANDIDATES, RULE_ABSOLUTE, RULE_FRACTION, decision_points, evaluate,  # noqa: F401
                             meets, rule_arm)
 from memreport_summary import (RUN_KINDS, assemble_summary, build_entry, effective_status,  # noqa: F401
-                               exclude_entry, prime_peak, summarize, write_json_atomically, write_summary)
+                               exclude_entry, prime_peak, rescore, summarize, write_json_atomically, write_summary)
 # The validation names are re-exported: tests and callers use them as `memreport.validate` and so on.
 from memreport_validate import (BUILD, BUILD_SAVE_MARKERS, CACHE_REASONS, CACHED_KINDS, PRIME,  # noqa: F401
                                 REPORT_VERSION, REQUIRED, build_cache_reason, find_stage, footprint, is_number,
@@ -113,12 +113,21 @@ def capture(command):
     return done.stdout.decode('utf-8', 'replace').strip() if done.returncode == 0 else None
 
 
+def load_average():
+    """The host's 1-, 5- and 15-minute load averages, or None where the platform has none."""
+    try:
+        return list(os.getloadavg())
+    except (AttributeError, OSError):
+        return None
+
+
 def host_state():
     """Swap and compressor state at the time of a run (spec 6.1)."""
     if sys.platform == 'darwin':
-        return {'swapusage': capture(['sysctl', '-n', 'vm.swapusage']), 'vm_stat': capture(['vm_stat'])}
+        return {'swapusage': capture(['sysctl', '-n', 'vm.swapusage']), 'vm_stat': capture(['vm_stat']),
+                'loadavg': load_average()}
     try:
-        return {'meminfo': Path('/proc/meminfo').read_text()[:1500]}
+        return {'meminfo': Path('/proc/meminfo').read_text()[:1500], 'loadavg': load_average()}
     except OSError:
         return {}
 
@@ -348,26 +357,7 @@ def cmd_run(args):
 
 def cmd_summarize(args):
     """Rebuild summary.json from raw/ alone, validating every stored report with today's rules."""
-    out = Path(args.run)
-    settings = json.loads((out / 'run.json').read_text())
-    settings.pop('kinds', None)  # which kinds ran is what raw/ holds; a run.json from before --kinds has no key
-    entries = {}
-    for directory in sorted(path for path in (out / 'raw').iterdir() if path.is_dir()):
-        corpus_path = directory / 'corpus.json'
-        if not corpus_path.exists():
-            raise SystemExit('%s: no corpus.json, so this corpus cannot be summarized' % directory)
-        results = []
-        for path in sorted(directory.glob('*.json')):
-            if path.name in ('corpus.json', 'prime.json'):
-                continue
-            result = json.loads(path.read_text())
-            if result.get('kind') not in RUN_KINDS or not isinstance(result.get('rep'), int):
-                raise SystemExit('%s: no kind/rep recorded; re-run instead' % path)
-            results.append(result)
-        prime_path = directory / 'prime.json'
-        prime = json.loads(prime_path.read_text()) if prime_path.exists() else None
-        entries[directory.name] = build_entry(json.loads(corpus_path.read_text()), results, prime)
-    print('wrote %s' % write_summary(out, assemble_summary(settings, entries)))
+    print('wrote %s' % write_summary(Path(args.run), rescore(args.run)))
 
 
 def cmd_render(args):

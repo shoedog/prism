@@ -26,7 +26,7 @@ HIT = {'cpg_hit': True, 'call_edges_loaded': True}
 def report(stages, attribution=None, workload=None, refresh=None, version=3, env=None, build=None, cache=None,
            threads=4):
     return {'prism_mem_report': version, 'build': build or {'build_identity': 'b', 'binary_input_dirty': False},
-            'platform': {'os': 'macos'}, 'config': {}, 'env': env if env is not None else {},
+            'platform': {'os': 'macos', 'arch': 'aarch64'}, 'config': {}, 'env': env if env is not None else {},
             'cache': dict(HIT) if cache is None else cache, 'threads': threads,
             'stages': stages, 'ru_maxrss_bytes': 1, 'attribution': attribution or {},
             'workload': workload, 'refresh': refresh}
@@ -208,3 +208,71 @@ def sample_summary(reps=3):
     entries = {name: memreport.build_entry(corpus, results, prime)
                for name, (corpus, results, prime) in corpora.items()}
     return memreport.assemble_summary({'reps': reps, 'settle': 5, 'timeout': 1800, 'bin': 'fake'}, entries)
+
+
+PLATFORM = {'os': 'macos', 'arch': 'aarch64'}
+
+
+def mib(*values):
+    return [value * MIB for value in values]
+
+
+def make_summary(series, identity='base', reps=3, settle=5, threads=4, env=None, allocator='system',
+                 commit=None, dirty=0, sha='f' * 64, platform=PLATFORM, binary_dirty=False, excluded=None,
+                 loads=None, only=None):
+    """A summary.json shaped like the driver's: `series` is {corpus: {metric: [values]}}.
+
+    `threads`, `env`, `allocator`, `platform` apply to every corpus; `only` = {field: {corpus: value}} changes
+    one corpus's value. `excluded` is {corpus: [inadmissible items]}, `loads` {corpus: [1-minute load averages]}.
+    """
+    import memreport
+    only = only or {}
+    values = {'threads': threads, 'env': env or {}, 'allocator': allocator, 'platform': platform}
+    corpora = {}
+    for name, metrics in series.items():
+        own = {field: only.get(field, {}).get(name, value) for field, value in values.items()}
+        build = {'build_identity': identity, 'git_sha': 'g' + identity, 'cpg_cache_version': 7,
+                 'allocator': own['allocator'], 'binary_input_dirty': binary_dirty}
+        corpora[name] = {
+            'commit': commit or ('c' * 8 + name), 'dirty': dirty, 'workload': {'sha256': sha, 'requests': 8},
+            'build': build, 'env': own['env'], 'threads': own['threads'], 'platform': own['platform'],
+            'metrics': {metric: memreport.summarize(series_values) for metric, series_values in metrics.items()},
+            'inadmissible': list((excluded or {}).get(name, [])), 'load_avg_1m': list((loads or {}).get(name, []))}
+    first = next(iter(corpora.values()), {})
+    provenance = {'reps': reps, 'settle': settle, 'timeout': 1800, 'bin': 'x', 'build': first.get('build'),
+                  'env': first.get('env'), 'threads': first.get('threads'), 'platform': first.get('platform')}
+    return {'provenance': provenance, 'corpora': corpora, 'verdict': {}}
+
+
+def write_run(directory, peaks, identity='base', reps=3, settle=5, threads=4, platform=PLATFORM, loads=None,
+              broken=None, with_summary=False):
+    """A run directory written by hand: run.json and, per corpus, corpus.json and one warm result per peak.
+
+    `peaks` is {corpus: [warm after_index peaks in MiB]}; `loads` {corpus: [1-minute load averages]};
+    `broken` {corpus: [reps whose cache flag says miss, so today's rules exclude them]}.
+    """
+    import json
+    directory = Path(directory)
+    (directory / 'raw').mkdir(parents=True)
+    (directory / 'run.json').write_text(json.dumps({'reps': reps, 'settle': settle, 'timeout': 1800, 'bin': 'x',
+                                                    'kinds': ['warm']}))
+    for name, series in peaks.items():
+        raw = directory / 'raw' / name
+        raw.mkdir()
+        (raw / 'corpus.json').write_text(json.dumps({
+            'path': '/c/' + name, 'commit': 'c' * 8 + name, 'dirty': 0, 'cache_files': {},
+            'workload': {'sha256': 'f' * 64, 'requests': 8}}))
+        for rep, peak in enumerate(series, 1):
+            data = canned('warm')
+            data['build'].update(build_identity=identity, git_sha='g' + identity, allocator='system')
+            data['threads'], data['platform'] = threads, dict(platform)
+            stage_named(data, 'after_index')['peak_bytes'] = peak * MIB
+            if rep in (broken or {}).get(name, ()):
+                data['cache']['cpg_hit'] = False
+            result = {'kind': 'warm', 'rep': rep, 'status': 'ok', 'report': data}
+            if loads:
+                result['host_before'] = {'loadavg': [loads[name][rep - 1], 1.0, 1.0]}
+            (raw / ('warm-%d.json' % rep)).write_text(json.dumps(result))
+    if with_summary:
+        (directory / 'summary.json').write_text('{"stale": true}')
+    return directory

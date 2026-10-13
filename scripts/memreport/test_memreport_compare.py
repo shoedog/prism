@@ -1,36 +1,17 @@
 #!/usr/bin/env python3
-"""Tests of the baseline-against-candidate comparison: refusals, the pinned rule `m2`, the Markdown, the CLI.
+"""Tests of the pure comparison: refusals, and the pinned rule `m2` (gate, not worse, not higher).
 
 Run every test module with:
     python3 -m unittest discover -s scripts/memreport -p 'test_*.py'
 """
 import copy
-import json
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import memreport  # noqa: E402
 import memreport_compare as mc  # noqa: E402
-from memreport_fixtures import MIB  # noqa: E402
-
-
-def make_summary(series, identity='base', reps=3, settle=5, threads=4, env=None, allocator='system',
-                 commit=None, dirty=0, sha='f' * 64):
-    """A summary.json shaped like the driver's: `series` is {corpus: {metric: [values]}}."""
-    corpora = {name: {'commit': commit or ('c' * 8 + name), 'dirty': dirty, 'workload': {'sha256': sha, 'requests': 8},
-                      'metrics': {metric: memreport.summarize(values) for metric, values in metrics.items()}}
-               for name, metrics in series.items()}
-    build = {'build_identity': identity, 'git_sha': 'g' + identity, 'cpg_cache_version': 7, 'allocator': allocator}
-    return {'provenance': {'reps': reps, 'settle': settle, 'timeout': 1800, 'bin': 'x', 'build': build,
-                           'env': env or {}, 'threads': threads},
-            'corpora': corpora, 'verdict': {}}
-
-
-def mib(*values):
-    return [value * MIB for value in values]
+from memreport_fixtures import MIB, make_summary, mib  # noqa: E402
 
 
 def compare(baseline, candidate, **kwargs):
@@ -41,10 +22,17 @@ def metric(result, key):
     return next(item for item in result['metrics'] if item['key'] == key)
 
 
-def gate(base_values, cand_values, key='peak'):
-    """The `peak` metric of a one-corpus comparison and its corpus row."""
+def row_of(base_values, cand_values, key='peak'):
+    """The corpus row of `key` in a one-corpus comparison."""
     result = compare(make_summary({'a': {key: base_values}}), make_summary({'a': {key: cand_values}}, 'cand'))
     return metric(result, key)['corpora']['a']
+
+
+def verdict_of(key, rows):
+    """The metric verdict for {corpus: (baseline values or None, candidate values or None)}."""
+    base = make_summary({name: {key: pair[0]} if pair[0] is not None else {} for name, pair in rows.items()})
+    cand = make_summary({name: {key: pair[1]} if pair[1] is not None else {} for name, pair in rows.items()}, 'cand')
+    return metric(compare(base, cand), key)
 
 
 class RefusalTests(unittest.TestCase):
@@ -52,9 +40,9 @@ class RefusalTests(unittest.TestCase):
         self.series = {'a': {'peak': mib(1000, 1000, 1000)}, 'b': {'peak': mib(1000, 1000, 1000)}}
         self.baseline = make_summary(self.series)
 
-    def refused(self, candidate, **kwargs):
+    def refused(self, candidate, baseline=None, **kwargs):
         with self.assertRaises(ValueError) as caught:
-            compare(self.baseline, candidate, **kwargs)
+            compare(baseline or self.baseline, candidate, **kwargs)
         return str(caught.exception)
 
     def candidate(self, **kwargs):
@@ -82,8 +70,7 @@ class RefusalTests(unittest.TestCase):
         self.assertIn('corpus a: dirty file count', self.refused(candidate))
 
     def test_a_different_workload_sha256(self):
-        message = self.refused(self.candidate(sha='e' * 64))
-        self.assertIn('corpus a: workload sha256', message)
+        self.assertIn('corpus a: workload sha256', self.refused(self.candidate(sha='e' * 64)))
 
     def test_a_workload_recorded_on_one_side_only(self):
         candidate = self.candidate()
@@ -113,6 +100,37 @@ class RefusalTests(unittest.TestCase):
     def test_different_allocators(self):
         self.assertIn('allocator', self.refused(self.candidate(allocator='jemalloc')))
 
+    def test_different_platforms(self):
+        message = self.refused(self.candidate(platform={'os': 'linux', 'arch': 'x86_64'}))
+        self.assertIn('platform', message)
+        self.assertIn('linux', message)
+
+    def test_a_difference_in_one_corpus_only_is_refused_although_the_headline_matches(self):
+        """The headline is the first admitted corpus; the others must match too."""
+        for field, value in (('threads', 8), ('env', {'PRISM_X': '1'}), ('allocator', 'jemalloc'),
+                             ('platform', {'os': 'linux', 'arch': 'x86_64'})):
+            candidate = make_summary(self.series, 'cand', only={field: {'b': value}})
+            self.assertEqual(candidate['provenance']['threads'], 4)    # the headline looks the same
+            message = self.refused(candidate)
+            self.assertIn('corpus b', message, field)
+            self.assertNotIn('corpus a', message, field)
+
+    def test_the_same_difference_in_the_baseline_only_is_refused_too(self):
+        baseline = make_summary(self.series, only={'threads': {'b': 8}})
+        self.assertIn('corpus b: threads', self.refused(self.candidate(), baseline=baseline))
+
+    def test_an_unknown_platform_is_refused(self):
+        for platform in (None, {'os': 'macos'}, {}):
+            candidate = self.candidate(platform=platform)
+            self.assertIn('platform is unknown', self.refused(candidate), platform)
+            self.assertIn('platform is unknown', self.refused(self.baseline, baseline=candidate), platform)
+
+    def test_a_corpus_with_no_admitted_run_on_one_side_is_not_checked_for_settings(self):
+        candidate = self.candidate()
+        entry = candidate['corpora']['b']
+        entry.update(build=None, env=None, threads=None, platform=None, metrics={})
+        self.assertEqual(compare(self.baseline, candidate)['experiment'], 'm2')
+
     def test_the_same_build_is_refused(self):
         self.assertIn('same build identity', self.refused(self.candidate(identity='base')))
 
@@ -121,10 +139,13 @@ class RefusalTests(unittest.TestCase):
         self.assertTrue(result['same_build'])
         self.assertFalse(compare(self.baseline, self.candidate())['same_build'])
 
-    def test_a_run_with_no_build_identity_is_refused(self):
+    def test_a_run_with_no_build_identity_is_refused_whichever_side_it_is_on(self):
         candidate = self.candidate()
         candidate['provenance']['build'] = None
         self.assertIn('no build identity', self.refused(candidate))
+        baseline = copy.deepcopy(self.baseline)
+        baseline['provenance']['build'] = None
+        self.assertIn('no build identity', self.refused(self.candidate(), baseline=baseline))
 
     def test_every_difference_is_named_in_one_message(self):
         message = self.refused(self.candidate(reps=5, threads=8, allocator='jemalloc'))
@@ -140,123 +161,198 @@ class RefusalTests(unittest.TestCase):
 
 class GateTests(unittest.TestCase):
     def test_a_separated_reduction_of_100_mib_passes_by_the_absolute_arm_alone(self):
-        row = gate(mib(4000, 4000, 4000), mib(3900, 3900, 3900))    # 2.5 %, exactly 100 MiB
-        self.assertEqual(row['outcome'], 'pass')
-        self.assertEqual(row['effect'], 'absolute')
+        row = row_of(mib(4000, 4000, 4000), mib(3900, 3900, 3900))    # 2.5 %, exactly 100 MiB
+        self.assertEqual((row['outcome'], row['effect']), ('pass', 'absolute'))
 
     def test_one_byte_under_100_mib_and_under_5_percent_is_not_an_effect(self):
-        row = gate(mib(4000, 4000, 4000), [3900 * MIB + 1] * 3)
+        row = row_of(mib(4000, 4000, 4000), [3900 * MIB + 1] * 3)
         self.assertEqual((row['outcome'], row['effect']), ('fail', 'none'))
         self.assertTrue(row['separated'])
 
     def test_a_separated_reduction_of_5_percent_passes_by_the_fraction_arm_alone(self):
-        row = gate(mib(1000, 1000, 1000), mib(950, 950, 950))    # 50 MiB, exactly 5 %
+        row = row_of(mib(1000, 1000, 1000), mib(950, 950, 950))    # 50 MiB, exactly 5 %
         self.assertEqual((row['outcome'], row['effect']), ('pass', 'fraction'))
 
     def test_one_byte_under_5_percent_is_not_an_effect(self):
-        row = gate(mib(1000, 1000, 1000), [950 * MIB + 1] * 3)
+        row = row_of(mib(1000, 1000, 1000), [950 * MIB + 1] * 3)
         self.assertEqual((row['outcome'], row['effect']), ('fail', 'none'))
 
     def test_both_arms_are_reported_as_both(self):
-        self.assertEqual(gate(mib(1000, 1000, 1000), mib(800, 800, 800))['effect'], 'both')
+        self.assertEqual(row_of(mib(1000, 1000, 1000), mib(800, 800, 800))['effect'], 'both')
 
     def test_ranges_that_touch_or_overlap_by_one_byte_are_not_separated(self):
         base = [900 * MIB, 950 * MIB, 1000 * MIB]
-        touching = gate(base, [500 * MIB, 600 * MIB, 900 * MIB])
-        overlapping = gate(base, [500 * MIB, 600 * MIB, 900 * MIB + 1])
+        touching = row_of(base, [500 * MIB, 600 * MIB, 900 * MIB])
+        overlapping = row_of(base, [500 * MIB, 600 * MIB, 900 * MIB + 1])
         self.assertEqual((touching['outcome'], touching['separated']), ('fail', False))
         self.assertEqual((overlapping['outcome'], overlapping['separated']), ('fail', False))
-        clear = gate(base, [500 * MIB, 600 * MIB, 900 * MIB - 1])
+        clear = row_of(base, [500 * MIB, 600 * MIB, 900 * MIB - 1])
         self.assertEqual((clear['outcome'], clear['separated']), ('pass', True))
 
     def test_an_increase_is_a_fail_not_a_negative_pass(self):
-        row = gate(mib(1000, 1000, 1000), mib(1100, 1100, 1100))
+        row = row_of(mib(1000, 1000, 1000), mib(1100, 1100, 1100))
         self.assertEqual(row['outcome'], 'fail')
         self.assertEqual(row['reduction'], -100 * MIB)
 
     def test_two_runs_on_either_side_are_insufficient_not_a_pass_and_not_a_fail(self):
-        self.assertEqual(gate(mib(1000, 1000), mib(500, 500, 500))['outcome'], 'insufficient runs')
-        self.assertEqual(gate(mib(1000, 1000, 1000), mib(500, 500))['outcome'], 'insufficient runs')
+        self.assertEqual(row_of(mib(1000, 1000), mib(500, 500, 500))['outcome'], 'insufficient runs')
+        self.assertEqual(row_of(mib(1000, 1000, 1000), mib(500, 500))['outcome'], 'insufficient runs')
 
     def test_three_runs_are_enough(self):
-        self.assertEqual(gate(mib(1000, 1000, 1000), mib(500, 500, 500))['outcome'], 'pass')
+        self.assertEqual(row_of(mib(1000, 1000, 1000), mib(500, 500, 500))['outcome'], 'pass')
 
-    def test_the_reduction_is_baseline_median_minus_candidate_median(self):
-        row = gate(mib(1000, 1100, 1200), mib(700, 800, 850))
-        self.assertEqual(row['reduction'], 300 * MIB)
+    def test_the_reduction_is_baseline_median_minus_candidate_median_not_minimum_minus_minimum(self):
+        row = row_of(mib(1000, 1100, 1300), mib(700, 900, 950))    # medians differ by 200, minima by 300
+        self.assertEqual(row['reduction'], 200 * MIB)
+
+    def test_the_effect_is_judged_on_the_medians(self):
+        # minima differ by 120 MiB (the absolute arm), medians by 90 MiB of 4000 (neither arm)
+        row = row_of(mib(4000, 4000, 4100), mib(3880, 3910, 3920))
+        self.assertEqual((row['reduction'], row['effect'], row['outcome']), (90 * MIB, 'none', 'fail'))
+
+    def test_a_zero_baseline_cannot_pass_and_does_not_divide_by_zero(self):
+        row = row_of([0, 0, 0], [0, 0, 0])
+        self.assertEqual((row['outcome'], row['effect']), ('fail', 'none'))
+        self.assertIsNone(row['percent'])
 
     def gate_verdict(self, rows):
-        base = make_summary({name: {'peak': mib(*base_values)} for name, (base_values, _) in rows.items()})
-        cand = make_summary({name: {'peak': mib(*cand_values)} for name, (_, cand_values) in rows.items()}, 'cand')
-        return metric(compare(base, cand), 'peak')['verdict']
+        return verdict_of('peak', {name: (mib(*pair[0]) if pair[0] else pair[0],
+                                          mib(*pair[1]) if pair[1] else pair[1])
+                                   for name, pair in rows.items()})['verdict']
 
-    def test_a_gate_that_passes_on_one_corpus_only_does_not_pass(self):
+    def test_a_gate_that_passes_on_one_corpus_and_fails_on_another_fails(self):
         self.assertEqual(self.gate_verdict({'a': ((1000,) * 3, (500,) * 3), 'b': ((1000,) * 3, (1000,) * 3)}), 'fail')
-        self.assertEqual(self.gate_verdict({'a': ((1000,) * 3, (500,) * 3)}), 'fail')
+
+    def test_a_gate_with_one_corpus_only_is_undecided_not_a_fail(self):
+        self.assertEqual(self.gate_verdict({'a': ((1000,) * 3, (500,) * 3)}), 'undecided')
+        self.assertEqual(self.gate_verdict({'a': ((1000,) * 3, (1000,) * 3)}), 'undecided')
 
     def test_a_gate_that_passes_on_two_corpora_passes_even_if_a_third_fails(self):
         rows = {'a': ((1000,) * 3, (500,) * 3), 'b': ((1000,) * 3, (500,) * 3), 'c': ((1000,) * 3, (1000,) * 3)}
         self.assertEqual(self.gate_verdict(rows), 'pass')
 
-    def test_one_pass_and_one_corpus_short_of_runs_is_insufficient_runs_not_fail(self):
+    def test_one_pass_and_one_corpus_short_of_runs_is_undecided(self):
         rows = {'a': ((1000,) * 3, (500,) * 3), 'b': ((1000,) * 2, (500,) * 3)}
-        self.assertEqual(self.gate_verdict(rows), 'insufficient runs')
+        self.assertEqual(self.gate_verdict(rows), 'undecided')
 
-    def test_one_pass_and_one_short_corpus_with_a_third_that_failed_can_still_not_reach_two(self):
-        rows = {'a': ((1000,) * 3, (500,) * 3), 'b': ((1000,) * 2, (500,) * 3), 'c': ((1000,) * 3, (1000,) * 3)}
-        self.assertEqual(self.gate_verdict(rows), 'insufficient runs')    # a + b could still make two
-        rows['d'] = ((1000,) * 3, (1000,) * 3)
-        self.assertEqual(self.gate_verdict(rows), 'insufficient runs')
+    def test_one_pass_and_one_corpus_with_a_series_on_one_side_only_is_undecided_not_fail(self):
+        self.assertEqual(self.gate_verdict({'a': ((1000,) * 3, (500,) * 3), 'b': ((1000,) * 3, None)}), 'undecided')
+        self.assertEqual(self.gate_verdict({'a': ((1000,) * 3, (500,) * 3), 'b': (None, (500,) * 3)}), 'undecided')
+
+    def test_one_pass_and_one_corpus_measured_on_neither_side_is_undecided(self):
+        self.assertEqual(self.gate_verdict({'a': ((1000,) * 3, (500,) * 3), 'b': (None, None)}), 'undecided')
+
+    def test_one_fail_and_one_corpus_that_could_still_pass_cannot_reach_two_and_is_a_fail(self):
+        self.assertEqual(self.gate_verdict({'a': ((1000,) * 3, (1000,) * 3), 'b': ((1000,) * 3, None)}), 'fail')
         rows = {'a': ((1000,) * 3, (1000,) * 3), 'b': ((1000,) * 2, (500,) * 3), 'c': ((1000,) * 3, (1000,) * 3)}
         self.assertEqual(self.gate_verdict(rows), 'fail')    # at most one corpus can still pass
 
+    def test_short_and_one_sided_corpora_together_can_still_reach_two(self):
+        rows = {'a': ((1000,) * 2, (500,) * 3), 'b': ((1000,) * 3, None), 'c': ((1000,) * 3, (1000,) * 3)}
+        self.assertEqual(self.gate_verdict(rows), 'undecided')
 
-class NotWorseAndUnchangedTests(unittest.TestCase):
-    def row(self, key, base_values, cand_values):
-        return gate(base_values, cand_values, key=key)
+    def test_a_gate_metric_absent_from_every_corpus_on_both_sides_is_not_measured(self):
+        self.assertEqual(self.gate_verdict({'a': (None, None), 'b': (None, None)}), 'not measured')
 
+
+class NotWorseTests(unittest.TestCase):
     def test_a_candidate_median_of_exactly_1_05_times_the_baseline_is_ok(self):
-        self.assertEqual(self.row('load_ms', [1000] * 3, [1050] * 3)['outcome'], 'ok')
+        self.assertEqual(row_of([1000] * 3, [1050] * 3, 'load_ms')['outcome'], 'ok')
 
-    def test_just_above_1_05_is_worse(self):
-        self.assertEqual(self.row('load_ms', [1000] * 3, [1050, 1051, 1051])['outcome'], 'worse')
-        self.assertEqual(self.row('load_ms', [10**9] * 3, [1050000001] * 3)['outcome'], 'worse')
+    def test_just_above_1_05_with_separate_ranges_is_worse(self):
+        self.assertEqual(row_of([1000] * 3, [1051] * 3, 'load_ms')['outcome'], 'worse')
+        self.assertEqual(row_of([10 ** 9] * 3, [1050000001] * 3, 'load_ms')['outcome'], 'worse')
+
+    def test_above_1_05_but_inside_the_overlap_of_the_ranges_is_ok(self):
+        row = row_of([1000, 1100, 1500], [1200, 1300, 1400], 'load_ms')    # 1300 > 1.05 x 1100; 1200 <= 1500
+        self.assertEqual(row['outcome'], 'ok')
+
+    def test_ranges_that_just_touch_are_overlapping_and_one_apart_are_not(self):
+        self.assertEqual(row_of([1000, 1000, 1200], [1200, 1300, 1300], 'load_ms')['outcome'], 'ok')
+        self.assertEqual(row_of([1000, 1000, 1200], [1201, 1300, 1300], 'load_ms')['outcome'], 'worse')
+
+    def test_the_median_not_the_baseline_maximum_is_the_yardstick(self):
+        # median 1210 > 1.05 x 1000 and the ranges are apart; against the maximum (1200 x 1.05 = 1260) it would be ok
+        self.assertEqual(row_of([1000, 1000, 1200], [1210] * 3, 'load_ms')['outcome'], 'worse')
+
+    def test_the_ratio_of_the_medians_is_always_printed(self):
+        self.assertEqual(row_of([1000] * 3, [1031] * 3, 'load_ms')['detail'], '×1.031')
+        self.assertEqual(row_of([1000] * 3, [900] * 3, 'build_ms')['detail'], '×0.900')
+        self.assertEqual(row_of([1000, 1100, 1500], [1200, 1300, 1400], 'load_ms')['detail'], '×1.182')
 
     def test_an_improvement_is_ok(self):
-        self.assertEqual(self.row('build_ms', [1000] * 3, [10] * 3)['outcome'], 'ok')
+        self.assertEqual(row_of([1000] * 3, [10] * 3, 'build_ms')['outcome'], 'ok')
 
     def test_not_worse_needs_no_particular_number_of_runs(self):
-        self.assertEqual(self.row('load_ms', [1000], [1000])['outcome'], 'ok')
+        self.assertEqual(row_of([1000], [1000], 'load_ms')['outcome'], 'ok')
 
-    def test_not_higher_at_exactly_1_mib_above_is_ok(self):
-        self.assertEqual(self.row('steady_heap', [100 * MIB] * 3, [101 * MIB] * 3)['outcome'], 'ok')
+    def test_a_zero_baseline_median_does_not_divide_by_zero(self):
+        self.assertEqual(row_of([0, 0, 0], [0, 0, 0], 'load_ms')['outcome'], 'ok')    # 0 to 0
+        zero_to_positive = row_of([0, 0, 0], [5, 5, 5], 'load_ms')
+        self.assertEqual(zero_to_positive['outcome'], 'worse')
+        self.assertEqual(zero_to_positive['detail'], '×n/a')
+        self.assertEqual(row_of([0, 0, 10], [5, 5, 5], 'load_ms')['outcome'], 'ok')    # ranges overlap
 
-    def test_not_higher_one_byte_past_1_mib_above_is_higher(self):
-        self.assertEqual(self.row('steady_heap', [100 * MIB] * 3, [101 * MIB + 1] * 3)['outcome'], 'higher')
+    def test_a_percentage_is_unavailable_when_the_baseline_median_is_zero(self):
+        row = row_of([0, 0, 0], [5, 5, 5], 'load_ms')
+        self.assertIsNone(row['percent'])
+        self.assertEqual(row['difference'], 5)
+
+
+class NotHigherTests(unittest.TestCase):
+    def test_exactly_1_mib_above_is_ok(self):
+        self.assertEqual(row_of([100 * MIB] * 3, [101 * MIB] * 3, 'steady_heap')['outcome'], 'ok')
+
+    def test_one_byte_past_1_mib_above_is_higher(self):
+        self.assertEqual(row_of([100 * MIB] * 3, [101 * MIB + 1] * 3, 'steady_heap')['outcome'], 'higher')
 
     def test_a_lower_live_heap_is_ok_however_much_lower(self):
-        # Tighter allocation lowers the live heap without changing the index; that is not a failure.
-        self.assertEqual(self.row('steady_heap', [100 * MIB] * 3, [99 * MIB - 1] * 3)['outcome'], 'ok')
-        self.assertEqual(self.row('steady_heap', [100 * MIB] * 3, [10 * MIB] * 3)['outcome'], 'ok')
+        self.assertEqual(row_of([100 * MIB] * 3, [99 * MIB - 1] * 3, 'steady_heap')['outcome'], 'ok')
+        self.assertEqual(row_of([100 * MIB] * 3, [10 * MIB] * 3, 'steady_heap')['outcome'], 'ok')
 
-    def verdict(self, key, rows):
-        base = make_summary({name: {key: values[0]} if values[0] is not None else {} for name, values in rows.items()})
-        cand = make_summary({name: {key: values[1]} if values[1] is not None else {} for name, values in rows.items()},
-                            'cand')
-        return metric(compare(base, cand), key)
+    def test_the_median_not_the_baseline_maximum_is_the_yardstick(self):
+        row = row_of([100 * MIB, 100 * MIB, 200 * MIB], [101 * MIB + 1] * 3, 'steady_heap')
+        self.assertEqual(row['outcome'], 'higher')
 
+    def test_the_candidate_median_not_its_minimum_is_judged(self):
+        self.assertEqual(row_of([100 * MIB] * 3, [50 * MIB, 150 * MIB, 150 * MIB], 'steady_heap')['outcome'], 'higher')
+
+
+class MetricVerdictTests(unittest.TestCase):
     def test_the_metric_is_ok_only_when_ok_on_every_corpus_with_both_series(self):
         rows = {'a': ([1000] * 3, [1000] * 3), 'b': ([1000] * 3, [2000] * 3)}
-        self.assertEqual(self.verdict('load_ms', rows)['verdict'], 'worse')
+        self.assertEqual(verdict_of('load_ms', rows)['verdict'], 'worse')
         rows['b'] = ([1000] * 3, [1000] * 3)
-        self.assertEqual(self.verdict('load_ms', rows)['verdict'], 'ok')
+        self.assertEqual(verdict_of('load_ms', rows)['verdict'], 'ok')
 
-    def test_a_corpus_with_a_missing_series_is_listed_as_not_measured_and_does_not_decide(self):
-        rows = {'a': ([1000] * 3, [1000] * 3), 'b': ([1000] * 3, None)}
-        result = self.verdict('load_ms', rows)
-        self.assertEqual(result['verdict'], 'ok')
-        self.assertEqual(result['corpora']['b']['outcome'], 'not measured')
-        self.assertEqual(result['corpora']['a']['outcome'], 'ok')
+    def test_a_corpus_that_is_higher_vetoes_the_metric_beside_ok_and_missing_corpora(self):
+        rows = {'a': ([100 * MIB] * 3, [100 * MIB] * 3), 'b': ([100 * MIB] * 3, [200 * MIB] * 3),
+                'c': (None, None)}
+        result = verdict_of('steady_heap', rows)
+        self.assertEqual((result['verdict'], result['corpora']['c']['outcome']), ('higher', 'not measured'))
+
+    def test_a_corpus_that_is_worse_vetoes_the_metric_beside_ok_and_missing_corpora(self):
+        rows = {'a': ([1000] * 3, [1000] * 3), 'b': ([1000] * 3, [2000] * 3), 'c': (None, None)}
+        self.assertEqual(verdict_of('load_ms', rows)['verdict'], 'worse')
+
+    def test_worse_and_higher_win_over_incomplete(self):
+        rows = {'a': ([1000] * 3, [2000] * 3), 'b': ([1000] * 3, None)}
+        self.assertEqual(verdict_of('load_ms', rows)['verdict'], 'worse')
+        rows = {'a': ([100 * MIB] * 3, [200 * MIB] * 3), 'b': (None, [100 * MIB] * 3)}
+        self.assertEqual(verdict_of('steady_heap', rows)['verdict'], 'higher')
+
+    def test_a_series_on_one_side_only_is_one_sided_and_makes_the_metric_incomplete(self):
+        for rows in ({'a': ([1000] * 3, [1000] * 3), 'b': ([1000] * 3, None)},
+                     {'a': ([1000] * 3, [1000] * 3), 'b': (None, [1000] * 3)}):
+            result = verdict_of('load_ms', rows)
+            self.assertEqual((result['verdict'], result['corpora']['b']['outcome']), ('incomplete', 'one-sided'))
+        rows = {'a': ([100 * MIB] * 3, [100 * MIB] * 3), 'b': ([100 * MIB] * 3, None)}
+        self.assertEqual(verdict_of('steady_heap', rows)['verdict'], 'incomplete')
+
+    def test_a_corpus_with_the_series_on_neither_side_is_not_measured_and_does_not_decide(self):
+        rows = {'a': ([1000] * 3, [1000] * 3), 'b': (None, None)}
+        result = verdict_of('load_ms', rows)
+        self.assertEqual((result['verdict'], result['corpora']['b']['outcome']), ('ok', 'not measured'))
 
     def test_a_metric_absent_from_both_runs_is_not_measured_and_decides_nothing(self):
         base = make_summary({'a': {'peak': mib(1000) * 3}})
@@ -264,13 +360,19 @@ class NotWorseAndUnchangedTests(unittest.TestCase):
         result = compare(base, cand)
         for key in ('build_peak', 'load_ms', 'build_ms', 'steady_heap'):
             self.assertEqual(metric(result, key)['verdict'], 'not measured', key)
-        self.assertEqual(metric(result, 'peak')['verdict'], 'fail')    # one corpus only: decided on its own terms
+        self.assertEqual(metric(result, 'peak')['verdict'], 'undecided')    # one corpus: it cannot decide
 
-    def test_a_statistic_that_is_none_in_the_summary_counts_as_absent(self):
-        base = make_summary({'a': {'load_ms': []}})
+    def test_a_statistic_that_is_none_or_has_no_runs_counts_as_absent(self):
+        none_side = make_summary({'a': {'load_ms': []}})
         cand = make_summary({'a': {'load_ms': [5]}}, 'cand')
-        row = metric(compare(base, cand), 'load_ms')
-        self.assertEqual((row['verdict'], row['corpora']['a']['outcome']), ('not measured', 'not measured'))
+        row = metric(compare(none_side, cand), 'load_ms')
+        self.assertEqual((row['verdict'], row['corpora']['a']['outcome']), ('incomplete', 'one-sided'))
+        both = compare(make_summary({'a': {'load_ms': []}}), make_summary({'a': {'load_ms': []}}, 'cand'))
+        self.assertEqual(metric(both, 'load_ms')['verdict'], 'not measured')
+        empty = make_summary({'a': {}}, 'cand')
+        empty['corpora']['a']['metrics']['load_ms'] = {'min': 1, 'median': 1, 'max': 1, 'n': 0}
+        row = metric(compare(make_summary({'a': {'load_ms': [5]}}), empty), 'load_ms')
+        self.assertEqual(row['corpora']['a']['outcome'], 'one-sided')
 
     def test_the_table_has_the_five_metrics_with_their_roles(self):
         result = compare(make_summary({'a': {}}), make_summary({'a': {}}, 'cand'))
@@ -282,144 +384,15 @@ class NotWorseAndUnchangedTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             mc.compare(make_summary({}), make_summary({}, 'cand'), 'm9')
 
+    def test_a_gate_metric_must_be_in_bytes(self):
+        with self.assertRaises(ValueError):
+            mc.check_experiments({'x': (('k', 'Label', 'ms', mc.GATE),)})
+        mc.check_experiments({'x': (('k', 'Label', 'bytes', mc.GATE), ('j', 'Label', 'ms', mc.NOT_WORSE))})
+        mc.check_experiments(mc.EXPERIMENTS)    # and the shipped table passes
 
-class DifferenceTests(unittest.TestCase):
     def test_difference_is_candidate_minus_baseline_with_a_percentage_of_the_baseline(self):
-        row = gate(mib(1000, 1000, 1000), mib(750, 750, 750))
-        self.assertEqual(row['difference'], -250 * MIB)
-        self.assertEqual(row['percent'], -25.0)
-
-    def test_the_percentage_is_none_when_the_baseline_median_is_zero(self):
-        row = gate([0, 0, 0], [5, 5, 5], key='load_ms')
-        self.assertIsNone(row['percent'])
-        self.assertEqual(row['difference'], 5)
-
-
-class MarkdownTests(unittest.TestCase):
-    def setUp(self):
-        def series(scale, extra):
-            return {'a': {'peak': mib(1000 - scale, 1010 - scale, 1020 - scale),
-                          'build_peak': mib(2000 - scale, 2010 - scale, 2020 - scale),
-                          'load_ms': [1000 + extra, 1100 + extra, 1200 + extra],
-                          'build_ms': [20000, 21000, 22000],
-                          'steady_heap': mib(300, 300, 300)},
-                    'b': {'peak': mib(500 - scale, 500 - scale, 500 - scale)}}
-
-        self.baseline = make_summary(series(0, 0), env={'PRISM_Y': '2'}, commit='1' * 40)
-        self.candidate = make_summary(series(200, 10), 'cand', env={'PRISM_Y': '2'}, commit='1' * 40)
-        self.same_build = make_summary(series(200, 10), 'base', env={'PRISM_Y': '2'}, commit='1' * 40)
-        self.result = compare(self.baseline, self.candidate)
-        self.result['sources'] = {'baseline': '/runs/base', 'candidate': '/runs/cand'}
-        self.text = mc.to_markdown(self.result)
-
-    def test_both_runs_provenance_is_shown(self):
-        for word in ('`base`', '`gbase`', '`cand`', '`gcand`', 'allocator system', 'threads 4', '`PRISM_Y=2`',
-                     '/runs/base', '/runs/cand', '3 repetitions', '5 s settle', '`' + '1' * 12 + '`'):
-            self.assertIn(word, self.text)
-
-    def test_the_rule_is_stated(self):
-        for word in ('100 MiB', '5 %', 'at least 3 runs', 'at least 2 corpora', '1.05', '1 MiB'):
-            self.assertIn(word, self.text)
-
-    def test_a_metric_table_row_shows_medians_ranges_n_the_difference_and_the_outcome(self):
-        row = [line for line in self.text.splitlines()
-               if line.startswith('| a |') and '1010.0 (1000.0–1020.0, n=3)' in line]
-        self.assertEqual(row, ['| a | 1010.0 (1000.0–1020.0, n=3) | 810.0 (800.0–820.0, n=3) | -200.0 (-19.8 %) | '
-                               'pass (separated, reduction 200.0 MiB, effect both) |'])
-
-    def test_milliseconds_are_integers(self):
-        row = [line for line in self.text.splitlines() if '1100 (1000–1200, n=3)' in line]
-        self.assertEqual(len(row), 1)
-        self.assertIn('1110 (1010–1210, n=3) | +10 (+0.9 %) | ok |', row[0])
-
-    def test_an_unavailable_value_is_n_a_and_never_zero(self):
-        # corpus b has no first-build, load, build or heap series on either side
-        for heading in ('First-build peak', 'Index load time', 'Index build time', 'Steady live heap'):
-            table = self.text.split('## ' + heading)[1].split('\n## ')[0]
-            self.assertIn('| b | n/a | n/a | n/a | not measured |', table, heading)
-        # a missing candidate series against a present baseline one: n/a, not 0
-        half = copy.deepcopy(self.candidate)
-        half['corpora']['a']['metrics']['load_ms'] = None
-        table = mc.to_markdown(compare(self.baseline, half)).split('## Index load time')[1].split('\n## ')[0]
-        self.assertIn('| a | 1100 (1000–1200, n=3) | n/a | n/a | not measured |', table)
-
-    def test_the_verdict_table_has_one_line_per_metric(self):
-        verdict = self.text.split('## Verdict')[1].splitlines()
-        rows = [line for line in verdict if line.startswith('| ') and not line.startswith('| Metric')]
-        self.assertEqual(len(rows), 5)
-        self.assertEqual(rows[0], '| Load peak (cache-loaded, through the index load) | gate | pass | pass: a, b |')
-        self.assertEqual(rows[2], '| Index load time | not worse | ok | not measured: b; ok: a |')
-        self.assertTrue(rows[4].startswith('| Steady live heap | not higher | ok |'))
-
-    def test_the_same_build_is_flagged(self):
-        result = compare(self.baseline, self.same_build, allow_same_build=True)
-        self.assertIn('same build', mc.to_markdown(result))
-        self.assertNotIn('same build', self.text)
-
-
-class CommandTests(unittest.TestCase):
-    def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self._tmp.cleanup)
-        self.tmp = Path(self._tmp.name)
-        series = {'a': {'peak': mib(1000, 1000, 1000)}, 'b': {'peak': mib(1000, 1000, 1000)}}
-        self.write('base', make_summary(series))
-        self.write('cand', make_summary({n: {'peak': mib(500, 500, 500)} for n in series}, 'cand'))
-
-    def write(self, name, summary):
-        (self.tmp / name).mkdir(exist_ok=True)
-        (self.tmp / name / 'summary.json').write_text(json.dumps(summary))
-
-    def argv(self, *extra, baseline='base', candidate='cand'):
-        return ['compare', '--experiment', 'm2', '--baseline', str(self.tmp / baseline),
-                '--candidate', str(self.tmp / candidate), '--out', str(self.tmp / 'out.md')] + list(extra)
-
-    def run_main(self, argv):
-        import io
-        import contextlib
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            memreport.main(argv)
-
-    def test_it_writes_the_markdown_and_the_json(self):
-        self.run_main(self.argv('--json', str(self.tmp / 'out.json')))
-        text = (self.tmp / 'out.md').read_text()
-        data = json.loads((self.tmp / 'out.json').read_text())
-        self.assertIn('| Load peak (cache-loaded, through the index load) | gate | pass |', text)
-        self.assertEqual(metric(data, 'peak')['verdict'], 'pass')
-        self.assertEqual(data['sources'], {'baseline': str(self.tmp / 'base'), 'candidate': str(self.tmp / 'cand')})
-        self.assertIn(str(self.tmp / 'base'), text)
-
-    def test_a_refusal_exits_non_zero_names_the_difference_and_writes_nothing(self):
-        self.write('other', make_summary({'a': {}}, 'cand'))
-        with self.assertRaises(SystemExit) as caught:
-            self.run_main(self.argv('--json', str(self.tmp / 'out.json'), candidate='other'))
-        self.assertNotEqual(caught.exception.code, 0)
-        self.assertIn('corpora differ', str(caught.exception))
-        self.assertFalse((self.tmp / 'out.md').exists())
-        self.assertFalse((self.tmp / 'out.json').exists())
-
-    def test_the_same_build_needs_the_flag(self):
-        self.write('same', make_summary({'a': {'peak': mib(1, 1, 1)}, 'b': {}}, 'base'))
-        self.write('base2', make_summary({'a': {'peak': mib(1, 1, 1)}, 'b': {}}, 'base'))
-        with self.assertRaises(SystemExit) as caught:
-            self.run_main(self.argv(baseline='base2', candidate='same'))
-        self.assertIn('same build identity', str(caught.exception))
-        self.run_main(self.argv('--allow-same-build', baseline='base2', candidate='same'))
-        self.assertTrue((self.tmp / 'out.md').exists())
-
-    def test_a_run_directory_without_a_summary_is_named(self):
-        (self.tmp / 'empty').mkdir()
-        with self.assertRaises(SystemExit) as caught:
-            self.run_main(self.argv(candidate='empty'))
-        self.assertIn('empty', str(caught.exception))
-        self.assertIn('summary.json', str(caught.exception))
-
-    def test_an_unknown_experiment_is_refused_by_the_parser(self):
-        argv = self.argv()
-        argv[argv.index('m2')] = 'm9'
-        with self.assertRaises(SystemExit) as caught:
-            self.run_main(argv)
-        self.assertNotEqual(caught.exception.code, 0)
+        row = row_of(mib(1000, 1000, 1000), mib(750, 750, 750))
+        self.assertEqual((row['difference'], row['percent']), (-250 * MIB, -25.0))
 
 
 if __name__ == '__main__':

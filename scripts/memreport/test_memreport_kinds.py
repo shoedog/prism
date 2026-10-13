@@ -314,7 +314,7 @@ class CompareEndToEndTests(Kinds):
         with self.assertRaises(SystemExit) as caught:    # a run against itself
             base.quiet(memreport.main, ['compare', '--experiment', 'm2', '--baseline', str(baseline),
                                         '--candidate', str(baseline), '--out', str(self.tmp / 'again.md')])
-        self.assertIn('same build identity', str(caught.exception))
+        self.assertIn('same directory', str(caught.exception))
 
 
 if __name__ == '__main__':
