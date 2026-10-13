@@ -8,8 +8,12 @@
 //! directory that holds a step of it must be one where only this user and root can rename
 //! that step.
 //!
-//! Access control lists on those directories are not examined. Each of them is owned by this
-//! user or by root, so a list that lets someone else in was put there by one of the two.
+//! "Can rename" is judged from the owner, the permission bits and, on macOS, the directory's
+//! access control list: a list entry that allows anything is refused, because such an entry
+//! can grant adding and deleting entries whatever the mode and the sticky bit say (a list of
+//! deny entries only, as macOS puts on home directories, is fine). Mount options are not
+//! examined; see `runtime_dir` for what this check is and is not.
+use super::acl::{list_kind, ListKind};
 use super::runtime_dir::{DirFacts, RuntimeDirError};
 use std::collections::VecDeque;
 use std::ffi::OsString;
@@ -37,6 +41,8 @@ pub enum Exposure {
     /// The directory is sticky, which lets only an entry's owner rename it, and this entry
     /// belongs to someone else.
     ForeignEntryInSticky { entry_owner: u32 },
+    /// The directory's access control list has an entry that allows something (macOS).
+    ListAllows,
 }
 
 /// Whether `container` lets a user other than `uid` or root rename an entry owned by
@@ -108,8 +114,19 @@ fn walk(dir: &Path, uid: u32, last_step_may_be_absent: bool) -> Result<(), Runti
             current.pop();
             continue;
         }
+        // The list before the owner and mode: an entry of the list can let its grantee change
+        // the mode, so the mode is trusted only once the list is known to grant nothing.
+        let list = list_kind(&current).map_err(|source| inspect_error(&current, source))?;
         let container = facts(&current).map_err(|source| inspect_error(&current, source))?;
         let entry_path = current.join(&name);
+        if list == ListKind::Allows {
+            return Err(RuntimeDirError::Replaceable {
+                path: dir.to_path_buf(),
+                container: current,
+                entry: entry_path,
+                exposure: Exposure::ListAllows,
+            });
+        }
         let entry = match facts(&entry_path) {
             Ok(entry) => entry,
             // What will be created here will be owned by `uid`.

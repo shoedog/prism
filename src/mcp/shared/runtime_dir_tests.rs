@@ -505,14 +505,15 @@ fn a_private_mode_with_an_access_control_list_is_refused() {
     validate_runtime_dir(&dir).expect("the list is gone");
 }
 
-/// The directory does not exist yet and its parent hands every new directory a list. The
-/// directory this code creates is then not private either, and must be refused like one it
-/// found.
+/// The directory does not exist yet and its parent hands every new directory a list (here a
+/// deny entry, which is harmless on the parent). The directory this code creates then carries
+/// a list too, and must be refused like one it found: on the runtime directory itself no list
+/// is accepted.
 #[cfg(target_os = "macos")]
 #[test]
 fn a_directory_created_under_an_inheriting_list_is_refused() {
     let parent = tempfile::tempdir().unwrap();
-    let inheriting = "everyone allow add_file,search,delete_child,file_inherit,directory_inherit";
+    let inheriting = "everyone deny delete,file_inherit,directory_inherit";
     if add_acl(parent.path(), inheriting).is_none() {
         eprintln!("skipped: access control lists cannot be set here");
         return;
@@ -524,4 +525,124 @@ fn a_directory_created_under_an_inheriting_list_is_refused() {
         "{outcome:?}"
     );
     assert_eq!(mode_of(&dir), 0o700, "it was created private by mode");
+}
+
+/// A list on a directory above the runtime directory that lets everyone add and delete
+/// entries makes the runtime directory replaceable whatever the modes say: with mode 0700 on
+/// the parent, and with a sticky world-writable parent. Rules out judging the directories on
+/// the way by owner and mode alone. Nothing is created under such a parent.
+#[cfg(target_os = "macos")]
+#[test]
+fn a_parent_whose_list_allows_others_is_refused_whatever_its_mode() {
+    use crate::mcp::shared::dir_chain::Exposure;
+    for mode in [0o700, 0o755, 0o1777] {
+        let base = tempfile::tempdir().unwrap();
+        let parent = private_dir(base.path(), "parent");
+        std::fs::set_permissions(&parent, std::fs::Permissions::from_mode(mode)).unwrap();
+        if add_acl(
+            &parent,
+            "everyone allow search,add_subdirectory,delete_child",
+        )
+        .is_none()
+        {
+            eprintln!("skipped: access control lists cannot be set here");
+            return;
+        }
+        let dir = parent.join("prism-mcpd");
+        let outcome = validate_runtime_dir(&dir);
+        assert!(
+            matches!(
+                &outcome,
+                Err(RuntimeDirError::Replaceable {
+                    exposure: Exposure::ListAllows,
+                    ..
+                })
+            ),
+            "mode {mode:o}: {outcome:?}"
+        );
+        assert!(!dir.exists(), "mode {mode:o}: nothing is created there");
+        let message = outcome.unwrap_err().to_string();
+        assert!(message.contains("allow entry"), "{message}");
+    }
+}
+
+/// The same list two levels up, with private directories in between.
+#[cfg(target_os = "macos")]
+#[test]
+fn a_list_that_allows_others_anywhere_on_the_way_is_refused() {
+    use crate::mcp::shared::dir_chain::Exposure;
+    let base = tempfile::tempdir().unwrap();
+    let top = private_dir(base.path(), "top");
+    let middle = private_dir(&top, "middle");
+    if add_acl(&top, "everyone allow search,add_subdirectory,delete_child").is_none() {
+        eprintln!("skipped: access control lists cannot be set here");
+        return;
+    }
+    let outcome = validate_runtime_dir(&middle.join("prism-mcpd"));
+    assert!(
+        matches!(
+            &outcome,
+            Err(RuntimeDirError::Replaceable {
+                exposure: Exposure::ListAllows,
+                container,
+                ..
+            }) if container.ends_with("top")
+        ),
+        "{outcome:?}"
+    );
+}
+
+/// A list of deny entries only, as macOS puts on a home directory, takes access away and
+/// grants none; a directory below it must stay usable. Rules out refusing every list on the
+/// way.
+#[cfg(target_os = "macos")]
+#[test]
+fn a_parent_whose_list_only_denies_is_accepted() {
+    let base = tempfile::tempdir().unwrap();
+    let parent = private_dir(base.path(), "parent");
+    if add_acl(&parent, "everyone deny delete").is_none() {
+        eprintln!("skipped: access control lists cannot be set here");
+        return;
+    }
+    validate_runtime_dir(&parent.join("prism-mcpd")).expect("a deny-only list grants nothing");
+}
+
+/// A list entry that grants "write security" lets its grantee change the directory's mode and
+/// then remove the list. If that happens after the mode was accepted and before the list is
+/// read, a validation that never looks at the mode again accepts a world-writable directory.
+/// The step hook plays the grantee at exactly that point. Rules out trusting a mode read
+/// before the list was known to be absent.
+#[cfg(target_os = "macos")]
+#[test]
+fn a_mode_changed_through_a_list_that_then_vanishes_is_still_caught() {
+    let parent = tempfile::tempdir().unwrap();
+    let dir = private_dir(parent.path(), "prism-mcpd");
+    if add_acl(&dir, "everyone allow readsecurity,writesecurity").is_none() {
+        eprintln!("skipped: access control lists cannot be set here");
+        return;
+    }
+    let outcome = validate_runtime_dir_stepwise(&dir, current_uid(), |step| {
+        assert_eq!(step, Step::BeforeListCheck);
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o777)).unwrap();
+        let removed = std::process::Command::new("/bin/chmod")
+            .arg("-N")
+            .arg(&dir)
+            .status()
+            .unwrap();
+        assert!(removed.success());
+    });
+    assert!(
+        matches!(
+            &outcome,
+            Err(RuntimeDirError::InsecureMode { mode: 0o777, .. })
+        ),
+        "{outcome:?}"
+    );
+    // Without the interleaving the list itself is what is refused.
+    let quiet = private_dir(parent.path(), "quiet");
+    add_acl(&quiet, "everyone allow readsecurity,writesecurity").unwrap();
+    assert!(matches!(
+        validate_runtime_dir(&quiet),
+        Err(RuntimeDirError::HasAcl { .. })
+    ));
 }

@@ -47,13 +47,15 @@ pub fn default_cache_base() -> PathBuf {
     dirs::cache_dir().unwrap_or_else(std::env::temp_dir)
 }
 
-/// The canonical cache base of `cache` for this process: `Default` and an explicit directory
-/// that names the same place give the same path, whether or not the place exists yet.
+/// The canonical cache base of `cache` for this process. `Default` and an explicit directory
+/// that names the same place give the same path if the place exists, and also if it does not
+/// exist yet provided the part that is missing is spelled the same way.
 ///
 /// The part of the path that exists is spelled as the filesystem spells it. The part that does
 /// not exist yet is kept as written, so on a case-insensitive filesystem two spellings of a
 /// missing directory are two bases, and a spelling's base can change when the directory is
-/// created under another one. The cost is a second daemon over the same cache, or a shim and
+/// created under another one. (The default base may itself not exist yet, on a new account;
+/// it has one spelling, so that does not split it.) The cost is a second daemon over the same cache, or a shim and
 /// the daemon it started disagreeing on the key for one start; launchers that should share a
 /// daemon must spell the base identically.
 pub fn effective_cache_base(cache: &CacheMode) -> Result<PathBuf, CacheBaseError> {
