@@ -11,12 +11,12 @@
 **(a) Lane ownership** — `[MEASURED]` this session is the only one on the lane; another session works the JS/TS parameter-Def lane and does not touch `src/mcp`. — **RESOLVED 2026-10-13**
 **(b) Custody exposure** — `[MEASURED]` S1, C1, the spec and the plans are on `main` (`dc3b6bbe`). The readout is on `docs/mcp-memory-readout`, pushed. Raw measurement evidence is local only, in `~/prism-evidence/mcp-memory/c1/` with `SHA256SUMS`; it is about two hours of machine time to reproduce. One branch is local only: `scratch/s2-validate` `cf873945` in `~/code/slicing` (worktree `.claude/worktrees/s2-validate`), the S2 plan's code applied and passing; reproducible from the S2 plan by replay. — **RESOLVED 2026-10-13**
 **(c) In flight / irreversible** — `[MEASURED]` nothing is running. The measurement finished at 11:34 and the supplement at 11:54 on 2026-10-13. — **RESOLVED 2026-10-13**
-**(d) Authorization granted but not exercised** — owner, 2026-10-13: "proceed as recommedned. merge pr357 with the code changes". Fully exercised: S1 (#361), C1 (#362), #357, the measurement and the readout PR. It does **not** cover S2 implementation, C2 plans or any change to the spec's pinned parameters: each waits on §7.
+**(d) Authorization granted but not exercised** — owner, 2026-10-13: "proceed as recommedned. merge pr357 with the code changes". Fully exercised: S1 (#361), C1 (#362), #357, the measurement and the readout PR. It does **not** cover S2 implementation, writing C2 plans, or any change to the spec's pinned parameters. Two different things hold these back: S2 waits on §7 questions 1–4 and 7; the M1 plan waits on question 5; the M2 plan has no open question and needs only the owner's go-ahead.
 
 ## 1. Resume order
 1. Read `README.md` in this directory: slice table, the owner questions from S2 planning, measured facts.
 2. Read `docs/analysis/2026-10-prism-mcp-memory-readout.md`, last section first. M1 and M2 advance, M3 does not; the "Steady state" footprint column is not a repeatable figure.
-3. Get the owner's answers to §7. Question 5 (the steady-state metric) gates the M1 plan; questions 1–4 and 7 gate S2. The M2 plan is not gated: its base is the load peak.
+3. Get the owner's answers to §7. Question 5 (the steady-state metric) gates the M1 plan; questions 1–4 and 7 gate S2. The M2 plan has no open metric question (its base is the load peak); it needs the owner's go-ahead, which has not been asked for separately.
 4. Implement S2 as two PRs (S2a = plan Tasks 1–4, S2b = Tasks 5–8), each from `scratch/s2-validate` or by an implementer, reviewed by Opus 5.5 and gpt-6.1-sol, cap two rounds. Write the C2 plan for M2 from the readout, and the one for M1 once question 5 is answered; a C2 candidate may begin after C1 but ship only after S5a.
 5. When S2 merges, write the S3a plan from its real interfaces (the S2 plan's last section lists what S3a, S4 and S5a consume).
 
@@ -31,11 +31,11 @@
 | S1 transport refactor | done | `[MEASURED]` #361 squash-merged as `f6354e07`. Opus 5.5 and gpt-6.1-sol both APPROVE, no defect; two rounds; full suite 5,286 passed, 0 failed at `8e1873bb`; CI green on the head and on the golden-only commit alone |
 | C1 memory harness | done | `[MEASURED]` #362 squash-merged as `7db8f195`. Two review rounds (both FIX, all folded) plus one confirmation of the last fold (APPROVE), which is one step past the declared cap; full suite 5,321 passed, 0 failed at `8d37f34c`; 145 Python tests; Tier-A matrix 178 of 178 |
 | C1 measurement | done | `[MEASURED]` `run-1`: four corpora (slicing, excalidraw, prometheus, ruff), 48 of 48 runs and 4 of 4 priming runs admissible, binary `7db8f195`, one process at a time. Kubernetes not run: projected first build 27–70 GiB on a 24 GiB host. Supplement `settle60/`: 12 of 12 workload runs admissible at a 60 s settle; five of them overlapped a resident normal-mode probe (`idle-probe/`), disclosed in the readout. |
-| C1 readout | done | `[MEASURED]` `docs/analysis/2026-10-prism-mcp-memory-readout.md`. M1 124–559 MiB and M2 136–693 MiB advance on all four corpora; M3 16–58 MiB does not advance. Verdicts recomputed against the live heap: unchanged. Reviewed by Opus 5.5 and gpt-6.1-sol, both of whom recomputed the figures: verdicts confirmed, both FIX on the interpretation (mechanism overstated, live heap is not a physical-memory metric, overlap undisclosed, refresh was a no-change reload); all folded. |
+| C1 readout | done | `[MEASURED]` `docs/analysis/2026-10-prism-mcp-memory-readout.md`. M1 124–559 MiB and M2 136–693 MiB advance on all four corpora; M3 16–58 MiB does not advance. Verdicts recomputed against the live heap: unchanged. Reviewed by Opus 5.5 and gpt-6.1-sol, both of whom recomputed the figures: verdicts confirmed, both FIX on the interpretation (mechanism overstated, live heap is not a physical-memory metric, overlap undisclosed, refresh was a no-change reload); all folded. A confirmation pass by gpt-6.1-sol (one step past the declared one-round cap) found three wording errors in the fold; folded as specified, not re-reviewed. |
 | S2 plan | done | `[MEASURED]` `S2-identity-preamble.md` committed `dd6b6c7e`; its code replayed on `scratch/s2-validate` `cf873945` (323 MCP unit tests, 13 binary tests; logs read by this writer) |
 | S2 implementation | pending | blocked on §7 |
 | Spec/plan PR #357 | done | `[MEASURED]` squash-merged as `dc3b6bbe` |
-| C2 plans (M2, M1) | pending | M2: can be written now. M1: blocked on §7 question 5 |
+| C2 plans (M2, M1) | pending | M2: no open metric question, needs the owner's go-ahead. M1: also blocked on §7 question 5 |
 | S3a–S6, B | pending | each planned when its predecessor merges |
 
 ## 3. Corrections to standing documents and memory
@@ -54,7 +54,7 @@
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | C2 plans for M2 and M1 | pending | M2: write from the readout (base = load peak). M1: pin the metric the owner chooses, with a footprint confirmation | M1: §7 question 5 | spec §6.2; readout verdict table |
+| 1 | C2 plans for M2 and M1 | pending | M2: write from the readout (base = load peak) on the owner's go-ahead. M1: pin the metric the owner chooses, with a footprint confirmation | owner go-ahead; M1 also §7 question 5 | spec §6.2; readout verdict table |
 | 2 | Kubernetes corpus | pending | none unless the owner asks for it | §7 question 6 | `~/code/bench-repos/kubernetes` `8d34ac5ef882` |
 | 3 | S2a, S2b | pending | §1 step 4 | §7 | plan `S2-identity-preamble.md`; scratch `cf873945` |
 | 4 | Test whether report mode can release free memory before the settled sample | pending | only if the owner picks option (b) of question 5; it would also rank "release after load" as a candidate (157–715 MiB) | §7 question 5 | `src/mcp/mem_report.rs` |

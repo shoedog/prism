@@ -132,9 +132,9 @@ What was observed:
 - Where the second level was observed, its footprint is within 1–3 % of the live heap (slicing 1568–1592
   against 1578; prometheus 2308 against 2382). It was not observed for excalidraw or ruff (0 of 12 each), so
   for those two "idle footprint ≈ live heap" is an inference from the other two corpora.
-- The excess is not specific to the cache load. It is 74–97 % of the size of the CPG cache file, which fits
-  the freed file buffer, but it is equally 24–30 % of the live heap, which fits "proportional to index
-  size". Cold builds read no cache file and still settle 58–440 MiB above their live heap (slicing: 116, 291
+- The excess is not specific to the cache load. The CPG cache file is 74–97 % of the excess, which fits
+  the freed file buffer, but the excess is equally 24–30 % of the live heap, which fits "proportional to
+  index size". Cold builds read no cache file and still settle 58–440 MiB above their live heap (slicing: 116, 291
   and 348 MiB in three runs). After the refresh the excess is 113–116 MiB (excalidraw), 90–99 MiB
   (prometheus), 435–490 MiB (ruff) and 951–974 MiB (slicing), and in two of the prometheus refresh runs
   the footprint is about 2.2 GiB below the resident size with almost nothing compressed, so memory left the
