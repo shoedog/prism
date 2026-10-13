@@ -36,6 +36,15 @@ empty list, is refused before anything runs. `warm` also reports `load_ms` (`aft
 `after_load_repo` elapsed time; unavailable if either time is). The readout still lists the four kinds only
 and prints `n/a` for those that were not run; `build` figures are read by `compare`.
 
+A `build` repetition is admissible only if its report says `cache.cpg_hit: false` and
+`cache.call_edges_loaded: false`, it passes the usual structural and build-identity checks and has the
+`after_call_edges` peak, **and the process left both cache files behind**: after it exits the driver records the
+sizes of `cpg-cache.bin` and `resolved-call-edge-index.bin` (`cache_files` in the stored result), and both must be
+integers above 0. The binary catches a failed cache save, prints it and still exits 0 with both flags false, so
+the files are the evidence that the cache was written; stderr containing `failed to save CPG cache` or
+`nav edge cache: failed to save sidecar` also excludes the run. `summarize` and `compare` re-apply the file check to
+the stored sizes (a stored build result without `cache_files` is inadmissible).
+
 Each `build` repetition gets its own cache directory, `<out>/cache-build/<corpus>/<rep>/`, and the driver
 deletes it afterwards. That is the only thing the driver deletes, so it never deletes by path: a path can be
 made to name something else between any two looks at it. The directory is created exclusively, relative to an
@@ -45,7 +54,11 @@ empty). That descriptor is kept until the measurement is over. The contents are 
 wherever the directory is by then, and the name is removed with `rmdir`, which cannot remove a directory that
 has content. A directory moved into the path during the measurement is therefore never touched. The stored
 result says what was observed: `cache_dir_removed` is true only if the path is gone afterwards, and
-`cache_dir_note` says why not otherwise (the path is also named on stderr, and `compare` prints a warning).
+`cache_dir_note` says why not otherwise (the path is also named on stderr, and `compare` prints a warning). Any
+filesystem error while creating the directory (a file in the way, a read-only directory, a full disk) refuses
+that repetition (inadmissible, no child run), not the whole run. The then-empty `cache-build/` directories are
+removed. `build` keeps the settle sleep of `--settle` seconds per repetition; that is harmless, since the peak it
+reports is a lifetime peak.
 
 A corpus NAME (in `--corpus NAME=PATH`, for `run` and `gen-workload`) must be letters, digits, `.`, `_` or `-`,
 starting with a letter or digit: it names directories under `--out`.

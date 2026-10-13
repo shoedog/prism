@@ -7,6 +7,7 @@ Run every test module with:
 import contextlib
 import io
 import json
+import os
 import shutil
 import sys
 import unittest
@@ -104,7 +105,7 @@ class BuildDirectoryTests(Kinds):
     def test_a_removal_that_fails_is_recorded_and_warned_about_not_hidden(self):
         self.prepare()
         err = io.StringIO()
-        with mock.patch.object(shutil, 'rmtree', side_effect=OSError('busy')):
+        with mock.patch.object(os, 'unlink', side_effect=OSError('busy')):    # nothing inside can be deleted
             with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
                 memreport.main(self.run_args('a', reps=1) + ['--kinds', 'build'])
         stored = json.loads((self.out / 'raw' / 'a' / 'build-1.json').read_text())
@@ -120,15 +121,37 @@ class BuildDirectoryTests(Kinds):
             self.assertIs(stored['cache_dir_removed'], True)
         self.assertFalse((self.out / 'cache-build').exists())
 
-    def test_nothing_outside_the_run_directory_is_ever_deleted(self):
+    def test_nothing_is_ever_deleted_by_path(self):
+        # Every unlink and every rmdir of a cache directory is relative to an open descriptor: a path could be
+        # made to name something else. (The empty parents are removed by path with rmdir, which cannot remove
+        # anything that has content.)
         self.prepare()
-        deleted = []
-        real = shutil.rmtree
-        with mock.patch.object(shutil, 'rmtree', lambda path, *a, **k: (deleted.append(Path(path)), real(path))[1]):
-            self.run_kinds('build', reps=2)
-        self.assertEqual(len(deleted), 2)
-        for path in deleted:
-            self.assertIn(self.out.resolve(), path.resolve().parents)
+        calls = []
+        real_unlink, real_rmdir = os.unlink, os.rmdir
+
+        def unlink(path, *args, dir_fd=None, **kwargs):
+            calls.append(('unlink', path, dir_fd))
+            return real_unlink(path, *args, dir_fd=dir_fd, **kwargs)
+
+        def rmdir(path, *args, dir_fd=None, **kwargs):
+            calls.append(('rmdir', path, dir_fd))
+            return real_rmdir(path, *args, dir_fd=dir_fd, **kwargs)
+
+        with mock.patch.object(shutil, 'rmtree', side_effect=AssertionError('rmtree deletes by path')):
+            with mock.patch.object(os, 'unlink', unlink), mock.patch.object(os, 'rmdir', rmdir):
+                self.run_kinds('build', reps=2)
+        unlinks = [call for call in calls if call[0] == 'unlink']
+        self.assertGreaterEqual(len(unlinks), 4)    # two cache files per repetition
+        for _, path, dir_fd in unlinks:
+            self.assertIsInstance(dir_fd, int, path)
+            self.assertNotIn(os.sep, str(path))
+        by_descriptor = [str(path) for kind, path, dir_fd in calls if kind == 'rmdir' and dir_fd is not None]
+        self.assertTrue({'1', '2'} <= set(by_descriptor), by_descriptor)    # the two repetition directories
+        self.assertTrue(all(os.sep not in name for name in by_descriptor), by_descriptor)
+        by_path = [Path(path) for kind, path, dir_fd in calls if kind == 'rmdir' and dir_fd is None]
+        root = self.out / 'cache-build'
+        self.assertTrue(all(path in (root, root / 'a') for path in by_path), by_path)    # the empty parents only
+        self.assertFalse(root.exists())
 
 
 if __name__ == '__main__':
