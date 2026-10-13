@@ -71,6 +71,9 @@ fn main() -> anyhow::Result<()> {
             c.eager,
             "PRISM_MCP_MEM_REPORT=1 selects memory-report mode, which needs --eager and never serves MCP; unset PRISM_MCP_MEM_REPORT to run the server"
         );
+        // Count tree-sitter's allocations from here on. Nothing has parsed yet, and this process
+        // is single-purpose; library code and tests must never install the hooks.
+        prism::mcp::mem_tree_alloc::install();
         anyhow::ensure!(
             owner.is_none(),
             "memory-report mode does not support --owner-compiler/--owner-config"

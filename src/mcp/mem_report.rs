@@ -5,6 +5,7 @@
 
 use super::mem_attribution::{attribute, Attribution};
 use super::mem_sample::{ru_maxrss_bytes, sample, MemSample};
+use super::mem_tree_alloc::live_bytes;
 use super::registry::ToolRegistry;
 use super::transport::{serve_session_with_freshness, ReadOutcome, Transport};
 use super::{BuildStage, CacheMode, RefreshPolicy, RefreshSummary, ServerConfig, SessionProvider};
@@ -34,6 +35,9 @@ struct Stage {
     elapsed_ms: u64,
     #[serde(flatten)]
     memory: MemSample,
+    /// Usable bytes of live allocations made by tree-sitter (the retained syntax trees), or
+    /// `null` when the counting hooks are not installed (the binary installs them in report mode).
+    tree_sitter_heap_bytes: Option<u64>,
 }
 
 struct Recorder {
@@ -56,6 +60,7 @@ impl Recorder {
             name,
             elapsed_ms: self.started.elapsed().as_millis() as u64,
             memory: sample(),
+            tree_sitter_heap_bytes: live_bytes(),
         });
     }
 }

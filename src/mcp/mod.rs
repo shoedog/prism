@@ -7,6 +7,7 @@ pub mod lazy;
 pub mod mem_attribution;
 pub mod mem_report;
 pub mod mem_sample;
+pub mod mem_tree_alloc;
 pub mod output;
 mod owner;
 pub mod registry;

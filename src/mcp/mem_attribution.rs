@@ -1,15 +1,12 @@
 //! Component counts that attribute an index's memory independently of resident-size deltas
 //! (shared-daemon spec §6.1). Counts are exact; byte figures derived from them are estimates and
-//! say so in their names.
+//! say so in their names. The bytes the retained syntax trees hold are not estimated here: tree
+//! nodes a traversal visits do not determine them (tree-sitter also allocates hidden nodes), so
+//! the report measures them directly (`mem_tree_alloc`).
 use crate::cpg::{CpgNode, StmtKind};
 use crate::navigation::NavigationSession;
 use std::collections::HashSet;
 
-/// Lower bound per tree-sitter node: an inline subtree is one 8-byte slot in its parent.
-pub const TREE_NODE_BYTES_LOW: u64 = 8;
-/// Upper bound per tree-sitter node before allocator rounding: an 80-byte `SubtreeHeapData`
-/// plus its 8-byte slot (tree-sitter 0.25.10, `src/subtree.h`).
-pub const TREE_NODE_BYTES_HIGH: u64 = 88;
 /// Small-allocation quantum assumed for string heap estimates.
 const STRING_HEAP_QUANTUM: u64 = 16;
 
@@ -17,9 +14,10 @@ const STRING_HEAP_QUANTUM: u64 = 16;
 pub struct Attribution {
     pub files: u64,
     pub source_bytes: u64,
-    pub tree_nodes: u64,
-    pub tree_bytes_estimate_low: u64,
-    pub tree_bytes_estimate_high: u64,
+    /// Nodes a traversal of each parsed tree visits (`ParsedFile::parse_node_count`). It is not
+    /// the number of subtrees tree-sitter allocates, which also includes hidden nodes, and it
+    /// is not a size.
+    pub tree_visible_nodes: u64,
     pub cpg_nodes: u64,
     pub cpg_edges: u64,
     /// `size_of::<CpgNode>()` times the node count: the inline payload, strings' heap excluded.
@@ -44,7 +42,7 @@ pub fn attribute(session: &NavigationSession) -> Attribution {
         .values()
         .map(|file| file.source.len() as u64)
         .sum();
-    let tree_nodes: u64 = session
+    let tree_visible_nodes: u64 = session
         .repo
         .files
         .values()
@@ -61,9 +59,7 @@ pub fn attribute(session: &NavigationSession) -> Attribution {
     Attribution {
         files,
         source_bytes,
-        tree_nodes,
-        tree_bytes_estimate_low: tree_nodes * TREE_NODE_BYTES_LOW,
-        tree_bytes_estimate_high: tree_nodes * TREE_NODE_BYTES_HIGH,
+        tree_visible_nodes,
         cpg_nodes,
         cpg_edges: cpg.edge_count() as u64,
         cpg_node_inline_bytes: cpg_nodes * std::mem::size_of::<CpgNode>() as u64,
@@ -257,9 +253,7 @@ mod tests {
         assert_eq!(got.source_bytes, source.len() as u64);
         let parsed_nodes = session.repo.files["a.py"].parse_node_count as u64;
         assert!(parsed_nodes > 0);
-        assert_eq!(got.tree_nodes, parsed_nodes);
-        assert_eq!(got.tree_bytes_estimate_low, parsed_nodes * 8);
-        assert_eq!(got.tree_bytes_estimate_high, parsed_nodes * 88);
+        assert_eq!(got.tree_visible_nodes, parsed_nodes);
         assert_eq!(got.cpg_nodes, session.index.cpg().node_count() as u64);
         assert_eq!(got.cpg_edges, session.index.cpg().edge_count() as u64);
         assert_eq!(

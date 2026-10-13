@@ -177,3 +177,54 @@ fn a_rejected_workload_file_fails_with_its_line_number() {
         .stderr(predicate::str::contains("line 1"));
     std::fs::remove_file(&workload).ok();
 }
+
+/// The tree-sitter heap figure for a Go file of `package main` plus 100 `var x int` lines.
+///
+/// 64_368 bytes is an independent census of that tree's subtree storage before allocator
+/// rounding, taken by a reviewer with a C probe against tree-sitter 0.25.10. The reported
+/// figure counts usable allocation sizes, so it cannot be below that; four times it would mean
+/// something other than the one tree is being counted.
+const GO_TREE_SUBTREE_BYTES: u64 = 64_368;
+
+#[test]
+fn the_tree_sitter_heap_figure_covers_the_retained_tree() {
+    let dir = tempfile::tempdir().expect("temp repo");
+    let source = format!("package main\n{}", "var x int\n".repeat(100));
+    std::fs::write(dir.path().join("main.go"), source).expect("main.go");
+    let output = report_command(&dir).assert().success().get_output().clone();
+    let report = report_line(&output.stderr);
+    assert_eq!(report["attribution"]["files"], 1, "{report}");
+
+    let stages = report["stages"].as_array().unwrap();
+    let stage = |name: &str| {
+        stages
+            .iter()
+            .find(|stage| stage["name"] == name)
+            .unwrap_or_else(|| panic!("no {name} stage in {report}"))
+    };
+    assert_eq!(
+        stage("start")["tree_sitter_heap_bytes"],
+        0,
+        "nothing has parsed at the start"
+    );
+    for name in ["after_load_repo", "after_settle"] {
+        let stage = stage(name);
+        let tree_bytes = stage["tree_sitter_heap_bytes"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("{name}: tree_sitter_heap_bytes is not a number: {stage}"));
+        assert!(
+            tree_bytes >= GO_TREE_SUBTREE_BYTES,
+            "{name}: {tree_bytes} is below the {GO_TREE_SUBTREE_BYTES} bytes the tree holds"
+        );
+        assert!(
+            tree_bytes < 4 * GO_TREE_SUBTREE_BYTES,
+            "{name}: {tree_bytes} is four times the tree's size or more"
+        );
+        if let Some(heap) = stage["heap_in_use_bytes"].as_u64() {
+            assert!(
+                tree_bytes <= heap,
+                "{name}: tree-sitter holds {tree_bytes}, more than the whole heap in use {heap}"
+            );
+        }
+    }
+}
