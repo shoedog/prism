@@ -1,0 +1,4 @@
+sites base 13299 head 13299; changed rows 3
+   12265  product same 
+       3  product none(UnknownName) -> exact:import_member 
+    1028  test    same 
