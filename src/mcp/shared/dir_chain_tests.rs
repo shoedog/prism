@@ -358,24 +358,25 @@ fn the_walk_judges_a_sticky_directorys_entry_by_its_real_owner() {
     );
 }
 
-/// A private directory of this user is, to anyone else, a directory whose owner can replace
-/// what is in it.
+/// A private directory of this user is, to anyone else, somewhere this user can replace what
+/// is in it. Which directory on the way says so first depends on the host: where the temp
+/// directory is this user's own tree (macOS) it is a directory owned by this user; where it
+/// is an entry of a shared sticky `/tmp` (Linux) it is that entry, owned by this user.
 #[test]
 fn another_users_private_directory_is_refused_for_what_it_holds() {
     let (_guard, root) = private_root();
     let mine = root.join("mine");
     make_dir(&mine, 0o700);
     make_dir(&mine.join("inner"), 0o700);
-    let someone_else = current_uid() + 1;
-    let outcome = check_resolution_chain(&mine.join("inner"), someone_else);
-    assert!(
-        matches!(
-            &outcome,
-            Err(RuntimeDirError::Replaceable {
-                exposure: Exposure::ForeignOwner { owner },
-                ..
-            }) if *owner == current_uid()
-        ),
-        "{outcome:?}"
-    );
+    let me = current_uid();
+    let outcome = check_resolution_chain(&mine.join("inner"), me + 1);
+    let named_as_foreign = match &outcome {
+        Err(RuntimeDirError::Replaceable { exposure, .. }) => match exposure {
+            Exposure::ForeignOwner { owner } => Some(*owner),
+            Exposure::ForeignEntryInSticky { entry_owner } => Some(*entry_owner),
+            _ => None,
+        },
+        _ => None,
+    };
+    assert_eq!(named_as_foreign, Some(me), "{outcome:?}");
 }
