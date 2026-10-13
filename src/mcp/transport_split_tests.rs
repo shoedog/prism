@@ -353,6 +353,67 @@ fn readiness_response_maps_each_state_and_asks_for_admission_only_on_failure() {
     );
     assert_eq!(failed["result"]["structuredContent"]["cause"], "boom");
     assert_eq!(asked.get(), 1);
+    assert!(
+        failed["result"]["structuredContent"]
+            .get("owner_admission")
+            .is_none(),
+        "no diagnostic from the closure means no owner_admission key: {failed}"
+    );
+}
+
+#[test]
+fn a_build_failure_carries_the_admission_diagnostic_to_the_wire() {
+    let registry = ToolRegistry::all_v1();
+    let settings = settings(StructuredContentMode::Always);
+    let call = tool_call(&registry, CALLEES, &settings);
+
+    let failed = readiness_response(
+        &call,
+        Readiness::Failed {
+            error: "boom".into(),
+        },
+        || Some(json!({"failed_phase": "x"})),
+        &settings,
+    )
+    .expect("failure is answered");
+    assert_eq!(
+        failed["result"]["structuredContent"]["owner_admission"]["failed_phase"], "x",
+        "the admission diagnostic must reach the wire: {failed}"
+    );
+    assert!(failed["result"]["structuredContent"]
+        .get("owner_admission_omitted")
+        .is_none());
+    let text: Value = parse(failed["result"]["content"][0]["text"].as_str().unwrap());
+    assert_eq!(
+        text["owner_admission"]["failed_phase"], "x",
+        "and the text view: {failed}"
+    );
+}
+
+#[test]
+fn an_auto_refresh_failure_followed_by_a_tool_error_answers_with_the_bare_tool_error() {
+    let registry = ToolRegistry::all_v1();
+    let settings = settings(StructuredContentMode::Always);
+    let (dir, mut provider) = provider(RefreshPolicy::AutoFull);
+    make_stale(&dir);
+    let bad_seed = r#"{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"nav_callees","arguments":{"seed":{"kind":"bogus"}}}}"#;
+    let call = tool_call(&registry, bad_seed, &settings);
+
+    let initial_report = match dispatch_tool_read(&call, &provider, &settings) {
+        ReadDispatch::NeedsAutoRefresh { initial_report } => initial_report,
+        ReadDispatch::Response(response) => panic!("expected a deferral, got {response}"),
+    };
+    provider.force_next_refresh_error_for_tests("x");
+
+    let response = dispatch_tool_auto_refresh(&call, &mut provider, initial_report, &settings);
+    assert_eq!(response["id"], 9);
+    assert_eq!(response["result"]["isError"], true, "{response}");
+    let meta = &response["result"]["_meta"];
+    assert!(
+        meta.get("prism/auto_refresh").is_none(),
+        "a tool error carries no auto-refresh metadata: {meta}"
+    );
+    assert!(meta.get("prism/auto_refresh_error").is_none(), "{meta}");
 }
 
 #[test]
