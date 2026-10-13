@@ -455,3 +455,70 @@ fn every_refusal_names_the_path_and_how_to_point_elsewhere() {
         "{owned}"
     );
 }
+
+// ── Access control lists (macOS) ──
+
+/// `chmod +a`, or `None` when this host's `chmod` has no ACL support or the volume refuses.
+#[cfg(target_os = "macos")]
+fn add_acl(path: &Path, entry: &str) -> Option<()> {
+    let done = std::process::Command::new("/bin/chmod")
+        .arg("+a")
+        .arg(entry)
+        .arg(path)
+        .output()
+        .ok()?;
+    done.status.success().then_some(())
+}
+
+/// A directory of mode 0700 with a list that lets everyone add and delete files in it is not
+/// private. Rules out trusting the nine permission bits on a system where a list overrides
+/// them.
+#[cfg(target_os = "macos")]
+#[test]
+fn a_private_mode_with_an_access_control_list_is_refused() {
+    let parent = tempfile::tempdir().unwrap();
+    let dir = private_dir(parent.path(), "prism-mcpd");
+    validate_runtime_dir(&dir).expect("no list yet");
+    if add_acl(&dir, "everyone allow add_file,search,delete_child").is_none() {
+        eprintln!("skipped: access control lists cannot be set here");
+        return;
+    }
+    assert_eq!(mode_of(&dir), 0o700, "the list does not show in the mode");
+    let outcome = validate_runtime_dir(&dir);
+    assert!(
+        matches!(&outcome, Err(RuntimeDirError::HasAcl { .. })),
+        "{outcome:?}"
+    );
+    let message = outcome.unwrap_err().to_string();
+    assert!(message.contains("access control list"), "{message}");
+    assert!(message.contains("chmod -N"), "{message}");
+
+    let removed = std::process::Command::new("/bin/chmod")
+        .arg("-N")
+        .arg(&dir)
+        .status()
+        .unwrap();
+    assert!(removed.success());
+    validate_runtime_dir(&dir).expect("the list is gone");
+}
+
+/// The directory does not exist yet and its parent hands every new directory a list. The
+/// directory this code creates is then not private either, and must be refused like one it
+/// found.
+#[cfg(target_os = "macos")]
+#[test]
+fn a_directory_created_under_an_inheriting_list_is_refused() {
+    let parent = tempfile::tempdir().unwrap();
+    let inheriting = "everyone allow add_file,search,delete_child,file_inherit,directory_inherit";
+    if add_acl(parent.path(), inheriting).is_none() {
+        eprintln!("skipped: access control lists cannot be set here");
+        return;
+    }
+    let dir = parent.path().join("prism-mcpd");
+    let outcome = validate_runtime_dir(&dir);
+    assert!(
+        matches!(&outcome, Err(RuntimeDirError::HasAcl { .. })),
+        "{outcome:?}"
+    );
+    assert_eq!(mode_of(&dir), 0o700, "it was created private by mode");
+}

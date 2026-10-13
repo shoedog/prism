@@ -106,6 +106,21 @@ fn canonical_spelling(absolute: &Path) -> Result<PathBuf, CacheBaseError> {
                                 source,
                             }
                         })?;
+                        // Something that exists on the way to, or as, a cache base must be a
+                        // directory. Without this a `..` after a regular file would step back
+                        // out of it and hide that the path as written cannot be created.
+                        let is_dir = std::fs::metadata(&resolved)
+                            .map(|metadata| metadata.is_dir())
+                            .map_err(|source| CacheBaseError::Io {
+                                path: resolved.clone(),
+                                source,
+                            })?;
+                        if !is_dir {
+                            return Err(CacheBaseError::Io {
+                                path: resolved,
+                                source: io::Error::from_raw_os_error(libc::ENOTDIR),
+                            });
+                        }
                     }
                     Err(error) if error.kind() == io::ErrorKind::NotFound => {}
                     Err(source) => {

@@ -1,15 +1,20 @@
 //! The per-user runtime directory that holds every daemon's socket, locks, pid file and log
 //! (spec §4.3), and the validation that the shim and the daemon both run on every use (§7).
 //!
-//! Validation is what keeps another local user out: the directory must be a real directory
-//! (not a symlink), owned by the current user, with mode 0700. It is checked by path with
-//! `lstat`, not through a held descriptor, and it checks the directory itself, not what could
-//! replace it. It therefore holds against another user only where that user cannot rename or
-//! remove the directory: every ancestor is writable by this user and root alone, or is sticky
-//! (as `/tmp` is, which is what protects there, not its mode). The default bases meet that.
-//! An override must too; nothing here checks it. A daemon's peer-uid check does not close the
-//! gap from the client's side, so the shim must check the uid of the socket's peer as well
-//! (slice S5a). It is not a defense against a process of the same user (§2).
+//! Validation is what keeps another local user out. It has three parts:
+//!
+//! - the directory itself is a real directory (not a symlink), owned by the current user, with
+//!   mode 0700;
+//! - on macOS it carries no access control list, because a list can grant another user what
+//!   the mode denies (on Linux a mode of 0700 masks every list entry, so the mode is enough);
+//! - nothing on the way to it can be replaced by another user: every directory its resolution
+//!   passes through, symlinks included, belongs to this user or root and is either not
+//!   writable by anyone else or sticky (`dir_chain`). Without this the first two would say who
+//!   can use the directory that is there now, not who can put another one in its place.
+//!
+//! It is checked by path, not through a held descriptor (`bind` and `connect` take paths), so
+//! it is not a defense against a process of the same user (§2) or against root.
+use super::dir_chain::{check_resolution_chain, Exposure};
 use std::ffi::OsString;
 use std::fmt;
 use std::io;
@@ -18,8 +23,8 @@ use std::path::{Path, PathBuf};
 
 /// Environment variable that replaces the base directory. Every launcher that should share a
 /// daemon must resolve the same value (spec §4.3). The base and every directory above it must
-/// be writable only by this user and root, or be sticky: a base another user can write lets
-/// that user swap the validated directory for their own after the check.
+/// be writable only by this user and root, or be sticky; validation refuses a base that is
+/// not, because another user could swap the validated directory for their own.
 pub const RUNTIME_DIR_ENV: &str = "PRISM_MCP_RUNTIME_DIR";
 /// The directory joined to the base. This, not the base, is what gets validated and created.
 pub const RUNTIME_DIR_NAME: &str = "prism-mcpd";
@@ -58,6 +63,19 @@ pub enum RuntimeDirError {
         path: PathBuf,
         mode: u32,
     },
+    /// The directory carries an access control list (macOS), which can grant another user
+    /// what mode 0700 denies.
+    HasAcl {
+        path: PathBuf,
+    },
+    /// Another user could replace the directory or something on the way to it: `container`
+    /// does not protect its entry `entry`.
+    Replaceable {
+        path: PathBuf,
+        container: PathBuf,
+        entry: PathBuf,
+        exposure: Exposure,
+    },
 }
 
 impl fmt::Display for RuntimeDirError {
@@ -95,6 +113,37 @@ impl fmt::Display for RuntimeDirError {
                 "runtime directory {} has mode {mode:04o}; it must be 0700",
                 path.display()
             )?,
+            Self::HasAcl { path } => write!(
+                f,
+                "runtime directory {} has an access control list, which can let other users in \
+                 whatever its mode; remove it (chmod -N)",
+                path.display()
+            )?,
+            Self::Replaceable {
+                path,
+                container,
+                entry,
+                exposure,
+            } => {
+                write!(
+                    f,
+                    "runtime directory {} could be replaced by another user: {} ",
+                    path.display(),
+                    container.display()
+                )?;
+                match exposure {
+                    Exposure::ForeignOwner { owner } => write!(f, "is owned by uid {owner}")?,
+                    Exposure::WritableByOthers { mode } => write!(
+                        f,
+                        "has mode {mode:04o}, writable by others and not sticky"
+                    )?,
+                    Exposure::ForeignEntryInSticky { entry_owner } => write!(
+                        f,
+                        "is sticky and {} in it is owned by uid {entry_owner}",
+                        entry.display()
+                    )?,
+                }
+            }
         }
         write!(
             f,
@@ -189,10 +238,66 @@ pub fn current_uid() -> u32 {
 }
 
 /// Validate the runtime directory, creating it with mode 0700 if it is absent (its parent must
-/// already exist). Call this on every use, not once per process: `Ok` says the directory was a
-/// real directory, owned by the current user, mode 0700, at the moment of the call.
+/// already exist). Call this on every use, not once per process: `Ok` says that at the moment
+/// of the call the directory was a real directory, owned by the current user, mode 0700,
+/// without an access control list, and that no other user could replace it or anything its
+/// path resolves through.
 pub fn validate_runtime_dir(dir: &Path) -> Result<(), RuntimeDirError> {
-    validate_runtime_dir_with(&RealDirAccess, dir, current_uid())
+    let uid = current_uid();
+    validate_runtime_dir_with(&RealDirAccess, dir, uid)?;
+    // The same spelling the check above inspected (no trailing slash).
+    let dir: PathBuf = dir.components().collect();
+    if has_access_control_list(&dir).map_err(|source| RuntimeDirError::Io {
+        op: "inspect",
+        path: dir.clone(),
+        source,
+    })? {
+        return Err(RuntimeDirError::HasAcl { path: dir });
+    }
+    check_resolution_chain(&dir, uid)
+}
+
+/// Whether `path` itself (not what a symlink there points to) has an access control list with
+/// at least one entry.
+#[cfg(target_os = "macos")]
+fn has_access_control_list(path: &Path) -> io::Result<bool> {
+    use std::os::raw::{c_char, c_int, c_void};
+    use std::os::unix::ffi::OsStrExt;
+    extern "C" {
+        fn acl_get_link_np(path: *const c_char, kind: c_int) -> *mut c_void;
+        fn acl_get_entry(acl: *mut c_void, entry_id: c_int, entry: *mut *mut c_void) -> c_int;
+        fn acl_free(object: *mut c_void) -> c_int;
+    }
+    const ACL_TYPE_EXTENDED: c_int = 0x0000_0100;
+    const ACL_FIRST_ENTRY: c_int = 0;
+    let c_path = std::ffi::CString::new(path.as_os_str().as_bytes())
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "path contains a NUL byte"))?;
+    // SAFETY: `c_path` is a valid NUL-terminated string for the duration of the call; the
+    // returned object, when not null, is owned by this function and freed below.
+    let acl = unsafe { acl_get_link_np(c_path.as_ptr(), ACL_TYPE_EXTENDED) };
+    if acl.is_null() {
+        let error = io::Error::last_os_error();
+        // A file without a list reports "no such entry".
+        return if error.raw_os_error() == Some(libc::ENOENT) {
+            Ok(false)
+        } else {
+            Err(error)
+        };
+    }
+    let mut entry: *mut c_void = std::ptr::null_mut();
+    // SAFETY: `acl` is the live object returned above and `entry` is a valid out-pointer; the
+    // entry it may receive points into `acl` and is not used after `acl_free`.
+    let has_entry = unsafe { acl_get_entry(acl, ACL_FIRST_ENTRY, &mut entry) } == 0;
+    // SAFETY: `acl` came from `acl_get_link_np` and is freed exactly once.
+    unsafe { acl_free(acl) };
+    Ok(has_entry)
+}
+
+/// On other Unix systems a POSIX access control list cannot grant more than the group
+/// permission bits allow, and a mode of exactly 0700 allows them nothing.
+#[cfg(not(target_os = "macos"))]
+fn has_access_control_list(_path: &Path) -> io::Result<bool> {
+    Ok(false)
 }
 
 pub(crate) fn validate_runtime_dir_with(

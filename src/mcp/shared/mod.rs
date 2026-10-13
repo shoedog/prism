@@ -6,6 +6,7 @@
 //! Design: `docs/superpowers/specs/2026-10-09-shared-prism-daemon-design.md` §4.3, §4.4, §7.
 
 pub mod cache_base;
+pub mod dir_chain;
 pub mod identity;
 pub mod paths;
 pub mod runtime_dir;

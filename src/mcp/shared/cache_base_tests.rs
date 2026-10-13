@@ -228,6 +228,44 @@ fn a_base_below_a_regular_file_or_through_a_dangling_symlink_is_an_error() {
     }
 }
 
+/// A regular file can only be the last thing a path names. Stepping back out of it with `..`
+/// must not hide that the path as written cannot be created (`create_dir_all` fails with
+/// "not a directory"), and a regular file is not a cache base either. Rules out resolving `..`
+/// by dropping whatever the last component was.
+#[test]
+fn a_regular_file_is_never_stepped_through_or_accepted_as_the_base() {
+    let (_guard, real) = canonical_temp();
+    let file = real.join("a-file");
+    std::fs::write(&file, b"").unwrap();
+    std::os::unix::fs::symlink(&file, real.join("link-to-file")).unwrap();
+    for base in [
+        file.clone(),
+        file.join("..").join("cache"),
+        real.join("link-to-file"),
+        real.join("link-to-file").join("..").join("cache"),
+    ] {
+        let outcome = effective_cache_base_in(&dir(&base), Path::new("/unused"), no_working_dir);
+        assert!(
+            matches!(&outcome, Err(CacheBaseError::Io { path, source })
+                if path == &file && source.raw_os_error() == Some(libc::ENOTDIR)),
+            "{}: {outcome:?}",
+            base.display()
+        );
+        assert!(
+            std::fs::create_dir_all(base.join("x")).is_err(),
+            "the kernel refuses {} too",
+            base.display()
+        );
+    }
+    // The same shape through a directory is fine.
+    std::fs::create_dir(real.join("a-dir")).unwrap();
+    let through_dir = real.join("a-dir").join("..").join("cache");
+    assert_eq!(
+        effective_cache_base_in(&dir(through_dir), Path::new("/unused"), no_working_dir).unwrap(),
+        real.join("cache")
+    );
+}
+
 /// The default base is computed here and, separately, inside the navigation cache. This pins
 /// the two together: a `CacheMode::Default` daemon caches exactly where the in-process server
 /// does.
