@@ -1,7 +1,7 @@
 """Markdown report of a comparison result (imported by memreport_compare.py)."""
 from pathlib import Path
 
-from memreport_compare_rule import ROLE_NAMES
+from memreport_compare_rule import NOT_WORSE, ROLE_NAMES
 from memreport_render import MIB
 
 
@@ -94,7 +94,11 @@ def to_markdown(result):
         grouped = {}
         for name, row in metric['corpora'].items():
             grouped.setdefault(row['outcome'], []).append(name)
-        lines.append('| %s | %s | %s | %s |' % (metric['label'], ROLE_NAMES[metric['role']], metric['verdict'],
+        verdict = metric['verdict']
+        if metric['role'] == NOT_WORSE and verdict != 'not measured':
+            largest = metric.get('largest_ratio')
+            verdict += ' (largest ratio %s)' % ('×n/a' if largest is None else '×%.3f' % largest)
+        lines.append('| %s | %s | %s | %s |' % (metric['label'], ROLE_NAMES[metric['role']], verdict,
                                                 '; '.join('%s: %s' % (outcome, ', '.join(names))
                                                           for outcome, names in sorted(grouped.items()))))
     lines += ['', '## Excluded runs']

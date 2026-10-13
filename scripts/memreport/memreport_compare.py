@@ -122,8 +122,10 @@ def compare(baseline, candidate, experiment, allow_same_build=False):
     for key, label, unit, role in EXPERIMENTS[experiment]:
         rows = {name: corpus_row(role, stats_of(baseline, name, key), stats_of(candidate, name, key))
                 for name in names}
+        ratios = [row['ratio'] for row in rows.values() if row.get('ratio') is not None]
         metrics.append({'key': key, 'label': label, 'unit': unit, 'role': role, 'corpora': rows,
-                        'verdict': metric_verdict(role, rows)})
+                        'verdict': metric_verdict(role, rows),
+                        'largest_ratio': max(ratios) if role == NOT_WORSE and ratios else None})
     base_header, cand_header = provenance_of(baseline), provenance_of(candidate)
     corpora = {name: {'commit': baseline['corpora'][name].get('commit'),
                       'dirty': baseline['corpora'][name].get('dirty'),

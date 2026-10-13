@@ -67,7 +67,7 @@ class MarkdownTests(unittest.TestCase):
 
     def test_the_rule_is_stated_including_the_gate_verdict_words_and_the_overlap_clause(self):
         for word in ('100 MiB', '5 %', 'at least 3 runs', 'at least 2 corpora', '1.05', '1 MiB', 'undecided',
-                     'one-sided', 'incomplete', 'ranges do not overlap'):
+                     'one-sided', 'incomplete', 'ranges do not overlap', 'unresolved', 'fewer than 3 runs'):
             self.assertIn(word, self.text)
 
     def test_the_rule_is_carried_in_the_json_as_data(self):
@@ -76,6 +76,7 @@ class MarkdownTests(unittest.TestCase):
         self.assertEqual(rule['constants']['not_worse_ratio'], 1.05)
         self.assertEqual(rule['constants']['gate_min_runs'], 3)
         self.assertTrue(any('undecided' in line for line in rule['lines']))
+        self.assertTrue(any('unresolved' in line and 'above the band' in line for line in rule['lines']))
         json.dumps(self.result)
 
     def test_a_metric_table_row_shows_medians_ranges_n_the_difference_and_the_outcome(self):
@@ -104,7 +105,8 @@ class MarkdownTests(unittest.TestCase):
         rows = [line for line in rows if '---' not in line]
         self.assertEqual(len(rows), 5)
         self.assertEqual(rows[0], '| Load peak (cache-loaded, through the index load) | gate | pass | pass: a, b |')
-        self.assertEqual(rows[2], '| Index load time | not worse | ok | not measured: b; ok: a |')
+        self.assertEqual(rows[2], '| Index load time | not worse | ok (largest ratio ×1.009) | not measured: b; ok: a |')
+        self.assertEqual(rows[3], '| Index build time | not worse | ok (largest ratio ×1.000) | not measured: b; ok: a |')
         self.assertTrue(rows[4].startswith('| Steady live heap | not higher | ok |'))
 
     def test_the_same_build_is_flagged(self):

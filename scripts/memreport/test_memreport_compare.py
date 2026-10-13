@@ -259,39 +259,57 @@ class NotWorseTests(unittest.TestCase):
     def test_a_candidate_median_of_exactly_1_05_times_the_baseline_is_ok(self):
         self.assertEqual(row_of([1000] * 3, [1050] * 3, 'load_ms')['outcome'], 'ok')
 
+    def test_ok_does_not_depend_on_the_ranges(self):
+        # at most 1.05 x: ok even if the candidate's range is far wider than the baseline's
+        self.assertEqual(row_of([1000] * 3, [10, 1050, 5000], 'load_ms')['outcome'], 'ok')
+
     def test_just_above_1_05_with_separate_ranges_is_worse(self):
         self.assertEqual(row_of([1000] * 3, [1051] * 3, 'load_ms')['outcome'], 'worse')
         self.assertEqual(row_of([10 ** 9] * 3, [1050000001] * 3, 'load_ms')['outcome'], 'worse')
 
-    def test_above_1_05_but_inside_the_overlap_of_the_ranges_is_ok(self):
-        row = row_of([1000, 1100, 1500], [1200, 1300, 1400], 'load_ms')    # 1300 > 1.05 x 1100; 1200 <= 1500
-        self.assertEqual(row['outcome'], 'ok')
+    def test_above_1_05_with_overlapping_ranges_is_unresolved_not_ok(self):
+        # 1300 > 1.05 x 1100 and 1200 <= 1500: no evidence either way, and not "ok"
+        row = row_of([1000, 1100, 1500], [1200, 1300, 1400], 'load_ms')
+        self.assertEqual((row['outcome'], row['above_band'], row['ranges_apart']), ('unresolved', True, False))
+        row = row_of([1000, 1000, 5000], [3000, 3000, 3000], 'load_ms')    # x3.000 inside a wide baseline range
+        self.assertEqual(row['outcome'], 'unresolved')
 
     def test_ranges_that_just_touch_are_overlapping_and_one_apart_are_not(self):
-        self.assertEqual(row_of([1000, 1000, 1200], [1200, 1300, 1300], 'load_ms')['outcome'], 'ok')
+        self.assertEqual(row_of([1000, 1000, 1200], [1200, 1300, 1300], 'load_ms')['outcome'], 'unresolved')
         self.assertEqual(row_of([1000, 1000, 1200], [1201, 1300, 1300], 'load_ms')['outcome'], 'worse')
+
+    def test_fewer_than_3_runs_on_either_side_is_unresolved_whatever_the_numbers(self):
+        for base, cand in (([1000], [1000]), ([1000] * 2, [1000] * 3), ([1000] * 3, [5000] * 2),
+                           ([1000], [1060]), ([1000], [10])):
+            row = row_of(base, cand, 'load_ms')
+            self.assertEqual(row['outcome'], 'unresolved', (base, cand))
+            self.assertIn('at least 3', row['detail'])
+        self.assertEqual(row_of([1000] * 3, [1000] * 3, 'load_ms')['outcome'], 'ok')    # 3 and 3 is enough
 
     def test_the_median_not_the_baseline_maximum_is_the_yardstick(self):
         # median 1210 > 1.05 x 1000 and the ranges are apart; against the maximum (1200 x 1.05 = 1260) it would be ok
         self.assertEqual(row_of([1000, 1000, 1200], [1210] * 3, 'load_ms')['outcome'], 'worse')
 
-    def test_the_ratio_of_the_medians_is_always_printed(self):
-        self.assertEqual(row_of([1000] * 3, [1031] * 3, 'load_ms')['detail'], '×1.031')
+    def test_the_ratio_is_printed_and_carried_as_a_number_with_the_two_flags(self):
+        row = row_of([1000] * 3, [1031] * 3, 'load_ms')
+        self.assertEqual((row['detail'], row['above_band'], row['ranges_apart']), ('×1.031', False, True))
+        self.assertAlmostEqual(row['ratio'], 1.031)
         self.assertEqual(row_of([1000] * 3, [900] * 3, 'build_ms')['detail'], '×0.900')
-        self.assertEqual(row_of([1000, 1100, 1500], [1200, 1300, 1400], 'load_ms')['detail'], '×1.182')
+        overlap = row_of([1000, 1100, 1500], [1200, 1300, 1400], 'load_ms')
+        self.assertEqual(overlap['detail'], '×1.182, ranges overlap')
+        self.assertAlmostEqual(overlap['ratio'], 1300 / 1100)
+        self.assertEqual(row_of([1000] * 3, [1500] * 3, 'load_ms')['detail'], '×1.500')
 
     def test_an_improvement_is_ok(self):
         self.assertEqual(row_of([1000] * 3, [10] * 3, 'build_ms')['outcome'], 'ok')
 
-    def test_not_worse_needs_no_particular_number_of_runs(self):
-        self.assertEqual(row_of([1000], [1000], 'load_ms')['outcome'], 'ok')
-
     def test_a_zero_baseline_median_does_not_divide_by_zero(self):
-        self.assertEqual(row_of([0, 0, 0], [0, 0, 0], 'load_ms')['outcome'], 'ok')    # 0 to 0
+        zero = row_of([0, 0, 0], [0, 0, 0], 'load_ms')
+        self.assertEqual((zero['outcome'], zero['ratio']), ('ok', None))    # 0 to 0
         zero_to_positive = row_of([0, 0, 0], [5, 5, 5], 'load_ms')
         self.assertEqual(zero_to_positive['outcome'], 'worse')
-        self.assertEqual(zero_to_positive['detail'], '×n/a')
-        self.assertEqual(row_of([0, 0, 10], [5, 5, 5], 'load_ms')['outcome'], 'ok')    # ranges overlap
+        self.assertEqual((zero_to_positive['detail'], zero_to_positive['ratio']), ('×n/a', None))
+        self.assertEqual(row_of([0, 0, 10], [5, 5, 5], 'load_ms')['outcome'], 'unresolved')    # ranges overlap
 
     def test_a_percentage_is_unavailable_when_the_baseline_median_is_zero(self):
         row = row_of([0, 0, 0], [5, 5, 5], 'load_ms')
@@ -334,6 +352,24 @@ class MetricVerdictTests(unittest.TestCase):
     def test_a_corpus_that_is_worse_vetoes_the_metric_beside_ok_and_missing_corpora(self):
         rows = {'a': ([1000] * 3, [1000] * 3), 'b': ([1000] * 3, [2000] * 3), 'c': (None, None)}
         self.assertEqual(verdict_of('load_ms', rows)['verdict'], 'worse')
+
+    def test_the_precedence_is_worse_then_unresolved_then_incomplete_then_ok(self):
+        worse, unresolved = ([1000] * 3, [2000] * 3), ([1000, 1100, 1500], [1200, 1300, 1400])
+        one_sided, ok = ([1000] * 3, None), ([1000] * 3, [1000] * 3)
+        self.assertEqual(verdict_of('load_ms', {'a': worse, 'b': unresolved, 'c': one_sided})['verdict'], 'worse')
+        self.assertEqual(verdict_of('load_ms', {'a': unresolved, 'b': one_sided, 'c': ok})['verdict'], 'unresolved')
+        self.assertEqual(verdict_of('load_ms', {'a': one_sided, 'b': ok})['verdict'], 'incomplete')
+        self.assertEqual(verdict_of('load_ms', {'a': ok, 'b': ok})['verdict'], 'ok')
+
+    def test_a_single_run_pair_gives_unresolved_not_a_verdict(self):
+        self.assertEqual(verdict_of('load_ms', {'a': ([1000], [1000])})['verdict'], 'unresolved')
+
+    def test_the_largest_ratio_among_the_corpora_is_carried_for_a_not_worse_metric(self):
+        rows = {'a': ([1000] * 3, [1031] * 3), 'b': ([1000] * 3, [1010] * 3), 'c': (None, None)}
+        result = verdict_of('load_ms', rows)
+        self.assertAlmostEqual(result['largest_ratio'], 1.031)
+        self.assertIsNone(verdict_of('peak', {'a': (mib(1000) * 3, mib(900) * 3)})['largest_ratio'])
+        self.assertIsNone(verdict_of('load_ms', {'a': ([0] * 3, [0] * 3)})['largest_ratio'])
 
     def test_worse_and_higher_win_over_incomplete(self):
         rows = {'a': ([1000] * 3, [2000] * 3), 'b': ([1000] * 3, None)}

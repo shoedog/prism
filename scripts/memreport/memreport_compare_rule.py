@@ -60,12 +60,25 @@ def judge_gate(base, cand):
 
 
 def judge_not_worse(base, cand):
-    """Worse only when the candidate median is above NOT_WORSE_RATIO times the baseline median and the two
-    ranges do not overlap; a difference inside the overlap is not evidence either way. The ratio is printed."""
+    """ok, worse or unresolved, with the ratio of the medians always shown.
+
+    unresolved: either side has fewer than GATE_MIN_RUNS runs; or the candidate median is above NOT_WORSE_RATIO
+    times the baseline median but the ranges overlap (no evidence either way). worse: above the band and the
+    ranges apart (candidate min > baseline max). ok: at most NOT_WORSE_RATIO times the baseline median.
+    """
+    ratio = Fraction(cand['median']) / Fraction(base['median']) if base['median'] else None
     above = Fraction(cand['median']) > NOT_WORSE_RATIO * Fraction(base['median'])
     apart = cand['min'] > base['max']
-    ratio = '×n/a' if not base['median'] else '×%.3f' % (Fraction(cand['median']) / Fraction(base['median']))
-    return {'outcome': 'worse' if above and apart else 'ok', 'detail': ratio}
+    text = '×n/a' if ratio is None else '×%.3f' % ratio
+    flags = {'ratio': None if ratio is None else float(ratio), 'above_band': above, 'ranges_apart': apart}
+    if base['n'] < GATE_MIN_RUNS or cand['n'] < GATE_MIN_RUNS:
+        return dict(flags, outcome='unresolved', detail='%s, n=%d baseline, n=%d candidate, at least %d needed' % (
+            text, base['n'], cand['n'], GATE_MIN_RUNS))
+    if not above:
+        return dict(flags, outcome='ok', detail=text)
+    if apart:
+        return dict(flags, outcome='worse', detail=text)
+    return dict(flags, outcome='unresolved', detail=text + ', ranges overlap')
 
 
 def judge_not_higher(base, cand):
@@ -105,6 +118,8 @@ def metric_verdict(role, rows):
     bad = 'worse' if role == NOT_WORSE else 'higher'
     if bad in outcomes:
         return bad
+    if 'unresolved' in outcomes:
+        return 'unresolved'
     return 'incomplete' if 'one-sided' in outcomes else 'ok'
 
 
@@ -123,15 +138,18 @@ def rule_data():
             'pass or could still pass with more data (pass, insufficient runs, one-sided, not measured) number at '
             'least %d, and "fail" when not.' % (GATE_ABSOLUTE // MIB, 100 * GATE_FRACTION, GATE_MIN_RUNS,
                                                 GATE_CORPORA, GATE_CORPORA, GATE_CORPORA),
-            '- **not worse**, per corpus: "worse" only when the candidate median is above %g times the baseline '
-            'median **and** the ranges do not overlap (candidate min > baseline max); otherwise ok. The ratio of '
-            'the medians is always shown. A difference inside the overlap of the two ranges is not evidence either '
-            'way.' % NOT_WORSE_RATIO,
+            '- **not worse**, per corpus, with r = candidate median / baseline median (always shown): '
+            '"unresolved" when either side has fewer than %d runs; else "ok" when the candidate median is at most '
+            '%g times the baseline median; else "worse" when the ranges do not overlap (candidate min > baseline '
+            'max); else "unresolved" (above the band, ranges overlap: a difference inside the overlap is not '
+            'evidence either way). The metric is "worse" if any corpus is, else "unresolved" if any is, else '
+            '"incomplete" if any is one-sided, else "ok"; its line shows the largest ratio.' % (
+                GATE_MIN_RUNS, NOT_WORSE_RATIO),
             '- **not higher**, per corpus: ok when the candidate median is at most %d MiB above the baseline '
             'median (lower is ok).' % (NOT_HIGHER_BYTES // MIB),
             '- A series on exactly one side is "one-sided" for that corpus; a series on neither side is "not '
-            'measured". For not worse and not higher the metric is "incomplete" when any corpus is one-sided and '
-            'none is worse/higher ("worse"/"higher" wins); a metric with no series on either side in any corpus is '
-            '"not measured" and decides nothing.',
+            'measured". For not higher the metric is "higher" if any corpus is, else "incomplete" when any corpus '
+            'is one-sided, else "ok"; a metric with no series on either side in any corpus is "not measured" and '
+            'decides nothing.',
         ],
     }
