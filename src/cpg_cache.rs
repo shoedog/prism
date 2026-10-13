@@ -248,7 +248,8 @@ use std::path::{Path, PathBuf};
 /// - v112: PR-B R5 retains flat named seam rows and refuses synthetic formals.
 /// - v113: PR-B R9 positive recovery proof, receiver and reference fences.
 /// - v114: PR-B R10 labelled body, JSX member, enum and commented-eval repairs.
-const CACHE_VERSION: u32 = 114;
+/// - v115: E5 refuses unbound cross-file JS/TS free_single module/inferred targets.
+const CACHE_VERSION: u32 = 115;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -787,7 +788,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 114);
+        assert_eq!(super::CACHE_VERSION, 115);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

@@ -1401,6 +1401,11 @@ impl CallGraph {
                 } else {
                     ResolutionKind::FreeSingle
                 };
+                if kind == ResolutionKind::FreeSingle
+                    && self.js_ts_unbound_single_refused(site, ids[0])
+                {
+                    return None;
+                }
                 Some(exact(ids, kind))
             }
             _ => {
@@ -3649,11 +3654,24 @@ impl CallGraph {
                 }
                 match nonstatic.len() {
                     0 => ResolutionOutcome::dropped(DropReason::UnknownName),
+                    1 if self.js_ts_unbound_single_refused(site, nonstatic[0]) => {
+                        ResolutionOutcome::dropped(DropReason::LocalBindingUnproven)
+                    }
                     1 => ResolutionOutcome::hit(exact(nonstatic, ResolutionKind::FreeSingle)),
                     _ => ResolutionOutcome::hit(demoted(nonstatic, ResolutionKind::FreeMulti)),
                 }
             }
         }
+    }
+
+    fn js_ts_unbound_single_refused(&self, site: &CallSite, target: &FunctionId) -> bool {
+        is_js_ts_import_member_file(&site.caller.file)
+            && site.origin == crate::call_graph::CallSiteOrigin::Source
+            && !site.jsx_element
+            && site.qualifier.is_none()
+            && target.file != site.caller.file
+            && matches!(&site.local_binding, crate::call_graph::JsLocalBinding::Unproven(reason) if reason == "unbound")
+            && self.js_ts_free_single_refusals.contains(target)
     }
 
     /// S1b-3b: the in-file callable a proven binding holds, matched by registered name and
@@ -4922,3 +4940,7 @@ func invoke(cmd *Command) {\n\tcmd.Run()\n}\n",
         }
     }
 }
+
+#[cfg(test)]
+#[path = "resolution_e5_tests.rs"]
+mod e5_call_referenceability_tests;

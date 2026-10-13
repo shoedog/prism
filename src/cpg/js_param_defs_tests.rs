@@ -602,17 +602,6 @@ fn r2_target_reached(language: Language, input: &str, target: &str, callee: &str
         .find(|s| s.callee_name == callee)
         .unwrap();
     let resolved = cpg.call_graph.resolve_call_site(site);
-    assert_eq!(resolved.len(), 1);
-    assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
-    assert_eq!(
-        resolved[0].kind,
-        if input.starts_with("import ") {
-            ResolutionKind::ImportMember
-        } else {
-            ResolutionKind::FreeSingle
-        }
-    );
-    assert_ne!(resolved[0].target.file, site.caller.file);
     let start = input
         .find("input =>")
         .or_else(|| input.find("...input").map(|n| n + 3))
@@ -627,6 +616,32 @@ fn r2_target_reached(language: Language, input: &str, target: &str, callee: &str
         })
         .collect();
     assert_eq!(sources.len(), 1, "the static source Def must remain");
+    if resolved.is_empty() {
+        // E5 refuses W2m's inferred Array and W2d's unimported escape module.
+        assert!(matches!(callee, "Array" | "escape"));
+        assert_eq!(
+            cpg.call_graph.resolve_call_site_full(site).drop,
+            Some(crate::resolution::DropReason::LocalBindingUnproven)
+        );
+        assert!(!cpg
+            .graph
+            .edge_references()
+            .any(|e| matches!(e.weight(), CpgEdge::DataFlow(_))
+                && matches!((cpg.node(e.source()),cpg.node(e.target())),
+                (CpgNode::Variable {file:a,..},CpgNode::Variable {file:b,..}) if a != b)));
+        return false;
+    }
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(
+        resolved[0].kind,
+        if input.starts_with("import ") {
+            ResolutionKind::ImportMember
+        } else {
+            ResolutionKind::FreeSingle
+        }
+    );
+    assert_ne!(resolved[0].target.file, site.caller.file);
     let mut seen = BTreeSet::new();
     let mut stack = sources;
     while let Some(node) = stack.pop() {

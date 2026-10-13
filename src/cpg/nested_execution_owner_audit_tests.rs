@@ -27,6 +27,22 @@ fn parsed_files(app: &str) -> BTreeMap<String, ParsedFile> {
     .collect()
 }
 
+// E5: ownership controls need a reachable script-global callee. Retain the
+// original declaration byte offsets by replacing `export ` with seven spaces.
+fn parsed_script_files(app: &str) -> BTreeMap<String, ParsedFile> {
+    let mut files = parsed_files(app);
+    files.insert(
+        "origin.js".into(),
+        ParsedFile::parse(
+            "origin.js",
+            "       function item(input) { return input; }",
+            Language::JavaScript,
+        )
+        .unwrap(),
+    );
+    files
+}
+
 fn use_rows(cpg: &CodePropertyGraph, file: &str) -> Vec<GraphObservation> {
     let mut rows: Vec<_> = cpg
         .dfg
@@ -356,7 +372,7 @@ fn call_execution_owner_source_epochs() {
     let mut previous: Option<CodePropertyGraph> = None;
     let mut previous_source = String::new();
     for (epoch, source) in epochs.into_iter().enumerate() {
-        let files = parsed_files(source);
+        let files = parsed_script_files(source);
         let full = CodePropertyGraph::build(&files);
         let full_rows = semantic_dfg_rows(&full, "app.js");
         let full_resolution = resolution_rows(&full, "app.js");
@@ -418,7 +434,7 @@ fn call_execution_owner_complete_site_and_edge_metadata() {
                 origin.clone(),
                 ParsedFile::parse(
                     &origin,
-                    "export function item(input){return input;}",
+                    "       function item(input){return input;}",
                     language,
                 )
                 .unwrap(),
@@ -598,7 +614,7 @@ fn nested_execution_owner_capture_and_refusal_controls() {
             "origin.js".to_string(),
             ParsedFile::parse(
                 "origin.js",
-                "export function item(input=seed()) { return input; }",
+                "       function item(input=seed()) { return input; }",
                 Language::JavaScript,
             )
             .unwrap(),

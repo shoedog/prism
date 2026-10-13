@@ -111,7 +111,7 @@ fn a2_member_underscore_dollar_and_uppercase_tags_are_not_intrinsic() {
         {\n  return 3;\n}\nexport function App() {\n  input();\n  return <_x><$x/><Card/></_x>;\n}\n";
     let input = "export function input() {\n  return 1;\n}\n";
     let tags_want: &[&str] = &[
-        "L11 input: Exact free_single lib:input@1-3",
+        "L11 input: drop LocalBindingUnproven", // E5: ordinary unimported module call.
         "L12 $x: Exact local_def app:$x@4-6",
         "L12 Card: Exact local_def app:Card@7-9",
         "L12 _x: Exact local_def app:_x@1-3",

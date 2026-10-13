@@ -113,12 +113,13 @@ fn rep_unbound_name_through_an_unrelated_parameter_keeps_base_at_r5() {
     // A parameter of a *different*, unrelated function (`helper`) is invisible from `run`'s
     // scope chain: the call site is correctly `unbound` (not `not_callable`), which is not
     // one of the three R5-narrowed reasons, so base's ordinary R5 free-function fallback
-    // still binds it. This is the negative control for the row above.
+    // still binds a script-global declaration. E5 refuses an unimported module,
+    // so keep this scope control reachable by making the target a script.
     let a = (
         "a.js",
         "function helper(f) {\n  return 0;\n}\nexport function run() {\n  return f();\n}\n",
     );
-    let b = ("b.js", "export function f() {\n  return 2;\n}\n");
+    let b = ("b.js", "function f() {\n  return 2;\n}\n");
     let cg = two_file_graph(a, b);
     let out: Vec<String> = sites(&cg)
         .into_iter()
