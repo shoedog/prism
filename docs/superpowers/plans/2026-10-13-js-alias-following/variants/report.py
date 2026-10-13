@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Summarise out/matrix.jsonl into MATRIX.md (deterministic)."""
 import json, collections, sys
-rows = [json.loads(l) for l in open('out/matrix.jsonl')]
+import sys
+SRC = sys.argv[1] if len(sys.argv) > 1 else 'out/matrix.jsonl'
+rows = [json.loads(l) for l in open(SRC)]
 bins = list(rows[0]['results'].keys())
 order = ['CORRECT', 'PARTIAL', 'DEMOTED', 'MISSING', 'WRONG', 'OVERCLAIM', 'MAY-NAMEONLY', 'MAY-NONE', 'NONE-OK', 'NONE+NAMEONLY', 'NO-RECORD', 'ERROR']
 out = []
@@ -9,6 +11,8 @@ out.append('# Alias-following variant matrix\n')
 ORACLE_NOTES = {
     'destructured-props-default-overridden': 'in JavaScript the checker types a defaulted destructured parameter by its default, so it names the default; the caller passes a different function',
     'named-js-suffix-dts-only': 'the checker names the `.d.ts` signature, which has no body; there is no in-repo callable',
+    'hook-result-two-slots': 'in JavaScript the checker types the returned array literal as an array of a union and names its first member; the destructure takes the second slot',
+    'named-js-suffix-literal-and-ts': 'policy row: TypeScript binds `x.ts`; prism keeps the literal `x.js` as main does',
 }
 def oracle_ok(r):
     o, t = r['oracle'], r['truth']
@@ -23,9 +27,9 @@ unexplained = [r['id'] for r in differ if r['shape'] not in ORACLE_NOTES]
 assert not unexplained, unexplained
 out.append(f'{len(rows)} enumerated fixtures, each a small repo with one marked call site and an authored ground truth. '
            f'The pinned TypeScript 5.9.3 checker can type the callee on {len(typed)} of them (the rest go through `any`, a parameter or a wrapper) '
-           f'and agrees with the authored truth on {len(typed) - len(differ)}. The {len(differ)} that differ are two shapes where the checker answers a type-level question: '
+           f'and agrees with the authored truth on {len(typed) - len(differ)}. The {len(differ)} that differ are shapes where the checker answers a different question: '
            + '; '.join(f"`{k}` ({sum(1 for r in differ if r['shape'] == k)}): {v}" for k, v in ORACLE_NOTES.items()) + '. '
-           'Binaries: `main` = frozen base (main `bab0dfbd`), `e5` = E5 step-2b head.\n')
+           'Binaries: `main` = frozen base (main `bab0dfbd`), `e5` = E5 step-2b head' + (', `i1` = the import-suffix branch `aa74eae0`' if len(bins) > 2 else '') + '.\n')
 out.append('Verdicts: CORRECT (Exact edge to the true callee), PARTIAL (Exact to some of a closed set), MISSING (no edge, a true in-repo callee exists), '
            'WRONG (Exact edge to something else), OVERCLAIM (Exact where the callee is only possible), MAY-NONE (no edge where the callee is only possible), '
            'NONE-OK (no edge, no in-repo callee), NO-RECORD (prism has no call-site record there).\n')
@@ -51,8 +55,8 @@ def short(res):
 out.append('## Per shape\n')
 out.append('One row per shape, scope, invocation form and naming; `ts` and `js` are merged when they agree. Naming: `same` = the alias has the true callee\'s name; '
            '`trap` = the alias has the name of a different, repo-unique callable; `fresh` = the alias name matches nothing.\n')
-out.append('| Step | Shape | Scope | Form | Naming | Truth | main | e5 | Contract question |')
-out.append('|---|---|---|---|---|---|---|---|---|')
+out.append('| Step | Shape | Scope | Form | Naming | Truth | ' + ' | '.join(bins) + ' | Contract question |')
+out.append('|---|---|---|---|---|---|' + '---|' * len(bins) + '---|')
 groups = collections.OrderedDict()
 for r in rows:
     groups.setdefault((r['step'], r['shape'], r['scope'], r['form'], r['naming']), []).append(r)
@@ -66,7 +70,7 @@ for (step, shape, scope, form, naming), rs in groups.items():
         return '; '.join(f"{'/'.join(l)}: {v}" for v, l in vals.items())
     t = rs[0]['truth']
     truth = {'one': 'one callee', 'set': 'closed set', 'may': 'possible only', 'none': 'no in-repo callee', 'anon': 'inline callable'}[t['t']]
-    out.append(f"| {step} | {shape} | {scope} | {form} | {naming} | {truth} | {cell(bins[0])} | {cell(bins[1])} | {rs[0]['contract'] or ''} |")
+    out.append(f"| {step} | {shape} | {scope} | {form} | {naming} | {truth} | " + ' | '.join(cell(b) for b in bins) + f" | {rs[0]['contract'] or ''} |")
 # --- population per census class (product sites; private corpus as aggregate counts only)
 import os
 cmap = json.load(open('census_map.json'))

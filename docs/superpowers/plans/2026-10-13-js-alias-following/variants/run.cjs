@@ -20,17 +20,7 @@ function writeRepo(v, dir) {
     fs.writeFileSync(p, src);
   }
 }
-function markerLine(src, marker) {
-  const lines = src.split('\n');
-  const i = lines.findIndex((l) => l.includes(marker));
-  return i < 0 ? null : i + 1;
-}
-function declLine(src, name) {
-  const lines = src.split('\n');
-  const re = new RegExp(`\\b(function|class|const)\\s+${name}\\b`);
-  const i = lines.findIndex((l) => re.test(l));
-  return i < 0 ? null : i + 1;
-}
+const { markerLine, declLine } = require('./lib.cjs');
 
 function oracle(v, repo, siteLine) {
   const files = Object.keys(v.files).map((f) => path.join(repo, f));
@@ -108,9 +98,10 @@ function matcher(v) {
     const [file, name] = target.split(':');
     return { file, name, line: v.files[file] ? declLine(v.files[file], name) : null };
   };
+  // Identity: same file, same registered name, and the same declaration line when the truth has one.
   const hit = (t, target) => {
     const d = lineOf(target);
-    return t.file === d.file && (t.name === d.name || (d.line !== null && t.line === d.line));
+    return t.file === d.file && t.name === d.name && (d.line === null || t.line === d.line);
   };
   return hit;
 }

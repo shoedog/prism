@@ -1,35 +1,30 @@
-// Export the variant matrix for the in-repo table-driven test.
-//   node export.cjs <matrix.jsonl> <out-dir> <binary-tag>
-// Writes <out-dir>/fixtures.jsonl (inputs + authored truth, one fixture per line) and
-// <out-dir>/expected.jsonl (what the named binary did on each fixture, one row per line).
+// Export the variant matrix inputs for the in-repo table-driven test.
+//   node export.cjs <out-dir>
+// Writes <out-dir>/fixtures.jsonl (sources + authored truth, one fixture per line). It never writes
+// expected.jsonl: pins come only from the Rust test's bless mode, which guards against regressions.
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const [matrixFile, outDir, tag] = process.argv.slice(2);
+const [outDir] = process.argv.slice(2);
 const { all } = require('./variants.cjs');
-const results = new Map(fs.readFileSync(matrixFile, 'utf8').split('\n').filter(Boolean).map((l) => { const r = JSON.parse(l); return [r.id, r]; }));
-const lineWith = (src, test) => { const i = src.split('\n').findIndex(test); return i < 0 ? null : i + 1; };
-const declLine = (src, name) => lineWith(src, (l) => new RegExp(`\\b(function|class|const)\\s+${name}\\b`).test(l));
+const { markerLine, declLine } = require('./lib.cjs');
 const target = (v, t) => { const [file, name] = t.split(':'); return { file, name, line: v.files[file] ? declLine(v.files[file], name) : null }; };
-const byKey = (a, b) => (JSON.stringify(a) < JSON.stringify(b) ? -1 : 1);
 const fixtures = [];
-const expected = [];
+const ids = new Set();
 for (const v of all()) {
+  if (ids.has(v.id)) throw new Error(`duplicate id ${v.id}`);
+  ids.add(v.id);
   const T = v.truth;
   let truth;
   if (T.t === 'none') truth = { kind: 'none' };
-  else if (T.t === 'anon') truth = { kind: 'anon', file: T.file, line: lineWith(v.files[T.file], (l) => l.includes('// ANON')) };
+  else if (T.t === 'anon') truth = { kind: 'anon', file: T.file, line: markerLine(v.files[T.file], '// ANON') };
   else truth = { kind: T.t, targets: (T.t === 'one' ? [T.target] : T.targets).map((t) => target(v, t)) };
+  const siteLine = markerLine(v.files[v.siteFile], '// SITE');
+  if (siteLine === null) throw new Error(`${v.id}: no // SITE line`);
+  if (truth.kind === 'anon' && truth.line === null) throw new Error(`${v.id}: no // ANON line`);
   fixtures.push({ id: v.id, step: v.step, shape: v.shape, scope: v.scope, form: v.form, naming: v.naming, lang: v.lang, contract: v.contract || null,
-    site_file: v.siteFile, site_line: lineWith(v.files[v.siteFile], (l) => l.includes('// SITE')), truth, files: v.files });
-  const r = results.get(v.id);
-  if (!r) throw new Error(`no result for ${v.id}`);
-  const p = r.results[tag];
-  if (p.error) throw new Error(`${v.id}: ${p.error}`);
-  const norm = (list) => list.map((t) => ({ file: t.file, name: t.name, line: t.line, kind: t.kind })).sort(byKey);
-  expected.push({ id: v.id, verdict: p.verdict, record: p.record !== false, exact: norm(p.exact || []), nameonly: norm(p.nameonly || []), drop: p.drop || null, origins: (p.origins || []).slice().sort() });
+    site_file: v.siteFile, site_line: siteLine, truth, files: v.files });
 }
 fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(path.join(outDir, 'fixtures.jsonl'), fixtures.map((x) => JSON.stringify(x)).join('\n') + '\n');
-fs.writeFileSync(path.join(outDir, 'expected.jsonl'), expected.map((x) => JSON.stringify(x)).join('\n') + '\n');
-console.log(`fixtures ${fixtures.length}, expected ${expected.length}`);
+console.log(`fixtures ${fixtures.length}`);

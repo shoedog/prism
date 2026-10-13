@@ -1,0 +1,11 @@
+sites base 61712 head 61712; changed rows 15341
+   40711  product same 
+   13946  product none(UnknownName) -> exact:import_member 
+       5  product name_only:r6_single_owner -> exact:typed_param 
+    4949  test    same 
+    1298  test    none(UnknownName) -> exact:import_member 
+      34  test    name_only:r6_single_owner -> exact:constructor_local 
+      24  test    name_only:r6_single_owner -> exact:typed_param 
+      20  test    name_only:r6_multi_owner_candidate -> exact:typed_param 
+      10  test    name_only:r6_multi_owner_candidate -> exact:constructor_local 
+       4  test    none(MultiOwnerCollision) -> exact:typed_param 

@@ -25,7 +25,9 @@
     "hook-result-destructure",
     "custom-hook-array-result",
     "react-usestate-setter",
-    "react-usecontext-destructure"
+    "react-usecontext-destructure",
+    "hook-result-two-keys",
+    "hook-result-two-slots"
   ],
   "local.const.destructure.identifier": [
     "ns-destructure",
@@ -50,7 +52,8 @@
     "chain8",
     "chain9",
     "alias-of-param",
-    "ident-of-reassigned-let"
+    "ident-of-reassigned-let",
+    "rhs-shadowed-at-site"
   ],
   "local.const.identifier_member": [
     "ns-member",
@@ -63,7 +66,9 @@
     "require-member",
     "ns-member-satisfies",
     "exported-ns-member",
-    "shadows-same-file-fn"
+    "shadows-same-file-fn",
+    "ns-via-alias-hop",
+    "ns-receiver-is-parameter"
   ],
   "local.const.none": [
     "for-of-element"
@@ -122,7 +127,9 @@
     "dotdot-index",
     "redundant-slash",
     "dot-segment",
-    "mid-dotdot-segment"
+    "mid-dotdot-segment",
+    "same-stem-two-dirs",
+    "same-stem-two-dirs-js-suffix"
   ],
   "import.renamed": [
     "renamed",
