@@ -228,7 +228,9 @@ class FirstBuildPeakTests(unittest.TestCase):
         no_peak['stages'][-1]['peak_bytes'] = None
         no_stages = canned('warm')
         no_stages['stages'] = []
+        already_primed = canned('warm')     # cache.cpg_hit true: a warm load, not a first build
         for label, prime in (('absent', None), ('failed', {'kind': 'prime', 'status': 'failed'}),
+                             ('cache already primed', prime_result(already_primed)),
                              ('inadmissible', prime_result(status='inadmissible')),
                              ('wrong version', prime_result(broken_version)), ('no peak', prime_result(no_peak)),
                              ('no stages', prime_result(no_stages)), ('no report', {'status': 'ok'})):

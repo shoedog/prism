@@ -128,6 +128,8 @@ if opt('--cache-dir') and kind == 'warm' and call == 0:
         if cfg.get(key) is not None:
             open(os.path.join(d, name), 'wb').write(b'x' * cfg[key])
 report = json.loads(json.dumps(cfg.get('repo_reports', {}).get(repo, {}).get(kind) or cfg['reports'][kind]))
+if opt('--cache-dir') and kind == 'warm' and call == 0:
+    report['cache'] = {'cpg_hit': False, 'call_edges_loaded': False}    # the priming run builds both
 if kind == 'workload':
     data = open(opt('--mem-workload'), 'rb').read()
     by_call = cfg.get('workload_sha_by_call') or []
@@ -155,8 +157,10 @@ def fake_prism(directory, reports=None, **cfg):
 
 
 def prime_result(report_dict=None, status='ok'):
-    """The stored result of the priming run (its report is a warm report by default)."""
-    return {'kind': 'prime', 'status': status, 'report': report_dict or canned('warm')}
+    """The stored result of the priming run: by default a warm-shaped report that built both caches."""
+    built = canned('warm')
+    built['cache'] = {'cpg_hit': False, 'call_edges_loaded': False}
+    return {'kind': 'prime', 'status': status, 'report': report_dict or built}
 
 
 def ok_result(kind, rep, **canned_args):

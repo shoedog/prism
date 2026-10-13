@@ -326,12 +326,16 @@ def effective_status(result, expected=None):
 def prime_peak(prime):
     """Lifetime peak (bytes) at the last stage of the priming run, the build that writes the cache.
 
-    None when the priming result is absent, was not admitted, or reports no peak.
+    None when the priming result is absent, was not admitted, reports no peak, or did not build
+    the CPG (a cache directory that was already primed makes the "priming" run a warm load, whose
+    peak is not a first-build peak).
     """
     if not isinstance(prime, dict) or prime.get('status') != 'ok':
         return None
     report = prime.get('report')
     if not isinstance(report, dict) or validate(PRIME, report) is not None or not report['stages']:
+        return None
+    if report['cache'].get('cpg_hit') is not False:
         return None
     peak = report['stages'][-1].get('peak_bytes')
     return peak if is_number(peak) else None
