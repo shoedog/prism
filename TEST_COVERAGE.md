@@ -153,6 +153,14 @@ The GitHub Actions workflow (`.github/workflows/ci.yml`) runs:
 1. `cargo test` — all tests including the matrix reporter
 2. `cargo llvm-cov` — uploads LCOV to Codecov
 
+A documentation-only change skips the Rust jobs (tests and coverage, default-feature check and
+doctests, clippy, format) and runs only the classifier job and the Language Coverage Matrix.
+"Documentation-only" means every changed path is under `docs/` or is root-level Markdown, excluding
+what the build or tests read: `README.md` and the non-Markdown files under `docs/eval/` and
+`docs/contracts/`. The rules are in `scripts/ci/classify-changes.sh`, with tests in
+`scripts/ci/classify-changes.test.sh`; when a test starts reading a file under `docs/`, add its path
+there. If the change list cannot be determined, the full set runs.
+
 To enforce the 80% threshold locally:
 ```bash
 ./coverage.sh --check 80
