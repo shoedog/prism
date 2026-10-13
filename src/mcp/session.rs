@@ -24,7 +24,7 @@ pub enum StartupMode {
 
 /// A point in the index build a caller can observe. The memory report samples at each.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BuildStage {
+pub(crate) enum BuildStage {
     /// Sources are read and parsed; no graph exists yet.
     RepoLoaded,
     /// The code property graph is loaded from cache or built, and the navigation index exists.
@@ -165,7 +165,7 @@ impl SessionProvider {
     }
 
     /// `bootstrap`, calling `observe` as each build stage completes.
-    pub fn bootstrap_observed(
+    pub(crate) fn bootstrap_observed(
         cfg: &ServerConfig,
         observe: &mut dyn FnMut(BuildStage),
     ) -> anyhow::Result<Self> {

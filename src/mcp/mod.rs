@@ -4,9 +4,9 @@ pub mod evidence_view;
 pub mod freshness;
 pub mod input;
 pub mod lazy;
-pub mod mem_attribution;
+pub(crate) mod mem_attribution;
 pub mod mem_report;
-pub mod mem_sample;
+pub(crate) mod mem_sample;
 pub mod mem_tree_alloc;
 pub mod output;
 mod owner;
@@ -17,10 +17,10 @@ pub mod tools_reasoning;
 pub mod tools_refresh;
 pub mod transport;
 
-pub(crate) use session::{AutoRefreshSummary, RefreshVerification};
+pub(crate) use session::{AutoRefreshSummary, BuildStage, RefreshVerification};
 pub use session::{
-    BuildStage, CacheMode, RefreshPolicy, RefreshSummary, ServerConfig, SessionProvider,
-    StartupMode, FIRST_CALL_WAIT_MAX,
+    CacheMode, RefreshPolicy, RefreshSummary, ServerConfig, SessionProvider, StartupMode,
+    FIRST_CALL_WAIT_MAX,
 };
 
 pub fn run(cfg: ServerConfig) -> anyhow::Result<()> {
