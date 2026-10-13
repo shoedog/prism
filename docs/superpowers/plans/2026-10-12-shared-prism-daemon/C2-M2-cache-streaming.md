@@ -192,16 +192,17 @@ python3 scripts/memreport/memreport.py run --bin <binary> \
 |---|---|---|
 | P1 | Load peak (`warm`, peak through the index load) | **Gate.** On at least two corpora: candidate max below baseline min, and the median falls by at least 100 MiB or 5 % of the baseline median. |
 | P2 | First-build peak (`build`) | **Gate**, same form. |
-| P3 | Index load time (`warm`) | **Not worse.** A corpus is *worse* only when the candidate median is above 1.05 times the baseline median **and** the two ranges do not overlap (candidate min above baseline max). The metric holds when no corpus is worse and every corpus has both series. The ratio of the medians is always printed. |
+| P3 | Index load time (`warm`) | **Not worse**, three outcomes per corpus: *ok* when the candidate median is at most 1.05 times the baseline median; *worse* when it is above that and the two ranges do not overlap (candidate min above baseline max); *unresolved* when it is above that and the ranges overlap, or when either side has fewer than three runs. The metric holds only when every corpus is *ok*. The ratio of the medians is always printed. |
 | P4 | Index build time (`build`) | **Not worse**, same form. |
 | P5 | Steady live heap (`workload`) | **Not higher:** candidate median at most 1 MiB above the baseline median, on every corpus. A lower figure is fine: a graph built with exact capacity holds less slack. |
 
 The not-worse rule was first written as "at most 1.05 times the baseline median" alone. The driver's review
 measured the same build twice on this machine, once while other work was running: its load time differed by
-15 %. A difference inside the overlap of the two ranges is not evidence in either direction, so the rule now
-requires the ranges to separate, as the gates do. The price is that a regression smaller than the run-to-run
-spread is not caught; the printed ratios and the recorded load average of each run are there so a reader can
-see how tight the comparison was.
+15 %. A difference inside the overlap of the two ranges is not evidence in either direction, so such a result is
+called *unresolved*: it is neither a pass nor a regression, and it sends the measurement back for another run
+on a quieter host. (A first version of this rule called it "ok"; both reviewers of the driver objected that
+a ×3 slowdown inside a wide baseline range would then read as ok, and they were right.) The recorded load
+average of each run is printed so a reader can see how quiet the host was.
 
 A `build` repetition counts only if it wrote both cache files (the driver checks their sizes, and the stderr
 lines the binary prints when a save fails). The binary treats a failed save as a warning and exits 0, and a
@@ -215,7 +216,7 @@ The spec's noise rule reads "a candidate must beat the baseline's max by its own
 **Outcomes.**
 
 - P1 and P2 pass, P3–P5 hold: the candidate ships as written.
-- Any verdict is *incomplete* or *undecided*: nothing is decided. Find out why runs are missing, and measure again into a new directory.
+- Any verdict is *incomplete*, *undecided* or *unresolved*: nothing is decided. Find out why runs are missing or noisy, and measure again into a new directory. For an unresolved time metric the cheap re-measurement is `--kinds warm` (or `build`) alone for both binaries, alternating baseline and candidate, on a host with nothing else running.
 - P2 passes and P1 fails or P3 fails: the save half ships alone (it does not affect load time), and the load half is retried once with the memory-mapped reader. That retry is the only one; a second failure closes the load half as "not worth it" in the readout.
 - P2 fails: the candidate does not ship. The readout says so with the numbers.
 - P5 fails: stop. A candidate that reads and writes a file differently has no reason to hold more live heap; that is a defect to find, not a result.
