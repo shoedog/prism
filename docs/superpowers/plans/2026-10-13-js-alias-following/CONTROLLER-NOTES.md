@@ -56,11 +56,11 @@ X total 261 of 704; T total 65 of 1,572. "Other local" on X includes 36 `const` 
 **F: inadmissible.** F is 90% untyped JavaScript and has no installed dependencies, so the checker returns no declaration for 1,572 of 1,629 sites, including the 100 `useCallback` sites prism already resolves. That is a failure of the probe, not evidence that nothing is resolvable. A ceiling for F needs a syntactic census of hook returns.
 
 ## The variant matrix
-`variants/` holds 963 enumerated fixtures with authored ground truth (`variants.cjs`), a runner against the frozen binaries with a checker cross-check (`run.cjs`), the report (`MATRIX.md`, `matrix.jsonl`) and the exporter that feeds the in-repo test (`export.cjs`). The checker can type the callee on 601 fixtures and agrees with the authored truth on 594; the 7 that differ are two shapes where the checker answers a type-level question (listed at the top of `MATRIX.md`). Every census class with sites now has at least one fixture.
+`variants/` holds 1,011 enumerated fixtures with authored ground truth (`variants.cjs`), a runner against the frozen binaries with a checker cross-check (`run.cjs`), the report (`MATRIX.md`, `matrix.jsonl`) and the exporter that feeds the in-repo test (`export.cjs`). The checker can type the callee on 601 fixtures and agrees with the authored truth on 594; the 7 that differ are two shapes where the checker answers a type-level question (listed at the top of `MATRIX.md`). Every census class with sites now has at least one fixture.
 
 Added on 2026-10-13 after the owner's decision: 30 module-path fixtures (explicit `.js` suffix, `.`/`..`, redundant segments), the two uncovered census classes (dynamic `import()` member and default, destructured parameter defaults), every input the two E5 review rounds reported (merged-namespace, enum and decorated-class script globals; static-property indirect records; the assignment and parenthesised `require` forms), and lookup controls (alias of a parameter, catch binding, inner parameter shadowing an outer alias, eight- and nine-hop chains, class-method and arrow callers).
 
-Main on the matrix: local aliases 54 correct, 465 missing, 72 wrong of 692; parameters 0 of 156; module paths 18 of 26 with an in-repo callee missing; script globals 9 of 9 correct. The E5 head drops four of those nine script-global rows, which reproduces the round-2 finding inside the matrix. Main follows no local alias in the same function or at module level. It produces an edge only for an alias declared in an enclosing function, through the repo-wide name search.
+Main on the matrix: local aliases 66 correct, 465 missing, 108 wrong of 740; parameters 0 of 156; module paths 18 of 26 with an in-repo callee missing; script globals 9 of 9 correct. The E5 head drops four of those nine script-global rows, which reproduces the round-2 finding inside the matrix. Main follows no local alias in the same function or at module level. It produces an edge only for an alias declared in an enclosing function, through the repo-wide name search.
 
 Two things the matrix shows that are not alias-following:
 - `new X()` has no call-site record in JS/TS (34 fixtures).
@@ -97,6 +97,21 @@ Recorded product sites whose callee is bound to a local, by where the value come
 2. **Order of work by measured value.** The plan's order follows the owner's lookup order. By measured sites the largest single item is I1 (T 15,167, X 7, F 0), which is independent of alias-following and could land first.
 3. **Refusal on F is most of the measured value there.** With the plan's positive slices F gains 4 sites; the binding-aware refusal removes 109 wrong Exact targets and 2,222 NameOnly candidates.
 
+
+## A second wrong-edge class on main: the same-file by-name rung ignores a nearer binding (2026-10-13)
+Found while reading the binder (`src/ast/js_binding.rs`) and reproduced on the frozen main binary. The binder already finds the nearest binding and classifies it; for an alias, a written binding or a call result it answers "keep base behaviour". Base behaviour then tries a same-file function of the same spelling before anything else, so a local alias, a reassigned `let` or a destructured value that shadows a same-file function of the same name resolves Exact `local_def` to the shadowed function. The matrix has 36 rows for it (`shadows-same-file-fn*`), all WRONG on main and on the E5 head. The control `call-with-inline-fn` (the result of a call that takes an inline function, which main binds to that inline function under the 2026-09-27 may-call ruling) is CORRECT and must stay so.
+
+Edges of this kind in the corpora today, counted with `variants/r4_adjudicate.cjs` (a locally bound callee whose Exact same-file target lies outside the binding's own declaration):
+
+| | X | T | F |
+|---|---:|---:|---:|
+| Same-file edge, target inside the binding's own declaration (kept) | 34 | 154 | 54 |
+| Same-file edge, target elsewhere in the file | 20 | 25 | 28 |
+| … of which the file passes the target under the same name (prop or object key) | 0 | 4 | 0 |
+
+On F, 27 of the 28 are `const { x } = props` where an unrelated same-file function is also called `x`. The census had these as "unknown, with an edge", which is why they were not in the 109.
+
+The refusal slice therefore has two arms, measured separately: no cross-file name search for a bound name (the E5 result), and no same-file by-name hit outside the binding's own declaration.
 
 ## Owner decisions, 2026-10-13
 After reading the analysis the owner chose, in order: (1) the import-suffix fix goes first; (2) binding lookup is the foundation slice: the nearest binding decides, const alias chains resolve, a bound name whose value is unknown gets no repo-wide name search, which replaces E5's exemption list; (3) measure hook-result following on the private corpus before committing to it (measured above); (4) parameters: the lookup step now, argument following later at NameOnly. No review of the plan. Script globals (the plan's item G) were not put to the owner: unbound names keep today's behaviour until that is decided.

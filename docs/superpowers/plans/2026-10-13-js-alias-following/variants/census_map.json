@@ -11,7 +11,8 @@
     "react-usecallback-ident",
     "react-usecallback-inline",
     "react-lazy",
-    "bind"
+    "bind",
+    "call-with-inline-fn"
   ],
   "local.const.conditional": [
     "conditional",
@@ -30,7 +31,8 @@
     "ns-destructure",
     "object-param-destructure",
     "props-destructure-in-body",
-    "default-destructure"
+    "default-destructure",
+    "shadows-same-file-fn-props"
   ],
   "local.const.destructure.identifier_member": [],
   "local.const.destructure.none": [
@@ -60,7 +62,8 @@
     "props-object-member",
     "require-member",
     "ns-member-satisfies",
-    "exported-ns-member"
+    "exported-ns-member",
+    "shadows-same-file-fn"
   ],
   "local.const.none": [
     "for-of-element"
@@ -76,7 +79,8 @@
   "local.let": [
     "let-stable",
     "let-reassigned",
-    "declared-then-assigned"
+    "declared-then-assigned",
+    "shadows-same-file-fn-let"
   ],
   "local.var": [
     "var"

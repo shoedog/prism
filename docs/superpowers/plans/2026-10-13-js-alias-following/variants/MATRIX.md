@@ -1,6 +1,6 @@
 # Alias-following variant matrix
 
-963 enumerated fixtures, each a small repo with one marked call site and an authored ground truth. The pinned TypeScript 5.9.3 checker can type the callee on 601 of them (the rest go through `any`, a parameter or a wrapper) and agrees with the authored truth on 594. The 7 that differ are two shapes where the checker answers a type-level question: `destructured-props-default-overridden` (6): in JavaScript the checker types a defaulted destructured parameter by its default, so it names the default; the caller passes a different function; `named-js-suffix-dts-only` (1): the checker names the `.d.ts` signature, which has no body; there is no in-repo callable. Binaries: `main` = frozen base (main `bab0dfbd`), `e5` = E5 step-2b head.
+1011 enumerated fixtures, each a small repo with one marked call site and an authored ground truth. The pinned TypeScript 5.9.3 checker can type the callee on 619 of them (the rest go through `any`, a parameter or a wrapper) and agrees with the authored truth on 612. The 7 that differ are two shapes where the checker answers a type-level question: `destructured-props-default-overridden` (6): in JavaScript the checker types a defaulted destructured parameter by its default, so it names the default; the caller passes a different function; `named-js-suffix-dts-only` (1): the checker names the `.d.ts` signature, which has no body; there is no in-repo callable. Binaries: `main` = frozen base (main `bab0dfbd`), `e5` = E5 step-2b head.
 
 Verdicts: CORRECT (Exact edge to the true callee), PARTIAL (Exact to some of a closed set), MISSING (no edge, a true in-repo callee exists), WRONG (Exact edge to something else), OVERCLAIM (Exact where the callee is only possible), MAY-NONE (no edge where the callee is only possible), NONE-OK (no edge, no in-repo callee), NO-RECORD (prism has no call-site record there).
 
@@ -10,7 +10,7 @@ Verdicts: CORRECT (Exact edge to the true callee), PARTIAL (Exact to some of a c
 
 | Step | Fixtures | CORRECT | PARTIAL | MISSING | WRONG | OVERCLAIM | MAY-NONE | NONE-OK | NO-RECORD |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| local | 692 | 54 | 8 | 465 | 72 | 6 | 41 | 16 | 30 |
+| local | 740 | 66 | 8 | 465 | 108 | 6 | 41 | 16 | 30 |
 | param-args | 156 |  |  | 144 |  |  | 12 |  |  |
 | param-lookup | 4 |  |  |  |  |  | 2 | 2 |  |
 | import | 31 | 21 |  | 4 |  |  |  | 6 |  |
@@ -23,7 +23,7 @@ Verdicts: CORRECT (Exact edge to the true callee), PARTIAL (Exact to some of a c
 
 | Step | Fixtures | CORRECT | PARTIAL | MISSING | WRONG | MAY-NONE | NONE-OK | NO-RECORD |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| local | 692 | 10 |  | 571 | 6 | 57 | 18 | 30 |
+| local | 740 | 22 |  | 571 | 42 | 57 | 18 | 30 |
 | param-args | 156 |  |  | 144 |  | 12 |  |  |
 | param-lookup | 4 |  |  |  |  | 2 | 2 |  |
 | import | 31 | 20 |  | 5 |  |  | 6 |  |
@@ -383,6 +383,30 @@ One row per shape, scope, invocation form and naming; `ts` and `js` are merged w
 | local | alias-of-param | outer | call | fresh | possible only | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) |  |
 | local | catch-binding | fn | call | trap | possible only | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) |  |
 | local | catch-binding | fn | call | fresh | possible only | MAY-NONE (UnknownName) | MAY-NONE (UnknownName) |  |
+| local | shadows-same-file-fn | fn | call | same | one callee | WRONG via local_def | WRONG via local_def |  |
+| local | shadows-same-file-fn | outer | call | same | one callee | WRONG via local_def | WRONG via local_def |  |
+| local | shadows-same-file-fn | fn | call | trap | one callee | WRONG via local_def | WRONG via local_def |  |
+| local | shadows-same-file-fn | outer | call | trap | one callee | WRONG via local_def | WRONG via local_def |  |
+| local | shadows-same-file-fn | fn | call | fresh | one callee | WRONG via local_def | WRONG via local_def |  |
+| local | shadows-same-file-fn | outer | call | fresh | one callee | WRONG via local_def | WRONG via local_def |  |
+| local | shadows-same-file-fn-props | fn | call | same | possible only | WRONG via local_def | WRONG via local_def |  |
+| local | shadows-same-file-fn-props | outer | call | same | possible only | WRONG via local_def | WRONG via local_def |  |
+| local | shadows-same-file-fn-props | fn | call | trap | possible only | WRONG via local_def | WRONG via local_def |  |
+| local | shadows-same-file-fn-props | outer | call | trap | possible only | WRONG via local_def | WRONG via local_def |  |
+| local | shadows-same-file-fn-props | fn | call | fresh | possible only | WRONG via local_def | WRONG via local_def |  |
+| local | shadows-same-file-fn-props | outer | call | fresh | possible only | WRONG via local_def | WRONG via local_def |  |
+| local | shadows-same-file-fn-let | fn | call | same | closed set | WRONG via local_def | WRONG via local_def |  |
+| local | shadows-same-file-fn-let | outer | call | same | closed set | WRONG via local_def | WRONG via local_def |  |
+| local | shadows-same-file-fn-let | fn | call | trap | closed set | WRONG via local_def | WRONG via local_def |  |
+| local | shadows-same-file-fn-let | outer | call | trap | closed set | WRONG via local_def | WRONG via local_def |  |
+| local | shadows-same-file-fn-let | fn | call | fresh | closed set | WRONG via local_def | WRONG via local_def |  |
+| local | shadows-same-file-fn-let | outer | call | fresh | closed set | WRONG via local_def | WRONG via local_def |  |
+| local | call-with-inline-fn | fn | call | same | inline callable | CORRECT via local_def | CORRECT via local_def | result of a call that takes an inline function: main binds the inline function (may-call ruling, 2026-09-27) |
+| local | call-with-inline-fn | outer | call | same | inline callable | CORRECT via local_def | CORRECT via local_def | result of a call that takes an inline function: main binds the inline function (may-call ruling, 2026-09-27) |
+| local | call-with-inline-fn | fn | call | trap | inline callable | CORRECT via local_def | CORRECT via local_def | result of a call that takes an inline function: main binds the inline function (may-call ruling, 2026-09-27) |
+| local | call-with-inline-fn | outer | call | trap | inline callable | CORRECT via local_def | CORRECT via local_def | result of a call that takes an inline function: main binds the inline function (may-call ruling, 2026-09-27) |
+| local | call-with-inline-fn | fn | call | fresh | inline callable | CORRECT via local_def | CORRECT via local_def | result of a call that takes an inline function: main binds the inline function (may-call ruling, 2026-09-27) |
+| local | call-with-inline-fn | outer | call | fresh | inline callable | CORRECT via local_def | CORRECT via local_def | result of a call that takes an inline function: main binds the inline function (may-call ruling, 2026-09-27) |
 | local | ns-member-exported-alias | fn | call | trap | one callee | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | local | ns-member-exported-alias | module | call | trap | one callee | MISSING (UnknownName) | MISSING (UnknownName) |  |
 | local | ns-member-exported-alias | outer | call | trap | one callee | WRONG via free_single | MISSING (LocalBindingUnproven) |  |
@@ -577,26 +601,26 @@ Recorded product sites per binding class from the census (X = Excalidraw, T = Ty
 | import.renamed | 7 (1/0) | 29 (0/0) | 28 (0/0) | renamed, renamed-to-decoy, barrel-renamed, renamed-to-decoy-js-suffix |
 | import.require.destructured | 17 (0/0) | 0 | 9 (4/0) | require-destructure, require-destructure-parens, require-assign-destructure |
 | local.const.arrow | 1537 (1501/0) | 78 (78/0) | 447 (431/0) | local-arrow |
-| local.const.call_result | 66 (13/0) | 210 (0/0) | 276 (100/1) | wrapper-call, react-memo, react-usecallback-ident, react-usecallback-inline, react-lazy, bind |
+| local.const.call_result | 66 (13/0) | 210 (0/0) | 276 (100/1) | wrapper-call, react-memo, react-usecallback-ident, react-usecallback-inline, react-lazy, bind, call-with-inline-fn |
 | local.const.conditional | 0 | 32 (0/1) | 4 (0/0) | conditional, fallback-or |
 | local.const.destructure.await | 6 (0/0) | 0 | 0 | await-import-destructure |
 | local.const.destructure.call_result | 199 (0/8) | 36 (0/0) | 819 (0/70) | hook-result-destructure, custom-hook-array-result, react-usestate-setter, react-usecontext-destructure |
-| local.const.destructure.identifier | 24 (0/11) | 130 (0/126) | 222 (0/37) | ns-destructure, object-param-destructure, props-destructure-in-body, default-destructure |
+| local.const.destructure.identifier | 24 (0/11) | 130 (0/126) | 222 (0/37) | ns-destructure, object-param-destructure, props-destructure-in-body, default-destructure, shadows-same-file-fn-props |
 | local.const.destructure.none | 0 | 4 (0/0) | 0 | for-of-element |
 | local.const.element_member | 1 (0/0) | 3 (0/0) | 2 (0/0) | element-member |
 | local.const.function_expression | 15 (15/0) | 0 | 3 (3/0) | local-arrow |
 | local.const.identifier | 5 (0/0) | 3 (0/0) | 5 (0/0) | ident, chain2, chain8, chain9, alias-of-param, ident-of-reassigned-let |
-| local.const.identifier_member | 7 (0/0) | 47 (0/0) | 4 (0/1) | ns-member, ns-member-paren, ns-member-as, ns-member-nonnull, ns-member-exported-alias, obj-member, props-object-member, require-member, ns-member-satisfies, exported-ns-member |
+| local.const.identifier_member | 7 (0/0) | 47 (0/0) | 4 (0/1) | ns-member, ns-member-paren, ns-member-as, ns-member-nonnull, ns-member-exported-alias, obj-member, props-object-member, require-member, ns-member-satisfies, exported-ns-member, shadows-same-file-fn |
 | local.const.none | 5 (0/0) | 3 (0/0) | 1 (0/0) | for-of-element |
 | local.const.other | 2 (0/0) | 7 (0/1) | 258 (0/0) | styled-template, array-destructure |
 | local.const.other_member | 2 (0/0) | 18 (0/0) | 0 | deep-member, require-inline-member |
-| local.let.never_reassigned.none | 0 | 1 (0/0) | 0 | let-stable, let-reassigned, declared-then-assigned |
-| local.let.reassigned.arrow | 0 | 1 (0/0) | 0 | let-stable, let-reassigned, declared-then-assigned |
-| local.let.reassigned.call_result | 0 | 7 (0/0) | 0 | let-stable, let-reassigned, declared-then-assigned |
-| local.let.reassigned.function_expression | 1 (0/0) | 0 | 0 | let-stable, let-reassigned, declared-then-assigned |
-| local.let.reassigned.identifier | 2 (0/0) | 4 (0/0) | 1 (0/0) | let-stable, let-reassigned, declared-then-assigned |
-| local.let.reassigned.none | 6 (0/0) | 6 (0/0) | 2 (0/0) | let-stable, let-reassigned, declared-then-assigned |
-| local.let.reassigned.other | 10 (0/0) | 0 | 0 | let-stable, let-reassigned, declared-then-assigned |
+| local.let.never_reassigned.none | 0 | 1 (0/0) | 0 | let-stable, let-reassigned, declared-then-assigned, shadows-same-file-fn-let |
+| local.let.reassigned.arrow | 0 | 1 (0/0) | 0 | let-stable, let-reassigned, declared-then-assigned, shadows-same-file-fn-let |
+| local.let.reassigned.call_result | 0 | 7 (0/0) | 0 | let-stable, let-reassigned, declared-then-assigned, shadows-same-file-fn-let |
+| local.let.reassigned.function_expression | 1 (0/0) | 0 | 0 | let-stable, let-reassigned, declared-then-assigned, shadows-same-file-fn-let |
+| local.let.reassigned.identifier | 2 (0/0) | 4 (0/0) | 1 (0/0) | let-stable, let-reassigned, declared-then-assigned, shadows-same-file-fn-let |
+| local.let.reassigned.none | 6 (0/0) | 6 (0/0) | 2 (0/0) | let-stable, let-reassigned, declared-then-assigned, shadows-same-file-fn-let |
+| local.let.reassigned.other | 10 (0/0) | 0 | 0 | let-stable, let-reassigned, declared-then-assigned, shadows-same-file-fn-let |
 | local.var.never_reassigned.call_result | 0 | 2 (0/0) | 0 | var |
 | local.var.never_reassigned.destructure.call_result | 0 | 12 (0/0) | 0 | var |
 | local.var.never_reassigned.destructure.conditional | 0 | 12 (0/0) | 0 | var |
