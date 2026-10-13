@@ -111,3 +111,80 @@ fn imported_props_method_inherited_from_a_base_class_matches_the_canonical_spell
     assert_eq!(props_rows("./props.js"), canonical);
     assert_eq!(canonical, ["drop ExternalReceiver"]);
 }
+
+fn hop_rows(outer: &str, inner: &str) -> Vec<String> {
+    let app = format!("import * as N from '{outer}';\nexport function g() {{ N.f(); }}\n");
+    let x = format!("export {{ f }} from '{inner}';\n");
+    let sources = [
+        ("app.ts", app.as_str()),
+        ("x.ts", x.as_str()),
+        ("impl/x.ts", "export function f() { return 1; }\n"),
+        ("other/x.ts", "export function f() { return 2; }\n"),
+    ];
+    rows(&graph(&sources), "g", "f")
+}
+
+#[test]
+fn namespace_proof_through_a_newly_resolved_named_reexport_hop_prunes_the_stem_fallback() {
+    // main: the inner `./impl/x.js` hop is unresolved, so there is no namespace
+    // proof and the legacy stem fallback returns BOTH
+    // `impl/x.ts:f` and `other/x.ts:f` as Exact/import_qualified. The branch
+    // resolves the hop, proves the namespace member, and keeps `impl/x.ts:f`
+    // alone. The canonical inner hop and the `.js` outer spelling agree.
+    let expected = ["impl/x.ts:f@1-1 Exact/import_qualified"];
+    assert_eq!(hop_rows("./x", "./impl/x.js"), expected);
+    assert_eq!(hop_rows("./x", "./impl/x"), expected);
+    assert_eq!(hop_rows("./x.js", "./impl/x"), expected);
+}
+
+fn corner_rows(files: &[&str], spec: &str) -> Vec<String> {
+    let app = format!("import {{ f }} from '{spec}';\nexport function g() {{ f(); }}\n");
+    let mut sources: Vec<(&str, &str)> = files
+        .iter()
+        .map(|p| (*p, "export function f() { return 1; }\n"))
+        .collect();
+    sources.push(("app.ts", app.as_str()));
+    rows(&graph(&sources), "g", "f")
+}
+
+// The tier-policy corners, end to end. Deliberate difference: an existing
+// (canonical) candidate list keeps its legacy order; a newly resolved
+// (redundant) spelling follows TypeScript's order for a spelled `.js`.
+#[test]
+fn corner_dotted_ts_beside_plain_ts_follows_typescript_only_when_newly_resolved() {
+    let files = ["a/x.js.ts", "a/x.ts"];
+    assert_eq!(
+        corner_rows(&files, "./a//x.js"),
+        ["a/x.ts:f@1-1 Exact/import_member"]
+    );
+    assert_eq!(
+        corner_rows(&files, "./a/x.js"),
+        ["a/x.js.ts:f@1-1 Exact/import_member"]
+    );
+}
+
+#[test]
+fn corner_directory_named_js_beside_plain_ts_follows_typescript_only_when_newly_resolved() {
+    let files = ["a/x.ts", "a/x.js/index.ts"];
+    assert_eq!(
+        corner_rows(&files, "./a//x.js"),
+        ["a/x.ts:f@1-1 Exact/import_member"]
+    );
+    assert_eq!(
+        corner_rows(&files, "./a/x.js"),
+        ["a/x.js/index.ts:f@1-1 Exact/import_member"]
+    );
+}
+
+#[test]
+fn corner_literal_js_beside_dotted_ts_follows_typescript_only_when_newly_resolved() {
+    let files = ["a/x.js", "a/x.js.ts"];
+    assert_eq!(
+        corner_rows(&files, "./a//x.js"),
+        ["a/x.js:f@1-1 Exact/import_member"]
+    );
+    assert_eq!(
+        corner_rows(&files, "./a/x.js"),
+        ["a/x.js.ts:f@1-1 Exact/import_member"]
+    );
+}

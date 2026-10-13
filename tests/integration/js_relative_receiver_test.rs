@@ -40,7 +40,8 @@ fn constructor_local_class_imported_with_js_suffix_matches_the_twin() {
 #[test]
 fn two_candidates_refuse_for_the_class_consumer_like_the_twin() {
     // `./c.js` with both c.ts and c.tsx has two candidates, as `./c` does:
-    // the cardinality-one class guard refuses in both spellings.
+    // the cardinality-one class guard refuses in both spellings, so the call
+    // falls to the NameOnly single-owner heuristic on both files, never Exact.
     for body in [
         "export function run(x: C) { x.m(); }",
         "export function run() { const x = new C(); x.m(); }",
@@ -52,10 +53,11 @@ fn two_candidates_refuse_for_the_class_consumer_like_the_twin() {
             ("pkg/app.ts", app.as_str()),
         ];
         let (js, plain) = twin(&sources, "./c.js", "./c", "run", "m");
-        assert_eq!(js, plain, "{body}");
-        assert!(
-            js.iter().all(|row| !row.contains("Exact")),
-            "{body}: {js:?}"
-        );
+        let expected = [
+            "pkg/c.ts:m@1-1 NameOnly/r6_single_owner",
+            "pkg/c.tsx:m@1-1 NameOnly/r6_single_owner",
+        ];
+        assert_eq!(plain, expected, "{body}");
+        assert_eq!(js, expected, "{body}");
     }
 }
