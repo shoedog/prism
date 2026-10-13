@@ -116,7 +116,7 @@ pub(crate) fn check_resolution_chain(dir: &Path, uid: u32) -> Result<(), Runtime
         if hops > MAX_SYMLINK_HOPS {
             return Err(inspect_error(
                 &entry_path,
-                io::Error::new(io::ErrorKind::Other, "too many levels of symbolic links"),
+                io::Error::from_raw_os_error(libc::ELOOP),
             ));
         }
         let target =
