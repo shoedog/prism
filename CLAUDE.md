@@ -297,6 +297,21 @@ server, so an invalid `PRISM_MCP_*` output value warns once, at server start, no
 `PRISM_MCP_BLESS_GOLDEN=1 cargo test --features mcp --test mcp golden_transcript_test` only for a
 change that is meant to alter tool output, and say why in the commit.
 
+Shared-mode building blocks (`src/mcp/shared/`, Unix only; the daemon and the shim that use them
+are later slices): `identity.rs` computes the daemon identity key, a SHA-256 over the canonical
+repo root, its device and inode, the build identity, the shim–daemon protocol version, the
+canonical cache base and the refresh policy; `cache_base.rs` gives `CacheMode::Default` and an
+explicit `--cache-dir` one canonical spelling before the directory exists; `runtime_dir.rs`
+resolves `$PRISM_MCP_RUNTIME_DIR`, else the user runtime directory, else the temp directory,
+joined with `prism-mcpd`, and validates it on every use (a real directory, owned by the current
+user, mode 0700); `paths.rs` names a daemon's files by the key's first 16 hex digits and enforces
+the 103-byte socket path limit; `preamble.rs` and `preamble_reader.rs` encode, decode and read the
+one-line `HELLO` / `READY` / `RETIRING` / `BUSY` / `MISMATCH` exchange (4 KiB bound, one accepted
+spelling per message). Settings a client sends in the preamble are a `ClientSettings`
+(`src/mcp/settings.rs`), whose constructor refuses a result cap below the floor and a first-call
+wait above 600 s. A change to what goes into the key or to the preamble's wire text bumps
+`SHARED_PROTOCOL_VERSION`.
+
 Algorithms fall into two categories:
 1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`
 2. **Graph-based** (require the CPG; source of truth `SlicingAlgorithm::needs_cpg()`, src/slice.rs:210): `left_flow`, `full_flow`, `relevant_slice`, `conditioned_slice`, `barrier_slice`, `chop`, `taint`, `delta_slice`, `spiral_slice`, `circular_slice`, `vertical_slice`, `threed_slice`, `gradient_slice`, `provenance_slice`, `membrane_slice`, `echo_slice`
