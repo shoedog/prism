@@ -1,6 +1,6 @@
 # Handoff — shared per-repo prism daemon lane; plans written, waiting on the owner to choose how S1 and C1 are executed
 
-**Written:** 2026-10-12T23:20-07:00 · **By:** Claude Code session `fd583811-fdc5-4426-9c4a-55872d2ecc1c` (Opus 5.5) · **Provider:** claude
+**Written:** 2026-10-12T22:55-06:00 · **By:** Claude Code session `fd583811-fdc5-4426-9c4a-55872d2ecc1c` (Opus 5.5) · **Provider:** claude
 **Workspace:** `~/code/slicing/.claude/worktrees/spec-shared-prism-daemon` · `spec/shared-prism-daemon` · **Measured state:** `[MEASURED]` HEAD = the commit that adds this file · Tree CLEAN after that commit · Probe `git status --short && git log --oneline -3` · Output inline in the session
 **Predecessor:** Claude Code session `afaf5155-ea5e-4ad5-b8d8-be35f747f74d` (Fable 5.1), which wrote spec v1–v3 and merged #356
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
