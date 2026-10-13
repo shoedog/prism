@@ -1,0 +1,2 @@
+     3 product|ADDED import_member|agree_module_file_and_export_name
+      (path config used: tsconfig.json)

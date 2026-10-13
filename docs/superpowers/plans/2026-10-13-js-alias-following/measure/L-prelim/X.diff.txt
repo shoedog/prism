@@ -1,0 +1,4 @@
+sites base 19219 head 19219; changed rows 1
+   17980  product same 
+       1  product none(UnknownName) -> exact:local_def 
+     983  test    same 
