@@ -6,6 +6,7 @@ and no non-finite number reaches a statistic. `validate` adds the rules of each 
 """
 REPORT_VERSION = 3
 PRIME = 'prime'  # the discarded run that fills the cache; its report only has to parse
+BUILD = 'build'  # a first build into an empty cache directory: the opposite of the cached kinds
 FOOTPRINT = 'footprint'
 U64_MAX = 2 ** 64 - 1  # the binary's counters are u64; a larger integer cannot have come from it
 
@@ -14,11 +15,17 @@ REQUIRED = {
     'warm': (('after_load_repo', 'peak_bytes'), ('after_index', 'peak_bytes'), ('after_index', FOOTPRINT)),
     'cold': (('after_call_edges', 'peak_bytes'),),
     'refresh': (('after_refresh', 'peak_bytes'),),
+    BUILD: (('after_call_edges', 'peak_bytes'),),
     'workload': (('after_settle', FOOTPRINT),),
     PRIME: (),
 }
 CACHE_REASONS = ('the CPG cache was not hit, so this was a cold build',
                  'the call-edge index was computed, not loaded from its sidecar')
+# A `build` run is supposed to miss both caches; the report has to say so (a null is not a miss).
+BUILD_REASONS = ('the CPG cache was hit, so this was not a first build',
+                 'the call-edge index was loaded, so this was not a first build',
+                 'the report does not say the CPG cache was missed',
+                 'the report does not say the call-edge index was computed')
 # A run of these kinds is supposed to load both caches from a primed directory.
 CACHED_KINDS = ('warm', 'workload', 'refresh')
 
@@ -153,6 +160,10 @@ def validate(kind, report, expected=None):
             return CACHE_REASONS[0]
         if report['cache']['call_edges_loaded'] is not True:
             return CACHE_REASONS[1]
+    if kind == BUILD:
+        for position, key in enumerate(('cpg_hit', 'call_edges_loaded')):
+            if report['cache'][key] is not False:
+                return BUILD_REASONS[position if report['cache'][key] is True else position + 2]
     for stage_name, field in REQUIRED[kind]:
         entry = find_stage(report, stage_name)
         if entry is None:

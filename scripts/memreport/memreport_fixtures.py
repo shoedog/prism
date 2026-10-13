@@ -14,8 +14,8 @@ ATTRIBUTION = {
 }
 
 
-def stage(name, footprint, peak, rss=None, heap=None, tree=None):
-    return {'name': name, 'elapsed_ms': 0, 'rss_bytes': rss if rss is not None else footprint,
+def stage(name, footprint, peak, rss=None, heap=None, tree=None, elapsed=0):
+    return {'name': name, 'elapsed_ms': elapsed, 'rss_bytes': rss if rss is not None else footprint,
             'phys_footprint_bytes': footprint, 'compressed_bytes': 0, 'peak_bytes': peak,
             'heap_in_use_bytes': heap, 'tree_sitter_heap_bytes': tree}
 
@@ -50,6 +50,12 @@ def canned(kind, sha256='f' * 64, requests=8, heap=900 * MIB, tree=300 * MIB):
                        stage('after_index', 400 * MIB, 700 * MIB, heap=350 * MIB),
                        stage('after_call_edges', 410 * MIB, 710 * MIB, heap=360 * MIB),
                        stage('after_settle', 410 * MIB, 710 * MIB, heap=360 * MIB)])
+    if kind == 'build':
+        return report([stage('start', 10 * MIB, 10 * MIB),
+                       stage('after_load_repo', 100 * MIB, 120 * MIB, elapsed=1000),
+                       stage('after_index', 600 * MIB, 900 * MIB, elapsed=9000),
+                       stage('after_call_edges', 610 * MIB, 910 * MIB, elapsed=9500)],
+                      cache={'cpg_hit': False, 'call_edges_loaded': False})
     if kind == 'cold':
         return report([stage('start', 10 * MIB, 10 * MIB), stage('after_call_edges', 500 * MIB, 800 * MIB)],
                       cache={'cpg_hit': None, 'call_edges_loaded': False})

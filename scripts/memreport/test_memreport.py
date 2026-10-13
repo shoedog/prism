@@ -41,7 +41,7 @@ class DeriveTests(unittest.TestCase):
     def test_warm_run_yields_the_peak_the_observed_overshoot_and_the_index_heap(self):
         warm = report([stage('after_load_repo', 100, 120, heap=30), stage('after_index', 400, 700, heap=350)])
         self.assertEqual(memreport.derive('warm', warm),
-                         {'peak': 700, 'm2_observed_overshoot': 300, 'index_heap': 320})
+                         {'peak': 700, 'm2_observed_overshoot': 300, 'index_heap': 320, 'load_ms': 0})
 
     def test_observed_overshoot_is_zero_when_the_footprint_is_the_peak(self):
         warm = report([stage('after_load_repo', 100, 900), stage('after_index', 900, 900)])

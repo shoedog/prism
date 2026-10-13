@@ -22,7 +22,7 @@ from pathlib import Path
 from memreport_derive import derive, difference, num  # noqa: F401
 from memreport_render import KINDS, MIB, render
 # The validation names are re-exported: tests and callers use them as `memreport.validate` and so on.
-from memreport_validate import (CACHE_REASONS, CACHED_KINDS, PRIME, REPORT_VERSION, REQUIRED,  # noqa: F401
+from memreport_validate import (BUILD, CACHE_REASONS, CACHED_KINDS, PRIME, REPORT_VERSION, REQUIRED,  # noqa: F401
                                 find_stage, footprint, is_number, validate, well_formed)
 
 MARKER = '{"prism_mem_report":'
@@ -36,6 +36,7 @@ CACHE_MISS_MARKERS = (
     ('nav edge cache: failed to load sidecar',
      'the call-edge sidecar failed to load, so call edges were recomputed'),
 )
+RUN_KINDS = KINDS + (BUILD,)  # every kind `run` accepts; the readout lists only KINDS
 RULE_FRACTION = 0.15
 RULE_ABSOLUTE = 200 * MIB
 # candidate -> (estimate metric, base metric). M1 and M3 are judged against the steady state, M2 against the
@@ -313,10 +314,11 @@ def build_entry(corpus, results, prime=None):
     `inadmissible` and to nothing else. Every admitted result of a corpus must come from the build the first
     admitted one came from.
     """
-    entry = dict(corpus, admissible={kind: 0 for kind in KINDS}, inadmissible=[], metrics={},
+    shown = KINDS + ((BUILD,) if any(item['kind'] == BUILD for item in results) else ())
+    entry = dict(corpus, admissible={kind: 0 for kind in shown}, inadmissible=[], metrics={},
                  attribution=None, build=None, env=None, threads=None, first_build_peak=prime_peak(prime))
     values, identity = {}, None
-    for result in sorted(results, key=lambda item: (KINDS.index(item['kind']), item['rep'])):
+    for result in sorted(results, key=lambda item: (RUN_KINDS.index(item['kind']), item['rep'])):
         kind, rep = result['kind'], result['rep']
         status, reason = effective_status(result, corpus.get('workload') if kind == 'workload' else None)
         if status == 'ok':
@@ -436,7 +438,7 @@ def cmd_summarize(args):
             if path.name in ('corpus.json', 'prime.json'):
                 continue
             result = json.loads(path.read_text())
-            if result.get('kind') not in KINDS or not isinstance(result.get('rep'), int):
+            if result.get('kind') not in RUN_KINDS or not isinstance(result.get('rep'), int):
                 raise SystemExit('%s: no kind/rep recorded; re-run instead' % path)
             results.append(result)
         prime_path = directory / 'prime.json'
