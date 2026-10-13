@@ -197,17 +197,33 @@ fn a_private_directory_owned_by_a_different_uid_is_refused() {
     );
 }
 
-/// The same check with nothing injected: `/` belongs to root. Skipped when the tests run as
-/// root, where `/` is the caller's own.
+/// The same check with nothing injected: `/` belongs to someone else (root, or the id an
+/// unmapped root shows as in a rootless container). Skipped when `/` is the caller's own.
 #[test]
-fn a_directory_that_really_belongs_to_root_is_refused() {
-    if current_uid() == 0 {
-        eprintln!("skipped: running as root, so `/` is owned by the current user");
+fn a_directory_that_really_belongs_to_someone_else_is_refused() {
+    let root_owner = std::fs::symlink_metadata("/").unwrap().uid();
+    if root_owner == current_uid() {
+        eprintln!("skipped: `/` is owned by the current user");
         return;
     }
     let outcome = validate_runtime_dir(Path::new("/"));
     assert!(
-        matches!(&outcome, Err(RuntimeDirError::NotOwned { owner: 0, .. })),
+        matches!(&outcome, Err(RuntimeDirError::NotOwned { owner, .. }) if *owner == root_owner),
+        "{outcome:?}"
+    );
+}
+
+/// A real inspection failure that is not "absent": a path below a regular file is `ENOTDIR`.
+/// Rules out reading every `lstat` error as "the directory does not exist yet", which would
+/// go on to `mkdir` and report the wrong operation.
+#[test]
+fn a_real_inspection_error_is_reported_as_one() {
+    let parent = tempfile::tempdir().unwrap();
+    let file = parent.path().join("a-file");
+    std::fs::write(&file, b"").unwrap();
+    let outcome = validate_runtime_dir(&file.join("prism-mcpd"));
+    assert!(
+        matches!(&outcome, Err(RuntimeDirError::Io { op: "inspect", .. })),
         "{outcome:?}"
     );
 }

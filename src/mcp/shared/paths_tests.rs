@@ -89,10 +89,20 @@ fn the_limit_counts_bytes_not_characters() {
 /// `$TMPDIR`.
 #[test]
 fn a_socket_can_really_be_bound_at_the_limit() {
-    let base = tempfile::Builder::new()
-        .prefix("s2")
-        .tempdir_in("/tmp")
-        .unwrap();
+    let denied = |error: &std::io::Error| {
+        matches!(
+            error.raw_os_error(),
+            Some(code) if code == libc::EACCES || code == libc::EPERM
+        )
+    };
+    let base = match tempfile::Builder::new().prefix("s2").tempdir_in("/tmp") {
+        Ok(base) => base,
+        Err(error) if denied(&error) => {
+            eprintln!("skipped: this environment does not allow a directory under /tmp ({error})");
+            return;
+        }
+        Err(error) => panic!("tempdir under /tmp: {error}"),
+    };
     let base_len = base.path().as_os_str().as_bytes().len();
     let padding = 103 - SOCKET_NAME_BYTES - base_len - 1;
     let dir = base.path().join("p".repeat(padding));
@@ -100,8 +110,13 @@ fn a_socket_can_really_be_bound_at_the_limit() {
 
     let paths = DaemonPaths::new(&dir, &key(KEY)).unwrap();
     assert_eq!(paths.socket().as_os_str().as_bytes().len(), 103);
-    let listener = std::os::unix::net::UnixListener::bind(paths.socket()).expect("bind at 103");
-    drop(listener);
+    match std::os::unix::net::UnixListener::bind(paths.socket()) {
+        Ok(listener) => drop(listener),
+        Err(error) if denied(&error) => {
+            eprintln!("skipped: this environment does not allow binding a socket ({error})")
+        }
+        Err(error) => panic!("bind at 103 bytes: {error}"),
+    }
 }
 
 #[test]

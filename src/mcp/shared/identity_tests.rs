@@ -585,3 +585,10 @@ fn listing(root: &Path) -> BTreeSet<PathBuf> {
     }
     found
 }
+
+/// Spec §4.4 shows `"protocol":1`. The constant is part of every key, so changing it strands
+/// every running daemon; that must be a deliberate edit of this test too.
+#[test]
+fn the_protocol_version_is_the_specs() {
+    assert_eq!(crate::mcp::shared::SHARED_PROTOCOL_VERSION, 1);
+}

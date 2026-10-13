@@ -242,6 +242,35 @@ fn the_default_base_is_the_one_the_navigation_cache_uses() {
     );
 }
 
+/// A component that exists is spelled as the filesystem spells it, not as the caller typed it.
+/// Only a case-insensitive filesystem can tell the difference, so the test skips itself on a
+/// case-sensitive one. Rules out resolving a component only when it is a symlink.
+#[test]
+fn an_existing_component_typed_in_another_case_gets_its_on_disk_spelling() {
+    use std::os::unix::fs::MetadataExt;
+    let (_guard, real) = canonical_temp();
+    std::fs::create_dir(real.join("MixedCase")).unwrap();
+    let typed = real.join("mixedcase");
+    let same_directory = match (
+        std::fs::metadata(&typed),
+        std::fs::metadata(real.join("MixedCase")),
+    ) {
+        (Ok(typed), Ok(on_disk)) => typed.ino() == on_disk.ino() && typed.dev() == on_disk.dev(),
+        _ => false,
+    };
+    if !same_directory {
+        eprintln!("skipped: this filesystem is case-sensitive");
+        return;
+    }
+    let base = effective_cache_base_in(
+        &dir(typed.join("later")),
+        Path::new("/unused"),
+        no_working_dir,
+    )
+    .unwrap();
+    assert_eq!(base, real.join("MixedCase").join("later"));
+}
+
 #[test]
 fn the_environment_reader_agrees_with_the_pure_resolver() {
     let (_guard, real) = canonical_temp();

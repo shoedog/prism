@@ -110,6 +110,11 @@ impl From<CacheBaseError> for IdentityError {
 
 /// Everything one daemon is for. Two configurations share a daemon exactly when these are
 /// equal; the fields are private so that an identity always comes from [`Self::resolve`].
+///
+/// The root is identified by its canonical path as well as its device and inode, so one
+/// directory reached through two canonical paths (a bind mount, or macOS's
+/// `/System/Volumes/Data` prefix) is two identities, as it is two caches for the in-process
+/// server.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DaemonIdentity {
     repo_root: PathBuf,
@@ -123,7 +128,10 @@ pub struct DaemonIdentity {
 impl DaemonIdentity {
     /// The identity `cfg` has for the running binary. Reads the filesystem and creates nothing.
     /// Only `repo_root`, `cache` and `refresh_policy` are read; `startup` and
-    /// `first_call_wait` are connection-local and do not take part.
+    /// `first_call_wait` are connection-local and do not take part. A cache-free configuration
+    /// is refused because it has no cache base to put in the key. An eager one is not refused
+    /// here although it cannot be shared either (spec §4.1 step 2): rejecting both, with a
+    /// message that says what to change, is the shim's command-line check.
     pub fn resolve(cfg: &ServerConfig) -> Result<Self, IdentityError> {
         Self::resolve_with(cfg, BuildIdentity::current(), SHARED_PROTOCOL_VERSION)
     }

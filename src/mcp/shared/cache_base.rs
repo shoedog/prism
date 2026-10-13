@@ -39,13 +39,23 @@ impl std::error::Error for CacheBaseError {
 }
 
 /// The base `CacheMode::Default` caches under. Must stay equal to the default inside
-/// `navigation::cache` (`nav_cache_dir`, `NavigationIndex::build_cached`); a test pins it.
+/// `navigation::cache`, which states it twice (`nav_cache_dir` and
+/// `NavigationIndex::build_cached`). A test pins this function to `nav_cache_dir`; nothing
+/// pins `build_cached`, which is the one the server calls, so the two lines there must be
+/// changed together until one function serves all three.
 pub fn default_cache_base() -> PathBuf {
     dirs::cache_dir().unwrap_or_else(std::env::temp_dir)
 }
 
 /// The canonical cache base of `cache` for this process: `Default` and an explicit directory
 /// that names the same place give the same path, whether or not the place exists yet.
+///
+/// The part of the path that exists is spelled as the filesystem spells it. The part that does
+/// not exist yet is kept as written, so on a case-insensitive filesystem two spellings of a
+/// missing directory are two bases, and a spelling's base can change when the directory is
+/// created under another one. The cost is a second daemon over the same cache, or a shim and
+/// the daemon it started disagreeing on the key for one start; launchers that should share a
+/// daemon must spell the base identically.
 pub fn effective_cache_base(cache: &CacheMode) -> Result<PathBuf, CacheBaseError> {
     effective_cache_base_in(cache, &default_cache_base(), std::env::current_dir)
 }

@@ -3,8 +3,13 @@
 //!
 //! Validation is what keeps another local user out: the directory must be a real directory
 //! (not a symlink), owned by the current user, with mode 0700. It is checked by path with
-//! `lstat`, not through a held descriptor, so it is a check against other users who cannot
-//! write the parent directory; it is not a defense against a process of the same user (§2).
+//! `lstat`, not through a held descriptor, and it checks the directory itself, not what could
+//! replace it. It therefore holds against another user only where that user cannot rename or
+//! remove the directory: every ancestor is writable by this user and root alone, or is sticky
+//! (as `/tmp` is, which is what protects there, not its mode). The default bases meet that.
+//! An override must too; nothing here checks it. A daemon's peer-uid check does not close the
+//! gap from the client's side, so the shim must check the uid of the socket's peer as well
+//! (slice S5a). It is not a defense against a process of the same user (§2).
 use std::ffi::OsString;
 use std::fmt;
 use std::io;
@@ -12,7 +17,9 @@ use std::os::unix::fs::{DirBuilderExt, MetadataExt};
 use std::path::{Path, PathBuf};
 
 /// Environment variable that replaces the base directory. Every launcher that should share a
-/// daemon must resolve the same value (spec §4.3).
+/// daemon must resolve the same value (spec §4.3). The base and every directory above it must
+/// be writable only by this user and root, or be sticky: a base another user can write lets
+/// that user swap the validated directory for their own after the check.
 pub const RUNTIME_DIR_ENV: &str = "PRISM_MCP_RUNTIME_DIR";
 /// The directory joined to the base. This, not the base, is what gets validated and created.
 pub const RUNTIME_DIR_NAME: &str = "prism-mcpd";
