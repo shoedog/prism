@@ -6,6 +6,7 @@
 use super::budget::ConnectionBudget;
 use super::clock::Clock;
 use super::coordinator::{Answer, BuildStatus, DaemonState, Parts, Poisoned};
+use super::fatal::Fatal;
 use crate::mcp::concise_shape::ConciseShapeMode;
 use crate::mcp::lazy::SessionBuilder;
 use crate::mcp::output::StructuredContentMode;
@@ -282,4 +283,31 @@ impl Conn {
             .recv_timeout(HANG)
             .expect("the call returns within the hang limit")
     }
+}
+
+/// What would have ended the daemon, in order. A test installs it in place of the abort to see
+/// where a panic or a poisoned lock is caught; the code after the call then runs, which a
+/// running daemon never does.
+#[derive(Clone, Default)]
+pub(super) struct FatalLog(Arc<Mutex<Vec<Fatal>>>);
+
+impl FatalLog {
+    pub(super) fn install(parts: &mut Parts) -> Self {
+        let log = Self::default();
+        let sink = log.clone();
+        parts.on_fatal = Arc::new(move |fatal| sink.0.lock().expect("fatal log").push(fatal));
+        log
+    }
+
+    pub(super) fn events(&self) -> Vec<Fatal> {
+        self.0.lock().expect("fatal log").clone()
+    }
+}
+
+/// A lazy daemon on the system clock that records what would end it instead of aborting.
+pub(super) fn recording_state(builder: SessionBuilder) -> (Arc<DaemonState>, FatalLog) {
+    let mut parts = Parts::production(builder, StartupMode::Lazy);
+    let log = FatalLog::install(&mut parts);
+    let state = DaemonState::from_parts(parts).expect("a lazy daemon state");
+    (state, log)
 }

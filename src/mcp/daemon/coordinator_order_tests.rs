@@ -1,8 +1,9 @@
 //! Tests for the two steps of the build thread at which another actor can interleave, each
 //! played through a test hook, and for exclusive access to the published provider.
+use super::super::fatal::Fatal;
 use super::super::test_support::{
     build_after, fail_after, fixture, parts_with, scripted, state_with, status, wait_until, Conn,
-    Gate, ManualClock, Outcome,
+    FatalLog, Gate, ManualClock, Outcome,
 };
 use super::*;
 use crate::mcp::RefreshPolicy;
@@ -183,7 +184,9 @@ fn a_poisoned_provider_slot_fails_the_attempt_and_is_an_error_for_every_reader()
     let gate = Gate::closed();
     let (builder, _calls) = scripted(&cfg, vec![build_after(&gate, &cfg)]);
     let clock = ManualClock::new();
-    let state = state_with(builder, &clock);
+    let mut parts = parts_with(builder, &clock);
+    let log = FatalLog::install(&mut parts);
+    let state = DaemonState::from_parts(parts).expect("a lazy daemon state");
     let conn = Conn::open(&state, 600);
 
     conn.call();
@@ -199,6 +202,9 @@ fn a_poisoned_provider_slot_fails_the_attempt_and_is_an_error_for_every_reader()
     );
     assert_eq!(state.read(|_| ()), Err(Poisoned { lock: "provider" }));
     assert_eq!(state.write(|_| ()), Err(Poisoned { lock: "provider" }));
+    // Spec §4.2: publication, the read and the write each found the slot poisoned and each
+    // ended the daemon.
+    assert_eq!(log.events(), vec![Fatal::Poisoned { lock: "provider" }; 3]);
 }
 
 /// What the three tests below share: attempt 1 is parked on by `early`, fails with "first
@@ -338,4 +344,111 @@ fn exclusive_access_between_publication_and_ready_keeps_the_generation_current()
         "the announcement did not bring back the generation read before publication"
     );
     assert_eq!(state.read(|provider| provider.generation()), Ok(Some(1)));
+}
+
+/// A clock that panics once it is armed. The coordinator reads it under the control lock.
+struct ArmedClock {
+    armed: std::sync::atomic::AtomicBool,
+}
+
+impl Clock for ArmedClock {
+    fn now(&self) -> Instant {
+        assert!(
+            !self.armed.load(Ordering::SeqCst),
+            "injected panic under the control lock"
+        );
+        Instant::now()
+    }
+}
+
+/// What a test's `on_fatal` saw: the event, and whether the lock the panic happened under was
+/// still held at that moment (another thread's attempt to take it would block, rather than
+/// succeed or find it poisoned).
+type Seen = Arc<Mutex<Vec<(Fatal, bool)>>>;
+
+/// A daemon whose `on_fatal` records, for each event, whether the provider slot (for a panic in
+/// dispatch) or the control lock (for a panic in the control plane) was still held.
+fn watching_lock_state(mut parts: Parts) -> (Arc<DaemonState>, Seen) {
+    let seen: Seen = Arc::default();
+    let target: Arc<std::sync::OnceLock<std::sync::Weak<DaemonState>>> = Arc::default();
+    let sink = Arc::clone(&seen);
+    let watched = Arc::clone(&target);
+    parts.on_fatal = Arc::new(move |fatal| {
+        let held = watched
+            .get()
+            .and_then(std::sync::Weak::upgrade)
+            .is_some_and(|state| match fatal {
+                Fatal::Panicked(super::super::fatal::Domain::Control) => matches!(
+                    state.control.try_lock(),
+                    Err(std::sync::TryLockError::WouldBlock)
+                ),
+                _ => matches!(
+                    state.provider.try_write(),
+                    Err(std::sync::TryLockError::WouldBlock)
+                ),
+            });
+        sink.lock().expect("seen").push((fatal, held));
+    });
+    let state = DaemonState::from_parts(parts).expect("a lazy daemon state");
+    let _ = target.set(Arc::downgrade(&state));
+    (state, seen)
+}
+
+/// Spec §3.1: a panic under one of the daemon's locks ends the daemon while that lock is still
+/// held, so that in production no other call takes it between the panic and the abort (a
+/// refresh waiting on a reader that panicked would otherwise start first). Rules out a guard
+/// made before its lock, which, dropped last, fires only after the lock is let go.
+#[test]
+fn a_panic_under_a_lock_ends_the_daemon_while_the_lock_is_still_held() {
+    use super::super::fatal::Domain;
+
+    // Under the provider slot's read lock, then under its write lock.
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (builder, _calls) = scripted(&cfg, vec![]);
+    let clock = ManualClock::new();
+    let (state, seen) = watching_lock_state(parts_with(builder, &clock));
+    let conn = Conn::open(&state, 600);
+    conn.call();
+    assert_eq!(conn.outcome(), Outcome::Ready);
+    for exclusive in [false, true] {
+        let panicking = Arc::clone(&state);
+        let unwound = std::thread::spawn(move || {
+            if exclusive {
+                let _ =
+                    panicking.write(|_| -> () { panic!("injected panic under the write lock") });
+            } else {
+                let _ = panicking.read(|_| -> () { panic!("injected panic under the read lock") });
+            }
+        })
+        .join();
+        assert!(unwound.is_err());
+    }
+    assert_eq!(
+        *seen.lock().expect("seen"),
+        vec![
+            (Fatal::Panicked(Domain::Dispatch), true),
+            (Fatal::Panicked(Domain::Dispatch), true)
+        ]
+    );
+
+    // Under the control lock: the clock is read there when an attempt starts.
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (builder, _calls) = scripted(&cfg, vec![]);
+    let clock = Arc::new(ArmedClock {
+        armed: std::sync::atomic::AtomicBool::new(true),
+    });
+    let mut parts = Parts::production(builder, StartupMode::Lazy);
+    parts.clock = clock;
+    let (state, seen) = watching_lock_state(parts);
+    let panicking = Arc::clone(&state);
+    let unwound = std::thread::spawn(move || {
+        let mut budget = ConnectionBudget::new(&super::super::test_support::client_settings(600));
+        let _ = panicking.ensure_ready(&mut budget);
+    })
+    .join();
+    assert!(unwound.is_err());
+    assert_eq!(
+        *seen.lock().expect("seen"),
+        vec![(Fatal::Panicked(Domain::Control), true)]
+    );
 }

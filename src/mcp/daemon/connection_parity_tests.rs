@@ -2,8 +2,10 @@
 //! "Preserved"), that the stale evidence a refresh recorded reaches every client (spec §9
 //! test 14), and that a broken daemon ends a connection with an error and not a panic.
 use super::super::coordinator::DaemonState;
+use super::super::fatal::{Domain, Fatal};
 use super::super::test_support::{
-    build_after, client_settings, fail_after, fixture, scripted, status, wait_until, Gate,
+    build_after, client_settings, fail_after, fixture, recording_state, scripted, status,
+    wait_until, Gate,
 };
 use super::super::wire_support::{
     close, connect, ended, Client, CALLEES, CALLERS, INIT, INITED, LIST, REFRESH,
@@ -318,14 +320,15 @@ fn ready_with_nothing_published_ends_the_connection_with_an_error_not_a_panic() 
     );
 }
 
-/// In S3a a panic under the write lock poisons the slot (slice S3b makes it fatal). Until
-/// then a client's call must end its connection with an error, and the control path, which
-/// takes no lock, must keep answering.
+/// A panic under the write lock ends the daemon (spec §3.1), and so does every later find of
+/// the slot it poisoned. Under a recording `on_fatal`, which returns where the abort would
+/// not: a client's call ends its connection with an error, and the control path, which takes
+/// no lock, keeps answering.
 #[test]
 fn a_poisoned_provider_slot_ends_the_connection_with_an_error_and_handshakes_go_on() {
     let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
     let (builder, _builds) = scripted(&cfg, vec![]);
-    let state = DaemonState::new(builder, StartupMode::Lazy).expect("a lazy daemon state");
+    let (state, log) = recording_state(builder);
     let (mut a, a_worker) = connect(&state, client_settings(600));
     a.handshake();
     let first = a.request(CALLEES);
@@ -353,6 +356,13 @@ fn a_poisoned_provider_slot_ends_the_connection_with_an_error_and_handshakes_go_
     let listed = b.request(LIST);
     assert_eq!(listed["result"]["tools"].as_array().map(Vec::len), Some(9));
     close(b, b_worker);
+    assert_eq!(
+        log.events(),
+        vec![
+            Fatal::Panicked(Domain::Dispatch),
+            Fatal::Poisoned { lock: "provider" }
+        ]
+    );
 }
 
 /// One client of each server, waiting zero seconds: a call, then the build fails, then two
