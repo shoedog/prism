@@ -11,13 +11,17 @@ env:
 
 jobs:
   # Documentation-only changes run a reduced gate set: this job and the Language Coverage Matrix.
-  # The path rules and their tests are in scripts/ci/. Every Rust job runs unless this job
-  # positively reports `code=false`, so a classifier failure falls back to the full set.
+  # A change confined to the Python eval harness (eval/, except eval/fixtures, which Rust tests
+  # read) skips the Rust jobs; the Python job runs instead. The path rules and their tests are in
+  # scripts/ci/. Every Rust job runs unless this job positively reports `code=false`, and the
+  # Python job runs unless it positively reports `eval=false`, so a classifier failure falls back
+  # to the full set.
   changes:
-    name: Classify change (docs-only or code)
+    name: Classify change (docs-only, eval-only or code)
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.classify.outputs.code }}
+      eval: ${{ steps.classify.outputs.eval }}
     steps:
       # Depth 2: a pull_request checkout is the merge of the PR into its base, so HEAD^1 is the base.
       - uses: actions/checkout@v4
@@ -33,7 +37,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           BEFORE: ${{ github.event.before }}
         run: |
-          result="code=true"
+          result=$'code=true\neval=true'
           if [ "$EVENT_NAME" = pull_request ]; then
             if git rev-parse --quiet --verify "HEAD^2" >/dev/null; then base="HEAD^1"; else base=""; fi
           else
@@ -48,11 +52,14 @@ jobs:
             echo "change list unavailable (base='$base'): falling back to the full gate set"
           fi
           echo "$result" | tee -a "$GITHUB_OUTPUT"
-          if [ "$result" = "code=false" ]; then
-            echo "Documentation-only change: the Rust test, build, clippy and format jobs are skipped." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Code change (or the change list could not be determined): full gate set." >> "$GITHUB_STEP_SUMMARY"
-          fi
+          case "$(printf '%s' "$result" | tr '\n' ' ')" in
+            "code=false eval=false")
+              echo "Documentation-only change: the Rust test, build, clippy and format jobs and the Python eval-harness job are skipped." >> "$GITHUB_STEP_SUMMARY" ;;
+            "code=false eval=true")
+              echo "Eval-harness-only change: the Rust test, build, clippy and format jobs are skipped; the Python eval-harness job runs." >> "$GITHUB_STEP_SUMMARY" ;;
+            *)
+              echo "Code change (or the change list could not be determined): full gate set." >> "$GITHUB_STEP_SUMMARY" ;;
+          esac
 
   test:
     name: Test Suite + Coverage (${{ matrix.shard }}/4)
@@ -166,6 +173,46 @@ jobs:
 
       - name: Check formatting
         run: cargo fmt --all -- --check
+
+  # Hermetic tests of the eval harness: no network, API keys, LSP servers, prism binary or
+  # downloaded corpora. Runs unless the classifier positively reports `eval=false`.
+  eval-python:
+    name: Eval harness tests (Python)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.eval != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Python version from eval/.python-version, dependencies from eval/uv.lock.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.13.0"
+          enable-cache: true
+          cache-dependency-glob: eval/uv.lock
+
+      - name: Install eval harness dependencies
+        working-directory: eval
+        run: uv sync --locked
+
+      # Deselected (node-id prefixes, so parametrized cases are included), by reason:
+      #  - need tsserver (TypeScript language server) from an installed compiler;
+      #  - need a built target/release/prism;
+      #  - need the pinned TypeScript 5.9.3 compiler (PRISM_TYPESCRIPT, default a local evidence path);
+      # Tests that need a binary, API key or corpus and are not listed here skip themselves.
+      - name: Run eval harness tests
+        working-directory: eval
+        run: >-
+          uv run --locked pytest -q
+          --deselect tests/test_r1_repair.py::test_native_static_binding_quoted_offsets_and_calibration
+          --deselect tests/test_r2_repair.py::test_native_declaration_binding_and_distinct_declaration_negatives
+          --deselect tests/test_r2_repair.py::test_same_line_nested_initializer_is_a_distinct_binding
+          --deselect tests/test_r1_repair.py::test_native_sut_symbol_seeds_distinguish_same_line_targets
+          --deselect tests/test_r1_repair.py::test_native_sut_interior_seed_avoids_inline_default_callback
+          --deselect secbench/test_repair.py::RepairTests::test_admission_keeps_terminal_line_identity_after_metadata_formatting
+          --deselect secbench/test_repair.py::RepairTests::test_admission_relocation_preserves_original_and_endpoint_bytes
 
   language-coverage:
     name: Language Coverage Matrix

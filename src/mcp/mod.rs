@@ -1,4 +1,6 @@
 pub mod concise_shape;
+#[cfg(unix)]
+mod daemon;
 pub mod error;
 pub mod evidence_view;
 pub mod framing;

@@ -83,3 +83,26 @@ fn the_stages_fire_around_the_index_build_not_just_in_order() {
         ]
     );
 }
+
+/// The shared daemon reports this number to every client; it must count committed refreshes
+/// and nothing else. Rules out an accessor that returns a constant or counts attempts.
+#[test]
+fn generation_counts_committed_refreshes_and_nothing_else() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut provider = SessionProvider::bootstrap(&config(&dir)).unwrap();
+    assert_eq!(provider.generation(), 0, "a freshly built index");
+
+    provider.refresh().unwrap();
+    assert_eq!(provider.generation(), 1);
+
+    provider.force_next_refresh_error_for_tests("refused");
+    assert!(provider.refresh().is_err());
+    assert_eq!(provider.generation(), 1, "a failed refresh commits nothing");
+
+    provider.auto_refresh().unwrap();
+    assert_eq!(
+        provider.generation(),
+        2,
+        "an automatic refresh is a refresh"
+    );
+}
