@@ -69,9 +69,9 @@ pub(super) fn abort_daemon(fatal: Fatal) {
 
 /// Calls `on_fatal` with `Fatal::Panicked(domain)` if the thread unwinds while this is alive.
 ///
-/// Made right after each piece of code in a domain has taken its lock (D47), and dropped at its exit. It does nothing
-/// if the thread was already unwinding when it was made (code that runs in a destructor during
-/// another panic belongs to that panic, which has its own boundary).
+/// Made right after each piece of code in a domain has taken its lock (D47), and dropped at its
+/// exit. It does nothing if the thread was already unwinding when it was made (code that runs in
+/// a destructor during another panic belongs to that panic, which has its own boundary).
 pub(super) struct FatalOnUnwind<'a> {
     on_fatal: &'a OnFatal,
     domain: Domain,
