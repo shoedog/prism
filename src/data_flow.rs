@@ -961,51 +961,6 @@ impl DataFlowGraph {
                         }
                     }
 
-                    // PR-C: projection edges Def(p) -> Use(p.<path>) for
-                    // member-only formals. Never between two different field
-                    // paths. A write to `p` or to a prefix of the use path anywhere
-                    // in the callable suppresses that path (narrow choice).
-                    for (base_path, base_loc) in &member_only_params {
-                        let field_paths = parsed.formal_member_paths(&func_node, &base_path.base);
-                        for field_path in field_paths {
-                            let written =
-                                lvalue_spans
-                                    .iter()
-                                    .chain(nested_write_spans.iter())
-                                    .any(|w| {
-                                        w.path.base == field_path.base
-                                            && w.path.fields.len() <= field_path.fields.len()
-                                            && field_path.fields[..w.path.fields.len()]
-                                                == w.path.fields[..]
-                                    });
-                            if written {
-                                continue;
-                            }
-                            let refs = parsed.find_path_reference_spans_fenced_in(
-                                &func_node,
-                                &field_path,
-                                start,
-                                base_loc.start_byte,
-                                None,
-                                synthetic,
-                            );
-                            for (ref_line, admitted) in &refs {
-                                // Line-anchored Uses are allowed like every other body edge;
-                                // only the signature lines are excluded.
-                                let in_signature = *ref_line >= start
-                                    && *ref_line <= parsed.line_for_byte(base_loc.start_byte);
-                                if let Some(use_loc) =
-                                    get_use(&field_path, *ref_line, !in_signature, *admitted)
-                                {
-                                    edges.push(FlowEdge {
-                                        from: base_loc.clone(),
-                                        to: use_loc,
-                                    });
-                                }
-                            }
-                        }
-                    }
-
                     // Find all uses of each defined variable/path.
                     // Cross-line references remain line-anchored unless a real
                     // rvalue span already exists for the same identity key.
@@ -1114,6 +1069,53 @@ impl DataFlowGraph {
                     }
 
                     drop(get_use);
+                    // PR-C: projection edges Def(p) -> Use(p.<path>) for
+                    // member-only formals. Never between two different field
+                    // paths. One body walk per formal collects the admitted read
+                    // occurrences and the binding-proved member writes; a write to
+                    // a prefix of a path, to the path, or below it suppresses it
+                    // (narrow choice, flow-insensitive). Every Use is built at the
+                    // exact admitted span, for named and synthetic owners alike.
+                    for (base_path, base_loc) in &member_only_params {
+                        let facts = parsed.formal_member_facts(
+                            &func_node,
+                            &base_path.base,
+                            base_loc.start_byte,
+                        );
+                        for field_path in &facts.outermost {
+                            if facts.is_killed(field_path) {
+                                continue;
+                            }
+                            let Some(occurrences) = facts.reads.get(field_path) else {
+                                continue;
+                            };
+                            for (ref_line, (start_byte, end_byte)) in occurrences {
+                                let use_loc = VarLocation {
+                                    file: file_path.clone(),
+                                    function: func_name.clone(),
+                                    function_start_line: start,
+                                    line: *ref_line,
+                                    path: field_path.clone(),
+                                    start_byte: *start_byte,
+                                    end_byte: *end_byte,
+                                    kind: VarAccessKind::Use,
+                                };
+                                uses.entry((
+                                    file_path.clone(),
+                                    func_name.clone(),
+                                    start,
+                                    field_path.clone(),
+                                ))
+                                .or_default()
+                                .push(use_loc.clone());
+                                edges.push(FlowEdge {
+                                    from: base_loc.clone(),
+                                    to: use_loc,
+                                });
+                            }
+                        }
+                    }
+
                     // F1: captured writes inside nested callables contribute to
                     // RD kills, but never become emitted Defs or edge sources.
                     for span in &nested_write_spans {

@@ -7,9 +7,9 @@ use crate::data_flow::DataFlowGraph;
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 
-const JS_TS: [Language; 3] = [Language::JavaScript, Language::TypeScript, Language::Tsx];
+pub(super) const JS_TS: [Language; 3] = [Language::JavaScript, Language::TypeScript, Language::Tsx];
 
-fn file_name(language: Language) -> &'static str {
+pub(super) fn file_name(language: Language) -> &'static str {
     match language {
         Language::JavaScript => "m.js",
         Language::TypeScript => "m.ts",
@@ -22,7 +22,7 @@ fn file_name(language: Language) -> &'static str {
 }
 
 /// `{P}` in a template is the formal; TS/TSX get a type annotation.
-fn render(language: Language, template: &str, formal: &str) -> String {
+pub(super) fn render(language: Language, template: &str, formal: &str) -> String {
     let formal = match language {
         Language::JavaScript => formal.to_string(),
         _ => format!("{formal}: any"),
@@ -30,17 +30,17 @@ fn render(language: Language, template: &str, formal: &str) -> String {
     template.replace("{P}", &formal)
 }
 
-fn parse(language: Language, source: &str) -> ParsedFile {
+pub(super) fn parse(language: Language, source: &str) -> ParsedFile {
     ParsedFile::parse(file_name(language), source, language).unwrap()
 }
 
-fn graph(language: Language, source: &str) -> DataFlowGraph {
+pub(super) fn graph(language: Language, source: &str) -> DataFlowGraph {
     let parsed = parse(language, source);
     DataFlowGraph::build(&BTreeMap::from([(file_name(language).to_string(), parsed)]))
 }
 
 /// (function, path, line) of every Def whose path base is `base` and which has no fields.
-fn base_defs(g: &DataFlowGraph, base: &str) -> BTreeSet<(String, usize)> {
+pub(super) fn base_defs(g: &DataFlowGraph, base: &str) -> BTreeSet<(String, usize)> {
     g.defs
         .values()
         .flatten()
@@ -50,7 +50,10 @@ fn base_defs(g: &DataFlowGraph, base: &str) -> BTreeSet<(String, usize)> {
 }
 
 /// (from path, from line, to path, to line) of every edge ending in a field path of `base`.
-fn field_edges(g: &DataFlowGraph, base: &str) -> BTreeSet<(String, usize, String, usize)> {
+pub(super) fn field_edges(
+    g: &DataFlowGraph,
+    base: &str,
+) -> BTreeSet<(String, usize, String, usize)> {
     g.edges
         .iter()
         .filter(|e| e.to.path.base == base && e.to.path.has_fields())
@@ -65,11 +68,11 @@ fn field_edges(g: &DataFlowGraph, base: &str) -> BTreeSet<(String, usize, String
         .collect()
 }
 
-fn edge(from: &str, fl: usize, to: &str, tl: usize) -> (String, usize, String, usize) {
+pub(super) fn edge(from: &str, fl: usize, to: &str, tl: usize) -> (String, usize, String, usize) {
     (from.into(), fl, to.into(), tl)
 }
 
-fn for_each_language(template: &str, check: impl Fn(Language, &DataFlowGraph, &str)) {
+pub(super) fn for_each_language(template: &str, check: impl Fn(Language, &DataFlowGraph, &str)) {
     for language in JS_TS {
         let source = render(language, template, "p");
         let g = graph(language, &source);
@@ -182,9 +185,10 @@ fn path_write_suppresses_that_path_but_not_its_siblings() {
             );
         },
     );
-    // A write to a deeper path suppresses only that path and its extensions, not its prefix.
+    // A write to a deeper path suppresses that path and its prefixes (the deeper write may
+    // change what the prefix holds), but not an unrelated sibling.
     for_each_language(
-        "function h({P}) {\n  p.a.b = 1;\n  c(p.a.b);\n  d(p.a);\n}\n",
+        "function h({P}) {\n  p.a.b = 1;\n  c(p.a.b);\n  d(p.a);\n  e(p.c);\n}\n",
         |language, g, _| {
             let edges = field_edges(g, "p");
             assert!(
@@ -194,7 +198,11 @@ fn path_write_suppresses_that_path_but_not_its_siblings() {
                 "{language:?}: {edges:?}"
             );
             assert!(
-                edges.contains(&edge("p", 1, "p.a", 4)),
+                !edges.iter().any(|e| e.0 == "p" && e.2 == "p.a"),
+                "{language:?}: {edges:?}"
+            );
+            assert!(
+                edges.contains(&edge("p", 1, "p.c", 5)),
                 "{language:?}: {edges:?}"
             );
         },

@@ -119,6 +119,12 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput, config: &SliceConfig) -> Result
                                 // Forward from each def: find all uses in this
                                 // function (gives full variable reference coverage)
                                 for def_loc in &defs {
+                                    // A member-only formal's base Def reaches every field
+                                    // projection; expanding from it would carry a field
+                                    // seed to its siblings (its line is already included).
+                                    if ctx.cpg.dfg_is_projection_only_def(def_loc) {
+                                        continue;
+                                    }
                                     let uses = ctx.cpg.dfg_forward_reachable(def_loc);
                                     for use_loc in &uses {
                                         if use_loc.file == diff_info.file_path

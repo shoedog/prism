@@ -285,6 +285,33 @@ impl ParsedFile {
             != self.js_ts_binding_scope_at(def_byte, name).map(|s| s.0)
     }
 
+    /// Binding-scope identity of `name` at the formal's own byte, computed once per formal.
+    pub(crate) fn js_ts_def_scope_id(&self, def_byte: usize, name: &str) -> Option<usize> {
+        self.js_ts_binding_scope_at(def_byte, name).map(|s| s.0)
+    }
+
+    /// `js_ts_reference_fenced` against a precomputed definition scope identity.
+    pub(crate) fn js_ts_reference_fenced_against(
+        &self,
+        reference: &Node<'_>,
+        owner: &Node<'_>,
+        name: &str,
+        def_scope: Option<usize>,
+    ) -> bool {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return false;
+        }
+        if self.language.function_name(owner).is_some() && self.js_ts_seam_binding(owner, name) {
+            return false;
+        }
+        self.js_ts_binding_scope_at(reference.start_byte(), name)
+            .map(|s| s.0)
+            != def_scope
+    }
+
     /// Scope identity and visibility span of a binding at an evaluated byte.
     /// Callable body vars exclude defaults; method keys exclude all formals.
     fn js_ts_binding_scope_at(&self, byte: usize, name: &str) -> Option<(usize, (usize, usize))> {

@@ -825,6 +825,45 @@ impl CodePropertyGraph {
             .collect()
     }
 
+    /// PR-C: a Def with a bare path whose every outgoing DataFlow edge ends at a
+    /// field Use of the same base (`Def(p) -> Use(p.x)`), i.e. a member-only formal's
+    /// base Def. Composers that walk backward from a field Use and then forward from
+    /// the Defs found must not expand from such a Def: the forward step would reach
+    /// every sibling field (`p.x` back to `Def(p)` then on to `p.y`).
+    pub fn dfg_is_projection_only_def(&self, def: &VarLocation) -> bool {
+        if def.kind != VarAccessKind::Def || def.path.has_fields() {
+            return false;
+        }
+        let Some(start) = self.var_node(
+            &def.file,
+            &def.function,
+            def.function_start_line,
+            def.line,
+            &def.path,
+            VarAccess::Def,
+        ) else {
+            return false;
+        };
+        let mut any = false;
+        for edge in self
+            .graph
+            .edges_directed(start, petgraph::Direction::Outgoing)
+        {
+            if !matches!(edge.weight(), CpgEdge::DataFlow(_)) {
+                continue;
+            }
+            match &self.graph[edge.target()] {
+                CpgNode::Variable {
+                    access: VarAccess::Use,
+                    path,
+                    ..
+                } if path.base == def.path.base && path.has_fields() => any = true,
+                _ => return false,
+            }
+        }
+        any
+    }
+
     /// Forward taint propagation from a set of tainted locations.
     /// Equivalent to `DataFlowGraph::taint_forward()`.
     pub fn taint_forward(

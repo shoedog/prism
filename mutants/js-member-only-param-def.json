@@ -18,8 +18,8 @@
   ],
   "MO-03-recovery-gate-off": [
    "src/ast.rs",
-   "if recovered(*func_node) || self.js_ts_seam_binding(func_node, var_name) {",
-   "if self.js_ts_seam_binding(func_node, var_name) {",
+   "        if recovered(*func_node)\n",
+   "        if false && recovered(*func_node)\n",
    [
     "cpg::member_only_param_tests::parse_recovered_callable_gets_no_member_only_def"
    ]
@@ -55,55 +55,6 @@
    ".any(|_| false);",
    [
     "cpg::member_only_param_tests::plain_member_only_formal_gets_a_base_def_and_projection_edges"
-   ]
-  ],
-  "MO-08-collect-not-outermost": [
-   "src/ast.rs",
-   "                    out.insert(path);\n                }\n                return;",
-   "                    out.insert(path);\n                }",
-   [
-    "cpg::member_only_param_tests::nested_path_with_a_prefix_read_projects_each_outermost_path"
-   ]
-  ],
-  "MO-09-write-len-strict": [
-   "src/data_flow.rs",
-   "w.path.fields.len() <= field_path.fields.len()",
-   "w.path.fields.len() < field_path.fields.len()",
-   [
-    "cpg::member_only_param_tests::path_write_suppresses_that_path_but_not_its_siblings"
-   ]
-  ],
-  "MO-10-write-any-base": [
-   "src/data_flow.rs",
-   "w.path.base == field_path.base\n                                            &&",
-   "true\n                                            &&",
-   [
-    "cpg::member_only_param_tests::writes_to_other_bases_and_nested_callables_are_scoped_correctly"
-   ]
-  ],
-  "MO-11-write-prefix-negated": [
-   "src/data_flow.rs",
-   "field_path.fields[..w.path.fields.len()]\n                                                == w.path.fields[..]",
-   "field_path.fields[..w.path.fields.len()]\n                                                != w.path.fields[..]",
-   [
-    "cpg::member_only_param_tests::path_write_suppresses_that_path_but_not_its_siblings"
-   ]
-  ],
-  "MO-12-nested-writes-ignored": [
-   "src/data_flow.rs",
-   "                                    .chain(nested_write_spans.iter())\n",
-   "",
-   [
-    "cpg::member_only_param_tests::writes_to_other_bases_and_nested_callables_are_scoped_correctly"
-   ]
-  ],
-  "MO-13-write-no-skip": [
-   "src/data_flow.rs",
-   "                            if written {\n                                continue;\n                            }",
-   "                            if false && written {\n                                continue;\n                            }",
-   [
-    "cpg::member_only_param_tests::path_write_suppresses_that_path_but_not_its_siblings",
-    "cpg::member_only_param_tests::write_to_the_parameter_itself_projects_nothing"
    ]
   ],
   "MO-14-unused-formal-registers": [
@@ -144,6 +95,191 @@
    "const CACHE_VERSION: u32 = 117;",
    [
     "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
+   ]
+  ],
+  "MO-19-escape-gate-off": [
+   "src/ast.rs",
+   "            || self.callable_has_escaped_identifier(*func_node)\n",
+   "            || false\n",
+   [
+    "cpg::member_only_param_r1_tests::a_callable_with_an_escaped_identifier_gets_no_member_only_def"
+   ]
+  ],
+  "MO-20-erased-classifier-off": [
+   "src/ast.rs",
+   "            if self.language.is_in_erased_type_context(node) {\n                // Erased TS positions (`typeof p.x`, interface members) are not reads.\n                return false;",
+   "            if false {\n                // Erased TS positions (`typeof p.x`, interface members) are not reads.\n                return false;",
+   [
+    "cpg::member_only_param_r1_tests::erased_member_type_queries_are_not_reads"
+   ]
+  ],
+  "MO-21-bare-descend-off": [
+   "src/ast.rs",
+   ".is_some_and(|object| self.find_bare_ref(object, var_name))",
+   ".is_some_and(|_| false)",
+   [
+    "cpg::member_only_param_r1_tests::a_bare_read_inside_a_member_object_makes_the_formal_bare"
+   ]
+  ],
+  "MO-23-outermost-includes-inner": [
+   "src/ast_member_projection.rs",
+   "                        if !inside_chain {\n                            facts.outermost.insert",
+   "                        if true {\n                            facts.outermost.insert",
+   [
+    "cpg::member_only_param_tests::nested_path_with_a_prefix_read_projects_each_outermost_path"
+   ]
+  ],
+  "MO-24-kill-exact-prefix-off": [
+   "src/ast_member_projection.rs",
+   "(0..=path.fields.len()).any(",
+   "(0..path.fields.len()).any(",
+   [
+    "cpg::member_only_param_tests::path_write_suppresses_that_path_but_not_its_siblings"
+   ]
+  ],
+  "MO-25-ancestor-kill-off": [
+   "src/ast_member_projection.rs",
+   "        if self.write_ancestors.contains(path) {",
+   "        if false && self.write_ancestors.contains(path) {",
+   [
+    "cpg::member_only_param_r1_tests::a_deeper_write_also_suppresses_the_prefix_path"
+   ]
+  ],
+  "MO-26-ancestors-incomplete": [
+   "src/ast_member_projection.rs",
+   "        for k in 1..path.fields.len() {",
+   "        for k in 2..path.fields.len() {",
+   [
+    "cpg::member_only_param_r1_tests::a_deeper_write_also_suppresses_the_prefix_path"
+   ]
+  ],
+  "MO-27-write-fence-off": [
+   "src/ast_member_projection.rs",
+   "                        if bound {\n                            facts.record_write(path);",
+   "                        if true {\n                            facts.record_write(path);",
+   [
+    "cpg::member_only_param_r1_tests::facts_count_a_write_only_when_it_binds_the_formal"
+   ]
+  ],
+  "MO-28-update-write-off": [
+   "src/ast_member_projection.rs",
+   "\"update_expression\" => return true,",
+   "\"update_expression\" => return false,",
+   [
+    "cpg::member_only_param_r1_tests::every_member_write_form_suppresses_its_path_but_not_a_sibling"
+   ]
+  ],
+  "MO-29-delete-write-off": [
+   "src/ast_member_projection.rs",
+   ".is_some_and(|op| op.kind() == \"delete\")",
+   ".is_some_and(|op| op.kind() == \"typeof\")",
+   [
+    "cpg::member_only_param_r1_tests::every_member_write_form_suppresses_its_path_but_not_a_sibling"
+   ]
+  ],
+  "MO-30-array-pattern-write-off": [
+   "src/ast_member_projection.rs",
+   "\"array_pattern\" => return true,",
+   "\"array_pattern\" => return false,",
+   [
+    "cpg::member_only_param_r1_tests::every_member_write_form_suppresses_its_path_but_not_a_sibling"
+   ]
+  ],
+  "MO-31-object-pattern-write-off": [
+   "src/ast_member_projection.rs",
+   "\"object_pattern\" => return true,",
+   "\"object_pattern\" => return false,",
+   [
+    "cpg::member_only_param_r1_tests::every_member_write_form_suppresses_its_path_but_not_a_sibling"
+   ]
+  ],
+  "MO-32-for-head-write-off": [
+   "src/ast_member_projection.rs",
+   "\"for_in_statement\" => {\n                    return p.child_by_field_name(\"left\").map(|n| n.id()) == Some(child.id());",
+   "\"for_in_statement\" => {\n                    return false;",
+   [
+    "cpg::member_only_param_r1_tests::every_member_write_form_suppresses_its_path_but_not_a_sibling"
+   ]
+  ],
+  "MO-33-rest-pattern-climb-off": [
+   "src/ast_member_projection.rs",
+   "                | \"type_assertion\"\n                | \"rest_pattern\" => {}",
+   "                | \"type_assertion\" => {}",
+   [
+    "cpg::member_only_param_r1_tests::every_member_write_form_suppresses_its_path_but_not_a_sibling"
+   ]
+  ],
+  "MO-34-wrapper-climb-off": [
+   "src/ast_member_projection.rs",
+   "                \"parenthesized_expression\"\n                | \"non_null_expression\"\n                | \"as_expression\"\n                | \"satisfies_expression\"\n                | \"type_assertion\"",
+   "                \"parenthesized_expression\"\n                | \"satisfies_expression\"\n                | \"type_assertion\"",
+   [
+    "cpg::member_only_param_r1_tests::ts_wrapped_member_write_targets_and_read_shaped_patterns"
+   ]
+  ],
+  "MO-36-pattern-default-is-target": [
+   "src/ast_member_projection.rs",
+   "if p.child_by_field_name(\"left\").map(|n| n.id()) != Some(child.id()) {",
+   "if false {",
+   [
+    "cpg::member_only_param_r1_tests::ts_wrapped_member_write_targets_and_read_shaped_patterns"
+   ]
+  ],
+  "MO-37-with-body-gate-off": [
+   "src/ast_member_projection.rs",
+   "\n                            && !self.js_ts_span_in_with_body(node.start_byte(), node.end_byte())",
+   "",
+   [
+    "cpg::member_only_param_r1_tests::with_body_reads_are_never_projected_for_named_owners"
+   ]
+  ],
+  "MO-39-last-occurrence-wins": [
+   "src/ast_member_projection.rs",
+   ".or_insert((node.start_byte(), node.end_byte()));",
+   ".and_modify(|v| *v = (node.start_byte(), node.end_byte()))\n                                .or_insert((node.start_byte(), node.end_byte()));",
+   [
+    "cpg::member_only_param_r1_tests::facts_use_the_exact_unshadowed_occurrence_on_a_shared_line"
+   ]
+  ],
+  "MO-40-fullflow-projection-guard-off": [
+   "src/algorithms/full_flow.rs",
+   "if ctx.cpg.dfg_is_projection_only_def(def_loc) {",
+   "if false && ctx.cpg.dfg_is_projection_only_def(def_loc) {",
+   [
+    "cpg::member_only_param_r1_tests::fullflow_diff_on_a_field_read_never_pulls_in_a_sibling_field"
+   ]
+  ],
+  "MO-41-predicate-never-true": [
+   "src/cpg/query.rs",
+   "} if path.base == def.path.base && path.has_fields() => any = true,",
+   "} if path.base == def.path.base && path.has_fields() => {}",
+   [
+    "cpg::member_only_param_r1_tests::projection_only_def_predicate_separates_member_only_bare_and_local_defs"
+   ]
+  ],
+  "MO-42-predicate-field-check-off": [
+   "src/cpg/query.rs",
+   "} if path.base == def.path.base && path.has_fields() => any = true,",
+   "} if path.base == def.path.base => any = true,",
+   [
+    "cpg::member_only_param_r1_tests::projection_only_def_predicate_separates_member_only_bare_and_local_defs"
+   ]
+  ],
+  "MO-43-kill-skip-off": [
+   "src/data_flow.rs",
+   "                            if facts.is_killed(field_path) {\n                                continue;",
+   "                            if false && facts.is_killed(field_path) {\n                                continue;",
+   [
+    "cpg::member_only_param_tests::write_to_the_parameter_itself_projects_nothing",
+    "cpg::member_only_param_r1_tests::every_member_write_form_suppresses_its_path_but_not_a_sibling"
+   ]
+  ],
+  "MO-44-use-at-line-anchor": [
+   "src/data_flow.rs",
+   "                                    start_byte: *start_byte,\n                                    end_byte: *end_byte,",
+   "                                    start_byte: parsed.line_start_byte(*ref_line),\n                                    end_byte: parsed.line_start_byte(*ref_line),",
+   [
+    "cpg::member_only_param_r1_tests::named_owner_projection_use_sits_at_the_exact_admitted_span"
    ]
   ]
  }

@@ -8915,7 +8915,10 @@ impl ParsedFile {
             let found = node.children(&mut cursor).any(recovered);
             found
         }
-        if recovered(*func_node) || self.js_ts_seam_binding(func_node, var_name) {
+        if recovered(*func_node)
+            || self.js_ts_seam_binding(func_node, var_name)
+            || self.callable_has_escaped_identifier(*func_node)
+        {
             return ParameterUse::Unused;
         }
         let Some(body) = self.function_body_node(func_node) else {
@@ -8928,50 +8931,12 @@ impl ParsedFile {
         }
     }
 
-    /// PR-C: outermost static member paths rooted at the formal
-    /// `name` (`p.x`, `p.x.y`), anywhere in the callable body. Binding is
-    /// proved later by the fenced reference walk, not here.
-    pub fn formal_member_paths(&self, func_node: &Node<'_>, name: &str) -> BTreeSet<AccessPath> {
-        let mut out = BTreeSet::new();
-        if let Some(body) = self.function_body_node(func_node) {
-            self.collect_formal_member_paths(body, name, &mut out);
-        }
-        out
-    }
-
-    fn collect_formal_member_paths(
-        &self,
-        node: Node<'_>,
-        name: &str,
-        out: &mut BTreeSet<AccessPath>,
-    ) {
-        if node.kind() == "member_expression" {
-            let mut root = node;
-            while root.kind() == "member_expression" {
-                match root.child_by_field_name("object") {
-                    Some(o) => root = o,
-                    None => break,
-                }
-            }
-            if root.kind() == "identifier" && self.node_text(&root) == name {
-                let path = self
-                    .bounded_member_path(node)
-                    .map(|member| member.path)
-                    .unwrap_or_else(|| AccessPath::from_expr(self.node_text(&node)));
-                if !path.is_simple() && path.base == name {
-                    out.insert(path);
-                }
-                return;
-            }
-        }
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            self.collect_formal_member_paths(child, name, out);
-        }
-    }
-
     fn has_member_read_of(&self, node: Node<'_>, var_name: &str) -> bool {
         if node.kind() == "member_expression" {
+            if self.language.is_in_erased_type_context(node) {
+                // Erased TS positions (`typeof p.x`, interface members) are not reads.
+                return false;
+            }
             if let Some(object) = node.child_by_field_name("object") {
                 if object.kind() == "identifier" && self.node_text(&object) == var_name {
                     return true;
@@ -9039,9 +9004,13 @@ impl ParsedFile {
 
     fn find_bare_ref(&self, node: Node<'_>, var_name: &str) -> bool {
         // If this is a field access (dev.name, dev->name), skip it — the `dev`
-        // identifier inside is not a bare reference.
+        // identifier inside is not a bare reference. `member_expression` exists only in
+        // JS/TS/TSX, where the object can itself hold a bare read (`wrap(p).x`, `[p][0].x`).
         if Self::is_field_access_node(node.kind()) {
-            return false;
+            return node.kind() == "member_expression"
+                && node
+                    .child_by_field_name("object")
+                    .is_some_and(|object| self.find_bare_ref(object, var_name));
         }
 
         if self.language.is_identifier_node(node.kind()) && self.node_text(&node) == var_name {
@@ -12535,7 +12504,11 @@ mod asserted_member;
 
 #[path = "ast_callback_identity.rs"]
 mod callback_identity;
+#[path = "ast_member_projection.rs"]
+mod member_projection;
 pub use callback_identity::{is_synthetic_owner, SYNTHETIC_OWNER_PREFIX};
+#[cfg(test)]
+pub(crate) use member_projection::FormalMemberFacts;
 
 #[cfg(test)]
 #[path = "ast_asserted_member_tests.rs"]
