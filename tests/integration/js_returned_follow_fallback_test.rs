@@ -393,3 +393,59 @@ fn the_textual_path_stands_down_for_a_returned_value_site_only_on_a_proven_hit()
         );
     }
 }
+
+#[test]
+fn a_shadowed_undefined_and_an_escaping_intermediate_give_the_site_main_s_records() {
+    // PR #382 round 1, F1 and F2: the quoted inputs. Main drops each site (the binding and the
+    // call share a function); an Exact edge to `target` would be wrong, because the runtime value
+    // is `other`.
+    let tails = "export function app() {\n  const { run } = H(true);\n  return run();\n}\n";
+    let head = "function target() {}\nfunction other() {}\n";
+    let hooks = [
+        (
+            "shadowed undefined, object value",
+            "function H(flag) {\n  const undefined = { run: other };\n  if (flag) return undefined;\n  \
+             return { run: target };\n}\n",
+        ),
+        (
+            "shadowed undefined, parameter",
+            "function H(flag, undefined) {\n  if (flag) return undefined;\n  return { run: target };\n}\n",
+        ),
+        (
+            "property write on the intermediate",
+            "function H() {\n  const api = { run: target };\n  api.run = other;\n  return api;\n}\n",
+        ),
+        (
+            "Object.assign on the intermediate",
+            "function H() {\n  const api = { run: target };\n  Object.assign(api, { run: other });\n  return api;\n}\n",
+        ),
+    ];
+    for ext in ["js", "ts", "tsx"] {
+        let file = format!("app.{ext}");
+        for (label, hook) in hooks {
+            let src = format!("{head}{hook}{tails}");
+            let cg = graph_n(&[(&file, &src)]);
+            assert_eq!(
+                rec(&cg, &file, "run"),
+                [format!(
+                    "L{} run Source: drop UnknownName",
+                    src.lines().count() - 1
+                )],
+                "{label} .{ext}"
+            );
+        }
+    }
+    // The array-slot form.
+    let src = format!(
+        "{head}function H() {{\n  const arr = [target];\n  arr[0] = other;\n  return arr;\n}}\n\
+         export function app() {{\n  const [run] = H();\n  return run();\n}}\n"
+    );
+    let cg = graph_n(&[("app.ts", &src)]);
+    assert_eq!(
+        rec(&cg, "app.ts", "run"),
+        [format!(
+            "L{} run Source: drop UnknownName",
+            src.lines().count() - 1
+        )]
+    );
+}

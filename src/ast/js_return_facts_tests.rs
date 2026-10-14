@@ -423,3 +423,172 @@ fn a_returned_nested_function_is_not_hoisted_into_the_outer_fact() {
         )],
     );
 }
+
+#[test]
+fn a_return_undefined_is_ignored_only_when_undefined_has_no_binding() {
+    // F1: a shadowed `undefined` is a value, not nothing. The unshadowed control keeps its fact.
+    check(
+        &ANY,
+        &[
+            (
+                "control: global undefined",
+                "function f() {}\nfunction H(c) {\n  if (c) return undefined;\n  return { f };\n}\n",
+                "f=f@1-1",
+            ),
+            (
+                "shadowed by a const (object value)",
+                "function f() {}\nfunction g() {}\nfunction H(c) {\n  const undefined = { f: g };\n  \
+                 if (c) return undefined;\n  return { f };\n}\n",
+                "-",
+            ),
+            (
+                "shadowed by a const (whole value)",
+                "function f() {}\nfunction g() {}\nfunction H(c) {\n  const undefined = g;\n  \
+                 if (c) return undefined;\n  return f;\n}\n",
+                "-",
+            ),
+            (
+                "shadowed by a const (array slot)",
+                "function f() {}\nfunction g() {}\nfunction H(c) {\n  const undefined = [g];\n  \
+                 if (c) return undefined;\n  return [f];\n}\n",
+                "-",
+            ),
+            (
+                "shadowed by a parameter",
+                "function f() {}\nfunction H(c, undefined) {\n  if (c) return undefined;\n  return { f };\n}\n",
+                "-",
+            ),
+            (
+                "shadowed at module scope",
+                "function f() {}\nconst undefined = null;\nfunction H(c) {\n  if (c) return undefined;\n  \
+                 return { f };\n}\n",
+                "-",
+            ),
+        ],
+    );
+}
+
+#[test]
+fn a_const_intermediate_that_escapes_before_the_return_has_no_fact() {
+    // F2: admitted only when every other reference is the whole value of a `return` of `H`.
+    check(
+        &ANY,
+        &[
+            (
+                "control: returned from two statements",
+                "function f() {}\nfunction H(c) {\n  const api = { f };\n  if (c) return api;\n  return api;\n}\n",
+                "f=f@1-1",
+            ),
+            (
+                "control: parenthesized return",
+                "function f() {}\nfunction H() {\n  const api = { f };\n  return (api);\n}\n",
+                "f=f@1-1",
+            ),
+            (
+                "property write",
+                "function f() {}\nfunction g() {}\nfunction H() {\n  const api = { f };\n  api.f = g;\n  return api;\n}\n",
+                "-",
+            ),
+            (
+                "Object.assign",
+                "function f() {}\nfunction g() {}\nfunction H() {\n  const api = { f };\n  \
+                 Object.assign(api, { f: g });\n  return api;\n}\n",
+                "-",
+            ),
+            (
+                "array element write",
+                "function f() {}\nfunction g() {}\nfunction H() {\n  const arr = [f];\n  arr[0] = g;\n  return arr;\n}\n",
+                "-",
+            ),
+            (
+                "passed as an argument",
+                "function f() {}\nfunction H() {\n  const api = { f };\n  register(api);\n  return api;\n}\n",
+                "-",
+            ),
+            (
+                "spread into another literal",
+                "function f() {}\nfunction H() {\n  const api = { f };\n  const copy = { ...api };\n  return api;\n}\n",
+                "-",
+            ),
+            (
+                "aliased",
+                "function f() {}\nfunction H() {\n  const api = { f };\n  const same = api;\n  return api;\n}\n",
+                "-",
+            ),
+            (
+                "captured by a closure",
+                "function f() {}\nfunction g() {}\nfunction H() {\n  const api = { f };\n  \
+                 const later = () => { api.f = g; };\n  return api;\n}\n",
+                "-",
+            ),
+            (
+                "returned from a nested function only",
+                "function f() {}\nfunction H() {\n  const api = { f };\n  const get = () => { return api; };\n  return api;\n}\n",
+                "-",
+            ),
+            (
+                "read through a member",
+                "function f() {}\nfunction H() {\n  const api = { f };\n  log(api.f);\n  return api;\n}\n",
+                "-",
+            ),
+        ],
+    );
+}
+
+fn wide_object(n: usize) -> String {
+    let keys: Vec<String> = (0..n).map(|i| format!("k{i}: f")).collect();
+    format!(
+        "function f() {{}}\nfunction H() {{\n  return {{ {} }};\n}}\n",
+        keys.join(", ")
+    )
+}
+
+fn wide_array(n: usize) -> String {
+    let items = vec!["f"; n].join(", ");
+    format!("function f() {{}}\nfunction H() {{\n  return [{items}];\n}}\n")
+}
+
+#[test]
+fn a_literal_with_more_than_512_entries_has_no_fact_and_512_still_does() {
+    for path in ANY {
+        assert_eq!(
+            fact_of(path, &wide_object(512)).split(' ').count(),
+            512,
+            "{path}"
+        );
+        assert_eq!(fact_of(path, &wide_object(513)), "-", "{path}");
+        assert_eq!(
+            fact_of(path, &wide_array(512)).split(' ').count(),
+            512,
+            "{path}"
+        );
+        assert_eq!(fact_of(path, &wide_array(513)), "-", "{path}");
+        // A spread counts as an entry.
+        let spreads = format!(
+            "function f() {{}}\nfunction H(r) {{\n  return {{ f, {} }};\n}}\n",
+            vec!["...r"; 512].join(", ")
+        );
+        assert_eq!(fact_of(path, &spreads), "-", "{path}");
+    }
+}
+
+#[test]
+fn duplicate_keys_and_spread_order_are_unchanged_in_a_wide_literal() {
+    let mut keys: Vec<String> = (0..400).map(|i| format!("k{i}: f")).collect();
+    keys.push("dup: f".into());
+    keys.push("dup: f".into());
+    keys.insert(0, "...base".into());
+    keys.push("...tail".into());
+    let src = format!(
+        "function f() {{}}\nfunction H(base, tail) {{\n  return {{ {} }};\n}}\n",
+        keys.join(", ")
+    );
+    for path in ANY {
+        // The trailing spread removes every key; with it gone, only `dup` is still refused.
+        assert_eq!(fact_of(path, &src), "-", "{path}");
+        let no_tail = src.replace(", ...tail", "");
+        let got = fact_of(path, &no_tail);
+        assert_eq!(got.split(' ').count(), 400, "{path}");
+        assert!(!got.contains("dup="), "{path}");
+    }
+}
