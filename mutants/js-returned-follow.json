@@ -111,18 +111,10 @@
     "ast::js_return_facts::tests::a_returned_nested_function_is_not_hoisted_into_the_outer_fact"
    ]
   ],
-  "RV-14-undefined-return-not-ignored": [
-   "src/ast/js_return_facts.rs",
-   "                    JsBinding::Refused(\"unbound\") if !self.js_ts_undefined_is_parameter(expr) => {\n                        continue\n                    }",
-   "                    JsBinding::Refused(\"unbound\") if !self.js_ts_undefined_is_parameter(expr) => {\n                        return None\n                    }",
-   [
-    "ast::js_return_facts::tests::each_return_form_selects_a_callable_by_key_slot_or_whole"
-   ]
-  ],
   "RV-15-every-return-ignored": [
    "src/ast/js_return_facts.rs",
-   "\"null\" => continue,",
-   "_ => continue,",
+   "if expr.kind() == \"null\" {",
+   "if true {",
    [
     "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact"
    ]
@@ -402,32 +394,6 @@
     "js_alias_rule_test::the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_site"
    ]
   ],
-  "RV-51-shadowed-undefined-lookup-removed": [
-   "src/ast/js_return_facts.rs",
-   "\"undefined\" => match self.js_ts_site_binding(expr, \"undefined\", cache) {",
-   "\"undefined\" => match JsBinding::Refused(\"unbound\") {",
-   [
-    "ast::js_return_facts::tests::a_return_undefined_is_ignored_only_when_undefined_has_no_binding",
-    "js_returned_follow_fallback_test::a_shadowed_undefined_and_an_escaping_intermediate_give_the_site_main_s_records"
-   ]
-  ],
-  "RV-52-undefined-parameter-not-checked": [
-   "src/ast/js_return_facts.rs",
-   "JsBinding::Refused(\"unbound\") if !self.js_ts_undefined_is_parameter(expr) => {",
-   "JsBinding::Refused(\"unbound\") => {",
-   [
-    "ast::js_return_facts::tests::a_return_undefined_is_ignored_only_when_undefined_has_no_binding",
-    "js_returned_follow_fallback_test::a_shadowed_undefined_and_an_escaping_intermediate_give_the_site_main_s_records"
-   ]
-  ],
-  "RV-53-undefined-default-counts-as-binding": [
-   "src/ast/js_return_facts.rs",
-   ") && (n\n                    .child_by_field_name(\"right\")",
-   ") && (false && n\n                    .child_by_field_name(\"right\")",
-   [
-    "ast::js_return_facts::tests::a_return_undefined_is_ignored_only_when_undefined_has_no_binding"
-   ]
-  ],
   "RV-54-intermediate-escape-check-removed": [
    "src/ast/js_return_facts.rs",
    "returned_only.then_some(value)",
@@ -485,6 +451,30 @@
     "ast::js_return_facts::tests::duplicate_keys_and_spread_order_are_unchanged_in_a_wide_literal",
     "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact"
    ]
+  ],
+  "RV-14-explicit-return-undefined-ignored-again": [
+   "src/ast/js_return_facts.rs",
+   "if expr.kind() == \"null\" {",
+   "if matches!(expr.kind(), \"null\" | \"undefined\") {",
+   [
+    "ast::js_return_facts::tests::an_explicit_return_undefined_gives_no_fact_whatever_undefined_is_bound_to",
+    "js_returned_follow_fallback_test::a_shadowed_undefined_and_an_escaping_intermediate_give_the_site_main_s_records"
+   ]
+  ],
+  "RV-61-escaped-name-check-removed": [
+   "src/ast/js_return_facts.rs",
+   "(!facts.is_empty() && !self.js_ts_has_escaped_name(func)).then_some(facts)",
+   "(!facts.is_empty()).then_some(facts)",
+   [
+    "ast::js_return_facts::tests::an_escaped_spelling_anywhere_in_the_function_gives_no_fact",
+    "js_returned_follow_fallback_test::a_shadowed_undefined_and_an_escaping_intermediate_give_the_site_main_s_records"
+   ]
+  ],
+  "RV-62-escaped-name-check-identifiers-only": [
+   "src/ast/js_return_facts.rs",
+   "n.kind().contains(\"identifier\")",
+   "n.kind() == \"identifier\"",
+   "ast::js_return_facts::tests::an_escaped_spelling_anywhere_in_the_function_gives_no_fact"
   ]
  }
 }

@@ -61,17 +61,12 @@ impl ParsedFile {
         let mut memo = LiteralMemo::default();
         for expr in self.js_ts_return_exprs(func) {
             let expr = self.js_ts_unwrap_value(expr)?;
-            // `return null` and an unbound `return undefined` yield no value; a shadowed
-            // `undefined` is an ordinary value the contract does not model.
-            match expr.kind() {
-                "null" => continue,
-                "undefined" => match self.js_ts_site_binding(expr, "undefined", cache) {
-                    JsBinding::Refused("unbound") if !self.js_ts_undefined_is_parameter(expr) => {
-                        continue
-                    }
-                    _ => return None,
-                },
-                _ => {}
+            // `return null` yields no value and is ignored. `undefined` is an ordinary identifier
+            // that a pattern, a loop head or a parameter can rebind in ways no lookup here is
+            // trusted to see, so an explicit `return undefined` is like any return the contract
+            // cannot prove: it falls through to the selection below, which has no shape for it.
+            if expr.kind() == "null" {
+                continue;
             }
             let sel = self.js_ts_return_selection(func, expr, &mut memo, cache)?;
             acc = Some(match acc {
@@ -85,56 +80,25 @@ impl ParsedFile {
             keys: sel.keys,
             slots: sel.slots,
         };
-        (!facts.is_empty()).then_some(facts)
+        // Checked last, and only for a function that would have a fact: the reference scan
+        // compares raw spellings, so a name written with an escape (`\u{61}pi`) hides a
+        // reference from it. Any escaped identifier-like node refuses the whole function.
+        (!facts.is_empty() && !self.js_ts_has_escaped_name(func)).then_some(facts)
     }
 
-    /// `undefined` at `site` is a parameter of an enclosing function or the parameter of an
-    /// enclosing `catch`. The binder's parameter collector reads identifiers only, and
-    /// `undefined` parses as its own node kind, so a parameter so named is looked for directly:
-    /// any spelling of it in a parameter list outside a default value.
-    fn js_ts_undefined_is_parameter(&self, site: Node<'_>) -> bool {
-        let mut up = site.parent();
-        while let Some(n) = up {
-            let params = if is_js_ts_function_like(n.kind()) {
-                n.child_by_field_name("parameters")
-                    .or_else(|| n.child_by_field_name("parameter"))
-            } else if n.kind() == "catch_clause" {
-                n.child_by_field_name("parameter")
-            } else {
-                None
-            };
-            if params.is_some_and(|p| self.js_ts_binds_undefined(p)) {
-                return true;
-            }
-            up = n.parent();
-        }
-        false
-    }
-
-    /// Some node under `pattern` spelled `undefined` is a bound name, not a default value.
-    fn js_ts_binds_undefined(&self, pattern: Node<'_>) -> bool {
-        let mut stack = vec![pattern];
+    /// Some identifier-like node under `func` (an identifier, a shorthand property, a property
+    /// name, a type name: any node kind that names something) is spelled with a `\` escape.
+    fn js_ts_has_escaped_name(&self, func: Node<'_>) -> bool {
+        let mut stack = vec![func];
         while let Some(n) = stack.pop() {
-            if self.node_text(&n) == "undefined" && n.child_count() == 0 {
+            if n.child_count() == 0
+                && n.kind().contains("identifier")
+                && self.node_text(&n).contains('\\')
+            {
                 return true;
             }
             let mut cursor = n.walk();
-            for c in n.children(&mut cursor) {
-                let is_default = matches!(
-                    n.kind(),
-                    "assignment_pattern"
-                        | "object_assignment_pattern"
-                        | "required_parameter"
-                        | "optional_parameter"
-                ) && (n
-                    .child_by_field_name("right")
-                    .is_some_and(|r| r.id() == c.id())
-                    || n.child_by_field_name("value")
-                        .is_some_and(|r| r.id() == c.id()));
-                if !is_default && c.kind() != "type_annotation" {
-                    stack.push(c);
-                }
-            }
+            stack.extend(n.children(&mut cursor));
         }
         false
     }
