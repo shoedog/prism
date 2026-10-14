@@ -294,7 +294,8 @@ pub(super) fn publish_cache_file(
 pub(super) fn read_cache_file(path: &Path) -> Option<CpgCache> {
     let file = File::open(path).ok()?;
     if file.metadata().ok()?.len() == 0 {
-        // Mapping an empty file is an error on some platforms; an empty file is not a cache.
+        // An empty file is not a cache. Mapping one is an error on some platforms and an empty
+        // map on others (macOS with memmap2 0.9.8), so it is refused before the mapping.
         return None;
     }
     // SAFETY: the mapping is read-only and lives only for this function. The one hazard of a
