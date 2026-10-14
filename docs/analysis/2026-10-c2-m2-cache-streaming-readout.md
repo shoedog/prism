@@ -21,6 +21,10 @@ it is its load time that fails the rule. Whether a one-time load that is 1–3 s
 today) is worth a 731 MiB lower load peak on a shared daemon, which loads once per repository, is a change to the
 pre-registered rule and is the owner's to make. It is not taken here.
 
+**Owner decision, 2026-10-14:** override the rule and ship the load half ("agree on overriding and shipping"), and
+accept the save half's unresolved P4. The load half merged as #389 (`9d5a67bc`), with new cache file names so that
+older binaries never write a mapped file.
+
 ## The runs
 
 Binaries (built 2026-10-13 evening; sha256 in the evidence directory's `bin/COMMITS-6am.txt` and `SHA256SUMS`):
