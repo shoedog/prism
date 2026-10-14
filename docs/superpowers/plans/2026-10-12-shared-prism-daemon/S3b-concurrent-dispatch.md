@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **Validation status (2026-10-14).** Every task of this plan was built with a compiler before the plan was written, on the local scratch branch `scratch/s3b-validate` (worktree `~/code/prism-s3b-validate`) from `main` `d93d9047` (S3a merged), test first, and every mutant named in a task was applied there and killed. The plan's directives were then generated from the same source cut into this plan's tasks on `scratch/s3b-tasks2` and replayed by a script onto `main`, each anchor matching once, to a tree byte-identical with that branch. Counts, red steps and mutant results below are the observed ones; the unfiltered suite and the doc tests passed on the S3b-2 head. Nothing ran on Linux, and the mutation gate was not run (it selects no MCP code).
+> **Validation status (2026-10-14).** Every task of this plan was built with a compiler before the plan was written, on the local scratch branch `scratch/s3b-validate` (worktree `~/code/prism-s3b-validate`) from `main` `d93d9047` (S3a merged), test first, and every mutant named in a task was applied there and killed. Review round 1 (Opus FIX, sol APPROVE) was folded the same way, test first, with its mutants applied and killed. The plan's directives were then generated from the same source cut into this plan's tasks on `scratch/s3b-tasks3` and replayed by a script onto `main`, each anchor matching once, to a tree byte-identical with that branch. Counts, red steps and mutant results below are the observed ones; the unfiltered suite and the doc tests passed on the S3b-2 head. Nothing ran on Linux, and the mutation gate was not run (it selects no MCP code).
 
 ## Validate before dispatch
 
@@ -11,19 +11,19 @@ What each check must show, and what it showed. Every cargo command ran alone, as
 | # | Command | Must show | Observed |
 |---|---|---|---|
 | V1 | `cargo test --features mcp --lib mcp::daemon`, `--lib mcp::`, and `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp` on the untouched base | The base totals; every later total is "base + N". | `66 passed`; `452 passed`; `23 passed` with `standalone_transcripts_match_the_goldens_recorded_before_the_transport_refactor ... ok`, at `d93d9047`. |
-| V2 | Each task's red step | What the step says: a compile failure, or the named test failing. | Tasks 1, 4, 5, 6: each a single compile error, as each step states. Task 1 with its seam and without its fix: the named test failed (`2 passed; 1 failed`). Tasks 2, 3 and 7 have none: Task 2 proves properties S3a's construction already has, and its mutants show the test bites. |
-| V3 | Each task's green step | The count the step states. | Task 1: 69. Task 2: 70. Task 4: 74, with one warning that Task 5 removes. Task 5: 74. Task 6: 79. |
-| V4 | `cargo test --features mcp --lib mcp::` at the end of each part | base + 4, then base + 13; `0 failed`. | `456 passed` at the S3b-1 head (`3237fc33`); `465 passed` at the S3b-2 head (`7554e7c6`); `0 failed` both. |
-| V5 | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp` | `23 passed`, the golden transcripts unblessed. | `23 passed`, the goldens' test `ok`, at `7554e7c6`, and again inside the full suite (neither part edits `transport.rs`). |
-| V6 | `cargo check`, `cargo check --features mcp`, `cargo check --tests --features mcp,detached-owner-audit` | `Finished`; no warning from the feature build. | `Finished` × 3 at `7554e7c6`; 0 warnings from the feature build; the owner-audit build prints only the base's warnings in `tests/`. |
-| V7 | `cargo clippy --all-targets --features mcp -- -W clippy::all`, filtered to `src/mcp/daemon/` | No line. | No line, at `3237fc33` and at `7554e7c6` (257 `warning` lines in each whole log). |
-| V8 | Every "prove the tests bite" step | The named tests fail under the named mutant. | All 12 mutants killed: Task 1 A–B, Task 2 A–B, Task 4 A, Task 5 A–C, Task 6 A–D. Task 5 C was killed only after its test was made to count each find; as first written it survived (Validation record). |
-| V9 | 30 runs of `mcp::daemon`, default threads and `--test-threads=1` | 30 × `ok`, `0 failed`. | `30 test result: ok. 78 passed; 0 failed` in each mode, at `7554e7c6` (the 79th test, the process test, skipped; test time 1.26–1.31 s with default threads, 1.68–2.28 s with one), load average about 22–30; the process test alone, 5 times: `5 test result: ok. 5 passed; 0 failed`; afterwards `pgrep -f a_daemon_process_for_the_panic_test` printed nothing. |
-| V10 | The zero-diff checks of Tasks 3 and 7 | `0` for `transport.rs`, `transport_tests.rs`, `owner_transport_tests.rs`, the goldens and every serving file outside `src/mcp/daemon/`. | `0`; 14 paths changed, all under `src/mcp/daemon/` but `CLAUDE.md`. |
+| V2 | Each task's red step | What the step says: a compile failure, or the named test failing. | Tasks 1, 4, 5, 6: compile errors, as each step states (Task 5: two). Task 1 with its seam and without its fix: the named test failed (`2 passed; 1 failed`). Task 5's lock-held test failed against the guards as first placed. Tasks 2, 3 and 7 have none: Task 2 proves properties S3a's construction already has, and its mutants show the tests bite. |
+| V3 | Each task's green step | The count the step states. | Task 1: 69. Task 2: 72. Task 4: 76, with one warning that Task 5 removes. Task 5: 77. Task 6: 83. |
+| V4 | `cargo test --features mcp --lib mcp::` at the end of each part | base + 4, then base + 13; `0 failed`. | `458 passed` at the S3b-1 head (`c4c57cdd`); `469 passed` at the S3b-2 head (`d332af28`); `0 failed` both. |
+| V5 | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp` | `23 passed`, the golden transcripts unblessed. | `23 passed`, the goldens' test `ok`, at `d332af28`, and again inside the full suite (neither part edits `transport.rs`). |
+| V6 | `cargo check`, `cargo check --features mcp`, `cargo check --tests --features mcp,detached-owner-audit` | `Finished`; no warning from the feature build. | `Finished` × 3 at `d332af28`; 0 warnings from the feature build; the owner-audit build prints only the base's warnings in `tests/`. |
+| V7 | `cargo clippy --all-targets --features mcp -- -W clippy::all`, filtered to `src/mcp/daemon/` | No line. | No line, at `c4c57cdd` and at `d332af28` (257 `warning` lines in each whole log). |
+| V8 | Every "prove the tests bite" step | The named tests fail under the named mutant. | All 16 mutants killed on the final code: Task 1 A–B, Task 2 A–D, Task 4 A, Task 5 A–D, Task 6 A–E. Task 2 C (the provider guard held across the write) was killed by the held-write test with default and with 212,992-byte socket buffers, at Task 2's code and at the end; Task 5 C was killed only after its test was made to count each find (Validation record). |
+| V9 | 30 runs of `mcp::daemon`, default threads and `--test-threads=1` | 30 × `ok`, `0 failed`. | `30 test result: ok. 82 passed; 0 failed` in each mode, at `d332af28` (the 83rd test, the process test, skipped; test time 1.25–1.29 s with default threads, 1.78–2.04 s with one), load average about 22–24; the process tests alone, 5 times: `5 test result: ok. 6 passed; 0 failed`; afterwards `pgrep -f a_daemon_process_for_the_panic_test` printed nothing. |
+| V10 | The zero-diff checks of Tasks 3 and 7 | `0` for `transport.rs`, `transport_tests.rs`, `owner_transport_tests.rs`, the goldens and every serving file outside `src/mcp/daemon/`. | `0`; 15 paths changed, all under `src/mcp/daemon/` but `CLAUDE.md`. |
 | V11 | CI on Linux | Green. | **Not run.** |
-| V12 | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp` and `cargo test --doc --features mcp` at the S3b-2 head | `0 failed`. | 5,758 passed, 0 failed, 1 ignored; doc tests `2 passed`. |
+| V12 | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp` and `cargo test --doc --features mcp` at the S3b-2 head | `0 failed`. | 5,762 passed, 0 failed, 1 ignored; doc tests `2 passed`. |
 
-**Still not verified:** the mutation gate (it selects no MCP code; lane README); the unfiltered suite at the S3b-1 head alone (it ran at the S3b-2 head: 5,758 passed, 0 failed); anything on Linux, where socket buffers are larger, the stalled client of Task 2 sends more frames before its socket is full, and the cut-off-frame path is likely to run; a release build; the spec's tests 6, 7, 9 and 12 through a real shim and a real daemon process started by one (S5a).
+**Still not verified:** the mutation gate (it selects no MCP code; lane README); the unfiltered suite at the S3b-1 head alone (it ran at the S3b-2 head: 5,762 passed, 0 failed); anything on Linux, where socket buffers are larger, the stalled client of Task 2 sends more frames before its socket is full, and the cut-off-frame path is likely to run; a release build; the spec's tests 6, 7, 9 and 12 through a real shim and a real daemon process started by one (S5a).
 
 ## Decisions owed
 
@@ -39,7 +39,7 @@ What each check must show, and what it showed. Every cargo command ran alone, as
 
 **Spec:** `docs/superpowers/specs/2026-10-09-shared-prism-daemon-design.md` as revised 2026-10-13 (§3.1 "Fatal", §4.2 "Provider", "Per connection", "Panic policy", §4.5, §5, §9 tests 6, 7, 9 and 12, §10, §11, §12 row S3b, §13). Lane plan: `README.md` in this directory ("Notes for the planners of later slices", S3b; the owner decisions table). Built on S3a as merged: `main` `d93d9047` (S3a-1 #374, S3a-2 #377, the spec clarification #383). Decisions are numbered on from the S3a plan's (D1–D33) and spec issues from its SI-1–SI-8, so that one number names one thing across the lane.
 
-**Ships as two pull requests.** **S3b-1 = Tasks 1–3** (the re-check, refresh visibility, the concurrency proof): 5 files, 501 insertions and 12 deletions in `src/`, of which about 45 are code, plus 8 lines of `CLAUDE.md`. **S3b-2 = Tasks 4–7** (the panic boundaries): 11 files, 631 insertions and 33 deletions in `src/`, of which about 200 are code, plus `CLAUDE.md`. Each is well under S3a-1 and S3a-2 (about 2,100 lines each), which each converged in two review rounds. They are split because they ask a reviewer different questions (a race on a lock against what ends a process) and because S3b-2 changes the expectations of four S3a tests, which a reviewer should judge on their own. S3b-2 is based on S3b-1 (both edit `connection.rs`); nothing in S3b-1 depends on S3b-2.
+**Ships as two pull requests.** **S3b-1 = Tasks 1–3** (the re-check, refresh visibility, the concurrency proof): 6 files, 694 insertions and 12 deletions in `src/`, of which about 45 are code, plus 8 lines of `CLAUDE.md`. **S3b-2 = Tasks 4–7** (the panic boundaries): 10 files, 769 insertions and 34 deletions in `src/`, of which about 210 are code, plus `CLAUDE.md`. Each is well under S3a-1 and S3a-2 (about 2,100 lines each), which each converged in two review rounds. They are split because they ask a reviewer different questions (a race on a lock against what ends a process) and because S3b-2 changes the expectations of four S3a tests, which a reviewer should judge on their own. S3b-2 is based on S3b-1 (both edit `connection.rs`); nothing in S3b-1 depends on S3b-2.
 
 ## Global Constraints
 
@@ -56,7 +56,7 @@ What each check must show, and what it showed. Every cargo command ran alone, as
 - **No panic on a path a client can reach** in code this slice adds: no `unwrap`, `expect`, indexing or unchecked arithmetic outside tests. `abort_daemon` writes its line with `writeln!` and ignores the result, because `eprintln!` panics when standard error is gone and it runs while a thread unwinds.
 - **Tests do not depend on the host's speed.** A test waits for a condition up to `HANG` = 30 s and asserts no upper bound on any elapsed time. No test sleeps to order two events: Task 1 holds calls at a test seam, Task 2 releases clients with a `Barrier` and detects a full socket by `WouldBlock`.
 - **No test aborts the test binary.** `Parts::production` aborts on a fatal event. Every in-crate test that reaches one installs a `FatalLog` first; the one test that needs the real abort runs it in a child process (Task 6).
-- Keep every file under 600 lines; tests in sibling `*_tests.rs` files included with `#[path]`. The largest file this slice edits is `coordinator.rs`, 541 lines after it (`connection_tests.rs`, 577, is not edited); the largest it creates is `connection_panic_tests.rs`, 278.
+- Keep every file under 600 lines; tests in sibling `*_tests.rs` files included with `#[path]`. The largest file this slice edits is `coordinator.rs`, 548 lines after it (`connection_tests.rs`, 577, is not edited); the largest it creates is `connection_panic_tests.rs`, 314.
 - No new clippy warning in a file this slice adds or edits.
 - **Commit before any experiment.** The "prove the tests bite" steps edit a source file and restore it with `git checkout -- <file>`, which discards uncommitted work in it; they come after the task's commit.
 - Logs go to files; read the file. Do not pipe cargo output into `grep` or `tail`.
@@ -65,7 +65,7 @@ What each check must show, and what it showed. Every cargo command ran alone, as
 
 - **The re-check stops a redundant refresh; it does not serialize refreshes.** Two explicit `refresh_index` calls each rebuild, as two in-process calls would. Two automatic refreshes run one after the other (the write lock), and the second runs only if the index is still stale when it gets the lock.
 - **A refresh holds the write lock for the whole rebuild** (`SessionProvider::refresh_verified` builds the new snapshot under `&mut self`). Every query that arrives meanwhile waits for it, as long as it takes, on every connection (SI-11). The first-call budget does not bound that wait (S3a's "What each mechanism covers").
-- **"No lock across a write" is held by construction and by one test.** `run_tool_call` returns an owned `Value`; `serve_loop` writes it after the closure has returned. Task 2 shows the consequence: a refresh completes while a client reads nothing. It does not show that the stalled thread was blocked in `write` at that moment (the client sees only that its socket is full; Task 2 says so).
+- **"No lock across a write" is held by construction and by a deterministic test.** `run_tool_call` returns an owned `Value`; `serve_loop` writes it after the closure has returned. Task 2's `a_refresh_and_another_client_s_query_complete_while_one_response_write_is_held` holds one connection inside `write_message` at a gate and requires another client's refresh and query to complete meanwhile, on any host. Task 2's socket test (a client that reads nothing until its socket is full) is a smoke test of completion and settings under load: whether its stalled thread is blocked in `write` when the refresh runs depends on socket-buffer sizes and scheduling (review round 1: with Linux-sized buffers a provider guard held across the write passed it in three of three runs), so no claim rests on it.
 - **A stalled client is held by the kernel's socket buffers, not by the daemon's memory:** its connection's thread holds one response it is writing, and its unread requests sit in the socket. The spec's "at most one bounded response in flight" holds per connection. A client that never reads holds its thread until it disconnects.
 - **The abort ends the process; it does not clean up.** The socket file and the pid file stay; the next shim's start protocol (spec §4.1 step 6, S5a) finds the owner lock free and replaces them. On macOS each abort also writes a crash report (about 80 KB) to `~/Library/Logs/DiagnosticReports/`, one per run of Task 6's process test.
 - **A test's `FatalLog` returns where the abort would not.** The code after each fatal call then runs (the build attempt is ended as failed, the caller gets `Poisoned`, the connection ends with an error). That code keeps tests bounded; no running daemon reaches it, and no claim of this plan rests on it except that it does not hang.
@@ -75,10 +75,10 @@ What each check must show, and what it showed. Every cargo command ran alone, as
 
 | Where the panic is raised | Code that runs there | Caught by | What happens (production) | What every attached client sees |
 |---|---|---|---|---|
-| A tool handler or result shaping in a query | `dispatch_tool_read` inside `DaemonState::read` | `FatalOnUnwind` (`Domain::Dispatch`) made at `read`'s entry | One stderr line `prism-mcp daemon: a panic in provider dispatch; …` after the panic message; `abort()` | EOF on its connection; no response to calls in flight (spec §3.1) |
-| A refresh, or the query after an automatic refresh | `dispatch_tool_refresh`, `dispatch_tool_auto_refresh` inside `DaemonState::write` | same guard at `write`'s entry | same | same |
+| A tool handler or result shaping in a query | `dispatch_tool_read` inside `DaemonState::read` | `FatalOnUnwind` (`Domain::Dispatch`) made in `read` right after the slot's lock is taken | One stderr line `prism-mcp daemon: a panic in provider dispatch; …` after the panic message; `abort()`, while the panicking call still holds its lock | EOF on its connection (spec §3.1). The panicking call gets no response. A call already running on another connection under a shared lock (another query) may still finish and be answered before the abort; no call that needs the lock the panic happened under gets it |
+| A refresh, or the query after an automatic refresh | `dispatch_tool_refresh`, `dispatch_tool_auto_refresh` inside `DaemonState::write` | the same guard, made in `write` right after the slot's lock is taken | same | same |
 | The builder, publication, or recording the outcome | `run_build` on the build thread | `PanicGuard` (S3a's), whose drop now calls `on_fatal(Panicked(Build))` | `… a panic in the index build; …`; `abort()` | same |
-| The readiness coordinator under the control lock, including the injected `Clock` and `Spawner` | `ensure_ready`, `status`, the start of a `--warm-at-startup` build in `from_parts` | `FatalOnUnwind` (`Domain::Control`) at each entry | `… a panic in the control plane; …`; `abort()` | same |
+| The readiness coordinator under the control lock, including the injected `Clock` and `Spawner` | `ensure_ready`, `status`, the start of a `--warm-at-startup` build in `from_parts` | `FatalOnUnwind` (`Domain::Control`), made in each right after the control lock is taken | `… a panic in the control plane; …`; `abort()`, the control lock still held | same |
 | Nowhere: a lock found poisoned | `lock_control`, the condition-variable wait, `read`, `write`, `publish`, `settle` | not a panic; each calls `on_fatal(Poisoned { lock })` before it returns the error | `… the control lock is poisoned; …` (or `provider`); `abort()` | same |
 | Framing, `handle_control`, the readiness answers (`warming`, `build_failed`, `indexing`), serializing or writing a response | `serve_loop`, `serve_client`, `run_tool_call` outside `read`/`write`/`ensure_ready` | `serve_bounded`'s `catch_unwind` | `serve_admitted` returns `Err("a panic on this connection's thread outside the index and the control plane; …")`; the caller drops the socket; the daemon goes on | That one client: EOF. Every other client: nothing |
 
@@ -93,10 +93,11 @@ Each is something the spec leaves open or states ambiguously, or an S3a decision
 | D34 | **The re-check asks the read's question again.** Under the write lock, `run_tool_call` runs `dispatch_tool_read` on the same provider: `Response` (the index is now current) is the answer; `NeedsAutoRefresh` refreshes, from the report found under this access, not the one found under the read lock. | Spec §4.2's trigger is "this query finds the index stale under an automatic policy", with the sticky evidence first (S3a Task 8). Asking it again is the only re-check that agrees with the read on every state. A re-check that compared generations ("has anyone refreshed since?") would skip the retry a `Diverged` refresh needs (Task 1's third test); one that consulted the stamp probe alone would drop the sticky evidence (spec review N2). | When the trigger still holds the freshness probe runs twice, once under each lock. When it no longer holds, the one query runs under the write lock (the race window only). |
 | D35 | **The query after an automatic refresh stays under the same exclusive access.** S3a's D14 listed "the query outside the write lock" as S3b work; this plan does not do it. | It binds the refresh metadata (`prism/refresh_generation`) and the result to one snapshot by construction (spec §4.2 "bound to the generation it actually queried"). Moving the query under a read lock needs a generation check after the downgrade and a loop when another refresh lands in between, in code S1 shares with the in-process server (`transport.rs`). The refresh it follows already holds every reader for the whole rebuild (SI-11), so the query adds little. | Readers wait one more query, and the first query on a fresh snapshot may build the call-edge index (lane README facts). The lane README says it "splits mechanically into refresh (exclusive) and finish (shared)" if a measurement asks for it. |
 | D36 | **"Bound to the generation it actually queried" holds by construction and adds no field.** Every response is computed inside one `read` or one `write`; the only generation a response carries is the auto-refresh metadata, computed under the same `write`. | Adding a generation to every tool result would change the bytes spec §5 preserves for one client (S3a's parity test). | None. A field could be added later as a deliberate wire change. |
-| D37 | **Spec test 7's "blocked writer" is a connection whose client does not read**, so that the daemon's write to it blocks (the S3a plan's reading: "a response is written with no lock held … the blocked-writer test is S3b's"). The test adds a refresh that must complete while that client is stalled, which is what fails if a lock is held across a write. **Test 9 is folded into test 7**: eight clients, two each of four output-setting combinations, every answer byte-equal to what the in-process server answers a client with those settings. | A lock writer (a refresh waiting on readers) is in the test too, so either reading is exercised. S3a's `two_clients_share_one_build` already holds test 9's two-shape case; four combinations under concurrency say more. | The test is one function; a reading that needs a separate test adds one. |
+| D37 | **Spec test 7 is three tests** (revised by review round 1, both reviewers). (a) **The blocked writer, deterministic:** one connection is served through `serve_client` over a test transport whose response write signals that it has been entered and then waits at a gate; while it is held, another client's `refresh_index` (the provider's write lock) and its next query must complete. (b) **Overlapping reads:** a test tool whose handler returns only once two calls are inside it at the same moment; two clients' calls must both report that they met. (c) **The socket test, kept as a smoke test** of completion and of connection-local settings under load (test 9 folded in): eight clients, two each of four output-setting combinations, pipelined requests with ids of their own, a client that reads nothing until its socket is full, and a refresh; every answer byte-equal to the in-process server's. | As first written the plan had only (c) and claimed it ruled out a lock held across a write. It does not on every host: whether the stalled thread is inside `write` when the refresh runs depends on buffer sizes and scheduling, and barrier-released clients pass if queries run one at a time. (a) and (b) put the threads where the property is decided, with gates instead of buffers. S3a's `two_clients_share_one_build` already holds test 9's two-shape case. | Two more tests (about 180 lines with the tool). |
 | D38 | Test seam `TestHooks::exclusive`, called through `DaemonState::before_exclusive()` with no lock held, between a call's read and its request for exclusive access. `#[cfg(test)]` only. | The race the re-check exists for needs both calls past their read before either has the write lock; nothing else can place them there without sleeping. | Removed with its tests. |
 | D39 | **The fatal handler is injected:** `Parts::on_fatal: OnFatal` (`Arc<dyn Fn(Fatal) + Send + Sync>`); production `abort_daemon` writes one line to stderr and calls `std::process::abort()`. | In-crate tests must see *where* a panic is caught without ending the test binary; the real abort is tested in a child process (D44). `abort`, not `exit`: the spec's word, and `exit` would run exit handlers while other threads hold locks. The panic message is already on stderr (the default hook prints it first); the line names the domain. | A test that reaches a fatal event without a `FatalLog` aborts the whole test binary, loudly. |
-| D40 | **The boundaries are drop guards, not `catch_unwind`:** `FatalOnUnwind::new(&on_fatal, domain)` at the entry of `read`, `write`, `ensure_ready`, `status` and the background start in `from_parts`; the build thread keeps S3a's `PanicGuard`, whose drop now calls `on_fatal` first. A guard made while its thread is already unwinding does not fire. | A guard needs no `UnwindSafe` reasoning, no change to any return type, and catches a panic in everything its function calls, including the injected `Clock`, `Spawner` and builder. Under a test's handler the unwinding goes on to the connection's boundary, as it would without the guard. The "already unwinding" rule keeps code that runs in a destructor during an unrelated panic from being blamed for it. | One guard per entry point; a new entry point without one is a gap (the S4 interface says so). |
+| D40 | **The boundaries are drop guards, not `catch_unwind`:** `FatalOnUnwind::new(&on_fatal, domain)` in `read`, `write`, `ensure_ready`, `status` and the background start in `from_parts`, each made right after the function's lock is taken (D47); the build thread keeps S3a's `PanicGuard`, whose drop now calls `on_fatal` first. A guard made while its thread is already unwinding does not fire. | A guard needs no `UnwindSafe` reasoning, no change to any return type, and catches a panic in everything its function calls, including the injected `Clock`, `Spawner` and builder. Under a test's handler the unwinding goes on to the connection's boundary, as it would without the guard. The "already unwinding" rule keeps code that runs in a destructor during an unrelated panic from being blamed for it. | One guard per entry point; a new entry point without one is a gap (the S4 interface says so). |
+| D47 | **Each `FatalOnUnwind` is made right after its function has taken its lock**, never before (review round 1, Opus F2). | Locals drop in reverse order: a guard made before the lock fires after the lock is let go, so a refresh waiting on a reader that panicked, or a call that finds the control lock poisoned, can run (or report a different cause) before the abort. Made after, `on_fatal` runs while the lock is held. Taking a lock cannot panic; a poisoned one goes through `poisoned` (D41). Task 5's `a_panic_under_a_lock_ends_the_daemon_while_the_lock_is_still_held` checks, inside `on_fatal`, that another thread's attempt to take the lock would block. | None: one line moved per entry point. The panic table also no longer says calls in flight get no response (a query already running under the shared read lock may finish first). |
 | D41 | **Every `Poisoned` is made by `DaemonState::poisoned`, which calls `on_fatal(Poisoned { lock })` first**; `publish` and `settle`, which find a poisoned lock without returning an error, call it directly. | Spec §4.2: "no lock is ever unwrapped past poisoning", and §3.1 makes the cause daemon-fatal. With the guards in place a lock is poisoned only by a panic that already ended the daemon, so this is the backstop, and what the S3a tests that poison a lock from outside now exercise. | None foreseen. |
 | D42 | **A panic on the build thread is fatal** (spec §3.1, §4.2, §10), settling S3a's SI-6 in favor of the spec's text. Under a test's handler the attempt still ends `Failed` with `index build panicked`, so no test hangs. | Three sections state it; the owner approved them. The difference from the in-process server, which reports `build_failed` and retries, is recorded as SI-10 with its cost. | One line in `PanicGuard::drop` (remove the `on_fatal` call) restores S3a's behavior. |
 | D43 | **The connection's boundary is `serve_bounded`**, a `catch_unwind(AssertUnwindSafe(..))` around `serve_client`, called by `serve_admitted`. A panic that reaches it becomes an error with fixed text (no panic payload, no peer bytes); `serve_admitted` never unwinds into S4's worker. | Spec §4.2: "the implementation marks these boundaries explicitly". Inside the closure, after a panic nothing is used again but `state`, whose shared parts change only inside guarded functions (which end the daemon on a panic), so the unwind-safety assertion is sound. | A worker that wants the payload text can get it later; it is in the log already through the panic hook. |
@@ -107,7 +108,7 @@ Each is something the spec leaves open or states ambiguously, or an S3a decision
 ## Spec issues found (not resolved by this plan)
 
 - **SI-9 (§9 test 6, "and the new generation").** A query's response carries no generation, and adding one would change every response's bytes against the in-process server (§5, D36). Task 1's test reads the generation from the status snapshot (`DaemonState::status`, S3a D15), which is what S4's status probe will report; the refresh's own response does carry it (`structuredContent.generation`). Through real shims (S5a) the same test reads it from the probe.
-- **SI-10 (§3.1, §4.2, §10 against §5; S3a's SI-6), for the owner's attention.** By the spec's text a panic on the build thread ends the daemon (D42). The in-process server reports the same panic as `build_failed` and retries on the next call (`lazy.rs`, "index build panicked"), so after S3b a client of a shared daemon is worse off than a standalone client in this one case: every attached agent loses its MCP session, and a deterministic builder panic (a grammar panic on one file, say) makes every new daemon abort on its first tool call, for as long as clients keep starting one. The builder runs on its own thread, holds no daemon lock while it runs, and touches no shared state until it publishes, so the spec's reason for the policy ("no lock is ever unwrapped past poisoning"; nothing served from half-changed state) does not apply to the builder itself; it does apply to publication, which holds the slot's write lock. **Recommendation:** keep the spec's text now (it is approved, and a panic in a builder is a defect to fix, not a state to serve through), and, if the owner prefers parity, change `PanicGuard::drop` to call `on_fatal` only when the panic was raised after the builder returned (publication), so that a builder panic is a failed attempt again. Not an owner question: the spec answers it; recorded because S3a asked S3b to decide it "on purpose".
+- **SI-10 (§3.1, §4.2, §10 against §5; S3a's SI-6), for the owner's attention.** By the spec's text a panic on the build thread ends the daemon (D42). The in-process server reports the same panic as `build_failed` and retries on the next call (`lazy.rs`, "index build panicked"), so after S3b a client of a shared daemon is worse off than a standalone client in this one case: every attached agent loses its MCP session, and a deterministic builder panic (a grammar panic on one file, say) makes every new daemon abort on its first tool call, for as long as clients keep starting one. The builder runs on its own thread, holds no daemon lock while it runs, and touches no shared state until it publishes, so the spec's reason for the policy ("no lock is ever unwrapped past poisoning"; nothing served from half-changed state) does not apply to the builder itself; it does apply to publication, which holds the slot's write lock. **Recommendation:** keep the spec's text now (it is approved, and a panic in a builder is a defect to fix, not a state to serve through), and, if the owner prefers parity, change `PanicGuard::drop` to call `on_fatal` only when the panic was raised after the builder returned (publication), so that a builder panic is a failed attempt again. Not an owner question: the spec answers it; recorded because S3a asked S3b to decide it "on purpose". **What it requires of S5a** (review round 1, Opus F6): the shim's start protocol must bound the restart loop that a recurring builder panic makes (each shim start launches a daemon that aborts on its first tool call; on macOS each abort also writes a crash report); see "Interfaces for the next slices".
 - **SI-11 (§4.2 "`refresh_index` and automatic refresh take the write lock" against §1 "no regression in query latency under fan-out"), for the owner's attention.** `SessionProvider::refresh_verified` builds the whole new snapshot under `&mut self`, so a refresh holds the write lock for a full rebuild, and every query of every client waits for it. Standalone clients were never blocked by one another's refresh. Under the default warn-only policy refreshes are explicit and rare; under an automatic policy the first query after any edit blocks every client for a rebuild (an incremental one under `auto-incremental` when the change allows it). The fan-out gate of §6.2 ("8 shims, p95/p99 of the workload, with one concurrent `refresh_index`") measures exactly this, and it runs after S5a. The change that removes it is in `session.rs` (shared with the in-process server): build the candidate with `&self` under the read lock, then commit under the write lock if the generation has not moved, with refreshes serialized by their own mutex so that at most one candidate exists at a time (the refresh peak is already about twice the steady footprint; C1 readout). **Recommendation:** measure at the fan-out gate before changing anything; nothing in S3b or S4 makes the change harder.
 - **SI-12 (§4.2 "output shaping (outside both domains)").** A tool's result is shaped (`ToolContext`, `shape_result`, the freshness and auto-refresh metadata) inside `dispatch_tool_read` and `dispatch_tool_auto_refresh`, under the provider's lock, so a panic there is a panic in provider dispatch and ends the daemon. This plan reads "output shaping outside both domains" as what is left: the readiness and status envelopes (`readiness_response`, `retryable_status_response`) and the serialization and writing of a response. The table "Panic boundaries" above is the reading in full.
 - **SI-13 (§9 test 12, "the next shim restarts it").** Needs the shim's start protocol (S5a). Task 6's process test shows the abort and that every attached client sees its connection end; the restart is S5a's to show.
@@ -117,7 +118,7 @@ Each is something the spec leaves open or states ambiguously, or an S3a decision
 Six ways this code is most likely to be wrong in use that a straightforward test list would not exercise. Each has a test in the task that owns the code.
 
 1. **Two clients that both found the index stale.** The second to get the write lock must not rebuild an index the first has just refreshed, and must not skip a refresh that is still needed because the first one verified `Diverged`. → Task 1, `a_client_that_finds_the_index_refreshed_once_it_has_exclusive_access_does_not_refresh_again`, `a_client_that_finds_the_index_still_known_stale_once_it_has_exclusive_access_refreshes_it`. Both calls are held at the test seam after their reads, so the race is played, not hoped for.
-2. **A client that stops reading while another refreshes.** If any lock were held while a response is written, the refresh would wait for the stalled client for ever, and every new query behind the waiting writer with it. → Task 2, `many_clients_get_their_own_answers_while_one_stops_reading_and_another_refreshes`.
+2. **A connection blocked writing a response while another refreshes, and two queries at once.** If any lock were held while a response is written, a refresh would wait for the blocked connection for ever, and every new query behind the waiting writer with it; if queries were served one at a time, fan-out latency would add up. → Task 2, `a_refresh_and_another_client_s_query_complete_while_one_response_write_is_held` (the write held at a gate) and `two_clients_queries_are_inside_dispatch_at_the_same_time` (a handler that waits for a second reader); `many_clients_get_their_own_answers_while_one_stops_reading_and_another_refreshes` is the smoke test under load.
 3. **Responses under concurrency.** Eight clients, four settings, pipelined requests with ids of their own, a refresh in the middle: every answer whole, in order, on the right connection, in the right shape, and byte-equal to the in-process server's. → Task 2, the same test.
 4. **Where a panic is caught.** A panic in a tool handler must end the daemon, not only its connection (the connection boundary would otherwise swallow it); one in framing must end the connection, not the daemon; one under the control lock must end the daemon, not leave the lock poisoned for everyone else. → Task 6, `a_panic_in_a_query_ends_the_daemon`, `a_panic_outside_both_domains_closes_that_connection_only`, `a_panic_in_the_control_plane_ends_the_daemon`; Task 5, `a_builder_panic_is_fatal`.
 5. **A lock found poisoned from each place that takes it.** Each find ends the daemon, one by one; nothing reads through it. → Task 5, `a_poisoned_control_lock_is_an_error_for_every_caller_never_a_panic_or_a_hang` (counts every find), `a_poisoned_provider_slot_fails_the_attempt_and_is_an_error_for_every_reader`, `a_poisoned_provider_slot_ends_the_connection_with_an_error_and_handshakes_go_on`.
@@ -132,18 +133,21 @@ Every "never", "always", "exactly" and "only" this plan's code or comments state
 | Clients that race on one stale index under an automatic policy refresh it once. | T1 `a_client_that_finds_the_index_refreshed_once_it_has_exclusive_access_does_not_refresh_again` | refresh under the write lock whatever the re-check finds (Task 1 A; it is the code before Task 1) |
 | A refresh that is still needed after another client's refresh is not skipped. | T1 `a_client_that_finds_the_index_still_known_stale_once_it_has_exclusive_access_refreshes_it` | a re-check by generation (not applied: not a one-line change; the test is an over-reach guard and passes before Task 1 too) |
 | A refresh by one client is what every other client's next query sees, and the daemon reports the new generation. | T1 `a_refresh_by_one_client_is_what_the_next_query_of_another_client_sees` | exclusive access that does not copy the generation into the control plane (Task 1 B) |
-| No lock is held while a response is written; a client that stops reading stalls only itself. | T2 `many_clients_get_their_own_answers_while_one_stops_reading_and_another_refreshes` | a lock held from one frame's handling to the next, across the write (Task 2 A) |
-| Every client gets its own answers, whole, in order and in its own shape, under concurrency. | same T2 test | output settings from the daemon's environment (Task 2 B) |
+| No lock is held while a response is written; a connection blocked in a write stalls only itself. | T2 `a_refresh_and_another_client_s_query_complete_while_one_response_write_is_held` | the provider slot's read guard held from a tool call until the next frame, across the write (Task 2 C), killed at default and at 212,992-byte socket buffers alike; a global lock held across the write (Task 2 A) |
+| Two queries run inside dispatch at the same time. | T2 `two_clients_queries_are_inside_dispatch_at_the_same_time` | queries take the slot's write lock (Task 2 D) |
+| A fatal event is raised while the lock its panic happened under is still held. | T5 `a_panic_under_a_lock_ends_the_daemon_while_the_lock_is_still_held` | the guard in `read` made before the lock (Task 5 D) |
+| Every client gets its own answers, whole, in order and in its own shape, under concurrency. | T2 `many_clients_get_their_own_answers_while_one_stops_reading_and_another_refreshes` | output settings from the daemon's environment (Task 2 B) |
 | A guard fires on a panic in its domain and only then; not for a panic it was made during. | T4 the three `fatal` tests | arm the guard whatever the thread is doing (Task 4 A) |
 | A panic in a query ends the daemon. | T6 `a_panic_in_a_query_ends_the_daemon`; T6 the process test | no guard in `read` (Task 6 A) |
-| A panic under the write lock ends the daemon. | T5 `a_poisoned_provider_slot_ends_the_connection_with_an_error_and_handshakes_go_on` | no guard in `write` (Task 5 A) |
+| A panic under the write lock ends the daemon. | T5 `a_poisoned_provider_slot_ends_the_connection_with_an_error_and_handshakes_go_on`, `a_panic_under_a_lock_ends_the_daemon_while_the_lock_is_still_held` | no guard in `write` (Task 5 A) |
 | A panic in the control plane ends the daemon. | T6 `a_panic_in_the_control_plane_ends_the_daemon` | no guard in `ensure_ready` (Task 6 B) |
 | A panic on the build thread ends the daemon. | T5 `a_builder_panic_is_fatal` | `PanicGuard` that only fails the attempt, as in S3a (Task 5 B) |
 | Each find of a poisoned lock ends the daemon. | T5 `a_poisoned_control_lock_is_an_error_for_every_caller_never_a_panic_or_a_hang` | `lock_control` that returns `Poisoned` without `on_fatal` (Task 5 C). As first written the test checked only that every recorded event was the control lock's, and this mutant survived; the test now counts each find |
 | A panic outside both domains ends that connection only, and the daemon goes on. | T6 `a_panic_outside_both_domains_closes_that_connection_only` | no `catch_unwind` in `serve_bounded` (Task 6 C) |
 | In production a fatal event ends the process, and every attached client sees its connection end. | T6 the process test | `abort_daemon` that writes its line and returns (Task 6 D) |
+| The test's daemon process ends when the test that started it is gone. | T6 `the_daemon_process_ends_when_its_standard_input_is_closed` | no exit on standard-input end of file (Task 6 E) |
 
-Stated and **not** held by a test: that the stalled client's connection thread was blocked in `write` when the refresh ran (Task 2 knows only that the client's socket was full; the mutant it kills holds a lock across the write either way); that `abort_daemon`'s line is written when standard error is closed (it ignores the error by construction); that no guard is missing from an entry point S4 adds (S4's to keep); the `--warm-at-startup` start's guard (no test injects a panic into a background start; the guard is the same line as `ensure_ready`'s); that a failing run of the process test leaves no process behind (`DaemonProcess` kills it on drop; observed with `pgrep` after two mutant runs, not asserted); that Task 2's cut-off frame is finished without a deadlock (on this host the socket never cut a frame); anything on Linux.
+Stated and **not** held by a test: that the socket smoke test's stalled thread is blocked in `write` when its refresh runs (it need not be; the held-write test is what holds the property); the guard in `status` (review round 1, Opus F3: deleting it fails no test; `status` reads four fields under the control lock and calls no injected `Clock` or `Spawner`, so no test can make it panic without a production seam; S4's status probe is a new caller and may add one); that `abort_daemon`'s line is written when standard error is closed (it ignores the error by construction); that no guard is missing from an entry point S4 adds (S4's to keep); the `--warm-at-startup` start's guard (no test injects a panic into a background start; the guard is the same line as `ensure_ready`'s); that a failing run of the process test leaves no process behind (`DaemonProcess` kills it on drop when the test unwinds, and the child exits when its standard input closes, which the stdin test holds; observed with `pgrep` after every mutant run, not asserted); that Task 2's cut-off frame is finished without a deadlock (on this host the socket never cut a frame); anything on Linux.
 
 ## File Structure
 
@@ -152,13 +156,14 @@ Stated and **not** held by a test: that the stalled client's connection thread w
 | `src/mcp/daemon/coordinator.rs` | `TestHooks::exclusive`, `before_exclusive` (Task 1); `Parts::on_fatal`, the guards, `poisoned`, the fatal calls in `publish`, `settle`, `PanicGuard` (Task 5) | Modify | both |
 | `src/mcp/daemon/connection.rs` | the re-check in `run_tool_call` (Task 1); `serve_bounded` (Task 6); module docs | Modify | both |
 | `src/mcp/daemon/connection_refresh_tests.rs` | Spec test 6; the re-check, both ways | Create (Task 1) | S3b-1 |
-| `src/mcp/daemon/connection_concurrency_tests.rs` | Spec tests 7 and 9 | Create (Task 2) | S3b-1 |
-| `src/mcp/daemon/wire_support.rs` | `Client::flood_until_full`, `send_raw_in_background` (Task 2); `connect_with` (Task 6) | Modify | both |
+| `src/mcp/daemon/connection_concurrency_tests.rs` | Spec tests 7 (smoke) and 9 | Create (Task 2) | S3b-1 |
+| `src/mcp/daemon/connection_isolation_tests.rs` | Spec test 7: a response write held at a gate; two queries inside dispatch at once | Create (Task 2) | S3b-1 |
+| `src/mcp/daemon/wire_support.rs` | `Client::flood_until_full`, `send_raw_in_background`, `connect_with` (Task 2) | Modify (Task 2) | S3b-1 |
 | `src/mcp/daemon/fatal.rs`, `fatal_tests.rs` | `Domain`, `Fatal`, `OnFatal`, `abort_daemon`, `FatalOnUnwind`; their tests | Create (Task 4) | S3b-2 |
 | `src/mcp/daemon/mod.rs` | `mod fatal;` | Modify (Task 4) | S3b-2 |
 | `src/mcp/daemon/test_support.rs` | `FatalLog`, `recording_state` | Modify (Task 5) | S3b-2 |
 | `src/mcp/daemon/coordinator_failure_tests.rs`, `coordinator_order_tests.rs`, `connection_parity_tests.rs` | The four S3a tests that reach a fatal event: a `FatalLog` and the events they expect | Modify (Task 5) | S3b-2 |
-| `src/mcp/daemon/connection_panic_tests.rs` | Where a panic is caught; spec test 12 in a child process | Create (Task 6) | S3b-2 |
+| `src/mcp/daemon/connection_panic_tests.rs` | Where a panic is caught; spec test 12 in a child process, which exits when its standard input closes | Create (Task 6) | S3b-2 |
 | `CLAUDE.md` | MCP Adapter, the shared-daemon core paragraph | Modify (Tasks 3, 7) | both |
 | `src/mcp/transport.rs`, `transport_tests.rs`, `owner_transport_tests.rs`, `session.rs`, `lazy.rs`, `framing.rs`, `output.rs`, `settings.rs`, `src/mcp/shared/*`, `src/bin/`, `tests/`, `tests/fixtures/mcp/golden/*` | The standalone contract and earlier slices' code | **Must not change** | |
 
@@ -610,19 +615,19 @@ Each mutant is applied alone to the committed code, the module is run, and the f
 | A: refresh whatever the re-check finds (what the code before Step 4 does) | in `connection.rs`, replace `ReadDispatch::Response(response) => response,` with `ReadDispatch::Response(_) => dispatch_tool_auto_refresh(call, provider, None, settings),` | `a_client_that_finds_the_index_refreshed_once_it_has_exclusive_access_does_not_refresh_again` (1 of 69) |
 | B: exclusive access does not copy the generation | in `coordinator.rs`, in `write`, delete the two lines `let generation = provider.generation();` and `self.record_generation(&slot, generation)?;` | `a_refresh_by_one_client_is_what_the_next_query_of_another_client_sees`, both other Task 1 tests, and five S3a tests (8 of 69) |
 
-### Task 2: Many clients at once, one of them not reading, while another refreshes
+### Task 2: Many clients at once: a response write held, two queries inside dispatch together, one client not reading, another refreshing
 
-Spec §9 tests 7 and 9 (D37). The test needs two client helpers: one that writes without reading until its socket is full, and one that finishes, from a thread of its own, a frame that the full socket cut off. The second must not write from the reading thread: the server takes the rest of the frame only once it can write again, which needs the client to read (a blocking write there would deadlock both ends; see the Validation record).
+Spec §9 tests 7 and 9 (D37). Three tests. The first two put threads exactly where the property is decided, with gates rather than socket buffers: a connection served through `serve_client` over a test transport whose response write is held at a gate while another client refreshes and queries; and a test tool whose handler returns only once two calls are inside it at once. The third is the smoke test under load, over real sockets, and needs two client helpers: one that writes without reading until its socket is full, and one that finishes, from a thread of its own, a frame that the full socket cut off (written from the reading thread, the rest of the frame would deadlock both ends: the server takes it only once it can write, which needs the client to read).
 
 **Files:**
 - Modify: `src/mcp/daemon/wire_support.rs`, `src/mcp/daemon/connection.rs`
-- Create: `src/mcp/daemon/connection_concurrency_tests.rs`
+- Create: `src/mcp/daemon/connection_concurrency_tests.rs`, `src/mcp/daemon/connection_isolation_tests.rs`
 
 **Interfaces:**
-- Consumes: `crate::mcp::transport::{serve_connection, InMemoryTransport}` (`pub(super)`, `#[cfg(test)] pub use`); `ConnectionSettings { result_cap, structured_content, concise_shape }` (public fields); `ClientSettings::new(output, first_call_wait_secs, warm_at_startup) -> Result<Self, SettingsError>`; `SessionProvider::bootstrap`; `std::sync::Barrier`.
-- Produces (test code only): `Client::flood_until_full(&mut self, line: &str) -> (usize, Vec<u8>)`, `Client::send_raw_in_background(&self, bytes: Vec<u8>) -> JoinHandle<()>`.
+- Consumes: `connection::serve_client(state, registry, transport: &mut impl Transport, client) -> anyhow::Result<()>` (private; the test module is a child of `connection`); `crate::mcp::transport::{serve_connection, InMemoryTransport, ReadOutcome, Transport}` (`pub(super)` / `#[cfg(test)] pub use` / `pub use`); `ToolRegistry::register`, `ToolDescriptor { name, description, input_schema, annotations, runtime_behavior, handler }`, `ToolAnnotations::read_only`, `ToolContext`, `McpToolResult { content_text, structured, is_error, meta }` (public); `ConnectionSettings { result_cap, structured_content, concise_shape }` (public fields); `ClientSettings::new(output, first_call_wait_secs, warm_at_startup) -> Result<Self, SettingsError>`; `SessionProvider::bootstrap`; `test_support::{Gate, HANG}`; `std::sync::{Barrier, Condvar}`.
+- Produces (test code only): `Client::flood_until_full(&mut self, line: &str) -> (usize, Vec<u8>)`, `Client::send_raw_in_background(&self, bytes: Vec<u8>) -> JoinHandle<()>`, `wire_support::connect_with(state, registry: &Arc<ToolRegistry>, client) -> (Client, Worker)`.
 
-- [ ] **Step 1: Write the client helpers and the test**
+- [ ] **Step 1: Write the client helpers and the tests**
 
 Append to `src/mcp/daemon/wire_support.rs`:
 
@@ -674,6 +679,200 @@ impl Client {
         let mut writer = self.writer.try_clone().expect("clone the client socket");
         std::thread::spawn(move || writer.write_all(&bytes).expect("finish a frame"))
     }
+}
+
+/// Open a connection to `state` as a client with these settings, served with `registry`.
+pub(super) fn connect_with(
+    state: &Arc<DaemonState>,
+    registry: &Arc<ToolRegistry>,
+    client: ClientSettings,
+) -> (Client, Worker) {
+    let (near, far) = UnixStream::pair().expect("a connected socket pair");
+    let state = Arc::clone(state);
+    let registry = Arc::clone(registry);
+    let worker = std::thread::spawn(move || serve_admitted(&state, &registry, far, &client));
+    (Client::new(near), worker)
+}
+````
+
+Create `src/mcp/daemon/connection_isolation_tests.rs`:
+
+````rust
+//! Spec §4.2, "Reads and writes happen outside every lock", shown without depending on how
+//! large a socket's buffers are: one connection's response write is held at a gate while
+//! another client refreshes and queries, and two queries are inside dispatch at one moment.
+use super::super::coordinator::DaemonState;
+use super::super::test_support::{
+    client_settings, fixture, scripted, status, wait_until, Gate, HANG,
+};
+use super::super::wire_support::{
+    close, connect, connect_with, CALLEES, CALLERS, INIT, INITED, REFRESH,
+};
+use super::serve_client;
+use crate::mcp::output::McpToolResult;
+use crate::mcp::registry::{ToolAnnotations, ToolContext, ToolDescriptor, ToolRegistry};
+use crate::mcp::transport::{InMemoryTransport, ReadOutcome, Transport};
+use crate::mcp::{RefreshPolicy, StartupMode};
+use serde_json::{json, Value};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
+
+/// A transport whose second write (the first is the answer to `initialize`) stops at a gate:
+/// the connection's thread is then inside `write_message` with a tool call's response in hand,
+/// which is where a socket write to a client that reads nothing blocks.
+struct HeldWrite {
+    inner: InMemoryTransport,
+    writes: usize,
+    entered: Arc<AtomicBool>,
+    release: Arc<Gate>,
+}
+
+impl Transport for HeldWrite {
+    fn read_message(&mut self) -> anyhow::Result<Option<ReadOutcome>> {
+        self.inner.read_message()
+    }
+
+    fn write_message(&mut self, v: Value) -> anyhow::Result<()> {
+        self.writes += 1;
+        if self.writes == 2 {
+            self.entered.store(true, Ordering::SeqCst);
+            let _opened = self.release.pass();
+        }
+        self.inner.write_message(v)
+    }
+}
+
+/// Spec §9 test 7's "one blocked writer", made deterministic: a connection is held inside the
+/// write of a query's response, and meanwhile another client's refresh (which needs the
+/// provider's write lock) and its next query complete. Rules out any daemon lock, the provider
+/// slot's included, held across a response write, on any host, whatever its socket buffers.
+#[test]
+fn a_refresh_and_another_client_s_query_complete_while_one_response_write_is_held() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (builder, builds) = scripted(&cfg, vec![]);
+    let state = DaemonState::new(builder, StartupMode::Lazy).expect("a lazy daemon state");
+    let (mut other, other_worker) = connect(&state, client_settings(600));
+    other.handshake();
+    let first = other.request(CALLEES);
+    assert_eq!(first["result"]["isError"], false, "{first}");
+
+    let entered = Arc::new(AtomicBool::new(false));
+    let release = Gate::closed();
+    let held = {
+        let state = Arc::clone(&state);
+        let entered = Arc::clone(&entered);
+        let release = Arc::clone(&release);
+        std::thread::spawn(move || {
+            let mut transport = HeldWrite {
+                inner: InMemoryTransport::new(vec![INIT, INITED, CALLEES]),
+                writes: 0,
+                entered,
+                release,
+            };
+            let served = serve_client(
+                &state,
+                &ToolRegistry::all_v1(),
+                &mut transport,
+                &client_settings(600),
+            );
+            (served, transport.inner.responses().to_vec())
+        })
+    };
+    wait_until(
+        "the held connection to be inside its response write",
+        || entered.load(Ordering::SeqCst),
+    );
+
+    let refreshed = other.request(REFRESH);
+    assert_eq!(
+        refreshed["result"]["structuredContent"]["status"], "refreshed",
+        "the refresh completes while a response write is held: {refreshed}"
+    );
+    let after = other.request(CALLERS);
+    assert_eq!(after["result"]["isError"], false, "{after}");
+    assert_eq!(status(&state).generation, 1);
+
+    release.open();
+    let (served, responses) = held.join().expect("the held connection's thread ends");
+    served.expect("the held connection ends cleanly at end of input");
+    assert_eq!(responses.len(), 2, "{responses:?}");
+    assert_eq!(responses[1]["result"]["isError"], false, "{responses:?}");
+    close(other, other_worker);
+    assert_eq!(builds.load(Ordering::SeqCst), 1);
+}
+
+const MEETING_TOOL: &str = "meet_another_reader";
+const MEET: &str = r#"{"jsonrpc":"2.0","id":50,"method":"tools/call","params":{"name":"meet_another_reader","arguments":{}}}"#;
+
+/// Counts the calls inside the meeting tool's handler.
+#[derive(Default)]
+struct Rendezvous {
+    inside: Mutex<u64>,
+    changed: Condvar,
+}
+
+/// Every tool, and one more whose handler returns only once two calls are inside it at the same
+/// time (or reports that it was alone, after [`HANG`]). A handler runs under the provider
+/// slot's read lock, so two calls inside it at once are two readers holding the lock at once.
+fn registry_with_a_meeting_tool(rendezvous: &Arc<Rendezvous>) -> Arc<ToolRegistry> {
+    let rendezvous = Arc::clone(rendezvous);
+    let mut registry = ToolRegistry::all_v1();
+    registry.register(ToolDescriptor {
+        name: MEETING_TOOL,
+        description: String::new(),
+        input_schema: json!({ "type": "object" }),
+        annotations: ToolAnnotations::read_only("meets another reader"),
+        runtime_behavior: None,
+        handler: Box::new(
+            move |_context: &ToolContext<'_>, _arguments: &Value| -> McpToolResult {
+                let mut inside = rendezvous.inside.lock().expect("rendezvous");
+                *inside += 1;
+                rendezvous.changed.notify_all();
+                let (inside, _timed_out) = rendezvous
+                    .changed
+                    .wait_timeout_while(inside, HANG, |inside| *inside < 2)
+                    .expect("rendezvous");
+                let met = *inside >= 2;
+                McpToolResult {
+                    content_text: if met { "met" } else { "alone" }.to_string(),
+                    structured: None,
+                    is_error: !met,
+                    meta: serde_json::Map::new(),
+                }
+            },
+        ),
+    });
+    Arc::new(registry)
+}
+
+/// Concurrent dispatch (spec §12 row S3b): two clients' queries are inside dispatch at the same
+/// moment. Each call of the meeting tool waits for the other inside its handler; both answer
+/// `met` only if the two ran at once. Rules out queries served one at a time (a lock that
+/// excludes readers from one another), which barrier-released clients alone do not.
+#[test]
+fn two_clients_queries_are_inside_dispatch_at_the_same_time() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (builder, _builds) = scripted(&cfg, vec![]);
+    let state = DaemonState::new(builder, StartupMode::Lazy).expect("a lazy daemon state");
+    let rendezvous = Arc::new(Rendezvous::default());
+    let registry = registry_with_a_meeting_tool(&rendezvous);
+    let (mut a, a_worker) = connect_with(&state, &registry, client_settings(600));
+    let (mut b, b_worker) = connect_with(&state, &registry, client_settings(600));
+    a.handshake();
+    b.handshake();
+    let first = a.request(CALLEES);
+    assert_eq!(first["result"]["isError"], false, "{first}");
+
+    a.send(MEET);
+    b.send(MEET);
+    let from_a = a.recv();
+    let from_b = b.recv();
+    for answer in [&from_a, &from_b] {
+        assert_eq!(answer["result"]["isError"], false, "{answer}");
+        assert_eq!(answer["result"]["content"][0]["text"], "met", "{answer}");
+    }
+    close(a, a_worker);
+    close(b, b_worker);
 }
 ````
 
@@ -856,6 +1055,10 @@ Append to `src/mcp/daemon/connection.rs`:
 #[cfg(test)]
 #[path = "connection_concurrency_tests.rs"]
 mod concurrency_tests;
+
+#[cfg(test)]
+#[path = "connection_isolation_tests.rs"]
+mod isolation_tests;
 ````
 
 - [ ] **Step 2: Run the module**
@@ -865,21 +1068,25 @@ cargo fmt
 cargo test --features mcp --lib mcp::daemon > /tmp/s3b-t2.log 2>&1; grep -E '^test result|FAILED|^warning' /tmp/s3b-t2.log
 ```
 
-Expected: `70 passed; 0 failed`, no warning. (Observed.) The test passes on Task 1's code as it stands: it proves properties S3a's construction already has (an owned response, a connection's own settings) against the two ways of losing them below. On macOS the stalled client sent 63 whole frames before its socket was full (a probe printed it once; the printing is not in the plan); on Linux the buffers are larger and it sends more, which the loop allows (up to 1,000,000).
+Expected: `72 passed; 0 failed` (69 + 3), no warning. (Observed.) The tests pass on Task 1's code as it stands: they prove properties S3a's construction already has (an owned response, a shared read lock, a connection's own settings) against the ways of losing them below. On macOS the smoke test's stalled client sent 58–63 whole frames before its socket was full; with larger buffers it sends more (the loop allows up to 1,000,000), and whether its connection's thread is inside `write` when the refresh runs is not determined, which is why the held-write test exists.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/mcp/daemon/wire_support.rs src/mcp/daemon/connection.rs src/mcp/daemon/connection_concurrency_tests.rs
-git commit -m "test(mcp): many clients with their own settings, a stalled reader and a refresh"
+git add src/mcp/daemon/wire_support.rs src/mcp/daemon/connection.rs src/mcp/daemon/connection_concurrency_tests.rs src/mcp/daemon/connection_isolation_tests.rs
+git commit -m "test(mcp): many clients, a held response write, overlapping reads, a stalled reader and a refresh"
 ```
 
-- [ ] **Step 4: Prove the test bites**
+- [ ] **Step 4: Prove the tests bite**
+
+Mutant C makes every S3a test that takes the provider's write lock from the test thread wait for ever (a connection's thread holds the read guard between frames), so it is run with the filter `mcp::daemon::connection::isolation_tests`; the others run on the whole module. To run C at Linux-sized buffers, also call, on both ends of each socket pair in `wire_support::connect` and `connect_with`, a helper that sets `SO_SNDBUF` and `SO_RCVBUF` to 212,992 with `libc::setsockopt` and asserts it returned 0 (a probe; not part of the plan's code).
 
 | Mutant | Edit | Must fail (observed in validation) |
 |---|---|---|
-| A: a lock held across the response write | in `connection.rs`, `serve_client`, replace `    serve_loop(transport, \|message, lifecycle\| {` and the `match handle_control` line after it with a `static SERIAL: std::sync::Mutex<()>`, a `let mut held: Option<std::sync::MutexGuard<'static, ()>> = None;`, and, as the closure's first two statements, `held = None; held = Some(SERIAL.lock().unwrap_or_else(\|p\| p.into_inner()));` (the guard taken for one frame is let go only when the next frame arrives, so it is held while the response is written) | `many_clients_get_their_own_answers_while_one_stops_reading_and_another_refreshes`, at the 30 s read limit of a client whose handshake waits behind the stalled connection; the static also serializes the module's other socket tests: 16 of 70 fail on Task 2's code, 25 of 79 on the code after Task 6 |
-| B: output settings from the daemon's environment | in `serve_client`, replace `let settings: ConnectionSettings = *client.output();` with `let settings: ConnectionSettings = ConnectionSettings::from_env();` | the concurrency test and 16 others (17 of 70; 17 of 79 after Task 6) |
+| C: the provider slot's read guard held across the response write | in `coordinator.rs`, add `pub(super) fn pin_for_mutant(&self) -> std::sync::RwLockReadGuard<'_, Option<SessionProvider>> { self.provider.read().unwrap_or_else(\|p\| p.into_inner()) }`; in `serve_client`, declare `let mut held: Option<std::sync::RwLockReadGuard<'_, Option<crate::mcp::SessionProvider>>> = None;` before `serve_loop`, make `held = None;` the closure's first statement, and in the `Control::ToolCall` arm keep `run_tool_call`'s result, then `held = Some(state.pin_for_mutant());` before returning it (the guard taken after a call is let go only when the next frame arrives, so it is held while the response is written) | `a_refresh_and_another_client_s_query_complete_while_one_response_write_is_held`, at the 30 s read limit (1 of 2 with the filter), at Task 2's code and on the code after Task 6, with default buffers and with 212,992-byte buffers alike. The smoke test, under C with 212,992-byte buffers, failed in the one validation run and passed in three of three runs of review round 1: its verdict depends on scheduling |
+| D: queries served one at a time | in `coordinator.rs`, in `read`, replace `.read()` on `self.provider` with `.write()` | `two_clients_queries_are_inside_dispatch_at_the_same_time` (each handler waits 30 s alone, then reports `alone`) |
+| A: a global lock held across the response write | in `connection.rs`, `serve_client`, replace `    serve_loop(transport, \|message, lifecycle\| {` and the `match handle_control` line after it with a `static SERIAL: std::sync::Mutex<()>`, a `let mut held: Option<std::sync::MutexGuard<'static, ()>> = None;`, and, as the closure's first two statements, `held = None; held = Some(SERIAL.lock().unwrap_or_else(\|p\| p.into_inner()));` | both new tests and the smoke test, among 28 of 83 on the code after Task 6 (the static also serializes the module's other socket tests) |
+| B: output settings from the daemon's environment | in `serve_client`, replace `let settings: ConnectionSettings = *client.output();` with `let settings: ConnectionSettings = ConnectionSettings::from_env();` | the smoke test, the held-write test and 16 others (18 of 72 at Task 2's code; 18 of 83 after Task 6) |
 
 ### Task 3: S3b-1 proof, docs, and the pull request
 
@@ -933,7 +1140,7 @@ cargo clippy --all-targets --features mcp -- -W clippy::all > /tmp/s3b1-clippy.l
 grep -E -A8 '^warning|^error' /tmp/s3b1-clippy.log | grep -E 'src/mcp/daemon/' | sort -u
 ```
 
-Expected: `cargo fmt --check` prints nothing; the lib line shows `456 passed; 0 failed` (452 + 4); the `mcp` target `23 passed` with the golden transcripts' test `ok`; both `cargo check` runs end with `Finished` and the feature build has no warning; the last command prints nothing. (Observed on the S3b-1 head, `scratch/s3b-tasks2` `3237fc33`: `456 passed; 0 failed`. Clippy there: no line names `src/mcp/daemon/`. The `mcp` target and the three `cargo check` builds were run on the S3b-2 head only (Task 7), where each was as stated; `transport.rs` and the goldens are untouched by both parts.)
+Expected: `cargo fmt --check` prints nothing; the lib line shows `458 passed; 0 failed` (452 + 6); the `mcp` target `23 passed` with the golden transcripts' test `ok`; both `cargo check` runs end with `Finished` and the feature build has no warning; the last command prints nothing. (Observed on the S3b-1 head, `scratch/s3b-tasks3` `c4c57cdd`: `458 passed; 0 failed`. Clippy there: no line names `src/mcp/daemon/`. The `mcp` target and the three `cargo check` builds were run on the S3b-2 head only (Task 7), where each was as stated; `transport.rs` and the goldens are untouched by both parts.)
 
 - [ ] **Step 3: State the invariants**
 
@@ -945,7 +1152,7 @@ git diff --stat "$BASE" | tail -1
 wc -l src/mcp/daemon/*.rs | sort -n | tail -3
 ```
 
-Expected: `0`; `0`; 6 files changed (five under `src/mcp/daemon/` and `CLAUDE.md`), 509 insertions and 14 deletions; no file over 600 lines.
+Expected: `0`; `0`; 7 files changed (six under `src/mcp/daemon/` and `CLAUDE.md`), 702 insertions and 14 deletions; no file over 600 lines.
 
 - [ ] **Step 4: Run the remaining pre-PR checks**
 
@@ -957,7 +1164,7 @@ for i in $(seq 1 30); do cargo test --features mcp --lib mcp::daemon -- --test-t
 python3 scripts/mutgate/mutgate.py > /tmp/s3b1-mutgate.log 2>&1; tail -5 /tmp/s3b1-mutgate.log
 ```
 
-Expected: every `test result` line shows `0 failed` (sum the `passed` counts and report the total); the doc tests pass (none added); each repeat prints one line, `30 test result: ok. 70 passed; 0 failed`; the mutation gate exits 0, reported as "full gate green; it builds without `--features mcp`, so it selects no code from this slice". A failure outside this slice's files is reported, not fixed or re-baselined here.
+Expected: every `test result` line shows `0 failed` (sum the `passed` counts and report the total); the doc tests pass (none added); each repeat prints one line, `30 test result: ok. 72 passed; 0 failed`; the mutation gate exits 0, reported as "full gate green; it builds without `--features mcp`, so it selects no code from this slice". A failure outside this slice's files is reported, not fixed or re-baselined here.
 
 - [ ] **Step 5: Commit and open the PR**
 
@@ -1218,7 +1425,7 @@ cargo fmt
 cargo test --features mcp --lib mcp::daemon > /tmp/s3b-t4.log 2>&1; grep -E '^test result|FAILED|^warning' /tmp/s3b-t4.log
 ```
 
-Expected: `74 passed; 0 failed` (70 + 4), and one warning, `function `abort_daemon` is never used`: nothing calls it until Task 5 makes it the production handler. (Observed, both.) The default build has no warning: the module's `cfg_attr(not(test), allow(dead_code))` covers it.
+Expected: `76 passed; 0 failed` (72 + 4), and one warning, `function `abort_daemon` is never used`: nothing calls it until Task 5 makes it the production handler. (Observed, both.) The default build has no warning: the module's `cfg_attr(not(test), allow(dead_code))` covers it.
 
 - [ ] **Step 5: Commit**
 
@@ -1231,7 +1438,7 @@ git commit -m "feat(mcp): what ends the shared daemon, and the guard that marks 
 
 | Mutant | Edit | Must fail (observed in validation) |
 |---|---|---|
-| A: the guard is armed whatever the thread is doing | in `fatal.rs`, replace `armed: !std::thread::panicking(),` with `armed: true,` | `a_guard_made_while_the_thread_is_already_unwinding_does_not_fire` (1 of 79, on the code after Task 6) |
+| A: the guard is armed whatever the thread is doing | in `fatal.rs`, replace `armed: !std::thread::panicking(),` with `armed: true,` | `a_guard_made_while_the_thread_is_already_unwinding_does_not_fire` (1 of 83, on the code after Task 6) |
 
 ### Task 5: The coordinator's domains
 
@@ -1244,7 +1451,9 @@ git commit -m "feat(mcp): what ends the shared daemon, and the guard that marks 
 - Consumes: Task 4.
 - Produces: `Parts::on_fatal: OnFatal` (production `Arc::new(abort_daemon)`); private `DaemonState::{guard, poisoned}`; `test_support::{FatalLog { install(&mut Parts) -> FatalLog, events() -> Vec<Fatal> }, recording_state(builder) -> (Arc<DaemonState>, FatalLog)}`. `read`, `write`, `ensure_ready` and `status` keep their signatures; every `Poisoned` they return has first been reported to `on_fatal`.
 
-- [ ] **Step 1: Write the test support and change the four tests**
+Also one new test (D47), `a_panic_under_a_lock_ends_the_daemon_while_the_lock_is_still_held`: each guard is made right after its lock is taken, so `on_fatal` runs while the lock is still held; the test's handler checks that another thread's attempt to take the lock would block. And one stale comment in `publish` is corrected (review round 1, Opus F4).
+
+- [ ] **Step 1: Write the test support, the new test, and change the four tests**
 
 In `src/mcp/daemon/test_support.rs`, replace this:
 
@@ -1530,6 +1739,127 @@ with this:
 
 ````
 
+In `src/mcp/daemon/coordinator_order_tests.rs`, replace this:
+
+````rust
+    assert_eq!(state.read(|provider| provider.generation()), Ok(Some(1)));
+}
+````
+
+with this:
+
+````rust
+    assert_eq!(state.read(|provider| provider.generation()), Ok(Some(1)));
+}
+
+/// A clock that panics once it is armed. The coordinator reads it under the control lock.
+struct ArmedClock {
+    armed: std::sync::atomic::AtomicBool,
+}
+
+impl Clock for ArmedClock {
+    fn now(&self) -> Instant {
+        assert!(
+            !self.armed.load(Ordering::SeqCst),
+            "injected panic under the control lock"
+        );
+        Instant::now()
+    }
+}
+
+/// What a test's `on_fatal` saw: the event, and whether the lock the panic happened under was
+/// still held at that moment (another thread's attempt to take it would block, rather than
+/// succeed or find it poisoned).
+type Seen = Arc<Mutex<Vec<(Fatal, bool)>>>;
+
+/// A daemon whose `on_fatal` records, for each event, whether the provider slot (for a panic in
+/// dispatch) or the control lock (for a panic in the control plane) was still held.
+fn watching_lock_state(mut parts: Parts) -> (Arc<DaemonState>, Seen) {
+    let seen: Seen = Arc::default();
+    let target: Arc<std::sync::OnceLock<std::sync::Weak<DaemonState>>> = Arc::default();
+    let sink = Arc::clone(&seen);
+    let watched = Arc::clone(&target);
+    parts.on_fatal = Arc::new(move |fatal| {
+        let held = watched
+            .get()
+            .and_then(std::sync::Weak::upgrade)
+            .is_some_and(|state| match fatal {
+                Fatal::Panicked(super::super::fatal::Domain::Control) => matches!(
+                    state.control.try_lock(),
+                    Err(std::sync::TryLockError::WouldBlock)
+                ),
+                _ => matches!(
+                    state.provider.try_write(),
+                    Err(std::sync::TryLockError::WouldBlock)
+                ),
+            });
+        sink.lock().expect("seen").push((fatal, held));
+    });
+    let state = DaemonState::from_parts(parts).expect("a lazy daemon state");
+    let _ = target.set(Arc::downgrade(&state));
+    (state, seen)
+}
+
+/// Spec §3.1: a panic under one of the daemon's locks ends the daemon while that lock is still
+/// held, so that in production no other call takes it between the panic and the abort (a
+/// refresh waiting on a reader that panicked would otherwise start first). Rules out a guard
+/// made before its lock, which, dropped last, fires only after the lock is let go.
+#[test]
+fn a_panic_under_a_lock_ends_the_daemon_while_the_lock_is_still_held() {
+    use super::super::fatal::Domain;
+
+    // Under the provider slot's read lock, then under its write lock.
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (builder, _calls) = scripted(&cfg, vec![]);
+    let clock = ManualClock::new();
+    let (state, seen) = watching_lock_state(parts_with(builder, &clock));
+    let conn = Conn::open(&state, 600);
+    conn.call();
+    assert_eq!(conn.outcome(), Outcome::Ready);
+    for exclusive in [false, true] {
+        let panicking = Arc::clone(&state);
+        let unwound = std::thread::spawn(move || {
+            if exclusive {
+                let _ =
+                    panicking.write(|_| -> () { panic!("injected panic under the write lock") });
+            } else {
+                let _ = panicking.read(|_| -> () { panic!("injected panic under the read lock") });
+            }
+        })
+        .join();
+        assert!(unwound.is_err());
+    }
+    assert_eq!(
+        *seen.lock().expect("seen"),
+        vec![
+            (Fatal::Panicked(Domain::Dispatch), true),
+            (Fatal::Panicked(Domain::Dispatch), true)
+        ]
+    );
+
+    // Under the control lock: the clock is read there when an attempt starts.
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (builder, _calls) = scripted(&cfg, vec![]);
+    let clock = Arc::new(ArmedClock {
+        armed: std::sync::atomic::AtomicBool::new(true),
+    });
+    let mut parts = Parts::production(builder, StartupMode::Lazy);
+    parts.clock = clock;
+    let (state, seen) = watching_lock_state(parts);
+    let panicking = Arc::clone(&state);
+    let unwound = std::thread::spawn(move || {
+        let mut budget = ConnectionBudget::new(&super::super::test_support::client_settings(600));
+        let _ = panicking.ensure_ready(&mut budget);
+    })
+    .join();
+    assert!(unwound.is_err());
+    assert_eq!(
+        *seen.lock().expect("seen"),
+        vec![(Fatal::Panicked(Domain::Control), true)]
+    );
+}
+````
+
 In `src/mcp/daemon/connection_parity_tests.rs`, replace this:
 
 ````rust
@@ -1620,7 +1950,7 @@ with this:
 cargo test --features mcp --lib mcp::daemon > /tmp/s3b-t5-red.log 2>&1; grep -E '^error' /tmp/s3b-t5-red.log | sort | uniq -c
 ```
 
-Expected: one compile error, `error[E0609]: no field `on_fatal` on type `&mut coordinator::Parts`` (from `FatalLog::install`). (Observed.)
+Expected: two compile errors, `error[E0609]: no field `on_fatal` on type `&mut coordinator::Parts`` (from `FatalLog::install`) and `error[E0609]: no field `on_fatal` on type `coordinator::Parts`` (from the new test). (Observed.) With the guards first made before their locks, the new test fails with `left: [(Panicked(Dispatch), false), (Panicked(Dispatch), false)]`: the lock had been let go when `on_fatal` ran (observed in validation, on the code as it stood before review round 1).
 
 - [ ] **Step 3: Mark the coordinator's domains**
 
@@ -1745,10 +2075,6 @@ In `src/mcp/daemon/coordinator.rs`, replace this:
             spawner: parts.spawner,
             #[cfg(test)]
             hooks: parts.hooks,
-        });
-        if state.startup == StartupMode::Background {
-            let mut control = state.lock_control()?;
-            let _started = state.start_attempt(&mut control);
 ````
 
 with this:
@@ -1759,30 +2085,44 @@ with this:
             on_fatal: parts.on_fatal,
             #[cfg(test)]
             hooks: parts.hooks,
-        });
-        if state.startup == StartupMode::Background {
-            let _fatal = state.guard(Domain::Control);
-            let mut control = state.lock_control()?;
-            let _started = state.start_attempt(&mut control);
 ````
 
 In `src/mcp/daemon/coordinator.rs`, replace this:
 
 ````rust
-        budget: &mut ConnectionBudget,
-    ) -> Result<Answer, Poisoned> {
-        let mut control = self.lock_control()?;
-
+        if state.startup == StartupMode::Background {
+            let mut control = state.lock_control()?;
+            let _started = state.start_attempt(&mut control);
+        }
 ````
 
 with this:
 
 ````rust
-        budget: &mut ConnectionBudget,
+        if state.startup == StartupMode::Background {
+            let mut control = state.lock_control()?;
+            let _fatal = state.guard(Domain::Control);
+            let _started = state.start_attempt(&mut control);
+        }
+````
+
+In `src/mcp/daemon/coordinator.rs`, replace this:
+
+````rust
     ) -> Result<Answer, Poisoned> {
-        let _fatal = self.guard(Domain::Control);
         let mut control = self.lock_control()?;
 
+        // A connection's next call first hears its own attempt's unheard failure, before the
+````
+
+with this:
+
+````rust
+    ) -> Result<Answer, Poisoned> {
+        let mut control = self.lock_control()?;
+        let _fatal = self.guard(Domain::Control);
+
+        // A connection's next call first hears its own attempt's unheard failure, before the
 ````
 
 In `src/mcp/daemon/coordinator.rs`, replace this:
@@ -1808,20 +2148,20 @@ with this:
 In `src/mcp/daemon/coordinator.rs`, replace this:
 
 ````rust
-    /// The control plane's view of the build.
     pub(super) fn status(&self) -> Result<BuildStatus, Poisoned> {
         let control = self.lock_control()?;
         Ok(BuildStatus {
+            state: control.build.state(),
 ````
 
 with this:
 
 ````rust
-    /// The control plane's view of the build.
     pub(super) fn status(&self) -> Result<BuildStatus, Poisoned> {
-        let _fatal = self.guard(Domain::Control);
         let control = self.lock_control()?;
+        let _fatal = self.guard(Domain::Control);
         Ok(BuildStatus {
+            state: control.build.state(),
 ````
 
 In `src/mcp/daemon/coordinator.rs`, replace this:
@@ -1831,14 +2171,6 @@ In `src/mcp/daemon/coordinator.rs`, replace this:
     /// nested call can deadlock. `status` is safe to call from it.
     pub(super) fn read<R>(
         &self,
-        query: impl FnOnce(&SessionProvider) -> R,
-    ) -> Result<Option<R>, Poisoned> {
-        let slot = self
-            .provider
-            .read()
-            .map_err(|_| Poisoned { lock: "provider" })?;
-        let answer = slot.as_ref().map(query);
-        Ok(answer)
 ````
 
 with this:
@@ -1850,13 +2182,25 @@ with this:
     /// A panic in `query` ends the daemon (provider dispatch, spec §3.1).
     pub(super) fn read<R>(
         &self,
-        query: impl FnOnce(&SessionProvider) -> R,
-    ) -> Result<Option<R>, Poisoned> {
-        let _fatal = self.guard(Domain::Dispatch);
-        let slot = self
+````
+
+In `src/mcp/daemon/coordinator.rs`, replace this:
+
+````rust
+            .provider
+            .read()
+            .map_err(|_| Poisoned { lock: "provider" })?;
+        let answer = slot.as_ref().map(query);
+        Ok(answer)
+````
+
+with this:
+
+````rust
             .provider
             .read()
             .map_err(|_| self.poisoned("provider"))?;
+        let _fatal = self.guard(Domain::Dispatch);
         let answer = slot.as_ref().map(query);
         Ok(answer)
 ````
@@ -1868,14 +2212,6 @@ In `src/mcp/daemon/coordinator.rs`, replace this:
     /// a nested call deadlocks. `status` is safe to call from it.
     pub(super) fn write<R>(
         &self,
-        change: impl FnOnce(&mut SessionProvider) -> R,
-    ) -> Result<Option<R>, Poisoned> {
-        let mut slot = self
-            .provider
-            .write()
-            .map_err(|_| Poisoned { lock: "provider" })?;
-        let Some(provider) = slot.as_mut() else {
-            return Ok(None);
 ````
 
 with this:
@@ -1888,13 +2224,25 @@ with this:
     /// unwinds may have replaced part of the provider and not the rest.
     pub(super) fn write<R>(
         &self,
-        change: impl FnOnce(&mut SessionProvider) -> R,
-    ) -> Result<Option<R>, Poisoned> {
-        let _fatal = self.guard(Domain::Dispatch);
-        let mut slot = self
+````
+
+In `src/mcp/daemon/coordinator.rs`, replace this:
+
+````rust
+            .provider
+            .write()
+            .map_err(|_| Poisoned { lock: "provider" })?;
+        let Some(provider) = slot.as_mut() else {
+            return Ok(None);
+````
+
+with this:
+
+````rust
             .provider
             .write()
             .map_err(|_| self.poisoned("provider"))?;
+        let _fatal = self.guard(Domain::Dispatch);
         let Some(provider) = slot.as_mut() else {
             return Ok(None);
 ````
@@ -1920,6 +2268,12 @@ with this:
     }
 
     /// Ends the daemon if this thread unwinds before the guard is dropped (`fatal.rs`).
+    ///
+    /// Each caller makes it right after it has taken its lock, never before: locals are dropped
+    /// in reverse order, so the guard then fires while the lock is still held, and in
+    /// production the process aborts before another thread can take the lock (a refresh
+    /// waiting on a reader that panicked, say). Taking the lock cannot panic; a poisoned lock
+    /// is reported by `poisoned`.
     fn guard(&self, domain: Domain) -> FatalOnUnwind<'_> {
         FatalOnUnwind::new(&self.on_fatal, domain)
     }
@@ -1937,6 +2291,10 @@ with this:
 In `src/mcp/daemon/coordinator.rs`, replace this:
 
 ````rust
+            Ok(mut slot) => {
+                *slot = Some(provider);
+                // A poisoned control lock is left alone here as it is in `settle`.
+                let _recorded = self.record_generation(&slot, generation);
                 true
             }
             Err(_) => false,
@@ -1947,6 +2305,11 @@ In `src/mcp/daemon/coordinator.rs`, replace this:
 with this:
 
 ````rust
+            Ok(mut slot) => {
+                *slot = Some(provider);
+                // A poisoned control lock ends the daemon (`lock_control`); under a test's
+                // `on_fatal`, which returns, publication goes on and settles the attempt.
+                let _recorded = self.record_generation(&slot, generation);
                 true
             }
             Err(_) => {
@@ -2039,7 +2402,7 @@ cargo fmt
 cargo test --features mcp --lib mcp::daemon > /tmp/s3b-t5.log 2>&1; grep -E '^test result|FAILED|^warning' /tmp/s3b-t5.log
 ```
 
-Expected: `74 passed; 0 failed` (the four tests are changed, none added), no warning. (Observed.)
+Expected: `77 passed; 0 failed` (76 + 1; the four S3a tests are changed), no warning. (Observed.)
 
 - [ ] **Step 5: Commit**
 
@@ -2052,41 +2415,24 @@ git commit -m "feat(mcp): a panic or a poisoned lock in the daemon's coordinator
 
 | Mutant | Edit | Must fail (observed in validation, on the code after Task 6) |
 |---|---|---|
-| A: no guard in `write` | in `coordinator.rs`, delete the line `let _fatal = self.guard(Domain::Dispatch);` in `write` | `a_poisoned_provider_slot_ends_the_connection_with_an_error_and_handshakes_go_on` (1 of 79) |
-| B: a builder panic only fails the attempt (S3a's `PanicGuard`) | in `PanicGuard::drop`, delete `(self.state.on_fatal)(Fatal::Panicked(Domain::Build));` | `a_builder_panic_is_fatal` (1 of 79) |
-| C: a poisoned control lock found without ending the daemon | in `lock_control`, replace `self.control.lock().map_err(\|_\| self.poisoned("control"))` with `self.control.lock().map_err(\|_\| Poisoned { lock: "control" })` | `a_poisoned_control_lock_is_an_error_for_every_caller_never_a_panic_or_a_hang` (1 of 79). In validation this mutant first **survived**: the test checked only that every recorded event named the control lock, and the build thread's own finds kept the list non-empty. The test now counts each find, and the mutant is killed |
+| A: no guard in `write` | in `coordinator.rs`, delete the line `let _fatal = self.guard(Domain::Dispatch);` in `write` | `a_poisoned_provider_slot_ends_the_connection_with_an_error_and_handshakes_go_on`, `a_panic_under_a_lock_ends_the_daemon_while_the_lock_is_still_held` (2 of 83) |
+| B: a builder panic only fails the attempt (S3a's `PanicGuard`) | in `PanicGuard::drop`, delete `(self.state.on_fatal)(Fatal::Panicked(Domain::Build));` | `a_builder_panic_is_fatal` (1 of 83) |
+| C: a poisoned control lock found without ending the daemon | in `lock_control`, replace `self.control.lock().map_err(\|_\| self.poisoned("control"))` with `self.control.lock().map_err(\|_\| Poisoned { lock: "control" })` | `a_poisoned_control_lock_is_an_error_for_every_caller_never_a_panic_or_a_hang` (1 of 83). In validation this mutant first **survived**: the test checked only that every recorded event named the control lock, and the build thread's own finds kept the list non-empty. The test now counts each find, and the mutant is killed |
+| D: a guard made before its lock | in `read`, move `let _fatal = self.guard(Domain::Dispatch);` above `let slot = self` | `a_panic_under_a_lock_ends_the_daemon_while_the_lock_is_still_held` (1 of 83) |
 
 ### Task 6: A connection's boundary, and where each panic is caught
 
 `serve_bounded` (D43), the guards' tests over sockets, and spec §9 test 12 in a child process (D44, D45).
 
 **Files:**
-- Modify: `src/mcp/daemon/connection.rs`, `src/mcp/daemon/wire_support.rs`
+- Modify: `src/mcp/daemon/connection.rs`
 - Create: `src/mcp/daemon/connection_panic_tests.rs`
 
 **Interfaces:**
-- Consumes: Tasks 4 and 5; `ToolRegistry::register`, `ToolDescriptor { name, description, input_schema, annotations, runtime_behavior, handler }`, `ToolAnnotations::read_only`, `ToolContext`, `McpToolResult` (all public); `crate::mcp::transport::{InMemoryTransport, ReadOutcome, Transport}`; `clock::Clock`; `std::process::Command`, `std::os::unix::process::ExitStatusExt::signal`, `libc::SIGABRT`.
-- Produces: private `fn serve_bounded(state: &Arc<DaemonState>, registry: &ToolRegistry, transport: &mut impl Transport, client: &ClientSettings) -> anyhow::Result<()>`, which `serve_admitted` now calls; `wire_support::connect_with(state, registry: &Arc<ToolRegistry>, client) -> (Client, Worker)` (test code). `serve_admitted`'s signature is unchanged; it no longer unwinds.
+- Consumes: Tasks 4 and 5; `ToolRegistry::register`, `ToolDescriptor { name, description, input_schema, annotations, runtime_behavior, handler }`, `ToolAnnotations::read_only`, `ToolContext`, `McpToolResult` (all public); `crate::mcp::transport::{InMemoryTransport, ReadOutcome, Transport}`; `clock::Clock`; `wire_support::connect_with` (Task 2); `std::process::{Command, Child, ExitStatus}`, `std::os::unix::process::ExitStatusExt::signal`, `libc::SIGABRT`.
+- Produces: private `fn serve_bounded(state: &Arc<DaemonState>, registry: &ToolRegistry, transport: &mut impl Transport, client: &ClientSettings) -> anyhow::Result<()>`, which `serve_admitted` now calls. Test code: `DaemonProcess` (kills and reaps its child on drop), `start_daemon_process(socket) -> (DaemonProcess, JoinHandle<String>)` (stdin piped and held open; stderr drained on a thread from the start), `ended_process`. The child process exits when its standard input reaches end of file (review round 1, Opus F5). `serve_admitted`'s signature is unchanged; it no longer unwinds.
 
 - [ ] **Step 1: Write the tests**
-
-Append to `src/mcp/daemon/wire_support.rs`:
-
-````rust
-
-/// Open a connection to `state` as a client with these settings, served with `registry`.
-pub(super) fn connect_with(
-    state: &Arc<DaemonState>,
-    registry: &Arc<ToolRegistry>,
-    client: ClientSettings,
-) -> (Client, Worker) {
-    let (near, far) = UnixStream::pair().expect("a connected socket pair");
-    let state = Arc::clone(state);
-    let registry = Arc::clone(registry);
-    let worker = std::thread::spawn(move || serve_admitted(&state, &registry, far, &client));
-    (Client::new(near), worker)
-}
-````
 
 Create `src/mcp/daemon/connection_panic_tests.rs`:
 
@@ -2113,9 +2459,10 @@ use std::io::Read;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::os::unix::process::ExitStatusExt;
 use std::path::Path;
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::thread::JoinHandle;
 use std::time::Instant;
 
 const PANICKING_TOOL: &str = "panic_in_dispatch";
@@ -2264,12 +2611,18 @@ const DAEMON_SOCKET: &str = "PRISM_MCP_TEST_PANIC_DAEMON_SOCKET";
 /// `a_panic_in_dispatch_ends_the_daemon_process_and_every_attached_client_sees_its_connection_end`,
 /// started as a child with `DAEMON_SOCKET` set. In an ordinary run the variable is unset and
 /// this returns at once. It serves every connection it accepts on a thread of its own with the
-/// production `on_fatal`, the abort.
+/// production `on_fatal`, the abort. It exits when its standard input reaches end of file, so
+/// that it ends with the test that started it even when that test is killed and cannot reap it.
 #[test]
 fn a_daemon_process_for_the_panic_test() {
     let Some(socket) = std::env::var_os(DAEMON_SOCKET) else {
         return;
     };
+    std::thread::spawn(|| {
+        let mut ignored = Vec::new();
+        let _ = std::io::stdin().read_to_end(&mut ignored);
+        std::process::exit(0);
+    });
     let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
     let (builder, _builds) = scripted(&cfg, vec![]);
     let state = DaemonState::new(builder, StartupMode::Lazy).expect("a lazy daemon state");
@@ -2297,6 +2650,65 @@ impl Drop for DaemonProcess {
     }
 }
 
+/// Start the daemon process listening at `socket`, with a pipe to its standard input that it
+/// holds open, and a thread that reads its standard error from the start (so that the child
+/// never blocks on a full pipe) and returns it when the child ends.
+fn start_daemon_process(socket: &Path) -> (DaemonProcess, JoinHandle<String>) {
+    let (_crate, module) = module_path!()
+        .split_once("::")
+        .expect("a module path below the crate");
+    let daemon_test = format!("{module}::a_daemon_process_for_the_panic_test");
+    let mut daemon = DaemonProcess(
+        Command::new(std::env::current_exe().expect("the test binary"))
+            .args([
+                daemon_test.as_str(),
+                "--exact",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(DAEMON_SOCKET, socket)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("start the daemon process"),
+    );
+    let mut stderr = daemon.0.stderr.take().expect("the daemon's standard error");
+    let drained = std::thread::spawn(move || {
+        let mut text = String::new();
+        let _ = stderr.read_to_string(&mut text);
+        text
+    });
+    (daemon, drained)
+}
+
+/// Wait for the daemon process to end and return how it ended.
+fn ended_process(daemon: &mut DaemonProcess) -> ExitStatus {
+    let mut ended_with = None;
+    wait_until("the daemon process to end", || {
+        ended_with = daemon.0.try_wait().expect("the daemon process's status");
+        ended_with.is_some()
+    });
+    ended_with.expect("the daemon process ended")
+}
+
+/// The daemon process ends by itself when the test that started it is gone: its standard input
+/// reaches end of file. Rules out a child that, when its parent is killed without unwinding
+/// (and so without `DaemonProcess`'s kill), goes on serving for ever.
+#[test]
+fn the_daemon_process_ends_when_its_standard_input_is_closed() {
+    let dir = tempfile::tempdir().expect("a directory for the socket");
+    let socket = dir.path().join("daemon.sock");
+    let (mut daemon, drained) = start_daemon_process(&socket);
+    let a = attach(&socket);
+
+    drop(daemon.0.stdin.take());
+    let ended_with = ended_process(&mut daemon);
+    assert!(ended_with.success(), "{ended_with:?}");
+    drop(a);
+    let _ = drained.join();
+}
+
 fn attach(socket: &Path) -> Client {
     let mut stream = None;
     wait_until("the daemon process to listen", || {
@@ -2317,25 +2729,7 @@ fn attach(socket: &Path) -> Client {
 fn a_panic_in_dispatch_ends_the_daemon_process_and_every_attached_client_sees_its_connection_end() {
     let dir = tempfile::tempdir().expect("a directory for the socket");
     let socket = dir.path().join("daemon.sock");
-    let (_crate, module) = module_path!()
-        .split_once("::")
-        .expect("a module path below the crate");
-    let daemon_test = format!("{module}::a_daemon_process_for_the_panic_test");
-    let mut daemon = DaemonProcess(
-        Command::new(std::env::current_exe().expect("the test binary"))
-            .args([
-                daemon_test.as_str(),
-                "--exact",
-                "--nocapture",
-                "--test-threads=1",
-            ])
-            .env(DAEMON_SOCKET, &socket)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .spawn()
-            .expect("start the daemon process"),
-    );
+    let (mut daemon, drained) = start_daemon_process(&socket);
 
     let mut a = attach(&socket);
     let mut b = attach(&socket);
@@ -2348,21 +2742,9 @@ fn a_panic_in_dispatch_ends_the_daemon_process_and_every_attached_client_sees_it
     a.expect_closed();
     b.expect_closed();
 
-    let mut ended_with = None;
-    wait_until("the daemon process to end", || {
-        ended_with = daemon.0.try_wait().expect("the daemon process's status");
-        ended_with.is_some()
-    });
-    let ended_with = ended_with.expect("the daemon process ended");
+    let ended_with = ended_process(&mut daemon);
     assert_eq!(ended_with.signal(), Some(libc::SIGABRT), "{ended_with:?}");
-    let mut stderr = String::new();
-    daemon
-        .0
-        .stderr
-        .take()
-        .expect("the daemon's standard error")
-        .read_to_string(&mut stderr)
-        .expect("read the daemon's standard error");
+    let stderr = drained.join().expect("the daemon's standard error is read");
     assert!(stderr.contains(HANDLER_PANIC), "{stderr}");
     assert!(
         stderr.contains("prism-mcp daemon: a panic in provider dispatch"),
@@ -2374,15 +2756,15 @@ fn a_panic_in_dispatch_ends_the_daemon_process_and_every_attached_client_sees_it
 In `src/mcp/daemon/connection.rs`, replace this:
 
 ````rust
-#[path = "connection_concurrency_tests.rs"]
-mod concurrency_tests;
+#[path = "connection_isolation_tests.rs"]
+mod isolation_tests;
 ````
 
 with this:
 
 ````rust
-#[path = "connection_concurrency_tests.rs"]
-mod concurrency_tests;
+#[path = "connection_isolation_tests.rs"]
+mod isolation_tests;
 
 #[cfg(test)]
 #[path = "connection_panic_tests.rs"]
@@ -2496,12 +2878,12 @@ cargo fmt
 cargo test --features mcp --lib mcp::daemon > /tmp/s3b-t6.log 2>&1; grep -E '^test result|FAILED|^warning' /tmp/s3b-t6.log
 ```
 
-Expected: `79 passed; 0 failed` (74 + 5, one of them the child-process test that returns at once), no warning. The test kills and reaps the child however it ends (`DaemonProcess`), so a failing run, or a mutant run in Step 6, leaves no process behind; check with `pgrep -f a_daemon_process_for_the_panic_test` after Step 6, which must print nothing. The run starts one child process, which aborts; on macOS it leaves one crash report in `~/Library/Logs/DiagnosticReports/` (`prism-<hash>-<time>.ips`, about 80 KB). (Observed: `79 passed; 0 failed`, no warning, one report.)
+Expected: `83 passed; 0 failed` (77 + 6, one of them the child-process test that returns at once), no warning. The test kills and reaps the child however it ends (`DaemonProcess`), so a failing run, or a mutant run in Step 6, leaves no process behind; check with `pgrep -f a_daemon_process_for_the_panic_test` after Step 6, which must print nothing. The run starts one child process, which aborts; on macOS it leaves one crash report in `~/Library/Logs/DiagnosticReports/` (`prism-<hash>-<time>.ips`, about 80 KB). (Observed: `79 passed; 0 failed`, no warning, one report.)
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/mcp/daemon/connection.rs src/mcp/daemon/wire_support.rs src/mcp/daemon/connection_panic_tests.rs
+git add src/mcp/daemon/connection.rs src/mcp/daemon/connection_panic_tests.rs
 git commit -m "feat(mcp): a connection's own panic boundary; a panic in dispatch aborts the daemon"
 ```
 
@@ -2509,10 +2891,11 @@ git commit -m "feat(mcp): a connection's own panic boundary; a panic in dispatch
 
 | Mutant | Edit | Must fail (observed in validation) |
 |---|---|---|
-| A: no guard in `read` | in `coordinator.rs`, delete the line `let _fatal = self.guard(Domain::Dispatch);` in `read` | `a_panic_in_a_query_ends_the_daemon`, and the process test at the 30 s limit (B's connection stays open: the panic ended only A's) (2 of 79) |
-| B: no guard in `ensure_ready` | delete the line `let _fatal = self.guard(Domain::Control);` in `ensure_ready` | `a_panic_in_the_control_plane_ends_the_daemon` (1 of 79) |
-| C: no connection boundary | in `serve_bounded`, replace the `catch_unwind` statement with `let served: std::thread::Result<anyhow::Result<()>> = Ok(serve_client(state, registry, transport, client)); let _ = AssertUnwindSafe(());` | `a_panic_outside_both_domains_closes_that_connection_only`, `a_panic_in_a_query_ends_the_daemon`, `a_panic_in_the_control_plane_ends_the_daemon` (3 of 79: the last two because, under a returning handler, their connection's worker now panics) |
-| D: the production handler returns | in `fatal.rs`, replace `std::process::abort();` with `let _ = 0;` | the process test, at the 30 s limit (1 of 79) |
+| A: no guard in `read` | in `coordinator.rs`, delete the line `let _fatal = self.guard(Domain::Dispatch);` in `read` | `a_panic_in_a_query_ends_the_daemon`, and the process test at the 30 s limit (B's connection stays open: the panic ended only A's), and the lock-held test (3 of 83) |
+| B: no guard in `ensure_ready` | delete the line `let _fatal = self.guard(Domain::Control);` in `ensure_ready` | `a_panic_in_the_control_plane_ends_the_daemon`, the lock-held test (2 of 83) |
+| C: no connection boundary | in `serve_bounded`, replace the `catch_unwind` statement with `let served: std::thread::Result<anyhow::Result<()>> = Ok(serve_client(state, registry, transport, client)); let _ = AssertUnwindSafe(());` | `a_panic_outside_both_domains_closes_that_connection_only`, `a_panic_in_a_query_ends_the_daemon`, `a_panic_in_the_control_plane_ends_the_daemon` (3 of 83: the last two because, under a returning handler, their connection's worker now panics) |
+| D: the production handler returns | in `fatal.rs`, replace `std::process::abort();` with `let _ = 0;` | the process test, at the 30 s limit (1 of 83) |
+| E: the child outlives a parent that cannot reap it | in `a_daemon_process_for_the_panic_test`, delete `std::process::exit(0);` | `the_daemon_process_ends_when_its_standard_input_is_closed`, at the 30 s limit (1 of 83) |
 
 ### Task 7: S3b-2 proof, docs, and the pull request
 
@@ -2572,21 +2955,21 @@ Algorithms fall into two categories:
 
 - [ ] **Step 2: Run the MCP surface and the checks**
 
-The commands of Task 3 Step 2, with `s3b2` in the log names. Expected: `cargo fmt --check` prints nothing; the lib line `465 passed; 0 failed` (452 + 13); the `mcp` target `23 passed` with the golden transcripts' test `ok`; the `cargo check` runs `Finished`, no warning from the feature build; no clippy line names `src/mcp/daemon/`. (Observed at the S3b-2 head, `scratch/s3b-tasks2` `7554e7c6`: `cargo fmt --check` silent; `465 passed; 0 failed`; `23 passed`, `standalone_transcripts_match_the_goldens_recorded_before_the_transport_refactor ... ok`; `cargo check`, `cargo check --features mcp` (0 warnings) and the owner-audit build `Finished`; clippy 257 `warning` lines in the whole log, none naming `src/mcp/daemon/`.)
+The commands of Task 3 Step 2, with `s3b2` in the log names. Expected: `cargo fmt --check` prints nothing; the lib line `469 passed; 0 failed` (452 + 17); the `mcp` target `23 passed` with the golden transcripts' test `ok`; the `cargo check` runs `Finished`, no warning from the feature build; no clippy line names `src/mcp/daemon/`. (Observed at the S3b-2 head, `scratch/s3b-tasks3` `d332af28`: `cargo fmt --check` silent; `469 passed; 0 failed`; `23 passed`, `standalone_transcripts_match_the_goldens_recorded_before_the_transport_refactor ... ok`; `cargo check`, `cargo check --features mcp` (0 warnings) and the owner-audit build `Finished`; clippy 257 `warning` lines in the whole log, none naming `src/mcp/daemon/`.)
 
 - [ ] **Step 3: State the invariants**
 
-The commands of Task 3 Step 3. Expected: `0`; `0`; against S3b-1's merge, 12 files changed (eleven under `src/mcp/daemon/` and `CLAUDE.md`), 640 insertions and 37 deletions; no file over 600 lines (`coordinator.rs` is the largest this slice edits, 541; `connection_tests.rs`, 577, is not edited).
+The commands of Task 3 Step 3. Expected: `0`; `0`; against S3b-1's merge, 11 files changed (ten under `src/mcp/daemon/` and `CLAUDE.md`), 778 insertions and 38 deletions; no file over 600 lines (`coordinator.rs` is the largest this slice edits, 548; `connection_tests.rs`, 577, is not edited).
 
 - [ ] **Step 4: Run the remaining pre-PR checks**
 
-The commands of Task 3 Step 4, with `s3b2` in the log names. Expected as there, with `79 passed` in the repeat lines. Each of the 60 repeat runs starts the child process of Task 6 and, on macOS, leaves one crash report; add `-- --skip a_panic_in_dispatch_ends_the_daemon_process` to the repeat loops to keep them out, and run that test alone five times instead:
+The commands of Task 3 Step 4, with `s3b2` in the log names. Expected as there, with `82 passed` in the repeat lines (83 less the skipped process test). Each of the 60 repeat runs starts the child process of Task 6 and, on macOS, leaves one crash report; add `-- --skip a_panic_in_dispatch_ends_the_daemon_process` to the repeat loops to keep them out, and run that test alone five times instead:
 
 ```bash
 for i in $(seq 1 5); do cargo test --features mcp --lib mcp::daemon::connection::panic_tests > /tmp/s3b2-process-$i.log 2>&1; grep -oE '^test result: [A-Za-z]+\. [0-9]+ passed; [0-9]+ failed' /tmp/s3b2-process-$i.log; done | sort | uniq -c
 ```
 
-Expected: `5 test result: ok. 5 passed; 0 failed`.
+Expected: `5 test result: ok. 6 passed; 0 failed`.
 
 - [ ] **Step 5: Commit and open the PR**
 
@@ -2618,7 +3001,7 @@ Everything below is in `crate::mcp::daemon` and `pub(super)` unless a path says 
 - `test_support::{FatalLog, recording_state}`, `wire_support::{connect_with, Client::flood_until_full, Client::send_raw_in_background}`, and `connection_panic_tests`' child-process pattern (`a_daemon_process_for_the_panic_test`, started with `--exact` and an environment variable, held in a `DaemonProcess` that kills and reaps it on drop): the way to test, before S5a, anything that must end a process. A test that starts a process must kill it on every path; validation found two daemon processes left running by failed runs before the guard existed.
 - Still open from S3a, unchanged here: a builder that never returns (no attempt end, so "no build in progress" never holds), SI-5 (a parked call of a departed client), the `Background` startup parity requirement, and bounding `BuildPhase::Failed { error }` where it is logged or sent.
 
-**S5a (the shim) owes:** spec §9 tests 6, 7, 9 and 12 through real shims and a real daemon process; for test 12, "the next shim restarts it" (SI-13): after the abort, the next shim finds the owner lock free, replaces the stale socket and starts a daemon that serves it.
+**S5a (the shim) owes:** spec §9 tests 6, 7, 9 and 12 through real shims and a real daemon process; for test 12, "the next shim restarts it" (SI-13): after the abort, the next shim finds the owner lock free, replaces the stale socket and starts a daemon that serves it. **And a bound on that restart (SI-10, D42; review round 1, Opus F6):** a builder panic that recurs aborts every daemon on its first tool call, so without a bound each shim start launches and loses another daemon (and on macOS writes another crash report), indefinitely. The start protocol must notice that the key's last daemon died by abort shortly after it started (for example a marker beside the pid file, written by the daemon before its first build and removed when the build publishes, which a starting shim finds with the owner lock free) and then fail closed with a diagnostic naming the log, or back off, rather than start another at once. The spec states no such rule; S5a's plan decides its shape.
 
 **C2-M1 and every candidate that ships through the fan-out gate:** SI-11. The gate's "one concurrent `refresh_index`" measures the write lock held across a rebuild; read its p95/p99 with that in mind before attributing a regression to the candidate.
 
@@ -2630,17 +3013,17 @@ Everything below is in `crate::mcp::daemon` and `pub(super)` unless a path says 
 - **Spec §4.2 sentences checked against the code:** "queries take the read lock and operate on a read-only facade" (`read`, unchanged); "`refresh_index` and automatic refresh take the write lock" (`write`, unchanged); "automatic refresh re-checks its trigger after acquiring exclusive access" (Task 1); "every response is bound to the generation it actually queried" (D36: one lock acquisition per response); "reads and writes happen outside every lock" (Task 2); "a panic anywhere in provider dispatch, the build thread or the control plane aborts the daemon; no lock is ever unwrapped past poisoning" (Tasks 4–6, D41); "panics in a connection's framing or output shaping close that connection only; the implementation marks these boundaries explicitly" (`serve_bounded`, D43, SI-12).
 - **S3a's notes for S3b, one by one.** "`ReadDispatch::NeedsAutoRefresh` is the hand-off point for the re-check" → Task 1, inside `run_tool_call`'s last statement as S3a's interface said. "`dispatch_tool_auto_refresh` runs the query while still holding `&mut provider` … it splits mechanically" → not split, D35. "`ReadDispatch::NeedsAutoRefresh` carries no generation … add a generation accessor" → S3a added `SessionProvider::generation()`; D36 needs no more. "`PanicGuard`'s `Drop`: the body to replace with the abort" → D42 (the abort is called there, and the S3a body stays for a test's returning handler). "`Poisoned`: every place it is constructed is a place the abort belongs" → D41, `poisoned`. "`TestHooks` and `AttemptHook`: the pattern for an injected panic in dispatch" → a panicking tool in a test registry instead (D45): it injects the panic where dispatch really runs, with no production seam. "`record_generation` should read the generation from the guard it is handed when S3b or S4 next changes it" → not changed: S3b does not change `record_generation`; it remains S4's.
 - **The lane's review lessons.** (1) Every stated property has a test and a mutant, or is listed as not held: "Claims". One mutant survived in validation (Task 5 C) and the test was strengthened, not the mutant waived. (2) What each mechanism does not cover: its section. (3) Interleavings: the race the re-check exists for is played at a seam (Task 1); the stalled reader is made by filling a socket, not by timing (Task 2). (4) No test asserts an upper bound on a duration or sleeps to order events; socket pairs need no path except Task 6's child, whose socket is in a fresh temporary directory. (5) Nothing new is logged but `abort_daemon`'s fixed line and `serve_bounded`'s fixed error; neither carries peer bytes or a panic payload. (6) No `unwrap`, `expect`, indexing or unchecked arithmetic outside tests in the new code.
-- **Size.** From the validated branch: S3b-1 `src/` 5 files, 501 insertions, 12 deletions; S3b-2 `src/` 11 files, 631 insertions, 33 deletions; `CLAUDE.md` +8 −2 and +9 −4. Code (non-test) lines: S3b-1 about 45 (`connection.rs`, `coordinator.rs`), S3b-2 about 200 (`fatal.rs` 101, `coordinator.rs` +57, `connection.rs` +36); the rest is tests and test support.
+- **Size.** From the validated branch: S3b-1 `src/` 6 files, 694 insertions, 12 deletions; S3b-2 `src/` 10 files, 769 insertions, 34 deletions; `CLAUDE.md` +8 −2 and +9 −4. Code (non-test) lines: S3b-1 about 45 (`connection.rs`, `coordinator.rs`), S3b-2 about 210 (`fatal.rs` 101, `coordinator.rs` +65, `connection.rs` +36); the rest is tests and test support.
 
 ## Validation record
 
 Built on 2026-10-14 on macOS (arm64), in `~/code/prism-s3b-validate`, from `main` `d93d9047`. Every cargo command ran alone, as `nice -n 19 env CARGO_BUILD_JOBS=4 cargo …`, with its output in a file under the session's scratch directory, read from the file. Nothing was pushed. Three local branches:
 
-- `scratch/s3b-validate`, where the code was first written, test first: `28020592` (Task 1), `ab807290` (Task 2), `db39880a` (Tasks 4–6 in one commit), `f32d7881` (the change to `a_poisoned_control_lock_…` after its mutant survived), `08b9cd74` (the two test corrections below). The mutants of every task ran here.
-- `scratch/s3b-tasks2`, the same source cut into this plan's tasks (each commit a checkout of the files the task names, plus the two `CLAUDE.md` edits): `0fc0cd34` (Task 1), `09448634` (Task 2), `3237fc33` (Task 3), `5f33dfba` (Task 4), `edcf6311` (Task 5), `9bbbb55e` (Task 6), `7554e7c6` (Task 7). Its source at `9bbbb55e` is byte-identical with `08b9cd74`. The red and green steps of Tasks 2–6 as listed below, the per-task counts and the final checks ran here.
-- `scratch/s3b-tasks`, the first cut, before the two test corrections; superseded by `scratch/s3b-tasks2`, kept for the record.
+- `scratch/s3b-validate`, where the code was first written, test first: `28020592` (Task 1), `ab807290` (Task 2), `db39880a` (Tasks 4–6 in one commit), `f32d7881` (the change to `a_poisoned_control_lock_…` after its mutant survived), `08b9cd74` (the two test corrections below), then review round 1's fold: `e3d437a9` (the held-write and overlapping-read tests), `abaf4dc9` (D47 and the `publish` comment), and `c079829d` (the child's lifetime). The mutants of every task ran here, the round-1 ones at `c079829d`.
+- `scratch/s3b-tasks3`, the same source cut into this plan's tasks (each commit a checkout of the files the task names, plus the two `CLAUDE.md` edits): `0fc0cd34` (Task 1), `4b66b2ca` (Task 2), `c4c57cdd` (Task 3), `1436c5fd` (Task 4), `0445b5e6` (Task 5), `52712e15` (Task 6), `d332af28` (Task 7). Its source at `52712e15` is byte-identical with `c079829d`. The red and green steps of Tasks 2–6 as listed below, the per-task counts and the final checks ran here.
+- `scratch/s3b-tasks` and `scratch/s3b-tasks2`, earlier cuts (before the two test corrections, and before review round 1); superseded, kept for the record.
 
-The plan's directives were generated from `scratch/s3b-tasks2` (each task's commit against the one before it) and replayed by a script, in the plan's order, onto the files of `d93d9047`: every anchor matched exactly once at its point in the sequence, and all 14 files the plan touches came out byte-identical with `7554e7c6`. Every mutant's anchor matches once in the file at the task's commit, except the two guards named "in `write`" and "in `ensure_ready`", whose line occurs twice in `coordinator.rs` and is identified by the function.
+The plan's directives were generated from `scratch/s3b-tasks3` (each task's commit against the one before it) and replayed by a script, in the plan's order, onto the files of `d93d9047`: every anchor matched exactly once at its point in the sequence, and all 15 files the plan touches came out byte-identical with `d332af28`. Every mutant's anchor matches once in the file at the task's commit, except the two guards named "in `write`" and "in `ensure_ready`", whose line occurs twice in `coordinator.rs` and is identified by the function.
 
 | Step | Command | Observed |
 |---|---|---|
@@ -2649,20 +3032,22 @@ The plan's directives were generated from `scratch/s3b-tasks2` (each task's comm
 | T1 seam only (Step 3 without Step 4) | `--lib mcp::daemon::connection::refresh_tests` | `2 passed; 1 failed`: `a_client_that_finds_the_index_refreshed_once_…`, B's answer `"prism/auto_refresh":"refreshed","prism/refresh_generation":2`, `"prism/stale_index_total_before_refresh":0` |
 | T1 green | `--lib mcp::daemon` | `69 passed; 0 failed`, no warning |
 | T1 mutants | A, B | A: 1 failed of 69. B: 8 failed of 69 (the three Task 1 tests, both sticky-evidence tests, the byte-parity session, both generation tests) |
-| T2 green | `--lib mcp::daemon` at `09448634` | `70 passed; 0 failed`, no warning; the stalled client sent 63 whole frames before `WouldBlock`, at a frame boundary (a temporary print, run once on the first cut, removed) |
-| T2 mutants | A, B | on Task 2's code (first cut): A 16 failed of 70 (a 60.37 s run, the concurrency test at a 30 s read limit), B 17 of 70. On the final code: A 25 of 79 (60.02 s), B 17 of 79 |
-| T3 | `--lib mcp::` and clippy at the S3b-1 head `3237fc33` | `456 passed; 0 failed`; no clippy line names `src/mcp/daemon/` |
+| T2 green | `--lib mcp::daemon` at `4b66b2ca` | `72 passed; 0 failed`, no warning; the smoke test's stalled client sent 63 whole frames before `WouldBlock`, at a frame boundary (a temporary print, run once on the first cut, removed) |
+| T2 mutants | A, B, C, D | at Task 2's code (`4b66b2ca`): B 18 of 72; C 1 of 2 with the `isolation_tests` filter (the held-write test, at 30 s), with default buffers and again with 212,992-byte buffers; D 1 of 2 (the overlapping-read test, at 30 s). On the final code: A 28 of 83 (60.24 s), B 18 of 83, C as at Task 2 (and the smoke test under C with 212,992-byte buffers failed, 1 of 1, in this one run), D as at Task 2. The correct code with 212,992-byte buffers: the two isolation tests and the smoke test pass |
+| T3 | `--lib mcp::` and clippy at the S3b-1 head `c4c57cdd` | `458 passed; 0 failed`; no clippy line names `src/mcp/daemon/` |
 | T4 red | the tests and `mod fatal;` only | `error[E0583]: file not found for module `fatal`` |
-| T4 green | `--lib mcp::daemon` at `5f33dfba` | `74 passed; 0 failed`; one warning, `function `abort_daemon` is never used` (gone after Task 5) |
-| T5 red | the test support and the four changed tests only | `error[E0609]: no field `on_fatal` on type `&mut coordinator::Parts`` |
-| T5 green | `--lib mcp::daemon` at `edcf6311` | `74 passed; 0 failed`, no warning |
+| T4 green | `--lib mcp::daemon` at `1436c5fd` | `76 passed; 0 failed`; one warning, `function `abort_daemon` is never used` (gone after Task 5) |
+| T5 red | the test support, the new test and the four changed tests only | two `error[E0609]`: no field `on_fatal` on `&mut coordinator::Parts` and on `coordinator::Parts` |
+| T5 D47 red | the lock-held test against the guards made before their locks (`f32d7881`'s placement) | `35 passed; 1 failed` in `mcp::daemon::coordinator`: `left: [(Panicked(Dispatch), false), (Panicked(Dispatch), false)]` |
+| T5 green | `--lib mcp::daemon` at `0445b5e6` | `77 passed; 0 failed`, no warning |
 | T6 red | the tests, `connect_with` and the module line only | `error[E0432]: unresolved import `super::serve_bounded`` |
-| T6 green | `--lib mcp::daemon` at `9bbbb55e` | `79 passed; 0 failed`, no warning; one crash report per run |
-| S3b-2 mutants | Task 4 A; Task 5 A, B, C; Task 6 A, B, C, D | 4A 1 of 79; 5A 1; 5B 1; **5C survived** (`79 passed`) against the test as first written, then 1 failed of 79 once the test counted each find; 6A 2 (one at the 30 s limit); 6B 1; 6C 3; 6D 1 (at the 30 s limit). 6A and 6D were run again after the `DaemonProcess` correction: killed, and `pgrep -f a_daemon_process_for_the_panic_test` printed nothing afterwards |
-| V4–V7 | `cargo fmt --check`; `--lib mcp::`; `--test mcp`; `cargo check`; `cargo check --features mcp`; `cargo check --tests --features mcp,detached-owner-audit`; clippy | at `7554e7c6`: silent; `465 passed; 0 failed`; `23 passed`, `standalone_transcripts_match_the_goldens_recorded_before_the_transport_refactor ... ok`; `Finished`; `Finished`, 0 warnings; `Finished` (the base's warnings in `tests/`); 257 `warning` lines in the whole log, none naming `src/mcp/daemon/`. At the S3b-1 head `3237fc33`: `--lib mcp::` `456 passed`, clippy the same 257 lines and none naming `src/mcp/daemon/` |
-| V9 | 30 × `--lib mcp::daemon -- --skip a_panic_in_dispatch_ends_the_daemon_process`, default threads and `--test-threads=1`; 5 × `mcp::daemon::connection::panic_tests`, at `7554e7c6` | `30 test result: ok. 78 passed; 0 failed` in each mode, at `7554e7c6` (the 79th test, the process test, skipped; test time 1.26–1.31 s with default threads, 1.68–2.28 s with one), load average about 22–30; the process test alone, 5 times: `5 test result: ok. 5 passed; 0 failed`; afterwards `pgrep -f a_daemon_process_for_the_panic_test` printed nothing. |
-| V10 | `git diff --name-only d93d9047 7554e7c6` | 14 paths: 13 under `src/mcp/daemon/` and `CLAUDE.md`; nothing else |
-| Full suite | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp`; `cargo test --doc --features mcp`, at `7554e7c6` | `cargo test --features mcp`: 31 `test result` lines, **5,758 passed, 0 failed, 1 ignored** (the library 1,938, including the process test; the goldens' test `ok`); `cargo test --doc --features mcp`: `2 passed; 0 failed`. Load averages 21–31. |
+| T6 green | `--lib mcp::daemon` at `52712e15` | `83 passed; 0 failed`, no warning; one crash report per run |
+| S3b-2 mutants (final code, `c079829d`) | Task 4 A; Task 5 A–D; Task 6 A–E | 4A 1 of 83; 5A 2; 5B 1; 5C 1 (it had **survived**, `79 passed`, against the test as first written, before the test counted each find); 5D 1; 6A 3 (at the 30 s limit); 6B 2; 6C 3; 6D 1 (30 s); 6E 1 (30 s). After every run `pgrep -f a_daemon_process_for_the_panic_test` printed nothing |
+| T1 mutants on the final code | A, B | A 1 of 83; B 10 of 83 |
+| V4–V7 | `cargo fmt --check`; `--lib mcp::`; `--test mcp`; `cargo check`; `cargo check --features mcp`; `cargo check --tests --features mcp,detached-owner-audit`; clippy | at `d332af28`: silent; `469 passed; 0 failed`; `23 passed`, `standalone_transcripts_match_the_goldens_recorded_before_the_transport_refactor ... ok`; `Finished`; `Finished`, 0 warnings; `Finished` (the base's warnings in `tests/`); 257 `warning` lines in the whole log, none naming `src/mcp/daemon/`. At the S3b-1 head `c4c57cdd`: `--lib mcp::` `458 passed`, clippy the same 257 lines and none naming `src/mcp/daemon/` |
+| V9 | 30 × `--lib mcp::daemon -- --skip a_panic_in_dispatch_ends_the_daemon_process`, default threads and `--test-threads=1`; 5 × `mcp::daemon::connection::panic_tests`, at `d332af28` | `30 test result: ok. 82 passed; 0 failed` in each mode, at `d332af28` (the 83rd test, the process test, skipped; test time 1.25–1.29 s with default threads, 1.78–2.04 s with one), load average about 22–24; the process tests alone, 5 times: `5 test result: ok. 6 passed; 0 failed`; afterwards `pgrep -f a_daemon_process_for_the_panic_test` printed nothing. |
+| V10 | `git diff --name-only d93d9047 d332af28` | 15 paths: 14 under `src/mcp/daemon/` and `CLAUDE.md`; nothing else |
+| Full suite | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp`; `cargo test --doc --features mcp`, at `d332af28` | `cargo test --features mcp`: 31 `test result` lines, **5,762 passed, 0 failed, 1 ignored** (the library 1,942, including the process tests; the goldens' test `ok`); `cargo test --doc --features mcp`: `2 passed; 0 failed`. Load averages 22–24. |
 
 **Corrections made to the plan by the validation.**
 
@@ -2673,5 +3058,18 @@ The plan's directives were generated from `scratch/s3b-tasks2` (each task's comm
 | 3 | Task 6, the process test | the child held as a bare `Child` | A failing run (two mutant runs in validation) returned before reaping the child, and the child, which had not aborted, went on listening with a built index: two such processes were found running afterwards and were killed | `DaemonProcess` kills and reaps the child on drop, on every path; checked with `pgrep` after the mutant runs |
 | 4 | Task 2 | `connect_with` added with the flood helpers | unused until Task 6: a dead-code warning in the test build | moved to Task 6 |
 | 5 | Task 4 Step 4 | "no warning" | `abort_daemon` is unused in the test build until Task 5 | names the one warning |
+
+**Review round 1 (PR #384 at `7a68854e`; gpt-6.1-sol APPROVE, Opus 5.5 FIX), folded.**
+
+| Finding | What changed | Evidence |
+|---|---|---|
+| Opus F1 WRONG/MATERIAL, sol F1 SMELL/MATERIAL: test 7 did not prove that a blocked response writer stalls nobody (a provider guard held across the write passed it at Linux-sized buffers), and barrier-released readers could pass serialized | Task 2 gains `a_refresh_and_another_client_s_query_complete_while_one_response_write_is_held` (a test transport holds the write at a gate; the test waits until it is entered, then requires another client's refresh and query to complete) and `two_clients_queries_are_inside_dispatch_at_the_same_time` (a test tool whose handler waits for a second reader). The socket test is kept as a smoke test and no claim rests on it. Mutants C (provider guard across the write) and D (queries take the write lock) added. "Either way" in the not-held list removed; D37, Review Focus 2, the claims table and "What each mechanism covers" corrected | C killed at default and 212,992-byte buffers, at Task 2's code and at the end; D killed; correct code passes at 212,992-byte buffers |
+| Opus F2 SMELL: each guard fired after its lock was let go; the panic table's "no response to calls in flight" was too strong | **Both:** the guards are made right after their locks (D47), so `on_fatal` runs while the lock is held, and the table now says a call already running under a shared lock on another connection may finish first. Chosen over text alone because the move is one line per entry point and closes the window in which a waiting refresh, or a racing poisoned-lock report, gets in before the abort | `a_panic_under_a_lock_ends_the_daemon_while_the_lock_is_still_held` failed on the old placement and passes; mutant 5D killed |
+| Opus F3 SMELL: no test holds `status`'s guard | Listed under "Stated and not held", with the reason (nothing in `status` can be made to panic without a production seam) | — |
+| Opus F4 SMELL: stale comment in `publish` | Corrected in Task 5 | — |
+| Opus F5 SMELL: the child process outlives a parent that cannot reap it; stderr read only after exit | The child exits on standard-input end of file (the parent holds the pipe); stderr is drained on a thread from spawn | `the_daemon_process_ends_when_its_standard_input_is_closed`; mutant 6E killed |
+| Opus F6 SMELL: SI-10's restart loop not handed to S5a | SI-10 and "Interfaces for the next slices" (S5a) state that the start protocol must bound it | — |
+
+One accident during the fold, recorded: a hung mutant run was killed and the worktree restored with `git checkout -- src`, which discarded an uncommitted module line; it was re-added and committed before any further experiment (the plan's own "commit before any experiment" rule, broken once). Mutant C on the whole module makes S3a tests that take the write lock from the test thread wait for ever; it is run filtered.
 
 **Not run in this validation:** the mutation gate (it selects no MCP code); anything on Linux; a release build; the Tier-A harness (no file it watches is touched).
