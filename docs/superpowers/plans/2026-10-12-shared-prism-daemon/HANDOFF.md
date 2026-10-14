@@ -1,16 +1,16 @@
-# Handoff — shared per-repo prism daemon lane; S3a and the M2 save half merged, M2 load half measured at 06:00
+# Handoff — shared per-repo prism daemon lane; S3a, S3b and the M2 save half merged, M2 load half measured at 06:00
 
-**Written:** 2026-10-14T00:15-06:00 · **By:** Claude Code session `fd583811-fdc5-4426-9c4a-55872d2ecc1c` (Opus 5.5) · **Provider:** claude
-**Workspace:** `~/code/prism-c2-plan` · `docs/daemon-lane-handoff-late` (this docs PR) · **Measured state:** `[MEASURED]` HEAD = the commit that adds this revision · Tree CLEAN after that commit · Probe `git status --short && git log --oneline -3` · Output inline in the session
-**Predecessor:** this session's own handoff of 2026-10-13T16:45-06:00 (same file, previous revision), and before it Claude Code session `afaf5155-ea5e-4ad5-b8d8-be35f747f74d` (Fable 5.1)
+**Written:** 2026-10-14T04:20-06:00 · **By:** Claude Code session `fd583811-fdc5-4426-9c4a-55872d2ecc1c` (Opus 5.5) · **Provider:** claude
+**Workspace:** `~/code/prism-s3b-docs` · `docs/s3b-merged-handoff` (this docs PR) · **Measured state:** `[MEASURED]` HEAD = the commit that adds this revision · Tree CLEAN after that commit · Probe `git status --short && git log --oneline -3` · Output inline in the session
+**Predecessor:** this session's own handoff of 2026-10-14T00:15-06:00 (same file, previous revision), and before it Claude Code session `afaf5155-ea5e-4ad5-b8d8-be35f747f74d` (Fable 5.1)
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not.
 
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` this session is the only one on the lane; another session works the JS/TS alias lane and does not touch `src/mcp` or `src/cpg_cache*`. — **RESOLVED 2026-10-13**
-**(b) Custody exposure** — `[MEASURED]` on `main` (`4e2e9c3c`): S1, C1, spec, plans, readout, S2a, S2b, the driver, the M2 plan, S3a-1, S3a-2 (#377 → `14e6f66c`), the S3a plan (#373 → `4e2e9c3c`), the M2 save half (#380 → `88f92603`). Pushed branches with open PRs: `perf/cpg-cache-streaming` (#369, draft, to be closed), and `perf/cpg-cache-mmap-load` (`91e5a5af`, pushed, no PR yet). Raw evidence is local only under `~/prism-evidence/mcp-memory/{c1,c2-m2}/`; the M2 experiment's `SHA256SUMS` is written after the morning run. — **OPEN until then**
-**(c) In flight / irreversible** — `[MEASURED]` a session cron (`3998d2d5`, session-only: it dies with the session) runs the M2 quiet-window measurements at **06:00 MDT 2026-10-14**, following `~/prism-evidence/mcp-memory/c2-m2/PROCEDURE-6am.md`; the three binaries and `bin/COMMITS-6am.txt` are in place. **From 06:00 until that run ends, start no cargo build, no test run, no review and no other prism-mcp on this host.** If this session is gone by then, a successor runs the procedure by hand. — **OPEN**
+**(b) Custody exposure** — `[MEASURED]` on `main` (`a9ac0a63`): S1, C1, spec, plans, readout, S2a, S2b, the driver, the M2 plan, S3a-1, S3a-2 (#377 → `14e6f66c`), the S3a plan (#373 → `4e2e9c3c`), the M2 save half (#380 → `88f92603`), the S3b plan (#384 → `c3e1d3c3`), S3b-1 (#385 → `c19ba553`), S3b-2 (#386 → `a9ac0a63`). Pushed branches with open PRs: `perf/cpg-cache-streaming` (#369, draft, to be closed), and `perf/cpg-cache-mmap-load` (`91e5a5af`, pushed, no PR yet). Raw evidence is local only under `~/prism-evidence/mcp-memory/{c1,c2-m2}/`; the M2 experiment's `SHA256SUMS` is written after the morning run. — **OPEN until then**
+**(c) In flight / irreversible** — `[MEASURED]` a session cron (`3998d2d5`, session-only: it dies with the session) runs the M2 quiet-window measurements at **06:00 MDT 2026-10-14**, following `~/prism-evidence/mcp-memory/c2-m2/PROCEDURE-6am.md`; the three binaries and `bin/COMMITS-6am.txt` are in place. **From 05:30 until that run ends, start no cargo build, no test run, no review and no other prism-mcp on this host.** If this session is gone by then, a successor runs the procedure by hand. — **OPEN**
 **(d) Authorization granted but not exercised** — owner, 2026-10-13: "1 ship the save half now. Can we schedule the other half for 6AM MDT?" (exercised: #380 open; merges on approval plus green CI); the D26 answer ("Building/indexing … retry"), built in S3a-2; "approved, waive check 3 for M2". Still open with the owner: §7.
 
 ## 1. Resume order
@@ -18,7 +18,7 @@
 2. **S3a: done** (S3a-1 #374, S3a-2 #377, plan #373 merged 2026-10-13). Spec §4.2 clarification (D32) is in this docs PR.
 3. **M2 save half: done** (#380 → `88f92603`, 2026-10-14). Lock-file design (owner "A, go ahead"): a permanent `cpg-cache.lock`; busy or an operational lock error → skip the save (`SaveOutcome::Skipped`); unsupported locking → main's behaviour; a load removes an orphan temp only under the lock. Gates on `92b9dd4f`: suite 5,618, mutation gate 248/248, Tier-A matrix 178/178, `--quick` all VALID. The load-half branch (`perf/cpg-cache-mmap-load`) is based on the pre-lock save half and must be rebased onto `main` before its PR (conflict expected in `load_cache_with_topology`, which now also runs the orphan cleanup).
 4. **06:00 run** (§0 (c)): report P1/P3/P5 for the mapped reader and P2/P4 for the save half; write the M2 readout `docs/analysis/2026-10-c2-m2-cache-streaming-readout.md` and `SHA256SUMS`. The load half gets a PR and reviews only if P1 passes and P3/P5 hold; otherwise it closes as "not worth it" (the plan's one retry). Then close #369.
-5. **S3b plan:** from the merged S3a interfaces (`DaemonState`, `serve_admitted`, `run_tool_call`, `Answer`), the S3a plan's "interfaces for later slices", and the README notes.
+5. **S3b: done** (plan #384, S3b-1 #385, S3b-2 #386, 2026-10-14; each PR approved by both reviewers in round 1, plan in round 2). Next: **S4 plan**, from the S3b plan's "Interfaces for the next slices" (every new control-plane entry takes its lock, then its `FatalOnUnwind` guard — D47) and S3a's Background-start parity requirement.
 6. **M1 plan:** against spec §6.1 as revised. The driver's `compare` needs an `m1` row set.
 
 **STOP conditions:** a corpus whose projected peak would exhaust this host's memory (24 GB): do not run it. A reviewer WRONG finding the controller disagrees with: escalate to the owner. A golden transcript changing in any later slice. A review finding of a kind already folded twice: escalate, do not patch a third time.
@@ -41,7 +41,10 @@
 | M2 save half | done | `[MEASURED]` #380 → `88f92603`: streamed write (bytes unchanged) + per-directory lock file + orphan cleanup on load. Two review rounds (open class in the temp sweep) → owner-approved design change → design check past the cap (disclosed), one bounded fix folded. Gates on `92b9dd4f`: suite 5,618 passed; mutation gate 248/248; Tier-A matrix 178/178; `--quick` VALID. The 06:00 `bin/save` is `9f1e28b2` (same encoding path; no lock). |
 | M2 load half (memory-mapped reader) | built, measured at 06:00 | `[MEASURED]` `perf/cpg-cache-mmap-load` `91e5a5af` (on the save half; `memmap2 =0.9.8`); 29 cache tests pass; no PR yet |
 | C2-M1 plan | pending | metric decided (spec §6.1 as revised); not written |
-| S3b–S6, B | pending | each planned when its predecessor merges |
+| S3b plan | done | `[MEASURED]` #384 → `c3e1d3c3`. Round 1 sol APPROVE / Opus FIX (test 7 did not prove a blocked writer stalls nobody at Linux-sized buffers) folded with a gated-write test and an overlapping-read test; round 2 both APPROVE, text items folded. D34–D47, SI-9–SI-13. |
+| S3b-1 re-check and concurrency | done | `[MEASURED]` #385 → `c19ba553`. Both APPROVE round 1; full suite 5,751 passed; CI green. Not folded: no test proves the re-check is under the same write lock as the refresh (true by construction). |
+| S3b-2 panic boundaries | done | `[MEASURED]` #386 → `a9ac0a63`. Both APPROVE round 1; full suite 5,804 passed; all 10 plan mutants killed; process test green on Linux CI. Not folded: guards in `status` and the background start not killed by any test (a poisoned lock still aborts at the next caller). |
+| S4–S6, B | pending | S4 next; each planned when its predecessor merges |
 
 ## 3. Corrections to standing documents and memory
 
@@ -69,7 +72,9 @@
 | 6 | Shim-side peer-uid check | S5a design item | decide in the S5a plan and its review | — | S3a plan notes for S5a |
 | 7 | Retry interval | decided | 5 s (owner) | — | S3a plan D26 |
 | 8 | Superseded call when the index is ready | decided, built | served at once (owner) | — | #377 |
-| 9 | S3b plan, M1 plan | next | §1 steps 5–6 | — | — |
+| 9 | S4 plan, M1 plan | next | §1 steps 5–6 | after the 06:00 run | — |
+| 12 | SI-10: builder panic fatal (spec) vs. failed-and-retry (in process) | for the owner's attention, not owed | keep the spec's rule; S5a bounds the restart loop; reversal is one line in `PanicGuard::drop` | — | S3b plan SI-10, D42 |
+| 13 | SI-11: a refresh holds the write lock for a whole rebuild | measure | at the §6.2 fan-out gate before any change | — | S3b plan SI-11 |
 | 10 | Background-start failure parity | S4 requirement | build in S4 | — | S3a plan "Interfaces for later slices" |
 | 11 | Nav call-edge sidecar temp leakage | follow-up, pre-existing | `src/navigation/call_edge_cache.rs` writes pid+nonce temp names with no cleanup; a crashed writer leaks one per crash. Apply the M2 lock-file pattern | — | #380 review r3 (Opus S6) |
 
@@ -92,15 +97,16 @@
 - Trap hit this session: this host has 24 GB and is usually several GB into swap; four concurrent Rust builds push it further. Stagger reviewers and verification.
 - Trap hit this session: M2 timings taken while other sessions' builds and this session's reviews ran were useless (a ruff build timed out at 1,800 s; an interleaved re-run showed ±20 % noise) → time criteria need a quiet window; peaks were stable under the same load.
 - Trap hit this session: a second-round decision that "reversing X is a two-line change" was wrong because the decoder accepts only its own canonical spelling → check a claimed small change against the code before writing it into a decision table.
-- Never run cargo, a review or a measurement between 06:00 and the end of the morning run (see §0 (c)).
+- Never run cargo, a review or a measurement between 05:30 and the end of the morning run (see §0 (c)).
+- Never make a `FatalOnUnwind` guard before its function takes its lock — it then fires after the lock is released, and a waiting thread runs (or blames the poisoned lock) before the abort (S3b D47).
 
 ## 6. Identifiers
 
 | Item | Verbatim |
 |---|---|
 | Spec | `docs/superpowers/specs/2026-10-09-shared-prism-daemon-design.md` |
-| Plans | `docs/superpowers/plans/2026-10-12-shared-prism-daemon/{README,S1-transport-refactor,C1-memory-harness,S2-identity-preamble,C2-M2-cache-streaming}.md`; S3a plan on #373 |
-| Worktrees | S3a-2 `~/code/prism-s3a2`; S3a plan `~/code/prism-s3a-plan`; M2 save `~/code/prism-m2-save`; M2 load `~/code/prism-m2-load`; M2 base build `~/code/prism-m2-base` (detached `e7dc1cc2`); driver `~/code/prism-c2-driver`; corpus slicing `~/code/prism-c1-corpus` |
+| Plans | `docs/superpowers/plans/2026-10-12-shared-prism-daemon/{README,S1-transport-refactor,C1-memory-harness,S2-identity-preamble,C2-M2-cache-streaming,S3a-readiness-coordinator,S3b-concurrent-dispatch}.md` |
+| Worktrees | S3b `~/code/prism-s3b{1,2,-plan,-validate,-docs}` (leftovers, remove after merge); S3a-2 `~/code/prism-s3a2`; S3a plan `~/code/prism-s3a-plan`; M2 save `~/code/prism-m2-save`; M2 load `~/code/prism-m2-load`; M2 base build `~/code/prism-m2-base` (detached `e7dc1cc2`); driver `~/code/prism-c2-driver`; corpus slicing `~/code/prism-c1-corpus` |
 | M2 binaries | `~/prism-evidence/mcp-memory/c2-m2/bin/{main,save,load}/prism-mcp`, sha256 in `bin/COMMITS-6am.txt` |
 | M2 evidence | `~/prism-evidence/mcp-memory/c2-m2/{baseline-1,candidate-1,timing-*,compare-1.md}` |
 | Corpora | ruff `44f6d1865fd2`, excalidraw `0642e72cfa2d`, prometheus `505095b64b43` under `~/code/bench-repos/`; slicing = `~/code/prism-c1-corpus` |
