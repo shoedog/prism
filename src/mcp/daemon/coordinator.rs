@@ -397,7 +397,7 @@ impl DaemonState {
     /// The build thread: run the builder with no lock held, then publish or record the failure.
     fn run_build(self: Arc<Self>, attempt: u64) {
         let fail_on_panic = PanicGuard {
-            state: &*self,
+            state: &self,
             attempt,
         };
         let built = (self.builder)();
