@@ -459,6 +459,40 @@ fn a_return_undefined_is_ignored_only_when_undefined_has_no_binding() {
                 "-",
             ),
             (
+                "control: a default value spelled undefined binds nothing",
+                "function f() {}\nfunction H(c, d = undefined) {\n  if (c) return undefined;\n  return { f };\n}\n",
+                "f=f@1-1",
+            ),
+            (
+                "shadowed by a catch parameter",
+                "function f() {}\nfunction H(c) {\n  try {\n    g();\n  } catch (undefined) {\n    \
+                 if (c) return undefined;\n  }\n  return { f };\n}\n",
+                "-",
+            ),
+            (
+                "shadowed by a destructured parameter",
+                "function f() {}\nfunction H(c, { undefined }) {\n  if (c) return undefined;\n  return { f };\n}\n",
+                "-",
+            ),
+            (
+                "shadowed by a local function",
+                "function f() {}\nfunction H(c) {\n  function undefined() {}\n  if (c) return undefined;\n  \
+                 return { f };\n}\n",
+                "-",
+            ),
+            (
+                "shadowed by an import",
+                "import undefined from './m';\nfunction f() {}\nfunction H(c) {\n  if (c) return undefined;\n  \
+                 return { f };\n}\n",
+                "-",
+            ),
+            (
+                "shadowed in an enclosing function",
+                "function f() {}\nfunction outer(undefined) {\n  function H(c) {\n    if (c) return undefined;\n    \
+                 return { f };\n  }\n  return H;\n}\n",
+                "-",
+            ),
+            (
                 "shadowed at module scope",
                 "function f() {}\nconst undefined = null;\nfunction H(c) {\n  if (c) return undefined;\n  \
                  return { f };\n}\n",
@@ -508,6 +542,16 @@ fn a_const_intermediate_that_escapes_before_the_return_has_no_fact() {
             (
                 "spread into another literal",
                 "function f() {}\nfunction H() {\n  const api = { f };\n  const copy = { ...api };\n  return api;\n}\n",
+                "-",
+            ),
+            (
+                "shorthand member of another literal",
+                "function f() {}\nfunction H() {\n  const api = { f };\n  const wrap = { api };\n  return api;\n}\n",
+                "-",
+            ),
+            (
+                "returned inside a ternary",
+                "function f() {}\nfunction H(c) {\n  const api = { f };\n  return c ? api : api;\n}\n",
                 "-",
             ),
             (

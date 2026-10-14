@@ -13,7 +13,7 @@ use tree_sitter::Node;
 
 /// What one `return` expression hands back, per selector. Absent selectors are not callable
 /// (or not provable) at this statement.
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct Selection {
     whole: Option<JsFollow>,
     keys: BTreeMap<String, JsFollow>,
@@ -30,9 +30,18 @@ impl Selection {
     }
 }
 
-/// Whether `expr` ends a `return`'s value as nothing (`null`, `undefined`).
-fn is_nullish(expr: Node<'_>) -> bool {
-    matches!(expr.kind(), "null" | "undefined")
+/// The most members a returned object or array literal may have for any of them to be a fact.
+/// Each member costs a binder lookup, so a wider literal is refused before any lookup.
+const MAX_LITERAL_ENTRIES: usize = 512;
+
+/// Literal selections already computed in this function, by literal node id: a literal returned
+/// from several statements is processed once.
+#[derive(Default)]
+struct LiteralMemo {
+    selections: BTreeMap<usize, Selection>,
+    /// Whether a `const` intermediate (by declarator node id) is referenced only as the whole
+    /// value of a `return`.
+    returned_only: BTreeMap<usize, bool>,
 }
 
 impl ParsedFile {
@@ -49,12 +58,22 @@ impl ParsedFile {
             return None;
         }
         let mut acc: Option<Selection> = None;
+        let mut memo = LiteralMemo::default();
         for expr in self.js_ts_return_exprs(func) {
             let expr = self.js_ts_unwrap_value(expr)?;
-            if is_nullish(expr) {
-                continue;
+            // `return null` and an unbound `return undefined` yield no value; a shadowed
+            // `undefined` is an ordinary value the contract does not model.
+            match expr.kind() {
+                "null" => continue,
+                "undefined" => match self.js_ts_site_binding(expr, "undefined", cache) {
+                    JsBinding::Refused("unbound") if !self.js_ts_undefined_is_parameter(expr) => {
+                        continue
+                    }
+                    _ => return None,
+                },
+                _ => {}
             }
-            let sel = self.js_ts_return_selection(func, expr, cache)?;
+            let sel = self.js_ts_return_selection(func, expr, &mut memo, cache)?;
             acc = Some(match acc {
                 None => sel,
                 Some(prev) => prev.meet(sel),
@@ -67,6 +86,57 @@ impl ParsedFile {
             slots: sel.slots,
         };
         (!facts.is_empty()).then_some(facts)
+    }
+
+    /// `undefined` at `site` is a parameter of an enclosing function or the parameter of an
+    /// enclosing `catch`. The binder's parameter collector reads identifiers only, and
+    /// `undefined` parses as its own node kind, so a parameter so named is looked for directly:
+    /// any spelling of it in a parameter list outside a default value.
+    fn js_ts_undefined_is_parameter(&self, site: Node<'_>) -> bool {
+        let mut up = site.parent();
+        while let Some(n) = up {
+            let params = if is_js_ts_function_like(n.kind()) {
+                n.child_by_field_name("parameters")
+                    .or_else(|| n.child_by_field_name("parameter"))
+            } else if n.kind() == "catch_clause" {
+                n.child_by_field_name("parameter")
+            } else {
+                None
+            };
+            if params.is_some_and(|p| self.js_ts_binds_undefined(p)) {
+                return true;
+            }
+            up = n.parent();
+        }
+        false
+    }
+
+    /// Some node under `pattern` spelled `undefined` is a bound name, not a default value.
+    fn js_ts_binds_undefined(&self, pattern: Node<'_>) -> bool {
+        let mut stack = vec![pattern];
+        while let Some(n) = stack.pop() {
+            if self.node_text(&n) == "undefined" && n.child_count() == 0 {
+                return true;
+            }
+            let mut cursor = n.walk();
+            for c in n.children(&mut cursor) {
+                let is_default = matches!(
+                    n.kind(),
+                    "assignment_pattern"
+                        | "object_assignment_pattern"
+                        | "required_parameter"
+                        | "optional_parameter"
+                ) && (n
+                    .child_by_field_name("right")
+                    .is_some_and(|r| r.id() == c.id())
+                    || n.child_by_field_name("value")
+                        .is_some_and(|r| r.id() == c.id()));
+                if !is_default && c.kind() != "type_annotation" {
+                    stack.push(c);
+                }
+            }
+        }
+        false
     }
 
     /// The value expressions of `func`'s value-returning statements: every `return <expr>;`
@@ -107,15 +177,19 @@ impl ParsedFile {
         &'a self,
         func: Node<'a>,
         expr: Node<'a>,
+        memo: &mut LiteralMemo,
         cache: &mut JsBindingCache<'a>,
     ) -> Option<Selection> {
         let literal = match expr.kind() {
             "object" | "array" => Some(expr),
-            "identifier" => self.js_ts_const_literal(func, expr, cache),
+            "identifier" => self.js_ts_const_literal(func, expr, memo, cache),
             _ => None,
         };
         if let Some(literal) = literal {
-            return Some(if literal.kind() == "object" {
+            if let Some(done) = memo.selections.get(&literal.id()) {
+                return Some(done.clone());
+            }
+            let sel = if literal.kind() == "object" {
                 Selection {
                     keys: self.js_ts_object_keys(literal, cache),
                     ..Selection::default()
@@ -125,7 +199,9 @@ impl ParsedFile {
                     slots: self.js_ts_array_slots(literal, cache),
                     ..Selection::default()
                 }
-            });
+            };
+            memo.selections.insert(literal.id(), sel.clone());
+            return Some(sel);
         }
         let whole = self.js_ts_callable_value(expr, cache)?;
         Some(Selection {
@@ -135,11 +211,15 @@ impl ParsedFile {
     }
 
     /// The object or array literal that the identifier `ident` is bound to, one step: a unique,
-    /// unwritten `const` declared inside `func` whose unwrapped value is that literal.
+    /// unwritten `const` declared inside `func` whose unwrapped value is that literal, and whose
+    /// every other reference in `func` is the whole value of a `return` of `func` (a member
+    /// access, an argument, an assignment, a spread, a closure capture or any other use may
+    /// change what the literal holds before it is returned).
     fn js_ts_const_literal<'a>(
         &'a self,
         func: Node<'a>,
         ident: Node<'a>,
+        memo: &mut LiteralMemo,
         cache: &mut JsBindingCache<'a>,
     ) -> Option<Node<'a>> {
         let name = self.node_text(&ident).to_string();
@@ -152,10 +232,73 @@ impl ParsedFile {
         if decl.start_byte() < func.start_byte() || decl.end_byte() > func.end_byte() {
             return None;
         }
-        decl.child_by_field_name("name")
+        let pattern = decl
+            .child_by_field_name("name")
             .filter(|p| p.kind() == "identifier")?;
         let value = self.js_ts_unwrap_value(decl.child_by_field_name("value")?)?;
-        matches!(value.kind(), "object" | "array").then_some(value)
+        if !matches!(value.kind(), "object" | "array") {
+            return None;
+        }
+        let returned_only = *memo
+            .returned_only
+            .entry(decl.id())
+            .or_insert_with(|| self.js_ts_referenced_only_by_returns(func, pattern, &name));
+        returned_only.then_some(value)
+    }
+
+    /// Every identifier spelled `name` in `func`, the declaration's own name node aside, is the
+    /// whole value of a `return` whose nearest enclosing function is `func`. Any spelling of
+    /// `name` elsewhere (even a different binding of the same name) refuses.
+    fn js_ts_referenced_only_by_returns(
+        &self,
+        func: Node<'_>,
+        declared: Node<'_>,
+        name: &str,
+    ) -> bool {
+        let mut stack = vec![func];
+        while let Some(n) = stack.pop() {
+            let mut cursor = n.walk();
+            for c in n.children(&mut cursor) {
+                let spells = matches!(
+                    c.kind(),
+                    "identifier"
+                        | "shorthand_property_identifier"
+                        | "shorthand_property_identifier_pattern"
+                ) && self.node_text(&c) == name;
+                if spells && c.id() != declared.id() && !self.js_ts_is_returned_whole(c, func) {
+                    return false;
+                }
+                stack.push(c);
+            }
+        }
+        true
+    }
+
+    /// `node` is the whole value of a `return` statement of `func` (parentheses and TypeScript
+    /// assertions around it aside), with no function between the two.
+    fn js_ts_is_returned_whole(&self, node: Node<'_>, func: Node<'_>) -> bool {
+        let mut up = node;
+        while let Some(p) = up.parent() {
+            match p.kind() {
+                "parenthesized_expression"
+                | "as_expression"
+                | "satisfies_expression"
+                | "non_null_expression"
+                | "type_assertion" => up = p,
+                "return_statement" => {
+                    let mut anc = p.parent();
+                    while let Some(a) = anc {
+                        if is_js_ts_function_like(a.kind()) {
+                            return a.id() == func.id();
+                        }
+                        anc = a.parent();
+                    }
+                    return false;
+                }
+                _ => return false,
+            }
+        }
+        false
     }
 
     /// The callable each key of an object literal selects. A computed, string or numeric key,
@@ -167,6 +310,18 @@ impl ParsedFile {
         obj: Node<'a>,
         cache: &mut JsBindingCache<'a>,
     ) -> BTreeMap<String, JsFollow> {
+        // A wider literal is refused before any per-member work (each member costs a lookup).
+        let members = {
+            let mut cursor = obj.walk();
+            let n = obj
+                .named_children(&mut cursor)
+                .filter(|e| e.kind() != "comment")
+                .count();
+            n
+        };
+        if members > MAX_LITERAL_ENTRIES {
+            return BTreeMap::new();
+        }
         // `(position among the non-comment members, key, member)`.
         let mut entries: Vec<(usize, String, Node<'a>)> = Vec::new();
         let mut last_spread: Option<usize> = None;
@@ -196,9 +351,13 @@ impl ParsedFile {
                 _ => return BTreeMap::new(),
             }
         }
+        let mut occurrences: BTreeMap<&str, usize> = BTreeMap::new();
+        for (_, key, _) in &entries {
+            *occurrences.entry(key.as_str()).or_default() += 1;
+        }
         let mut out = BTreeMap::new();
         for (position, key, entry) in &entries {
-            let unique = entries.iter().filter(|(_, k, _)| k == key).count() == 1;
+            let unique = occurrences.get(key.as_str()) == Some(&1);
             let spread_after = last_spread.is_some_and(|s| s > *position);
             if !unique || spread_after {
                 continue;
@@ -223,6 +382,29 @@ impl ParsedFile {
         arr: Node<'a>,
         cache: &mut JsBindingCache<'a>,
     ) -> BTreeMap<usize, JsFollow> {
+        // A wider literal is refused before any per-element lookup. Elements (a spread
+        // included) and holes both count.
+        let members = {
+            let (mut n, mut filled) = (0usize, false);
+            let mut cursor = arr.walk();
+            for child in arr.children(&mut cursor) {
+                match child.kind() {
+                    "[" | "]" | "comment" => {}
+                    "," => {
+                        n += usize::from(!filled);
+                        filled = false;
+                    }
+                    _ => {
+                        n += 1;
+                        filled = true;
+                    }
+                }
+            }
+            n
+        };
+        if members > MAX_LITERAL_ENTRIES {
+            return BTreeMap::new();
+        }
         let mut out = BTreeMap::new();
         let mut index = 0;
         let mut cursor = arr.walk();
