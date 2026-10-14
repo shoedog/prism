@@ -199,6 +199,12 @@ impl SessionProvider {
         self.known_stale_after_refresh.as_ref()
     }
 
+    /// How many refreshes this provider has committed: 0 for a freshly built index. A shared
+    /// daemon reports it to its clients as the generation of the index it serves.
+    pub fn generation(&self) -> u64 {
+        self.generation
+    }
+
     #[cfg(test)]
     pub(crate) fn force_next_verification_for_tests(&mut self, verification: RefreshVerification) {
         self.forced_refresh = Some(ForcedRefreshForTests::Verification(verification));
@@ -389,9 +395,10 @@ fn verify_snapshot(
     ))
 }
 
-// `NavigationSession` holds `Arc<LoadedRepo>`/`Arc<NavigationIndex>` (the nav layer's shape);
-// `LoadedRepo` is not `Sync`, but the MCP server dispatches single-threaded (spec §8) — `Send+Sync`
-// is deferred to a future async transport (spec §17). Same `Arc<LoadedRepo>` pattern as `build_session`.
+// `NavigationSession` holds `Arc<LoadedRepo>`/`Arc<NavigationIndex>` (the nav layer's shape).
+// `SessionProvider` is `Send + Sync`; the shared daemon queries one provider from many
+// connection threads and asserts that at compile time in `src/mcp/daemon/mod.rs`. The lint
+// allowance below is older than that fact and is kept so that this change alters no lint outcome.
 #[allow(clippy::arc_with_non_send_sync)]
 fn build_state(
     cfg: &ServerConfig,
