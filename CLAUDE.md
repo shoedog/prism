@@ -331,7 +331,8 @@ connection per attempt, and the outcome of the attempt it last joined); it is an
 attempt's own `AttemptOutcome`, written once, whatever the phase has become since. A connection
 that stopped waiting before its attempt failed hears that failure on its next call before
 anything is started (the in-process server's `warming`, `build_failed`, retry). A failed attempt
-is retried by the next call that has heard its outcome, once however many calls arrive, and the build thread puts the provider in the slot and records its generation
+is retried by the next call from a connection with no unheard failure, once however many calls
+arrive, and the build thread puts the provider in the slot and records its generation
 before it announces `Ready`. The generation is recorded under the slot's write guard at
 publication and after every exclusive access, so it is the slot's whatever the phase. Lock order: code holding the control lock
 does not touch the slot; code holding the slot may take the control lock. A poisoned lock is the
@@ -340,7 +341,8 @@ does not touch the slot; code holding the slot may take the control lock. A pois
 `control.rs` holds the types the control lock guards (`BuildPhase`, `ControlState`,
 `AttemptOutcome`, `BuildStatus`) and `Answer`, what `ensure_ready` tells a call: `Ready`,
 `Warming`, `Failed` with the call's own attempt's error, or `Superseded` when that attempt
-failed and a later attempt is already building or the index is ready (the pure rule `answer_for`).
+failed and a later attempt is already building; when a later attempt has already published the
+index, a call whose attempt failed is answered `Ready` and served (the pure rule `answer_for`).
 `connection.rs` serves one admitted connection (`serve_admitted`, which first sets the stream
 blocking with no read timeout): `transport::serve_loop`, the
 frame loop the in-process server also runs, then `handle_control` with no lock, then for a tool
