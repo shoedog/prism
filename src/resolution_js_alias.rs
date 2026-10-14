@@ -95,17 +95,12 @@ impl CallGraph {
             .map(|outcome| outcome.resolved.iter().map(|r| r.target.clone()).collect())
     }
 
-    /// The public resolver's outcome for an `Alias*`-bound site, only when the resolver itself
+    /// The public resolver's outcome for a followed-binding site (`Alias*` or `Returned`), only when the resolver itself
     /// returned the alias route's hit for it (`via_alias_route`). Any answer produced before the
     /// alias arm (an intrinsic JSX tag, an installed owner, a pre-resolved target) is not one.
     fn alias_route_public_outcome(&self, site: &CallSite) -> Option<ResolutionOutcome<'_>> {
-        use crate::call_graph::JsLocalBinding;
-        if !matches!(
-            site.local_binding,
-            JsLocalBinding::AliasCallable(_)
-                | JsLocalBinding::AliasImport { .. }
-                | JsLocalBinding::AliasNamespaceMember { .. }
-        ) {
+        // The followed bindings: the three `Alias*` variants and slice V's `Returned`.
+        if !site.local_binding.is_followed() {
             return None;
         }
         let outcome = self.resolve_call_site_full(site);

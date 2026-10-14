@@ -401,6 +401,14 @@
    [
     "js_returned_callers_test::format_callers_credits_the_exact_returned_function_not_a_same_named_one"
    ]
+  ],
+  "RV-50-public-outcome-gate-ignores-returned": [
+   "src/resolution_js_alias.rs",
+   "if !site.local_binding.is_followed() {",
+   "if !matches!(site.local_binding, crate::call_graph::JsLocalBinding::AliasCallable(_) | crate::call_graph::JsLocalBinding::AliasImport { .. } | crate::call_graph::JsLocalBinding::AliasNamespaceMember { .. }) {",
+   [
+    "js_alias_rule_test::the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_site"
+   ]
   ]
  }
 }
