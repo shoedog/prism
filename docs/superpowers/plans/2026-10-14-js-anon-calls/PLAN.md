@@ -344,3 +344,11 @@ S2 is the largest: minting, locals, `this`, bytes. If its forecast goes over one
 - **D7. `const v = useMemo(() => …)`.** Today the factory arrow is named `v`, the memoized *value*, by P3. Leave it (recommended for this lane), or treat hook factories as anonymous: label `A › useMemo factory`?
 - **D8. Positional key plus structural `anchor`** (recommended), or a structural key?
 - **D9. Query surface.** Extend `nav functions` with `--file/--anonymous/--in` (recommended), or add a new `nav anon` query?
+
+## Controller addendum: private corpus F (2026-10-14, aggregates only)
+- Product calls in anonymous callables with no record: 2,449. The largest groups are useEffect 732, array methods 659, JSX props 270 and `.then` 242. Depth 1/2/3+: 2,057/355/37.
+- With the prototype, 2,436 are recorded: Exact 735, NameOnly 131, dropped 1,570 (UnknownName 1,492).
+- Checker disagreement on Exact targets: new 58 of 415 decided (14%), against main's existing 222 of 985 (22.5%).
+- Regression check against the 13,173 base records: none lost, no grade changed, 8 records changed caller. This is the prototype; the S2 gate requires 0.
+- Product anonymous callables 1,773; synthetic name collisions 0.
+- Wall time 6.7 s → 10.8 s; RSS 761 → 846 MB. One run, measured while another agent was building on this machine.
