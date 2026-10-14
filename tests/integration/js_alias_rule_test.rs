@@ -1,8 +1,10 @@
-//! Slice L, the rule by construction. One predicate, "the alias route produced a proven hit for
+//! Slice L (and slice V's returned-value route, which lives inside the same route), the rule by
+//! construction. One predicate, "the alias route produced a proven hit for
 //! this site" (`CallGraph::js_ts_alias_route_hit`: exactly one Exact target through the terminal's
 //! own route), is the only thing that may separate a followed-alias site from an unfollowed one.
 //! Wherever it is false, a site bound to one of the three `Alias*` variants must behave exactly
-//! as a site bound `MayCall("alias")` does on main, for the resolver and for the textual
+//! as a site bound `MayCall("alias")` does on main (a slice V `Returned` site: as the binding it
+//! records in `kept`, `MayCall("alias")` or `MayCall("may_call")`, does on main), for the resolver and for the textual
 //! function-pointer path ("Level 1").
 //!
 //! The test runs every fixture of the alias matrix (all files, every call-site record, not only
@@ -35,6 +37,9 @@ struct Tally {
     alias_sites: usize,
     predicate_true: usize,
     compared: usize,
+    returned_sites: usize,
+    returned_true: usize,
+    returned_compared: usize,
     indirect_with: usize,
     indirect_suppressed: usize,
     violations: Vec<String>,
@@ -158,12 +163,16 @@ fn review_inputs() -> Vec<Fixture> {
 }
 
 fn is_alias(binding: &JsLocalBinding) -> bool {
-    matches!(
-        binding,
-        JsLocalBinding::AliasCallable(_)
-            | JsLocalBinding::AliasImport { .. }
-            | JsLocalBinding::AliasNamespaceMember { .. }
-    )
+    binding.is_followed()
+}
+
+/// The binding main gives the same site: `MayCall("alias")` for an alias (the binder's `Alias`
+/// class), and for a returned-value site the base reason it recorded in `kept`.
+fn main_binding(binding: &JsLocalBinding) -> JsLocalBinding {
+    match binding {
+        JsLocalBinding::Returned { kept, .. } => JsLocalBinding::MayCall(kept.clone()),
+        _ => JsLocalBinding::MayCall("alias".to_string()),
+    }
 }
 
 /// The resolved record set of a site: targets with grade and kind, and the drop reason.
@@ -206,8 +215,11 @@ fn check_fixture(f: &Fixture) -> Tally {
                 continue;
             }
             t.alias_sites += 1;
+            let returned = matches!(site.local_binding, JsLocalBinding::Returned { .. });
+            t.returned_sites += usize::from(returned);
             if cg.js_ts_alias_route_hit(site) {
                 t.predicate_true += 1;
+                t.returned_true += usize::from(returned);
                 true_sites.insert((site.caller.clone(), site.start_byte, site.end_byte));
                 // The predicate is the resolver's own answer: the public outcome is exactly one
                 // Exact target, equal to the route's, with no drop.
@@ -237,8 +249,9 @@ fn check_fixture(f: &Fixture) -> Tally {
                 continue;
             }
             let mut as_main = site.clone();
-            as_main.local_binding = JsLocalBinding::MayCall("alias".to_string());
+            as_main.local_binding = main_binding(&site.local_binding);
             t.compared += 1;
+            t.returned_compared += usize::from(returned);
             let (got, want) = (outcome_of(&cg, site), outcome_of(&cg, &as_main));
             if got != want {
                 t.violations.push(format!(
@@ -304,20 +317,27 @@ fn the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_si
         total.alias_sites += t.alias_sites;
         total.predicate_true += t.predicate_true;
         total.compared += t.compared;
+        total.returned_sites += t.returned_sites;
+        total.returned_true += t.returned_true;
+        total.returned_compared += t.returned_compared;
         total.indirect_with += t.indirect_with;
         total.indirect_suppressed += t.indirect_suppressed;
     }
     eprintln!(
         "rule test: {} fixtures, {} Source sites, {} alias-bound, {} predicate-true, \
          {} predicate-false alias sites compared with their MayCall(\"alias\") twin, \
-         {} indirect records held, {} suppressed by the stand-down",
+         {} indirect records held, {} suppressed by the stand-down; of the alias-bound sites \
+         {} are returned-value sites ({} predicate-true, {} predicate-false and compared)",
         fixtures.len(),
         total.sites,
         total.alias_sites,
         total.predicate_true,
         total.compared,
         total.indirect_with,
-        total.indirect_suppressed
+        total.indirect_suppressed,
+        total.returned_sites,
+        total.returned_true,
+        total.returned_compared
     );
     let violations: Vec<&String> = tallies.iter().flat_map(|t| &t.violations).collect();
     assert!(
@@ -338,6 +358,12 @@ fn the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_si
         total.predicate_true
     );
     assert!(total.compared > 20, "compared sites: {}", total.compared);
+    assert!(
+        total.returned_true > 50 && total.returned_compared > 10,
+        "returned-value sites: {} true, {} compared",
+        total.returned_true,
+        total.returned_compared
+    );
     assert!(
         total.indirect_suppressed >= 4,
         "suppressed: {}",

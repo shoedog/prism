@@ -106,7 +106,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v63: I1 relative-specifier candidates: `.js` -> `.ts`/`.tsx`, bare `.`/`..`,
 //      redundant path segments (CPG v115).
 // v64: slice L follows JS/TS `const` aliases (CPG v116).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 64;
+// v65: slice V follows a value another in-repo function returned (CPG v117).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 65;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -731,7 +732,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 64);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 65);
     }
 
     #[test]
@@ -767,6 +768,42 @@ mod tests {
                 .collect();
             assert_eq!(edges.len(), 1);
             assert_eq!(edges[0].caller.name, "visible");
+        }
+    }
+
+    #[test]
+    fn returned_value_sidecar_round_trip_keeps_one_edge_for_the_function_a_hook_returned() {
+        use crate::{ast::ParsedFile, cpg::CpgContext, languages::Language};
+        let hooks = "export function useThing() {\n  function doIt() {\n    return 1;\n  }\n  \
+                     return { run: doIt };\n}\n";
+        let app = "import { useThing } from './hooks';\nexport function main() {\n  \
+                   const { run } = useThing();\n  return run();\n}\n";
+        let files = BTreeMap::from([
+            (
+                "hooks.ts".to_string(),
+                ParsedFile::parse("hooks.ts", hooks, Language::TypeScript).unwrap(),
+            ),
+            (
+                "app.ts".to_string(),
+                ParsedFile::parse("app.ts", app, Language::TypeScript).unwrap(),
+            ),
+        ]);
+        let nav = crate::navigation::NavigationIndex::from_ctx(CpgContext::build(&files, None));
+        let index = nav.build_resolved_call_edges();
+        let dir = tempfile::tempdir().unwrap();
+        let fingerprint = fixture_fingerprint();
+        save(dir.path(), &fingerprint, &index).unwrap();
+        let loaded = load(dir.path(), &fingerprint).unwrap().unwrap();
+        for index in [&index, &loaded] {
+            let edges: Vec<_> = index
+                .incoming_by_target
+                .iter()
+                .filter(|(target, _)| target.file == "hooks.ts" && target.name == "doIt")
+                .flat_map(|(_, edges)| edges)
+                .collect();
+            assert_eq!(edges.len(), 1, "{edges:?}");
+            assert_eq!(edges[0].caller.name, "main");
+            assert_eq!(edges[0].confidence, ResolutionConfidence::Exact);
         }
     }
 

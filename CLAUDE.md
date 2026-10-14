@@ -251,7 +251,12 @@ A JS/TS local alias is followed when a bounded chain
 of unique, unwritten `const` bindings reaches one callable, an import, or a namespace-import
 member proven per export (a source-backed span, a relative module); that route is binding
 evidence, spelling alone is not. An alias that is not followed, or whose terminal is not proven,
-keeps the earlier resolution.
+keeps the earlier resolution. A JS/TS `const x = H(...)`, `const { k } = H(...)` or `const [a, x] = H(...)`
+(`H` a bare identifier proven to be exactly one in-repo function, by the same routes) is followed one
+returned-value step: when every value-returning statement of `H` selects the same callable from an object
+or array literal (spread-after-key, computed key, accessor, duplicate key, async/generator, a parameter or a
+call result all refuse), the site binds that callable as seen from `H`'s file; a site the fact does not
+prove (not exactly one Exact target) has exactly the earlier records, and no edge is removed.
 
 `--resolution nominal` is the default and reports CPG-derived findings as `unlabeled/candidate`;
 `--resolution scoped` reports retained evidence labels. `--min-confidence exact` keeps only Exact

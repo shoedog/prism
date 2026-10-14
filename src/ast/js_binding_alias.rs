@@ -19,8 +19,8 @@ use tree_sitter::Node;
 const MAX_LINKS: usize = 8;
 
 /// What a followed `const` alias chain ends at.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum JsFollow {
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JsFollow {
     /// A proven callable in this file (its `wrapped` flag included).
     Callable(JsTerminal),
     /// The program-scope import binding `local`; the import rungs decide the target.
@@ -92,7 +92,7 @@ impl ParsedFile {
     }
 
     /// The single `const` declarator that `name` at `at` is bound by, with its scope.
-    fn js_ts_alias_declarator<'a>(
+    pub(super) fn js_ts_alias_declarator<'a>(
         &'a self,
         at: Node<'a>,
         name: &str,
@@ -116,7 +116,7 @@ impl ParsedFile {
 
     /// `name` at `at` is bound by a single import declaration of the program scope: the only
     /// scope whose imports the file-level import rungs describe.
-    fn js_ts_program_import<'a>(
+    pub(super) fn js_ts_program_import<'a>(
         &'a self,
         at: Node<'a>,
         name: &str,
@@ -152,53 +152,57 @@ impl ParsedFile {
                     .any(|c| c.kind() == "optional_chain");
                 (!optional).then(|| Link::Member(qualifier, self.node_text(&property).to_string()))
             }
-            ("object_pattern", "identifier") => {
-                // Whole-pattern admission: every entry (comments aside) must be a shorthand
-                // identifier or a pair with a plain property-identifier key and an identifier
-                // value. A rest element, nested pattern, computed/string/numeric key or default
-                // anywhere (an assignment pattern is neither shape) means the declaration may
-                // be invalid or bind something unmodeled.
-                let mut keys = Vec::new();
-                let mut seen = BTreeSet::new();
-                let mut cursor = pattern.walk();
-                for entry in pattern.named_children(&mut cursor) {
-                    let (bound, key) = match entry.kind() {
-                        "comment" => continue,
-                        "shorthand_property_identifier_pattern" => {
-                            let text = self.node_text(&entry);
-                            (text, text)
-                        }
-                        "pair_pattern" => {
-                            let key = entry
-                                .child_by_field_name("key")
-                                .filter(|k| k.kind() == "property_identifier")?;
-                            let bound = entry
-                                .child_by_field_name("value")
-                                .filter(|v| v.kind() == "identifier")?;
-                            (self.node_text(&bound), self.node_text(&key))
-                        }
-                        _ => return None,
-                    };
-                    // Every bound name must be unique in the pattern (a repeat is an early
-                    // SyntaxError, whichever name is being looked up).
-                    if !seen.insert(bound) {
-                        return None;
-                    }
-                    if bound == name {
-                        keys.push(key.to_string());
-                    }
+            ("object_pattern", "identifier") => self
+                .js_ts_object_pattern_key(pattern, name)
+                .map(|key| Link::Member(value, key)),
+            _ => None,
+        }
+    }
+
+    /// Whole-pattern admission for a flat object pattern: every entry (comments aside) must be
+    /// a shorthand identifier or a pair with a plain property-identifier key and an identifier
+    /// value. A rest element, nested pattern, computed/string/numeric key or default anywhere
+    /// (an assignment pattern is neither shape) means the declaration may be invalid or bind
+    /// something unmodeled. Returns the key that binds `name`, when exactly one entry does.
+    pub(super) fn js_ts_object_pattern_key(&self, pattern: Node<'_>, name: &str) -> Option<String> {
+        let mut keys = Vec::new();
+        let mut seen = BTreeSet::new();
+        let mut cursor = pattern.walk();
+        for entry in pattern.named_children(&mut cursor) {
+            let (bound, key) = match entry.kind() {
+                "comment" => continue,
+                "shorthand_property_identifier_pattern" => {
+                    let text = self.node_text(&entry);
+                    (text, text)
                 }
-                match keys.as_mut_slice() {
-                    [key] => Some(Link::Member(value, std::mem::take(key))),
-                    _ => None,
+                "pair_pattern" => {
+                    let key = entry
+                        .child_by_field_name("key")
+                        .filter(|k| k.kind() == "property_identifier")?;
+                    let bound = entry
+                        .child_by_field_name("value")
+                        .filter(|v| v.kind() == "identifier")?;
+                    (self.node_text(&bound), self.node_text(&key))
                 }
+                _ => return None,
+            };
+            // Every bound name must be unique in the pattern (a repeat is an early
+            // SyntaxError, whichever name is being looked up).
+            if !seen.insert(bound) {
+                return None;
             }
+            if bound == name {
+                keys.push(key.to_string());
+            }
+        }
+        match keys.as_mut_slice() {
+            [key] => Some(std::mem::take(key)),
             _ => None,
         }
     }
 
     /// B3's unwrapping minus assignment chains: parentheses and TypeScript assertions.
-    fn js_ts_unwrap_value<'a>(&self, mut value: Node<'a>) -> Option<Node<'a>> {
+    pub(super) fn js_ts_unwrap_value<'a>(&self, mut value: Node<'a>) -> Option<Node<'a>> {
         loop {
             let inner = match value.kind() {
                 "parenthesized_expression"

@@ -217,8 +217,8 @@
   ],
   "AF-38-unknown-entry-skipped": [
    "src/ast/js_binding_alias.rs",
-   "                        _ => return None,\n                    };\n                    // Every bound name",
-   "                        _ => continue,\n                    };\n                    // Every bound name",
+   "                _ => return None,\n            };\n            // Every bound name",
+   "                _ => continue,\n            };\n            // Every bound name",
    [
     "ast::js_binding_alias::pattern_tests::a_pattern_with_any_non_flat_entry_is_not_followed"
    ]

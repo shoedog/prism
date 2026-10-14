@@ -18,6 +18,8 @@ use std::collections::{BTreeMap, BTreeSet};
 mod js_alias;
 #[path = "resolution_js_namespace.rs"]
 mod js_namespace;
+#[path = "resolution_js_returns.rs"]
+mod js_returns;
 
 pub use crate::resolution_disproof::{prune, DisproofCx, DisproofPredicate};
 pub use crate::resolution_identity::{

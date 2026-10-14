@@ -24,7 +24,7 @@ prism resolves a bare call `f()` or element `<F />` by asking what the nearest b
 | `import { f } from './x'`, `import f from './x'`, `import * as N`; `N.f()` | Bound through the module's export facts | §2 |
 | `const h = f`, `const h = N.f`, `const { f: h } = N` (flat pattern), chains of these up to 8 links | Followed to what they name (#372); a longer chain is not followed | — |
 | `let`/`var` aliases, a binding written later, `c ? f : g`, object-literal and array members, patterns with a rest, nested, computed-key or default entry | Not followed; falls back to name search (§1.2) | refusal slice, §1.2 |
-| `const { save } = useEditor()`, `const [v, toggle] = useToggle()`, `const h = makeHandler()` | Not followed; name search (§1.2). The value a function returns is the next slice | returned-value slice |
+| `const { save } = useEditor()`, `const [v, toggle] = useToggle()`, `const h = makeHandler()` | Followed one step when `useEditor` is exactly one in-repo function whose every value-returning `return` gives an object or array literal (or a `const` bound to one) holding a provable callable at that key or slot; otherwise the spelling fallback of §1.2 | — |
 | `const { f } = require('./x')` at the top level of a CommonJS file | Bound through the module's CommonJS exports (`import_member`) | — |
 | `const { f } = require(…)` inside a function, `const f = require('./x').f`, `await import('./x')` | Not followed (§1.2) | planned after the returned-value slice |
 | `import x = N.y` (TypeScript) | Not followed; resolved by the repository-wide name search as if unbound (§1.3), so a same-named function elsewhere can get a **wrong** Exact edge | not tracked |
@@ -133,12 +133,15 @@ A call through a followed alias is filed under the alias's spelling. The resolve
 
 - The resolver treats a lowercase JSX tag (`<div />`, and `<h />` where `h` aliases a component) as an intrinsic element and gives it no target. The older textual alias path (§1.2), which scans source line by line, can still emit an edge for `const h = Comp;` on its own line followed by `<h />` in the same function. That edge is wrong, since `<h>` is a DOM element; it exists on main and is kept unchanged.
 - A wrapped component export (`memo`, `forwardRef`, …) binds from JSX element sites only. Called as a function, it drops with `WrappedExportNonJsx`.
-- Hook results: see §1.1. Even after the returned-value slice, these are not followed:
+- Hook results: see §1.1. These are not followed:
   - an object built inside `useMemo(() => ({ … }))`;
   - `useContext`;
   - a value returned through two hooks;
   - an awaited result;
-  - a value that is the hook's own parameter.
+  - a value that is the hook's own parameter;
+  - a `const` object or array that the hook uses anywhere but as the whole value of a `return` (a property write, `Object.assign`, an argument, a spread, a closure capture);
+  - a hook with an explicit `return undefined` (`return;` and `return null` are fine), or one that spells any name with a unicode escape;
+  - a hook that returns an object or array literal of more than 512 members.
 
 ## 5. Parsing
 
