@@ -1,0 +1,36 @@
+diff --git a/src/call_graph.rs b/src/call_graph.rs
+index fcee16e4..d031e617 100644
+--- a/src/call_graph.rs
++++ b/src/call_graph.rs
+@@ -1771,6 +1771,16 @@ impl CallGraph {
+                                 file_static_functions.push((file_path.clone(), name));
+                             }
+                         }
++                    } else if let Some(name) = parsed.js_ts_synthetic_callable_name(&func_node) {
++                        // A2 STEP-0 PROTOTYPE (throwaway): register the anonymous node.
++                        let (start, end) = parsed.node_line_range(&func_node);
++                        let func_id = FunctionId {
++                            file: file_path.clone(),
++                            name: name.clone(),
++                            start_line: start,
++                            end_line: end,
++                        };
++                        file_functions.push((name, func_id, None, None, None, None, None));
+                     }
+                 }
+ 
+@@ -1847,9 +1857,13 @@ impl CallGraph {
+                 let mut binding_cache = crate::ast::JsBindingCache::for_sites();
+ 
+                 for func_node in parsed.all_functions() {
++                    // A2 STEP-0 PROTOTYPE (throwaway): anonymous JS/TS callables own their calls.
+                     let func_name = match parsed.language.function_name(&func_node) {
+                         Some(n) => parsed.node_text(&n).to_string(),
+-                        None => continue,
++                        None => match parsed.js_ts_synthetic_callable_name(&func_node) {
++                            Some(s) => s,
++                            None => continue,
++                        },
+                     };
+                     let (start, end) = parsed.node_line_range(&func_node);
+                     let caller_id = FunctionId {
