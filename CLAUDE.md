@@ -324,11 +324,14 @@ wait above 600 s. A change to what goes into the key or to the preamble's wire t
 Shared-daemon core (`src/mcp/daemon/`, Unix only; it has no production caller until the accept
 loop of a later slice): `coordinator.rs` holds `DaemonState`, which is a control plane
 (`Mutex<ControlState>` and one `Condvar`: the build phase `Idle | Building | Ready | Failed`, the
-attempt count, the parked calls) and a provider slot (`RwLock<Option<SessionProvider>>`).
-`ensure_ready` picks its build attempt once and waits for that attempt only, up to the
-connection's `ConnectionBudget` (`budget.rs`: one deadline per connection per attempt). A failed
-attempt is retried by the next call, once however many calls arrive, and the build thread puts
-the provider in the slot before it announces `Ready`. Lock order: code holding the control lock
+attempt count, the parked calls, the generation of the provider in the slot) and a provider slot
+(`RwLock<Option<SessionProvider>>`). `ensure_ready` picks its build attempt once and waits for
+that attempt only, up to the connection's `ConnectionBudget` (`budget.rs`: one deadline per
+connection per attempt); it is answered from that attempt's own `AttemptOutcome`, written once,
+whatever the phase has become since. A failed attempt is retried by the next call, once however
+many calls arrive, and the build thread puts the provider in the slot and records its generation
+before it announces `Ready`. The generation is recorded under the slot's write guard at
+publication and after every exclusive access, so it is the slot's whatever the phase. Lock order: code holding the control lock
 does not touch the slot; code holding the slot may take the control lock. A poisoned lock is the
 `Poisoned` error and is never unwrapped; there is no panic boundary yet. Time is the injected
 `Clock` (`clock.rs`), so tests move a manual clock and never sleep to order events.

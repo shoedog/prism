@@ -26,6 +26,10 @@ use std::time::Instant;
 
 /// What a call is told when the builder panicked. The in-process server uses the same text.
 const BUILD_PANICKED: &str = "index build panicked";
+/// What a call is told once every attempt number has been used.
+const ATTEMPTS_EXHAUSTED: &str = "the index build attempt counter is exhausted";
+/// The build thread's name. Linux keeps 15 bytes of it.
+const BUILD_THREAD_NAME: &str = "prism-idx-build";
 const SLOT_POISONED: &str =
     "the index was built and could not be published: the provider lock is poisoned";
 
@@ -138,12 +142,15 @@ pub(super) struct BuildStatus {
 pub(super) type BuildJob = Box<dyn FnOnce() + Send>;
 
 /// Starts a thread that runs a [`BuildJob`]. It is called with the control lock held, so it
-/// must not run the job on the calling thread.
+/// must return promptly (every other caller of the control plane waits while it runs, and the
+/// calling connection's deadline is not set until it has returned) and must not run the job on
+/// the calling thread (the job ends by taking the control lock, which the caller still holds).
+/// An error means no thread exists and the job will never run.
 pub(super) type Spawner = Box<dyn Fn(BuildJob) -> std::io::Result<()> + Send + Sync>;
 
 fn spawn_build_thread(job: BuildJob) -> std::io::Result<()> {
     std::thread::Builder::new()
-        .name("prism-mcpd-build".to_string())
+        .name(BUILD_THREAD_NAME.to_string())
         .spawn(job)
         .map(|_handle| ())
 }
@@ -389,13 +396,25 @@ impl DaemonState {
     /// Start the next attempt and return its number, its start time and its outcome, still
     /// empty. Called with the control lock held, from `Idle` or `Failed` only; that is what
     /// makes it the one place a build thread comes from.
+    ///
+    /// An attempt's number is what a connection's budget is kept by, so a number is used once.
+    /// When the counter cannot go on, no attempt is started: the phase is `Failed` and the
+    /// outcome returned is already filled with that failure.
     fn start_attempt(
         self: &Arc<Self>,
         control: &mut ControlState,
     ) -> (u64, Instant, Arc<AttemptOutcome>) {
-        let attempt = control.attempts.saturating_add(1);
         let started = self.clock.now();
         let outcome = Arc::new(AttemptOutcome::default());
+        let Some(attempt) = control.attempts.checked_add(1) else {
+            let attempt = control.attempts;
+            outcome.fill(Err(ATTEMPTS_EXHAUSTED.to_string()));
+            control.build = BuildPhase::Failed {
+                attempt,
+                error: ATTEMPTS_EXHAUSTED.to_string(),
+            };
+            return (attempt, started, outcome);
+        };
         control.attempts = attempt;
         control.build = BuildPhase::Building {
             attempt,

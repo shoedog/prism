@@ -356,3 +356,43 @@ fn on_the_real_clock_a_call_returns_warming_when_its_budget_ends_unprompted() {
     assert_eq!(status(&state), status_of(BuildState::Building, 1, 0));
     gate.open();
 }
+
+/// Spec §4.2: a connection's deadline for an attempt is set when its first call arrives during
+/// that attempt. A connection that joins a build 100 s old with a 20 s budget waits until
+/// 120 s. Rules out counting the deadline from the attempt's start (the joiner would be told
+/// warming at once, on every call). Also pins what `elapsed` means for a joiner: the age of
+/// the attempt.
+#[test]
+fn a_connection_that_joins_a_running_build_gets_its_whole_budget() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let gate = Gate::closed();
+    let (builder, _calls) = scripted(&cfg, vec![build_after(&gate, &cfg)]);
+    let clock = ManualClock::new();
+    let state = state_with(builder, &clock);
+
+    let first = Conn::open(&state, 600);
+    first.call();
+    wait_until("the first call to be waiting", || {
+        status(&state).waiting == 1
+    });
+    advance(&clock, &state, 100);
+
+    let joiner = Conn::open(&state, 20);
+    joiner.call();
+    wait_until("the joiner to wait, or to return", || {
+        status(&state).waiting == 2 || joiner.answered()
+    });
+    assert!(
+        !joiner.answered(),
+        "a call that joins a running build waits its own budget"
+    );
+
+    advance(&clock, &state, 20);
+    assert_eq!(
+        joiner.outcome(),
+        Outcome::Warming { elapsed: secs(120) },
+        "elapsed is the age of the attempt"
+    );
+    gate.open();
+    assert_eq!(first.outcome(), Outcome::Ready);
+}

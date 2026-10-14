@@ -1,8 +1,8 @@
 //! Tests for the ways an attempt can end without a build: the thread cannot be started, the
 //! builder panics, a lock is poisoned. In each, every parked call must get an answer.
 use super::super::test_support::{
-    build_after, fixture, panic_now, parts_with, scripted, state_with, status, wait_until, Conn,
-    Gate, ManualClock, Outcome,
+    build_after, fail_now, fixture, panic_now, parts_with, scripted, state_with, status,
+    wait_until, Conn, Gate, ManualClock, Outcome,
 };
 use super::*;
 use crate::mcp::RefreshPolicy;
@@ -170,4 +170,99 @@ fn an_attempt_s_outcome_keeps_the_first_ending_it_is_given() {
     assert!(
         matches!(outcome.answer(), Some(Readiness::Failed { error }) if error == "the first ending")
     );
+}
+
+/// A warm daemon (`StartupMode::Background`) starts its first attempt at construction. If the
+/// build thread cannot be started then, construction still succeeds, the attempt is failed,
+/// and the first call retries. Rules out a daemon that fails to start, or one left `Building`
+/// with no thread.
+#[test]
+fn a_warm_daemon_whose_build_thread_cannot_be_started_is_built_by_the_first_call() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (builder, calls) = scripted(&cfg, vec![]);
+    let clock = ManualClock::new();
+    let mut parts = parts_with(builder, &clock);
+    parts.startup = StartupMode::Background;
+    let refusals_left = AtomicU64::new(1);
+    let spawner: Spawner = Box::new(move |job: BuildJob| {
+        if refusals_left.swap(0, Ordering::SeqCst) == 1 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::WouldBlock,
+                "no more threads",
+            ));
+        }
+        std::thread::Builder::new().spawn(job).map(|_handle| ())
+    });
+    parts.spawner = spawner;
+    let state = DaemonState::from_parts(parts).expect("a warm daemon state");
+
+    assert_eq!(
+        status(&state),
+        BuildStatus {
+            state: BuildState::Failed,
+            attempt: 1,
+            generation: 0,
+            waiting: 0
+        }
+    );
+    assert_eq!(built(&calls), 0);
+
+    let conn = Conn::open(&state, 600);
+    conn.call();
+    assert_eq!(conn.outcome(), Outcome::Ready);
+    assert_eq!(status(&state).attempt, 2);
+    assert_eq!(built(&calls), 1);
+}
+
+/// An attempt's number is what a connection's budget and an attempt's outcome are told apart
+/// by, so one is never used twice. When the counter cannot go on, a call is told so and no
+/// build is started. Rules out a counter that saturates and reuses its last number.
+#[test]
+fn an_exhausted_attempt_counter_is_a_failure_that_starts_no_build() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (builder, calls) = scripted(&cfg, vec![fail_now("the last attempt failed")]);
+    let clock = ManualClock::new();
+    let state = state_with(builder, &clock);
+    state.lock_control().expect("the control lock").attempts = u64::MAX - 1;
+    let conn = Conn::open(&state, 600);
+
+    conn.call();
+    assert_eq!(
+        conn.outcome(),
+        Outcome::Failed("the last attempt failed".to_string())
+    );
+    assert_eq!(status(&state).attempt, u64::MAX);
+    assert_eq!(built(&calls), 1);
+
+    for _ in 0..2 {
+        conn.call();
+        assert_eq!(
+            conn.outcome(),
+            Outcome::Failed(ATTEMPTS_EXHAUSTED.to_string())
+        );
+    }
+    assert_eq!(
+        built(&calls),
+        1,
+        "no build was started for a number already used"
+    );
+    assert_eq!(
+        status(&state),
+        BuildStatus {
+            state: BuildState::Failed,
+            attempt: u64::MAX,
+            generation: 0,
+            waiting: 0
+        }
+    );
+    assert!(matches!(
+        &state.lock_control().expect("the control lock").build,
+        BuildPhase::Failed { attempt: u64::MAX, error } if error == ATTEMPTS_EXHAUSTED
+    ));
+}
+
+/// Linux keeps 15 bytes of a thread's name.
+#[test]
+fn the_build_thread_s_name_fits_in_what_linux_keeps() {
+    assert!(BUILD_THREAD_NAME.len() <= 15, "{BUILD_THREAD_NAME}");
 }
