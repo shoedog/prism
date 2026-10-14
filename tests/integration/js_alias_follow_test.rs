@@ -208,7 +208,7 @@ fn an_alias_of_a_namespace_import_local_is_not_a_member_import() {
 
 #[test]
 fn an_alias_of_a_tsconfig_paths_import_binds_through_the_paths_route() {
-    use super::js_paths_common::{config, fixture, graph, outcome, write};
+    use super::js_paths_common::{config, fixture, graph, write};
     for ext in ["jsx", "tsx"] {
         let d = fixture(
             ext,
@@ -443,7 +443,7 @@ fn a_package_namespace_member_alias_keeps_mains_outcome() {
 fn a_tsconfig_paths_namespace_member_alias_keeps_mains_outcome() {
     // The same file also imports `real` by name from `@lib`, so the paths module table knows
     // the specifier: only the relative-module requirement keeps the namespace alias out.
-    use super::js_paths_common::{config, fixture, graph, outcome, write};
+    use super::js_paths_common::{config, fixture, graph, write};
     for ext in ["jsx", "tsx"] {
         let d = fixture(
             ext,
