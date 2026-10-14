@@ -636,11 +636,33 @@ fn a_member_binds_the_outer_function_by_its_end_line_too() {
 }
 
 #[test]
-fn the_textual_path_stands_down_for_a_namespace_member_alias() {
-    // `const f = N.f; f()`: the textual function-pointer path would read `f = N.f`.
-    let app = "import * as N from './callee';\nexport function run() {\n  const f = N.f;\n  \
-        return f(1);\n}\n";
+fn the_textual_path_stands_down_for_a_destructured_namespace_alias() {
+    // `const { f: p } = N; f(1)`: the textual function-pointer path reads `{ f: p } = N` as `p = N`
+    // and, when a function named `N` exists elsewhere, emits a record that binds that decoy.
+    // The binder follows the alias, so the path stands down and only the `Source` record stays.
+    let app = "import * as N from './callee';\nexport function run() {\n  const { f: p } = N;\n  \
+        return p(1);\n}\n";
     let callee = "export function f(x) {\n  return x;\n}\n";
-    let got = records_at(&[("callee.ts", callee), ("app.ts", app)], "app.ts", 4);
-    assert_eq!(got, ["f Source: callee.ts:f@1-3 import_member exact"]);
+    let decoy = "export function N() {\n  return 0;\n}\n";
+    let got = records_at(
+        &[("callee.ts", callee), ("decoy.ts", decoy), ("app.ts", app)],
+        "app.ts",
+        4,
+    );
+    assert_eq!(got, ["p Source: callee.ts:f@1-3 import_member exact"]);
+}
+
+#[test]
+fn a_direct_call_of_an_import_with_no_candidate_still_drops_not_name_searches() {
+    // The direct-call import-member route (R4c) is shared with the alias route: a missing export
+    // drops, it never falls to the same-named function in another file.
+    let src =
+        "import { missing } from './callee';\nexport function run() {\n  return missing();\n}\n";
+    let decoy = "export function missing() {\n  return 2;\n}\n";
+    let got = caller_sites(&[
+        ("callee.js", CALLEE),
+        ("caller.js", src),
+        ("decoy.js", decoy),
+    ]);
+    assert_eq!(got, ["L3 missing: drop UnknownName"]);
 }

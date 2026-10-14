@@ -61,14 +61,6 @@
     "ast::js_binding_alias::tests::member_shapes_outside_the_plain_namespace_member_are_not_followed"
    ]
   ],
-  "AF-08-pattern-default-ignored": [
-   "src/ast/js_binding_alias.rs",
-   "if js_ts_has_default(pattern) {",
-   "if false {",
-   [
-    "ast::js_binding_alias::tests::pattern_shapes_outside_the_flat_object_pattern_are_not_followed"
-   ]
-  ],
   "AF-09-duplicate-key-accepted": [
    "src/ast/js_binding_alias.rs",
    "[key] => Some(Link::Member(value, std::mem::take(key))),",
@@ -163,7 +155,7 @@
    "0 => ResolutionOutcome::dropped(DropReason::UnknownName),",
    "0 => ResolutionOutcome::hit(exact(Vec::<&FunctionId>::new(), ResolutionKind::ImportMember)),",
    [
-    "js_alias_follow_test::an_import_alias_with_no_proven_target_keeps_mains_outcome"
+    "js_alias_follow_test::a_direct_call_of_an_import_with_no_candidate_still_drops_not_name_searches"
    ]
   ],
   "AF-30-wrapped-member-at-non-jsx": [
@@ -256,8 +248,8 @@
   ],
   "AF-36-callable-alias-unrouted": [
    "src/resolution_js_alias.rs",
-   "JsLocalBinding::AliasCallable(t) => Some(self.js_ts_local_callable(caller, name, t, site)),",
-   "JsLocalBinding::AliasCallable(_) => None,",
+   "Some(self.js_ts_local_callable(caller, name, t, site))",
+   "{ let _ = t; None }",
    [
     "js_alias_follow_test::alias_of_a_same_file_function_binds_it_by_span_and_not_the_decoy"
    ]
@@ -267,7 +259,7 @@
    ".starts_with('.')",
    ".starts_with(|_c: char| true)",
    [
-    "js_alias_follow_fallback_test::a_destructured_tsconfig_paths_namespace_equals_main"
+    "js_alias_follow_test::a_tsconfig_paths_namespace_member_alias_keeps_mains_outcome"
    ]
   ],
   "AF-28-span-not-required-on-namespace-route": [
@@ -307,7 +299,7 @@
    "                        | JsLocalBinding::AliasNamespaceMember { .. }\n                );\n                if !alias_followed",
    "                );\n                if !alias_followed",
    [
-    "js_alias_follow_test::the_textual_path_stands_down_for_a_namespace_member_alias"
+    "js_alias_follow_test::the_textual_path_stands_down_for_a_destructured_namespace_alias"
    ]
   ],
   "AF-42-nav-never-counts-alias-site": [

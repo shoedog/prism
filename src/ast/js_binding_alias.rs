@@ -10,7 +10,6 @@
 //! classifies a declaration itself: each link re-enters `js_ts_site_binding` at a strictly
 //! different declaration, so the visited set and the link bound terminate it.
 use super::js_binding::{JsBinding, JsBindingCache, JsTerminal};
-use super::js_binding_values::js_ts_has_default;
 use super::js_binding_walk::Walk;
 use super::ParsedFile;
 use std::collections::BTreeSet;
@@ -157,10 +156,8 @@ impl ParsedFile {
                 // Whole-pattern admission: every entry (comments aside) must be a shorthand
                 // identifier or a pair with a plain property-identifier key and an identifier
                 // value. A rest element, nested pattern, computed/string/numeric key or default
-                // anywhere means the declaration may be invalid or bind something unmodeled.
-                if js_ts_has_default(pattern) {
-                    return None;
-                }
+                // anywhere (an assignment pattern is neither shape) means the declaration may
+                // be invalid or bind something unmodeled.
                 let mut keys = Vec::new();
                 let mut cursor = pattern.walk();
                 for entry in pattern.named_children(&mut cursor) {
