@@ -3401,23 +3401,15 @@ impl CallGraph {
                 use crate::call_graph::JsLocalBinding;
                 // S1b-3b (SPEC §3.6): a JS/TS name whose binding holds one callable binds it,
                 // by registered name and span, before any import or same-name lookup.
-                if let JsLocalBinding::Callable(t) | JsLocalBinding::AliasCallable(t) =
-                    &site.local_binding
-                {
+                if let JsLocalBinding::Callable(t) = &site.local_binding {
                     return self.js_ts_local_callable(caller, name, t, site);
                 }
-                // Slice L: a `const` alias chain proven to end at an import or at a namespace
-                // import's member resolves through that route alone; it never falls to the
-                // same-file or repo-wide name rungs.
-                match &site.local_binding {
-                    JsLocalBinding::AliasImport { local } => {
-                        return self.js_ts_alias_import_outcome(caller, local, site);
-                    }
-                    JsLocalBinding::AliasNamespaceMember {
-                        module_path,
-                        member,
-                    } => return self.js_ts_alias_member_outcome(module_path, member, site),
-                    _ => {}
+                // Slice L: a `const` alias chain the binder followed resolves through its
+                // route when that route proves a target. When it does not (an unproven import
+                // or namespace member, an export without a span, a package or paths module),
+                // the site continues below exactly as an unfollowed alias does on main.
+                if let Some(outcome) = self.js_ts_alias_route(caller, name, site) {
+                    return outcome;
                 }
                 // R4c: import-member resolution (Python/JS/TS).
                 // Must fire before the functions.get(name) check because aliases
@@ -3765,6 +3757,7 @@ impl CallGraph {
         binding: &crate::call_graph::ImportBinding,
         member: &str,
         site: &CallSite,
+        alias_route: bool,
     ) -> Result<Vec<&FunctionId>, DropReason> {
         // A caller/module cache entry can also be shared by a require binding.
         // Prove this particular ESM binding and position before consulting it.
@@ -3814,6 +3807,11 @@ impl CallGraph {
         }
         if resolved.wrapped && !site.jsx_element {
             return Err(DropReason::WrappedExportNonJsx);
+        }
+        // Slice L: an alias route is proven only by a source-backed span; the span-less
+        // fallback below matches any same-named function in the file (the direct routes keep it).
+        if alias_route && resolved.span.is_none() {
+            return Ok(Vec::new());
         }
         // New alias authority requires a source-backed callable span. Existing
         // relative/CJS and may-call fallback semantics are not widened by P1.

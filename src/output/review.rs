@@ -356,6 +356,35 @@ pub fn to_callers_output(
     // Build the GLib/D-Bus callback map once for all touched functions.
     let glib_callbacks = detect_glib_callbacks(ctx.files);
 
+    // Slice L: a call through a followed JS/TS alias (`const h = f; h()`) is filed under the
+    // alias's spelling, so the name-keyed walk below cannot find it; collect those sites with
+    // the names of the functions they resolved to.
+    let alias_sites: Vec<(&crate::call_graph::CallSite, BTreeSet<String>)> = ctx
+        .cpg
+        .call_graph
+        .calls
+        .values()
+        .flatten()
+        .filter(|site| {
+            use crate::call_graph::JsLocalBinding::{
+                AliasCallable, AliasImport, AliasNamespaceMember,
+            };
+            matches!(
+                site.local_binding,
+                AliasCallable(_) | AliasImport { .. } | AliasNamespaceMember { .. }
+            )
+        })
+        .filter_map(|site| {
+            let resolved = ctx.cpg.call_graph.resolve_call_site(site);
+            let names: BTreeSet<String> = resolved
+                .iter()
+                .map(|callee| callee.target.name.clone())
+                .collect();
+            (!names.is_empty() && ctx.cpg.call_graph.js_ts_alias_route_hit(site))
+                .then_some((site, names))
+        })
+        .collect();
+
     let mut entries: Vec<FunctionCallerEntry> = Vec::new();
     let mut seen_touched: BTreeSet<(String, String)> = BTreeSet::new(); // (file, name)
 
@@ -391,10 +420,23 @@ pub fn to_callers_output(
                 if depth >= max_depth {
                     continue;
                 }
-                let sites = match ctx.cpg.call_graph.callers.get(&callee_name) {
-                    Some(s) => s,
-                    None => continue,
-                };
+                let mut sites: Vec<&crate::call_graph::CallSite> = ctx
+                    .cpg
+                    .call_graph
+                    .callers
+                    .get(&callee_name)
+                    .map(|s| s.iter().collect())
+                    .unwrap_or_default();
+                for (alias_site, names) in &alias_sites {
+                    let listed = sites.iter().any(|s| {
+                        s.caller == alias_site.caller
+                            && s.start_byte == alias_site.start_byte
+                            && s.end_byte == alias_site.end_byte
+                    });
+                    if names.contains(&callee_name) && !listed {
+                        sites.push(alias_site);
+                    }
+                }
                 for site in sites {
                     let ck = (site.caller.file.clone(), site.caller.name.clone());
                     if !visited.insert(ck) {

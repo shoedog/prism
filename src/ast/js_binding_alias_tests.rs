@@ -5,9 +5,9 @@ use super::JsFollow;
 use crate::ast::js_binding::{JsBinding, JsBindingCache, JsTerminal};
 use crate::ast::js_binding_helper_tests::parse;
 
-const ANY: [&str; 3] = ["a.js", "a.ts", "a.tsx"];
+pub(super) const ANY: [&str; 3] = ["a.js", "a.ts", "a.tsx"];
 const TS: [&str; 1] = ["a.ts"];
-const NS: &str = "import * as N from './m';\n";
+pub(super) const NS: &str = "import * as N from './m';\n";
 
 fn callable(local: &str, line: usize, wrapped: bool) -> Option<JsFollow> {
     Some(JsFollow::Callable(JsTerminal {
@@ -22,7 +22,7 @@ fn import(local: &str) -> Option<JsFollow> {
     Some(JsFollow::ImportLocal(local.to_string()))
 }
 
-fn member(module: &str, member: &str) -> Option<JsFollow> {
+pub(super) fn member(module: &str, member: &str) -> Option<JsFollow> {
     Some(JsFollow::NamespaceMember {
         module_path: module.to_string(),
         member: member.to_string(),
@@ -30,7 +30,7 @@ fn member(module: &str, member: &str) -> Option<JsFollow> {
 }
 
 /// `(id, source, site name, want)`.
-fn check(paths: &[&str], rows: Vec<(&str, String, &str, Option<JsFollow>)>) {
+pub(super) fn check(paths: &[&str], rows: Vec<(&str, String, &str, Option<JsFollow>)>) {
     let mut wrong = Vec::new();
     for path in paths {
         for (id, src, name, want) in &rows {
@@ -54,10 +54,10 @@ fn check(paths: &[&str], rows: Vec<(&str, String, &str, Option<JsFollow>)>) {
     assert!(wrong.is_empty(), "wrong follows:\n{}", wrong.join("\n"));
 }
 
-fn row<'a>(id: &'a str, src: &str, name: &'a str, want: Option<JsFollow>) -> RowT<'a> {
+pub(super) fn row<'a>(id: &'a str, src: &str, name: &'a str, want: Option<JsFollow>) -> RowT<'a> {
     (id, src.to_string(), name, want)
 }
-type RowT<'a> = (&'a str, String, &'a str, Option<JsFollow>);
+pub(super) type RowT<'a> = (&'a str, String, &'a str, Option<JsFollow>);
 
 #[test]
 fn identifier_links_end_at_the_callable_or_the_import_local() {
@@ -137,12 +137,6 @@ fn namespace_member_links_name_the_member_of_the_module() {
         ("parenthesized", "const a = (N.f);\na();\n", "a", "f"),
         ("shorthand pattern", "const { f } = N;\nf();\n", "f", "f"),
         ("renamed pattern", "const { g: a } = N;\na();\n", "a", "g"),
-        (
-            "pattern with a rest sibling",
-            "const { g: a, ...rest } = N;\na();\n",
-            "a",
-            "g",
-        ),
         (
             "parenthesized pattern value",
             "const { f } = (N);\nf();\n",

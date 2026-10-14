@@ -2,13 +2,14 @@
 //! resolves every call site, and pins the target, kind and confidence. The alias is spelled
 //! differently from the callable it names, and a same-named decoy (same file or another file)
 //! is present whenever the old by-name search could have picked it.
+use super::js_alias_follow_fallback_test::{equals_main, records_of};
 use super::js_binding_scope_resolution_test::sites;
 use prism::ast::ParsedFile;
 use prism::call_graph::CallGraph;
 use prism::languages::Language;
 use std::collections::BTreeMap;
 
-fn graph_n(files: &[(&str, &str)]) -> CallGraph {
+pub(super) fn graph_n(files: &[(&str, &str)]) -> CallGraph {
     let mut parsed = BTreeMap::new();
     for (path, src) in files {
         let lang = Language::from_path(path).unwrap();
@@ -122,7 +123,7 @@ fn a_wrapped_terminal_binds_from_jsx_only() {
 }
 
 #[test]
-fn an_import_local_with_no_candidate_drops_and_never_reaches_the_name_rungs() {
+fn an_import_alias_with_no_proven_target_keeps_mains_outcome() {
     // `function f` is a same-file decoy of the inner alias `f` (R4 would bind it by name).
     let src = "import { missing } from './callee';\nimport ext from 'some-package';\n\
         function f() {\n  return 0;\n}\n\
@@ -133,15 +134,16 @@ fn an_import_local_with_no_candidate_drops_and_never_reaches_the_name_rungs() {
         ("caller.js", src),
         ("decoy.js", decoys),
     ]);
-    assert_eq!(
+    // main (same-file decoy `f` binds; next slice)
+    equals_main(
+        "import local, no candidate",
         got,
-        ["L9 f: drop UnknownName", "L9 g: drop UnknownName"],
-        "decoys f/g exist repo-wide but the aliases name imports"
+        &["L9 f: Exact local_def f@3-5", "L9 g: drop UnknownName"],
     );
 }
 
 #[test]
-fn a_namespace_member_with_no_candidate_drops_and_never_reaches_the_name_rungs() {
+fn a_namespace_member_alias_with_no_proven_target_keeps_mains_outcome() {
     let src = "import * as N from './callee';\nimport * as P from 'some-package';\n\
         function f() {\n  return 0;\n}\n\
         export function run() {\n  const f = N.ghost;\n  const g = P.g;\n  return [f(), g()];\n}\n";
@@ -152,10 +154,11 @@ fn a_namespace_member_with_no_candidate_drops_and_never_reaches_the_name_rungs()
         ("caller.js", src),
         ("decoy.js", decoys),
     ]);
-    assert_eq!(
+    // main
+    equals_main(
+        "namespace member, no candidate",
         got,
-        ["L9 f: drop UnknownName", "L9 g: drop ImportExternal"],
-        "same-file and repo-wide decoys must not bind"
+        &["L9 f: Exact local_def f@3-5", "L9 g: drop UnknownName"],
     );
 }
 
@@ -195,7 +198,12 @@ fn an_alias_of_a_namespace_import_local_is_not_a_member_import() {
     let src = "import * as X from './callee';\nfunction a() {\n  return 0;\n}\n\
         export function run() {\n  const a = X;\n  return a();\n}\n";
     let got = caller_sites(&[("callee.js", CALLEE), ("caller.js", src)]);
-    assert_eq!(got, ["L7 a: drop UnknownName"]);
+    // main: the same-file `a` decoy (unchanged; refusing it is the next slice)
+    equals_main(
+        "alias of a namespace import local",
+        got,
+        &["L7 a: Exact local_def a@2-4"],
+    );
 }
 
 #[test]
@@ -420,7 +428,7 @@ fn a_member_that_is_not_a_function_drops() {
 }
 
 #[test]
-fn a_non_relative_namespace_import_drops_and_binds_nothing_elsewhere() {
+fn a_package_namespace_member_alias_keeps_mains_outcome() {
     let app = "import * as N from 'pkg';\nexport function run() {\n  const h = N.f;\n  \
         return h(1);\n}\n";
     let got = caller_sites(&[
@@ -428,11 +436,11 @@ fn a_non_relative_namespace_import_drops_and_binds_nothing_elsewhere() {
         ("pkg.ts", "export function f() {}\n"),
         ("pkg/index.ts", "export function f() {}\n"),
     ]);
-    assert_eq!(got, ["L4 h: drop ImportExternal"]);
+    equals_main("package namespace member", got, &["L4 h: drop UnknownName"]);
 }
 
 #[test]
-fn a_tsconfig_paths_namespace_import_drops_and_binds_nothing_elsewhere() {
+fn a_tsconfig_paths_namespace_member_alias_keeps_mains_outcome() {
     // The same file also imports `real` by name from `@lib`, so the paths module table knows
     // the specifier: only the relative-module requirement keeps the namespace alias out.
     use super::js_paths_common::{config, fixture, graph, outcome, write};
@@ -448,17 +456,20 @@ fn a_tsconfig_paths_namespace_import_drops_and_binds_nothing_elsewhere() {
             "import * as N from '@lib';\nimport { real as picked } from '@lib';\n\
              export function run() {\n  const viaNs = N.real;\n  viaNs();\n  picked();\n}\n",
         );
-        let row = outcome(&graph(d.path()), &format!("app.{ext}"), "viaNs");
-        assert!(
-            row["resolved_targets"].as_array().unwrap().is_empty(),
-            "{row}"
+        let cg = graph(d.path());
+        equals_main(
+            &format!("paths namespace member .{ext}"),
+            records_of(&cg, &format!("app.{ext}")),
+            &[
+                "L5 viaNs Source: drop UnknownName",
+                &format!("L6 picked Source: lib/real.{ext}:real@1-1 import_member exact"),
+            ],
         );
-        assert_eq!(row["drop"], "ImportExternal", "{row}");
     }
 }
 
 #[test]
-fn an_unresolvable_relative_module_drops_with_import_external() {
+fn an_unresolvable_relative_module_alias_keeps_mains_outcome() {
     let app = "import * as N from './missing';\nexport function run() {\n  const h = N.target;\n  \
         return h(1);\n}\n";
     let got = caller_sites(&[
@@ -466,7 +477,11 @@ fn an_unresolvable_relative_module_drops_with_import_external() {
         ("callee.ts", CALLEE),
         ("other/missing.ts", CALLEE),
     ]);
-    assert_eq!(got, ["L4 h: drop ImportExternal"]);
+    equals_main(
+        "unresolvable relative module",
+        got,
+        &["L4 h: drop UnknownName"],
+    );
 }
 
 #[test]
@@ -527,13 +542,11 @@ fn a_wrapped_member_binds_from_jsx_only() {
     let app = "import * as N from './x';\nconst A = N.W;\nexport function App() {\n  A();\n  \
         return <A />;\n}\n";
     let got = caller_sites(&[("app.jsx", app), ("x.jsx", x)]);
-    assert!(
-        got.contains(&"L4 A: drop WrappedExportNonJsx".to_string()),
-        "{got:?}"
-    );
-    assert!(
-        got.contains(&"L5 A: Exact import_member W@2-2".to_string()),
-        "{got:?}"
+    // The export is a wrapped component: the JSX site binds it through the alias route (main
+    // drops it); the non-JSX call is not a proof and continues as main does (UnknownName).
+    assert_eq!(
+        got,
+        ["L4 A: drop UnknownName", "L5 A: Exact import_member W@2-2"]
     );
 }
 
@@ -544,4 +557,90 @@ fn a_nested_function_of_the_exports_name_does_not_make_the_member_ambiguous() {
         return h(1);\n}\n";
     let got = caller_sites(&[("app.ts", app), ("x.ts", x)]);
     assert_eq!(got, ["L4 h: Exact import_member f@1-1"]);
+}
+
+#[test]
+fn format_callers_lists_a_followed_alias_caller_once() {
+    // `--format callers` (`to_callers_output`) walks the name-keyed `callers` index; a followed
+    // alias is filed under its own spelling, so the walk must also see it. On main the textual
+    // function-pointer record, filed under `f`, supplied this caller.
+    use prism::cpg::CpgContext;
+    use prism::diff::DiffInput;
+    let m = "export function f() {\n  return 1;\n}\n";
+    let cases = [
+        (
+            "import",
+            "import { f } from './m';\nexport function viaImportAlias() {\n  const h = f;\n  \
+                return h();\n}\n",
+            "viaImportAlias",
+        ),
+        (
+            "namespace member",
+            "import * as N from './m';\nexport function viaMember() {\n  const h = N.f;\n  \
+                return h();\n}\n",
+            "viaMember",
+        ),
+    ];
+    for (label, app, who) in cases {
+        let mut files = BTreeMap::new();
+        for (path, text) in [("m.js", m), ("app.js", app)] {
+            files.insert(
+                path.to_string(),
+                ParsedFile::parse(path, text, Language::JavaScript).unwrap(),
+            );
+        }
+        let ctx = CpgContext::build(&files, None);
+        let diff = DiffInput::parse_unified_diff(
+            "--- a/m.js\n+++ b/m.js\n@@ -1,3 +1,3 @@\n export function f() {\n-  return 0;\n+  return 1;\n }\n",
+        );
+        let out = prism::output::to_callers_output(&ctx, &diff, 1);
+        let names: Vec<_> = out
+            .callers
+            .iter()
+            .flat_map(|e| e.callers.iter().map(|c| c.name.clone()))
+            .collect();
+        assert_eq!(names, [who], "{label}: {out:?}");
+    }
+}
+
+#[test]
+fn call_stats_counts_followed_aliases_by_terminal_kind_and_outcome() {
+    let producer = "function w() {\n  return 1;\n}\nexport { w };\nexport const x = w;\n";
+    let app = "import { w } from './producer';\nimport { x } from './producer';\n\
+        import * as N from './producer';\nfunction local() {\n  return 0;\n}\n\
+        export function run() {\n  const a = w;\n  const b = x;\n  const c = N.w;\n  \
+        const d = N.x;\n  const e = local;\n  return [a(), b(), c(), d(), e()];\n}\n";
+    let cg = graph_n(&[("producer.ts", producer), ("app.ts", app)]);
+    let stats = prism::navigation::queries::call_stats(&cg);
+    assert_eq!(
+        stats["js_alias_follow"],
+        serde_json::json!({
+            "callable_proven": 1,
+            "import_kept_main": 1,
+            "import_proven": 1,
+            "namespace_member_kept_main": 1,
+            "namespace_member_proven": 1,
+        })
+    );
+}
+
+#[test]
+fn a_member_binds_the_outer_function_by_its_end_line_too() {
+    // `callee.ts` holds an outer `f` (lines 1-3) with a nested `f` starting on the same line 1;
+    // only the outer one is the export, so the identity must compare the end line as well.
+    let callee = "export function f() { function f() {}\n  return 1;\n}\n";
+    let app = "import * as N from './callee';\nexport function run() {\n  const h = N.f;\n  \
+        return h();\n}\n";
+    let got = caller_sites(&[("app.ts", app), ("callee.ts", callee)]);
+    assert_eq!(got, ["L4 h: Exact import_member f@1-3"]);
+}
+
+#[test]
+fn the_textual_path_stands_down_for_a_namespace_member_alias() {
+    // `const f = N.f; f()`: the textual function-pointer path would read `f = N.f`.
+    let app = "import * as N from './callee';\nexport function run() {\n  const f = N.f;\n  \
+        return f(1);\n}\n";
+    let callee = "export function f(x) {\n  return x;\n}\n";
+    let got = records_at(&[("callee.ts", callee), ("app.ts", app)], "app.ts", 4);
+    assert_eq!(got, ["f Source: callee.ts:f@1-3 import_member exact"]);
 }

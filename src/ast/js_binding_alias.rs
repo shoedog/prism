@@ -154,30 +154,35 @@ impl ParsedFile {
                 (!optional).then(|| Link::Member(qualifier, self.node_text(&property).to_string()))
             }
             ("object_pattern", "identifier") => {
+                // Whole-pattern admission: every entry (comments aside) must be a shorthand
+                // identifier or a pair with a plain property-identifier key and an identifier
+                // value. A rest element, nested pattern, computed/string/numeric key or default
+                // anywhere means the declaration may be invalid or bind something unmodeled.
                 if js_ts_has_default(pattern) {
                     return None;
                 }
                 let mut keys = Vec::new();
                 let mut cursor = pattern.walk();
                 for entry in pattern.named_children(&mut cursor) {
-                    match entry.kind() {
-                        "shorthand_property_identifier_pattern"
-                            if self.node_text(&entry) == name =>
-                        {
-                            keys.push(name.to_string());
+                    let (bound, key) = match entry.kind() {
+                        "comment" => continue,
+                        "shorthand_property_identifier_pattern" => {
+                            let text = self.node_text(&entry);
+                            (text, text)
                         }
                         "pair_pattern" => {
                             let key = entry
                                 .child_by_field_name("key")
-                                .filter(|k| k.kind() == "property_identifier");
+                                .filter(|k| k.kind() == "property_identifier")?;
                             let bound = entry
                                 .child_by_field_name("value")
-                                .filter(|v| v.kind() == "identifier" && self.node_text(v) == name);
-                            if let (Some(key), Some(_)) = (key, bound) {
-                                keys.push(self.node_text(&key).to_string());
-                            }
+                                .filter(|v| v.kind() == "identifier")?;
+                            (self.node_text(&bound), self.node_text(&key))
                         }
-                        _ => {}
+                        _ => return None,
+                    };
+                    if bound == name {
+                        keys.push(key.to_string());
                     }
                 }
                 match keys.as_mut_slice() {
@@ -218,6 +223,9 @@ fn first_expression(node: Node<'_>, last: bool) -> Option<Node<'_>> {
     }
 }
 
+#[cfg(test)]
+#[path = "js_binding_alias_pattern_tests.rs"]
+mod pattern_tests;
 #[cfg(test)]
 #[path = "js_binding_alias_tests.rs"]
 mod tests;

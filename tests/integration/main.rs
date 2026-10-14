@@ -29,6 +29,8 @@ mod imported_class_receiver_test;
 mod imported_object_alias_test;
 mod imported_props_identity_audit_test;
 mod inline_prop_receiver_test;
+mod js_alias_callers_test;
+mod js_alias_follow_fallback_test;
 mod js_alias_follow_test;
 mod js_alias_matrix_common;
 mod js_alias_matrix_guard;

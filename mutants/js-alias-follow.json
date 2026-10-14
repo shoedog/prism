@@ -77,30 +77,6 @@
     "ast::js_binding_alias::tests::pattern_shapes_outside_the_flat_object_pattern_are_not_followed"
    ]
   ],
-  "AF-10-pair-key-any-kind": [
-   "src/ast/js_binding_alias.rs",
-   ".filter(|k| k.kind() == \"property_identifier\");",
-   ".filter(|_| true);",
-   [
-    "ast::js_binding_alias::tests::pattern_shapes_outside_the_flat_object_pattern_are_not_followed"
-   ]
-  ],
-  "AF-11-pair-value-any-name": [
-   "src/ast/js_binding_alias.rs",
-   ".filter(|v| v.kind() == \"identifier\" && self.node_text(v) == name);",
-   ".filter(|v| v.kind() == \"identifier\");",
-   [
-    "ast::js_binding_alias::tests::namespace_member_links_name_the_member_of_the_module"
-   ]
-  ],
-  "AF-12-shorthand-any-name": [
-   "src/ast/js_binding_alias.rs",
-   "if self.node_text(&entry) == name =>",
-   "if true =>",
-   [
-    "ast::js_binding_alias::tests::namespace_member_links_name_the_member_of_the_module"
-   ]
-  ],
   "AF-13-angle-assertion-first-child": [
    "src/ast/js_binding_alias.rs",
    "\"type_assertion\" => first_expression(value, true),",
@@ -174,22 +150,6 @@
     "js_alias_follow_test::namespace_member_alias_binds_the_member_through_the_namespace_route"
    ]
   ],
-  "AF-23-alias-import-site-unrouted": [
-   "src/resolution.rs",
-   "return self.js_ts_alias_import_outcome(caller, local, site);",
-   "return ResolutionOutcome::dropped(DropReason::UnknownName);",
-   [
-    "js_alias_follow_test::identifier_alias_of_a_renamed_import_binds_the_import_not_the_same_named_decoy"
-   ]
-  ],
-  "AF-24-alias-member-site-unrouted": [
-   "src/resolution.rs",
-   "} => return self.js_ts_alias_member_outcome(module_path, member, site),",
-   "} => return ResolutionOutcome::dropped(DropReason::UnknownName),",
-   [
-    "js_alias_follow_test::namespace_member_alias_binds_the_member_through_the_namespace_route"
-   ]
-  ],
   "AF-25-alias-import-proof-refused": [
    "src/resolution.rs",
    "crate::call_graph::JsLocalBinding::AliasImport { local } => *local == binding.local,",
@@ -203,23 +163,7 @@
    "0 => ResolutionOutcome::dropped(DropReason::UnknownName),",
    "0 => ResolutionOutcome::hit(exact(Vec::<&FunctionId>::new(), ResolutionKind::ImportMember)),",
    [
-    "js_alias_follow_test::an_import_local_with_no_candidate_drops_and_never_reaches_the_name_rungs"
-   ]
-  ],
-  "AF-27-non-relative-module-accepted": [
-   "src/resolution_js_alias.rs",
-   ".starts_with('.')",
-   ".starts_with(|_c: char| true)",
-   [
-    "js_alias_follow_test::a_tsconfig_paths_namespace_import_drops_and_binds_nothing_elsewhere"
-   ]
-  ],
-  "AF-28-missing-export-falls-back-to-name-match": [
-   "src/resolution_js_alias.rs",
-   "        else {\n            return ResolutionOutcome::dropped(DropReason::UnknownName);\n        };\n        if resolved.wrapped",
-   "        else {\n            let ids: Vec<&FunctionId> = self.functions.get(member).map_or_else(Vec::new, |v| v.iter().collect());\n            return ResolutionOutcome::hit(exact(ids, ResolutionKind::ImportMember));\n        };\n        if resolved.wrapped",
-   [
-    "js_alias_follow_test::a_member_missing_from_the_module_never_binds_an_unrelated_file_of_the_same_stem"
+    "js_alias_follow_test::an_import_alias_with_no_proven_target_keeps_mains_outcome"
    ]
   ],
   "AF-30-wrapped-member-at-non-jsx": [
@@ -228,22 +172,6 @@
    "if false {",
    [
     "js_alias_follow_test::a_wrapped_member_binds_from_jsx_only"
-   ]
-  ],
-  "AF-31-span-filter-off": [
-   "src/resolution_js_alias.rs",
-   ".is_none_or(|(s, e)| fid.start_line == s && fid.end_line == e)",
-   ".is_none_or(|(_s, _e)| true)",
-   [
-    "js_alias_follow_test::a_nested_function_of_the_exports_name_does_not_make_the_member_ambiguous"
-   ]
-  ],
-  "AF-32-unresolved-module-continues": [
-   "src/resolution_js_alias.rs",
-   "            return ResolutionOutcome::dropped(DropReason::ImportExternal);\n        };\n        let Some(resolved)",
-   "            return ResolutionOutcome::dropped(DropReason::UnknownName);\n        };\n        let Some(resolved)",
-   [
-    "js_alias_follow_test::an_unresolvable_relative_module_drops_with_import_external"
    ]
   ],
   "AF-33-export-name-not-required": [
@@ -270,12 +198,149 @@
     "js_alias_follow_test::textual_fptr_path_still_fires_where_the_binder_does_not_follow"
    ]
   ],
-  "AF-36-callable-alias-resolves-as-unchecked": [
-   "src/resolution.rs",
-   "JsLocalBinding::Callable(t) | JsLocalBinding::AliasCallable(t) =\n                    &site.local_binding",
-   "JsLocalBinding::Callable(t) =\n                    &site.local_binding",
+  "AF-10-pair-key-any-kind": [
+   "src/ast/js_binding_alias.rs",
+   ".filter(|k| k.kind() == \"property_identifier\")?;",
+   ".filter(|_| true)?;",
+   [
+    "ast::js_binding_alias::tests::pattern_shapes_outside_the_flat_object_pattern_are_not_followed"
+   ]
+  ],
+  "AF-11-pair-value-any-name": [
+   "src/ast/js_binding_alias.rs",
+   "if bound == name {",
+   "if true {",
+   [
+    "ast::js_binding_alias::tests::namespace_member_links_name_the_member_of_the_module"
+   ]
+  ],
+  "AF-12-pair-value-any-kind": [
+   "src/ast/js_binding_alias.rs",
+   ".filter(|v| v.kind() == \"identifier\")?;",
+   ".filter(|_| true)?;",
+   [
+    "ast::js_binding_alias::pattern_tests::a_pattern_with_any_non_flat_entry_is_not_followed"
+   ]
+  ],
+  "AF-37-comment-entry-rejects-pattern": [
+   "src/ast/js_binding_alias.rs",
+   "\"comment\" => continue,",
+   "\"comment\" => return None,",
+   [
+    "ast::js_binding_alias::pattern_tests::comments_inside_a_flat_pattern_are_ignored"
+   ]
+  ],
+  "AF-38-unknown-entry-skipped": [
+   "src/ast/js_binding_alias.rs",
+   "                        _ => return None,\n                    };\n                    if bound == name",
+   "                        _ => continue,\n                    };\n                    if bound == name",
+   [
+    "ast::js_binding_alias::pattern_tests::a_pattern_with_any_non_flat_entry_is_not_followed"
+   ]
+  ],
+  "AF-23-alias-import-unrouted": [
+   "src/resolution_js_alias.rs",
+   "self.js_ts_alias_import_outcome(caller, local, site)",
+   "None",
+   [
+    "js_alias_follow_test::identifier_alias_of_a_renamed_import_binds_the_import_not_the_same_named_decoy"
+   ]
+  ],
+  "AF-24-alias-member-unrouted": [
+   "src/resolution_js_alias.rs",
+   "} => self.js_ts_alias_member_outcome(module_path, member, site),",
+   "} => None,",
+   [
+    "js_alias_follow_test::namespace_member_alias_binds_the_member_through_the_namespace_route"
+   ]
+  ],
+  "AF-36-callable-alias-unrouted": [
+   "src/resolution_js_alias.rs",
+   "JsLocalBinding::AliasCallable(t) => Some(self.js_ts_local_callable(caller, name, t, site)),",
+   "JsLocalBinding::AliasCallable(_) => None,",
    [
     "js_alias_follow_test::alias_of_a_same_file_function_binds_it_by_span_and_not_the_decoy"
+   ]
+  ],
+  "AF-27-non-relative-module-accepted": [
+   "src/resolution_js_alias.rs",
+   ".starts_with('.')",
+   ".starts_with(|_c: char| true)",
+   [
+    "js_alias_follow_fallback_test::a_destructured_tsconfig_paths_namespace_equals_main"
+   ]
+  ],
+  "AF-28-span-not-required-on-namespace-route": [
+   "src/resolution_js_alias.rs",
+   "let (start, end) = resolved.span?;",
+   "let (start, end) = resolved.span.unwrap_or((5, 5));",
+   [
+    "js_alias_follow_fallback_test::an_export_without_a_span_is_not_a_proven_alias_terminal"
+   ]
+  ],
+  "AF-31-end-line-not-compared": [
+   "src/resolution_js_alias.rs",
+   "&& fid.end_line == end",
+   "&& true",
+   [
+    "js_alias_follow_test::a_member_binds_the_outer_function_by_its_end_line_too"
+   ]
+  ],
+  "AF-39-span-not-required-on-import-route": [
+   "src/resolution.rs",
+   "if alias_route && resolved.span.is_none() {",
+   "if false {",
+   [
+    "js_alias_follow_fallback_test::an_export_without_a_span_is_not_a_proven_alias_terminal"
+   ]
+  ],
+  "AF-40-unproven-alias-route-drops": [
+   "src/resolution.rs",
+   "if let Some(outcome) = self.js_ts_alias_route(caller, name, site) {\n                    return outcome;\n                }",
+   "if let Some(outcome) = self.js_ts_alias_route(caller, name, site) {\n                    return outcome;\n                }\n                if matches!(site.local_binding, JsLocalBinding::AliasImport { .. } | JsLocalBinding::AliasNamespaceMember { .. }) {\n                    return ResolutionOutcome::dropped(DropReason::UnknownName);\n                }",
+   [
+    "js_alias_follow_fallback_test::an_alias_of_an_import_whose_export_is_an_unproven_alias_equals_main"
+   ]
+  ],
+  "AF-41-namespace-alias-keeps-textual-record": [
+   "src/call_graph.rs",
+   "                        | JsLocalBinding::AliasNamespaceMember { .. }\n                );\n                if !alias_followed",
+   "                );\n                if !alias_followed",
+   [
+    "js_alias_follow_test::the_textual_path_stands_down_for_a_namespace_member_alias"
+   ]
+  ],
+  "AF-42-nav-never-counts-alias-site": [
+   "src/navigation/mod.rs",
+   "|| cg.js_ts_alias_route_hit(site)",
+   "|| false",
+   [
+    "js_alias_callers_test::an_alias_of_an_import_is_a_caller_once",
+    "js_alias_callers_test::an_alias_of_a_same_file_function_is_a_caller_once"
+   ]
+  ],
+  "AF-43-nav-counts-alias-site-twice": [
+   "src/navigation/mod.rs",
+   "site's target, so count it once.\n                        1\n",
+   "site's target, so count it once.\n                        2\n",
+   [
+    "js_alias_callers_test::an_alias_of_an_import_is_a_caller_once"
+   ]
+  ],
+  "AF-44-format-callers-ignores-alias-sites": [
+   "src/output/review.rs",
+   "if names.contains(&callee_name) && !listed {",
+   "if false && names.contains(&callee_name) && !listed {",
+   [
+    "js_alias_follow_test::format_callers_lists_a_followed_alias_caller_once"
+   ]
+  ],
+  "AF-45-call-stats-miscounts-outcome": [
+   "src/navigation/queries.rs",
+   "(true, _) => \"proven\",",
+   "(true, _) => \"kept_main\",",
+   [
+    "js_alias_follow_test::call_stats_counts_followed_aliases_by_terminal_kind_and_outcome"
    ]
   ]
  }

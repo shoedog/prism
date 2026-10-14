@@ -365,7 +365,12 @@ impl NavigationIndex {
                     // suffix), which does not apply here. The site is already
                     // fully precise (one CallSite -> its resolved targets), so
                     // count it directly rather than gating on name match.
-                    let count = if resolved.kind == ResolutionKind::FuncValueField {
+                    let count = if resolved.kind == ResolutionKind::FuncValueField
+                        || cg.js_ts_alias_route_hit(site)
+                    {
+                        // Slice L: a followed alias is filed under its own spelling, so the
+                        // name match below cannot see it; the alias route already proved this
+                        // site's target, so count it once.
                         1
                     } else {
                         let suffix = format!("::{}", resolved.target.name);

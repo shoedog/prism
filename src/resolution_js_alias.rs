@@ -21,7 +21,7 @@ impl CallGraph {
         let Some(member) = binding.member.as_deref() else {
             return ResolutionOutcome::dropped(DropReason::UnknownName);
         };
-        match self.js_ts_import_member_candidates(caller, binding, member, site) {
+        match self.js_ts_import_member_candidates(caller, binding, member, site, false) {
             Err(drop) => ResolutionOutcome::dropped(drop),
             Ok(matched) => match matched.len() {
                 0 => ResolutionOutcome::dropped(DropReason::UnknownName),
@@ -31,61 +31,91 @@ impl CallGraph {
         }
     }
 
-    /// A chain proven to end at the program-scope import local `local`: exactly a direct call
-    /// to `local` through the member-import route, without the caller-locals shadow guard on
-    /// the site's own spelling (the binder already proved what the alias names). A local that
-    /// is not an eligible member import (a namespace or type-only import) has no candidate.
-    pub(super) fn js_ts_alias_import_outcome<'a>(
+    /// The alias route for a site whose binder-proven binding is a followed alias: `Some` is
+    /// the outcome of the route (a proven hit; for a callable terminal, whatever `Callable`
+    /// gives), `None` means the route proved nothing and the caller continues as main does for
+    /// an unfollowed alias. Also read by `nav call-stats` and the navigation callers index.
+    pub(crate) fn js_ts_alias_route<'a>(
+        &'a self,
+        caller: &FunctionId,
+        name: &str,
+        site: &CallSite,
+    ) -> Option<ResolutionOutcome<'a>> {
+        use crate::call_graph::JsLocalBinding;
+        match &site.local_binding {
+            JsLocalBinding::AliasCallable(t) => {
+                Some(self.js_ts_local_callable(caller, name, t, site))
+            }
+            JsLocalBinding::AliasImport { local } => {
+                self.js_ts_alias_import_outcome(caller, local, site)
+            }
+            JsLocalBinding::AliasNamespaceMember {
+                module_path,
+                member,
+            } => self.js_ts_alias_member_outcome(module_path, member, site),
+            _ => None,
+        }
+    }
+
+    /// The site's binding is a followed alias and the alias route proved a target for it.
+    /// Consumers keyed by the callee spelling (the navigation callers index) use this to count
+    /// such a site once for its target whatever the alias is spelled.
+    pub(crate) fn js_ts_alias_route_hit(&self, site: &CallSite) -> bool {
+        self.js_ts_alias_route(&site.caller, &site.callee_name, site)
+            .is_some_and(|outcome| !outcome.resolved.is_empty())
+    }
+
+    /// A chain proven to end at the program-scope import local `local`: a direct call to
+    /// `local` through the member-import route, without the caller-locals shadow guard on the
+    /// site's own spelling (the binder already proved what the alias names). Proven only when
+    /// the route yields exactly one source-backed target; otherwise `None`.
+    fn js_ts_alias_import_outcome<'a>(
         &'a self,
         caller: &FunctionId,
         local: &str,
         site: &CallSite,
-    ) -> ResolutionOutcome<'a> {
-        let binding = self.import_bindings.get(&caller.file).and_then(|bindings| {
-            bindings.iter().find(|b| {
-                b.local == local
-                    && b.eligible
-                    && matches!(b.kind, crate::call_graph::ImportBindingKind::MemberImport)
-            })
-        });
-        match binding {
-            Some(binding) => self.js_ts_import_member_outcome(caller, binding, site),
-            None => ResolutionOutcome::dropped(DropReason::UnknownName),
+    ) -> Option<ResolutionOutcome<'a>> {
+        let binding = self.import_bindings.get(&caller.file)?.iter().find(|b| {
+            b.local == local
+                && b.eligible
+                && matches!(b.kind, crate::call_graph::ImportBindingKind::MemberImport)
+        })?;
+        let member = binding.member.as_deref()?;
+        match self.js_ts_import_member_candidates(caller, binding, member, site, true) {
+            Ok(ids) if ids.len() == 1 => Some(ResolutionOutcome::hit(exact(
+                ids,
+                ResolutionKind::ImportMember,
+            ))),
+            _ => None,
         }
     }
 
     /// A chain proven to end at member `member` of the namespace import of `module_path`:
     /// "member `m` of `P`'s namespace" is the named export `m` of `P`, so it resolves the way
-    /// `import { m } from P` does: the module file, then the per-export resolved facts, then the
-    /// one function with that file, local name and span. The proof is per export (a module with
-    /// an unproven export still proves its others) and follows re-export chains as named imports
-    /// do. It never uses the qualified-call stem match (R3's legacy fallback), so a same-stem file
-    /// that lacks the export cannot bind. Not relative (package, tsconfig-paths alias) or not a
-    /// resolvable module: `ImportExternal`; anything short of one identity: `UnknownName`.
-    pub(super) fn js_ts_alias_member_outcome<'a>(
+    /// `import { m } from P` does: the relative module file, the per-export resolved facts, then
+    /// the one function with that file, local name and span. The proof is per export and follows
+    /// re-export chains as named imports do. It never uses the qualified-call stem match (R3's
+    /// legacy fallback). A package or paths module, an unresolvable module, no entry, an entry
+    /// without a span, a wrapped export at a non-JSX site, or anything short of one identity is
+    /// not a proof: `None`.
+    fn js_ts_alias_member_outcome<'a>(
         &'a self,
         module_path: &str,
         member: &str,
         site: &CallSite,
-    ) -> ResolutionOutcome<'a> {
-        let file = &site.caller.file;
-        let Some(module_file) = module_path
+    ) -> Option<ResolutionOutcome<'a>> {
+        let module_file = module_path
             .trim()
             .starts_with('.')
-            .then(|| self.resolve_js_ts_member_module(module_path, file))
-            .flatten()
-        else {
-            return ResolutionOutcome::dropped(DropReason::ImportExternal);
-        };
-        let Some(resolved) = self
+            .then(|| self.resolve_js_ts_member_module(module_path, &site.caller.file))
+            .flatten()?;
+        let resolved = self
             .js_ts_resolved_exports
             .get(&module_file)
-            .and_then(|exports| exports.get(member))
-        else {
-            return ResolutionOutcome::dropped(DropReason::UnknownName);
-        };
+            .and_then(|exports| exports.get(member))?;
+        let (start, end) = resolved.span?;
         if resolved.wrapped && !site.jsx_element {
-            return ResolutionOutcome::dropped(DropReason::WrappedExportNonJsx);
+            return None;
         }
         let ids: Vec<&FunctionId> =
             self.functions
@@ -93,19 +123,13 @@ impl CallGraph {
                 .map_or_else(Vec::new, |ids| {
                     ids.iter()
                         .filter(|fid| {
-                            fid.file == resolved.file && !self.method_owners.contains_key(*fid)
-                        })
-                        .filter(|fid| {
-                            resolved
-                                .span
-                                .is_none_or(|(s, e)| fid.start_line == s && fid.end_line == e)
+                            fid.file == resolved.file
+                                && !self.method_owners.contains_key(*fid)
+                                && fid.start_line == start
+                                && fid.end_line == end
                         })
                         .collect()
                 });
-        if ids.len() == 1 {
-            ResolutionOutcome::hit(exact(ids, ResolutionKind::ImportMember))
-        } else {
-            ResolutionOutcome::dropped(DropReason::UnknownName)
-        }
+        (ids.len() == 1).then(|| ResolutionOutcome::hit(exact(ids, ResolutionKind::ImportMember)))
     }
 }
