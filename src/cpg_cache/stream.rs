@@ -24,6 +24,19 @@ thread_local! {
     /// Test seam: run once on this thread, just before a publish renames its temp file.
     pub(super) static BEFORE_RENAME: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
         const { std::cell::RefCell::new(None) };
+
+    /// Test seam: the result the next save's lock attempt reports instead of asking the file.
+    pub(super) static LOCK_RESULT: std::cell::RefCell<Option<fs::TryLockError>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// `File::try_lock`, except that a test can make the next call report a chosen result.
+fn try_lock_file(file: &File) -> Result<(), fs::TryLockError> {
+    #[cfg(test)]
+    if let Some(injected) = LOCK_RESULT.with(|slot| slot.borrow_mut().take()) {
+        return Err(injected);
+    }
+    file.try_lock()
 }
 
 /// Buffer between the codec and the file.
@@ -152,7 +165,7 @@ pub(super) fn publish_file(
         .create(true)
         .truncate(false)
         .open(cache_dir.join(LOCK_NAME))?;
-    match lock.try_lock() {
+    match try_lock_file(&lock) {
         Ok(()) | Err(fs::TryLockError::Error(_)) => {}
         Err(fs::TryLockError::WouldBlock) => return Ok(None),
     }

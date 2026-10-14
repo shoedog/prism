@@ -479,3 +479,88 @@ fn a_load_without_a_lock_file_leaves_the_temp_file_and_creates_no_lock_file() {
     let _ = load_cache(&BTreeMap::new(), false, &missing);
     assert!(!missing.exists());
 }
+
+fn inject_lock_error(error: std::io::Error) {
+    super::LOCK_RESULT.with(|slot| *slot.borrow_mut() = Some(std::fs::TryLockError::Error(error)));
+}
+
+#[test]
+fn an_operational_lock_error_skips_the_save_and_touches_no_temp_file() {
+    // The lock is really held by a writer mid-save, but this save's attempt reports an error
+    // that does not mean "locking is unsupported" (lock table exhausted, no memory, ...).
+    for kind in [
+        std::io::ErrorKind::OutOfMemory,
+        std::io::ErrorKind::Other,
+        std::io::ErrorKind::PermissionDenied,
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let (cpg, hashes) = fixture();
+        let previous = b"previous cache".to_vec();
+        fs::write(cache_bin_path(dir.path()), &previous).unwrap();
+        let live_temp = dir.path().join("cpg-cache.bin.tmp");
+        fs::write(&live_temp, b"another writer, half written").unwrap();
+        let writer = hold_lock(dir.path());
+
+        inject_lock_error(std::io::Error::from(kind));
+        save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+
+        assert!(
+            fs::read(&live_temp).unwrap() == b"another writer, half written",
+            "{kind:?}: the holder's temp file was touched"
+        );
+        assert!(
+            fs::read(cache_bin_path(dir.path())).unwrap() == previous,
+            "{kind:?}: the previous cache changed"
+        );
+        drop(writer);
+    }
+}
+
+#[test]
+fn a_lock_error_that_means_locking_is_unsupported_saves_without_the_lock() {
+    let mut errors = vec![std::io::Error::from(std::io::ErrorKind::Unsupported)];
+    #[cfg(any(target_os = "macos", target_os = "ios", target_os = "freebsd"))]
+    errors.push(std::io::Error::from_raw_os_error(45)); // ENOTSUP, which std leaves uncategorized
+    for error in errors {
+        let dir = tempfile::tempdir().unwrap();
+        let (cpg, hashes) = fixture();
+        let description = format!("{error:?}");
+        inject_lock_error(error);
+        save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+        assert!(
+            matches!(load_cache(&hashes, false, dir.path()), CacheResult::Hit(_)),
+            "{description}: the unlocked save did not publish"
+        );
+        assert_eq!(temp_files(dir.path()), Vec::<String>::new());
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_lock_file_this_user_cannot_write_still_serializes_and_saves() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let (cpg, hashes) = fixture();
+    let lock = dir.path().join(LOCK_NAME);
+    fs::write(&lock, b"").unwrap();
+    fs::set_permissions(&lock, fs::Permissions::from_mode(0o444)).unwrap();
+
+    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+    assert!(matches!(
+        load_cache(&hashes, false, dir.path()),
+        CacheResult::Hit(_)
+    ));
+
+    // And it still excludes: a holder of the same read-only file makes the next save skip.
+    let holder = fs::File::open(&lock).unwrap();
+    holder.try_lock().unwrap();
+    let published = fs::read(cache_bin_path(dir.path())).unwrap();
+    fs::remove_file(cache_bin_path(dir.path())).unwrap();
+    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+    assert!(
+        !cache_bin_path(dir.path()).exists(),
+        "{} bytes",
+        published.len()
+    );
+    drop(holder);
+}
