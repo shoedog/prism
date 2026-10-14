@@ -22,6 +22,22 @@ pub(super) enum Answer {
     Superseded,
 }
 
+/// What a call is told about its own attempt's ending `own`, given the phase now (D26). An
+/// attempt that published the index is `Ready`. A failed attempt is `Superseded` when a later
+/// attempt is building or the index is ready, and otherwise `Failed` with its own text. The
+/// phase contributes only which of those it is: no other attempt's outcome or text.
+pub(super) fn answer_for(own: &Result<(), String>, phase: &BuildPhase) -> Answer {
+    match own {
+        Ok(()) => Answer::Ready,
+        Err(error) => match phase {
+            BuildPhase::Building { .. } | BuildPhase::Ready => Answer::Superseded,
+            BuildPhase::Failed { .. } | BuildPhase::Idle => Answer::Failed {
+                error: error.clone(),
+            },
+        },
+    }
+}
+
 /// How one build attempt ended: empty while it builds, filled when it ends, and not changed
 /// after that (a second fill has no effect). The attempt's phase holds one share of it and
 /// every call that starts or joins the attempt holds another, so a call reads the outcome of
@@ -45,6 +61,11 @@ impl AttemptOutcome {
 }
 
 /// Where the index build is (spec §4.2).
+
+#[cfg(test)]
+#[path = "control_tests.rs"]
+mod tests;
+
 #[derive(Debug)]
 pub(super) enum BuildPhase {
     /// No build has been asked for.

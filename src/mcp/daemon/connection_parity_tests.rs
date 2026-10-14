@@ -2,13 +2,15 @@
 //! "Preserved"), that the stale evidence a refresh recorded reaches every client (spec §9
 //! test 14), and that a broken daemon ends a connection with an error and not a panic.
 use super::super::coordinator::DaemonState;
-use super::super::test_support::{client_settings, fixture, scripted, status};
+use super::super::test_support::{
+    build_after, client_settings, fail_after, fixture, scripted, status, wait_until, Gate,
+};
 use super::super::wire_support::{
     close, connect, ended, Client, CALLEES, CALLERS, INIT, INITED, LIST, REFRESH,
 };
 use crate::mcp::framing::UnixStreamTransport;
 use crate::mcp::freshness::FreshnessReport;
-use crate::mcp::lazy::{LazySessionProvider, SessionBuilder};
+use crate::mcp::lazy::{LazySessionProvider, LazyTestHooks, SessionBuilder};
 use crate::mcp::registry::ToolRegistry;
 use crate::mcp::shared::preamble::BuildState;
 use crate::mcp::transport::serve_connection;
@@ -16,7 +18,7 @@ use crate::mcp::{RefreshPolicy, RefreshVerification, SessionProvider, StartupMod
 use serde_json::json;
 use std::os::unix::net::UnixStream;
 use std::path::Path;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -351,4 +353,114 @@ fn a_poisoned_provider_slot_ends_the_connection_with_an_error_and_handshakes_go_
     let listed = b.request(LIST);
     assert_eq!(listed["result"]["tools"].as_array().map(Vec::len), Some(9));
     close(b, b_worker);
+}
+
+/// One client of each server, waiting zero seconds: a call, then the build fails, then two
+/// calls. Returns every response line in order.
+fn play_a_client_that_stopped_waiting(
+    client: &mut Client,
+    gate: &Gate,
+    mut failed: impl FnMut() -> bool,
+) -> String {
+    let mut transcript = String::new();
+    client.send(INIT);
+    transcript.push_str(&client.recv_line());
+    client.send(INITED);
+    // The build is held, so this call is told the index is warming.
+    client.send(CALLEES);
+    transcript.push_str(&client.recv_line());
+    gate.open();
+    wait_until("the first build attempt to fail", &mut failed);
+    // The next call hears the failure, with its cause, and starts nothing.
+    client.send(CALLEES);
+    transcript.push_str(&client.recv_line());
+    // The call after that starts the retry, which is held: warming again.
+    client.send(CALLEES);
+    transcript.push_str(&client.recv_line());
+    transcript
+}
+
+/// Spec §5 keeps "the warming result and retry contract". A client that stopped waiting is told
+/// the index is warming; the build then fails; its next call is told `build_failed` with the
+/// cause, and only the call after that starts the retry. The daemon must say the same bytes
+/// (D32). Rules out a daemon whose next call after a failure starts the retry at once: the
+/// client would never hear the failure.
+#[test]
+fn a_client_that_stopped_waiting_hears_the_failure_and_then_the_retry_like_the_in_process_server() {
+    let settings = client_settings(0);
+
+    // In process.
+    let (_in_dir, in_cfg) = fixture(RefreshPolicy::WarnOnly);
+    let in_gate = Gate::closed();
+    let in_retry = Gate::closed();
+    let (in_builder, in_builds) = scripted(
+        &in_cfg,
+        vec![
+            fail_after(&in_gate, "the repository could not be loaded"),
+            build_after(&in_retry, &in_cfg),
+        ],
+    );
+    let delivered = Arc::new(AtomicU64::new(0));
+    let hooks = LazyTestHooks {
+        published: Some({
+            let delivered = Arc::clone(&delivered);
+            Arc::new(move || {
+                delivered.fetch_add(1, Ordering::SeqCst);
+            })
+        }),
+        before_wait: None,
+    };
+    let (near, far) = UnixStream::pair().expect("a connected socket pair");
+    let output = *settings.output();
+    let in_process = std::thread::spawn(move || {
+        let mut provider =
+            LazySessionProvider::with_builder_and_hooks(&in_cfg, Duration::ZERO, in_builder, hooks)
+                .expect("a lazy provider");
+        let mut transport = UnixStreamTransport::from_stream(far).expect("a transport");
+        serve_connection(
+            &mut provider,
+            &ToolRegistry::all_v1(),
+            &mut transport,
+            &output,
+        )
+    });
+    let mut client = Client::new(near);
+    let expected = play_a_client_that_stopped_waiting(&mut client, &in_gate, || {
+        delivered.load(Ordering::SeqCst) == 1
+    });
+    drop(client);
+    in_retry.open();
+    ended(in_process).expect("the in-process server ends cleanly at end of input");
+
+    // The daemon.
+    let (_daemon_dir, daemon_cfg) = fixture(RefreshPolicy::WarnOnly);
+    let daemon_gate = Gate::closed();
+    let daemon_retry = Gate::closed();
+    let (daemon_builder, daemon_builds) = scripted(
+        &daemon_cfg,
+        vec![
+            fail_after(&daemon_gate, "the repository could not be loaded"),
+            build_after(&daemon_retry, &daemon_cfg),
+        ],
+    );
+    let state = DaemonState::new(daemon_builder, StartupMode::Lazy).expect("a lazy daemon state");
+    let (mut client, worker) = connect(&state, settings);
+    let actual = play_a_client_that_stopped_waiting(&mut client, &daemon_gate, || {
+        status(&state).state == BuildState::Failed
+    });
+    close(client, worker);
+    daemon_retry.open();
+
+    assert_eq!(expected.lines().count(), 4, "initialize and three calls");
+    for (index, (want, got)) in expected.lines().zip(actual.lines()).enumerate() {
+        assert_eq!(got, want, "response {} differs", index + 1);
+    }
+    assert_eq!(actual.len(), expected.len());
+    assert!(
+        expected.contains("the repository could not be loaded"),
+        "the failure's cause is in the transcript: {expected}"
+    );
+    wait_until("both servers to have started the retry", || {
+        in_builds.load(Ordering::SeqCst) == 2 && daemon_builds.load(Ordering::SeqCst) == 2
+    });
 }

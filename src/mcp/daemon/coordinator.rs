@@ -17,6 +17,7 @@
 //! Turning both into the daemon-fatal abort of spec §3.1 is slice S3b.
 use super::budget::ConnectionBudget;
 use super::clock::{Clock, SystemClock};
+use super::control::answer_for;
 pub(super) use super::control::{Answer, AttemptOutcome, BuildPhase, BuildStatus, ControlState};
 use crate::mcp::lazy::SessionBuilder;
 // The tests in this file's child modules name `BuildState` through `use super::*`.
@@ -168,7 +169,10 @@ impl DaemonState {
 
     /// Make sure a build has been started and wait for it, no longer than `budget` allows.
     ///
-    /// The call first decides which attempt it belongs to, once: the one that is building, or a
+    /// If the attempt this connection last joined has failed and no call of the connection has
+    /// been told so (each was answered `Warming`), this call is answered about that attempt
+    /// and starts nothing: `Failed` with its text, or `Superseded` (D32). Otherwise the call
+    /// first decides which attempt it belongs to, once: the one that is building, or a
     /// new one if none has been started or the last one failed. From then on it reads only that
     /// attempt's outcome, and returns
     ///
@@ -191,6 +195,13 @@ impl DaemonState {
     ) -> Result<Answer, Poisoned> {
         let mut control = self.lock_control()?;
 
+        // A connection's next call first hears its own attempt's unheard failure, before the
+        // shortcut to `Ready` and before a retry is started or joined (D32). It is answered by
+        // the same rule as any other ending.
+        if let Some(error) = budget.unheard_failure() {
+            return Ok(answer_for(&Err(error), &control.build));
+        }
+
         let building = match &control.build {
             BuildPhase::Ready => return Ok(Answer::Ready),
             BuildPhase::Building {
@@ -202,26 +213,18 @@ impl DaemonState {
         };
         let (attempt, started, outcome) =
             building.unwrap_or_else(|| self.start_attempt(&mut control));
-        let deadline = budget.deadline_for(attempt, self.clock.now());
+        let deadline = budget.join(attempt, &outcome, self.clock.now());
 
         loop {
-            match outcome.ended() {
-                Some(Ok(())) => return Ok(Answer::Ready),
-                // The call's own attempt failed. One look at the phase, under the lock this
-                // call holds, decides whether that failure is still the last word. The look
-                // takes nothing from the phase but that: no outcome and no error of another
-                // attempt can reach this call through it, which is what answering from the
-                // phase once got wrong. `Building` here is always a later attempt, because
-                // this call's own has ended.
-                Some(Err(error)) => {
-                    return Ok(match &control.build {
-                        BuildPhase::Building { .. } | BuildPhase::Ready => Answer::Superseded,
-                        BuildPhase::Failed { .. } | BuildPhase::Idle => Answer::Failed {
-                            error: error.clone(),
-                        },
-                    });
-                }
-                None => {}
+            // The call's own attempt has ended. If it failed, one look at the phase, under the
+            // lock this call holds, decides whether that failure is still the last word
+            // (`answer_for`). The look takes nothing from the phase but that: no outcome and
+            // no error of another attempt can reach this call through it, which is what
+            // answering from the phase once got wrong. `Building` there is always a later
+            // attempt, because this call's own has ended.
+            if let Some(ended) = outcome.ended() {
+                budget.told();
+                return Ok(answer_for(ended, &control.build));
             }
             let now = self.clock.now();
             let remaining = deadline.saturating_duration_since(now);
