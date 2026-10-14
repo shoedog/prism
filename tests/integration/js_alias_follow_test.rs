@@ -671,17 +671,6 @@ fn a_direct_call_of_an_import_with_no_candidate_still_drops_not_name_searches() 
 /// `to_callers_output` over `files` for the given unified diff: per touched function
 /// `(file, [start, end], caller names)`.
 fn format_callers(files: &[(&str, &str)], diff: &str) -> Vec<(String, [usize; 2], Vec<String>)> {
-    format_callers_at(files, diff, 1)
-        .into_iter()
-        .map(|(f, r, c)| (f, r, c.into_iter().map(|(n, _)| n).collect()))
-        .collect()
-}
-
-fn format_callers_at(
-    files: &[(&str, &str)],
-    diff: &str,
-    depth: usize,
-) -> Vec<(String, [usize; 2], Vec<(String, usize)>)> {
     use prism::cpg::CpgContext;
     use prism::diff::DiffInput;
     let mut parsed = BTreeMap::new();
@@ -692,17 +681,14 @@ fn format_callers_at(
         );
     }
     let ctx = CpgContext::build(&parsed, None);
-    let out = prism::output::to_callers_output(&ctx, &DiffInput::parse_unified_diff(diff), depth);
+    let out = prism::output::to_callers_output(&ctx, &DiffInput::parse_unified_diff(diff), 1);
     out.callers
         .iter()
         .map(|e| {
             (
                 e.file.clone(),
                 e.line_range,
-                e.callers
-                    .iter()
-                    .map(|c| (c.name.clone(), c.depth))
-                    .collect(),
+                e.callers.iter().map(|c| c.name.clone()).collect(),
             )
         })
         .collect()
@@ -750,70 +736,4 @@ fn format_callers_lists_an_alias_spelled_like_its_target_once() {
     let diff = "--- a/m.js\n+++ b/m.js\n@@ -2 +2 @@\n-  return 0;\n+  return 1;\n";
     let got = format_callers(&[("m.js", m), ("app.js", app)], diff);
     assert_eq!(got[0].2, ["run"], "{got:?}");
-}
-
-// ---- round 3, finding C: a followed site is never taken from its spelling bucket ----
-
-const C_LIB: &str = "export function target() {\n  return 1;\n}\n";
-const C_DIFF: &str = "--- a/lib.js\n+++ b/lib.js\n@@ -2 +2 @@\n-  return 0;\n+  return 1;\n";
-
-fn names(depth_rows: &[(String, [usize; 2], Vec<(String, usize)>)]) -> Vec<(String, usize)> {
-    depth_rows.iter().flat_map(|r| r.2.clone()).collect()
-}
-
-#[test]
-fn format_callers_does_not_credit_a_followed_site_for_the_function_named_like_its_alias() {
-    // `outer`'s `run()` is proven to call `decoy`; it must not be a caller of the function `run`.
-    let app = "import * as N from './lib';\nexport function run() {\n  const h = N.target;\n  \
-        h();\n}\nfunction decoy() {\n  return 2;\n}\nexport function outer() {\n  \
-        const run = decoy;\n  run();\n}\n";
-    let files = [("lib.js", C_LIB), ("app.js", app)];
-    assert_eq!(
-        names(&format_callers_at(&files, C_DIFF, 1)),
-        [("run".to_string(), 1)]
-    );
-    assert_eq!(
-        names(&format_callers_at(&files, C_DIFF, 2)),
-        [("run".to_string(), 1)]
-    );
-}
-
-#[test]
-fn format_callers_credits_a_genuine_transitive_caller_through_a_followed_site() {
-    let app = "import * as N from './lib';\nexport function run() {\n  const h = N.target;\n  \
-        h();\n}\nexport function top() {\n  const g = run;\n  g();\n}\n";
-    let files = [("lib.js", C_LIB), ("app.js", app)];
-    assert_eq!(
-        names(&format_callers_at(&files, C_DIFF, 2)),
-        [("run".to_string(), 1), ("top".to_string(), 2)]
-    );
-}
-
-#[test]
-fn format_callers_direct_twin_is_not_credited_through_a_proven_other_target() {
-    // Direct call `N.target()` in place of the alias: `run` is found by the name-keyed walk. On
-    // main the walk then also lists `outer` at depth 2, because `outer`'s site is spelled `run`;
-    // that site is proven to call `decoy` (a followed alias), so by the rule it is never taken
-    // from the `run` bucket and the inherited over-collection is gone for this site.
-    let app = "import * as N from './lib';\nexport function run() {\n  N.target();\n}\n\
-        function decoy() {\n  return 2;\n}\nexport function outer() {\n  const run = decoy;\n  \
-        run();\n}\n";
-    let files = [("lib.js", C_LIB), ("app.js", app)];
-    assert_eq!(
-        names(&format_callers_at(&files, C_DIFF, 2)),
-        [("run".to_string(), 1)]
-    );
-}
-
-#[test]
-fn format_callers_still_walks_an_unproven_alias_from_its_bucket() {
-    // `const run = missing; run()` is NOT proven (a non-const binding keeps main's path), so it
-    // stays in the `run` bucket and is credited by the name-keyed walk exactly as on main.
-    let app = "import * as N from './lib';\nexport function run() {\n  N.target();\n}\n\
-        export function outer(missing) {\n  let run = missing;\n  run();\n}\n";
-    let files = [("lib.js", C_LIB), ("app.js", app)];
-    assert_eq!(
-        names(&format_callers_at(&files, C_DIFF, 2)),
-        [("run".to_string(), 1), ("outer".to_string(), 2)]
-    );
 }

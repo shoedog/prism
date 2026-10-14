@@ -117,8 +117,8 @@ fn review_inputs() -> Vec<Fixture> {
                 (
                     "app.js",
                     "import { target, cbImpl } from './lib';\nconst obj = {};\nobj.field = cbImpl;\n\
-                     export function sameLine() { const h = target; return h(obj.field()); }\n\
-                     export function direct() { return target(obj.field()); }\n",
+                     export function sameLine() {\n  const h = target;\n  return h(obj.field());\n}\n\
+                     export function direct() {\n  return target(obj.field());\n}\n",
                 ),
             ],
         ),
@@ -202,7 +202,7 @@ fn check_fixture(f: &Fixture) -> Tally {
                         if public.drop.is_none()
                             && one.confidence == prism::resolution::ResolutionConfidence::Exact =>
                     {
-                        Some(one.target.clone())
+                        Some((one.target.clone(), one.kind.as_str().to_string()))
                     }
                     _ => None,
                 };
@@ -213,7 +213,7 @@ fn check_fixture(f: &Fixture) -> Tally {
                         f.id,
                         site.caller.file,
                         site.line,
-                        public.resolved.iter().map(|r| &r.target).collect::<Vec<_>>(),
+                        public.resolved.iter().map(|r| (&r.target, r.kind.as_str(), r.confidence)).collect::<Vec<_>>(),
                         public.drop,
                         route
                     ));

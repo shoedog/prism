@@ -72,9 +72,15 @@ impl CallGraph {
     /// route directly (not through the public resolver). The rule test compares this with the
     /// public resolver's answer at every predicate-true site.
     #[doc(hidden)]
-    pub fn audit_alias_route_targets(&self, site: &CallSite) -> Option<Vec<FunctionId>> {
+    pub fn audit_alias_route_targets(&self, site: &CallSite) -> Option<Vec<(FunctionId, String)>> {
         self.js_ts_alias_route(&site.caller, &site.callee_name, site)
-            .map(|outcome| outcome.resolved.iter().map(|r| r.target.clone()).collect())
+            .map(|outcome| {
+                outcome
+                    .resolved
+                    .iter()
+                    .map(|r| (r.target.clone(), r.kind.as_str().to_string()))
+                    .collect()
+            })
     }
 
     /// The exact targets of a site whose public resolution came from the alias route (one
