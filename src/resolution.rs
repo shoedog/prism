@@ -1093,6 +1093,11 @@ pub struct ResolutionOutcome<'a> {
     /// Some(..) iff `resolved` is empty for a classified reason.
     pub drop: Option<DropReason>,
     pub telemetry: ResolutionTelemetry,
+    /// Slice L: set only by the `None`-qualifier arm when it returned the alias route's proven
+    /// hit. It is the resolver's own statement "this answer came from the alias route", so no
+    /// earlier return (an intrinsic JSX tag, an installed owner, a pre-resolved target, ...) can
+    /// be mistaken for it.
+    pub via_alias_route: bool,
 }
 
 impl<'a> ResolutionOutcome<'a> {
@@ -1101,6 +1106,7 @@ impl<'a> ResolutionOutcome<'a> {
             resolved,
             drop: None,
             telemetry: ResolutionTelemetry::default(),
+            via_alias_route: false,
         }
     }
 
@@ -1112,6 +1118,7 @@ impl<'a> ResolutionOutcome<'a> {
             resolved,
             drop: None,
             telemetry,
+            via_alias_route: false,
         }
     }
 
@@ -1120,6 +1127,7 @@ impl<'a> ResolutionOutcome<'a> {
             resolved: Vec::new(),
             drop: Some(reason),
             telemetry: ResolutionTelemetry::default(),
+            via_alias_route: false,
         }
     }
 
@@ -1128,6 +1136,7 @@ impl<'a> ResolutionOutcome<'a> {
             resolved: Vec::new(),
             drop: Some(reason),
             telemetry,
+            via_alias_route: false,
         }
     }
 }
@@ -3408,7 +3417,8 @@ impl CallGraph {
                 // route when that route proves a target. When it does not (an unproven import
                 // or namespace member, an export without a span, a package or paths module),
                 // the site continues below exactly as an unfollowed alias does on main.
-                if let Some(outcome) = self.js_ts_alias_route(caller, name, site) {
+                if let Some(mut outcome) = self.js_ts_alias_route(caller, name, site) {
+                    outcome.via_alias_route = true;
                     return outcome;
                 }
                 // R4c: import-member resolution (Python/JS/TS).

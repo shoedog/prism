@@ -77,22 +77,39 @@ impl CallGraph {
             .map(|outcome| outcome.resolved.iter().map(|r| r.target.clone()).collect())
     }
 
-    /// The exact targets of a site the alias route proved (one `FunctionId` with its file, name
-    /// and span), or `None` when the predicate is false. `#[doc(hidden)] pub` for the callers
-    /// output, which must credit only the exact callee, never a same-named function.
+    /// The exact targets of a site whose public resolution came from the alias route (one
+    /// `FunctionId` with its file, name and span), or `None` when the predicate is false.
+    /// `#[doc(hidden)] pub` for the callers output, which must credit only the exact callee.
     #[doc(hidden)]
     pub fn js_ts_alias_route_outcome(&self, site: &CallSite) -> Option<Vec<FunctionId>> {
-        self.js_ts_alias_route(&site.caller, &site.callee_name, site)
+        self.alias_route_public_outcome(site)
             .map(|outcome| outcome.resolved.iter().map(|r| r.target.clone()).collect())
     }
 
-    /// The one predicate of the slice: the site's binding is a followed alias and the alias
-    /// route produced a proven hit (exactly one Exact target). `#[doc(hidden)] pub` so the
-    /// structural rule test can read it.
+    /// The public resolver's outcome for an `Alias*`-bound site, only when the resolver itself
+    /// returned the alias route's hit for it (`via_alias_route`). Any answer produced before the
+    /// alias arm (an intrinsic JSX tag, an installed owner, a pre-resolved target) is not one.
+    fn alias_route_public_outcome(&self, site: &CallSite) -> Option<ResolutionOutcome<'_>> {
+        use crate::call_graph::JsLocalBinding;
+        if !matches!(
+            site.local_binding,
+            JsLocalBinding::AliasCallable(_)
+                | JsLocalBinding::AliasImport { .. }
+                | JsLocalBinding::AliasNamespaceMember { .. }
+        ) {
+            return None;
+        }
+        let outcome = self.resolve_call_site_full(site);
+        outcome.via_alias_route.then_some(outcome)
+    }
+
+    /// The one predicate of the slice: the PUBLIC resolver's outcome for the site is the alias
+    /// route's proven hit (`via_alias_route`). Reading it from the resolver, not from the route,
+    /// makes "predicate true but the resolver answered otherwise" impossible for every return
+    /// that precedes the alias arm, present and future. `#[doc(hidden)] pub` for the rule test.
     #[doc(hidden)]
     pub fn js_ts_alias_route_hit(&self, site: &CallSite) -> bool {
-        self.js_ts_alias_route(&site.caller, &site.callee_name, site)
-            .is_some()
+        self.alias_route_public_outcome(site).is_some()
     }
 
     /// A chain proven to end at the program-scope import local `local`: a direct call to

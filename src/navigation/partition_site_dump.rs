@@ -114,6 +114,7 @@ mod tests {
             }],
             drop: None,
             telemetry: ResolutionTelemetry::default(),
+            via_alias_route: false,
         };
         let dump = partition_site_json(
             &site,
@@ -142,6 +143,7 @@ mod tests {
                 resolved: Vec::new(),
                 drop: Some(DropReason::ExternalReceiver),
                 telemetry: ResolutionTelemetry::default(),
+                via_alias_route: false,
             },
             GoOwnerPartitionTelemetry {
                 drops: 1,
