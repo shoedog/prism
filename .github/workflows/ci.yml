@@ -199,7 +199,7 @@ jobs:
       #  - need tsserver (TypeScript language server) from an installed compiler;
       #  - need a built target/release/prism;
       #  - stale assertion on main: PR #356 made prism_mcp_args add --warm-at-startup on purpose
-      #    and this test still expects the old args (a real failure to fix separately).
+      #    and this test still expects the old args (a real failure, tracked in #378).
       # Tests that need a binary, API key or corpus and are not listed here skip themselves.
       - name: Run eval harness tests
         working-directory: eval
