@@ -159,6 +159,7 @@ impl ParsedFile {
                 // anywhere (an assignment pattern is neither shape) means the declaration may
                 // be invalid or bind something unmodeled.
                 let mut keys = Vec::new();
+                let mut seen = BTreeSet::new();
                 let mut cursor = pattern.walk();
                 for entry in pattern.named_children(&mut cursor) {
                     let (bound, key) = match entry.kind() {
@@ -178,6 +179,11 @@ impl ParsedFile {
                         }
                         _ => return None,
                     };
+                    // Every bound name must be unique in the pattern (a repeat is an early
+                    // SyntaxError, whichever name is being looked up).
+                    if !seen.insert(bound) {
+                        return None;
+                    }
                     if bound == name {
                         keys.push(key.to_string());
                     }

@@ -1,7 +1,12 @@
 //! Slice L: resolution of a JS/TS call or JSX site whose callee is a `const` alias chain the
-//! binder proved ends at an import local or at a member of a namespace import. The chain was
-//! proven in one file, so the site resolves through the route a direct use of the terminal would
-//! take and never falls to the same-file or repo-wide name rungs: no candidate means dropped.
+//! binder followed to a callable, an import local or a member of a namespace import.
+//!
+//! One predicate governs the slice: "the alias route produced a proven hit for this site",
+//! exactly one Exact target through the terminal's own route (`js_ts_alias_route_hit`). Only
+//! three things depend on it: the resolver returns that hit for the site's `Source` record, the
+//! textual function-pointer path stands down for the site, and the callers index counts the site
+//! once for that exact target. Where the predicate is false the site behaves exactly as a site
+//! bound `MayCall("alias")` does on main: the same rungs, records, grades and drop reasons.
 use super::{
     demoted, exact, CallGraph, CallSite, DropReason, FunctionId, ResolutionKind, ResolutionOutcome,
 };
@@ -31,10 +36,10 @@ impl CallGraph {
         }
     }
 
-    /// The alias route for a site whose binder-proven binding is a followed alias: `Some` is
-    /// the outcome of the route (a proven hit; for a callable terminal, whatever `Callable`
-    /// gives), `None` means the route proved nothing and the caller continues as main does for
-    /// an unfollowed alias. Also read by `nav call-stats` and the navigation callers index.
+    /// The alias route for a site whose binder-proven binding is a followed alias: `Some` only
+    /// for a proven hit (exactly one Exact target through the terminal's own route); `None`
+    /// means the route proved nothing and the caller continues as main does for an unfollowed
+    /// alias. Also read by the stand-down, `nav call-stats` and the callers consumers.
     pub(crate) fn js_ts_alias_route<'a>(
         &'a self,
         caller: &FunctionId,
@@ -42,7 +47,7 @@ impl CallGraph {
         site: &CallSite,
     ) -> Option<ResolutionOutcome<'a>> {
         use crate::call_graph::JsLocalBinding;
-        match &site.local_binding {
+        let outcome = match &site.local_binding {
             JsLocalBinding::AliasCallable(t) => {
                 Some(self.js_ts_local_callable(caller, name, t, site))
             }
@@ -54,15 +59,31 @@ impl CallGraph {
                 member,
             } => self.js_ts_alias_member_outcome(module_path, member, site),
             _ => None,
-        }
+        }?;
+        (outcome.drop.is_none()
+            && matches!(
+                outcome.resolved.as_slice(),
+                [one] if one.confidence == crate::resolution::ResolutionConfidence::Exact
+            ))
+        .then_some(outcome)
     }
 
-    /// The site's binding is a followed alias and the alias route proved a target for it.
-    /// Consumers keyed by the callee spelling (the navigation callers index) use this to count
-    /// such a site once for its target whatever the alias is spelled.
-    pub(crate) fn js_ts_alias_route_hit(&self, site: &CallSite) -> bool {
+    /// The exact targets of a site the alias route proved (one `FunctionId` with its file, name
+    /// and span), or `None` when the predicate is false. `#[doc(hidden)] pub` for the callers
+    /// output, which must credit only the exact callee, never a same-named function.
+    #[doc(hidden)]
+    pub fn js_ts_alias_route_outcome(&self, site: &CallSite) -> Option<Vec<FunctionId>> {
         self.js_ts_alias_route(&site.caller, &site.callee_name, site)
-            .is_some_and(|outcome| !outcome.resolved.is_empty())
+            .map(|outcome| outcome.resolved.iter().map(|r| r.target.clone()).collect())
+    }
+
+    /// The one predicate of the slice: the site's binding is a followed alias and the alias
+    /// route produced a proven hit (exactly one Exact target). `#[doc(hidden)] pub` so the
+    /// structural rule test can read it.
+    #[doc(hidden)]
+    pub fn js_ts_alias_route_hit(&self, site: &CallSite) -> bool {
+        self.js_ts_alias_route(&site.caller, &site.callee_name, site)
+            .is_some()
     }
 
     /// A chain proven to end at the program-scope import local `local`: a direct call to

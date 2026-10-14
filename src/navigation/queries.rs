@@ -391,8 +391,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     let mut local_binding_unchecked_position: BTreeMap<String, usize> = BTreeMap::new();
     let mut local_binding_may_call: BTreeMap<String, usize> = BTreeMap::new();
     // Slice L: followed `const` aliases by terminal kind and outcome (`proven`: the alias route
-    // bound a target; `kept_main`: it did not and the site continued as an unfollowed alias;
-    // `unresolved`: a callable terminal that could not bind and dropped).
+    // bound exactly one Exact target; `kept_main`: it did not, and the site's records are
+    // those of an unfollowed alias, i.e. main's).
     let mut js_alias_follow: BTreeMap<String, usize> = BTreeMap::new();
     for sites in cg.calls.values() {
         for site in sites {
@@ -418,11 +418,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                         }
                         _ => ("namespace_member", cg.js_ts_alias_route_hit(site)),
                     };
-                    let outcome = match (hit, kind) {
-                        (true, _) => "proven",
-                        (false, "callable") => "unresolved",
-                        (false, _) => "kept_main",
-                    };
+                    let outcome = if hit { "proven" } else { "kept_main" };
                     *js_alias_follow
                         .entry(format!("{kind}_{outcome}"))
                         .or_default() += 1

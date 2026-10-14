@@ -2679,7 +2679,7 @@ impl CallGraph {
     pub(crate) fn recompute_indirect_calls(&mut self, files: &BTreeMap<String, ParsedFile>) {
         self.executable_owner = None;
         self.clear_indirect_calls();
-        let (sites, level3_telemetry) = self.compute_indirect_call_sites(files);
+        let (sites, level3_telemetry) = self.compute_indirect_call_sites(files, true);
         self.apply_indirect_call_sites(sites);
         self.level3_indirect_resolved = level3_telemetry.edges;
         self.go_level3_b1_telemetry = level3_telemetry;
@@ -2699,9 +2699,25 @@ impl CallGraph {
         self.callers.retain(|_, sites| !sites.is_empty());
     }
 
+    /// Audit seam for the structural rule test: the indirect records a rebuild would add with the
+    /// textual-path stand-down on (`true`, the product) or forced off (`false`, main's behavior),
+    /// computed on a copy with the held indirect records cleared first.
+    #[doc(hidden)]
+    pub fn audit_indirect_records(
+        &self,
+        files: &BTreeMap<String, ParsedFile>,
+        stand_down: bool,
+    ) -> Vec<(FunctionId, CallSite)> {
+        let mut copy = self.clone();
+        copy.executable_owner = None;
+        copy.clear_indirect_calls();
+        copy.compute_indirect_call_sites(files, stand_down).0
+    }
+
     fn compute_indirect_call_sites(
         &self,
         files: &BTreeMap<String, ParsedFile>,
+        stand_down: bool,
     ) -> (
         Vec<(FunctionId, CallSite)>,
         crate::go_callback::GoLevel3Telemetry,
@@ -2756,15 +2772,11 @@ impl CallGraph {
                 }
 
                 // Level 1: local variable function pointer — callee_name is a plain identifier.
-                // Slice L: where the binder followed the alias (to a callable, an import or a
-                // namespace member) the textual guess stands down: it is the same target (a
-                // duplicate edge) or a scope-blind wrong one. Every other binding is untouched.
-                let alias_followed = matches!(
-                    site.local_binding,
-                    JsLocalBinding::AliasCallable(_)
-                        | JsLocalBinding::AliasImport { .. }
-                        | JsLocalBinding::AliasNamespaceMember { .. }
-                );
+                // Slice L: where the alias route produced a proven hit (the one predicate of the
+                // slice) the textual guess stands down: it is the same target (a duplicate edge)
+                // or a scope-blind wrong one. Everywhere else, including a followed alias whose
+                // terminal is not proven, the path behaves exactly as on main.
+                let alias_followed = stand_down && self.js_ts_alias_route_hit(site);
                 if !alias_followed
                     && site
                         .callee_name

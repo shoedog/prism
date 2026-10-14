@@ -53,3 +53,48 @@ fn comments_inside_a_flat_pattern_are_ignored() {
     )];
     check(&ANY, rows);
 }
+
+#[test]
+fn a_pattern_binding_any_name_twice_is_not_followed() {
+    // Whichever name is looked up, a repeated bound name makes the declaration invalid.
+    let shapes = [
+        ("shorthand twice", "const { f, f } = N;\nf();\n", "f"),
+        ("shorthand then pair", "const { f, x: f } = N;\nf();\n", "f"),
+        ("pair twice", "const { x: a, y: a } = N;\na();\n", "a"),
+        (
+            "another name repeats",
+            "const { f, x: a, y: a } = N;\nf();\n",
+            "f",
+        ),
+        (
+            "reviewer input",
+            "const { f, x: a, f: a } = N;\nf();\n",
+            "f",
+        ),
+    ];
+    let rows = shapes
+        .iter()
+        .map(|(id, body, name)| row(id, &format!("{NS}{body}"), name, None))
+        .collect();
+    check(&ANY, rows);
+}
+
+#[test]
+fn the_same_property_key_bound_to_different_names_is_valid_and_followed() {
+    use super::tests::member;
+    let rows = vec![
+        row(
+            "first binding",
+            &format!("{NS}const {{ f: a, f: b }} = N;\na();\n"),
+            "a",
+            member("./m", "f"),
+        ),
+        row(
+            "second binding",
+            &format!("{NS}const {{ f: a, f: b }} = N;\nb();\n"),
+            "b",
+            member("./m", "f"),
+        ),
+    ];
+    check(&ANY, rows);
+}

@@ -35,6 +35,7 @@ mod js_alias_follow_test;
 mod js_alias_matrix_common;
 mod js_alias_matrix_guard;
 mod js_alias_matrix_test;
+mod js_alias_rule_test;
 mod js_binding_export_state_test;
 mod js_binding_export_test;
 mod js_binding_intrinsic_test;
