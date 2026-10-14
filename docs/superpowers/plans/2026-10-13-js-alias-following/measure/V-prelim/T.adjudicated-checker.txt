@@ -1,0 +1,2 @@
+       2 product|ADDED exact:local_def|checker_names_a_signature_without_body
+       1 test|ADDED exact:local_def|checker_names_a_signature_without_body

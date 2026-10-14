@@ -1,0 +1,4 @@
+      83 product|ADDED exact:local_def|agree
+       1 product|ADDED exact:local_def|checker_no_declaration
+       1 product|REMOVED exact:local_def|checker_no_declaration
+       3 product|REMOVED exact:local_def|disagree

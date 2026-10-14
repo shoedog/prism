@@ -1,0 +1,6 @@
+sites base 13299 head 13299; changed rows 69
+   12199  product same 
+      41  product exact:free_single -> exact:local_def 
+      16  product none(UnknownName) -> exact:local_def 
+      12  product name_only:free_multi -> exact:local_def 
+    1028  test    same 

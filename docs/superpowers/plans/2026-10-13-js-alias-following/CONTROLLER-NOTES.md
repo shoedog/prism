@@ -141,3 +141,22 @@ What this changes:
 - Order of slices: returned-value following and following `require()` / `import()` destructures must land BEFORE the refusal, so the right edges are kept with proof. After them, what remains unproven is mostly members of parameters (props): X 11 (the checker says right), F 38 and T 143 (unknown).
 - Policy for that remainder is an owner decision with three options: drop (the 2026-10-13 decision as worded), demote to NameOnly, or keep Exact. It should be made on numbers measured after the positive slices.
 - The refusal branch is implemented and pushed but NOT sent to review. Its rule 3 (the textual alias path respects bindings) and the binder data for rule 2 are reusable whatever the policy.
+
+## Returned-value following, first measurement (2026-10-13, night)
+Slice V is implemented on `feat/js-returned-value-follow` (stacked on the alias-following branch; not yet in review). Release binary of its head against the alias-following binary it is stacked on, every call-site record compared:
+
+| Product call sites | X | T | F |
+|---|---:|---:|---:|
+| Gained an Exact edge (none or NameOnly-only before) | 79 | 2 | 28 |
+| Same target as before, now proven instead of found by spelling | 19 | 0 | 38 |
+| A different (wrong) target replaced by the proven one | 4 | 0 | 3 |
+| Edge removed with nothing proven | 0 | 0 | 0 |
+| Head targets confirmed | 83 of 84 by the checker (1 has no declaration to compare) | 3 are type-only for the checker | 69 of 69 equal the callee the syntactic census derives |
+
+- X's 79 + 19 = 98 is exactly the census's one-step count; F reaches 69 of the census's 71.
+- After this slice, of the 113 Exact name-search edges the refusal would remove on F, 41 are no longer name-search edges at all (38 proven, 3 corrected). What is left for the refusal decision on F: 28 with no in-repo callee, 38 parameter members, 4 lazily required modules, 1 spread, 1 uncorrected.
+- T barely moves: it is not hook-style code.
+- Build time has not been compared under controlled conditions yet (one loaded run each: X 43 s, F 10 s, T 257 s).
+
+## The alias-following rule, checked with two binaries (2026-10-13, night)
+`measure/sweep_promise.cjs` runs main's binary and the reworked alias-following binary on all 1,349 matrix fixtures and compares every call-site record (1,846 site keys): 1,537 identical; 303 are a proven hit (one Source record, one Exact target); 6 are main's textual record absent at such a hit; 0 anything else.

@@ -1,0 +1,3 @@
+    38  product | Source | same target, route or grade changed [local_def] | equals the census-derived callee (hops 1)
+    28  product | Source | GAINED exact [local_def] | equals the census-derived callee (hops 1)
+     3  product | Source | REPLACED target [local_def] | equals the census-derived callee (hops 1)

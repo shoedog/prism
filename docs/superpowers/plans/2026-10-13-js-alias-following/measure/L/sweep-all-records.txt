@@ -1,0 +1,1 @@
+{"fixtures":1349,"sites":1846,"identical":1537,"proven_hit":303,"textual_stood_down_at_hit":6,"violations":0}
