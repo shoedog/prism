@@ -7,7 +7,7 @@ use tree_sitter::{Node, Parser, Tree};
 mod js_binding;
 mod js_binding_alias;
 pub(crate) use js_binding::{JsBinding, JsBindingCache};
-pub(crate) use js_binding_alias::JsFollow;
+pub use js_binding_alias::JsFollow;
 // S3 fold note (owner review, 2026-09-30): narrowing this to `pub(crate)` compiles but warns
 // `private_interfaces` at `JsLocalBinding::Callable`'s field in src/call_graph.rs (`JsTerminal`
 // is less visible than the `pub` enum variant that carries it); kept `pub` to stay clean under
@@ -19,6 +19,7 @@ mod js_binding_decls;
 mod js_binding_helper_tests;
 mod js_binding_namespace;
 mod js_binding_recovery;
+mod js_binding_returned;
 mod js_binding_site;
 mod js_binding_values;
 mod js_binding_walk;
@@ -26,6 +27,7 @@ mod js_binding_writes;
 mod js_cjs_export_barriers;
 mod js_cjs_terminal;
 mod js_module_forwarding;
+mod js_return_facts;
 mod js_wrapped_export;
 
 /// A parameter binding and the byte span of its identifier token.

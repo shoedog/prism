@@ -406,17 +406,20 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 crate::call_graph::JsLocalBinding::MayCall(r) => {
                     *local_binding_may_call.entry(r.clone()).or_default() += 1
                 }
-                followed @ (crate::call_graph::JsLocalBinding::AliasCallable(_)
-                | crate::call_graph::JsLocalBinding::AliasImport { .. }
-                | crate::call_graph::JsLocalBinding::AliasNamespaceMember { .. }) => {
-                    let (kind, hit) = match followed {
-                        crate::call_graph::JsLocalBinding::AliasCallable(_) => {
-                            ("callable", cg.js_ts_alias_route_hit(site))
+                followed if followed.is_followed() => {
+                    let hit = cg.js_ts_alias_route_hit(site);
+                    let kind = match followed {
+                        crate::call_graph::JsLocalBinding::AliasCallable(_) => "callable",
+                        crate::call_graph::JsLocalBinding::AliasImport { .. } => "import",
+                        crate::call_graph::JsLocalBinding::Returned { kept, .. } => {
+                            // Slice V: a returned-value site the fact does not prove still
+                            // counts under the base reason it always did.
+                            if !hit {
+                                *local_binding_may_call.entry(kept.clone()).or_default() += 1;
+                            }
+                            "returned"
                         }
-                        crate::call_graph::JsLocalBinding::AliasImport { .. } => {
-                            ("import", cg.js_ts_alias_route_hit(site))
-                        }
-                        _ => ("namespace_member", cg.js_ts_alias_route_hit(site)),
+                        _ => "namespace_member",
                     };
                     let outcome = match (hit, kind) {
                         (true, _) => "proven",

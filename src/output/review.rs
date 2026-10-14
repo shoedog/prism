@@ -356,8 +356,8 @@ pub fn to_callers_output(
     // Build the GLib/D-Bus callback map once for all touched functions.
     let glib_callbacks = detect_glib_callbacks(ctx.files);
 
-    // Slice L: a call through a followed JS/TS alias (`const h = f; h()`) is filed under the
-    // alias's spelling, so the name-keyed walk below cannot find it; collect those sites with
+    // Slice L: a call through a followed JS/TS alias (`const h = f; h()`), or a value a function
+    // returned (slice V), is filed under the binding's spelling, so the name-keyed walk below cannot find it; collect those sites with
     // the names of the functions they resolved to.
     let alias_sites: Vec<(&crate::call_graph::CallSite, BTreeSet<String>)> = ctx
         .cpg
@@ -365,15 +365,7 @@ pub fn to_callers_output(
         .calls
         .values()
         .flatten()
-        .filter(|site| {
-            use crate::call_graph::JsLocalBinding::{
-                AliasCallable, AliasImport, AliasNamespaceMember,
-            };
-            matches!(
-                site.local_binding,
-                AliasCallable(_) | AliasImport { .. } | AliasNamespaceMember { .. }
-            )
-        })
+        .filter(|site| site.local_binding.is_followed())
         .filter_map(|site| {
             let resolved = ctx.cpg.call_graph.resolve_call_site(site);
             let names: BTreeSet<String> = resolved

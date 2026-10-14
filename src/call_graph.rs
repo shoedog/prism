@@ -537,6 +537,31 @@ pub enum JsLocalBinding {
     /// Slice L: the callee is a `const` alias chain that ends at member `member` of the
     /// namespace import of `module_path`; the namespace export proof decides the target.
     AliasNamespaceMember { module_path: String, member: String },
+    /// Slice V: the callee is a `const` binding taking its value from a call to the bare
+    /// identifier `H`, which the binder proved is the program-scope import local, in-file
+    /// callable or alias terminal `hook`; `path` selects the part of `H`'s result it takes.
+    /// The returned-value fact of the one function `hook` names decides the target; when it
+    /// proves none the site resolves as `kept` (the base classification reason, `may_call` or
+    /// `alias`) says it did before.
+    Returned {
+        hook: crate::ast::JsFollow,
+        path: crate::js_returns::JsReturnPath,
+        kept: String,
+    },
+}
+
+impl JsLocalBinding {
+    /// The binder followed this callee to something the alias or returned-value route resolves
+    /// (slice L aliases and slice V returned values).
+    pub fn is_followed(&self) -> bool {
+        matches!(
+            self,
+            JsLocalBinding::AliasCallable(_)
+                | JsLocalBinding::AliasImport { .. }
+                | JsLocalBinding::AliasNamespaceMember { .. }
+                | JsLocalBinding::Returned { .. }
+        )
+    }
 }
 
 /// Parameter arity for a method definition (language-agnostic shape).
@@ -933,6 +958,11 @@ pub struct CallGraph {
     /// JS/TS R4c: caller function -> conservative parameter/local binding names.
     #[serde(default)]
     pub js_ts_function_locals: BTreeMap<FunctionId, BTreeSet<String>>,
+    /// Slice V: JS/TS function -> the callable values it returns, per object key, array slot
+    /// or whole value (`ParsedFile::js_ts_return_facts`). Per-file syntax facts, maintained
+    /// incrementally like `js_ts_function_locals`; only functions with a fact are present.
+    #[serde(default)]
+    pub js_ts_return_facts: BTreeMap<FunctionId, crate::js_returns::JsReturnFacts>,
     /// Go package directory index. Plain keys are legacy directory basenames;
     /// `@go-import:` keys carry effective module import paths proven by the
     /// module graph. Qualified `pkg.T` lookup prefers the exact key and uses a
@@ -1250,6 +1280,7 @@ impl CallGraph {
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
+            js_ts_return_facts: BTreeMap::new(),
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
             go_func_typed_fields: BTreeSet::new(),
@@ -1531,6 +1562,7 @@ impl CallGraph {
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
+            js_ts_return_facts: BTreeMap::new(),
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
             go_func_typed_fields: BTreeSet::new(),
@@ -1946,7 +1978,8 @@ impl CallGraph {
             }
         }
 
-        let (js_ts_exports, js_ts_function_locals) = Self::extract_js_ts_resolution_facts(files);
+        let (js_ts_exports, js_ts_function_locals, js_ts_return_facts) =
+            Self::extract_js_ts_resolution_facts(files);
 
         let mut cg = CallGraph {
             functions,
@@ -1999,6 +2032,7 @@ impl CallGraph {
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals,
+            js_ts_return_facts,
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
             go_func_typed_fields: BTreeSet::new(),
@@ -2149,6 +2183,7 @@ impl CallGraph {
     ) -> (
         BTreeMap<String, crate::js_exports::JsExportFacts>,
         BTreeMap<FunctionId, BTreeSet<String>>,
+        BTreeMap<FunctionId, crate::js_returns::JsReturnFacts>,
     ) {
         Self::extract_js_ts_resolution_facts_from_iter(files.iter())
     }
@@ -2172,12 +2207,15 @@ impl CallGraph {
     ) -> (
         BTreeMap<String, crate::js_exports::JsExportFacts>,
         BTreeMap<FunctionId, BTreeSet<String>>,
+        BTreeMap<FunctionId, crate::js_returns::JsReturnFacts>,
     )
     where
         I: IntoIterator<Item = (&'a String, &'a ParsedFile)>,
     {
         let mut export_facts: BTreeMap<String, crate::js_exports::JsExportFacts> = BTreeMap::new();
         let mut function_locals: BTreeMap<FunctionId, BTreeSet<String>> = BTreeMap::new();
+        let mut return_facts: BTreeMap<FunctionId, crate::js_returns::JsReturnFacts> =
+            BTreeMap::new();
 
         for (file_path, parsed) in files {
             if !matches!(
@@ -2196,6 +2234,7 @@ impl CallGraph {
                 export_facts.insert(file_path.clone(), exports);
             }
 
+            let mut binding_cache = crate::ast::JsBindingCache::for_sites();
             for func_node in parsed.all_functions() {
                 let Some(name_node) = parsed.language.function_name(&func_node) else {
                     continue;
@@ -2210,12 +2249,15 @@ impl CallGraph {
                 };
                 let locals = parsed.js_ts_function_local_bindings(&func_node);
                 if !locals.is_empty() {
-                    function_locals.insert(func_id, locals);
+                    function_locals.insert(func_id.clone(), locals);
+                }
+                if let Some(facts) = parsed.js_ts_return_facts(func_node, &mut binding_cache) {
+                    return_facts.insert(func_id, facts);
                 }
             }
         }
 
-        (export_facts, function_locals)
+        (export_facts, function_locals, return_facts)
     }
 
     /// P4: whole-program resolution of JS/TS export facts — recomputed from
@@ -2478,6 +2520,8 @@ impl CallGraph {
         self.js_ts_exports.retain(|f, _| !exclude.contains(f));
         self.js_ts_function_locals
             .retain(|fid, _| !exclude.contains(&fid.file));
+        self.js_ts_return_facts
+            .retain(|fid, _| !exclude.contains(&fid.file));
         // indexed_files tracks the file set; removed files are no longer indexed.
         self.indexed_files.retain(|f| !exclude.contains(f));
 
@@ -2620,6 +2664,7 @@ impl CallGraph {
         self.js_ts_exports.extend(other.js_ts_exports);
         self.js_ts_function_locals
             .extend(other.js_ts_function_locals);
+        self.js_ts_return_facts.extend(other.js_ts_return_facts);
         // P8: per-file macro-arg facts extend directly -- `other` only ever
         // carries entries for files it (re)built, so this can never
         // double-count a file that remove_files didn't first drop. (This
@@ -5326,9 +5371,10 @@ impl CallGraph {
             }
         }
 
-        let (js_ts_exports, js_ts_function_locals) = Self::extract_js_ts_resolution_facts_from_iter(
-            subset_files.iter().map(|(fp, parsed)| (fp, *parsed)),
-        );
+        let (js_ts_exports, js_ts_function_locals, js_ts_return_facts) =
+            Self::extract_js_ts_resolution_facts_from_iter(
+                subset_files.iter().map(|(fp, parsed)| (fp, *parsed)),
+            );
 
         CallGraph {
             functions,
@@ -5386,6 +5432,7 @@ impl CallGraph {
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals,
+            js_ts_return_facts,
             // P5: whole-program Go func-value state — left empty here, exactly
             // like `interface_impls`/`interface_dispatch_computed: false`
             // above: `build_direct_subset` never computes whole-program Go
@@ -5744,6 +5791,23 @@ impl CallGraph {
                         }
                     }
                     None => {}
+                }
+            }
+            // Slice V: a `const` taking its value from a call to one in-repo function `H` is
+            // followed to `H`'s returned-value fact. A site the fact does not prove resolves
+            // as `kept` says (the base reason).
+            if matches!(binding, JsBinding::Alias | JsBinding::MayCall) {
+                if let Some((hook, path)) = parsed.js_ts_follow_returned(ident, callee, cache) {
+                    let kept = if binding == JsBinding::Alias {
+                        "alias"
+                    } else {
+                        "may_call"
+                    };
+                    return JsLocalBinding::Returned {
+                        hook,
+                        path,
+                        kept: kept.to_string(),
+                    };
                 }
             }
             binding

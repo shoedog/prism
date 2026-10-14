@@ -70,6 +70,7 @@ mod js_paths;
 mod js_paths_first_pass;
 pub mod js_paths_snapshot;
 mod js_paths_syntax;
+pub mod js_returns;
 pub mod js_ts_props;
 pub mod languages;
 

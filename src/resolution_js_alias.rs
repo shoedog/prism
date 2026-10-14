@@ -53,6 +53,9 @@ impl CallGraph {
                 module_path,
                 member,
             } => self.js_ts_alias_member_outcome(module_path, member, site),
+            JsLocalBinding::Returned { hook, path, .. } => {
+                self.js_ts_returned_route(hook, path, site)
+            }
             _ => None,
         }
     }
