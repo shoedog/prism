@@ -106,6 +106,28 @@ pub(super) fn serve_connection(
     transport: &mut impl Transport,
     settings: &ConnectionSettings,
 ) -> anyhow::Result<()> {
+    serve_loop(transport, |message, state| {
+        let dispatch = handle_message_with(message, runtime, registry, state, settings);
+        Ok(match dispatch {
+            Dispatch::Response(response) => Some(response),
+            Dispatch::NoResponse => None,
+        })
+    })
+}
+
+/// The frame loop of one connection, in process or in a daemon. It reads one frame at a time
+/// until end of input. A frame that is not a JSON value is answered here with `-32700` and the
+/// connection stays; every other frame goes to `handle` together with this connection's
+/// lifecycle state, which starts at `PreInit` and lives as long as the loop. What `handle`
+/// returns is written; `None` writes nothing. An error from `handle`, from a read or from a
+/// write ends the loop and is returned.
+///
+/// `handle` returns an owned value, so whatever it locked to compute a response is released
+/// before the response is written.
+pub(super) fn serve_loop(
+    transport: &mut impl Transport,
+    mut handle: impl FnMut(&Value, &mut Lifecycle) -> anyhow::Result<Option<Value>>,
+) -> anyhow::Result<()> {
     let mut state = Lifecycle::PreInit;
 
     while let Some(outcome) = transport.read_message()? {
@@ -125,12 +147,7 @@ pub(super) fn serve_connection(
             }
         };
 
-        let response = match handle_message_with(&message, runtime, registry, &mut state, settings)
-        {
-            Dispatch::Response(response) => Some(response),
-            Dispatch::NoResponse => None,
-        };
-        if let Some(response) = response {
+        if let Some(response) = handle(&message, &mut state)? {
             transport.write_message(response)?;
         }
     }
@@ -1004,3 +1021,7 @@ mod owner_tests;
 #[cfg(test)]
 #[path = "transport_split_tests.rs"]
 mod split_tests;
+
+#[cfg(test)]
+#[path = "transport_loop_tests.rs"]
+mod loop_tests;
