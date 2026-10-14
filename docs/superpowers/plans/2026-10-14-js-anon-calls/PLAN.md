@@ -352,3 +352,15 @@ S2 is the largest: minting, locals, `this`, bytes. If its forecast goes over one
 - Regression check against the 13,173 base records: none lost, no grade changed, 8 records changed caller. This is the prototype; the S2 gate requires 0.
 - Product anonymous callables 1,773; synthetic name collisions 0.
 - Wall time 6.7 s → 10.8 s; RSS 761 → 846 MB. One run, measured while another agent was building on this machine.
+
+## Owner decisions (2026-10-14)
+"as recommnded for D1-D9":
+- D1: `<anon@L:C>` key, label display-only.
+- D2: keep class-method attribution now (S5 later).
+- D3: include generators.
+- D4: text `enclosing_scope`, no `<module>` node.
+- D5: S2 merges only if build time is within +20% of main, otherwise S4 lands first.
+- D6: Express inline handlers map to the anonymous node, in S3.
+- D7: the useMemo factory naming fix is a separate small slice.
+- D8: positional key plus structural `anchor`.
+- D9: extend `nav functions`.
