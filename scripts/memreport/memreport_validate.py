@@ -28,7 +28,7 @@ BUILD_REASONS = ('the CPG cache was hit, so this was not a first build',
                  'the report does not say the call-edge index was computed')
 # A `build` run is also supposed to leave both cache files behind. The binary catches a failed save, prints it
 # and exits 0 with both flags false, so only the files (and, at run time, the text) show that nothing was written.
-BUILD_CACHE_REASONS = ('the run wrote no cpg-cache.bin, so this was not a build that writes the cache',
+BUILD_CACHE_REASONS = ('the run wrote no CPG cache file, so this was not a build that writes the cache',
                        'the run wrote no call-edge sidecar, so this was not a build that writes the cache',
                        'the result records no cache file sizes, so it is not shown to be a build that writes '
                        'the cache')

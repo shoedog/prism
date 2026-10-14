@@ -184,7 +184,7 @@ fn the_report_forces_the_call_edge_index_even_without_a_workload() {
     let report = report(&cfg, &options(None, false));
     assert!(report["workload"].is_null());
     assert!(
-        exists_under(cache.path(), "cpg-cache.bin"),
+        exists_under(cache.path(), "cpg-cache-v2.bin"),
         "the index cache was written"
     );
     assert!(

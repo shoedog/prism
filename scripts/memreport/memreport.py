@@ -44,7 +44,10 @@ CACHE_MISS_MARKERS = (
     ('nav edge cache: failed to load sidecar',
      'the call-edge sidecar failed to load, so call edges were recomputed'),
 )
-CACHE_FILES = {'cpg_cache_bytes': 'cpg-cache.bin', 'call_edge_sidecar_bytes': 'resolved-call-edge-index.bin'}
+# Each measured file, under the names a build may have used: the current name first, then the one that
+# builds from before the cache file was renamed wrote, so a baseline build measured with this tool still counts.
+CACHE_FILES = {'cpg_cache_bytes': ('cpg-cache-v2.bin', 'cpg-cache.bin'),
+               'call_edge_sidecar_bytes': ('resolved-call-edge-index.bin',)}
 HERE = Path(__file__).resolve().parent
 WORKLOADS = HERE / 'workloads'
 
@@ -211,14 +214,18 @@ def cmd_gen_workload(args):
         raise SystemExit('workload generation failed for: %s' % ', '.join(failed))
 
 
-def single_file_size(directory, filename):
-    """Size of the one file called `filename` under `directory` (recursive); None unless exactly one."""
-    matches = [path for path in Path(directory).rglob(filename) if path.is_file()]
-    return matches[0].stat().st_size if len(matches) == 1 else None
+def single_file_size(directory, *filenames):
+    """Size of the one file called by the first of `filenames` that exists under `directory` (recursive);
+    None unless exactly one file has that name."""
+    for filename in filenames:
+        matches = [path for path in Path(directory).rglob(filename) if path.is_file()]
+        if matches:
+            return matches[0].stat().st_size if len(matches) == 1 else None
+    return None
 
 
 def cache_file_sizes(cache_dir):
-    return {key: single_file_size(cache_dir, filename) for key, filename in CACHE_FILES.items()}
+    return {key: single_file_size(cache_dir, *filenames) for key, filenames in CACHE_FILES.items()}
 
 
 def bind_workload(name, directory, commit):

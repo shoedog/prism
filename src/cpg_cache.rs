@@ -374,22 +374,26 @@ pub fn binary_input_dirty() -> bool {
 
 /// Path to the binary cache file within the cache directory.
 fn cache_bin_path(cache_dir: &Path) -> PathBuf {
-    cache_dir.join("cpg-cache.bin")
+    cache_dir.join(stream::CACHE_FILE_NAME)
 }
 
 /// Path to the metadata JSON file within the cache directory.
 fn cache_meta_path(cache_dir: &Path) -> PathBuf {
-    cache_dir.join("cache-meta.json")
+    cache_dir.join(stream::META_FILE_NAME)
 }
 
 /// Serialize a `CodePropertyGraph` and write it to the cache directory.
 ///
-/// Writes both `cpg-cache.bin` (bincode) and `cache-meta.json` (human-readable).
+/// Writes both `cpg-cache-v2.bin` (bincode) and `cache-meta-v2.json` (human-readable). The
+/// names changed with the memory-mapped reader: no earlier prism touches them, and a load removes
+/// the files those versions left behind once they have been idle for a day. An older binary that
+/// only reads its cache (a hit does not touch the file) may therefore find it removed and rebuild
+/// once; that is the accepted migration cost.
 /// Uses atomic write (temp file + rename) to prevent corruption from interrupted writes. Saves
 /// are serialized per directory by a lock file, held through the metadata write. A save that
-/// cannot take the lock (another process is saving, or loading and clearing a leftover temp
-/// file) writes nothing and returns [`SaveOutcome::Skipped`]: the save is lost, and a later
-/// load revalidates whatever cache is there.
+/// cannot take the lock (another process is saving, or loading: checking that the lock works, or
+/// clearing a leftover temp file) writes nothing and returns [`SaveOutcome::Skipped`]: the
+/// save is lost, and a later load revalidates whatever cache is there.
 ///
 /// `has_type_db` records whether the CPG was built with a `TypeDatabase`.
 /// This flag is checked on load to ensure virtual dispatch edge consistency.
@@ -406,7 +410,7 @@ pub fn save_cache(
 /// What a successful [`save_cache`] call did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SaveOutcome {
-    /// `cpg-cache.bin` was written and published.
+    /// `cpg-cache-v2.bin` was written and published.
     Saved,
     /// The directory lock was not available; nothing was written.
     Skipped,
@@ -521,8 +525,9 @@ pub fn load_cache_with_topology(
     cache_dir: &Path,
 ) -> CacheResult {
     let result = read_cache(current_hashes, current_topology_key, has_type_db, cache_dir);
-    // After the read, so the result never depends on it: clear a crashed writer's leftover.
-    stream::remove_orphan_temp(cache_dir);
+    // After the read, so the result never depends on it: clear a crashed writer's leftover and
+    // the idle files of earlier versions.
+    stream::clean_after_load(cache_dir);
     result
 }
 
@@ -533,14 +538,9 @@ fn read_cache(
     cache_dir: &Path,
 ) -> CacheResult {
     let bin_path = cache_bin_path(cache_dir);
-    let data = match fs::read(&bin_path) {
-        Ok(d) => d,
-        Err(_) => return CacheResult::Miss,
-    };
-
-    let cache: CpgCache = match bincode::deserialize(&data) {
-        Ok(c) => c,
-        Err(_) => return CacheResult::Miss,
+    let cache: CpgCache = match stream::read_cache_file(&bin_path) {
+        Some(c) => c,
+        None => return CacheResult::Miss,
     };
 
     // Version check.
@@ -634,19 +634,20 @@ fn read_cache(
 
 /// Reconstruct a `CodePropertyGraph` from serialized node/edge lists.
 fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
-    let mut graph = DiGraph::new();
+    let mut graph = DiGraph::with_capacity(ser.nodes.len(), ser.edges.len());
 
-    // Add nodes in order — this preserves NodeIndex values (0, 1, 2, ...).
-    for node in &ser.nodes {
-        graph.add_node(node.clone());
+    // Add nodes in order — this preserves NodeIndex values (0, 1, 2, ...). Nodes and edges
+    // are moved, not cloned, so the decoded lists and the graph never hold two copies.
+    for node in ser.nodes {
+        graph.add_node(node);
     }
 
     // Add edges using the stored indices.
-    for &(src, tgt, ref edge) in &ser.edges {
+    for (src, tgt, edge) in ser.edges {
         graph.add_edge(
             NodeIndex::new(src as usize),
             NodeIndex::new(tgt as usize),
-            edge.clone(),
+            edge,
         );
     }
 
@@ -1726,7 +1727,7 @@ mod tests {
             },
         };
         std::fs::write(
-            dir.path().join("cpg-cache.bin"),
+            dir.path().join("cpg-cache-v2.bin"),
             bincode::serialize(&bad).unwrap(),
         )
         .unwrap();
@@ -1761,7 +1762,7 @@ mod tests {
             },
         };
         std::fs::write(
-            dir.path().join("cpg-cache.bin"),
+            dir.path().join("cpg-cache-v2.bin"),
             bincode::serialize(&bad).unwrap(),
         )
         .unwrap();

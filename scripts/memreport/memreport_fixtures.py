@@ -137,7 +137,7 @@ if miss:
     by_call = cfg.get('cache_bytes_by_call') or []
     sizes = {'cache_bytes': by_call[call] if call < len(by_call) else cfg.get('cache_bytes', 1000),
              'sidecar_bytes': cfg.get('sidecar_bytes', 100)}    # both files by default; null writes none
-    for name, key in (('cpg-cache.bin', 'cache_bytes'), ('resolved-call-edge-index.bin', 'sidecar_bytes')):
+    for name, key in (('cpg-cache-v2.bin', 'cache_bytes'), ('resolved-call-edge-index.bin', 'sidecar_bytes')):
         if sizes[key] is not None:
             open(os.path.join(d, name), 'wb').write(b'x' * sizes[key])
     open(marker, 'w').write('1')
