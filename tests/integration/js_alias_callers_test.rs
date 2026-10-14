@@ -99,13 +99,11 @@ fn an_alias_of_a_same_file_function_is_a_caller_once() {
     assert_eq!(caller_names(&s, "f", "app.js"), ["viaLocal"]);
 }
 
-/// `to_callers_output` (`--format callers`) over `files` for the given unified diff and depth:
-/// per touched function `(file, [start, end], [(caller name, depth)])`.
-fn format_callers_at(
-    files: &[(&str, &str)],
-    diff: &str,
-    depth: usize,
-) -> Vec<(String, [usize; 2], Vec<(String, usize)>)> {
+/// One touched function: `(file, [start, end], [(caller name, depth)])`.
+type CallerRow = (String, [usize; 2], Vec<(String, usize)>);
+
+/// `to_callers_output` (`--format callers`) over `files` for the given unified diff and depth.
+fn format_callers_at(files: &[(&str, &str)], diff: &str, depth: usize) -> Vec<CallerRow> {
     use prism::cpg::CpgContext;
     use prism::diff::DiffInput;
     let mut parsed = BTreeMap::new();
@@ -137,7 +135,7 @@ fn format_callers_at(
 const C_LIB: &str = "export function target() {\n  return 1;\n}\n";
 const C_DIFF: &str = "--- a/lib.js\n+++ b/lib.js\n@@ -2 +2 @@\n-  return 0;\n+  return 1;\n";
 
-fn names(depth_rows: &[(String, [usize; 2], Vec<(String, usize)>)]) -> Vec<(String, usize)> {
+fn names(depth_rows: &[CallerRow]) -> Vec<(String, usize)> {
     depth_rows.iter().flat_map(|r| r.2.clone()).collect()
 }
 
