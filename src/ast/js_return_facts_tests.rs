@@ -348,6 +348,11 @@ fn a_selection_the_contract_refuses_has_no_fact() {
                 "-",
             ),
             (
+                "written const intermediate",
+                "function f() {}\nfunction H() {\n  const api = { f };\n  api = null;\n  return api;\n}\n",
+                "-",
+            ),
+            (
                 "written intermediate",
                 "function f() {}\nfunction H() {\n  let api = { f };\n  api = null;\n  return api;\n}\n",
                 "-",

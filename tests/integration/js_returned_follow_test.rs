@@ -310,3 +310,19 @@ fn the_decoy_with_the_keys_name_is_not_bound_when_the_fact_is_present() {
         "the key `save` is not returned"
     );
 }
+
+#[test]
+fn a_wrapped_export_is_not_a_hook() {
+    // `useThing` is a memo-wrapped export (bindable from JSX sites only); the JSX site of
+    // `Panel` must not treat the wrapped component as the hook whose result it destructures.
+    let hooks = "import { memo } from 'react';\nfunction Inner() {\n  return null;\n}\n\
+        export const useThing = memo(() => ({ Panel: Inner }));\n";
+    let caller = "import { useThing } from './hooks';\nexport function App() {\n  \
+        const { Panel } = useThing();\n  return <Panel />;\n}\n";
+    let cg = graph_n(&[("hooks.tsx", hooks), ("caller.tsx", caller)]);
+    let got = rec(&cg, "caller.tsx", "Panel");
+    assert!(
+        !got.iter().any(|r| r.contains("Inner@")),
+        "a wrapped component is not a hook: {got:?}"
+    );
+}

@@ -202,6 +202,18 @@ fn a_binding_or_call_the_contract_excludes_is_not_followed() {
             ("let", "function H() {}\nlet x = H();\nx();\n", "x", None),
             ("var", "function H() {}\nvar x = H();\nx();\n", "x", None),
             (
+                "written const",
+                "function H() {}\nconst x = H();\nx = null;\nx();\n",
+                "x",
+                None,
+            ),
+            (
+                "tagged template",
+                "function H() {}\nconst x = H`a`;\nx();\n",
+                "x",
+                None,
+            ),
+            (
                 "written const-like let",
                 "function H() {}\nlet x = H();\nx = null;\nx();\n",
                 "x",

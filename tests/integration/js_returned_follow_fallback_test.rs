@@ -11,6 +11,8 @@ use super::js_returned_follow_test::rec;
 const DECOY: &str = "export function save() {\n  return 2;\n}\n\
     export function run() {\n  return 3;\n}\nexport function other() {\n  return 4;\n}\n";
 
+const SPANLESS: &str =
+    "let w;\nw = compute();\nexport { w };\nfunction other() {\n  function w() {}\n}\n";
 const HOOK_HEAD: &str = "function a() {\n  return 1;\n}\nfunction b() {\n  return 2;\n}\n";
 const IMPORT: &str = "import { useThing } from './hooks';";
 const DESTRUCTURE: &str = "const { save } = useThing();";
@@ -120,6 +122,32 @@ fn specs() -> Vec<Spec> {
             ..spec("hook is a parameter", vec![], DESTRUCTURE)
         },
         spec(
+            "value is an import of a span-less export",
+            vec![
+                (
+                    "hooks.ts",
+                    "import { w } from './producer';\nexport function useThing() {\n  \
+                     return { save: w };\n}\n"
+                        .to_string(),
+                ),
+                ("producer.ts", SPANLESS.to_string()),
+            ],
+            DESTRUCTURE,
+        ),
+        spec(
+            "value is a namespace member alias of a span-less export",
+            vec![
+                (
+                    "hooks.ts",
+                    "import * as U from './producer';\nconst viaAlias = U.w;\n\
+                     export function useThing() {\n  return { save: viaAlias };\n}\n"
+                        .to_string(),
+                ),
+                ("producer.ts", SPANLESS.to_string()),
+            ],
+            DESTRUCTURE,
+        ),
+        spec(
             "let binding",
             hooks("  return { save: a };"),
             "let { save } = useThing();",
@@ -211,6 +239,18 @@ fn base_records(label: &str, nested: bool) -> &'static [&'static str] {
         }
         ("hook is a parameter", false) => &["L4 save Source: drop UnknownName"],
         ("hook is a parameter", true) => &["L5 save Source: decoy.ts:save@1-3 free_single exact"],
+        ("value is an import of a span-less export", false) => {
+            &["L4 save Source: drop UnknownName"]
+        }
+        ("value is an import of a span-less export", true) => {
+            &["L5 save Source: decoy.ts:save@1-3 free_single exact"]
+        }
+        ("value is a namespace member alias of a span-less export", false) => {
+            &["L4 save Source: drop UnknownName"]
+        }
+        ("value is a namespace member alias of a span-less export", true) => {
+            &["L5 save Source: decoy.ts:save@1-3 free_single exact"]
+        }
         ("let binding", false) => &["L4 save Source: drop UnknownName"],
         ("let binding", true) => &["L5 save Source: decoy.ts:save@1-3 free_single exact"],
         ("reassigned binding", false) => &["L5 save Source: drop UnknownName"],
@@ -270,15 +310,22 @@ fn every_unproven_returned_value_site_equals_the_base() {
                 s.files.iter().map(|(p, t)| (*p, t.as_str())).collect();
             files.push(("caller.ts", &caller));
             files.push(("decoy.ts", DECOY));
-            let cg = graph_n(&files);
+            let mut cg = graph_n(&files);
             let got = rec(&cg, "caller.ts", "save");
-            let (scope, main) = (
-                if nested { "nested" } else { "one function" },
-                base_records(s.label, nested),
+            // With every returned-value fact removed, a site the facts did not prove must not
+            // change: an unproven route is no route.
+            cg.js_ts_return_facts.clear();
+            assert_eq!(
+                rec(&cg, "caller.ts", "save"),
+                got,
+                "{}: removing the facts changed an unproven site",
+                s.label
             );
+            let scope = if nested { "nested" } else { "one function" };
             if std::env::var("ALIAS_PRINT").is_ok() {
                 eprintln!("CASE {}|{scope}|{got:?}", s.label);
-            } else if got != main {
+            } else if got != base_records(s.label, nested) {
+                let main = base_records(s.label, nested);
                 wrong.push(format!("{} ({scope}): got {got:?}, want {main:?}", s.label));
             }
         }
