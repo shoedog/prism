@@ -86,9 +86,10 @@ pub(super) enum BuildPhase {
         started: Instant,
         outcome: Arc<AttemptOutcome>,
     },
-    /// A provider is in the slot. `generation` is the provider's, as of the last completed
-    /// exclusive access to it.
-    Ready { generation: u64 },
+    /// A provider is in the slot and calls have been told so. Its generation is
+    /// [`ControlState::generation`], which is kept apart from the phase because the slot is
+    /// filled, and can be written to, before this phase is announced.
+    Ready,
     /// Attempt `attempt` ended without a provider. The next readiness call starts the retry.
     Failed { attempt: u64, error: String },
 }
@@ -99,16 +100,8 @@ impl BuildPhase {
         match self {
             Self::Idle => BuildState::Idle,
             Self::Building { .. } => BuildState::Building,
-            Self::Ready { .. } => BuildState::Ready,
+            Self::Ready => BuildState::Ready,
             Self::Failed { .. } => BuildState::Failed,
-        }
-    }
-
-    /// The generation of the published index; 0 while there is none.
-    pub(super) fn generation(&self) -> u64 {
-        match self {
-            Self::Ready { generation } => *generation,
-            Self::Idle | Self::Building { .. } | Self::Failed { .. } => 0,
         }
     }
 }
@@ -121,6 +114,12 @@ pub(super) struct ControlState {
     pub(super) attempts: u64,
     /// How many calls are parked on the condition variable right now.
     pub(super) waiting: u64,
+    /// The generation of the provider in the slot; 0 while the slot is empty. It is written by
+    /// `record_generation` and by nothing else, each time while the slot's write guard is
+    /// held: when the provider is stored, and at the end of every exclusive access. It does
+    /// not depend on the phase, so it is true in the interval between publication and the
+    /// announcement of `Ready` as well.
+    pub(super) generation: u64,
 }
 
 /// A snapshot of the control plane: what the status probe reports about the build.
@@ -129,7 +128,7 @@ pub(super) struct BuildStatus {
     pub(super) state: BuildState,
     /// The number of the latest attempt; 0 before the first.
     pub(super) attempt: u64,
-    /// The generation of the published index; 0 while there is none.
+    /// The generation of the provider in the slot; 0 while the slot is empty.
     pub(super) generation: u64,
     /// Calls parked on the build at the moment of the snapshot.
     pub(super) waiting: u64,
@@ -219,6 +218,7 @@ impl DaemonState {
                 build: BuildPhase::Idle,
                 attempts: 0,
                 waiting: 0,
+                generation: 0,
             }),
             changed: Condvar::new(),
             provider: RwLock::new(None),
@@ -266,7 +266,7 @@ impl DaemonState {
         let mut control = self.lock_control()?;
 
         let building = match &control.build {
-            BuildPhase::Ready { .. } => return Ok(Readiness::Ready),
+            BuildPhase::Ready => return Ok(Readiness::Ready),
             BuildPhase::Building {
                 attempt,
                 started,
@@ -304,14 +304,21 @@ impl DaemonState {
         Ok(BuildStatus {
             state: control.build.state(),
             attempt: control.attempts,
-            generation: control.build.generation(),
+            generation: control.generation,
             waiting: control.waiting,
         })
     }
 
-    /// Run `query` on the published provider with shared access; `None` when nothing is
-    /// published. `query` gets the whole provider, so it sees what the in-process server's
-    /// read path sees, the stale evidence a refresh recorded included.
+    /// Run `query` on the provider in the slot with shared access; `None` when the slot is
+    /// empty. `query` gets the whole provider, so it sees what the in-process server's read
+    /// path sees, the stale evidence a refresh recorded included.
+    ///
+    /// This looks at the slot as it is. The slot is filled a moment before `Ready` is
+    /// announced, so a caller that has not been told `Ready` by `ensure_ready` can find a
+    /// provider here while `status` still says `Building`.
+    ///
+    /// `query` must not call `read` or `write` again: the slot's lock is not re-entrant, and a
+    /// nested call can deadlock. `status` is safe to call from it.
     pub(super) fn read<R>(
         &self,
         query: impl FnOnce(&SessionProvider) -> R,
@@ -324,10 +331,14 @@ impl DaemonState {
         Ok(answer)
     }
 
-    /// Run `change` on the published provider with exclusive access; `None` when nothing is
-    /// published. This is the only way to the provider's `&mut`. Before it lets go of the slot
-    /// it copies the provider's generation into the control plane, so `status` reports the
-    /// generation of the index that is served once the change is over.
+    /// Run `change` on the provider in the slot with exclusive access; `None` when the slot is
+    /// empty. This is the only way to the provider's `&mut`. Before it lets go of the slot it
+    /// copies the provider's generation into the control plane, so `status` reports the
+    /// generation of the provider in the slot once the change is over. That holds whether or
+    /// not `Ready` has been announced yet: like `read`, this looks at the slot as it is.
+    ///
+    /// `change` must not call `read` or `write` again: the slot's lock is not re-entrant, and
+    /// a nested call deadlocks. `status` is safe to call from it.
     pub(super) fn write<R>(
         &self,
         change: impl FnOnce(&mut SessionProvider) -> R,
@@ -345,22 +356,17 @@ impl DaemonState {
         Ok(Some(result))
     }
 
-    /// Copy the provider's generation into the control plane. The write guard is an argument
-    /// so that this cannot be called after the slot has been let go: two refreshes are then
-    /// recorded in the order they happened. This is the permitted lock order (slot, then
-    /// control).
+    /// Copy the generation of the provider in the slot into the control plane, whatever the
+    /// phase. The write guard is an argument so that this cannot be called after the slot has
+    /// been let go: the control plane's generation then changes in the order the slot's
+    /// content did. This is the permitted lock order (slot, then control).
     fn record_generation(
         &self,
         _held: &RwLockWriteGuard<'_, Option<SessionProvider>>,
         generation: u64,
     ) -> Result<(), Poisoned> {
         let mut control = self.lock_control()?;
-        if let BuildPhase::Ready {
-            generation: recorded,
-        } = &mut control.build
-        {
-            *recorded = generation;
-        }
+        control.generation = generation;
         Ok(())
     }
 
@@ -418,50 +424,42 @@ impl DaemonState {
         let built = (self.builder)();
         match built {
             Ok(provider) => self.publish(attempt, provider),
-            Err(error) => self.settle(
-                attempt,
-                BuildPhase::Failed {
-                    attempt,
-                    error: error.to_string(),
-                },
-            ),
+            Err(error) => self.settle(attempt, Err(error.to_string())),
         }
         drop(fail_on_panic);
     }
 
-    /// Put the provider in the slot, then announce `Ready`. In that order: a call that is told
-    /// `Ready` goes straight to the slot.
+    /// Put the provider in the slot and record its generation, then announce `Ready`. In that
+    /// order: a call that is told `Ready` goes straight to the slot. The generation is recorded
+    /// while the guard that stored the provider is still held, so exclusive access that lands
+    /// before the announcement finds it recorded and records its own after it.
     fn publish(&self, attempt: u64, provider: SessionProvider) {
         let generation = provider.generation();
         let published = match self.provider.write() {
             Ok(mut slot) => {
                 *slot = Some(provider);
+                // A poisoned control lock is left alone here as it is in `settle`.
+                let _recorded = self.record_generation(&slot, generation);
                 true
             }
             Err(_) => false,
         };
         if !published {
-            self.settle(
-                attempt,
-                BuildPhase::Failed {
-                    attempt,
-                    error: SLOT_POISONED.to_string(),
-                },
-            );
+            self.settle(attempt, Err(SLOT_POISONED.to_string()));
             return;
         }
         #[cfg(test)]
         if let Some(hook) = &self.hooks.published {
             hook(attempt);
         }
-        self.settle(attempt, BuildPhase::Ready { generation });
+        self.settle(attempt, Ok(()));
     }
 
     /// Record how `attempt` ended, in its own outcome and in the phase, and tell every parked
     /// call. Nothing is recorded unless the phase is still `Building` that attempt, so an
     /// attempt ends once and `Ready` is not left. A poisoned control lock is left alone; the
     /// parked calls find it when they wake.
-    fn settle(&self, attempt: u64, phase: BuildPhase) {
+    fn settle(&self, attempt: u64, ended: Result<(), String>) {
         if let Ok(mut control) = self.control.lock() {
             let building = match &control.build {
                 BuildPhase::Building {
@@ -472,11 +470,14 @@ impl DaemonState {
                 _ => None,
             };
             if let Some(outcome) = building {
-                outcome.fill(match &phase {
-                    BuildPhase::Failed { error, .. } => Err(error.clone()),
-                    _ => Ok(()),
-                });
-                control.build = phase;
+                control.build = match &ended {
+                    Ok(()) => BuildPhase::Ready,
+                    Err(error) => BuildPhase::Failed {
+                        attempt,
+                        error: error.clone(),
+                    },
+                };
+                outcome.fill(ended);
             }
         }
         #[cfg(test)]
@@ -497,13 +498,8 @@ struct PanicGuard<'a> {
 impl Drop for PanicGuard<'_> {
     fn drop(&mut self) {
         if std::thread::panicking() {
-            self.state.settle(
-                self.attempt,
-                BuildPhase::Failed {
-                    attempt: self.attempt,
-                    error: BUILD_PANICKED.to_string(),
-                },
-            );
+            self.state
+                .settle(self.attempt, Err(BUILD_PANICKED.to_string()));
         }
     }
 }

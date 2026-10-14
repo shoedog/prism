@@ -102,7 +102,7 @@ fn an_attempt_s_outcome_is_recorded_once_and_ready_is_never_left() {
     wait_until("the call to be waiting", || status(&state).waiting == 1);
 
     // An outcome for an attempt that is not the one building is ignored.
-    state.settle(9, BuildPhase::Ready { generation: 0 });
+    state.settle(9, Ok(()));
     assert_eq!(status(&state).state, BuildState::Building);
     assert_eq!(state.read(|_| ()), Ok(None));
 
@@ -110,13 +110,7 @@ fn an_attempt_s_outcome_is_recorded_once_and_ready_is_never_left() {
     assert_eq!(conn.outcome(), Outcome::Ready);
 
     // So is a second outcome for the attempt that already ended.
-    state.settle(
-        1,
-        BuildPhase::Failed {
-            attempt: 1,
-            error: "too late".to_string(),
-        },
-    );
+    state.settle(1, Err("too late".to_string()));
     assert_eq!(status(&state).state, BuildState::Ready);
     conn.call();
     assert_eq!(conn.outcome(), Outcome::Ready);

@@ -327,3 +327,48 @@ fn a_waiter_of_a_failed_attempt_hears_that_failure_although_a_third_attempt_is_b
     assert_eq!(third.outcome(), Outcome::Ready);
     assert_eq!(status(&state).attempt, 3);
 }
+
+/// Exclusive access can land after the provider is in the slot and before `Ready` is
+/// announced. The generation the control plane then reports must still be the slot's. Rules
+/// out announcing the generation that was read before publication, and recording a generation
+/// only once the phase is `Ready`.
+#[test]
+fn exclusive_access_between_publication_and_ready_keeps_the_generation_current() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (builder, _calls) = scripted(&cfg, vec![]);
+    let clock = ManualClock::new();
+    let mut parts = parts_with(builder, &clock);
+    let reached = Gate::closed();
+    let resume = Gate::closed();
+    parts.hooks.published = Some(stop_at(&reached, &resume, 1));
+    let state = DaemonState::from_parts(parts).expect("a lazy daemon state");
+    let conn = Conn::open(&state, 600);
+
+    conn.call();
+    assert!(
+        reached.pass(),
+        "the build thread reaches the publication hook"
+    );
+    assert_eq!(status(&state).state, BuildState::Building);
+
+    let refreshed = state
+        .write(|provider| provider.refresh().map(|summary| summary.generation))
+        .expect("the provider lock is not poisoned")
+        .expect("an index is in the slot");
+    assert_eq!(refreshed.expect("the refresh succeeds"), 1);
+    assert_eq!(
+        status(&state).generation,
+        1,
+        "the generation is the slot's before Ready is announced too"
+    );
+
+    resume.open();
+    assert_eq!(conn.outcome(), Outcome::Ready);
+    assert_eq!(status(&state).state, BuildState::Ready);
+    assert_eq!(
+        status(&state).generation,
+        1,
+        "the announcement did not bring back the generation read before publication"
+    );
+    assert_eq!(state.read(|provider| provider.generation()), Ok(Some(1)));
+}
