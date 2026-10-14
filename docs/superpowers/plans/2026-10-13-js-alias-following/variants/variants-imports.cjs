@@ -107,7 +107,7 @@ function importVariants() {
     truth: { t: 'one', target: 'helper.js:helper' }, contract: 'indirect record through a static property (E5 review round 1): outside the bare-name lookup',
   });
   // --- shapes from the slice L reviews: terminals the alias route cannot prove ------------------
-  const TSCONFIG = `{ "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["src/*"] } } }\n`;
+  const TSCONFIG = `{ "compilerOptions": { "moduleResolution": "node", "allowJs": true, "baseUrl": ".", "paths": { "@/*": ["src/*"] } } }\n`;
   const API = `export function fetchUser(id: number) { return id; }\nexport function other(id: number) { return -id; }\n`;
   mk('paths-named', { 'tsconfig.json': TSCONFIG, 'src/api.ts': API, 'src/app.ts': `import { fetchUser } from '@/api';\nexport function caller() {\n  return fetchUser(1); // SITE\n}\n` }, 'src/app.ts', one('src/api.ts:fetchUser'), { step: 'import-path', contract: 'tsconfig paths alias (control for the paths lane)' });
   mk('paths-ns-destructure-nested', { 'tsconfig.json': TSCONFIG, 'src/api.ts': API, 'src/app.ts': `import * as api from '@/api';\nexport function outer() {\n  const { fetchUser } = api;\n  return function onClick() {\n    return fetchUser(1); // SITE\n  };\n}\n` }, 'src/app.ts', one('src/api.ts:fetchUser'), { step: 'local', naming: 'same', contract: 'namespace import through a tsconfig paths alias, destructured in an enclosing function' });

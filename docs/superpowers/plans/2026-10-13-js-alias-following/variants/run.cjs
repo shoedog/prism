@@ -163,6 +163,7 @@ const ORACLE_NOTES = {
   'named-js-suffix-literal-and-ts': 'policy row: TypeScript binds x.ts; prism keeps the literal x.js as main does',
   'ns-destructure-dup-rest': 'invalid program (duplicate binding): the checker still names a declaration',
   'ns-destructure-dup-key': 'invalid program (duplicate binding): the checker still names a declaration',
+  'cjs-exports-ns-destructure-nested': 'the checker names the anonymous function expression assigned to exports.legacy; prism registers it as legacy',
 };
 const oracleOk = (r) => {
   const o = r.oracle;
