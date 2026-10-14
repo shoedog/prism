@@ -55,8 +55,9 @@ fn indexing_status() -> Value {
 
 /// Serve one admitted connection until its peer closes it or it fails.
 ///
-/// `stream` is the connection after the preamble: blocking, with no read timeout (a timeout
-/// would end the connection as a read error). `client` is what this client sent in its
+/// `stream` is the connection after the preamble, in whatever mode the handshake left it: it
+/// is set blocking and with no read timeout here, because a timeout or a would-block read
+/// would end the connection as a read error. `client` is what this client sent in its
 /// `HELLO`; its output settings and its first-call wait apply to this connection only.
 ///
 /// Returns `Ok` at end of input. Returns an error when a read or write fails (the peer went
@@ -68,6 +69,8 @@ pub(super) fn serve_admitted(
     stream: UnixStream,
     client: &ClientSettings,
 ) -> anyhow::Result<()> {
+    stream.set_nonblocking(false)?;
+    stream.set_read_timeout(None)?;
     let mut transport = UnixStreamTransport::from_stream(stream)?;
     serve_client(state, registry, &mut transport, client)
 }

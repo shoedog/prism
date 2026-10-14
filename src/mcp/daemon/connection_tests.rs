@@ -10,12 +10,17 @@ use super::super::test_support::{
 use super::super::wire_support::{
     close, connect, ended, CALLEES, INIT, INITED, LIST, NO_SUCH_TOOL, PING, REFRESH,
 };
+use super::serve_admitted;
 use crate::mcp::output::StructuredContentMode;
+use crate::mcp::registry::ToolRegistry;
 use crate::mcp::shared::preamble::BuildState;
 use crate::mcp::{RefreshPolicy, StartupMode};
 use serde_json::json;
+use std::os::unix::io::AsRawFd;
+use std::os::unix::net::UnixStream;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
 const RUN_CALLEES: &str = "callees:run@main.py";
 
@@ -529,4 +534,41 @@ fn a_client_that_stopped_waiting_is_told_to_retry_when_another_client_retried_me
     assert_eq!(built(&builds), 2);
     close(a, a_worker);
     close(b, b_worker);
+}
+
+/// The handshake stage of a later slice reads the preamble from a non-blocking socket, and may
+/// set a read timeout. A connection is served blocking and with no read timeout, whatever it
+/// was handed in. Rules out leaving the mode to the caller: the first quiet moment on the
+/// socket would end the connection as a read error.
+#[test]
+fn a_connection_handed_over_non_blocking_and_with_a_read_timeout_is_served_blocking() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (builder, _builds) = scripted(&cfg, vec![]);
+    let state = DaemonState::new(builder, StartupMode::Lazy).expect("a lazy daemon state");
+    let (near, far) = UnixStream::pair().expect("a connected socket pair");
+    far.set_nonblocking(true)
+        .expect("make the daemon's end non-blocking");
+    far.set_read_timeout(Some(Duration::from_millis(1)))
+        .expect("give the daemon's end a read timeout");
+    let probe = far
+        .try_clone()
+        .expect("a second handle on the daemon's end");
+    let settings = client_settings(600);
+    let worker = {
+        let state = Arc::clone(&state);
+        std::thread::spawn(move || serve_admitted(&state, &ToolRegistry::all_v1(), far, &settings))
+    };
+    let mut a = super::super::wire_support::Client::new(near);
+
+    a.handshake();
+    let served = a.request(CALLEES);
+    assert_eq!(served["result"]["structuredContent"]["query"], RUN_CALLEES);
+
+    assert_eq!(probe.read_timeout().expect("the read timeout"), None);
+    // SAFETY: `probe` owns an open descriptor for the whole call, and F_GETFL only reads the
+    // descriptor's flags.
+    let flags = unsafe { libc::fcntl(probe.as_raw_fd(), libc::F_GETFL) };
+    assert!(flags >= 0, "fcntl failed");
+    assert_eq!(flags & libc::O_NONBLOCK, 0, "the socket is blocking");
+    close(a, worker);
 }
