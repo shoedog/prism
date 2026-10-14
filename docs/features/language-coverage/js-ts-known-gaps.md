@@ -9,7 +9,7 @@ Each entry says:
 
 `Exact` is a static-binding grade, not a runtime claim; see the call-resolution section of `CLAUDE.md`.
 
-The variant matrix in `tests/fixtures/js_alias_matrix/` is the executable form of many entries. It holds one row per binding shape, each with an authored truth and today's verdict. Its `WRONG` and `MISSING` rows are known gaps of this kind, and its README explains the verdicts.
+The variant matrix in `tests/fixtures/js_alias_matrix/` is the executable form of many entries. It holds one row per binding shape, each with an authored truth and today's verdict. Its `WRONG`, `OVERCLAIM` and `MISSING` rows are known gaps of this kind, and its README explains the verdicts.
 
 ## 1. What a called name is bound to
 
@@ -20,20 +20,22 @@ prism resolves a bare call `f()` or element `<F />` by asking what the nearest b
 | Binding of the called name | Today | Tracked |
 |---|---|---|
 | `function f() {}`, `const f = () => {}`, `const f = useCallback(() => {}, [])` | Bound to that function | — |
+| `const x = call(() => …)` with any other call taking an inline function | Bound by name to the inline function (`local_def`, Exact). Right for `debounce`-like wrappers; **wrong** when the call returns something else: `const H = React.lazy(() => import('./H'))` binds `<H />` to the loader arrow, and `useMemo(() => () => …)` binds the factory | not tracked |
 | `import { f } from './x'`, `import f from './x'`, `import * as N`; `N.f()` | Bound through the module's export facts | §2 |
-| `const h = f`, `const h = N.f`, `const { f: h } = N` (flat pattern), chains of these | Followed to what they name (#372) | — |
+| `const h = f`, `const h = N.f`, `const { f: h } = N` (flat pattern), chains of these up to 8 links | Followed to what they name (#372); a longer chain is not followed | — |
 | `let`/`var` aliases, a binding written later, `c ? f : g`, object-literal and array members, patterns with a rest, nested, computed-key or default entry | Not followed; falls back to name search (§1.2) | refusal slice, §1.2 |
 | `const { save } = useEditor()`, `const [v, toggle] = useToggle()`, `const h = makeHandler()` | Not followed; name search (§1.2). The value a function returns is the next slice | returned-value slice |
-| `const { f } = require('./x')`, `require('./x').f`, `await import('./x')` | Not followed. Dropped in the declaring function; name search from a nested one | planned after the returned-value slice |
-| `import x = N.y` (TypeScript) | Not followed | — |
-| A parameter: `function g(cb) { cb() }` | Dropped (`UnknownName`) | argument following, planned at NameOnly |
+| `const { f } = require('./x')` at the top level of a CommonJS file | Bound through the module's CommonJS exports (`import_member`) | — |
+| `const { f } = require(…)` inside a function, `const f = require('./x').f`, `await import('./x')` | Not followed (§1.2) | planned after the returned-value slice |
+| `import x = N.y` (TypeScript) | Not followed; resolved by the repository-wide name search as if unbound (§1.3), so a same-named function elsewhere can get a **wrong** Exact edge | not tracked |
+| A parameter: `function g(cb) { cb() }` | Dropped (`UnknownName` or `LocalBindingUnproven`) | argument following, planned at NameOnly |
 
 ### 1.2 Name-search fallback for a binding whose value is not proven (wrong edges)
 
-When the nearest binding is a declaration in the file whose value prism cannot prove, resolution falls back to spelling, in this order:
-1. a function of that name in the same file (`local_def`, Exact);
-2. otherwise the one function of that name anywhere in the repository (`free_single`, Exact);
-3. otherwise several of them (`free_multi`, NameOnly).
+When the nearest binding is a declaration in the file whose value prism cannot prove, resolution falls back to spelling:
+1. a function of that name in the same file (`local_def`, Exact), at any scope;
+2. otherwise, only when the binding is declared in an *enclosing* function (the call is in a nested function), the one function of that name anywhere in the repository (`free_single`, Exact), or several of them (`free_multi`, NameOnly);
+3. otherwise, when the binding is in the calling function itself or at module scope, the call is dropped (`UnknownName`) by the lexical guard.
 
 The result is often right, because a value usually carries the name of the function it holds, but not always:
 
@@ -79,7 +81,7 @@ Tree-sitter checks only the grammar, so prism treats such a file as normal and b
 | `const { f, x: eval } = N; f()` | dropped | Exact → the module's `f` |
 | `const k = imp, eval = 2; k()` | dropped | Exact → the imported function |
 
-The edge names what the code says the name is; only the case where the called name itself is declared twice is ambiguous, and that one is refused. Code that builds never contains these errors, so they appear only in code being edited (for example the MCP server on a working tree) or in a broken change under review.
+The edge names what the code says the name is. A called name declared twice in the same scope (including a parameter redeclared in the function body) is refused; a `catch` variable redeclared in its block binds to the block's declaration (row 2). Code that builds never contains these errors, so they appear only in code being edited (for example the MCP server on a working tree) or in a broken change under review.
 
 **Options, if this comes back** (decision deferred by the owner on 2026-10-13):
 
@@ -129,7 +131,7 @@ A call through a followed alias is filed under the alias's spelling. The resolve
 
 ## 4. React
 
-- The resolver treats a lowercase JSX tag (`<div />`, and `<h />` where `h` aliases a component) as an intrinsic element and gives it no target. The older textual alias path (§1.2) can still emit an edge for `const h = Comp; return <h />;` in one function. That edge is wrong, since `<h>` is a DOM element; it exists on main and is kept unchanged.
+- The resolver treats a lowercase JSX tag (`<div />`, and `<h />` where `h` aliases a component) as an intrinsic element and gives it no target. The older textual alias path (§1.2), which scans source line by line, can still emit an edge for `const h = Comp;` on its own line followed by `<h />` in the same function. That edge is wrong, since `<h>` is a DOM element; it exists on main and is kept unchanged.
 - A wrapped component export (`memo`, `forwardRef`, …) binds from JSX element sites only. Called as a function, it drops with `WrappedExportNonJsx`.
 - Hook results: see §1.1. Even after the returned-value slice, these are not followed:
   - an object built inside `useMemo(() => ({ … }))`;
