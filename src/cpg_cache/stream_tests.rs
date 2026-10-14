@@ -9,9 +9,14 @@ use std::fs;
 
 const SOURCE: &str = "class C:\n    def m(self, p):\n        q = p\n        return q\n\ndef g(c):\n    r = c.m(1)\n    return r\n\ndef h(x):\n    return g(x)\n";
 
-fn fixture() -> (CodePropertyGraph, BTreeMap<String, String>) {
+pub(super) fn fixture() -> (CodePropertyGraph, BTreeMap<String, String>) {
+    fixture_of(SOURCE)
+}
+
+/// The fixture graph and file hashes for one Python source (`t.py`).
+pub(super) fn fixture_of(source: &str) -> (CodePropertyGraph, BTreeMap<String, String>) {
     let mut sources = BTreeMap::new();
-    sources.insert("t.py".to_string(), SOURCE.to_string());
+    sources.insert("t.py".to_string(), source.to_string());
     let files: BTreeMap<String, crate::ast::ParsedFile> = sources
         .iter()
         .map(|(path, source)| {
@@ -31,7 +36,10 @@ fn fixture() -> (CodePropertyGraph, BTreeMap<String, String>) {
 /// The encoding the cache used before it streamed: an owned copy of everything, encoded in
 /// one buffer. The streamed file must equal it byte for byte, or caches written by one build
 /// would not load in the other and `CACHE_VERSION` would have to change.
-fn owned_encoding(cpg: &CodePropertyGraph, hashes: &BTreeMap<String, String>) -> Vec<u8> {
+pub(super) fn owned_encoding(
+    cpg: &CodePropertyGraph,
+    hashes: &BTreeMap<String, String>,
+) -> Vec<u8> {
     let nodes: Vec<CpgNode> = cpg
         .graph
         .node_indices()
@@ -71,7 +79,7 @@ fn owned_encoding(cpg: &CodePropertyGraph, hashes: &BTreeMap<String, String>) ->
     bincode::serialize(&owned).unwrap()
 }
 
-fn graph_dump(cpg: &CodePropertyGraph) -> (Vec<String>, Vec<String>) {
+pub(super) fn graph_dump(cpg: &CodePropertyGraph) -> (Vec<String>, Vec<String>) {
     let nodes = cpg
         .graph
         .node_indices()
@@ -109,18 +117,6 @@ fn the_streamed_file_equals_the_owned_encoding_byte_for_byte() {
 }
 
 #[test]
-fn a_file_in_the_owned_encoding_loads_as_a_hit() {
-    // A cache written before this change (same bytes, written in one piece) still loads.
-    let dir = tempfile::tempdir().unwrap();
-    let (cpg, hashes) = fixture();
-    fs::write(cache_bin_path(dir.path()), owned_encoding(&cpg, &hashes)).unwrap();
-    let CacheResult::Hit(restored) = load_cache(&hashes, false, dir.path()) else {
-        panic!("a cache in the owned encoding must be a hit");
-    };
-    assert_eq!(graph_dump(&cpg), graph_dump(&restored));
-}
-
-#[test]
 fn a_round_trip_keeps_every_node_and_edge_at_its_index() {
     // Loading moves nodes and edges into the graph in list order; an index that shifted would
     // silently re-point every stored NodeIndex.
@@ -154,59 +150,6 @@ fn the_metadata_records_the_size_of_the_file_written() {
         meta["edge_count"].as_u64(),
         Some(cpg.graph.edge_count() as u64)
     );
-}
-
-#[test]
-fn a_truncated_file_is_a_miss() {
-    let dir = tempfile::tempdir().unwrap();
-    let (cpg, hashes) = fixture();
-    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
-    let path = cache_bin_path(dir.path());
-    let bytes = fs::read(&path).unwrap();
-    for keep in [0, 3, 4, 11, bytes.len() / 2, bytes.len() - 1] {
-        fs::write(&path, &bytes[..keep]).unwrap();
-        assert!(
-            matches!(load_cache(&hashes, false, dir.path()), CacheResult::Miss),
-            "a file cut to {keep} bytes must be a miss"
-        );
-    }
-}
-
-#[test]
-fn a_length_prefix_larger_than_the_file_is_a_miss_without_allocating_it() {
-    // Characterization of the current loader (unchanged by the streaming writer). Bytes 4..12
-    // are the length of the first string (`prism_version`); a claimed length beyond the file
-    // must be a Miss, and 2^62 must not be allocated.
-    let dir = tempfile::tempdir().unwrap();
-    let (cpg, hashes) = fixture();
-    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
-    let path = cache_bin_path(dir.path());
-    let mut bytes = fs::read(&path).unwrap();
-    for claimed in [1u64 << 62, bytes.len() as u64, (bytes.len() as u64) * 4] {
-        bytes[4..12].copy_from_slice(&claimed.to_le_bytes());
-        fs::write(&path, &bytes).unwrap();
-        assert!(
-            matches!(load_cache(&hashes, false, dir.path()), CacheResult::Miss),
-            "a claimed length of {claimed} must be a miss"
-        );
-    }
-}
-
-#[test]
-fn trailing_bytes_after_a_valid_cache_do_not_make_it_a_miss() {
-    // Characterization of the current loader (unchanged by the streaming writer): the slice
-    // decoder allows trailing bytes after a complete cache.
-    let dir = tempfile::tempdir().unwrap();
-    let (cpg, hashes) = fixture();
-    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
-    let path = cache_bin_path(dir.path());
-    let mut bytes = fs::read(&path).unwrap();
-    bytes.extend_from_slice(b"trailing");
-    fs::write(&path, &bytes).unwrap();
-    assert!(matches!(
-        load_cache(&hashes, false, dir.path()),
-        CacheResult::Hit(_)
-    ));
 }
 
 fn temp_files(dir: &std::path::Path) -> Vec<String> {
