@@ -57,11 +57,36 @@ fn arrow_for(style: EdgeStyle, label: &Option<String>) -> String {
 /// Returns (escaped_label_inner, was_truncated).
 pub(crate) fn escape_label_inner(s: &str) -> (String, bool) {
     const MAX: usize = 80;
-    let mut out = s.replace('"', "&quot;").replace('\n', "<br/>");
-    let truncated = out.chars().count() > MAX;
+    // `<` and `>` are escaped BEFORE the newline -> `<br/>` substitution so the break tag
+    // survives; anonymous owner names (`<anon@L:C>`) would otherwise read as HTML tags.
+    // The budget counts serialized characters, as before. The angle entities added for
+    // anonymous owner names are atomic, so a cut never splits them; `&quot;` and `<br/>` keep
+    // main's per-character cut (pinned by the review golden; splitting them is a pre-existing
+    // follow-up, not this slice's change).
+    let mut tokens: Vec<std::borrow::Cow<'static, str>> = Vec::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '<' => tokens.push("&lt;".into()),
+            '>' => tokens.push("&gt;".into()),
+            '"' => tokens.extend("&quot;".chars().map(|c| c.to_string().into())),
+            '\n' => tokens.extend("<br/>".chars().map(|c| c.to_string().into())),
+            c => tokens.push(c.to_string().into()),
+        }
+    }
+    let total: usize = tokens.iter().map(|t| t.chars().count()).sum();
+    let truncated = total > MAX;
+    let mut out = String::new();
+    let mut used = 0;
+    for t in &tokens {
+        let n = t.chars().count();
+        if truncated && used + n > MAX - 1 {
+            break;
+        }
+        out.push_str(t);
+        used += n;
+    }
     if truncated {
-        let take: String = out.chars().take(MAX - 1).collect();
-        out = format!("{}…", take);
+        out.push('…');
     }
     (out, truncated)
 }
@@ -1434,5 +1459,59 @@ mod tests {
             "expected LabelTruncated for cluster label, got: {:?}",
             warns
         );
+    }
+
+    #[test]
+    fn escape_label_inner_escapes_angle_brackets() {
+        let (out, _) = escape_label_inner("A › <anon@3:10> -> <cb@4:2>");
+        assert!(!out.contains('<') && !out.contains('>'), "{out}");
+        assert!(out.contains("&lt;anon@3:10&gt;"), "{out}");
+    }
+
+    #[test]
+    fn escape_label_inner_keeps_quote_and_newline_handling() {
+        let (out, trunc) = escape_label_inner("say \"hi\"\nnext");
+        assert_eq!(out, "say &quot;hi&quot;<br/>next");
+        assert!(!trunc);
+    }
+
+    #[test]
+    fn render_chain_escapes_angle_brackets_in_node_labels() {
+        let mut g = chain_fixture();
+        g.nodes[1].label = "f <anon@3:10>".to_string();
+        let out = render_chain(&g);
+        assert!(out.contains("f &lt;anon@3:10&gt;"), "{out}");
+        assert!(!out.contains("<anon@"), "{out}");
+        // Named control: other labels are untouched.
+        assert!(out.contains("a[\"foo.c:42 read_input\"]:::source"), "{out}");
+    }
+
+    #[test]
+    fn truncation_never_splits_an_escape_token() {
+        // sol r1 #392: 77 chars + ">zz" (80 raw) must not end in a split `&g…`.
+        let raw = format!("{}>zz", "a".repeat(77));
+        let (out, trunc) = escape_label_inner(&raw);
+        assert!(trunc, "{out}");
+        assert_eq!(out, format!("{}…", "a".repeat(77)));
+        for raw in [
+            format!("{}<b", "a".repeat(76)),
+            format!("{}>b", "a".repeat(76)),
+        ] {
+            let (out, _) = escape_label_inner(&raw);
+            let body = out.trim_end_matches('…');
+            assert!(body.chars().count() <= 79, "{out}");
+            assert!(
+                body.ends_with('a') || body.ends_with("&lt;") || body.ends_with("&gt;"),
+                "{out}"
+            );
+        }
+        // Quote and newline keep main's per-character cut (review golden pins it).
+        let (out, _) = escape_label_inner(&format!("{}\"b", "a".repeat(76)));
+        assert_eq!(out, format!("{}&qu…", "a".repeat(76)));
+        // Plain-text control: an 80-char label is kept whole, 81 is cut to 79 + ellipsis.
+        let (out, trunc) = escape_label_inner(&"a".repeat(80));
+        assert!(!trunc && out.chars().count() == 80, "{out}");
+        let (out, trunc) = escape_label_inner(&"a".repeat(81));
+        assert!(trunc && out == format!("{}…", "a".repeat(79)), "{out}");
     }
 }

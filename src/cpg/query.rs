@@ -389,18 +389,47 @@ impl CodePropertyGraph {
     // CallGraph-equivalent methods
     // -----------------------------------------------------------------------
 
-    /// Find the function containing a specific line in a file.
+    /// Find the named function containing a specific line in a file.
     /// Equivalent to `CallGraph::function_at()`.
+    ///
+    /// Anonymous callable nodes (`<anon@L:C>`) are skipped: an anonymous node
+    /// would win the smallest-range tie on any line holding a one-line
+    /// callback and silently re-seed every caller of this lookup (barrier,
+    /// membrane, vertical, threed, spiral) onto it. Anonymous-aware callers use
+    /// [`Self::function_at_including_anonymous`].
     pub fn function_at(&self, file: &str, line: usize) -> Option<(NodeIndex, FunctionId)> {
+        self.function_at_filtered(file, line, false)
+    }
+
+    /// Like [`Self::function_at`], but anonymous callable nodes may win.
+    pub fn function_at_including_anonymous(
+        &self,
+        file: &str,
+        line: usize,
+    ) -> Option<(NodeIndex, FunctionId)> {
+        self.function_at_filtered(file, line, true)
+    }
+
+    fn function_at_filtered(
+        &self,
+        file: &str,
+        line: usize,
+        include_anonymous: bool,
+    ) -> Option<(NodeIndex, FunctionId)> {
         let mut best: Option<(NodeIndex, usize)> = None;
         for (&(ref f, ref _name, ref _sl), &idx) in &self.func_index {
             if f == file {
                 if let CpgNode::Function {
+                    name,
                     start_line,
                     end_line,
                     ..
-                } = self.graph[idx]
+                } = &self.graph[idx]
                 {
+                    if !include_anonymous && crate::anon_owner::is_anonymous_owner_name(name) {
+                        continue;
+                    }
+                    let (start_line, end_line) = (*start_line, *end_line);
                     if line >= start_line && line <= end_line {
                         let range_len = end_line.saturating_sub(start_line);
                         if best

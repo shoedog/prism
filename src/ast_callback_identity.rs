@@ -10,17 +10,6 @@
 
 use super::*;
 
-/// Prefix of every synthetic owner name. `<` cannot start an ECMAScript
-/// identifier, and every name `function_name` can return for JS/TS is an
-/// identifier, a property name, a string literal (with its quotes) or a
-/// computed key (with its bracket), so no real owner can spell it.
-pub const SYNTHETIC_OWNER_PREFIX: &str = "<cb@";
-
-/// Whether a DFG owner name is a PR-B synthetic callable identity.
-pub fn is_synthetic_owner(name: &str) -> bool {
-    name.starts_with(SYNTHETIC_OWNER_PREFIX)
-}
-
 impl ParsedFile {
     /// Owner name of a callable's DFG pass: the inferred/declared name when
     /// one exists (name inference always wins), else the synthetic
@@ -206,10 +195,9 @@ impl ParsedFile {
             return None;
         }
         let start = func_node.start_position();
-        Some(format!(
-            "{SYNTHETIC_OWNER_PREFIX}{}:{}>",
+        Some(crate::anon_owner::anonymous_owner_name(
             start.row + 1,
-            start.column + 1
+            start.column + 1,
         ))
     }
 

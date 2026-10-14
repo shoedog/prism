@@ -205,6 +205,7 @@ fn resolve_symbol(
     file: Option<&str>,
     origin: SeedSpec,
 ) -> Result<ResolvedSeed, QueryError> {
+    crate::navigation::seed::reject_anonymous_symbol(name)?;
     let mut candidates = Vec::new();
     match file {
         Some(file) => {

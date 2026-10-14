@@ -16,6 +16,8 @@
 //! `pub use` re-exports below preserve the original `crate::cpg::*` API surface.
 
 #[cfg(test)]
+pub(crate) mod anon_guard_tests;
+#[cfg(test)]
 mod asserted_member_tests;
 mod build;
 #[cfg(test)]

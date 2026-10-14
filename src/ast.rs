@@ -12435,7 +12435,7 @@ mod asserted_member;
 
 #[path = "ast_callback_identity.rs"]
 mod callback_identity;
-pub use callback_identity::{is_synthetic_owner, SYNTHETIC_OWNER_PREFIX};
+pub use crate::anon_owner::is_anonymous_owner_name as is_synthetic_owner;
 
 #[cfg(test)]
 #[path = "ast_asserted_member_tests.rs"]

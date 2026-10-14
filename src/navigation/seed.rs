@@ -31,6 +31,19 @@ pub(crate) fn fn_symbol(s: &NavigationSession, idx: NodeIndex) -> Option<SymbolR
     }
 }
 
+/// Anonymous callables (`<anon@L:C>`) are reached by location only. A symbol seed spelling an
+/// anonymous owner name is refused up front, with an error that says what to use instead.
+pub(crate) fn reject_anonymous_symbol(name: &str) -> Result<(), QueryError> {
+    if crate::anon_owner::is_anonymous_owner_name(name) {
+        return Err(QueryError::SymbolNotFound {
+            seed: format!(
+                "symbol:{name} is an anonymous callable; use a location seed (file:line)"
+            ),
+        });
+    }
+    Ok(())
+}
+
 /// Resolve a seed to exactly one function node. Precedence: location > symbol.
 pub fn resolve_fn(
     s: &NavigationSession,
@@ -58,6 +71,7 @@ pub fn resolve_fn(
     let name = symbol.ok_or_else(|| QueryError::SymbolNotFound {
         seed: "<empty>".into(),
     })?;
+    reject_anonymous_symbol(name)?;
     let mut hits: Vec<NodeIndex> = s
         .index
         .name_index
