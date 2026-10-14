@@ -627,9 +627,9 @@ impl CodePropertyGraph {
     /// `start_line`, so this is where parameters are bound and where a callee's CFG entry is murky.
     ///
     /// Anonymous callable nodes (`<anon@L:C>`) do not count, so they add no new "signature line"
-    /// cases once S2 mints them. This does not stop a callback line degrading to pure taint
-    /// through other routes: on main such lines already degrade via `multi_function`, because
-    /// PR-B gives them two data-flow owners. [`Self::function_starts_at_including_anonymous`] is
+    /// cases once S2 mints them. It does not stop a callback line degrading to pure taint
+    /// through other routes: on main a line can already degrade via `multi_function` when PR-B
+    /// gives the callback its own data-flow owner on that line. [`Self::function_starts_at_including_anonymous`] is
     /// the anonymous-aware variant.
     pub(super) fn function_starts_at(&self, file: &str, line: usize) -> bool {
         self.function_starts_at_filtered(file, line, false)
