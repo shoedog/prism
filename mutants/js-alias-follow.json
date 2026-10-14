@@ -61,14 +61,6 @@
     "ast::js_binding_alias::tests::member_shapes_outside_the_plain_namespace_member_are_not_followed"
    ]
   ],
-  "AF-09-duplicate-key-accepted": [
-   "src/ast/js_binding_alias.rs",
-   "[key] => Some(Link::Member(value, std::mem::take(key))),",
-   "[key, ..] => Some(Link::Member(value, std::mem::take(key))),",
-   [
-    "ast::js_binding_alias::tests::pattern_shapes_outside_the_flat_object_pattern_are_not_followed"
-   ]
-  ],
   "AF-13-angle-assertion-first-child": [
    "src/ast/js_binding_alias.rs",
    "\"type_assertion\" => first_expression(value, true),",
