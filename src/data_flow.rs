@@ -669,6 +669,7 @@ impl DataFlowGraph {
                         VarLocation,
                     > = BTreeMap::new();
                     let mut param_ref_jobs = Vec::new();
+                    let mut member_only_params: Vec<(AccessPath, VarLocation)> = Vec::new();
                     let mut rd_defs = Vec::new();
                     let function_edge_start = edges.len();
 
@@ -686,17 +687,23 @@ impl DataFlowGraph {
                         let path = AccessPath::simple(param_name.clone());
                         // Skip parameters only used via field access (e.g. `dev.name`)
                         // to preserve field isolation.
-                        if !parsed.has_bare_references(&func_node, param_name) {
+                        let use_kind = parsed.classify_parameter_use(&func_node, param_name);
+                        if use_kind == crate::ast::ParameterUse::Unused {
                             continue;
                         }
-                        let refs = parsed.find_path_reference_spans_fenced_in(
-                            &func_node,
-                            &path,
-                            start,
-                            *param_start_byte,
-                            None,
-                            synthetic,
-                        );
+                        let member_only = use_kind == crate::ast::ParameterUse::MemberOnly;
+                        let refs = if member_only {
+                            BTreeMap::new()
+                        } else {
+                            parsed.find_path_reference_spans_fenced_in(
+                                &func_node,
+                                &path,
+                                start,
+                                *param_start_byte,
+                                None,
+                                synthetic,
+                            )
+                        };
                         let param_decl_line = parsed.line_for_byte(*param_start_byte);
 
                         // Parameter Defs are pinned to the function's `start` line for stable lookup.
@@ -717,6 +724,9 @@ impl DataFlowGraph {
                         defs.entry((file_path.clone(), func_name.clone(), start, path.clone()))
                             .or_default()
                             .push(loc.clone());
+                        if member_only {
+                            member_only_params.push((path.clone(), loc.clone()));
+                        }
                         param_ref_jobs.push((path, loc, refs, param_decl_line));
                     }
 
@@ -947,6 +957,52 @@ impl DataFlowGraph {
                                     from: loc.clone(),
                                     to: use_loc,
                                 });
+                            }
+                        }
+                    }
+
+                    // PR-C prototype: projection edges Def(p) -> Use(p.<path>) for
+                    // member-only formals. Never between two different field
+                    // paths. A write to `p` or to a prefix of the use path anywhere
+                    // in the callable suppresses that path (narrow choice).
+                    for (base_path, base_loc) in &member_only_params {
+                        let field_paths = parsed.formal_member_paths(&func_node, &base_path.base);
+                        for field_path in field_paths {
+                            let written = lvalue_spans
+                                .iter()
+                                .chain(nested_write_spans.iter())
+                                .any(|w| {
+                                    w.path.base == field_path.base
+                                        && w.path.fields.len() <= field_path.fields.len()
+                                        && field_path.fields[..w.path.fields.len()]
+                                            == w.path.fields[..]
+                                });
+                            if written {
+                                continue;
+                            }
+                            let refs = parsed.find_path_reference_spans_fenced_in(
+                                &func_node,
+                                &field_path,
+                                start,
+                                base_loc.start_byte,
+                                None,
+                                synthetic,
+                            );
+                            for (ref_line, admitted) in &refs {
+                                // Prototype toggle: PRC_NARROW_USE=1 admits only real rvalue
+                                // spans; default also admits line-anchored Uses like every other
+                                // body edge (`allow = not on the signature lines`).
+                                let narrow = std::env::var_os("PRC_NARROW_USE").is_some();
+                                let in_signature = *ref_line >= start
+                                    && *ref_line <= parsed.line_for_byte(base_loc.start_byte);
+                                if let Some(use_loc) =
+                                    get_use(&field_path, *ref_line, !narrow && !in_signature, *admitted)
+                                {
+                                    edges.push(FlowEdge {
+                                        from: base_loc.clone(),
+                                        to: use_loc,
+                                    });
+                                }
                             }
                         }
                     }

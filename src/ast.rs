@@ -471,6 +471,14 @@ pub struct ParsedFile {
     js_export_facts: std::sync::OnceLock<crate::js_exports::JsExportFacts>,
 }
 
+/// How a formal parameter is used in its callable body (PR-C prototype).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParameterUse {
+    Bare,
+    MemberOnly,
+    Unused,
+}
+
 impl ParsedFile {
     /// Parse source code in the given language.
     pub fn parse(path: &str, source: &str, language: Language) -> Result<Self> {
@@ -8892,6 +8900,93 @@ impl ParsedFile {
     /// the base of a field/member access (e.g., `data` in `use(data)` counts, but
     /// `dev` in `dev.name` does not). Used to decide whether to register a parameter
     /// Def for interprocedural data flow.
+    /// PR-C step 0 (prototype): classify how a formal is used. `MemberOnly`
+    /// is JS/TS/TSX only: no bare read, at least one `name.<prop>` member
+    /// read in the body, callable not parse-recovered, formal not a seam
+    /// binding. Shared by `data_flow.rs` and `reasoning/seeds.rs` (lockstep).
+    pub fn classify_parameter_use(&self, func_node: &Node<'_>, var_name: &str) -> ParameterUse {
+        if self.has_bare_references(func_node, var_name) {
+            return ParameterUse::Bare;
+        }
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return ParameterUse::Unused;
+        }
+        fn recovered(node: Node<'_>) -> bool {
+            if node.is_error() || node.is_missing() {
+                return true;
+            }
+            let mut cursor = node.walk();
+            let found = node.children(&mut cursor).any(recovered);
+            found
+        }
+        if recovered(*func_node) || self.js_ts_seam_binding(func_node, var_name) {
+            return ParameterUse::Unused;
+        }
+        let Some(body) = self.function_body_node(func_node) else {
+            return ParameterUse::Unused;
+        };
+        if self.has_member_read_of(body, var_name) {
+            ParameterUse::MemberOnly
+        } else {
+            ParameterUse::Unused
+        }
+    }
+
+    /// PR-C prototype: outermost static member paths rooted at the formal
+    /// `name` (`p.x`, `p.x.y`), anywhere in the callable body. Binding is
+    /// proved later by the fenced reference walk, not here.
+    pub fn formal_member_paths(&self, func_node: &Node<'_>, name: &str) -> BTreeSet<AccessPath> {
+        let mut out = BTreeSet::new();
+        if let Some(body) = self.function_body_node(func_node) {
+            self.collect_formal_member_paths(body, name, &mut out);
+        }
+        out
+    }
+
+    fn collect_formal_member_paths(&self, node: Node<'_>, name: &str, out: &mut BTreeSet<AccessPath>) {
+        if node.kind() == "member_expression" {
+            let mut root = node;
+            while root.kind() == "member_expression" {
+                match root.child_by_field_name("object") {
+                    Some(o) => root = o,
+                    None => break,
+                }
+            }
+            if root.kind() == "identifier" && self.node_text(&root) == name {
+                let path = self
+                    .bounded_member_path(node)
+                    .map(|member| member.path)
+                    .unwrap_or_else(|| AccessPath::from_expr(self.node_text(&node)));
+                if !path.is_simple() && path.base == name {
+                    out.insert(path);
+                }
+                return;
+            }
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_formal_member_paths(child, name, out);
+        }
+    }
+
+    fn has_member_read_of(&self, node: Node<'_>, var_name: &str) -> bool {
+        if node.kind() == "member_expression" {
+            if let Some(object) = node.child_by_field_name("object") {
+                if object.kind() == "identifier" && self.node_text(&object) == var_name {
+                    return true;
+                }
+            }
+        }
+        let mut cursor = node.walk();
+        let found = node
+            .children(&mut cursor)
+            .any(|child| self.has_member_read_of(child, var_name));
+        found
+    }
+
     pub fn has_bare_references(&self, func_node: &Node<'_>, var_name: &str) -> bool {
         if let Some(body) = self.function_body_node(func_node) {
             return self.find_bare_ref(body, var_name);

@@ -253,7 +253,7 @@ fn resolve_symbol(
     let mut nodes = Vec::new();
     let mut locations = Vec::new();
     for (param, start_byte, end_byte) in parsed.function_parameter_occurrences(&function) {
-        if !parsed.has_bare_references(&function, &param) {
+        if parsed.classify_parameter_use(&function, &param) == crate::ast::ParameterUse::Unused {
             continue;
         }
         let output_loc = VarLocation {

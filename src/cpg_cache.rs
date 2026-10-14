@@ -258,7 +258,8 @@ mod stream;
 /// - v117: slice V follows a value another in-repo function returned: `CallSite.local_binding`
 ///   gains `Returned` and the call graph persists per-function returned-value facts
 ///   (`js_ts_return_facts`).
-const CACHE_VERSION: u32 = 117;
+/// - v118: PR-C prototype: member-only JS/TS formals get a base Def and projection edges.
+const CACHE_VERSION: u32 = 118;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
