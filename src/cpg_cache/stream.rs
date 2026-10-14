@@ -17,9 +17,7 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{self, BufWriter, Write};
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, SystemTime};
+use std::path::Path;
 
 #[cfg(test)]
 thread_local! {
@@ -31,122 +29,13 @@ thread_local! {
 /// Buffer between the codec and the file.
 const IO_BUFFER_BYTES: usize = 1 << 20;
 
-/// A temp file nobody has written to for this long belongs to a writer that died.
-const STALE_TEMP_AGE: Duration = Duration::from_secs(15 * 60);
+/// The one temp name. At most one process writes in a cache directory at a time (see
+/// [`publish_file`]), so it never needs to be unique.
+const TEMP_NAME: &str = "cpg-cache.bin.tmp";
 
-const TEMP_PREFIX: &str = "cpg-cache.bin.";
-const TEMP_SUFFIX: &str = ".tmp";
-/// The one fixed temp name used before temp names were unique.
-const LEGACY_TEMP_NAME: &str = "cpg-cache.bin.tmp";
-
-/// How many temp names are tried before an `AlreadyExists` is given up on.
-const CREATE_ATTEMPTS: usize = 16;
-
-static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-/// A temp file name no other writer in this process uses: this process's id and a counter.
-///
-/// The name is unique among live writers of one pid namespace. Writers that share a cache
-/// directory across namespaces, or a reused pid, can still land on the same name, so
-/// [`create_temp_file`] creates it exclusively and moves on to the next name if it is taken.
-pub(super) fn unique_temp_path(cache_dir: &Path) -> PathBuf {
-    let nonce = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let pid = std::process::id();
-    cache_dir.join(format!("{TEMP_PREFIX}{pid}.{nonce}{TEMP_SUFFIX}"))
-}
-
-/// Whether `name` is a temp file name this module (or the version before it) generates:
-/// `cpg-cache.bin.<digits>.<digits>.tmp` or the legacy `cpg-cache.bin.tmp`. Nothing else in the
-/// cache directory is ours to delete.
-fn is_temp_name(name: &str) -> bool {
-    if name == LEGACY_TEMP_NAME {
-        return true;
-    }
-    let Some(middle) = name
-        .strip_prefix(TEMP_PREFIX)
-        .and_then(|rest| rest.strip_suffix(TEMP_SUFFIX))
-    else {
-        return false;
-    };
-    let all_digits = |part: &str| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit());
-    middle
-        .split_once('.')
-        .is_some_and(|(pid, nonce)| all_digits(pid) && all_digits(nonce))
-}
-
-/// Create a temp file nobody else has, lock it, and return it with its path.
-///
-/// Creation is exclusive (`O_EXCL`): a name that is already taken is left untouched and the
-/// next one from `next_path` is tried, up to [`CREATE_ATTEMPTS`] times. The exclusive advisory
-/// lock marks the writer as alive; it lasts as long as the returned `File` is open, so the
-/// stale-file sweep leaves the file alone for the whole save. A filesystem that cannot lock
-/// leaves the file unlocked, and the sweep then falls back to the file's age alone.
-pub(super) fn create_temp_file(
-    mut next_path: impl FnMut() -> PathBuf,
-) -> io::Result<(PathBuf, File)> {
-    let mut attempt = 0;
-    loop {
-        let path = next_path();
-        match File::options().write(true).create_new(true).open(&path) {
-            Ok(file) => {
-                return match file.try_lock() {
-                    Ok(()) | Err(fs::TryLockError::Error(_)) => Ok((path, file)),
-                    Err(fs::TryLockError::WouldBlock) => {
-                        // A file this call just created, locked by someone else: not ours.
-                        drop(file);
-                        let _ = fs::remove_file(&path);
-                        Err(io::Error::from(io::ErrorKind::WouldBlock))
-                    }
-                };
-            }
-            Err(e) if e.kind() == io::ErrorKind::AlreadyExists && attempt + 1 < CREATE_ATTEMPTS => {
-                attempt += 1;
-            }
-            Err(e) => return Err(e),
-        }
-    }
-}
-
-/// Remove temp files left by writers that died mid-write (best effort). A unique name is
-/// never overwritten by the next writer, so without this each crash would leave a partial
-/// cache behind for good.
-///
-/// A file is removed only if it matches a temp name exactly, has not been modified for
-/// [`STALE_TEMP_AGE`], and no writer holds its lock: a writer that was suspended (or whose
-/// clock jumped) keeps its lock, so age alone never condemns a live writer. A file whose lock
-/// the filesystem does not support is judged by age alone.
-pub(super) fn remove_stale_temp_files(cache_dir: &Path, now: SystemTime) {
-    let Ok(entries) = fs::read_dir(cache_dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let name = entry.file_name();
-        let Some(name) = name.to_str() else { continue };
-        if !is_temp_name(name) {
-            continue;
-        }
-        let modified = entry.metadata().and_then(|meta| meta.modified());
-        let stale = match modified {
-            Ok(modified) => now
-                .duration_since(modified)
-                .is_ok_and(|age| age >= STALE_TEMP_AGE),
-            Err(_) => false,
-        };
-        if !stale {
-            continue;
-        }
-        let Ok(file) = File::open(entry.path()) else {
-            continue;
-        };
-        // Held until the file is gone, so no writer can take the lock in between.
-        match file.try_lock() {
-            Ok(()) | Err(fs::TryLockError::Error(_)) => {
-                let _ = fs::remove_file(entry.path());
-            }
-            Err(fs::TryLockError::WouldBlock) => {}
-        }
-    }
-}
+/// The per-directory writer lock. The file is permanent: it is never truncated, written or
+/// removed, so its inode never changes and every writer locks the same file.
+const LOCK_NAME: &str = "cpg-cache.lock";
 
 /// Borrowed mirror of `CpgCache`: the same fields in the same order, so the two encode to
 /// the same bytes.
@@ -236,18 +125,39 @@ pub(super) fn write_new_file(
     Ok(writer.written)
 }
 
-/// Write a new file and move it to `final_path`, returning the number of bytes written.
+/// Write a new file and move it to `final_path`. Returns the number of bytes written, or
+/// `None` if another process is saving in `cache_dir` and this save was skipped.
 ///
-/// The bytes go to a freshly created, locked temp file (see [`create_temp_file`]) that is
-/// renamed over `final_path` only once complete; the lock is held until after the rename. If
-/// encoding, flushing or the rename fails, the temp file is removed and `final_path` is left
-/// as it was.
+/// A save takes an exclusive advisory lock on the permanent `cpg-cache.lock` in `cache_dir`
+/// and holds it through the write, the rename and the cleanup after a failure. While it is
+/// held no other writer can be using the fixed temp name, so a leftover temp file is an
+/// orphan from a crashed writer and `File::create` may truncate it. Nothing ever deletes
+/// another writer's file. A writer that finds the lock taken skips its save and reports
+/// success: the writer holding it publishes an equivalent cache.
+///
+/// A filesystem that cannot lock is not an error: the save proceeds without the lock and
+/// concurrent saves there behave as they did before the lock existed (one fixed temp name,
+/// write, rename).
+///
+/// If encoding, flushing or the rename fails, the temp file is removed and `final_path` is
+/// left as it was.
 pub(super) fn publish_file(
-    next_path: impl FnMut() -> PathBuf,
+    cache_dir: &Path,
     final_path: &Path,
     encode: impl FnOnce(&mut dyn Write) -> io::Result<()>,
-) -> io::Result<u64> {
-    let (tmp_path, file) = create_temp_file(next_path)?;
+) -> io::Result<Option<u64>> {
+    let lock = File::options()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(cache_dir.join(LOCK_NAME))?;
+    match lock.try_lock() {
+        Ok(()) | Err(fs::TryLockError::Error(_)) => {}
+        Err(fs::TryLockError::WouldBlock) => return Ok(None),
+    }
+    let tmp_path = cache_dir.join(TEMP_NAME);
+    let file = File::create(&tmp_path)?;
     let result = write_new_file(&file, encode).and_then(|written| {
         #[cfg(test)]
         BEFORE_RENAME.with(|hook| {
@@ -262,24 +172,21 @@ pub(super) fn publish_file(
         let _ = fs::remove_file(&tmp_path);
     }
     drop(file);
-    result
+    drop(lock);
+    result.map(Some)
 }
 
-/// Encode `cache` into a new temp file in `cache_dir`, then rename it to `final_path`, and
-/// return the number of bytes written.
+/// Encode `cache` into the temp file in `cache_dir`, then rename it to `final_path`, and
+/// return the number of bytes written, or `None` if the save was skipped.
 pub(super) fn publish_cache_file(
     cache_dir: &Path,
     final_path: &Path,
     cache: &CpgCacheRef<'_>,
-) -> io::Result<u64> {
-    publish_file(
-        || unique_temp_path(cache_dir),
-        final_path,
-        |writer| {
-            bincode::serialize_into(writer, cache)
-                .map_err(|e| io::Error::other(format!("bincode serialize error: {}", e)))
-        },
-    )
+) -> io::Result<Option<u64>> {
+    publish_file(cache_dir, final_path, |writer| {
+        bincode::serialize_into(writer, cache)
+            .map_err(|e| io::Error::other(format!("bincode serialize error: {}", e)))
+    })
 }
 
 #[cfg(test)]

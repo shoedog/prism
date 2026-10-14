@@ -245,92 +245,23 @@ fn a_save_leaves_no_temp_file_behind() {
 }
 
 #[test]
-fn every_writer_gets_its_own_temp_name() {
-    // One shared name would let a second writer truncate the file under the first.
+fn a_write_that_fails_part_way_leaves_no_temp_file_and_the_previous_cache_intact() {
     let dir = tempfile::tempdir().unwrap();
-    let first = super::unique_temp_path(dir.path());
-    let second = super::unique_temp_path(dir.path());
-    assert_ne!(first, second);
-    for path in [&first, &second] {
-        let name = path.file_name().unwrap().to_str().unwrap();
-        assert!(name.starts_with("cpg-cache.bin."), "{name}");
-        assert!(name.ends_with(".tmp"), "{name}");
-        assert!(name.contains(&std::process::id().to_string()), "{name}");
-        assert_eq!(path.parent(), Some(dir.path()));
-    }
-}
-
-fn names_from(paths: Vec<std::path::PathBuf>) -> impl FnMut() -> std::path::PathBuf {
-    let mut paths = paths.into_iter();
-    move || {
-        paths
-            .next()
-            .expect("more temp names requested than planned")
-    }
-}
-
-#[test]
-fn a_write_that_fails_part_way_leaves_nothing_at_its_path() {
-    let dir = tempfile::tempdir().unwrap();
-    let tmp = dir.path().join("cpg-cache.bin.1.0.tmp");
     let final_path = dir.path().join("cpg-cache.bin");
-    let result = super::publish_file(names_from(vec![tmp.clone()]), &final_path, |writer| {
+    fs::write(&final_path, b"previous").unwrap();
+    let result = super::publish_file(dir.path(), &final_path, |writer| {
         writer.write_all(b"partial")?;
         Err(std::io::Error::other("disk full"))
     });
     assert_eq!(result.unwrap_err().to_string(), "disk full");
-    assert!(!tmp.exists(), "a failed write must remove its file");
-    assert!(!final_path.exists());
+    assert_eq!(temp_files(dir.path()), Vec::<String>::new());
+    assert_eq!(fs::read(&final_path).unwrap(), b"previous");
 
-    let written = super::publish_file(names_from(vec![tmp.clone()]), &final_path, |writer| {
-        writer.write_all(b"whole")
-    })
-    .unwrap();
-    assert_eq!(written, 5);
+    // The lock was released with the failure: the next write goes through.
+    let written = super::publish_file(dir.path(), &final_path, |writer| writer.write_all(b"whole"));
+    assert_eq!(written.unwrap(), Some(5));
     assert_eq!(fs::read(&final_path).unwrap(), b"whole");
-    assert!(!tmp.exists(), "the temp file is renamed away");
-}
-
-#[test]
-fn a_temp_name_that_is_taken_is_left_intact_and_the_next_name_is_used() {
-    // A second writer with the same pid (another container, a reused pid) can pick a name a
-    // live writer already created. Creating it must not truncate the other writer's file.
-    let dir = tempfile::tempdir().unwrap();
-    let taken = dir.path().join("cpg-cache.bin.7.0.tmp");
-    let free = dir.path().join("cpg-cache.bin.7.1.tmp");
-    let final_path = dir.path().join("cpg-cache.bin");
-    fs::write(&taken, b"another writer's half-written file").unwrap();
-
-    let written = super::publish_file(
-        names_from(vec![taken.clone(), free.clone()]),
-        &final_path,
-        |writer| writer.write_all(b"mine"),
-    )
-    .unwrap();
-
-    assert_eq!(written, 4);
-    assert_eq!(
-        fs::read(&taken).unwrap(),
-        b"another writer's half-written file"
-    );
-    assert_eq!(fs::read(&final_path).unwrap(), b"mine");
-    assert!(!free.exists());
-}
-
-#[test]
-fn creating_a_temp_file_gives_up_after_a_bounded_number_of_taken_names() {
-    let dir = tempfile::tempdir().unwrap();
-    let taken = dir.path().join("cpg-cache.bin.7.0.tmp");
-    fs::write(&taken, b"x").unwrap();
-    let mut asked = 0;
-    let error = super::create_temp_file(|| {
-        asked += 1;
-        taken.clone()
-    })
-    .unwrap_err();
-    assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
-    assert_eq!(asked, 16);
-    assert_eq!(fs::read(&taken).unwrap(), b"x");
+    assert_eq!(temp_files(dir.path()), Vec::<String>::new());
 }
 
 #[test]
@@ -345,52 +276,6 @@ fn a_rename_that_fails_removes_the_temp_file_and_reports_the_error() {
     assert!(save_cache(&cpg, &hashes, false, dir.path()).is_err());
     assert_eq!(temp_files(dir.path()), Vec::<String>::new());
     assert!(blocker.join("occupant").exists());
-}
-
-#[test]
-fn an_old_unlocked_temp_file_is_removed_and_a_recent_one_is_kept() {
-    let dir = tempfile::tempdir().unwrap();
-    let (cpg, hashes) = fixture();
-    let now = std::time::SystemTime::now();
-    let age = |seconds: u64| now - std::time::Duration::from_secs(seconds);
-    let plant = |name: &str, modified: std::time::SystemTime| {
-        let path = dir.path().join(name);
-        fs::write(&path, b"partial").unwrap();
-        fs::File::options()
-            .write(true)
-            .open(&path)
-            .unwrap()
-            .set_modified(modified)
-            .unwrap();
-    };
-    plant("cpg-cache.bin.4242.0.tmp", age(15 * 60)); // exactly at the limit: stale
-    plant("cpg-cache.bin.tmp", age(3600)); // the name used before this change
-    plant("cpg-cache.bin.4243.7.tmp", age(15 * 60 - 5)); // written to recently: not stale
-    plant("resolved-call-edge-index.bin.1.0.tmp", age(3600)); // another cache's temp: not ours
-    plant("cpg-cache.bin", age(3600)); // the cache itself is never a temp file
-
-    super::remove_stale_temp_files(dir.path(), now);
-    assert_eq!(
-        temp_files(dir.path()),
-        vec![
-            "cpg-cache.bin.4243.7.tmp".to_string(),
-            "resolved-call-edge-index.bin.1.0.tmp".to_string()
-        ]
-    );
-    assert!(dir.path().join("cpg-cache.bin").exists());
-
-    // A save runs the same cleanup and still leaves a recently written file alone. The file is
-    // stamped "now" right before the save, so no wall-clock margin is involved.
-    plant("cpg-cache.bin.4243.7.tmp", std::time::SystemTime::now());
-    plant("cpg-cache.bin.4244.0.tmp", age(7200));
-    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
-    assert_eq!(
-        temp_files(dir.path()),
-        vec![
-            "cpg-cache.bin.4243.7.tmp".to_string(),
-            "resolved-call-edge-index.bin.1.0.tmp".to_string()
-        ]
-    );
 }
 
 #[cfg(unix)]
@@ -410,94 +295,6 @@ fn a_write_that_cannot_start_fails_and_leaves_the_previous_cache_usable() {
         load_cache(&hashes, false, dir.path()),
         CacheResult::Hit(_)
     ));
-}
-
-fn plant_old(dir: &std::path::Path, name: &str) -> std::path::PathBuf {
-    let path = dir.join(name);
-    fs::write(&path, b"partial").unwrap();
-    fs::File::options()
-        .write(true)
-        .open(&path)
-        .unwrap()
-        .set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(7200))
-        .unwrap();
-    path
-}
-
-#[test]
-fn an_old_temp_file_whose_writer_holds_its_lock_is_kept_by_a_save() {
-    // A writer suspended for longer than the age limit (or hit by a clock jump) still holds
-    // its lock, so a save's sweep must not unlink the file under it.
-    let dir = tempfile::tempdir().unwrap();
-    let (cpg, hashes) = fixture();
-    let path = plant_old(dir.path(), "cpg-cache.bin.4245.0.tmp");
-    let writer = fs::File::open(&path).unwrap();
-    writer.try_lock().unwrap();
-
-    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
-    assert_eq!(
-        temp_files(dir.path()),
-        vec!["cpg-cache.bin.4245.0.tmp".to_string()]
-    );
-
-    drop(writer);
-    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
-    assert_eq!(temp_files(dir.path()), Vec::<String>::new());
-}
-
-#[test]
-fn a_writer_holds_its_lock_on_the_temp_file_until_the_rename() {
-    let dir = tempfile::tempdir().unwrap();
-    let tmp = dir.path().join("cpg-cache.bin.9.0.tmp");
-    let final_path = dir.path().join("cpg-cache.bin");
-    let far_future = std::time::SystemTime::now() + std::time::Duration::from_secs(24 * 3600);
-    let seen_locked = std::cell::Cell::new(false);
-
-    super::publish_file(names_from(vec![tmp.clone()]), &final_path, |writer| {
-        writer.write_all(b"in progress")?;
-        // Mid-write: another process could not lock the file, and its sweep leaves it alone
-        // even when the file looks a day old.
-        let other = fs::File::open(&tmp)?;
-        seen_locked.set(matches!(
-            other.try_lock(),
-            Err(std::fs::TryLockError::WouldBlock)
-        ));
-        super::remove_stale_temp_files(dir.path(), far_future);
-        assert!(tmp.exists(), "the sweep removed a live writer's file");
-        Ok(())
-    })
-    .unwrap();
-
-    assert!(seen_locked.get(), "the temp file was not locked mid-write");
-    assert_eq!(fs::read(&final_path).unwrap(), b"in progress");
-}
-
-#[test]
-fn only_the_generated_temp_names_are_swept() {
-    let dir = tempfile::tempdir().unwrap();
-    let now = std::time::SystemTime::now() + std::time::Duration::from_secs(3600);
-    let keep = [
-        "cpg-cache.bin.notes.tmp",
-        "cpg-cache.bin.1.x.tmp",
-        "cpg-cache.bin.1.0.extra.tmp",
-        "cpg-cache.bin.1.tmp",
-        "cpg-cache.bin..0.tmp",
-        "cpg-cache.bin.1..tmp",
-        "cpg-cache.bin.1.0.tmp.bak",
-    ];
-    let remove = ["cpg-cache.bin.12.345.tmp", "cpg-cache.bin.tmp"];
-    for name in keep.iter().chain(remove.iter()) {
-        plant_old(dir.path(), name);
-    }
-    super::remove_stale_temp_files(dir.path(), now);
-    let mut left: Vec<String> = fs::read_dir(dir.path())
-        .unwrap()
-        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
-        .collect();
-    left.sort();
-    let mut expected: Vec<String> = keep.iter().map(|name| name.to_string()).collect();
-    expected.sort();
-    assert_eq!(left, expected);
 }
 
 const LOCK_NAME: &str = "cpg-cache.lock";
@@ -578,7 +375,11 @@ fn the_lock_file_is_permanent_and_keeps_its_inode() {
     let second = fs::metadata(&lock).unwrap().ino();
 
     assert_eq!(first, second);
-    assert_eq!(fs::metadata(&lock).unwrap().len(), 0, "the lock is never written");
+    assert_eq!(
+        fs::metadata(&lock).unwrap().len(),
+        0,
+        "the lock is never written"
+    );
 }
 
 #[test]

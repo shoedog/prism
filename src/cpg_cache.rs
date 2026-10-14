@@ -380,7 +380,9 @@ fn cache_meta_path(cache_dir: &Path) -> PathBuf {
 /// Serialize a `CodePropertyGraph` and write it to the cache directory.
 ///
 /// Writes both `cpg-cache.bin` (bincode) and `cache-meta.json` (human-readable).
-/// Uses atomic write (temp file + rename) to prevent corruption from interrupted writes.
+/// Uses atomic write (temp file + rename) to prevent corruption from interrupted writes. Saves
+/// are serialized per directory by a lock file; a save that finds another one running is
+/// skipped and returns `Ok`.
 ///
 /// `has_type_db` records whether the CPG was built with a `TypeDatabase`.
 /// This flag is checked on load to ensure virtual dispatch edge consistency.
@@ -434,8 +436,11 @@ pub fn save_cache_with_topology(
     };
 
     let bin_path = cache_bin_path(cache_dir);
-    stream::remove_stale_temp_files(cache_dir, std::time::SystemTime::now());
-    let encoded_len = stream::publish_cache_file(cache_dir, &bin_path, &cache)?;
+    let Some(encoded_len) = stream::publish_cache_file(cache_dir, &bin_path, &cache)? else {
+        // Another process is saving this cache right now and publishes an equivalent one.
+        eprintln!("CPG cache save skipped: another process is writing this cache");
+        return Ok(());
+    };
 
     // Write human-readable metadata (best-effort, non-fatal).
     let meta = CacheMeta {
