@@ -180,3 +180,11 @@ mod ready_tests;
 #[cfg(test)]
 #[path = "connection_refresh_tests.rs"]
 mod refresh_tests;
+
+#[cfg(test)]
+#[path = "connection_concurrency_tests.rs"]
+mod concurrency_tests;
+
+#[cfg(test)]
+#[path = "connection_isolation_tests.rs"]
+mod isolation_tests;
