@@ -1,10 +1,10 @@
-//! Streaming I/O for the CPG cache file.
+//! Streaming writer for the CPG cache file.
 //!
-//! Writing serializes straight from the live graph into a buffered file, so neither a copy of
-//! the graph nor the encoded bytes are held in memory. The byte format is exactly the one
-//! `bincode::serialize(&CpgCache)` produces; `stream_tests.rs` holds the two encodings equal.
-//! (Reading still loads the file into memory and decodes the slice; a streamed or mapped reader
-//! is a separate change, measured on its own.)
+//! This module only writes. It serializes straight from the live graph into a buffered file,
+//! so neither a copy of the graph nor the encoded bytes are held in memory. The byte format is
+//! exactly the one `bincode::serialize(&CpgCache)` produces; `stream_tests.rs` holds the two
+//! encodings equal. (Reading still loads the file into memory and decodes the slice; a
+//! streamed or mapped reader is a separate change, measured on its own.)
 
 use super::{CpgEdge, CpgNode};
 use crate::call_graph::CallGraph;
@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime};
 
-/// Buffer between the codec and the file, in both directions.
+/// Buffer between the codec and the file.
 const IO_BUFFER_BYTES: usize = 1 << 20;
 
 /// A temp file nobody has written to for this long belongs to a writer that died.
@@ -29,23 +29,85 @@ const STALE_TEMP_AGE: Duration = Duration::from_secs(15 * 60);
 
 const TEMP_PREFIX: &str = "cpg-cache.bin.";
 const TEMP_SUFFIX: &str = ".tmp";
+/// The one fixed temp name used before temp names were unique.
+const LEGACY_TEMP_NAME: &str = "cpg-cache.bin.tmp";
+
+/// How many temp names are tried before an `AlreadyExists` is given up on.
+const CREATE_ATTEMPTS: usize = 16;
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-/// A temp file name no other writer uses: this process's id and a counter.
+/// A temp file name no other writer in this process uses: this process's id and a counter.
 ///
-/// The name must be unique because a streamed write takes as long as the encoding does. With
-/// one shared name, a second writer's `create` would truncate the file under the first, and
-/// the first could then rename a file with a hole in it into place.
+/// The name is unique among live writers of one pid namespace. Writers that share a cache
+/// directory across namespaces, or a reused pid, can still land on the same name, so
+/// [`create_temp_file`] creates it exclusively and moves on to the next name if it is taken.
 pub(super) fn unique_temp_path(cache_dir: &Path) -> PathBuf {
     let nonce = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
     let pid = std::process::id();
     cache_dir.join(format!("{TEMP_PREFIX}{pid}.{nonce}{TEMP_SUFFIX}"))
 }
 
+/// Whether `name` is a temp file name this module (or the version before it) generates:
+/// `cpg-cache.bin.<digits>.<digits>.tmp` or the legacy `cpg-cache.bin.tmp`. Nothing else in the
+/// cache directory is ours to delete.
+fn is_temp_name(name: &str) -> bool {
+    if name == LEGACY_TEMP_NAME {
+        return true;
+    }
+    let Some(middle) = name
+        .strip_prefix(TEMP_PREFIX)
+        .and_then(|rest| rest.strip_suffix(TEMP_SUFFIX))
+    else {
+        return false;
+    };
+    let all_digits = |part: &str| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit());
+    middle
+        .split_once('.')
+        .is_some_and(|(pid, nonce)| all_digits(pid) && all_digits(nonce))
+}
+
+/// Create a temp file nobody else has, lock it, and return it with its path.
+///
+/// Creation is exclusive (`O_EXCL`): a name that is already taken is left untouched and the
+/// next one from `next_path` is tried, up to [`CREATE_ATTEMPTS`] times. The exclusive advisory
+/// lock marks the writer as alive; it lasts as long as the returned `File` is open, so the
+/// stale-file sweep leaves the file alone for the whole save. A filesystem that cannot lock
+/// leaves the file unlocked, and the sweep then falls back to the file's age alone.
+pub(super) fn create_temp_file(
+    mut next_path: impl FnMut() -> PathBuf,
+) -> io::Result<(PathBuf, File)> {
+    let mut attempt = 0;
+    loop {
+        let path = next_path();
+        match File::options().write(true).create_new(true).open(&path) {
+            Ok(file) => {
+                return match file.try_lock() {
+                    Ok(()) | Err(fs::TryLockError::Error(_)) => Ok((path, file)),
+                    Err(fs::TryLockError::WouldBlock) => {
+                        // A file this call just created, locked by someone else: not ours.
+                        drop(file);
+                        let _ = fs::remove_file(&path);
+                        Err(io::Error::from(io::ErrorKind::WouldBlock))
+                    }
+                };
+            }
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists && attempt + 1 < CREATE_ATTEMPTS => {
+                attempt += 1;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+}
+
 /// Remove temp files left by writers that died mid-write (best effort). A unique name is
 /// never overwritten by the next writer, so without this each crash would leave a partial
-/// cache behind for good. A live writer touches its file continuously and is left alone.
+/// cache behind for good.
+///
+/// A file is removed only if it matches a temp name exactly, has not been modified for
+/// [`STALE_TEMP_AGE`], and no writer holds its lock: a writer that was suspended (or whose
+/// clock jumped) keeps its lock, so age alone never condemns a live writer. A file whose lock
+/// the filesystem does not support is judged by age alone.
 pub(super) fn remove_stale_temp_files(cache_dir: &Path, now: SystemTime) {
     let Ok(entries) = fs::read_dir(cache_dir) else {
         return;
@@ -53,7 +115,7 @@ pub(super) fn remove_stale_temp_files(cache_dir: &Path, now: SystemTime) {
     for entry in entries.flatten() {
         let name = entry.file_name();
         let Some(name) = name.to_str() else { continue };
-        if !(name.starts_with(TEMP_PREFIX) && name.ends_with(TEMP_SUFFIX)) {
+        if !is_temp_name(name) {
             continue;
         }
         let modified = entry.metadata().and_then(|meta| meta.modified());
@@ -63,8 +125,18 @@ pub(super) fn remove_stale_temp_files(cache_dir: &Path, now: SystemTime) {
                 .is_ok_and(|age| age >= STALE_TEMP_AGE),
             Err(_) => false,
         };
-        if stale {
-            let _ = fs::remove_file(entry.path());
+        if !stale {
+            continue;
+        }
+        let Ok(file) = File::open(entry.path()) else {
+            continue;
+        };
+        // Held until the file is gone, so no writer can take the lock in between.
+        match file.try_lock() {
+            Ok(()) | Err(fs::TryLockError::Error(_)) => {
+                let _ = fs::remove_file(entry.path());
+            }
+            Err(fs::TryLockError::WouldBlock) => {}
         }
     }
 }
@@ -143,33 +215,58 @@ impl<W: Write> Write for CountingWriter<W> {
     }
 }
 
-/// Create `path`, let `encode` write it through a buffer, and return the number of bytes
-/// written. If creating, encoding or flushing fails, nothing is left at `path`.
+/// Let `encode` write `file` through a buffer and return the number of bytes written. The
+/// buffer is flushed before returning, so a flush error is reported here and not lost.
 pub(super) fn write_new_file(
-    path: &Path,
+    file: &File,
     encode: impl FnOnce(&mut dyn Write) -> io::Result<()>,
 ) -> io::Result<u64> {
-    let file = File::create(path)?;
     let mut writer = CountingWriter {
         inner: BufWriter::with_capacity(IO_BUFFER_BYTES, file),
         written: 0,
     };
-    match encode(&mut writer).and_then(|()| writer.flush()) {
-        Ok(()) => Ok(writer.written),
-        Err(e) => {
-            drop(writer);
-            let _ = fs::remove_file(path);
-            Err(e)
-        }
-    }
+    encode(&mut writer).and_then(|()| writer.flush())?;
+    Ok(writer.written)
 }
 
-/// Encode `cache` into a new file at `path` and return the number of bytes written.
-pub(super) fn write_cache_file(path: &Path, cache: &CpgCacheRef<'_>) -> io::Result<u64> {
-    write_new_file(path, |writer| {
-        bincode::serialize_into(writer, cache)
-            .map_err(|e| io::Error::other(format!("bincode serialize error: {}", e)))
-    })
+/// Write a new file and move it to `final_path`, returning the number of bytes written.
+///
+/// The bytes go to a freshly created, locked temp file (see [`create_temp_file`]) that is
+/// renamed over `final_path` only once complete; the lock is held until after the rename. If
+/// encoding, flushing or the rename fails, the temp file is removed and `final_path` is left
+/// as it was.
+pub(super) fn publish_file(
+    next_path: impl FnMut() -> PathBuf,
+    final_path: &Path,
+    encode: impl FnOnce(&mut dyn Write) -> io::Result<()>,
+) -> io::Result<u64> {
+    let (tmp_path, file) = create_temp_file(next_path)?;
+    let result = write_new_file(&file, encode).and_then(|written| {
+        fs::rename(&tmp_path, final_path)?;
+        Ok(written)
+    });
+    if result.is_err() {
+        let _ = fs::remove_file(&tmp_path);
+    }
+    drop(file);
+    result
+}
+
+/// Encode `cache` into a new temp file in `cache_dir`, then rename it to `final_path`, and
+/// return the number of bytes written.
+pub(super) fn publish_cache_file(
+    cache_dir: &Path,
+    final_path: &Path,
+    cache: &CpgCacheRef<'_>,
+) -> io::Result<u64> {
+    publish_file(
+        || unique_temp_path(cache_dir),
+        final_path,
+        |writer| {
+            bincode::serialize_into(writer, cache)
+                .map_err(|e| io::Error::other(format!("bincode serialize error: {}", e)))
+        },
+    )
 }
 
 #[cfg(test)]
