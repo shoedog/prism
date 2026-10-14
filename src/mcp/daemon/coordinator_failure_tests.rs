@@ -50,6 +50,13 @@ fn a_build_thread_that_cannot_be_started_is_a_failed_attempt_and_the_next_call_r
         }
     );
     assert_eq!(built(&calls), 0, "the builder never ran");
+    assert!(
+        matches!(
+            &state.lock_control().expect("the control lock").build,
+            BuildPhase::Failed { attempt: 1, error } if error.ends_with("no more threads")
+        ),
+        "the phase names the attempt that failed and why"
+    );
 
     conn.call();
     assert_eq!(conn.outcome(), Outcome::Ready);
@@ -153,4 +160,20 @@ fn a_poisoned_control_lock_is_an_error_for_every_caller_never_a_panic_or_a_hang(
     wait_until("the build thread to publish", || {
         state.read(|_| ()) == Ok(Some(()))
     });
+}
+
+/// An attempt's outcome is written once. Rules out a second ending that replaces the first:
+/// calls that share the outcome could then be told two different things.
+#[test]
+fn an_attempt_s_outcome_keeps_the_first_ending_it_is_given() {
+    let outcome = AttemptOutcome::default();
+    assert!(outcome.answer().is_none(), "empty while the attempt builds");
+
+    outcome.fill(Err("the first ending".to_string()));
+    outcome.fill(Ok(()));
+    outcome.fill(Err("a third".to_string()));
+
+    assert!(
+        matches!(outcome.answer(), Some(Readiness::Failed { error }) if error == "the first ending")
+    );
 }

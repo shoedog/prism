@@ -20,7 +20,7 @@ fn stop_at(reached: &Arc<Gate>, resume: &Arc<Gate>, only: u64) -> AttemptHook {
     Arc::new(move |attempt: u64| {
         if attempt == only {
             reached.open();
-            resume.pass();
+            let _opened = resume.pass();
         }
     })
 }
@@ -41,7 +41,10 @@ fn the_index_is_in_the_slot_before_ready_is_announced() {
     let conn = Conn::open(&state, 600);
 
     conn.call();
-    reached.pass();
+    assert!(
+        reached.pass(),
+        "the build thread reaches the publication hook"
+    );
 
     // The build thread is between publishing and announcing.
     assert_eq!(
@@ -95,7 +98,7 @@ fn a_waiter_that_wakes_after_the_retry_began_still_hears_of_its_own_attempt_s_fa
     });
 
     first_gate.open();
-    recorded.pass();
+    assert!(recorded.pass(), "attempt 1's failure is recorded");
     // Attempt 1's failure is recorded and its waiter has not been notified. Play the other
     // client now.
     let late = Conn::open(&state, 600);
@@ -195,4 +198,132 @@ fn a_poisoned_provider_slot_fails_the_attempt_and_is_an_error_for_every_reader()
     );
     assert_eq!(state.read(|_| ()), Err(Poisoned { lock: "provider" }));
     assert_eq!(state.write(|_| ()), Err(Poisoned { lock: "provider" }));
+}
+
+/// What the three tests below share: attempt 1 is parked on by `early`, fails with "first
+/// attempt failed", and its build thread is held between recording that and notifying. The
+/// caller then lets other attempts come and go before `early` is allowed to hear anything from
+/// attempt 1's own notification. Returns the state, the early connection, the gate that
+/// releases attempt 1's notification, and the builder's call counter.
+fn a_waiter_held_behind_its_failed_attempt(
+    cfg: &crate::mcp::ServerConfig,
+    later_attempts: Vec<super::super::test_support::BuildStep>,
+) -> (Arc<DaemonState>, Conn, Arc<Gate>, Arc<AtomicU64>) {
+    let first_gate = Gate::closed();
+    let mut steps = vec![fail_after(&first_gate, "first attempt failed")];
+    steps.extend(later_attempts);
+    let (builder, calls) = scripted(cfg, steps);
+    let clock = ManualClock::new();
+    let mut parts = parts_with(builder, &clock);
+    let recorded = Gate::closed();
+    let notify = Gate::closed();
+    parts.hooks.settled = Some(stop_at(&recorded, &notify, 1));
+    let state = DaemonState::from_parts(parts).expect("a lazy daemon state");
+
+    let early = Conn::open(&state, 600);
+    early.call();
+    wait_until("the early call to be waiting on attempt 1", || {
+        status(&state).waiting == 1
+    });
+    first_gate.open();
+    assert!(recorded.pass(), "attempt 1's failure is recorded");
+    (state, early, notify, calls)
+}
+
+/// A call is answered with the outcome of the attempt it joined, whatever has happened since
+/// (spec §4.2: "its outcome is delivered to every connection waiting on it"). Here the retry
+/// has already succeeded when the waiter of attempt 1 runs. Rules out answering from the
+/// current phase: the waiter would be told `Ready`, and attempt 1's failure would reach nobody.
+#[test]
+fn a_waiter_of_a_failed_attempt_hears_that_failure_although_the_retry_has_succeeded() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (state, early, notify, calls) = a_waiter_held_behind_its_failed_attempt(&cfg, vec![]);
+
+    // The next call after the failure starts attempt 2, which builds and is announced. That
+    // announcement wakes everybody parked, the waiter of attempt 1 included.
+    let late = Conn::open(&state, 600);
+    late.call();
+    assert_eq!(late.outcome(), Outcome::Ready);
+    assert_eq!(status(&state).state, BuildState::Ready);
+
+    assert_eq!(
+        early.outcome(),
+        Outcome::Failed("first attempt failed".to_string()),
+        "the waiter of attempt 1 is told how attempt 1 ended"
+    );
+    notify.open();
+    assert_eq!(status(&state).attempt, 2);
+    assert_eq!(built(&calls), 2);
+
+    // Its next call finds the index ready.
+    early.call();
+    assert_eq!(early.outcome(), Outcome::Ready);
+}
+
+/// As above, with a retry that failed for another reason. Rules out one remembered error for
+/// all attempts: the waiter of attempt 1 would be told attempt 2's.
+#[test]
+fn a_waiter_of_a_failed_attempt_hears_that_failure_although_the_retry_failed_differently() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (state, early, notify, _calls) = a_waiter_held_behind_its_failed_attempt(
+        &cfg,
+        vec![super::super::test_support::fail_now(
+            "second attempt failed",
+        )],
+    );
+
+    let late = Conn::open(&state, 600);
+    late.call();
+    assert_eq!(
+        late.outcome(),
+        Outcome::Failed("second attempt failed".to_string()),
+        "the call that started attempt 2 hears attempt 2's"
+    );
+
+    assert_eq!(
+        early.outcome(),
+        Outcome::Failed("first attempt failed".to_string()),
+        "the waiter of attempt 1 hears attempt 1's"
+    );
+    notify.open();
+    assert_eq!(status(&state).attempt, 2);
+}
+
+/// As above, with attempt 2 failed and attempt 3 building when the waiter of attempt 1 runs.
+/// Rules out an error kept with only its attempt number: nothing of attempt 1 would be left.
+#[test]
+fn a_waiter_of_a_failed_attempt_hears_that_failure_although_a_third_attempt_is_building() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let third_gate = Gate::closed();
+    let (state, early, notify, _calls) = a_waiter_held_behind_its_failed_attempt(
+        &cfg,
+        vec![
+            super::super::test_support::fail_now("second attempt failed"),
+            build_after(&third_gate, &cfg),
+        ],
+    );
+
+    let second = Conn::open(&state, 600);
+    second.call();
+    assert_eq!(
+        second.outcome(),
+        Outcome::Failed("second attempt failed".to_string())
+    );
+    let third = Conn::open(&state, 600);
+    third.call();
+    wait_until("attempt 3 to be building", || {
+        let now = status(&state);
+        now.state == BuildState::Building && now.attempt == 3
+    });
+
+    // Attempt 2's notification has woken everybody parked; the waiter of attempt 1 answers
+    // from attempt 1 and does not wait on attempt 3.
+    assert_eq!(
+        early.outcome(),
+        Outcome::Failed("first attempt failed".to_string())
+    );
+    notify.open();
+    third_gate.open();
+    assert_eq!(third.outcome(), Outcome::Ready);
+    assert_eq!(status(&state).attempt, 3);
 }

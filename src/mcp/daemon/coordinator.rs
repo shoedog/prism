@@ -21,16 +21,13 @@ use crate::mcp::lazy::{Readiness, SessionBuilder};
 use crate::mcp::shared::preamble::BuildState;
 use crate::mcp::{SessionProvider, StartupMode};
 use std::fmt;
-use std::sync::{Arc, Condvar, Mutex, MutexGuard, RwLock, RwLockWriteGuard};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, RwLock, RwLockWriteGuard};
 use std::time::Instant;
 
 /// What a call is told when the builder panicked. The in-process server uses the same text.
 const BUILD_PANICKED: &str = "index build panicked";
 const SLOT_POISONED: &str =
     "the index was built and could not be published: the provider lock is poisoned";
-/// Used only if an attempt is found to be over with no failure recorded, which the two
-/// functions that change the phase do not allow.
-const BUILD_FAILED: &str = "index build failed";
 
 /// A lock of the daemon is poisoned: a thread panicked while holding it. The state behind it
 /// is not read again. Until slice S3b makes this the daemon-fatal abort of spec §3.1, the
@@ -52,13 +49,43 @@ impl fmt::Display for Poisoned {
 
 impl std::error::Error for Poisoned {}
 
+/// How one build attempt ended: empty while it builds, filled when it ends, and not changed
+/// after that (a second fill has no effect). The attempt's phase holds one share of it and
+/// every call that starts or joins the attempt holds another, so a call reads the outcome of
+/// its own attempt however far the phase has moved on by the time the call runs again.
+#[derive(Debug, Default)]
+pub(super) struct AttemptOutcome {
+    ended: OnceLock<Result<(), String>>,
+}
+
+impl AttemptOutcome {
+    /// Record how the attempt ended. Only the first call has any effect.
+    fn fill(&self, ended: Result<(), String>) {
+        let _ = self.ended.set(ended);
+    }
+
+    /// What a call that belongs to this attempt is told; `None` while it is still building.
+    fn answer(&self) -> Option<Readiness> {
+        self.ended.get().map(|ended| match ended {
+            Ok(()) => Readiness::Ready,
+            Err(error) => Readiness::Failed {
+                error: error.clone(),
+            },
+        })
+    }
+}
+
 /// Where the index build is (spec §4.2).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub(super) enum BuildPhase {
     /// No build has been asked for.
     Idle,
-    /// Attempt `attempt` is running since `started`.
-    Building { attempt: u64, started: Instant },
+    /// Attempt `attempt` is running since `started`. `outcome` is that attempt's, still empty.
+    Building {
+        attempt: u64,
+        started: Instant,
+        outcome: Arc<AttemptOutcome>,
+    },
     /// A provider is in the slot. `generation` is the provider's, as of the last completed
     /// exclusive access to it.
     Ready { generation: u64 },
@@ -94,33 +121,6 @@ pub(super) struct ControlState {
     pub(super) attempts: u64,
     /// How many calls are parked on the condition variable right now.
     pub(super) waiting: u64,
-    /// The error of the most recent failed attempt. It outlives the `Failed` phase, for a call
-    /// that was waiting on that attempt and runs again only after the retry has begun.
-    pub(super) last_error: Option<String>,
-}
-
-impl ControlState {
-    /// What a call that belongs to `attempt` is told now; `None` while that attempt is still
-    /// building.
-    fn outcome_for(&self, attempt: u64) -> Option<Readiness> {
-        match &self.build {
-            BuildPhase::Ready { .. } => Some(Readiness::Ready),
-            BuildPhase::Building {
-                attempt: building, ..
-            } if *building == attempt => None,
-            BuildPhase::Failed { error, .. } => Some(Readiness::Failed {
-                error: error.clone(),
-            }),
-            // A later attempt is building, so the one this call belongs to failed. The call is
-            // told so; it does not join the retry with a budget it was given for another attempt.
-            BuildPhase::Building { .. } | BuildPhase::Idle => {
-                let error = self.last_error.clone();
-                Some(Readiness::Failed {
-                    error: error.unwrap_or_else(|| BUILD_FAILED.to_string()),
-                })
-            }
-        }
-    }
 }
 
 /// A snapshot of the control plane: what the status probe reports about the build.
@@ -219,7 +219,6 @@ impl DaemonState {
                 build: BuildPhase::Idle,
                 attempts: 0,
                 waiting: 0,
-                last_error: None,
             }),
             changed: Condvar::new(),
             provider: RwLock::new(None),
@@ -245,12 +244,15 @@ impl DaemonState {
     /// Make sure a build has been started and wait for it, no longer than `budget` allows.
     ///
     /// The call first decides which attempt it belongs to, once: the one that is building, or a
-    /// new one if none has been started or the last one failed. It then waits for that attempt
-    /// only and returns
+    /// new one if none has been started or the last one failed. From then on it reads only that
+    /// attempt's outcome, whatever the phase has become by the time it runs again, and returns
     ///
-    /// - `Ready` once the index is published,
-    /// - `Failed` if that attempt ended without an index (the call does not start the retry;
-    ///   the next call does),
+    /// - `Ready` once that attempt has published the index (or at once, if the index was ready
+    ///   when the call arrived),
+    /// - `Failed`, with that attempt's own error, if that attempt ended without an index. The
+    ///   call does not start the retry (the next call does), does not join a retry that has
+    ///   begun in the meantime, and is told of the failure even if a retry has since succeeded:
+    ///   its next call finds the index ready,
     /// - `Warming` when this connection's deadline for that attempt has passed. That is this
     ///   connection's wait ending; the build goes on and nobody else's deadline changes.
     ///
@@ -265,15 +267,20 @@ impl DaemonState {
 
         let building = match &control.build {
             BuildPhase::Ready { .. } => return Ok(Readiness::Ready),
-            BuildPhase::Building { attempt, started } => Some((*attempt, *started)),
+            BuildPhase::Building {
+                attempt,
+                started,
+                outcome,
+            } => Some((*attempt, *started, Arc::clone(outcome))),
             BuildPhase::Idle | BuildPhase::Failed { .. } => None,
         };
-        let (attempt, started) = building.unwrap_or_else(|| self.start_attempt(&mut control));
+        let (attempt, started, outcome) =
+            building.unwrap_or_else(|| self.start_attempt(&mut control));
         let deadline = budget.deadline_for(attempt, self.clock.now());
 
         loop {
-            if let Some(outcome) = control.outcome_for(attempt) {
-                return Ok(outcome);
+            if let Some(answer) = outcome.answer() {
+                return Ok(answer);
             }
             let now = self.clock.now();
             let remaining = deadline.saturating_duration_since(now);
@@ -373,25 +380,33 @@ impl DaemonState {
             .map_err(|_| Poisoned { lock: "control" })
     }
 
-    /// Start the next attempt and return its number and start time. Called with the control
-    /// lock held, from `Idle` or `Failed` only; that is what makes it the one place a build
-    /// thread comes from.
-    fn start_attempt(self: &Arc<Self>, control: &mut ControlState) -> (u64, Instant) {
+    /// Start the next attempt and return its number, its start time and its outcome, still
+    /// empty. Called with the control lock held, from `Idle` or `Failed` only; that is what
+    /// makes it the one place a build thread comes from.
+    fn start_attempt(
+        self: &Arc<Self>,
+        control: &mut ControlState,
+    ) -> (u64, Instant, Arc<AttemptOutcome>) {
         let attempt = control.attempts.saturating_add(1);
         let started = self.clock.now();
+        let outcome = Arc::new(AttemptOutcome::default());
         control.attempts = attempt;
-        control.build = BuildPhase::Building { attempt, started };
+        control.build = BuildPhase::Building {
+            attempt,
+            started,
+            outcome: Arc::clone(&outcome),
+        };
 
         let state = Arc::clone(self);
         let job: BuildJob = Box::new(move || state.run_build(attempt));
         if let Err(error) = (self.spawner)(job) {
-            // No thread, so nothing will ever end this attempt: end it here. Nobody can have
-            // joined it yet, because the control lock has been held since it began.
+            // No thread, so nothing will ever end this attempt: end it here. Nobody but the
+            // caller can have joined it, because the control lock has been held since it began.
             let error = format!("could not start the index build thread: {error}");
-            control.last_error = Some(error.clone());
+            outcome.fill(Err(error.clone()));
             control.build = BuildPhase::Failed { attempt, error };
         }
-        (attempt, started)
+        (attempt, started, outcome)
     }
 
     /// The build thread: run the builder with no lock held, then publish or record the failure.
@@ -442,20 +457,26 @@ impl DaemonState {
         self.settle(attempt, BuildPhase::Ready { generation });
     }
 
-    /// Record how `attempt` ended and tell every parked call. The outcome is recorded only if
-    /// the phase is still `Building` that attempt, so an attempt ends once and `Ready` is not
-    /// left. A poisoned control lock is left alone; the parked calls find it when they wake.
-    fn settle(&self, attempt: u64, outcome: BuildPhase) {
+    /// Record how `attempt` ended, in its own outcome and in the phase, and tell every parked
+    /// call. Nothing is recorded unless the phase is still `Building` that attempt, so an
+    /// attempt ends once and `Ready` is not left. A poisoned control lock is left alone; the
+    /// parked calls find it when they wake.
+    fn settle(&self, attempt: u64, phase: BuildPhase) {
         if let Ok(mut control) = self.control.lock() {
-            let still_building = matches!(
-                &control.build,
-                BuildPhase::Building { attempt: building, .. } if *building == attempt
-            );
-            if still_building {
-                if let BuildPhase::Failed { error, .. } = &outcome {
-                    control.last_error = Some(error.clone());
-                }
-                control.build = outcome;
+            let building = match &control.build {
+                BuildPhase::Building {
+                    attempt: building,
+                    outcome,
+                    ..
+                } if *building == attempt => Some(Arc::clone(outcome)),
+                _ => None,
+            };
+            if let Some(outcome) = building {
+                outcome.fill(match &phase {
+                    BuildPhase::Failed { error, .. } => Err(error.clone()),
+                    _ => Ok(()),
+                });
+                control.build = phase;
             }
         }
         #[cfg(test)]

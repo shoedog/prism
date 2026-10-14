@@ -101,14 +101,17 @@ impl Gate {
         self.changed.notify_all();
     }
 
-    /// Wait until the gate is open. Gives up after four times [`HANG`], so a test that fails
-    /// before it opens its gate does not leave a thread parked for the rest of the run.
-    pub(super) fn pass(&self) {
+    /// Wait until the gate is open and return `true`. Gives up after four times [`HANG`] and
+    /// returns `false`, so a test that fails before it opens its gate does not leave a thread
+    /// parked for the rest of the run. A test thread asserts on the result; a build step or a
+    /// hook has nobody to tell and goes on.
+    pub(super) fn pass(&self) -> bool {
         let open = self.open.lock().expect("gate");
-        let _waited = self
+        let (open, _timed_out) = self
             .changed
             .wait_timeout_while(open, HANG * 4, |open| !*open)
             .expect("gate");
+        *open
     }
 }
 
@@ -136,7 +139,7 @@ pub(super) fn build_after(gate: &Arc<Gate>, cfg: &ServerConfig) -> BuildStep {
     let gate = Arc::clone(gate);
     let cfg = cfg.clone();
     Box::new(move || -> anyhow::Result<SessionProvider> {
-        gate.pass();
+        let _opened = gate.pass();
         SessionProvider::bootstrap(&cfg)
     })
 }
@@ -145,7 +148,7 @@ pub(super) fn build_after(gate: &Arc<Gate>, cfg: &ServerConfig) -> BuildStep {
 pub(super) fn fail_after(gate: &Arc<Gate>, message: &'static str) -> BuildStep {
     let gate = Arc::clone(gate);
     Box::new(move || -> anyhow::Result<SessionProvider> {
-        gate.pass();
+        let _opened = gate.pass();
         Err(anyhow::anyhow!(message))
     })
 }
