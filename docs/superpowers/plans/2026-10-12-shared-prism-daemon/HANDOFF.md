@@ -1,6 +1,6 @@
-# Handoff — shared per-repo prism daemon lane; S3a-2 in its last review round, M2 save half in review, M2 load half measured at 06:00
+# Handoff — shared per-repo prism daemon lane; S3a merged, M2 save half (lock-file design) in its design check, M2 load half measured at 06:00
 
-**Written:** 2026-10-13T22:00-06:00 · **By:** Claude Code session `fd583811-fdc5-4426-9c4a-55872d2ecc1c` (Opus 5.5) · **Provider:** claude
+**Written:** 2026-10-13T23:20-06:00 · **By:** Claude Code session `fd583811-fdc5-4426-9c4a-55872d2ecc1c` (Opus 5.5) · **Provider:** claude
 **Workspace:** `~/code/prism-c2-plan` · `docs/daemon-lane-handoff-late` (this docs PR) · **Measured state:** `[MEASURED]` HEAD = the commit that adds this revision · Tree CLEAN after that commit · Probe `git status --short && git log --oneline -3` · Output inline in the session
 **Predecessor:** this session's own handoff of 2026-10-13T16:45-06:00 (same file, previous revision), and before it Claude Code session `afaf5155-ea5e-4ad5-b8d8-be35f747f74d` (Fable 5.1)
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
@@ -9,14 +9,14 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` this session is the only one on the lane; another session works the JS/TS alias lane and does not touch `src/mcp` or `src/cpg_cache*`. — **RESOLVED 2026-10-13**
-**(b) Custody exposure** — `[MEASURED]` on `main` (`e7dc1cc2`): S1, C1, spec, plans, readout, S2a, S2b, the driver, the M2 plan, S3a-1. Pushed branches with open PRs: `feat/mcp-daemon-s3a-2` (#377, head `15f67d84`), `plan/s3a-readiness-coordinator` (#373, head `04b51d57`), `perf/cpg-cache-streaming-save` (#380, `9f1e28b2`), `perf/cpg-cache-streaming` (#369, draft, to be closed), and `perf/cpg-cache-mmap-load` (`91e5a5af`, pushed, no PR yet). Raw evidence is local only under `~/prism-evidence/mcp-memory/{c1,c2-m2}/`; the M2 experiment's `SHA256SUMS` is written after the morning run. — **OPEN until then**
+**(b) Custody exposure** — `[MEASURED]` on `main` (`4e2e9c3c`): S1, C1, spec, plans, readout, S2a, S2b, the driver, the M2 plan, S3a-1, S3a-2 (#377 → `14e6f66c`), the S3a plan (#373 → `4e2e9c3c`). Pushed branches with open PRs: `perf/cpg-cache-streaming-save` (#380, head `c33e0aba`, lock-file design), `perf/cpg-cache-streaming` (#369, draft, to be closed), and `perf/cpg-cache-mmap-load` (`91e5a5af`, pushed, no PR yet). Raw evidence is local only under `~/prism-evidence/mcp-memory/{c1,c2-m2}/`; the M2 experiment's `SHA256SUMS` is written after the morning run. — **OPEN until then**
 **(c) In flight / irreversible** — `[MEASURED]` a session cron (`3998d2d5`, session-only: it dies with the session) runs the M2 quiet-window measurements at **06:00 MDT 2026-10-14**, following `~/prism-evidence/mcp-memory/c2-m2/PROCEDURE-6am.md`; the three binaries and `bin/COMMITS-6am.txt` are in place. **From 06:00 until that run ends, start no cargo build, no test run, no review and no other prism-mcp on this host.** If this session is gone by then, a successor runs the procedure by hand. — **OPEN**
 **(d) Authorization granted but not exercised** — owner, 2026-10-13: "1 ship the save half now. Can we schedule the other half for 6AM MDT?" (exercised: #380 open; merges on approval plus green CI); the D26 answer ("Building/indexing … retry"), built in S3a-2; "approved, waive check 3 for M2". Still open with the owner: §7.
 
 ## 1. Resume order
 1. Read `README.md` in this directory: slice table, decision tables, measured facts, notes for S3a/S4/S5a.
-2. **S3a-2 (#377):** round 2 of 2 is running (Opus 5.5 and gpt-6.1-sol; brief and reports under the session scratchpad, `reviews/s3a2-r2-*`). On APPROVE from both plus green CI: squash-merge with `--match-head-commit <full sha>`, then merge the plan #373, then apply SI-8's sentence to spec §4.2 in this docs PR. On FIX: classify per the convergence rule (cap reached; fold only if converging, disclose the extension).
-3. **M2 save half (#380):** after CI is green, two reviewers (brief: session scratchpad `review-m2save-brief.md`), cap two rounds; merge on approval plus green CI. Fill the PR body's mutation-gate and Tier-A lines from `m2save-gates/`.
+2. **S3a: done** (S3a-1 #374, S3a-2 #377, plan #373 merged 2026-10-13). Spec §4.2 clarification (D32) is in this docs PR.
+3. **M2 save half (#380):** rounds 1–2 found an open class (the stale-temp sweep could delete a live writer's temp file through check-then-act gaps). Escalated; **owner chose the lock-file design** ("A, go ahead"), with a concern about leakage: a save takes a permanent `cpg-cache.lock` (`try_lock`; busy → skip the save; lock unsupported → main's behaviour), writes the fixed `cpg-cache.bin.tmp`, renames; a load removes an orphan temp only while holding the lock. One design-check round by both reviewers (disclosed past the cap); full gates on `c33e0aba` in `m2save-verify-3` (session scratchpad). Merge on approval plus green CI and gates.
 4. **06:00 run** (§0 (c)): report P1/P3/P5 for the mapped reader and P2/P4 for the save half; write the M2 readout `docs/analysis/2026-10-c2-m2-cache-streaming-readout.md` and `SHA256SUMS`. The load half gets a PR and reviews only if P1 passes and P3/P5 hold; otherwise it closes as "not worth it" (the plan's one retry). Then close #369.
 5. **S3b plan:** from the merged S3a interfaces (`DaemonState`, `serve_admitted`, `run_tool_call`, `Answer`), the S3a plan's "interfaces for later slices", and the README notes.
 6. **M1 plan:** against spec §6.1 as revised. The driver's `compare` needs an `m1` row set.
@@ -34,11 +34,11 @@
 | S2a / S2b | done | `[MEASURED]` #364 → `802844a8`; #370 → `8587c7b9` |
 | C2 driver extension | done | `[MEASURED]` #367 → `c785fa4f` |
 | M2 plan and decisions | done | `[MEASURED]` #366 → `86756aad` |
-| S3a plan | in review with S3a-2 | `[MEASURED]` #373, head `04b51d57` (adds Tasks 11–12, D32, D33, SI-8, review-fold record) |
+| S3a plan | done | `[MEASURED]` #373 → `4e2e9c3c` (Tasks 1–14; D26 amended by the owner; D32, D33; SI-8) |
 | S3a-1 coordinator and slot | done | `[MEASURED]` #374 → `e7dc1cc2` |
-| S3a-2 one admitted connection | round 2 running | `[MEASURED]` #377, head `15f67d84`. Round 1: sol APPROVE, Opus FIX F1 (a timed-out client never heard its attempt's failure; the daemon retried on every call). Folded test first (D32, `answer_for` table tests, blocking stream, D33); 5 + 2 new mutants and the 19 earlier ones all killed; `mcp::daemon` 63 tests, 30 of 30 identical runs. Round-1 full suite 5,611 passed at `5e58e646`; the full suite on `15f67d84` is running (`s3a2-verify-2`). |
+| S3a-2 one admitted connection | done | `[MEASURED]` #377 → `14e6f66c`. Round 1 Opus FIX F1 → D32; round 2 text only; owner then decided the ready case (serve at once) and 5 s retry; a confirmation check past the cap (disclosed): Opus APPROVE, sol FIX on one plan sentence (fixed). Full suite 5,628 passed at `248da0ca`; clippy 258 (= main). |
 | M2 experiment (full candidate) | done | `[MEASURED]` `compare-1.md`: P1 load peak passes on 4 corpora (−19 to −24 %); P2 first-build peak passes on 3 (ruff n=2); P5 live heap lower everywhere; P3/P4 not resolvable on a loaded host (±20 % run to run). |
-| M2 save half | in review | `[MEASURED]` #380, `9f1e28b2`: full suite 5,604 passed, 0 failed; clippy 257 lines (none new); mutation gate and Tier-A running (`m2save-gates/`). Ships before its own P4 by owner decision. |
+| M2 save half | design check | `[MEASURED]` #380, head `c33e0aba`: streamed write (bytes unchanged) + per-directory lock file + orphan cleanup on load. Implementer: 37 cache tests, 1,447 lib tests, every mutation probe killed. Full gates running. The 06:00 binary `bin/save` is `9f1e28b2` (same encoding path; locking differs). |
 | M2 load half (memory-mapped reader) | built, measured at 06:00 | `[MEASURED]` `perf/cpg-cache-mmap-load` `91e5a5af` (on the save half; `memmap2 =0.9.8`); 29 cache tests pass; no PR yet |
 | C2-M1 plan | pending | metric decided (spec §6.1 as revised); not written |
 | S3b–S6, B | pending | each planned when its predecessor merges |
@@ -63,15 +63,15 @@
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | S3a-2 merge, then plan #373 | round 2 | §1 step 2 | reviews | #377, #373, `~/code/prism-s3a2` |
 | 2 | M2 save half | review | §1 step 3 | CI | #380, `~/code/prism-m2-save` |
 | 3 | M2 06:00 run and readout | scheduled | §1 step 4 | 06:00 | `PROCEDURE-6am.md`, `~/code/prism-m2-load` |
-| 4 | Spec §4.2 sentence (SI-8) | drafted | apply after round 2 | #1 | S3a plan SI-8 |
-| 5 | Sub-floor result cap | open | owner: refuse (built) or replace | owner | spec §11 item 5 |
-| 6 | Shim-side peer-uid check | open | owner: confirm as an S5a requirement | owner | README notes for S5a |
-| 7 | Retry interval in the `indexing` answer | open | owner: keep 5 s or choose | owner | S3a plan D26 |
-| 8 | Superseded call when the index is already ready | open | owner: tell it to retry (built, D26) or serve it | owner | S3a plan "Decisions owed" |
-| 9 | S3b plan, M1 plan | pending | §1 steps 5–6 | #1 | — |
+| 4 | Spec §4.2 sentence (SI-8) | in this docs PR | merge the docs PR | — | spec §4.2 |
+| 5 | Sub-floor result cap | settled | refuse, as merged in S2b | — | spec §11 item 5 |
+| 6 | Shim-side peer-uid check | S5a design item | decide in the S5a plan and its review | — | S3a plan notes for S5a |
+| 7 | Retry interval | decided | 5 s (owner) | — | S3a plan D26 |
+| 8 | Superseded call when the index is ready | decided, built | served at once (owner) | — | #377 |
+| 9 | S3b plan, M1 plan | next | §1 steps 5–6 | — | — |
+| 10 | Background-start failure parity | S4 requirement | build in S4 | — | S3a plan "Interfaces for later slices" |
 
 ## 5. Invariants and traps — do not do these
 - Never edit `src/mcp/transport_tests.rs` or `src/mcp/owner_transport_tests.rs`, and never re-record the golden transcripts, in S2–S5 — together they are the proof that standalone stdout is unchanged.
@@ -116,10 +116,6 @@
 
 **§2c verdict:** REFUTED · claim: "a runtime directory that is a real directory, owned by this user, mode 0700, is private (spec §4.3)" · pass: INDEPENDENT (two reviewers, two rounds, each with probes on this host) · evidence tier: TEST-BACKED · record: PR #364; the tests in `src/mcp/shared/dir_chain_tests.rs` and the list tests in `runtime_dir_tests.rs`
 
-**Questions the owner owes an answer to:**
-1. A client-supplied result cap below the floor (12,000 characters): refuse (built in S2b; both S2b reviewers recommend it) or serve with the default? Only a non-conforming client ever reaches this.
-2. Should the shim check the socket peer's uid, as the daemon does? Recommended: yes, as an S5a requirement.
-3. The `indexing` answer's retry interval: 5 seconds is the implementer's placeholder. Keep it, or name a value?
-4. A call whose failed attempt was superseded by a retry that has already made the index ready is told to retry (as decided under D26), though it could be served at once. Keep, or serve? (Opus, S3a-2 round 1, S2.)
+**Questions the owner owes an answer to:** None open. The sub-floor cap is settled as "refuse" (as merged); the shim-side peer-uid check is an S5a design item.
 
-Answered on 2026-10-13 and recorded in spec §11 items 4–11, `README.md` and the S3a plan: runtime directory as the spec says; peer-uid check in S4; `--warm-at-startup` a daemon flag; C2 metric live heap plus footprint confirmation; four corpora; S2 from `scratch/s2-validate`; fan-out gate waived for M2; a superseded failure answers a retryable `indexing` status (D26); ship the M2 save half now and measure the rest at 06:00.
+Answered on 2026-10-13 and recorded in spec §11 items 4–11, `README.md` and the S3a plan: runtime directory as the spec says; peer-uid check in S4; `--warm-at-startup` a daemon flag; C2 metric live heap plus footprint confirmation; four corpora; S2 from `scratch/s2-validate`; fan-out gate waived for M2; a superseded failure answers a retryable `indexing` status while a retry builds and is served once the index is ready, retry interval 5 s (D26 as amended); the M2 save half uses a per-directory lock file instead of a temp sweep; ship the M2 save half now and measure the rest at 06:00.
