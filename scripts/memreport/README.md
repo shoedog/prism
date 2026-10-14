@@ -10,6 +10,7 @@ cargo build --release --bin prism-mcp --features mcp
 python3 scripts/memreport/memreport.py gen-workload --bin target/release/prism-mcp --corpus ruff=~/code/bench-repos/ruff --workloads ~/prism-evidence/mcp-memory/c1/workloads
 python3 scripts/memreport/memreport.py run --bin target/release/prism-mcp --corpus ruff=~/code/bench-repos/ruff --workloads ~/prism-evidence/mcp-memory/c1/workloads --out ~/prism-evidence/mcp-memory/c1/run-1
 python3 scripts/memreport/memreport.py render --run ~/prism-evidence/mcp-memory/c1/run-1 --out docs/analysis/readout.md
+python3 scripts/memreport/memreport.py compare --experiment m2 --baseline <run-a> --candidate <run-b> --out compare.md --json compare.json
 python3 -m unittest discover -s scripts/memreport -p 'test_*.py'
 ```
 
@@ -18,7 +19,8 @@ runs all of them. One file alone: `python3 -m unittest scripts/memreport/test_me
 
 ## What a run is
 
-Four kinds per corpus, each repeated (default three times), one process at a time:
+Four kinds per corpus (a fifth, `build`, on request), each repeated (default three times), one process at a
+time:
 
 | Kind | Command adds | Measures |
 |---|---|---|
@@ -26,8 +28,42 @@ Four kinds per corpus, each repeated (default three times), one process at a tim
 | `cold` | `--no-cache` | a full build, no cache written ("Cold peak (no cache write)") |
 | `workload` | the corpus workload snapshot | steady state after queries and a settle ("Steady state (cache-loaded)") |
 | `refresh` | `--mem-refresh` | the peak while two snapshots coexist |
+| `build` (only with `--kinds`) | `--cache-dir <run>/cache-build/<corpus>/<rep>`, a new empty directory per repetition | a first build that writes the cache, repeated: `build_peak` (peak at `after_call_edges`) and `build_ms` (`after_index` minus `after_load_repo` elapsed) |
 
-The priming run's statistics are discarded, but its lifetime peak at its last stage is kept as "First-build
+`--kinds LIST` (default `warm,cold,workload,refresh`) runs a comma-separated subset of
+`warm,cold,workload,refresh,build`, in that order whatever the order given. An unknown or repeated name, or an
+empty list, is refused before anything runs. `warm` also reports `load_ms` (`after_index` minus
+`after_load_repo` elapsed time; unavailable if either time is). The readout still lists the four kinds only
+and prints `n/a` for those that were not run; `build` figures are read by `compare`.
+
+A `build` repetition is admissible only if its report says `cache.cpg_hit: false` and
+`cache.call_edges_loaded: false`, it passes the usual structural and build-identity checks and has the
+`after_call_edges` peak, **and the process left both cache files behind**: after it exits the driver records the
+sizes of `cpg-cache.bin` and `resolved-call-edge-index.bin` (`cache_files` in the stored result), and both must be
+integers above 0. The binary catches a failed cache save, prints it and still exits 0 with both flags false, so
+the files are the evidence that the cache was written; stderr containing `failed to save CPG cache` or
+`nav edge cache: failed to save sidecar` also excludes the run. `summarize` and `compare` re-apply the file check to
+the stored sizes (a stored build result without `cache_files` is inadmissible).
+
+Each `build` repetition gets its own cache directory, `<out>/cache-build/<corpus>/<rep>/`, and the driver
+deletes it afterwards. That is the only thing the driver deletes, so it never deletes by path: a path can be
+made to name something else between any two looks at it. The directory is created exclusively, relative to an
+open descriptor of its parent, and opened at once (a repetition is refused if the directory already exists, if
+`cache-build` or the corpus directory is a symlink, or if what is found right after the creation is not
+empty). That descriptor is kept until the measurement is over. The contents are then deleted through it,
+wherever the directory is by then, and the name is removed with `rmdir`, which cannot remove a directory that
+has content. A directory moved into the path during the measurement is therefore never touched. The stored
+result says what was observed: `cache_dir_removed` is true only if the path is gone afterwards, and
+`cache_dir_note` says why not otherwise (the path is also named on stderr, and `compare` prints a warning). Any
+filesystem error while creating the directory (a file in the way, a read-only directory, a full disk) refuses
+that repetition (inadmissible, no child run), not the whole run. The then-empty `cache-build/` directories are
+removed. `build` keeps the settle sleep of `--settle` seconds per repetition; that is harmless, since the peak it
+reports is a lifetime peak.
+
+A corpus NAME (in `--corpus NAME=PATH`, for `run` and `gen-workload`) must be letters, digits, `.`, `_` or `-`,
+starting with a letter or digit: it names directories under `--out`.
+
+The priming run happens only when at least one of `warm`, `workload`, `refresh` is selected. Its statistics are discarded, but its lifetime peak at its last stage is kept as "First-build
 peak (writes the cache, n=1)": one build that also writes the cache, shown as `n/a` when the priming run is
 absent or was not admitted. Right after it the driver measures the size of `cpg-cache.bin` (and of
 `resolved-call-edge-index.bin`) under `<run>/cache/<corpus>/`; a file that is absent, or not the only one of
@@ -51,9 +87,17 @@ absent from every statistic; it is never 0.
 seen at one of two levels, hundreds of MiB apart, with the same live heap at both, and a longer `--settle`
 did not decide which (measured in `docs/analysis/2026-10-prism-mcp-memory-readout.md`, last section; the
 mechanism was not identified). "Steady live heap" is repeatable, but it counts allocations, not physical
-memory. Which figure a baseline-against-candidate comparison should use is an open owner question (lane
-README, question 5); until it is answered, compare footprints only between runs at the same level
-(footprint minus live heap tells the levels apart).
+memory. A baseline-against-candidate comparison of steady state therefore uses the live heap with a
+pinned minimum effect size, and a candidate whose saving is itself live heap (dropping the retained trees)
+must also show it in footprints compared between runs at the same level; footprint minus live heap tells the
+levels apart (spec §6.1 as revised 2026-10-13).
+
+## What this tool does not defend against
+
+Raw results are trusted as written. `summarize` and `compare` refuse files that are misnamed, duplicated or
+out of range, which catches accidents (a copied file, a stray backup). They do not authenticate a measurement:
+someone who edits a result file by hand, or copies one under a valid name with its fields changed, can change
+a verdict. The evidence directory's checksums, taken when a run finishes, are what detect that.
 
 ## What is excluded, and why
 
@@ -66,7 +110,7 @@ readout; they are never retried silently.
   entry that is not an object with a string `name`; a byte or count field that is not null or an integer from 0
   to 2^64-1, which rules out `1e309`, floats and booleans; a `build`, `env`, `cache` or `threads` of the wrong
   shape). The same check runs on every report, the priming run's included;
-- a number its kind needs is unavailable, or its stage is missing (`warm`: `after_load_repo.peak_bytes`,
+- a number its kind needs is unavailable, or its stage is missing (`build`: `after_call_edges.peak_bytes`; `warm`: `after_load_repo.peak_bytes`,
   `after_index.peak_bytes`, the `after_index` footprint; `cold`: `after_call_edges.peak_bytes`; `refresh`:
   `after_refresh.peak_bytes`; `workload`: the `after_settle` footprint);
 - a warm, workload or refresh run whose report does not say `cache.cpg_hit: true` (the CPG cache was missed or
@@ -76,8 +120,13 @@ readout; they are never retried silently.
   complaint, since an absent or undecodable sidecar prints nothing. Such runs read about 7 % higher at steady
   state. Stderr text from the cache code (`CPG cache miss`, `partial CPG cache hit`, `nav edge cache: skipping
   warm sidecar load`, `nav edge cache: failed to load sidecar`) also excludes a run and names the cause;
+- a run whose thread count, measured-process environment, allocator or platform (os, arch) differs from the first
+  admitted run of its corpus (the field is named);
 - a run whose build identity differs from the first admitted run of its corpus, or a corpus whose build
   identity differs from the first corpus's (by name) that has an admitted run; the corpus is excluded whole;
+- a `build` run whose report does not say that both caches missed (`cache.cpg_hit` and
+  `cache.call_edges_loaded` must be `false`, not `true` and not `null`): it was not a first build; or that wrote
+  no cache file (above);
 - a refresh run did not report `status: refreshed` (`raced_stale` means the tree changed during it);
 - a workload run had errors, answered fewer requests than it sent, ran none, or ran a workload whose request
   count or sha256 differs from the one the driver gave it.
@@ -109,13 +158,22 @@ must run the same file. Regenerate only when the corpus commit changes.
 ## Run directory
 
 ```
-<run>/run.json                        settings: reps, settle, timeout, bin
+<run>/run.json                        settings: reps, settle, timeout, bin, kinds
 <run>/workloads/<corpus>.jsonl        the snapshot every child read
 <run>/raw/<corpus>/corpus.json        commit, dirty count, cache file sizes, workload digest
 <run>/raw/<corpus>/prime.json         the priming run's result (its peak is the first-build peak)
 <run>/raw/<corpus>/<kind>-<n>.json    one result per run: kind, rep, status, reason, report, host state
+                                      (swap, compressor, load average)
+<run>/cache/<corpus>/                 the primed cache the warm, workload and refresh runs read
+<run>/cache-build/<corpus>/<rep>/     a build run's own empty cache directory; deleted after its run
 <run>/summary.json                    rewritten after each corpus finishes
 ```
+
+`raw/<corpus>/build-<n>.json` also holds `cache_files` (the sizes of the cache files that run wrote) and
+`cache_dir_removed`. `kinds`
+in `run.json` is the list that ran; `summarize` does not need it (it scores whatever is in `raw/`), so a
+`run.json` from before `--kinds` existed (no `kinds` key, meaning the default four) still summarizes, as does a
+directory that holds only some kinds.
 
 A run directory holds one run: `run` refuses to start when `<run>/raw`, `run.json` or `summary.json`
 exists (use a new `--out`, or `summarize` to rescore), so results of two runs are never pooled.
@@ -132,6 +190,77 @@ or a new rule, is applied to evidence that took hours to collect without running
 exclude more: stderr markers are seen while a run happens and are not stored for admitted runs, so a marker
 cannot be re-applied (the report's own `cache` section can). `render` then rebuilds the readout from
 `summary.json`.
+
+Rescoring fails closed on a directory it cannot trust: every `*.json` in a corpus directory other than
+`corpus.json` and `prime.json` must be named `<kind>-<rep>.json` for the kind and repetition it holds, with
+`rep` an integer from 1 to the run's `reps`; a copy (`warm-1 copy.json`), a result filed under another name or a
+repetition outside that range makes `summarize` and `compare` exit with a message naming the file, because it
+would otherwise count as another repetition. A `run.json`, `corpus.json`, `prime.json` or result that is not a
+JSON object, or a directory without `run.json` or `raw/`, is refused with a message too.
+
+## Comparing two runs: `compare`
+
+```bash
+python3 scripts/memreport/memreport.py compare --experiment m2 --baseline <run-a> --candidate <run-b> \
+    --out compare.md [--json compare.json] [--allow-same-build]
+```
+
+rebuilds both summaries in memory from each directory's `run.json` and `raw/` with today's rules (the code path
+`summarize` uses; a saved `summary.json` is never read, and a directory without `raw/` is refused), runs nothing,
+and writes a Markdown report: both runs' provenance (build identity, git sha, CPG cache version, allocator,
+`binary_input_dirty`, platform, threads, environment, repetitions, settle, the host's 1-minute load average as
+median and maximum over the admitted runs, `n/a` for runs recorded before it was kept, and the per-corpus commit),
+bold warnings (a binary built from a dirty tree; a corpus with uncommitted files, since equal counts are not equal
+trees; a build that left its cache directory behind; one repository given under two corpus names), the rule, one table per metric (per corpus: baseline and candidate median with min-max and n, the
+difference of the medians in absolute terms and as a percentage, the outcome), a verdict table with one line per
+metric, and an **Excluded runs** table per side (corpus, kind, repetition, reason; "None." when empty). Run
+directories are named by their last path component (parent/last when the two are the same). `--json` writes the same content as data, the rule's
+constants and text included. Bytes are MiB with one decimal, durations whole milliseconds, an unavailable value
+`n/a`.
+
+It **refuses** (non-zero exit, every difference named, nothing written) unless the two runs have the same
+corpus names; per corpus the same commit, dirty count and workload sha256, and (where both sides have an admitted
+run) the same thread count, measured-process environment, allocator and platform, which must be known; the same
+repetitions and settle; and **different** build identities (the same build is refused unless `--allow-same-build`
+is given, for a noise check; the report then says so). One directory against itself is always refused.
+
+Experiment `m2` needs `--kinds warm,workload,build` on both runs: `peak` and `load_ms` come from `warm`,
+`steady_heap` from `workload`, `build_peak` and `build_ms` from `build`. A metric no run measured is "not
+measured".
+
+The pinned rule of experiment `m2` (a table in `memreport_compare_rule.py`, `EXPERIMENTS`, so another experiment is
+a new entry; a gate metric must be in bytes):
+
+| Metric key | Label | Unit | Role |
+|---|---|---|---|
+| `peak` | Load peak (cache-loaded, through the index load) | bytes | gate |
+| `build_peak` | First-build peak (writes the cache) | bytes | gate |
+| `load_ms` | Index load time | ms | not worse |
+| `build_ms` | Index build time | ms | not worse |
+| `steady_heap` | Steady live heap | bytes | not higher |
+
+- **gate**, per corpus: *separated* = candidate max < baseline min; *reduction* = baseline median - candidate
+  median; *effect* = reduction of at least 100 MiB or at least 5 % of the baseline median. The corpus **passes**
+  when both series have at least 3 runs and it is separated and has an effect. With fewer than 3 runs on either
+  side it is "insufficient runs": not a pass and not a fail. The metric **passes** when at least 2 corpora pass.
+  Otherwise it is **undecided** when fewer than 2 corpora exist, or when the corpora that pass or could still pass
+  with more data (pass, insufficient runs, one-sided, not measured) number at least 2; else **fail**.
+- **not worse**, per corpus, with r = candidate median / baseline median (always shown, e.g. `×1.031`; the JSON
+  row has `ratio`, `above_band` and `ranges_apart`): **unresolved** when either side has fewer than 3 runs; else
+  **ok** when the candidate median is at most 1.05 times the baseline median; else **worse** when the ranges do
+  not overlap (candidate min > baseline max); else **unresolved** (above the band, ranges overlap). A difference
+  inside the overlap of the two ranges is not evidence either way: on this machine a second run of the same build
+  differed by 15 % in load time while other work was running. The metric is **worse** if any corpus is, else
+  **unresolved** if any is, else **incomplete** if any is one-sided, else **ok**; its Verdict line shows the
+  largest ratio.
+- **not higher**, per corpus: ok when the candidate median is at most 1 MiB above the baseline median. A lower
+  figure is ok: a candidate that allocates more tightly lowers it without changing the index.
+- A series on exactly one side is **one-sided** for that corpus; on neither side, **not measured**. For not higher
+  the metric is **higher** if any corpus is, else **incomplete** when any corpus is one-sided, else ok; a metric absent from both runs everywhere is "not measured" and decides nothing. The
+  boundaries are exact (a candidate median of exactly 1.05 times is ok, a live heap exactly 1 MiB higher is ok, a
+  candidate max equal to the baseline min is not separated).
+
+The comparison decides nothing about what ships: it reports the numbers and the pinned rule's outcome.
 
 ## What the numbers are evidence of
 

@@ -14,8 +14,8 @@ ATTRIBUTION = {
 }
 
 
-def stage(name, footprint, peak, rss=None, heap=None, tree=None):
-    return {'name': name, 'elapsed_ms': 0, 'rss_bytes': rss if rss is not None else footprint,
+def stage(name, footprint, peak, rss=None, heap=None, tree=None, elapsed=0):
+    return {'name': name, 'elapsed_ms': elapsed, 'rss_bytes': rss if rss is not None else footprint,
             'phys_footprint_bytes': footprint, 'compressed_bytes': 0, 'peak_bytes': peak,
             'heap_in_use_bytes': heap, 'tree_sitter_heap_bytes': tree}
 
@@ -26,7 +26,7 @@ HIT = {'cpg_hit': True, 'call_edges_loaded': True}
 def report(stages, attribution=None, workload=None, refresh=None, version=3, env=None, build=None, cache=None,
            threads=4):
     return {'prism_mem_report': version, 'build': build or {'build_identity': 'b', 'binary_input_dirty': False},
-            'platform': {'os': 'macos'}, 'config': {}, 'env': env if env is not None else {},
+            'platform': {'os': 'macos', 'arch': 'aarch64'}, 'config': {}, 'env': env if env is not None else {},
             'cache': dict(HIT) if cache is None else cache, 'threads': threads,
             'stages': stages, 'ru_maxrss_bytes': 1, 'attribution': attribution or {},
             'workload': workload, 'refresh': refresh}
@@ -50,6 +50,12 @@ def canned(kind, sha256='f' * 64, requests=8, heap=900 * MIB, tree=300 * MIB):
                        stage('after_index', 400 * MIB, 700 * MIB, heap=350 * MIB),
                        stage('after_call_edges', 410 * MIB, 710 * MIB, heap=360 * MIB),
                        stage('after_settle', 410 * MIB, 710 * MIB, heap=360 * MIB)])
+    if kind == 'build':
+        return report([stage('start', 10 * MIB, 10 * MIB),
+                       stage('after_load_repo', 100 * MIB, 120 * MIB, elapsed=1000),
+                       stage('after_index', 600 * MIB, 900 * MIB, elapsed=9000),
+                       stage('after_call_edges', 610 * MIB, 910 * MIB, elapsed=9500)],
+                      cache={'cpg_hit': False, 'call_edges_loaded': False})
     if kind == 'cold':
         return report([stage('start', 10 * MIB, 10 * MIB), stage('after_call_edges', 500 * MIB, 800 * MIB)],
                       cache={'cpg_hit': None, 'call_edges_loaded': False})
@@ -121,15 +127,24 @@ elif '--mem-refresh' in argv:
 else:
     kind = 'warm'
 call = tick(repo + '-' + kind)
-if opt('--cache-dir') and kind == 'warm' and call == 0:
+# A cache directory without the marker is empty: this run builds and writes the cache (a miss). The marker
+# is not a cache file; the second run into the same directory hits.
+marker = os.path.join(opt('--cache-dir') or '', '.fake-primed')
+miss = bool(opt('--cache-dir')) and kind == 'warm' and not os.path.exists(marker)
+if miss:
     d = os.path.join(opt('--cache-dir'), 'h1')
     os.makedirs(d, exist_ok=True)
+    by_call = cfg.get('cache_bytes_by_call') or []
+    sizes = {'cache_bytes': by_call[call] if call < len(by_call) else cfg.get('cache_bytes', 1000),
+             'sidecar_bytes': cfg.get('sidecar_bytes', 100)}    # both files by default; null writes none
     for name, key in (('cpg-cache.bin', 'cache_bytes'), ('resolved-call-edge-index.bin', 'sidecar_bytes')):
-        if cfg.get(key) is not None:
-            open(os.path.join(d, name), 'wb').write(b'x' * cfg[key])
-report = json.loads(json.dumps(cfg.get('repo_reports', {}).get(repo, {}).get(kind) or cfg['reports'][kind]))
-if opt('--cache-dir') and kind == 'warm' and call == 0:
-    report['cache'] = {'cpg_hit': False, 'call_edges_loaded': False}    # the priming run builds both
+        if sizes[key] is not None:
+            open(os.path.join(d, name), 'wb').write(b'x' * sizes[key])
+    open(marker, 'w').write('1')
+shape = 'build' if miss and 'build' in cfg['reports'] else kind
+report = json.loads(json.dumps(cfg.get('repo_reports', {}).get(repo, {}).get(shape) or cfg['reports'][shape]))
+if miss and cfg.get('miss_cache', True):
+    report['cache'] = {'cpg_hit': False, 'call_edges_loaded': False}    # a first build builds both
 if kind == 'workload':
     data = open(opt('--mem-workload'), 'rb').read()
     by_call = cfg.get('workload_sha_by_call') or []
@@ -137,6 +152,8 @@ if kind == 'workload':
     report['workload']['requests'] = report['workload']['responses'] = data.count(b'\n')
     if cfg.get('mutate_source'):
         open(cfg['mutate_source'], 'wb').write(b'{"id":9}\n')
+for text in cfg.get('miss_stderr', []) if miss else []:
+    print(text, file=sys.stderr)
 for text in cfg.get('stderr', {}).get(kind, []) + cfg.get('repo_stderr', {}).get(repo, {}).get(kind, []):
     print(text, file=sys.stderr)
 if call in cfg.get('stderr_calls', {}).get(kind, []):
@@ -191,3 +208,72 @@ def sample_summary(reps=3):
     entries = {name: memreport.build_entry(corpus, results, prime)
                for name, (corpus, results, prime) in corpora.items()}
     return memreport.assemble_summary({'reps': reps, 'settle': 5, 'timeout': 1800, 'bin': 'fake'}, entries)
+
+
+PLATFORM = {'os': 'macos', 'arch': 'aarch64'}
+
+
+def mib(*values):
+    return [value * MIB for value in values]
+
+
+def make_summary(series, identity='base', reps=3, settle=5, threads=4, env=None, allocator='system',
+                 commit=None, dirty=0, sha='f' * 64, platform=PLATFORM, binary_dirty=False, excluded=None,
+                 loads=None, only=None, dirs_left=None, paths=None):
+    """A summary.json shaped like the driver's: `series` is {corpus: {metric: [values]}}.
+
+    `threads`, `env`, `allocator`, `platform` apply to every corpus; `only` = {field: {corpus: value}} changes
+    one corpus's value. `excluded` is {corpus: [inadmissible items]}, `loads` {corpus: [1-minute load averages]}.
+    """
+    import memreport
+    only = only or {}
+    values = {'threads': threads, 'env': env or {}, 'allocator': allocator, 'platform': platform}
+    corpora = {}
+    for name, metrics in series.items():
+        own = {field: only.get(field, {}).get(name, value) for field, value in values.items()}
+        build = {'build_identity': identity, 'git_sha': 'g' + identity, 'cpg_cache_version': 7,
+                 'allocator': own['allocator'], 'binary_input_dirty': binary_dirty}
+        corpora[name] = {
+            'commit': commit or ('c' * 8 + name), 'dirty': dirty, 'workload': {'sha256': sha, 'requests': 8},
+            'build': build, 'env': own['env'], 'threads': own['threads'], 'platform': own['platform'],
+            'metrics': {metric: memreport.summarize(series_values) for metric, series_values in metrics.items()},
+            'inadmissible': list((excluded or {}).get(name, [])), 'load_avg_1m': list((loads or {}).get(name, [])),
+            'path': (paths or {}).get(name, '/c/' + name), 'build_dirs_left': list((dirs_left or {}).get(name, []))}
+    first = next(iter(corpora.values()), {})
+    provenance = {'reps': reps, 'settle': settle, 'timeout': 1800, 'bin': 'x', 'build': first.get('build'),
+                  'env': first.get('env'), 'threads': first.get('threads'), 'platform': first.get('platform')}
+    return {'provenance': provenance, 'corpora': corpora, 'verdict': {}}
+
+
+def write_run(directory, peaks, identity='base', reps=3, settle=5, threads=4, platform=PLATFORM, loads=None,
+              broken=None, with_summary=False):
+    """A run directory written by hand: run.json and, per corpus, corpus.json and one warm result per peak.
+
+    `peaks` is {corpus: [warm after_index peaks in MiB]}; `loads` {corpus: [1-minute load averages]};
+    `broken` {corpus: [reps whose cache flag says miss, so today's rules exclude them]}.
+    """
+    import json
+    directory = Path(directory)
+    (directory / 'raw').mkdir(parents=True)
+    (directory / 'run.json').write_text(json.dumps({'reps': reps, 'settle': settle, 'timeout': 1800, 'bin': 'x',
+                                                    'kinds': ['warm']}))
+    for name, series in peaks.items():
+        raw = directory / 'raw' / name
+        raw.mkdir()
+        (raw / 'corpus.json').write_text(json.dumps({
+            'path': '/c/' + name, 'commit': 'c' * 8 + name, 'dirty': 0, 'cache_files': {},
+            'workload': {'sha256': 'f' * 64, 'requests': 8}}))
+        for rep, peak in enumerate(series, 1):
+            data = canned('warm')
+            data['build'].update(build_identity=identity, git_sha='g' + identity, allocator='system')
+            data['threads'], data['platform'] = threads, dict(platform)
+            stage_named(data, 'after_index')['peak_bytes'] = peak * MIB
+            if rep in (broken or {}).get(name, ()):
+                data['cache']['cpg_hit'] = False
+            result = {'kind': 'warm', 'rep': rep, 'status': 'ok', 'report': data}
+            if loads:
+                result['host_before'] = {'loadavg': [loads[name][rep - 1], 1.0, 1.0]}
+            (raw / ('warm-%d.json' % rep)).write_text(json.dumps(result))
+    if with_summary:
+        (directory / 'summary.json').write_text('{"stale": true}')
+    return directory
