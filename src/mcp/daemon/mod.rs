@@ -9,5 +9,17 @@
 #![cfg_attr(not(test), allow(dead_code))]
 
 mod budget;
+mod clock;
+mod coordinator;
 #[cfg(test)]
 mod test_support;
+
+// One provider is queried from many connection threads at once, one registry serves all of
+// them, and the coordinator is shared by every one (spec §4.2). A field that stops being
+// `Send + Sync` fails here, by name.
+const _: fn() = || {
+    fn shared_between_threads<T: Send + Sync>() {}
+    shared_between_threads::<crate::mcp::SessionProvider>();
+    shared_between_threads::<crate::mcp::registry::ToolRegistry>();
+    shared_between_threads::<coordinator::DaemonState>();
+};
