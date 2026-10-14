@@ -1,0 +1,197 @@
+{
+ "lane": "js-anon-calls S1 guards for anonymous call-graph nodes (2026-10-14)",
+ "source": "docs/superpowers/plans/2026-10-14-js-anon-calls/PLAN.md section 8 [S1]",
+ "lib_test_prefixes": [
+  "anon_owner::",
+  "cpg::",
+  "navigation::",
+  "output::"
+ ],
+ "mutations": {
+  "AG-01-function-at-guard-off": [
+   "src/cpg/query.rs",
+   "if !include_anonymous && crate::anon_owner::is_anonymous_owner_name(name) {",
+   "if !include_anonymous && false && crate::anon_owner::is_anonymous_owner_name(name) {",
+   [
+    "cpg::anon_guard_tests::function_at_skips_anonymous_nodes_by_default"
+   ]
+  ],
+  "AG-02-function-at-optin-off": [
+   "src/cpg/query.rs",
+   "self.function_at_filtered(file, line, true)",
+   "self.function_at_filtered(file, line, false)",
+   [
+    "cpg::anon_guard_tests::function_at_including_anonymous_finds_the_anonymous_node"
+   ]
+  ],
+  "AG-03-function-at-guard-always": [
+   "src/cpg/query.rs",
+   "if !include_anonymous && crate::anon_owner::is_anonymous_owner_name(name) {",
+   "if crate::anon_owner::is_anonymous_owner_name(name) {",
+   [
+    "cpg::anon_guard_tests::function_at_including_anonymous_finds_the_anonymous_node"
+   ]
+  ],
+  "AG-04-starts-at-guard-off": [
+   "src/cpg/trace.rs",
+   "|| !crate::anon_owner::is_anonymous_owner_name(name))",
+   "|| true)",
+   [
+    "cpg::anon_guard_tests::function_starts_at_ignores_anonymous_nodes_by_default"
+   ]
+  ],
+  "AG-05-starts-at-optin-off": [
+   "src/cpg/trace.rs",
+   "self.function_starts_at_filtered(file, line, true)",
+   "self.function_starts_at_filtered(file, line, false)",
+   [
+    "cpg::anon_guard_tests::function_starts_at_ignores_anonymous_nodes_by_default"
+   ]
+  ],
+  "AG-06-enclosing-guard-off": [
+   "src/navigation/mod.rs",
+   "if include_anonymous || !crate::anon_owner::is_anonymous_owner_name(name) =>",
+   "if true =>",
+   [
+    "navigation::anon_guard_tests::enclosing_function_skips_anonymous_nodes_by_default"
+   ]
+  ],
+  "AG-07-enclosing-optin-off": [
+   "src/navigation/mod.rs",
+   "self.enclosing_function_filtered(file, line, true)",
+   "self.enclosing_function_filtered(file, line, false)",
+   [
+    "navigation::anon_guard_tests::enclosing_function_skips_anonymous_nodes_by_default"
+   ]
+  ],
+  "AG-08-loc-seed-reseeds-anon": [
+   "src/navigation/seed.rs",
+   ".enclosing_function(&f, line)",
+   ".enclosing_function_including_anonymous(&f, line)",
+   [
+    "navigation::anon_guard_tests::location_seed_on_a_callback_line_resolves_to_the_named_function"
+   ]
+  ],
+  "AG-09-symbol-reject-off": [
+   "src/navigation/seed.rs",
+   "    if crate::anon_owner::is_anonymous_owner_name(name) {\n        return Err(",
+   "    if false && crate::anon_owner::is_anonymous_owner_name(name) {\n        return Err(",
+   [
+    "navigation::anon_guard_tests::symbol_seed_for_an_anonymous_owner_name_is_rejected_with_guidance"
+   ]
+  ],
+  "AG-10-resolve-fn-no-reject": [
+   "src/navigation/seed.rs",
+   "    reject_anonymous_symbol(name)?;\n",
+   "",
+   [
+    "navigation::anon_guard_tests::symbol_seed_for_an_anonymous_owner_name_is_rejected_with_guidance"
+   ]
+  ],
+  "AG-11-reasoning-no-reject": [
+   "src/reasoning/seeds.rs",
+   "    crate::navigation::seed::reject_anonymous_symbol(name)?;\n",
+   "",
+   [
+    "navigation::anon_guard_tests::symbol_seed_for_an_anonymous_owner_name_is_rejected_with_guidance"
+   ]
+  ],
+  "AG-12-hide-function-off": [
+   "src/navigation/queries.rs",
+   "CpgNode::Function { name, .. } => crate::anon_owner::is_anonymous_owner_name(name),",
+   "CpgNode::Function { .. } => false,",
+   [
+    "navigation::anon_guard_tests::nodes_at_hides_anonymous_identities_but_keeps_named_ones"
+   ]
+  ],
+  "AG-13-hide-variable-off": [
+   "src/navigation/queries.rs",
+   "        CpgNode::Variable { function, .. } | CpgNode::ReturnValue { function, .. } => {\n            crate::anon_owner::is_anonymous_owner_name(function)\n        }",
+   "        CpgNode::Variable { .. } | CpgNode::ReturnValue { .. } => false,",
+   [
+    "navigation::anon_guard_tests::nodes_at_hides_anonymous_identities_but_keeps_named_ones",
+    "navigation::anon_guard_tests::ego_contains_hops_never_surface_anonymous_variables"
+   ]
+  ],
+  "AG-14-ego-hop-guard-off": [
+   "src/navigation/queries.rs",
+   ") && is_anonymous_identity_node(s, other)",
+   ") && false",
+   [
+    "navigation::anon_guard_tests::ego_contains_hops_never_surface_anonymous_variables"
+   ]
+  ],
+  "AG-15-onboarding-count-anon": [
+   "src/navigation/onboarding.rs",
+   "if !crate::anon_owner::is_anonymous_owner_name(name))",
+   "if true)",
+   [
+    "navigation::anon_guard_tests::onboarding_function_count_excludes_anonymous_nodes"
+   ]
+  ],
+  "AG-16-mermaid-lt-off": [
+   "src/output/mermaid.rs",
+   ".replace('<', \"&lt;\")",
+   ".replace('<', \"<\")",
+   [
+    "output::mermaid::tests::escape_label_inner_escapes_angle_brackets"
+   ]
+  ],
+  "AG-17-mermaid-gt-off": [
+   "src/output/mermaid.rs",
+   ".replace('>', \"&gt;\")",
+   ".replace('>', \">\")",
+   [
+    "output::mermaid::tests::escape_label_inner_escapes_angle_brackets"
+   ]
+  ],
+  "AG-18-mermaid-escape-after-br": [
+   "src/output/mermaid.rs",
+   "        .replace('\"', \"&quot;\")\n        .replace('<', \"&lt;\")\n        .replace('>', \"&gt;\")\n        .replace('\\n', \"<br/>\");",
+   "        .replace('\"', \"&quot;\")\n        .replace('\\n', \"<br/>\")\n        .replace('<', \"&lt;\")\n        .replace('>', \"&gt;\");",
+   [
+    "output::mermaid::tests::escape_label_inner_keeps_quote_and_newline_handling"
+   ]
+  ],
+  "AG-19-predicate-no-legacy": [
+   "src/anon_owner.rs",
+   "|| name.starts_with(LEGACY_CB_OWNER_PREFIX)",
+   "|| false",
+   [
+    "anon_owner::tests::recognises_both_spellings"
+   ]
+  ],
+  "AG-20-predicate-no-anon": [
+   "src/anon_owner.rs",
+   "name.starts_with(ANON_OWNER_PREFIX) ||",
+   "false ||",
+   [
+    "anon_owner::tests::recognises_both_spellings"
+   ]
+  ],
+  "AG-21-predicate-accepts-all": [
+   "src/anon_owner.rs",
+   "name.starts_with(ANON_OWNER_PREFIX) || name.starts_with(LEGACY_CB_OWNER_PREFIX)",
+   "name.starts_with('<')",
+   [
+    "anon_owner::tests::rejects_real_owner_names"
+   ]
+  ],
+  "AG-22-mint-swaps-line-col": [
+   "src/anon_owner.rs",
+   "{MINT_OWNER_PREFIX}{line}:{col}>",
+   "{MINT_OWNER_PREFIX}{col}:{line}>",
+   [
+    "anon_owner::tests::mint_round_trips_through_the_predicate"
+   ]
+  ],
+  "AG-23-mint-prefix-flips": [
+   "src/anon_owner.rs",
+   "const MINT_OWNER_PREFIX: &str = LEGACY_CB_OWNER_PREFIX;",
+   "const MINT_OWNER_PREFIX: &str = ANON_OWNER_PREFIX;",
+   [
+    "anon_owner::tests::mint_round_trips_through_the_predicate"
+   ]
+  ]
+ }
+}

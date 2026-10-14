@@ -388,8 +388,8 @@
   ],
   "PD-47-nav-synthetic-filter-off": [
    "src/navigation/queries.rs",
-   "            !matches!(s.index.cpg.node(idx), CpgNode::Variable { function, .. }\n                if crate::ast::is_synthetic_owner(function))",
-   "            !matches!(s.index.cpg.node(idx), CpgNode::Variable { function, .. }\n                if false && crate::ast::is_synthetic_owner(function))",
+   "        CpgNode::Variable { function, .. } | CpgNode::ReturnValue { function, .. } => {\n            crate::anon_owner::is_anonymous_owner_name(function)\n        }",
+   "        CpgNode::Variable { function, .. } | CpgNode::ReturnValue { function, .. } => {\n            false && crate::anon_owner::is_anonymous_owner_name(function)\n        }",
    [
     "cpg::callback_identity_tests::navigation::navigation_hides_synthetic_variables_but_taint_seeds_see_them"
    ]

@@ -57,7 +57,13 @@ fn arrow_for(style: EdgeStyle, label: &Option<String>) -> String {
 /// Returns (escaped_label_inner, was_truncated).
 pub(crate) fn escape_label_inner(s: &str) -> (String, bool) {
     const MAX: usize = 80;
-    let mut out = s.replace('"', "&quot;").replace('\n', "<br/>");
+    // `<` and `>` are escaped BEFORE the newline -> `<br/>` substitution so the break tag
+    // survives; anonymous owner names (`<anon@L:C>`) would otherwise read as HTML tags.
+    let mut out = s
+        .replace('"', "&quot;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('\n', "<br/>");
     let truncated = out.chars().count() > MAX;
     if truncated {
         let take: String = out.chars().take(MAX - 1).collect();
@@ -1434,5 +1440,30 @@ mod tests {
             "expected LabelTruncated for cluster label, got: {:?}",
             warns
         );
+    }
+
+    #[test]
+    fn escape_label_inner_escapes_angle_brackets() {
+        let (out, _) = escape_label_inner("A › <anon@3:10> -> <cb@4:2>");
+        assert!(!out.contains('<') && !out.contains('>'), "{out}");
+        assert!(out.contains("&lt;anon@3:10&gt;"), "{out}");
+    }
+
+    #[test]
+    fn escape_label_inner_keeps_quote_and_newline_handling() {
+        let (out, trunc) = escape_label_inner("say \"hi\"\nnext");
+        assert_eq!(out, "say &quot;hi&quot;<br/>next");
+        assert!(!trunc);
+    }
+
+    #[test]
+    fn render_chain_escapes_angle_brackets_in_node_labels() {
+        let mut g = chain_fixture();
+        g.nodes[1].label = "f <anon@3:10>".to_string();
+        let out = render_chain(&g);
+        assert!(out.contains("f &lt;anon@3:10&gt;"), "{out}");
+        assert!(!out.contains("<anon@"), "{out}");
+        // Named control: other labels are untouched.
+        assert!(out.contains("a[\"foo.c:42 read_input\"]:::source"), "{out}");
     }
 }

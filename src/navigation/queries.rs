@@ -2030,18 +2030,29 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
     }
 }
 
+/// Whether a CPG node is an anonymous-callable identity: the callable's own
+/// Function node, or a Variable / ReturnValue row it owns (`<cb@L:C>` today,
+/// `<anon@L:C>` after lane A2 S0).
+fn is_anonymous_identity_node(s: &NavigationSession, idx: NodeIndex) -> bool {
+    match s.index.cpg.node(idx) {
+        CpgNode::Function { name, .. } => crate::anon_owner::is_anonymous_owner_name(name),
+        CpgNode::Variable { function, .. } | CpgNode::ReturnValue { function, .. } => {
+            crate::anon_owner::is_anonymous_owner_name(function)
+        }
+        CpgNode::Statement { .. } => false,
+    }
+}
+
 /// js-param-defs PR-B: DFG rows of anonymous JS/TS callables carry a synthetic
 /// `<cb@L:C>` owner. Navigation stays byte-identical by default, so those
-/// Variable nodes are never navigation evidence or ego seeds (SPEC-prB D7).
+/// nodes (and, once they exist, the anonymous Function nodes themselves) are
+/// never navigation evidence or ego seeds (SPEC-prB D7).
 fn nav_visible_nodes_at(s: &NavigationSession, file: &str, line: usize) -> Vec<NodeIndex> {
     s.index
         .cpg
         .nodes_at(file, line)
         .into_iter()
-        .filter(|&idx| {
-            !matches!(s.index.cpg.node(idx), CpgNode::Variable { function, .. }
-                if crate::ast::is_synthetic_owner(function))
-        })
+        .filter(|&idx| !is_anonymous_identity_node(s, idx))
         .collect()
 }
 
@@ -2580,6 +2591,15 @@ pub fn ego_graph(
                 } else {
                     er.source()
                 };
+                // Contains hops (and any other edge) must not surface a synthetic
+                // Variable / ReturnValue owned by an anonymous callable.
+                if matches!(
+                    s.index.cpg.node(other),
+                    CpgNode::Variable { .. } | CpgNode::ReturnValue { .. }
+                ) && is_anonymous_identity_node(s, other)
+                {
+                    continue;
+                }
                 let (from, _) = intern(s, ni, &mut order, &mut nodes);
                 let (to, is_new) = intern(s, other, &mut order, &mut nodes);
                 let (a, b) = if dir == Direction::Outgoing {
