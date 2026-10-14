@@ -148,7 +148,7 @@ Two independent synchronization domains. Nothing in the control plane ever waits
   warming response is a wait outcome for that connection; it neither cancels the build nor changes any other
   connection's deadline, and it is not a state transition. When attempt *n* terminates, its outcome (Ready or
   Failed) is delivered to every connection waiting on it. After Failed, the next readiness-requiring call from any
-  connection starts exactly one retry (attempt *n+1*) with fresh per-connection budgets. Worked example: A and B
+  connection starts exactly one retry (attempt *n+1*) with fresh per-connection budgets. A connection's next call first hears its own attempt's unheard outcome: a call from a connection that was answered warming for an attempt that has since failed is answered with that failure and starts nothing, or is told to retry while a later attempt is building, or is served when the index is ready; the retry is started by the next call from a connection with no unheard failure (clarified 2026-10-13 from the S3a-2 review, plan D32/SI-8; the startup attempt under `--warm-at-startup` is an S4 requirement). Worked example: A and B
   join attempt 1 with budgets 20 s and 60 s; A expires at 20 s and gets warming; B keeps waiting; publication at
   35 s serves B directly and A's next call immediately.
 - **Provider** (`RwLock<Option<SessionProvider>>`, empty until the first publication): queries take the read lock
