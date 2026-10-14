@@ -2,23 +2,23 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **Validation status (2026-10-13).** Every task of this plan has been replayed with a compiler. **Tasks 1–5 (S3a-1)** were replayed, changed by one review round that found two defects in the coordinator, approved in a second round, and given five more tests by the controller; the plan's text reproduces that branch (`f2d56b1c`, merged to `main` as `e7dc1cc2`) byte for byte. **Tasks 6–13 (S3a-2)** are based on `origin/main` at `e7dc1cc2`, the squash merge of S3a-1 (pull request #374, the same tree as `f2d56b1c`), and were replayed there on the scratch branch `scratch/s3a2-validate`: Tasks 6, 7 and 8 as first written, each compiling and passing at the first attempt; then one test asked for by the S3a-1 reviewers; then Task 9 (a file split they asked for) and Task 10 (an owner decision that replaces D26), both built on the branch, test first, and written into this plan from the edits that were made. The first review of S3a-2 (pull request #377) found one parity break and asked for four smaller things; the fold added Task 11 (a connection's next call first hears its own attempt's unheard failure, D32) and Task 12 (the stream's mode, D33), built on `feat/mcp-daemon-s3a-2` test first. The plan's text reproduces that branch byte for byte as well. What was observed is in the four records at the end. Nothing here ran on Linux, and the unfiltered suite, the doc tests and the mutation gate were not run in validation.
+> **Validation status (2026-10-13).** Every task of this plan has been replayed with a compiler. **Tasks 1–5 (S3a-1)** were replayed, changed by one review round that found two defects in the coordinator, approved in a second round, and given five more tests by the controller; the plan's text reproduces that branch (`f2d56b1c`, merged to `main` as `e7dc1cc2`) byte for byte. **Tasks 6–14 (S3a-2)** are based on `origin/main` at `e7dc1cc2`, the squash merge of S3a-1 (pull request #374, the same tree as `f2d56b1c`), and were replayed there on the scratch branch `scratch/s3a2-validate`: Tasks 6, 7 and 8 as first written, each compiling and passing at the first attempt; then one test asked for by the S3a-1 reviewers; then Task 9 (a file split they asked for) and Task 10 (an owner decision that replaces D26), both built on the branch, test first, and written into this plan from the edits that were made. The first review of S3a-2 (pull request #377) found one parity break and asked for four smaller things; the fold added Task 11 (a connection's next call first hears its own attempt's unheard failure, D32) and Task 12 (the stream's mode, D33), built on `feat/mcp-daemon-s3a-2` test first. The second review approved (sol) or asked for text only (Opus); with it came the owner's amendment of D26, built as Task 13. The plan's text reproduces that branch byte for byte as well. What was observed is in the five records at the end. Nothing here ran on Linux, and the unfiltered suite, the doc tests and the mutation gate were not run in validation.
 
 ## Validate before dispatch
 
 What each check must show, and what it showed. Every cargo command ran alone, niced, with four jobs, at host load averages between 30 and 75.
 
-| # | Command | Must show | S3a-1 (Tasks 1–5) | S3a-2 (Tasks 6–13) |
+| # | Command | Must show | S3a-1 (Tasks 1–5) | S3a-2 (Tasks 6–14) |
 |---|---|---|---|---|
 | V1 | `cargo test --features mcp --lib mcp::` and `cargo test --features mcp --test mcp` on the untouched base | The two base totals; every later total is "base + N". | Lib: **380 passed** at `86756aad`. | Lib 415 at `f2d56b1c` (the controller's number); `--test mcp`: **23 passed** on the S3a-1 head, with the golden transcripts. |
-| V2 | Each task's red step | A compile failure. | Observed for Tasks 1–4. | Observed for Tasks 6, 7, 8, 10 and 11 (compile failures) and Task 12 (a test failure, at the 30 s limit). Task 9 is a move and has none. |
-| V3 | Each task's green step | The count the step states. | 1, 5, 12, 16 as first written; 17 and 29 after the two review rounds. | Task 6: 5. Task 7: 7 as first written, 8 with the test added. Task 8: 5. Module after Task 8: 47; after Task 9: 47; after Task 10: 49; after Task 11: 62; after Task 12: 63. |
-| V4 | `cargo test --features mcp --lib mcp::` at the end of each part | base + 35, then base + 69; `0 failed`. | 415 (the controller's run). | **449 passed**, 0 failed (435 before the review fold). |
-| V5 | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp` after each edit to `transport.rs` | The base number, with `standalone_transcripts_match_the_goldens_recorded_before_the_transport_refactor ... ok`. | Not applicable: S3a-1 does not edit `transport.rs`. | **23 passed** after Task 6, after Task 10 and after Task 12, golden transcripts unblessed. |
+| V2 | Each task's red step | A compile failure. | Observed for Tasks 1–4. | Observed for Tasks 6, 7, 8, 10 and 11 (compile failures) and Tasks 12 and 13 (test failures; Task 12's at the 30 s limit). Task 9 is a move and has none. |
+| V3 | Each task's green step | The count the step states. | 1, 5, 12, 16 as first written; 17 and 29 after the two review rounds. | Task 6: 5. Task 7: 7 as first written, 8 with the test added. Task 8: 5. Module after Task 8: 47; after Task 9: 47; after Task 10: 49; after Task 11: 62; after Task 12: 63; after Task 13: 66. |
+| V4 | `cargo test --features mcp --lib mcp::` at the end of each part | base + 35, then base + 72; `0 failed`. | 415 (the controller's run). | **452 passed**, 0 failed (435 before the first review fold, 449 before the second). |
+| V5 | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp` after each edit to `transport.rs` | The base number, with `standalone_transcripts_match_the_goldens_recorded_before_the_transport_refactor ... ok`. | Not applicable: S3a-1 does not edit `transport.rs`. | **23 passed** after Task 6, after Task 10, after Task 12 and after Task 13, golden transcripts unblessed. |
 | V6 | `cargo check` (default features), `cargo check --features mcp`, `cargo check --tests --features mcp,detached-owner-audit` | `Finished`; no warning from the feature build. | Observed. | Observed; 0 warnings. |
 | V7 | `cargo clippy --all-targets --features mcp -- -W clippy::all`, filtered to the touched files | No line that names a file this slice adds or `transport.rs`. | After one correction: only the `session.rs` warning in code the slice does not edit. | No line names `src/mcp/daemon/`, `transport_loop_tests.rs` or `transport.rs` after the fold's one correction (`empty_line_after_doc_comments` in `control.rs`; the S3a-2 fold record). 258 `warning` lines in the whole log, as on the S3a-1 head, where `transport.rs` has none either. |
-| V8 | Every "prove the tests bite" step | The named test fails under the named mutant; a mutant that makes a call wait fails at the 30 s hang limit and the run ends. | All 18 mutants of Tasks 1–4 killed (two of them by the controller's edge tests). | All 17 mutants of Tasks 6, 7, 8 and 10 killed, and the two S3a-1 edge-test mutants, again on the code after Task 12 (Task 10's A–C and Task 4's G re-anchored); the five of Task 11 and the two of Task 12 killed. None survived; none hung. |
-| V9 | The 30-run repeat loop of `mcp::daemon`, default threads and `--test-threads=1`, under host load | 30 × `ok`, the same count, `0 failed`. | 30 of 30 in both modes, at 21 and at 30 tests. | `30 test result: ok. 63 passed; 0 failed` and `30 test result: ok. 63 passed; 0 failed`, at load averages of 26.61–37.21 (after the fold; 49 tests before it, at 29.10–41.34). |
+| V8 | Every "prove the tests bite" step | The named test fails under the named mutant; a mutant that makes a call wait fails at the 30 s hang limit and the run ends. | All 18 mutants of Tasks 1–4 killed (two of them by the controller's edge tests). | All 17 mutants of Tasks 6, 7, 8 and 10 killed, and the two S3a-1 edge-test mutants, again on the code after Task 12 (Task 10's A–C and Task 4's G re-anchored); the five of Task 11 and the two of Task 12 killed; after Task 13 its mutant, Task 10's five and Task 11's five killed again. None survived; none hung. |
+| V9 | The 30-run repeat loop of `mcp::daemon`, default threads and `--test-threads=1`, under host load | 30 × `ok`, the same count, `0 failed`. | 30 of 30 in both modes, at 21 and at 30 tests. | `30 test result: ok. 66 passed; 0 failed` and `30 test result: ok. 66 passed; 0 failed`, at load averages of 38.08–42.12 (after the second fold; 63 tests after the first, 49 before it). |
 | V10 | The zero-diff checks | `0` for `transport_tests.rs` + `owner_transport_tests.rs`, `0` for the goldens, and only the listed files edited. | Observed. | Observed (the S3a-2 record). |
 | V11 | CI on Linux | Green. | The controller's (S3a-1 is in CI). | **Not run.** |
 
@@ -33,12 +33,13 @@ No spec issue blocks **building** S3a. Two change what the slice's row in spec �
 
 Both are in "Spec issues found" with their options.
 
-Where these stand after S3a-1 merged: both reviewers of S3a-1 accepted SI-2 as planned (the snapshot now, the wire verb in S4). SI-1 is S3a-2's to carry, because the in-crate versions of spec tests 1 and 14 are in Tasks 7 and 8. One more thing is owed for S3a-2: the owner decided that a call is told to retry when a retry has superseded its failed attempt (D26) and asked for "retry in <retry interval seconds>" without naming the number. `INDEXING_RETRY_AFTER_SECS` is 5, the controller's placeholder.
+Where these stand after S3a-1 merged: both reviewers of S3a-1 accepted SI-2 as planned (the snapshot now, the wire verb in S4). SI-1 is S3a-2's to carry, because the in-crate versions of spec tests 1 and 14 are in Tasks 7 and 8. The owner decided that a call is told to retry when a retry has superseded its failed attempt (D26), and on 2026-10-13 settled the interval: "5 seconds is right without further evidence on min/max/average or any estimate based on lines of code and files". `INDEXING_RETRY_AFTER_SECS` = 5 is the owner's value; a change needs measured build-time evidence.
 
 From the first review of S3a-2, two more for the owner and one for the spec:
 
-- **Owner question (Opus S2).** A call whose failed attempt has been superseded by an index that is already **ready** is told `indexing`, retry in about 5 s, although it could be served at once. That is D26 as decided, and it is tested. The owner's words were about a build in progress ("Building...retry in <retry interval seconds>"). The alternative is `Superseded { by_ready: bool }`, serving the call when `by_ready` is true; it hands out no other attempt's outcome or text, so it cannot bring back the S3a-1 defect, and it would give S3b and S4 the distinction. Not changed.
+- **Owner question (Opus S2): answered 2026-10-13.** A call whose failed attempt has been superseded by an index that is already ready was told `indexing`. The owner: "on the superseded call finding index ready it [w]ould be better to be answered at once". Built as Task 13 (D26 as amended), on the waiter's path and on D32's.
 - **Owner or controller, for the spec (D32, SI-8).** Spec §4.2 says "After Failed, the next readiness-requiring call starts exactly one retry"; §5 keeps the in-process server's warming result and retry contract. Task 11 reads §4.2 per connection. The proposed sentence for §4.2 is in SI-8.
+- **Settled elsewhere, recorded so no later slice reopens it:** the result cap below the floor is refused, as merged in S2b.
 - **For S6 (docs), Opus S6.** `status: "indexing"`, `retry_after_secs` and the `prism/index_state` values are new on the wire, and neither `docs/MCP.md` nor `skills/` documents `warming` or `build_failed` either. Recorded for S6; nothing in this slice.
 
 ---
@@ -51,14 +52,14 @@ From the first review of S3a-2, two more for the owner and one for the spec:
 
 **Spec:** `docs/superpowers/specs/2026-10-09-shared-prism-daemon-design.md` as revised 2026-10-13 (§3.1, §4.2, §4.5, §5, §9 tests 1 and 14 and the unit list, §10, §12 row S3a). Lane plan: `docs/superpowers/plans/2026-10-12-shared-prism-daemon/README.md` ("Notes for the planners of later slices", S3a and S3b). Built on S2b as merged: `main` `c785fa4f`.
 
-**Ships as two pull requests.** **S3a-1 = Tasks 1–5** (the coordinator and the slot): as built and merged, 14 files, about 2,250 added lines with the tests of both review rounds. **S3a-2 = Tasks 6–13** (the shared frame loop, one connection served through the coordinator with spec tests 1 and 14, the split of the control-plane types into their own file, the owner's decision on superseded failures, and the two fixes of its first review): as built, 18 files, 2127 insertions(+), 171 deletions(-) against `main` `e7dc1cc2`. A reviewer can approve the coordinator and reject how a connection is composed on it, or the reverse. S3a-2 changes S3a-1's files in five ways, each its own task or commit: one module line (Task 7), one test-only method (Task 8), the move (Task 9), `ensure_ready`'s answer with the coordinator tests that expect it (Task 10), and the budget's memory of the attempt it joined with the one coordinator test whose expectation that changes (Task 11).
+**Ships as two pull requests.** **S3a-1 = Tasks 1–5** (the coordinator and the slot): as built and merged, 14 files, about 2,250 added lines with the tests of both review rounds. **S3a-2 = Tasks 6–14** (the shared frame loop, one connection served through the coordinator with spec tests 1 and 14, the split of the control-plane types into their own file, the owner's decision on superseded failures, and the two fixes of its first review): as built, 18 files, 2127 insertions(+), 171 deletions(-) against `main` `e7dc1cc2`. A reviewer can approve the coordinator and reject how a connection is composed on it, or the reverse. S3a-2 changes S3a-1's files in five ways, each its own task or commit: one module line (Task 7), one test-only method (Task 8), the move (Task 9), `ensure_ready`'s answer with the coordinator tests that expect it (Task 10), and the budget's memory of the attempt it joined with the one coordinator test whose expectation that changes (Task 11).
 
 S3a-1 went over the lane's 1,500-line guide because its tests are what hold its claims. S3a-2 is over it too, after Tasks 9 and 10 (added after it was planned) and Tasks 11 and 12 (its review fold); about three quarters of its added lines are tests and test support. If it is wanted smaller, Tasks 9 and 10 are separable from Tasks 6–8 without rework: they touch nothing Tasks 6–8 add except `run_tool_call`'s first statement; Task 11 depends on Task 10, and Task 12 on Task 7 only.
 
 ## Global Constraints
 
 - All work is under `--features mcp`. The default build must still compile (`cargo check`).
-- **Standalone behavior is unchanged, byte for byte.** The proof has three parts, checked in Task 5 and Task 13: the golden transcripts under `tests/fixtures/mcp/golden/` are unmodified and pass (never set `PRISM_MCP_BLESS_GOLDEN`); `src/mcp/transport_tests.rs` and `src/mcp/owner_transport_tests.rs` have a zero-line diff against the base; and the only edits to serving files are (a) Task 1's additions to `src/mcp/session.rs` (one accessor nothing in the standalone path calls, and one comment) (b) Task 6's extraction of the frame loop in `src/mcp/transport.rs`, where `serve_connection` passes the unchanged `handle_message_with` to the extracted loop, and (c) Task 10's one added function in `transport.rs`, `retryable_status_response`, which nothing in the standalone path calls. `src/mcp/lazy.rs`, `framing.rs`, `output.rs`, `owner.rs`, `settings.rs`, `src/mcp/shared/*` and `src/bin/prism-mcp.rs` are not touched.
+- **Standalone behavior is unchanged, byte for byte.** The proof has three parts, checked in Task 5 and Task 14: the golden transcripts under `tests/fixtures/mcp/golden/` are unmodified and pass (never set `PRISM_MCP_BLESS_GOLDEN`); `src/mcp/transport_tests.rs` and `src/mcp/owner_transport_tests.rs` have a zero-line diff against the base; and the only edits to serving files are (a) Task 1's additions to `src/mcp/session.rs` (one accessor nothing in the standalone path calls, and one comment) (b) Task 6's extraction of the frame loop in `src/mcp/transport.rs`, where `serve_connection` passes the unchanged `handle_message_with` to the extracted loop, and (c) Task 10's one added function in `transport.rs`, `retryable_status_response`, which nothing in the standalone path calls. `src/mcp/lazy.rs`, `framing.rs`, `output.rs`, `owner.rs`, `settings.rs`, `src/mcp/shared/*` and `src/bin/prism-mcp.rs` are not touched.
 - The in-process server keeps `LazySessionProvider` and the `SessionRuntime` trait unchanged (spec §4.2). Do not add, remove or rename a `SessionRuntime` method.
 - Spec values, copied exactly:
   - Build phases: `Idle | Building{attempt, started} | Ready{generation} | Failed{attempt, error}` (§4.2). Their wire words, already in `shared::preamble::BuildState`: `idle`, `building`, `ready`, `failed` (§4.4). In the code `Ready` carries no generation of its own: the generation is `ControlState::generation`, kept apart from the phase because the slot is filled, and can be written to, before `Ready` is announced (D13).
@@ -107,7 +108,7 @@ Each is something the spec leaves open or states ambiguously. The reason is one 
 |---|---|---|---|
 | D1 | The daemon core is a new private module `src/mcp/daemon/` (`mod daemon;` in `src/mcp/mod.rs`), not part of `src/mcp/shared/`. Its items are `pub(super)`. | `shared/`'s own doc says nothing there takes a lock or starts a thread. S3a's tests are in-crate, so nothing outside `crate::mcp` needs these names yet. | A visibility edit when S4 adds the public entry point. |
 | D2 | The module carries `#![cfg_attr(not(test), allow(dead_code))]`, to be removed in S4. | Nothing calls the coordinator in production until the accept loop exists. | One line. |
-| D3 | The control plane is one `Mutex<ControlState>` and one `Condvar`, as spec §4.2 words it; calls park on that condition variable. **Revised by the first review of S3a-1:** each attempt has an outcome (`AttemptOutcome`, a `OnceLock`) that is created with the attempt, shared by `Arc` with every call that starts or joins it, and filled once, under the control mutex, when the attempt ends. A call reads only its own attempt's outcome. As first written the plan answered a waiter from the current phase and one remembered error, so a waiter that ran late was told another attempt's outcome. | The spec's shape, and S4 needs the build phase and its own counters under one lock for the retirement decision. The outcome per attempt is what makes "delivered to every connection waiting on it" true for any number of retries; pairing the remembered error with an attempt number would not have kept the outcome of an attempt two retries back. | One allocation per attempt. The outcome is dropped when the last call that joined the attempt returns; nothing is kept per attempt in the control plane. |
+| D3 | The control plane is one `Mutex<ControlState>` and one `Condvar`, as spec §4.2 words it; calls park on that condition variable. **Revised by the first review of S3a-1:** each attempt has an outcome (`AttemptOutcome`, a `OnceLock`) that is created with the attempt, shared by `Arc` with every call that starts or joins it, and filled once, under the control mutex, when the attempt ends. A call reads only its own attempt's outcome. As first written the plan answered a waiter from the current phase and one remembered error, so a waiter that ran late was told another attempt's outcome. | The spec's shape, and S4 needs the build phase and its own counters under one lock for the retirement decision. The outcome per attempt is what makes "delivered to every connection waiting on it" true for any number of retries; pairing the remembered error with an attempt number would not have kept the outcome of an attempt two retries back. | One allocation per attempt. The outcome is dropped when the last call that joined the attempt returns; nothing is kept per attempt in the control plane. (Superseded by D32: each connection's budget keeps the outcome of the attempt it last joined until it joins another or the connection ends; still nothing per attempt in the control plane.) |
 | D4 | `ensure_ready` picks its attempt once, then only waits for that attempt. A call that is told `Failed` never starts the retry itself. | Spec: "the next readiness-requiring call … starts exactly one retry". A call that restarted on failure could loop for as long as builds keep failing. | A loop edit; Task 3's failed-attempt test pins it. |
 | D5 | "Single retry" (spec §12) is read as: one retry per failed attempt, started by the next call. No cap, no back-off. | It is the in-process server's contract ("the next tool call retries the build"), which spec §5 preserves. | SI-3. A cap or a minimum interval is a few lines in `start_attempt`. |
 | D6 | A budget is a `ConnectionBudget`, constructible only from a `ClientSettings`; it holds one deadline keyed by attempt number. | `ClientSettings` already bounds the wait at 600 s (S2b), so the bound is carried by the type. The key by attempt is what makes the budget "per attempt". | None foreseen. |
@@ -129,13 +130,13 @@ Each is something the spec leaves open or states ambiguously. The reason is one 
 | D22 | `Ready` announced with an empty slot (which D12 and the publication order rule out) ends the connection with an error instead of an `expect`. | A panic in dispatch is fatal to every client once S3b lands. | S3b may make it the abort. |
 | D23 | A call parked for a client that has disconnected is left parked until its attempt ends or its deadline passes. | Noticing sooner needs the wait to poll the socket, and S4 owns the stream's mode. | SI-5. |
 | D24 | The warming answer's `elapsed` is measured from the start of the attempt on the daemon's clock, for every client. | It is what the in-process server reports (time since the build started), and it is the same number for everyone waiting on one build. | One expression. |
-| D26 | **The owner's decision (2026-10-13), replacing this plan's first D26.** A failed attempt is reported to the calls that waited on it unless a retry has already superseded it; then they are told to retry. Precisely: a call whose own attempt failed is answered `build_failed`, with that attempt's own text, while the phase is still a failure (its own, or a later one with nothing building); if a later attempt is building or the index is ready when the call runs again, it is answered with a retryable `indexing` status ("retry in about N seconds; if you already retried and that call succeeded, ignore this message") and is given no failure text. Built in Task 10. | The owner does not want a call told of a stale failure ("Building...retry in <retry interval seconds> or ignore if you retried and call succeeded"; "could use indexing in place of building; this is what IDEs do"). The first D26 gave such a call `build_failed` for an index that was in fact ready. | The status is one the in-process server never sends, so a client of a shared daemon can see a status a standalone client cannot. `prism/index_state` is `warming` so that clients keyed on it treat it as warming. The interval, `INDEXING_RETRY_AFTER_SECS` = 5, is the controller's placeholder, not the owner's number: one constant. A failure whose waiters are all superseded is reported to nobody; the next section says where else that already happens. |
+| D26 | **The owner's decision (2026-10-13), replacing this plan's first D26.** A failed attempt is reported to the calls that waited on it unless a retry has already superseded it; then they are told to retry. Precisely: a call whose own attempt failed is answered `build_failed`, with that attempt's own text, while the phase is still a failure (its own, or a later one with nothing building); if a later attempt is building or the index is ready when the call runs again, it is answered with a retryable `indexing` status ("retry in about N seconds; if you already retried and that call succeeded, ignore this message") and is given no failure text. Built in Task 10. **Amended by the owner on 2026-10-13:** "on the superseded call finding index ready it [w]ould be better to be answered at once". A call whose own attempt failed and which finds the index ready is served, on the waiter's path and on D32's; `indexing` remains for a later attempt that is building. Built in Task 13. | The owner does not want a call told of a stale failure ("Building...retry in <retry interval seconds> or ignore if you retried and call succeeded"; "could use indexing in place of building; this is what IDEs do"). The first D26 gave such a call `build_failed` for an index that was in fact ready. | The status is one the in-process server never sends, so a client of a shared daemon can see a status a standalone client cannot. `prism/index_state` is `warming` so that clients keyed on it treat it as warming. The interval, `INDEXING_RETRY_AFTER_SECS` = 5, is the owner's value (2026-10-13; it was the controller's placeholder until then); a change needs measured build-time evidence. A failure whose waiters are all superseded is reported to nobody; the next section says where else that already happens. |
 | D27 | Attempt numbers are never reused. When the counter cannot go on (`u64::MAX` attempts), no build is started and the call is told `the index build attempt counter is exhausted`; so is every later call. | A connection's budget is kept by attempt number; a number used twice would hand a later attempt an earlier one's deadline. | Unreachable in any process lifetime; the branch exists so that the arithmetic is checked, and a test drives it. |
 | D28 | The build thread is named `prism-idx-build`. | Linux keeps 15 bytes of a thread name. | A constant. |
 | D29 | `ensure_ready` returns the daemon's own `Answer { Ready, Warming, Failed, Superseded }`; `lazy.rs`'s `Readiness` is unchanged and the connection maps the first three onto it. A call reads its own attempt's outcome first; only when that is a failure does it look at the phase, once, under the control lock it holds, and only to learn whether the failure has been superseded. | The owner's decision needs a fourth answer and `Readiness` is the in-process server's type. The one look at the phase cannot bring back the first review's defect: it returns no outcome and no text of another attempt, only "superseded". | Task 10's mutants B and C are the two ways to get it wrong (every failed waiter told to retry; the latest failure's text), and each fails named tests. |
 | D30 | The `indexing` result's envelope is built by one function added to `transport.rs`, `retryable_status_response`, from the same private helpers as `warming` and `build_failed`; its status text and constants live in `daemon/connection.rs`. | `ToolCall`'s id and the envelope helpers are private to `transport.rs`; building the envelope elsewhere would copy them. | `transport.rs` gains 17 lines that the standalone path never calls; the golden transcripts and the transport test corpus are unchanged. |
 | D31 | The control-plane types (`AttemptOutcome`, `BuildPhase`, `ControlState`, `BuildStatus`, and `Answer`) are in `daemon/control.rs`; `coordinator.rs` holds the lock and re-exports them. Task 9 is the move alone. | Both reviewers of S3a-1 asked for the split before `coordinator.rs` (540 of its 600 lines) was extended. | None. `record_generation` still takes the generation from its caller; a reviewer asked that it read it from the guard it is handed when the file is next changed there. Not done: it is a change of behavior in an emptied slot, outside a pure move. **`control` stays a sibling of `coordinator`** (the first review of S3a-2, Opus S5, suggested a child module so that `AttemptOutcome::fill` and `ended` are visible to the coordinator only): `budget.rs` now reads `AttemptOutcome::ended` (Task 11), and `connection.rs` and the tests name `Answer` and `BuildPhase` through `coordinator`'s re-export, which a private child module would need widened item by item. The widening is to the `daemon` module, whose only other files are the connection, the budget and tests, and nothing outside `coordinator.rs` can reach an `AttemptOutcome` that a call did not join. |
-| D32 | **A connection's next call first hears its own attempt's unheard failure** (the first review of S3a-2, Opus F1; decided by the controller under the owner's D26 principle). `ConnectionBudget` keeps the outcome of the attempt the connection last joined and whether a call of the connection was told how it ended. Before the shortcut to `Ready` and before an attempt is started or joined, a failure no call of the connection was told of is answered by the D26 rule (`answer_for`): `Failed` with its own text when nothing has superseded it, `Superseded` when a later attempt is building or the index is ready. That call starts nothing; the connection is then told. An attempt that ended ready needs no such step. Built in Task 11. | The in-process server answers a client that stopped waiting `warming`, then `build_failed` with the cause, then retries on the call after. Without D32 the daemon retried on the call after the failure: the cause reached no client whose wait was shorter than the build, and a slow failing build was rebuilt on every call. Spec §4.2 and §5 disagree on this case (SI-8). | A client whose wait is shorter than the build gets one more answer (the failure) before the retry starts, as in process. The budget keeps one `Arc<AttemptOutcome>` (an error string at most) per connection until the connection joins another attempt or ends. |
+| D32 | **A connection's next call first hears its own attempt's unheard failure** (the first review of S3a-2, Opus F1; decided by the controller under the owner's D26 principle). `ConnectionBudget` keeps the outcome of the attempt the connection last joined and whether a call of the connection was told how it ended. Before the shortcut to `Ready` and before an attempt is started or joined, a failure no call of the connection was told of is answered by the D26 rule (`answer_for`): `Failed` with its own text when nothing has superseded it, `Superseded` when a later attempt is building or the index is ready. That call starts nothing; the connection is then told. Since the owner's amendment of D26 (Task 13), a failure superseded by a ready index is answered `Ready` on this path too and the call is served. An attempt that ended ready needs no such step. Built in Task 11. | The in-process server answers a client that stopped waiting `warming`, then `build_failed` with the cause, then retries on the call after. Without D32 the daemon retried on the call after the failure: the cause reached no client whose wait was shorter than the build, and a slow failing build was rebuilt on every call. Spec §4.2 and §5 disagree on this case (SI-8). | A client whose wait is shorter than the build gets one more answer (the failure) before the retry starts, as in process. The budget keeps one `Arc<AttemptOutcome>` (an error string at most) per connection until the connection joins another attempt or ends. |
 | D33 | `serve_admitted` sets the stream blocking with no read timeout before serving it. Built in Task 12. | S4's handshake stage reads the preamble from a non-blocking socket and may set a timeout; a stream left that way ends the connection as a read error at the first quiet moment (the first review of S3a-2, Opus S4). | Two system calls per connection. |
 | D25 | Two test seams on the build thread, compiled only under `#[cfg(test)]` and called with no lock held: after publication and before the announcement; after an outcome is recorded and before waiters are notified. | They are the two steps where another actor can interleave ("publication before Ready", "a waiter that wakes late"). | Removed with their tests. |
 
@@ -147,14 +148,14 @@ Each is something the spec leaves open or states ambiguously. The reason is one 
 - **SI-4 (§4.2, wording).** "A thread holding the provider may briefly take Control to read state." Keeping the control plane's generation true after a refresh, and at publication, needs a write to the control plane while the provider is held. The lock order is the permitted one; the word "read" is narrower than what the design needs. This plan writes the one field (D13).
 - **SI-5 (§4.6 "Client exits: connection drops; admitted count decrements").** With D23 the decrement can lag the disconnect by up to the client's first-call wait (at most 600 s) when the client leaves while its call is parked on a build. The idle TTL is 900 s, so retirement is delayed, not prevented. Options: accept; have the parked call poll its socket for a hang-up; cap the wait of a parked call independently of the client's setting.
 - **SI-6 (§3.1, §4.2 against §5).** Spec §3.1 makes a panic on the build thread daemon-fatal; spec §5 preserves "the warming result and retry contract", under which the in-process server reports a builder panic as a failed build and retries. S3a implements the second and S3b the first. The two readings differ only once S3b lands; recorded so S3b's plan decides it on purpose.
-- **SI-8 (§4.2 against §5; proposed wording for the controller to apply).** §4.2: "After Failed, the next readiness-requiring call … starts exactly one retry". §5: the in-process server's warming result and retry contract is preserved, and there a client that stopped waiting hears the failure on its next call and only the call after that retries. D32 reads §4.2 per connection. Proposed sentence for §4.2, after "starts exactly one retry": "A connection's next call first hears its own attempt's unheard outcome: a call from a connection that was answered warming for an attempt that has since failed is answered with that failure (or told to retry, when the failure has been superseded) and starts nothing; the retry is started by a call that has heard it."
+- **SI-8 (§4.2 against §5; proposed wording for the controller to apply).** §4.2: "After Failed, the next readiness-requiring call … starts exactly one retry". §5: the in-process server's warming result and retry contract is preserved, and there a client that stopped waiting hears the failure on its next call and only the call after that retries. D32 reads §4.2 per connection. Proposed sentence for §4.2, after "starts exactly one retry": "A connection's next call first hears its own attempt's unheard outcome: a call from a connection that was answered warming for an attempt that has since failed is answered with that failure (or told to retry, when the failure has been superseded) and starts nothing; the retry is started by the next call from a connection with no unheard failure." (The clause first proposed here, "by a call that has heard it", was wrong: a connection that never joined the failed attempt starts the retry too; both reviewers of round 2.) Under `Background` startup the sentence does not yet hold for the startup attempt, which no connection joins (S4's requirement under "Interfaces for the next slices").
 - **SI-7 (§4.2, cost of the read path).** The lane plan notes that the first query on a fresh snapshot builds the call-edge index and writes its cache sidecar. In the daemon that happens under the read lock: other readers wait on that `OnceLock`, not on the provider, but a `refresh_index` requested meanwhile waits for the disk write. Not pursued.
 
 ## Review Focus
 
 Six ways this code is most likely to be wrong in use that a straightforward test list would not exercise. Each has a test in the task that owns the code.
 
-1. **A call that is still parked when the retry starts, or ends.** Attempt 1 fails; before its waiter runs again, another client's call starts attempt 2, which may still be building, may have succeeded, may have failed for another reason, or may itself have been followed by attempt 3. The waiter must never be given another attempt's outcome or text, must not start an attempt, and must not join one with the budget it had for attempt 1. By the owner's decision (D26) it is told to retry when a later attempt is building or the index is ready, and is told of attempt 1's failure, with attempt 1's text, when every later attempt has failed too. → Task 4 and Task 10: `a_waiter_whose_failed_attempt_was_superseded_by_a_building_retry_is_told_to_retry`, `a_waiter_whose_failed_attempt_was_superseded_by_a_ready_index_is_told_to_retry`, `a_waiter_of_a_failed_attempt_hears_that_failure_although_the_retry_failed_differently`, `waiters_of_failed_attempts_are_told_to_retry_while_a_third_attempt_is_building`, `waiters_of_failed_attempts_hear_their_own_failure_when_every_later_attempt_failed_too`; over a socket, `a_call_whose_failed_attempt_was_superseded_is_told_to_retry_and_its_retry_is_served`. Each plays the other clients between the recording of a failure and its notification. The first review of S3a-1 found three of these cases wrong in the plan as first written.
+1. **A call that is still parked when the retry starts, or ends.** Attempt 1 fails; before its waiter runs again, another client's call starts attempt 2, which may still be building, may have succeeded, may have failed for another reason, or may itself have been followed by attempt 3. The waiter must never be given another attempt's outcome or text, must not start an attempt, and must not join one with the budget it had for attempt 1. By the owner's decision (D26, as amended) it is told to retry when a later attempt is building, is served when the index is ready, and is told of attempt 1's failure, with attempt 1's text, when every later attempt has failed too. → Task 4, Task 10 and Task 13: `a_waiter_whose_failed_attempt_was_superseded_by_a_building_retry_is_told_to_retry`, `a_waiter_whose_failed_attempt_was_superseded_by_a_ready_index_is_served` (Task 13), `a_waiter_of_a_failed_attempt_hears_that_failure_although_the_retry_failed_differently`, `waiters_of_failed_attempts_are_told_to_retry_while_a_third_attempt_is_building`, `waiters_of_failed_attempts_hear_their_own_failure_when_every_later_attempt_failed_too`; over a socket, `a_call_whose_failed_attempt_was_superseded_by_a_published_retry_is_served` (Task 13). Each plays the other clients between the recording of a failure and its notification. The first review of S3a-1 found three of these cases wrong in the plan as first written.
 2. **A client that disconnects while its call is parked.** The build must go on and be kept, no waiter may remain counted, and the next client must be served from that build, not a second one. → Task 7, `a_client_that_leaves_while_its_call_waits_leaves_no_waiter_and_the_build_is_kept`, `a_departed_client_s_call_is_parked_no_longer_than_its_budget`.
 3. **A build that cannot start, or dies.** No thread can be created; or the builder panics. Either way every parked call gets an answer and the next call can retry. → Task 3, `a_build_thread_that_cannot_be_started_is_a_failed_attempt_and_the_next_call_retries`, `a_builder_panic_is_a_failed_attempt_every_waiter_hears_of`.
 4. **A lock poisoned while calls are parked.** They must return an error when they wake, not hang and not panic; later calls and `status` the same. → Task 3, `a_poisoned_control_lock_is_an_error_for_every_caller_never_a_panic_or_a_hang`; Task 4, `a_poisoned_provider_slot_fails_the_attempt_and_is_an_error_for_every_reader`; Task 8, `a_poisoned_provider_slot_ends_the_connection_with_an_error_and_handshakes_go_on`.
@@ -172,9 +173,9 @@ Every "never", "always", "exactly" and "only" this plan's code or comments state
 | Each connection has its own deadline; one client's warming changes nothing for another. | T2 `each_connection_has_its_own_deadline_for_the_same_attempt`; T3 `the_spec_s_worked_example_two_budgets_on_one_attempt` | one deadline per attempt shared by all waiters (not applied in validation: it is not a one-line change) |
 | A new attempt gives every connection a fresh budget. | T2 `a_new_attempt_gets_a_fresh_full_budget`; T3 `a_retry_gives_a_connection_a_fresh_full_budget` | keep the first deadline for the connection's life |
 | An attempt's outcome reaches every call waiting on it. | T3 `a_failed_attempt_is_delivered_to_every_call_waiting_on_it_and_nothing_retries_by_itself`; T4 the four late-waiter tests | `notify_one` instead of `notify_all` |
-| A call is never given another attempt's outcome or error. | T10 `a_waiter_of_a_failed_attempt_hears_that_failure_although_the_retry_failed_differently`, `waiters_of_failed_attempts_hear_their_own_failure_when_every_later_attempt_failed_too`, `a_waiter_whose_failed_attempt_was_superseded_by_a_ready_index_is_told_to_retry` (it is not told `Ready`) | report a failure with the latest attempt's text (Task 10 C); before Task 10, answer from the current phase (Task 4 B) |
-| A failure is reported to the calls that waited on it unless a retry has superseded it; then they are told to retry. | T10 the two `…_was_superseded_by_…` tests, `waiters_of_failed_attempts_are_told_to_retry_while_a_third_attempt_is_building`, `a_call_whose_failed_attempt_was_superseded_is_told_to_retry_and_its_retry_is_served`; and for "unless", T3 `a_failed_attempt_is_delivered_to_every_call_waiting_on_it_and_nothing_retries_by_itself` | still report a superseded failure (Task 10 A); tell every waiter of a failed attempt to retry (Task 10 B) |
-| The `indexing` answer is retryable, carries the index state `warming`, and carries no failure text. | T10 `a_call_whose_failed_attempt_was_superseded_is_told_to_retry_and_its_retry_is_served` | answer a superseded call as warming (Task 10 D); another index state (Task 10 E) |
+| A call is never given another attempt's outcome or error. | T10 `a_waiter_of_a_failed_attempt_hears_that_failure_although_the_retry_failed_differently`, `waiters_of_failed_attempts_hear_their_own_failure_when_every_later_attempt_failed_too`, `a_waiter_whose_failed_attempt_was_superseded_by_a_ready_index_is_served` (served from the index retry 2 published; it is never given retry 2's outcome as its own) | report a failure with the latest attempt's text (Task 10 C); before Task 10, answer from the current phase (Task 4 B) |
+| A failure is reported to the calls that waited on it unless a retry has superseded it; then they are told to retry while it builds, and served once it has published. | T10 `a_waiter_whose_failed_attempt_was_superseded_by_a_building_retry_is_told_to_retry`, `waiters_of_failed_attempts_are_told_to_retry_while_a_third_attempt_is_building`; T13 `a_waiter_whose_failed_attempt_was_superseded_by_a_ready_index_is_served`, `a_call_whose_failed_attempt_was_superseded_by_a_published_retry_is_served`, `a_connection_that_stopped_waiting_is_served_once_another_s_retry_has_published`, `a_client_that_stopped_waiting_is_served_once_another_client_s_retry_has_published`, the two rule tests; and for "unless", T3 `a_failed_attempt_is_delivered_to_every_call_waiting_on_it_and_nothing_retries_by_itself` | still report a superseded failure (Task 10 A); tell every waiter of a failed attempt to retry (Task 10 B); tell a call to retry when the index is ready (Task 13 A) |
+| The `indexing` answer is retryable, carries the index state `warming`, and carries no failure text. | T11/T13 `a_client_that_stopped_waiting_is_told_to_retry_when_another_client_retried_meanwhile` (the envelope checks moved there from the Task 10 socket test when that case became a served call) | answer a superseded call as warming (Task 10 D); another index state (Task 10 E) |
 | A connection's next call hears its own attempt's failure, which no call of the connection was told of, before anything is started, and hears it once. | T11 `a_connection_that_stopped_waiting_hears_its_attempt_s_failure_before_any_retry`, `a_client_that_stopped_waiting_hears_the_failure_and_then_the_retry_like_the_in_process_server` (byte parity), `a_failure_no_call_was_told_of_is_reported_once`; T3 `a_retry_gives_a_connection_a_fresh_full_budget` | the code before Task 11 (Task 11 A); mark it told on joining (B); report it on every call (D); not mark a waited-for ending told (E) |
 | That call is answered from its own outcome only: told to retry when superseded, its own text otherwise. | T11 `a_connection_that_stopped_waiting_is_told_to_retry_when_another_retried_meanwhile`, `a_connection_hears_its_own_attempt_s_failure_although_a_later_attempt_failed_too`, and over sockets `a_client_that_stopped_waiting_is_told_to_retry_when_another_client_retried_meanwhile` | answer from the latest attempt's text (Task 11 C) |
 | An attempt that published while the connection was not waiting serves the connection's next call. | T11 `a_connection_whose_attempt_published_while_it_was_not_waiting_is_served`, `an_attempt_that_published_the_index_is_never_an_unheard_failure` | none applied: it guards against a D32 that over-reaches (reports any ending, or treats `Ok` as unheard) |
@@ -204,7 +205,7 @@ Every "never", "always", "exactly" and "only" this plan's code or comments state
 | Sticky stale evidence outranks a clean stamp probe for every client. | T8 `sticky_stale_evidence_reaches_another_client_although_the_stamp_probe_is_clean`, `under_an_automatic_policy_sticky_stale_evidence_makes_the_next_client_s_query_refresh_again` | drop the `known_stale_after_refresh` precedence in `effective_stale_report` |
 | `Ready` with nothing published is an error, not a panic. | T8 `ready_with_nothing_published_ends_the_connection_with_an_error_not_a_panic` | `expect` in `published` |
 
-Stated and **not** held by a test, or held only under an assumption: two tests hold waiters behind withheld notifications (`waiters_of_failed_attempts_are_told_to_retry_while_a_third_attempt_is_building`, and over sockets `a_call_whose_failed_attempt_was_superseded_is_told_to_retry_and_its_retry_is_served`) and assume no spurious wake-up in that short window; a spurious wake-up would make them fail loudly, never pass wrongly, and the rule they exercise is held without threads by Task 11's table tests (both reviewers of S3a-2, Opus S3 and sol S1). `wake()`'s claim that a call which has read the old time and not yet parked is woken too (it holds because `wake` takes the control lock before notifying; no test can place a call in that interval deterministically); that an injected `Clock` makes progress and an injected `Spawner` returns promptly and does not run the job inline (contracts on the two types, stated in their docs; production uses `SystemClock` and `std::thread`); D7's overflow branch (no `ClientSettings` reaches it); that no S3a code panics while holding the control lock (by inspection of the five things it does there); that a response is written with no lock held (by construction: `run_tool_call` returns an owned `Value`, so no guard can outlive it; the blocked-writer test is S3b's, spec §9 test 7).
+Stated and **not** held by a test, or held only under an assumption: two tests hold waiters behind withheld notifications (`waiters_of_failed_attempts_are_told_to_retry_while_a_third_attempt_is_building`, and over sockets `a_call_whose_failed_attempt_was_superseded_by_a_published_retry_is_served`) and assume no spurious wake-up in that short window; a spurious wake-up would make them fail loudly, never pass wrongly, and the rule they exercise is held without threads by Task 11's table tests (both reviewers of S3a-2, Opus S3 and sol S1). `wake()`'s claim that a call which has read the old time and not yet parked is woken too (it holds because `wake` takes the control lock before notifying; no test can place a call in that interval deterministically); that an injected `Clock` makes progress and an injected `Spawner` returns promptly and does not run the job inline (contracts on the two types, stated in their docs; production uses `SystemClock` and `std::thread`); D7's overflow branch (no `ClientSettings` reaches it); that no S3a code panics while holding the control lock (by inspection of the five things it does there); that a response is written with no lock held (by construction: `run_tool_call` returns an owned `Value`, so no guard can outlive it; the blocked-writer test is S3b's, spec §9 test 7).
 
 ## File Structure
 
@@ -220,18 +221,19 @@ Stated and **not** held by a test, or held only under an assumption: two tests h
 | `src/mcp/daemon/coordinator.rs` | `DaemonState`, `ControlState`, `BuildPhase`, `BuildStatus`, `Poisoned`, `Parts`, `Spawner`, test seams | Create (Task 3), extend (Task 4: `write`; Task 8: one test-only method) | both |
 | `src/mcp/daemon/coordinator_tests.rs` | States and budgets | Create (Task 3), modify (Task 11: one expectation) | both |
 | `src/mcp/daemon/coordinator_failure_tests.rs` | Builds that cannot start or die; poisoning; write-once outcome | Create (Task 3) | S3a-1 |
-| `src/mcp/daemon/coordinator_order_tests.rs` | Publication before `Ready`; the late waiter; the generation copy | Create (Task 4), modify (Task 10) | both |
-| `src/mcp/daemon/coordinator_edge_tests.rs` | Edges the second review round found untested: the third-attempt waiter, a published generation other than 0, a budget that ends as its attempt ends, a zero-wait client; from Task 11, a connection that stopped waiting | Create (Task 4), modify (Tasks 10, 11) | both |
-| `src/mcp/daemon/control.rs` | `AttemptOutcome`, `BuildPhase`, `ControlState`, `BuildStatus`; from Task 10, `Answer`; from Task 11, the rule `answer_for` | Create (Task 9, moved out of `coordinator.rs`), modify (Tasks 10, 11) | S3a-2 |
-| `src/mcp/daemon/control_tests.rs` | Table tests of `answer_for` | Create (Task 11) | S3a-2 |
+| `src/mcp/daemon/coordinator_order_tests.rs` | Publication before `Ready`; the late waiter; the generation copy | Create (Task 4), modify (Tasks 10, 13) | both |
+| `src/mcp/daemon/coordinator_edge_tests.rs` | Edges the second review round found untested: the third-attempt waiter, a published generation other than 0, a budget that ends as its attempt ends, a zero-wait client; from Task 11, a connection that stopped waiting | Create (Task 4), modify (Tasks 10, 11, 13) | both |
+| `src/mcp/daemon/control.rs` | `AttemptOutcome`, `BuildPhase`, `ControlState`, `BuildStatus`; from Task 10, `Answer`; from Task 11, the rule `answer_for` | Create (Task 9, moved out of `coordinator.rs`), modify (Tasks 10, 11, 13) | S3a-2 |
+| `src/mcp/daemon/control_tests.rs` | Table tests of `answer_for` | Create (Task 11), modify (Task 13) | S3a-2 |
 | `src/mcp/daemon/test_support.rs` | Manual clock, gates, scripted builder, test connections | Create (Task 2), replace (Task 3) | S3a-1 |
 | `src/mcp/transport.rs` | adds `serve_loop`, which `serve_connection` calls; adds `retryable_status_response` for the daemon's `indexing` status | Modify (Tasks 6, 10) | S3a-2 |
 | `src/mcp/transport_loop_tests.rs` | Tests for `serve_loop` | Create (Task 6) | S3a-2 |
-| `src/mcp/daemon/connection.rs` | `serve_admitted`, the tool-call step under the two locks; from Task 10, the `indexing` status; from Task 12, the stream's mode | Create (Task 7), modify (Tasks 10, 12) | S3a-2 |
+| `src/mcp/daemon/connection.rs` | `serve_admitted`, the tool-call step under the two locks; from Task 10, the `indexing` status; from Task 12, the stream's mode | Create (Task 7), modify (Tasks 10, 12, 13) | S3a-2 |
 | `src/mcp/daemon/wire_support.rs` | A raw MCP client on a socket pair, for tests | Create (Task 7), extend (Task 8) | S3a-2 |
-| `src/mcp/daemon/connection_tests.rs` | Spec test 1; warming, failure and departure over a socket; nothing served before `Ready`; a superseded failure; a client that stopped waiting; the stream's mode | Create (Task 7), modify (Tasks 10, 11, 12) | S3a-2 |
-| `src/mcp/daemon/connection_parity_tests.rs` | Byte parity with the in-process server, also for a client that stopped waiting before its build failed; spec test 14; the two error endings | Create (Task 8), modify (Task 11) | S3a-2 |
-| `CLAUDE.md` | MCP Adapter notes | Modify (Tasks 5, 13) | both |
+| `src/mcp/daemon/connection_tests.rs` | Spec test 1; warming, failure and departure over a socket; nothing served before `Ready`; a superseded failure; a client that stopped waiting; the stream's mode | Create (Task 7), modify (Tasks 10, 11, 12, 13) | S3a-2 |
+| `src/mcp/daemon/connection_parity_tests.rs` | Byte parity with the in-process server, also for a client that stopped waiting before its build failed; spec test 14; the two error endings | Create (Task 8), modify (Tasks 11, 13) | S3a-2 |
+| `src/mcp/daemon/connection_ready_tests.rs` | A client whose failed attempt a published retry superseded is served | Create (Task 13) | S3a-2 |
+| `CLAUDE.md` | MCP Adapter notes | Modify (Tasks 5, 14) | both |
 | `src/mcp/transport_tests.rs`, `src/mcp/owner_transport_tests.rs`, `tests/fixtures/mcp/golden/*`, `src/mcp/lazy.rs`, `src/mcp/framing.rs`, `src/mcp/shared/*` | The standalone contract and S1/S2's code | **Must not change** | |
 
 How a step names a file edit, so there is no doubt what to type:
@@ -3345,7 +3347,7 @@ Review brief (lane plan): Opus 5.5 and gpt-6.1-sol, same commit, WRONG/SMELL and
 
 ---
 
-# Part two: S3a-2, one connection served through the coordinator (Tasks 6–13)
+# Part two: S3a-2, one connection served through the coordinator (Tasks 6–14)
 
 **Base: `origin/main` at `e7dc1cc2`**, the squash merge of S3a-1 (pull request #374). Branch S3a-2 from there. Tasks 7 to 11 edit files S3a-1 created (`src/mcp/daemon/mod.rs`, `coordinator.rs` and, in Tasks 10 and 11, its tests; in Task 11, `budget.rs` and its tests).
 
@@ -7468,13 +7470,640 @@ Expected, and observed in validation: each fails `a_connection_handed_over_non_b
 
 ---
 
-### Task 13: S3a-2 proof, docs, and the pull request
+### Task 13: A call whose failed attempt a published retry has superseded is served
+
+The owner's decision of 2026-10-13, amending D26: "on the superseded call finding index ready it [w]ould be better to be answered at once". A call whose own attempt failed, and which finds that a later attempt has already published the index, is served like any call that finds the index ready; it is not told `indexing`. `Superseded` (`indexing`) remains only for a later attempt that is still building. This holds on both paths that answer from an outcome: a parked waiter that wakes to its own failed attempt, and a connection's unheard failure (D32), which is then marked told, since nothing about the superseded failure is owed. Both paths go through `answer_for`, so the change is one arm of it.
+
+**Files:**
+- Modify: `src/mcp/daemon/control.rs`, `src/mcp/daemon/coordinator.rs` (docs), `src/mcp/daemon/connection.rs` (docs and one test-module line)
+- Create (tests): `src/mcp/daemon/connection_ready_tests.rs` (its own file to keep `connection_tests.rs` under 600 lines)
+- Modify (tests): `control_tests.rs`, `coordinator_order_tests.rs`, `coordinator_edge_tests.rs`, `connection_tests.rs`, `connection_parity_tests.rs`
+
+**Interfaces:**
+- Consumes: `answer_for` (Task 11).
+- Produces: `answer_for(&Err(_), &BuildPhase::Ready) == Answer::Ready`; `Answer::Superseded` now means "a later attempt is building".
+
+- [ ] **Step 1: Write the tests**
+
+The rule's table splits its ready row out. The order test and the socket test whose retry has published now expect the call to be served (each renamed); the socket test of the `indexing` envelope moves to the building case, where it still applies. A coordinator test and a socket test cover the D32 path with the index ready. The parity leg also asserts that the call that hears the failure starts no build (the second review of S3a-2, Opus S2); that assertion passes before this task too.
+
+In `src/mcp/daemon/control_tests.rs`, replace this:
+
+````rust
+/// A failed attempt is superseded when a later attempt is building or the index is ready.
+#[test]
+fn a_failed_attempt_is_superseded_by_a_building_retry_and_by_a_ready_index() {
+    let own: Result<(), String> = Err("own error".to_string());
+    assert_eq!(answer_for(&own, &building()), Answer::Superseded);
+    assert_eq!(answer_for(&own, &BuildPhase::Ready), Answer::Superseded);
+}
+````
+
+with this:
+
+````rust
+/// A failed attempt is superseded when a later attempt is building: the call is told to retry.
+#[test]
+fn a_failed_attempt_is_superseded_by_a_building_retry() {
+    let own: Result<(), String> = Err("own error".to_string());
+    assert_eq!(answer_for(&own, &building()), Answer::Superseded);
+}
+
+/// When a later attempt has published the index, a call whose own attempt failed is served at
+/// once (the owner's decision of 2026-10-13, amending D26). Rules out telling it to retry with
+/// nothing building.
+#[test]
+fn a_failed_attempt_whose_retry_published_the_index_is_answered_ready() {
+    let own: Result<(), String> = Err("own error".to_string());
+    assert_eq!(answer_for(&own, &BuildPhase::Ready), Answer::Ready);
+}
+````
+
+In `src/mcp/daemon/coordinator_order_tests.rs`, replace this:
+
+````rust
+/// The retry has already succeeded when the waiter of attempt 1 runs. It is told to retry, and
+/// its next call is served (D26). It is not told `Ready` either: a call is answered from its
+/// own attempt, and its own attempt built nothing. Rules out reporting the superseded failure,
+/// and answering from the current phase.
+#[test]
+fn a_waiter_whose_failed_attempt_was_superseded_by_a_ready_index_is_told_to_retry() {
+````
+
+with this:
+
+````rust
+/// The retry has already succeeded when the waiter of attempt 1 runs. Its own attempt failed,
+/// and a later one has published the index since, so it is answered `Ready` and served at once
+/// (the owner's decision of 2026-10-13, amending D26), and so is its next call. Rules out
+/// reporting the superseded failure, and telling the call to retry with nothing building.
+#[test]
+fn a_waiter_whose_failed_attempt_was_superseded_by_a_ready_index_is_served() {
+````
+
+In `src/mcp/daemon/coordinator_order_tests.rs`, replace this:
+
+````rust
+    assert_eq!(
+        early.outcome(),
+        Outcome::Superseded,
+        "attempt 1 failed and the index is ready: the waiter of attempt 1 is told to retry"
+    );
+````
+
+with this:
+
+````rust
+    assert_eq!(
+        early.outcome(),
+        Outcome::Ready,
+        "attempt 1 failed and the index is ready: the waiter of attempt 1 is served"
+    );
+````
+
+Append to `src/mcp/daemon/coordinator_edge_tests.rs`:
+
+````rust
+
+/// The owner's decision of 2026-10-13 on the path of D32: a connection that stopped waiting on
+/// an attempt that then failed, while another connection's retry has published the index, is
+/// answered `Ready` on its next call, and on the call after it. Rules out `Superseded` with
+/// nothing building, and a failure reported after the connection was served.
+#[test]
+fn a_connection_that_stopped_waiting_is_served_once_another_s_retry_has_published() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let first_gate = Gate::closed();
+    let (builder, _calls) = scripted(&cfg, vec![fail_after(&first_gate, "first attempt failed")]);
+    let clock = ManualClock::new();
+    let state = DaemonState::from_parts(parts_with(builder, &clock)).expect("a lazy daemon state");
+    let quick = Conn::open(&state, 0);
+    let patient = Conn::open(&state, 600);
+
+    quick.call();
+    assert!(matches!(quick.outcome(), Outcome::Warming { .. }));
+    first_gate.open();
+    wait_until("attempt 1 to fail", || {
+        status(&state).state == BuildState::Failed
+    });
+    patient.call();
+    assert_eq!(patient.outcome(), Outcome::Ready, "the retry published");
+
+    quick.call();
+    assert_eq!(quick.outcome(), Outcome::Ready);
+    quick.call();
+    assert_eq!(quick.outcome(), Outcome::Ready, "and nothing is owed after it");
+    assert_eq!(status(&state).attempt, 2);
+}
+````
+
+In `src/mcp/daemon/connection_tests.rs`, replace this:
+
+````rust
+/// The owner's decision (D26): a call is not told of a failure that a retry has already
+/// superseded. The thread-free table of the rule is `control_tests.rs`; this test assumes that
+/// A's call does not wake spuriously while attempt 1's notification is held, and would fail
+/// loudly, not pass wrongly, if it did. A's call waits on attempt 1, which fails; before A's call runs again, B's call
+/// has started the retry and been served from it. A is then told that the repository is being
+/// indexed and to retry, in the envelope of the other retryable statuses, and its retry is
+/// served. Rules out answering `build_failed` with a stale cause, and a status that clients
+/// keyed on the index state would not treat as warming.
+#[test]
+fn a_call_whose_failed_attempt_was_superseded_is_told_to_retry_and_its_retry_is_served() {
+````
+
+with this:
+
+````rust
+/// The owner's decisions (D26, amended 2026-10-13): a call is not told of a failure that a
+/// retry has already superseded, and when that retry has published the index the call is
+/// served at once. The thread-free table of the rule is `control_tests.rs`; this test assumes
+/// that A's call does not wake spuriously while attempt 1's notification is held, and would
+/// fail loudly, not pass wrongly, if it did. A's call waits on attempt 1, which fails; before
+/// A's call runs again, B's call has started the retry and been served from it. A's call is
+/// then served from the index. Rules out answering `build_failed` with a stale cause, and
+/// telling A to retry when there is nothing to wait for.
+#[test]
+fn a_call_whose_failed_attempt_was_superseded_by_a_published_retry_is_served() {
+````
+
+In `src/mcp/daemon/connection_tests.rs`, replace this:
+
+````rust
+    // The retry's announcement woke A's call. Its own attempt failed; the index is ready.
+    let told = a.recv();
+    assert_eq!(told["id"], 7);
+    assert_eq!(told["result"]["isError"], true, "{told}");
+    assert_eq!(
+        told["result"]["structuredContent"],
+        json!({
+            "status": "indexing",
+            "retry_after_secs": 5,
+            "message": "prism-mcp is indexing the repository; retry this call in about 5 seconds. If you already retried and that call succeeded, ignore this message."
+        }),
+        "{told}"
+    );
+    let text = told["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap_or_default();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(text)
+            .ok()
+            .as_ref(),
+        Some(&told["result"]["structuredContent"]),
+        "the text view carries the same status"
+    );
+    assert_eq!(told["result"]["_meta"]["prism/index_state"], "warming");
+    assert_eq!(told["result"]["_meta"]["prism/retryable"], true);
+    assert!(
+        !told.to_string().contains("first attempt failed"),
+        "the superseded failure is not sent: {told}"
+    );
+    notify.open();
+````
+
+with this:
+
+````rust
+    // The retry's announcement woke A's call. Its own attempt failed; the index is ready.
+    let served = a.recv();
+    assert_eq!(served["id"], 7);
+    assert_eq!(
+        served["result"]["structuredContent"]["query"], RUN_CALLEES,
+        "{served}"
+    );
+    assert!(
+        !served.to_string().contains("first attempt failed"),
+        "the superseded failure is not sent: {served}"
+    );
+    notify.open();
+````
+
+In `src/mcp/daemon/connection_tests.rs`, replace this:
+
+````rust
+/// A client that stopped waiting (zero seconds) on an attempt that then failed, while another
+/// client has started the retry: the first client's next call is told `indexing`, not the
+/// stale failure (D26, D32), and its call after that joins the retry.
+````
+
+with this:
+
+````rust
+/// A client that stopped waiting (zero seconds) on an attempt that then failed, while another
+/// client has started the retry: the first client's next call is told that the repository is
+/// being indexed and to retry, in the envelope of the other retryable statuses, not the stale
+/// failure (D26, D32), and its call after that joins the retry. Rules out answering
+/// `build_failed` with a stale cause, and a status that clients keyed on the index state would
+/// not treat as warming.
+````
+
+In `src/mcp/daemon/connection_tests.rs`, replace this:
+
+````rust
+    let told = a.request(CALLEES);
+    assert_eq!(
+        told["result"]["structuredContent"]["status"], "indexing",
+        "{told}"
+    );
+    assert!(!told.to_string().contains("first attempt failed"), "{told}");
+````
+
+with this:
+
+````rust
+    let told = a.request(CALLEES);
+    assert_eq!(told["result"]["isError"], true, "{told}");
+    assert_eq!(
+        told["result"]["structuredContent"],
+        json!({
+            "status": "indexing",
+            "retry_after_secs": 5,
+            "message": "prism-mcp is indexing the repository; retry this call in about 5 seconds. If you already retried and that call succeeded, ignore this message."
+        }),
+        "{told}"
+    );
+    let text = told["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap_or_default();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(text)
+            .ok()
+            .as_ref(),
+        Some(&told["result"]["structuredContent"]),
+        "the text view carries the same status"
+    );
+    assert_eq!(told["result"]["_meta"]["prism/index_state"], "warming");
+    assert_eq!(told["result"]["_meta"]["prism/retryable"], true);
+    assert!(!told.to_string().contains("first attempt failed"), "{told}");
+````
+
+In `src/mcp/daemon/connection_parity_tests.rs`, replace this:
+
+````rust
+fn play_a_client_that_stopped_waiting(
+    client: &mut Client,
+    gate: &Gate,
+    mut failed: impl FnMut() -> bool,
+) -> String {
+````
+
+with this:
+
+````rust
+fn play_a_client_that_stopped_waiting(
+    client: &mut Client,
+    gate: &Gate,
+    builds: &AtomicU64,
+    mut failed: impl FnMut() -> bool,
+) -> String {
+````
+
+In `src/mcp/daemon/connection_parity_tests.rs`, replace this:
+
+````rust
+    // The next call hears the failure, with its cause, and starts nothing.
+    client.send(CALLEES);
+    transcript.push_str(&client.recv_line());
+````
+
+with this:
+
+````rust
+    // The next call hears the failure, with its cause, and starts nothing.
+    client.send(CALLEES);
+    transcript.push_str(&client.recv_line());
+    assert_eq!(
+        builds.load(Ordering::SeqCst),
+        1,
+        "the call that hears the failure starts no build"
+    );
+````
+
+In `src/mcp/daemon/connection_parity_tests.rs`, replace this:
+
+````rust
+play_a_client_that_stopped_waiting(&mut client, &in_gate, || {
+````
+
+with this:
+
+````rust
+play_a_client_that_stopped_waiting(&mut client, &in_gate, &in_builds, || {
+````
+
+In `src/mcp/daemon/connection_parity_tests.rs`, replace this:
+
+````rust
+play_a_client_that_stopped_waiting(&mut client, &daemon_gate, || {
+````
+
+with this:
+
+````rust
+play_a_client_that_stopped_waiting(&mut client, &daemon_gate, &daemon_builds, || {
+````
+
+Create `src/mcp/daemon/connection_ready_tests.rs`:
+
+````rust
+//! A daemon connection whose own build attempt failed, served once another client's retry has
+//! published the index (the owner's decision of 2026-10-13, amending D26). Kept apart from
+//! `connection_tests.rs` to keep both files under 600 lines.
+use super::super::coordinator::DaemonState;
+use super::super::test_support::{
+    client_settings, fail_after, fixture, scripted, status, wait_until, Gate,
+};
+use super::super::wire_support::{close, connect, CALLEES};
+use crate::mcp::shared::preamble::BuildState;
+use crate::mcp::{RefreshPolicy, StartupMode};
+use std::sync::atomic::{AtomicU64, Ordering};
+
+const RUN_CALLEES: &str = "callees:run@main.py";
+
+fn built(builds: &AtomicU64) -> u64 {
+    builds.load(Ordering::SeqCst)
+}
+
+/// The owner's decision of 2026-10-13 on the path of D32: a client that stopped waiting on an
+/// attempt that then failed, while another client's retry has since published the index, is
+/// served on its next call, and so is the call after it. Rules out telling it to retry
+/// (`indexing`) with nothing building, and reporting the stale failure later.
+#[test]
+fn a_client_that_stopped_waiting_is_served_once_another_client_s_retry_has_published() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let first_gate = Gate::closed();
+    let (builder, builds) = scripted(&cfg, vec![fail_after(&first_gate, "first attempt failed")]);
+    let state = DaemonState::new(builder, StartupMode::Lazy).expect("a lazy daemon state");
+    let (mut a, a_worker) = connect(&state, client_settings(0));
+    a.handshake();
+    let first = a.request(CALLEES);
+    assert_eq!(first["result"]["structuredContent"]["status"], "warming");
+    first_gate.open();
+    wait_until("attempt 1 to fail", || {
+        status(&state).state == BuildState::Failed
+    });
+    let (mut b, b_worker) = connect(&state, client_settings(600));
+    b.handshake();
+    let from_b = b.request(CALLEES);
+    assert_eq!(from_b["result"]["structuredContent"]["query"], RUN_CALLEES);
+
+    for _ in 0..2 {
+        let served = a.request(CALLEES);
+        assert_eq!(
+            served["result"]["structuredContent"]["query"], RUN_CALLEES,
+            "{served}"
+        );
+        assert!(
+            !served.to_string().contains("first attempt failed"),
+            "{served}"
+        );
+    }
+    assert_eq!(built(&builds), 2);
+    close(a, a_worker);
+    close(b, b_worker);
+}
+````
+
+In `src/mcp/daemon/connection.rs`, replace this:
+
+````rust
+#[cfg(test)]
+#[path = "connection_parity_tests.rs"]
+mod parity_tests;
+````
+
+with this:
+
+````rust
+#[cfg(test)]
+#[path = "connection_parity_tests.rs"]
+mod parity_tests;
+
+#[cfg(test)]
+#[path = "connection_ready_tests.rs"]
+mod ready_tests;
+````
+
+- [ ] **Step 2: Run them and see them fail**
+
+```bash
+cargo fmt
+cargo test --features mcp --lib mcp::daemon > /tmp/s3a-t13-red.log 2>&1; grep -E 'FAILED$|^test result' /tmp/s3a-t13-red.log
+```
+
+Expected (observed): a test failure, not a compile failure (no new item is needed). `61 passed; 5 failed`: `a_failed_attempt_whose_retry_published_the_index_is_answered_ready`, `a_waiter_whose_failed_attempt_was_superseded_by_a_ready_index_is_served` and `a_connection_that_stopped_waiting_is_served_once_another_s_retry_has_published` (each `Superseded` for `Ready`), and the two socket tests `a_call_whose_failed_attempt_was_superseded_by_a_published_retry_is_served` and `a_client_that_stopped_waiting_is_served_once_another_client_s_retry_has_published` (each answered `indexing`, so no `query` in the result).
+
+- [ ] **Step 3: Implement**
+
+In `src/mcp/daemon/control.rs`, replace this:
+
+````rust
+    /// The index is published.
+    Ready,
+````
+
+with this:
+
+````rust
+    /// The index is published: by the call's own attempt, or by a later attempt after the
+    /// call's own failed (the owner's decision of 2026-10-13: such a call is served at once).
+    Ready,
+````
+
+In `src/mcp/daemon/control.rs`, replace this:
+
+````rust
+    /// The call's own attempt ended without an index, and the daemon has since moved on: a
+    /// later attempt is building, or the index is ready. The failure is stale, so the call is
+    /// not given it; it is told to retry. It is never given another attempt's outcome.
+    Superseded,
+````
+
+with this:
+
+````rust
+    /// The call's own attempt ended without an index, and a later attempt is building. The
+    /// failure is stale, so the call is not given it; it is told to retry. It is never given
+    /// another attempt's outcome.
+    Superseded,
+````
+
+In `src/mcp/daemon/control.rs`, replace this:
+
+````rust
+/// What a call is told about its own attempt's ending `own`, given the phase now (D26). An
+/// attempt that published the index is `Ready`. A failed attempt is `Superseded` when a later
+/// attempt is building or the index is ready, and otherwise `Failed` with its own text. The
+/// phase contributes only which of those it is: no other attempt's outcome or text.
+pub(super) fn answer_for(own: &Result<(), String>, phase: &BuildPhase) -> Answer {
+    match own {
+        Ok(()) => Answer::Ready,
+        Err(error) => match phase {
+            BuildPhase::Building { .. } | BuildPhase::Ready => Answer::Superseded,
+````
+
+with this:
+
+````rust
+/// What a call is told about its own attempt's ending `own`, given the phase now (D26, as the
+/// owner amended it on 2026-10-13). An attempt that published the index is `Ready`. A failed
+/// attempt is `Ready` when a later attempt has published the index since (the call is served
+/// at once), `Superseded` when a later attempt is building, and otherwise `Failed` with its
+/// own text. The phase contributes only which of those it is: no other attempt's outcome or
+/// text.
+pub(super) fn answer_for(own: &Result<(), String>, phase: &BuildPhase) -> Answer {
+    match own {
+        Ok(()) => Answer::Ready,
+        Err(error) => match phase {
+            BuildPhase::Ready => Answer::Ready,
+            BuildPhase::Building { .. } => Answer::Superseded,
+````
+
+In `src/mcp/daemon/coordinator.rs`, replace this:
+
+````rust
+    /// been told so (each was answered `Warming`), this call is answered about that attempt
+    /// and starts nothing: `Failed` with its text, or `Superseded` (D32). Otherwise the call
+````
+
+with this:
+
+````rust
+    /// been told so (each was answered `Warming`), this call is answered about that attempt
+    /// and starts nothing: `Failed` with its text, `Superseded`, or `Ready` when a later attempt
+    /// has published the index (D32). Otherwise the call
+````
+
+In `src/mcp/daemon/coordinator.rs`, replace this:
+
+````rust
+    /// - `Ready` once that attempt has published the index (or at once, if the index was ready
+    ///   when the call arrived),
+````
+
+with this:
+
+````rust
+    /// - `Ready` once that attempt has published the index (or at once, if the index was ready
+    ///   when the call arrived), and also when that attempt failed and, by the time the call
+    ///   runs again, a later attempt has published the index (the owner's decision of
+    ///   2026-10-13),
+````
+
+In `src/mcp/daemon/coordinator.rs`, replace this:
+
+````rust
+    /// - `Superseded` if that attempt ended without an index and, by the time the call runs
+    ///   again, a later attempt is building or the index is ready. The failure is stale then,
+    ///   and the call is told to retry instead of being given it,
+````
+
+with this:
+
+````rust
+    /// - `Superseded` if that attempt ended without an index and, by the time the call runs
+    ///   again, a later attempt is building. The failure is stale then, and the call is told
+    ///   to retry instead of being given it,
+````
+
+In `src/mcp/daemon/connection.rs`, replace this:
+
+````rust
+//! One answer here is the daemon's alone. A call whose own build attempt failed, and which
+//! runs again only after a retry has superseded that failure, is told that the repository is
+//! being indexed and to retry (`indexing_status`); the in-process server has one client and no
+//! such case.
+````
+
+with this:
+
+````rust
+//! One answer here is the daemon's alone. A call whose own build attempt failed, and which
+//! runs again only while a later attempt is building, is told that the repository is being
+//! indexed and to retry (`indexing_status`); the in-process server has one client and no such
+//! case. If the later attempt has already published the index, the call is served.
+````
+
+In `src/mcp/daemon/connection.rs`, replace this:
+
+````rust
+/// How many seconds a client that is told `indexing` is asked to wait before it retries. The
+/// owner asked for "retry in <retry interval seconds>" and named no number; five is a
+/// placeholder to be changed here.
+````
+
+with this:
+
+````rust
+/// How many seconds a client that is told `indexing` is asked to wait before it retries. Five
+/// is the owner's value (2026-10-13); a change needs measured build-time evidence (how long
+/// builds take, by repository size), not an estimate.
+````
+
+In `src/mcp/daemon/connection.rs`, replace this:
+
+````rust
+/// What a call is told when its own build attempt failed and a retry has already superseded
+/// that failure (a later attempt is building, or the index is ready): retry shortly, and
+/// ignore this if a retry has already succeeded.
+````
+
+with this:
+
+````rust
+/// What a call is told when its own build attempt failed and a retry has already superseded
+/// that failure (a later attempt is building): retry shortly, and ignore this if a retry has
+/// already succeeded.
+````
+
+- [ ] **Step 4: Run the tests**
+
+```bash
+cargo fmt
+cargo test --features mcp --lib mcp::daemon > /tmp/s3a-t13-green.log 2>&1; grep -E '^test result|FAILED|^error|^warning' /tmp/s3a-t13-green.log
+```
+
+Expected (observed): `66 passed; 0 failed` (63, then one more rule test, one more coordinator test, one more socket test).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/mcp
+git commit -m "fix(mcp): serve a call whose failed attempt a published retry has superseded"
+```
+
+- [ ] **Step 6: Prove the tests bite (after the commit)**
+
+Mutant A (a failure superseded by a ready index is told to retry: the code before this task), in `src/mcp/daemon/control.rs`. Replace this:
+
+````rust
+            BuildPhase::Ready => Answer::Ready,
+````
+
+with this:
+
+````rust
+            BuildPhase::Ready => Answer::Superseded,
+````
+
+```bash
+cargo test --features mcp --lib mcp::daemon > /tmp/s3a-t13-bite.log 2>&1; grep -E 'FAILED$|^test result' /tmp/s3a-t13-bite.log
+git checkout -- src/mcp/daemon/control.rs
+```
+
+Expected, and observed in validation: `a_call_whose_failed_attempt_was_superseded_by_a_published_retry_is_served`, `a_client_that_stopped_waiting_is_served_once_another_client_s_retry_has_published`, `a_connection_that_stopped_waiting_is_served_once_another_s_retry_has_published`, `a_failed_attempt_whose_retry_published_the_index_is_answered_ready`, `a_waiter_whose_failed_attempt_was_superseded_by_a_ready_index_is_served`.
+
+Task 10's mutant A now replaces `BuildPhase::Building { .. } => Answer::Superseded,` (the `Ready` arm is its own); B and C are unchanged. Re-run on the code after this task with Task 11's five mutants, each is still killed; the S3a-2 fold-2 record has the counts.
+
+---
+
+### Task 14: S3a-2 proof, docs, and the pull request
 
 **Files:**
 - Modify: `CLAUDE.md` (MCP Adapter section)
 
 **Interfaces:**
-- Consumes: Tasks 6–12.
+- Consumes: Tasks 6–14.
 - Produces: the S3a-2 pull request.
 
 - [ ] **Step 1: Update the architecture notes**
@@ -7496,7 +8125,8 @@ connection per attempt, and the outcome of the attempt it last joined); it is an
 attempt's own `AttemptOutcome`, written once, whatever the phase has become since. A connection
 that stopped waiting before its attempt failed hears that failure on its next call before
 anything is started (the in-process server's `warming`, `build_failed`, retry). A failed attempt
-is retried by the next call that has heard its outcome, once however many calls arrive, and the build thread puts the provider in the slot and records its generation
+is retried by the next call from a connection with no unheard failure, once however many calls
+arrive, and the build thread puts the provider in the slot and records its generation
 ````
 
 In `CLAUDE.md`, replace this:
@@ -7512,7 +8142,8 @@ with this:
 `control.rs` holds the types the control lock guards (`BuildPhase`, `ControlState`,
 `AttemptOutcome`, `BuildStatus`) and `Answer`, what `ensure_ready` tells a call: `Ready`,
 `Warming`, `Failed` with the call's own attempt's error, or `Superseded` when that attempt
-failed and a later attempt is already building or the index is ready (the pure rule `answer_for`).
+failed and a later attempt is already building; when a later attempt has already published the
+index, a call whose attempt failed is answered `Ready` and served (the pure rule `answer_for`).
 `connection.rs` serves one admitted connection (`serve_admitted`, which first sets the stream
 blocking with no read timeout): `transport::serve_loop`, the
 frame loop the in-process server also runs, then `handle_control` with no lock, then for a tool
@@ -7540,7 +8171,7 @@ grep -E -A8 '^warning|^error' /tmp/s3a2-final-clippy.log | grep -E 'src/mcp/daem
 grep -E -A8 '^warning|^error' /tmp/s3a2-final-clippy.log | grep -E 'src/mcp/transport\.rs' | sort -u > /tmp/s3a2-clippy-transport.txt; wc -l < /tmp/s3a2-clippy-transport.txt
 ```
 
-Expected: `cargo fmt --check` prints nothing; the lib line shows the Task 1 base + 69 passed (35 from S3a-1, then 5 + 8 + 5 + 2 + 13 + 1; observed: `449 passed` on a base of 380), `0 failed`; the `mcp` target shows the base number unchanged, including `standalone_transcripts_match_the_goldens_recorded_before_the_transport_refactor ... ok`; both `cargo check` runs end with `Finished`. The first clippy filter prints nothing (no warning in a file this slice adds). The second counts the lines that name `transport.rs`, which this slice edits: it prints `0`, as it does on the base (observed on both).
+Expected: `cargo fmt --check` prints nothing; the lib line shows the Task 1 base + 69 passed (35 from S3a-1, then 5 + 8 + 5 + 2 + 13 + 1 + 3; observed: `452 passed` on a base of 380), `0 failed`; the `mcp` target shows the base number unchanged, including `standalone_transcripts_match_the_goldens_recorded_before_the_transport_refactor ... ok`; both `cargo check` runs end with `Finished`. The first clippy filter prints nothing (no warning in a file this slice adds). The second counts the lines that name `transport.rs`, which this slice edits: it prints `0`, as it does on the base (observed on both).
 
 - [ ] **Step 3: State the invariants**
 
@@ -7565,17 +8196,17 @@ for i in $(seq 1 30); do cargo test --features mcp --lib mcp::daemon > /tmp/s3a2
 python3 scripts/mutgate/mutgate.py > /tmp/s3a2-mutgate.log 2>&1; tail -5 /tmp/s3a2-mutgate.log
 ```
 
-Expected: every `test result` line shows `0 failed`; the doc tests pass; the repeat prints one line, `30 test result: ok. 63 passed; 0 failed`; the mutation gate exits 0, reported with the same sentence as in Task 5. A failure outside this slice's files is reported, not fixed or re-baselined here.
+Expected: every `test result` line shows `0 failed`; the doc tests pass; the repeat prints one line, `30 test result: ok. 66 passed; 0 failed`; the mutation gate exits 0, reported with the same sentence as in Task 5. A failure outside this slice's files is reported, not fixed or re-baselined here.
 
 - [ ] **Step 5: Commit and open the PR**
 
 Write the PR body to `/tmp/s3a2-pr-body.md`. It states, in this order:
 
 1. **Goal:** the lane goal, and that S3a-2 serves one admitted connection through S3a-1's coordinator; still no accept loop, so still no production caller.
-2. **Invariants:** the Step 3 output; that the golden transcripts pass unblessed after the one edit to the serving path; and Task 6 Step 4's diff of `transport.rs`. **Parity, as claimed:** a daemon connection writes the in-process server's bytes for a whole session under a warn-only and an automatic policy (Task 8), and for a client that stops waiting before its build fails: `warming`, then `build_failed` with the cause, then the retry (Task 11). Not claimed: a superseded failure, which only a second client can cause and which is answered with the daemon's own `indexing` status (D26); one `StructuredContentMode`; the other tools; `Background` and cache-backed startup.
+2. **Invariants:** the Step 3 output; that the golden transcripts pass unblessed after the one edit to the serving path; and Task 6 Step 4's diff of `transport.rs`. **Parity, as claimed:** a daemon connection writes the in-process server's bytes for a whole session under a warn-only and an automatic policy (Task 8), and for a client that stops waiting before its build fails: `warming`, then `build_failed` with the cause, then the retry (Task 11). Not claimed: a superseded failure, which only a second client can cause and which is answered with the daemon's own `indexing` status while the retry builds, or served when it has published (D26 as amended); one `StructuredContentMode`; the other tools; cache-backed startup; and `Background` startup, because a startup attempt that fails before the first call is joined by no connection, so the first call starts the retry instead of reporting the failure as the in-process server does (the second review of S3a-2, Opus F1; S4 must restore it, see "Interfaces for the next slices").
 3. **Decisions:** D14, D17, D18, D21, D22, D23, the owner's D26, D29, D30, D32, D33 and SI-1, SI-2, SI-5, SI-8, verbatim or by link; the owner question on a superseded call when the index is ready.
 4. **What S3b inherits:** the three things `connection.rs`'s module comment lists, and the "Panics in S3a" table.
-5. **Totals:** the Step 2 and Step 4 numbers next to the Task 1 base numbers, and the mutant results of Tasks 6, 7, 8, 10, 11 and 12 as observed.
+5. **Totals:** the Step 2 and Step 4 numbers next to the Task 1 base numbers, and the mutant results of Tasks 6, 7, 8, 10, 11, 12 and 13 as observed.
 6. **Not verified:** a non-Unix build; the mutation gate does not cover MCP code; the blocked-writer case (spec §9 test 7, S3b); the scenarios through a real shim and a real daemon process (S4, S5a).
 7. **Tier-A harness:** not run; this slice touches none of `src/call_graph.rs`, `src/navigation/`, `src/cpg/`, `src/ast.rs`.
 
@@ -7613,12 +8244,94 @@ Everything below is in `crate::mcp::daemon` and `pub(super)` unless a path says 
 - `DaemonState::status() -> Result<BuildStatus, Poisoned>` with `BuildStatus { state: BuildState, attempt: u64, generation: u64, waiting: u64 }`. `state` and `generation` are `READY`'s `build` and `generation` (`shared::preamble::Ready`); it takes only the control lock, so admission never waits on the provider. It is also the content of the status probe (SI-2): S4 adds the verb and its own fields. A shim must not infer readiness from the generation: in the interval after publication `status()` reports `building` with the generation of the provider already in the slot, which need not be 0.
 - `ControlState { build: BuildPhase, attempts, waiting, generation }`: the struct to add the pending and admitted counts, the last-activity instant and the retirement decision to, under the same mutex (spec §4.2). `DaemonState`'s `control` and `changed` fields are private to `coordinator.rs`; S4 either adds its admission functions to that file or widens them to `pub(super)`. Retirement's "no build in progress" is `!matches!(control.build, BuildPhase::Building { .. })`. `BuildPhase::Ready` has no payload; the generation is `control.generation`. The types are in `daemon/control.rs` (Task 9); `record_generation` still takes the number from its caller and should read it from the guard it is handed when S3b or S4 next changes it (a reviewer's request, not done here).
 - `clock::{Clock, SystemClock}`, `Parts { clock, .. }` and `DaemonState::wake()` for the idle-TTL test with an injected clock (spec §9 test 2).
-- From the first review of S3a-1, for S4 to decide or keep: **an attempt has no end if the builder never returns** (a FIFO in the repository, a dead network mount). Calls stay bounded, each by its budget, but the phase stays `Building`, so a retirement rule of "no build in progress" never fires and every later client is told warming until the process is killed; S4 decides whether a build older than some bound stops blocking retirement or `daemon-shutdown` (a watchdog that fails the attempt would let a second builder run beside the hung one, which breaks "one build"). **Any new kind of waiter on the control plane's one condition variable must keep `notify_all` and re-check its own predicate in a loop**; a `notify_one`, or a waiter that trusts a wake-up, steals wake-ups from readiness calls. **`BuildPhase::Failed { error }` and an attempt's outcome hold the builder's error whole**, cloned once per waiter under the control lock; nothing bounds it before S4 does. `BuildPhase::Failed { attempt, error }` has no reader outside tests since calls are answered from their own outcome; it is kept for S4's status reply and should be removed if S4 does not use it. **A failure can go unreported, by design, in one case:** when every call that waited on the attempt has been superseded (D26). A client whose wait had run out hears the failure on its next call (D32), as in process; one that never calls again does not, as in process.
+- From the first review of S3a-1, for S4 to decide or keep: **an attempt has no end if the builder never returns** (a FIFO in the repository, a dead network mount). Calls stay bounded, each by its budget, but the phase stays `Building`, so a retirement rule of "no build in progress" never fires and every later client is told warming until the process is killed; S4 decides whether a build older than some bound stops blocking retirement or `daemon-shutdown` (a watchdog that fails the attempt would let a second builder run beside the hung one, which breaks "one build"). **Any new kind of waiter on the control plane's one condition variable must keep `notify_all` and re-check its own predicate in a loop**; a `notify_one`, or a waiter that trusts a wake-up, steals wake-ups from readiness calls. **`BuildPhase::Failed { error }` and an attempt's outcome hold the builder's error whole**, cloned once per waiter under the control lock; nothing bounds it before S4 does. `BuildPhase::Failed { attempt, error }` has no reader outside tests since calls are answered from their own outcome; it is kept for S4's status reply and should be removed if S4 does not use it. **A failure can go unreported in two cases.** By design, when every call that waited on the attempt has been superseded (D26). And, as built here and **not** as in process, under `Background` startup (`--warm-at-startup`) when the startup attempt fails before any connection's first call: no connection joined attempt 1, so the first call starts the retry and is answered `warming`, where the in-process server answers `build_failed` with the cause and retries on the next call (the second review of S3a-2, Opus F1, with a probe). With a wait at least as long as the retry takes to fail, and a deterministic failure, the cause arrives one build later through D32. A client whose wait had run out on an attempt it joined hears the failure on its next call (D32), as in process; one that never calls again does not, as in process.
+- **S4 requirement: parity for a failed startup build under `Background`.** S4 wires `--warm-at-startup`, so S4 restores parity for the case above. One way (Opus's): `DaemonState` keeps attempt 1's `Arc<AttemptOutcome>` from `from_parts`; a connection admitted while `attempts == 1` has its `ConnectionBudget` seeded with it as if it had joined; `Joined.deadline` becomes `Option<Instant>`, set by the connection's first call, so the seed does not start the budget. A connection's first call then hears attempt 1's failure once (`Failed` with its text, `Superseded`, or served when ready), as each in-process `--warm-at-startup` client hears its own build fail. Parity test sketch (the reviewer's probe, which fails on this slice's code; run each side's startup build to failure before the client's first call):
+
+  ````rust
+  #[test]
+  fn a_warm_daemon_whose_startup_build_failed_before_the_first_call_reports_it_like_the_in_process_server() {
+      let settings = client_settings(0);
+
+      let (_in_dir, mut in_cfg) = fixture(RefreshPolicy::WarnOnly);
+      in_cfg.startup = StartupMode::Background;
+      let in_gate = Gate::closed();
+      let in_retry = Gate::closed();
+      let (in_builder, _in_builds) = scripted(
+          &in_cfg,
+          vec![
+              fail_after(&in_gate, "the repository could not be loaded"),
+              build_after(&in_retry, &in_cfg),
+          ],
+      );
+      let delivered = Arc::new(AtomicU64::new(0));
+      let hooks = LazyTestHooks {
+          published: Some({
+              let delivered = Arc::clone(&delivered);
+              Arc::new(move || {
+                  delivered.fetch_add(1, Ordering::SeqCst);
+              })
+          }),
+          before_wait: None,
+      };
+      let (near, far) = UnixStream::pair().expect("a connected socket pair");
+      let output = *settings.output();
+      let gate2 = Arc::clone(&in_gate);
+      let delivered2 = Arc::clone(&delivered);
+      let in_process = std::thread::spawn(move || {
+          let mut provider =
+              LazySessionProvider::with_builder_and_hooks(&in_cfg, Duration::ZERO, in_builder, hooks)
+                  .expect("a lazy provider");
+          gate2.open();
+          wait_until("the startup build to fail", || delivered2.load(Ordering::SeqCst) == 1);
+          let mut transport = UnixStreamTransport::from_stream(far).expect("a transport");
+          serve_connection(&mut provider, &ToolRegistry::all_v1(), &mut transport, &output)
+      });
+      let mut client = Client::new(near);
+      let mut expected = String::new();
+      client.send(INIT);
+      expected.push_str(&client.recv_line());
+      client.send(INITED);
+      client.send(CALLEES);
+      expected.push_str(&client.recv_line()); // build_failed, with the cause
+      client.send(CALLEES);
+      expected.push_str(&client.recv_line()); // the retry: warming
+      drop(client);
+      in_retry.open();
+      ended(in_process).expect("the in-process server ends cleanly");
+
+      let (_d_dir, d_cfg) = fixture(RefreshPolicy::WarnOnly);
+      let d_gate = Gate::closed();
+      let d_retry = Gate::closed();
+      let (d_builder, _d_builds) = scripted(
+          &d_cfg,
+          vec![
+              fail_after(&d_gate, "the repository could not be loaded"),
+              build_after(&d_retry, &d_cfg),
+          ],
+      );
+      let state = DaemonState::new(d_builder, StartupMode::Background).expect("a warm daemon");
+      d_gate.open();
+      wait_until("the startup build to fail", || status(&state).state == BuildState::Failed);
+      let (mut client, worker) = connect(&state, settings);
+      let mut actual = String::new();
+      client.send(INIT);
+      actual.push_str(&client.recv_line());
+      client.send(INITED);
+      client.send(CALLEES);
+      actual.push_str(&client.recv_line());
+      client.send(CALLEES);
+      actual.push_str(&client.recv_line());
+      close(client, worker);
+      d_retry.open();
+      assert_eq!(actual, expected);
+  }
+  ````
+- **S4 notes on D33 (the second review of S3a-2, Opus S3).** `serve_admitted` clears the read timeout and the non-blocking flag but keeps any **write** timeout the handshake set; S4 decides whether that is what it wants for slow readers. `serve_admitted` takes the raw `UnixStream`, so S4's preamble reader must not read past the `HELLO` line (anything it buffered would be lost); the shim sends no MCP byte before `READY`, so a line-exact reader is enough.
 - To do there: remove `#![cfg_attr(not(test), allow(dead_code))]` from `daemon/mod.rs`; decide SI-5 (a parked call of a departed client holds its admitted slot for up to its first-call wait); and bound and strip control characters from `BuildPhase::Failed { error }` wherever it is logged or sent in a status reply (it is the repository loader's text, stored whole so that the tool result's `cause` is the in-process server's).
 
 **S6 (docs)** owes the wire vocabulary of readiness: `warming`, `build_failed`, and the daemon's `indexing` with `retry_after_secs`, and the `prism/index_state` values (the first review of S3a-2, Opus S6).
 
-**S5a (the shim) consumes nothing here by name.** It owes the lane two things this slice could only do in process: spec §9 tests 1 and 14 through real shims (SI-1), and the byte parity of Task 8 through a shim against `--standalone`, with `tests/mcp/transcript.rs`.
+**S5a (the shim) consumes nothing here by name.** It owes the lane two things this slice could only do in process: spec §9 tests 1 and 14 through real shims (SI-1), and the byte parity of Task 8 through a shim against `--standalone`, with `tests/mcp/transcript.rs`. **S5a design item:** the shim checks the daemon's peer uid on the socket it connects to. The S2a reviews concluded that the guarantee between users is the peer-uid check on both ends; the spec has only the daemon's side. Not an owner question.
 
 ## Self-review record
 
@@ -7943,3 +8656,63 @@ The Task 7 and Task 8 mutants fail more tests than before the fold (the module h
 **Two statements in the brief that needed care.** "Answered `warming` for it and not yet told": the code does not record that a call was answered `warming`; it records only whether a call of the connection was told the ending, which is equivalent because a call that joined an attempt and returned without hearing its ending was answered `warming` (or ended its connection with an error, after which there is no next call). "The second attempt held open" in the parity leg: the in-process side's retry must also be held, or its fourth answer could be `Ready` if the retry built within the zero wait; both sides hold it.
 
 **Not run for the fold:** the unfiltered suite, the doc tests, the mutation gate, a release build, anything on Linux.
+
+## Review fold record (S3a-2, review round 2)
+
+Both reviewers reviewed `15f67d84`. gpt-6.1-sol approved, with two text notes (the sentence on who starts a retry; D3's old cost line) and one inherited test note (held notifications, needing nothing). Opus 5.5 found no code defect in the fold and two text defects: F1, a failed startup build under `Background` is not reported as in process, while the plan said a failure goes unreported in one case only (a new instance of round 1's class, which Opus asked to route to S4 as text, not to a third code round); F2, the same sentence as sol's first note. Its S1 named D32's path for the owner question on a ready index, S2 a stronger parity assertion, S3 two S4 notes. With them came the owner's two decisions of 2026-10-13: a superseded call that finds the index ready is served at once, and the retry interval is 5 s. The fold was made test first on `wip/s3a2-fold2` (worktree `~/code/prism-s3a2-f2`), from `15f67d84`, new commits only, not pushed by the folder.
+
+| Commit | What |
+|---|---|
+| `c5fd83cd` | fix(mcp): serve a call whose failed attempt a published retry has superseded |
+| `248da0ca` | docs(mcp): a superseded call finding the index ready is served; who starts a retry |
+
+**Each new test, failing before and passing after** (before: the test commit's tests on `15f67d84`'s code, `61 passed; 5 failed`; after: `66 passed; 0 failed`).
+
+| Test | Before | After |
+|---|---|---|
+| `a_failed_attempt_whose_retry_published_the_index_is_answered_ready` | `Superseded` for `Ready` | passes |
+| `a_waiter_whose_failed_attempt_was_superseded_by_a_ready_index_is_served` (renamed from `…_is_told_to_retry`) | `Superseded` for `Ready` | passes |
+| `a_connection_that_stopped_waiting_is_served_once_another_s_retry_has_published` | `Superseded` for `Ready` | passes |
+| `a_call_whose_failed_attempt_was_superseded_by_a_published_retry_is_served` (renamed from `…_is_told_to_retry_and_its_retry_is_served`) | answered `indexing`: no `query` in the result | passes |
+| `a_client_that_stopped_waiting_is_served_once_another_client_s_retry_has_published` | answered `indexing`: no `query` in the result | passes |
+| the building case still answers `indexing`: `a_failed_attempt_is_superseded_by_a_building_retry`, `a_client_that_stopped_waiting_is_told_to_retry_when_another_client_retried_meanwhile` (now with the whole envelope) and the Task 10 building tests | pass | pass |
+| the parity leg's new assertion (one build after the call that hears the failure) | passes | passes |
+
+**Mutants, on `248da0ca` (the code of `c5fd83cd`; the later commit is docs).** Every one was killed.
+
+| Mutant | Result |
+|---|---|
+| N1 a failure superseded by a ready index is told to retry | 5 failed of 66 |
+| T10A a superseded failure is still reported | 5 failed of 66 |
+| T10B every waiter of a failed attempt is told to retry | 16 failed of 66 |
+| T10C a failure is reported with the latest attempt text | 4 failed of 66 |
+| T10D a superseded call is answered as warming | 1 failed of 66 |
+| T10E the indexing answer carries another index state | 1 failed of 66 |
+| M1 no unheard failure is heard | 6 failed of 66, at 30 s |
+| M2 told before answering | 8 failed of 66, at 30 s |
+| M3 the unheard failure is answered from the latest attempt | 1 failed of 66 |
+| M4 an unheard failure is heard again | 6 failed of 66 |
+| M5 a waited-for outcome is not marked told | 5 failed of 66 |
+
+N1 is Task 13's mutant A; T10A is re-anchored to `BuildPhase::Building { .. } => Answer::Superseded,`; M1–M5 are Task 11's A–E. T10D and T10E are now killed by the building-case socket test, which carries the `indexing` envelope checks.
+
+**What ran.**
+
+| Command | Observed |
+|---|---|
+| `cargo fmt --check` | no output |
+| `cargo test --features mcp --lib mcp::daemon` | `66 passed; 0 failed` |
+| `cargo test --features mcp --lib mcp::transport` | `94 passed; 0 failed` |
+| `cargo test --features mcp --lib mcp::` | `452 passed; 0 failed` |
+| `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp` | `23 passed; 0 failed`, goldens unblessed |
+| `cargo check --features mcp` | `Finished`, 0 warnings |
+| clippy, filtered to `src/mcp/daemon/`, `transport_loop_tests.rs` and `transport.rs` | no line (258 `warning` lines in the whole log) |
+| 30 × `mcp::daemon`, default threads | `30 test result: ok. 66 passed; 0 failed`; test time 1.27–1.91 s |
+| 30 × `mcp::daemon -- --test-threads=1` | `30 test result: ok. 66 passed; 0 failed`; test time 1.63–4.79 s; load averages 38.08–42.12 |
+| Text replay of this plan, compared with `248da0ca` | 109 directives, every anchor and every mutant anchor matched once; all 26 files the plan touches byte-identical, `CLAUDE.md` included |
+
+**Plan text changed with it:** D26 amended (the owner's words and date) and the retry interval recorded as the owner's; the owner question marked answered; SI-8's last clause corrected (Opus F2, sol S1); D3's cost line marked superseded by D32 (sol S2); D32 notes the ready case; the Background case in "Interfaces for the next slices" with an S4 requirement and the reviewer's probe as its test sketch, and the parity claim's reason for not claiming `Background` (Opus F1); two S4 notes on D33 (Opus S3); the shim-side peer-uid check as an S5a design item; the sub-floor result cap recorded as settled (refused, S2b); Claims and Review Focus follow the renamed tests.
+
+**In the brief, and what needed care.** The brief asked for "a waiter whose attempt failed and whose retry already published is served (real tool result)": the existing socket test of that sequence was the one that asserted the `indexing` envelope, so it now asserts a served query, and the envelope checks moved to the building-case socket test, so Task 10's mutants D and E stay killed. The new socket test is in a new file because `connection_tests.rs` would have reached 616 lines. Nothing in the brief was wrong.
+
+**Not run for this fold:** the unfiltered suite, the doc tests, the mutation gate, `cargo check` without features and the owner-audit build (the fold changes no feature-gated or default-build code), anything on Linux.
