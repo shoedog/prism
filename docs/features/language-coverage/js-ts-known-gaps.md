@@ -138,7 +138,9 @@ A call through a followed alias is filed under the alias's spelling. The resolve
   - `useContext`;
   - a value returned through two hooks;
   - an awaited result;
-  - a value that is the hook's own parameter.
+  - a value that is the hook's own parameter;
+  - a `const` object or array that the hook uses anywhere but as the whole value of a `return` (a property write, `Object.assign`, an argument, a spread, a closure capture);
+  - a hook that returns a shadowed `undefined`, or an object or array literal of more than 512 members.
 
 ## 5. Parsing
 
