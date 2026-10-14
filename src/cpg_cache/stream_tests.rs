@@ -407,3 +407,75 @@ fn the_lock_is_held_through_the_rename() {
 
     assert_eq!(seen.get(), Some(true), "the hook ran with the lock held");
 }
+
+#[test]
+fn a_load_removes_an_orphan_temp_file_when_no_writer_holds_the_lock() {
+    let dir = tempfile::tempdir().unwrap();
+    let (cpg, hashes) = fixture();
+    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+    assert!(matches!(
+        load_cache(&hashes, false, dir.path()),
+        CacheResult::Hit(_)
+    ));
+    let orphan = dir.path().join("cpg-cache.bin.tmp");
+    fs::write(&orphan, vec![0xCD; 4096]).unwrap();
+
+    // The orphan changes nothing about what the load returns.
+    assert!(matches!(
+        load_cache(&hashes, false, dir.path()),
+        CacheResult::Hit(_)
+    ));
+    assert!(!orphan.exists(), "the orphan outlived a load");
+    let mut changed = hashes.clone();
+    changed.insert("other.py".to_string(), "0".repeat(64));
+    assert!(!matches!(
+        load_cache(&changed, false, dir.path()),
+        CacheResult::Hit(_)
+    ));
+    assert!(dir.path().join(LOCK_NAME).exists(), "the lock file stays");
+}
+
+#[test]
+fn a_load_removes_an_orphan_temp_file_even_when_there_is_no_cache() {
+    let dir = tempfile::tempdir().unwrap();
+    let orphan = dir.path().join("cpg-cache.bin.tmp");
+    drop(hold_lock(dir.path()));
+    fs::write(&orphan, b"x").unwrap();
+    assert!(matches!(
+        load_cache(&BTreeMap::new(), false, dir.path()),
+        CacheResult::Miss
+    ));
+    assert!(!orphan.exists());
+}
+
+#[test]
+fn a_load_leaves_the_temp_file_of_a_live_writer() {
+    let dir = tempfile::tempdir().unwrap();
+    let (cpg, hashes) = fixture();
+    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+    let orphan = dir.path().join("cpg-cache.bin.tmp");
+    fs::write(&orphan, b"half-written").unwrap();
+
+    let writer = hold_lock(dir.path());
+    assert!(matches!(
+        load_cache(&hashes, false, dir.path()),
+        CacheResult::Hit(_)
+    ));
+    assert_eq!(fs::read(&orphan).unwrap(), b"half-written");
+    drop(writer);
+}
+
+#[test]
+fn a_load_without_a_lock_file_leaves_the_temp_file_and_creates_no_lock_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let orphan = dir.path().join("cpg-cache.bin.tmp");
+    fs::write(&orphan, b"x").unwrap();
+    let _ = load_cache(&BTreeMap::new(), false, dir.path());
+    assert!(orphan.exists());
+    assert!(!dir.path().join(LOCK_NAME).exists());
+
+    // A directory that does not exist is not created either.
+    let missing = dir.path().join("no-such-dir");
+    let _ = load_cache(&BTreeMap::new(), false, &missing);
+    assert!(!missing.exists());
+}
