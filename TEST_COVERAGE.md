@@ -161,6 +161,12 @@ what the build or tests read: `README.md` and the non-Markdown files under `docs
 `scripts/ci/classify-changes.test.sh`; when a test starts reading a file under `docs/`, add its path
 there. If the change list cannot be determined, the full set runs.
 
+A change confined to the Python eval harness (`eval/`, except `eval/fixtures/`, which Rust tests
+read) takes the same short path: the Rust jobs are skipped and the "Eval harness tests (Python)" job
+runs the harness's hermetic pytest suite instead (`cd eval && uv run pytest -q`, minus the
+`--deselect` list in `ci.yml`: tests that need tsserver or a built `prism`). Any other non-docs
+change also runs that job; a docs-only change runs neither.
+
 To enforce the 80% threshold locally:
 ```bash
 ./coverage.sh --check 80
