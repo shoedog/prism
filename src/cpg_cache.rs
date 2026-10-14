@@ -253,7 +253,10 @@ use std::path::{Path, PathBuf};
 ///   `//`, `/./`, `/../` segments are normalized within the repo root.
 /// - v116: slice L follows JS/TS `const` aliases: `CallSite.local_binding` gains
 ///   `AliasCallable`, `AliasImport` and `AliasNamespaceMember`.
-const CACHE_VERSION: u32 = 116;
+/// - v117: slice V follows a value another in-repo function returned: `CallSite.local_binding`
+///   gains `Returned` and the call graph persists per-function returned-value facts
+///   (`js_ts_return_facts`).
+const CACHE_VERSION: u32 = 117;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -797,7 +800,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 116);
+        assert_eq!(super::CACHE_VERSION, 117);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -1545,6 +1548,57 @@ mod tests {
             other => panic!("expected Hit, got {}", cache_result_kind(&other)),
         }
         force_cache_version(dir.path(), 115);
+        assert!(matches!(
+            load_cache(&hashes, false, dir.path()),
+            CacheResult::Miss
+        ));
+    }
+
+    #[test]
+    fn returned_value_bindings_and_facts_round_trip_and_the_previous_version_misses() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            "hooks.ts".to_string(),
+            "export function useThing() {\n  function doIt() {\n    return 1;\n  }\n  \
+             return { run: doIt, list: [doIt] };\n}\n"
+                .to_string(),
+        );
+        sources.insert(
+            "app.ts".to_string(),
+            "import { useThing } from './hooks';\nexport function main() {\n  \
+             const { run } = useThing();\n  return run();\n}\n"
+                .to_string(),
+        );
+        let files: BTreeMap<String, crate::ast::ParsedFile> = sources
+            .iter()
+            .map(|(path, source)| {
+                let parsed = crate::ast::ParsedFile::parse(
+                    path,
+                    source,
+                    crate::languages::Language::TypeScript,
+                )
+                .unwrap();
+                (path.clone(), parsed)
+            })
+            .collect();
+        let cpg = crate::cpg::CodePropertyGraph::build(&files);
+        let hashes = compute_file_hashes(&sources);
+        assert_eq!(cpg.call_graph.js_ts_return_facts.len(), 1, "one hook fact");
+        assert!(call_site_dump(&cpg).join("\n").contains("Returned"));
+
+        save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+        match load_cache(&hashes, false, dir.path()) {
+            CacheResult::Hit(restored) => {
+                assert_eq!(call_site_dump(&cpg), call_site_dump(&restored));
+                assert_eq!(
+                    cpg.call_graph.js_ts_return_facts,
+                    restored.call_graph.js_ts_return_facts
+                );
+            }
+            other => panic!("expected Hit, got {}", cache_result_kind(&other)),
+        }
+        force_cache_version(dir.path(), 116);
         assert!(matches!(
             load_cache(&hashes, false, dir.path()),
             CacheResult::Miss
