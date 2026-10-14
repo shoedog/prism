@@ -198,6 +198,7 @@ jobs:
       # Deselected (node-id prefixes, so parametrized cases are included), by reason:
       #  - need tsserver (TypeScript language server) from an installed compiler;
       #  - need a built target/release/prism;
+      #  - need the pinned TypeScript 5.9.3 compiler (PRISM_TYPESCRIPT, default a local evidence path);
       #  - stale assertion on main: PR #356 made prism_mcp_args add --warm-at-startup on purpose
       #    and this test still expects the old args (a real failure, tracked in #378).
       # Tests that need a binary, API key or corpus and are not listed here skip themselves.
@@ -211,6 +212,8 @@ jobs:
           --deselect tests/test_r1_repair.py::test_native_sut_symbol_seeds_distinguish_same_line_targets
           --deselect tests/test_r1_repair.py::test_native_sut_interior_seed_avoids_inline_default_callback
           --deselect tests/test_tc_live_runner.py::test_claude_runner_per_checkout_prism_config
+          --deselect secbench/test_repair.py::RepairTests::test_admission_keeps_terminal_line_identity_after_metadata_formatting
+          --deselect secbench/test_repair.py::RepairTests::test_admission_relocation_preserves_original_and_endpoint_bytes
 
   language-coverage:
     name: Language Coverage Matrix
