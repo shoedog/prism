@@ -13,8 +13,9 @@
 //!
 //! Under an automatic refresh policy a query that finds the index stale asks for exclusive
 //! access and checks the trigger again once it has it, so two clients that both found the
-//! index stale refresh it once, unless the first refresh leaves it still known stale. The query that follows a refresh runs under the same exclusive
-//! access, so its response and the refresh's generation are one snapshot's.
+//! index stale refresh it once, unless the first refresh leaves it still known stale. The
+//! query that follows a refresh runs under the same exclusive access, so its response and the
+//! refresh's generation are one snapshot's.
 //!
 //! What this slice leaves to S3b-2: the panic boundaries.
 use super::budget::ConnectionBudget;
