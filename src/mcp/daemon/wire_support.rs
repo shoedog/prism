@@ -118,3 +118,64 @@ impl Client {
         assert_eq!(read, 0, "expected the connection to be closed, got: {line}");
     }
 }
+
+impl Client {
+    /// Send `line` again and again without reading anything, until the socket takes no more:
+    /// the server has stopped reading this connection because it cannot write its answers.
+    /// Returns how many requests went out whole and the unsent rest of the one that was cut
+    /// off (empty if none was). The socket is blocking again when this returns.
+    pub(super) fn flood_until_full(&mut self, line: &str) -> (usize, Vec<u8>) {
+        let frame = format!("{line}\n").into_bytes();
+        self.writer
+            .set_nonblocking(true)
+            .expect("make the client's socket non-blocking");
+        let mut whole = 0usize;
+        let rest = 'flood: loop {
+            assert!(
+                whole < 1_000_000,
+                "the server kept reading a client that reads nothing"
+            );
+            let mut unsent: &[u8] = &frame;
+            while !unsent.is_empty() {
+                match self.writer.write(unsent) {
+                    Ok(written) => unsent = &unsent[written..],
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        let cut = if unsent.len() == frame.len() {
+                            Vec::new()
+                        } else {
+                            unsent.to_vec()
+                        };
+                        break 'flood cut;
+                    }
+                    Err(error) => panic!("write a frame: {error}"),
+                }
+            }
+            whole += 1;
+        };
+        self.writer
+            .set_nonblocking(false)
+            .expect("make the client's socket blocking again");
+        (whole, rest)
+    }
+
+    /// Send bytes that complete a frame `flood_until_full` cut off, from a thread of its own.
+    /// The server takes them only once it can write again, which needs this client to read, so
+    /// the caller reads while they go out and then joins the thread.
+    pub(super) fn send_raw_in_background(&self, bytes: Vec<u8>) -> JoinHandle<()> {
+        let mut writer = self.writer.try_clone().expect("clone the client socket");
+        std::thread::spawn(move || writer.write_all(&bytes).expect("finish a frame"))
+    }
+}
+
+/// Open a connection to `state` as a client with these settings, served with `registry`.
+pub(super) fn connect_with(
+    state: &Arc<DaemonState>,
+    registry: &Arc<ToolRegistry>,
+    client: ClientSettings,
+) -> (Client, Worker) {
+    let (near, far) = UnixStream::pair().expect("a connected socket pair");
+    let state = Arc::clone(state);
+    let registry = Arc::clone(registry);
+    let worker = std::thread::spawn(move || serve_admitted(&state, &registry, far, &client));
+    (Client::new(near), worker)
+}

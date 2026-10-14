@@ -366,8 +366,14 @@ stale evidence a refresh recorded outranks a clean stamp probe for every client.
 index is ready a call gets the in-process server's `warming` or `build_failed` result; a
 `Superseded` call gets the daemon's own retryable `indexing` status (retry in
 `INDEXING_RETRY_AFTER_SECS`; ignore it if a retry already succeeded), which the in-process
-server never sends. Not there yet (the next slice): the re-check of an automatic refresh after
-exclusive access is acquired, and panic boundaries.
+server never sends. Under an automatic refresh policy a query that found the index stale asks
+the read's question again once it holds the write lock: one that now finds the index current
+(another client refreshed in between) is answered as a read, so clients that race on one stale
+index refresh it once, and one that still finds it stale (sticky evidence included) refreshes.
+The query after a refresh runs under the same write lock, so a response and the refresh
+generation it reports are one snapshot's. No lock is held while a response is written: a client
+that stops reading stalls only its own connection. Not there yet (the next slice): panic
+boundaries.
 
 Algorithms fall into two categories:
 1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`
