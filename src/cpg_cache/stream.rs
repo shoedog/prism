@@ -176,6 +176,26 @@ pub(super) fn publish_file(
     result.map(Some)
 }
 
+/// Remove the temp file a crashed writer left behind, if no writer is active (best effort).
+///
+/// Called on load, so a directory that is read but never saved again does not keep an
+/// orphan. The file is deleted only while this call holds the directory lock, which a live
+/// writer holds for its whole save. If the lock file or the directory does not exist there is
+/// nothing to coordinate and nothing is created or removed; if the lock is taken or cannot
+/// be used, the temp file is left alone.
+pub(super) fn remove_orphan_temp(cache_dir: &Path) {
+    let Ok(lock) = File::options()
+        .read(true)
+        .write(true)
+        .open(cache_dir.join(LOCK_NAME))
+    else {
+        return;
+    };
+    if lock.try_lock().is_ok() {
+        let _ = fs::remove_file(cache_dir.join(TEMP_NAME));
+    }
+}
+
 /// Encode `cache` into the temp file in `cache_dir`, then rename it to `final_path`, and
 /// return the number of bytes written, or `None` if the save was skipped.
 pub(super) fn publish_cache_file(

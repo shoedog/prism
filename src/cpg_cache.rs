@@ -503,6 +503,18 @@ pub fn load_cache_with_topology(
     has_type_db: bool,
     cache_dir: &Path,
 ) -> CacheResult {
+    let result = read_cache(current_hashes, current_topology_key, has_type_db, cache_dir);
+    // After the read, so the result never depends on it: clear a crashed writer's leftover.
+    stream::remove_orphan_temp(cache_dir);
+    result
+}
+
+fn read_cache(
+    current_hashes: &BTreeMap<String, String>,
+    current_topology_key: &BTreeMap<String, String>,
+    has_type_db: bool,
+    cache_dir: &Path,
+) -> CacheResult {
     let bin_path = cache_bin_path(cache_dir);
     let data = match fs::read(&bin_path) {
         Ok(d) => d,
