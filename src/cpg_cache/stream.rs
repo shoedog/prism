@@ -1,12 +1,12 @@
 //! Streaming writer for the CPG cache file.
 //!
-//! This module only writes. It serializes straight from the live graph into a buffered file,
-//! so neither a copy of the graph nor the encoded bytes are held in memory. The byte format is
-//! exactly the one `bincode::serialize(&CpgCache)` produces; `stream_tests.rs` holds the two
-//! encodings equal. (Reading still loads the file into memory and decodes the slice; a
-//! streamed or mapped reader is a separate change, measured on its own.)
+//! Writing serializes straight from the live graph into a buffered file, so neither a copy of
+//! the graph nor the encoded bytes are held in memory. The byte format is exactly the one
+//! `bincode::serialize(&CpgCache)` produces; `stream_tests.rs` holds the two encodings equal.
+//! Reading maps the file and decodes the mapped slice, so the file's bytes are never copied
+//! into the heap either (`read_cache_file`).
 
-use super::{CpgEdge, CpgNode};
+use super::{CpgCache, CpgEdge, CpgNode};
 use crate::call_graph::CallGraph;
 use crate::cpg::{DfgLabelStats, ReturnFlowStats};
 use crate::data_flow::DataFlowGraph;
@@ -282,6 +282,28 @@ pub(super) fn publish_cache_file(
         },
         after_publish,
     )
+}
+
+/// Decode the cache file at `path`. `None` when it is absent, unreadable or not a cache.
+///
+/// The file is mapped read-only rather than read into a buffer: its pages are the page cache's,
+/// not this process's heap, so a load no longer holds a heap copy of the whole file next to the
+/// decoded index, and decoding the mapped slice keeps the speed and the bounds checks of the
+/// slice decoder that `fs::read` + `bincode::deserialize` used. The mapping is dropped before this
+/// function returns.
+pub(super) fn read_cache_file(path: &Path) -> Option<CpgCache> {
+    let file = File::open(path).ok()?;
+    if file.metadata().ok()?.len() == 0 {
+        // Mapping an empty file is an error on some platforms; an empty file is not a cache.
+        return None;
+    }
+    // SAFETY: the mapping is read-only and lives only for this function. The one hazard of a
+    // file mapping is the file shrinking while it is mapped, which faults the process. Every
+    // writer of `cpg-cache.bin` (this module, and every earlier version of prism) writes a
+    // separate temp file and renames it over the name, which replaces the directory entry and
+    // leaves the mapped file untouched; nothing truncates or rewrites it in place.
+    let map = unsafe { memmap2::Mmap::map(&file) }.ok()?;
+    bincode::deserialize(&map[..]).ok()
 }
 
 #[cfg(test)]

@@ -533,14 +533,9 @@ fn read_cache(
     cache_dir: &Path,
 ) -> CacheResult {
     let bin_path = cache_bin_path(cache_dir);
-    let data = match fs::read(&bin_path) {
-        Ok(d) => d,
-        Err(_) => return CacheResult::Miss,
-    };
-
-    let cache: CpgCache = match bincode::deserialize(&data) {
-        Ok(c) => c,
-        Err(_) => return CacheResult::Miss,
+    let cache: CpgCache = match stream::read_cache_file(&bin_path) {
+        Some(c) => c,
+        None => return CacheResult::Miss,
     };
 
     // Version check.
@@ -634,19 +629,20 @@ fn read_cache(
 
 /// Reconstruct a `CodePropertyGraph` from serialized node/edge lists.
 fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
-    let mut graph = DiGraph::new();
+    let mut graph = DiGraph::with_capacity(ser.nodes.len(), ser.edges.len());
 
-    // Add nodes in order — this preserves NodeIndex values (0, 1, 2, ...).
-    for node in &ser.nodes {
-        graph.add_node(node.clone());
+    // Add nodes in order — this preserves NodeIndex values (0, 1, 2, ...). Nodes and edges
+    // are moved, not cloned, so the decoded lists and the graph never hold two copies.
+    for node in ser.nodes {
+        graph.add_node(node);
     }
 
     // Add edges using the stored indices.
-    for &(src, tgt, ref edge) in &ser.edges {
+    for (src, tgt, edge) in ser.edges {
         graph.add_edge(
             NodeIndex::new(src as usize),
             NodeIndex::new(tgt as usize),
-            edge.clone(),
+            edge,
         );
     }
 
