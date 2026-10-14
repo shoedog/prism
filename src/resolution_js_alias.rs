@@ -68,6 +68,15 @@ impl CallGraph {
         .then_some(outcome)
     }
 
+    /// Audit seam: the targets the alias route itself would prove for the site, read from the
+    /// route directly (not through the public resolver). The rule test compares this with the
+    /// public resolver's answer at every predicate-true site.
+    #[doc(hidden)]
+    pub fn audit_alias_route_targets(&self, site: &CallSite) -> Option<Vec<FunctionId>> {
+        self.js_ts_alias_route(&site.caller, &site.callee_name, site)
+            .map(|outcome| outcome.resolved.iter().map(|r| r.target.clone()).collect())
+    }
+
     /// The exact targets of a site the alias route proved (one `FunctionId` with its file, name
     /// and span), or `None` when the predicate is false. `#[doc(hidden)] pub` for the callers
     /// output, which must credit only the exact callee, never a same-named function.

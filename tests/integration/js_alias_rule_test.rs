@@ -51,6 +51,96 @@ fn fixtures() -> Vec<Fixture> {
         .collect()
 }
 
+/// Reviewer inputs (rounds 2 and 3) the matrix does not carry yet, run through the same checks.
+fn review_inputs() -> Vec<Fixture> {
+    let fx = |id: &str, files: &[(&str, &str)]| Fixture {
+        id: id.to_string(),
+        files: files
+            .iter()
+            .map(|(p, t)| (p.to_string(), t.to_string()))
+            .collect(),
+    };
+    let comp = "function Comp() { return null; }\n";
+    let lib = "export function target() { return null; }\n";
+    let cb_lib = "export function target() { return 1; }\nexport function cbImpl() { return 2; }\n";
+    vec![
+        fx(
+            "r3-jsx-intrinsic-same-function",
+            &[(
+                "app.jsx",
+                &format!("{comp}export function sameFn() {{ const h = Comp; return <h />; }}\n"),
+            )],
+        ),
+        fx(
+            "r3-jsx-intrinsic-nested",
+            &[(
+                "app.jsx",
+                &format!(
+                    "{comp}export function outer() {{ const k = Comp; return function inner() {{ \
+                     return <k />; }}; }}\n"
+                ),
+            )],
+        ),
+        fx(
+            "r3-jsx-upper-control",
+            &[(
+                "app.jsx",
+                &format!("{comp}export function upper() {{ const H = Comp; return <H />; }}\n"),
+            )],
+        ),
+        fx(
+            "r3-jsx-intrinsic-ns-destructure",
+            &[
+                ("lib.jsx", lib),
+                (
+                    "app.jsx",
+                    "import * as N from './lib';\nexport function run() {\n  const { target: h } = N;\n  \
+                     return <h />;\n}\n",
+                ),
+            ],
+        ),
+        fx(
+            "r3-jsx-intrinsic-ns-member",
+            &[
+                ("lib.jsx", lib),
+                (
+                    "app.jsx",
+                    "import * as N from './lib';\nexport function run() {\n  const h = N.target;\n  \
+                     return <h />;\n}\n",
+                ),
+            ],
+        ),
+        fx(
+            "r3-same-line-neighbour",
+            &[
+                ("lib.js", cb_lib),
+                (
+                    "app.js",
+                    "import { target, cbImpl } from './lib';\nconst obj = {};\nobj.field = cbImpl;\n\
+                     export function sameLine() { const h = target; return h(obj.field()); }\n\
+                     export function direct() { return target(obj.field()); }\n",
+                ),
+            ],
+        ),
+        fx(
+            "r3-callback-neighbour",
+            &[
+                ("lib.js", "export function target() { return 1; }\n"),
+                (
+                    "other.js",
+                    "export function otherTarget() { return 2; }\n\
+                     export function init(o) { o.callback = otherTarget; }\n",
+                ),
+                (
+                    "app.js",
+                    "import { target } from './lib';\nexport function run(obj) {\n  const h = target;\n  \
+                     h(); obj.callback();\n}\n",
+                ),
+            ],
+        ),
+    ]
+}
+
 fn is_alias(binding: &JsLocalBinding) -> bool {
     matches!(
         binding,
@@ -103,6 +193,31 @@ fn check_fixture(f: &Fixture) -> Tally {
             if cg.js_ts_alias_route_hit(site) {
                 t.predicate_true += 1;
                 true_sites.insert((site.caller.clone(), site.start_byte, site.end_byte));
+                // The predicate is the resolver's own answer: the public outcome is exactly one
+                // Exact target, equal to the route's, with no drop.
+                let public = cg.resolve_call_site_full(site);
+                let route = cg.audit_alias_route_targets(site);
+                let single = match public.resolved.as_slice() {
+                    [one]
+                        if public.drop.is_none()
+                            && one.confidence == prism::resolution::ResolutionConfidence::Exact =>
+                    {
+                        Some(one.target.clone())
+                    }
+                    _ => None,
+                };
+                if single.is_none() || route.as_deref() != single.as_ref().map(std::slice::from_ref)
+                {
+                    t.violations.push(format!(
+                        "{} {}:{}: predicate true but the public resolver answered {:?} (drop {:?}), route {:?}",
+                        f.id,
+                        site.caller.file,
+                        site.line,
+                        public.resolved.iter().map(|r| &r.target).collect::<Vec<_>>(),
+                        public.drop,
+                        route
+                    ));
+                }
                 continue;
             }
             let mut as_main = site.clone();
@@ -162,7 +277,8 @@ fn check_fixture(f: &Fixture) -> Tally {
 
 #[test]
 fn the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_site() {
-    let fixtures = fixtures();
+    let mut fixtures = fixtures();
+    fixtures.extend(review_inputs());
     assert!(fixtures.len() > 1000, "matrix fixtures: {}", fixtures.len());
     let tallies: Vec<Tally> =
         prism::build_pool::install(|| fixtures.par_iter().map(check_fixture).collect());
