@@ -258,7 +258,8 @@ mod stream;
 /// - v117: slice V follows a value another in-repo function returned: `CallSite.local_binding`
 ///   gains `Returned` and the call graph persists per-function returned-value facts
 ///   (`js_ts_return_facts`).
-/// - v118: PR-C prototype: member-only JS/TS formals get a base Def and projection edges.
+/// - v118: PR-C: member-only JS/TS formals (no bare read, at least one static `p.<field>`
+///   read) get a base Def and Def(p) -> Use(p.<path>) projection edges.
 const CACHE_VERSION: u32 = 118;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
@@ -807,7 +808,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 117);
+        assert_eq!(super::CACHE_VERSION, 118);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

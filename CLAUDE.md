@@ -264,9 +264,19 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache v73 persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v118) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
+
+JS/TS/TSX parameter Defs: a formal that is read bare gets a Def at its identifier. A *member-only*
+formal (no bare read, at least one static non-computed `p.x`/`p?.x` read, callable free of
+ERROR/MISSING nodes, not a seam binding) also gets a base Def, with `Def(p) -> Use(p.<path>)`
+projection edges to the outermost member path of each read (prefix reads included). Edges only
+start at the base Def, never between two field paths, so a field seed (`req.body`) never reaches a
+sibling (`req.headers`). The accepted cost is that a seed on the whole parameter reaches every
+`p.<field>` read. A write to `p`, a prefix of the path, or the exact path suppresses that path for
+the whole callable (flow-insensitive); `p[k]` counts as a bare read; `this.x`, destructured
+formals and `arguments` are not handled. See `docs/features/language-coverage/js-ts-known-gaps.md` §6.
 
 ### MCP Adapter
 

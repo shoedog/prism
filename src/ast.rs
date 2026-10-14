@@ -471,7 +471,7 @@ pub struct ParsedFile {
     js_export_facts: std::sync::OnceLock<crate::js_exports::JsExportFacts>,
 }
 
-/// How a formal parameter is used in its callable body (PR-C prototype).
+/// How a formal parameter is used in its callable body (PR-C).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParameterUse {
     Bare,
@@ -8893,14 +8893,7 @@ impl ParsedFile {
         false
     }
 
-    /// Check if a variable has any bare (non-field-access) references in a function
-    /// body (excluding the parameter list itself).
-    ///
-    /// Returns true if the variable is used as a standalone identifier, not just as
-    /// the base of a field/member access (e.g., `data` in `use(data)` counts, but
-    /// `dev` in `dev.name` does not). Used to decide whether to register a parameter
-    /// Def for interprocedural data flow.
-    /// PR-C step 0 (prototype): classify how a formal is used. `MemberOnly`
+    /// PR-C: classify how a formal is used. `MemberOnly`
     /// is JS/TS/TSX only: no bare read, at least one `name.<prop>` member
     /// read in the body, callable not parse-recovered, formal not a seam
     /// binding. Shared by `data_flow.rs` and `reasoning/seeds.rs` (lockstep).
@@ -8935,7 +8928,7 @@ impl ParsedFile {
         }
     }
 
-    /// PR-C prototype: outermost static member paths rooted at the formal
+    /// PR-C: outermost static member paths rooted at the formal
     /// `name` (`p.x`, `p.x.y`), anywhere in the callable body. Binding is
     /// proved later by the fenced reference walk, not here.
     pub fn formal_member_paths(&self, func_node: &Node<'_>, name: &str) -> BTreeSet<AccessPath> {
@@ -8946,7 +8939,12 @@ impl ParsedFile {
         out
     }
 
-    fn collect_formal_member_paths(&self, node: Node<'_>, name: &str, out: &mut BTreeSet<AccessPath>) {
+    fn collect_formal_member_paths(
+        &self,
+        node: Node<'_>,
+        name: &str,
+        out: &mut BTreeSet<AccessPath>,
+    ) {
         if node.kind() == "member_expression" {
             let mut root = node;
             while root.kind() == "member_expression" {
@@ -8987,6 +8985,13 @@ impl ParsedFile {
         found
     }
 
+    /// Check if a variable has any bare (non-field-access) references in a function
+    /// body (excluding the parameter list itself).
+    ///
+    /// Returns true if the variable is used as a standalone identifier, not just as
+    /// the base of a field/member access (e.g., `data` in `use(data)` counts, but
+    /// `dev` in `dev.name` does not). Used to decide whether to register a parameter
+    /// Def for interprocedural data flow.
     pub fn has_bare_references(&self, func_node: &Node<'_>, var_name: &str) -> bool {
         if let Some(body) = self.function_body_node(func_node) {
             return self.find_bare_ref(body, var_name);

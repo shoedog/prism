@@ -1,0 +1,150 @@
+{
+ "lane": "js member-only parameter base Def (PR-C, 2026-10-14)",
+ "source": "docs/superpowers/plans/2026-10-06-js-param-defs/DESIGN-INPUT-fable-evaluation.md (gap 2, R1)",
+ "lib_test_prefixes": [
+  "cpg::",
+  "cpg_cache::",
+  "reasoning::"
+ ],
+ "mutations": {
+  "MO-01-bare-check-off": [
+   "src/ast.rs",
+   "        if self.has_bare_references(func_node, var_name) {\n            return ParameterUse::Bare;",
+   "        if false && self.has_bare_references(func_node, var_name) {\n            return ParameterUse::Bare;",
+   [
+    "cpg::member_only_param_tests::classifier_distinguishes_bare_member_only_and_unused",
+    "cpg::member_only_param_tests::computed_member_and_bare_uses_keep_the_old_behaviour"
+   ]
+  ],
+  "MO-03-recovery-gate-off": [
+   "src/ast.rs",
+   "if recovered(*func_node) || self.js_ts_seam_binding(func_node, var_name) {",
+   "if self.js_ts_seam_binding(func_node, var_name) {",
+   [
+    "cpg::member_only_param_tests::parse_recovered_callable_gets_no_member_only_def"
+   ]
+  ],
+  "MO-04-missing-token-not-recovery": [
+   "src/ast.rs",
+   "if node.is_error() || node.is_missing() {",
+   "if node.is_error() {",
+   [
+    "cpg::member_only_param_tests::missing_token_recovery_also_refuses_the_def"
+   ]
+  ],
+  "MO-05-always-member-only": [
+   "src/ast.rs",
+   "        if self.has_member_read_of(body, var_name) {\n            ParameterUse::MemberOnly",
+   "        if true || self.has_member_read_of(body, var_name) {\n            ParameterUse::MemberOnly",
+   [
+    "cpg::member_only_param_tests::classifier_distinguishes_bare_member_only_and_unused",
+    "cpg::member_only_param_tests::plain_member_only_formal_gets_a_base_def_and_projection_edges"
+   ]
+  ],
+  "MO-06-member-read-any-object": [
+   "src/ast.rs",
+   "if object.kind() == \"identifier\" && self.node_text(&object) == var_name {",
+   "if object.kind() == \"identifier\" {",
+   [
+    "cpg::member_only_param_tests::classifier_distinguishes_bare_member_only_and_unused"
+   ]
+  ],
+  "MO-07-member-read-no-recursion": [
+   "src/ast.rs",
+   ".any(|child| self.has_member_read_of(child, var_name));",
+   ".any(|_| false);",
+   [
+    "cpg::member_only_param_tests::plain_member_only_formal_gets_a_base_def_and_projection_edges"
+   ]
+  ],
+  "MO-08-collect-not-outermost": [
+   "src/ast.rs",
+   "                    out.insert(path);\n                }\n                return;",
+   "                    out.insert(path);\n                }",
+   [
+    "cpg::member_only_param_tests::nested_path_with_a_prefix_read_projects_each_outermost_path"
+   ]
+  ],
+  "MO-09-write-len-strict": [
+   "src/data_flow.rs",
+   "w.path.fields.len() <= field_path.fields.len()",
+   "w.path.fields.len() < field_path.fields.len()",
+   [
+    "cpg::member_only_param_tests::path_write_suppresses_that_path_but_not_its_siblings"
+   ]
+  ],
+  "MO-10-write-any-base": [
+   "src/data_flow.rs",
+   "w.path.base == field_path.base\n                                            &&",
+   "true\n                                            &&",
+   [
+    "cpg::member_only_param_tests::writes_to_other_bases_and_nested_callables_are_scoped_correctly"
+   ]
+  ],
+  "MO-11-write-prefix-negated": [
+   "src/data_flow.rs",
+   "field_path.fields[..w.path.fields.len()]\n                                                == w.path.fields[..]",
+   "field_path.fields[..w.path.fields.len()]\n                                                != w.path.fields[..]",
+   [
+    "cpg::member_only_param_tests::path_write_suppresses_that_path_but_not_its_siblings"
+   ]
+  ],
+  "MO-12-nested-writes-ignored": [
+   "src/data_flow.rs",
+   "                                    .chain(nested_write_spans.iter())\n",
+   "",
+   [
+    "cpg::member_only_param_tests::writes_to_other_bases_and_nested_callables_are_scoped_correctly"
+   ]
+  ],
+  "MO-13-write-no-skip": [
+   "src/data_flow.rs",
+   "                            if written {\n                                continue;\n                            }",
+   "                            if false && written {\n                                continue;\n                            }",
+   [
+    "cpg::member_only_param_tests::path_write_suppresses_that_path_but_not_its_siblings",
+    "cpg::member_only_param_tests::write_to_the_parameter_itself_projects_nothing"
+   ]
+  ],
+  "MO-14-unused-formal-registers": [
+   "src/data_flow.rs",
+   "if use_kind == crate::ast::ParameterUse::Unused {",
+   "if false && use_kind == crate::ast::ParameterUse::Unused {",
+   [
+    "cpg::member_only_param_tests::plain_member_only_formal_gets_a_base_def_and_projection_edges"
+   ]
+  ],
+  "MO-15-member-only-flag-off": [
+   "src/data_flow.rs",
+   "let member_only = use_kind == crate::ast::ParameterUse::MemberOnly;",
+   "let member_only = false;",
+   [
+    "cpg::member_only_param_tests::plain_member_only_formal_gets_a_base_def_and_projection_edges"
+   ]
+  ],
+  "MO-16-base-not-registered-for-projection": [
+   "src/data_flow.rs",
+   "if member_only {\n                            member_only_params.push((path.clone(), loc.clone()));",
+   "if false && member_only {\n                            member_only_params.push((path.clone(), loc.clone()));",
+   [
+    "cpg::member_only_param_tests::plain_member_only_formal_gets_a_base_def_and_projection_edges"
+   ]
+  ],
+  "MO-17-seed-skips-member-only": [
+   "src/reasoning/seeds.rs",
+   "if parsed.classify_parameter_use(&function, &param) == crate::ast::ParameterUse::Unused {",
+   "if parsed.classify_parameter_use(&function, &param) != crate::ast::ParameterUse::Bare {",
+   [
+    "reasoning::seeds::tests::symbol_seed_resolves_member_only_js_ts_formals_but_not_unused_or_non_js"
+   ]
+  ],
+  "MO-18-cache-version-unbumped": [
+   "src/cpg_cache.rs",
+   "const CACHE_VERSION: u32 = 118;",
+   "const CACHE_VERSION: u32 = 117;",
+   [
+    "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
+   ]
+  ]
+ }
+}

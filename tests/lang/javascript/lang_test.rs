@@ -62,10 +62,28 @@ function process(obj) {
     let dfg = DataFlowGraph::build(&files);
     let obj_defs = dfg.all_defs_of(path, "obj");
 
+    // PR-C contract: the formal is member-only, so it has exactly one base-only Def (the
+    // parameter at the signature line); the field assignments create none.
     let base_only: Vec<_> = obj_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert_eq!(
+        base_only.iter().map(|d| d.line).collect::<Vec<_>>(),
+        vec![2],
+        "Phase 2 JS: only the parameter Def is base-only; field assignments create none"
+    );
+    // Field isolation: every edge into or out of a field path stays on that path or starts at
+    // the base Def; `obj.secret` never reaches `obj.display`.
+    for edge in dfg.edges.iter().filter(|e| e.to.path.base == "obj") {
+        assert!(
+            edge.from.path == edge.to.path || edge.from.line == 2,
+            "Phase 2 JS: cross-field edge {edge:?}"
+        );
+    }
     assert!(
-        base_only.is_empty(),
-        "Phase 2 JS: field assignments should NOT create base-only defs"
+        !dfg.edges
+            .iter()
+            .any(|e| e.from.path.to_string() == "obj.secret"
+                && e.to.path.to_string() == "obj.display"),
+        "Phase 2 JS: obj.secret must not reach obj.display"
     );
 }
 
@@ -87,10 +105,27 @@ function process(obj: Config) {
     let dfg = DataFlowGraph::build(&files);
     let obj_defs = dfg.all_defs_of(path, "obj");
 
+    // PR-C contract: the formal is member-only, so it has exactly one base-only Def (the
+    // parameter at the signature line); the field assignments create none.
     let base_only: Vec<_> = obj_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert_eq!(
+        base_only.iter().map(|d| d.line).collect::<Vec<_>>(),
+        vec![2],
+        "Phase 2 TypeScript: only the parameter Def is base-only; field assignments create none"
+    );
+    // Field isolation: every edge into or out of a field path stays on that path or starts at
+    // the base Def; `obj.secret` never reaches `obj.label`.
+    for edge in dfg.edges.iter().filter(|e| e.to.path.base == "obj") {
+        assert!(
+            edge.from.path == edge.to.path || edge.from.line == 2,
+            "Phase 2 TypeScript: cross-field edge {edge:?}"
+        );
+    }
     assert!(
-        base_only.is_empty(),
-        "Phase 2 TypeScript: field assignments should NOT create base-only defs"
+        !dfg.edges.iter().any(
+            |e| e.from.path.to_string() == "obj.secret" && e.to.path.to_string() == "obj.label"
+        ),
+        "Phase 2 TypeScript: obj.secret must not reach obj.label"
     );
 }
 

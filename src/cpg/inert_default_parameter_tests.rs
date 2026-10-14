@@ -267,8 +267,9 @@ fn inert_default_parameter_never_falls_back_to_later_overwrite_var_redeclaration
             );
         }
     }
-    // Field-only usage keeps the pre-existing field-isolation contract: no
-    // bare-reference Def at all, hence no argument edge.
+    // Field-only usage (PR-C contract): the formal gets a base Def at its signature line and
+    // projection edges to each field read, but the argument edge into it exists (the caller's
+    // `input` may hold the whole object) and no edge ever runs from one field to another.
     for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
         let callee = match language {
             Language::JavaScript => {
@@ -278,10 +279,27 @@ fn inert_default_parameter_never_falls_back_to_later_overwrite_var_redeclaration
         };
         let source = format!("{callee}function run(input) {{\n  take(input);\n}}\n");
         let (cpg, _) = build(language, &source);
-        assert!(
-            argument_edges(&cpg, "run", "take").is_empty(),
-            "{language:?}/field-only-isolation: {:?}",
-            argument_edges(&cpg, "run", "take")
+        let value = source.find("value").unwrap();
+        assert_eq!(
+            argument_edges(&cpg, "run", "take"),
+            BTreeSet::from([("input".to_string(), "value".to_string(), value, value + 5)]),
+            "{language:?}/field-only: the argument binds to the entry token"
+        );
+        let parsed = ParsedFile::parse("field.src", &source, language).unwrap();
+        let dfg = DataFlowGraph::build(&BTreeMap::from([("field.src".to_string(), parsed)]));
+        let field_edges: Vec<_> = dfg
+            .edges
+            .iter()
+            .filter(|e| e.to.path.base == "value" && e.to.path.has_fields())
+            .map(|e| (e.from.path.to_string(), e.from.line, e.to.path.to_string()))
+            .collect();
+        assert_eq!(
+            field_edges.iter().collect::<BTreeSet<_>>(),
+            BTreeSet::from([
+                &("value".to_string(), 1, "value.field".to_string()),
+                &("value".to_string(), 1, "value.other".to_string()),
+            ]),
+            "{language:?}/field-only-isolation: edges start only at the base Def: {field_edges:?}"
         );
     }
 }
