@@ -2813,16 +2813,10 @@ impl CallGraph {
                 }
 
                 // Level 1: local variable function pointer — callee_name is a plain identifier.
-                // Slice L: where the alias route produced a proven hit (the one predicate of the
-                // slice) the textual guess stands down: it is the same target (a duplicate edge)
-                // or a scope-blind wrong one. Everywhere else, including a followed alias whose
-                // terminal is not proven, the path behaves exactly as on main.
-                let alias_followed = stand_down && self.js_ts_alias_route_hit(site);
-                if !alias_followed
-                    && site
-                        .callee_name
-                        .chars()
-                        .all(|c| c.is_alphanumeric() || c == '_')
+                if site
+                    .callee_name
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '_')
                 {
                     let Some(func_source) =
                         Self::extract_func_source_before(parsed, caller_id, site.start_byte)
@@ -3051,6 +3045,30 @@ impl CallGraph {
         telemetry.unique_targets = accepted_targets.len();
         telemetry.edges = level3_sites.len();
         extra_sites.extend(level3_sites);
+        // Slice L stand-down: every level above ran unchanged, so each read of the Level-1/2
+        // output (Level 4's `already_resolved`; Level 3 reads `self.calls`, not `extra_sites`)
+        // saw main's population. Only now, on the finished output, are the records whose source
+        // site is an alias site with a proven hit (the one predicate) removed, by exact site
+        // identity (caller, start byte, end byte).
+        if stand_down {
+            let proven: BTreeSet<(&FunctionId, usize, usize)> = self
+                .calls
+                .iter()
+                .flat_map(|(caller, sites)| {
+                    sites
+                        .iter()
+                        .filter(|s| {
+                            s.origin == CallSiteOrigin::Source && self.js_ts_alias_route_hit(s)
+                        })
+                        .map(move |s| (caller, s.start_byte, s.end_byte))
+                })
+                .collect();
+            if !proven.is_empty() {
+                extra_sites.retain(|(caller, record)| {
+                    !proven.contains(&(caller, record.start_byte, record.end_byte))
+                });
+            }
+        }
         debug_assert_eq!(
             telemetry.candidates,
             telemetry.accepted_inbound_sites + telemetry.drops.values().sum::<usize>()

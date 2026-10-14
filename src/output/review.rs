@@ -374,6 +374,11 @@ pub fn to_callers_output(
         })
         .collect();
 
+    let proven_keys: BTreeSet<(crate::call_graph::FunctionId, usize, usize)> = alias_sites
+        .iter()
+        .map(|(site, _)| (site.caller.clone(), site.start_byte, site.end_byte))
+        .collect();
+
     let mut entries: Vec<FunctionCallerEntry> = Vec::new();
     let mut seen_touched: BTreeSet<(String, String)> = BTreeSet::new(); // (file, name)
 
@@ -416,20 +421,28 @@ pub fn to_callers_output(
                 if depth >= max_depth {
                     continue;
                 }
+                // A predicate-true (followed) site is never taken from its spelling bucket: the
+                // bucket key is its alias spelling, which says nothing about the callee it was
+                // proven to call. It is admitted only through `alias_sites`, for that identity.
                 let mut sites: Vec<&crate::call_graph::CallSite> = ctx
                     .cpg
                     .call_graph
                     .callers
                     .get(&callee_name)
-                    .map(|s| s.iter().collect())
+                    .map(|s| {
+                        s.iter()
+                            .filter(|site| {
+                                !proven_keys.contains(&(
+                                    site.caller.clone(),
+                                    site.start_byte,
+                                    site.end_byte,
+                                ))
+                            })
+                            .collect()
+                    })
                     .unwrap_or_default();
                 for (alias_site, targets) in &alias_sites {
-                    let listed = sites.iter().any(|s| {
-                        s.caller == alias_site.caller
-                            && s.start_byte == alias_site.start_byte
-                            && s.end_byte == alias_site.end_byte
-                    });
-                    if identity.as_ref().is_some_and(|id| targets.contains(id)) && !listed {
+                    if identity.as_ref().is_some_and(|id| targets.contains(id)) {
                         sites.push(alias_site);
                     }
                 }

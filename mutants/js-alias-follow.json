@@ -168,16 +168,17 @@
   ],
   "AF-34-textual-path-never-stands-down": [
    "src/call_graph.rs",
-   "if !alias_followed\n                    && site",
-   "if true\n                    && site",
+   "        if stand_down {\n            let proven",
+   "        if false {\n            let proven",
    [
-    "js_alias_follow_test::one_followed_alias_call_is_one_edge_for_every_consumer"
+    "js_alias_follow_test::textual_fptr_path_case1_alias_of_an_import_under_its_own_name",
+    "js_alias_rule_test::the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_site"
    ]
   ],
   "AF-35-textual-path-stands-down-for-unfollowed-alias": [
    "src/call_graph.rs",
-   "let alias_followed = stand_down && self.js_ts_alias_route_hit(site);",
-   "let alias_followed = stand_down\n                    && (self.js_ts_alias_route_hit(site)\n                        || matches!(site.local_binding, JsLocalBinding::MayCall(_)));",
+   "s.origin == CallSiteOrigin::Source && self.js_ts_alias_route_hit(s)",
+   "s.origin == CallSiteOrigin::Source\n                                && (self.js_ts_alias_route_hit(s)\n                                    || matches!(s.local_binding, JsLocalBinding::MayCall(_)))",
    [
     "js_alias_follow_test::textual_fptr_path_still_fires_where_the_binder_does_not_follow"
    ]
@@ -280,16 +281,16 @@
   ],
   "AF-40-unproven-alias-route-drops": [
    "src/resolution.rs",
-   "if let Some(outcome) = self.js_ts_alias_route(caller, name, site) {\n                    return outcome;\n                }",
-   "if let Some(outcome) = self.js_ts_alias_route(caller, name, site) {\n                    return outcome;\n                }\n                if matches!(site.local_binding, JsLocalBinding::AliasImport { .. } | JsLocalBinding::AliasNamespaceMember { .. }) {\n                    return ResolutionOutcome::dropped(DropReason::UnknownName);\n                }",
+   "if let Some(mut outcome) = self.js_ts_alias_route(caller, name, site) {\n                    outcome.via_alias_route = true;\n                    return outcome;\n                }",
+   "if let Some(mut outcome) = self.js_ts_alias_route(caller, name, site) {\n                    outcome.via_alias_route = true;\n                    return outcome;\n                }\n                if matches!(site.local_binding, JsLocalBinding::AliasImport { .. } | JsLocalBinding::AliasNamespaceMember { .. }) {\n                    return ResolutionOutcome::dropped(DropReason::UnknownName);\n                }",
    [
     "js_alias_follow_fallback_test::an_alias_of_an_import_whose_export_is_an_unproven_alias_equals_main"
    ]
   ],
   "AF-41-namespace-alias-keeps-textual-record": [
    "src/call_graph.rs",
-   "let alias_followed = stand_down && self.js_ts_alias_route_hit(site);",
-   "let alias_followed = stand_down\n                    && self.js_ts_alias_route_hit(site)\n                    && !matches!(site.local_binding, JsLocalBinding::AliasNamespaceMember { .. });",
+   "s.origin == CallSiteOrigin::Source && self.js_ts_alias_route_hit(s)",
+   "s.origin == CallSiteOrigin::Source\n                                && self.js_ts_alias_route_hit(s)\n                                && !matches!(s.local_binding, JsLocalBinding::AliasNamespaceMember { .. })",
    [
     "js_alias_follow_test::the_textual_path_stands_down_for_a_destructured_namespace_alias"
    ]
@@ -313,8 +314,8 @@
   ],
   "AF-44-format-callers-ignores-alias-sites": [
    "src/output/review.rs",
-   "if identity.as_ref().is_some_and(|id| targets.contains(id)) && !listed {",
-   "if false && identity.as_ref().is_some_and(|id| targets.contains(id)) && !listed {",
+   "if identity.as_ref().is_some_and(|id| targets.contains(id)) {",
+   "if false && identity.as_ref().is_some_and(|id| targets.contains(id)) {",
    [
     "js_alias_follow_test::format_callers_lists_a_followed_alias_caller_once"
    ]
@@ -338,8 +339,8 @@
   ],
   "AF-51-stand-down-by-binding-kind": [
    "src/call_graph.rs",
-   "let alias_followed = stand_down && self.js_ts_alias_route_hit(site);",
-   "let alias_followed = stand_down\n                    && matches!(\n                        site.local_binding,\n                        JsLocalBinding::AliasCallable(_)\n                            | JsLocalBinding::AliasImport { .. }\n                            | JsLocalBinding::AliasNamespaceMember { .. }\n                    );",
+   "s.origin == CallSiteOrigin::Source && self.js_ts_alias_route_hit(s)",
+   "s.origin == CallSiteOrigin::Source\n                                && matches!(\n                                    s.local_binding,\n                                    JsLocalBinding::AliasCallable(_)\n                                        | JsLocalBinding::AliasImport { .. }\n                                        | JsLocalBinding::AliasNamespaceMember { .. }\n                                )",
    [
     "js_alias_follow_fallback_test::an_export_without_a_span_is_not_a_proven_alias_terminal",
     "js_alias_rule_test::the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_site"
@@ -367,6 +368,69 @@
    "identity.as_ref().is_some_and(|id| targets.iter().any(|t| t.name == id.name))",
    [
     "js_alias_follow_test::format_callers_keeps_the_identity_of_the_followed_target"
+   ]
+  ],
+  "AF-60-predicate-read-from-the-route": [
+   "src/resolution_js_alias.rs",
+   "outcome.via_alias_route.then_some(outcome)",
+   "{ let _ = outcome.via_alias_route; self.js_ts_alias_route(&site.caller, &site.callee_name, site) }",
+   [
+    "js_alias_follow_fallback_test::a_lowercase_jsx_alias_is_an_intrinsic_element_and_keeps_mains_records",
+    "js_alias_rule_test::the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_site"
+   ]
+  ],
+  "AF-61-resolver-never-marks-the-route": [
+   "src/resolution.rs",
+   "outcome.via_alias_route = true;",
+   "outcome.via_alias_route = false;",
+   [
+    "js_alias_follow_test::textual_fptr_path_case1_alias_of_an_import_under_its_own_name",
+    "js_alias_rule_test::the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_site"
+   ]
+  ],
+  "AF-62-stand-down-inside-level-one": [
+   "src/call_graph.rs",
+   "                if site\n                    .callee_name\n                    .chars()\n                    .all(|c| c.is_alphanumeric() || c == '_')\n                {\n                    let Some(func_source) =",
+   "                if !(stand_down && self.js_ts_alias_route_hit(site))\n                    && site\n                        .callee_name\n                        .chars()\n                        .all(|c| c.is_alphanumeric() || c == '_')\n                {\n                    let Some(func_source) =",
+   [
+    "js_alias_follow_fallback_test::a_stood_down_alias_leaves_the_same_line_neighbours_textual_records_alone",
+    "js_alias_follow_fallback_test::a_stood_down_alias_on_the_previous_line_leaves_a_callback_site_alone",
+    "js_alias_rule_test::the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_site"
+   ]
+  ],
+  "AF-64-bucket-keeps-followed-sites": [
+   "src/output/review.rs",
+   "!proven_keys.contains(",
+   "true || !proven_keys.contains(",
+   [
+    "js_alias_callers_test::format_callers_does_not_credit_a_followed_site_for_the_function_named_like_its_alias"
+   ]
+  ],
+  "AF-63-level-four-reads-the-stood-down-population": [
+   "src/call_graph.rs",
+   "                let already_resolved = extra_sites.iter().any(|(cid, es)| {\n                    cid == caller_id\n                        && es.line == site.line\n                        && known_fn_names.contains(&es.callee_name)\n                });",
+   "                let already_resolved = extra_sites.iter().any(|(cid, es)| {\n                    cid == caller_id\n                        && es.line == site.line\n                        && known_fn_names.contains(&es.callee_name)\n                        && !(stand_down\n                            && self.calls.get(cid).is_some_and(|ss| {\n                                ss.iter().any(|s| {\n                                    s.origin == CallSiteOrigin::Source\n                                        && s.start_byte == es.start_byte\n                                        && s.end_byte == es.end_byte\n                                        && self.js_ts_alias_route_hit(s)\n                                })\n                            }))\n                });",
+   [
+    "js_alias_follow_fallback_test::a_stood_down_alias_leaves_the_same_line_neighbours_textual_records_alone",
+    "js_alias_follow_fallback_test::a_stood_down_alias_on_the_previous_line_leaves_a_callback_site_alone",
+    "js_alias_rule_test::the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_site"
+   ]
+  ],
+  "AF-65-filter-ignores-the-caller": [
+   "src/call_graph.rs",
+   "!proven.contains(&(caller, record.start_byte, record.end_byte))",
+   "!proven.iter().any(|(_, s, e)| *s == record.start_byte && *e == record.end_byte)",
+   [
+    "js_alias_rule_test::the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_site"
+   ]
+  ],
+  "AF-66-nav-count-reads-the-route-not-the-resolver": [
+   "src/resolution_js_alias.rs",
+   "self.alias_route_public_outcome(site).is_some()",
+   "self.js_ts_alias_route(&site.caller, &site.callee_name, site).is_some()",
+   [
+    "js_alias_follow_fallback_test::a_lowercase_jsx_alias_is_an_intrinsic_element_and_keeps_mains_records",
+    "js_alias_rule_test::the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_site"
    ]
   ]
  }

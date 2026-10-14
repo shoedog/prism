@@ -354,3 +354,108 @@ fn a_pattern_binding_a_name_twice_is_not_followed_and_equals_main() {
         &["L4 f Source: drop UnknownName"],
     );
 }
+
+// ---- round 3, finding A: sites the resolver answers before the alias arm ----
+
+const JSX_COMP: &str = "function Comp() {\n  return null;\n}\n";
+
+#[test]
+fn a_lowercase_jsx_alias_is_an_intrinsic_element_and_keeps_mains_records() {
+    // `<h />` is an intrinsic element: the resolver answers `JsxIntrinsic` before the alias arm,
+    // so the alias route has proved nothing for it and must not stand the textual path down.
+    let same =
+        format!("{JSX_COMP}export function sameFn() {{\n  const h = Comp;\n  return <h />;\n}}\n");
+    let nested = format!(
+        "{JSX_COMP}export function outer() {{\n  const k = Comp;\n  return function inner() {{\n    \
+         return <k />;\n  }};\n}}\n"
+    );
+    for (label, src, want) in [
+        // main also holds the textual record for `h = Comp`, which must survive.
+        (
+            "same function",
+            &same,
+            vec![
+                "L6 Comp IndirectResolution: app.jsx:Comp@1-3 local_def exact",
+                "L6 h Source: drop JsxIntrinsic",
+            ],
+        ),
+        ("nested", &nested, vec!["L7 k Source: drop JsxIntrinsic"]),
+    ] {
+        let cg = graph_n(&[("app.jsx", src)]);
+        equals_main(label, records_of(&cg, "app.jsx"), &want);
+    }
+}
+
+#[test]
+fn an_uppercase_jsx_alias_is_still_proven() {
+    let src =
+        format!("{JSX_COMP}export function upper() {{\n  const H = Comp;\n  return <H />;\n}}\n");
+    let cg = graph_n(&[("app.jsx", &src)]);
+    assert_eq!(
+        records_of(&cg, "app.jsx"),
+        ["L6 H Source: app.jsx:Comp@1-3 local_def exact"]
+    );
+}
+
+#[test]
+fn a_lowercase_jsx_namespace_alias_keeps_mains_records() {
+    let lib = "export function target() {\n  return null;\n}\n";
+    let destructure = "import * as N from './lib';\nexport function run() {\n  \
+        const { target: h } = N;\n  return <h />;\n}\n";
+    let member = "import * as N from './lib';\nexport function run() {\n  const h = N.target;\n  \
+        return <h />;\n}\n";
+    for (label, app) in [("destructure", destructure), ("member", member)] {
+        let cg = graph_n(&[("lib.jsx", lib), ("app.jsx", app)]);
+        equals_main(
+            label,
+            records_of(&cg, "app.jsx"),
+            &["L4 h Source: drop JsxIntrinsic"],
+        );
+    }
+}
+
+// ---- round 3, finding B: the stand-down must not change another site's textual records ----
+
+const CB_LIB: &str =
+    "export function target() {\n  return 1;\n}\nexport function cbImpl() {\n  return 2;\n}\n";
+
+#[test]
+fn a_stood_down_alias_leaves_the_same_line_neighbours_textual_records_alone() {
+    let app = "import { target, cbImpl } from './lib';\nconst obj = {};\nobj.field = cbImpl;\n\
+        export function sameLine() {\n  const h = target;\n  return h(obj.field());\n}\n\
+        export function direct() {\n  return target(obj.field());\n}\n";
+    let cg = graph_n(&[("lib.js", CB_LIB), ("app.js", app)]);
+    // main: the Level-1 record at line 6 suppresses Level 4 for `obj.field()` there. The alias
+    // site itself is proven (Source hit, its textual record withheld), but its neighbour keeps
+    // main's records; `direct()` is unchanged.
+    equals_main(
+        "same line neighbour",
+        records_of(&cg, "app.js"),
+        &[
+            "L6 field Source: drop UnknownName",
+            "L6 h Source: lib.js:target@1-3 import_member exact",
+            "L9 cbImpl IndirectResolution: lib.js:cbImpl@4-6 import_member exact",
+            "L9 field Source: drop UnknownName",
+            "L9 target Source: lib.js:target@1-3 import_member exact",
+        ],
+    );
+}
+
+#[test]
+fn a_stood_down_alias_on_the_previous_line_leaves_a_callback_site_alone() {
+    let lib = "export function target() {\n  return 1;\n}\n";
+    let other = "export function otherTarget() {\n  return 2;\n}\n\
+        export function init(o) {\n  o.callback = otherTarget;\n}\n";
+    let app =
+        "import { target } from './lib';\nexport function run(obj) {\n  const h = target;\n  \
+        h(); obj.callback();\n}\n";
+    let cg = graph_n(&[("lib.js", lib), ("other.js", other), ("app.js", app)]);
+    equals_main(
+        "callback neighbour",
+        records_of(&cg, "app.js"),
+        &[
+            "L4 callback Source: drop UnknownName",
+            "L4 h Source: lib.js:target@1-3 import_member exact",
+        ],
+    );
+}
