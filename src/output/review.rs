@@ -356,6 +356,29 @@ pub fn to_callers_output(
     // Build the GLib/D-Bus callback map once for all touched functions.
     let glib_callbacks = detect_glib_callbacks(ctx.files);
 
+    // Slice L: a call through a followed JS/TS alias (`const h = f; h()`) is filed under the
+    // alias's spelling, so the name-keyed walk below cannot find it. Collect those sites with the
+    // exact `FunctionId` they were proven to call (file, name and span, not just the name).
+    let alias_sites: Vec<(
+        &crate::call_graph::CallSite,
+        Vec<crate::call_graph::FunctionId>,
+    )> = ctx
+        .cpg
+        .call_graph
+        .calls
+        .values()
+        .flatten()
+        .filter_map(|site| {
+            let outcome = ctx.cpg.call_graph.js_ts_alias_route_outcome(site)?;
+            Some((site, outcome))
+        })
+        .collect();
+
+    let proven_keys: BTreeSet<(crate::call_graph::FunctionId, usize, usize)> = alias_sites
+        .iter()
+        .map(|(site, _)| (site.caller.clone(), site.start_byte, site.end_byte))
+        .collect();
+
     let mut entries: Vec<FunctionCallerEntry> = Vec::new();
     let mut seen_touched: BTreeSet<(String, String)> = BTreeSet::new(); // (file, name)
 
@@ -384,17 +407,45 @@ pub fn to_callers_output(
             let mut caller_refs: Vec<CallerRef> = Vec::new();
             let mut visited: BTreeSet<(String, String)> = BTreeSet::new(); // (file, name)
             visited.insert((diff_info.file_path.clone(), name.clone()));
-            let mut queue: VecDeque<(String, usize)> = VecDeque::new();
-            queue.push_back((name.clone(), 0));
+            let mut queue: VecDeque<(String, Option<crate::call_graph::FunctionId>, usize)> =
+                VecDeque::new();
+            let seed = crate::call_graph::FunctionId {
+                file: diff_info.file_path.clone(),
+                name: name.clone(),
+                start_line,
+                end_line,
+            };
+            queue.push_back((name.clone(), Some(seed), 0));
 
-            while let Some((callee_name, depth)) = queue.pop_front() {
+            while let Some((callee_name, identity, depth)) = queue.pop_front() {
                 if depth >= max_depth {
                     continue;
                 }
-                let sites = match ctx.cpg.call_graph.callers.get(&callee_name) {
-                    Some(s) => s,
-                    None => continue,
-                };
+                // A predicate-true (followed) site is never taken from its spelling bucket: the
+                // bucket key is its alias spelling, which says nothing about the callee it was
+                // proven to call. It is admitted only through `alias_sites`, for that identity.
+                let mut sites: Vec<&crate::call_graph::CallSite> = ctx
+                    .cpg
+                    .call_graph
+                    .callers
+                    .get(&callee_name)
+                    .map(|s| {
+                        s.iter()
+                            .filter(|site| {
+                                !proven_keys.contains(&(
+                                    site.caller.clone(),
+                                    site.start_byte,
+                                    site.end_byte,
+                                ))
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                for (alias_site, targets) in &alias_sites {
+                    if identity.as_ref().is_some_and(|id| targets.contains(id)) {
+                        sites.push(alias_site);
+                    }
+                }
                 for site in sites {
                     let ck = (site.caller.file.clone(), site.caller.name.clone());
                     if !visited.insert(ck) {
@@ -408,7 +459,11 @@ pub fn to_callers_output(
                         trust: None,
                         caller_type: None,
                     });
-                    queue.push_back((site.caller.name.clone(), depth + 1));
+                    queue.push_back((
+                        site.caller.name.clone(),
+                        Some(site.caller.clone()),
+                        depth + 1,
+                    ));
                 }
             }
 

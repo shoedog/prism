@@ -390,6 +390,10 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     // an unrelated reason downstream, for example `UnknownName`).
     let mut local_binding_unchecked_position: BTreeMap<String, usize> = BTreeMap::new();
     let mut local_binding_may_call: BTreeMap<String, usize> = BTreeMap::new();
+    // Slice L: followed `const` aliases by terminal kind and outcome (`proven`: the alias route
+    // bound exactly one Exact target; `kept_main`: it did not, and the site's records are
+    // those of an unfollowed alias, i.e. main's).
+    let mut js_alias_follow: BTreeMap<String, usize> = BTreeMap::new();
     for sites in cg.calls.values() {
         for site in sites {
             total += 1;
@@ -401,6 +405,23 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 }
                 crate::call_graph::JsLocalBinding::MayCall(r) => {
                     *local_binding_may_call.entry(r.clone()).or_default() += 1
+                }
+                followed @ (crate::call_graph::JsLocalBinding::AliasCallable(_)
+                | crate::call_graph::JsLocalBinding::AliasImport { .. }
+                | crate::call_graph::JsLocalBinding::AliasNamespaceMember { .. }) => {
+                    let (kind, hit) = match followed {
+                        crate::call_graph::JsLocalBinding::AliasCallable(_) => {
+                            ("callable", cg.js_ts_alias_route_hit(site))
+                        }
+                        crate::call_graph::JsLocalBinding::AliasImport { .. } => {
+                            ("import", cg.js_ts_alias_route_hit(site))
+                        }
+                        _ => ("namespace_member", cg.js_ts_alias_route_hit(site)),
+                    };
+                    let outcome = if hit { "proven" } else { "kept_main" };
+                    *js_alias_follow
+                        .entry(format!("{kind}_{outcome}"))
+                        .or_default() += 1
                 }
                 _ => {}
             }
@@ -682,6 +703,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "dropped_local_binding_unproven": local_binding_unproven,
         "local_binding_unchecked_position": local_binding_unchecked_position,
         "local_binding_may_call": local_binding_may_call,
+        "js_alias_follow": js_alias_follow,
         "js_export_skipped_exprs": cg
             .js_ts_exports
             .values()

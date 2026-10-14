@@ -106,6 +106,28 @@ pub(super) fn serve_connection(
     transport: &mut impl Transport,
     settings: &ConnectionSettings,
 ) -> anyhow::Result<()> {
+    serve_loop(transport, |message, state| {
+        let dispatch = handle_message_with(message, runtime, registry, state, settings);
+        Ok(match dispatch {
+            Dispatch::Response(response) => Some(response),
+            Dispatch::NoResponse => None,
+        })
+    })
+}
+
+/// The frame loop of one connection, in process or in a daemon. It reads one frame at a time
+/// until end of input. A frame that is not a JSON value is answered here with `-32700` and the
+/// connection stays; every other frame goes to `handle` together with this connection's
+/// lifecycle state, which starts at `PreInit` and lives as long as the loop. What `handle`
+/// returns is written; `None` writes nothing. An error from `handle`, from a read or from a
+/// write ends the loop and is returned.
+///
+/// `handle` returns an owned value, so whatever it locked to compute a response is released
+/// before the response is written.
+pub(super) fn serve_loop(
+    transport: &mut impl Transport,
+    mut handle: impl FnMut(&Value, &mut Lifecycle) -> anyhow::Result<Option<Value>>,
+) -> anyhow::Result<()> {
     let mut state = Lifecycle::PreInit;
 
     while let Some(outcome) = transport.read_message()? {
@@ -125,12 +147,7 @@ pub(super) fn serve_connection(
             }
         };
 
-        let response = match handle_message_with(&message, runtime, registry, &mut state, settings)
-        {
-            Dispatch::Response(response) => Some(response),
-            Dispatch::NoResponse => None,
-        };
-        if let Some(response) = response {
+        if let Some(response) = handle(&message, &mut state)? {
             transport.write_message(response)?;
         }
     }
@@ -641,6 +658,23 @@ pub(super) fn readiness_response(
     ))
 }
 
+/// A retryable status for a call that cannot run yet, in the envelope `readiness_response`
+/// gives the warming and build-failed statuses. It is for a status that only a shared daemon
+/// reports; the in-process server reports those two, through `readiness_response`, and
+/// nothing else.
+pub(super) fn retryable_status_response(
+    call: &ToolCall<'_>,
+    status: Value,
+    index_state: &'static str,
+    settings: &ConnectionSettings,
+) -> Value {
+    success_response(
+        call.id.clone(),
+        retryable_status_result(status, index_state)
+            .to_call_tool_result_value(settings.structured_content),
+    )
+}
+
 /// `refresh_index`: rebuild the snapshot. Needs exclusive access to the provider.
 pub(super) fn dispatch_tool_refresh(
     call: &ToolCall<'_>,
@@ -1004,3 +1038,7 @@ mod owner_tests;
 #[cfg(test)]
 #[path = "transport_split_tests.rs"]
 mod split_tests;
+
+#[cfg(test)]
+#[path = "transport_loop_tests.rs"]
+mod loop_tests;

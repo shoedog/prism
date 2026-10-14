@@ -43,21 +43,20 @@ fn refusing_spawner() -> Spawner {
     })
 }
 
-/// The waiter of attempt 1 first runs when attempt 3 is building. The notifications of
-/// attempts 1 and 2 are both held, so nothing wakes either earlier waiter until then; each is
-/// then told its own attempt's failure, and the caller of attempt 3 keeps waiting. Rules out
-/// an error kept with only its attempt number: nothing of attempt 1 would be left.
-#[test]
-fn a_waiter_of_a_failed_attempt_hears_that_failure_although_a_third_attempt_is_building() {
-    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+/// Attempts 1 and 2 fail and the notifications of both are held, so nothing wakes either
+/// waiter; a third connection then starts attempt 3, which plays `third`. Returns the state,
+/// the three connections in the order of their attempts, and the two held notifications.
+fn two_waiters_held_behind_their_failed_attempts(
+    cfg: &ServerConfig,
+    third: BuildStep,
+) -> (Arc<DaemonState>, [Conn; 3], [Arc<Gate>; 2]) {
     let first_gate = Gate::closed();
-    let third_gate = Gate::closed();
     let (builder, _calls) = scripted(
-        &cfg,
+        cfg,
         vec![
             fail_after(&first_gate, "first attempt failed"),
             fail_now("second attempt failed"),
-            build_after(&third_gate, &cfg),
+            third,
         ],
     );
     let clock = ManualClock::new();
@@ -86,6 +85,21 @@ fn a_waiter_of_a_failed_attempt_hears_that_failure_although_a_third_attempt_is_b
     assert!(recorded[1].pass(), "attempt 2's failure is recorded");
     let third = Conn::open(&state, 600);
     third.call();
+    (state, [early, second, third], notify)
+}
+
+/// The waiters of attempts 1 and 2 first run when attempt 3 is building. Each is told to
+/// retry (D26): a later attempt has superseded its failure. Neither joins attempt 3, and the
+/// caller of attempt 3 keeps waiting. The rule itself is table-tested without threads in
+/// `control_tests.rs`; this test assumes that neither waiter wakes spuriously while its
+/// notification is held. A spurious wake-up cannot make it pass wrongly: the waiter would
+/// answer early and the assertions on it would fail.
+#[test]
+fn waiters_of_failed_attempts_are_told_to_retry_while_a_third_attempt_is_building() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let third_gate = Gate::closed();
+    let (state, [early, second, third], notify) =
+        two_waiters_held_behind_their_failed_attempts(&cfg, build_after(&third_gate, &cfg));
     wait_until("attempt 3 to be building with three calls parked", || {
         let now = status(&state);
         now.state == BuildState::Building && now.attempt == 3 && now.waiting == 3
@@ -97,6 +111,33 @@ fn a_waiter_of_a_failed_attempt_hears_that_failure_although_a_third_attempt_is_b
     assert!(!second.answered(), "nor the waiter of attempt 2");
 
     notify[0].open();
+    assert_eq!(early.outcome(), Outcome::Superseded);
+    assert_eq!(second.outcome(), Outcome::Superseded);
+    assert_eq!(status(&state).attempt, 3);
+    assert_eq!(status(&state).state, BuildState::Building);
+    assert!(!third.answered(), "the caller of attempt 3 keeps waiting");
+
+    notify[1].open();
+    third_gate.open();
+    assert_eq!(third.outcome(), Outcome::Ready);
+}
+
+/// The same, with a third attempt that fails as well, so that nothing is building when the
+/// earlier waiters run: no retry has superseded their failures. Each is told of its own
+/// attempt's, with its own text, two and one attempts later. Rules out an error kept with
+/// only its attempt number (nothing of attempt 1 would be left), and answering with the
+/// latest failure's text.
+#[test]
+fn waiters_of_failed_attempts_hear_their_own_failure_when_every_later_attempt_failed_too() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (state, [early, second, third], notify) =
+        two_waiters_held_behind_their_failed_attempts(&cfg, fail_now("third attempt failed"));
+
+    // Attempt 3's ending is not held: it wakes everybody parked.
+    assert_eq!(
+        third.outcome(),
+        Outcome::Failed("third attempt failed".to_string())
+    );
     assert_eq!(
         early.outcome(),
         Outcome::Failed("first attempt failed".to_string())
@@ -106,12 +147,9 @@ fn a_waiter_of_a_failed_attempt_hears_that_failure_although_a_third_attempt_is_b
         Outcome::Failed("second attempt failed".to_string())
     );
     assert_eq!(status(&state).attempt, 3);
-    assert_eq!(status(&state).state, BuildState::Building);
-    assert!(!third.answered(), "the caller of attempt 3 keeps waiting");
-
+    assert_eq!(status(&state).state, BuildState::Failed);
+    notify[0].open();
     notify[1].open();
-    third_gate.open();
-    assert_eq!(third.outcome(), Outcome::Ready);
 }
 
 /// A builder may hand over a provider whose generation is not 0. The control plane reports
@@ -203,4 +241,188 @@ fn a_zero_wait_client_hears_a_failure_that_is_already_recorded() {
         );
     }
     assert_eq!(calls.load(Ordering::SeqCst), 0);
+}
+
+/// A connection whose call was answered warming hears, on its next call, that its attempt
+/// failed, as an in-process client does (spec §5), and only the call after that starts the
+/// retry (D32). Rules out a connection that starts the retry at once and never hears the
+/// failure; with a build that keeps failing slowly, that would rebuild on every call while the
+/// client is told nothing is wrong.
+#[test]
+fn a_connection_that_stopped_waiting_hears_its_attempt_s_failure_before_any_retry() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let gate = Gate::closed();
+    let (builder, calls) = scripted(&cfg, vec![fail_after(&gate, "first attempt failed")]);
+    let clock = ManualClock::new();
+    let state = DaemonState::from_parts(parts_with(builder, &clock)).expect("a lazy daemon state");
+    let conn = Conn::open(&state, 0);
+
+    conn.call();
+    assert_eq!(
+        conn.outcome(),
+        Outcome::Warming {
+            elapsed: Duration::ZERO
+        }
+    );
+    gate.open();
+    wait_until("attempt 1 to fail", || {
+        status(&state).state == BuildState::Failed
+    });
+
+    conn.call();
+    assert_eq!(
+        conn.outcome(),
+        Outcome::Failed("first attempt failed".to_string())
+    );
+    assert_eq!(status(&state).attempt, 1, "and no retry was started");
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+
+    conn.call();
+    assert_eq!(
+        conn.outcome(),
+        Outcome::Warming {
+            elapsed: Duration::ZERO
+        },
+        "the call after that starts the retry"
+    );
+    assert_eq!(status(&state).attempt, 2);
+}
+
+/// The same, when another connection has retried in the meantime: the first connection's
+/// next call is told to retry (D26), not given the stale failure, and starts nothing; the call
+/// after that joins the retry.
+#[test]
+fn a_connection_that_stopped_waiting_is_told_to_retry_when_another_retried_meanwhile() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let first_gate = Gate::closed();
+    let retry_gate = Gate::closed();
+    let (builder, _calls) = scripted(
+        &cfg,
+        vec![
+            fail_after(&first_gate, "first attempt failed"),
+            build_after(&retry_gate, &cfg),
+        ],
+    );
+    let clock = ManualClock::new();
+    let state = DaemonState::from_parts(parts_with(builder, &clock)).expect("a lazy daemon state");
+    let quick = Conn::open(&state, 0);
+    let patient = Conn::open(&state, 600);
+
+    quick.call();
+    assert!(matches!(quick.outcome(), Outcome::Warming { .. }));
+    first_gate.open();
+    wait_until("attempt 1 to fail", || {
+        status(&state).state == BuildState::Failed
+    });
+    patient.call();
+    wait_until("the retry to be building, with one call waiting", || {
+        let now = status(&state);
+        now.state == BuildState::Building && now.attempt == 2 && now.waiting == 1
+    });
+
+    quick.call();
+    assert_eq!(quick.outcome(), Outcome::Superseded);
+    quick.call();
+    assert!(
+        matches!(quick.outcome(), Outcome::Warming { .. }),
+        "the call after that joins the retry"
+    );
+    assert_eq!(status(&state).attempt, 2, "and starts no third attempt");
+
+    retry_gate.open();
+    assert_eq!(patient.outcome(), Outcome::Ready);
+}
+
+/// The connection hears its own attempt's failure, with that attempt's text, although a later
+/// attempt has failed for another reason since. Rules out answering an unheard failure from
+/// the latest attempt.
+#[test]
+fn a_connection_hears_its_own_attempt_s_failure_although_a_later_attempt_failed_too() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let first_gate = Gate::closed();
+    let (builder, _calls) = scripted(
+        &cfg,
+        vec![
+            fail_after(&first_gate, "first attempt failed"),
+            fail_now("second attempt failed"),
+        ],
+    );
+    let clock = ManualClock::new();
+    let state = DaemonState::from_parts(parts_with(builder, &clock)).expect("a lazy daemon state");
+    let quick = Conn::open(&state, 0);
+    let patient = Conn::open(&state, 600);
+
+    quick.call();
+    assert!(matches!(quick.outcome(), Outcome::Warming { .. }));
+    first_gate.open();
+    wait_until("attempt 1 to fail", || {
+        status(&state).state == BuildState::Failed
+    });
+    patient.call();
+    assert_eq!(
+        patient.outcome(),
+        Outcome::Failed("second attempt failed".to_string())
+    );
+
+    quick.call();
+    assert_eq!(
+        quick.outcome(),
+        Outcome::Failed("first attempt failed".to_string())
+    );
+}
+
+/// An attempt that published the index while the connection was not waiting needs no extra
+/// step: the next call is served.
+#[test]
+fn a_connection_whose_attempt_published_while_it_was_not_waiting_is_served() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let gate = Gate::closed();
+    let (builder, calls) = scripted(&cfg, vec![build_after(&gate, &cfg)]);
+    let clock = ManualClock::new();
+    let state = DaemonState::from_parts(parts_with(builder, &clock)).expect("a lazy daemon state");
+    let conn = Conn::open(&state, 0);
+
+    conn.call();
+    assert!(matches!(conn.outcome(), Outcome::Warming { .. }));
+    gate.open();
+    wait_until("the build to be announced", || {
+        status(&state).state == BuildState::Ready
+    });
+    conn.call();
+    assert_eq!(conn.outcome(), Outcome::Ready);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+/// The owner's decision of 2026-10-13 on the path of D32: a connection that stopped waiting on
+/// an attempt that then failed, while another connection's retry has published the index, is
+/// answered `Ready` on its next call, and on the call after it. Rules out `Superseded` with
+/// nothing building, and a failure reported after the connection was served.
+#[test]
+fn a_connection_that_stopped_waiting_is_served_once_another_s_retry_has_published() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let first_gate = Gate::closed();
+    let (builder, _calls) = scripted(&cfg, vec![fail_after(&first_gate, "first attempt failed")]);
+    let clock = ManualClock::new();
+    let state = DaemonState::from_parts(parts_with(builder, &clock)).expect("a lazy daemon state");
+    let quick = Conn::open(&state, 0);
+    let patient = Conn::open(&state, 600);
+
+    quick.call();
+    assert!(matches!(quick.outcome(), Outcome::Warming { .. }));
+    first_gate.open();
+    wait_until("attempt 1 to fail", || {
+        status(&state).state == BuildState::Failed
+    });
+    patient.call();
+    assert_eq!(patient.outcome(), Outcome::Ready, "the retry published");
+
+    quick.call();
+    assert_eq!(quick.outcome(), Outcome::Ready);
+    quick.call();
+    assert_eq!(
+        quick.outcome(),
+        Outcome::Ready,
+        "and nothing is owed after it"
+    );
+    assert_eq!(status(&state).attempt, 2);
 }

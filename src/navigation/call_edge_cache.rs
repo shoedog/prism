@@ -105,7 +105,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v62: lane-P P2 relative JS export-hop proof (CPG v106).
 // v63: I1 relative-specifier candidates: `.js` -> `.ts`/`.tsx`, bare `.`/`..`,
 //      redundant path segments (CPG v115).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 63;
+// v64: slice L follows JS/TS `const` aliases (CPG v116).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 64;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -730,7 +731,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 63);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 64);
     }
 
     #[test]

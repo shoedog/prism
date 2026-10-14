@@ -527,6 +527,16 @@ pub enum JsLocalBinding {
     Unproven(String),
     /// Owner OQ1 (Option K): an unproven position keeps base behavior, counted by reason.
     Position(String),
+    /// Slice L: the callee is a `const` alias chain that ends at this in-file callable. Resolves
+    /// exactly like `Callable`; kept distinct so the textual function-pointer path stands down
+    /// only where the binder followed an alias, never for a name bound directly to a function.
+    AliasCallable(crate::ast::JsTerminal),
+    /// Slice L: the callee is a `const` alias chain that ends at the program-scope import
+    /// binding `local` of this file; the JS/TS import-member route decides the target.
+    AliasImport { local: String },
+    /// Slice L: the callee is a `const` alias chain that ends at member `member` of the
+    /// namespace import of `module_path`; the namespace export proof decides the target.
+    AliasNamespaceMember { module_path: String, member: String },
 }
 
 /// Parameter arity for a method definition (language-agnostic shape).
@@ -2669,7 +2679,7 @@ impl CallGraph {
     pub(crate) fn recompute_indirect_calls(&mut self, files: &BTreeMap<String, ParsedFile>) {
         self.executable_owner = None;
         self.clear_indirect_calls();
-        let (sites, level3_telemetry) = self.compute_indirect_call_sites(files);
+        let (sites, level3_telemetry) = self.compute_indirect_call_sites(files, true);
         self.apply_indirect_call_sites(sites);
         self.level3_indirect_resolved = level3_telemetry.edges;
         self.go_level3_b1_telemetry = level3_telemetry;
@@ -2689,9 +2699,25 @@ impl CallGraph {
         self.callers.retain(|_, sites| !sites.is_empty());
     }
 
+    /// Audit seam for the structural rule test: the indirect records a rebuild would add with the
+    /// textual-path stand-down on (`true`, the product) or forced off (`false`, main's behavior),
+    /// computed on a copy with the held indirect records cleared first.
+    #[doc(hidden)]
+    pub fn audit_indirect_records(
+        &self,
+        files: &BTreeMap<String, ParsedFile>,
+        stand_down: bool,
+    ) -> Vec<(FunctionId, CallSite)> {
+        let mut copy = self.clone();
+        copy.executable_owner = None;
+        copy.clear_indirect_calls();
+        copy.compute_indirect_call_sites(files, stand_down).0
+    }
+
     fn compute_indirect_call_sites(
         &self,
         files: &BTreeMap<String, ParsedFile>,
+        stand_down: bool,
     ) -> (
         Vec<(FunctionId, CallSite)>,
         crate::go_callback::GoLevel3Telemetry,
@@ -2978,6 +3004,30 @@ impl CallGraph {
         telemetry.unique_targets = accepted_targets.len();
         telemetry.edges = level3_sites.len();
         extra_sites.extend(level3_sites);
+        // Slice L stand-down: every level above ran unchanged, so each read of the Level-1/2
+        // output (Level 4's `already_resolved`; Level 3 reads `self.calls`, not `extra_sites`)
+        // saw main's population. Only now, on the finished output, are the records whose source
+        // site is an alias site with a proven hit (the one predicate) removed, by exact site
+        // identity (caller, start byte, end byte).
+        if stand_down {
+            let proven: BTreeSet<(&FunctionId, usize, usize)> = self
+                .calls
+                .iter()
+                .flat_map(|(caller, sites)| {
+                    sites
+                        .iter()
+                        .filter(|s| {
+                            s.origin == CallSiteOrigin::Source && self.js_ts_alias_route_hit(s)
+                        })
+                        .map(move |s| (caller, s.start_byte, s.end_byte))
+                })
+                .collect();
+            if !proven.is_empty() {
+                extra_sites.retain(|(caller, record)| {
+                    !proven.contains(&(caller, record.start_byte, record.end_byte))
+                });
+            }
+        }
         debug_assert_eq!(
             telemetry.candidates,
             telemetry.accepted_inbound_sites + telemetry.drops.values().sum::<usize>()
@@ -5681,7 +5731,7 @@ impl CallGraph {
         callee: &str,
         cache: &mut crate::ast::JsBindingCache<'a>,
     ) -> JsLocalBinding {
-        use crate::ast::JsBinding;
+        use crate::ast::{JsBinding, JsFollow};
         use crate::languages::Language;
         if !matches!(
             parsed.language,
@@ -5705,7 +5755,28 @@ impl CallGraph {
             return JsLocalBinding::Unchecked;
         };
         let binding = if ident.kind() == "identifier" && parsed.node_text(&ident) == callee {
-            parsed.js_ts_site_binding(ident, callee, cache)
+            let binding = parsed.js_ts_site_binding(ident, callee, cache);
+            // Slice L: a `const` alias is followed to what it names; an alias that cannot be
+            // followed keeps `Alias` (base behavior).
+            if binding == JsBinding::Alias {
+                match parsed.js_ts_follow_alias(ident, callee, cache) {
+                    Some(JsFollow::Callable(t)) => return JsLocalBinding::AliasCallable(t),
+                    Some(JsFollow::ImportLocal(local)) => {
+                        return JsLocalBinding::AliasImport { local }
+                    }
+                    Some(JsFollow::NamespaceMember {
+                        module_path,
+                        member,
+                    }) => {
+                        return JsLocalBinding::AliasNamespaceMember {
+                            module_path,
+                            member,
+                        }
+                    }
+                    None => {}
+                }
+            }
+            binding
         } else if ident.kind() == "member_expression" {
             let qualifier = ident
                 .child_by_field_name("object")

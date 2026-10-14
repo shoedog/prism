@@ -10,9 +10,13 @@
 
 mod budget;
 mod clock;
+mod connection;
+mod control;
 mod coordinator;
 #[cfg(test)]
 mod test_support;
+#[cfg(test)]
+mod wire_support;
 
 // One provider is queried from many connection threads at once, one registry serves all of
 // them, and the coordinator is shared by every one (spec §4.2). A field that stops being

@@ -5,7 +5,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::{Node, Parser, Tree};
 
 mod js_binding;
+mod js_binding_alias;
 pub(crate) use js_binding::{JsBinding, JsBindingCache};
+pub(crate) use js_binding_alias::JsFollow;
 // S3 fold note (owner review, 2026-09-30): narrowing this to `pub(crate)` compiles but warns
 // `private_interfaces` at `JsLocalBinding::Callable`'s field in src/call_graph.rs (`JsTerminal`
 // is less visible than the `pub` enum variant that carries it); kept `pub` to stay clean under

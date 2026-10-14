@@ -14,6 +14,8 @@ use crate::name_resolution::types::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
+#[path = "resolution_js_alias.rs"]
+mod js_alias;
 #[path = "resolution_js_namespace.rs"]
 mod js_namespace;
 
@@ -1091,6 +1093,11 @@ pub struct ResolutionOutcome<'a> {
     /// Some(..) iff `resolved` is empty for a classified reason.
     pub drop: Option<DropReason>,
     pub telemetry: ResolutionTelemetry,
+    /// Slice L: set only by the `None`-qualifier arm when it returned the alias route's proven
+    /// hit. It is the resolver's own statement "this answer came from the alias route", so no
+    /// earlier return (an intrinsic JSX tag, an installed owner, a pre-resolved target, ...) can
+    /// be mistaken for it.
+    pub via_alias_route: bool,
 }
 
 impl<'a> ResolutionOutcome<'a> {
@@ -1099,6 +1106,7 @@ impl<'a> ResolutionOutcome<'a> {
             resolved,
             drop: None,
             telemetry: ResolutionTelemetry::default(),
+            via_alias_route: false,
         }
     }
 
@@ -1110,6 +1118,7 @@ impl<'a> ResolutionOutcome<'a> {
             resolved,
             drop: None,
             telemetry,
+            via_alias_route: false,
         }
     }
 
@@ -1118,6 +1127,7 @@ impl<'a> ResolutionOutcome<'a> {
             resolved: Vec::new(),
             drop: Some(reason),
             telemetry: ResolutionTelemetry::default(),
+            via_alias_route: false,
         }
     }
 
@@ -1126,6 +1136,7 @@ impl<'a> ResolutionOutcome<'a> {
             resolved: Vec::new(),
             drop: Some(reason),
             telemetry,
+            via_alias_route: false,
         }
     }
 }
@@ -3402,6 +3413,14 @@ impl CallGraph {
                 if let JsLocalBinding::Callable(t) = &site.local_binding {
                     return self.js_ts_local_callable(caller, name, t, site);
                 }
+                // Slice L: a `const` alias chain the binder followed resolves through its
+                // route when that route proves a target. When it does not (an unproven import
+                // or namespace member, an export without a span, a package or paths module),
+                // the site continues below exactly as an unfollowed alias does on main.
+                if let Some(mut outcome) = self.js_ts_alias_route(caller, name, site) {
+                    outcome.via_alias_route = true;
+                    return outcome;
+                }
                 // R4c: import-member resolution (Python/JS/TS).
                 // Must fire before the functions.get(name) check because aliases
                 // mean the call-site name ("p") differs from the function name
@@ -3416,38 +3435,21 @@ impl CallGraph {
                                     crate::call_graph::ImportBindingKind::MemberImport
                                 )
                         }) {
-                            let is_js_ts = is_js_ts_import_member_file(&caller.file);
-                            if is_js_ts
-                                && self
+                            if is_js_ts_import_member_file(&caller.file) {
+                                // A parameter or local binding shadows the imported local
+                                // name; do not mint an exact import edge.
+                                if !self
                                     .js_ts_function_locals
                                     .get(caller)
                                     .is_some_and(|locals| locals.contains(name))
-                            {
-                                // A parameter or local binding shadows the imported
-                                // local name; do not mint an exact import edge.
+                                {
+                                    return self.js_ts_import_member_outcome(caller, binding, site);
+                                }
                             } else {
-                                // S1b-2b: a JS/TS member import whose name is not matchable
-                                // (no member) binds nothing.
-                                let Some(member) =
-                                    binding.member.as_deref().or((!is_js_ts).then_some(name))
-                                else {
-                                    return ResolutionOutcome::dropped(DropReason::UnknownName);
-                                };
-                                // JS/TS: resolve through the typed, whole-program-
-                                // resolved export facts (P4) — `member` is the raw
-                                // imported/exported NAME, which for a rename/
-                                // default/CJS/barrel form differs from the
-                                // declaring function's actual name, so this can't
-                                // start from `self.functions.get(member)` the way
-                                // the Python arm below does.
-                                let matched: Vec<&FunctionId> = if is_js_ts {
-                                    match self.js_ts_import_member_candidates(
-                                        caller, binding, member, site,
-                                    ) {
-                                        Ok(ids) => ids,
-                                        Err(drop) => return ResolutionOutcome::dropped(drop),
-                                    }
-                                } else if let Some(ids) = self.functions.get(member) {
+                                let member = binding.member.as_deref().unwrap_or(name);
+                                let matched: Vec<&FunctionId> = if let Some(ids) =
+                                    self.functions.get(member)
+                                {
                                     // Python: filter to free, module-level
                                     // functions in matching files.
                                     ids.iter()
@@ -3487,11 +3489,6 @@ impl CallGraph {
                                             matched,
                                             ResolutionKind::ImportMember,
                                         ))
-                                    }
-                                    // An unshadowed JS import names this module's
-                                    // export, not a same-named global function.
-                                    _ if is_js_ts => {
-                                        return ResolutionOutcome::dropped(DropReason::UnknownName)
                                     }
                                     _ => {} // Python retains its existing R5 route.
                                 }
@@ -3770,16 +3767,27 @@ impl CallGraph {
         binding: &crate::call_graph::ImportBinding,
         member: &str,
         site: &CallSite,
+        alias_route: bool,
     ) -> Result<Vec<&FunctionId>, DropReason> {
         // A caller/module cache entry can also be shared by a require binding.
         // Prove this particular ESM binding and position before consulting it.
+        // Slice L: a followed alias chain that the binder proved ends at this import local
+        // carries the same proof as a direct call to it.
+        let import_proven = match &site.local_binding {
+            crate::call_graph::JsLocalBinding::Unproven(reason) => reason == "import",
+            // Only while resolving through the alias route: a site that fell through to main's
+            // rungs must not see this proof (it would diverge from an unfollowed alias).
+            crate::call_graph::JsLocalBinding::AliasImport { local } => {
+                alias_route && *local == binding.local
+            }
+            _ => false,
+        };
         if !binding.module_path.trim().starts_with('.')
             && (!self
                 .js_ts_exports
                 .get(&caller.file)
                 .is_some_and(|exports| exports.esm_named_imports.contains(&binding.local))
-                || !matches!(&site.local_binding,
-                crate::call_graph::JsLocalBinding::Unproven(reason) if reason == "import"))
+                || !import_proven)
         {
             return Ok(Vec::new());
         }
@@ -3813,6 +3821,11 @@ impl CallGraph {
         }
         if resolved.wrapped && !site.jsx_element {
             return Err(DropReason::WrappedExportNonJsx);
+        }
+        // Slice L: an alias route is proven only by a source-backed span; the span-less
+        // fallback below matches any same-named function in the file (the direct routes keep it).
+        if alias_route && resolved.span.is_none() {
+            return Ok(Vec::new());
         }
         // New alias authority requires a source-backed callable span. Existing
         // relative/CJS and may-call fallback semantics are not widened by P1.
