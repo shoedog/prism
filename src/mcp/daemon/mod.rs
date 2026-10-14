@@ -13,6 +13,7 @@ mod clock;
 mod connection;
 mod control;
 mod coordinator;
+mod fatal;
 #[cfg(test)]
 mod test_support;
 #[cfg(test)]
