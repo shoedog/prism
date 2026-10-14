@@ -208,7 +208,7 @@ fn an_alias_of_a_namespace_import_local_is_not_a_member_import() {
 
 #[test]
 fn an_alias_of_a_tsconfig_paths_import_binds_through_the_paths_route() {
-    use super::js_paths_common::{config, fixture, graph, write};
+    use super::js_paths_common::{config, fixture, graph, outcome, write};
     for ext in ["jsx", "tsx"] {
         let d = fixture(
             ext,
