@@ -249,16 +249,28 @@ fn a_write_that_fails_part_way_leaves_no_temp_file_and_the_previous_cache_intact
     let dir = tempfile::tempdir().unwrap();
     let final_path = dir.path().join("cpg-cache.bin");
     fs::write(&final_path, b"previous").unwrap();
-    let result = super::publish_file(dir.path(), &final_path, |writer| {
-        writer.write_all(b"partial")?;
-        Err(std::io::Error::other("disk full"))
-    });
+    let after_called = std::cell::Cell::new(false);
+    let result = super::publish_file(
+        dir.path(),
+        &final_path,
+        |writer| {
+            writer.write_all(b"partial")?;
+            Err(std::io::Error::other("disk full"))
+        },
+        |_| after_called.set(true),
+    );
+    assert!(!after_called.get(), "nothing was published to follow up");
     assert_eq!(result.unwrap_err().to_string(), "disk full");
     assert_eq!(temp_files(dir.path()), Vec::<String>::new());
     assert_eq!(fs::read(&final_path).unwrap(), b"previous");
 
     // The lock was released with the failure: the next write goes through.
-    let written = super::publish_file(dir.path(), &final_path, |writer| writer.write_all(b"whole"));
+    let written = super::publish_file(
+        dir.path(),
+        &final_path,
+        |writer| writer.write_all(b"whole"),
+        |_| {},
+    );
     assert_eq!(written.unwrap(), Some(5));
     assert_eq!(fs::read(&final_path).unwrap(), b"whole");
     assert_eq!(temp_files(dir.path()), Vec::<String>::new());
@@ -563,4 +575,64 @@ fn a_lock_file_this_user_cannot_write_still_serializes_and_saves() {
         published.len()
     );
     drop(holder);
+}
+
+#[test]
+fn the_follow_up_to_a_publish_runs_under_the_lock_and_gets_the_size() {
+    // The metadata is written by the locked saver, so it describes the file just published.
+    let dir = tempfile::tempdir().unwrap();
+    let final_path = dir.path().join("cpg-cache.bin");
+    let lock_path = dir.path().join(LOCK_NAME);
+    let seen = std::cell::Cell::new(None);
+    let written = super::publish_file(
+        dir.path(),
+        &final_path,
+        |writer| writer.write_all(b"whole"),
+        |size| {
+            let other = fs::File::options()
+                .read(true)
+                .write(true)
+                .open(&lock_path)
+                .unwrap();
+            let blocked = matches!(other.try_lock(), Err(std::fs::TryLockError::WouldBlock));
+            seen.set(Some((size, blocked, final_path.exists())));
+        },
+    );
+    assert_eq!(written.unwrap(), Some(5));
+    assert_eq!(seen.get(), Some((5, true, true)));
+}
+
+#[test]
+fn a_skipped_publish_runs_no_follow_up() {
+    let dir = tempfile::tempdir().unwrap();
+    let final_path = dir.path().join("cpg-cache.bin");
+    let holder = hold_lock(dir.path());
+    let called = std::cell::Cell::new(false);
+    let written = super::publish_file(
+        dir.path(),
+        &final_path,
+        |writer| writer.write_all(b"whole"),
+        |_| called.set(true),
+    );
+    assert_eq!(written.unwrap(), None);
+    assert!(!called.get());
+    assert!(!final_path.exists());
+    drop(holder);
+}
+
+#[test]
+fn a_save_reports_whether_it_wrote_and_a_skip_writes_no_metadata() {
+    use super::super::SaveOutcome;
+    let dir = tempfile::tempdir().unwrap();
+    let (cpg, hashes) = fixture();
+
+    let holder = hold_lock(dir.path());
+    let skipped = save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+    assert_eq!(skipped, SaveOutcome::Skipped);
+    assert!(!cache_meta_path(dir.path()).exists());
+    drop(holder);
+
+    let saved = save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+    assert_eq!(saved, SaveOutcome::Saved);
+    assert!(cache_meta_path(dir.path()).exists());
 }
