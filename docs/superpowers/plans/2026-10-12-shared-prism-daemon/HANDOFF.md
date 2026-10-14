@@ -66,7 +66,7 @@
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 3 | M2 06:00 run and readout | scheduled | §1 step 4 | 06:00 | `PROCEDURE-6am.md`, `~/code/prism-m2-load` |
+| 3 | M2 06:00 run and readout | done 2026-10-14 (not a quiet window) | readout `docs/analysis/2026-10-c2-m2-cache-streaming-readout.md`: load half closed by the pre-registered rule (P1 passes, P3 fails: prometheus ×1.235 / ×1.074); save half P2 passes, P4 unresolved. Owner may override the rule for the load half's memory win; branch `perf/cpg-cache-mmap-load` kept until then | owner | `~/prism-evidence/mcp-memory/c2-m2/` |
 | 4 | Spec §4.2 sentence (SI-8) | in this docs PR | merge the docs PR | — | spec §4.2 |
 | 5 | Sub-floor result cap | settled | refuse, as merged in S2b | — | spec §11 item 5 |
 | 6 | Shim-side peer-uid check | S5a design item | decide in the S5a plan and its review | — | S3a plan notes for S5a |
