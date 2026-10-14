@@ -138,6 +138,50 @@ pub(super) fn write_new_file(
     Ok(writer.written)
 }
 
+/// Open the permanent lock file, creating it if needed. A file this user can see but not
+/// write (a directory shared between users, a lock file created with a stricter umask) is
+/// opened read-only instead: a local advisory lock does not depend on the open mode.
+fn open_lock_file(cache_dir: &Path) -> io::Result<File> {
+    let path = cache_dir.join(LOCK_NAME);
+    let opened = File::options()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(&path);
+    match opened {
+        Err(e) if e.kind() == io::ErrorKind::PermissionDenied => File::open(&path).or(Err(e)),
+        other => other,
+    }
+}
+
+/// Whether a failed lock attempt means this filesystem has no advisory locks at all (as
+/// opposed to a transient or operational failure on one that does).
+///
+/// `ErrorKind::Unsupported` covers `ENOSYS` and `EOPNOTSUPP`; std leaves `ENOTSUP`
+/// uncategorized where it differs from `EOPNOTSUPP` (macOS and the BSDs), so that one is
+/// compared by value. `libc` is an optional dependency, so the numbers are written here.
+fn lock_is_unsupported(error: &io::Error) -> bool {
+    if error.kind() == io::ErrorKind::Unsupported {
+        return true;
+    }
+    #[cfg(any(target_os = "macos", target_os = "ios", target_os = "freebsd"))]
+    const ENOTSUP: i32 = 45;
+    #[cfg(any(target_os = "netbsd", target_os = "openbsd"))]
+    const ENOTSUP: i32 = 91;
+    #[cfg(any(
+        target_os = "macos",
+        target_os = "ios",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    ))]
+    if error.raw_os_error() == Some(ENOTSUP) {
+        return true;
+    }
+    false
+}
+
 /// Write a new file and move it to `final_path`. Returns the number of bytes written, or
 /// `None` if another process is saving in `cache_dir` and this save was skipped.
 ///
@@ -148,9 +192,10 @@ pub(super) fn write_new_file(
 /// another writer's file. A writer that finds the lock taken skips its save and reports
 /// success: the writer holding it publishes an equivalent cache.
 ///
-/// A filesystem that cannot lock is not an error: the save proceeds without the lock and
-/// concurrent saves there behave as they did before the lock existed (one fixed temp name,
-/// write, rename).
+/// Only a filesystem that reports that it has no locks ([`lock_is_unsupported`]) is saved to
+/// without the lock; concurrent saves there behave as they did before the lock existed (one
+/// fixed temp name, write, rename). Any other lock failure skips the save like a taken lock,
+/// since it cannot show that nobody else is writing.
 ///
 /// If encoding, flushing or the rename fails, the temp file is removed and `final_path` is
 /// left as it was.
@@ -159,15 +204,13 @@ pub(super) fn publish_file(
     final_path: &Path,
     encode: impl FnOnce(&mut dyn Write) -> io::Result<()>,
 ) -> io::Result<Option<u64>> {
-    let lock = File::options()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .open(cache_dir.join(LOCK_NAME))?;
+    let lock = open_lock_file(cache_dir)?;
     match try_lock_file(&lock) {
-        Ok(()) | Err(fs::TryLockError::Error(_)) => {}
-        Err(fs::TryLockError::WouldBlock) => return Ok(None),
+        Ok(()) => {}
+        Err(fs::TryLockError::Error(e)) if lock_is_unsupported(&e) => {}
+        // Taken by another process, or a failure that says nothing about whether the
+        // directory is in use: either way the temp file is not ours to touch.
+        Err(_) => return Ok(None),
     }
     let tmp_path = cache_dir.join(TEMP_NAME);
     let file = File::create(&tmp_path)?;
