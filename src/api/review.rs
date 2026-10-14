@@ -267,17 +267,26 @@ pub fn build_context<'a>(
 
                     // Save updated cache.
                     if let (Some(cache_dir), Some(hashes)) = (&opts.cache_dir, &file_hashes) {
-                        if let Err(e) = cpg_cache::save_cache_with_topology(
+                        match cpg_cache::save_cache_with_topology(
                             &ctx.cpg,
                             hashes,
                             topology_key.as_ref().unwrap(),
                             has_type_db,
                             cache_dir,
                         ) {
-                            eprintln!("Warning: failed to write CPG cache: {}", e);
-                            warnings.push(format!("Warning: failed to write CPG cache: {}", e));
-                        } else {
-                            eprintln!("CPG cache updated to {}", cache_dir.display());
+                            Err(e) => {
+                                eprintln!("Warning: failed to write CPG cache: {}", e);
+                                warnings.push(format!("Warning: failed to write CPG cache: {}", e));
+                            }
+                            Ok(cpg_cache::SaveOutcome::Saved) => {
+                                eprintln!("CPG cache updated to {}", cache_dir.display());
+                            }
+                            Ok(cpg_cache::SaveOutcome::Skipped) => {
+                                eprintln!(
+                                    "CPG cache not written to {}: another process holds its lock",
+                                    cache_dir.display()
+                                );
+                            }
                         }
                     }
                     ctx
@@ -299,17 +308,26 @@ pub fn build_context<'a>(
 
                     // Save cache after a full build (not for scoped builds).
                     if let (Some(cache_dir), Some(hashes)) = (&opts.cache_dir, &file_hashes) {
-                        if let Err(e) = cpg_cache::save_cache_with_topology(
+                        match cpg_cache::save_cache_with_topology(
                             &ctx.cpg,
                             hashes,
                             topology_key.as_ref().unwrap(),
                             has_type_db,
                             cache_dir,
                         ) {
-                            eprintln!("Warning: failed to write CPG cache: {}", e);
-                            warnings.push(format!("Warning: failed to write CPG cache: {}", e));
-                        } else {
-                            eprintln!("CPG cache written to {}", cache_dir.display());
+                            Err(e) => {
+                                eprintln!("Warning: failed to write CPG cache: {}", e);
+                                warnings.push(format!("Warning: failed to write CPG cache: {}", e));
+                            }
+                            Ok(cpg_cache::SaveOutcome::Saved) => {
+                                eprintln!("CPG cache written to {}", cache_dir.display());
+                            }
+                            Ok(cpg_cache::SaveOutcome::Skipped) => {
+                                eprintln!(
+                                    "CPG cache not written to {}: another process holds its lock",
+                                    cache_dir.display()
+                                );
+                            }
                         }
                     }
                     ctx
