@@ -158,9 +158,9 @@ fn each_return_form_selects_a_callable_by_key_slot_or_whole() {
                 "f=f@1-1",
             ),
             (
-                "bare, null and undefined returns are ignored",
+                "bare and null returns are ignored",
                 "function f() {}\nfunction H(c) {\n  if (c) return;\n  if (!c) return null;\n  \
-                 if (c > 1) return undefined;\n  return { f };\n}\n",
+                 return { f };\n}\n",
                 "f=f@1-1",
             ),
             (
@@ -425,15 +425,51 @@ fn a_returned_nested_function_is_not_hoisted_into_the_outer_fact() {
 }
 
 #[test]
-fn a_return_undefined_is_ignored_only_when_undefined_has_no_binding() {
-    // F1: a shadowed `undefined` is a value, not nothing. The unshadowed control keeps its fact.
+fn an_explicit_return_undefined_gives_no_fact_whatever_undefined_is_bound_to() {
+    // F1/G1: `undefined` can be rebound by bindings no lookup is trusted to see, so an explicit
+    // `return undefined` is like any other return the contract cannot prove: no fact. `return;`
+    // and `return null` stay ignored (the controls).
     check(
         &ANY,
         &[
             (
-                "control: global undefined",
+                "global undefined",
                 "function f() {}\nfunction H(c) {\n  if (c) return undefined;\n  return { f };\n}\n",
+                "-",
+            ),
+            (
+                "control: bare and null returns",
+                "function f() {}\nfunction H(c) {\n  if (c) return;\n  if (!c) return null;\n  return { f };\n}\n",
                 "f=f@1-1",
+            ),
+            (
+                "parenthesized undefined",
+                "function f() {}\nfunction H(c) {\n  if (c) return (undefined);\n  return { f };\n}\n",
+                "-",
+            ),
+            (
+                "shadowed by an array pattern",
+                "function f() {}\nfunction g() {}\nfunction H(c, xs) {\n  const [undefined] = xs;\n  \
+                 if (c) return undefined;\n  return { f };\n}\n",
+                "-",
+            ),
+            (
+                "shadowed by an object pattern",
+                "function f() {}\nfunction H(c, xs) {\n  const { a: undefined } = xs;\n  if (c) return undefined;\n  \
+                 return { f };\n}\n",
+                "-",
+            ),
+            (
+                "shadowed by a let array pattern of objects",
+                "function f() {}\nfunction g() {}\nfunction H(c) {\n  let [undefined] = [{ f: g }];\n  \
+                 if (c) return undefined;\n  return { f };\n}\n",
+                "-",
+            ),
+            (
+                "shadowed by a for-of pattern",
+                "function f() {}\nfunction H(xs) {\n  for (const [undefined] of xs) {\n    return undefined;\n  }\n  \
+                 return { f };\n}\n",
+                "-",
             ),
             (
                 "shadowed by a const (object value)",
@@ -459,9 +495,9 @@ fn a_return_undefined_is_ignored_only_when_undefined_has_no_binding() {
                 "-",
             ),
             (
-                "control: a default value spelled undefined binds nothing",
+                "a default value spelled undefined, then return undefined",
                 "function f() {}\nfunction H(c, d = undefined) {\n  if (c) return undefined;\n  return { f };\n}\n",
-                "f=f@1-1",
+                "-",
             ),
             (
                 "shadowed by a catch parameter",
@@ -634,5 +670,44 @@ fn duplicate_keys_and_spread_order_are_unchanged_in_a_wide_literal() {
         let got = fact_of(path, &no_tail);
         assert_eq!(got.split(' ').count(), 400, "{path}");
         assert!(!got.contains("dup="), "{path}");
+    }
+}
+
+#[test]
+fn an_escaped_spelling_anywhere_in_the_function_gives_no_fact() {
+    // G2: the reference scan compares raw text, so a reference to the intermediate spelled with a
+    // unicode escape is invisible to it. Any escape in an identifier-like node of the function
+    // refuses it; the plain spelling is refused by the scan, the clean control keeps its fact.
+    let object = |enc: &str| {
+        format!(
+            "function f() {{}}\nfunction g() {{}}\nfunction H() {{\n  const api = {{ run: f }};\n  \
+             const wrap = {{ {enc} }};\n  wrap.api.run = g;\n  return api;\n}}\n"
+        )
+    };
+    let array = |enc: &str| {
+        format!(
+            "function f() {{}}\nfunction g() {{}}\nfunction H() {{\n  const arr = [f];\n  \
+             const wrap = [{enc}];\n  wrap[0][0] = g;\n  return arr;\n}}\n"
+        )
+    };
+    for path in ANY {
+        for enc in ["api", "\\u{61}pi", "\\u0061pi"] {
+            assert_eq!(fact_of(path, &object(enc)), "-", "{path} object {enc}");
+        }
+        for enc in ["arr", "\\u{61}rr", "\\u0061rr"] {
+            assert_eq!(fact_of(path, &array(enc)), "-", "{path} array {enc}");
+        }
+        // An escape elsewhere (a parameter, a property name, a local) refuses just the same.
+        let elsewhere =
+            "function f() {}\nfunction H(\\u0063) {\n  const api = { f };\n  return api;\n}\n";
+        assert_eq!(fact_of(path, elsewhere), "-", "{path} escaped parameter");
+        // Clean control: no escape, one return of the intermediate.
+        let clean =
+            "function f() {}\nfunction H() {\n  const api = { run: f };\n  return api;\n}\n";
+        assert_eq!(fact_of(path, clean), "run=f@1-1", "{path} control");
+        // A backslash in a string is not an identifier escape.
+        let string =
+            "function f() {}\nfunction H() {\n  const note = 'a\\\\b';\n  return { run: f };\n}\n";
+        assert_eq!(fact_of(path, string), "run=f@1-1", "{path} string");
     }
 }

@@ -412,6 +412,26 @@ fn a_shadowed_undefined_and_an_escaping_intermediate_give_the_site_main_s_record
             "function H(flag, undefined) {\n  if (flag) return undefined;\n  return { run: target };\n}\n",
         ),
         (
+            "shadowed undefined by an array pattern (round 2)",
+            "function H(flag, xs) {\n  const [undefined] = xs;\n  if (flag) return undefined;\n  \
+             return { run: target };\n}\n",
+        ),
+        (
+            "shadowed undefined by a for-of pattern (round 2)",
+            "function H(flag, xs) {\n  for (const [undefined] of xs) {\n    return undefined;\n  }\n  \
+             return { run: target };\n}\n",
+        ),
+        (
+            "escaped reference to the intermediate through a wrapper (round 2)",
+            "function H() {\n  const api = { run: target };\n  const wrap = { api };\n  wrap.api.run = other;\n  \
+             return api;\n}\n",
+        ),
+        (
+            "unicode-escaped reference to the intermediate (round 2)",
+            "function H() {\n  const api = { run: target };\n  const wrap = { \\u{61}pi };\n  wrap.api.run = other;\n  \
+             return api;\n}\n",
+        ),
+        (
             "property write on the intermediate",
             "function H() {\n  const api = { run: target };\n  api.run = other;\n  return api;\n}\n",
         ),
