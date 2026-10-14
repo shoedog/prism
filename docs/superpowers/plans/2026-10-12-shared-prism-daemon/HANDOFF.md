@@ -1,6 +1,6 @@
-# Handoff — shared per-repo prism daemon lane; S3a merged, M2 save half (lock-file design) in its design check, M2 load half measured at 06:00
+# Handoff — shared per-repo prism daemon lane; S3a and the M2 save half merged, M2 load half measured at 06:00
 
-**Written:** 2026-10-13T23:20-06:00 · **By:** Claude Code session `fd583811-fdc5-4426-9c4a-55872d2ecc1c` (Opus 5.5) · **Provider:** claude
+**Written:** 2026-10-14T00:15-06:00 · **By:** Claude Code session `fd583811-fdc5-4426-9c4a-55872d2ecc1c` (Opus 5.5) · **Provider:** claude
 **Workspace:** `~/code/prism-c2-plan` · `docs/daemon-lane-handoff-late` (this docs PR) · **Measured state:** `[MEASURED]` HEAD = the commit that adds this revision · Tree CLEAN after that commit · Probe `git status --short && git log --oneline -3` · Output inline in the session
 **Predecessor:** this session's own handoff of 2026-10-13T16:45-06:00 (same file, previous revision), and before it Claude Code session `afaf5155-ea5e-4ad5-b8d8-be35f747f74d` (Fable 5.1)
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
@@ -9,14 +9,14 @@
 ## 0. Gating facts — settle these before starting anything below
 
 **(a) Lane ownership** — `[MEASURED]` this session is the only one on the lane; another session works the JS/TS alias lane and does not touch `src/mcp` or `src/cpg_cache*`. — **RESOLVED 2026-10-13**
-**(b) Custody exposure** — `[MEASURED]` on `main` (`4e2e9c3c`): S1, C1, spec, plans, readout, S2a, S2b, the driver, the M2 plan, S3a-1, S3a-2 (#377 → `14e6f66c`), the S3a plan (#373 → `4e2e9c3c`). Pushed branches with open PRs: `perf/cpg-cache-streaming-save` (#380, head `c33e0aba`, lock-file design), `perf/cpg-cache-streaming` (#369, draft, to be closed), and `perf/cpg-cache-mmap-load` (`91e5a5af`, pushed, no PR yet). Raw evidence is local only under `~/prism-evidence/mcp-memory/{c1,c2-m2}/`; the M2 experiment's `SHA256SUMS` is written after the morning run. — **OPEN until then**
+**(b) Custody exposure** — `[MEASURED]` on `main` (`4e2e9c3c`): S1, C1, spec, plans, readout, S2a, S2b, the driver, the M2 plan, S3a-1, S3a-2 (#377 → `14e6f66c`), the S3a plan (#373 → `4e2e9c3c`), the M2 save half (#380 → `88f92603`). Pushed branches with open PRs: `perf/cpg-cache-streaming` (#369, draft, to be closed), and `perf/cpg-cache-mmap-load` (`91e5a5af`, pushed, no PR yet). Raw evidence is local only under `~/prism-evidence/mcp-memory/{c1,c2-m2}/`; the M2 experiment's `SHA256SUMS` is written after the morning run. — **OPEN until then**
 **(c) In flight / irreversible** — `[MEASURED]` a session cron (`3998d2d5`, session-only: it dies with the session) runs the M2 quiet-window measurements at **06:00 MDT 2026-10-14**, following `~/prism-evidence/mcp-memory/c2-m2/PROCEDURE-6am.md`; the three binaries and `bin/COMMITS-6am.txt` are in place. **From 06:00 until that run ends, start no cargo build, no test run, no review and no other prism-mcp on this host.** If this session is gone by then, a successor runs the procedure by hand. — **OPEN**
 **(d) Authorization granted but not exercised** — owner, 2026-10-13: "1 ship the save half now. Can we schedule the other half for 6AM MDT?" (exercised: #380 open; merges on approval plus green CI); the D26 answer ("Building/indexing … retry"), built in S3a-2; "approved, waive check 3 for M2". Still open with the owner: §7.
 
 ## 1. Resume order
 1. Read `README.md` in this directory: slice table, decision tables, measured facts, notes for S3a/S4/S5a.
 2. **S3a: done** (S3a-1 #374, S3a-2 #377, plan #373 merged 2026-10-13). Spec §4.2 clarification (D32) is in this docs PR.
-3. **M2 save half (#380):** rounds 1–2 found an open class (the stale-temp sweep could delete a live writer's temp file through check-then-act gaps). Escalated; **owner chose the lock-file design** ("A, go ahead"), with a concern about leakage: a save takes a permanent `cpg-cache.lock` (`try_lock`; busy → skip the save; lock unsupported → main's behaviour), writes the fixed `cpg-cache.bin.tmp`, renames; a load removes an orphan temp only while holding the lock. One design-check round by both reviewers (disclosed past the cap); full gates on `c33e0aba` in `m2save-verify-3` (session scratchpad). Merge on approval plus green CI and gates.
+3. **M2 save half: done** (#380 → `88f92603`, 2026-10-14). Lock-file design (owner "A, go ahead"): a permanent `cpg-cache.lock`; busy or an operational lock error → skip the save (`SaveOutcome::Skipped`); unsupported locking → main's behaviour; a load removes an orphan temp only under the lock. Gates on `92b9dd4f`: suite 5,618, mutation gate 248/248, Tier-A matrix 178/178, `--quick` all VALID. The load-half branch (`perf/cpg-cache-mmap-load`) is based on the pre-lock save half and must be rebased onto `main` before its PR (conflict expected in `load_cache_with_topology`, which now also runs the orphan cleanup).
 4. **06:00 run** (§0 (c)): report P1/P3/P5 for the mapped reader and P2/P4 for the save half; write the M2 readout `docs/analysis/2026-10-c2-m2-cache-streaming-readout.md` and `SHA256SUMS`. The load half gets a PR and reviews only if P1 passes and P3/P5 hold; otherwise it closes as "not worth it" (the plan's one retry). Then close #369.
 5. **S3b plan:** from the merged S3a interfaces (`DaemonState`, `serve_admitted`, `run_tool_call`, `Answer`), the S3a plan's "interfaces for later slices", and the README notes.
 6. **M1 plan:** against spec §6.1 as revised. The driver's `compare` needs an `m1` row set.
@@ -38,7 +38,7 @@
 | S3a-1 coordinator and slot | done | `[MEASURED]` #374 → `e7dc1cc2` |
 | S3a-2 one admitted connection | done | `[MEASURED]` #377 → `14e6f66c`. Round 1 Opus FIX F1 → D32; round 2 text only; owner then decided the ready case (serve at once) and 5 s retry; a confirmation check past the cap (disclosed): Opus APPROVE, sol FIX on one plan sentence (fixed). Full suite 5,628 passed at `248da0ca`; clippy 258 (= main). |
 | M2 experiment (full candidate) | done | `[MEASURED]` `compare-1.md`: P1 load peak passes on 4 corpora (−19 to −24 %); P2 first-build peak passes on 3 (ruff n=2); P5 live heap lower everywhere; P3/P4 not resolvable on a loaded host (±20 % run to run). |
-| M2 save half | design check | `[MEASURED]` #380, head `c33e0aba`: streamed write (bytes unchanged) + per-directory lock file + orphan cleanup on load. Implementer: 37 cache tests, 1,447 lib tests, every mutation probe killed. Full gates running. The 06:00 binary `bin/save` is `9f1e28b2` (same encoding path; locking differs). |
+| M2 save half | done | `[MEASURED]` #380 → `88f92603`: streamed write (bytes unchanged) + per-directory lock file + orphan cleanup on load. Two review rounds (open class in the temp sweep) → owner-approved design change → design check past the cap (disclosed), one bounded fix folded. Gates on `92b9dd4f`: suite 5,618 passed; mutation gate 248/248; Tier-A matrix 178/178; `--quick` VALID. The 06:00 `bin/save` is `9f1e28b2` (same encoding path; no lock). |
 | M2 load half (memory-mapped reader) | built, measured at 06:00 | `[MEASURED]` `perf/cpg-cache-mmap-load` `91e5a5af` (on the save half; `memmap2 =0.9.8`); 29 cache tests pass; no PR yet |
 | C2-M1 plan | pending | metric decided (spec §6.1 as revised); not written |
 | S3b–S6, B | pending | each planned when its predecessor merges |
@@ -63,7 +63,6 @@
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 2 | M2 save half | review | §1 step 3 | CI | #380, `~/code/prism-m2-save` |
 | 3 | M2 06:00 run and readout | scheduled | §1 step 4 | 06:00 | `PROCEDURE-6am.md`, `~/code/prism-m2-load` |
 | 4 | Spec §4.2 sentence (SI-8) | in this docs PR | merge the docs PR | — | spec §4.2 |
 | 5 | Sub-floor result cap | settled | refuse, as merged in S2b | — | spec §11 item 5 |
@@ -72,6 +71,7 @@
 | 8 | Superseded call when the index is ready | decided, built | served at once (owner) | — | #377 |
 | 9 | S3b plan, M1 plan | next | §1 steps 5–6 | — | — |
 | 10 | Background-start failure parity | S4 requirement | build in S4 | — | S3a plan "Interfaces for later slices" |
+| 11 | Nav call-edge sidecar temp leakage | follow-up, pre-existing | `src/navigation/call_edge_cache.rs` writes pid+nonce temp names with no cleanup; a crashed writer leaks one per crash. Apply the M2 lock-file pattern | — | #380 review r3 (Opus S6) |
 
 ## 5. Invariants and traps — do not do these
 - Never edit `src/mcp/transport_tests.rs` or `src/mcp/owner_transport_tests.rs`, and never re-record the golden transcripts, in S2–S5 — together they are the proof that standalone stdout is unchanged.
