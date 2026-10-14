@@ -17,11 +17,15 @@
 //! Turning both into the daemon-fatal abort of spec §3.1 is slice S3b.
 use super::budget::ConnectionBudget;
 use super::clock::{Clock, SystemClock};
-use crate::mcp::lazy::{Readiness, SessionBuilder};
+use super::control::answer_for;
+pub(super) use super::control::{Answer, AttemptOutcome, BuildPhase, BuildStatus, ControlState};
+use crate::mcp::lazy::SessionBuilder;
+// The tests in this file's child modules name `BuildState` through `use super::*`.
+#[cfg(test)]
 use crate::mcp::shared::preamble::BuildState;
 use crate::mcp::{SessionProvider, StartupMode};
 use std::fmt;
-use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, RwLock, RwLockWriteGuard};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, RwLock, RwLockWriteGuard};
 use std::time::Instant;
 
 /// What a call is told when the builder panicked. The in-process server uses the same text.
@@ -52,91 +56,6 @@ impl fmt::Display for Poisoned {
 }
 
 impl std::error::Error for Poisoned {}
-
-/// How one build attempt ended: empty while it builds, filled when it ends, and not changed
-/// after that (a second fill has no effect). The attempt's phase holds one share of it and
-/// every call that starts or joins the attempt holds another, so a call reads the outcome of
-/// its own attempt however far the phase has moved on by the time the call runs again.
-#[derive(Debug, Default)]
-pub(super) struct AttemptOutcome {
-    ended: OnceLock<Result<(), String>>,
-}
-
-impl AttemptOutcome {
-    /// Record how the attempt ended. Only the first call has any effect.
-    fn fill(&self, ended: Result<(), String>) {
-        let _ = self.ended.set(ended);
-    }
-
-    /// What a call that belongs to this attempt is told; `None` while it is still building.
-    fn answer(&self) -> Option<Readiness> {
-        self.ended.get().map(|ended| match ended {
-            Ok(()) => Readiness::Ready,
-            Err(error) => Readiness::Failed {
-                error: error.clone(),
-            },
-        })
-    }
-}
-
-/// Where the index build is (spec §4.2).
-#[derive(Debug)]
-pub(super) enum BuildPhase {
-    /// No build has been asked for.
-    Idle,
-    /// Attempt `attempt` is running since `started`. `outcome` is that attempt's, still empty.
-    Building {
-        attempt: u64,
-        started: Instant,
-        outcome: Arc<AttemptOutcome>,
-    },
-    /// A provider is in the slot and calls have been told so. Its generation is
-    /// [`ControlState::generation`], which is kept apart from the phase because the slot is
-    /// filled, and can be written to, before this phase is announced.
-    Ready,
-    /// Attempt `attempt` ended without a provider. The next readiness call starts the retry.
-    Failed { attempt: u64, error: String },
-}
-
-impl BuildPhase {
-    /// The word `READY` and the status probe use for this phase.
-    pub(super) fn state(&self) -> BuildState {
-        match self {
-            Self::Idle => BuildState::Idle,
-            Self::Building { .. } => BuildState::Building,
-            Self::Ready => BuildState::Ready,
-            Self::Failed { .. } => BuildState::Failed,
-        }
-    }
-}
-
-/// What the control lock guards. Slice S4 adds the admission counters and the retirement
-/// decision beside the build phase, under the same lock.
-pub(super) struct ControlState {
-    pub(super) build: BuildPhase,
-    /// How many attempts have been started; also the number of the latest one.
-    pub(super) attempts: u64,
-    /// How many calls are parked on the condition variable right now.
-    pub(super) waiting: u64,
-    /// The generation of the provider in the slot; 0 while the slot is empty. It is written by
-    /// `record_generation` and by nothing else, each time while the slot's write guard is
-    /// held: when the provider is stored, and at the end of every exclusive access. It does
-    /// not depend on the phase, so it is true in the interval between publication and the
-    /// announcement of `Ready` as well.
-    pub(super) generation: u64,
-}
-
-/// A snapshot of the control plane: what the status probe reports about the build.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) struct BuildStatus {
-    pub(super) state: BuildState,
-    /// The number of the latest attempt; 0 before the first.
-    pub(super) attempt: u64,
-    /// The generation of the provider in the slot; 0 while the slot is empty.
-    pub(super) generation: u64,
-    /// Calls parked on the build at the moment of the snapshot.
-    pub(super) waiting: u64,
-}
 
 /// The work of one build thread.
 pub(super) type BuildJob = Box<dyn FnOnce() + Send>;
@@ -250,16 +169,23 @@ impl DaemonState {
 
     /// Make sure a build has been started and wait for it, no longer than `budget` allows.
     ///
-    /// The call first decides which attempt it belongs to, once: the one that is building, or a
+    /// If the attempt this connection last joined has failed and no call of the connection has
+    /// been told so (each was answered `Warming`), this call is answered about that attempt
+    /// and starts nothing: `Failed` with its text, `Superseded`, or `Ready` when a later attempt
+    /// has published the index (D32). Otherwise the call
+    /// first decides which attempt it belongs to, once: the one that is building, or a
     /// new one if none has been started or the last one failed. From then on it reads only that
-    /// attempt's outcome, whatever the phase has become by the time it runs again, and returns
+    /// attempt's outcome, and returns
     ///
     /// - `Ready` once that attempt has published the index (or at once, if the index was ready
-    ///   when the call arrived),
-    /// - `Failed`, with that attempt's own error, if that attempt ended without an index. The
-    ///   call does not start the retry (the next call does), does not join a retry that has
-    ///   begun in the meantime, and is told of the failure even if a retry has since succeeded:
-    ///   its next call finds the index ready,
+    ///   when the call arrived), and also when that attempt failed and, by the time the call
+    ///   runs again, a later attempt has published the index (the owner's decision of
+    ///   2026-10-13),
+    /// - `Failed`, with that attempt's own error, if that attempt ended without an index and
+    ///   nothing has superseded it. The call does not start the retry; the next call does,
+    /// - `Superseded` if that attempt ended without an index and, by the time the call runs
+    ///   again, a later attempt is building. The failure is stale then, and the call is told
+    ///   to retry instead of being given it,
     /// - `Warming` when this connection's deadline for that attempt has passed. That is this
     ///   connection's wait ending; the build goes on and nobody else's deadline changes.
     ///
@@ -269,11 +195,18 @@ impl DaemonState {
     pub(super) fn ensure_ready(
         self: &Arc<Self>,
         budget: &mut ConnectionBudget,
-    ) -> Result<Readiness, Poisoned> {
+    ) -> Result<Answer, Poisoned> {
         let mut control = self.lock_control()?;
 
+        // A connection's next call first hears its own attempt's unheard failure, before the
+        // shortcut to `Ready` and before a retry is started or joined (D32). It is answered by
+        // the same rule as any other ending.
+        if let Some(error) = budget.unheard_failure() {
+            return Ok(answer_for(&Err(error), &control.build));
+        }
+
         let building = match &control.build {
-            BuildPhase::Ready => return Ok(Readiness::Ready),
+            BuildPhase::Ready => return Ok(Answer::Ready),
             BuildPhase::Building {
                 attempt,
                 started,
@@ -283,16 +216,23 @@ impl DaemonState {
         };
         let (attempt, started, outcome) =
             building.unwrap_or_else(|| self.start_attempt(&mut control));
-        let deadline = budget.deadline_for(attempt, self.clock.now());
+        let deadline = budget.join(attempt, &outcome, self.clock.now());
 
         loop {
-            if let Some(answer) = outcome.answer() {
-                return Ok(answer);
+            // The call's own attempt has ended. If it failed, one look at the phase, under the
+            // lock this call holds, decides whether that failure is still the last word
+            // (`answer_for`). The look takes nothing from the phase but that: no outcome and
+            // no error of another attempt can reach this call through it, which is what
+            // answering from the phase once got wrong. `Building` there is always a later
+            // attempt, because this call's own has ended.
+            if let Some(ended) = outcome.ended() {
+                budget.told();
+                return Ok(answer_for(ended, &control.build));
             }
             let now = self.clock.now();
             let remaining = deadline.saturating_duration_since(now);
             if remaining.is_zero() {
-                return Ok(Readiness::Warming {
+                return Ok(Answer::Warming {
                     elapsed: now.saturating_duration_since(started),
                 });
             }
@@ -375,6 +315,15 @@ impl DaemonState {
         let mut control = self.lock_control()?;
         control.generation = generation;
         Ok(())
+    }
+
+    /// Empty the provider slot and leave the phase as it is. Only for the test of what a
+    /// connection does if `Ready` were ever announced over an empty slot.
+    #[cfg(test)]
+    pub(super) fn unpublish_for_tests(&self) {
+        if let Ok(mut slot) = self.provider.write() {
+            *slot = None;
+        }
     }
 
     /// Wake every parked call so that it looks at the clock again.

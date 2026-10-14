@@ -161,15 +161,13 @@ fn a_poisoned_control_lock_is_an_error_for_every_caller_never_a_panic_or_a_hang(
 #[test]
 fn an_attempt_s_outcome_keeps_the_first_ending_it_is_given() {
     let outcome = AttemptOutcome::default();
-    assert!(outcome.answer().is_none(), "empty while the attempt builds");
+    assert!(outcome.ended().is_none(), "empty while the attempt builds");
 
     outcome.fill(Err("the first ending".to_string()));
     outcome.fill(Ok(()));
     outcome.fill(Err("a third".to_string()));
 
-    assert!(
-        matches!(outcome.answer(), Some(Readiness::Failed { error }) if error == "the first ending")
-    );
+    assert!(matches!(outcome.ended(), Some(Err(error)) if error == "the first ending"));
 }
 
 /// A warm daemon (`StartupMode::Background`) starts its first attempt at construction. If the

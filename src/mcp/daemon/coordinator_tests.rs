@@ -307,6 +307,15 @@ fn a_retry_gives_a_connection_a_fresh_full_budget() {
         status(&state).state == BuildState::Failed
     });
 
+    // The connection was told only that the build was warming; its next call hears the
+    // failure and starts nothing (spec §5's warming-then-failed sequence, D32).
+    conn.call();
+    assert_eq!(
+        conn.outcome(),
+        Outcome::Failed("first attempt failed".to_string())
+    );
+    assert_eq!(status(&state).attempt, 1);
+
     // This call starts the retry. With a fresh budget it waits; with the old deadline it would
     // be answered at once.
     conn.call();

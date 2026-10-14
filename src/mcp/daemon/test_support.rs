@@ -5,9 +5,9 @@
 //! (`wait_until`) up to [`HANG`], and moves time itself (`advance`).
 use super::budget::ConnectionBudget;
 use super::clock::Clock;
-use super::coordinator::{BuildStatus, DaemonState, Parts, Poisoned};
+use super::coordinator::{Answer, BuildStatus, DaemonState, Parts, Poisoned};
 use crate::mcp::concise_shape::ConciseShapeMode;
-use crate::mcp::lazy::{Readiness, SessionBuilder};
+use crate::mcp::lazy::SessionBuilder;
 use crate::mcp::output::StructuredContentMode;
 use crate::mcp::settings::{ClientSettings, ConnectionSettings};
 use crate::mcp::{CacheMode, RefreshPolicy, ServerConfig, SessionProvider, StartupMode};
@@ -207,17 +207,22 @@ pub(super) fn status(state: &DaemonState) -> BuildStatus {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Outcome {
     Ready,
-    Warming { elapsed: Duration },
+    Warming {
+        elapsed: Duration,
+    },
     Failed(String),
+    /// The call's own attempt failed and a retry has superseded it: told to retry.
+    Superseded,
     Poisoned,
 }
 
 impl Outcome {
-    fn of(result: Result<Readiness, Poisoned>) -> Self {
+    fn of(result: Result<Answer, Poisoned>) -> Self {
         match result {
-            Ok(Readiness::Ready) => Self::Ready,
-            Ok(Readiness::Warming { elapsed }) => Self::Warming { elapsed },
-            Ok(Readiness::Failed { error }) => Self::Failed(error),
+            Ok(Answer::Ready) => Self::Ready,
+            Ok(Answer::Warming { elapsed }) => Self::Warming { elapsed },
+            Ok(Answer::Failed { error }) => Self::Failed(error),
+            Ok(Answer::Superseded) => Self::Superseded,
             Err(_) => Self::Poisoned,
         }
     }
