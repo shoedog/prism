@@ -61,11 +61,6 @@ impl AttemptOutcome {
 }
 
 /// Where the index build is (spec §4.2).
-
-#[cfg(test)]
-#[path = "control_tests.rs"]
-mod tests;
-
 #[derive(Debug)]
 pub(super) enum BuildPhase {
     /// No build has been asked for.
@@ -123,3 +118,7 @@ pub(super) struct BuildStatus {
     /// Calls parked on the build at the moment of the snapshot.
     pub(super) waiting: u64,
 }
+
+#[cfg(test)]
+#[path = "control_tests.rs"]
+mod tests;
