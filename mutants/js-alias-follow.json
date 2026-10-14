@@ -403,7 +403,34 @@
    "!proven_keys.contains(",
    "true || !proven_keys.contains(",
    [
-    "js_alias_follow_test::format_callers_does_not_credit_a_followed_site_for_the_function_named_like_its_alias"
+    "js_alias_callers_test::format_callers_does_not_credit_a_followed_site_for_the_function_named_like_its_alias"
+   ]
+  ],
+  "AF-63-level-four-reads-the-stood-down-population": [
+   "src/call_graph.rs",
+   "                let already_resolved = extra_sites.iter().any(|(cid, es)| {\n                    cid == caller_id\n                        && es.line == site.line\n                        && known_fn_names.contains(&es.callee_name)\n                });",
+   "                let already_resolved = extra_sites.iter().any(|(cid, es)| {\n                    cid == caller_id\n                        && es.line == site.line\n                        && known_fn_names.contains(&es.callee_name)\n                        && !(stand_down\n                            && self.calls.get(cid).is_some_and(|ss| {\n                                ss.iter().any(|s| {\n                                    s.origin == CallSiteOrigin::Source\n                                        && s.start_byte == es.start_byte\n                                        && s.end_byte == es.end_byte\n                                        && self.js_ts_alias_route_hit(s)\n                                })\n                            }))\n                });",
+   [
+    "js_alias_follow_fallback_test::a_stood_down_alias_leaves_the_same_line_neighbours_textual_records_alone",
+    "js_alias_follow_fallback_test::a_stood_down_alias_on_the_previous_line_leaves_a_callback_site_alone",
+    "js_alias_rule_test::the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_site"
+   ]
+  ],
+  "AF-65-filter-ignores-the-caller": [
+   "src/call_graph.rs",
+   "!proven.contains(&(caller, record.start_byte, record.end_byte))",
+   "!proven.iter().any(|(_, s, e)| *s == record.start_byte && *e == record.end_byte)",
+   [
+    "js_alias_rule_test::the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_site"
+   ]
+  ],
+  "AF-66-nav-count-reads-the-route-not-the-resolver": [
+   "src/resolution_js_alias.rs",
+   "self.alias_route_public_outcome(site).is_some()",
+   "self.js_ts_alias_route(&site.caller, &site.callee_name, site).is_some()",
+   [
+    "js_alias_follow_fallback_test::a_lowercase_jsx_alias_is_an_intrinsic_element_and_keeps_mains_records",
+    "js_alias_rule_test::the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_site"
    ]
   ]
  }

@@ -122,6 +122,22 @@ fn review_inputs() -> Vec<Fixture> {
                 ),
             ],
         ),
+        // Two callers with byte-identical spans: the stand-down matches by caller too, so the
+        // unproven alias in `other.js` (its module does not resolve) keeps its textual record.
+        fx(
+            "r3-same-bytes-other-caller",
+            &[
+                ("lib.js", "export function target() { return 1; }\n"),
+                (
+                    "app.js",
+                    "import { target } from './lib';\nexport function run() {\n  const h = target;\n  h();\n}\n",
+                ),
+                (
+                    "other.js",
+                    "import { target } from './zzz';\nexport function run() {\n  const h = target;\n  h();\n}\n",
+                ),
+            ],
+        ),
         fx(
             "r3-callback-neighbour",
             &[
