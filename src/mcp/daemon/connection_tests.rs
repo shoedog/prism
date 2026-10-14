@@ -2,19 +2,20 @@
 //! over a connected pair of Unix sockets with a raw MCP client. `two_clients_share_one_build`
 //! is spec §9 test 1 as far as it can run before the accept loop and the shim exist; the
 //! status probe it reads is `DaemonState::status`, called in process.
-use super::super::coordinator::{BuildStatus, DaemonState};
+use super::super::coordinator::{AttemptHook, BuildStatus, DaemonState};
 use super::super::test_support::{
-    advance, build_after, client_settings, client_settings_with, fail_now, fixture, scripted,
-    state_with, status, wait_until, Gate, ManualClock,
+    advance, build_after, client_settings, client_settings_with, fail_now, fixture, parts_with,
+    scripted, state_with, status, wait_until, Gate, ManualClock,
 };
 use super::super::wire_support::{
-    close, connect, ended, CALLEES, INIT, INITED, LIST, NO_SUCH_TOOL, PING,
+    close, connect, ended, CALLEES, INIT, INITED, LIST, NO_SUCH_TOOL, PING, REFRESH,
 };
 use crate::mcp::output::StructuredContentMode;
 use crate::mcp::shared::preamble::BuildState;
 use crate::mcp::{RefreshPolicy, StartupMode};
 use serde_json::json;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
 const RUN_CALLEES: &str = "callees:run@main.py";
 
@@ -317,4 +318,76 @@ fn a_departed_client_s_call_is_parked_no_longer_than_its_budget() {
     );
     assert_eq!(built(&builds), 1);
     gate.open();
+}
+
+/// Nothing in the library stops a caller of `DaemonState::read` or `write` from looking into
+/// the slot before `Ready` is announced; serving a call is what must not do it. Here the
+/// build thread is held after the provider is in the slot and before the announcement. A
+/// query and a refresh that arrive then are told the index is warming, and the provider is
+/// not touched. Rules out serving from whatever is in the slot, and a `write` reached without
+/// `ensure_ready` having returned ready.
+#[test]
+fn a_call_is_not_served_from_the_slot_before_ready_is_announced() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (builder, builds) = scripted(&cfg, vec![]);
+    let clock = ManualClock::new();
+    let mut parts = parts_with(builder, &clock);
+    let reached = Gate::closed();
+    let resume = Gate::closed();
+    let hook: AttemptHook = {
+        let reached = Arc::clone(&reached);
+        let resume = Arc::clone(&resume);
+        Arc::new(move |_attempt: u64| {
+            reached.open();
+            let _opened = resume.pass();
+        })
+    };
+    parts.hooks.published = Some(hook);
+    let state = DaemonState::from_parts(parts).expect("a lazy daemon state");
+    let (mut a, a_worker) = connect(&state, client_settings(0));
+    a.handshake();
+
+    // The first call starts the build; this client waits zero seconds, so it is answered.
+    let first = a.request(CALLEES);
+    assert_eq!(first["result"]["structuredContent"]["status"], "warming");
+    assert!(
+        reached.pass(),
+        "the build thread reaches the publication hook"
+    );
+    assert_eq!(
+        state.read(|_| ()),
+        Ok(Some(())),
+        "the provider is in the slot"
+    );
+    assert_eq!(
+        status(&state).state,
+        BuildState::Building,
+        "and Ready has not been announced"
+    );
+
+    let query = a.request(CALLEES);
+    assert_eq!(
+        query["result"]["structuredContent"]["status"], "warming",
+        "a query is not answered from a slot that has not been announced: {query}"
+    );
+    let refresh = a.request(REFRESH);
+    assert_eq!(
+        refresh["result"]["structuredContent"]["status"], "warming",
+        "a refresh does not run on it either: {refresh}"
+    );
+    assert_eq!(
+        state.read(|provider| provider.generation()),
+        Ok(Some(0)),
+        "the provider was not refreshed"
+    );
+    assert_eq!(status(&state).generation, 0);
+
+    resume.open();
+    wait_until("the build to be announced", || {
+        status(&state).state == BuildState::Ready
+    });
+    let served = a.request(CALLEES);
+    assert_eq!(served["result"]["structuredContent"]["query"], RUN_CALLEES);
+    assert_eq!(built(&builds), 1);
+    close(a, a_worker);
 }

@@ -17,6 +17,7 @@ pub(super) const INITED: &str = r#"{"jsonrpc":"2.0","method":"notifications/init
 pub(super) const LIST: &str = r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#;
 pub(super) const PING: &str = r#"{"jsonrpc":"2.0","id":3,"method":"ping"}"#;
 pub(super) const CALLEES: &str = r#"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"nav_callees","arguments":{"seed":{"kind":"symbol","name":"run","file":"main.py"}}}}"#;
+pub(super) const REFRESH: &str = r#"{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"refresh_index","arguments":{}}}"#;
 pub(super) const NO_SUCH_TOOL: &str = r#"{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"no_such_tool","arguments":{}}}"#;
 
 /// One client's end of a connection. Every read gives up after [`HANG`], so a server that
@@ -104,7 +105,6 @@ pub(super) fn close(client: Client, worker: Worker) {
     ended(worker).expect("a connection ends cleanly at end of input");
 }
 
-pub(super) const REFRESH: &str = r#"{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"refresh_index","arguments":{}}}"#;
 pub(super) const CALLERS: &str = r#"{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"nav_callers","arguments":{"seed":{"kind":"symbol","name":"helper","file":"util.py"}}}}"#;
 
 impl Client {
