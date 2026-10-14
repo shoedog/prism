@@ -12,13 +12,15 @@
 //! Lock order: code that holds the control lock does not touch the provider slot. Code that
 //! holds the slot may take the control lock.
 //!
-//! Not here yet: a panic boundary. A poisoned lock is reported to the caller as [`Poisoned`]
-//! and nothing is read through it; a panic in the builder is recorded as a failed attempt.
-//! Turning both into the daemon-fatal abort of spec §3.1 is slice S3b.
+//! Panics (spec §3.1 "Fatal", §4.2 "Panic policy"): a panic in a query or a refresh run through
+//! [`DaemonState::read`] or [`DaemonState::write`], on the build thread, or in the control plane
+//! ends the daemon through `on_fatal`, and so does a lock found poisoned (`fatal.rs`). Nothing
+//! is read through a poisoned lock.
 use super::budget::ConnectionBudget;
 use super::clock::{Clock, SystemClock};
 use super::control::answer_for;
 pub(super) use super::control::{Answer, AttemptOutcome, BuildPhase, BuildStatus, ControlState};
+use super::fatal::{abort_daemon, Domain, Fatal, FatalOnUnwind, OnFatal};
 use crate::mcp::lazy::SessionBuilder;
 // The tests in this file's child modules name `BuildState` through `use super::*`.
 #[cfg(test)]
@@ -38,8 +40,8 @@ const SLOT_POISONED: &str =
     "the index was built and could not be published: the provider lock is poisoned";
 
 /// A lock of the daemon is poisoned: a thread panicked while holding it. The state behind it
-/// is not read again. Until slice S3b makes this the daemon-fatal abort of spec §3.1, the
-/// caller ends its connection with this error.
+/// is not read again. Every place that makes one has first ended the daemon (`poisoned`), so a
+/// caller sees this error only when a test's `on_fatal` returns; it then ends its connection.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct Poisoned {
     pub(super) lock: &'static str,
@@ -98,6 +100,8 @@ pub(super) struct Parts {
     pub(super) startup: StartupMode,
     pub(super) clock: Arc<dyn Clock>,
     pub(super) spawner: Spawner,
+    /// What ends the daemon. Production: [`abort_daemon`].
+    pub(super) on_fatal: OnFatal,
     #[cfg(test)]
     pub(super) hooks: TestHooks,
 }
@@ -109,6 +113,7 @@ impl Parts {
             startup,
             clock: Arc::new(SystemClock),
             spawner: Box::new(spawn_build_thread),
+            on_fatal: Arc::new(abort_daemon),
             #[cfg(test)]
             hooks: TestHooks::default(),
         }
@@ -124,6 +129,7 @@ pub(super) struct DaemonState {
     startup: StartupMode,
     clock: Arc<dyn Clock>,
     spawner: Spawner,
+    on_fatal: OnFatal,
     #[cfg(test)]
     hooks: TestHooks,
 }
@@ -155,11 +161,13 @@ impl DaemonState {
             startup: parts.startup,
             clock: parts.clock,
             spawner: parts.spawner,
+            on_fatal: parts.on_fatal,
             #[cfg(test)]
             hooks: parts.hooks,
         });
         if state.startup == StartupMode::Background {
             let mut control = state.lock_control()?;
+            let _fatal = state.guard(Domain::Control);
             let _started = state.start_attempt(&mut control);
         }
         Ok(state)
@@ -200,6 +208,7 @@ impl DaemonState {
         budget: &mut ConnectionBudget,
     ) -> Result<Answer, Poisoned> {
         let mut control = self.lock_control()?;
+        let _fatal = self.guard(Domain::Control);
 
         // A connection's next call first hears its own attempt's unheard failure, before the
         // shortcut to `Ready` and before a retry is started or joined (D32). It is answered by
@@ -242,7 +251,7 @@ impl DaemonState {
             control.waiting = control.waiting.saturating_add(1);
             control = match self.changed.wait_timeout(control, remaining) {
                 Ok((reacquired, _timed_out)) => reacquired,
-                Err(_) => return Err(Poisoned { lock: "control" }),
+                Err(_) => return Err(self.poisoned("control")),
             };
             control.waiting = control.waiting.saturating_sub(1);
         }
@@ -251,6 +260,7 @@ impl DaemonState {
     /// The control plane's view of the build.
     pub(super) fn status(&self) -> Result<BuildStatus, Poisoned> {
         let control = self.lock_control()?;
+        let _fatal = self.guard(Domain::Control);
         Ok(BuildStatus {
             state: control.build.state(),
             attempt: control.attempts,
@@ -269,6 +279,8 @@ impl DaemonState {
     ///
     /// `query` must not call `read` or `write` again: the slot's lock is not re-entrant, and a
     /// nested call can deadlock. `status` is safe to call from it.
+    ///
+    /// A panic in `query` ends the daemon (provider dispatch, spec §3.1).
     pub(super) fn read<R>(
         &self,
         query: impl FnOnce(&SessionProvider) -> R,
@@ -276,7 +288,8 @@ impl DaemonState {
         let slot = self
             .provider
             .read()
-            .map_err(|_| Poisoned { lock: "provider" })?;
+            .map_err(|_| self.poisoned("provider"))?;
+        let _fatal = self.guard(Domain::Dispatch);
         let answer = slot.as_ref().map(query);
         Ok(answer)
     }
@@ -289,6 +302,9 @@ impl DaemonState {
     ///
     /// `change` must not call `read` or `write` again: the slot's lock is not re-entrant, and
     /// a nested call deadlocks. `status` is safe to call from it.
+    ///
+    /// A panic in `change` ends the daemon (provider dispatch, spec §3.1): a refresh that
+    /// unwinds may have replaced part of the provider and not the rest.
     pub(super) fn write<R>(
         &self,
         change: impl FnOnce(&mut SessionProvider) -> R,
@@ -296,7 +312,8 @@ impl DaemonState {
         let mut slot = self
             .provider
             .write()
-            .map_err(|_| Poisoned { lock: "provider" })?;
+            .map_err(|_| self.poisoned("provider"))?;
+        let _fatal = self.guard(Domain::Dispatch);
         let Some(provider) = slot.as_mut() else {
             return Ok(None);
         };
@@ -349,9 +366,26 @@ impl DaemonState {
     }
 
     fn lock_control(&self) -> Result<MutexGuard<'_, ControlState>, Poisoned> {
-        self.control
-            .lock()
-            .map_err(|_| Poisoned { lock: "control" })
+        self.control.lock().map_err(|_| self.poisoned("control"))
+    }
+
+    /// Ends the daemon if this thread unwinds before the guard is dropped (`fatal.rs`).
+    ///
+    /// Each caller makes it right after it has taken its lock, never before: locals are dropped
+    /// in reverse order, so the guard then fires while the lock is still held, and in
+    /// production the process aborts before another thread can take the lock (a refresh
+    /// waiting on a reader that panicked, say). Taking the lock cannot panic; a poisoned lock
+    /// is reported by `poisoned`.
+    fn guard(&self, domain: Domain) -> FatalOnUnwind<'_> {
+        FatalOnUnwind::new(&self.on_fatal, domain)
+    }
+
+    /// `lock` was found poisoned: end the daemon (spec §4.2, "no lock is ever unwrapped past
+    /// poisoning"). The error returned reaches the caller only when a test's `on_fatal`
+    /// returns.
+    fn poisoned(&self, lock: &'static str) -> Poisoned {
+        (self.on_fatal)(Fatal::Poisoned { lock });
+        Poisoned { lock }
     }
 
     /// Start the next attempt and return its number, its start time and its outcome, still
@@ -418,11 +452,15 @@ impl DaemonState {
         let published = match self.provider.write() {
             Ok(mut slot) => {
                 *slot = Some(provider);
-                // A poisoned control lock is left alone here as it is in `settle`.
+                // A poisoned control lock ends the daemon (`lock_control`); under a test's
+                // `on_fatal`, which returns, publication goes on and settles the attempt.
                 let _recorded = self.record_generation(&slot, generation);
                 true
             }
-            Err(_) => false,
+            Err(_) => {
+                (self.on_fatal)(Fatal::Poisoned { lock: "provider" });
+                false
+            }
         };
         if !published {
             self.settle(attempt, Err(SLOT_POISONED.to_string()));
@@ -437,10 +475,17 @@ impl DaemonState {
 
     /// Record how `attempt` ended, in its own outcome and in the phase, and tell every parked
     /// call. Nothing is recorded unless the phase is still `Building` that attempt, so an
-    /// attempt ends once and `Ready` is not left. A poisoned control lock is left alone; the
-    /// parked calls find it when they wake.
+    /// attempt ends once and `Ready` is not left. A poisoned control lock ends the daemon; under
+    /// a test's `on_fatal` the parked calls find it when they wake.
     fn settle(&self, attempt: u64, ended: Result<(), String>) {
-        if let Ok(mut control) = self.control.lock() {
+        let control = match self.control.lock() {
+            Ok(control) => Some(control),
+            Err(_) => {
+                (self.on_fatal)(Fatal::Poisoned { lock: "control" });
+                None
+            }
+        };
+        if let Some(mut control) = control {
             let building = match &control.build {
                 BuildPhase::Building {
                     attempt: building,
@@ -468,8 +513,9 @@ impl DaemonState {
     }
 }
 
-/// Ends the attempt as failed if the build thread unwinds, so that a panic in the builder
-/// cannot leave the phase `Building` with nobody left to end it.
+/// Ends the daemon if the build thread unwinds (spec §3.1: a panic on the build thread is
+/// fatal). Under a test's `on_fatal`, which returns, it then ends the attempt as failed, so
+/// that the phase is not left `Building` with nobody to end it.
 struct PanicGuard<'a> {
     state: &'a DaemonState,
     attempt: u64,
@@ -478,6 +524,7 @@ struct PanicGuard<'a> {
 impl Drop for PanicGuard<'_> {
     fn drop(&mut self) {
         if std::thread::panicking() {
+            (self.state.on_fatal)(Fatal::Panicked(Domain::Build));
             self.state
                 .settle(self.attempt, Err(BUILD_PANICKED.to_string()));
         }

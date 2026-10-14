@@ -1,8 +1,9 @@
 //! Tests for the ways an attempt can end without a build: the thread cannot be started, the
 //! builder panics, a lock is poisoned. In each, every parked call must get an answer.
+use super::super::fatal::{Domain, Fatal};
 use super::super::test_support::{
     build_after, fail_now, fixture, panic_now, parts_with, scripted, state_with, status,
-    wait_until, Conn, Gate, ManualClock, Outcome,
+    wait_until, Conn, FatalLog, Gate, ManualClock, Outcome,
 };
 use super::*;
 use crate::mcp::RefreshPolicy;
@@ -64,14 +65,17 @@ fn a_build_thread_that_cannot_be_started_is_a_failed_attempt_and_the_next_call_r
     assert_eq!(built(&calls), 1);
 }
 
-/// S3a's interim behavior (slice S3b turns a builder panic into the daemon-fatal abort of spec
-/// §3.1). Rules out a panic that leaves the phase `Building` forever.
+/// Spec §3.1: a panic on the build thread ends the daemon. Under a recording `on_fatal`, which
+/// returns where the abort would not, the attempt still ends: rules out a panic that leaves the
+/// phase `Building` forever in a test, and a builder panic reported as a failed build only.
 #[test]
-fn a_builder_panic_is_a_failed_attempt_every_waiter_hears_of() {
+fn a_builder_panic_is_fatal() {
     let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
     let (builder, calls) = scripted(&cfg, vec![panic_now()]);
     let clock = ManualClock::new();
-    let state = state_with(builder, &clock);
+    let mut parts = parts_with(builder, &clock);
+    let log = FatalLog::install(&mut parts);
+    let state = DaemonState::from_parts(parts).expect("a lazy daemon state");
     let conn = Conn::open(&state, 600);
 
     conn.call();
@@ -79,6 +83,7 @@ fn a_builder_panic_is_a_failed_attempt_every_waiter_hears_of() {
         conn.outcome(),
         Outcome::Failed("index build panicked".to_string())
     );
+    assert_eq!(log.events(), vec![Fatal::Panicked(Domain::Build)]);
     assert_eq!(status(&state).state, BuildState::Failed);
     assert_eq!(status(&state).waiting, 0);
 
@@ -135,7 +140,9 @@ fn a_poisoned_control_lock_is_an_error_for_every_caller_never_a_panic_or_a_hang(
     let gate = Gate::closed();
     let (builder, _calls) = scripted(&cfg, vec![build_after(&gate, &cfg)]);
     let clock = ManualClock::new();
-    let state = state_with(builder, &clock);
+    let mut parts = parts_with(builder, &clock);
+    let log = FatalLog::install(&mut parts);
+    let state = DaemonState::from_parts(parts).expect("a lazy daemon state");
     let parked = Conn::open(&state, 600);
 
     parked.call();
@@ -143,17 +150,28 @@ fn a_poisoned_control_lock_is_an_error_for_every_caller_never_a_panic_or_a_hang(
     poison_the_control_lock(&state);
     state.wake();
 
+    // Spec §4.2: each find of the poisoned lock ends the daemon, one at a time; nothing is
+    // read through it.
+    let poisoned = Fatal::Poisoned { lock: "control" };
     assert_eq!(parked.outcome(), Outcome::Poisoned, "a parked call returns");
+    assert_eq!(log.events(), vec![poisoned; 1]);
     assert_eq!(state.status(), Err(Poisoned { lock: "control" }));
+    assert_eq!(log.events(), vec![poisoned; 2]);
     let later = Conn::open(&state, 600);
     later.call();
     assert_eq!(later.outcome(), Outcome::Poisoned, "and so does a new one");
+    assert_eq!(log.events(), vec![poisoned; 3]);
 
-    // The build thread still ends: it publishes, finds the control lock poisoned and stops.
+    // The build thread still ends: it publishes, finds the control lock poisoned when it
+    // records the generation and again when it records the outcome, and stops.
     gate.open();
     wait_until("the build thread to publish", || {
         state.read(|_| ()) == Ok(Some(()))
     });
+    wait_until("the build thread to find the lock poisoned twice", || {
+        log.events().len() == 5
+    });
+    assert_eq!(log.events(), vec![poisoned; 5]);
 }
 
 /// An attempt's outcome is written once. Rules out a second ending that replaces the first:
