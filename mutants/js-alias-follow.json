@@ -63,8 +63,8 @@
   ],
   "AF-09-duplicate-key-accepted": [
    "src/ast/js_binding_alias.rs",
-   "[key] => Some(Link::Member(value, std::mem::take(key))),",
-   "[key, ..] => Some(Link::Member(value, std::mem::take(key))),",
+   "[key] => Some(std::mem::take(key)),",
+   "[key, ..] => Some(std::mem::take(key)),",
    [
     "ast::js_binding_alias::tests::pattern_shapes_outside_the_flat_object_pattern_are_not_followed"
    ]
@@ -224,8 +224,8 @@
   ],
   "AF-38-unknown-entry-skipped": [
    "src/ast/js_binding_alias.rs",
-   "                        _ => return None,\n                    };\n                    if bound == name",
-   "                        _ => continue,\n                    };\n                    if bound == name",
+   "                _ => return None,\n            };\n            if bound == name",
+   "                _ => continue,\n            };\n            if bound == name",
    [
     "ast::js_binding_alias::pattern_tests::a_pattern_with_any_non_flat_entry_is_not_followed"
    ]
