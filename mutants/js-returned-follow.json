@@ -302,7 +302,7 @@
    "self.js_ts_terminal_outcome(hook_fn, value, site, site.jsx_element)?",
    "self.js_ts_terminal_outcome(hook_fn, value, site, false)?",
    [
-    "js_returned_follow_test::a_jsx_element_of_a_returned_component_is_followed"
+    "js_returned_follow_test::a_wrapped_returned_component_binds_from_jsx_only"
    ]
   ],
   "RV-38-wrapped-hook-allowed": [

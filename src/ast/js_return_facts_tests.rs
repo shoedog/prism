@@ -302,6 +302,16 @@ fn a_selection_the_contract_refuses_has_no_fact() {
                 "-",
             ),
             (
+                "a keyless return that is reached after the keyed one",
+                "function f() {}\nfunction H(c) {\n  if (c) return {};\n  return { f };\n}\n",
+                "-",
+            ),
+            (
+                "a parse error elsewhere in the function",
+                "function f() {}\nfunction H() {\n  const junk = ;\n  return { f };\n}\n",
+                "-",
+            ),
+            (
                 "returned parameter",
                 "function H(p) {\n  return p;\n}\n",
                 "-",
