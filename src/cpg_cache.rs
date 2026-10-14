@@ -386,12 +386,14 @@ fn cache_meta_path(cache_dir: &Path) -> PathBuf {
 ///
 /// Writes both `cpg-cache-v2.bin` (bincode) and `cache-meta-v2.json` (human-readable). The
 /// names changed with the memory-mapped reader: no earlier prism touches them, and a load removes
-/// the files those versions left behind once they have been idle for a day.
+/// the files those versions left behind once they have been idle for a day. An older binary that
+/// only reads its cache (a hit does not touch the file) may therefore find it removed and rebuild
+/// once; that is the accepted migration cost.
 /// Uses atomic write (temp file + rename) to prevent corruption from interrupted writes. Saves
 /// are serialized per directory by a lock file, held through the metadata write. A save that
-/// cannot take the lock (another process is saving, or loading and clearing a leftover temp
-/// file) writes nothing and returns [`SaveOutcome::Skipped`]: the save is lost, and a later
-/// load revalidates whatever cache is there.
+/// cannot take the lock (another process is saving, or loading: checking that the lock works, or
+/// clearing a leftover temp file) writes nothing and returns [`SaveOutcome::Skipped`]: the
+/// save is lost, and a later load revalidates whatever cache is there.
 ///
 /// `has_type_db` records whether the CPG was built with a `TypeDatabase`.
 /// This flag is checked on load to ensure virtual dispatch edge consistency.

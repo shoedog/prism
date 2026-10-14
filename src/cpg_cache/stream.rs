@@ -70,8 +70,11 @@ const LOCK_NAME: &str = "cpg-cache.lock";
 const LEGACY_NAMES: [&str; 3] = ["cpg-cache.bin", "cpg-cache.bin.tmp", "cache-meta.json"];
 
 /// How long a legacy file must have gone unmodified before a load removes it. An older binary
-/// that is still in use rewrites its cache, so its files stay fresh and are never touched; a
-/// temp file a crashed legacy writer left behind is reclaimed a day later.
+/// that saved within the last day keeps its files. One that has only read them for longer (a
+/// hit does not rewrite or touch the file) may find them removed; its next load then misses and
+/// rebuilds once, and the descriptor or mapping it already holds is not disturbed, so the
+/// result is still correct. That is the accepted migration cost until older binaries are
+/// replaced. A temp file a crashed legacy writer left behind is reclaimed a day later.
 pub(super) const LEGACY_MIN_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 
 /// Borrowed mirror of `CpgCache`: the same fields in the same order, so the two encode to
@@ -226,10 +229,10 @@ fn lock_is_unsupported(error: &io::Error) -> bool {
 /// it holds the same lock ([`clean_after_load`]).
 ///
 /// A save that does not get the lock is skipped and reported as `None`: no file is written
-/// and `after_publish` does not run. The holder is another saver, or a load removing an
-/// orphan; a saver that later fails, or one with different inputs, leaves the cache absent or
-/// stale. A skip is a lost best-effort save, not a promise that an equivalent cache will
-/// appear: every load revalidates the file hashes against the sources.
+/// and `after_publish` does not run. The holder is another saver, or a load (checking that the
+/// lock works, or cleaning up after itself); a saver that later fails, or one with different
+/// inputs, leaves the cache absent or stale. A skip is a lost best-effort save, not a promise
+/// that an equivalent cache will appear: every load revalidates the file hashes against the sources.
 ///
 /// Only a filesystem that reports that it has no locks ([`lock_is_unsupported`]) is saved to
 /// without the lock; concurrent saves there behave as they did before the lock existed (one
@@ -400,7 +403,10 @@ pub(super) fn read_cache_file(path: &Path) -> Option<CpgCache> {
     // That relies on the lock serializing current writers, which is why this branch is taken
     // only when the lock works: without locks two current writers share the fixed temp name
     // and one can still be writing an inode the other has just published, so the file is read
-    // into a buffer instead. Tests that rewrite the file in place do it in private directories.
+    // into a buffer instead. Like `publish_file`, this assumes one coherent lock across every
+    // process that shares the directory: not NFS mounted with `nolock` or `local_lock` across
+    // hosts, and not a directory shared between a host and a VM. Tests that rewrite the file in
+    // place do it in private directories.
     let map = unsafe { memmap2::Mmap::map(&file) }.ok()?;
     bincode::deserialize(&map[..]).ok()
 }

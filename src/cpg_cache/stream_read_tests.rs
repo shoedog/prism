@@ -1,8 +1,8 @@
 //! Read-side tests for the cache file: the file is mapped and decoded by `read_cache_file`.
 
 use super::super::{cache_bin_path, load_cache, save_cache, CacheResult};
-use super::read_cache_file;
 use super::tests::{fixture, fixture_of, graph_dump, owned_encoding};
+use super::{read_cache_file, BUFFERED_READS, MAPPED_READS};
 use std::fs;
 
 /// A second, different program (it has call sites, which the fixture requires).
@@ -88,21 +88,68 @@ fn an_empty_cache_file_is_a_miss() {
     ));
 }
 
+/// Counters `(mapped, buffered)` for this thread.
+fn reads() -> (u32, u32) {
+    (
+        MAPPED_READS.with(|c| c.get()),
+        BUFFERED_READS.with(|c| c.get()),
+    )
+}
+
+fn reset_counters() {
+    MAPPED_READS.with(|c| c.set(0));
+    BUFFERED_READS.with(|c| c.set(0));
+}
+
 #[test]
-fn a_directory_at_the_cache_path_is_a_miss() {
-    // On most filesystems `File::open` succeeds on a directory and its length is not zero, so
-    // the empty check passes and the read itself must fail cleanly. (On a filesystem that
-    // reports a zero length for a directory, such as btrfs, this goes through the empty-file
-    // branch instead.)
+fn a_directory_at_the_cache_path_is_a_miss_on_the_mapped_path() {
+    // With a usable lock file the read is mapped. On most filesystems `File::open` succeeds on
+    // a directory and its length is not zero, so the empty check passes and the mapping itself
+    // must fail cleanly. (On a filesystem that reports a zero length for a directory, such as
+    // btrfs, the empty-file branch runs instead and neither counter moves.)
     let dir = tempfile::tempdir().unwrap();
     let (_cpg, hashes) = fixture();
     let path = cache_bin_path(dir.path());
     fs::create_dir(&path).unwrap();
+    fs::File::create(dir.path().join("cpg-cache.lock")).unwrap();
+    let nonempty = fs::metadata(&path).unwrap().len() > 0;
+    reset_counters();
     assert!(read_cache_file(&path).is_none());
     assert!(matches!(
         load_cache(&hashes, false, dir.path()),
         CacheResult::Miss
     ));
+    let (mapped, buffered) = reads();
+    assert_eq!(
+        buffered, 0,
+        "a working lock must not take the buffered path"
+    );
+    if nonempty {
+        assert_eq!(mapped, 2, "both reads must reach the mapping");
+    }
+}
+
+#[test]
+fn a_directory_at_the_cache_path_is_a_miss_on_the_buffered_path() {
+    // Without a lock file the read is buffered, and reading a directory must fail cleanly.
+    // (On a zero-length-directory filesystem the empty-file branch runs and neither counter
+    // moves.)
+    let dir = tempfile::tempdir().unwrap();
+    let (_cpg, hashes) = fixture();
+    let path = cache_bin_path(dir.path());
+    fs::create_dir(&path).unwrap();
+    let nonempty = fs::metadata(&path).unwrap().len() > 0;
+    reset_counters();
+    assert!(read_cache_file(&path).is_none());
+    assert!(matches!(
+        load_cache(&hashes, false, dir.path()),
+        CacheResult::Miss
+    ));
+    let (mapped, buffered) = reads();
+    assert_eq!(mapped, 0, "no lock file means no mapping");
+    if nonempty {
+        assert_eq!(buffered, 2, "both reads must reach the buffered read");
+    }
 }
 
 #[test]

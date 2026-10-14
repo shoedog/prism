@@ -218,7 +218,7 @@ class BuildKindTests(Kinds):
         self.assertEqual(entry['admissible']['build'], 0)
         self.assertEqual(len(entry['inadmissible']), 3)
         self.assertNotIn('build_peak', entry['metrics'])
-        self.assertIn('wrote no cpg-cache.bin', entry['inadmissible'][0]['reason'])
+        self.assertIn('wrote no CPG cache file', entry['inadmissible'][0]['reason'])
 
     def test_an_empty_cache_file_is_not_a_written_cache(self):
         self.prepare(cache_bytes=0)
