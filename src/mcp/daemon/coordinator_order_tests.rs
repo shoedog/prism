@@ -289,44 +289,8 @@ fn a_waiter_of_a_failed_attempt_hears_that_failure_although_the_retry_failed_dif
     assert_eq!(status(&state).attempt, 2);
 }
 
-/// As above, with attempt 2 failed and attempt 3 building when the waiter of attempt 1 runs.
-/// Rules out an error kept with only its attempt number: nothing of attempt 1 would be left.
-#[test]
-fn a_waiter_of_a_failed_attempt_hears_that_failure_although_a_third_attempt_is_building() {
-    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
-    let third_gate = Gate::closed();
-    let (state, early, notify, _calls) = a_waiter_held_behind_its_failed_attempt(
-        &cfg,
-        vec![
-            super::super::test_support::fail_now("second attempt failed"),
-            build_after(&third_gate, &cfg),
-        ],
-    );
-
-    let second = Conn::open(&state, 600);
-    second.call();
-    assert_eq!(
-        second.outcome(),
-        Outcome::Failed("second attempt failed".to_string())
-    );
-    let third = Conn::open(&state, 600);
-    third.call();
-    wait_until("attempt 3 to be building", || {
-        let now = status(&state);
-        now.state == BuildState::Building && now.attempt == 3
-    });
-
-    // Attempt 2's notification has woken everybody parked; the waiter of attempt 1 answers
-    // from attempt 1 and does not wait on attempt 3.
-    assert_eq!(
-        early.outcome(),
-        Outcome::Failed("first attempt failed".to_string())
-    );
-    notify.open();
-    third_gate.open();
-    assert_eq!(third.outcome(), Outcome::Ready);
-    assert_eq!(status(&state).attempt, 3);
-}
+// The third-attempt case is in `coordinator_edge_tests.rs`, where both earlier notifications
+// are held so that the waiter of attempt 1 cannot run before attempt 3 is building.
 
 /// Exclusive access can land after the provider is in the slot and before `Ready` is
 /// announced. The generation the control plane then reports must still be the slot's. Rules

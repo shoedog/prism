@@ -534,3 +534,7 @@ mod failure_tests;
 #[cfg(test)]
 #[path = "coordinator_order_tests.rs"]
 mod order_tests;
+
+#[cfg(test)]
+#[path = "coordinator_edge_tests.rs"]
+mod edge_tests;
