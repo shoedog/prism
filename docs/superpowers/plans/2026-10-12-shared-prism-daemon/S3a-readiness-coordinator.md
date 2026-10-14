@@ -2,34 +2,33 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **This plan's code has not been compiled.** It was written on 2026-10-13 while a memory measurement held the host, so no `cargo` command and no `prism` binary was run: not on the base, not on the plan's code. Every code block, every expected test count and every "this mutant fails that test" line below is reasoning from the source at `main` `c785fa4f`, not an observation. What was done instead: the plan's file directives were applied as text, in order, to copies of the affected files outside the repository, and the result was parsed with `rustfmt` after each task (self-review record, "What was checked without a compiler"). That shows the code blocks are syntactically valid and that every edit applies where the plan says; it shows nothing about types, borrows, lints or behavior. The earlier slices' plans were replayed with a compiler on a scratch branch before hand-off; this one still has to be. The list directly below says what to run and what each command must show. Treat a compile error in a code block as a defect of the plan to fix here, not as something for the implementer to work around.
+> **Validation status (2026-10-13).** **Tasks 1–5 (S3a-1) have been replayed with a compiler**: every directive applied in order on the scratch branch `scratch/s3a-validate` (worktree `~/code/prism-s3a`, from `main` `86756aad`, which differs from this plan's base `c785fa4f` in documentation only), every red step, green step, commit and mutant run, and the repeat loop run twice under a host load average of 35–60. What was observed is in "Validation record (S3a-1)" at the end; the one defect found in the plan's code (a clippy finding) is corrected in the text below. **Tasks 6–9 (S3a-2) have not been compiled or run.** For them every code block, expected count and "this mutant fails that test" line is still reasoning from the source; their file directives were only applied as text and parsed with `rustfmt` (self-review record, "What was checked without a compiler"). Treat a compile error in a Task 6–9 code block as a defect of the plan to fix here, not as something for the implementer to work around.
 
-## Validate before dispatch (nothing below was run)
+## Validate before dispatch
 
-Replay the plan on a scratch branch off `main` `c785fa4f`, as was done for S1, C1 and S2: perform every "Create / Replace / In … replace / Append" directive in order and run every `bash` block as written (skip `git push` and `gh pr create`).
+S3a-1 rows show what was observed. S3a-2 rows are still to be run: replay Tasks 6–9 on the scratch branch, on top of the S3a-1 commits, performing every "Create / Replace / In … replace / Append" directive in order and every `bash` block as written (skip `git push` and `gh pr create`).
 
-| # | Command | Must show |
-|---|---|---|
-| V1 | `cargo test --features mcp --lib mcp:: ` and `cargo test --features mcp --test mcp` on the untouched base | The two base totals. The plan states every later total as "base + N"; write the two numbers into Task 1 Step 1. |
-| V2 | Each task's red step | A compile failure (the tests name items that do not exist yet). A red step that compiles is a plan defect. |
-| V3 | Each task's green step | Exactly the count the step states: Task 1 `1`, Task 2 `5`, Task 3 `12`, Task 4 `16` for the coordinator module, Task 6 `5`, Task 7 `7`, Task 8 `5`. |
-| V4 | `cargo test --features mcp --lib mcp::` after Task 4 and after Task 8 | base + 22, then base + 39; `0 failed`. |
-| V5 | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp` after Task 6 and after Task 8 | The base number unchanged, with `standalone_transcripts_match_the_goldens_recorded_before_the_transport_refactor ... ok`. This is the standalone byte-for-byte proof for the one edit to the serving path (Task 6). |
-| V6 | `cargo check` (default features) and `cargo check --tests --features mcp,detached-owner-audit` | `Finished` for both. The second compiles `owner_transport_tests.rs` against the edited `transport.rs`. |
-| V7 | `cargo clippy --all-targets --features mcp -- -W clippy::all`, filtered to the touched files (Task 5 Step 2, Task 9 Step 2) | No line. In particular no `dead_code` warning from `src/mcp/daemon/` in the non-test build; see "Unsure of" item 1. |
-| V8 | Every "prove the tests bite" step | The named test fails under the named mutant. Five mutants (Task 3 C, D and E; Task 4 B; Task 7 A) make a call wait where it should return; those tests must fail at the 30 s hang limit, not hang the run. |
-| V9 | The 30-run repeat loop of Task 5 Step 4 and Task 9 Step 4: once as written, once with `-- --test-threads=1` appended to the `cargo test` command, and once while another `cargo build` loads the host | One line each time: 30 × `ok`, the same count, `0 failed`. The tests wait on conditions with a 30 s limit and assert no upper bound on any duration, so load must not change a verdict. |
-| V10 | The three zero-diff checks (Task 5 Step 3, Task 9 Step 3) | `0` for `transport_tests.rs` + `owner_transport_tests.rs`, `0` for the goldens, and the listed set of edited files, nothing else. |
-| V11 | CI on Linux, on the scratch branch pushed as a draft | Green. Nothing here was reasoned about per platform except where a test says so. |
+| # | Command | Must show | S3a-1 (Tasks 1–5) |
+|---|---|---|---|
+| V1 | `cargo test --features mcp --lib mcp::` and `cargo test --features mcp --test mcp` on the untouched base | The two base totals; every later total is "base + N". | Lib: **380 passed** at `86756aad`. The `--test mcp` total was **not measured** (that target starts `prism-mcp` binaries, which the validation was not allowed to run). |
+| V2 | Each task's red step | A compile failure. A red step that compiles is a plan defect. | Observed for Tasks 1–4. |
+| V3 | Each task's green step | Exactly the count the step states: Task 1 `1`, Task 2 `5`, Task 3 `12`, Task 4 `16` for the coordinator module, Task 6 `5`, Task 7 `7`, Task 8 `5`. | Observed: 1, 5, 12, 16; module totals 17 then 21. All on the first compile. |
+| V4 | `cargo test --features mcp --lib mcp::` after Task 4 and after Task 8 | base + 22, then base + 39; `0 failed`. | Observed: **402 passed** (380 + 22), 0 failed. |
+| V5 | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp` after Task 6 and after Task 8 | The base number unchanged, with `standalone_transcripts_match_the_goldens_recorded_before_the_transport_refactor ... ok`. This is the standalone byte-for-byte proof for the one edit to the serving path (Task 6). | **Not run** (binaries). S3a-1 edits no serving path except the accessor and comment in `session.rs`. |
+| V6 | `cargo check` (default features) and `cargo check --tests --features mcp,detached-owner-audit` | `Finished` for both. | Observed: both `Finished`; `cargo check --features mcp` prints no warning at all. |
+| V7 | `cargo clippy --all-targets --features mcp -- -W clippy::all`, filtered to the touched files (Task 5 Step 2, Task 9 Step 2) | No line that names a file this slice adds; for `session.rs`, only the warning that is already on the base. | Observed after one correction (see the record): nothing names `src/mcp/daemon/` or `src/mcp/mod.rs`; `session.rs` has one line, a warning in code this slice does not edit. 258 `warning` lines in the whole log. |
+| V8 | Every "prove the tests bite" step | The named test fails under the named mutant. Five mutants (Task 3 C, D and E; Task 4 B; Task 7 A) make a call wait where it should return; those tests must fail at the 30 s hang limit, not hang the run. | Observed for all 11 mutants of Tasks 1–4, plus 4 more from the "Claims" table. Every one failed its named test; those that make a call wait failed at the 30 s limit and the run ended. |
+| V9 | The 30-run repeat loop of Task 5 Step 4 and Task 9 Step 4: once as written, once with `-- --test-threads=1` appended to the `cargo test` command, and under host load | One line each time: 30 × `ok`, the same count, `0 failed`. | Observed: 30 of 30 `ok. 21 passed; 0 failed` in both modes, at load averages between 35 and 60. |
+| V10 | The three zero-diff checks (Task 5 Step 3, Task 9 Step 3) | `0` for `transport_tests.rs` + `owner_transport_tests.rs`, `0` for the goldens, and the listed set of edited files, nothing else. | Observed: `0`, `0`, `0`; edited files `src/mcp/mod.rs`, `src/mcp/session.rs`, `src/mcp/session_stage_tests.rs`; 13 files, 1,705 insertions, 3 deletions. |
+| V11 | CI on Linux, on the scratch branch pushed as a draft | Green. | **Not run.** Everything above ran on macOS only. |
 
-**Unsure of, in the order I would check them:**
+**Still unsure of (S3a-2 only, unless marked):**
 
-1. **Dead-code analysis of the new module.** `src/mcp/daemon/` has no production caller until S4, so the module carries `#![cfg_attr(not(test), allow(dead_code))]`. I believe rustc treats items under that allowance as live roots, so that what they call in `transport.rs`, `framing.rs` and `session.rs` is not reported either. If V7 shows a `dead_code` warning anyway, the fix is local (the allowance on the reported item); it does not change the design.
-2. **Closure and coercion inference** in code that could not be compiled: the `serve_loop` handler closures (Task 6), `Option::map(query)` with a higher-ranked `FnOnce(&SessionProvider) -> R` in `DaemonState::read` (Task 3), and trait-object coercions in test helpers (written through `let x: Type = …` on purpose).
-3. **Whether `cargo fmt` in the repository lays the code out as standalone `rustfmt --edition 2021` did.** There is no `rustfmt.toml`, so it should. If it does not, an "In … replace" anchor in Task 4, 7 or 8, or a mutant's anchor, may need its whitespace adjusted; the anchors were checked against the standalone layout.
-4. **Clippy on the new code.** `clippy::all` was not run; `type` aliases are used where a signature would otherwise trip `type_complexity`.
-5. **The base totals.** Not measured at `c785fa4f`.
-6. **One existing test with a 100 ms wall-clock assertion** (`src/mcp/transport_tests.rs:774`) is untouched and is not this plan's; it can fail on a loaded host independently of this slice.
+1. **Closure inference in the `serve_loop` handler closures** (Task 6) and in `serve_client` (Task 7). The S3a-1 spots I was unsure of (`Option::map(query)` in `DaemonState::read`, the trait-object coercions in test helpers, dead-code analysis of the new module) compiled as written.
+2. **Dead-code analysis once `connection.rs` exists.** With S3a-1 alone, the non-test build has no warning. Task 7 adds the first non-test use of `UnixStreamTransport::from_stream` and of S1's dispatch functions from this module; no warning is expected, and Task 7 Step 5 checks.
+3. **Clippy on Tasks 6–8's code.** Not run. `transport.rs` may already have warnings on the base; Task 9 compares counts.
+4. **The `--test mcp` base total, the golden transcripts, the full suite, the doc tests and the mutation gate** (S3a-1 too): none was run in validation.
+5. **One existing test with a 100 ms wall-clock assertion** (`src/mcp/transport_tests.rs:774`) is untouched and is not this plan's. It passed in every `--lib mcp::` run of the validation at load averages above 30, which is not evidence that it always will.
 
 ## Decisions owed before the pull request is opened
 
@@ -151,13 +150,13 @@ Five ways this code is most likely to be wrong in use that a straightforward tes
 
 ## Claims and the tests that hold them
 
-Every "never", "always", "exactly" and "only" this plan's code or comments state, with the test that fails when it breaks and one wrong implementation that test rules out. "Predicted" because nothing was run (V8).
+Every "never", "always", "exactly" and "only" this plan's code or comments state, with the test that fails when it breaks and one wrong implementation that test rules out. For the rows that name a Task 2, 3 or 4 test, the mutant in the last column was applied in validation and the test failed, with one exception marked in the table; for the Task 6, 7 and 8 rows it is still a prediction.
 
-| Claim | Test | A mutant it kills (predicted) |
+| Claim | Test | A mutant it kills |
 |---|---|---|
 | Nothing is built before the first readiness-requiring call. | T3 `nothing_is_built_until_the_first_readiness_requiring_call`; T7 `two_clients_share_one_build` (status is idle after two handshakes) | start the build in `from_parts` for `Lazy` |
 | A connection's deadline for an attempt is set once and kept. | T2 `the_first_call_of_an_attempt_sets_the_deadline_and_later_calls_keep_it`; T3 `later_calls_in_the_same_attempt_wait_only_what_is_left_of_the_budget`; T7 `a_connection_s_budget_spans_its_calls_within_one_attempt` | a fresh deadline per call; a `ConnectionBudget` made per message |
-| Each connection has its own deadline; one client's warming changes nothing for another. | T2 `each_connection_has_its_own_deadline_for_the_same_attempt`; T3 `the_spec_s_worked_example_two_budgets_on_one_attempt` | one deadline per attempt shared by all waiters |
+| Each connection has its own deadline; one client's warming changes nothing for another. | T2 `each_connection_has_its_own_deadline_for_the_same_attempt`; T3 `the_spec_s_worked_example_two_budgets_on_one_attempt` | one deadline per attempt shared by all waiters (not applied in validation: it is not a one-line change) |
 | A new attempt gives every connection a fresh budget. | T2 `a_new_attempt_gets_a_fresh_full_budget`; T3 `a_retry_gives_a_connection_a_fresh_full_budget` | keep the first deadline for the connection's life |
 | An attempt's outcome reaches every call waiting on it. | T3 `a_failed_attempt_is_delivered_to_every_call_waiting_on_it_and_nothing_retries_by_itself`; T4 the late-waiter test | `notify_one` instead of `notify_all` |
 | A call told `Failed` does not retry by itself. | same T3 test (the builder is called once) | restart from the wait loop when the attempt failed |
@@ -242,7 +241,7 @@ cargo test --features mcp --lib mcp:: > /tmp/s3a-base-lib.log 2>&1; grep -E '^te
 cargo test --features mcp --test mcp > /tmp/s3a-base-mcp.log 2>&1; grep -E '^test result' /tmp/s3a-base-mcp.log
 ```
 
-Write down the two `passed` numbers. They were not measured when this plan was written (see the top of the plan). Every later expectation is "base + N" against these two.
+Write down the two `passed` numbers. Observed in validation at `main` `86756aad`: `380 passed; 0 failed` for the first. The second was not measured there (it starts `prism-mcp` binaries). Every later expectation is "base + N" against these two.
 
 - [ ] **Step 2: Write the test**
 
@@ -656,7 +655,7 @@ cargo test --features mcp --lib mcp::daemon::budget > /tmp/s3a-t2-bite.log 2>&1;
 git checkout -- src/mcp/daemon/budget.rs
 ```
 
-Expected for A: `the_first_call_of_an_attempt_sets_the_deadline_and_later_calls_keep_it ... FAILED` (and two more). Expected for B: `a_new_attempt_gets_a_fresh_full_budget ... FAILED`, `4 passed; 1 failed`.
+Expected for A: `the_first_call_of_an_attempt_sets_the_deadline_and_later_calls_keep_it ... FAILED` (and two more: `2 passed; 3 failed`). Expected for B: `a_new_attempt_gets_a_fresh_full_budget ... FAILED`, `4 passed; 1 failed`. Both observed in validation.
 
 ---
 
@@ -1943,7 +1942,7 @@ impl DaemonState {
     /// The build thread: run the builder with no lock held, then publish or record the failure.
     fn run_build(self: Arc<Self>, attempt: u64) {
         let fail_on_panic = PanicGuard {
-            state: &*self,
+            state: &self,
             attempt,
         };
         let built = (self.builder)();
@@ -2051,7 +2050,7 @@ cargo test --features mcp --lib mcp::daemon > /tmp/s3a-t3-module.log 2>&1; grep 
 cargo check --features mcp > /tmp/s3a-t3-check.log 2>&1; grep -A4 -E '^warning' /tmp/s3a-t3-check.log | grep -E 'src/mcp/(daemon/|session\.rs|mod\.rs)' | sort -u
 ```
 
-Expected: `test result: ok. 12 passed; 0 failed` (eight in `coordinator::tests`, four in `coordinator::failure_tests`), then `17 passed; 0 failed` for the module. The run takes a little over a second of real time because of the one real-clock test. Two tests print a panic message from a helper thread (`injected builder panic`, `poisoning the control lock for a test`); that is their subject. The third command prints nothing: the non-test build has no warning that names the new module or the two files edited so far.
+Expected: `test result: ok. 12 passed; 0 failed` (eight in `coordinator::tests`, four in `coordinator::failure_tests`), then `17 passed; 0 failed` for the module. The run takes a little over a second of real time because of the one real-clock test. Two tests panic a helper thread on purpose (`injected builder panic`, `poisoning the control lock for a test`); the test harness captures that output, so a passing run prints neither message. The third command prints nothing: the non-test build has no warning that names the new module or the two files edited so far.
 
 - [ ] **Step 8: Commit**
 
@@ -2132,11 +2131,11 @@ cargo test --features mcp --lib mcp::daemon::coordinator > /tmp/s3a-t3-bite.log 
 git checkout -- src/mcp/daemon/coordinator.rs
 ```
 
-Expected (predicted, not observed):
+Expected, and observed in validation:
 
 | Mutant | Fails |
 |---|---|
-| A | `the_spec_s_worked_example_two_budgets_on_one_attempt` (the status shows attempt 2 once B has called), `the_next_call_after_a_failure_starts_exactly_one_retry_however_many_arrive_together`, `a_warm_daemon_starts_attempt_one_at_construction_and_eager_is_refused` |
+| A | six tests, at the 30 s hang limit: `the_spec_s_worked_example_two_budgets_on_one_attempt` (the status shows attempt 2 once B has called), `the_next_call_after_a_failure_starts_exactly_one_retry_however_many_arrive_together`, `a_warm_daemon_starts_attempt_one_at_construction_and_eager_is_refused`, `nothing_is_built_until_the_first_readiness_requiring_call`, `later_calls_in_the_same_attempt_wait_only_what_is_left_of_the_budget`, `a_failed_attempt_is_delivered_to_every_call_waiting_on_it_and_nothing_retries_by_itself` |
 | B | `an_attempt_s_outcome_is_recorded_once_and_ready_is_never_left` |
 | C | `on_the_real_clock_a_call_returns_warming_when_its_budget_ends_unprompted` (after 30 s) |
 | D | `a_build_thread_that_cannot_be_started_is_a_failed_attempt_and_the_next_call_retries` (after 30 s) |
@@ -2391,7 +2390,7 @@ mod order_tests;
 cargo test --features mcp --lib mcp::daemon::coordinator::order_tests > /tmp/s3a-t4-red.log 2>&1; grep -E '^error' /tmp/s3a-t4-red.log | sort -u
 ```
 
-Expected: `error[E0599]: no method named `write` found` (the hook fields the first two tests use exist since Task 3; those two tests are shown to bite in Step 6).
+Expected: `error[E0599]: no method named `write` found`, with `error[E0282]: type annotations needed` on the closures passed to it (the hook fields the first two tests use exist since Task 3; those two tests are shown to bite in Step 6).
 
 - [ ] **Step 3: Implement**
 
@@ -2523,7 +2522,7 @@ cargo test --features mcp --lib mcp::daemon::coordinator > /tmp/s3a-t4-bite.log 
 git checkout -- src/mcp/daemon/coordinator.rs
 ```
 
-Expected (predicted, not observed): A fails `the_index_is_in_the_slot_before_ready_is_announced` (the status is already `Ready` at the hook). B fails `a_waiter_that_wakes_after_the_retry_began_still_hears_of_its_own_attempt_s_failure` at the 30 s hang limit (the early call is waiting on the retry). C fails `exclusive_access_records_the_provider_s_generation_in_the_control_plane`.
+Expected, and observed in validation: A fails `the_index_is_in_the_slot_before_ready_is_announced` (the status is already `Ready` at the hook) and `a_poisoned_provider_slot_fails_the_attempt_and_is_an_error_for_every_reader` (`Ready` is announced over a slot that could not be written). B fails `a_waiter_that_wakes_after_the_retry_began_still_hears_of_its_own_attempt_s_failure` at the 30 s hang limit (the early call is waiting on the retry). C fails `exclusive_access_records_the_provider_s_generation_in_the_control_plane`.
 
 ---
 
@@ -2576,7 +2575,7 @@ cargo clippy --all-targets --features mcp -- -W clippy::all > /tmp/s3a1-final-cl
 grep -E -A8 '^warning|^error' /tmp/s3a1-final-clippy.log | grep -E 'src/mcp/daemon/|src/mcp/session|src/mcp/mod\.rs' | sort -u
 ```
 
-Expected: `cargo fmt --check` prints nothing; the lib line shows base + 22 passed (1 + 5 + 12 + 4), `0 failed`; the `mcp` target shows the base number unchanged, which includes the golden transcripts; both `cargo check` runs end with `Finished`; the last command prints nothing.
+Expected: `cargo fmt --check` prints nothing; the lib line shows base + 22 passed (1 + 5 + 12 + 4), `0 failed` (observed: `402 passed` on a base of 380); the `mcp` target shows the base number unchanged, which includes the golden transcripts (not run in validation); both `cargo check` runs end with `Finished`. The last command prints exactly one line, `--> src/mcp/session.rs:542:10`: clippy's `filter_map_bool_then` in `plan_refresh`, code this slice does not edit and which has the same expression on the base at line 535 (Task 1 adds seven lines above it). No line names `src/mcp/daemon/` or `src/mcp/mod.rs`.
 
 - [ ] **Step 3: State the invariants**
 
@@ -2590,7 +2589,7 @@ git diff "$BASE" -- src/mcp/session.rs | grep -c -E '^-[^-]'
 wc -l src/mcp/daemon/*.rs | sort -n | tail -4
 ```
 
-Expected: three zeros (the test corpus, the goldens, and every serving file but `session.rs` are untouched); the fourth command prints exactly `src/mcp/mod.rs`, `src/mcp/session.rs` and `src/mcp/session_stage_tests.rs`; the fifth prints `3` (the three comment lines Task 1 replaced; no line of code was removed from `session.rs`); the largest new file is under 600 lines.
+Expected: three zeros (the test corpus, the goldens, and every serving file but `session.rs` are untouched); the fourth command prints exactly `src/mcp/mod.rs`, `src/mcp/session.rs` and `src/mcp/session_stage_tests.rs`; the fifth prints `3` (the three comment lines Task 1 replaced; no line of code was removed from `session.rs`); the largest new file is under 600 lines (observed: `coordinator.rs`, 500). All as observed in validation.
 
 - [ ] **Step 4: Run the remaining pre-PR checks**
 
@@ -2603,7 +2602,7 @@ for i in $(seq 1 30); do cargo test --features mcp --lib mcp::daemon > /tmp/s3a1
 python3 scripts/mutgate/mutgate.py > /tmp/s3a1-mutgate.log 2>&1; tail -5 /tmp/s3a1-mutgate.log
 ```
 
-Expected: every `test result` line shows `0 failed` (sum the `passed` counts and report the total next to the Task 1 base numbers); the doc tests pass (this slice adds none); the repeat prints one line, `30 test result: ok. 21 passed; 0 failed`; the mutation gate exits 0. Report the gate as: "full gate green; it builds without `--features mcp`, so it selects no code from this slice." A failure outside this slice's files is reported, not fixed or re-baselined here.
+Expected: every `test result` line shows `0 failed` (sum the `passed` counts and report the total next to the Task 1 base numbers); the doc tests pass (this slice adds none); the repeat prints one line, `30 test result: ok. 21 passed; 0 failed` (observed in validation, also with `-- --test-threads=1`, at load averages of 35–60; the full suite, the doc tests and the mutation gate were not run there); the mutation gate exits 0. Report the gate as: "full gate green; it builds without `--features mcp`, so it selects no code from this slice." A failure outside this slice's files is reported, not fixed or re-baselined here.
 
 - [ ] **Step 5: Commit and open the PR**
 
@@ -4260,7 +4259,7 @@ Everything below is in `crate::mcp::daemon` and `pub(super)` unless a path says 
 - **Spec §4.2 sentences checked against the code:** "the build runs on one thread" (one `start_attempt`, from `Idle` or `Failed` only); "publishes the provider into the provider slot before announcing Ready" (`publish`); "a thread holding Control never waits on the provider" (`coordinator.rs` takes the slot in `publish`, `read`, `write` and the test-only `unpublish_for_tests`, none of them with the control lock held; `record_generation` takes control while holding the slot, the permitted order); "queries … operate on a read-only facade of the whole `SessionProvider`" (`read` hands out `&SessionProvider`, which is S1's facade through `impl SessionRuntime for SessionProvider`); "lifecycle and control methods run with no provider lock" (`serve_client` calls `handle_control` before anything else); "the in-process server keeps `LazySessionProvider` and `SessionRuntime` unchanged" (`lazy.rs` untouched; no `SessionRuntime` method added).
 - **The lane's review lessons, one by one.** (1) Every stated property has a test and a mutant, or is listed as not held by a test: the "Claims" table. (2) What each mechanism does not cover: "What each mechanism covers, and what it does not". (3) Interleavings: publication before `Ready` and the late waiter are played through hooks (Task 4); one retry among many callers and one build among many clients are excluded by one lock acquisition and demonstrated with eight and with two callers; a response is written with no lock held by construction, and its many-clients test is S3b's. (4) No test asserts an upper bound on a duration or sleeps to order events; socket pairs need no path, so nothing depends on a temp-directory layout; the one real-clock test takes one second and asserts a lower bound. (5) S3a writes no log line and puts no peer bytes into an error; what leaves `serve_admitted` as an error is listed under S4's interface. (6) No `unwrap`, `expect`, indexing or unchecked arithmetic outside tests in `src/mcp/daemon/`. The `expect`s that remain on a daemon client's path are in code this slice does not edit (`transport.rs`, `tools_refresh.rs`, `freshness.rs`: each serializes a value the server itself built) and in the tool handlers, which this plan did not audit; what a panic there does today is in the "Panics in S3a" table, and what it should do is S3b's boundary. (7) Every wait in `ensure_ready` has a deadline from a `ConnectionBudget`, which only a `ClientSettings` can make (at most 600 s); the control lock is held for constant work; a departed client's call is bounded by its deadline and its build is the daemon's, not the client's.
 - **Deliberate differences from the lane plan's S3a note:** the seam of `serve_loop` (D18).
-- **Size.** Line counts of this plan's code blocks after `rustfmt` (see "What was checked without a compiler" below); they are not counts from a built tree.
+- **Size.** S3a-1's counts are from the validated branch. S3a-2's are line counts of this plan's code blocks after `rustfmt` (see "What was checked without a compiler" below), not counts from a built tree.
 
   | PR | File | Lines |
   |---|---|---|
@@ -4273,8 +4272,8 @@ Everything below is in `crate::mcp::daemon` and `pub(super)` unless a path says 
   | | `daemon/coordinator_tests.rs` | 358 |
   | | `daemon/coordinator_failure_tests.rs` | 156 |
   | | `daemon/coordinator_order_tests.rs` | 198 |
-  | | `CLAUDE.md` | 13 |
-  | | **S3a-1 total** | **about 1,700** (code 600, tests 1,090, docs 13) |
+  | | `CLAUDE.md` | 12 |
+  | | **S3a-1 total** | **1,705 insertions, 3 deletions, as built in validation** (code 600, tests 1,090, docs 12) |
   | S3a-2 | `transport.rs` +27 −6, `transport_loop_tests.rs` 125 | 152 |
   | | `daemon/connection.rs` | 112 |
   | | `daemon/wire_support.rs` | 120 |
@@ -4284,5 +4283,55 @@ Everything below is in `crate::mcp::daemon` and `pub(super)` unless a path says 
   | | **S3a-2 total** | **about 1,080** (code 140, tests 930, docs 8) |
 
   `coordinator.rs` is the largest file at about 510 lines once S3a-2's nine are in, 105 of them comments. S3a-1 is over the 1,500-line guide; the header says why it is left whole and how to split off Tasks 1 and 2 if that is wanted. Moving Task 4 to S3a-2 instead would also bring it under, at the cost of shipping "publication before Ready" and the late-waiter rule one pull request ahead of the tests that hold them; this plan does not do that.
-- **What was checked without a compiler.** Every file directive of this plan ("Create", "Replace the whole of", "In … replace", "Append") was applied in order by a script to a copy of the eight files involved, with `rustfmt --edition 2021` run on the result after each task. Every anchor matched exactly once, at the point in the sequence where the plan uses it and after formatting; every mutant's anchor matches exactly once in the final formatted tree; `rustfmt` parsed every file, so the code blocks are syntactically valid Rust; the resulting diff of `transport.rs` is +27 −6 with both `-32700` branches untouched; and `transport_tests.rs`, `owner_transport_tests.rs` and `transport_split_tests.rs` are byte-identical. That is a check of the plan's text. It says nothing about types, borrows, lints or behavior: no test in this plan has ever run.
+- **What was checked without a compiler.** Every file directive of this plan ("Create", "Replace the whole of", "In … replace", "Append") was applied in order by a script to a copy of the eight files involved, with `rustfmt --edition 2021` run on the result after each task. Every anchor matched exactly once, at the point in the sequence where the plan uses it and after formatting; every mutant's anchor matches exactly once in the final formatted tree; `rustfmt` parsed every file, so the code blocks are syntactically valid Rust; the resulting diff of `transport.rs` is +27 −6 with both `-32700` branches untouched; and `transport_tests.rs`, `owner_transport_tests.rs` and `transport_split_tests.rs` are byte-identical. That is a check of the plan's text. It says nothing about types, borrows, lints or behavior. For Tasks 1–5 it has since been superseded by the replay with a compiler recorded below; for Tasks 6–9 it is still all there is.
 - **Not verified, beyond the list at the top:** that the fixture repository's responses are identical across two temporary directories for this plan's session (the lane plan measured it for a 25-response script that contains every request used here); the wording of `std`'s error for a custom `io::Error` in `a_build_thread_that_cannot_be_started_…` (the test expects the message passed to `io::Error::new`); that `SO_RCVTIMEO` set on the client's socket also bounds reads through its `try_clone` (it is one socket; if not, a hung server would hang a test instead of failing it at 30 s); Linux behavior of a write to a socket pair whose peer has closed (the two departed-client tests accept either outcome of that write).
+
+## Validation record (S3a-1, Tasks 1–5)
+
+Replayed on 2026-10-13 on macOS (arm64, rustc 1.94.0), branch `scratch/s3a-validate` in `~/code/prism-s3a`, from `main` `86756aad`. Every directive was applied by a script from this file's text; every cargo command ran alone, as `nice -n 19 env CARGO_BUILD_JOBS=4 cargo …`, while a memory measurement and other builds held the host (load average 33–60 throughout). Not pushed.
+
+| Task | Commit |
+|---|---|
+| 1 | `804458d8` feat(mcp): expose the session provider's refresh generation |
+| 2 | `60f81d4d` feat(mcp): per-connection, per-attempt first-call budget for the shared daemon |
+| 3 | `2c32107d` feat(mcp): readiness coordinator and provider slot for the shared daemon |
+| 4 | `a54831cd` feat(mcp): exclusive provider access that keeps the control plane's generation current |
+| (correction to Task 3) | `4e14ba4d` fix(mcp): drop an explicit deref clippy flags in the build thread's panic guard |
+| 5 | `430acad5` docs(mcp): the shared daemon's readiness coordinator |
+
+The correction is its own commit because the branch's rule was one commit per task and no amending. This plan's Task 3 now contains the corrected line, so a fresh replay produces the same tree without that commit.
+
+| Step | Command | Observed |
+|---|---|---|
+| T1 S1 | `cargo test --features mcp --lib mcp::` on the base | `380 passed; 0 failed; 0 ignored; 0 measured; 1426 filtered out` |
+| T1 S3 / S5 | red, then `mcp::session::stage_tests::generation` | `E0599` no method `generation`; then `1 passed; 0 failed` |
+| T1 S7 | mutant: accessor returns 0 | `generation_counts_committed_refreshes_and_nothing_else ... FAILED`; `0 passed; 1 failed` |
+| T2 S3 / S5 | red, then `mcp::daemon::budget` | 9 compile errors; then `5 passed; 0 failed` |
+| T2 S7 | mutants A, B | A: `2 passed; 3 failed`; B: `a_new_attempt_gets_a_fresh_full_budget ... FAILED`, `4 passed; 1 failed` |
+| T3 S4 / S7 | red, then `mcp::daemon::coordinator` | 44 compile errors; then `12 passed; 0 failed` on the first compile of the implementation, in 1.02 s |
+| T3 S7 | `mcp::daemon`; `cargo check --features mcp` | `17 passed; 0 failed`; `Finished` with no warning of any kind |
+| T3 S9 | mutants A–E | A: 6 tests failed (30 s); B: `an_attempt_s_outcome_is_recorded_once_and_ready_is_never_left`; C: `on_the_real_clock_…` (30 s); D: `a_build_thread_that_cannot_be_started_…` (30 s); E: `a_builder_panic_…` (30 s). Each run ended; none hung. |
+| T4 S2 / S4 | red, then `mcp::daemon::coordinator`; `mcp::daemon` | `E0599` no method `write` (and `E0282`); then `16 passed; 0 failed`; `21 passed; 0 failed` |
+| T4 S6 | mutants A–C | A: the publication test and the poisoned-slot test; B: the late-waiter test (30 s); C: the generation test |
+| extra | four mutants from the "Claims" table, on the Task 4 tree | Build at construction for a lazy daemon: 4 tests failed, among them `nothing_is_built_until_the_first_readiness_requiring_call`. `notify_one` when an attempt ends: `a_failed_attempt_is_delivered_to_every_call_…` and `the_next_call_after_a_failure_…` (30 s). No decrement of `waiting`: 7 tests failed. A call that answers `Failed` by starting the retry: 5 tests failed, among them `a_failed_attempt_is_delivered_to_every_call_waiting_on_it_and_nothing_retries_by_itself`. |
+| T5 S2 | `cargo fmt --check`; `--lib mcp::`; `cargo check`; `cargo check --tests --features mcp,detached-owner-audit` | no output; `402 passed; 0 failed`; `Finished`; `Finished` |
+| T5 S2 | clippy, filtered to this slice's files | First run: one new warning, `clippy::explicit_auto_deref` at `state: &*self` in `run_build` (the correction below). After the correction: only `--> src/mcp/session.rs:542:10`, the warning in `plan_refresh` that this slice does not touch; 258 `warning` lines in the whole log. |
+| T5 S3 | the invariants | `0`, `0`, `0`; `src/mcp/mod.rs`, `src/mcp/session.rs`, `src/mcp/session_stage_tests.rs`; `3`; largest file `coordinator.rs` 500 lines; 13 files changed, 1,705 insertions, 3 deletions |
+| T5 S4 | 30 × `mcp::daemon`, default threads | `30 test result: ok. 21 passed; 0 failed`; test time 1.00–1.15 s per run; load average 40–57 |
+| T5 S4 | 30 × `mcp::daemon -- --test-threads=1` | `30 test result: ok. 21 passed; 0 failed`; test time 1.38–2.37 s per run; load average 35–56 |
+
+**Corrections made to this plan by the validation.**
+
+| # | Where | What the plan said | What was wrong | What it says now |
+|---|---|---|---|---|
+| 1 | Task 3 Step 6, `run_build` | `state: &*self,` | Compiles and passes, but clippy (`explicit_auto_deref`, in `clippy::all`) flags it: a new warning in a file this slice adds, which the plan's own constraint forbids. | `state: &self,` |
+| 2 | Task 5 Step 2, clippy filter | "the last command prints nothing" | `session.rs` already has one clippy warning on the base (`filter_map_bool_then` in `plan_refresh`), so the filter prints one line. | The expectation names that line and why it is not this slice's. |
+| 3 | Task 3 Step 7 | "Two tests print a panic message from a helper thread" | The harness captures it; a passing run prints nothing. | Says so. |
+| 4 | Task 3 Step 9, mutant A | three failing tests | Six fail. | Lists the six. |
+| 5 | Task 4 Step 2 | one expected error | `E0282` accompanies `E0599`. | Names both. |
+| 6 | Task 4 Step 6, mutant A | one failing test | The poisoned-slot test fails too. | Names both. |
+| 7 | Self-review, size | `CLAUDE.md` 13 lines; S3a-1 "about 1,700" | 12 lines; 1,705 insertions as built. | Corrected. |
+
+Nothing in Tasks 1–5 failed to hold as designed: no test needed a change, no stated count was wrong, no mutant survived, and no run of 60 under load differed.
+
+**Not run in this validation:** `cargo test --features mcp --test mcp` (so neither its base total nor the golden transcripts), the full `cargo test --features mcp` suite, `cargo test --doc --features mcp`, the mutation gate, a release build, the Tier-A harness, anything on Linux, and Tasks 6–9. Clippy was not run on the base in the same environment; that the one `session.rs` warning is not this slice's rests on the expression it flags being outside this slice's diff.
