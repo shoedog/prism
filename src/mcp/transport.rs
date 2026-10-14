@@ -658,6 +658,23 @@ pub(super) fn readiness_response(
     ))
 }
 
+/// A retryable status for a call that cannot run yet, in the envelope `readiness_response`
+/// gives the warming and build-failed statuses. It is for a status that only a shared daemon
+/// reports; the in-process server reports those two, through `readiness_response`, and
+/// nothing else.
+pub(super) fn retryable_status_response(
+    call: &ToolCall<'_>,
+    status: Value,
+    index_state: &'static str,
+    settings: &ConnectionSettings,
+) -> Value {
+    success_response(
+        call.id.clone(),
+        retryable_status_result(status, index_state)
+            .to_call_tool_result_value(settings.structured_content),
+    )
+}
+
 /// `refresh_index`: rebuild the snapshot. Needs exclusive access to the provider.
 pub(super) fn dispatch_tool_refresh(
     call: &ToolCall<'_>,

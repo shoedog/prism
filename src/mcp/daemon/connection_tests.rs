@@ -4,8 +4,8 @@
 //! status probe it reads is `DaemonState::status`, called in process.
 use super::super::coordinator::{AttemptHook, BuildStatus, DaemonState};
 use super::super::test_support::{
-    advance, build_after, client_settings, client_settings_with, fail_now, fixture, parts_with,
-    scripted, state_with, status, wait_until, Gate, ManualClock,
+    advance, build_after, client_settings, client_settings_with, fail_after, fail_now, fixture,
+    parts_with, scripted, state_with, status, wait_until, Gate, ManualClock,
 };
 use super::super::wire_support::{
     close, connect, ended, CALLEES, INIT, INITED, LIST, NO_SUCH_TOOL, PING, REFRESH,
@@ -390,4 +390,84 @@ fn a_call_is_not_served_from_the_slot_before_ready_is_announced() {
     assert_eq!(served["result"]["structuredContent"]["query"], RUN_CALLEES);
     assert_eq!(built(&builds), 1);
     close(a, a_worker);
+}
+
+/// The owner's decision (D26): a call is not told of a failure that a retry has already
+/// superseded. A's call waits on attempt 1, which fails; before A's call runs again, B's call
+/// has started the retry and been served from it. A is then told that the repository is being
+/// indexed and to retry, in the envelope of the other retryable statuses, and its retry is
+/// served. Rules out answering `build_failed` with a stale cause, and a status that clients
+/// keyed on the index state would not treat as warming.
+#[test]
+fn a_call_whose_failed_attempt_was_superseded_is_told_to_retry_and_its_retry_is_served() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let first_gate = Gate::closed();
+    let (builder, builds) = scripted(&cfg, vec![fail_after(&first_gate, "first attempt failed")]);
+    let clock = ManualClock::new();
+    let mut parts = parts_with(builder, &clock);
+    let recorded = Gate::closed();
+    let notify = Gate::closed();
+    let hook: AttemptHook = {
+        let recorded = Arc::clone(&recorded);
+        let notify = Arc::clone(&notify);
+        Arc::new(move |attempt: u64| {
+            if attempt == 1 {
+                recorded.open();
+                let _opened = notify.pass();
+            }
+        })
+    };
+    parts.hooks.settled = Some(hook);
+    let state = DaemonState::from_parts(parts).expect("a lazy daemon state");
+    let (mut a, a_worker) = connect(&state, client_settings(600));
+    a.handshake();
+    a.send(CALLEES);
+    wait_until("A's call to be waiting on attempt 1", || {
+        status(&state).waiting == 1
+    });
+    first_gate.open();
+    assert!(recorded.pass(), "attempt 1's failure is recorded");
+
+    // B's call is the next call after the failure: it starts the retry and is served from it.
+    let (mut b, b_worker) = connect(&state, client_settings(600));
+    b.handshake();
+    let from_b = b.request(CALLEES);
+    assert_eq!(from_b["result"]["structuredContent"]["query"], RUN_CALLEES);
+
+    // The retry's announcement woke A's call. Its own attempt failed; the index is ready.
+    let told = a.recv();
+    assert_eq!(told["id"], 7);
+    assert_eq!(told["result"]["isError"], true, "{told}");
+    assert_eq!(
+        told["result"]["structuredContent"],
+        json!({
+            "status": "indexing",
+            "retry_after_secs": 5,
+            "message": "prism-mcp is indexing the repository; retry this call in about 5 seconds. If you already retried and that call succeeded, ignore this message."
+        }),
+        "{told}"
+    );
+    let text = told["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap_or_default();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(text)
+            .ok()
+            .as_ref(),
+        Some(&told["result"]["structuredContent"]),
+        "the text view carries the same status"
+    );
+    assert_eq!(told["result"]["_meta"]["prism/index_state"], "warming");
+    assert_eq!(told["result"]["_meta"]["prism/retryable"], true);
+    assert!(
+        !told.to_string().contains("first attempt failed"),
+        "the superseded failure is not sent: {told}"
+    );
+    notify.open();
+
+    let served = a.request(CALLEES);
+    assert_eq!(served["result"]["structuredContent"]["query"], RUN_CALLEES);
+    assert_eq!(built(&builds), 2);
+    close(a, a_worker);
+    close(b, b_worker);
 }

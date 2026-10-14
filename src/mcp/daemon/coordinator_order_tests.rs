@@ -69,11 +69,12 @@ fn the_index_is_in_the_slot_before_ready_is_announced() {
 
 /// Attempt 1 fails. Before its waiter is notified, another connection calls: it is the next
 /// call after the failure, so it starts the retry. The waiter then wakes to find attempt 2
-/// building. It must be told that its own attempt failed. Rules out a waiter that joins
-/// whatever is building (it would wait on the retry with the budget of another attempt) and
-/// one that starts a third attempt.
+/// building. Its own attempt's failure is stale by then, so it is told to retry (the owner's
+/// decision, D26): it is not given that failure, it does not join the retry with the budget
+/// of another attempt, and it starts no third attempt. Rules out a waiter that reports a
+/// failure a retry has already superseded, and one that waits on whatever is building.
 #[test]
-fn a_waiter_that_wakes_after_the_retry_began_still_hears_of_its_own_attempt_s_failure() {
+fn a_waiter_whose_failed_attempt_was_superseded_by_a_building_retry_is_told_to_retry() {
     let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
     let first_gate = Gate::closed();
     let retry_gate = Gate::closed();
@@ -111,8 +112,8 @@ fn a_waiter_that_wakes_after_the_retry_began_still_hears_of_its_own_attempt_s_fa
     notify.open();
     assert_eq!(
         early.outcome(),
-        Outcome::Failed("first attempt failed".to_string()),
-        "the early call is told how its own attempt ended"
+        Outcome::Superseded,
+        "attempt 1 failed and attempt 2 is building: the early call is told to retry"
     );
     wait_until("the retry's build thread to call the builder", || {
         built(&calls) == 2
@@ -230,12 +231,12 @@ fn a_waiter_held_behind_its_failed_attempt(
     (state, early, notify, calls)
 }
 
-/// A call is answered with the outcome of the attempt it joined, whatever has happened since
-/// (spec §4.2: "its outcome is delivered to every connection waiting on it"). Here the retry
-/// has already succeeded when the waiter of attempt 1 runs. Rules out answering from the
-/// current phase: the waiter would be told `Ready`, and attempt 1's failure would reach nobody.
+/// The retry has already succeeded when the waiter of attempt 1 runs. It is told to retry, and
+/// its next call is served (D26). It is not told `Ready` either: a call is answered from its
+/// own attempt, and its own attempt built nothing. Rules out reporting the superseded failure,
+/// and answering from the current phase.
 #[test]
-fn a_waiter_of_a_failed_attempt_hears_that_failure_although_the_retry_has_succeeded() {
+fn a_waiter_whose_failed_attempt_was_superseded_by_a_ready_index_is_told_to_retry() {
     let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
     let (state, early, notify, calls) = a_waiter_held_behind_its_failed_attempt(&cfg, vec![]);
 
@@ -248,8 +249,8 @@ fn a_waiter_of_a_failed_attempt_hears_that_failure_although_the_retry_has_succee
 
     assert_eq!(
         early.outcome(),
-        Outcome::Failed("first attempt failed".to_string()),
-        "the waiter of attempt 1 is told how attempt 1 ended"
+        Outcome::Superseded,
+        "attempt 1 failed and the index is ready: the waiter of attempt 1 is told to retry"
     );
     notify.open();
     assert_eq!(status(&state).attempt, 2);
@@ -260,8 +261,10 @@ fn a_waiter_of_a_failed_attempt_hears_that_failure_although_the_retry_has_succee
     assert_eq!(early.outcome(), Outcome::Ready);
 }
 
-/// As above, with a retry that failed for another reason. Rules out one remembered error for
-/// all attempts: the waiter of attempt 1 would be told attempt 2's.
+/// Here the retry failed too, for another reason, and nothing is building: no retry has
+/// superseded attempt 1's failure, so its waiter is told of it, with attempt 1's own text.
+/// Rules out one remembered error for all attempts (the waiter of attempt 1 would be told
+/// attempt 2's) and telling every waiter of a failed attempt to retry.
 #[test]
 fn a_waiter_of_a_failed_attempt_hears_that_failure_although_the_retry_failed_differently() {
     let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);

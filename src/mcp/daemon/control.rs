@@ -1,10 +1,26 @@
 //! What the control lock guards, and how an attempt's ending is kept for the calls that joined
 //! it (spec §4.2). These are the types only: `coordinator.rs` holds the lock and makes every
 //! change to them.
-use crate::mcp::lazy::Readiness;
 use crate::mcp::shared::preamble::BuildState;
 use std::sync::{Arc, OnceLock};
-use std::time::Instant;
+use std::time::{Duration, Instant};
+
+/// What a readiness call is told.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum Answer {
+    /// The index is published.
+    Ready,
+    /// This connection's deadline for its attempt has passed and the attempt is still
+    /// building. `elapsed` is the attempt's age.
+    Warming { elapsed: Duration },
+    /// The call's own attempt ended without an index, with this error, and nothing has
+    /// superseded that: no later attempt is building and the index is not ready.
+    Failed { error: String },
+    /// The call's own attempt ended without an index, and the daemon has since moved on: a
+    /// later attempt is building, or the index is ready. The failure is stale, so the call is
+    /// not given it; it is told to retry. It is never given another attempt's outcome.
+    Superseded,
+}
 
 /// How one build attempt ended: empty while it builds, filled when it ends, and not changed
 /// after that (a second fill has no effect). The attempt's phase holds one share of it and
@@ -21,14 +37,10 @@ impl AttemptOutcome {
         let _ = self.ended.set(ended);
     }
 
-    /// What a call that belongs to this attempt is told; `None` while it is still building.
-    pub(super) fn answer(&self) -> Option<Readiness> {
-        self.ended.get().map(|ended| match ended {
-            Ok(()) => Readiness::Ready,
-            Err(error) => Readiness::Failed {
-                error: error.clone(),
-            },
-        })
+    /// How the attempt ended: `Ok` if it published the index, its error if it did not; `None`
+    /// while it is still building.
+    pub(super) fn ended(&self) -> Option<&Result<(), String>> {
+        self.ended.get()
     }
 }
 

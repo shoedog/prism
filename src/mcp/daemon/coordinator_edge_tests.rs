@@ -43,21 +43,20 @@ fn refusing_spawner() -> Spawner {
     })
 }
 
-/// The waiter of attempt 1 first runs when attempt 3 is building. The notifications of
-/// attempts 1 and 2 are both held, so nothing wakes either earlier waiter until then; each is
-/// then told its own attempt's failure, and the caller of attempt 3 keeps waiting. Rules out
-/// an error kept with only its attempt number: nothing of attempt 1 would be left.
-#[test]
-fn a_waiter_of_a_failed_attempt_hears_that_failure_although_a_third_attempt_is_building() {
-    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+/// Attempts 1 and 2 fail and the notifications of both are held, so nothing wakes either
+/// waiter; a third connection then starts attempt 3, which plays `third`. Returns the state,
+/// the three connections in the order of their attempts, and the two held notifications.
+fn two_waiters_held_behind_their_failed_attempts(
+    cfg: &ServerConfig,
+    third: BuildStep,
+) -> (Arc<DaemonState>, [Conn; 3], [Arc<Gate>; 2]) {
     let first_gate = Gate::closed();
-    let third_gate = Gate::closed();
     let (builder, _calls) = scripted(
-        &cfg,
+        cfg,
         vec![
             fail_after(&first_gate, "first attempt failed"),
             fail_now("second attempt failed"),
-            build_after(&third_gate, &cfg),
+            third,
         ],
     );
     let clock = ManualClock::new();
@@ -86,6 +85,18 @@ fn a_waiter_of_a_failed_attempt_hears_that_failure_although_a_third_attempt_is_b
     assert!(recorded[1].pass(), "attempt 2's failure is recorded");
     let third = Conn::open(&state, 600);
     third.call();
+    (state, [early, second, third], notify)
+}
+
+/// The waiters of attempts 1 and 2 first run when attempt 3 is building. Each is told to
+/// retry (D26): a later attempt has superseded its failure. Neither joins attempt 3, and the
+/// caller of attempt 3 keeps waiting.
+#[test]
+fn waiters_of_failed_attempts_are_told_to_retry_while_a_third_attempt_is_building() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let third_gate = Gate::closed();
+    let (state, [early, second, third], notify) =
+        two_waiters_held_behind_their_failed_attempts(&cfg, build_after(&third_gate, &cfg));
     wait_until("attempt 3 to be building with three calls parked", || {
         let now = status(&state);
         now.state == BuildState::Building && now.attempt == 3 && now.waiting == 3
@@ -97,6 +108,33 @@ fn a_waiter_of_a_failed_attempt_hears_that_failure_although_a_third_attempt_is_b
     assert!(!second.answered(), "nor the waiter of attempt 2");
 
     notify[0].open();
+    assert_eq!(early.outcome(), Outcome::Superseded);
+    assert_eq!(second.outcome(), Outcome::Superseded);
+    assert_eq!(status(&state).attempt, 3);
+    assert_eq!(status(&state).state, BuildState::Building);
+    assert!(!third.answered(), "the caller of attempt 3 keeps waiting");
+
+    notify[1].open();
+    third_gate.open();
+    assert_eq!(third.outcome(), Outcome::Ready);
+}
+
+/// The same, with a third attempt that fails as well, so that nothing is building when the
+/// earlier waiters run: no retry has superseded their failures. Each is told of its own
+/// attempt's, with its own text, two and one attempts later. Rules out an error kept with
+/// only its attempt number (nothing of attempt 1 would be left), and answering with the
+/// latest failure's text.
+#[test]
+fn waiters_of_failed_attempts_hear_their_own_failure_when_every_later_attempt_failed_too() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (state, [early, second, third], notify) =
+        two_waiters_held_behind_their_failed_attempts(&cfg, fail_now("third attempt failed"));
+
+    // Attempt 3's ending is not held: it wakes everybody parked.
+    assert_eq!(
+        third.outcome(),
+        Outcome::Failed("third attempt failed".to_string())
+    );
     assert_eq!(
         early.outcome(),
         Outcome::Failed("first attempt failed".to_string())
@@ -106,12 +144,9 @@ fn a_waiter_of_a_failed_attempt_hears_that_failure_although_a_third_attempt_is_b
         Outcome::Failed("second attempt failed".to_string())
     );
     assert_eq!(status(&state).attempt, 3);
-    assert_eq!(status(&state).state, BuildState::Building);
-    assert!(!third.answered(), "the caller of attempt 3 keeps waiting");
-
+    assert_eq!(status(&state).state, BuildState::Failed);
+    notify[0].open();
     notify[1].open();
-    third_gate.open();
-    assert_eq!(third.outcome(), Outcome::Ready);
 }
 
 /// A builder may hand over a provider whose generation is not 0. The control plane reports

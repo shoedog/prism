@@ -17,8 +17,8 @@
 //! Turning both into the daemon-fatal abort of spec §3.1 is slice S3b.
 use super::budget::ConnectionBudget;
 use super::clock::{Clock, SystemClock};
-pub(super) use super::control::{AttemptOutcome, BuildPhase, BuildStatus, ControlState};
-use crate::mcp::lazy::{Readiness, SessionBuilder};
+pub(super) use super::control::{Answer, AttemptOutcome, BuildPhase, BuildStatus, ControlState};
+use crate::mcp::lazy::SessionBuilder;
 // The tests in this file's child modules name `BuildState` through `use super::*`.
 #[cfg(test)]
 use crate::mcp::shared::preamble::BuildState;
@@ -170,14 +170,15 @@ impl DaemonState {
     ///
     /// The call first decides which attempt it belongs to, once: the one that is building, or a
     /// new one if none has been started or the last one failed. From then on it reads only that
-    /// attempt's outcome, whatever the phase has become by the time it runs again, and returns
+    /// attempt's outcome, and returns
     ///
     /// - `Ready` once that attempt has published the index (or at once, if the index was ready
     ///   when the call arrived),
-    /// - `Failed`, with that attempt's own error, if that attempt ended without an index. The
-    ///   call does not start the retry (the next call does), does not join a retry that has
-    ///   begun in the meantime, and is told of the failure even if a retry has since succeeded:
-    ///   its next call finds the index ready,
+    /// - `Failed`, with that attempt's own error, if that attempt ended without an index and
+    ///   nothing has superseded it. The call does not start the retry; the next call does,
+    /// - `Superseded` if that attempt ended without an index and, by the time the call runs
+    ///   again, a later attempt is building or the index is ready. The failure is stale then,
+    ///   and the call is told to retry instead of being given it,
     /// - `Warming` when this connection's deadline for that attempt has passed. That is this
     ///   connection's wait ending; the build goes on and nobody else's deadline changes.
     ///
@@ -187,11 +188,11 @@ impl DaemonState {
     pub(super) fn ensure_ready(
         self: &Arc<Self>,
         budget: &mut ConnectionBudget,
-    ) -> Result<Readiness, Poisoned> {
+    ) -> Result<Answer, Poisoned> {
         let mut control = self.lock_control()?;
 
         let building = match &control.build {
-            BuildPhase::Ready => return Ok(Readiness::Ready),
+            BuildPhase::Ready => return Ok(Answer::Ready),
             BuildPhase::Building {
                 attempt,
                 started,
@@ -204,13 +205,28 @@ impl DaemonState {
         let deadline = budget.deadline_for(attempt, self.clock.now());
 
         loop {
-            if let Some(answer) = outcome.answer() {
-                return Ok(answer);
+            match outcome.ended() {
+                Some(Ok(())) => return Ok(Answer::Ready),
+                // The call's own attempt failed. One look at the phase, under the lock this
+                // call holds, decides whether that failure is still the last word. The look
+                // takes nothing from the phase but that: no outcome and no error of another
+                // attempt can reach this call through it, which is what answering from the
+                // phase once got wrong. `Building` here is always a later attempt, because
+                // this call's own has ended.
+                Some(Err(error)) => {
+                    return Ok(match &control.build {
+                        BuildPhase::Building { .. } | BuildPhase::Ready => Answer::Superseded,
+                        BuildPhase::Failed { .. } | BuildPhase::Idle => Answer::Failed {
+                            error: error.clone(),
+                        },
+                    });
+                }
+                None => {}
             }
             let now = self.clock.now();
             let remaining = deadline.saturating_duration_since(now);
             if remaining.is_zero() {
-                return Ok(Readiness::Warming {
+                return Ok(Answer::Warming {
                     elapsed: now.saturating_duration_since(started),
                 });
             }

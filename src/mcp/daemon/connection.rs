@@ -5,22 +5,53 @@
 //! for a validated tool call the coordinator's readiness followed by the same three dispatch
 //! functions, under the provider slot's read or write lock.
 //!
+//! One answer here is the daemon's alone. A call whose own build attempt failed, and which
+//! runs again only after a retry has superseded that failure, is told that the repository is
+//! being indexed and to retry (`indexing_status`); the in-process server has one client and no
+//! such case. Everything else a call is told before the index is ready is the in-process
+//! server's `warming` or `build_failed`, from the same `readiness_response`.
+//!
 //! What this slice leaves to S3b: under an automatic refresh policy the trigger is not
 //! re-checked after exclusive access is acquired, so two clients that both find the index stale
 //! each refresh it; a query that follows a refresh runs while the slot is still held
 //! exclusively; and there is no panic boundary.
 use super::budget::ConnectionBudget;
-use super::coordinator::DaemonState;
+use super::coordinator::{Answer, DaemonState};
 use crate::mcp::framing::{Transport, UnixStreamTransport};
+use crate::mcp::lazy::Readiness;
 use crate::mcp::registry::ToolRegistry;
 use crate::mcp::settings::{ClientSettings, ConnectionSettings};
 use crate::mcp::transport::{
     dispatch_tool_auto_refresh, dispatch_tool_read, dispatch_tool_refresh, handle_control,
-    readiness_response, serve_loop, Control, ReadDispatch, ToolCall,
+    readiness_response, retryable_status_response, serve_loop, Control, ReadDispatch, ToolCall,
 };
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::os::unix::net::UnixStream;
 use std::sync::Arc;
+
+/// How many seconds a client that is told `indexing` is asked to wait before it retries. The
+/// owner asked for "retry in <retry interval seconds>" and named no number; five is a
+/// placeholder to be changed here.
+const INDEXING_RETRY_AFTER_SECS: u64 = 5;
+
+/// The `prism/index_state` an `indexing` answer carries: the same as a warming answer's, so
+/// that a client that keys on the index state treats the two alike.
+const INDEXING_INDEX_STATE: &str = "warming";
+
+/// What a call is told when its own build attempt failed and a retry has already superseded
+/// that failure (a later attempt is building, or the index is ready): retry shortly, and
+/// ignore this if a retry has already succeeded. The stale failure's text is not in it.
+fn indexing_status() -> Value {
+    json!({
+        "status": "indexing",
+        "retry_after_secs": INDEXING_RETRY_AFTER_SECS,
+        "message": format!(
+            "prism-mcp is indexing the repository; retry this call in about \
+             {INDEXING_RETRY_AFTER_SECS} seconds. If you already retried and that call \
+             succeeded, ignore this message."
+        ),
+    })
+}
 
 /// Serve one admitted connection until its peer closes it or it fails.
 ///
@@ -70,7 +101,19 @@ fn run_tool_call(
     call: &ToolCall<'_>,
     settings: &ConnectionSettings,
 ) -> anyhow::Result<Value> {
-    let readiness = state.ensure_ready(budget)?;
+    let readiness = match state.ensure_ready(budget)? {
+        Answer::Ready => Readiness::Ready,
+        Answer::Warming { elapsed } => Readiness::Warming { elapsed },
+        Answer::Failed { error } => Readiness::Failed { error },
+        Answer::Superseded => {
+            return Ok(retryable_status_response(
+                call,
+                indexing_status(),
+                INDEXING_INDEX_STATE,
+                settings,
+            ));
+        }
+    };
     if let Some(response) = readiness_response(call, readiness, || None, settings) {
         return Ok(response);
     }
