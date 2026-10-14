@@ -377,6 +377,15 @@ impl DaemonState {
         Ok(())
     }
 
+    /// Empty the provider slot and leave the phase as it is. Only for the test of what a
+    /// connection does if `Ready` were ever announced over an empty slot.
+    #[cfg(test)]
+    pub(super) fn unpublish_for_tests(&self) {
+        if let Ok(mut slot) = self.provider.write() {
+            *slot = None;
+        }
+    }
+
     /// Wake every parked call so that it looks at the clock again.
     ///
     /// A running daemon does not need this: a parked call wakes by itself when its deadline

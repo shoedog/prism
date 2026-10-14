@@ -106,3 +106,7 @@ fn published<T>(outcome: Option<T>) -> anyhow::Result<T> {
 #[cfg(test)]
 #[path = "connection_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "connection_parity_tests.rs"]
+mod parity_tests;

@@ -103,3 +103,18 @@ pub(super) fn close(client: Client, worker: Worker) {
     drop(client);
     ended(worker).expect("a connection ends cleanly at end of input");
 }
+
+pub(super) const REFRESH: &str = r#"{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"refresh_index","arguments":{}}}"#;
+pub(super) const CALLERS: &str = r#"{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"nav_callers","arguments":{"seed":{"kind":"symbol","name":"helper","file":"util.py"}}}}"#;
+
+impl Client {
+    /// Require that the server closes the connection without sending anything more.
+    pub(super) fn expect_closed(&mut self) {
+        let mut line = String::new();
+        let read = self
+            .reader
+            .read_line(&mut line)
+            .expect("end of stream within the hang limit");
+        assert_eq!(read, 0, "expected the connection to be closed, got: {line}");
+    }
+}
