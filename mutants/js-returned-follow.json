@@ -380,8 +380,8 @@
   ],
   "RV-47-textual-stands-down-on-any-returned-site": [
    "src/call_graph.rs",
-   "let alias_followed = stand_down && self.js_ts_alias_route_hit(site);",
-   "let alias_followed = stand_down && site.local_binding.is_followed();",
+   "s.origin == CallSiteOrigin::Source && self.js_ts_alias_route_hit(s)",
+   "s.origin == CallSiteOrigin::Source && s.local_binding.is_followed()",
    [
     "js_returned_follow_fallback_test::the_textual_path_stands_down_for_a_returned_value_site_only_on_a_proven_hit"
    ]
