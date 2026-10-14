@@ -352,6 +352,11 @@ fn an_array_pattern_with_any_unmodeled_element_is_not_followed() {
             "a",
         ),
         ("name bound twice", "const [a, a] = H();\na();\n", "a"),
+        (
+            "another name bound twice",
+            "const [a, b, b] = H();\na();\n",
+            "a",
+        ),
     ];
     let owned: Vec<String> = shapes
         .iter()

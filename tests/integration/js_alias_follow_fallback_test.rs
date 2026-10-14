@@ -141,16 +141,30 @@ fn an_export_without_a_span_is_not_a_proven_alias_terminal() {
         return h();\n}\n";
     let destructure = "import * as N from './producer';\nexport function run() {\n  \
         const { w: h } = N;\n  return h();\n}\n";
-    for (label, app) in [
-        ("ns member", ns),
-        ("named import", named),
-        ("destructure", destructure),
+    for (label, app, want) in [
+        ("ns member", ns, vec!["L4 h Source: drop UnknownName"]),
+        // main also holds the textual function-pointer record (a wrong edge to the nested `w`);
+        // the stand-down is decided by the alias route's proof, which is absent here, so the
+        // head keeps main's complete record set.
+        (
+            "named import",
+            named,
+            vec![
+                "L4 h Source: drop UnknownName",
+                "L4 w IndirectResolution: producer.ts:w@5-5 import_member exact",
+            ],
+        ),
+        (
+            "destructure",
+            destructure,
+            vec!["L4 h Source: drop UnknownName"],
+        ),
     ] {
         let cg = graph_n(&[("producer.ts", SPANLESS), ("app.ts", app)]);
         equals_main(
             &format!("span-less {label}"),
             records_of(&cg, "app.ts"),
-            &["L4 h Source: drop UnknownName"], // main: also a textual record (named import only), same wrong edge to the nested `w`
+            &want,
         );
     }
 }
@@ -204,4 +218,139 @@ fn valid_siblings_in_a_pattern_are_not_followed_and_equal_main() {
             &["L4 f Source: drop UnknownName"],
         );
     }
+}
+
+const MEMO_C: &str =
+    "import { memo } from 'react';\nconst C = memo(function Comp() {\n  return null;\n});\n";
+
+#[test]
+fn a_wrapped_callable_terminal_at_a_non_jsx_site_equals_main() {
+    // The callable arm is a proof only when it binds exactly one Exact target; a wrapped
+    // component called as a function is not one, so the site keeps main's outcome.
+    let with_decoy = format!(
+        "{MEMO_C}function h() {{\n  return 0;\n}}\nexport function run() {{\n  const h = C;\n  \
+         return h();\n}}\n"
+    );
+    let without = format!("{MEMO_C}export function run() {{\n  const h = C;\n  return h();\n}}\n");
+    for (label, src, want) in [
+        // main binds the same-file decoy `h` by name (the wrong edge the next slice removes).
+        (
+            "with a same-named decoy",
+            &with_decoy,
+            vec!["L10 h Source: app.tsx:h@5-7 local_def exact"],
+        ),
+        (
+            "without a decoy",
+            &without,
+            vec!["L7 h Source: drop UnknownName"],
+        ),
+    ] {
+        let cg = graph_n(&[("app.tsx", src)]);
+        equals_main(label, records_of(&cg, "app.tsx"), &want);
+    }
+}
+
+#[test]
+fn a_wrapped_alias_called_from_a_nested_function_equals_main() {
+    let app = format!(
+        "{MEMO_C}export function outer() {{\n  const helper = C;\n  return function inner() {{\n    \
+         return helper();\n  }};\n}}\n"
+    );
+    let other = "export function helper() {\n  return 1;\n}\n";
+    let cg = graph_n(&[("app.tsx", &app), ("other.ts", other)]);
+    equals_main(
+        "wrapped alias, nested call",
+        records_of(&cg, "app.tsx"),
+        &["L8 helper Source: other.ts:helper@1-3 free_single exact"],
+    );
+}
+
+#[test]
+fn same_name_functions_starting_on_one_line_bind_the_one_proven_target() {
+    let src = "function f() { function f() {}\n  return 1;\n}\nexport function run() {\n  const h = f;\n  \
+        return h();\n}\n";
+    let cg = graph_n(&[("app.js", src)]);
+    // main: `Source` drops and the textual record binds BOTH same-named functions (the nested
+    // `f@1-1` is a wrong edge). The head's alias route proves exactly one target (`f@1-3`, by
+    // start and end line), so the predicate is true: one `Source` record, no textual record.
+    assert_eq!(
+        records_of(&cg, "app.js"),
+        ["L6 h Source: app.js:f@1-3 local_def exact"]
+    );
+}
+
+#[test]
+fn commonjs_exports_keep_mains_textual_record_through_an_alias() {
+    // The exports are unproven on the alias routes (no span); main's textual record to the
+    // CommonJS function is a correct edge and must survive.
+    let lib = "function helper() {\n  return 1;\n}\nmodule.exports = { helper };\n";
+    let app = "import { helper } from './lib';\nfunction f() {\n  const h1 = helper;\n  \
+        return h1();\n}\n";
+    let cg = graph_n(&[("lib.js", lib), ("app.js", app)]);
+    equals_main(
+        "commonjs object export",
+        records_of(&cg, "app.js"),
+        &[
+            "L4 h1 Source: drop UnknownName",
+            "L4 helper IndirectResolution: lib.js:helper@1-3 import_member exact",
+        ],
+    );
+}
+
+#[test]
+fn a_destructured_namespace_alias_with_a_decoy_named_like_the_namespace_equals_main() {
+    let producer = "export function f() {}\nexport const x = f;\n";
+    let app = "import * as N from './producer';\nfunction decoy() {\n  function N() {}\n}\n\
+        export function run() {\n  const { x: h } = N;\n  return h();\n}\n";
+    let cg = graph_n(&[("producer.ts", producer), ("app.ts", app)]);
+    equals_main(
+        "namespace decoy N",
+        records_of(&cg, "app.ts"),
+        &[
+            "L7 N IndirectResolution: app.ts:N@3-3 local_def exact",
+            "L7 h Source: drop UnknownName",
+        ],
+    );
+}
+
+#[test]
+fn an_alias_named_like_its_paths_import_does_not_leak_the_import_proof() {
+    use super::js_paths_common::{config, fixture};
+    let d = fixture(
+        "tsx",
+        "@lib",
+        &config(serde_json::json!({"@lib": ["lib/real"]})),
+    );
+    write(
+        d.path(),
+        "lib/real.tsx",
+        "import { memo } from 'react';\nexport const real = memo(() => null);\n",
+    );
+    write(
+        d.path(),
+        "app.tsx",
+        "import { real } from '@lib';\nexport function outer() {\n  const t = real;\n  \
+         return function mid() {\n    const real = t;\n    return function inner() {\n      \
+         return real();\n    };\n  };\n}\n",
+    );
+    let cg = graph(d.path());
+    equals_main(
+        "paths wrapped alias named like the import",
+        records_of(&cg, "app.tsx"),
+        &["L7 real Source: drop UnknownName"],
+    );
+}
+
+#[test]
+fn a_pattern_binding_a_name_twice_is_not_followed_and_equals_main() {
+    let app =
+        "import * as N from './m';\nexport function run() {\n  const { f, x: a, f: a } = N;\n  \
+        return f();\n}\n";
+    let m = "export function f() {\n  return 1;\n}\n";
+    let cg = graph_n(&[("m.ts", m), ("app.ts", app)]);
+    equals_main(
+        "duplicate bound name",
+        records_of(&cg, "app.ts"),
+        &["L4 f Source: drop UnknownName"],
+    );
 }

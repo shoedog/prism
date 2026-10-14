@@ -32,8 +32,8 @@
   ],
   "RV-04-pattern-unknown-entry-skipped": [
    "src/ast/js_binding_alias.rs",
-   "                _ => return None,\n            };\n            if bound == name",
-   "                _ => continue,\n            };\n            if bound == name",
+   "                _ => return None,\n            };\n            // Every bound name",
+   "                _ => continue,\n            };\n            // Every bound name",
    [
     "ast::js_binding_returned::tests::an_object_pattern_with_any_unmodeled_entry_is_not_followed"
    ]
@@ -376,6 +376,30 @@
    "if false {",
    [
     "js_returned_follow_fallback_test::every_unproven_returned_value_site_equals_the_base"
+   ]
+  ],
+  "RV-47-textual-stands-down-on-any-returned-site": [
+   "src/call_graph.rs",
+   "let alias_followed = stand_down && self.js_ts_alias_route_hit(site);",
+   "let alias_followed = stand_down && site.local_binding.is_followed();",
+   [
+    "js_returned_follow_fallback_test::the_textual_path_stands_down_for_a_returned_value_site_only_on_a_proven_hit"
+   ]
+  ],
+  "RV-48-duplicate-slot-name-allowed": [
+   "src/ast/js_binding_returned.rs",
+   "if !seen.insert(self.node_text(&child)) {",
+   "if false {",
+   [
+    "ast::js_binding_returned::tests::an_array_pattern_with_any_unmodeled_element_is_not_followed"
+   ]
+  ],
+  "RV-49-callers-credit-by-name": [
+   "src/output/review.rs",
+   "identity.as_ref().is_some_and(|id| targets.contains(id))",
+   "identity.as_ref().is_some_and(|id| targets.iter().any(|t| t.name == id.name))",
+   [
+    "js_returned_callers_test::format_callers_credits_the_exact_returned_function_not_a_same_named_one"
    ]
   ]
  }

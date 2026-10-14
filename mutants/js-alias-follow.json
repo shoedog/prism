@@ -61,14 +61,6 @@
     "ast::js_binding_alias::tests::member_shapes_outside_the_plain_namespace_member_are_not_followed"
    ]
   ],
-  "AF-09-duplicate-key-accepted": [
-   "src/ast/js_binding_alias.rs",
-   "[key] => Some(std::mem::take(key)),",
-   "[key, ..] => Some(std::mem::take(key)),",
-   [
-    "ast::js_binding_alias::tests::pattern_shapes_outside_the_flat_object_pattern_are_not_followed"
-   ]
-  ],
   "AF-13-angle-assertion-first-child": [
    "src/ast/js_binding_alias.rs",
    "\"type_assertion\" => first_expression(value, true),",
@@ -144,8 +136,8 @@
   ],
   "AF-25-alias-import-proof-refused": [
    "src/resolution.rs",
-   "crate::call_graph::JsLocalBinding::AliasImport { local } => *local == binding.local,",
-   "crate::call_graph::JsLocalBinding::AliasImport { .. } => false,",
+   "alias_route && *local == binding.local",
+   "false",
    [
     "js_alias_follow_test::an_alias_of_a_tsconfig_paths_import_binds_through_the_paths_route"
    ]
@@ -184,8 +176,8 @@
   ],
   "AF-35-textual-path-stands-down-for-unfollowed-alias": [
    "src/call_graph.rs",
-   "                        | JsLocalBinding::AliasNamespaceMember { .. }\n                );\n                if !alias_followed",
-   "                        | JsLocalBinding::AliasNamespaceMember { .. }\n                        | JsLocalBinding::MayCall(_)\n                );\n                if !alias_followed",
+   "let alias_followed = stand_down && self.js_ts_alias_route_hit(site);",
+   "let alias_followed = stand_down\n                    && (self.js_ts_alias_route_hit(site)\n                        || matches!(site.local_binding, JsLocalBinding::MayCall(_)));",
    [
     "js_alias_follow_test::textual_fptr_path_still_fires_where_the_binder_does_not_follow"
    ]
@@ -224,8 +216,8 @@
   ],
   "AF-38-unknown-entry-skipped": [
    "src/ast/js_binding_alias.rs",
-   "                _ => return None,\n            };\n            if bound == name",
-   "                _ => continue,\n            };\n            if bound == name",
+   "                _ => return None,\n            };\n            // Every bound name",
+   "                _ => continue,\n            };\n            // Every bound name",
    [
     "ast::js_binding_alias::pattern_tests::a_pattern_with_any_non_flat_entry_is_not_followed"
    ]
@@ -296,8 +288,8 @@
   ],
   "AF-41-namespace-alias-keeps-textual-record": [
    "src/call_graph.rs",
-   "                        | JsLocalBinding::AliasNamespaceMember { .. }\n                );\n                if !alias_followed",
-   "                );\n                if !alias_followed",
+   "let alias_followed = stand_down && self.js_ts_alias_route_hit(site);",
+   "let alias_followed = stand_down\n                    && self.js_ts_alias_route_hit(site)\n                    && !matches!(site.local_binding, JsLocalBinding::AliasNamespaceMember { .. });",
    [
     "js_alias_follow_test::the_textual_path_stands_down_for_a_destructured_namespace_alias"
    ]
@@ -321,18 +313,60 @@
   ],
   "AF-44-format-callers-ignores-alias-sites": [
    "src/output/review.rs",
-   "if names.contains(&callee_name) && !listed {",
-   "if false && names.contains(&callee_name) && !listed {",
+   "if identity.as_ref().is_some_and(|id| targets.contains(id)) && !listed {",
+   "if false && identity.as_ref().is_some_and(|id| targets.contains(id)) && !listed {",
    [
     "js_alias_follow_test::format_callers_lists_a_followed_alias_caller_once"
    ]
   ],
   "AF-45-call-stats-miscounts-outcome": [
    "src/navigation/queries.rs",
-   "(true, _) => \"proven\",",
-   "(true, _) => \"kept_main\",",
+   "if hit { \"proven\" } else { \"kept_main\" }",
+   "if hit { \"kept_main\" } else { \"proven\" }",
    [
     "js_alias_follow_test::call_stats_counts_followed_aliases_by_terminal_kind_and_outcome"
+   ]
+  ],
+  "AF-50-callable-arm-returns-its-drop": [
+   "src/resolution_js_alias.rs",
+   "(outcome.drop.is_none()",
+   "(true || outcome.drop.is_none()",
+   [
+    "js_alias_follow_fallback_test::a_wrapped_callable_terminal_at_a_non_jsx_site_equals_main",
+    "js_alias_rule_test::the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_site"
+   ]
+  ],
+  "AF-51-stand-down-by-binding-kind": [
+   "src/call_graph.rs",
+   "let alias_followed = stand_down && self.js_ts_alias_route_hit(site);",
+   "let alias_followed = stand_down\n                    && matches!(\n                        site.local_binding,\n                        JsLocalBinding::AliasCallable(_)\n                            | JsLocalBinding::AliasImport { .. }\n                            | JsLocalBinding::AliasNamespaceMember { .. }\n                    );",
+   [
+    "js_alias_follow_fallback_test::an_export_without_a_span_is_not_a_proven_alias_terminal",
+    "js_alias_rule_test::the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_site"
+   ]
+  ],
+  "AF-52-import-proof-unconditional": [
+   "src/resolution.rs",
+   "alias_route && *local == binding.local",
+   "*local == binding.local",
+   [
+    "js_alias_follow_fallback_test::an_alias_named_like_its_paths_import_does_not_leak_the_import_proof"
+   ]
+  ],
+  "AF-53-duplicate-bound-name-allowed": [
+   "src/ast/js_binding_alias.rs",
+   "if !seen.insert(bound) {",
+   "if false && !seen.insert(bound) {",
+   [
+    "ast::js_binding_alias::pattern_tests::a_pattern_binding_any_name_twice_is_not_followed"
+   ]
+  ],
+  "AF-54-format-callers-credits-by-name": [
+   "src/output/review.rs",
+   "identity.as_ref().is_some_and(|id| targets.contains(id))",
+   "identity.as_ref().is_some_and(|id| targets.iter().any(|t| t.name == id.name))",
+   [
+    "js_alias_follow_test::format_callers_keeps_the_identity_of_the_followed_target"
    ]
   ]
  }

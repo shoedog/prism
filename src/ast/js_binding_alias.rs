@@ -166,6 +166,7 @@ impl ParsedFile {
     /// something unmodeled. Returns the key that binds `name`, when exactly one entry does.
     pub(super) fn js_ts_object_pattern_key(&self, pattern: Node<'_>, name: &str) -> Option<String> {
         let mut keys = Vec::new();
+        let mut seen = BTreeSet::new();
         let mut cursor = pattern.walk();
         for entry in pattern.named_children(&mut cursor) {
             let (bound, key) = match entry.kind() {
@@ -185,6 +186,11 @@ impl ParsedFile {
                 }
                 _ => return None,
             };
+            // Every bound name must be unique in the pattern (a repeat is an early
+            // SyntaxError, whichever name is being looked up).
+            if !seen.insert(bound) {
+                return None;
+            }
             if bound == name {
                 keys.push(key.to_string());
             }

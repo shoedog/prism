@@ -336,3 +336,60 @@ fn every_unproven_returned_value_site_equals_the_base() {
         wrong.join("\n")
     );
 }
+
+/// The indirect (textual function-pointer) records the audit seam gives for `save` calls.
+fn textual_records(files: &[(&str, &str)], stand_down: bool) -> Vec<String> {
+    use prism::ast::ParsedFile;
+    use prism::languages::Language;
+    let parsed: std::collections::BTreeMap<String, ParsedFile> = files
+        .iter()
+        .map(|(p, s)| {
+            let lang = Language::from_path(p).unwrap();
+            (p.to_string(), ParsedFile::parse(p, s, lang).unwrap())
+        })
+        .collect();
+    let cg = prism::call_graph::CallGraph::build(&parsed);
+    let mut out: Vec<String> = cg
+        .audit_indirect_records(&parsed, stand_down)
+        .iter()
+        .map(|(caller, site)| format!("{} -> {}", caller.name, site.callee_name))
+        .collect();
+    out.sort();
+    out
+}
+
+#[test]
+fn the_textual_path_stands_down_for_a_returned_value_site_only_on_a_proven_hit() {
+    // A line `save = target;` inside a template literal of the calling function is text the
+    // function-pointer path reads as an assignment of `save` (main emits an indirect record to
+    // `target` for it). The binding sits in the outer function, so the declaration line is not in
+    // the caller's text. The stand-down must remove that record for a proven returned-value hit
+    // and keep it everywhere else.
+    let decoy = "export function target() {\n  return 9;\n}\n";
+    let caller = "import { useThing } from './hooks';\nexport function outer() {\n  \
+                  const { save } = useThing();\n  function inner() {\n    const note = `\nsave = target;\n`;\n    \
+                  return save();\n  }\n  return inner;\n}\n";
+    let proven =
+        "function a() {\n  return 1;\n}\nexport function useThing() {\n  return { save: a };\n}\n";
+    let divergent = "function a() {\n  return 1;\n}\nfunction b() {\n  return 2;\n}\n\
+                     export function useThing(c) {\n  if (c) return { save: a };\n  return { save: b };\n}\n";
+    for (label, hooks, held) in [("proven", proven, false), ("divergent", divergent, true)] {
+        let files = [
+            ("hooks.ts", hooks),
+            ("caller.ts", caller),
+            ("decoy.ts", decoy),
+        ];
+        let with = textual_records(&files, true);
+        let without = textual_records(&files, false);
+        assert_eq!(
+            without,
+            ["inner -> target"],
+            "{label}: main's textual path reads the template line"
+        );
+        assert_eq!(
+            with,
+            if held { without } else { Vec::<String>::new() },
+            "{label}: the stand-down follows the predicate"
+        );
+    }
+}

@@ -68,10 +68,11 @@ impl ParsedFile {
     }
 
     /// The slot `name` takes in a flat array pattern: every element anywhere in the pattern is a
-    /// plain identifier or a hole (no rest, default or nested pattern), and exactly one is
-    /// `name`.
+    /// plain identifier or a hole (no rest, default or nested pattern), no name is bound twice,
+    /// and exactly one element is `name`.
     pub(super) fn js_ts_array_pattern_slot(&self, pattern: Node<'_>, name: &str) -> Option<usize> {
         let mut slots = Vec::new();
+        let mut seen = std::collections::BTreeSet::new();
         let mut index = 0;
         let mut cursor = pattern.walk();
         for child in pattern.children(&mut cursor) {
@@ -79,6 +80,11 @@ impl ParsedFile {
                 "[" | "]" | "comment" => {}
                 "," => index += 1,
                 "identifier" => {
+                    // Every bound name must be unique in the pattern (a repeat is an early
+                    // SyntaxError, whichever name is being looked up), as for object patterns.
+                    if !seen.insert(self.node_text(&child)) {
+                        return None;
+                    }
                     if self.node_text(&child) == name {
                         slots.push(index);
                     }

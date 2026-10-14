@@ -3767,7 +3767,11 @@ impl CallGraph {
         // carries the same proof as a direct call to it.
         let import_proven = match &site.local_binding {
             crate::call_graph::JsLocalBinding::Unproven(reason) => reason == "import",
-            crate::call_graph::JsLocalBinding::AliasImport { local } => *local == binding.local,
+            // Only while resolving through the alias route: a site that fell through to main's
+            // rungs must not see this proof (it would diverge from an unfollowed alias).
+            crate::call_graph::JsLocalBinding::AliasImport { local } => {
+                alias_route && *local == binding.local
+            }
             _ => false,
         };
         if !binding.module_path.trim().starts_with('.')

@@ -173,3 +173,37 @@ fn call_stats_counts_returned_values_by_outcome_and_keeps_the_base_reason_when_u
         serde_json::json!({"alias": 1, "may_call": 1})
     );
 }
+
+#[test]
+fn format_callers_credits_the_exact_returned_function_not_a_same_named_one() {
+    use prism::cpg::CpgContext;
+    use prism::diff::DiffInput;
+    let hooks = "export function useThing() {\n  function doSave() {\n    return 1;\n  }\n  \
+                 return { run: doSave };\n}\n";
+    let decoy = "export function doSave() {\n  return 5;\n}\n";
+    let app = "import { useThing } from './hooks';\nexport function viaReturned() {\n  \
+               const { run } = useThing();\n  return run();\n}\n";
+    let mut files = BTreeMap::new();
+    for (path, text) in [("hooks.ts", hooks), ("decoy.ts", decoy), ("app.ts", app)] {
+        files.insert(
+            path.to_string(),
+            ParsedFile::parse(path, text, Language::TypeScript).unwrap(),
+        );
+    }
+    let ctx = CpgContext::build(&files, None);
+    let callers_of = |file: &str, body_line: u32| -> Vec<String> {
+        let diff = DiffInput::parse_unified_diff(&format!(
+            "--- a/{file}\n+++ b/{file}\n@@ -{body_line},1 +{body_line},1 @@\n-  return 0;\n+  return 1;\n"
+        ));
+        let out = prism::output::to_callers_output(&ctx, &diff, 1);
+        out.callers
+            .iter()
+            .flat_map(|e| e.callers.iter().map(|c| c.name.clone()))
+            .collect()
+    };
+    assert_eq!(callers_of("hooks.ts", 3), ["viaReturned"]);
+    assert!(
+        callers_of("decoy.ts", 2).is_empty(),
+        "the same-named decoy is not the returned function"
+    );
+}

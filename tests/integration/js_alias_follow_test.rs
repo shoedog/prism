@@ -115,10 +115,11 @@ fn a_wrapped_terminal_binds_from_jsx_only() {
     let src = "import { memo } from 'react';\nconst W = memo(() => null);\nconst A = W;\n\
         export function App() {\n  A();\n  return <A />;\n}\n";
     let got = caller_sites(&[("a.jsx", src)]);
-    assert!(
-        got.contains(&"L5 A: drop WrappedExportNonJsx".to_string())
-            && got.contains(&"L6 A: Exact local_def W@2-2".to_string()),
-        "{got:?}"
+    // The JSX element binds the wrapped value; the plain call is not a proof, so it keeps
+    // main's outcome (`UnknownName`), not a new drop reason.
+    assert_eq!(
+        got,
+        ["L5 A: drop UnknownName", "L6 A: Exact local_def W@2-2"]
     );
 }
 
@@ -665,4 +666,74 @@ fn a_direct_call_of_an_import_with_no_candidate_still_drops_not_name_searches() 
         ("decoy.js", decoy),
     ]);
     assert_eq!(got, ["L3 missing: drop UnknownName"]);
+}
+
+/// `to_callers_output` over `files` for the given unified diff: per touched function
+/// `(file, [start, end], caller names)`.
+fn format_callers(files: &[(&str, &str)], diff: &str) -> Vec<(String, [usize; 2], Vec<String>)> {
+    use prism::cpg::CpgContext;
+    use prism::diff::DiffInput;
+    let mut parsed = BTreeMap::new();
+    for (path, text) in files {
+        parsed.insert(
+            (*path).to_string(),
+            ParsedFile::parse(path, text, Language::from_path(path).unwrap()).unwrap(),
+        );
+    }
+    let ctx = CpgContext::build(&parsed, None);
+    let out = prism::output::to_callers_output(&ctx, &DiffInput::parse_unified_diff(diff), 1);
+    out.callers
+        .iter()
+        .map(|e| {
+            (
+                e.file.clone(),
+                e.line_range,
+                e.callers.iter().map(|c| c.name.clone()).collect(),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn format_callers_keeps_the_identity_of_the_followed_target() {
+    // `m.js` and `b.js` each export `f`; only `m.js:f` is the alias target.
+    let m = "export function f() {\n  return 1;\n}\n";
+    let app = "import * as N from './m';\nexport function run() {\n  const h = N.f;\n  \
+        return h();\n}\n";
+    let diff = "--- a/m.js\n+++ b/m.js\n@@ -2 +2 @@\n-  return 0;\n+  return 1;\n\
+        --- a/b.js\n+++ b/b.js\n@@ -2 +2 @@\n-  return 0;\n+  return 1;\n";
+    let got = format_callers(&[("m.js", m), ("b.js", m), ("app.js", app)], diff);
+    let by_file: BTreeMap<_, _> = got
+        .iter()
+        .map(|(f, _, c)| (f.as_str(), c.clone()))
+        .collect();
+    assert_eq!(by_file["m.js"], ["run"], "{got:?}");
+    assert!(by_file["b.js"].is_empty(), "{got:?}");
+}
+
+#[test]
+fn format_callers_does_not_credit_a_same_named_nested_function() {
+    let m = "export function f() {\n  return 1;\n}\nfunction other() {\n  function f() {\n    \
+        return 2;\n  }\n}\n";
+    let app = "import * as N from './m';\nexport function run() {\n  const h = N.f;\n  \
+        return h();\n}\n";
+    // Line 6 sits inside the NESTED `f` (lines 5-7); line 2 inside the exported one.
+    let nested = "--- a/m.js\n+++ b/m.js\n@@ -6 +6 @@\n-    return 0;\n+    return 2;\n";
+    let outer = "--- a/m.js\n+++ b/m.js\n@@ -2 +2 @@\n-  return 0;\n+  return 1;\n";
+    let got = format_callers(&[("m.js", m), ("app.js", app)], nested);
+    assert_eq!(got.len(), 1, "{got:?}");
+    assert_eq!(got[0].1, [5, 7]);
+    assert!(got[0].2.is_empty(), "{got:?}");
+    let got = format_callers(&[("m.js", m), ("app.js", app)], outer);
+    assert_eq!(got[0].2, ["run"], "{got:?}");
+}
+
+#[test]
+fn format_callers_lists_an_alias_spelled_like_its_target_once() {
+    let m = "export function f() {\n  return 1;\n}\n";
+    let app = "import * as N from './m';\nexport function run() {\n  const f = N.f;\n  \
+        return f();\n}\n";
+    let diff = "--- a/m.js\n+++ b/m.js\n@@ -2 +2 @@\n-  return 0;\n+  return 1;\n";
+    let got = format_callers(&[("m.js", m), ("app.js", app)], diff);
+    assert_eq!(got[0].2, ["run"], "{got:?}");
 }
