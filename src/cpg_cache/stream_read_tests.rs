@@ -75,6 +75,8 @@ fn trailing_bytes_after_a_valid_cache_do_not_make_it_a_miss() {
 
 #[test]
 fn an_empty_cache_file_is_a_miss() {
+    // memmap2 0.9.8 maps an empty file as an empty slice that fails to decode, so this passes
+    // with or without the guard in `read_cache_file`; it pins the result, not the branch.
     let dir = tempfile::tempdir().unwrap();
     let (_cpg, hashes) = fixture();
     let path = cache_bin_path(dir.path());
@@ -88,8 +90,10 @@ fn an_empty_cache_file_is_a_miss() {
 
 #[test]
 fn a_directory_at_the_cache_path_is_a_miss() {
-    // On unix `File::open` succeeds on a directory and its length is not zero, so the empty
-    // check passes and the mapping itself must fail cleanly.
+    // On most filesystems `File::open` succeeds on a directory and its length is not zero, so
+    // the empty check passes and the read itself must fail cleanly. (On a filesystem that
+    // reports a zero length for a directory, such as btrfs, this goes through the empty-file
+    // branch instead.)
     let dir = tempfile::tempdir().unwrap();
     let (_cpg, hashes) = fixture();
     let path = cache_bin_path(dir.path());

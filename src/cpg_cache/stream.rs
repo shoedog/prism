@@ -16,8 +16,9 @@ use serde::ser::{SerializeSeq, Serializer};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::fs::{self, File};
-use std::io::{self, BufWriter, Write};
+use std::io::{self, BufWriter, Read, Write};
 use std::path::Path;
+use std::time::{Duration, SystemTime};
 
 #[cfg(test)]
 thread_local! {
@@ -28,6 +29,11 @@ thread_local! {
     /// Test seam: the result the next save's lock attempt reports instead of asking the file.
     pub(super) static LOCK_RESULT: std::cell::RefCell<Option<fs::TryLockError>> =
         const { std::cell::RefCell::new(None) };
+
+    /// Test seam: how many reads on this thread went through a mapping, and how many through a
+    /// buffer, so a test can see which way `read_cache_file` chose.
+    pub(super) static MAPPED_READS: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+    pub(super) static BUFFERED_READS: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
 }
 
 /// `File::try_lock`, except that a test can make the next call report a chosen result.
@@ -42,13 +48,31 @@ fn try_lock_file(file: &File) -> Result<(), fs::TryLockError> {
 /// Buffer between the codec and the file.
 const IO_BUFFER_BYTES: usize = 1 << 20;
 
+/// The published cache file. The `-v2` names are ones that no earlier prism ever touches: the
+/// file is only ever replaced by a rename from [`TEMP_NAME`] and never written in place, and
+/// no older binary holds an open descriptor to its inode (see [`read_cache_file`]).
+pub(super) const CACHE_FILE_NAME: &str = "cpg-cache-v2.bin";
+
+/// The metadata that describes [`CACHE_FILE_NAME`].
+pub(super) const META_FILE_NAME: &str = "cache-meta-v2.json";
+
 /// The one temp name. At most one process writes in a cache directory at a time (see
 /// [`publish_file`]), so it never needs to be unique.
-const TEMP_NAME: &str = "cpg-cache.bin.tmp";
+const TEMP_NAME: &str = "cpg-cache-v2.bin.tmp";
 
 /// The per-directory writer lock. The file is permanent: it is never truncated, written or
-/// removed, so its inode never changes and every writer locks the same file.
+/// removed, so its inode never changes and every writer locks the same file. Earlier versions
+/// of prism that took this lock use the same name, which is why it did not change.
 const LOCK_NAME: &str = "cpg-cache.lock";
+
+/// The files earlier versions of prism wrote in a cache directory. Nothing reads or writes them
+/// any more; a load removes each one that has been idle for [`LEGACY_MIN_AGE`].
+const LEGACY_NAMES: [&str; 3] = ["cpg-cache.bin", "cpg-cache.bin.tmp", "cache-meta.json"];
+
+/// How long a legacy file must have gone unmodified before a load removes it. An older binary
+/// that is still in use rewrites its cache, so its files stay fresh and are never touched; a
+/// temp file a crashed legacy writer left behind is reclaimed a day later.
+pub(super) const LEGACY_MIN_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 
 /// Borrowed mirror of `CpgCache`: the same fields in the same order, so the two encode to
 /// the same bytes.
@@ -155,6 +179,15 @@ fn open_lock_file(cache_dir: &Path) -> io::Result<File> {
     }
 }
 
+/// Open the lock file only if it already exists, creating nothing.
+fn open_existing_lock_file(cache_dir: &Path) -> Option<File> {
+    File::options()
+        .read(true)
+        .write(true)
+        .open(cache_dir.join(LOCK_NAME))
+        .ok()
+}
+
 /// Whether a failed lock attempt means this filesystem has no advisory locks at all (as
 /// opposed to a transient or operational failure on one that does).
 ///
@@ -190,7 +223,7 @@ fn lock_is_unsupported(error: &io::Error) -> bool {
 /// cleanup after a failure. While it is held no other writer can be using the fixed temp
 /// name, so a leftover temp file is an orphan from a crashed writer and `File::create` may
 /// truncate it. Nothing deletes another writer's file: a load removes the orphan only while
-/// it holds the same lock ([`remove_orphan_temp`]).
+/// it holds the same lock ([`clean_after_load`]).
 ///
 /// A save that does not get the lock is skipped and reported as `None`: no file is written
 /// and `after_publish` does not run. The holder is another saver, or a load removing an
@@ -244,23 +277,68 @@ pub(super) fn publish_file(
     result.map(Some)
 }
 
-/// Remove the temp file a crashed writer left behind, if no writer is active (best effort).
+/// Housekeeping after a load, done only while this call holds the directory lock (best effort).
 ///
-/// Called on load, so a directory that is read but never saved again does not keep an
-/// orphan. The file is deleted only while this call holds the directory lock, which a live
-/// writer holds for its whole save. If the lock file or the directory does not exist there is
-/// nothing to coordinate and nothing is created or removed; if the lock is taken or cannot
-/// be used, the temp file is left alone.
-pub(super) fn remove_orphan_temp(cache_dir: &Path) {
-    let Ok(lock) = File::options()
-        .read(true)
-        .write(true)
-        .open(cache_dir.join(LOCK_NAME))
-    else {
+/// It removes the temp file a crashed writer left behind, so a directory that is read but never
+/// saved again does not keep an orphan, and the files of earlier prism versions that have been
+/// idle for [`LEGACY_MIN_AGE`] ([`remove_stale_legacy_files`]). A live writer holds the lock for
+/// its whole save, so neither is touched during a save. If the lock file or the directory does
+/// not exist there is nothing to coordinate and nothing is created or removed; if the lock is
+/// taken or cannot be used, everything is left alone.
+pub(super) fn clean_after_load(cache_dir: &Path) {
+    let Some(lock) = open_existing_lock_file(cache_dir) else {
         return;
     };
     if lock.try_lock().is_ok() {
         let _ = fs::remove_file(cache_dir.join(TEMP_NAME));
+        remove_stale_legacy_files(cache_dir, SystemTime::now());
+    }
+}
+
+/// Remove each legacy cache file in `cache_dir` whose modification time is more than
+/// [`LEGACY_MIN_AGE`] before `now`. Only regular files are removed: a symlink or a directory
+/// under a legacy name is left alone, and a symlink is never followed. A file with a
+/// modification time in the future, or none, is kept. Errors are ignored.
+///
+/// Another process could replace a legacy file between the check and the removal; the loss is
+/// one stale file that an older prism would rebuild.
+pub(super) fn remove_stale_legacy_files(cache_dir: &Path, now: SystemTime) {
+    for name in LEGACY_NAMES {
+        let path = cache_dir.join(name);
+        let Ok(meta) = fs::symlink_metadata(&path) else {
+            continue;
+        };
+        if !meta.file_type().is_file() {
+            continue;
+        }
+        let idle_for = meta
+            .modified()
+            .ok()
+            .and_then(|modified| now.duration_since(modified).ok());
+        if idle_for.is_some_and(|idle| idle > LEGACY_MIN_AGE) {
+            let _ = fs::remove_file(&path);
+        }
+    }
+}
+
+/// Whether the directory lock works on this filesystem: the lock file exists and a `try_lock`
+/// on it either succeeds (released at once) or reports that someone holds it. A missing lock
+/// file, an unsupported lock ([`lock_is_unsupported`]) or any other failure means no.
+///
+/// A map of the cache file is safe only if every writer of this directory is serialized by the
+/// lock (see [`read_cache_file`]); without working locks they are not.
+fn directory_lock_works(cache_dir: &Path) -> bool {
+    let Some(lock) = open_existing_lock_file(cache_dir) else {
+        return false;
+    };
+    match try_lock_file(&lock) {
+        Ok(()) => {
+            let _ = lock.unlock();
+            true
+        }
+        Err(fs::TryLockError::WouldBlock) => true,
+        // `lock_is_unsupported` errors and every other error are the same answer here.
+        Err(fs::TryLockError::Error(_)) => false,
     }
 }
 
@@ -286,23 +364,43 @@ pub(super) fn publish_cache_file(
 
 /// Decode the cache file at `path`. `None` when it is absent, unreadable or not a cache.
 ///
-/// The file is mapped read-only rather than read into a buffer: its pages are the page cache's,
-/// not this process's heap, so a load no longer holds a heap copy of the whole file next to the
-/// decoded index, and decoding the mapped slice keeps the speed and the bounds checks of the
-/// slice decoder that `fs::read` + `bincode::deserialize` used. The mapping is dropped before this
-/// function returns.
+/// When the directory lock works ([`directory_lock_works`]) the file is mapped read-only rather
+/// than read into a buffer: its pages are the page cache's, not this process's heap, so a load no
+/// longer holds a heap copy of the whole file next to the decoded index, and decoding the mapped
+/// slice keeps the speed and the bounds checks of the slice decoder that `fs::read` +
+/// `bincode::deserialize` used. The mapping is dropped before this function returns. Without a
+/// working lock the file is read into a buffer, as before.
+///
+/// A mapped read on a network filesystem shared between hosts, or on a disk that reports an I/O
+/// error, can fault (SIGBUS) where a buffered read returned an error and a miss.
 pub(super) fn read_cache_file(path: &Path) -> Option<CpgCache> {
-    let file = File::open(path).ok()?;
-    if file.metadata().ok()?.len() == 0 {
-        // An empty file is not a cache. Mapping one is an error on some platforms and an empty
-        // map on others (macOS with memmap2 0.9.8), so it is refused before the mapping.
+    let mut file = File::open(path).ok()?;
+    let len = file.metadata().ok()?.len();
+    if len == 0 {
+        // An empty file is not a cache. memmap2 0.9.8 maps one as an empty slice, which also
+        // fails to decode; this keeps that a miss without depending on the crate's behavior.
         return None;
     }
-    // SAFETY: the mapping is read-only and lives only for this function. The one hazard of a
-    // file mapping is the file shrinking while it is mapped, which faults the process. Every
-    // writer of `cpg-cache.bin` (this module, and every earlier version of prism) writes a
-    // separate temp file and renames it over the name, which replaces the directory entry and
-    // leaves the mapped file untouched; nothing truncates or rewrites it in place.
+    if !path.parent().is_some_and(directory_lock_works) {
+        #[cfg(test)]
+        BUFFERED_READS.with(|count| count.set(count.get() + 1));
+        let mut data = Vec::new();
+        file.read_to_end(&mut data).ok()?;
+        return bincode::deserialize(&data).ok();
+    }
+    #[cfg(test)]
+    MAPPED_READS.with(|count| count.set(count.get() + 1));
+    // SAFETY: the mapping is read-only and lives only for this function, and the mapped bytes
+    // never change while it exists. The file can change under a mapping only by being written
+    // or truncated through some descriptor after it got this name. Here, only a current writer
+    // writes `cpg-cache-v2.bin.tmp`, and it does so under the directory lock and then renames
+    // it to `cpg-cache-v2.bin`; it ends its writes before the rename and never opens the
+    // published name for writing, so a published inode is not modified again. Older versions of
+    // prism use other names (`cpg-cache.bin`, `cpg-cache.bin.tmp`) and never touch these.
+    // That relies on the lock serializing current writers, which is why this branch is taken
+    // only when the lock works: without locks two current writers share the fixed temp name
+    // and one can still be writing an inode the other has just published, so the file is read
+    // into a buffer instead. Tests that rewrite the file in place do it in private directories.
     let map = unsafe { memmap2::Mmap::map(&file) }.ok()?;
     bincode::deserialize(&map[..]).ok()
 }
@@ -314,3 +412,7 @@ mod tests;
 #[cfg(test)]
 #[path = "stream_read_tests.rs"]
 mod read_tests;
+
+#[cfg(test)]
+#[path = "stream_legacy_tests.rs"]
+mod legacy_tests;

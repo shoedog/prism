@@ -60,11 +60,11 @@ fn cache_blob_bytes_identical_serial_vs_parallel() {
             if p.is_dir() {
                 return find_bin(&p);
             }
-            if p.file_name().and_then(|n| n.to_str()) == Some("cpg-cache.bin") {
+            if p.file_name().and_then(|n| n.to_str()) == Some("cpg-cache-v2.bin") {
                 return p;
             }
         }
-        panic!("cpg-cache.bin not found under {}", d.display());
+        panic!("cpg-cache-v2.bin not found under {}", d.display());
     }
 
     let b_par = std::fs::read(find_bin(d_par.path())).unwrap();

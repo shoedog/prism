@@ -1261,7 +1261,7 @@ fn same_line_occurrence_o13_full_parallel_incremental_and_warm_cache_match() {
     save_cache(&full, &hashes, false, cache.path()).unwrap();
     println!(
         "O13 cache_meta={}",
-        std::fs::read_to_string(cache.path().join("cache-meta.json")).unwrap()
+        std::fs::read_to_string(cache.path().join("cache-meta-v2.json")).unwrap()
     );
     let warm = match load_cache(&hashes, false, cache.path()) {
         CacheResult::Hit(cpg) => cpg,

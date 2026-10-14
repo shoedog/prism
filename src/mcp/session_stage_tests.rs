@@ -67,7 +67,7 @@ fn the_stages_fire_around_the_index_build_not_just_in_order() {
     let _provider = SessionProvider::bootstrap_observed(&cfg, &mut |stage| {
         seen.push((
             stage,
-            exists_under(cache.path(), "cpg-cache.bin"),
+            exists_under(cache.path(), "cpg-cache-v2.bin"),
             exists_under(cache.path(), "resolved-call-edge-index.bin"),
         ));
     })

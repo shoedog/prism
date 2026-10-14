@@ -190,7 +190,7 @@ fn a_save_leaves_no_temp_file_behind() {
 #[test]
 fn a_write_that_fails_part_way_leaves_no_temp_file_and_the_previous_cache_intact() {
     let dir = tempfile::tempdir().unwrap();
-    let final_path = dir.path().join("cpg-cache.bin");
+    let final_path = dir.path().join("cpg-cache-v2.bin");
     fs::write(&final_path, b"previous").unwrap();
     let after_called = std::cell::Cell::new(false);
     let result = super::publish_file(
@@ -221,7 +221,7 @@ fn a_write_that_fails_part_way_leaves_no_temp_file_and_the_previous_cache_intact
 
 #[test]
 fn a_rename_that_fails_removes_the_temp_file_and_reports_the_error() {
-    // `cpg-cache.bin` is a non-empty directory, so the final rename cannot succeed.
+    // `cpg-cache-v2.bin` is a non-empty directory, so the final rename cannot succeed.
     let dir = tempfile::tempdir().unwrap();
     let (cpg, hashes) = fixture();
     let blocker = cache_bin_path(dir.path());
@@ -277,7 +277,7 @@ fn a_save_skips_when_another_writer_holds_the_directory_lock() {
     save_cache(&cpg, &hashes, false, dir.path()).unwrap();
 
     assert!(fs::read(cache_bin_path(dir.path())).unwrap() == planted);
-    assert!(!dir.path().join("cpg-cache.bin.tmp").exists());
+    assert!(!dir.path().join("cpg-cache-v2.bin.tmp").exists());
     assert_eq!(temp_files(dir.path()), Vec::<String>::new());
     drop(other);
 }
@@ -304,7 +304,7 @@ fn a_save_after_the_other_writer_lets_go_writes_the_cache() {
 fn an_orphan_temp_file_of_any_age_is_overwritten_by_the_next_save() {
     let dir = tempfile::tempdir().unwrap();
     let (cpg, hashes) = fixture();
-    let orphan = dir.path().join("cpg-cache.bin.tmp");
+    let orphan = dir.path().join("cpg-cache-v2.bin.tmp");
     fs::write(&orphan, vec![0xAB; 4096]).unwrap();
 
     save_cache(&cpg, &hashes, false, dir.path()).unwrap();
@@ -372,7 +372,7 @@ fn a_load_removes_an_orphan_temp_file_when_no_writer_holds_the_lock() {
         load_cache(&hashes, false, dir.path()),
         CacheResult::Hit(_)
     ));
-    let orphan = dir.path().join("cpg-cache.bin.tmp");
+    let orphan = dir.path().join("cpg-cache-v2.bin.tmp");
     fs::write(&orphan, vec![0xCD; 4096]).unwrap();
 
     // The orphan changes nothing about what the load returns.
@@ -393,7 +393,7 @@ fn a_load_removes_an_orphan_temp_file_when_no_writer_holds_the_lock() {
 #[test]
 fn a_load_removes_an_orphan_temp_file_even_when_there_is_no_cache() {
     let dir = tempfile::tempdir().unwrap();
-    let orphan = dir.path().join("cpg-cache.bin.tmp");
+    let orphan = dir.path().join("cpg-cache-v2.bin.tmp");
     drop(hold_lock(dir.path()));
     fs::write(&orphan, b"x").unwrap();
     assert!(matches!(
@@ -408,7 +408,7 @@ fn a_load_leaves_the_temp_file_of_a_live_writer() {
     let dir = tempfile::tempdir().unwrap();
     let (cpg, hashes) = fixture();
     save_cache(&cpg, &hashes, false, dir.path()).unwrap();
-    let orphan = dir.path().join("cpg-cache.bin.tmp");
+    let orphan = dir.path().join("cpg-cache-v2.bin.tmp");
     fs::write(&orphan, b"half-written").unwrap();
 
     let writer = hold_lock(dir.path());
@@ -423,7 +423,7 @@ fn a_load_leaves_the_temp_file_of_a_live_writer() {
 #[test]
 fn a_load_without_a_lock_file_leaves_the_temp_file_and_creates_no_lock_file() {
     let dir = tempfile::tempdir().unwrap();
-    let orphan = dir.path().join("cpg-cache.bin.tmp");
+    let orphan = dir.path().join("cpg-cache-v2.bin.tmp");
     fs::write(&orphan, b"x").unwrap();
     let _ = load_cache(&BTreeMap::new(), false, dir.path());
     assert!(orphan.exists());
@@ -452,7 +452,7 @@ fn an_operational_lock_error_skips_the_save_and_touches_no_temp_file() {
         let (cpg, hashes) = fixture();
         let previous = b"previous cache".to_vec();
         fs::write(cache_bin_path(dir.path()), &previous).unwrap();
-        let live_temp = dir.path().join("cpg-cache.bin.tmp");
+        let live_temp = dir.path().join("cpg-cache-v2.bin.tmp");
         fs::write(&live_temp, b"another writer, half written").unwrap();
         let writer = hold_lock(dir.path());
 
@@ -524,7 +524,7 @@ fn a_lock_file_this_user_cannot_write_still_serializes_and_saves() {
 fn the_follow_up_to_a_publish_runs_under_the_lock_and_gets_the_size() {
     // The metadata is written by the locked saver, so it describes the file just published.
     let dir = tempfile::tempdir().unwrap();
-    let final_path = dir.path().join("cpg-cache.bin");
+    let final_path = dir.path().join("cpg-cache-v2.bin");
     let lock_path = dir.path().join(LOCK_NAME);
     let seen = std::cell::Cell::new(None);
     let written = super::publish_file(
@@ -548,7 +548,7 @@ fn the_follow_up_to_a_publish_runs_under_the_lock_and_gets_the_size() {
 #[test]
 fn a_skipped_publish_runs_no_follow_up() {
     let dir = tempfile::tempdir().unwrap();
-    let final_path = dir.path().join("cpg-cache.bin");
+    let final_path = dir.path().join("cpg-cache-v2.bin");
     let holder = hold_lock(dir.path());
     let called = std::cell::Cell::new(false);
     let written = super::publish_file(

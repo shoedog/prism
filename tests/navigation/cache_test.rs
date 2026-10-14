@@ -99,7 +99,7 @@ fn build_cached_writes_then_hits_with_equal_query_output() {
 
     let idx_miss = Arc::new(NavigationIndex::build_cached_under(&repo, cache.path()));
     assert!(
-        cache_dir.join("cpg-cache.bin").exists(),
+        cache_dir.join("cpg-cache-v2.bin").exists(),
         "build 1 must write the cache"
     );
     let idx_hit = Arc::new(NavigationIndex::build_cached_under(&repo, cache.path()));
@@ -255,7 +255,7 @@ fn call_edge_sidecar_is_lazy_then_hits() {
         let sidecar = cache_dir.join("resolved-call-edge-index.bin");
 
         let idx_miss = Arc::new(NavigationIndex::build_cached_under(&repo, cache.path()));
-        assert!(cache_dir.join("cpg-cache.bin").exists());
+        assert!(cache_dir.join("cpg-cache-v2.bin").exists());
         assert!(
             !sidecar.exists(),
             "CPG build/cache should not eagerly write call-edge sidecar"
@@ -510,7 +510,7 @@ fn corrupt_cache_bin_rebuilds_successfully() {
     let repo = load_repo(repo_d.path()).unwrap();
 
     let _ = NavigationIndex::build_cached_under(&repo, cache.path());
-    let cache_bin = nav_cache_subdir(cache.path(), &repo).join("cpg-cache.bin");
+    let cache_bin = nav_cache_subdir(cache.path(), &repo).join("cpg-cache-v2.bin");
     assert!(cache_bin.exists(), "first build must write the cache");
 
     std::fs::write(&cache_bin, b"garbage cache bytes").unwrap();
@@ -541,8 +541,8 @@ fn two_repos_same_base_are_isolated() {
     let repo_a = Arc::new(load_repo(repo_a_d.path()).unwrap());
     let repo_b = Arc::new(load_repo(repo_b_d.path()).unwrap());
 
-    let cache_a = nav_cache_subdir(cache.path(), &repo_a).join("cpg-cache.bin");
-    let cache_b = nav_cache_subdir(cache.path(), &repo_b).join("cpg-cache.bin");
+    let cache_a = nav_cache_subdir(cache.path(), &repo_a).join("cpg-cache-v2.bin");
+    let cache_b = nav_cache_subdir(cache.path(), &repo_b).join("cpg-cache-v2.bin");
     let idx_a = Arc::new(NavigationIndex::build_cached_under(&repo_a, cache.path()));
     let idx_b = Arc::new(NavigationIndex::build_cached_under(&repo_b, cache.path()));
 

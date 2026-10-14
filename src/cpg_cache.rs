@@ -374,17 +374,19 @@ pub fn binary_input_dirty() -> bool {
 
 /// Path to the binary cache file within the cache directory.
 fn cache_bin_path(cache_dir: &Path) -> PathBuf {
-    cache_dir.join("cpg-cache.bin")
+    cache_dir.join(stream::CACHE_FILE_NAME)
 }
 
 /// Path to the metadata JSON file within the cache directory.
 fn cache_meta_path(cache_dir: &Path) -> PathBuf {
-    cache_dir.join("cache-meta.json")
+    cache_dir.join(stream::META_FILE_NAME)
 }
 
 /// Serialize a `CodePropertyGraph` and write it to the cache directory.
 ///
-/// Writes both `cpg-cache.bin` (bincode) and `cache-meta.json` (human-readable).
+/// Writes both `cpg-cache-v2.bin` (bincode) and `cache-meta-v2.json` (human-readable). The
+/// names changed with the memory-mapped reader: no earlier prism touches them, and a load removes
+/// the files those versions left behind once they have been idle for a day.
 /// Uses atomic write (temp file + rename) to prevent corruption from interrupted writes. Saves
 /// are serialized per directory by a lock file, held through the metadata write. A save that
 /// cannot take the lock (another process is saving, or loading and clearing a leftover temp
@@ -406,7 +408,7 @@ pub fn save_cache(
 /// What a successful [`save_cache`] call did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SaveOutcome {
-    /// `cpg-cache.bin` was written and published.
+    /// `cpg-cache-v2.bin` was written and published.
     Saved,
     /// The directory lock was not available; nothing was written.
     Skipped,
@@ -521,8 +523,9 @@ pub fn load_cache_with_topology(
     cache_dir: &Path,
 ) -> CacheResult {
     let result = read_cache(current_hashes, current_topology_key, has_type_db, cache_dir);
-    // After the read, so the result never depends on it: clear a crashed writer's leftover.
-    stream::remove_orphan_temp(cache_dir);
+    // After the read, so the result never depends on it: clear a crashed writer's leftover and
+    // the idle files of earlier versions.
+    stream::clean_after_load(cache_dir);
     result
 }
 
@@ -1722,7 +1725,7 @@ mod tests {
             },
         };
         std::fs::write(
-            dir.path().join("cpg-cache.bin"),
+            dir.path().join("cpg-cache-v2.bin"),
             bincode::serialize(&bad).unwrap(),
         )
         .unwrap();
@@ -1757,7 +1760,7 @@ mod tests {
             },
         };
         std::fs::write(
-            dir.path().join("cpg-cache.bin"),
+            dir.path().join("cpg-cache-v2.bin"),
             bincode::serialize(&bad).unwrap(),
         )
         .unwrap();
