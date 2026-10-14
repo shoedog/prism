@@ -892,6 +892,18 @@
 {"id":"local.ns-destructure-nested-sibling.outer.call.trap.js","verdict":"WRONG","record":true,"exact":[{"file":"other.js","name":"decoy","line":1,"kind":"free_single"}],"nameonly":[],"drop":null,"origins":["Source"]}
 {"id":"local.ns-destructure-nested-sibling.fn.call.fresh.js","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
 {"id":"local.ns-destructure-nested-sibling.outer.call.fresh.js","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"local.ns-destructure-dup-other-name.fn.call.same.ts","verdict":"NONE-OK","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"local.ns-destructure-dup-other-name.outer.call.same.ts","verdict":"WRONG","record":true,"exact":[{"file":"callee.ts","name":"f","line":1,"kind":"free_single"}],"nameonly":[],"drop":null,"origins":["Source"]}
+{"id":"local.ns-destructure-dup-other-name.fn.call.same.js","verdict":"NONE-OK","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"local.ns-destructure-dup-other-name.outer.call.same.js","verdict":"WRONG","record":true,"exact":[{"file":"callee.js","name":"f","line":1,"kind":"free_single"}],"nameonly":[],"drop":null,"origins":["Source"]}
+{"id":"local.ident-of-wrapped-memo.fn.call.trap.ts","verdict":"NONE-OK","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"local.ident-of-wrapped-memo.outer.call.trap.ts","verdict":"WRONG","record":true,"exact":[{"file":"other.ts","name":"decoy","line":1,"kind":"free_single"}],"nameonly":[],"drop":null,"origins":["Source"]}
+{"id":"local.ident-of-wrapped-memo.fn.call.fresh.ts","verdict":"NONE-OK","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"local.ident-of-wrapped-memo.outer.call.fresh.ts","verdict":"NONE-OK","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"local.ident-of-wrapped-memo.fn.call.trap.js","verdict":"NONE-OK","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"local.ident-of-wrapped-memo.outer.call.trap.js","verdict":"WRONG","record":true,"exact":[{"file":"other.js","name":"decoy","line":1,"kind":"free_single"}],"nameonly":[],"drop":null,"origins":["Source"]}
+{"id":"local.ident-of-wrapped-memo.fn.call.fresh.js","verdict":"NONE-OK","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"local.ident-of-wrapped-memo.outer.call.fresh.js","verdict":"NONE-OK","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
 {"id":"local.ns-member-exported-alias.fn.call.same.ts","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
 {"id":"local.ns-member-exported-alias.module.call.same.ts","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
 {"id":"local.ns-member-exported-alias.outer.call.same.ts","verdict":"CORRECT","record":true,"exact":[{"file":"callee.ts","name":"f","line":1,"kind":"free_single"}],"nameonly":[],"drop":null,"origins":["Source"]}
@@ -1223,6 +1235,8 @@
 {"id":"import.paths-named.call.ts","verdict":"CORRECT","record":true,"exact":[{"file":"src/api.ts","name":"fetchUser","line":1,"kind":"import_member"}],"nameonly":[],"drop":null,"origins":["Source"]}
 {"id":"import.paths-ns-destructure-nested.call.ts","verdict":"CORRECT","record":true,"exact":[{"file":"src/api.ts","name":"fetchUser","line":1,"kind":"free_single"}],"nameonly":[],"drop":null,"origins":["Source"]}
 {"id":"import.spanless-export-nested-decoy.call.ts","verdict":"MAY-NONE","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"local.ident-own-name-cjs-import.fn.call.js","verdict":"CORRECT","record":true,"exact":[{"file":"lib.js","name":"helper","line":1,"kind":"import_member"}],"nameonly":[],"drop":"UnknownName","origins":["IndirectResolution","Source"]}
+{"id":"local.ident-own-name-cjs-import.outer.call.js","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
 {"id":"local.cjs-exports-ns-destructure-nested.call.js","verdict":"CORRECT","record":true,"exact":[{"file":"api/cjs.js","name":"legacy","line":1,"kind":"free_single"}],"nameonly":[],"drop":null,"origins":["Source"]}
 {"id":"import.super-extends-member-named-super.call.js","verdict":"CORRECT","record":true,"exact":[{"file":"callee.js","name":"super","line":1,"kind":"free_single"}],"nameonly":[],"drop":null,"origins":["Source"]}
 {"id":"returned.object-shorthand-local-fn.fn.call.ts","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
