@@ -34,6 +34,8 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+mod stream;
+
 /// Current cache format version. Bump this when the serialized format changes
 /// (new fields, different node/edge types, etc.) to force a full rebuild.
 ///
@@ -407,70 +409,50 @@ pub fn save_cache_with_topology(
     }
     fs::create_dir_all(cache_dir)?;
 
-    // Extract node list + edge list from DiGraph.
-    let nodes: Vec<CpgNode> = cpg
-        .graph
-        .node_indices()
-        .map(|idx| cpg.graph[idx].clone())
-        .collect();
-
-    let edges: Vec<(u32, u32, CpgEdge)> = cpg
-        .graph
-        .edge_indices()
-        .map(|eidx| {
-            let (src, tgt) = cpg.graph.edge_endpoints(eidx).unwrap();
-            (
-                src.index() as u32,
-                tgt.index() as u32,
-                cpg.graph[eidx].clone(),
-            )
-        })
-        .collect();
-
-    let cache = CpgCache {
+    // Encode straight from the live graph into the temp file: no copy of the graph and no
+    // encoded buffer. Atomic write: temp file, then rename.
+    let prism_version = env!("CARGO_PKG_VERSION");
+    let git_sha = env!("GIT_SHA");
+    let cache = stream::CpgCacheRef {
         version: CACHE_VERSION,
-        prism_version: env!("CARGO_PKG_VERSION").to_string(),
-        grammar_fingerprint: env!("GRAMMAR_FINGERPRINT").to_string(),
-        cache_build_identity: current_cache_build_identity().to_string(),
-        git_sha: env!("GIT_SHA").to_string(),
+        prism_version,
+        grammar_fingerprint: env!("GRAMMAR_FINGERPRINT"),
+        cache_build_identity: current_cache_build_identity(),
+        git_sha,
         skip_policy_version: SKIP_POLICY_VERSION,
-        file_hashes: file_hashes.clone(),
-        topology_key: topology_key.clone(),
+        file_hashes,
+        topology_key,
         has_type_db,
-        graph: SerializedCpg {
-            nodes,
-            edges,
-            call_graph: cpg.call_graph.clone(),
-            dfg: cpg.dfg.clone(),
-            return_flow_stats: cpg.return_flow_stats.clone(),
-            dfg_label_stats: cpg.dfg_label_stats.clone(),
+        graph: stream::SerializedCpgRef {
+            nodes: stream::NodeSeq(&cpg.graph),
+            edges: stream::EdgeSeq(&cpg.graph),
+            call_graph: &cpg.call_graph,
+            dfg: &cpg.dfg,
+            return_flow_stats: &cpg.return_flow_stats,
+            dfg_label_stats: &cpg.dfg_label_stats,
         },
     };
 
-    let encoded = bincode::serialize(&cache).map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::Other,
-            format!("bincode serialize error: {}", e),
-        )
-    })?;
-
-    // Atomic write: write to temp file, then rename.
     let bin_path = cache_bin_path(cache_dir);
-    let tmp_path = cache_dir.join("cpg-cache.bin.tmp");
-    fs::write(&tmp_path, &encoded)?;
-    fs::rename(&tmp_path, &bin_path)?;
+    stream::remove_stale_temp_files(cache_dir, std::time::SystemTime::now());
+    let tmp_path = stream::unique_temp_path(cache_dir);
+    let encoded_len = stream::write_cache_file(&tmp_path, &cache)?;
+    if let Err(e) = fs::rename(&tmp_path, &bin_path) {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(e);
+    }
 
     // Write human-readable metadata (best-effort, non-fatal).
     let meta = CacheMeta {
-        prism_version: env!("CARGO_PKG_VERSION").to_string(),
+        prism_version: prism_version.to_string(),
         cache_version: CACHE_VERSION,
         file_count: file_hashes.len(),
-        node_count: cache.graph.nodes.len(),
-        edge_count: cache.graph.edges.len(),
-        cache_size_bytes: encoded.len() as u64,
+        node_count: cpg.graph.node_count(),
+        edge_count: cpg.graph.edge_count(),
+        cache_size_bytes: encoded_len,
         has_type_db,
-        cache_build_identity: cache.cache_build_identity.clone(),
-        git_sha: cache.git_sha.clone(),
+        cache_build_identity: current_cache_build_identity().to_string(),
+        git_sha: git_sha.to_string(),
         created: chrono_free_timestamp(),
     };
     let meta_json = serde_json::to_string_pretty(&meta).unwrap_or_default();
