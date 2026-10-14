@@ -281,10 +281,10 @@
     "js_returned_follow_test::a_renamed_key_binds_the_returned_function_not_the_same_named_decoy"
    ]
   ],
-  "RV-35-unproven-route-drops": [
+  "RV-35-unproven-route-claims-a-hit": [
    "src/resolution_js_returns.rs",
    "let value = self.js_ts_return_facts.get(hook_fn)?.get(path)?;",
-   "let Some(value) = self.js_ts_return_facts.get(hook_fn).and_then(|f| f.get(path)) else { return Some(ResolutionOutcome::dropped(super::DropReason::UnknownName)); };",
+   "let Some(value) = self.js_ts_return_facts.get(hook_fn).and_then(|f| f.get(path)) else { return self.functions.values().flatten().next().map(|t| ResolutionOutcome::hit(super::exact([t], super::ResolutionKind::FreeSingle))); };",
    [
     "js_returned_follow_fallback_test::every_unproven_returned_value_site_equals_the_base"
    ]
@@ -389,7 +389,7 @@
   "RV-48-duplicate-slot-name-allowed": [
    "src/ast/js_binding_returned.rs",
    "if !seen.insert(self.node_text(&child)) {",
-   "if false {",
+   "if !seen.insert(self.node_text(&child)) && false {",
    [
     "ast::js_binding_returned::tests::an_array_pattern_with_any_unmodeled_element_is_not_followed"
    ]

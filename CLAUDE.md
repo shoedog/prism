@@ -254,7 +254,7 @@ keeps the earlier resolution. A JS/TS `const x = H(...)`, `const { k } = H(...)`
 returned-value step: when every value-returning statement of `H` selects the same callable from an object
 or array literal (spread-after-key, computed key, accessor, duplicate key, async/generator, a parameter or a
 call result all refuse), the site binds that callable as seen from `H`'s file; a site the fact does not
-prove keeps the earlier resolution, and no edge is removed.
+prove (not exactly one Exact target) has exactly the earlier records, and no edge is removed.
 
 `--resolution nominal` is the default and reports CPG-derived findings as `unlabeled/candidate`;
 `--resolution scoped` reports retained evidence labels. `--min-confidence exact` keeps only Exact
