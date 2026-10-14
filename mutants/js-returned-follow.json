@@ -223,14 +223,6 @@
     "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact"
    ]
   ],
-  "RV-28-written-intermediate-followed": [
-   "src/ast/js_return_facts.rs",
-   "if self.js_ts_site_binding(ident, &name, cache) != JsBinding::Alias {",
-   "if false {",
-   [
-    "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact"
-   ]
-  ],
   "RV-29-intermediate-declared-outside": [
    "src/ast/js_return_facts.rs",
    "if decl.start_byte() < func.start_byte() || decl.end_byte() > func.end_byte() {",
