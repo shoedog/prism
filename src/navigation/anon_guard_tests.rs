@@ -168,6 +168,46 @@ fn ego_contains_hops_never_surface_anonymous_variables() {
 }
 
 #[test]
+fn ego_hops_never_surface_anonymous_return_values() {
+    let (_d, s) = session_with(|cpg| {
+        let outer = function_idx(cpg, "outer");
+        for (n, owner) in [ANON, "<cb@2:21>", "outer"].into_iter().enumerate() {
+            let idx = cpg.graph.add_node(CpgNode::ReturnValue {
+                file: FILE.to_string(),
+                function: owner.to_string(),
+                function_start_line: 2,
+                line: 2,
+                return_start_byte: 0,
+                return_end_byte: 0,
+                child_slot: 0,
+                start_byte: 10 * (n + 1),
+                end_byte: 10 * (n + 1) + 1,
+            });
+            cpg.graph
+                .add_edge(outer, idx, crate::cpg::CpgEdge::Contains);
+        }
+    });
+    let ego = queries::ego_graph(&s, Some("outer"), None, None, 1, &["Contains"]).unwrap();
+    let json = serde_json::to_string(&ego).unwrap();
+    assert!(!json.contains("<anon@"), "{json}");
+    assert!(!json.contains("<cb@"), "{json}");
+    // ReturnValue rows serialize without their owner, so count them: only the
+    // named-owner row (bytes 30..31) may be reached.
+    let graph = ego.graph.unwrap();
+    let rv: Vec<_> = graph
+        .nodes
+        .iter()
+        .filter_map(|n| match &n.symbol {
+            Some(SymbolRef::Statement {
+                kind, start_byte, ..
+            }) if kind == "ReturnValue" => Some(*start_byte),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(rv, vec![30], "{graph:?}");
+}
+
+#[test]
 fn onboarding_function_count_excludes_anonymous_nodes() {
     let (_d, with_anon) = session_with(|cpg| {
         add_anonymous_function(cpg, ANON, 2);

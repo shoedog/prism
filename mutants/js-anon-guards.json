@@ -118,7 +118,8 @@
    ") && is_anonymous_identity_node(s, other)",
    ") && false",
    [
-    "navigation::anon_guard_tests::ego_contains_hops_never_surface_anonymous_variables"
+    "navigation::anon_guard_tests::ego_contains_hops_never_surface_anonymous_variables",
+    "navigation::anon_guard_tests::ego_hops_never_surface_anonymous_return_values"
    ]
   ],
   "AG-15-onboarding-count-anon": [
@@ -131,26 +132,18 @@
   ],
   "AG-16-mermaid-lt-off": [
    "src/output/mermaid.rs",
-   ".replace('<', \"&lt;\")",
-   ".replace('<', \"<\")",
+   "            '<' => tokens.push(\"&lt;\".into()),",
+   "            '<' => tokens.push(\"<\".into()),",
    [
     "output::mermaid::tests::escape_label_inner_escapes_angle_brackets"
    ]
   ],
   "AG-17-mermaid-gt-off": [
    "src/output/mermaid.rs",
-   ".replace('>', \"&gt;\")",
-   ".replace('>', \">\")",
+   "            '>' => tokens.push(\"&gt;\".into()),",
+   "            '>' => tokens.push(\">\".into()),",
    [
     "output::mermaid::tests::escape_label_inner_escapes_angle_brackets"
-   ]
-  ],
-  "AG-18-mermaid-escape-after-br": [
-   "src/output/mermaid.rs",
-   "        .replace('\"', \"&quot;\")\n        .replace('<', \"&lt;\")\n        .replace('>', \"&gt;\")\n        .replace('\\n', \"<br/>\");",
-   "        .replace('\"', \"&quot;\")\n        .replace('\\n', \"<br/>\")\n        .replace('<', \"&lt;\")\n        .replace('>', \"&gt;\");",
-   [
-    "output::mermaid::tests::escape_label_inner_keeps_quote_and_newline_handling"
    ]
   ],
   "AG-19-predicate-no-legacy": [
@@ -191,6 +184,22 @@
    "const MINT_OWNER_PREFIX: &str = ANON_OWNER_PREFIX;",
    [
     "anon_owner::tests::mint_round_trips_through_the_predicate"
+   ]
+  ],
+  "AG-24-ego-hop-guard-returnvalue-arm-off": [
+   "src/navigation/queries.rs",
+   "                    CpgNode::Variable { .. } | CpgNode::ReturnValue { .. }\n                ) && is_anonymous_identity_node(s, other)",
+   "                    CpgNode::Variable { .. }\n                ) && is_anonymous_identity_node(s, other)",
+   [
+    "navigation::anon_guard_tests::ego_hops_never_surface_anonymous_return_values"
+   ]
+  ],
+  "AG-25-mermaid-token-truncation-off": [
+   "src/output/mermaid.rs",
+   "        if truncated && used + n > MAX - 1 {",
+   "        if truncated && used + 1 > MAX - 1 {",
+   [
+    "output::mermaid::tests::truncation_never_splits_an_escape_token"
    ]
   ]
  }
