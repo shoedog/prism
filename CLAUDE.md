@@ -348,8 +348,12 @@ is retried by the next call from a connection with no unheard failure, once howe
 arrive, and the build thread puts the provider in the slot and records its generation
 before it announces `Ready`. The generation is recorded under the slot's write guard at
 publication and after every exclusive access, so it is the slot's whatever the phase. Lock order: code holding the control lock
-does not touch the slot; code holding the slot may take the control lock. A poisoned lock is the
-`Poisoned` error and is never unwrapped; there is no panic boundary yet. Time is the injected
+does not touch the slot; code holding the slot may take the control lock. A panic in a query or
+a refresh (`read`, `write`), on the build thread, or in the control plane (`ensure_ready`,
+`status`), and a lock found poisoned, end the daemon through `Parts::on_fatal` (`fatal.rs`:
+a `FatalOnUnwind` guard at each entry; production `abort_daemon` writes one line to stderr and
+aborts, so every attached client sees its connection end); nothing is read through a poisoned
+lock, and a test installs a `FatalLog` instead of the abort. Time is the injected
 `Clock` (`clock.rs`), so tests move a manual clock and never sleep to order events.
 `control.rs` holds the types the control lock guards (`BuildPhase`, `ControlState`,
 `AttemptOutcome`, `BuildStatus`) and `Answer`, what `ensure_ready` tells a call: `Ready`,
@@ -372,8 +376,9 @@ the read's question again once it holds the write lock: one that now finds the i
 index refresh it once, and one that still finds it stale (sticky evidence included) refreshes.
 The query after a refresh runs under the same write lock, so a response and the refresh
 generation it reports are one snapshot's. No lock is held while a response is written: a client
-that stops reading stalls only its own connection. Not there yet (the next slice): panic
-boundaries.
+that stops reading stalls only its own connection. A panic anywhere else on a connection's
+thread (framing, the readiness answers, writing a response) ends that connection only:
+`serve_bounded` turns it into an error and the daemon goes on.
 
 Algorithms fall into two categories:
 1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`
