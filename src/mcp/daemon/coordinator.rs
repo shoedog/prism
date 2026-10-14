@@ -86,6 +86,9 @@ pub(super) struct TestHooks {
     pub(super) published: Option<AttemptHook>,
     /// After an attempt's outcome is recorded, before the parked calls are notified.
     pub(super) settled: Option<AttemptHook>,
+    /// On a connection's thread, after a query found the index stale under an automatic
+    /// refresh policy and before the call asks for exclusive access.
+    pub(super) exclusive: Option<Arc<dyn Fn() + Send + Sync>>,
 }
 
 /// What a [`DaemonState`] is made of. Production code uses [`Parts::production`]; tests replace
@@ -323,6 +326,15 @@ impl DaemonState {
     pub(super) fn unpublish_for_tests(&self) {
         if let Ok(mut slot) = self.provider.write() {
             *slot = None;
+        }
+    }
+
+    /// The test seam between a call's read and its exclusive access (`TestHooks::exclusive`).
+    /// Called with no lock held.
+    #[cfg(test)]
+    pub(super) fn before_exclusive(&self) {
+        if let Some(hook) = &self.hooks.exclusive {
+            hook();
         }
     }
 
