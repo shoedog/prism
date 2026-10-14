@@ -499,3 +499,110 @@ fn only_the_generated_temp_names_are_swept() {
     expected.sort();
     assert_eq!(left, expected);
 }
+
+const LOCK_NAME: &str = "cpg-cache.lock";
+
+fn hold_lock(dir: &std::path::Path) -> fs::File {
+    let file = fs::File::options()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(dir.join(LOCK_NAME))
+        .unwrap();
+    file.try_lock().unwrap();
+    file
+}
+
+#[test]
+fn a_save_skips_when_another_writer_holds_the_directory_lock() {
+    let dir = tempfile::tempdir().unwrap();
+    let (cpg, hashes) = fixture();
+    let planted = b"the other writer's published cache".to_vec();
+    fs::write(cache_bin_path(dir.path()), &planted).unwrap();
+
+    let other = hold_lock(dir.path());
+    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+
+    assert!(fs::read(cache_bin_path(dir.path())).unwrap() == planted);
+    assert!(!dir.path().join("cpg-cache.bin.tmp").exists());
+    assert_eq!(temp_files(dir.path()), Vec::<String>::new());
+    drop(other);
+}
+
+#[test]
+fn a_save_after_the_other_writer_lets_go_writes_the_cache() {
+    let dir = tempfile::tempdir().unwrap();
+    let (cpg, hashes) = fixture();
+    fs::write(cache_bin_path(dir.path()), b"stale").unwrap();
+
+    let other = hold_lock(dir.path());
+    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+    assert!(fs::read(cache_bin_path(dir.path())).unwrap() == b"stale");
+    drop(other);
+
+    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+    assert!(matches!(
+        load_cache(&hashes, false, dir.path()),
+        CacheResult::Hit(_)
+    ));
+}
+
+#[test]
+fn an_orphan_temp_file_of_any_age_is_overwritten_by_the_next_save() {
+    let dir = tempfile::tempdir().unwrap();
+    let (cpg, hashes) = fixture();
+    let orphan = dir.path().join("cpg-cache.bin.tmp");
+    fs::write(&orphan, vec![0xAB; 4096]).unwrap();
+
+    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+
+    assert!(!orphan.exists(), "the orphan is renamed away as the cache");
+    assert!(matches!(
+        load_cache(&hashes, false, dir.path()),
+        CacheResult::Hit(_)
+    ));
+}
+
+#[cfg(unix)]
+#[test]
+fn the_lock_file_is_permanent_and_keeps_its_inode() {
+    use std::os::unix::fs::MetadataExt;
+    let dir = tempfile::tempdir().unwrap();
+    let (cpg, hashes) = fixture();
+    let lock = dir.path().join(LOCK_NAME);
+
+    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+    let first = fs::metadata(&lock).unwrap().ino();
+    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+    let second = fs::metadata(&lock).unwrap().ino();
+
+    assert_eq!(first, second);
+    assert_eq!(fs::metadata(&lock).unwrap().len(), 0, "the lock is never written");
+}
+
+#[test]
+fn the_lock_is_held_through_the_rename() {
+    let dir = tempfile::tempdir().unwrap();
+    let (cpg, hashes) = fixture();
+    let lock_path = dir.path().join(LOCK_NAME);
+    let seen = std::rc::Rc::new(std::cell::Cell::new(None));
+    let seen_in_hook = seen.clone();
+    super::BEFORE_RENAME.with(|hook| {
+        *hook.borrow_mut() = Some(Box::new(move || {
+            let other = fs::File::options()
+                .read(true)
+                .write(true)
+                .open(&lock_path)
+                .unwrap();
+            seen_in_hook.set(Some(matches!(
+                other.try_lock(),
+                Err(std::fs::TryLockError::WouldBlock)
+            )));
+        }));
+    });
+
+    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+
+    assert_eq!(seen.get(), Some(true), "the hook ran with the lock held");
+}

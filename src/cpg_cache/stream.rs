@@ -21,6 +21,13 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime};
 
+#[cfg(test)]
+thread_local! {
+    /// Test seam: run once on this thread, just before a publish renames its temp file.
+    pub(super) static BEFORE_RENAME: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
 /// Buffer between the codec and the file.
 const IO_BUFFER_BYTES: usize = 1 << 20;
 
@@ -242,6 +249,12 @@ pub(super) fn publish_file(
 ) -> io::Result<u64> {
     let (tmp_path, file) = create_temp_file(next_path)?;
     let result = write_new_file(&file, encode).and_then(|written| {
+        #[cfg(test)]
+        BEFORE_RENAME.with(|hook| {
+            if let Some(hook) = hook.borrow_mut().take() {
+                hook();
+            }
+        });
         fs::rename(&tmp_path, final_path)?;
         Ok(written)
     });
