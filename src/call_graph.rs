@@ -564,6 +564,14 @@ impl JsLocalBinding {
     }
 }
 
+/// Per-file JS/TS facts extracted together: export facts by file, parameter/local binding names
+/// and slice V's returned-value facts, each by function.
+type JsTsResolutionFacts = (
+    BTreeMap<String, crate::js_exports::JsExportFacts>,
+    BTreeMap<FunctionId, BTreeSet<String>>,
+    BTreeMap<FunctionId, crate::js_returns::JsReturnFacts>,
+);
+
 /// Parameter arity for a method definition (language-agnostic shape).
 ///
 /// `params` is the count of parameter NAMES (not declarations) excluding the Go
@@ -2178,13 +2186,7 @@ impl CallGraph {
         (import_bindings, module_bindings)
     }
 
-    fn extract_js_ts_resolution_facts(
-        files: &BTreeMap<String, ParsedFile>,
-    ) -> (
-        BTreeMap<String, crate::js_exports::JsExportFacts>,
-        BTreeMap<FunctionId, BTreeSet<String>>,
-        BTreeMap<FunctionId, crate::js_returns::JsReturnFacts>,
-    ) {
+    fn extract_js_ts_resolution_facts(files: &BTreeMap<String, ParsedFile>) -> JsTsResolutionFacts {
         Self::extract_js_ts_resolution_facts_from_iter(files.iter())
     }
 
@@ -2202,13 +2204,7 @@ impl CallGraph {
         unknown
     }
 
-    fn extract_js_ts_resolution_facts_from_iter<'a, I>(
-        files: I,
-    ) -> (
-        BTreeMap<String, crate::js_exports::JsExportFacts>,
-        BTreeMap<FunctionId, BTreeSet<String>>,
-        BTreeMap<FunctionId, crate::js_returns::JsReturnFacts>,
-    )
+    fn extract_js_ts_resolution_facts_from_iter<'a, I>(files: I) -> JsTsResolutionFacts
     where
         I: IntoIterator<Item = (&'a String, &'a ParsedFile)>,
     {
