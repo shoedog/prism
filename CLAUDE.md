@@ -245,6 +245,12 @@ mutation of module objects (monkey-patching, reflective writes, `eval`, host glo
 idiom (CJS `module.exports`, `src/ast/js_cjs_export_barriers.rs`). A slice that wants to model runtime
 mutation proposes it as a new contract, not as a precision fix to an existing rung.
 
+A JS/TS local alias is followed when a bounded chain
+of unique, unwritten `const` bindings reaches one callable, an import, or a namespace-import
+member proven per export (a source-backed span, a relative module); that route is binding
+evidence, spelling alone is not. An alias that is not followed, or whose terminal is not proven,
+keeps the earlier resolution.
+
 `--resolution nominal` is the default and reports CPG-derived findings as `unlabeled/candidate`;
 `--resolution scoped` reports retained evidence labels. `--min-confidence exact` keeps only Exact
 findings. Its default, `nameonly`, retains all three confidence values, including ungraded Unlabeled
