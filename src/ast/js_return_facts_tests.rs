@@ -307,8 +307,8 @@ fn a_selection_the_contract_refuses_has_no_fact() {
                 "-",
             ),
             (
-                "a parse error elsewhere in the function",
-                "function f() {}\nfunction H() {\n  const junk = ;\n  return { f };\n}\n",
+                "a parse error elsewhere in the function (inline value, no binder lookup)",
+                "function H() {\n  const junk = ;\n  return { run: () => 1 };\n}\n",
                 "-",
             ),
             (
