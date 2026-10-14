@@ -21,7 +21,7 @@ use crate::mcp::lazy::{Readiness, SessionBuilder};
 use crate::mcp::shared::preamble::BuildState;
 use crate::mcp::{SessionProvider, StartupMode};
 use std::fmt;
-use std::sync::{Arc, Condvar, Mutex, MutexGuard, RwLock};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, RwLock, RwLockWriteGuard};
 use std::time::Instant;
 
 /// What a call is told when the builder panicked. The in-process server uses the same text.
@@ -317,6 +317,46 @@ impl DaemonState {
         Ok(answer)
     }
 
+    /// Run `change` on the published provider with exclusive access; `None` when nothing is
+    /// published. This is the only way to the provider's `&mut`. Before it lets go of the slot
+    /// it copies the provider's generation into the control plane, so `status` reports the
+    /// generation of the index that is served once the change is over.
+    pub(super) fn write<R>(
+        &self,
+        change: impl FnOnce(&mut SessionProvider) -> R,
+    ) -> Result<Option<R>, Poisoned> {
+        let mut slot = self
+            .provider
+            .write()
+            .map_err(|_| Poisoned { lock: "provider" })?;
+        let Some(provider) = slot.as_mut() else {
+            return Ok(None);
+        };
+        let result = change(&mut *provider);
+        let generation = provider.generation();
+        self.record_generation(&slot, generation)?;
+        Ok(Some(result))
+    }
+
+    /// Copy the provider's generation into the control plane. The write guard is an argument
+    /// so that this cannot be called after the slot has been let go: two refreshes are then
+    /// recorded in the order they happened. This is the permitted lock order (slot, then
+    /// control).
+    fn record_generation(
+        &self,
+        _held: &RwLockWriteGuard<'_, Option<SessionProvider>>,
+        generation: u64,
+    ) -> Result<(), Poisoned> {
+        let mut control = self.lock_control()?;
+        if let BuildPhase::Ready {
+            generation: recorded,
+        } = &mut control.build
+        {
+            *recorded = generation;
+        }
+        Ok(())
+    }
+
     /// Wake every parked call so that it looks at the clock again.
     ///
     /// A running daemon does not need this: a parked call wakes by itself when its deadline
@@ -454,3 +494,7 @@ mod tests;
 #[cfg(test)]
 #[path = "coordinator_failure_tests.rs"]
 mod failure_tests;
+
+#[cfg(test)]
+#[path = "coordinator_order_tests.rs"]
+mod order_tests;
