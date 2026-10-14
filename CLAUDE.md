@@ -350,8 +350,9 @@ before it announces `Ready`. The generation is recorded under the slot's write g
 publication and after every exclusive access, so it is the slot's whatever the phase. Lock order: code holding the control lock
 does not touch the slot; code holding the slot may take the control lock. A panic in a query or
 a refresh (`read`, `write`), on the build thread, or in the control plane (`ensure_ready`,
-`status`), and a lock found poisoned, end the daemon through `Parts::on_fatal` (`fatal.rs`:
-a `FatalOnUnwind` guard at each entry; production `abort_daemon` writes one line to stderr and
+`status`, the `--warm-at-startup` start), and a lock found poisoned, end the daemon through
+`Parts::on_fatal` (`fatal.rs`: a `FatalOnUnwind` guard made right after each entry takes its
+lock; production `abort_daemon` writes one line to stderr and
 aborts, so every attached client sees its connection end); nothing is read through a poisoned
 lock, and a test installs a `FatalLog` instead of the abort. Time is the injected
 `Clock` (`clock.rs`), so tests move a manual clock and never sleep to order events.
