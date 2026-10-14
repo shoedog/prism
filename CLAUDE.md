@@ -335,13 +335,21 @@ publication and after every exclusive access, so it is the slot's whatever the p
 does not touch the slot; code holding the slot may take the control lock. A poisoned lock is the
 `Poisoned` error and is never unwrapped; there is no panic boundary yet. Time is the injected
 `Clock` (`clock.rs`), so tests move a manual clock and never sleep to order events.
+`control.rs` holds the types the control lock guards (`BuildPhase`, `ControlState`,
+`AttemptOutcome`, `BuildStatus`) and `Answer`, what `ensure_ready` tells a call: `Ready`,
+`Warming`, `Failed` with the call's own attempt's error, or `Superseded` when that attempt
+failed and a later attempt is already building or the index is ready.
 `connection.rs` serves one admitted connection (`serve_admitted`): `transport::serve_loop`, the
 frame loop the in-process server also runs, then `handle_control` with no lock, then for a tool
 call `ensure_ready` followed by `dispatch_tool_read` under the slot's read lock, or
-`dispatch_tool_refresh` / `dispatch_tool_auto_refresh` under its write lock. A query sees the
-whole provider, so stale evidence a refresh recorded outranks a clean stamp probe for every
-client. Not there yet (the next slice): the re-check of an automatic refresh after exclusive
-access is acquired, and panic boundaries.
+`dispatch_tool_refresh` / `dispatch_tool_auto_refresh` under its write lock. Nothing is served
+from the slot before `ensure_ready` has answered `Ready`. A query sees the whole provider, so
+stale evidence a refresh recorded outranks a clean stamp probe for every client. Before the
+index is ready a call gets the in-process server's `warming` or `build_failed` result; a
+`Superseded` call gets the daemon's own retryable `indexing` status (retry in
+`INDEXING_RETRY_AFTER_SECS`; ignore it if a retry already succeeded), which the in-process
+server never sends. Not there yet (the next slice): the re-check of an automatic refresh after
+exclusive access is acquired, and panic boundaries.
 
 Algorithms fall into two categories:
 1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`
