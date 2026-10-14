@@ -244,6 +244,8 @@ mutation of module objects (monkey-patching, reflective writes, `eval`, host glo
 (replan probes, 2026-09-25). Producer-side mutation is modeled only where mutation is the construction
 idiom (CJS `module.exports`, `src/ast/js_cjs_export_barriers.rs`). A slice that wants to model runtime
 mutation proposes it as a new contract, not as a precision fix to an existing rung.
+Known JS/TS, React and Node resolution gaps, with options and tracking issues, are listed in
+`docs/features/language-coverage/js-ts-known-gaps.md`; update it when a slice closes or finds one.
 
 A JS/TS local alias is followed when a bounded chain
 of unique, unwritten `const` bindings reaches one callable, an import, or a namespace-import
