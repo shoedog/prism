@@ -171,18 +171,21 @@ impl DaemonState {
     ///
     /// If the attempt this connection last joined has failed and no call of the connection has
     /// been told so (each was answered `Warming`), this call is answered about that attempt
-    /// and starts nothing: `Failed` with its text, or `Superseded` (D32). Otherwise the call
+    /// and starts nothing: `Failed` with its text, `Superseded`, or `Ready` when a later attempt
+    /// has published the index (D32). Otherwise the call
     /// first decides which attempt it belongs to, once: the one that is building, or a
     /// new one if none has been started or the last one failed. From then on it reads only that
     /// attempt's outcome, and returns
     ///
     /// - `Ready` once that attempt has published the index (or at once, if the index was ready
-    ///   when the call arrived),
+    ///   when the call arrived), and also when that attempt failed and, by the time the call
+    ///   runs again, a later attempt has published the index (the owner's decision of
+    ///   2026-10-13),
     /// - `Failed`, with that attempt's own error, if that attempt ended without an index and
     ///   nothing has superseded it. The call does not start the retry; the next call does,
     /// - `Superseded` if that attempt ended without an index and, by the time the call runs
-    ///   again, a later attempt is building or the index is ready. The failure is stale then,
-    ///   and the call is told to retry instead of being given it,
+    ///   again, a later attempt is building. The failure is stale then, and the call is told
+    ///   to retry instead of being given it,
     /// - `Warming` when this connection's deadline for that attempt has passed. That is this
     ///   connection's wait ending; the build goes on and nobody else's deadline changes.
     ///

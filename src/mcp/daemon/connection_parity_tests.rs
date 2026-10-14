@@ -360,6 +360,7 @@ fn a_poisoned_provider_slot_ends_the_connection_with_an_error_and_handshakes_go_
 fn play_a_client_that_stopped_waiting(
     client: &mut Client,
     gate: &Gate,
+    builds: &AtomicU64,
     mut failed: impl FnMut() -> bool,
 ) -> String {
     let mut transcript = String::new();
@@ -374,6 +375,11 @@ fn play_a_client_that_stopped_waiting(
     // The next call hears the failure, with its cause, and starts nothing.
     client.send(CALLEES);
     transcript.push_str(&client.recv_line());
+    assert_eq!(
+        builds.load(Ordering::SeqCst),
+        1,
+        "the call that hears the failure starts no build"
+    );
     // The call after that starts the retry, which is held: warming again.
     client.send(CALLEES);
     transcript.push_str(&client.recv_line());
@@ -425,7 +431,7 @@ fn a_client_that_stopped_waiting_hears_the_failure_and_then_the_retry_like_the_i
         )
     });
     let mut client = Client::new(near);
-    let expected = play_a_client_that_stopped_waiting(&mut client, &in_gate, || {
+    let expected = play_a_client_that_stopped_waiting(&mut client, &in_gate, &in_builds, || {
         delivered.load(Ordering::SeqCst) == 1
     });
     drop(client);
@@ -445,9 +451,10 @@ fn a_client_that_stopped_waiting_hears_the_failure_and_then_the_retry_like_the_i
     );
     let state = DaemonState::new(daemon_builder, StartupMode::Lazy).expect("a lazy daemon state");
     let (mut client, worker) = connect(&state, settings);
-    let actual = play_a_client_that_stopped_waiting(&mut client, &daemon_gate, || {
-        status(&state).state == BuildState::Failed
-    });
+    let actual =
+        play_a_client_that_stopped_waiting(&mut client, &daemon_gate, &daemon_builds, || {
+            status(&state).state == BuildState::Failed
+        });
     close(client, worker);
     daemon_retry.open();
 

@@ -8,7 +8,8 @@ use std::time::{Duration, Instant};
 /// What a readiness call is told.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Answer {
-    /// The index is published.
+    /// The index is published: by the call's own attempt, or by a later attempt after the
+    /// call's own failed (the owner's decision of 2026-10-13: such a call is served at once).
     Ready,
     /// This connection's deadline for its attempt has passed and the attempt is still
     /// building. `elapsed` is the attempt's age.
@@ -16,21 +17,24 @@ pub(super) enum Answer {
     /// The call's own attempt ended without an index, with this error, and nothing has
     /// superseded that: no later attempt is building and the index is not ready.
     Failed { error: String },
-    /// The call's own attempt ended without an index, and the daemon has since moved on: a
-    /// later attempt is building, or the index is ready. The failure is stale, so the call is
-    /// not given it; it is told to retry. It is never given another attempt's outcome.
+    /// The call's own attempt ended without an index, and a later attempt is building. The
+    /// failure is stale, so the call is not given it; it is told to retry. It is never given
+    /// another attempt's outcome.
     Superseded,
 }
 
-/// What a call is told about its own attempt's ending `own`, given the phase now (D26). An
-/// attempt that published the index is `Ready`. A failed attempt is `Superseded` when a later
-/// attempt is building or the index is ready, and otherwise `Failed` with its own text. The
-/// phase contributes only which of those it is: no other attempt's outcome or text.
+/// What a call is told about its own attempt's ending `own`, given the phase now (D26, as the
+/// owner amended it on 2026-10-13). An attempt that published the index is `Ready`. A failed
+/// attempt is `Ready` when a later attempt has published the index since (the call is served
+/// at once), `Superseded` when a later attempt is building, and otherwise `Failed` with its
+/// own text. The phase contributes only which of those it is: no other attempt's outcome or
+/// text.
 pub(super) fn answer_for(own: &Result<(), String>, phase: &BuildPhase) -> Answer {
     match own {
         Ok(()) => Answer::Ready,
         Err(error) => match phase {
-            BuildPhase::Building { .. } | BuildPhase::Ready => Answer::Superseded,
+            BuildPhase::Ready => Answer::Ready,
+            BuildPhase::Building { .. } => Answer::Superseded,
             BuildPhase::Failed { .. } | BuildPhase::Idle => Answer::Failed {
                 error: error.clone(),
             },

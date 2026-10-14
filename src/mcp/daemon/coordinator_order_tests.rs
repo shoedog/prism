@@ -231,12 +231,12 @@ fn a_waiter_held_behind_its_failed_attempt(
     (state, early, notify, calls)
 }
 
-/// The retry has already succeeded when the waiter of attempt 1 runs. It is told to retry, and
-/// its next call is served (D26). It is not told `Ready` either: a call is answered from its
-/// own attempt, and its own attempt built nothing. Rules out reporting the superseded failure,
-/// and answering from the current phase.
+/// The retry has already succeeded when the waiter of attempt 1 runs. Its own attempt failed,
+/// and a later one has published the index since, so it is answered `Ready` and served at once
+/// (the owner's decision of 2026-10-13, amending D26), and so is its next call. Rules out
+/// reporting the superseded failure, and telling the call to retry with nothing building.
 #[test]
-fn a_waiter_whose_failed_attempt_was_superseded_by_a_ready_index_is_told_to_retry() {
+fn a_waiter_whose_failed_attempt_was_superseded_by_a_ready_index_is_served() {
     let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
     let (state, early, notify, calls) = a_waiter_held_behind_its_failed_attempt(&cfg, vec![]);
 
@@ -249,8 +249,8 @@ fn a_waiter_whose_failed_attempt_was_superseded_by_a_ready_index_is_told_to_retr
 
     assert_eq!(
         early.outcome(),
-        Outcome::Superseded,
-        "attempt 1 failed and the index is ready: the waiter of attempt 1 is told to retry"
+        Outcome::Ready,
+        "attempt 1 failed and the index is ready: the waiter of attempt 1 is served"
     );
     notify.open();
     assert_eq!(status(&state).attempt, 2);

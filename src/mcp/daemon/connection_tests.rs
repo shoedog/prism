@@ -397,16 +397,16 @@ fn a_call_is_not_served_from_the_slot_before_ready_is_announced() {
     close(a, a_worker);
 }
 
-/// The owner's decision (D26): a call is not told of a failure that a retry has already
-/// superseded. The thread-free table of the rule is `control_tests.rs`; this test assumes that
-/// A's call does not wake spuriously while attempt 1's notification is held, and would fail
-/// loudly, not pass wrongly, if it did. A's call waits on attempt 1, which fails; before A's call runs again, B's call
-/// has started the retry and been served from it. A is then told that the repository is being
-/// indexed and to retry, in the envelope of the other retryable statuses, and its retry is
-/// served. Rules out answering `build_failed` with a stale cause, and a status that clients
-/// keyed on the index state would not treat as warming.
+/// The owner's decisions (D26, amended 2026-10-13): a call is not told of a failure that a
+/// retry has already superseded, and when that retry has published the index the call is
+/// served at once. The thread-free table of the rule is `control_tests.rs`; this test assumes
+/// that A's call does not wake spuriously while attempt 1's notification is held, and would
+/// fail loudly, not pass wrongly, if it did. A's call waits on attempt 1, which fails; before
+/// A's call runs again, B's call has started the retry and been served from it. A's call is
+/// then served from the index. Rules out answering `build_failed` with a stale cause, and
+/// telling A to retry when there is nothing to wait for.
 #[test]
-fn a_call_whose_failed_attempt_was_superseded_is_told_to_retry_and_its_retry_is_served() {
+fn a_call_whose_failed_attempt_was_superseded_by_a_published_retry_is_served() {
     let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
     let first_gate = Gate::closed();
     let (builder, builds) = scripted(&cfg, vec![fail_after(&first_gate, "first attempt failed")]);
@@ -442,33 +442,15 @@ fn a_call_whose_failed_attempt_was_superseded_is_told_to_retry_and_its_retry_is_
     assert_eq!(from_b["result"]["structuredContent"]["query"], RUN_CALLEES);
 
     // The retry's announcement woke A's call. Its own attempt failed; the index is ready.
-    let told = a.recv();
-    assert_eq!(told["id"], 7);
-    assert_eq!(told["result"]["isError"], true, "{told}");
+    let served = a.recv();
+    assert_eq!(served["id"], 7);
     assert_eq!(
-        told["result"]["structuredContent"],
-        json!({
-            "status": "indexing",
-            "retry_after_secs": 5,
-            "message": "prism-mcp is indexing the repository; retry this call in about 5 seconds. If you already retried and that call succeeded, ignore this message."
-        }),
-        "{told}"
+        served["result"]["structuredContent"]["query"], RUN_CALLEES,
+        "{served}"
     );
-    let text = told["result"]["content"][0]["text"]
-        .as_str()
-        .unwrap_or_default();
-    assert_eq!(
-        serde_json::from_str::<serde_json::Value>(text)
-            .ok()
-            .as_ref(),
-        Some(&told["result"]["structuredContent"]),
-        "the text view carries the same status"
-    );
-    assert_eq!(told["result"]["_meta"]["prism/index_state"], "warming");
-    assert_eq!(told["result"]["_meta"]["prism/retryable"], true);
     assert!(
-        !told.to_string().contains("first attempt failed"),
-        "the superseded failure is not sent: {told}"
+        !served.to_string().contains("first attempt failed"),
+        "the superseded failure is not sent: {served}"
     );
     notify.open();
 
@@ -480,8 +462,11 @@ fn a_call_whose_failed_attempt_was_superseded_is_told_to_retry_and_its_retry_is_
 }
 
 /// A client that stopped waiting (zero seconds) on an attempt that then failed, while another
-/// client has started the retry: the first client's next call is told `indexing`, not the
-/// stale failure (D26, D32), and its call after that joins the retry.
+/// client has started the retry: the first client's next call is told that the repository is
+/// being indexed and to retry, in the envelope of the other retryable statuses, not the stale
+/// failure (D26, D32), and its call after that joins the retry. Rules out answering
+/// `build_failed` with a stale cause, and a status that clients keyed on the index state would
+/// not treat as warming.
 #[test]
 fn a_client_that_stopped_waiting_is_told_to_retry_when_another_client_retried_meanwhile() {
     let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
@@ -513,10 +498,28 @@ fn a_client_that_stopped_waiting_is_told_to_retry_when_another_client_retried_me
     });
 
     let told = a.request(CALLEES);
+    assert_eq!(told["result"]["isError"], true, "{told}");
     assert_eq!(
-        told["result"]["structuredContent"]["status"], "indexing",
+        told["result"]["structuredContent"],
+        json!({
+            "status": "indexing",
+            "retry_after_secs": 5,
+            "message": "prism-mcp is indexing the repository; retry this call in about 5 seconds. If you already retried and that call succeeded, ignore this message."
+        }),
         "{told}"
     );
+    let text = told["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap_or_default();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(text)
+            .ok()
+            .as_ref(),
+        Some(&told["result"]["structuredContent"]),
+        "the text view carries the same status"
+    );
+    assert_eq!(told["result"]["_meta"]["prism/index_state"], "warming");
+    assert_eq!(told["result"]["_meta"]["prism/retryable"], true);
     assert!(!told.to_string().contains("first attempt failed"), "{told}");
     let joined = a.request(CALLEES);
     assert_eq!(

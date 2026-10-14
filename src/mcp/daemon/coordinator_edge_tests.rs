@@ -392,3 +392,37 @@ fn a_connection_whose_attempt_published_while_it_was_not_waiting_is_served() {
     assert_eq!(conn.outcome(), Outcome::Ready);
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
+
+/// The owner's decision of 2026-10-13 on the path of D32: a connection that stopped waiting on
+/// an attempt that then failed, while another connection's retry has published the index, is
+/// answered `Ready` on its next call, and on the call after it. Rules out `Superseded` with
+/// nothing building, and a failure reported after the connection was served.
+#[test]
+fn a_connection_that_stopped_waiting_is_served_once_another_s_retry_has_published() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let first_gate = Gate::closed();
+    let (builder, _calls) = scripted(&cfg, vec![fail_after(&first_gate, "first attempt failed")]);
+    let clock = ManualClock::new();
+    let state = DaemonState::from_parts(parts_with(builder, &clock)).expect("a lazy daemon state");
+    let quick = Conn::open(&state, 0);
+    let patient = Conn::open(&state, 600);
+
+    quick.call();
+    assert!(matches!(quick.outcome(), Outcome::Warming { .. }));
+    first_gate.open();
+    wait_until("attempt 1 to fail", || {
+        status(&state).state == BuildState::Failed
+    });
+    patient.call();
+    assert_eq!(patient.outcome(), Outcome::Ready, "the retry published");
+
+    quick.call();
+    assert_eq!(quick.outcome(), Outcome::Ready);
+    quick.call();
+    assert_eq!(
+        quick.outcome(),
+        Outcome::Ready,
+        "and nothing is owed after it"
+    );
+    assert_eq!(status(&state).attempt, 2);
+}

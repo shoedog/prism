@@ -34,12 +34,20 @@ fn an_attempt_that_published_is_answered_ready_in_every_phase() {
     }
 }
 
-/// A failed attempt is superseded when a later attempt is building or the index is ready.
+/// A failed attempt is superseded when a later attempt is building: the call is told to retry.
 #[test]
-fn a_failed_attempt_is_superseded_by_a_building_retry_and_by_a_ready_index() {
+fn a_failed_attempt_is_superseded_by_a_building_retry() {
     let own: Result<(), String> = Err("own error".to_string());
     assert_eq!(answer_for(&own, &building()), Answer::Superseded);
-    assert_eq!(answer_for(&own, &BuildPhase::Ready), Answer::Superseded);
+}
+
+/// When a later attempt has published the index, a call whose own attempt failed is served at
+/// once (the owner's decision of 2026-10-13, amending D26). Rules out telling it to retry with
+/// nothing building.
+#[test]
+fn a_failed_attempt_whose_retry_published_the_index_is_answered_ready() {
+    let own: Result<(), String> = Err("own error".to_string());
+    assert_eq!(answer_for(&own, &BuildPhase::Ready), Answer::Ready);
 }
 
 /// Otherwise the call is told its own attempt's failure, with its own text: never the text of
