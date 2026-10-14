@@ -182,20 +182,30 @@ fn lock_is_unsupported(error: &io::Error) -> bool {
     false
 }
 
-/// Write a new file and move it to `final_path`. Returns the number of bytes written, or
-/// `None` if another process is saving in `cache_dir` and this save was skipped.
+/// Write a new file and move it to `final_path`, then run `after_publish` with the number of
+/// bytes written. Returns that number, or `None` if the save was skipped.
 ///
 /// A save takes an exclusive advisory lock on the permanent `cpg-cache.lock` in `cache_dir`
-/// and holds it through the write, the rename and the cleanup after a failure. While it is
-/// held no other writer can be using the fixed temp name, so a leftover temp file is an
-/// orphan from a crashed writer and `File::create` may truncate it. Nothing ever deletes
-/// another writer's file. A writer that finds the lock taken skips its save and reports
-/// success: the writer holding it publishes an equivalent cache.
+/// and holds it through the write, the rename, `after_publish` (the metadata write) and the
+/// cleanup after a failure. While it is held no other writer can be using the fixed temp
+/// name, so a leftover temp file is an orphan from a crashed writer and `File::create` may
+/// truncate it. Nothing deletes another writer's file: a load removes the orphan only while
+/// it holds the same lock ([`remove_orphan_temp`]).
+///
+/// A save that does not get the lock is skipped and reported as `None`: no file is written
+/// and `after_publish` does not run. The holder is another saver, or a load removing an
+/// orphan; a saver that later fails, or one with different inputs, leaves the cache absent or
+/// stale. A skip is a lost best-effort save, not a promise that an equivalent cache will
+/// appear: every load revalidates the file hashes against the sources.
 ///
 /// Only a filesystem that reports that it has no locks ([`lock_is_unsupported`]) is saved to
 /// without the lock; concurrent saves there behave as they did before the lock existed (one
 /// fixed temp name, write, rename). Any other lock failure skips the save like a taken lock,
 /// since it cannot show that nobody else is writing.
+///
+/// The guarantee assumes one coherent lock across every process that shares the directory.
+/// It does not hold on a network filesystem mounted with local-only locking (NFS `nolock` or
+/// `local_lock`), and a binary from before the lock existed neither takes nor honors it.
 ///
 /// If encoding, flushing or the rename fails, the temp file is removed and `final_path` is
 /// left as it was.
@@ -203,6 +213,7 @@ pub(super) fn publish_file(
     cache_dir: &Path,
     final_path: &Path,
     encode: impl FnOnce(&mut dyn Write) -> io::Result<()>,
+    after_publish: impl FnOnce(u64),
 ) -> io::Result<Option<u64>> {
     let lock = open_lock_file(cache_dir)?;
     match try_lock_file(&lock) {
@@ -222,6 +233,7 @@ pub(super) fn publish_file(
             }
         });
         fs::rename(&tmp_path, final_path)?;
+        after_publish(written);
         Ok(written)
     });
     if result.is_err() {
@@ -253,16 +265,23 @@ pub(super) fn remove_orphan_temp(cache_dir: &Path) {
 }
 
 /// Encode `cache` into the temp file in `cache_dir`, then rename it to `final_path`, and
-/// return the number of bytes written, or `None` if the save was skipped.
+/// return the number of bytes written, or `None` if the save was skipped. See
+/// [`publish_file`] for `after_publish`.
 pub(super) fn publish_cache_file(
     cache_dir: &Path,
     final_path: &Path,
     cache: &CpgCacheRef<'_>,
+    after_publish: impl FnOnce(u64),
 ) -> io::Result<Option<u64>> {
-    publish_file(cache_dir, final_path, |writer| {
-        bincode::serialize_into(writer, cache)
-            .map_err(|e| io::Error::other(format!("bincode serialize error: {}", e)))
-    })
+    publish_file(
+        cache_dir,
+        final_path,
+        |writer| {
+            bincode::serialize_into(writer, cache)
+                .map_err(|e| io::Error::other(format!("bincode serialize error: {}", e)))
+        },
+        after_publish,
+    )
 }
 
 #[cfg(test)]

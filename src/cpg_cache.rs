@@ -381,8 +381,10 @@ fn cache_meta_path(cache_dir: &Path) -> PathBuf {
 ///
 /// Writes both `cpg-cache.bin` (bincode) and `cache-meta.json` (human-readable).
 /// Uses atomic write (temp file + rename) to prevent corruption from interrupted writes. Saves
-/// are serialized per directory by a lock file; a save that finds another one running is
-/// skipped and returns `Ok`.
+/// are serialized per directory by a lock file, held through the metadata write. A save that
+/// cannot take the lock (another process is saving, or loading and clearing a leftover temp
+/// file) writes nothing and returns [`SaveOutcome::Skipped`]: the save is lost, and a later
+/// load revalidates whatever cache is there.
 ///
 /// `has_type_db` records whether the CPG was built with a `TypeDatabase`.
 /// This flag is checked on load to ensure virtual dispatch edge consistency.
@@ -391,9 +393,18 @@ pub fn save_cache(
     file_hashes: &BTreeMap<String, String>,
     has_type_db: bool,
     cache_dir: &Path,
-) -> io::Result<()> {
+) -> io::Result<SaveOutcome> {
     let topology_key = compute_topology_key(file_hashes, &BTreeMap::new());
     save_cache_with_topology(cpg, file_hashes, &topology_key, has_type_db, cache_dir)
+}
+
+/// What a successful [`save_cache`] call did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SaveOutcome {
+    /// `cpg-cache.bin` was written and published.
+    Saved,
+    /// The directory lock was not available; nothing was written.
+    Skipped,
 }
 
 pub fn save_cache_with_topology(
@@ -402,7 +413,7 @@ pub fn save_cache_with_topology(
     topology_key: &BTreeMap<String, String>,
     has_type_db: bool,
     cache_dir: &Path,
-) -> io::Result<()> {
+) -> io::Result<SaveOutcome> {
     if cpg.ephemeral_owner || cpg.call_graph.owner_ephemeral {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -436,29 +447,30 @@ pub fn save_cache_with_topology(
     };
 
     let bin_path = cache_bin_path(cache_dir);
-    let Some(encoded_len) = stream::publish_cache_file(cache_dir, &bin_path, &cache)? else {
-        // Another process is saving this cache right now and publishes an equivalent one.
-        eprintln!("CPG cache save skipped: another process is writing this cache");
-        return Ok(());
-    };
+    // The metadata is written inside the publish, under the same lock, so it always
+    // describes the cache file just renamed into place.
+    let published = stream::publish_cache_file(cache_dir, &bin_path, &cache, |encoded_len| {
+        // Human-readable metadata (best-effort, non-fatal).
+        let meta = CacheMeta {
+            prism_version: prism_version.to_string(),
+            cache_version: CACHE_VERSION,
+            file_count: file_hashes.len(),
+            node_count: cpg.graph.node_count(),
+            edge_count: cpg.graph.edge_count(),
+            cache_size_bytes: encoded_len,
+            has_type_db,
+            cache_build_identity: current_cache_build_identity().to_string(),
+            git_sha: git_sha.to_string(),
+            created: chrono_free_timestamp(),
+        };
+        let meta_json = serde_json::to_string_pretty(&meta).unwrap_or_default();
+        let _ = fs::write(cache_meta_path(cache_dir), meta_json);
+    })?;
 
-    // Write human-readable metadata (best-effort, non-fatal).
-    let meta = CacheMeta {
-        prism_version: prism_version.to_string(),
-        cache_version: CACHE_VERSION,
-        file_count: file_hashes.len(),
-        node_count: cpg.graph.node_count(),
-        edge_count: cpg.graph.edge_count(),
-        cache_size_bytes: encoded_len,
-        has_type_db,
-        cache_build_identity: current_cache_build_identity().to_string(),
-        git_sha: git_sha.to_string(),
-        created: chrono_free_timestamp(),
-    };
-    let meta_json = serde_json::to_string_pretty(&meta).unwrap_or_default();
-    let _ = fs::write(cache_meta_path(cache_dir), meta_json);
-
-    Ok(())
+    Ok(match published {
+        Some(_) => SaveOutcome::Saved,
+        None => SaveOutcome::Skipped,
+    })
 }
 
 /// Result of attempting to load a CPG from cache.
