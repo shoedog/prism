@@ -11,6 +11,7 @@
 mod budget;
 mod clock;
 mod connection;
+mod control;
 mod coordinator;
 #[cfg(test)]
 mod test_support;
