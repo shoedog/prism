@@ -140,7 +140,8 @@ A call through a followed alias is filed under the alias's spelling. The resolve
   - an awaited result;
   - a value that is the hook's own parameter;
   - a `const` object or array that the hook uses anywhere but as the whole value of a `return` (a property write, `Object.assign`, an argument, a spread, a closure capture);
-  - a hook that returns a shadowed `undefined`, or an object or array literal of more than 512 members.
+  - a hook with an explicit `return undefined` (`return;` and `return null` are fine), or one that spells any name with a unicode escape;
+  - a hook that returns an object or array literal of more than 512 members.
 
 ## 5. Parsing
 
