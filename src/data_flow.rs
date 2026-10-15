@@ -554,7 +554,7 @@ impl DataFlowGraph {
                 let mut owner_counts = BTreeMap::new();
                 for func_node in &function_nodes {
                     // js-param-defs PR-B: anonymous JS/TS/TSX callables own a
-                    // synthetic, non-referenceable `<cb@L:C>` DFG identity.
+                    // synthetic, non-referenceable `<anon@L:C>` DFG identity.
                     if let Some(name) = parsed.dfg_owner_name(func_node) {
                         let key = (name, parsed.node_line_range(func_node).0);
                         *owner_counts.entry(key).or_insert(0usize) += 1;

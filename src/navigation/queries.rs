@@ -2031,8 +2031,7 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
 }
 
 /// Whether a CPG node is an anonymous-callable identity: the callable's own
-/// Function node, or a Variable / ReturnValue row it owns (`<cb@L:C>` today,
-/// `<anon@L:C>` after lane A2 S0).
+/// Function node, or a Variable / ReturnValue row it owns (`<anon@L:C>`).
 fn is_anonymous_identity_node(s: &NavigationSession, idx: NodeIndex) -> bool {
     match s.index.cpg.node(idx) {
         CpgNode::Function { name, .. } => crate::anon_owner::is_anonymous_owner_name(name),
@@ -2044,7 +2043,7 @@ fn is_anonymous_identity_node(s: &NavigationSession, idx: NodeIndex) -> bool {
 }
 
 /// js-param-defs PR-B: DFG rows of anonymous JS/TS callables carry a synthetic
-/// `<cb@L:C>` owner. Navigation stays byte-identical by default, so those
+/// `<anon@L:C>` owner. Navigation stays byte-identical by default, so those
 /// nodes (and, once they exist, the anonymous Function nodes themselves) are
 /// never navigation evidence or ego seeds (SPEC-prB D7).
 fn nav_visible_nodes_at(s: &NavigationSession, file: &str, line: usize) -> Vec<NodeIndex> {

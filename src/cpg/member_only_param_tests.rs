@@ -338,7 +338,7 @@ fn anonymous_callback_owner_gets_the_base_def_and_edges() {
             let defs = base_defs(g, "p");
             assert_eq!(defs.len(), 1, "{language:?}: {defs:?}");
             assert!(
-                defs.iter().all(|(owner, _)| owner.starts_with("<cb@")),
+                defs.iter().all(|(owner, _)| owner.starts_with("<anon@")),
                 "{language:?}: synthetic owner expected: {defs:?}"
             );
             assert_eq!(
