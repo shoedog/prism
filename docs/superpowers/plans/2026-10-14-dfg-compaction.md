@@ -17,7 +17,7 @@
 - Preserve observable output **byte for byte** (cross-build SARIF provenance is checked separately as specified below): navigation, review, SARIF, targets, MCP Evidence; preserve node/edge insertion order, first-wins representatives, stable sorting, ties, confidence and telemetry. Do not bless new goldens. Cache bytes intentionally change only when its version changes.
 - Use `BTreeMap`/`BTreeSet` and explicitly ordered iteration. Numeric occurrence IDs are **not legacy sort keys**. Never substitute a HashMap or unstable sort in a behavior-bearing path.
 - Keep `VarLocation::{Eq,Ord,Hash}`, `ExactVarLocation`, `AccessPath`, `FlowConfidence::worst`, RD classification, CPG endpoint selection and query algorithms semantically unchanged.
-- **Owner file-size rule (2026-10-14; supersedes the round-1 no-cap ruling):** measure **weighted lines**: code 1, comment-only 0.5, blank 0, using `python3 .review/file_size.py FILE...` (copy of the new `scripts/file_size.py`; `--over N` lists files above N). New files aim for **≤600**. Above **1,000**, split along a real responsibility boundary; every PR leaving a file above 1,000 explains why. **2,000 is a hard ceiling: no PR may take a file past it.** Files already above 2,000 **must not grow in a feature PR**; small edits are fine, new code goes in new modules. Any required split of such a file is a separately reviewed **move-only PR, with no behavior change, before the feature work**, never inside it. The ledger below binds every planned file/PR. The controller owns the corresponding `CLAUDE.md` Key Design Decision 7 update; this task changes only the plan.
+- **Owner file-size rule (2026-10-14; supersedes the round-1 no-cap ruling):** measure **weighted lines**: code 1, comment-only 0.5, blank 0, using `python3 scripts/file_size.py FILE...` (merged in #399; `--over N` lists files above N). New files aim for **≤600**. Above **1,000**, split along a real responsibility boundary; every PR leaving a file above 1,000 explains why. **2,000 is a hard ceiling: no PR may take a file past it.** Files already above 2,000 **must not grow in a feature PR**; small edits are fine, new code goes in new modules. Any required split of such a file is a separately reviewed **move-only PR, with no behavior change, before the feature work**, never inside it. The ledger below binds every planned file/PR. The controller owns the corresponding `CLAUDE.md` Key Design Decision 7 update; this task changes only the plan.
 - Run `cargo fmt`, **full** `cargo test` and **full** `cargo test --features mcp` at each PR gate. Count passed/failed/ignored tests across every target and doc test; filtered focused runs do not replace these suites. Record out-of-scope failures with a same-environment base control, not a new baseline.
 - Every added behavior has a watched RED (missing-API compile RED is only scaffold evidence), a behavioral mutant or pre-change failure, and a negative/edge test. Behavior-neutral moves use byte controls and deliberately wrong mutants; do not invent a regression that the old behavior should fail.
 - Mutation gate each review round: `python3 scripts/mutgate/mutgate.py --since main --scope fn --jobs 1`; before merge: `python3 scripts/mutgate/mutgate.py --authoritative --jobs 1` with **no `--since` or `--only`**. Register compaction mutants; the old catalog alone will not test new code. Scoped schema observations are advisory. A zero-mutant selection is not coverage.
@@ -75,13 +75,14 @@ Source: Prometheus summary `:149-151`; slicing `:107-109`. Serialized totals **5
 
 | PR | Tasks | Independently reviewable result | Runtime heap effect | Stop before next |
 |---|---|---|---|---|
-| A — oracle | 1 | Shared per-file producer plus frozen legacy aggregation/storage/queries/updates; exact-byte oracle; production behavior unchanged | derived 0 | Full oracle on baseline; no corpus process |
-| B — accessor boundary | 2 | Ordered read API and in-place mechanical caller migration; old storage still live | derived 0 | Both full suites + Tier-A + mutation |
+| A — oracle | 1 | Shared per-file producer plus frozen legacy aggregation/storage/queries/updates; exact-byte oracle; production behavior unchanged | derived 0 | Full oracle; parent/candidate executable replay + fixture dfg-stats; pre-A SerializedCpg byte pin; no real-corpus process |
+| B — accessor boundary | 2 | Ordered read API and in-place mechanical caller migration; old storage still live | derived 0 | Full GATE + parent/candidate executable replay + fixture dfg-stats; pre-A SerializedCpg byte pin |
 | C — compact engine | 3–4 | Test-only arena, ID maps, query parity, remove/merge and collection kernel | derived 0 in production; guessed candidate 400–650 / 90–180 MiB | Measure compact allocation accounting on the fixture/generator corpus before codec work; retain the record. Controller real-corpus acceptance follows activation, before test-oracle deletion. |
 | D — compact codec | 5 | Test-only validated wire codec, corruption/version/stream parity tests; production format unchanged | derived 0 | Full corpus round trips and malformed IDs rejected |
-| E — activation and cleanup | 6–8 | Compact runtime/cache v118 and production deletions together; acceptance, then delete the temporary oracle | guessed 400–650 / 90–180 MiB; **must measure ≥300/75** | Task 6 removes production scaffolding before measurement; Task 7 PASS precedes Task 8 test-only cleanup and final gate. No separate PR F or automatic second corpus set. |
+| E — activation and acceptance | 6–7 | Compact runtime/cache v118 and production deletions together; reviewed activation, then measured acceptance | guessed 400–650 / 90–180 MiB; **must measure ≥300/75** | Task 6 removes production scaffolding before measurement; Task 7 PASS and E merge precede F. Oracle remains through E. |
+| F — test-only retirement | 8 | Retained regressions/mutant witnesses, then removal of temporary oracle/feature/umbrella | derived 0 beyond measured E | Own two-round review cap; full remaining GATE; lane-diff production-equivalence proof; no automatic second corpus set |
 
-Review sizing targets remain **guessed PR budgets**, separate from the weighted file-size rule: A/C/D ≤800 semantic lines each; B ≤500 mechanical accessor substitutions plus views/query moves; E ≤800 semantic lines including cleanup. Forecast actual changed lines and check both review size and the per-file ledger before dispatch. Split at a named task boundary when the actual review surface needs it; any required extraction from an oversized file is a separate move-only predecessor. Sharing the producer shrinks A; bounded in-place consumer substitutions and new helper modules avoid mandatory B1/B2 extractions on this inventory. E still absorbs former F because its production deletions are required by activation already, and post-acceptance oracle deletion is mechanically reviewable. The five-PR/eight-task sequence is unchanged.
+Review sizing targets remain **guessed PR budgets**, separate from the weighted file-size rule: A/C/D ≤800 semantic lines each; B ≤500 mechanical accessor substitutions plus views/query moves; E ≤800 activation/codec semantic lines plus ≤400 acceptance-tool lines; F ≤1,000 new/rewritten test semantic lines, with oracle deletions inventoried separately. Each PR, including F, has its own **two-round cap** declared before dispatch. Forecast actual changed lines and check both review size and the per-file ledger before dispatch. Split at a named task boundary when the actual review surface needs it; any required extraction from an oversized file is a separate move-only predecessor. Sharing the producer shrinks A; bounded in-place consumer substitutions and new helper modules avoid mandatory B1/B2 extractions on this inventory. E includes all production deletions before review/measurement; F authors retained regressions and retires test machinery only after accepted E merges. This is a six-PR/eight-task sequence; F never consumes a third E review round.
 
 ## Review Focus
 
@@ -125,9 +126,10 @@ A `rg` hit on a comment or DTO is not authority to change that module. Conversel
 | `src/data_flow.rs` | facade/re-exports; initially legacy storage, finally `DataFlowGraph { storage: CompactDfg }` |
 | `src/data_flow/{types,views,queries,legacy_storage}.rs` | unchanged DTOs; ordered views; query bodies; transitional old fields (Tasks 1–2, removed from production in 6) |
 | `src/data_flow/build/{mod,file,exact_reads,aliases}.rs` | Shared per-file producer, exact-read helpers and alias helpers in separate responsibility modules; mechanical extraction in 1, compact conversion inside the Rayon map in 6. Weighted budgets are in the ledger. |
-| `src/data_flow/compact/{mod,arena,freeze,views,update,wire,validate}.rs` | types; arena ranks; legacy-parts ingestion; views; compact prune/merge/reindex; codec; validation (3–5) |
+| `src/data_flow/compact/{mod,arena,freeze,views,queries,update,wire,validate}.rs` | types; arena ranks; legacy-parts ingestion; views; temporary test-only query copy (3, deleted in 8/F); compact prune/merge/reindex; codec; validation (3–5) |
 | `src/data_flow/oracle/{mod,aggregate,queries,update}.rs` | **Frozen** legacy storage, aggregation, adjacency, label insertion, queries and updates; share per-file producer/DTO/lattice only. Test-only in 1–7, deleted in 8 after acceptance. |
-| `src/data_flow/tests/{identity,representatives,queries,updates,wire,corruption,corpus,observe,outputs}.rs` | group tests by behavior (1,3–5) |
+| `src/data_flow/test_support.rs` | Byte/evidence projections and shared corpus helpers under `#[cfg(any(test, feature = "dfg-oracle"))]`; feature-visible umbrella entry points (1–7), retained cfg(test) helpers after F |
+| `src/data_flow/tests/{identity,representatives,queries,updates,wire,corruption,corpus,observe,outputs}.rs` | Ordinary cfg(test) cases grouped by behavior (1,3–5); call shared projections from test_support |
 | `tests/dfg_compaction/{main,corpus,outputs}.rs` | integration oracle using common generators, public CPG/output parity (1–8) |
 | `src/cpg.rs`, `src/cpg/build.rs`, `src/cpg/{dfg_compaction_support,dfg_missing_label_tests}.rs` | Register new support/tests in the small parent; oversized build file has no net growth. Assembly entry lives in the new support module (1); in-place view migration and both missing-label tests retain all three removal sites (2). |
 | `src/cpg_cache/dfg_codec_tests.rs`, `src/cpg_cache/stream_tests.rs` | codec version/stream integration (5–6) |
@@ -137,13 +139,13 @@ A `rg` hit on a comment or DTO is not authority to change that module. Conversel
 
 Existing consumer and test modules receive bounded in-place edits within the weighted ledger. New child modules establish the producer, view, query, compact-storage and test seams; the ledger also names module registrations, retained output/navigation tests, the release note and acceptance receipt. If the enumerated PR B diff is still too large, declare a consumer-group split with its own complete gate before dispatch. An oversized existing file is extracted only when needed for growth, in its own prior move-only PR.
 
-**Mutation budget (S2/S3):** use `"lib_test_prefixes": ["data_flow::tests::"]` in `mutants/dfg-compaction.json`; every lane selector is a named default-feature `data_flow::tests::…` lib test. Mutgate supplies no feature flags and cannot route to the `dfg_compaction` umbrella. Keep 10–15 high-value registered mutants total (target 15): exact-vs-legacy identity/order (2), independent representatives (1), adjacency order/multiplicity (1), label pair/worst (1), legacy lookup (1), arena/ID validation (1), stable neighbor tie (1), removal endpoint/key semantics (1), merge/adjacency/stats (1), reclamation (1), codec bounds/group/order (1), early version rejection (1), native production decode (1), and DeltaSlice candidate-edge contribution (1). All other listed variants remain ordinary edge/corruption tests or one-off watched REDs; they are not additional mandatory catalog entries. Each selector must actually run under `--lib` without features. Keep selector wall time below mutgate's **120 s per-test timeout** with margin (target <30 s); record PR A timings and split oversized test cases, never bless timeouts.
+**Mutation budget (S2/S3):** use `"lib_test_prefixes": ["data_flow::tests::", "cpg_cache::dfg_codec_tests::"]` in `mutants/dfg-compaction.json`; every lane selector is a named default-feature lib test under one of these prefixes. Route codec/version/early-rejection/native-decode selectors under `cpg_cache::dfg_codec_tests::`; list and execute each selector to reject zero-test routing. Mutgate supplies no feature flags and cannot route to the `dfg_compaction` umbrella. Keep 10–15 high-value registered mutants total (target 15): exact-vs-legacy identity/order (2), independent representatives (1), adjacency order/multiplicity (1), label pair/worst (1), legacy lookup (1), arena/ID validation (1), stable neighbor tie (1), removal endpoint/key semantics (1), merge/adjacency/stats (1), reclamation (1), codec bounds/group/order (1), early version rejection (1), native production decode (1), and DeltaSlice candidate-edge contribution (1). All other listed variants remain ordinary edge/corruption tests or one-off watched REDs; they are not additional mandatory catalog entries. Each selector must actually run under `--lib` without features. Keep selector wall time below mutgate's **120 s per-test timeout** with margin (target <30 s); record PR A timings and split oversized test cases, never bless timeouts.
 
 Before each dispatch forecast the **full authoritative gate** at `--jobs 1`: existing-catalog time + lane rebuild count × measured rebuild time + baseline/mutant selector time. Target ≤15 minutes, planning cap <30 minutes. Record measured inputs and the forecast. If it exceeds the cap, shrink redundant lane mutants while retaining each distinction or escalate scheduling/budget to the controller; do not weaken the full gate. `--jobs 2` requires an explicit owner exception to the unchanged one-cargo-at-a-time rule; this plan does not authorize it.
 
 ## Weighted file-size ledger (owner rule, 2026-10-14)
 
-**Measured now, forecast thereafter:** `python3 .review/file_size.py FILE...` was run for every existing path below on plan HEAD `54ba7f48f93e4114a77e23cc33f8de862b9ab9cb`; raw output, path manifest and numerical ledger are in `.review/dfg-plan-size-rule/{sizes-now.log,inventory.txt,size-ledger.json}`. Now is the pre-edit measurement (including this plan at 1,541.5). **Every A–E number is a conservative upper-bound forecast in weighted lines, not an implemented or measured result.** Repeated values mean no further planned growth; zero means absent/deleted, confirmed absent today for new paths. The read-only inventory rows explicitly close constructor/DTO/query hits without authorizing edits.
+**Measured baseline, forecast thereafter:** the source-file figures in the Now column were measured at source base **8b2744b3**. The plan row is the separately measured pre-size-rule document at plan HEAD `54ba7f48` (1,541.5), not a claim that this later document existed at the source base. Keep this table as the durable baseline; re-measure every actual PR parent/candidate with `python3 scripts/file_size.py FILE...` from merged #399 after the controller rebases onto it. The old planning clone predates that script; no implementation step depends on its ignored `.review` copy. Preserve raw script output, script/source hashes, path manifest and numeric ledger with the lane handoff or controller evidence repository at each PR. **Every A–F number is a conservative upper-bound forecast in weighted lines, not an implemented or measured result.** Repeated values mean no further planned growth; zero means absent/deleted. Read-only inventory rows close constructor/DTO/query hits without authorizing edits.
 
 Re-run the script after formatting on **every actual PR parent and candidate**, including every newly discovered/created file, and attach the per-file delta and >1,000 rationale to its PR description. An already-over-2,000 file must be no larger than its **immediate PR parent**, even if earlier work shrank it; a repeated ceiling below is not permission to regain removed lines. Do not trade deleted comments/assertions or compressed formatting for space. If real formatting/new caller inventory breaks a forecast, stop before dispatch: route new code to its named responsibility module; only if existing oversized code itself needs extraction, insert a separately reviewed **move-only predecessor PR** with byte/move controls and the full gate, before that feature PR. Never hide growth/extraction inside the feature PR.
 
@@ -153,150 +155,152 @@ Re-run the script after formatting on **every actual PR parent and candidate**, 
 
 ### Existing files: measured baseline and every PR forecast
 
-| File | Now | A | B | C | D | E (final) | Ownership / reason |
-|---|---:|---:|---:|---:|---:|---:|---|
-| `Cargo.toml` | 143 | 150 | 150 | 150 | 150 | 143 | A: oracle feature/target; E: remove both |
-| `docs/superpowers/plans/2026-10-14-dfg-compaction.md` | 1,541.5 | 1,850 | 1,850 | 1,850 | 1,850 | 1,850 | R4: execution brief; this edit measured separately below |
-| `examples/asserted_member_observations.rs` | 220.5 | 220.5 | 240.5 | 240.5 | 240.5 | 240.5 | B: mechanical views; new tests in child modules |
-| `examples/dfg_census.rs` | 615 | 615 | 635 | 635 | 635 | 635 | B: mechanical views; new tests in child modules |
-| `examples/parameter_site_census.rs` | 362 | 362 | 382 | 382 | 382 | 382 | B: mechanical views; new tests in child modules |
-| `src/algorithms/delta_slice.rs` | 99.5 | 99.5 | 119.5 | 119.5 | 119.5 | 119.5 | B: mechanical views; new tests in child modules |
-| `src/algorithms/full_flow.rs` | 187.5 | 187.5 | 207.5 | 207.5 | 207.5 | 207.5 | B: mechanical views; new tests in child modules |
-| `src/algorithms/left_flow.rs` | 284.5 | 284.5 | 304.5 | 304.5 | 304.5 | 304.5 | B: mechanical views; new tests in child modules |
-| `src/algorithms/provenance_slice.rs` | 663 | 663 | 663 | 663 | 663 | 663 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `src/ast.rs` | 11,897 | 11,897 | 11,897 | 11,897 | 11,897 | 11,897 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `src/ast_asserted_member_tests.rs` | 320 | 320 | 340 | 340 | 340 | 340 | B: mechanical views; new tests in child modules |
-| `src/ast_required_parameter_tests.rs` | 425.5 | 425.5 | 445.5 | 445.5 | 445.5 | 445.5 | B: mechanical views; new tests in child modules |
-| `src/build_pool.rs` | 36 | 36 | 36 | 36 | 36 | 36 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `src/call_graph.rs` | 10,196 | 10,196 | 10,196 | 10,196 | 10,196 | 10,196 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `src/cpg.rs` | 57.5 | 60 | 62 | 62 | 62 | 60 | Register new support/tests here; E: remove oracle support registration |
-| `src/cpg/build.rs` | 2,202 | 2,202 | 2,202 | 2,202 | 2,202 | 2,202 | N: A visibility-only; B accessor substitutions; no helper/test additions |
-| `src/cpg/cfg_queries.rs` | 276.5 | 276.5 | 276.5 | 276.5 | 276.5 | 276.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `src/cpg/context.rs` | 348 | 348 | 348 | 348 | 348 | 348 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `src/cpg/exact_caller_read_tests.rs` | 801.5 | 801.5 | 821.5 | 821.5 | 821.5 | 821.5 | B: mechanical views; new tests in child modules |
-| `src/cpg/inert_default_parameter_tests.rs` | 398 | 398 | 418 | 418 | 418 | 418 | B: mechanical views; new tests in child modules |
-| `src/cpg/namespace_flow_audit_tests.rs` | 543.5 | 543.5 | 563.5 | 563.5 | 563.5 | 563.5 | B: mechanical views; new tests in child modules |
-| `src/cpg/nested_execution_owner_audit_tests.rs` | 751 | 751 | 771 | 771 | 771 | 771 | B: mechanical views; new tests in child modules |
-| `src/cpg/optional_parameter_tests.rs` | 1,280 | 1,280 | 1,320 | 1,320 | 1,320 | 1,320 | R2: mechanical migration of existing parameter assertions |
-| `src/cpg/query.rs` | 829.5 | 829.5 | 829.5 | 829.5 | 829.5 | 829.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `src/cpg/reaching.rs` | 604 | 604 | 604 | 604 | 604 | 604 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `src/cpg/reaching/capture.rs` | 122 | 122 | 122 | 122 | 122 | 122 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `src/cpg/reaching/scope.rs` | 854.5 | 854.5 | 854.5 | 854.5 | 854.5 | 854.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `src/cpg/reaching/tests.rs` | 443 | 443 | 443 | 443 | 443 | 443 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `src/cpg/same_line_occurrence_tests.rs` | 1,630.5 | 1,630.5 | 1,680 | 1,680 | 1,680 | 1,680 | R2: mechanical migration of existing same-line assertions |
-| `src/cpg/tests.rs` | 2,635 | 2,635 | 2,635 | 2,635 | 2,635 | 2,635 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `src/cpg/trace.rs` | 1,113.5 | 1,113.5 | 1,113.5 | 1,113.5 | 1,113.5 | 1,113.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `src/cpg_cache.rs` | 1,518.5 | 1,518.5 | 1,525 | 1,525 | 1,530 | 1,560 | R1: cache facade/version only; new tests in dfg_codec_tests.rs |
-| `src/cpg_cache/stream.rs` | 325 | 325 | 330 | 330 | 330 | 390 | B: views; E: early-version helper and decode counter |
-| `src/cpg_cache/stream_tests.rs` | 520 | 520 | 540 | 540 | 580 | 600 | B/D/E: bounded stream assertions; larger cases in new codec tests |
-| `src/data_flow.rs` | 1,358 | 500 | 120 | 120 | 120 | 140 | A: producer/DTO extraction; B: views/queries/storage; E: compact facade |
-| `src/executable_owner/integration/tests.rs` | 414 | 414 | 434 | 434 | 434 | 434 | B: mechanical views; new tests in child modules |
-| `src/lib.rs` | 85 | 85 | 85 | 85 | 85 | 85 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `src/navigation/cache.rs` | 131.5 | 131.5 | 131.5 | 131.5 | 131.5 | 131.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `src/navigation/mod.rs` | 1,138.5 | 1,138.5 | 1,138.5 | 1,138.5 | 1,138.5 | 1,138.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `src/type_provider.rs` | 273 | 273 | 273 | 273 | 273 | 273 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `src/type_providers/go.rs` | 3,169.5 | 3,169.5 | 3,169.5 | 3,169.5 | 3,169.5 | 3,169.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `tests/algo/taxonomy/misc_test.rs` | 461 | 461 | 481 | 481 | 481 | 481 | B: mechanical views; new tests in child modules |
-| `tests/algo/taxonomy/taint_lang_test.rs` | 642 | 642 | 662 | 662 | 662 | 662 | B: mechanical views; new tests in child modules |
-| `tests/algo/taxonomy/taint_sink_test.rs` | 480.5 | 480.5 | 500.5 | 500.5 | 500.5 | 500.5 | B: mechanical views; new tests in child modules |
-| `tests/ast/access_path_test.rs` | 112 | 112 | 132 | 132 | 132 | 132 | B: mechanical views; new tests in child modules |
-| `tests/ast/binding_test.rs` | 348 | 348 | 368 | 368 | 368 | 368 | B: mechanical views; new tests in child modules |
-| `tests/ast/cpg_cache_test.rs` | 2,618 | 2,618 | 2,618 | 2,618 | 2,618 | 2,618 | N: B accessor substitutions only; new codec coverage in child modules |
-| `tests/ast/dfg_label_test.rs` | 203.5 | 203.5 | 223.5 | 223.5 | 223.5 | 223.5 | B: mechanical views; new tests in child modules |
-| `tests/ast/dfg_test.rs` | 417.5 | 417.5 | 437.5 | 437.5 | 437.5 | 437.5 | B: mechanical views; new tests in child modules |
-| `tests/ast/field_test.rs` | 549 | 549 | 569 | 569 | 569 | 569 | B: mechanical views; new tests in child modules |
-| `tests/cli/main.rs` | 20 | 20 | 20 | 20 | 20 | 20 | Read-only umbrella; existing CLI modules receive checks |
-| `tests/cli/output_test.rs` | 157.5 | 157.5 | 157.5 | 157.5 | 157.5 | 200 | E: paired checks at existing fixture seam |
-| `tests/cli/sarif_test.rs` | 438 | 438 | 438 | 438 | 438 | 500 | E: paired checks at existing fixture seam |
-| `tests/cli/targets_test.rs` | 445.5 | 445.5 | 445.5 | 445.5 | 445.5 | 510 | E: paired checks at existing fixture seam |
-| `tests/common/mod.rs` | 1,220.5 | 1,220.5 | 1,240 | 1,240 | 1,240 | 1,240 | R3: two existing fallback assertions; new generator drivers elsewhere |
-| `tests/integration/cjs_export_state_test.rs` | 99 | 99 | 119 | 119 | 119 | 119 | B: mechanical views; new tests in child modules |
-| `tests/integration/cjs_refusal_state_test.rs` | 142.5 | 142.5 | 162.5 | 162.5 | 162.5 | 162.5 | B: mechanical views; new tests in child modules |
-| `tests/integration/cjs_terminal_state_test.rs` | 118.5 | 118.5 | 138.5 | 138.5 | 138.5 | 138.5 | B: mechanical views; new tests in child modules |
-| `tests/integration/core_test.rs` | 805.5 | 805.5 | 825.5 | 825.5 | 825.5 | 825.5 | B: mechanical views; new tests in child modules |
-| `tests/integration/dfg_label_parity_test.rs` | 518.5 | 518.5 | 538.5 | 538.5 | 538.5 | 538.5 | B: mechanical views; new tests in child modules |
-| `tests/integration/dfg_label_store_test.rs` | 614.5 | 614.5 | 540 | 540 | 540 | 540 | B: relocate repeated-partial-hit test; migrate remaining assertions |
-| `tests/integration/dfg_rd_stats_identity_test.rs` | 120.5 | 120.5 | 10 | 10 | 10 | 10 | B: relocate whole named test; retain module declaration/import cleanup |
-| `tests/integration/esm_forwarding_state_test.rs` | 151.5 | 151.5 | 171.5 | 171.5 | 171.5 | 171.5 | B: mechanical views; new tests in child modules |
-| `tests/integration/js_binding_export_state_test.rs` | 129 | 129 | 149 | 149 | 149 | 149 | B: mechanical views; new tests in child modules |
-| `tests/integration/js_binding_namespace/spec_r2.rs` | 196.5 | 196.5 | 216.5 | 216.5 | 216.5 | 216.5 | B: mechanical views; new tests in child modules |
-| `tests/integration/js_binding_namespace_test.rs` | 597 | 597 | 617 | 617 | 617 | 617 | B: mechanical views; new tests in child modules |
-| `tests/integration/js_paths_test.rs` | 493.5 | 493.5 | 513.5 | 513.5 | 513.5 | 513.5 | B: mechanical views; new tests in child modules |
-| `tests/integration/js_wrapped_export_state_test.rs` | 129 | 129 | 149 | 149 | 149 | 149 | B: mechanical views; new tests in child modules |
-| `tests/integration/module_binding_flow_test.rs` | 110.5 | 110.5 | 130.5 | 130.5 | 130.5 | 130.5 | B: mechanical views; new tests in child modules |
-| `tests/integration/receiver_self_binding_test.rs` | 601 | 601 | 621 | 621 | 621 | 621 | B: mechanical views; new tests in child modules |
-| `tests/integration/resolution_test.rs` | 5,040.5 | 5,040.5 | 5,040.5 | 5,040.5 | 5,040.5 | 5,040.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `tests/integration/type_relative_receiver_test.rs` | 535 | 535 | 555 | 555 | 555 | 555 | B: mechanical views; new tests in child modules |
-| `tests/lang/c/algo_test.rs` | 403 | 403 | 423 | 423 | 423 | 423 | B: mechanical views; new tests in child modules |
-| `tests/lang/c/cve_test.rs` | 854 | 854 | 874 | 874 | 874 | 874 | B: mechanical views; new tests in child modules |
-| `tests/lang/go/lang_test.rs` | 433 | 433 | 453 | 453 | 453 | 453 | B: mechanical views; new tests in child modules |
-| `tests/lang/go/loader_hygiene_test.rs` | 341 | 341 | 361 | 361 | 361 | 361 | B: mechanical views; new tests in child modules |
-| `tests/lang/go/owner_partition_telemetry_test.rs` | 553 | 553 | 573 | 573 | 573 | 573 | B: mechanical views; new tests in child modules |
-| `tests/lang/go/receiver_owner_carrying_test.rs` | 596 | 596 | 616 | 616 | 616 | 616 | B: mechanical views; new tests in child modules |
-| `tests/lang/javascript/destructuring_test.rs` | 394.5 | 394.5 | 414.5 | 414.5 | 414.5 | 414.5 | B: mechanical views; new tests in child modules |
-| `tests/lang/javascript/lang_test.rs` | 98.5 | 98.5 | 118.5 | 118.5 | 118.5 | 118.5 | B: mechanical views; new tests in child modules |
-| `tests/lang/lua/lua_test.rs` | 164.5 | 164.5 | 184.5 | 184.5 | 184.5 | 184.5 | B: mechanical views; new tests in child modules |
-| `tests/lang/rust/rust_test.rs` | 203.5 | 203.5 | 223.5 | 223.5 | 223.5 | 223.5 | B: mechanical views; new tests in child modules |
-| `tests/lang/typescript/erased_rvalue_test.rs` | 227.5 | 227.5 | 247.5 | 247.5 | 247.5 | 247.5 | B: mechanical views; new tests in child modules |
-| `tests/mcp/golden_transcript_test.rs` | 155 | 155 | 155 | 155 | 155 | 155 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `tests/mcp/transcript.rs` | 276 | 276 | 276 | 276 | 276 | 276 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
-| `tests/name_resolution/build_wiring_test.rs` | 664 | 664 | 684 | 684 | 684 | 684 | B: mechanical views; new tests in child modules |
-| `tests/navigation/main.rs` | 19 | 19 | 19 | 19 | 19 | 20 | E: register retained navigation regressions |
-| `tests/output/main.rs` | 1 | 1 | 1 | 1 | 1 | 2 | E: register retained output regressions |
+| File | Now | A | B | C | D | E | F (final) | Ownership / reason |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| `Cargo.toml` | 143 | 150 | 150 | 150 | 150 | 150 | 143 | A: oracle feature/target; F: remove both |
+| `docs/superpowers/plans/2026-10-14-dfg-compaction.md` | 1,541.5 | 1,850 | 1,850 | 1,850 | 1,850 | 1,850 | 1,850 | R4: execution brief; this edit measured separately below |
+| `examples/asserted_member_observations.rs` | 220.5 | 220.5 | 240.5 | 240.5 | 240.5 | 240.5 | 240.5 | B: mechanical views; new tests in child modules |
+| `examples/dfg_census.rs` | 615 | 615 | 635 | 635 | 635 | 635 | 635 | B: mechanical views; new tests in child modules |
+| `examples/parameter_site_census.rs` | 362 | 362 | 382 | 382 | 382 | 382 | 382 | B: mechanical views; new tests in child modules |
+| `src/algorithms/delta_slice.rs` | 99.5 | 99.5 | 119.5 | 119.5 | 119.5 | 119.5 | 119.5 | B: mechanical views; new tests in child modules |
+| `src/algorithms/full_flow.rs` | 187.5 | 187.5 | 207.5 | 207.5 | 207.5 | 207.5 | 207.5 | B: mechanical views; new tests in child modules |
+| `src/algorithms/left_flow.rs` | 284.5 | 284.5 | 304.5 | 304.5 | 304.5 | 304.5 | 304.5 | B: mechanical views; new tests in child modules |
+| `src/algorithms/provenance_slice.rs` | 663 | 663 | 663 | 663 | 663 | 663 | 663 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/ast.rs` | 11,897 | 11,897 | 11,897 | 11,897 | 11,897 | 11,897 | 11,897 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/ast_asserted_member_tests.rs` | 320 | 320 | 340 | 340 | 340 | 340 | 340 | B: mechanical views; new tests in child modules |
+| `src/ast_required_parameter_tests.rs` | 425.5 | 425.5 | 445.5 | 445.5 | 445.5 | 445.5 | 445.5 | B: mechanical views; new tests in child modules |
+| `src/build_pool.rs` | 36 | 36 | 36 | 36 | 36 | 36 | 36 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/call_graph.rs` | 10,196 | 10,196 | 10,196 | 10,196 | 10,196 | 10,196 | 10,196 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg.rs` | 57.5 | 60 | 62 | 62 | 62 | 62 | 60 | Register support/tests; F: remove oracle support registration |
+| `src/cpg/build.rs` | 2,202 | 2,202 | 2,202 | 2,202 | 2,202 | 2,202 | 2,202 | N: A visibility-only; B accessor substitutions; no helper/test additions |
+| `src/cpg/cfg_queries.rs` | 276.5 | 276.5 | 276.5 | 276.5 | 276.5 | 276.5 | 276.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg/context.rs` | 348 | 348 | 348 | 348 | 348 | 348 | 348 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg/exact_caller_read_tests.rs` | 801.5 | 801.5 | 821.5 | 821.5 | 821.5 | 821.5 | 821.5 | B: mechanical views; new tests in child modules |
+| `src/cpg/inert_default_parameter_tests.rs` | 398 | 398 | 418 | 418 | 418 | 418 | 418 | B: mechanical views; new tests in child modules |
+| `src/cpg/namespace_flow_audit_tests.rs` | 543.5 | 543.5 | 563.5 | 563.5 | 563.5 | 563.5 | 563.5 | B: mechanical views; new tests in child modules |
+| `src/cpg/nested_execution_owner_audit_tests.rs` | 751 | 751 | 771 | 771 | 771 | 771 | 771 | B: mechanical views; new tests in child modules |
+| `src/cpg/optional_parameter_tests.rs` | 1,280 | 1,280 | 1,320 | 1,320 | 1,320 | 1,320 | 1,320 | R2: mechanical migration of existing parameter assertions |
+| `src/cpg/query.rs` | 829.5 | 829.5 | 829.5 | 829.5 | 829.5 | 829.5 | 829.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg/reaching.rs` | 604 | 604 | 604 | 604 | 604 | 604 | 604 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg/reaching/capture.rs` | 122 | 122 | 122 | 122 | 122 | 122 | 122 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg/reaching/scope.rs` | 854.5 | 854.5 | 854.5 | 854.5 | 854.5 | 854.5 | 854.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg/reaching/tests.rs` | 443 | 443 | 443 | 443 | 443 | 443 | 443 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg/same_line_occurrence_tests.rs` | 1,630.5 | 1,630.5 | 1,680 | 1,680 | 1,680 | 1,680 | 1,680 | R2: mechanical migration of existing same-line assertions |
+| `src/cpg/tests.rs` | 2,635 | 2,635 | 2,635 | 2,635 | 2,635 | 2,635 | 2,635 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg/trace.rs` | 1,113.5 | 1,113.5 | 1,113.5 | 1,113.5 | 1,113.5 | 1,113.5 | 1,113.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg_cache.rs` | 1,518.5 | 1,518.5 | 1,525 | 1,525 | 1,530 | 1,560 | 1,560 | R1: cache facade/version only; new tests in dfg_codec_tests.rs |
+| `src/cpg_cache/stream.rs` | 325 | 325 | 330 | 330 | 330 | 390 | 390 | B: views; E: early-version helper and decode counter |
+| `src/cpg_cache/stream_tests.rs` | 520 | 520 | 540 | 540 | 580 | 600 | 600 | B/D/E: bounded stream assertions; larger cases in new codec tests |
+| `src/data_flow.rs` | 1,358 | 500 | 120 | 120 | 120 | 140 | 140 | A: producer/DTO extraction; B: views/queries/storage; E: compact facade |
+| `src/executable_owner/integration/tests.rs` | 414 | 414 | 434 | 434 | 434 | 434 | 434 | B: mechanical views; new tests in child modules |
+| `src/lib.rs` | 85 | 85 | 85 | 85 | 85 | 85 | 85 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/navigation/cache.rs` | 131.5 | 131.5 | 131.5 | 131.5 | 131.5 | 131.5 | 131.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/navigation/mod.rs` | 1,138.5 | 1,138.5 | 1,138.5 | 1,138.5 | 1,138.5 | 1,138.5 | 1,138.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/type_provider.rs` | 273 | 273 | 273 | 273 | 273 | 273 | 273 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/type_providers/go.rs` | 3,169.5 | 3,169.5 | 3,169.5 | 3,169.5 | 3,169.5 | 3,169.5 | 3,169.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `tests/algo/taxonomy/misc_test.rs` | 461 | 461 | 481 | 481 | 481 | 481 | 481 | B: mechanical views; new tests in child modules |
+| `tests/algo/taxonomy/taint_lang_test.rs` | 642 | 642 | 662 | 662 | 662 | 662 | 662 | B: mechanical views; new tests in child modules |
+| `tests/algo/taxonomy/taint_sink_test.rs` | 480.5 | 480.5 | 500.5 | 500.5 | 500.5 | 500.5 | 500.5 | B: mechanical views; new tests in child modules |
+| `tests/ast/access_path_test.rs` | 112 | 112 | 132 | 132 | 132 | 132 | 132 | B: mechanical views; new tests in child modules |
+| `tests/ast/binding_test.rs` | 348 | 348 | 368 | 368 | 368 | 368 | 368 | B: mechanical views; new tests in child modules |
+| `tests/ast/cpg_cache_test.rs` | 2,618 | 2,618 | 2,618 | 2,618 | 2,618 | 2,618 | 2,618 | N: B accessor substitutions only; new codec coverage in child modules |
+| `tests/ast/dfg_label_test.rs` | 203.5 | 203.5 | 223.5 | 223.5 | 223.5 | 223.5 | 223.5 | B: mechanical views; new tests in child modules |
+| `tests/ast/dfg_test.rs` | 417.5 | 417.5 | 437.5 | 437.5 | 437.5 | 437.5 | 437.5 | B: mechanical views; new tests in child modules |
+| `tests/ast/field_test.rs` | 549 | 549 | 569 | 569 | 569 | 569 | 569 | B: mechanical views; new tests in child modules |
+| `tests/cli/main.rs` | 20 | 20 | 20 | 20 | 20 | 20 | 20 | Read-only umbrella; existing CLI modules receive checks |
+| `tests/cli/output_test.rs` | 157.5 | 157.5 | 157.5 | 157.5 | 157.5 | 200 | 200 | E: paired checks at existing fixture seam |
+| `tests/cli/sarif_test.rs` | 438 | 438 | 438 | 438 | 438 | 500 | 500 | E: paired checks at existing fixture seam |
+| `tests/cli/targets_test.rs` | 445.5 | 445.5 | 445.5 | 445.5 | 445.5 | 510 | 510 | E: paired checks at existing fixture seam |
+| `tests/common/mod.rs` | 1,220.5 | 1,220.5 | 1,240 | 1,240 | 1,240 | 1,240 | 1,240 | R3: two existing fallback assertions; new generator drivers elsewhere |
+| `tests/integration/cjs_export_state_test.rs` | 99 | 99 | 119 | 119 | 119 | 119 | 119 | B: mechanical views; new tests in child modules |
+| `tests/integration/cjs_refusal_state_test.rs` | 142.5 | 142.5 | 162.5 | 162.5 | 162.5 | 162.5 | 162.5 | B: mechanical views; new tests in child modules |
+| `tests/integration/cjs_terminal_state_test.rs` | 118.5 | 118.5 | 138.5 | 138.5 | 138.5 | 138.5 | 138.5 | B: mechanical views; new tests in child modules |
+| `tests/integration/core_test.rs` | 805.5 | 805.5 | 825.5 | 825.5 | 825.5 | 825.5 | 825.5 | B: mechanical views; new tests in child modules |
+| `tests/integration/dfg_label_parity_test.rs` | 518.5 | 518.5 | 538.5 | 538.5 | 538.5 | 538.5 | 538.5 | B: mechanical views; new tests in child modules |
+| `tests/integration/dfg_label_store_test.rs` | 614.5 | 614.5 | 540 | 540 | 540 | 540 | 540 | B: relocate repeated-partial-hit test; migrate remaining assertions |
+| `tests/integration/dfg_rd_stats_identity_test.rs` | 120.5 | 120.5 | 10 | 10 | 10 | 10 | 10 | B: relocate whole named test; retain module declaration/import cleanup |
+| `tests/integration/esm_forwarding_state_test.rs` | 151.5 | 151.5 | 171.5 | 171.5 | 171.5 | 171.5 | 171.5 | B: mechanical views; new tests in child modules |
+| `tests/integration/js_binding_export_state_test.rs` | 129 | 129 | 149 | 149 | 149 | 149 | 149 | B: mechanical views; new tests in child modules |
+| `tests/integration/js_binding_namespace/spec_r2.rs` | 196.5 | 196.5 | 216.5 | 216.5 | 216.5 | 216.5 | 216.5 | B: mechanical views; new tests in child modules |
+| `tests/integration/js_binding_namespace_test.rs` | 597 | 597 | 617 | 617 | 617 | 617 | 617 | B: mechanical views; new tests in child modules |
+| `tests/integration/js_paths_test.rs` | 493.5 | 493.5 | 513.5 | 513.5 | 513.5 | 513.5 | 513.5 | B: mechanical views; new tests in child modules |
+| `tests/integration/js_wrapped_export_state_test.rs` | 129 | 129 | 149 | 149 | 149 | 149 | 149 | B: mechanical views; new tests in child modules |
+| `tests/integration/module_binding_flow_test.rs` | 110.5 | 110.5 | 130.5 | 130.5 | 130.5 | 130.5 | 130.5 | B: mechanical views; new tests in child modules |
+| `tests/integration/receiver_self_binding_test.rs` | 601 | 601 | 621 | 621 | 621 | 621 | 621 | B: mechanical views; new tests in child modules |
+| `tests/integration/resolution_test.rs` | 5,040.5 | 5,040.5 | 5,040.5 | 5,040.5 | 5,040.5 | 5,040.5 | 5,040.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `tests/integration/type_relative_receiver_test.rs` | 535 | 535 | 555 | 555 | 555 | 555 | 555 | B: mechanical views; new tests in child modules |
+| `tests/lang/c/algo_test.rs` | 403 | 403 | 423 | 423 | 423 | 423 | 423 | B: mechanical views; new tests in child modules |
+| `tests/lang/c/cve_test.rs` | 854 | 854 | 874 | 874 | 874 | 874 | 874 | B: mechanical views; new tests in child modules |
+| `tests/lang/go/lang_test.rs` | 433 | 433 | 453 | 453 | 453 | 453 | 453 | B: mechanical views; new tests in child modules |
+| `tests/lang/go/loader_hygiene_test.rs` | 341 | 341 | 361 | 361 | 361 | 361 | 361 | B: mechanical views; new tests in child modules |
+| `tests/lang/go/owner_partition_telemetry_test.rs` | 553 | 553 | 573 | 573 | 573 | 573 | 573 | B: mechanical views; new tests in child modules |
+| `tests/lang/go/receiver_owner_carrying_test.rs` | 596 | 596 | 616 | 616 | 616 | 616 | 616 | B: mechanical views; new tests in child modules |
+| `tests/lang/javascript/destructuring_test.rs` | 394.5 | 394.5 | 414.5 | 414.5 | 414.5 | 414.5 | 414.5 | B: mechanical views; new tests in child modules |
+| `tests/lang/javascript/lang_test.rs` | 98.5 | 98.5 | 118.5 | 118.5 | 118.5 | 118.5 | 118.5 | B: mechanical views; new tests in child modules |
+| `tests/lang/lua/lua_test.rs` | 164.5 | 164.5 | 184.5 | 184.5 | 184.5 | 184.5 | 184.5 | B: mechanical views; new tests in child modules |
+| `tests/lang/rust/rust_test.rs` | 203.5 | 203.5 | 223.5 | 223.5 | 223.5 | 223.5 | 223.5 | B: mechanical views; new tests in child modules |
+| `tests/lang/typescript/erased_rvalue_test.rs` | 227.5 | 227.5 | 247.5 | 247.5 | 247.5 | 247.5 | 247.5 | B: mechanical views; new tests in child modules |
+| `tests/mcp/golden_transcript_test.rs` | 155 | 155 | 155 | 155 | 155 | 155 | 155 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `tests/mcp/transcript.rs` | 276 | 276 | 276 | 276 | 276 | 276 | 276 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `tests/name_resolution/build_wiring_test.rs` | 664 | 664 | 684 | 684 | 684 | 684 | 684 | B: mechanical views; new tests in child modules |
+| `tests/navigation/main.rs` | 19 | 19 | 19 | 19 | 19 | 19 | 20 | F: register retained navigation regressions |
+| `tests/output/main.rs` | 1 | 1 | 1 | 1 | 1 | 1 | 2 | F: register retained output regressions |
 
 ### New files: every PR forecast (Now = absent, 0)
 
-| File | Now | A | B | C | D | E (final) | Ownership / reason |
-|---|---:|---:|---:|---:|---:|---:|---|
-| `src/data_flow/types.rs` | 0 | 200 | 220 | 220 | 220 | 220 | Unchanged DTOs; B adds from_refs |
-| `src/data_flow/views.rs` | 0 | 0 | 260 | 260 | 260 | 260 | Ordered public read views |
-| `src/data_flow/queries.rs` | 0 | 0 | 240 | 240 | 240 | 240 | Existing query bodies over views |
-| `src/data_flow/legacy_storage.rs` | 0 | 0 | 200 | 200 | 200 | 0 | Transitional production storage; Task 6 deletes |
-| `src/data_flow/build/mod.rs` | 0 | 180 | 180 | 180 | 180 | 220 | Build wrappers, FileRefs, aggregation; E consuming adapter |
-| `src/data_flow/build/file.rs` | 0 | 620 | 620 | 620 | 620 | 650 | T: one shared per-file producer; E test result hook |
-| `src/data_flow/build/exact_reads.rs` | 0 | 210 | 210 | 210 | 210 | 210 | Existing exact-read candidate/supplemental-label helpers |
-| `src/data_flow/build/aliases.rs` | 0 | 110 | 110 | 110 | 110 | 110 | Existing alias-map/path helpers |
-| `src/data_flow/compact/mod.rs` | 0 | 0 | 0 | 160 | 180 | 200 | Compact types and module wiring |
-| `src/data_flow/compact/arena.rs` | 0 | 0 | 0 | 260 | 260 | 260 | Exact arena and legacy ranks |
-| `src/data_flow/compact/freeze.rs` | 0 | 0 | 0 | 300 | 300 | 300 | Parts ingestion and ordered freeze |
-| `src/data_flow/compact/views.rs` | 0 | 0 | 0 | 300 | 300 | 300 | Compact read views |
-| `src/data_flow/compact/update.rs` | 0 | 0 | 0 | 450 | 450 | 450 | Removal/merge/reclamation |
-| `src/data_flow/compact/wire.rs` | 0 | 0 | 0 | 0 | 420 | 440 | Native compact serde |
-| `src/data_flow/compact/validate.rs` | 0 | 0 | 0 | 0 | 350 | 350 | Wire invariants and corruption rejection |
-| `src/data_flow/oracle/mod.rs` | 0 | 150 | 150 | 150 | 150 | 0 | Frozen fields and API wiring; Task 8 deletes |
-| `src/data_flow/oracle/aggregate.rs` | 0 | 160 | 160 | 160 | 160 | 0 | Frozen aggregation/label insertion; Task 8 deletes |
-| `src/data_flow/oracle/queries.rs` | 0 | 180 | 180 | 180 | 180 | 0 | Frozen independent queries; Task 8 deletes |
-| `src/data_flow/oracle/update.rs` | 0 | 130 | 130 | 130 | 130 | 0 | Frozen independent updates; Task 8 deletes |
-| `src/data_flow/test_support.rs` | 0 | 180 | 240 | 280 | 280 | 180 | Feature corpus wrappers and cfg(test) mutation hook; retain needed hook |
-| `src/data_flow/tests/mod.rs` | 0 | 40 | 50 | 60 | 70 | 70 | Test module declarations |
-| `src/data_flow/tests/identity.rs` | 0 | 180 | 180 | 280 | 280 | 300 | Identity/order regressions |
-| `src/data_flow/tests/representatives.rs` | 0 | 0 | 0 | 320 | 320 | 320 | Representative/order regressions |
-| `src/data_flow/tests/queries.rs` | 0 | 180 | 300 | 400 | 400 | 450 | Legacy lookup and traversal parity/regressions |
-| `src/data_flow/tests/updates.rs` | 0 | 180 | 180 | 450 | 450 | 480 | Remove/merge/reclamation regressions |
-| `src/data_flow/tests/wire.rs` | 0 | 0 | 0 | 0 | 350 | 400 | Codec and production decode regressions |
-| `src/data_flow/tests/corruption.rs` | 0 | 0 | 0 | 0 | 450 | 480 | Malformed wire cases |
-| `src/data_flow/tests/corpus.rs` | 0 | 450 | 450 | 500 | 500 | 0 | Feature corpus comparisons; Task 8 deletes wrappers |
-| `src/data_flow/tests/observe.rs` | 0 | 420 | 440 | 480 | 480 | 350 | Byte projections; keep ordinary regression support |
-| `src/data_flow/tests/outputs.rs` | 0 | 450 | 450 | 500 | 500 | 550 | 30-algorithm controls and retained mutant witnesses |
-| `tests/dfg_compaction/main.rs` | 0 | 10 | 10 | 10 | 10 | 0 | Single explicit oracle umbrella; Task 8 deletes |
-| `tests/dfg_compaction/corpus.rs` | 0 | 450 | 450 | 500 | 500 | 0 | Fixture/common-generator driver; Task 8 deletes |
-| `tests/dfg_compaction/outputs.rs` | 0 | 550 | 550 | 600 | 600 | 0 | Public output/dispatch parity; Task 8 relocates useful regressions |
-| `src/cpg/dfg_compaction_support.rs` | 0 | 60 | 60 | 60 | 60 | 0 | Test/feature-only assembly entry; Task 8 deletes |
-| `src/cpg/dfg_missing_label_tests.rs` | 0 | 0 | 260 | 260 | 260 | 280 | Both existing integration tests and all three removal sites |
-| `src/cpg_cache/dfg_codec_tests.rs` | 0 | 0 | 0 | 0 | 480 | 600 | Version/stream/native-decode cases |
-| `tests/output/dfg_compaction_test.rs` | 0 | 0 | 0 | 0 | 0 | 400 | Task 8 retains ordinary renderer regressions |
-| `tests/navigation/dfg_compaction_test.rs` | 0 | 0 | 0 | 0 | 0 | 350 | Task 8 retains ordinary navigation regressions |
-| `scripts/dfg_compaction/compare_acceptance.py` | 0 | 0 | 0 | 0 | 0 | 400 | Numeric classifier and artifact reader |
-| `mutants/dfg-compaction.json` | 0 | 120 | 180 | 300 | 360 | 400 | 10–15 registered distinctions across lane |
-| `docs/features/dfg-compaction.md` | 0 | 0 | 150 | 150 | 150 | 200 | D7 accessor-migration release note |
-| `docs/superpowers/handoffs/2026-10-14-dfg-compaction.md` | 0 | 250 | 300 | 350 | 400 | 500 | Living implementation handoff |
-| `docs/eval/dfg-compaction/acceptance.md` | 0 | 0 | 0 | 0 | 0 | 500 | Task 7 durable acceptance readout and raw-artifact hashes |
+| File | Now | A | B | C | D | E | F (final) | Ownership / reason |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| `src/data_flow/types.rs` | 0 | 200 | 220 | 220 | 220 | 220 | 220 | Unchanged DTOs; B adds from_refs |
+| `src/data_flow/views.rs` | 0 | 0 | 260 | 260 | 260 | 260 | 260 | Ordered public read views |
+| `src/data_flow/queries.rs` | 0 | 0 | 240 | 240 | 240 | 240 | 240 | Existing query bodies over views |
+| `src/data_flow/legacy_storage.rs` | 0 | 0 | 200 | 200 | 200 | 0 | 0 | Transitional production storage; Task 6 deletes |
+| `src/data_flow/build/mod.rs` | 0 | 180 | 180 | 180 | 180 | 220 | 220 | Build wrappers, FileRefs, aggregation; E consuming adapter |
+| `src/data_flow/build/file.rs` | 0 | 620 | 620 | 620 | 620 | 650 | 650 | T: one shared per-file producer; E test result hook |
+| `src/data_flow/build/exact_reads.rs` | 0 | 210 | 210 | 210 | 210 | 210 | 210 | Existing exact-read candidate/supplemental-label helpers |
+| `src/data_flow/build/aliases.rs` | 0 | 110 | 110 | 110 | 110 | 110 | 110 | Existing alias-map/path helpers |
+| `src/data_flow/compact/mod.rs` | 0 | 0 | 0 | 160 | 180 | 200 | 200 | Compact types and module wiring |
+| `src/data_flow/compact/arena.rs` | 0 | 0 | 0 | 260 | 260 | 260 | 260 | Exact arena and legacy ranks |
+| `src/data_flow/compact/freeze.rs` | 0 | 0 | 0 | 300 | 300 | 300 | 300 | Parts ingestion and ordered freeze |
+| `src/data_flow/compact/views.rs` | 0 | 0 | 0 | 300 | 300 | 300 | 300 | Compact read views |
+| `src/data_flow/compact/queries.rs` | 0 | 0 | 0 | 240 | 240 | 240 | 0 | Temporary test-only copy of migrated queries; Task 8/F deletes all ≤240 weighted lines |
+| `src/data_flow/compact/update.rs` | 0 | 0 | 0 | 450 | 450 | 450 | 450 | Removal/merge/reclamation |
+| `src/data_flow/compact/wire.rs` | 0 | 0 | 0 | 0 | 420 | 440 | 440 | Native compact serde |
+| `src/data_flow/compact/validate.rs` | 0 | 0 | 0 | 0 | 350 | 350 | 350 | Wire invariants and corruption rejection |
+| `src/data_flow/oracle/mod.rs` | 0 | 150 | 150 | 150 | 150 | 150 | 0 | Frozen fields and API wiring; Task 8 deletes |
+| `src/data_flow/oracle/aggregate.rs` | 0 | 160 | 160 | 160 | 160 | 160 | 0 | Frozen aggregation/label insertion; Task 8 deletes |
+| `src/data_flow/oracle/queries.rs` | 0 | 180 | 180 | 180 | 180 | 180 | 0 | Frozen independent queries; Task 8 deletes |
+| `src/data_flow/oracle/update.rs` | 0 | 130 | 130 | 130 | 130 | 130 | 0 | Frozen independent updates; Task 8 deletes |
+| `src/data_flow/test_support.rs` | 0 | 520 | 560 | 600 | 600 | 600 | 350 | Shared projections/corpus helpers; F: keep only ordinary regression/mutation support |
+| `src/data_flow/tests/mod.rs` | 0 | 40 | 50 | 60 | 70 | 70 | 70 | Test module declarations |
+| `src/data_flow/tests/identity.rs` | 0 | 180 | 180 | 280 | 280 | 280 | 300 | Identity/order regressions |
+| `src/data_flow/tests/representatives.rs` | 0 | 0 | 0 | 320 | 320 | 320 | 320 | Representative/order regressions |
+| `src/data_flow/tests/queries.rs` | 0 | 180 | 300 | 400 | 400 | 400 | 450 | Legacy lookup/traversal parity; F retains explicit regression witnesses |
+| `src/data_flow/tests/updates.rs` | 0 | 180 | 180 | 450 | 450 | 450 | 480 | Remove/merge/reclamation parity; F retains explicit regression witnesses |
+| `src/data_flow/tests/wire.rs` | 0 | 0 | 0 | 0 | 350 | 400 | 400 | Codec and production decode regressions |
+| `src/data_flow/tests/corruption.rs` | 0 | 0 | 0 | 0 | 450 | 480 | 480 | Malformed wire cases |
+| `src/data_flow/tests/corpus.rs` | 0 | 450 | 450 | 500 | 500 | 500 | 0 | Feature corpus comparisons; Task 8 deletes wrappers |
+| `src/data_flow/tests/observe.rs` | 0 | 260 | 280 | 320 | 320 | 320 | 220 | cfg(test) observation assertions; shared projections live in test_support |
+| `src/data_flow/tests/outputs.rs` | 0 | 450 | 450 | 500 | 500 | 500 | 550 | 30-algorithm controls; F rewrites retained mutant witnesses |
+| `tests/dfg_compaction/main.rs` | 0 | 10 | 10 | 10 | 10 | 10 | 0 | Single explicit oracle umbrella; Task 8 deletes |
+| `tests/dfg_compaction/corpus.rs` | 0 | 450 | 450 | 500 | 500 | 500 | 0 | Fixture/common-generator driver; Task 8 deletes |
+| `tests/dfg_compaction/outputs.rs` | 0 | 550 | 550 | 600 | 600 | 600 | 0 | Public output/dispatch parity; Task 8 relocates useful regressions |
+| `src/cpg/dfg_compaction_support.rs` | 0 | 60 | 60 | 60 | 60 | 60 | 0 | Test/feature-only assembly entry; Task 8 deletes |
+| `src/cpg/dfg_missing_label_tests.rs` | 0 | 0 | 260 | 260 | 260 | 280 | 280 | Both existing integration tests and all three removal sites |
+| `src/cpg_cache/dfg_codec_tests.rs` | 0 | 0 | 0 | 0 | 480 | 600 | 600 | Version/stream/native-decode cases |
+| `tests/output/dfg_compaction_test.rs` | 0 | 0 | 0 | 0 | 0 | 0 | 400 | Task 8 retains ordinary renderer regressions |
+| `tests/navigation/dfg_compaction_test.rs` | 0 | 0 | 0 | 0 | 0 | 0 | 350 | Task 8 retains ordinary navigation regressions |
+| `scripts/dfg_compaction/compare_acceptance.py` | 0 | 0 | 0 | 0 | 0 | 400 | 400 | Numeric classifier and artifact reader |
+| `mutants/dfg-compaction.json` | 0 | 120 | 180 | 300 | 360 | 400 | 400 | 10–15 registered distinctions across lane |
+| `docs/features/dfg-compaction.md` | 0 | 0 | 150 | 150 | 150 | 200 | 200 | D7 accessor-migration release note |
+| `docs/superpowers/handoffs/2026-10-14-dfg-compaction.md` | 0 | 250 | 300 | 350 | 400 | 500 | 500 | Living implementation handoff |
+| `docs/eval/dfg-compaction/acceptance.md` | 0 | 0 | 0 | 0 | 0 | 500 | 500 | Task 7 durable acceptance readout and raw-artifact hashes |
 
-**PR E intermediate bounds:** until Task 7 acceptance, oracle/umbrella/support files remain at their D bounds; their final zeroes occur only in Task 8. Production `legacy_storage.rs` disappears in Task 6. Retained tests land in the new ordinary output/navigation children and existing `data_flow/tests/` within the E budgets **before** deleting the oracle. No transient PR commit may violate the ceiling or oversized-file no-growth rule; final deletion does not excuse earlier growth. The implementation handoff/release note/acceptance readout have explicit paths above. Fixtures, goldens, MCP transcripts and all unlisted production renderers remain read-only; dynamic logs, raw JSON/JSONL, patches, source snapshots, caches and binaries are generated evidence, not authored implementation modules, and their runtime sizes are reported in custody receipts rather than invented as source forecasts.
+**E/F ordering and intermediate bounds:** E retains the oracle/umbrella/support and temporary compact query copy through review, Task 7 acceptance and merge. Production `legacy_storage.rs` disappears in Task 6/E. F creates retained ordinary output/navigation regressions and rewrites mutant witnesses within its own budgets **before** deleting their oracle dependencies; its final zeroes occur only in Task 8. No transient commit may violate the ceiling or oversized-file no-growth rule; final deletion does not excuse earlier growth. The handoff/release note/acceptance readout have explicit paths above. Fixtures, goldens, MCP transcripts and unlisted production renderers stay read-only; generated evidence sizes are reported in custody receipts, not source forecasts.
+
 
 ### Task 7 scratch instrumentation and authored support
 
-The **production A–E forecasts above exclude instrumentation**, as required by the round-1 fold. Task 7 creates isolated base/candidate instrumented checkouts; its existing 14-file probe delta is never merged into any production PR. The exact `c3162f94` source was exported and measured with the same script; those **reference** sizes below are not measurements of a future cherry-pick onto a newer source. Existing production-path sizes are in the first table; the four `src/probe*` files are absent in this checkout today. A–D do not create scratch checkouts; E forecasts below are for the isolated copies only. Their inherited instrumentation in large files is not permission for any corresponding production file to grow. Remeasure both ports before building and preserve matched instrumentation/timers; do not fold scratch port commits into A–E.
+The **production A–F forecasts above exclude instrumentation**, as required by the round-1 fold. Task 7 creates isolated base/candidate instrumented checkouts; its existing 14-file probe delta is never merged into any production PR. The exact `c3162f94` source was exported and measured with the same script; those **reference** sizes below are not measurements of a future cherry-pick onto a newer source. Existing production-path sizes are in the first table; the four `src/probe*` files are absent in this checkout today. A–D do not create scratch checkouts; E forecasts below are for the isolated copies only. Their inherited instrumentation in large files is not permission for any corresponding production file to grow. Remeasure both ports before building and preserve matched instrumentation/timers; do not fold scratch port commits into A–F. F creates no new instrumentation checkout.
 
 | Scratch checkout path | Measured probe reference | A | B | C | D | E base bound | E candidate bound |
 |---|---:|---:|---:|---:|---:|---:|---:|
@@ -320,7 +324,7 @@ The **production A–E forecasts above exclude instrumentation**, as required by
 | `.review/dfg-compaction/bin/cargo` | 0 (absent) | 2 | 2 | 2 | 2 | 2 |
 | `$DFG_EVIDENCE/summarize_probe.py` | 0 at destination; source 56 | 0 | 0 | 0 | 0 | 180 |
 
-The summarizer source was measured at `/Users/wesleyjinks/prism-evidence/mcp-memory/optimization-2026-10-14/summarize_probe.py`; E copies/adapts it at the already specified controller evidence destination. Logs are `probe-sizes.log` and `summarizer-size.log` in the sizing receipt directory. All authored scratch additions stay ≤600; the large instrumented copies remain outside feature PRs. Generated artifacts retain their original raw bytes and are not split to game this source-size ledger.
+The summarizer source was measured at `/Users/wesleyjinks/prism-evidence/mcp-memory/optimization-2026-10-14/summarize_probe.py`; E copies/adapts it at the already specified controller evidence destination. Preserve `probe-sizes.log` and `summarizer-size.log` with the lane handoff or controller evidence repository; prior scratch copies are historical receipts only. All authored scratch additions stay ≤600; the large instrumented copies remain outside feature PRs. Generated artifacts retain their original raw bytes and are not split to game this source-size ledger.
 
 ## Command protocol (applies to every task)
 
@@ -375,6 +379,10 @@ cat .review/dfg-compaction/logs/mutgate-full.log
 ```
 Expected: authoritative **full** text-mode verdict passes, all selected survivors/timeouts/build errors disclosed. No simultaneous cargo process.
 
+**A–D pre-change byte control (N2):** before any PR A extraction/edit, bind its exact parent SHA, retain its release binaries, and capture `bincode::serialize(&SerializedCpg)` payloads for every Task 1 fixture/generator case (DFG plus CPG; exclude the outer identity/header). Use the same read-only payload capture adapter on parent and candidate, frozen source/settings/paths, and preserve raw bytes, adapter hash and source/binary receipts. A private test-only adapter may be applied in an isolated parent checkout; it must not alter construction or serialization. Assert byte identity to these **PR A parent** bytes at A, B, C and D gates; never re-capture after extraction or bless differences. Cache layout changes only in E. If intervening main changes the payload contract, stop and explicitly rebind/review the control rather than attribute upstream drift to this lane.
+
+**A/B executable gate (N2):** at **each** PR A and PR B gate, build that PR's exact parent and candidate release binaries in the same environment and run the executable replay below: every generator diff × `--algorithm all` × json/review/sarif, plus targets; also run `prism nav dfg-stats --repo <fixture-tree> --edges` for each binary. Reuse identical fixture paths/settings with fresh separate cache directories. Require all-30 successful dispatch and byte-identical outputs/edge dumps under the existing SARIF-provenance rule. These independent controls cover shared producer extraction and shared CPG assembly/consumer migration, which the dual in-process oracle cannot distinguish. Preserve them in durable custody with the pre-A payloads; Task 6 activation-parent replay is additional.
+
 **Commit protocol:** controller stages only that task's file-map paths after the gates and a reviewed `git diff --check`. Each task's last step names its literal commit title; the exact commands and trailers are collected in the commit appendix. Expected: one new commit containing exactly that task, both trailers present; refresh the handoff and snapshot receipts. No commits are made by the planning worker.
 
 ---
@@ -393,14 +401,14 @@ shasum -a 256 .review/dfg-compaction/oracle-source.rs
 ```
 Expected on the inspected base: 1,519-line baseline DFG source and its recorded checksum; rebind and record the execution base if main moves. This is an evidence copy, not the executable oracle; source extraction must still compile.
 
-- [ ] **RED — Add exact observations, never `assert_eq!(VarLocation, ...)` alone.** Use bincode over ordered vectors; bincode includes byte spans that Eq ignores. Core assertion code in `src/data_flow/tests/observe.rs`:
+- [ ] **RED — Add exact observations, never `assert_eq!(VarLocation, ...)` alone.** Use bincode over ordered vectors; bincode includes byte spans that Eq ignores. Core projection code lives in **`src/data_flow/test_support.rs`**, registered from `data_flow.rs` as `#[cfg(any(test, feature = "dfg-oracle"))] pub mod test_support;`; ordinary assertions in `tests/observe.rs` import it. The umbrella links the library without `cfg(test)`, so no feature-visible helper may live only under `mod tests`:
 
 ```rust
 use serde::Serialize;
-fn bytes<T: Serialize>(value: &T) -> Vec<u8> {
+pub(crate) fn bytes<T: Serialize>(value: &T) -> Vec<u8> {
     bincode::serialize(value).expect("observation serializes")
 }
-fn assert_bytes<T: Serialize>(name: &str, old: &T, new: &T) {
+pub(crate) fn assert_bytes<T: Serialize>(name: &str, old: &T, new: &T) {
     assert_eq!(bytes(old), bytes(new), "{name}");
 }
 use crate::finding_confidence::{EvidenceHop, EvidencePath};
@@ -421,14 +429,14 @@ fn category_obs(c: &SanitizerCategory) -> u8 {
         SanitizerCategory::OsCommand => 4, SanitizerCategory::PathTraversal => 5,
     }
 }
-fn path_bytes(paths: &[FlowPath]) -> Vec<u8> {
+pub(crate) fn path_bytes(paths: &[FlowPath]) -> Vec<u8> {
     bytes(&paths.iter().map(|p| (&p.edges,
         p.cleansed_for.iter().map(category_obs).collect::<Vec<_>>())).collect::<Vec<_>>())
 }
-fn labeled_obs(value: &(BTreeSet<VarLocation>, Vec<EvidenceHop>)) -> Vec<u8> {
+pub(crate) fn labeled_obs(value: &(BTreeSet<VarLocation>, Vec<EvidenceHop>)) -> Vec<u8> {
     bytes(&(&value.0, value.1.iter().map(hop_obs).collect::<Vec<_>>()))
 }
-fn evidence_obs(paths: &[Option<EvidencePath>]) -> Vec<u8> {
+pub(crate) fn evidence_obs(paths: &[Option<EvidencePath>]) -> Vec<u8> {
     bytes(&paths.iter().map(|p| p.as_ref().map(|p|
         (p.hops.iter().map(hop_obs).collect::<Vec<_>>(), p.crossed_unlabeled)
     )).collect::<Vec<_>>())
@@ -440,7 +448,7 @@ pub fn observe_evidence(paths: &[Option<EvidencePath>]) -> Vec<u8> {
 }
 ```
 
-Keep these projections inside the crate test-support module; expose `data_flow::test_support::observe_evidence` under the feature to the umbrella (the non-exhaustive evidence enum can be exhaustively matched inside its own crate). No production serde derives are added. DFG hops serialize full byte-bearing endpoints; Call projects every field explicitly; sanitizer tags are test-only and exhaustive. Never replace these observations with value Eq or Debug. Test shifted start/end bytes, hop order, confidence, all sanitizer categories, `None` versus empty evidence, and `crossed_unlabeled`; each must change observation bytes.
+Compile these projections under `#[cfg(any(test, feature = "dfg-oracle"))]` in `data_flow::test_support`, with sibling unit tests importing crate-visible helpers; expose `data_flow::test_support::observe_evidence` under the feature to the umbrella (the non-exhaustive evidence enum can be exhaustively matched inside its own crate). No production serde derives are added. DFG hops serialize full byte-bearing endpoints; Call projects every field explicitly; sanitizer tags are test-only and exhaustive. Never replace these observations with value Eq or Debug. Test shifted start/end bytes, hop order, confidence, all sanitizer categories, `None` versus empty evidence, and `crossed_unlabeled`; each must change observation bytes.
 
 The full storage observation is an ordered tuple: edges; defs `(binding_key, locations)`; uses; forward `(representative, neighbors)`; backward; labels `((representative_from,representative_to),confidence)`; exact labels; RD stats. Convert each map to a `Vec` in native iterator order and encode it; JSON objects cannot encode tuple keys. For the baseline oracle, this is exact code:
 
@@ -556,9 +564,9 @@ cat .review/dfg-compaction/logs/t1-red.log
 ```
 Expected: the initial missing oracle module/API compile error. After the extraction, deliberately alter the observed `start_byte` of an equal-legacy location in the candidate only and rerun: the exact-byte oracle must fail. Restore that single test mutant. The compile error alone does not prove byte coverage.
 
-- [ ] **GREEN.** Build both graphs independently, run full ordered storage/query observations, clone, empty graph and `build_subset` for each fixture's file subsets (empty, all, each singleton, plus absent file). Capture legacy serialized bytes before later storage changes. For CPG output parity, add a test-only `assemble_with_dfg` entry that invokes existing `CodePropertyGraph::assemble_graph` with the selected graph; do not change assembly behavior. Initially both sources are legacy. At activation the legacy source is converted through test-only parts, and a separate frozen baseline executable transcript control (Task 6) prevents shared-assembly bugs from passing the dual test.
+- [ ] **GREEN.** Build both graphs independently, run full ordered storage/query observations, clone, empty graph and `build_subset` for each fixture's file subsets (empty, all, each singleton, plus absent file). Assert the pre-edit PR A parent SerializedCpg payload bytes under the A–D control; do not capture a replacement baseline during GREEN. For CPG output parity, add a test-only `assemble_with_dfg` entry that invokes existing `CodePropertyGraph::assemble_graph` with the selected graph; do not change assembly behavior. Initially both sources are legacy. At activation the legacy source is converted through test-only parts, and independent parent/candidate executable controls at A/B plus activation replay in Task 6 guard changes shared by both assembly paths.
 
-- [ ] **Gate and commit.** Run GATE; expected all queries/storage bytes equal, all 12 languages exercised, full suites/Tier-A green, byte-span mutant killed. Controller commit title: **`test: freeze DFG behavior and fixture oracle`**, with both required trailers. Refresh handoff. Production memory effect: **derived 0 MiB**.
+- [ ] **Gate and commit.** Run GATE, the A/B executable gate (PR A parent versus candidate, including fixture `nav dfg-stats --edges`), and the pre-A SerializedCpg byte pin; expected all queries/storage bytes equal, all 12 languages exercised, full suites/Tier-A green, byte-span mutant killed. Controller commit title: **`test: freeze DFG behavior and fixture oracle`**, with both required trailers. Refresh handoff. Production memory effect: **derived 0 MiB**.
 
 ### Task 2 (PR B): Ordered views and mechanical consumer migration
 
@@ -699,11 +707,11 @@ cat .review/dfg-compaction/logs/t2-consumers.txt
 ```
 Expected: all non-builder production storage uses go through the named views; remaining raw fields are legacy storage, frozen oracle and explicitly temporary test fixtures. Repeat a broader multiline `rg -U '\.dfg\s*\.\s*(edges|defs|uses|labels)' src tests examples` and review aliases manually. Expected: no unaccounted raw consumer. No `src/reasoning` or taint algorithm rewrite.
 
-- [ ] **Gate and commit.** Run GATE, including oracle output snapshots before/after method moves. Mutant: reverse `edges()` or choose the last equal-legacy representative; ordered observations must fail. Controller commit title **`refactor: isolate ordered DFG accessors`**, both trailers. Split by enumerated consumer groups only if actual review size requires it. Memory effect **derived 0 MiB**, no cache bump.
+- [ ] **Gate and commit.** Run GATE, including oracle snapshots, the A/B executable gate (PR B parent versus candidate, including fixture `nav dfg-stats --edges`), and the pre-A SerializedCpg byte pin. Mutant: reverse `edges()` or choose the last equal-legacy representative; ordered observations must fail. Controller commit title **`refactor: isolate ordered DFG accessors`**, both trailers. Split by enumerated consumer groups only if actual review size requires it. Memory effect **derived 0 MiB**, no cache bump.
 
 ### Task 3 (PR C): Immutable exact arena and compact read storage
 
-**Files:** `src/data_flow/compact/{mod,arena,freeze,views}.rs`, category tests. Initially compiled only for tests/`dfg-oracle`; the production facade remains legacy until Task 6.
+**Files:** `src/data_flow/compact/{mod,arena,freeze,views,queries}.rs`, category tests. Initially compiled only for tests/`dfg-oracle`; the production facade remains legacy until Task 6. The temporary query copy is deleted in Task 8/PR F.
 
 **Interfaces:** `OccId(u32)` addresses one exact arena row; `LegacyId(u32)` addresses a rank in the legacy index. IDs never cross a graph lifetime, output boundary or unvalidated deserializer. `CompactDfg::from_parts(Parts) -> Result<Self, &'static str>` consumes owned primary state. `Parts` is introduced here from the legacy field layout, with optional preserved adjacency (below). Create `compact/queries.rs` by copying Task 2's migrated `queries.rs` and changing only `impl DataFlowGraph` to `impl CompactDfg` plus its import; this supplies all seven query methods to the test-only backend. Keep it test-only after activation to avoid duplicate production algorithms. Oracle bodies remain frozen.
 
@@ -1187,9 +1195,9 @@ Expose these wrappers to the facade/test module with the same crate-internal vis
 
 Validate `combine` against legacy merge even for overlapping files, although the current producer expects disjoint file partitions. RD merging must call the existing `RdFileStats::merge` to union function identity sets. Unknown excluded files and empty exclusion still rebuild adjacency, replacing old independent representative rows from edge order exactly as legacy does.
 
-- [ ] **Fixture measurement checkpoint before PR D.** For every fixture/generator emit old and compact accounted storage using the census conventions (capacity, owned string/path heaps, no BTree-node claim). Report full arena rows, core exact `u`, arena-rows/core-`u` (N/A for zero core), and rank bytes; defs/uses-only rows likely dominate and must be counted; compare semantic occurrence/edge/label counts. The repeated-location synthetic fixture must strictly shrink; empty and all-distinct fixtures may grow and must be reported. This is a measured fixture accounting check, not extrapolated real-corpus acceptance. Preserve the record before codec work. **Task 7's controller measurement of PR E must pass before its Task 8 test-oracle deletion.** No interim real-corpus run or old-cache conversion candidate is required.
+- [ ] **Fixture measurement checkpoint before PR D.** For every fixture/generator emit old and compact accounted storage using the census conventions (capacity, owned string/path heaps, no BTree-node claim). Report full arena rows, core exact `u`, arena-rows/core-`u` (N/A for zero core), and rank bytes; defs/uses-only rows likely dominate and must be counted; compare semantic occurrence/edge/label counts. The repeated-location synthetic fixture must strictly shrink; empty and all-distinct fixtures may grow and must be reported. This is a measured fixture accounting check, not extrapolated real-corpus acceptance. Preserve the record before codec work. **Task 7's controller measurement must pass and PR E must merge before Task 8 test-oracle deletion in PR F.** No interim real-corpus run or old-cache conversion candidate is required.
 
-- [ ] **Gate and commit.** GATE, update oracle after every intermediate operation, subset/merge corpus cases, tests for wrong edge-end filtering, stale adjacency, overwrite merge, omitted worst merge, retained dead locations and altered stats; select high-value catalog entries within the lane budget. Controller title **`feat: preserve DFG update semantics with compact IDs`**, both trailers. Refresh measurement receipt/handoff before next PR.
+- [ ] **Gate and commit.** GATE plus the pre-A SerializedCpg byte pin at the PR C gate; update oracle after every intermediate operation, subset/merge corpus cases, tests for wrong edge-end filtering, stale adjacency, overwrite merge, omitted worst merge, retained dead locations and altered stats; select high-value catalog entries within the lane budget. Controller title **`feat: preserve DFG update semantics with compact IDs`**, both trailers. Refresh measurement receipt/handoff before next PR.
 
 ### Task 5 (PR D): Native compact wire codec and validation, test-only
 
@@ -1402,7 +1410,7 @@ Import `serde::{Serialize,Deserialize}` for trait method resolution. Bincode's e
 | truncated wire, invalid confidence discriminant | deserialize error |
 | valid empty maps/empty value vector/label-only graph | **accept**, preserve bytes of query answers |
 
-- [ ] **Gate and commit.** GATE plus all corruption tests and budgeted catalog representatives, borrowed/owned stream equality and corpus round trips. Controller title **`test: stage validated compact DFG cache codec`**, both trailers. Runtime effect **derived 0 MiB**; old production cache remains v117 until activation.
+- [ ] **Gate and commit.** GATE plus the pre-A SerializedCpg byte pin at the PR D gate, all corruption tests and budgeted catalog representatives, borrowed/owned stream equality and corpus round trips. Controller title **`test: stage validated compact DFG cache codec`**, both trailers. Runtime effect **derived 0 MiB**; old production cache remains v117 until activation.
 
 ### Task 6 (PR E): Activate compact construction, accessors and cache version atomically
 
@@ -1614,22 +1622,22 @@ Produce `docs/eval/dfg-compaction/acceptance.md` containing all raw metrics, for
 
 One follow-up set for an INVALID/noisy criterion and **no already admissible heap/load/peak FAIL**, if needed, uses new `set-2` directories and reversed order within each corpus (candidate then base); repeat **both** corpora/binaries, not just a favorable failing sample. Both admissible sets must satisfy cold-peak and heap minima; combine load values only to report, not to erase a failed set. After the cap, report failure/inconclusive and hold PR E. If a targeted fix is made, it is a new reviewed candidate with a newly declared measurement round; controller decides scheduling, no silent retry.
 
-- [ ] **Commit receipt and decision.** Controller title **`docs: record matched DFG compaction acceptance`**, both trailers. Include hashes/paths to durable raw evidence; do not commit multi-gigabyte caches/binaries. A PASS permits Task 8 test-only cleanup within PR E. The receipt stays bound to the measured activation source/probe SHAs; later receipt or test-deletion commits are not mislabeled as the measured binary. A FAIL/INCONCLUSIVE retains the reviewed implementation and receipts for bounded correction, never a fresh restart.
+- [ ] **Commit receipt and decision.** Controller title **`docs: record matched DFG compaction acceptance`**, both trailers. Include hashes/paths to durable raw evidence; do not commit multi-gigabyte caches/binaries. A PASS permits PR E to merge after its gates; only after that merge may Task 8 start in separate test-only PR F with its own two-round cap. The receipt stays bound to the measured activation source/probe SHAs; later receipt or test-deletion commits are not mislabeled as the measured binary. A FAIL/INCONCLUSIVE retains the reviewed implementation and receipts for bounded correction, never a fresh restart.
 
-### Task 8 (PR E, after acceptance): Delete the temporary oracle and verify final custody
+### Task 8 (PR F, after accepted E merges): Delete the temporary oracle and verify final custody
 
-**Files:** delete `src/data_flow/oracle/`, oracle-only conversion/query copies and corpus comparison wrappers, the `dfg-oracle` Cargo feature, and its `tests/dfg_compaction` umbrella/`[[test]]` target. Retain ordinary compact invariant/update/codec tests, the normal-gate missing-label tests, renderer regressions and test-only Parts mutation support still used by them. Move useful feature-umbrella regressions into existing default-feature targets first. Keep captured observation bytes only where they pin a specific durable behavior; do not keep an indefinite frozen implementation. Production scaffolding was already deleted in Task 6.
+**Files:** delete `src/data_flow/oracle/`, the temporary ≤240-weighted-line `src/data_flow/compact/queries.rs`, oracle-only conversion copies and corpus comparison wrappers, the `dfg-oracle` Cargo feature, and its `tests/dfg_compaction` umbrella/`[[test]]` target. Retain ordinary compact invariant/update/codec tests, the normal-gate missing-label tests, renderer regressions and test-only Parts mutation support still used by them. Move useful feature-umbrella regressions into existing default-feature targets first. Keep captured observation bytes only where they pin a specific durable behavior; do not keep an indefinite frozen implementation. Production scaffolding was already deleted in Task 6.
 
-- [ ] **Prerequisite:** Task 7 PASS and all oracle receipts saved with hashes in durable controller custody. Before removing each oracle-dependent selector, replace its oracle comparison with explicit expected bytes/representatives or a compact round-trip invariant that still kills its registered mutant; a mirror of the implementation is insufficient. Record before/after selector identities. No deleted test may be the only witness for a lane mutant or fixed behavior.
+- [ ] **Prerequisite:** Task 7 PASS, PR E merged, and all oracle receipts saved with hashes in durable controller custody. Declare PR F's own two-round review cap before dispatch; its new/rewritten test code is reviewed within F, not appended after E review. Before removing each oracle-dependent selector, replace its oracle comparison with explicit expected bytes/representatives or a compact round-trip invariant that still kills its registered mutant; a mirror of the implementation is insufficient. Record before/after selector identities. No deleted test may be the only witness for a lane mutant or fixed behavior.
 - [ ] **GREEN — Delete test-only migration code.** Remove the oracle, feature and target entirely; remove duplicate compact query implementations used only for comparisons. Retain production query bodies and all direct invariants. Check `rg -n 'LegacyDataFlowGraph|legacy_storage|dfg-oracle' src tests examples Cargo.toml`; no live declaration/use remains (historical docs/receipts are evidence). Inspect cfg reachability as well as raw hits.
-- [ ] **Final gate:** run default/MCP full suites, release build, Tier-A matrix/quick and full authoritative mutgate; omit only the now-deleted oracle GATE command, replacing it with the retained normal-target regressions. Record totals and selector coverage. Prove this delta affects only test code, feature/target declarations and docs: compare production source/config and generated code inputs, then release fixture output bytes and physical-storage census. Build IDs may differ and must be recorded. The measured production representation remains Task 7's; no automatic second real-corpus set for deleting unreachable tests. If production behavior/layout changes, stop: the prior receipt no longer covers it and controller must declare a new reviewed candidate/measurement budget.
-- [ ] **Commit and handoff:** controller title **`test: retire DFG migration oracle after acceptance`**, both trailers, within PR E. Final handoff names measured source/probe SHAs separately from final test-cleanup HEAD, all PR/commit and corpus/binary hashes, tests/mutations/Tier-A, the production-equivalence evidence and every excluded check. No merge authority is implied. Former PR F is folded into E; no independent cleanup PR or unconditional measurement rerun remains.
+- [ ] **Final gate:** run default/MCP full suites, release build, Tier-A matrix/quick and full authoritative mutgate; omit only the now-deleted oracle GATE command, replacing it with the retained normal-target regressions. Record totals and selector coverage. Prove PR F affects only test code, feature/target declarations and docs using **the lane's own diffs**, never a whole-tree comparison against moved main. Preserve `git diff <measured-parent> <measured-candidate> -- src Cargo.toml Cargo.lock build.rs` and compare its production hunks with `git diff <final-activation-parent> <final-activation-head> -- src Cargo.toml Cargo.lock build.rs`, excluding explicitly enumerated test-only paths/hunks and oracle feature/target declarations. Separately require `git diff <F-parent> <F-head>` over those inputs to contain no production change after the same reviewed exclusions; do not exclude entire mixed production/test files. Record all SHAs, path/hunk exclusions and any context-only rebase differences; any substantive lane production delta invalidates equivalence. Then compare F-parent/F-head release fixture output bytes and physical-storage census (SARIF provenance handled separately). Build IDs may differ and must be recorded. The measured production representation remains Task 7's; no automatic second real-corpus set for deleting unreachable tests. If production behavior/layout changes, stop: the prior receipt no longer covers it and controller must declare a new reviewed candidate/measurement budget.
+- [ ] **Commit and handoff:** controller title **`test: retire DFG migration oracle after acceptance`**, both trailers, in PR F after its own review/gates. Final handoff names measured source/probe SHAs separately from final test-cleanup HEAD, all PR/commit and corpus/binary hashes, tests/mutations/Tier-A, the production-equivalence evidence and every excluded check. No merge authority is implied. PR F is independently reviewed and gated; no unconditional real-corpus measurement rerun is required for proven test-only retirement.
 
-## Successful dispatch matrix and executable parity (Tasks 1 and 6)
+## Successful dispatch matrix and executable parity (Tasks 1, 2 and 6)
 
-Register this matrix in PR A and run it against both backends in Task 6. For **every** Task 1 common-generator diff, iterate `SlicingAlgorithm::all()` (30 on this base), create the row's valid `AlgorithmParams` by mutating `Default`, and call `run_review` with a singleton algorithm and a matching `SliceConfig.algorithm`. This keeps per-algorithm inputs explicit. Require `errors.is_empty()`, exactly one `results` entry, and `algorithms_run == [algorithm.name()]` on **each** backend before comparing output bytes. Assert the observed algorithm-name set equals `SlicingAlgorithm::all()` for each generator and build mode; matching errors/empty dispatch never count. Run cold build, cache hit and refresh/re-add modes, recording `(case, algorithm, params, mode, success, positive/negative assertion)` in the receipt. The helper below compares successful results only.
+Register this matrix in PR A; run parent/candidate executable replay at A/B and paired backend coverage through Task 6. For **every** Task 1 common-generator diff, iterate `SlicingAlgorithm::all()` (30 on this base), create the row's valid `AlgorithmParams` by mutating `Default`, and call `run_review` with a singleton algorithm and a matching `SliceConfig.algorithm`. This keeps per-algorithm inputs explicit. **Every generator case, including security/stress and explicit language cases, is materialized as its own temporary git repository**: write all files with their relative paths, `git init`, configure `user.email=test@test.com`, `user.name=Test`, `commit.gpgsign=false`, then add all case files and commit them together with **current dates**. Follow the sequence in `tests/common/mod.rs::create_temp_git_repo`; its single-file signature requires the same sequence generalized for multi-file generators in the corpus driver. Check every Git command's status/stderr and verify the committed file set; clear inherited author/committer date overrides. Retain the same temp repo for both binaries/backends and all modes. A missing Git repository is never a successful empty result. Require `errors.is_empty()`, exactly one `results` entry, and `algorithms_run == [algorithm.name()]` on **each** backend before comparing output bytes. Assert the observed algorithm-name set equals `SlicingAlgorithm::all()` for each generator and build mode; matching errors/empty dispatch never count. Run cold build, cache hit and refresh/re-add modes, recording `(case, algorithm, params, mode, success, positive/negative assertion)` in the receipt. The helper below compares successful results only.
 
-`source` and `sink` below are valid `file:line` strings chosen deterministically from that generator's parsed first function (first definition and reachable use when present, otherwise valid first/last function lines). A disconnected pair may succeed with empty output, but cannot replace the dedicated positive cases below. `old_repo` is a retained temporary directory populated with the same relative filenames and real pre-change source; assert every expected old file was parsed, not merely that the directory exists. Also run an identical-source old_repo control. History algorithms use an existing deterministic committed-history fixture with fixed dates/reference time; create it via the repository's existing test helper in controller context if sandbox Git writes are unavailable. Never use the implementation repository's moving history.
+`source` and `sink` below are valid `file:line` strings chosen deterministically from that generator's parsed first function (first definition and reachable use when present, otherwise valid first/last function lines). A disconnected pair may succeed with empty output, but cannot replace the dedicated positive cases below. `old_repo` is a retained temporary directory populated with the same relative filenames and real pre-change source; assert every expected old file was parsed, not merely that the directory exists. Also run an identical-source old_repo control. ThreeDSlice, ResonanceSlice and PhantomSlice use each generator's current-date git repo for success-matrix rows. Their dedicated positive and negative history cases use multi-commit `common::create_temp_git_repo(filename, &[before, after])` fixtures with **current dates** and the existing qualifying-change/deletion and no-match assertions. Clear inherited date overrides; no wall-clock reference injection exists. If sandbox Git writes are unavailable, controller creates/runs these fixtures in its permitted host context. Never use the implementation repository's moving history.
 
 | Algorithms (complete 30-name ledger) | Valid parameters beyond defaults | Required successful control |
 |---|---|---|
@@ -1641,7 +1649,7 @@ Register this matrix in PR A and run it against both backends in Task 6. For **e
 | **ConditionedSlice** | condition=Some("x==5") for generic dispatch; fixture-specific predicate for assertions | Pair `misc_lang_test::test_conditioned_slice_prunes_unreachable_python` with its original predicate; opposite predicate must preserve the other branch. |
 | **DeltaSlice** | old_repo=Some(populated pre-change directory) | Pair `misc_test::test_delta_slice_python` and `test_delta_slice_go`; added/removed edge lines expected, identical old/new sources give no changed-flow findings. Deleting candidate-edge contribution must fail a named default lib selector under `data_flow::tests::outputs::delta_candidate_edges_contribute`. |
 | QuantumSlice, HorizontalSlice, VerticalSlice, AngleSlice | quantum_var=Some(existing variable), peer_pattern=Some("name:f"), layers=Some("api,service,storage"), concern=Some("error") for their respective row | State/peer/layer/concern match and non-match cases, preserving baseline line/finding assertions. |
-| ThreeDSlice, ResonanceSlice, PhantomSlice | temporal_days=90 and fixed committed-history repo | Existing history fixture with a qualifying change/deletion and a no-history-match control; missing Git data/error is not the successful case. |
+| ThreeDSlice, ResonanceSlice, PhantomSlice | temporal_days=90; each generator is a current-date git repo | Dedicated current-date multi-commit create_temp_git_repo fixtures prove qualifying change/deletion and no-history-match controls; missing Git data/error is not a successful case. |
 | AbsenceSlice, SymmetrySlice, ContractSlice | default; also ContractSlice with populated old_repo | Missing pair versus balanced pair, and changed contract versus identical old/new contract. |
 | **ProvenanceSlice** | default | Pair `tests/algo/novel/provenance_test.rs::{test_provenance_python_request_form_origin,test_provenance_negative_transform_not_form}`; pin ordered byte-bearing hops, origin and confidence. This is the fourth direct DFG consumer. |
 | MembraneSlice, EchoSlice | default | Cross-module caller versus disconnected module; preserve boundary/ripple findings and their absence. |
@@ -1651,7 +1659,7 @@ Use the existing algorithm tests' source builders/expected assertions for the no
 
 Expected-error tests are a separate suite/ledger: missing Chop endpoints, malformed file:line, missing/invalid condition, missing old_repo. Assert expected error type/text and zero successful dispatch there; never add these to the success count.
 
-Controller executable replay uses the same temporary fixture checkout/path, separate cache state and frozen settings. For each common-generator diff run both binaries sequentially with `prism --algorithm all --format json`, `--format review`, `--format sarif`, plus the existing targets command. Supply the matrix's valid `--chop-source`, `--chop-sink`, `--condition`, `--old-repo` and history/seed options, and the existing CLI diff/repo flags; require the emitted success ledger to contain all 30 algorithms with no dispatch errors. Keep the existing CLI/MCP transcripts as additional controls, never as a substitute for this matrix. Task 7 additionally byte-compares `nav dfg-stats --edges` on both real corpora.
+Controller executable replay uses the same temporary fixture checkout/path, separate cache state and frozen settings. For each common-generator diff run both binaries sequentially with `prism --algorithm all --format json`, `--format review`, `--format sarif`, plus the existing targets command. Supply the matrix's valid `--chop-source`, `--chop-sink`, `--condition`, `--old-repo` and history/seed options, and the existing CLI diff/repo flags; require the emitted success ledger to contain all 30 algorithms with no dispatch errors. Keep the existing CLI/MCP transcripts as additional controls, never as a substitute for this matrix. At A/B compare that PR's parent and candidate binaries and also byte-compare `prism nav dfg-stats --repo <fixture-tree> --edges` with fresh separate caches; at E compare the activation parent/candidate. Task 7 additionally byte-compares `nav dfg-stats --edges` on both real corpora.
 
 **Cross-build SARIF scope:** within one binary compare every byte, including build metadata. Between different binaries retain raw outputs and separately assert `/runs/0/properties/{prism_build_identity,prism_git_sha,binary_input_dirty}` against each binary's recorded provenance. Replace exactly those three validated fields with common sentinels in the comparison copy, then serialize and compare every remaining byte; no other normalization, sorting, span removal or golden rebaseline. Different raw build identities are expected provenance differences, not DFG parity failures. A missing/unexpected provenance field is a failure. All other output payloads use unchanged existing transport handling and byte comparison.
 
@@ -1741,11 +1749,20 @@ Receipts and prepared probes: `/private/tmp/dfg-compaction-plan-r1-fold/` (also 
 
 ## File-size rule validation (2026-10-14)
 
-This plan-only update started at `54ba7f48f93e4114a77e23cc33f8de862b9ab9cb`. The supplied CLI measured all **88 existing ledger paths**, the 14-file `c3162f94` probe reference, the external summarizer and the producer/helper regions; **43 new paths** were confirmed absent. The table's A–E bounds are forecasts. The updated plan itself measures **1,711.5 weighted lines**, below its 1,850 forecast and the hard ceiling.
+Historical receipt, before round 2: this plan-only update started at `54ba7f48f93e4114a77e23cc33f8de862b9ab9cb`. The supplied CLI measured all **88 existing ledger paths**, the 14-file `c3162f94` probe reference, the external summarizer and the producer/helper regions; **43 new paths** were confirmed absent. That revision's A–E bounds were forecasts; its plan measured **1,711.5 weighted lines**, below its 1,850 forecast and the hard ceiling. Round 2 extends the ledger to F and records its own validation below.
 
 `.review/dfg-plan-size-rule/validation.log` records all **131 per-PR rows** checked, seven existing files above 2,000 constrained to no growth, no new 1,000/2,000 crossings, all **59 original code fences byte-identical**, **27 shell blocks** passing `bash -n`, eight unchanged execution tasks and unchanged non-sizing review dispositions. `git diff --check` passes; only the tracked plan changed. The first checker matched a sizing subheading as an execution task; that selector failure was inadmissible, then corrected to the exact task-heading form. The hypothesis/result log records the correction. No Rust build/test suite, Tier-A, mutation or corpus run was needed or executed for this documentation update; their implementation gates and the inherited compilation limitation remain in force. No commit/push was made.
 
-## Review record — round 1 folded in place
+## Round-2 final-fold validation (2026-10-14)
+
+Documentation-only fold from `fd9b204ec9e8125efbba3daacfa440c3d1932e42`; no implementation, commit, push or third agent review. Receipts, source-derived controller probes and before/after snapshots live in `.review/dfg-plan-r2-fold/`, mirrored to `/private/tmp/dfg-compaction-plan-r2-fold/`; the living planning handoff is `.review/dfg-compaction-plan-handoff.md`.
+
+- **Executed:** consistency checker confirms six PRs/eight tasks, all eight dispositions and exact cap disclosure, all 30 algorithm names, 132 A–F ledger rows, 44 absent/new paths, no oversized-file growth or new threshold crossings, valid review links, 59 balanced code fences (58 unchanged; only projection helper visibility changes), and 27 shell blocks plus the controller runner passing `bash -n`. The unchanged acceptance kernel passes **10 boundary assertions**. `git diff --check` passes and only the tracked plan changes.
+- **Size provenance:** re-measured all 87 source-file baseline rows from `git show 8b2744b3:<path>`; all match. The historical plan-size row is preserved separately. Validation uses the retained supplied size-tool copy (SHA256 in `validation.log`): this old clone lacks merged #399's script/object, so no claim of executing the canonical path here. Implementation uses `scripts/file_size.py` after controller rebase. The current plan remains below its 1,850 weighted-line forecast; exact size is in `validation.log`.
+- **Prepared, not compiled:** N5's probe places the exact projection in feature-visible `data_flow::test_support`, imports it from an integration target, and includes a cfg(test)-only E0432 control. N1's probe extracts the real `create_temp_git_repo(&str, &[&str])` helper and checks two commits, current dates, committed paths and a no-match control. `run-compile-probes.sh` is controller-only. The inherited priority preflight recorded `setpriority` refused and priority 0; house rules prohibit retrying that command class or compiling without the required priority. No Rust/Cargo or sandbox Git-write probe was launched.
+- **Probe correction and limits:** the first static checker required one extra trailing newline in the projection comparison; exact extracted bodies were identical. That checker failure was inadmissible, corrected, and the full static check passed. No Rust compilation, full default/MCP suite, Tier-A, mutgate, Git-fixture execution, successful algorithm dispatch/executable replay, probe binary build, real-corpus output/heap/load/peak, or Linux check ran. These remain implementation/controller gates, not inferred results of this plan edit.
+
+## Review record — rounds 1 and 2 folded in place
 
 Read in full: [Opus review](../../../../reviews/dfgplan-r1-opus.md), [sol summary](../../../../reviews/dfgplan-r1-sol.md), and [sol full evidence](../../../../dfgplan-sol-clone/.review/dfg-plan-review-r1/REVIEW.md). These paths are controller scratch evidence, not shipped dependencies. Reviewed artifact: `e2b377df84fc1fd1777ce8cbc36d20f5b598cba5`; source baseline `8b2744b3154b3664ffacb23c42f042a67981967a`. This fold uses a two-pass cap (targeted revision, then consistency/probes); it starts no new agent review round.
 
@@ -1765,12 +1782,27 @@ Read in full: [Opus review](../../../../reviews/dfgplan-r1-opus.md), [sol summar
 | Opus S3 — SMELL IMMATERIAL | Default-feature lib selectors, 10–15 mutant budget and forecast of full authoritative gate at jobs=1. No automatic concurrency exception. |
 | Opus S4 — SMELL MATERIAL / sol #4 — SMELL MATERIAL | All-30 successful dispatch ledger, valid parameters, positive/negative cases, separate expected errors, generator executable replays, and per-corpus dfg-stats edge bytes. |
 | Opus S5 — SMELL IMMATERIAL | Rank cost uses arena rows, not core u; fixture checkpoint reports arena/core ratio and full rank bytes. |
-| Opus S6 — SMELL IMMATERIAL | Fold production cleanup and post-acceptance test deletion into E; remove separate F and unconditional corpus rerun. |
+| Opus S6 — SMELL IMMATERIAL | Production cleanup stays in E. Round-2 N3 supersedes the F-into-E test-retirement fold: restore independently reviewed PR F after accepted E merges; still no unconditional corpus rerun. |
 | Opus S7 — SMELL long-term material | Delete frozen oracle/feature/umbrella after acceptance, preserving ordinary regression tests and mutant witnesses. |
 | Opus S8 — SMELL IMMATERIAL | Add `ExactFlowEdge::from_refs`; preserve cache-version stderr; stage PR B mutation hook before Parts exists. Iterator enum suggestion declined below. |
 | sol verification limit — SARIF cross-build identity | Check raw provenance against each binary receipt; only the three named metadata fields differ in the cross-build comparison copy. Same-binary parity remains whole-output byte equality. |
 
-**2026-10-14 owner rule change:** weighted 600/1,000/2,000 thresholds replace the round-1 no-cap ruling; measured every planned existing file and forecast A–E, placed new CPG support outside oversized `build.rs`, and added no move-only PR because all oversized production files have no-growth/read-only budgets. All other round-1 dispositions and gates remain unchanged.
+**2026-10-14 owner rule change:** weighted 600/1,000/2,000 thresholds replace the round-1 no-cap ruling; measured every planned existing file and forecast A–E, placed new CPG support outside oversized `build.rs`, and added no move-only PR because all oversized production files have no-growth/read-only budgets. Other round-1 dispositions and gates remain, except the explicitly superseded S6 test-retirement fold under round-2 N3 below.
+
+**Round 2: gpt-6.1-sol APPROVE, Opus FIX (converging: 7 WRONG → 1); all round-2 items folded after the two-round cap without a third round (controller decision, disclosed).**
+
+Read in full: [sol review](../../../../reviews/dfgplan-r2-sol.md) and [Opus review](../../../../reviews/dfgplan-r2-opus.md), artifact `fd9b204e`. These are closed, bounded findings; this final fold starts no third review round.
+
+| Round-2 item | Disposition |
+|---|---|
+| N1 — WRONG MATERIAL | Every success-matrix generator becomes a current-date temp git repo; dedicated multi-commit history positive/negative cases use create_temp_git_repo. |
+| N2 — SMELL MATERIAL | A/B parent-versus-candidate executable replay and fixture dfg-stats; pre-edit A-parent SerializedCpg payload bytes pinned through D. |
+| N3 — SMELL MATERIAL | E is Tasks 6–7; test-only F is Task 8 after accepted E merges, with its own two-round cap, budgets and gates. |
+| N4 — SMELL IMMATERIAL | Add cpg_cache::dfg_codec_tests:: to default-feature lib selector routing and reject zero selections. |
+| N5 — SMELL IMMATERIAL | Shared projections/umbrella helpers live in test_support under any(test, feature = "dfg-oracle"), outside cfg(test)-only tests. |
+| N6 — SMELL IMMATERIAL | Use merged scripts/file_size.py, retain the base-8b2744b3 figures with the plan-document exception, re-measure each PR and preserve receipts with handoff/evidence. |
+| N7 — SMELL IMMATERIAL | F equivalence compares measured/final lane production diffs and F's own parent-to-head diff, with explicit test-only exclusions. |
+| sol — SMELL IMMATERIAL | Add temporary compact/queries.rs to file map and A–F ledger: C/D/E ≤240, F deletes it. |
 
 **Declined suggestions (finding — why not — cost if wrong):**
 
@@ -1790,7 +1822,7 @@ No owner answer is needed to review this plan. Implementation, commits and real-
 
 ## Executable test support used by Tasks 1–6
 
-Place this support across `tests/observe.rs` and `tests/updates.rs` under `src/data_flow/`. Compile it under `cfg(any(test, feature="dfg-oracle"))`; expose only the corpus assertion entry point through the oracle feature. Import `super::{DataFlowGraph,VarLocation,VarAccessKind,FlowEdge,ExactVarLocation,ExactFlowEdge,AccessPath}`, the compact module's crate-internal types, `LegacyDataFlowGraph`, `ParsedFile`, `FlowConfidence`, `FlowDoubt`, and `BTreeMap/BTreeSet`. The compact module re-exports arena IDs within `data_flow` and uses `pub(super)` for test-observed fields/methods; it is not a public module. These helpers complete the named test seams; they are never in a production release.
+Place helpers needed by the feature umbrella, including the projections and corpus assertion entry point, in `src/data_flow/test_support.rs` under `#[cfg(any(test, feature = "dfg-oracle"))]`; expose only named umbrella entry points under the feature. Keep ordinary test cases in cfg(test)-only `tests/observe.rs` and `tests/updates.rs`, importing shared helpers; never make the feature depend on that test module. Import `super::{DataFlowGraph,VarLocation,VarAccessKind,FlowEdge,ExactVarLocation,ExactFlowEdge,AccessPath}`, the compact module's crate-internal types, `LegacyDataFlowGraph`, `ParsedFile`, `FlowConfidence`, `FlowDoubt`, and `BTreeMap/BTreeSet`. The compact module re-exports arena IDs within `data_flow` and uses `pub(super)` for test-observed fields/methods; it is not a public module. These helpers complete the named test seams; they are never in a production release.
 
 ```rust
 macro_rules! view_storage {
