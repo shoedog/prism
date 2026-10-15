@@ -23,6 +23,8 @@ pub mod tools_reasoning;
 pub mod tools_refresh;
 pub mod transport;
 
+#[cfg(unix)]
+pub use daemon::{run_daemon, DaemonOptions, DEFAULT_IDLE_TTL_SECS, DEFAULT_MAX_CLIENTS};
 pub(crate) use session::{AutoRefreshSummary, BuildStage, RefreshVerification};
 pub use session::{
     CacheMode, RefreshPolicy, RefreshSummary, ServerConfig, SessionProvider, StartupMode,

@@ -109,6 +109,18 @@ pub(super) enum StopReason {
     Signal,
 }
 
+impl StopReason {
+    /// The words the daemon's log line uses.
+    pub(super) fn describe(self) -> &'static str {
+        match self {
+            Self::Idle => "idle for the idle TTL with no client and no build",
+            Self::RootChanged => "the repository root was lost or replaced",
+            Self::FilesReplaced => "its socket or owner lock file was replaced",
+            Self::Signal => "a termination signal",
+        }
+    }
+}
+
 /// The connections of a daemon and whether it drains (spec §4.2 "Admission and retirement").
 /// Changed only under the control lock, by the functions in `admission.rs`.
 #[derive(Debug)]

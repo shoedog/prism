@@ -262,6 +262,7 @@ impl DaemonState {
     }
 
     /// The control plane's view of the build.
+    #[cfg_attr(not(test), allow(dead_code))] // read by tests until S5b's status probe
     pub(super) fn status(&self) -> Result<BuildStatus, Poisoned> {
         Ok(self.control_plane()?.build_status())
     }
@@ -382,6 +383,7 @@ impl DaemonState {
     /// A running daemon does not need this: a parked call wakes by itself when its deadline
     /// passes. Tests that move a manual clock call it. The control lock is taken first, so a
     /// call that has read the time and not yet parked is woken too.
+    #[cfg(test)]
     pub(super) fn wake(&self) {
         let _control = self.control.lock();
         self.changed.notify_all();

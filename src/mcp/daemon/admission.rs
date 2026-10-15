@@ -36,6 +36,7 @@ pub(super) enum Admit {
 
 /// The connection counts, for tests and the status probe.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))] // read by tests until S5b's status probe
 pub(super) struct AdmissionStatus {
     pub(super) pending: u32,
     pub(super) admitted: u32,
@@ -172,6 +173,7 @@ impl DaemonState {
             .and_then(|since| since.checked_add(idle_ttl)))
     }
 
+    #[cfg_attr(not(test), allow(dead_code))] // read by tests until S5b's status probe
     pub(super) fn admission_status(&self) -> Result<AdmissionStatus, Poisoned> {
         let control = self.control_plane()?;
         Ok(AdmissionStatus {

@@ -1,12 +1,9 @@
-//! The core of the shared daemon (spec §4.2): the readiness coordinator, which decides when
-//! the one index is built and how long each client waits for it, and the provider slot the
-//! built index is published into. Nothing here accepts a connection, takes a file lock or
-//! starts a process: the accept loop, admission and retirement are slice S4.
+//! The shared daemon (spec §3.1, §4.2): `prism-mcp daemon ...`. The readiness coordinator
+//! decides when the one index is built and how long each client waits for it; the provider slot
+//! holds the built index; the accept loop owns the key's files, admits connections through a
+//! bounded handshake stage, and drains when the daemon retires or loses its root.
 //!
-//! Design: `docs/superpowers/specs/2026-10-09-shared-prism-daemon-design.md` §3.1, §4.2, §5.
-// No production code calls into this module until slice S4 adds the accept loop. Remove this
-// allowance there.
-#![cfg_attr(not(test), allow(dead_code))]
+//! Design: `docs/superpowers/specs/2026-10-09-shared-prism-daemon-design.md` §3.1, §4.2–§4.4, §5.
 
 mod admission;
 mod budget;
@@ -18,6 +15,7 @@ mod fatal;
 mod files;
 mod log;
 mod peer;
+mod run;
 mod server;
 #[cfg(test)]
 mod server_support;
@@ -25,6 +23,8 @@ mod server_support;
 mod test_support;
 #[cfg(test)]
 mod wire_support;
+
+pub use run::{run_daemon, DaemonOptions, DEFAULT_IDLE_TTL_SECS, DEFAULT_MAX_CLIENTS};
 
 // One provider is queried from many connection threads at once, one registry serves all of
 // them, and the coordinator is shared by every one (spec §4.2). A field that stops being

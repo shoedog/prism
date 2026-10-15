@@ -30,21 +30,81 @@ struct Cli {
     mem_emit_workload: Option<u64>,
 }
 
-fn main() -> anyhow::Result<()> {
-    let c = <Cli as clap::Parser>::parse();
-    let cache = if c.no_cache {
-        prism::mcp::CacheMode::NoCache
-    } else if let Some(d) = c.cache_dir {
-        prism::mcp::CacheMode::Dir(d)
-    } else {
-        prism::mcp::CacheMode::Default
-    };
-    let refresh_policy = match c.refresh_policy.as_str() {
+/// `prism-mcp daemon ...`: the shared per-repository daemon (spec §3.1, §4.2). Internal: the
+/// shim of a later slice starts it; it serves only through its Unix socket.
+#[derive(clap::Parser)]
+#[command(name = "prism-mcp daemon")]
+struct DaemonCli {
+    #[arg(long)]
+    repo: std::path::PathBuf,
+    /// The cache base directory; the user cache directory when absent.
+    #[arg(long)]
+    cache_dir: Option<std::path::PathBuf>,
+    #[arg(long, default_value = "warn-only", value_parser = ["warn-only", "auto-full", "auto-incremental"])]
+    refresh_policy: String,
+    /// Build the index at start instead of on the first tool call (spec §11 item 7).
+    #[arg(long)]
+    warm_at_startup: bool,
+    /// Seconds with no client and no build before the daemon retires.
+    #[arg(long, default_value_t = prism::mcp::DEFAULT_IDLE_TTL_SECS, value_parser = clap::value_parser!(u64).range(1..=86_400))]
+    idle_ttl: u64,
+    /// Pending and admitted connections together.
+    #[arg(long, default_value_t = prism::mcp::DEFAULT_MAX_CLIENTS, value_parser = clap::value_parser!(u32).range(1..=4096))]
+    max_clients: u32,
+    /// The full identity key the starting shim computed; the daemon refuses to start on a
+    /// different one.
+    #[arg(long)]
+    key: Option<String>,
+}
+
+fn refresh_policy_from(name: &str) -> prism::mcp::RefreshPolicy {
+    match name {
         "warn-only" => prism::mcp::RefreshPolicy::WarnOnly,
         "auto-full" => prism::mcp::RefreshPolicy::AutoFull,
         "auto-incremental" => prism::mcp::RefreshPolicy::AutoIncremental,
         _ => unreachable!("clap value_parser restricts refresh-policy"),
+    }
+}
+
+fn cache_mode(no_cache: bool, cache_dir: Option<std::path::PathBuf>) -> prism::mcp::CacheMode {
+    if no_cache {
+        prism::mcp::CacheMode::NoCache
+    } else if let Some(d) = cache_dir {
+        prism::mcp::CacheMode::Dir(d)
+    } else {
+        prism::mcp::CacheMode::Default
+    }
+}
+
+fn daemon_main() -> anyhow::Result<()> {
+    // The first argument is the word `daemon`; clap reads it as the program name.
+    let c = <DaemonCli as clap::Parser>::parse_from(std::env::args_os().skip(1));
+    let mut config = prism::mcp::ServerConfig::new(c.repo);
+    config.cache = cache_mode(false, c.cache_dir);
+    config.refresh_policy = refresh_policy_from(&c.refresh_policy);
+    config.startup = if c.warm_at_startup {
+        prism::mcp::StartupMode::Background
+    } else {
+        prism::mcp::StartupMode::Lazy
     };
+    prism::mcp::run_daemon(prism::mcp::DaemonOptions {
+        config,
+        idle_ttl: std::time::Duration::from_secs(c.idle_ttl),
+        max_clients: c.max_clients,
+        expected_key: c.key,
+    })
+}
+
+fn main() -> anyhow::Result<()> {
+    if std::env::args_os()
+        .nth(1)
+        .is_some_and(|first| first == "daemon")
+    {
+        return daemon_main();
+    }
+    let c = <Cli as clap::Parser>::parse();
+    let cache = cache_mode(c.no_cache, c.cache_dir);
+    let refresh_policy = refresh_policy_from(&c.refresh_policy);
     let mut cfg = prism::mcp::ServerConfig::new(c.repo);
     cfg.cache = cache;
     cfg.refresh_policy = refresh_policy;

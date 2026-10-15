@@ -1,17 +1,41 @@
 //! The daemon's log: its standard error, which the shim that starts it points at `<key16>.log`
-//! (spec §4.1 step 6, §4.3). The daemon stops adding its own lines past 8 MiB and says so once
-//! (§4.3). A panic message, which the panic hook writes, is not counted: it is followed by the
-//! end of the process.
+//! (spec §4.1 step 6, §4.3). The log is truncated at daemon start when it is over 1 MiB, and the
+//! daemon stops adding its own lines past 8 MiB and says so once (§4.3). A panic message, which
+//! the panic hook writes, is not counted: it is followed by the end of the process.
 use std::io::Write;
+use std::os::fd::AsFd;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+/// A log over this size at daemon start is emptied first.
+const TRUNCATE_AT_START_BYTES: u64 = 1 << 20;
 /// The daemon writes no line of its own past this size.
 const CAP_BYTES: u64 = 8 << 20;
 /// Longest line the daemon writes; text that comes from elsewhere (an error's message) is cut.
 const MAX_LINE_BYTES: usize = 1000;
 
-/// Bytes this process has written to the log.
+/// Bytes in the log as far as this process knows: what was there at start, plus its own lines.
 static WRITTEN: AtomicU64 = AtomicU64::new(0);
+
+/// At daemon start: if standard error is a regular file over 1 MiB, empty it; count what is left.
+/// Standard error that is not a regular file (a terminal, a pipe in a test) is left alone.
+pub(super) fn start() {
+    let Ok(stderr) = std::io::stderr().as_fd().try_clone_to_owned() else {
+        return;
+    };
+    let file = std::fs::File::from(stderr);
+    let Ok(metadata) = file.metadata() else {
+        return;
+    };
+    if !metadata.file_type().is_file() {
+        return;
+    }
+    let size = if metadata.len() > TRUNCATE_AT_START_BYTES && file.set_len(0).is_ok() {
+        0
+    } else {
+        metadata.len()
+    };
+    WRITTEN.store(size, Ordering::SeqCst);
+}
 
 /// Write one line, `prism-mcp daemon: <text>`, with control characters replaced and at most
 /// 1000 bytes of `text`, unless the log has reached its cap. The line that would cross the cap

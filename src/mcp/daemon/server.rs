@@ -91,6 +91,13 @@ impl Waker {
         self.stop.store(true, Ordering::SeqCst);
         self.wake();
     }
+
+    /// A descriptor that wakes the loop when one byte is written to it, for a signal handler.
+    /// It is a duplicate that is never closed, so it stays valid for the life of the process.
+    pub(super) fn leak_raw_fd(&self) -> io::Result<i32> {
+        use std::os::fd::IntoRawFd;
+        Ok(self.stream.try_clone()?.into_raw_fd())
+    }
 }
 
 /// How a peer's uid is read. Production: `peer::peer_uid`. A test can play another user.
@@ -119,6 +126,8 @@ pub(super) struct Server {
     peer_uid: PeerUid,
     pending: Vec<Pending>,
     next_identity_check: Instant,
+    /// Whether a termination signal has arrived (`run.rs` installs the handlers).
+    signalled: fn() -> bool,
     #[cfg(test)]
     turn: Option<TurnHook>,
     /// A test seam: called after a pending connection's whole line has been read, before its
@@ -156,6 +165,7 @@ impl Server {
             peer_uid: Box::new(peer_uid),
             pending: Vec::new(),
             next_identity_check,
+            signalled: || false,
             #[cfg(test)]
             turn: None,
             #[cfg(test)]
@@ -165,6 +175,11 @@ impl Server {
 
     pub(super) fn waker(&self) -> Waker {
         self.waker.clone()
+    }
+
+    /// Where the loop learns that a termination signal arrived.
+    pub(super) fn set_signalled(&mut self, signalled: fn() -> bool) {
+        self.signalled = signalled;
     }
 
     #[cfg(test)]
@@ -207,7 +222,7 @@ impl Server {
     /// periodic root and files check, and the idle retirement decision.
     fn check(&mut self) -> anyhow::Result<Option<StopReason>> {
         let files = &self.files;
-        if self.waker.stop.load(Ordering::SeqCst) {
+        if self.waker.stop.load(Ordering::SeqCst) || (self.signalled)() {
             return Ok(Some(
                 self.state
                     .drain(StopReason::Signal, || files.unlink_socket())?,
