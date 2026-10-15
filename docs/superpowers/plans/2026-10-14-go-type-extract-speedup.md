@@ -42,7 +42,7 @@ Source trace:
 - `src/go_type_alias/canon.rs:392-443` calls both `ParsedFile::extract_imports` and recursive `has_dot_import`. `src/ast.rs:1608-1621,5655-5684` recursively traverses method bodies looking for imports. A file with S signatures and N AST nodes pays O(S×N) traversal, not O(N+S). Growing methods and bodies together yields quadratic within-file work.
 - `src/go_type_alias.rs:447-522` performs BTreeMap lookups and walks declarations for the selected owner; it does not enumerate every file on every signature. Pathological same-owner variants/alias graphs remain input-sensitive; do not claim all Go type extraction is linear. Profiles are built over files once (`go.rs:515`) and also redundantly per declaration (`874,973,1022,1809`), but the measured profile cost is negligible in this experiment.
 
-**Probe performed:** `setup.py` copied 24 evenly spaced paths from the sorted list of 715 readable non-vendored `.go` files under `~/code/bench-repos/prometheus` into `.review/go-extract-plan-probe/corpus/`: 300,299 bytes. This population differs from the historical loader's 975; it is a small subset experiment, not a census reconciliation. `corpus.tsv` records paths/sizes/SHA-256. Parsing is outside the timed extraction. One temporary instrumented release example compares alternating serial/cached modes twice, with cache state reset per construction; it also generates files with 16, 32 and 64 methods. The prototype returns cloned cached maps and uses a temporary thread-local cache; the production design below instead borrows a map scoped to the file. Neither prototype state nor instrumentation is retained in production.
+**Probe performed:** `setup.py` copied 24 evenly spaced paths from the sorted list of 715 readable non-vendored `.go` files under `~/code/bench-repos/prometheus` into `.review/go-extract-plan-probe/corpus/`: 300,299 bytes. It is a 24-file sample from the same 715-file Go population the historical runs indexed. `corpus.tsv` records paths/sizes/SHA-256. Parsing is outside the timed extraction. One temporary instrumented release example compares alternating serial/cached modes twice, with cache state reset per construction; it also generates files with 16, 32 and 64 methods. The prototype returns cloned cached maps and uses a temporary thread-local cache; the production design below instead borrows a map scoped to the file. Neither prototype state nor instrumentation is retained in production.
 
 Commands actually executed:
 
@@ -178,7 +178,7 @@ chmod +x .review/go-type-extract/tools/cargo
 ```
 Expected: wrapper executable.
 
-For mutation tool commands only, prefix `env PATH="$PWD/.review/go-type-extract/tools:$PATH" PRISM_REAL_CARGO="$PRISM_REAL_CARGO"`; run with `--jobs 1`. This preserves the required low priority and cargo job count for its subprocesses. Stop and route to the controller if priority/process inspection is denied. Do not repeat authorship's ineffective priority adjustment as if it succeeded.
+For mutation tool commands only, prefix `env PATH="$PWD/.review/go-type-extract/tools:$PATH" PRISM_REAL_CARGO="$PRISM_REAL_CARGO"`; run with `--jobs 1`. This preserves the required low priority and cargo job count for its subprocesses. Stop and route to the controller if process inspection is denied; a refused priority change is reported, not a stop (see Global Constraints).
 
 The following shell helpers make task command receipts uniform. Define once in the controller/implementer shell:
 
