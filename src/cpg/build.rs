@@ -964,7 +964,7 @@ impl CodePropertyGraph {
     ///
     /// Shared by `build_impl` (full build) and `build_incremental` (partial).
     /// Runs Steps 1–9 of graph construction.
-    fn assemble_graph(
+    pub(super) fn assemble_graph(
         cg: CallGraph,
         mut dfg: DataFlowGraph,
         files: &BTreeMap<String, ParsedFile>,

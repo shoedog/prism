@@ -24,6 +24,8 @@ mod build;
 mod callback_identity_tests;
 mod cfg_queries;
 mod context;
+#[cfg(any(test, feature = "dfg-oracle"))]
+pub mod dfg_compaction_support;
 #[cfg(test)]
 mod exact_parameter_binding_tests;
 mod flow_confidence;
