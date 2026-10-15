@@ -2,45 +2,49 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **Validation status (2026-10-14).** Every task of this plan was built with a compiler before the plan was written, on the local scratch branch `scratch/s5a-validate` (worktree `~/code/prism-s5a-validate`) from `main` `296102a2`, test first, and every mutant named in a task was applied there and killed (see the Validation record). The source was then cut into this plan's tasks on `scratch/s5a-tasks` (`8d5ce396`), the plan's directives were generated from that branch's per-task commits, and the plan was replayed by a script onto `296102a2` (`scratch/s5a-replay`, `bf4a4e18`), each anchor matching once, to a tree byte-identical with `scratch/s5a-tasks`; each task's red and green steps below were run on partial replays. The shim's and the daemon's tests were run on Linux (aarch64, the bridge's `a2a-toolchain` image, as root): 10 × `--lib mcp::shim`, 10 × `--lib mcp::daemon` and 10 × `--test mcp`, all green. A first attempt failed for want of disk (the host's, shared with other agents, ran out and the Docker VM stopped itself for a while); it was re-run once there was room. One test outside this slice fails in that container on the base too (V11). Counts, red steps and mutant results below are the observed ones. The mutation gate was not run (it selects no MCP code). Not yet reviewed.
+> **Validation status (2026-10-14; review round 1 folded 2026-10-15).** Every task of this plan was built with a compiler before the plan was written, on the local scratch branch `scratch/s5a-validate` (worktree `~/code/prism-s5a-validate`) from `main` `296102a2`, test first, and every mutant named in a task was applied there; all were killed but N1, whose survival is explained in its Claims row (see the Validation record). The source was then cut into this plan's tasks on `scratch/s5a-tasks` (`14db8f4e`), the plan's directives were generated from that branch's per-task commits, and the plan was replayed by a script onto `296102a2` (`scratch/s5a-replay`, `351b6819`), each anchor matching once, to a tree byte-identical with `scratch/s5a-tasks`; each task's red and green steps below were run on partial replays. The shim's and the daemon's tests were run on Linux (aarch64, the bridge's `a2a-toolchain` image, as root) with the plan's own Step 4 script after review round 1: 10 × `--lib mcp::shim`, 10 × `--lib mcp::daemon` and 10 × `--test mcp`, all green, and mutant N8 killed there. One test outside this slice fails in that container on the base too (V11). **Review round 1** (Opus 5.5 APPROVE with ten SMELLs; gpt-6.1-sol FIX with five WRONG/MATERIAL findings) was folded test first on `scratch/s5a-validate`; each finding, its change and the test that failed before it are in "Review round 1" at the end. Counts, red steps and mutant results below are the observed ones, after the fold. The mutation gate was not run (it selects no MCP code).
 
 ## Validate before dispatch
 
 What each check must show, and what it showed. Every cargo command ran alone, as `nice -n 19 env CARGO_BUILD_JOBS=4 cargo …`, with its output in a file that was then read.
 
-| # | Command | Must show | Observed |
+| # | Command | Must show | Observed (after review round 1) |
 |---|---|---|---|
 | V1 | `cargo test --features mcp --lib mcp::` and `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp` on the untouched base | The base totals; every later total is "base + N". | `517 passed`; `31 passed` with `standalone_transcripts_match_the_goldens_recorded_before_the_transport_refactor ... ok`, at `296102a2`. |
-| V2 | Each task's red step, on a partial replay of this plan | What the step says. | Task 1: 14 errors (`E0425` for `marked` ×3, `E0599` for `build_marker` ×9, `E0282` ×2). Task 2: `E0583` for `shim`. Task 3: `E0583` for `arbitrate` and `key_files`. Task 5: `E0583` for `diagnostic`, `pump`, `spawn`. Task 6: `test result: FAILED. 31 passed; 11 failed`, each new test with `error: unexpected argument '--shared' found`. |
-| V3 | Each task's green step, on the replay | The count the step states, no warning. | Task 1: 522. Task 2: 530. Task 3: 547. Task 5: 556. Task 6: `--test mcp` 42. No `warning` line in any of them. |
-| V4 | `cargo test --features mcp --lib mcp::` at each head | base + 30, then base + 39; `0 failed`. | 547 at the S5a-1 head (Task 3's green, the head differs only in `CLAUDE.md`); 556 at the S5a-2 head's code (`7bff1bea`), `0 failed`. |
-| V5 | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp` | `31 passed`, then `42 passed`, the goldens unblessed. | 42 at the S5a-2 head's code, the goldens' test `ok` in each of 10 runs; zero-line diff in `transport_tests.rs`, `owner_transport_tests.rs` and `tests/fixtures/mcp/golden/`. |
-| V6 | `cargo check`, `cargo check --features mcp`, `cargo check --tests --features mcp,detached-owner-audit`, `cargo fmt --check` | `Finished`; no warning from the feature build; fmt silent. | All `Finished`, 0 warnings from either check (the module's dead-code allowance removed at Task 6); fmt silent; at the S5a-2 head. |
-| V7 | `cargo clippy --all-targets --features mcp`, filtered to the touched files | No line but the base's. | 257 `warning` lines at the base `296102a2` and 257 at the S5a-2 head; the only one naming a touched file is `src/navigation/call_edge_cache.rs:279:9` (`io::Error::other`), present at the base, on a line this slice does not touch. |
-| V8 | Every "prove the tests bite" step | The named tests fail under the named mutant. | 1A–1C, 2A–2H, 3A–3G, 3I, 3J, 5A, 5B, 5D–5G, 6A–6D killed (30 mutants). 5E survived the test as first written and the test was strengthened (Validation record). |
-| V9 | Repeats on macOS at the S5a-2 head | All `ok`; no daemon process left. | At `7bff1bea`: 20 × `--lib mcp::shim` `20 test result: ok. 34 passed` (1.01–1.03 s each); 10 × with `--test-threads=1` `10 … ok. 34 passed`; 10 × `--lib mcp::daemon` `10 … ok. 133 passed`; 10 × `--test mcp` `10 … ok. 42 passed` (3.4–7.0 s), the goldens' test `ok` in all 10; no `prism-mcp` process of this worktree's binary left afterwards. One run of the whole `--lib mcp::` took 57.6 s (556 passed); which test was slow was not determined, and no assertion bounds a duration. |
-| V10 | The zero-diff and replay checks | Nothing in the standalone files; the replay byte-identical. | `git diff --name-only 296102a2 8d5ce396`: 30 paths (29 under `src/` and `tests/`, three of them changed by both pull requests, and `CLAUDE.md`), none of `transport.rs`, `transport_tests.rs`, `owner_transport_tests.rs`, `session.rs`, `lazy.rs`, `framing.rs`, `output.rs`, `settings.rs`, `tests/fixtures/mcp/golden/`. The replay `bf4a4e18` has tree `38253d57`, the tree of `scratch/s5a-tasks` `8d5ce396`. |
-| V11 | Linux: the bridge's `a2a-toolchain` image (Debian, aarch64, rustc 1.94.0, uid 0), the worktree read-only, named target and registry volumes removed afterwards | All `ok`. | At `7bff1bea`: `10 test result: ok. 34 passed` (`--lib mcp::shim`), `10 test result: ok. 133 passed` (`--lib mcp::daemon`), `10 test result: ok. 42 passed` (`--test mcp`, the goldens' test `ok` each time). The whole `--lib mcp::` there: `547 passed; 1 failed`, the failure `mcp::shared::dir_chain::tests::another_users_private_directory_is_refused_for_what_it_holds` (`dir_chain_tests.rs:381`, `left: None`), an S2a test that assumes it does not run as root. Control in the same container on the base `296102a2`: the same test fails the same way (`508 passed; 1 failed`), so it is not this slice's; reported, not fixed. The first attempt at this row failed while downloading crates with `No space left on device` (the host's disk, shared with other agents, had 434 MiB free) and the Docker VM (OrbStack) stopped itself on a failed write to its disk image; the row was run once the host had room again. x86_64 Linux: CI only. |
-| V12 | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp` and `cargo test --doc --features mcp` at the S5a-2 head | `0 failed`. | At `7bff1bea` on macOS: 31 `test result` lines, **5,950 passed, 0 failed, 1 ignored**; doc tests `2 passed`. |
+| V2 | Each task's red step, on a partial replay of this plan | What the step says. | Task 1: 19 errors (`E0425` for `marked` ×3, `E0599` ×14 for `build_marker` and `pausing`, `E0282` ×2). Task 2: `E0583` for `shim`. Task 3: `E0583` for `arbitrate` and `key_files`. Task 5: `E0583` for `diagnostic`, `pump`, `spawn`. Task 6: `test result: FAILED. 31 passed; 12 failed`, each new test with `error: unexpected argument '--shared' found`. |
+| V3 | Each task's green step, on the replay | The count the step states, no warning. | Task 1: 524. Task 2: 534. Task 3: 553. Task 5: 563. Task 6: `--test mcp` 43. No `warning` line in any of them. |
+| V4 | `cargo test --features mcp --lib mcp::` at each head | base + 36, then base + 46; `0 failed`. | 553 at the S5a-1 head (Task 3's green; the head differs only in `CLAUDE.md`); 563 at the S5a-2 head's code (`644dea71`), `0 failed`. |
+| V5 | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp` | `31 passed`, then `43 passed`, the goldens unblessed. | 43 at the S5a-2 head's code, the goldens' test `ok` in each of 10 runs; zero-line diff in `transport_tests.rs`, `owner_transport_tests.rs` and `tests/fixtures/mcp/golden/`. |
+| V6 | `cargo check`, `cargo check --features mcp`, `cargo check --tests --features mcp,detached-owner-audit`, `cargo fmt --check` | `Finished`; no warning from the feature build; fmt silent. | All `Finished`, 0 warnings from either check; fmt silent; at `644dea71`. |
+| V7 | `cargo clippy --all-targets --features mcp`, filtered to the touched files | No line but the base's. | 257 `warning` lines at the base `296102a2` and 257 at `644dea71`; the only one naming a touched file is `src/navigation/call_edge_cache.rs:279:9` (`io::Error::other`), present at the base, on a line this slice does not touch. |
+| V8 | Every "prove the tests bite" step | The named tests fail under the named mutant. | 1A–1C, 2A–2H, 3A–3G, 3I, 3J, 5A, 5B, 5D–5G, 6A–6D (the first round's 30) and N2–N7, N9 killed on macOS; N8 killed on Linux (`test result: FAILED. 0 passed; 1 failed`, the backlog test after its 30 s limit). N1 survived (its Claims row). |
+| V9 | Repeats on macOS at `644dea71` | All `ok`; no daemon process left. | 20 × `--lib mcp::shim` `20 test result: ok. 39 passed`; 10 × with `--test-threads=1` `10 … ok. 39 passed`; 10 × `--lib mcp::daemon` `10 … ok. 135 passed`; 10 × `--test mcp` `10 … ok. 43 passed`, the goldens' test `ok` in all 10; no `prism-mcp` process of this worktree's binary left. |
+| V10 | The zero-diff and replay checks | Nothing in the standalone files; the replay byte-identical. | `git diff --name-only 296102a2 14db8f4e`: 31 paths (30 under `src/` and `tests/`, three of them changed by both pull requests, and `CLAUDE.md`), none of `transport.rs`, `transport_tests.rs`, `owner_transport_tests.rs`, `session.rs`, `lazy.rs`, `framing.rs`, `output.rs`, `settings.rs`, `tests/fixtures/mcp/golden/`. The replay `351b6819` has tree `c7a359f9`, the tree of `scratch/s5a-tasks` `14db8f4e`. |
+| V11 | Linux: the bridge's `a2a-toolchain` image (Debian, aarch64, rustc 1.94.0, uid 0), with the plan's own Task 4/7 Step 4 script (`EXTRA_SUITE="--test mcp"`) | All `ok`. | At `644dea71`: `failed Linux runs: 0`; `10 test result: ok. 39 passed` (`--lib mcp::shim`, the full-backlog test included), `10 test result: ok. 135 passed` (`--lib mcp::daemon`), `10 test result: ok. 43 passed` (`--test mcp`, the goldens' test `ok` in all 10); no `left:` line; the volumes removed by the `trap`. Before the fold, the full-backlog test failed there after 30 s (`Timeout`). The whole `--lib mcp::` in that container (first round): one failure, `mcp::shared::dir_chain::tests::another_users_private_directory_is_refused_for_what_it_holds`, an S2a test that assumes it does not run as root; the base fails it the same way in the same container, so it is not this slice's; reported, not fixed. x86_64 Linux: CI only. |
+| V12 | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp` and `cargo test --doc --features mcp` at `644dea71` | `0 failed`. | 31 `test result` lines, **5,958 passed, 0 failed, 1 ignored**; doc tests `2 passed`. |
 
 ## Owner questions
 
-**None that block this plan.** Two points depart from, or add to, the approved spec's text; each is built with the default below and is one small change to reverse:
+**None.**
 
-1. **The restart bound (SI-22, D77).** S3b's SI-10 made a panic on the build thread fatal, as the spec says, and handed S5a a bound on the restart loop that follows: a build that panics every time (a grammar panic on one file) or is killed every time (an out-of-memory kill during the build, the likelier case on this host) would otherwise cost one daemon start, one build and one lost session per new shim. **Default built:** the daemon leaves a build marker (`<key16>.build`) while its builder runs and removes it when the builder returns, either way, and when it drains; a shim that finds the key free and a marker whose build began less than 60 s ago fails closed with a line naming the dead daemon's pid and the log, and leaves its files. After 60 s the next shim restarts the daemon. This departs from spec §4.6 ("Daemon crashes … next shim … restarts") for that one case and adds a sixth file to §4.3's list. A daemon that dies after its build has published (a dispatch panic, spec §9 test 12) is restarted at once, as the spec says. The cost is up to a minute of fail-closed starts after a build died once (an operator can run `--standalone`); the alternatives are no bound (one line), a longer window (a constant), or counting consecutive deaths (more state).
-2. **The shim checks the uid of the daemon it connects to (SI-23, D78).** Spec §4.4 has only the daemon check its peer. The S2a review record (spec §13) concluded that the isolation guarantee between users is the peer-uid check on both ends of the socket, since path checks cannot enumerate every way another user might plant a listener, and asked the owner to confirm. **Default built:** the shim reads its peer's uid right after `connect`, before it sends anything, and fails closed on any other uid or an unreadable one. HANDOFF §4 item 6 recorded this as an S5a design item; it is listed here because the spec's text does not state it yet.
+## Owner decisions (2026-10-15)
+
+The two points that depart from, or add to, the approved spec's text were put to the owner after review round 1 and decided:
+
+1. **The restart bound (D77, SI-22): decided.** Owner: "yes 60s rule", with review round 1's fix: the 60 s cooldown counts from a shim's first observation of a dead owner's incomplete build, whatever the build's length. As built: the daemon leaves a build marker (`<key16>.build`) while its builder runs and removes it when the builder returns, either way, and when it drains; the first shim that finds the key free and a marker there records the moment in the marker (holding the start and owner locks) and fails closed naming the dead daemon's pid and the log; every shim in the 60 s after that sighting does the same, leaves the files, and does not renew the minute; after it the next shim restarts the daemon. This departs from spec §4.6 ("Daemon crashes … next shim … restarts") for that one case and adds a sixth file to §4.3's list. A daemon that dies after its build has published (spec §9 test 12), or whose refresh rebuild dies, is restarted at once.
+2. **The shim's own peer-uid check (D78, SI-23): decided.** Owner: "keep the uid check". The shim reads its peer's uid right after `connect`, before it sends anything, and fails closed on any other uid or an unreadable one (spec §13's S2a record: the guarantee between users is the peer check on both ends).
 
 ---
 
 **Goal:** the lane's: let the a2a-bridge run its reviewer and implementer fan-out on this host without swap exhaustion, by holding one resident index per compatible (checkout, prism build, cache configuration, refresh policy), with no query-latency regression under fan-out. **What S5a must make true, and test:** `prism-mcp --repo X --shared` finds the one daemon of its configuration, or starts it when none is alive, and then carries its client's MCP session to it byte for byte (spec §4.1 steps 1–9; §5 "preserved"); every shim that starts at the same time ends up on the same daemon, whatever order the locks fall in and whether an earlier starter died mid-start (§4.1 step 6, §4.6; the shim's halves of §9 tests 8 and 15); a daemon that is retiring, dead or wedged is told apart and handled (re-enter arbitration, replace, or report and leave alone: the shim's halves of tests 3, 4 and 13); every way of not reaching `READY` before the one deadline fails closed with one actionable line and builds no index (§4.1 step 7, §10; tests 5 and 10); a daemon lost after the first forwarded byte ends the session and is never reconnected (§4.1 step 9; test 11); and a build that keeps dying does not cost a daemon per shim (S3b's SI-10). The in-process server does not change; `--shared` stays opt-in (spec §11 item 2).
 
-**Architecture:** `src/mcp/shim/` is a new module. `connect.rs` makes one attempt: connect, check the peer's uid, send `HELLO`, read the reply line with every read bounded by the time left, and sort the outcome into reached, transient or refused. `arbitrate.rs` is the start protocol around it: try the socket; on anything transient take `<key16>.start`; under it try again, then look at `<key16>.owner`: held means a daemon is alive (poll; never touch its files), free means none is (holding the lock, remove the stale socket, pid file and build marker, release it, spawn a daemon through the `Starter` seam). `key_files.rs` opens those files through the runtime directory's descriptor with the daemon's own functions (`daemon::files`, now `pub(in crate::mcp)`). `spawn.rs` starts `prism-mcp daemon …` from the same executable in a session of its own, its output appended to the key's log. `diagnostic.rs` writes the fail-closed line. `pump.rs` is the byte pipe. `run.rs` is `run_shim`, called by `prism-mcp --shared`. On the daemon's side one wrapper (`run.rs::marked`) sets and clears the build marker around the builder (`files.rs::BuildMarker`).
+**Architecture:** `src/mcp/shim/` is a new module. `connect.rs` makes one attempt: connect without blocking (`socket.rs`), check the peer's uid, send `HELLO`, read the reply line with every byte's read bounded by the time left and no line accepted after the deadline, and sort the outcome into reached, transient or refused. `arbitrate.rs` is the start protocol around it: try the socket; on anything transient take `<key16>.start`; under it try again, then look at `<key16>.owner`: held means a daemon is alive (poll; never touch its files), free means none is (holding the lock, remove the stale socket, pid file and build marker, release it, spawn a daemon through the `Starter` seam). `key_files.rs` opens those files through the runtime directory's descriptor with the daemon's own functions (`daemon::files`, now `pub(in crate::mcp)`). `spawn.rs` starts `prism-mcp daemon …` from the same executable in a session of its own, its output appended to the key's log. `diagnostic.rs` writes the fail-closed line. `pump.rs` is the byte pipe. `run.rs` is `run_shim`, called by `prism-mcp --shared`. On the daemon's side one wrapper (`run.rs::marked`) sets and clears the build marker around the builder (`files.rs::BuildMarker`), through a fence that `DaemonFiles` closes before it releases the key.
 
-**Tech Stack:** Rust 2021 (rustc 1.94), `std::os::unix::net::UnixStream`, `std::fs::File::try_lock` (`flock`), `std::os::unix::process::CommandExt::pre_exec` (`setsid`), `libc` (already an optional dependency of the `mcp` feature: `setsid`, `getpeereid` / `SO_PEERCRED` through `daemon::peer`, `fcntl` in a test), `clap` for the flags, `tempfile` for tests. No new dependency.
+**Tech Stack:** Rust 2021 (rustc 1.94), `std::os::unix::net::UnixStream`, `std::fs::File::try_lock` (`flock`), `std::os::unix::process::CommandExt::pre_exec` (`setsid`), `libc` (already an optional dependency of the `mcp` feature: `socket`, `connect`, `poll`, `fcntl` in `socket.rs`, `setsid`, `getpeereid` / `SO_PEERCRED` through `daemon::peer`), `clap` for the flags, `tempfile` for tests. No new dependency.
 
 **Spec:** `docs/superpowers/specs/2026-10-09-shared-prism-daemon-design.md` as revised 2026-10-13 (§3, §4.1, §4.3, §4.4, §4.6, §5, §7, §8 step 4, §9 tests 3, 4, 5, 8, 10, 11, 12, 13, 15, §10, §11 items 2 and 7, §12 row S5a, §13 the S2a record). Lane plan: `README.md` in this directory (the notes for S4 and S5a, and for S5a). Built on S4 as merged: `main` `296102a2`. Decisions are numbered on from the S4 plan's (D48–D76) and spec issues from its SI-14–SI-21, so that one number names one thing across the lane.
 
-**Ships as two pull requests.** **S5a-1 = Tasks 1–4** (the build marker, one attempt, the start protocol, all tested in process against fake daemons): 16 files in `src/`, 2,170 insertions and 15 deletions, of which about 770 are code (`arbitrate.rs` 323, `connect.rs` 222, `key_files.rs` 100, `files.rs` +74, `run.rs` +21, the rest a few lines each) and the rest tests and test support; plus 19 lines of `CLAUDE.md`. **S5a-2 = Tasks 5–7** (spawning, the fail-closed line, the pump, `run_shim` and the flags, process tests with the real binary): 16 files in `src/` and `tests/`, 1,483 insertions and 22 deletions, of which about 590 are code (`run.rs` 164, `diagnostic.rs` 141, `spawn.rs` 140, `pump.rs` 92, the binary +28, the rest a few lines each) and the rest tests; plus 16 lines of `CLAUDE.md`. They are split where a reviewer's question changes: S5a-1 is the protocol (who starts the daemon, what each answer means), with no process; S5a-2 is the process (what is spawned, what the client sees) and depends on every interface of S5a-1. Each is about the size of S4-1 or S4-2 (about 2,100 lines), which each converged in two review rounds. S5a-2 is based on S5a-1; nothing in S5a-1 depends on S5a-2. S5a-1 has no production caller until S5a-2 (its module carries a dead-code allowance that Task 6 removes, as S3a's did until S4).
+**Ships as two pull requests.** **S5a-1 = Tasks 1–4** (the build marker, one attempt, the start protocol, all tested in process against fake daemons): 17 files in `src/`, 2,673 insertions and 19 deletions, of which about 1,030 are code (`arbitrate.rs` 349, `connect.rs` 256, `files.rs` +154, `key_files.rs` 125, `socket.rs` 90, `run.rs` +21, the rest a few lines each) and the rest tests and test support; plus 22 lines of `CLAUDE.md`. **S5a-2 = Tasks 5–7** (spawning, the fail-closed line, the pump, `run_shim` and the flags, process tests with the real binary): 16 files in `src/` and `tests/`, 1,566 insertions and 22 deletions, of which about 605 are code (`run.rs`, `diagnostic.rs`, `spawn.rs`, `pump.rs`, the binary +28, the rest a few lines each) and the rest tests; plus 17 lines of `CLAUDE.md`. They are split where a reviewer's question changes: S5a-1 is the protocol (who starts the daemon, what each answer means), with no process; S5a-2 is the process (what is spawned, what the client sees) and depends on every interface of S5a-1. Each is about the size of S4-1 or S4-2 (about 2,100 lines), which each converged in two review rounds. S5a-2 is based on S5a-1; nothing in S5a-1 depends on S5a-2. S5a-1 has no production caller until S5a-2 (its module carries a dead-code allowance that Task 6 removes, as S3a's did until S4).
 
 ## Global Constraints
 
@@ -63,20 +67,23 @@ What each check must show, and what it showed. Every cargo command ran alone, as
 - **Tests do not depend on the host's speed.** A test waits for a condition up to `HANG` (30 s in process, 60 s in the process tests) and asserts no upper bound on an elapsed time; a deadline a test means to expire is short (300–500 ms, or `--daemon-start-timeout 2`) and only its outcome is asserted. One test pauses 200 ms before opening a gate; the pause orders nothing a correct shim depends on (it gives a wrong one time to misbehave) and says so.
 - **No test aborts the test binary**, and **every process a test starts is ended on every path**: shims by `ShimProcess`'s `Drop`, daemons a shim started (not the test's children) by `Daemons`' `Drop`, which kills the pid file's pid until the owner lock is free.
 - Every runtime directory a test uses is a fresh `tempfile::Builder::new().prefix("s5a").tempdir_in("/tmp")` (or S4's `s4` prefix in the shared helpers): the socket path must fit 103 bytes.
-- Keep every file under 600 lines; tests in sibling `*_tests.rs` files included with `#[path]`. The largest file this slice edits is `files.rs`, 482 lines after it; the largest it creates is `tests/mcp/shim_process_test.rs`, 477.
+- File size (CLAUDE.md decision 7, on `main` since `cc2e612c`): weighted lines (`python3 scripts/file_size.py FILE...`: code 1, comment-only 0.5, blank 0), new files aim for 600 or fewer, 2,000 is a hard ceiling. Weighted sizes after this slice (`scripts/file_size.py` from `main`): every file it creates or edits is at most 468 (`src/mcp/daemon/files.rs`; the largest created, `tests/mcp/shim_process_test.rs`, 460; `src/mcp/shim/arbitrate_tests.rs` 397, `shim_support.rs` 392), except `src/navigation/call_edge_cache.rs`, 891.5 before and after (one visibility word; it does not grow). Tests stay in sibling `*_tests.rs` files included with `#[path]`.
 - No new clippy warning in a file this slice adds or edits.
 - **Commit before any experiment.** The "prove the tests bite" steps edit a source file and restore it with `git checkout -- <file>`; they come after the task's commit.
 - **Run the shim's and the daemon's tests on Linux before each pull request** (Tasks 4 and 7): a connection closed with unread input is a reset on Linux and end of stream on macOS, and CI is Linux. On this host that is the bridge's `a2a-toolchain` image with the worktree mounted read-only and named volumes for the target and the registry, removed afterwards.
-- Logs go to files in a directory of the implementer's own, `$LOG_DIR` below; read the file. Do not pipe cargo output into `grep` or `tail`. Every cargo command runs alone, as `nice -n 19 env CARGO_BUILD_JOBS=4 cargo …` (this host has 24 GB and is usually in swap).
+- Logs go to files in a directory of the implementer's own, `$LOG_DIR` below; read the file. Do not pipe cargo output into `grep` or `tail`; `grep` the saved logs afterwards. Every cargo command runs alone, as `nice -n 19 env CARGO_BUILD_JOBS=4 cargo …` (this host has 24 GB and is usually in swap). **Before any large build or Docker run, check `df -h /System/Volumes/Data` and keep at least 50 GiB free**, and remove Docker volumes afterwards from a `trap`: this plan's validation ran the shared disk out once and stopped the Docker VM.
 
 ### What each mechanism covers, and what it does not
 
 - **The start lock orders shims of one runtime directory.** Shims that resolve different runtime directories (different `PRISM_MCP_RUNTIME_DIR`, `$TMPDIR` or `$XDG_RUNTIME_DIR`) start different daemons; that is spec §4.3's "every launcher that should share a daemon must resolve the same directory".
 - **The owner lock is what says a daemon is alive**; the socket and the pid file are evidence a dead daemon leaves. A shim removes them only while it holds the owner lock, and never while another process holds it.
-- **The build marker bounds a fast restart loop, not a slow one.** A daemon whose build dies more than 60 s after the build began is restarted by the next shim, so a build that runs for minutes and then dies still costs one daemon per shim, one build at a time (D77). It cannot tell a kill from a panic, and it holds a key closed for at most 60 s after one death during a build.
-- **The deadline bounds the shim's own waits.** A blocking `connect` to a daemon whose listen backlog is full (Linux: 4,096 by default) could wait past it; S4's loop accepts up to 16 connections a turn, so a full backlog means a wedged daemon with thousands of shims queued. Not handled (SI-28).
+- **The build marker bounds how often a dying build is restarted, whatever the build's length.** After any death during a build, the key stays closed for 60 s from the first shim's sighting, so two builds of a key start at least a minute apart (D77, review round 1). It cannot tell a kill from a panic. A refresh rebuild that dies (it runs in the dispatch domain, not under the marker; for example an out-of-memory kill with the old and the new index both resident) is restarted at once, as spec §9 test 12 says for any death after publication (Opus S10).
+- **The marker's fence covers this daemon's own handles.** A released daemon's build can neither set nor clear the marker (D92); a daemon killed outright changes nothing more anyway.
+- **The deadline bounds the shim's own waits:** the `connect` is non-blocking (a full listen backlog fails at once and is retried until the deadline, D93), and every byte of the reply is read within it (D80).
+- **A shim waiting for the start lock does not try the socket meanwhile** (spec §4.1 step 6, literally). If the lock's holder stalls after its daemon is `READY` (stopped, or descheduled under swap for most of the deadline), a waiting shim fails closed with `StartLockTimeout` while a daemon serves. Not handled; with the bridge's fan-out the holder keeps the lock for milliseconds (Opus S4, recorded).
 - **The peer check is the guarantee between users** (spec §13, S2a record); the runtime directory checks are hardening. Neither is a defense against a process of the same user (spec §2) or root.
-- **The daemon is started from the shim's executable path.** If a new build replaced that file after the shim started, the daemon it starts is the new build, computes another key, and refuses `--key`; the shim fails closed naming the log (SI-27). A shim started from the new binary is unaffected.
+- **The daemon is started from the shim's executable path.** If a new build replaced that file after the shim started, on macOS the daemon it starts is the new build, computes another key, and refuses `--key`; on Linux `current_exe()` names the deleted file (`… (deleted)`) and the spawn fails. Either way the shim fails closed, naming the log or the spawn error (SI-27, reworded after Opus S6). A shim started from the new binary is unaffected.
+- **Daemon flags on a shim that reaches a running daemon do nothing, silently** (D85; Opus S7, recorded for the S6 docs).
 - **Descriptors the shim inherited without close-on-exec pass to the daemon.** The daemon's standard streams are replaced (null and the log); anything else its launcher leaked into the shim would stay open for the daemon's life. Node's `child_process` (codex, Claude Code) does not leak; not handled.
 - **The pump forwards bytes, not messages.** Nothing is parsed, buffered past one read, or replayed; a frame cut by a daemon's death is cut for the client too (spec §4.1 step 9).
 
@@ -86,10 +93,10 @@ Each is something the spec leaves open or states ambiguously, or an earlier slic
 
 | # | Decision | Reason | Cost if wrong |
 |---|---|---|---|
-| D77 | **The restart bound is a build marker.** The daemon's builder runs inside `marked`, which writes `<key16>.build` (`pid\nstarted\n`, through the runtime directory's descriptor, best effort) before the builder and removes it after the builder returns, with an index or an error; `DaemonFiles::release` removes it too. A shim that holds the owner lock of a free key reads it: a whole marker whose build began less than `BUILD_CRASH_BACKOFF` = 60 s ago fails the shim closed (`RecentBuildCrash`) and nothing is removed; an older, partial or future-dated marker is removed with the other stale files. | S3b's SI-10 and its interface for S5a ("notice that the key's last daemon died … shortly after it started … for example a marker beside the pid file, written by the daemon before its first build and removed when the build publishes"). A marker, unlike the pid file's start time, tells a death during a build (deterministic panics, out-of-memory kills: both recur) from a death after publication (spec §9 test 12, which must restart at once). A builder that panics never returns, so the marker stays; it is not removed from a destructor, which would run while unwinding. A future-dated marker is ignored so a clock set back cannot hold a key closed. | One `if` in `arbitrate` (no bound), or a constant. Owner questions, item 1. |
-| D78 | **The shim checks its peer's uid** (`daemon::peer::peer_uid`, widened to `pub(in crate::mcp)`) right after `connect` and before writing anything; another uid, or one that cannot be read, is a refusal: the shim fails closed and sends nothing. | Lane README, notes for S5a, and spec §13: the peer check on both ends is the isolation guarantee. Refusing (not retrying) because a listener of another user at this user's socket path is an attack or a misconfiguration that waiting will not fix. | Owner questions, item 2. |
+| D77 | **The restart bound is a build marker and a sighting.** The daemon's builder runs inside `marked`, which writes `<key16>.build` (`pid\nstarted\n`, through the runtime directory's descriptor, best effort) before the builder and removes it after the builder returns, with an index or an error; `DaemonFiles::release` removes it too. A shim that holds the start lock and the owner lock of a free key reads it. A marker with no sighting line (a whole one, or one caught half-written) is a dead build seen now: the shim appends the time (`pid\nstarted\nseen\n`) and fails closed (`RecentBuildCrash`), leaving every file. A marker whose sighting is under `BUILD_CRASH_BACKOFF` = 60 s old fails closed the same way and is not rewritten; one whose sighting is older, or dated in the future, is removed with the other stale files and a daemon is started. | S3b's SI-10 and its interface for S5a. A marker, unlike the pid file's start time, tells a death during a build (deterministic panics, out-of-memory kills: both recur) from a death after publication (spec §9 test 12, which must restart at once). Counting the minute from the first sighting, not from the build's start, bounds builds of any length (review round 1, sol 3: as first written a build that ran 70 s and died was restarted at once by every shim); not rewriting a sighting keeps the minute finite. A builder that panics never returns, so the marker stays; it is not removed from a destructor, which would run while unwinding. A future-dated sighting is ignored so a clock set back cannot hold a key closed. | One `if` in `arbitrate` (no bound), or a constant. Decided by the owner 2026-10-15 ("yes 60s rule"). |
+| D78 | **The shim checks its peer's uid** (`daemon::peer::peer_uid`, widened to `pub(in crate::mcp)`) right after `connect` and before writing anything; another uid, or one that cannot be read, is a refusal: the shim fails closed and sends nothing. | Lane README, notes for S5a, and spec §13: the peer check on both ends is the isolation guarantee. Refusing (not retrying) because a listener of another user at this user's socket path is an attack or a misconfiguration that waiting will not fix. | Decided by the owner 2026-10-15 ("keep the uid check"). |
 | D79 | **The shim reuses the daemon's file functions** (`open_runtime_dir`, `open_private` with its `O_EXCL`-then-open creation, `unlink_at`, `FilesError`) by widening them to `pub(in crate::mcp)`, and the peer check the same way, instead of moving them to `shared/`. | S4's interface suggested moving `peer_uid` to `shared/`; widening is a few words of diff in files reviewers have approved, and keeps every key file's I/O in `files.rs` (D53's macOS fix included). | A mechanical move later. |
-| D80 | **How each answer is sorted** (`connect::reach`). Transient: any `connect` error, `RETIRING`, end of stream or any read error before a whole reply line (a reset included, D76), and no whole line by the deadline. Refused: `BUSY`, `MISMATCH`, `READY` for another identity, a peer of another uid or none, and a line this build cannot read (longer than 4 KiB included). A failed `HELLO` write never ends an attempt: the reply is read anyway. Every read is bounded by the time left, so the deadline bounds the line, not each silence. After `READY` both socket timeouts are cleared; a failure to clear them is transient (no MCP byte has been forwarded). | Spec §4.1 step 5, §10; S4's interface (a `BUSY` can arrive before the shim's write, which then fails with `EPIPE`; a close can read as a reset on Linux); the lane README's S2b notes (one call site compares `READY`'s identity with the key; `PreambleLineReader` has no deadline of its own). An unreadable reply is refused, not retried: the daemon at this path will not start making sense. | None. |
+| D80 | **How each answer is sorted** (`connect::reach`). Transient: any `connect` error, `RETIRING`, end of stream or any read error before a whole reply line (a reset included, D76), and no whole line by the deadline. Refused: `BUSY`, `MISMATCH`, `READY` for another identity, a peer of another uid or none, and a line this build cannot read (longer than 4 KiB included). A failed `HELLO` write never ends an attempt: the reply is read anyway. Every byte's read goes through `Deadlined`, which refuses a read once the deadline has passed and bounds each by the time left, and a line whose read ends at the deadline is not accepted: the deadline bounds the whole line, not each silence (review round 1, sol 1: as first written a reply dripped one byte every 30 ms was accepted 435 ms into a 100 ms deadline). After `READY` both socket timeouts are cleared; a failure to clear them is transient (no MCP byte has been forwarded). | Spec §4.1 step 5, §10; S4's interface (a `BUSY` can arrive before the shim's write, which then fails with `EPIPE`; a close can read as a reset on Linux); the lane README's S2b notes (one call site compares `READY`'s identity with the key; `PreambleLineReader` has no deadline of its own). An unreadable reply is refused, not retried: the daemon at this path will not start making sense. | None. |
 | D81 | **A daemon that accepts and does not answer by the deadline at the first attempt is reported at once**, without taking the start lock (`NoReady { last: NoReply }`). | Its deadline is spent; spec §4.4: a live but wedged daemon is "reported, never replaced". The line names the pid and start time from the pid file (§4.1 step 6). | None. |
 | D82 | **While a daemon this shim started neither answers nor ends, the owner lock is not looked at again.** A started daemon that ends with status 0 before `READY` lost the key to another (S4: "exit 0 silently"); the shim looks again and, if the key is free, starts another. One that ends otherwise (a non-zero status, a signal) fails the shim closed at once (`DaemonExited`) and is not started again. | Looking takes the owner lock for a moment; a daemon claiming the key in that moment would leave believing another owns it (`a_started_daemon_that_has_not_taken_the_key_yet_is_waited_for`, mutant 3J). A daemon that fails to start (a refused `--key`, a bad runtime directory, a bind error) will fail again; spec §10 "Daemon spawn fails → fail closed". | None. |
 | D83 | **A held owner lock is looked at again every `POLL` = 10 ms until the deadline**, and nothing of the key's is touched while it is held. | The retirement window (S4's interface): a daemon removes its socket a moment before it releases the owner lock; a shim that gave up on a held lock would fail a fresh start, and one that never looked again would wait out its deadline. | A constant. |
@@ -101,30 +108,37 @@ Each is something the spec leaves open or states ambiguously, or an earlier slic
 | D89 | **The pump** (`pump::pump`): standard input to the socket on a thread, the socket to standard output on the calling thread, 64 KiB reads, a flush after each write. At the client's end of input the thread records it, then half-closes the socket; the daemon's end of stream after that is a clean end (exit 0); before it, or any read error, ends the session with exit 1 and one line. A failed write to the client ends it too. Nothing reconnects. | Spec §4.1 steps 8 and 9. Recording before half-closing means the daemon cannot end the connection in answer to the half-close before the shim knows the client finished. | None. |
 | D90 | **In-process tests use fake daemons and a fake `Starter`**; process tests use the real binary. A fake daemon takes the real owner lock on a descriptor of its own (as a daemon process does) and answers by a script; the fake starter's children claim the key at start or when a gate opens. | Spec §9 asks for deterministic constructions. Every interleaving the start protocol must survive (a retirement between `connect` and `HELLO`, a starter dying between spawn and claim, a held owner lock released mid-wait) is played at a hook point (`connect::Point`) without sleeping; the real daemon's answers to the same situations are S4's tests. | — |
 | D91 | **The hook is a production field set only by tests** (`Arbiter::hook: Option<Hook>`, `None` in `run_shim`). | Hook points need to exist in the code under test; the field costs a branch per point. | — |
+| D92 | **A retirement fence between `DaemonFiles` and its markers** (review round 1, sol 2 and Opus S3): one `Arc<Mutex<bool>>`. `BuildMarker::set` and `clear` change the file only while holding it and finding `false`; `DaemonFiles::release` takes it first, sets `true`, then removes the marker and the pid file, and `Drop` sets it too, before the owner lock's descriptor (a field) closes. | As first written, a daemon drained during its build released the key, and its builder's late `clear` then removed the marker of the daemon that took the key next (reproduced by sol with two processes), and a late `set` could leave a marker for a build that did not die. Holding the lock through the change serializes it with release: a change in progress finishes first, and every later one does nothing. | Keeping the owner lock until process exit instead (a release contract change). |
+| D93 | **The shim's `connect` is non-blocking** (`socket.rs::connect_within`, review round 1, sol 4): a raw `AF_UNIX` socket made close-on-exec and non-blocking, `connect`, `EINPROGRESS` waited for with `poll` up to the deadline, then returned blocking as a `UnixStream`. A full listen backlog (`EAGAIN` on Linux, `ECONNREFUSED` on macOS) is a transient connect error that arbitration retries until the deadline. | On Linux a blocking `connect` waits for backlog room without bound, so a live daemon that stopped accepting held a shim for ever (`a_live_daemon_with_a_full_backlog_fails_the_shim_closed_at_the_deadline` hung until its 30 s limit on Linux before the change). This replaces SI-28. | None. |
+| D94 | **Every fail-closed line names the `--standalone` invocation, failures before the key is known included** (review round 1, sol 5): `run_shim` builds the invocation first, from the configuration as given (the repository made absolute, not canonical), and a failure before the key exists prints `key unresolved` and no file paths. | Spec §4.1 step 7's line was printed only for failures after the key: a missing repository or a cache directory that is a regular file printed a bare error. | None. |
+| D95 | **Process-test shims use a 60 s start deadline unless a test sets its own** (review round 1, Opus S2), and the §5 transcript's shared run passes it too. | The plan's rule that tests do not depend on the host's speed: the 10 s default could fail a start on an instrumented CI run or this host at high load. | None. |
+| D96 | **Small folds from review round 1**: a stdin read interrupted by a signal is retried, not taken as the client's end (Opus S9; other read errors still count as the end); `run_shim`'s doc says it must run in the `prism-mcp` executable (Opus S5). | One line each. | — |
 
 ## Spec items implemented, and spec issues found
 
 Spec §12 row S5a, item by item: connect → Task 2 (`connect.rs`); arbitration → Task 3 (`arbitrate.rs`, `key_files.rs`); spawn → Task 5 (`spawn.rs`); fail-closed → Tasks 3 and 5 (`Failure`, `diagnostic.rs`); pump → Task 5 (`pump.rs`); the single deadline → Tasks 2, 3 and 6. Tests: 5 → Task 3 (`an_invalid_runtime_directory_fails_closed_before_any_file_is_made`) and Task 6 (`a_runtime_directory_that_fails_validation_fails_closed_and_creates_nothing`); 10 → Task 3 (`a_mismatch_or_a_peer_of_another_user_fails_closed_without_a_start`) and Task 6 (`a_daemon_that_answers_mismatch_fails_the_shim_closed`); 11 → Task 5 (`a_daemon_that_closes_while_the_client_is_there_ends_the_session_as_an_error`) and Task 6 (`a_daemon_killed_mid_session_ends_the_shim_without_a_reconnect`). The shim halves S4 deferred (SI-18): 3 → Tasks 3 and 6; 4 → Tasks 3 and 6; 8 and 15 → Task 3 (`arbitrate_race_tests.rs`) and Task 6 (`shims_started_together_with_an_orphan_daemon_share_one_daemon`); 13 → Task 3 (`a_shim_caught_by_a_retirement_is_admitted_by_a_fresh_daemon`). Also through real shims, as S3b's interface asked: test 12's "the next shim restarts it" (Task 6), test 9 (Task 6), test 7 in part (eight shims each served, Task 6), and spec §5's equivalence (Task 6, the transcript script standalone and through a shim, byte for byte). S3b's SI-10 restart bound → Tasks 1 and 3 (D77). S4's SI-16 → Task 5 (D84); SI-17 → Task 5 (D84).
 
-- **SI-22 (§4.6 "Daemon crashes … next shim finds the owner lock free, unlinks the stale socket, restarts", against S3b's SI-10).** For a daemon that died during its build less than 60 s ago, the next shim fails closed instead (D77). Owner questions, item 1.
-- **SI-23 (§4.4 "The daemon checks the peer's uid").** The shim checks too (D78); the spec's text names the daemon only. Owner questions, item 2.
+- **SI-22 (§4.6 "Daemon crashes … next shim finds the owner lock free, unlinks the stale socket, restarts", against S3b's SI-10).** For a daemon that died during its build, shims fail closed for 60 s from the first shim's sighting instead (D77). Decided by the owner 2026-10-15 ("yes 60s rule", the cooldown from a shim's first sighting).
+- **SI-23 (§4.4 "The daemon checks the peer's uid").** The shim checks too (D78); the spec's text names the daemon only. Decided by the owner 2026-10-15 ("keep the uid check").
 - **SI-24 (§4.3 "Files").** A sixth file, `<key16>.build`, exists while a build runs and after a daemon died in one (D77). Removed by the daemon, by a draining daemon, or by the next shim that holds the owner lock; never a lock file.
 - **SI-25 (§8 step 4 flags).** `--idle-ttl` and `--max-clients` are daemon settings a shim passes only to a daemon it starts (D85).
 - **SI-26 (§4.1 step 6 "the shim's environment" against §7 "every answer-affecting setting is either in the key or in the per-connection preamble").** The one variable known to change answers outside both, `PRISM_NAV_EDGE_CACHE_LOAD_DIRTY`, is removed from the daemon's environment (D84; S4's SI-17 settled).
-- **SI-27 (§4.1 step 6, spawning).** A shim whose executable was replaced by a new build since it started spawns the new build, whose key differs; the daemon refuses `--key` (D61) and the shim fails closed naming the log ("What each mechanism covers").
-- **SI-28 (§4.1 step 4 "the one absolute deadline").** `UnixStream::connect` is blocking; on Linux it waits while the daemon's listen backlog is full. Not handled ("What each mechanism covers").
+- **SI-27 (§4.1 step 6, spawning).** A shim whose executable was replaced by a new build since it started spawns the new build on macOS, whose key differs, and the daemon refuses `--key` (D61); on Linux the spawn fails (`current_exe()` names the deleted file). Either way the shim fails closed naming the log or the spawn error ("What each mechanism covers"; reworded after Opus S6).
+- **SI-28 (§4.1 step 4 "the one absolute deadline").** `UnixStream::connect` is blocking, and on Linux it waits while the daemon's listen backlog is full. Settled by D93 (review round 1, sol 4).
 
 ## Review Focus
 
-Seven ways this code is most likely to be wrong in use that a straightforward test list would not exercise. Each has a test in the task that owns the code.
+Nine ways this code is most likely to be wrong in use that a straightforward test list would not exercise. Each has a test in the task that owns the code.
 
 1. **A fan-out starting at once.** The bridge starts eight or more agents together, and a starter can die mid-start; every shim must end up on one daemon and exactly one daemon must be started between them. → Task 3, `shims_racing_to_start_a_daemon_start_exactly_one` (paused at three boundaries), `a_starter_that_dies_after_spawning_leaves_exactly_one_daemon`, `a_started_daemon_that_has_not_taken_the_key_yet_is_waited_for`; Task 6, `shims_started_together_with_an_orphan_daemon_share_one_daemon` (eight real shims and an orphan daemon).
 2. **A daemon retiring while a shim starts.** `RETIRING`, an end of stream before `READY`, and a held owner lock with no socket must all lead to a fresh daemon within the deadline. → Task 3, `a_shim_caught_by_a_retirement_is_admitted_by_a_fresh_daemon`, `a_key_whose_owner_is_releasing_it_is_started_once_the_lock_is_free`.
 3. **Dead, stale and wedged daemons told apart.** A dead daemon's files are replaced; a live daemon's are never touched, even when it does not answer. → Task 3, `a_stale_socket_and_pid_file_are_removed_under_the_owner_lock_before_the_start`, `a_live_but_wedged_owner_is_reported_and_its_files_are_left_alone`; Task 6, `a_stale_socket_left_by_a_dead_daemon_is_replaced`, `a_live_but_wedged_owner_fails_the_shim_closed_naming_its_pid`.
 4. **The session through the shim is the session.** Byte for byte, partial lines and frames larger than a socket buffer included, and a clean end when the client closes. → Task 5, `bytes_pass_unchanged_and_the_client_closing_ends_the_session_cleanly`; Task 6, `a_scripted_session_through_a_shim_matches_the_standalone_server_byte_for_byte`.
 5. **A daemon lost mid-session.** The shim must end with an error and never start or reach another daemon. → Task 6, `a_daemon_killed_mid_session_ends_the_shim_without_a_reconnect`.
-6. **A build that keeps dying.** Fail closed for a minute, then restart; a daemon lost after its build restarts at once. → Task 1 (`a_builder_that_panics_leaves_the_marker`), Task 3 (`a_build_that_died_moments_ago_is_not_restarted`, `an_old_future_or_partial_build_marker_does_not_hold_the_key`), Task 6 (`a_daemon_that_died_during_its_build_is_not_restarted_for_a_minute`, `the_next_shim_restarts_a_daemon_that_died`).
+6. **A build that keeps dying, however long it runs.** Fail closed for a minute from the first sighting, then restart; a daemon lost after its build restarts at once. → Task 1 (`a_builder_that_panics_leaves_the_marker`), Task 3 (`a_dead_build_holds_the_key_for_a_minute_from_when_a_shim_first_sees_it`, `a_partial_build_marker_holds_the_key_too`, `an_expired_or_future_sighting_does_not_hold_the_key`), Task 6 (`a_daemon_that_died_during_its_build_is_not_restarted_for_a_minute`, `the_next_shim_restarts_a_daemon_that_died`).
 7. **The same tests on Linux.** A close reads as a reset there and a refusal can beat the shim's write. → Tasks 4 and 7 run the shim's and the daemon's tests on Linux; `busy_and_mismatch_are_refused_even_when_the_hello_cannot_be_written`.
+8. **A daemon that answers slowly, or not at all, past the deadline.** A reply dripped a byte at a time, and a live daemon whose listen backlog is full, must not hold the shim past its deadline (review round 1, sol 1 and 4). → Task 2, `a_reply_dripped_past_the_deadline_is_no_reply`, `a_reply_whose_read_ends_at_the_deadline_is_not_accepted`; Task 3, `a_live_daemon_with_a_full_backlog_fails_the_shim_closed_at_the_deadline` (it hangs on Linux with a blocking `connect`).
+9. **A drain during a build, then a new daemon.** The old daemon's builder must not clear the new daemon's marker, nor leave one behind (review round 1, sol 2). → Task 1, `a_released_daemon_s_marker_cannot_touch_its_successor_s`, `a_release_waits_for_a_marker_change_in_progress`.
 
 ## Claims and the tests that hold them
 
@@ -133,18 +147,20 @@ Every "never", "always", "exactly" and "only" this plan's code or comments state
 | Claim | Test | A mutant it kills |
 |---|---|---|
 | A build that returns, with an index or an error, removes its marker; one that panics leaves it; a drain removes it. | T1 `the_marker_is_there_while_the_build_runs_and_gone_after_it_succeeds`, `the_marker_is_removed_when_the_build_fails`, `a_builder_that_panics_leaves_the_marker`, `releasing_the_files_removes_the_marker` | no `clear` (1A); `clear` from a drop guard (1B); `release` without the removal (1C) |
+| A daemon that released the key can neither set nor clear the marker, and a change in progress at the release finishes before the release removes the marker. | T1 `a_released_daemon_s_marker_cannot_touch_its_successor_s`, `a_release_waits_for_a_marker_change_in_progress` | a marker that ignores the fence (N4); the flag read without holding its lock through the change (N3) |
 | No preamble timeout outlives the preamble. | T2 `a_ready_for_this_key_is_reached_and_the_stream_has_no_timeouts` | timeouts not cleared (2A) |
 | The reply is read even when the `HELLO` could not be written. | T2 `busy_and_mismatch_are_refused_even_when_the_hello_cannot_be_written` | a failed write ends the attempt (2B) |
 | A peer of another user is refused before anything is sent to it. | T2 `a_peer_of_another_user_is_refused_before_anything_is_sent`; T3 `a_mismatch_or_a_peer_of_another_user_fails_closed_without_a_start` | no peer check (2C); the check after `HELLO` (2D) |
-| The deadline bounds the whole reply line, not each silence. | T2 `a_daemon_that_does_not_finish_its_reply_is_no_reply_at_the_deadline` | reads without a bound (2E) |
+| The deadline bounds the whole reply line, not each silence, and no line is accepted after it. | T2 `a_daemon_that_does_not_finish_its_reply_is_no_reply_at_the_deadline`, `a_reply_dripped_past_the_deadline_is_no_reply`, `a_reply_whose_read_ends_at_the_deadline_is_not_accepted` | reads without a bound (2E); no check after a whole line (N2); the code as first written, one timeout per `read_line` call (the drip test failed on it: `Retiring`, not `NoReply`). N1 (reads go on after the deadline with a 1 s bound) survives: each read's bound is the time left, so a read can start after the deadline only after a byte lands exactly on it, which no test arranges; the check that refuses such a read stays as a guard |
+| A live daemon whose listen backlog is full fails the shim closed at its deadline, never holds it. | T3 `a_live_daemon_with_a_full_backlog_fails_the_shim_closed_at_the_deadline` (Linux) | a blocking `connect` (N8; on Linux it hung until the test's 30 s limit) |
 | `READY` admits only for this shim's key. | T2 `a_ready_for_another_identity_is_refused` | the identity not compared (2F) |
 | `RETIRING` and a close before `READY` are transient, never a refusal. | T2 `retiring_and_a_close_before_any_reply_are_transient`; T3 `a_shim_caught_by_a_retirement_is_admitted_by_a_fresh_daemon` | `RETIRING` refused (2G); a close refused (2H) |
 | A dead daemon's files are removed only while the shim holds the owner lock, and the lock is released before the spawn. | T3 `a_stale_socket_and_pid_file_are_removed_under_the_owner_lock_before_the_start` | no removal (3A); the lock released after the spawn (3B) |
 | A socket whose owner lock is held is never unlinked, and nothing is started in its place. | T3 `a_live_but_wedged_owner_is_reported_and_its_files_are_left_alone` | removal and a start while the lock is held (3C) |
 | A held owner lock is looked at again until it is free. | T3 `a_key_whose_owner_is_releasing_it_is_started_once_the_lock_is_free` | giving up on a held lock (3D) |
 | A started daemon that ends unsuccessfully before `READY` ends the start and is not started again. | T3 `a_started_daemon_that_fails_before_ready_ends_the_start` | a failure taken as a lost claim (3E) |
-| A key whose last daemon died during a build that began under 60 s ago is not restarted, and its files are left. | T3 `a_build_that_died_moments_ago_is_not_restarted`; T6 `a_daemon_that_died_during_its_build_is_not_restarted_for_a_minute` | no bound (3F) |
-| An older, future-dated or partial marker does not hold the key. | T3 `an_old_future_or_partial_build_marker_does_not_hold_the_key` | a future start time counted as recent (3G) |
+| A key whose last daemon died during its build, however long the build ran, is not restarted for 60 s from the first shim's sighting, which is recorded once and never renewed; its files are left. | T3 `a_dead_build_holds_the_key_for_a_minute_from_when_a_shim_first_sees_it`, `a_partial_build_marker_holds_the_key_too`; T6 `a_daemon_that_died_during_its_build_is_not_restarted_for_a_minute` | no bound (3F); no sighting recorded (N5); a sighting renewed by each refusal (N6); the minute counted from the build's start (N7, the code as first written) |
+| A sighting a minute old, or dated in the future, does not hold the key. | T3 `an_expired_or_future_sighting_does_not_hold_the_key` | a future sighting counted (3G) |
 | Shims that race start exactly one daemon. | T3 `shims_racing_to_start_a_daemon_start_exactly_one`, `a_start_lock_held_until_the_deadline_fails_closed` | no start lock (3I) |
 | The owner lock is not looked at while a started daemon is still starting. | T3 `a_started_daemon_that_has_not_taken_the_key_yet_is_waited_for` | looking anyway (3J) |
 | The daemon's environment has no `PRISM_NAV_EDGE_CACHE_LOAD_DIRTY`. | T5 `the_daemon_s_environment_drops_the_dirty_sidecar_override_and_names_the_runtime_dir` | not removed (5A) |
@@ -154,23 +170,25 @@ Every "never", "always", "exactly" and "only" this plan's code or comments state
 | The daemon runs in a session of its own. | T6 `a_shim_starts_a_detached_daemon_and_serves_a_session_through_it` | no `setsid` (6A) |
 | A daemon lost mid-session ends the shim with an error, and no daemon is reached or started again. | T6 `a_daemon_killed_mid_session_ends_the_shim_without_a_reconnect`; T5 `a_daemon_that_closes_while_the_client_is_there_ends_the_session_as_an_error` | a daemon's close taken as a clean end (6B) |
 | The daemon holds none of the client's pipes. | T6 `a_scripted_session_through_a_shim_matches_the_standalone_server_byte_for_byte` | the daemon's standard output inherited (6C) |
+| Every fail-closed line names the `--standalone` invocation, before the key is known too. | T6 `a_failure_before_the_key_is_known_still_names_the_standalone_invocation`; T5 `a_failure_before_the_key_is_known_names_what_it_can` | a bare error before the key (N9) |
 | The shim never builds a private index. | T6 `a_runtime_directory_that_fails_validation_fails_closed_and_creates_nothing` | falling back to the in-process server (6D) |
 | A session through the shim is byte for byte the standalone session (same snapshot, settings and readiness, spec §5). | T6 `a_scripted_session_through_a_shim_matches_the_standalone_server_byte_for_byte` | (6C) |
 | Shims and an orphan daemon started together share one daemon. | T6 `shims_started_together_with_an_orphan_daemon_share_one_daemon` | (3I, in process) |
 
-Stated and **not** held by a test: that a failure to clear the socket's timeouts after `READY` is transient (no seam makes `setsockopt` fail on a live socket); that a `READY` whose peer then closes is retried (it is, through that path, on macOS; not asserted); the bound on a blocking `connect` (SI-28); that the reaper thread reaps (a zombie is not observable from the test without racing the shim's exit); descriptors leaked into the shim ("What each mechanism covers"); the fail-closed line for a runtime directory that cannot be resolved at all (`PRISM_MCP_RUNTIME_DIR` relative), which uses the same function as the tested lines; x86_64 Linux before CI (the tests ran on aarch64 Linux).
+Stated and **not** held by a test: that `run_daemon` wraps its real builder in `marked` (Opus S1: mutant M1, the bare builder in its place, survives every test; the three lines are checked by review, because a test needs either a seam in the daemon's builder or a repository large enough to keep a real build running while the test kills it, which depends on the host's speed); that a stdin read error other than an interruption ends the session as the client's end (Opus S9, D96); that a failure to clear the socket's timeouts after `READY` is transient (no seam makes `setsockopt` fail on a live socket); that a `READY` whose peer then closes is retried (it is, through that path, on macOS; not asserted); `connect_within`'s `EINPROGRESS` path (no Unix socket here returns it; it is the documented path for one that does); that the reaper thread reaps (a zombie is not observable from the test without racing the shim's exit); descriptors leaked into the shim ("What each mechanism covers"); the fail-closed line for a runtime directory that cannot be resolved at all (`PRISM_MCP_RUNTIME_DIR` relative), which uses the same function as the tested lines; x86_64 Linux before CI (the tests ran on aarch64 Linux).
 
 ## File Structure
 
 | File | Responsibility | Change | PR |
 |---|---|---|---|
 | `src/mcp/shared/paths.rs`, `paths_tests.rs` | `DaemonPaths::build_marker` (`<key16>.build`) | Modify (Task 1) | S5a-1 |
-| `src/mcp/daemon/files.rs` | `BuildMarker` and its removal at release (Task 1); `parse_build_marker` and `pub(in crate::mcp)` file functions (Task 3) | Modify | S5a-1 |
+| `src/mcp/daemon/files.rs` | `BuildMarker`, its fence with `DaemonFiles`, and its removal at release (Task 1); `MarkerContents`, `parse_build_marker` and `pub(in crate::mcp)` file functions (Task 3) | Modify | S5a-1 |
 | `src/mcp/daemon/run.rs`, `run_tests.rs` | `marked`: the marker around the builder | Modify, create (Task 1) | S5a-1 |
 | `src/mcp/daemon/peer.rs`, `src/mcp/daemon/mod.rs` | `peer_uid` and the `files`, `peer` modules visible to the shim | Modify (Tasks 2, 3) | S5a-1 |
 | `src/mcp/mod.rs` | `mod shim;` (Task 2); the re-export (Task 6) | Modify | both |
 | `src/mcp/shim/mod.rs` | The module (its dead-code allowance removed in Task 6) | Create (Task 2), modify (Tasks 3, 5, 6) | both |
-| `src/mcp/shim/connect.rs`, `connect_tests.rs` | One attempt; `Point`, `Hook` | Create (Task 2), modify (Task 3) | S5a-1 |
+| `src/mcp/shim/connect.rs`, `connect_tests.rs` | One attempt; `Point`, `Hook`; the deadline-bounded reply read | Create (Task 2), modify (Task 3) | S5a-1 |
+| `src/mcp/shim/socket.rs` | `connect_within`: a non-blocking connect bounded by the deadline | Create (Task 2) | S5a-1 |
 | `src/mcp/shim/shim_support.rs` | Test support: runtime directory, keys, lines; fake daemons and starters, gates (Task 3) | Create (Task 2), modify (Task 3) | S5a-1 |
 | `src/mcp/shim/key_files.rs` | The shim's view of the key's files (Task 3); the log (Task 5) | Create, modify | both |
 | `src/mcp/shim/arbitrate.rs`, `arbitrate_tests.rs`, `arbitrate_race_tests.rs` | The start protocol; `Starter`, `Started`, `Failure` | Create (Task 3) | S5a-1 |
@@ -204,7 +222,7 @@ The replacements were generated from the validated branch's per-task commits, so
 
 **Interfaces:**
 - Consumes: `DaemonFiles` (S4: `claim`, `paths`, `release`, its private `dir`), `open_private`, `unlink_at`, `Create`; `SessionBuilder` (`lazy.rs`); `run_daemon` (S4).
-- Produces: `DaemonPaths::build_marker(&self) -> &Path` (`<key16>.build`); in `daemon::files`: `pub(super) struct BuildMarker` with `set(&self)` (writes `pid\nstarted\n`, best effort) and `clear(&self)`; `DaemonFiles::build_marker(&self) -> Result<BuildMarker, FilesError>`; `DaemonFiles::release` now also removes the marker; in `daemon::run`: `fn marked(builder: SessionBuilder, marker: BuildMarker) -> SessionBuilder`, which `run_daemon` wraps the real builder in.
+- Produces: `DaemonPaths::build_marker(&self) -> &Path` (`<key16>.build`); in `daemon::files`: `pub(super) struct BuildMarker` with `set(&self)` (writes `pid\nstarted\n`, best effort) and `clear(&self)`, each a no-op once the key is released (the fence, D92), and `#[cfg(test)] pausing(self, pause: Arc<dyn Fn() + Send + Sync>) -> Self`; `DaemonFiles::build_marker(&self) -> Result<BuildMarker, FilesError>`; `DaemonFiles::release` now closes the fence first and also removes the marker; `DaemonFiles` gains a `Drop` that closes the fence (its lock field is renamed `_owner`, held and never read); in `daemon::run`: `fn marked(builder: SessionBuilder, marker: BuildMarker) -> SessionBuilder`, which `run_daemon` wraps the real builder in.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -332,6 +350,85 @@ fn releasing_the_files_removes_the_marker() {
     files.release();
     assert!(marker_text(&path).is_none());
 }
+
+/// Review round 1 (sol 2, Opus S3): a daemon that released the key (a drain during its build) can
+/// neither clear nor set the marker afterwards, so it cannot remove the marker of the daemon that
+/// took the key next, nor leave one behind for a build that did not die. Rules out a marker
+/// handle that outlives its daemon's ownership.
+#[test]
+fn a_released_daemon_s_marker_cannot_touch_its_successor_s() {
+    let (base, first) = owned_files();
+    let dir = base.path().join("prism-mcpd");
+    let key = IdentityKey::from_hex(&"ab".repeat(32)).expect("a key");
+    let path = first.paths().build_marker().to_path_buf();
+    let late = first.build_marker().expect("a marker");
+    late.set();
+    first.release();
+
+    let second = match DaemonFiles::claim(&dir, &key).expect("claim") {
+        Claim::Owned(files) => *files,
+        Claim::Taken => panic!("the key is taken"),
+    };
+    // A late set from the released daemon writes nothing.
+    late.set();
+    assert!(
+        marker_text(&path).is_none(),
+        "a released daemon set the marker"
+    );
+    // The successor's own marker survives the released daemon's late clear.
+    second.build_marker().expect("a marker").set();
+    late.clear();
+    assert!(
+        marker_text(&path).is_some(),
+        "a released daemon cleared its successor's marker"
+    );
+}
+
+/// Review round 1 (sol 2): a marker change already in progress when the daemon releases the key
+/// finishes first, and the release then removes what it wrote. The release cannot finish while
+/// the change holds the fence; the 200 ms wait orders nothing a right implementation depends on,
+/// it gives a wrong one (the flag read without holding its lock through the change) time to
+/// finish, after which the change would leave a marker behind.
+#[test]
+fn a_release_waits_for_a_marker_change_in_progress() {
+    use crate::mcp::daemon::test_support::HANG;
+    use std::sync::mpsc;
+    let (_base, files) = owned_files();
+    let path = files.paths().build_marker().to_path_buf();
+    let (paused_tx, paused_rx) = mpsc::channel::<()>();
+    let (resume_tx, resume_rx) = mpsc::channel::<()>();
+    let hooks = std::sync::Mutex::new((paused_tx, resume_rx));
+    let marker = files
+        .build_marker()
+        .expect("a marker")
+        .pausing(Arc::new(move || {
+            let hooks = hooks.lock().expect("hooks");
+            let _ = hooks.0.send(());
+            let _ = hooks.1.recv_timeout(HANG);
+        }));
+    let setter = std::thread::spawn(move || marker.set());
+    paused_rx
+        .recv_timeout(HANG)
+        .expect("the set is in progress");
+    let (done_tx, done_rx) = mpsc::channel::<()>();
+    let releaser = std::thread::spawn(move || {
+        files.release();
+        let _ = done_tx.send(());
+    });
+    assert!(
+        done_rx
+            .recv_timeout(std::time::Duration::from_millis(200))
+            .is_err(),
+        "the release finished while a marker change held the fence"
+    );
+    resume_tx.send(()).expect("resume the set");
+    setter.join().expect("the set");
+    releaser.join().expect("the release");
+    assert!(
+        marker_text(&path).is_none(),
+        "a marker outlived the release"
+    );
+}
 ````
 
 In `src/mcp/shared/paths_tests.rs`, replace this:
@@ -371,7 +468,7 @@ LOG_DIR=/tmp/s5a; mkdir -p "$LOG_DIR"
 nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib mcp:: > "$LOG_DIR/t1-red.log" 2>&1
 ```
 
-Expected in the log: `error[E0425]: cannot find function `marked` in this scope` (three times) and `error[E0599]: no method named `build_marker` found` for `DaemonPaths` and `DaemonFiles` (nine times), with two `E0282` that follow from them; `could not compile `prism` (lib test) due to 14 previous errors`.
+Expected in the log: `error[E0425]: cannot find function `marked` in this scope` (three times) and `error[E0599]: no method named …` for `build_marker` on `DaemonPaths` and `DaemonFiles` and `pausing` on `BuildMarker` (fourteen times), with two `E0282` that follow from them; `could not compile `prism` (lib test) due to 19 previous errors`.
 
 - [ ] **Step 3: Implement**
 
@@ -392,10 +489,94 @@ with this:
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// The mode lock files and the pid file are created with.
 const PRIVATE_FILE_MODE: libc::c_uint = 0o600;
+````
+
+In `src/mcp/daemon/files.rs`, replace this:
+
+````rust
+pub(super) struct DaemonFiles {
+    paths: DaemonPaths,
+    dir: OwnedFd,
+    owner: File,
+    owner_id: FileId,
+    socket_id: Option<FileId>,
+    pid_contents: Option<String>,
+}
+
+impl DaemonFiles {
+````
+
+with this:
+
+````rust
+pub(super) struct DaemonFiles {
+    paths: DaemonPaths,
+    dir: OwnedFd,
+    /// Held, never read: its descriptor holds the owner lock until it closes, after `Drop`.
+    _owner: File,
+    owner_id: FileId,
+    socket_id: Option<FileId>,
+    pid_contents: Option<String>,
+    fence: Fence,
+}
+
+/// Shared by a key's `DaemonFiles` and its build markers: `true` once this daemon no longer owns
+/// the key. A marker changes the file only while it holds the lock and finds `false`; releasing
+/// the files (or dropping them) sets it, under the same lock, before the owner lock is released.
+/// So a drain during a build cannot leave a marker behind, and the build's late `clear` cannot
+/// remove the marker of the daemon that took the key next (review round 1, sol 2 and Opus S3).
+type Fence = Arc<Mutex<bool>>;
+
+/// The fence's flag, whatever a panic elsewhere did to the lock: a marker only ever reads it.
+fn fence_flag(fence: &Fence) -> MutexGuard<'_, bool> {
+    fence.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+impl Drop for DaemonFiles {
+    /// Disable this daemon's markers. The owner lock's descriptor is a field, so it closes (and
+    /// the lock is released) only after this has run.
+    fn drop(&mut self) {
+        *fence_flag(&self.fence) = true;
+    }
+}
+
+impl DaemonFiles {
+````
+
+In `src/mcp/daemon/files.rs`, replace this:
+
+````rust
+        Ok(Claim::Owned(Box::new(Self {
+            paths,
+            dir,
+            owner,
+            owner_id,
+            socket_id: None,
+            pid_contents: None,
+        })))
+    }
+
+````
+
+with this:
+
+````rust
+        Ok(Claim::Owned(Box::new(Self {
+            paths,
+            dir,
+            _owner: owner,
+            owner_id,
+            socket_id: None,
+            pid_contents: None,
+            fence: Arc::new(Mutex::new(false)),
+        })))
+    }
+
 ````
 
 In `src/mcp/daemon/files.rs`, replace this:
@@ -431,6 +612,9 @@ with this:
             dir,
             path: self.paths.build_marker().to_path_buf(),
             pid: std::process::id(),
+            fence: Arc::clone(&self.fence),
+            #[cfg(test)]
+            pause: None,
         })
     }
 
@@ -438,6 +622,10 @@ with this:
     /// release the owner lock (spec §3.1: "the pid file is removed, the owner lock released,
     /// exit 0"). A drain can end a daemon while its build runs; that is not a build that died.
     pub(super) fn release(self) {
+        // Taken first: a marker change in progress finishes, and every later one finds the key
+        // released and does nothing.
+        let mut released = fence_flag(&self.fence);
+        *released = true;
         let _ = unlink_at(&self.dir, self.paths.build_marker());
         if let Some(written) = &self.pid_contents {
             let pid_file = self.paths.pid_file();
@@ -447,6 +635,8 @@ with this:
 In `src/mcp/daemon/files.rs`, replace this:
 
 ````rust
+                let _ = unlink_at(&self.dir, pid_file);
+            }
         }
         // Closing the only descriptor of the lock file releases the lock.
         drop(self.owner);
@@ -458,9 +648,12 @@ In `src/mcp/daemon/files.rs`, replace this:
 with this:
 
 ````rust
+                let _ = unlink_at(&self.dir, pid_file);
+            }
         }
-        // Closing the only descriptor of the lock file releases the lock.
-        drop(self.owner);
+        drop(released);
+        // `self` drops here: the markers stay disabled, then the only descriptor of the lock
+        // file closes, which releases the lock.
     }
 }
 
@@ -474,28 +667,56 @@ pub(super) struct BuildMarker {
     dir: OwnedFd,
     path: PathBuf,
     pid: u32,
+    fence: Fence,
+    /// A test seam: called with the fence held and found open, before the file is changed.
+    #[cfg(test)]
+    pause: Option<Arc<dyn Fn() + Send + Sync>>,
 }
 
 impl BuildMarker {
     /// Record that a build is running. Best effort: a marker that cannot be written costs the
     /// restart bound, never the build.
     pub(super) fn set(&self) {
-        let started = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0, |since| since.as_secs());
-        if let Ok(mut file) = open_private(
-            &self.dir,
-            &self.path,
-            libc::O_WRONLY | libc::O_TRUNC,
-            Create::Yes,
-        ) {
-            let _ = file.write_all(format!("{}\n{started}\n", self.pid).as_bytes());
-        }
+        self.while_owned(|| {
+            let started = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_or(0, |since| since.as_secs());
+            if let Ok(mut file) = open_private(
+                &self.dir,
+                &self.path,
+                libc::O_WRONLY | libc::O_TRUNC,
+                Create::Yes,
+            ) {
+                let _ = file.write_all(format!("{}\n{started}\n", self.pid).as_bytes());
+            }
+        });
     }
 
     /// The build returned: remove the marker.
     pub(super) fn clear(&self) {
-        let _ = unlink_at(&self.dir, &self.path);
+        self.while_owned(|| {
+            let _ = unlink_at(&self.dir, &self.path);
+        });
+    }
+
+    /// Run `change` with the fence held, unless this daemon has released the key.
+    fn while_owned(&self, change: impl FnOnce()) {
+        let released = fence_flag(&self.fence);
+        if *released {
+            return;
+        }
+        #[cfg(test)]
+        if let Some(pause) = &self.pause {
+            pause();
+        }
+        change();
+    }
+
+    /// This marker, calling `pause` with the fence held before each change. Tests only.
+    #[cfg(test)]
+    pub(super) fn pausing(mut self, pause: Arc<dyn Fn() + Send + Sync>) -> Self {
+        self.pause = Some(pause);
+        self
     }
 }
 
@@ -667,7 +888,7 @@ with this:
 nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib mcp:: > "$LOG_DIR/t1.log" 2>&1
 ```
 
-Expected: `test result: ok. 522 passed; 0 failed` (517 before + 5), and no `warning` line.
+Expected: `test result: ok. 524 passed; 0 failed` (517 before + 7), and no `warning` line.
 
 - [ ] **Step 5: Commit**
 
@@ -679,23 +900,25 @@ git commit -m "feat(mcp): the daemon leaves a build marker while its index build
 
 - [ ] **Step 6: Prove the tests bite**
 
-Apply each mutant alone, run `cargo test --features mcp --lib mcp::daemon::run::`, see the named test fail, then `git checkout -- <file>`.
+Apply each mutant alone, run `cargo test --features mcp --lib mcp::daemon::run::`, see the named test fail, then `git checkout -- <file>`. For N3, the test's 200 ms wait gives the mutant its chance to finish the release.
 
 | Mutant | Edit | Fails |
 |---|---|---|
 | 1A | in `run.rs`, `marked`: delete the line `marker.clear();` | `the_marker_is_there_while_the_build_runs_and_gone_after_it_succeeds`, `the_marker_is_removed_when_the_build_fails` |
 | 1B | in `marked`, clear from a drop guard instead: make the closure body `struct Clear<'a>(&'a BuildMarker); impl Drop for Clear<'_> { fn drop(&mut self) { self.0.clear(); } } marker.set(); let _clear = Clear(&marker); builder()` | `a_builder_that_panics_leaves_the_marker` |
 | 1C | in `files.rs`, `release`: delete `let _ = unlink_at(&self.dir, self.paths.build_marker());` | `releasing_the_files_removes_the_marker` |
+| N3 | in `files.rs`, `while_owned`: read the flag and drop the lock before the change: `let released = *fence_flag(&self.fence); if released { return; }` | `a_release_waits_for_a_marker_change_in_progress` |
+| N4 | in `while_owned`: `if *released {` → `if *released && false {` (a marker that ignores the fence) | `a_released_daemon_s_marker_cannot_touch_its_successor_s` |
 
 ### Task 2: One attempt to reach a daemon
 
 **Files:**
 - Modify: `src/mcp/mod.rs`, `src/mcp/daemon/mod.rs`, `src/mcp/daemon/peer.rs`
-- Create: `src/mcp/shim/mod.rs`, `src/mcp/shim/connect.rs`, `src/mcp/shim/connect_tests.rs`, `src/mcp/shim/shim_support.rs`
+- Create: `src/mcp/shim/mod.rs`, `src/mcp/shim/connect.rs`, `src/mcp/shim/connect_tests.rs`, `src/mcp/shim/socket.rs`, `src/mcp/shim/shim_support.rs`
 
 **Interfaces:**
 - Consumes: `IdentityKey`, `Hello`, `Reply`, `Ready`, `BuildState` (S2b); `PreambleLineReader`, `PreambleReadError` (S2b); `peer::peer_uid` (S4), widened to `pub(in crate::mcp)` with `pub(super) mod peer;`; `current_uid`, `validate_runtime_dir`, `DaemonPaths` (S2a).
-- Produces (all `pub(super)` in `crate::mcp::shim::connect`): `type PeerUid = fn(&UnixStream) -> io::Result<u32>`; `enum Point { AfterConnect }` (Task 3 adds five points); `type Hook = Arc<dyn Fn(Point) + Send + Sync>`; `struct Target<'a> { socket: &'a Path, key: IdentityKey, hello: &'a str, deadline: Instant, peer_uid: PeerUid, uid: u32, hook: Option<&'a Hook> }`; `enum Reached { Ready(UnixStream, Ready), Transient(Transient), Refused(Refusal) }`; `enum Transient { Connect(io::Error), Retiring, Closed, NoReply }` and `enum Refusal { Busy { max_clients }, Mismatch { expected }, ReadyForAnother { identity }, ForeignPeer { uid }, PeerUnknown(io::Error), BadReply(String) }`, both `Display`; `fn reach(target: &Target<'_>) -> Reached`. Test support (`shim_support`): `HANG`, `key()`, `other_key()`, `runtime() -> (TempDir, DaemonPaths)`, `hello_line(key)`, `ready_line(key, pid)`, `this_user`, `another_user`, `read_line`, `read_to_end`.
+- Produces (all `pub(super)` in `crate::mcp::shim::connect`): `type PeerUid = fn(&UnixStream) -> io::Result<u32>`; `enum Point { AfterConnect, ReplyRead }` (Task 3 adds five points); in `shim::socket`: `fn connect_within(path: &Path, deadline: Instant) -> io::Result<UnixStream>`; `type Hook = Arc<dyn Fn(Point) + Send + Sync>`; `struct Target<'a> { socket: &'a Path, key: IdentityKey, hello: &'a str, deadline: Instant, peer_uid: PeerUid, uid: u32, hook: Option<&'a Hook> }`; `enum Reached { Ready(UnixStream, Ready), Transient(Transient), Refused(Refusal) }`; `enum Transient { Connect(io::Error), Retiring, Closed, NoReply }` and `enum Refusal { Busy { max_clients }, Mismatch { expected }, ReadyForAnother { identity }, ForeignPeer { uid }, PeerUnknown(io::Error), BadReply(String) }`, both `Display`; `fn reach(target: &Target<'_>) -> Reached`. Test support (`shim_support`): `HANG`, `key()`, `other_key()`, `runtime() -> (TempDir, DaemonPaths)`, `hello_line(key)`, `ready_line(key, pid)`, `this_user`, `another_user`, `read_line`, `read_to_end`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -949,6 +1172,71 @@ fn a_daemon_that_does_not_finish_its_reply_is_no_reply_at_the_deadline() {
         attempt(&paths, Duration::from_millis(300), this_user, None),
         Reached::Transient(Transient::NoReply)
     ));
+}
+
+/// Review round 1, sol 1: the deadline bounds the whole reply, not each silence. A daemon that
+/// drips a whole `RETIRING` line one byte every 30 ms (about 360 ms in all) never lets a read
+/// time out, yet the reply ends after a 150 ms deadline: the attempt is `NoReply`, not
+/// `Retiring`. And one that drips bytes without end (no newline, one every 20 ms, 80 s before the
+/// 4 KiB limit) holds the attempt only until its deadline, well inside the hang limit. The drips
+/// order nothing a right implementation depends on.
+#[test]
+fn a_reply_dripped_past_the_deadline_is_no_reply() {
+    for line in [Some(Reply::Retiring.encode()), None] {
+        let (_base, paths) = runtime();
+        let (stop_tx, stop_rx) = mpsc::channel::<()>();
+        let daemon = serve_one(&paths, move |mut stream| {
+            let _ = read_line(&stream);
+            let bytes: Vec<u8> = match &line {
+                Some(line) => line.clone().into_bytes(),
+                None => vec![b'R'; 4096],
+            };
+            let gap = Duration::from_millis(if line.is_some() { 30 } else { 20 });
+            for byte in bytes {
+                if stream.write_all(&[byte]).is_err() || stop_rx.recv_timeout(gap).is_ok() {
+                    return;
+                }
+            }
+        });
+        assert!(matches!(
+            attempt(&paths, Duration::from_millis(150), this_user, None),
+            Reached::Transient(Transient::NoReply)
+        ));
+        let _ = stop_tx.send(());
+        daemon.join().expect("the daemon");
+    }
+}
+
+/// Review round 1, sol 1: a line whose read ends at the deadline is not accepted. The hook,
+/// called after a whole line is read, holds the shim until the deadline has passed (the read
+/// itself was quick); the attempt is then `NoReply`, not `Retiring`.
+#[test]
+fn a_reply_whose_read_ends_at_the_deadline_is_not_accepted() {
+    let (_base, paths) = runtime();
+    let daemon = serve_one(&paths, answering(Reply::Retiring.encode()));
+    let deadline = Instant::now() + Duration::from_millis(300);
+    let hook: Hook = Arc::new(move |point| {
+        if point == Point::ReplyRead {
+            while Instant::now() <= deadline {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        }
+    });
+    let hello = hello_line(key());
+    let target = Target {
+        socket: paths.socket(),
+        key: key(),
+        hello: &hello,
+        deadline,
+        peer_uid: this_user,
+        uid: current_uid(),
+        hook: Some(&hook),
+    };
+    assert!(matches!(
+        reach(&target),
+        Reached::Transient(Transient::NoReply)
+    ));
+    daemon.join().expect("the daemon");
 }
 
 /// A reply this build cannot read is a refusal, not a retry: the daemon at this path will not
@@ -1211,11 +1499,12 @@ Create `src/mcp/shim/connect.rs`:
 //! 5's `RETIRING`, `ECONNREFUSED`, `ENOENT`, and EOF, reset or broken pipe before `READY`), or a
 //! refusal the shim fails closed on (spec §10: `BUSY`, `MISMATCH`; and a peer of another user).
 //! No MCP byte has been forwarded when an attempt ends, so starting over is always safe.
+use super::socket::connect_within;
 use crate::mcp::shared::identity::IdentityKey;
 use crate::mcp::shared::preamble::{Ready, Reply};
 use crate::mcp::shared::preamble_reader::{PreambleLineReader, PreambleReadError};
 use std::fmt;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::sync::Arc;
@@ -1230,6 +1519,8 @@ pub(super) type PeerUid = fn(&UnixStream) -> io::Result<u32>;
 pub(super) enum Point {
     /// Connected and the peer checked; `HELLO` not sent yet.
     AfterConnect,
+    /// A whole reply line was read; it has not been accepted yet.
+    ReplyRead,
 }
 
 pub(super) type Hook = Arc<dyn Fn(Point) + Send + Sync>;
@@ -1336,7 +1627,7 @@ fn left(deadline: Instant) -> Option<Duration> {
 
 /// Make one attempt.
 pub(super) fn reach(target: &Target<'_>) -> Reached {
-    let mut stream = match UnixStream::connect(target.socket) {
+    let mut stream = match connect_within(target.socket, target.deadline) {
         Ok(stream) => stream,
         Err(error) => return Reached::Transient(Transient::Connect(error)),
     };
@@ -1355,7 +1646,7 @@ pub(super) fn reach(target: &Target<'_>) -> Reached {
     // line is written (`EPIPE`); its reply is read anyway (S4's interface for S5a).
     let _ = stream.set_write_timeout(Some(time));
     let _ = stream.write_all(target.hello.as_bytes());
-    let line = match read_reply(&mut stream, target.deadline) {
+    let line = match read_reply(&mut stream, target.deadline, target.hook) {
         Ok(line) => line,
         Err(ended) => return ended,
     };
@@ -1380,19 +1671,50 @@ pub(super) fn reach(target: &Target<'_>) -> Reached {
     }
 }
 
-/// Read the reply line, every read bounded by the time left, so the deadline bounds the whole
-/// line and not each silence (S2b's note on `PreambleLineReader`).
-fn read_reply(stream: &mut UnixStream, deadline: Instant) -> Result<Vec<u8>, Reached> {
-    let mut reader = PreambleLineReader::new();
-    loop {
-        let Some(time) = left(deadline) else {
-            return Err(Reached::Transient(Transient::NoReply));
+/// A stream whose every read is bounded by the time left to one deadline and refused once it
+/// has passed. `PreambleLineReader` reads one byte at a time through it, so the deadline bounds
+/// the whole reply line, not each silence (review round 1, sol 1: a reply dripped one byte at a
+/// time never let a per-call timeout expire).
+struct Deadlined<'s> {
+    stream: &'s mut UnixStream,
+    deadline: Instant,
+}
+
+impl Read for Deadlined<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let Some(time) = left(self.deadline) else {
+            return Err(io::Error::from(io::ErrorKind::TimedOut));
         };
         // On macOS this fails with `EINVAL` once the peer has closed; a read then returns at
         // once, so the previous bound stands.
-        let _ = stream.set_read_timeout(Some(time));
-        match reader.read_line(stream) {
-            Ok(line) => return Ok(line),
+        let _ = self.stream.set_read_timeout(Some(time));
+        self.stream.read(buf)
+    }
+}
+
+/// Read the reply line before the deadline: every read is bounded by the time left, and a line
+/// whose last byte arrives at the deadline is not accepted.
+fn read_reply(
+    stream: &mut UnixStream,
+    deadline: Instant,
+    hook: Option<&Hook>,
+) -> Result<Vec<u8>, Reached> {
+    let mut reader = PreambleLineReader::new();
+    let mut source = Deadlined { stream, deadline };
+    loop {
+        if left(deadline).is_none() {
+            return Err(Reached::Transient(Transient::NoReply));
+        }
+        match reader.read_line(&mut source) {
+            Ok(line) => {
+                if let Some(hook) = hook {
+                    hook(Point::ReplyRead);
+                }
+                if left(deadline).is_none() {
+                    return Err(Reached::Transient(Transient::NoReply));
+                }
+                return Ok(line);
+            }
             Err(PreambleReadError::TooLong) => {
                 return Err(Reached::Refused(Refusal::BadReply(
                     PreambleReadError::TooLong.to_string(),
@@ -1432,6 +1754,102 @@ Create `src/mcp/shim/mod.rs`:
 mod connect;
 #[cfg(test)]
 mod shim_support;
+mod socket;
+````
+
+Create `src/mcp/shim/socket.rs`:
+
+````rust
+//! Connecting to a daemon's socket without waiting past the shim's deadline (review round 1,
+//! sol 4). `UnixStream::connect` blocks, and on Linux a blocking `connect` to a listener whose
+//! backlog is full waits for room for as long as it takes: a live daemon that stops accepting
+//! would hold every shim for ever. Here the socket is non-blocking while it connects, so a full
+//! backlog fails at once (`EAGAIN` on Linux; macOS refuses with `ECONNREFUSED`) and arbitration
+//! retries within its deadline; a connection still in progress is waited for up to the deadline.
+use std::io;
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+use std::os::unix::ffi::OsStrExt;
+use std::os::unix::net::UnixStream;
+use std::path::Path;
+use std::time::Instant;
+
+/// Connect to the socket at `path`, giving up at `deadline`. The stream is returned blocking.
+pub(super) fn connect_within(path: &Path, deadline: Instant) -> io::Result<UnixStream> {
+    // SAFETY: `socket` takes plain integers and returns a new descriptor or -1.
+    let fd = unsafe { libc::socket(libc::AF_UNIX, libc::SOCK_STREAM, 0) };
+    if fd < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    // SAFETY: `fd` was just returned by `socket` and nothing else owns it.
+    let stream = UnixStream::from(unsafe { OwnedFd::from_raw_fd(fd) });
+    // Close-on-exec, so a daemon this shim spawns later does not inherit it (no other thread of
+    // the shim spawns in between, so setting it after creation is enough on macOS).
+    // SAFETY: `F_SETFD` on an open descriptor with a plain flag.
+    if unsafe { libc::fcntl(stream.as_raw_fd(), libc::F_SETFD, libc::FD_CLOEXEC) } != 0 {
+        return Err(io::Error::last_os_error());
+    }
+    stream.set_nonblocking(true)?;
+    let (addr, len) = socket_address(path)?;
+    // SAFETY: the descriptor is a socket and `addr` a valid `sockaddr_un` of `len` bytes, alive
+    // for the call.
+    let connected = unsafe {
+        libc::connect(
+            stream.as_raw_fd(),
+            std::ptr::addr_of!(addr).cast::<libc::sockaddr>(),
+            len,
+        )
+    };
+    if connected != 0 {
+        let error = io::Error::last_os_error();
+        if error.raw_os_error() != Some(libc::EINPROGRESS) {
+            return Err(error);
+        }
+        wait_until_connected(&stream, deadline)?;
+    }
+    stream.set_nonblocking(false)?;
+    Ok(stream)
+}
+
+/// Wait, up to `deadline`, for a connection in progress to finish, and return its outcome.
+fn wait_until_connected(stream: &UnixStream, deadline: Instant) -> io::Result<()> {
+    let left = deadline.saturating_duration_since(Instant::now());
+    let millis =
+        libc::c_int::try_from(left.as_millis().saturating_add(1)).unwrap_or(libc::c_int::MAX);
+    let mut poll = libc::pollfd {
+        fd: stream.as_raw_fd(),
+        events: libc::POLLOUT,
+        revents: 0,
+    };
+    // SAFETY: `poll` reads and writes one valid `pollfd` for the duration of the call.
+    let ready = unsafe { libc::poll(&mut poll, 1, millis) };
+    if ready < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    if ready == 0 {
+        return Err(io::Error::from(io::ErrorKind::TimedOut));
+    }
+    match stream.take_error()? {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
+}
+
+/// The `sockaddr_un` for `path`, refusing a path that does not fit or holds a NUL byte.
+fn socket_address(path: &Path) -> io::Result<(libc::sockaddr_un, libc::socklen_t)> {
+    // SAFETY: an all-zero `sockaddr_un` is a valid value of the type.
+    let mut addr: libc::sockaddr_un = unsafe { std::mem::zeroed() };
+    addr.sun_family = libc::AF_UNIX as libc::sa_family_t;
+    let bytes = path.as_os_str().as_bytes();
+    if bytes.len() >= addr.sun_path.len() || bytes.contains(&0) {
+        return Err(io::Error::from(io::ErrorKind::InvalidInput));
+    }
+    for (slot, byte) in addr.sun_path.iter_mut().zip(bytes) {
+        *slot = *byte as libc::c_char;
+    }
+    let len = libc::socklen_t::try_from(std::mem::size_of::<libc::sockaddr_un>())
+        .map_err(|_| io::Error::from(io::ErrorKind::InvalidInput))?;
+    Ok((addr, len))
+}
 ````
 
 - [ ] **Step 4: Run the tests**
@@ -1440,7 +1858,7 @@ mod shim_support;
 nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib mcp:: > "$LOG_DIR/t2.log" 2>&1
 ```
 
-Expected: `test result: ok. 530 passed; 0 failed` (522 + 8), and no `warning` line.
+Expected: `test result: ok. 534 passed; 0 failed` (524 + 10), and no `warning` line.
 
 - [ ] **Step 5: Commit**
 
@@ -1460,7 +1878,9 @@ Apply each mutant alone, run `cargo test --features mcp --lib mcp::shim::`, see 
 | 2B | replace `let _ = stream.write_all(target.hello.as_bytes());` by `if stream.write_all(target.hello.as_bytes()).is_err() { return Reached::Transient(Transient::Closed); }` | `busy_and_mismatch_are_refused_even_when_the_hello_cannot_be_written` |
 | 2C | replace `Ok(uid) => return Reached::Refused(Refusal::ForeignPeer { uid }),` by `Ok(_) => {}` | `a_peer_of_another_user_is_refused_before_anything_is_sent` |
 | 2D | move the whole `match (target.peer_uid)(&stream) { … }` to just after `let _ = stream.write_all(target.hello.as_bytes());` | `a_peer_of_another_user_is_refused_before_anything_is_sent` |
-| 2E | in `read_reply`, replace `let _ = stream.set_read_timeout(Some(time));` by `let _ = (stream.set_read_timeout(None), time);` | `a_daemon_that_does_not_finish_its_reply_is_no_reply_at_the_deadline` (gives up after `HANG`) |
+| 2E | in `Deadlined::read`, replace `let _ = self.stream.set_read_timeout(Some(time));` by `let _ = (self.stream.set_read_timeout(None), time);` | `a_daemon_that_does_not_finish_its_reply_is_no_reply_at_the_deadline` (gives up after `HANG`) |
+| N1 | in `Deadlined::read`, replace the `let Some(time) = left(self.deadline) else { return Err(…TimedOut) };` statement by `let time = left(self.deadline).unwrap_or(Duration::from_secs(1));` (reads go on after the deadline) | `a_reply_dripped_past_the_deadline_is_no_reply` (the endless drip; gives up after `HANG`) |
+| N2 | in `read_reply`, the check after `hook(Point::ReplyRead);`: `if left(deadline).is_none() {` → `if false {` | `a_reply_whose_read_ends_at_the_deadline_is_not_accepted` |
 | 2F | replace `if ready.identity == target.key` by `if ready.identity == ready.identity` | `a_ready_for_another_identity_is_refused` |
 | 2G | replace `Ok(Reply::Retiring) => Reached::Transient(Transient::Retiring),` by `Ok(Reply::Retiring) => Reached::Refused(Refusal::BadReply("retiring".into())),` | `retiring_and_a_close_before_any_reply_are_transient` |
 | 2H | in `read_reply`, make the end-of-stream arm return `Err(Reached::Refused(Refusal::BadReply("closed".into())))` | `retiring_and_a_close_before_any_reply_are_transient` |
@@ -1473,7 +1893,7 @@ Apply each mutant alone, run `cargo test --features mcp --lib mcp::shim::`, see 
 
 **Interfaces:**
 - Consumes: Task 2's `reach`, `Target`, `Reached`, `Transient`, `Refusal`, `Point`, `Hook`, `PeerUid`; Task 1's marker format; `daemon::files::{open_private, open_runtime_dir, unlink_at, Create, FilesError}`, widened to `pub(in crate::mcp)` with `pub(super) mod files;`.
-- Produces: `daemon::files::parse_build_marker(text: &str) -> Option<(u32, u64)>`; `connect::Point::{StartLockBusy, StartLockTaken, OwnerHeld, BeforeSpawn, AfterSpawn}`; in `shim::key_files`: `struct KeyDir<'a>` with `open(paths: &'a DaemonPaths) -> Result<KeyDir<'a>, FilesError>`, `start_lock(&self) -> Result<File, FilesError>`, `try_own(&self) -> Result<Option<File>, FilesError>`, `build_marker(&self) -> Option<(u32, u64)>`, `remove_stale(&self) -> Result<(), FilesError>`; in `shim::arbitrate`: `const POLL: Duration` (10 ms), `const BUILD_CRASH_BACKOFF: Duration` (60 s), `trait Starter { fn start(&mut self, dir: &KeyDir<'_>) -> io::Result<Box<dyn Started>>; }`, `trait Started: Send { fn pid(&self) -> u32; fn exit(&mut self) -> Option<Exit>; fn reap(self: Box<Self>); }`, `enum Exit { Success, Failure(String) }`, `struct Connected { stream: UnixStream, ready: Ready, started: Option<Box<dyn Started>> }`, `enum Owner { Unknown, Held, Free }`, `enum Failure { Files(FilesError), Refused(Refusal), StartLockTimeout { last }, NoReady { last, owner, started }, SpawnFailed(io::Error), DaemonExited { pid, exit }, RecentBuildCrash { pid, age_secs } }` (`Display`), `struct Arbiter<'a> { paths, key, hello, deadline, peer_uid, hook }` with `arbitrate(&self, starter: &mut dyn Starter) -> Result<Connected, Failure>`. Test support: `wait_until`, `Answer`, `Script`, `always`, `FakeDaemon` (`claim`, `listen`, `retire`), `FakeChild`, `ChildState`, `FakeStarter` (`new`, `claiming`, `exiting`, `start_fake`), `open_lock`, `Gate`, `unix_now`.
+- Produces: `daemon::files::MarkerContents { pid: Option<u32>, started: Option<u64>, seen: Option<u64> }` and `daemon::files::parse_build_marker(text: &str) -> MarkerContents` (each field only from a whole line); `connect::Point::{StartLockBusy, StartLockTaken, OwnerHeld, BeforeSpawn, AfterSpawn}`; in `shim::key_files`: `struct KeyDir<'a>` with `open(paths: &'a DaemonPaths) -> Result<KeyDir<'a>, FilesError>`, `start_lock(&self) -> Result<File, FilesError>`, `try_own(&self) -> Result<Option<File>, FilesError>`, `build_marker(&self) -> Option<MarkerContents>`, `record_sighting(&self, marker: &MarkerContents, now: u64) -> Result<(), FilesError>`, `remove_stale(&self) -> Result<(), FilesError>`; in `shim::arbitrate`: `const POLL: Duration` (10 ms), `const BUILD_CRASH_BACKOFF: Duration` (60 s), `trait Starter { fn start(&mut self, dir: &KeyDir<'_>) -> io::Result<Box<dyn Started>>; }`, `trait Started: Send { fn pid(&self) -> u32; fn exit(&mut self) -> Option<Exit>; fn reap(self: Box<Self>); }`, `enum Exit { Success, Failure(String) }`, `struct Connected { stream: UnixStream, ready: Ready, started: Option<Box<dyn Started>> }`, `enum Owner { Unknown, Held, Free }`, `enum Failure { Files(FilesError), Refused(Refusal), StartLockTimeout { last }, NoReady { last, owner, started }, SpawnFailed(io::Error), DaemonExited { pid, exit }, RecentBuildCrash { pid: Option<u32>, left_secs: u64 } }` (`Display`), `struct Arbiter<'a> { paths, key, hello, deadline, peer_uid, hook }` with `arbitrate(&self, starter: &mut dyn Starter) -> Result<Connected, Failure>`. Test support: `wait_until`, `Answer`, `Script`, `always`, `FakeDaemon` (`claim`, `listen`, `retire`), `FakeChild`, `ChildState`, `FakeStarter` (`new`, `claiming`, `exiting`, `start_fake`), `open_lock`, `Gate`, `unix_now`, `full_backlog`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1733,8 +2153,8 @@ Create `src/mcp/shim/arbitrate_tests.rs`:
 //! threads of the test that take the real owner lock on a descriptor of their own, as a daemon
 //! process does; a starter that the test controls stands in for spawning one.
 use super::super::shim_support::{
-    always, another_user, hello_line, key, open_lock, runtime, this_user, unix_now, Answer,
-    ChildState, FakeDaemon, FakeStarter,
+    always, another_user, full_backlog, hello_line, key, open_lock, runtime, this_user, unix_now,
+    Answer, ChildState, FakeDaemon, FakeStarter,
 };
 use super::*;
 use std::os::unix::fs::MetadataExt;
@@ -2025,46 +2445,69 @@ fn a_start_lock_held_until_the_deadline_fails_closed() {
     drop(held);
 }
 
-/// S3b's SI-10: a key whose last daemon died during its index build less than a minute ago (its
-/// build marker left, the owner lock free) is not restarted; the shim fails closed and leaves the
-/// dead daemon's files as they are. Rules out a shim without the bound.
+/// S3b's SI-10 as review round 1 (sol 3) fixed it: a key whose last daemon died during its index
+/// build is not restarted for a minute counted from when a shim first sees the dead build, however
+/// long that build ran (here it began 70 s ago). The shim records that moment in the marker (it
+/// holds the start and owner locks) and fails closed, leaving the dead daemon's files; a second
+/// shim in that minute is refused too and does not move the moment. Rules out a bound counted
+/// from the build's start, and one renewed by each refusal.
 #[test]
-fn a_build_that_died_moments_ago_is_not_restarted() {
+fn a_dead_build_holds_the_key_for_a_minute_from_when_a_shim_first_sees_it() {
     let (_base, paths) = runtime();
     drop(UnixListener::bind(paths.socket()).expect("a stale socket"));
     write(paths.pid_file(), "4242\n17\nbuild\n");
-    let marker = format!("4242\n{}\n", unix_now() - 50);
-    write(paths.build_marker(), &marker);
+    write(
+        paths.build_marker(),
+        &format!("4242\n{}\n", unix_now() - 70),
+    );
     let hello = hello_line(key());
     let mut starter = must_not_start();
-    match arbiter(&paths, &hello, LONG).arbitrate(&mut starter) {
-        Err(Failure::RecentBuildCrash {
-            pid: 4242,
-            age_secs,
-        }) => {
-            assert!((50..60).contains(&age_secs), "{age_secs}")
-        }
-        other => panic!("{:?}", other.map(|c| c.ready.pid)),
-    }
+    let refused = |starter: &mut FakeStarter| {
+        assert!(matches!(
+            arbiter(&paths, &hello, LONG).arbitrate(starter),
+            Err(Failure::RecentBuildCrash { .. })
+        ));
+        std::fs::read_to_string(paths.build_marker()).expect("the marker")
+    };
+    let first = refused(&mut starter);
+    let lines: Vec<&str> = first.lines().collect();
+    assert_eq!(lines.len(), 3, "{first:?}");
+    let seen: u64 = lines[2].parse().expect("when it was first seen");
+    assert!(unix_now().saturating_sub(seen) < 30, "{first:?}");
+    // Move the sighting back five seconds; a refusal that renewed it would move it forward.
+    let earlier = format!("{}\n{}\n{}\n", lines[0], lines[1], seen - 5);
+    write(paths.build_marker(), &earlier);
+    assert_eq!(refused(&mut starter), earlier);
     assert_eq!(starter.starts.load(Ordering::SeqCst), 0);
     assert!(paths.socket().exists());
     assert!(paths.pid_file().exists());
-    assert_eq!(
-        std::fs::read_to_string(paths.build_marker()).expect("marker"),
-        marker
-    );
     assert!(owner_is_free(&paths), "the owner lock was released");
 }
 
-/// The bound holds a key closed for a minute after the dead build began, no longer; a marker
-/// whose start time is in the future (a clock set back), or that is only partly written, does
-/// not hold it at all. Each is removed with the other stale files and a daemon is started.
+/// A marker caught half-written by a death is still a dead build: it holds the key and the
+/// sighting is recorded, with the pid unknown.
 #[test]
-fn an_old_future_or_partial_build_marker_does_not_hold_the_key() {
+fn a_partial_build_marker_holds_the_key_too() {
+    let (_base, paths) = runtime();
+    write(paths.build_marker(), "42");
+    let hello = hello_line(key());
+    let mut starter = must_not_start();
+    assert!(matches!(
+        arbiter(&paths, &hello, LONG).arbitrate(&mut starter),
+        Err(Failure::RecentBuildCrash { .. })
+    ));
+    let marker = std::fs::read_to_string(paths.build_marker()).expect("the marker");
+    assert_eq!(marker.lines().count(), 3, "{marker:?}");
+}
+
+/// The minute ends: a sighting a minute or more ago, or one dated in the future (a clock set
+/// back, which must not hold a key closed for as long as the clock is off), lets the next shim
+/// remove the stale files and start a daemon.
+#[test]
+fn an_expired_or_future_sighting_does_not_hold_the_key() {
     for marker in [
-        format!("4242\n{}\n", unix_now() - 70),
-        format!("4242\n{}\n", unix_now() + 3600),
-        "42".to_string(),
+        format!("4242\n{}\n{}\n", unix_now() - 300, unix_now() - 70),
+        format!("4242\n{}\n{}\n", unix_now() - 300, unix_now() + 3600),
     ] {
         let (_base, paths) = runtime();
         write(paths.build_marker(), &marker);
@@ -2125,6 +2568,38 @@ fn an_invalid_runtime_directory_fails_closed_before_any_file_is_made() {
         "nothing was created through the symlink"
     );
 }
+
+/// Review round 1, sol 4: a live daemon (it holds the owner lock) that stops accepting until its
+/// listen backlog is full must not hold the shim past its deadline. On Linux a blocking `connect`
+/// waits for room in the backlog for ever; the shim's connect is non-blocking and fails closed
+/// at the deadline, naming the held owner lock. Rules out a blocking `connect`.
+#[test]
+fn a_live_daemon_with_a_full_backlog_fails_the_shim_closed_at_the_deadline() {
+    let (_base, paths) = runtime();
+    let owner = open_lock(paths.owner_lock());
+    owner.try_lock().expect("the test plays the live daemon");
+    let (_listener, _clients) = full_backlog(paths.socket());
+    let (tx, rx) = std::sync::mpsc::channel();
+    let shim_paths = paths.clone();
+    std::thread::spawn(move || {
+        let hello = hello_line(key());
+        let mut starter = must_not_start();
+        let result =
+            arbiter(&shim_paths, &hello, Duration::from_millis(500)).arbitrate(&mut starter);
+        let _ = tx.send(matches!(
+            result,
+            Err(Failure::NoReady {
+                owner: Owner::Held,
+                ..
+            })
+        ));
+    });
+    let failed_closed = rx
+        .recv_timeout(super::super::shim_support::HANG)
+        .expect("the shim gives up at its deadline instead of blocking in connect");
+    assert!(failed_closed);
+    drop(owner);
+}
 ````
 
 In `src/mcp/shim/mod.rs`, replace this:
@@ -2136,6 +2611,7 @@ In `src/mcp/shim/mod.rs`, replace this:
 mod connect;
 #[cfg(test)]
 mod shim_support;
+mod socket;
 ````
 
 with this:
@@ -2149,6 +2625,7 @@ mod connect;
 mod key_files;
 #[cfg(test)]
 mod shim_support;
+mod socket;
 ````
 
 In `src/mcp/shim/shim_support.rs`, replace this:
@@ -2201,6 +2678,7 @@ use crate::mcp::shared::preamble::{BuildState, Hello, Ready, Reply};
 use crate::mcp::shared::runtime_dir::{current_uid, validate_runtime_dir};
 use std::fs::{File, TryLockError};
 use std::io::{Read, Write};
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
@@ -2532,6 +3010,53 @@ pub(super) fn unix_now() -> u64 {
         .expect("after the epoch")
         .as_secs()
 }
+
+/// A listening socket at `path` whose backlog takes no more connections, as a live daemon's does
+/// once it stops accepting: bound and listening with a backlog of 0 (raw calls: `std` chooses its
+/// own backlog), then filled with non-blocking clients until the kernel refuses another. The
+/// caller holds both. On Linux a blocking `connect` to it waits for room; on macOS it is refused.
+pub(super) fn full_backlog(path: &std::path::Path) -> (OwnedFd, Vec<OwnedFd>) {
+    use std::os::unix::ffi::OsStrExt;
+    let socket = || {
+        // SAFETY: `socket` takes plain integers and returns a new descriptor or -1.
+        let fd = unsafe { libc::socket(libc::AF_UNIX, libc::SOCK_STREAM, 0) };
+        assert!(fd >= 0, "socket: {}", std::io::Error::last_os_error());
+        // SAFETY: `fd` was just returned by `socket` and nothing else owns it.
+        unsafe { OwnedFd::from_raw_fd(fd) }
+    };
+    // SAFETY: an all-zero `sockaddr_un` is a valid value of the type.
+    let mut addr: libc::sockaddr_un = unsafe { std::mem::zeroed() };
+    addr.sun_family = libc::AF_UNIX as libc::sa_family_t;
+    let bytes = path.as_os_str().as_bytes();
+    assert!(bytes.len() < addr.sun_path.len());
+    for (slot, byte) in addr.sun_path.iter_mut().zip(bytes) {
+        *slot = *byte as libc::c_char;
+    }
+    let len = std::mem::size_of::<libc::sockaddr_un>() as libc::socklen_t;
+    let as_sockaddr = std::ptr::addr_of!(addr).cast::<libc::sockaddr>();
+    let listener = socket();
+    // SAFETY: the descriptor is a socket and `addr` a valid address of `len` bytes.
+    let bound = unsafe { libc::bind(listener.as_raw_fd(), as_sockaddr, len) };
+    assert_eq!(bound, 0, "bind: {}", std::io::Error::last_os_error());
+    // SAFETY: the descriptor is a bound socket.
+    let listening = unsafe { libc::listen(listener.as_raw_fd(), 0) };
+    assert_eq!(listening, 0, "listen: {}", std::io::Error::last_os_error());
+    let mut clients = Vec::new();
+    for _ in 0..256 {
+        let client = socket();
+        // SAFETY: `F_SETFL` on an open descriptor with plain flags.
+        unsafe { libc::fcntl(client.as_raw_fd(), libc::F_SETFL, libc::O_NONBLOCK) };
+        // SAFETY: the descriptor is a socket and `addr` a valid address of `len` bytes.
+        let connected = unsafe { libc::connect(client.as_raw_fd(), as_sockaddr, len) };
+        let accepted = connected == 0
+            || std::io::Error::last_os_error().raw_os_error() == Some(libc::EINPROGRESS);
+        if !accepted {
+            break;
+        }
+        clients.push(client);
+    }
+    (listener, clients)
+}
 ````
 
 - [ ] **Step 2: Run them to see them fail**
@@ -2611,13 +3136,29 @@ with this:
     }
 }
 
-/// The pid and start time a build marker holds, when it holds exactly what
-/// [`BuildMarker::set`] writes. A marker caught half-written reads as `None`.
-pub(in crate::mcp) fn parse_build_marker(text: &str) -> Option<(u32, u64)> {
-    let mut lines = text.strip_suffix('\n')?.split('\n');
-    let pid = lines.next()?.parse().ok()?;
-    let started = lines.next()?.parse().ok()?;
-    lines.next().is_none().then_some((pid, started))
+/// What a build marker holds: the daemon's pid and its build's start (the two lines `set`
+/// writes) and, once a shim has found the daemon dead, when a shim first saw that (a third line,
+/// review round 1, sol 3). A line the marker does not hold whole is `None`: a marker caught
+/// half-written by a death is still a dead build's.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(in crate::mcp) struct MarkerContents {
+    pub(in crate::mcp) pid: Option<u32>,
+    pub(in crate::mcp) started: Option<u64>,
+    pub(in crate::mcp) seen: Option<u64>,
+}
+
+/// Read a build marker's text: each line counts only when it is whole (ends in a newline).
+pub(in crate::mcp) fn parse_build_marker(text: &str) -> MarkerContents {
+    let whole = text
+        .rfind('\n')
+        .and_then(|end| text.get(..end))
+        .unwrap_or("");
+    let mut lines = whole.split('\n').filter(|_| !whole.is_empty());
+    MarkerContents {
+        pid: lines.next().and_then(|line| line.parse().ok()),
+        started: lines.next().and_then(|line| line.parse().ok()),
+        seen: lines.next().and_then(|line| line.parse().ok()),
+    }
 }
 
 /// The last component of `path`, as a C string, for the `*at` calls.
@@ -2765,9 +3306,12 @@ Create `src/mcp/shim/arbitrate.rs`:
 //!    (S4: "exit 0 silently"); step 3 runs again.
 //!
 //! The build marker bounds restarts (S3b's SI-10): a key whose last daemon died during its index
-//! build less than [`BUILD_CRASH_BACKOFF`] ago is not restarted, and the shim fails closed naming
-//! the log. A panic on the build thread is fatal by the spec (§3.1), so a build that panics every
-//! time would otherwise make every new shim start, and lose, another daemon.
+//! build is not restarted for [`BUILD_CRASH_BACKOFF`] from the moment a shim first saw the dead
+//! build, which that shim records in the marker; until then the shim fails closed naming the log.
+//! The minute runs from the sighting, not from the build's start, so it bounds builds of any
+//! length (review round 1, sol 3), and a refusal never renews it. A panic on the build thread is
+//! fatal by the spec (§3.1), so a build that panics (or is killed) every time would otherwise make
+//! every new shim start, and lose, another daemon.
 use super::connect::{reach, Hook, PeerUid, Point, Reached, Refusal, Target, Transient};
 use super::key_files::KeyDir;
 use crate::mcp::daemon::files::FilesError;
@@ -2783,8 +3327,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// How long a shim waits between two looks at the socket and the locks.
 pub(super) const POLL: Duration = Duration::from_millis(10);
-/// A key whose last daemon died during its build less than this long ago (by the build's start)
-/// is not restarted.
+/// How long a key whose last daemon died during its build stays closed, from the moment a shim
+/// first saw the dead build.
 pub(super) const BUILD_CRASH_BACKOFF: Duration = Duration::from_secs(60);
 
 /// Starts a daemon process for the key, detached from the shim (spec §4.1 step 6). Called with
@@ -2851,8 +3395,9 @@ pub(super) enum Failure {
     SpawnFailed(io::Error),
     /// The daemon this shim spawned ended unsuccessfully before `READY`.
     DaemonExited { pid: u32, exit: String },
-    /// The key's last daemon died during its index build `age_secs` ago (S3b's SI-10).
-    RecentBuildCrash { pid: u32, age_secs: u64 },
+    /// The key's last daemon (`pid`, when the marker says) died during its index build; the key
+    /// stays closed for `left_secs` more (S3b's SI-10).
+    RecentBuildCrash { pid: Option<u32>, left_secs: u64 },
 }
 
 impl fmt::Display for Failure {
@@ -2891,13 +3436,19 @@ impl fmt::Display for Failure {
                 f,
                 "the daemon this shim started, pid {pid}, ended before READY: {exit}"
             ),
-            Self::RecentBuildCrash { pid, age_secs } => write!(
-                f,
-                "the last daemon for this key, pid {pid}, died during its index build, which \
-                 began {age_secs} s ago; it is not restarted until {} s after that (a build that \
-                 dies every time would otherwise cost a daemon per shim)",
-                BUILD_CRASH_BACKOFF.as_secs()
-            ),
+            Self::RecentBuildCrash { pid, left_secs } => {
+                write!(f, "the last daemon for this key")?;
+                if let Some(pid) = pid {
+                    write!(f, ", pid {pid},")?;
+                }
+                write!(
+                    f,
+                    " died during its index build; the key is not restarted for {} s from when a \
+                     shim first saw that ({left_secs} s left), so that a build that dies every \
+                     time does not cost a daemon per shim",
+                    BUILD_CRASH_BACKOFF.as_secs()
+                )
+            }
         }
     }
 }
@@ -3031,7 +3582,7 @@ impl Arbiter<'_> {
                 match dir.try_own()? {
                     Some(owner_lock) => {
                         owner = Owner::Free;
-                        if let Some(crash) = recent_build_crash(&dir) {
+                        if let Some(crash) = recent_build_crash(&dir)? {
                             return Err(crash);
                         }
                         dir.remove_stale()?;
@@ -3051,17 +3602,33 @@ impl Arbiter<'_> {
     }
 }
 
-/// The key's last daemon died during a build that began less than [`BUILD_CRASH_BACKOFF`] ago.
-/// A marker with a start time in the future (a clock set back) is not counted: it could hold the
-/// key closed for as long as the clock is off.
-fn recent_build_crash(dir: &KeyDir<'_>) -> Option<Failure> {
-    let (pid, started) = dir.build_marker()?;
+/// Whether the key stays closed because its last daemon died during its build. A marker with no
+/// sighting is seen now: the sighting is recorded and the key closes for the full backoff. One
+/// with a sighting keeps the key closed until the backoff has passed since then; a sighting dated
+/// in the future (a clock set back) is not counted, or it could hold the key closed for as long
+/// as the clock is off. Call it holding the start and owner locks.
+fn recent_build_crash(dir: &KeyDir<'_>) -> Result<Option<Failure>, FilesError> {
+    let Some(marker) = dir.build_marker() else {
+        return Ok(None);
+    };
+    let backoff = BUILD_CRASH_BACKOFF.as_secs();
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |since| since.as_secs());
-    let age_secs = now.checked_sub(started)?;
-    (age_secs < BUILD_CRASH_BACKOFF.as_secs())
-        .then_some(Failure::RecentBuildCrash { pid, age_secs })
+    let left_secs = match marker.seen {
+        None => {
+            dir.record_sighting(&marker, now)?;
+            backoff
+        }
+        Some(seen) => match now.checked_sub(seen) {
+            Some(age) if age < backoff => backoff - age,
+            _ => return Ok(None),
+        },
+    };
+    Ok(Some(Failure::RecentBuildCrash {
+        pid: marker.pid,
+        left_secs,
+    }))
 }
 
 #[cfg(test)]
@@ -3076,9 +3643,9 @@ mod race_tests;
 In `src/mcp/shim/connect.rs`, replace this:
 
 ````rust
-pub(super) enum Point {
-    /// Connected and the peer checked; `HELLO` not sent yet.
     AfterConnect,
+    /// A whole reply line was read; it has not been accepted yet.
+    ReplyRead,
 }
 
 pub(super) type Hook = Arc<dyn Fn(Point) + Send + Sync>;
@@ -3087,9 +3654,9 @@ pub(super) type Hook = Arc<dyn Fn(Point) + Send + Sync>;
 with this:
 
 ````rust
-pub(super) enum Point {
-    /// Connected and the peer checked; `HELLO` not sent yet.
     AfterConnect,
+    /// A whole reply line was read; it has not been accepted yet.
+    ReplyRead,
     /// The start lock is held by another shim; this one waits for it.
     StartLockBusy,
     /// The start lock is held; the attempt under it has not run yet.
@@ -3115,10 +3682,11 @@ Create `src/mcp/shim/key_files.rs`:
 //! created with `O_EXCL` and then opened (S4's D53), never through a symlink, and never removed.
 use crate::mcp::daemon::files::{
     open_private, open_runtime_dir, parse_build_marker, unlink_at, Create, FilesError,
+    MarkerContents,
 };
 use crate::mcp::shared::paths::DaemonPaths;
 use std::fs::{File, TryLockError};
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::os::fd::OwnedFd;
 use std::path::Path;
 
@@ -3167,9 +3735,9 @@ impl<'a> KeyDir<'a> {
         }
     }
 
-    /// The pid and build start time in the build marker, when one is there and whole. Call it
-    /// holding the owner lock: then the marker is a dead daemon's.
-    pub(super) fn build_marker(&self) -> Option<(u32, u64)> {
+    /// What the build marker holds, when there is one. Call it holding the owner lock: then
+    /// the marker is a dead daemon's.
+    pub(super) fn build_marker(&self) -> Option<MarkerContents> {
         let mut file = open_private(
             &self.dir,
             self.paths.build_marker(),
@@ -3178,8 +3746,32 @@ impl<'a> KeyDir<'a> {
         )
         .ok()?;
         let mut text = String::new();
-        file.read_to_string(&mut text).ok()?;
-        parse_build_marker(&text)
+        // A marker that cannot be read whole is still a dead build's: its fields are unknown.
+        let _ = file.read_to_string(&mut text);
+        Some(parse_build_marker(&text))
+    }
+
+    /// Record in the build marker that a shim first saw its daemon dead at `now` (seconds since
+    /// the Unix epoch), keeping the pid and the build's start (0 when unknown). Call it holding
+    /// the start and owner locks, and only for a marker with no sighting yet.
+    pub(super) fn record_sighting(
+        &self,
+        marker: &MarkerContents,
+        now: u64,
+    ) -> Result<(), FilesError> {
+        let path = self.paths.build_marker();
+        let mut file = open_private(&self.dir, path, libc::O_WRONLY | libc::O_TRUNC, Create::Yes)?;
+        let text = format!(
+            "{}\n{}\n{now}\n",
+            marker.pid.unwrap_or(0),
+            marker.started.unwrap_or(0)
+        );
+        file.write_all(text.as_bytes())
+            .map_err(|source| FilesError::Io {
+                op: "write",
+                path: path.to_path_buf(),
+                source,
+            })
     }
 
     /// Remove what a daemon that died left: its socket, pid file and build marker (spec §4.1
@@ -3216,7 +3808,7 @@ fn remove(dir: &OwnedFd, path: &Path) -> Result<(), FilesError> {
 nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib mcp:: > "$LOG_DIR/t3.log" 2>&1
 ```
 
-Expected: `test result: ok. 547 passed; 0 failed` (530 + 17), and no `warning` line.
+Expected: `test result: ok. 553 passed; 0 failed` (534 + 19), and no `warning` line.
 
 - [ ] **Step 5: Commit**
 
@@ -3228,7 +3820,7 @@ git commit -m "feat(mcp): the shim's start protocol: start lock, owner lock, sta
 
 - [ ] **Step 6: Prove the tests bite**
 
-Apply each mutant alone, run `cargo test --features mcp --lib mcp::shim::arbitrate`, see the named test fail, then `git checkout -- src/mcp/shim/arbitrate.rs`.
+Apply each mutant alone, run `cargo test --features mcp --lib mcp::shim::arbitrate`, see the named test fail, then `git checkout -- <file>`. Run N8 in the Linux container of Task 4 Step 4.
 
 | Mutant | Edit in `arbitrate.rs` | Fails |
 |---|---|---|
@@ -3237,8 +3829,12 @@ Apply each mutant alone, run `cargo test --features mcp --lib mcp::shim::arbitra
 | 3C | in the `None =>` arm, after `self.hook(Point::OwnerHeld);`, add `dir.remove_stale()?; child = Some(starter.start(&dir).map_err(Failure::SpawnFailed)?);` | `a_live_but_wedged_owner_is_reported_and_its_files_are_left_alone` |
 | 3D | in the `None =>` arm, return `Err(Failure::NoReady { last, owner: Owner::Held, started: None })` after the hook | `a_key_whose_owner_is_releasing_it_is_started_once_the_lock_is_free` |
 | 3E | replace the two arms `Some((pid, Some(Exit::Failure(exit)))) => { return Err(Failure::DaemonExited { pid, exit }) }` and `Some((_, Some(Exit::Success))) \| None => false,` by `Some((_, Some(_))) \| None => false,` | `a_started_daemon_that_fails_before_ready_ends_the_start` |
-| 3F | delete `if let Some(crash) = recent_build_crash(&dir) { return Err(crash); }` | `a_build_that_died_moments_ago_is_not_restarted` |
-| 3G | in `recent_build_crash`, replace `let age_secs = now.checked_sub(started)?;` by `let age_secs = now.saturating_sub(started);` | `an_old_future_or_partial_build_marker_does_not_hold_the_key` |
+| 3F | delete `if let Some(crash) = recent_build_crash(&dir)? { return Err(crash); }` | `a_dead_build_holds_the_key_for_a_minute_from_when_a_shim_first_sees_it`, `a_partial_build_marker_holds_the_key_too` |
+| 3G | in `recent_build_crash`, `Some(seen) => match now.checked_sub(seen) {` → `Some(seen) => match Some(now.saturating_sub(seen)) {` (a future sighting counted) | `an_expired_or_future_sighting_does_not_hold_the_key` |
+| N5 | in `recent_build_crash`, the `None =>` arm: replace `dir.record_sighting(&marker, now)?;` by `let _ = now;` (no sighting recorded) | `a_dead_build_holds_the_key_for_a_minute_from_when_a_shim_first_sees_it` |
+| N6 | the `Some(age) if age < backoff =>` arm also calls `dir.record_sighting(&marker, now)?;` (each refusal renews the minute) | the same test |
+| N7 | `let left_secs = match marker.seen {` → `let left_secs = match marker.started {` (the minute from the build's start) | the same test |
+| N8 | in `connect.rs`, `reach`: `connect_within(target.socket, target.deadline)` → `UnixStream::connect(target.socket)` (blocking) | `a_live_daemon_with_a_full_backlog_fails_the_shim_closed_at_the_deadline`, **on Linux only** (it gives up after `HANG`; macOS refuses a full backlog at once) |
 | 3I | replace `match start_lock.try_lock() {` by `match Ok::<(), TryLockError>(()) {` (no start lock) | `shims_racing_to_start_a_daemon_start_exactly_one` |
 | 3J | replace `Some((_, None)) => true,` by `Some((_, None)) => false,` (look at the owner lock while the started daemon is still starting) | `a_started_daemon_that_has_not_taken_the_key_yet_is_waited_for` |
 
@@ -3268,23 +3864,26 @@ pid file removed, owner lock released, exit 0. `run.rs` is `run_daemon`: resolve
 serve. `log.rs` caps the daemon's own lines (log truncated at start over 1 MiB, capped at 8 MiB).
 While its builder runs the daemon leaves `<key16>.build` (`files.rs::BuildMarker`, set and cleared
 around the builder by `run.rs::marked`, removed at release); a daemon that dies during its build
-leaves it.
+leaves it. The marker shares a fence with `DaemonFiles`: release (or drop) sets it under its lock
+before the owner lock is released, so a released daemon's late `set` or `clear` does nothing.
 
 Shim (`src/mcp/shim/`, Unix only; no production caller yet): `connect.rs` makes one attempt to
-reach a daemon: connect, check the peer's uid (`daemon::peer`; a peer of another uid is refused
-before anything is sent), send `HELLO`, and read the one reply line with every read bounded by the
-time left to the shim's one deadline. `READY` for this key reaches it (the socket's timeouts are
-cleared); `RETIRING`, an end of stream or a reset before a reply, a failed connect, or no reply by
-the deadline are transient; `BUSY`, `MISMATCH`, `READY` for another identity and an unreadable
+reach a daemon: connect without blocking (`socket.rs`; a full listen backlog fails at once), check
+the peer's uid (`daemon::peer`; a peer of another uid is refused before anything is sent), send
+`HELLO`, and read the one reply line with every byte's read bounded by the time left to the shim's
+one deadline and no line accepted after it. `READY` for this key reaches it (the socket's timeouts
+are cleared); `RETIRING`, an end of stream or a reset before a reply, a failed connect, or no reply
+by the deadline are transient; `BUSY`, `MISMATCH`, `READY` for another identity and an unreadable
 line are refused (fail closed). `arbitrate.rs` is the start protocol: the socket first; then the
 start lock (`<key16>.start`); under it the socket again, then the owner lock: held means a live
 daemon (poll every 10 ms; never touch its files), free means none (holding it, remove the stale
 socket, pid file and build marker, release it, start a daemon through the `Starter` seam). While a
 started daemon neither answers nor ends the owner lock is not looked at again; one that ends 0
-before `READY` lost the key (look again), one that ends otherwise fails the start. A free key whose
-build marker says a build began under 60 s ago is not restarted (the restart bound for a build that
-keeps dying). `key_files.rs` opens the key's files through the runtime directory's descriptor with
-`daemon::files`' functions.
+before `READY` lost the key (look again), one that ends otherwise fails the start. A free key with
+a build marker is a daemon that died during its build: the first shim to see it records the
+sighting in the marker, and the key is not restarted for 60 s from that sighting (the restart bound
+for a build that keeps dying, however long it runs). `key_files.rs` opens the key's files through
+the runtime directory's descriptor with `daemon::files`' functions.
 
 Algorithms fall into two categories:
 1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`
@@ -3302,7 +3901,7 @@ nice -n 19 env CARGO_BUILD_JOBS=4 cargo clippy --all-targets --features mcp > "$
 grep -E '^\s+--> (src/mcp/shim|src/mcp/daemon/(files|run|run_tests|peer|mod)\.rs|src/mcp/shared/paths)' "$LOG_DIR/s51-clippy.log"
 ```
 
-Expected: `cargo fmt --check` silent; `test result: ok. 547 passed; 0 failed` (517 + 30); `31 passed` with `standalone_transcripts_match_the_goldens_recorded_before_the_transport_refactor ... ok`; both checks `Finished`, no `warning` in the feature check; clippy 257 `warning` lines, and the `grep` prints nothing.
+Expected: `cargo fmt --check` silent; `test result: ok. 553 passed; 0 failed` (517 + 36); `31 passed` with `standalone_transcripts_match_the_goldens_recorded_before_the_transport_refactor ... ok`; both checks `Finished`, no `warning` in the feature check; clippy 257 `warning` lines, and the `grep` prints nothing.
 
 - [ ] **Step 3: State the invariants**
 
@@ -3312,39 +3911,53 @@ git diff --name-only origin/main | wc -l
 wc -l src/mcp/shim/*.rs src/mcp/daemon/files.rs src/mcp/daemon/run.rs src/mcp/daemon/run_tests.rs
 ```
 
-Expected: the first prints nothing; `17` (16 under `src/` and `CLAUDE.md`); no file over 600 lines.
+Expected: the first prints nothing; `18` (17 under `src/` and `CLAUDE.md`); no file over 600 lines.
 
 - [ ] **Step 4: Run the remaining pre-PR checks**
 
 ```bash
-for i in $(seq 1 20); do nice -n 19 cargo test --features mcp --lib mcp::shim > "$LOG_DIR/s51-rep-$i.log" 2>&1; done
-for i in $(seq 1 10); do nice -n 19 cargo test --features mcp --lib mcp::shim -- --test-threads=1 > "$LOG_DIR/s51-rep1-$i.log" 2>&1; done
+J="nice -n 19 env CARGO_BUILD_JOBS=4"
+fails=0
+for i in $(seq 1 20); do $J cargo test --features mcp --lib mcp::shim > "$LOG_DIR/s51-rep-$i.log" 2>&1 || fails=$((fails+1)); done
+for i in $(seq 1 10); do $J cargo test --features mcp --lib mcp::shim -- --test-threads=1 > "$LOG_DIR/s51-rep1-$i.log" 2>&1 || fails=$((fails+1)); done
+echo "failed runs: $fails"
 grep -h '^test result' "$LOG_DIR"/s51-rep-*.log "$LOG_DIR"/s51-rep1-*.log | sed 's/finished.*//' | sort | uniq -c
-nice -n 19 env CARGO_BUILD_JOBS=4 env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp > "$LOG_DIR/s51-full.log" 2>&1
-nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --doc --features mcp > "$LOG_DIR/s51-doc.log" 2>&1
+$J env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp > "$LOG_DIR/s51-full.log" 2>&1; echo "full suite rc=$?"
+$J cargo test --doc --features mcp > "$LOG_DIR/s51-doc.log" 2>&1; echo "doc tests rc=$?"
 ```
 
-Then on Linux:
+Then on Linux, in the bridge's toolchain image with the worktree read-only. Check the disk first and keep at least 50 GiB free; the volumes are removed by the `trap` however the run ends. Each run's whole output is a log of its own, and the script's exit status is the number of failed runs.
 
 ```bash
-# Linux: the bridge's toolchain image, the worktree read-only, named volumes removed afterwards.
-# Check first that the host and the Docker VM have room for a debug build (about 8 GB): a full
-# disk stopped the Docker VM during this plan's validation (Validation record).
-df -h ~
-docker run --rm --cpus 4 --memory 8g -v "$PWD":/src:ro -v s5a-target:/target \
-  -v s5a-registry:/usr/local/cargo/registry -e CARGO_TARGET_DIR=/target -w /src \
-  --entrypoint sh a2a-toolchain:latest -c \
-  'for i in $(seq 1 10); do cargo test --features mcp --lib mcp::shim 2>&1 | grep "^test result"; cargo test --features mcp --lib mcp::daemon 2>&1 | grep "^test result"; done' \
-  > "$LOG_DIR/s51-linux.log" 2>&1
-docker volume rm s5a-target s5a-registry
-sort "$LOG_DIR/s51-linux.log" | sed 's/finished.*//' | uniq -c
+df -h /System/Volumes/Data
+mkdir -p "$LOG_DIR/linux"
+cat > "$LOG_DIR/linux.sh" <<'EOF'
+#!/bin/bash
+fails=0
+for i in $(seq 1 10); do
+  for suite in "--lib mcp::shim" "--lib mcp::daemon" ${EXTRA_SUITE:+"$EXTRA_SUITE"}; do
+    name=$(printf '%s' "$suite" | tr -c 'a-z0-9' '_')
+    env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp $suite > "/logs/$name-$i.log" 2>&1 || fails=$((fails+1))
+  done
+done
+for p in /proc/[0-9]*; do grep -qs 'prism-mc[p]' "$p/cmdline" && echo "left: $(tr '\0' ' ' < "$p/cmdline")"; done
+exit $fails
+EOF
+(
+  trap 'docker volume rm s5a-target s5a-registry >/dev/null' EXIT
+  docker run --rm --cpus 4 --memory 8g -e CARGO_BUILD_JOBS=4 -e CARGO_TARGET_DIR=/target \
+    -e EXTRA_SUITE="$EXTRA_SUITE" -v "$PWD":/src:ro -v s5a-target:/target \
+    -v s5a-registry:/usr/local/cargo/registry -v "$LOG_DIR/linux.sh":/linux.sh:ro \
+    -v "$LOG_DIR/linux":/logs -w /src --entrypoint bash a2a-toolchain:latest /linux.sh
+) > "$LOG_DIR/s51-linux.out" 2>&1; echo "failed Linux runs: $?"
+grep -h '^test result' "$LOG_DIR"/linux/*.log | sed 's/finished.*//' | sort | uniq -c
 ```
 
-Expected: `30 test result: ok. 25 passed; 0 failed`; the full suite and the doc tests `0 failed`; on Linux `10 test result: ok. 25 passed; 0 failed` and `10 test result: ok. 133 passed; 0 failed`.
+Expected: `failed runs: 0`, `30 test result: ok. 29 passed; 0 failed`; the full suite and the doc tests `rc=0`; on Linux `failed Linux runs: 0`, `10 test result: ok. 29 passed; 0 failed` and `10 test result: ok. 135 passed; 0 failed`, and no `left:` line. Then mutant N8 (Task 3) in the same image: with the edit applied, `cargo test --features mcp --lib mcp::shim::arbitrate::tests::a_live_daemon_with_a_full_backlog` fails after its hang limit.
 
 - [ ] **Step 5: Commit and open the PR**
 
-The PR body states, in this order: (1) **Goal:** the lane goal; S5a-1 is the shim's start protocol, tested against fake daemons: which answers are transient and which fail closed, who starts the daemon, what is removed and when, and the restart bound. (2) **Invariants:** Step 3. (3) **Decisions:** D77–D83, D90, D91; SI-22–SI-24. D77 (the restart bound) and D78 (the shim's peer check) are the owner's to see; D82 (not looking at the owner lock while a started daemon starts) is the one a reviewer is most likely to question. (4) **Claims:** the rows for Tasks 1–3, with what no test holds. (5) **Totals:** Steps 2 and 4 next to the base (Linux included), and mutants 1A–3J as observed. (6) **Not verified:** a real daemon process started by a shim (S5a-2); x86_64 Linux before CI. (7) **Tier-A:** not run (no file it watches is touched). (8) The owner questions of this plan, as defaults built.
+The PR body states, in this order: (1) **Goal:** the lane goal; S5a-1 is the shim's start protocol, tested against fake daemons: which answers are transient and which fail closed, who starts the daemon, what is removed and when, and the restart bound. (2) **Invariants:** Step 3. (3) **Decisions:** D77–D83, D90–D93; SI-22–SI-24, SI-28 (settled by D93); review round 1's folds for Tasks 1–3. D77 (the restart bound) and D78 (the shim's peer check) are as the owner decided; D82 (not looking at the owner lock while a started daemon starts) is the one a reviewer is most likely to question. (4) **Claims:** the rows for Tasks 1–3, with what no test holds. (5) **Totals:** Steps 2 and 4 next to the base (Linux included), and mutants 1A–3J and N2–N8 as observed, with N1's survival and its reason. (6) **Not verified:** a real daemon process started by a shim (S5a-2); x86_64 Linux before CI; `run_daemon`'s wiring of the marker (Opus S1). (7) **Tier-A:** not run (no file it watches is touched). (8) The owner's decisions of 2026-10-15 on D77 and D78.
 
 ```bash
 git add CLAUDE.md
@@ -3367,7 +3980,7 @@ Review: Opus 5.5 and gpt-6.1-sol, same brief, same commit; two rounds (lane READ
 
 **Interfaces:**
 - Consumes: Task 3's `Starter`, `Started`, `Exit`, `KeyDir`; `refresh_policy_name`, `IdentityKey`, `RUNTIME_DIR_ENV` (S2a); `LOAD_DIRTY_OVERRIDE` (`navigation::call_edge_cache`, made `pub(crate)`).
-- Produces: `KeyDir::open_log(&self) -> Result<File, FilesError>`; in `shim::spawn`: `struct DaemonArgs { repo_root, cache_base, refresh_policy, key, warm_at_startup, idle_ttl: Option<u64>, max_clients: Option<u32> }` with `to_args(&self) -> Vec<OsString>`, `fn daemon_command(exe: &Path, args: &DaemonArgs, runtime_dir: &Path, log: File) -> io::Result<Command>`, `struct ProcessStarter { exe, args, runtime_dir }` (`Starter`); in `shim::diagnostic`: `struct Where<'a> { key, runtime_dir: Option<&Path>, paths: Option<&DaemonPaths> }`, `fn one_line(text: &str) -> String`, `fn fail_closed_line(reason: &str, at: &Where<'_>, standalone: &str) -> String`, `fn standalone_invocation(exe: &Path, cfg: &ServerConfig) -> String`; in `shim::pump`: `enum PumpEnd { ClientClosed, DaemonClosed, DaemonFailed(io::Error), ClientGone(io::Error) }` (`Display`), `fn pump(input: impl Read + Send + 'static, output: &mut impl Write, daemon: UnixStream) -> PumpEnd`.
+- Produces: `KeyDir::open_log(&self) -> Result<File, FilesError>`; in `shim::spawn`: `struct DaemonArgs { repo_root, cache_base, refresh_policy, key, warm_at_startup, idle_ttl: Option<u64>, max_clients: Option<u32> }` with `to_args(&self) -> Vec<OsString>`, `fn daemon_command(exe: &Path, args: &DaemonArgs, runtime_dir: &Path, log: File) -> io::Result<Command>`, `struct ProcessStarter { exe, args, runtime_dir }` (`Starter`); in `shim::diagnostic`: `struct Where<'a> { key: Option<&IdentityKey>, runtime_dir: Option<&Path>, paths: Option<&DaemonPaths> }`, `fn one_line(text: &str) -> String`, `fn fail_closed_line(reason: &str, at: &Where<'_>, standalone: &str) -> String`, `fn standalone_invocation(exe: &Path, cfg: &ServerConfig) -> String`; in `shim::pump`: `enum PumpEnd { ClientClosed, DaemonClosed, DaemonFailed(io::Error), ClientGone(io::Error) }` (`Display`), `fn pump(input: impl Read + Send + 'static, output: &mut impl Write, daemon: UnixStream) -> PumpEnd`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -3388,7 +4001,7 @@ fn the_line_names_everything_an_operator_needs_on_one_line() {
     std::fs::write(paths.pid_file(), "4242\n1700000000\nabc\n").expect("pid file");
     let key = key();
     let at = Where {
-        key: &key,
+        key: Some(&key),
         runtime_dir: Some(paths.runtime_dir()),
         paths: Some(&paths),
     };
@@ -3414,7 +4027,7 @@ fn an_empty_partial_or_missing_pid_file_is_reported_as_such() {
     let (_base, paths) = runtime();
     let key = key();
     let at = Where {
-        key: &key,
+        key: Some(&key),
         runtime_dir: Some(paths.runtime_dir()),
         paths: Some(&paths),
     };
@@ -3433,7 +4046,7 @@ fn control_characters_in_paths_cannot_end_the_line() {
     let key = key();
     let dir = PathBuf::from("/tmp/a\nb\u{1b}[2J");
     let at = Where {
-        key: &key,
+        key: Some(&key),
         runtime_dir: Some(&dir),
         paths: None,
     };
@@ -3461,6 +4074,23 @@ fn the_standalone_invocation_keeps_the_configuration() {
          --first-call-wait 60 --warm-at-startup --standalone"
     );
 }
+
+/// Review round 1, sol 5: a failure before the key is known still makes the one line, with the
+/// key, the runtime directory and the files unresolved and the standalone invocation named.
+#[test]
+fn a_failure_before_the_key_is_known_names_what_it_can() {
+    let at = Where {
+        key: None,
+        runtime_dir: None,
+        paths: None,
+    };
+    let line = fail_closed_line("no repository", &at, "prism-mcp --repo /r --standalone");
+    assert_eq!(
+        line,
+        "prism-mcp: --shared failed closed, no index was built: no repository; key unresolved; \
+         runtime dir unresolved; to run without the shared daemon: prism-mcp --repo /r --standalone"
+    );
+}
 ````
 
 In `src/mcp/shim/mod.rs`, replace this:
@@ -3472,6 +4102,7 @@ mod connect;
 mod key_files;
 #[cfg(test)]
 mod shim_support;
+mod socket;
 ````
 
 with this:
@@ -3485,6 +4116,7 @@ mod key_files;
 mod pump;
 #[cfg(test)]
 mod shim_support;
+mod socket;
 mod spawn;
 ````
 
@@ -3708,7 +4340,8 @@ const PID_FILE_BYTES: u64 = 200;
 
 /// Where the shim looked, as far as it got.
 pub(super) struct Where<'a> {
-    pub(super) key: &'a IdentityKey,
+    /// `None` when the failure came before the key could be computed.
+    pub(super) key: Option<&'a IdentityKey>,
     /// `None` when no runtime directory could be resolved.
     pub(super) runtime_dir: Option<&'a Path>,
     /// `None` when the socket path does not fit (or no runtime directory was resolved).
@@ -3732,10 +4365,11 @@ pub(super) fn one_line(text: &str) -> String {
 
 /// The fail-closed line, without its newline.
 pub(super) fn fail_closed_line(reason: &str, at: &Where<'_>, standalone: &str) -> String {
-    let mut line = format!(
-        "prism-mcp: --shared failed closed, no index was built: {reason}; key {}",
-        at.key
-    );
+    let mut line = format!("prism-mcp: --shared failed closed, no index was built: {reason}");
+    match at.key {
+        Some(key) => line.push_str(&format!("; key {key}")),
+        None => line.push_str("; key unresolved"),
+    }
     match at.runtime_dir {
         Some(dir) => line.push_str(&format!("; runtime dir {}", dir.display())),
         None => line.push_str("; runtime dir unresolved"),
@@ -3836,7 +4470,7 @@ mod tests;
 In `src/mcp/shim/key_files.rs`, replace this:
 
 ````rust
-        parse_build_marker(&text)
+            })
     }
 
     /// Remove what a daemon that died left: its socket, pid file and build marker (spec §4.1
@@ -3847,7 +4481,7 @@ In `src/mcp/shim/key_files.rs`, replace this:
 with this:
 
 ````rust
-        parse_build_marker(&text)
+            })
     }
 
     /// The key's log, opened for appending, for the daemon this shim starts (its standard output
@@ -3926,6 +4560,7 @@ pub(super) fn pump(
                 let mut buffer = vec![0u8; BUFFER_BYTES];
                 loop {
                     match input.read(&mut buffer) {
+                        Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
                         Ok(0) | Err(_) => break,
                         Ok(n) => {
                             if to_daemon.write_all(&buffer[..n]).is_err() {
@@ -4140,7 +4775,7 @@ static TMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib mcp:: > "$LOG_DIR/t5.log" 2>&1
 ```
 
-Expected: `test result: ok. 556 passed; 0 failed` (547 + 9), and no `warning` line.
+Expected: `test result: ok. 563 passed; 0 failed` (553 + 10), and no `warning` line.
 
 - [ ] **Step 5: Commit**
 
@@ -4171,7 +4806,7 @@ Apply each mutant alone, run `cargo test --features mcp --lib mcp::shim::`, see 
 
 **Interfaces:**
 - Consumes: everything above; `canonical_config` (`session.rs`, `pub(super)`); `DaemonIdentity::resolve` (S2a); `ClientSettings::new`, `ConnectionSettings::from_env` (S1, S2b); `runtime_dir` (S2a); S4's process-test helpers (`setup`, `Setup`, `Daemon`, `wait_until`, `gone`, `HANG`, `INIT`, `INITED`, `CALLEES`), now `pub(crate)`; `transcript::{drive, script, write_fixture, spawn_line_reader, RESPONSE_TIMEOUT}` (S1).
-- Produces: `prism::mcp::{run_shim, ShimOptions, DEFAULT_DAEMON_START_TIMEOUT_SECS}`: `pub struct ShimOptions { pub config: ServerConfig, pub start_timeout: Duration, pub idle_ttl: Option<u64>, pub max_clients: Option<u32> }`, `pub fn run_shim(options: ShimOptions) -> i32` (0 when the client closed the session; 1, with one line on standard error, otherwise); the binary's `--shared`, `--standalone`, `--daemon-start-timeout`, `--idle-ttl`, `--max-clients`. Test support: `ShimProcess` (`start`, `start_with_cache`, `send`, `request`, `handshake`, `close_input`, `stderr`, `ended`, `daemon_pid`), `Daemons`, `end_daemons`, `owner_is_free`, `pid_file_pid`, `kill`, `owner_lock_held`.
+- Produces: `prism::mcp::{run_shim, ShimOptions, DEFAULT_DAEMON_START_TIMEOUT_SECS}`: `pub struct ShimOptions { pub config: ServerConfig, pub start_timeout: Duration, pub idle_ttl: Option<u64>, pub max_clients: Option<u32> }`, `pub fn run_shim(options: ShimOptions) -> i32` (0 when the client closed the session; 1, with one line on standard error, otherwise); the binary's `--shared`, `--standalone`, `--daemon-start-timeout`, `--idle-ttl`, `--max-clients`. Test support: `ShimProcess` (`start`, `start_with_cache`, `start_with`, `send`, `request`, `handshake`, `close_input`, `stderr`, `ended`, `daemon_pid`), `Daemons`, `end_daemons`, `owner_is_free`, `pid_file_pid`, `kill`, `owner_lock_held`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -4458,16 +5093,33 @@ impl ShimProcess {
         extra: &[&str],
         env: &[(&str, &str)],
     ) -> Self {
+        Self::start_with(setup, setup.repo.path(), cache, extra, env)
+    }
+
+    /// The shim for any repository and cache. Its deadline is 60 s unless `extra` sets one: a
+    /// test that means to reach a daemon must not depend on how fast this host starts one
+    /// (review round 1, Opus S2).
+    pub(crate) fn start_with(
+        setup: &Setup,
+        repo: &std::path::Path,
+        cache: &std::path::Path,
+        extra: &[&str],
+        env: &[(&str, &str)],
+    ) -> Self {
         let stderr_dir = tempfile::tempdir().expect("a directory for standard error");
         let stderr_path = stderr_dir.path().join("stderr.txt");
         let mut command = Command::new(env!("CARGO_BIN_EXE_prism-mcp"));
         command
             .arg("--repo")
-            .arg(setup.repo.path())
+            .arg(repo)
             .arg("--cache-dir")
             .arg(cache)
             .arg("--shared")
-            .args(extra)
+            .args(extra);
+        if !extra.contains(&"--daemon-start-timeout") {
+            command.args(["--daemon-start-timeout", "60"]);
+        }
+        command
             .env(RUNTIME_DIR_ENV, setup.base.path())
             .env_remove("PRISM_MCP_STRUCTURED_CONTENT")
             .env_remove("PRISM_MCP_CONCISE_SHAPE")
@@ -4849,16 +5501,42 @@ fn a_daemon_that_died_during_its_build_is_not_restarted_for_a_minute() {
     );
     assert!(setup.paths.socket().exists() && setup.paths.pid_file().exists());
     assert!(owner_is_free(&setup.paths));
+    // The shim recorded when it first saw the dead build (review round 1, sol 3): the minute
+    // runs from there.
+    let marker = std::fs::read_to_string(setup.paths.build_marker()).expect("the marker");
+    assert_eq!(marker.lines().count(), 3, "{marker:?}");
 
     std::fs::write(
         setup.paths.build_marker(),
-        format!("4242\n{}\n", unix_now() - 120),
+        format!("4242\n{}\n{}\n", unix_now() - 300, unix_now() - 120),
     )
-    .expect("an old build marker");
+    .expect("a build marker first seen two minutes ago");
     let mut shim = ShimProcess::start(&setup, &[], &[]);
     shim.handshake();
     assert_eq!(shim.request(CALLEES)["result"]["isError"], false);
     assert!(!setup.paths.build_marker().exists());
+}
+
+/// Spec §4.1 step 7, for failures before the key is known (review round 1, sol 5): a repository
+/// that does not exist, and a cache directory that is a regular file, still fail closed in one
+/// line that names the `--standalone` invocation.
+#[test]
+fn a_failure_before_the_key_is_known_still_names_the_standalone_invocation() {
+    let setup = setup();
+    let missing = setup.repo.path().join("no-such-repository");
+    let not_a_dir = setup.cache.path().join("a-file");
+    std::fs::write(&not_a_dir, "not a directory").expect("a regular file");
+    for (repo, cache) in [
+        (missing.as_path(), setup.cache.path()),
+        (setup.repo.path(), not_a_dir.as_path()),
+    ] {
+        let mut shim = ShimProcess::start_with(&setup, repo, cache, &[], &[]);
+        let (status, stderr) = shim.ended();
+        assert!(!status.success(), "{stderr}");
+        assert_eq!(stderr.lines().count(), 1, "{stderr}");
+        assert!(stderr.contains("failed closed"), "{stderr}");
+        assert!(stderr.contains("--standalone"), "{stderr}");
+    }
 }
 
 /// Hold the key's owner lock, as a live daemon does.
@@ -4982,6 +5660,11 @@ fn a_scripted_session_through_a_shim_matches_the_standalone_server_byte_for_byte
                 .arg("--cache-dir")
                 .arg(cache.path())
                 .args(["--first-call-wait", "60"])
+                .args(if shared {
+                    &["--daemon-start-timeout", "60"][..]
+                } else {
+                    &[][..]
+                })
                 .arg(if shared { "--shared" } else { "--standalone" })
                 .env(RUNTIME_DIR_ENV, base.path());
             for name in [
@@ -5032,7 +5715,7 @@ fn a_scripted_session_through_a_shim_matches_the_standalone_server_byte_for_byte
 nice -n 19 env CARGO_BUILD_JOBS=4 env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp > "$LOG_DIR/t6-red.log" 2>&1
 ```
 
-Expected in the log: `test result: FAILED. 31 passed; 11 failed`: every new shim test fails, each with `error: unexpected argument '--shared' found` on the shim's standard error (the 31 are the base's tests).
+Expected in the log: `test result: FAILED. 31 passed; 12 failed`: every new shim test fails, each with `error: unexpected argument '--shared' found` on the shim's standard error (the 31 are the base's tests).
 
 - [ ] **Step 3: Implement**
 
@@ -5148,6 +5831,7 @@ mod key_files;
 mod pump;
 #[cfg(test)]
 mod shim_support;
+mod socket;
 mod spawn;
 ````
 
@@ -5166,6 +5850,7 @@ mod pump;
 mod run;
 #[cfg(test)]
 mod shim_support;
+mod socket;
 mod spawn;
 
 pub use run::{run_shim, ShimOptions, DEFAULT_DAEMON_START_TIMEOUT_SECS};
@@ -5211,7 +5896,9 @@ pub struct ShimOptions {
 }
 
 /// Run a shim until its client or its daemon ends the session. Returns the exit status: 0 when
-/// the client closed the session, 1 otherwise, with one line on standard error.
+/// the client closed the session, 1 otherwise, with one line on standard error. Call it from the
+/// `prism-mcp` executable only: it starts the daemon as `prism-mcp daemon …` from
+/// `current_exe()` (review round 1, Opus S5).
 pub fn run_shim(options: ShimOptions) -> i32 {
     match shim(&options) {
         Ok(()) => 0,
@@ -5223,20 +5910,44 @@ pub fn run_shim(options: ShimOptions) -> i32 {
 }
 
 fn shim(options: &ShimOptions) -> Result<(), String> {
-    let error = |error: &dyn std::fmt::Display| one_line(&format!("prism-mcp: {error}"));
+    // The `--standalone` invocation comes first, from the configuration as given, so that every
+    // failure, those before the key is known included, names it (review round 1, sol 5).
+    let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("prism-mcp"));
+    let given_root = std::path::absolute(&options.config.repo_root)
+        .unwrap_or_else(|_| options.config.repo_root.clone());
+    let standalone = standalone_invocation(
+        &exe,
+        &ServerConfig {
+            repo_root: given_root,
+            ..options.config.clone()
+        },
+    );
+    let fail = |reason: &dyn std::fmt::Display, at: Where<'_>| {
+        fail_closed_line(&reason.to_string(), &at, &standalone)
+    };
+    let early = |reason: &dyn std::fmt::Display| {
+        fail(
+            reason,
+            Where {
+                key: None,
+                runtime_dir: None,
+                paths: None,
+            },
+        )
+    };
     // Spec §4.1 step 2: never a silent downgrade. The command line rejects these first.
     if matches!(options.config.cache, CacheMode::NoCache) {
-        return Err(error(
+        return Err(early(
             &"--shared needs a cache; --no-cache is served in process",
         ));
     }
     if options.config.startup == StartupMode::Eager {
-        return Err(error(
+        return Err(early(
             &"--shared cannot build eagerly; --eager is served in process",
         ));
     }
-    let cfg = canonical_config(&options.config).map_err(|e| error(&e))?;
-    let identity = DaemonIdentity::resolve(&cfg).map_err(|e| error(&e))?;
+    let cfg = canonical_config(&options.config).map_err(|e| early(&e))?;
+    let identity = DaemonIdentity::resolve(&cfg).map_err(|e| early(&e))?;
     let key = identity.key();
     // Spec §4.1 step 3: this shim's own settings, from its own environment and flags; an
     // invalid value warns here, as it does for a standalone server.
@@ -5245,7 +5956,7 @@ fn shim(options: &ShimOptions) -> Result<(), String> {
         cfg.first_call_wait.as_secs(),
         cfg.startup == StartupMode::Background,
     )
-    .map_err(|e| error(&e))?;
+    .map_err(|e| early(&e))?;
     let hello = Hello {
         identity: key,
         settings,
@@ -5253,22 +5964,11 @@ fn shim(options: &ShimOptions) -> Result<(), String> {
     .encode();
     // Spec §4.1 step 4: the one deadline, from here to `READY`.
     let deadline = Instant::now() + options.start_timeout;
-    let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("prism-mcp"));
-    let standalone = standalone_invocation(
-        &exe,
-        &ServerConfig {
-            repo_root: cfg.repo_root.clone(),
-            ..options.config.clone()
-        },
-    );
-    let fail = |reason: &dyn std::fmt::Display, at: Where<'_>| {
-        fail_closed_line(&reason.to_string(), &at, &standalone)
-    };
     let dir = runtime_dir().map_err(|e| {
         fail(
             &e,
             Where {
-                key: &key,
+                key: Some(&key),
                 runtime_dir: None,
                 paths: None,
             },
@@ -5278,14 +5978,14 @@ fn shim(options: &ShimOptions) -> Result<(), String> {
         fail(
             &e,
             Where {
-                key: &key,
+                key: Some(&key),
                 runtime_dir: Some(&dir),
                 paths: None,
             },
         )
     })?;
     let at = || Where {
-        key: &key,
+        key: Some(&key),
         runtime_dir: Some(&dir),
         paths: Some(&paths),
     };
@@ -5348,7 +6048,7 @@ nice -n 19 env CARGO_BUILD_JOBS=4 cargo check --features mcp > "$LOG_DIR/t6-chec
 pgrep -fl 'prism-mcp daemon'
 ```
 
-Expected: `test result: ok. 42 passed; 0 failed` (31 + 11), with the goldens' test `ok`; the check `Finished` with no `warning` (the module's dead-code allowance is gone); `pgrep` prints nothing.
+Expected: `test result: ok. 43 passed; 0 failed` (31 + 12), with the goldens' test `ok`; the check `Finished` with no `warning` (the module's dead-code allowance is gone); `pgrep` prints nothing.
 
 - [ ] **Step 5: Commit**
 
@@ -5367,6 +6067,7 @@ Apply each mutant alone, run the named test with `cargo test --features mcp --te
 | 6A | in `spawn.rs`, the `pre_exec` closure: `if libc::setsid() == -1 {` → `if libc::getpid() == -1 {` (no session of its own) | `a_shim_starts_a_detached_daemon_and_serves_a_session_through_it` |
 | 6B | in `run.rs`: `PumpEnd::ClientClosed => Ok(()),` → `PumpEnd::ClientClosed \| PumpEnd::DaemonClosed => Ok(()),` | `a_daemon_killed_mid_session_ends_the_shim_without_a_reconnect` |
 | 6C | in `spawn.rs`: `.stdout(Stdio::from(log.try_clone()?))` → `.stdout(Stdio::inherit())` (the daemon holds the client's pipe) | `a_scripted_session_through_a_shim_matches_the_standalone_server_byte_for_byte` (its stdout never ends; the test then waits for the daemon to end, so kill the `prism-mcp daemon` it started rather than wait for the idle TTL) |
+| N9 | in `run.rs`: `canonical_config(&options.config).map_err(\|e\| early(&e))?` → `….map_err(\|e\| one_line(&format!("prism-mcp: {e}")))?` (a bare error before the key) | `a_failure_before_the_key_is_known_still_names_the_standalone_invocation` |
 | 6D | in `run.rs`, fall back to a private index: replace the `let connected = arbiter.arbitrate(&mut starter).map_err(…)?;` statement by a `match` whose `Err(_)` arm runs `crate::mcp::run(cfg.clone())` and returns `Ok(())` | `a_runtime_directory_that_fails_validation_fails_closed_and_creates_nothing` (after the 60 s hang limit: the fallback server waits on its input) |
 
 ### Task 7: S5a-2 proof, docs, and the pull request
@@ -5428,36 +6129,36 @@ attempt count, the parked calls, the generation of the provider in the slot) and
 In `CLAUDE.md`, replace this:
 
 ````markdown
-around the builder by `run.rs::marked`, removed at release); a daemon that dies during its build
-leaves it.
+leaves it. The marker shares a fence with `DaemonFiles`: release (or drop) sets it under its lock
+before the owner lock is released, so a released daemon's late `set` or `clear` does nothing.
 
 Shim (`src/mcp/shim/`, Unix only; no production caller yet): `connect.rs` makes one attempt to
-reach a daemon: connect, check the peer's uid (`daemon::peer`; a peer of another uid is refused
-before anything is sent), send `HELLO`, and read the one reply line with every read bounded by the
-time left to the shim's one deadline. `READY` for this key reaches it (the socket's timeouts are
+reach a daemon: connect without blocking (`socket.rs`; a full listen backlog fails at once), check
+the peer's uid (`daemon::peer`; a peer of another uid is refused before anything is sent), send
+`HELLO`, and read the one reply line with every byte's read bounded by the time left to the shim's
 ````
 
 with this:
 
 ````markdown
-around the builder by `run.rs::marked`, removed at release); a daemon that dies during its build
-leaves it.
+leaves it. The marker shares a fence with `DaemonFiles`: release (or drop) sets it under its lock
+before the owner lock is released, so a released daemon's late `set` or `clear` does nothing.
 
 Shim (`src/mcp/shim/`, Unix only; `prism-mcp --repo X --shared [--daemon-start-timeout S]
 [--idle-ttl S] [--max-clients N]`; `--shared` with `--no-cache`, `--eager` or `--owner-*` is a CLI
 error, and `--standalone`, the default, changes nothing): `connect.rs` makes one attempt to
-reach a daemon: connect, check the peer's uid (`daemon::peer`; a peer of another uid is refused
-before anything is sent), send `HELLO`, and read the one reply line with every read bounded by the
-time left to the shim's one deadline. `READY` for this key reaches it (the socket's timeouts are
+reach a daemon: connect without blocking (`socket.rs`; a full listen backlog fails at once), check
+the peer's uid (`daemon::peer`; a peer of another uid is refused before anything is sent), send
+`HELLO`, and read the one reply line with every byte's read bounded by the time left to the shim's
 ````
 
 In `CLAUDE.md`, replace this:
 
 ````markdown
-before `READY` lost the key (look again), one that ends otherwise fails the start. A free key whose
-build marker says a build began under 60 s ago is not restarted (the restart bound for a build that
-keeps dying). `key_files.rs` opens the key's files through the runtime directory's descriptor with
-`daemon::files`' functions.
+a build marker is a daemon that died during its build: the first shim to see it records the
+sighting in the marker, and the key is not restarted for 60 s from that sighting (the restart bound
+for a build that keeps dying, however long it runs). `key_files.rs` opens the key's files through
+the runtime directory's descriptor with `daemon::files`' functions.
 
 Algorithms fall into two categories:
 1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`
@@ -5466,19 +6167,20 @@ Algorithms fall into two categories:
 with this:
 
 ````markdown
-before `READY` lost the key (look again), one that ends otherwise fails the start. A free key whose
-build marker says a build began under 60 s ago is not restarted (the restart bound for a build that
-keeps dying). `key_files.rs` opens the key's files through the runtime directory's descriptor with
-`daemon::files`' functions. `spawn.rs` starts `prism-mcp daemon` from the same executable with the
-shim's canonical root, cache base, refresh policy and full key (and `--warm-at-startup`,
-`--idle-ttl`, `--max-clients` when the shim has them), in a session of its own (`setsid`), from `/`,
-standard input null, output appended (`O_APPEND`) to `<key16>.log`, without
+a build marker is a daemon that died during its build: the first shim to see it records the
+sighting in the marker, and the key is not restarted for 60 s from that sighting (the restart bound
+for a build that keeps dying, however long it runs). `key_files.rs` opens the key's files through
+the runtime directory's descriptor with `daemon::files`' functions. `spawn.rs` starts `prism-mcp daemon` from the
+same executable with the shim's canonical root, cache base, refresh policy and full key (and
+`--warm-at-startup`, `--idle-ttl`, `--max-clients` when the shim has them), in a session of its own
+(`setsid`), from `/`, standard input null, output appended (`O_APPEND`) to `<key16>.log`, without
 `PRISM_NAV_EDGE_CACHE_LOAD_DIRTY`. `diagnostic.rs` writes the one fail-closed line (reason, key,
-runtime dir, socket, pid file contents, log, and the `--standalone` invocation; control characters
-escaped); exit 1. `pump.rs` carries the session byte for byte: the client's end of input
-half-closes the socket and the daemon's last responses are still delivered (exit 0); a daemon that
-closes first ends the session (exit 1) and the shim never reconnects. `run.rs` is `run_shim`; on
-`READY` it writes `prism-mcp: shared daemon pid N (started T, generation G) at <socket>` to stderr.
+runtime dir, socket, pid file contents, log, and the `--standalone` invocation, named for failures
+before the key is known too; control characters escaped); exit 1. `pump.rs` carries the session
+byte for byte: the client's end of input half-closes the socket and the daemon's last responses are
+still delivered (exit 0); a daemon that closes first ends the session (exit 1) and the shim never
+reconnects. `run.rs` is `run_shim`; on `READY` it writes `prism-mcp: shared daemon pid N (started
+T, generation G) at <socket>` to stderr.
 
 Algorithms fall into two categories:
 1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`
@@ -5486,7 +6188,7 @@ Algorithms fall into two categories:
 
 - [ ] **Step 2: Run the MCP surface and the checks**
 
-The commands of Task 4 Step 2, with `s52` in the log names and the clippy `grep` extended to `src/bin/prism-mcp.rs`, `src/navigation/call_edge_cache.rs` and `tests/mcp/(shim|daemon_process|main)`. Expected: `cargo fmt --check` silent; `test result: ok. 556 passed; 0 failed` (517 + 39); `42 passed` with the goldens' test `ok`; both checks `Finished`, no `warning` in the feature check; clippy 257 `warning` lines; the `grep` prints one line, `src/navigation/call_edge_cache.rs:279:9`, a warning the base has (`io::Error::other`) on a line this slice does not touch.
+The commands of Task 4 Step 2, with `s52` in the log names and the clippy `grep` extended to `src/bin/prism-mcp.rs`, `src/navigation/call_edge_cache.rs` and `tests/mcp/(shim|daemon_process|main)`. Expected: `cargo fmt --check` silent; `test result: ok. 563 passed; 0 failed` (517 + 46); `43 passed` with the goldens' test `ok`; both checks `Finished`, no `warning` in the feature check; clippy 257 `warning` lines; the `grep` prints one line, `src/navigation/call_edge_cache.rs:279:9`, a warning the base has (`io::Error::other`) on a line this slice does not touch.
 
 - [ ] **Step 3: State the invariants**
 
@@ -5502,21 +6204,24 @@ Expected: the first prints nothing; no file over 600 lines; `s52-bin.diff` adds 
 - [ ] **Step 4: Run the remaining pre-PR checks**
 
 ```bash
-for i in $(seq 1 20); do nice -n 19 cargo test --features mcp --lib mcp::shim > "$LOG_DIR/s52-rep-$i.log" 2>&1; done
-for i in $(seq 1 10); do nice -n 19 env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp shim > "$LOG_DIR/s52-proc-$i.log" 2>&1; done
+J="nice -n 19 env CARGO_BUILD_JOBS=4"
+fails=0
+for i in $(seq 1 20); do $J cargo test --features mcp --lib mcp::shim > "$LOG_DIR/s52-rep-$i.log" 2>&1 || fails=$((fails+1)); done
+for i in $(seq 1 10); do $J env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp shim > "$LOG_DIR/s52-proc-$i.log" 2>&1 || fails=$((fails+1)); done
+echo "failed runs: $fails"
 grep -h '^test result' "$LOG_DIR"/s52-rep-*.log "$LOG_DIR"/s52-proc-*.log | sed 's/finished.*//' | sort | uniq -c
 pgrep -fl 'prism-mcp daemon'
-nice -n 19 env CARGO_BUILD_JOBS=4 env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp > "$LOG_DIR/s52-full.log" 2>&1
-nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --doc --features mcp > "$LOG_DIR/s52-doc.log" 2>&1
+$J env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp > "$LOG_DIR/s52-full.log" 2>&1; echo "full suite rc=$?"
+$J cargo test --doc --features mcp > "$LOG_DIR/s52-doc.log" 2>&1; echo "doc tests rc=$?"
 ```
 
-Then the Linux commands of Task 4 Step 4, with `s52` in the log name and `--test mcp` repeated 10 times as well.
+Then the Linux commands of Task 4 Step 4 with `EXTRA_SUITE="--test mcp"` exported, `s52` in the output's name and an empty `$LOG_DIR/linux`.
 
-Expected: `20 test result: ok. 34 passed; 0 failed`, `10 test result: ok. 13 passed; 0 failed`; `pgrep` prints nothing; the full suite and the doc tests `0 failed`; on Linux `10 test result: ok. 34 passed; 0 failed`, `10 test result: ok. 133 passed; 0 failed` and `10 test result: ok. 42 passed; 0 failed`.
+Expected: `failed runs: 0`, `20 test result: ok. 39 passed; 0 failed`, `10 test result: ok. 14 passed; 0 failed`; `pgrep` prints nothing; the full suite and the doc tests `rc=0`; on Linux `failed Linux runs: 0`, `10 test result: ok. 39 passed`, `10 test result: ok. 135 passed` and `10 test result: ok. 43 passed`, all `0 failed`, and no `left:` line.
 
 - [ ] **Step 5: Commit and open the PR**
 
-The PR body states, in this order: (1) **Goal:** the lane goal; S5a-2 is the shim as a process: `prism-mcp --shared` reaches or starts the daemon, carries the session byte for byte, and fails closed in one line. (2) **Invariants:** Step 3. (3) **Decisions:** D84–D89, SI-25–SI-28. D85 (the daemon flags on the shim) and D88 (the stderr line on `READY`) are the ones a reviewer is most likely to want to change. (4) **Claims:** the rows for Tasks 5 and 6, with what no test holds. (5) **Totals:** Steps 2 and 4 next to the base (Linux included), and mutants 5A–6D as observed. (6) **Not verified:** x86_64 Linux before CI; descriptors leaked into the shim; SI-28. (7) **Tier-A:** not run (`src/navigation/call_edge_cache.rs` changes one visibility word; no behavior). (8) The owner questions of this plan, as defaults built.
+The PR body states, in this order: (1) **Goal:** the lane goal; S5a-2 is the shim as a process: `prism-mcp --shared` reaches or starts the daemon, carries the session byte for byte, and fails closed in one line. (2) **Invariants:** Step 3. (3) **Decisions:** D84–D89, D94–D96, SI-25–SI-27. D85 (the daemon flags on the shim) and D88 (the stderr line on `READY`) are the ones a reviewer is most likely to want to change. (4) **Claims:** the rows for Tasks 5 and 6, with what no test holds. (5) **Totals:** Steps 2 and 4 next to the base (Linux included), and mutants 5A–6D and N9 as observed. (6) **Not verified:** x86_64 Linux before CI; descriptors leaked into the shim. (7) **Tier-A:** not run (`src/navigation/call_edge_cache.rs` changes one visibility word; no behavior). (8) The owner's decisions of 2026-10-15 on D77 and D78.
 
 ```bash
 git add CLAUDE.md
@@ -5539,7 +6244,7 @@ Everything below is in `crate::mcp::shim` and `pub(super)` unless a path says ot
 - **The files:** `key_files::KeyDir` opens a key's files the safe way; S5b's cleanup of other keys' files (S4's D70) needs the same owner-lock rule: remove a key's socket, pid file and build marker only while holding its owner lock, and never its lock files.
 - **The idle clock:** a status probe through the handshake stage is a pending connection and resets the idle time (S4's interface); a probe must not keep a daemon alive.
 - **A `daemon-shutdown` that drains** ends attached shims' sessions with exit 1 and the line of D89 (they do not reconnect); a shim started during the drain is answered `RETIRING` and starts a fresh daemon (D80, D83).
-- **The restart bound's marker** (D77) is evidence an operator wants: `daemon-status` should show a key whose daemon died during its build, and when the bound expires.
+- **The restart bound's marker** (D77) is evidence an operator wants: `daemon-status` should show a key whose daemon died during its build, when a shim first saw that (the marker's third line), and when the minute ends. A cleanup of other keys' files must treat a marker as a file of a free key, under its owner lock.
 
 **The §8 soak gate (S6, then the default flip) reads:**
 
@@ -5557,22 +6262,23 @@ Everything below is in `crate::mcp::shim` and `pub(super)` unless a path says ot
 - **Spec coverage (§12 row S5a, §4.1 steps 1–9).** Step 1 (configuration and cache base) → `run_shim` through `canonical_config` and `DaemonIdentity::resolve` (S2a's normalization). Step 2 → D86 and `run_shim`'s own refusals. Step 3 → `ConnectionSettings::from_env` and `ClientSettings::new` in `run_shim`. Step 4 → `runtime_dir`, `DaemonPaths::new` (the 103-byte check, a fail-closed line), `validate_runtime_dir` at the start of `arbitrate`, and one `deadline`. Step 5 → `connect::reach` (D80). Step 6 → `arbitrate` (D81–D83) and `spawn` (D84). Step 7 → `Failure` and `fail_closed_line` (D87). Steps 8 and 9 → `pump` (D89) and `run_shim`, which never calls `arbitrate` again.
 - **S4's interfaces for S5a, one by one.** The command line, with `--key` and the runtime directory (D84). Exit status 0 for a lost claim → `Exit::Success` and a new look (D82); non-zero → fail closed naming the log (D82, D87). Open the log `O_APPEND` (D84, test `the_log_is_opened_for_appending`, mutant 5B). The pid file rewritten in place, read empty or partial (D87, `an_empty_partial_or_missing_pid_file_is_reported_as_such`). Lock files created `O_EXCL` then opened (D79: the shim uses the same `open_private`). What a connection is told before `READY`, a reset as the close, the reply read when the `HELLO` write failed (D80, mutant 2B), `HELLO` within 10 s of `connect` (the shim writes it at once). The peer check moved or shared (D79). The process-test helpers reused (`daemon_process_test.rs`, visibility only). SI-10's restart bound (D77), SI-17 (D84), the shim halves of tests 3, 4, 8, 13 and 15 ("Spec items"). S4's list also named test 2; a shim's part in an idle exit is only to close its connection, which S4's real-clock smoke test already does with its own test shim, so no shim test is added for it.
 - **The lane README's notes for S5a, one by one.** The shim checks its peer's uid (D78). The daemon checks the handed key, not adopts it (S4's D61; the shim always passes `--key`). Pass the full key (D84). `DaemonIdentity::resolve` accepts an eager configuration: the command line rejects it, and `run_shim` refuses it too (D86). Paths in error messages escaped (D87). A root-owned `prism-mcpd` after `sudo -E`: the runtime directory's error names the uid, and the fail-closed line carries it; documented in S6. The transcript driver for spec §5 (Task 6, `a_scripted_session_through_a_shim_matches_the_standalone_server_byte_for_byte`). From the S2b reviews: one call site compares `READY`'s identity with the key (`reach`, mutant 2F).
+- **Review round 1** (record at the end): five WRONG findings, each closed and bounded, folded test first with a test that failed before its fix (the Linux one in the container), and new mutants; no finding was of a kind already folded.
 - **The lane's review lessons.** (1) Every stated property has a test and a mutant, or is listed as not held: "Claims". (2) What each mechanism does not cover: its section. (3) Interleavings are played at hook points, not hoped for: a retirement between `connect` and `HELLO`, a starter dying between spawn and claim, a held lock released mid-wait, a second shim waiting on the start lock. (4) No test asserts an upper bound on a duration; one pause gives a wrong implementation time to misbehave and orders nothing a right one needs. (5) Nothing the shim prints carries a control character (`one_line`). (6) No `unwrap`, `expect`, indexing or unchecked arithmetic outside tests in the new code but the pump's bounded slice (Global Constraints); the `unsafe` blocks are one FFI call each (`setsid` in `pre_exec`, `fcntl` and `getsid` in tests).
-- **Size.** From `scratch/s5a-tasks`: S5a-1 (`296102a2..d447df4e`) `src/` 16 files, +2,170 −15, code about 770; S5a-2 (`d447df4e..8d5ce396`) `src/` and `tests/` 16 files, +1,483 −22, code about 590; `CLAUDE.md` +19, then +16 −4. The largest file edited is `files.rs` (482 lines); the largest created is `tests/mcp/shim_process_test.rs` (477).
+- **Size.** From `scratch/s5a-tasks`: S5a-1 (`296102a2..cad47b5b`) `src/` 17 files, +2,673 −19, code about 1,030; S5a-2 (`cad47b5b..14db8f4e`) `src/` and `tests/` 16 files, +1,566 −22, code about 605; `CLAUDE.md` +22, then +17 −4. Weighted sizes in Global Constraints. S5a-1 grew by about 500 lines in review round 1 (the fence, the sighting, the non-blocking connect and their tests); it is still the size the lane's two-round slices have been.
 
 ## Validation record
 
 Built on 2026-10-14 on macOS (arm64), in `~/code/prism-s5a-validate`, from `main` `296102a2`. Every cargo command ran alone, as `nice -n 19 env CARGO_BUILD_JOBS=4 cargo …`, with its output in a file under the session's scratch directory, read from the file. Nothing was pushed. Local branches:
 
-- `scratch/s5a-validate`, where the code was first written, test first: `89a37538` (Task 1), `2a1ff330` (Task 2), `26d8e3a2` (Task 3), `1971c52e` (Tasks 5 and 6 as one piece), then the folds (`fold:` commits): test additions and fixes found by the mutants and the red steps, last `7bff1bea`. Every mutant ran on `905bd4e8` (5E again on its fold); the last fold (`7bff1bea`, correction 5) changes one process test's fixture.
-- `scratch/s5a-tasks`, the same source cut into this plan's tasks, one commit per task: `1a07ad8a` (Task 1), `db1bf687` (2), `db6f85fc` (3), `d447df4e` (4, the S5a-1 head), `f16e7770` (5), `dd8f4a6e` (6), `8d5ce396` (7, the S5a-2 head). Its `src/` and `tests/` are byte-identical with `7bff1bea`.
-- `scratch/s5a-replay` (`bf4a4e18`): this plan's directives replayed by a script onto `296102a2`, every anchor matching exactly once: its tree is `38253d57`, the tree of `8d5ce396`. The red and green steps of Tasks 1, 2, 3, 5 and 6 were run on partial replays in the validate worktree (reset to `296102a2`, the plan replayed up to the task's Step 1, then up to its Step 3), built with `CARGO_INCREMENTAL=0`; Task 6's again after correction 5.
+- `scratch/s5a-validate`, where the code was first written, test first: `89a37538` (Task 1), `2a1ff330` (Task 2), `26d8e3a2` (Task 3), `1971c52e` (Tasks 5 and 6 as one piece), then the first round's folds found by the mutants and the red steps (`905bd4e8`, `7bff1bea`), and review round 1's: `a73e6e71` (its tests, run against the unfolded code), `8f92212f` (the fixes), `644dea71` (a strengthened test). Every mutant ran on `644dea71`, N8 in the Linux container.
+- `scratch/s5a-tasks`, the same source cut into this plan's tasks, one commit per task: `8145de7a` (Task 1), `04f974ae` (2), `23122273` (3), `cad47b5b` (4, the S5a-1 head), `9c175cd9` (5), `ba4c5a2d` (6), `14db8f4e` (7, the S5a-2 head). Its `src/` and `tests/` are byte-identical with `644dea71`. (The cuts of the first round, `8d5ce396` and before, are superseded.)
+- `scratch/s5a-replay` (`351b6819`): this plan's directives replayed by a script onto `296102a2`, every anchor matching exactly once: its tree is `c7a359f9`, the tree of `14db8f4e`. The red and green steps of Tasks 1, 2, 3, 5 and 6 were run on partial replays in the validate worktree (reset to `296102a2`, the plan replayed up to the task's Step 1, then up to its Step 3), built with `CARGO_INCREMENTAL=0`.
 
 | Step | Command | Observed |
 |---|---|---|
 | Base | `--lib mcp::`; `--test mcp` (unblessed), at `296102a2` | `517 passed`; `31 passed`, the goldens' test `ok` |
 | T1–T6 red and green | as in V2 and V3 | as there |
-| Mutants | the 30 of the tasks' tables, each applied alone on `905bd4e8`, its test command run, the file restored | all killed but 5E at first (correction 3), which was then killed on the fold. 6C's test does not end by itself (its daemon holds the shim's stdout, so the transcript waits for the daemon's 15-minute idle TTL); the daemon was killed by hand after about two minutes and the test then failed as named. 6D failed after the 60 s hang limit, as its row says |
+| Mutants | the tasks' tables, each applied alone on `644dea71` (first round: `905bd4e8`), its test command run, the file restored | the 30 of the first round killed (5E only after correction 3), and on the folded code again; N2–N7 and N9 killed; N8 killed in the Linux container; N1 survived (its Claims row). 6C's test does not end by itself (its daemon holds the shim's stdout, so the transcript waits for the daemon's 15-minute idle TTL); the daemon was killed by hand after about two minutes and the test then failed as named. 6D failed after the 60 s hang limit, as its row says |
 | V4–V12 | as in the table at the top | as there |
 
 **Corrections made to the plan by the validation.**
@@ -5585,4 +6291,24 @@ Built on 2026-10-14 on macOS (arm64), in `~/code/prism-s5a-validate`, from `main
 | 4 | Task 3, `a_started_daemon_that_has_not_taken_the_key_yet_is_waited_for` | not written | D82 (no look at the owner lock while a started daemon starts) had no test: every fake child claimed the key at once | the test, with a child that claims when a gate opens; mutant 3J killed |
 | 5 | Task 6, `a_live_but_wedged_owner_fails_the_shim_closed_naming_its_pid` | the fixture thread blocked in `accept` and was joined before the assertions | Task 6's red step hung: with no `--shared` flag the shim exits at once, nothing connects, and the join never returned (found on the partial replay; the test process was killed) | the fixture accepts from a non-blocking listener until it is told to stop or its sender is dropped; the red step then reads `31 passed; 11 failed` |
 
-**Not run in this validation:** x86_64 Linux (CI); `--lib mcp::` on Linux beyond what V11 states (one base failure as root); the mutation gate (it selects no MCP code; lane README); a release build; the Tier-A harness (no file it watches changes behavior: `call_edge_cache.rs` changes one visibility word); a real builder panic in a daemon a shim started (the marker's daemon half is held in process, Task 1, and the shim's half with a planted marker, Tasks 3 and 6); the §8 soak.
+**Not run in this validation:** x86_64 Linux (CI); the mutation gate (it selects no MCP code; lane README); a release build; the Tier-A harness (no file it watches changes behavior: `call_edge_cache.rs` changes one visibility word); a real builder panic in a daemon a shim started, and `run_daemon`'s wiring of the marker (Opus S1; the marker's daemon half is held in process, Task 1, and the shim's half with a planted marker, Tasks 3 and 6); the §8 soak.
+
+**Review round 1 (PR #402 at `8d5ce396`'s plan; Opus 5.5 APPROVE with ten SMELLs, all IMMATERIAL; gpt-6.1-sol FIX with five WRONG/MATERIAL findings, each reproduced or traced by sol), folded.** On `scratch/s5a-validate`: the tests first (`a73e6e71`, `r1 fold: tests first`), run against the unfolded code, then the fixes (`8f92212f`) and one strengthened test (`644dea71`); cut into tasks again on `scratch/s5a-tasks`, the directives regenerated and replayed (`scratch/s5a-replay`).
+
+| Finding | What changed | Test, and what it showed before the change |
+|---|---|---|
+| sol 1, WRONG/MATERIAL: the reply's deadline bounded each read call, not the reply (a dripped reply returned `RETIRING` 435 ms into a 100 ms deadline) | Task 2: `Deadlined` refuses a read once the deadline has passed and bounds each byte's read by the time left; a line whose read ends at the deadline is not accepted (D80) | `a_reply_dripped_past_the_deadline_is_no_reply`: before, the attempt returned `Retiring` (the assertion failed); `a_reply_whose_read_ends_at_the_deadline_is_not_accepted` holds the check after the line (mutant N2) |
+| sol 2 and Opus S3, WRONG/MATERIAL: a daemon drained during its build could clear its successor's marker, or set one after releasing the key | Task 1: the fence (D92); release and `Drop` close it before the owner lock is released; marker changes hold it | `a_released_daemon_s_marker_cannot_touch_its_successor_s`: before, `a released daemon set the marker`; `a_release_waits_for_a_marker_change_in_progress` holds the serialization (mutant N3) |
+| sol 3, WRONG/MATERIAL: the bound let a build that ran over a minute and died be restarted by every shim (a 70 s-old marker was removed and a daemon started) | Tasks 3 and 6: the first shim to see a dead build records the sighting in the marker; the key stays closed for 60 s from it, never renewed (D77) | `a_dead_build_holds_the_key_for_a_minute_from_when_a_shim_first_sees_it` and `a_partial_build_marker_holds_the_key_too`: before, both started a daemon (the assertion failed); the process test `a_daemon_that_died_during_its_build_is_not_restarted_for_a_minute`: before, the marker kept its two lines |
+| sol 4, WRONG/MATERIAL: a blocking `connect` could hold the shim past its deadline for ever on Linux when the daemon's backlog was full | Task 2: `socket.rs::connect_within`, non-blocking (D93; SI-28 settled) | `a_live_daemon_with_a_full_backlog_fails_the_shim_closed_at_the_deadline` in the `a2a-toolchain` container: before, `the shim gives up at its deadline instead of blocking in connect: Timeout` after 30 s; after, it passes there 10 of 10 (V11) |
+| sol 5, WRONG/MATERIAL: failures before the key (a missing repository, a cache directory that is a regular file) printed no `--standalone` invocation | Tasks 5 and 6: the invocation is built first; such failures print `key unresolved` (D94) | `a_failure_before_the_key_is_known_still_names_the_standalone_invocation`: before, `prism-mcp: No such file or directory (os error 2)` and no invocation |
+| sol SMELL and Opus S8: the plan's Linux and repeat commands piped cargo into `grep`, omitted `CARGO_BUILD_JOBS=4`, and cleaned up volumes only on success | Tasks 4 and 7, Step 4: whole logs per run, failures counted into the exit status, volumes removed from a `trap`, leftover processes listed from `/proc`; the commands were run as written for V11 | — |
+| Opus S1: no test holds that `run_daemon` wraps its builder in `marked` (mutant M1 survives) | Recorded under "Stated and not held", with the reason | — |
+| Opus S2: process-test shims ran on the 10 s default deadline | Task 6: 60 s unless the test sets its own (D95) | — |
+| Opus S5: `run_shim` is right only in the `prism-mcp` executable | Its doc says so (D96) | — |
+| Opus S6: SI-27's text was wrong for Linux | SI-27 and "What each mechanism covers" reworded | — |
+| Opus S9: an interrupted stdin read ended the session as the client's end | Task 5: `Interrupted` is retried (D96); other read errors still count as the end (recorded, not held) | — |
+| Opus S10: the plan described D77's bound too modestly and left out refresh rebuilds | "What each mechanism covers" and Owner questions, item 1 | — |
+| Opus S4 (a shim waiting for the start lock does not try the socket), Opus S7 (daemon flags ignored silently when a daemon exists) | Recorded in "What each mechanism covers"; S7 is also for the S6 docs. Not folded: S4 follows spec §4.1 step 6 literally and costs a connect per 100 ms per waiting shim to change; S7 is documentation | — |
+
+Mutants after the fold: the 30 of the first round re-run on the folded code, killed (2E's and 3F's and 3G's edits follow the changed lines); new: N2–N7 and N9 killed on macOS, N8 killed on Linux; N1 survived, with the reason in its Claims row.
