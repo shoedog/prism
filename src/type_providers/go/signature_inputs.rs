@@ -39,7 +39,11 @@ impl<'a> FileSignatureImports<'a> {
     }
 
     pub(super) fn get(&self) -> Cow<'_, BTreeMap<String, String>> {
-        Cow::Owned(self.scan())
+        match self.mode {
+            ImportScan::Once => Cow::Borrowed(self.cached.get_or_init(|| self.scan())),
+            #[cfg(test)]
+            ImportScan::EverySignature => Cow::Owned(self.scan()),
+        }
     }
 }
 

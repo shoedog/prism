@@ -123,3 +123,69 @@ fatal: Unable to create '/private/tmp/claude-501/-Users-wesleyjinks-code-slicing
 - Ruling: preserve separate Task 1/2/3 patches, message files and complete snapshots instead of retrying .git writes — the filesystem sandbox refuses index.lock even though the user authorized task commits; escalation is unavailable and steering blocks repeated denied-class attempts — cost if wrong: no task commit SHAs exist in this clone; controller must apply/commit the three preserved stages with the required messages/trailers. No permission was re-requested and no alternate Git-directory workaround is attempted.
 
 Task 1 commit SHA: **NOT CREATED (sandbox refusal at git add)**. HEAD remains a1aa755b. Tasks 2–3 will continue on this same artifact with explicit per-task snapshots, never a restart.
+
+## Task 2 watched behavioral RED
+
+`t2-red.log` matched the plan: **1 passed, 1 failed**. The zero-work edge case passed. At the first repeated-signature fixture (`count=1`), the full Debug equality and old count assertion had passed before `new_count` failed with **left 4, right 2**. This discriminates repeated production scanning from parser/fixture/canonicalization alternatives. No compiler/environment failure is used as behavioral evidence. Re-read get, then installed only the exact planned OnceCell match body.
+
+## Task 2 GREEN and targeted mutations
+
+`t2-green.log`: **9 passed, 0 failed**, matching Expected. The assertions cover old scan counts 4/18/66 against exactly 2 for each two-file fixture in both import-path modes, full-data equality before counts, zero signature scans for empty/non-Go/no-signature inputs, and fresh data at a reused path. Counts exclude unchanged alias-resolver setup scans.
+
+One run per targeted mutant, compiled successfully and executed all nine tests; all named behavioral assertions failed as required (not merely nonzero exit status):
+
+| Mutant / log | Expected required failure | Observed | Verdict |
+|---|---|---|---|
+| M1 / t2-M1 | repeated signature new-count 4 vs 2 | 8 passed, 1 failed; exact assertion left 4, right 2 | KILLED, MATCH |
+| M2 / t2-M2 | zero-signature count 1 vs 0 | 7 passed, 2 failed; zero-work left 1/right 0; old-count also 6 vs 4 because EverySignature eagerly scans too | KILLED, MATCH |
+| M3 / t2-M3 | import-aware full-data / distinct constructors | 7 passed, 2 failed; named constructor case full dump loses `(~example/p::T)()` to `(T)()`, satisfaction I loses T, sat_keys empty; count also 0 vs 2 from bypassed counter | KILLED, MATCH |
+| M4 / t2-M4 | last-map/first-method ordering | 7 passed, 2 failed; named order test actual a/t.go vs expected z/t.go; Inner winner also p/a.go vs q/a.go | KILLED, MATCH |
+
+Both owned files were byte-for-byte restored and hash-checked between each mutant and after M4. Final source SHA-256: go.rs `add83580c39a03dcc606a43509b28fea214aad8a73dac286840707ca311405e5`; signature_inputs.rs `def60cfe51e5dfcce6bacb1f8e25df13a7dc6d5ff2e571429164279051c151a2`. The final get body is exactly the planned OnceCell match. No mutant is retained. Restoration rerun passed 9/9; final full-suite and release receipts are below.
+
+## Transient storage failure during final feature suite
+
+The first final runnable MCP run completed every target but recorded **5,870 passed, 7 failed, 1 ignored, 32 excluded**. Four Lua failures explicitly report `Os { code: 28, kind: StorageFull, message: "No space left on device" }`; three JavaScript failures report `git log failed (is this a git repository?): fatal: not a git repository (or any of the parent directories): .git`. The JavaScript failures are not yet attributed to storage: failed fixture Git initialization and other Git setup failures could produce the same output. No source fix is authorized or made for these unrelated test targets.
+
+A shell here-document independently failed with `zsh:1: can't create temp file for here document: no space left on device`. Diagnostic prediction: persistent volume exhaustion would show near-zero available space; alternative temp-only/quota issue would differ across paths. Actual subsequent `df -h . /private/tmp` showed the same Data volume with **1.8 GiB available**, so persistent exhaustion at probe time was falsified; transient pressure remains an observation, not a reconstructed constant environment. This lane's target is 9.6 GiB, local evidence 3.6 MiB, archives under 1 MiB each. Nothing is deleted.
+
+- Ruling: preserve the failed full-feature receipt, run same-host pre-change controls for the two affected language targets, restore exact candidate bytes, then allow one full-feature retry — completed --no-fail-fast output enumerated all seven failures and free space returned; source alternatives require a control before attribution — cost if wrong: transient host state may make original failures unreproducible; retain uncertainty and stop/report if the one retry fails, without normalizing tests.
+
+Complete failed population:
+
+```text
+algo_test::test_resonance_slice_javascript
+algo_test::test_phantom_slice_javascript
+algo_test::test_threed_slice_javascript
+algo_expand_test::test_delta_slice_lua
+algo_expand_test::test_phantom_slice_lua
+algo_expand_test::test_resonance_slice_lua
+algo_expand_test::test_threed_slice_lua
+```
+
+Control prediction: both base and restored candidate should pass the 70 JavaScript + 25 Lua tests while space is available if this was transient fixture/storage failure. Falsifier: a repeatable candidate-only failure with passing base at comparable space. Base control green alone would not diagnose the original JavaScript failures. Full retry cap: one; no silent extension.
+
+Pre-change affected-target control (`disk-base-control.log`) passed **95/95** (JavaScript 70, Lua 25), 0 failed, 0 ignored on this host. Free space before control was 1.8 GiB, after control 1.3 GiB. The constant-full-volume hypothesis was already falsified; this control alone does not establish the cause of the earlier Git setup errors. The candidate was restored byte-for-byte to its saved final hash. Run the same 95-test candidate control next, then repeat both complete default and runnable-MCP suites after this temporary source swap so the final receipts follow the final restoration. This is still the declared single full-feature retry; no additional retry is authorized silently.
+
+Candidate affected-target control (`disk-candidate-control.log`) also passed **95/95**, 0 failed, 0 ignored; base and candidate both pass after the transient pressure. The original JavaScript failures remain unclassified rather than attributed to the optimization.
+
+- Ruling: reclaim only this lane's generated target/debug/incremental directory between completed cargo runs, before the single MCP retry — startup inventory showed no target directory, the cache is ordinary/non-symlink and measured 4.6 GiB while free space fell to 1.2 GiB; sequential run.py completion guarantees no lane cargo is using it during removal — cost if wrong: incremental rebuild CPU/time is lost; source, binaries, test artifacts, evidence, other targets and other workspaces are preserved. Actual pre/post free space is captured in incremental-reclaim.log. No global cleanup.
+
+## Task 2 final verification / stage boundary
+
+| Log | Expected | Observed | Comparison |
+|---|---|---|---|
+| t2-restored | 9 passed after exact restore | 9 passed, 0 failed | MATCH |
+| t2-fmt | formatting succeeds, new files under 600 lines | no diagnostics; 58/105/99/48 lines (helper/equivalence/import/cost) | MATCH |
+| t2-default | baseline +9, 0 failed | 5360 passed, 0 failed, 1 ignored | MATCH |
+| t2-mcp-runnable first attempt | runnable baseline +9, 0 failed | 5870 passed, 7 failed, 1 ignored, 32 excluded | FAILED receipt retained; transient storage and fixture failures above |
+| disk-base-control | affected targets pass with free space | 95 passed, 0 failed | MATCH; does not reconstruct earlier transient host state |
+| disk-candidate-control | same 95 tests pass | 95 passed, 0 failed | MATCH; original JS errors not reproduced or conclusively attributed |
+| t2-default-final | complete default after final restoration | 5360 passed, 0 failed, 1 ignored; all 29 targets | MATCH |
+| t2-retry-mcp-runnable | one full feature retry, exact 32 socket exclusions | 5877 passed, 0 failed, 1 ignored, 32 excluded; all 31 targets | MATCH within explicit exclusion |
+| t2-release | optimized rebuild | Finished release optimized in 44.85s | MATCH |
+| T2 matrix | no regressions/flip candidates | not run after known uv sandbox refusal | EXCLUDED, open controller gate |
+
+Golden blessing was unset for every feature run, including both controls and the retry. No golden fixture changed. Expected cache reclamation was more free space; at the scheduled boundary the cache had grown from 4.6 to 4.7 GiB and free space rose from 172 MiB to 4.0 GiB after deletion. The dynamic shared-volume readings do not establish an exact unique-byte recovery amount; only the removal and increased headroom are measured.
+
+Task 2 source remains exactly the planned helper body plus two cost tests. Task 2 commit SHA: **NOT CREATED (same denied .git-write class; not retried)**. Separate `task2.patch`, message with both required trailers, and full stage snapshot preserve the task boundary. No source/test change follows these final full suites.
