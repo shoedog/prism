@@ -334,8 +334,9 @@ spelling per message). Settings a client sends in the preamble are a `ClientSett
 wait above 600 s. A change to what goes into the key or to the preamble's wire text bumps
 `SHARED_PROTOCOL_VERSION`.
 
-Shared-daemon core (`src/mcp/daemon/`, Unix only; it has no production caller until the accept
-loop of a later slice): `coordinator.rs` holds `DaemonState`, which is a control plane
+Shared daemon (`src/mcp/daemon/`, Unix only; `prism-mcp daemon --repo X [--cache-dir D]
+[--refresh-policy P] [--warm-at-startup] [--idle-ttl S] [--max-clients N] [--key HEX]`, internal,
+started by the shim of a later slice): `coordinator.rs` holds `DaemonState`, which is a control plane
 (`Mutex<ControlState>` and one `Condvar`: the build phase `Idle | Building | Ready | Failed`, the
 attempt count, the parked calls, the generation of the provider in the slot) and a provider slot
 (`RwLock<Option<SessionProvider>>`). `ensure_ready` picks its build attempt once and waits for
@@ -393,6 +394,17 @@ touches nothing), the socket (a stale one is replaced by the owner, and the owne
 while it is still the one it bound), and the pid file; every file but the socket is opened
 through the validated runtime directory's descriptor with `O_NOFOLLOW`, and lock files are
 created with `O_EXCL` and never removed.
+`server.rs` is the accept loop, one thread polling the listener and every pending connection:
+a peer of another uid (`peer.rs`) is dropped before any reply and never counted; a pending
+connection's `HELLO` is read from a non-blocking socket against its own deadline (10 s) and
+answered `READY` (then a worker thread runs `serve_admitted` and releases the admission when it
+returns), `MISMATCH` (another identity or protocol version), `BUSY` (over `--max-clients`), or
+nothing (a refused line). The root's device and inode and the daemon's own files are checked on
+every admission and every 5 s; a change, SIGTERM/SIGINT, or the idle retirement drains the
+daemon: socket unlinked under the control lock, `RETIRING` to everything still pending or queued,
+pid file removed, owner lock released, exit 0. `run.rs` is `run_daemon`: resolve the identity
+(refusing a `--key` that differs), own the key or exit 0 silently, bind, write the pid file,
+serve. `log.rs` caps the daemon's own lines (log truncated at start over 1 MiB, capped at 8 MiB).
 
 Algorithms fall into two categories:
 1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`
