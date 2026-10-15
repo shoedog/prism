@@ -36,6 +36,7 @@ pub enum CallerTruth {
     },
     Named {
         name: String,
+        line: usize,
     },
 }
 

@@ -52,14 +52,20 @@ fn inject(
     site.line = meta.line;
     site.start_byte = meta.start_byte;
     site.end_byte = meta.end_byte;
-    site.local_binding = JsLocalBinding::Unchecked;
+    site.local_binding = CallGraph::js_local_binding_at(
+        parsed,
+        site.start_byte,
+        site.end_byte,
+        name,
+        &mut crate::ast::JsBindingCache::for_sites(),
+    );
     site
 }
 
 #[test]
 fn identity_and_disabled_builders_agree() {
     for lang in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
-        let source = "function outer(){ sink(() => 1, function(){}, function*(){}, (x,x) => x); } const named = () => 2;";
+        let source = "function outer(){ sink(() => hidden(), function(){}, function*(){}, (x,x) => x); } const named = () => 2;";
         let parsed = ParsedFile::parse("a.ts", source, lang).unwrap();
         let fs = BTreeMap::from([("a.ts".into(), parsed)]);
         let p = &fs["a.ts"];
@@ -465,3 +471,6 @@ fn anonymous_source_is_exact_and_legacy_indirect_declines() {
     let outer = cg.functions["outer"][0].clone();
     assert!(permits_legacy_indirect(&outer));
 }
+
+#[path = "call_graph_anon_authority_tests.rs"]
+mod authority_tests;

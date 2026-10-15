@@ -224,9 +224,10 @@ fn authored_caller_matches(fixture: &Fixture, records: &[&serde_json::Value]) ->
                         == prism::anon_owner::anonymous_owner_name(*line, *col)
                     && records[0]["caller"]["start_line"] == *line
             }
-            CallerTruth::Named { name } => {
+            CallerTruth::Named { name, line } => {
                 records[0]["caller"]["file"] == fixture.site_file
                     && records[0]["caller"]["name"] == *name
+                    && records[0]["caller"]["start_line"] == *line
             }
         }
 }
@@ -287,6 +288,9 @@ fn caller_check_rejects_duplicate_wrong_and_dropped_callers() {
     let mut wrong = relevant[0].clone();
     wrong["caller"]["name"] = "wrong".into();
     assert!(!authored_caller_matches(&fixture, &[&wrong]));
+    let mut wrong_line = relevant[0].clone();
+    wrong_line["caller"]["start_line"] = 999.into();
+    assert!(!authored_caller_matches(&fixture, &[&wrong_line]));
     // Resolution grade is irrelevant to caller checking: dropped source rows count.
     let mut dropped = relevant[0].clone();
     dropped["resolved_targets"] = serde_json::json!([]);

@@ -184,6 +184,14 @@ pub(crate) fn shadows(
         .is_some_and(|locals| locals.contains(name))
 }
 
+/// After proven local/alias routes, anonymous bare names need import proof.
+/// Refused, uncertain and unchecked facts cannot authorize same-name Exacts.
+/// Named owners retain their existing resolution contract.
+pub(crate) fn permits_unqualified_fallback(site: &crate::call_graph::CallSite) -> bool {
+    !is_anonymous_owner_name(&site.caller.name)
+        || matches!(&site.local_binding, crate::call_graph::JsLocalBinding::Unproven(r) if r == "import")
+}
+
 /// Positional anonymous identity; retain historical first-match semantics for named IDs.
 pub(crate) fn node_for_id<'a>(parsed: &'a ParsedFile, id: &FunctionId) -> Option<Node<'a>> {
     candidate_nodes(parsed, is_anonymous_owner_name(&id.name))

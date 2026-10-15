@@ -53,6 +53,42 @@
       "if include_generators\n",
       "if false && include_generators\n",
       "call_graph::anon_prep_tests::identity_and_disabled_builders_agree"
+    ],
+    "ANON-PREP-10-full-phase2": [
+      "src/call_graph.rs",
+      "                for func_node in crate::anon_owner::owner_nodes(parsed) {\n                    let Some(caller_id) =\n                        crate::anon_owner::emitted_identity(parsed, &func_node, file_path)\n",
+      "                for func_node in crate::anon_owner::owner_nodes(parsed) {\n                    let Some(caller_id) =\n                        crate::anon_owner::identity(parsed, &func_node, file_path)\n",
+      "call_graph::anon_prep_tests::identity_and_disabled_builders_agree"
+    ],
+    "ANON-PREP-11-subset-phase2": [
+      "src/call_graph.rs",
+      "        // Phase 2: Find call sites from subset.\n        let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =\n            BTreeMap::new();\n        for (file_path, parsed) in files {\n            if !only_files.contains(file_path) {\n                continue;\n            }\n            let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();\n            let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);\n            let named_claims =\n                crate::anon_owner::named_claims(parsed, crate::anon_owner::EMIT_ANONYMOUS_OWNERS);\n            let mut binding_cache = crate::ast::JsBindingCache::for_sites();\n            for func_node in crate::anon_owner::owner_nodes(parsed) {\n                let Some(caller_id) =\n                    crate::anon_owner::emitted_identity(parsed, &func_node, file_path)\n",
+      "        // Phase 2: Find call sites from subset.\n        let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =\n            BTreeMap::new();\n        for (file_path, parsed) in files {\n            if !only_files.contains(file_path) {\n                continue;\n            }\n            let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();\n            let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);\n            let named_claims =\n                crate::anon_owner::named_claims(parsed, crate::anon_owner::EMIT_ANONYMOUS_OWNERS);\n            let mut binding_cache = crate::ast::JsBindingCache::for_sites();\n            for func_node in crate::anon_owner::owner_nodes(parsed) {\n                let Some(caller_id) =\n                    crate::anon_owner::identity(parsed, &func_node, file_path)\n",
+      "call_graph::anon_prep_tests::identity_and_disabled_builders_agree"
+    ],
+    "ANON-PREP-12-named-shadow-return-off": [
+      "src/anon_owner.rs",
+      "if parsed.language.function_name(node).is_some() {\n        return locals;\n    }",
+      "if false && parsed.language.function_name(node).is_some() {\n        return locals;\n    }",
+      "call_graph::anon_prep_tests::authority_tests::named_guards_preserve_own_locals_and_legacy_claims"
+    ],
+    "ANON-PREP-13-named-mint-return-off": [
+      "src/anon_owner.rs",
+      "if parsed.language.function_name(owner).is_some() {\n        return true;\n    }",
+      "if false && parsed.language.function_name(owner).is_some() {\n        return true;\n    }",
+      "call_graph::anon_prep_tests::authority_tests::named_guards_preserve_own_locals_and_legacy_claims"
+    ],
+    "ANON-PREP-14-method-metadata-guard-off": [
+      "src/call_graph.rs",
+      "if parsed.language.function_name(func_node).is_none() {\n            return (None, None, None, None);\n        }",
+      "if false && parsed.language.function_name(func_node).is_none() {\n            return (None, None, None, None);\n        }",
+      "call_graph::anon_prep_tests::anonymous_source_is_exact_and_legacy_indirect_declines"
+    ],
+    "ANON-PREP-15-binder-authority-off": [
+      "src/anon_owner.rs",
+      "!is_anonymous_owner_name(&site.caller.name)\n        || matches!(&site.local_binding, crate::call_graph::JsLocalBinding::Unproven(r) if r == \"import\")",
+      "true",
+      "call_graph::anon_prep_tests::authority_tests::real_binder_blocks_all_reviewed_shadow_shapes"
     ]
   },
   "lib_test_prefixes": [

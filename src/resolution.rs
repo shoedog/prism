@@ -3415,18 +3415,15 @@ impl CallGraph {
                 if let JsLocalBinding::Callable(t) = &site.local_binding {
                     return self.js_ts_local_callable(caller, name, t, site);
                 }
-                // Slice L: a `const` alias chain the binder followed resolves through its
-                // route when that route proves a target. When it does not (an unproven import
-                // or namespace member, an export without a span, a package or paths module),
-                // the site continues below exactly as an unfollowed alias does on main.
+                // Slice L: proven aliases precede import and same-name fallback.
                 if let Some(mut outcome) = self.js_ts_alias_route(caller, name, site) {
                     outcome.via_alias_route = true;
                     return outcome;
                 }
-                // R4c: import-member resolution (Python/JS/TS).
-                // Must fire before the functions.get(name) check because aliases
-                // mean the call-site name ("p") differs from the function name
-                // ("process"), so the index won't have a hit on the aliased name.
+                if !crate::anon_owner::permits_unqualified_fallback(site) {
+                    return ResolutionOutcome::dropped(DropReason::LocalBindingUnproven);
+                }
+                // R4c precedes same-name lookup: imported aliases may rename the target.
                 if site.qualifier.is_none() && supports_import_member_resolution(&caller.file) {
                     if let Some(bindings) = self.import_bindings.get(&caller.file) {
                         if let Some(binding) = bindings.iter().find(|b| {

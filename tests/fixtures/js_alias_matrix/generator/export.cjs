@@ -22,7 +22,7 @@ const target = (v, t) => {
 // follows the marker comment (1-based line, 1-based UTF-8 byte column, as prism's `<cb@L:C>`).
 function callerTruth(v) {
   const c = v.caller;
-  if (c.kind === 'named') return { kind: 'named', file: v.siteFile, name: c.name };
+  if (c.kind === 'named') return { kind: 'named', file: v.siteFile, name: c.name, line: c.line };
   const src = v.files[v.siteFile];
   const i = src.indexOf(c.marker);
   if (i < 0 || src.indexOf(c.marker, i + 1) >= 0) throw new Error(`${v.id}: caller marker must occur exactly once`);
