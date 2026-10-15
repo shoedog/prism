@@ -5,8 +5,8 @@ use super::super::clock::Clock;
 use super::super::coordinator::{DaemonState, Parts};
 use super::super::fatal::{Domain, Fatal};
 use super::super::test_support::{
-    build_after, fixture, parts_with, scripted, state_with, status, wait_until, Conn, Gate,
-    ManualClock, Outcome,
+    build_after, client_settings, fail_now, fixture, parts_with, scripted, state_with, status,
+    wait_until, Conn, Gate, ManualClock, Outcome,
 };
 use super::*;
 use crate::mcp::shared::preamble::BuildState;
@@ -289,6 +289,41 @@ fn a_panic_inside_the_retirement_decision_ends_the_daemon_with_the_lock_held() {
         *seen.lock().expect("seen"),
         vec![(Fatal::Panicked(Domain::Control), true)]
     );
+}
+
+/// S3a's parity requirement for S4: a connection of a warm daemon whose startup attempt failed
+/// before the connection's first call holds that attempt, so its first call hears the failure.
+/// A lazy daemon's connection, and one admitted after the retry started, start empty.
+#[test]
+fn only_a_warm_daemon_s_startup_attempt_is_given_to_a_new_connection() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (builder, _calls) = scripted(&cfg, vec![fail_now("the startup build failed")]);
+    let state = DaemonState::new(builder, StartupMode::Background).expect("a warm daemon");
+    wait_until("the startup build to fail", || {
+        status(&state).state == BuildState::Failed
+    });
+    let mut seeded = state.budget_for(&client_settings(0)).expect("a budget");
+    assert_eq!(
+        seeded.unheard_failure(),
+        Some("the startup build failed".to_string())
+    );
+    assert_eq!(seeded.unheard_failure(), None, "heard once");
+
+    // The retry starts; a connection that arrives now does not hear attempt 1.
+    let conn = Conn::open(&state, 600);
+    conn.call();
+    assert_eq!(conn.outcome(), Outcome::Ready);
+    let mut later_one = state.budget_for(&client_settings(0)).expect("a budget");
+    assert_eq!(later_one.unheard_failure(), None);
+
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (builder, _calls) = scripted(&cfg, vec![fail_now("a lazy build failed")]);
+    let lazy = DaemonState::new(builder, StartupMode::Lazy).expect("a lazy daemon");
+    let conn = Conn::open(&lazy, 600);
+    conn.call();
+    assert!(matches!(conn.outcome(), Outcome::Failed(_)));
+    let mut fresh = lazy.budget_for(&client_settings(0)).expect("a budget");
+    assert_eq!(fresh.unheard_failure(), None);
 }
 
 /// A clock that records, each time it is read, whether the control lock was held.

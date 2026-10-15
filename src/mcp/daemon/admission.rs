@@ -5,8 +5,12 @@
 //! Every function here is an entry point into the control plane and takes the lock through
 //! `DaemonState::control_plane`, which makes the control plane's panic guard right after the
 //! lock (D47): a panic or a poisoned lock in any of them ends the daemon.
-use super::control::{BuildPhase, BuildStatus, StopReason};
+use super::budget::ConnectionBudget;
+use super::control::{AttemptOutcome, BuildPhase, BuildStatus, StopReason};
 use super::coordinator::{DaemonState, Poisoned};
+use crate::mcp::settings::ClientSettings;
+use crate::mcp::StartupMode;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 /// What the handshake stage does with a connection it has just accepted.
@@ -175,6 +179,32 @@ impl DaemonState {
             admitted: control.admission.admitted,
             draining: control.admission.draining,
         })
+    }
+
+    /// The first-call budget of a connection that is about to be served. A connection of a warm
+    /// daemon (`StartupMode::Background`) whose startup attempt is still the only attempt is
+    /// given that attempt, so that its first call hears it fail as the in-process server's
+    /// first call does, instead of starting the retry (S3a's parity requirement for S4). Every
+    /// other connection starts with an empty budget.
+    pub(super) fn budget_for(&self, client: &ClientSettings) -> Result<ConnectionBudget, Poisoned> {
+        let control = self.control_plane()?;
+        if self.startup_mode() != StartupMode::Background || control.attempts != 1 {
+            return Ok(ConnectionBudget::new(client));
+        }
+        let startup = match &control.build {
+            BuildPhase::Building {
+                attempt: 1,
+                outcome,
+                ..
+            } => Arc::clone(outcome),
+            BuildPhase::Failed { attempt: 1, error } => {
+                let outcome = Arc::new(AttemptOutcome::default());
+                outcome.fill(Err(error.clone()));
+                outcome
+            }
+            _ => return Ok(ConnectionBudget::new(client)),
+        };
+        Ok(ConnectionBudget::joined_at_startup(client, startup))
     }
 }
 
