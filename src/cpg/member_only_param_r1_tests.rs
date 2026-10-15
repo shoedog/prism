@@ -247,20 +247,18 @@ fn named_owner_projection_use_sits_at_the_exact_admitted_span() {
 
 #[test]
 fn with_body_reads_are_never_projected_for_named_owners() {
+    // Round 2: a callable containing any `with` is never member-only, so the outside
+    // read `p.y` is no longer projected either (documented narrowing, known-gaps 6).
     for language in JS_TS {
         let src =
             "function handler(p) {\n with ({[\"p\"]: {x: 0}}) {\n sink(p.x);\n }\n sink(p.y);\n}\n";
         let g = graph(language, src);
         assert!(
-            !has_edge_to(&g, "p.x", 3),
+            field_edges(&g, "p").iter().all(|e| e.0 != "p"),
             "{language:?}: {:?}",
             field_edges(&g, "p")
         );
-        assert!(
-            has_edge_to(&g, "p.y", 5),
-            "{language:?}: {:?}",
-            field_edges(&g, "p")
-        );
+        assert!(base_defs(&g, "p").is_empty(), "{language:?}");
     }
 }
 

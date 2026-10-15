@@ -8896,7 +8896,8 @@ impl ParsedFile {
     /// PR-C: classify how a formal is used. `MemberOnly`
     /// is JS/TS/TSX only: no bare read, at least one `name.<prop>` member
     /// read in the body, callable not parse-recovered, formal not a seam
-    /// binding. Shared by `data_flow.rs` and `reasoning/seeds.rs` (lockstep).
+    /// binding, callable containing no `with` statement and no escaped identifier.
+    /// Shared by `data_flow.rs` and `reasoning/seeds.rs` (lockstep).
     pub fn classify_parameter_use(&self, func_node: &Node<'_>, var_name: &str) -> ParameterUse {
         if self.has_bare_references(func_node, var_name) {
             return ParameterUse::Bare;
@@ -8918,6 +8919,7 @@ impl ParsedFile {
         if recovered(*func_node)
             || self.js_ts_seam_binding(func_node, var_name)
             || self.callable_has_escaped_identifier(*func_node)
+            || self.callable_has_with_statement(*func_node)
         {
             return ParameterUse::Unused;
         }

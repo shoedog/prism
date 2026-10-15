@@ -230,7 +230,7 @@
    "\n                            && !self.js_ts_span_in_with_body(node.start_byte(), node.end_byte())",
    "",
    [
-    "cpg::member_only_param_r1_tests::with_body_reads_are_never_projected_for_named_owners"
+    "cpg::member_only_param_r2_tests::a_member_only_callable_nested_in_a_with_body_still_refuses_reads_under_it"
    ]
   ],
   "MO-39-last-occurrence-wins": [
@@ -243,26 +243,29 @@
   ],
   "MO-40-fullflow-projection-guard-off": [
    "src/algorithms/full_flow.rs",
-   "if ctx.cpg.dfg_is_projection_only_def(def_loc) {",
-   "if false && ctx.cpg.dfg_is_projection_only_def(def_loc) {",
+   "for def_loc in &seeds {",
+   "for def_loc in &defs {",
    [
-    "cpg::member_only_param_r1_tests::fullflow_diff_on_a_field_read_never_pulls_in_a_sibling_field"
+    "cpg::member_only_param_r2_tests::fullflow_through_an_upstream_argument_never_reaches_sibling_fields",
+    "cpg::member_only_param_r2_tests::fullflow_through_a_same_file_caller_never_reaches_sibling_fields"
    ]
   ],
   "MO-41-predicate-never-true": [
    "src/cpg/query.rs",
-   "} if path.base == def.path.base && path.has_fields() => any = true,",
-   "} if path.base == def.path.base && path.has_fields() => {}",
+   "} if path.base == def_path.base && path.has_fields() => any = true,",
+   "} if path.base == def_path.base && path.has_fields() => {}",
    [
-    "cpg::member_only_param_r1_tests::projection_only_def_predicate_separates_member_only_bare_and_local_defs"
+    "cpg::member_only_param_r1_tests::projection_only_def_predicate_separates_member_only_bare_and_local_defs",
+    "cpg::member_only_param_r2_tests::bounded_backward_walk_stops_at_a_projection_only_def_and_keeps_context"
    ]
   ],
   "MO-42-predicate-field-check-off": [
    "src/cpg/query.rs",
-   "} if path.base == def.path.base && path.has_fields() => any = true,",
-   "} if path.base == def.path.base => any = true,",
+   "} if path.base == def_path.base && path.has_fields() => any = true,",
+   "} if path.base == def_path.base => any = true,",
    [
-    "cpg::member_only_param_r1_tests::projection_only_def_predicate_separates_member_only_bare_and_local_defs"
+    "cpg::member_only_param_r1_tests::projection_only_def_predicate_separates_member_only_bare_and_local_defs",
+    "cpg::member_only_param_r2_tests::bounded_backward_walk_stops_at_a_projection_only_def_and_keeps_context"
    ]
   ],
   "MO-43-kill-skip-off": [
@@ -280,6 +283,64 @@
    "                                    start_byte: parsed.line_start_byte(*ref_line),\n                                    end_byte: parsed.line_start_byte(*ref_line),",
    [
     "cpg::member_only_param_r1_tests::named_owner_projection_use_sits_at_the_exact_admitted_span"
+   ]
+  ],
+  "MO-62-bounded-walk-crosses-projection-def": [
+   "src/cpg/query.rs",
+   "if node != start && self.node_is_projection_only_def(node) {",
+   "if false && self.node_is_projection_only_def(node) {",
+   [
+    "cpg::member_only_param_r2_tests::bounded_backward_walk_stops_at_a_projection_only_def_and_keeps_context",
+    "cpg::member_only_param_r2_tests::fullflow_through_an_upstream_argument_never_reaches_sibling_fields"
+   ]
+  ],
+  "MO-63-seeds-include-projection-def": [
+   "src/cpg/query.rs",
+   ".filter(|&idx| !self.node_is_projection_only_def(idx))",
+   ".filter(|_| true)",
+   [
+    "cpg::member_only_param_r2_tests::bounded_backward_walk_stops_at_a_projection_only_def_and_keeps_context"
+   ]
+  ],
+  "MO-64-with-statement-refusal-off": [
+   "src/ast.rs",
+   "\n            || self.callable_has_with_statement(*func_node)",
+   "",
+   [
+    "cpg::member_only_param_r2_tests::a_callable_containing_with_is_never_member_only"
+   ]
+  ],
+  "MO-65-chain-wrapper-strip-off": [
+   "src/ast_member_projection.rs",
+   "while is_transparent_wrapper(node.kind()) {\n        let mut cursor",
+   "while false && is_transparent_wrapper(node.kind()) {\n        let mut cursor",
+   [
+    "cpg::member_only_param_r2_tests::a_write_through_a_wrapper_inside_the_chain_kills_the_whole_path",
+    "cpg::member_only_param_r2_tests::wrapped_chain_writes_do_not_kill_unrelated_paths_and_wrapped_reads_project"
+   ]
+  ],
+  "MO-66-wrapper-keeps-chain-off": [
+   "src/ast_member_projection.rs",
+   "let mut in_chain = is_transparent_wrapper(node.kind()) && inside_chain;",
+   "let mut in_chain = false;",
+   [
+    "cpg::member_only_param_r2_tests::wrapped_chain_writes_do_not_kill_unrelated_paths_and_wrapped_reads_project"
+   ]
+  ],
+  "MO-67-scope-verdict-memo-off": [
+   "src/ast_callback_identity.rs",
+   "Some(memo) if cacheable => {",
+   "Some(memo) if false && cacheable => {",
+   [
+    "cpg::member_only_param_r2_tests::member_facts_work_is_bounded_by_scopes_not_occurrences"
+   ]
+  ],
+  "MO-68-type-assertion-expression-first": [
+   "src/ast_member_projection.rs",
+   "inner.last()?",
+   "inner.next()?",
+   [
+    "cpg::member_only_param_r2_tests::a_write_through_a_wrapper_inside_the_chain_kills_the_whole_path"
    ]
   ]
  }
