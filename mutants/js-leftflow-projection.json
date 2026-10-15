@@ -1,0 +1,55 @@
+{
+ "lane": "js LeftFlow condition walk bounded at projection-only Defs (PR #390 follow-up, 2026-10-14)",
+ "source": "~/prism-evidence/js-param-defs/leftflow/REPORT.md",
+ "lib_test_prefixes": [
+  "cpg::"
+ ],
+ "mutations": {
+  "LF-01-forward-from-all-defs": [
+   "src/algorithms/left_flow.rs",
+   "for def_loc in &seeds {",
+   "for def_loc in &defs {",
+   [
+    "cpg::member_only_param_leftflow_tests::a_field_condition_never_reaches_a_local_derived_from_a_sibling_field",
+    "cpg::member_only_param_leftflow_tests::a_field_condition_in_a_called_or_nested_callee_never_reaches_a_sibling_local",
+    "cpg::member_only_param_leftflow_tests::a_tsx_component_prop_condition_never_reaches_a_local_derived_from_a_sibling_prop"
+   ]
+  ],
+  "LF-02-projection-cut-never-recorded": [
+   "src/algorithms/left_flow.rs",
+   "if defs.iter().any(|d| ctx.cpg.dfg_is_projection_only_def(d)) {",
+   "if false && defs.iter().any(|d| ctx.cpg.dfg_is_projection_only_def(d)) {",
+   [
+    "cpg::member_only_param_leftflow_tests::a_field_condition_never_reaches_a_local_derived_from_a_sibling_field",
+    "cpg::member_only_param_leftflow_tests::controls_whole_parameter_bare_formal_and_same_field_reads_are_unchanged",
+    "cpg::member_only_param_r1_tests::leftflow_condition_variable_slice_is_pinned"
+   ]
+  ],
+  "LF-03-fallback-ignores-projection-cut": [
+   "src/algorithms/left_flow.rs",
+   "dfg_covered_conds.contains(var_name) && !projection_cut_conds.contains(var_name)",
+   "dfg_covered_conds.contains(var_name)",
+   [
+    "cpg::member_only_param_leftflow_tests::a_field_condition_never_reaches_a_local_derived_from_a_sibling_field",
+    "cpg::member_only_param_leftflow_tests::controls_whole_parameter_bare_formal_and_same_field_reads_are_unchanged",
+    "cpg::member_only_param_r1_tests::leftflow_condition_variable_slice_is_pinned"
+   ]
+  ],
+  "LF-04-no-forward-leg": [
+   "src/algorithms/left_flow.rs",
+   "for def_loc in &seeds {",
+   "for def_loc in seeds.iter().take(0) {",
+   [
+    "cpg::member_only_param_leftflow_tests::controls_whole_parameter_bare_formal_and_same_field_reads_are_unchanged"
+   ]
+  ],
+  "LF-05-cut-on-any-def": [
+   "src/algorithms/left_flow.rs",
+   "if defs.iter().any(|d| ctx.cpg.dfg_is_projection_only_def(d)) {",
+   "if !defs.is_empty() {",
+   [
+    "cpg::member_only_param_leftflow_tests::controls_whole_parameter_bare_formal_and_same_field_reads_are_unchanged"
+   ]
+  ]
+ }
+}

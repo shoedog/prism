@@ -103,8 +103,9 @@ fn fullflow_diff_on_the_parameter_line_still_fans_out() {
 
 #[test]
 fn leftflow_condition_variable_slice_is_pinned() {
-    // LeftFlow has the same backward-then-forward shape but main's name fallback already
-    // includes every `p` line; pin that it does not shrink or grow.
+    // LeftFlow's condition walk stops at the projection-only base Def and keeps the
+    // pre-#390 name fallback (every `p` line); pin that it does not shrink or grow.
+    // Sibling-derived locals: member_only_param_leftflow_tests.
     for language in JS_TS {
         let src = render(
             language,
