@@ -28,13 +28,18 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
+        run: |
+          cargo build --release --target ${{ matrix.target }}
+          cargo build --release --target ${{ matrix.target }} --features mcp --bin prism-mcp
 
       - name: Package
         run: |
           cp target/${{ matrix.target }}/release/prism prism-${{ matrix.target }}
+          cp target/${{ matrix.target }}/release/prism-mcp prism-mcp-${{ matrix.target }}
 
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
-          files: prism-${{ matrix.target }}
+          files: |
+            prism-${{ matrix.target }}
+            prism-mcp-${{ matrix.target }}
