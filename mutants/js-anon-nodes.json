@@ -85,14 +85,126 @@
       "call_graph::anon_prep_tests::anonymous_source_is_exact_and_legacy_indirect_declines"
     ],
     "ANON-PREP-15-binder-authority-off": [
-      "src/anon_owner.rs",
-      "!is_anonymous_owner_name(&site.caller.name)\n        || matches!(&site.local_binding, crate::call_graph::JsLocalBinding::Unproven(r) if r == \"import\")",
+      "src/js_anonymous.rs",
+      "self.admit_anonymous_exact(site, outcome)",
+      "outcome",
+      "call_graph::anon_prep_tests::barrier_tests::census_w1_through_w6_and_disclosed_receiver_recall"
+    ],
+    "ANON-BARRIER-16-B0-off": [
+      "src/js_anonymous.rs",
+      "!self.escaped && !self.with && !self.eval && !self.nested_import && !self.uncertain",
       "true",
-      "call_graph::anon_prep_tests::authority_tests::real_binder_blocks_all_reviewed_shadow_shapes"
+      "call_graph::anon_prep_tests::barrier_tests::b0_each_file_trigger_and_clean_control"
+    ],
+    "ANON-BARRIER-17-B0-escaped-off": [
+      "src/js_anonymous.rs",
+      "!self.escaped && !self.with && !self.eval && !self.nested_import && !self.uncertain",
+      "true && !self.with && !self.eval && !self.nested_import && !self.uncertain",
+      "call_graph::anon_prep_tests::barrier_tests::b0_each_file_trigger_and_clean_control"
+    ],
+    "ANON-BARRIER-18-B0-with-off": [
+      "src/js_anonymous.rs",
+      "!self.escaped && !self.with && !self.eval && !self.nested_import && !self.uncertain",
+      "!self.escaped && true && !self.eval && !self.nested_import && !self.uncertain",
+      "call_graph::anon_prep_tests::barrier_tests::b0_each_file_trigger_and_clean_control"
+    ],
+    "ANON-BARRIER-19-B0-eval-off": [
+      "src/js_anonymous.rs",
+      "!self.escaped && !self.with && !self.eval && !self.nested_import && !self.uncertain",
+      "!self.escaped && !self.with && true && !self.nested_import && !self.uncertain",
+      "call_graph::anon_prep_tests::barrier_tests::b0_each_file_trigger_and_clean_control"
+    ],
+    "ANON-BARRIER-20-B0-nested_import-off": [
+      "src/js_anonymous.rs",
+      "!self.escaped && !self.with && !self.eval && !self.nested_import && !self.uncertain",
+      "!self.escaped && !self.with && !self.eval && true && !self.uncertain",
+      "call_graph::anon_prep_tests::barrier_tests::b0_each_file_trigger_and_clean_control"
+    ],
+    "ANON-BARRIER-21-B0-uncertain-off": [
+      "src/js_anonymous.rs",
+      "!self.escaped && !self.with && !self.eval && !self.nested_import && !self.uncertain",
+      "!self.escaped && !self.with && !self.eval && !self.nested_import && true",
+      "call_graph::anon_prep_tests::barrier_tests::b0_each_file_trigger_and_clean_control"
+    ],
+    "ANON-BARRIER-22-B0-evaluation-chain-off": [
+      "src/ast/js_anonymous.rs",
+      "Some(Pos::Unlisted | Pos::WithBody | Pos::Leave) => return false,",
+      "Some(Pos::Unlisted | Pos::WithBody) => return false,",
+      "call_graph::anon_prep_tests::barrier_tests::b0_evaluation_environments_and_table_controls"
+    ],
+    "ANON-BARRIER-23-B0-static-block-off": [
+      "src/ast/js_anonymous.rs",
+      "Some(Pos::Inside) if node.kind() == \"class_static_block\" => return false,",
+      "Some(Pos::Inside) if false => return false,",
+      "call_graph::anon_prep_tests::barrier_tests::b0_evaluation_environments_and_table_controls"
+    ],
+    "ANON-BARRIER-24-B0-unlisted-position-off": [
+      "src/ast/js_anonymous.rs",
+      "Some(Pos::Unlisted | Pos::WithBody | Pos::Leave) => return false,",
+      "Some(Pos::WithBody | Pos::Leave) => return false,",
+      "call_graph::anon_prep_tests::barrier_tests::evaluation_table_refuses_unlisted_type_positions"
+    ],
+    "ANON-BARRIER-25-B1-any-import-fact": [
+      "src/js_anonymous.rs",
+      ".is_some_and(|c| c.proves(site, one.target))",
+      " .is_some_and(|c| c.proves(site, one.target)) || matches!(&site.local_binding, JsLocalBinding::Unproven(r) if r == \"import\")",
+      "call_graph::anon_prep_tests::barrier_tests::boundary_dominates_all_route_kinds_and_rejects_wrong_site_or_target"
+    ],
+    "ANON-BARRIER-26-namespace-stem-fallback-admitted": [
+      "src/js_anonymous.rs",
+      ".is_some_and(|c| c.proves(site, one.target))",
+      " .is_some_and(|c| c.proves(site, one.target)) || matches!(&site.local_binding, JsLocalBinding::NamespaceImport {..})",
+      "call_graph::anon_prep_tests::barrier_tests::namespace_export_proof_never_admits_stem_fallback"
+    ],
+    "ANON-BARRIER-27-boundary-bypass-owner-route": [
+      "src/js_anonymous.rs",
+      "self.admit_anonymous_exact(site, outcome)",
+      "if outcome.resolved.iter().any(|r| r.kind == crate::resolution::ResolutionKind::QualifierOwner) { outcome } else { self.admit_anonymous_exact(site, outcome) }",
+      "call_graph::anon_prep_tests::barrier_tests::census_w1_through_w6_and_disclosed_receiver_recall"
+    ],
+    "ANON-BARRIER-28-B0-internal_module-off": [
+      "src/ast/js_anonymous.rs",
+      "Some(Pos::Unlisted | Pos::WithBody | Pos::Leave) => return false,",
+      "Some(Pos::Leave) if node.kind() != \"internal_module\" => return false, Some(Pos::Unlisted | Pos::WithBody) => return false,",
+      "call_graph::anon_prep_tests::barrier_tests::b0_evaluation_environments_and_table_controls"
+    ],
+    "ANON-BARRIER-29-B0-enum_declaration-off": [
+      "src/ast/js_anonymous.rs",
+      "Some(Pos::Unlisted | Pos::WithBody | Pos::Leave) => return false,",
+      "Some(Pos::Leave) if node.kind() != \"enum_declaration\" => return false, Some(Pos::Unlisted | Pos::WithBody) => return false,",
+      "call_graph::anon_prep_tests::barrier_tests::b0_evaluation_environments_and_table_controls"
+    ],
+    "ANON-BARRIER-30-filename-authority-bypass": [
+      "src/js_anonymous.rs",
+      "fn anonymous(site: &CallSite) -> bool {\n    // Only the shared JS/TS minting helper can create this reserved owner identity.\n    crate::anon_owner::is_anonymous_owner_name(&site.caller.name)\n}",
+      "fn anonymous(site: &CallSite) -> bool {\n    crate::anon_owner::is_anonymous_owner_name(&site.caller.name)\n        && matches!(\n            crate::languages::Language::from_path(&site.caller.file),\n            Some(\n                crate::languages::Language::JavaScript\n                    | crate::languages::Language::TypeScript\n                    | crate::languages::Language::Tsx\n            )\n        )\n}",
+      "call_graph::anon_prep_tests::barrier_tests::extensionless_javascript_anonymous_owners_cannot_bypass_admission"
+    ],
+    "ANON-BARRIER-31-computed-eval-name-off": [
+      "src/ast/js_anonymous.rs",
+      "self.anonymous_eval_index(i)",
+      "i.kind() == \"string\" && self.js_ts_module_export_name(i).as_deref() == Some(\"eval\")",
+      "call_graph::anon_prep_tests::barrier_tests::static_eval_member_spellings_are_all_vetoed"
     ]
   },
   "lib_test_prefixes": [
     "call_graph::anon_prep_tests::",
     "cpg::build::anon_prep_tests::"
-  ]
+  ],
+  "extra": {
+    "ANON-BARRIER-16-B0-off": [
+      [
+        "src/ast/js_anonymous.rs",
+        "pub(crate) fn anonymous_evaluation_supported(&self, site: Node<'_>) -> bool {",
+        "pub(crate) fn anonymous_evaluation_supported(&self, site: Node<'_>) -> bool { return true;"
+      ]
+    ],
+    "ANON-BARRIER-22-B0-evaluation-chain-off": [
+      [
+        "src/ast/js_anonymous.rs",
+        "Some(Pos::Inside) if node.kind() == \"class_static_block\" => return false,",
+        "Some(Pos::Inside) if false => return false,"
+      ]
+    ]
+  }
 }

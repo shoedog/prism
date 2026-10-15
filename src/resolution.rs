@@ -1095,10 +1095,9 @@ pub struct ResolutionOutcome<'a> {
     /// Some(..) iff `resolved` is empty for a classified reason.
     pub drop: Option<DropReason>,
     pub telemetry: ResolutionTelemetry,
-    /// Slice L: set only by the `None`-qualifier arm when it returned the alias route's proven
-    /// hit. It is the resolver's own statement "this answer came from the alias route", so no
-    /// earlier return (an intrinsic JSX tag, an installed owner, a pre-resolved target, ...) can
-    /// be mistaken for it.
+    /// Positive producer evidence, never inferred from a route kind or singleton pool.
+    pub(crate) anonymous_certificate: Option<crate::js_anonymous::Certificate>,
+    /// The candidate came from a followed binding.
     pub via_alias_route: bool,
 }
 
@@ -1108,6 +1107,7 @@ impl<'a> ResolutionOutcome<'a> {
             resolved,
             drop: None,
             telemetry: ResolutionTelemetry::default(),
+            anonymous_certificate: None,
             via_alias_route: false,
         }
     }
@@ -1117,10 +1117,8 @@ impl<'a> ResolutionOutcome<'a> {
         telemetry: ResolutionTelemetry,
     ) -> Self {
         Self {
-            resolved,
-            drop: None,
             telemetry,
-            via_alias_route: false,
+            ..Self::hit(resolved)
         }
     }
 
@@ -1129,16 +1127,15 @@ impl<'a> ResolutionOutcome<'a> {
             resolved: Vec::new(),
             drop: Some(reason),
             telemetry: ResolutionTelemetry::default(),
+            anonymous_certificate: None,
             via_alias_route: false,
         }
     }
 
     pub fn dropped_with_telemetry(reason: DropReason, telemetry: ResolutionTelemetry) -> Self {
         Self {
-            resolved: Vec::new(),
-            drop: Some(reason),
             telemetry,
-            via_alias_route: false,
+            ..Self::dropped(reason)
         }
     }
 }
@@ -2310,10 +2307,8 @@ impl CallGraph {
         })
     }
 
-    /// S3 R1-R7 ladder. This is the single full-resolution entry point for the
-    /// new precision ladder. Legacy callers continue to use the old resolver
-    /// until Tasks 9-11 migrate them.
-    pub fn resolve_call_site_full(&self, site: &CallSite) -> ResolutionOutcome<'_> {
+    /// Candidate generation. All public outcomes pass the anonymous admission boundary.
+    pub(crate) fn resolve_call_site_candidates(&self, site: &CallSite) -> ResolutionOutcome<'_> {
         // S1b §3.5: a plain JSX tag spelled lowercase, dashed or namespaced is an intrinsic
         // element (TypeScript `isIntrinsicJsxName`, Babel `isCompatTag`). It references no
         // binding, so no rung may bind it. Member, `_x` and `$x` tags are not intrinsic.
@@ -3413,12 +3408,12 @@ impl CallGraph {
                 // S1b-3b (SPEC §3.6): a JS/TS name whose binding holds one callable binds it,
                 // by registered name and span, before any import or same-name lookup.
                 if let JsLocalBinding::Callable(t) = &site.local_binding {
-                    return self.js_ts_local_callable(caller, name, t, site);
+                    return self.anonymous_local_outcome(caller, name, t, site);
                 }
                 // Slice L: proven aliases precede import and same-name fallback.
                 if let Some(mut outcome) = self.js_ts_alias_route(caller, name, site) {
                     outcome.via_alias_route = true;
-                    return outcome;
+                    return self.certify_anonymous_site(site, outcome);
                 }
                 if !crate::anon_owner::permits_unqualified_fallback(site) {
                     return ResolutionOutcome::dropped(DropReason::LocalBindingUnproven);
@@ -3438,7 +3433,7 @@ impl CallGraph {
                                 // A parameter or local binding shadows the imported local
                                 // name; do not mint an exact import edge.
                                 if !crate::anon_owner::shadows(self, caller, name) {
-                                    return self.js_ts_import_member_outcome(caller, binding, site);
+                                    return self.anonymous_import_outcome(caller, binding, site);
                                 }
                             } else {
                                 let member = binding.member.as_deref().unwrap_or(name);
@@ -3648,7 +3643,7 @@ impl CallGraph {
     /// S1b-3b: the in-file callable a proven binding holds, matched by registered name and
     /// span (SPEC §3.6). `t.local` can differ from the call-site spelling `name` (a renamed
     /// binding, W4 option a).
-    fn js_ts_local_callable(
+    pub(crate) fn js_ts_local_callable(
         &self,
         caller: &FunctionId,
         name: &str,

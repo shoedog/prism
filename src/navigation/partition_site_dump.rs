@@ -115,6 +115,7 @@ mod tests {
             drop: None,
             telemetry: ResolutionTelemetry::default(),
             via_alias_route: false,
+            anonymous_certificate: None,
         };
         let dump = partition_site_json(
             &site,
@@ -144,6 +145,7 @@ mod tests {
                 drop: Some(DropReason::ExternalReceiver),
                 telemetry: ResolutionTelemetry::default(),
                 via_alias_route: false,
+                anonymous_certificate: None,
             },
             GoOwnerPartitionTelemetry {
                 drops: 1,

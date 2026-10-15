@@ -523,30 +523,20 @@ pub enum JsLocalBinding {
     Callable(crate::ast::JsTerminal),
     /// S1b-4: one unwritten program namespace import, proved at this site.
     NamespaceImport { module_path: String },
-    /// Keeps base behavior, counted by reason: `may_call` (owner E5: M1, M2, a written
-    /// binding) or `alias` (a value that may hold a function by value flow, owner
-    /// 2026-09-29).
+    /// May-call or unresolved alias: candidate generation retains the named contract.
     MayCall(String),
     /// No single proven in-file callable, by reason (`unbound` and `import` included).
     Unproven(String),
     /// Owner OQ1 (Option K): an unproven position keeps base behavior, counted by reason.
     Position(String),
-    /// Slice L: the callee is a `const` alias chain that ends at this in-file callable. Resolves
-    /// exactly like `Callable`; kept distinct so the textual function-pointer path stands down
-    /// only where the binder followed an alias, never for a name bound directly to a function.
+    /// Callable terminal of a followed const chain; enables textual-path stand-down.
     AliasCallable(crate::ast::JsTerminal),
-    /// Slice L: the callee is a `const` alias chain that ends at the program-scope import
-    /// binding `local` of this file; the JS/TS import-member route decides the target.
+    /// Program import terminal of a const chain; its export proof decides the target.
     AliasImport { local: String },
-    /// Slice L: the callee is a `const` alias chain that ends at member `member` of the
-    /// namespace import of `module_path`; the namespace export proof decides the target.
+    /// Namespace-member terminal of a const chain; requires the member export proof.
     AliasNamespaceMember { module_path: String, member: String },
-    /// Slice V: the callee is a `const` binding taking its value from a call to the bare
-    /// identifier `H`, which the binder proved is the program-scope import local, in-file
-    /// callable or alias terminal `hook`; `path` selects the part of `H`'s result it takes.
-    /// The returned-value fact of the one function `hook` names decides the target; when it
-    /// proves none the site resolves as `kept` (the base classification reason, `may_call` or
-    /// `alias`) says it did before.
+    /// Returned terminal: hook identity, selected result path, and the fallback reason.
+    /// Anonymous admission also checks the hook and return-proof dependency environments.
     Returned {
         hook: crate::ast::JsFollow,
         path: crate::js_returns::JsReturnPath,
@@ -621,11 +611,11 @@ pub struct MethodFacts {
 pub struct ImportBinding {
     /// The name as used in the caller file (after `as` aliasing).
     pub local: String,
-    /// Raw module string from the import statement.
+
     pub module_path: String,
     /// The original member name (before alias); `None` for module imports.
     pub member: Option<String>,
-    /// What kind of import this is.
+
     pub kind: ImportBindingKind,
     /// False if poisoned by wildcard or re-bound by another top-level binding.
     pub eligible: bool,
@@ -970,9 +960,9 @@ pub struct CallGraph {
     /// JS/TS R4c: caller function -> conservative parameter/local binding names.
     #[serde(default)]
     pub js_ts_function_locals: BTreeMap<FunctionId, BTreeSet<String>>,
-    /// Slice V: JS/TS function -> the callable values it returns, per object key, array slot
-    /// or whole value (`ParsedFile::js_ts_return_facts`). Per-file syntax facts, maintained
-    /// incrementally like `js_ts_function_locals`; only functions with a fact are present.
+    /// Returned callable values; anonymous proof evidence is transient and fails closed on load.
+    #[serde(skip)]
+    pub(crate) js_anonymous: crate::js_anonymous::ProofIndex,
     #[serde(default)]
     pub js_ts_return_facts: BTreeMap<FunctionId, crate::js_returns::JsReturnFacts>,
     /// Go package directory index. Plain keys are legacy directory basenames;
@@ -1292,6 +1282,7 @@ impl CallGraph {
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
+            js_anonymous: Default::default(),
             js_ts_return_facts: BTreeMap::new(),
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
@@ -1575,6 +1566,7 @@ impl CallGraph {
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
+            js_anonymous: crate::js_anonymous::ProofIndex::build(files),
             js_ts_return_facts: BTreeMap::new(),
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
@@ -2048,6 +2040,7 @@ impl CallGraph {
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals,
+            js_anonymous: crate::js_anonymous::ProofIndex::build(files),
             js_ts_return_facts,
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
@@ -2441,6 +2434,7 @@ impl CallGraph {
     /// Used by incremental cache update: when a file changes, its call graph
     /// contributions are stripped out before fresh data is merged in.
     pub fn remove_files(&mut self, exclude: &BTreeSet<String>) {
+        self.js_anonymous.remove_files(exclude);
         self.executable_owner = None;
         // Both are whole-program pass products and are repopulated from the
         // complete files map by `build_direct_subset` / `recompute_indirect_calls`.
@@ -2662,6 +2656,7 @@ impl CallGraph {
         self.js_ts_exports.extend(other.js_ts_exports);
         self.js_ts_function_locals
             .extend(other.js_ts_function_locals);
+        self.js_anonymous.merge(other.js_anonymous);
         self.js_ts_return_facts.extend(other.js_ts_return_facts);
         // P8: per-file macro-arg facts extend directly -- `other` only ever
         // carries entries for files it (re)built, so this can never
@@ -5461,6 +5456,7 @@ impl CallGraph {
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals,
+            js_anonymous: crate::js_anonymous::ProofIndex::build(files),
             js_ts_return_facts,
             // P5: whole-program Go func-value state — left empty here, exactly
             // like `interface_impls`/`interface_dispatch_computed: false`
@@ -5770,10 +5766,8 @@ impl CallGraph {
             .map(str::to_string)
     }
 
-    /// S1b-3b: the JS/TS lexical binding of an unqualified identifier callee at a site (SPEC
-    /// §3.6). `None` (default `Unchecked`) for another language or a non-identifier callee
-    /// (qualified calls, synthetic sites, indirect sites: §2 non-goals, E10).
-    fn js_local_binding_at<'a>(
+    /// Source-byte JS binding query; unsupported/synthetic callees remain Unchecked.
+    pub(crate) fn js_local_binding_at<'a>(
         parsed: &'a ParsedFile,
         start_byte: usize,
         end_byte: usize,
