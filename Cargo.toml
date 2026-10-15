@@ -1,6 +1,6 @@
 [package]
 name = "prism"
-version = "3.1.2"
+version = "3.2.0"
 edition = "2021"
 description = "Code slicing algorithms for defect-focused automated code review, based on arXiv:2505.17928"
 license = "Apache-2.0"
