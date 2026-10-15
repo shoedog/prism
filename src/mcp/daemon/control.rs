@@ -95,8 +95,49 @@ impl BuildPhase {
     }
 }
 
-/// What the control lock guards. Slice S4 adds the admission counters and the retirement
-/// decision beside the build phase, under the same lock.
+/// Why a daemon stops serving (spec §3.1 "Draining").
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum StopReason {
+    /// Nothing admitted and nothing pending for the idle TTL, and no build running.
+    Idle,
+    /// The repository root is gone, or its device and inode are no longer the served ones.
+    RootChanged,
+    /// SIGTERM or SIGINT.
+    Signal,
+}
+
+/// The connections of a daemon and whether it drains (spec §4.2 "Admission and retirement").
+/// Changed only under the control lock, by the functions in `admission.rs`.
+#[derive(Debug)]
+pub(super) struct Admission {
+    /// Connections accepted into the handshake stage and not yet admitted or dropped.
+    pub(super) pending: u32,
+    /// Connections that were answered `READY` and whose serve loop has not returned.
+    pub(super) admitted: u32,
+    /// Since when `pending` and `admitted` have both been 0, as far as admission and the
+    /// retirement decision have seen; `None` while either is not, and before the first
+    /// decision (which starts the count for a daemon nobody has reached yet).
+    pub(super) idle_since: Option<Instant>,
+    /// Set once, by the critical section that decides the daemon drains, and never cleared:
+    /// from then on no connection is admitted.
+    pub(super) draining: Option<StopReason>,
+}
+
+impl Admission {
+    /// A daemon with no connection yet. Its idle time starts at the first retirement decision,
+    /// so a daemon nobody ever reaches retires after the idle TTL like any other.
+    pub(super) fn new() -> Self {
+        Self {
+            pending: 0,
+            admitted: 0,
+            idle_since: None,
+            draining: None,
+        }
+    }
+}
+
+/// What the control lock guards: the build phase and, beside it under the same lock, the
+/// admission counts and the retirement decision (spec §4.2).
 pub(super) struct ControlState {
     pub(super) build: BuildPhase,
     /// How many attempts have been started; also the number of the latest one.
@@ -109,6 +150,19 @@ pub(super) struct ControlState {
     /// not depend on the phase, so it is true in the interval between publication and the
     /// announcement of `Ready` as well.
     pub(super) generation: u64,
+    pub(super) admission: Admission,
+}
+
+impl ControlState {
+    /// What the status probe and `READY` report about the build.
+    pub(super) fn build_status(&self) -> BuildStatus {
+        BuildStatus {
+            state: self.build.state(),
+            attempt: self.attempts,
+            generation: self.generation,
+            waiting: self.waiting,
+        }
+    }
 }
 
 /// A snapshot of the control plane: what the status probe reports about the build.
