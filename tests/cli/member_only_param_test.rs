@@ -100,3 +100,60 @@ fn algorithm_taint_never_links_one_request_field_source_to_another_fields_sink()
         );
     }
 }
+
+fn slice_lines_cli(dir: &std::path::Path, file: &str, line: usize, extra: &[&str]) -> Vec<u64> {
+    let source = std::fs::read_to_string(dir.join(file)).unwrap();
+    let text = source.lines().nth(line - 1).unwrap();
+    let patch =
+        format!("--- a/{file}\n+++ b/{file}\n@@ -{line},1 +{line},1 @@\n-{text} //old\n+{text}\n");
+    std::fs::write(dir.join("d.patch"), patch).unwrap();
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .arg("--repo")
+        .arg(dir)
+        .arg("--diff")
+        .arg(dir.join("d.patch"))
+        .args(extra)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let mut lines: Vec<u64> = v["slices"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|s| s["slice_lines"].as_array().unwrap().iter())
+        .map(|l| l.as_u64().unwrap())
+        .collect();
+    lines.sort_unstable();
+    lines.dedup();
+    lines
+}
+
+#[test]
+fn leftflow_composers_never_pull_a_sibling_derived_local_into_a_field_condition_slice() {
+    // A diff on `if (p.x)` must not reach `sinkC(html)` (line 6), whose `html` comes from
+    // the sibling `p.z`; the pre-projection name-based `p` lines (2) stay.
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("a.js"),
+        "function h(p) {\n  const html = p.z;\n  if (p.x) {\n    a();\n  }\n  sinkC(html);\n}\n",
+    )
+    .unwrap();
+    for extra in [
+        &["--algorithm", "leftflow"][..],
+        &["--algorithm", "fullflow"][..],
+        &["--algorithm", "conditioned", "--condition", "p.x == null"][..],
+    ] {
+        assert_eq!(
+            slice_lines_cli(dir.path(), "a.js", 3, extra),
+            vec![1, 2, 3, 7],
+            "{extra:?}"
+        );
+    }
+}
