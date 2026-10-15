@@ -102,8 +102,23 @@ pub(super) enum StopReason {
     Idle,
     /// The repository root is gone, or its device and inode are no longer the served ones.
     RootChanged,
+    /// The socket or the owner lock's file at its path is no longer the one this daemon holds
+    /// (the runtime directory was removed or replaced under it).
+    FilesReplaced,
     /// SIGTERM or SIGINT.
     Signal,
+}
+
+impl StopReason {
+    /// The words the daemon's log line uses.
+    pub(super) fn describe(self) -> &'static str {
+        match self {
+            Self::Idle => "idle for the idle TTL with no client and no build",
+            Self::RootChanged => "the repository root was lost or replaced",
+            Self::FilesReplaced => "its socket or owner lock file was replaced",
+            Self::Signal => "a termination signal",
+        }
+    }
 }
 
 /// The connections of a daemon and whether it drains (spec §4.2 "Admission and retirement").

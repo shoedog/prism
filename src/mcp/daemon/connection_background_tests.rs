@@ -18,6 +18,36 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+/// Replace the digits of every `elapsed_secs` value with `N`, however the field is quoted in
+/// the line. The `warming` answer reports how long its own run's build has been going, which a
+/// scheduling pause between the two runs can move by a second (review of S4-1, gpt-6.1-sol).
+/// Nothing else is touched: the `build_failed` answer, its cause, and the order of the answers
+/// are compared byte for byte.
+fn without_elapsed_time(lines: &str) -> String {
+    const FIELD: &str = "elapsed_secs";
+    let mut out = String::with_capacity(lines.len());
+    let mut rest = lines;
+    while let Some(at) = rest.find(FIELD) {
+        let after = at + FIELD.len();
+        out.push_str(&rest[..after]);
+        rest = &rest[after..];
+        // Up to and including the colon: the closing quote, possibly escaped, and any space.
+        let Some(colon) = rest.find(':') else { break };
+        out.push_str(&rest[..=colon]);
+        rest = &rest[colon + 1..];
+        let spaces = rest.len() - rest.trim_start_matches(' ').len();
+        out.push_str(&rest[..spaces]);
+        rest = &rest[spaces..];
+        let digits = rest.len() - rest.trim_start_matches(|c: char| c.is_ascii_digit()).len();
+        if digits > 0 {
+            out.push('N');
+        }
+        rest = &rest[digits..];
+    }
+    out.push_str(rest);
+    out
+}
+
 /// The reviewer's probe, which failed on S3a's code: both sides' startup builds fail before the
 /// client's first call; the client then sends two calls. The daemon's bytes must be the
 /// in-process server's: `build_failed` with the cause, then the retry's `warming`. Rules out a
@@ -111,5 +141,30 @@ fn a_warm_daemon_whose_startup_build_failed_before_the_first_call_reports_it_lik
     actual.push_str(&client.recv_line());
     close(client, worker);
     d_retry.open();
+    let (actual, expected) = (
+        without_elapsed_time(&actual),
+        without_elapsed_time(&expected),
+    );
+    assert!(
+        actual.contains("elapsed_secs") && actual.contains(":N"),
+        "the warming answer's elapsed time is normalized, not absent: {actual}"
+    );
     assert_eq!(actual, expected);
+}
+
+/// The normalizer rewrites only the digits after `elapsed_secs`, plain or escaped inside a
+/// string, and leaves every other byte alone. Rules out a comparison that normalizes nothing,
+/// or too much.
+#[test]
+fn only_the_elapsed_time_digits_are_normalized() {
+    assert_eq!(
+        without_elapsed_time(r#"{"status":"warming","elapsed_secs":37,"n":12}"#),
+        r#"{"status":"warming","elapsed_secs":N,"n":12}"#
+    );
+    assert_eq!(
+        without_elapsed_time(r#"{"text":"{\"elapsed_secs\": 4}"}"#),
+        r#"{"text":"{\"elapsed_secs\": N}"}"#
+    );
+    let failed = r#"{"status":"build_failed","cause":"0 elapsed"}"#;
+    assert_eq!(without_elapsed_time(failed), failed);
 }

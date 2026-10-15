@@ -30,12 +30,14 @@ pub(super) enum Admit {
     /// Counted as admitted: write `READY` with this build status. If the write fails, call
     /// `release`.
     Ready(BuildStatus),
-    /// The daemon drains: answer `RETIRING` and close it.
+    /// The daemon drains: answer `RETIRING` and close it. `admit` has already taken this
+    /// connection out of the pending count, so the caller must not call `leave_handshake`.
     Retiring,
 }
 
 /// The connection counts, for tests and the status probe.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))] // read by tests until S5b's status probe
 pub(super) struct AdmissionStatus {
     pub(super) pending: u32,
     pub(super) admitted: u32,
@@ -61,7 +63,11 @@ impl DaemonState {
     }
 
     /// A pending connection left the handshake stage without being admitted: it timed out,
-    /// closed, sent a line that was refused, or was answered `MISMATCH` or `RETIRING`.
+    /// closed, sent a line that was refused, or was answered `MISMATCH`, or was answered
+    /// `RETIRING` by the drain (which empties the connections that were still pending). It is
+    /// the only way out of the pending count besides `admit`: a connection that `enter_handshake`
+    /// answered `Entry::Retiring` or `Busy` was never counted, and one that `admit` answered
+    /// `Admit::Retiring` was uncounted by `admit`, so neither calls this.
     pub(super) fn leave_handshake(&self) -> Result<(), Poisoned> {
         let mut control = self.control_plane()?;
         // Read inside the critical section: a time read before the lock can be older than a
@@ -172,6 +178,7 @@ impl DaemonState {
             .and_then(|since| since.checked_add(idle_ttl)))
     }
 
+    #[cfg_attr(not(test), allow(dead_code))] // read by tests until S5b's status probe
     pub(super) fn admission_status(&self) -> Result<AdmissionStatus, Poisoned> {
         let control = self.control_plane()?;
         Ok(AdmissionStatus {
