@@ -1,0 +1,2244 @@
+{
+ "failures": {},
+ "frame": {
+  "hierarchy_named": 121,
+  "outside_by_kind": {
+   "arrow_function": 12,
+   "function_declaration": 5,
+   "function_expression": 208,
+   "method_definition": 10
+  },
+  "policy": "native hierarchy inventory plus independent property/getter site sampling",
+  "prism_named": 356,
+  "prism_outside_hierarchy": 235,
+  "syntax_callable_by_shape": {
+   "function": 84,
+   "getter": 6,
+   "method": 20,
+   "property_callable": 98,
+   "variable_callable": 11
+  }
+ },
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 159,
+  "matched": 121,
+  "prism_extra": 235,
+  "prism_missing": 0,
+  "shared_oracle_selection_lines": 0,
+  "shared_sut_start_lines": 2,
+  "snapshot_prism_missing": 0
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 9,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.299145051727044
+      ],
+      "tp": 0
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.6576197760453506
+      ],
+      "tp": 0
+     },
+     "raw": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.6576197760453506
+      ],
+      "tp": 0
+     }
+    },
+    "pending": 9,
+    "raw": {
+     "fn": 9,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      0.299145051727044
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.3333333333333333,
+       0.06149194402093078,
+       0.7923404011921757
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.3333333333333333,
+       0.06149194402093078,
+       0.7923404011921757
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.5614970356393196
+      ],
+      "tp": 0
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 3,
+    "raw": {
+     "fn": 3,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      0.5614970356393196
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.7934506882081973
+      ],
+      "tp": 0
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      0.7934506882081973
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.6576197760453506
+      ],
+      "tp": 0
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.3333333333333333,
+       0.06149194402093078,
+       0.7923404011921757
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.3333333333333333,
+       0.06149194402093078,
+       0.7923404011921757
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 2,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      0.6576197760453506
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       0.3333333333333333,
+       0.06149194402093078,
+       0.7923404011921757
+      ],
+      "tp": 1
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       0.3333333333333333,
+       0.06149194402093078,
+       0.7923404011921757
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       0.3333333333333333,
+       0.06149194402093078,
+       0.7923404011921757
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 2,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      0.3333333333333333,
+      0.06149194402093078,
+      0.7923404011921757
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 7,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.35433043867586833
+      ],
+      "tp": 0
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 7,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.35433043867586833
+      ],
+      "tp": 0
+     },
+     "raw": {
+      "fn": 7,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.35433043867586833
+      ],
+      "tp": 0
+     }
+    },
+    "pending": 7,
+    "raw": {
+     "fn": 7,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      0.35433043867586833
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 10,
+  "checked": [],
+  "counts": {
+   "alias_site": 0,
+   "ambiguous": 0,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "member_sites": {
+  "policy": "static definition binding; getter accesses separate from calls",
+  "shapes": {
+   "getter": {
+    "candidate_sites": 37,
+    "declarations": 6,
+    "detection_recall": null,
+    "exclusions": {
+     "nonconcrete_or_unsupported_definition": 3
+    },
+    "found": 0,
+    "missing": 0,
+    "rows": [
+     {
+      "definitions": [],
+      "outcome": "nonconcrete_or_unsupported_definition",
+      "site": {
+       "character": 9,
+       "file": "node-http-server_8.1.2/package/example/advanced/basicTemplate.js",
+       "kind": "access",
+       "line": 44,
+       "name": "value"
+      }
+     },
+     {
+      "definitions": [],
+      "outcome": "nonconcrete_or_unsupported_definition",
+      "site": {
+       "character": 40,
+       "file": "algoliasearch-helper_3.6.0/package/src/algoliasearch.helper.js",
+       "kind": "access",
+       "line": 366,
+       "name": "value"
+      }
+     },
+     {
+      "definitions": [],
+      "outcome": "nonconcrete_or_unsupported_definition",
+      "site": {
+       "character": 24,
+       "file": "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js",
+       "kind": "access",
+       "line": 41,
+       "name": "value"
+      }
+     }
+    ],
+    "sampled_sites": 3
+   },
+   "property_callable": {
+    "candidate_sites": 277,
+    "declarations": 98,
+    "detection_recall": [
+     0.0,
+     0.0,
+     0.6576197760453506
+    ],
+    "exclusions": {
+     "nonconcrete_or_unsupported_definition": 1
+    },
+    "found": 0,
+    "missing": 2,
+    "rows": [
+     {
+      "definitions": [
+       {
+        "end": {
+         "line": 1367,
+         "offset": 50
+        },
+        "file": "algoliasearch-helper_3.6.0/package/src/SearchParameters/index.js",
+        "start": {
+         "line": 1367,
+         "offset": 32
+        }
+       }
+      ],
+      "outcome": "missing",
+      "site": {
+       "character": 16,
+       "file": "algoliasearch-helper_3.6.0/package/src/SearchParameters/index.js",
+       "kind": "call",
+       "line": 819,
+       "name": "setQueryParameters"
+      }
+     },
+     {
+      "definitions": [
+       {
+        "end": {
+         "line": 95,
+         "offset": 44
+        },
+        "file": "algoliasearch-helper_3.6.0/package/src/SearchParameters/RefinementList.js",
+        "start": {
+         "line": 95,
+         "offset": 29
+        }
+       }
+      ],
+      "outcome": "missing",
+      "site": {
+       "character": 37,
+       "file": "algoliasearch-helper_3.6.0/package/src/SearchParameters/index.js",
+       "kind": "call",
+       "line": 386,
+       "name": "clearRefinement"
+      }
+     },
+     {
+      "definitions": [],
+      "outcome": "nonconcrete_or_unsupported_definition",
+      "site": {
+       "character": 28,
+       "file": "algoliasearch-helper_3.6.0/package/src/SearchResults/index.js",
+       "kind": "call",
+       "line": 645,
+       "name": "isDisjunctiveFacet"
+      }
+     }
+    ],
+    "sampled_sites": 3
+   }
+  }
+ },
+ "meta": {
+  "baseline_invalid": false,
+  "corpus": "secbench-node",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_identity": {
+   "component": "source_manifest",
+   "drift": [],
+   "expected": "6c9e7e9252d173b60f083dff36734e597b8121943fba0e1d6946a315e4b812d0",
+   "manifest_sha256": "6c9e7e9252d173b60f083dff36734e597b8121943fba0e1d6946a315e4b812d0",
+   "observed": "6c9e7e9252d173b60f083dff36734e597b8121943fba0e1d6946a315e4b812d0",
+   "oracle_environment_sha256": "c084ccf8ea659fae24304faf3937257128636a27ee3aaef161625e2015e1b8b8"
+  },
+  "corpus_sha": "secbench-node-r1",
+  "date": "2026-10-14",
+  "harness_sha": "d650e01eb9fa",
+  "invalid_reasons": [],
+  "language": "js",
+  "oracle": "tsserver 6.0.3",
+  "oracle_configuration": {
+   "cargo_features": null
+  },
+  "oracle_environment": {
+   "node_modules": {
+    "present": [],
+    "search_paths": [
+     "/Users/wesleyjinks/.local/share/prism/corpora/secbench-node-r1/source/node_modules",
+     "/Users/wesleyjinks/.local/share/prism/corpora/secbench-node-r1/node_modules",
+     "/Users/wesleyjinks/.local/share/prism/corpora/node_modules",
+     "/Users/wesleyjinks/.local/share/prism/node_modules",
+     "/Users/wesleyjinks/.local/share/node_modules",
+     "/Users/wesleyjinks/.local/node_modules",
+     "/Users/wesleyjinks/node_modules",
+     "/Users/node_modules",
+     "/node_modules"
+    ]
+   },
+   "oracle": "tsserver 6.0.3"
+  },
+  "oracle_error_rate": 0.0,
+  "oracle_not_quiescent": false,
+  "oracle_readiness": [],
+  "oracle_restarts": [],
+  "oracle_retries": [],
+  "prism_dirty": false,
+  "prism_sha": "d650e01eb9fa",
+  "sample_per_stratum": 3,
+  "sampling_inventory": "live",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "timeouts": {
+   "oracle_budget_s": 600.0,
+   "query_timeout_s": 10.0,
+   "startup_timeout_s": 60.0
+  },
+  "wall_s": {
+   "m1_oracle_inventory": 0.667,
+   "m2": 3.202,
+   "m3": 0.0,
+   "oracle_start": 0.048,
+   "total": 4.532
+  }
+ },
+ "oracle_filtered": [],
+ "pending": [
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:181",
+   "site": "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:125",
+   "site_fingerprint": "399bd1e28d13bd3c"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "algoliasearch-helper_3.6.0/package/src/SearchResults/index.js:751",
+   "site": "algoliasearch-helper_3.6.0/package/src/SearchResults/index.js:832",
+   "site_fingerprint": "e0cdbe8f32a2de53"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "find-process_1.4.4/package/lib/utils.js:132",
+   "site": "find-process_1.4.4/package/lib/find_process.js:134",
+   "site_fingerprint": "dc1737590d68d12c"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "find-process_1.4.4/package/lib/utils.js:37",
+   "site": "find-process_1.4.4/package/lib/find_pid.js:40",
+   "site_fingerprint": "43a3377a46cd3ae7"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "find-process_1.4.4/package/lib/utils.js:37",
+   "site": "find-process_1.4.4/package/lib/find_pid.js:78",
+   "site_fingerprint": "f227d5dbb0961263"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "find-process_1.4.4/package/lib/utils.js:37",
+   "site": "find-process_1.4.4/package/lib/find_pid.js:114",
+   "site_fingerprint": "9e573abffef3a118"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "find-process_1.4.4/package/lib/utils.js:37",
+   "site": "find-process_1.4.4/package/lib/find_pid.js:150",
+   "site_fingerprint": "96daccad563a932c"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "find-process_1.4.4/package/lib/utils.js:37",
+   "site": "find-process_1.4.4/package/lib/find_process.js:83",
+   "site_fingerprint": "e2f8fd4821c2c801"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "find-process_1.4.4/package/lib/utils.js:37",
+   "site": "find-process_1.4.4/package/lib/find_process.js:182",
+   "site_fingerprint": "2637bae46210e9f2"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "algoliasearch-helper_3.6.0/package/src/SearchParameters/index.js:41",
+   "site": "algoliasearch-helper_3.6.0/package/src/SearchParameters/index.js:43",
+   "site_fingerprint": "d4ee83cbe14d440c"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:67",
+   "site": "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:110",
+   "site_fingerprint": "a1a67db01e17d8d9"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:67",
+   "site": "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:120",
+   "site_fingerprint": "871ffaeb29b7776a"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:67",
+   "site": "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:125",
+   "site_fingerprint": "399bd1e28d13bd3c"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "find-process_1.4.4/package/lib/find.js:14",
+   "site": "find-process_1.4.4/package/lib/find.js:15",
+   "site_fingerprint": "0b28d71900646a4f"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "find-process_1.4.4/package/lib/find.js:14",
+   "site": "find-process_1.4.4/package/lib/find.js:17",
+   "site_fingerprint": "8a3e37692ca1517f"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "find-process_1.4.4/package/lib/find_pid.js:27",
+   "site": "find-process_1.4.4/package/lib/find_pid.js:29",
+   "site_fingerprint": "e2442d99fafe9f73"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "find-process_1.4.4/package/lib/find_pid.js:27",
+   "site": "find-process_1.4.4/package/lib/find_pid.js:40",
+   "site_fingerprint": "43a3377a46cd3ae7"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "find-process_1.4.4/package/lib/find_pid.js:27",
+   "site": "find-process_1.4.4/package/lib/find_pid.js:41",
+   "site_fingerprint": "2e6319b2c24ac7a7"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "find-process_1.4.4/package/lib/find_process.js:162",
+   "site": "find-process_1.4.4/package/lib/find_process.js:166",
+   "site_fingerprint": "4d160991bbaf2e7d"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "find-process_1.4.4/package/lib/find_process.js:162",
+   "site": "find-process_1.4.4/package/lib/find_process.js:182",
+   "site_fingerprint": "2637bae46210e9f2"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "find-process_1.4.4/package/lib/find_process.js:162",
+   "site": "find-process_1.4.4/package/lib/find_process.js:183",
+   "site_fingerprint": "594ab8a72fcdbfff"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "find-process_1.4.4/package/lib/find_process.js:162",
+   "site": "find-process_1.4.4/package/lib/find_process.js:187",
+   "site_fingerprint": "44b0d23ca6f34a4f"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "find-process_1.4.4/package/lib/find_process.js:162",
+   "site": "find-process_1.4.4/package/lib/find_process.js:195",
+   "site_fingerprint": "c3317b33713afc63"
+  },
+  {
+   "corpus": "secbench-node",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "find-process_1.4.4/package/lib/find_process.js:162",
+   "site": "find-process_1.4.4/package/lib/find_process.js:202",
+   "site_fingerprint": "a16969b20dd29fdf"
+  }
+ ],
+ "probes": {
+  "_corpus": "secbench-node",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "population_symbols": 7,
+    "target": 3
+   },
+   "C-name": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "population_symbols": 21,
+    "target": 3
+   },
+   "Q-scoped": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "population_symbols": 18,
+    "target": 3
+   },
+   "U-free": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "population_symbols": 62,
+    "target": 3
+   },
+   "U-method": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "population_symbols": 13,
+    "target": 3
+   }
+  },
+  "callees:algoliasearch-helper_3.6.0/package/src/SearchParameters/index.js:41": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "algoliasearch-helper_3.6.0/package/src/SearchParameters/index.js",
+     "findArray"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "algoliasearch-helper_3.6.0/package/src/SearchParameters/index.js",
+     43,
+     43
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "algoliasearch-helper_3.6.0/package/src/SearchParameters/index.js",
+     "findArray"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "algoliasearch-helper_3.6.0/package/src/SearchParameters/index.js:41",
+   "seed_location_line": 41,
+   "stratum": "U-free"
+  },
+  "callees:algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:181": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js",
+     "format"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:181",
+   "seed_location_line": 181,
+   "stratum": "U-free"
+  },
+  "callees:algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:67": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js",
+     "generateTree"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js",
+     110,
+     110
+    ],
+    [
+     "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js",
+     120,
+     120
+    ],
+    [
+     "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js",
+     125,
+     125
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js",
+     "generateTree"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:67",
+   "seed_location_line": 67,
+   "stratum": "Q-scoped"
+  },
+  "callees:algoliasearch-helper_3.6.0/package/src/SearchResults/index.js:391": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "algoliasearch-helper_3.6.0/package/src/SearchResults/index.js:391",
+   "seed_location_line": 391,
+   "stratum": "Q-scoped"
+  },
+  "callees:algoliasearch-helper_3.6.0/package/src/SearchResults/index.js:751": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "algoliasearch-helper_3.6.0/package/src/SearchResults/index.js:751",
+   "seed_location_line": 751,
+   "stratum": "U-free"
+  },
+  "callees:algoliasearch-helper_3.6.0/package/src/SearchResults/index.js:87": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "algoliasearch-helper_3.6.0/package/src/SearchResults/index.js",
+     "facetKeyMatchesAttribute"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "algoliasearch-helper_3.6.0/package/src/SearchResults/index.js:87",
+   "seed_location_line": 87,
+   "stratum": "Q-scoped"
+  },
+  "callees:find-process_1.4.4/package/lib/find.js:14": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "find-process_1.4.4/package/lib/find.js",
+     "port"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "find-process_1.4.4/package/lib/find.js",
+     15,
+     15
+    ],
+    [
+     "find-process_1.4.4/package/lib/find.js",
+     15,
+     15
+    ],
+    [
+     "find-process_1.4.4/package/lib/find.js",
+     17,
+     17
+    ],
+    [
+     "find-process_1.4.4/package/lib/find.js",
+     17,
+     17
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "find-process_1.4.4/package/lib/find.js",
+     "port"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "find-process_1.4.4/package/lib/find.js:14",
+   "seed_location_line": 14,
+   "stratum": "U-method"
+  },
+  "callees:find-process_1.4.4/package/lib/find_pid.js:27": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     "darwin"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     29,
+     29
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     29,
+     29
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     40,
+     40
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     40,
+     40
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     41,
+     41
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     41,
+     41
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     41,
+     41
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     41,
+     41
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     41,
+     41
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     41,
+     41
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     41,
+     41
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     41,
+     41
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "find-process_1.4.4/package/lib/find_pid.js:27",
+   "seed_location_line": 27,
+   "stratum": "C-method"
+  },
+  "callees:find-process_1.4.4/package/lib/find_process.js:162": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "find-process_1.4.4/package/lib/find_process.js",
+     "android"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "find-process_1.4.4/package/lib/find_process.js",
+     166,
+     166
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_process.js",
+     166,
+     166
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_process.js",
+     182,
+     182
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_process.js",
+     182,
+     182
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_process.js",
+     183,
+     183
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_process.js",
+     183,
+     183
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_process.js",
+     183,
+     183
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_process.js",
+     183,
+     183
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_process.js",
+     187,
+     187
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_process.js",
+     195,
+     195
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_process.js",
+     202,
+     202
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "find-process_1.4.4/package/lib/find_process.js:162",
+   "seed_location_line": 162,
+   "stratum": "C-method"
+  },
+  "callees:find-process_1.4.4/package/lib/utils.js:132": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "find-process_1.4.4/package/lib/utils.js",
+     "parseTable"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "find-process_1.4.4/package/lib/utils.js:132",
+   "seed_location_line": 132,
+   "stratum": "U-method"
+  },
+  "callees:find-process_1.4.4/package/lib/utils.js:37": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "find-process_1.4.4/package/lib/utils.js",
+     "stripLine"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "find-process_1.4.4/package/lib/utils.js:37",
+   "seed_location_line": 37,
+   "stratum": "U-method"
+  },
+  "callees:node-http-server_8.1.2/package/example/advanced/https-basicTemplate.js:22": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "node-http-server_8.1.2/package/example/advanced/https-basicTemplate.js",
+     "beforeServe"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "node-http-server_8.1.2/package/example/advanced/https-basicTemplate.js:22",
+   "seed_location_line": 22,
+   "stratum": "C-name"
+  },
+  "callees:node-http-server_8.1.2/package/example/advanced/https-randomCSS.js:18": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js",
+     "beforeServe"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js",
+     25,
+     25
+    ],
+    [
+     "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js",
+     26,
+     26
+    ],
+    [
+     "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js",
+     27,
+     27
+    ],
+    [
+     "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js",
+     28,
+     28
+    ],
+    [
+     "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js",
+     29,
+     29
+    ],
+    [
+     "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js",
+     30,
+     30
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js",
+     "beforeServe"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js",
+     25,
+     25,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js",
+     26,
+     26,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js",
+     27,
+     27,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js",
+     28,
+     28,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js",
+     29,
+     29,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js",
+     30,
+     30,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_address_mode": "location",
+   "seed_def": "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js:18",
+   "seed_location_line": 18,
+   "stratum": "C-name"
+  },
+  "callees:node-http-server_8.1.2/package/example/proxy/https-and-http-basic.js:22": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "node-http-server_8.1.2/package/example/proxy/https-and-http-basic.js",
+     "gotRequest"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "node-http-server_8.1.2/package/example/proxy/https-and-http-basic.js:22",
+   "seed_location_line": 22,
+   "stratum": "C-name"
+  },
+  "callees:node-http-server_8.1.2/package/server/Server.js:269": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "node-http-server_8.1.2/package/server/Server.js:269",
+   "seed_location_line": 269,
+   "stratum": "C-method"
+  },
+  "callers:algoliasearch-helper_3.6.0/package/src/SearchParameters/index.js:41": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "algoliasearch-helper_3.6.0/package/src/SearchParameters/index.js",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "algoliasearch-helper_3.6.0/package/src/SearchParameters/index.js",
+     1244,
+     1244
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "algoliasearch-helper_3.6.0/package/src/SearchParameters/index.js",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "algoliasearch-helper_3.6.0/package/src/SearchParameters/index.js",
+     1244,
+     1244,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_address_mode": "location",
+   "seed_def": "algoliasearch-helper_3.6.0/package/src/SearchParameters/index.js:41",
+   "seed_location_line": 41,
+   "stratum": "U-free"
+  },
+  "callers:algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:181": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js",
+     "generateTree"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js",
+     125,
+     125
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:181",
+   "seed_location_line": 181,
+   "stratum": "U-free"
+  },
+  "callers:algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:67": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:67",
+   "seed_location_line": 67,
+   "stratum": "Q-scoped"
+  },
+  "callers:algoliasearch-helper_3.6.0/package/src/SearchResults/index.js:391": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "algoliasearch-helper_3.6.0/package/src/SearchResults/index.js:391",
+   "seed_location_line": 391,
+   "stratum": "Q-scoped"
+  },
+  "callers:algoliasearch-helper_3.6.0/package/src/SearchResults/index.js:751": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "algoliasearch-helper_3.6.0/package/src/SearchResults/index.js",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "algoliasearch-helper_3.6.0/package/src/SearchResults/index.js",
+     832,
+     832
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "algoliasearch-helper_3.6.0/package/src/SearchResults/index.js:751",
+   "seed_location_line": 751,
+   "stratum": "U-free"
+  },
+  "callers:algoliasearch-helper_3.6.0/package/src/SearchResults/index.js:87": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "algoliasearch-helper_3.6.0/package/src/SearchResults/index.js:87",
+   "seed_location_line": 87,
+   "stratum": "Q-scoped"
+  },
+  "callers:find-process_1.4.4/package/lib/find.js:14": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "find-process_1.4.4/package/lib/find.js:14",
+   "seed_location_line": 14,
+   "stratum": "U-method"
+  },
+  "callers:find-process_1.4.4/package/lib/find_pid.js:27": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "find-process_1.4.4/package/lib/find_pid.js:27",
+   "seed_location_line": 27,
+   "stratum": "C-method"
+  },
+  "callers:find-process_1.4.4/package/lib/find_process.js:162": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "find-process_1.4.4/package/lib/find_process.js:162",
+   "seed_location_line": 162,
+   "stratum": "C-method"
+  },
+  "callers:find-process_1.4.4/package/lib/utils.js:132": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "find-process_1.4.4/package/lib/find_process.js",
+     "win32"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "find-process_1.4.4/package/lib/find_process.js",
+     134,
+     134
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "find-process_1.4.4/package/lib/utils.js:132",
+   "seed_location_line": 132,
+   "stratum": "U-method"
+  },
+  "callers:find-process_1.4.4/package/lib/utils.js:37": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     "android"
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     "darwin"
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     "linux"
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     "win32"
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_process.js",
+     "android"
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_process.js",
+     "darwin"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     40,
+     40
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     78,
+     78
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     114,
+     114
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_pid.js",
+     150,
+     150
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_process.js",
+     83,
+     83
+    ],
+    [
+     "find-process_1.4.4/package/lib/find_process.js",
+     182,
+     182
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "find-process_1.4.4/package/lib/utils.js:37",
+   "seed_location_line": 37,
+   "stratum": "U-method"
+  },
+  "callers:node-http-server_8.1.2/package/example/advanced/https-basicTemplate.js:22": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "node-http-server_8.1.2/package/example/advanced/https-basicTemplate.js:22",
+   "seed_location_line": 22,
+   "stratum": "C-name"
+  },
+  "callers:node-http-server_8.1.2/package/example/advanced/https-randomCSS.js:18": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js:18",
+   "seed_location_line": 18,
+   "stratum": "C-name"
+  },
+  "callers:node-http-server_8.1.2/package/example/proxy/https-and-http-basic.js:22": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "node-http-server_8.1.2/package/example/proxy/https-and-http-basic.js:22",
+   "seed_location_line": 22,
+   "stratum": "C-name"
+  },
+  "callers:node-http-server_8.1.2/package/server/Server.js:269": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_address_mode": "location",
+   "seed_def": "node-http-server_8.1.2/package/server/Server.js:269",
+   "seed_location_line": 269,
+   "stratum": "C-method"
+  }
+ },
+ "site_fingerprints": {
+  "algoliasearch-helper_3.6.0/package/src/SearchParameters/index.js:1244": "d79dea34e25675b0",
+  "algoliasearch-helper_3.6.0/package/src/SearchParameters/index.js:43": "d4ee83cbe14d440c",
+  "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:110": "a1a67db01e17d8d9",
+  "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:120": "871ffaeb29b7776a",
+  "algoliasearch-helper_3.6.0/package/src/SearchResults/generate-hierarchical-tree.js:125": "399bd1e28d13bd3c",
+  "algoliasearch-helper_3.6.0/package/src/SearchResults/index.js:832": "e0cdbe8f32a2de53",
+  "find-process_1.4.4/package/lib/find.js:15": "0b28d71900646a4f",
+  "find-process_1.4.4/package/lib/find.js:17": "8a3e37692ca1517f",
+  "find-process_1.4.4/package/lib/find_pid.js:114": "9e573abffef3a118",
+  "find-process_1.4.4/package/lib/find_pid.js:150": "96daccad563a932c",
+  "find-process_1.4.4/package/lib/find_pid.js:29": "e2442d99fafe9f73",
+  "find-process_1.4.4/package/lib/find_pid.js:40": "43a3377a46cd3ae7",
+  "find-process_1.4.4/package/lib/find_pid.js:41": "2e6319b2c24ac7a7",
+  "find-process_1.4.4/package/lib/find_pid.js:78": "f227d5dbb0961263",
+  "find-process_1.4.4/package/lib/find_process.js:134": "dc1737590d68d12c",
+  "find-process_1.4.4/package/lib/find_process.js:166": "4d160991bbaf2e7d",
+  "find-process_1.4.4/package/lib/find_process.js:182": "2637bae46210e9f2",
+  "find-process_1.4.4/package/lib/find_process.js:183": "594ab8a72fcdbfff",
+  "find-process_1.4.4/package/lib/find_process.js:187": "44b0d23ca6f34a4f",
+  "find-process_1.4.4/package/lib/find_process.js:195": "c3317b33713afc63",
+  "find-process_1.4.4/package/lib/find_process.js:202": "a16969b20dd29fdf",
+  "find-process_1.4.4/package/lib/find_process.js:83": "e2f8fd4821c2c801",
+  "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js:25": "c96dce0aa8098fbe",
+  "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js:26": "3c2772c5fcaae6d1",
+  "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js:27": "d49927419d5ae055",
+  "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js:28": "1251d1a41d71d485",
+  "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js:29": "8edb073f9509abe0",
+  "node-http-server_8.1.2/package/example/advanced/https-randomCSS.js:30": "0b0387589e75ee12"
+ },
+ "summary": {
+  "callees": {
+   "exact_tier": {
+    "fn": 15,
+    "fp": 0,
+    "precision": [
+     1.0,
+     0.6096657083436265,
+     1.0
+    ],
+    "recall": [
+     0.2857142857142857,
+     0.1381386287176154,
+     0.4995638088483033
+    ],
+    "tp": 6
+   },
+   "raw": {
+    "fn": 15,
+    "fp": 0,
+    "precision": [
+     1.0,
+     0.6096657083436265,
+     1.0
+    ],
+    "recall": [
+     0.2857142857142857,
+     0.1381386287176154,
+     0.4995638088483033
+    ],
+    "tp": 6
+   }
+  },
+  "callers": {
+   "exact_tier": {
+    "fn": 9,
+    "fp": 0,
+    "precision": [
+     1.0,
+     0.2065493117918027,
+     1.0
+    ],
+    "recall": [
+     0.1,
+     0.017876212896073995,
+     0.4041500295247722
+    ],
+    "tp": 1
+   },
+   "raw": {
+    "fn": 9,
+    "fp": 0,
+    "precision": [
+     1.0,
+     0.2065493117918027,
+     1.0
+    ],
+    "recall": [
+     0.1,
+     0.017876212896073995,
+     0.4041500295247722
+    ],
+    "tp": 1
+   }
+  }
+ }
+}

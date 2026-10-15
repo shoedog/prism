@@ -278,3 +278,31 @@ Final custody check: `replay-patches.py patch-replay-initial` applied Task 1, th
 The full suites already executed in this session satisfy the hook's execution requirement: final default **5360 passed, 0 failed, 1 ignored**; final largest runnable MCP **5877 passed, 0 failed, 1 ignored, 32 excluded**. No new production behavior or missing fail-first/edge test was identified on re-reading the helper and cost tests. VERIFICATION.md distinguishes the watched old-behavior count RED from the infrastructure RED and from unchanged-semantic parity tests; it retains every unrelated failure and exact exclusion. Source SHA-256 values were rechecked against the final suite source audit before writing the receipt. Only documentation/custody artifacts changed after those passing suites; no redundant full-suite run is claimed or required for this documentation addition.
 
 The earlier final archive and six-file replay receipts above are historical and superseded for current handoff by the post-hook manifest/archive and seven-file Task 3 replay. Task 1 and Task 2 patches/snapshots are unchanged. The final Task 3 patch includes only validation documentation and new root VERIFICATION.md; the original Task 3 patch is retained separately. The current handoff and manifest point to the refreshed archive. Git commits remain blocked; Task 4 remains unexecuted.
+
+## Controller supersession (2026-10-15)
+
+The implementer's sandbox could not write `.git`, run socket tests, Tier-A or the mutation gate; the sections
+above record that state and are kept as history. Current state, recorded by the controller:
+
+- **Commits:** the implementer's three task patches applied unchanged as 745075ef (Task 1), b12a867d (Task 2),
+  d650e01e (Task 3) on `main` `a1aa755b`; `src/` byte-identical to the implementer's final tree. The root
+  `VERIFICATION.md` was not committed (this document carries the same record).
+- **Gates (macOS):** `cargo fmt --check` clean; `cargo test --features mcp` 5,909 passed, 0 failed (socket tests
+  included); `cargo test` 5,360 passed, 0 failed; release build; Tier-A `--matrix-only` 178 ok; `--quick` VALID
+  (prism-quick, excalidraw-ts, secbench-node); authoritative mutation gate 382/382 killed (16.4 min; none of its
+  mutants touch `go.rs`); CI green.
+- **Review:** Opus 5.5 APPROVE, gpt-6-astra APPROVE (round 1). Both reproduced byte-identical `GoTypeData` on the
+  715 prometheus Go files; Opus timed the plain constructor 8.2–9.2 s → 0.67 s.
+- **Task 4 acceptance — ALL PASS** (procedure pre-registered in `~/prism-evidence/mcp-memory/go-speedup-acceptance-2026-10-15/PROCEDURE.md`;
+  binaries base = a1aa755b + probe c3162f94, candidate = this branch + probe, both from clean commits; census off;
+  host load 13–21 from other sessions, wall ≈ CPU in the timed stages):
+
+  | Reading | Base | Candidate | Verdict |
+  |---|---:|---:|---|
+  | prometheus warm index | 12,469 / 11,346 ms | 1,952 / 1,959 ms | PASS (≤ 4,000 both; 16.4 % of base) |
+  | prometheus `go.file_extract` (warm mean) | 9,798 ms wall / 9,764 CPU | 323 / 323 | PASS (3.3 %) |
+  | prometheus cold whole Go extraction (both constructions) | 19,804 ms / 19,639 CPU | 1,555 / 1,554 | PASS (7.9 %) |
+  | slicing control (mean warm index) | 1,423 ms | 1,444 ms | PASS (limit 1,623) |
+  | memory (warm live heap / peak) | 2,295 / 2,439 MiB | 2,295 / 2,439 MiB | PASS |
+
+  Evidence: `SCORE.txt`, raw driver output and probe records in that directory (`SHA256SUMS`).
