@@ -931,6 +931,32 @@ impl CodePropertyGraph {
         .is_some_and(|idx| self.node_is_projection_only_def(idx))
     }
 
+    /// True when `use_loc` is a Use whose direct DataFlow predecessor is a projection-only
+    /// Def, i.e. the Use is a field read of its own callable's member-only formal (the
+    /// projection edge `Def(p) -> Use(p.x)`). A projection-only Def reached further
+    /// upstream (through an argument edge into another callable) does not count.
+    pub fn dfg_use_reads_projection_only_def(&self, use_loc: &VarLocation) -> bool {
+        if use_loc.kind != VarAccessKind::Use {
+            return false;
+        }
+        let Some(idx) = self.var_node(
+            &use_loc.file,
+            &use_loc.function,
+            use_loc.function_start_line,
+            use_loc.line,
+            &use_loc.path,
+            VarAccess::Use,
+        ) else {
+            return false;
+        };
+        self.graph
+            .edges_directed(idx, petgraph::Direction::Incoming)
+            .any(|edge| {
+                matches!(edge.weight(), CpgEdge::DataFlow(_))
+                    && self.node_is_projection_only_def(edge.source())
+            })
+    }
+
     fn node_is_projection_only_def(&self, start: NodeIndex) -> bool {
         let CpgNode::Variable {
             access: VarAccess::Def,

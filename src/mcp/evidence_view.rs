@@ -1577,7 +1577,7 @@ mod tests {
 
     #[test]
     fn symbol_next_queries_are_never_suggested_for_anonymous_owners() {
-        for name in ["<anon@2:21>", "<cb@2:21>"] {
+        for name in ["<anon@2:21>", "<anon@2:21>"] {
             let mut queries = Vec::new();
             let mut seen = BTreeSet::new();
             push_symbol_query(

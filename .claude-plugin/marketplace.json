@@ -8,7 +8,7 @@
     {
       "name": "prism",
       "description": "Whole-repo code navigation (the prism-mcp server) + defect-focused diff slicing skills. Pre-wires the prism MCP server to the current project and ships the prism-code-navigation and prism-code-slicing Agent Skills.",
-      "version": "3.1.2",
+      "version": "3.2.0",
       "source": "./",
       "author": {
         "name": "Wesley Jinks"

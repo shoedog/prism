@@ -1,5 +1,5 @@
 //! js-param-defs PR-B ("callback identity"): anonymous JS/TS/TSX callables get
-//! their own DFG pass under a synthetic, non-referenceable `<cb@L:C>` owner;
+//! their own DFG pass under a synthetic, non-referenceable `<anon@L:C>` owner;
 //! every JS/TS reference walk is fenced at nested binders (E3).
 //! SPEC: docs/superpowers/plans/2026-10-06-js-param-defs/SPEC-prB.md.
 
@@ -233,7 +233,7 @@ fn r5_seam_body_vars_keep_assignments_and_refuse_default_reads() {
                 "register(function({signature}){{\n use(f);\n var f;\n f=2;\n use(f);\n}});"
             );
             let cpg = build(language, &source);
-            let owner = "<cb@1:10>";
+            let owner = "<anon@1:10>";
             let actual = r5_full_binding_rows(&cpg, owner, "f");
             let def_byte = source.find("f=2").unwrap();
             let use_byte = source.rfind("use(f)").unwrap() + 4;
@@ -363,10 +363,10 @@ fn top_level_callback_formal_gets_a_synthetic_owner_and_def() {
         let cpg = build(language, src);
         let rows = rows(&cpg);
         assert!(
-            edge(&rows, "<cb@1:19>", "req", 1, 2),
+            edge(&rows, "<anon@1:19>", "req", 1, 2),
             "{language:?}: {rows:?}"
         );
-        assert!(defs(&cpg).contains(&("<cb@1:19>".into(), "req".into(), at(src, "req", 0))));
+        assert!(defs(&cpg).contains(&("<anon@1:19>".into(), "req".into(), at(src, "req", 0))));
     }
 }
 
@@ -377,19 +377,19 @@ fn every_anonymous_parent_kind_gets_its_own_pass() {
     for language in JS_TS {
         let rows = rows(&build(language, src));
         assert!(
-            edge(&rows, "<cb@1:10>", "x", 1, 2),
+            edge(&rows, "<anon@1:10>", "x", 1, 2),
             "{language:?} map: {rows:?}"
         );
         assert!(
-            edge(&rows, "<cb@4:2>", "a", 4, 5),
+            edge(&rows, "<anon@4:2>", "a", 4, 5),
             "{language:?} iife: {rows:?}"
         );
         assert!(
-            edge(&rows, "<cb@8:10>", "r", 8, 9),
+            edge(&rows, "<anon@8:10>", "r", 8, 9),
             "{language:?} return: {rows:?}"
         );
         assert!(
-            edge(&rows, "<cb@12:10>", "z", 12, 13),
+            edge(&rows, "<anon@12:10>", "z", 12, 13),
             "{language:?} assign: {rows:?}"
         );
     }
@@ -399,7 +399,7 @@ fn every_anonymous_parent_kind_gets_its_own_pass() {
 fn tsx_jsx_handler_gets_a_synthetic_pass() {
     let src = "const v = <b onClick={e => {\n  use(e);\n}} />;\n";
     let rows = rows(&build(Language::Tsx, src));
-    assert!(edge(&rows, "<cb@1:23>", "e", 1, 2), "{rows:?}");
+    assert!(edge(&rows, "<anon@1:23>", "e", 1, 2), "{rows:?}");
 }
 
 #[test]
@@ -418,12 +418,12 @@ fn name_inference_wins_over_the_synthetic_identity() {
 
 #[test]
 fn synthetic_spelling_is_unspellable_by_any_real_owner() {
-    let src = "f(function (a) {\n  g(a);\n});\nconst o = { \"<cb@1:3>\": (b) => g(b) };\n";
+    let src = "f(function (a) {\n  g(a);\n});\nconst o = { \"<anon@1:3>\": (b) => g(b) };\n";
     let cpg = build(Language::JavaScript, src);
     let owners: BTreeSet<String> = defs(&cpg).into_iter().map(|d| d.0).collect();
-    assert!(owners.contains("<cb@1:3>"));
+    assert!(owners.contains("<anon@1:3>"));
     // The string-keyed callable is named by its quoted key, never by the synthetic spelling.
-    assert!(owners.contains("\"<cb@1:3>\""), "{owners:?}");
+    assert!(owners.contains("\"<anon@1:3>\""), "{owners:?}");
 }
 
 #[test]
@@ -510,7 +510,7 @@ fn synthetic_pass_owns_only_its_own_scope() {
     for language in JS_TS {
         let cpg = build(language, src);
         let d = defs(&cpg);
-        let outer = "<cb@1:22>";
+        let outer = "<anon@1:22>";
         assert!(
             !d.iter().any(|(o, p, _)| o == outer && p == "r"),
             "{language:?}: {d:?}"
@@ -520,7 +520,7 @@ fn synthetic_pass_owns_only_its_own_scope() {
             "{language:?}: {d:?}"
         );
         assert!(
-            d.iter().any(|(o, p, _)| o == "<cb@3:5>" && p == "w"),
+            d.iter().any(|(o, p, _)| o == "<anon@3:5>" && p == "w"),
             "{language:?}: {d:?}"
         );
         assert!(edge(&rows(&cpg), outer, "z", 2, 7));
@@ -538,7 +538,7 @@ fn synthetic_pass_never_counts_non_reference_positions() {
             assert!(
                 !cpg.graph.node_indices().any(|n| matches!(cpg.node(n),
                 CpgNode::Variable { function, access: VarAccess::Use, start_byte, .. }
-                    if function == "<cb@1:3>" && *start_byte == byte)),
+                    if function == "<anon@1:3>" && *start_byte == byte)),
                 "{language:?}: non-reference Use at {byte}"
             );
         }
@@ -546,7 +546,7 @@ fn synthetic_pass_never_counts_non_reference_positions() {
         for line in [2, 3] {
             let uses: Vec<_> = rows
                 .iter()
-                .filter(|r| r.0 == "<cb@1:3>" && r.1 == "a" && r.3 == line)
+                .filter(|r| r.0 == "<anon@1:3>" && r.1 == "a" && r.3 == line)
                 .collect();
             assert_eq!(uses.len(), 1, "{language:?}: {rows:?}");
             let byte = uses[0].5;
@@ -570,9 +570,12 @@ fn synthetic_lexical_def_stays_in_its_block() {
     let src = "f(function () {\n  if (c) {\n    const k = g();\n    use(k);\n  } else {\n    use(k);\n  }\n});\n";
     for language in JS_TS {
         let rows = rows(&build(language, src));
-        assert!(edge(&rows, "<cb@1:3>", "k", 3, 4), "{language:?}: {rows:?}");
         assert!(
-            !edge(&rows, "<cb@1:3>", "k", 3, 6),
+            edge(&rows, "<anon@1:3>", "k", 3, 4),
+            "{language:?}: {rows:?}"
+        );
+        assert!(
+            !edge(&rows, "<anon@1:3>", "k", 3, 6),
             "{language:?}: {rows:?}"
         );
     }
@@ -583,9 +586,12 @@ fn synthetic_for_head_def_stays_in_its_loop() {
     let src = "f(function () {\n  for (const k of ks) {\n    use(k);\n  }\n  use2(k);\n});\n";
     for language in JS_TS {
         let rows = rows(&build(language, src));
-        assert!(edge(&rows, "<cb@1:3>", "k", 2, 3), "{language:?}: {rows:?}");
         assert!(
-            !edge(&rows, "<cb@1:3>", "k", 2, 5),
+            edge(&rows, "<anon@1:3>", "k", 2, 3),
+            "{language:?}: {rows:?}"
+        );
+        assert!(
+            !edge(&rows, "<anon@1:3>", "k", 2, 5),
             "{language:?}: {rows:?}"
         );
     }
@@ -598,21 +604,24 @@ fn synthetic_pass_counts_reads_only() {
     for language in JS_TS {
         let rows = rows(&build(language, src));
         assert!(
-            !edge(&rows, "<cb@1:3>", "r", 2, 3),
+            !edge(&rows, "<anon@1:3>", "r", 2, 3),
             "{language:?}: {rows:?}"
         );
-        assert!(edge(&rows, "<cb@1:3>", "r", 3, 4), "{language:?}: {rows:?}");
+        assert!(
+            edge(&rows, "<anon@1:3>", "r", 3, 4),
+            "{language:?}: {rows:?}"
+        );
     }
     // An erased type position is not a read either.
     let ts = "f(function (key: string) {\n  const m: { [key: string]: number } = {};\n  use(key, m);\n});\n";
     for language in [Language::TypeScript, Language::Tsx] {
         let rows = rows(&build(language, ts));
         assert!(
-            !edge(&rows, "<cb@1:3>", "key", 1, 2),
+            !edge(&rows, "<anon@1:3>", "key", 1, 2),
             "{language:?}: {rows:?}"
         );
         assert!(
-            edge(&rows, "<cb@1:3>", "key", 1, 3),
+            edge(&rows, "<anon@1:3>", "key", 1, 3),
             "{language:?}: {rows:?}"
         );
     }
@@ -630,7 +639,7 @@ fn synthetic_preferred_use_is_the_read_occurrence() {
         assert!(
             !cpg.graph.node_indices().any(|n| matches!(cpg.node(n),
             CpgNode::Variable { function, access: VarAccess::Use, start_byte, .. }
-                if function == "<cb@1:3>" && *start_byte == write)),
+                if function == "<anon@1:3>" && *start_byte == write)),
             "{language:?}: write-only Use at {write}"
         );
         let rows = rows(&cpg);
@@ -650,7 +659,7 @@ fn synthetic_augmented_assignment_is_not_an_alias() {
         let d = defs(&build(language, src));
         let line3 = at(src, "o += d", 0);
         assert!(
-            !d.contains(&("<cb@1:3>".into(), "d".into(), line3)),
+            !d.contains(&("<anon@1:3>".into(), "d".into(), line3)),
             "{language:?}: {d:?}"
         );
     }
@@ -664,11 +673,11 @@ fn synthetic_this_member_def_stops_at_a_nested_receiver() {
     for language in JS_TS {
         let rows = rows(&build(language, src));
         assert!(
-            !edge(&rows, "<cb@1:3>", "this.x", 2, 4),
+            !edge(&rows, "<anon@1:3>", "this.x", 2, 4),
             "{language:?}: {rows:?}"
         );
         assert!(
-            edge(&rows, "<cb@1:3>", "this.x", 2, 6),
+            edge(&rows, "<anon@1:3>", "this.x", 2, 6),
             "{language:?}: {rows:?}"
         );
     }
@@ -682,11 +691,11 @@ fn synthetic_alias_twin_only_on_the_alias_line() {
         let d = defs(&build(language, src));
         let line3 = at(src, "b = other", 0);
         assert!(
-            !d.contains(&("<cb@1:3>".into(), "a".into(), line3)),
+            !d.contains(&("<anon@1:3>".into(), "a".into(), line3)),
             "{language:?}: {d:?}"
         );
         assert!(
-            d.contains(&("<cb@1:3>".into(), "b".into(), line3)),
+            d.contains(&("<anon@1:3>".into(), "b".into(), line3)),
             "{language:?}: {d:?}"
         );
     }
@@ -696,7 +705,7 @@ fn synthetic_alias_twin_only_on_the_alias_line() {
     let nested = "f(function () {\n  var b = {};\n  g(function (a, p) {\n    b = a;\n    const { n } = p;\n    use(n);\n  });\n  b.x = 2;\n  use(b.x);\n});\n";
     for language in JS_TS {
         let d = defs(&build(language, nested));
-        let outer: Vec<_> = d.iter().filter(|(o, _, _)| o == "<cb@1:3>").collect();
+        let outer: Vec<_> = d.iter().filter(|(o, _, _)| o == "<anon@1:3>").collect();
         assert!(
             !outer.iter().any(|(_, p, _)| p == "a.x" || p == "p.n"),
             "{language:?}: {outer:?}"
@@ -776,13 +785,13 @@ mod navigation {
     fn synthetic_identity_never_resolves_as_a_symbol() {
         let (_dir, s) = session(SRC);
         for query in [queries::callers, queries::callees] {
-            let err = query(&s, Some("<cb@4:19>"), None, None, 1).unwrap_err();
+            let err = query(&s, Some("<anon@4:19>"), None, None, 1).unwrap_err();
             assert!(format!("{err:?}").contains("SymbolNotFound"), "{err:?}");
         }
         let err = seeds::resolve(
             &s,
             &[SeedSpec::Symbol {
-                name: "<cb@4:19>".into(),
+                name: "<anon@4:19>".into(),
                 file: None,
             }],
             SeedRole::Source,
@@ -793,7 +802,7 @@ mod navigation {
         let callers = queries::callers(&s, Some("exec"), None, None, 1).unwrap();
         assert!(serde_json::to_string(&callers)
             .unwrap()
-            .find("<cb@")
+            .find("<anon@")
             .is_none());
     }
 
@@ -801,10 +810,10 @@ mod navigation {
     fn navigation_hides_synthetic_variables_but_taint_seeds_see_them() {
         let (_dir, s) = session(SRC);
         let evidence = queries::nodes_at(&s, "cb.js", 5);
-        assert!(!serde_json::to_string(&evidence).unwrap().contains("<cb@"));
+        assert!(!serde_json::to_string(&evidence).unwrap().contains("<anon@"));
         let ego = queries::ego_graph(&s, None, None, Some("cb.js:4"), 1, &[]);
         assert!(ego
-            .map(|e| !serde_json::to_string(&e).unwrap().contains("<cb@"))
+            .map(|e| !serde_json::to_string(&e).unwrap().contains("<anon@"))
             .unwrap_or(true));
         let seeds = seeds::resolve(
             &s,
@@ -815,7 +824,7 @@ mod navigation {
             SeedRole::Source,
         )
         .unwrap();
-        assert!(format!("{seeds:?}").contains("<cb@4:19>"), "{seeds:?}");
+        assert!(format!("{seeds:?}").contains("<anon@4:19>"), "{seeds:?}");
     }
 }
 
@@ -908,16 +917,16 @@ fn r1_nested_writes_are_kill_only_and_named_parity_is_preserved() {
         let named = format!("const f = {body};\n");
         let a = build(language, &anonymous);
         let n = build(language, &named);
-        let label = r1_label(&a, "<cb@1:5>", "z", 2, 6);
+        let label = r1_label(&a, "<anon@1:5>", "z", 2, 6);
         assert_eq!(label, r1_label(&n, "f", "z", 2, 6));
         assert!(matches!(
             label,
             super::FlowConfidence::NameOnly(super::FlowDoubt::Killed { .. })
         ));
-        assert!(!defs(&a).contains(&("<cb@1:5>".into(), "z".into(), at(&anonymous, "z = 2", 0))));
+        assert!(!defs(&a).contains(&("<anon@1:5>".into(), "z".into(), at(&anonymous, "z = 2", 0))));
         let rebound = anonymous.replace("() =>", "(z) =>");
         assert_eq!(
-            r1_label(&build(language, &rebound), "<cb@1:5>", "z", 2, 6),
+            r1_label(&build(language, &rebound), "<anon@1:5>", "z", 2, 6),
             super::FlowConfidence::Exact
         );
     }
@@ -930,10 +939,10 @@ fn r1_assignment_defs_stay_with_catch_block_and_nested_formals() {
         "function h(y) {\n  a(function(y) {\n    y = 1;\n    use(y);\n  });\n  use(y);\n}\n";
     for language in JS_TS {
         let r = rows(&build(language, src));
-        assert!(edge(&r, "<cb@1:5>", "e", 3, 4), "{language:?}: {r:?}");
-        assert!(!edge(&r, "<cb@1:5>", "e", 3, 6), "{language:?}: {r:?}");
-        assert!(edge(&r, "<cb@1:5>", "q", 8, 9), "{language:?}: {r:?}");
-        assert!(!edge(&r, "<cb@1:5>", "q", 8, 11), "{language:?}: {r:?}");
+        assert!(edge(&r, "<anon@1:5>", "e", 3, 4), "{language:?}: {r:?}");
+        assert!(!edge(&r, "<anon@1:5>", "e", 3, 6), "{language:?}: {r:?}");
+        assert!(edge(&r, "<anon@1:5>", "q", 8, 9), "{language:?}: {r:?}");
+        assert!(!edge(&r, "<anon@1:5>", "q", 8, 11), "{language:?}: {r:?}");
         let r = rows(&build(language, nested));
         assert!(edge(&r, "h", "y", 3, 4), "{language:?}: {r:?}");
         assert!(!edge(&r, "h", "y", 3, 6), "{language:?}: {r:?}");
@@ -963,7 +972,7 @@ fn r1_defaults_and_computed_keys_keep_outer_captures() {
                 r1_label(&cpg, "h", "y", 1, 2),
                 super::FlowConfidence::NameOnly(super::FlowDoubt::CfgIncomplete)
             );
-            assert!(!edge(&r, "<cb@2:5>", "y", 3, 2), "{language:?}: {r:?}");
+            assert!(!edge(&r, "<anon@2:5>", "y", 3, 2), "{language:?}: {r:?}");
         }
         let key = "function h(y) {\n  const o = {\n    [\n      y\n    ](y) {\n      use(y);\n    }\n  };\n}\n";
         let cpg = build(language, key);
@@ -1015,12 +1024,12 @@ fn r1_member_writes_are_not_value_reads() {
             let cpg = build(language, &src);
             let r = rows(&cpg);
             assert!(
-                !edge(&r, "<cb@1:3>", &format!("{base}.x"), 2, 3),
+                !edge(&r, "<anon@1:3>", &format!("{base}.x"), 2, 3),
                 "{language:?}: {r:?}"
             );
             assert!(
                 r.contains(&(
-                    "<cb@1:3>".into(),
+                    "<anon@1:3>".into(),
                     format!("{base}.x"),
                     3,
                     4,
@@ -1030,14 +1039,14 @@ fn r1_member_writes_are_not_value_reads() {
                 "{language:?}: {r:?}"
             );
             assert_eq!(
-                r1_label(&cpg, "<cb@1:3>", &format!("{base}.x"), 3, 4),
+                r1_label(&cpg, "<anon@1:3>", &format!("{base}.x"), 3, 4),
                 super::FlowConfidence::Exact
             );
             for operation in ["+= 1", "++"] {
                 let read = src.replace("= 1", operation);
                 assert!(edge(
                     &rows(&build(language, &read)),
-                    "<cb@1:3>",
+                    "<anon@1:3>",
                     &format!("{base}.x"),
                     2,
                     3
@@ -1055,12 +1064,12 @@ fn r1_runtime_enums_fence_only_matching_bindings() {
                 "f(function(p) {{\n  {{\n    {prefix} p {{ A }}\n    use(p);\n  }}\n}});\n"
             );
             let r = rows(&build(language, &src));
-            assert!(!edge(&r, "<cb@1:3>", "p", 1, 3), "{language:?}: {r:?}");
-            assert!(!edge(&r, "<cb@1:3>", "p", 1, 4), "{language:?}: {r:?}");
+            assert!(!edge(&r, "<anon@1:3>", "p", 1, 3), "{language:?}: {r:?}");
+            assert!(!edge(&r, "<anon@1:3>", "p", 1, 4), "{language:?}: {r:?}");
             let unrelated = src.replace(&format!("{prefix} p"), &format!("{prefix} q"));
             assert!(edge(
                 &rows(&build(language, &unrelated)),
-                "<cb@1:3>",
+                "<anon@1:3>",
                 "p",
                 1,
                 4
@@ -1077,7 +1086,7 @@ fn r1_same_line_defs_and_alias_twins_keep_lvalue_bytes() {
         let r = rows(&build(language, src));
         let b: Vec<_> = r
             .iter()
-            .filter(|r| r.0 == "<cb@1:3>" && r.1 == "b" && r.2 == 2 && r.3 == 3)
+            .filter(|r| r.0 == "<anon@1:3>" && r.1 == "b" && r.2 == 2 && r.3 == 3)
             .collect();
         assert_eq!(b.len(), 1, "{language:?}: {r:?}");
         assert_eq!(b[0].4, at(src, "b = c", 0), "{language:?}: {r:?}");
@@ -1091,7 +1100,7 @@ fn r1_same_line_defs_and_alias_twins_keep_lvalue_bytes() {
             let r = rows(&build(language, &src));
             let actual: BTreeSet<_> = r
                 .iter()
-                .filter(|r| r.0 == "<cb@1:3>" && r.1 == "a" && r.2 == 2)
+                .filter(|r| r.0 == "<anon@1:3>" && r.1 == "a" && r.2 == 2)
                 .map(|r| r.4)
                 .collect();
             let expected: BTreeSet<_> = src.match_indices("b = a").map(|(b, _)| b).collect();
@@ -1101,7 +1110,7 @@ fn r1_same_line_defs_and_alias_twins_keep_lvalue_bytes() {
         let r = rows(&build(language, blocks));
         let actual: BTreeSet<_> = r
             .iter()
-            .filter(|r| r.0 == "<cb@1:3>" && r.1 == "p" && r.3 == 3)
+            .filter(|r| r.0 == "<anon@1:3>" && r.1 == "p" && r.3 == 3)
             .map(|r| r.4)
             .collect();
         assert_eq!(
@@ -1184,12 +1193,12 @@ fn r2_parameter_expressions_separate_body_vars_and_functions() {
                 let src = format!("f(function(\n y = 1,\n z = {default}\n) {{\n {declaration}\n use(y, z);\n}});\n");
                 let cpg = build(language, &src);
                 let r = rows(&cpg);
-                assert!(!edge(&r, "<cb@1:3>", "y", 5, 3), "{language:?}: {r:?}");
-                assert!(!edge(&r, "<cb@1:3>", "y", 1, 6), "{language:?}: {r:?}");
+                assert!(!edge(&r, "<anon@1:3>", "y", 5, 3), "{language:?}: {r:?}");
+                assert!(!edge(&r, "<anon@1:3>", "y", 1, 6), "{language:?}: {r:?}");
                 if declaration.starts_with("var") {
                     assert!(
                         r.contains(&(
-                            "<cb@1:3>".into(),
+                            "<anon@1:3>".into(),
                             "y".into(),
                             5,
                             6,
@@ -1199,7 +1208,7 @@ fn r2_parameter_expressions_separate_body_vars_and_functions() {
                         "{language:?}: {r:?}"
                     );
                     assert_eq!(
-                        r1_label(&cpg, "<cb@1:3>", "y", 5, 6),
+                        r1_label(&cpg, "<anon@1:3>", "y", 5, 6),
                         super::FlowConfidence::Exact
                     );
                 }
@@ -1209,22 +1218,22 @@ fn r2_parameter_expressions_separate_body_vars_and_functions() {
         }
         let direct = "f(function(y = 1, z = y) {\n var y = 2;\n use(y);\n});\n";
         let r = rows(&build(language, direct));
-        assert!(!edge(&r, "<cb@1:3>", "y", 2, 1), "{language:?}: {r:?}");
-        assert!(edge(&r, "<cb@1:3>", "y", 2, 3), "{language:?}: {r:?}");
+        assert!(!edge(&r, "<anon@1:3>", "y", 2, 1), "{language:?}: {r:?}");
+        assert!(edge(&r, "<anon@1:3>", "y", 2, 3), "{language:?}: {r:?}");
         let computed = "f(function(y, {[y]: z}) {\n var y = 2;\n use(y, z);\n});\n";
         let r = rows(&build(language, computed));
-        assert!(!edge(&r, "<cb@1:3>", "y", 2, 1), "{language:?}: {r:?}");
-        assert!(!edge(&r, "<cb@1:3>", "y", 1, 3), "{language:?}: {r:?}");
-        assert!(edge(&r, "<cb@1:3>", "y", 2, 3), "{language:?}: {r:?}");
+        assert!(!edge(&r, "<anon@1:3>", "y", 2, 1), "{language:?}: {r:?}");
+        assert!(!edge(&r, "<anon@1:3>", "y", 1, 3), "{language:?}: {r:?}");
+        assert!(edge(&r, "<anon@1:3>", "y", 2, 3), "{language:?}: {r:?}");
         if language != Language::JavaScript {
             let typed = "f(function(y: number, z: number) {\n var y = 2;\n use(y, z);\n});\n";
             let r = rows(&build(language, typed));
-            assert!(edge(&r, "<cb@1:3>", "y", 1, 3), "{language:?}: {r:?}");
+            assert!(edge(&r, "<anon@1:3>", "y", 1, 3), "{language:?}: {r:?}");
         }
         let simple = direct.replace("y = 1, z = y", "y, z");
         let r = rows(&build(language, &simple));
-        assert!(edge(&r, "<cb@1:3>", "y", 1, 3), "{language:?}: {r:?}");
-        assert!(edge(&r, "<cb@1:3>", "y", 2, 3), "{language:?}: {r:?}");
+        assert!(edge(&r, "<anon@1:3>", "y", 1, 3), "{language:?}: {r:?}");
+        assert!(edge(&r, "<anon@1:3>", "y", 2, 3), "{language:?}: {r:?}");
     }
 }
 
@@ -1249,7 +1258,7 @@ fn r2_use_endpoints_keep_binding_valid_occurrence_bytes() {
             assert_eq!(
                 r,
                 vec![(
-                    "<cb@1:3>".into(),
+                    "<anon@1:3>".into(),
                     "b".into(),
                     2,
                     3,
@@ -1259,7 +1268,7 @@ fn r2_use_endpoints_keep_binding_valid_occurrence_bytes() {
                 "{language:?}"
             );
             assert_eq!(
-                r1_label(&cpg, "<cb@1:3>", "b", 2, 3),
+                r1_label(&cpg, "<anon@1:3>", "b", 2, 3),
                 super::FlowConfidence::Exact
             );
         }
@@ -1272,20 +1281,20 @@ fn r2_synthetic_with_body_is_refused_but_expression_and_outside_reads_remain() {
         let src = format!("f(function(p) {{\n with ({{{property}: 2, q: p}}) {{\n  use(p);\n  g(() => use(p));\n }}\n use(p);\n}});\n");
         let cpg = build(Language::JavaScript, &src);
         let r = rows(&cpg);
-        assert!(!edge(&r, "<cb@1:3>", "p", 1, 3), "{r:?}");
-        assert!(!edge(&r, "<cb@1:3>", "p", 1, 4), "{r:?}");
-        assert!(edge(&r, "<cb@1:3>", "p", 1, 2), "{r:?}");
-        assert!(edge(&r, "<cb@1:3>", "p", 1, 6), "{r:?}");
+        assert!(!edge(&r, "<anon@1:3>", "p", 1, 3), "{r:?}");
+        assert!(!edge(&r, "<anon@1:3>", "p", 1, 4), "{r:?}");
+        assert!(edge(&r, "<anon@1:3>", "p", 1, 2), "{r:?}");
+        assert!(edge(&r, "<anon@1:3>", "p", 1, 6), "{r:?}");
         for byte in [at(&src, "p);", 0), at(&src, "p));", 0)] {
             assert!(!cpg.graph.node_indices().any(|n| matches!(cpg.node(n),
                 CpgNode::Variable { function, access: VarAccess::Use, start_byte, .. }
-                    if function == "<cb@1:3>" && *start_byte == byte)));
+                    if function == "<anon@1:3>" && *start_byte == byte)));
         }
     }
     let block = "f(function(p) {\n {\n  use(p);\n }\n});\n";
     assert!(edge(
         &rows(&build(Language::JavaScript, block)),
-        "<cb@1:3>",
+        "<anon@1:3>",
         "p",
         1,
         3
@@ -1294,16 +1303,16 @@ fn r2_synthetic_with_body_is_refused_but_expression_and_outside_reads_remain() {
     let closure = "with ({p: 2}) {\n f(function() {\n  var z = p;\n  use(z, p);\n });\n}\n";
     assert!(!edge(
         &rows(&build(Language::JavaScript, closure)),
-        "<cb@2:4>",
+        "<anon@2:4>",
         "p",
         3,
         4
     ));
     let member = "f(function(obj) {\n obj.x = 0;\n with ({obj: {x: 2}, q: obj.x}) {\n  use(obj.x);\n }\n use(obj.x);\n});\n";
     let r = rows(&build(Language::JavaScript, member));
-    assert!(!edge(&r, "<cb@1:3>", "obj.x", 2, 4), "{r:?}");
-    assert!(edge(&r, "<cb@1:3>", "obj.x", 2, 3), "{r:?}");
-    assert!(edge(&r, "<cb@1:3>", "obj.x", 2, 6), "{r:?}");
+    assert!(!edge(&r, "<anon@1:3>", "obj.x", 2, 4), "{r:?}");
+    assert!(edge(&r, "<anon@1:3>", "obj.x", 2, 3), "{r:?}");
+    assert!(edge(&r, "<anon@1:3>", "obj.x", 2, 6), "{r:?}");
     let named = "function h(p) {\n with ({p: 2}) {\n  use(p);\n }\n}\n";
     assert!(edge(
         &rows(&build(Language::JavaScript, named)),
@@ -1334,17 +1343,17 @@ fn r2_wrapped_write_role(wrapper: &str, member: bool) {
         let src = format!("f(function() {{\n {def};\n {target} = 1;\n use({path});\n}});\n");
         let r = rows(&build(language, &src));
         assert!(
-            !edge(&r, "<cb@1:3>", path, 2, 3),
+            !edge(&r, "<anon@1:3>", path, 2, 3),
             "{wrapper} {language:?}: {r:?}"
         );
         assert!(
-            edge(&r, "<cb@1:3>", path, 2, 4),
+            edge(&r, "<anon@1:3>", path, 2, 4),
             "{wrapper} {language:?}: {r:?}"
         );
         let compound = src.replace(" = 1", " += 1");
         let r = rows(&build(language, &compound));
         assert!(
-            edge(&r, "<cb@1:3>", path, 2, 3),
+            edge(&r, "<anon@1:3>", path, 2, 3),
             "{wrapper} {language:?}: {r:?}"
         );
     }
@@ -1375,12 +1384,12 @@ fn r2_with_body_defs_cannot_reach_outside_reads() {
             "f(function(p) {{\n with ({{{property}: 2}}) {{\n  p = 3;\n }}\n use(p);\n}});\n"
         );
         let cpg = build(Language::JavaScript, &src);
-        assert!(!defs(&cpg).contains(&("<cb@1:3>".into(), "p".into(), at(&src, "p = 3", 0))));
+        assert!(!defs(&cpg).contains(&("<anon@1:3>".into(), "p".into(), at(&src, "p = 3", 0))));
         let r = rows(&cpg);
-        assert!(!edge(&r, "<cb@1:3>", "p", 3, 5), "{r:?}");
+        assert!(!edge(&r, "<anon@1:3>", "p", 3, 5), "{r:?}");
         assert!(
             r.contains(&(
-                "<cb@1:3>".into(),
+                "<anon@1:3>".into(),
                 "p".into(),
                 1,
                 5,
@@ -1394,17 +1403,17 @@ fn r2_with_body_defs_cannot_reach_outside_reads() {
     let cpg = build(Language::JavaScript, member);
     let r = rows(&cpg);
     assert!(!defs(&cpg).contains(&(
-        "<cb@1:3>".into(),
+        "<anon@1:3>".into(),
         "obj.x".into(),
         at(member, "obj.x = 3", 0)
     )));
-    assert!(!edge(&r, "<cb@1:3>", "obj.x", 4, 6), "{r:?}");
-    assert!(edge(&r, "<cb@1:3>", "obj.x", 2, 6), "{r:?}");
+    assert!(!edge(&r, "<anon@1:3>", "obj.x", 4, 6), "{r:?}");
+    assert!(edge(&r, "<anon@1:3>", "obj.x", 2, 6), "{r:?}");
     let block = "f(function(p) {\n {\n  p = 3;\n }\n use(p);\n});\n";
     let cpg = build(Language::JavaScript, block);
-    assert!(edge(&rows(&cpg), "<cb@1:3>", "p", 3, 5));
+    assert!(edge(&rows(&cpg), "<anon@1:3>", "p", 3, 5));
     assert_eq!(
-        r1_label(&cpg, "<cb@1:3>", "p", 3, 5),
+        r1_label(&cpg, "<anon@1:3>", "p", 3, 5),
         super::FlowConfidence::Exact
     );
     let named = member
@@ -1744,12 +1753,15 @@ fn r9_class_receiver_defs_and_kills_stay_with_the_receiver() {
             let cpg = build(language, &source);
             let r = rows(&cpg);
             assert!(
-                !edge(&r, "<cb@1:10>", "this.x", 4, 6),
+                !edge(&r, "<anon@1:10>", "this.x", 4, 6),
                 "{language:?}: {r:?}"
             );
-            assert!(edge(&r, "<cb@1:10>", "this.x", 2, 6), "{language:?}: {r:?}");
+            assert!(
+                edge(&r, "<anon@1:10>", "this.x", 2, 6),
+                "{language:?}: {r:?}"
+            );
             assert_eq!(
-                r1_label(&cpg, "<cb@1:10>", "this.x", 2, 6),
+                r1_label(&cpg, "<anon@1:10>", "this.x", 2, 6),
                 super::FlowConfidence::Exact
             );
         }
@@ -1758,7 +1770,7 @@ fn r9_class_receiver_defs_and_kills_stay_with_the_receiver() {
             assert!(
                 edge(
                     &rows(&build(language, &source)),
-                    "<cb@1:10>",
+                    "<anon@1:10>",
                     "this.x",
                     4,
                     6
@@ -1769,7 +1781,7 @@ fn r9_class_receiver_defs_and_kills_stay_with_the_receiver() {
         let source = "register(function () {\n let x = 1;\n const C = class { y = (x = 2); };\n use(x);\n});";
         assert!(edge(
             &rows(&build(language, source)),
-            "<cb@1:10>",
+            "<anon@1:10>",
             "x",
             3,
             4
@@ -1787,13 +1799,13 @@ fn r9_class_declarations_have_an_inner_self_binding() {
         } {
             let source = format!("register(function () {{\n {prefix}class C {{ m() {{ use(C); }} }}\n C = 1;\n use(C);\n}});");
             let r = rows(&build(language, &source));
-            assert!(!edge(&r, "<cb@1:10>", "C", 3, 2), "{language:?}: {r:?}");
-            assert!(edge(&r, "<cb@1:10>", "C", 3, 4));
+            assert!(!edge(&r, "<anon@1:10>", "C", 3, 2), "{language:?}: {r:?}");
+            assert!(edge(&r, "<anon@1:10>", "C", 3, 4));
         }
         let source = "register(function () {\n let x=1;\n class C { m(){use(x);} }\n use(x);\n});";
         assert!(edge(
             &rows(&build(language, source)),
-            "<cb@1:10>",
+            "<anon@1:10>",
             "x",
             2,
             3
@@ -1820,15 +1832,17 @@ fn r9_eval_erasure_wrappers_refuse_only_direct_calls() {
             let source = format!("register(function (f) {{\n {callee}(\"f = 2\");\n let local=1;\n use(f,local);\n}});");
             let cpg = build(language, &source);
             assert!(
-                !defs(&cpg).iter().any(|d| d.0 == "<cb@1:10>" && d.1 == "f"),
+                !defs(&cpg)
+                    .iter()
+                    .any(|d| d.0 == "<anon@1:10>" && d.1 == "f"),
                 "{language:?}: {source}"
             );
-            assert!(edge(&rows(&cpg), "<cb@1:10>", "local", 3, 4));
+            assert!(edge(&rows(&cpg), "<anon@1:10>", "local", 3, 4));
         }
         for callee in ["(0, eval)", "eval?.", "o.eval"] {
             let source = format!("register(function (f) {{\n {callee}(\"f = 2\");\n use(f);\n}});");
             assert!(
-                edge(&rows(&build(language, &source)), "<cb@1:10>", "f", 1, 3),
+                edge(&rows(&build(language, &source)), "<anon@1:10>", "f", 1, 3),
                 "{language:?}: {source}"
             );
         }
@@ -1846,17 +1860,17 @@ fn r9_jsx_intrinsic_tags_share_the_nonreference_filter() {
             let source =
                 format!("register(({name}) => {{\n use({name});\n return (\n {markup}\n );\n}});");
             let r = rows(&build(language, &source));
-            assert!(edge(&r, "<cb@1:10>", name, 1, 2));
+            assert!(edge(&r, "<anon@1:10>", name, 1, 2));
             assert!(
                 !r.iter()
-                    .any(|r| r.0 == "<cb@1:10>" && r.1 == name && r.3 >= 4),
+                    .any(|r| r.0 == "<anon@1:10>" && r.1 == name && r.3 >= 4),
                 "{language:?}: {r:?}"
             );
         }
         let source = "register((Item) => {\n return (\n <Item />\n );\n});";
         assert!(edge(
             &rows(&build(language, source)),
-            "<cb@1:10>",
+            "<anon@1:10>",
             "Item",
             1,
             3
@@ -1879,7 +1893,7 @@ fn r9_labelled_body_function_is_a_seam_binding() {
         );
         assert!(!edge(
             &rows(&build(language, source)),
-            "<cb@1:10>",
+            "<anon@1:10>",
             "y",
             1,
             3
@@ -1923,12 +1937,12 @@ fn r9_enum_member_reads_stay_in_the_enum_environment() {
     for language in [Language::TypeScript, Language::Tsx] {
         let source = "register(function(y) {\n enum E { y=1, z=y }\n use(y);\n});";
         let r = rows(&build(language, source));
-        assert!(!edge(&r, "<cb@1:10>", "y", 1, 2), "{language:?}: {r:?}");
-        assert!(edge(&r, "<cb@1:10>", "y", 1, 3));
+        assert!(!edge(&r, "<anon@1:10>", "y", 1, 2), "{language:?}: {r:?}");
+        assert!(edge(&r, "<anon@1:10>", "y", 1, 3));
         let source = "register(function(y) {\n enum E { x=1, z=y }\n use(y);\n});";
         assert!(edge(
             &rows(&build(language, source)),
-            "<cb@1:10>",
+            "<anon@1:10>",
             "y",
             1,
             2
@@ -1942,8 +1956,8 @@ fn r9_type_predicate_names_are_erased_uses() {
         for predicate in ["v is string", "asserts v is string"] {
             let source = format!("register((v: unknown):\n {predicate} => {{\n check(v);\n}});");
             let r = rows(&build(language, &source));
-            assert!(!edge(&r, "<cb@1:10>", "v", 1, 2), "{language:?}: {r:?}");
-            assert!(edge(&r, "<cb@1:10>", "v", 1, 3));
+            assert!(!edge(&r, "<anon@1:10>", "v", 1, 2), "{language:?}: {r:?}");
+            assert!(edge(&r, "<anon@1:10>", "v", 1, 3));
         }
     }
 }
@@ -1976,7 +1990,7 @@ fn r10_labelled_callable_body_rows_survive_without_a_seam() {
                 let (head, tail, owner) = if named {
                     ("function q", "}", "q")
                 } else {
-                    ("register(function", "});", "<cb@1:10>")
+                    ("register(function", "});", "<anon@1:10>")
                 };
                 let source = format!("{head}(y){{\n {labels} function y(){{}}\n use(y);\n{tail}");
                 let def = source.find("(y)").unwrap() + 1;
@@ -2070,7 +2084,7 @@ fn r10_jsx_member_tags_keep_complete_path_rows() {
                     .collect::<Vec<_>>();
                 expected.sort_by_key(ToString::to_string);
                 assert_eq!(
-                    r5_full_binding_rows(&build(language, &source), "<cb@1:10>", path),
+                    r5_full_binding_rows(&build(language, &source), "<anon@1:10>", path),
                     expected,
                     "{language:?}: {source}"
                 );
@@ -2087,7 +2101,7 @@ fn r10_jsx_member_tags_keep_complete_path_rows() {
             let def = source.find(formal).unwrap();
             let use_byte = source.find(&format!("use({formal})")).unwrap() + 4;
             assert_eq!(
-                r5_full_binding_rows(&build(language, &source), "<cb@1:10>", formal),
+                r5_full_binding_rows(&build(language, &source), "<anon@1:10>", formal),
                 vec![serde_json::json!([
                     1,
                     def,
@@ -2112,7 +2126,7 @@ fn r10_enum_string_and_merged_members_fence_rows() {
             let (head, tail, owner) = if named {
                 ("function q", "}", "q")
             } else {
-                ("register(function", "});", "<cb@1:10>")
+                ("register(function", "});", "<anon@1:10>")
             };
             for member in ["\"y\"", "'y'", r#""\u0079""#, r#"'\x79'"#] {
                 for merge in [false, true] {
@@ -2167,14 +2181,14 @@ fn r10_eval_comments_refuse_formals_and_keep_indirect_rows() {
             );
             let cpg = build(language, &source);
             assert_eq!(
-                r5_full_binding_rows(&cpg, "<cb@1:10>", "f"),
+                r5_full_binding_rows(&cpg, "<anon@1:10>", "f"),
                 Vec::<serde_json::Value>::new(),
                 "{language:?}: {source}"
             );
             let def = source.find("local=1").unwrap();
             let use_byte = source.rfind("local);").unwrap();
             assert_eq!(
-                r5_full_binding_rows(&cpg, "<cb@1:10>", "local"),
+                r5_full_binding_rows(&cpg, "<anon@1:10>", "local"),
                 vec![serde_json::json!([
                     3,
                     def,
@@ -2198,7 +2212,7 @@ fn r10_eval_comments_refuse_formals_and_keep_indirect_rows() {
             let def = source.find("(f)").unwrap() + 1;
             let use_byte = source.rfind("f);").unwrap();
             assert_eq!(
-                r5_full_binding_rows(&build(language, &source), "<cb@1:10>", "f"),
+                r5_full_binding_rows(&build(language, &source), "<anon@1:10>", "f"),
                 vec![serde_json::json!([
                     1,
                     def,
@@ -2234,7 +2248,7 @@ fn r10_error_ancestor_walk_preserves_local_rows() {
         let def = source.find("local=1").unwrap();
         let use_byte = source.rfind("local);").unwrap();
         assert_eq!(
-            r5_full_binding_rows(&cpg, "<cb@1:12>", "local"),
+            r5_full_binding_rows(&cpg, "<anon@1:12>", "local"),
             vec![serde_json::json!([
                 2,
                 def,
@@ -2249,7 +2263,7 @@ fn r10_error_ancestor_walk_preserves_local_rows() {
         );
         let clean = source.trim_start_matches("@ ");
         assert_eq!(
-            r5_full_binding_rows(&build(language, clean), "<cb@1:10>", "local"),
+            r5_full_binding_rows(&build(language, clean), "<anon@1:10>", "local"),
             Vec::<serde_json::Value>::new()
         );
     }
@@ -2262,7 +2276,7 @@ fn r10_bare_enum_and_asserts_name_arms_have_rows() {
         let def = source.find("(y)").unwrap() + 1;
         let use_byte = source.rfind("y);").unwrap();
         assert_eq!(
-            r5_full_binding_rows(&build(language, source), "<cb@1:10>", "y"),
+            r5_full_binding_rows(&build(language, source), "<anon@1:10>", "y"),
             vec![serde_json::json!([
                 1,
                 def,
@@ -2279,7 +2293,7 @@ fn r10_bare_enum_and_asserts_name_arms_have_rows() {
         let def = source.find("v:").unwrap();
         let use_byte = source.rfind("v);").unwrap();
         assert_eq!(
-            r5_full_binding_rows(&build(language, source), "<cb@1:10>", "v"),
+            r5_full_binding_rows(&build(language, source), "<anon@1:10>", "v"),
             vec![serde_json::json!([
                 1,
                 def,

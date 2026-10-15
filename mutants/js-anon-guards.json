@@ -146,25 +146,25 @@
     "output::mermaid::tests::escape_label_inner_escapes_angle_brackets"
    ]
   ],
-  "AG-19-predicate-no-legacy": [
+  "AG-19-predicate-readmits-legacy": [
    "src/anon_owner.rs",
-   "|| name.starts_with(LEGACY_CB_OWNER_PREFIX)",
-   "|| false",
+   "name.starts_with(ANON_OWNER_PREFIX)",
+   "name.starts_with(ANON_OWNER_PREFIX) || name.starts_with(\"<cb@\")",
    [
-    "anon_owner::tests::recognises_both_spellings"
+    "anon_owner::tests::recognises_only_anon_spelling"
    ]
   ],
   "AG-20-predicate-no-anon": [
    "src/anon_owner.rs",
-   "name.starts_with(ANON_OWNER_PREFIX) ||",
-   "false ||",
+   "name.starts_with(ANON_OWNER_PREFIX)",
+   "false",
    [
-    "anon_owner::tests::recognises_both_spellings"
+    "anon_owner::tests::recognises_only_anon_spelling"
    ]
   ],
   "AG-21-predicate-accepts-all": [
    "src/anon_owner.rs",
-   "name.starts_with(ANON_OWNER_PREFIX) || name.starts_with(LEGACY_CB_OWNER_PREFIX)",
+   "name.starts_with(ANON_OWNER_PREFIX)",
    "name.starts_with('<')",
    [
     "anon_owner::tests::rejects_real_owner_names"
@@ -178,10 +178,10 @@
     "anon_owner::tests::mint_round_trips_through_the_predicate"
    ]
   ],
-  "AG-23-mint-prefix-flips": [
+  "AG-23-mint-prefix-reverts": [
    "src/anon_owner.rs",
-   "const MINT_OWNER_PREFIX: &str = LEGACY_CB_OWNER_PREFIX;",
    "const MINT_OWNER_PREFIX: &str = ANON_OWNER_PREFIX;",
+   "const MINT_OWNER_PREFIX: &str = \"<cb@\";",
    [
     "anon_owner::tests::mint_round_trips_through_the_predicate"
    ]

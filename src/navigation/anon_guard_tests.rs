@@ -92,7 +92,7 @@ fn location_seed_on_a_callback_line_resolves_to_the_named_function() {
 #[test]
 fn symbol_seed_for_an_anonymous_owner_name_is_rejected_with_guidance() {
     let (_d, s) = with_anon_function();
-    for name in [ANON, "<cb@2:21>"] {
+    for name in [ANON, "<anon@2:21>"] {
         let err = seed::resolve_fn(&s, Some(name), None, None).unwrap_err();
         match &err {
             QueryError::SymbolNotFound { seed } => {
@@ -138,7 +138,7 @@ fn nodes_at_hides_anonymous_identities_but_keeps_named_ones() {
     });
     let json = serde_json::to_string(&queries::nodes_at(&s, FILE, 2)).unwrap();
     assert!(!json.contains("<anon@"), "{json}");
-    assert!(!json.contains("<cb@"), "{json}");
+    assert!(!json.contains("<anon@"), "{json}");
     // Named control: the enclosing function and the named-owner Variable remain.
     assert!(json.contains("\"outer\""), "{json}");
 }
@@ -149,13 +149,13 @@ fn ego_contains_hops_never_surface_anonymous_variables() {
         let outer = function_idx(cpg, "outer");
         // Contains edges from a NAMED function to an anonymous-owned Variable.
         add_variable(cpg, outer, ANON, 2, 2);
-        add_variable(cpg, outer, "<cb@2:21>", 2, 2);
+        add_variable(cpg, outer, "<anon@2:21>", 2, 2);
         add_variable(cpg, outer, "outer", 1, 2);
     });
     let ego = queries::ego_graph(&s, Some("outer"), None, None, 1, &["Contains"]).unwrap();
     let json = serde_json::to_string(&ego).unwrap();
     assert!(!json.contains("<anon@"), "{json}");
-    assert!(!json.contains("<cb@"), "{json}");
+    assert!(!json.contains("<anon@"), "{json}");
     // Named control: the Contains hop to a named-owner Variable is still there.
     let graph = ego.graph.unwrap();
     assert!(
@@ -171,7 +171,7 @@ fn ego_contains_hops_never_surface_anonymous_variables() {
 fn ego_hops_never_surface_anonymous_return_values() {
     let (_d, s) = session_with(|cpg| {
         let outer = function_idx(cpg, "outer");
-        for (n, owner) in [ANON, "<cb@2:21>", "outer"].into_iter().enumerate() {
+        for (n, owner) in [ANON, "<anon@2:21>", "outer"].into_iter().enumerate() {
             let idx = cpg.graph.add_node(CpgNode::ReturnValue {
                 file: FILE.to_string(),
                 function: owner.to_string(),
@@ -190,7 +190,7 @@ fn ego_hops_never_surface_anonymous_return_values() {
     let ego = queries::ego_graph(&s, Some("outer"), None, None, 1, &["Contains"]).unwrap();
     let json = serde_json::to_string(&ego).unwrap();
     assert!(!json.contains("<anon@"), "{json}");
-    assert!(!json.contains("<cb@"), "{json}");
+    assert!(!json.contains("<anon@"), "{json}");
     // ReturnValue rows serialize without their owner, so count them: only the
     // named-owner row (bytes 30..31) may be reached.
     let graph = ego.graph.unwrap();
@@ -211,7 +211,7 @@ fn ego_hops_never_surface_anonymous_return_values() {
 fn onboarding_function_count_excludes_anonymous_nodes() {
     let (_d, with_anon) = session_with(|cpg| {
         add_anonymous_function(cpg, ANON, 2);
-        add_anonymous_function(cpg, "<cb@2:30>", 2);
+        add_anonymous_function(cpg, "<anon@2:30>", 2);
     });
     let (_d2, plain) = session_with(|_| {});
     let counted = crate::navigation::onboarding::build_report(&with_anon)
