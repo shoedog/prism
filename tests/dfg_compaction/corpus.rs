@@ -204,34 +204,61 @@ fn fixture_census_and_multifile_storage() {
     });
 }
 macro_rules! generator {
-    ($test:ident,$name:literal,$make:ident) => {
-        #[test]
+    ($($test:ident,$name:literal,$make:ident;)*) => {
+        $(#[test]
         fn $test() {
             prism::build_pool::install(|| {
                 let (files, diff) = $make().pair();
                 check(concat!("generator-", $name), &files);
                 let _ = diff;
             });
-        }
+        })*
+        const GENERATOR_NAMES: &[&str] = &[$(concat!("generator-", $name),)*];
     };
 }
-generator!(generator_python, "python", make_python_test);
-generator!(generator_javascript, "javascript", make_javascript_test);
-generator!(generator_go, "go", make_go_test);
-generator!(generator_java, "java", make_java_test);
-generator!(generator_typescript, "typescript", make_typescript_test);
-generator!(generator_c, "c", make_c_test);
-generator!(generator_c_multifile, "c-multifile", make_c_multifile_test);
-generator!(generator_cpp, "cpp", make_cpp_test);
-generator!(generator_tsx, "tsx", make_tsx_test);
-generator!(generator_terraform, "terraform", make_terraform_test);
-generator!(generator_bash, "bash", make_bash_test);
-generator!(generator_snmp, "snmp", make_snmp_overflow_test);
-generator!(generator_double_free, "double-free", make_double_free_test);
-generator!(generator_ring, "ring", make_ring_overflow_test);
-generator!(generator_timer, "timer", make_timer_uaf_test);
-generator!(generator_large, "large", make_large_function_test);
-generator!(generator_deep_switch, "deep-switch", make_deep_switch_test);
+generator! {
+    generator_python, "python", make_python_test;
+    generator_javascript, "javascript", make_javascript_test;
+    generator_go, "go", make_go_test;
+    generator_java, "java", make_java_test;
+    generator_typescript, "typescript", make_typescript_test;
+    generator_c, "c", make_c_test;
+    generator_c_multifile, "c-multifile", make_c_multifile_test;
+    generator_cpp, "cpp", make_cpp_test;
+    generator_tsx, "tsx", make_tsx_test;
+    generator_terraform, "terraform", make_terraform_test;
+    generator_bash, "bash", make_bash_test;
+    generator_snmp, "snmp", make_snmp_overflow_test;
+    generator_double_free, "double-free", make_double_free_test;
+    generator_ring, "ring", make_ring_overflow_test;
+    generator_timer, "timer", make_timer_uaf_test;
+    generator_large, "large", make_large_function_test;
+    generator_deep_switch, "deep-switch", make_deep_switch_test;
+}
+
+#[test]
+fn pin_manifest_covers_every_case_and_has_no_unused_entries() {
+    let mut expected: BTreeSet<_> = REGISTERED
+        .iter()
+        .map(|path| format!("fixture-{}", path.replace('/', "__")))
+        .collect();
+    expected.extend(GENERATOR_NAMES.iter().map(|name| name.to_string()));
+    expected.extend(
+        [
+            "fixture-tree",
+            "generator-lua",
+            "generator-rust",
+            "generator-helper-python",
+            "generator-helper-rust",
+        ]
+        .map(str::to_string),
+    );
+    let actual: BTreeSet<_> = super::outputs::parent_pins()
+        .keys()
+        .map(|name| name.to_string())
+        .collect();
+    assert_eq!(expected, actual, "missing or unused parent payload pins");
+}
 pub fn explicit(path: &str, src: &str, lang: Language) -> BTreeMap<String, ParsedFile> {
     BTreeMap::from([(path.into(), ParsedFile::parse(path, src, lang).unwrap())])
 }
