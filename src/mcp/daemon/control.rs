@@ -102,6 +102,9 @@ pub(super) enum StopReason {
     Idle,
     /// The repository root is gone, or its device and inode are no longer the served ones.
     RootChanged,
+    /// The socket or the owner lock's file at its path is no longer the one this daemon holds
+    /// (the runtime directory was removed or replaced under it).
+    FilesReplaced,
     /// SIGTERM or SIGINT.
     Signal,
 }

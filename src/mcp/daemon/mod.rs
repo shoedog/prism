@@ -16,6 +16,11 @@ mod control;
 mod coordinator;
 mod fatal;
 mod files;
+mod log;
+mod peer;
+mod server;
+#[cfg(test)]
+mod server_support;
 #[cfg(test)]
 mod test_support;
 #[cfg(test)]
