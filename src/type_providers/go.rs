@@ -14,6 +14,15 @@ use crate::type_provider::{
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
+mod signature_inputs;
+use signature_inputs::{FileSignatureImports, ImportScan};
+#[cfg(test)]
+mod extraction_cost_tests;
+#[cfg(test)]
+mod extraction_equivalence_tests;
+#[cfg(test)]
+mod extraction_import_tests;
+
 /// Non-dispatchable, fail-closed — mints NO edge (spec §15).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GoDispatchGap {
@@ -478,9 +487,23 @@ impl GoTypeProvider {
     fn from_parsed_files_inner(
         files: &BTreeMap<String, ParsedFile>,
         package_import_paths: &BTreeMap<String, String>,
+        plain_entry: bool,
+    ) -> Self {
+        Self::from_parsed_files_with_import_scan(
+            files,
+            package_import_paths,
+            plain_entry,
+            ImportScan::Once,
+        )
+    }
+
+    fn from_parsed_files_with_import_scan(
+        files: &BTreeMap<String, ParsedFile>,
+        package_import_paths: &BTreeMap<String, String>,
         // Read only by the `#[cfg(test)]` construction counter at the end of this
         // function (P15a-fix1); genuinely unused in non-test builds.
         #[cfg_attr(not(test), allow(unused_variables))] plain_entry: bool,
+        import_scan: ImportScan,
     ) -> Self {
         let mut inner = GoTypeData {
             structs: BTreeMap::new(),
@@ -531,6 +554,7 @@ impl GoTypeProvider {
                 parsed,
                 local_import_paths.get(path).map(String::as_str),
                 &alias_resolver,
+                import_scan,
             );
         }
         let alias_telemetry = alias_resolver.telemetry();
@@ -762,7 +786,9 @@ impl GoTypeProvider {
         parsed: &ParsedFile,
         local_import_path: Option<&str>,
         alias_resolver: &crate::go_type_alias::GoAliasResolver,
+        import_scan: ImportScan,
     ) {
+        let signature_imports = FileSignatureImports::new(parsed, local_import_path, import_scan);
         let root = parsed.tree.root_node();
         let mut cursor = root.walk();
 
@@ -774,7 +800,7 @@ impl GoTypeProvider {
                         &child,
                         path,
                         parsed,
-                        local_import_path,
+                        &signature_imports,
                         alias_resolver,
                     );
                 }
@@ -784,7 +810,7 @@ impl GoTypeProvider {
                         &child,
                         path,
                         parsed,
-                        local_import_path,
+                        &signature_imports,
                         alias_resolver,
                     );
                 }
@@ -799,7 +825,7 @@ impl GoTypeProvider {
         node: &tree_sitter::Node,
         path: &str,
         parsed: &ParsedFile,
-        local_import_path: Option<&str>,
+        signature_imports: &FileSignatureImports<'_>,
         alias_resolver: &crate::go_type_alias::GoAliasResolver,
     ) {
         let mut cursor = node.walk();
@@ -810,7 +836,7 @@ impl GoTypeProvider {
                     &child,
                     path,
                     parsed,
-                    local_import_path,
+                    signature_imports,
                     alias_resolver,
                 ),
                 "type_alias" => Self::extract_type_alias(
@@ -818,7 +844,7 @@ impl GoTypeProvider {
                     &child,
                     path,
                     parsed,
-                    local_import_path,
+                    signature_imports,
                     alias_resolver,
                 ),
                 _ => {}
@@ -832,7 +858,7 @@ impl GoTypeProvider {
         node: &tree_sitter::Node,
         path: &str,
         parsed: &ParsedFile,
-        local_import_path: Option<&str>,
+        signature_imports: &FileSignatureImports<'_>,
         alias_resolver: &crate::go_type_alias::GoAliasResolver,
     ) {
         let name_node = match node.child_by_field_name("name") {
@@ -934,7 +960,7 @@ impl GoTypeProvider {
                     &type_node,
                     path,
                     parsed,
-                    local_import_path,
+                    signature_imports,
                     alias_resolver,
                     name,
                 );
@@ -956,7 +982,7 @@ impl GoTypeProvider {
         type_node: &tree_sitter::Node,
         path: &str,
         parsed: &ParsedFile,
-        local_import_path: Option<&str>,
+        signature_imports: &FileSignatureImports<'_>,
         alias_resolver: &crate::go_type_alias::GoAliasResolver,
         name: String,
     ) {
@@ -966,7 +992,7 @@ impl GoTypeProvider {
             type_node,
             parsed,
             path,
-            local_import_path,
+            signature_imports,
             alias_resolver,
         );
         data.dispatch_overapprox.extend(overapprox);
@@ -1131,7 +1157,7 @@ impl GoTypeProvider {
         node: &tree_sitter::Node,
         path: &str,
         parsed: &ParsedFile,
-        local_import_path: Option<&str>,
+        signature_imports: &FileSignatureImports<'_>,
         alias_resolver: &crate::go_type_alias::GoAliasResolver,
     ) {
         let name_node = match node.child_by_field_name("name") {
@@ -1166,7 +1192,7 @@ impl GoTypeProvider {
                     &type_node,
                     path,
                     parsed,
-                    local_import_path,
+                    signature_imports,
                     alias_resolver,
                     name,
                 );
@@ -1398,7 +1424,7 @@ impl GoTypeProvider {
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
         path: &str,
-        local_import_path: Option<&str>,
+        signature_imports: &FileSignatureImports<'_>,
         alias_resolver: &crate::go_type_alias::GoAliasResolver,
     ) -> (
         BTreeMap<String, Result<String, GoDispatchGap>>,
@@ -1415,7 +1441,7 @@ impl GoTypeProvider {
                 &child,
                 parsed,
                 path,
-                local_import_path,
+                signature_imports,
                 alias_resolver,
                 &mut methods,
                 &mut embedded,
@@ -1430,7 +1456,7 @@ impl GoTypeProvider {
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
         path: &str,
-        local_import_path: Option<&str>,
+        signature_imports: &FileSignatureImports<'_>,
         alias_resolver: &crate::go_type_alias::GoAliasResolver,
         methods: &mut BTreeMap<String, Result<String, GoDispatchGap>>,
         embedded: &mut Vec<String>,
@@ -1450,7 +1476,7 @@ impl GoTypeProvider {
                         node,
                         parsed,
                         path,
-                        local_import_path,
+                        signature_imports,
                         alias_resolver,
                     );
                     methods.insert(name, sig);
@@ -1469,7 +1495,7 @@ impl GoTypeProvider {
                         &child,
                         parsed,
                         path,
-                        local_import_path,
+                        signature_imports,
                         alias_resolver,
                         methods,
                         embedded,
@@ -1485,7 +1511,7 @@ impl GoTypeProvider {
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
         path: &str,
-        local_import_path: Option<&str>,
+        signature_imports: &FileSignatureImports<'_>,
         alias_resolver: &crate::go_type_alias::GoAliasResolver,
     ) -> Result<String, GoDispatchGap> {
         Self::canon_sig(
@@ -1493,7 +1519,7 @@ impl GoTypeProvider {
             node.child_by_field_name("result").as_ref(),
             parsed,
             path,
-            local_import_path,
+            signature_imports,
             alias_resolver,
         )
     }
@@ -1633,24 +1659,11 @@ impl GoTypeProvider {
         result: Option<&tree_sitter::Node>,
         parsed: &ParsedFile,
         path: &str,
-        local_import_path: Option<&str>,
+        signature_imports: &FileSignatureImports<'_>,
         alias_resolver: &crate::go_type_alias::GoAliasResolver,
     ) -> Result<String, GoDispatchGap> {
-        let imports = Self::signature_imports(parsed, local_import_path);
+        let imports = signature_imports.get();
         Self::canon_sig_with_imports(params, result, parsed, path, &imports, alias_resolver)
-    }
-
-    /// Import aliases used only for signature identity. `ParsedFile::extract_imports`
-    /// deliberately uses the last path component for a default Go import, but Go module
-    /// major-version suffixes are not package names: `example/widget/v2` is normally
-    /// referenced as `widget`, and `gopkg.in/yaml.v3` as `yaml`. Add those conventional
-    /// bindings without changing the canonical value (the full import path). Explicit
-    /// aliases remain authoritative; colliding inferred aliases are omitted fail-closed.
-    fn signature_imports(
-        parsed: &ParsedFile,
-        local_import_path: Option<&str>,
-    ) -> BTreeMap<String, String> {
-        crate::go_type_alias::signature_imports(parsed, local_import_path)
     }
 
     pub(crate) fn canon_sig_with_imports(
@@ -1756,7 +1769,7 @@ impl GoTypeProvider {
             node.child_by_field_name("result").as_ref(),
             parsed,
             &parsed.path,
-            None,
+            &FileSignatureImports::new(parsed, None, ImportScan::Once),
             &alias_resolver,
         )
     }
@@ -1785,7 +1798,7 @@ impl GoTypeProvider {
         node: &tree_sitter::Node,
         path: &str,
         parsed: &ParsedFile,
-        local_import_path: Option<&str>,
+        signature_imports: &FileSignatureImports<'_>,
         alias_resolver: &crate::go_type_alias::GoAliasResolver,
     ) {
         let name_node = match node.child_by_field_name("name") {
@@ -1800,7 +1813,7 @@ impl GoTypeProvider {
         };
 
         let sig =
-            Self::extract_func_signature(node, parsed, path, local_import_path, alias_resolver);
+            Self::extract_func_signature(node, parsed, path, signature_imports, alias_resolver);
         let generic = Self::signature_has_generic_syntax(node);
         let start_line = node.start_position().row + 1;
         let end_line = node.end_position().row + 1;
@@ -1903,7 +1916,7 @@ impl GoTypeProvider {
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
         path: &str,
-        local_import_path: Option<&str>,
+        signature_imports: &FileSignatureImports<'_>,
         alias_resolver: &crate::go_type_alias::GoAliasResolver,
     ) -> Result<String, GoDispatchGap> {
         Self::canon_sig(
@@ -1911,7 +1924,7 @@ impl GoTypeProvider {
             node.child_by_field_name("result").as_ref(),
             parsed,
             path,
-            local_import_path,
+            signature_imports,
             alias_resolver,
         )
     }
