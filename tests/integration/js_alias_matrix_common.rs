@@ -27,6 +27,19 @@ pub enum Truth {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum CallerTruth {
+    Anon {
+        file: String,
+        line: usize,
+        col: usize,
+    },
+    Named {
+        name: String,
+    },
+}
+
+#[derive(Debug, Clone, Deserialize)]
 #[allow(dead_code)]
 pub struct Fixture {
     pub id: String,
@@ -40,6 +53,7 @@ pub struct Fixture {
     pub site_file: String,
     pub site_line: Option<u64>,
     pub truth: Truth,
+    pub caller: Option<CallerTruth>,
     pub files: BTreeMap<String, String>,
 }
 

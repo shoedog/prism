@@ -13,6 +13,10 @@ use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::path::PathBuf;
 
+#[cfg(test)]
+#[path = "call_graph_anon_prep_tests.rs"]
+mod anon_prep_tests;
+
 /// A node in the call graph: a function identified by file path and name.
 #[derive(
     Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
@@ -1369,16 +1373,11 @@ impl CallGraph {
 
         // Phase 1: Collect all function definitions
         for (file_path, parsed) in files {
-            for func_node in parsed.all_functions() {
-                if let Some(name_node) = parsed.language.function_name(&func_node) {
-                    let name = parsed.node_text(&name_node).to_string();
-                    let (start, end) = parsed.node_line_range(&func_node);
-                    let func_id = FunctionId {
-                        file: file_path.clone(),
-                        name: name.clone(),
-                        start_line: start,
-                        end_line: end,
-                    };
+            for func_node in crate::anon_owner::owner_nodes(parsed) {
+                if let Some(func_id) =
+                    crate::anon_owner::emitted_identity(parsed, &func_node, file_path)
+                {
+                    let name = func_id.name.clone();
                     functions
                         .entry(name.clone())
                         .or_default()
@@ -1434,19 +1433,16 @@ impl CallGraph {
         // Phase 2: Find all call sites within each function
         for (file_path, parsed) in files {
             let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
+            let named_claims =
+                crate::anon_owner::named_claims(parsed, crate::anon_owner::EMIT_ANONYMOUS_OWNERS);
             let mut binding_cache = crate::ast::JsBindingCache::for_sites();
-            for func_node in parsed.all_functions() {
-                let func_name = match parsed.language.function_name(&func_node) {
-                    Some(n) => parsed.node_text(&n).to_string(),
-                    None => continue,
+            for func_node in crate::anon_owner::owner_nodes(parsed) {
+                let Some(caller_id) =
+                    crate::anon_owner::emitted_identity(parsed, &func_node, file_path)
+                else {
+                    continue;
                 };
-                let (start, end) = parsed.node_line_range(&func_node);
-                let caller_id = FunctionId {
-                    file: file_path.clone(),
-                    name: func_name,
-                    start_line: start,
-                    end_line: end,
-                };
+                let (start, end) = (caller_id.start_line, caller_id.end_line);
                 if ambiguous_owner_ids.contains(&(
                     caller_id.name.clone(),
                     caller_id.start_line,
@@ -1463,6 +1459,15 @@ impl CallGraph {
                 );
 
                 for meta in call_sites {
+                    if !crate::anon_owner::may_mint_call(
+                        parsed,
+                        &func_node,
+                        meta.start_byte,
+                        meta.end_byte,
+                        &named_claims,
+                    ) {
+                        continue;
+                    }
                     let callee_name = meta.callee_name;
                     let start_byte = meta.start_byte;
                     let end_byte = meta.end_byte;
@@ -1733,16 +1738,11 @@ impl CallGraph {
                 let mut file_js_ts_static_methods = Vec::new();
                 let mut file_js_ts_unproven_instance_methods = Vec::new();
 
-                for func_node in parsed.all_functions() {
-                    if let Some(name_node) = parsed.language.function_name(&func_node) {
-                        let name = parsed.node_text(&name_node).to_string();
-                        let (start, end) = parsed.node_line_range(&func_node);
-                        let func_id = FunctionId {
-                            file: file_path.clone(),
-                            name: name.clone(),
-                            start_line: start,
-                            end_line: end,
-                        };
+                for func_node in crate::anon_owner::owner_nodes(parsed) {
+                    if let Some(func_id) =
+                        crate::anon_owner::emitted_identity(parsed, &func_node, file_path)
+                    {
+                        let name = func_id.name.clone();
                         let (owner, trait_key, recv_var, class_span) =
                             Self::method_metadata(parsed, &func_node);
                         let facts = Self::method_facts(parsed, &func_node);
@@ -1844,20 +1844,19 @@ impl CallGraph {
                 let proven_imported_receiver_types =
                     proven_python_imported_receiver_types.get(file_path);
                 let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
+                let named_claims = crate::anon_owner::named_claims(
+                    parsed,
+                    crate::anon_owner::EMIT_ANONYMOUS_OWNERS,
+                );
                 let mut binding_cache = crate::ast::JsBindingCache::for_sites();
 
-                for func_node in parsed.all_functions() {
-                    let func_name = match parsed.language.function_name(&func_node) {
-                        Some(n) => parsed.node_text(&n).to_string(),
-                        None => continue,
+                for func_node in crate::anon_owner::owner_nodes(parsed) {
+                    let Some(caller_id) =
+                        crate::anon_owner::emitted_identity(parsed, &func_node, file_path)
+                    else {
+                        continue;
                     };
-                    let (start, end) = parsed.node_line_range(&func_node);
-                    let caller_id = FunctionId {
-                        file: file_path.clone(),
-                        name: func_name,
-                        start_line: start,
-                        end_line: end,
-                    };
+                    let (start, end) = (caller_id.start_line, caller_id.end_line);
                     if ambiguous_owner_ids.contains(&(
                         caller_id.name.clone(),
                         caller_id.start_line,
@@ -1882,6 +1881,15 @@ impl CallGraph {
                         .map(|n| parsed.node_text(&n).to_string());
 
                     for meta in call_sites {
+                        if !crate::anon_owner::may_mint_call(
+                            parsed,
+                            &func_node,
+                            meta.start_byte,
+                            meta.end_byte,
+                            &named_claims,
+                        ) {
+                            continue;
+                        }
                         let callee_name = meta.callee_name;
                         let line = meta.line;
                         let start_byte = meta.start_byte;
@@ -2231,19 +2239,13 @@ impl CallGraph {
             }
 
             let mut binding_cache = crate::ast::JsBindingCache::for_sites();
-            for func_node in parsed.all_functions() {
-                let Some(name_node) = parsed.language.function_name(&func_node) else {
+            for func_node in crate::anon_owner::owner_nodes(parsed) {
+                let Some(func_id) =
+                    crate::anon_owner::emitted_identity(parsed, &func_node, file_path)
+                else {
                     continue;
                 };
-                let name = parsed.node_text(&name_node).to_string();
-                let (start, end) = parsed.node_line_range(&func_node);
-                let func_id = FunctionId {
-                    file: file_path.clone(),
-                    name,
-                    start_line: start,
-                    end_line: end,
-                };
-                let locals = parsed.js_ts_function_local_bindings(&func_node);
+                let locals = crate::anon_owner::shadow_locals(parsed, &func_node);
                 if !locals.is_empty() {
                     function_locals.insert(func_id.clone(), locals);
                 }
@@ -2770,7 +2772,11 @@ impl CallGraph {
         let known_fn_names: BTreeSet<String> = self.functions.keys().cloned().collect();
         let mut extra_sites: Vec<(FunctionId, CallSite)> = Vec::new();
 
-        for (caller_id, sites) in &self.calls {
+        for (caller_id, sites) in self
+            .calls
+            .iter()
+            .filter(|(id, _)| crate::anon_owner::permits_legacy_indirect(id))
+        {
             for site in sites {
                 if self.functions.contains_key(&site.callee_name) {
                     continue;
@@ -2819,7 +2825,7 @@ impl CallGraph {
                     .all(|c| c.is_alphanumeric() || c == '_')
                 {
                     let Some(func_source) =
-                        Self::extract_func_source_before(parsed, caller_id, site.start_byte)
+                        crate::anon_owner::source_before(parsed, caller_id, site.start_byte)
                     else {
                         continue;
                     };
@@ -2860,7 +2866,11 @@ impl CallGraph {
         }
 
         let mut level4_sites: Vec<(FunctionId, CallSite)> = Vec::new();
-        for (caller_id, sites) in &self.calls {
+        for (caller_id, sites) in self
+            .calls
+            .iter()
+            .filter(|(id, _)| crate::anon_owner::permits_legacy_indirect(id))
+        {
             for site in sites {
                 if self.functions.contains_key(&site.callee_name) {
                     continue;
@@ -3751,7 +3761,7 @@ impl CallGraph {
         if !matches!(parsed.language, crate::languages::Language::Rust) {
             return out;
         }
-        let Some(fn_node) = Self::function_node_for_id(parsed, caller) else {
+        let Some(fn_node) = crate::anon_owner::node_for_id(parsed, caller) else {
             return out;
         };
         let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
@@ -3805,7 +3815,7 @@ impl CallGraph {
             if !matches!(parsed.language, crate::languages::Language::Rust) {
                 continue;
             }
-            let Some(fn_node) = Self::function_node_for_id(parsed, caller) else {
+            let Some(fn_node) = crate::anon_owner::node_for_id(parsed, caller) else {
                 continue;
             };
             let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
@@ -3837,22 +3847,6 @@ impl CallGraph {
             }
         }
         updates
-    }
-
-    fn function_node_for_id<'a>(
-        parsed: &'a ParsedFile,
-        fid: &FunctionId,
-    ) -> Option<tree_sitter::Node<'a>> {
-        parsed.all_functions().into_iter().find(|node| {
-            let Some(name_node) = parsed.language.function_name(node) else {
-                return false;
-            };
-            if parsed.node_text(&name_node) != fid.name {
-                return false;
-            }
-            let (start, end) = parsed.node_line_range(node);
-            start == fid.start_line && end == fid.end_line
-        })
     }
 
     /// Remove all promoted embedding aliases from the owner index (preserving any
@@ -4608,9 +4602,15 @@ impl CallGraph {
                     files
                         .get(&old_site.caller.file)
                         .and_then(|parsed| {
-                            Self::function_node_for_id(parsed, &old_site.caller).map(|func_node| {
-                                parsed.go_local_type_shadows(&func_node, ty, old_site.start_byte)
-                            })
+                            crate::anon_owner::node_for_id(parsed, &old_site.caller).map(
+                                |func_node| {
+                                    parsed.go_local_type_shadows(
+                                        &func_node,
+                                        ty,
+                                        old_site.start_byte,
+                                    )
+                                },
+                            )
                         })
                         .unwrap_or(false)
                 });
@@ -4626,13 +4626,15 @@ impl CallGraph {
                     files
                         .get(&old_site.caller.file)
                         .and_then(|parsed| {
-                            Self::function_node_for_id(parsed, &old_site.caller).map(|func_node| {
-                                parsed.go_func_literal_parameter_binds_receiver(
-                                    &func_node,
-                                    receiver,
-                                    old_site.start_byte,
-                                )
-                            })
+                            crate::anon_owner::node_for_id(parsed, &old_site.caller).map(
+                                |func_node| {
+                                    parsed.go_func_literal_parameter_binds_receiver(
+                                        &func_node,
+                                        receiver,
+                                        old_site.start_byte,
+                                    )
+                                },
+                            )
                         })
                         .unwrap_or(false)
                 });
@@ -4721,7 +4723,7 @@ impl CallGraph {
         if parsed.language != crate::languages::Language::Go {
             return out;
         }
-        let Some(fn_node) = Self::function_node_for_id(parsed, caller) else {
+        let Some(fn_node) = crate::anon_owner::node_for_id(parsed, caller) else {
             return out;
         };
         let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
@@ -5209,16 +5211,11 @@ impl CallGraph {
             if !only_files.contains(file_path) {
                 continue;
             }
-            for func_node in parsed.all_functions() {
-                if let Some(name_node) = parsed.language.function_name(&func_node) {
-                    let name = parsed.node_text(&name_node).to_string();
-                    let (start, end) = parsed.node_line_range(&func_node);
-                    let func_id = FunctionId {
-                        file: file_path.clone(),
-                        name: name.clone(),
-                        start_line: start,
-                        end_line: end,
-                    };
+            for func_node in crate::anon_owner::owner_nodes(parsed) {
+                if let Some(func_id) =
+                    crate::anon_owner::emitted_identity(parsed, &func_node, file_path)
+                {
+                    let name = func_id.name.clone();
                     functions
                         .entry(name.clone())
                         .or_default()
@@ -5280,19 +5277,16 @@ impl CallGraph {
             }
             let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
             let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
+            let named_claims =
+                crate::anon_owner::named_claims(parsed, crate::anon_owner::EMIT_ANONYMOUS_OWNERS);
             let mut binding_cache = crate::ast::JsBindingCache::for_sites();
-            for func_node in parsed.all_functions() {
-                let func_name = match parsed.language.function_name(&func_node) {
-                    Some(n) => parsed.node_text(&n).to_string(),
-                    None => continue,
+            for func_node in crate::anon_owner::owner_nodes(parsed) {
+                let Some(caller_id) =
+                    crate::anon_owner::emitted_identity(parsed, &func_node, file_path)
+                else {
+                    continue;
                 };
-                let (start, end) = parsed.node_line_range(&func_node);
-                let caller_id = FunctionId {
-                    file: file_path.clone(),
-                    name: func_name,
-                    start_line: start,
-                    end_line: end,
-                };
+                let (start, end) = (caller_id.start_line, caller_id.end_line);
                 if ambiguous_owner_ids.contains(&(
                     caller_id.name.clone(),
                     caller_id.start_line,
@@ -5318,6 +5312,15 @@ impl CallGraph {
                     proven_python_imported_receiver_types.get(file_path);
 
                 for meta in call_sites {
+                    if !crate::anon_owner::may_mint_call(
+                        parsed,
+                        &func_node,
+                        meta.start_byte,
+                        meta.end_byte,
+                        &named_claims,
+                    ) {
+                        continue;
+                    }
                     let callee_name = meta.callee_name;
                     let line = meta.line;
                     let start_byte = meta.start_byte;
@@ -5726,6 +5729,9 @@ impl CallGraph {
         Option<String>,
         Option<(usize, usize)>,
     ) {
+        if parsed.language.function_name(func_node).is_none() {
+            return (None, None, None, None);
+        }
         let owner = parsed
             .language
             .method_owner(func_node)
@@ -5903,20 +5909,6 @@ impl CallGraph {
                 return CallKind::Call;
             })
             .unwrap_or(CallKind::Call)
-    }
-
-    /// Exact function-source prefix ending immediately before `before_byte`.
-    /// Assignment-based callback resolution must never inspect later writes.
-    fn extract_func_source_before<'a>(
-        parsed: &'a ParsedFile,
-        func_id: &FunctionId,
-        before_byte: usize,
-    ) -> Option<&'a str> {
-        let function = Self::function_node_for_id(parsed, func_id)?;
-        if before_byte < function.start_byte() || before_byte > function.end_byte() {
-            return None;
-        }
-        parsed.source.get(function.start_byte()..before_byte)
     }
 
     /// Extract the source text for a function from its parsed file.

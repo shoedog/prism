@@ -3440,11 +3440,7 @@ impl CallGraph {
                             if is_js_ts_import_member_file(&caller.file) {
                                 // A parameter or local binding shadows the imported local
                                 // name; do not mint an exact import edge.
-                                if !self
-                                    .js_ts_function_locals
-                                    .get(caller)
-                                    .is_some_and(|locals| locals.contains(name))
-                                {
+                                if !crate::anon_owner::shadows(self, caller, name) {
                                     return self.js_ts_import_member_outcome(caller, binding, site);
                                 }
                             } else {
@@ -3608,10 +3604,7 @@ impl CallGraph {
                 // same spelling. Earlier proven local/import routes are kept;
                 // this guard never supplies a new callable or alias target.
                 if is_js_ts_import_member_file(&caller.file)
-                    && (self
-                        .js_ts_function_locals
-                        .get(caller)
-                        .is_some_and(|s| s.contains(name))
+                    && (crate::anon_owner::shadows(self, caller, name)
                         || self
                             .import_bindings
                             .get(&caller.file)

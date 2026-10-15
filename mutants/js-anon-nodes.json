@@ -1,0 +1,62 @@
+{
+  "mutations": {
+    "ANON-PREP-01-predicate-off": [
+      "src/anon_owner.rs",
+      "!claims.contains(&(start, end)) && parsed.js_ts_span_in_own_scope(owner, start, end)",
+      "parsed.js_ts_span_in_own_scope(owner, start, end)",
+      "call_graph::anon_prep_tests::compatibility_uses_exact_named_claims_and_strict_scope"
+    ],
+    "ANON-PREP-02-chain-off": [
+      "src/anon_owner.rs",
+      "locals.extend(own_locals(parsed, &scope));",
+      "let _ = scope;",
+      "call_graph::anon_prep_tests::injected_shadow_chain_owns_parameters_and_isolates_siblings"
+    ],
+    "ANON-PREP-03-own-locals-off": [
+      "src/anon_owner.rs",
+      "parsed.js_ts_function_local_bindings(node)",
+      "BTreeSet::new()",
+      "call_graph::anon_prep_tests::injected_shadow_chain_owns_parameters_and_isolates_siblings"
+    ],
+    "ANON-PREP-04-builder-helper-divergence": [
+      "src/call_graph.rs",
+      "        // Phase 1: Collect all function definitions\n        for (file_path, parsed) in files {\n            for func_node in crate::anon_owner::owner_nodes(parsed) {\n                if let Some(func_id) =\n                    crate::anon_owner::emitted_identity(parsed, &func_node, file_path)\n                {\n",
+      "        // Phase 1: Collect all function definitions\n        for (file_path, parsed) in files {\n            for func_node in crate::anon_owner::owner_nodes(parsed) {\n                if let Some(func_id) =\n                    crate::anon_owner::identity(parsed, &func_node, file_path)\n                {\n",
+      "call_graph::anon_prep_tests::identity_and_disabled_builders_agree"
+    ],
+    "ANON-PREP-05-strict-scope-off": [
+      "src/anon_owner.rs",
+      "!claims.contains(&(start, end)) && parsed.js_ts_span_in_own_scope(owner, start, end)",
+      "!claims.contains(&(start, end))",
+      "call_graph::anon_prep_tests::compatibility_uses_exact_named_claims_and_strict_scope"
+    ],
+    "ANON-PREP-06-bytes-by-name": [
+      "src/anon_owner.rs",
+      "node_for_id(parsed, id).map(|n| (n.start_byte(), n.end_byte()))",
+      "None",
+      "cpg::build::anon_prep_tests::injected_identity_drives_step1_bytes_and_step6_contains"
+    ],
+    "ANON-PREP-07-indirect-refusal-off": [
+      "src/anon_owner.rs",
+      "!is_anonymous_owner_name(&id.name)\n}",
+      "true\n}",
+      "call_graph::anon_prep_tests::anonymous_source_is_exact_and_legacy_indirect_declines"
+    ],
+    "ANON-PREP-08-d12-anonymous-off": [
+      "src/cpg/build.rs",
+      "&& !registered.contains_key(&owner)",
+      "",
+      "cpg::build::anon_prep_tests::d12_refuses_registered_anonymous_sources_only"
+    ],
+    "ANON-PREP-09-generator-candidate-off": [
+      "src/anon_owner.rs",
+      "if include_generators\n",
+      "if false && include_generators\n",
+      "call_graph::anon_prep_tests::identity_and_disabled_builders_agree"
+    ]
+  },
+  "lib_test_prefixes": [
+    "call_graph::anon_prep_tests::",
+    "cpg::build::anon_prep_tests::"
+  ]
+}
