@@ -390,10 +390,10 @@ and the socket's unlink runs inside it, so nothing is admitted after it. A warm 
 connection starts holding the startup attempt (`budget_for`), so a startup build that failed
 before its first call is reported as the in-process server reports it. `files.rs` owns a key's
 files: the owner lock (`flock`, held for the daemon's life; a second claimant is told `Taken` and
-touches nothing), the socket (a stale one is replaced by the owner, and the owner removes it only
-while it is still the one it bound), and the pid file; every file but the socket is opened
-through the validated runtime directory's descriptor with `O_NOFOLLOW`, and lock files are
-created with `O_EXCL` and never removed.
+touches none of the owner's files), the socket (a stale one is replaced by the owner, and the
+owner removes it only while it is still the one it bound), and the pid file; every file but the
+socket is opened through the validated runtime directory's descriptor with `O_NOFOLLOW`, and lock
+files are created with `O_EXCL` and never removed.
 `server.rs` is the accept loop, one thread polling the listener and every pending connection:
 a peer of another uid (`peer.rs`) is dropped before any reply and never counted; a pending
 connection's `HELLO` is read from a non-blocking socket against its own deadline (10 s) and

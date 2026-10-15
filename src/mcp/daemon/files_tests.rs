@@ -247,3 +247,35 @@ fn a_replaced_runtime_directory_is_noticed_and_left_alone() {
     assert!(!old.socket().exists(), "its own socket is removed");
     assert!(!old.pid_file().exists(), "its own pid file is removed");
 }
+
+/// The socket half of `still_ours` (review of S4-1, Opus F1): with the owner lock and the pid
+/// file untouched, a socket that was removed or replaced since the bind means the daemon's name
+/// is no longer reachable, so its files are no longer its own. Rules out a check that looks
+/// only at the owner lock.
+#[test]
+fn a_replaced_socket_alone_is_noticed_and_left_alone() {
+    let (_base, dir, key) = runtime();
+    let mut files = owned(&dir, &key);
+    let _listener = files.bind().expect("bind");
+    files.write_pid(1, 2, "build").expect("pid");
+    let paths = files.paths().clone();
+    assert!(files.still_ours());
+
+    std::fs::remove_file(paths.socket()).expect("remove the socket");
+    assert!(!files.still_ours(), "the socket is gone");
+    let _other = UnixListener::bind(paths.socket()).expect("another socket at the path");
+    let other_inode = inode(paths.socket());
+    assert!(
+        !files.still_ours(),
+        "another socket is at the path, though the owner lock and pid file are unchanged"
+    );
+
+    files.unlink_socket();
+    assert_eq!(
+        inode(paths.socket()),
+        other_inode,
+        "the other socket is not removed"
+    );
+    files.release();
+    assert!(!paths.pid_file().exists(), "its own pid file is removed");
+}
