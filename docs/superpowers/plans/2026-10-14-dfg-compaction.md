@@ -17,7 +17,7 @@
 - Preserve observable output **byte for byte** (cross-build SARIF provenance is checked separately as specified below): navigation, review, SARIF, targets, MCP Evidence; preserve node/edge insertion order, first-wins representatives, stable sorting, ties, confidence and telemetry. Do not bless new goldens. Cache bytes intentionally change only when its version changes.
 - Use `BTreeMap`/`BTreeSet` and explicitly ordered iteration. Numeric occurrence IDs are **not legacy sort keys**. Never substitute a HashMap or unstable sort in a behavior-bearing path.
 - Keep `VarLocation::{Eq,Ord,Hash}`, `ExactVarLocation`, `AccessPath`, `FlowConfidence::worst`, RD classification, CPG endpoint selection and query algorithms semantically unchanged.
-- **No numeric file-size cap.** The owner dropped numeric line caps on 2026-09-30; retain slice-size forecasting and split PRs only for actual review size. Edit existing consumers in place. Only extract the DFG seams needed by this design; do not force decomposition of `cpg/build.rs`, `cpg_cache.rs`, `call_graph.rs`, CPG tests or `tests/common`. `CLAUDE.md` decision 7 still states the old rule; leave it unchanged for the controller to raise with the owner.
+- **Owner file-size rule (2026-10-14; supersedes the round-1 no-cap ruling):** measure **weighted lines**: code 1, comment-only 0.5, blank 0, using `python3 .review/file_size.py FILE...` (copy of the new `scripts/file_size.py`; `--over N` lists files above N). New files aim for **≤600**. Above **1,000**, split along a real responsibility boundary; every PR leaving a file above 1,000 explains why. **2,000 is a hard ceiling: no PR may take a file past it.** Files already above 2,000 **must not grow in a feature PR**; small edits are fine, new code goes in new modules. Any required split of such a file is a separately reviewed **move-only PR, with no behavior change, before the feature work**, never inside it. The ledger below binds every planned file/PR. The controller owns the corresponding `CLAUDE.md` Key Design Decision 7 update; this task changes only the plan.
 - Run `cargo fmt`, **full** `cargo test` and **full** `cargo test --features mcp` at each PR gate. Count passed/failed/ignored tests across every target and doc test; filtered focused runs do not replace these suites. Record out-of-scope failures with a same-environment base control, not a new baseline.
 - Every added behavior has a watched RED (missing-API compile RED is only scaffold evidence), a behavioral mutant or pre-change failure, and a negative/edge test. Behavior-neutral moves use byte controls and deliberately wrong mutants; do not invent a regression that the old behavior should fail.
 - Mutation gate each review round: `python3 scripts/mutgate/mutgate.py --since main --scope fn --jobs 1`; before merge: `python3 scripts/mutgate/mutgate.py --authoritative --jobs 1` with **no `--since` or `--only`**. Register compaction mutants; the old catalog alone will not test new code. Scoped schema observations are advisory. A zero-mutant selection is not coverage.
@@ -81,7 +81,7 @@ Source: Prometheus summary `:149-151`; slicing `:107-109`. Serialized totals **5
 | D — compact codec | 5 | Test-only validated wire codec, corruption/version/stream parity tests; production format unchanged | derived 0 | Full corpus round trips and malformed IDs rejected |
 | E — activation and cleanup | 6–8 | Compact runtime/cache v118 and production deletions together; acceptance, then delete the temporary oracle | guessed 400–650 / 90–180 MiB; **must measure ≥300/75** | Task 6 removes production scaffolding before measurement; Task 7 PASS precedes Task 8 test-only cleanup and final gate. No separate PR F or automatic second corpus set. |
 
-Review sizing targets are **guessed PR budgets**, not file-size caps: A/C/D ≤800 semantic lines each; B ≤500 mechanical accessor substitutions plus views/query moves; E ≤800 semantic lines including cleanup. Forecast actual changed lines and separate pure moves before each dispatch. Split at a named task boundary only if the actual review surface needs it, before dispatch rather than after rejection. Sharing the producer shrinks A; in-place consumer edits remove the forced B1/B2 extraction work. E absorbs former F because its production deletions are required by activation already, and post-acceptance oracle deletion is mechanically reviewable. No review-size evidence currently justifies an extra PR.
+Review sizing targets remain **guessed PR budgets**, separate from the weighted file-size rule: A/C/D ≤800 semantic lines each; B ≤500 mechanical accessor substitutions plus views/query moves; E ≤800 semantic lines including cleanup. Forecast actual changed lines and check both review size and the per-file ledger before dispatch. Split at a named task boundary when the actual review surface needs it; any required extraction from an oversized file is a separate move-only predecessor. Sharing the producer shrinks A; bounded in-place consumer substitutions and new helper modules avoid mandatory B1/B2 extractions on this inventory. E still absorbs former F because its production deletions are required by activation already, and post-acceptance oracle deletion is mechanically reviewable. The five-PR/eight-task sequence is unchanged.
 
 ## Review Focus
 
@@ -124,22 +124,203 @@ A `rg` hit on a comment or DTO is not authority to change that module. Conversel
 |---|---|
 | `src/data_flow.rs` | facade/re-exports; initially legacy storage, finally `DataFlowGraph { storage: CompactDfg }` |
 | `src/data_flow/{types,views,queries,legacy_storage}.rs` | unchanged DTOs; ordered views; query bodies; transitional old fields (Tasks 1–2, removed from production in 6) |
-| `src/data_flow/build/{mod,file}.rs` | Shared `file_refs(path, parsed) -> FileRefs` and producer helpers; mechanical extraction in 1, compact conversion inside the Rayon map in 6. Further function-level splits only if review size warrants them. |
+| `src/data_flow/build/{mod,file,exact_reads,aliases}.rs` | Shared per-file producer, exact-read helpers and alias helpers in separate responsibility modules; mechanical extraction in 1, compact conversion inside the Rayon map in 6. Weighted budgets are in the ledger. |
 | `src/data_flow/compact/{mod,arena,freeze,views,update,wire,validate}.rs` | types; arena ranks; legacy-parts ingestion; views; compact prune/merge/reindex; codec; validation (3–5) |
 | `src/data_flow/oracle/{mod,aggregate,queries,update}.rs` | **Frozen** legacy storage, aggregation, adjacency, label insertion, queries and updates; share per-file producer/DTO/lattice only. Test-only in 1–7, deleted in 8 after acceptance. |
 | `src/data_flow/tests/{identity,representatives,queries,updates,wire,corruption,corpus,observe,outputs}.rs` | group tests by behavior (1,3–5) |
 | `tests/dfg_compaction/{main,corpus,outputs}.rs` | integration oracle using common generators, public CPG/output parity (1–8) |
-| `src/cpg/build.rs`, `src/cpg/dfg_missing_label_tests.rs` | In-place assembly view migration and crate-unit relocation of all three integration label-removal sites (2); no forced assembly extraction. |
+| `src/cpg.rs`, `src/cpg/build.rs`, `src/cpg/{dfg_compaction_support,dfg_missing_label_tests}.rs` | Register new support/tests in the small parent; oversized build file has no net growth. Assembly entry lives in the new support module (1); in-place view migration and both missing-label tests retain all three removal sites (2). |
 | `src/cpg_cache/dfg_codec_tests.rs`, `src/cpg_cache/stream_tests.rs` | codec version/stream integration (5–6) |
 | `scripts/dfg_compaction/compare_acceptance.py` | preregistered numeric readout and receipt checking (7) |
 | `mutants/dfg-compaction.json` | 10–15 high-value mutants selected from the task distinctions; default-feature lib selectors; runtime forecast below |
 | `docs/superpowers/handoffs/2026-10-14-dfg-compaction.md` | living implementation handoff (controller snapshots/commits) |
 
-Existing consumer and test modules receive bounded in-place edits. New child modules establish the producer, view, query, compact-storage and test seams; source length alone never requires moving unrelated code. If the enumerated PR B diff is still too large, declare a consumer-group split with its own complete gate before dispatch.
+Existing consumer and test modules receive bounded in-place edits within the weighted ledger. New child modules establish the producer, view, query, compact-storage and test seams; the ledger also names module registrations, retained output/navigation tests, the release note and acceptance receipt. If the enumerated PR B diff is still too large, declare a consumer-group split with its own complete gate before dispatch. An oversized existing file is extracted only when needed for growth, in its own prior move-only PR.
 
 **Mutation budget (S2/S3):** use `"lib_test_prefixes": ["data_flow::tests::"]` in `mutants/dfg-compaction.json`; every lane selector is a named default-feature `data_flow::tests::…` lib test. Mutgate supplies no feature flags and cannot route to the `dfg_compaction` umbrella. Keep 10–15 high-value registered mutants total (target 15): exact-vs-legacy identity/order (2), independent representatives (1), adjacency order/multiplicity (1), label pair/worst (1), legacy lookup (1), arena/ID validation (1), stable neighbor tie (1), removal endpoint/key semantics (1), merge/adjacency/stats (1), reclamation (1), codec bounds/group/order (1), early version rejection (1), native production decode (1), and DeltaSlice candidate-edge contribution (1). All other listed variants remain ordinary edge/corruption tests or one-off watched REDs; they are not additional mandatory catalog entries. Each selector must actually run under `--lib` without features. Keep selector wall time below mutgate's **120 s per-test timeout** with margin (target <30 s); record PR A timings and split oversized test cases, never bless timeouts.
 
 Before each dispatch forecast the **full authoritative gate** at `--jobs 1`: existing-catalog time + lane rebuild count × measured rebuild time + baseline/mutant selector time. Target ≤15 minutes, planning cap <30 minutes. Record measured inputs and the forecast. If it exceeds the cap, shrink redundant lane mutants while retaining each distinction or escalate scheduling/budget to the controller; do not weaken the full gate. `--jobs 2` requires an explicit owner exception to the unchanged one-cargo-at-a-time rule; this plan does not authorize it.
+
+## Weighted file-size ledger (owner rule, 2026-10-14)
+
+**Measured now, forecast thereafter:** `python3 .review/file_size.py FILE...` was run for every existing path below on plan HEAD `54ba7f48f93e4114a77e23cc33f8de862b9ab9cb`; raw output, path manifest and numerical ledger are in `.review/dfg-plan-size-rule/{sizes-now.log,inventory.txt,size-ledger.json}`. Now is the pre-edit measurement (including this plan at 1,541.5). **Every A–E number is a conservative upper-bound forecast in weighted lines, not an implemented or measured result.** Repeated values mean no further planned growth; zero means absent/deleted, confirmed absent today for new paths. The read-only inventory rows explicitly close constructor/DTO/query hits without authorizing edits.
+
+Re-run the script after formatting on **every actual PR parent and candidate**, including every newly discovered/created file, and attach the per-file delta and >1,000 rationale to its PR description. An already-over-2,000 file must be no larger than its **immediate PR parent**, even if earlier work shrank it; a repeated ceiling below is not permission to regain removed lines. Do not trade deleted comments/assertions or compressed formatting for space. If real formatting/new caller inventory breaks a forecast, stop before dispatch: route new code to its named responsibility module; only if existing oversized code itself needs extraction, insert a separately reviewed **move-only predecessor PR** with byte/move controls and the full gate, before that feature PR. Never hide growth/extraction inside the feature PR.
+
+**No move-only PR is added on this inventory.** `call_graph.rs`, `cpg/tests.rs` and `integration/resolution_test.rs` need no edits: their constructors and CPG APIs are unchanged. `cpg/build.rs` needs only a same-line `pub(super)` visibility change in A and accessor substitutions in B; the new assembly entry goes in `src/cpg/dfg_compaction_support.rs`, registered from the small `src/cpg.rs`. Label lookup replaces `.labels.get(...).copied()` chains, providing space for the view spelling without new behavior. `tests/ast/cpg_cache_test.rs` receives accessor substitutions only; all new codec cases go in the new codec test module. These are **N: no-growth** obligations, not prospective exceptions. All new assertions/helpers stay outside the oversized files.
+
+**>1,000 rationale to carry into affected PR descriptions:** **R1** cache facade/version changes keep the existing cache and inline tests together for this compatibility migration; new codec coverage is isolated. **R2** existing parameter/same-line regression sequences retain their assertions and category ownership during mechanical view migration; new invariant cases live in `data_flow/tests/`. **R3** common generators retain their existing API; only two fallback assertions change, with new corpus drivers outside `tests/common`. **R4** this existing execution brief stays in one file at the owner's explicit in-place request. Read-only oversized files do not enter the diff. **No forecast crosses 1,000 from below, and every file currently below 2,000 stays below it.** New files target ≤600; **T** is the one conservative target exception: the shared per-file producer body alone measures 589 weighted lines before standalone imports/signature (exact-read helpers 173.5 and alias helpers 82 are split into their own responsibilities). Budget 620, then 650 with the E hook; keep this single unchanged producer pipeline intact, below the 1,000 split threshold. Other new files remain ≤600.
+
+### Existing files: measured baseline and every PR forecast
+
+| File | Now | A | B | C | D | E (final) | Ownership / reason |
+|---|---:|---:|---:|---:|---:|---:|---|
+| `Cargo.toml` | 143 | 150 | 150 | 150 | 150 | 143 | A: oracle feature/target; E: remove both |
+| `docs/superpowers/plans/2026-10-14-dfg-compaction.md` | 1,541.5 | 1,850 | 1,850 | 1,850 | 1,850 | 1,850 | R4: execution brief; this edit measured separately below |
+| `examples/asserted_member_observations.rs` | 220.5 | 220.5 | 240.5 | 240.5 | 240.5 | 240.5 | B: mechanical views; new tests in child modules |
+| `examples/dfg_census.rs` | 615 | 615 | 635 | 635 | 635 | 635 | B: mechanical views; new tests in child modules |
+| `examples/parameter_site_census.rs` | 362 | 362 | 382 | 382 | 382 | 382 | B: mechanical views; new tests in child modules |
+| `src/algorithms/delta_slice.rs` | 99.5 | 99.5 | 119.5 | 119.5 | 119.5 | 119.5 | B: mechanical views; new tests in child modules |
+| `src/algorithms/full_flow.rs` | 187.5 | 187.5 | 207.5 | 207.5 | 207.5 | 207.5 | B: mechanical views; new tests in child modules |
+| `src/algorithms/left_flow.rs` | 284.5 | 284.5 | 304.5 | 304.5 | 304.5 | 304.5 | B: mechanical views; new tests in child modules |
+| `src/algorithms/provenance_slice.rs` | 663 | 663 | 663 | 663 | 663 | 663 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/ast.rs` | 11,897 | 11,897 | 11,897 | 11,897 | 11,897 | 11,897 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/ast_asserted_member_tests.rs` | 320 | 320 | 340 | 340 | 340 | 340 | B: mechanical views; new tests in child modules |
+| `src/ast_required_parameter_tests.rs` | 425.5 | 425.5 | 445.5 | 445.5 | 445.5 | 445.5 | B: mechanical views; new tests in child modules |
+| `src/build_pool.rs` | 36 | 36 | 36 | 36 | 36 | 36 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/call_graph.rs` | 10,196 | 10,196 | 10,196 | 10,196 | 10,196 | 10,196 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg.rs` | 57.5 | 60 | 62 | 62 | 62 | 60 | Register new support/tests here; E: remove oracle support registration |
+| `src/cpg/build.rs` | 2,202 | 2,202 | 2,202 | 2,202 | 2,202 | 2,202 | N: A visibility-only; B accessor substitutions; no helper/test additions |
+| `src/cpg/cfg_queries.rs` | 276.5 | 276.5 | 276.5 | 276.5 | 276.5 | 276.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg/context.rs` | 348 | 348 | 348 | 348 | 348 | 348 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg/exact_caller_read_tests.rs` | 801.5 | 801.5 | 821.5 | 821.5 | 821.5 | 821.5 | B: mechanical views; new tests in child modules |
+| `src/cpg/inert_default_parameter_tests.rs` | 398 | 398 | 418 | 418 | 418 | 418 | B: mechanical views; new tests in child modules |
+| `src/cpg/namespace_flow_audit_tests.rs` | 543.5 | 543.5 | 563.5 | 563.5 | 563.5 | 563.5 | B: mechanical views; new tests in child modules |
+| `src/cpg/nested_execution_owner_audit_tests.rs` | 751 | 751 | 771 | 771 | 771 | 771 | B: mechanical views; new tests in child modules |
+| `src/cpg/optional_parameter_tests.rs` | 1,280 | 1,280 | 1,320 | 1,320 | 1,320 | 1,320 | R2: mechanical migration of existing parameter assertions |
+| `src/cpg/query.rs` | 829.5 | 829.5 | 829.5 | 829.5 | 829.5 | 829.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg/reaching.rs` | 604 | 604 | 604 | 604 | 604 | 604 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg/reaching/capture.rs` | 122 | 122 | 122 | 122 | 122 | 122 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg/reaching/scope.rs` | 854.5 | 854.5 | 854.5 | 854.5 | 854.5 | 854.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg/reaching/tests.rs` | 443 | 443 | 443 | 443 | 443 | 443 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg/same_line_occurrence_tests.rs` | 1,630.5 | 1,630.5 | 1,680 | 1,680 | 1,680 | 1,680 | R2: mechanical migration of existing same-line assertions |
+| `src/cpg/tests.rs` | 2,635 | 2,635 | 2,635 | 2,635 | 2,635 | 2,635 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg/trace.rs` | 1,113.5 | 1,113.5 | 1,113.5 | 1,113.5 | 1,113.5 | 1,113.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/cpg_cache.rs` | 1,518.5 | 1,518.5 | 1,525 | 1,525 | 1,530 | 1,560 | R1: cache facade/version only; new tests in dfg_codec_tests.rs |
+| `src/cpg_cache/stream.rs` | 325 | 325 | 330 | 330 | 330 | 390 | B: views; E: early-version helper and decode counter |
+| `src/cpg_cache/stream_tests.rs` | 520 | 520 | 540 | 540 | 580 | 600 | B/D/E: bounded stream assertions; larger cases in new codec tests |
+| `src/data_flow.rs` | 1,358 | 500 | 120 | 120 | 120 | 140 | A: producer/DTO extraction; B: views/queries/storage; E: compact facade |
+| `src/executable_owner/integration/tests.rs` | 414 | 414 | 434 | 434 | 434 | 434 | B: mechanical views; new tests in child modules |
+| `src/lib.rs` | 85 | 85 | 85 | 85 | 85 | 85 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/navigation/cache.rs` | 131.5 | 131.5 | 131.5 | 131.5 | 131.5 | 131.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/navigation/mod.rs` | 1,138.5 | 1,138.5 | 1,138.5 | 1,138.5 | 1,138.5 | 1,138.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/type_provider.rs` | 273 | 273 | 273 | 273 | 273 | 273 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `src/type_providers/go.rs` | 3,169.5 | 3,169.5 | 3,169.5 | 3,169.5 | 3,169.5 | 3,169.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `tests/algo/taxonomy/misc_test.rs` | 461 | 461 | 481 | 481 | 481 | 481 | B: mechanical views; new tests in child modules |
+| `tests/algo/taxonomy/taint_lang_test.rs` | 642 | 642 | 662 | 662 | 662 | 662 | B: mechanical views; new tests in child modules |
+| `tests/algo/taxonomy/taint_sink_test.rs` | 480.5 | 480.5 | 500.5 | 500.5 | 500.5 | 500.5 | B: mechanical views; new tests in child modules |
+| `tests/ast/access_path_test.rs` | 112 | 112 | 132 | 132 | 132 | 132 | B: mechanical views; new tests in child modules |
+| `tests/ast/binding_test.rs` | 348 | 348 | 368 | 368 | 368 | 368 | B: mechanical views; new tests in child modules |
+| `tests/ast/cpg_cache_test.rs` | 2,618 | 2,618 | 2,618 | 2,618 | 2,618 | 2,618 | N: B accessor substitutions only; new codec coverage in child modules |
+| `tests/ast/dfg_label_test.rs` | 203.5 | 203.5 | 223.5 | 223.5 | 223.5 | 223.5 | B: mechanical views; new tests in child modules |
+| `tests/ast/dfg_test.rs` | 417.5 | 417.5 | 437.5 | 437.5 | 437.5 | 437.5 | B: mechanical views; new tests in child modules |
+| `tests/ast/field_test.rs` | 549 | 549 | 569 | 569 | 569 | 569 | B: mechanical views; new tests in child modules |
+| `tests/cli/main.rs` | 20 | 20 | 20 | 20 | 20 | 20 | Read-only umbrella; existing CLI modules receive checks |
+| `tests/cli/output_test.rs` | 157.5 | 157.5 | 157.5 | 157.5 | 157.5 | 200 | E: paired checks at existing fixture seam |
+| `tests/cli/sarif_test.rs` | 438 | 438 | 438 | 438 | 438 | 500 | E: paired checks at existing fixture seam |
+| `tests/cli/targets_test.rs` | 445.5 | 445.5 | 445.5 | 445.5 | 445.5 | 510 | E: paired checks at existing fixture seam |
+| `tests/common/mod.rs` | 1,220.5 | 1,220.5 | 1,240 | 1,240 | 1,240 | 1,240 | R3: two existing fallback assertions; new generator drivers elsewhere |
+| `tests/integration/cjs_export_state_test.rs` | 99 | 99 | 119 | 119 | 119 | 119 | B: mechanical views; new tests in child modules |
+| `tests/integration/cjs_refusal_state_test.rs` | 142.5 | 142.5 | 162.5 | 162.5 | 162.5 | 162.5 | B: mechanical views; new tests in child modules |
+| `tests/integration/cjs_terminal_state_test.rs` | 118.5 | 118.5 | 138.5 | 138.5 | 138.5 | 138.5 | B: mechanical views; new tests in child modules |
+| `tests/integration/core_test.rs` | 805.5 | 805.5 | 825.5 | 825.5 | 825.5 | 825.5 | B: mechanical views; new tests in child modules |
+| `tests/integration/dfg_label_parity_test.rs` | 518.5 | 518.5 | 538.5 | 538.5 | 538.5 | 538.5 | B: mechanical views; new tests in child modules |
+| `tests/integration/dfg_label_store_test.rs` | 614.5 | 614.5 | 540 | 540 | 540 | 540 | B: relocate repeated-partial-hit test; migrate remaining assertions |
+| `tests/integration/dfg_rd_stats_identity_test.rs` | 120.5 | 120.5 | 10 | 10 | 10 | 10 | B: relocate whole named test; retain module declaration/import cleanup |
+| `tests/integration/esm_forwarding_state_test.rs` | 151.5 | 151.5 | 171.5 | 171.5 | 171.5 | 171.5 | B: mechanical views; new tests in child modules |
+| `tests/integration/js_binding_export_state_test.rs` | 129 | 129 | 149 | 149 | 149 | 149 | B: mechanical views; new tests in child modules |
+| `tests/integration/js_binding_namespace/spec_r2.rs` | 196.5 | 196.5 | 216.5 | 216.5 | 216.5 | 216.5 | B: mechanical views; new tests in child modules |
+| `tests/integration/js_binding_namespace_test.rs` | 597 | 597 | 617 | 617 | 617 | 617 | B: mechanical views; new tests in child modules |
+| `tests/integration/js_paths_test.rs` | 493.5 | 493.5 | 513.5 | 513.5 | 513.5 | 513.5 | B: mechanical views; new tests in child modules |
+| `tests/integration/js_wrapped_export_state_test.rs` | 129 | 129 | 149 | 149 | 149 | 149 | B: mechanical views; new tests in child modules |
+| `tests/integration/module_binding_flow_test.rs` | 110.5 | 110.5 | 130.5 | 130.5 | 130.5 | 130.5 | B: mechanical views; new tests in child modules |
+| `tests/integration/receiver_self_binding_test.rs` | 601 | 601 | 621 | 621 | 621 | 621 | B: mechanical views; new tests in child modules |
+| `tests/integration/resolution_test.rs` | 5,040.5 | 5,040.5 | 5,040.5 | 5,040.5 | 5,040.5 | 5,040.5 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `tests/integration/type_relative_receiver_test.rs` | 535 | 535 | 555 | 555 | 555 | 555 | B: mechanical views; new tests in child modules |
+| `tests/lang/c/algo_test.rs` | 403 | 403 | 423 | 423 | 423 | 423 | B: mechanical views; new tests in child modules |
+| `tests/lang/c/cve_test.rs` | 854 | 854 | 874 | 874 | 874 | 874 | B: mechanical views; new tests in child modules |
+| `tests/lang/go/lang_test.rs` | 433 | 433 | 453 | 453 | 453 | 453 | B: mechanical views; new tests in child modules |
+| `tests/lang/go/loader_hygiene_test.rs` | 341 | 341 | 361 | 361 | 361 | 361 | B: mechanical views; new tests in child modules |
+| `tests/lang/go/owner_partition_telemetry_test.rs` | 553 | 553 | 573 | 573 | 573 | 573 | B: mechanical views; new tests in child modules |
+| `tests/lang/go/receiver_owner_carrying_test.rs` | 596 | 596 | 616 | 616 | 616 | 616 | B: mechanical views; new tests in child modules |
+| `tests/lang/javascript/destructuring_test.rs` | 394.5 | 394.5 | 414.5 | 414.5 | 414.5 | 414.5 | B: mechanical views; new tests in child modules |
+| `tests/lang/javascript/lang_test.rs` | 98.5 | 98.5 | 118.5 | 118.5 | 118.5 | 118.5 | B: mechanical views; new tests in child modules |
+| `tests/lang/lua/lua_test.rs` | 164.5 | 164.5 | 184.5 | 184.5 | 184.5 | 184.5 | B: mechanical views; new tests in child modules |
+| `tests/lang/rust/rust_test.rs` | 203.5 | 203.5 | 223.5 | 223.5 | 223.5 | 223.5 | B: mechanical views; new tests in child modules |
+| `tests/lang/typescript/erased_rvalue_test.rs` | 227.5 | 227.5 | 247.5 | 247.5 | 247.5 | 247.5 | B: mechanical views; new tests in child modules |
+| `tests/mcp/golden_transcript_test.rs` | 155 | 155 | 155 | 155 | 155 | 155 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `tests/mcp/transcript.rs` | 276 | 276 | 276 | 276 | 276 | 276 | Read-only: unchanged constructors/DTOs/query signatures or probe-only site |
+| `tests/name_resolution/build_wiring_test.rs` | 664 | 664 | 684 | 684 | 684 | 684 | B: mechanical views; new tests in child modules |
+| `tests/navigation/main.rs` | 19 | 19 | 19 | 19 | 19 | 20 | E: register retained navigation regressions |
+| `tests/output/main.rs` | 1 | 1 | 1 | 1 | 1 | 2 | E: register retained output regressions |
+
+### New files: every PR forecast (Now = absent, 0)
+
+| File | Now | A | B | C | D | E (final) | Ownership / reason |
+|---|---:|---:|---:|---:|---:|---:|---|
+| `src/data_flow/types.rs` | 0 | 200 | 220 | 220 | 220 | 220 | Unchanged DTOs; B adds from_refs |
+| `src/data_flow/views.rs` | 0 | 0 | 260 | 260 | 260 | 260 | Ordered public read views |
+| `src/data_flow/queries.rs` | 0 | 0 | 240 | 240 | 240 | 240 | Existing query bodies over views |
+| `src/data_flow/legacy_storage.rs` | 0 | 0 | 200 | 200 | 200 | 0 | Transitional production storage; Task 6 deletes |
+| `src/data_flow/build/mod.rs` | 0 | 180 | 180 | 180 | 180 | 220 | Build wrappers, FileRefs, aggregation; E consuming adapter |
+| `src/data_flow/build/file.rs` | 0 | 620 | 620 | 620 | 620 | 650 | T: one shared per-file producer; E test result hook |
+| `src/data_flow/build/exact_reads.rs` | 0 | 210 | 210 | 210 | 210 | 210 | Existing exact-read candidate/supplemental-label helpers |
+| `src/data_flow/build/aliases.rs` | 0 | 110 | 110 | 110 | 110 | 110 | Existing alias-map/path helpers |
+| `src/data_flow/compact/mod.rs` | 0 | 0 | 0 | 160 | 180 | 200 | Compact types and module wiring |
+| `src/data_flow/compact/arena.rs` | 0 | 0 | 0 | 260 | 260 | 260 | Exact arena and legacy ranks |
+| `src/data_flow/compact/freeze.rs` | 0 | 0 | 0 | 300 | 300 | 300 | Parts ingestion and ordered freeze |
+| `src/data_flow/compact/views.rs` | 0 | 0 | 0 | 300 | 300 | 300 | Compact read views |
+| `src/data_flow/compact/update.rs` | 0 | 0 | 0 | 450 | 450 | 450 | Removal/merge/reclamation |
+| `src/data_flow/compact/wire.rs` | 0 | 0 | 0 | 0 | 420 | 440 | Native compact serde |
+| `src/data_flow/compact/validate.rs` | 0 | 0 | 0 | 0 | 350 | 350 | Wire invariants and corruption rejection |
+| `src/data_flow/oracle/mod.rs` | 0 | 150 | 150 | 150 | 150 | 0 | Frozen fields and API wiring; Task 8 deletes |
+| `src/data_flow/oracle/aggregate.rs` | 0 | 160 | 160 | 160 | 160 | 0 | Frozen aggregation/label insertion; Task 8 deletes |
+| `src/data_flow/oracle/queries.rs` | 0 | 180 | 180 | 180 | 180 | 0 | Frozen independent queries; Task 8 deletes |
+| `src/data_flow/oracle/update.rs` | 0 | 130 | 130 | 130 | 130 | 0 | Frozen independent updates; Task 8 deletes |
+| `src/data_flow/test_support.rs` | 0 | 180 | 240 | 280 | 280 | 180 | Feature corpus wrappers and cfg(test) mutation hook; retain needed hook |
+| `src/data_flow/tests/mod.rs` | 0 | 40 | 50 | 60 | 70 | 70 | Test module declarations |
+| `src/data_flow/tests/identity.rs` | 0 | 180 | 180 | 280 | 280 | 300 | Identity/order regressions |
+| `src/data_flow/tests/representatives.rs` | 0 | 0 | 0 | 320 | 320 | 320 | Representative/order regressions |
+| `src/data_flow/tests/queries.rs` | 0 | 180 | 300 | 400 | 400 | 450 | Legacy lookup and traversal parity/regressions |
+| `src/data_flow/tests/updates.rs` | 0 | 180 | 180 | 450 | 450 | 480 | Remove/merge/reclamation regressions |
+| `src/data_flow/tests/wire.rs` | 0 | 0 | 0 | 0 | 350 | 400 | Codec and production decode regressions |
+| `src/data_flow/tests/corruption.rs` | 0 | 0 | 0 | 0 | 450 | 480 | Malformed wire cases |
+| `src/data_flow/tests/corpus.rs` | 0 | 450 | 450 | 500 | 500 | 0 | Feature corpus comparisons; Task 8 deletes wrappers |
+| `src/data_flow/tests/observe.rs` | 0 | 420 | 440 | 480 | 480 | 350 | Byte projections; keep ordinary regression support |
+| `src/data_flow/tests/outputs.rs` | 0 | 450 | 450 | 500 | 500 | 550 | 30-algorithm controls and retained mutant witnesses |
+| `tests/dfg_compaction/main.rs` | 0 | 10 | 10 | 10 | 10 | 0 | Single explicit oracle umbrella; Task 8 deletes |
+| `tests/dfg_compaction/corpus.rs` | 0 | 450 | 450 | 500 | 500 | 0 | Fixture/common-generator driver; Task 8 deletes |
+| `tests/dfg_compaction/outputs.rs` | 0 | 550 | 550 | 600 | 600 | 0 | Public output/dispatch parity; Task 8 relocates useful regressions |
+| `src/cpg/dfg_compaction_support.rs` | 0 | 60 | 60 | 60 | 60 | 0 | Test/feature-only assembly entry; Task 8 deletes |
+| `src/cpg/dfg_missing_label_tests.rs` | 0 | 0 | 260 | 260 | 260 | 280 | Both existing integration tests and all three removal sites |
+| `src/cpg_cache/dfg_codec_tests.rs` | 0 | 0 | 0 | 0 | 480 | 600 | Version/stream/native-decode cases |
+| `tests/output/dfg_compaction_test.rs` | 0 | 0 | 0 | 0 | 0 | 400 | Task 8 retains ordinary renderer regressions |
+| `tests/navigation/dfg_compaction_test.rs` | 0 | 0 | 0 | 0 | 0 | 350 | Task 8 retains ordinary navigation regressions |
+| `scripts/dfg_compaction/compare_acceptance.py` | 0 | 0 | 0 | 0 | 0 | 400 | Numeric classifier and artifact reader |
+| `mutants/dfg-compaction.json` | 0 | 120 | 180 | 300 | 360 | 400 | 10–15 registered distinctions across lane |
+| `docs/features/dfg-compaction.md` | 0 | 0 | 150 | 150 | 150 | 200 | D7 accessor-migration release note |
+| `docs/superpowers/handoffs/2026-10-14-dfg-compaction.md` | 0 | 250 | 300 | 350 | 400 | 500 | Living implementation handoff |
+| `docs/eval/dfg-compaction/acceptance.md` | 0 | 0 | 0 | 0 | 0 | 500 | Task 7 durable acceptance readout and raw-artifact hashes |
+
+**PR E intermediate bounds:** until Task 7 acceptance, oracle/umbrella/support files remain at their D bounds; their final zeroes occur only in Task 8. Production `legacy_storage.rs` disappears in Task 6. Retained tests land in the new ordinary output/navigation children and existing `data_flow/tests/` within the E budgets **before** deleting the oracle. No transient PR commit may violate the ceiling or oversized-file no-growth rule; final deletion does not excuse earlier growth. The implementation handoff/release note/acceptance readout have explicit paths above. Fixtures, goldens, MCP transcripts and all unlisted production renderers remain read-only; dynamic logs, raw JSON/JSONL, patches, source snapshots, caches and binaries are generated evidence, not authored implementation modules, and their runtime sizes are reported in custody receipts rather than invented as source forecasts.
+
+### Task 7 scratch instrumentation and authored support
+
+The **production A–E forecasts above exclude instrumentation**, as required by the round-1 fold. Task 7 creates isolated base/candidate instrumented checkouts; its existing 14-file probe delta is never merged into any production PR. The exact `c3162f94` source was exported and measured with the same script; those **reference** sizes below are not measurements of a future cherry-pick onto a newer source. Existing production-path sizes are in the first table; the four `src/probe*` files are absent in this checkout today. A–D do not create scratch checkouts; E forecasts below are for the isolated copies only. Their inherited instrumentation in large files is not permission for any corresponding production file to grow. Remeasure both ports before building and preserve matched instrumentation/timers; do not fold scratch port commits into A–E.
+
+| Scratch checkout path | Measured probe reference | A | B | C | D | E base bound | E candidate bound |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `src/ast.rs` | 11,977 | — | — | — | — | 12,000 | 12,000 |
+| `src/build_pool.rs` | 38.5 | — | — | — | — | 45 | 45 |
+| `src/cpg/build.rs` | 2,206 | — | — | — | — | 2,210 | 2,210 |
+| `src/cpg/context.rs` | 360 | — | — | — | — | 380 | 380 |
+| `src/cpg_cache.rs` | 1,525.5 | — | — | — | — | 1,540 | 1,590 |
+| `src/lib.rs` | 85 | — | — | — | — | 90 | 90 |
+| `src/navigation/cache.rs` | 140.5 | — | — | — | — | 155 | 155 |
+| `src/navigation/mod.rs` | 1,125 | — | — | — | — | 1,200 | 1,200 |
+| `src/probe.rs` | 138.5 | — | — | — | — | 180 | 180 |
+| `src/probe/census.rs` | 500.5 | — | — | — | — | 520 | 600 |
+| `src/probe/census/sizer.rs` | 195.5 | — | — | — | — | 220 | 220 |
+| `src/probe/tests.rs` | 307 | — | — | — | — | 350 | 400 |
+| `src/type_provider.rs` | 295 | — | — | — | — | 320 | 320 |
+| `src/type_providers/go.rs` | 3,241 | — | — | — | — | 3,300 | 3,300 |
+
+| Other authored scratch file | Now | A | B | C | D | E bound |
+|---|---:|---:|---:|---:|---:|---:|
+| `.review/dfg-compaction/bin/cargo` | 0 (absent) | 2 | 2 | 2 | 2 | 2 |
+| `$DFG_EVIDENCE/summarize_probe.py` | 0 at destination; source 56 | 0 | 0 | 0 | 0 | 180 |
+
+The summarizer source was measured at `/Users/wesleyjinks/prism-evidence/mcp-memory/optimization-2026-10-14/summarize_probe.py`; E copies/adapts it at the already specified controller evidence destination. Logs are `probe-sizes.log` and `summarizer-size.log` in the sizing receipt directory. All authored scratch additions stay ≤600; the large instrumented copies remain outside feature PRs. Generated artifacts retain their original raw bytes and are not split to game this source-size ledger.
 
 ## Command protocol (applies to every task)
 
@@ -200,7 +381,7 @@ Expected: authoritative **full** text-mode verdict passes, all selected survivor
 
 ### Task 1 (PR A): Freeze the independent legacy oracle and corpus inputs
 
-**Files:** create oracle/test modules and `tests/dfg_compaction/main.rs`; extract the shared producer seam; add `dfg-oracle = []` to Cargo features and the explicit umbrella target below. Production behavior and cache version stay unchanged.
+**Files:** create oracle/test modules, `src/cpg/dfg_compaction_support.rs`, and `tests/dfg_compaction/main.rs`; extract the shared producer seam into the ledger's build modules; register support in `src/cpg.rs` with only the same-line visibility edit in `src/cpg/build.rs`; add `dfg-oracle = []` to Cargo features and the explicit umbrella target below. Production behavior and cache version stay unchanged.
 
 **Interfaces:** frozen `LegacyDataFlowGraph` has the fields and public methods of baseline `DataFlowGraph`; it shares only unchanged DTO/lattice types and the per-file `file_refs` producer. Aggregation, storage, queries, adjacency and updates are independently frozen. Expose it as `data_flow::oracle::LegacyDataFlowGraph` only under `#[cfg(any(test, feature = "dfg-oracle"))]`. Production/default/mcp binaries do not enable `dfg-oracle`.
 
@@ -381,7 +562,7 @@ Expected: the initial missing oracle module/API compile error. After the extract
 
 ### Task 2 (PR B): Ordered views and mechanical consumer migration
 
-**Files:** `src/data_flow/{types,views,queries,legacy_storage}.rs`, shared producer module, named consumer paths including examples; edit CPG assembly in `src/cpg/build.rs`; test child modules. No storage/serde/layout change.
+**Files:** `src/data_flow/{types,views,queries,legacy_storage}.rs`, shared producer modules, named consumer paths including examples; edit CPG assembly in `src/cpg/build.rs` with no net growth; test child modules and `docs/features/dfg-compaction.md` release note. Constructor/DTO-only inventory hits stay unchanged as marked in the ledger. No storage/serde/layout change.
 
 **Interfaces:** `BindingKey = (String, String, usize, AccessPath)`; borrowed edge/location views; existing public graph queries retain their exact signatures. `DataFlowGraph` initially keeps the old eight serialized fields. New methods are not serialized. Oracle retains direct legacy fields and its independent query bodies.
 
@@ -1429,7 +1610,7 @@ Read stdout/stderr, require nonempty valid JSONL edge records (`--edges` emits o
 
 - [ ] **Controller diagnostic census.** In new `diagnostic-census/` directories run the same paired binaries sequentially with `PRISM_PROBE_NO_CENSUS` unset, once per build/corpus with the same load/dirty mode. Use fresh driver outputs and capture their own prime/warm metadata. These separate runs have no acceptance vote and cannot repair an acceptance FAIL. Run the census-aware summarizer there; require full physical arena/rank accounting plus semantic counts. Record their run IDs separately from `set-1`/`set-2`; never combine their elapsed or lifetime-peak counters with acceptance samples.
 
-Produce `acceptance.md` containing all raw metrics, formulas, base/candidate environment, cache hit evidence, correctness receipts and PASS/FAIL/INVALID/INCONCLUSIVE by corpus and criterion. Report lifetime peak, live heap, physical footprint, RSS and compression separately. If census accounting falls but process live heap does not, inspect a retained legacy copy/allocator effect; do not claim success. If process heap falls but load slows, isolate `load.read_decode`/rank reconstruction versus registry using matched stage CPU/wall timers; no guessed cause. Compare base in this same environment before attributing a regression.
+Produce `docs/eval/dfg-compaction/acceptance.md` containing all raw metrics, formulas, base/candidate environment, cache hit evidence, correctness receipts and PASS/FAIL/INVALID/INCONCLUSIVE by corpus and criterion. Report lifetime peak, live heap, physical footprint, RSS and compression separately. If census accounting falls but process live heap does not, inspect a retained legacy copy/allocator effect; do not claim success. If process heap falls but load slows, isolate `load.read_decode`/rank reconstruction versus registry using matched stage CPU/wall timers; no guessed cause. Compare base in this same environment before attributing a regression.
 
 One follow-up set for an INVALID/noisy criterion and **no already admissible heap/load/peak FAIL**, if needed, uses new `set-2` directories and reversed order within each corpus (candidate then base); repeat **both** corpora/binaries, not just a favorable failing sample. Both admissible sets must satisfy cold-peak and heap minima; combine load values only to report, not to erase a failed set. After the cap, report failure/inconclusive and hold PR E. If a targeted fix is made, it is a new reviewed candidate with a newly declared measurement round; controller decides scheduling, no silent retry.
 
@@ -1513,7 +1694,7 @@ fn assert_navigation_pair(old:&prism::navigation::Evidence,new:&prism::navigatio
 
 Invoke these helpers for the existing populated output/navigation fixtures and the Task 1 common-generator cases through the same fixture loader. The MCP transcript test compares the complete tool response using its existing fixed IDs and fixtures; its baseline is never regenerated by the candidate. Use the public `prism::api::{ReviewRun,ReviewInputs}` re-exports: the `run` and `review` modules are private on the inspected base (`src/api/mod.rs:3-17`).
 
-Test-only CPG assembly entry, placed in the `CodePropertyGraph` impl owning `assemble_graph`:
+Test-only CPG assembly entry, placed in a `CodePropertyGraph` impl in the new `src/cpg/dfg_compaction_support.rs`, registered from `src/cpg.rs` under `cfg(any(test, feature="dfg-oracle"))`. Change the existing `assemble_graph` signature in `src/cpg/build.rs` to `pub(super)` on the same line so the sibling support module can delegate; add no helper body or module registration to that oversized file:
 
 ```rust
 #[cfg(any(test,feature="dfg-oracle"))]
@@ -1558,6 +1739,12 @@ Receipts and prepared probes: `/private/tmp/dfg-compaction-plan-r1-fold/` (also 
 - **Compilation blocked before launch:** `nice -n 19 python3 -c '…os.getpriority…'` reports `nice: setpriority: Operation not permitted`, actual priority **0**. The preflight stops before any Rust/Cargo command. Per the host rule, no unprioritized fallback was attempted. W1/W2 probes are prepared from current source types with original serde derives and byte-blind Eq, plus the exact revised projection/umbrella snippets. `run-compile-probes.sh` is a controller-only sequential offline runner: old E0277/E0761 controls, default target exclusion and revised byte-sensitive tests. **Those expected errors, compilation success, selection and test totals are not executed receipts.** Controller must run them in a priority-capable host slot.
 - **Not checked:** Rust snippet compilation (including the projection, bounded-pair helper and umbrella), complete Prism/full default/MCP suites, real oracle runtimes or mutation-budget timings, Tier-A/mutgate, successful algorithm dispatch/output replay, probe binary builds, sidecar-hit preflight, artifact-reader validation, real-corpus output/heap/load/peak and Linux. This documentation-only fold does not claim implementation or memory acceptance; all implementation gates remain mandatory.
 
+## File-size rule validation (2026-10-14)
+
+This plan-only update started at `54ba7f48f93e4114a77e23cc33f8de862b9ab9cb`. The supplied CLI measured all **88 existing ledger paths**, the 14-file `c3162f94` probe reference, the external summarizer and the producer/helper regions; **43 new paths** were confirmed absent. The table's A–E bounds are forecasts. The updated plan itself measures **1,711.5 weighted lines**, below its 1,850 forecast and the hard ceiling.
+
+`.review/dfg-plan-size-rule/validation.log` records all **131 per-PR rows** checked, seven existing files above 2,000 constrained to no growth, no new 1,000/2,000 crossings, all **59 original code fences byte-identical**, **27 shell blocks** passing `bash -n`, eight unchanged execution tasks and unchanged non-sizing review dispositions. `git diff --check` passes; only the tracked plan changed. The first checker matched a sizing subheading as an execution task; that selector failure was inadmissible, then corrected to the exact task-heading form. The hypothesis/result log records the correction. No Rust build/test suite, Tier-A, mutation or corpus run was needed or executed for this documentation update; their implementation gates and the inherited compilation limitation remain in force. No commit/push was made.
+
 ## Review record — round 1 folded in place
 
 Read in full: [Opus review](../../../../reviews/dfgplan-r1-opus.md), [sol summary](../../../../reviews/dfgplan-r1-sol.md), and [sol full evidence](../../../../dfgplan-sol-clone/.review/dfg-plan-review-r1/REVIEW.md). These paths are controller scratch evidence, not shipped dependencies. Reviewed artifact: `e2b377df84fc1fd1777ce8cbc36d20f5b598cba5`; source baseline `8b2744b3154b3664ffacb23c42f042a67981967a`. This fold uses a two-pass cap (targeted revision, then consistency/probes); it starts no new agent review round.
@@ -1573,7 +1760,7 @@ Read in full: [Opus review](../../../../reviews/dfgplan-r1-opus.md), [sol summar
 | Opus W7 — WRONG IMMATERIAL | Independent heap/load/peak verdicts, FAIL precedence, D10 range-first load check and both review counterexamples in the numeric kernel. |
 | sol #1 — WRONG MATERIAL | `PRISM_PROBE_NO_CENSUS=1` for acceptance; census is a separately identified diagnostic run, never a timing/peak input. |
 | sol #2 — WRONG MATERIAL | Prefer clean committed probe builds; otherwise matched explicit dirty-load override. Both warm-hit flags are checked on a tiny fixture before corpus dispatch. |
-| sol #3 — WRONG IMMATERIAL / Opus S1 — SMELL MATERIAL | Remove numeric file caps and forced consumer extractions; split only for actual review size. Leave stale CLAUDE.md decision 7 to controller/owner. |
+| sol #3 — WRONG IMMATERIAL / Opus S1 — SMELL MATERIAL | Round-1 no-cap disposition **superseded only as to file sizing** by the owner's 2026-10-14 weighted rule below; retain bounded consumer migration and avoid unrelated extractions. |
 | Opus S2 — SMELL MATERIAL | Every-location reachability and every-line lookup; deterministic bounded chop pairs, per-case timing and mutgate timeout margin. |
 | Opus S3 — SMELL IMMATERIAL | Default-feature lib selectors, 10–15 mutant budget and forecast of full authoritative gate at jobs=1. No automatic concurrency exception. |
 | Opus S4 — SMELL MATERIAL / sol #4 — SMELL MATERIAL | All-30 successful dispatch ledger, valid parameters, positive/negative cases, separate expected errors, generator executable replays, and per-corpus dfg-stats edge bytes. |
@@ -1582,6 +1769,8 @@ Read in full: [Opus review](../../../../reviews/dfgplan-r1-opus.md), [sol summar
 | Opus S7 — SMELL long-term material | Delete frozen oracle/feature/umbrella after acceptance, preserving ordinary regression tests and mutant witnesses. |
 | Opus S8 — SMELL IMMATERIAL | Add `ExactFlowEdge::from_refs`; preserve cache-version stderr; stage PR B mutation hook before Parts exists. Iterator enum suggestion declined below. |
 | sol verification limit — SARIF cross-build identity | Check raw provenance against each binary receipt; only the three named metadata fields differ in the cross-build comparison copy. Same-binary parity remains whole-output byte equality. |
+
+**2026-10-14 owner rule change:** weighted 600/1,000/2,000 thresholds replace the round-1 no-cap ruling; measured every planned existing file and forecast A–E, placed new CPG support outside oversized `build.rs`, and added no move-only PR because all oversized production files have no-growth/read-only budgets. All other round-1 dispositions and gates remain unchanged.
 
 **Declined suggestions (finding — why not — cost if wrong):**
 
@@ -1595,7 +1784,7 @@ No WRONG or MATERIAL SMELL is declined. Alternative fixes to accepted findings a
 1. **Acceptance allowance:** recommended pre-registration is ≥300 MiB Prometheus and ≥75 MiB slicing, D10 range-first load acceptance with ≤5% or 100 ms allowance and a ≤10% spread-gated median fallback, and **no cold-prime peak increase**. These are concrete defaults; do not relax them after seeing results. Owner may choose stricter bars before the controller starts measurements.
 2. **External direct-field Rust API consumers:** recommended default is the accessor source migration described in D7, preserving runtime outputs and query signatures. If unknown external consumers require field-level source compatibility, settle that before PR B; retaining duplicated public maps is incompatible with the intended memory result.
 3. **Separate string/path interner:** recommended default is to defer it. Whole-location interning already shares repeated owned payload and has a measurable target; a second pool adds view/lifetime complexity for an unmeasured remaining population. Missing Task 7's threshold is a reason to reopen design, not automatically add scope.
-4. **Review sizing:** forecast and split actual PR review surfaces only. There is no numeric file-size rule and no mandatory decomposition of existing consumers. The controller owns reconciliation of stale `CLAUDE.md` decision 7 with the owner.
+4. **Review sizing:** retain actual PR review-surface forecasts **and** enforce the owner's 2026-10-14 weighted file-size rule and per-PR ledger. No further owner decision is needed on the thresholds. The controller owns publishing the corresponding `CLAUDE.md` decision 7 update.
 
 No owner answer is needed to review this plan. Implementation, commits and real-corpus measurements are separate controller actions; this revision edits the already tracked plan in place and leaves committing/pushing to the controller.
 
