@@ -7,7 +7,7 @@
 //! 2. `synthesize_target_seed_paths` resolves it with `dfg_forward_reachable`, keyed by the
 //!    owner NAME. For a named handler the owner is `handler`, so the new base Def now fans out
 //!    to every `req.<field>` read (the accepted cost). For an anonymous callback the algorithm
-//!    passes the literal owner `<anonymous>`, but the CPG owner is the synthetic `<cb@L:C>`
+//!    passes the literal owner `<anonymous>`, but the CPG owner is the synthetic `<anon@L:C>`
 //!    identity, so the lookup finds nothing and the seed never fans out. That mismatch predates
 //!    PR-C and is a gap, not a design choice.
 //! 3. Either way the findings are unchanged, because every `req.<field>` read is already its own
@@ -84,7 +84,7 @@ fn anonymous_callback_parameter_seed_does_not_fan_out_owner_name_mismatch() {
     assert!(seed_fan_out(ANONYMOUS, "<anonymous>").is_empty());
     // The real owner is the synthetic callback identity, which does hold the Def and fans out.
     let arrow_col = ANONYMOUS.lines().nth(3).unwrap().find("(req").unwrap() + 1;
-    let owner = format!("<cb@4:{arrow_col}>");
+    let owner = format!("<anon@4:{arrow_col}>");
     assert_eq!(
         seed_fan_out(ANONYMOUS, &owner),
         BTreeSet::from([

@@ -13,7 +13,7 @@ use super::*;
 impl ParsedFile {
     /// Owner name of a callable's DFG pass: the inferred/declared name when
     /// one exists (name inference always wins), else the synthetic
-    /// `<cb@LINE:COL>` identity for an anonymous JS/TS/TSX arrow or function
+    /// `<anon@LINE:COL>` identity for an anonymous JS/TS/TSX arrow or function
     /// expression, else `None` (the callable keeps getting no pass).
     pub fn dfg_owner_name(&self, func_node: &Node<'_>) -> Option<String> {
         if self.js_ts_parameter_early_error(func_node) {
@@ -182,7 +182,7 @@ impl ParsedFile {
                 .any(|name| self.js_ts_fence_pattern_binds(params, name))
     }
 
-    /// `<cb@LINE:COL>` (1-based line, 1-based byte column of the callable's
+    /// `<anon@LINE:COL>` (1-based line, 1-based byte column of the callable's
     /// first byte) for an unnamed JS/TS/TSX `arrow_function` or
     /// `function_expression`. Two distinct callables never share a first byte.
     pub fn js_ts_synthetic_callable_name(&self, func_node: &Node<'_>) -> Option<String> {
