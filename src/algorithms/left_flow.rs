@@ -143,8 +143,8 @@ pub fn left_flow_core(
     if has_dfg {
         let cond_vars = parsed.condition_variables_on_lines(func_node, lines);
         let mut dfg_covered_conds: BTreeSet<String> = BTreeSet::new();
-        // Condition variables whose backward walk reached a member-only formal's
-        // projection-only base Def. Their bounded DFG leg stops there, so they keep the
+        // Condition variables read as a field of their own callable's member-only formal
+        // (projection-only base Def). Their bounded DFG leg stops there, so they keep the
         // name-based inclusion below (every `p` line, the pre-projection behaviour)
         // instead of a forward walk through `p`'s projections to locals derived from
         // sibling fields.
@@ -168,7 +168,11 @@ pub fn left_flow_core(
                     if let Some(var_loc) = ctx.cpg.to_var_location(idx) {
                         // Backward: find where this condition variable is defined
                         let (defs, seeds) = ctx.cpg.dfg_backward_reachable_bounded(&var_loc);
-                        if defs.iter().any(|d| ctx.cpg.dfg_is_projection_only_def(d)) {
+                        // Only the condition's own member-only formal (a direct
+                        // projection edge into this Use) takes the name fallback; a
+                        // projection-only Def reached through an argument edge into
+                        // another callable does not (the bounded seeds already stop there).
+                        if ctx.cpg.dfg_use_reads_projection_only_def(&var_loc) {
                             projection_cut_conds.insert(var_name.clone());
                         }
                         for def_loc in &defs {

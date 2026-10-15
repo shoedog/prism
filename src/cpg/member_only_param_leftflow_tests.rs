@@ -231,3 +231,99 @@ fn controls_other_languages_field_conditions_are_unchanged() {
         set(&[1, 2, 3, 5])
     );
 }
+
+// 3. PR #404 round-1 fold ------------------------------------------------------------
+
+/// LeftFlow, FullFlow and ConditionedSlice (`condition`) line sets for one fixture.
+fn three(
+    language: Language,
+    source: &str,
+    diff: usize,
+    condition: &str,
+) -> Vec<(String, BTreeSet<usize>)> {
+    let file = file_name(language);
+    let mut out: Vec<(String, BTreeSet<usize>)> =
+        [SlicingAlgorithm::LeftFlow, SlicingAlgorithm::FullFlow]
+            .map(|algorithm| {
+                (
+                    format!("{algorithm:?}"),
+                    lines_of(language, source, file, &[diff], algorithm),
+                )
+            })
+            .into();
+    let files = BTreeMap::from([(
+        file.to_string(),
+        crate::ast::ParsedFile::parse(file, source, language).unwrap(),
+    )]);
+    let ctx = crate::cpg::CpgContext::build(&files, None);
+    let diff_input = DiffInput {
+        files: vec![DiffInfo {
+            file_path: file.into(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([diff]),
+        }],
+    };
+    let result = crate::algorithms::conditioned_slice::slice(
+        &ctx,
+        &diff_input,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice),
+        &crate::algorithms::conditioned_slice::Condition::parse(condition).unwrap(),
+    )
+    .unwrap();
+    let conditioned = result
+        .blocks
+        .iter()
+        .flat_map(|b| b.file_line_map.get(file).into_iter().flatten())
+        .map(|(line, _)| *line)
+        .collect();
+    out.push(("ConditionedSlice".into(), conditioned));
+    out
+}
+
+#[test]
+fn a_condition_on_a_formal_fed_by_a_field_argument_keeps_its_dfg_answer() {
+    // sol r1 (WRONG): `q` receives `p.x` from a member-only caller. Its backward walk
+    // reaches the caller's projection-only `Def(p)` through the argument edge; that must
+    // not switch `q` to the unscoped name fallback (which adds the shadowing arrow at 6
+    // and its sibling-derived sink at 8). Pre-#390 output for every combination.
+    let sol = "function outer({P}) {\n  function g(q) {\n    if (q) {\n      a();\n    }\n    const f = (q) => {\n      const html = p.y;\n      sink(q, html);\n    };\n    use(q);\n  }\n  g(p.x);\n}\n";
+    // Opus r1 W1: same shape across two top-level functions.
+    let opus = "function g(q) {\n  if (q) {\n    a();\n  }\n  const f = (q) => q;\n  sink(q);\n}\nfunction h({P}) {\n  g(p.x);\n}\n";
+    for language in JS_TS {
+        for (algorithm, lines) in three(language, &render(language, sol, "p"), 3, "q != null") {
+            assert_eq!(lines, set(&[2, 3, 10, 11]), "{language:?} {algorithm} sol");
+        }
+        for (algorithm, lines) in three(language, &render(language, opus, "p"), 2, "q != null") {
+            assert_eq!(lines, set(&[1, 2, 6, 7]), "{language:?} {algorithm} opus");
+        }
+    }
+}
+
+#[test]
+fn a_field_condition_of_the_own_formal_still_takes_the_textual_fallback() {
+    // Positive side of the narrowed cut: `if (p.x)` on the callable's own member-only
+    // formal keeps every textual `p` line (2 and 6), while a plain `q` condition in the
+    // same file keeps its ordinary DFG references.
+    let src = "function h({P}) {\n  const html = p.z;\n  if (p.x) {\n    a();\n  }\n  b(p.y);\n}\nfunction g(q) {\n  if (q) {\n    c();\n  }\n  use(q);\n}\n";
+    for language in JS_TS {
+        let src = render(language, src, "p");
+        for (algorithm, lines) in three(language, &src, 3, "p.x == null") {
+            assert_eq!(lines, set(&[1, 2, 3, 6, 7]), "{language:?} {algorithm}");
+        }
+        for (algorithm, lines) in three(language, &src, 9, "q != null") {
+            assert!(lines.contains(&12), "{language:?} {algorithm}: {lines:?}");
+        }
+    }
+}
+
+#[test]
+fn disclosed_residual_a_local_derived_from_the_conditions_own_field_is_not_reached() {
+    // Opus r1 S1: pinned at the pre-#390 output. #390's unbounded walk reached `sink(k)`
+    // (line 6); this slice deliberately reverts that (known-gaps data-flow row).
+    let src = "function h({P}) {\n  const k = p.x;\n  if (p.x) {\n    a();\n  }\n  sink(k);\n}\n";
+    for language in JS_TS {
+        for (algorithm, lines) in three(language, &render(language, src, "p"), 3, "p.x == null") {
+            assert_eq!(lines, set(&[1, 2, 3, 7]), "{language:?} {algorithm}");
+        }
+    }
+}

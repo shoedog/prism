@@ -1,6 +1,6 @@
 {
- "lane": "js LeftFlow condition walk bounded at projection-only Defs (PR #390 follow-up, 2026-10-14)",
- "source": "~/prism-evidence/js-param-defs/leftflow/REPORT.md",
+ "lane": "js LeftFlow condition walk bounded at projection-only Defs (PR #404, r1 fold 2026-10-14)",
+ "source": "PR #404 report + round-1 review fold (controller-saved)",
  "lib_test_prefixes": [
   "cpg::"
  ],
@@ -17,12 +17,13 @@
   ],
   "LF-02-projection-cut-never-recorded": [
    "src/algorithms/left_flow.rs",
-   "if defs.iter().any(|d| ctx.cpg.dfg_is_projection_only_def(d)) {",
-   "if false && defs.iter().any(|d| ctx.cpg.dfg_is_projection_only_def(d)) {",
+   "if ctx.cpg.dfg_use_reads_projection_only_def(&var_loc) {",
+   "if false && ctx.cpg.dfg_use_reads_projection_only_def(&var_loc) {",
    [
     "cpg::member_only_param_leftflow_tests::a_field_condition_never_reaches_a_local_derived_from_a_sibling_field",
     "cpg::member_only_param_leftflow_tests::controls_whole_parameter_bare_formal_and_same_field_reads_are_unchanged",
-    "cpg::member_only_param_r1_tests::leftflow_condition_variable_slice_is_pinned"
+    "cpg::member_only_param_r1_tests::leftflow_condition_variable_slice_is_pinned",
+    "cpg::member_only_param_leftflow_tests::a_field_condition_of_the_own_formal_still_takes_the_textual_fallback"
    ]
   ],
   "LF-03-fallback-ignores-projection-cut": [
@@ -45,10 +46,26 @@
   ],
   "LF-05-cut-on-any-def": [
    "src/algorithms/left_flow.rs",
-   "if defs.iter().any(|d| ctx.cpg.dfg_is_projection_only_def(d)) {",
+   "if ctx.cpg.dfg_use_reads_projection_only_def(&var_loc) {",
    "if !defs.is_empty() {",
    [
     "cpg::member_only_param_leftflow_tests::controls_whole_parameter_bare_formal_and_same_field_reads_are_unchanged"
+   ]
+  ],
+  "LF-06-cut-on-any-upstream-projection-def": [
+   "src/algorithms/left_flow.rs",
+   "if ctx.cpg.dfg_use_reads_projection_only_def(&var_loc) {",
+   "if defs.iter().any(|d| ctx.cpg.dfg_is_projection_only_def(d)) {",
+   [
+    "cpg::member_only_param_leftflow_tests::a_condition_on_a_formal_fed_by_a_field_argument_keeps_its_dfg_answer"
+   ]
+  ],
+  "LF-07-any-direct-predecessor-cuts": [
+   "src/cpg/query.rs",
+   "                matches!(edge.weight(), CpgEdge::DataFlow(_))\n                    && self.node_is_projection_only_def(edge.source())\n",
+   "                matches!(edge.weight(), CpgEdge::DataFlow(_))\n",
+   [
+    "cpg::member_only_param_leftflow_tests::a_condition_on_a_formal_fed_by_a_field_argument_keeps_its_dfg_answer"
    ]
   ]
  }
