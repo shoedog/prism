@@ -380,6 +380,19 @@ generation it reports are one snapshot's. No lock is held while a response is wr
 that stops reading stalls only its own connection. A panic anywhere else on a connection's
 thread (framing, the readiness answers, writing a response) ends that connection only:
 `serve_bounded` turns it into an error and the daemon goes on.
+Admission and retirement (`admission.rs`) are entries of the control plane: each takes the lock
+through `DaemonState::control_plane`, whose `ControlPlane` makes the panic guard right after the
+lock. Pending and admitted connections are counted together against `--max-clients`; the idle
+time counts from the moment both reach zero (or from the first decision, for a daemon nobody
+reaches); the drain decision is taken once (idle TTL passed with no build running, or forced)
+and the socket's unlink runs inside it, so nothing is admitted after it. A warm daemon's
+connection starts holding the startup attempt (`budget_for`), so a startup build that failed
+before its first call is reported as the in-process server reports it. `files.rs` owns a key's
+files: the owner lock (`flock`, held for the daemon's life; a second claimant is told `Taken` and
+touches nothing), the socket (a stale one is replaced by the owner, and the owner removes it only
+while it is still the one it bound), and the pid file; every file but the socket is opened
+through the validated runtime directory's descriptor with `O_NOFOLLOW`, and lock files are
+created with `O_EXCL` and never removed.
 
 Algorithms fall into two categories:
 1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`

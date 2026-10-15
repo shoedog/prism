@@ -8,12 +8,14 @@
 // allowance there.
 #![cfg_attr(not(test), allow(dead_code))]
 
+mod admission;
 mod budget;
 mod clock;
 mod connection;
 mod control;
 mod coordinator;
 mod fatal;
+mod files;
 #[cfg(test)]
 mod test_support;
 #[cfg(test)]

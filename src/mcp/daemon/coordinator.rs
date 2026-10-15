@@ -19,7 +19,9 @@
 use super::budget::ConnectionBudget;
 use super::clock::{Clock, SystemClock};
 use super::control::answer_for;
-pub(super) use super::control::{Answer, AttemptOutcome, BuildPhase, BuildStatus, ControlState};
+pub(super) use super::control::{
+    Admission, Answer, AttemptOutcome, BuildPhase, BuildStatus, ControlState,
+};
 use super::fatal::{abort_daemon, Domain, Fatal, FatalOnUnwind, OnFatal};
 use crate::mcp::lazy::SessionBuilder;
 // The tests in this file's child modules name `BuildState` through `use super::*`.
@@ -27,6 +29,7 @@ use crate::mcp::lazy::SessionBuilder;
 use crate::mcp::shared::preamble::BuildState;
 use crate::mcp::{SessionProvider, StartupMode};
 use std::fmt;
+use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, RwLock, RwLockWriteGuard};
 use std::time::Instant;
 
@@ -154,6 +157,7 @@ impl DaemonState {
                 attempts: 0,
                 waiting: 0,
                 generation: 0,
+                admission: Admission::new(),
             }),
             changed: Condvar::new(),
             provider: RwLock::new(None),
@@ -259,14 +263,32 @@ impl DaemonState {
 
     /// The control plane's view of the build.
     pub(super) fn status(&self) -> Result<BuildStatus, Poisoned> {
+        Ok(self.control_plane()?.build_status())
+    }
+
+    /// The control lock, held, with the control plane's panic guard made right after it (D47).
+    /// Every entry point S4 adds takes the lock through this, so the order is the type's.
+    pub(super) fn control_plane(&self) -> Result<ControlPlane<'_>, Poisoned> {
         let control = self.lock_control()?;
-        let _fatal = self.guard(Domain::Control);
-        Ok(BuildStatus {
-            state: control.build.state(),
-            attempt: control.attempts,
-            generation: control.generation,
-            waiting: control.waiting,
+        Ok(ControlPlane {
+            _fatal: self.guard(Domain::Control),
+            control,
         })
+    }
+
+    /// The daemon's clock.
+    pub(super) fn now(&self) -> Instant {
+        self.clock.now()
+    }
+
+    /// Whether the control lock is held right now, by this thread or another. A poisoned lock
+    /// that nobody holds is not held. Tests only.
+    #[cfg(test)]
+    pub(super) fn control_is_held(&self) -> bool {
+        matches!(
+            self.control.try_lock(),
+            Err(std::sync::TryLockError::WouldBlock)
+        )
     }
 
     /// Run `query` on the provider in the slot with shared access; `None` when the slot is
@@ -510,6 +532,26 @@ impl DaemonState {
             hook(attempt);
         }
         self.changed.notify_all();
+    }
+}
+
+/// The control lock and the guard made right after it. Fields drop in declaration order, so the
+/// guard fires while the lock is still held (D47).
+pub(super) struct ControlPlane<'a> {
+    _fatal: FatalOnUnwind<'a>,
+    control: MutexGuard<'a, ControlState>,
+}
+
+impl Deref for ControlPlane<'_> {
+    type Target = ControlState;
+    fn deref(&self) -> &ControlState {
+        &self.control
+    }
+}
+
+impl DerefMut for ControlPlane<'_> {
+    fn deref_mut(&mut self) -> &mut ControlState {
+        &mut self.control
     }
 }
 

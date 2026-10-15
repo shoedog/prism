@@ -29,8 +29,9 @@ pub(super) struct ConnectionBudget {
 /// The attempt a connection last joined.
 struct Joined {
     attempt: u64,
-    /// This connection's deadline for the attempt.
-    deadline: Instant,
+    /// This connection's deadline for the attempt; `None` until the connection's first call
+    /// during it, for a connection that was given the startup attempt at admission.
+    deadline: Option<Instant>,
     /// The attempt's outcome, shared with the coordinator and every call that joined it.
     outcome: Arc<AttemptOutcome>,
     /// Whether a call of this connection has been told how the attempt ended.
@@ -42,6 +43,23 @@ impl ConnectionBudget {
         Self {
             wait: client.first_call_wait(),
             joined: None,
+        }
+    }
+
+    /// The budget of a connection admitted while a warm daemon's startup attempt (attempt 1,
+    /// started by `--warm-at-startup` before any connection existed) is its only one: the
+    /// connection holds that attempt as if it had joined it, without a deadline until its first
+    /// call. Its first call then hears that attempt's failure, if it failed, instead of starting
+    /// the retry: the in-process server's `build_failed`, then the retry on the next call.
+    pub(super) fn joined_at_startup(client: &ClientSettings, outcome: Arc<AttemptOutcome>) -> Self {
+        Self {
+            wait: client.first_call_wait(),
+            joined: Some(Joined {
+                attempt: 1,
+                deadline: None,
+                outcome,
+                told: false,
+            }),
         }
     }
 
@@ -57,15 +75,15 @@ impl ConnectionBudget {
         outcome: &Arc<AttemptOutcome>,
         now: Instant,
     ) -> Instant {
-        if let Some(joined) = &self.joined {
+        let deadline = now.checked_add(self.wait).unwrap_or(now);
+        if let Some(joined) = &mut self.joined {
             if joined.attempt == attempt {
-                return joined.deadline;
+                return *joined.deadline.get_or_insert(deadline);
             }
         }
-        let deadline = now.checked_add(self.wait).unwrap_or(now);
         self.joined = Some(Joined {
             attempt,
-            deadline,
+            deadline: Some(deadline),
             outcome: Arc::clone(outcome),
             told: false,
         });

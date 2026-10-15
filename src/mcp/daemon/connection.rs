@@ -115,7 +115,8 @@ fn serve_client(
     client: &ClientSettings,
 ) -> anyhow::Result<()> {
     let settings: ConnectionSettings = *client.output();
-    let mut budget = ConnectionBudget::new(client);
+    // A warm daemon's connection may start holding the startup attempt (`budget_for`).
+    let mut budget = state.budget_for(client)?;
     let startup = state.startup_mode();
     serve_loop(transport, |message, lifecycle| {
         match handle_control(message, lifecycle, registry, startup, &settings) {
@@ -207,6 +208,10 @@ mod parity_tests;
 #[cfg(test)]
 #[path = "connection_ready_tests.rs"]
 mod ready_tests;
+
+#[cfg(test)]
+#[path = "connection_background_tests.rs"]
+mod background_tests;
 
 #[cfg(test)]
 #[path = "connection_refresh_tests.rs"]
