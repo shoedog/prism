@@ -11,15 +11,15 @@ Review cap: two rounds, controller dispatches Opus 5.5 and gpt-6-astra. Implemen
 ## Rulings
 
 - Ruling: use `a1aa755b` as the execution base/main — user pins this clone to the merged plan; main and origin/main already resolve there and the three Go source files have no diff from `8b2744b3` — cost if wrong: comparison attribution could miss upstream drift; the prescribed old-base downstream diff is retained too.
-- Ruling: implementer makes the three task commits — explicit run override supersedes controller-only commit language; no amend/stash/push — cost if wrong: unintended publication history; inspect each staged diff and trailers.
+- Ruling: implementer is authorized to own all three task commits — explicit run override supersedes controller-only commit language; no amend/stash/push — cost if wrong: unintended publication history; actual attempts and the later sandbox refusal are recorded below (no commits exist).
 - Ruling: force cargo offline through `CARGO_NET_OFFLINE=true` — sandbox prohibits installs/network and all required dependencies must be local — cost if wrong: missing local crates leave checks excluded for the controller rather than fetched.
 - Ruling: no numeric limit on the existing go.rs — O1 is explicitly resolved in the plan; no mechanical split — cost if wrong: a separate bounded split would be required.
 
 ## Hypothesis / probe / result log
 
-- H1 (inherited from the plan): repeated signature import scans cause avoidable work. Prediction: Task 1 recomputes per signature; Task 2 baseline counts 4/18/66 across two files, then 2 after reuse. Falsifier: different counts or unequal full-data dumps. Alternative: parser/fixture/canonicalization problems; separator: old counts and full dumps must pass before the new-count assertion fails. Status: pending watched RED.
+- H1 (inherited from the plan): repeated signature import scans cause avoidable work. Prediction: Task 1 recomputes per signature; Task 2 baseline counts 4/18/66 across two files, then 2 after reuse. Falsifier: different counts or unequal full-data dumps. Alternative: parser/fixture/canonicalization problems; separator: old counts and full dumps must pass before the new-count assertion fails. Result: watched RED was 4 vs 2 after old-count/full-data assertions passed; final GREEN pins 4/18/66 vs 2, with 9/9 passing and all four required mutants killed. H1 is supported for scan count; real-corpus timing is unmeasured.
 - Setup probe: expected clean requested branch at a1aa755b, existing local main, unchanged relevant Go source since 8b2744b3. Observed exactly that; cache versions live-rebound to CPG 117/nav sidecar 65. No unrelated initial changes.
-- Baseline suites: prediction 0 failed, falsifier any behavioral failure; environment refusal recorded separately. Default observed 5,351 passed, 0 failed, 1 ignored across 29 targets including doc-tests. MCP baseline in flight; source unchanged.
+- Baseline suites: prediction 0 failed, falsifier any behavioral failure; environment refusal recorded separately. Default observed 5,351 passed, 0 failed, 1 ignored across 29 targets including doc-tests. Runnable MCP baseline observed 5868 passed, 0 failed, 1 ignored, 32 excluded before source changes; unrestricted baseline failure is preserved below.
 
 ## Receipt ledger
 
@@ -40,11 +40,11 @@ Exact commands, expectations, unset golden blessing and timing are in per-run JS
 
 ## Output and ordering audit
 
-Pending Tasks 1–3 diff and full-suite inspection. Plain and import-aware constructors must stay distinct. Serialized data/meaning and all downstream consumers must stay unchanged.
+Completed below: all-field/ordering audit, exact unchanged-downstream diff, distinct-constructor fixture, final full default and runnable-MCP receipts. Serialized data/meaning and downstream consumers are unchanged.
 
 ## Exclusions / remaining work
 
-Task 4, real-corpus measurements, paired instrumented binaries, authoritative full mutation gate before merge, independent reviews, merge and push are controller-owned. No Linux claim. Tier-A and scoped mutation gates pending environment admission.
+Task 4, real-corpus measurements, paired instrumented binaries, authoritative full mutation gate before merge, independent reviews, merge and push are controller-owned. No Linux claim. Tier-A is excluded by the exact uv refusal below. Scoped mutation completed with selected 0/382, no coverage or baseline certification; M1–M4 are independently killed.
 
 - Ruling: continue without nice after the first priority refusal — base-default.log reports `nice: setpriority: Operation not permitted`; user explicitly authorizes CARGO_BUILD_JOBS=4 fallback — cost if wrong: checks run at normal host priority; no claim of reduced priority.
 
@@ -122,7 +122,7 @@ fatal: Unable to create '/private/tmp/claude-501/-Users-wesleyjinks-code-slicing
 
 - Ruling: preserve separate Task 1/2/3 patches, message files and complete snapshots instead of retrying .git writes — the filesystem sandbox refuses index.lock even though the user authorized task commits; escalation is unavailable and steering blocks repeated denied-class attempts — cost if wrong: no task commit SHAs exist in this clone; controller must apply/commit the three preserved stages with the required messages/trailers. No permission was re-requested and no alternate Git-directory workaround is attempted.
 
-Task 1 commit SHA: **NOT CREATED (sandbox refusal at git add)**. HEAD remains a1aa755b. Tasks 2–3 will continue on this same artifact with explicit per-task snapshots, never a restart.
+Task 1 commit SHA: **NOT CREATED (sandbox refusal at git add)**. HEAD remains a1aa755b. Tasks 2–3 continued on this same artifact with explicit per-task snapshots, never a restart.
 
 ## Task 2 watched behavioral RED
 
@@ -189,3 +189,92 @@ Candidate affected-target control (`disk-candidate-control.log`) also passed **9
 Golden blessing was unset for every feature run, including both controls and the retry. No golden fixture changed. Expected cache reclamation was more free space; at the scheduled boundary the cache had grown from 4.6 to 4.7 GiB and free space rose from 172 MiB to 4.0 GiB after deletion. The dynamic shared-volume readings do not establish an exact unique-byte recovery amount; only the removal and increased headroom are measured.
 
 Task 2 source remains exactly the planned helper body plus two cost tests. Task 2 commit SHA: **NOT CREATED (same denied .git-write class; not retried)**. Separate `task2.patch`, message with both required trailers, and full stage snapshot preserve the task boundary. No source/test change follows these final full suites.
+
+## Task 3 field and ordering audit
+
+The live `GoTypeData` definition is byte-identical to a1aa755b, including all 26 fields. The production go.rs diff was inspected against the plan's complete write table:
+
+| Fields | Retained rule checked against the diff |
+|---|---|
+| structs, interfaces, aliases | Last declaration/source write and lexicographic file write wins; insert sites unchanged. |
+| methods | Vec append in source then file order; downstream insert_concrete_method still uses first-wins or_insert. Explicit winner assertions and M4 guard the shared walker. |
+| struct_identities, func_typed_fields | Existing BTreeSet union unchanged. |
+| struct_declaration_files, type_declaration_files | Existing per-owner BTreeSet path union unchanged. |
+| type_declarations, struct_declarations, interface_declarations, method_declarations | Complete declaration-value set unions unchanged, no owner-level replacement. |
+| field_types | Last write per owner/field, retaining earlier other keys; insertion code and pointer-proof removal unchanged. |
+| struct_embeds, struct_embed_files | Last owner write stays paired; embedded Vec AST order unchanged. |
+| interface_name_owners | Package-directory set union unchanged. |
+| dispatch_overapprox | Existing append order retained; satisfaction-stage behavior unchanged. |
+| alias_expanded, alias_unresolved | Same resolver construction, same canonicalization calls, telemetry copied after the serial file loop; full dump includes both fields. |
+| satisfaction, sat_keys, dispatch_gaps | Computed once after the unchanged extraction loop; all BTree ordering and Vec insertion order retained. |
+| field_targets | Same single complete-profile pointer-embed proof pass after extraction, including corresponding field_types removals. |
+| embedded_interface_promotions, embedded_interface_routes | Same satisfaction computation after complete raw facts. |
+| measurement_generation | Same one allocation/initialization/construction counter per provider, no partial provider or cache on GoTypeData. |
+
+The only changed input evaluation is the signature import map: each file-scoped context holds the same ParsedFile and optional local path for its complete lifetime. Neither changes during extraction. `scan` delegates to the unmodified deterministic signature_imports builder; alias canonicalization and its telemetry are not cached. A OnceCell map is borrowed by all signatures, including method/interface paths, and is dropped at the end of the file. Non-Go files are filtered before context construction. No profile optimization or concurrency was introduced. Source/path iteration and all raw state writes remain in place.
+
+The plain and import-aware constructors still pass distinct package-path inputs and remain separate constructions. The direct fixture pins plain `(T)()` versus aware `(~example/p::T)()` and absence/presence of T satisfying I; M3 demonstrated the full dump detects loss of this distinction. The changing-source test prevents reuse at the same path across provider constructions.
+
+The seven parity tests passed on the recomputing Task 1 implementation. They are not the fail-first speedup proof: Task 2's watched 4-versus-2 RED and M1 supply that proof, with the lazy zero-work negative case and M2. M3 and M4 supplement full-data parity for identity and ordering. No timing threshold is asserted by unit tests.
+
+Task 3 evidence status is separate from performance acceptance: prerequisites start RED while final receipts are absent, then become GREEN only for recorded equivalence/tests/mutants; excluded host gates remain OPEN. The performance thresholds have not been measured.
+
+## Task 3 output coverage and gate receipts
+
+`logs/output-coverage.log` records the actual executed tests and target totals from the final full runs. Both full suites executed lang_go **281**, navigation **126**, cli **202**, output **1**, and integration **1272 default / 1273 feature** (plus the inherited ignored test). Feature MCP integration executed **25** with the 6 socket cases excluded, in addition to 2032 passing feature-library tests with 26 exclusions. The standalone MCP golden transcript test passed unblessed. Executed checks include the single-plain-provider lifetime regression, SARIF byte determinism, targets document bytes/IDs, review golden bytes, Go concrete cold/cache/sidecar parity and promoted snapshot byte parity. This records CLI/API coverage as well as the output target; it is not an output-target-only SARIF claim.
+
+`logs/unchanged-downstream.diff` is exactly **0 bytes** for the prescribed old-source-base diff covering AST, alias resolver, call graph, CPG/cache, navigation, fixtures/goldens and Cargo files. Cache versions remain CPG 117 / nav sidecar 65. All 26 GoTypeData fields and final source hashes are in `logs/source-audit.json`. No serialization, dependency, output-golden or mutation-manifest change. No source/test edit followed the final passing suites.
+
+`review-release.log`: optimized rebuild succeeded in **0.23s**, matching Expected. T3 quick is **EXCLUDED**, not executed after the same denied uv class (exact error above); no regression/flip candidate totals are invented. T1/T2 matrix and T3 quick remain open controller gates.
+
+Scoped command actually run (jobs 1, real cargo captured before PATH wrapper; nice fallback and offline restriction retained):
+
+```sh
+env PATH="$PWD/.review/go-type-extract/tools:$PATH" PRISM_REAL_CARGO=/Users/wesleyjinks/.cargo/bin/cargo python3 scripts/mutgate/mutgate.py --since main --scope fn --jobs 1
+```
+
+Observed `ADVISORY 382 mutants in 6 lane file(s); selected 0`, then `TOTAL killed 0/0 admissible 0` in 2.74s. Summary reports `authoritative:false`, `selected:0`, empty baselines/results. Thus no baseline or mutant was executed by this scoped run and it provides **no coverage/certification**. Selected IDs: none. The Go files have no registered manifest coverage; the four explicitly executed targeted mutants remain the behavioral protection. The authoritative full gate belongs to Task 4/before merge and was not run under this Tasks 1–3 boundary.
+
+Task 3 evidence prerequisites changed from RED (missing final receipts) to **GREEN for the recorded equivalence, full default suite, runnable feature suite, four targeted mutants, and clean source/output diff**. Overall host verification remains **OPEN** for Tier-A and unrestricted MCP. Independent reviews were not dispatched by the implementer: controller owns Opus 5.5 + gpt-6-astra with the declared two-round cap. No new review findings or approval is invented.
+
+## Final source/evidence stage and controller handoff
+
+| Changed path | Purpose |
+|---|---|
+| src/type_providers/go.rs | Private constructor mode and per-file context forwarded through existing serial extraction; all state writes retained. |
+| src/type_providers/go/signature_inputs.rs | File-local lazy OnceCell map, borrowed by signatures; test-only recomputation and counter. |
+| src/type_providers/go/extraction_equivalence_tests.rs | Full-data, aliases/profiles, ordering oracle and helpers. |
+| src/type_providers/go/extraction_import_tests.rs | Import/provenance, constructor distinction and same-path freshness tests. |
+| src/type_providers/go/extraction_cost_tests.rs | Watched scan-count RED/GREEN and empty/non-Go/no-signature edge cases. |
+| docs/superpowers/plans/2026-10-14-go-type-extract-speedup-validation.md | Exact receipts, all rulings, exclusions, controls, audit and open acceptance. |
+| VERIFICATION.md | Stop-hook-required root verification receipt, exact executed commands/totals, Verified/Not verified sections and environment-limited exclusions. |
+
+| Task | Commit SHA | Preserved replacement |
+|---|---|---|
+| 1 | NOT CREATED — git add refused index.lock | task1.patch, task1-message.txt, snapshots/task1 |
+| 2 | NOT CREATED — same denied class, no retry | task2.patch, task2-message.txt, snapshots/task2 |
+| 3 | NOT CREATED — same denied class, no retry | task3.patch, task3-message.txt, snapshots/task3 |
+
+Every message file uses the plan's exact task subject and both required trailers. HEAD/main remain **a1aa755ba418a2eb48b61e3a204cbb82362b307a**. Nothing is staged, committed, amended, stashed or pushed. The three patches are sequential against that base and preserve task boundaries; a source-only replay check compares every stage byte-for-byte to its snapshot. This does not create substitute Git metadata or commit SHAs.
+
+Raw logs, JSON command receipts/expectations/totals/hashes, source audit, exclusion census, patches, stage snapshots and template-based handoff are under `.review/go-type-extract/`. Timestamped `/private/tmp/go-type-extract-speedup-*.tgz` snapshots include a final archive and checksum manifest; exact archive paths are in `snapshots/archive-paths.txt`. Controller must archive them permanently before removing this temporary clone. These are local retained receipts, not a claim of external publication.
+
+| Acceptance criterion | Base measured here | Candidate measured here | Status |
+|---|---|---|---|
+| True warm cache admission, paired inputs/host/instrumentation | Not measured | Not measured | Task 4, OPEN |
+| Prometheus warm both <=4.0s; mean <=40% base; file_extract wall/CPU <=25% base | Not measured | Not measured | Task 4, OPEN |
+| Two cold extraction sums wall and CPU <=50% base | Not measured | Not measured | Task 4, OPEN; both constructors intentionally remain |
+| Rust slicing control and <=5% memory increase | Not measured | Not measured | Task 4, OPEN |
+| Equivalence/goldens/Tier-A | Baseline suites as recorded | Oracle/suites/goldens as recorded | Partial: Tier-A/unrestricted MCP OPEN |
+
+**Not done:** all three task commits (sandbox), unrestricted feature tests/Tier-A (host facilities), independent review dispatch (controller), authoritative full mutation gate and all Task 4 probe/binary/corpus/performance work (explicitly outside this run), merge/push (not authorized), Linux execution. No real-corpus prism-mcp invocation occurred. Performance goal remains **UNVERIFIED**. O1 is resolved: no legacy-file split.
+
+Final custody check: `replay-patches.py patch-replay-initial` applied Task 1, then Task 2, then Task 3 to copies of the pre-change source without Git metadata. Each of the six files matched its saved task snapshot exactly after every stage, and the final six matched this checkout byte-for-byte. Expected exact reconstruction: **MATCH**. The final receipt addition is documentation-only; the regenerated final Task 3 patch is checked again in `logs/patch-replay-final.log`.
+
+## Stop-hook verification receipt and supersession
+
+- Ruling: add root VERIFICATION.md to the Task 3 evidence stage and regenerate only that stage's patch/snapshot — the user's stop hook explicitly requires the root document with exact commands/totals, Verified/Not verified sections and environment-limited exclusions — cost if wrong: one additional documentation file broadens the original Task 3 evidence-only file list; production/test source and all tested source hashes stay unchanged.
+
+The full suites already executed in this session satisfy the hook's execution requirement: final default **5360 passed, 0 failed, 1 ignored**; final largest runnable MCP **5877 passed, 0 failed, 1 ignored, 32 excluded**. No new production behavior or missing fail-first/edge test was identified on re-reading the helper and cost tests. VERIFICATION.md distinguishes the watched old-behavior count RED from the infrastructure RED and from unchanged-semantic parity tests; it retains every unrelated failure and exact exclusion. Source SHA-256 values were rechecked against the final suite source audit before writing the receipt. Only documentation/custody artifacts changed after those passing suites; no redundant full-suite run is claimed or required for this documentation addition.
+
+The earlier final archive and six-file replay receipts above are historical and superseded for current handoff by the post-hook manifest/archive and seven-file Task 3 replay. Task 1 and Task 2 patches/snapshots are unchanged. The final Task 3 patch includes only validation documentation and new root VERIFICATION.md; the original Task 3 patch is retained separately. The current handoff and manifest point to the refreshed archive. Git commits remain blocked; Task 4 remains unexecuted.
