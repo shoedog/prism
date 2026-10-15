@@ -8,16 +8,16 @@
 
 **Tech Stack:** Rust 2021; existing `BTreeMap`, `BTreeSet`, `Vec`, serde/bincode 1, Rayon, tempfile, Python 3; no new dependency or unsafe code.
 
-**Spec/evidence:** Owner's 2026-10-14 request; `.review/FINDINGS.md:3-7,23-43`; `.review/probe-summary-prometheus.md:137-151`; `.review/probe-summary-slicing.md:95-109,146-160`; `.review/astra-optimization-analysis.md:18-20,41-53,113-125` and §4 item 4; `scratch-opt-probe` commit `c3162f94`, `src/probe/census.rs:3-13,301-390`. House style: `docs/superpowers/plans/2026-10-12-shared-prism-daemon/S3b-concurrent-dispatch.md`. Source baseline inspected here: **`8b2744b3154b3664ffacb23c42f042a67981967a`**, branch `plan/dfg-compact`. Rebind source anchors if main moves; do not transplant changed semantics into the frozen oracle.
+**Spec/evidence:** Owner's 2026-10-14 request; `.review/FINDINGS.md:3-7,23-43`; `.review/probe-summary-prometheus.md:137-151`; `.review/probe-summary-slicing.md:95-109,146-160`; `.review/astra-optimization-analysis.md:18-20,41-53,113-125` and §4 item 4; `scratch-opt-probe` commit `c3162f94`, `src/probe/census.rs:3-13,301-390`. House style: `docs/superpowers/plans/2026-10-12-shared-prism-daemon/S3b-concurrent-dispatch.md`. Source baseline inspected here: **`8b2744b3154b3664ffacb23c42f042a67981967a`**, branch `plan/dfg-compact`. Rebind source anchors if main moves. Share the unchanged per-file producer with both backends; freeze only legacy aggregation, storage, queries and remove/merge (Task 1). Rebase producer changes normally and rerun parity; changes to the frozen contract require a separately reviewed re-freeze against the new base, with source hashes and explained observation changes.
 
-**Validation status:** This is a source-grounded plan, not a compiled production patch. A standalone Rust model using extracted source DTOs/lattice passed **10 tests**, including the ordering/representative counterexamples below. It did not link Prism or test serde, fixtures, incremental construction, output renderers, or the cache. No cargo command, full suite, Tier-A, mutation gate, or real-corpus process ran during planning. Full command/output provenance is in “Planning validation” below. Do not repeat S3b's much stronger validation claim for this plan.
+**Validation status:** This is a source-grounded plan, not a compiled production patch. A standalone Rust model using extracted source DTOs/lattice passed **10 tests**, including the ordering/representative counterexamples below. It did not link Prism or test serde, fixtures, incremental construction, output renderers, or the cache. The original planning pass ran no cargo command, full suite, Tier-A, mutation gate, or real-corpus process. Round-1 fold validation is recorded separately below. Full command/output provenance is in “Planning validation” below. Do not repeat S3b's much stronger validation claim for this plan.
 
 ## Global Constraints
 
-- Preserve observable output **byte for byte**: navigation, review, SARIF, targets, MCP Evidence; preserve node/edge insertion order, first-wins representatives, stable sorting, ties, confidence and telemetry. Do not bless new goldens. Cache bytes intentionally change only when its version changes.
+- Preserve observable output **byte for byte** (cross-build SARIF provenance is checked separately as specified below): navigation, review, SARIF, targets, MCP Evidence; preserve node/edge insertion order, first-wins representatives, stable sorting, ties, confidence and telemetry. Do not bless new goldens. Cache bytes intentionally change only when its version changes.
 - Use `BTreeMap`/`BTreeSet` and explicitly ordered iteration. Numeric occurrence IDs are **not legacy sort keys**. Never substitute a HashMap or unstable sort in a behavior-bearing path.
 - Keep `VarLocation::{Eq,Ord,Hash}`, `ExactVarLocation`, `AccessPath`, `FlowConfidence::worst`, RD classification, CPG endpoint selection and query algorithms semantically unchanged.
-- Each new Rust/Python file is under **600 lines**, and split modified source/test modules by category before they exceed 600 lines. Existing oversized callers require mechanical extraction, as detailed in the file map and Task 2; do not bury semantic changes in those moves. The plan document and frozen evidence captures are not source modules.
+- **No numeric file-size cap.** The owner dropped numeric line caps on 2026-09-30; retain slice-size forecasting and split PRs only for actual review size. Edit existing consumers in place. Only extract the DFG seams needed by this design; do not force decomposition of `cpg/build.rs`, `cpg_cache.rs`, `call_graph.rs`, CPG tests or `tests/common`. `CLAUDE.md` decision 7 still states the old rule; leave it unchanged for the controller to raise with the owner.
 - Run `cargo fmt`, **full** `cargo test` and **full** `cargo test --features mcp` at each PR gate. Count passed/failed/ignored tests across every target and doc test; filtered focused runs do not replace these suites. Record out-of-scope failures with a same-environment base control, not a new baseline.
 - Every added behavior has a watched RED (missing-API compile RED is only scaffold evidence), a behavioral mutant or pre-change failure, and a negative/edge test. Behavior-neutral moves use byte controls and deliberately wrong mutants; do not invent a regression that the old behavior should fail.
 - Mutation gate each review round: `python3 scripts/mutgate/mutgate.py --since main --scope fn --jobs 1`; before merge: `python3 scripts/mutgate/mutgate.py --authoritative --jobs 1` with **no `--since` or `--only`**. Register compaction mutants; the old catalog alone will not test new code. Scoped schema observations are advisory. A zero-mutant selection is not coverage.
@@ -36,7 +36,7 @@
 | ID | Decision | Reason and cost if wrong |
 |---|---|---|
 | D1 | Intern **complete exact locations**, not their legacy Eq class. `OccId` identifies all fields including bytes. `LegacyId` identifies the old Eq/Ord tuple. | Same-line references would otherwise lose bytes. Cost if wrong: CPG endpoint selection/Evidence changes; stop release. |
-| D2 | Arena sorted by **ExactVarLocation's** field order; a second index sorts by **VarLocation's** order. | Exact order places bytes before kind; legacy order excludes bytes and orders kind. A single ordinal cannot serve both. Cost: extra two u32 arrays, about 1.7 MiB for the measured Prometheus core population. |
+| D2 | Arena sorted by **ExactVarLocation's** field order; a second index sorts by **VarLocation's** order. | Exact order places bytes before kind; legacy order excludes bytes and orders kind. A single ordinal cannot serve both. Cost: up to **8 B × arena rows** for the two u32 arrays; arena ⊇ core and defs/uses-only rows likely dominate. The core-only 1.7 MiB is not the full rank cost (roughly 7 MiB at 0.9 M rows, unmeasured). |
 | D3 | Per-map representative IDs, separate from identity IDs; label values store both original endpoint IDs. | BTree entry retains its first key. Forward, backward, labels and each vector may retain different spans. Cost: 4 bytes per adjacency row and 8 per label row, already included in sizing caveats. |
 | D4 | `edges` and neighbor sequences are vectors; do not deduplicate or globally sort them. | `remove_files` and `merge` rebuild adjacency from the retained/concatenated edge sequence. Stable sort/dedup occurs only where the old query does it. Cost if wrong: tie selection and byte output drift. |
 | D5 | Complete `VarLocation`s own their `String`s and `AccessPath`s in the arena. Keep binding-map keys `(String,String,usize,AccessPath)` initially. **No separate string/path pool in this lane.** | This still interns every repeated exact location and its entire owned path/string payload. It preserves `&VarLocation` access without hydration caches. The measured core unique string/path heap is only 11.38 MiB Prometheus / 11.06 MiB slicing (not the whole DFG). Cost if wrong: less saving for defs-only populations; Task 7 rejects activation if the minimum is missed. A second pool is a separately measured follow-up, not an unbounded contingency here. |
@@ -44,7 +44,7 @@
 | D7 | Expose ordered accessor views; retain query signatures. Direct public-field consumers migrate. IDs remain private. | Keeping mutable legacy public fields prevents invariant maintenance. Cost: source compatibility for external direct-field library users; those fields are internal under `src/api/mod.rs:1`, while the stable facade/handle contracts remain unchanged. Use the repository-wide accessor migration with a release note. |
 | D8 | Native compact cache and runtime activation ship **atomically** after a test-only codec PR. | Old-format decode followed by whole-graph conversion raises peak and load cost. Cost: one invalidation/cold rebuild, no old-cache importer. |
 | D9 | Build compact per-file records before collecting parallel producer results; updates remap compact records and reclaim dead arena rows. | Never compact by building another full legacy graph or retaining dead-string tombstones across refreshes. Cost: O(live records) remap at update boundaries; measure refresh separately as diagnostic, not a claimed improvement. |
-| D10 | Bounded two-run acceptance uses conservative range separation, not statistical significance. At most one complete follow-up set. | Historical slicing load time varied 3.2/1.8 s on a busy host. Two samples cannot justify a broad performance claim. Cost: a noisy host can yield INCONCLUSIVE; no threshold relaxation after seeing candidate data. |
+| D10 | Bounded two-run acceptance uses conservative heap range separation; load passes on range separation first, otherwise the median allowance requires ≤10% within-set spread. Each criterion has its own verdict; FAIL takes precedence over unrelated INCONCLUSIVE. At most one complete follow-up set for invalid/noisy measurements, never to erase an admissible FAIL. | Historical slicing load time varied 3.2/1.8 s on a busy host. Two samples cannot justify a broad performance claim. Cost: a noisy host can yield INCONCLUSIVE; no threshold relaxation after seeing candidate data. |
 
 ## Evidence and derived sizing
 
@@ -62,7 +62,7 @@
 
 Source: Prometheus summary `:149-151`; slicing `:107-109`. Serialized totals **551.3 / 216.9 MiB** are bincode size proxies, not live heap.
 
-**Derived, not a whole-graph prediction:** the census core population is only `edges.from/to + forward keys/values + backward keys/values` (`c3162f94:src/probe/census.rs:337-372`). With `n` occurrences, `u` exact distinct locations, occurrence heap `h`, and legacy-distinct heap `hu`, estimate old core `136*n+h`, compact core `136*u+hu+4*n+8*u`. The `8*u` conservatively charges both lookup arrays; `hu` slightly understates exact heap because 16/40 extra exact rows were not separately heap-counted. This also omits new representative/row headers and BTree slack. Do not call it a guaranteed floor or apply 12.3× to all DFG fields.
+**Derived, not a whole-graph prediction:** the census core population is only `edges.from/to + forward keys/values + backward keys/values` (`c3162f94:src/probe/census.rs:337-372`). With `n` occurrences, `u` exact distinct locations, occurrence heap `h`, and legacy-distinct heap `hu`, estimate old core `136*n+h`, compact core `136*u+hu+4*n+8*u`. The `8*u` charges both lookup arrays for this core subset only; full rank cost is up to **8 B × arena rows**, including defs/uses-only and label-only rows; `hu` slightly understates exact heap because 16/40 extra exact rows were not separately heap-counted. This also omits new representative/row headers and BTree slack. Do not call it a guaranteed floor or apply 12.3× to all DFG fields.
 
 | Corpus | n | exact u | old core MiB | estimated compact core MiB | derived difference |
 |---|---:|---:|---:|---:|---:|
@@ -75,14 +75,13 @@ Source: Prometheus summary `:149-151`; slicing `:107-109`. Serialized totals **5
 
 | PR | Tasks | Independently reviewable result | Runtime heap effect | Stop before next |
 |---|---|---|---|---|
-| A — oracle | 1 | Frozen legacy implementation, exact-byte query/corpus oracle; production unchanged | derived 0 | Full oracle on baseline; no corpus process |
-| B — accessor boundary | 2 | Ordered read API and mechanical callers/module extraction; old storage still live | derived 0 | Both full suites + Tier-A + mutation |
-| C — compact engine | 3–4 | Test-only arena, ID maps, query parity, remove/merge and collection kernel | derived 0 in production; guessed candidate 400–650 / 90–180 MiB | Measure compact allocation accounting on the fixture/generator corpus before codec work; retain the record. Controller real-corpus acceptance follows activation, before cleanup. |
+| A — oracle | 1 | Shared per-file producer plus frozen legacy aggregation/storage/queries/updates; exact-byte oracle; production behavior unchanged | derived 0 | Full oracle on baseline; no corpus process |
+| B — accessor boundary | 2 | Ordered read API and in-place mechanical caller migration; old storage still live | derived 0 | Both full suites + Tier-A + mutation |
+| C — compact engine | 3–4 | Test-only arena, ID maps, query parity, remove/merge and collection kernel | derived 0 in production; guessed candidate 400–650 / 90–180 MiB | Measure compact allocation accounting on the fixture/generator corpus before codec work; retain the record. Controller real-corpus acceptance follows activation, before test-oracle deletion. |
 | D — compact codec | 5 | Test-only validated wire codec, corruption/version/stream parity tests; production format unchanged | derived 0 | Full corpus round trips and malformed IDs rejected |
-| E — activation | 6–7 | Compact producer, runtime and cache v118 together; acceptance readout | guessed 400–650 / 90–180 MiB; **must measure ≥300/75** | Task 7 passes before cleanup PR starts; no production legacy fallback |
-| F — remove migration scaffolding | 8 | Remove old production layout/temporary activation switch; frozen oracle remains test-only | derived 0 if E truly had no legacy storage; any measured saving here signals a failed E invariant | Final acceptance pair + authoritative gate before merge |
+| E — activation and cleanup | 6–8 | Compact runtime/cache v118 and production deletions together; acceptance, then delete the temporary oracle | guessed 400–650 / 90–180 MiB; **must measure ≥300/75** | Task 6 removes production scaffolding before measurement; Task 7 PASS precedes Task 8 test-only cleanup and final gate. No separate PR F or automatic second corpus set. |
 
-Review sizing targets are **guessed budgets**, not measured patch sizes: A/C/D/F ≤800 semantic lines each; B ≤500 semantic lines plus separately marked mechanical moves; E ≤600 semantic lines plus producer extraction. Each individual source file remains under 600. If a PR exceeds its semantic budget, split at a named task boundary **before dispatch**, never after rejected review. Mechanical extraction may be more lines; reviewers receive a byte/method-body comparison and review semantic hunks separately. No full graph rewrite in one PR.
+Review sizing targets are **guessed PR budgets**, not file-size caps: A/C/D ≤800 semantic lines each; B ≤500 mechanical accessor substitutions plus views/query moves; E ≤800 semantic lines including cleanup. Forecast actual changed lines and separate pure moves before each dispatch. Split at a named task boundary only if the actual review surface needs it, before dispatch rather than after rejection. Sharing the producer shrinks A; in-place consumer edits remove the forced B1/B2 extraction work. E absorbs former F because its production deletions are required by activation already, and post-acceptance oracle deletion is mechanically reviewable. No review-size evidence currently justifies an extra PR.
 
 ## Review Focus
 
@@ -97,7 +96,7 @@ Review sizing targets are **guessed budgets**, not measured patch sizes: A/C/D/F
 
 ## Consumer inventory and migration
 
-Planning searches: `rg -l '\bDataFlowGraph\b|\.dfg\b' src tests`; `rg -n '\bdfg\b|\bdata_flow\b|DataFlowGraph' src/algorithms src/navigation src/cpg src/cpg_cache.rs src/cpg_cache src/call_graph.rs`; `rg -n 'data_flow|dfg_' src/reasoning src/algorithms/taint.rs`. These are structural inventories, not a semantic call-graph claim. Repeat on execution base and record new hits before editing.
+Planning searches: `rg -l '\bDataFlowGraph\b|\.dfg\b' src tests examples`; `rg -n '\bdfg\b|\bdata_flow\b|DataFlowGraph' src/algorithms src/navigation src/cpg src/cpg_cache.rs src/cpg_cache src/call_graph.rs examples`; `rg -n 'data_flow|dfg_' src/reasoning src/algorithms/taint.rs examples`. These are structural inventories, not a semantic call-graph claim. Repeat on execution base and record new hits before editing.
 
 | Consumers | Current use / migration |
 |---|---|
@@ -114,6 +113,7 @@ Planning searches: `rg -l '\bDataFlowGraph\b|\.dfg\b' src tests`; `rg -n '\bdfg\
 | `tests/ast/{access_path,binding,cpg_cache,dfg_label,dfg,field}_test.rs`, `tests/common/mod.rs` | Direct maps/edges, corpus generators, cache. Adapt assertions to view snapshots; all generators included below. |
 | `tests/integration/{cjs_export_state,cjs_refusal_state,cjs_terminal_state,core,dfg_label_parity,dfg_label_store,dfg_rd_stats_identity,esm_forwarding_state,js_binding_export_state,js_binding_namespace,js_paths,js_wrapped_export_state,module_binding_flow,receiver_self_binding,resolution,type_relative_receiver}_test.rs`, `tests/integration/js_binding_namespace/spec_r2.rs` | Build/clone/storage observations; mechanical accessor changes only. Module binding/receiver algorithms unchanged. |
 | `tests/algo/taxonomy/{misc,taint_lang,taint_sink}_test.rs`; `tests/lang/c/{algo,cve}_test.rs`; `tests/lang/go/{lang,loader_hygiene,owner_partition_telemetry,receiver_owner_carrying}_test.rs`; `tests/lang/javascript/{destructuring,lang}_test.rs`; `tests/lang/lua/lua_test.rs`; `tests/lang/rust/rust_test.rs`; `tests/lang/typescript/erased_rvalue_test.rs`; `tests/name_resolution/build_wiring_test.rs` | Constructors and field/query assertions; unchanged public answers, mechanical views. |
+| `examples/{dfg_census,asserted_member_observations,parameter_site_census}.rs` | Direct edges/defs/uses/labels and JSON observations; migrate in PR B, preserving native order and JSON bytes. `"edges": graph.edges` becomes `"edges": graph.edges().iter().map(FlowEdgeRef::to_owned).collect::<Vec<_>>()`. |
 | Scratch `src/probe/census.rs`, `src/probe/census/sizer.rs` on `c3162f94` | Port physical-storage accounting to arena/IDs; never expand legacy rows to count candidate heap. Emit semantic occurrence counts separately. Scratch instrumentation is never merged. |
 
 A `rg` hit on a comment or DTO is not authority to change that module. Conversely, aliases such as `cached_dfg`, `graph` and `file_refs` require the member-use search in Task 2; searching only `.dfg` is insufficient.
@@ -122,20 +122,24 @@ A `rg` hit on a comment or DTO is not authority to change that module. Conversel
 
 | Files | Responsibility / owning task |
 |---|---|
-| `src/data_flow.rs` | ≤200-line facade/re-exports; initially legacy storage, finally `DataFlowGraph { storage: CompactDfg }` |
-| `src/data_flow/{types,views,queries,legacy_storage}.rs` | unchanged DTOs; ordered views; query bodies; transitional old fields (Tasks 1–2, removed from production in 8) |
-| `src/data_flow/build/{mod,file,definitions,uses,labels,alias}.rs` | extract `build_from_refs` by file pass, def collection, use collection, classification and alias helpers (2,6); preserve text/order |
+| `src/data_flow.rs` | facade/re-exports; initially legacy storage, finally `DataFlowGraph { storage: CompactDfg }` |
+| `src/data_flow/{types,views,queries,legacy_storage}.rs` | unchanged DTOs; ordered views; query bodies; transitional old fields (Tasks 1–2, removed from production in 6) |
+| `src/data_flow/build/{mod,file}.rs` | Shared `file_refs(path, parsed) -> FileRefs` and producer helpers; mechanical extraction in 1, compact conversion inside the Rayon map in 6. Further function-level splits only if review size warrants them. |
 | `src/data_flow/compact/{mod,arena,freeze,views,update,wire,validate}.rs` | types; arena ranks; legacy-parts ingestion; views; compact prune/merge/reindex; codec; validation (3–5) |
-| `src/data_flow/oracle/{mod,build,file,definitions,uses,labels,alias,queries,update}.rs` | **frozen** legacy implementation under `cfg(test)` or explicit `dfg-oracle` test feature; no production dependency (1) |
-| `src/data_flow/tests/{identity,representatives,queries,updates,wire,corruption,corpus,observe}.rs` | split tests by category, each <600 lines (1,3–5) |
-| `tests/dfg_compaction.rs`, `tests/dfg_compaction/{mod,corpus,outputs}.rs` | integration oracle using common generators, public CPG/output parity (1–8) |
-| `src/cpg/dfg_assembly.rs`, `src/cpg/dfg_assembly_tests.rs` | mechanically extracted DFG materialization block; view migration here (2) |
+| `src/data_flow/oracle/{mod,aggregate,queries,update}.rs` | **Frozen** legacy storage, aggregation, adjacency, label insertion, queries and updates; share per-file producer/DTO/lattice only. Test-only in 1–7, deleted in 8 after acceptance. |
+| `src/data_flow/tests/{identity,representatives,queries,updates,wire,corruption,corpus,observe,outputs}.rs` | group tests by behavior (1,3–5) |
+| `tests/dfg_compaction/{main,corpus,outputs}.rs` | integration oracle using common generators, public CPG/output parity (1–8) |
+| `src/cpg/build.rs`, `src/cpg/dfg_missing_label_tests.rs` | In-place assembly view migration and crate-unit relocation of all three integration label-removal sites (2); no forced assembly extraction. |
 | `src/cpg_cache/dfg_codec_tests.rs`, `src/cpg_cache/stream_tests.rs` | codec version/stream integration (5–6) |
-| `scripts/dfg_compaction/compare_acceptance.py` | preregistered numeric readout and receipt checking (7), <600 lines |
-| `mutants/dfg-compaction.json` | register the explicit mutants listed per task; retain lane conventions |
+| `scripts/dfg_compaction/compare_acceptance.py` | preregistered numeric readout and receipt checking (7) |
+| `mutants/dfg-compaction.json` | 10–15 high-value mutants selected from the task distinctions; default-feature lib selectors; runtime forecast below |
 | `docs/superpowers/handoffs/2026-10-14-dfg-compaction.md` | living implementation handoff (controller snapshots/commits) |
 
-Large existing modules touched by mechanical extraction are split along their existing function/test-module boundaries until each resulting source module is under 600 lines; retain re-exports and function visibility. In particular `src/cpg/build.rs`, `src/cpg_cache.rs`, oversized CPG test modules and `tests/common/mod.rs` cannot receive additional inline implementations. Put new code/tests in the named child modules. Submit extraction-only commits before behavior changes; if the necessary extractions cannot fit PR B's review budget, divide B into B1 production and B2 tests, each with its own complete gate. This is a declared optional PR boundary, not permission for a new design.
+Existing consumer and test modules receive bounded in-place edits. New child modules establish the producer, view, query, compact-storage and test seams; source length alone never requires moving unrelated code. If the enumerated PR B diff is still too large, declare a consumer-group split with its own complete gate before dispatch.
+
+**Mutation budget (S2/S3):** use `"lib_test_prefixes": ["data_flow::tests::"]` in `mutants/dfg-compaction.json`; every lane selector is a named default-feature `data_flow::tests::…` lib test. Mutgate supplies no feature flags and cannot route to the `dfg_compaction` umbrella. Keep 10–15 high-value registered mutants total (target 15): exact-vs-legacy identity/order (2), independent representatives (1), adjacency order/multiplicity (1), label pair/worst (1), legacy lookup (1), arena/ID validation (1), stable neighbor tie (1), removal endpoint/key semantics (1), merge/adjacency/stats (1), reclamation (1), codec bounds/group/order (1), early version rejection (1), native production decode (1), and DeltaSlice candidate-edge contribution (1). All other listed variants remain ordinary edge/corruption tests or one-off watched REDs; they are not additional mandatory catalog entries. Each selector must actually run under `--lib` without features. Keep selector wall time below mutgate's **120 s per-test timeout** with margin (target <30 s); record PR A timings and split oversized test cases, never bless timeouts.
+
+Before each dispatch forecast the **full authoritative gate** at `--jobs 1`: existing-catalog time + lane rebuild count × measured rebuild time + baseline/mutant selector time. Target ≤15 minutes, planning cap <30 minutes. Record measured inputs and the forecast. If it exceeds the cap, shrink redundant lane mutants while retaining each distinction or escalate scheduling/budget to the controller; do not weaken the full gate. `--jobs 2` requires an explicit owner exception to the unchanged one-cargo-at-a-time rule; this plan does not authorize it.
 
 ## Command protocol (applies to every task)
 
@@ -160,7 +164,7 @@ export DFG_GATE_PATH="$PWD/.review/dfg-compaction/bin:$PATH"
 ```
 Expected: executable wrapper; `DFG_REAL_CARGO` is an absolute real toolchain binary, not the wrapper. Controller confirms exclusive cargo slot and priority capability before any build. Do not set PATH globally for normal commands.
 
-**GATE** means run all the following sequentially at that task/PR boundary, with its task number in the log directory. Record actual totals; there is no invented expected suite count:
+**GATE** means run all the following sequentially (through Task 7, including the oracle command; Task 8 deletes that target/feature and runs the remaining commands plus its retained regression suite) at that task/PR boundary, with its task number in the log directory. Record actual totals; there is no invented expected suite count:
 
 ```bash
 nice -n 19 env CARGO_BUILD_JOBS=4 cargo fmt --check > .review/dfg-compaction/logs/fmt.log 2>&1
@@ -196,17 +200,17 @@ Expected: authoritative **full** text-mode verdict passes, all selected survivor
 
 ### Task 1 (PR A): Freeze the independent legacy oracle and corpus inputs
 
-**Files:** create oracle and test modules in the file map, `tests/dfg_compaction.rs`; add `dfg-oracle = []` to Cargo features. Production behavior and cache version stay unchanged.
+**Files:** create oracle/test modules and `tests/dfg_compaction/main.rs`; extract the shared producer seam; add `dfg-oracle = []` to Cargo features and the explicit umbrella target below. Production behavior and cache version stay unchanged.
 
-**Interfaces:** frozen `LegacyDataFlowGraph` has the fields and public methods of baseline `DataFlowGraph`; it shares only the unchanged DTO/lattice types. Expose it as `data_flow::oracle::LegacyDataFlowGraph` only under `#[cfg(any(test, feature = "dfg-oracle"))]`. Production/default/mcp binaries do not enable `dfg-oracle`.
+**Interfaces:** frozen `LegacyDataFlowGraph` has the fields and public methods of baseline `DataFlowGraph`; it shares only unchanged DTO/lattice types and the per-file `file_refs` producer. Aggregation, storage, queries, adjacency and updates are independently frozen. Expose it as `data_flow::oracle::LegacyDataFlowGraph` only under `#[cfg(any(test, feature = "dfg-oracle"))]`. Production/default/mcp binaries do not enable `dfg-oracle`.
 
-- [ ] **RED — Freeze source before editing it.** Copy the exact baseline `DataFlowGraph` declaration and complete implementation (`src/data_flow.rs:189-1519`) into the oracle modules, rename only the graph type, keep `VarLocation`, `FlowEdge`, `ExactFlowEdge`, `AccessPath`, RD APIs imported from production. Copy the producer helpers too: sharing the new compact builder with the oracle would make the test circular. Split by the exact function boundaries listed by `rg -n '^    (pub )?fn' src/data_flow.rs`; for the long `build_from_refs`, extract its per-file closure and its definition/use phases identically in production and oracle **before** changing either. Save the unmodified source and SHA256 in `.review/dfg-compaction/oracle-source.rs` as evidence; compare moved method bodies after stripping indentation only. No manual simplification of the old algorithm.
+- [ ] **RED — Freeze the changed layer, share the unchanged producer.** Save the baseline source and SHA256 before editing. Mechanically extract the per-file closure into `fn file_refs(file_path: &String, parsed: &ParsedFile) -> FileRefs`, with its classification/definition/use/alias helpers shared by both backends. Lift `FileRefs` to the producer module; keep original body/order and per-file partition assertions. Compare moved method bodies after stripping indentation only. Do **not** duplicate or freeze the producer. Freeze the legacy graph fields, ordered aggregation (`:1176-1238`), `rebuild_adjacency`, `remove_files`, `merge`, `insert_label`, and the seven query bodies. The legacy `build/build_subset` wrappers call the shared producer and frozen aggregation; they never call compact conversion, storage or queries. Roughly 400 frozen lines replace the old roughly 1,300-line full copy. On rebase the single producer tracks main for both backends; independently check changes to frozen-layer semantics before re-freezing.
 
 ```bash
 git show 8b2744b3154b3664ffacb23c42f042a67981967a:src/data_flow.rs > .review/dfg-compaction/oracle-source.rs
 shasum -a 256 .review/dfg-compaction/oracle-source.rs
 ```
-Expected: 1,519-line baseline DFG source and its recorded checksum. This is an evidence copy, not the executable oracle; source extraction must still compile.
+Expected on the inspected base: 1,519-line baseline DFG source and its recorded checksum; rebind and record the execution base if main moves. This is an evidence copy, not the executable oracle; source extraction must still compile.
 
 - [ ] **RED — Add exact observations, never `assert_eq!(VarLocation, ...)` alone.** Use bincode over ordered vectors; bincode includes byte spans that Eq ignores. Core assertion code in `src/data_flow/tests/observe.rs`:
 
@@ -218,10 +222,44 @@ fn bytes<T: Serialize>(value: &T) -> Vec<u8> {
 fn assert_bytes<T: Serialize>(name: &str, old: &T, new: &T) {
     assert_eq!(bytes(old), bytes(new), "{name}");
 }
-fn path_bytes(paths: &[crate::data_flow::FlowPath]) -> Vec<u8> {
-    bytes(&paths.iter().map(|p| (&p.edges, &p.cleansed_for)).collect::<Vec<_>>())
+use crate::finding_confidence::{EvidenceHop, EvidencePath};
+use crate::data_flow::{FlowPath, VarLocation};
+use crate::frameworks::SanitizerCategory;
+use std::collections::BTreeSet;
+fn hop_obs(h: &EvidenceHop) -> Vec<u8> {
+    match h {
+        EvidenceHop::DataFlow { from, to, confidence } => bytes(&(0u8, from, to, confidence)),
+        EvidenceHop::Call { edge, confidence } => bytes(&(1u8, &edge.caller,
+            edge.call_site_line, edge.confidence, edge.kind, confidence)),
+    }
+}
+fn category_obs(c: &SanitizerCategory) -> u8 {
+    match c {
+        SanitizerCategory::Xss => 0, SanitizerCategory::Sqli => 1,
+        SanitizerCategory::Ssrf => 2, SanitizerCategory::Deserialization => 3,
+        SanitizerCategory::OsCommand => 4, SanitizerCategory::PathTraversal => 5,
+    }
+}
+fn path_bytes(paths: &[FlowPath]) -> Vec<u8> {
+    bytes(&paths.iter().map(|p| (&p.edges,
+        p.cleansed_for.iter().map(category_obs).collect::<Vec<_>>())).collect::<Vec<_>>())
+}
+fn labeled_obs(value: &(BTreeSet<VarLocation>, Vec<EvidenceHop>)) -> Vec<u8> {
+    bytes(&(&value.0, value.1.iter().map(hop_obs).collect::<Vec<_>>()))
+}
+fn evidence_obs(paths: &[Option<EvidencePath>]) -> Vec<u8> {
+    bytes(&paths.iter().map(|p| p.as_ref().map(|p|
+        (p.hops.iter().map(hop_obs).collect::<Vec<_>>(), p.crossed_unlabeled)
+    )).collect::<Vec<_>>())
+}
+#[cfg(feature = "dfg-oracle")]
+#[doc(hidden)]
+pub fn observe_evidence(paths: &[Option<EvidencePath>]) -> Vec<u8> {
+    evidence_obs(paths)
 }
 ```
+
+Keep these projections inside the crate test-support module; expose `data_flow::test_support::observe_evidence` under the feature to the umbrella (the non-exhaustive evidence enum can be exhaustively matched inside its own crate). No production serde derives are added. DFG hops serialize full byte-bearing endpoints; Call projects every field explicitly; sanitizer tags are test-only and exhaustive. Never replace these observations with value Eq or Debug. Test shifted start/end bytes, hop order, confidence, all sanitizer categories, `None` versus empty evidence, and `crossed_unlabeled`; each must change observation bytes.
 
 The full storage observation is an ordered tuple: edges; defs `(binding_key, locations)`; uses; forward `(representative, neighbors)`; backward; labels `((representative_from,representative_to),confidence)`; exact labels; RD stats. Convert each map to a `Vec` in native iterator order and encode it; JSON objects cannot encode tuple keys. For the baseline oracle, this is exact code:
 
@@ -249,18 +287,20 @@ macro_rules! compare_queries {
         for loc in $locations {
             assert_bytes("forward", &old.forward_reachable(loc), &new.forward_reachable(loc));
             assert_bytes("backward", &old.backward_reachable(loc), &new.backward_reachable(loc));
-            assert_bytes("backward labels", &old.backward_reachable_labeled(loc),
-                         &new.backward_reachable_labeled(loc));
+            assert_eq!(labeled_obs(&old.backward_reachable_labeled(loc)),
+                       labeled_obs(&new.backward_reachable_labeled(loc)));
             assert_bytes("defs", &old.all_defs_of(&loc.file, loc.var_name()),
                          &new.all_defs_of(&loc.file, loc.var_name()));
         }
         for (file, line) in $lines {
             let sources = vec![(file.clone(), *line), (file.clone(), *line)];
             assert_eq!(path_bytes(&old.taint_forward(&sources)), path_bytes(&new.taint_forward(&sources)));
-            for (sink_file, sink_line) in $lines {
-                assert_bytes("chop", &old.chop(file, *line, sink_file, *sink_line),
-                             &new.chop(file, *line, sink_file, *sink_line));
-            }
+            assert_bytes("locations at", &old.all_locations_at(file, *line),
+                         &new.all_locations_at(file, *line));
+        }
+        for ((file, line), (sink_file, sink_line)) in chop_pairs(old, $lines) {
+            assert_bytes("chop", &old.chop(&file, line, &sink_file, sink_line),
+                         &new.chop(&file, line, &sink_file, sink_line));
         }
         assert_eq!(path_bytes(&old.taint_forward($lines)), path_bytes(&new.taint_forward($lines)));
         assert_eq!(path_bytes(&old.taint_forward(&[])), path_bytes(&new.taint_forward(&[])));
@@ -268,7 +308,7 @@ macro_rules! compare_queries {
 }
 ```
 
-`locations` is the exact-deduplicated **union of every field's key/value locations**, including defs/uses-only and label-only rows; retain a sorted Vec by `ExactVarLocation::from_legacy`, not a legacy BTreeSet. Add copies with shifted byte spans (legacy hit, exact miss), missing path, missing file, `line=0`, and different `function_start_line`. `lines` is the ordered distinct `(file,line)` union plus `("absent.py",0)` and each file's max line + 1. Run each fixture/generator separately to bound all-pairs chop cost. Do not combine the entire fixture tree into one all-pairs graph. There is no claim to exhaust all arbitrary external inputs; the finite fixture-derived domain is exhaustive for these probes.
+`locations` is the exact-deduplicated **union of every field's key/value locations**, including defs/uses-only and label-only rows; retain a sorted Vec by `ExactVarLocation::from_legacy`, not a legacy BTreeSet. Add copies with shifted byte spans (legacy hit, exact miss), missing path, missing file, `line=0`, and different `function_start_line`. `lines` is the ordered distinct `(file,line)` union plus `("absent.py",0)` and each file's max line + 1. Make `all_locations_at` crate-visible in both backends and compare it for every source line (including blank/no-location lines), plus the sentinels. The other six queries remain public; run reachability for every domain location. These observations determine chop's inputs. `chop_pairs` sorts edge-endpoint `(file,line)` values; uses all when ≤32, otherwise the first 32; then adds absent/max+1 sentinels and forms pairs. Only small fixtures with ≤60 distinct lines may use full all-pairs, subject to the measured selector budget. Run each fixture/generator as a separate named case; after each update keep full storage/location/reachability comparisons but use this bounded chop set. Never combine the fixture tree into an all-pairs query graph. There is no claim to exhaust all arbitrary external inputs; the finite fixture-derived domain is exhaustive for these probes.
 
 - [ ] **RED — Add sequential corpus enumeration.** Use this walker; it records every supported-language file and rejects unreadable/invalid UTF-8 source instead of silently skipping it:
 
@@ -288,7 +328,25 @@ fn fixture_paths(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
 }
 ```
 
-`tests/dfg_compaction.rs` declares `mod common;` and a `#[cfg(feature="dfg-oracle")] mod dfg_compaction;`. `tests/dfg_compaction/mod.rs` declares `mod corpus; mod outputs;`. For each path use `ParsedFile::parse(path, &read_to_string(path).unwrap(), Language::from_path(path).unwrap()).unwrap()`, a one-file BTreeMap, and build **both** `LegacyDataFlowGraph::build` and production `DataFlowGraph::build`. Also run the whole fixture tree as a multi-file build for storage/assembly parity only (no quadratic all-pairs queries on that combined graph).
+Use one umbrella target; do not create `tests/dfg_compaction.rs` or a same-name `mod.rs`. Add to `Cargo.toml`:
+
+```toml
+[[test]]
+name = "dfg_compaction"
+path = "tests/dfg_compaction/main.rs"
+required-features = ["dfg-oracle"]
+```
+
+`tests/dfg_compaction/main.rs` contains:
+
+```rust
+#[path = "../common/mod.rs"]
+mod common;
+mod corpus;
+mod outputs;
+```
+
+Default/MCP suites skip this umbrella cleanly; the explicit GATE oracle command selects it. For each path use `ParsedFile::parse(path, &read_to_string(path).unwrap(), Language::from_path(path).unwrap()).unwrap()`, a one-file BTreeMap, and build both backends through their independent aggregators. Library wrappers run the private storage/query oracle; umbrella cases use wrappers plus public outputs. Also run the whole fixture tree as a multi-file build for storage/assembly parity only. PR A records each debug selector's wall time, the largest fixture/generator time and total oracle time; a single umbrella loop over all fixtures is not a mutgate selector.
 
 Invoke every common generator explicitly, retaining its returned DiffInput for output tests:
 
@@ -323,7 +381,7 @@ Expected: the initial missing oracle module/API compile error. After the extract
 
 ### Task 2 (PR B): Ordered views and mechanical consumer migration
 
-**Files:** `src/data_flow/{types,views,queries,legacy_storage}.rs`, producer child modules, named consumer paths in the inventory; extract CPG assembly into `src/cpg/dfg_assembly.rs`; test child modules. No storage/serde/layout change.
+**Files:** `src/data_flow/{types,views,queries,legacy_storage}.rs`, shared producer module, named consumer paths including examples; edit CPG assembly in `src/cpg/build.rs`; test child modules. No storage/serde/layout change.
 
 **Interfaces:** `BindingKey = (String, String, usize, AccessPath)`; borrowed edge/location views; existing public graph queries retain their exact signatures. `DataFlowGraph` initially keeps the old eight serialized fields. New methods are not serialized. Oracle retains direct legacy fields and its independent query bodies.
 
@@ -450,21 +508,23 @@ Export `BindingKey`, `FlowEdgeRef`, `Edges`, `Locations` from `data_flow.rs`. `e
 
 Keep `VecDeque`, `visited: BTreeSet<VarLocation>`, `prevs.sort(); prevs.dedup();`, the initial caller-supplied location, missing-label behavior, and source/sink inclusion exactly as written. Do not optimize traversal to IDs in this lane: it would change which equal-legacy occurrence wins. `FlowPath` continues to contain owned `FlowEdge`s.
 
-- [ ] **GREEN — Migrate every consumer in the inventory.** Exact transformations: `.edges.iter()` → `.edges().iter()`; `&dfg.edges` → `dfg.edges().iter()`; `.edges.is_empty()` → `.edges().is_empty()`; `.defs.values()` → `.defs().map(|(_, v)| v)`; corresponding uses; label lookup → `label(&from,&to)` without `.copied()`; `ExactFlowEdge::from_legacy(edge)` → `ExactFlowEdge::from_legacy(&edge.to_owned())` at the assembly conflict-index construction only; exact iterator patterns change from borrowed `&confidence` to value `confidence`. Preserve ordered key iteration and each closure's body. Synthetic field mutation remains in unit-test-only `edit_legacy_parts`: convert a **small test graph**, apply the supplied closure on old Parts, freeze it again; never enable that hook in release binaries. Existing integration tests that need this hook must run under `dfg-oracle`; normal tests should use a crate-internal unit test or a constructor from source, not silently disappear under default/mcp suites.
+- [ ] **GREEN — Migrate every consumer in the inventory.** Exact transformations: `.edges.iter()` → `.edges().iter()`; `&dfg.edges` → `dfg.edges().iter()`; `.edges.is_empty()` → `.edges().is_empty()`; `.defs.values()` → `.defs().map(|(_, v)| v)`; corresponding uses; label lookup → `label(&from,&to)` without `.copied()`; `ExactFlowEdge::from_legacy(edge)` → `ExactFlowEdge::from_refs(edge.from, edge.to)` at the assembly conflict-index construction only; exact iterator patterns change from borrowed `&confidence` to value `confidence`. Preserve ordered key iteration and each closure's body. Synthetic field mutation uses a crate-unit-only hook. In PR B `edit_legacy_parts` is a plain closure over mutable legacy fields; `Parts`/freeze do not exist until PR C. In C/E reimplement the hook by exporting a **small test graph** to Parts, editing and freezing it; compile under `#[cfg(test)]` only. Add `ExactFlowEdge::from_refs(from: &VarLocation, to: &VarLocation)` using `ExactVarLocation::from_legacy` on each endpoint once, avoiding the intermediate owned edge clone.
+
+**Required normal-gate relocation (W4):** move `partial_hit_fallback_unions_persisted_and_new_function_identities` from `tests/integration/dfg_rd_stats_identity_test.rs` and `repeated_partial_hits_do_not_accumulate_retained_missing_label_stats` from `tests/integration/dfg_label_store_test.rs` into `src/cpg/dfg_missing_label_tests.rs`, registered under `#[cfg(test)]`. The review's “three tests” are three removal sites in these two functions: `u_key` at :86, `f_key` at :100, and `retained_key` at :574. Preserve all three sites and the full cumulative sequences/assertions, including cache hit/PartialHit fallback to `CfgIncomplete` and `record_without_cfg`. Use the cfg(test) hook; do not gate these tests on `dfg-oracle`. Record both named selectors executing under default and MCP full suites; zero selection is inadmissible. Other integration mutations must likewise use source constructors or move into ordinary crate-unit tests, never silently disappear behind a feature.
 
 ```bash
-rg -n 'DataFlowGraph|\b(cached_dfg|fresh_dfg|dfg|file_refs)\.(edges|defs|uses|forward|backward|labels|exact_labels|rd_function_stats)' src tests > .review/dfg-compaction/logs/t2-consumers.txt
+rg -n 'DataFlowGraph|\b(cached_dfg|fresh_dfg|dfg|graph|file_refs)\.(edges|defs|uses|forward|backward|labels|exact_labels|rd_function_stats)' src tests examples > .review/dfg-compaction/logs/t2-consumers.txt
 cat .review/dfg-compaction/logs/t2-consumers.txt
 ```
-Expected: all non-builder production storage uses go through the named views; remaining raw fields are legacy storage, frozen oracle and explicitly temporary test fixtures. Repeat a broader multiline `rg -U '\.dfg\s*\.\s*(edges|defs|uses|labels)' src tests` and review aliases manually. Expected: no unaccounted raw consumer. No `src/reasoning` or taint algorithm rewrite.
+Expected: all non-builder production storage uses go through the named views; remaining raw fields are legacy storage, frozen oracle and explicitly temporary test fixtures. Repeat a broader multiline `rg -U '\.dfg\s*\.\s*(edges|defs|uses|labels)' src tests examples` and review aliases manually. Expected: no unaccounted raw consumer. No `src/reasoning` or taint algorithm rewrite.
 
-- [ ] **Gate and commit.** Run GATE, including oracle output snapshots before/after method moves. Mutant: reverse `edges()` or choose the last equal-legacy representative; ordered observations must fail. Controller commit title **`refactor: isolate ordered DFG accessors`**, both trailers. Split extraction-only B1/B2 if the predeclared budget requires it. Memory effect **derived 0 MiB**, no cache bump.
+- [ ] **Gate and commit.** Run GATE, including oracle output snapshots before/after method moves. Mutant: reverse `edges()` or choose the last equal-legacy representative; ordered observations must fail. Controller commit title **`refactor: isolate ordered DFG accessors`**, both trailers. Split by enumerated consumer groups only if actual review size requires it. Memory effect **derived 0 MiB**, no cache bump.
 
 ### Task 3 (PR C): Immutable exact arena and compact read storage
 
 **Files:** `src/data_flow/compact/{mod,arena,freeze,views}.rs`, category tests. Initially compiled only for tests/`dfg-oracle`; the production facade remains legacy until Task 6.
 
-**Interfaces:** `OccId(u32)` addresses one exact arena row; `LegacyId(u32)` addresses a rank in the legacy index. IDs never cross a graph lifetime, output boundary or unvalidated deserializer. `CompactDfg::from_parts(Parts) -> Result<Self, &'static str>` consumes owned primary state. `Parts` is the old field layout from Task 1 with optional preserved adjacency (below). Create `compact/queries.rs` by copying Task 2's migrated `queries.rs` and changing only `impl DataFlowGraph` to `impl CompactDfg` plus its import; this supplies all seven query methods to the test-only backend. Keep it test-only after activation to avoid duplicate production algorithms. Oracle bodies remain frozen.
+**Interfaces:** `OccId(u32)` addresses one exact arena row; `LegacyId(u32)` addresses a rank in the legacy index. IDs never cross a graph lifetime, output boundary or unvalidated deserializer. `CompactDfg::from_parts(Parts) -> Result<Self, &'static str>` consumes owned primary state. `Parts` is introduced here from the legacy field layout, with optional preserved adjacency (below). Create `compact/queries.rs` by copying Task 2's migrated `queries.rs` and changing only `impl DataFlowGraph` to `impl CompactDfg` plus its import; this supplies all seven query methods to the test-only backend. Keep it test-only after activation to avoid duplicate production algorithms. Oracle bodies remain frozen.
 
 - [ ] **RED — Add the identity/representative tests first.** The compiled arena/insertion kernel and test bodies follow; static self-review strengthened the neighbor-order case to an asymmetric four-element sequence. That final strengthened test awaits its linked Task 3 run. The plan's standalone validation used the real source DTOs and confidence lattice (serde derives removed), not a hand-invented Eq. Move these tests into `identity.rs` and `representatives.rs`; imports are `super::*` plus existing DTO/lattice types. The helper `arena(rows)` sorts/deduplicates exact rows **only in tests**; production `from_sorted` rejects noncanonical decoded arenas.
 
@@ -800,7 +860,7 @@ impl CompactDfg {
 
 No persistent `FlowEdge` view cache. Exact-label iteration creates only the yielded owned DTO (rare supplemental facts), not a second stored map. Production façade forwarding methods expose the same visibility as Task 2; compact methods are `pub(super)` where the parent wrapper needs them.
 
-- [ ] **GREEN — Run both representations on every Task 1 corpus case.** Compact source is consumed legacy Parts for conversion parity, and a separately built producer result for construction parity. Run all public queries and ordered storage observations. Compare bincode bytes, not legacy Eq. Add the ten kernel mutants to the gate catalog: collapse bytes; use numeric OccId as LegacyId; replace map representative; sort/dedup adjacency; choose latest label pair; replace `worst` by `max`; require exact lookup for a legacy query; accept unsorted/duplicate arena; wrapping ID cast; unstable-sort equal neighbors.
+- [ ] **GREEN — Run both representations on every Task 1 corpus case.** Compact source is consumed legacy Parts for conversion parity, and a separately built producer result for construction parity. Run all public queries and ordered storage observations. Compare bincode bytes, not legacy Eq. Cover these ten kernel distinctions in tests; select catalog representatives within the 10–15 total mutation budget: collapse bytes; use numeric OccId as LegacyId; replace map representative; sort/dedup adjacency; choose latest label pair; replace `worst` by `max`; require exact lookup for a legacy query; accept unsorted/duplicate arena; wrapping ID cast; unstable-sort equal neighbors.
 
 - [ ] **Gate and commit.** GATE; expected no public difference across corpus, kernel tests plus mutants prove distinctions, default/mcp production still legacy. Controller commit title **`feat: add compact DFG arena behind test oracle`**, both trailers. Runtime effect **derived 0 MiB**. Retain provisional compact accounting for Task 4's measurement checkpoint.
 
@@ -946,9 +1006,9 @@ Expose these wrappers to the facade/test module with the same crate-internal vis
 
 Validate `combine` against legacy merge even for overlapping files, although the current producer expects disjoint file partitions. RD merging must call the existing `RdFileStats::merge` to union function identity sets. Unknown excluded files and empty exclusion still rebuild adjacency, replacing old independent representative rows from edge order exactly as legacy does.
 
-- [ ] **Fixture measurement checkpoint before PR D.** For every fixture/generator emit old and compact accounted storage using the census conventions (capacity, owned string/path heaps, no BTree-node claim). Count all arena rows, not only edge endpoints; compare semantic occurrence/edge/label counts. The repeated-location synthetic fixture must strictly shrink; empty and all-distinct fixtures may grow and must be reported. This is a measured fixture accounting check, not extrapolated real-corpus acceptance. Preserve the record before codec work. **Task 7's controller measurement of PR E must pass before PR F starts.** No interim real-corpus run or old-cache conversion candidate is required.
+- [ ] **Fixture measurement checkpoint before PR D.** For every fixture/generator emit old and compact accounted storage using the census conventions (capacity, owned string/path heaps, no BTree-node claim). Report full arena rows, core exact `u`, arena-rows/core-`u` (N/A for zero core), and rank bytes; defs/uses-only rows likely dominate and must be counted; compare semantic occurrence/edge/label counts. The repeated-location synthetic fixture must strictly shrink; empty and all-distinct fixtures may grow and must be reported. This is a measured fixture accounting check, not extrapolated real-corpus acceptance. Preserve the record before codec work. **Task 7's controller measurement of PR E must pass before its Task 8 test-oracle deletion.** No interim real-corpus run or old-cache conversion candidate is required.
 
-- [ ] **Gate and commit.** GATE, update oracle after every intermediate operation, subset/merge corpus cases, targeted mutgate entries for wrong edge-end filtering, stale adjacency, overwrite merge, omitted worst merge, retained dead locations and altered stats. Controller title **`feat: preserve DFG update semantics with compact IDs`**, both trailers. Refresh measurement receipt/handoff before next PR.
+- [ ] **Gate and commit.** GATE, update oracle after every intermediate operation, subset/merge corpus cases, tests for wrong edge-end filtering, stale adjacency, overwrite merge, omitted worst merge, retained dead locations and altered stats; select high-value catalog entries within the lane budget. Controller title **`feat: preserve DFG update semantics with compact IDs`**, both trailers. Refresh measurement receipt/handoff before next PR.
 
 ### Task 5 (PR D): Native compact wire codec and validation, test-only
 
@@ -1148,7 +1208,7 @@ impl Arena {
 }
 ```
 
-Add corruption tests for rank length, out-of-range representative, duplicate/reversed legacy reps, out-of-range group, and in-range wrong-group mapping. Use two same-legacy byte variants plus a different-kind row so “correct rank, different exact occurrence” remains a valid positive case. The two rank arrays add **derived ≤8*u bytes** to the wire, about 1.7 MiB for the measured Prometheus core, to avoid resorting on each hit; this is negligible beside the inherited 551.3 MiB DFG wire size, but the full wire size is measured in Task 7.
+Add corruption tests for rank length, out-of-range representative, duplicate/reversed legacy reps, out-of-range group, and in-range wrong-group mapping. Use two same-legacy byte variants plus a different-kind row so “correct rank, different exact occurrence” remains a valid positive case. The two rank arrays add **up to 8 B × arena rows** to the wire to avoid resorting on each hit. Arena rows include defs/uses-only and label-only occurrences; arena ⊇ core and defs/uses-only rows likely dominate. Core `u` alone gives 1.7 MiB for Prometheus but understates the total (roughly 7 MiB at 0.9 M rows, unmeasured). Task 4 reports the ratio; Task 7 diagnostic census measures the full wire size.
 
 Import `serde::{Serialize,Deserialize}` for trait method resolution. Bincode's existing cache-size/decoder policy remains the outer allocation boundary; this task adds reference validation, not a new general-purpose untrusted-cache allocator. `checked_id(rows.len())` validates size before indexing. Validation errors become the existing cache-miss/rebuild result at the cache layer, never a served partially valid graph.
 
@@ -1161,7 +1221,7 @@ Import `serde::{Serialize,Deserialize}` for trait method resolution. Bincode's e
 | truncated wire, invalid confidence discriminant | deserialize error |
 | valid empty maps/empty value vector/label-only graph | **accept**, preserve bytes of query answers |
 
-- [ ] **Gate and commit.** GATE plus all corruption mutants, borrowed/owned stream equality and corpus round trips. Controller title **`test: stage validated compact DFG cache codec`**, both trailers. Runtime effect **derived 0 MiB**; old production cache remains v117 until activation.
+- [ ] **Gate and commit.** GATE plus all corruption tests and budgeted catalog representatives, borrowed/owned stream equality and corpus round trips. Controller title **`test: stage validated compact DFG cache codec`**, both trailers. Runtime effect **derived 0 MiB**; old production cache remains v117 until activation.
 
 ### Task 6 (PR E): Activate compact construction, accessors and cache version atomically
 
@@ -1187,15 +1247,17 @@ fn production_codec_shares_one_location_per_exact_identity() {
 
 `current_storage` is Task 1's view-based observation. This test fails to compile before activation and must kill a “decode into legacy then convert” mutant through the codec seam/decode counter test below, not just the existence of a compact field.
 
-- [ ] **GREEN — Producer boundary.** In the extracted per-file closure, keep the original parsing/classification code and `FileRefs` local state. Replace its final return of `FileRefs` with this conversion, **inside the Rayon map**, before `.collect()`:
+- [ ] **GREEN — Producer boundary.** Keep the shared `file_refs` body unchanged. Add a consuming `FileRefs::into_parts(self) -> Parts` adapter preserving fields and storing its single file's RD stats in a BTreeMap, with `adjacency: None`. Run its partition assertions before conversion. Inside the existing indexed Rayon map, before `.collect()`, call:
 
 ```rust
-CompactDfg::from_parts(Parts {
-    edges, defs, uses, labels, exact_labels,
-    rd_function_stats: BTreeMap::from([(file_path.clone(),rd_function_stats)]),
-    adjacency: None,
-}).expect("DFG exceeds u32 location capacity")
+.map(|entry| {
+    let (file_path, parsed) = *entry;
+    CompactDfg::from_parts(file_refs(file_path, parsed).into_parts())
+        .expect("DFG exceeds u32 location capacity")
+})
 ```
+
+The oracle still calls this same producer but consumes FileRefs through frozen legacy aggregation; it never calls `into_parts` or compact conversion.
 
 The `ordered_files` vector remains in BTreeMap file order (`src/data_flow.rs:536-540`). Declare `per_file_refs: Vec<CompactDfg>` and collect from the indexed parallel iterator, retaining that order. Replace the entire old aggregation/expanded adjacency block (`:1180-1238`) with:
 
@@ -1205,7 +1267,7 @@ DataFlowGraph {
 }
 ```
 
-Keep per-file partition assertions immediately before conversion, using the local `defs`, `uses`, `labels`, `exact_labels`. Query methods are Task 2's migrated bodies. `empty()` uses `combine(Vec::new())`; `build_subset()` still filters exactly as baseline; updates delegate to Task 4. No post-build call `CompactDfg::from_parts(full_legacy_graph)` is allowed in production. Per-file scratch buffers die on that worker before the compact part is collected; combine moves each arena row and retains only compact temporary references.
+Keep per-file partition assertions in the consuming adapter immediately before conversion. Query methods are Task 2's migrated bodies. `empty()` uses `combine(Vec::new())`; `build_subset()` still filters exactly as baseline; updates delegate to Task 4. No post-build call `CompactDfg::from_parts(full_legacy_graph)` is allowed in production. Per-file scratch buffers die on that worker before the compact part is collected; combine moves each arena row and retains only compact temporary references.
 
 - [ ] **GREEN — Cache version and early rejection.** Change `CACHE_VERSION` **117 → 118** (or current main + 1 if 118 has been used), its assertion and version history comment. Keep `CpgCacheRef` and `SerializedCpgRef` field order; their DFG borrow now uses compact Serialize. A version check after `read_cache_file` is too late for a changed layout (`src/cpg_cache.rs:541-552`). Add this helper in `stream.rs`, and call it instead of both `bincode::deserialize(&data).ok()` and `bincode::deserialize(&map[..]).ok()`:
 
@@ -1214,16 +1276,20 @@ fn decode_current_cache(data: &[u8]) -> Option<CpgCache> {
     // CpgCache/CpgCacheRef start with a bincode fixed-width u32 version.
     // Pin this prefix convention with an owned+borrowed encoder test.
     let version: u32 = bincode::deserialize(data.get(..4)?).ok()?;
-    if version != super::CACHE_VERSION { return None; }
+    if version != super::CACHE_VERSION {
+        eprintln!("Cache version mismatch (cached: {}, current: {}), rebuilding",
+                  version, super::CACHE_VERSION);
+        return None;
+    }
     bincode::deserialize(data).ok()
 }
 ```
 
-Keep the higher-level version check as defense in depth. Add test-only `PAYLOAD_DECODES` increment immediately before the full deserialize. Tests feed (a) 0–3 bytes, (b) serialized 117 + intentionally malformed payload, (c) future version + malformed payload: all return `None`, count stays zero, on both buffered and mapped reader paths. Current-version corrupt IDs return cache miss without panic; a valid compact cache increments once and hits. Existing lock/mmap/publish behavior stays unchanged, including v2 filenames. No nav-sidecar bump is needed because its bytes/meaning are unchanged.
+Keep the higher-level version check as defense in depth; rejected prefixes preserve the existing stderr diagnostic exactly once. Pin stderr for old/future versions separately from payload-decode counters. Add test-only `PAYLOAD_DECODES` increment immediately before the full deserialize. Tests feed (a) 0–3 bytes, (b) serialized 117 + intentionally malformed payload, (c) future version + malformed payload: all return `None`, count stays zero, on both buffered and mapped reader paths. Current-version corrupt IDs return cache miss without panic; a valid compact cache increments once and hits. Existing lock/mmap/publish behavior stays unchanged, including v2 filenames. No nav-sidecar bump is needed because its bytes/meaning are unchanged.
 
 - [ ] **GREEN — End-to-end fixture controls before measurement.** Every Task 1 case runs legacy build, compact production build, compact cache hit, and incremental remove/re-add. Assert storage and every DFG query after each transition. For CPG compare raw `node_indices()` order and serialized node payloads; raw edge indices/endpoints/weights in insertion order; lookup maps/telemetry; exact occurrence and conflict refusal cases. `edge_dump()` sorting alone is insufficient.
 
-For public outputs use the existing API/renderers, with the same sources/diff/settings and immutable context for each backend: `output::to_review_output`, `output::to_sarif`, `targets::project`, navigation output serializers, `EvidenceHop`/`EvidencePath` serde. Assert `serde_json::to_vec` bytes, not unordered semantic equality; do not strip Evidence spans or sort findings to make them match. Retain the existing MCP transcript golden test unblessed. Add these paired checks to the current output tests at their existing input-construction seam, so `SarifInputs` and targets metadata are exactly the existing fixtures instead of an invented test-only output schema.
+For public outputs use the existing API/renderers, with the same sources/diff/settings and immutable context for each backend: `output::to_review_output`, `output::to_sarif`, `targets::project`, navigation output serializers, the test-only `evidence_obs` projection for `EvidenceHop`/`EvidencePath`. Assert `serde_json::to_vec` bytes, not unordered semantic equality; do not strip Evidence spans or sort findings to make them match. Retain the existing MCP transcript golden test unblessed. Add these paired checks to the current output tests at their existing input-construction seam, so `SarifInputs` and targets metadata are exactly the existing fixtures instead of an invented test-only output schema.
 
 Run the explicit downstream slice (in addition to GATE):
 
@@ -1231,7 +1297,9 @@ Run the explicit downstream slice (in addition to GATE):
 nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --test output --test reasoning --test navigation --test cli --test mcp > .review/dfg-compaction/logs/t6-outputs.log 2>&1
 cat .review/dfg-compaction/logs/t6-outputs.log
 ```
-Expected: all selected targets run, no changed output goldens, zero failures; totals recorded. Before replacing production on the implementation branch, controller retains baseline `prism`/`prism-mcp` binaries. Replay the existing CLI/MCP transcript fixtures against base and candidate in the **same temporary fixture checkout/path**, sequentially, with separate cache directories and identical request IDs/settings. Compare response payload bytes after the established transport fixture's existing envelope handling; add no new normalizer. This independent executable control covers changes shared by both in-process oracle assembly paths. Corpus real-repo measurement is still controller-only.
+Expected: all selected targets run, no changed output goldens, zero failures; totals recorded. Before replacing production on the implementation branch, controller retains baseline `prism`/`prism-mcp` binaries. Replay the existing CLI/MCP transcript fixtures against base and candidate in the **same temporary fixture checkout/path**, sequentially, with separate cache directories and identical request IDs/settings. Compare response payload bytes after the established transport fixture's existing envelope handling; the only cross-build exception is the three separately validated SARIF provenance fields specified below. This independent executable control covers changes shared by both in-process oracle assembly paths. Corpus real-repo measurement is still controller-only.
+
+- [ ] **GREEN — Fold production cleanup into activation.** Remove `legacy_storage.rs`, dead expanded serde adapters and any temporary activation switch now. Add a default/MCP architecture check that production cannot reach the oracle or a legacy storage route; retain only test-only Parts conversion needed by existing synthetic tests. A legacy side-field/native-decode mutant must fail. These deletions are part of the production candidate measured in Task 7, not a later PR.
 
 - [ ] **Gate and commit.** GATE; codec version tests and early-rejection mutant; full default/mcp suites and Tier-A; oracle in all build modes. Controller title **`perf: activate compact DFG storage and cache v118`**, both trailers, updating the literal version in the title if needed. This PR is **not accepted** until Task 7. Guessed savings remain 400–650 / 90–180 MiB, not a measured result.
 
@@ -1239,14 +1307,14 @@ Expected: all selected targets run, no changed output goldens, zero failures; to
 
 **Files:** scratch instrumented checkouts/binaries and `.review/dfg-compaction/acceptance/`; `scripts/dfg_compaction/compare_acceptance.py`; acceptance readout and handoff. Instrumentation is not merged into production.
 
-**Pre-registration — written before any run:** these exact thresholds/classifications apply to both the activation candidate and post-cleanup candidate. **At most two complete base/candidate sets**: the initial set and one follow-up if invalid/noisy. Do not keep rerunning until a pass.
+**Pre-registration — written before any run:** these thresholds/classifications apply to the activation candidate, including all production cleanup. Post-acceptance test-only deletion is bound to this receipt as described in Task 8, not automatically remeasured. **At most two complete base/candidate sets**: the initial set and one follow-up if invalid/noisy. Do not keep rerunning until a pass.
 
 | Reading | PASS | FAIL / INCONCLUSIVE |
 |---|---|---|
-| Warm admissibility | 2/2 warm reports for each corpus/build have `cache.cpg_hit=true`, `call_edges_loaded=true`, and corresponding probe meta `cpg_hit=true`; matching corpus commit/workload hash, toolchain/profile/allocator/environment; distinct base/candidate source/build IDs recorded; finite process counters | A missing/false flag, mismatch, timeout, zero cases, missing raw prime or failed save is **INVALID**. Fix only the probe/control and consume the single follow-up set. |
+| Warm admissibility | 2/2 warm reports for each corpus/build have `cache.cpg_hit=true`, `call_edges_loaded=true`, and corresponding probe meta `cpg_hit=true`; matching corpus commit/workload hash, toolchain/profile/allocator/environment; distinct base/candidate source/build IDs recorded; `PRISM_PROBE_NO_CENSUS=1`; matched clean-build or dirty-override mode; finite process counters | A missing/false flag, mismatch, timeout, zero cases, missing raw prime, failed save or census-enabled acceptance run is **INVALID**. Validate the tiny fixture first; a later corpus-set probe failure consumes the single follow-up set after its bounded fix. |
 | Process live heap after cache hit (`after_index.heap_in_use_bytes`) | `min(base two) - max(candidate two) >= 300*2^20` on Prometheus; `>= 75*2^20` on slicing | Below either threshold is **FAIL** if admissible. Do not claim resident-memory success from accounted DFG bytes alone. Also report `after_index - after_load_repo` heap; it is a diagnostic against loader drift, not a replacement metric. |
-| Index load interval | `median(candidate) <= median(base) + max(0.05*median(base), 100 ms)` on both corpora, and each set's `(max-min)/median <= 0.10` | High spread is **INCONCLUSIVE**, not permission to increase tolerance. At admissible ≤10% spread, exceeding the bound is **FAIL**. 5%/100ms is an owner policy allowance (**guessed**), not a statistically established noise band. |
-| Cold-build peak | Candidate prime's `after_call_edges.peak_bytes <= base prime's` on **each corpus**; fresh run directory causes a cold cache-writing prime | Any higher peak is **FAIL**; contention/unstable controls can make the whole set **INCONCLUSIVE**, never a cold-peak pass. n=1 per binary is a screening bound, not a confidence interval; a second full set is available once. |
+| Index load interval | With `allowance=max(0.05*median(base),100 ms)`, PASS first if `max(candidate) <= min(base)+allowance`. Otherwise require each set's `(max-min)/median <= 0.10` and `median(candidate) <= median(base)+allowance`. | If ranges do not pass and spread exceeds 10%, load alone is **INCONCLUSIVE**; otherwise a median beyond the allowance is **FAIL**. Evaluate heap and peak independently. This is D10's range-first rule with a bounded median fallback, not statistical significance. |
+| Cold-build peak | Candidate prime's `after_call_edges.peak_bytes <= base prime's` on **each corpus**; fresh run directory causes a cold cache-writing prime | Any higher peak is **FAIL**; observed contention/control invalidity is reported separately, never inferred from load spread to mask an admissible peak FAIL. n=1 per binary is a screening bound, not a confidence interval; a second full set is available once. |
 | Physical residency | Report RSS, physical footprint, compressed bytes and peak; no claimed equivalence to heap | A material resident-footprint increase despite heap improvement needs controller investigation; do not call the lane goal achieved solely from accounting. |
 | Correctness | All fixture/output/full-suite/Tier-A/mutation gates green on exact production candidate | Any output difference rejects activation regardless of memory saving. |
 
@@ -1256,33 +1324,51 @@ Evidence for the conservative timing rule: historical Prometheus index load 13.6
 
 ```python
 from statistics import median
+import math
 
 def classify(base_heap, cand_heap, base_ms, cand_ms, base_peak, cand_peak, minimum):
-    import math
-    numbers = base_heap + cand_heap + base_ms + cand_ms + [base_peak, cand_peak]
-    if (len(base_heap),len(cand_heap),len(base_ms),len(cand_ms)) != (2,2,2,2):
-        return "INVALID"
-    if any(type(v) not in (int,float) or not math.isfinite(v) or v < 0 for v in numbers):
-        return "INVALID"
-    if min(base_ms+cand_ms) <= 0: return "INVALID"
-    if any((max(v)-min(v))/median(v) > .10 for v in (base_ms,cand_ms)):
-        return "INCONCLUSIVE"
-    if min(base_heap)-max(cand_heap) < minimum: return "FAIL"
-    if median(cand_ms) > median(base_ms)+max(.05*median(base_ms),100): return "FAIL"
-    if cand_peak > base_peak: return "FAIL"
-    return "PASS"
+    numbers = base_heap + cand_heap + base_ms + cand_ms + [base_peak, cand_peak, minimum]
+    invalid = ((len(base_heap),len(cand_heap),len(base_ms),len(cand_ms)) != (2,2,2,2)
+        or any(type(v) not in (int,float) or not math.isfinite(v) or v < 0 for v in numbers))
+    if invalid or min(base_ms+cand_ms) <= 0:
+        return dict.fromkeys(("heap", "load", "peak", "overall"), "INVALID")
+    heap = "PASS" if min(base_heap)-max(cand_heap) >= minimum else "FAIL"
+    peak = "PASS" if cand_peak <= base_peak else "FAIL"
+    allowance = max(.05*median(base_ms), 100)
+    if max(cand_ms) <= min(base_ms)+allowance:
+        load = "PASS"
+    elif any((max(v)-min(v))/median(v) > .10 for v in (base_ms,cand_ms)):
+        load = "INCONCLUSIVE"
+    else:
+        load = "PASS" if median(cand_ms) <= median(base_ms)+allowance else "FAIL"
+    verdicts = {"heap": heap, "load": load, "peak": peak}
+    verdicts["overall"] = ("FAIL" if "FAIL" in verdicts.values() else
+        "INCONCLUSIVE" if "INCONCLUSIVE" in verdicts.values() else "PASS")
+    return verdicts
 
-assert classify([1000,1000],[700,700],[1000,1000],[1100,1100],2000,2000,300) == "PASS"
-assert classify([1000,1000],[700,701],[1000,1000],[1000,1000],2000,2000,300) == "FAIL"
-assert classify([1000,1000],[600,600],[1000,1000],[800,1200],2000,2000,300) == "INCONCLUSIVE"
-assert classify([1000,1000],[600,600],[1000,1000],[1000,1000],2000,2001,300) == "FAIL"
-assert classify([1000,1000],[600,float('nan')],[1000,1000],[1000,1000],2000,2000,300) == "INVALID"
-print("acceptance classifier: 5 boundary assertions passed")
+assert classify([1000,1000],[700,700],[1000,1000],[1100,1100],2000,2000,300)["overall"] == "PASS"
+assert classify([1000,1000],[700,701],[1000,1000],[1000,1000],2000,2000,300)["heap"] == "FAIL"
+assert classify([1000,1000],[600,600],[1000,1000],[800,1200],2000,2000,300)["overall"] == "INCONCLUSIVE"
+assert classify([1000,1000],[600,600],[1000,1000],[1000,1000],2000,2001,300)["peak"] == "FAIL"
+assert classify([1000,1000],[600,float('nan')],[1000,1000],[1000,1000],2000,2000,300)["overall"] == "INVALID"
+assert classify([1000,1000],[900,900],[1000,1000],[800,1200],2000,2000,300) == {
+    "heap":"FAIL", "load":"INCONCLUSIVE", "peak":"PASS", "overall":"FAIL"}
+assert classify([1000,1000],[600,600],[3200,1800],[1000,1050],2000,2000,300)["load"] == "PASS"
+assert classify([1000,1000],[600,600],[1000,1000],[800,1200],2000,2001,300)["overall"] == "FAIL"
+assert classify([1000,1000],[600,600],[1000,1000],[1101,1101],2000,2000,300)["load"] == "FAIL"
+assert classify([],[],[],[],2000,2000,300)["overall"] == "INVALID"
+print("acceptance classifier: 10 boundary assertions passed")
 ```
 
-Use raw bytes and milliseconds in real evaluation. The cache/provenance validation is separate and precedes this kernel; the kernel cannot certify those facts. Run the code as `python3 scripts/dfg_compaction/compare_acceptance.py > .review/dfg-compaction/logs/t7-classifier.log 2>&1`, then `cat .review/dfg-compaction/logs/t7-classifier.log`. Expected: the explicit five-assertion completion line below; a failing assertion exits before that line. Add the cache-flag/missing-counter cases to the artifact reader tests separately. Mutate `min(base_heap)-max(cand_heap)` to mean difference and the single-high-candidate case must fail.
+Use raw bytes and milliseconds in real evaluation. The cache/provenance validation is separate and precedes this kernel; the kernel cannot certify those facts. Run the code as `python3 scripts/dfg_compaction/compare_acceptance.py > .review/dfg-compaction/logs/t7-classifier.log 2>&1`, then `cat .review/dfg-compaction/logs/t7-classifier.log`. Expected: the explicit ten-assertion completion line above; a failing assertion exits before that line. Add cache-flag/missing-counter and census-disabled provenance cases to artifact-reader tests separately. Acceptance records need no census rows: validate stage/meta/cache flags and `PRISM_PROBE_NO_CENSUS=1`; reject census-enabled runs instead of subtracting time or bytes. Test the sol controls: product load 2000→2250 ms FAIL must remain FAIL despite diagnostic census times 800→400 ms; product cold peak 2000→2300 MiB FAIL must remain FAIL despite a diagnostic baseline peak 2500 MiB. Instrumentation-only diagnostic changes must not change product verdicts. Store diagnostic census records in a separate input namespace that the acceptance reader never uses. Mutate `min(base_heap)-max(cand_heap)` to mean difference and the single-high-candidate case must fail.
 
-- [ ] **Prepare same-environment binaries.** Controller creates two isolated checkouts: base at lane source `8b2744b3154b3664ffacb23c42f042a67981967a`, candidate at reviewed Task 6 head. If rebased, use the common main before this lane and record it, not a historical binary. Apply only the instrumentation delta from `c3162f94^..c3162f94` to both; do not use that old probe commit itself as the source baseline. Inspect its 14-file diff and reconcile moved storage fields. `PRISM_PROBE_OUT` activates instrumentation. Base/candidate use identical probe timers/schema and the same counting conventions.
+- [ ] **Prepare same-environment binaries.** Bind `DFG_CANDIDATE_SHA` to the reviewed activation PR E head **at measurement**, and `DFG_BASE_SHA` to its exact first parent (`git rev-parse "$DFG_CANDIDATE_SHA^"`). Record both full SHAs and their diff. That parent must contain A–D and all intervening main changes but no runtime activation; controller must prepare a single activation commit if task commits would otherwise make its parent an already activated artifact. Do not substitute lane-start `8b2744b3`, merge-base or a historical binary. Build both in the same environment.
+
+**Preferred clean instrumentation mode:** controller creates isolated checkouts at those two source SHAs, cherry-picks probe commit `c3162f94` onto each, resolves only its instrumentation adaptations, commits any porting changes, and confirms clean tracked/untracked binary inputs before each build. The probe commit is a delta, never the source baseline. Record source SHA, probe commit, port commits, resulting instrumented SHA, clean status and binary identity for both. Verify `binary_input_dirty=false`; unset `PRISM_NAV_EDGE_CACHE_LOAD_DIRTY` identically for both. No probe/port commit enters the production PR.
+
+**Permitted fallback:** if clean instrumentation snapshots cannot be made, record each dirty patch hash and `binary_input_dirty=true`; set and record `PRISM_NAV_EDGE_CACHE_LOAD_DIRTY=1` identically for both binaries on the tiny preflight, primes and warm runs. Never silently inherit a one-sided override. Both modes require `PRISM_PROBE_NO_CENSUS=1` for acceptance, identical timers/schema, and the tiny-fixture hit check below.
+
+Inspect the probe's 14-file diff and preserve this instrumentation reference:
 
 ```bash
 git diff c3162f94^ c3162f94 -- src > .review/dfg-compaction/probe-instrumentation.patch
@@ -1290,16 +1376,16 @@ git show c3162f94:src/probe/census.rs > .review/dfg-compaction/probe-census-refe
 ```
 Expected: scratch instrumentation-only patch/reference, no implementation checkout changed by these read commands.
 
-Candidate census must account for arena vector capacity + owned row string/path heaps **once**, both rank arrays, edge ID capacity, all map key/value inline and nested ID vector capacities, representatives, labels/exact labels and RD stats. Do not retain an expanded legacy snapshot for census or serialize to a full buffer for size measurement; reuse `src/probe/census/sizer.rs`'s counting writer. Emit the old semantic occurrence count in a separately named logical section; report physical compact fields as `arena`, `legacy_reps`, `legacy_by_occ`, `edges`, `defs`, `uses`, `forward`, `backward`, `labels`, `exact_labels`, `rd_function_stats`. Update the summarizer to print arena/rank fields instead of silently omitting them. Sum of accounted fields must not exceed process live heap; if it does, census is INVALID. Process counters remain the acceptance authority.
+**Separate diagnostic census only (never an acceptance input):** candidate census must account for arena vector capacity + owned row string/path heaps **once**, both rank arrays, edge ID capacity, all map key/value inline and nested ID vector capacities, representatives, labels/exact labels and RD stats. Do not retain an expanded legacy snapshot for census or serialize to a full buffer for size measurement; reuse `src/probe/census/sizer.rs`'s counting writer. Emit the old semantic occurrence count in a separately named logical section; report physical compact fields as `arena`, `legacy_reps`, `legacy_by_occ`, `edges`, `defs`, `uses`, `forward`, `backward`, `labels`, `exact_labels`, `rd_function_stats`. Update the summarizer to print arena/rank fields instead of silently omitting them. Sum of accounted fields must not exceed process live heap; if it does, census is INVALID. Process counters remain the acceptance authority.
 
-Test instrumentation on the tiny fixture corpus before controller handoff. Capture source commit, dirty patch hash, binary SHA256, `rustc -Vv`, cargo profile, grammar fingerprint, cache versions and allocator for both. Instrumented binaries must not have `dfg-oracle` enabled. Build each checkout **sequentially**, from its root:
+Before spending a corpus set, test **both binaries** sequentially on a tiny fixture: cold prime plus two warm reads with the exact acceptance environment. Read and record `cache.cpg_hit=true`, probe meta `cpg_hit=true`, and `call_edges_loaded=true` on both warm reports; validate the clean/dirty mode and absence of census records. A failed preflight blocks corpus dispatch until the bounded probe fix; repeating a dirty binary with the override unset cannot repair it. Capture source commit, dirty patch hash, binary SHA256, `rustc -Vv`, cargo profile, grammar fingerprint, cache versions and allocator for both. Instrumented binaries must not have `dfg-oracle` enabled. Build each checkout **sequentially**, from its root:
 
 ```bash
-nice -n 19 env CARGO_BUILD_JOBS=4 cargo build --release --features mcp --bin prism-mcp > .review/dfg-compaction/logs/probe-build.log 2>&1
+nice -n 19 env CARGO_BUILD_JOBS=4 cargo build --release --features mcp --bin prism-mcp --bin prism > .review/dfg-compaction/logs/probe-build.log 2>&1
 cat .review/dfg-compaction/logs/probe-build.log
-shasum -a 256 target/release/prism-mcp
+shasum -a 256 target/release/prism-mcp target/release/prism
 ```
-Expected: release `prism-mcp` built successfully with mcp only; complete log and immutable binary hash. Controller copies the two binaries to `~/prism-evidence/mcp-memory/dfg-compaction-2026-10-14/bin/{base,candidate}/prism-mcp` and the receipts beside them. Do not overwrite an earlier run's binary or raw evidence.
+Expected: release `prism-mcp` and `prism` built successfully with mcp only; complete log and immutable binary hash. Controller copies the two binaries to `~/prism-evidence/mcp-memory/dfg-compaction-2026-10-14/bin/{base,candidate}/{prism-mcp,prism}` and the receipts beside them. Do not overwrite an earlier run's binary or raw evidence.
 
 - [ ] **Controller run — no implementation agent corpus process.** Read the retained procedure at `~/prism-evidence/mcp-memory/optimization-2026-10-14/PROCEDURE-probe.md`, driver `scripts/memreport/README.md:66-67,88-90,113-115`, summarizer and `run-probe.sh` there. Unlike that historic script, **do not proceed while the host is busy after a timeout**. Reserve the slot; record `pgrep -fl 'prism-mcp|cargo|rustc|nextest|mutgate|memreport.py'`, uptime, swap and RAYON_NUM_THREADS at every boundary. Expected: no other index/build/benchmark process; otherwise wait via controller scheduling. Do not kill unrelated work.
 
@@ -1308,16 +1394,20 @@ Freeze corpus commits and workload manifest hashes before the set. `RAYON_NUM_TH
 ```bash
 export DFG_EVIDENCE="$HOME/prism-evidence/mcp-memory/dfg-compaction-2026-10-14"
 mkdir -p "$DFG_EVIDENCE/set-1"
-PRISM_PROBE_OUT="$DFG_EVIDENCE/set-1/base-prometheus.jsonl" python3 scripts/memreport/memreport.py run --bin "$DFG_EVIDENCE/bin/base/prism-mcp" --corpus "prometheus=$HOME/code/bench-repos/prometheus" --workloads "$HOME/prism-evidence/mcp-memory/c1/workloads" --kinds warm --reps 2 --out "$DFG_EVIDENCE/set-1/base-prometheus" > "$DFG_EVIDENCE/set-1/base-prometheus.log" 2>&1
+export PRISM_PROBE_NO_CENSUS=1
+unset PRISM_NAV_EDGE_CACHE_LOAD_DIRTY  # preferred clean committed builds
+# Dirty-build fallback ONLY: export PRISM_NAV_EDGE_CACHE_LOAD_DIRTY=1 for BOTH.
+# Record this chosen environment with both binary receipts before either run.
+nice -n 19 env PRISM_PROBE_OUT="$DFG_EVIDENCE/set-1/base-prometheus.jsonl" python3 scripts/memreport/memreport.py run --bin "$DFG_EVIDENCE/bin/base/prism-mcp" --corpus "prometheus=$HOME/code/bench-repos/prometheus" --workloads "$HOME/prism-evidence/mcp-memory/c1/workloads" --kinds warm --reps 2 --out "$DFG_EVIDENCE/set-1/base-prometheus" > "$DFG_EVIDENCE/set-1/base-prometheus.log" 2>&1
 cat "$DFG_EVIDENCE/set-1/base-prometheus.log"
-PRISM_PROBE_OUT="$DFG_EVIDENCE/set-1/candidate-prometheus.jsonl" python3 scripts/memreport/memreport.py run --bin "$DFG_EVIDENCE/bin/candidate/prism-mcp" --corpus "prometheus=$HOME/code/bench-repos/prometheus" --workloads "$HOME/prism-evidence/mcp-memory/c1/workloads" --kinds warm --reps 2 --out "$DFG_EVIDENCE/set-1/candidate-prometheus" > "$DFG_EVIDENCE/set-1/candidate-prometheus.log" 2>&1
+nice -n 19 env PRISM_PROBE_OUT="$DFG_EVIDENCE/set-1/candidate-prometheus.jsonl" python3 scripts/memreport/memreport.py run --bin "$DFG_EVIDENCE/bin/candidate/prism-mcp" --corpus "prometheus=$HOME/code/bench-repos/prometheus" --workloads "$HOME/prism-evidence/mcp-memory/c1/workloads" --kinds warm --reps 2 --out "$DFG_EVIDENCE/set-1/candidate-prometheus" > "$DFG_EVIDENCE/set-1/candidate-prometheus.log" 2>&1
 cat "$DFG_EVIDENCE/set-1/candidate-prometheus.log"
-PRISM_PROBE_OUT="$DFG_EVIDENCE/set-1/base-slicing.jsonl" python3 scripts/memreport/memreport.py run --bin "$DFG_EVIDENCE/bin/base/prism-mcp" --corpus "slicing=$HOME/code/prism-c1-corpus" --workloads "$HOME/prism-evidence/mcp-memory/c1/workloads" --kinds warm --reps 2 --out "$DFG_EVIDENCE/set-1/base-slicing" > "$DFG_EVIDENCE/set-1/base-slicing.log" 2>&1
+nice -n 19 env PRISM_PROBE_OUT="$DFG_EVIDENCE/set-1/base-slicing.jsonl" python3 scripts/memreport/memreport.py run --bin "$DFG_EVIDENCE/bin/base/prism-mcp" --corpus "slicing=$HOME/code/prism-c1-corpus" --workloads "$HOME/prism-evidence/mcp-memory/c1/workloads" --kinds warm --reps 2 --out "$DFG_EVIDENCE/set-1/base-slicing" > "$DFG_EVIDENCE/set-1/base-slicing.log" 2>&1
 cat "$DFG_EVIDENCE/set-1/base-slicing.log"
-PRISM_PROBE_OUT="$DFG_EVIDENCE/set-1/candidate-slicing.jsonl" python3 scripts/memreport/memreport.py run --bin "$DFG_EVIDENCE/bin/candidate/prism-mcp" --corpus "slicing=$HOME/code/prism-c1-corpus" --workloads "$HOME/prism-evidence/mcp-memory/c1/workloads" --kinds warm --reps 2 --out "$DFG_EVIDENCE/set-1/candidate-slicing" > "$DFG_EVIDENCE/set-1/candidate-slicing.log" 2>&1
+nice -n 19 env PRISM_PROBE_OUT="$DFG_EVIDENCE/set-1/candidate-slicing.jsonl" python3 scripts/memreport/memreport.py run --bin "$DFG_EVIDENCE/bin/candidate/prism-mcp" --corpus "slicing=$HOME/code/prism-c1-corpus" --workloads "$HOME/prism-evidence/mcp-memory/c1/workloads" --kinds warm --reps 2 --out "$DFG_EVIDENCE/set-1/candidate-slicing" > "$DFG_EVIDENCE/set-1/candidate-slicing.log" 2>&1
 cat "$DFG_EVIDENCE/set-1/candidate-slicing.log"
 ```
-Expected for **each** invocation: driver writes summary, raw `prime.json`, `warm-1.json`, `warm-2.json`, cache and sidecar; probe JSONL contains one miss then two hits grouped into three distinct probe PIDs in driver run order (prime, warm-1, warm-2). A zero exit code is insufficient; read the reports and cache-save diagnostics. The corpus source tree must remain unchanged. Warm runner's prime is a first build **with cache write**, not the separate no-cache `cold` kind; name that measurement accurately.
+Expected for **each** invocation: driver writes summary, raw `prime.json`, `warm-1.json`, `warm-2.json`, cache and sidecar; census-free probe JSONL retains stage/meta records with one miss then two hits grouped into three distinct probe PIDs in driver run order (prime, warm-1, warm-2). A zero exit code is insufficient; read the reports and cache-save diagnostics. The corpus source tree must remain unchanged. Warm runner's prime is a first build **with cache write**, not the separate no-cache `cold` kind; name that measurement accurately.
 
 - [ ] **Read and classify the artifacts.** In raw files the report is wrapped under `raw['report']`, not at the top level (verified against existing receipts during planning). Import the checked-in `memreport_validate.validate` and require `validate('warm', report) is None`; require raw status success and probe/cache flags, then get stages by `stage['name']`. Live heap is `after_index.heap_in_use_bytes`; load ms is `after_index.elapsed_ms - after_load_repo.elapsed_ms` (`memreport_derive.py:15-21`). Cold prime peak is `after_call_edges.peak_bytes`. Require the prime to report both caches missed and both new cache files to exist. Run the updated summarizer:
 
@@ -1325,31 +1415,64 @@ Expected for **each** invocation: driver writes summary, raw `prime.json`, `warm
 python3 "$DFG_EVIDENCE/summarize_probe.py" "$DFG_EVIDENCE/set-1/base-prometheus.jsonl" "$DFG_EVIDENCE/set-1/candidate-prometheus.jsonl" "$DFG_EVIDENCE/set-1/base-slicing.jsonl" "$DFG_EVIDENCE/set-1/candidate-slicing.jsonl" > "$DFG_EVIDENCE/set-1/probe-summary.md"
 cat "$DFG_EVIDENCE/set-1/probe-summary.md"
 ```
-Expected: four complete summaries including physical arena/rank accounting, source/binary identity and all PIDs; no omitted candidate arena bytes. The summarizer is copied/adapted from the optimization evidence path, not assumed present magically.
+Expected: four acceptance summaries with source/binary identity, environment, stage/meta/cache flags and all PIDs; census is explicitly disabled and no arena/rank census rows are required. The summarizer is copied/adapted from the optimization evidence path, not assumed present magically.
+
+- [ ] **Controller DFG parity at real-corpus scale (S4).** With the same paired `prism` binaries and frozen corpus trees, sequentially run `prism nav dfg-stats --repo <corpus> --edges` once per binary per corpus, after the timed acceptance processes. Use identical environment and the existing `nav --cache-dir` option with separate base/candidate cache directories; keep the corpus trees unchanged. Example for each corpus after binding `DFG_CORPUS` and `DFG_CORPUS_NAME`:
+
+```bash
+nice -n 19 env PRISM_PROBE_NO_CENSUS=1 "$DFG_EVIDENCE/bin/base/prism" nav --cache-dir "$DFG_EVIDENCE/set-1/$DFG_CORPUS_NAME-base-nav-cache" dfg-stats --repo "$DFG_CORPUS" --edges > "$DFG_EVIDENCE/set-1/$DFG_CORPUS_NAME-base-dfg.jsonl" 2> "$DFG_EVIDENCE/set-1/$DFG_CORPUS_NAME-base-dfg.log"
+nice -n 19 env PRISM_PROBE_NO_CENSUS=1 "$DFG_EVIDENCE/bin/candidate/prism" nav --cache-dir "$DFG_EVIDENCE/set-1/$DFG_CORPUS_NAME-candidate-nav-cache" dfg-stats --repo "$DFG_CORPUS" --edges > "$DFG_EVIDENCE/set-1/$DFG_CORPUS_NAME-candidate-dfg.jsonl" 2> "$DFG_EVIDENCE/set-1/$DFG_CORPUS_NAME-candidate-dfg.log"
+cmp "$DFG_EVIDENCE/set-1/$DFG_CORPUS_NAME-base-dfg.jsonl" "$DFG_EVIDENCE/set-1/$DFG_CORPUS_NAME-candidate-dfg.jsonl"
+```
+
+Read stdout/stderr, require nonempty valid JSONL edge records (`--edges` emits one edge per line, not a summary object), retain hashes and byte-comparison result for Prometheus and slicing. Do not sort, normalize or accept matching errors. Any byte difference is a correctness FAIL, independent of heap results.
+
+- [ ] **Controller diagnostic census.** In new `diagnostic-census/` directories run the same paired binaries sequentially with `PRISM_PROBE_NO_CENSUS` unset, once per build/corpus with the same load/dirty mode. Use fresh driver outputs and capture their own prime/warm metadata. These separate runs have no acceptance vote and cannot repair an acceptance FAIL. Run the census-aware summarizer there; require full physical arena/rank accounting plus semantic counts. Record their run IDs separately from `set-1`/`set-2`; never combine their elapsed or lifetime-peak counters with acceptance samples.
 
 Produce `acceptance.md` containing all raw metrics, formulas, base/candidate environment, cache hit evidence, correctness receipts and PASS/FAIL/INVALID/INCONCLUSIVE by corpus and criterion. Report lifetime peak, live heap, physical footprint, RSS and compression separately. If census accounting falls but process live heap does not, inspect a retained legacy copy/allocator effect; do not claim success. If process heap falls but load slows, isolate `load.read_decode`/rank reconstruction versus registry using matched stage CPU/wall timers; no guessed cause. Compare base in this same environment before attributing a regression.
 
-One follow-up set, if needed, uses new `set-2` directories and reversed order within each corpus (candidate then base); repeat **both** corpora/binaries, not just a favorable failing sample. Both admissible sets must satisfy cold-peak and heap minima; combine load values only to report, not to erase a failed set. After the cap, report failure/inconclusive and hold PR E. If a targeted fix is made, it is a new reviewed candidate with a newly declared measurement round; controller decides scheduling, no silent retry.
+One follow-up set for an INVALID/noisy criterion and **no already admissible heap/load/peak FAIL**, if needed, uses new `set-2` directories and reversed order within each corpus (candidate then base); repeat **both** corpora/binaries, not just a favorable failing sample. Both admissible sets must satisfy cold-peak and heap minima; combine load values only to report, not to erase a failed set. After the cap, report failure/inconclusive and hold PR E. If a targeted fix is made, it is a new reviewed candidate with a newly declared measurement round; controller decides scheduling, no silent retry.
 
-- [ ] **Commit receipt and decision.** Controller title **`docs: record matched DFG compaction acceptance`**, both trailers. Include hashes/paths to durable raw evidence; do not commit multi-gigabyte caches/binaries. A PASS permits PR F to start. A FAIL/INCONCLUSIVE retains the reviewed implementation and receipts for bounded correction, never a fresh restart.
+- [ ] **Commit receipt and decision.** Controller title **`docs: record matched DFG compaction acceptance`**, both trailers. Include hashes/paths to durable raw evidence; do not commit multi-gigabyte caches/binaries. A PASS permits Task 8 test-only cleanup within PR E. The receipt stays bound to the measured activation source/probe SHAs; later receipt or test-deletion commits are not mislabeled as the measured binary. A FAIL/INCONCLUSIVE retains the reviewed implementation and receipts for bounded correction, never a fresh restart.
 
-### Task 8 (PR F): Remove migration-only production scaffolding and verify final custody
+### Task 8 (PR E, after acceptance): Delete the temporary oracle and verify final custody
 
-**Files:** remove `legacy_storage.rs` from production/module declarations, any scratch activation switch, dead expanded serde adapters; keep frozen oracle/test modules and `dfg-oracle` feature; update architecture/release notes and handoff. No change to public query semantics or cache layout, so no second version bump unless bytes actually change.
+**Files:** delete `src/data_flow/oracle/`, oracle-only conversion/query copies and corpus comparison wrappers, the `dfg-oracle` Cargo feature, and its `tests/dfg_compaction` umbrella/`[[test]]` target. Retain ordinary compact invariant/update/codec tests, the normal-gate missing-label tests, renderer regressions and test-only Parts mutation support still used by them. Move useful feature-umbrella regressions into existing default-feature targets first. Keep captured observation bytes only where they pin a specific durable behavior; do not keep an indefinite frozen implementation. Production scaffolding was already deleted in Task 6.
 
-- [ ] **RED — Prove the default/mcp release has no legacy route.** Add an architectural test that checks default/mcp production module reachability contains no oracle/legacy storage type, plus a compile check without `dfg-oracle`. Keep the feature-enabled dual representation tests: removing the test oracle is **not** this task. Mutant: reintroduce a legacy side field or production cache expansion; the storage assertion/physical census must detect it.
+- [ ] **Prerequisite:** Task 7 PASS and all oracle receipts saved with hashes in durable controller custody. Before removing each oracle-dependent selector, replace its oracle comparison with explicit expected bytes/representatives or a compact round-trip invariant that still kills its registered mutant; a mirror of the implementation is insufficient. Record before/after selector identities. No deleted test may be the only witness for a lane mutant or fixed behavior.
+- [ ] **GREEN — Delete test-only migration code.** Remove the oracle, feature and target entirely; remove duplicate compact query implementations used only for comparisons. Retain production query bodies and all direct invariants. Check `rg -n 'LegacyDataFlowGraph|legacy_storage|dfg-oracle' src tests examples Cargo.toml`; no live declaration/use remains (historical docs/receipts are evidence). Inspect cfg reachability as well as raw hits.
+- [ ] **Final gate:** run default/MCP full suites, release build, Tier-A matrix/quick and full authoritative mutgate; omit only the now-deleted oracle GATE command, replacing it with the retained normal-target regressions. Record totals and selector coverage. Prove this delta affects only test code, feature/target declarations and docs: compare production source/config and generated code inputs, then release fixture output bytes and physical-storage census. Build IDs may differ and must be recorded. The measured production representation remains Task 7's; no automatic second real-corpus set for deleting unreachable tests. If production behavior/layout changes, stop: the prior receipt no longer covers it and controller must declare a new reviewed candidate/measurement budget.
+- [ ] **Commit and handoff:** controller title **`test: retire DFG migration oracle after acceptance`**, both trailers, within PR E. Final handoff names measured source/probe SHAs separately from final test-cleanup HEAD, all PR/commit and corpus/binary hashes, tests/mutations/Tier-A, the production-equivalence evidence and every excluded check. No merge authority is implied. Former PR F is folded into E; no independent cleanup PR or unconditional measurement rerun remains.
 
-- [ ] **GREEN — Delete only dead adapters.** Production `DataFlowGraph` consists of compact storage, façade methods and producer/query modules. Test-only Parts import/export remains behind cfg gates for existing mutation tests; the native codec has no legacy branch. Verify direct-field inventory again and source-file sizes. The expected memory delta from E is **derived 0 MiB** because production already held only compact storage; an unexpectedly large improvement means E violated its design and the acceptance narrative needs correction.
+## Successful dispatch matrix and executable parity (Tasks 1 and 6)
 
-```bash
-rg -n 'LegacyDataFlowGraph|legacy_storage|dfg-oracle' src/data_flow.rs src/data_flow src/cpg_cache.rs src/cpg_cache > .review/dfg-compaction/logs/t8-legacy.txt
-cat .review/dfg-compaction/logs/t8-legacy.txt
-```
-Expected: only test/explicit oracle-feature declarations and oracle implementation references; none reachable by default/mcp production. Inspect cfg context, not just text count.
+Register this matrix in PR A and run it against both backends in Task 6. For **every** Task 1 common-generator diff, iterate `SlicingAlgorithm::all()` (30 on this base), create the row's valid `AlgorithmParams` by mutating `Default`, and call `run_review` with a singleton algorithm and a matching `SliceConfig.algorithm`. This keeps per-algorithm inputs explicit. Require `errors.is_empty()`, exactly one `results` entry, and `algorithms_run == [algorithm.name()]` on **each** backend before comparing output bytes. Assert the observed algorithm-name set equals `SlicingAlgorithm::all()` for each generator and build mode; matching errors/empty dispatch never count. Run cold build, cache hit and refresh/re-add modes, recording `(case, algorithm, params, mode, success, positive/negative assertion)` in the receipt. The helper below compares successful results only.
 
-- [ ] **Final gate.** Run GATE, authoritative **full** mutgate, Task 1 all-language oracle including cache/incremental transitions, unblessed output goldens and exact candidate identity. Controller reruns Task 7 on final binaries against the same-environment base with the same preregistration. This is a separately declared final verification set, not an extension of a failed Task 7 candidate. If cleanup is byte-identical production after symbol/module elimination, record that evidence but do not invent an unrun measurement receipt.
+`source` and `sink` below are valid `file:line` strings chosen deterministically from that generator's parsed first function (first definition and reachable use when present, otherwise valid first/last function lines). A disconnected pair may succeed with empty output, but cannot replace the dedicated positive cases below. `old_repo` is a retained temporary directory populated with the same relative filenames and real pre-change source; assert every expected old file was parsed, not merely that the directory exists. Also run an identical-source old_repo control. History algorithms use an existing deterministic committed-history fixture with fixed dates/reference time; create it via the repository's existing test helper in controller context if sandbox Git writes are unavailable. Never use the implementation repository's moving history.
 
-- [ ] **Commit and handoff.** Controller title **`refactor: remove legacy DFG production scaffolding`**, both trailers. Final handoff names every PR/commit, corpus/binary hashes, all test totals, mutations, Tier-A status and excluded checks. Say “memory acceptance passed” only when both corpora actually meet all thresholds; say “plan/implementation complete, measurement blocked” when the controller has not run it. No merge authority is implied by this plan.
+| Algorithms (complete 30-name ledger) | Valid parameters beyond defaults | Required successful control |
+|---|---|---|
+| OriginalDiff, ParentFunction, ThinSlice | none | Changed lines / containing function / thin subset; absent-file diff as negative. |
+| **LeftFlow, FullFlow** | none | Pair existing `tests/algo/paper/paper_test.rs::{test_left_flow_python,test_full_flow_python}` inputs; preserve predecessor/callee lines and empty-DFG fallback; disconnected function does not add lines. These are migrated direct DFG consumers. |
+| BarrierSlice, RelevantSlice, SpiralSlice, CircularSlice, GradientSlice | barrier_depth=2, spiral_max_ring=4 (applicable rows) | Connected data/control path versus disconnected function; barrier boundary and cycle termination retained; compare blocks/findings/Evidence. |
+| **Chop** | chop_source=Some(source), chop_sink=Some(sink) | Pair `tests/algo/taxonomy/misc_lang_test.rs::test_chop_python_verifies_path_lines`; disconnected valid sink yields no connecting path. |
+| Taint | taint_sources=[source]; run taint_return_flow=false and true | Pair positive `taint_lang_test::test_taint_python_subprocess_sink` and negative `taint_sink_test::test_field_isolation_taint_does_not_cross_fields`; source-to-sink span/category expectations retained. |
+| **ConditionedSlice** | condition=Some("x==5") for generic dispatch; fixture-specific predicate for assertions | Pair `misc_lang_test::test_conditioned_slice_prunes_unreachable_python` with its original predicate; opposite predicate must preserve the other branch. |
+| **DeltaSlice** | old_repo=Some(populated pre-change directory) | Pair `misc_test::test_delta_slice_python` and `test_delta_slice_go`; added/removed edge lines expected, identical old/new sources give no changed-flow findings. Deleting candidate-edge contribution must fail a named default lib selector under `data_flow::tests::outputs::delta_candidate_edges_contribute`. |
+| QuantumSlice, HorizontalSlice, VerticalSlice, AngleSlice | quantum_var=Some(existing variable), peer_pattern=Some("name:f"), layers=Some("api,service,storage"), concern=Some("error") for their respective row | State/peer/layer/concern match and non-match cases, preserving baseline line/finding assertions. |
+| ThreeDSlice, ResonanceSlice, PhantomSlice | temporal_days=90 and fixed committed-history repo | Existing history fixture with a qualifying change/deletion and a no-history-match control; missing Git data/error is not the successful case. |
+| AbsenceSlice, SymmetrySlice, ContractSlice | default; also ContractSlice with populated old_repo | Missing pair versus balanced pair, and changed contract versus identical old/new contract. |
+| **ProvenanceSlice** | default | Pair `tests/algo/novel/provenance_test.rs::{test_provenance_python_request_form_origin,test_provenance_negative_transform_not_form}`; pin ordered byte-bearing hops, origin and confidence. This is the fourth direct DFG consumer. |
+| MembraneSlice, EchoSlice | default | Cross-module caller versus disconnected module; preserve boundary/ripple findings and their absence. |
+| PeerConsistencySlice, CallbackDispatcherSlice, PrimitiveSlice | default | Existing positive guard/dispatch/primitive fixtures and corresponding safe/guarded inputs; preserve positive and negative findings. |
+
+Use the existing algorithm tests' source builders/expected assertions for the non-DFG-specific rows; record their exact selectors in the PR A ledger before implementation. A result may be legitimately empty on a language generator, but every algorithm must also have its named meaningful positive and negative case. All direct DFG readers (LeftFlow, FullFlow, DeltaSlice, ProvenanceSlice) must have **successful paired** assertions in every build mode; the rest additionally protect downstream CPG and renderer output.
+
+Expected-error tests are a separate suite/ledger: missing Chop endpoints, malformed file:line, missing/invalid condition, missing old_repo. Assert expected error type/text and zero successful dispatch there; never add these to the success count.
+
+Controller executable replay uses the same temporary fixture checkout/path, separate cache state and frozen settings. For each common-generator diff run both binaries sequentially with `prism --algorithm all --format json`, `--format review`, `--format sarif`, plus the existing targets command. Supply the matrix's valid `--chop-source`, `--chop-sink`, `--condition`, `--old-repo` and history/seed options, and the existing CLI diff/repo flags; require the emitted success ledger to contain all 30 algorithms with no dispatch errors. Keep the existing CLI/MCP transcripts as additional controls, never as a substitute for this matrix. Task 7 additionally byte-compares `nav dfg-stats --edges` on both real corpora.
+
+**Cross-build SARIF scope:** within one binary compare every byte, including build metadata. Between different binaries retain raw outputs and separately assert `/runs/0/properties/{prism_build_identity,prism_git_sha,binary_input_dirty}` against each binary's recorded provenance. Replace exactly those three validated fields with common sentinels in the comparison copy, then serialize and compare every remaining byte; no other normalization, sorting, span removal or golden rebaseline. Different raw build identities are expected provenance differences, not DFG parity failures. A missing/unexpected provenance field is a failure. All other output payloads use unchanged existing transport handling and byte comparison.
 
 ## Paired output assertion seam for Task 6
 
@@ -1359,7 +1482,11 @@ Use the existing `ReviewInputs` fixture loader (its `build_warnings` field is pr
 fn assert_output_pair(old:&prism::api::ReviewRun,new:&prism::api::ReviewRun,
                       inputs:&prism::api::ReviewInputs,meta:&prism::targets::TargetsMeta) {
     use prism::output::{to_review_output,to_sarif,SarifInputs};
+    use prism::data_flow::test_support::observe_evidence as evidence_obs;
     let json=|v:&serde_json::Value|serde_json::to_vec(v).unwrap();
+    assert!(old.errors.is_empty(), "baseline dispatch errors");
+    assert!(new.errors.is_empty(), "candidate dispatch errors");
+    assert_eq!(old.algorithms_run, new.algorithms_run);
     assert_eq!(old.results.len(),new.results.len());
     for (a,b) in old.results.iter().zip(&new.results) {
         assert_eq!(serde_json::to_vec(&to_review_output(a,&inputs.sources)).unwrap(),
@@ -1374,7 +1501,7 @@ fn assert_output_pair(old:&prism::api::ReviewRun,new:&prism::api::ReviewRun,
     assert_eq!(json(&sarif_a),json(&sarif_b));
     assert_eq!(serde_json::to_vec(&prism::targets::project(&old.findings,&old.evidence,inputs,meta)).unwrap(),
                serde_json::to_vec(&prism::targets::project(&new.findings,&new.evidence,inputs,meta)).unwrap());
-    assert_eq!(serde_json::to_vec(&old.evidence).unwrap(),serde_json::to_vec(&new.evidence).unwrap());
+    assert_eq!(evidence_obs(&old.evidence),evidence_obs(&new.evidence));
 }
 fn assert_navigation_pair(old:&prism::navigation::Evidence,new:&prism::navigation::Evidence) {
     for format in ["json","text"] {
@@ -1416,18 +1543,61 @@ Expected: compile a tiny standalone test executable, then 10 model tests pass. *
 
 **Acceptance arithmetic validation:** `python3 /private/tmp/dfg-compaction-plan-validation/acceptance-kernel.py > /private/tmp/dfg-compaction-plan-validation/acceptance.log 2>&1`, followed by `cat` of that log. Expected and observed: **`acceptance classifier: 5 boundary assertions passed`**. This validates only the numeric preregistration kernel; report/probe parsing and real measurements were not exercised.
 
-**Static document checks:** 8 task headings; balanced code fences; required constraint/gate sections present; no unresolved generic task title or implementation placeholders. `rg -l '\bDataFlowGraph\b|\.dfg\b' src tests` returned **62 files**; broader DTO/taint/reasoning searches supplemented that census. These checks do not compile the plan's Rust snippets.
+**Static document checks:** 8 task headings; balanced code fences; required constraint/gate sections present; no unresolved generic task title or implementation placeholders. The original source/test-only census returned **62 files** (examples were omitted, corrected in W3); broader DTO/taint/reasoning searches supplemented that census. These checks do not compile the plan's Rust snippets.
 
 **Not checked:** full cargo suites, compilation of the complete production implementation/codec/update code, actual fixture dual runs, Tier-A, mutgate, runtime allocation/latency/peak, Linux, external library consumers, refresh peak, and correctness of a future probe port. Full corpus measurements are expressly reserved for the controller. Expected commands in this plan are instructions, not executed receipts.
 
+## Round-1 fold validation (2026-10-14)
+
+This is a plan-only revision at `e2b377df84fc1fd1777ce8cbc36d20f5b598cba5`. Read both reviews and the fuller sol evidence in full; inspected the affected source types, dispatch requirements, test mutation sites, mutgate routing/timeout and CLI grammar. Only this plan is changed in tracked files. `CLAUDE.md` is unchanged; no commit/push, Rust implementation change, agent dispatch or corpus process occurred.
+
+Receipts and prepared probes: `/private/tmp/dfg-compaction-plan-r1-fold/` (also snapshotted under `.review/dfg-plan-r1-fold/`). The hypothesis/probe/result log is `hypothesis-log.md`.
+
+- **Executed:** the revised Python code fence extracted verbatim to `acceptance-kernel.py`; `python3 …/acceptance-kernel.py > …/acceptance.log 2>&1` reports **10 boundary assertions passed**. `classifier_controls.py` runs original and revised classifier functions in the same Python environment: heap FAIL plus noisy load changes from INCONCLUSIVE to overall FAIL; a noisy but range-separated faster candidate changes to PASS. Two additional census contamination controls show why input isolation is mandatory. **4 synthetic controls passed**; these do not validate a future artifact reader or a production regression.
+- **Executed static checks:** `python3 …/static_checks.py > …/static.log 2>&1`; 8 tasks, all **30/30** source algorithm names registered, balanced fences, **27 shell blocks** pass `bash -n`, exact umbrella declaration/path checks, valid review links, no stale numeric file caps or active ambiguous test layout. The initial static script required unavailable `tomllib` on Python 3.9.6; that attempt was inadmissible and replaced with explicitly lexical declaration/path checks, not a claimed Cargo parse. The expanded `rg` inventory has **65 files** including the three examples. `git diff --check` passes.
+- **Compilation blocked before launch:** `nice -n 19 python3 -c '…os.getpriority…'` reports `nice: setpriority: Operation not permitted`, actual priority **0**. The preflight stops before any Rust/Cargo command. Per the host rule, no unprioritized fallback was attempted. W1/W2 probes are prepared from current source types with original serde derives and byte-blind Eq, plus the exact revised projection/umbrella snippets. `run-compile-probes.sh` is a controller-only sequential offline runner: old E0277/E0761 controls, default target exclusion and revised byte-sensitive tests. **Those expected errors, compilation success, selection and test totals are not executed receipts.** Controller must run them in a priority-capable host slot.
+- **Not checked:** Rust snippet compilation (including the projection, bounded-pair helper and umbrella), complete Prism/full default/MCP suites, real oracle runtimes or mutation-budget timings, Tier-A/mutgate, successful algorithm dispatch/output replay, probe binary builds, sidecar-hit preflight, artifact-reader validation, real-corpus output/heap/load/peak and Linux. This documentation-only fold does not claim implementation or memory acceptance; all implementation gates remain mandatory.
+
+## Review record — round 1 folded in place
+
+Read in full: [Opus review](../../../../reviews/dfgplan-r1-opus.md), [sol summary](../../../../reviews/dfgplan-r1-sol.md), and [sol full evidence](../../../../dfgplan-sol-clone/.review/dfg-plan-review-r1/REVIEW.md). These paths are controller scratch evidence, not shipped dependencies. Reviewed artifact: `e2b377df84fc1fd1777ce8cbc36d20f5b598cba5`; source baseline `8b2744b3154b3664ffacb23c42f042a67981967a`. This fold uses a two-pass cap (targeted revision, then consistency/probes); it starts no new agent review round.
+
+| Finding | Disposition and changed execution contract |
+|---|---|
+| Opus W1 — WRONG MATERIAL | Explicit test-only byte projections for hops, paths, sanitizer tags and optional evidence; no value Eq or production serde derive. |
+| Opus W2 — WRONG IMMATERIAL | Single `tests/dfg_compaction/main.rs` umbrella with explicit `[[test]]` and `required-features`. |
+| Opus W3 — WRONG IMMATERIAL | All three examples named and migrated in B; consumer searches cover `src tests examples`; example JSON preserves order. |
+| Opus W4 — WRONG MATERIAL | Move both containing integration tests, preserving all three label-removal sites and cumulative assertions, to cfg(test) crate tests running in default/MCP gates. Source correction: three sites, not three existing test functions. |
+| Opus W5 — WRONG MATERIAL | Acceptance base is the exact parent of the measured activation PR head, with both source SHAs and instrumentation provenance recorded. |
+| Opus W6 — WRONG MATERIAL | Share the per-file producer; freeze only aggregation/storage/queries/updates and define rebase handling. |
+| Opus W7 — WRONG IMMATERIAL | Independent heap/load/peak verdicts, FAIL precedence, D10 range-first load check and both review counterexamples in the numeric kernel. |
+| sol #1 — WRONG MATERIAL | `PRISM_PROBE_NO_CENSUS=1` for acceptance; census is a separately identified diagnostic run, never a timing/peak input. |
+| sol #2 — WRONG MATERIAL | Prefer clean committed probe builds; otherwise matched explicit dirty-load override. Both warm-hit flags are checked on a tiny fixture before corpus dispatch. |
+| sol #3 — WRONG IMMATERIAL / Opus S1 — SMELL MATERIAL | Remove numeric file caps and forced consumer extractions; split only for actual review size. Leave stale CLAUDE.md decision 7 to controller/owner. |
+| Opus S2 — SMELL MATERIAL | Every-location reachability and every-line lookup; deterministic bounded chop pairs, per-case timing and mutgate timeout margin. |
+| Opus S3 — SMELL IMMATERIAL | Default-feature lib selectors, 10–15 mutant budget and forecast of full authoritative gate at jobs=1. No automatic concurrency exception. |
+| Opus S4 — SMELL MATERIAL / sol #4 — SMELL MATERIAL | All-30 successful dispatch ledger, valid parameters, positive/negative cases, separate expected errors, generator executable replays, and per-corpus dfg-stats edge bytes. |
+| Opus S5 — SMELL IMMATERIAL | Rank cost uses arena rows, not core u; fixture checkpoint reports arena/core ratio and full rank bytes. |
+| Opus S6 — SMELL IMMATERIAL | Fold production cleanup and post-acceptance test deletion into E; remove separate F and unconditional corpus rerun. |
+| Opus S7 — SMELL long-term material | Delete frozen oracle/feature/umbrella after acceptance, preserving ordinary regression tests and mutant witnesses. |
+| Opus S8 — SMELL IMMATERIAL | Add `ExactFlowEdge::from_refs`; preserve cache-version stderr; stage PR B mutation hook before Parts exists. Iterator enum suggestion declined below. |
+| sol verification limit — SARIF cross-build identity | Check raw provenance against each binary receipt; only the three named metadata fields differ in the cross-build comparison copy. Same-binary parity remains whole-output byte equality. |
+
+**Declined suggestions (finding — why not — cost if wrong):**
+
+- Opus S8 concrete `Locations` enum — retain the existing boxed borrowed iterator boundary because a second representation API is unnecessary for the scoped correctness repair and forward traversal has no inspected production caller — cost if wrong: per-row allocation overhead may fail Task 7 load acceptance; measure before a separately bounded enum refactor.
+- Opus S3 `--jobs 2` fallback — unchanged owner rule permits only one cargo process; budget/slot escalation belongs to controller and needs an explicit owner exception — cost if wrong: serial full-gate time may exceed the target and delay dispatch, never authorize a reduced gate.
+
+No WRONG or MATERIAL SMELL is declined. Alternative fixes to accepted findings are not cumulative requirements; this record selects the controller-directed route.
+
 ## Owner questions and recommended defaults
 
-1. **Acceptance allowance:** recommended pre-registration is ≥300 MiB Prometheus and ≥75 MiB slicing, ≤5% or 100 ms load increase with ≤10% within-set spread, and **no cold-prime peak increase**. These are concrete defaults; do not relax them after seeing results. Owner may choose stricter bars before the controller starts measurements.
+1. **Acceptance allowance:** recommended pre-registration is ≥300 MiB Prometheus and ≥75 MiB slicing, D10 range-first load acceptance with ≤5% or 100 ms allowance and a ≤10% spread-gated median fallback, and **no cold-prime peak increase**. These are concrete defaults; do not relax them after seeing results. Owner may choose stricter bars before the controller starts measurements.
 2. **External direct-field Rust API consumers:** recommended default is the accessor source migration described in D7, preserving runtime outputs and query signatures. If unknown external consumers require field-level source compatibility, settle that before PR B; retaining duplicated public maps is incompatible with the intended memory result.
 3. **Separate string/path interner:** recommended default is to defer it. Whole-location interning already shares repeated owned payload and has a measurable target; a second pool adds view/lifetime complexity for an unmeasured remaining population. Missing Task 7's threshold is a reason to reopen design, not automatically add scope.
-4. **Oversized legacy modules:** recommended default is the declared extraction-only B1/B2 split to obey the <600-line source rule. No exception is assumed for new code or silently applied to existing edited modules.
+4. **Review sizing:** forecast and split actual PR review surfaces only. There is no numeric file-size rule and no mandatory decomposition of existing consumers. The controller owns reconciliation of stale `CLAUDE.md` decision 7 with the owner.
 
-No owner answer is needed to review this plan. Implementation, commits and real-corpus measurements are separate controller actions; this planning session writes the plan only and leaves it untracked.
+No owner answer is needed to review this plan. Implementation, commits and real-corpus measurements are separate controller actions; this revision edits the already tracked plan in place and leaves committing/pushing to the controller.
 
 ## Executable test support used by Tasks 1–6
 
@@ -1498,13 +1668,32 @@ fn domain(g:&LegacyDataFlowGraph)->(Vec<VarLocation>,Vec<(String,usize)>) {
     let mut lines:BTreeSet<_>=original.iter().map(|v|(v.file.clone(),v.line)).collect();
     let mut max:BTreeMap<String,usize>=BTreeMap::new();
     for v in &original {max.entry(v.file.clone()).and_modify(|n|*n=(*n).max(v.line)).or_insert(v.line);}
-    for (file,line) in max {lines.insert((file,line+1));}
+    for (file,line) in max { for n in 0..=line+1 { lines.insert((file.clone(),n)); } }
     lines.insert(("absent.py".into(),0));
     (locations,lines.into_iter().collect())
+}
+fn chop_pairs(old: &LegacyDataFlowGraph, lines: &[(String, usize)])
+    -> Vec<((String, usize), (String, usize))> {
+    let selected: BTreeSet<_> = if lines.len() <= 60 {
+        lines.iter().cloned().collect()
+    } else {
+        let endpoints: BTreeSet<_> = old.edges.iter().flat_map(|e|
+            [(&e.from.file,e.from.line),(&e.to.file,e.to.line)])
+            .map(|(f,l)|(f.clone(),l)).collect();
+        let mut selected: BTreeSet<_> = endpoints.into_iter().take(32).collect();
+        // lines includes each file's max+1 sentinel; absent.py is explicit.
+        let mut last = BTreeMap::new();
+        for (f,l) in lines { last.entry(f.clone()).and_modify(|n: &mut usize| *n=(*n).max(*l)).or_insert(*l); }
+        selected.extend(last);
+        selected.insert(("absent.py".into(),0));
+        selected
+    };
+    selected.iter().flat_map(|a| selected.iter().map(move |b|(a.clone(),b.clone()))).collect()
 }
 fn assert_all(old:&LegacyDataFlowGraph,new:&CompactDfg) {
     assert_eq!(old_storage(old),compact_observation(new));
     let (locations,lines)=domain(old);
+    // Fixture driver additionally extends lines through source.lines().count()+1.
     compare_queries!(old,new,&locations,&lines);
 }
 fn adversarial_parts()->Parts {
@@ -1552,7 +1741,7 @@ fn removal_uses_map_key_file_and_either_edge_endpoint() {
 }
 ```
 
-`built_pair` intentionally builds the legacy producer twice while the compact engine is test-only; it tests conversion and query independence, not a new producer. From Task 6 onward, add a **third** independently built production `DataFlowGraph::build(files)` and run `current_storage` and the same query macro against it. Do not replace the old oracle with a reconstruction from the compact graph.
+`built_pair` intentionally invokes the shared per-file producer twice through independent builds while the compact engine is test-only; it tests conversion and query independence, not a new producer. From Task 6 onward, add a **third** independently built production `DataFlowGraph::build(files)` and run `current_storage` and the same query macro against it. Do not replace the old oracle with a reconstruction from the compact graph.
 
 For `compact::from_parts`/update tests, make the core structs' fields and methods visible to the parent data_flow test module (`pub(super)`) and import the private module's re-exports; keep the public façade as the only production external surface. No field/ID becomes externally public merely to accommodate tests.
 
@@ -1603,7 +1792,7 @@ Claude-Session: https://claude.ai/code/session_01JhYB2xRuHRHxDFM7eDt8Fh"
 Expected: Task 7 receipt commit.
 
 ```bash
-git commit -m "refactor: remove legacy DFG production scaffolding" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+git commit -m "test: retire DFG migration oracle after acceptance" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01JhYB2xRuHRHxDFM7eDt8Fh"
 ```
 Expected: Task 8 commit.
