@@ -437,11 +437,18 @@ Algorithms fall into two categories:
 6. **Field-sensitive analysis** via `access_path.rs` tracks structured paths
    (e.g., `self.config.timeout`) rather than just variable names.
 
-7. **Keep files under 600 lines.** Split test files and source modules when
-   they approach this limit. For tests, group by category (e.g., `algo_test.rs`,
-   `advanced_test.rs`, `lang_test.rs`) and register **one umbrella `[[test]]`
-   target per `tests/` subdirectory** (its `main.rs` declares the files as
-   modules); individual files stay under 600 lines.
+7. **File size: weighted lines, a 2,000 ceiling.** Size is measured in weighted
+   lines — code 1, comment-only 0.5, blank 0 — by `python3 scripts/file_size.py FILE...`
+   (`--over N` lists only files above N). New files aim for 600 or fewer. Over 1,000 a
+   file should be split along a real responsibility boundary, and a PR that leaves a
+   file over 1,000 says why. **2,000 is a hard ceiling: no PR may take a file past it.**
+   Files already over 2,000 (13 today, e.g. `src/ast.rs`, `src/call_graph.rs`,
+   `src/algorithms/taint.rs`) must not grow in a feature PR: small edits are fine, new
+   code goes in new modules. Such a file is split in its own move-only PR (no behaviour
+   change, reviewed as a pure move) before the work that needs it, never as a side effect
+   of a feature PR. For tests, group by category (e.g., `algo_test.rs`,
+   `advanced_test.rs`, `lang_test.rs`) and register **one umbrella `[[test]]` target per
+   `tests/` subdirectory** (its `main.rs` declares the files as modules).
 
 ## Supported Languages
 
