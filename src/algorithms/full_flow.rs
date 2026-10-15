@@ -100,7 +100,8 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput, config: &SliceConfig) -> Result
 
                             if let Some(var_loc) = ctx.cpg.to_var_location(idx) {
                                 // Backward: find all definitions this use reaches
-                                let defs = ctx.cpg.dfg_backward_reachable(&var_loc);
+                                let (defs, seeds) =
+                                    ctx.cpg.dfg_backward_reachable_bounded(&var_loc);
                                 for def_loc in &defs {
                                     if def_loc.file == diff_info.file_path
                                         && def_loc.line >= *func_start
@@ -117,8 +118,13 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput, config: &SliceConfig) -> Result
                                 }
 
                                 // Forward from each def: find all uses in this
-                                // function (gives full variable reference coverage)
-                                for def_loc in &defs {
+                                // function (gives full variable reference coverage).
+                                // The walk never expands out of a member-only formal's
+                                // projection-only base Def, nor from anything upstream
+                                // of it (an argument Use/Def): either would carry a
+                                // field seed to its sibling fields. Those upstream
+                                // lines stay included by the backward-only loop above.
+                                for def_loc in &seeds {
                                     let uses = ctx.cpg.dfg_forward_reachable(def_loc);
                                     for use_loc in &uses {
                                         if use_loc.file == diff_info.file_path

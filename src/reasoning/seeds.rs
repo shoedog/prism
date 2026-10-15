@@ -254,7 +254,7 @@ fn resolve_symbol(
     let mut nodes = Vec::new();
     let mut locations = Vec::new();
     for (param, start_byte, end_byte) in parsed.function_parameter_occurrences(&function) {
-        if !parsed.has_bare_references(&function, &param) {
+        if parsed.classify_parameter_use(&function, &param) == crate::ast::ParameterUse::Unused {
             continue;
         }
         let output_loc = VarLocation {
@@ -460,5 +460,59 @@ mod tests {
         };
         assert!(matches!(spec, SeedSpec::Loc { line: 3, .. }));
         assert!(SeedSet::default().seeds.is_empty());
+    }
+
+    fn symbol_session(file: &str, source: &str) -> (tempfile::TempDir, NavigationSession) {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(file), source).unwrap();
+        let repo = std::sync::Arc::new(crate::repo_loader::load_repo(dir.path()).unwrap());
+        let index = std::sync::Arc::new(crate::navigation::NavigationIndex::build(&repo));
+        (dir, NavigationSession { repo, index })
+    }
+
+    fn symbol_seed(session: &NavigationSession, file: &str) -> Result<SeedSet, QueryError> {
+        resolve(
+            session,
+            &[SeedSpec::Symbol {
+                name: "handler".into(),
+                file: Some(file.into()),
+            }],
+            SeedRole::Source,
+        )
+    }
+
+    /// PR-C: a symbol seed resolves the base Def of a member-only formal, in lockstep with
+    /// the DFG classifier; an unused formal and a non-JS field-only formal still do not.
+    #[test]
+    fn symbol_seed_resolves_member_only_js_ts_formals_but_not_unused_or_non_js() {
+        for (file, source) in [
+            ("h.js", "function handler(req) {\n  a(req.body);\n}\n"),
+            ("h.ts", "function handler(req: any) {\n  a(req.body);\n}\n"),
+            ("h.tsx", "function handler(req: any) {\n  a(req.body);\n}\n"),
+            ("h.js", "function handler(req) {\n  a(req);\n}\n"),
+        ] {
+            let (_dir, session) = symbol_session(file, source);
+            let seeds = symbol_seed(&session, file).unwrap_or_else(|e| panic!("{file}: {e:?}"));
+            assert_eq!(seeds.seeds.len(), 1, "{file}");
+            assert_eq!(seeds.seeds[0].locations.len(), 1, "{file}");
+            assert_eq!(
+                seeds.seeds[0].locations[0].path.to_string(),
+                "req",
+                "{file}"
+            );
+        }
+        for (file, source) in [
+            ("u.js", "function handler(req) {\n  return 1;\n}\n"),
+            ("u.py", "def handler(req):\n    a(req.body)\n"),
+        ] {
+            let (_dir, session) = symbol_session(file, source);
+            assert!(
+                matches!(
+                    symbol_seed(&session, file),
+                    Err(QueryError::SymbolNotFound { .. })
+                ),
+                "{file}"
+            );
+        }
     }
 }

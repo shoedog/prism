@@ -273,6 +273,11 @@ impl ParsedFile {
             != self.js_ts_binding_scope_at(def_byte, name).map(|s| s.0)
     }
 
+    /// Binding-scope identity of `name` at the formal's own byte, computed once per formal.
+    pub(crate) fn js_ts_def_scope_id(&self, def_byte: usize, name: &str) -> Option<usize> {
+        self.js_ts_binding_scope_at(def_byte, name).map(|s| s.0)
+    }
+
     /// Scope identity and visibility span of a binding at an evaluated byte.
     /// Callable body vars exclude defaults; method keys exclude all formals.
     fn js_ts_binding_scope_at(&self, byte: usize, name: &str) -> Option<(usize, (usize, usize))> {
@@ -280,10 +285,65 @@ impl ParsedFile {
             .tree
             .root_node()
             .descendant_for_byte_range(byte, byte + 1)?;
+        self.js_ts_binding_scope_from(leaf.parent(), byte, name, None)
+    }
+
+    /// The scope walk from a known start node, optionally memoising each ancestor's
+    /// verdict. A non-callable scope's verdict depends only on `(scope, name)`; a
+    /// callable's also on which of its regions holds the byte, which the memo key
+    /// carries. The caller holds one memo per `(callable, name)`.
+    fn js_ts_binding_scope_from(
+        &self,
+        start: Option<Node<'_>>,
+        byte: usize,
+        name: &str,
+        memo: Option<&ScopeBindMemo>,
+    ) -> Option<(usize, (usize, usize))> {
         let boundaries = self.language.callable_boundary_node_types();
-        let mut current = leaf.parent();
+        let mut current = start;
         while let Some(scope) = current {
-            if self.js_ts_scope_binds(scope, &boundaries, name, byte) {
+            // Only kinds that can hold a binding do real work; the rest answer false at once.
+            let cacheable = boundaries.contains(&scope.kind())
+                || matches!(
+                    scope.kind(),
+                    "statement_block"
+                        | "switch_body"
+                        | "enum_body"
+                        | "class"
+                        | "class_declaration"
+                        | "abstract_class_declaration"
+                        | "class_static_block"
+                        | "for_statement"
+                        | "for_in_statement"
+                        | "catch_clause"
+                );
+            let binds = match memo {
+                Some(memo) if cacheable => {
+                    let region = if boundaries.contains(&scope.kind()) {
+                        let inside = |n: Option<Node<'_>>| {
+                            n.is_some_and(|n| n.start_byte() <= byte && byte < n.end_byte())
+                        };
+                        u8::from(inside(scope.child_by_field_name("body")))
+                            | u8::from(inside(self.parameter_binding_region(&scope))) << 1
+                            | u8::from(inside(scope.child_by_field_name("name"))) << 2
+                            | u8::from(inside(scope.child_by_field_name("return_type"))) << 3
+                    } else {
+                        0
+                    };
+                    let key = (scope.id(), region);
+                    let cached = memo.0.borrow().get(&key).copied();
+                    match cached {
+                        Some(verdict) => verdict,
+                        None => {
+                            let verdict = self.js_ts_scope_binds(scope, &boundaries, name, byte);
+                            memo.0.borrow_mut().insert(key, verdict);
+                            verdict
+                        }
+                    }
+                }
+                _ => self.js_ts_scope_binds(scope, &boundaries, name, byte),
+            };
+            if binds {
                 let mut region = scope;
                 if boundaries.contains(&scope.kind()) {
                     let params_bind = self
@@ -304,6 +364,36 @@ impl ParsedFile {
             current = scope.parent();
         }
         None
+    }
+
+    /// PR-C: `js_ts_reference_fenced_against` for a reference found by a single walk of
+    /// `owner`, with the owner/name seam verdict hoisted by the caller (`seam_open`: the
+    /// owner is a named callable whose formal is a seam binding) and every scope
+    /// verdict memoised. The scope walk starts at the reference node itself: nothing
+    /// between it and its first real scope binds a name.
+    pub(crate) fn js_ts_reference_fenced_memo(
+        &self,
+        reference: &Node<'_>,
+        name: &str,
+        def_scope: Option<usize>,
+        seam_open: bool,
+        memo: &ScopeBindMemo,
+    ) -> bool {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) || seam_open
+        {
+            return false;
+        }
+        self.js_ts_binding_scope_from(Some(*reference), reference.start_byte(), name, Some(memo))
+            .map(|s| s.0)
+            != def_scope
+    }
+
+    /// Whether a named owner's formal `name` is a seam binding (hoisted per formal).
+    pub(crate) fn js_ts_seam_open(&self, owner: &Node<'_>, name: &str) -> bool {
+        self.language.function_name(owner).is_some() && self.js_ts_seam_binding(owner, name)
     }
 
     /// Executable defaults and computed destructuring keys require a separate
@@ -1385,6 +1475,17 @@ impl ParsedFile {
             current = node.parent();
         }
         false
+    }
+}
+
+/// Per-`(callable, name)` memo of scope-binding verdicts (see `js_ts_binding_scope_from`).
+#[derive(Default)]
+pub(crate) struct ScopeBindMemo(std::cell::RefCell<std::collections::HashMap<(usize, u8), bool>>);
+
+impl ScopeBindMemo {
+    /// Distinct `(scope, region)` verdicts computed so far (each computed once).
+    pub(crate) fn computed(&self) -> usize {
+        self.0.borrow().len()
     }
 }
 

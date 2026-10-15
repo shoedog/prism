@@ -295,7 +295,21 @@ fn optional_parameter_write_shadow_and_field_isolation_match_javascript() {
             assert_eq!(labels(&candidate), labels(&control), "{language:?}: {body}");
             assert_eq!(defs(&candidate), defs(&control), "{language:?}: {body}");
             if body.starts_with("sink(a.field)") {
-                assert!(!defs(&candidate).iter().any(|(path, _)| path == "a"));
+                // PR-C contract: the member-only formal has a base Def at its signature line, and
+                // field isolation holds as "edges only start at the base Def": a.field never
+                // reaches a.other.
+                assert!(defs(&candidate).contains(&("a".to_string(), 1)));
+                let field_edges = labels(&candidate)
+                    .into_iter()
+                    .filter(|(_, _, to, _, _)| to.starts_with("a."))
+                    .collect::<Vec<_>>();
+                assert_eq!(field_edges.len(), 2, "{language:?}: {field_edges:?}");
+                assert!(
+                    field_edges
+                        .iter()
+                        .all(|(from, line, ..)| from == "a" && *line == 1),
+                    "{language:?}: {field_edges:?}"
+                );
             }
         }
     }
