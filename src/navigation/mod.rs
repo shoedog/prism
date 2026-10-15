@@ -559,22 +559,52 @@ impl NavigationIndex {
         idx
     }
 
-    /// Innermost enclosing function (smallest [start,end] containing `line`).
+    /// Innermost enclosing NAMED function (smallest [start,end] containing `line`).
+    ///
+    /// Anonymous callable nodes (`<anon@L:C>`) are skipped, so a location seed on a callback
+    /// line resolves to the named function that holds it. Anonymous-aware callers (an explicit
+    /// `--at L:C` seed) use [`Self::enclosing_function_including_anonymous`].
     pub fn enclosing_function(&self, file: &str, line: usize) -> Option<(NodeIndex, String)> {
+        self.enclosing_function_filtered(file, line, false)
+    }
+
+    /// Like [`Self::enclosing_function`], but anonymous callable nodes may win.
+    pub fn enclosing_function_including_anonymous(
+        &self,
+        file: &str,
+        line: usize,
+    ) -> Option<(NodeIndex, String)> {
+        self.enclosing_function_filtered(file, line, true)
+    }
+
+    fn enclosing_function_filtered(
+        &self,
+        file: &str,
+        line: usize,
+        include_anonymous: bool,
+    ) -> Option<(NodeIndex, String)> {
         let ranges = self.line_range_index.get(file)?;
         ranges
             .iter()
             .filter(|&&(s, e, _)| s <= line && line <= e)
-            .min_by_key(|&&(s, e, _)| e - s)
-            .map(|&(_, _, idx)| {
-                let name = match self.cpg.node(idx) {
-                    CpgNode::Function { name, .. } => name.clone(),
-                    _ => String::new(),
-                };
-                (idx, name)
+            .filter_map(|&(s, e, idx)| match self.cpg.node(idx) {
+                CpgNode::Function { name, .. }
+                    if include_anonymous || !crate::anon_owner::is_anonymous_owner_name(name) =>
+                {
+                    Some((e - s, idx, name.clone()))
+                }
+                // Non-function nodes never enter `line_range_index`; keep the legacy
+                // empty-name fallback shape for them.
+                CpgNode::Function { .. } => None,
+                _ => Some((e - s, idx, String::new())),
             })
+            .min_by_key(|&(len, _, _)| len)
+            .map(|(_, idx, name)| (idx, name))
     }
 }
+
+#[cfg(test)]
+mod anon_guard_tests;
 
 #[cfg(test)]
 mod tests {

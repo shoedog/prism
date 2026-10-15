@@ -141,3 +141,43 @@ fn joining_a_new_attempt_remembers_that_attempt_and_not_the_old_one() {
     second.fill(Err("second".to_string()));
     assert_eq!(budget.unheard_failure(), Some("second".to_string()));
 }
+
+/// A connection given a warm daemon's startup attempt at admission has no deadline until its
+/// first call: the wait is the client's from that call, as for any other attempt it joins.
+/// Rules out a deadline set at admission, which would shorten the first call's wait by however
+/// long the client took to send it.
+#[test]
+fn a_connection_given_the_startup_attempt_starts_its_wait_at_its_first_call() {
+    let start = Instant::now();
+    let startup = cell();
+    let mut budget =
+        ConnectionBudget::joined_at_startup(&client_settings(20), Arc::clone(&startup));
+
+    assert_eq!(
+        budget.join(1, &startup, start + secs(100)),
+        start + secs(120)
+    );
+    assert_eq!(
+        budget.join(1, &startup, start + secs(130)),
+        start + secs(120),
+        "later calls keep it"
+    );
+    assert_eq!(
+        budget.join(2, &cell(), start + secs(140)),
+        start + secs(160)
+    );
+}
+
+/// The startup attempt's failure is this connection's to hear once, as if it had joined it.
+#[test]
+fn a_connection_given_a_failed_startup_attempt_hears_its_failure_once() {
+    let startup = cell();
+    startup.fill(Err("the startup build failed".to_string()));
+    let mut budget = ConnectionBudget::joined_at_startup(&client_settings(0), startup);
+
+    assert_eq!(
+        budget.unheard_failure(),
+        Some("the startup build failed".to_string())
+    );
+    assert_eq!(budget.unheard_failure(), None);
+}

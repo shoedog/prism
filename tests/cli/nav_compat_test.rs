@@ -327,9 +327,9 @@ fn nav_cache_writes_under_repo_subdir_and_no_cache_matches_output() {
     );
     assert!(
         nav_cache_subdir(cached_cache.path(), &load_repo(repo.path()).unwrap())
-            .join("cpg-cache.bin")
+            .join("cpg-cache-v2.bin")
             .exists(),
-        "cached nav run must write cpg-cache.bin under the per-repo cache subdir"
+        "cached nav run must write cpg-cache-v2.bin under the per-repo cache subdir"
     );
 
     let uncached = bin()
@@ -818,6 +818,6 @@ fn onboard_warms_cpg_and_resolved_call_edge_caches() {
 
     let loaded = load_repo(repo.path()).unwrap();
     let cache_dir = nav_cache_subdir(cache.path(), &loaded);
-    assert!(cache_dir.join("cpg-cache.bin").exists());
+    assert!(cache_dir.join("cpg-cache-v2.bin").exists());
     assert!(cache_dir.join("resolved-call-edge-index.bin").exists());
 }

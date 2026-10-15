@@ -588,7 +588,7 @@ fn cache_v12_round_trips_scope_graph_and_rejects_v11() {
         "scope_graph must survive v12 cache round trip"
     );
 
-    let bin = cache_dir.path().join("cpg-cache.bin");
+    let bin = cache_dir.path().join("cpg-cache-v2.bin");
     let mut bytes = std::fs::read(&bin).unwrap();
     bytes[0..4].copy_from_slice(&11u32.to_le_bytes());
     std::fs::write(&bin, bytes).unwrap();
@@ -661,8 +661,8 @@ fn test_cache_round_trip_python() {
     let hashes = cpg_cache::compute_file_hashes(&sources);
     cpg_cache::save_cache(&ctx_original.cpg, &hashes, false, cache_dir.path()).unwrap();
 
-    assert!(cache_dir.path().join("cpg-cache.bin").exists());
-    assert!(cache_dir.path().join("cache-meta.json").exists());
+    assert!(cache_dir.path().join("cpg-cache-v2.bin").exists());
+    assert!(cache_dir.path().join("cache-meta-v2.json").exists());
 
     let loaded_cpg = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
 
@@ -1248,7 +1248,7 @@ fn test_cache_meta_json_is_valid() {
     let hashes = cpg_cache::compute_file_hashes(&sources);
     cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
 
-    let meta_text = std::fs::read_to_string(cache_dir.path().join("cache-meta.json")).unwrap();
+    let meta_text = std::fs::read_to_string(cache_dir.path().join("cache-meta-v2.json")).unwrap();
     let meta: serde_json::Value = serde_json::from_str(&meta_text).unwrap();
     assert!(meta["prism_version"].is_string());
     assert!(meta["cache_version"].is_number());
@@ -1267,7 +1267,7 @@ fn test_cache_miss_on_corrupt_binary() {
     let cache_dir = TempDir::new().unwrap();
     // Write garbage to the cache file.
     std::fs::create_dir_all(cache_dir.path()).unwrap();
-    std::fs::write(cache_dir.path().join("cpg-cache.bin"), b"corrupt data").unwrap();
+    std::fs::write(cache_dir.path().join("cpg-cache-v2.bin"), b"corrupt data").unwrap();
 
     let hashes = BTreeMap::new();
     assert!(
@@ -1288,7 +1288,7 @@ fn test_cache_miss_on_truncated_binary() {
     cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
 
     // Truncate the binary file to simulate interrupted write.
-    let bin_path = cache_dir.path().join("cpg-cache.bin");
+    let bin_path = cache_dir.path().join("cpg-cache-v2.bin");
     let data = std::fs::read(&bin_path).unwrap();
     std::fs::write(&bin_path, &data[..data.len() / 2]).unwrap();
 
@@ -2891,12 +2891,12 @@ fn test_cache_meta_includes_type_db_field() {
     let hashes = cpg_cache::compute_file_hashes(&sources);
     cpg_cache::save_cache(&ctx.cpg, &hashes, true, cache_dir.path()).unwrap();
 
-    let meta_text = std::fs::read_to_string(cache_dir.path().join("cache-meta.json")).unwrap();
+    let meta_text = std::fs::read_to_string(cache_dir.path().join("cache-meta-v2.json")).unwrap();
     let meta: serde_json::Value = serde_json::from_str(&meta_text).unwrap();
     assert_eq!(
         meta["has_type_db"].as_bool(),
         Some(true),
-        "cache-meta.json should record has_type_db"
+        "cache-meta-v2.json should record has_type_db"
     );
 }
 

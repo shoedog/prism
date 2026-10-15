@@ -39,7 +39,7 @@ and prints `n/a` for those that were not run; `build` figures are read by `compa
 A `build` repetition is admissible only if its report says `cache.cpg_hit: false` and
 `cache.call_edges_loaded: false`, it passes the usual structural and build-identity checks and has the
 `after_call_edges` peak, **and the process left both cache files behind**: after it exits the driver records the
-sizes of `cpg-cache.bin` and `resolved-call-edge-index.bin` (`cache_files` in the stored result), and both must be
+sizes of `cpg-cache-v2.bin` (or `cpg-cache.bin`, which builds from before the rename wrote) and `resolved-call-edge-index.bin` (`cache_files` in the stored result), and both must be
 integers above 0. The binary catches a failed cache save, prints it and still exits 0 with both flags false, so
 the files are the evidence that the cache was written; stderr containing `failed to save CPG cache` or
 `nav edge cache: failed to save sidecar` also excludes the run. `summarize` and `compare` re-apply the file check to
@@ -65,7 +65,7 @@ starting with a letter or digit: it names directories under `--out`.
 
 The priming run happens only when at least one of `warm`, `workload`, `refresh` is selected. Its statistics are discarded, but its lifetime peak at its last stage is kept as "First-build
 peak (writes the cache, n=1)": one build that also writes the cache, shown as `n/a` when the priming run is
-absent or was not admitted. Right after it the driver measures the size of `cpg-cache.bin` (and of
+absent or was not admitted. Right after it the driver measures the size of `cpg-cache-v2.bin` (and of
 `resolved-call-edge-index.bin`) under `<run>/cache/<corpus>/`; a file that is absent, or not the only one of
 that name, is recorded as unavailable, not as 0.
 
@@ -76,7 +76,7 @@ that name, is recorded as unavailable, not as 0.
 | Stage footprints and peaks | measured | the process's own footprint and peak counters |
 | Steady live heap, index live heap | measured | bytes the allocator reports as in use (macOS: `size_in_use` over all zones; glibc: `uordblks + hblkhd`). On glibc, blocks freed into a thread cache stay counted and allocator bookkeeping is included, so it can sit above the live allocations; it needs glibc 2.33 or later (`mallinfo2`, found at run time) and is `n/a` elsewhere |
 | **M1** retained trees | measured | live tree-sitter heap after the workload and settle (`tree_sitter_heap_bytes`): every live tree-sitter allocation, so the retained trees plus prism's compiled query cache (about 54 KB, fixed per process). An upper bound on what dropping the trees frees; trees that are re-parsed later would come back |
-| **M2** cache buffer | measured file size | size of `cpg-cache.bin`: the buffer `fs::read` allocates and streaming would remove, so an upper bound on the peak saving |
+| **M2** cache buffer | measured file size | size of `cpg-cache-v2.bin`: the buffer `fs::read` allocates and streaming would remove, so an upper bound on the peak saving |
 | Observed load overshoot | measured, lower bound | peak above the larger of the load peak and the built footprint; freed memory stays in the footprint, so 0 is uninformative |
 | **M3** repeated strings, "attributed" | estimate | computed from component counts, not from allocation measurement |
 

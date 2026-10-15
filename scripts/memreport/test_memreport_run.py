@@ -265,19 +265,30 @@ class CacheFileTests(Harness):
     def test_exactly_one_match_is_required(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            self.assertIsNone(memreport.single_file_size(root, 'cpg-cache.bin'))
+            self.assertIsNone(memreport.single_file_size(root, 'cpg-cache-v2.bin'))
             (root / 'x').mkdir()
-            (root / 'x' / 'cpg-cache.bin').write_bytes(b'12345')
-            self.assertEqual(memreport.single_file_size(root, 'cpg-cache.bin'), 5)
+            (root / 'x' / 'cpg-cache-v2.bin').write_bytes(b'12345')
+            self.assertEqual(memreport.single_file_size(root, 'cpg-cache-v2.bin'), 5)
             (root / 'y').mkdir()
-            (root / 'y' / 'cpg-cache.bin').write_bytes(b'1')
-            self.assertIsNone(memreport.single_file_size(root, 'cpg-cache.bin'))
-            self.assertIsNone(memreport.single_file_size(root / 'missing', 'cpg-cache.bin'))
+            (root / 'y' / 'cpg-cache-v2.bin').write_bytes(b'1')
+            self.assertIsNone(memreport.single_file_size(root, 'cpg-cache-v2.bin'))
+            self.assertIsNone(memreport.single_file_size(root / 'missing', 'cpg-cache-v2.bin'))
 
     def test_a_temporary_file_is_not_the_cache(self):
         with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / 'cpg-cache-v2.bin.tmp').write_bytes(b'1234')
             (Path(tmp) / 'cpg-cache.bin.tmp').write_bytes(b'1234')
-            self.assertIsNone(memreport.single_file_size(tmp, 'cpg-cache.bin'))
+            self.assertIsNone(memreport.single_file_size(tmp, 'cpg-cache-v2.bin', 'cpg-cache.bin'))
+
+    def test_the_current_name_wins_and_the_legacy_name_is_the_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            names = memreport.CACHE_FILES['cpg_cache_bytes']
+            self.assertEqual(names, ('cpg-cache-v2.bin', 'cpg-cache.bin'))
+            (root / 'cpg-cache.bin').write_bytes(b'123')
+            self.assertEqual(memreport.single_file_size(root, *names), 3)
+            (root / 'cpg-cache-v2.bin').write_bytes(b'12345')
+            self.assertEqual(memreport.single_file_size(root, *names), 5)
 
 
 class RawResultTests(Harness):

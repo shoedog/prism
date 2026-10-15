@@ -107,7 +107,7 @@ class BuildCacheEvidenceTests(unittest.TestCase):
 
     def test_no_cpg_cache_file_is_inadmissible(self):
         self.assertEqual(self.reasons({'cpg_cache_bytes': None, 'call_edge_sidecar_bytes': 100}), (
-            0, ['the run wrote no cpg-cache.bin, so this was not a build that writes the cache']))
+            0, ['the run wrote no CPG cache file, so this was not a build that writes the cache']))
 
     def test_no_call_edge_sidecar_is_inadmissible(self):
         self.assertEqual(self.reasons({'cpg_cache_bytes': 1000, 'call_edge_sidecar_bytes': None}), (

@@ -9,9 +9,14 @@ use std::fs;
 
 const SOURCE: &str = "class C:\n    def m(self, p):\n        q = p\n        return q\n\ndef g(c):\n    r = c.m(1)\n    return r\n\ndef h(x):\n    return g(x)\n";
 
-fn fixture() -> (CodePropertyGraph, BTreeMap<String, String>) {
+pub(super) fn fixture() -> (CodePropertyGraph, BTreeMap<String, String>) {
+    fixture_of(SOURCE)
+}
+
+/// The fixture graph and file hashes for one Python source (`t.py`).
+pub(super) fn fixture_of(source: &str) -> (CodePropertyGraph, BTreeMap<String, String>) {
     let mut sources = BTreeMap::new();
-    sources.insert("t.py".to_string(), SOURCE.to_string());
+    sources.insert("t.py".to_string(), source.to_string());
     let files: BTreeMap<String, crate::ast::ParsedFile> = sources
         .iter()
         .map(|(path, source)| {
@@ -31,7 +36,10 @@ fn fixture() -> (CodePropertyGraph, BTreeMap<String, String>) {
 /// The encoding the cache used before it streamed: an owned copy of everything, encoded in
 /// one buffer. The streamed file must equal it byte for byte, or caches written by one build
 /// would not load in the other and `CACHE_VERSION` would have to change.
-fn owned_encoding(cpg: &CodePropertyGraph, hashes: &BTreeMap<String, String>) -> Vec<u8> {
+pub(super) fn owned_encoding(
+    cpg: &CodePropertyGraph,
+    hashes: &BTreeMap<String, String>,
+) -> Vec<u8> {
     let nodes: Vec<CpgNode> = cpg
         .graph
         .node_indices()
@@ -71,7 +79,7 @@ fn owned_encoding(cpg: &CodePropertyGraph, hashes: &BTreeMap<String, String>) ->
     bincode::serialize(&owned).unwrap()
 }
 
-fn graph_dump(cpg: &CodePropertyGraph) -> (Vec<String>, Vec<String>) {
+pub(super) fn graph_dump(cpg: &CodePropertyGraph) -> (Vec<String>, Vec<String>) {
     let nodes = cpg
         .graph
         .node_indices()
@@ -109,18 +117,6 @@ fn the_streamed_file_equals_the_owned_encoding_byte_for_byte() {
 }
 
 #[test]
-fn a_file_in_the_owned_encoding_loads_as_a_hit() {
-    // A cache written before this change (same bytes, written in one piece) still loads.
-    let dir = tempfile::tempdir().unwrap();
-    let (cpg, hashes) = fixture();
-    fs::write(cache_bin_path(dir.path()), owned_encoding(&cpg, &hashes)).unwrap();
-    let CacheResult::Hit(restored) = load_cache(&hashes, false, dir.path()) else {
-        panic!("a cache in the owned encoding must be a hit");
-    };
-    assert_eq!(graph_dump(&cpg), graph_dump(&restored));
-}
-
-#[test]
 fn a_round_trip_keeps_every_node_and_edge_at_its_index() {
     // Loading moves nodes and edges into the graph in list order; an index that shifted would
     // silently re-point every stored NodeIndex.
@@ -154,59 +150,6 @@ fn the_metadata_records_the_size_of_the_file_written() {
         meta["edge_count"].as_u64(),
         Some(cpg.graph.edge_count() as u64)
     );
-}
-
-#[test]
-fn a_truncated_file_is_a_miss() {
-    let dir = tempfile::tempdir().unwrap();
-    let (cpg, hashes) = fixture();
-    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
-    let path = cache_bin_path(dir.path());
-    let bytes = fs::read(&path).unwrap();
-    for keep in [0, 3, 4, 11, bytes.len() / 2, bytes.len() - 1] {
-        fs::write(&path, &bytes[..keep]).unwrap();
-        assert!(
-            matches!(load_cache(&hashes, false, dir.path()), CacheResult::Miss),
-            "a file cut to {keep} bytes must be a miss"
-        );
-    }
-}
-
-#[test]
-fn a_length_prefix_larger_than_the_file_is_a_miss_without_allocating_it() {
-    // Characterization of the current loader (unchanged by the streaming writer). Bytes 4..12
-    // are the length of the first string (`prism_version`); a claimed length beyond the file
-    // must be a Miss, and 2^62 must not be allocated.
-    let dir = tempfile::tempdir().unwrap();
-    let (cpg, hashes) = fixture();
-    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
-    let path = cache_bin_path(dir.path());
-    let mut bytes = fs::read(&path).unwrap();
-    for claimed in [1u64 << 62, bytes.len() as u64, (bytes.len() as u64) * 4] {
-        bytes[4..12].copy_from_slice(&claimed.to_le_bytes());
-        fs::write(&path, &bytes).unwrap();
-        assert!(
-            matches!(load_cache(&hashes, false, dir.path()), CacheResult::Miss),
-            "a claimed length of {claimed} must be a miss"
-        );
-    }
-}
-
-#[test]
-fn trailing_bytes_after_a_valid_cache_do_not_make_it_a_miss() {
-    // Characterization of the current loader (unchanged by the streaming writer): the slice
-    // decoder allows trailing bytes after a complete cache.
-    let dir = tempfile::tempdir().unwrap();
-    let (cpg, hashes) = fixture();
-    save_cache(&cpg, &hashes, false, dir.path()).unwrap();
-    let path = cache_bin_path(dir.path());
-    let mut bytes = fs::read(&path).unwrap();
-    bytes.extend_from_slice(b"trailing");
-    fs::write(&path, &bytes).unwrap();
-    assert!(matches!(
-        load_cache(&hashes, false, dir.path()),
-        CacheResult::Hit(_)
-    ));
 }
 
 fn temp_files(dir: &std::path::Path) -> Vec<String> {
@@ -247,7 +190,7 @@ fn a_save_leaves_no_temp_file_behind() {
 #[test]
 fn a_write_that_fails_part_way_leaves_no_temp_file_and_the_previous_cache_intact() {
     let dir = tempfile::tempdir().unwrap();
-    let final_path = dir.path().join("cpg-cache.bin");
+    let final_path = dir.path().join("cpg-cache-v2.bin");
     fs::write(&final_path, b"previous").unwrap();
     let after_called = std::cell::Cell::new(false);
     let result = super::publish_file(
@@ -278,7 +221,7 @@ fn a_write_that_fails_part_way_leaves_no_temp_file_and_the_previous_cache_intact
 
 #[test]
 fn a_rename_that_fails_removes_the_temp_file_and_reports_the_error() {
-    // `cpg-cache.bin` is a non-empty directory, so the final rename cannot succeed.
+    // `cpg-cache-v2.bin` is a non-empty directory, so the final rename cannot succeed.
     let dir = tempfile::tempdir().unwrap();
     let (cpg, hashes) = fixture();
     let blocker = cache_bin_path(dir.path());
@@ -334,7 +277,7 @@ fn a_save_skips_when_another_writer_holds_the_directory_lock() {
     save_cache(&cpg, &hashes, false, dir.path()).unwrap();
 
     assert!(fs::read(cache_bin_path(dir.path())).unwrap() == planted);
-    assert!(!dir.path().join("cpg-cache.bin.tmp").exists());
+    assert!(!dir.path().join("cpg-cache-v2.bin.tmp").exists());
     assert_eq!(temp_files(dir.path()), Vec::<String>::new());
     drop(other);
 }
@@ -361,7 +304,7 @@ fn a_save_after_the_other_writer_lets_go_writes_the_cache() {
 fn an_orphan_temp_file_of_any_age_is_overwritten_by_the_next_save() {
     let dir = tempfile::tempdir().unwrap();
     let (cpg, hashes) = fixture();
-    let orphan = dir.path().join("cpg-cache.bin.tmp");
+    let orphan = dir.path().join("cpg-cache-v2.bin.tmp");
     fs::write(&orphan, vec![0xAB; 4096]).unwrap();
 
     save_cache(&cpg, &hashes, false, dir.path()).unwrap();
@@ -429,7 +372,7 @@ fn a_load_removes_an_orphan_temp_file_when_no_writer_holds_the_lock() {
         load_cache(&hashes, false, dir.path()),
         CacheResult::Hit(_)
     ));
-    let orphan = dir.path().join("cpg-cache.bin.tmp");
+    let orphan = dir.path().join("cpg-cache-v2.bin.tmp");
     fs::write(&orphan, vec![0xCD; 4096]).unwrap();
 
     // The orphan changes nothing about what the load returns.
@@ -450,7 +393,7 @@ fn a_load_removes_an_orphan_temp_file_when_no_writer_holds_the_lock() {
 #[test]
 fn a_load_removes_an_orphan_temp_file_even_when_there_is_no_cache() {
     let dir = tempfile::tempdir().unwrap();
-    let orphan = dir.path().join("cpg-cache.bin.tmp");
+    let orphan = dir.path().join("cpg-cache-v2.bin.tmp");
     drop(hold_lock(dir.path()));
     fs::write(&orphan, b"x").unwrap();
     assert!(matches!(
@@ -465,7 +408,7 @@ fn a_load_leaves_the_temp_file_of_a_live_writer() {
     let dir = tempfile::tempdir().unwrap();
     let (cpg, hashes) = fixture();
     save_cache(&cpg, &hashes, false, dir.path()).unwrap();
-    let orphan = dir.path().join("cpg-cache.bin.tmp");
+    let orphan = dir.path().join("cpg-cache-v2.bin.tmp");
     fs::write(&orphan, b"half-written").unwrap();
 
     let writer = hold_lock(dir.path());
@@ -480,7 +423,7 @@ fn a_load_leaves_the_temp_file_of_a_live_writer() {
 #[test]
 fn a_load_without_a_lock_file_leaves_the_temp_file_and_creates_no_lock_file() {
     let dir = tempfile::tempdir().unwrap();
-    let orphan = dir.path().join("cpg-cache.bin.tmp");
+    let orphan = dir.path().join("cpg-cache-v2.bin.tmp");
     fs::write(&orphan, b"x").unwrap();
     let _ = load_cache(&BTreeMap::new(), false, dir.path());
     assert!(orphan.exists());
@@ -509,7 +452,7 @@ fn an_operational_lock_error_skips_the_save_and_touches_no_temp_file() {
         let (cpg, hashes) = fixture();
         let previous = b"previous cache".to_vec();
         fs::write(cache_bin_path(dir.path()), &previous).unwrap();
-        let live_temp = dir.path().join("cpg-cache.bin.tmp");
+        let live_temp = dir.path().join("cpg-cache-v2.bin.tmp");
         fs::write(&live_temp, b"another writer, half written").unwrap();
         let writer = hold_lock(dir.path());
 
@@ -581,7 +524,7 @@ fn a_lock_file_this_user_cannot_write_still_serializes_and_saves() {
 fn the_follow_up_to_a_publish_runs_under_the_lock_and_gets_the_size() {
     // The metadata is written by the locked saver, so it describes the file just published.
     let dir = tempfile::tempdir().unwrap();
-    let final_path = dir.path().join("cpg-cache.bin");
+    let final_path = dir.path().join("cpg-cache-v2.bin");
     let lock_path = dir.path().join(LOCK_NAME);
     let seen = std::cell::Cell::new(None);
     let written = super::publish_file(
@@ -605,7 +548,7 @@ fn the_follow_up_to_a_publish_runs_under_the_lock_and_gets_the_size() {
 #[test]
 fn a_skipped_publish_runs_no_follow_up() {
     let dir = tempfile::tempdir().unwrap();
-    let final_path = dir.path().join("cpg-cache.bin");
+    let final_path = dir.path().join("cpg-cache-v2.bin");
     let holder = hold_lock(dir.path());
     let called = std::cell::Cell::new(false);
     let written = super::publish_file(

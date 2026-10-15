@@ -351,8 +351,9 @@ spelling per message). Settings a client sends in the preamble are a `ClientSett
 wait above 600 s. A change to what goes into the key or to the preamble's wire text bumps
 `SHARED_PROTOCOL_VERSION`.
 
-Shared-daemon core (`src/mcp/daemon/`, Unix only; it has no production caller until the accept
-loop of a later slice): `coordinator.rs` holds `DaemonState`, which is a control plane
+Shared daemon (`src/mcp/daemon/`, Unix only; `prism-mcp daemon --repo X [--cache-dir D]
+[--refresh-policy P] [--warm-at-startup] [--idle-ttl S] [--max-clients N] [--key HEX]`, internal,
+started by the shim of a later slice): `coordinator.rs` holds `DaemonState`, which is a control plane
 (`Mutex<ControlState>` and one `Condvar`: the build phase `Idle | Building | Ready | Failed`, the
 attempt count, the parked calls, the generation of the provider in the slot) and a provider slot
 (`RwLock<Option<SessionProvider>>`). `ensure_ready` picks its build attempt once and waits for
@@ -365,8 +366,13 @@ is retried by the next call from a connection with no unheard failure, once howe
 arrive, and the build thread puts the provider in the slot and records its generation
 before it announces `Ready`. The generation is recorded under the slot's write guard at
 publication and after every exclusive access, so it is the slot's whatever the phase. Lock order: code holding the control lock
-does not touch the slot; code holding the slot may take the control lock. A poisoned lock is the
-`Poisoned` error and is never unwrapped; there is no panic boundary yet. Time is the injected
+does not touch the slot; code holding the slot may take the control lock. A panic in a query or
+a refresh (`read`, `write`), on the build thread, or in the control plane (`ensure_ready`,
+`status`, the `--warm-at-startup` start), and a lock found poisoned, end the daemon through
+`Parts::on_fatal` (`fatal.rs`: a `FatalOnUnwind` guard made right after each entry takes its
+lock; production `abort_daemon` writes one line to stderr and
+aborts, so every attached client sees its connection end); nothing is read through a poisoned
+lock, and a test installs a `FatalLog` instead of the abort. Time is the injected
 `Clock` (`clock.rs`), so tests move a manual clock and never sleep to order events.
 `control.rs` holds the types the control lock guards (`BuildPhase`, `ControlState`,
 `AttemptOutcome`, `BuildStatus`) and `Answer`, what `ensure_ready` tells a call: `Ready`,
@@ -383,8 +389,39 @@ stale evidence a refresh recorded outranks a clean stamp probe for every client.
 index is ready a call gets the in-process server's `warming` or `build_failed` result; a
 `Superseded` call gets the daemon's own retryable `indexing` status (retry in
 `INDEXING_RETRY_AFTER_SECS`; ignore it if a retry already succeeded), which the in-process
-server never sends. Not there yet (the next slice): the re-check of an automatic refresh after
-exclusive access is acquired, and panic boundaries.
+server never sends. Under an automatic refresh policy a query that found the index stale asks
+the read's question again once it holds the write lock: one that now finds the index current
+(another client refreshed in between) is answered as a read, so clients that race on one stale
+index refresh it once, and one that still finds it stale (sticky evidence included) refreshes.
+The query after a refresh runs under the same write lock, so a response and the refresh
+generation it reports are one snapshot's. No lock is held while a response is written: a client
+that stops reading stalls only its own connection. A panic anywhere else on a connection's
+thread (framing, the readiness answers, writing a response) ends that connection only:
+`serve_bounded` turns it into an error and the daemon goes on.
+Admission and retirement (`admission.rs`) are entries of the control plane: each takes the lock
+through `DaemonState::control_plane`, whose `ControlPlane` makes the panic guard right after the
+lock. Pending and admitted connections are counted together against `--max-clients`; the idle
+time counts from the moment both reach zero (or from the first decision, for a daemon nobody
+reaches); the drain decision is taken once (idle TTL passed with no build running, or forced)
+and the socket's unlink runs inside it, so nothing is admitted after it. A warm daemon's
+connection starts holding the startup attempt (`budget_for`), so a startup build that failed
+before its first call is reported as the in-process server reports it. `files.rs` owns a key's
+files: the owner lock (`flock`, held for the daemon's life; a second claimant is told `Taken` and
+touches none of the owner's files), the socket (a stale one is replaced by the owner, and the
+owner removes it only while it is still the one it bound), and the pid file; every file but the
+socket is opened through the validated runtime directory's descriptor with `O_NOFOLLOW`, and lock
+files are created with `O_EXCL` and never removed.
+`server.rs` is the accept loop, one thread polling the listener and every pending connection:
+a peer of another uid (`peer.rs`) is dropped before any reply and never counted; a pending
+connection's `HELLO` is read from a non-blocking socket against its own deadline (10 s) and
+answered `READY` (then a worker thread runs `serve_admitted` and releases the admission when it
+returns), `MISMATCH` (another identity or protocol version), `BUSY` (over `--max-clients`), or
+nothing (a refused line). The root's device and inode and the daemon's own files are checked on
+every admission and every 5 s; a change, SIGTERM/SIGINT, or the idle retirement drains the
+daemon: socket unlinked under the control lock, `RETIRING` to everything still pending or queued,
+pid file removed, owner lock released, exit 0. `run.rs` is `run_daemon`: resolve the identity
+(refusing a `--key` that differs), own the key or exit 0 silently, bind, write the pid file,
+serve. `log.rs` caps the daemon's own lines (log truncated at start over 1 MiB, capped at 8 MiB).
 
 Algorithms fall into two categories:
 1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`
