@@ -1,6 +1,6 @@
 {
- "lane": "js LeftFlow condition walk bounded at projection-only Defs (PR #404, r1 fold 2026-10-14)",
- "source": "PR #404 report + round-1 review fold (controller-saved)",
+ "lane": "js LeftFlow condition walk bounded at projection-only Defs (PR #404, r2 fold 2026-10-14)",
+ "source": "PR #404 report + round-1/round-2 review folds (controller-saved)",
  "lib_test_prefixes": [
   "cpg::"
  ],
@@ -28,8 +28,8 @@
   ],
   "LF-03-fallback-ignores-projection-cut": [
    "src/algorithms/left_flow.rs",
-   "dfg_covered_conds.contains(var_name) && !projection_cut_conds.contains(var_name)",
-   "dfg_covered_conds.contains(var_name)",
+   "if dfg_covered_conds.contains(var_name) && !projection_cut {",
+   "if dfg_covered_conds.contains(var_name) {",
    [
     "cpg::member_only_param_leftflow_tests::a_field_condition_never_reaches_a_local_derived_from_a_sibling_field",
     "cpg::member_only_param_leftflow_tests::controls_whole_parameter_bare_formal_and_same_field_reads_are_unchanged",
@@ -65,7 +65,24 @@
    "                matches!(edge.weight(), CpgEdge::DataFlow(_))\n                    && self.node_is_projection_only_def(edge.source())\n",
    "                matches!(edge.weight(), CpgEdge::DataFlow(_))\n",
    [
-    "cpg::member_only_param_leftflow_tests::a_condition_on_a_formal_fed_by_a_field_argument_keeps_its_dfg_answer"
+    "cpg::member_only_param_leftflow_tests::a_condition_on_a_formal_fed_by_a_field_argument_keeps_its_dfg_answer",
+    "cpg::member_only_param_leftflow_tests::projection_read_query_is_true_only_for_a_use_fed_by_a_projection_only_def"
+   ]
+  ],
+  "LF-08-cut-on-any-projection-read-not-every": [
+   "src/algorithms/left_flow.rs",
+   "projection_read_conds.contains(var_name) && !plain_read_conds.contains(var_name);",
+   "projection_read_conds.contains(var_name);",
+   [
+    "cpg::member_only_param_leftflow_tests::a_field_read_inside_a_call_argument_or_assignment_keeps_the_dfg_answer"
+   ]
+  ],
+  "LF-09-plain-reads-never-recorded": [
+   "src/algorithms/left_flow.rs",
+   "                            plain_read_conds.insert(var_name.clone());\n",
+   "",
+   [
+    "cpg::member_only_param_leftflow_tests::a_field_read_inside_a_call_argument_or_assignment_keeps_the_dfg_answer"
    ]
   ]
  }

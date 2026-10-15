@@ -327,3 +327,99 @@ fn disclosed_residual_a_local_derived_from_the_conditions_own_field_is_not_reach
         }
     }
 }
+
+// 4. PR #404 round-2 fold: the cut reproduces pre-#390's fallback decision -------------
+
+#[test]
+fn a_field_read_inside_a_call_argument_or_assignment_keeps_the_dfg_answer() {
+    // Opus r2 W1 (WRONG): pre-#390 already had Use nodes for a field read inside a call
+    // argument or an assignment RHS, so the condition skipped the name fallback and
+    // excluded the sibling lines 2 (`const v = p.y`) and 7 (`b(p.z)`). The cut fires only
+    // when every condition Use of the variable is a projection read. Pre-#390 output.
+    for (shape, condition, is_async) in [
+        ("call", "isOk(p.x, 2)", false),
+        ("assign", "w = p.x", false),
+        ("await", "await g(p.x)", true),
+        ("nested-call", "f(g(p.x))", false),
+        ("call-one-arg", "g(p.x)", false),
+    ] {
+        let template = format!(
+            "{}function h({{P}}) {{\n  const v = p.y;\n  if ({condition}) {{\n    a();\n  }}\n  sinkC(v);\n  b(p.z);\n}}\n",
+            if is_async { "async " } else { "" }
+        );
+        for language in JS_TS {
+            for (algorithm, lines) in three(
+                language,
+                &render(language, &template, "p"),
+                3,
+                "p.x == null",
+            ) {
+                assert_eq!(lines, set(&[1, 3, 8]), "{language:?} {algorithm} {shape}");
+            }
+        }
+    }
+    // A later read of the condition's own field is not added either (pre-#390 output).
+    let own_read = "function h({P}) {\n  const v = p.y;\n  if (ok(p.x)) {\n    a();\n  }\n  use(p.x);\n  sinkC(v);\n}\n";
+    for language in JS_TS {
+        for (algorithm, lines) in
+            three(language, &render(language, own_read, "p"), 3, "p.x == null")
+        {
+            assert_eq!(lines, set(&[1, 3, 8]), "{language:?} {algorithm} own-read");
+        }
+    }
+}
+
+#[test]
+fn positive_call_shaped_conditions_keep_their_dfg_answer() {
+    // Opus r2 S1: a plain local inside a call condition keeps its DFG use (line 6), and
+    // a condition mixing a bare projection read with a call-argument read keeps the
+    // DFG answer (one Use is not a projection read), as on every build since pre-#390.
+    let local = "function h() {\n  let n = mk();\n  if (ok(n)) {\n    a();\n  }\n  use(n);\n}\n";
+    let mixed = "function h({P}) {\n  const v = p.y;\n  if (p.x && ok(p.x)) {\n    a();\n  }\n  sinkC(v);\n  b(p.z);\n}\n";
+    for language in JS_TS {
+        for (algorithm, lines) in three(language, local, 3, "n != null") {
+            assert_eq!(
+                lines,
+                set(&[1, 2, 3, 6, 7]),
+                "{language:?} {algorithm} local"
+            );
+        }
+        for (algorithm, lines) in three(language, &render(language, mixed, "p"), 3, "p.x == null") {
+            assert_eq!(lines, set(&[1, 3, 8]), "{language:?} {algorithm} mixed");
+        }
+    }
+}
+
+#[test]
+fn projection_read_query_is_true_only_for_a_use_fed_by_a_projection_only_def() {
+    // Opus r2 S2: LeftFlow only ever passes a Use, so no slice input reaches the
+    // `kind != Use` guard; exercise it through the query directly.
+    let src = "function h(p) {\n  if (p.x) {\n    a();\n  }\n  let n = 1;\n  use(n);\n}\n";
+    let files = BTreeMap::from([(
+        "m.js".to_string(),
+        crate::ast::ParsedFile::parse("m.js", src, Language::JavaScript).unwrap(),
+    )]);
+    let ctx = crate::cpg::CpgContext::build(&files, None);
+    let loc_at = |line: usize, base: &str, use_kind: bool| {
+        ctx.cpg
+            .nodes_at("m.js", line)
+            .into_iter()
+            .filter_map(|idx| ctx.cpg.to_var_location(idx))
+            .find(|l| {
+                l.path.base == base && (l.kind == crate::data_flow::VarAccessKind::Use) == use_kind
+            })
+            .unwrap_or_else(|| panic!("no {base} at line {line}"))
+    };
+    let base_def = loc_at(1, "p", false);
+    assert!(ctx.cpg.dfg_is_projection_only_def(&base_def));
+    assert!(
+        !ctx.cpg.dfg_use_reads_projection_only_def(&base_def),
+        "a Def is never a projection read"
+    );
+    assert!(ctx
+        .cpg
+        .dfg_use_reads_projection_only_def(&loc_at(2, "p", true)));
+    assert!(!ctx
+        .cpg
+        .dfg_use_reads_projection_only_def(&loc_at(6, "n", true)));
+}
