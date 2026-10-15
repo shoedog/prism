@@ -1,3 +1,4 @@
+// Match production stack budgets for case setup, CPG builds and nested Rayon work.
 use super::common::*;
 use prism::data_flow::test_support::assert_corpus;
 use std::path::PathBuf;
@@ -59,7 +60,9 @@ pub fn check(name: &str, files: &BTreeMap<String, ParsedFile>) {
 macro_rules! fixtures {
     ($($name:ident => $path:literal,)*) => {
         $(#[test] fn $name() {
-            check(&format!("fixture-{}",$path.replace('/',"__")), &BTreeMap::from([($path.into(),parsed($path))]));
+            prism::build_pool::install(|| {
+                check(&format!("fixture-{}",$path.replace('/',"__")), &BTreeMap::from([($path.into(),parsed($path))]));
+            });
         })*
         const REGISTERED: &[&str] = &[$($path,)*];
     };
@@ -177,34 +180,38 @@ fixtures! {
 }
 #[test]
 fn fixture_census_and_multifile_storage() {
-    let mut paths = Vec::new();
-    fixture_paths(Path::new("tests/fixtures"), &mut paths);
-    let registered: BTreeSet<_> = REGISTERED.iter().map(PathBuf::from).collect();
-    assert_eq!(
-        paths.iter().cloned().collect::<BTreeSet<_>>(),
-        registered,
-        "register every fixture as a named case"
-    );
-    let mut counts = BTreeMap::new();
-    let mut files = BTreeMap::new();
-    for p in paths {
-        let path = p.to_str().unwrap();
-        *counts
-            .entry(format!("{:?}", Language::from_path(path).unwrap()))
-            .or_insert(0usize) += 1;
-        files.insert(path.into(), parsed(path));
-    }
-    eprintln!("DFG_FIXTURES {:?}", counts);
-    prism::data_flow::test_support::assert_storage_assembly(&files);
-    super::outputs::assert_assembly("fixture-tree", &files);
+    prism::build_pool::install(|| {
+        let mut paths = Vec::new();
+        fixture_paths(Path::new("tests/fixtures"), &mut paths);
+        let registered: BTreeSet<_> = REGISTERED.iter().map(PathBuf::from).collect();
+        assert_eq!(
+            paths.iter().cloned().collect::<BTreeSet<_>>(),
+            registered,
+            "register every fixture as a named case"
+        );
+        let mut counts = BTreeMap::new();
+        let mut files = BTreeMap::new();
+        for p in paths {
+            let path = p.to_str().unwrap();
+            *counts
+                .entry(format!("{:?}", Language::from_path(path).unwrap()))
+                .or_insert(0usize) += 1;
+            files.insert(path.into(), parsed(path));
+        }
+        eprintln!("DFG_FIXTURES {:?}", counts);
+        prism::data_flow::test_support::assert_storage_assembly(&files);
+        super::outputs::assert_assembly("fixture-tree", &files);
+    });
 }
 macro_rules! generator {
     ($test:ident,$name:literal,$make:ident) => {
         #[test]
         fn $test() {
-            let (files, diff) = $make().pair();
-            check(concat!("generator-", $name), &files);
-            let _ = diff;
+            prism::build_pool::install(|| {
+                let (files, diff) = $make().pair();
+                check(concat!("generator-", $name), &files);
+                let _ = diff;
+            });
         }
     };
 }
@@ -230,88 +237,96 @@ pub fn explicit(path: &str, src: &str, lang: Language) -> BTreeMap<String, Parse
 }
 #[test]
 fn generator_lua() {
-    check(
-        "generator-lua",
-        &explicit(
-            "compact.lua",
-            "local function f(x)\n local y = x\n return y\nend\n",
-            Language::Lua,
-        ),
-    );
+    prism::build_pool::install(|| {
+        check(
+            "generator-lua",
+            &explicit(
+                "compact.lua",
+                "local function f(x)\n local y = x\n return y\nend\n",
+                Language::Lua,
+            ),
+        );
+    });
 }
 #[test]
 fn generator_rust() {
-    check(
-        "generator-rust",
-        &explicit(
-            "compact.rs",
-            "fn f(x: i32) -> i32 { let y = x; y }",
-            Language::Rust,
-        ),
-    );
+    prism::build_pool::install(|| {
+        check(
+            "generator-rust",
+            &explicit(
+                "compact.rs",
+                "fn f(x: i32) -> i32 { let y = x; y }",
+                Language::Rust,
+            ),
+        );
+    });
 }
 #[test]
 fn helper_builders() {
-    let py = "def f(x):\n    return x\n";
-    let rs = "fn f(x: i32) -> i32 { x }";
-    let p = explicit("test.py", py, Language::Python);
-    let r = explicit("test.rs", rs, Language::Rust);
-    for (name, files, graph) in [
-        ("helper-python", p, build_python_cpg(py)),
-        ("helper-rust", r, build_rust_cpg(rs)),
-    ] {
-        check(&format!("generator-{name}"), &files);
+    prism::build_pool::install(|| {
+        let py = "def f(x):\n    return x\n";
+        let rs = "fn f(x: i32) -> i32 { x }";
+        let p = explicit("test.py", py, Language::Python);
+        let r = explicit("test.rs", rs, Language::Rust);
+        for (name, files, graph) in [
+            ("helper-python", p, build_python_cpg(py)),
+            ("helper-rust", r, build_rust_cpg(rs)),
+        ] {
+            check(&format!("generator-{name}"), &files);
+            assert_eq!(
+                super::outputs::cpg_bytes(&graph),
+                super::outputs::cpg_bytes(&CodePropertyGraph::build(&files))
+            );
+        }
         assert_eq!(
-            super::outputs::cpg_bytes(&graph),
-            super::outputs::cpg_bytes(&CodePropertyGraph::build(&files))
+            super::outputs::cpg_bytes(&build_cpg("test.py", py, Language::Python)),
+            super::outputs::cpg_bytes(&build_python_cpg(py))
         );
-    }
-    assert_eq!(
-        super::outputs::cpg_bytes(&build_cpg("test.py", py, Language::Python)),
-        super::outputs::cpg_bytes(&build_python_cpg(py))
-    );
+    });
 }
 #[test]
 fn twelve_languages() {
-    let cases = [
-        make_python_test(),
-        make_javascript_test(),
-        make_go_test(),
-        make_java_test(),
-        make_typescript_test(),
-        make_c_test(),
-        make_c_multifile_test(),
-        make_cpp_test(),
-        make_tsx_test(),
-        make_terraform_test(),
-        make_bash_test(),
-    ];
-    let mut seen = BTreeSet::new();
-    for (files, _, _) in cases {
-        for p in files.keys() {
-            seen.insert(format!("{:?}", Language::from_path(p).unwrap()));
+    prism::build_pool::install(|| {
+        let cases = [
+            make_python_test(),
+            make_javascript_test(),
+            make_go_test(),
+            make_java_test(),
+            make_typescript_test(),
+            make_c_test(),
+            make_c_multifile_test(),
+            make_cpp_test(),
+            make_tsx_test(),
+            make_terraform_test(),
+            make_bash_test(),
+        ];
+        let mut seen = BTreeSet::new();
+        for (files, _, _) in cases {
+            for p in files.keys() {
+                seen.insert(format!("{:?}", Language::from_path(p).unwrap()));
+            }
         }
-    }
-    seen.insert(format!("{:?}", Language::Lua));
-    seen.insert(format!("{:?}", Language::Rust));
-    assert_eq!(
-        seen,
-        BTreeSet::from_iter(
-            [
-                "Python",
-                "JavaScript",
-                "TypeScript",
-                "Tsx",
-                "Go",
-                "Java",
-                "C",
-                "Cpp",
-                "Rust",
-                "Lua",
-                "Terraform",
-                "Bash"
-            ]
-            .map(str::to_string)
-        )
-    );
+        seen.insert(format!("{:?}", Language::Lua));
+        seen.insert(format!("{:?}", Language::Rust));
+        assert_eq!(
+            seen,
+            BTreeSet::from_iter(
+                [
+                    "Python",
+                    "JavaScript",
+                    "TypeScript",
+                    "Tsx",
+                    "Go",
+                    "Java",
+                    "C",
+                    "Cpp",
+                    "Rust",
+                    "Lua",
+                    "Terraform",
+                    "Bash"
+                ]
+                .map(str::to_string)
+            )
+        );
+    });
 }

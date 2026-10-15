@@ -304,15 +304,19 @@ macro_rules! dispatch {
     ($test:ident,$name:literal,$make:ident,normal) => {
         #[test]
         fn $test() {
-            let (f, _, d) = $make();
-            dispatch_case($name, &f, &d);
+            prism::build_pool::install(|| {
+                let (f, _, d) = $make();
+                dispatch_case($name, &f, &d);
+            });
         }
     };
     ($test:ident,$name:literal,$make:ident,security) => {
         #[test]
         fn $test() {
-            let (f, d) = $make();
-            dispatch_case($name, &f, &d);
+            prism::build_pool::install(|| {
+                let (f, d) = $make();
+                dispatch_case($name, &f, &d);
+            });
         }
     };
 }
@@ -360,19 +364,23 @@ dispatch!(
 );
 #[test]
 fn dispatch_lua() {
-    explicit_dispatch(
-        "compact.lua",
-        "local function f(x)\n local y = x\n return y\nend\n",
-        Language::Lua,
-    );
+    prism::build_pool::install(|| {
+        explicit_dispatch(
+            "compact.lua",
+            "local function f(x)\n local y = x\n return y\nend\n",
+            Language::Lua,
+        );
+    });
 }
 #[test]
 fn dispatch_rust() {
-    explicit_dispatch(
-        "compact.rs",
-        "fn f(x: i32) -> i32 { let y = x; y }",
-        Language::Rust,
-    );
+    prism::build_pool::install(|| {
+        explicit_dispatch(
+            "compact.rs",
+            "fn f(x: i32) -> i32 { let y = x; y }",
+            Language::Rust,
+        );
+    });
 }
 fn explicit_dispatch(path: &str, source: &str, language: Language) {
     let files = super::corpus::explicit(path, source, language);
@@ -387,68 +395,70 @@ fn explicit_dispatch(path: &str, source: &str, language: Language) {
 }
 #[test]
 fn expected_dispatch_errors_are_not_successes() {
-    let repo = TempDir::new().unwrap();
-    let (files, _, diff) = make_python_test();
-    write_sources(repo.path(), &files);
-    let inputs = loaded(repo.path(), &files, &diff);
-    let ctx = CpgContext::build(&files, None);
-    for (algorithm, fragment) in [
-        (SlicingAlgorithm::Chop, "--chop-source required"),
-        (SlicingAlgorithm::ConditionedSlice, "--condition required"),
-        (SlicingAlgorithm::DeltaSlice, "--old-repo required"),
-    ] {
-        let run = run_review(
-            &ctx,
-            &inputs,
-            &[algorithm],
-            &SliceConfig::default(),
-            &AlgorithmParams::default(),
-            repo.path(),
-        );
-        assert!(run.results.is_empty());
-        assert_eq!(run.errors.len(), 1);
-        assert!(run.errors[0].error.contains(fragment), "{:?}", run.errors);
-    }
-    for (algorithm, p, fragment) in [
-        (
-            SlicingAlgorithm::Chop,
-            {
-                let mut p = AlgorithmParams::default();
-                p.chop_source = Some("src/calc.py:1".into());
-                p
-            },
-            "--chop-sink required",
-        ),
-        (
-            SlicingAlgorithm::Chop,
-            {
-                let mut p = AlgorithmParams::default();
-                p.chop_source = Some("bad".into());
-                p.chop_sink = Some("a.py:1".into());
-                p
-            },
-            "file:line",
-        ),
-        (
-            SlicingAlgorithm::ConditionedSlice,
-            {
-                let mut p = AlgorithmParams::default();
-                p.condition = Some("???".into());
-                p
-            },
-            "Failed to parse condition",
-        ),
-    ] {
-        let run = run_review(
-            &ctx,
-            &inputs,
-            &[algorithm],
-            &SliceConfig::default(),
-            &p,
-            repo.path(),
-        );
-        assert!(run.results.is_empty());
-        assert_eq!(run.errors.len(), 1);
-        assert!(run.errors[0].error.contains(fragment), "{:?}", run.errors);
-    }
+    prism::build_pool::install(|| {
+        let repo = TempDir::new().unwrap();
+        let (files, _, diff) = make_python_test();
+        write_sources(repo.path(), &files);
+        let inputs = loaded(repo.path(), &files, &diff);
+        let ctx = CpgContext::build(&files, None);
+        for (algorithm, fragment) in [
+            (SlicingAlgorithm::Chop, "--chop-source required"),
+            (SlicingAlgorithm::ConditionedSlice, "--condition required"),
+            (SlicingAlgorithm::DeltaSlice, "--old-repo required"),
+        ] {
+            let run = run_review(
+                &ctx,
+                &inputs,
+                &[algorithm],
+                &SliceConfig::default(),
+                &AlgorithmParams::default(),
+                repo.path(),
+            );
+            assert!(run.results.is_empty());
+            assert_eq!(run.errors.len(), 1);
+            assert!(run.errors[0].error.contains(fragment), "{:?}", run.errors);
+        }
+        for (algorithm, p, fragment) in [
+            (
+                SlicingAlgorithm::Chop,
+                {
+                    let mut p = AlgorithmParams::default();
+                    p.chop_source = Some("src/calc.py:1".into());
+                    p
+                },
+                "--chop-sink required",
+            ),
+            (
+                SlicingAlgorithm::Chop,
+                {
+                    let mut p = AlgorithmParams::default();
+                    p.chop_source = Some("bad".into());
+                    p.chop_sink = Some("a.py:1".into());
+                    p
+                },
+                "file:line",
+            ),
+            (
+                SlicingAlgorithm::ConditionedSlice,
+                {
+                    let mut p = AlgorithmParams::default();
+                    p.condition = Some("???".into());
+                    p
+                },
+                "Failed to parse condition",
+            ),
+        ] {
+            let run = run_review(
+                &ctx,
+                &inputs,
+                &[algorithm],
+                &SliceConfig::default(),
+                &p,
+                repo.path(),
+            );
+            assert!(run.results.is_empty());
+            assert_eq!(run.errors.len(), 1);
+            assert!(run.errors[0].error.contains(fragment), "{:?}", run.errors);
+        }
+    });
 }

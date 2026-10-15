@@ -32,7 +32,7 @@ Scope: Task 1 only. Controller owns commits and review (two-round cap).
 - Parent capture prediction: adapter compiles and emits one payload per source. Falsifier: Rust errors or no payloads; alternative: harness schema error rather than production defect. Observed inadmissible tuple-shape errors: normal common generators return triples, security generators pairs. Separate loops; normalize only test driver interfaces. This is no observation about DFG behavior.
 - Ruling: Normalize generator tuples in drivers — plan pseudocode mixes pair/triple signatures; production generators remain unchanged — cost if wrong: omitted sources/diffs could weaken output cases; explicit named cases and census protect population.
 - Parent stack probe: capture test overflowed its default test-thread stack before first payload. Hypothesis: large debug stack frames (generator array / CPG build), alternative: unbounded recursion on a fixture. Prediction with RUST_MIN_STACK=16777216: completed named captures supports stack-budget cause; repeated overflow at one source falsifies and identifies recursion candidate. Add per-case breadcrumbs before rerunning; no production change.
-- Ruling: Increase test-thread stack to 16 MiB for parent/candidate corpus and suites if required — baseline debug capture overflowed default stack; no production stack setting changes — cost if wrong: hides a real unbounded-recursion defect; retain case breadcrumbs and source control.
+- Ruling (SUPERSEDED by Fix 1 for current oracle tests; retained as historical evidence): Increase test-thread stack to 16 MiB for parent/candidate corpus and suites if required — baseline debug capture overflowed default stack; no production stack setting changes — cost if wrong: hides a real unbounded-recursion defect; retain case breadcrumbs and source control.
 - Parent control GREEN: 131 SerializedCpg payloads captured before extraction (109 fixtures + whole tree + 17 common generators + Lua/Rust + two helper cases); parent test 1 passed, 0 failed, 32.51s. Raw bytes/manifests/adapter hash retained in .review/dfg-A. 16 MiB stack completed all cases, separating finite stack budget from the proposed unbounded-recursion alternative. Correction: one bash payload existed before the earlier overflow, not zero; earlier wording was provisional.
 - RED prediction: umbrella cannot import missing oracle/support APIs; unrelated generator-schema errors would be inadmissible scaffold evidence.
 - Scaffold RED observed exactly: E0432/E0433 missing data_flow::test_support and cpg::dfg_compaction_support (4 errors), no tuple/schema errors; .review/dfg-compaction/logs/t1-red.log. Compile RED is scaffold evidence only.
@@ -193,3 +193,57 @@ Implementation HEAD and index remain at cc2e612c; no implementation staging/comm
 - Return-guard probe prediction: corrupting only the render-source text from return to __removed__ must fail the new contains(return) assertion; a compile error/empty selection is inadmissible and a pass falsifies coverage. Restore the exact source map before GREEN and full gates.
 
 - Hook follow-up GREEN: return rendering mutant failed contains(return), 0/1, then restored; three paired controls and all full reruns pass. Fresh counts: default 5,421/0/1; MCP 5,937/0/1 with the same 34 exclusions; oracle 154/0/0 and 1,710 successful paired rows. Exact commands and limits are now in root VERIFICATION.md. No additional runtime change or new baseline.
+
+## Fix 1 — controller gate corrections (complete; environment-limited verification)
+
+- Ruling: Relocate the 19 MO/PD producer mutants from src/data_flow.rs to src/data_flow/build/file.rs (17) and aliases.rs (2); adjust both anchor and replacement only by the extraction's eight-space dedent where necessary. Preserve all mutation tokens, test selectors, metadata and extra edits — cost if wrong: weakened mutation coverage; exact JSON population/token comparison and full catalog planning guard it.
+- Ruling: Run every corpus and output-generator test body on prism::build_pool::install (production 256 MiB stacks), including setup, helper builders, whole-tree assembly and negative dispatch cases. Remove the environment workaround from current verification/handoff instructions — cost if wrong: hidden finite-stack defects or missed case entry; existing table fixture supplies watched default-stack RED and GREEN, and the full umbrella retains all cases.
+- Ruling: Two fix/validation rounds maximum; no Git/index writes, socket binds, uv or network. Use offline Cargo and CARGO_BUILD_JOBS=4 under the owner's existing refused-nice override. Preserve Task1 artifacts, produce fix1.patch against a reconstructed task1.patch tree — cost if wrong: controller cannot apply an incremental repair; all 28 Task1 files match reconstruction before edits.
+- Baseline observations: unmodified Task1/default-stack named fixture aborts with explicit stack-overflow/SIGABRT; same source/16 MiB passes 1/0. Full planner finds exactly 19 missing anchors across 425 mutants/8 lanes. Evidence: .review/dfg-A/fix1/before-results.json, anchor-audit-before.json, hypothesis-log.md.
+- Relocation list with all IDs/old/new paths: .review/dfg-A/fix1/relocations.json. Anchor and mutant bodies retain identical non-whitespace tokens.
+- Verification pending; this entry is not a done claim.
+
+- Ruling: Keep the mutgate implementation and Git index unchanged despite the local untracked-file scope limitation. Run the exact native scoped command, then an evidence-only live-tree overlay that adds only the saved Task1 untracked src additions to its existing changed-line set. The overlay uses the unchanged selector/anchor/schema machinery and must select all exact 19 IDs; it does not certify a native committed-tree scoped run — cost if wrong: false coverage from empty selection; retain both populations and require the host native rerun after commit.
+- Planner result: exact native scoped command exits 0 but selects 0 (untracked destinations absent from git diff); this is no coverage claim. Evidence-only scoped overlay selects exactly the 19 relocated IDs, two schema units, zero static refusals/anchor-missing. Native full catalog selects all 425, zero missing anchors. See after-scoped-plan-native.log, after-full-plan.log, scoped-live-tree-population.json, after-scoped-plan-live-tree/schemata-plan.json.
+- Default-stack GREEN: the exact named table fixture now passes 1/0 with RUST_MIN_STACK explicitly removed from the subprocess environment; all test bodies keep their original assertions. Seven corpus entry forms and five output entry forms use the production pool (macro expansion covers every named case). Full suites in flight.
+
+- Full default-stack oracle GREEN: cargo test --offline --features mcp,dfg-oracle --test dfg_compaction, RUST_MIN_STACK unset, no test-thread override: 154 passed, 0 failed/ignored/filtered, 200.87s test execution. Original test code/literal bytes recovered exactly after removing only the 12 pool wrappers and one added comment; test-body-preservation.json. Production source remains byte-identical to Task1. Default/MCP suites continue sequentially.
+
+### Fix 1 final receipts
+
+| Check (RUST_MIN_STACK unset) | Passed | Failed | Ignored |
+|---|---:|---:|---:|
+| Named stack regression | 1 | 0 | 0 |
+| Full oracle umbrella | 154 | 0 | 0 |
+| Default suite (29 targets/doc tests) | 5,421 | 0 | 1 |
+| Runnable MCP suite (31 targets/doc tests; 34 socket exclusions) | 5,937 | 0 | 1 |
+
+- Formatting and whitespace checks passed. Normal scoped overlay run: 19/19 admissible KILLED, advisory schema mode; full catalog planner: 425 selected, zero missing anchors. `.review/dfg-A/fix1/after-results.json` and `mutation-result.json` preserve exact commands/environment/outcomes.
+- Both demonstrated WRONG gate conditions have bounded corrections: stale manifest anchors (exact 19 listed below) and default-stack fixture overflow. No inherited WRONG was downgraded; no mutant was weakened. Same-environment Task1 stack RED, larger-stack unchanged-source control, and fixed default-stack GREEN distinguish the stack-budget mechanism for this fixture. Every original assertion/literal survives the wrappers; existing corpus, helpers, cold/cache/refresh generator dispatches and negative expected-error cases all ran.
+- One validation round used out of the declared two. No implementation change or retry was needed after GREEN; no unrelated failure was re-baselined.
+
+| Mutant | Old path | New path | Dedent |
+|---|---|---|---|
+| MO-14-unused-formal-registers | src/data_flow.rs | src/data_flow/build/file.rs | unchanged |
+| MO-15-member-only-flag-off | src/data_flow.rs | src/data_flow/build/file.rs | unchanged |
+| MO-16-base-not-registered-for-projection | src/data_flow.rs | src/data_flow/build/file.rs | 8 spaces |
+| MO-43-kill-skip-off | src/data_flow.rs | src/data_flow/build/file.rs | 8 spaces |
+| MO-44-use-at-line-anchor | src/data_flow.rs | src/data_flow/build/file.rs | 8 spaces |
+| PD-31-own-scope-lvalue-filter-off | src/data_flow.rs | src/data_flow/build/file.rs | 8 spaces |
+| PD-32-own-scope-alias-filter-off | src/data_flow.rs | src/data_flow/build/file.rs | 8 spaces |
+| PD-33-non-reference-filter-off | src/data_flow.rs | src/data_flow/build/file.rs | 8 spaces |
+| PD-35-alias-twin-line-restriction-off | src/data_flow.rs | src/data_flow/build/aliases.rs | unchanged |
+| PD-51-rvalue-read-filter-off | src/data_flow.rs | src/data_flow/build/file.rs | 8 spaces |
+| PD-55-r1-nested-write-kill-off | src/data_flow.rs | src/data_flow/build/file.rs | unchanged |
+| PD-60-r1-alias-byte-identity-off | src/data_flow.rs | src/data_flow/build/aliases.rs | unchanged |
+| PD-61-r1-endpoint-byte-identity-off | src/data_flow.rs | src/data_flow/build/file.rs | unchanged |
+| PD-72-r2-use-occurrence-off | src/data_flow.rs | src/data_flow/build/file.rs | 8 spaces |
+| PD-75-r2-with-def-admission-off | src/data_flow.rs | src/data_flow/build/file.rs | unchanged |
+| PD-76-r2-with-use-admission-off | src/data_flow.rs | src/data_flow/build/file.rs | unchanged |
+| PD-90-r5-formal-occurrence-refusal-off | src/data_flow.rs | src/data_flow/build/file.rs | unchanged |
+| PD-92-r5-uninitialised-seam-var-off | src/data_flow.rs | src/data_flow/build/file.rs | unchanged |
+| PD-101-r9-receiver-def-and-kill-fence-off | src/data_flow.rs | src/data_flow/build/file.rs | unchanged |
+
+No implementation Git/index writes, socket binds, uv or network were attempted. The 34 socket tests in `.review/dfg-A/socket-exclusions.txt` remain excluded from MCP; default has no environment exclusions. The one existing ignored test is `resolution_test::slice_elem_variant_reserved`. Tier-A and the full 425-mutant authoritative execution remain controller work; this fix ran the requested full-catalog planner and normal advisory scoped execution. Native committed-tree scoped validation remains with the controller because this clone deliberately leaves Task1 source additions untracked. Prior Task1 host-only executable replay remains outside this repair. No production file, original pin, cache version, or mutation obligation changed.
+
+- Incremental artifact custody: fix1.patch is against the reconstructed task1.patch tree, never local HEAD's pre-Task1 tree. fix1-message.txt preserves the exact requested subject and both Task1 trailers. Source/checkpoint evidence is retained; controller must copy the fix1 evidence archive and perform authorized publication.
