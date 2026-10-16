@@ -334,6 +334,12 @@ pub(crate) fn edit_legacy_parts(g: &mut DataFlowGraph, edit: impl FnOnce(&mut Le
     });
 }
 
+/// Owned edge snapshot for existing serialization assertions; preserves order and spans.
+#[cfg(test)]
+pub(crate) fn edge_snapshot(g: &DataFlowGraph) -> Vec<super::FlowEdge> {
+    g.edges().iter().map(|e| e.to_owned()).collect()
+}
+
 /// Owned label snapshot for existing map assertions; includes retained key spans.
 #[cfg(test)]
 pub(crate) fn label_snapshot(

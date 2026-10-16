@@ -9,7 +9,7 @@
 use super::build::{compute_param_names, CodePropertyGraph};
 use super::{CpgEdge, CpgNode, FlowConfidence, VarAccess};
 use crate::ast::ParsedFile;
-use crate::data_flow::test_support::label_snapshot;
+use crate::data_flow::test_support::{edge_snapshot, label_snapshot};
 use crate::data_flow::DataFlowGraph;
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
@@ -335,22 +335,8 @@ fn optional_full_and_subset_dfg_parity() {
                 .unwrap()
         );
         assert_eq!(
-            serde_json::to_value(
-                &full
-                    .edges()
-                    .iter()
-                    .map(|e| e.to_owned())
-                    .collect::<Vec<_>>()
-            )
-            .unwrap(),
-            serde_json::to_value(
-                &subset
-                    .edges()
-                    .iter()
-                    .map(|e| e.to_owned())
-                    .collect::<Vec<_>>()
-            )
-            .unwrap()
+            serde_json::to_value(edge_snapshot(&full)).unwrap(),
+            serde_json::to_value(edge_snapshot(&subset)).unwrap()
         );
         assert_eq!(label_snapshot(&full), label_snapshot(&subset));
     }
@@ -624,22 +610,8 @@ fn optional_inert_signature_full_and_subset_dfg_parity() {
             "{language:?}: full/subset definitions"
         );
         assert_eq!(
-            serde_json::to_value(
-                &full
-                    .edges()
-                    .iter()
-                    .map(|e| e.to_owned())
-                    .collect::<Vec<_>>()
-            )
-            .unwrap(),
-            serde_json::to_value(
-                &subset
-                    .edges()
-                    .iter()
-                    .map(|e| e.to_owned())
-                    .collect::<Vec<_>>()
-            )
-            .unwrap(),
+            serde_json::to_value(edge_snapshot(&full)).unwrap(),
+            serde_json::to_value(edge_snapshot(&subset)).unwrap(),
             "{language:?}: full/subset edges"
         );
         assert_eq!(

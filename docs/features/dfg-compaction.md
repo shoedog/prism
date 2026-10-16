@@ -7,8 +7,9 @@ fields. Graph constructors and traversal/query signatures remain unchanged.
   an owned `FlowEdge`. `edges().len()` and `edges().is_empty()` preserve edge counts.
 - Use `defs()`, `uses()`, `forward()` and `backward()` for ordered key/location rows.
   Each row's `Locations` supports iteration and an explicit `to_vec()` snapshot.
+  Only `defs()` and `uses()` can contain existing empty rows.
 - Use `successors(at)` and `predecessors(at)` for legacy-identity adjacency lookup.
-  An absent key returns `None`; an existing empty row remains distinguishable.
+  An absent key returns `None`.
 - Use `label(from, to)` for an optional copied confidence, `labels()` for ordered
   endpoint/confidence rows, and `rd_function_stats()` for per-file RD counters.
 

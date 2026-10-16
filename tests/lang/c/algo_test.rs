@@ -32,7 +32,7 @@ fn test_data_flow_graph_construction() {
     let dfg = DataFlowGraph::build(&files);
 
     assert!(!dfg.edges().is_empty(), "Should have data flow edges");
-    assert!(!dfg.defs().next().is_none(), "Should have definitions");
+    assert!(dfg.defs().next().is_some(), "Should have definitions");
 }
 
 #[test]
@@ -124,7 +124,7 @@ fn test_data_flow_graph_c() {
 
     // Check that variable defs are found
     assert!(
-        !dfg.defs().next().is_none(),
+        dfg.defs().next().is_some(),
         "Data flow graph should find variable definitions in C code"
     );
 }

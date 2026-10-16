@@ -116,6 +116,7 @@ fn complete_rows(cpg: &CodePropertyGraph) -> Vec<String> {
 }
 
 fn legacy_rows(dfg: &DataFlowGraph) -> Vec<String> {
+    let labels = label_snapshot(dfg);
     let mut rows: Vec<_> = dfg
         .edges()
         .iter()
@@ -124,7 +125,7 @@ fn legacy_rows(dfg: &DataFlowGraph) -> Vec<String> {
                 "{:?}|{:?}|{:?}",
                 edge.from,
                 edge.to,
-                label_snapshot(&dfg).get(&(edge.from.clone(), edge.to.clone()))
+                labels.get(&(edge.from.clone(), edge.to.clone()))
             )
         })
         .collect();

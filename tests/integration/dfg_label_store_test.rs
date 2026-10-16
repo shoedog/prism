@@ -90,8 +90,9 @@ fn expected_step5b_labels(
 }
 
 fn assert_graph_dataflow_payloads_match_store(cpg: &CodePropertyGraph) {
+    let labels = dfg_labels(&cpg.dfg);
     for (from, to, payload) in graph_dataflow_occurrences(cpg) {
-        if let Some(label) = dfg_labels(&cpg.dfg).get(&(from.clone(), to.clone())) {
+        if let Some(label) = labels.get(&(from.clone(), to.clone())) {
             assert_eq!(
                 payload, *label,
                 "Step-4 payload diverged from dfg_labels(&dfg) for {from:?} -> {to:?}"

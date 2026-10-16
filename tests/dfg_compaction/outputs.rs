@@ -485,6 +485,26 @@ fn expected_dispatch_errors_are_not_successes() {
     });
 }
 
+#[test]
+fn cache_comparator_rejects_identical_decoded_counter_corruption() {
+    prism::build_pool::install(|| {
+        let (files, _, diff) = make_python_test();
+        let repo = committed_repo(&files);
+        let inputs = loaded(repo.path(), &files, &diff);
+        let cold = assemble_with_dfg(&files, legacy_dfg(&files));
+        let mut decoded = roundtrip(&cold, &inputs);
+        assert_cache_matches(&cold, &decoded, &decoded);
+        decoded.dfg_label_stats.dfg_label_exact += 1;
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                assert_cache_matches(&cold, &decoded, &decoded);
+            }))
+            .is_err(),
+            "identical decoded counter corruption escaped the cold reference"
+        );
+    });
+}
+
 pub(super) fn assert_cache_matches(
     cold: &CodePropertyGraph,
     a: &CodePropertyGraph,

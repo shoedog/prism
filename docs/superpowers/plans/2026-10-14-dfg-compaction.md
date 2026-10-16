@@ -1521,6 +1521,8 @@ Expected: all selected targets run, no changed output goldens, zero failures; to
 
 **Files:** scratch instrumented checkouts/binaries and `.review/dfg-compaction/acceptance/`; `scripts/dfg_compaction/compare_acceptance.py`; acceptance readout and handoff. Instrumentation is not merged into production.
 
+- [ ] **PR B round-1 S1 / PR C query timing follow-up:** measure parent/candidate query wall time on Prometheus for `--algorithm chop,taint,provenance`. The boxed `Locations` iterator allocates once per `defs()`/`uses()` row before caller key filters, including the scans in `forward_reachable` and `all_locations_at`. Report the cost alongside memory/load acceptance. If material, consider a separately bounded PR C key-range or lazily boxed row accessor; no query implementation change is folded into PR B.
+
 **Pre-registration — written before any run:** these thresholds/classifications apply to the activation candidate, including all production cleanup. Post-acceptance test-only deletion is bound to this receipt as described in Task 8, not automatically remeasured. **At most two complete base/candidate sets**: the initial set and one follow-up if invalid/noisy. Do not keep rerunning until a pass.
 
 | Reading | PASS | FAIL / INCONCLUSIVE |

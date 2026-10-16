@@ -49,7 +49,7 @@ fn delta_candidate_edges_contribute() {
 fn decoded_corruption_is_rejected_against_cold_reference() {
     use super::super::test_support::edit_legacy_parts;
     use crate::cpg::dfg_compaction_support::{fieldwise_payload, lookup_indexes};
-    use crate::cpg_cache::{compute_file_hashes, load_cache, save_cache, CacheResult};
+    use crate::cpg_cache::{compute_file_hashes, load_cache, save_cache, CacheResult, SaveOutcome};
     crate::build_pool::install(|| {
         let sources =
             BTreeMap::from([("a.py".into(), "def f(x):\n y = x + x\n return y\n".into())]);
@@ -65,7 +65,10 @@ fn decoded_corruption_is_rejected_against_cold_reference() {
         let cold = assemble_with_dfg(&files, legacy_dfg(&files));
         let cache = tempfile::tempdir().unwrap();
         let hashes = compute_file_hashes(&sources);
-        save_cache(&cold, &hashes, false, cache.path()).unwrap();
+        assert_eq!(
+            save_cache(&cold, &hashes, false, cache.path()).unwrap(),
+            SaveOutcome::Saved
+        );
         let decode = || match load_cache(&hashes, false, cache.path()) {
             CacheResult::Hit(graph) => graph,
             _ => panic!("expected full cache hit"),

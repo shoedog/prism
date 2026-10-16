@@ -178,7 +178,6 @@ fn javascript_exact_labels_survive_partial_edit_retain_delete() {
             ),
             ("b.js", None),
         ] {
-            eprintln!("DFG_UNIT_REFRESH {path} edit={}", replacement.is_some());
             match replacement {
                 Some(src) => {
                     files.insert(
