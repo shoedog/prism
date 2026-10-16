@@ -382,8 +382,8 @@ fn a_daemon_that_answers_mismatch_fails_the_shim_closed() {
         .ino();
     let expected = "f".repeat(64);
     // The fixture answers the first connection, or stops when told to (or when a failing test
-    // drops its sender); it never blocks in `accept`, so joining it cannot hang (review round 1,
-    // Opus F4).
+    // drops its sender); it never blocks in `accept`, so joining it cannot hang and a failing
+    // run leaves no thread blocked there (review round 1, Opus F4).
     let (stop_tx, stop_rx) = mpsc::channel::<()>();
     listener.set_nonblocking(true).expect("nonblocking");
     let fixture = {
