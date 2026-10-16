@@ -1,3 +1,4 @@
+mod accounting;
 mod capture;
 mod cases;
 #[path = "../common/mod.rs"]

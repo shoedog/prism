@@ -1,5 +1,5 @@
 {
-  "lane": "DFG compaction ordered accessor boundary",
+  "lane": "DFG compaction oracle, ordered views and test-only compact IDs",
   "source": "docs/superpowers/plans/2026-10-14-dfg-compaction.md",
   "lib_test_prefixes": [
     "data_flow::tests::",
@@ -78,6 +78,54 @@
       "labels\n            .entry(key)\n            .and_modify(|stored| *stored = FlowConfidence::Exact)",
       [
         "data_flow::tests::updates::labels_merge_duplicate_keys_with_the_worst_confidence"
+      ]
+    ],
+    "DFG-C-interner-collapses-byte-spans": [
+      "src/data_flow/compact/freeze.rs",
+      "self.rows.get(&key)",
+      "self.rows.iter().find(|(k, _)| k.as_legacy() == key.as_legacy()).map(|(_, id)| id)",
+      [
+        "data_flow::tests::identity::legacy_identity_excludes_bytes_exact_identity_does_not"
+      ]
+    ],
+    "DFG-C-occurrence-order-used-for-legacy-ranks": [
+      "src/data_flow/compact/arena.rs",
+      "rows[a.0 as usize].cmp(&rows[b.0 as usize])",
+      "exact_cmp(&rows[a.0 as usize], &rows[b.0 as usize])",
+      [
+        "data_flow::tests::identity::kind_precedes_bytes_only_in_legacy_order"
+      ]
+    ],
+    "DFG-C-map-key-replaced-by-canonical-representative": [
+      "src/data_flow/compact/mod.rs",
+      "representative: key,",
+      "representative: a.legacy_reps[a.group(key).0 as usize],",
+      [
+        "data_flow::tests::representatives::map_representatives_are_independent"
+      ]
+    ],
+    "DFG-D-removal-ignores-edge-target": [
+      "src/data_flow/compact/update.rs",
+      "g.edges\n        .retain(|&(f, t)| !excluded.contains(&a.get(f).file) && !excluded.contains(&a.get(t).file));",
+      "g.edges\n        .retain(|&(f, _t)| !excluded.contains(&a.get(f).file));",
+      [
+        "data_flow::tests::updates::removal_uses_map_key_file_and_either_edge_endpoint"
+      ]
+    ],
+    "DFG-D-overlapping-bindings-overwritten": [
+      "src/data_flow/compact/update.rs",
+      "defs.entry(k).or_default().extend(ids.into_iter().map(map));",
+      "defs.insert(k, ids.into_iter().map(map).collect());",
+      [
+        "data_flow::tests::updates::overlap_merge_and_remove_match_legacy_bytes"
+      ]
+    ],
+    "DFG-D-dead-locations-retained": [
+      "src/data_flow/compact/update.rs",
+      "let mut live = vec![false; p.arena.rows.len()];",
+      "let mut live = vec![true; p.arena.rows.len()];",
+      [
+        "data_flow::tests::updates::twenty_refreshes_reclaim_dead_locations_and_leave_clone_unchanged"
       ]
     ]
   }
