@@ -182,7 +182,7 @@
     ],
     "ANON-BARRIER-31-computed-eval-name-off": [
       "src/ast/js_anonymous.rs",
-      "self.anonymous_eval_index(i)",
+      "self.anonymous_eval_index(n, i, &mut cache)",
       "i.kind() == \"string\" && self.js_ts_module_export_name(i).as_deref() == Some(\"eval\")",
       "call_graph::anon_prep_tests::barrier_tests::static_eval_member_spellings_are_all_vetoed"
     ],
@@ -251,6 +251,30 @@
       "name == \"yield\" || (async_ && name == \"await\")",
       "name == \"yield\"",
       "anon_owner::node_tests::enable_tests::generator_formals_refuse_suspension_and_reserved_names_but_keep_nested_values"
+    ],
+    "ANON-ENABLE-43-unknown-computed-safe": [
+      "src/ast/js_anonymous.rs",
+      "None => member\n                .child_by_field_name(\"object\")\n                .is_some_and(|object| self.anonymous_global_receiver(object, cache))",
+      "None => false",
+      "anon_owner::node_tests::eval_tests::computed_eval_unknown_name_loses_exact"
+    ],
+    "ANON-ENABLE-44-subset-proof-build-off": [
+      "src/call_graph.rs",
+      "            js_anonymous: crate::js_anonymous::ProofIndex::build(files),\n            js_ts_return_facts,\n            // P5: whole-program Go func-value state \u2014 left empty here, exactly",
+      "            js_anonymous: crate::js_anonymous::ProofIndex::default(),\n            js_ts_return_facts,\n            // P5: whole-program Go func-value state \u2014 left empty here, exactly",
+      "anon_owner::node_tests::enable_tests::anonymous_cold_full_and_partial_cache_hits_are_byte_identical"
+    ],
+    "ANON-ENABLE-45-program-host-var-shadowed": [
+      "src/ast/js_anonymous.rs",
+      "if scope.kind() != \"program\" {\n            return true;\n        }",
+      "if true {\n            return true;\n        }",
+      "anon_owner::node_tests::eval_tests::computed_host_program_var_and_ambient_declarations_are_not_shadows"
+    ],
+    "ANON-ENABLE-46-ambient-host-shadowed": [
+      "src/ast/js_anonymous.rs",
+      "if node.kind() == \"ambient_declaration\" {",
+      "if false && node.kind() == \"ambient_declaration\" {",
+      "anon_owner::node_tests::eval_tests::computed_host_program_var_and_ambient_declarations_are_not_shadows"
     ]
   },
   "lib_test_prefixes": [

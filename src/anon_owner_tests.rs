@@ -298,3 +298,6 @@ fn base_legacy_inventory_also_claims_field_callbacks() {
 
 #[path = "anon_enable_tests.rs"]
 mod enable_tests;
+
+#[path = "anon_eval_tests.rs"]
+mod eval_tests;
