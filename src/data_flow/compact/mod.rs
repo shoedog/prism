@@ -5,12 +5,12 @@ pub(super) use arena::*;
 mod freeze;
 mod queries;
 mod views;
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub(super) struct Adj {
     pub(super) representative: OccId,
     pub(super) neighbors: Vec<OccId>,
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub(super) struct Label {
     pub(super) from: OccId,
     pub(super) to: OccId,
@@ -69,3 +69,6 @@ pub(super) struct Parts {
 
 mod update;
 pub(super) use update::combine;
+
+mod validate;
+pub(super) mod wire;

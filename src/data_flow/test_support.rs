@@ -373,3 +373,8 @@ pub(crate) mod compact;
 
 #[cfg(feature = "dfg-oracle")]
 pub mod accounting;
+
+#[cfg(test)]
+pub(crate) fn assert_codec_validation() {
+    super::tests::corruption::codec_validation_matrix();
+}

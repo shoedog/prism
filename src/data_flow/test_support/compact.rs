@@ -85,7 +85,12 @@ pub(in crate::data_flow) fn assert_conversion(
 
 pub(in crate::data_flow) fn assert_built(files: &BTreeMap<String, ParsedFile>) {
     let old = LegacyDataFlowGraph::build(files);
-    assert_all(&old, &build(files), files);
+    let new = build(files);
+    assert_all(&old, &new, files);
+    let encoded = bincode::serialize(&new).unwrap();
+    let decoded: CompactDfg = bincode::deserialize(&encoded).unwrap();
+    assert_all(&old, &decoded, files);
+    assert_eq!(encoded, bincode::serialize(&decoded).unwrap());
     assert_conversion(&old, files);
 }
 

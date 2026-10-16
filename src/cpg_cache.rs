@@ -1776,3 +1776,6 @@ mod tests {
         ));
     }
 }
+
+#[cfg(test)]
+mod dfg_codec_tests;
