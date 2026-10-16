@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **Validation status (2026-10-16; review round 1 folded the same day).** Every task of this plan was built before the plan was written, on the local scratch branch `scratch/s6-validate` (worktree `~/code/prism-s6-validate`) from `main` `61c2a9e5`, merged up to `main` `4a9e6476` (lane docs only in between), test first; review round 1's fold (Opus 5.5 FIX, gpt-6.1-sol FIX: the launcher and docs correct, the soak specification and its instruments not) was folded the same way, its tests committed red before the code (see "Review round 1" at the end). Every mutant named in a task was applied there, each alone: 59 of 59 were killed. The source was then cut into this plan's tasks on `scratch/s6-tasks`, the plan's directives were generated from that branch's per-task commits, and the plan was replayed by a script onto `4a9e6476` (`scratch/s6-replay`), each anchor matching once, to a tree byte-identical with `scratch/s6-tasks` and with the validated code, executable modes included; each task's red and green steps below were run on partial replays. The launcher's tests and the soak tools' tests (the live fan-out run against a container-built binary included) were run on Linux (aarch64, the bridge's `a2a-toolchain` image, as root), 10 times each (V11). The mutation gate was not run (it selects no MCP code and no Python; lane README). **The soak itself is not code and was not run**: it is the lane's acceptance, specified under "The soak" for the controller, after the owner has answered the questions below.
+> **Validation status (2026-10-16; review round 1 folded the same day).** Every task of this plan was built before the plan was written, on the local scratch branch `scratch/s6-validate` (worktree `~/code/prism-s6-validate`) from `main` `61c2a9e5`, merged up to `main` `4a9e6476` (lane docs only in between), test first; review round 1's fold (Opus 5.5 FIX, gpt-6.1-sol FIX: the launcher and docs correct, the soak specification and its instruments not) was folded the same way, its tests committed red before the code (see "Review round 1" at the end). **Review round 2**, the cap (gpt-6.1-sol FIX with one finding, Opus 5.5 FIX with five WRONG, converging), was folded the same way after the cap without a third round, disclosed (see "Review round 2"). Every mutant named in a task was applied there, each alone: 68 of 68 were killed. The source was then cut into this plan's tasks on `scratch/s6-tasks`, the plan's directives were generated from that branch's per-task commits, and the plan was replayed by a script onto `4a9e6476` (`scratch/s6-replay`), each anchor matching once, to a tree byte-identical with `scratch/s6-tasks` and with the validated code, executable modes included; each task's red and green steps below were run on partial replays. The launcher's tests and the soak tools' tests (the live fan-out run against a container-built binary included) were run on Linux (aarch64, the bridge's `a2a-toolchain` image, as root), 10 times each (V11). The mutation gate was not run (it selects no MCP code and no Python; lane README). **The soak itself is not code and was not run**: it is the lane's acceptance, specified under "The soak" for the controller, after the owner has answered the questions below.
 
 ## Validate before dispatch
 
@@ -11,16 +11,16 @@ What each check must show, and what it showed. Every cargo command ran alone, as
 | # | Command | Must show | Observed |
 |---|---|---|---|
 | V1 | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp` on the untouched base | The base total; later totals are "base + N". | `52 passed`, the goldens' test `ok`, at `61c2a9e5` (`4a9e6476` differs from it only in two lane documents). |
-| V2 | Each task's red step, on a partial replay of this plan | What the step says. | Task 1: `test result: FAILED. 3 passed; 4 failed`, the four named. Task 2: `No module named 'soak'` twice, `FAILED (errors=2)`. Task 3: `No module named 'fanout'` three times, `FAILED (errors=3)`. Review round 1's tests were also committed red against the unfolded code (`Ran 59 tests`, `FAILED (failures=4, errors=35)`; "Review round 1"). |
-| V3 | Each task's green step, on the replay | The count the step states, no warning. | Task 1: `7 passed` (52 filtered out), no `warning`. Task 2: `Ran 32 tests`, `OK`. Task 3: `Ran 59 tests`, `OK (skipped=1)`; with `PRISM_SOAK_BIN`, `Ran 59 tests`, `OK`. |
-| V4 | `cargo test --features mcp` (the whole suite) and `cargo test --doc --features mcp` | `0 failed`. | At the head (`f76f8e33`): 31 `test result` lines, **6,233 passed, 0 failed, 1 ignored**; doc tests `2 passed`. The base's total by the same count is 6,233 − 7 = 6,226 (the round-0 head had 6,232, one launcher test fewer). |
-| V5 | The soak tools' tests, with and without `PRISM_SOAK_BIN`, and memreport's | All `OK`. | `Ran 59 tests`, `OK (skipped=1)`; with the debug binary `Ran 59 tests`, `OK`; `scripts/memreport` (which `fanout.py` imports) `Ran 349 tests`, `OK` (round 0; memreport untouched since). |
+| V2 | Each task's red step, on a partial replay of this plan | What the step says. | Task 1: `test result: FAILED. 3 passed; 4 failed`, the four named. Task 2: `No module named 'soak'` three times, `FAILED (errors=3)`. Task 3: `No module named 'fanout'` three times, `FAILED (errors=3)`. Each review round's tests were also committed red against the unfolded code (round 1: `Ran 59 tests`, `FAILED (failures=4, errors=35)`; round 2: `Ran 66 tests`, `FAILED (failures=3, errors=7)`). |
+| V3 | Each task's green step, on the replay | The count the step states, no warning. | Task 1: `7 passed` (52 filtered out), no `warning`. Task 2: `Ran 38 tests`, `OK`. Task 3: `Ran 66 tests`, `OK (skipped=1)`; with `PRISM_SOAK_BIN`, `Ran 66 tests`, `OK`. |
+| V4 | `cargo test --features mcp` (the whole suite) and `cargo test --doc --features mcp` | `0 failed`. | At `f76f8e33` (review round 1's head): 31 `test result` lines, **6,233 passed, 0 failed, 1 ignored**; doc tests `2 passed`. Review round 2 changed no file cargo builds or tests (`git diff --stat f76f8e33 cbc32ee3 -- src tests Cargo.toml Cargo.lock build.rs` is empty: only `scripts/soak/` and `CLAUDE.md`), so the total stands for the head. The base's total by the same count is 6,233 − 7 = 6,226. |
+| V5 | The soak tools' tests, with and without `PRISM_SOAK_BIN`, and memreport's | All `OK`. | `Ran 66 tests`, `OK (skipped=1)`; with the debug binary `Ran 66 tests`, `OK`; `scripts/memreport` (which `fanout.py` imports) `Ran 349 tests`, `OK` (round 0; memreport untouched since). |
 | V6 | `cargo check`, `cargo check --features mcp`, `cargo fmt --check` | `Finished`; no warning; fmt silent. | Both `Finished`, 0 warnings; fmt silent at the head and at every task commit of the cut. |
-| V7 | `cargo clippy --all-targets --features mcp -- -W clippy::all`, filtered to the touched files | No line in a touched file. | 313 `warning` lines, none naming `tests/mcp/launcher_test.rs` or `tests/mcp/main.rs` (the only Rust files touched). |
-| V8 | Every "prove the tests bite" step | The named tests fail under the named mutant. | L1–L6, S1–S13, S7b, U1–U17, F1–F22: **59 of 59 killed**, each alone. Four first survived review round 1's fold (U11, F9, F15, F16): each got a test that fails under it (Validation record, corrections 7–10), and was killed. S7 and S7b are killed in every zone (the test sets its own). |
-| V9 | Repeats on macOS | All `ok`; no daemon left. | At the head (`f76f8e33`): `10 test result: ok. 7 passed` (`--test mcp launcher`) and `10 Ran 59 tests` / `10 OK` (the soak tools with the debug binary, the live test included); `pgrep -fl 'prism-mcp daemon'` empty afterwards. |
-| V10 | The zero-diff and replay checks | Nothing in `src/`, `.claude-plugin/` or the goldens; the replay byte-identical. | `git diff --stat 4a9e6476 f76f8e33 -- src .claude-plugin tests/fixtures/mcp/golden` is empty. The replay `scratch/s6-replay` (`1e487b34`, 24 directives, every anchor matching once) has tree `84c42714`, the tree of `scratch/s6-tasks` (`99b0c2af`) and of the validated head (`f76f8e33`), executable modes included. |
-| V11 | Linux: the bridge's `a2a-toolchain` image (Debian, aarch64, rustc 1.94, Python 3.12, uid 0, no `ps`/`pgrep`), Task 4 Step 4's script, at the head; the disk checked (118 GiB free) in a command of its own first | All `ok`. | `failed Linux runs: 0`: `10 test result: ok. 7 passed` (`--test mcp launcher`, the process test included), `10 Ran 59 tests` / `10 OK` (the soak tools, the live fan-out test against the container-built binary included); no `left:` line; volumes removed by the `trap`. x86_64 Linux: CI only. |
+| V7 | `cargo clippy --all-targets --features mcp -- -W clippy::all`, filtered to the touched files | No line in a touched file. | 313 `warning` lines at `f76f8e33` (no Rust file changed since), none naming `tests/mcp/launcher_test.rs` or `tests/mcp/main.rs` (the only Rust files touched). |
+| V8 | Every "prove the tests bite" step | The named tests fail under the named mutant. | L1–L6, S1–S12, S7b, U1–U9, U11–U17, C1–C4, W1, R1–R4, G1, F1–F22, A1: **68 of 68 killed**, each alone, the full set at `2e948c5c` and the three that depend on the last change (U9, U11, R3) again at the head. Four first survived review round 1's fold (U11, F9, F15, F16): each got a test that fails under it (Validation record, corrections 7–10). In round 2, U10 survived because its check was implied by another; the check was removed (correction 12). S7 and S7b are killed in every zone (the test sets its own). |
+| V9 | Repeats on macOS | All `ok`; no daemon left. | At the head (`cbc32ee3`): `10 test result: ok. 7 passed` (`--test mcp launcher`) and `10 Ran 66 tests` / `10 OK` (the soak tools with the debug binary, the live test included); `pgrep -fl 'prism-mcp daemon'` empty afterwards. |
+| V10 | The zero-diff and replay checks | Nothing in `src/`, `.claude-plugin/` or the goldens; the replay byte-identical. | `git diff --stat 4a9e6476 cbc32ee3 -- src .claude-plugin tests/fixtures/mcp/golden` is empty. The replay `scratch/s6-replay` (`0daffe4f`, 25 directives, every anchor matching once) has tree `4b940d6e`, the tree of `scratch/s6-tasks` (`678fd702`) and of the validated head (`cbc32ee3`), executable modes included. |
+| V11 | Linux: the bridge's `a2a-toolchain` image (Debian, aarch64, rustc 1.94, Python 3.12, uid 0, no `ps`/`pgrep`), Task 4 Step 4's script, at the head (`cbc32ee3`); the disk checked (118 GiB free) in a command of its own first | All `ok`. | `failed Linux runs: 0`: `10 test result: ok. 7 passed` (`--test mcp launcher`, the process test included), `10 Ran 66 tests` / `10 OK` (the soak tools, the live fan-out test against the container-built binary included); no `left:` line; volumes removed by the `trap`. x86_64 Linux: CI only. |
 
 ## Owner questions (to answer before dispatch)
 
@@ -29,11 +29,11 @@ Each is a behavior or a value the spec leaves to the owner, or an action outside
 1. **How a Claude Code plugin user opts in (D110).** The plugin's MCP arguments live in its installed manifest (`.claude-plugin/plugin.json`, copied into `~/.claude/plugins/cache/…`), which a user does not edit. **Recommended: (A) an environment variable, `PRISM_MCP_SHARED=1`, read by the launcher** (built and tested here): opt-in per user and per shell, nothing changes for anyone else, and the default flip later is one line in the launcher. (B) `--shared` in `plugin.json` for every plugin user: makes shared mode the default for the plugin before the soak, against spec §8 step 1 and §11 item 2. (C) Documentation only: a plugin user cannot opt in without editing the cache.
 2. **The runtime directory on this host (SI-42, D115).** Every launcher that should share a daemon must resolve one directory. Claude Code passes `$TMPDIR` (measured); whether a host-run Codex does was not measured. **Recommended: set `PRISM_MCP_RUNTIME_DIR=/tmp` explicitly everywhere** — in `.codex/config.toml` (Task 4), in the bridge's `[[agents.mcp.env]]`, and in the shell profile Claude Code and the operator start from — giving `/tmp/prism-mcpd`: one literal for every configuration file, short (37-byte socket paths), the spec's own Linux fallback, cleared at reboot. Cost: `/tmp/prism-mcpd` is one name per host, so on a host with a second user that user must set another value (this Mac has one). Alternatives: (B) leave it unset and rely on `$TMPDIR` reaching every launcher (a split costs a second index, silently, until the soak's `one_index_per_key` rule shows it); (C) a directory under the home, for example `~/.local/state/prism-mcp` (also valid; each configuration file then carries the home path).
 3. **One cache directory for the bridge and for interactive sessions.** The host-run bridge configurations pass `--cache-dir ~/.local/share/a2a/prism-cache-host`; interactive sessions and the project's `.codex/config.toml` use the default cache. The cache base is in the identity key (spec §4.3), so the same checkout gets two daemons and two indexes during a bridge round. **Recommended: drop `--cache-dir` from the host-run bridge entries for the soak**, so bridge agents and interactive sessions share one daemon per checkout (the default cache of `~/code/slicing` is already warm from interactive use). Alternative: keep it (two daemons per checkout; the soak report shows them as `max_daemons_per_repo` 2, information, not a failure). Containerized configurations are not affected (their agents have daemons of their own inside their containers).
-4. **When `.codex/config.toml` changes** (revised after review round 1, Opus W5, sol 1). A checkout with the new configuration runs `prism-mcp --shared` from `~/code/slicing/target/release/prism-mcp`; the binary deployed there today (`9d5a67bc`, before S5a) rejects `--shared`, and Codex then has no prism server in that checkout. **Recommended: keep the change in this pull request, build the soak's binary from the PR head (its `src/` is `main`'s, so the binary is the merge's in all but its commit), install it in Phase 0, check every launcher with `soak.py probe`, and only then merge.** The earlier text said "a binary of this slice's merge", which cannot exist before the merge it gates. Alternative: drop the file from Task 4 and apply it at Phase 0 (rollback then reverts it with the bridge's configurations).
-5. **The soak's deployment, outside this repository** (Phase 0 below, revised after review round 1, sol 1, Opus W4, W6, S2): copy every file it replaces into `$E/deploy/originals/` with its sha256 first, then replace the two deployed binaries (`~/code/slicing/target/release/prism-mcp`, `~/.claude/plugins/cache/prism-dev/prism/3.1.2/target/release/prism-mcp`) and the plugin cache's launcher, each step guarded so that a second run never overwrites a kept original; point the bridge's entries (and, for the soak, nothing else) at the pinned `$E/bin/prism-mcp`; snapshot the bridge's and Codex's configurations before editing them; export the two variables in the shell profile. **Rollback** reverses it in an order that never leaves a configuration passing `--shared` to a binary that rejects it: configurations first (bridge and Codex from their snapshots, `--shared` removed), then the daemons stopped with the S6 binary `$E/bin/prism-mcp` (kept until rollback ends), then the old binaries restored, then every launcher probed. **Recommended: yes, as listed.** No step of this plan does any of it; the controller does it after this approval.
+4. **When `.codex/config.toml` changes** (revised after review round 1, Opus W5, sol 1). A checkout with the new configuration runs `prism-mcp --shared` from `~/code/slicing/target/release/prism-mcp`; the binary deployed there today (`9d5a67bc`, before S5a) rejects `--shared`, and Codex then has no prism server in that checkout. **Recommended: keep the change in S6-2, build the soak's binary from S6-2's head (it contains S6-1; its `src/` is `main`'s, so the binary is the merge's in all but its commit; if `main` has gained `src/` changes, merge `main` into the branch first), install it in Phase 0, check every launcher with `soak.py probe`, and only then merge S6-2.** S6-1 may merge before Phase 0 (its launcher change is opt-in). The earlier text said "a binary of this slice's merge", which cannot exist before the merge it gates. Alternative: drop the file from Task 4 and apply it at Phase 0 (rollback then reverts it with the bridge's configurations).
+5. **The soak's deployment, outside this repository** (Phase 0 below, revised after review round 1, sol 1, Opus W4, W6, S2): copy every file it replaces into `$E/deploy/originals/` with its sha256 first, then replace the two deployed binaries (`~/code/slicing/target/release/prism-mcp`, `~/.claude/plugins/cache/prism-dev/prism/3.1.2/target/release/prism-mcp`) and the plugin cache's launcher, each step guarded so that a second run never overwrites a kept original; point the bridge's entries (and, for the soak, nothing else) at the pinned `$E/bin/prism-mcp`; snapshot the bridge's and Codex's configurations before editing them; export the two variables in the shell profile. **Rollback** (revised after review round 2, Opus W-C, S-B) returns interactive sessions to standalone without ever leaving a configuration that passes `--shared` with a binary that rejects it: configurations first (the bridge's from their snapshots; the profile's variables unset), opted-in sessions ended or restarted, the daemons stopped with the S6 binary (`kill -TERM` for one that still has clients), then only the plugin cache's binary and launcher restored (copy and rename). **`~/code/slicing/target/release/prism-mcp` keeps the S6 build**: once S6-2 is on `main`, its `.codex/config.toml` passes `--shared` from every checkout, and the S6 build serves standalone clients exactly as before, so restoring the pre-S5a build there would break Codex in every later checkout. The alternative, a revert pull request of the `.codex` change as part of rollback, was not chosen: it would reach checkouts only as they pull. **Recommended: yes, as listed.** No step of this plan does any of it; the controller does it after this approval.
 6. **The plugin's version.** **Recommended: no bump in S6** (the opt-in is additive and this host's plugin is updated by Phase 0's file replacement); bump at the default flip, noting that an updated plugin's new cache directory has no built binary, so the launcher falls back to `PATH` (and fails with its "build it" message when there is none).
-7. **The soak's pass thresholds** (revised after review round 1, Opus W1, S1, sol 3, sol 4). **Recommended:** fan-out: first an A/A calibration (three standalone runs against three standalone runs on excalidraw, the same `compare`): if its own ratios exceed 1.10 (p95) or 1.25 (p99), the bound is unreachable on this host and goes to the owner before any gate run; then the gate, eight shims against eight standalone servers, three pairs in ABBA order, every run admissible (exactly one successful `refresh_index`, no critical or unreadable pressure reading, every call answered, one daemon), shared median p95 ≤ 1.10× and median p99 ≤ 1.25× the standalone medians. The refresh's stall (the calls of other clients overlapping the refresh, and the longest of them) is reported for both arms and **not gated**: with one refresh in 1,600 calls no percentile can see it (Opus W1), so S3b's SI-11 is reported here, not measured against a bound. Option: gate it too, for example the shared arm's longest overlapping call at most twice the standalone arm's `refresh_ms`. Bridge round: every rule `PASS` (none `UNKNOWN`) and use seen (shims, a daemon reached, an index built); week: the five gated rules `PASS` and the usage floor (question 8). Alternatives: a looser bound if the calibration shows the host's own spread needs it; a footprint ceiling per key in place of `no_critical_pressure` for the round.
-8. **The week's scope and floor (SI-41; revised after review round 1, Opus S3).** **Recommended:** Claude Code sessions through the plugin, bridge rounds, and Codex sessions in the slicing checkout count; a day counts when some sample that day shows use, a daemon with a built index (footprint ≥ 100 MiB) or two shims of one configuration at once (an idle open session does not count); the week counts when at least 5 of its 7 days do; fail-closed lines and startup errors are counted from Claude Code's logs and the wrapper's logs, and the project's Codex sessions are pointed at the wrapper for the week (a local, uncommitted change to that checkout's `.codex/config.toml`, snapshotted and restored at the end) or are left uncounted, disclosed. A week below the floor is extended, not passed.
+7. **The soak's pass thresholds** (revised after review round 1, Opus W1, S1, sol 3, sol 4). **Recommended:** fan-out: first an A/A calibration (three standalone runs against three standalone runs on excalidraw, in ABBA order, compared in both directions, `compare --both-directions`; review round 2, Opus W-A): if either direction's ratio exceeds 1.10 (p95) or 1.25 (p99), the bound is unreachable on this host and goes to the owner before any gate run; then the gate, eight shims against eight standalone servers, three pairs in ABBA order, every run admissible (exactly one successful `refresh_index`, no critical or unreadable pressure reading, every call answered, one daemon), shared median p95 ≤ 1.10× and median p99 ≤ 1.25× the standalone medians. The refresh's stall (the calls of other clients overlapping the refresh, and the longest of them) is reported for both arms and **not gated**: with one refresh in 1,600 calls no percentile can see it (Opus W1), so S3b's SI-11 is reported here, not measured against a bound. Option: gate it too, for example the shared arm's longest overlapping call at most twice the standalone arm's `refresh_ms`. Bridge round: every rule `PASS` (none `UNKNOWN`) and use seen (shims, a daemon reached, an index built); week: the five gated rules `PASS` and the usage floor (question 8). Alternatives: a looser bound if the calibration shows the host's own spread needs it; a footprint ceiling per key in place of `no_critical_pressure` for the round.
+8. **The week's scope and floor (SI-41; revised after review round 1, Opus S3).** **Recommended:** Claude Code sessions through the plugin, bridge rounds, and Codex sessions in the slicing checkout count; a day counts when daemons spent at least 0.5 s of CPU that day (review round 2, Opus W-B: a resident daemon or an attached idle session is not use; measured, an idle daemon with a client attached spent no measurable CPU in 120 s, and one call on a real repository's warm index costs more than the threshold; a light day of a few quick calls may not count, which extends the week rather than passing it); the week counts when at least 5 of its 7 days do; fail-closed lines and startup errors are counted from Claude Code's logs and the wrapper's logs, and the project's Codex sessions are pointed at the wrapper for the week (a local, uncommitted change to that checkout's `.codex/config.toml`, snapshotted and restored at the end) or are left uncounted, disclosed. A week below the floor is extended, not passed.
 9. **The latency baseline for larger repositories (SI-39).** Eight standalone servers of slicing need about 8 × 2 GiB on this 24 GB host (C1 readout), which is the incident itself. **Recommended: gate on excalidraw (8 × about 0.7 GiB) and report slicing as information**: eight shims against one standalone client running the same workload, three runs each.
 10. **The bridge's reaper** (`daemon-shutdown --pid --start-time`, S5b). **Recommended: not built for the soak**: after a round the idle TTL (15 min) frees the index; build it in the bridge only if the round's report shows the residency after rounds matters.
 
@@ -49,7 +49,7 @@ Each is a behavior or a value the spec leaves to the owner, or an action outside
 
 **Interfaces this plan settles** (from the "S6 owes" lists of S3a, S3b, S4, S5a and S5b, each checked under "Self-review record"): the readiness vocabulary, what a client sees on a crash or a drain, the daemon's command line, exit statuses and log lines, the runtime-directory rule, the fail-closed line and every reason, D85's silently ignored flags, D77's minute and its clock, SI-27's rebuilt binary, the `sudo -E` trap, the operator's commands and exit statuses, SI-35's old daemons and `kill -TERM` (all in `docs/MCP.md`); `--shared` in `.codex/config.toml` and the plugin launcher (Tasks 1, 4); the bridge's entry and `PRISM_MCP_RUNTIME_DIR` (documented; applied at the soak with the owner's approval, SI-37); the soak's instruments (Tasks 2, 3) and the soak (specified, "The soak").
 
-**Ships as two pull requests** (D114): 19 paths in all, 2,487 insertions and 1 deletion; nothing in `src/`. **S6-1 = Tasks 1–2:** production 670 lines (`scripts/soak/soak_judge.py` 317, `scripts/soak/soak.py` 309, `scripts/prism-mcp-launch.sh` +23, `scripts/soak/prism-mcp-logged.sh` 21), tests 712 (`tests/mcp/launcher_test.rs` 215, `scripts/soak/test_soak.py` 226, `test_soak_coverage.py` 192, `fake_prism_mcp.py` 72, the stand-in 6, one `mod` line). **S6-2 = Tasks 3–4:** production 487 (`scripts/soak/fanout.py` 480, `.github/workflows/ci.yml` +5, `.codex/config.toml` +2/−1), tests 419 (`test_fanout.py` 214, `test_fanout_gate.py` 124, `test_fanout_live.py` 81), docs 199 (`docs/MCP.md` +180, `CLAUDE.md` +15, the skill +4). Split after review round 1 took production from 833 to 1,157 lines, past the lane's threshold of about 1,000 (D114).
+**Ships as two pull requests** (D114): 20 paths in all, 2,714 insertions and 1 deletion; nothing in `src/`. **S6-1 = Tasks 1–2:** production 760 lines (`scripts/soak/soak.py` 359, `scripts/soak/soak_judge.py` 352, `scripts/prism-mcp-launch.sh` +23, `scripts/soak/prism-mcp-logged.sh` 21, `.github/workflows/ci.yml` +5), tests 823 (`scripts/soak/test_soak.py` 228, `tests/mcp/launcher_test.rs` 215, `test_soak_coverage.py` 195, `test_soak_round2.py` 106, `fake_prism_mcp.py` 72, the stand-in 6, one `mod` line). **S6-2 = Tasks 3–4:** production 502 (`scripts/soak/fanout.py` 500, `.codex/config.toml` +2/−1), tests 428 (`test_fanout.py` 214, `test_fanout_gate.py` 133, `test_fanout_live.py` 81), docs 201 (`docs/MCP.md` +180, `CLAUDE.md` +17, the skill +4). Split after review round 1 took production from 833 to 1,157 lines, past the lane's threshold of about 1,000 (D114); after review round 2's fold, 1,262.
 
 ## Global Constraints
 
@@ -61,7 +61,7 @@ Each is a behavior or a value the spec leaves to the owner, or an action outside
 - **Tests do not depend on the host's speed.** No test asserts an upper bound on a duration; the process tests wait for a condition up to their hang limit (60 s); the one subprocess test of the fan-out driver bounds only a hang (60 s).
 - **No test writes a file it then executes**: the launcher's stand-in is a committed executable fixture reached through a symbolic link (on Linux a freshly written executable can fail with `ETXTBSY` while another test thread forks); the fake server and the wrapper's stand-in are a committed script and `sys.executable`.
 - **Every process a test starts is ended on every path** (`Launched`'s and S5a's `Daemons`' `Drop`; the fan-out run's own `daemon-shutdown` and its 60 s `SIGTERM` fallback; the client watchdog and the pressure observer's stop; the run's barrier bounded by its timeout; `probe`'s kill of a silent server). After every run of the suite: `pgrep -fl 'prism-mcp daemon'` prints nothing.
-- File size (CLAUDE.md decision 7): every file this slice creates is under 600 weighted lines (`scripts/file_size.py`, which weighs Rust; the Python files are counted by plain lines: `soak.py` 309, `soak_judge.py` 317, `fanout.py` 480, `test_soak.py` 226, `test_soak_coverage.py` 192, `test_fanout.py` 214, `test_fanout_gate.py` 124, `test_fanout_live.py` 81, `fake_prism_mcp.py` 72; `tests/mcp/launcher_test.rs` weighs 191.5).
+- File size (CLAUDE.md decision 7): every file this slice creates is under 600 weighted lines (`scripts/file_size.py`, which weighs Rust; the Python files are counted by plain lines: `soak.py` 359, `soak_judge.py` 352, `fanout.py` 500, `test_soak.py` 228, `test_soak_coverage.py` 195, `test_soak_round2.py` 106, `test_fanout.py` 214, `test_fanout_gate.py` 133, `test_fanout_live.py` 81, `fake_prism_mcp.py` 72; `tests/mcp/launcher_test.rs` weighs 191.5).
 - No new clippy warning in a file this slice adds or edits (one Rust file, `tests/mcp/launcher_test.rs`, and one line of `tests/mcp/main.rs`).
 - **Commit before any experiment.** The "prove the tests bite" steps edit a file and restore it with `git checkout -- <file>`; they come after the task's commit.
 - **Run the launcher's tests and the soak tools' tests on Linux before the pull request** (Task 4), in the bridge's `a2a-toolchain` image with the worktree mounted read-only and named volumes for the target and the registry, removed by a `trap`.
@@ -96,21 +96,23 @@ Each is something the spec leaves open or states ambiguously, or an earlier slic
 | D111 | **Only `1` opts in; unset, empty and `0` do not; any other value stops the launcher with exit 2 and one line naming the variable, before the binary is looked for and before the arguments are read, so an explicit `--shared` or `--standalone` does not rescue it** (precedence stated after review round 1, sol S7; every combination tested). | A typo (`yes`, `true`, ` 1`) must decide nothing silently in either direction: silently standalone is the incident under fan-out, silently shared is an opt-in nobody gave; and a configuration with a bad value should be fixed, not hidden by a flag. Exit 2 is the shell's usage error; 127 stays "no binary". | Letting an explicit flag skip the check: moving the loop above the `case`. |
 | D112 | **An explicit `--shared` or `--standalone` among the passed-through arguments wins over a valid value** (nothing is added). | `--shared` twice is a clap error, and `--shared --standalone` a conflict: the launcher must not turn a user's explicit choice into a startup failure. | None. |
 | D113 | **`--shared` goes right after `--repo <path>`**, before the passed-through arguments. | Clap accepts any order; a fixed place gives one argument vector to test (mutant L5 pins it), and `set -- --shared "$@"` is bash 3.2 safe, where an empty array expanded under `set -u` is not. | None. |
-| D114 | **Two pull requests** (after review round 1): **S6-1 = Tasks 1–2** (the launcher's opt-in; the sampler, the report and the probe), **S6-2 = Tasks 3–4** (the fan-out driver; the docs, `.codex/config.toml`, the CI step). | Review round 1's fold took production from 833 to 1,157 lines (about 1,000 without comments and blank lines), past the lane's threshold for a split; the task boundary is where the reviewer's question changes (can users opt in and can the soak judge what it sees; then can the latency gate be trusted, and is everything documented). S6-2 builds on S6-1 (`fanout.py` imports `soak.py`); `.codex/config.toml` lands with S6-2, the last merge, after Phase 0 (owner question 4). | One PR again: merging the two branches. |
+| D114 | **Two pull requests** (after review round 1): **S6-1 = Tasks 1–2** (the launcher's opt-in; the sampler, the report and the probe; the CI step for the soak tools, moved here in review round 2, Opus S-E), **S6-2 = Tasks 3–4** (the fan-out driver; the docs, `.codex/config.toml`). | Review round 1's fold took production from 833 to 1,157 lines (1,262 after round 2's), past the lane's threshold for a split; each half is under it (760 and 502); the task boundary is where the reviewer's question changes (can users opt in and can the soak judge what it sees; then can the latency gate be trusted, and is everything documented). S6-2 builds on S6-1 (`fanout.py` imports `soak.py`); `.codex/config.toml` lands with S6-2, the last merge, after Phase 0 (owner question 4). | One PR again: merging the two branches. |
 | D115 | **The repository's `.codex/config.toml` adds `--shared` and `env = { PRISM_MCP_RUNTIME_DIR = "/tmp" }`.** | Spec §8 step 1 names the file; it is this repository's own configuration (absolute paths of this host), not a user default. The runtime directory is owner question 2; when the change lands, owner question 4. | One file. |
 | D116 | **Users' documentation of shared mode is one section of `docs/MCP.md`** (with two flag rows and two environment rows), plus one bullet of the navigation skill and a paragraph of `CLAUDE.md`. | Spec §4.3: "`docs/MCP.md` says so"; every "S6 owes" list points there; a separate page would split the flags from the server's other flags. The skill learns the retryable answers (S3a's note: neither the docs nor the skills named `warming` or `build_failed`). | Moving the section to its own page. |
-| D117 | **The soak's instruments are Python 3.9 standard library in `scripts/soak/`; CI runs their hermetic tests** (one step of the build-checks job, a few seconds; added after review round 1, sol and Opus S7, which both recommended it). `fanout.py` imports memreport's workload binding and host state, so a memreport change that breaks them fails CI. The live test needs a built binary and runs only with `PRISM_SOAK_BIN` (Task 3, Task 4, Linux). memreport's own tests stay manual. | The instruments are the lane's acceptance; a regression in them should fail where everyone sees it. | Removing one step of `ci.yml`. |
+| D117 | **The soak's instruments are Python 3.9 standard library in `scripts/soak/`; CI runs their hermetic tests** (one step of the build-checks job, a few seconds; added after review round 1, sol and Opus S7, which both recommended it; it lands with S6-1, whose tests it runs, review round 2). `fanout.py` imports memreport's workload binding and host state, so a memreport change that breaks them fails CI. The live test needs a built binary and runs only with `PRISM_SOAK_BIN` (Task 3, Task 4, Linux). memreport's own tests stay manual. | The instruments are the lane's acceptance; a regression in them should fail where everyone sees it. | Removing one step of `ci.yml`. |
 | D118 | **An index holder is every daemon, and a standalone server whose measured footprint is at least 100 MiB; a daemon whose measured footprint is at least 100 MiB has built its index.** A process whose footprint could not be measured while it still ran is recorded `failed`, one that had ended `gone` (review round 1, sol 2). | A lazy standalone server that has built nothing is about 2–4 MiB (measured: 1.8 MiB for this session's plugin server); a built index is hundreds of MiB to GiB (C1). A shim never holds one. | A constant. |
 | D119 | **`fanout.py` times each call at the client, from its write to its response, one call outstanding per client**; clients warm up first (the first workload call, retried while it is answered retryable, then one call of every other tool of the workload, review round 1, Opus S6), then start together at a barrier, each from its own share of the way through the workload; client 0 calls `refresh_index` once, half way through; percentiles are nearest-rank; refresh calls are reported apart. A gating run needs exactly that one refresh answered `ok`; `--no-refresh` makes a diagnostic run, which `compare` refuses (review round 1, sol 3). The workload is memreport's pinned one for the corpus, bound to the corpus's commit. | It measures what an agent waits for, under the interleaving fan-out produces, with the refresh the spec's §6.2 gate names. A refresh that failed or never ran would leave a run that measured only reads. | Re-running with other parameters: flags. |
 | D120 | **Fail-closed lines, startup errors (clap's `error: …`, the launcher's refusals) and daemon losses are read from the clients' standard error: Claude Code's MCP logs and `prism-mcp-logged.sh` logs; aborts from macOS crash reports `prism-mcp[-_]*.ips`. A named log source or crash-report directory that is missing makes its rules UNKNOWN; no source at all counts as missing** (review round 1, sol 2, Opus S2). | A fail-closed shim reaches no daemon, so no daemon file records it; a binary that rejects `--shared` never becomes a shim at all. Daemon logs carry no time stamps and are truncated at a start over 1 MiB; crash reports are time-stamped and name the process. | A product-side event log, which would touch S5a's code. |
 | D121 | **The sampler reads the process table (`ps -A -ww -o pid=,ppid=,rss=,command=`) and `footprint`; it never connects to a daemon** unless `--status-bin` is given, and the soak's runbook does not give it (reconciled after review round 1, Opus S4). | Sampling must not change what it samples: a daemon of a build before S5b restarts its idle time at every `STATUS` probe (SI-35). `--status-bin` stays for a person's diagnosis. | — |
 | D122 | **A shared fan-out run uses a runtime directory of its own under `/tmp`, stops its daemon with `daemon-shutdown` (expecting exit 0, then waits up to 60 s for the pid to go, then `SIGTERM`) and removes the directory; every client starts with `PRISM_MCP_STRUCTURED_CONTENT`, `PRISM_MCP_CONCISE_SHAPE`, `PRISM_MCP_MAX_RESULT_CHARS`, `PRISM_MCP_SHARED`, `PRISM_MCP_RUNTIME_DIR` and `PRISM_MCP_MEM_REPORT` removed from its environment.** | A run must not reach, or leave, a daemon anyone else uses, and both arms must answer with the same output settings whatever the controller's shell holds. | None. |
-| D123 | **`fanout.py compare` judges the medians across runs: candidate p95 ≤ `P95_MAX_RATIO` × baseline p95 and candidate p99 ≤ `P99_MAX_RATIO` × baseline p99 (1.10 and 1.25); every run admissible, a gating run, of one corpus commit, workload, refresh point and client count, on a clean corpus. A run without percentiles fails the comparison instead of raising** (review round 1, Opus W8). The refresh's overlap with other clients' calls is reported per run, not gated (Opus W1). The runbook calibrates the bound with an A/A comparison and runs the pairs in ABBA order (Opus S1). | Spec §6.2 and §8 step 2 need a pinned rule before a run; timings on this host vary run to run, so one run decides nothing and a median of three is the least that does; an A/A comparison shows whether the bound can be met at all on this host. The constants are owner question 7. | Two constants. |
+| D123 | **`fanout.py compare` judges the medians across runs: candidate p95 ≤ `P95_MAX_RATIO` × baseline p95 and candidate p99 ≤ `P99_MAX_RATIO` × baseline p99 (1.10 and 1.25); every run admissible, a gating run, of one corpus commit, workload, refresh point and client count, on a clean corpus. A run without percentiles fails the comparison instead of raising** (review round 1, Opus W8). The refresh's overlap with other clients' calls is reported per run, not gated (Opus W1). The runbook calibrates the bound with an A/A comparison, its runs in ABBA order and judged in both directions (`compare --both-directions`, `calibrate`; review round 2, Opus W-A), and runs the gate's pairs in ABBA order (Opus S1). | Spec §6.2 and §8 step 2 need a pinned rule before a run; timings on this host vary run to run, so one run decides nothing and a median of three is the least that does; an A/A comparison shows whether the bound can be met at all on this host. The constants are owner question 7. | Two constants. |
 | D124 | **A soak rule is PASS, FAIL or UNKNOWN, and a phase PASS, FAIL or INADMISSIBLE** (review round 1, sol 2, Opus W2). A rule FAILs on a breach that was seen, whatever else is missing; it is UNKNOWN when the evidence it needs was not collected (the process table could not be read, a live standalone server's footprint could not be measured, the pressure level was unreadable, a named log source or the crash-report directory was missing); a phase is INADMISSIBLE when a gated rule is UNKNOWN or its use was not seen. | A rule that passes on what it could not see is the failure Review Focus 6 named; the reviewers reproduced five PASS verdicts from a fixture with the observations removed. | — |
-| D125 | **The bridge round needs observed use**: at least `--min-shims` (2) shims at once, a daemon instance reached in the clients' logs, and a daemon with a built index; and it counts only standalone index holders first seen after its first sample (review round 1, Opus W2, W3). | A round whose agents ran in containers (invisible to the host's process table) or whose wrapper path was wrong would otherwise pass on nothing; a session started before the export, or a launcher the soak does not edit, would otherwise fail a healthy round. Those already running are listed, not counted. | — |
+| D125 | **The bridge round needs observed use**: at least `--min-shims` (2) shims at once, a daemon instance reached in the clients' logs and in every `--client-log` (the bridge's own; review round 2, Opus S-A), and a daemon with a built index; it counts only standalone index holders first seen after its first sample (review round 1, Opus W2, W3) and, of those, only the ones in the round's checkouts, named with the required `--round-repo` (review round 2, Opus W-D; paths resolved). | A round whose agents ran in containers (invisible to the host's process table) or whose wrapper path was wrong would otherwise pass on nothing; a session started before the export, or a launcher the soak does not edit, would otherwise fail a healthy round. Those already running are listed, not counted. | — |
 | D126 | **`fanout.py` reads the memory pressure level at the start, every second, and at the end of a run, keeps every reading, stops the run's clients at the first critical reading, and makes the run inadmissible on a critical reading or, when required (the default on macOS), on an unreadable one** (review round 1, sol 4). | The Phase 1 stop condition had no observer: a critical episode that ended before the run did left an admissible run. A reading a second from the same process keeps one measured process. | A constant. |
 | D127 | **`soak.py probe` starts a launcher's exact command line, sends `initialize`, and passes only when an answer comes back; the runbook probes every soaked launcher after deployment and after rollback, and the soak's binary is a pinned copy (`$E/bin/prism-mcp`, its sha256 recorded) for the bridge** (review round 1, sol 1, Opus W4, W5, S2). | A configuration that passes `--shared` to a binary that rejects it leaves a client without its server and writes no fail-closed line; the probe makes that a visible failure at the two moments it can be introduced, and `no_startup_error` catches it in the logs afterwards. A rebuild of the owner's working checkout must not change the soak's binary mid-phase. | — |
-| D128 | **A usage day is a UTC day with a sample showing a built index or two shims of one configuration at once** (review round 1, Opus S3). | An idle Claude Code window holds a shim all week and exercises nothing. | The day rule, one function. |
+| D128 | **A usage day is a UTC day on which daemons spent at least `USAGE_CPU_SECS` (0.5 s) of CPU**: growth of `ps`'s `time` between two samples of one daemon, or the whole CPU time of a daemon first seen after the first sample (review round 2, Opus W-B; round 1's rule, a built index or two shims, counted residency). | An idle Claude Code window keeps a daemon and its built index resident all week and exercises nothing. Measured: an idle daemon with a client attached spent no measurable CPU in 120 s (`0:00.17` before and after). | A constant; the day rule, one function. |
+| D129 | **`sample --window-file T0` writes the window's start once; a resumed sampler keeps it and runs to the end of that window, printing a `resumed` line to its log; `report --window-file T0` takes the same start** (review round 2, sol 1, Opus W-E). | A resume that rewrote `T0` dropped a day-2 failure and the earlier usage days from the week's verdict (sol's probe: FAIL became PASS). | — |
+| D130 | **The report gives the time the samples covered and the largest gap between two samples** (review round 2, Opus S-F). Isolated `ps` failures still make the process rules UNKNOWN (not tolerated up to a share): a week with one is re-judged by the owner from the report, rather than a tolerance pinned now. | A sampler dead for days left no mark. | — |
 
 ## Spec items implemented, and spec issues found
 
@@ -121,7 +123,7 @@ Spec §12 row S6, item by item: "opt-in launcher/config changes (`.codex/config.
 - **SI-38 (§8 step 2 "aggregate footprint (the 10-03 incident's own probe commands)").** Those commands are recorded nowhere found: not in the spec, the lane's plans or handoff, the controller handoffs of 2026-10-03 to 2026-10-09, the project memory, or `~/prism-evidence`. The soak measures what the incident reported: per-process `phys_footprint` (`footprint`), resident size (`ps`), and the host's swap (`sysctl vm.swapusage`), memory pressure level (`kern.memorystatus_vm_pressure_level`) and compressor (`vm_stat`, "Pages occupied by compressor"), which is the incident's "34 GiB compressed".
 - **SI-39 (§8 step 2 "fan-out latency p95 vs. standalone").** Eight standalone servers of a mid-size repository are the memory incident itself (slicing: 8 × about 2 GiB of footprint on a 24 GB host). Read as: a like-for-like comparison of eight shims against eight standalone servers on the smallest pinned corpus (excalidraw, about 0.7 GiB each), and eight shims against one standalone client on slicing as information (owner question 9).
 - **SI-40 (§8 step 2 "daemon restarts").** A daemon that starts again after an idle retirement is the design (TTL 15 minutes), not a failure. Read as: daemon instances are reported (from the samples and from the shims' `shared daemon pid` lines); what fails the soak is an abort (a crash report), a restart-bound refusal (`died during its index build`), or a server that never started (`no_startup_error`, D127).
-- **SI-41 (§8 step 2 "one week of interactive use").** A week in which few sessions opted in, or sessions sat idle, shows nothing. Read as: the week counts only on days of observed use (a built index, or two shims of one configuration at once: D128), at least 5 of 7 (owner question 8); a shorter one is extended.
+- **SI-41 (§8 step 2 "one week of interactive use").** A week in which few sessions opted in, or sessions sat idle, shows nothing. Read as: the week counts only on days of observed use (daemons spent CPU: D128, revised in review round 2), at least 5 of 7 (owner question 8); a shorter one is extended.
 - **SI-42 (§4.3 "Every launcher that should share a daemon must resolve the same directory; `docs/MCP.md` says so").** Measured: a plugin `prism-mcp` started by Claude Code on this host has the user's whole shell environment (its `ps eww` shows `TMPDIR`, `HOME`, `PATH`, and the user's own variables such as `GOROOT`), so its shims resolve `$TMPDIR/prism-mcpd`. Inherited, not measured here: the bridge's investigation of a containerized Codex (`~/code/a2a-bridge/docs/containerized-mcp-env-trap.md`) found its MCP servers started with `HOME`, a `PATH` of Codex's own and the configured `env` only. Whether a host-run Codex passes `TMPDIR` was not measured. A server whose directory differs from its peers' starts a second daemon silently. Read as: set `PRISM_MCP_RUNTIME_DIR` explicitly in every launcher (owner question 2); the soak's `one_index_per_key` rule detects a split.
 - **SI-43 (S3b's SI-11, "a refresh holds the write lock for a whole rebuild; measure at the §6.2 fan-out gate").** One refresh among 1,600 calls stalls at most the 7 calls other clients have outstanding (and the next few that build the call-edge index again), which neither p95 nor p99 can show (review round 1, Opus W1). Read as: the gate reports the stall (`refresh_overlap`: the overlapping calls and the longest of them, both arms) and does not gate it; whether to bound it is in owner question 7. The earlier statement that Phase 1 "measures" SI-11 is withdrawn.
 
@@ -157,7 +159,12 @@ Every "never", "always", "exactly" and "only" this plan's code or docs state abo
 | A process is a shim only with `--shared`, a daemon only as `prism-mcp daemon`, an operator only as `daemon-status`/`daemon-shutdown`; a program whose binary is not named `prism-mcp` is never listed. | T2 `test_roles_come_from_the_command_line` | `--shared` not looked at (S1) |
 | A standalone server is an index holder exactly from 100 MiB of footprint; a shim never is. | T2 `test_an_index_holder_is_a_daemon_or_a_standalone_server_past_100_mib` | `>` for `>=` (S2) |
 | Two daemons of one key count as duplicates only when they are in the same sample. | T2 `test_two_daemons_of_one_key_at_once_are_found`, `test_daemons_of_different_keys_and_one_after_another_are_not_duplicates` | holders accumulated across samples (S3) |
-| A usage day needs a built index or two shims of one configuration at once; an idle shim is not use. | T2 `test_a_usage_day_needs_a_built_index_or_two_shims_of_one_configuration` | any shim (S13) |
+| A usage day is a day daemons spent at least 0.5 s of CPU; a resident daemon or an attached idle session is not use. | T2 `test_a_usage_day_is_a_day_a_daemon_worked_not_one_it_was_resident` | a daemon first sampled counted whole (C1); any growth (C2); presence counted (C4) |
+| `ps`'s CPU time is read (macOS and procps forms). | T2 `test_roles_come_from_the_command_line` | not read (C3) |
+| A resumed sampler keeps its window's start; a failure and usage days before a resume stay in the week's verdict. | T2 `test_a_resumed_sampler_keeps_the_window_it_started`, `test_a_day_two_failure_and_earlier_usage_days_survive_a_resume` | the start rewritten (W1) |
+| A round gates new standalone servers only in its own checkouts (paths resolved), and refuses to run without them named. | T2 `test_only_standalone_servers_of_the_round_s_checkouts_are_gated`, `test_a_round_report_without_its_checkouts_is_refused` | every checkout gated (R1); paths not resolved (R2); no `--round-repo` accepted (R4) |
+| A round needs a reached daemon in every client log. | T2 `test_a_round_needs_a_reached_daemon_in_every_client_log` | the check ignored (R3) |
+| The report gives the largest gap between samples and the time they covered. | T2 `test_the_largest_gap_between_samples_and_the_time_covered_are_reported` | the smallest gap (G1) |
 | Only daemons count toward a repository's daemons. | T2 `test_daemons_of_different_keys_and_one_after_another_are_not_duplicates` | every role counted (S12) |
 | A daemon instance a client reached is counted once however many lines name it. | T2 `test_client_lines_are_counted` | a list for the set (S4) |
 | Only the logs of servers whose name contains `prism`, and only entries in the window, are read. | T2 `test_claude_code_logs_are_read_for_prism_servers_in_the_window` | every server's logs (S5); no window (S6) |
@@ -166,7 +173,7 @@ Every "never", "always", "exactly" and "only" this plan's code or docs state abo
 | Each rule fails on its own breach and on no other. | T2 `test_the_rules_pass_on_a_clean_soak_and_each_fails_on_its_own_breach` | critical taken as normal (S9) |
 | A rule is never PASS on evidence that was not collected: no process table, a live standalone server's footprint not measured, no pressure reading, a named log source or the crash-report directory missing (UNKNOWN); a breach that was seen still FAILs. | T2 `test_a_failed_process_table_makes_the_process_rules_unknown`, `test_a_failed_footprint_of_a_standalone_server_is_unknown_and_a_vanished_one_is_not`, `test_a_missing_pressure_reading_is_unknown_and_a_critical_one_still_fails`, `test_unread_logs_or_crash_reports_are_unknown_and_what_was_read_still_fails`, `test_log_sources_are_complete_only_when_every_named_one_exists` | U1–U5, U8 |
 | A process that ended is `gone`; one that still runs without a reading `failed`; a failed `ps` is recorded as such. | T2 `test_a_vanished_pid_is_gone_and_a_live_one_without_a_reading_failed`, `test_a_sample_whose_process_table_could_not_be_read_says_so` | U6, U7 |
-| A round passes only with use seen (shims, a reached daemon, a built index) and every gated rule PASS; otherwise INADMISSIBLE, or FAIL on a breach. | T2 `test_a_round_needs_shims_a_reached_daemon_and_a_built_index`, `test_a_round_report_without_its_log_sources_is_inadmissible` | U9, U10, U11 |
+| A round passes only with use seen (shims, a reached daemon, a built index) and every gated rule PASS; otherwise INADMISSIBLE, or FAIL on a breach. | T2 `test_a_round_needs_shims_a_reached_daemon_and_a_built_index`, `test_a_round_report_without_its_log_sources_is_inadmissible` | U9, U11 |
 | Standalone holders already running at a phase's first sample are never counted against it. | T2 `test_standalone_holders_already_running_at_the_start_do_not_fail_a_phase` | U12 |
 | A server that never started (clap's `error: …`, the launcher's refusal) and a restart-bound refusal each fail their rule. | T2 `test_a_startup_error_and_a_restart_bound_refusal_fail_their_rules` | U13, U14 |
 | A binary path with a space in it is still recognized; another program naming a `prism-mcp` path is not. | T2 `test_a_binary_path_with_a_space_is_still_prism_mcp` | U15 |
@@ -183,6 +190,7 @@ Every "never", "always", "exactly" and "only" this plan's code or docs state abo
 | A shared run always asks its daemon to shut down. | T3 `test_a_shared_run_names_its_one_daemon_and_asks_it_to_shut_down`; the live test (the daemon gone) | no shutdown (F11) |
 | Every client starts from the default output settings whatever the controller's shell holds. | T3 `test_clients_start_from_the_default_output_settings` | the environment passed whole (F12) |
 | A used run directory is never overwritten. | T3 `test_a_used_run_directory_is_refused` | — |
+| An A/A calibration passes only when each arm passes against the other. | T3 `test_a_calibration_passes_only_when_both_directions_pass` | one direction (A1) |
 | A gating run is admissible only with exactly one refresh answered `ok`; a run without one is diagnostic and never compared. | T3 `test_a_gating_run_needs_exactly_one_successful_refresh`, `test_a_refresh_answered_with_a_tool_error_makes_the_run_inadmissible`, `test_a_run_without_a_refresh_is_diagnostic_and_never_compared` | F13, F14 |
 | The refresh's overlap counts only other clients' calls whose time overlaps it. | T3 `test_the_calls_that_overlap_the_refresh_are_counted_and_their_longest_reported` | F15 |
 | A critical pressure reading always stops the run's clients and invalidates the run; an unreadable one invalidates a run that requires readings. | T3 `test_a_critical_pressure_reading_stops_and_invalidates_the_run`, `test_an_unavailable_pressure_reading_invalidates_a_run_that_requires_it` | F16, F17 |
@@ -206,8 +214,8 @@ Every "never", "always", "exactly" and "only" this plan's code or docs state abo
 | `docs/MCP.md` | "Shared daemon" section; two flags; two environment variables | Modify | 4 |
 | `skills/prism-code-navigation/SKILL.md` | Retryable answers; shared refresh | Modify | 4 |
 | `CLAUDE.md` | The launcher's opt-in and the soak tools | Modify | 4 |
+| `.github/workflows/ci.yml` | One step: the soak tools' hermetic tests | Modify | 2 |
 | `.codex/config.toml` | `--shared` and `PRISM_MCP_RUNTIME_DIR` for this repository's Codex sessions | Modify | 4 |
-| `.github/workflows/ci.yml` | One step: the soak tools' hermetic tests | Modify | 4 |
 
 ---
 
@@ -578,9 +586,9 @@ Apply each mutant alone to `scripts/prism-mcp-launch.sh`, run Step 4's command, 
 
 ### Task 2: The soak's sampler, report and client log wrapper
 
-**Files:** Create `scripts/soak/soak.py`, `scripts/soak/soak_judge.py`, `scripts/soak/test_soak.py`, `scripts/soak/test_soak_coverage.py`, `scripts/soak/fake_prism_mcp.py` (executable), `scripts/soak/prism-mcp-logged.sh` (executable).
+**Files:** Create `scripts/soak/soak.py`, `scripts/soak/soak_judge.py`, `scripts/soak/test_soak.py`, `scripts/soak/test_soak_coverage.py`, `scripts/soak/test_soak_round2.py`, `scripts/soak/fake_prism_mcp.py` (executable), `scripts/soak/prism-mcp-logged.sh` (executable); modify `.github/workflows/ci.yml` (one step).
 
-**Interfaces** (Task 3 and the soak use them): `soak.footprints(pids) -> {pid: bytes}`, `soak.measure_footprints(pids) -> (sizes, {pid: 'ok'|'gone'|'failed'})`, `soak.read_pressure() -> int | None`, `soak.alive(pid)`; `soak.py sample --out FILE.jsonl [--interval S] [--count N | --duration S] [--status-bin BIN --runtime-dir BASE]`, one JSON object per line (`t`, `ps_ok`, `host`: `swap_mib` {`total`,`used`,`free`}, `pressure` (or null), `compressed_bytes`; `processes`: `pid`, `ppid`, `role`, `repo`, `key`, `cache_dir`, `rss_bytes`, `footprint_bytes`, `footprint_status`, `holder`, `command`; `daemon_status` text when asked); `soak.py report --phase round|week --samples FILE --out FILE.md [--json FILE] [--since EPOCH] [--until EPOCH] [--claude-logs DIR] [--client-log FILE ...] [--crash-reports DIR] [--min-shims N] [--min-days N]`, each of `RULES` (`one_index_per_key`, `no_new_standalone_index`, `no_fail_closed`, `no_startup_error`, `no_restart_bound`, `no_abort`, `no_critical_pressure`) `PASS`, `FAIL` or `UNKNOWN`, the use seen, and `**Verdict: PASS|FAIL|INADMISSIBLE**`; `soak.py probe [--timeout S] -- COMMAND …`, exit 0 (`PASS`) or 1 (`FAIL` with the server's standard error); `prism-mcp-logged.sh LOGFILE BIN [args...]`, lines `<UTC time> <pid> <line>`.
+**Interfaces** (Task 3 and the soak use them): `soak.footprints(pids) -> {pid: bytes}`, `soak.measure_footprints(pids) -> (sizes, {pid: 'ok'|'gone'|'failed'})`, `soak.read_pressure() -> int | None`, `soak.alive(pid)`; `soak.py sample --out FILE.jsonl [--interval S] [--count N | --duration S [--window-file T0]] [--status-bin BIN --runtime-dir BASE]`, one JSON object per line (`t`, `ps_ok`, `host`: `swap_mib` {`total`,`used`,`free`}, `pressure` (or null), `compressed_bytes`; `processes`: `pid`, `ppid`, `role`, `repo`, `key`, `cache_dir`, `rss_bytes`, `cpu_secs`, `footprint_bytes`, `footprint_status`, `holder`, `command`; `daemon_status` text when asked); `soak.py report --phase round|week --samples FILE --out FILE.md [--json FILE] [--since EPOCH | --window-file T0] [--until EPOCH] [--claude-logs DIR] [--client-log FILE ...] [--crash-reports DIR] [--round-repo DIR ...] [--min-shims N] [--min-days N]` (`--round-repo` required for a round), each of `RULES` (`one_index_per_key`, `no_new_standalone_index`, `no_fail_closed`, `no_startup_error`, `no_restart_bound`, `no_abort`, `no_critical_pressure`) `PASS`, `FAIL` or `UNKNOWN`, the use seen, and `**Verdict: PASS|FAIL|INADMISSIBLE**`; `soak.py probe [--timeout S] -- COMMAND …`, exit 0 (`PASS`) or 1 (`FAIL` with the server's standard error); `prism-mcp-logged.sh LOGFILE BIN [args...]`, lines `<UTC time> <pid> <line>`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -689,17 +697,18 @@ import soak  # noqa: E402
 
 MIB = 1024 * 1024
 KEY = 'ab' * 32
-PS = """  101     1   4096 /x/target/release/prism-mcp daemon --repo /r --cache-dir /c --refresh-policy warn-only --key %s
-  102    50   3000 /x/target/release/prism-mcp --repo /r --cache-dir /c --shared
-  103    50 900000 /x/prism-mcp --repo /other
-  104    50   2000 /x/prism-mcp daemon-status --runtime-dir /tmp
-  105    50   1000 /usr/bin/vim prism-mcp
-  106    50   1000 /x/prism-mcp.pre-389 --repo /r
+PS = """  101     1   4096   1:02.50 /x/target/release/prism-mcp daemon --repo /r --cache-dir /c --refresh-policy warn-only --key %s
+  102    50   3000   0:00.01 /x/target/release/prism-mcp --repo /r --cache-dir /c --shared
+  103    50 900000 01:02:03 /x/prism-mcp --repo /other
+  104    50   2000   0:00.00 /x/prism-mcp daemon-status --runtime-dir /tmp
+  105    50   1000   0:00.00 /usr/bin/vim prism-mcp
+  106    50   1000   0:00.00 /x/prism-mcp.pre-389 --repo /r
 """ % KEY
 
 
-def proc(role, pid, footprint=0, key=KEY, repo='/r', status='ok', cache='/c'):
+def proc(role, pid, footprint=0, key=KEY, repo='/r', status='ok', cache='/c', cpu=None):
     return {'role': role, 'pid': pid, 'key': key if role == 'daemon' else None, 'repo': repo, 'cache_dir': cache,
+            'cpu_secs': cpu,
             'footprint_bytes': footprint if status == 'ok' else None, 'footprint_status': status,
             'holder': soak.is_holder({'role': role, 'footprint_bytes': footprint if status == 'ok' else None})}
 
@@ -719,6 +728,7 @@ class Processes(unittest.TestCase):
         self.assertEqual((found[101]['role'], found[101]['key'], found[101]['repo']), ('daemon', KEY, '/r'))
         self.assertEqual(found[102]['role'], 'shim')
         self.assertEqual((found[103]['role'], found[103]['rss_bytes']), ('standalone', 900000 * 1024))
+        self.assertEqual((found[101]['cpu_secs'], found[103]['cpu_secs']), (62.5, 3723.0))
         self.assertEqual(found[104]['role'], 'operator')
 
     def test_an_index_holder_is_a_daemon_or_a_standalone_server_past_100_mib(self):
@@ -995,7 +1005,7 @@ class Use(unittest.TestCase):
         def phase(samples, lines):
             summary = soak.summarize_samples(samples)
             events = soak.scan_lines(lines)
-            use = soak.usage('round', summary, events, min_shims=2, min_days=5)
+            use = soak.usage('round', summary, events, min_shims=2, min_days=5, sources_reached=[bool(events['reached'])])
             return soak.overall('round', soak.judge(summary, events, [], ALL_READ), use)
         self.assertEqual(phase([self.built(1)], [REACHED]), 'PASS')
         self.assertEqual(phase([self.built(1), sample(2, [], ps_ok=False)], [REACHED]), 'INADMISSIBLE')
@@ -1012,16 +1022,19 @@ class Use(unittest.TestCase):
         self.assertEqual(summary['preexisting_standalone_holders'], {'/old': [7]})
         self.assertEqual(summary['new_standalone_holders'], {'/r': [8]})
 
-    def test_a_usage_day_needs_a_built_index_or_two_shims_of_one_configuration(self):
+    def test_a_usage_day_is_a_day_a_daemon_worked_not_one_it_was_resident(self):
+        # Review round 2 (Opus W-B): one call on day 1, then a window left open all week, is one day.
         day = 86400
-        summary = soak.summarize_samples([
-            sample(0 * day, [proc('shim', 2)]),
-            sample(1 * day, [proc('shim', 2), proc('daemon', 1, 3 * MIB)]),
-            sample(2 * day, [proc('daemon', 1, 300 * MIB)]),
-            sample(3 * day, [proc('shim', 2), proc('shim', 3)]),
-            sample(4 * day, [proc('shim', 2), proc('shim', 3, repo='/s')]),
-            sample(5 * day, [proc('daemon', 1, status='failed')])])
-        self.assertEqual(summary['usage_days'], ['1970-01-03', '1970-01-04'])
+        resident = [proc('daemon', 1, 400 * MIB, cpu=3.2), proc('shim', 2), proc('shim', 3)]
+        samples = [sample(0, [proc('daemon', 1, 3 * MIB, cpu=0.2), proc('shim', 2)]),
+                   sample(600, [proc('daemon', 1, 400 * MIB, cpu=3.2), proc('shim', 2)])]
+        samples += [sample(d * day + 600 * k, resident) for d in range(1, 7) for k in range(3)]
+        self.assertEqual(soak.summarize_samples(samples)['usage_days'], ['1970-01-01'])
+        quiet = soak.summarize_samples([sample(0, [proc('daemon', 1, 400 * MIB, cpu=50.0), proc('shim', 2)]),
+                                        sample(600, [proc('daemon', 1, 400 * MIB, cpu=50.1), proc('shim', 2)])])
+        self.assertEqual(quiet['usage_days'], [])
+        new = soak.summarize_samples([sample(0, []), sample(day, [proc('daemon', 5, 400 * MIB, cpu=4.0)])])
+        self.assertEqual(new['usage_days'], ['1970-01-02'])
 
     def test_a_startup_error_and_a_restart_bound_refusal_fail_their_rules(self):
         found = verdicts([sample(1, [])], [CLAP, CRASHED])
@@ -1056,7 +1069,7 @@ class Edges(unittest.TestCase):
             samples.write_text(json.dumps(built) + '\n')
             out = Path(directory) / 'r.md'
             with redirect_stdout(io.StringIO()):
-                soak.main(['report', '--phase', 'round', '--samples', str(samples), '--claude-logs',
+                soak.main(['report', '--phase', 'round', '--round-repo', '/r', '--samples', str(samples), '--claude-logs',
                            str(Path(directory) / 'no-such-root'), '--crash-reports', directory, '--out', str(out)])
             self.assertIn('**Verdict: INADMISSIBLE**', out.read_text())
             self.assertIn('| no_fail_closed | UNKNOWN |', out.read_text())
@@ -1091,6 +1104,117 @@ if __name__ == '__main__':
     unittest.main()
 ````
 
+Create `scripts/soak/test_soak_round2.py`:
+
+````python
+"""Tests of review round 2's fold of soak.py (Opus W-D, W-E = sol 1, S-A, S-F): the week's window
+survives a resume, a round gates only on its own checkouts, every client log must show a reached
+daemon, and the report says how much time the samples covered.
+
+Run: python3 -m unittest discover -s scripts/soak -p 'test_*.py'
+"""
+import io
+import json
+import os
+import sys
+import tempfile
+import time
+import unittest
+from contextlib import redirect_stdout
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import soak  # noqa: E402
+from test_soak import ALL_READ, FAILED, MIB, REACHED, proc, sample  # noqa: E402
+
+DAY = 86400
+
+
+def stamp(epoch):
+    return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(epoch))
+
+
+class Window(unittest.TestCase):
+    def test_a_resumed_sampler_keeps_the_window_it_started(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'T0'
+            self.assertEqual(soak.open_window(path, 7 * DAY, now=1000.0), (1000, 1000 + 7 * DAY, False))
+            self.assertEqual(soak.open_window(path, 7 * DAY, now=1000.0 + 3 * DAY), (1000, 1000 + 7 * DAY, True))
+            self.assertEqual(path.read_text().strip(), '1000')
+
+    def test_a_day_two_failure_and_earlier_usage_days_survive_a_resume(self):
+        with tempfile.TemporaryDirectory() as directory:
+            window = Path(directory) / 'T0'
+            soak.open_window(window, 7 * DAY, now=0.0)
+            soak.open_window(window, 7 * DAY, now=3 * DAY + 5.0)   # the sampler restarted on day 4
+            samples = Path(directory) / 's.jsonl'
+            lines = []
+            for day in range(7):
+                for k, cpu in enumerate((10.0 * day, 10.0 * day + 5.0)):
+                    lines.append(json.dumps(sample(day * DAY + 600 * k, [proc('daemon', 1, 400 * MIB, cpu=cpu)])))
+            samples.write_text('\n'.join(lines) + '\n')
+            client = Path(directory) / 'bridge.log'
+            client.write_text('%s 7 %s\n' % (stamp(1 * DAY + 60), FAILED))
+            out, data = Path(directory) / 'r.md', Path(directory) / 'r.json'
+            with redirect_stdout(io.StringIO()):
+                soak.main(['report', '--phase', 'week', '--samples', str(samples), '--window-file', str(window),
+                           '--until', str(7 * DAY), '--client-log', str(client), '--crash-reports', directory,
+                           '--out', str(out), '--json', str(data)])
+            report = json.loads(data.read_text())
+            self.assertEqual(report['verdicts']['no_fail_closed'], 'FAIL')
+            self.assertEqual(len(report['summary']['usage_days']), 7)
+
+
+class Round(unittest.TestCase):
+    def built(self, t, *more):
+        return sample(t, [proc('daemon', 1, 300 * MIB, cpu=9.0), proc('shim', 2), proc('shim', 3)] + list(more))
+
+    def test_only_standalone_servers_of_the_round_s_checkouts_are_gated(self):
+        with tempfile.TemporaryDirectory() as directory:
+            checkout = os.path.join(directory, 'checkout')
+            os.mkdir(checkout)
+            alias = os.path.join(directory, 'alias')
+            os.symlink(checkout, alias)
+            samples = [self.built(1), self.built(2, proc('standalone', 9, 500 * MIB, repo='/elsewhere'))]
+            summary = soak.summarize_samples(samples)
+            events = soak.scan_lines([REACHED])
+            elsewhere = soak.judge(summary, events, [], ALL_READ, round_repos=[checkout])
+            self.assertEqual(elsewhere['no_new_standalone_index'], 'PASS')
+            inside = soak.summarize_samples([self.built(1), self.built(2, proc('standalone', 9, 500 * MIB, repo=alias))])
+            self.assertEqual(soak.judge(inside, events, [], ALL_READ, round_repos=[checkout])['no_new_standalone_index'],
+                             'FAIL')
+
+    def test_a_round_needs_a_reached_daemon_in_every_client_log(self):
+        summary = soak.summarize_samples([self.built(1)])
+        events = soak.scan_lines([REACHED])
+        verdicts = soak.judge(summary, events, [], ALL_READ, round_repos=['/r'])
+        use = soak.usage('round', summary, events, 2, 5, sources_reached=[True, False])
+        self.assertEqual(soak.overall('round', verdicts, use), 'INADMISSIBLE')
+        use = soak.usage('round', summary, events, 2, 5, sources_reached=[True, True])
+        self.assertEqual(soak.overall('round', verdicts, use), 'PASS')
+        self.assertEqual(soak.overall('round', verdicts, soak.usage('round', summary, events, 2, 5, sources_reached=[])),
+                         'INADMISSIBLE')
+
+    def test_a_round_report_without_its_checkouts_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            samples = Path(directory) / 's.jsonl'
+            samples.write_text(json.dumps(self.built(time.time())) + '\n')
+            with redirect_stdout(io.StringIO()), self.assertRaises(SystemExit):
+                soak.main(['report', '--phase', 'round', '--samples', str(samples), '--out',
+                           str(Path(directory) / 'r.md')])
+
+
+class Coverage(unittest.TestCase):
+    def test_the_largest_gap_between_samples_and_the_time_covered_are_reported(self):
+        summary = soak.summarize_samples([sample(0, []), sample(60, []), sample(3 * DAY, []), sample(3 * DAY + 60, [])])
+        self.assertEqual((summary['largest_gap_secs'], summary['covered_secs']), (3 * DAY - 60, 3 * DAY + 60))
+
+
+if __name__ == '__main__':
+    unittest.main()
+````
+
 - [ ] **Step 2: Run them and watch them fail**
 
 ```bash
@@ -1098,9 +1222,36 @@ python3 -m unittest discover -s scripts/soak -p 'test_soak*.py' > "$LOG_DIR/t2-r
 tail -5 "$LOG_DIR/t2-red.log"
 ```
 
-Expected: `ModuleNotFoundError: No module named 'soak'` for `test_soak` and `test_soak_coverage`, `Ran 2 tests`, `FAILED (errors=2)`.
+Expected: `ModuleNotFoundError: No module named 'soak'` for `test_soak`, `test_soak_coverage` and `test_soak_round2`, `Ran 3 tests`, `FAILED (errors=3)`.
 
 - [ ] **Step 3: Implement the sampler, the report and the wrapper**
+
+In `.github/workflows/ci.yml`, replace this:
+
+````
+      - name: Run doctests
+        run: cargo test --doc --features mcp
+
+  clippy:
+    name: Clippy Lint
+    needs: changes
+````
+
+with this:
+
+````
+      - name: Run doctests
+        run: cargo test --doc --features mcp
+
+      # The soak instrumentation's hermetic tests (Python standard library, a few seconds; the live
+      # fan-out test skips itself without PRISM_SOAK_BIN). scripts/soak/ imports scripts/memreport/.
+      - name: Soak tool tests (Python)
+        run: python3 -m unittest discover -s scripts/soak -p 'test_*.py'
+
+  clippy:
+    name: Clippy Lint
+    needs: changes
+````
 
 Create `scripts/soak/prism-mcp-logged.sh`:
 
@@ -1136,19 +1287,22 @@ Create `scripts/soak/soak.py`:
 #!/usr/bin/env python3
 """Soak instrumentation for the shared prism-mcp daemon (spec section 8 step 2).
 
-    soak.py sample --out FILE.jsonl [--interval 60] [--count N | --duration SECS]
+    soak.py sample --out FILE.jsonl [--interval 60] [--count N | --duration SECS [--window-file T0]]
                    [--status-bin BIN --runtime-dir BASE]
     soak.py report --phase round|week --samples FILE.jsonl --out FILE.md [--json FILE.json]
-                   [--since EPOCH] [--until EPOCH] [--claude-logs DIR] [--client-log FILE ...]
-                   [--crash-reports DIR] [--min-shims 2] [--min-days 5]
+                   [--since EPOCH | --window-file T0] [--until EPOCH] [--claude-logs DIR]
+                   [--client-log FILE ...] [--crash-reports DIR] [--round-repo DIR ...]
+                   [--min-shims 2] [--min-days 5]
     soak.py probe [--timeout 30] -- COMMAND [ARGS...]
 
 `sample` appends one JSON line per interval: every prism-mcp process (its role, repository, key,
-resident size, and footprint with whether it was measured, had gone, or could not be measured),
+resident size, CPU time, and footprint with whether it was measured, had gone, or could not be measured),
 whether the process table could be read, and the host's swap, memory pressure and compressor. It
 reads the process table and never connects to a daemon unless --status-bin is given, in which case
 it also stores the text of `daemon-status` (a daemon built before S5b restarts its idle time at
-each such probe: SI-35). Appending makes it resumable: run it again on the same file.
+each such probe: SI-35). Appending makes it resumable: run it again on the same file. With
+--window-file the window starts once, when the file is first written, and a resumed sampler runs
+to the end of that window, not for a new --duration (review round 2, sol 1, Opus W-E).
 
 `report` (soak_judge.py) reads the samples, the clients' standard error (Claude Code's MCP logs,
 the files prism-mcp-logged.sh writes) and macOS crash reports, and judges the soak's rules; a rule
@@ -1177,9 +1331,9 @@ from soak_judge import (BUILD_CRASH, CLIENT_LINE, CRASH_REPORT, FAIL_CLOSED, GAT
                         LOST, MIB, PRESSURE_CRITICAL, REACHED, RULES, STARTUP_ERROR, built, claude_log_lines,
                         client_log_lines, cmd_report, crash_reports, holder_identity, in_window, is_holder,
                         iso_epoch, judge, load_samples, logs_readable, overall, render, scan_lines,
-                        summarize_samples, usage, usage_day)
+                        summarize_samples, usage, usage_days)
 
-PS_COMMAND = ['ps', '-A', '-ww', '-o', 'pid=,ppid=,rss=,command=']
+PS_COMMAND = ['ps', '-A', '-ww', '-o', 'pid=,ppid=,rss=,time=,command=']
 FOOTPRINT_COMMAND = 'footprint'
 PROC = Path('/proc')
 BINARY = re.compile(r'^(.*?(?:^|/)prism-mcp)(?: (.*))?$')
@@ -1236,17 +1390,34 @@ def classify(command):
             'cache_dir': option(tokens, '--cache-dir')}
 
 
+def parse_cputime(text):
+    """Seconds of `ps -o time=`: `[DD-]HH:MM:SS` (procps) or `MM:SS.ss` / `HH:MM:SS.ss` (macOS);
+    None when it is neither."""
+    days, _, clock = text.rpartition('-')
+    try:
+        parts = [float(part) for part in clock.split(':')]
+        whole = int(days) if days else 0
+    except ValueError:
+        return None
+    if not 2 <= len(parts) <= 3:
+        return None
+    seconds = 0.0
+    for part in parts:
+        seconds = seconds * 60 + part
+    return whole * 86400 + seconds
+
+
 def parse_ps(text):
-    """prism-mcp processes in `ps -A -ww -o pid=,ppid=,rss=,command=` output."""
+    """prism-mcp processes in `ps -A -ww -o pid=,ppid=,rss=,time=,command=` output."""
     processes = []
     for line in text.splitlines():
-        fields = line.split(None, 3)
-        if len(fields) < 4 or not fields[0].isdigit():
+        fields = line.split(None, 4)
+        if len(fields) < 5 or not fields[0].isdigit():
             continue
-        found = classify(fields[3])
+        found = classify(fields[4])
         if found is not None:
             found.update(pid=int(fields[0]), ppid=int(fields[1]), rss_bytes=int(fields[2]) * 1024,
-                         command=fields[3])
+                         cpu_secs=parse_cputime(fields[3]), command=fields[4])
             processes.append(found)
     return processes
 
@@ -1345,8 +1516,27 @@ def sample_once(status_bin=None, runtime_dir=None):
     return sample
 
 
+def open_window(path, duration, now=None):
+    """(start, end, resumed) of a sampling window kept in `path`: the start is written once, the
+    first time, and every later call keeps it, so a resumed sampler and the report agree on the
+    window whatever restarts came between (review round 2, sol 1, Opus W-E)."""
+    now = time.time() if now is None else now
+    path = Path(path)
+    text = path.read_text().strip() if path.exists() else ''
+    resumed = text.isdigit()
+    if not resumed:
+        path.write_text('%d\n' % int(now))
+    start = int(text) if resumed else int(now)
+    return start, (start + duration if duration else None), resumed
+
+
 def cmd_sample(args):
     end = time.time() + args.duration if args.duration else None
+    if args.window_file:
+        start, end, resumed = open_window(args.window_file, args.duration)
+        print('sampler %s at %d: window from %d, %s s left' % (
+            'resumed' if resumed else 'started', time.time(), start,
+            'unbounded' if end is None else '%d' % max(0, end - time.time())), flush=True)
     taken = 0
     while True:
         sample = sample_once(args.status_bin, args.runtime_dir)
@@ -1416,6 +1606,7 @@ def main(argv=None):
     sample.add_argument('--interval', type=float, default=60.0)
     sample.add_argument('--count', type=int)
     sample.add_argument('--duration', type=float, help='seconds; with neither this nor --count, forever')
+    sample.add_argument('--window-file', help='keeps the window start: --duration counts from it, across resumes')
     sample.add_argument('--status-bin', help='a prism-mcp binary whose daemon-status text each sample stores')
     sample.add_argument('--runtime-dir', help='the runtime base daemon-status is given')
     sample.set_defaults(handler=cmd_sample)
@@ -1425,10 +1616,13 @@ def main(argv=None):
     report.add_argument('--out', required=True)
     report.add_argument('--json')
     report.add_argument('--since', type=float)
+    report.add_argument('--window-file', help='the start of the window, as sample --window-file wrote it')
     report.add_argument('--until', type=float)
     report.add_argument('--claude-logs', help='Claude Code MCP log root (~/Library/Caches/claude-cli-nodejs)')
     report.add_argument('--client-log', action='append', help='a file prism-mcp-logged.sh wrote')
     report.add_argument('--crash-reports', default=str(Path.home() / 'Library/Logs/DiagnosticReports'))
+    report.add_argument('--round-repo', action='append',
+                        help='round: a checkout the round ran in; standalone servers elsewhere are not gated')
     report.add_argument('--min-shims', type=int, default=2, help='round: shims at once that show use')
     report.add_argument('--min-days', type=int, default=5, help='week: usage days that show use')
     report.set_defaults(handler=cmd_report)
@@ -1437,6 +1631,13 @@ def main(argv=None):
     probe.add_argument('command', nargs=argparse.REMAINDER)
     probe.set_defaults(handler=cmd_probe)
     args = parser.parse_args(argv)
+    if args.command == 'report':
+        if args.phase == 'round' and not args.round_repo:
+            parser.error('report --phase round needs --round-repo for each checkout the round ran in')
+        if args.window_file:
+            if args.since is not None:
+                parser.error('--since and --window-file are one or the other')
+            args.since = float(Path(args.window_file).read_text().strip())
     return args.handler(args)
 
 
@@ -1521,15 +1722,33 @@ def holder_identity(process):
     return 'standalone ' + (process.get('repo') or '?')
 
 
-def usage_day(processes):
-    """Whether a sample shows use: a built index, or two shims of one configuration at once."""
-    shims = [(p.get('repo'), p.get('cache_dir')) for p in processes if p['role'] == 'shim']
-    return any(built(p) for p in processes) or len(shims) != len(set(shims))
+# CPU seconds a daemon must spend in a UTC day for the day to show use (review round 2, Opus W-B).
+# An idle daemon with a client attached spent no measurable CPU in 120 s on this host (0:00.17
+# before and after); one call on a warm index of a real repository costs well over this.
+USAGE_CPU_SECS = 0.5
+
+
+def usage_days(samples):
+    """The UTC days on which daemons spent at least USAGE_CPU_SECS of CPU: growth between two
+    samples of one daemon, or the whole CPU time of a daemon first seen after the first sample.
+    A daemon that is resident, or a shim that is attached, is not use."""
+    spent, last, first = {}, {}, {p['pid'] for p in samples[0]['processes']} if samples else set()
+    for sample in samples:
+        day = time.strftime('%Y-%m-%d', time.gmtime(sample['t']))
+        for process in sample['processes']:
+            cpu = process.get('cpu_secs')
+            if process['role'] != 'daemon' or cpu is None:
+                continue
+            before = last.get(process['pid'], None if process['pid'] in first else 0.0)
+            if before is not None and cpu > before:
+                spent[day] = spent.get(day, 0.0) + cpu - before
+            last[process['pid']] = cpu
+    return sorted(day for day, seconds in spent.items() if seconds >= USAGE_CPU_SECS)
 
 
 def summarize_samples(samples):
     worst_per_key, worst_per_repo, new_standalone, old_standalone, daemons = {}, {}, {}, {}, {}
-    days, missing = set(), {'ps': 0, 'pressure': 0, 'standalone_footprint': 0, 'footprint': 0}
+    missing = {'ps': 0, 'pressure': 0, 'standalone_footprint': 0, 'footprint': 0}
     first_pids = {p['pid'] for p in samples[0]['processes']} if samples else set()
     peaks = {'holders': 0, 'shims': 0, 'prism_footprint_bytes': 0, 'swap_used_mib': 0.0, 'pressure': 0,
              'compressed_bytes': 0, 'built_daemons': 0}
@@ -1557,8 +1776,6 @@ def summarize_samples(samples):
         for repo, pids in repos.items():
             if len(pids) > len(worst_per_repo.get(repo, [])):
                 worst_per_repo[repo] = pids
-        if usage_day(sample['processes']):
-            days.add(time.strftime('%Y-%m-%d', time.gmtime(sample['t'])))
         host = sample.get('host') or {}
         missing['pressure'] += host.get('pressure') is None
         peaks['holders'] = max(peaks['holders'], sum(len(p) for p in holders.values()))
@@ -1574,7 +1791,9 @@ def summarize_samples(samples):
             'max_daemons_per_key': max([len(p) for p in worst_per_key.values()] or [0]),
             'duplicated_keys': {k: v for k, v in worst_per_key.items() if len(v) > 1},
             'max_daemons_per_repo': max([len(p) for p in worst_per_repo.values()] or [0]),
-            'usage_days': sorted(days),
+            'usage_days': usage_days(samples),
+            'largest_gap_secs': max([b['t'] - a['t'] for a, b in zip(samples, samples[1:])] or [0]),
+            'covered_secs': samples[-1]['t'] - samples[0]['t'] if samples else 0,
             'repos_with_several_daemons': {k: v for k, v in worst_per_repo.items() if len(v) > 1},
             'new_standalone_holders': {repo: sorted(pids) for repo, pids in new_standalone.items()},
             'preexisting_standalone_holders': {repo: sorted(pids) for repo, pids in old_standalone.items()},
@@ -1658,16 +1877,27 @@ def crash_reports(directory, since=None, until=None):
     return [p.name for p in paths if CRASH_REPORT.match(p.name) and in_window(p.stat().st_mtime, since, until)], True
 
 
-def judge(summary, events, crashes, coverage):
+def in_round(holders, round_repos):
+    """The standalone holders whose repository is one of the round's checkouts (paths resolved),
+    or all of them when no checkouts are named."""
+    if round_repos is None:
+        return holders
+    checkouts = {os.path.realpath(repo) for repo in round_repos}
+    return {repo: pids for repo, pids in holders.items() if os.path.realpath(repo) in checkouts}
+
+
+def judge(summary, events, crashes, coverage, round_repos=None):
     """Each rule's verdict: FAIL on a breach that was seen; else UNKNOWN when the evidence it
-    needs was not collected; else PASS. `coverage`: {'logs': bool, 'crash_reports': bool}."""
+    needs was not collected; else PASS. `coverage`: {'logs': bool, 'crash_reports': bool}. With
+    `round_repos`, a new standalone holder fails the round only in one of those checkouts (review
+    round 2, Opus W-D): a launcher the soak does not edit, elsewhere, is reported."""
     missing = summary['missing']
 
     def verdict(breach, unseen):
         return 'FAIL' if breach else 'UNKNOWN' if unseen else 'PASS'
     logs = not coverage['logs']
     return {'one_index_per_key': verdict(summary['max_daemons_per_key'] > 1, missing['ps']),
-            'no_new_standalone_index': verdict(summary['new_standalone_holders'],
+            'no_new_standalone_index': verdict(in_round(summary['new_standalone_holders'], round_repos),
                                                missing['ps'] or missing['standalone_footprint']),
             'no_fail_closed': verdict(events['fail_closed'], logs),
             'no_startup_error': verdict(events['startup_errors'], logs),
@@ -1676,11 +1906,13 @@ def judge(summary, events, crashes, coverage):
             'no_critical_pressure': verdict(summary['peaks']['pressure'] >= PRESSURE_CRITICAL, missing['pressure'])}
 
 
-def usage(phase, summary, events, min_shims, min_days):
-    """The use a phase must have seen, check by check (True when seen)."""
+def usage(phase, summary, events, min_shims, min_days, sources_reached=None):
+    """The use a phase must have seen, check by check (True when seen). `sources_reached`: for
+    each --client-log, whether it holds a reached daemon in the window (review round 2, Opus S-A:
+    the bridge's own log must show the bridge's agents reached one)."""
     if phase == 'round':
         return {'shims_at_once_at_least_%d' % min_shims: summary['peaks']['shims'] >= min_shims,
-                'a_daemon_reached_in_the_logs': bool(events['reached']),
+                'a_daemon_reached_in_every_client_log': bool(sources_reached) and all(sources_reached),
                 'an_index_built': summary['peaks']['built_daemons'] >= 1}
     return {'usage_days_at_least_%d' % min_days: len(summary['usage_days']) >= min_days}
 
@@ -1709,7 +1941,9 @@ def render(phase, summary, events, crashes, verdicts, use, result, skipped):
               % summary['max_daemons_per_repo'],
               '| Most shims at once | %d |' % peaks['shims'],
               '| Most daemons with a built index at once | %d |' % peaks['built_daemons'],
-              '| Usage days (UTC; a built index, or two shims of one configuration) | %d |' % len(summary['usage_days']),
+              '| Usage days (UTC; at least %.1f s of daemon CPU) | %d |' % (USAGE_CPU_SECS, len(summary['usage_days'])),
+              '| Time covered by the samples / largest gap between two (s) | %d / %d |'
+              % (summary['covered_secs'], summary['largest_gap_secs']),
               '| Peak footprint of all prism-mcp processes (MiB) | %.1f |' % (peaks['prism_footprint_bytes'] / MIB),
               '| Peak swap used (MiB) | %.1f |' % peaks['swap_used_mib'],
               '| Peak compressor (MiB) | %.1f |' % (peaks['compressed_bytes'] / MIB),
@@ -1727,7 +1961,8 @@ def render(phase, summary, events, crashes, verdicts, use, result, skipped):
     for title, key in (('Keys with more than one daemon at once', 'duplicated_keys'),
                        ('Repositories with several daemons at once (other cache directories, refresh policies or '
                         'builds)', 'repos_with_several_daemons'),
-                       ('Standalone index holders first seen after the start', 'new_standalone_holders'),
+                       ('Standalone index holders first seen after the start (a round gates only those in its '
+                        'checkouts)', 'new_standalone_holders'),
                        ('Standalone index holders already running at the start (not counted)',
                         'preexisting_standalone_holders')):
         if summary[key]:
@@ -1743,18 +1978,19 @@ def cmd_report(args):
     if not samples:
         raise SystemExit('no samples in %s for the window' % args.samples)
     client_logs = args.client_log or []
-    lines = []
+    lines, sources_reached = [], []
     if args.claude_logs and Path(args.claude_logs).is_dir():
         lines += list(claude_log_lines(args.claude_logs, args.since, args.until))
     for path in client_logs:
-        if os.path.isfile(path):
-            lines += list(client_log_lines(path, args.since, args.until))
+        found = list(client_log_lines(path, args.since, args.until)) if os.path.isfile(path) else []
+        sources_reached.append(bool(scan_lines(found)['reached']))
+        lines += found
     summary = summarize_samples(samples)
     events = scan_lines(lines)
     crashes, crash_ok = crash_reports(args.crash_reports, args.since, args.until)
     coverage = {'logs': logs_readable(args.claude_logs, client_logs), 'crash_reports': crash_ok}
-    verdicts = judge(summary, events, crashes, coverage)
-    use = usage(args.phase, summary, events, args.min_shims, args.min_days)
+    verdicts = judge(summary, events, crashes, coverage, args.round_repo)
+    use = usage(args.phase, summary, events, args.min_shims, args.min_days, sources_reached)
     result = overall(args.phase, verdicts, use)
     Path(args.out).write_text(render(args.phase, summary, events, crashes, verdicts, use, result, skipped))
     if args.json:
@@ -1773,12 +2009,12 @@ python3 -m unittest discover -s scripts/soak -p 'test_soak*.py' > "$LOG_DIR/t2-g
 tail -3 "$LOG_DIR/t2-green.log"
 ```
 
-Expected: `rc=0`, `Ran 32 tests`, `OK`.
+Expected: `rc=0`, `Ran 38 tests`, `OK`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add scripts/soak/soak.py scripts/soak/soak_judge.py scripts/soak/test_soak.py scripts/soak/test_soak_coverage.py scripts/soak/fake_prism_mcp.py scripts/soak/prism-mcp-logged.sh
+git add scripts/soak/soak.py scripts/soak/soak_judge.py scripts/soak/test_soak.py scripts/soak/test_soak_coverage.py scripts/soak/test_soak_round2.py scripts/soak/fake_prism_mcp.py scripts/soak/prism-mcp-logged.sh .github/workflows/ci.yml
 git commit -m "feat(soak): S6 — prism-mcp process sampler, soak report and client log wrapper"
 ```
 
@@ -1801,7 +2037,6 @@ Apply each mutant alone, run Step 4's command, then `git checkout -- <file>`.
 | S10 | `prism-mcp-logged.sh` | `while IFS= read -r line \|\| [ -n "$line" ]; do` → `while IFS= read -r line; do` | `test_standard_error_is_logged_with_time_and_pid_and_nothing_else_changes` |
 | S11 | `prism-mcp-logged.sh` | the `printf '%s\n' "$line" >&2` line removed | `test_standard_error_is_logged_with_time_and_pid_and_nothing_else_changes` |
 | S12 | `soak_judge.py` | the `if process['role'] == 'daemon':` of the per-repository count → `if True:` | `test_daemons_of_different_keys_and_one_after_another_are_not_duplicates` |
-| S13 | `soak_judge.py` | `usage_day`: `or len(shims) != len(set(shims))` → `or len(shims) >= 1` (an idle shim is use) | `test_a_usage_day_needs_a_built_index_or_two_shims_of_one_configuration` |
 | U1 | `soak_judge.py` | a sample without a process table not counted | `test_a_failed_process_table_makes_the_process_rules_unknown` |
 | U2 | `soak_judge.py` | a standalone server's failed footprint not counted | `test_a_failed_footprint_of_a_standalone_server_is_unknown_and_a_vanished_one_is_not` |
 | U3 | `soak_judge.py` | a missing pressure reading not counted | `test_a_missing_pressure_reading_is_unknown_and_a_critical_one_still_fails` |
@@ -1811,7 +2046,6 @@ Apply each mutant alone, run Step 4's command, then `git checkout -- <file>`.
 | U7 | `soak.py` | `'ps_ok': listing is not None` → `True` | `test_a_sample_whose_process_table_could_not_be_read_says_so` |
 | U8 | `soak_judge.py` | `logs_readable` with no source → `True` | `test_log_sources_are_complete_only_when_every_named_one_exists` |
 | U9 | `soak_judge.py` | the round's `an_index_built` → `True` | `test_a_round_needs_shims_a_reached_daemon_and_a_built_index` |
-| U10 | `soak_judge.py` | the round's `a_daemon_reached_in_the_logs` → `True` | `test_a_round_needs_shims_a_reached_daemon_and_a_built_index` |
 | U11 | `soak_judge.py` | `overall`: a gated UNKNOWN no longer makes the phase INADMISSIBLE | `test_a_round_needs_shims_a_reached_daemon_and_a_built_index` (its failed-`ps` case, added after the mutant first survived) |
 | U12 | `soak_judge.py` | every standalone holder counted as new | `test_standalone_holders_already_running_at_the_start_do_not_fail_a_phase`, `test_standalone_holders_and_peaks_are_reported` |
 | U13 | `soak_judge.py` | startup errors not scanned | `test_a_startup_error_and_a_restart_bound_refusal_fail_their_rules` |
@@ -1819,10 +2053,20 @@ Apply each mutant alone, run Step 4's command, then `git checkout -- <file>`.
 | U15 | `soak.py` | the binary path with a space not looked for | `test_a_binary_path_with_a_space_is_still_prism_mcp` |
 | U16 | `soak_judge.py` | `load_samples` without its `try` | `test_a_truncated_last_line_is_skipped_and_counted` |
 | U17 | `soak.py` | `probe`: `answered = True` | `test_a_binary_that_rejects_shared_fails_and_says_why`, `test_a_server_that_never_answers_fails_at_the_timeout` |
+| C1 | `soak_judge.py` | a daemon in the first sample counted with its whole CPU time | `test_a_usage_day_is_a_day_a_daemon_worked_not_one_it_was_resident` |
+| C2 | `soak_judge.py` | `seconds >= USAGE_CPU_SECS` → `>= 0` | `test_a_usage_day_is_a_day_a_daemon_worked_not_one_it_was_resident` |
+| C3 | `soak.py` | `cpu_secs=None` (CPU time not read) | `test_roles_come_from_the_command_line` |
+| C4 | `soak_judge.py` | every daemon sample adds `USAGE_CPU_SECS` (presence is use: round 1's rule in another form) | `test_a_usage_day_is_a_day_a_daemon_worked_not_one_it_was_resident` |
+| W1 | `soak.py` | `open_window`: `resumed = False` (the start rewritten on a resume) | `test_a_resumed_sampler_keeps_the_window_it_started`, `test_a_day_two_failure_and_earlier_usage_days_survive_a_resume` |
+| R1 | `soak_judge.py` | `in_round` returns every holder | `test_only_standalone_servers_of_the_round_s_checkouts_are_gated` |
+| R2 | `soak_judge.py` | `in_round` compares paths as written | `test_only_standalone_servers_of_the_round_s_checkouts_are_gated` |
+| R3 | `soak_judge.py` | `a_daemon_reached_in_every_client_log` → `True` | `test_a_round_needs_a_reached_daemon_in_every_client_log` |
+| R4 | `soak.py` | `--phase round` accepted without `--round-repo` | `test_a_round_report_without_its_checkouts_is_refused` |
+| G1 | `soak_judge.py` | the smallest gap for the largest | `test_the_largest_gap_between_samples_and_the_time_covered_are_reported` |
 
 - [ ] **Step 7: Verify S6-1 and open its pull request**
 
-S6-1 is Tasks 1–2. Run Task 4 Step 3's commands at this head (the soak tests are `test_soak*.py` here: `Ran 32 tests`), then open the pull request with the body of Task 4 Step 5, its decisions narrowed to D110–D113, D118, D120, D121, D124, D125, D127, D128 and its claims to the rows of Tasks 1–2. The CI step for the soak tools arrives with S6-2 (Task 4); run them by hand here. The Linux run is at the S6-2 head (its code contains this head's).
+S6-1 is Tasks 1–2. Run Task 4 Step 3's commands at this head (the soak tests are `test_soak*.py` here: `Ran 38 tests`), then open the pull request with the body of Task 4 Step 5, its decisions narrowed to D110–D113, D117, D118, D120, D121, D124, D125, D127–D130 and its claims to the rows of Tasks 1–2. The CI step for the soak tools is part of this pull request (review round 2, Opus S-E: S6-1's tests should not wait for S6-2 to run in CI); at this head it finds the `test_soak*` files only. The Linux run is at the S6-2 head (its code contains this head's).
 
 ---
 
@@ -2125,6 +2369,15 @@ class Compare(unittest.TestCase):
         self.assertIn('**Verdict: FAIL**', fanout.render([arm(10.0, 20.0)], [empty], verdict))
         three = fanout.judge([arm(10.0, 20.0)] * 3, [arm(10.0, 20.0), empty, empty])
         self.assertFalse(three['pass'])
+
+    def test_a_calibration_passes_only_when_both_directions_pass(self):
+        # Review round 2 (Opus W-A): a 30 % spread between two identical arms passes one way only.
+        slow, fast = [arm(100.0, 200.0)], [arm(70.0, 140.0)]
+        self.assertTrue(fanout.judge(slow, fast)['pass'])
+        self.assertFalse(fanout.judge(fast, slow)['pass'])
+        self.assertFalse(fanout.calibrate(slow, fast)['pass'])
+        self.assertFalse(fanout.calibrate(fast, slow)['pass'])
+        self.assertTrue(fanout.calibrate([arm(100.0, 200.0)], [arm(105.0, 210.0)])['pass'])
 
     def test_runs_of_other_client_counts_or_refresh_points_are_not_compared(self):
         other = arm(10.0, 20.0)
@@ -2699,6 +2952,14 @@ def judge(baseline, candidate, allow_client_mismatch=False):
             'rule': {'p95_max_ratio': P95_MAX_RATIO, 'p99_max_ratio': P99_MAX_RATIO}}
 
 
+def calibrate(first, second):
+    """An A/A calibration: two arms of one configuration pass only when each passes against the
+    other, so that their spread is within the bound whichever way it falls (review round 2, Opus
+    W-A: a one-way comparison passed a 30 % spread)."""
+    forward, backward = judge(first, second), judge(second, first)
+    return {'pass': forward['pass'] and backward['pass'], 'forward': forward, 'backward': backward}
+
+
 def render(baseline, candidate, verdict):
     lines = ['# prism-mcp fan-out latency', '', '| Arm | Run | Mode | Clients | p50 ms | p95 ms | p99 ms | max ms | '
              'refresh ms | calls overlapping the refresh | longest of them, ms | admissible |',
@@ -2721,6 +2982,16 @@ def render(baseline, candidate, verdict):
 
 def cmd_compare(args):
     baseline, candidate = load_arm(args.baseline), load_arm(args.candidate)
+    if args.both_directions:
+        verdict = calibrate(baseline, candidate)
+        Path(args.out).write_text('# A/A calibration: both directions must pass\n\n**Verdict: %s**\n\n## Forward\n\n%s\n'
+                                  '## Backward\n\n%s' % ('PASS' if verdict['pass'] else 'FAIL',
+                                                           render(baseline, candidate, verdict['forward']),
+                                                           render(candidate, baseline, verdict['backward'])))
+        if args.json:
+            Path(args.json).write_text(json.dumps(verdict, indent=1, sort_keys=True))
+        print('wrote %s: %s' % (args.out, 'PASS' if verdict['pass'] else 'FAIL'))
+        return
     verdict = judge(baseline, candidate, args.allow_client_mismatch)
     Path(args.out).write_text(render(baseline, candidate, verdict))
     if args.json:
@@ -2751,6 +3022,8 @@ def main(argv=None):
     compare.add_argument('--candidate', action='append', required=True)
     compare.add_argument('--out', required=True)
     compare.add_argument('--json')
+    compare.add_argument('--both-directions', action='store_true',
+                         help='an A/A calibration: pass only when each arm passes against the other')
     compare.add_argument('--allow-client-mismatch', action='store_true',
                          help='compare arms of different client counts (information only, never a gate)')
     compare.set_defaults(handler=cmd_compare)
@@ -2775,7 +3048,7 @@ tail -3 "$LOG_DIR/t3-live.log"
 pgrep -fl 'prism-mcp daemon'
 ```
 
-Expected: `rc=0`, `Ran 59 tests`, `OK (skipped=1)` (the live test skipped); `build rc=0`; with the binary `Ran 59 tests`, `OK` (the live test ran: three shims of one daemon and three standalone servers on a three-file repository, every call `ok`, one successful refresh each, the daemon drained by `daemon-shutdown` and gone); `pgrep` prints nothing.
+Expected: `rc=0`, `Ran 66 tests`, `OK (skipped=1)` (the live test skipped); `build rc=0`; with the binary `Ran 66 tests`, `OK` (the live test ran: three shims of one daemon and three standalone servers on a three-file repository, every call `ok`, one successful refresh each, the daemon drained by `daemon-shutdown` and gone); `pgrep` prints nothing.
 
 - [ ] **Step 5: Commit**
 
@@ -2812,12 +3085,13 @@ Apply each mutant alone to `scripts/soak/fanout.py`, run Step 4's first command,
 | F20 | `judge`: refresh points not compared | `test_runs_of_other_client_counts_or_refresh_points_are_not_compared` |
 | F21 | `cmd_run`: the daemon's logs not copied | `test_a_shared_run_keeps_its_daemon_logs` |
 | F22 | `drive`: the other tools not warmed | `test_every_tool_of_the_workload_is_warmed_before_the_barrier` |
+| A1 | `calibrate`: only the forward direction | `test_a_calibration_passes_only_when_both_directions_pass` |
 
 ---
 
 ### Task 4: Shared-mode docs, the project's Codex configuration, CLAUDE.md; verification and the pull request
 
-**Files:** Modify `docs/MCP.md`, `skills/prism-code-navigation/SKILL.md`, `CLAUDE.md`, `.codex/config.toml`, `.github/workflows/ci.yml`.
+**Files:** Modify `docs/MCP.md`, `skills/prism-code-navigation/SKILL.md`, `CLAUDE.md`, `.codex/config.toml`.
 
 **Before this task:** owner question 2 decides the runtime directory written in `.codex/config.toml` and in the docs' examples (`/tmp` below); owner question 4 decides whether `.codex/config.toml` is in this pull request at all (if not, skip its directive, and apply it at the soak's Phase 0).
 
@@ -2840,33 +3114,6 @@ command = "/Users/wesleyjinks/code/slicing/target/release/prism-mcp"
 args = ["--repo", "/Users/wesleyjinks/code/slicing", "--shared"]
 startup_timeout_sec = 60
 env = { PRISM_MCP_RUNTIME_DIR = "/tmp" }
-````
-
-In `.github/workflows/ci.yml`, replace this:
-
-````
-      - name: Run doctests
-        run: cargo test --doc --features mcp
-
-  clippy:
-    name: Clippy Lint
-    needs: changes
-````
-
-with this:
-
-````
-      - name: Run doctests
-        run: cargo test --doc --features mcp
-
-      # The soak instrumentation's hermetic tests (Python standard library, a few seconds; the live
-      # fan-out test skips itself without PRISM_SOAK_BIN). scripts/soak/ imports scripts/memreport/.
-      - name: Soak tool tests (Python)
-        run: python3 -m unittest discover -s scripts/soak -p 'test_*.py'
-
-  clippy:
-    name: Clippy Lint
-    needs: changes
 ````
 
 In `CLAUDE.md`, replace this:
@@ -2895,9 +3142,11 @@ in shared or standalone mode, per-call latency, a pressure observer that stops t
 critical level, one required `refresh_index` and its overlap with other clients' calls, `compare`
 under the pinned rule; also the spec §6.2 fan-out gate), `soak.py` (`sample` appends the prism-mcp
 processes, whether each footprint was measured, and the host's swap, pressure and compressor;
-`probe` checks that a launcher's command line starts a server), `soak_judge.py` (`soak.py report
---phase round|week`: each rule PASS, FAIL or UNKNOWN when its evidence was not collected, a phase
-INADMISSIBLE without observed use) and `prism-mcp-logged.sh` (logs a client's prism-mcp standard
+`probe` checks that a launcher's command line starts a server; `--window-file` keeps a window's
+start across resumes), `soak_judge.py` (`soak.py report --phase round|week`: each rule PASS, FAIL
+or UNKNOWN when its evidence was not collected, a phase INADMISSIBLE without observed use: a usage
+day is a day daemons spent CPU, and a round names its checkouts with `--round-repo` and needs a
+reached daemon in every client log) and `prism-mcp-logged.sh` (logs a client's prism-mcp standard
 error with time and pid). Run their tests with `python3 -m unittest discover -s scripts/soak -p
 'test_*.py'`; `PRISM_SOAK_BIN=<prism-mcp>` adds a live run against the binary.
 
@@ -3206,7 +3455,7 @@ grep -h '^OK\|^FAILED' "$LOG_DIR"/s6-rep-soak-*.log | sort | uniq -c
 pgrep -fl 'prism-mcp daemon'
 ```
 
-Expected: `fmt rc=0` and nothing printed; `check rc=0`, `check mcp rc=0`, no `warning`; `clippy rc=0` and `0` lines naming `launcher_test`; `full suite rc=0`, `31` result lines, `6233 passed, 0 failed, 1 ignored` (V4); `doc tests rc=0`; `soak tests rc=0` (`Ran 59 tests`, `OK`); `memreport tests rc=0` (`Ran 349 tests`); the repeats `10 test result: ok. 7 passed` and `10 OK`; `pgrep` prints nothing.
+Expected: `fmt rc=0` and nothing printed; `check rc=0`, `check mcp rc=0`, no `warning`; `clippy rc=0` and `0` lines naming `launcher_test`; `full suite rc=0`, `31` result lines, `6233 passed, 0 failed, 1 ignored` (V4); `doc tests rc=0`; `soak tests rc=0` (`Ran 66 tests`, `OK`); `memreport tests rc=0` (`Ran 349 tests`); the repeats `10 test result: ok. 7 passed` and `10 OK`; `pgrep` prints nothing.
 
 - [ ] **Step 4: Run the launcher's and the soak tools' tests on Linux**
 
@@ -3237,16 +3486,16 @@ grep -h '^test result' "$LOG_DIR"/linux/launcher-*.log | sed 's/finished.*//' | 
 grep -h '^Ran\|^OK\|^FAILED' "$LOG_DIR"/linux/soak-*.log | sed 's/ in [0-9.]*s//' | sort | uniq -c
 ```
 
-Expected: `failed Linux runs: 0`, no `left:` line in `s6-linux.out`; `10 test result: ok. 7 passed; 0 failed` (52 filtered out); `10 Ran 59 tests` and `10 OK` (the live test runs; `--pressure` defaults to `off` off macOS, and the image has no `ps` or `pgrep`, which these tests do not need).
+Expected: `failed Linux runs: 0`, no `left:` line in `s6-linux.out`; `10 test result: ok. 7 passed; 0 failed` (52 filtered out); `10 Ran 66 tests` and `10 OK` (the live test runs; `--pressure` defaults to `off` off macOS, and the image has no `ps` or `pgrep`, which these tests do not need).
 
 - [ ] **Step 5: Commit and open the pull request**
 
 ```bash
-git add docs/MCP.md skills/prism-code-navigation/SKILL.md CLAUDE.md .codex/config.toml .github/workflows/ci.yml
+git add docs/MCP.md skills/prism-code-navigation/SKILL.md CLAUDE.md .codex/config.toml
 git commit -m "docs(mcp): S6 — shared-daemon docs, the project's Codex opt-in, soak tools in CLAUDE.md"
 ```
 
-The S6-2 PR body states, in this order (S6-1's, Task 2 Step 7, the same shape): (1) **Goal:** the lane goal; S6 is the opt-in from every launcher, the docs the earlier slices left to it, and the soak's instruments; the soak is specified in the plan and is the controller's. (2) **Invariants:** nothing under `src/` or `.claude-plugin/` changes; opt-in stays opt-in (Global Constraints). (3) **Decisions:** D110–D128; SI-36–SI-43; the owner's answers to the questions (or "pending" for each that is). D110 (an environment variable for the plugin) and D118 (what counts as an index holder) are the ones a reviewer is most likely to want to change. (4) **Claims:** the table, with what no test holds. (5) **Totals:** Step 3 next to the base, Step 4, and the mutants as observed. (6) **Not verified:** x86_64 Linux before CI (CI runs the launcher's tests and, since review round 1, the soak tools' hermetic tests, D117); the soak (the controller's, after merge); a Codex session's environment (SI-42). (7) **Tier-A:** not run (no file it watches is touched). (8) **Reviews of the plan:** what each round folded.
+The S6-2 PR body states, in this order (S6-1's, Task 2 Step 7, the same shape): (1) **Goal:** the lane goal; S6 is the opt-in from every launcher, the docs the earlier slices left to it, and the soak's instruments; the soak is specified in the plan and is the controller's. (2) **Invariants:** nothing under `src/` or `.claude-plugin/` changes; opt-in stays opt-in (Global Constraints). (3) **Decisions:** D110–D130; SI-36–SI-43; the owner's answers to the questions (or "pending" for each that is). D110 (an environment variable for the plugin) and D118 (what counts as an index holder) are the ones a reviewer is most likely to want to change. (4) **Claims:** the table, with what no test holds. (5) **Totals:** Step 3 next to the base, Step 4, and the mutants as observed. (6) **Not verified:** x86_64 Linux before CI (CI runs the launcher's tests and, since review round 1, the soak tools' hermetic tests, D117); the soak (the controller's, after merge); a Codex session's environment (SI-42). (7) **Tier-A:** not run (no file it watches is touched). (8) **Reviews of the plan:** what each round folded; round 2's fold came after the two-round cap, without a third round, and is disclosed as such.
 
 Review brief and cap as in the lane README (two rounds; Opus 5.5 and gpt-6.1-sol; the goal above; WRONG/SMELL and MATERIAL/IMMATERIAL; a fix and alternatives per finding and when it would not apply). Ask each reviewer to check the docs' fail-closed table and the operator's exit statuses line by line against the code (Review Focus 9).
 
@@ -3271,7 +3520,7 @@ A phase's report says `**Verdict: PASS**`, `FAIL` or `INADMISSIBLE`. Only PASS c
 
 ### Fixed inputs
 
-- **Build:** one release `prism-mcp` built from **this pull request's head** (owner question 4: its `src/` is `main`'s, `61c2a9e5`'s and the merge's, since nothing under `src/` changes; the binary is the merge's in all but the commit it names), in a worktree of its own that stays for the whole soak (`$S`), copied to `$E/bin/prism-mcp` with its sha256. The bridge's entries name `$E/bin/prism-mcp`, never a working checkout's `target/` (owner question 5). The tools run from `$S/scripts/soak/`.
+- **Build:** one release `prism-mcp` built from **S6-2's head** (it contains S6-1; owner question 4: its `src/` is `main`'s and the merge's, since nothing under `src/` changes; the binary is the merge's in all but the commit it names), in a worktree of its own that stays for the whole soak (`$S`), installed as `$E/bin/prism-mcp` with its sha256. The bridge's entries name `$E/bin/prism-mcp`, never a working checkout's `target/` (owner question 5). The tools run from `$S/scripts/soak/`.
 - **Corpora** (lane README "Facts"; clean, at these commits; checked before each phase with `git -C <corpus> rev-parse HEAD` and `git status --porcelain`): excalidraw `~/code/bench-repos/excalidraw` at `0642e72cfa2d`; slicing `~/code/prism-c1-corpus` at `7db8f1951166`. Workloads: `scripts/memreport/workloads/{excalidraw,slicing}.jsonl`, 200 requests each, bound to those commits by `MANIFEST.json`.
 - **Host:** this Mac (24 GB, macOS 26). Every fan-out run records swap, compressor and load before and after, and the pressure level every second (D126).
 - **Runtime directory:** `/tmp` as the base (owner question 2), so `/tmp/prism-mcpd`; the fan-out runs use directories of their own under `/tmp` and keep their daemon's log.
@@ -3291,13 +3540,22 @@ P=~/.claude/plugins/cache/prism-dev/prism/3.1.2
 
 ```bash
 mkdir -p "$E"/{bin,deploy/originals,deploy/snapshots,fanout,round,week,client-logs}
-git -C ~/code/slicing fetch -q origin && git -C ~/code/slicing worktree add --detach "$S" <the S6 pull request's head commit>
-git -C "$S" rev-parse HEAD > "$E/deploy/COMMIT"; git -C "$S" diff --stat origin/main -- src | tail -1 > "$E/deploy/SRC-DIFF"   # must be empty
+git -C ~/code/slicing fetch -q origin && git -C ~/code/slicing worktree add --detach "$S" <S6-2's head commit>
+git -C "$S" rev-parse HEAD >> "$E/deploy/COMMIT"; git -C "$S" diff --stat origin/main -- src | tail -1 > "$E/deploy/SRC-DIFF"   # must be empty
 cd "$S" && nice -n 19 env CARGO_BUILD_JOBS=4 cargo build --release --features mcp --bin prism-mcp > "$E/deploy/build.log" 2>&1; echo "build rc=$?"
-cp "$S/target/release/prism-mcp" "$B"; cp "$S/scripts/soak/prism-mcp-logged.sh" "$E/bin/"
 ```
 
-`SRC-DIFF` empty is the condition for calling this binary the merge's.
+`SRC-DIFF` empty is the condition for calling this binary the merge's. If it is not empty (`main` gained `src/` changes after S6-2's base), merge `main` into S6-2's branch, push, and start step 1 again from the new head (review round 2, Opus S-E).
+
+Install `$B` without ever writing over a file a process runs (review round 2, Opus S-C): the first install names it by its hash; a later build gets a new name and the phases that use it are written in `NOTES.md`; `SHA256SUMS` is appended, never rewritten.
+
+```bash
+H=$(shasum -a 256 "$S/target/release/prism-mcp" | cut -c1-12)
+[ -e "$E/bin/prism-mcp-$H" ] || { cp "$S/target/release/prism-mcp" "$E/bin/.prism-mcp-$H.new" && mv "$E/bin/.prism-mcp-$H.new" "$E/bin/prism-mcp-$H"; }
+[ -e "$B" ] || ln -s "prism-mcp-$H" "$B"   # the first build only; a later one is used by its own name
+[ -e "$E/bin/prism-mcp-logged.sh" ] || cp "$S/scripts/soak/prism-mcp-logged.sh" "$E/bin/"
+shasum -a 256 "$E/bin/prism-mcp-$H" "$E/bin/prism-mcp-logged.sh" >> "$E/deploy/SHA256SUMS"
+```
 
 2. **Keep the originals, once** (a second run of Phase 0 must never overwrite them, review round 1, Opus W6):
 
@@ -3310,7 +3568,6 @@ cp "$S/target/release/prism-mcp" "$B"; cp "$S/scripts/soak/prism-mcp-logged.sh" 
   for f in <each bridge configuration the soak will edit>; do cp -p "$f" "$E/deploy/snapshots/$(basename "$f")"; done
   (cd "$E/deploy/originals" && shasum -a 256 * > SHA256SUMS); (cd "$E/deploy/snapshots" && shasum -a 256 * > SHA256SUMS)
 }
-shasum -a 256 "$B" "$E/bin/prism-mcp-logged.sh" > "$E/deploy/SHA256SUMS"
 ```
 
 3. **Install** (each copy replaces the file; the originals are in `$E/deploy/originals`):
@@ -3318,7 +3575,7 @@ shasum -a 256 "$B" "$E/bin/prism-mcp-logged.sh" > "$E/deploy/SHA256SUMS"
 ```bash
 cp "$B" ~/code/slicing/target/release/prism-mcp.s6-new && mv ~/code/slicing/target/release/prism-mcp.s6-new ~/code/slicing/target/release/prism-mcp
 cp "$B" "$P/target/release/prism-mcp.s6-new" && mv "$P/target/release/prism-mcp.s6-new" "$P/target/release/prism-mcp"
-cp "$S/scripts/prism-mcp-launch.sh" "$P/scripts/prism-mcp-launch.sh"
+cp "$S/scripts/prism-mcp-launch.sh" "$P/scripts/prism-mcp-launch.sh.s6-new" && mv "$P/scripts/prism-mcp-launch.sh.s6-new" "$P/scripts/prism-mcp-launch.sh"
 ```
 
 (A rename over the old file leaves running processes on their old inode.) Then, by the owner or with the owner's approval: `export PRISM_MCP_SHARED=1` and `export PRISM_MCP_RUNTIME_DIR=/tmp` in the shell profile Claude Code starts from (sessions started before keep their standalone servers until restarted); and in each bridge configuration the soak uses, every **host-run** `[[agents.mcp]]` prism entry becomes (owner question 3 drops `--cache-dir`):
@@ -3342,20 +3599,21 @@ env PRISM_MCP_RUNTIME_DIR=/tmp python3 scripts/soak/soak.py probe -- ~/code/slic
 env PRISM_MCP_RUNTIME_DIR=/tmp python3 scripts/soak/soak.py probe -- "$E/bin/prism-mcp-logged.sh" "$E/client-logs/probe.log" "$B" --repo ~/code/slicing --shared
 ```
 
-(The second is the project's `.codex/config.toml` command; the third the bridge entry's, with `{cwd}` filled in.) A `FAIL` names the binary's error: fix it before going on. The probes start lazy daemons of `~/code/slicing` (no index is built), which retire after the idle TTL. **Then merge the pull request** (owner question 4).
+(The second is the project's `.codex/config.toml` command; the third the bridge entry's, with `{cwd}` filled in.) A `FAIL` names the binary's error: fix it before going on. The probes start lazy daemons of `~/code/slicing` (no index is built), which retire after the idle TTL. **Then merge S6-2** (owner question 4; S6-1 may already be merged).
 
 Record in `$E/deploy/NOTES.md`: the commit, the sha256s, which configurations were edited, the time.
 
-**Rollback** (any time), in this order, so that no configuration ever passes `--shared` to a binary that rejects it (review round 1, sol 1, Opus W4):
+**Rollback** (any time), in this order, so that no configuration ever passes `--shared` with a binary that rejects it (review round 1, sol 1, Opus W4; revised in review round 2, Opus W-C, S-B):
 
-1. Configurations: restore each bridge configuration from `$E/deploy/snapshots/`; in `~/code/slicing/.codex/config.toml` (and any other checkout that has the merged file), remove `"--shared"` from the prism `args` (or restore the snapshot); unset `PRISM_MCP_SHARED` and `PRISM_MCP_RUNTIME_DIR` in the profile.
-2. Daemons: with the S6 binary, which stays until this step is done: `"$B" daemon-status --runtime-dir /tmp`, then `"$B" daemon-shutdown --repo <root> --runtime-dir /tmp` for each daemon it lists (or `kill -TERM <pid>`); check `pgrep -fl 'prism-mcp daemon'` prints nothing.
-3. Binaries: copy `$E/deploy/originals/{slicing-prism-mcp,plugin-prism-mcp,prism-mcp-launch.sh}` back to their places (check them against `$E/deploy/originals/SHA256SUMS` first).
-4. Probe each restored launcher **without** `--shared` (the commands of step 4 above without `--shared` and without `PRISM_MCP_SHARED`); each must print `PASS`. A `FAIL` there means a configuration still asks for what the restored binary lacks.
+1. Configurations: restore each bridge configuration from `$E/deploy/snapshots/`; unset `PRISM_MCP_SHARED` and `PRISM_MCP_RUNTIME_DIR` in the profile. **Leave `.codex/config.toml` and `~/code/slicing/target/release/prism-mcp` as they are**: once S6-2 is on `main`, every checkout's `.codex/config.toml` passes `--shared` to that path, and the S6 build there serves standalone clients exactly as the old one did, so keeping it keeps every checkout's Codex working. (Before S6-2 merges, the checkouts' `.codex/config.toml` has no `--shared` and keeping the build changes nothing either.)
+2. Sessions: end or restart every opted-in Claude Code session (in Claude Code, `/mcp` then reconnect) so that its server starts again from the restored environment.
+3. Daemons: with the S6 binary, which stays: `"$B" daemon-status --runtime-dir /tmp`, then `"$B" daemon-shutdown --repo <root> --runtime-dir /tmp` for each daemon it lists; a daemon that still has clients (a session not yet restarted) does not drain on request: stop it with `kill -TERM <pid>`, which ends those sessions; check `pgrep -fl 'prism-mcp daemon'` prints nothing (Codex sessions of a merged checkout keep their own shared daemons; they are working configurations, not leftovers).
+4. The plugin: restore `$E/deploy/originals/{plugin-prism-mcp,prism-mcp-launch.sh}` (checked against `$E/deploy/originals/SHA256SUMS` first) by copying each to a `.s6-old` name beside its place and renaming it over the file, never copying over a file a process runs.
+5. Probe the plugin's launcher without `PRISM_MCP_SHARED` (step 4 above, without the variable); it must print `PASS`. Then restart any session that was started during the rollback.
 
 ### Phase 1: fan-out latency (a quiet hour; about 45 minutes)
 
-Preconditions, checked and saved: no bridge run, build or other measurement on the host (lane rule: one measured process at a time); `python3 "$S/scripts/soak/soak.py" sample --count 1 --interval 0 --out "$E/fanout/host-before.jsonl"` shows no index holder; both corpora at their commits and clean. Prime one cache per corpus (discarded runs):
+Preconditions, checked and saved: no bridge run, build or other measurement on the host (lane rule: one measured process at a time); at least 20 minutes after Phase 0's probes, whose lazy daemons retire after the idle TTL; `python3 "$S/scripts/soak/soak.py" sample --count 1 --interval 0 --out "$E/fanout/host-before.jsonl"` shows no standalone index holder and no daemon of 100 MiB or more (an opted-in session's lazy daemon, a few MiB, does not count: review round 2, Opus S-D); both corpora at their commits and clean. Prime one cache per corpus (discarded runs):
 
 ```bash
 C="$E/fanout/cache"
@@ -3370,14 +3628,16 @@ run() { python3 "$S/scripts/soak/fanout.py" run --bin "$B" --corpus "$1" --cache
 X=excalidraw="$HOME/code/bench-repos/excalidraw"
 ```
 
-**Calibration (A/A; review round 1, Opus S1).** Six standalone runs of eight clients, alternating groups a and b, then the same `compare`:
+**Calibration (A/A; review round 1, Opus S1; review round 2, Opus W-A).** Six standalone runs of eight clients, groups a and b in ABBA order, judged in both directions:
 
 ```bash
-for rep in 1 2 3; do run "$X" standalone 8 "aa-a-$rep"; run "$X" standalone 8 "aa-b-$rep"; done
-python3 "$S/scripts/soak/fanout.py" compare --baseline "$E/fanout/aa-a-1" --baseline "$E/fanout/aa-a-2" --baseline "$E/fanout/aa-a-3" --candidate "$E/fanout/aa-b-1" --candidate "$E/fanout/aa-b-2" --candidate "$E/fanout/aa-b-3" --out "$E/fanout/aa-compare.md" --json "$E/fanout/aa-compare.json"
+run "$X" standalone 8 aa-a-1; run "$X" standalone 8 aa-b-1
+run "$X" standalone 8 aa-b-2; run "$X" standalone 8 aa-a-2
+run "$X" standalone 8 aa-a-3; run "$X" standalone 8 aa-b-3
+python3 "$S/scripts/soak/fanout.py" compare --both-directions --baseline "$E/fanout/aa-a-1" --baseline "$E/fanout/aa-a-2" --baseline "$E/fanout/aa-a-3" --candidate "$E/fanout/aa-b-1" --candidate "$E/fanout/aa-b-2" --candidate "$E/fanout/aa-b-3" --out "$E/fanout/aa-compare.md" --json "$E/fanout/aa-compare.json"
 ```
 
-If `aa-compare.md` does not say `**Verdict: PASS**` (the host's own spread between two identical arms exceeds the bound, or a run was inadmissible), the gate cannot be judged on this host as pinned: stop and take the A/A figures to the owner (owner question 7) before any gate run; never collect more runs toward it.
+If `aa-compare.md` does not say `**Verdict: PASS**` (in either direction the host's own spread between two identical arms exceeds the bound, or a run was inadmissible), the gate cannot be judged on this host as pinned: stop and take the A/A figures to the owner (owner question 7) before any gate run; never collect more runs toward it.
 
 **The gate** (excalidraw), pairs in ABBA order so that drift in the host does not always fall on one arm:
 
@@ -3394,37 +3654,40 @@ Read and keep for the readout: each run's `summary.json` (p50/p95/p99/max, the r
 
 ### Phase 2: one bridge review round (fan-out under real load)
 
-The round: the next real review round of any lane run through the bridge with a soaked **host-run** configuration (agents in containers run in the OrbStack VM, outside the host's process table, so the sampler cannot see them), or else one `a2a-bridge run-workflow plan-review` (five nodes, codex and claude) on a checkout of `main` at or after the merge, `--session-cwd` that checkout. Preconditions: Phase 0's probes passed; the Claude Code sessions the owner will use were started after the profile export; `soak.py sample --count 1` lists the standalone index holders already running (they are listed in the report and not counted, D125).
+The round: the next real review round of any lane run through the bridge with a soaked **host-run** configuration, its agents' checkouts written down (each is a `--round-repo`) (agents in containers run in the OrbStack VM, outside the host's process table, so the sampler cannot see them), or else one `a2a-bridge run-workflow plan-review` (five nodes, codex and claude) on a checkout of `main` at or after the merge, `--session-cwd` that checkout. Preconditions: Phase 0's probes passed; the Claude Code sessions the owner will use were started after the profile export; `soak.py sample --count 1` lists the standalone index holders already running (they are listed in the report and not counted, D125).
 
 ```bash
-nohup python3 "$S/scripts/soak/soak.py" sample --out "$E/round/samples.jsonl" --interval 5 > "$E/round/sampler.log" 2>&1 &
-echo $! > "$E/round/sampler.pid"; date +%s > "$E/round/T0"
+[ -e "$E/client-logs/bridge.log" ] && mv "$E/client-logs/bridge.log" "$E/client-logs/bridge.log.attempt-$(date +%s)"   # each attempt starts with no bridge log (review round 2, Opus S-A)
+nohup python3 "$S/scripts/soak/soak.py" sample --out "$E/round/samples.jsonl" --interval 5 >> "$E/round/sampler.log" 2>&1 &
+echo $! > "$E/round/sampler.pid"; [ -s "$E/round/T0" ] || date +%s > "$E/round/T0"
 ```
+
+(A new attempt after a stop condition uses a new `$E/round-N` directory, so that its `T0`, samples and report are its own.)
 
 Run the round. Twenty minutes after its last agent ends (the idle TTL, 15 minutes, and a margin):
 
 ```bash
 date +%s > "$E/round/T1"; kill "$(cat "$E/round/sampler.pid")"; pgrep -fl 'soak.py sample'   # prints nothing
-python3 "$S/scripts/soak/soak.py" report --phase round --samples "$E/round/samples.jsonl" --since "$(cat "$E/round/T0")" --until "$(cat "$E/round/T1")" --claude-logs ~/Library/Caches/claude-cli-nodejs --client-log "$E/client-logs/bridge.log" --out "$E/round/report.md" --json "$E/round/report.json"
+python3 "$S/scripts/soak/soak.py" report --phase round --round-repo <each checkout of the round> --samples "$E/round/samples.jsonl" --since "$(cat "$E/round/T0")" --until "$(cat "$E/round/T1")" --claude-logs ~/Library/Caches/claude-cli-nodejs --client-log "$E/client-logs/bridge.log" --out "$E/round/report.md" --json "$E/round/report.json"
 ```
 
-**Pass:** `report.md` says `**Verdict: PASS**`: every rule `PASS` (none `UNKNOWN`), and the use seen: at least two shims at once, a daemon reached in the logs, an index built. Reported with it: the most index holders at once against the number of checkouts the round used, the peak footprint of all prism-mcp processes, the peak swap and compressor, the standalone servers already running at the start, and whether the round's daemon had retired by `T1` (the last sample).
+**Pass:** `report.md` says `**Verdict: PASS**`: every rule `PASS` (none `UNKNOWN`), and the use seen: at least two shims at once, a daemon reached in the logs and in `bridge.log` itself, an index built. A standalone server outside the round's checkouts (a launcher the soak does not edit, opened during the round) is listed and not counted (review round 2, Opus W-D). Reported with it: the most index holders at once against the number of checkouts the round used, the peak footprint of all prism-mcp processes, the peak swap and compressor, the standalone servers already running at the start, and whether the round's daemon had retired by `T1` (the last sample).
 
 ### Phase 3: one week of interactive use
 
 ```bash
-nohup python3 "$S/scripts/soak/soak.py" sample --out "$E/week/samples.jsonl" --interval 60 --duration 604800 > "$E/week/sampler.log" 2>&1 &
-echo $! > "$E/week/sampler.pid"; date +%s > "$E/week/T0"
+nohup python3 "$S/scripts/soak/soak.py" sample --out "$E/week/samples.jsonl" --interval 60 --duration 604800 --window-file "$E/week/T0" >> "$E/week/sampler.log" 2>&1 &
+echo $! > "$E/week/sampler.pid"
 ```
 
-Check daily that the last line of `samples.jsonl` is recent (`tail -1 … | python3 -c 'import json,sys,time; print(time.time() - json.loads(sys.stdin.read())["t"])'`); a restart of the host or of the session kills the sampler, and running the same command again appends (a line cut short by the kill is skipped and counted by the report). Write in `$E/week/NOTES.md` anything that changes the deployed binaries. At the end:
+Check daily that the last line of `samples.jsonl` is recent (`tail -1 … | python3 -c 'import json,sys,time; print(time.time() - json.loads(sys.stdin.read())["t"])'`). A restart of the host or of the session kills the sampler; run the same command again: `--window-file` keeps the window's start (written once, the first time), the sampler runs to the end of that window rather than for another week, and `sampler.log` gets a `resumed` line with the time left (review round 2, sol 1, Opus W-E). A line cut short by the kill is skipped and counted by the report, and the report gives the largest gap between samples. Write in `$E/week/NOTES.md` anything that changes the deployed binaries. At the end:
 
 ```bash
 kill "$(cat "$E/week/sampler.pid")" 2>/dev/null; date +%s > "$E/week/T1"
-python3 "$S/scripts/soak/soak.py" report --phase week --samples "$E/week/samples.jsonl" --since "$(cat "$E/week/T0")" --until "$(cat "$E/week/T1")" --claude-logs ~/Library/Caches/claude-cli-nodejs --client-log "$E/client-logs/bridge.log" --out "$E/week/report.md" --json "$E/week/report.json"
+python3 "$S/scripts/soak/soak.py" report --phase week --samples "$E/week/samples.jsonl" --window-file "$E/week/T0" --until "$(cat "$E/week/T1")" --claude-logs ~/Library/Caches/claude-cli-nodejs --client-log "$E/client-logs/bridge.log" --out "$E/week/report.md" --json "$E/week/report.json"
 ```
 
-(add a `--client-log` for each other wrapper log the week used). **Pass:** `**Verdict: PASS**`: `one_index_per_key`, `no_fail_closed`, `no_startup_error`, `no_restart_bound` and `no_abort` `PASS`, and at least 5 usage days (D128); `no_new_standalone_index` and `no_critical_pressure` are reported, not gated (other work on the host runs standalone servers and uses memory).
+(add a `--client-log` for each other wrapper log the week used). **Pass:** `**Verdict: PASS**`: `one_index_per_key`, `no_fail_closed`, `no_startup_error`, `no_restart_bound` and `no_abort` `PASS`, and at least 5 usage days (days daemons spent CPU, D128); read the largest gap between samples with it (a sampler that was dead for days is visible there); `no_new_standalone_index` and `no_critical_pressure` are reported, not gated (other work on the host runs standalone servers and uses memory).
 
 ### Stop conditions (any phase)
 
@@ -3464,13 +3727,15 @@ The readout `docs/analysis/2026-10-shared-daemon-soak-readout.md` (a docs pull r
 
 Built on 2026-10-16 on macOS (arm64), in `~/code/prism-s6-validate`, from `main` `61c2a9e5`, merged up to `main` `4a9e6476` for review round 1 (lane docs only in between). Every cargo command ran alone, as `nice -n 19 env CARGO_BUILD_JOBS=4 cargo …`, with its output in a file under the session's scratch directory, read from the file. Nothing was pushed. Local branches:
 
-- `scratch/s6-validate`, where the code was first written: `5838de63` (the launcher and its tests), `8b3dc0fb` (the soak tools), `f81cf81a` (docs and configuration), `c9be7b01` (two fan-out tests the mutant table asked for), `f97a04ed` (the live test without `pgrep`; daemons per repository), `9e82b670` (days with a shim; the round-0 head), `d251849e` (merge of `main` `4a9e6476`), then review round 1: `0bd92f49` (its tests, red), `67d2d407` (the fold), `f2239814` (`CLAUDE.md`), `f76f8e33` (four tests for mutants that first survived; the barrier bounded; the head). The full suite ran at the head (V4); the mutants at `67d2d407`/`f2239814` (L1–L6, S1–S13, S7b, U1–U17) and at the head (F1–F22, and U11, F9, F10, F15, F16 again after their tests), each alone, the file restored after each.
-- `scratch/s6-tasks`, the same source cut into this plan's tasks, one commit per task on `4a9e6476`, every file taken from `f76f8e33`: `ee16ecba` (Task 1), `123f5144` (2, the S6-1 head), `7e9484ac` (3), `99b0c2af` (4, the S6-2 head). `cargo fmt --check` passed at every commit; its tree is `84c42714`, the head's. Earlier cuts are kept as `scratch/s6-tasks-r0` and `scratch/s6-tasks-r1base` (round 0), with their replays `scratch/s6-replay-r0` and `scratch/s6-replay-r1base`.
-- `scratch/s6-replay`: this plan's directives replayed by a script onto `4a9e6476`, every anchor matching exactly once (24 directives, three of them "Make … executable."): `1e487b34`, tree `84c42714`, the tree of `99b0c2af` and of `f76f8e33`. The red and green steps of Tasks 1–3 were run on partial replays in the validate worktree (detached at `4a9e6476`, the plan replayed up to the task's Step 2, then up to its Step 4; V2, V3).
+- `scratch/s6-validate`, where the code was first written: `5838de63` (the launcher and its tests), `8b3dc0fb` (the soak tools), `f81cf81a` (docs and configuration), `c9be7b01` (two fan-out tests the mutant table asked for), `f97a04ed` (the live test without `pgrep`; daemons per repository), `9e82b670` (days with a shim; the round-0 head), `d251849e` (merge of `main` `4a9e6476`), then review round 1: `0bd92f49` (its tests, red), `67d2d407` (the fold), `f2239814` (`CLAUDE.md`), `f76f8e33` (four tests for mutants that first survived; the barrier bounded), then review round 2: `7faddf0c` (its tests, red), `22a43371` (the fold), `2e948c5c` (`CLAUDE.md`), `cbc32ee3` (a redundant check removed; the head). The full suite ran at `f76f8e33` (V4; nothing cargo builds changed after it); the full mutant set at `2e948c5c` and U9, U11, R3 again at the head, each alone, the file restored after each.
+- `scratch/s6-tasks`, the same source cut into this plan's tasks, one commit per task on `4a9e6476`, every file taken from `cbc32ee3`: `111993b5` (Task 1), `ac6ddc7a` (2, the S6-1 head), `fc612b47` (3), `678fd702` (4, the S6-2 head). `cargo fmt --check` passed at every commit; its tree is `4b940d6e`, the head's. Earlier cuts are kept as `scratch/s6-tasks-r0`, `scratch/s6-tasks-r1base` (round 0) and `scratch/s6-tasks-r1` (round 1), with their replays `scratch/s6-replay-r0`, `scratch/s6-replay-r1base` and `scratch/s6-replay-r1`.
+- `scratch/s6-replay`: this plan's directives replayed by a script onto `4a9e6476`, every anchor matching exactly once (25 directives, three of them "Make … executable."): `0daffe4f`, tree `4b940d6e`, the tree of `678fd702` and of `cbc32ee3`. The red and green steps of Tasks 1–3 were run on partial replays in the validate worktree (detached at `4a9e6476`, the plan replayed up to the task's Step 2, then up to its Step 4; V2, V3).
 
 The tools (the generator of the directives from the per-task commits, the replay, the cut, the mutant runner, the assembly of this file) are S5b's, with three changes: a created file whose mode is `100755` gets a "Make `path` executable." directive, which the replay applies with `chmod 755` (the tree comparison includes modes); Python and bash fences; and the test files of this slice (`tests/…`, `scripts/soak/test_*.py`, `fake_prism_mcp.py`) are told from production files by name.
 
 **Measured on this host before the design relied on it.** (1) Claude Code gives a plugin's MCP server its whole environment: `ps eww` of a running plugin `prism-mcp` (Claude Code session `fd583811`) lists the user's shell variables, `TMPDIR`, `GOROOT`, API keys among them (names only were read). (2) Claude Code keeps an MCP server's standard error: `~/Library/Caches/claude-cli-nodejs/-Users-wesleyjinks-code-slicing/mcp-logs-plugin-prism-prism/*.jsonl` holds entries `{"error":"Server stderr: nav cache: CPG cache miss …","timestamp":…}`. (3) A lazy plugin server that has built nothing has a `phys_footprint` of 1.8 MiB (`footprint -p 8068`). (4) macOS names a crash report after the process: the lane's aborted test binaries left `prism-49efe5ab01e24782-2026-10-14-*.ips`. (5) The image `a2a-toolchain:latest` has Python 3.12, git and bash 5.2, and no `ps`, `pgrep` or `footprint`. (6) Both pinned corpora are at their commits and clean.
+
+**Measured in review round 2.** An idle daemon's CPU: a `prism-mcp --shared` shim of the debug build on a three-file repository, one `nav_callers` call, then 120 s idle with the shim attached: the daemon's `ps -o time=` read `0:00.17` before and after (D128's threshold, 0.5 s a day, rests on it; the daemon was shut down with `daemon-shutdown` and its runtime directory removed).
 
 **Not measured.** Whether a host-run Codex passes `TMPDIR` to its MCP servers (SI-42; a look at the Codex binary's strings was refused by the session's permission policy, and a Codex session was not started for it); the soak.
 
@@ -3488,6 +3753,7 @@ The tools (the generator of the directives from the per-task commits, the replay
 | 8 | Task 3, `test_fanout_gate.py` | the overlap test without a call of client 0 inside the refresh's window | counting client 0's own calls (mutant F15) changed nothing it asserted | a client-0 call inside the window |
 | 9 | Task 3, `test_fanout_gate.py` | the critical-pressure test asserted the problem and the reading | a watch that recorded the reading and never stopped the clients (mutant F16) passed | asserts the clients were stopped and the calls cut short |
 | 10 | Task 2, `test_soak_coverage.py` | the round's phase test without a gated UNKNOWN under seen use | an `overall` that ignored UNKNOWN (mutant U11) passed | a failed `ps` in a used round must be INADMISSIBLE |
+| 12 | Task 2, `soak_judge.py` | the round's use checks included "a daemon reached in any log" beside "in every client log" | the full mutant run left U10 alive: the first is implied by the second (an equivalent mutant) | the redundant check removed |
 | 11 | Task 3, `fanout.py` | the main thread's barrier waits without a bound | under mutant F10 a client killed during warm-up (the pressure test) held the whole suite past its 900 s limit | the barrier waits at most until the run's own deadline |
 
 ## Review round 1
@@ -3521,3 +3787,23 @@ Folded on `scratch/s6-validate` (merged up to `main` `4a9e6476` first, lane docs
 | Opus S8, SMELL: docs examples for one user; 829 vs 833; no cleanup of `$S` | folded | A note beside the examples; the counts restated (now two PRs, D114); cleanup after the soak | — |
 
 The production growth from the fold (833 → 1,157 lines) passed the lane's threshold, so the slice now ships as two pull requests (D114). Not folded, recorded: test daemons under temporary directories in `max_daemons_per_repo` (a millisecond overlap in a test is improbable in a 5 s sample; it would show as a FAIL the stop conditions read); `footprint`'s effect on a large process (not measured).
+
+## Review round 2 (the cap; folded after it, disclosed)
+
+PR #422 at `b06c12aa` (code `84c42714`). **gpt-6.1-sol: FIX** (one WRONG/MATERIAL; every round-1 finding of its own closed). **Opus 5.5: FIX** (five WRONG, four MATERIAL and one MATERIAL-low; six SMELLs), converging: three are incomplete round-1 folds (S3, W3, W4) and two came with the fold (the calibration, the week's restart). sol's finding is Opus W-E. The controller's ruling: the loop converges (eight WRONG, then five, each bounded, none of a kind folded twice), so the fold goes ahead **after the two-round cap, without a third round, disclosed** here and in the pull request bodies; any fix that showed another instance of the same kind of gap was to stop the fold and go to the owner. None did. The owner questions stay open; 4, 5, 7 and 8 carry the corrections.
+
+Folded on `scratch/s6-validate`: `7faddf0c` (every new test, committed red: `Ran 66 tests`, `FAILED (failures=3, errors=7)`), `22a43371` (the fold), `2e948c5c` (`CLAUDE.md`), `cbc32ee3` (the round's "a daemon reached in any log" check removed: the full mutant run showed its mutant U10 survive, because "a reached daemon in every client log" implies it; an equivalent mutant, so the redundant check went rather than a test). Re-cut, regenerated and replayed (Validation record).
+
+| Finding | Ruling | What changed | Test, RED before the change → GREEN after |
+|---|---|---|---|
+| sol 1 = Opus W-E, WRONG/MATERIAL: a resumed week rewrote `T0` and dropped a day-2 failure and earlier usage days | folded | `sample --window-file T0` writes the start once and runs to the end of that window on a resume, logging a `resumed` line; `report --window-file`; the runbook appends to `sampler.log`; Phase 2's `T0` guarded the same way (D129) | `test_a_resumed_sampler_keeps_the_window_it_started`, `test_a_day_two_failure_and_earlier_usage_days_survive_a_resume` (seven days, a day-2 fail-closed line, a resume on day 4: `no_fail_closed` FAIL and seven usage days): RED (no `open_window`) → GREEN. Mutant W1 |
+| Opus W-A, WRONG/MATERIAL: the A/A calibration passed a 30 % spread one way | folded | `fanout.calibrate` and `compare --both-directions`: both directions must pass; calibration runs in ABBA order | `test_a_calibration_passes_only_when_both_directions_pass` (100/200 ms against 70/140 ms: forward PASS, backward FAIL, calibration FAIL both ways): RED (no `calibrate`) → GREEN. Mutant A1 |
+| Opus W-B, WRONG/MATERIAL (round-1 S3 incomplete): a usage day counted residency | folded | `ps`'s `time` read (`cpu_secs`); a usage day needs 0.5 s of daemon CPU that day (D128). Measured: an idle daemon with a client attached spent `0:00.00` of CPU in 120 s | `test_a_usage_day_is_a_day_a_daemon_worked_not_one_it_was_resident` (one call on day 1, a window open all week: one day): RED (`['1970-01-01', … seven days]` against one) → GREEN. Mutants C1–C4 |
+| Opus W-C, WRONG/MATERIAL (round-1 W4 incomplete): rollback restored a pre-S5a build where `main`'s `.codex` passes `--shared` | folded (the first alternative) | Rollback leaves `~/code/slicing/target/release/prism-mcp` (and `.codex`) as they are and restores only the plugin's binary and launcher: the S6 build serves standalone clients exactly as before, and keeping it keeps every checkout's Codex working; a revert pull request would reach checkouts only as they pull (owner question 5) | — (a procedure) |
+| Opus W-D, WRONG/MATERIAL (round-1 W3 incomplete): an unedited launcher opened during the round failed it | folded (the first alternative) | `report --phase round` requires `--round-repo` (each of the round's checkouts) and gates `no_new_standalone_index` only on those (paths resolved); the others are listed (D125) | `test_only_standalone_servers_of_the_round_s_checkouts_are_gated` (a symlinked alias of a checkout counts), `test_a_round_report_without_its_checkouts_is_refused`: RED (`judge()` takes no `round_repos`; the report ran without one) → GREEN. Mutants R1, R2, R4 |
+| Opus S-A, SMELL/MATERIAL (low): a round could pass on interactive sessions alone | folded (both) | Every `--client-log` (the bridge's) must hold a reached daemon in the window; the runbook moves `bridge.log` aside before each attempt | `test_a_round_needs_a_reached_daemon_in_every_client_log`: RED → GREEN. Mutant R3 |
+| Opus S-B, SMELL/MATERIAL (low): rollback could not finish with sessions attached; a plain copy over a running executable | folded | Rollback ends or restarts opted-in sessions, uses `kill -TERM` for a daemon that still has clients, restores by copy and rename | — (a procedure) |
+| Opus S-C, SMELL/MATERIAL (low): a second Phase 0 rewrote `$B` in place | folded | `$B` installed by copy and rename under a per-hash name (`prism-mcp-<sha12>`, `$B` a link to the first); `SHA256SUMS` appended | — (a procedure) |
+| Opus S-D, SMELL: Phase 1's precondition counted lazy daemons | folded | 20 minutes after the probes; no standalone holder and no daemon of 100 MiB or more | — |
+| Opus S-E, SMELL: CI step in S6-2; "this pull request"; a non-empty `SRC-DIFF` | folded | The CI step moves to S6-1 (Task 2); Phase 0 builds S6-2's head and merges S6-2; merge `main` into S6-2's branch when `SRC-DIFF` is not empty | — |
+| Opus S-F, SMELL: the week's coverage measure | folded (in part) | The report gives the time covered and the largest gap between samples (D130). Not folded: tolerating isolated `ps` failures (one makes the process rules UNKNOWN; the owner judges such a week from the report) | `test_the_largest_gap_between_samples_and_the_time_covered_are_reported`: RED (`KeyError`) → GREEN. Mutant G1 |
