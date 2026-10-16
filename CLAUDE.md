@@ -427,6 +427,20 @@ While its builder runs the daemon leaves `<key16>.build` (`files.rs::BuildMarker
 around the builder by `run.rs::marked`, removed at release); a daemon that dies during its build
 leaves it. The marker shares a fence with `DaemonFiles`: release (or drop) sets it under its lock
 before the owner lock is released, so a released daemon's late `set` or `clear` does nothing.
+An operator's control line (`shared/control.rs`; spec §4.7) is answered in place of a `HELLO`:
+`STATUS {"control":1}`, or `SHUTDOWN` naming one instance by identity, pid and start time (the
+exchange has a version of its own, not in the identity key, so an operator tool can ask a daemon
+of another build). The daemon answers one `STATUS` line (instance, root, build identity, clients,
+build state, idle time, whether a shutdown is requested), or `RETIRING`/`BUSY`, and closes; the
+connection is never admitted, and `admission.rs::control_exchange` takes it out of the pending
+count without restarting the idle time (`quiet_since`), so a probe does not keep an idle daemon
+up; a control line whose read completes across its handshake deadline is dropped the same way, unanswered
+and with nothing recorded. A connection that ends before its line is whole, or whose line is
+neither a control line nor a `HELLO` (which is what a daemon built before this exchange makes of a
+`STATUS`), is treated as a client's and restarts the idle time. A `SHUTDOWN` for this very
+instance makes the daemon drain once nothing is admitted or pending, whatever the idle TTL or a
+running build (`StopReason::Shutdown`); until then it goes on admitting new clients, and it never
+disconnects one.
 
 Shim (`src/mcp/shim/`, Unix only; `prism-mcp --repo X --shared [--daemon-start-timeout S]
 [--idle-ttl S] [--max-clients N]`; `--shared` with `--no-cache`, `--eager` or `--owner-*` is a CLI
