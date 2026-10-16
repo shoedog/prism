@@ -13,7 +13,13 @@
 //! The loop is outside both of the daemon's domains, like a connection's framing: nothing in it
 //! runs under the provider slot, and what it does under the control lock it does through the
 //! guarded functions of `admission.rs`. A poisoned control lock ends the daemon there.
-use super::admission::{Admit, Entry};
+//!
+//! A connection whose line is an operator's `STATUS` or `SHUTDOWN` (spec §4.7) is answered with
+//! the daemon's state and closed; it is never admitted, and it leaves the idle time as it found
+//! it, also when the read of its line completes across its deadline. A connection that ends or times out
+//! before its line is whole, or whose line is neither a control line nor a `HELLO`, cannot be told
+//! from a client's, and restarts the idle time when it goes.
+use super::admission::{Admit, Control, Entry};
 use super::connection::serve_admitted;
 use super::control::StopReason;
 use super::coordinator::DaemonState;
@@ -22,6 +28,9 @@ use super::log;
 use super::peer::peer_uid;
 use crate::mcp::registry::ToolRegistry;
 use crate::mcp::settings::ClientSettings;
+use crate::mcp::shared::control::{
+    display_root, is_control_line, ControlRequest, DaemonStatus, Instance,
+};
 use crate::mcp::shared::identity::{FsIdentity, IdentityKey};
 use crate::mcp::shared::preamble::{Hello, PreambleError, Ready, Reply};
 use crate::mcp::shared::preamble_reader::{PreambleLineReader, PreambleReadError};
@@ -68,6 +77,19 @@ pub(super) struct Served {
     pub(super) pid: u32,
     /// Seconds since the Unix epoch.
     pub(super) start_time: u64,
+    /// `PRISM_CACHE_BUILD_IDENTITY`, as the pid file's third line has it.
+    pub(super) build_identity: String,
+}
+
+impl Served {
+    /// This daemon instance, as a shutdown request must name it (spec §11 item 3).
+    fn instance(&self) -> Instance {
+        Instance {
+            identity: self.key,
+            pid: self.pid,
+            start_time: self.start_time,
+        }
+    }
 }
 
 /// Wakes the loop from another thread: a connection ended, a test moved the clock, or the
@@ -388,6 +410,12 @@ impl Server {
                     }
                     if self.state.now() < pending.deadline {
                         self.answer(pending.stream, &line)?
+                    } else if is_control_line(&line) {
+                        // An operator's line whose read completed across its deadline is not
+                        // answered, records nothing, and leaves the idle time as it found it
+                        // (review round 1, sol 3). One still incomplete when the deadline is
+                        // checked before a read is a client's (review round 2, Opus W1).
+                        self.state.control_exchange(false)?;
                     } else {
                         self.state.leave_handshake()?
                     }
@@ -406,8 +434,11 @@ impl Server {
         Ok(())
     }
 
-    /// Answer a whole `HELLO` line.
+    /// Answer a whole `HELLO` line, or an operator's control line.
     fn answer(&mut self, stream: UnixStream, line: &[u8]) -> anyhow::Result<()> {
+        if is_control_line(line) {
+            return self.answer_control(&stream, line);
+        }
         let settings = match admit_hello(Hello::decode(line), &self.served.key) {
             Ok(settings) => settings,
             Err(Some(reply)) => {
@@ -438,6 +469,54 @@ impl Server {
                 self.start_worker(stream, settings)?;
             }
         }
+        Ok(())
+    }
+
+    /// Answer an operator's control line (spec §4.7) and close the connection: it is never
+    /// admitted, and it leaves the idle time as it found it. A shutdown is recorded only when it
+    /// names this very instance (spec §11 item 3); every request is answered with the status, so
+    /// the operator sees which instance answered. A line this build refuses is closed without a
+    /// reply, as a refused `HELLO` is (D54).
+    fn answer_control(&self, stream: &UnixStream, line: &[u8]) -> anyhow::Result<()> {
+        let request = match ControlRequest::decode(line) {
+            Ok(request) => request,
+            Err(error) => {
+                log::line(&format!("refused a control line: {error}"));
+                self.state.control_exchange(false)?;
+                return Ok(());
+            }
+        };
+        let shutdown = match request {
+            ControlRequest::Status => false,
+            ControlRequest::Shutdown(instance) => instance == self.served.instance(),
+        };
+        let snapshot = match self.state.control_exchange(shutdown)? {
+            Control::Retiring => {
+                send(stream, &Reply::Retiring);
+                return Ok(());
+            }
+            Control::Status(snapshot) => snapshot,
+        };
+        if shutdown {
+            log::line(
+                "an operator asked this daemon to shut down; it drains once no client is left",
+            );
+        }
+        let status = DaemonStatus {
+            instance: self.served.instance(),
+            build_identity: self.served.build_identity.clone(),
+            repo_root: display_root(&self.served.repo_root),
+            admitted: snapshot.admitted,
+            pending: snapshot.pending,
+            max_clients: self.options.max_clients,
+            build: snapshot.build.state,
+            attempt: snapshot.build.attempt,
+            generation: snapshot.build.generation,
+            idle_secs: snapshot.idle_for.map(|idle| idle.as_secs()),
+            idle_ttl_secs: self.options.idle_ttl.as_secs(),
+            shutdown: snapshot.shutdown,
+        };
+        let _ = (&*stream).write_all(status.encode().as_bytes());
         Ok(())
     }
 
@@ -555,3 +634,7 @@ mod tests;
 #[cfg(test)]
 #[path = "server_drain_tests.rs"]
 mod drain_tests;
+
+#[cfg(test)]
+#[path = "server_control_tests.rs"]
+mod control_tests;
