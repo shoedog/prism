@@ -44,6 +44,7 @@ pub struct DaemonPaths {
     owner_lock: PathBuf,
     pid_file: PathBuf,
     log_file: PathBuf,
+    build_marker: PathBuf,
 }
 
 impl DaemonPaths {
@@ -65,6 +66,7 @@ impl DaemonPaths {
             owner_lock: file("owner"),
             pid_file: file("pid"),
             log_file: file("log"),
+            build_marker: file("build"),
         })
     }
 
@@ -95,6 +97,13 @@ impl DaemonPaths {
     /// `<key16>.log`: the daemon's stdout and stderr.
     pub fn log_file(&self) -> &Path {
         &self.log_file
+    }
+
+    /// `<key16>.build`: present while the daemon's index build runs. A daemon that dies during
+    /// its build leaves it, and the next shim reads it to bound how often it restarts a daemon
+    /// whose build keeps dying (S5a).
+    pub fn build_marker(&self) -> &Path {
+        &self.build_marker
     }
 }
 

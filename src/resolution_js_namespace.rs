@@ -17,7 +17,12 @@ impl CallGraph {
             resolve_js_ts_relative_module(module, &site.caller.file, &self.indexed_files)
                 .or_else(|| namespace_sibling(module, &site.caller.file, &self.indexed_files));
         if let Some(file) = module_file {
-            let outcome = self.js_ts_namespace_proof(&file, member, site, base);
+            let outcome = self
+                .js_ts_namespace_proof(&file, member, site, base)
+                .map(|out| {
+                    let export = &self.js_ts_namespace_exports[&file][member];
+                    self.certify_anonymous_namespace(site, module, export, out)
+                });
             // A module found only by the normalized fallback does not get the legacy
             // Exact stem match when its export proof fails: `None` would authorize
             // it, so keep the NameOnly outcome below. A module the literal lookup

@@ -16,7 +16,7 @@ impl CallGraph {
     /// The JS/TS import-member route for one eligible member-import binding used at `site`:
     /// the typed export facts decide; zero candidates drop (an unshadowed import names that
     /// module's export, never a same-named global function), several demote.
-    pub(super) fn js_ts_import_member_outcome<'a>(
+    pub(crate) fn js_ts_import_member_outcome<'a>(
         &'a self,
         caller: &FunctionId,
         binding: &ImportBinding,
