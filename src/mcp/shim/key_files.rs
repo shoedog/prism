@@ -13,6 +13,8 @@ use std::io::{self, Read, Write};
 use std::os::fd::OwnedFd;
 use std::path::Path;
 
+/// Most bytes of a pid file read: three short lines.
+const PID_TEXT_BYTES: u64 = 200;
 /// Most bytes of a build marker read: three short lines.
 const MARKER_BYTES: u64 = 256;
 
@@ -105,6 +107,23 @@ impl<'a> KeyDir<'a> {
                 Marker::Read(parse_build_marker(&text))
             }
         }
+    }
+
+    /// The pid file's text, at most [`PID_TEXT_BYTES`] of it, when there is one: read through the
+    /// directory's descriptor, never through a symlink, without waiting for a writer, and only
+    /// from a regular file of this user. The daemon rewrites it in place, so it can be empty or
+    /// partial (S4's interface for S5a).
+    pub(super) fn pid_text(&self) -> Option<String> {
+        let file = open_private(
+            &self.dir,
+            self.paths.pid_file(),
+            libc::O_RDONLY | libc::O_NONBLOCK,
+            Create::No,
+        )
+        .ok()?;
+        let mut text = String::new();
+        file.take(PID_TEXT_BYTES).read_to_string(&mut text).ok()?;
+        Some(text)
     }
 
     /// Record in the build marker that a shim first saw its daemon dead at `now` (seconds since

@@ -34,8 +34,8 @@ pub use session::{
 };
 #[cfg(unix)]
 pub use shim::{
-    run_daemon_status, run_shim, ShimOptions, StatusOptions, DEFAULT_CONTROL_TIMEOUT_SECS,
-    DEFAULT_DAEMON_START_TIMEOUT_SECS,
+    run_daemon_shutdown, run_daemon_status, run_shim, ShimOptions, ShutdownOptions, StatusOptions,
+    DEFAULT_CONTROL_TIMEOUT_SECS, DEFAULT_DAEMON_START_TIMEOUT_SECS,
 };
 
 pub fn run(cfg: ServerConfig) -> anyhow::Result<()> {

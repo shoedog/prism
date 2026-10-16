@@ -20,9 +20,11 @@ mod pump;
 mod run;
 #[cfg(test)]
 mod shim_support;
+mod shutdown;
 mod socket;
 mod spawn;
 mod status;
 
 pub use run::{run_shim, ShimOptions, DEFAULT_DAEMON_START_TIMEOUT_SECS};
+pub use shutdown::{run_daemon_shutdown, ShutdownOptions};
 pub use status::{run_daemon_status, StatusOptions, DEFAULT_CONTROL_TIMEOUT_SECS};
