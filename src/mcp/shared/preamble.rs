@@ -25,7 +25,7 @@ pub const PREAMBLE_MAX_BYTES: usize = 4096;
 
 /// Longest piece of the other side's text an error message repeats.
 const MAX_DETAIL_BYTES: usize = 200;
-const MAX_VERB_BYTES: usize = 16;
+pub(super) const MAX_VERB_BYTES: usize = 16;
 
 /// Why a preamble line was refused. Nothing here is retried; what a daemon or a shim does
 /// about each is theirs to decide (spec §10).
@@ -94,7 +94,7 @@ fn printable(text: &str) -> String {
 }
 
 /// At most `max` bytes of `text`, cut on a character boundary.
-fn clip(text: &str, max: usize) -> String {
+pub(super) fn clip(text: &str, max: usize) -> String {
     let mut end = text.len().min(max);
     while !text.is_char_boundary(end) {
         end -= 1;
@@ -153,7 +153,7 @@ pub enum BuildState {
 }
 
 impl BuildState {
-    fn word(self) -> &'static str {
+    pub(super) fn word(self) -> &'static str {
         match self {
             Self::Idle => "idle",
             Self::Building => "building",
@@ -162,7 +162,7 @@ impl BuildState {
         }
     }
 
-    fn from_word(word: &str) -> Result<Self, PreambleError> {
+    pub(super) fn from_word(word: &str) -> Result<Self, PreambleError> {
         match word {
             "idle" => Ok(Self::Idle),
             "building" => Ok(Self::Building),
@@ -177,7 +177,7 @@ impl BuildState {
 
 /// Split a line into its verb and payload after the checks every line gets: length, UTF-8,
 /// shape, and that the verb is one of `verbs`.
-fn verb_and_payload<'l>(
+pub(super) fn verb_and_payload<'l>(
     line: &'l [u8],
     verbs: &[&'static str],
 ) -> Result<(&'static str, &'l str), PreambleError> {
@@ -196,7 +196,7 @@ fn verb_and_payload<'l>(
 
 /// Parse a payload as the JSON object `T`. Only an object is accepted: `serde` would also take
 /// a positional array for a struct, and nothing here writes one.
-fn parse_object<'p, T: Deserialize<'p>>(payload: &'p str) -> Result<T, PreambleError> {
+pub(super) fn parse_object<'p, T: Deserialize<'p>>(payload: &'p str) -> Result<T, PreambleError> {
     if !payload.starts_with('{') {
         return Err(invalid("the payload is not a JSON object"));
     }
@@ -223,13 +223,13 @@ fn check_protocol(payload: &str) -> Result<(), PreambleError> {
     Ok(())
 }
 
-fn key_field(name: &str, hex: &str) -> Result<IdentityKey, PreambleError> {
+pub(super) fn key_field(name: &str, hex: &str) -> Result<IdentityKey, PreambleError> {
     IdentityKey::from_hex(hex)
         .map_err(|error| invalid(format!("{name} is not an identity key: {error}")))
 }
 
 /// Refuse a decoded message whose line is not byte for byte what `encode` writes for it.
-fn require_canonical(line: &[u8], encoded: &str) -> Result<(), PreambleError> {
+pub(super) fn require_canonical(line: &[u8], encoded: &str) -> Result<(), PreambleError> {
     if encoded.strip_suffix('\n').map(str::as_bytes) == Some(line) {
         Ok(())
     } else {
