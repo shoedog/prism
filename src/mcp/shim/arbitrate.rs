@@ -169,6 +169,14 @@ impl fmt::Display for Failure {
     }
 }
 
+impl Failure {
+    /// Whether the runtime directory had passed validation: `arbitrate` validates it first, so
+    /// every failure but that validation's own comes after it.
+    pub(super) fn runtime_dir_validated(&self) -> bool {
+        !matches!(self, Self::Files(FilesError::RuntimeDir(_)))
+    }
+}
+
 impl From<FilesError> for Failure {
     fn from(error: FilesError) -> Self {
         Self::Files(error)

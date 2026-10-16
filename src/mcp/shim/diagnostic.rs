@@ -2,6 +2,7 @@
 //! directory, the socket, the pid file's contents, the log, and the exact `--standalone`
 //! invocation that runs without the shared daemon. One line, whatever the paths hold: control
 //! characters are escaped (lane README, notes for S5a).
+use crate::mcp::daemon::files::{open_private, open_runtime_dir, Create, FilesError};
 use crate::mcp::shared::identity::{refresh_policy_name, IdentityKey};
 use crate::mcp::shared::paths::DaemonPaths;
 use crate::mcp::{CacheMode, RefreshPolicy, ServerConfig, StartupMode};
@@ -22,6 +23,10 @@ pub(super) struct Where<'a> {
     pub(super) runtime_dir: Option<&'a Path>,
     /// `None` when the socket path does not fit (or no runtime directory was resolved).
     pub(super) paths: Option<&'a DaemonPaths>,
+    /// Whether the runtime directory passed validation. When it did not, nothing in it is read:
+    /// what is there may be anyone's, a FIFO or a terminal among them (review round 1, Opus F1,
+    /// sol 1).
+    pub(super) dir_validated: bool,
 }
 
 /// `text` with every control character escaped (`\n`, `\u{1b}`), so it cannot end the line or
@@ -54,7 +59,7 @@ pub(super) fn fail_closed_line(reason: &str, at: &Where<'_>, standalone: &str) -
         line.push_str(&format!(
             "; socket {}; pid file {}; log {}",
             paths.socket().display(),
-            pid_file(paths.pid_file()),
+            pid_file(paths, at.dir_validated),
             paths.log_file().display()
         ));
     }
@@ -65,14 +70,36 @@ pub(super) fn fail_closed_line(reason: &str, at: &Where<'_>, standalone: &str) -
 /// What the pid file says (spec §4.1 step 6: a wedged daemon is named by "the pid and start
 /// time from `<key>.pid`"). The daemon rewrites it in place, so it can be empty or partial
 /// while its owner writes it (S4's interface); that is reported as such.
-fn pid_file(path: &Path) -> String {
+///
+/// It is read only in a runtime directory that passed validation, and then as the daemon's own
+/// files are: through the directory's descriptor, never through a symlink, without waiting for
+/// a writer (`O_NONBLOCK`), and only when it is a regular file of this user. So nothing at its
+/// path can keep the line from being printed (review round 1, Opus F1, sol 1).
+fn pid_file(paths: &DaemonPaths, dir_validated: bool) -> String {
+    let path = paths.pid_file();
+    if !dir_validated {
+        return format!(
+            "{} not read (the runtime directory failed validation)",
+            path.display()
+        );
+    }
     let mut text = String::new();
-    let read = std::fs::File::open(path)
-        .and_then(|file| file.take(PID_FILE_BYTES).read_to_string(&mut text));
+    let read = open_runtime_dir(paths.runtime_dir())
+        .and_then(|dir| open_private(&dir, path, libc::O_RDONLY | libc::O_NONBLOCK, Create::No))
+        .and_then(|file| {
+            file.take(PID_FILE_BYTES)
+                .read_to_string(&mut text)
+                .map_err(|source| FilesError::Io {
+                    op: "read",
+                    path: path.to_path_buf(),
+                    source,
+                })
+        });
     match read {
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+        Err(FilesError::Io { source, .. }) if source.kind() == std::io::ErrorKind::NotFound => {
             format!("{} absent", path.display())
         }
+        Err(FilesError::Unusable { why, .. }) => format!("{} not read: it {why}", path.display()),
         Err(error) => format!("{} unreadable ({error})", path.display()),
         Ok(_) => {
             let fields: Vec<&str> = text.split('\n').collect();

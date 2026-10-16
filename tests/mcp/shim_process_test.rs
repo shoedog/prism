@@ -141,6 +141,21 @@ impl ShimProcess {
         (status.expect("ended"), self.stderr())
     }
 
+    /// How the shim ended, if it ends within `limit` of now; `None` if it is still running then
+    /// (it is killed when dropped).
+    pub(crate) fn ended_within(&mut self, limit: std::time::Duration) -> Option<ExitStatus> {
+        let give_up = std::time::Instant::now() + limit;
+        loop {
+            if let Some(status) = self.child.try_wait().expect("the shim's status") {
+                return Some(status);
+            }
+            if std::time::Instant::now() >= give_up {
+                return None;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+
     /// The pid of the daemon the shim reports it reached.
     pub(crate) fn daemon_pid(&self) -> u32 {
         let stderr = self.stderr();
@@ -284,6 +299,46 @@ fn a_runtime_directory_that_fails_validation_fails_closed_and_creates_nothing() 
         assert!(gone(
             &dir.join(setup.paths.socket().file_name().expect("name"))
         ));
+    }
+}
+
+/// Review round 1 (Opus F1, sol 1): what is at the pid file's path in a runtime directory that
+/// failed validation is not read: a FIFO with no writer there cannot keep the shim from printing
+/// its one line within its deadline, and a pid file there is not repeated as a daemon's.
+#[test]
+fn a_rejected_runtime_directory_fails_closed_in_time_without_reading_its_pid_file() {
+    for planted in ["fifo", "pid file"] {
+        let setup = setup();
+        let dir = setup.paths.runtime_dir();
+        std::fs::create_dir(dir).expect("the runtime directory");
+        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o755)).expect("mode 0755");
+        let pid_file = setup.paths.pid_file();
+        if planted == "fifo" {
+            let name =
+                std::ffi::CString::new(pid_file.as_os_str().as_encoded_bytes()).expect("a C path");
+            // SAFETY: `name` is a valid NUL-terminated string that outlives the call.
+            assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0, "mkfifo");
+        } else {
+            std::fs::write(pid_file, "4242\n1700000000\nplanted\n").expect("a pid file");
+        }
+        let mut shim = ShimProcess::start(&setup, &["--daemon-start-timeout", "1"], &[]);
+        // The deadline is 1 s; 5 s more is slack for a loaded host, not for a hang.
+        let status = shim
+            .ended_within(std::time::Duration::from_secs(6))
+            .unwrap_or_else(|| {
+                panic!(
+                    "{planted}: the shim still ran 6 s after it started (deadline 1 s); stderr \
+                     {:?}",
+                    shim.stderr()
+                )
+            });
+        let stderr = shim.stderr();
+        assert!(!status.success(), "{planted}: {status:?}");
+        assert_eq!(stderr.lines().count(), 1, "{planted}: {stderr}");
+        assert!(stderr.contains("mode 0755"), "{planted}: {stderr}");
+        assert!(stderr.contains("--standalone"), "{planted}: {stderr}");
+        assert!(stderr.contains("not read"), "{planted}: {stderr}");
+        assert!(!stderr.contains("4242"), "{planted}: {stderr}");
     }
 }
 

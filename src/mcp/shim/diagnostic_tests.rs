@@ -15,6 +15,7 @@ fn the_line_names_everything_an_operator_needs_on_one_line() {
         key: Some(&key),
         runtime_dir: Some(paths.runtime_dir()),
         paths: Some(&paths),
+        dir_validated: true,
     };
     let line = fail_closed_line("the reason", &at, "prism-mcp --repo /r --standalone");
     assert!(!line.contains('\n'), "{line}");
@@ -41,6 +42,7 @@ fn an_empty_partial_or_missing_pid_file_is_reported_as_such() {
         key: Some(&key),
         runtime_dir: Some(paths.runtime_dir()),
         paths: Some(&paths),
+        dir_validated: true,
     };
     assert!(fail_closed_line("r", &at, "s").contains("absent"));
     std::fs::write(paths.pid_file(), "").expect("pid file");
@@ -60,6 +62,7 @@ fn control_characters_in_paths_cannot_end_the_line() {
         key: Some(&key),
         runtime_dir: Some(&dir),
         paths: None,
+        dir_validated: false,
     };
     let line = fail_closed_line("r", &at, "s");
     assert!(!line.contains('\n') && !line.contains('\u{1b}'), "{line:?}");
@@ -94,6 +97,7 @@ fn a_failure_before_the_key_is_known_names_what_it_can() {
         key: None,
         runtime_dir: None,
         paths: None,
+        dir_validated: false,
     };
     let line = fail_closed_line("no repository", &at, "prism-mcp --repo /r --standalone");
     assert_eq!(
@@ -101,4 +105,48 @@ fn a_failure_before_the_key_is_known_names_what_it_can() {
         "prism-mcp: --shared failed closed, no index was built: no repository; key unresolved; \
          runtime dir unresolved; to run without the shared daemon: prism-mcp --repo /r --standalone"
     );
+}
+
+/// The fail-closed line for `paths`, computed on a thread of its own: `None` when it is not
+/// made within `limit` (the read it hangs in is left behind).
+fn line_within(paths: &DaemonPaths, limit: Duration) -> Option<String> {
+    let (paths, key) = (paths.clone(), key());
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let at = Where {
+            key: Some(&key),
+            runtime_dir: Some(paths.runtime_dir()),
+            paths: Some(&paths),
+            dir_validated: true,
+        };
+        let _ = tx.send(fail_closed_line("r", &at, "s"));
+    });
+    rx.recv_timeout(limit).ok()
+}
+
+/// Review round 1 (Opus F1, sol 1): a FIFO with no writer at the pid file's path cannot hold
+/// the line back: it is named as not a regular file, at once.
+#[test]
+fn a_pid_file_that_is_a_fifo_does_not_hold_the_line_back() {
+    let (_base, paths) = runtime();
+    let name =
+        std::ffi::CString::new(paths.pid_file().as_os_str().as_encoded_bytes()).expect("a C path");
+    // SAFETY: `name` is a valid NUL-terminated string that outlives the call.
+    assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0, "mkfifo");
+    let line = line_within(&paths, Duration::from_secs(5))
+        .expect("the line within 5 s, though the pid file is a FIFO with no writer");
+    assert!(line.contains("not a regular file"), "{line}");
+}
+
+/// Review round 1 (Opus F1, sol 1): the pid file is read without following a symlink, so a
+/// symlink in its place (to a terminal, say) is named, not followed.
+#[test]
+fn a_pid_file_that_is_a_symlink_is_not_followed() {
+    let (base, paths) = runtime();
+    let target = base.path().join("elsewhere");
+    std::fs::write(&target, "4242\n1700000000\nabc\n").expect("a pid-like file");
+    std::os::unix::fs::symlink(&target, paths.pid_file()).expect("a symlink");
+    let line = line_within(&paths, Duration::from_secs(5)).expect("the line");
+    assert!(!line.contains("pid 4242"), "{line}");
+    assert!(line.contains("unreadable"), "{line}");
 }

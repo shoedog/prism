@@ -71,6 +71,7 @@ fn shim(options: &ShimOptions) -> Result<(), String> {
                 key: None,
                 runtime_dir: None,
                 paths: None,
+                dir_validated: false,
             },
         )
     };
@@ -110,6 +111,7 @@ fn shim(options: &ShimOptions) -> Result<(), String> {
                 key: Some(&key),
                 runtime_dir: None,
                 paths: None,
+                dir_validated: false,
             },
         )
     })?;
@@ -120,13 +122,15 @@ fn shim(options: &ShimOptions) -> Result<(), String> {
                 key: Some(&key),
                 runtime_dir: Some(&dir),
                 paths: None,
+                dir_validated: false,
             },
         )
     })?;
-    let at = || Where {
+    let at = |dir_validated| Where {
         key: Some(&key),
         runtime_dir: Some(&dir),
         paths: Some(&paths),
+        dir_validated,
     };
     let mut starter = ProcessStarter {
         exe,
@@ -151,7 +155,7 @@ fn shim(options: &ShimOptions) -> Result<(), String> {
     };
     let connected = arbiter
         .arbitrate(&mut starter)
-        .map_err(|failure| fail(&failure, at()))?;
+        .map_err(|failure| fail(&failure, at(failure.runtime_dir_validated())))?;
     let pid = connected.ready.pid;
     eprintln!(
         "{}",
