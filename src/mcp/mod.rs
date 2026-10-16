@@ -32,6 +32,8 @@ pub use session::{
     CacheMode, RefreshPolicy, RefreshSummary, ServerConfig, SessionProvider, StartupMode,
     FIRST_CALL_WAIT_MAX,
 };
+#[cfg(unix)]
+pub use shim::{run_shim, ShimOptions, DEFAULT_DAEMON_START_TIMEOUT_SECS};
 
 pub fn run(cfg: ServerConfig) -> anyhow::Result<()> {
     let r = registry::ToolRegistry::all_v1();

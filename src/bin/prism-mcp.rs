@@ -28,6 +28,22 @@ struct Cli {
     /// Measurement only: print a workload for this many functions and exit.
     #[arg(long, hide = true, value_parser = clap::value_parser!(u64).range(1..=10000), conflicts_with_all = ["mem_workload", "mem_refresh"])]
     mem_emit_workload: Option<u64>,
+    /// Use the shared per-repository daemon instead of an index of this process's own; starts it
+    /// when none is running, and fails closed when it cannot be reached.
+    #[arg(long, conflicts_with_all = ["standalone", "no_cache", "eager", "owner_compiler", "owner_config"])]
+    shared: bool,
+    /// Serve from an index of this process's own (the default).
+    #[arg(long)]
+    standalone: bool,
+    /// With --shared: seconds to reach a ready daemon, starting one if needed (default 10).
+    #[arg(long, requires = "shared", value_parser = clap::value_parser!(u64).range(1..=600))]
+    daemon_start_timeout: Option<u64>,
+    /// With --shared: idle seconds before a daemon this shim starts retires (default 900).
+    #[arg(long, requires = "shared", value_parser = clap::value_parser!(u64).range(1..=86_400))]
+    idle_ttl: Option<u64>,
+    /// With --shared: connections a daemon this shim starts accepts at once (default 64).
+    #[arg(long, requires = "shared", value_parser = clap::value_parser!(u32).range(1..=4096))]
+    max_clients: Option<u32>,
 }
 
 /// `prism-mcp daemon ...`: the shared per-repository daemon (spec §3.1, §4.2). Internal: the
@@ -163,6 +179,18 @@ fn main() -> anyhow::Result<()> {
         let mut stderr = std::io::stderr().lock();
         stderr.write_all(&report)?;
         return Ok(stderr.flush()?);
+    }
+
+    if c.shared {
+        std::process::exit(prism::mcp::run_shim(prism::mcp::ShimOptions {
+            config: cfg,
+            start_timeout: std::time::Duration::from_secs(
+                c.daemon_start_timeout
+                    .unwrap_or(prism::mcp::DEFAULT_DAEMON_START_TIMEOUT_SECS),
+            ),
+            idle_ttl: c.idle_ttl,
+            max_clients: c.max_clients,
+        }));
     }
 
     match owner {
