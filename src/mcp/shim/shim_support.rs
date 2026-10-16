@@ -473,7 +473,7 @@ pub(super) struct Unsearchable(PathBuf);
 impl Unsearchable {
     pub(super) fn new(dir: &std::path::Path) -> Self {
         use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0)).expect("chmod 0");
+        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o000)).expect("chmod 0");
         Self(dir.to_path_buf())
     }
 }
