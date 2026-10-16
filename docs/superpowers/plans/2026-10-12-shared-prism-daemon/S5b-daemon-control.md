@@ -4034,6 +4034,7 @@ Apply each mutant alone, run `cargo test --features mcp --lib mcp::shim::`, see 
 | R6 | in `read_build_marker`, read the whole file: `file.take(MARKER_BYTES).read_to_string(&mut text)` → `file.read_to_string(&mut text)` (with `let mut file = file;`) | `a_build_marker_that_is_a_fifo_or_oversized_does_not_hold_the_report` (its third line, 4 MiB in, becomes a sighting at time 0) |
 | R7 | in `status_report`, the header without `one_line` (review round 1, sol 4) | `a_runtime_directory_with_control_characters_is_printed_on_one_line` |
 | R8 | in `status_report`, a key's error ends the report: `Err(error) => return Err(error),` (review round 1, Opus S7) | `a_key_that_cannot_be_looked_at_does_not_hide_the_others` |
+| R11 | in `runtime_dir_exists`, `Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),` → `Err(_) => Ok(false),` (every lookup error taken for absence; PR #418 review round 1, sol 1) | `a_runtime_directory_that_cannot_be_looked_at_is_not_taken_for_none`, in `status` and in `shutdown` (not under root) |
 
 ### Task 6: `daemon-shutdown`
 
@@ -4784,6 +4785,7 @@ Apply each mutant alone, run `cargo test --features mcp --lib mcp::shim::shutdow
 | R4 | at the first exchange, `Exchanged::NotListening(error) => { return not_listening(…) }` → `Exchanged::NotListening(_) => return Ok(nothing()),` (review round 1, Opus W1) | `a_live_daemon_that_does_not_accept_connections_is_not_taken_for_none` |
 | R10 | at the second exchange, `Exchanged::NotListening(error) => { return not_listening(…, format!("{} is gone", …)) }` → `Exchanged::NotListening(_) => return Ok(format!("{} is gone", named(&found))),` (review round 2, Opus S1: his probe showed it survived every test before) | `a_refused_second_exchange_is_judged_by_the_owner_lock_too` |
 | R9 | at the second exchange, a lost reply through `not_asked`: `Exchanged::NoReply(reason) => return Err(maybe_recorded(…)),` → `… Err(not_asked(&paths, &locator, Exchanged::NoReply(reason))),` (review round 1, Opus W4) | `a_lost_reply_to_the_shutdown_says_it_may_have_been_recorded` |
+| R12 | in `key_files.rs`, `pid_text`: `opened => opened?,` → `opened => match opened { Ok(file) => file, Err(_) => return Ok(None) },` (every open error taken for a removed pid file, as before PR #418 review round 1, Opus S2) | `a_pid_file_that_cannot_be_read_during_the_wait_is_not_taken_for_a_drain` |
 
 ### Task 7: `prism-mcp daemon-status` and `daemon-shutdown`
 
@@ -5416,3 +5418,17 @@ On `scratch/s5b-validate`: `8c297de9` (the test, the FIFO test's fixture, the co
 | Opus S3: the PR-body list order; D109 before D108 | (1)–(8) in order; D108 then D109 | — |
 
 Gates of this fold (macOS; Linux not run: test, comment and documentation changes only, no shared helper changed): `cargo fmt --check` silent; `--lib mcp::` 630 passed; `--test mcp` 52 passed, the goldens' test `ok`; clippy 258 lines, none in a touched file; mutant R10 killed; red and green steps run again on partial replays (V2, V3); the replay byte-identical. The 37 earlier mutants were not re-run: no line they edit changed.
+
+## PR #418 review round 1 (gpt-6.1-sol FIX, Opus 5.5 APPROVE), folded
+
+Each behaviour change was folded test first, the test watched failing on the code before it.
+
+| Finding | Ruling | Change | Evidence |
+|---|---|---|---|
+| sol 1, WRONG/MATERIAL, and Opus S2 (the same class): a lookup error taken for absence | folded | `runtime_dir_exists` (`status.rs`), used by both commands: only `NotFound` is absence; any other `lstat` error is returned, escaped by `one_line`, exit 1. `KeyDir::pid_text` returns `Result<Option<String>, FilesError>`, `NotFound` as `Ok(None)`; the drain wait keeps polling on an error and reports it at the timeout, exit 1 (D104) | `a_runtime_directory_that_cannot_be_looked_at_is_not_taken_for_none` (T5 and T6; an owner lock held, a pid file, the parent mode 0; skipped under root): RED `"… no daemon (the runtime directory does not exist)"` and `"… nothing to shut down"` → GREEN. `a_pid_file_that_cannot_be_read_during_the_wait_is_not_taken_for_a_drain` (a symlink in the pid file's place, `ELOOP`; runs as root): RED `"pid 4242 (started 1760600000) drained"` → GREEN. Mutants R11, R12 |
+| sol 2 / Opus W1, WRONG/IMMATERIAL (test): the countdown assertion crosses a second boundary | folded | the countdown asserted through `died_building` (`seen` 1000, `now` 1021 → `39 s`); the report-level assertion keeps the text before the number | RED: the old test with the report's clock one second later (`seen = now − 22`) printed `restarts it in 38 s` and failed; the new test passes under the same shift. Mutants 5C, 5D still killed |
+| Opus S1, SMELL/IMMATERIAL (tests): short deadlines on paths that must not expire | folded | `BUSY` and `Close` get `HANG`, only `Silent` keeps 300 ms; the no-drain test 2 s | no failing run was observed (a timing SMELL); 6B still killed |
+| Opus S3, SMELL/IMMATERIAL: `admitted == 0`, `pending > 0` exits 1 at the timeout | documented, no code change | D104 and `shutdown.rs`'s module doc: the wait runs to `--timeout`, exit 1; a retry converges to exit 0 | — |
+| Opus S4, SMELL/IMMATERIAL: `one_line` escapes only `Cc` | deferred (predates S5b) | recorded in "Stated and not held" as a follow-up | — |
+
+The other lookups of a key's files (`look`'s and `has_daemon_files`'s `exists`, `dead`'s leftovers) still read any `lstat` error as "not there". They run only after the runtime directory has been found and validated (0700, this user's), so an `EACCES` there needs this user to change the directory's mode during the look; not changed (no failure shown).
