@@ -442,3 +442,17 @@ fn a_key_that_cannot_be_looked_at_after_the_status_is_not_taken_for_gone() {
     assert!(said.contains("Permission denied"), "{said}");
     assert!(!said.contains("is gone"), "{said}");
 }
+
+/// PR #418 review round 2 (Opus S2): a runtime base that is a regular file has no runtime
+/// directory, so no daemon can be there: nothing to shut down, exit 0. Runs as root too.
+#[test]
+fn a_runtime_base_that_is_a_file_has_nothing_to_shut_down() {
+    let setup = setup();
+    let file = tempfile::NamedTempFile::new_in("/tmp").expect("a file");
+    let options = ShutdownOptions {
+        runtime_base: Some(file.path().to_path_buf()),
+        ..setup.options(None, HANG)
+    };
+    let said = run(&options).expect("nothing to do");
+    assert!(said.contains("nothing to shut down"), "{said}");
+}

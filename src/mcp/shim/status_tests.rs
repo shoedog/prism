@@ -513,3 +513,16 @@ fn a_report_with_a_key_that_cannot_be_looked_at_exits_1() {
     std::os::unix::fs::symlink("/dev/null", dir.join("1111111111111111.start")).expect("symlink");
     assert_eq!(run_daemon_status(&options(base.path(), HANG)), 1);
 }
+
+/// PR #418 review round 2 (Opus S2): a runtime base that is a regular file (`--runtime-dir` through
+/// a file) has no runtime directory, so no daemon can be there: "no daemon", exit 0, as before
+/// round 1, not an error a reaper would retry for ever. Runs as root too.
+#[test]
+fn a_runtime_base_that_is_a_file_has_no_daemon() {
+    let file = tempfile::NamedTempFile::new_in("/tmp").expect("a file");
+    let said = report(file.path());
+    assert!(
+        said.ends_with("no daemon (the runtime directory does not exist)\n"),
+        "{said}"
+    );
+}

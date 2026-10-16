@@ -161,15 +161,23 @@ pub(super) fn runtime_dir_exists(dir: &Path) -> Result<bool, String> {
     present(dir)
 }
 
-/// Whether anything is at `path`, not following a symlink. Only its absence (`NotFound`) is
-/// "not there": any other error, such as a parent this user cannot search, says nothing about
-/// what is there and is returned. Every look at the runtime directory and at a key's files goes
+/// Whether anything is at `path`, not following a symlink. Only its absence (`NotFound`, or
+/// `NotADirectory`: a component of the path is not a directory, so nothing can be at it; review
+/// round 2, Opus S2) is "not there": any other error, such as a parent this user cannot search,
+/// says nothing about what is there and is returned. Every look at the runtime directory and at a key's files goes
 /// through it, so that no lookup error is taken for a missing daemon (PR #418 review round 1,
 /// sol 1 and Opus S2, for the directory; round 2, sol 1 and Opus S1, for a key's files).
 pub(super) fn present(path: &Path) -> Result<bool, String> {
     match std::fs::symlink_metadata(path) {
         Ok(_) => Ok(true),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error)
+            if matches!(
+                error.kind(),
+                std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+            ) =>
+        {
+            Ok(false)
+        }
         Err(error) => Err(format!("cannot look at {}: {error}", path.display())),
     }
 }
