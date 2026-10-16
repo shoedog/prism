@@ -165,11 +165,28 @@ fn a_daemon_that_died_during_its_build_says_when_it_may_restart() {
         unseen,
         "the report recorded nothing"
     );
+    // The report reads the clock again, so its countdown is only asserted up to the number: a
+    // second boundary between the two reads makes it 38 s, correctly (PR #418 review round 1,
+    // sol 2 and Opus W1). The countdown itself is asserted with a clock of the test's own.
     let seen = unix_now() - 21;
     std::fs::write(paths.build_marker(), format!("4242\n1760000000\n{seen}\n")).expect("marker");
-    assert!(about_the_key(base.path(), &paths).contains(&format!(
-        "first seen by a shim at {seen}; a shim restarts it in 39 s\n"
-    )));
+    let said = about_the_key(base.path(), &paths);
+    assert!(
+        said.contains(&format!(
+            "first seen by a shim at {seen}; a shim restarts it in "
+        )),
+        "{said}"
+    );
+    let marker = MarkerContents {
+        pid: Some(4242),
+        started: Some(1_760_000_000),
+        seen: Some(1000),
+    };
+    assert_eq!(
+        died_building(&marker, 1021),
+        "its last daemon (pid 4242) died during its index build (started 1760000000); first \
+         seen by a shim at 1000; a shim restarts it in 39 s"
+    );
 }
 
 /// D102: while a shim holds a key's start lock (it may have spawned a daemon that has not taken
