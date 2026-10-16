@@ -170,6 +170,133 @@ fn bless_requested() -> bool {
     std::env::var(BLESS_ENV).as_deref() == Ok("1")
 }
 
+/// Select the authored source call by exact byte span, including dropped records.
+/// Fixture shapes disambiguate alias/JSX calls from external calls on one line.
+fn authored_caller_records<'a>(
+    f: &Fixture,
+    records: &'a [serde_json::Value],
+) -> Vec<&'a serde_json::Value> {
+    let source = &f.files[&f.site_file];
+    let language = prism::languages::Language::from_path(&f.site_file).unwrap();
+    let parsed = prism::ast::ParsedFile::parse(&f.site_file, source, language).unwrap();
+    let callee = match f.shape.as_str() {
+        "alias-outside-callback" | "alias-inside-callback" => "h",
+        "returned-value-in-callback" => "doIt",
+        "enclosing-local-shadows-decoy" => "decoy",
+        "jsx-element-in-map" => "F",
+        _ => "f",
+    };
+    let calls = parsed
+        .function_calls_with_qualifier_and_spans_on_lines(
+            &parsed.tree.root_node(),
+            &BTreeSet::from([f.site_line.unwrap() as usize]),
+            &BTreeSet::new(),
+        )
+        .0;
+    let spans: BTreeSet<_> = calls
+        .iter()
+        .filter(|m| f.shape == "iife-callee" || m.callee_name == callee)
+        .map(|m| (m.start_byte as u64, m.end_byte as u64))
+        .collect();
+    assert_eq!(
+        spans.len(),
+        1,
+        "{}: ambiguous authored source call: {calls:?}",
+        f.id
+    );
+    records
+        .iter()
+        .filter(|r| {
+            spans.contains(&(
+                r["source_span"]["start_byte"].as_u64().unwrap(),
+                r["source_span"]["end_byte"].as_u64().unwrap(),
+            ))
+        })
+        .collect()
+}
+
+fn authored_caller_matches(fixture: &Fixture, records: &[&serde_json::Value]) -> bool {
+    records.len() == 1
+        && match fixture.caller.as_ref().unwrap() {
+            CallerTruth::Anon { file, line, col } => {
+                records[0]["caller"]["file"] == *file
+                    && records[0]["caller"]["name"]
+                        == prism::anon_owner::anonymous_owner_name(*line, *col)
+                    && records[0]["caller"]["start_line"] == *line
+            }
+            CallerTruth::Named { name, line } => {
+                records[0]["caller"]["file"] == fixture.site_file
+                    && records[0]["caller"]["name"] == *name
+                    && records[0]["caller"]["start_line"] == *line
+            }
+        }
+}
+
+#[test]
+fn caller_matches_authored_truth() {
+    // S2a-enable flips these entries to "authored"; it does not add a new checker.
+    let until_enable: BTreeMap<String, String> = serde_json::from_str(
+        &std::fs::read_to_string(matrix_dir().join("expected-until-s2a-enable.json")).unwrap(),
+    )
+    .unwrap();
+    let fixtures: Vec<_> = fixtures()
+        .into_iter()
+        .filter(|f| f.caller.is_some())
+        .collect();
+    assert_eq!(
+        until_enable.keys().cloned().collect::<BTreeSet<_>>(),
+        fixtures.iter().map(|f| f.id.clone()).collect()
+    );
+    let mut errors = Vec::new();
+    for fixture in &fixtures {
+        let records = site_records(fixture);
+        let relevant = authored_caller_records(fixture, &records);
+        let valid = match until_enable[&fixture.id].as_str() {
+            "absent" => relevant.is_empty(),
+            "authored" => authored_caller_matches(fixture, &relevant),
+            other => panic!("unknown expected-until-S2a-enable state: {other}"),
+        };
+        if !valid {
+            errors.push(format!(
+                "{}: expected {}, want {:?}, got {relevant:?}",
+                fixture.id, until_enable[&fixture.id], fixture.caller
+            ));
+        }
+    }
+    assert!(
+        errors.is_empty(),
+        "{} caller failures:\n{}",
+        errors.len(),
+        errors.join("\n")
+    );
+}
+
+#[test]
+fn caller_check_rejects_duplicate_wrong_and_dropped_callers() {
+    let fixture = fixtures()
+        .into_iter()
+        .find(|f| f.shape == "class-method-callback")
+        .unwrap();
+    let records = site_records(&fixture);
+    let relevant = authored_caller_records(&fixture, &records);
+    assert!(authored_caller_matches(&fixture, &relevant));
+    assert!(!authored_caller_matches(&fixture, &[]));
+    assert!(!authored_caller_matches(
+        &fixture,
+        &[relevant[0], relevant[0]]
+    ));
+    let mut wrong = relevant[0].clone();
+    wrong["caller"]["name"] = "wrong".into();
+    assert!(!authored_caller_matches(&fixture, &[&wrong]));
+    let mut wrong_line = relevant[0].clone();
+    wrong_line["caller"]["start_line"] = 999.into();
+    assert!(!authored_caller_matches(&fixture, &[&wrong_line]));
+    // Resolution grade is irrelevant to caller checking: dropped source rows count.
+    let mut dropped = relevant[0].clone();
+    dropped["resolved_targets"] = serde_json::json!([]);
+    assert!(authored_caller_matches(&fixture, &[&dropped]));
+}
+
 #[test]
 fn matrix_matches_pinned_expectations() {
     let fixtures = fixtures();

@@ -18,6 +18,21 @@ const target = (v, t) => {
   if (line === null && !NO_DECL_LINE.has(name)) throw new Error(`${v.id}: no declaration of ${name} in ${file}`);
   return { file, name, line };
 };
+// {kind:'anon', marker} -> {kind:'anon', file, line, col}: the anonymous callable whose first byte
+// follows the marker comment (1-based line, 1-based UTF-8 byte column, as prism's `<cb@L:C>`).
+function callerTruth(v) {
+  const c = v.caller;
+  if (c.kind === 'named') return { kind: 'named', file: v.siteFile, name: c.name, line: c.line };
+  const src = v.files[v.siteFile];
+  const i = src.indexOf(c.marker);
+  if (i < 0 || src.indexOf(c.marker, i + 1) >= 0) throw new Error(`${v.id}: caller marker must occur exactly once`);
+  let j = i + c.marker.length;
+  while (src[j] === ' ') j++;
+  const before = src.slice(0, j);
+  const line = before.split('\n').length;
+  const col = Buffer.byteLength(before.slice(before.lastIndexOf('\n') + 1)) + 1;
+  return { kind: 'anon', file: v.siteFile, line, col };
+}
 const fixtures = [];
 const ids = new Set();
 for (const v of all()) {
@@ -31,8 +46,11 @@ for (const v of all()) {
   const siteLine = markerLine(v.files[v.siteFile], '// SITE');
   if (siteLine === null) throw new Error(`${v.id}: no // SITE line`);
   if (truth.kind === 'anon' && truth.line === null) throw new Error(`${v.id}: no // ANON line`);
-  fixtures.push({ id: v.id, step: v.step, shape: v.shape, scope: v.scope, form: v.form, naming: v.naming, lang: v.lang, contract: v.contract || null,
-    site_file: v.siteFile, site_line: siteLine, truth, files: v.files });
+  const row = { id: v.id, step: v.step, shape: v.shape, scope: v.scope, form: v.form, naming: v.naming, lang: v.lang, contract: v.contract || null,
+    site_file: v.siteFile, site_line: siteLine, truth, files: v.files };
+  // Optional authored caller truth (step 'anon'); absent on every older row, so those lines are unchanged.
+  if (v.caller) row.caller = callerTruth(v);
+  fixtures.push(row);
 }
 fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(path.join(outDir, 'fixtures.jsonl'), fixtures.map((x) => JSON.stringify(x)).join('\n') + '\n');

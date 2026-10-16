@@ -264,9 +264,26 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache v73 persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v119) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
+
+JS/TS/TSX parameter Defs: a formal that is read bare gets a Def at its identifier. A *member-only*
+formal (no bare read, including a bare read inside a member object such as `wrap(p).x`; at least one
+static non-computed `p.x`/`p?.x` read outside erased TS type positions; callable free of ERROR/MISSING
+nodes and of `\`-escaped identifiers; not a seam binding) also gets a base Def, with
+`Def(p) -> Use(p.<path>)` projection edges to the outermost member path of each read (prefix reads
+included). One body walk (by bytes: the parameter list and its defaults are never projected,
+declaration-line body reads are) admits only bound, evaluated reads outside `with` bodies, and builds
+each Use at its exact span. Edges only start at the base Def, never between two field paths, so a field
+seed (`req.body`) never reaches a sibling (`req.headers`); FullFlow's backward-then-forward walk does
+not expand from a projection-only base Def (`CodePropertyGraph::dfg_is_projection_only_def`). The
+accepted cost is that a seed on the whole parameter reaches every `p.<field>` read. A member write
+bound to the formal suppresses its path for the whole callable (flow-insensitive): plain, compound and
+logical assignment, `++`/`--`, `delete`, array/object/rest pattern targets, `for (p.x of/in ...)`, and
+the same inside nested callables; a write to `p`, to a prefix of the path, or below it (`p.x.y = 1`
+also suppresses `p.x`) all count. `p[k]` counts as a bare read; `this.x`, destructured formals and
+`arguments` are not handled. See `docs/features/language-coverage/js-ts-known-gaps.md` §6.
 
 ### MCP Adapter
 
@@ -437,11 +454,18 @@ Algorithms fall into two categories:
 6. **Field-sensitive analysis** via `access_path.rs` tracks structured paths
    (e.g., `self.config.timeout`) rather than just variable names.
 
-7. **Keep files under 600 lines.** Split test files and source modules when
-   they approach this limit. For tests, group by category (e.g., `algo_test.rs`,
-   `advanced_test.rs`, `lang_test.rs`) and register **one umbrella `[[test]]`
-   target per `tests/` subdirectory** (its `main.rs` declares the files as
-   modules); individual files stay under 600 lines.
+7. **File size: weighted lines, a 2,000 ceiling.** Size is measured in weighted
+   lines — code 1, comment-only 0.5, blank 0 — by `python3 scripts/file_size.py FILE...`
+   (`--over N` lists only files above N). New files aim for 600 or fewer. Over 1,000 a
+   file should be split along a real responsibility boundary, and a PR that leaves a
+   file over 1,000 says why. **2,000 is a hard ceiling: no PR may take a file past it.**
+   Files already over 2,000 (13 today, e.g. `src/ast.rs`, `src/call_graph.rs`,
+   `src/algorithms/taint.rs`) must not grow in a feature PR: small edits are fine, new
+   code goes in new modules. Such a file is split in its own move-only PR (no behaviour
+   change, reviewed as a pure move) before the work that needs it, never as a side effect
+   of a feature PR. For tests, group by category (e.g., `algo_test.rs`,
+   `advanced_test.rs`, `lang_test.rs`) and register **one umbrella `[[test]]` target per
+   `tests/` subdirectory** (its `main.rs` declares the files as modules).
 
 ## Supported Languages
 

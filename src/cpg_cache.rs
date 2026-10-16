@@ -239,7 +239,7 @@ mod stream;
 ///   arrow formal (`x => …`) and identifier rest formals (`...xs`), adding
 ///   DataFlow rows and RD declaration seeds for them.
 /// - v108: js-param-defs PR-B gives anonymous JS/TS/TSX callables their own
-///   DFG pass under a synthetic `<cb@L:C>` owner and fences every JS/TS
+///   DFG pass under a synthetic `<anon@L:C>` owner and fences every JS/TS
 ///   reference walk at nested binders (E3), adding and removing DataFlow rows.
 /// - v109: PR-B R2 binds Use occurrences, shares body-hoisted functions with
 ///   simple formals, separates expression-parameter/body vars and refuses
@@ -258,7 +258,10 @@ mod stream;
 /// - v117: slice V follows a value another in-repo function returned: `CallSite.local_binding`
 ///   gains `Returned` and the call graph persists per-function returned-value facts
 ///   (`js_ts_return_facts`).
-const CACHE_VERSION: u32 = 117;
+/// - v118: PR-C: member-only JS/TS formals (no bare read, at least one static `p.<field>`
+///   read) get a base Def and Def(p) -> Use(p.<path>) projection edges.
+/// - v119: lane A2 S0 renames persisted anonymous-callable DFG owners to `<anon@L:C>`.
+const CACHE_VERSION: u32 = 119;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -807,7 +810,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 117);
+        assert_eq!(super::CACHE_VERSION, 119);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

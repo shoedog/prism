@@ -554,7 +554,7 @@ impl DataFlowGraph {
                 let mut owner_counts = BTreeMap::new();
                 for func_node in &function_nodes {
                     // js-param-defs PR-B: anonymous JS/TS/TSX callables own a
-                    // synthetic, non-referenceable `<cb@L:C>` DFG identity.
+                    // synthetic, non-referenceable `<anon@L:C>` DFG identity.
                     if let Some(name) = parsed.dfg_owner_name(func_node) {
                         let key = (name, parsed.node_line_range(func_node).0);
                         *owner_counts.entry(key).or_insert(0usize) += 1;
@@ -669,6 +669,7 @@ impl DataFlowGraph {
                         VarLocation,
                     > = BTreeMap::new();
                     let mut param_ref_jobs = Vec::new();
+                    let mut member_only_params: Vec<(AccessPath, VarLocation)> = Vec::new();
                     let mut rd_defs = Vec::new();
                     let function_edge_start = edges.len();
 
@@ -686,17 +687,23 @@ impl DataFlowGraph {
                         let path = AccessPath::simple(param_name.clone());
                         // Skip parameters only used via field access (e.g. `dev.name`)
                         // to preserve field isolation.
-                        if !parsed.has_bare_references(&func_node, param_name) {
+                        let use_kind = parsed.classify_parameter_use(&func_node, param_name);
+                        if use_kind == crate::ast::ParameterUse::Unused {
                             continue;
                         }
-                        let refs = parsed.find_path_reference_spans_fenced_in(
-                            &func_node,
-                            &path,
-                            start,
-                            *param_start_byte,
-                            None,
-                            synthetic,
-                        );
+                        let member_only = use_kind == crate::ast::ParameterUse::MemberOnly;
+                        let refs = if member_only {
+                            BTreeMap::new()
+                        } else {
+                            parsed.find_path_reference_spans_fenced_in(
+                                &func_node,
+                                &path,
+                                start,
+                                *param_start_byte,
+                                None,
+                                synthetic,
+                            )
+                        };
                         let param_decl_line = parsed.line_for_byte(*param_start_byte);
 
                         // Parameter Defs are pinned to the function's `start` line for stable lookup.
@@ -717,6 +724,9 @@ impl DataFlowGraph {
                         defs.entry((file_path.clone(), func_name.clone(), start, path.clone()))
                             .or_default()
                             .push(loc.clone());
+                        if member_only {
+                            member_only_params.push((path.clone(), loc.clone()));
+                        }
                         param_ref_jobs.push((path, loc, refs, param_decl_line));
                     }
 
@@ -1059,6 +1069,53 @@ impl DataFlowGraph {
                     }
 
                     drop(get_use);
+                    // PR-C: projection edges Def(p) -> Use(p.<path>) for
+                    // member-only formals. Never between two different field
+                    // paths. One body walk per formal collects the admitted read
+                    // occurrences and the binding-proved member writes; a write to
+                    // a prefix of a path, to the path, or below it suppresses it
+                    // (narrow choice, flow-insensitive). Every Use is built at the
+                    // exact admitted span, for named and synthetic owners alike.
+                    for (base_path, base_loc) in &member_only_params {
+                        let facts = parsed.formal_member_facts(
+                            &func_node,
+                            &base_path.base,
+                            base_loc.start_byte,
+                        );
+                        for field_path in &facts.outermost {
+                            if facts.is_killed(field_path) {
+                                continue;
+                            }
+                            let Some(occurrences) = facts.reads.get(field_path) else {
+                                continue;
+                            };
+                            for (ref_line, (start_byte, end_byte)) in occurrences {
+                                let use_loc = VarLocation {
+                                    file: file_path.clone(),
+                                    function: func_name.clone(),
+                                    function_start_line: start,
+                                    line: *ref_line,
+                                    path: field_path.clone(),
+                                    start_byte: *start_byte,
+                                    end_byte: *end_byte,
+                                    kind: VarAccessKind::Use,
+                                };
+                                uses.entry((
+                                    file_path.clone(),
+                                    func_name.clone(),
+                                    start,
+                                    field_path.clone(),
+                                ))
+                                .or_default()
+                                .push(use_loc.clone());
+                                edges.push(FlowEdge {
+                                    from: base_loc.clone(),
+                                    to: use_loc,
+                                });
+                            }
+                        }
+                    }
+
                     // F1: captured writes inside nested callables contribute to
                     // RD kills, but never become emitted Defs or edge sources.
                     for span in &nested_write_spans {

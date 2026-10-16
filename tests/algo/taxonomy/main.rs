@@ -10,6 +10,7 @@ mod sanitizers_test;
 mod taint_cve_test;
 mod taint_interprocedural_test;
 mod taint_lang_test;
+mod taint_member_only_param_test;
 mod taint_sink_go_test;
 mod taint_sink_js_ts_test;
 mod taint_sink_python_test;

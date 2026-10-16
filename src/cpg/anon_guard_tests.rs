@@ -1,5 +1,5 @@
 //! Lane A2 S1: guards for anonymous call-graph nodes. The nodes are not minted
-//! on main yet, so these tests inject `<anon@L:C>` / `<cb@L:C>` Function and
+//! on main yet, so these tests inject `<anon@L:C>` Function and
 //! Variable nodes straight into a built graph, then check that position lookups
 //! skip them by default and the opt-in variants find them.
 
@@ -92,7 +92,7 @@ fn id_name(cpg: &CodePropertyGraph, file: &str, line: usize, anon: bool) -> Opti
 
 #[test]
 fn function_at_skips_anonymous_nodes_by_default() {
-    for anon_name in ["<anon@2:21>", "<cb@2:21>"] {
+    for anon_name in ["<anon@2:21>", "<anon@2:21>"] {
         let mut cpg = build();
         add_anonymous_function(&mut cpg, anon_name, 2);
         // Without the guard the one-line anonymous node wins the smallest-range tie.

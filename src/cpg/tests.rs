@@ -2727,6 +2727,7 @@ fn return_flow_singleton_exact_predicate_rejects_nameonly_multi_and_mixed() {
         drop: None,
         telemetry: ResolutionTelemetry::default(),
         via_alias_route: false,
+        anonymous_certificate: None,
     };
     let exact = ResolvedCallee {
         target: &first,

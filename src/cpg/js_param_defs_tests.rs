@@ -255,7 +255,7 @@ fn rest_labels_match_the_plain_parameter_control() {
 #[test]
 fn curried_arrows_bind_only_the_named_outer_formal() {
     // `y => …` is anonymous (no name inference from an arrow body). PR-B
-    // (intended re-pin): it owns `y` under its synthetic `<cb@L:C>` identity;
+    // (intended re-pin): it owns `y` under its synthetic `<anon@L:C>` identity;
     // the outer named arrow still gains `x` only.
     let source = "const curry = x => y =>\n  sink(x, y);\n";
     for language in JS_TS {
@@ -264,7 +264,7 @@ fn curried_arrows_bind_only_the_named_outer_formal() {
         let y = span(source, "y =>", 0);
         assert!(has_def(&cpg, "curry", "x", x), "{language:?}");
         assert!(
-            has_def(&cpg, &format!("<cb@1:{}>", y + 1), "y", y),
+            has_def(&cpg, &format!("<anon@1:{}>", y + 1), "y", y),
             "{language:?}"
         );
         assert!(

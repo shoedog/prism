@@ -8,11 +8,9 @@ mod js_binding;
 mod js_binding_alias;
 pub(crate) use js_binding::{JsBinding, JsBindingCache};
 pub use js_binding_alias::JsFollow;
-// S3 fold note (owner review, 2026-09-30): narrowing this to `pub(crate)` compiles but warns
-// `private_interfaces` at `JsLocalBinding::Callable`'s field in src/call_graph.rs (`JsTerminal`
-// is less visible than the `pub` enum variant that carries it); kept `pub` to stay clean under
-// `cargo clippy -W clippy::all`, which the acceptance gate treats as a no-new-warnings bar.
+// Public because the public JsLocalBinding variants carry JsTerminal (private_interfaces).
 pub use js_binding::JsTerminal;
+mod js_anonymous;
 mod js_binding_checks;
 mod js_binding_decls;
 #[cfg(test)]
@@ -469,6 +467,14 @@ pub struct ParsedFile {
     /// Lazily-extracted JS/TS export facts: a pure function of the parsed
     /// file, shared by the P1 loader priming and the call-graph build.
     js_export_facts: std::sync::OnceLock<crate::js_exports::JsExportFacts>,
+}
+
+/// How a formal parameter is used in its callable body (PR-C).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParameterUse {
+    Bare,
+    MemberOnly,
+    Unused,
 }
 
 impl ParsedFile {
@@ -8885,6 +8891,65 @@ impl ParsedFile {
         false
     }
 
+    /// PR-C: classify how a formal is used. `MemberOnly`
+    /// is JS/TS/TSX only: no bare read, at least one `name.<prop>` member
+    /// read in the body, callable not parse-recovered, formal not a seam
+    /// binding, callable containing no `with` statement and no escaped identifier.
+    /// Shared by `data_flow.rs` and `reasoning/seeds.rs` (lockstep).
+    pub fn classify_parameter_use(&self, func_node: &Node<'_>, var_name: &str) -> ParameterUse {
+        if self.has_bare_references(func_node, var_name) {
+            return ParameterUse::Bare;
+        }
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return ParameterUse::Unused;
+        }
+        fn recovered(node: Node<'_>) -> bool {
+            if node.is_error() || node.is_missing() {
+                return true;
+            }
+            let mut cursor = node.walk();
+            let found = node.children(&mut cursor).any(recovered);
+            found
+        }
+        if recovered(*func_node)
+            || self.js_ts_seam_binding(func_node, var_name)
+            || self.callable_has_escaped_identifier(*func_node)
+            || self.callable_has_with_statement(*func_node)
+        {
+            return ParameterUse::Unused;
+        }
+        let Some(body) = self.function_body_node(func_node) else {
+            return ParameterUse::Unused;
+        };
+        if self.has_member_read_of(body, var_name) {
+            ParameterUse::MemberOnly
+        } else {
+            ParameterUse::Unused
+        }
+    }
+
+    fn has_member_read_of(&self, node: Node<'_>, var_name: &str) -> bool {
+        if node.kind() == "member_expression" {
+            if self.language.is_in_erased_type_context(node) {
+                // Erased TS positions (`typeof p.x`, interface members) are not reads.
+                return false;
+            }
+            if let Some(object) = node.child_by_field_name("object") {
+                if object.kind() == "identifier" && self.node_text(&object) == var_name {
+                    return true;
+                }
+            }
+        }
+        let mut cursor = node.walk();
+        let found = node
+            .children(&mut cursor)
+            .any(|child| self.has_member_read_of(child, var_name));
+        found
+    }
+
     /// Check if a variable has any bare (non-field-access) references in a function
     /// body (excluding the parameter list itself).
     ///
@@ -8939,9 +9004,13 @@ impl ParsedFile {
 
     fn find_bare_ref(&self, node: Node<'_>, var_name: &str) -> bool {
         // If this is a field access (dev.name, dev->name), skip it — the `dev`
-        // identifier inside is not a bare reference.
+        // identifier inside is not a bare reference. `member_expression` exists only in
+        // JS/TS/TSX, where the object can itself hold a bare read (`wrap(p).x`, `[p][0].x`).
         if Self::is_field_access_node(node.kind()) {
-            return false;
+            return node.kind() == "member_expression"
+                && node
+                    .child_by_field_name("object")
+                    .is_some_and(|object| self.find_bare_ref(object, var_name));
         }
 
         if self.language.is_identifier_node(node.kind()) && self.node_text(&node) == var_name {
@@ -12435,7 +12504,11 @@ mod asserted_member;
 
 #[path = "ast_callback_identity.rs"]
 mod callback_identity;
+#[path = "ast_member_projection.rs"]
+mod member_projection;
 pub use crate::anon_owner::is_anonymous_owner_name as is_synthetic_owner;
+#[cfg(test)]
+pub(crate) use member_projection::FormalMemberFacts;
 
 #[cfg(test)]
 #[path = "ast_asserted_member_tests.rs"]

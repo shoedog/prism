@@ -3,6 +3,10 @@
 //! statement classification.
 
 #[cfg(test)]
+#[path = "anon_prep_tests.rs"]
+mod anon_prep_tests;
+
+#[cfg(test)]
 #[path = "namespace_flow_audit_tests.rs"]
 mod namespace_flow_audit_tests;
 
@@ -320,6 +324,7 @@ impl CodePropertyGraph {
         files: &BTreeMap<String, ParsedFile>,
         argument_seeds: Vec<NodeIndex>,
         stats: &mut DfgLabelStats,
+        registered: &BTreeMap<(String, String, usize), NodeIndex>,
     ) {
         let mut new_sources = BTreeSet::new();
         for (file, parsed) in files {
@@ -332,33 +337,17 @@ impl CodePropertyGraph {
                 continue;
             }
             for function in parsed.all_functions() {
-                let Some(name) = parsed.language.function_name(&function) else {
+                let Some(id) = crate::anon_owner::identity(parsed, &function, file) else {
                     continue;
                 };
-                let owner = (
-                    file.clone(),
-                    parsed.node_text(&name).to_string(),
-                    parsed.node_line_range(&function).0,
-                );
-                for (_, start, end) in parsed.function_parameter_occurrences(&function) {
-                    let is_new = parsed
-                        .js_ts_bare_arrow_parameter(&function)
-                        .is_some_and(|p| (p.start_byte(), p.end_byte()) == (start, end))
-                        || parsed
-                            .find_parameters_node(&function)
-                            .is_some_and(|params| {
-                                let mut cursor = params.walk();
-                                let found = params.named_children(&mut cursor).any(|p| {
-                                    let pattern = p.child_by_field_name("pattern").unwrap_or(p);
-                                    parsed.js_ts_rest_identifier(pattern).is_some_and(|n| {
-                                        (n.start_byte(), n.end_byte()) == (start, end)
-                                    })
-                                });
-                                found
-                            });
-                    if is_new {
-                        new_sources.insert((owner.clone(), start, end));
-                    }
+                let owner = crate::anon_owner::owner_key(file, &id.name, id.start_line);
+                if crate::anon_owner::is_anonymous_owner_name(&id.name)
+                    && !registered.contains_key(&owner)
+                {
+                    continue;
+                }
+                for (start, end) in crate::anon_owner::d12_source_spans(parsed, &function) {
+                    new_sources.insert((owner.clone(), start, end));
                 }
             }
         }
@@ -986,15 +975,7 @@ impl CodePropertyGraph {
             for fid in func_ids {
                 let (start_byte, end_byte) = files
                     .get(&fid.file)
-                    .and_then(|p| {
-                        p.functions()
-                            .iter()
-                            .find(|f| {
-                                f.name.as_deref() == Some(fid.name.as_str())
-                                    && f.start_line == fid.start_line
-                            })
-                            .map(|f| (f.start_byte, f.end_byte))
-                    })
+                    .and_then(|p| crate::anon_owner::source_bytes(p, fid))
                     .unwrap_or((0, 0));
                 let idx = graph.add_node(CpgNode::Function {
                     name: fid.name.clone(),
@@ -1004,7 +985,10 @@ impl CodePropertyGraph {
                     start_byte,
                     end_byte,
                 });
-                func_index.insert((fid.file.clone(), fid.name.clone(), fid.start_line), idx);
+                func_index.insert(
+                    crate::anon_owner::owner_key(&fid.file, &fid.name, fid.start_line),
+                    idx,
+                );
                 name_index
                     .entry((fid.file.clone(), fid.name.clone()))
                     .or_default()
@@ -1226,6 +1210,7 @@ impl CodePropertyGraph {
             files,
             argument_seeds,
             &mut dfg_label_stats,
+            &func_index,
         );
 
         // --- Step 6: Contains edges ---
@@ -1243,9 +1228,11 @@ impl CodePropertyGraph {
             else {
                 unreachable!();
             };
-            if let Some(&func_idx) =
-                func_index.get(&(file.clone(), function.clone(), *function_start_line))
-            {
+            if let Some(&func_idx) = func_index.get(&crate::anon_owner::owner_key(
+                file,
+                function,
+                *function_start_line,
+            )) {
                 graph.add_edge(func_idx, var_idx, CpgEdge::Contains);
             }
         }

@@ -1463,7 +1463,7 @@ mod tests {
 
     #[test]
     fn escape_label_inner_escapes_angle_brackets() {
-        let (out, _) = escape_label_inner("A › <anon@3:10> -> <cb@4:2>");
+        let (out, _) = escape_label_inner("A › <anon@3:10> -> <anon@4:2>");
         assert!(!out.contains('<') && !out.contains('>'), "{out}");
         assert!(out.contains("&lt;anon@3:10&gt;"), "{out}");
     }
