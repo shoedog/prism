@@ -129,6 +129,13 @@ impl fmt::Display for Failure {
                 )?;
                 match owner {
                     Owner::Held => write!(f, "; a live daemon holds the owner lock")?,
+                    // The last look came just before this shim's own spawn, and D82 stops the
+                    // looks while that child runs, so it may hold the lock by now.
+                    Owner::Free if started.is_some() => write!(
+                        f,
+                        "; the owner lock was free when this shim last looked, before it started \
+                         its daemon"
+                    )?,
                     Owner::Free => write!(f, "; no daemon held the owner lock")?,
                     Owner::Unknown => {}
                 }
@@ -159,6 +166,14 @@ impl fmt::Display for Failure {
                 )
             }
         }
+    }
+}
+
+impl Failure {
+    /// Whether the runtime directory had passed validation: `arbitrate` validates it first, so
+    /// every failure but that validation's own comes after it.
+    pub(super) fn runtime_dir_validated(&self) -> bool {
+        !matches!(self, Self::Files(FilesError::RuntimeDir(_)))
     }
 }
 

@@ -99,6 +99,19 @@ impl<'a> KeyDir<'a> {
             })
     }
 
+    /// The key's log, opened for appending, for the daemon this shim starts (its standard output
+    /// and standard error). Appending matters: the daemon that wins the key truncates its log
+    /// when it is over 1 MiB (S4's SI-16), and a descriptor without `O_APPEND` would then go on
+    /// writing at its old offset, leaving a hole, or overwrite the start of a shorter log.
+    pub(super) fn open_log(&self) -> Result<File, FilesError> {
+        open_private(
+            &self.dir,
+            self.paths.log_file(),
+            libc::O_WRONLY | libc::O_APPEND,
+            Create::Yes,
+        )
+    }
+
     /// Remove what a daemon that died left: its socket, pid file and build marker (spec §4.1
     /// step 6: "Holding it, unlink any stale socket and pid file"). Call it holding the owner
     /// lock, so that a daemon about to bind can never have its live socket removed.

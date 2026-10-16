@@ -14,6 +14,10 @@ use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
 const LONG: Duration = Duration::from_secs(60);
+/// A deadline a test means to expire while it asserts `Owner::Held`: the shim must still reach
+/// the owner lock (first reach, key directory, start lock, second reach) before it, so a ½ s
+/// stall of the test thread must not cost the look (S5a-1 review, Opus S2).
+const HELD_DEADLINE: Duration = Duration::from_secs(2);
 
 fn arbiter<'a>(paths: &'a DaemonPaths, hello: &'a str, within: Duration) -> Arbiter<'a> {
     Arbiter {
@@ -143,7 +147,14 @@ fn a_live_but_wedged_owner_is_reported_and_its_files_are_left_alone() {
         let socket = inode(paths.socket());
         let hello = hello_line(key());
         let mut starter = must_not_start();
-        let result = arbiter(&paths, &hello, Duration::from_millis(500)).arbitrate(&mut starter);
+        // Close asserts `Owner::Held`, which the shim reports only if it reaches the owner lock
+        // before the deadline; 2 s keeps a stalled test thread from failing a correct shim
+        // (S5a-1 review, Opus S2). Silent asserts only `NoReply`, which any stall still gives.
+        let within = match answer {
+            Answer::Close => HELD_DEADLINE,
+            _ => Duration::from_millis(500),
+        };
+        let result = arbiter(&paths, &hello, within).arbitrate(&mut starter);
         match (answer, result) {
             (
                 Answer::Silent,
@@ -483,8 +494,8 @@ fn a_live_daemon_with_a_full_backlog_fails_the_shim_closed_at_the_deadline() {
     std::thread::spawn(move || {
         let hello = hello_line(key());
         let mut starter = must_not_start();
-        let result =
-            arbiter(&shim_paths, &hello, Duration::from_millis(500)).arbitrate(&mut starter);
+        // `Owner::Held` needs the owner lock reached before the deadline (see HELD_DEADLINE).
+        let result = arbiter(&shim_paths, &hello, HELD_DEADLINE).arbitrate(&mut starter);
         let _ = tx.send(matches!(
             result,
             Err(Failure::NoReady {
@@ -498,4 +509,42 @@ fn a_live_daemon_with_a_full_backlog_fails_the_shim_closed_at_the_deadline() {
         .expect("the shim gives up at its deadline instead of blocking in connect");
     assert!(failed_closed);
     drop(owner);
+}
+
+/// Review of S5a-1, Opus S4: after a spawn the shim stops looking at the owner lock (D82), so
+/// its last look, "free", came before its own daemon started; that daemon may hold the lock
+/// now. The line says only what the shim saw and when, never that no daemon held it at the
+/// deadline. Without a spawn the plain wording stays.
+#[test]
+fn a_free_owner_lock_seen_before_a_spawn_is_reported_as_seen_before_the_spawn() {
+    let after_spawn = Failure::NoReady {
+        last: Transient::Closed,
+        owner: Owner::Free,
+        started: Some(4242),
+    }
+    .to_string();
+    assert!(
+        after_spawn.contains(
+            "; the owner lock was free when this shim last looked, before it started its daemon"
+        ),
+        "{after_spawn}"
+    );
+    assert!(
+        !after_spawn.contains("no daemon held the owner lock"),
+        "{after_spawn}"
+    );
+    assert!(
+        after_spawn.contains("; the daemon this shim started, pid 4242, did not answer"),
+        "{after_spawn}"
+    );
+    let without_spawn = Failure::NoReady {
+        last: Transient::Closed,
+        owner: Owner::Free,
+        started: None,
+    }
+    .to_string();
+    assert!(
+        without_spawn.contains("; no daemon held the owner lock)"),
+        "{without_spawn}"
+    );
 }
