@@ -5431,4 +5431,4 @@ Each behaviour change was folded test first, the test watched failing on the cod
 | Opus S3, SMELL/IMMATERIAL: `admitted == 0`, `pending > 0` exits 1 at the timeout | documented, no code change | D104 and `shutdown.rs`'s module doc: the wait runs to `--timeout`, exit 1; a retry converges to exit 0 | — |
 | Opus S4, SMELL/IMMATERIAL: `one_line` escapes only `Cc` | deferred (predates S5b) | recorded in "Stated and not held" as a follow-up | — |
 
-The other lookups of a key's files (`look`'s and `has_daemon_files`'s `exists`, `dead`'s leftovers) still read any `lstat` error as "not there". They run only after the runtime directory has been found and validated (0700, this user's), so an `EACCES` there needs this user to change the directory's mode during the look; not changed (no failure shown).
+The other lookups of a key's files (`look`'s and `has_daemon_files`'s `exists`, `dead`'s leftovers) still read any `lstat` error as "not there". They run only after the runtime directory has been found and validated (0700, this user's), so an `EACCES` there needs the mode of a directory on its path to change during the look; not changed (no failure shown).
