@@ -97,7 +97,8 @@ pub(super) fn unix_now() -> u64 {
         .map_or(0, |since| since.as_secs())
 }
 
-/// The report, or why there is none.
+/// The report, or why there is none: [`status_lines`] without its count, as the tests read it.
+#[cfg(test)]
 pub(super) fn status_report(options: &StatusOptions, peer_uid: PeerUid) -> Result<String, String> {
     status_lines(options, peer_uid).map(|(report, _)| report)
 }
