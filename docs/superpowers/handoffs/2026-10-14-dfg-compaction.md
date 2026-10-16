@@ -1,94 +1,80 @@
-# Handoff — DFG compaction PR B ordered views
+# Handoff — DFG compaction PR B owner decisions
 
 **Written:** 2026-10-16 · **By:** Codex · **Provider:** codex
-**Workspace:** impl-dfgB · perf/dfg-views · **Measured state:** `[MEASURED]` HEAD 5a63c7e830332a49e7c0b5ae6e27f8ab7699bebf · Tree DIRTY · Probe git status/diff and task gates · Output ../dfgB-scratch/logs/
-**Predecessor:** owner dispatch; PR A merged as #407.
+**Workspace:** impl-dfgB · perf/dfg-views · **Measured state:** `[MEASURED]` HEAD 804f7e342f59163ebb2d2fc2cf28f8fbe62e3044 · Tree DIRTY · Probe git status/diff and requested gates · Output ../dfgB-scratch/owner-decisions-2026-10-16/
+**Predecessor:** PR B ordered-views worker; prior handoff preserved as ../dfgB-scratch/owner-decisions-2026-10-16/before-handoff.md.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. Conflicts remain open below.
-**Provenance:** written live by worker. Measured claims were rerun here; inherited claims name their source.
+**Provenance:** written live by worker. `[MEASURED]` claims were rerun in this follow-up; `[INHERITED]` claims name their source.
 
 ## 0. Gating facts — settle these before starting anything below
 
-**(a) Lane ownership** — `[INHERITED]` owner assigns Task 2 only; controller owns commits and two review rounds — RESOLVED.
-**(b) Custody exposure** — `[MEASURED]` uncommitted implementation and new files; source/evidence snapshots and hashes in ../dfgB-scratch — RESOLVED for handoff, controller must preserve/commit.
-**(c) In flight / irreversible** — `[MEASURED]` all worker processes finished; no commit/push attempted; final-state and runner logs retained — RESOLVED.
-**(d) Authorization granted but not exercised** — “leave changes in the working tree, keep task-local evidence under the scratch directory below, and write a summary.” No Task 3–8 implementation authorized.
-
-Raw targets cross-build comparison remains OPEN because it conflicts with existing build provenance. Original pre-A bytes are now reconciled without any new rebaseline.
+**(a) Lane ownership** — `[INHERITED]` owner assigns two decisions only; controller owns commits — RESOLVED by 2026-10-16 dispatch.
+**(b) Custody exposure** — `[MEASURED]` uncommitted plan, CI filter/tests, handoff and root VERIFICATION.md; retained source/evidence in ../dfgB-scratch — RESOLVED for worker handoff by snapshot; controller must preserve and commit.
+**(c) In flight / irreversible** — `[MEASURED]` replay, requested gates and stop-hook suites completed; no worker process remains and no commit/push attempted — RESOLVED.
+**(d) Authorization granted but not exercised** — “Apply these two owner decisions; leave the changes uncommitted for the controller.” No Rust production change, publication or merge authorized.
 
 ## 1. Resume order
 
-1. Read `../dfgB-scratch/SUMMARY.md`, `progress.md`, `replay-differences.json`, and `file-size-ledger.csv` from this checkout. No build needed to inspect them.
-2. Adjudicate targets provenance: every one of 21 pairs differs only `/producer/build_identity`, both values attested to binary receipts. Plan only permits SARIF provenance normalization, so raw targets gate stays FAILED. Do not remove production metadata to satisfy the replay.
-3. Read original-payload-audit.json and prea-rebind-reconciliation.json plus the final raw comparison: retained 131 original byte payloads are verified; 112 remain unchanged and 19 are the exact previously reviewed #403/#406 rebind population. One fixture was added on main. No new rebaseline is authorized.
-4. On a socket-capable host run full default/MCP suites and the exact 67 excluded selectors in `mcp-exclusions.txt`. Run `python3 ../dfgB-scratch/run_gates.py mutgate-full` at this checkout root: authoritative, jobs 1, no since/only/lane restriction. All 472 anchors are valid; full execution is not claimed here.
-5. Controller conducts the plan's two capped review rounds, then stages only `touched-paths.txt` entries and commits `refactor: isolate ordered DFG accessors` with the plan's two trailers.
+1. Read `../dfgB-scratch/owner-decisions-2026-10-16/comparison.log` and `summary.json` for the owner-authorized replay. Retained binary identities and receipts are in `../dfgB-scratch/binary-receipts.json`; no rebuild is claimed in this follow-up.
+2. Inspect `git diff --stat` and `git diff --check`, then review the four modified tracked files plus new root VERIFICATION.md. Controller stages the four modified tracked paths and commits; root VERIFICATION.md is locally ignored by .git/info/exclude and retained in the scratch snapshot. Worker does not write .git.
+3. Preserve the scratch evidence and snapshots. Historical implementation verification, pre-A reconciliation, Tier-A observations and mutation evidence remain in `../dfgB-scratch/SUMMARY.md`, `owner-decisions-2026-10-16/before-VERIFICATION.md`, and the prior handoff snapshot. Current verification is at root VERIFICATION.md and copied into scratch.
 
-**STOP conditions:** unexplained output drift; widening metadata normalization without owner authority; oversized-file growth; new open-class review defects at the cap.
+**STOP conditions:** unexplained byte drift, mismatched binary or provenance receipt, missing/unexpected provenance fields, or any need to widen the owner-authorized exception. Two replay attempts maximum before classification; no external reviews dispatched.
 
 ## 2. State ledger
 
 | Item | State | Evidence / correction |
 |---|---|---|
-| Clean-main recapture | done | `[MEASURED]` 132 payload + 132 lookup hashes unchanged; logs/repin.txt; no re-pin commit |
-| Ordered views / query moves | done | `[MEASURED]` views.rs, queries.rs, legacy_storage.rs; mechanical-controls.json |
-| Mechanical consumers / W4 | done | `[MEASURED]` privacy-enforced migration, normal default/MCP execution of both missing-label tests |
-| S3 shifted edit | done | `[MEASURED]` stale-label mutant fails a.js delete=false; pre-B append control fails only b.js delete=true |
-| S5 storage span observation | done | `[MEASURED]` test calls current_storage; edge-observation omission mutant killed |
-| Full default | done | `[MEASURED]` 5472 passed, 0 failed, 7 ignored; 29 summaries |
-| Runnable full MCP | done | `[MEASURED]` 6023 passed, 0 failed, 7 ignored, 67 socket exclusions; 31 summaries |
-| Oracle umbrella | done | `[MEASURED]` 164 passed, 0 failed, 1 ignored; includes pins |
-| Root verification report | done | `[MEASURED]` stop hook requested VERIFICATION.md; exact commands, suite totals, RED/GREEN evidence, Verified/Not verified, all 67 exclusions |
-| Final focused / compile / fmt | done | `[MEASURED]` 14 DFG + 2 fallback + 7 example tests pass; all-targets mcp,dfg-oracle and fmt pass |
-| Mutation evidence | done | `[MEASURED]` 7/7 isolated text plus two manual mutants killed; scoped advisory 13/13; 472-anchor preflight valid |
-| Release / Tier-A | done | `[MEASURED]` parent/candidate binaries retained; matrix 178/178; quick three VALID corpora; pinned observations retained |
-| Executable replay | pending | `[MEASURED]` 63 json/review/SARIF pairs match; fixture dfg-stats matches; 21 raw targets pairs differ only build provenance |
-| Original pre-A raw bytes | done | `[MEASURED]` 112 byte-identical; 19 exact reviewed #403/#406 drift cases; new fixture pinned; 132 candidate raw hashes equal current main; no unexplained difference |
-| Host / pre-merge checks | pending | `[MEASURED]` exact socket exclusions and full authoritative gate commands retained |
+| PR B implementation | done | `[INHERITED]` owner says controller committed 804f7e34; host MCP 6090 passed / 0 failed, both W4 selectors ran; oracle 164 passed; authoritative mutation 472/472 |
+| Targets provenance policy | done | `[MEASURED]` plan global constraints, Task 6 replay, and Cross-build SARIF scope carry dated 2026-10-16 owner extension |
+| CI parity paths | done | `[MEASURED]` exact src/cpg/build.rs and src/cpg.rs routes added; unrelated src/cpg/query.rs remains false |
+| Routing regression control | done | `[MEASURED]` base filter fails each positive row independently; routing-red-controls.log; suffix and unrelated-file negatives pass |
+| Routing gates | done | `[MEASURED]` classify-changes.log: 35 passed; dfg-oracle-paths.log: 15 passed, including per-path .bak edge controls |
+| Formatting gate | done | `[MEASURED]` env CARGO_BUILD_JOBS=4 cargo fmt --check passed; fmt.log |
+| Comparison rejection checks | done | `[MEASURED]` normalizer-checks.log: missing/wrong/unexpected/duplicate provenance rejected; unrelated value/whitespace retained |
+| Executable replay | done | `[MEASURED]` summary.json: 168 matrix invocations, 84/84 comparisons (21/21 targets, 42/42 identity attestations; 63 other pairs); fixture edge dump and two same-binary raw targets controls pass; 4 additional control invocations |
+| Rust suites in this follow-up | done | `[MEASURED]` full default 5472/0, 7 ignored, 29 summaries; environment-limited MCP 6023/0, 7 ignored, 67 filtered, 31 summaries; both W4 selectors ran in each; exact commands/exclusions in root VERIFICATION.md |
+
+All short log paths above are relative to `../dfgB-scratch/owner-decisions-2026-10-16/` unless `logs/` is specified (relative to scratch).
 
 ## 3. Corrections to standing documents and memory
 
 | Location | Stale or false assertion | Correction |
 |---|---|---|
-| Historical plan cache baseline | 117 | `[MEASURED]` current parent/candidate cache version 119; sidecar 65; neither changed |
-| Historical absolute size forecast | optional_parameter_tests B <=1320 | `[MEASURED]` live parent 1292.5 ->1322.5 (+30), below plan's +40 migration allowance; hard ceilings enforced |
-| Replay provenance scope | only SARIF may differ | `[MEASURED]` targets also emits the compiled fingerprint on main; keep FAIL until owner ruling |
-| Memory | None changed | Owner did not authorize memory writes |
+| Plan and prior handoff | Only SARIF provenance may differ; targets ruling pending | `[INHERITED]` explicit owner decision extends rule to exactly targets /producer/build_identity, checked against the same binary receipt |
+| Prior host gate status | Full MCP and authoritative mutations still pending | `[INHERITED]` owner reports host MCP 6090/0, oracle 164 and authoritative gate 472/472 at 804f7e34; not independently rerun here |
+| Historical scratch summaries | Prior targets gate failed under old contract | `[MEASURED]` follow-up status supersedes current pending-ruling assertions; old raw outputs and failure logs remain historical evidence |
+| Memory | None changed | No owner request to write memory |
 
 ## 4. Open work
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Targets gate contract | pending | Review 21 raw pairs and build receipts; owner decides narrow metadata exception | Explicit no-other-normalization rule | replay-differences.json |
-| 2 | Pre-A raw byte gate | done | Read raw-byte-control.json and historical rebind reconciliation | None | original-payload-audit.json |
-| 3 | Socket-dependent tests | pending | Host full MCP / exact 67 selectors | Sandbox prohibits listeners | mcp-exclusions.txt |
-| 4 | Full authoritative mutations | pending | run_gates.py mutgate-full before merge | Controller pre-merge slot | 472 registered mutants |
-| 5 | Publication | pending | Two review rounds, controller commit | Gates above | no git writes by worker |
+| 1 | Replay | done | Read comparison.log, invocations.json, summary.json and targets-byte-audit.log | None | owner-decisions-2026-10-16/replay.py |
+| 2 | Full-suite verification | done | Read root VERIFICATION.md and full-suite-totals.json; no failures observed | None | owner-decisions-2026-10-16/full-suite-runner.log |
+| 3 | Controller commit | pending | Review diff and snapshot, stage exact four tracked paths; preserve ignored root report in scratch | Controller action | perf/dfg-views |
 
 ## 5. Invariants and traps — do not do these
 
-- Keep legacy/exact identity, stable sorting, representatives, multiplicity, queries and serialized field order unchanged. No compact engine/codec activation in B.
-- Frozen oracle and shared producer are byte-identical to parent. No production whole-graph shadow copy was added.
-- `edit_legacy_parts` is cfg(test) only; default/MCP missing-label tests retain all three removal sites.
-- `nice` priority setting is denied; owner authorized `env CARGO_BUILD_JOBS=4`. One cargo at a time, file logs, no cargo pipelines.
-- Preserve failed raw targets evidence. Diagnostic identification of provenance is not a passing raw byte gate.
-- Preserve seven inherited ignores and 67 exact environmental exclusions; no test was silently feature-gated away.
-- No network/install/browser, .git writes, or real Prometheus/full-slicing memory acceptance runs.
+- Within one binary compare every byte. Across binaries validate provenance before replacing only the three SARIF fields or one targets field in comparison copies.
+- Preserve raw outputs and receipts; never remove production metadata or rebaseline goldens.
+- The replay uses retained PR B binaries, with SHA-256 and saved build-output attestation; it does not claim freshly rebuilt 804f7e34 binaries.
+- `nice` priority setting was denied in the predecessor run; owner authorized env CARGO_BUILD_JOBS=4 fallback. One cargo process at a time, logs to files.
+- No installs/network/browser, .git writes, Rust production change, or real-corpus acceptance measurement in this follow-up.
 
 ## 6. Identifiers
 
 | Item | Verbatim |
 |---|---|
-| HEAD | `5a63c7e830332a49e7c0b5ae6e27f8ab7699bebf` |
+| HEAD | `804f7e342f59163ebb2d2fc2cf28f8fbe62e3044` |
 | Branch | `perf/dfg-views` |
-| Scratch | `../dfgB-scratch` |
+| Evidence | `../dfgB-scratch/owner-decisions-2026-10-16` |
+| Binary receipts | `../dfgB-scratch/binary-receipts.json` |
 | Parent binary SHA-256 | `c4512fe1e43f808bf5154835f19613c182e14bd52a6001dae27f90616fb405c4` |
 | Candidate binary SHA-256 | `825fd4dc3bf5b98d57789884086696b776932d06577f8370499c5ae76cf3d90e` |
-| Implementation commit | `refactor: isolate ordered DFG accessors` |
-| Trailer | `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` |
-| Trailer | `Claude-Session: https://claude.ai/code/session_01JhYB2xRuHRHxDFM7eDt8Fh` |
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED within measured parity scope; raw targets gate unresolved · claim: "Ordered views preserve the observed DFG/CPG contract" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: ../dfgB-scratch/SUMMARY.md, mutation/replay receipts. External PR reviews remain controller-owned.
+**§2c verdict:** SURVIVED · claim: "Replay differs only in validated owner-authorized provenance fields" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: ../dfgB-scratch/owner-decisions-2026-10-16/comparison.log and targets-byte-audit.log
 
-**Questions the owner owes an answer to:** targets provenance exception. Original pre-A artifacts were located; no location answer is needed. No approval to change production metadata or goldens has been assumed.
+**Questions the owner owes an answer to:** None; both owner decisions are explicit. Controller retains commit/publication authority.

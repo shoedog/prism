@@ -11,12 +11,16 @@ check() {
 }
 check false docs/plan.md
 check false src/data_flow/build/mod.rs src/data_flow/build/deep/file.rs
-check false src/cpg/build.rs src/call_graph.rs
+check false src/cpg/query.rs src/call_graph.rs
 check false
 check true src/data_flow.rs
 check true src/data_flow/oracle/update.rs
 check true src/cpg_cache.rs
 check true src/cpg_cache/stream.rs
 check true src/cpg/dfg_compaction_support.rs
+check true src/cpg/build.rs
+check false src/cpg/build.rs.bak
+check true src/cpg.rs
+check false src/cpg.rs.bak
 check true tests/dfg_compaction/outputs.rs
 check true src/data_flow/build/file.rs src/data_flow/types.rs
