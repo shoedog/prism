@@ -254,8 +254,8 @@
     ],
     "ANON-ENABLE-43-unknown-computed-safe": [
       "src/ast/js_anonymous.rs",
-      "None => member\n                .child_by_field_name(\"object\")\n                .is_some_and(|object| self.anonymous_global_receiver(object, cache))",
-      "None => false",
+      ".is_some_and(|object| self.anonymous_global_receiver(object, cache))",
+      ".is_some_and(|_object| false)",
       "anon_owner::node_tests::eval_tests::computed_eval_unknown_name_loses_exact"
     ],
     "ANON-ENABLE-44-subset-proof-build-off": [
@@ -270,11 +270,38 @@
       "if true {\n            return true;\n        }",
       "anon_owner::node_tests::eval_tests::computed_host_program_var_and_ambient_declarations_are_not_shadows"
     ],
+    "ANON-ENABLE-47-pattern-keys-not-inspected": [
+      "src/ast/js_anonymous.rs",
+      "result.eval |= k == \"pair_pattern\"",
+      "result.eval |= false && k == \"pair_pattern\"",
+      [
+        "anon_owner::node_tests::eval_tests::computed_pattern_proven_eval_loses_exact",
+        "anon_owner::node_tests::eval_tests::computed_pattern_unknown_host_loses_exact",
+        "anon_owner::node_tests::eval_tests::computed_pattern_assignment_loses_exact",
+        "anon_owner::node_tests::eval_tests::computed_pattern_nested_loses_exact",
+        "anon_owner::node_tests::eval_tests::computed_pattern_parameters_and_loop_heads_lose_exact"
+      ]
+    ],
     "ANON-ENABLE-46-ambient-host-shadowed": [
       "src/ast/js_anonymous.rs",
       "if node.kind() == \"ambient_declaration\" {",
       "if false && node.kind() == \"ambient_declaration\" {",
       "anon_owner::node_tests::eval_tests::computed_host_program_var_and_ambient_declarations_are_not_shadows"
+    ],
+    "ANON-ENABLE-47-pattern-comment-skip-off": [
+      "src/ast/js_anonymous.rs",
+      ".and_then(anonymous_first_expression)",
+      ".and_then(|key| key.named_child(0))",
+      [
+        "anon_owner::node_tests::eval_tests::computed_pattern_comments_proven_eval_lose_exact",
+        "anon_owner::node_tests::eval_tests::computed_pattern_comments_safe_keys_keep_exact"
+      ]
+    ],
+    "ANON-ENABLE-48-receiver-value-peel-off": [
+      "src/ast/js_anonymous.rs",
+      "\"await_expression\" => anonymous_first_expression(node),\n                \"assignment_expression\" => node.child_by_field_name(\"right\"),",
+      "\"await_expression\" | \"assignment_expression\" => None,",
+      "anon_owner::node_tests::eval_tests::computed_await_assignment_host_receivers_lose_exact"
     ]
   },
   "lib_test_prefixes": [

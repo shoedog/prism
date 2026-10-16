@@ -6,6 +6,14 @@ use crate::call_graph::ImportBinding;
 use crate::js_anonymous::{Environment, ImportEvidence};
 use tree_sitter::Node;
 
+fn anonymous_first_expression(node: Node<'_>) -> Option<Node<'_>> {
+    let mut cursor = node.walk();
+    let expression = node
+        .named_children(&mut cursor)
+        .find(|child| child.kind() != "comment");
+    expression
+}
+
 impl ParsedFile {
     /// Eager/manual callable inventory adds anonymous generators without changing
     /// the legacy kind list used by default enclosing-function seeds.
@@ -26,6 +34,11 @@ impl ParsedFile {
             result.eval |= k.contains("identifier") && self.node_text(&n) == "eval";
             result.eval |= k == "subscript_expression"
                 && n.child_by_field_name("index")
+                    .is_some_and(|i| self.anonymous_eval_index(n, i, &mut cache));
+            result.eval |= k == "pair_pattern"
+                && n.child_by_field_name("key")
+                    .filter(|key| key.kind() == "computed_property_name")
+                    .and_then(anonymous_first_expression)
                     .is_some_and(|i| self.anonymous_eval_index(n, i, &mut cache));
             result.nested_import |= matches!(k, "import_statement" | "import_alias")
                 && n.parent().is_none_or(|p| p.kind() != "program");
@@ -56,6 +69,17 @@ impl ParsedFile {
             Some(name) => name == "eval",
             None => member
                 .child_by_field_name("object")
+                .or_else(|| {
+                    let pattern = member.parent().filter(|p| p.kind() == "object_pattern")?;
+                    let owner = pattern.parent()?;
+                    // Nested property values, parameters (even with defaults)
+                    // and loop elements/keys are not the outer receiver.
+                    match owner.kind() {
+                        "variable_declarator" => owner.child_by_field_name("value"),
+                        "assignment_expression" => owner.child_by_field_name("right"),
+                        _ => None,
+                    }
+                })
                 .is_some_and(|object| self.anonymous_global_receiver(object, cache)),
         }
     }
@@ -73,6 +97,15 @@ impl ParsedFile {
                 return false;
             };
             node = value;
+            // B0 receiver values only: do not broaden the shared value unwrapper.
+            if let Some(inner) = match node.kind() {
+                "await_expression" => anonymous_first_expression(node),
+                "assignment_expression" => node.child_by_field_name("right"),
+                _ => None,
+            } {
+                node = inner;
+                continue;
+            }
             if node.kind() == "this" {
                 let mut child = node;
                 while let Some(parent) = child.parent() {
@@ -218,10 +251,7 @@ impl ParsedFile {
                     match part.kind() {
                         "string_fragment" => value.push_str(self.node_text(&part)),
                         "template_substitution" => {
-                            let mut c = part.walk();
-                            let expr = part
-                                .named_children(&mut c)
-                                .find(|n| n.kind() != "comment")?;
+                            let expr = anonymous_first_expression(part)?;
                             value.push_str(&self.anonymous_constant_name(expr, fuel)?);
                         }
                         // Escapes and non-string substitutions remain potentially eval.
