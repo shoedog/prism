@@ -1,3 +1,6 @@
+# Capture: clean main cc20841b11e68ef758697bf9108a3555fb38e38e; 131 cases.
+# Committed ignored test: capture::capture_manifests (feature dfg-oracle).
+# Rebind on clean main, then reproduce unchanged on the branch: tests/dfg_compaction/README.md.
 # Parent re-captured on main cc20841b11e68ef758697bf9108a3555fb38e38e after merging #403/#404 (the <cb@ -> <anon@ rename changed 18 JS/TS/fixture-tree payloads); same driver and SerializedCpgRef/bincode adapter as the pre-A capture on cc2e612c, which the other 113 pins reproduce unchanged.
 # Pre-A parent cc2e612c04d4ab84a7b6843b8c3c16e1ad2ffc5e; captured before extraction with CodePropertyGraph::build and a read-only SerializedCpgRef/bincode payload adapter.
 # Capture: 109 fixtures, whole fixture tree, 17 common generators, Lua/Rust and two helper cases; checked against payload-manifest.json and parent-payload-binary.sha256.

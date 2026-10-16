@@ -1,4 +1,4 @@
-//! Frozen legacy contract from execution parent cc2e612c.
+//! Frozen legacy contract from rebound execution parent cc20841b.
 //! Shares only DTOs, the confidence lattice and per-file producer.
 use super::{
     AccessPath, ExactFlowEdge, FlowConfidence, FlowEdge, FlowPath, ParsedFile, RdFileStats,

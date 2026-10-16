@@ -4,7 +4,6 @@ use crate::ast::ParsedFile;
 use crate::call_graph::CallGraph;
 use crate::data_flow::{oracle::LegacyDataFlowGraph, DataFlowGraph};
 use crate::type_db::TypeDatabase;
-use petgraph::visit::EdgeRef;
 use std::collections::BTreeMap;
 
 impl CodePropertyGraph {
@@ -26,7 +25,7 @@ pub fn assemble_with_dfg(
 pub fn legacy_dfg(files: &BTreeMap<String, ParsedFile>) -> DataFlowGraph {
     from_legacy(LegacyDataFlowGraph::build(files))
 }
-fn from_legacy(old: LegacyDataFlowGraph) -> DataFlowGraph {
+pub fn from_legacy(old: LegacyDataFlowGraph) -> DataFlowGraph {
     DataFlowGraph {
         edges: old.edges,
         defs: old.defs,
@@ -58,27 +57,4 @@ pub fn legacy_refreshed_dfg(
     old.merge(LegacyDataFlowGraph::build(files));
     from_legacy(old)
 }
-/// Same ordered fields as SerializedCpg, excluding the outer cache header.
-pub fn payload(cpg: &CodePropertyGraph) -> Vec<u8> {
-    let nodes: Vec<_> = cpg.graph.node_indices().map(|n| &cpg.graph[n]).collect();
-    let edges: Vec<_> = cpg
-        .graph
-        .edge_references()
-        .map(|e| {
-            (
-                e.source().index() as u32,
-                e.target().index() as u32,
-                e.weight(),
-            )
-        })
-        .collect();
-    bincode::serialize(&(
-        nodes,
-        edges,
-        &cpg.call_graph,
-        &cpg.dfg,
-        &cpg.return_flow_stats,
-        &cpg.dfg_label_stats,
-    ))
-    .unwrap()
-}
+pub use super::dfg_observation::{fieldwise_payload, lookup_indexes, payload};

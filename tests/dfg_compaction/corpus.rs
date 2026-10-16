@@ -237,27 +237,32 @@ generator! {
 }
 
 #[test]
-fn pin_manifest_covers_every_case_and_has_no_unused_entries() {
-    let mut expected: BTreeSet<_> = REGISTERED
-        .iter()
-        .map(|path| format!("fixture-{}", path.replace('/', "__")))
-        .collect();
-    expected.extend(GENERATOR_NAMES.iter().map(|name| name.to_string()));
-    expected.extend(
-        [
-            "fixture-tree",
-            "generator-lua",
-            "generator-rust",
-            "generator-helper-python",
-            "generator-helper-rust",
-        ]
-        .map(str::to_string),
-    );
-    let actual: BTreeSet<_> = super::outputs::parent_pins()
-        .keys()
-        .map(|name| name.to_string())
-        .collect();
-    assert_eq!(expected, actual, "missing or unused parent payload pins");
+fn registered_cases_match_capture_population() {
+    prism::build_pool::install(|| {
+        let mut expected: BTreeSet<_> = REGISTERED
+            .iter()
+            .map(|path| format!("fixture-{}", path.replace('/', "__")))
+            .collect();
+        expected.extend(GENERATOR_NAMES.iter().map(|name| name.to_string()));
+        expected.extend(
+            [
+                "fixture-tree",
+                "generator-lua",
+                "generator-rust",
+                "generator-helper-python",
+                "generator-helper-rust",
+            ]
+            .map(str::to_string),
+        );
+        let mut actual = BTreeSet::new();
+        super::cases::visit(|name, _| {
+            actual.insert(name);
+        });
+        assert_eq!(
+            expected, actual,
+            "capture population must cover every parity case"
+        );
+    });
 }
 pub fn explicit(path: &str, src: &str, lang: Language) -> BTreeMap<String, ParsedFile> {
     BTreeMap::from([(path.into(), ParsedFile::parse(path, src, lang).unwrap())])

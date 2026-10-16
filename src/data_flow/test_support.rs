@@ -91,16 +91,7 @@ fn old_storage(g: &LegacyDataFlowGraph) -> Vec<u8> {
     ))
 }
 fn current_storage(g: &DataFlowGraph) -> Vec<u8> {
-    bytes(&(
-        &g.edges,
-        g.defs.iter().collect::<Vec<_>>(),
-        g.uses.iter().collect::<Vec<_>>(),
-        g.forward.iter().collect::<Vec<_>>(),
-        g.backward.iter().collect::<Vec<_>>(),
-        g.labels.iter().collect::<Vec<_>>(),
-        g.exact_labels.iter().collect::<Vec<_>>(),
-        &g.rd_function_stats,
-    ))
+    crate::cpg::dfg_observation::dfg_storage(g)
 }
 macro_rules! compare_queries {
     ($old:expr, $new:expr, $locations:expr, $lines:expr) => {{
@@ -265,7 +256,7 @@ pub(crate) fn assert_pair(
     lines.extend(all_lines);
     compare_queries!(old, new, &locations, &lines);
 }
-/// Compare independent storage and CPG assembly for the whole multi-file corpus.
+/// Compare independent ordered DFG storage for the whole multi-file corpus.
 #[cfg(feature = "dfg-oracle")]
 pub fn assert_storage_assembly(files: &BTreeMap<String, ParsedFile>) {
     let old = LegacyDataFlowGraph::build(files);

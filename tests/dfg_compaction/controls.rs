@@ -1,5 +1,7 @@
 use super::common::*;
-use super::outputs::{cpg_bytes, loaded, output_pair, params, refresh, roundtrip, write_sources};
+use super::outputs::{
+    assert_cache_matches, loaded, output_pair, params, refresh, roundtrip, write_sources,
+};
 use prism::api::{run_review, AlgorithmParams};
 use prism::cpg::dfg_compaction_support::{assemble_with_dfg, legacy_dfg};
 // These controls exercise direct DFG consumers without history queries or Git writes.
@@ -30,24 +32,30 @@ fn local_modes(
             "refresh-readd" => refresh(g, files, legacy),
             _ => g,
         };
+        let cold = CpgContext::build_with_cached_cpg(
+            files,
+            assemble_with_dfg(files, legacy_dfg(files)),
+            None,
+        );
         let old = adapt(old, true);
         let new = adapt(new, false);
-        assert_eq!(cpg_bytes(&old), cpg_bytes(&new), "CPG mode {mode}");
+        assert_cache_matches(&cold.cpg, &old, &new);
         let old = CpgContext::build_with_cached_cpg(files, old, None);
         let new = CpgContext::build_with_cached_cpg(files, new, None);
         for &algorithm in algorithms {
             let config = SliceConfig::default().with_algorithm(algorithm);
             let a = run_review(&old, &inputs, &[algorithm], &config, &p, repo.path());
             let b = run_review(&new, &inputs, &[algorithm], &config, &p, repo.path());
-            output_pair(&a, &b, &inputs, repo.path());
+            let reference = run_review(&cold, &inputs, &[algorithm], &config, &p, repo.path());
+            output_pair(&reference, &a, &inputs, repo.path());
+            output_pair(&reference, &b, &inputs, repo.path());
             check(algorithm, &a);
             check(algorithm, &b);
             eprintln!("DFG_LOCAL_DIRECT {} {mode} success=true", algorithm.name());
         }
     }
 }
-#[test]
-fn local_direct_dfg_positive_and_negative_controls() {
+fn local_direct_dfg_positive_and_negative_controls_inner() {
     let (files, _, diff) = make_python_test();
     local_modes(
         &files,
@@ -125,8 +133,7 @@ fn diff_at(path: &str, lines: &[usize]) -> DiffInput {
         }],
     }
 }
-#[test]
-fn paired_left_full_disconnected_and_empty_dfg_controls() {
+fn paired_left_full_disconnected_and_empty_dfg_controls_inner() {
     for (empty, source) in [
         (
             true,
@@ -156,8 +163,7 @@ fn paired_left_full_disconnected_and_empty_dfg_controls() {
         );
     }
 }
-#[test]
-fn paired_chop_and_conditioned_controls() {
+fn paired_chop_and_conditioned_controls_inner() {
     // Preserve misc_lang_test::test_chop_python_verifies_path_lines verbatim input/endpoints.
     let files = super::corpus::explicit(
         "app.py",
@@ -174,10 +180,12 @@ fn paired_chop_and_conditioned_controls() {
             p.chop_sink = Some("app.py:4".into());
         },
         |_, r| {
-            if let Some(block) = r.results[0].blocks.first() {
-                let lines = &block.file_line_map["app.py"];
-                assert!(lines.contains_key(&1) || lines.contains_key(&4));
-            }
+            let block = r.results[0]
+                .blocks
+                .first()
+                .expect("connected chop must produce a block");
+            let lines = &block.file_line_map["app.py"];
+            assert!(lines.contains_key(&1) || lines.contains_key(&4));
         },
     );
     let source = "def f(x):\n    y = x\n    z = y\n    return z\n\ndef other():\n    return 0\n";
@@ -240,4 +248,19 @@ fn paired_chop_and_conditioned_controls() {
             },
         );
     }
+}
+
+#[test]
+fn local_direct_dfg_positive_and_negative_controls() {
+    prism::build_pool::install(local_direct_dfg_positive_and_negative_controls_inner);
+}
+
+#[test]
+fn paired_left_full_disconnected_and_empty_dfg_controls() {
+    prism::build_pool::install(paired_left_full_disconnected_and_empty_dfg_controls_inner);
+}
+
+#[test]
+fn paired_chop_and_conditioned_controls() {
+    prism::build_pool::install(paired_chop_and_conditioned_controls_inner);
 }

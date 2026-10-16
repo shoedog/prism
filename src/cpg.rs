@@ -26,6 +26,9 @@ mod cfg_queries;
 mod context;
 #[cfg(any(test, feature = "dfg-oracle"))]
 pub mod dfg_compaction_support;
+#[cfg(any(test, feature = "dfg-oracle"))]
+#[path = "cpg_cache/dfg_observation.rs"]
+pub(crate) mod dfg_observation;
 #[cfg(test)]
 mod exact_parameter_binding_tests;
 mod flow_confidence;

@@ -1,108 +1,24 @@
 use super::common::*;
 use prism::cpg::dfg_compaction_support::{assemble_with_dfg, legacy_dfg};
-use sha2::{Digest, Sha256};
-
-fn parse_pins(manifest: &str) -> BTreeMap<&str, &str> {
-    let mut pins = BTreeMap::new();
-    for line in manifest.lines().map(str::trim) {
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        let mut fields = line.split_whitespace();
-        let digest = fields.next().unwrap();
-        let name = fields.next().expect("missing parent pin case name");
-        assert!(fields.next().is_none(), "extra parent pin fields: {name}");
-        assert!(
-            digest.len() == 64 && digest.bytes().all(|b| b.is_ascii_hexdigit()),
-            "invalid parent pin sha256: {name}"
-        );
-        assert!(
-            pins.insert(name, digest).is_none(),
-            "duplicate parent pin: {name}"
-        );
-    }
-    pins
-}
-
-pub(super) fn parent_pins() -> BTreeMap<&'static str, &'static str> {
-    parse_pins(include_str!("pins.sha256"))
-}
-
-fn assert_parent_pin(name: &str, bytes: &[u8]) {
-    let pins = parent_pins();
-    let expected = pins
-        .get(name)
-        .unwrap_or_else(|| panic!("missing parent pin: {name}"));
-    assert_eq!(
-        format!("{:x}", Sha256::digest(bytes)),
-        *expected,
-        "parent pin {name}"
-    );
-}
 
 pub fn cpg_bytes(g: &CodePropertyGraph) -> Vec<u8> {
-    prism::cpg::dfg_compaction_support::payload(g)
+    prism::cpg::dfg_compaction_support::fieldwise_payload(g)
 }
 pub fn assert_assembly(name: &str, files: &BTreeMap<String, ParsedFile>) {
     let old = assemble_with_dfg(files, legacy_dfg(files));
     let new = CodePropertyGraph::build(files);
     let bytes = cpg_bytes(&new);
     assert_eq!(cpg_bytes(&old), bytes, "CPG {name}");
-    assert_parent_pin(name, &bytes);
-}
-
-#[test]
-fn pin_parser_accepts_comments_and_blank_lines() {
-    let digest = "a".repeat(64);
-    let manifest = format!("# parent provenance\n\n  {digest}  example  \n");
     assert_eq!(
-        parse_pins(&manifest),
-        BTreeMap::from([("example", digest.as_str())])
+        prism::cpg::dfg_compaction_support::payload(&new),
+        bytes,
+        "field-wise codec {name}"
     );
-}
-
-#[test]
-fn pin_parser_rejects_invalid_entries() {
-    let digest = "a".repeat(64);
-    for (manifest, message) in [
-        (digest.clone(), "missing parent pin case name"),
-        ("bad example".into(), "invalid parent pin sha256: example"),
-        (
-            format!("{} example", "z".repeat(64)),
-            "invalid parent pin sha256: example",
-        ),
-        (
-            format!("{digest} example extra"),
-            "extra parent pin fields: example",
-        ),
-        (
-            format!("{digest} example\n{digest} example"),
-            "duplicate parent pin: example",
-        ),
-    ] {
-        let panic = std::panic::catch_unwind(|| parse_pins(&manifest)).unwrap_err();
-        let text = panic
-            .downcast_ref::<String>()
-            .map(String::as_str)
-            .or_else(|| panic.downcast_ref::<&str>().copied())
-            .unwrap();
-        assert!(
-            text.contains(message),
-            "{text:?} should contain {message:?}"
-        );
-    }
-}
-
-#[test]
-#[should_panic(expected = "missing parent pin: missing-case")]
-fn missing_parent_pin_fails_loudly() {
-    assert_parent_pin("missing-case", b"");
-}
-
-#[test]
-#[should_panic(expected = "parent pin generator-python")]
-fn changed_parent_payload_is_rejected() {
-    assert_parent_pin("generator-python", b"corrupted payload");
+    assert_eq!(
+        prism::cpg::dfg_compaction_support::lookup_indexes(&old),
+        prism::cpg::dfg_compaction_support::lookup_indexes(&new),
+        "indexes {name}"
+    );
 }
 
 use prism::api::{
@@ -272,7 +188,12 @@ pub(super) fn roundtrip(g: &CodePropertyGraph, inputs: &ReviewInputs) -> CodePro
         prism::cpg_cache::SaveOutcome::Saved
     );
     match load_cache(&hashes, false, dir.path()) {
-        CacheResult::Hit(g) => g,
+        CacheResult::Hit(decoded) => {
+            // Check every decode before refresh can rebuild away a codec defect.
+            // Hit dispatch additionally binds both sides to the cold legacy graph.
+            assert_cache_matches(g, &decoded, &decoded);
+            decoded
+        }
         _ => panic!("expected actual cache hit"),
     }
 }
@@ -332,8 +253,10 @@ fn dispatch_case(name: &str, files: &BTreeMap<String, ParsedFile>, diff: &DiffIn
     let cached_new = roundtrip(&new, &inputs);
     let refreshed_old = refresh(roundtrip(&old, &inputs), files, true);
     let refreshed_new = refresh(roundtrip(&new, &inputs), files, false);
+    assert_cache_matches(&old, &cached_old, &cached_new);
+    let cold_ctx = CpgContext::build_with_cached_cpg(files, old, None);
     for (mode, a, b) in [
-        ("cold", old, new),
+        ("cold", assemble_with_dfg(files, legacy_dfg(files)), new),
         ("hit", cached_old, cached_new),
         ("refresh-readd", refreshed_old, refreshed_new),
     ] {
@@ -346,7 +269,9 @@ fn dispatch_case(name: &str, files: &BTreeMap<String, ParsedFile>, diff: &DiffIn
             let a = run_review(&old_ctx, &inputs, &[algorithm], &config, &p, repo.path());
             let b = run_review(&new_ctx, &inputs, &[algorithm], &config, &p, repo.path());
             assert_eq!(a.algorithms_run, [algorithm.name()]);
-            output_pair(&a, &b, &inputs, repo.path());
+            let reference = run_review(&cold_ctx, &inputs, &[algorithm], &config, &p, repo.path());
+            output_pair(&reference, &a, &inputs, repo.path());
+            output_pair(&reference, &b, &inputs, repo.path());
             seen.insert(algorithm.name().to_string());
             eprintln!("DFG_DISPATCH case={name} algorithm={} mode={mode} params={} success=true positive_negative=controls::local_direct_dfg_positive_and_negative_controls,controls::paired_chop_and_conditioned_controls;other-assertions=algorithm-controls-ledger",algorithm.name(), serde_json::json!({"barrier_depth":p.barrier_depth,"barrier_symbols":p.barrier_symbols,"chop_source":p.chop_source,"chop_sink":p.chop_sink,"condition":p.condition,"old_repo":p.old_repo,"taint_sources":p.taint_sources,"taint_return_flow":p.taint_return_flow,"spiral_max_ring":p.spiral_max_ring,"quantum_var":p.quantum_var,"peer_pattern":p.peer_pattern,"layers":p.layers,"concern":p.concern,"temporal_days":p.temporal_days}));
         }
@@ -381,7 +306,16 @@ fn dispatch_case(name: &str, files: &BTreeMap<String, ParsedFile>, diff: &DiffIn
                 &control,
                 repo.path(),
             );
-            output_pair(&a, &b, &inputs, repo.path());
+            let reference = run_review(
+                &cold_ctx,
+                &inputs,
+                &[algorithm],
+                &config,
+                &control,
+                repo.path(),
+            );
+            output_pair(&reference, &a, &inputs, repo.path());
+            output_pair(&reference, &b, &inputs, repo.path());
             if algorithm == SlicingAlgorithm::DeltaSlice {
                 assert!(a.results[0].blocks.is_empty());
             }
@@ -547,6 +481,66 @@ fn expected_dispatch_errors_are_not_successes() {
             assert!(run.results.is_empty());
             assert_eq!(run.errors.len(), 1);
             assert!(run.errors[0].error.contains(fragment), "{:?}", run.errors);
+        }
+    });
+}
+
+pub(super) fn assert_cache_matches(
+    cold: &CodePropertyGraph,
+    a: &CodePropertyGraph,
+    b: &CodePropertyGraph,
+) {
+    let expected = cpg_bytes(cold);
+    for decoded in [a, b] {
+        assert!(
+            expected == cpg_bytes(decoded),
+            "cache payload differs from cold legacy"
+        );
+        assert_eq!(
+            prism::cpg::dfg_compaction_support::lookup_indexes(cold),
+            prism::cpg::dfg_compaction_support::lookup_indexes(decoded),
+            "cache lookups differ from cold legacy"
+        );
+    }
+}
+
+#[test]
+fn decoded_corruption_is_rejected_against_cold_reference() {
+    prism::build_pool::install(|| {
+        let (files, _, diff) = make_python_test();
+        let repo = TempDir::new().unwrap();
+        write_sources(repo.path(), &files);
+        let inputs = loaded(repo.path(), &files, &diff);
+        let cold = assemble_with_dfg(&files, legacy_dfg(&files));
+        let decoded = roundtrip(&cold, &inputs);
+        assert_cache_matches(&cold, &decoded, &decoded);
+        for change_label in [false, true] {
+            let mut corrupt = roundtrip(&cold, &inputs);
+            if change_label {
+                let label = corrupt
+                    .dfg
+                    .labels
+                    .values_mut()
+                    .next()
+                    .expect("nonempty labels");
+                *label = match *label {
+                    prism::cpg::FlowConfidence::Exact => {
+                        prism::cpg::FlowConfidence::NameOnly(prism::cpg::FlowDoubt::Killed {
+                            kill_line: 7,
+                        })
+                    }
+                    _ => prism::cpg::FlowConfidence::Exact,
+                };
+            } else {
+                corrupt.dfg_label_stats.dfg_label_exact += 1;
+            }
+            assert!(
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    assert_cache_matches(&cold, &corrupt, &corrupt);
+                }))
+                .is_err(),
+                "identical decoded corruption escaped the cold reference"
+            );
         }
     });
 }
