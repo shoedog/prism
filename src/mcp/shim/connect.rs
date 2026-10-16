@@ -28,6 +28,16 @@ pub(super) enum Point {
     AfterConnect,
     /// A whole reply line was read; it has not been accepted yet.
     ReplyRead,
+    /// The start lock is held by another shim; this one waits for it.
+    StartLockBusy,
+    /// The start lock is held; the attempt under it has not run yet.
+    StartLockTaken,
+    /// The owner lock was found held by a live daemon.
+    OwnerHeld,
+    /// The owner lock was taken, the stale files removed and the lock released; nothing spawned.
+    BeforeSpawn,
+    /// A daemon was spawned; it may not own the key yet.
+    AfterSpawn,
 }
 
 pub(super) type Hook = Arc<dyn Fn(Point) + Send + Sync>;

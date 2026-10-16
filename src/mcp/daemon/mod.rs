@@ -12,7 +12,7 @@ mod connection;
 mod control;
 mod coordinator;
 mod fatal;
-mod files;
+pub(super) mod files;
 mod log;
 pub(super) mod peer;
 mod run;

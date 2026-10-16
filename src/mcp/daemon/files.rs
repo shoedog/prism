@@ -14,6 +14,10 @@
 //! through the descriptor, and only while the entry is still the one this daemon bound. Like
 //! the directory checks, this is hardening; the isolation guarantee between users is the peer
 //! uid check on every connection.
+//!
+//! The shim (S5a) opens the same files through the same functions: it takes the start lock,
+//! and, while it holds the owner lock of a key no daemon owns, removes what a dead daemon left
+//! (spec §4.1 step 6).
 use crate::mcp::shared::identity::IdentityKey;
 use crate::mcp::shared::paths::{DaemonPaths, SocketPathTooLong};
 use crate::mcp::shared::runtime_dir::{current_uid, validate_runtime_dir, RuntimeDirError};
@@ -35,7 +39,7 @@ const PRIVATE_FILE_MODE: libc::c_uint = 0o600;
 /// Why a daemon could not take or use its files. Each ends the daemon's start with a message;
 /// none is retried.
 #[derive(Debug)]
-pub(super) enum FilesError {
+pub(in crate::mcp) enum FilesError {
     RuntimeDir(RuntimeDirError),
     SocketPath(SocketPathTooLong),
     /// The filesystem refused `op` on `path`.
@@ -370,6 +374,31 @@ impl BuildMarker {
     }
 }
 
+/// What a build marker holds: the daemon's pid and its build's start (the two lines `set`
+/// writes) and, once a shim has found the daemon dead, when a shim first saw that (a third line,
+/// review round 1, sol 3). A line the marker does not hold whole is `None`: a marker caught
+/// half-written by a death is still a dead build's.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(in crate::mcp) struct MarkerContents {
+    pub(in crate::mcp) pid: Option<u32>,
+    pub(in crate::mcp) started: Option<u64>,
+    pub(in crate::mcp) seen: Option<u64>,
+}
+
+/// Read a build marker's text: each line counts only when it is whole (ends in a newline).
+pub(in crate::mcp) fn parse_build_marker(text: &str) -> MarkerContents {
+    let whole = text
+        .rfind('\n')
+        .and_then(|end| text.get(..end))
+        .unwrap_or("");
+    let mut lines = whole.split('\n').filter(|_| !whole.is_empty());
+    MarkerContents {
+        pid: lines.next().and_then(|line| line.parse().ok()),
+        started: lines.next().and_then(|line| line.parse().ok()),
+        seen: lines.next().and_then(|line| line.parse().ok()),
+    }
+}
+
 /// The last component of `path`, as a C string, for the `*at` calls.
 fn entry_name(path: &Path) -> io::Result<CString> {
     let name = path
@@ -381,7 +410,7 @@ fn entry_name(path: &Path) -> io::Result<CString> {
 /// Open the runtime directory itself, not a symlink in its place, and check that what was
 /// opened is a directory this user owns with mode 0700 (the validation's facts, now about the
 /// descriptor every later file operation goes through).
-fn open_runtime_dir(path: &Path) -> Result<OwnedFd, FilesError> {
+pub(in crate::mcp) fn open_runtime_dir(path: &Path) -> Result<OwnedFd, FilesError> {
     let io_error = |source| FilesError::Io {
         op: "open",
         path: path.to_path_buf(),
@@ -414,7 +443,7 @@ fn open_runtime_dir(path: &Path) -> Result<OwnedFd, FilesError> {
 
 /// Whether `open_private` creates the file when it is missing.
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Create {
+pub(in crate::mcp) enum Create {
     Yes,
     No,
 }
@@ -426,7 +455,7 @@ enum Create {
 /// plain `O_CREAT` is not used: on macOS it fails now and then with `ENOENT` when another
 /// process creates the same name at the same moment, which is exactly what daemons racing for
 /// one key do (D53; measured in validation, about 1 in 2,000 eight-way races).
-fn open_private(
+pub(in crate::mcp) fn open_private(
     dir: &OwnedFd,
     path: &Path,
     flags: libc::c_int,
@@ -506,7 +535,7 @@ fn stat_at(dir: &OwnedFd, path: &Path) -> io::Result<FileId> {
 }
 
 /// `unlinkat` of `path`'s name in `dir`.
-fn unlink_at(dir: &OwnedFd, path: &Path) -> io::Result<()> {
+pub(in crate::mcp) fn unlink_at(dir: &OwnedFd, path: &Path) -> io::Result<()> {
     let name = entry_name(path)?;
     // SAFETY: `dir` is an open directory descriptor and `name` a valid NUL-terminated string,
     // both alive for the call.

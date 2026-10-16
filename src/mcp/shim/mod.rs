@@ -7,7 +7,9 @@
 // The pieces are wired into a production caller by `run_shim` (Task 6), which removes this.
 #![allow(dead_code)]
 
+mod arbitrate;
 mod connect;
+mod key_files;
 #[cfg(test)]
 mod shim_support;
 mod socket;
