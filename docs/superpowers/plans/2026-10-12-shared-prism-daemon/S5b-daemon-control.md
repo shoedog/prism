@@ -2,44 +2,39 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **Validation status (2026-10-16).** Every task of this plan was built with a compiler before the plan was written, on the local scratch branch `scratch/s5b-validate` (worktree `~/code/prism-s5b-validate`) from `main` `5a63c7e8`, test first, and every mutant named in a task was applied there, each alone; all 28 were killed. The source was then cut into this plan's tasks on `scratch/s5b-tasks` (`c96ddf8b`), the plan's directives were generated from that branch's per-task commits, and the plan was replayed by a script onto `5a63c7e8` (`scratch/s5b-replay`, `12284c83`), each anchor matching once, to a tree byte-identical with `scratch/s5b-tasks` and with the validated code (`6442efde`); each task's red and green steps below were run on partial replays. The daemon's, the shim's and the shared tests and the process tests were run on Linux (aarch64, the bridge's `a2a-toolchain` image, as root), 10 times each, all green but one S2a test that assumes it does not run as root and fails on the base in the same container too (V11). Counts, red steps and mutant results below are the observed ones. The mutation gate was not run (it selects no MCP code; lane README). Not reviewed yet.
+> **Validation status (2026-10-16; review round 1 folded the same day).** Every task of this plan was built with a compiler before the plan was written, on the local scratch branch `scratch/s5b-validate` (worktree `~/code/prism-s5b-validate`) from `main` `5a63c7e8`, test first, and every mutant named in a task was applied there, each alone; after review round 1's fold all 37 were killed. The source was then cut into this plan's tasks on `scratch/s5b-tasks` (`bf8772fa`), the plan's directives were generated from that branch's per-task commits, and the plan was replayed by a script onto `5a63c7e8` (`scratch/s5b-replay`, `1b2d72ea`), each of its 66 anchors matching once, to a tree byte-identical with `scratch/s5b-tasks` and with the validated code (`f09b8748`); each task's red and green steps below were run on partial replays. The daemon's, the shim's and the shared tests and the process tests were run on Linux (aarch64, the bridge's `a2a-toolchain` image, as root), 10 times each, all green but one S2a test that assumes it does not run as root and fails on the base in the same container too (V11). **Review round 1** (Opus 5.5 FIX, gpt-6.1-sol FIX) was folded test first, each code change with a test watched failing before it; the owner decided both open questions as recommended (2026-10-16); see "Review round 1" at the end. Counts, red steps and mutant results below are the observed ones, after the fold. The mutation gate was not run (it selects no MCP code; lane README).
 
 ## Validate before dispatch
 
 What each check must show, and what it showed. Every cargo command ran alone, as `nice -n 19 env CARGO_BUILD_JOBS=4 cargo …`, with its output in a file that was then read.
 
-| # | Command | Must show | Observed |
+| # | Command | Must show | Observed (after review round 1's fold) |
 |---|---|---|---|
 | V1 | `cargo test --features mcp --lib mcp::` and `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp` on the untouched base | The base totals; every later total is "base + N". | `571 passed`; `46 passed` with `standalone_transcripts_match_the_goldens_recorded_before_the_transport_refactor ... ok`, at `5a63c7e8`. |
-| V2 | Each task's red step, on a partial replay of this plan | What the step says. | Task 1: `E0583` for `control`. Task 2: 14 errors (`Control`, `ControlSnapshot`, `control_exchange`, `StopReason::Shutdown`). Task 3: `E0560` for `Served.build_identity`. Task 5: `E0583` for `control` and `status`, `E0599` for `from_locator` ×2. Task 6: `E0583` for `shutdown`. Task 7: `test result: FAILED. 46 passed; 6 failed`, each new test on `error: unexpected argument 'daemon-status' found` or `'daemon-shutdown'`. |
-| V3 | Each task's green step, on the replay | The count the step states, no warning. | Task 1: 581. Task 2: 587. Task 3: 594. Task 5: 612. Task 6: 620. Task 7: `--test mcp` 52. No `warning` line in any of them. |
-| V4 | `cargo test --features mcp --lib mcp::` at each head | base + 23, then base + 49; `0 failed`. | 594 at the S5b-1 head (`90f6ea98`); 620 at the S5b-2 head's code (`c2e9b576`, the tree of `c96ddf8b`); `0 failed` both. |
+| V2 | Each task's red step, on a partial replay of this plan | What the step says. | Task 1: `E0583` for `control`. Task 2: 15 errors (`Control`, `ControlSnapshot`, `control_exchange`, `StopReason::Shutdown`, `Admission.shutdown`). Task 3: `E0560` for `Served.build_identity`. Task 5: `E0583` for `control` and `status`, `E0599` for `from_locator` ×2. Task 6: `E0583` for `shutdown`. Task 7: `test result: FAILED. 46 passed; 6 failed`, each new test on `error: unexpected argument 'daemon-status' found` or `'daemon-shutdown'`. |
+| V3 | Each task's green step, on the replay | The count the step states, no warning. | Task 1: 581. Task 2: 587. Task 3: 596. Task 5: 619. Task 6: 629. Task 7: `--test mcp` 52. No `warning` line in any of them. |
+| V4 | `cargo test --features mcp --lib mcp::` at each head | base + 25, then base + 58; `0 failed`. | 596 at the S5b-1 head (`7e17ba5e`); 629 at the S5b-2 head's code (`7e456df8`, the tree of `bf8772fa`); `0 failed` both. |
 | V5 | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp` | `46 passed`, then `52 passed`, the goldens unblessed. | 46 at the S5b-1 head, 52 at the S5b-2 head, the goldens' test `ok` each time; zero-line diff in `transport_tests.rs`, `owner_transport_tests.rs` and `tests/fixtures/mcp/golden/`. |
 | V6 | `cargo check`, `cargo check --features mcp`, `cargo check --tests --features mcp,detached-owner-audit`, `cargo fmt --check` | `Finished`; no warning from the feature build; fmt silent. | All `Finished`, 0 warnings from `cargo check` and `cargo check --features mcp` at both heads; the owner-audit build `Finished` with 11 warnings, all in test files this slice does not touch (`tests/ast/`, `tests/algo/`, `tests/integration/`); fmt silent at every task commit of the cut. |
-| V7 | `cargo clippy --all-targets --features mcp`, filtered to the touched files | No line in a touched file. | 258 `warning` lines at each head, none naming a file this slice touches (three `format_in_format_args` in `status.rs` and `shutdown.rs` were fixed during validation). |
-| V8 | Every "prove the tests bite" step | The named tests fail under the named mutant. | 1A–1F, 2A–2F, 3A–3D, 5A–5F, 6A–6D, 7A, 7B: all 28 killed, each alone (7A at the process test's 60 s hang limit). |
-| V9 | Repeats on macOS | All `ok`; no daemon process left. | S5b-1 head: `10 test result: ok. 148 passed` (`--lib mcp::daemon`). S5b-2 head: `10 test result: ok. 72 passed` (`--lib mcp::shim`) and `10 test result: ok. 6 passed` (`--test mcp daemon_control`); `pgrep -fl 'prism-mcp daemon'` empty afterwards. |
-| V10 | The zero-diff and replay checks | Nothing in the standalone files or the shim's session; the replay byte-identical. | `git diff --name-only 5a63c7e8 c96ddf8b`: 31 paths (30 under `src/` and `tests/`, and `CLAUDE.md`), none of `transport.rs`, `transport_tests.rs`, `owner_transport_tests.rs`, `session.rs`, `lazy.rs`, `framing.rs`, `output.rs`, `settings.rs`, `shim/{arbitrate,pump,spawn,run,socket}.rs`, `tests/fixtures/mcp/golden/`. The replay `12284c83` has tree `6442efde`, the tree of `scratch/s5b-tasks` `c96ddf8b` and of the validated code `c2e9b576`. |
-| V11 | Linux: the bridge's `a2a-toolchain` image (Debian, aarch64, rustc 1.94.0, uid 0), with Task 8 Step 4's script (`EXTRA_SUITE="--test mcp"`), at the S5b-2 head | All `ok`. | `10 test result: ok. 72 passed` (`--lib mcp::shim`), `10 test result: ok. 148 passed` (`--lib mcp::daemon`), `10 test result: ok. 52 passed` (`--test mcp`, the goldens' test `ok` in all 10), no `left:` line; `--lib mcp::shared` `10 test result: FAILED. 136 passed; 1 failed`, the one failure `mcp::shared::dir_chain::tests::another_users_private_directory_is_refused_for_what_it_holds`, an S2a test that assumes it does not run as root. Control, the base `5a63c7e8` in the same image: `--lib mcp::shared::dir_chain` `FAILED. 15 passed; 1 failed`, the same test. Not this slice's; reported, not fixed (as in S5a's V11). The volumes removed by the `trap`. Not run at the S5b-1 head on its own (its code is part of the S5b-2 head). x86_64 Linux: CI only. |
-| V12 | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp` and `cargo test --doc --features mcp` | `0 failed`. | At the S5b-2 head's code (`c2e9b576`): 31 `test result` lines, **6,142 passed, 0 failed, 7 ignored**; doc tests `2 passed`. At the S5b-1 head (`90f6ea98`): 31 `test result` lines, **6,110 passed, 0 failed, 7 ignored**; doc tests `2 passed`. The difference, 32, is S5b-2's 26 lib and 6 process tests; the base's total, not run, is 6,110 − 23 = 6,087 by the same count. |
+| V7 | `cargo clippy --all-targets --features mcp`, filtered to the touched files | No line in a touched file. | 258 `warning` lines at each head, none naming a file this slice touches. |
+| V8 | Every "prove the tests bite" step | The named tests fail under the named mutant. | 1A–1F, 2A–2F, 3A–3D, 5A–5F, 6A–6D, 7A, 7B and review round 1's R1–R9: all 37 killed, each alone, on the folded code (`fb821e47`; 7A at the process test's 60 s hang limit, R1 and R5 at their 30 s waits). 7A's first run on the folded code selected no test (its filter named the test's old name) and was inadmissible; re-run with the new name, killed. |
+| V9 | Repeats on macOS | All `ok`; no daemon process left. | S5b-1 head: `10 test result: ok. 150 passed` (`--lib mcp::daemon`). S5b-2 head: `10 test result: ok. 79 passed` (`--lib mcp::shim`) and `10 test result: ok. 6 passed` (`--test mcp daemon_control`); `pgrep -fl 'prism-mcp daemon'` empty afterwards. |
+| V10 | The zero-diff and replay checks | Nothing in the standalone files or the shim's session; the replay byte-identical. | `git diff --name-only 5a63c7e8 bf8772fa`: 32 paths (31 under `src/` and `tests/`, and `CLAUDE.md`), none of `transport.rs`, `transport_tests.rs`, `owner_transport_tests.rs`, `session.rs`, `lazy.rs`, `framing.rs`, `output.rs`, `settings.rs`, `shim/{arbitrate,pump,spawn,run,socket}.rs`, `tests/fixtures/mcp/golden/` (`shim/arbitrate_tests.rs` and `shim/key_files.rs` change: D109). The replay `1b2d72ea` has tree `f09b8748`, the tree of `scratch/s5b-tasks` `bf8772fa` and of the validated code `7e456df8`. |
+| V11 | Linux: the bridge's `a2a-toolchain` image (Debian, aarch64, rustc 1.94.0, uid 0), with Task 8 Step 4's script (`EXTRA_SUITE="--test mcp"`), at the S5b-2 head; the disk checked (108 GiB free) in a command of its own first | All `ok`. | `failed Linux runs: 10`, every one the S2a test below: `10 test result: ok. 79 passed` (`--lib mcp::shim`, the FIFO and full-backlog tests included), `10 test result: ok. 150 passed` (`--lib mcp::daemon`), `10 test result: ok. 52 passed` (`--test mcp`, the goldens' test `ok` in all 10), no `left:` line; `--lib mcp::shared` `10 test result: FAILED. 136 passed; 1 failed`, the one failure `mcp::shared::dir_chain::tests::another_users_private_directory_is_refused_for_what_it_holds`, an S2a test that assumes it does not run as root. Control (before the fold), the base `5a63c7e8` in the same image: `--lib mcp::shared::dir_chain` `FAILED. 15 passed; 1 failed`, the same test. Not this slice's; reported, not fixed (as in S5a's V11). The volumes removed by the `trap`. Not run at the S5b-1 head on its own (its code is part of the S5b-2 head). x86_64 Linux: CI only. |
+| V12 | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp` and `cargo test --doc --features mcp` | `0 failed`. | At the S5b-2 head's code (`7e456df8`): 31 `test result` lines, **6,151 passed, 0 failed, 7 ignored**; doc tests `2 passed`. At the S5b-1 head (`7e17ba5e`): 31 `test result` lines, **6,112 passed, 0 failed, 7 ignored**; doc tests `2 passed`. The base's total, not run, is 6,112 − 25 = 6,087 by the same count. |
 
-## Owner questions
+## Owner decisions (2026-10-16)
 
-Two behaviors the spec leaves open with real tradeoffs. The plan builds the recommended default of each; either can be changed before dispatch, at the cost stated.
+Two behaviors the spec leaves open with real tradeoffs were put to the owner with this plan's recommended defaults. Both reviewers of round 1 agreed with both defaults. Decided as recommended:
 
-1. **What happens to the files of keys no daemon will use again (S4's D70, SI-33).** Every rebuild of prism gives every repository a new identity key (the key covers the content-hashed build identity), and spec §4.3 never removes lock files. So each rebuild leaves, per repository that was served, `<key16>.start` and `<key16>.owner` (empty) and `<key16>.log` (a few lines in normal use, at most 8 MiB): in `$TMPDIR/prism-mcpd` on macOS, and on Linux in `$XDG_RUNTIME_DIR/prism-mcpd` (a small tmpfs, that is, memory) or `/tmp/prism-mcpd`. S4 left the rule to S5b.
-   - **(a) Report, remove nothing (built, recommended).** `daemon-status` counts these keys in one line with the bytes of their logs (`2 other keys have no daemon (lock files and logs only; 10 bytes of logs)`), so the soak can see whether they matter. Costs nothing now; the files accumulate.
-   - (b) A pruning flag (`daemon-status --prune`) that, for each key with no live daemon, takes its start lock and then its owner lock and, holding both, removes its socket, pid file, an expired build marker, and its log; never a lock file. About 80 lines and four tests. It removes the evidence a crash leaves (the log the fail-closed line names), so it should not run by default.
-   - (c) Also remove lock files of keys of other builds. Not recommended: a process of the old build that still holds a descriptor of an unlinked lock file can hold "the" lock while a process of the same build creates a new file and holds another; spec §4.3 forbids it for that reason.
-   - Why (a): the lane goal is memory under fan-out; the files cost an inode each and a log's bytes. If the §8 soak shows logs piling up on Linux, (b) is a small follow-up.
-2. **Whether a daemon asked to shut down still admits new clients (D100, SI-30).** Spec §4.7 says `daemon-shutdown` asks the instance "to enter Draining when its admitted count reaches 0; it never disconnects other clients", and is silent about a client that arrives in between.
-   - **(a) Keep admitting until the count reaches 0 (built, recommended).** A shim that arrives is served by the warm index; the daemon drains when its last client, old or new, has gone. Cost: a daemon in steady use may not drain for as long as clients keep coming, so the bridge's reaper gets the memory back only when the other sessions on that repository have also ended.
-   - (b) Answer new clients `RETIRING` once asked. The daemon keeps the key's owner lock until its last client leaves, so a refused shim re-enters arbitration, finds the owner lock held, polls until its own deadline (10 s) and fails closed: every client started during the wait fails, which is the count the §8 soak wants at 0. About ten lines.
-   - (c) Refuse new clients and release the key early so that a fresh daemon starts beside the draining one: two resident indexes of one repository at once, the opposite of the lane goal, and a change to S4's ownership protocol. Not recommended.
+1. **The files of keys no daemon will use again (S4's D70, SI-33): report and count, remove nothing.** Every rebuild of prism gives every repository a new identity key (the key covers the content-hashed build identity), and spec §4.3 never removes lock files, so each rebuild leaves `<key16>.start`, `<key16>.owner` (empty) and `<key16>.log` (a few lines in normal use, at most 8 MiB) per repository that was served: in `$TMPDIR/prism-mcpd` on macOS, and on Linux in `$XDG_RUNTIME_DIR/prism-mcpd` (a small tmpfs, that is, memory) or `/tmp/prism-mcpd`. `daemon-status` counts these keys in one line with the bytes of their logs (`2 keys have nothing but lock files and logs (10 bytes of logs)`), so the §8 soak can see whether they matter. Not built: a pruning flag that, holding a dead key's start and owner locks, removes its socket, pid file, an expired build marker and its log, never a lock file (about 80 lines; it removes the evidence a crash leaves), a small follow-up if the soak shows logs piling up; and removing lock files, which spec §4.3 forbids because a process holding a descriptor of an unlinked lock file can hold "the" lock beside another holder.
+2. **A daemon asked to shut down keeps admitting new clients until its count reaches 0 (D100, SI-30).** Spec §4.7 says "enter Draining when its admitted count reaches 0; it never disconnects other clients" and is silent about a client that arrives in between. A shim that arrives is served by the warm index; the daemon drains when its last client, old or new, has gone. Cost: a daemon in steady use may not drain while clients keep coming, so the bridge's reaper gets the memory back only when the other sessions on that repository have also ended. Not built: answering new clients `RETIRING` (they would find the owner lock held, poll to their deadline and fail closed, the count the soak wants at 0); releasing the key early so a fresh daemon starts beside the draining one (two resident indexes of one repository).
+
+Recorded with them: **D97** (the control exchange has a version of its own and does not bump `SHARED_PROTOCOL_VERSION`) stands as a disclosed planner's decision. Both reviewers found it sound; it now carries a versioning rule (review round 1, Opus S3) and a corrected rationale (sol).
 
 ---
 
-**Goal:** the lane's: let the a2a-bridge run its reviewer and implementer fan-out on this host without swap exhaustion, by holding one resident index per compatible (checkout, prism build, cache configuration, refresh policy), with no query-latency regression under fan-out. **What S5b must make true, and test:** an operator (a person, or the bridge's reaper) can see every shared daemon in a runtime directory and what each is doing (spec §4.7: "key, repo root, build identity, pid, start time, admitted and pending clients, build state and attempt, generation, idle time, and whether its socket answers the preamble"), including daemons of other builds of prism; looking at a daemon never keeps it alive (S4's interface) and never removes anything; and `daemon-shutdown` asks exactly one instance of a configuration's daemon to drain once it has no client, never disconnecting one (spec §4.7, §11 item 3: "graceful and instance-bound, validated through the live control exchange; it must never disconnect other active clients"), so that the reaper can free a repository's index when the bridge is done with it. The in-process server and the shim's session do not change; `--shared` stays opt-in.
+**Goal:** the lane's: let the a2a-bridge run its reviewer and implementer fan-out on this host without swap exhaustion, by holding one resident index per compatible (checkout, prism build, cache configuration, refresh policy), with no query-latency regression under fan-out. **What S5b must make true, and test:** an operator (a person, or the bridge's reaper) can see every shared daemon in a runtime directory and what each is doing (spec §4.7: "key, repo root, build identity, pid, start time, admitted and pending clients, build state and attempt, generation, idle time, and whether its socket answers the preamble"), including daemons of other builds of prism; looking at a daemon of this build never keeps it alive (S4's interface; a daemon built before this slice is the disclosed exception, SI-35) and never removes anything; and `daemon-shutdown` asks exactly one instance of a configuration's daemon to drain once it has no client, never disconnecting one (spec §4.7, §11 item 3: "graceful and instance-bound, validated through the live control exchange; it must never disconnect other active clients"), so that the reaper can free a repository's index when the bridge is done with it. The in-process server and the shim's session do not change; `--shared` stays opt-in.
 
 **Architecture:** One new message pair on the daemon's socket, in place of the preamble's `HELLO`: `STATUS {"control":1}` and `SHUTDOWN {"control":1,"identity":…,"pid":…,"start_time":…}` (`src/mcp/shared/control.rs`), each answered by one `STATUS` line and a close. The exchange carries a version of its own, `control`, not the preamble's `protocol`, so it is not part of any identity key (D97). In the daemon the accept loop recognizes a control line by its verb (`server.rs::answer_control`) and asks the control plane (`admission.rs::control_exchange`) in one critical section to take the connection out of the pending count without restarting the idle time (a new `quiet_since` beside `idle_since`), to record a shutdown when the request names this very instance, and to read the counts and the build status for the reply. `retire_if_idle` drains a daemon with a recorded shutdown as soon as nothing is admitted or pending, ignoring the idle TTL and a running build (`StopReason::Shutdown`). The operator's side lives beside the shim, which already holds the client half of the protocol (D101): `shim/control.rs` makes one exchange (the shim's non-blocking connect, peer check and deadline-bounded line reader), `shim/status.rs` is `daemon-status`, `shim/shutdown.rs` is `daemon-shutdown`, and `src/bin/prism-mcp.rs` dispatches the two words as it dispatches `daemon`.
 
@@ -47,15 +42,15 @@ Two behaviors the spec leaves open with real tradeoffs. The plan builds the reco
 
 **Spec:** `docs/superpowers/specs/2026-10-09-shared-prism-daemon-design.md` as revised 2026-10-13 (§3.1 Draining, §4.2 "Admission and retirement", §4.3 files, §4.4, §4.6 "New prism build installed", §4.7, §8 step 4, §11 item 3, §12 row S5b). Lane plan: `README.md` in this directory (the S2b note on new verbs and the protocol version; the S4 note on a cleanup rule). Built on S5a as merged: `main` `5a63c7e8`. Decisions are numbered on from the S5a plan's (D77–D96) and spec issues from its SI-22–SI-28.
 
-**Interfaces this plan settles** (from S4's and S5a's "for S5b" lists): `DaemonState::status()` and `admission_status()` stay test-only (the reply reads the control plane in the exchange's own critical section instead); `StopReason` gains `Shutdown`, recorded by `retire_if_idle` when nothing is admitted or pending (S4's suggestion, without the TTL); the cleanup rule for other keys' files is owner question 1; the wire verbs do not bump `SHARED_PROTOCOL_VERSION` (D97); a probe does not reset the idle clock (D99); S5a's "a `daemon-shutdown` that drains ends attached shims' sessions" does not arise, because a shutdown drains a daemon only when no client is attached (D100), and a shim that arrives during a drain is answered `RETIRING` and starts a fresh daemon, as before (nothing changes in the shim); the build marker's sighting is shown by `daemon-status` (D102).
+**Interfaces this plan settles** (from S4's and S5a's "for S5b" lists): `DaemonState::status()` and `admission_status()` stay test-only (the reply reads the control plane in the exchange's own critical section instead); `StopReason` gains `Shutdown`, recorded by `retire_if_idle` when nothing is admitted or pending (S4's suggestion, without the TTL); the cleanup rule for other keys' files is the owner's decision 1 (report, remove nothing); the wire verbs do not bump `SHARED_PROTOCOL_VERSION` (D97); a probe does not reset the idle clock (D99); S5a's "a `daemon-shutdown` that drains ends attached shims' sessions" does not arise, because a shutdown drains a daemon only when no client is attached (D100), and a shim that arrives during a drain is answered `RETIRING` and starts a fresh daemon, as before (nothing changes in the shim); the build marker's sighting is shown by `daemon-status` (D102).
 
-**Ships as two pull requests.** **S5b-1 = Tasks 1–4** (the control exchange on the wire, in the control plane and in the accept loop; tested in process against the real accept loop): 13 files in `src/`, 1,054 insertions and 27 deletions, of which 441 insertions are production code and comments (324 code lines: `shared/control.rs` 255, `server.rs` +77, `admission.rs` +75, `control.rs` +23, the rest a few lines each) and 613 are tests; plus 10 lines of `CLAUDE.md`. **S5b-2 = Tasks 5–8** (one exchange from the operator's side, `daemon-status`, `daemon-shutdown`, the command line, process tests): 18 files in `src/` and `tests/`, 1,794 insertions and 12 deletions, of which 705 are production (565 code lines: `status.rs` 304, `shutdown.rs` 170, the binary +95, `shim/control.rs` 85, the rest a few lines each) and 1,089 tests; plus 13 lines of `CLAUDE.md`. Together about 1,150 production lines (889 of code), at the lane's threshold for a split; split anyway (D108). They are split where a reviewer's question changes: S5b-1 is the daemon (what it answers, and when a shutdown drains it), tested in process against the real accept loop; S5b-2 is the operator (what the commands say and do, and what they never touch), tested against stand-in daemons and, as processes, against a real daemon and shim. S5b-2 is based on S5b-1; nothing in S5b-1 depends on S5b-2.
+**Ships as two pull requests.** **S5b-1 = Tasks 1–4** (the control exchange on the wire, in the control plane and in the accept loop; tested in process against the real accept loop): 13 files in `src/`, 1,142 insertions and 27 deletions, of which 448 insertions are production code and comments (326 code lines: `shared/control.rs` 255, `server.rs` +84, `admission.rs` +75, `control.rs` +23, the rest a few lines each) and 694 are tests; plus 14 lines of `CLAUDE.md`. **S5b-2 = Tasks 5–8** (one exchange from the operator's side, `daemon-status`, `daemon-shutdown`, the command line, process tests): 19 files in `src/` and `tests/`, 2,121 insertions and 20 deletions, of which 843 are production (665 code lines: `status.rs`, `shutdown.rs`, the binary +95, `shim/control.rs`, `key_files.rs`, the rest a few lines each) and 1,278 tests; plus 17 lines of `CLAUDE.md`. Together about 1,290 production lines (991 of code), at the lane's threshold for a split; split (D108). Review round 1 added about 140 production and 270 test lines. They are split where a reviewer's question changes: S5b-1 is the daemon (what it answers, and when a shutdown drains it), tested in process against the real accept loop; S5b-2 is the operator (what the commands say and do, and what they never touch), tested against stand-in daemons and, as processes, against a real daemon and shim. S5b-2 is based on S5b-1; nothing in S5b-1 depends on S5b-2.
 
 ## Global Constraints
 
 - All production code is under `--features mcp` and `#[cfg(unix)]`, in `src/mcp/shared/{control,preamble,paths,mod}.rs`, `src/mcp/daemon/{admission,control,coordinator,run,server}.rs`, `src/mcp/shim/{control,status,shutdown,connect,diagnostic,key_files,mod}.rs`, `src/mcp/mod.rs` (one re-export) and `src/bin/prism-mcp.rs` (two words dispatched before the standalone parser, as `daemon` is); tests in `src/mcp/shared/`, `src/mcp/daemon/`, `src/mcp/shim/` and `tests/mcp/`. The default build must still compile (`cargo check`).
 - **Standalone behavior is unchanged, byte for byte**, and so is the shim's session. Not edited: `src/mcp/transport.rs`, `transport_tests.rs`, `owner_transport_tests.rs`, `session.rs`, `lazy.rs`, `framing.rs`, `output.rs`, `settings.rs`, `src/mcp/shim/{arbitrate,pump,spawn,run,socket}.rs`, the golden transcripts under `tests/fixtures/mcp/golden/` (never set `PRISM_MCP_BLESS_GOLDEN`). `src/bin/prism-mcp.rs` changes only by two first words that today are parse errors (`daemon-status`, `daemon-shutdown`). The `HELLO`/`READY` wire format does not change: `preamble.rs` only widens helpers to `pub(super)` and `BuildState::word` to `pub`. Tasks 4 and 8 check it.
-- Do not re-decide D1–D96. Settled here on purpose, and said so: S4's D63 (no wire status verb in S4; whether a verb bumps the protocol version, now D97), D66 (the dead-code allowances of `status` and `admission_status`), D70 (the cleanup rule, owner question 1), S4's interface on the idle clock (D99), and S5a's interface on the build marker (D102).
+- Do not re-decide D1–D96. Settled here on purpose, and said so: S4's D63 (no wire status verb in S4; whether a verb bumps the protocol version, now D97), D66 (the dead-code allowances of `status` and `admission_status`), D70 (the cleanup rule, owner decision 1), S4's interface on the idle clock (D99), and S5a's interface on the build marker (D102).
 - Spec values, copied exactly:
   - "`prism-mcp daemon-status [--repo X] [--runtime-dir D]` prints, for every live daemon in the runtime dir (or the one for `X`): key, repo root, build identity, pid, start time, admitted and pending clients, build state and attempt, generation, idle time, and whether its socket answers the preamble. `prism-mcp daemon-shutdown --repo X` asks the instance verified through the live control exchange (pid + start time echoed in `READY`) to enter Draining when its admitted count reaches 0; it never disconnects other clients (§11 decision 3). The integration tests use a test-only status probe over the same control exchange (S3a) and do not depend on the operator tool (S5b)" (§4.7).
   - "`daemon-shutdown` verb for the bridge's reaper: yes — DECIDED. Graceful and instance-bound, validated through the live control exchange; it must never disconnect other active clients" (§11 item 3).
@@ -64,13 +59,13 @@ Two behaviors the spec leaves open with real tradeoffs. The plan builds the reco
   - "Every launcher that should share a daemon must resolve the same directory; `docs/MCP.md` says so and `daemon-status` prints it" (§4.3).
   - "Lock files are created 0600 and never unlinked (stable inodes; unlinking a lock file is how two holders come to exist)" (§4.3).
 - **The control exchange is read as strictly as the preamble:** one spelling per message, the one `encode` writes; a line of 4 KiB at most; another `control` version refused before its payload is read.
-- **No panic on a path a client or a peer can reach** in code this slice adds: no `unwrap`, `expect`, indexing or unchecked arithmetic outside tests. No `unsafe` is added.
+- **No panic on a path a client or a peer can reach** in code this slice adds: no `unwrap`, `expect`, indexing or unchecked arithmetic outside tests. No `unsafe` in production code (the tests' `mkfifo` is one FFI call with a `SAFETY` comment).
 - **Nothing the operator prints carries a control character**: every line goes through the shim's `one_line`, whatever a daemon reported (a root may hold any byte).
-- **`daemon-status` reads and never removes.** It takes a key's owner lock only while it holds that key's start lock, and only for a key with a socket, a pid file or a build marker; it never records a build marker's sighting (that is a shim's, D77).
-- **Tests do not depend on the host's speed.** A test waits for a condition up to its hang limit (30 s in process, 60 s for processes) and asserts no upper bound on an elapsed time; a deadline a test means to expire is short (300–500 ms) and only its outcome is asserted. The process test of the idle clock gives a daemon a 2 s TTL and probes it every 100 ms until it exits; a probe that restarted the idle time would keep it up until the hang limit.
+- **`daemon-status` reads and never removes.** It takes a key's owner lock only while it holds that key's start lock, and only for a key with a socket, a pid file or a build marker; it never records a build marker's sighting (that is a shim's, D77); it never waits on a key's file (the marker and the pid file are opened `O_NONBLOCK`, regular files only, size-bounded); one key it cannot look at is reported on its own line and does not hide the others.
+- **Tests do not depend on the host's speed.** A test waits for a condition up to its hang limit (30 s in process, 60 s for processes) and asserts no upper bound on an elapsed time; a deadline a test means to expire is short (300–500 ms) and only its outcome is asserted. The process test of the idle clock gives a daemon a 2 s TTL and probes it every 100 ms until it exits, and asserts nothing that depends on when its first probe runs; a probe that restarted the idle time would keep it up until the hang limit. The listing is asserted on a daemon with the default TTL (review round 1, Opus S1). The FIFO regressions run under an independent watchdog thread whose only bound is the hang limit.
 - **No test aborts the test binary**, and every daemon a test starts is ended on every path (`Daemon`'s `Drop`, S4; `Daemons`, S5a).
 - Every runtime directory a test uses is under `/tmp` (S2's note: a socket path must fit 103 bytes).
-- File size (CLAUDE.md decision 7): weighted lines (`python3 scripts/file_size.py FILE...`), new files aim for 600 or fewer. Weighted sizes after this slice (`scripts/file_size.py` from `main`): every file it creates or edits is at most 541.5 (`src/mcp/daemon/server.rs`, 475 before); the largest it creates is `src/mcp/shim/status.rs`, 273. Tests stay in sibling `*_tests.rs` files included with `#[path]`.
+- File size (CLAUDE.md decision 7): weighted lines (`python3 scripts/file_size.py FILE...`), new files aim for 600 or fewer. Weighted sizes after this slice (`scripts/file_size.py` from `main`): every file it creates or edits is at most 546 (`src/mcp/daemon/server.rs`, 475 before); S5a's `src/mcp/shim/arbitrate_tests.rs` grows to 502.5; the largest file it creates is `src/mcp/shim/status_tests.rs`, 359.5. Tests stay in sibling `*_tests.rs` files included with `#[path]`.
 - No new clippy warning in a file this slice adds or edits.
 - **Commit before any experiment.** The "prove the tests bite" steps edit a source file and restore it with `git checkout -- <file>`; they come after the task's commit.
 - **Run the daemon's, the shim's and the shared tests on Linux before each pull request** (Tasks 4 and 8), in the bridge's `a2a-toolchain` image with the worktree mounted read-only and named volumes for the target and the registry, removed by a `trap`.
@@ -79,14 +74,17 @@ Two behaviors the spec leaves open with real tradeoffs. The plan builds the reco
 ### What each mechanism covers, and what it does not
 
 - **The control exchange is what one daemon says at one moment.** Between a status and a shutdown the daemon can drain and another start; the shutdown names the instance (identity, pid, start time) and a daemon that is another instance records nothing (D98, D104).
-- **A probe is a connection until its line is read.** It counts against `--max-clients` (a daemon at its bound answers it `BUSY`), and while it is pending the daemon does not retire; a stalled probe holds retirement off for at most the 10 s handshake timeout. It never moves the idle time (D99).
+- **A probe is a connection until its line is read.** It counts against `--max-clients`: a daemon at its bound answers it `BUSY`, and a shim that arrives at bound − 1 while a probe is pending (one turn of the loop) is answered `BUSY` and fails closed (spec §10), negligible at the default bound of 64 (review round 1, Opus S4). While it is pending the daemon does not retire, for at most the 10 s handshake timeout. A probe whose control line is read, in time or too late, leaves the idle time as it found it (D99). A connection that ends or times out before its line is whole, or whose line is neither a control line nor a `HELLO`, cannot be told from a client's and restarts the idle time when it goes (review round 1, Opus W3, sol 3).
 - **`daemon-shutdown` reaches this build's daemon of one configuration.** The key covers the build, the cache base and the refresh policy, so a daemon of another build of the same repository has another key: `daemon-status` lists it with its build identity, and it retires on its own after its last client and its idle TTL (spec §4.6). Stopping one at once is `kill -TERM <pid>`, which drains it whatever its clients (spec §3.1).
-- **A shutdown request is not revocable.** A daemon asked while it serves clients drains the moment the last one leaves, however many came and went in between (owner question 2).
+- **A shutdown request is not revocable.** A daemon asked while it serves clients drains the moment the last one leaves, however many came and went in between (owner decision 2).
 - **A shutdown drains a daemon whose build is running when no client is attached** (D100): S4's SI-15 left a builder that never returns keeping its daemon up "until `daemon-shutdown` … or a kill". The build is abandoned with the process; the marker is removed by the drain, as for any drain during a build (S5a's D92), so the next shim does not take it for a crash.
 - **"Drained" means the pid file is gone.** The daemon removes it just before it releases the owner lock and exits; the process can still exist for a moment after the command returns.
 - **`daemon-status` cannot see a daemon between its claim and its bind.** A key with only lock files and a log is counted, not probed; a daemon that holds the owner lock and has not yet written its pid file or bound its socket is counted with them for that instant.
-- **A daemon of a build without the control exchange** (any build before this slice) closes the line it does not know (S4's D54): `daemon-status` reports it alive but not answering, through its locks, and `daemon-shutdown` exits 1 for it. No released build of prism has `--shared`.
+- **A daemon of a build without the control exchange** (any build before this slice) closes the line it does not know (S4's D54): `daemon-status` reports it alive but not answering, through its locks, and `daemon-shutdown` exits 1 for it. **And, as for any line it refuses, its idle time restarts at each probe**: an operator who polls it more often than its idle TTL keeps it up for as long as the polling goes on (SI-35; review round 1, Opus W2, sol 1; accepted by the controller and disclosed: new code cannot change an old daemon). Stop such a daemon with `kill -TERM <pid>` (spec §3.1). Measured with a daemon of the base build and this slice's `daemon-status` (Validation record): with a 3 s TTL and a probe a second it was alive after 9 s and retired 2 s after the probes stopped; a daemon of this slice under the same probes retired at 3.1 s. No released build of prism has `--shared`.
 - **The root a daemon reports is shown, clipped to 512 characters and lossy where it is not UTF-8** (D105). The key, not the root, identifies the daemon.
+- **An instance is (identity, pid, start second).** A daemon replaced by another with the same pid in the same wall-clock second (or across a clock step, or from another pid namespace that shares the runtime directory) is indistinguishable from it, and a shutdown meant for one is recorded by the other (review round 1, sol 5: an assumption stated, not a demonstrated failure). A unique per-instance token would remove the assumption and was not added: it changes `READY`, the pid file and the reaper's selector.
+- **A key's build marker and pid file are read without waiting** (review round 1, sol 2, Opus S6): opened `O_NONBLOCK` through the runtime directory's descriptor, never through a symlink, a regular file of this user only, at most 256 (marker) or 200 (pid file) bytes. A FIFO or another non-regular file at the marker's path is reported as unusable and, by a shim, removed with the stale files (D109).
+- **A refused connection is no daemon only when nobody holds the owner lock** (review round 1, Opus W1): a live daemon whose listen backlog is full, or one that has claimed the key and not bound yet, refuses connections too, and both commands then look at the key's locks (D102, D104).
 - **The peer check is the guarantee between users**, as for the shim (S5a's D78): nothing is sent to a socket whose peer is another user. Neither command defends against a process of the same user.
 - **The status's look at the locks can delay a shim by the moment it holds the start lock**; it never fails one (a shim retries the start lock until its deadline).
 
@@ -96,17 +94,18 @@ Each is something the spec leaves open or states ambiguously, or an earlier slic
 
 | # | Decision | Reason | Cost if wrong |
 |---|---|---|---|
-| D97 | **The control exchange has a version of its own, `control` (1), and does not bump `SHARED_PROTOCOL_VERSION`; no identity key changes.** | S4's D63 and the S2b note: by S2's rule a new verb bumps the preamble's version, which is part of every key. But `daemon-status` must list daemons of every build (spec §4.6), and a version in the key would make an operator tool of one build unable to talk to a daemon of another by construction. The `HELLO`/`READY` lines do not change, and a daemon that does not know a control line closes it (D54), which the operator reports. Keys change with every build anyway (the content-hashed build identity), so bumping would buy nothing. | A version bump later: one constant and the golden key tests. |
-| D98 | **One line each way, then the daemon closes.** A request is `STATUS` or `SHUTDOWN`; both are answered by the same `STATUS` line (instance, build identity, root, admitted, pending, `--max-clients`, build state, attempt, generation, idle seconds or `null`, idle TTL, shutdown flag), or by `RETIRING`/`BUSY` as a `HELLO` would be; a control line this build refuses is closed without a reply. A line is a control line when its verb is `STATUS` or `SHUTDOWN` followed by a space (`is_control_line`), decided before `HELLO` decoding. | The handshake stage already reads exactly one line per connection with a deadline; a second line would need a second stage. Answering a shutdown with the status lets the operator see which instance answered and whether it recorded the request. | None. |
-| D99 | **A control exchange leaves the idle time as it found it.** `Admission` gains `quiet_since`: when a connection that was not a control exchange last left the counts (and the first retirement decision). `enter_handshake` clears `idle_since` (S4, unchanged) but not `quiet_since`; a control exchange that leaves the counts at zero puts `idle_since` back to `quiet_since`. | S4's interface: a probe is pending while its line is read, and leaving the way a client does would restart the TTL, so an operator who looks keeps the daemon up. Putting back the value found at entry would be wrong when a client came and went during the probe (`a_client_that_leaves_during_a_control_exchange_moves_the_idle_time`, mutant 2B). | None. |
-| D100 | **A shutdown is recorded only when it names this very instance** (identity, pid and start time all equal), **and drains the daemon as soon as nothing is admitted or pending, whatever the idle TTL and a running build; until then the daemon goes on admitting new clients.** | Spec §4.7, §11 item 3; owner question 2 for the new clients. Pending is counted as for the idle retirement, so a shim in the middle of its handshake is admitted rather than sent to start a second daemon. A running build is not waited for: with no client attached nobody waits on it, and S4's SI-15 named `daemon-shutdown` as the way out of a build that never returns. | Owner question 2: about ten lines for (b). |
+| D97 | **The control exchange has a version of its own, `control` (1), and does not bump `SHARED_PROTOCOL_VERSION`; no identity key changes.** | S4's D63 and the S2b note: by S2's rule a new verb bumps the preamble's version, which is part of every key. But `daemon-status` must list daemons of every build (spec §4.6), and a version in the key would make an operator tool of one build unable to talk to a daemon of another by construction. The `HELLO`/`READY` lines do not change, and a daemon that does not know a control line closes it (D54), which the operator reports. Keys change with every build anyway (the content-hashed build identity), so bumping would buy nothing. Corrected after review round 1 (sol): a bump would not have prevented cross-build status as first argued here, since `daemon-status` finds other keys by their file names anyway; the exchange stays out of the preamble's version because the `HELLO`/`READY` contract does not change and the control exchange needs a compatibility rule of its own, below. A bump would not have repaired the old-daemon idle restart either (SI-35). **Versioning rule (review round 1, Opus S3):** a daemon answers every `control` version it has ever spoken; an operator sends its highest version and, on a close without a reply, falls back to the next lower one. Version 1 is the only one so far, so nothing implements the fallback yet. Both reviewers found D97 sound; a planner's decision, disclosed, recorded by the owner on 2026-10-16. | A version bump later: one constant and the golden key tests. |
+| D98 | **One line each way, then the daemon closes.** A request is `STATUS` or `SHUTDOWN`; both are answered by the same `STATUS` line (instance, build identity, root, admitted, pending, `--max-clients`, build state, attempt, generation, idle seconds or `null`, idle TTL, shutdown flag), or by `RETIRING`/`BUSY` as a `HELLO` would be; a control line this build refuses, or one completed after its handshake deadline, is closed without a reply. A line is a control line when its verb is `STATUS` or `SHUTDOWN` followed by a space (`is_control_line`), decided before `HELLO` decoding. | The handshake stage already reads exactly one line per connection with a deadline; a second line would need a second stage. Answering a shutdown with the status lets the operator see which instance answered and whether it recorded the request. | None. |
+| D99 | **A control exchange leaves the idle time as it found it.** `Admission` gains `quiet_since`: when a connection that was not a control exchange last left the counts (and the first retirement decision). `enter_handshake` clears `idle_since` (S4, unchanged) but not `quiet_since`; a control exchange that leaves the counts at zero puts `idle_since` back to `quiet_since`. | S4's interface: a probe is pending while its line is read, and leaving the way a client does would restart the TTL, so an operator who looks keeps the daemon up. Putting back the value found at entry would be wrong when a client came and went during the probe (`a_client_that_leaves_during_a_control_exchange_moves_the_idle_time`, mutant 2B). A control line that completes after its deadline is dropped the same way, unanswered and with no shutdown recorded (review round 1, sol 3; `a_control_line_completed_after_its_deadline_moves_nothing`, mutant R1). A connection whose line never completes, or is not a control line or a `HELLO`, is treated as a client's (`a_line_the_daemon_cannot_read_restarts_the_idle_time_as_a_client_s_does`, a pin). | None. |
+| D100 | **A shutdown is recorded only when it names this very instance** (identity, pid and start time all equal), **and drains the daemon as soon as nothing is admitted or pending, whatever the idle TTL and a running build; until then the daemon goes on admitting new clients.** | Spec §4.7, §11 item 3; owner decision 2 (2026-10-16) for the new clients. Pending is counted as for the idle retirement, so a shim in the middle of its handshake is admitted rather than sent to start a second daemon. A running build is not waited for: with no client attached nobody waits on it, and S4's SI-15 named `daemon-shutdown` as the way out of a build that never returns. | About ten lines to refuse new clients instead. |
 | D101 | **The operator's commands live in `src/mcp/shim/`** (`control.rs`, `status.rs`, `shutdown.rs`), beside the shim. | They are clients of the same sockets and files: they reuse the shim's non-blocking connect, its peer check, its deadline-bounded line reader (`connect::read_reply`, widened to `pub(super)`), its key-file functions (`KeyDir`) and its one-line escaping, with no visibility widened outside the module. | A mechanical move to a module of their own. |
-| D102 | **`daemon-status` reads and never removes.** A key with a socket is asked; a key whose socket does not answer, or with a pid file or a build marker and no socket, is looked at through its locks: its start lock (busy: "being started or reached"), then, holding it, its owner lock (held: "alive but not answering", with the pid file; free: "no daemon", with what was left and the build marker's restart time, by `arbitrate`'s rule). Each lock is held for a moment. A key with nothing but lock files and a log is counted. | A shim spawns a daemon only while it holds the start lock (S5a), so looking at the owner lock under the start lock cannot make a daemon being started lose its claim (S5a's D82). S5a's interface: the marker's sighting and when the minute ends are what an operator wants; only a shim records a sighting (D77). Owner question 1 for removal. | Owner question 1. |
+| D102 | **`daemon-status` reads and never removes.** A key with a socket is asked; a key whose socket does not answer, or with a pid file or a build marker and no socket, is looked at through its locks: its start lock (busy: "being started or reached"), then, holding it, its owner lock (held: "alive but not answering", with the pid file; free: "no daemon", with what was left and the build marker's restart time, by `arbitrate`'s rule). Each lock is held for a moment (`under_locks`, shared with `daemon-shutdown`). A key with nothing but lock files and a log is counted. A key that cannot be looked at (a symlink at its start lock, say) is reported on a line of its own and the others are still listed (review round 1, Opus S7). | What makes the look safe (restated after review round 1, Opus S5): taking an owner lock nobody holds can at worst make a daemon that is about to claim the key find it taken and exit silently (S4's `Claim::Taken`), leaving no owner, never two; and the look happens only for a key with a socket, a pid file or a build marker, which a starting shim has already removed under the owner lock before it spawns (S5a), so a daemon a shim is starting is looked at only in a race of microseconds between the existence check and the lock. The start lock is taken first so that the look keeps out of a shim's start and waits for none. Two edges remain: a daemon started directly (`prism-mcp daemon …`, as tests do) holds no start lock; and a shim that gives up at its deadline releases the start lock while its child may still be before its claim. In both the outcome is the silent exit above, and the next shim starts the daemon again. S5a's interface: the marker's sighting and when the minute ends are what an operator wants; only a shim records a sighting (D77). Owner decision 1 for removal. | — |
 | D103 | **`--runtime-dir` is the runtime base, as `PRISM_MCP_RUNTIME_DIR` gives it**; the daemons' files are in its `prism-mcpd` directory. Without it the commands resolve the directory as a shim does. A runtime directory that does not exist is reported and not created. | Spec §4.7's `--runtime-dir D` does not say which; the base is what the bridge sets (spec §8 step 1), so an operator can paste the same value. Creating a directory to report that nothing is in it would be a side effect of looking. | A flag's meaning (pre-release). |
-| D104 | **`daemon-shutdown`:** a status exchange first (no daemon, or one that is draining: exit 0 and say so; one that does not answer, is at its bound or is refused: exit 1); the answering instance must serve this configuration's full key; with `--pid` and `--start-time` it must be that instance too, or it is left alone (exit 0: the named instance no longer serves the key); then `SHUTDOWN` naming it. A reply from another instance: left alone, exit 0. With clients: exit 0, "drains once its N admitted clients have disconnected". With none: wait until the pid file no longer holds that pid and start time, then exit 0 "drained"; at the timeout exit 1. | Spec §4.7 "the instance verified through the live control exchange"; §11 item 3 "instance-bound". The two flags let the bridge's reaper name the daemon its shims reported (S5a's D88 line) and never stop a newer one. Exit 0 means "that instance no longer serves the key, or will drain on its own", what a reaper needs to know. | None. |
+| D104 | **`daemon-shutdown`:** a status exchange first (no daemon, or one that is draining: exit 0 and say so; one that does not answer, is at its bound or is refused: exit 1); the answering instance must serve this configuration's full key; with `--pid` and `--start-time` it must be that instance too, or it is left alone (exit 0: the named instance no longer serves the key); then `SHUTDOWN` naming it. A reply from another instance: left alone, exit 0. With clients: exit 0, "drains once its N admitted clients have disconnected". With none: wait until the pid file no longer holds that pid and start time, then exit 0 "drained"; at the timeout exit 1. A socket that refuses connections, at either exchange, is "no daemon" (exit 0) only when the key's owner lock is free; held, exit 1 "alive but not accepting connections" with the connect error; start lock held, exit 1 (review round 1, Opus W1). A `SHUTDOWN` whose reply is lost (no reply, or one this build cannot read) exits 1 saying the request may have been recorded, because a request cannot be withdrawn; a `BUSY` is answered before the line is read, so it records nothing (review round 1, Opus W4). The instance is (identity, pid, start second); the uniqueness assumption is stated under "What each mechanism covers" (sol 5). | Spec §4.7 "the instance verified through the live control exchange"; §11 item 3 "instance-bound". The two flags let the bridge's reaper name the daemon its shims reported (S5a's D88 line) and never stop a newer one. Exit 0 means "that instance no longer serves the key, or will drain on its own", what a reaper needs to know. | None. |
 | D105 | **The status reply's root is lossy and clipped to 512 characters (`…` appended).** | The reply must fit one 4 KiB preamble line; JSON can write a character as six bytes. The key identifies the daemon; the root is for a person. | A constant. |
 | D106 | **`--timeout` (1–600 s, default 10)**: for `daemon-status` the time each daemon has to answer; for `daemon-shutdown` the whole command, the wait for the drain included. | One flag; the default matches the handshake timeout and the shim's start deadline. | A constant. |
 | D107 | **`--repo` (with `--cache-dir` and `--refresh-policy`) names this build's key for that configuration**, for both commands; `daemon-status` then reports that key only, and "no daemon for this configuration" without creating any file of it. | The key covers the cache base and the refresh policy (spec §4.3), so `--repo` alone does not name a daemon. | None. |
+| D109 | **A key's build marker is read without waiting and only so far, in S5a's `KeyDir`** (`read_build_marker`: `O_NONBLOCK`, through the directory's descriptor, never through a symlink, a regular file of this user only, at most 256 bytes; `build_marker`, which the shim's start protocol calls, returns `None` for anything else). `daemon-status` reports a non-regular marker as unusable. | Review round 1, sol 2 (reproduced: a FIFO at `<key>.build` held `daemon-status --timeout 1` past 2.5 s with both locks) and Opus S6. The shim had the same exposure: a blocking open of a FIFO marker held it for ever; now such a marker is no marker, and the stale files' removal removes it (`a_build_marker_that_is_not_a_regular_file_neither_hangs_nor_holds_the_key`). For a regular marker nothing changes but the 256-byte bound, far past the three short lines a daemon and a shim write. | None. |
 | D108 | **Two pull requests**, split between the daemon (Tasks 1–4) and the operator (Tasks 5–8). | About 2,900 lines in all; each half is the size of an earlier slice's PR that converged in two rounds, and each has its own reviewer question. | — |
 
 ## Spec items implemented, and spec issues found
@@ -114,24 +113,29 @@ Each is something the spec leaves open or states ambiguously, or an earlier slic
 Spec §12 row S5b, item by item: `daemon-status` → Tasks 1–3 (the daemon's answer), Task 5 (`status.rs`), Task 7 (`prism-mcp daemon-status`); `daemon-shutdown` → Tasks 1–3 (the request and the drain), Task 6 (`shutdown.rs`), Task 7 (`prism-mcp daemon-shutdown`). Spec §9 lists no test for S5b (its integration tests use S3a's in-process probe); the tests here are this plan's own, listed under "Claims".
 
 - **SI-29 (§4.7 "whether its socket answers the preamble").** The probe is the control exchange, not a `HELLO`: a `HELLO` would be admitted, counted as a client and would restart the idle time. A daemon answers the control exchange from its handshake stage, so "answers" means the same thing.
-- **SI-30 (§4.7 "to enter Draining when its admitted count reaches 0").** Read as the idle retirement's condition without the TTL: admitted and pending both 0; a running build does not hold it off; new clients are still admitted until then (D100; owner question 2).
+- **SI-30 (§4.7 "to enter Draining when its admitted count reaches 0").** Read as the idle retirement's condition without the TTL: admitted and pending both 0; a running build does not hold it off; new clients are still admitted until then (D100; owner decision 2, 2026-10-16).
 - **SI-31 (§4.7 `daemon-status [--repo X] [--runtime-dir D]`, `daemon-shutdown --repo X`).** `D` is the runtime base (D103); `--repo` needs `--cache-dir` and `--refresh-policy` to name a key, and names this build's (D107).
 - **SI-32 (§4.7 "the instance verified through the live control exchange (pid + start time echoed in `READY`)", §11 item 3).** The instance is the identity, the pid and the start time; it is verified by a status exchange and bound across the second exchange by the daemon's own comparison; `--pid` and `--start-time` name one from outside (D104).
-- **SI-33 (§4.3 files; S4's D70).** The cleanup rule for other keys' files: owner question 1.
-- **SI-34 (S2's rule that a new verb bumps the protocol version; S4's D63).** Not bumped (D97).
+- **SI-33 (§4.3 files; S4's D70).** The cleanup rule for other keys' files: owner decision 1 (2026-10-16): report and count, remove nothing.
+- **SI-34 (S2's rule that a new verb bumps the protocol version; S4's D63).** Not bumped (D97), with a versioning rule of the control exchange's own.
+- **SI-35 (§4.6 "the old daemon retires when its last client leaves").** Not while an operator of this slice polls it more often than its idle TTL: a daemon built before this slice restarts its idle time at each `STATUS` it refuses (review round 1; accepted and disclosed; `kill -TERM` stops it).
 
 ## Review Focus
 
-Eight ways this code is most likely to be wrong in use that a straightforward test list would not exercise. Each has a test in the task that owns the code.
+Eleven ways this code is most likely to be wrong in use that a straightforward test list would not exercise. Each has a test in the task that owns the code.
 
-1. **An operator who looks keeps the daemon alive.** A probe is pending while its line is read; leaving as a client does restarts the TTL. → Task 2, `a_control_exchange_leaves_the_idle_time_as_it_found_it`, `a_client_that_leaves_during_a_control_exchange_moves_the_idle_time`; Task 3, `a_status_probe_does_not_keep_an_idle_daemon_up`, `a_refused_control_line_is_closed_without_a_reply_and_leaves_the_idle_time`; Task 7, `daemon_status_shows_a_running_daemon_and_does_not_keep_it_up` (a real daemon with a 2 s TTL, probed every 100 ms).
+1. **An operator who looks keeps the daemon alive.** A probe is pending while its line is read; leaving as a client does restarts the TTL. → Task 2, `a_control_exchange_leaves_the_idle_time_as_it_found_it`, `a_client_that_leaves_during_a_control_exchange_moves_the_idle_time`; Task 3, `a_status_probe_does_not_keep_an_idle_daemon_up`, `a_refused_control_line_is_closed_without_a_reply_and_leaves_the_idle_time`; Task 7, `daemon_status_does_not_keep_an_idle_daemon_up` (a real daemon with a 2 s TTL, probed every 100 ms). The exception for daemons built before this slice is disclosed (SI-35).
 2. **A shutdown for the wrong instance.** A daemon replaced between the status and the shutdown, or one the reaper did not mean. → Task 3, `a_shutdown_for_another_instance_records_nothing` (identity, pid, start time each); Task 6, `another_instance_named_by_pid_and_start_time_is_left_alone`, `a_daemon_replaced_between_the_exchanges_is_left_alone`, `a_daemon_of_another_identity_is_not_asked`; Task 7, `daemon_shutdown_of_another_instance_leaves_the_daemon_alone`.
 3. **A shutdown that disconnects a client, or never drains.** → Task 2, `a_shutdown_waits_for_the_last_client_and_still_admits_new_ones`, `a_shutdown_drains_a_daemon_with_no_client_at_once_whatever_the_ttl_or_a_build`; Task 3, `a_shutdown_lets_every_client_finish_and_drains_when_the_last_leaves`; Task 7, `daemon_shutdown_never_disconnects_a_client`.
-4. **A look that changes what it looks at.** Taking an owner lock while a shim starts a daemon, recording a sighting, removing a stale file, or creating a key's lock files. → Task 5, `a_key_a_shim_is_starting_is_not_looked_at_under_its_owner_lock`, `a_daemon_that_died_during_its_build_says_when_it_may_restart`, `a_dead_daemon_s_leftovers_are_named_and_left_in_place`, `with_a_repository_only_its_daemon_is_shown`, `a_missing_or_invalid_runtime_directory`.
+4. **A look that changes what it looks at.** Taking an owner lock while a shim starts a daemon, recording a sighting, removing a stale file, or creating a key's lock files. → Task 5, `a_key_a_shim_is_starting_is_not_looked_at_under_its_owner_lock`, `a_daemon_that_died_during_its_build_says_when_it_may_restart`, `a_dead_daemon_s_leftovers_are_named_and_left_in_place`, `with_a_repository_only_its_daemon_is_shown`, `a_missing_or_invalid_runtime_directory`, `a_key_that_cannot_be_looked_at_does_not_hide_the_others`.
 5. **A control line taken for a `HELLO`, or the reverse.** → Task 1, `only_the_two_verbs_are_control_lines`; Task 3, `a_status_request_is_answered_with_the_daemon_s_state_and_closed`.
-6. **A reply that does not fit, or does not round-trip.** A long root, a root with quotes or control characters. → Task 1, `a_long_root_is_clipped_so_the_reply_fits_one_preamble_line`, `a_root_with_any_characters_round_trips`; Task 5, `a_root_with_control_characters_is_printed_on_one_line`.
+6. **A reply that does not fit, or does not round-trip.** A long root, a root with quotes or control characters. → Task 1, `a_long_root_is_clipped_so_the_reply_fits_one_preamble_line`, `a_root_with_any_characters_round_trips`; Task 5, `a_root_with_control_characters_is_printed_on_one_line`, `a_runtime_directory_with_control_characters_is_printed_on_one_line`.
 7. **Talking to another user's socket.** → Task 5, `a_peer_of_another_user_is_refused_before_anything_is_sent`.
 8. **A daemon that does not answer.** A wedged daemon, an older build, one at its bound. → Task 5, `a_close_a_silence_and_nothing_listening_are_told_apart`, `a_daemon_that_does_not_answer_is_named_alive_with_its_pid_file`; Task 3, `a_control_request_at_the_client_bound_is_answered_busy`; Task 6, `draining_busy_silent_and_refusing_daemons_are_told_apart`.
+
+9. **A probe that arrives late, or a frame the daemon cannot read** (review round 1, sol 3, Opus W3). → Task 3, `a_control_line_completed_after_its_deadline_moves_nothing`, `a_line_the_daemon_cannot_read_restarts_the_idle_time_as_a_client_s_does`.
+10. **A file in a key's place that would make the operator wait** (review round 1, sol 2, Opus S6): a FIFO or an oversized build marker. → Task 5, `a_build_marker_that_is_a_fifo_or_oversized_does_not_hold_the_report`, and the shim's `a_build_marker_that_is_not_a_regular_file_neither_hangs_nor_holds_the_key`.
+11. **A live daemon taken for none** (review round 1, Opus W1): a full backlog, a daemon claimed and not bound. → Task 5, `a_live_daemon_that_does_not_accept_is_named_with_why`; Task 6, `a_live_daemon_that_does_not_accept_connections_is_not_taken_for_none`.
 
 ## Claims and the tests that hold them
 
@@ -145,27 +149,32 @@ Every "never", "always", "exactly" and "only" this plan's code or comments state
 | A status reply always fits one preamble line, whatever the root. | T1 `a_long_root_is_clipped_so_the_reply_fits_one_preamble_line` | no clip (1C) |
 | A root with any characters round-trips through the reply. | T1 `a_root_with_any_characters_round_trips` | strings written without JSON escaping (1F) |
 | The control exchange's version is not the preamble's, so no identity key changes. | T1 `the_control_version_is_not_the_preamble_s` | (a pin of D97) |
-| A control exchange never moves the idle time: an operator who looks does not keep a daemon up. | T2 `a_control_exchange_leaves_the_idle_time_as_it_found_it`; T3 `a_status_probe_does_not_keep_an_idle_daemon_up`, `a_refused_control_line_is_closed_without_a_reply_and_leaves_the_idle_time`; T7 `daemon_status_shows_a_running_daemon_and_does_not_keep_it_up` | the probe leaves as a client does (2A; 7A, the same edit, against a real daemon); a refused control line leaves as a client does (3B) |
+| A control exchange whose line is read, answered, refused or completed too late, never moves the idle time: an operator who looks does not keep a daemon of this build up. | T2 `a_control_exchange_leaves_the_idle_time_as_it_found_it`; T3 `a_status_probe_does_not_keep_an_idle_daemon_up`, `a_refused_control_line_is_closed_without_a_reply_and_leaves_the_idle_time`, `a_control_line_completed_after_its_deadline_moves_nothing`; T7 `daemon_status_does_not_keep_an_idle_daemon_up` | the probe leaves as a client does (2A; 7A, the same edit, against a real daemon); a refused control line leaves as a client does (3B); an expired control line leaves as a client does (R1) |
+| A connection whose line never completes, or is neither a control line nor a `HELLO`, is a client's: the idle time restarts when it goes (what a pre-S5b daemon does with `STATUS`, SI-35). | T3 `a_line_the_daemon_cannot_read_restarts_the_idle_time_as_a_client_s_does` | (a pin of the stated behavior; no mutant) |
 | A client that comes and goes during a probe moves the idle time to when it left. | T2 `a_client_that_leaves_during_a_control_exchange_moves_the_idle_time` | `quiet_since` set only when the counts reach zero (2B) |
 | A status counts every connection but the request itself. | T2 `a_status_counts_every_connection_but_itself` | the request left in the pending count (2F) |
 | A shutdown is recorded only when it names this very instance: identity, pid and start time. | T3 `a_shutdown_for_another_instance_records_nothing` | a pid-only comparison (3A) |
 | A shutdown drains a daemon with no client at once, whatever the idle TTL and a running build. | T2 `a_shutdown_drains_a_daemon_with_no_client_at_once_whatever_the_ttl_or_a_build`; T3 `a_shutdown_for_this_instance_drains_an_idle_daemon`; T7 `daemon_shutdown_drains_an_idle_daemon` | the request ignored (2C) |
 | A shutdown never drains a daemon while a client is admitted or pending, never disconnects one, and the daemon goes on admitting until it drains. | T2 `a_shutdown_waits_for_the_last_client_and_still_admits_new_ones`; T3 `a_shutdown_lets_every_client_finish_and_drains_when_the_last_leaves`; T7 `daemon_shutdown_never_disconnects_a_client` | the drain before the counts are checked (2D); new clients refused after the request (2E) |
-| A request that arrives once the daemon drains is answered `RETIRING` and records nothing. | T2 `a_control_exchange_after_the_drain_decision_is_answered_retiring` | (2F) |
+| A request that arrives once the daemon drains, or completes after its deadline, is answered `RETIRING` or nothing, and records no shutdown. | T2 `a_control_exchange_after_the_drain_decision_is_answered_retiring`; T3 `a_control_line_completed_after_its_deadline_moves_nothing` | the shutdown recorded before the drain check (R2); (2F); (R1) |
 | The status reports the daemon's idle time. | T3 `a_status_request_is_answered_with_the_daemon_s_state_and_closed`, `a_status_probe_does_not_keep_an_idle_daemon_up` | no idle time (3D) |
 | Every read of the clock in the control plane is under the control lock, the control exchange's included. | S4's `every_admission_and_retirement_decision_reads_the_clock_under_the_control_lock`, extended by one call | (S4's mutants) |
 | Nothing is sent to a socket whose peer is another user. | T5 `a_peer_of_another_user_is_refused_before_anything_is_sent` | the request written before the peer check (5A) |
+| A refused connection is "no daemon" only when nobody holds the key's owner lock: `daemon-status` names a live daemon that does not accept, with the connect error, and `daemon-shutdown` fails for it instead of reporting nothing to shut down. | T5 `a_live_daemon_that_does_not_accept_is_named_with_why`; T6 `a_live_daemon_that_does_not_accept_connections_is_not_taken_for_none` | the connect error dropped (R3); a refused connection taken for no daemon (R4) |
+| No key's file makes the operator or a shim wait: the build marker is opened without waiting, a regular file only, and read only 256 bytes far. | T5 `a_build_marker_that_is_a_fifo_or_oversized_does_not_hold_the_report`, the shim's `a_build_marker_that_is_not_a_regular_file_neither_hangs_nor_holds_the_key` | a blocking open (R5, at the watchdog's 30 s); no size bound (R6) |
+| One key that cannot be looked at does not hide the others. | T5 `a_key_that_cannot_be_looked_at_does_not_hide_the_others` | the error ends the report (R8) |
 | `daemon-status` looks at a key's owner lock only while it holds the key's start lock. | T5 `a_key_a_shim_is_starting_is_not_looked_at_under_its_owner_lock` | no start lock (5B) |
 | `daemon-status` never removes a file and never records a sighting. | T5 `a_dead_daemon_s_leftovers_are_named_and_left_in_place`, `a_daemon_that_died_during_its_build_says_when_it_may_restart`, `keys_with_only_lock_files_and_logs_are_counted_not_listed` | the stale files removed (5C) |
 | The restart time it shows is `arbitrate`'s rule: 60 s from the first sighting. | T5 `a_daemon_that_died_during_its_build_says_when_it_may_restart` | the whole minute whatever the sighting's age (5D) |
 | A key with nothing but lock files and a log is counted, not looked at, and none of a configuration's files is created. | T5 `keys_with_only_lock_files_and_logs_are_counted_not_listed`, `with_a_repository_only_its_daemon_is_shown`, `a_missing_or_invalid_runtime_directory` | every key's locks looked at (5E) |
-| Nothing `daemon-status` prints carries a control character. | T5 `a_root_with_control_characters_is_printed_on_one_line` | no escaping (5F) |
+| Nothing `daemon-status` prints carries a control character, its runtime directory's path included. | T5 `a_root_with_control_characters_is_printed_on_one_line`, `a_runtime_directory_with_control_characters_is_printed_on_one_line` | no escaping of a daemon's lines (5F), of the header (R7) |
 | `daemon-shutdown` asks only the instance a status exchange has just shown, or the one `--pid` and `--start-time` name. | T6 `an_idle_daemon_is_asked_by_its_instance_and_waited_for`, `another_instance_named_by_pid_and_start_time_is_left_alone`; T7 `daemon_shutdown_of_another_instance_leaves_the_daemon_alone` | the flags ignored (6A; 7B, in the binary) |
 | It never asks a daemon of another identity, and leaves alone a daemon that answers as another instance. | T6 `a_daemon_of_another_identity_is_not_asked`, `a_daemon_replaced_between_the_exchanges_is_left_alone` | no identity check (6C); no instance check of the reply (6D) |
+| A lost reply to a sent `SHUTDOWN` is reported as possibly recorded, never as "not shut down". | T6 `a_lost_reply_to_the_shutdown_says_it_may_have_been_recorded` | the lost reply sent through `not_asked` (R9) |
 | It says "drained" only once the pid file no longer holds that instance, and its wait is bounded. | T6 `an_idle_daemon_is_asked_by_its_instance_and_waited_for`, `a_daemon_that_does_not_drain_by_the_timeout_is_reported` | success without the wait (6B) |
 | With no daemon it creates nothing. | T6 `with_no_daemon_there_is_nothing_to_shut_down` | — |
 
-Stated and **not** held by a test: that `run_daemon_shutdown` escapes its line (`one_line`, the same function `daemon-status` uses; the tests call `shutdown` and read its unescaped result); that `KeyDir::pid_text` never follows a symlink and never waits for a writer (it opens through `open_private` with `O_NONBLOCK`, as S5a's `diagnostic::pid_file`, whose tests hold it); that `answer_control`'s reply, at most 4 KiB, is written whole on the non-blocking stream (as every reply of the handshake stage is; a full socket buffer drops it, which the operator reads as no reply); that the binary's `--timeout` bounds the whole `daemon-shutdown` command (held for the function by 6B's test); that `daemon-status` with many wedged daemons takes the timeout once per daemon; a real builder that never returns ended by `daemon-shutdown` (held in process with a blocked builder, T2); x86_64 Linux before CI.
+Stated and **not** held by a test: that a daemon built before this slice restarts its idle time at each `STATUS` probe (SI-35): held only by a one-off measurement with a base-build daemon (Validation record), since the suite cannot build another commit's binary, and by the pin of the same mechanism in this build (`a_line_the_daemon_cannot_read_restarts_the_idle_time_as_a_client_s_does`); that an instance is unique as (identity, pid, start second) (an assumption, sol 5); that `run_daemon_shutdown` escapes its line (`one_line`, the same function `daemon-status` uses; the tests call `shutdown` and read its unescaped result); that `KeyDir::pid_text` never follows a symlink and never waits for a writer (it opens through `open_private` with `O_NONBLOCK`, as S5a's `diagnostic::pid_file`, whose tests hold it); that `answer_control`'s reply, at most 4 KiB, is written whole on the non-blocking stream (as every reply of the handshake stage is; a full socket buffer drops it, which the operator reads as no reply); that the binary's `--timeout` bounds the whole `daemon-shutdown` command (held for the function by 6B's test); that `daemon-status` with many wedged daemons takes the timeout once per daemon; a real builder that never returns ended by `daemon-shutdown` (held in process with a blocked builder, T2); x86_64 Linux before CI.
 
 ## File Structure
 
@@ -178,11 +187,12 @@ Stated and **not** held by a test: that `run_daemon_shutdown` escapes its line (
 | `src/mcp/daemon/admission.rs`, `admission_control_tests.rs`, `admission_tests.rs` | `control_exchange`, `Control`, `ControlSnapshot`; the shutdown in `retire_if_idle`; the clock test extended | Modify, create (Task 2) | S5b-1 |
 | `src/mcp/daemon/coordinator.rs` | A stale dead-code comment | Modify (Task 2) | S5b-1 |
 | `src/mcp/daemon/server.rs`, `server_control_tests.rs`, `server_support.rs`, `run.rs` | `answer_control`; `Served::build_identity`, `Served::instance` | Modify, create (Task 3) | S5b-1 |
-| `src/mcp/shim/control.rs`, `control_tests.rs`, `control_support.rs` | One control exchange; a stand-in daemon for it | Create (Task 5) | S5b-2 |
+| `src/mcp/shim/control.rs`, `control_tests.rs`, `control_support.rs` | One control exchange; a stand-in daemon for it, `mkfifo`, an independent watchdog | Create (Task 5) | S5b-2 |
 | `src/mcp/shim/status.rs`, `status_tests.rs` | `daemon-status` | Create (Task 5) | S5b-2 |
 | `src/mcp/shim/connect.rs`, `diagnostic.rs` | `read_reply`, `left`, `pid_file` made `pub(super)` | Modify (Task 5) | S5b-2 |
 | `src/mcp/shared/paths.rs`, `paths_tests.rs` | `DaemonPaths::from_locator` | Modify (Task 5) | S5b-2 |
-| `src/mcp/shim/key_files.rs` | `KeyDir::pid_text` | Modify (Task 6) | S5b-2 |
+| `src/mcp/shim/key_files.rs` | `KeyDir::read_build_marker`, `Marker`; `build_marker` non-blocking and bounded (Task 5, review round 1, D109); `KeyDir::pid_text` (Task 6) | Modify | S5b-2 |
+| `src/mcp/shim/arbitrate_tests.rs` | The shim over a FIFO build marker (review round 1) | Modify (Task 5) | S5b-2 |
 | `src/mcp/shim/shutdown.rs`, `shutdown_tests.rs` | `daemon-shutdown` | Create (Task 6) | S5b-2 |
 | `src/mcp/shim/mod.rs`, `src/mcp/mod.rs` | The modules and the re-exports | Modify (Tasks 5, 6) | S5b-2 |
 | `src/bin/prism-mcp.rs` | `daemon-status`, `daemon-shutdown` dispatched before the standalone parser | Modify (Task 7) | S5b-2 |
@@ -1173,6 +1183,14 @@ fn a_control_exchange_after_the_drain_decision_is_answered_retiring() {
             draining: Some(StopReason::Signal),
         }
     );
+    assert!(
+        !state
+            .control_plane()
+            .expect("the control lock")
+            .admission
+            .shutdown,
+        "no shutdown was recorded (review round 1, Opus S2)"
+    );
     assert_eq!(
         retire(&state),
         Some(StopReason::Signal),
@@ -1226,7 +1244,7 @@ with this:
 nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib mcp:: > "$LOG_DIR/t2-red.log" 2>&1
 ```
 
-Expected in the log: fourteen errors: `E0425`, `E0433` and `E0422` for `Control` and `ControlSnapshot` (eight), `E0599` for `control_exchange` (four) and for `StopReason::Shutdown` (two); ``could not compile `prism` (lib test) due to 14 previous errors``.
+Expected in the log: fifteen errors: `E0425`, `E0433` and `E0422` for `Control` and `ControlSnapshot` (eight), `E0599` for `control_exchange` (four) and for `StopReason::Shutdown` (two), `E0609` for `Admission.shutdown`; ``could not compile `prism` (lib test) due to 15 previous errors``.
 
 - [ ] **Step 3: Implement**
 
@@ -1626,6 +1644,7 @@ Apply each mutant alone, run `cargo test --features mcp --lib mcp::daemon::admis
 | 2D | in `retire_if_idle`, move the `if admission.shutdown { … }` block above the `pending != 0 || admitted != 0` check | `a_shutdown_waits_for_the_last_client_and_still_admits_new_ones` |
 | 2E | in `admit`, `if admission.draining.is_some() {` → `if admission.draining.is_some() || admission.shutdown {` | `a_shutdown_waits_for_the_last_client_and_still_admits_new_ones` |
 | 2F | in `control_exchange`, delete `admission.pending = admission.pending.saturating_sub(1);` | `a_status_counts_every_connection_but_itself` and the five other tests of the file |
+| R2 | in `control_exchange`, move `admission.shutdown |= shutdown;` above the `if admission.draining.is_some() { return Ok(Control::Retiring); }` check (review round 1, Opus S2) | `a_control_exchange_after_the_drain_decision_is_answered_retiring` |
 
 ### Task 3: The accept loop answers control lines
 
@@ -1635,7 +1654,7 @@ Apply each mutant alone, run `cargo test --features mcp --lib mcp::daemon::admis
 
 **Interfaces:**
 - Consumes: Task 1's `ControlRequest`, `DaemonStatus`, `Instance`, `is_control_line`, `display_root`; Task 2's `control_exchange`, `Control`; `Server`, `Served`, `ServeOptions`, `send`, `log::line` (S4); `server_support::{start, Running, options, read_all, send_line, served_key, gone, TTL_SECS}`, `wire_support::PING` (S4, S3a).
-- Produces: `Served { build_identity: String, .. }` (`run_daemon` fills it with `PRISM_CACHE_BUILD_IDENTITY`; the test support with `"build"`) and `Served::instance(&self) -> Instance`; `Server::answer` sends a control line to `answer_control(&self, stream: &UnixStream, line: &[u8]) -> anyhow::Result<()>`.
+- Produces: `Served { build_identity: String, .. }` (`run_daemon` fills it with `PRISM_CACHE_BUILD_IDENTITY`; the test support with `"build"`) and `Served::instance(&self) -> Instance`; `Server::answer` sends a control line to `answer_control(&self, stream: &UnixStream, line: &[u8]) -> anyhow::Result<()>`; `advance_handshakes` drops a control line completed after its deadline through `control_exchange(false)` (review round 1, sol 3). Test seam used: `Server::set_line_read_hook` (S4).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1668,13 +1687,14 @@ Create `src/mcp/daemon/server_control_tests.rs`:
 //! once the last client has gone.
 use super::super::control::StopReason;
 use super::super::server_support::{
-    gone, options, read_all, send_line, served_key, start, Running, TTL_SECS,
+    gone, options, read_all, send_line, served_key, start, Running, HANDSHAKE_SECS, TTL_SECS,
 };
-use super::super::test_support::wait_until;
+use super::super::test_support::{advance, wait_until};
 use super::super::wire_support::PING;
 use crate::mcp::shared::control::{ControlRequest, DaemonStatus, Instance};
 use crate::mcp::shared::identity::IdentityKey;
 use crate::mcp::shared::preamble::{BuildState, Reply};
+use std::sync::{Arc, Mutex};
 
 fn this_instance() -> Instance {
     Instance {
@@ -1844,6 +1864,78 @@ fn a_control_request_at_the_client_bound_is_answered_busy() {
         Reply::Busy { max_clients: 1 }.encode()
     );
 }
+
+/// Review round 1, sol 3: a control line whose last byte arrives at its handshake deadline is
+/// not answered, records no shutdown, and leaves the idle time as it found it. The probe enters
+/// one second before the idle TTL ends and its line completes at its deadline, ten seconds later
+/// (the loop's line seam moves the clock between the read and the deadline check, D72); the
+/// daemon then retires for being idle since before the probe. Rules out an expired control line
+/// that leaves as a client does (the TTL would restart: the loop would not stop) and one that
+/// records its shutdown (it would stop for `Shutdown`).
+#[test]
+fn a_control_line_completed_after_its_deadline_moves_nothing() {
+    type Step = Box<dyn FnOnce() + Send>;
+    let armed: Arc<Mutex<Option<Step>>> = Arc::default();
+    let slot = Arc::clone(&armed);
+    let mut running = start(options(64), move |server| {
+        server.set_line_read_hook(Arc::new(move || {
+            let step = slot.lock().expect("armed").take();
+            if let Some(step) = step {
+                step();
+            }
+        }))
+    });
+    running.settle();
+    running.advance(TTL_SECS - 1);
+    let (clock, state) = (Arc::clone(&running.clock), Arc::clone(&running.state));
+    *armed.lock().expect("armed") = Some(Box::new(move || {
+        advance(&clock, &state, HANDSHAKE_SECS);
+    }));
+    let reply = exchange(
+        &running,
+        &ControlRequest::Shutdown(this_instance()).encode(),
+    );
+    assert_eq!(reply, "", "an expired line is not answered");
+    assert_eq!(running.stopped(), StopReason::Idle);
+}
+
+/// What the daemon does with a connection that is not a control exchange it can read: a line
+/// that is neither a `HELLO` nor a control line, or a connection that ends before its line is
+/// whole, is treated as a client that left, and the idle time restarts (it cannot tell them
+/// from a client's). This is also what a daemon of a build before S5b does with an S5b
+/// operator's `STATUS`, whose verb it does not know (review round 1, Opus W2, sol 1: accepted
+/// and disclosed). Pins the behavior, so that a change to it is a decision, not an accident.
+#[test]
+fn a_line_the_daemon_cannot_read_restarts_the_idle_time_as_a_client_s_does() {
+    for (sent, then_close) in [("PING {}\n", false), ("STATUS {\"cont", true)] {
+        let mut running = start(options(64), |_| {});
+        running.settle();
+        running.advance(TTL_SECS - 1);
+        let stream = running.connect();
+        send_line(&stream, sent);
+        if then_close {
+            wait_until("the connection to be accepted", || {
+                running
+                    .state
+                    .admission_status()
+                    .is_ok_and(|counts| counts.pending == 1)
+            });
+            drop(stream);
+        } else {
+            assert_eq!(read_all(stream), "", "{sent:?} is not answered");
+        }
+        wait_until("the connection to leave the handshake stage", || {
+            running
+                .state
+                .admission_status()
+                .is_ok_and(|counts| counts.pending == 0)
+        });
+        running.advance(1);
+        assert!(running.is_running(), "{sent:?}: the idle time restarted");
+        running.advance_and_wake(TTL_SECS - 1);
+        assert_eq!(running.stopped(), StopReason::Idle, "{sent:?}");
+    }
+}
 ````
 
 In `src/mcp/daemon/server_support.rs`, replace this:
@@ -1923,7 +2015,9 @@ with this:
 //!
 //! A connection whose line is an operator's `STATUS` or `SHUTDOWN` (spec §4.7) is answered with
 //! the daemon's state and closed; it is never admitted, and it leaves the idle time as it found
-//! it.
+//! it, also when its line completes too late to be answered. A connection that ends or times out
+//! before its line is whole, or whose line is neither a control line nor a `HELLO`, cannot be told
+//! from a client's, and restarts the idle time when it goes.
 use super::admission::{Admit, Control, Entry};
 use super::connection::serve_admitted;
 use super::control::StopReason;
@@ -1988,6 +2082,33 @@ impl Served {
 }
 
 /// Wakes the loop from another thread: a connection ended, a test moved the clock, or the
+````
+
+In `src/mcp/daemon/server.rs`, replace this:
+
+````rust
+                    }
+                    if self.state.now() < pending.deadline {
+                        self.answer(pending.stream, &line)?
+                    } else {
+                        self.state.leave_handshake()?
+                    }
+````
+
+with this:
+
+````rust
+                    }
+                    if self.state.now() < pending.deadline {
+                        self.answer(pending.stream, &line)?
+                    } else if is_control_line(&line) {
+                        // An operator's line that completed after its deadline is not answered,
+                        // records nothing, and leaves the idle time as it found it (review
+                        // round 1, sol 3).
+                        self.state.control_exchange(false)?;
+                    } else {
+                        self.state.leave_handshake()?
+                    }
 ````
 
 In `src/mcp/daemon/server.rs`, replace this:
@@ -2095,7 +2216,7 @@ with this:
 nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib mcp:: > "$LOG_DIR/t3.log" 2>&1
 ```
 
-Expected: `test result: ok. 594 passed; 0 failed` (587 + 7), and no `warning` line.
+Expected: `test result: ok. 596 passed; 0 failed` (587 + 9), and no `warning` line.
 
 - [ ] **Step 5: Commit**
 
@@ -2115,6 +2236,7 @@ Apply each mutant alone, run `cargo test --features mcp --lib mcp::daemon::serve
 | 3B | in `answer_control`, a refused line: `self.state.control_exchange(false)?;` → `self.state.leave_handshake()?;` | `a_refused_control_line_is_closed_without_a_reply_and_leaves_the_idle_time` |
 | 3C | in `answer`, `if is_control_line(line) {` → `if false {` | `a_status_request_is_answered_with_the_daemon_s_state_and_closed` and four more of the file |
 | 3D | in `answer_control`, `idle_secs: snapshot.idle_for.map(|idle| idle.as_secs()),` → `idle_secs: None,` | `a_status_request_is_answered_with_the_daemon_s_state_and_closed`, `a_status_probe_does_not_keep_an_idle_daemon_up` |
+| R1 | in `advance_handshakes`, `} else if is_control_line(&line) {` → `} else if false {` (an expired control line leaves as a client does; review round 1, sol 3) | `a_control_line_completed_after_its_deadline_moves_nothing`, at its 30 s wait for the drain |
 
 ### Task 4: S5b-1 proof, docs, and the pull request
 
@@ -2147,9 +2269,13 @@ of another build). The daemon answers one `STATUS` line (instance, root, build i
 build state, idle time, whether a shutdown is requested), or `RETIRING`/`BUSY`, and closes; the
 connection is never admitted, and `admission.rs::control_exchange` takes it out of the pending
 count without restarting the idle time (`quiet_since`), so a probe does not keep an idle daemon
-up. A `SHUTDOWN` for this very instance makes the daemon drain once nothing is admitted or
-pending, whatever the idle TTL or a running build (`StopReason::Shutdown`); until then it goes on
-admitting new clients, and it never disconnects one.
+up; a control line that completes after its handshake deadline is dropped the same way, unanswered
+and with nothing recorded. A connection that ends before its line is whole, or whose line is
+neither a control line nor a `HELLO` (which is what a daemon built before this exchange makes of a
+`STATUS`), is treated as a client's and restarts the idle time. A `SHUTDOWN` for this very
+instance makes the daemon drain once nothing is admitted or pending, whatever the idle TTL or a
+running build (`StopReason::Shutdown`); until then it goes on admitting new clients, and it never
+disconnects one.
 
 Shim (`src/mcp/shim/`, Unix only; `prism-mcp --repo X --shared [--daemon-start-timeout S]
 [--idle-ttl S] [--max-clients N]`; `--shared` with `--no-cache`, `--eager` or `--owner-*` is a CLI
@@ -2167,7 +2293,7 @@ nice -n 19 env CARGO_BUILD_JOBS=4 cargo clippy --all-targets --features mcp > "$
 grep -E '^\s+--> src/mcp/(shared|daemon)/' "$LOG_DIR/s51-clippy.log"
 ```
 
-Expected: `cargo fmt --check` silent; `test result: ok. 594 passed; 0 failed` (571 + 23); `46 passed` with `standalone_transcripts_match_the_goldens_recorded_before_the_transport_refactor ... ok`; both checks `Finished`, no `warning` in either; clippy 258 `warning` lines, and the `grep` prints nothing.
+Expected: `cargo fmt --check` silent; `test result: ok. 596 passed; 0 failed` (571 + 25); `46 passed` with `standalone_transcripts_match_the_goldens_recorded_before_the_transport_refactor ... ok`; both checks `Finished`, no `warning` in either; clippy 258 `warning` lines, and the `grep` prints nothing.
 
 - [ ] **Step 3: State the invariants**
 
@@ -2177,7 +2303,7 @@ git diff --name-only origin/main | wc -l
 python3 scripts/file_size.py $(git diff --name-only origin/main -- '*.rs')
 ```
 
-Expected: the first prints nothing; `14` (13 under `src/` and `CLAUDE.md`); every size at most 541.5 (`src/mcp/daemon/server.rs`).
+Expected: the first prints nothing; `14` (13 under `src/` and `CLAUDE.md`); every size at most 546 (`src/mcp/daemon/server.rs`).
 
 - [ ] **Step 4: Run the remaining pre-PR checks**
 
@@ -2222,11 +2348,11 @@ EOF
 grep -h '^test result' "$LOG_DIR"/linux/*.log | sed 's/finished.*//' | sort | uniq -c
 ```
 
-Expected: `failed runs: 0`, `10 test result: ok. 148 passed; 0 failed`; the full suite and the doc tests `rc=0`; on Linux (in validation this script ran at the S5b-2 head, whose code contains this head's, V11; the counts here are this head's) `failed Linux runs: 10` and every failure the one root-only S2a test (`--lib mcp::shared`: `10 test result: FAILED. 135 passed; 1 failed`, `mcp::shared::dir_chain::tests::another_users_private_directory_is_refused_for_what_it_holds`, which fails on the base in the same container; V11), `10 test result: ok. 47 passed` (`--lib mcp::shim`) and `10 test result: ok. 148 passed` (`--lib mcp::daemon`), and no `left:` line.
+Expected: `failed runs: 0`, `10 test result: ok. 150 passed; 0 failed`; the full suite and the doc tests `rc=0`; on Linux (in validation this script ran at the S5b-2 head, whose code contains this head's, V11; the counts here are this head's) `failed Linux runs: 10` and every failure the one root-only S2a test (`--lib mcp::shared`: `10 test result: FAILED. 135 passed; 1 failed`, `mcp::shared::dir_chain::tests::another_users_private_directory_is_refused_for_what_it_holds`, which fails on the base in the same container; V11), `10 test result: ok. 47 passed` (`--lib mcp::shim`) and `10 test result: ok. 150 passed` (`--lib mcp::daemon`), and no `left:` line.
 
 - [ ] **Step 5: Commit and open the PR**
 
-The PR body states, in this order: (1) **Goal:** the lane goal; S5b-1 is the daemon's half of the operator's control: what a daemon answers to `STATUS` and `SHUTDOWN`, that looking does not keep it up, and when a shutdown drains it. (2) **Invariants:** Step 3. (3) **Decisions:** D97–D100, D105, D108; SI-29, SI-30, SI-32, SI-34; owner question 2 as decided (or its default). D97 (no protocol bump) and D99 (`quiet_since`) are the ones a reviewer is most likely to question. (4) **Claims:** the rows for Tasks 1–3, with what no test holds. (5) **Totals:** Steps 2 and 4 next to the base (Linux included), and mutants 1A–3D as observed. (6) **Not verified:** x86_64 Linux before CI; an operator tool (S5b-2). (7) **Tier-A:** not run (no file it watches is touched).
+The PR body states, in this order: (1) **Goal:** the lane goal; S5b-1 is the daemon's half of the operator's control: what a daemon answers to `STATUS` and `SHUTDOWN`, that looking does not keep it up, and when a shutdown drains it. (2) **Invariants:** Step 3. (3) **Decisions:** D97–D100, D105, D108; SI-29, SI-30, SI-32, SI-34; owner decision 2 (2026-10-16). D97 (no protocol bump) and D99 (`quiet_since`) are the ones a reviewer is most likely to question. (4) **Claims:** the rows for Tasks 1–3, with what no test holds. (5) **Totals:** Steps 2 and 4 next to the base (Linux included), and mutants 1A–3D, R1 and R2 as observed. (8) Review round 1's folds for Tasks 1–3 (sol 3, Opus S2, the pin for Opus W2/sol 1). (6) **Not verified:** x86_64 Linux before CI; an operator tool (S5b-2). (7) **Tier-A:** not run (no file it watches is touched).
 
 ```bash
 git add CLAUDE.md
@@ -2244,12 +2370,12 @@ Review: Opus 5.5 and gpt-6.1-sol, same brief, same commit; two rounds (lane READ
 ### Task 5: One control exchange, and `daemon-status`
 
 **Files:**
-- Modify: `src/mcp/shared/preamble.rs`, `src/mcp/shared/paths.rs`, `src/mcp/shared/paths_tests.rs`, `src/mcp/shim/connect.rs`, `src/mcp/shim/diagnostic.rs`, `src/mcp/shim/mod.rs`, `src/mcp/mod.rs`
+- Modify: `src/mcp/shared/preamble.rs`, `src/mcp/shared/paths.rs`, `src/mcp/shared/paths_tests.rs`, `src/mcp/shim/connect.rs`, `src/mcp/shim/diagnostic.rs`, `src/mcp/shim/key_files.rs`, `src/mcp/shim/arbitrate_tests.rs`, `src/mcp/shim/mod.rs`, `src/mcp/mod.rs`
 - Create: `src/mcp/shim/control.rs`, `src/mcp/shim/control_tests.rs`, `src/mcp/shim/control_support.rs`, `src/mcp/shim/status.rs`, `src/mcp/shim/status_tests.rs`
 
 **Interfaces:**
 - Consumes: Task 1's wire types; `connect::{PeerUid, Reached, Refusal, Transient}`, `socket::connect_within`, `KeyDir` (`open`, `start_lock`, `try_own`, `build_marker`), `diagnostic::one_line`, `arbitrate::BUILD_CRASH_BACKOFF` (S5a); `connect::read_reply` and `left`, and `diagnostic::pid_file`, widened from private to `pub(super)`; `MarkerContents` (S5a); `peer::peer_uid` (S4); `runtime_dir`, `runtime_dir_from`, `validate_runtime_dir`, `current_uid`, `DaemonIdentity`, `canonical_config` (S2a); `shim_support::{runtime, key, this_user, another_user, open_lock, read_line, unix_now, ready_line, HANG}` (S5a).
-- Produces: `DaemonPaths::from_locator(runtime_dir: &Path, locator: &str) -> Result<Self, SocketPathTooLong>` (`new` calls it); `BuildState::word` `pub`. In `shim::control` (`pub(super)`): `enum Exchanged { Status(DaemonStatus), Retiring, Busy { max_clients: u32 }, NotListening, NoReply(Transient), Refused(Refusal) }`; `fn exchange(socket: &Path, request: &ControlRequest, deadline: Instant, peer_uid: PeerUid, uid: u32) -> Exchanged`. In `shim::status`: `pub struct StatusOptions { config: Option<ServerConfig>, runtime_base: Option<PathBuf>, timeout: Duration }`, `pub fn run_daemon_status(&StatusOptions) -> i32`, `pub const DEFAULT_CONTROL_TIMEOUT_SECS: u64 = 10`; `pub(super) fn status_report(&StatusOptions, PeerUid) -> Result<String, String>`, `operator_runtime_dir`, `key_of`, `unix_now`, `died_building`. Re-exported from `crate::mcp`: `run_daemon_status`, `StatusOptions`, `DEFAULT_CONTROL_TIMEOUT_SECS`. Test support (`control_support`): `ControlFake` (`start(paths, owned, script)`, `lines`, `retire`), `FakeReply { Line, Close, Silent }`, `ControlScript`, `always_line`, `fake_status(admitted, shutdown)`, `fake_instance`, `FAKE_PID`, `FAKE_START`.
+- Produces: `DaemonPaths::from_locator(runtime_dir: &Path, locator: &str) -> Result<Self, SocketPathTooLong>` (`new` calls it); `BuildState::word` `pub`. In `shim::key_files` (S5a's, changed: review round 1, D109): `enum Marker { Absent, Unusable(String), Read(MarkerContents) }`, `KeyDir::read_build_marker(&self) -> Marker` (non-blocking, regular file only, at most 256 bytes), and `build_marker` now returns `None` for anything but a readable regular file. In `shim::control` (`pub(super)`): `enum Exchanged { Status(DaemonStatus), Retiring, Busy { max_clients: u32 }, NotListening(io::Error), NoReply(Transient), Refused(Refusal) }`; `fn exchange(socket: &Path, request: &ControlRequest, deadline: Instant, peer_uid: PeerUid, uid: u32) -> Exchanged`. In `shim::status`: `pub struct StatusOptions { config: Option<ServerConfig>, runtime_base: Option<PathBuf>, timeout: Duration }`, `pub fn run_daemon_status(&StatusOptions) -> i32`, `pub const DEFAULT_CONTROL_TIMEOUT_SECS: u64 = 10`; `pub(super) fn status_report(&StatusOptions, PeerUid) -> Result<String, String>`, `operator_runtime_dir`, `key_of`, `unix_now`, `died_building`, `has_daemon_files(&DaemonPaths) -> bool`, `enum Holder<T> { Starting, Alive, Free(T) }` and `under_locks<T>(&DaemonPaths, impl FnOnce(&KeyDir<'_>) -> T) -> Result<Holder<T>, String>` (the look at the locks both commands share). Re-exported from `crate::mcp`: `run_daemon_status`, `StatusOptions`, `DEFAULT_CONTROL_TIMEOUT_SECS`. Test support (`control_support`): `ControlFake` (`start(paths, owned, script)`, `lines`, `retire`), `FakeReply { Line, Close, Silent }`, `ControlScript`, `always_line`, `fake_status(admitted, shutdown)`, `fake_instance`, `FAKE_PID`, `FAKE_START`, `mkfifo(path)`, `within_hang(what, work)` (an independent watchdog).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2279,6 +2405,44 @@ fn a_locator_names_the_same_files_as_its_key() {
     );
     let long = dir_of_len(MAX_SOCKET_PATH_BYTES - SOCKET_NAME_BYTES + 1);
     assert!(DaemonPaths::from_locator(&long, "0123456789abcdef").is_err());
+}
+````
+
+In `src/mcp/shim/arbitrate_tests.rs`, replace this:
+
+````rust
+        "{without_spawn}"
+    );
+}
+````
+
+with this:
+
+````rust
+        "{without_spawn}"
+    );
+}
+
+/// S5b review round 1 (sol 2, Opus S6): a build marker that is not a regular file (a FIFO here)
+/// is not a daemon's. Reading it does not wait for a writer, it does not hold the key, and the
+/// shim removes it with the other stale files and starts a daemon. Watched by an independent
+/// thread, because a blocking open of the FIFO waited for a writer for ever.
+#[test]
+fn a_build_marker_that_is_not_a_regular_file_neither_hangs_nor_holds_the_key() {
+    let (base, paths) = runtime();
+    super::super::control_support::mkfifo(paths.build_marker());
+    let marker = paths.build_marker().to_path_buf();
+    let pid = super::super::control_support::within_hang("a shim over a FIFO marker", move || {
+        let _base = base;
+        let hello = hello_line(key());
+        let mut starter = FakeStarter::claiming(&paths, always(Answer::Ready), children());
+        pid_of(arbiter(&paths, &hello, LONG).arbitrate(&mut starter))
+    });
+    assert_eq!(pid, 1000);
+    assert!(
+        std::fs::symlink_metadata(&marker).is_err(),
+        "the FIFO was removed"
+    );
 }
 ````
 
@@ -2453,6 +2617,30 @@ fn answer(
 pub(super) fn always_line(reply: String) -> ControlScript {
     Arc::new(move |_| FakeReply::Line(reply.clone()))
 }
+
+/// Make a FIFO at `path`, as a process of this user could plant one in place of a key's file.
+pub(super) fn mkfifo(path: &std::path::Path) {
+    use std::os::unix::ffi::OsStrExt;
+    let name = std::ffi::CString::new(path.as_os_str().as_bytes()).expect("a path without NUL");
+    // SAFETY: `name` is a valid NUL-terminated string that outlives the call.
+    let made = unsafe { libc::mkfifo(name.as_ptr(), 0o600) };
+    assert_eq!(made, 0, "mkfifo: {}", std::io::Error::last_os_error());
+}
+
+/// Run `work` on a thread of its own and return its result, or fail the test if it has not
+/// returned within [`HANG`]: an independent watchdog for code that must not wait on anything.
+pub(super) fn within_hang<T: Send + 'static>(
+    what: &str,
+    work: impl FnOnce() -> T + Send + 'static,
+) -> T {
+    let (sent, received) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = sent.send(work());
+    });
+    received
+        .recv_timeout(HANG)
+        .unwrap_or_else(|_| panic!("{what} did not return within {HANG:?}"))
+}
 ````
 
 Create `src/mcp/shim/control_tests.rs`:
@@ -2559,7 +2747,7 @@ fn a_close_a_silence_and_nothing_listening_are_told_apart() {
     let (_other_base, absent) = runtime();
     assert!(matches!(
         ask(absent.socket(), &ControlRequest::Status, HANG),
-        Exchanged::NotListening
+        Exchanged::NotListening(_)
     ));
 }
 
@@ -2636,8 +2824,12 @@ Create `src/mcp/shim/status_tests.rs`:
 //! Tests for `daemon-status` against stand-in daemons and planted files (S5b; spec §4.7): what
 //! each kind of key is reported as, that the report reads and never removes, and that a key a
 //! shim is starting is not looked at under its owner lock.
-use super::super::control_support::{always_line, fake_status, ControlFake, FakeReply};
-use super::super::shim_support::{key, open_lock, runtime, this_user, unix_now, HANG};
+use super::super::control_support::{
+    always_line, fake_status, mkfifo, within_hang, ControlFake, FakeReply,
+};
+use super::super::shim_support::{
+    full_backlog, key, open_lock, runtime, this_user, unix_now, HANG,
+};
 use super::*;
 use crate::mcp::shared::preamble::Reply;
 use crate::mcp::CacheMode;
@@ -2846,7 +3038,7 @@ fn keys_with_only_lock_files_and_logs_are_counted_not_listed() {
     }
     assert_eq!(
         about_the_key(base.path(), &paths),
-        "2 other keys have no daemon (lock files and logs only; 10 bytes of logs)\n"
+        "2 keys have nothing but lock files and logs (10 bytes of logs)\n"
     );
     assert_eq!(
         std::fs::read_dir(dir).expect("list").count(),
@@ -2929,6 +3121,110 @@ fn a_root_with_control_characters_is_printed_on_one_line() {
         "{said:?}"
     );
     assert!(!said.contains('\u{1b}'), "{said:?}");
+}
+
+/// Review round 1, sol 2 and Opus S6: a build marker is read without waiting and only so far. A
+/// FIFO in its place (a blocking open would wait for a writer for ever, holding the key's start
+/// and owner locks) is reported as unusable at once; a marker of 4 MiB is read only as far as a
+/// daemon's marker reaches. Watched by an independent thread, because the failure is a hang.
+#[test]
+fn a_build_marker_that_is_a_fifo_or_oversized_does_not_hold_the_report() {
+    let (base, paths) = runtime();
+    mkfifo(paths.build_marker());
+    let root = base.path().to_path_buf();
+    let said = within_hang("daemon-status over a FIFO marker", move || report(&root));
+    assert!(
+        said.contains(&format!(
+            "{LOCATOR} no daemon; its build marker is not usable ("
+        )),
+        "{said}"
+    );
+    let owner = open_lock(paths.owner_lock());
+    assert!(owner.try_lock().is_ok(), "the owner lock was released");
+    drop(owner);
+
+    std::fs::remove_file(paths.build_marker()).expect("remove the FIFO");
+    // Two whole lines, then a third line that ends 4 MiB in: read whole, it would be a sighting
+    // at time 0; only its first 256 bytes are read, so it is no sighting.
+    let mut big = b"4242\n1760000000\n".to_vec();
+    big.resize(4 << 20, b'0');
+    big.push(b'\n');
+    std::fs::write(paths.build_marker(), big).expect("an oversized marker");
+    let root = base.path().to_path_buf();
+    let said = within_hang("daemon-status over a 4 MiB marker", move || report(&root));
+    assert!(
+        said.contains(
+            "its last daemon (pid 4242) died during its index build (started 1760000000); no \
+             shim has seen it yet"
+        ),
+        "{said}"
+    );
+}
+
+/// Review round 1, sol 4: the runtime directory's own path is printed on one line too.
+#[test]
+fn a_runtime_directory_with_control_characters_is_printed_on_one_line() {
+    let base = tempfile::Builder::new()
+        .prefix("s5b")
+        .tempdir_in("/tmp")
+        .expect("a runtime base");
+    let odd = base.path().join("a\nb\u{1b}c");
+    std::fs::create_dir(&odd).expect("an odd base");
+    let said = report(&odd);
+    assert_eq!(
+        said,
+        format!(
+            "runtime dir {}/a\\nb\\u{{1b}}c/prism-mcpd\nno daemon (the runtime directory does not \
+             exist)\n",
+            base.path().display()
+        )
+    );
+}
+
+/// Review round 1, Opus S7: a key whose files cannot be opened (a symlink in place of its start
+/// lock) is reported on its own line, and the other keys are still listed. Rules out one bad key
+/// failing the whole report.
+#[test]
+fn a_key_that_cannot_be_looked_at_does_not_hide_the_others() {
+    let (base, paths) = runtime();
+    let _fake = ControlFake::start(&paths, true, always_line(fake_status(1, false).encode()));
+    let dir = paths.runtime_dir();
+    std::fs::write(dir.join("1111111111111111.pid"), "1\n2\nb\n").expect("a pid file");
+    std::os::unix::fs::symlink("/dev/null", dir.join("1111111111111111.start")).expect("symlink");
+    let said = report(base.path());
+    assert!(
+        said.contains("\n1111111111111111 cannot be looked at: "),
+        "{said}"
+    );
+    assert!(
+        said.contains(&format!("\n{LOCATOR} pid 4242, started 1760600000")),
+        "{said}"
+    );
+}
+
+/// Review round 1, Opus W1: a live daemon whose socket refuses connections (its backlog is full)
+/// is named alive, with the connect error, not "no socket"; one without a socket says so.
+#[test]
+fn a_live_daemon_that_does_not_accept_is_named_with_why() {
+    let (base, paths) = runtime();
+    write_pid_file(&paths);
+    let owner = open_lock(paths.owner_lock());
+    owner.try_lock().expect("the owner lock");
+    let said = about_the_key(base.path(), &paths);
+    assert!(
+        said.starts_with(&format!(
+            "{LOCATOR} alive but not answering (it has no socket: starting or draining); "
+        )),
+        "{said}"
+    );
+    let (_listener, _clients) = full_backlog(paths.socket());
+    let said = about_the_key(base.path(), &paths);
+    assert!(
+        said.starts_with(&format!(
+            "{LOCATOR} alive but not answering (connect failed: "
+        )),
+        "{said}"
+    );
 }
 ````
 
@@ -3088,7 +3384,7 @@ use super::connect::{left, read_reply, PeerUid, Reached, Refusal, Transient};
 use super::socket::connect_within;
 use crate::mcp::shared::control::{ControlRequest, DaemonStatus};
 use crate::mcp::shared::preamble::Reply;
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::Path;
 use std::time::Instant;
 
@@ -3104,7 +3400,7 @@ pub(super) enum Exchanged {
     Busy { max_clients: u32 },
     /// Nothing accepted the connection: no socket, one that no daemon listens on, or a full
     /// backlog.
-    NotListening,
+    NotListening(io::Error),
     /// The daemon accepted and sent no whole reply line: it closed (a daemon that does not know
     /// this exchange, or this version of it, closes the line it refuses), or the deadline passed.
     NoReply(Transient),
@@ -3123,7 +3419,7 @@ pub(super) fn exchange(
 ) -> Exchanged {
     let mut stream = match connect_within(socket, deadline) {
         Ok(stream) => stream,
-        Err(_) => return Exchanged::NotListening,
+        Err(error) => return Exchanged::NotListening(error),
     };
     match peer_uid(&stream) {
         Ok(found) if found == uid => {}
@@ -3190,6 +3486,111 @@ pub(super) fn pid_file(paths: &DaemonPaths, dir_validated: bool) -> String {
         return format!(
 ````
 
+In `src/mcp/shim/key_files.rs`, replace this:
+
+````rust
+use std::io::{self, Read, Write};
+use std::os::fd::OwnedFd;
+use std::path::Path;
+
+/// The runtime directory of one key, opened once.
+pub(super) struct KeyDir<'a> {
+````
+
+with this:
+
+````rust
+use std::io::{self, Read, Write};
+use std::os::fd::OwnedFd;
+use std::path::Path;
+
+/// Most bytes of a build marker read: three short lines.
+const MARKER_BYTES: u64 = 256;
+
+/// What is at a key's build marker path.
+pub(super) enum Marker {
+    Absent,
+    /// Something a daemon did not write there (not a regular file of this user), or a marker
+    /// that cannot be opened; why, in words.
+    Unusable(String),
+    Read(MarkerContents),
+}
+
+/// The runtime directory of one key, opened once.
+pub(super) struct KeyDir<'a> {
+````
+
+In `src/mcp/shim/key_files.rs`, replace this:
+
+````rust
+        }
+    }
+
+    /// What the build marker holds, when there is one. Call it holding the owner lock: then
+    /// the marker is a dead daemon's.
+    pub(super) fn build_marker(&self) -> Option<MarkerContents> {
+        let mut file = open_private(
+            &self.dir,
+            self.paths.build_marker(),
+            libc::O_RDONLY,
+            Create::No,
+        )
+        .ok()?;
+        let mut text = String::new();
+        // A marker that cannot be read whole is still a dead build's: its fields are unknown.
+        let _ = file.read_to_string(&mut text);
+        Some(parse_build_marker(&text))
+    }
+
+    /// Record in the build marker that a shim first saw its daemon dead at `now` (seconds since
+````
+
+with this:
+
+````rust
+        }
+    }
+
+    /// What the build marker holds, when there is one that a daemon could have written (a
+    /// regular file of this user). Call it holding the owner lock: then the marker is a dead
+    /// daemon's. Anything else at its path is no marker, and the stale files' removal removes it.
+    pub(super) fn build_marker(&self) -> Option<MarkerContents> {
+        match self.read_build_marker() {
+            Marker::Read(marker) => Some(marker),
+            Marker::Absent | Marker::Unusable(_) => None,
+        }
+    }
+
+    /// Read the build marker without waiting and only so far (S5b review round 1, sol 2 and
+    /// Opus S6): through the directory's descriptor, never through a symlink, without waiting for
+    /// a writer (`O_NONBLOCK`: a FIFO in its place would otherwise hold the caller, and the locks
+    /// it holds, for ever), only a regular file of this user, and at most [`MARKER_BYTES`] of it,
+    /// far more than the three short lines a daemon and a shim write.
+    pub(super) fn read_build_marker(&self) -> Marker {
+        let path = self.paths.build_marker();
+        match open_private(
+            &self.dir,
+            path,
+            libc::O_RDONLY | libc::O_NONBLOCK,
+            Create::No,
+        ) {
+            Err(FilesError::Io { source, .. }) if source.kind() == io::ErrorKind::NotFound => {
+                Marker::Absent
+            }
+            Err(error) => Marker::Unusable(error.to_string()),
+            Ok(file) => {
+                let mut text = String::new();
+                // A marker that cannot be read whole is still a dead build's: its fields are
+                // unknown.
+                let _ = file.take(MARKER_BYTES).read_to_string(&mut text);
+                Marker::Read(parse_build_marker(&text))
+            }
+        }
+    }
+
+    /// Record in the build marker that a shim first saw its daemon dead at `now` (seconds since
+````
+
 In `src/mcp/shim/mod.rs`, replace this:
 
 ````rust
@@ -3252,7 +3653,7 @@ use super::arbitrate::BUILD_CRASH_BACKOFF;
 use super::connect::PeerUid;
 use super::control::{exchange, Exchanged};
 use super::diagnostic::{one_line, pid_file};
-use super::key_files::KeyDir;
+use super::key_files::{KeyDir, Marker};
 use crate::mcp::daemon::files::MarkerContents;
 use crate::mcp::daemon::peer::peer_uid;
 use crate::mcp::session::canonical_config;
@@ -3334,7 +3735,11 @@ pub(super) fn status_report(options: &StatusOptions, peer_uid: PeerUid) -> Resul
     let dir = operator_runtime_dir(options.runtime_base.as_deref())?;
     let wanted = options.config.as_ref().map(key_of).transpose()?;
     let mut report = String::new();
-    let _ = writeln!(report, "runtime dir {}", dir.display());
+    let _ = writeln!(
+        report,
+        "{}",
+        one_line(&format!("runtime dir {}", dir.display()))
+    );
     if std::fs::symlink_metadata(&dir).is_err() {
         report.push_str("no daemon (the runtime directory does not exist)\n");
         return Ok(report);
@@ -3347,14 +3752,22 @@ pub(super) fn status_report(options: &StatusOptions, peer_uid: PeerUid) -> Resul
     let (mut quiet, mut log_bytes) = (0u64, 0u64);
     for locator in &locators {
         let paths = DaemonPaths::from_locator(&dir, locator).map_err(|error| error.to_string())?;
-        match look(&paths, locator, wanted, options.timeout, peer_uid)? {
-            Some(text) => report.push_str(&text),
-            None if wanted.is_some() => {
+        match look(&paths, locator, wanted, options.timeout, peer_uid) {
+            Ok(Some(text)) => report.push_str(&text),
+            Ok(None) if wanted.is_some() => {
                 let _ = writeln!(report, "{locator} no daemon for this configuration");
             }
-            None => {
+            Ok(None) => {
                 quiet += 1;
                 log_bytes += std::fs::symlink_metadata(paths.log_file()).map_or(0, |m| m.len());
+            }
+            // One key that cannot be looked at does not hide the others (review round 1, Opus S7).
+            Err(error) => {
+                let _ = writeln!(
+                    report,
+                    "{}",
+                    one_line(&format!("{locator} cannot be looked at: {error}"))
+                );
             }
         }
     }
@@ -3364,7 +3777,7 @@ pub(super) fn status_report(options: &StatusOptions, peer_uid: PeerUid) -> Resul
     if quiet > 0 {
         let _ = writeln!(
             report,
-            "{quiet} other keys have no daemon (lock files and logs only; {log_bytes} bytes of logs)"
+            "{quiet} keys have nothing but lock files and logs ({log_bytes} bytes of logs)"
         );
     }
     Ok(report)
@@ -3420,36 +3833,64 @@ fn look(
                      no status\n"
                 )))
             }
-            Exchanged::NotListening => {}
+            Exchanged::NotListening(error) => no_answer = Some(format!("connect failed: {error}")),
             Exchanged::NoReply(reason) => no_answer = Some(reason.to_string()),
             Exchanged::Refused(reason) => no_answer = Some(reason.to_string()),
         }
-    } else if !exists(paths.pid_file()) && !exists(paths.build_marker()) {
+    } else if !has_daemon_files(paths) {
         return Ok(None);
     }
-    let dir = KeyDir::open(paths).map_err(|error| error.to_string())?;
-    let start = dir.start_lock().map_err(|error| error.to_string())?;
-    let line = match start.try_lock() {
-        Err(TryLockError::WouldBlock) => format!(
+    let line = match under_locks(paths, |dir| dead(paths, locator, dir))? {
+        Holder::Starting => format!(
             "{locator} being started or reached: a shim holds its start lock; pid file {}",
             pid_file(paths, true)
         ),
-        Err(TryLockError::Error(error)) => {
-            return Err(format!(
-                "cannot lock {}: {error}",
-                paths.start_lock().display()
-            ))
-        }
-        Ok(()) => match dir.try_own().map_err(|error| error.to_string())? {
-            None => format!(
-                "{locator} alive but not answering ({}); pid file {}",
-                no_answer.unwrap_or_else(|| "it has no socket yet".to_string()),
-                pid_file(paths, true)
-            ),
-            Some(_owner) => dead(paths, locator, &dir),
-        },
+        Holder::Alive => format!(
+            "{locator} alive but not answering ({}); pid file {}",
+            no_answer.unwrap_or_else(|| "it has no socket: starting or draining".to_string()),
+            pid_file(paths, true)
+        ),
+        Holder::Free(line) => line,
     };
     Ok(Some(one_line(&line) + "\n"))
+}
+
+/// Whether anything of a daemon's is at a key's paths: a socket, a pid file or a build marker.
+/// A key with none of them has nothing but lock files and a log, and is not looked at.
+pub(super) fn has_daemon_files(paths: &DaemonPaths) -> bool {
+    let exists = |path: &Path| std::fs::symlink_metadata(path).is_ok();
+    exists(paths.socket()) || exists(paths.pid_file()) || exists(paths.build_marker())
+}
+
+/// Who holds a key, as `daemon-status` and `daemon-shutdown` look (D102).
+pub(super) enum Holder<T> {
+    /// A shim holds the start lock: it is starting or reaching the daemon.
+    Starting,
+    /// A daemon holds the owner lock.
+    Alive,
+    /// Nobody holds either; what `free` found, run while this process held both.
+    Free(T),
+}
+
+/// Look at a key's locks without waiting: the start lock first and, holding it, the owner lock,
+/// each for a moment; `free` runs while both are held. Neither lock file is ever removed.
+pub(super) fn under_locks<T>(
+    paths: &DaemonPaths,
+    free: impl FnOnce(&KeyDir<'_>) -> T,
+) -> Result<Holder<T>, String> {
+    let dir = KeyDir::open(paths).map_err(|error| error.to_string())?;
+    let start = dir.start_lock().map_err(|error| error.to_string())?;
+    match start.try_lock() {
+        Err(TryLockError::WouldBlock) => Ok(Holder::Starting),
+        Err(TryLockError::Error(error)) => Err(format!(
+            "cannot lock {}: {error}",
+            paths.start_lock().display()
+        )),
+        Ok(()) => match dir.try_own().map_err(|error| error.to_string())? {
+            None => Ok(Holder::Alive),
+            Some(_owner) => Ok(Holder::Free(free(&dir))),
+        },
+    }
 }
 
 /// A key no daemon owns: what a dead daemon left, and the restart bound if it died during its
@@ -3466,8 +3907,17 @@ fn dead(paths: &DaemonPaths, locator: &str, dir: &KeyDir<'_>) -> String {
     if !left.is_empty() {
         let _ = write!(line, "; a dead daemon left {}", left.join(" and "));
     }
-    if let Some(marker) = dir.build_marker() {
-        let _ = write!(line, "; {}", died_building(&marker, unix_now()));
+    match dir.read_build_marker() {
+        Marker::Absent => {}
+        Marker::Read(marker) => {
+            let _ = write!(line, "; {}", died_building(&marker, unix_now()));
+        }
+        Marker::Unusable(why) => {
+            let _ = write!(
+                line,
+                "; its build marker is not usable ({why}); the next shim removes it"
+            );
+        }
     }
     line
 }
@@ -3550,7 +4000,7 @@ mod tests;
 nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib mcp:: > "$LOG_DIR/t5.log" 2>&1
 ```
 
-Expected: `test result: ok. 612 passed; 0 failed` (594 + 18), and no `warning` line.
+Expected: `test result: ok. 619 passed; 0 failed` (596 + 23), and no `warning` line.
 
 - [ ] **Step 5: Commit**
 
@@ -3567,11 +4017,16 @@ Apply each mutant alone, run `cargo test --features mcp --lib mcp::shim::`, see 
 | Mutant | Edit | Fails |
 |---|---|---|
 | 5A | in `shim/control.rs`, `exchange`: write the request before the peer check (insert `let _ = stream.write_all(request.encode().as_bytes());` above `match peer_uid(&stream) {`) | `a_peer_of_another_user_is_refused_before_anything_is_sent` |
-| 5B | in `status.rs`, `look`: `let line = match start.try_lock() {` → `let line = match Ok::<(), TryLockError>(()) {` (the owner lock looked at without the start lock) | `a_key_a_shim_is_starting_is_not_looked_at_under_its_owner_lock` |
+| 5B | in `status.rs`, `under_locks`: `match start.try_lock() {` → `match Ok::<(), TryLockError>(()) {` (the owner lock looked at without the start lock) | `a_key_a_shim_is_starting_is_not_looked_at_under_its_owner_lock` |
 | 5C | in `dead`, first line: `let _ = dir.remove_stale();` | `a_dead_daemon_s_leftovers_are_named_and_left_in_place`, `a_daemon_that_died_during_its_build_says_when_it_may_restart` |
 | 5D | in `died_building`, `backoff - age` → `backoff` | `a_daemon_that_died_during_its_build_says_when_it_may_restart` |
-| 5E | in `look`, `} else if !exists(paths.pid_file()) && !exists(paths.build_marker()) {` → `} else if false {` (every key's locks looked at) | `keys_with_only_lock_files_and_logs_are_counted_not_listed`, `with_a_repository_only_its_daemon_is_shown` |
+| 5E | in `look`, `} else if !has_daemon_files(paths) {` → `} else if false {` (every key's locks looked at) | `keys_with_only_lock_files_and_logs_are_counted_not_listed`, `with_a_repository_only_its_daemon_is_shown` |
 | 5F | in `describe`, `one_line(line) + "\n"` → `line.clone() + "\n"` | `a_root_with_control_characters_is_printed_on_one_line` |
+| R3 | in `look`, `Exchanged::NotListening(error) => no_answer = Some(format!("connect failed: {error}")),` → `Exchanged::NotListening(_) => {}` (review round 1, Opus W1) | `a_live_daemon_that_does_not_accept_is_named_with_why` |
+| R5 | in `key_files.rs`, `read_build_marker`: `libc::O_RDONLY | libc::O_NONBLOCK,` → `libc::O_RDONLY,` (review round 1, sol 2) | `a_build_marker_that_is_a_fifo_or_oversized_does_not_hold_the_report` and the shim's `a_build_marker_that_is_not_a_regular_file_neither_hangs_nor_holds_the_key`, each at its 30 s watchdog |
+| R6 | in `read_build_marker`, read the whole file: `file.take(MARKER_BYTES).read_to_string(&mut text)` → `file.read_to_string(&mut text)` (with `let mut file = file;`) | `a_build_marker_that_is_a_fifo_or_oversized_does_not_hold_the_report` (its third line, 4 MiB in, becomes a sighting at time 0) |
+| R7 | in `status_report`, the header without `one_line` (review round 1, sol 4) | `a_runtime_directory_with_control_characters_is_printed_on_one_line` |
+| R8 | in `status_report`, a key's error ends the report: `Err(error) => return Err(error),` (review round 1, Opus S7) | `a_key_that_cannot_be_looked_at_does_not_hide_the_others` |
 
 ### Task 6: `daemon-shutdown`
 
@@ -3580,8 +4035,8 @@ Apply each mutant alone, run `cargo test --features mcp --lib mcp::shim::`, see 
 - Create: `src/mcp/shim/shutdown.rs`, `src/mcp/shim/shutdown_tests.rs`
 
 **Interfaces:**
-- Consumes: Task 5's `exchange`, `Exchanged`, `key_of`, `operator_runtime_dir`, `ControlFake`; `arbitrate::POLL`, `diagnostic::{one_line, pid_file}`, `KeyDir` (S5a).
-- Produces: `KeyDir::pid_text(&self) -> Option<String>` (at most 200 bytes, read through the directory's descriptor, never through a symlink, without waiting for a writer); in `shim::shutdown`: `pub struct ShutdownOptions { config: ServerConfig, runtime_base: Option<PathBuf>, instance: Option<(u32, u64)>, timeout: Duration }`, `pub fn run_daemon_shutdown(&ShutdownOptions) -> i32`, `pub(super) fn shutdown(&ShutdownOptions, PeerUid) -> Result<String, String>` (`Ok` is the exit-0 line). Re-exported from `crate::mcp`: `run_daemon_shutdown`, `ShutdownOptions`.
+- Consumes: Task 5's `exchange`, `Exchanged`, `key_of`, `operator_runtime_dir`, `has_daemon_files`, `under_locks`, `Holder`, `ControlFake`; `shim_support::{full_backlog, open_lock}` (S5a); `arbitrate::POLL`, `diagnostic::{one_line, pid_file}`, `KeyDir` (S5a).
+- Produces: `KeyDir::pid_text(&self) -> Option<String>` (at most 200 bytes, read through the directory's descriptor, never through a symlink, without waiting for a writer); in `shim::shutdown`: `pub struct ShutdownOptions { config: ServerConfig, runtime_base: Option<PathBuf>, instance: Option<(u32, u64)>, timeout: Duration }`, `pub fn run_daemon_shutdown(&ShutdownOptions) -> i32`, `pub(super) fn shutdown(&ShutdownOptions, PeerUid) -> Result<String, String>` (`Ok` is the exit-0 line); private `not_listening` (a refused connection judged by the locks) and `maybe_recorded` (a lost reply to the request). Re-exported from `crate::mcp`: `run_daemon_shutdown`, `ShutdownOptions`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -3616,7 +4071,7 @@ Create `src/mcp/shim/shutdown_tests.rs`:
 use super::super::control_support::{
     fake_instance, fake_status, ControlFake, FakeReply, FAKE_PID, FAKE_START,
 };
-use super::super::shim_support::{this_user, HANG};
+use super::super::shim_support::{full_backlog, open_lock, this_user, HANG};
 use super::*;
 use crate::mcp::shared::control::DaemonStatus;
 use crate::mcp::shared::identity::IdentityKey;
@@ -3871,6 +4326,48 @@ fn draining_busy_silent_and_refusing_daemons_are_told_apart() {
         fake.retire();
     }
 }
+
+/// Review round 1, Opus W1: a live daemon that does not accept connections (its listen backlog is
+/// full; or it has claimed the key and not bound yet) is not "nothing to shut down": its owner
+/// lock is held, and the command fails (exit 1). A key whose socket refuses and whose owner lock
+/// is free has no daemon. Rules out taking every connect failure for a missing daemon.
+#[test]
+fn a_live_daemon_that_does_not_accept_connections_is_not_taken_for_none() {
+    let setup = setup();
+    setup.write_pid_file();
+    let owner = open_lock(setup.paths.owner_lock());
+    owner.try_lock().expect("the owner lock");
+    let (_listener, _clients) = full_backlog(setup.paths.socket());
+    let said = run(&setup.options(None, Duration::from_millis(500))).expect_err("alive");
+    assert!(
+        said.contains("alive but not accepting connections"),
+        "{said}"
+    );
+    drop(owner);
+    let said = run(&setup.options(None, Duration::from_millis(500))).expect("no daemon");
+    assert!(said.contains("nothing to shut down"), "{said}");
+}
+
+/// Review round 1, Opus W4: when the reply to the `SHUTDOWN` is lost, the request may already be
+/// recorded (it cannot be withdrawn), and the command says so instead of "not shut down".
+#[test]
+fn a_lost_reply_to_the_shutdown_says_it_may_have_been_recorded() {
+    let setup = setup();
+    let status = setup.status(0, false);
+    let _fake = ControlFake::start(
+        &setup.paths,
+        true,
+        Arc::new(move |line: &str| {
+            if line.starts_with("SHUTDOWN ") {
+                FakeReply::Close
+            } else {
+                FakeReply::Line(status.encode())
+            }
+        }),
+    );
+    let said = run(&setup.options(None, HANG)).expect_err("no reply");
+    assert!(said.contains("it may have been recorded"), "{said}");
+}
 ````
 
 - [ ] **Step 2: Run them to see them fail**
@@ -3912,45 +4409,42 @@ pub fn run(cfg: ServerConfig) -> anyhow::Result<()> {
 In `src/mcp/shim/key_files.rs`, replace this:
 
 ````rust
-use std::io::{self, Read, Write};
 use std::os::fd::OwnedFd;
 use std::path::Path;
 
-/// The runtime directory of one key, opened once.
-pub(super) struct KeyDir<'a> {
+/// Most bytes of a build marker read: three short lines.
+const MARKER_BYTES: u64 = 256;
+
 ````
 
 with this:
 
 ````rust
-use std::io::{self, Read, Write};
 use std::os::fd::OwnedFd;
 use std::path::Path;
 
 /// Most bytes of a pid file read: three short lines.
 const PID_TEXT_BYTES: u64 = 200;
+/// Most bytes of a build marker read: three short lines.
+const MARKER_BYTES: u64 = 256;
 
-/// The runtime directory of one key, opened once.
-pub(super) struct KeyDir<'a> {
 ````
 
 In `src/mcp/shim/key_files.rs`, replace this:
 
 ````rust
-        // A marker that cannot be read whole is still a dead build's: its fields are unknown.
-        let _ = file.read_to_string(&mut text);
-        Some(parse_build_marker(&text))
+        }
     }
 
     /// Record in the build marker that a shim first saw its daemon dead at `now` (seconds since
+    /// the Unix epoch), keeping the pid and the build's start (an empty line when unknown, which
+    /// reads back as unknown, so no later shim names a pid 0). Call it holding the start and
 ````
 
 with this:
 
 ````rust
-        // A marker that cannot be read whole is still a dead build's: its fields are unknown.
-        let _ = file.read_to_string(&mut text);
-        Some(parse_build_marker(&text))
+        }
     }
 
     /// The pid file's text, at most [`PID_TEXT_BYTES`] of it, when there is one: read through the
@@ -3971,6 +4465,8 @@ with this:
     }
 
     /// Record in the build marker that a shim first saw its daemon dead at `now` (seconds since
+    /// the Unix epoch), keeping the pid and the build's start (an empty line when unknown, which
+    /// reads back as unknown, so no later shim names a pid 0). Call it holding the start and
 ````
 
 In `src/mcp/shim/mod.rs`, replace this:
@@ -4013,7 +4509,7 @@ use super::connect::PeerUid;
 use super::control::{exchange, Exchanged};
 use super::diagnostic::{one_line, pid_file};
 use super::key_files::KeyDir;
-use super::status::{key_of, operator_runtime_dir};
+use super::status::{has_daemon_files, key_of, operator_runtime_dir, under_locks, Holder};
 use crate::mcp::daemon::peer::peer_uid;
 use crate::mcp::shared::control::{ControlRequest, Instance};
 use crate::mcp::shared::paths::DaemonPaths;
@@ -4078,7 +4574,9 @@ pub(super) fn shutdown(options: &ShutdownOptions, peer_uid: PeerUid) -> Result<S
         Exchanged::Retiring => {
             return Ok(format!("the daemon of key {locator} is already draining"))
         }
-        Exchanged::NotListening => return Ok(nothing()),
+        Exchanged::NotListening(error) => {
+            return not_listening(&paths, &locator, &error, nothing())
+        }
         other => return Err(not_asked(&paths, &locator, other)),
     };
     if found.identity != key {
@@ -4099,10 +4597,21 @@ pub(super) fn shutdown(options: &ShutdownOptions, peer_uid: PeerUid) -> Result<S
     }
     let accepted = match ask(&ControlRequest::Shutdown(found)) {
         Exchanged::Status(status) => status,
-        Exchanged::Retiring | Exchanged::NotListening => {
-            return Ok(format!("{} is already draining or gone", named(&found)))
+        Exchanged::Retiring => return Ok(format!("{} is already draining", named(&found))),
+        Exchanged::NotListening(error) => {
+            return not_listening(
+                &paths,
+                &locator,
+                &error,
+                format!("{} is gone", named(&found)),
+            )
         }
-        other => return Err(not_asked(&paths, &locator, other)),
+        // `BUSY` is answered before the line is read: nothing was recorded.
+        busy @ Exchanged::Busy { .. } => return Err(not_asked(&paths, &locator, busy)),
+        // The line was sent and no reply came back: the daemon may have recorded the request
+        // before the reply was lost, and a request cannot be withdrawn (review round 1, Opus W4).
+        Exchanged::NoReply(reason) => return Err(maybe_recorded(&found, &reason.to_string())),
+        Exchanged::Refused(reason) => return Err(maybe_recorded(&found, &reason.to_string())),
     };
     if accepted.instance != found {
         return Ok(format!(
@@ -4144,6 +4653,42 @@ pub(super) fn shutdown(options: &ShutdownOptions, peer_uid: PeerUid) -> Result<S
     }
 }
 
+/// The reply to a sent `SHUTDOWN` was lost.
+fn maybe_recorded(found: &Instance, why: &str) -> String {
+    format!(
+        "{} was sent the request and no reply came back ({why}); it may have been recorded, and a \
+         request cannot be withdrawn: see daemon-status",
+        named(found)
+    )
+}
+
+/// Nothing accepted a connection at the key's socket. That is no daemon only when nobody holds
+/// the key's owner lock: a live daemon whose listen backlog is full, or one that has claimed the
+/// key and not bound yet, refuses connections too (review round 1, Opus W1). The locks are
+/// looked at as `daemon-status` looks at them (D102), and only when a daemon's files are there.
+fn not_listening(
+    paths: &DaemonPaths,
+    locator: &str,
+    error: &std::io::Error,
+    none: String,
+) -> Result<String, String> {
+    if !has_daemon_files(paths) {
+        return Ok(none);
+    }
+    match under_locks(paths, |_| ())? {
+        Holder::Free(()) => Ok(none),
+        Holder::Alive => Err(format!(
+            "the daemon of key {locator} is alive but not accepting connections (connect failed: \
+             {error}); it was not asked; pid file {}",
+            pid_file(paths, true)
+        )),
+        Holder::Starting => Err(format!(
+            "the daemon of key {locator} is being started or reached (a shim holds its start \
+             lock); it was not asked; try again"
+        )),
+    }
+}
+
 /// Why the daemon at the key's socket could not be asked.
 fn not_asked(paths: &DaemonPaths, locator: &str, ended: Exchanged) -> String {
     let why = match ended {
@@ -4152,7 +4697,7 @@ fn not_asked(paths: &DaemonPaths, locator: &str, ended: Exchanged) -> String {
         }
         Exchanged::NoReply(reason) => format!("it does not answer ({reason})"),
         Exchanged::Refused(reason) => reason.to_string(),
-        Exchanged::Status(_) | Exchanged::Retiring | Exchanged::NotListening => {
+        Exchanged::Status(_) | Exchanged::Retiring | Exchanged::NotListening(_) => {
             "it answered out of turn".to_string()
         }
     };
@@ -4173,7 +4718,7 @@ mod tests;
 nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib mcp:: > "$LOG_DIR/t6.log" 2>&1
 ```
 
-Expected: `test result: ok. 620 passed; 0 failed` (612 + 8), and no `warning` line.
+Expected: `test result: ok. 629 passed; 0 failed` (619 + 10), and no `warning` line.
 
 - [ ] **Step 5: Commit**
 
@@ -4193,6 +4738,8 @@ Apply each mutant alone, run `cargo test --features mcp --lib mcp::shim::shutdow
 | 6B | above `let key_dir = KeyDir::open(…)`, insert `return Ok(format!("{} drained", named(&found)));` (success without the wait) | `a_daemon_that_does_not_drain_by_the_timeout_is_reported` |
 | 6C | `if found.identity != key {` → `if false {` | `a_daemon_of_another_identity_is_not_asked` |
 | 6D | `if accepted.instance != found {` → `if false {` | `a_daemon_replaced_between_the_exchanges_is_left_alone` |
+| R4 | at the first exchange, `Exchanged::NotListening(error) => { return not_listening(…) }` → `Exchanged::NotListening(_) => return Ok(nothing()),` (review round 1, Opus W1) | `a_live_daemon_that_does_not_accept_connections_is_not_taken_for_none` |
+| R9 | at the second exchange, a lost reply through `not_asked`: `Exchanged::NoReply(reason) => return Err(maybe_recorded(…)),` → `… Err(not_asked(&paths, &locator, Exchanged::NoReply(reason))),` (review round 1, Opus W4) | `a_lost_reply_to_the_shutdown_says_it_may_have_been_recorded` |
 
 ### Task 7: `prism-mcp daemon-status` and `daemon-shutdown`
 
@@ -4255,41 +4802,15 @@ fn started(setup: &Setup, extra: &[&str]) -> Daemon {
     daemon
 }
 
-/// Spec §4.7: `daemon-status` lists a running daemon with its pid and root, found through
-/// `PRISM_MCP_RUNTIME_DIR` as a shim finds it; and an operator who keeps looking does not keep an
-/// idle daemon up (S4's interface for S5b): with probes every 100 ms the daemon still retires
-/// after its 2 s idle TTL. With a probe that restarted the idle time it would never retire, and
-/// the wait below would give up at its hang limit.
+/// S4's interface for S5b: an operator who keeps looking does not keep an idle daemon up. With
+/// probes every 100 ms the daemon still retires after its 2 s idle TTL; with a probe that
+/// restarted the idle time it would never retire, and the wait below would give up at its hang
+/// limit. Nothing here depends on when the first probe runs (review round 1, Opus S1: the
+/// listing is asserted on a daemon with the default TTL, below).
 #[test]
-fn daemon_status_shows_a_running_daemon_and_does_not_keep_it_up() {
+fn daemon_status_does_not_keep_an_idle_daemon_up() {
     let setup = setup();
     let mut daemon = started(&setup, &["--idle-ttl", "2"]);
-    let first = Command::new(env!("CARGO_BIN_EXE_prism-mcp"))
-        .arg("daemon-status")
-        .env(RUNTIME_DIR_ENV, setup.base.path())
-        .output()
-        .expect("run daemon-status");
-    assert!(first.status.success(), "{}", stderr(&first));
-    let said = stdout(&first);
-    let root = std::fs::canonicalize(setup.repo.path()).expect("the canonical root");
-    assert!(
-        said.contains(&format!(
-            "{} pid {}, started ",
-            setup.key.locator(),
-            daemon.pid()
-        )),
-        "{said}"
-    );
-    assert!(
-        said.contains(&format!("serving {}\n", root.display())),
-        "{said}"
-    );
-    assert!(
-        said.contains(&format!("  key {}; build ", setup.key)),
-        "{said}"
-    );
-    assert!(said.contains("retires after 2 s idle"), "{said}");
-
     wait_until("the daemon to retire while it is being looked at", || {
         let output = operator(&setup, "daemon-status", &[]);
         assert!(output.status.success(), "{}", stderr(&output));
@@ -4301,12 +4822,31 @@ fn daemon_status_shows_a_running_daemon_and_does_not_keep_it_up() {
     assert!(log.contains("stopped: idle"), "{log}");
 }
 
-/// Spec §4.7: `daemon-shutdown` drains a daemon with no client at once, waits for the drain, and
-/// the daemon exits 0 having removed its socket and pid file.
+/// Spec §4.7: `daemon-status` lists a running daemon; `daemon-shutdown` drains a daemon with no
+/// client at once, waits for the drain, and the daemon exits 0 having removed its socket and pid
+/// file.
 #[test]
 fn daemon_shutdown_drains_an_idle_daemon() {
     let setup = setup();
     let mut daemon = started(&setup, &[]);
+    // Spec §4.7: `daemon-status` lists the daemon with its pid, root, key and idle TTL, found
+    // through `PRISM_MCP_RUNTIME_DIR` as a shim finds it.
+    let listed = Command::new(env!("CARGO_BIN_EXE_prism-mcp"))
+        .arg("daemon-status")
+        .env(RUNTIME_DIR_ENV, setup.base.path())
+        .output()
+        .expect("run daemon-status");
+    assert!(listed.status.success(), "{}", stderr(&listed));
+    let said = stdout(&listed);
+    let root = std::fs::canonicalize(setup.repo.path()).expect("the canonical root");
+    for expected in [
+        format!("{} pid {}, started ", setup.key.locator(), daemon.pid()),
+        format!("serving {}\n", root.display()),
+        format!("  key {}; build ", setup.key),
+        "retires after 900 s idle".to_string(),
+    ] {
+        assert!(said.contains(&expected), "{expected:?} in {said}");
+    }
     let output = shutdown(&setup, &[]);
     assert!(output.status.success(), "{}", stderr(&output));
     let said = stdout(&output);
@@ -4633,7 +5173,7 @@ Apply each mutant alone, run the named process test, see it fail, then `git chec
 
 | Mutant | Edit | Test | Fails |
 |---|---|---|---|
-| 7A | in `src/mcp/daemon/admission.rs`, `control_exchange`: `admission.idle_since = admission.quiet_since;` → `admission.idle_since = Some(now);` | `cargo test --features mcp --test mcp daemon_control_process_test::daemon_status_shows` | `daemon_status_shows_a_running_daemon_and_does_not_keep_it_up`, at its 60 s hang limit (`finished in 61.07s`) |
+| 7A | in `src/mcp/daemon/admission.rs`, `control_exchange`: `admission.idle_since = admission.quiet_since;` → `admission.idle_since = Some(now);` | `cargo test --features mcp --test mcp daemon_control_process_test::daemon_status_does_not` | `daemon_status_does_not_keep_an_idle_daemon_up`, at its 60 s hang limit |
 | 7B | in `src/bin/prism-mcp.rs`, `shutdown_main`: `instance: c.pid.zip(c.start_time),` → `instance: None,` | `cargo test --features mcp --test mcp daemon_control_process_test::daemon_shutdown_of_another_instance` | `daemon_shutdown_of_another_instance_leaves_the_daemon_alone` |
 
 ### Task 8: S5b-2 proof, docs, and the pull request
@@ -4663,14 +5203,18 @@ T, generation G) at <socket>` to stderr.
 The operator's commands (`src/mcp/shim/`, clients of the same sockets and files; spec §4.7):
 `prism-mcp daemon-status [--repo X [--cache-dir D] [--refresh-policy P]] [--runtime-dir BASE]
 [--timeout S]` (`status.rs`) lists every key in the runtime directory: a daemon that answers the
-control exchange (`control.rs`) with its status; one that does not, through its locks (the owner
-lock only under the start lock, each for a moment); what a dead daemon left, with its build
-marker's restart time; keys with nothing but lock files and logs in one count line. It never
-removes anything. `prism-mcp daemon-shutdown --repo X [--cache-dir D] [--refresh-policy P]
+control exchange (`control.rs`) with its status; one that does not (its connect error or why it
+gave no reply), through its locks (the owner lock only under the start lock, each for a moment,
+`under_locks`); what a dead daemon left, with its build marker's restart time (the marker is read
+without waiting, a regular file only, 256 bytes at most: `KeyDir::read_build_marker`, which the
+shim uses too); keys with nothing but lock files and logs in one count line; a key that cannot be
+looked at on a line of its own. It never removes anything. `prism-mcp daemon-shutdown --repo X [--cache-dir D] [--refresh-policy P]
 [--runtime-dir BASE] [--pid N --start-time T] [--timeout S]` (`shutdown.rs`) asks the instance a
 status exchange has just shown (or the one named) to drain, and when it had no client waits for
-its pid file to go; exit 0 when that instance no longer serves the key, or has accepted and drains
-after its clients; exit 1 when it could not ask or did not see the drain. `--runtime-dir` is the
+its pid file to go; a socket that refuses connections is no daemon only when nobody holds the
+owner lock; exit 0 when that instance no longer serves the key, or has accepted and drains after
+its clients; exit 1 when it could not ask, the reply to its request was lost (the request may
+have been recorded), or it did not see the drain. `--runtime-dir` is the
 base, as `PRISM_MCP_RUNTIME_DIR` gives it.
 
 Algorithms fall into two categories:
@@ -4682,7 +5226,7 @@ Algorithms fall into two categories:
 
 The commands of Task 4 Step 2, with `s52` in the log names and the clippy `grep` extended to `src/mcp/shim/`, `src/mcp/mod.rs`, `src/bin/prism-mcp.rs` and `tests/mcp/(daemon_control|main)`.
 
-Expected: `cargo fmt --check` silent; `test result: ok. 620 passed; 0 failed` (571 + 49); `52 passed` with the goldens' test `ok`; both checks `Finished`, no `warning` in either; clippy 258 `warning` lines, and the `grep` prints nothing.
+Expected: `cargo fmt --check` silent; `test result: ok. 629 passed; 0 failed` (571 + 58); `52 passed` with the goldens' test `ok`; both checks `Finished`, no `warning` in either; clippy 258 `warning` lines, and the `grep` prints nothing.
 
 - [ ] **Step 3: State the invariants**
 
@@ -4692,7 +5236,7 @@ The commands of Task 4 Step 3, except that the first lists `src/mcp/shim/{arbitr
 git diff origin/main -- src/bin/prism-mcp.rs > "$LOG_DIR/s52-bin.diff"
 ```
 
-Expected: the first prints nothing; `31` (30 under `src/` and `tests/`, and `CLAUDE.md`); every size at most 541.5; `s52-bin.diff` adds the `StatusCli` and `ShutdownCli` structs, `operator_config`, `status_main`, `shutdown_main`, and two branches beside the `daemon` one in `main` (whose test of the first word is rewritten to share it), and nothing else.
+Expected: the first prints nothing; `32` (31 under `src/` and `tests/`, and `CLAUDE.md`); every size at most 546; `s52-bin.diff` adds the `StatusCli` and `ShutdownCli` structs, `operator_config`, `status_main`, `shutdown_main`, and two branches beside the `daemon` one in `main` (whose test of the first word is rewritten to share it), and nothing else.
 
 - [ ] **Step 4: Run the remaining pre-PR checks**
 
@@ -4709,11 +5253,11 @@ nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --doc --features mcp > "$LOG_DIR/s5
 
 Then the Linux commands of Task 4 Step 4 with `EXTRA_SUITE="--test mcp"` exported, `s52` in the output's name and an empty `$LOG_DIR/linux`.
 
-Expected: `failed runs: 0`, `10 test result: ok. 72 passed; 0 failed` and `10 test result: ok. 6 passed; 0 failed`; `pgrep` prints nothing; the full suite and the doc tests `rc=0`; on Linux `failed Linux runs: 10`, every failure the root-only S2a test as in Task 4, `10 test result: ok. 72 passed` (`--lib mcp::shim`), `10 test result: ok. 148 passed` (`--lib mcp::daemon`), `10 test result: ok. 52 passed` (`--test mcp`), and no `left:` line.
+Expected: `failed runs: 0`, `10 test result: ok. 79 passed; 0 failed` and `10 test result: ok. 6 passed; 0 failed`; `pgrep` prints nothing; the full suite and the doc tests `rc=0`; on Linux `failed Linux runs: 10`, every failure the root-only S2a test as in Task 4, `10 test result: ok. 79 passed` (`--lib mcp::shim`), `10 test result: ok. 150 passed` (`--lib mcp::daemon`), `10 test result: ok. 52 passed` (`--test mcp`), and no `left:` line.
 
 - [ ] **Step 5: Commit and open the PR**
 
-The PR body states, in this order: (1) **Goal:** the lane goal; S5b-2 is the operator's half: `prism-mcp daemon-status` (what every daemon is doing, read without changing anything) and `prism-mcp daemon-shutdown` (one instance, drained once its clients have gone). (2) **Invariants:** Step 3. (3) **Decisions:** D101–D107; SI-31, SI-33; owner question 1 as decided (or its default). D102 (the look at the locks) and D104 (exit statuses) are the ones a reviewer is most likely to want to change. (4) **Claims:** the rows for Tasks 5–7, with what no test holds. (5) **Totals:** Steps 2 and 4 next to the base (Linux included), and mutants 5A–7B as observed. (6) **Not verified:** x86_64 Linux before CI; the bridge's reaper (S6). (7) **Tier-A:** not run (no file it watches is touched).
+The PR body states, in this order: (1) **Goal:** the lane goal; S5b-2 is the operator's half: `prism-mcp daemon-status` (what every daemon is doing, read without changing anything) and `prism-mcp daemon-shutdown` (one instance, drained once its clients have gone). (2) **Invariants:** Step 3. (3) **Decisions:** D101–D107, D109; SI-31, SI-33, SI-35 (the disclosed old-daemon idle restart); owner decision 1 (2026-10-16). D102 (the look at the locks) and D104 (exit statuses) are the ones a reviewer is most likely to want to change. (4) **Claims:** the rows for Tasks 5–7, with what no test holds. (5) **Totals:** Steps 2 and 4 next to the base (Linux included), and mutants 5A–7B and R3–R9 as observed. (8) Review round 1's folds for Tasks 5–7 (Opus W1, W4, S1, S7, S8; sol 2, 4). (6) **Not verified:** x86_64 Linux before CI; the bridge's reaper (S6). (7) **Tier-A:** not run (no file it watches is touched).
 
 ```bash
 git add CLAUDE.md
@@ -4731,19 +5275,19 @@ Review brief and cap as in Task 4.
 **S6 (launchers, docs, soak instrumentation) consumes:**
 
 - **The bridge's reaper:** `prism-mcp daemon-shutdown --repo X [--cache-dir D] [--refresh-policy P] --pid N --start-time T` with the pid and start time from the shim's `prism-mcp: shared daemon pid N (started T, …)` line (S5a's D88): exit 0 when that instance no longer serves the key or drains after its clients; exit 1 otherwise. The bridge must pass the same `PRISM_MCP_RUNTIME_DIR` (or `--runtime-dir`) as its shims, and the same cache directory and refresh policy (D107).
-- **The soak's resident count:** `prism-mcp daemon-status` lists every daemon with its pid, build identity, clients and idle time; keys with no daemon are one count line (owner question 1).
-- **Docs (`docs/MCP.md`):** the two commands and their exit statuses; that `--runtime-dir` is the base; that a daemon of another build is listed and stopped with `kill -TERM`; that `daemon-shutdown` never disconnects a client and the daemon keeps admitting until it drains (owner question 2); that a probe does not keep a daemon up.
+- **The soak's resident count:** `prism-mcp daemon-status` lists every daemon with its pid, build identity, clients and idle time; keys with no daemon are one count line (owner decision 1). An S5b `daemon-status` sweep keeps pre-S5b daemons alive (SI-35): during the switch, stop them with `kill -TERM`.
+- **Docs (`docs/MCP.md`):** the two commands and their exit statuses; that `--runtime-dir` is the base; that a daemon of another build is listed and stopped with `kill -TERM`, and that a daemon built before S5b restarts its idle time at each `daemon-status` probe, so polling it keeps it up (SI-35; stop it with `kill -TERM <pid>`); that exit 1 from `daemon-shutdown` can mean "alive but not accepting connections" or "the request may have been recorded" (see `daemon-status`); that `daemon-shutdown` never disconnects a client and the daemon keeps admitting until it drains (owner decision 2); that a probe does not keep a daemon of this build up.
 
 **C2-M1** and later candidates: unchanged by this slice.
 
 ## Self-review record
 
 - **Spec coverage (§12 row S5b, §4.7).** "for every live daemon in the runtime dir (or the one for `X`)" → `status_report` over `locators_in` or the one key (D107). "key, repo root, build identity, pid, start time" → the reply's `instance`, `repo_root`, `build_identity` (Task 1) and `describe`'s first two lines (Task 5). "admitted and pending clients" → `ControlSnapshot` (Task 2), the probe itself not counted. "build state and attempt, generation" → `BuildStatus` read in the same critical section. "idle time" → `idle_for`, from the restored `idle_since`. "whether its socket answers the preamble" → the status line, or "alive but not answering" / "being started" / "no daemon" through the locks (SI-29). "`daemon-shutdown --repo X` asks the instance verified through the live control exchange (pid + start time echoed in `READY`)" → D104, SI-32. "to enter Draining when its admitted count reaches 0" → D100, SI-30. "it never disconnects other clients" → D100 and its three tests. §4.3 "`daemon-status` prints it" (the runtime directory) → the report's first line. §4.6 "`daemon-status` lists every live daemon with its build identity" → D97 (the exchange is not tied to a build's key) and the `build` field.
-- **S4's interfaces for S5b, one by one.** `status()` and `admission_status()` (D66): kept test-only; the reply reads the control plane inside `control_exchange`, so the counts, the build status and the idle time are one snapshot. `StopReason`: `Shutdown`, recorded by `retire_if_idle` (S4 suggested "a variant of `retire_if_idle` that ignores the TTL but still needs admitted == 0"; built in `retire_if_idle` itself, which is where every drain decision is taken, and it also needs pending == 0, SI-30). The files cleanup rule (D70): owner question 1. The wire verbs and the protocol version (D63): D97. "A status probe … must not reset `idle_since`": D99.
-- **S5a's interfaces for S5b, one by one.** "a status or shutdown verb is a new line after, or instead of, `HELLO`": instead of (D98). "by S2's rule a new verb bumps `SHARED_PROTOCOL_VERSION`. Decide that before S6": D97. "`key_files::KeyDir` opens a key's files the safe way; S5b's cleanup … needs the same owner-lock rule": `daemon-status` uses `KeyDir` and removes nothing (D102, owner question 1). "a probe must not keep a daemon alive": D99. "A `daemon-shutdown` that drains ends attached shims' sessions with exit 1": it does not drain while a client is attached (D100), so no session is ended by it; a SIGTERM still does that (spec §3.1). "`daemon-status` should show a key whose daemon died during its build, when a shim first saw that, and when the minute ends": `died_building` (D102).
-- **The lane README's notes.** S2b: "New verbs … bump `SHARED_PROTOCOL_VERSION` and every key … decide before S6 whether control verbs are part of the versioned preamble": decided, they are not (D97). S4: "A cleanup rule is needed (S4 or S5b)": owner question 1. S5a: the peer check on both ends: the operator checks its peer before it sends (Task 5, mutant 5A).
+- **S4's interfaces for S5b, one by one.** `status()` and `admission_status()` (D66): kept test-only; the reply reads the control plane inside `control_exchange`, so the counts, the build status and the idle time are one snapshot. `StopReason`: `Shutdown`, recorded by `retire_if_idle` (S4 suggested "a variant of `retire_if_idle` that ignores the TTL but still needs admitted == 0"; built in `retire_if_idle` itself, which is where every drain decision is taken, and it also needs pending == 0, SI-30). The files cleanup rule (D70): owner decision 1. The wire verbs and the protocol version (D63): D97. "A status probe … must not reset `idle_since`": D99.
+- **S5a's interfaces for S5b, one by one.** "a status or shutdown verb is a new line after, or instead of, `HELLO`": instead of (D98). "by S2's rule a new verb bumps `SHARED_PROTOCOL_VERSION`. Decide that before S6": D97. "`key_files::KeyDir` opens a key's files the safe way; S5b's cleanup … needs the same owner-lock rule": `daemon-status` uses `KeyDir` and removes nothing (D102, owner decision 1). "a probe must not keep a daemon alive": D99. "A `daemon-shutdown` that drains ends attached shims' sessions with exit 1": it does not drain while a client is attached (D100), so no session is ended by it; a SIGTERM still does that (spec §3.1). "`daemon-status` should show a key whose daemon died during its build, when a shim first saw that, and when the minute ends": `died_building` (D102).
+- **The lane README's notes.** S2b: "New verbs … bump `SHARED_PROTOCOL_VERSION` and every key … decide before S6 whether control verbs are part of the versioned preamble": decided, they are not (D97). S4: "A cleanup rule is needed (S4 or S5b)": owner decision 1. S5a: the peer check on both ends: the operator checks its peer before it sends (Task 5, mutant 5A).
 - **The lane's review lessons.** (1) Every stated property has a test and a mutant, or is listed as not held: "Claims". (2) What each mechanism does not cover: its section. (3) Interleavings are played deterministically: a client that comes and goes during a probe (T2), a shim holding the start lock during a look (T5), a daemon replaced between two exchanges (T6), all without sleeping. (4) No test asserts an upper bound on a duration; the one process test that waits on a TTL bounds only by its hang limit. (5) Nothing the operator prints carries a control character (`one_line`). (6) No `unwrap`, `expect`, indexing or unchecked arithmetic outside tests; no `unsafe`. (7) A look changes nothing (D102), and a probe changes no clock (D99): each is held by a test that fails under the mutant that would change it.
-- **Size.** From `scratch/s5b-tasks`: S5b-1 (`5a63c7e8..90f6ea98`) 14 paths, `src/` +1,054 −27 (production +441, tests +613; 324 production code lines), `CLAUDE.md` +10; S5b-2 (`90f6ea98..c96ddf8b`) 19 paths, `src/` and `tests/` +1,794 −12 (production +705, tests +1,089; 565 code lines), `CLAUDE.md` +13. Weighted sizes under Global Constraints.
+- **Size.** From `scratch/s5b-tasks` (after review round 1): S5b-1 (`5a63c7e8..7e17ba5e`) 14 paths, `src/` +1,142 −27 (production +448, tests +694; 326 production code lines), `CLAUDE.md` +14; S5b-2 (`7e17ba5e..bf8772fa`) 20 paths, `src/` and `tests/` +2,121 −20 (production +843, tests +1,278; 665 code lines), `CLAUDE.md` +17. Weighted sizes under Global Constraints.
 
 ## Validation record
 
@@ -4771,4 +5315,43 @@ The tools (the generator of the directives, the replay, the cut, the mutant runn
 | 3 | Tasks 4 and 8, Step 4 | `J="nice -n 19 env CARGO_BUILD_JOBS=4"` and `$J cargo …` (S5a's form) | In zsh an unquoted variable is not split into words: every command exited 127 and the run looked like a result | each cargo command written out in full |
 | 4 | Task 5, `shim/control.rs` | `Exchanged::NotListening(io::Error)` | The error was never read (a dead-code warning in the test build) | `NotListening` without a payload |
 
-**Not run in this validation:** x86_64 Linux (CI); the mutation gate (it selects no MCP code; lane README); a release build; the Tier-A harness (no file it watches is touched); the Linux run at the S5b-1 head on its own (its code is part of the S5b-2 head, which ran there); a daemon of a build without the control exchange asked by `daemon-status` (the stand-in daemon's close is the same bytes, Task 5); the §8 soak; the bridge's reaper (S6).
+**Not run in this validation:** x86_64 Linux (CI); the mutation gate (it selects no MCP code; lane README); a release build; the Tier-A harness (no file it watches is touched); the Linux run at the S5b-1 head on its own (its code is part of the S5b-2 head, which ran there); a daemon of a build without the control exchange inside the suite (measured once by hand in review round 1, below: the suite cannot build another commit's binary); the §8 soak; the bridge's reaper (S6).
+
+**Review round 1's fold (2026-10-16).** On `scratch/s5b-validate`: `1e1d0793`, `8cb45f94`, `a08855fb`, `fb821e47`, `7e456df8` (Review round 1). The first cut and replay are kept as `scratch/s5b-tasks-r0` (`c96ddf8b`) and `scratch/s5b-replay-r0` (`12284c83`); the new cut is `scratch/s5b-tasks`: `b5c4ee04` (Task 1), `800b9c99` (2), `9c823726` (3), `7e17ba5e` (4, the S5b-1 head), `4bf9d4ea` (5), `37008601` (6), `f686831c` (7), `bf8772fa` (8, the S5b-2 head), every file from `7e456df8` but the intermediates named above and Task 5's `key_files.rs` (without Task 6's `pid_text`). The replay `scratch/s5b-replay` `1b2d72ea` (66 directives) has tree `f09b8748`, the tree of `bf8772fa` and `7e456df8`. Red and green steps were run again on partial replays (V2, V3), and all 37 mutants on `fb821e47` (V8).
+
+**The old-daemon measurement (Opus W2, sol 1; SI-35).** Hypothesis: a daemon built before this slice restarts its idle time at every `STATUS` probe. Predicted if true: with `--idle-ttl 3` and this slice's `daemon-status` every second for 9 s, it is alive at 9 s and retires a few seconds after the probes stop; falsified if it exits while probed. Control: the same probes against a daemon of this slice. The base build's `prism-mcp` was built in `~/code/prism-s5b-plan` (code identical to `5a63c7e8`; its `target/` removed afterwards) and driven by a script (`oldprobe.py`, kept with the session's logs). Observed: the base daemon was reported `alive but not answering (the connection closed before a reply)`, was alive after 9 s of probes, and exited 2.0 s after they stopped, status 0; its log has one `refused a preamble line: unexpected preamble verb "STATUS"` per probe. The control daemon exited 3.1 s into the probes (`stopped: idle`). Confirmed; the alternative (that this slice's own daemons are kept up the same way) is refuted by the control. No process was left.
+
+**Corrections made by round 1's validation.**
+
+| # | Where | What was first written | What was wrong | What it says now |
+|---|---|---|---|---|
+| 5 | Task 3, `a_line_the_daemon_cannot_read_restarts_the_idle_time_as_a_client_s_does` | waited for `pending == 0` right after a partial line and a close | `connect` returns before the loop accepts, so `pending == 0` held before the connection was counted; its close was seen a turn later, after the clock had moved, and the test hung at its 30 s wait (found by a debug print of the idle deadline: 900 s, not 899 s, ahead) | waits for the connection to be counted (`pending == 1`) before closing it |
+| 6 | Task 5, the oversized-marker test | a 4 MiB marker of `x` after its two lines | read whole or bounded, it gave the same report, so the size bound (R6) survived | its third line ends 4 MiB in: read whole it is a sighting at time 0; bounded it is none |
+| 7 | the mutant runner, 7A | the old test name as its filter after the rename (Opus S1) | the first run selected no test and passed: inadmissible | the new name; killed at the hang limit |
+
+## Review round 1
+
+PR #412 at `45d3df39` (code `c2e9b576`). **Opus 5.5: FIX** (four WRONG, two MATERIAL; nine SMELLs). **gpt-6.1-sol: FIX** (three WRONG/MATERIAL, one WRONG/IMMATERIAL, one SMELL/MATERIAL). Both: the core mechanisms hold; the two owner defaults are right; D97 is sound. Owner decisions of 2026-10-16: both defaults (now "Owner decisions" at the top); D97 stands as a disclosed planner's decision, with Opus S3's rule and sol's corrected rationale. The controller's ruling on Opus W2 / sol 1: accept and disclose, pin, remove the universal claim.
+
+Folded on `scratch/s5b-validate`, each code change test first: `1e1d0793` (the daemon's half; its tests were run against the unfolded code first, `test result: FAILED. 149 passed; 1 failed`, the expired-line test at its 30 s wait, and the commit holds the tests and the fix), `8cb45f94` (the operator's tests, committed red: `test result: FAILED. 71 passed; 8 failed`), `a08855fb` (the operator's fixes: `629 passed`), `fb821e47` (Opus S1; the marker's size bound pinned), `7e456df8` (`CLAUDE.md`). Re-cut on `scratch/s5b-tasks`, the directives regenerated and replayed (Validation record).
+
+| Finding | Ruling | What changed | Test, RED before the change → GREEN after |
+|---|---|---|---|
+| Opus W1, WRONG/MATERIAL: `daemon-shutdown` reported "nothing to shut down" for a live daemon whose connect failed (full backlog, claimed and not bound) | folded | `Exchanged::NotListening` carries the connect error again; `daemon-shutdown` judges a refused connection by the key's locks (`not_listening` over `under_locks`, which `daemon-status` uses too): owner held → exit 1 "alive but not accepting connections"; start lock held → exit 1; free → nothing to shut down; at both exchanges. `daemon-status` prints the connect error, and "it has no socket: starting or draining" only without a socket (D104, D102) | `a_live_daemon_that_does_not_accept_connections_is_not_taken_for_none`: RED `alive: "no daemon serves this configuration of this build (key 8d129ba6e52627f7); nothing to shut down"` → GREEN. `a_live_daemon_that_does_not_accept_is_named_with_why`: RED `… alive but not answering (it has no socket yet) …` → GREEN. Mutants R3, R4 |
+| sol 2 / Opus S6, WRONG/MATERIAL: the build marker's blocking, uncapped read could hang `daemon-status` holding both locks (and a shim) | folded in S5a's helper | `KeyDir::read_build_marker`: `O_NONBLOCK`, descriptor-relative, regular file only, 256 bytes at most; `build_marker` (the shim's) returns `None` for anything else, so a shim removes a FIFO with the stale files instead of waiting on it; `daemon-status` reports it unusable (D109). Shims otherwise unaffected: `--lib mcp::shim` green, the S5a marker tests unchanged | `a_build_marker_that_is_a_fifo_or_oversized_does_not_hold_the_report`: RED `daemon-status over a FIFO marker did not return within 30s` → GREEN; the shim's `a_build_marker_that_is_not_a_regular_file_neither_hangs_nor_holds_the_key`: RED `a shim over a FIFO marker did not return within 30s` → GREEN. Both under an independent watchdog thread. Mutants R5, R6 |
+| sol 3, WRONG/MATERIAL: a control line completed after its deadline went through `leave_handshake` and restarted the TTL (probe at idle 899 s → retirement moved ~900 s) | folded | `advance_handshakes`: an expired control line goes through `control_exchange(false)`: no reply, no shutdown recorded, idle time as found (D98, D99); the module doc states the treatment of incomplete and unrecognized frames | `a_control_line_completed_after_its_deadline_moves_nothing` (a `SHUTDOWN` line completing at its deadline, one second before the TTL ends): RED `gave up after 30s waiting for: the accept loop to drain` → GREEN, the loop stops for `Idle`, not `Shutdown`. Mutant R1 |
+| Opus W3, WRONG (text)/IMMATERIAL: "a stalled probe … never moves the idle time" | folded | "What each mechanism covers": a connection that never completes its line, or whose line is not a control line or a `HELLO`, is a client's | `a_line_the_daemon_cannot_read_restarts_the_idle_time_as_a_client_s_does` (a pin; passes before and after) |
+| Opus W2 / sol 1, WRONG/MATERIAL: an S5b `STATUS` probe restarts the idle clock of a daemon built before S5b | accepted and disclosed (controller) | SI-35; the old-build bullet of "What each mechanism covers"; the goal's universal claim narrowed to daemons of this build; the S6 docs item (`kill -TERM`); the pin above (the same mechanism in this build); a one-off measurement against a base-build daemon process | Measured (Validation record): the base build's daemon with `--idle-ttl 3`, probed by this slice's `daemon-status` every second, alive after 9 s, retired 2 s after the probes stopped; its log has `refused a preamble line: unexpected preamble verb "STATUS"` per probe. Control, this slice's daemon under the same probes: retired at 3.1 s |
+| Opus W4, WRONG (message)/IMMATERIAL: a lost reply to `SHUTDOWN` said "was not shut down" | folded | `maybe_recorded`: "was sent the request and no reply came back (…); it may have been recorded, and a request cannot be withdrawn: see daemon-status"; `BUSY` still "not shut down" (answered before the line is read) | `a_lost_reply_to_the_shutdown_says_it_may_have_been_recorded`: RED `… was not shut down: it does not answer (the connection closed before a reply) …` → GREEN. Mutant R9 |
+| sol 4, WRONG/IMMATERIAL: the runtime-directory header was not escaped | folded | `one_line` on the header | `a_runtime_directory_with_control_characters_is_printed_on_one_line`: RED (a raw newline in the header) → GREEN. Mutant R7 |
+| sol 5, SMELL/MATERIAL: instance uniqueness is an assumption | stated | "What each mechanism covers", D104: (identity, pid, start second); same-pid same-second replacement indistinguishable; no token (it would change `READY`, the pid file and the reaper's selector) | — |
+| Opus S1: the 2 s-TTL process test asserted the listing before retirement (host-speed dependent) | folded | the listing is asserted on the default-TTL daemon of `daemon_shutdown_drains_an_idle_daemon`; the 2 s test (renamed `daemon_status_does_not_keep_an_idle_daemon_up`) asserts only exit 0 per probe and the idle retirement | 7A still kills it |
+| Opus S2: "records nothing" for `RETIRING` was not asserted | folded | the test asserts the shutdown flag | mutant R2 (the record moved above the drain check), killed |
+| Opus S3: no rule for the next control version | folded | D97's versioning rule | — |
+| Opus S4: the consequence of a probe counting against `--max-clients` | folded | "What each mechanism covers" | — |
+| Opus S5: D102's premise was wrong | folded | D102's reason restated (an owner lock taken in a race leaves no owner, never two; the look happens only where a starting shim has already removed the files) and its two edges named | — |
+| Opus S7: one bad key aborted the whole report | folded | a key's error is a line of its own | `a_key_that_cannot_be_looked_at_does_not_hide_the_others`: RED `a report: "cannot open …/1111111111111111.start: Too many levels of symbolic links (os error 62)"` → GREEN. Mutant R8 |
+| Opus S8: wording ("N other keys", "no socket yet") | folded | "N keys have nothing but lock files and logs (…)"; "it has no socket: starting or draining" | `keys_with_only_lock_files_and_logs_are_counted_not_listed` updated (RED on the old wording, GREEN after) |
+| Opus S9: N × timeout over wedged daemons | already disclosed | — | — |
+
+Convergence: round 1 of the two-round cap. Every finding is closed and bounded; none needed a re-plan. The fold adds about 230 lines of code and tests.
